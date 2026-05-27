@@ -109,7 +109,7 @@ Renderer
   -> Renderer event stream
 ```
 
-Cypheria runtime paths 应由 `@cypheria/runtime` 解析。`$CYPHERIA_HOME` 用于配置 app home directory，默认值为 `~/.cypheria`；启动 Codex App Server 时，Cypheria 应传入 `CODEX_HOME="$CYPHERIA_HOME/codex"`。Runtime directories 由 Electron main process 在启动阶段显式调用 `ensureRuntimeDirectories()` 创建。
+Cypheria runtime paths 应由 `@cypheria/runtime` 解析。`$CYPHERIA_HOME` 用于配置 app home directory，默认值为 `~/.cypheria`；启动 Codex App Server 时，Cypheria 应传入 `CODEX_HOME="$CYPHERIA_HOME/codex"`。Runtime directories 由 Electron main process 的启动辅助函数 `initializeDesktopRuntime()` 显式创建，该函数内部调用 `ensureRuntimeDirectories()`。
 
 ## 钱包与链交互
 

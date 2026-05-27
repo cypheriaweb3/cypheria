@@ -109,7 +109,7 @@ Renderer
   -> Renderer event stream
 ```
 
-Cypheria runtime paths should be resolved by `@cypheria/runtime`. `$CYPHERIA_HOME` configures the app home directory and defaults to `~/.cypheria`; when launching Codex App Server, Cypheria should pass `CODEX_HOME="$CYPHERIA_HOME/codex"`. Runtime directories are created explicitly by calling `ensureRuntimeDirectories()` from the Electron main process during startup.
+Cypheria runtime paths should be resolved by `@cypheria/runtime`. `$CYPHERIA_HOME` configures the app home directory and defaults to `~/.cypheria`; when launching Codex App Server, Cypheria should pass `CODEX_HOME="$CYPHERIA_HOME/codex"`. Runtime directories are created explicitly through the Electron main process startup helper `initializeDesktopRuntime()`, which calls `ensureRuntimeDirectories()`.
 
 ## Wallets And Chain Access
 

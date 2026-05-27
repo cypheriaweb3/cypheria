@@ -46,6 +46,7 @@ Renderer 是产品 UI，不是特权运行时。它通过 typed IPC 请求能力
 
 Main process 拥有本地特权能力：
 
+- 解析 `$CYPHERIA_HOME`、创建 runtime directories，并为 Cypheria 管理的 Codex 进程准备 `CODEX_HOME`。
 - 启动并监管 Codex App Server 子进程。
 - 管理钱包、加密本地 vault、Privy 绑定和外部钱包 session。
 - 在任何签名或交易广播前评估签名策略。
