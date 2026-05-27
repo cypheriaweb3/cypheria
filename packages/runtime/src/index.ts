@@ -1,3 +1,4 @@
+import { mkdir } from "node:fs/promises"
 import { homedir } from "node:os"
 import { resolve } from "node:path"
 
@@ -23,6 +24,29 @@ export type CypheriaRuntimePaths = {
   readonly automationDir: string
   readonly configDir: string
 }
+
+export type RuntimeDirectoryName =
+  | "cypheriaHome"
+  | "codexHome"
+  | "dbDir"
+  | "vaultDir"
+  | "logsDir"
+  | "cacheDir"
+  | "browserDir"
+  | "automationDir"
+  | "configDir"
+
+export const RUNTIME_DIRECTORY_NAMES = [
+  "cypheriaHome",
+  "codexHome",
+  "dbDir",
+  "vaultDir",
+  "logsDir",
+  "cacheDir",
+  "browserDir",
+  "automationDir",
+  "configDir",
+] as const satisfies readonly RuntimeDirectoryName[]
 
 const getConfiguredHome = (env: RuntimeHomeEnv): string | undefined => {
   const value = env[CYPHERIA_HOME_ENV]?.trim()
@@ -64,3 +88,14 @@ export const buildCodexEnvironment = (
   ...baseEnv,
   [CODEX_HOME_ENV]: paths.codexHome,
 })
+
+export const listRuntimeDirectories = (
+  paths: CypheriaRuntimePaths
+): readonly [RuntimeDirectoryName, string][] =>
+  RUNTIME_DIRECTORY_NAMES.map((name) => [name, paths[name]])
+
+export const ensureRuntimeDirectories = async (paths: CypheriaRuntimePaths): Promise<void> => {
+  await Promise.all(
+    listRuntimeDirectories(paths).map(([, directory]) => mkdir(directory, { recursive: true }))
+  )
+}
