@@ -14,6 +14,18 @@ Primary references:
 - `docs/architecture.zh-CN.md`
 - `docs/technical-stack.md`
 - `docs/technical-stack.zh-CN.md`
+- `docs/todo.md`
+- `docs/todo.zh-CN.md`
+
+## Development Workflow
+
+- Use `docs/todo.md` as the source of truth for implementation sequencing.
+- Keep todo items at a reviewable granularity: one item should be meaningful, testable, and commit-sized.
+- Implement one todo item at a time unless the user explicitly asks to batch work.
+- After completing each todo item, stop and ask for user review before starting the next item.
+- Run the relevant verification commands before reporting completion.
+- Keep commits focused on the completed todo item.
+- If implementation changes behavior, architecture, commands, public interfaces, package boundaries, or runtime paths, update the relevant English and Chinese docs in the same change.
 
 ## Language And Documentation
 
