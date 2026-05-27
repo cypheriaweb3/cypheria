@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "."
+  },
+  "include": ["main/**/*.ts", "preload/**/*.ts", "renderer/**/*.ts", "renderer/**/*.tsx"]
+}

@@ -1,0 +1,22 @@
+{
+  "name": "cypheria",
+  "version": "0.0.0",
+  "private": true,
+  "description": "A cross-platform Web3 agent desktop inspired by Codex Desktop.",
+  "license": "MIT",
+  "packageManager": "pnpm@11.1.3",
+  "scripts": {
+    "build": "turbo build",
+    "check": "turbo check",
+    "ci": "biome ci . && turbo check",
+    "dev": "turbo dev",
+    "format": "biome format --write .",
+    "lint": "biome lint .",
+    "typecheck": "turbo typecheck"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.15",
+    "turbo": "^2.9.14",
+    "typescript": "^6.0.3"
+  }
+}

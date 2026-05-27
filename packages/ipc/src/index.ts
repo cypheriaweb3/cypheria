@@ -1,0 +1,11 @@
+export type IpcNamespace =
+  | "codex"
+  | "wallet"
+  | "chain"
+  | "browser"
+  | "dapp"
+  | "policy"
+  | "automation"
+  | "approval"
+  | "settings"
+  | "audit"
