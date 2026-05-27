@@ -57,6 +57,7 @@ packages/codex-bridge
 packages/wallet-core
 packages/web3-browser
 packages/policy-engine
+packages/runtime
 packages/db
 ```
 
@@ -107,6 +108,8 @@ Renderer
   -> JSON-RPC response / event
   -> Renderer event stream
 ```
+
+Cypheria runtime paths should be resolved by `@cypheria/runtime`. `$CYPHERIA_HOME` configures the app home directory and defaults to `~/.cypheria`; when launching Codex App Server, Cypheria should pass `CODEX_HOME="$CYPHERIA_HOME/codex"`.
 
 ## Wallets And Chain Access
 

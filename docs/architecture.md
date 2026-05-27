@@ -236,6 +236,9 @@ settings
 @cypheria/policy-engine
   Signing policy schemas, evaluator, and policy decision types.
 
+@cypheria/runtime
+  Cypheria home directory resolution, runtime path derivation, and Codex environment setup.
+
 @cypheria/db
   Database schema, migrations, and local persistence helpers.
 ```

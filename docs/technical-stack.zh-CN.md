@@ -57,6 +57,7 @@ packages/codex-bridge
 packages/wallet-core
 packages/web3-browser
 packages/policy-engine
+packages/runtime
 packages/db
 ```
 
@@ -107,6 +108,8 @@ Renderer
   -> JSON-RPC response / event
   -> Renderer event stream
 ```
+
+Cypheria runtime paths 应由 `@cypheria/runtime` 解析。`$CYPHERIA_HOME` 用于配置 app home directory，默认值为 `~/.cypheria`；启动 Codex App Server 时，Cypheria 应传入 `CODEX_HOME="$CYPHERIA_HOME/codex"`。
 
 ## 钱包与链交互
 
