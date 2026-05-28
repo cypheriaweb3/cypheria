@@ -179,6 +179,8 @@ AssetService
 
 Web3 browser 不复用 Codex preview browser 的权限模型。Codex preview browser 面向本地开发预览、截图和视觉检查，不接钱包。Web3 app browser 面向真实 dApp 使用，需要登录态、cookies、钱包连接、签名审批、origin 隔离和 provider injection。
 
+`@cypheria/web3-browser` 拥有共享的 browser session model。它提供稳定的 origin-scoped session keys、persistent partition names、permission records、EIP-1193 provider method coverage，以及 typed provider request/response envelopes。
+
 Session key 示例：
 
 ```txt

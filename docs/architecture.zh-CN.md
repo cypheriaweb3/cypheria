@@ -78,6 +78,8 @@ Renderer 不得访问 Node.js APIs、私钥、原始 shell 执行能力或 dApp 
 
 dApp 会收到注入的 EIP-1193 provider bridge。Provider 请求会转发到 main process，并通过 origin-scoped 权限和签名策略评估。
 
+`@cypheria/web3-browser` 定义 V1 browser domain model。Session keys 会规范化为 `cypheria:dapp:<origin>`，并映射到 persistent Electron partitions。Permission records 会将 origin session 绑定到 wallet id、chain id、account addresses、允许的 provider methods 和可选 expiration。Provider request/response types 覆盖账户请求、链切换、链添加、personal signing、typed-data signing、transaction sending、accounts 和 chain id reads。
+
 ### Codex App Server Child Process
 
 Cypheria 在 V1 中嵌入 Codex App Server，而不是 fork Codex runtime。Main process 通过 JSON-RPC over stdio / JSONL 与它通信，并将 Codex events 适配为 Cypheria UI events。

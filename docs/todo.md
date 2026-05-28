@@ -108,11 +108,11 @@ Status legend:
 
 ## Web3 Browser
 
-- [ ] Define dApp browser session model.
+- [x] Define dApp browser session model.
   - Acceptance: `@cypheria/web3-browser` defines origin-scoped session keys, permission records, and provider request/response types.
   - Include: EIP-1193 method coverage for account request, chain switching, signing, and transaction sending.
   - Update architecture docs if browser isolation model changes.
-  - Verification: `pnpm run ci`, `pnpm build`.
+  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/web3-browser test`.
 
 - [ ] Add provider bridge baseline.
   - Acceptance: preload/browser bridge can serialize provider requests to main-process handlers without exposing Node.js APIs.

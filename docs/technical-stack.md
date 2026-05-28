@@ -179,6 +179,8 @@ Local wallet security:
 
 The Web3 browser should not reuse the Codex preview browser permission model. The Codex preview browser is for local development previews, screenshots, and visual inspection, and should not connect to wallets. The Web3 app browser is for real dApp usage and needs login state, cookies, wallet connections, signing approvals, origin isolation, and provider injection.
 
+`@cypheria/web3-browser` owns the shared browser session model. It provides stable origin-scoped session keys, persistent partition names, permission records, EIP-1193 provider method coverage, and typed provider request/response envelopes.
+
 Session key examples:
 
 ```txt

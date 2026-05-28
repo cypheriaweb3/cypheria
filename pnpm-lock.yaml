@@ -141,7 +141,15 @@ importers:
 
   packages/wallet-core: {}
 
-  packages/web3-browser: {}
+  packages/web3-browser:
+    dependencies:
+      '@cypheria/wallet-core':
+        specifier: workspace:*
+        version: link:../wallet-core
+    devDependencies:
+      vitest:
+        specifier: ^4.1.7
+        version: 4.1.7(@types/node@25.9.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.3))
 
 packages:
 

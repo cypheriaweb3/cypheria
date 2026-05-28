@@ -108,11 +108,11 @@
 
 ## Web3 Browser
 
-- [ ] 定义 dApp browser session model。
+- [x] 定义 dApp browser session model。
   - 验收：`@cypheria/web3-browser` 定义 origin-scoped session keys、permission records 和 provider request/response types。
   - 包括：覆盖账户请求、链切换、签名、交易发送等 EIP-1193 方法。
   - 如 browser isolation model 变化，更新架构文档。
-  - 验证：`pnpm run ci`、`pnpm build`。
+  - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/web3-browser test`。
 
 - [ ] 添加 provider bridge baseline。
   - 验收：preload/browser bridge 可将 provider requests 序列化给 main-process handlers，且不暴露 Node.js APIs。
