@@ -86,11 +86,11 @@ Status legend:
   - Update docs if Codex event model changes.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/codex-bridge test`.
 
-- [ ] Implement Codex child process supervisor.
+- [x] Implement Codex child process supervisor.
   - Acceptance: Electron main can launch a configured Codex App Server process with `CODEX_HOME=$CYPHERIA_HOME/codex`.
   - Include: start/stop, stdout JSONL stream, stderr logging, exit state, and restart decision placeholder.
   - Update docs if process lifecycle changes.
-  - Verification: `pnpm run ci`, `pnpm build`, local start smoke test if Codex binary is available.
+  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/desktop test`, local start smoke test if Codex binary is available.
 
 ## Wallet And Policy
 

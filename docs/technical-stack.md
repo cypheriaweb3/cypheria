@@ -104,6 +104,8 @@ Cypheria should not fork the Codex runtime in V1. Codex owns code-agent behavior
 
 `@cypheria/codex-bridge` is the protocol adapter package. It defines JSON-RPC 2.0 wire messages, chunk-safe JSONL parsing, outbound request/notification helpers, request id generation, transport lifecycle states, transport error types, and normalized Codex events for the Electron main process to consume.
 
+The first desktop supervisor lives in Electron main and defaults to `codex app-server --listen stdio://`. It passes the runtime-scoped `CODEX_HOME`, streams stdout through `@cypheria/codex-bridge`, captures stderr lines, records exit state, and leaves automatic restart disabled until a later policy is defined.
+
 ```txt
 Renderer
   -> ipc.invoke("codex.thread.create")

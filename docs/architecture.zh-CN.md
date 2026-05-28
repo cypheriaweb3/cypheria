@@ -84,6 +84,8 @@ Cypheria 在 V1 中嵌入 Codex App Server，而不是 fork Codex runtime。Main
 
 `@cypheria/codex-bridge` 拥有这条集成的第一层稳定 transport boundary。它将 JSON-RPC 2.0 requests、notifications、success responses 和 errors 建模为 newline-delimited JSON messages；提供 chunk-safe JSONL parsing；定义 request id generation、lifecycle states、transport errors，以及标准化的 `codex.message`、`codex.transport.error` 和 `codex.lifecycle` events。进程启动与监管仍留给 Electron main-process Codex service。
 
+Desktop main process 现在具备 Codex child process supervisor baseline。它使用 Cypheria runtime context 中的 `CODEX_HOME` 启动 `codex app-server --listen stdio://`，暴露 start/stop 与 request/notification 写入能力，通过 Codex JSONL bridge 解析 stdout，将 stderr lines 转发给 logger hook，记录最近一次 exit code/signal，并且当前 restart decision placeholder 返回 `false`。
+
 Codex 拥有：
 
 - Threads 和 turns。

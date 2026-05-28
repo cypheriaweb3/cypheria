@@ -86,11 +86,11 @@
   - 如 Codex event model 变化，更新文档。
   - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/codex-bridge test`。
 
-- [ ] 实现 Codex child process supervisor。
+- [x] 实现 Codex child process supervisor。
   - 验收：Electron main 可以用 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动配置好的 Codex App Server 进程。
   - 包括：start/stop、stdout JSONL stream、stderr logging、exit state 和 restart decision placeholder。
   - 如 process lifecycle 变化，更新文档。
-  - 验证：`pnpm run ci`、`pnpm build`，如果 Codex binary 可用则做 local start smoke test。
+  - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/desktop test`，如果 Codex binary 可用则做 local start smoke test。
 
 ## Wallet And Policy
 

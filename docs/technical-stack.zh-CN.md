@@ -104,6 +104,8 @@ Cypheria 不在 V1 fork Codex runtime。Codex 负责代码 agent、workspace 操
 
 `@cypheria/codex-bridge` 是 protocol adapter package。它定义 JSON-RPC 2.0 wire messages、chunk-safe JSONL parsing、outbound request/notification helpers、request id generation、transport lifecycle states、transport error types，以及供 Electron main process 消费的 normalized Codex events。
 
+第一版 desktop supervisor 位于 Electron main，默认运行 `codex app-server --listen stdio://`。它传入 runtime-scoped `CODEX_HOME`，将 stdout 交给 `@cypheria/codex-bridge` 解析，捕获 stderr lines，记录 exit state，并在后续策略定义前保持 automatic restart disabled。
+
 ```txt
 Renderer
   -> ipc.invoke("codex.thread.create")

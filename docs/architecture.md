@@ -85,6 +85,8 @@ Cypheria embeds Codex App Server rather than forking the Codex runtime in V1. Th
 
 `@cypheria/codex-bridge` owns the first stable transport boundary for that integration. It models JSON-RPC 2.0 requests, notifications, success responses, and errors as newline-delimited JSON messages; provides chunk-safe JSONL parsing; defines request id generation, lifecycle states, transport errors, and normalized `codex.message`, `codex.transport.error`, and `codex.lifecycle` events. Process launch and supervision remain in the Electron main-process Codex service.
 
+The desktop main process now has a Codex child process supervisor baseline. It launches `codex app-server --listen stdio://` with `CODEX_HOME` inherited from the Cypheria runtime context, exposes start/stop and request/notification writes, parses stdout through the Codex JSONL bridge, forwards stderr lines to a logger hook, records the last exit code/signal, and currently returns `false` from the restart decision placeholder.
+
 Codex owns:
 
 - Threads and turns.
