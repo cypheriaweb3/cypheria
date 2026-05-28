@@ -136,11 +136,11 @@ Status legend:
 
 ## UI
 
-- [ ] Add shadcn-based UI package baseline.
+- [x] Add shadcn-based UI package baseline.
   - Acceptance: `@cypheria/ui` exposes shared primitives or copied shadcn components with Cypheria styling conventions.
   - Include: Button, Input, Dialog/Sheet, Sidebar shell, Tooltip, Badge, and Toast baseline.
   - Update technical stack docs if UI dependency choices change.
-  - Verification: `pnpm run ci`, `pnpm build`, visual smoke check when renderer is runnable.
+  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/ui test`.
 
 - [ ] Add first app shell screen.
   - Acceptance: desktop renderer shows a Codex Desktop-like shell with sidebar navigation for Workspaces, Browser, Wallets, Automations, Security, and Settings.

@@ -260,7 +260,8 @@ Electron main 通过 desktop IPC router helper 注册 routes。每个 route 都�
 
 ```txt
 @cypheria/ui
-  Reusable product UI and Cypheria-specific components.
+  Reusable shadcn-style product UI primitives、Base UI-backed overlays、CSS tokens，
+  以及 Cypheria-specific components。
 
 @cypheria/ipc
   Typed IPC contracts, schemas, and namespace definitions.

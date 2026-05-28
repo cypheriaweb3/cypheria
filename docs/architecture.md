@@ -261,7 +261,8 @@ Electron main registers routes through the desktop IPC router helper. Each route
 
 ```txt
 @cypheria/ui
-  Reusable product UI and Cypheria-specific components.
+  Reusable shadcn-style product UI primitives, Base UI-backed overlays, CSS tokens,
+  and Cypheria-specific components.
 
 @cypheria/ipc
   Typed IPC contracts, schemas, and namespace definitions.

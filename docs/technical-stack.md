@@ -71,20 +71,21 @@ The UI strategy is to reuse mature components first, avoid rebuilding base compo
 
 | Category | Choice |
 | --- | --- |
-| Component system | shadcn/ui |
-| Primitive layer | Accept the Radix UI / Base UI dependencies used by shadcn components |
-| Styling | Tailwind CSS |
+| Component system | shadcn-style copied components |
+| Primitive layer | Base UI for overlays and interactive primitives; no Radix UI |
+| Styling | Cypheria CSS tokens and class variants; Tailwind can be added later if needed |
 | AI UI reference | OpenAI Apps SDK UI, ai-elements patterns |
 | Icons | lucide-react |
 | Motion | motion |
-| Toasts | Sonner |
+| Toasts | Base UI Toast baseline |
 | Command menu | shadcn command / cmdk |
 | Code editor | Monaco Editor |
 | Terminal | xterm.js |
 
 Component strategy:
 
-- Use shadcn directly for Button, Input, Textarea, Dialog, Sheet, Popover, Dropdown Menu, Tabs, Tooltip, Select, Checkbox, Switch, Badge, Table, Command, Sidebar, Resizable, Scroll Area, and Toast/Sonner.
+- Use shadcn's copied-component model and styling conventions, but prefer Base UI over Radix UI for overlays and interactive primitives.
+- `@cypheria/ui` currently exposes Button, Input, Dialog/Sheet, Sidebar shell, Tooltip, Badge, and Toast primitives. Dialog, Sheet, Tooltip, and Toast are backed by Base UI; Button, Input, Badge, and Sidebar use lightweight Cypheria wrappers and shared CSS tokens.
 - Reference OpenAI Apps SDK UI and ai-elements for Conversation, Message, Reasoning, Tool Call, Approval Prompt, Artifact, Diff Review, Prompt Input, and Task Timeline patterns.
 - Build Cypheria-specific components for Wallet Switcher, Signature Approval, Transaction Simulation Panel, DApp Permission Inspector, Chain/RPC Selector, Policy Rule Builder, Web3 Browser Address Bar, and Codex Thread Event Adapter.
 
@@ -419,4 +420,4 @@ In this repository, pnpm-related commands should usually run outside the sandbox
 - Do not store private keys in the renderer, localStorage, or IndexedDB.
 - Do not build cloud agent execution in V1.
 - Do not introduce a complex workflow engine in V1.
-- Do not rebuild base components such as Dialog, Dropdown, Popover, or Tooltip just to avoid shadcn's underlying dependencies.
+- Do not rebuild base components such as Dialog, Dropdown, Popover, Toast, or Tooltip when Base UI can provide the primitive behavior.

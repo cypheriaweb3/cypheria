@@ -136,11 +136,11 @@
 
 ## UI
 
-- [ ] 添加 shadcn-based UI package baseline。
+- [x] 添加 shadcn-based UI package baseline。
   - 验收：`@cypheria/ui` 暴露 shared primitives 或复制进仓的 shadcn components，并遵循 Cypheria styling conventions。
   - 包括：Button、Input、Dialog/Sheet、Sidebar shell、Tooltip、Badge 和 Toast baseline。
   - 如 UI dependency choices 变化，更新技术选型文档。
-  - 验证：`pnpm run ci`、`pnpm build`，renderer 可运行时做 visual smoke check。
+  - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/ui test`。
 
 - [ ] 添加第一个 app shell screen。
   - 验收：desktop renderer 展示接近 Codex Desktop 风格的 shell，sidebar navigation 包含 Workspaces、Browser、Wallets、Automations、Security 和 Settings。
