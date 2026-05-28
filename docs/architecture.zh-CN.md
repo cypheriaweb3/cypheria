@@ -202,23 +202,28 @@ Scheduler or manual trigger
 
 SQLite 是非敏感本地数据的 source of truth。敏感钱包材料应保存在受 OS-backed key storage 保护的 encrypted vault 中。
 
+`@cypheria/db` 默认将 SQLite 文件解析到 `$CYPHERIA_HOME/db/cypheria.sqlite`。当前 Drizzle schema baseline 首批包含 `settings`、`audit_logs`、`workspaces` 和 `runtime_metadata`；生成的 migrations 位于 `packages/db/drizzle`。
+
 核心表：
 
 ```txt
-wallets
-accounts
-chains
-rpc_endpoints
-dapp_origins
-dapp_permissions
-signing_policies
-approval_requests
-audit_logs
-automation_tasks
-automation_runs
-codex_threads
-workspaces
 settings
+audit_logs
+workspaces
+runtime_metadata
+
+后续计划：
+  wallets
+  accounts
+  chains
+  rpc_endpoints
+  dapp_origins
+  dapp_permissions
+  signing_policies
+  approval_requests
+  automation_tasks
+  automation_runs
+  codex_threads
 ```
 
 ## IPC Contract 基线

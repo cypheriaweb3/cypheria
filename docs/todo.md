@@ -66,7 +66,7 @@ Status legend:
 
 ## Local Data
 
-- [ ] Add database package baseline.
+- [x] Add database package baseline.
   - Acceptance: `@cypheria/db` defines SQLite path resolution under `$CYPHERIA_HOME/db`, Drizzle config, and initial schema shell.
   - Include: settings, audit logs, workspaces, and runtime metadata tables as initial schema candidates.
   - Update docs if table names or data boundaries change.

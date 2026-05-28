@@ -66,7 +66,7 @@
 
 ## Local Data
 
-- [ ] 添加 database package baseline。
+- [x] 添加 database package baseline。
   - 验收：`@cypheria/db` 定义 `$CYPHERIA_HOME/db` 下的 SQLite path resolution、Drizzle config 和初始 schema shell。
   - 包括：settings、audit logs、workspaces 和 runtime metadata tables 作为初始 schema candidates。
   - 如 table names 或 data boundaries 变化，更新文档。

@@ -269,23 +269,28 @@ V1 should not support high-frequency trading, MEV, complex DeFi strategy auto-ex
 | Search | SQLite FTS5 |
 | Sensitive data | encrypted vault; never store plaintext secrets in normal SQLite tables |
 
+The initial `@cypheria/db` baseline resolves the app database to `$CYPHERIA_HOME/db/cypheria.sqlite`, defines the first Drizzle tables for settings, audit logs, workspaces, and runtime metadata, and stores generated SQLite migrations in `packages/db/drizzle`.
+
 Core tables:
 
 ```txt
-wallets
-accounts
-chains
-rpc_endpoints
-dapp_origins
-dapp_permissions
-signing_policies
-approval_requests
-audit_logs
-automation_tasks
-automation_runs
-codex_threads
-workspaces
 settings
+audit_logs
+workspaces
+runtime_metadata
+
+Planned later:
+  wallets
+  accounts
+  chains
+  rpc_endpoints
+  dapp_origins
+  dapp_permissions
+  signing_policies
+  approval_requests
+  automation_tasks
+  automation_runs
+  codex_threads
 ```
 
 ## IPC And Security

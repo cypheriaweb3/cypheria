@@ -203,23 +203,28 @@ Default rules:
 
 SQLite is the local source of truth for non-secret data. Sensitive wallet material belongs in an encrypted vault protected by OS-backed key storage.
 
+`@cypheria/db` resolves the default SQLite file to `$CYPHERIA_HOME/db/cypheria.sqlite`. Its Drizzle schema baseline starts with `settings`, `audit_logs`, `workspaces`, and `runtime_metadata`; generated migrations live under `packages/db/drizzle`.
+
 Core tables:
 
 ```txt
-wallets
-accounts
-chains
-rpc_endpoints
-dapp_origins
-dapp_permissions
-signing_policies
-approval_requests
-audit_logs
-automation_tasks
-automation_runs
-codex_threads
-workspaces
 settings
+audit_logs
+workspaces
+runtime_metadata
+
+Planned later:
+  wallets
+  accounts
+  chains
+  rpc_endpoints
+  dapp_origins
+  dapp_permissions
+  signing_policies
+  approval_requests
+  automation_tasks
+  automation_runs
+  codex_threads
 ```
 
 ## IPC Contract Baseline
