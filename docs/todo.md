@@ -38,7 +38,7 @@ Status legend:
   - Update docs if startup behavior or runtime paths change.
   - Verification: `pnpm run ci`, `pnpm build`, launch smoke test.
 
-- [ ] Add TanStack Start renderer skeleton.
+- [x] Add TanStack Start renderer skeleton.
   - Acceptance: renderer has a minimal app shell with routing, layout placeholders, and a root route.
   - Include: app frame, sidebar placeholders, main content area, theme baseline, and Jotai/TanStack Query providers.
   - Update docs if frontend structure changes.

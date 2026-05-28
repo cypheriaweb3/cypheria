@@ -38,7 +38,7 @@
   - 如启动行为或 runtime paths 有变化，更新文档。
   - 验证：`pnpm run ci`、`pnpm build`、launch smoke test。
 
-- [ ] 添加 TanStack Start renderer skeleton。
+- [x] 添加 TanStack Start renderer skeleton。
   - 验收：renderer 有最小 app shell，包含 routing、layout placeholders 和 root route。
   - 包括：app frame、sidebar placeholders、main content area、theme baseline、Jotai/TanStack Query providers。
   - 如 frontend 结构变化，更新文档。

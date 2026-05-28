@@ -73,6 +73,11 @@ const buildPlaceholderHtml = (context: DesktopRuntimeContext): string => `<!doct
   </body>
 </html>`
 
+const getRendererUrl = (): string | undefined => {
+  const rendererUrl = process.env.CYPHERIA_RENDERER_URL?.trim()
+  return rendererUrl ? rendererUrl : undefined
+}
+
 const createMainWindow = async (context: DesktopRuntimeContext): Promise<BrowserWindow> => {
   const window = new BrowserWindow({
     backgroundColor: "#101113",
@@ -100,9 +105,15 @@ const createMainWindow = async (context: DesktopRuntimeContext): Promise<Browser
     }
   })
 
-  await window.loadURL(
-    `data:text/html;charset=utf-8,${encodeURIComponent(buildPlaceholderHtml(context))}`
-  )
+  const rendererUrl = getRendererUrl()
+  if (rendererUrl) {
+    await window.loadURL(rendererUrl)
+  } else {
+    await window.loadURL(
+      `data:text/html;charset=utf-8,${encodeURIComponent(buildPlaceholderHtml(context))}`
+    )
+  }
+
   return window
 }
 

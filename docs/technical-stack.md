@@ -63,6 +63,8 @@ packages/db
 
 Turborepo should own task orchestration, caching, and dependency-aware pipelines across apps and packages. pnpm should own dependency installation and workspace linking through `pnpm-workspace.yaml`.
 
+The desktop app currently uses a package-level Vite config at `apps/desktop/vite.config.ts` for the TanStack Start renderer. The Start source directory is `apps/desktop/renderer/src`, with generated file routing in `routeTree.gen.ts`. Electron can load a local renderer dev server by setting `CYPHERIA_RENDERER_URL=http://127.0.0.1:5173`.
+
 ## UI Stack
 
 The UI strategy is to reuse mature components first, avoid rebuilding base components, and only build custom components for Cypheria-specific Web3 and agent workflows.

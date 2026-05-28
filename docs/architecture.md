@@ -61,13 +61,15 @@ The main process owns privileged local capabilities:
 
 The renderer owns the user experience:
 
-- App shell, navigation, panels, tabs, and inspectors.
+- TanStack Start app shell, file-based routing, navigation, panels, tabs, and inspectors.
 - Wallet, browser, Codex, automation, approval, and security views.
 - Optimistic UI state with Jotai.
 - Local/server-like data fetching through TanStack Query.
 - Forms through TanStack Form + Zod.
 
 The renderer must not access Node.js APIs, private keys, raw shell execution, or dApp internals.
+
+The initial renderer skeleton lives under `apps/desktop/renderer/src` and is built by the desktop package Vite config. It includes the root route, a Workspaces route, the app frame, placeholder sidebar surfaces, theme baseline CSS, and Jotai/TanStack Query providers. During local development, Electron can load the renderer dev server by setting `CYPHERIA_RENDERER_URL`.
 
 ### Web3 dApp WebContents
 

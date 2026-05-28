@@ -60,13 +60,15 @@ Main process 拥有本地特权能力：
 
 Renderer 拥有用户体验：
 
-- App shell、导航、面板、标签页和 inspectors。
+- TanStack Start app shell、file-based routing、导航、面板、标签页和 inspectors。
 - 钱包、浏览器、Codex、自动化、审批和安全视图。
 - 使用 Jotai 管理 optimistic UI state。
 - 使用 TanStack Query 进行本地/server-like 数据获取。
 - 使用 TanStack Form + Zod 构建表单。
 
 Renderer 不得访问 Node.js APIs、私钥、原始 shell 执行能力或 dApp 内部状态。
+
+初始 renderer skeleton 位于 `apps/desktop/renderer/src`，由 desktop package 的 Vite config 构建。它包含 root route、Workspaces route、app frame、sidebar placeholder surfaces、theme baseline CSS，以及 Jotai/TanStack Query providers。本地开发时，可以通过设置 `CYPHERIA_RENDERER_URL` 让 Electron 加载 renderer dev server。
 
 ### Web3 dApp WebContents
 

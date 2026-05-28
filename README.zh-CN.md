@@ -2,7 +2,7 @@
 
 Cypheria 是一款受 Codex Desktop 启发的跨平台 Web3 agent desktop。它将本地 coding agent 工作流与 Web3 原生能力结合起来，包括钱包管理、隔离的 dApp 浏览器、任务自动化和 Web3 Vibe Coding。
 
-项目目前处于早期基础建设阶段。仓库中已经包含 monorepo 骨架、技术选型决策和后续实现应遵循的架构基线。
+项目目前处于早期基础建设阶段。仓库中已经包含 monorepo 骨架、技术选型决策、架构基线、Electron main process bootstrap，以及第一版 TanStack Start renderer shell。
 
 ## 产品方向
 
@@ -94,6 +94,18 @@ pnpm check
 pnpm build
 ```
 
+运行 renderer dev server：
+
+```sh
+pnpm --filter @cypheria/desktop dev:renderer
+```
+
+本地开发时让 Electron 加载 renderer：
+
+```sh
+CYPHERIA_RENDERER_URL=http://127.0.0.1:5173 pnpm --filter @cypheria/desktop dev
+```
+
 格式化文件：
 
 ```sh
@@ -104,9 +116,8 @@ pnpm format
 
 ## 当前状态
 
-仓库目前包含基础 monorepo 设置和占位 package 边界。接下来的实现里程碑包括：
+仓库目前包含基础 monorepo 设置、占位 package 边界、Electron main process bootstrap，以及一个最小 TanStack Start renderer shell，包含 routing、Codex Desktop 风格 frame、Jotai 和 TanStack Query providers。接下来的实现里程碑包括：
 
-- 添加 TanStack Start renderer app。
 - 定义 typed IPC contracts。
 - 实现 Codex App Server bridge。
 - 构建第一版 wallet、policy 和 Web3 browser service skeleton。

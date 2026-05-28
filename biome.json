@@ -17,7 +17,8 @@
       "!.turbo",
       "!.vite",
       "!coverage",
-      "!pnpm-lock.yaml"
+      "!pnpm-lock.yaml",
+      "!apps/desktop/renderer/src/routeTree.gen.ts"
     ]
   },
   "formatter": {

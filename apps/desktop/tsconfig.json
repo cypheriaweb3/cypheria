@@ -1,9 +1,18 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "jsx": "react-jsx",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
     "rootDir": ".",
-    "types": ["node"]
+    "types": ["node", "vite/client"]
   },
-  "include": ["main/**/*.ts", "preload/**/*.ts", "renderer/**/*.ts", "renderer/**/*.tsx"],
+  "include": [
+    "main/**/*.ts",
+    "preload/**/*.ts",
+    "renderer/**/*.ts",
+    "renderer/**/*.tsx",
+    "vite.config.ts"
+  ],
   "exclude": ["dist"]
 }

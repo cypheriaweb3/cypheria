@@ -63,6 +63,8 @@ packages/db
 
 Turborepo 负责 apps 与 packages 之间的任务编排、缓存和依赖感知 pipeline。pnpm 负责依赖安装，并通过 `pnpm-workspace.yaml` 管理 workspace linking。
 
+Desktop app 目前通过 `apps/desktop/vite.config.ts` 构建 TanStack Start renderer。Start source directory 是 `apps/desktop/renderer/src`，file routing 的生成文件为 `routeTree.gen.ts`。本地开发时可以设置 `CYPHERIA_RENDERER_URL=http://127.0.0.1:5173`，让 Electron 加载 renderer dev server。
+
 ## UI 选型
 
 UI 策略是优先复用成熟组件，少开发基础组件，只为 Cypheria 特有 Web3/agent 场景自研组件。

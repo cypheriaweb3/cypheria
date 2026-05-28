@@ -2,7 +2,7 @@
 
 Cypheria is a cross-platform Web3 agent desktop inspired by Codex Desktop. It combines local coding-agent workflows with Web3-native capabilities: wallet management, an isolated dApp browser, task automation, and Web3 vibe coding.
 
-The project is currently in early foundation work. The repository contains the monorepo skeleton, technical stack decisions, and architecture baseline that future implementation should build on.
+The project is currently in early foundation work. The repository contains the monorepo skeleton, technical stack decisions, architecture baseline, Electron main process bootstrap, and the first TanStack Start renderer shell.
 
 ## Product Direction
 
@@ -94,6 +94,18 @@ Run the current build pipeline:
 pnpm build
 ```
 
+Run the renderer dev server:
+
+```sh
+pnpm --filter @cypheria/desktop dev:renderer
+```
+
+Load the renderer in Electron during local development:
+
+```sh
+CYPHERIA_RENDERER_URL=http://127.0.0.1:5173 pnpm --filter @cypheria/desktop dev
+```
+
 Format files:
 
 ```sh
@@ -104,9 +116,8 @@ In this repository, pnpm-related commands should usually run outside the sandbox
 
 ## Current Status
 
-The repository currently contains the foundational monorepo setup and placeholder package boundaries. The next implementation milestones are:
+The repository currently contains the foundational monorepo setup, placeholder package boundaries, Electron main process bootstrap, and a minimal TanStack Start renderer shell with routing, a Codex Desktop-like frame, Jotai, and TanStack Query providers. The next implementation milestones are:
 
-- Add the TanStack Start renderer app.
 - Define typed IPC contracts.
 - Implement the Codex App Server bridge.
 - Build the first wallet, policy, and Web3 browser service skeletons.
