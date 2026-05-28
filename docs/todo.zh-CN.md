@@ -128,11 +128,11 @@
   - 如 automation scope 变化，更新文档。
   - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/automation-core test`。
 
-- [ ] 添加 local automation runner baseline。
+- [x] 添加 local automation runner baseline。
   - 验收：main process 可通过 worker boundary 运行 no-op/manual task，并持久化 run status。
   - 包括：cancellation placeholder、structured logs 和 audit event hook。
   - 如 runner model 变化，更新架构文档。
-  - 验证：`pnpm run ci`、`pnpm build`、no-op run smoke test。
+  - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/db test`、`pnpm --filter @cypheria/desktop test`、`pnpm --filter @cypheria/db db:check`。
 
 ## UI
 

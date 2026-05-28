@@ -241,6 +241,8 @@ Baseline `@cypheria/policy-engine` package 使用 Zod 验证 signing policies，
 
 `@cypheria/automation-core` 负责共享 automation task model。V1 tasks 可以是 manual、带 RRULE 和 timezone 的 scheduled，或从 Codex context 触发的 agent-triggered。每个 task 会记录 workspace、wallet policy scope、lifecycle status、run history、structured run logs 和 audit correlation ids，这样后续 runner 可以在不重定义 wire shape 的情况下持久化并审计任务执行。
 
+第一版 local runner 位于 desktop main process。它支持 enabled manual no-op tasks，通过 `@cypheria/db` 将 task/run state 持久化到 SQLite，经由 worker boundary 执行，把 structured logs 写入 run record，并为 queued、succeeded 和 failed runs 追加 audit log entries。Cancellation 目前返回明确的 not-implemented result，同时保留公开 runner shape。
+
 策略示例：
 
 ```ts

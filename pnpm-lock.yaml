@@ -23,6 +23,9 @@ importers:
 
   apps/desktop:
     dependencies:
+      '@cypheria/automation-core':
+        specifier: workspace:*
+        version: link:../../packages/automation-core
       '@cypheria/codex-bridge':
         specifier: workspace:*
         version: link:../../packages/codex-bridge
@@ -106,6 +109,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@cypheria/automation-core':
+        specifier: workspace:*
+        version: link:../automation-core
       '@cypheria/runtime':
         specifier: workspace:*
         version: link:../runtime

@@ -33,6 +33,35 @@ export const initialSchemaStatements = [
     updated_at text NOT NULL
   )`,
   "CREATE INDEX IF NOT EXISTS workspaces_path_idx ON workspaces (path)",
+  `CREATE TABLE IF NOT EXISTS automation_tasks (
+    audit_correlation_id text NOT NULL,
+    created_at text NOT NULL,
+    description text,
+    id text PRIMARY KEY NOT NULL,
+    run_history text NOT NULL,
+    status text NOT NULL,
+    title text NOT NULL,
+    trigger text NOT NULL,
+    updated_at text NOT NULL,
+    wallet_policy_scope text NOT NULL,
+    workspace text NOT NULL
+  )`,
+  "CREATE INDEX IF NOT EXISTS automation_tasks_audit_correlation_id_idx ON automation_tasks (audit_correlation_id)",
+  "CREATE INDEX IF NOT EXISTS automation_tasks_status_idx ON automation_tasks (status)",
+  "CREATE INDEX IF NOT EXISTS automation_tasks_workspace_idx ON automation_tasks (workspace)",
+  `CREATE TABLE IF NOT EXISTS automation_runs (
+    audit_correlation_id text NOT NULL,
+    completed_at text,
+    error text,
+    id text PRIMARY KEY NOT NULL,
+    logs text NOT NULL,
+    started_at text,
+    status text NOT NULL,
+    task_id text NOT NULL
+  )`,
+  "CREATE INDEX IF NOT EXISTS automation_runs_audit_correlation_id_idx ON automation_runs (audit_correlation_id)",
+  "CREATE INDEX IF NOT EXISTS automation_runs_status_idx ON automation_runs (status)",
+  "CREATE INDEX IF NOT EXISTS automation_runs_task_id_idx ON automation_runs (task_id)",
 ] as const
 
 export const ensureDatabaseSchema = (sqlite: Database): void => {

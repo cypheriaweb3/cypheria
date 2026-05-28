@@ -143,7 +143,9 @@ AutomationRunner
   - launch isolated workers
   - route signing intents through the same policy path as the UI
 
-@cypheria/automation-core defines the shared V1 automation task model. It covers manual, scheduled, and agent-triggered tasks; task/workspace identity; wallet policy scope; enabled/paused/draft/archive state; run status and logs; and audit correlation ids that connect task definitions, runs, policy decisions, and audit log records. Runner persistence and worker execution are separate follow-up work.
+@cypheria/automation-core defines the shared V1 automation task model. It covers manual, scheduled, and agent-triggered tasks; task/workspace identity; wallet policy scope; enabled/paused/draft/archive state; run status and logs; and audit correlation ids that connect task definitions, runs, policy decisions, and audit log records.
+
+The desktop main process now has a local automation runner baseline. It accepts enabled manual no-op tasks, persists queued/running/final run state through the database automation persistence service, executes the no-op body through a worker boundary, records structured run logs, appends audit events for queued/succeeded/failed runs, and exposes an explicit cancellation placeholder. Scheduled execution, real task bodies, and policy-mediated signing are separate follow-up work.
 
 AuditLogService
   - record signatures, rejections, policy decisions, task runs, and transaction hashes
@@ -185,6 +187,7 @@ dApp WebContents
 Scheduler or manual trigger
   -> AutomationRunner
   -> worker_threads / child_process
+  -> persist queued/running/final run status
   -> CodexService / ChainService / WalletService as needed
   -> signing intent if a write operation is needed
   -> PolicyEngine

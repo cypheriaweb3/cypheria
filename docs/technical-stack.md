@@ -241,6 +241,8 @@ The baseline `@cypheria/policy-engine` package validates signing policies with Z
 
 `@cypheria/automation-core` owns the shared automation task model. V1 tasks can be manual, scheduled with an RRULE and timezone, or agent-triggered from Codex context. Each task records its workspace, wallet policy scope, lifecycle status, run history, structured run logs, and audit correlation ids so the later runner can persist and audit task execution without redefining the wire shape.
 
+The first local runner lives in the desktop main process. It supports enabled manual no-op tasks, persists task/run state to SQLite through `@cypheria/db`, executes through a worker boundary, writes structured logs into the run record, and appends audit log entries for queued, succeeded, and failed runs. Cancellation currently returns an explicit not-implemented result while preserving the public runner shape.
+
 Policy example:
 
 ```ts

@@ -142,7 +142,9 @@ AutomationRunner
   - launch isolated workers
   - route signing intents through the same policy path as the UI
 
-@cypheria/automation-core 定义 V1 共享 automation task model。它覆盖 manual、scheduled 和 agent-triggered tasks，task/workspace identity、wallet policy scope、enabled/paused/draft/archive state、run status 与 logs，以及用于关联 task definitions、runs、policy decisions 和 audit log records 的 audit correlation ids。Runner persistence 和 worker execution 属于后续工作。
+@cypheria/automation-core 定义 V1 共享 automation task model。它覆盖 manual、scheduled 和 agent-triggered tasks，task/workspace identity、wallet policy scope、enabled/paused/draft/archive state、run status 与 logs，以及用于关联 task definitions、runs、policy decisions 和 audit log records 的 audit correlation ids。
+
+Desktop main process 现在包含 local automation runner baseline。它接收 enabled manual no-op tasks，通过 database automation persistence service 持久化 queued/running/final run state，经由 worker boundary 执行 no-op body，记录 structured run logs，为 queued/succeeded/failed runs 追加 audit events，并暴露显式 cancellation placeholder。Scheduled execution、真实 task bodies 和 policy-mediated signing 属于后续工作。
 
 AuditLogService
   - record signatures, rejections, policy decisions, task runs, and transaction hashes
@@ -184,6 +186,7 @@ dApp WebContents
 Scheduler or manual trigger
   -> AutomationRunner
   -> worker_threads / child_process
+  -> persist queued/running/final run status
   -> CodexService / ChainService / WalletService as needed
   -> signing intent if a write operation is needed
   -> PolicyEngine

@@ -5,6 +5,12 @@ export {
   createAuditLogService,
 } from "./audit.js"
 export {
+  type AutomationPersistenceService,
+  type AutomationRunRecord,
+  type AutomationTaskRecord,
+  createAutomationPersistenceService,
+} from "./automation.js"
+export {
   type CypheriaDatabase,
   createInMemoryDatabase,
   type OpenDatabaseOptions,

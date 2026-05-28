@@ -128,11 +128,11 @@ Status legend:
   - Update docs if automation scope changes.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/automation-core test`.
 
-- [ ] Add local automation runner baseline.
+- [x] Add local automation runner baseline.
   - Acceptance: main process can run a no-op/manual task through a worker boundary and persist run status.
   - Include: cancellation placeholder, structured logs, and audit event hook.
   - Update architecture docs if runner model changes.
-  - Verification: `pnpm run ci`, `pnpm build`, no-op run smoke test.
+  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/db test`, `pnpm --filter @cypheria/desktop test`, `pnpm --filter @cypheria/db db:check`.
 
 ## UI
 
