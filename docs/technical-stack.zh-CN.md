@@ -239,6 +239,8 @@ V1 策略模式：
 
 Baseline `@cypheria/policy-engine` package 使用 Zod 验证 signing policies，并评估 `allow`、`deny` 或 `require-human-approval`。Read-only mode 只允许 `eth_accounts` 和 `eth_chainId`；human-approval mode 永远要求审批；conditional auto-signing 只有在 enabled、未过期的策略同时匹配 wallet、chain、origin、method、可选 contract allowlist 和可选 native value limit 时才允许请求。显式 deny policies 优先于 allow policies。
 
+`@cypheria/automation-core` 负责共享 automation task model。V1 tasks 可以是 manual、带 RRULE 和 timezone 的 scheduled，或从 Codex context 触发的 agent-triggered。每个 task 会记录 workspace、wallet policy scope、lifecycle status、run history、structured run logs 和 audit correlation ids，这样后续 runner 可以在不重定义 wire shape 的情况下持久化并审计任务执行。
+
 策略示例：
 
 ```ts

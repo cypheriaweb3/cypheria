@@ -239,6 +239,8 @@ V1 policy modes:
 
 The baseline `@cypheria/policy-engine` package validates signing policies with Zod and evaluates `allow`, `deny`, or `require-human-approval`. Read-only mode only allows `eth_accounts` and `eth_chainId`; human-approval mode always requires approval; conditional auto-signing only allows a request when an enabled, unexpired policy matches the wallet, chain, origin, method, optional contract allowlist, and optional native value limit. Explicit deny policies take priority over allow policies.
 
+`@cypheria/automation-core` owns the shared automation task model. V1 tasks can be manual, scheduled with an RRULE and timezone, or agent-triggered from Codex context. Each task records its workspace, wallet policy scope, lifecycle status, run history, structured run logs, and audit correlation ids so the later runner can persist and audit task execution without redefining the wire shape.
+
 Policy example:
 
 ```ts

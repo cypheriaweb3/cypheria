@@ -143,6 +143,8 @@ AutomationRunner
   - launch isolated workers
   - route signing intents through the same policy path as the UI
 
+@cypheria/automation-core defines the shared V1 automation task model. It covers manual, scheduled, and agent-triggered tasks; task/workspace identity; wallet policy scope; enabled/paused/draft/archive state; run status and logs; and audit correlation ids that connect task definitions, runs, policy decisions, and audit log records. Runner persistence and worker execution are separate follow-up work.
+
 AuditLogService
   - record signatures, rejections, policy decisions, task runs, and transaction hashes
 ```
@@ -272,6 +274,9 @@ Electron main registers routes through the desktop IPC router helper. Each route
 
 @cypheria/policy-engine
   Signing policy schemas, evaluator, and policy decision types.
+
+@cypheria/automation-core
+  Shared automation task, trigger, run history, wallet policy scope, and audit correlation types.
 
 @cypheria/runtime
   Cypheria home directory resolution, runtime path derivation, runtime directory creation,

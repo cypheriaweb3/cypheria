@@ -122,11 +122,11 @@ Status legend:
 
 ## Automation
 
-- [ ] Define automation task model.
+- [x] Define automation task model.
   - Acceptance: shared types describe manual, scheduled, and agent-triggered tasks.
   - Include: task id, workspace, wallet policy scope, trigger, status, run history, and audit correlation id.
   - Update docs if automation scope changes.
-  - Verification: `pnpm run ci`, `pnpm build`.
+  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/automation-core test`.
 
 - [ ] Add local automation runner baseline.
   - Acceptance: main process can run a no-op/manual task through a worker boundary and persist run status.

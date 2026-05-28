@@ -122,11 +122,11 @@
 
 ## Automation
 
-- [ ] 定义 automation task model。
+- [x] 定义 automation task model。
   - 验收：shared types 描述 manual、scheduled 和 agent-triggered tasks。
   - 包括：task id、workspace、wallet policy scope、trigger、status、run history 和 audit correlation id。
   - 如 automation scope 变化，更新文档。
-  - 验证：`pnpm run ci`、`pnpm build`。
+  - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/automation-core test`。
 
 - [ ] 添加 local automation runner baseline。
   - 验收：main process 可通过 worker boundary 运行 no-op/manual task，并持久化 run status。

@@ -142,6 +142,8 @@ AutomationRunner
   - launch isolated workers
   - route signing intents through the same policy path as the UI
 
+@cypheria/automation-core 定义 V1 共享 automation task model。它覆盖 manual、scheduled 和 agent-triggered tasks，task/workspace identity、wallet policy scope、enabled/paused/draft/archive state、run status 与 logs，以及用于关联 task definitions、runs、policy decisions 和 audit log records 的 audit correlation ids。Runner persistence 和 worker execution 属于后续工作。
+
 AuditLogService
   - record signatures, rejections, policy decisions, task runs, and transaction hashes
 ```
@@ -271,6 +273,9 @@ Electron main 通过 desktop IPC router helper 注册 routes。每个 route 都�
 
 @cypheria/policy-engine
   Signing policy schemas, evaluator, and policy decision types.
+
+@cypheria/automation-core
+  共享 automation task、trigger、run history、wallet policy scope 和 audit correlation types。
 
 @cypheria/runtime
   Cypheria home directory resolution, runtime path derivation, runtime directory creation,
