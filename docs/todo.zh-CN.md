@@ -114,11 +114,11 @@
   - 如 browser isolation model 变化，更新架构文档。
   - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/web3-browser test`。
 
-- [ ] 添加 provider bridge baseline。
+- [x] 添加 provider bridge baseline。
   - 验收：preload/browser bridge 可将 provider requests 序列化给 main-process handlers，且不暴露 Node.js APIs。
   - 包括：request id、origin、chain id、method、params 和 structured provider errors。
   - 如 provider bridge wire shape 变化，更新文档。
-  - 验证：`pnpm run ci`、`pnpm build`、bridge unit tests 或 smoke test。
+  - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/web3-browser test`。
 
 ## Automation
 

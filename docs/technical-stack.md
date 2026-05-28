@@ -181,6 +181,8 @@ The Web3 browser should not reuse the Codex preview browser permission model. Th
 
 `@cypheria/web3-browser` owns the shared browser session model. It provides stable origin-scoped session keys, persistent partition names, permission records, EIP-1193 provider method coverage, and typed provider request/response envelopes.
 
+The initial provider bridge exposes an EIP-1193-style request function over an injected transport callback. It serializes request id, origin, session key, optional chain id, method, and params, and returns successful results or structured `ProviderRpcError` failures without exposing Node.js APIs to dApp pages.
+
 Session key examples:
 
 ```txt

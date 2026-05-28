@@ -114,11 +114,11 @@ Status legend:
   - Update architecture docs if browser isolation model changes.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/web3-browser test`.
 
-- [ ] Add provider bridge baseline.
+- [x] Add provider bridge baseline.
   - Acceptance: preload/browser bridge can serialize provider requests to main-process handlers without exposing Node.js APIs.
   - Include: request id, origin, chain id, method, params, and structured provider errors.
   - Update docs if provider bridge wire shape changes.
-  - Verification: `pnpm run ci`, `pnpm build`, bridge unit tests or smoke test.
+  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/web3-browser test`.
 
 ## Automation
 

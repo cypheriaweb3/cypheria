@@ -80,6 +80,8 @@ dApp 会收到注入的 EIP-1193 provider bridge。Provider 请求会转发到 m
 
 `@cypheria/web3-browser` 定义 V1 browser domain model。Session keys 会规范化为 `cypheria:dapp:<origin>`，并映射到 persistent Electron partitions。Permission records 会将 origin session 绑定到 wallet id、chain id、account addresses、允许的 provider methods 和可选 expiration。Provider request/response types 覆盖账户请求、链切换、链添加、personal signing、typed-data signing、transaction sending、accounts 和 chain id reads。
 
+Provider bridge baseline 是 browser-side transport abstraction。它接收 EIP-1193 风格的 `request({ method, params })` 调用，在进入 transport 前拒绝不支持的方法，将支持的请求序列化为包含 request id、origin、session key、可选 chain id、method 和 params 的消息，并把结构化 provider errors 映射回 `ProviderRpcError`。真实 Electron WebContents 注入和 main-process handler wiring 是后续工作。
+
 ### Codex App Server Child Process
 
 Cypheria 在 V1 中嵌入 Codex App Server，而不是 fork Codex runtime。Main process 通过 JSON-RPC over stdio / JSONL 与它通信，并将 Codex events 适配为 Cypheria UI events。

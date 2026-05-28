@@ -68,6 +68,38 @@ export type ProviderResponse<TResult = unknown> =
   | ProviderErrorResponse
   | ProviderSuccessResponse<TResult>
 
+export type ProviderBridgeRequestArguments<TMethod extends string = string, TParams = unknown> = {
+  readonly method: TMethod
+  readonly params?: TParams
+}
+
+export type ProviderBridgeTransport = (
+  request: ProviderRequest
+) => Promise<ProviderResponse> | ProviderResponse
+
+export type ProviderBridgeOptions = {
+  readonly chainId?: ChainId
+  readonly origin: string
+  readonly sessionKey?: DappSessionKey
+  readonly transport: ProviderBridgeTransport
+}
+
+export type ProviderBridge = {
+  readonly request: <TResult = unknown>(args: ProviderBridgeRequestArguments) => Promise<TResult>
+}
+
+export class ProviderRpcError extends Error {
+  readonly code: number
+  readonly data?: unknown
+
+  constructor(error: ProviderError) {
+    super(error.message)
+    this.name = "ProviderRpcError"
+    this.code = error.code
+    this.data = error.data
+  }
+}
+
 export type RequestAccountsRequest = ProviderRequest<"eth_requestAccounts", readonly unknown[]>
 
 export type SwitchEthereumChainParams = readonly [
@@ -149,3 +181,45 @@ export const createDappSession = (
 
 export const isProviderMethod = (value: string): value is ProviderMethod =>
   providerMethods.includes(value as ProviderMethod)
+
+export const createProviderRequestIdGenerator = (
+  prefix = "provider"
+): (() => ProviderRequestId) => {
+  let nextId = 1
+  return () => `${prefix}_${nextId++}`
+}
+
+export const createUnsupportedMethodError = (method: string): ProviderError => ({
+  code: 4200,
+  message: `Unsupported provider method: ${method}`,
+})
+
+export const createProviderBridge = (options: ProviderBridgeOptions): ProviderBridge => {
+  const origin = new URL(options.origin).origin
+  const sessionKey = options.sessionKey ?? createDappSessionKey(origin)
+  const nextRequestId = createProviderRequestIdGenerator()
+
+  return {
+    request: async <TResult = unknown>(args: ProviderBridgeRequestArguments): Promise<TResult> => {
+      if (!isProviderMethod(args.method)) {
+        throw new ProviderRpcError(createUnsupportedMethodError(args.method))
+      }
+
+      const request: ProviderRequest = {
+        chainId: options.chainId,
+        id: nextRequestId(),
+        method: args.method,
+        origin,
+        params: args.params,
+        sessionKey,
+      }
+      const response = await options.transport(request)
+
+      if ("error" in response) {
+        throw new ProviderRpcError(response.error)
+      }
+
+      return response.result as TResult
+    },
+  }
+}

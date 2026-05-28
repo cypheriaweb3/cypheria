@@ -81,6 +81,8 @@ The dApp receives an injected EIP-1193 provider bridge. Provider requests are fo
 
 `@cypheria/web3-browser` defines the V1 browser domain model. Session keys are normalized to `cypheria:dapp:<origin>` and map to persistent Electron partitions. Permission records bind an origin session to wallet id, chain id, account addresses, allowed provider methods, and optional expiration. Provider request/response types cover account requests, chain switching, chain addition, personal signing, typed-data signing, transaction sending, accounts, and chain id reads.
 
+The provider bridge baseline is a browser-side transport abstraction. It accepts EIP-1193-style `request({ method, params })` calls, rejects unsupported methods before transport, serializes supported requests with request id, origin, session key, optional chain id, method, and params, and maps structured provider errors back into `ProviderRpcError`. The actual Electron WebContents injection and main-process handler wiring are separate follow-up work.
+
 ### Codex App Server Child Process
 
 Cypheria embeds Codex App Server rather than forking the Codex runtime in V1. The main process communicates with it over JSON-RPC over stdio / JSONL and adapts Codex events into Cypheria UI events.

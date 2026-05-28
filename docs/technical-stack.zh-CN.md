@@ -181,6 +181,8 @@ Web3 browser 不复用 Codex preview browser 的权限模型。Codex preview bro
 
 `@cypheria/web3-browser` 拥有共享的 browser session model。它提供稳定的 origin-scoped session keys、persistent partition names、permission records、EIP-1193 provider method coverage，以及 typed provider request/response envelopes。
 
+初始 provider bridge 通过注入的 transport callback 暴露 EIP-1193 风格 request function。它会序列化 request id、origin、session key、可选 chain id、method 和 params，并在不向 dApp pages 暴露 Node.js APIs 的前提下返回成功结果或结构化 `ProviderRpcError` failures。
+
 Session key 示例：
 
 ```txt
