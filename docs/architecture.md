@@ -83,6 +83,8 @@ The dApp receives an injected EIP-1193 provider bridge. Provider requests are fo
 
 Cypheria embeds Codex App Server rather than forking the Codex runtime in V1. The main process communicates with it over JSON-RPC over stdio / JSONL and adapts Codex events into Cypheria UI events.
 
+`@cypheria/codex-bridge` owns the first stable transport boundary for that integration. It models JSON-RPC 2.0 requests, notifications, success responses, and errors as newline-delimited JSON messages; provides chunk-safe JSONL parsing; defines request id generation, lifecycle states, transport errors, and normalized `codex.message`, `codex.transport.error`, and `codex.lifecycle` events. Process launch and supervision remain in the Electron main-process Codex service.
+
 Codex owns:
 
 - Threads and turns.

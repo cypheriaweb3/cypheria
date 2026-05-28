@@ -80,11 +80,11 @@
 
 ## Codex Integration
 
-- [ ] 定义 Codex App Server transport adapter。
+- [x] 定义 Codex App Server transport adapter。
   - 验收：`@cypheria/codex-bridge` 建模 JSONL messages、request ids、lifecycle states 和 normalized events。
   - 包括：transport interface、message parser、event normalization shell 和 error handling types。
   - 如 Codex event model 变化，更新文档。
-  - 验证：`pnpm run ci`、`pnpm build`、parser unit tests。
+  - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/codex-bridge test`。
 
 - [ ] 实现 Codex child process supervisor。
   - 验收：Electron main 可以用 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动配置好的 Codex App Server 进程。

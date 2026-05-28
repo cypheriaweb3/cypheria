@@ -80,11 +80,11 @@ Status legend:
 
 ## Codex Integration
 
-- [ ] Define Codex App Server transport adapter.
+- [x] Define Codex App Server transport adapter.
   - Acceptance: `@cypheria/codex-bridge` models JSONL messages, request ids, lifecycle states, and normalized events.
   - Include: transport interface, message parser, event normalization shell, and error handling types.
   - Update docs if Codex event model changes.
-  - Verification: `pnpm run ci`, `pnpm build`, parser unit tests.
+  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/codex-bridge test`.
 
 - [ ] Implement Codex child process supervisor.
   - Acceptance: Electron main can launch a configured Codex App Server process with `CODEX_HOME=$CYPHERIA_HOME/codex`.

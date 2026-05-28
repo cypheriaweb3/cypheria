@@ -102,6 +102,8 @@ The visual direction should stay close to Codex Desktop: quiet, tool-like, moder
 
 Cypheria should not fork the Codex runtime in V1. Codex owns code-agent behavior, workspace operations, diffs, terminal sessions, approvals, MCP, and thread/run lifecycle. Cypheria wraps it with Web3 tools, wallet approvals, dApp browser context, task automation, policy evaluation, and audit logs.
 
+`@cypheria/codex-bridge` is the protocol adapter package. It defines JSON-RPC 2.0 wire messages, chunk-safe JSONL parsing, outbound request/notification helpers, request id generation, transport lifecycle states, transport error types, and normalized Codex events for the Electron main process to consume.
+
 ```txt
 Renderer
   -> ipc.invoke("codex.thread.create")

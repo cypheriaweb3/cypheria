@@ -82,6 +82,8 @@ dApp 会收到注入的 EIP-1193 provider bridge。Provider 请求会转发到 m
 
 Cypheria 在 V1 中嵌入 Codex App Server，而不是 fork Codex runtime。Main process 通过 JSON-RPC over stdio / JSONL 与它通信，并将 Codex events 适配为 Cypheria UI events。
 
+`@cypheria/codex-bridge` 拥有这条集成的第一层稳定 transport boundary。它将 JSON-RPC 2.0 requests、notifications、success responses 和 errors 建模为 newline-delimited JSON messages；提供 chunk-safe JSONL parsing；定义 request id generation、lifecycle states、transport errors，以及标准化的 `codex.message`、`codex.transport.error` 和 `codex.lifecycle` events。进程启动与监管仍留给 Electron main-process Codex service。
+
 Codex 拥有：
 
 - Threads 和 turns。
