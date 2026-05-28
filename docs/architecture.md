@@ -48,6 +48,7 @@ The main process owns privileged local capabilities:
 
 - Resolving `$CYPHERIA_HOME`, creating runtime directories, and preparing `CODEX_HOME`
   for Cypheria-managed Codex processes.
+- Owning the Electron app lifecycle, single-instance lock, and top-level window creation.
 - Launching and supervising the Codex App Server child process.
 - Managing wallets, encrypted local vaults, Privy bindings, and external wallet sessions.
 - Evaluating signing policies before any signature or transaction broadcast.

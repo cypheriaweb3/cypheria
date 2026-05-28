@@ -4,5 +4,6 @@
     "rootDir": ".",
     "types": ["node"]
   },
-  "include": ["main/**/*.ts", "preload/**/*.ts", "renderer/**/*.ts", "renderer/**/*.tsx"]
+  "include": ["main/**/*.ts", "preload/**/*.ts", "renderer/**/*.ts", "renderer/**/*.tsx"],
+  "exclude": ["dist"]
 }

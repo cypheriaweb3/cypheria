@@ -106,7 +106,6 @@ pnpm format
 
 仓库目前包含基础 monorepo 设置和占位 package 边界。接下来的实现里程碑包括：
 
-- 接入真实的 Electron 应用入口。
 - 添加 TanStack Start renderer app。
 - 定义 typed IPC contracts。
 - 实现 Codex App Server bridge。

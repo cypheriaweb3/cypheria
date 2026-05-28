@@ -106,7 +106,6 @@ In this repository, pnpm-related commands should usually run outside the sandbox
 
 The repository currently contains the foundational monorepo setup and placeholder package boundaries. The next implementation milestones are:
 
-- Wire a real Electron application entrypoint.
 - Add the TanStack Start renderer app.
 - Define typed IPC contracts.
 - Implement the Codex App Server bridge.

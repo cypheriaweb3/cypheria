@@ -36,7 +36,7 @@ Core principles:
 | Client/UI state | Jotai |
 | Forms | TanStack Form + Zod |
 | IPC schema | Zod-validated typed IPC |
-| Build | Vite |
+| Build | Vite for renderer, tsdown for Electron main |
 | Monorepo | Turborepo |
 | Package manager | pnpm |
 | Lint / format | Biome |
@@ -340,6 +340,7 @@ Recommended dependencies:
 ```txt
 electron
 electron-builder
+tsdown
 @tanstack/react-start
 @tanstack/react-router
 @tanstack/react-query

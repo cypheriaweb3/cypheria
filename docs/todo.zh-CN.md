@@ -32,7 +32,7 @@
 
 ## Desktop App Shell
 
-- [ ] 添加真实 Electron main entrypoint。
+- [x] 添加真实 Electron main entrypoint。
   - 验收：`@cypheria/desktop` 有可运行的 main process entry，在创建窗口前初始化 runtime directories。
   - 包括：app lifecycle、single-instance lock、graceful shutdown hooks 和基础 error logging。
   - 如启动行为或 runtime paths 有变化，更新文档。

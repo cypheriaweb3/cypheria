@@ -36,7 +36,7 @@ Codex App Server Child Process
 | Client/UI state | Jotai |
 | Form | TanStack Form + Zod |
 | IPC schema | Zod validated typed IPC |
-| Build | Vite |
+| Build | Renderer 使用 Vite，Electron main 使用 tsdown |
 | Monorepo | Turborepo |
 | Package manager | pnpm |
 | Lint / Format | Biome |
@@ -340,6 +340,7 @@ package scripts
 ```txt
 electron
 electron-builder
+tsdown
 @tanstack/react-start
 @tanstack/react-router
 @tanstack/react-query

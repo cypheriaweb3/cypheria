@@ -32,7 +32,7 @@ Status legend:
 
 ## Desktop App Shell
 
-- [ ] Add real Electron main entrypoint.
+- [x] Add real Electron main entrypoint.
   - Acceptance: `@cypheria/desktop` has a runnable main process entry that initializes runtime directories before creating windows.
   - Include: app lifecycle, single-instance lock, graceful shutdown hooks, and basic error logging.
   - Update docs if startup behavior or runtime paths change.
@@ -156,4 +156,3 @@ After each todo item is completed:
 - Run the relevant verification commands.
 - Update English and Chinese docs for any behavior, architecture, command, or interface changes.
 - Keep commits focused on the completed item.
-

@@ -3,10 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "main": "dist/main/index.mjs",
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "pnpm build:main && pnpm typecheck",
+    "build:main": "tsdown --config tsdown.config.mjs",
     "check": "pnpm typecheck",
-    "dev": "echo \"TODO: start Electron + TanStack Start dev server\"",
+    "dev": "pnpm build:main && electron .",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
@@ -18,5 +20,9 @@
     "@cypheria/ui": "workspace:*",
     "@cypheria/wallet-core": "workspace:*",
     "@cypheria/web3-browser": "workspace:*"
+  },
+  "devDependencies": {
+    "electron": "^42.3.0",
+    "tsdown": "^0.22.0"
   }
 }
