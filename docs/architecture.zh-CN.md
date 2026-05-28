@@ -234,6 +234,8 @@ settings
 
 后续 main-process handlers 应该使用这些 contracts 验证 inputs 和 outputs。Renderer 与 preload code 只应在边界处导入需要的 contract types 和 channel constants。
 
+Electron main 通过 desktop IPC router helper 注册 routes。每个 route 都由一个 `@cypheria/ipc` contract 支撑；router 会用 request schema 解析 invoke payload，并在返回 preload 前用 response schema 解析 handler result。当前首批注册 routes 包括 runtime info、app metadata 和 app health。
+
 ## Package 边界
 
 ```txt

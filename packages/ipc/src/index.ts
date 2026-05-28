@@ -21,6 +21,7 @@ export const IpcNamespaceSchema = z.enum(ipcNamespaces)
 export type IpcNamespace = z.infer<typeof IpcNamespaceSchema>
 
 export const CYPHERIA_IPC_CHANNELS = {
+  appHealthCheck: "app.health.check",
   appMetadataRead: "app.metadata.read",
   runtimeInfoRead: "runtime.info.read",
 } as const
@@ -56,6 +57,15 @@ export const AppMetadataSchema = z
   })
   .strict()
 export type AppMetadata = z.infer<typeof AppMetadataSchema>
+
+export const AppHealthStatusSchema = z
+  .object({
+    checkedAt: z.string().datetime(),
+    protocolVersion: z.literal(IPC_PROTOCOL_VERSION),
+    status: z.literal("ok"),
+  })
+  .strict()
+export type AppHealthStatus = z.infer<typeof AppHealthStatusSchema>
 
 export const IpcRequestEnvelopeSchema = z
   .object({
@@ -142,6 +152,14 @@ export const appMetadataReadContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<EmptyPayload, AppMetadata>
 
+export const appHealthCheckContract = {
+  channel: CYPHERIA_IPC_CHANNELS.appHealthCheck,
+  namespace: "app",
+  request: EmptyPayloadSchema,
+  response: AppHealthStatusSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, AppHealthStatus>
+
 export const runtimeInfoReadContract = {
   channel: CYPHERIA_IPC_CHANNELS.runtimeInfoRead,
   namespace: "runtime",
@@ -151,12 +169,14 @@ export const runtimeInfoReadContract = {
 } satisfies IpcContract<EmptyPayload, RuntimeInfo>
 
 export const ipcContracts = {
+  appHealthCheck: appHealthCheckContract,
   appMetadataRead: appMetadataReadContract,
   runtimeInfoRead: runtimeInfoReadContract,
 } as const
 
 export type CypheriaPreloadApi = {
   readonly app: {
+    readonly getHealth: () => Promise<AppHealthStatus>
     readonly getMetadata: () => Promise<AppMetadata>
   }
   readonly runtime: {

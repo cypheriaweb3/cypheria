@@ -1,8 +1,17 @@
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
 
-import { type AppMetadata, CYPHERIA_IPC_CHANNELS, type RuntimeInfo } from "@cypheria/ipc"
-import { app, BrowserWindow, ipcMain } from "electron"
+import {
+  type AppHealthStatus,
+  type AppMetadata,
+  appHealthCheckContract,
+  appMetadataReadContract,
+  IPC_PROTOCOL_VERSION,
+  type RuntimeInfo,
+  runtimeInfoReadContract,
+} from "@cypheria/ipc"
+import { app, BrowserWindow } from "electron"
+import { registerIpcRoute } from "./ipc.js"
 import { type DesktopRuntimeContext, initializeDesktopRuntime } from "./runtime.js"
 
 let mainWindow: BrowserWindow | null = null
@@ -105,8 +114,15 @@ const registerIpcHandlers = (context: DesktopRuntimeContext): void => {
     version: app.getVersion(),
   }
 
-  ipcMain.handle(CYPHERIA_IPC_CHANNELS.appMetadataRead, () => appMetadata)
-  ipcMain.handle(CYPHERIA_IPC_CHANNELS.runtimeInfoRead, () => toRuntimeInfo(context))
+  registerIpcRoute(appHealthCheckContract, (): AppHealthStatus => {
+    return {
+      checkedAt: new Date().toISOString(),
+      protocolVersion: IPC_PROTOCOL_VERSION,
+      status: "ok",
+    }
+  })
+  registerIpcRoute(appMetadataReadContract, () => appMetadata)
+  registerIpcRoute(runtimeInfoReadContract, () => toRuntimeInfo(context))
 }
 
 const createMainWindow = async (context: DesktopRuntimeContext): Promise<BrowserWindow> => {

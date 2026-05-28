@@ -30,6 +30,12 @@ function HomeRoute() {
     staleTime: Number.POSITIVE_INFINITY,
   })
 
+  const appHealthQuery = useQuery({
+    queryFn: () => window.cypheria?.app.getHealth() ?? null,
+    queryKey: ["app-health"],
+    staleTime: 10_000,
+  })
+
   const runtimeInfoQuery = useQuery({
     queryFn: () => window.cypheria?.runtime.getInfo() ?? null,
     queryKey: ["runtime-info"],
@@ -40,6 +46,7 @@ function HomeRoute() {
     ? (runtimeInfoQuery.data?.cypheriaHome ?? "Loading")
     : "Browser preview"
   const appVersion = appMetadataQuery.data?.version ?? "0.0.0"
+  const healthStatus = appHealthQuery.data?.status ?? (window.cypheria ? "Loading" : "Preview")
 
   return (
     <section className="workspace">
@@ -84,6 +91,13 @@ function HomeRoute() {
                 <span>Read through the app metadata endpoint</span>
               </div>
               <code>{appVersion}</code>
+            </div>
+            <div className="context-row">
+              <div>
+                <strong>IPC health</strong>
+                <span>Validated by the main-process IPC router</span>
+              </div>
+              <code>{healthStatus}</code>
             </div>
             {workspaceCards.map((card) => (
               <div className="context-row" key={card.label}>

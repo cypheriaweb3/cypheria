@@ -235,6 +235,8 @@ The baseline contract package includes:
 
 Main-process handlers should validate future inputs and outputs against these contracts. Renderer and preload code should import only the contract types and channel constants needed at the boundary.
 
+Electron main registers routes through the desktop IPC router helper. Each route is backed by one `@cypheria/ipc` contract; the router parses invoke payloads with the request schema and parses handler results with the response schema before returning to preload. The initial registered routes are runtime info, app metadata, and app health.
+
 ## Package Boundaries
 
 ```txt

@@ -1,7 +1,8 @@
-import type { AppMetadata, CypheriaPreloadApi, RuntimeInfo } from "@cypheria/ipc"
+import type { AppHealthStatus, AppMetadata, CypheriaPreloadApi, RuntimeInfo } from "@cypheria/ipc"
 import { contextBridge, ipcRenderer } from "electron"
 
 const preloadChannels = {
+  appHealthCheck: "app.health.check",
   appMetadataRead: "app.metadata.read",
   runtimeInfoRead: "runtime.info.read",
 } as const
@@ -10,6 +11,7 @@ const invoke = <T>(channel: string): Promise<T> => ipcRenderer.invoke(channel) a
 
 const cypheriaApi: CypheriaPreloadApi = {
   app: {
+    getHealth: () => invoke<AppHealthStatus>(preloadChannels.appHealthCheck),
     getMetadata: () => invoke<AppMetadata>(preloadChannels.appMetadataRead),
   },
   runtime: {

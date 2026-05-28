@@ -312,6 +312,7 @@ IPC contract conventions：
 - `@cypheria/ipc` 拥有 protocol version `1` 和共享 channel constants。
 - Request、response、error 和 event envelopes 都包含 protocol version。
 - 初始 app metadata 与 runtime info APIs 具备 Zod schemas 和推导出的 TypeScript types。
+- Main-process IPC routes 通过 helper 注册，并用 `@cypheria/ipc` contracts 验证 request payloads 和 handler responses。
 - Error envelopes 使用标准 codes：`BAD_REQUEST`、`VALIDATION_ERROR`、`FORBIDDEN`、`NOT_FOUND`、`UNAVAILABLE` 和 `INTERNAL_ERROR`。
 
 安全默认值：

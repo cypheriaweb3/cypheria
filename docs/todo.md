@@ -58,7 +58,7 @@ Status legend:
   - Update architecture docs if IPC wire shape changes.
   - Verification: `pnpm run ci`, `pnpm build`.
 
-- [ ] Implement main-process IPC router.
+- [x] Implement main-process IPC router.
   - Acceptance: Electron main can register typed handlers and validate inputs/outputs using the shared contracts.
   - Include: runtime info route and health route.
   - Update docs if handler registration patterns become part of architecture.

@@ -58,7 +58,7 @@
   - 如 IPC wire shape 变化，更新架构文档。
   - 验证：`pnpm run ci`、`pnpm build`。
 
-- [ ] 实现 main-process IPC router。
+- [x] 实现 main-process IPC router。
   - 验收：Electron main 可以注册 typed handlers，并用共享 contracts 验证 inputs/outputs。
   - 包括：runtime info route 和 health route。
   - 如果 handler registration patterns 成为架构约定，更新文档。
