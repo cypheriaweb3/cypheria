@@ -52,7 +52,7 @@
 
 ## IPC And Service Contracts
 
-- [ ] 定义 typed IPC contract package。
+- [x] 定义 typed IPC contract package。
   - 验收：`@cypheria/ipc` 包含初始 runtime/app APIs 的共享 request/response/event contract types 和 Zod schemas。
   - 包括：namespace conventions、error envelope、event envelope 和 version field。
   - 如 IPC wire shape 变化，更新架构文档。

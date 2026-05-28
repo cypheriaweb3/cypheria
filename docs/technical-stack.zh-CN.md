@@ -293,6 +293,8 @@ settings
 IPC namespace：
 
 ```txt
+app.*
+runtime.*
 codex.*
 wallet.*
 chain.*
@@ -304,6 +306,13 @@ approval.*
 settings.*
 audit.*
 ```
+
+IPC contract conventions：
+
+- `@cypheria/ipc` 拥有 protocol version `1` 和共享 channel constants。
+- Request、response、error 和 event envelopes 都包含 protocol version。
+- 初始 app metadata 与 runtime info APIs 具备 Zod schemas 和推导出的 TypeScript types。
+- Error envelopes 使用标准 codes：`BAD_REQUEST`、`VALIDATION_ERROR`、`FORBIDDEN`、`NOT_FOUND`、`UNAVAILABLE` 和 `INTERNAL_ERROR`。
 
 安全默认值：
 

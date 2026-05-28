@@ -222,6 +222,19 @@ workspaces
 settings
 ```
 
+## IPC Contract Baseline
+
+`@cypheria/ipc` owns shared IPC contracts for renderer, preload, and main-process services. The current protocol version is `1`. Channel names use namespace-prefixed dot notation, such as `app.metadata.read` and `runtime.info.read`.
+
+The baseline contract package includes:
+
+- Namespace definitions for `app`, `runtime`, `codex`, `wallet`, `chain`, `browser`, `dapp`, `policy`, `automation`, `approval`, `settings`, and `audit`.
+- Zod schemas and TypeScript types for the initial app metadata and runtime info APIs.
+- Request, success response, error response, and event envelope types.
+- A standard error code set covering bad requests, validation failures, forbidden access, missing resources, unavailable services, and internal errors.
+
+Main-process handlers should validate future inputs and outputs against these contracts. Renderer and preload code should import only the contract types and channel constants needed at the boundary.
+
 ## Package Boundaries
 
 ```txt

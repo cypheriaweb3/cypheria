@@ -221,6 +221,19 @@ workspaces
 settings
 ```
 
+## IPC Contract 基线
+
+`@cypheria/ipc` 负责 renderer、preload 和 main-process services 共享的 IPC contracts。当前协议版本是 `1`。Channel 名称使用带 namespace 的点分格式，例如 `app.metadata.read` 和 `runtime.info.read`。
+
+当前 contract package 包含：
+
+- `app`、`runtime`、`codex`、`wallet`、`chain`、`browser`、`dapp`、`policy`、`automation`、`approval`、`settings` 和 `audit` 的 namespace definitions。
+- 初始 app metadata 与 runtime info APIs 的 Zod schemas 和 TypeScript types。
+- Request、success response、error response 和 event envelope types。
+- 标准 error code 集合，覆盖 bad requests、validation failures、forbidden access、missing resources、unavailable services 和 internal errors。
+
+后续 main-process handlers 应该使用这些 contracts 验证 inputs 和 outputs。Renderer 与 preload code 只应在边界处导入需要的 contract types 和 channel constants。
+
 ## Package 边界
 
 ```txt

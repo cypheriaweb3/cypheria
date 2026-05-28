@@ -10,5 +10,8 @@
     "build": "tsc -p tsconfig.json",
     "check": "pnpm typecheck",
     "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
   }
 }

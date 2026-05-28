@@ -52,7 +52,7 @@ Status legend:
 
 ## IPC And Service Contracts
 
-- [ ] Define typed IPC contract package.
+- [x] Define typed IPC contract package.
   - Acceptance: `@cypheria/ipc` contains shared request/response/event contract types and Zod schemas for initial runtime/app APIs.
   - Include: namespace conventions, error envelope, event envelope, and version field.
   - Update architecture docs if IPC wire shape changes.

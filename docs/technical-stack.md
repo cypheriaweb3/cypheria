@@ -293,6 +293,8 @@ settings
 IPC namespaces:
 
 ```txt
+app.*
+runtime.*
 codex.*
 wallet.*
 chain.*
@@ -304,6 +306,13 @@ approval.*
 settings.*
 audit.*
 ```
+
+IPC contract conventions:
+
+- `@cypheria/ipc` owns protocol version `1` and the shared channel constants.
+- Request, response, error, and event envelopes include the protocol version.
+- Initial app metadata and runtime info APIs have Zod schemas and inferred TypeScript types.
+- Error envelopes use standard codes: `BAD_REQUEST`, `VALIDATION_ERROR`, `FORBIDDEN`, `NOT_FOUND`, `UNAVAILABLE`, and `INTERNAL_ERROR`.
 
 Security defaults:
 
