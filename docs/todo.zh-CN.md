@@ -94,7 +94,7 @@
 
 ## Wallet And Policy
 
-- [ ] 定义 wallet domain types。
+- [x] 定义 wallet domain types。
   - 验收：`@cypheria/wallet-core` 包含 account、chain、RPC、signing intent、wallet source 和 permission types。
   - 包括：local wallet、Privy wallet、external wallet、read-only mode、human approval mode 和 conditional auto-signing mode。
   - 如 wallet boundaries 变化，更新技术选型文档。

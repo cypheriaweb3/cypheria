@@ -157,6 +157,8 @@ AssetService
   - transaction history
 ```
 
+`@cypheria/wallet-core` defines the shared wallet domain boundary for V1. It includes wallet modes (`read-only`, `human-approval`, `conditional-auto-signing`), local/Privy/external/read-only wallet sources, wallet accounts, chain definitions, RPC endpoints, EIP-1193 permission methods, origin-scoped wallet permissions, and signing intents for personal signing, typed data, transaction signing, and transaction sending.
+
 Local wallet security:
 
 - Key derivation: Argon2id.

@@ -157,6 +157,8 @@ AssetService
   - transaction history
 ```
 
+`@cypheria/wallet-core` 定义 V1 共享的钱包领域边界。它包含 wallet modes（`read-only`、`human-approval`、`conditional-auto-signing`）、local/Privy/external/read-only wallet sources、wallet accounts、chain definitions、RPC endpoints、EIP-1193 permission methods、origin-scoped wallet permissions，以及 personal signing、typed data、transaction signing 和 transaction sending 的 signing intents。
+
 本地钱包安全：
 
 - 密钥派生：Argon2id。

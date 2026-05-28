@@ -94,7 +94,7 @@ Status legend:
 
 ## Wallet And Policy
 
-- [ ] Define wallet domain types.
+- [x] Define wallet domain types.
   - Acceptance: `@cypheria/wallet-core` contains account, chain, RPC, signing intent, wallet source, and permission types.
   - Include: local wallet, Privy wallet, external wallet, read-only mode, human approval mode, and conditional auto-signing mode.
   - Update technical stack docs if wallet boundaries change.
