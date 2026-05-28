@@ -44,7 +44,7 @@ Status legend:
   - Update docs if frontend structure changes.
   - Verification: `pnpm run ci`, `pnpm build`, browser/Electron screenshot smoke test when runnable.
 
-- [ ] Add typed preload bridge baseline.
+- [x] Add typed preload bridge baseline.
   - Acceptance: renderer can call a small typed API exposed by preload without Node.js access.
   - Include: runtime info read endpoint and app metadata endpoint.
   - Update architecture docs if IPC boundary changes.

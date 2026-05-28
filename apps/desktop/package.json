@@ -5,11 +5,12 @@
   "type": "module",
   "main": "dist/main/index.mjs",
   "scripts": {
-    "build": "pnpm build:main && pnpm build:renderer && pnpm typecheck",
+    "build": "pnpm build:main && pnpm build:preload && pnpm build:renderer && pnpm typecheck",
     "build:main": "tsdown --config tsdown.config.mjs",
+    "build:preload": "tsdown --config tsdown.preload.config.mjs",
     "build:renderer": "vite build --config vite.config.ts",
     "check": "pnpm typecheck",
-    "dev": "pnpm build:main && electron .",
+    "dev": "pnpm build:main && pnpm build:preload && electron .",
     "dev:renderer": "vite dev --config vite.config.ts --host 127.0.0.1",
     "typecheck": "tsc -p tsconfig.json"
   },

@@ -70,6 +70,8 @@ Renderer 不得访问 Node.js APIs、私钥、原始 shell 执行能力或 dApp 
 
 初始 renderer skeleton 位于 `apps/desktop/renderer/src`，由 desktop package 的 Vite config 构建。它包含 root route、Workspaces route、app frame、sidebar placeholder surfaces、theme baseline CSS，以及 Jotai/TanStack Query providers。本地开发时，可以通过设置 `CYPHERIA_RENDERER_URL` 让 Electron 加载 renderer dev server。
 
+第一版 preload bridge 通过 Electron `contextBridge` 暴露 `window.cypheria`。它提供 typed 的只读 app metadata 和 runtime info 调用，并由 main-process IPC handlers 支撑。Renderer 将该 bridge 视为可选能力，因此 TanStack Start dev server 仍可在普通浏览器中运行，且不需要 Node.js access。
+
 ### Web3 dApp WebContents
 
 每个 dApp origin 都运行在独立 Electron session 中。这可以防止 cookies、localStorage、钱包权限和账户状态在不同 dApp 之间泄漏。

@@ -44,7 +44,7 @@
   - 如 frontend 结构变化，更新文档。
   - 验证：`pnpm run ci`、`pnpm build`，可运行时做 browser/Electron screenshot smoke test。
 
-- [ ] 添加 typed preload bridge baseline。
+- [x] 添加 typed preload bridge baseline。
   - 验收：renderer 可通过 preload 暴露的小型 typed API 调用能力，且没有 Node.js access。
   - 包括：runtime info read endpoint 和 app metadata endpoint。
   - 如 IPC 边界变化，更新架构文档。

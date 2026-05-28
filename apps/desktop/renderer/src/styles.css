@@ -220,7 +220,7 @@ h2 {
 
 .context-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(72px, 42%);
   gap: 14px;
   align-items: center;
   min-height: 82px;
@@ -236,6 +236,7 @@ h2 {
 .context-row strong {
   color: #efeff0;
   font-size: 13px;
+  white-space: nowrap;
 }
 
 .context-row span {
@@ -246,9 +247,13 @@ h2 {
 }
 
 .context-row code {
+  overflow: hidden;
   color: #c9d8ff;
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 12px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 @media (max-width: 920px) {

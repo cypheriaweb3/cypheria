@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 
 export const Route = createFileRoute("/")({
@@ -23,6 +24,23 @@ const workspaceCards = [
 ]
 
 function HomeRoute() {
+  const appMetadataQuery = useQuery({
+    queryFn: () => window.cypheria?.app.getMetadata() ?? null,
+    queryKey: ["app-metadata"],
+    staleTime: Number.POSITIVE_INFINITY,
+  })
+
+  const runtimeInfoQuery = useQuery({
+    queryFn: () => window.cypheria?.runtime.getInfo() ?? null,
+    queryKey: ["runtime-info"],
+    staleTime: Number.POSITIVE_INFINITY,
+  })
+
+  const preloadStatus = window.cypheria
+    ? (runtimeInfoQuery.data?.cypheriaHome ?? "Loading")
+    : "Browser preview"
+  const appVersion = appMetadataQuery.data?.version ?? "0.0.0"
+
   return (
     <section className="workspace">
       <header className="workspace-header">
@@ -53,6 +71,20 @@ function HomeRoute() {
             <span className="panel-kicker">Local first</span>
           </div>
           <div className="context-list">
+            <div className="context-row">
+              <div>
+                <strong>Preload bridge</strong>
+                <span>Typed app and runtime endpoints</span>
+              </div>
+              <code>{preloadStatus}</code>
+            </div>
+            <div className="context-row">
+              <div>
+                <strong>App version</strong>
+                <span>Read through the app metadata endpoint</span>
+              </div>
+              <code>{appVersion}</code>
+            </div>
             {workspaceCards.map((card) => (
               <div className="context-row" key={card.label}>
                 <div>

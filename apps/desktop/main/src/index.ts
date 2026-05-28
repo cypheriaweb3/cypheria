@@ -1,7 +1,14 @@
-import { app, BrowserWindow } from "electron"
+import { dirname, join } from "node:path"
+import { fileURLToPath } from "node:url"
+
+import { type AppMetadata, CYPHERIA_IPC_CHANNELS, type RuntimeInfo } from "@cypheria/ipc"
+import { app, BrowserWindow, ipcMain } from "electron"
 import { type DesktopRuntimeContext, initializeDesktopRuntime } from "./runtime.js"
 
 let mainWindow: BrowserWindow | null = null
+
+const currentDir = dirname(fileURLToPath(import.meta.url))
+const preloadPath = join(currentDir, "../preload/index.cjs")
 
 const logFatalError = (error: unknown): void => {
   console.error("[cypheria:desktop] fatal error", error)
@@ -78,6 +85,30 @@ const getRendererUrl = (): string | undefined => {
   return rendererUrl ? rendererUrl : undefined
 }
 
+const toRuntimeInfo = (context: DesktopRuntimeContext): RuntimeInfo => ({
+  codexHome: context.paths.codexHome,
+  cypheriaHome: context.paths.cypheriaHome,
+  directories: {
+    automation: context.paths.automationDir,
+    browser: context.paths.browserDir,
+    cache: context.paths.cacheDir,
+    config: context.paths.configDir,
+    db: context.paths.dbDir,
+    logs: context.paths.logsDir,
+    vault: context.paths.vaultDir,
+  },
+})
+
+const registerIpcHandlers = (context: DesktopRuntimeContext): void => {
+  const appMetadata: AppMetadata = {
+    name: app.getName(),
+    version: app.getVersion(),
+  }
+
+  ipcMain.handle(CYPHERIA_IPC_CHANNELS.appMetadataRead, () => appMetadata)
+  ipcMain.handle(CYPHERIA_IPC_CHANNELS.runtimeInfoRead, () => toRuntimeInfo(context))
+}
+
 const createMainWindow = async (context: DesktopRuntimeContext): Promise<BrowserWindow> => {
   const window = new BrowserWindow({
     backgroundColor: "#101113",
@@ -89,6 +120,7 @@ const createMainWindow = async (context: DesktopRuntimeContext): Promise<Browser
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,
+      preload: preloadPath,
       sandbox: true,
       webSecurity: true,
     },
@@ -154,6 +186,7 @@ const startDesktopApp = async (): Promise<void> => {
 
   await app.whenReady()
   const context = await initializeDesktopRuntime()
+  registerIpcHandlers(context)
   mainWindow = await createMainWindow(context)
 }
 
