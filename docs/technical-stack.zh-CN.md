@@ -233,6 +233,8 @@ V1 策略模式：
 - 人工确认：所有签名必须弹窗确认。
 - 条件自动签名：命中 policy 才允许自动执行。
 
+Baseline `@cypheria/policy-engine` package 使用 Zod 验证 signing policies，并评估 `allow`、`deny` 或 `require-human-approval`。Read-only mode 只允许 `eth_accounts` 和 `eth_chainId`；human-approval mode 永远要求审批；conditional auto-signing 只有在 enabled、未过期的策略同时匹配 wallet、chain、origin、method、可选 contract allowlist 和可选 native value limit 时才允许请求。显式 deny policies 优先于 allow policies。
+
 策略示例：
 
 ```ts
@@ -245,10 +247,8 @@ type SigningPolicy = {
   methods: string[]
   contractAllowlist?: string[]
   maxNativeValue?: string
-  maxTokenValueUsd?: string
-  dailyLimitUsd?: string
   expiresAt?: string
-  requireSimulation: boolean
+  effect: "allow" | "deny" | "require-human-approval"
   requireHumanApproval: boolean
 }
 ```

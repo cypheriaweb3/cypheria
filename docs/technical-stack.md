@@ -233,6 +233,8 @@ V1 policy modes:
 - Human approval: every signing request requires an explicit approval prompt.
 - Conditional auto-signing: only auto-sign when a policy matches.
 
+The baseline `@cypheria/policy-engine` package validates signing policies with Zod and evaluates `allow`, `deny`, or `require-human-approval`. Read-only mode only allows `eth_accounts` and `eth_chainId`; human-approval mode always requires approval; conditional auto-signing only allows a request when an enabled, unexpired policy matches the wallet, chain, origin, method, optional contract allowlist, and optional native value limit. Explicit deny policies take priority over allow policies.
+
 Policy example:
 
 ```ts
@@ -245,10 +247,8 @@ type SigningPolicy = {
   methods: string[]
   contractAllowlist?: string[]
   maxNativeValue?: string
-  maxTokenValueUsd?: string
-  dailyLimitUsd?: string
   expiresAt?: string
-  requireSimulation: boolean
+  effect: "allow" | "deny" | "require-human-approval"
   requireHumanApproval: boolean
 }
 ```

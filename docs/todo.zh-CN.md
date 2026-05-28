@@ -100,11 +100,11 @@
   - 如 wallet boundaries 变化，更新技术选型文档。
   - 验证：`pnpm run ci`、`pnpm build`。
 
-- [ ] 定义 policy engine schema 和 evaluator baseline。
+- [x] 定义 policy engine schema 和 evaluator baseline。
   - 验收：`@cypheria/policy-engine` 可以验证 signing policies，并评估简单 allow/deny/require-human-approval decisions。
   - 包括：origin、wallet、chain、method、contract allowlist、value limit、expiration 和 enabled flag。
   - 如 policy shape 变化，更新文档。
-  - 验证：`pnpm run ci`、`pnpm build`、policy decisions unit tests。
+  - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/policy-engine test`。
 
 ## Web3 Browser
 

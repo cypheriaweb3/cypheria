@@ -100,11 +100,11 @@ Status legend:
   - Update technical stack docs if wallet boundaries change.
   - Verification: `pnpm run ci`, `pnpm build`.
 
-- [ ] Define policy engine schema and evaluator baseline.
+- [x] Define policy engine schema and evaluator baseline.
   - Acceptance: `@cypheria/policy-engine` validates signing policies and evaluates simple allow/deny/require-human-approval decisions.
   - Include: origin, wallet, chain, method, contract allowlist, value limit, expiration, and enabled flag.
   - Update docs if policy shape changes.
-  - Verification: `pnpm run ci`, `pnpm build`, unit tests for policy decisions.
+  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/policy-engine test`.
 
 ## Web3 Browser
 
