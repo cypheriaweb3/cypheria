@@ -205,6 +205,8 @@ SQLite is the local source of truth for non-secret data. Sensitive wallet materi
 
 `@cypheria/db` resolves the default SQLite file to `$CYPHERIA_HOME/db/cypheria.sqlite`. Its Drizzle schema baseline starts with `settings`, `audit_logs`, `workspaces`, and `runtime_metadata`; generated migrations live under `packages/db/drizzle`.
 
+The database package now provides a small main-process audit log service. Callers append structured records with `eventType`, `actor`, `createdAt`, `source`, `payloadHash`, `payloadSummary`, and `correlationId`; the service assigns an id when needed and supports read-back by id or recent-list queries. A schema initialization helper applies the baseline SQLite tables before services open against a new database file.
+
 Core tables:
 
 ```txt

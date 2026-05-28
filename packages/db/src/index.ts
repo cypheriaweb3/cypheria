@@ -1,4 +1,18 @@
 export {
+  type AppendAuditLogInput,
+  type AuditLogRecord,
+  type AuditLogService,
+  createAuditLogService,
+} from "./audit.js"
+export {
+  type CypheriaDatabase,
+  createInMemoryDatabase,
+  type OpenDatabaseOptions,
+  type OpenDatabaseResult,
+  openCypheriaDatabase,
+} from "./client.js"
+export { ensureDatabaseSchema, initialSchemaStatements } from "./migrations.js"
+export {
   buildDatabasePaths,
   type DatabasePathOptions,
   type DatabasePaths,

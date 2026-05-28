@@ -72,11 +72,11 @@ Status legend:
   - Update docs if table names or data boundaries change.
   - Verification: `pnpm run ci`, `pnpm build`, migration generation/check.
 
-- [ ] Add audit log write path.
+- [x] Add audit log write path.
   - Acceptance: main-process service can append structured audit events to local SQLite.
   - Include: event type, actor, timestamp, source, payload hash/summary, and correlation id.
   - Update architecture docs if audit model changes.
-  - Verification: `pnpm run ci`, `pnpm build`, unit tests for append/read.
+  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/db test`.
 
 ## Codex Integration
 

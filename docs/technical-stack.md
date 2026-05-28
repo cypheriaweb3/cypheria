@@ -271,6 +271,8 @@ V1 should not support high-frequency trading, MEV, complex DeFi strategy auto-ex
 
 The initial `@cypheria/db` baseline resolves the app database to `$CYPHERIA_HOME/db/cypheria.sqlite`, defines the first Drizzle tables for settings, audit logs, workspaces, and runtime metadata, and stores generated SQLite migrations in `packages/db/drizzle`.
 
+`@cypheria/db` opens SQLite with `better-sqlite3`, wraps the schema with Drizzle, and exposes an audit log service for append/read flows. Unit coverage uses Vitest against an in-memory SQLite database.
+
 Core tables:
 
 ```txt

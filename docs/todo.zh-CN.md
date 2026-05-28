@@ -72,11 +72,11 @@
   - 如 table names 或 data boundaries 变化，更新文档。
   - 验证：`pnpm run ci`、`pnpm build`、migration generation/check。
 
-- [ ] 添加 audit log write path。
+- [x] 添加 audit log write path。
   - 验收：main-process service 可以向本地 SQLite append structured audit events。
   - 包括：event type、actor、timestamp、source、payload hash/summary 和 correlation id。
   - 如 audit model 变化，更新架构文档。
-  - 验证：`pnpm run ci`、`pnpm build`、append/read unit tests。
+  - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/db test`。
 
 ## Codex Integration
 

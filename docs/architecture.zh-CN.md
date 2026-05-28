@@ -204,6 +204,8 @@ SQLite 是非敏感本地数据的 source of truth。敏感钱包材料应保存
 
 `@cypheria/db` 默认将 SQLite 文件解析到 `$CYPHERIA_HOME/db/cypheria.sqlite`。当前 Drizzle schema baseline 首批包含 `settings`、`audit_logs`、`workspaces` 和 `runtime_metadata`；生成的 migrations 位于 `packages/db/drizzle`。
 
+Database package 现在提供了一个轻量的 main-process audit log service。调用方可以 append 带有 `eventType`、`actor`、`createdAt`、`source`、`payloadHash`、`payloadSummary` 和 `correlationId` 的结构化记录；service 会在需要时分配 id，并支持按 id 读取以及查询最近记录。Schema initialization helper 会在 service 面向新 database file 打开前应用 baseline SQLite tables。
+
 核心表：
 
 ```txt
