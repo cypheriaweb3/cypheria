@@ -142,11 +142,11 @@ Status legend:
   - Update technical stack docs if UI dependency choices change.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/ui test`.
 
-- [ ] Add first app shell screen.
+- [x] Add first app shell screen.
   - Acceptance: desktop renderer shows a Codex Desktop-like shell with sidebar navigation for Workspaces, Browser, Wallets, Automations, Security, and Settings.
   - Include: empty states only; no deep feature implementation.
   - Update README screenshots/usage once stable.
-  - Verification: `pnpm run ci`, `pnpm build`, screenshot review.
+  - Verification: `pnpm run ci`, `pnpm build`, Browser screenshot review.
 
 ## Review Rule
 

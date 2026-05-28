@@ -69,7 +69,7 @@ The renderer owns the user experience:
 
 The renderer must not access Node.js APIs, private keys, raw shell execution, or dApp internals.
 
-The initial renderer skeleton lives under `apps/desktop/renderer/src` and is built by the desktop package Vite config. It includes the root route, a Workspaces route, the app frame, placeholder sidebar surfaces, theme baseline CSS, and Jotai/TanStack Query providers. During local development, Electron can load the renderer dev server by setting `CYPHERIA_RENDERER_URL`.
+The initial renderer shell lives under `apps/desktop/renderer/src` and is built by the desktop package Vite config. It includes the root route, a Workspaces route, the app frame, sidebar navigation for Workspaces, Browser, Wallets, Automations, Security, and Settings, empty-state panels, theme baseline CSS, and Jotai/TanStack Query providers. During local development, Electron can load the renderer dev server by setting `CYPHERIA_RENDERER_URL`.
 
 The first preload bridge exposes `window.cypheria` through Electron `contextBridge`. It provides typed read-only app metadata and runtime info calls backed by main-process IPC handlers. The renderer treats the bridge as optional so the TanStack Start dev server can still run in a normal browser without Node.js access.
 

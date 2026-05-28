@@ -23,7 +23,7 @@ The default safety model is human approval. Read-only mode and conditional auto-
 - **Forms**: TanStack Form + Zod
 - **Monorepo**: Turborepo + pnpm workspace
 - **Lint/format**: Biome
-- **UI**: shadcn/ui, Tailwind CSS, lucide-react, Sonner, Monaco Editor, xterm.js
+- **UI**: shadcn-style copied components, Base UI primitives, Cypheria CSS tokens, lucide-react
 - **Codex integration**: embedded Codex App Server via Electron main process
 - **Web3**: viem, Privy, WalletConnect / Reown
 - **Data**: SQLite + Drizzle ORM
@@ -62,6 +62,7 @@ packages/ui
 packages/ipc
 packages/codex-bridge
 packages/wallet-core
+packages/automation-core
 packages/web3-browser
 packages/policy-engine
 packages/runtime
@@ -116,12 +117,9 @@ In this repository, pnpm-related commands should usually run outside the sandbox
 
 ## Current Status
 
-The repository currently contains the foundational monorepo setup, placeholder package boundaries, Electron main process bootstrap, and a minimal TanStack Start renderer shell with routing, a Codex Desktop-like frame, Jotai, and TanStack Query providers. The next implementation milestones are:
+The repository currently contains the foundational monorepo setup, typed IPC contracts, runtime home handling, Electron main process bootstrap, Codex App Server process supervision, wallet/policy/Web3 browser domain baselines, local SQLite audit and automation persistence, and a Codex Desktop-like TanStack Start shell.
 
-- Define typed IPC contracts.
-- Implement the Codex App Server bridge.
-- Build the first wallet, policy, and Web3 browser service skeletons.
-- Add the first shadcn-based UI shell.
+The renderer first screen includes sidebar navigation for Workspaces, Browser, Wallets, Automations, Security, and Settings. These are empty-state surfaces only; deeper workflows will be added incrementally.
 
 ## License
 

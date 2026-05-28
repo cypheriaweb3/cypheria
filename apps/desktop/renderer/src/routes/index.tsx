@@ -1,5 +1,17 @@
+import { Badge, Button, Input } from "@cypheria/ui"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
+import {
+  Activity,
+  ArrowUpRight,
+  Bot,
+  Code2,
+  FolderGit2,
+  Globe2,
+  ShieldCheck,
+  TerminalSquare,
+  WalletCards,
+} from "lucide-react"
 
 export const Route = createFileRoute("/")({
   component: HomeRoute,
@@ -7,19 +19,60 @@ export const Route = createFileRoute("/")({
 
 const workspaceCards = [
   {
-    label: "Codex threads",
-    value: "0",
     detail: "Thread list and turn stream placeholder",
+    icon: <Bot size={16} strokeWidth={1.9} />,
+    label: "Codex threads",
+    tone: "muted" as const,
+    value: "0",
   },
   {
     label: "Wallet context",
-    value: "Read-only",
     detail: "No signing policy is enabled by default",
+    icon: <WalletCards size={16} strokeWidth={1.9} />,
+    tone: "success" as const,
+    value: "Read-only",
   },
   {
     label: "Browser sessions",
-    value: "Isolated",
     detail: "Origin-scoped dApp sessions will attach here",
+    icon: <Globe2 size={16} strokeWidth={1.9} />,
+    tone: "default" as const,
+    value: "Isolated",
+  },
+]
+
+const emptyViews = [
+  {
+    description:
+      "Create or open a workspace to attach Codex threads, diffs, terminals, and approvals.",
+    icon: <FolderGit2 size={18} strokeWidth={1.9} />,
+    label: "Workspaces",
+  },
+  {
+    description:
+      "Open dApps in origin-isolated sessions with provider permissions scoped per origin.",
+    icon: <Globe2 size={18} strokeWidth={1.9} />,
+    label: "Browser",
+  },
+  {
+    description: "Connect local, embedded, external, or read-only wallet contexts before signing.",
+    icon: <WalletCards size={18} strokeWidth={1.9} />,
+    label: "Wallets",
+  },
+  {
+    description: "Manual and scheduled tasks will appear here with auditable run history.",
+    icon: <Activity size={18} strokeWidth={1.9} />,
+    label: "Automations",
+  },
+  {
+    description: "Review signing policies, approval defaults, and audit-sensitive boundaries.",
+    icon: <ShieldCheck size={18} strokeWidth={1.9} />,
+    label: "Security",
+  },
+  {
+    description: "Configure runtime homes, Codex integration, browser partitions, and local data.",
+    icon: <Code2 size={18} strokeWidth={1.9} />,
+    label: "Settings",
   },
 ]
 
@@ -49,33 +102,64 @@ function HomeRoute() {
   const healthStatus = appHealthQuery.data?.status ?? (window.cypheria ? "Loading" : "Preview")
 
   return (
-    <section className="workspace">
+    <section className="workspace-screen">
       <header className="workspace-header">
         <div>
           <p className="eyebrow">Desktop shell</p>
           <h1>Workspaces</h1>
+          <p className="workspace-subtitle">
+            A local-first command surface for Codex threads, Web3 browser context, wallet approvals,
+            automations, and security review.
+          </p>
         </div>
-        <button className="primary-action" type="button">
-          New Thread
-        </button>
+        <div className="workspace-actions">
+          <Input aria-label="Search workspaces" className="workspace-search" placeholder="Search" />
+          <Button>
+            New Thread
+            <ArrowUpRight aria-hidden="true" size={14} strokeWidth={2} />
+          </Button>
+        </div>
       </header>
 
       <div className="content-grid">
-        <section className="thread-panel" aria-labelledby="threads-heading">
+        <section aria-labelledby="threads-heading" className="thread-panel">
           <div className="panel-heading">
-            <h2 id="threads-heading">Agent activity</h2>
-            <span className="panel-kicker">Waiting for Codex bridge</span>
+            <div>
+              <h2 id="threads-heading">Agent activity</h2>
+              <span className="panel-kicker">Waiting for Codex bridge</span>
+            </div>
+            <Badge tone="muted">Empty</Badge>
           </div>
-          <div className="empty-state">
+          <div className="activity-empty">
+            <div className="activity-empty-icon">
+              <TerminalSquare aria-hidden="true" size={22} strokeWidth={1.8} />
+            </div>
             <p>No workspace thread is selected.</p>
             <span>Typed IPC and Codex event streaming will populate this panel next.</span>
           </div>
+
+          <ul aria-label="Primary sections" className="empty-grid">
+            {emptyViews.map((view) => (
+              <li className="empty-card" key={view.label}>
+                <div className="empty-card-icon">{view.icon}</div>
+                <div>
+                  <h3>{view.label}</h3>
+                  <p>{view.description}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
         </section>
 
-        <aside className="inspector" aria-labelledby="context-heading">
+        <aside aria-labelledby="context-heading" className="inspector">
           <div className="panel-heading">
-            <h2 id="context-heading">Context</h2>
-            <span className="panel-kicker">Local first</span>
+            <div>
+              <h2 id="context-heading">Context</h2>
+              <span className="panel-kicker">Local first</span>
+            </div>
+            <Badge tone={window.cypheria ? "success" : "warning"}>
+              {window.cypheria ? "Live" : "Preview"}
+            </Badge>
           </div>
           <div className="context-list">
             <div className="context-row">
@@ -102,10 +186,13 @@ function HomeRoute() {
             {workspaceCards.map((card) => (
               <div className="context-row" key={card.label}>
                 <div>
-                  <strong>{card.label}</strong>
+                  <strong>
+                    {card.icon}
+                    {card.label}
+                  </strong>
                   <span>{card.detail}</span>
                 </div>
-                <code>{card.value}</code>
+                <Badge tone={card.tone}>{card.value}</Badge>
               </div>
             ))}
           </div>

@@ -23,7 +23,7 @@ Cypheria V1 聚焦四个产品界面：
 - **Forms**：TanStack Form + Zod
 - **Monorepo**：Turborepo + pnpm workspace
 - **Lint/format**：Biome
-- **UI**：shadcn/ui、Tailwind CSS、lucide-react、Sonner、Monaco Editor、xterm.js
+- **UI**：shadcn-style copied components、Base UI primitives、Cypheria CSS tokens、lucide-react
 - **Codex 集成**：通过 Electron main process 嵌入 Codex App Server
 - **Web3**：viem、Privy、WalletConnect / Reown
 - **Data**：SQLite + Drizzle ORM
@@ -62,6 +62,7 @@ packages/ui
 packages/ipc
 packages/codex-bridge
 packages/wallet-core
+packages/automation-core
 packages/web3-browser
 packages/policy-engine
 packages/runtime
@@ -116,12 +117,9 @@ pnpm format
 
 ## 当前状态
 
-仓库目前包含基础 monorepo 设置、占位 package 边界、Electron main process bootstrap，以及一个最小 TanStack Start renderer shell，包含 routing、Codex Desktop 风格 frame、Jotai 和 TanStack Query providers。接下来的实现里程碑包括：
+仓库目前包含基础 monorepo 设置、typed IPC contracts、runtime home handling、Electron main process bootstrap、Codex App Server process supervision、wallet/policy/Web3 browser domain baselines、本地 SQLite audit 与 automation persistence，以及一个接近 Codex Desktop 风格的 TanStack Start shell。
 
-- 定义 typed IPC contracts。
-- 实现 Codex App Server bridge。
-- 构建第一版 wallet、policy 和 Web3 browser service skeleton。
-- 添加第一版基于 shadcn 的 UI shell。
+Renderer 第一屏包含 Workspaces、Browser、Wallets、Automations、Security 和 Settings 侧边栏导航。这些目前都是 empty-state surfaces，后续会逐步补充更深层的工作流。
 
 ## License
 
