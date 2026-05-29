@@ -270,6 +270,7 @@ approval_requests
 - 保持 TypeScript strict。
 - 在 runtime boundaries 使用 Zod：IPC、policy schemas、wallet inputs、automation definitions 和 generated-protocol adapters。
 - 保持 package boundaries 明确。
+- 保持 domain/data packages 不依赖 `@cypheria/runtime`；runtime 通过显式 service injection 组合它们，而不是让它们反向 import runtime。
 - 架构、行为、命令、package boundary 或 runtime path 变化时，英文和中文文档同步更新。
 
 ## V1 暂不采用

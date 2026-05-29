@@ -57,7 +57,7 @@
   - 保留：现有 home/path resolution exports。
   - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/runtime test`。
 
-- [ ] 将 Cypheria-owned service orchestration 放到 runtime 后面。
+- [x] 将 Cypheria-owned service orchestration 放到 runtime 后面。
   - 验收：runtime 可以连接 database、audit、automation、policy、wallet domain 和 browser domain service boundaries，且不导入 desktop renderer code。
   - 包括：为 `runtime.*`、`wallet.*`、`chain.*`、`policy.*`、`browser.*`、`dapp.*`、`automation.*`、`audit.*` 和 `settings.*` 定义清晰 method namespaces。
   - 验证：`pnpm run ci`、`pnpm build`、runtime 与受影响 package tests。

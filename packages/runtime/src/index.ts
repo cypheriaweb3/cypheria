@@ -16,6 +16,7 @@ export type RuntimeHomeOptions = {
 export type CypheriaRuntimeOptions = RuntimeHomeOptions & {
   readonly ensureDirectories?: boolean
   readonly requestHandlers?: readonly RuntimeRequestHandlerRegistration[]
+  readonly services?: readonly RuntimeService[]
 }
 
 export type CypheriaRuntimePaths = {
@@ -100,6 +101,7 @@ export type CypheriaRuntimeHealth = {
 export type RuntimeRequestContext = {
   readonly method: CypheriaRuntimeMethod
   readonly runtime: CypheriaRuntime
+  readonly service?: RuntimeService
 }
 
 export type RuntimeRequestHandler = (
@@ -112,11 +114,31 @@ export type RuntimeRequestHandlerRegistration = {
   readonly method: CypheriaRuntimeMethod
 }
 
+export type RuntimeServiceContext = {
+  readonly paths: CypheriaRuntimePaths
+  readonly runtime: CypheriaRuntime
+}
+
+export type RuntimeService = {
+  readonly handlers?: readonly RuntimeRequestHandlerRegistration[]
+  readonly name: string
+  readonly namespace: RuntimeMethodNamespace
+  readonly start?: (context: RuntimeServiceContext) => Promise<void> | void
+  readonly stop?: (context: RuntimeServiceContext) => Promise<void> | void
+}
+
+export type RuntimeServiceInfo = {
+  readonly methods: readonly CypheriaRuntimeMethod[]
+  readonly name: string
+  readonly namespace: RuntimeMethodNamespace
+}
+
 export type RuntimeErrorCode =
   | "HANDLER_ALREADY_REGISTERED"
   | "INVALID_METHOD"
   | "LIFECYCLE_ERROR"
   | "METHOD_NOT_FOUND"
+  | "SERVICE_ALREADY_REGISTERED"
   | "REQUEST_FAILED"
 
 export type CypheriaRuntimeEvent =
@@ -138,6 +160,12 @@ export type CypheriaRuntimeEvent =
       readonly timestamp: string
       readonly type: "runtime.error"
     }
+  | {
+      readonly name: string
+      readonly namespace: RuntimeMethodNamespace
+      readonly timestamp: string
+      readonly type: "runtime.service.started" | "runtime.service.stopped"
+    }
 
 export class CypheriaRuntimeError extends Error {
   readonly code: RuntimeErrorCode
@@ -152,6 +180,11 @@ export class CypheriaRuntimeError extends Error {
 type RuntimeEventSubscriber = {
   readonly close: () => void
   readonly enqueue: (event: CypheriaRuntimeEvent) => void
+}
+
+type RegisteredRuntimeHandler = {
+  readonly handler: RuntimeRequestHandler
+  readonly service?: RuntimeService
 }
 
 const getConfiguredHome = (env: RuntimeHomeEnv): string | undefined => {
@@ -245,8 +278,9 @@ export class CypheriaRuntime {
   readonly paths: CypheriaRuntimePaths
 
   #ensureDirectories: boolean
-  #handlers = new Map<CypheriaRuntimeMethod, RuntimeRequestHandler>()
+  #handlers = new Map<CypheriaRuntimeMethod, RegisteredRuntimeHandler>()
   #lifecycleState: CypheriaRuntimeLifecycleState = "stopped"
+  #services = new Map<RuntimeMethodNamespace, RuntimeService>()
   #startPromise: Promise<void> | undefined
   #subscribers = new Set<RuntimeEventSubscriber>()
 
@@ -259,6 +293,11 @@ export class CypheriaRuntime {
       checkedAt: nowIso(),
       status: "ok",
     }))
+    this.registerHandler("runtime.services", () => this.listServices())
+
+    for (const service of options.services ?? []) {
+      this.registerService(service)
+    }
 
     for (const registration of options.requestHandlers ?? []) {
       this.registerHandler(registration.method, registration.handler)
@@ -274,8 +313,64 @@ export class CypheriaRuntime {
   }
 
   registerHandler(method: CypheriaRuntimeMethod, handler: RuntimeRequestHandler): void {
-    assertRuntimeMethod(method)
+    this.#registerHandler(method, handler)
+  }
 
+  unregisterHandler(method: CypheriaRuntimeMethod): boolean {
+    assertRuntimeMethod(method)
+    return this.#handlers.delete(method)
+  }
+
+  registerService(service: RuntimeService): void {
+    if (this.#services.has(service.namespace)) {
+      throw new CypheriaRuntimeError(
+        "SERVICE_ALREADY_REGISTERED",
+        `Runtime service is already registered for namespace: ${service.namespace}`
+      )
+    }
+
+    this.#services.set(service.namespace, service)
+
+    for (const registration of service.handlers ?? []) {
+      const namespace = getRuntimeMethodNamespace(registration.method)
+      if (namespace !== service.namespace) {
+        throw new CypheriaRuntimeError(
+          "INVALID_METHOD",
+          `Service ${service.name} cannot register method outside namespace ${service.namespace}: ${registration.method}`
+        )
+      }
+
+      this.#registerHandler(registration.method, registration.handler, service)
+    }
+  }
+
+  unregisterService(namespace: RuntimeMethodNamespace): boolean {
+    const service = this.#services.get(namespace)
+    if (!service) {
+      return false
+    }
+
+    for (const registration of service.handlers ?? []) {
+      this.#handlers.delete(registration.method)
+    }
+
+    return this.#services.delete(namespace)
+  }
+
+  listServices(): RuntimeServiceInfo[] {
+    return [...this.#services.values()].map((service) => ({
+      methods: (service.handlers ?? []).map((registration) => registration.method),
+      name: service.name,
+      namespace: service.namespace,
+    }))
+  }
+
+  #registerHandler(
+    method: CypheriaRuntimeMethod,
+    handler: RuntimeRequestHandler,
+    service?: RuntimeService
+  ): void {
+    assertRuntimeMethod(method)
     if (this.#handlers.has(method)) {
       throw new CypheriaRuntimeError(
         "HANDLER_ALREADY_REGISTERED",
@@ -283,12 +378,7 @@ export class CypheriaRuntime {
       )
     }
 
-    this.#handlers.set(method, handler)
-  }
-
-  unregisterHandler(method: CypheriaRuntimeMethod): boolean {
-    assertRuntimeMethod(method)
-    return this.#handlers.delete(method)
+    this.#handlers.set(method, { handler, service })
   }
 
   async start(): Promise<void> {
@@ -315,8 +405,17 @@ export class CypheriaRuntime {
     }
 
     this.#setLifecycleState("stopping")
-    this.#setLifecycleState("stopped")
-    this.#closeSubscribers()
+    try {
+      await this.#stopServices()
+      this.#setLifecycleState("stopped")
+    } catch (error) {
+      this.#setLifecycleState("errored")
+      throw new CypheriaRuntimeError("LIFECYCLE_ERROR", "Failed to stop Cypheria runtime", {
+        cause: error,
+      })
+    } finally {
+      this.#closeSubscribers()
+    }
   }
 
   async request(method: CypheriaRuntimeMethod, params?: unknown): Promise<unknown> {
@@ -329,8 +428,8 @@ export class CypheriaRuntime {
       )
     }
 
-    const handler = this.#handlers.get(method)
-    if (!handler) {
+    const registration = this.#handlers.get(method)
+    if (!registration) {
       throw new CypheriaRuntimeError("METHOD_NOT_FOUND", `Runtime method not found: ${method}`)
     }
 
@@ -341,7 +440,11 @@ export class CypheriaRuntime {
     })
 
     try {
-      return await handler(params, { method, runtime: this })
+      return await registration.handler(params, {
+        method,
+        runtime: this,
+        service: registration.service,
+      })
     } catch (error) {
       const runtimeError =
         error instanceof CypheriaRuntimeError
@@ -408,6 +511,7 @@ export class CypheriaRuntime {
       if (this.#ensureDirectories) {
         await ensureRuntimeDirectories(this.paths)
       }
+      await this.#startServices()
       this.#setLifecycleState("ready")
     } catch (error) {
       this.#setLifecycleState("errored")
@@ -437,5 +541,30 @@ export class CypheriaRuntime {
       subscriber.close()
     }
     this.#subscribers.clear()
+  }
+
+  async #startServices(): Promise<void> {
+    for (const service of this.#services.values()) {
+      await service.start?.({ paths: this.paths, runtime: this })
+      this.#publish({
+        name: service.name,
+        namespace: service.namespace,
+        timestamp: nowIso(),
+        type: "runtime.service.started",
+      })
+    }
+  }
+
+  async #stopServices(): Promise<void> {
+    const services = [...this.#services.values()].reverse()
+    for (const service of services) {
+      await service.stop?.({ paths: this.paths, runtime: this })
+      this.#publish({
+        name: service.name,
+        namespace: service.namespace,
+        timestamp: nowIso(),
+        type: "runtime.service.stopped",
+      })
+    }
   }
 }

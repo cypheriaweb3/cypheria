@@ -90,6 +90,81 @@ describe("CypheriaRuntime", () => {
     })
   })
 
+  it("orchestrates runtime services and exposes service metadata", async () => {
+    const homeDir = await makeTempHome()
+    const lifecycle: string[] = []
+    const runtime = new CypheriaRuntime({
+      ensureDirectories: false,
+      homeDir,
+      services: [
+        {
+          handlers: [
+            {
+              handler: (_params, context) => ({
+                namespace: context.service?.namespace,
+                path: context.runtime.paths.cypheriaHome,
+              }),
+              method: "wallet.context",
+            },
+          ],
+          name: "wallet",
+          namespace: "wallet",
+          start: () => {
+            lifecycle.push("wallet.start")
+          },
+          stop: () => {
+            lifecycle.push("wallet.stop")
+          },
+        },
+      ],
+    })
+
+    await runtime.start()
+
+    await expect(runtime.request("runtime.services")).resolves.toEqual([
+      {
+        methods: ["wallet.context"],
+        name: "wallet",
+        namespace: "wallet",
+      },
+    ])
+    await expect(runtime.request("wallet.context")).resolves.toEqual({
+      namespace: "wallet",
+      path: runtime.paths.cypheriaHome,
+    })
+
+    await runtime.stop()
+
+    expect(lifecycle).toEqual(["wallet.start", "wallet.stop"])
+  })
+
+  it("rejects duplicate services and cross-namespace service handlers", () => {
+    expect(
+      () =>
+        new CypheriaRuntime({
+          ensureDirectories: false,
+          services: [
+            { name: "wallet-a", namespace: "wallet" },
+            { name: "wallet-b", namespace: "wallet" },
+          ],
+        })
+    ).toThrow(CypheriaRuntimeError)
+
+    expect(
+      () =>
+        new CypheriaRuntime({
+          ensureDirectories: false,
+          services: [
+            {
+              handlers: [{ handler: () => undefined, method: "policy.list" }],
+              name: "wallet",
+              namespace: "wallet",
+            },
+          ],
+        })
+    ).toThrow(CypheriaRuntimeError)
+  })
+
   it("emits lifecycle and request events", async () => {
     const homeDir = await makeTempHome()
     const runtime = new CypheriaRuntime({ homeDir })

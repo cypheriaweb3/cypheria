@@ -120,6 +120,7 @@ Generated protocol files should be committed so CI and contributors can typechec
 - TypeScript should remain strict.
 - Prefer Zod for runtime validation at boundaries, especially IPC, policy schemas, wallet inputs, automation definitions, and generated-protocol adapters.
 - Keep package boundaries explicit and avoid reaching into another package's private files.
+- Domain/data packages should not depend on `@cypheria/runtime`; runtime composes them through explicit service injection.
 
 ## Runtime Home Directories
 

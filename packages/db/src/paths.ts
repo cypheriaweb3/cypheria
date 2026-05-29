@@ -1,16 +1,19 @@
-import { join } from "node:path"
-
-import {
-  buildRuntimePaths,
-  type CypheriaRuntimePaths,
-  type RuntimeHomeOptions,
-} from "@cypheria/runtime"
+import { homedir } from "node:os"
+import { join, resolve } from "node:path"
 
 export const DEFAULT_DATABASE_FILENAME = "cypheria.sqlite"
 export const DEFAULT_MIGRATIONS_DIRNAME = "migrations"
+export const DEFAULT_CYPHERIA_HOME_BASENAME = ".cypheria"
+export const CYPHERIA_HOME_ENV = "CYPHERIA_HOME"
 
-export type DatabasePathOptions = RuntimeHomeOptions & {
+export type DatabasePathEnv = Record<string, string | undefined>
+
+export type DatabasePathOptions = {
+  readonly cypheriaHome?: string
   readonly databaseFilename?: string
+  readonly dbDir?: string
+  readonly env?: DatabasePathEnv
+  readonly homeDir?: string
   readonly migrationsDirname?: string
 }
 
@@ -20,27 +23,32 @@ export type DatabasePaths = {
   readonly migrationsDir: string
 }
 
-const isRuntimePaths = (value: unknown): value is CypheriaRuntimePaths =>
-  typeof value === "object" &&
-  value !== null &&
-  "cypheriaHome" in value &&
-  "dbDir" in value &&
-  "codexHome" in value
+const getConfiguredHome = (env: DatabasePathEnv): string | undefined => {
+  const value = env[CYPHERIA_HOME_ENV]?.trim()
+  return value ? value : undefined
+}
 
-export const buildDatabasePaths = (
-  options: DatabasePathOptions | CypheriaRuntimePaths = {}
-): DatabasePaths => {
-  const runtimePaths = isRuntimePaths(options) ? options : buildRuntimePaths(options)
-  const databaseFilename = isRuntimePaths(options)
-    ? DEFAULT_DATABASE_FILENAME
-    : (options.databaseFilename ?? DEFAULT_DATABASE_FILENAME)
-  const migrationsDirname = isRuntimePaths(options)
-    ? DEFAULT_MIGRATIONS_DIRNAME
-    : (options.migrationsDirname ?? DEFAULT_MIGRATIONS_DIRNAME)
+const resolveDatabaseHome = (options: DatabasePathOptions): string => {
+  if (options.cypheriaHome?.trim()) {
+    return resolve(options.cypheriaHome)
+  }
+
+  const configuredHome = getConfiguredHome(options.env ?? process.env)
+  if (configuredHome) {
+    return resolve(configuredHome)
+  }
+
+  return resolve(options.homeDir ?? homedir(), DEFAULT_CYPHERIA_HOME_BASENAME)
+}
+
+export const buildDatabasePaths = (options: DatabasePathOptions = {}): DatabasePaths => {
+  const dbDir = options.dbDir ? resolve(options.dbDir) : resolve(resolveDatabaseHome(options), "db")
+  const databaseFilename = options.databaseFilename ?? DEFAULT_DATABASE_FILENAME
+  const migrationsDirname = options.migrationsDirname ?? DEFAULT_MIGRATIONS_DIRNAME
 
   return {
-    databaseFile: join(runtimePaths.dbDir, databaseFilename),
-    dbDir: runtimePaths.dbDir,
-    migrationsDir: join(runtimePaths.dbDir, migrationsDirname),
+    databaseFile: join(dbDir, databaseFilename),
+    dbDir,
+    migrationsDir: join(dbDir, migrationsDirname),
   }
 }

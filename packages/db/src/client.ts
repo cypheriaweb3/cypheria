@@ -1,4 +1,3 @@
-import type { CypheriaRuntimePaths } from "@cypheria/runtime"
 import BetterSqliteDatabase from "better-sqlite3"
 import { type BetterSQLite3Database, drizzle } from "drizzle-orm/better-sqlite3"
 
@@ -7,7 +6,7 @@ import * as schema from "./schema.js"
 
 export type CypheriaDatabase = BetterSQLite3Database<typeof schema>
 
-export type OpenDatabaseOptions = (DatabasePathOptions | CypheriaRuntimePaths) & {
+export type OpenDatabaseOptions = DatabasePathOptions & {
   readonly readonly?: boolean
 }
 

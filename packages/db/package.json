@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@cypheria/automation-core": "workspace:*",
-    "@cypheria/runtime": "workspace:*",
     "better-sqlite3": "^12.10.0",
     "drizzle-orm": "^0.45.2"
   },

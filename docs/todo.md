@@ -57,7 +57,7 @@ Status legend:
   - Keep: existing home/path resolution exports.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/runtime test`.
 
-- [ ] Move Cypheria-owned service orchestration behind runtime.
+- [x] Move Cypheria-owned service orchestration behind runtime.
   - Acceptance: runtime can wire database, audit, automation, policy, wallet domain, and browser domain service boundaries without importing desktop renderer code.
   - Include: clear method namespaces for `runtime.*`, `wallet.*`, `chain.*`, `policy.*`, `browser.*`, `dapp.*`, `automation.*`, `audit.*`, and `settings.*`.
   - Verification: `pnpm run ci`, `pnpm build`, runtime and affected package tests.

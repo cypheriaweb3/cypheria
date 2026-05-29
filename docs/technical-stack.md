@@ -270,6 +270,7 @@ approval_requests
 - Keep TypeScript strict.
 - Use Zod at runtime boundaries: IPC, policy schemas, wallet inputs, automation definitions, and generated-protocol adapters.
 - Keep package boundaries explicit.
+- Keep domain/data packages independent from `@cypheria/runtime`; runtime composes them through explicit service injection instead of reverse imports.
 - Update English and Chinese docs together for architecture, behavior, command, package boundary, or runtime-path changes.
 
 ## Not In V1
