@@ -2,6 +2,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 import type { CodexNormalizedEvent } from "@cypheria/codex-bridge"
+import { CypheriaRuntime } from "@cypheria/runtime"
 import { describe, expect, it } from "vitest"
 
 import { createCodexProcessSupervisor } from "./codex.js"
@@ -26,6 +27,7 @@ const createRuntimeContext = (): DesktopRuntimeContext => {
       logsDir: join(cypheriaHome, "logs"),
       vaultDir: join(cypheriaHome, "vault"),
     },
+    runtime: new CypheriaRuntime({ ensureDirectories: false, homeDir: cypheriaHome }),
   }
 }
 

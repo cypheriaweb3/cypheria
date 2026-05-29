@@ -1,25 +1,30 @@
 import {
   buildCodexEnvironment,
-  buildRuntimePaths,
+  CypheriaRuntime,
+  type CypheriaRuntimeOptions,
   type CypheriaRuntimePaths,
-  ensureRuntimeDirectories,
   type RuntimeHomeEnv,
-  type RuntimeHomeOptions,
 } from "@cypheria/runtime"
 
 export type DesktopRuntimeContext = {
   readonly paths: CypheriaRuntimePaths
   readonly codexEnv: RuntimeHomeEnv
+  readonly runtime: CypheriaRuntime
 }
 
 export const initializeDesktopRuntime = async (
-  options: RuntimeHomeOptions = {}
+  options: CypheriaRuntimeOptions = {}
 ): Promise<DesktopRuntimeContext> => {
-  const paths = buildRuntimePaths(options)
-  await ensureRuntimeDirectories(paths)
+  const runtime = new CypheriaRuntime(options)
+  await runtime.start()
 
   return {
-    paths,
-    codexEnv: buildCodexEnvironment(paths),
+    paths: runtime.paths,
+    codexEnv: buildCodexEnvironment(runtime.paths),
+    runtime,
   }
+}
+
+export const shutdownDesktopRuntime = async (context: DesktopRuntimeContext): Promise<void> => {
+  await context.runtime.stop()
 }

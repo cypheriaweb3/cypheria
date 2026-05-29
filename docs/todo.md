@@ -62,6 +62,11 @@ Status legend:
   - Include: clear method namespaces for `runtime.*`, `wallet.*`, `chain.*`, `policy.*`, `browser.*`, `dapp.*`, `automation.*`, `audit.*`, and `settings.*`.
   - Verification: `pnpm run ci`, `pnpm build`, runtime and affected package tests.
 
+- [x] Adapt existing desktop bootstrap to the runtime host.
+  - Acceptance: Electron main initializes `CypheriaRuntime`, reads runtime info through the runtime request path, and shuts the runtime down during app quit.
+  - Include: desktop bootstrap tests and explicit database path wiring that does not reintroduce a db-to-runtime dependency.
+  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/desktop test`.
+
 ## SDK
 
 - [ ] Add `packages/sdk`.

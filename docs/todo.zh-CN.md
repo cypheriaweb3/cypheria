@@ -62,6 +62,11 @@
   - 包括：为 `runtime.*`、`wallet.*`、`chain.*`、`policy.*`、`browser.*`、`dapp.*`、`automation.*`、`audit.*` 和 `settings.*` 定义清晰 method namespaces。
   - 验证：`pnpm run ci`、`pnpm build`、runtime 与受影响 package tests。
 
+- [x] 将现有 desktop bootstrap 适配到 runtime host。
+  - 验收：Electron main 初始化 `CypheriaRuntime`，通过 runtime request path 读取 runtime info，并在 app quit 时关闭 runtime。
+  - 包括：desktop bootstrap tests，以及不重新引入 db-to-runtime dependency 的显式 database path wiring。
+  - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/desktop test`。
+
 ## SDK
 
 - [ ] 添加 `packages/sdk`。

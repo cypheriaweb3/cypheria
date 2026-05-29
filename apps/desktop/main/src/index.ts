@@ -12,9 +12,14 @@ import {
 } from "@cypheria/ipc"
 import { app, BrowserWindow } from "electron"
 import { registerIpcRoute } from "./ipc.js"
-import { type DesktopRuntimeContext, initializeDesktopRuntime } from "./runtime.js"
+import {
+  type DesktopRuntimeContext,
+  initializeDesktopRuntime,
+  shutdownDesktopRuntime,
+} from "./runtime.js"
 
 let mainWindow: BrowserWindow | null = null
+let desktopRuntimeContext: DesktopRuntimeContext | null = null
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const preloadPath = join(currentDir, "../preload/index.cjs")
@@ -94,19 +99,16 @@ const getRendererUrl = (): string | undefined => {
   return rendererUrl ? rendererUrl : undefined
 }
 
-const toRuntimeInfo = (context: DesktopRuntimeContext): RuntimeInfo => ({
-  codexHome: context.paths.codexHome,
-  cypheriaHome: context.paths.cypheriaHome,
-  directories: {
-    automation: context.paths.automationDir,
-    browser: context.paths.browserDir,
-    cache: context.paths.cacheDir,
-    config: context.paths.configDir,
-    db: context.paths.dbDir,
-    logs: context.paths.logsDir,
-    vault: context.paths.vaultDir,
-  },
-})
+const toRuntimeInfo = async (context: DesktopRuntimeContext): Promise<RuntimeInfo> => {
+  const info = await context.runtime.request("runtime.info")
+  const runtimeInfo = info as RuntimeInfo
+
+  return {
+    codexHome: runtimeInfo.codexHome,
+    cypheriaHome: runtimeInfo.cypheriaHome,
+    directories: runtimeInfo.directories,
+  }
+}
 
 const registerIpcHandlers = (context: DesktopRuntimeContext): void => {
   const appMetadata: AppMetadata = {
@@ -180,8 +182,8 @@ const registerLifecycleHandlers = (): void => {
 
   app.on("activate", async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      const context = await initializeDesktopRuntime()
-      mainWindow = await createMainWindow(context)
+      desktopRuntimeContext ??= await initializeDesktopRuntime()
+      mainWindow = await createMainWindow(desktopRuntimeContext)
     }
   })
 
@@ -189,6 +191,14 @@ const registerLifecycleHandlers = (): void => {
     if (process.platform !== "darwin") {
       app.quit()
     }
+  })
+
+  app.on("before-quit", () => {
+    if (!desktopRuntimeContext) {
+      return
+    }
+
+    void shutdownDesktopRuntime(desktopRuntimeContext).catch(logFatalError)
   })
 }
 
@@ -201,9 +211,9 @@ const startDesktopApp = async (): Promise<void> => {
   registerLifecycleHandlers()
 
   await app.whenReady()
-  const context = await initializeDesktopRuntime()
-  registerIpcHandlers(context)
-  mainWindow = await createMainWindow(context)
+  desktopRuntimeContext = await initializeDesktopRuntime()
+  registerIpcHandlers(desktopRuntimeContext)
+  mainWindow = await createMainWindow(desktopRuntimeContext)
 }
 
 process.on("uncaughtException", logFatalError)

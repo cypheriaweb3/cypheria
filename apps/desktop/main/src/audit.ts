@@ -16,7 +16,7 @@ export type DesktopAuditLogService = {
 export const openDesktopAuditLogService = (
   context: DesktopRuntimeContext
 ): DesktopAuditLogService => {
-  const database = openCypheriaDatabase(context.paths)
+  const database = openCypheriaDatabase({ dbDir: context.paths.dbDir })
   ensureDatabaseSchema(database.sqlite)
 
   return {
