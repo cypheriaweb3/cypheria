@@ -18,7 +18,8 @@
       "!.vite",
       "!coverage",
       "!pnpm-lock.yaml",
-      "!apps/desktop/renderer/src/routeTree.gen.ts"
+      "!apps/desktop/renderer/src/routeTree.gen.ts",
+      "!packages/codex-bridge/src/generated"
     ]
   },
   "formatter": {

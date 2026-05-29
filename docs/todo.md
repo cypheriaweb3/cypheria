@@ -96,7 +96,7 @@ Status legend:
 
 ## Desktop Codex App Server Bridge
 
-- [ ] Regenerate Codex app-server TypeScript into `@cypheria/codex-bridge`.
+- [x] Regenerate Codex app-server TypeScript into `@cypheria/codex-bridge`.
   - Acceptance: generated files live in `packages/codex-bridge/src/generated` and are committed.
   - Command: `codex app-server generate-ts --out packages/codex-bridge/src/generated`.
   - Include: package script to regenerate the files during explicit Codex upgrades.

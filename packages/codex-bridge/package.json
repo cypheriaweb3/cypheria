@@ -9,6 +9,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "pnpm typecheck",
+    "generate:codex-types": "codex app-server generate-ts --out src/generated",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json"
   },
