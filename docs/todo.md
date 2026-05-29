@@ -103,7 +103,7 @@ Status legend:
   - Must not create: `@cypheria/codex-protocol`.
   - Verification: `pnpm --filter @cypheria/codex-bridge check`.
 
-- [ ] Refactor `@cypheria/codex-bridge` to use generated app-server types.
+- [x] Refactor `@cypheria/codex-bridge` to use generated app-server types.
   - Acceptance: bridge uses generated request, response, notification, and server request types instead of hand-written Codex app-server protocol types.
   - Include: WebSocket transport, initialize/initialized handshake, request/response correlation, notification stream, server request routing, disconnect handling, and overload retry handling.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/codex-bridge test`.

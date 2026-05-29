@@ -103,7 +103,7 @@
   - 不得创建：`@cypheria/codex-protocol`。
   - 验证：`pnpm --filter @cypheria/codex-bridge check`。
 
-- [ ] 重构 `@cypheria/codex-bridge` 使用 generated app-server types。
+- [x] 重构 `@cypheria/codex-bridge` 使用 generated app-server types。
   - 验收：bridge 使用 generated request、response、notification 和 server request types，不再手写 Codex app-server protocol types。
   - 包括：WebSocket transport、initialize/initialized handshake、request/response correlation、notification stream、server request routing、disconnect handling 和 overload retry handling。
   - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/codex-bridge test`。
