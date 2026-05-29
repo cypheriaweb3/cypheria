@@ -9,6 +9,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "pnpm typecheck",
+    "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.7"
   }
 }

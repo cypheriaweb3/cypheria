@@ -51,7 +51,7 @@
 
 ## Runtime
 
-- [ ] 将 `@cypheria/runtime` 扩展为 Cypheria runtime host。
+- [x] 将 `@cypheria/runtime` 扩展为 Cypheria runtime host。
   - 验收：package 导出带 `start()`、`stop()`、`request()` 和 `events()` 方法的 `CypheriaRuntime`。
   - 包括：service registry、lifecycle state、runtime info handler、runtime event envelope 和 clean shutdown。
   - 保留：现有 home/path resolution exports。

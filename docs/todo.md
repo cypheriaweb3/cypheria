@@ -51,7 +51,7 @@ Status legend:
 
 ## Runtime
 
-- [ ] Expand `@cypheria/runtime` into the Cypheria runtime host.
+- [x] Expand `@cypheria/runtime` into the Cypheria runtime host.
   - Acceptance: package exports `CypheriaRuntime` with `start()`, `stop()`, `request()`, and `events()` methods.
   - Include: service registry, lifecycle state, runtime info handler, runtime event envelope, and clean shutdown.
   - Keep: existing home/path resolution exports.

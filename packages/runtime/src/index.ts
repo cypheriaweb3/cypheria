@@ -13,6 +13,11 @@ export type RuntimeHomeOptions = {
   readonly homeDir?: string
 }
 
+export type CypheriaRuntimeOptions = RuntimeHomeOptions & {
+  readonly ensureDirectories?: boolean
+  readonly requestHandlers?: readonly RuntimeRequestHandlerRegistration[]
+}
+
 export type CypheriaRuntimePaths = {
   readonly cypheriaHome: string
   readonly codexHome: string
@@ -47,6 +52,107 @@ export const RUNTIME_DIRECTORY_NAMES = [
   "automationDir",
   "configDir",
 ] as const satisfies readonly RuntimeDirectoryName[]
+
+export const RUNTIME_METHOD_NAMESPACES = [
+  "runtime",
+  "wallet",
+  "chain",
+  "policy",
+  "browser",
+  "dapp",
+  "automation",
+  "audit",
+  "settings",
+] as const
+
+export type RuntimeMethodNamespace = (typeof RUNTIME_METHOD_NAMESPACES)[number]
+export type CypheriaRuntimeMethod = `${RuntimeMethodNamespace}.${string}`
+
+export type CypheriaRuntimeLifecycleState =
+  | "errored"
+  | "ready"
+  | "starting"
+  | "stopped"
+  | "stopping"
+
+export type CypheriaRuntimeDirectories = {
+  readonly automation: string
+  readonly browser: string
+  readonly cache: string
+  readonly config: string
+  readonly db: string
+  readonly logs: string
+  readonly vault: string
+}
+
+export type CypheriaRuntimeInfo = {
+  readonly codexHome: string
+  readonly cypheriaHome: string
+  readonly directories: CypheriaRuntimeDirectories
+  readonly lifecycleState: CypheriaRuntimeLifecycleState
+}
+
+export type CypheriaRuntimeHealth = {
+  readonly checkedAt: string
+  readonly status: "ok"
+}
+
+export type RuntimeRequestContext = {
+  readonly method: CypheriaRuntimeMethod
+  readonly runtime: CypheriaRuntime
+}
+
+export type RuntimeRequestHandler = (
+  params: unknown,
+  context: RuntimeRequestContext
+) => Promise<unknown> | unknown
+
+export type RuntimeRequestHandlerRegistration = {
+  readonly handler: RuntimeRequestHandler
+  readonly method: CypheriaRuntimeMethod
+}
+
+export type RuntimeErrorCode =
+  | "HANDLER_ALREADY_REGISTERED"
+  | "INVALID_METHOD"
+  | "LIFECYCLE_ERROR"
+  | "METHOD_NOT_FOUND"
+  | "REQUEST_FAILED"
+
+export type CypheriaRuntimeEvent =
+  | {
+      readonly state: CypheriaRuntimeLifecycleState
+      readonly timestamp: string
+      readonly type: "runtime.lifecycle"
+    }
+  | {
+      readonly method: CypheriaRuntimeMethod
+      readonly timestamp: string
+      readonly type: "runtime.request"
+    }
+  | {
+      readonly error: {
+        readonly code: RuntimeErrorCode
+        readonly message: string
+      }
+      readonly timestamp: string
+      readonly type: "runtime.error"
+    }
+
+export class CypheriaRuntimeError extends Error {
+  readonly code: RuntimeErrorCode
+
+  constructor(code: RuntimeErrorCode, message: string, options?: ErrorOptions) {
+    super(message, options)
+    this.name = "CypheriaRuntimeError"
+    this.code = code
+  }
+}
+
+type RuntimeEventSubscriber = {
+  readonly close: () => void
+  readonly enqueue: (event: CypheriaRuntimeEvent) => void
+}
 
 const getConfiguredHome = (env: RuntimeHomeEnv): string | undefined => {
   const value = env[CYPHERIA_HOME_ENV]?.trim()
@@ -98,4 +204,238 @@ export const ensureRuntimeDirectories = async (paths: CypheriaRuntimePaths): Pro
   await Promise.all(
     listRuntimeDirectories(paths).map(([, directory]) => mkdir(directory, { recursive: true }))
   )
+}
+
+const nowIso = (): string => new Date().toISOString()
+
+const getRuntimeMethodNamespace = (method: string): string | undefined => method.split(".")[0]
+
+const isRuntimeMethod = (method: string): method is CypheriaRuntimeMethod =>
+  method.includes(".") &&
+  RUNTIME_METHOD_NAMESPACES.includes(getRuntimeMethodNamespace(method) as RuntimeMethodNamespace)
+
+function assertRuntimeMethod(method: string): asserts method is CypheriaRuntimeMethod {
+  if (!isRuntimeMethod(method)) {
+    throw new CypheriaRuntimeError(
+      "INVALID_METHOD",
+      `Runtime method must use a known namespace: ${method}`
+    )
+  }
+}
+
+const toRuntimeInfo = (
+  paths: CypheriaRuntimePaths,
+  lifecycleState: CypheriaRuntimeLifecycleState
+): CypheriaRuntimeInfo => ({
+  codexHome: paths.codexHome,
+  cypheriaHome: paths.cypheriaHome,
+  directories: {
+    automation: paths.automationDir,
+    browser: paths.browserDir,
+    cache: paths.cacheDir,
+    config: paths.configDir,
+    db: paths.dbDir,
+    logs: paths.logsDir,
+    vault: paths.vaultDir,
+  },
+  lifecycleState,
+})
+
+export class CypheriaRuntime {
+  readonly paths: CypheriaRuntimePaths
+
+  #ensureDirectories: boolean
+  #handlers = new Map<CypheriaRuntimeMethod, RuntimeRequestHandler>()
+  #lifecycleState: CypheriaRuntimeLifecycleState = "stopped"
+  #startPromise: Promise<void> | undefined
+  #subscribers = new Set<RuntimeEventSubscriber>()
+
+  constructor(options: CypheriaRuntimeOptions = {}) {
+    this.paths = buildRuntimePaths(options)
+    this.#ensureDirectories = options.ensureDirectories ?? true
+
+    this.registerHandler("runtime.info", () => this.getInfo())
+    this.registerHandler("runtime.health", () => ({
+      checkedAt: nowIso(),
+      status: "ok",
+    }))
+
+    for (const registration of options.requestHandlers ?? []) {
+      this.registerHandler(registration.method, registration.handler)
+    }
+  }
+
+  get lifecycleState(): CypheriaRuntimeLifecycleState {
+    return this.#lifecycleState
+  }
+
+  getInfo(): CypheriaRuntimeInfo {
+    return toRuntimeInfo(this.paths, this.#lifecycleState)
+  }
+
+  registerHandler(method: CypheriaRuntimeMethod, handler: RuntimeRequestHandler): void {
+    assertRuntimeMethod(method)
+
+    if (this.#handlers.has(method)) {
+      throw new CypheriaRuntimeError(
+        "HANDLER_ALREADY_REGISTERED",
+        `Runtime handler is already registered: ${method}`
+      )
+    }
+
+    this.#handlers.set(method, handler)
+  }
+
+  unregisterHandler(method: CypheriaRuntimeMethod): boolean {
+    assertRuntimeMethod(method)
+    return this.#handlers.delete(method)
+  }
+
+  async start(): Promise<void> {
+    if (this.#lifecycleState === "ready") {
+      return
+    }
+
+    if (this.#startPromise) {
+      return this.#startPromise
+    }
+
+    this.#startPromise = this.#start()
+
+    try {
+      await this.#startPromise
+    } finally {
+      this.#startPromise = undefined
+    }
+  }
+
+  async stop(): Promise<void> {
+    if (this.#lifecycleState === "stopped") {
+      return
+    }
+
+    this.#setLifecycleState("stopping")
+    this.#setLifecycleState("stopped")
+    this.#closeSubscribers()
+  }
+
+  async request(method: CypheriaRuntimeMethod, params?: unknown): Promise<unknown> {
+    assertRuntimeMethod(method)
+
+    if (this.#lifecycleState !== "ready") {
+      throw new CypheriaRuntimeError(
+        "LIFECYCLE_ERROR",
+        `Runtime must be ready before handling requests: ${method}`
+      )
+    }
+
+    const handler = this.#handlers.get(method)
+    if (!handler) {
+      throw new CypheriaRuntimeError("METHOD_NOT_FOUND", `Runtime method not found: ${method}`)
+    }
+
+    this.#publish({
+      method,
+      timestamp: nowIso(),
+      type: "runtime.request",
+    })
+
+    try {
+      return await handler(params, { method, runtime: this })
+    } catch (error) {
+      const runtimeError =
+        error instanceof CypheriaRuntimeError
+          ? error
+          : new CypheriaRuntimeError("REQUEST_FAILED", `Runtime request failed: ${method}`, {
+              cause: error,
+            })
+
+      this.#publish({
+        error: {
+          code: runtimeError.code,
+          message: runtimeError.message,
+        },
+        timestamp: nowIso(),
+        type: "runtime.error",
+      })
+
+      throw runtimeError
+    }
+  }
+
+  async *events(): AsyncIterable<CypheriaRuntimeEvent> {
+    const queue: CypheriaRuntimeEvent[] = []
+    let resolveNext: (() => void) | undefined
+    let closed = false
+
+    const subscriber: RuntimeEventSubscriber = {
+      close: () => {
+        closed = true
+        resolveNext?.()
+      },
+      enqueue: (event) => {
+        queue.push(event)
+        resolveNext?.()
+      },
+    }
+
+    this.#subscribers.add(subscriber)
+
+    try {
+      while (!closed || queue.length > 0) {
+        if (queue.length === 0) {
+          await new Promise<void>((resolveNextEvent) => {
+            resolveNext = resolveNextEvent
+          })
+          resolveNext = undefined
+          continue
+        }
+
+        const event = queue.shift()
+        if (event) {
+          yield event
+        }
+      }
+    } finally {
+      this.#subscribers.delete(subscriber)
+    }
+  }
+
+  async #start(): Promise<void> {
+    this.#setLifecycleState("starting")
+
+    try {
+      if (this.#ensureDirectories) {
+        await ensureRuntimeDirectories(this.paths)
+      }
+      this.#setLifecycleState("ready")
+    } catch (error) {
+      this.#setLifecycleState("errored")
+      throw new CypheriaRuntimeError("LIFECYCLE_ERROR", "Failed to start Cypheria runtime", {
+        cause: error,
+      })
+    }
+  }
+
+  #setLifecycleState(state: CypheriaRuntimeLifecycleState): void {
+    this.#lifecycleState = state
+    this.#publish({
+      state,
+      timestamp: nowIso(),
+      type: "runtime.lifecycle",
+    })
+  }
+
+  #publish(event: CypheriaRuntimeEvent): void {
+    for (const subscriber of this.#subscribers) {
+      subscriber.enqueue(event)
+    }
+  }
+
+  #closeSubscribers(): void {
+    for (const subscriber of this.#subscribers) {
+      subscriber.close()
+    }
+    this.#subscribers.clear()
+  }
 }
