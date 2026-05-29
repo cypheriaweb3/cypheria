@@ -143,7 +143,7 @@ Electron main starts
   -> start CypheriaRuntime
   -> set CODEX_HOME=$CYPHERIA_HOME/codex
   -> start codex app-server --listen ws://127.0.0.1:<port>
-  -> connect @cypheria/codex-bridge
+  -> connect @cypheria/codex-bridge with initialize/initialized
   -> create renderer window
 ```
 
@@ -153,6 +153,7 @@ Renderer rules:
 - Renderer does not access Node.js APIs.
 - Renderer does not access private keys, raw filesystem services, Codex WebSocket, or dApp internals.
 - Renderer treats preload capabilities as the only privileged bridge.
+- Renderer receives Codex lifecycle, stderr, notification, and server-request summaries through the typed `codex.event` IPC channel.
 
 ## Codex Integration
 
@@ -170,6 +171,8 @@ Cypheria uses two Codex integration paths:
 - Server-initiated approval request routing.
 - Disconnect and lifecycle handling.
 - Overload retry handling for app-server overload errors.
+
+Desktop main owns the Codex App Server process lifecycle. It selects a localhost port, starts `codex app-server` with `CODEX_HOME=$CYPHERIA_HOME/codex`, waits for bridge readiness, logs stderr, and shuts the child process down with the desktop runtime.
 
 Codex app-server protocol TypeScript files live inside:
 

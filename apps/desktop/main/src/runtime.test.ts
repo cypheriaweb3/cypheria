@@ -11,7 +11,7 @@ describe("desktop runtime bootstrap", () => {
     const homeDir = await mkdtemp(join(tmpdir(), "cypheria-desktop-runtime-test-"))
 
     try {
-      const context = await initializeDesktopRuntime({ homeDir })
+      const context = await initializeDesktopRuntime({ homeDir, startCodexAppServer: false })
 
       expect(context.runtime.lifecycleState).toBe("ready")
       expect(context.paths).toBe(context.runtime.paths)

@@ -153,6 +153,8 @@ Desktop
 - Route server requests such as approvals to Electron main.
 - Handle disconnect and overload errors.
 
+Electron main owns the `codex app-server` child process. It selects a localhost port, starts the process with `CODEX_HOME=$CYPHERIA_HOME/codex`, waits for WebSocket handshake readiness, forwards renderer-safe Codex summaries through `codex.event`, logs stderr, and shuts the process down with the runtime.
+
 Generate protocol types with:
 
 ```sh

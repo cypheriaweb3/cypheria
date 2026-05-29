@@ -153,6 +153,8 @@ Desktop
 - 将 approvals 等 server requests 路由到 Electron main。
 - 处理 disconnect 和 overload errors。
 
+Electron main 拥有 `codex app-server` child process。它选择 localhost port，以 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动进程，等待 WebSocket handshake readiness，通过 `codex.event` 转发 renderer-safe Codex summaries，记录 stderr，并随 runtime 一起关闭进程。
+
 通过以下命令生成 protocol types：
 
 ```sh

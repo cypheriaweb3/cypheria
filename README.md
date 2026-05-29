@@ -152,7 +152,7 @@ In this repository, pnpm-related commands should usually run outside the sandbox
 
 ## Current Status
 
-The repository contains the foundational pnpm/Turborepo workspace, typed IPC contracts, runtime home handling, Electron main process bootstrap, Codex bridge baseline, wallet/policy/Web3 browser domain baselines, local SQLite audit and automation persistence, shared UI primitives, and the first TanStack Start desktop shell.
+The repository contains the foundational pnpm/Turborepo workspace, typed IPC contracts, runtime home handling, Electron main process bootstrap, persistent desktop Codex App Server lifecycle, wallet/policy/Web3 browser domain baselines, local SQLite audit and automation persistence, shared UI primitives, and the first TanStack Start desktop shell.
 
 The next implementation sequence is tracked in [docs/todo.md](docs/todo.md).
 

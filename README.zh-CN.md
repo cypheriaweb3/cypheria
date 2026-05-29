@@ -152,7 +152,7 @@ pnpm format
 
 ## 当前状态
 
-仓库已经包含基础 pnpm/Turborepo workspace、typed IPC contracts、runtime home handling、Electron main process bootstrap、Codex bridge baseline、wallet/policy/Web3 browser domain baselines、本地 SQLite audit 与 automation persistence、共享 UI primitives，以及第一版 TanStack Start desktop shell。
+仓库已经包含基础 pnpm/Turborepo workspace、typed IPC contracts、runtime home handling、Electron main process bootstrap、persistent desktop Codex App Server lifecycle、wallet/policy/Web3 browser domain baselines、本地 SQLite audit 与 automation persistence、共享 UI primitives，以及第一版 TanStack Start desktop shell。
 
 下一步实现顺序记录在 [docs/todo.zh-CN.md](docs/todo.zh-CN.md)。
 

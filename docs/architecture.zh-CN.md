@@ -143,7 +143,7 @@ Electron main starts
   -> start CypheriaRuntime
   -> set CODEX_HOME=$CYPHERIA_HOME/codex
   -> start codex app-server --listen ws://127.0.0.1:<port>
-  -> connect @cypheria/codex-bridge
+  -> connect @cypheria/codex-bridge with initialize/initialized
   -> create renderer window
 ```
 
@@ -153,6 +153,7 @@ Renderer 规则：
 - Renderer 不访问 Node.js APIs。
 - Renderer 不访问私钥、raw filesystem services、Codex WebSocket 或 dApp internals。
 - Renderer 将 preload capabilities 视为唯一 privileged bridge。
+- Renderer 通过 typed `codex.event` IPC channel 接收 Codex lifecycle、stderr、notification 和 server-request summaries。
 
 ## Codex 集成
 
@@ -170,6 +171,8 @@ Cypheria 使用两条 Codex 集成路径：
 - Server-initiated approval request routing。
 - Disconnect 和 lifecycle handling。
 - app-server overload errors 的重试处理。
+
+Desktop main 拥有 Codex App Server process lifecycle。它选择 localhost port，以 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动 `codex app-server`，等待 bridge readiness，记录 stderr，并随 desktop runtime 一起关闭 child process。
 
 Codex app-server protocol TypeScript 文件放在：
 

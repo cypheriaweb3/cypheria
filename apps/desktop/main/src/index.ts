@@ -104,6 +104,12 @@ const toRuntimeInfo = async (context: DesktopRuntimeContext): Promise<RuntimeInf
   const runtimeInfo = info as RuntimeInfo
 
   return {
+    codex: context.codexAppServer
+      ? {
+          listenUrl: context.codexAppServer.listenUrl,
+          state: context.codexAppServer.state,
+        }
+      : undefined,
     codexHome: runtimeInfo.codexHome,
     cypheriaHome: runtimeInfo.cypheriaHome,
     directories: runtimeInfo.directories,
@@ -182,7 +188,10 @@ const registerLifecycleHandlers = (): void => {
 
   app.on("activate", async () => {
     if (BrowserWindow.getAllWindows().length === 0) {
-      desktopRuntimeContext ??= await initializeDesktopRuntime()
+      desktopRuntimeContext ??= await initializeDesktopRuntime({
+        clientVersion: app.getVersion(),
+        codexAppServer: { windows: () => BrowserWindow.getAllWindows() },
+      })
       mainWindow = await createMainWindow(desktopRuntimeContext)
     }
   })
@@ -211,7 +220,10 @@ const startDesktopApp = async (): Promise<void> => {
   registerLifecycleHandlers()
 
   await app.whenReady()
-  desktopRuntimeContext = await initializeDesktopRuntime()
+  desktopRuntimeContext = await initializeDesktopRuntime({
+    clientVersion: app.getVersion(),
+    codexAppServer: { windows: () => BrowserWindow.getAllWindows() },
+  })
   registerIpcHandlers(desktopRuntimeContext)
   mainWindow = await createMainWindow(desktopRuntimeContext)
 }

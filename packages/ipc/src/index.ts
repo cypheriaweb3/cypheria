@@ -23,6 +23,7 @@ export type IpcNamespace = z.infer<typeof IpcNamespaceSchema>
 export const CYPHERIA_IPC_CHANNELS = {
   appHealthCheck: "app.health.check",
   appMetadataRead: "app.metadata.read",
+  codexEvent: "codex.event",
   runtimeInfoRead: "runtime.info.read",
 } as const
 
@@ -33,6 +34,13 @@ export type EmptyPayload = z.infer<typeof EmptyPayloadSchema>
 
 export const RuntimeInfoSchema = z
   .object({
+    codex: z
+      .object({
+        listenUrl: z.string().url(),
+        state: z.enum(["ready", "starting", "stopped", "stopping"]),
+      })
+      .strict()
+      .optional(),
     codexHome: z.string().min(1),
     cypheriaHome: z.string().min(1),
     directories: z
@@ -136,6 +144,60 @@ export const IpcEventEnvelopeSchema = z
   .strict()
 export type IpcEventEnvelope = z.infer<typeof IpcEventEnvelopeSchema>
 
+export const CodexEventTypeSchema = z.enum([
+  "codex.error",
+  "codex.lifecycle",
+  "codex.notification",
+  "codex.serverRequest",
+  "codex.stderr",
+])
+export type CodexEventType = z.infer<typeof CodexEventTypeSchema>
+
+export const CodexLifecyclePayloadSchema = z
+  .object({
+    state: z.string().min(1),
+  })
+  .strict()
+export type CodexLifecyclePayload = z.infer<typeof CodexLifecyclePayloadSchema>
+
+export const CodexMessagePayloadSchema = z
+  .object({
+    method: z.string().min(1),
+    params: z.unknown().optional(),
+  })
+  .strict()
+export type CodexMessagePayload = z.infer<typeof CodexMessagePayloadSchema>
+
+export const CodexErrorPayloadSchema = z
+  .object({
+    code: z.string().min(1),
+    message: z.string().min(1),
+  })
+  .strict()
+export type CodexErrorPayload = z.infer<typeof CodexErrorPayloadSchema>
+
+export const CodexStderrPayloadSchema = z
+  .object({
+    line: z.string(),
+  })
+  .strict()
+export type CodexStderrPayload = z.infer<typeof CodexStderrPayloadSchema>
+
+export const CodexEventPayloadSchema = z.union([
+  CodexLifecyclePayloadSchema,
+  CodexMessagePayloadSchema,
+  CodexErrorPayloadSchema,
+  CodexStderrPayloadSchema,
+])
+export type CodexEventPayload = z.infer<typeof CodexEventPayloadSchema>
+
+export const CodexEventEnvelopeSchema = IpcEventEnvelopeSchema.extend({
+  event: CodexEventTypeSchema,
+  namespace: z.literal("codex"),
+  payload: CodexEventPayloadSchema,
+}).strict()
+export type CodexEventEnvelope = z.infer<typeof CodexEventEnvelopeSchema>
+
 export type IpcContract<TRequestPayload, TResponsePayload> = {
   readonly channel: CypheriaIpcChannel
   readonly namespace: IpcNamespace
@@ -178,6 +240,9 @@ export type CypheriaPreloadApi = {
   readonly app: {
     readonly getHealth: () => Promise<AppHealthStatus>
     readonly getMetadata: () => Promise<AppMetadata>
+  }
+  readonly codex: {
+    readonly onEvent: (handler: (event: CodexEventEnvelope) => void) => () => void
   }
   readonly runtime: {
     readonly getInfo: () => Promise<RuntimeInfo>
