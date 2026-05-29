@@ -1,198 +1,282 @@
 # Cypheria Architecture
 
-Cypheria is a local-first Web3 agent desktop. Its architecture is designed around one core constraint: Web3 signing, automation, local files, shell access, and dApp browsing must not share the same trust boundary.
+Cypheria is a TypeScript Web3 agent product that reuses Codex for software-engineering agent work and implements its own Web3 runtime for wallets, signing policy, dApp browsing, automation, local state, and auditability.
+
+The architecture has one central rule: agent work, Web3 signing, automation execution, local files, and dApp browsing must not collapse into one trust boundary.
 
 ## System Overview
 
 ```txt
-                          +----------------------------+
-                          |  TanStack Start Renderer   |
-                          |  - UI and routing          |
-                          |  - Jotai UI state          |
-                          |  - TanStack Query cache    |
-                          +-------------+--------------+
-                                        |
-                                        | typed IPC
-                                        v
-+-------------------------+-------------+--------------+-------------------------+
-|                         Electron Main Process                                  |
-|                                                                                |
-|  +----------------+  +---------------+  +----------------+  +---------------+ |
-|  | CodexService   |  | WalletService |  | PolicyEngine   |  | AuditLog      | |
-|  +-------+--------+  +-------+-------+  +-------+--------+  +-------+-------+ |
-|          |                   |                  |                   |         |
-|          v                   v                  v                   v         |
-|  Codex App Server      Encrypted Vault     Policy Store        SQLite / FTS   |
-|  child process         + OS keychain        + Zod schemas       + append logs  |
-|                                                                                |
-|  +--------------------+  +-------------------+  +----------------------------+ |
-|  | DappBrowserService |  | AutomationRunner  |  | Chain/RPC/Simulation       | |
-|  +---------+----------+  +---------+---------+  +----------------------------+ |
-|            |                       |                                            |
-+------------+-----------------------+--------------------------------------------+
-             |                       |
-             v                       v
- +-------------------------+   +-------------------------+
- | Isolated dApp sessions  |   | worker_threads / child  |
- | Electron WebContents    |   | processes for tasks     |
- +-------------------------+   +-------------------------+
+apps/cli
+  -> @cypheria/runtime
+  -> @openai/codex-sdk
+
+packages/sdk
+  -> @cypheria/runtime
+  -> @openai/codex-sdk
+
+apps/desktop renderer
+  -> Electron typed IPC
+  -> Electron main
+  -> @cypheria/runtime
+  -> @cypheria/codex-bridge
+  -> persistent codex app-server over WebSocket JSON-RPC
 ```
 
-The renderer is a product UI, not a privileged runtime. It asks for capabilities through typed IPC and receives event streams from the main process. Private keys, signing operations, dApp browser permissions, Codex process management, local database access, and automation execution stay outside the renderer.
+Cypheria has three product surfaces and one shared runtime:
 
-## Process Boundaries
+- `apps/cli`: a non-TUI command-line app that directly composes Cypheria runtime and the Codex TypeScript SDK.
+- `apps/desktop`: an Electron + TanStack Start app that runs Cypheria runtime in Electron main and connects to a long-lived Codex App Server.
+- `packages/sdk`: a public TypeScript SDK that directly composes Cypheria runtime and the Codex TypeScript SDK.
+- `packages/runtime`: the TypeScript runtime for Cypheria-owned non-agent capabilities.
 
-### Electron Main Process
+Codex owns agent threads, turns, model execution, code edits, shell/tool execution, MCP, and Codex approvals. Cypheria owns Web3 context, wallets, signing intents, policy evaluation, dApp browser permissions, automation state, local data, and audit logs.
 
-The main process owns privileged local capabilities:
+## Runtime Boundary
 
-- Resolving `$CYPHERIA_HOME`, creating runtime directories, and preparing `CODEX_HOME`
-  for Cypheria-managed Codex processes.
-- Owning the Electron app lifecycle, single-instance lock, and top-level window creation.
-- Launching and supervising the Codex App Server child process.
-- Managing wallets, encrypted local vaults, Privy bindings, and external wallet sessions.
-- Evaluating signing policies before any signature or transaction broadcast.
-- Creating isolated dApp browser sessions and injecting the provider bridge.
-- Running automation workers.
-- Reading and writing local SQLite data.
-- Writing audit logs for approvals, rejections, policy decisions, and automation runs.
+`@cypheria/runtime` is the Cypheria non-agent runtime. It owns:
 
-### Renderer
+- Runtime home resolution and directory initialization.
+- Settings and local metadata.
+- Wallet/account/chain/RPC service boundaries.
+- Signing intent creation and policy evaluation hooks.
+- dApp browser permission and session domain state.
+- Automation task and run orchestration.
+- Audit log writes.
+- Database and vault service wiring.
 
-The renderer owns the user experience:
+Runtime does not implement Codex model turns, patches, terminal sessions, or agent tool execution.
 
-- TanStack Start app shell, file-based routing, navigation, panels, tabs, and inspectors.
-- Wallet, browser, Codex, automation, approval, and security views.
-- Optimistic UI state with Jotai.
-- Local/server-like data fetching through TanStack Query.
-- Forms through TanStack Form + Zod.
+Target runtime API:
 
-The renderer must not access Node.js APIs, private keys, raw shell execution, or dApp internals.
-
-The initial renderer shell lives under `apps/desktop/renderer/src` and is built by the desktop package Vite config. It includes the root route, a Workspaces route, the app frame, sidebar navigation for Workspaces, Browser, Wallets, Automations, Security, and Settings, empty-state panels, theme baseline CSS, and Jotai/TanStack Query providers. During local development, Electron can load the renderer dev server by setting `CYPHERIA_RENDERER_URL`.
-
-The first preload bridge exposes `window.cypheria` through Electron `contextBridge`. It provides typed read-only app metadata and runtime info calls backed by main-process IPC handlers. The renderer treats the bridge as optional so the TanStack Start dev server can still run in a normal browser without Node.js access.
-
-### Web3 dApp WebContents
-
-Each dApp origin runs in its own isolated Electron session. This prevents cookies, localStorage, wallet permissions, and account state from leaking across dApps.
-
-The dApp receives an injected EIP-1193 provider bridge. Provider requests are forwarded to the main process and evaluated through origin-scoped permissions and signing policies.
-
-`@cypheria/web3-browser` defines the V1 browser domain model. Session keys are normalized to `cypheria:dapp:<origin>` and map to persistent Electron partitions. Permission records bind an origin session to wallet id, chain id, account addresses, allowed provider methods, and optional expiration. Provider request/response types cover account requests, chain switching, chain addition, personal signing, typed-data signing, transaction sending, accounts, and chain id reads.
-
-The provider bridge baseline is a browser-side transport abstraction. It accepts EIP-1193-style `request({ method, params })` calls, rejects unsupported methods before transport, serializes supported requests with request id, origin, session key, optional chain id, method, and params, and maps structured provider errors back into `ProviderRpcError`. The actual Electron WebContents injection and main-process handler wiring are separate follow-up work.
-
-### Codex App Server Child Process
-
-Cypheria embeds Codex App Server rather than forking the Codex runtime in V1. The main process communicates with it over JSON-RPC over stdio / JSONL and adapts Codex events into Cypheria UI events.
-
-`@cypheria/codex-bridge` owns the first stable transport boundary for that integration. It models JSON-RPC 2.0 requests, notifications, success responses, and errors as newline-delimited JSON messages; provides chunk-safe JSONL parsing; defines request id generation, lifecycle states, transport errors, and normalized `codex.message`, `codex.transport.error`, and `codex.lifecycle` events. Process launch and supervision remain in the Electron main-process Codex service.
-
-The desktop main process now has a Codex child process supervisor baseline. It launches `codex app-server --listen stdio://` with `CODEX_HOME` inherited from the Cypheria runtime context, exposes start/stop and request/notification writes, parses stdout through the Codex JSONL bridge, forwards stderr lines to a logger hook, records the last exit code/signal, and currently returns `false` from the restart decision placeholder.
-
-Codex owns:
-
-- Threads and turns.
-- Workspace operations.
-- Diffs and file changes.
-- Terminal events.
-- Approval prompts.
-- MCP integration.
-
-Cypheria owns:
-
-- Web3 tool context.
-- Wallet and signing approvals.
-- Policy evaluation.
-- dApp browser context.
-- Automation scheduling and auditing.
-
-## Core Services
-
-```txt
-CodexService
-  - start/stop Codex App Server
-  - manage JSONL transport
-  - normalize Codex events
-  - expose threads, turns, diffs, terminal, approvals
-
-WalletService
-  - manage local wallets and Privy wallets
-  - maintain active account context
-  - coordinate vault access
-
-SigningService
-  - create signing intents
-  - call PolicyEngine
-  - request user approval when needed
-  - sign and broadcast transactions
-
-PolicyEngine
-  - evaluate read-only, human-approval, and conditional auto-signing modes
-  - enforce origin, wallet, chain, method, contract, value, and time constraints
-
-DappBrowserService
-  - create origin-isolated Electron sessions
-  - manage WebContents lifecycle
-  - inject the provider bridge
-  - intercept popups, downloads, and permission requests
-
-AutomationRunner
-  - run manual and scheduled tasks
-  - launch isolated workers
-  - route signing intents through the same policy path as the UI
-
-@cypheria/automation-core defines the shared V1 automation task model. It covers manual, scheduled, and agent-triggered tasks; task/workspace identity; wallet policy scope; enabled/paused/draft/archive state; run status and logs; and audit correlation ids that connect task definitions, runs, policy decisions, and audit log records.
-
-The desktop main process now has a local automation runner baseline. It accepts enabled manual no-op tasks, persists queued/running/final run state through the database automation persistence service, executes the no-op body through a worker boundary, records structured run logs, appends audit events for queued/succeeded/failed runs, and exposes an explicit cancellation placeholder. Scheduled execution, real task bodies, and policy-mediated signing are separate follow-up work.
-
-AuditLogService
-  - record signatures, rejections, policy decisions, task runs, and transaction hashes
+```ts
+class CypheriaRuntime {
+  start(): Promise<void>
+  stop(): Promise<void>
+  request(method: string, params?: unknown): Promise<unknown>
+  events(): AsyncIterable<CypheriaRuntimeEvent>
+}
 ```
 
-## Key Data Flows
-
-### Codex Thread Flow
+Runtime method namespaces:
 
 ```txt
-Renderer
-  -> codex.thread.create typed IPC
-  -> CodexService
-  -> Codex App Server stdio
-  -> JSON-RPC response and events
-  -> CodexService normalizer
-  -> Renderer event subscription
+runtime.*
+wallet.*
+chain.*
+policy.*
+browser.*
+dapp.*
+automation.*
+audit.*
+settings.*
 ```
 
-### dApp Signing Flow
+## CLI
+
+`apps/cli` is a Node-based CLI with no TUI in V1. It does not depend on `@cypheria/sdk`. It directly composes:
+
+- `@cypheria/runtime` for Cypheria-owned local/Web3 capabilities.
+- `@openai/codex-sdk` for agent workflows.
+
+Initial command groups:
 
 ```txt
-dApp WebContents
-  -> injected EIP-1193 provider
-  -> preload bridge
-  -> DappBrowserService
-  -> SigningService
+cypheria run <prompt>
+cypheria run --jsonl <prompt>
+cypheria runtime info
+cypheria wallet list
+cypheria policy list
+cypheria automation run <task-id>
+cypheria doctor
+```
+
+The CLI should support human-readable output and JSONL output for automation. It should never import desktop internals.
+
+## SDK
+
+`@cypheria/sdk` is the public TypeScript API for external Node applications. It directly composes:
+
+- `@cypheria/runtime` for Cypheria-owned capabilities.
+- `@openai/codex-sdk` for Codex agent threads.
+
+Target SDK shape:
+
+```ts
+import { Cypheria } from "@cypheria/sdk"
+
+const cypheria = new Cypheria()
+const info = await cypheria.runtime().info()
+
+const thread = cypheria.agent().startThread({ workingDirectory: process.cwd() })
+const result = await thread.run("Analyze this repo")
+```
+
+The SDK should not depend on Electron, desktop IPC, or `@cypheria/codex-bridge`.
+
+## Desktop
+
+Desktop keeps the existing Electron + TanStack Start architecture.
+
+```txt
+TanStack Start Renderer
+  - product UI
+  - route state
+  - Jotai UI state
+  - TanStack Query cache
+  - typed IPC client only
+
+Electron Main Process
+  - CypheriaRuntime lifecycle
+  - Codex App Server lifecycle
+  - Codex WebSocket bridge
+  - wallet/signing/policy/database/automation services
+  - dApp WebContents/session management
+```
+
+Desktop startup:
+
+```txt
+Electron main starts
+  -> resolve CYPHERIA_HOME
+  -> ensure runtime directories
+  -> start CypheriaRuntime
+  -> set CODEX_HOME=$CYPHERIA_HOME/codex
+  -> start codex app-server --listen ws://127.0.0.1:<port>
+  -> connect @cypheria/codex-bridge
+  -> create renderer window
+```
+
+Renderer rules:
+
+- Renderer uses typed IPC only.
+- Renderer does not access Node.js APIs.
+- Renderer does not access private keys, raw filesystem services, Codex WebSocket, or dApp internals.
+- Renderer treats preload capabilities as the only privileged bridge.
+
+## Codex Integration
+
+Cypheria uses two Codex integration paths:
+
+- CLI and SDK use `@openai/codex-sdk`.
+- Desktop uses `codex app-server` over WebSocket JSON-RPC.
+
+`@cypheria/codex-bridge` is the desktop-side app-server client. It owns:
+
+- WebSocket transport.
+- JSON-RPC request/response correlation.
+- `initialize` request and `initialized` notification handshake.
+- Server notification stream.
+- Server-initiated approval request routing.
+- Disconnect and lifecycle handling.
+- Overload retry handling for app-server overload errors.
+
+Codex app-server protocol TypeScript files live inside:
+
+```txt
+packages/codex-bridge/src/generated/
+```
+
+They are generated with:
+
+```sh
+codex app-server generate-ts --out packages/codex-bridge/src/generated
+```
+
+Generated protocol files are committed. Do not hand-write Codex app-server protocol request, response, notification, or server request types.
+
+## Web3 Browser Boundary
+
+Each dApp origin runs in its own isolated Electron session. dApp pages receive an injected EIP-1193 provider bridge, but provider requests are forwarded to Electron main and evaluated through origin-scoped permissions and signing policy.
+
+`@cypheria/web3-browser` owns:
+
+- Origin-scoped session keys.
+- Persistent partition names.
+- dApp permission records.
+- EIP-1193 provider request/response envelopes.
+- Provider error mapping.
+
+The Web3 browser does not share its wallet permission model with Codex preview/browser capabilities.
+
+## Signing Flow
+
+```txt
+dApp, automation, or agent context
+  -> signing intent
   -> PolicyEngine
-  -> SimulationService
-  -> Approval UI if required
-  -> wallet signing
-  -> RPC broadcast
+  -> simulation/risk metadata when available
+  -> approval UI if required
+  -> WalletService
+  -> RPC broadcast if applicable
   -> AuditLogService
 ```
 
-### Automation Flow
+Codex does not directly sign transactions. Automation does not directly sign transactions. Both create signing intents routed through Cypheria policy.
+
+## Automation Flow
 
 ```txt
-Scheduler or manual trigger
+manual trigger or scheduler
   -> AutomationRunner
-  -> worker_threads / child_process
-  -> persist queued/running/final run status
-  -> CodexService / ChainService / WalletService as needed
-  -> signing intent if a write operation is needed
+  -> worker boundary
+  -> runtime services / Codex SDK as needed
+  -> signing intent for write operations
   -> PolicyEngine
-  -> approval or auto-signing decision
+  -> approval or policy decision
   -> AuditLogService
+```
+
+V1 automation is local-first. Cloud agent execution and complex workflow engines are out of scope.
+
+## Data Model
+
+SQLite is the local source of truth for non-secret data. Sensitive wallet material belongs in an encrypted vault protected by OS-backed key storage.
+
+Current core tables:
+
+```txt
+settings
+audit_logs
+workspaces
+runtime_metadata
+automation_tasks
+automation_runs
+```
+
+Planned runtime tables:
+
+```txt
+wallets
+accounts
+chains
+rpc_endpoints
+dapp_origins
+dapp_permissions
+signing_policies
+approval_requests
+```
+
+## Runtime Home
+
+Cypheria-owned data lives under `$CYPHERIA_HOME`, defaulting to `~/.cypheria`.
+
+```txt
+$CYPHERIA_HOME/
+  codex/        Codex home for Cypheria-managed Codex
+  db/
+  vault/
+  logs/
+  cache/
+  browser/
+  automation/
+  config/
+```
+
+Cypheria-managed Codex processes must use:
+
+```sh
+CODEX_HOME="$CYPHERIA_HOME/codex"
 ```
 
 ## Security Model
@@ -202,100 +286,58 @@ Default rules:
 - `nodeIntegration: false`.
 - `contextIsolation: true`.
 - `sandbox: true`.
+- `webSecurity: true`.
 - Strict Content Security Policy.
 - dApp permissions are scoped by origin.
 - Private keys only enter the encrypted vault.
 - Renderer and dApp pages never access private keys.
-- Codex cannot directly sign transactions by default.
-- Agents and automations create signing intents, not signatures.
-- Every signing intent goes through PolicyEngine.
+- Codex and automation flows create signing intents, not direct signatures.
+- Every signing intent goes through `@cypheria/policy-engine`.
 - Auto-signing is disabled by default.
-- Every policy decision, signature, rejection, and transaction hash is recorded.
-
-## Data Model Baseline
-
-SQLite is the local source of truth for non-secret data. Sensitive wallet material belongs in an encrypted vault protected by OS-backed key storage.
-
-`@cypheria/db` resolves the default SQLite file to `$CYPHERIA_HOME/db/cypheria.sqlite`. Its Drizzle schema baseline starts with `settings`, `audit_logs`, `workspaces`, and `runtime_metadata`; generated migrations live under `packages/db/drizzle`.
-
-The database package now provides a small main-process audit log service. Callers append structured records with `eventType`, `actor`, `createdAt`, `source`, `payloadHash`, `payloadSummary`, and `correlationId`; the service assigns an id when needed and supports read-back by id or recent-list queries. A schema initialization helper applies the baseline SQLite tables before services open against a new database file.
-
-Core tables:
-
-```txt
-settings
-audit_logs
-workspaces
-runtime_metadata
-
-Planned later:
-  wallets
-  accounts
-  chains
-  rpc_endpoints
-  dapp_origins
-  dapp_permissions
-  signing_policies
-  approval_requests
-  automation_tasks
-  automation_runs
-  codex_threads
-```
-
-## IPC Contract Baseline
-
-`@cypheria/ipc` owns shared IPC contracts for renderer, preload, and main-process services. The current protocol version is `1`. Channel names use namespace-prefixed dot notation, such as `app.metadata.read` and `runtime.info.read`.
-
-The baseline contract package includes:
-
-- Namespace definitions for `app`, `runtime`, `codex`, `wallet`, `chain`, `browser`, `dapp`, `policy`, `automation`, `approval`, `settings`, and `audit`.
-- Zod schemas and TypeScript types for the initial app metadata and runtime info APIs.
-- Request, success response, error response, and event envelope types.
-- A standard error code set covering bad requests, validation failures, forbidden access, missing resources, unavailable services, and internal errors.
-
-Main-process handlers should validate future inputs and outputs against these contracts. Renderer and preload code should import only the contract types and channel constants needed at the boundary.
-
-Electron main registers routes through the desktop IPC router helper. Each route is backed by one `@cypheria/ipc` contract; the router parses invoke payloads with the request schema and parses handler results with the response schema before returning to preload. The initial registered routes are runtime info, app metadata, and app health.
+- Every policy decision, signature, rejection, automation run, and transaction hash is auditable.
 
 ## Package Boundaries
 
 ```txt
-@cypheria/ui
-  Reusable shadcn-style product UI primitives, Base UI-backed overlays, CSS tokens,
-  and Cypheria-specific components.
+@cypheria/runtime
+  Cypheria non-agent runtime host and service orchestration.
 
-@cypheria/ipc
-  Typed IPC contracts, schemas, and namespace definitions.
+@cypheria/sdk
+  Public TS SDK; composes runtime and @openai/codex-sdk.
 
 @cypheria/codex-bridge
-  Codex App Server protocol adapter and event normalization.
+  Desktop-side Codex App Server bridge, generated protocol types, transport, and event normalization.
+
+@cypheria/ipc
+  Typed Electron IPC contracts, schemas, channel names, and envelopes.
 
 @cypheria/wallet-core
-  Wallet domain types, account models, signing intents, and wallet policies.
-
-@cypheria/web3-browser
-  dApp session model, provider bridge types, and browser permission types.
+  Wallet domain types, accounts, chains, permissions, and signing intents.
 
 @cypheria/policy-engine
-  Signing policy schemas, evaluator, and policy decision types.
+  Signing policy schemas, evaluator, and policy decisions.
+
+@cypheria/web3-browser
+  dApp session, provider bridge, and browser permission models.
 
 @cypheria/automation-core
-  Shared automation task, trigger, run history, wallet policy scope, and audit correlation types.
-
-@cypheria/runtime
-  Cypheria home directory resolution, runtime path derivation, runtime directory creation,
-  and Codex environment setup.
+  Automation task, trigger, run, log, and audit correlation models.
 
 @cypheria/db
-  Database schema, migrations, and local persistence helpers.
+  SQLite schema, migrations, and local persistence helpers.
+
+@cypheria/ui
+  Shared UI primitives and Cypheria product components.
 ```
 
 ## V1 Constraints
 
-- Do not fork the Codex runtime in V1.
-- Do not let renderer or dApp pages access private keys.
-- Do not treat wagmi as the core wallet layer.
+- Do not fork Codex runtime.
+- Do not create `@cypheria/codex-protocol`.
+- Do not hand-write Codex app-server protocol types.
+- Do not implement a TUI.
+- Do not store private keys in renderer, localStorage, IndexedDB, or normal SQLite tables.
 - Do not share browser sessions across dApp origins.
-- Do not auto-sign unless an explicit user policy matches.
-- Do not introduce cloud agent execution in V1.
+- Do not make wagmi the core wallet layer.
+- Do not introduce cloud agent execution.
 - Do not introduce a complex workflow engine before the local runner proves its shape.

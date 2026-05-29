@@ -1,197 +1,282 @@
 # Cypheria 架构
 
-Cypheria 是一款 local-first Web3 agent desktop。它的架构围绕一个核心约束设计：Web3 签名、自动化、本地文件、shell 访问和 dApp 浏览不能共享同一个信任边界。
+Cypheria 是一个 TypeScript Web3 agent 产品：它复用 Codex 承载软件工程 agent 工作流，并由 Cypheria 自己实现 Web3 runtime，包括钱包、签名策略、dApp 浏览、自动化、本地状态和审计能力。
+
+架构的核心规则是：agent 工作、Web3 签名、自动化执行、本地文件和 dApp 浏览不能混在同一个信任边界里。
 
 ## 系统概览
 
 ```txt
-                          +----------------------------+
-                          |  TanStack Start Renderer   |
-                          |  - UI and routing          |
-                          |  - Jotai UI state          |
-                          |  - TanStack Query cache    |
-                          +-------------+--------------+
-                                        |
-                                        | typed IPC
-                                        v
-+-------------------------+-------------+--------------+-------------------------+
-|                         Electron Main Process                                  |
-|                                                                                |
-|  +----------------+  +---------------+  +----------------+  +---------------+ |
-|  | CodexService   |  | WalletService |  | PolicyEngine   |  | AuditLog      | |
-|  +-------+--------+  +-------+-------+  +-------+--------+  +-------+-------+ |
-|          |                   |                  |                   |         |
-|          v                   v                  v                   v         |
-|  Codex App Server      Encrypted Vault     Policy Store        SQLite / FTS   |
-|  child process         + OS keychain        + Zod schemas       + append logs  |
-|                                                                                |
-|  +--------------------+  +-------------------+  +----------------------------+ |
-|  | DappBrowserService |  | AutomationRunner  |  | Chain/RPC/Simulation       | |
-|  +---------+----------+  +---------+---------+  +----------------------------+ |
-|            |                       |                                            |
-+------------+-----------------------+--------------------------------------------+
-             |                       |
-             v                       v
- +-------------------------+   +-------------------------+
- | Isolated dApp sessions  |   | worker_threads / child  |
- | Electron WebContents    |   | processes for tasks     |
- +-------------------------+   +-------------------------+
+apps/cli
+  -> @cypheria/runtime
+  -> @openai/codex-sdk
+
+packages/sdk
+  -> @cypheria/runtime
+  -> @openai/codex-sdk
+
+apps/desktop renderer
+  -> Electron typed IPC
+  -> Electron main
+  -> @cypheria/runtime
+  -> @cypheria/codex-bridge
+  -> persistent codex app-server over WebSocket JSON-RPC
 ```
 
-Renderer 是产品 UI，不是特权运行时。它通过 typed IPC 请求能力，并从 main process 接收事件流。私钥、签名操作、dApp 浏览器权限、Codex 进程管理、本地数据库访问和自动化执行都留在 renderer 之外。
+Cypheria 有三个产品 surface 和一个共享 runtime：
 
-## 进程边界
+- `apps/cli`：无 TUI 的命令行应用，直接组合 Cypheria runtime 和 Codex TypeScript SDK。
+- `apps/desktop`：Electron + TanStack Start 应用，在 Electron main 中运行 Cypheria runtime，并连接常驻 Codex App Server。
+- `packages/sdk`：公共 TypeScript SDK，直接组合 Cypheria runtime 和 Codex TypeScript SDK。
+- `packages/runtime`：Cypheria 自有非 agent 能力的 TypeScript runtime。
 
-### Electron Main Process
+Codex 负责 agent threads、turns、model execution、code edits、shell/tool execution、MCP 和 Codex approvals。Cypheria 负责 Web3 context、wallets、signing intents、policy evaluation、dApp browser permissions、automation state、本地数据和 audit logs。
 
-Main process 拥有本地特权能力：
+## Runtime 边界
 
-- 解析 `$CYPHERIA_HOME`、创建 runtime directories，并为 Cypheria 管理的 Codex 进程准备 `CODEX_HOME`。
-- 拥有 Electron app lifecycle、single-instance lock 和 top-level window creation。
-- 启动并监管 Codex App Server 子进程。
-- 管理钱包、加密本地 vault、Privy 绑定和外部钱包 session。
-- 在任何签名或交易广播前评估签名策略。
-- 创建隔离的 dApp browser sessions，并注入 provider bridge。
-- 运行自动化 workers。
-- 读写本地 SQLite 数据。
-- 为审批、拒绝、策略决策和自动化运行写入审计日志。
+`@cypheria/runtime` 是 Cypheria 非 agent runtime。它负责：
 
-### Renderer
+- Runtime home 解析与目录初始化。
+- Settings 和本地 metadata。
+- Wallet/account/chain/RPC service boundaries。
+- Signing intent 创建与 policy evaluation hooks。
+- dApp browser permission 和 session domain state。
+- Automation task 和 run orchestration。
+- Audit log writes。
+- Database 与 vault service wiring。
 
-Renderer 拥有用户体验：
+Runtime 不实现 Codex model turns、patches、terminal sessions 或 agent tool execution。
 
-- TanStack Start app shell、file-based routing、导航、面板、标签页和 inspectors。
-- 钱包、浏览器、Codex、自动化、审批和安全视图。
-- 使用 Jotai 管理 optimistic UI state。
-- 使用 TanStack Query 进行本地/server-like 数据获取。
-- 使用 TanStack Form + Zod 构建表单。
+目标 runtime API：
 
-Renderer 不得访问 Node.js APIs、私钥、原始 shell 执行能力或 dApp 内部状态。
-
-初始 renderer shell 位于 `apps/desktop/renderer/src`，由 desktop package 的 Vite config 构建。它包含 root route、Workspaces route、app frame、Workspaces、Browser、Wallets、Automations、Security 和 Settings 侧边栏导航、empty-state panels、theme baseline CSS，以及 Jotai/TanStack Query providers。本地开发时，可以通过设置 `CYPHERIA_RENDERER_URL` 让 Electron 加载 renderer dev server。
-
-第一版 preload bridge 通过 Electron `contextBridge` 暴露 `window.cypheria`。它提供 typed 的只读 app metadata 和 runtime info 调用，并由 main-process IPC handlers 支撑。Renderer 将该 bridge 视为可选能力，因此 TanStack Start dev server 仍可在普通浏览器中运行，且不需要 Node.js access。
-
-### Web3 dApp WebContents
-
-每个 dApp origin 都运行在独立 Electron session 中。这可以防止 cookies、localStorage、钱包权限和账户状态在不同 dApp 之间泄漏。
-
-dApp 会收到注入的 EIP-1193 provider bridge。Provider 请求会转发到 main process，并通过 origin-scoped 权限和签名策略评估。
-
-`@cypheria/web3-browser` 定义 V1 browser domain model。Session keys 会规范化为 `cypheria:dapp:<origin>`，并映射到 persistent Electron partitions。Permission records 会将 origin session 绑定到 wallet id、chain id、account addresses、允许的 provider methods 和可选 expiration。Provider request/response types 覆盖账户请求、链切换、链添加、personal signing、typed-data signing、transaction sending、accounts 和 chain id reads。
-
-Provider bridge baseline 是 browser-side transport abstraction。它接收 EIP-1193 风格的 `request({ method, params })` 调用，在进入 transport 前拒绝不支持的方法，将支持的请求序列化为包含 request id、origin、session key、可选 chain id、method 和 params 的消息，并把结构化 provider errors 映射回 `ProviderRpcError`。真实 Electron WebContents 注入和 main-process handler wiring 是后续工作。
-
-### Codex App Server Child Process
-
-Cypheria 在 V1 中嵌入 Codex App Server，而不是 fork Codex runtime。Main process 通过 JSON-RPC over stdio / JSONL 与它通信，并将 Codex events 适配为 Cypheria UI events。
-
-`@cypheria/codex-bridge` 拥有这条集成的第一层稳定 transport boundary。它将 JSON-RPC 2.0 requests、notifications、success responses 和 errors 建模为 newline-delimited JSON messages；提供 chunk-safe JSONL parsing；定义 request id generation、lifecycle states、transport errors，以及标准化的 `codex.message`、`codex.transport.error` 和 `codex.lifecycle` events。进程启动与监管仍留给 Electron main-process Codex service。
-
-Desktop main process 现在具备 Codex child process supervisor baseline。它使用 Cypheria runtime context 中的 `CODEX_HOME` 启动 `codex app-server --listen stdio://`，暴露 start/stop 与 request/notification 写入能力，通过 Codex JSONL bridge 解析 stdout，将 stderr lines 转发给 logger hook，记录最近一次 exit code/signal，并且当前 restart decision placeholder 返回 `false`。
-
-Codex 拥有：
-
-- Threads 和 turns。
-- Workspace 操作。
-- Diffs 和文件变更。
-- Terminal events。
-- Approval prompts。
-- MCP 集成。
-
-Cypheria 拥有：
-
-- Web3 tool context。
-- 钱包和签名审批。
-- 策略评估。
-- dApp browser context。
-- 自动化调度和审计。
-
-## 核心服务
-
-```txt
-CodexService
-  - start/stop Codex App Server
-  - manage JSONL transport
-  - normalize Codex events
-  - expose threads, turns, diffs, terminal, approvals
-
-WalletService
-  - manage local wallets and Privy wallets
-  - maintain active account context
-  - coordinate vault access
-
-SigningService
-  - create signing intents
-  - call PolicyEngine
-  - request user approval when needed
-  - sign and broadcast transactions
-
-PolicyEngine
-  - evaluate read-only, human-approval, and conditional auto-signing modes
-  - enforce origin, wallet, chain, method, contract, value, and time constraints
-
-DappBrowserService
-  - create origin-isolated Electron sessions
-  - manage WebContents lifecycle
-  - inject the provider bridge
-  - intercept popups, downloads, and permission requests
-
-AutomationRunner
-  - run manual and scheduled tasks
-  - launch isolated workers
-  - route signing intents through the same policy path as the UI
-
-@cypheria/automation-core 定义 V1 共享 automation task model。它覆盖 manual、scheduled 和 agent-triggered tasks，task/workspace identity、wallet policy scope、enabled/paused/draft/archive state、run status 与 logs，以及用于关联 task definitions、runs、policy decisions 和 audit log records 的 audit correlation ids。
-
-Desktop main process 现在包含 local automation runner baseline。它接收 enabled manual no-op tasks，通过 database automation persistence service 持久化 queued/running/final run state，经由 worker boundary 执行 no-op body，记录 structured run logs，为 queued/succeeded/failed runs 追加 audit events，并暴露显式 cancellation placeholder。Scheduled execution、真实 task bodies 和 policy-mediated signing 属于后续工作。
-
-AuditLogService
-  - record signatures, rejections, policy decisions, task runs, and transaction hashes
+```ts
+class CypheriaRuntime {
+  start(): Promise<void>
+  stop(): Promise<void>
+  request(method: string, params?: unknown): Promise<unknown>
+  events(): AsyncIterable<CypheriaRuntimeEvent>
+}
 ```
 
-## 关键数据流
-
-### Codex Thread Flow
+Runtime method namespaces：
 
 ```txt
-Renderer
-  -> codex.thread.create typed IPC
-  -> CodexService
-  -> Codex App Server stdio
-  -> JSON-RPC response and events
-  -> CodexService normalizer
-  -> Renderer event subscription
+runtime.*
+wallet.*
+chain.*
+policy.*
+browser.*
+dapp.*
+automation.*
+audit.*
+settings.*
 ```
 
-### dApp Signing Flow
+## CLI
+
+`apps/cli` 是 Node-based CLI，V1 不做 TUI。它不依赖 `@cypheria/sdk`，而是直接组合：
+
+- `@cypheria/runtime`：Cypheria 自有本地/Web3 能力。
+- `@openai/codex-sdk`：agent 工作流。
+
+初始命令组：
 
 ```txt
-dApp WebContents
-  -> injected EIP-1193 provider
-  -> preload bridge
-  -> DappBrowserService
-  -> SigningService
+cypheria run <prompt>
+cypheria run --jsonl <prompt>
+cypheria runtime info
+cypheria wallet list
+cypheria policy list
+cypheria automation run <task-id>
+cypheria doctor
+```
+
+CLI 应支持 human-readable 输出和面向自动化的 JSONL 输出。CLI 不应导入 desktop internals。
+
+## SDK
+
+`@cypheria/sdk` 是面向外部 Node 应用的公共 TypeScript API。它直接组合：
+
+- `@cypheria/runtime`：Cypheria 自有能力。
+- `@openai/codex-sdk`：Codex agent threads。
+
+目标 SDK 形态：
+
+```ts
+import { Cypheria } from "@cypheria/sdk"
+
+const cypheria = new Cypheria()
+const info = await cypheria.runtime().info()
+
+const thread = cypheria.agent().startThread({ workingDirectory: process.cwd() })
+const result = await thread.run("Analyze this repo")
+```
+
+SDK 不应依赖 Electron、desktop IPC 或 `@cypheria/codex-bridge`。
+
+## Desktop
+
+Desktop 保留现有 Electron + TanStack Start 架构。
+
+```txt
+TanStack Start Renderer
+  - product UI
+  - route state
+  - Jotai UI state
+  - TanStack Query cache
+  - typed IPC client only
+
+Electron Main Process
+  - CypheriaRuntime lifecycle
+  - Codex App Server lifecycle
+  - Codex WebSocket bridge
+  - wallet/signing/policy/database/automation services
+  - dApp WebContents/session management
+```
+
+Desktop startup：
+
+```txt
+Electron main starts
+  -> resolve CYPHERIA_HOME
+  -> ensure runtime directories
+  -> start CypheriaRuntime
+  -> set CODEX_HOME=$CYPHERIA_HOME/codex
+  -> start codex app-server --listen ws://127.0.0.1:<port>
+  -> connect @cypheria/codex-bridge
+  -> create renderer window
+```
+
+Renderer 规则：
+
+- Renderer 只使用 typed IPC。
+- Renderer 不访问 Node.js APIs。
+- Renderer 不访问私钥、raw filesystem services、Codex WebSocket 或 dApp internals。
+- Renderer 将 preload capabilities 视为唯一 privileged bridge。
+
+## Codex 集成
+
+Cypheria 使用两条 Codex 集成路径：
+
+- CLI 和 SDK 使用 `@openai/codex-sdk`。
+- Desktop 使用 `codex app-server` over WebSocket JSON-RPC。
+
+`@cypheria/codex-bridge` 是 desktop-side app-server client。它负责：
+
+- WebSocket transport。
+- JSON-RPC request/response correlation。
+- `initialize` request 和 `initialized` notification handshake。
+- Server notification stream。
+- Server-initiated approval request routing。
+- Disconnect 和 lifecycle handling。
+- app-server overload errors 的重试处理。
+
+Codex app-server protocol TypeScript 文件放在：
+
+```txt
+packages/codex-bridge/src/generated/
+```
+
+通过以下命令生成：
+
+```sh
+codex app-server generate-ts --out packages/codex-bridge/src/generated
+```
+
+Generated protocol files 需要提交。不要手写 Codex app-server protocol request、response、notification 或 server request types。
+
+## Web3 Browser 边界
+
+每个 dApp origin 都运行在独立 Electron session 中。dApp 页面会收到注入的 EIP-1193 provider bridge，但 provider requests 会转发到 Electron main，并通过 origin-scoped permissions 和 signing policy 评估。
+
+`@cypheria/web3-browser` 负责：
+
+- Origin-scoped session keys。
+- Persistent partition names。
+- dApp permission records。
+- EIP-1193 provider request/response envelopes。
+- Provider error mapping。
+
+Web3 browser 不与 Codex preview/browser capabilities 共享钱包权限模型。
+
+## 签名流程
+
+```txt
+dApp, automation, or agent context
+  -> signing intent
   -> PolicyEngine
-  -> SimulationService
-  -> Approval UI if required
-  -> wallet signing
-  -> RPC broadcast
+  -> simulation/risk metadata when available
+  -> approval UI if required
+  -> WalletService
+  -> RPC broadcast if applicable
   -> AuditLogService
 ```
 
-### Automation Flow
+Codex 不直接签名交易。Automation 不直接签名交易。两者都只能创建 signing intents，并交给 Cypheria policy 处理。
+
+## 自动化流程
 
 ```txt
-Scheduler or manual trigger
+manual trigger or scheduler
   -> AutomationRunner
-  -> worker_threads / child_process
-  -> persist queued/running/final run status
-  -> CodexService / ChainService / WalletService as needed
-  -> signing intent if a write operation is needed
+  -> worker boundary
+  -> runtime services / Codex SDK as needed
+  -> signing intent for write operations
   -> PolicyEngine
-  -> approval or auto-signing decision
+  -> approval or policy decision
   -> AuditLogService
+```
+
+V1 automation 是 local-first。Cloud agent execution 和复杂 workflow engine 不在范围内。
+
+## 数据模型
+
+SQLite 是非敏感本地数据的 source of truth。敏感钱包材料保存在受 OS-backed key storage 保护的 encrypted vault 中。
+
+当前核心表：
+
+```txt
+settings
+audit_logs
+workspaces
+runtime_metadata
+automation_tasks
+automation_runs
+```
+
+规划中的 runtime tables：
+
+```txt
+wallets
+accounts
+chains
+rpc_endpoints
+dapp_origins
+dapp_permissions
+signing_policies
+approval_requests
+```
+
+## Runtime Home
+
+Cypheria-owned data 位于 `$CYPHERIA_HOME`，默认 `~/.cypheria`。
+
+```txt
+$CYPHERIA_HOME/
+  codex/        Cypheria-managed Codex 的 home
+  db/
+  vault/
+  logs/
+  cache/
+  browser/
+  automation/
+  config/
+```
+
+Cypheria 管理的 Codex 进程必须使用：
+
+```sh
+CODEX_HOME="$CYPHERIA_HOME/codex"
 ```
 
 ## 安全模型
@@ -201,100 +286,58 @@ Scheduler or manual trigger
 - `nodeIntegration: false`。
 - `contextIsolation: true`。
 - `sandbox: true`。
+- `webSecurity: true`。
 - 严格 Content Security Policy。
-- dApp 权限按 origin 设定。
+- dApp permissions 按 origin 隔离。
 - 私钥只进入 encrypted vault。
-- Renderer 和 dApp 页面永远不能访问私钥。
-- Codex 默认不能直接签名交易。
-- Agents 和 automations 创建的是 signing intents，而不是 signatures。
-- 每一个 signing intent 都必须经过 PolicyEngine。
-- 自动签名默认关闭。
-- 每一次策略决策、签名、拒绝和 transaction hash 都会被记录。
-
-## 数据模型基线
-
-SQLite 是非敏感本地数据的 source of truth。敏感钱包材料应保存在受 OS-backed key storage 保护的 encrypted vault 中。
-
-`@cypheria/db` 默认将 SQLite 文件解析到 `$CYPHERIA_HOME/db/cypheria.sqlite`。当前 Drizzle schema baseline 首批包含 `settings`、`audit_logs`、`workspaces` 和 `runtime_metadata`；生成的 migrations 位于 `packages/db/drizzle`。
-
-Database package 现在提供了一个轻量的 main-process audit log service。调用方可以 append 带有 `eventType`、`actor`、`createdAt`、`source`、`payloadHash`、`payloadSummary` 和 `correlationId` 的结构化记录；service 会在需要时分配 id，并支持按 id 读取以及查询最近记录。Schema initialization helper 会在 service 面向新 database file 打开前应用 baseline SQLite tables。
-
-核心表：
-
-```txt
-settings
-audit_logs
-workspaces
-runtime_metadata
-
-后续计划：
-  wallets
-  accounts
-  chains
-  rpc_endpoints
-  dapp_origins
-  dapp_permissions
-  signing_policies
-  approval_requests
-  automation_tasks
-  automation_runs
-  codex_threads
-```
-
-## IPC Contract 基线
-
-`@cypheria/ipc` 负责 renderer、preload 和 main-process services 共享的 IPC contracts。当前协议版本是 `1`。Channel 名称使用带 namespace 的点分格式，例如 `app.metadata.read` 和 `runtime.info.read`。
-
-当前 contract package 包含：
-
-- `app`、`runtime`、`codex`、`wallet`、`chain`、`browser`、`dapp`、`policy`、`automation`、`approval`、`settings` 和 `audit` 的 namespace definitions。
-- 初始 app metadata 与 runtime info APIs 的 Zod schemas 和 TypeScript types。
-- Request、success response、error response 和 event envelope types。
-- 标准 error code 集合，覆盖 bad requests、validation failures、forbidden access、missing resources、unavailable services 和 internal errors。
-
-后续 main-process handlers 应该使用这些 contracts 验证 inputs 和 outputs。Renderer 与 preload code 只应在边界处导入需要的 contract types 和 channel constants。
-
-Electron main 通过 desktop IPC router helper 注册 routes。每个 route 都由一个 `@cypheria/ipc` contract 支撑；router 会用 request schema 解析 invoke payload，并在返回 preload 前用 response schema 解析 handler result。当前首批注册 routes 包括 runtime info、app metadata 和 app health。
+- Renderer 和 dApp pages 永远不能访问私钥。
+- Codex 和 automation flows 创建 signing intents，而不是 direct signatures。
+- 每个 signing intent 都经过 `@cypheria/policy-engine`。
+- Auto-signing 默认关闭。
+- 每个 policy decision、signature、rejection、automation run 和 transaction hash 都可审计。
 
 ## Package 边界
 
 ```txt
-@cypheria/ui
-  Reusable shadcn-style product UI primitives、Base UI-backed overlays、CSS tokens，
-  以及 Cypheria-specific components。
+@cypheria/runtime
+  Cypheria non-agent runtime host and service orchestration.
 
-@cypheria/ipc
-  Typed IPC contracts, schemas, and namespace definitions.
+@cypheria/sdk
+  Public TS SDK; composes runtime and @openai/codex-sdk.
 
 @cypheria/codex-bridge
-  Codex App Server protocol adapter and event normalization.
+  Desktop-side Codex App Server bridge, generated protocol types, transport, and event normalization.
+
+@cypheria/ipc
+  Typed Electron IPC contracts, schemas, channel names, and envelopes.
 
 @cypheria/wallet-core
-  Wallet domain types, account models, signing intents, and wallet policies.
-
-@cypheria/web3-browser
-  dApp session model, provider bridge types, and browser permission types.
+  Wallet domain types, accounts, chains, permissions, and signing intents.
 
 @cypheria/policy-engine
-  Signing policy schemas, evaluator, and policy decision types.
+  Signing policy schemas, evaluator, and policy decisions.
+
+@cypheria/web3-browser
+  dApp session, provider bridge, and browser permission models.
 
 @cypheria/automation-core
-  共享 automation task、trigger、run history、wallet policy scope 和 audit correlation types。
-
-@cypheria/runtime
-  Cypheria home directory resolution, runtime path derivation, runtime directory creation,
-  and Codex environment setup.
+  Automation task, trigger, run, log, and audit correlation models.
 
 @cypheria/db
-  Database schema, migrations, and local persistence helpers.
+  SQLite schema, migrations, and local persistence helpers.
+
+@cypheria/ui
+  Shared UI primitives and Cypheria product components.
 ```
 
 ## V1 约束
 
-- V1 不 fork Codex runtime。
-- 不允许 renderer 或 dApp 页面访问私钥。
+- 不 fork Codex runtime。
+- 不创建 `@cypheria/codex-protocol`。
+- 不手写 Codex app-server protocol types。
+- 不实现 TUI。
+- 不将私钥存入 renderer、localStorage、IndexedDB 或普通 SQLite 表。
+- 不在不同 dApp origins 间共享 browser sessions。
 - 不把 wagmi 作为核心钱包层。
-- 不在不同 dApp origins 之间共享 browser sessions。
-- 除非显式用户策略命中，否则不自动签名。
-- V1 不引入 cloud agent execution。
-- 在本地 runner 的形状稳定前，不引入复杂 workflow engine。
+- 不引入 cloud agent execution。
+- 在 local runner 形态稳定前，不引入复杂 workflow engine。

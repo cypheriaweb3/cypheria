@@ -1,6 +1,6 @@
 # Cypheria Development Todo
 
-This todo tracks implementation work at a reviewable granularity. Each item should be small enough to implement, verify, and review in one focused pass, but large enough to produce a meaningful project capability.
+This todo tracks implementation work at a reviewable granularity. Each item should be meaningful, testable, and commit-sized.
 
 Status legend:
 
@@ -8,14 +8,14 @@ Status legend:
 - `[~]` In progress
 - `[x]` Done
 
-## Foundation
+## Foundation Already In Place
 
 - [x] Initialize Turborepo + pnpm monorepo.
   - Acceptance: root scripts, workspace packages, TypeScript base config, Biome, Turbo pipeline, and lockfile are present.
   - Verification: `pnpm run ci`, `pnpm build`.
 
-- [x] Add project README, architecture, technical stack, and agent instructions.
-  - Acceptance: English primary docs and `.zh-CN.md` companion docs exist where applicable.
+- [x] Add project README, architecture, technical stack, todo docs, and agent instructions.
+  - Acceptance: English primary docs and `.zh-CN.md` companion docs exist.
   - Verification: `pnpm run ci`.
 
 - [x] Add runtime home resolution.
@@ -27,126 +27,109 @@ Status legend:
   - Verification: `pnpm run ci`, `pnpm build`.
 
 - [x] Add Electron main runtime bootstrap helper.
-  - Acceptance: desktop main package exposes `initializeDesktopRuntime()` and returns runtime paths plus Codex environment.
+  - Acceptance: desktop main package initializes runtime directories before creating windows.
   - Verification: `pnpm run ci`, `pnpm build`.
 
-## Desktop App Shell
-
-- [x] Add real Electron main entrypoint.
-  - Acceptance: `@cypheria/desktop` has a runnable main process entry that initializes runtime directories before creating windows.
-  - Include: app lifecycle, single-instance lock, graceful shutdown hooks, and basic error logging.
-  - Update docs if startup behavior or runtime paths change.
-  - Verification: `pnpm run ci`, `pnpm build`, launch smoke test.
-
-- [x] Add TanStack Start renderer skeleton.
-  - Acceptance: renderer has a minimal app shell with routing, layout placeholders, and a root route.
-  - Include: app frame, sidebar placeholders, main content area, theme baseline, and Jotai/TanStack Query providers.
-  - Update docs if frontend structure changes.
-  - Verification: `pnpm run ci`, `pnpm build`, browser/Electron screenshot smoke test when runnable.
-
-- [x] Add typed preload bridge baseline.
-  - Acceptance: renderer can call a small typed API exposed by preload without Node.js access.
-  - Include: runtime info read endpoint and app metadata endpoint.
-  - Update architecture docs if IPC boundary changes.
-  - Verification: `pnpm run ci`, `pnpm build`, preload typecheck.
-
-## IPC And Service Contracts
-
-- [x] Define typed IPC contract package.
-  - Acceptance: `@cypheria/ipc` contains shared request/response/event contract types and Zod schemas for initial runtime/app APIs.
-  - Include: namespace conventions, error envelope, event envelope, and version field.
-  - Update architecture docs if IPC wire shape changes.
+- [x] Add Electron + TanStack Start desktop shell.
+  - Acceptance: desktop has a runnable Electron main process, preload bridge baseline, and TanStack Start renderer shell with sidebar navigation.
   - Verification: `pnpm run ci`, `pnpm build`.
 
-- [x] Implement main-process IPC router.
-  - Acceptance: Electron main can register typed handlers and validate inputs/outputs using the shared contracts.
-  - Include: runtime info route and health route.
-  - Update docs if handler registration patterns become part of architecture.
-  - Verification: `pnpm run ci`, `pnpm build`, renderer/preload smoke call.
+- [x] Add typed IPC contract and router baseline.
+  - Acceptance: `@cypheria/ipc` defines initial app/runtime contracts and desktop main validates handler inputs/outputs.
+  - Verification: `pnpm run ci`, `pnpm build`.
 
-## Local Data
+- [x] Add database, audit, wallet, policy, Web3 browser, automation, Codex bridge, and UI baselines.
+  - Acceptance: domain packages contain initial types/services/tests for their V1 boundaries.
+  - Verification: `pnpm run ci`, `pnpm build`, package-level tests where present.
 
-- [x] Add database package baseline.
-  - Acceptance: `@cypheria/db` defines SQLite path resolution under `$CYPHERIA_HOME/db`, Drizzle config, and initial schema shell.
-  - Include: settings, audit logs, workspaces, and runtime metadata tables as initial schema candidates.
-  - Update docs if table names or data boundaries change.
-  - Verification: `pnpm run ci`, `pnpm build`, migration generation/check.
+## Architecture Alignment
 
-- [x] Add audit log write path.
-  - Acceptance: main-process service can append structured audit events to local SQLite.
-  - Include: event type, actor, timestamp, source, payload hash/summary, and correlation id.
-  - Update architecture docs if audit model changes.
-  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/db test`.
+- [x] Rewrite docs for the final Runtime / CLI / SDK / Desktop architecture.
+  - Acceptance: README, architecture, technical stack, todo docs, and `AGENTS.md` describe the current target architecture only.
+  - Include: no `@cypheria/codex-protocol`, CLI does not depend on SDK, CLI/SDK use `@openai/codex-sdk`, desktop uses Codex App Server over WebSocket, and generated app-server TS lives inside `@cypheria/codex-bridge`.
+  - Verification: `pnpm run ci`, `pnpm build`.
 
-## Codex Integration
+## Runtime
 
-- [x] Define Codex App Server transport adapter.
-  - Acceptance: `@cypheria/codex-bridge` models JSONL messages, request ids, lifecycle states, and normalized events.
-  - Include: transport interface, message parser, event normalization shell, and error handling types.
-  - Update docs if Codex event model changes.
+- [ ] Expand `@cypheria/runtime` into the Cypheria runtime host.
+  - Acceptance: package exports `CypheriaRuntime` with `start()`, `stop()`, `request()`, and `events()` methods.
+  - Include: service registry, lifecycle state, runtime info handler, runtime event envelope, and clean shutdown.
+  - Keep: existing home/path resolution exports.
+  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/runtime test`.
+
+- [ ] Move Cypheria-owned service orchestration behind runtime.
+  - Acceptance: runtime can wire database, audit, automation, policy, wallet domain, and browser domain service boundaries without importing desktop renderer code.
+  - Include: clear method namespaces for `runtime.*`, `wallet.*`, `chain.*`, `policy.*`, `browser.*`, `dapp.*`, `automation.*`, `audit.*`, and `settings.*`.
+  - Verification: `pnpm run ci`, `pnpm build`, runtime and affected package tests.
+
+## SDK
+
+- [ ] Add `packages/sdk`.
+  - Acceptance: package exports a public `Cypheria` client.
+  - Include: clients for runtime, wallet, policy, automation, and agent.
+  - Agent path: directly use `@openai/codex-sdk`.
+  - Must not import: `apps/cli`, `apps/desktop`, Electron, or `@cypheria/codex-bridge`.
+  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/sdk test`.
+
+- [ ] Add SDK test doubles for runtime and Codex SDK.
+  - Acceptance: SDK tests can run without launching Codex or Electron.
+  - Include: fake runtime client and fake agent thread.
+  - Verification: `pnpm --filter @cypheria/sdk test`.
+
+## CLI
+
+- [ ] Add `apps/cli`.
+  - Acceptance: package builds a `cypheria` Node CLI with no TUI.
+  - Include: argument parsing, runtime initialization, readable output, JSONL output mode, and non-zero failure exits.
+  - Dependencies: direct imports from `@cypheria/runtime` and `@openai/codex-sdk`.
+  - Must not import: `@cypheria/sdk`, Electron, desktop packages, or `@cypheria/codex-bridge`.
+  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/cli test`.
+
+- [ ] Implement initial CLI commands.
+  - Acceptance: `cypheria run`, `cypheria run --jsonl`, `cypheria runtime info`, `cypheria wallet list`, `cypheria policy list`, `cypheria automation run <task-id>`, and `cypheria doctor` are wired to runtime or Codex SDK.
+  - Verification: CLI unit tests and command smoke tests.
+
+## Desktop Codex App Server Bridge
+
+- [ ] Regenerate Codex app-server TypeScript into `@cypheria/codex-bridge`.
+  - Acceptance: generated files live in `packages/codex-bridge/src/generated` and are committed.
+  - Command: `codex app-server generate-ts --out packages/codex-bridge/src/generated`.
+  - Include: package script to regenerate the files during explicit Codex upgrades.
+  - Must not create: `@cypheria/codex-protocol`.
+  - Verification: `pnpm --filter @cypheria/codex-bridge check`.
+
+- [ ] Refactor `@cypheria/codex-bridge` to use generated app-server types.
+  - Acceptance: bridge uses generated request, response, notification, and server request types instead of hand-written Codex app-server protocol types.
+  - Include: WebSocket transport, initialize/initialized handshake, request/response correlation, notification stream, server request routing, disconnect handling, and overload retry handling.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/codex-bridge test`.
 
-- [x] Implement Codex child process supervisor.
-  - Acceptance: Electron main can launch a configured Codex App Server process with `CODEX_HOME=$CYPHERIA_HOME/codex`.
-  - Include: start/stop, stdout JSONL stream, stderr logging, exit state, and restart decision placeholder.
-  - Update docs if process lifecycle changes.
-  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/desktop test`, local start smoke test if Codex binary is available.
+- [ ] Update desktop to use persistent Codex App Server over WebSocket.
+  - Acceptance: Electron main starts Codex App Server with `CODEX_HOME=$CYPHERIA_HOME/codex`, connects through `@cypheria/codex-bridge`, and exposes Codex events to renderer through typed IPC.
+  - Include: localhost port selection, process lifecycle, readiness, shutdown, stderr logging, and renderer-safe event mapping.
+  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/desktop test`, local desktop smoke test when Codex is available.
 
-## Wallet And Policy
+## Runtime Web3 Capabilities
 
-- [x] Define wallet domain types.
-  - Acceptance: `@cypheria/wallet-core` contains account, chain, RPC, signing intent, wallet source, and permission types.
-  - Include: local wallet, Privy wallet, external wallet, read-only mode, human approval mode, and conditional auto-signing mode.
-  - Update technical stack docs if wallet boundaries change.
-  - Verification: `pnpm run ci`, `pnpm build`.
+- [ ] Implement wallet runtime service.
+  - Acceptance: runtime can list wallet/account state, manage read-only accounts, and expose active account context without private keys entering renderer.
+  - Verification: runtime and wallet tests.
 
-- [x] Define policy engine schema and evaluator baseline.
-  - Acceptance: `@cypheria/policy-engine` validates signing policies and evaluates simple allow/deny/require-human-approval decisions.
-  - Include: origin, wallet, chain, method, contract allowlist, value limit, expiration, and enabled flag.
-  - Update docs if policy shape changes.
-  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/policy-engine test`.
+- [ ] Implement policy runtime service.
+  - Acceptance: runtime can list, validate, create, update, disable, and evaluate signing policies.
+  - Verification: runtime and policy-engine tests.
 
-## Web3 Browser
+- [ ] Implement signing intent and approval runtime flow.
+  - Acceptance: dApp, automation, and agent contexts can create signing intents; each intent is evaluated by policy and auditable.
+  - Verification: runtime, policy, db, and desktop IPC tests.
 
-- [x] Define dApp browser session model.
-  - Acceptance: `@cypheria/web3-browser` defines origin-scoped session keys, permission records, and provider request/response types.
-  - Include: EIP-1193 method coverage for account request, chain switching, signing, and transaction sending.
-  - Update architecture docs if browser isolation model changes.
-  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/web3-browser test`.
+- [ ] Implement Web3 browser runtime service.
+  - Acceptance: desktop can create origin-isolated dApp sessions, inject the provider bridge, and route provider requests through runtime.
+  - Verification: web3-browser tests and desktop smoke test.
 
-- [x] Add provider bridge baseline.
-  - Acceptance: preload/browser bridge can serialize provider requests to main-process handlers without exposing Node.js APIs.
-  - Include: request id, origin, chain id, method, params, and structured provider errors.
-  - Update docs if provider bridge wire shape changes.
-  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/web3-browser test`.
-
-## Automation
-
-- [x] Define automation task model.
-  - Acceptance: shared types describe manual, scheduled, and agent-triggered tasks.
-  - Include: task id, workspace, wallet policy scope, trigger, status, run history, and audit correlation id.
-  - Update docs if automation scope changes.
-  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/automation-core test`.
-
-- [x] Add local automation runner baseline.
-  - Acceptance: main process can run a no-op/manual task through a worker boundary and persist run status.
-  - Include: cancellation placeholder, structured logs, and audit event hook.
-  - Update architecture docs if runner model changes.
-  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/db test`, `pnpm --filter @cypheria/desktop test`, `pnpm --filter @cypheria/db db:check`.
-
-## UI
-
-- [x] Add shadcn-based UI package baseline.
-  - Acceptance: `@cypheria/ui` exposes shared primitives or copied shadcn components with Cypheria styling conventions.
-  - Include: Button, Input, Dialog/Sheet, Sidebar shell, Tooltip, Badge, and Toast baseline.
-  - Update technical stack docs if UI dependency choices change.
-  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/ui test`.
-
-- [x] Add first app shell screen.
-  - Acceptance: desktop renderer shows a Codex Desktop-like shell with sidebar navigation for Workspaces, Browser, Wallets, Automations, Security, and Settings.
-  - Include: empty states only; no deep feature implementation.
-  - Update README screenshots/usage once stable.
-  - Verification: `pnpm run ci`, `pnpm build`, Browser screenshot review.
+- [ ] Implement automation runtime service.
+  - Acceptance: runtime can create, list, run, pause, resume, and inspect automation tasks and runs.
+  - Include: tasks may call Codex SDK or create signing intents but cannot bypass policy.
+  - Verification: automation-core, db, runtime, and desktop tests.
 
 ## Review Rule
 
@@ -154,5 +137,5 @@ After each todo item is completed:
 
 - Stop and request user review before starting the next item.
 - Run the relevant verification commands.
-- Update English and Chinese docs for any behavior, architecture, command, or interface changes.
+- Update English and Chinese docs for behavior, architecture, command, public interface, package boundary, or runtime path changes.
 - Keep commits focused on the completed item.

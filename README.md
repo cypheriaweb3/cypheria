@@ -1,30 +1,33 @@
 # Cypheria
 
-Cypheria is a cross-platform Web3 agent desktop inspired by Codex Desktop. It combines local coding-agent workflows with Web3-native capabilities: wallet management, an isolated dApp browser, task automation, and Web3 vibe coding.
+Cypheria is a cross-platform Web3 agent product inspired by Codex. It is built in TypeScript and combines Codex-powered software engineering workflows with Cypheria-owned Web3 runtime capabilities: wallets, an isolated dApp browser, signing policies, local automation, and audit logs.
 
-The project is currently in early foundation work. The repository contains the monorepo skeleton, technical stack decisions, architecture baseline, Electron main process bootstrap, and the first TanStack Start renderer shell.
+Cypheria does not reimplement the Codex agent core. CLI and SDK surfaces use the official Codex TypeScript SDK for agent workflows. The desktop app runs a long-lived Codex App Server and talks to it through WebSocket JSON-RPC. Web3 permissions, wallet state, signing, automation, policy evaluation, and auditability belong to the Cypheria runtime.
 
 ## Product Direction
 
-Cypheria V1 focuses on four product surfaces:
+Cypheria V1 has four entry points:
 
-- **Wallet Manager**: local wallets, Privy wallets, account context, chain/RPC configuration, approvals, and signing policies.
-- **Web3 App Browser**: an Electron-powered browser surface for dApps, with one isolated session per origin and an injected EIP-1193 provider bridge.
-- **Task Automation**: scheduled and manual tasks that can use Codex, read chain state, draft transactions, and route signing intents through policy evaluation.
-- **Web3 Vibe Coding**: Codex Desktop-style coding workflows for contracts, dApps, indexers, integrations, audits, tests, and workspace automation.
+- **Runtime**: the TypeScript core for Cypheria-owned non-agent capabilities, including wallets, chains, policies, automation, browser permissions, settings, local state, and audit logs.
+- **CLI**: a non-TUI command-line surface that directly composes `@cypheria/runtime` and `@openai/codex-sdk`.
+- **SDK**: a TypeScript library for external apps that directly composes `@cypheria/runtime` and `@openai/codex-sdk`.
+- **Desktop**: an Electron + TanStack Start app that runs Cypheria runtime in the main process and a persistent Codex App Server for rich agent workflows.
 
-The default safety model is human approval. Read-only mode and conditional auto-signing are supported as explicit policy modes.
+The default safety model is human approval. Read-only mode and conditional auto-signing are explicit policy modes. Codex and automation flows may create signing intents, but every signing intent must go through Cypheria policy evaluation before a signature or transaction broadcast.
 
 ## Tech Stack
 
+- **Language**: TypeScript
+- **Monorepo**: Turborepo + pnpm workspace
 - **Desktop**: Electron
 - **Frontend**: TanStack Start, TanStack Router, TanStack Query
 - **State**: Jotai
-- **Forms**: TanStack Form + Zod
-- **Monorepo**: Turborepo + pnpm workspace
+- **Forms and validation**: TanStack Form + Zod
 - **Lint/format**: Biome
 - **UI**: shadcn-style copied components, Base UI primitives, Cypheria CSS tokens, lucide-react
-- **Codex integration**: embedded Codex App Server via Electron main process
+- **CLI/SDK agent integration**: `@openai/codex-sdk`
+- **Desktop agent integration**: `codex app-server` over WebSocket JSON-RPC
+- **Desktop Codex protocol types**: generated with `codex app-server generate-ts --out packages/codex-bridge/src/generated`
 - **Web3**: viem, Privy, WalletConnect / Reown
 - **Data**: SQLite + Drizzle ORM
 
@@ -32,41 +35,73 @@ See [docs/technical-stack.md](docs/technical-stack.md) for the full technical st
 
 ## Architecture
 
-At a high level, Cypheria separates trusted local capabilities from untrusted web content:
-
 ```txt
-Electron Main Process
-  - Local permissions, wallets, signing, Codex child process, automation, database, audit logs
+apps/cli
+  -> @cypheria/runtime
+  -> @openai/codex-sdk
 
-TanStack Start Renderer
-  - Product UI, routing, state display, user interaction entry points
+packages/sdk
+  -> @cypheria/runtime
+  -> @openai/codex-sdk
 
-Isolated Web3 Browser WebContents
-  - dApp pages, one persistent session per origin
-
-Codex App Server Child Process
-  - Codex threads, turns, approvals, diffs, terminal, MCP, workspace operations
+apps/desktop renderer
+  -> Electron typed IPC
+  -> Electron main
+  -> @cypheria/runtime
+  -> @cypheria/codex-bridge
+  -> persistent codex app-server over WS
 ```
+
+The desktop renderer is a product UI, not a privileged runtime. It uses typed IPC to request capabilities from Electron main. Private keys, signing operations, dApp browser sessions, local database access, automation execution, and Codex App Server lifecycle management stay outside the renderer.
 
 See [docs/architecture.md](docs/architecture.md) for the architecture baseline.
 
 ## Repository Layout
 
 ```txt
+apps/cli
+  Non-TUI command-line app.
+
 apps/desktop
   main/       Electron main process
   preload/   Secure bridges for app and browser surfaces
   renderer/  TanStack Start renderer app
 
-packages/ui
-packages/ipc
+packages/sdk
+packages/runtime
 packages/codex-bridge
+packages/ipc
+packages/ui
 packages/wallet-core
 packages/automation-core
 packages/web3-browser
 packages/policy-engine
-packages/runtime
 packages/db
+```
+
+`apps/cli` and `packages/sdk` are planned packages. They are part of the target architecture and will be implemented through the todo sequence.
+
+## Runtime Home
+
+Cypheria owns its local application home:
+
+```sh
+CYPHERIA_HOME="${CYPHERIA_HOME:-~/.cypheria}"
+CODEX_HOME="$CYPHERIA_HOME/codex"
+```
+
+Recommended layout:
+
+```txt
+$CYPHERIA_HOME/
+  codex/        Cypheria-managed Codex home
+  db/           SQLite databases
+  vault/        encrypted wallet vault files and metadata
+  logs/         app, automation, policy, and audit logs
+  cache/        disposable app caches
+  browser/      dApp browser session partitions and metadata
+  automation/   task definitions, run state, and worker metadata
+  config/       Cypheria settings
 ```
 
 ## Development
@@ -89,7 +124,7 @@ Run TypeScript checks through Turborepo:
 pnpm check
 ```
 
-Run the current build pipeline:
+Run the build pipeline:
 
 ```sh
 pnpm build
@@ -117,9 +152,9 @@ In this repository, pnpm-related commands should usually run outside the sandbox
 
 ## Current Status
 
-The repository currently contains the foundational monorepo setup, typed IPC contracts, runtime home handling, Electron main process bootstrap, Codex App Server process supervision, wallet/policy/Web3 browser domain baselines, local SQLite audit and automation persistence, and a Codex Desktop-like TanStack Start shell.
+The repository contains the foundational pnpm/Turborepo workspace, typed IPC contracts, runtime home handling, Electron main process bootstrap, Codex bridge baseline, wallet/policy/Web3 browser domain baselines, local SQLite audit and automation persistence, shared UI primitives, and the first TanStack Start desktop shell.
 
-The renderer first screen includes sidebar navigation for Workspaces, Browser, Wallets, Automations, Security, and Settings. These are empty-state surfaces only; deeper workflows will be added incrementally.
+The next implementation sequence is tracked in [docs/todo.md](docs/todo.md).
 
 ## License
 

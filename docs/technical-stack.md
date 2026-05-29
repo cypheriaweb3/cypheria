@@ -1,423 +1,285 @@
 # Cypheria Technical Stack
 
-Cypheria V1 is a cross-platform Web3 agent desktop. It should preserve the parts of Codex Desktop that are useful for local engineering work, while adding a wallet manager, Web3 app browser, task automation, and Web3 vibe coding.
+Cypheria V1 is a TypeScript Web3 agent product with CLI, SDK, desktop, and runtime surfaces. It reuses Codex for agent workflows and implements Cypheria-owned Web3 capabilities locally.
 
-## Overall Architecture
-
-```txt
-Electron Main Process
-  - Local permissions, security, wallets, Codex child process, automation, database, audit logs
-
-TanStack Start Renderer
-  - UI, routing, state display, user interaction entry points
-
-Isolated Web3 Browser WebContents
-  - dApp pages, with one isolated session per origin
-
-Codex App Server Child Process
-  - Reuse Codex thread, turn, approval, diff, and terminal capabilities
-```
-
-Core principles:
-
-- Private keys, signing, automation execution, the Codex child process, and system permissions live in the Electron main process or isolated child processes.
-- The renderer talks to local capabilities only through typed IPC and event subscriptions. It never directly accesses private keys, Node.js APIs, shell commands, or dApp page internals.
-- The Web3 dApp browser and Codex preview browser are separate surfaces with different permission models and no shared wallet context.
-- The default security mode is human approval. Read-only mode and custom conditional auto-signing are configurable modes.
-
-## Desktop And Frontend
+## Platform Choices
 
 | Category | Choice |
 | --- | --- |
-| Desktop runtime | Electron |
-| App framework | TanStack Start |
-| Router | TanStack Router |
-| Server/cache state | TanStack Query |
-| Client/UI state | Jotai |
-| Forms | TanStack Form + Zod |
-| IPC schema | Zod-validated typed IPC |
-| Build | Vite for renderer, tsdown for Electron main |
+| Primary language | TypeScript |
 | Monorepo | Turborepo |
 | Package manager | pnpm |
 | Lint / format | Biome |
-| Tests | Vitest + Testing Library + Playwright |
-| Package/release | electron-builder |
+| Tests | Vitest, Testing Library, Playwright |
+| Runtime validation | Zod |
+| Desktop runtime | Electron |
+| Frontend app | TanStack Start |
+| Router | TanStack Router |
+| Server/cache state | TanStack Query |
+| UI state | Jotai |
+| Forms | TanStack Form + Zod |
+| Desktop build | Vite for renderer, tsdown for Electron main/preload |
+| Desktop packaging | electron-builder |
+| CLI/SDK Codex integration | `@openai/codex-sdk` |
+| Desktop Codex integration | `codex app-server` over WebSocket JSON-RPC |
+| Desktop Codex protocol types | `codex app-server generate-ts --out packages/codex-bridge/src/generated` |
+| Local database | SQLite |
+| ORM | Drizzle ORM |
+| SQLite driver | better-sqlite3 |
 
-Recommended Turborepo + pnpm workspace layout:
+## Workspace Layout
 
 ```txt
+apps/cli
+  Non-TUI command-line app.
+
 apps/desktop
   main/
   preload/
   renderer/
 
-packages/ui
-packages/ipc
+packages/sdk
+packages/runtime
 packages/codex-bridge
+packages/ipc
+packages/ui
 packages/wallet-core
 packages/web3-browser
 packages/policy-engine
-packages/runtime
+packages/automation-core
 packages/db
 ```
 
-Turborepo should own task orchestration, caching, and dependency-aware pipelines across apps and packages. pnpm should own dependency installation and workspace linking through `pnpm-workspace.yaml`.
+`apps/cli` and `packages/sdk` are planned packages. The existing repository already contains the desktop app and the main domain packages.
 
-The desktop app currently uses a package-level Vite config at `apps/desktop/vite.config.ts` for the TanStack Start renderer. The Start source directory is `apps/desktop/renderer/src`, with generated file routing in `routeTree.gen.ts`. Electron can load a local renderer dev server by setting `CYPHERIA_RENDERER_URL=http://127.0.0.1:5173`.
+## Runtime Stack
 
-## UI Stack
+`@cypheria/runtime` is the TypeScript host for Cypheria-owned non-agent services. It should compose domain packages instead of duplicating their models.
 
-The UI strategy is to reuse mature components first, avoid rebuilding base components, and only build custom components for Cypheria-specific Web3 and agent workflows.
+Runtime responsibilities:
 
-| Category | Choice |
+- Resolve `$CYPHERIA_HOME`, defaulting to `~/.cypheria`.
+- Derive `CODEX_HOME=$CYPHERIA_HOME/codex`.
+- Initialize runtime directories.
+- Wire database, audit, wallet, policy, browser, automation, and settings services.
+- Expose a typed request/event API for CLI, SDK, and desktop main.
+
+Runtime does not implement Codex agent internals.
+
+## CLI Stack
+
+`apps/cli` is a Node CLI without TUI. It directly depends on:
+
+- `@cypheria/runtime`
+- `@openai/codex-sdk`
+
+It must not depend on:
+
+- `@cypheria/sdk`
+- `@cypheria/codex-bridge`
+- Electron or desktop packages
+
+Initial command behavior:
+
+- `cypheria run <prompt>` uses Codex SDK for agent execution.
+- `cypheria run --jsonl <prompt>` emits machine-readable event/result output.
+- `cypheria runtime info` reads Cypheria runtime metadata.
+- Web3 commands use runtime services directly.
+
+## SDK Stack
+
+`@cypheria/sdk` is a public TypeScript library for Node applications. It directly depends on:
+
+- `@cypheria/runtime`
+- `@openai/codex-sdk`
+
+It must not depend on:
+
+- `apps/cli`
+- Electron or desktop packages
+- `@cypheria/codex-bridge`
+
+SDK clients should be small wrappers around runtime services and Codex SDK agent threads.
+
+## Desktop Stack
+
+Desktop keeps Electron + TanStack Start.
+
+| Area | Choice |
 | --- | --- |
-| Component system | shadcn-style copied components |
-| Primitive layer | Base UI for overlays and interactive primitives; no Radix UI |
-| Styling | Cypheria CSS tokens and class variants; Tailwind can be added later if needed |
-| AI UI reference | OpenAI Apps SDK UI, ai-elements patterns |
-| Icons | lucide-react |
-| Motion | motion |
-| Toasts | Base UI Toast baseline |
-| Command menu | shadcn command / cmdk |
-| Code editor | Monaco Editor |
-| Terminal | xterm.js |
+| Main process | TypeScript built with tsdown |
+| Preload | TypeScript built with tsdown |
+| Renderer | TanStack Start built with Vite |
+| IPC | Zod-validated contracts from `@cypheria/ipc` |
+| Renderer state | Jotai + TanStack Query |
+| UI primitives | `@cypheria/ui` |
+| Codex process | `codex app-server` |
+| Codex transport | WebSocket JSON-RPC on localhost |
+| Codex protocol types | generated into `packages/codex-bridge/src/generated` |
 
-Component strategy:
+Electron browser defaults:
 
-- Use shadcn's copied-component model and styling conventions, but prefer Base UI over Radix UI for overlays and interactive primitives.
-- `@cypheria/ui` currently exposes Button, Input, Dialog/Sheet, Sidebar shell, Tooltip, Badge, and Toast primitives. Dialog, Sheet, Tooltip, and Toast are backed by Base UI; Button, Input, Badge, and Sidebar use lightweight Cypheria wrappers and shared CSS tokens.
-- Reference OpenAI Apps SDK UI and ai-elements for Conversation, Message, Reasoning, Tool Call, Approval Prompt, Artifact, Diff Review, Prompt Input, and Task Timeline patterns.
-- Build Cypheria-specific components for Wallet Switcher, Signature Approval, Transaction Simulation Panel, DApp Permission Inspector, Chain/RPC Selector, Policy Rule Builder, Web3 Browser Address Bar, and Codex Thread Event Adapter.
+```ts
+{
+  nodeIntegration: false,
+  contextIsolation: true,
+  sandbox: true,
+  webSecurity: true,
+}
+```
 
-The visual direction should stay close to Codex Desktop: quiet, tool-like, moderately dense, low-saturation, panel-oriented, and centered around threads, diffs, terminals, and workspaces. Avoid typical Web3 neon gradients and marketing-page aesthetics.
+Renderer code uses typed IPC only. Electron main owns privileged services and Codex App Server lifecycle.
 
 ## Codex Integration
 
-| Category | Choice |
-| --- | --- |
-| Codex base | Embedded Codex App Server |
-| Process model | Electron main process starts a `codex app-server` child process |
-| Transport | JSON-RPC over stdio / JSONL |
-| UI bridge | Main process wraps `CodexService`; renderer subscribes through typed IPC |
-| Configuration | Compatible with Codex config, MCP, workspace, and approval flow |
-
-Cypheria should not fork the Codex runtime in V1. Codex owns code-agent behavior, workspace operations, diffs, terminal sessions, approvals, MCP, and thread/run lifecycle. Cypheria wraps it with Web3 tools, wallet approvals, dApp browser context, task automation, policy evaluation, and audit logs.
-
-`@cypheria/codex-bridge` is the protocol adapter package. It defines JSON-RPC 2.0 wire messages, chunk-safe JSONL parsing, outbound request/notification helpers, request id generation, transport lifecycle states, transport error types, and normalized Codex events for the Electron main process to consume.
-
-The first desktop supervisor lives in Electron main and defaults to `codex app-server --listen stdio://`. It passes the runtime-scoped `CODEX_HOME`, streams stdout through `@cypheria/codex-bridge`, captures stderr lines, records exit state, and leaves automatic restart disabled until a later policy is defined.
+Cypheria uses Codex in two ways:
 
 ```txt
-Renderer
-  -> ipc.invoke("codex.thread.create")
-  -> Main CodexService
-  -> codex app-server stdio
-  -> JSON-RPC response / event
-  -> Renderer event stream
+CLI / SDK
+  -> @openai/codex-sdk
+
+Desktop
+  -> @cypheria/codex-bridge
+  -> codex app-server over WebSocket JSON-RPC
 ```
 
-Cypheria runtime paths should be resolved by `@cypheria/runtime`. `$CYPHERIA_HOME` configures the app home directory and defaults to `~/.cypheria`; when launching Codex App Server, Cypheria should pass `CODEX_HOME="$CYPHERIA_HOME/codex"`. Runtime directories are created explicitly through the Electron main process startup helper `initializeDesktopRuntime()`, which calls `ensureRuntimeDirectories()`.
+`@cypheria/codex-bridge` owns desktop integration only. It should:
 
-## Wallets And Chain Access
+- Use generated Codex app-server TypeScript files from `src/generated`.
+- Implement WebSocket transport.
+- Perform the `initialize` request and `initialized` notification handshake.
+- Correlate JSON-RPC requests and responses.
+- Stream server notifications.
+- Route server requests such as approvals to Electron main.
+- Handle disconnect and overload errors.
+
+Generate protocol types with:
+
+```sh
+codex app-server generate-ts --out packages/codex-bridge/src/generated
+```
+
+Generated files are committed so CI and contributors do not need a matching local Codex binary just to typecheck.
+
+## UI Stack
+
+The UI strategy is to reuse mature primitives and build custom components only for Cypheria-specific workflows.
+
+| Category | Choice |
+| --- | --- |
+| Component model | shadcn-style copied components |
+| Primitive layer | Base UI for overlays and interactive primitives |
+| Styling | Cypheria CSS tokens and class variants |
+| Icons | lucide-react |
+| Motion | motion |
+| Command menu | cmdk/shadcn command patterns |
+| Code editor | Monaco Editor |
+| Terminal | xterm.js |
+
+Cypheria-specific components:
+
+- Wallet switcher.
+- Signature approval.
+- Transaction simulation panel.
+- dApp permission inspector.
+- Chain/RPC selector.
+- Policy rule builder.
+- Web3 browser address bar.
+- Codex thread event adapter.
+
+Visual direction: quiet, work-focused, low saturation, panel-oriented, dense enough for real engineering workflows, and close to Codex Desktop. Avoid neon Web3 marketing aesthetics.
+
+## Web3 Stack
 
 | Category | Choice |
 | --- | --- |
 | EVM client | viem |
-| React wallet hooks | wagmi for lightweight UI state only |
+| React wallet hooks | wagmi only for lightweight UI state if needed |
 | Local wallets | viem/accounts + encrypted vault |
 | Embedded wallets | Privy |
 | External wallets | WalletConnect / Reown |
-| Multi-chain config | In-house chain registry compatible with viem chain format |
-| Asset data | Adapter for Alchemy / Reservoir / SimpleHash / Moralis |
+| Chain registry | In-house registry compatible with viem chain format |
+| Asset providers | Adapter boundary for Alchemy / Reservoir / SimpleHash / Moralis |
 | Transaction simulation | Tenderly / Blocknative first; self-hosted simulation later |
 
-Core services:
+Core packages:
 
-```txt
-WalletService
-  - account lifecycle
-  - local wallet vault
-  - Privy wallet binding
-  - active wallet context
+- `@cypheria/wallet-core`: wallet/account/chain/signing intent models.
+- `@cypheria/web3-browser`: dApp session, permission, and EIP-1193 provider bridge models.
+- `@cypheria/policy-engine`: signing policy schemas and deterministic evaluation.
 
-ChainService
-  - RPC clients
-  - chain registry
-  - gas estimation
-  - read contract / write contract
+Private keys never enter renderer, dApp pages, localStorage, IndexedDB, or normal SQLite tables.
 
-SigningService
-  - personal_sign
-  - typed data
-  - transaction signing
-  - policy check before signing
-
-AssetService
-  - token balances
-  - NFT balances
-  - transaction history
-```
-
-`@cypheria/wallet-core` defines the shared wallet domain boundary for V1. It includes wallet modes (`read-only`, `human-approval`, `conditional-auto-signing`), local/Privy/external/read-only wallet sources, wallet accounts, chain definitions, RPC endpoints, EIP-1193 permission methods, origin-scoped wallet permissions, and signing intents for personal signing, typed data, transaction signing, and transaction sending.
-
-Local wallet security:
-
-- Key derivation: Argon2id.
-- Symmetric encryption: XChaCha20-Poly1305 or AES-256-GCM.
-- OS-backed key protection: keytar / Electron safeStorage.
-- Seed phrase reveal: one-time reveal with strong confirmation.
-- Export: requires password and local confirmation.
-
-## Web3 App Browser
+## Policy And Automation Stack
 
 | Category | Choice |
 | --- | --- |
-| Browser container | Electron `WebContentsView` |
-| Isolation strategy | One persistent session per dApp origin |
-| Provider | In-house EIP-1193 provider bridge |
-| Permission model | origin + wallet + chain + method |
-| Popups/downloads | Intercepted and approved by the main process |
-
-The Web3 browser should not reuse the Codex preview browser permission model. The Codex preview browser is for local development previews, screenshots, and visual inspection, and should not connect to wallets. The Web3 app browser is for real dApp usage and needs login state, cookies, wallet connections, signing approvals, origin isolation, and provider injection.
-
-`@cypheria/web3-browser` owns the shared browser session model. It provides stable origin-scoped session keys, persistent partition names, permission records, EIP-1193 provider method coverage, and typed provider request/response envelopes.
-
-The initial provider bridge exposes an EIP-1193-style request function over an injected transport callback. It serializes request id, origin, session key, optional chain id, method, and params, and returns successful results or structured `ProviderRpcError` failures without exposing Node.js APIs to dApp pages.
-
-Session key examples:
-
-```txt
-cypheria:dapp:https://app.uniswap.org
-cypheria:dapp:https://opensea.io
-cypheria:dapp:https://app.aave.com
-```
-
-The provider bridge must intercept:
-
-```txt
-eth_requestAccounts
-wallet_requestPermissions
-wallet_switchEthereumChain
-wallet_addEthereumChain
-personal_sign
-eth_signTypedData_v4
-eth_sendTransaction
-eth_accounts
-eth_chainId
-```
-
-Transaction request flow:
-
-```txt
-dApp
-  -> injected provider
-  -> preload bridge
-  -> Main DappBrowserService
-  -> PolicyEngine
-  -> SimulationService
-  -> Approval UI
-  -> SigningService
-  -> RPC broadcast
-  -> AuditLog
-```
-
-## Policy Engine And Automation
-
-| Category | Choice |
-| --- | --- |
-| Policy schema | JSON policy + Zod schema |
-| Policy execution | In-house deterministic evaluator |
-| Advanced policies | CEL can be added later |
-| Scheduler | cron-parser + in-house scheduler |
+| Policy schema | Zod-validated JSON policy |
+| Policy evaluator | Deterministic TypeScript evaluator |
+| Scheduler | cron-parser or equivalent local scheduler |
 | Runner | worker_threads or child_process |
-| Logs | pino structured logs |
+| Logs | Structured logs persisted through runtime/db |
 
-V1 policy modes:
+Policy modes:
 
-- Read-only: only allow chain reads, asset queries, and contract analysis.
-- Human approval: every signing request requires an explicit approval prompt.
-- Conditional auto-signing: only auto-sign when a policy matches.
+- Read-only.
+- Human approval.
+- Conditional auto-signing.
 
-The baseline `@cypheria/policy-engine` package validates signing policies with Zod and evaluates `allow`, `deny`, or `require-human-approval`. Read-only mode only allows `eth_accounts` and `eth_chainId`; human-approval mode always requires approval; conditional auto-signing only allows a request when an enabled, unexpired policy matches the wallet, chain, origin, method, optional contract allowlist, and optional native value limit. Explicit deny policies take priority over allow policies.
+Automation is local-first. Tasks may use Codex SDK, read chain state, create signing intents, and write audit logs. Tasks must not bypass the policy engine.
 
-`@cypheria/automation-core` owns the shared automation task model. V1 tasks can be manual, scheduled with an RRULE and timezone, or agent-triggered from Codex context. Each task records its workspace, wallet policy scope, lifecycle status, run history, structured run logs, and audit correlation ids so the later runner can persist and audit task execution without redefining the wire shape.
-
-The first local runner lives in the desktop main process. It supports enabled manual no-op tasks, persists task/run state to SQLite through `@cypheria/db`, executes through a worker boundary, writes structured logs into the run record, and appends audit log entries for queued, succeeded, and failed runs. Cancellation currently returns an explicit not-implemented result while preserving the public runner shape.
-
-Policy example:
-
-```ts
-type SigningPolicy = {
-  id: string
-  enabled: boolean
-  walletId: string
-  chainIds: number[]
-  origins: string[]
-  methods: string[]
-  contractAllowlist?: string[]
-  maxNativeValue?: string
-  expiresAt?: string
-  effect: "allow" | "deny" | "require-human-approval"
-  requireHumanApproval: boolean
-}
-```
-
-V1 automation capabilities:
-
-- Periodically check wallet assets, approvals, and risk.
-- Periodically open a workspace and let Codex run a task.
-- Generate contracts, tests, and frontend integration code.
-- Monitor dApp or contract state.
-- Draft transaction intents.
-- Auto-sign only when a policy matches; otherwise route to human approval.
-
-V1 should not support high-frequency trading, MEV, complex DeFi strategy auto-execution, or large automatic cross-chain bridge operations.
-
-## Data Layer
+## Data Stack
 
 | Category | Choice |
 | --- | --- |
-| Local database | SQLite |
+| Database | SQLite |
 | ORM | Drizzle ORM |
-| SQLite driver | better-sqlite3 |
+| Driver | better-sqlite3 |
 | Migrations | drizzle-kit |
-| Search | SQLite FTS5 |
-| Sensitive data | encrypted vault; never store plaintext secrets in normal SQLite tables |
+| Search | SQLite FTS5 when needed |
+| Sensitive data | encrypted vault, not normal SQLite tables |
 
-The initial `@cypheria/db` baseline resolves the app database to `$CYPHERIA_HOME/db/cypheria.sqlite`, defines the first Drizzle tables for settings, audit logs, workspaces, and runtime metadata, and stores generated SQLite migrations in `packages/db/drizzle`.
-
-`@cypheria/db` opens SQLite with `better-sqlite3`, wraps the schema with Drizzle, and exposes an audit log service for append/read flows. Unit coverage uses Vitest against an in-memory SQLite database.
-
-Core tables:
+Initial tables:
 
 ```txt
 settings
 audit_logs
 workspaces
 runtime_metadata
-
-Planned later:
-  wallets
-  accounts
-  chains
-  rpc_endpoints
-  dapp_origins
-  dapp_permissions
-  signing_policies
-  approval_requests
-  automation_tasks
-  automation_runs
-  codex_threads
+automation_tasks
+automation_runs
 ```
 
-## IPC And Security
-
-IPC namespaces:
+Planned tables:
 
 ```txt
-app.*
-runtime.*
-codex.*
-wallet.*
-chain.*
-browser.*
-dapp.*
-policy.*
-automation.*
-approval.*
-settings.*
-audit.*
+wallets
+accounts
+chains
+rpc_endpoints
+dapp_origins
+dapp_permissions
+signing_policies
+approval_requests
 ```
 
-IPC contract conventions:
+## Engineering Rules
 
-- `@cypheria/ipc` owns protocol version `1` and the shared channel constants.
-- Request, response, error, and event envelopes include the protocol version.
-- Initial app metadata and runtime info APIs have Zod schemas and inferred TypeScript types.
-- Main-process IPC routes are registered through a helper that validates request payloads and handler responses against `@cypheria/ipc` contracts.
-- Error envelopes use standard codes: `BAD_REQUEST`, `VALIDATION_ERROR`, `FORBIDDEN`, `NOT_FOUND`, `UNAVAILABLE`, and `INTERNAL_ERROR`.
-
-Security defaults:
-
-- `nodeIntegration: false`.
-- `contextIsolation: true`.
-- `sandbox: true`.
-- Strict CSP.
-- dApp permissions are origin-scoped.
-- Private keys only enter the encrypted vault.
-- The renderer and dApps never access private keys.
-- The Codex agent cannot directly sign by default; it can only create signing intents.
-- Every signing intent must go through the PolicyEngine.
-- Every signature, rejection, auto-signing action, and policy decision is written to the AuditLog.
-- Auto-signing policies are disabled by default.
-
-## Engineering
-
-Biome owns linting and formatting:
-
-```txt
-biome.json
-  - formatter
-  - linter
-  - import sorting
-  - organize imports
-
-package scripts
-  - check: biome check .
-  - lint: biome lint .
-  - format: biome format --write .
-  - ci: biome ci .
-```
-
-Recommended dependencies:
-
-```txt
-electron
-electron-builder
-tsdown
-@tanstack/react-start
-@tanstack/react-router
-@tanstack/react-query
-@tanstack/react-form
-jotai
-react
-react-dom
-typescript
-vite
-zod
-@biomejs/biome
-tailwindcss
-lucide-react
-cmdk
-sonner
-motion
-monaco-editor
-xterm
-viem
-wagmi
-@privy-io/react-auth
-@walletconnect/sign-client
-drizzle-orm
-drizzle-kit
-better-sqlite3
-keytar
-cron-parser
-pino
-nanoid
-date-fns
-vitest
-@testing-library/react
-playwright
-```
-
-In this repository, pnpm-related commands should usually run outside the sandbox so pnpm can use its global store.
+- Use pnpm, not npm/yarn/bun, unless explicitly requested.
+- pnpm-related commands should usually run outside the sandbox so pnpm can use its global store.
+- Keep TypeScript strict.
+- Use Zod at runtime boundaries: IPC, policy schemas, wallet inputs, automation definitions, and generated-protocol adapters.
+- Keep package boundaries explicit.
+- Update English and Chinese docs together for architecture, behavior, command, package boundary, or runtime-path changes.
 
 ## Not In V1
 
-- Do not use Tauri in V1.
-- Do not fork the Codex runtime in V1.
-- Do not use wagmi as the core wallet layer.
-- Do not store private keys in the renderer, localStorage, or IndexedDB.
-- Do not build cloud agent execution in V1.
-- Do not introduce a complex workflow engine in V1.
-- Do not rebuild base components such as Dialog, Dropdown, Popover, Toast, or Tooltip when Base UI can provide the primitive behavior.
+- No TUI.
+- No Codex runtime fork.
+- No `@cypheria/codex-protocol` package.
+- No hand-written Codex app-server protocol types.
+- No cloud agent execution.
+- No complex workflow engine before the local runner is proven.
+- No private keys in renderer, localStorage, IndexedDB, or normal SQLite tables.
+- No shared browser sessions across dApp origins.
+- No wagmi core wallet layer.
