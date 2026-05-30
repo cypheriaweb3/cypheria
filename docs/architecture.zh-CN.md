@@ -171,6 +171,7 @@ Cypheria 使用两条 Codex 集成路径：
 - Server-initiated approval request routing。
 - Disconnect 和 lifecycle handling。
 - app-server overload errors 的重试处理。
+- 为使用 AI SDK / AI Elements 的聊天界面提供 AI SDK `ProviderV3` adapter。
 
 Desktop main 拥有 Codex App Server process lifecycle。它选择 localhost port，以 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动 `codex app-server`，等待 bridge readiness，记录 stderr，并随 desktop runtime 一起关闭 child process。
 

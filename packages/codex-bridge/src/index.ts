@@ -10,6 +10,19 @@ import type {
   ServerRequest,
 } from "./generated/index.js"
 
+export type {
+  CodexAppServerProvider,
+  CodexAppServerProviderBridge,
+  CodexAppServerProviderCallSettings,
+  CodexAppServerProviderOptions,
+  CodexAppServerProviderSettings,
+  CodexAppServerSandboxMode,
+  CodexAppServerThreadMode,
+} from "./ai-sdk-provider.js"
+export {
+  CodexAppServerAiSdkSession,
+  createCodexAppServerProvider,
+} from "./ai-sdk-provider.js"
 export type * from "./generated/index.js"
 
 export type CodexJsonValue =

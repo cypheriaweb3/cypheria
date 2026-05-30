@@ -171,6 +171,7 @@ Cypheria uses two Codex integration paths:
 - Server-initiated approval request routing.
 - Disconnect and lifecycle handling.
 - Overload retry handling for app-server overload errors.
+- AI SDK `ProviderV3` adaptation for chat surfaces that use AI SDK / AI Elements.
 
 Desktop main owns the Codex App Server process lifecycle. It selects a localhost port, starts `codex app-server` with `CODEX_HOME=$CYPHERIA_HOME/codex`, waits for bridge readiness, logs stderr, and shuts the child process down with the desktop runtime.
 
