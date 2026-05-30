@@ -34,6 +34,7 @@ apps/cli
   无 TUI 的命令行应用。
 
 apps/desktop
+  ipc/
   main/
   preload/
   renderer/
@@ -41,7 +42,6 @@ apps/desktop
 packages/sdk
 packages/runtime
 packages/codex-bridge
-packages/ipc
 packages/ui
 packages/wallet-core
 packages/web3-browser
@@ -110,7 +110,7 @@ Desktop 保留 Electron + TanStack Start。
 | Main process | TypeScript built with tsdown |
 | Preload | TypeScript built with tsdown |
 | Renderer | TanStack Start built with Vite |
-| IPC | 来自 `@cypheria/ipc` 的 Zod-validated contracts |
+| IPC | 位于 `apps/desktop/ipc` 的 Zod-validated contracts |
 | Renderer state | Jotai + TanStack Query |
 | UI primitives | `@cypheria/ui` |
 | Codex process | `codex app-server` |

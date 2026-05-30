@@ -1,6 +1,6 @@
-import type { IpcContract } from "@cypheria/ipc"
 import type { IpcMainInvokeEvent } from "electron"
 import { ipcMain } from "electron"
+import type { IpcContract } from "../../ipc/src/index.js"
 
 export type IpcRouteHandler<TRequestPayload, TResponsePayload> = (
   payload: TRequestPayload,

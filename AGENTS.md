@@ -72,6 +72,7 @@ Target layout:
 ```txt
 apps/cli
 apps/desktop
+  ipc/
   main/
   preload/
   renderer/
@@ -79,7 +80,6 @@ apps/desktop
 packages/sdk
 packages/runtime
 packages/codex-bridge
-packages/ipc
 packages/ui
 packages/wallet-core
 packages/web3-browser

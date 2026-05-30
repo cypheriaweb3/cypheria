@@ -312,8 +312,8 @@ CODEX_HOME="$CYPHERIA_HOME/codex"
 @cypheria/codex-bridge
   Desktop-side Codex App Server bridge, generated protocol types, transport, and event normalization.
 
-@cypheria/ipc
-  Typed Electron IPC contracts, schemas, channel names, and envelopes.
+apps/desktop/ipc
+  Desktop-local typed Electron IPC contracts, schemas, channel names, and envelopes.
 
 @cypheria/wallet-core
   Wallet domain types, accounts, chains, permissions, and signing intents.

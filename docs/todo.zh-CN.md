@@ -35,7 +35,7 @@
   - 验证：`pnpm run ci`、`pnpm build`。
 
 - [x] 添加 typed IPC contract 和 router baseline。
-  - 验收：`@cypheria/ipc` 定义初始 app/runtime contracts，desktop main 会验证 handler inputs/outputs。
+  - 验收：desktop-local IPC contracts 定义初始 app/runtime contracts，desktop main 会验证 handler inputs/outputs。
   - 验证：`pnpm run ci`、`pnpm build`。
 
 - [x] 添加 database、audit、wallet、policy、Web3 browser、automation、Codex bridge 和 UI baselines。

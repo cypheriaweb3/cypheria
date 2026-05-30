@@ -32,9 +32,6 @@ importers:
       '@cypheria/db':
         specifier: workspace:*
         version: link:../../packages/db
-      '@cypheria/ipc':
-        specifier: workspace:*
-        version: link:../../packages/ipc
       '@cypheria/policy-engine':
         specifier: workspace:*
         version: link:../../packages/policy-engine
@@ -71,6 +68,9 @@ importers:
       react-dom:
         specifier: ^19.2.6
         version: 19.2.6(react@19.2.6)
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@types/react':
         specifier: ^19.2.15
@@ -135,12 +135,6 @@ importers:
       vitest:
         specifier: ^4.1.7
         version: 4.1.7(@types/node@25.9.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(tsx@4.22.3))
-
-  packages/ipc:
-    dependencies:
-      zod:
-        specifier: ^4.4.3
-        version: 4.4.3
 
   packages/policy-engine:
     dependencies:

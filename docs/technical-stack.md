@@ -34,6 +34,7 @@ apps/cli
   Non-TUI command-line app.
 
 apps/desktop
+  ipc/
   main/
   preload/
   renderer/
@@ -41,7 +42,6 @@ apps/desktop
 packages/sdk
 packages/runtime
 packages/codex-bridge
-packages/ipc
 packages/ui
 packages/wallet-core
 packages/web3-browser
@@ -110,7 +110,7 @@ Desktop keeps Electron + TanStack Start.
 | Main process | TypeScript built with tsdown |
 | Preload | TypeScript built with tsdown |
 | Renderer | TanStack Start built with Vite |
-| IPC | Zod-validated contracts from `@cypheria/ipc` |
+| IPC | Zod-validated contracts local to `apps/desktop/ipc` |
 | Renderer state | Jotai + TanStack Query |
 | UI primitives | `@cypheria/ui` |
 | Codex process | `codex app-server` |

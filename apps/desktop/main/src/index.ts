@@ -1,6 +1,6 @@
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
-
+import { app, BrowserWindow } from "electron"
 import {
   type AppHealthStatus,
   type AppMetadata,
@@ -9,8 +9,7 @@ import {
   IPC_PROTOCOL_VERSION,
   type RuntimeInfo,
   runtimeInfoReadContract,
-} from "@cypheria/ipc"
-import { app, BrowserWindow } from "electron"
+} from "../../ipc/src/index.js"
 import { registerIpcRoute } from "./ipc.js"
 import {
   type DesktopRuntimeContext,

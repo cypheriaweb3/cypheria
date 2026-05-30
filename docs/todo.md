@@ -35,7 +35,7 @@ Status legend:
   - Verification: `pnpm run ci`, `pnpm build`.
 
 - [x] Add typed IPC contract and router baseline.
-  - Acceptance: `@cypheria/ipc` defines initial app/runtime contracts and desktop main validates handler inputs/outputs.
+  - Acceptance: desktop-local IPC contracts define initial app/runtime contracts and desktop main validates handler inputs/outputs.
   - Verification: `pnpm run ci`, `pnpm build`.
 
 - [x] Add database, audit, wallet, policy, Web3 browser, automation, Codex bridge, and UI baselines.

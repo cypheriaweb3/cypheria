@@ -10,15 +10,15 @@ import {
   type ServerNotification,
   type ServerRequest,
 } from "@cypheria/codex-bridge"
+import type { CypheriaRuntimePaths, RuntimeHomeEnv } from "@cypheria/runtime"
+import type { BrowserWindow } from "electron"
 import {
   type CodexEventEnvelope,
   CodexEventEnvelopeSchema,
   type CodexEventPayload,
   CYPHERIA_IPC_CHANNELS,
   IPC_PROTOCOL_VERSION,
-} from "@cypheria/ipc"
-import type { CypheriaRuntimePaths, RuntimeHomeEnv } from "@cypheria/runtime"
-import type { BrowserWindow } from "electron"
+} from "../../ipc/src/index.js"
 
 export type CodexAppServerState = "ready" | "starting" | "stopped" | "stopping"
 

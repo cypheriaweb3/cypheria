@@ -63,6 +63,7 @@ apps/cli
   无 TUI 的命令行应用。
 
 apps/desktop
+  ipc/        Desktop-local typed IPC contracts and schemas
   main/       Electron main process
   preload/   面向 app 与 browser surface 的安全 bridge
   renderer/  TanStack Start renderer app
@@ -70,7 +71,6 @@ apps/desktop
 packages/sdk
 packages/runtime
 packages/codex-bridge
-packages/ipc
 packages/ui
 packages/wallet-core
 packages/automation-core
@@ -152,7 +152,7 @@ pnpm format
 
 ## 当前状态
 
-仓库已经包含基础 pnpm/Turborepo workspace、typed IPC contracts、runtime home handling、Electron main process bootstrap、persistent desktop Codex App Server lifecycle、wallet/policy/Web3 browser domain baselines、本地 SQLite audit 与 automation persistence、共享 UI primitives，以及第一版 TanStack Start desktop shell。
+仓库已经包含基础 pnpm/Turborepo workspace、desktop-local typed IPC contracts、runtime home handling、Electron main process bootstrap、persistent desktop Codex App Server lifecycle、wallet/policy/Web3 browser domain baselines、本地 SQLite audit 与 automation persistence、共享 UI primitives，以及第一版 TanStack Start desktop shell。
 
 下一步实现顺序记录在 [docs/todo.zh-CN.md](docs/todo.zh-CN.md)。
 

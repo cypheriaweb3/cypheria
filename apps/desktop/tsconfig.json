@@ -8,6 +8,7 @@
     "types": ["node", "vite/client"]
   },
   "include": [
+    "ipc/**/*.ts",
     "main/**/*.ts",
     "preload/**/*.ts",
     "renderer/**/*.ts",
