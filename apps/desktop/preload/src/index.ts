@@ -1,6 +1,7 @@
 import type { IpcRendererEvent } from "electron"
 import { contextBridge, ipcRenderer } from "electron"
 import type {
+  AppearanceSettings,
   AppHealthStatus,
   AppMetadata,
   CodexEventEnvelope,
@@ -29,6 +30,14 @@ const cypheriaApi: CypheriaPreloadApi = {
   },
   runtime: {
     getInfo: () => invoke<RuntimeInfo>(CYPHERIA_IPC_CHANNELS.runtimeInfoRead),
+  },
+  settings: {
+    getAppearance: () => invoke<AppearanceSettings>(CYPHERIA_IPC_CHANNELS.settingsAppearanceRead),
+    setAppearance: (themes) =>
+      ipcRenderer.invoke(
+        CYPHERIA_IPC_CHANNELS.settingsAppearanceWrite,
+        themes
+      ) as Promise<AppearanceSettings>,
   },
 }
 

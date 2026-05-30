@@ -25,6 +25,8 @@ export const CYPHERIA_IPC_CHANNELS = {
   appMetadataRead: "app.metadata.read",
   codexEvent: "codex.event",
   runtimeInfoRead: "runtime.info.read",
+  settingsAppearanceRead: "settings.appearance.read",
+  settingsAppearanceWrite: "settings.appearance.write",
 } as const
 
 export type CypheriaIpcChannel = (typeof CYPHERIA_IPC_CHANNELS)[keyof typeof CYPHERIA_IPC_CHANNELS]
@@ -74,6 +76,45 @@ export const AppHealthStatusSchema = z
   })
   .strict()
 export type AppHealthStatus = z.infer<typeof AppHealthStatusSchema>
+
+const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/)
+
+export const AppearanceChromeThemeSchema = z
+  .object({
+    accent: HexColorSchema,
+    contrast: z.number().min(0).max(100),
+    fonts: z
+      .object({
+        code: z.string().min(1),
+        ui: z.string().min(1),
+      })
+      .strict(),
+    ink: HexColorSchema,
+    opaqueWindows: z.boolean(),
+    semanticColors: z
+      .object({
+        diffAdded: HexColorSchema,
+        diffRemoved: HexColorSchema,
+        skill: HexColorSchema,
+      })
+      .strict(),
+    surface: HexColorSchema,
+  })
+  .strict()
+export type AppearanceChromeTheme = z.infer<typeof AppearanceChromeThemeSchema>
+
+export const AppearanceSettingsSchema = z
+  .object({
+    configPath: z.string().min(1),
+    themes: z
+      .object({
+        dark: AppearanceChromeThemeSchema,
+        light: AppearanceChromeThemeSchema,
+      })
+      .strict(),
+  })
+  .strict()
+export type AppearanceSettings = z.infer<typeof AppearanceSettingsSchema>
 
 export const IpcRequestEnvelopeSchema = z
   .object({
@@ -230,10 +271,28 @@ export const runtimeInfoReadContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<EmptyPayload, RuntimeInfo>
 
+export const settingsAppearanceReadContract = {
+  channel: CYPHERIA_IPC_CHANNELS.settingsAppearanceRead,
+  namespace: "settings",
+  request: EmptyPayloadSchema,
+  response: AppearanceSettingsSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, AppearanceSettings>
+
+export const settingsAppearanceWriteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.settingsAppearanceWrite,
+  namespace: "settings",
+  request: AppearanceSettingsSchema.pick({ themes: true }),
+  response: AppearanceSettingsSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<Pick<AppearanceSettings, "themes">, AppearanceSettings>
+
 export const ipcContracts = {
   appHealthCheck: appHealthCheckContract,
   appMetadataRead: appMetadataReadContract,
   runtimeInfoRead: runtimeInfoReadContract,
+  settingsAppearanceRead: settingsAppearanceReadContract,
+  settingsAppearanceWrite: settingsAppearanceWriteContract,
 } as const
 
 export type CypheriaPreloadApi = {
@@ -246,5 +305,11 @@ export type CypheriaPreloadApi = {
   }
   readonly runtime: {
     readonly getInfo: () => Promise<RuntimeInfo>
+  }
+  readonly settings: {
+    readonly getAppearance: () => Promise<AppearanceSettings>
+    readonly setAppearance: (
+      themes: Pick<AppearanceSettings, "themes">
+    ) => Promise<AppearanceSettings>
   }
 }

@@ -42,3 +42,23 @@ export { Skeleton } from "./components/skeleton.js"
 export { Textarea } from "./components/textarea.js"
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/tooltip.js"
 export { cn } from "./lib/utils.js"
+export {
+  CypheriaThemeProvider,
+  useCypheriaTheme,
+} from "./theme-provider.js"
+export {
+  applyCypheriaThemeToElement,
+  createCypheriaThemeState,
+  cypheriaThemeVariableNames,
+  defaultCodexAppearanceThemeSettings,
+  defaultCypheriaThemeState,
+  mapCodexAppearanceToCypheriaThemeState,
+  mapCodexChromeThemeToCypheriaThemeStyles,
+  type CodexAppearanceThemeSettings,
+  type CodexChromeTheme,
+  type CypheriaThemeMode,
+  type CypheriaThemeState,
+  type CypheriaThemeStateInput,
+  type CypheriaThemeStyles,
+  type CypheriaThemeVariableName,
+} from "./theme.js"

@@ -1,6 +1,7 @@
 /// <reference types="vite/client" />
 
 import { Button } from "@cypheria/ui/components/button"
+import { CypheriaThemeProvider, useCypheriaTheme } from "@cypheria/ui"
 import {
   Sidebar,
   SidebarContent,
@@ -184,16 +185,14 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild tooltip="Settings">
-                  <a href="/">
+                  <a href="/settings/appearance">
                     <Settings aria-hidden="true" size={16} strokeWidth={1.9} />
                     <span>Settings</span>
                   </a>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
-            <button aria-label="Account" className="account-button" type="button">
-              <CircleUserRound aria-hidden="true" size={17} strokeWidth={1.9} />
-            </button>
+            <ThemeModeButton />
           </SidebarFooter>
         </Sidebar>
 
@@ -214,14 +213,31 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body>
-        {children}
+        <CypheriaThemeProvider>{children}</CypheriaThemeProvider>
         <Scripts />
       </body>
     </html>
+  )
+}
+
+function ThemeModeButton() {
+  const { setMode, themeState } = useCypheriaTheme()
+  const nextMode = themeState.currentMode === "dark" ? "light" : "dark"
+
+  return (
+    <button
+      aria-label={`Switch to ${nextMode} theme`}
+      className="account-button"
+      onClick={() => setMode(nextMode)}
+      suppressHydrationWarning
+      type="button"
+    >
+      <CircleUserRound aria-hidden="true" size={17} strokeWidth={1.9} />
+    </button>
   )
 }

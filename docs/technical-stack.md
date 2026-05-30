@@ -179,6 +179,16 @@ The UI strategy is to reuse mature primitives and build custom components only f
 | Code editor | Monaco Editor |
 | Terminal | xterm.js |
 
+Theme handling follows the Tailwind v4 and shadcn CSS-variable model. `@cypheria/ui`
+exports `CypheriaThemeProvider`, `useCypheriaTheme`, and theme helpers that update
+the root shadcn tokens at runtime instead of rewriting component classes.
+Desktop appearance settings are stored in the Cypheria-managed Codex config at
+`$CYPHERIA_HOME/codex/config.toml`, under `desktop.appearanceLightChromeTheme`
+and `desktop.appearanceDarkChromeTheme`. Electron main owns reading and writing
+those TOML sections through typed IPC, and the renderer maps Codex chrome theme
+fields such as `surface`, `ink`, `accent`, `contrast`, fonts, and semantic colors
+onto shadcn tokens.
+
 Cypheria-specific components:
 
 - Wallet switcher.

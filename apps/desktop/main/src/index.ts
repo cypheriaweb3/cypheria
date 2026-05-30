@@ -9,7 +9,10 @@ import {
   IPC_PROTOCOL_VERSION,
   type RuntimeInfo,
   runtimeInfoReadContract,
+  settingsAppearanceReadContract,
+  settingsAppearanceWriteContract,
 } from "../../ipc/src/index.js"
+import { readAppearanceSettings, writeAppearanceSettings } from "./appearance-config.js"
 import { registerIpcRoute } from "./ipc.js"
 import {
   type DesktopRuntimeContext,
@@ -130,6 +133,12 @@ const registerIpcHandlers = (context: DesktopRuntimeContext): void => {
   })
   registerIpcRoute(appMetadataReadContract, () => appMetadata)
   registerIpcRoute(runtimeInfoReadContract, () => toRuntimeInfo(context))
+  registerIpcRoute(settingsAppearanceReadContract, () =>
+    readAppearanceSettings(context.paths.codexHome)
+  )
+  registerIpcRoute(settingsAppearanceWriteContract, ({ themes }) =>
+    writeAppearanceSettings(context.paths.codexHome, themes)
+  )
 }
 
 const createMainWindow = async (context: DesktopRuntimeContext): Promise<BrowserWindow> => {
