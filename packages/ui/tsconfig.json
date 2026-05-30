@@ -1,7 +1,14 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
     "jsx": "react-jsx",
+    "paths": {
+      "#components/*": ["src/components/*"],
+      "#hooks/*": ["src/hooks/*"],
+      "#lib/*": ["src/lib/*"]
+    },
     "rootDir": "src"
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"]

@@ -1,32 +1,24 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 
-import { Badge, Button, cn, Input, Sidebar, SidebarNav, SidebarNavItem } from "./index.js"
+import { Badge, Button, cn, Textarea } from "./index.js"
 
 describe("Cypheria UI primitives", () => {
   it("merges utility classes deterministically", () => {
-    expect(cn("cy-button", false, "cy-button--md")).toBe("cy-button cy-button--md")
+    expect(cn("px-2", false, "px-4")).toBe("px-4")
   })
 
-  it("renders shared primitives with Cypheria class names", () => {
+  it("renders shared registry components", () => {
     const markup = renderToStaticMarkup(
-      <Sidebar>
-        <SidebarNav>
-          <SidebarNavItem active href="/workspaces">
-            Workspaces
-          </SidebarNavItem>
-        </SidebarNav>
+      <div>
         <Button>Run</Button>
-        <Input placeholder="Search" />
-        <Badge tone="success">Ready</Badge>
-      </Sidebar>
+        <Textarea placeholder="Prompt" />
+        <Badge variant="secondary">Ready</Badge>
+      </div>
     )
 
-    expect(markup).toContain("cy-sidebar")
-    expect(markup).toContain("cy-sidebar-nav-item")
-    expect(markup).toContain('aria-current="page"')
-    expect(markup).toContain("cy-button")
-    expect(markup).toContain("cy-input")
-    expect(markup).toContain("cy-badge--success")
+    expect(markup).toContain('data-slot="button"')
+    expect(markup).toContain('data-slot="textarea"')
+    expect(markup).toContain('data-slot="badge"')
   })
 })

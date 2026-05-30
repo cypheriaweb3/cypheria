@@ -5,19 +5,27 @@
   "type": "module",
   "exports": {
     ".": "./src/index.tsx",
+    "./components/*": "./src/components/*.tsx",
+    "./lib/*": "./src/lib/*.ts",
     "./styles.css": "./src/styles.css"
+  },
+  "imports": {
+    "#components/*": "./src/components/*.tsx",
+    "#hooks/*": "./src/hooks/*.ts",
+    "#lib/*": "./src/lib/*.ts"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "pnpm typecheck",
+    "shadcn:add": "pnpm dlx shadcn@latest add",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@base-ui/react": "^1.5.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^1.16.0",
+    "radix-ui": "^1.4.3",
     "tailwind-merge": "^3.6.0"
   },
   "peerDependencies": {

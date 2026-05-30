@@ -1,52 +1,67 @@
 /// <reference types="vite/client" />
 
+import { Button } from "@cypheria/ui/components/button"
 import {
-  Badge,
   Sidebar,
   SidebarContent,
   SidebarFooter,
-  SidebarNav,
-  SidebarNavItem,
-} from "@cypheria/ui"
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@cypheria/ui/components/sidebar"
+import { TooltipProvider } from "@cypheria/ui/components/tooltip"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router"
 import { Provider as JotaiProvider } from "jotai"
 import {
-  Bot,
+  Archive,
   BriefcaseBusiness,
-  Compass,
-  Landmark,
-  LockKeyhole,
+  ChevronLeft,
+  ChevronRight,
+  CircleUserRound,
+  Folder,
+  Plus,
+  Search,
   Settings,
-  ShieldCheck,
-  WalletCards,
+  SlidersHorizontal,
+  Workflow,
 } from "lucide-react"
 import { type ReactNode, useState } from "react"
 
 const navigationItems = [
   {
+    icon: <Plus size={16} strokeWidth={1.9} />,
+    label: "New chat",
+  },
+  {
+    icon: <Search size={16} strokeWidth={1.9} />,
+    label: "Search",
+  },
+  {
     icon: <BriefcaseBusiness size={16} strokeWidth={1.9} />,
-    label: "Workspaces",
+    label: "Portfolio",
   },
   {
-    icon: <Compass size={16} strokeWidth={1.9} />,
-    label: "Browser",
+    icon: <SlidersHorizontal size={16} strokeWidth={1.9} />,
+    label: "Plugins & Skills",
   },
   {
-    icon: <WalletCards size={16} strokeWidth={1.9} />,
-    label: "Wallets",
-  },
-  {
-    icon: <Bot size={16} strokeWidth={1.9} />,
+    icon: <Workflow size={16} strokeWidth={1.9} />,
     label: "Automations",
   },
+]
+
+const workspaces = [
   {
-    icon: <ShieldCheck size={16} strokeWidth={1.9} />,
-    label: "Security",
-  },
-  {
-    icon: <Settings size={16} strokeWidth={1.9} />,
-    label: "Settings",
+    active: true,
+    name: "cypheria",
   },
 ]
 
@@ -101,42 +116,99 @@ function QueryProvider({ children }: Readonly<{ children: ReactNode }>) {
 
 function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <div className="app-shell">
-      <Sidebar className="app-sidebar">
-        <div className="app-brand">
-          <div className="app-brand-mark">
-            <Landmark aria-hidden="true" size={18} strokeWidth={2} />
+    <TooltipProvider>
+      <SidebarProvider
+        className="app-shell"
+        style={{ "--sidebar-width": "344px" } as React.CSSProperties}
+      >
+        <Sidebar className="app-sidebar" collapsible="offcanvas">
+          <SidebarHeader className="window-control-row">
+            <SidebarTrigger aria-label="Collapse sidebar" />
+            <Button aria-label="Go back" size="icon" variant="ghost">
+              <ChevronLeft aria-hidden="true" size={17} strokeWidth={1.8} />
+            </Button>
+            <Button aria-label="Go forward" size="icon" variant="ghost">
+              <ChevronRight aria-hidden="true" size={17} strokeWidth={1.8} />
+            </Button>
+          </SidebarHeader>
+
+          <SidebarContent className="app-sidebar-content">
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {navigationItems.map((item) => (
+                    <SidebarMenuItem key={item.label}>
+                      <SidebarMenuButton asChild tooltip={item.label}>
+                        <a href="/">
+                          {item.icon}
+                          <span>{item.label}</span>
+                        </a>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <SidebarGroup>
+              <SidebarGroupLabel>Workspaces</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {workspaces.map((workspace) => (
+                    <SidebarMenuItem key={workspace.name}>
+                      <SidebarMenuButton
+                        asChild
+                        isActive={workspace.active}
+                        tooltip={workspace.name}
+                      >
+                        <a href="/">
+                          <Folder aria-hidden="true" size={15} strokeWidth={1.9} />
+                          <span>{workspace.name}</span>
+                        </a>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+
+            <SidebarGroup>
+              <SidebarGroupLabel>Chats</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <div className="sidebar-empty-state">No chats yet</div>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
+
+          <SidebarFooter className="app-sidebar-footer">
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild tooltip="Settings">
+                  <a href="/">
+                    <Settings aria-hidden="true" size={16} strokeWidth={1.9} />
+                    <span>Settings</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+            <button aria-label="Account" className="account-button" type="button">
+              <CircleUserRound aria-hidden="true" size={17} strokeWidth={1.9} />
+            </button>
+          </SidebarFooter>
+        </Sidebar>
+
+        <SidebarInset className="main-panel">
+          <div className="mobile-shell-bar">
+            <SidebarTrigger aria-label="Open sidebar" />
+            <span>Cypheria</span>
+            <Button aria-label="Archived chats" size="icon" variant="ghost">
+              <Archive aria-hidden="true" size={16} strokeWidth={1.9} />
+            </Button>
           </div>
-          <div>
-            <div className="app-brand-name">Cypheria</div>
-            <div className="app-brand-caption">Local Web3 agent desktop</div>
-          </div>
-        </div>
-
-        <SidebarContent>
-          <SidebarNav aria-label="Primary">
-            {navigationItems.map((item) => (
-              <SidebarNavItem
-                active={item.label === "Workspaces"}
-                href="/"
-                icon={item.icon}
-                key={item.label}
-              >
-                {item.label}
-              </SidebarNavItem>
-            ))}
-          </SidebarNav>
-        </SidebarContent>
-
-        <SidebarFooter className="app-sidebar-footer">
-          <LockKeyhole aria-hidden="true" size={14} strokeWidth={2} />
-          <span>Human approval</span>
-          <Badge tone="success">Local</Badge>
-        </SidebarFooter>
-      </Sidebar>
-
-      <main className="main-panel">{children}</main>
-    </div>
+          {children}
+        </SidebarInset>
+      </SidebarProvider>
+    </TooltipProvider>
   )
 }
 

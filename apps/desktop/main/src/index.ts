@@ -134,11 +134,22 @@ const registerIpcHandlers = (context: DesktopRuntimeContext): void => {
 
 const createMainWindow = async (context: DesktopRuntimeContext): Promise<BrowserWindow> => {
   const window = new BrowserWindow({
-    backgroundColor: "#101113",
+    backgroundColor: "#f8f8f7",
     height: 860,
     minHeight: 640,
     minWidth: 960,
     show: false,
+    ...(process.platform === "darwin"
+      ? {
+          titleBarStyle: "hiddenInset" as const,
+          trafficLightPosition: { x: 18, y: 18 },
+        }
+      : {
+          titleBarOverlay: {
+            color: "#f3f3f1",
+            symbolColor: "#575757",
+          },
+        }),
     title: "Cypheria",
     webPreferences: {
       contextIsolation: true,
