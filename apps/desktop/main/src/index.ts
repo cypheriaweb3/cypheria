@@ -153,12 +153,15 @@ const createMainWindow = async (context: DesktopRuntimeContext): Promise<Browser
           titleBarStyle: "hiddenInset" as const,
           trafficLightPosition: { x: 18, y: 18 },
         }
-      : {
-          titleBarOverlay: {
-            color: "#f3f3f1",
-            symbolColor: "#575757",
-          },
-        }),
+      : process.platform === "win32"
+        ? {
+            titleBarOverlay: {
+              color: "#f3f3f1",
+              symbolColor: "#575757",
+            },
+            titleBarStyle: "hidden" as const,
+          }
+        : {}),
     title: "Cypheria",
     webPreferences: {
       contextIsolation: true,

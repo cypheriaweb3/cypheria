@@ -14,6 +14,7 @@ const invoke = <T>(channel: string): Promise<T> => ipcRenderer.invoke(channel) a
 
 const cypheriaApi: CypheriaPreloadApi = {
   app: {
+    platform: process.platform,
     getHealth: () => invoke<AppHealthStatus>(CYPHERIA_IPC_CHANNELS.appHealthCheck),
     getMetadata: () => invoke<AppMetadata>(CYPHERIA_IPC_CHANNELS.appMetadataRead),
   },

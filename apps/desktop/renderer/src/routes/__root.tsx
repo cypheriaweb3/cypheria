@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 
+import { CypheriaThemeProvider, cn, useCypheriaTheme } from "@cypheria/ui"
 import { Button } from "@cypheria/ui/components/button"
-import { CypheriaThemeProvider, useCypheriaTheme } from "@cypheria/ui"
 import {
   Sidebar,
   SidebarContent,
@@ -28,17 +28,17 @@ import {
   ChevronRight,
   CircleUserRound,
   Folder,
-  Plus,
   Search,
   Settings,
   SlidersHorizontal,
+  SquarePen,
   Workflow,
 } from "lucide-react"
-import { type ReactNode, useState } from "react"
+import { type CSSProperties, type ReactNode, useState } from "react"
 
 const navigationItems = [
   {
-    icon: <Plus size={16} strokeWidth={1.9} />,
+    icon: <SquarePen size={16} strokeWidth={1.9} />,
     label: "New chat",
   },
   {
@@ -82,9 +82,26 @@ export const Route = createRootRoute({
       },
     ],
   }),
+  notFoundComponent: RootNotFoundComponent,
 })
 
 function RootComponent() {
+  return (
+    <RootLayout>
+      <Outlet />
+    </RootLayout>
+  )
+}
+
+function RootNotFoundComponent() {
+  return (
+    <RootLayout>
+      <NotFoundRoute />
+    </RootLayout>
+  )
+}
+
+function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <RootDocument>
       <JotaiProvider>
@@ -95,6 +112,27 @@ function RootComponent() {
         </QueryProvider>
       </JotaiProvider>
     </RootDocument>
+  )
+}
+
+function NotFoundRoute() {
+  return (
+    <main className="grid min-h-screen place-items-center bg-background px-6 py-10 text-foreground max-[860px]:min-h-[calc(100vh-48px)]">
+      <section className="grid w-full max-w-[520px] gap-5 text-center">
+        <div className="grid gap-2">
+          <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+            404
+          </span>
+          <h1 className="text-2xl font-semibold text-foreground">Page not found</h1>
+          <p className="text-sm leading-6 text-muted-foreground">
+            This Cypheria view does not exist yet.
+          </p>
+        </div>
+        <div className="flex justify-center">
+          <Button render={<a href="/" />}>Back to workspace</Button>
+        </div>
+      </section>
+    </main>
   )
 }
 
@@ -116,34 +154,54 @@ function QueryProvider({ children }: Readonly<{ children: ReactNode }>) {
 }
 
 function AppShell({ children }: Readonly<{ children: ReactNode }>) {
+  const platform = getDesktopPlatform()
+  const isWindows = platform === "win32"
+  const windowControlRowClassName = cn(
+    "flex min-h-14 flex-row items-center gap-2.5 px-3 py-2 pl-[88px] [-webkit-app-region:drag] [&_button]:[-webkit-app-region:no-drag]",
+    isWindows && "gap-[18px] px-3 pb-2 pt-3 pl-3.5"
+  )
+  const chromeIconButtonClassName = "size-[30px] text-muted-foreground disabled:opacity-35"
+
   return (
     <TooltipProvider>
       <SidebarProvider
-        className="app-shell"
-        style={{ "--sidebar-width": "344px" } as React.CSSProperties}
+        className="h-screen w-screen overflow-hidden bg-background"
+        data-platform={platform}
+        style={{ "--sidebar-width": "344px" } as CSSProperties}
       >
-        <Sidebar className="app-sidebar" collapsible="offcanvas">
-          <SidebarHeader className="window-control-row">
-            <SidebarTrigger aria-label="Collapse sidebar" />
-            <Button aria-label="Go back" size="icon" variant="ghost">
+        <Sidebar className="border-r border-sidebar-border" collapsible="offcanvas">
+          <SidebarHeader className={windowControlRowClassName}>
+            <SidebarTrigger aria-label="Collapse sidebar" className={chromeIconButtonClassName} />
+            <Button
+              aria-label="Go back"
+              className={chromeIconButtonClassName}
+              disabled
+              size="icon"
+              variant="ghost"
+            >
               <ChevronLeft aria-hidden="true" size={17} strokeWidth={1.8} />
             </Button>
-            <Button aria-label="Go forward" size="icon" variant="ghost">
+            <Button
+              aria-label="Go forward"
+              className={chromeIconButtonClassName}
+              disabled
+              size="icon"
+              variant="ghost"
+            >
               <ChevronRight aria-hidden="true" size={17} strokeWidth={1.8} />
             </Button>
+            {isWindows ? <WindowsMenuBar /> : null}
           </SidebarHeader>
 
-          <SidebarContent className="app-sidebar-content">
+          <SidebarContent className="grid min-h-0 content-start gap-[26px] overflow-auto px-[18px] pb-3 pt-0.5">
             <SidebarGroup>
               <SidebarGroupContent>
                 <SidebarMenu>
                   {navigationItems.map((item) => (
                     <SidebarMenuItem key={item.label}>
-                      <SidebarMenuButton asChild tooltip={item.label}>
-                        <a href="/">
-                          {item.icon}
-                          <span>{item.label}</span>
-                        </a>
+                      <SidebarMenuButton render={<a href="/" />} tooltip={item.label}>
+                        {item.icon}
+                        <span>{item.label}</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
@@ -158,14 +216,12 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                   {workspaces.map((workspace) => (
                     <SidebarMenuItem key={workspace.name}>
                       <SidebarMenuButton
-                        asChild
                         isActive={workspace.active}
+                        render={<a href="/" />}
                         tooltip={workspace.name}
                       >
-                        <a href="/">
-                          <Folder aria-hidden="true" size={15} strokeWidth={1.9} />
-                          <span>{workspace.name}</span>
-                        </a>
+                        <Folder aria-hidden="true" size={15} strokeWidth={1.9} />
+                        <span>{workspace.name}</span>
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}
@@ -176,19 +232,22 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
             <SidebarGroup>
               <SidebarGroupLabel>Chats</SidebarGroupLabel>
               <SidebarGroupContent>
-                <div className="sidebar-empty-state">No chats yet</div>
+                <div className="px-2 text-[13px] font-medium text-muted-foreground">
+                  No chats yet
+                </div>
               </SidebarGroupContent>
             </SidebarGroup>
           </SidebarContent>
 
-          <SidebarFooter className="app-sidebar-footer">
+          <SidebarFooter className="grid min-h-[58px] grid-cols-[minmax(0,1fr)_34px] items-center gap-2 px-[18px] pb-3 pt-2.5">
             <SidebarMenu>
               <SidebarMenuItem>
-                <SidebarMenuButton asChild tooltip="Settings">
-                  <a href="/settings/appearance">
-                    <Settings aria-hidden="true" size={16} strokeWidth={1.9} />
-                    <span>Settings</span>
-                  </a>
+                <SidebarMenuButton
+                  render={<a href="/settings/appearance" />}
+                  tooltip="Settings"
+                >
+                  <Settings aria-hidden="true" size={16} strokeWidth={1.9} />
+                  <span>Settings</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
@@ -196,8 +255,43 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           </SidebarFooter>
         </Sidebar>
 
-        <SidebarInset className="main-panel">
-          <div className="mobile-shell-bar">
+        <SidebarInset className="main-panel min-h-0 min-w-0 bg-background">
+          <div
+            className={cn(
+              "fixed left-0 top-0 z-20 hidden min-h-14 flex-row items-center gap-2.5 px-4 py-2 pl-[88px] [-webkit-app-region:drag] [[data-slot=sidebar][data-state=collapsed]~.main-panel_&]:flex [&_button]:[-webkit-app-region:no-drag]",
+              isWindows && "right-[138px] gap-[18px] pl-3.5"
+            )}
+          >
+            <SidebarTrigger aria-label="Open sidebar" className={chromeIconButtonClassName} />
+            <Button
+              aria-label="Go back"
+              className={chromeIconButtonClassName}
+              disabled
+              size="icon"
+              variant="ghost"
+            >
+              <ChevronLeft aria-hidden="true" size={17} strokeWidth={1.8} />
+            </Button>
+            <Button
+              aria-label="Go forward"
+              className={chromeIconButtonClassName}
+              disabled
+              size="icon"
+              variant="ghost"
+            >
+              <ChevronRight aria-hidden="true" size={17} strokeWidth={1.8} />
+            </Button>
+            <Button
+              aria-label="New chat"
+              className={chromeIconButtonClassName}
+              size="icon"
+              variant="ghost"
+            >
+              <SquarePen aria-hidden="true" size={16} strokeWidth={1.8} />
+            </Button>
+            {isWindows ? <WindowsMenuBar /> : null}
+          </div>
+          <div className="hidden min-h-12 items-center justify-between border-b border-border bg-sidebar px-2.5 text-sm font-semibold text-sidebar-foreground max-[860px]:flex [&_button]:[-webkit-app-region:no-drag]">
             <SidebarTrigger aria-label="Open sidebar" />
             <span>Cypheria</span>
             <Button aria-label="Archived chats" size="icon" variant="ghost">
@@ -209,6 +303,31 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       </SidebarProvider>
     </TooltipProvider>
   )
+}
+
+function WindowsMenuBar() {
+  return (
+    <nav aria-label="Application menu" className="ml-0 inline-flex h-[30px] items-center gap-1">
+      {["File", "Edit", "View", "Window", "Help"].map((item) => (
+        <button
+          className="h-[30px] rounded-[5px] border-0 bg-transparent px-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+          key={item}
+          type="button"
+        >
+          {item}
+        </button>
+      ))}
+    </nav>
+  )
+}
+
+function getDesktopPlatform(): "darwin" | "win32" | "unknown" {
+  if (typeof window === "undefined") {
+    return "unknown"
+  }
+
+  const platform = window.cypheria?.app.platform
+  return platform === "darwin" || platform === "win32" ? platform : "unknown"
 }
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
@@ -230,14 +349,16 @@ function ThemeModeButton() {
   const nextMode = themeState.currentMode === "dark" ? "light" : "dark"
 
   return (
-    <button
+    <Button
       aria-label={`Switch to ${nextMode} theme`}
-      className="account-button"
+      className="flex size-8 items-center justify-center rounded-md p-0 hover:bg-sidebar-accent"
       onClick={() => setMode(nextMode)}
+      size="icon"
       suppressHydrationWarning
       type="button"
+      variant="ghost"
     >
       <CircleUserRound aria-hidden="true" size={17} strokeWidth={1.9} />
-    </button>
+    </Button>
   )
 }

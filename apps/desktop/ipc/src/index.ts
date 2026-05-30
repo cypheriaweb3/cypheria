@@ -297,6 +297,7 @@ export const ipcContracts = {
 
 export type CypheriaPreloadApi = {
   readonly app: {
+    readonly platform: NodeJS.Platform
     readonly getHealth: () => Promise<AppHealthStatus>
     readonly getMetadata: () => Promise<AppMetadata>
   }
