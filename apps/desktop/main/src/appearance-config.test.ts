@@ -6,7 +6,9 @@ import { describe, expect, it } from "vitest"
 
 import {
   getCodexConfigPath,
+  mergeAppearanceSettingsIntoToml,
   mergeAppearanceThemesIntoToml,
+  parseAppearanceSettingsFromToml,
   parseAppearanceThemesFromToml,
   readAppearanceSettings,
   writeAppearanceSettings,
@@ -17,8 +19,14 @@ describe("Codex appearance config", () => {
     const themes = parseAppearanceThemesFromToml(`
 model = "gpt-5"
 
+[desktop]
+appearanceTheme = "dark"
+appearanceLightCodeThemeId = "github"
+appearanceDarkCodeThemeId = "tokyo-night"
+
 [desktop.appearanceLightChromeTheme]
 accent = "#123456"
+accentSource = "custom"
 contrast = 44
 ink = "#111111"
 opaqueWindows = false
@@ -36,6 +44,7 @@ skill = "#6600aa"
 
     expect(themes.light).toMatchObject({
       accent: "#123456",
+      accentSource: "custom",
       contrast: 44,
       fonts: {
         code: 'ui-monospace, "SFM"',
@@ -46,6 +55,22 @@ skill = "#6600aa"
       },
     })
     expect(themes.dark.surface).toBe("#111111")
+  })
+
+  it("parses desktop appearance mode and code theme presets", () => {
+    const settings = parseAppearanceSettingsFromToml(`
+[desktop]
+appearanceTheme = "dark"
+appearanceLightCodeThemeId = "github"
+appearanceDarkCodeThemeId = "tokyo-night"
+preventSleepWhileRunning = true
+`)
+
+    expect(settings.appearanceTheme).toBe("dark")
+    expect(settings.codeThemes).toEqual({
+      dark: "tokyo-night",
+      light: "github",
+    })
   })
 
   it("replaces only managed appearance sections", () => {
@@ -102,6 +127,66 @@ command = "node"
     expect(merged).toContain("[desktop.appearanceDarkChromeTheme.semanticColors]")
   })
 
+  it("replaces only managed desktop appearance keys", () => {
+    const merged = mergeAppearanceSettingsIntoToml(
+      `model = "gpt-5"
+
+[desktop]
+appearanceTheme = "light"
+appearanceLightCodeThemeId = "codex"
+appearanceDarkCodeThemeId = "dracula"
+preventSleepWhileRunning = true
+
+[profiles.default]
+approval_policy = "on-request"
+`,
+      {
+        appearanceTheme: "system",
+        codeThemes: {
+          dark: "codex",
+          light: "catppuccin",
+        },
+        themes: {
+          dark: {
+            accent: "#0169cc",
+            accentSource: "chatgpt",
+            contrast: 60,
+            fonts: { code: "Mono", ui: "System" },
+            ink: "#fcfcfc",
+            opaqueWindows: true,
+            semanticColors: {
+              diffAdded: "#00a240",
+              diffRemoved: "#e02e2a",
+              skill: "#b06dff",
+            },
+            surface: "#111111",
+          },
+          light: {
+            accent: "#123456",
+            accentSource: "custom",
+            contrast: 45,
+            fonts: { code: "Mono", ui: "System" },
+            ink: "#0d0d0d",
+            opaqueWindows: false,
+            semanticColors: {
+              diffAdded: "#00a240",
+              diffRemoved: "#e02e2a",
+              skill: "#751ed9",
+            },
+            surface: "#ffffff",
+          },
+        },
+      }
+    )
+
+    expect(merged).toContain('appearanceTheme = "system"')
+    expect(merged).toContain('appearanceLightCodeThemeId = "catppuccin"')
+    expect(merged).toContain('appearanceDarkCodeThemeId = "codex"')
+    expect(merged).toContain("preventSleepWhileRunning = true")
+    expect(merged).toContain("[profiles.default]")
+    expect(merged).toContain('accentSource = "custom"')
+  })
+
   it("writes appearance settings to CODEX_HOME config.toml without dropping other config", async () => {
     const codexHome = await mkdtemp(join(tmpdir(), "cypheria-codex-config-test-"))
 
@@ -112,11 +197,12 @@ command = "node"
       const initial = await readAppearanceSettings(codexHome)
       initial.themes.light.accent = "#abcdef"
 
-      await writeAppearanceSettings(codexHome, initial.themes)
+      await writeAppearanceSettings(codexHome, initial)
 
       const toml = await readFile(configPath, "utf8")
       expect(toml).toContain('model = "gpt-5"')
       expect(toml).toContain('accent = "#abcdef"')
+      expect(toml).toContain('appearanceLightCodeThemeId = "catppuccin"')
 
       const reread = await readAppearanceSettings(codexHome)
       expect(reread.themes.light.accent).toBe("#abcdef")

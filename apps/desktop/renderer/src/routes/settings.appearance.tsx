@@ -1,8 +1,11 @@
 import {
   type CodexAppearanceThemeSettings,
   type CodexChromeTheme,
+  type CodexCodeThemeId,
   cn,
   defaultCodexAppearanceThemeSettings,
+  getCodexCodeThemeOptionsForMode,
+  getCodexCodeThemePresetVariant,
   mapCodexAppearanceToCypheriaThemeState,
   useCypheriaTheme,
 } from "@cypheria/ui"
@@ -11,7 +14,7 @@ import { Input } from "@cypheria/ui/components/input"
 import { Separator } from "@cypheria/ui/components/separator"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Check, Code2, Moon, Palette, RotateCcw, Save, Sun } from "lucide-react"
+import { Check, Code2, Monitor, Moon, Palette, RotateCcw, Save, Sun } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 
 export const Route = createFileRoute("/settings/appearance")({
@@ -19,14 +22,21 @@ export const Route = createFileRoute("/settings/appearance")({
 })
 
 type ThemeMode = keyof CodexAppearanceThemeSettings
+type AppearanceMode = "dark" | "light" | "system"
 
-const themeModes = [
+const appearanceModes = [
+  { icon: Monitor, label: "System", value: "system" },
   { icon: Sun, label: "Light", value: "light" },
   { icon: Moon, label: "Dark", value: "dark" },
 ] as const
 
 function AppearanceRoute() {
   const { setMode, setThemeState, themeState } = useCypheriaTheme()
+  const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>("system")
+  const [draftCodeThemes, setDraftCodeThemes] = useState<Record<
+    ThemeMode,
+    CodexCodeThemeId
+  > | null>(null)
   const [selectedMode, setSelectedMode] = useState<ThemeMode>(themeState.currentMode)
   const [draftThemes, setDraftThemes] = useState<CodexAppearanceThemeSettings | null>(null)
 
@@ -34,6 +44,11 @@ function AppearanceRoute() {
     queryFn: () =>
       window.cypheria?.settings.getAppearance() ??
       ({
+        appearanceTheme: "system",
+        codeThemes: {
+          dark: "codex",
+          light: "catppuccin",
+        },
         configPath: "Browser preview",
         themes: defaultCodexAppearanceThemeSettings,
       } as const),
@@ -47,15 +62,23 @@ function AppearanceRoute() {
     }
 
     const themes = appearanceQuery.data.themes
+    setAppearanceMode(appearanceQuery.data.appearanceTheme)
+    setDraftCodeThemes(appearanceQuery.data.codeThemes)
     setDraftThemes(themes)
     setThemeState(mapCodexAppearanceToCypheriaThemeState(themes, selectedMode))
   }, [appearanceQuery.data, selectedMode, setThemeState])
 
   const writeMutation = useMutation({
-    mutationFn: (themes: CodexAppearanceThemeSettings) =>
-      window.cypheria?.settings.setAppearance({ themes }) ??
+    mutationFn: (settings: {
+      appearanceTheme: AppearanceMode
+      codeThemes: Record<ThemeMode, CodexCodeThemeId>
+      themes: CodexAppearanceThemeSettings
+    }) =>
+      window.cypheria?.settings.setAppearance(settings) ??
       Promise.reject(new Error("IPC unavailable")),
     onSuccess: (settings) => {
+      setAppearanceMode(settings.appearanceTheme)
+      setDraftCodeThemes(settings.codeThemes)
       setDraftThemes(settings.themes)
       setThemeState(mapCodexAppearanceToCypheriaThemeState(settings.themes, selectedMode))
     },
@@ -63,11 +86,22 @@ function AppearanceRoute() {
 
   const savedThemes = appearanceQuery.data?.themes
   const isDirty = useMemo(() => {
-    if (!draftThemes || !savedThemes) {
+    if (!appearanceQuery.data || !draftCodeThemes || !draftThemes || !savedThemes) {
       return false
     }
-    return JSON.stringify(draftThemes) !== JSON.stringify(savedThemes)
-  }, [draftThemes, savedThemes])
+    return (
+      JSON.stringify({
+        appearanceTheme: appearanceMode,
+        codeThemes: draftCodeThemes,
+        themes: draftThemes,
+      }) !==
+      JSON.stringify({
+        appearanceTheme: appearanceQuery.data.appearanceTheme,
+        codeThemes: appearanceQuery.data.codeThemes,
+        themes: savedThemes,
+      })
+    )
+  }, [appearanceMode, appearanceQuery.data, draftCodeThemes, draftThemes, savedThemes])
 
   const currentTheme = draftThemes?.[selectedMode]
 
@@ -94,10 +128,44 @@ function AppearanceRoute() {
     }
   }
 
-  const handleReset = () => {
-    if (!savedThemes) {
+  const handleAppearanceModeChange = (mode: AppearanceMode) => {
+    setAppearanceMode(mode)
+    if (mode !== "system") {
+      handleModeChange(mode)
+    }
+  }
+
+  const updateCodeTheme = (codeTheme: CodexCodeThemeId) => {
+    const preset = getCodexCodeThemePresetVariant(codeTheme, selectedMode)
+    if (!preset) {
       return
     }
+
+    setDraftCodeThemes((current) => (current ? { ...current, [selectedMode]: codeTheme } : current))
+    setDraftThemes((current) => {
+      if (!current) {
+        return current
+      }
+
+      const next = {
+        ...current,
+        [selectedMode]: {
+          ...preset.theme,
+          fonts: { ...preset.theme.fonts },
+          semanticColors: { ...preset.theme.semanticColors },
+        },
+      }
+      setThemeState(mapCodexAppearanceToCypheriaThemeState(next, selectedMode))
+      return next
+    })
+  }
+
+  const handleReset = () => {
+    if (!appearanceQuery.data || !savedThemes) {
+      return
+    }
+    setAppearanceMode(appearanceQuery.data.appearanceTheme)
+    setDraftCodeThemes(appearanceQuery.data.codeThemes)
     setDraftThemes(savedThemes)
     setThemeState(mapCodexAppearanceToCypheriaThemeState(savedThemes, selectedMode))
   }
@@ -143,8 +211,16 @@ function AppearanceRoute() {
               Reset
             </Button>
             <Button
-              disabled={!draftThemes || !isDirty || writeMutation.isPending}
-              onClick={() => draftThemes && writeMutation.mutate(draftThemes)}
+              disabled={!draftCodeThemes || !draftThemes || !isDirty || writeMutation.isPending}
+              onClick={() =>
+                draftCodeThemes &&
+                draftThemes &&
+                writeMutation.mutate({
+                  appearanceTheme: appearanceMode,
+                  codeThemes: draftCodeThemes,
+                  themes: draftThemes,
+                })
+              }
             >
               {writeMutation.isSuccess && !isDirty ? (
                 <Check aria-hidden="true" size={15} strokeWidth={1.9} />
@@ -157,16 +233,16 @@ function AppearanceRoute() {
         </header>
 
         <fieldset className="inline-flex w-fit gap-1 rounded-lg border border-border bg-muted p-[3px]">
-          <legend className="sr-only">Theme mode</legend>
-          {themeModes.map(({ icon: Icon, label, value }) => (
+          <legend className="sr-only">App theme</legend>
+          {appearanceModes.map(({ icon: Icon, label, value }) => (
             <button
-              aria-pressed={selectedMode === value}
+              aria-pressed={appearanceMode === value}
               className={cn(
                 "inline-flex h-[30px] min-w-[86px] items-center justify-center gap-[7px] rounded-md border-0 bg-transparent text-[13px] font-semibold text-muted-foreground",
-                selectedMode === value && "bg-background text-foreground shadow-sm"
+                appearanceMode === value && "bg-background text-foreground shadow-sm"
               )}
               key={value}
-              onClick={() => handleModeChange(value)}
+              onClick={() => handleAppearanceModeChange(value)}
               type="button"
             >
               <Icon aria-hidden="true" size={15} strokeWidth={1.9} />
@@ -175,7 +251,7 @@ function AppearanceRoute() {
           ))}
         </fieldset>
 
-        {currentTheme ? (
+        {currentTheme && draftCodeThemes ? (
           <div className="grid grid-cols-[minmax(280px,380px)_minmax(280px,420px)_minmax(320px,1fr)] items-start gap-4 max-[1220px]:grid-cols-[minmax(0,1fr)]">
             <section className="grid gap-3.5 rounded-lg border border-border bg-card p-3.5 text-card-foreground">
               <SectionTitle icon={<Palette aria-hidden="true" size={16} />}>Chrome</SectionTitle>
@@ -249,6 +325,12 @@ function AppearanceRoute() {
 
             <section className="grid gap-3.5 rounded-lg border border-border bg-card p-3.5 text-card-foreground">
               <SectionTitle icon={<Code2 aria-hidden="true" size={16} />}>Fonts</SectionTitle>
+              <CodeThemeField
+                mode={selectedMode}
+                value={draftCodeThemes[selectedMode]}
+                onChange={updateCodeTheme}
+              />
+              <Separator />
               <TextField
                 label="UI"
                 value={currentTheme.fonts.ui}
@@ -330,6 +412,39 @@ function AppearanceRoute() {
         ) : null}
       </main>
     </section>
+  )
+}
+
+function CodeThemeField({
+  mode,
+  onChange,
+  value,
+}: Readonly<{
+  mode: ThemeMode
+  onChange: (value: CodexCodeThemeId) => void
+  value: CodexCodeThemeId
+}>) {
+  const options = getCodexCodeThemeOptionsForMode(mode)
+  const selectedValue = options.some((option) => option.id === value) ? value : options[0]?.id
+
+  return (
+    <div className="grid gap-[7px]">
+      <label className="text-xs font-semibold text-muted-foreground" htmlFor="code-theme">
+        Code theme
+      </label>
+      <select
+        className="h-9 w-full rounded-md border border-input bg-background px-3 text-[13px] text-foreground shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        id="code-theme"
+        onChange={(event) => onChange(event.currentTarget.value as CodexCodeThemeId)}
+        value={selectedValue}
+      >
+        {options.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.label}
+          </option>
+        ))}
+      </select>
+    </div>
   )
 }
 

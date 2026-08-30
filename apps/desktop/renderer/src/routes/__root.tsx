@@ -106,9 +106,7 @@ function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
     <RootDocument>
       <JotaiProvider>
         <QueryProvider>
-          <AppShell>
-            <Outlet />
-          </AppShell>
+          <AppShell>{children}</AppShell>
         </QueryProvider>
       </JotaiProvider>
     </RootDocument>
@@ -129,7 +127,15 @@ function NotFoundRoute() {
           </p>
         </div>
         <div className="flex justify-center">
-          <Button render={<a href="/" />}>Back to workspace</Button>
+          <Button
+            render={
+              <a href="/">
+                <span className="sr-only">Back to workspace</span>
+              </a>
+            }
+          >
+            Back to workspace
+          </Button>
         </div>
       </section>
     </main>
@@ -199,7 +205,14 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 <SidebarMenu>
                   {navigationItems.map((item) => (
                     <SidebarMenuItem key={item.label}>
-                      <SidebarMenuButton render={<a href="/" />} tooltip={item.label}>
+                      <SidebarMenuButton
+                        render={
+                          <a href="/">
+                            <span className="sr-only">{item.label}</span>
+                          </a>
+                        }
+                        tooltip={item.label}
+                      >
                         {item.icon}
                         <span>{item.label}</span>
                       </SidebarMenuButton>
@@ -217,7 +230,11 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                     <SidebarMenuItem key={workspace.name}>
                       <SidebarMenuButton
                         isActive={workspace.active}
-                        render={<a href="/" />}
+                        render={
+                          <a href="/">
+                            <span className="sr-only">{workspace.name}</span>
+                          </a>
+                        }
                         tooltip={workspace.name}
                       >
                         <Folder aria-hidden="true" size={15} strokeWidth={1.9} />
@@ -243,7 +260,11 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
             <SidebarMenu>
               <SidebarMenuItem>
                 <SidebarMenuButton
-                  render={<a href="/settings/appearance" />}
+                  render={
+                    <a href="/settings/appearance">
+                      <span className="sr-only">Settings</span>
+                    </a>
+                  }
                   tooltip="Settings"
                 >
                   <Settings aria-hidden="true" size={16} strokeWidth={1.9} />

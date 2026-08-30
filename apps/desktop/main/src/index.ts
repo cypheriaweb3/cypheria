@@ -136,8 +136,8 @@ const registerIpcHandlers = (context: DesktopRuntimeContext): void => {
   registerIpcRoute(settingsAppearanceReadContract, () =>
     readAppearanceSettings(context.paths.codexHome)
   )
-  registerIpcRoute(settingsAppearanceWriteContract, ({ themes }) =>
-    writeAppearanceSettings(context.paths.codexHome, themes)
+  registerIpcRoute(settingsAppearanceWriteContract, (settings) =>
+    writeAppearanceSettings(context.paths.codexHome, settings)
   )
 }
 

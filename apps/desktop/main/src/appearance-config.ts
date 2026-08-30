@@ -1,10 +1,21 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 
-import type { AppearanceChromeTheme, AppearanceSettings } from "../../ipc/src/index.js"
+import {
+  AppearanceCodeThemeIdSchema,
+  AppearanceThemeModeSchema,
+  type AppearanceChromeTheme,
+  type AppearanceSettings,
+} from "../../ipc/src/index.js"
 
+const desktopSection = "desktop"
 const lightSection = "desktop.appearanceLightChromeTheme"
 const darkSection = "desktop.appearanceDarkChromeTheme"
+const managedDesktopAppearanceKeys = new Set([
+  "appearanceDarkCodeThemeId",
+  "appearanceLightCodeThemeId",
+  "appearanceTheme",
+])
 
 const themeSectionNames = new Set([
   lightSection,
@@ -22,6 +33,7 @@ const defaultFontMono = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
 export const defaultAppearanceThemes: AppearanceSettings["themes"] = {
   light: {
     accent: "#0169cc",
+    accentSource: "chatgpt",
     contrast: 45,
     fonts: {
       code: defaultFontMono,
@@ -38,6 +50,7 @@ export const defaultAppearanceThemes: AppearanceSettings["themes"] = {
   },
   dark: {
     accent: "#0169cc",
+    accentSource: "chatgpt",
     contrast: 60,
     fonts: {
       code: defaultFontMono,
@@ -53,6 +66,15 @@ export const defaultAppearanceThemes: AppearanceSettings["themes"] = {
     surface: "#111111",
   },
 }
+
+export const defaultAppearanceSettings = {
+  appearanceTheme: "system",
+  codeThemes: {
+    dark: "codex",
+    light: "catppuccin",
+  },
+  themes: defaultAppearanceThemes,
+} satisfies Omit<AppearanceSettings, "configPath">
 
 const sectionHeaderPattern = /^\s*\[([^\]]+)]\s*(?:#.*)?$/
 const keyValuePattern = /^\s*([A-Za-z][A-Za-z0-9_-]*)\s*=\s*(.+?)\s*$/
@@ -110,11 +132,33 @@ const parseTomlValue = (rawValue: string): string | number | boolean | undefined
 }
 
 const applyParsedValue = (
-  themes: AppearanceSettings["themes"],
+  settings: Omit<AppearanceSettings, "configPath">,
   section: string,
   key: string,
   value: string | number | boolean | undefined
 ): void => {
+  if (section === desktopSection) {
+    if (key === "appearanceTheme" && typeof value === "string") {
+      const parsed = AppearanceThemeModeSchema.safeParse(value)
+      if (parsed.success) {
+        settings.appearanceTheme = parsed.data
+      }
+      return
+    }
+
+    if (
+      (key === "appearanceLightCodeThemeId" || key === "appearanceDarkCodeThemeId") &&
+      typeof value === "string"
+    ) {
+      const parsed = AppearanceCodeThemeIdSchema.safeParse(value)
+      if (parsed.success) {
+        settings.codeThemes[key === "appearanceLightCodeThemeId" ? "light" : "dark"] = parsed.data
+      }
+    }
+    return
+  }
+
+  const { themes } = settings
   const target =
     section === lightSection || section.startsWith(`${lightSection}.`)
       ? themes.light
@@ -148,6 +192,11 @@ const applyParsedValue = (
     return
   }
 
+  if (key === "accentSource" && (value === "chatgpt" || value === "custom")) {
+    target.accentSource = value
+    return
+  }
+
   if (key === "contrast" && typeof value === "number") {
     target.contrast = value
     return
@@ -158,8 +207,14 @@ const applyParsedValue = (
   }
 }
 
-export const parseAppearanceThemesFromToml = (toml: string): AppearanceSettings["themes"] => {
-  const themes = cloneDefaults()
+export const parseAppearanceSettingsFromToml = (
+  toml: string
+): Omit<AppearanceSettings, "configPath"> => {
+  const settings: Omit<AppearanceSettings, "configPath"> = {
+    appearanceTheme: defaultAppearanceSettings.appearanceTheme,
+    codeThemes: { ...defaultAppearanceSettings.codeThemes },
+    themes: cloneDefaults(),
+  }
   let currentSection: string | undefined
 
   for (const line of toml.split(/\r?\n/)) {
@@ -169,7 +224,10 @@ export const parseAppearanceThemesFromToml = (toml: string): AppearanceSettings[
       continue
     }
 
-    if (!currentSection || !themeSectionNames.has(currentSection)) {
+    if (
+      !currentSection ||
+      (currentSection !== desktopSection && !themeSectionNames.has(currentSection))
+    ) {
       continue
     }
 
@@ -178,10 +236,40 @@ export const parseAppearanceThemesFromToml = (toml: string): AppearanceSettings[
       continue
     }
 
-    applyParsedValue(themes, currentSection, keyValueMatch[1], parseTomlValue(keyValueMatch[2]))
+    applyParsedValue(settings, currentSection, keyValueMatch[1], parseTomlValue(keyValueMatch[2]))
   }
 
-  return themes
+  return settings
+}
+
+export const parseAppearanceThemesFromToml = (toml: string): AppearanceSettings["themes"] =>
+  parseAppearanceSettingsFromToml(toml).themes
+
+const removeManagedDesktopAppearanceKeys = (toml: string): string => {
+  const keptLines: string[] = []
+  let currentSection: string | undefined
+
+  for (const line of toml.split(/\r?\n/)) {
+    const sectionMatch = line.match(sectionHeaderPattern)
+    if (sectionMatch?.[1]) {
+      currentSection = sectionMatch[1]
+      keptLines.push(line)
+      continue
+    }
+
+    const keyValueMatch = line.match(keyValuePattern)
+    if (
+      currentSection === desktopSection &&
+      keyValueMatch?.[1] &&
+      managedDesktopAppearanceKeys.has(keyValueMatch[1])
+    ) {
+      continue
+    }
+
+    keptLines.push(line)
+  }
+
+  return keptLines.join("\n").trimEnd()
 }
 
 const removeAppearanceThemeSections = (toml: string): string => {
@@ -204,9 +292,39 @@ const removeAppearanceThemeSections = (toml: string): string => {
 
 const quoteTomlString = (value: string): string => JSON.stringify(value)
 
+const renderDesktopAppearanceKeys = (
+  settings: Pick<AppearanceSettings, "appearanceTheme" | "codeThemes">
+): string =>
+  [
+    `appearanceTheme = ${quoteTomlString(settings.appearanceTheme)}`,
+    `appearanceLightCodeThemeId = ${quoteTomlString(settings.codeThemes.light)}`,
+    `appearanceDarkCodeThemeId = ${quoteTomlString(settings.codeThemes.dark)}`,
+  ].join("\n")
+
+const mergeDesktopAppearanceKeysIntoToml = (
+  toml: string,
+  settings: Pick<AppearanceSettings, "appearanceTheme" | "codeThemes">
+): string => {
+  const stripped = removeManagedDesktopAppearanceKeys(toml)
+  const lines = stripped.split(/\r?\n/)
+  const desktopHeaderIndex = lines.findIndex(
+    (line) => line.match(sectionHeaderPattern)?.[1] === desktopSection
+  )
+  const renderedKeys = renderDesktopAppearanceKeys(settings).split("\n")
+
+  if (desktopHeaderIndex >= 0) {
+    lines.splice(desktopHeaderIndex + 1, 0, ...renderedKeys)
+    return lines.join("\n").trimEnd()
+  }
+
+  return stripped
+    ? `${stripped}\n\n[${desktopSection}]\n${renderedKeys}`
+    : `[${desktopSection}]\n${renderedKeys}`
+}
+
 const renderTheme = (sectionName: string, theme: AppearanceChromeTheme): string => `[${sectionName}]
 accent = ${quoteTomlString(theme.accent)}
-contrast = ${theme.contrast}
+${theme.accentSource ? `accentSource = ${quoteTomlString(theme.accentSource)}\n` : ""}contrast = ${theme.contrast}
 ink = ${quoteTomlString(theme.ink)}
 opaqueWindows = ${theme.opaqueWindows}
 surface = ${quoteTomlString(theme.surface)}
@@ -232,14 +350,20 @@ export const mergeAppearanceThemesIntoToml = (
   return base ? `${base}\n\n${renderedThemes}\n` : `${renderedThemes}\n`
 }
 
+export const mergeAppearanceSettingsIntoToml = (
+  toml: string,
+  settings: Pick<AppearanceSettings, "appearanceTheme" | "codeThemes" | "themes">
+): string =>
+  mergeAppearanceThemesIntoToml(mergeDesktopAppearanceKeysIntoToml(toml, settings), settings.themes)
+
 export const readAppearanceSettings = async (codexHome: string): Promise<AppearanceSettings> => {
   const configPath = getCodexConfigPath(codexHome)
 
   try {
     const toml = await readFile(configPath, "utf8")
     return {
+      ...parseAppearanceSettingsFromToml(toml),
       configPath,
-      themes: parseAppearanceThemesFromToml(toml),
     }
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
@@ -247,6 +371,8 @@ export const readAppearanceSettings = async (codexHome: string): Promise<Appeara
     }
 
     return {
+      appearanceTheme: defaultAppearanceSettings.appearanceTheme,
+      codeThemes: { ...defaultAppearanceSettings.codeThemes },
       configPath,
       themes: cloneDefaults(),
     }
@@ -255,7 +381,7 @@ export const readAppearanceSettings = async (codexHome: string): Promise<Appeara
 
 export const writeAppearanceSettings = async (
   codexHome: string,
-  themes: AppearanceSettings["themes"]
+  settings: Pick<AppearanceSettings, "appearanceTheme" | "codeThemes" | "themes">
 ): Promise<AppearanceSettings> => {
   const configPath = getCodexConfigPath(codexHome)
   let existingToml = ""
@@ -269,10 +395,12 @@ export const writeAppearanceSettings = async (
   }
 
   await mkdir(dirname(configPath), { recursive: true })
-  await writeFile(configPath, mergeAppearanceThemesIntoToml(existingToml, themes), "utf8")
+  await writeFile(configPath, mergeAppearanceSettingsIntoToml(existingToml, settings), "utf8")
 
   return {
+    appearanceTheme: settings.appearanceTheme,
+    codeThemes: settings.codeThemes,
     configPath,
-    themes,
+    themes: settings.themes,
   }
 }

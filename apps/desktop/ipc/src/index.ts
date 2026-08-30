@@ -79,9 +79,45 @@ export type AppHealthStatus = z.infer<typeof AppHealthStatusSchema>
 
 const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/)
 
+export const AppearanceThemeModeSchema = z.enum(["dark", "light", "system"])
+export type AppearanceThemeMode = z.infer<typeof AppearanceThemeModeSchema>
+
+export const AppearanceCodeThemeIdSchema = z.enum([
+  "absolutely",
+  "ayu",
+  "catppuccin",
+  "codex",
+  "dracula",
+  "everforest",
+  "github",
+  "gruvbox",
+  "linear",
+  "lobster",
+  "material",
+  "matrix",
+  "monokai",
+  "night-owl",
+  "nord",
+  "notion",
+  "one",
+  "oscurange",
+  "proof",
+  "raycast",
+  "rose-pine",
+  "sentry",
+  "solarized",
+  "temple",
+  "tokyo-night",
+  "vercel",
+  "vscode-plus",
+  "xcode",
+])
+export type AppearanceCodeThemeId = z.infer<typeof AppearanceCodeThemeIdSchema>
+
 export const AppearanceChromeThemeSchema = z
   .object({
     accent: HexColorSchema,
+    accentSource: z.enum(["chatgpt", "custom"]).optional(),
     contrast: z.number().min(0).max(100),
     fonts: z
       .object({
@@ -105,6 +141,13 @@ export type AppearanceChromeTheme = z.infer<typeof AppearanceChromeThemeSchema>
 
 export const AppearanceSettingsSchema = z
   .object({
+    appearanceTheme: AppearanceThemeModeSchema,
+    codeThemes: z
+      .object({
+        dark: AppearanceCodeThemeIdSchema,
+        light: AppearanceCodeThemeIdSchema,
+      })
+      .strict(),
     configPath: z.string().min(1),
     themes: z
       .object({
@@ -282,10 +325,13 @@ export const settingsAppearanceReadContract = {
 export const settingsAppearanceWriteContract = {
   channel: CYPHERIA_IPC_CHANNELS.settingsAppearanceWrite,
   namespace: "settings",
-  request: AppearanceSettingsSchema.pick({ themes: true }),
+  request: AppearanceSettingsSchema.pick({ appearanceTheme: true, codeThemes: true, themes: true }),
   response: AppearanceSettingsSchema,
   version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<Pick<AppearanceSettings, "themes">, AppearanceSettings>
+} satisfies IpcContract<
+  Pick<AppearanceSettings, "appearanceTheme" | "codeThemes" | "themes">,
+  AppearanceSettings
+>
 
 export const ipcContracts = {
   appHealthCheck: appHealthCheckContract,
@@ -310,7 +356,7 @@ export type CypheriaPreloadApi = {
   readonly settings: {
     readonly getAppearance: () => Promise<AppearanceSettings>
     readonly setAppearance: (
-      themes: Pick<AppearanceSettings, "themes">
+      settings: Pick<AppearanceSettings, "appearanceTheme" | "codeThemes" | "themes">
     ) => Promise<AppearanceSettings>
   }
 }

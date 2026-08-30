@@ -13,6 +13,7 @@ import {
   LockKeyhole,
   MoreHorizontal,
   PanelRightClose,
+  Settings,
   Plus,
   TerminalSquare,
   WalletCards,
@@ -73,6 +74,13 @@ function HomeRoute() {
             <Badge variant={window.cypheria ? "secondary" : "outline"}>
               {window.cypheria ? "Live" : "Preview"}
             </Badge>
+            <a
+              className="inline-flex h-7 shrink-0 items-center justify-center gap-1 rounded-md border border-border px-2 text-xs font-medium text-foreground no-underline hover:bg-muted"
+              href="/settings/appearance"
+            >
+              <Settings aria-hidden="true" size={14} strokeWidth={1.9} />
+              Settings
+            </a>
             <Button aria-label="Collapse panel" size="icon" variant="ghost">
               <PanelRightClose aria-hidden="true" size={16} strokeWidth={1.9} />
             </Button>

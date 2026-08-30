@@ -43,6 +43,15 @@ export { Textarea } from "./components/textarea.js"
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./components/tooltip.js"
 export { cn } from "./lib/utils.js"
 export {
+  codexCodeThemeOptions,
+  codexCodeThemePresets,
+  getCodexCodeThemeOptionsForMode,
+  getCodexCodeThemePresetVariant,
+  type CodexCodeThemeId,
+  type CodexCodeThemePreset,
+  type CodexCodeThemePresetVariant,
+} from "./code-themes.js"
+export {
   CypheriaThemeProvider,
   useCypheriaTheme,
 } from "./theme-provider.js"

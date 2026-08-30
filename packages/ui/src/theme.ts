@@ -54,6 +54,7 @@ const defaultFontMono = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 
 
 export interface CodexChromeTheme {
   readonly accent: string
+  readonly accentSource?: "chatgpt" | "custom"
   readonly contrast: number
   readonly fonts: {
     readonly code: string
@@ -77,6 +78,7 @@ export interface CodexAppearanceThemeSettings {
 export const defaultCodexAppearanceThemeSettings: CodexAppearanceThemeSettings = {
   light: {
     accent: "#0169cc",
+    accentSource: "chatgpt",
     contrast: 45,
     fonts: {
       code: defaultFontMono,
@@ -93,6 +95,7 @@ export const defaultCodexAppearanceThemeSettings: CodexAppearanceThemeSettings =
   },
   dark: {
     accent: "#0169cc",
+    accentSource: "chatgpt",
     contrast: 60,
     fonts: {
       code: defaultFontMono,

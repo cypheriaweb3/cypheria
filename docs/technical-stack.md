@@ -183,11 +183,16 @@ Theme handling follows the Tailwind v4 and shadcn CSS-variable model. `@cypheria
 exports `CypheriaThemeProvider`, `useCypheriaTheme`, and theme helpers that update
 the root shadcn tokens at runtime instead of rewriting component classes.
 Desktop appearance settings are stored in the Cypheria-managed Codex config at
-`$CYPHERIA_HOME/codex/config.toml`, under `desktop.appearanceLightChromeTheme`
-and `desktop.appearanceDarkChromeTheme`. Electron main owns reading and writing
-those TOML sections through typed IPC, and the renderer maps Codex chrome theme
-fields such as `surface`, `ink`, `accent`, `contrast`, fonts, and semantic colors
-onto shadcn tokens.
+`$CYPHERIA_HOME/codex/config.toml`. The `[desktop]` section owns
+`appearanceTheme`, `appearanceLightCodeThemeId`, and `appearanceDarkCodeThemeId`,
+while `desktop.appearanceLightChromeTheme` and `desktop.appearanceDarkChromeTheme`
+store editable chrome colors, fonts, and semantic colors. Electron main owns
+reading and writing those TOML keys and sections through typed IPC, preserving
+unrelated config. The renderer maps Codex chrome theme fields such as `surface`,
+`ink`, `accent`, `contrast`, fonts, and semantic colors onto shadcn tokens.
+Codex-compatible theme presets are kept as immutable built-in `codex-theme-v1`
+payloads: choosing a preset copies its full chrome theme into the editable
+light or dark TOML section and records the matching code theme ID in `[desktop]`.
 
 Cypheria-specific components:
 

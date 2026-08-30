@@ -183,10 +183,17 @@ UI 策略是复用成熟 primitives，只为 Cypheria-specific workflows 构建�
 导出 `CypheriaThemeProvider`、`useCypheriaTheme` 和主题 helper，在运行时更新
 root shadcn tokens，而不是重写组件 class。
 Desktop appearance settings 存储在 Cypheria 管理的 Codex 配置
-`$CYPHERIA_HOME/codex/config.toml` 中，位于 `desktop.appearanceLightChromeTheme`
-和 `desktop.appearanceDarkChromeTheme`。Electron main 通过 typed IPC 负责读写
-这些 TOML sections，renderer 将 Codex chrome theme 字段（如 `surface`、`ink`、
-`accent`、`contrast`、fonts 和 semantic colors）映射为 shadcn tokens。
+`$CYPHERIA_HOME/codex/config.toml` 中。`[desktop]` section 保存
+`appearanceTheme`、`appearanceLightCodeThemeId` 和
+`appearanceDarkCodeThemeId`，`desktop.appearanceLightChromeTheme` 与
+`desktop.appearanceDarkChromeTheme` 保存可编辑的 chrome colors、fonts 和
+semantic colors。Electron main 通过 typed IPC 负责读写这些 TOML keys 和
+sections，并保留其它无关配置。renderer 将 Codex chrome theme 字段（如
+`surface`、`ink`、`accent`、`contrast`、fonts 和 semantic colors）映射为
+shadcn tokens。Codex-compatible theme presets 作为不可变内置
+`codex-theme-v1` payload 保存；选择某个 preset 时，会把它的完整 chrome theme
+复制到可编辑的 light 或 dark TOML section，并在 `[desktop]` 中记录对应的 code
+theme ID。
 
 Cypheria-specific components：
 
