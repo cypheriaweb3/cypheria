@@ -1028,7 +1028,11 @@ function AccentControl({
   onSourceChange: (source: "chatgpt" | "custom", accent?: string) => void
 }>) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const selectedLabel = accentSource === "chatgpt" ? "Blue" : "Custom"
+  const selectedPreset = accentOptions.find(
+    (option) =>
+      option.id !== "custom" && option.color && option.color.toLowerCase() === accent.toLowerCase()
+  )
+  const selectedLabel = accentSource === "custom" ? "Custom" : (selectedPreset?.label ?? "Blue")
 
   return (
     <div className="flex items-center justify-end gap-2 max-sm:justify-start">
@@ -1050,7 +1054,9 @@ function AccentControl({
           >
             {accentOptions.map((option) => {
               const selected =
-                (option.id === "blue" && accentSource === "chatgpt") ||
+                (option.id !== "custom" &&
+                  accentSource === "chatgpt" &&
+                  option.id === selectedPreset?.id) ||
                 (option.id === "custom" && accentSource === "custom")
 
               return (
@@ -1063,8 +1069,7 @@ function AccentControl({
                     } else if (option.id === "custom") {
                       onSourceChange("custom")
                     } else if (option.color) {
-                      onSourceChange("custom")
-                      onAccentChange(option.color)
+                      onSourceChange("chatgpt", option.color)
                     }
                     setMenuOpen(false)
                   }}
@@ -1076,7 +1081,9 @@ function AccentControl({
                       className="size-4 rounded-full border border-black/10"
                       style={{ backgroundColor: option.color }}
                     />
-                  ) : null}
+                  ) : (
+                    <span className="size-4" />
+                  )}
                   <span className="min-w-0 flex-1">{option.label}</span>
                   {selected ? <Check aria-hidden="true" size={19} /> : null}
                 </button>
@@ -1200,25 +1207,37 @@ function ColorPickerPopover({
   onClose,
   value,
 }: Readonly<{ onChange: (value: string) => void; onClose: () => void; value: string }>) {
+  const normalizedValue = isHexColor(value) ? value : "#000000"
+  const hsv = hexToHsv(normalizedValue)
+  const hueColor = `hsl(${hsv.hue} 100% 50%)`
+
   return (
     <div className="absolute right-0 top-10 z-40 w-[238px] rounded-xl border border-border bg-popover p-1.5 shadow-2xl">
       <button aria-label="Close color picker" className="sr-only" onClick={onClose} type="button" />
       <label className="relative block h-[205px] overflow-hidden rounded-lg">
+        <span className="absolute inset-0" style={{ backgroundColor: hueColor }} />
         <span
           className="absolute inset-0"
           style={{
             background:
-              "linear-gradient(90deg, #ffffff 0%, transparent 48%), linear-gradient(180deg, transparent 0%, #000000 100%), linear-gradient(90deg, #ccd7ea 0%, #1465f2 100%)",
+              "linear-gradient(90deg, #ffffff 0%, transparent 100%), linear-gradient(180deg, transparent 0%, #000000 100%)",
           }}
         />
         <input
           aria-label="Custom color"
           className="absolute inset-0 size-full cursor-crosshair opacity-0"
-          onChange={(event) => onChange(event.currentTarget.value)}
+          onChange={(event) => onChange(event.currentTarget.value.toLowerCase())}
           type="color"
-          value={value}
+          value={normalizedValue}
         />
-        <span className="absolute right-[42px] top-0 size-7 rounded-full border-[3px] border-white shadow-md" />
+        <span
+          className="absolute size-7 rounded-full border-[3px] border-white shadow-md"
+          style={{
+            left: `${hsv.saturation * 100}%`,
+            top: `${(1 - hsv.value) * 100}%`,
+            transform: "translate(-50%, -50%)",
+          }}
+        />
       </label>
       <label className="relative mt-1.5 block h-8 overflow-hidden rounded-b-lg">
         <span
@@ -1231,11 +1250,17 @@ function ColorPickerPopover({
         <input
           aria-label="Custom hue"
           className="absolute inset-0 size-full opacity-0"
-          onChange={(event) => onChange(event.currentTarget.value)}
+          onChange={(event) => onChange(event.currentTarget.value.toLowerCase())}
           type="color"
-          value={value}
+          value={normalizedValue}
         />
-        <span className="absolute left-[145px] top-0 size-8 rounded-full border-[3px] border-white shadow-md" />
+        <span
+          className="absolute top-0 size-8 rounded-full border-[3px] border-white shadow-md"
+          style={{
+            left: `${(hsv.hue / 360) * 100}%`,
+            transform: "translateX(-50%)",
+          }}
+        />
       </label>
     </div>
   )
@@ -1667,6 +1692,34 @@ const normalizeHexInput = (value: string): string => {
       .join("")}`
   }
   return trimmed
+}
+
+function hexToHsv(hex: string): { hue: number; saturation: number; value: number } {
+  const red = Number.parseInt(hex.slice(1, 3), 16) / 255
+  const green = Number.parseInt(hex.slice(3, 5), 16) / 255
+  const blue = Number.parseInt(hex.slice(5, 7), 16) / 255
+  const max = Math.max(red, green, blue)
+  const min = Math.min(red, green, blue)
+  const delta = max - min
+  const saturation = max === 0 ? 0 : delta / max
+  let hue = 0
+
+  if (delta !== 0) {
+    if (max === red) {
+      hue = ((green - blue) / delta) % 6
+    } else if (max === green) {
+      hue = (blue - red) / delta + 2
+    } else {
+      hue = (red - green) / delta + 4
+    }
+    hue *= 60
+  }
+
+  return {
+    hue: Math.round(hue < 0 ? hue + 360 : hue),
+    saturation,
+    value: max,
+  }
 }
 
 const resolveAppearanceMode = (mode: AppearanceMode): ThemeMode => {
