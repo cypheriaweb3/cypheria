@@ -99,6 +99,16 @@
   --text-3xl--line-height: calc(var(--text-3xl) * 1.2);
   --text-4xl: calc(var(--font-sans-size) * 2.5714285714);
   --text-4xl--line-height: calc(var(--text-4xl) * 1.1111111111);
+  --text-5xl: calc(var(--font-sans-size) * 3.4285714286);
+  --text-5xl--line-height: 1;
+  --text-6xl: calc(var(--font-sans-size) * 4.2857142857);
+  --text-6xl--line-height: 1;
+  --text-7xl: calc(var(--font-sans-size) * 5.1428571429);
+  --text-7xl--line-height: 1;
+  --text-8xl: calc(var(--font-sans-size) * 6.8571428571);
+  --text-8xl--line-height: 1;
+  --text-9xl: calc(var(--font-sans-size) * 9.1428571429);
+  --text-9xl--line-height: 1;
 }
 
 .dark {
@@ -233,4 +243,29 @@
 .font-mono.text-4xl {
   font-size: calc(var(--font-mono-size, 12px) * 3);
   line-height: var(--tw-leading, calc(var(--font-mono-size, 12px) * 3.3333333333));
+}
+
+.font-mono.text-5xl {
+  font-size: calc(var(--font-mono-size, 12px) * 4);
+  line-height: var(--tw-leading, 1);
+}
+
+.font-mono.text-6xl {
+  font-size: calc(var(--font-mono-size, 12px) * 5);
+  line-height: var(--tw-leading, 1);
+}
+
+.font-mono.text-7xl {
+  font-size: calc(var(--font-mono-size, 12px) * 6);
+  line-height: var(--tw-leading, 1);
+}
+
+.font-mono.text-8xl {
+  font-size: calc(var(--font-mono-size, 12px) * 8);
+  line-height: var(--tw-leading, 1);
+}
+
+.font-mono.text-9xl {
+  font-size: calc(var(--font-mono-size, 12px) * 10.6666666667);
+  line-height: var(--tw-leading, 1);
 }
