@@ -85,6 +85,14 @@
   --sidebar-ring: oklch(0.708 0 0);
   --cypheria-sans-font-size: 14px;
   --cypheria-code-font-size: 12px;
+  --text-xs: calc(var(--cypheria-sans-font-size) * 0.8571428571);
+  --text-sm: var(--cypheria-sans-font-size);
+  --text-base: calc(var(--cypheria-sans-font-size) * 1.1428571429);
+  --text-lg: calc(var(--cypheria-sans-font-size) * 1.2857142857);
+  --text-xl: calc(var(--cypheria-sans-font-size) * 1.4285714286);
+  --text-2xl: calc(var(--cypheria-sans-font-size) * 1.7142857143);
+  --text-3xl: calc(var(--cypheria-sans-font-size) * 2.1428571429);
+  --text-4xl: calc(var(--cypheria-sans-font-size) * 2.5714285714);
 }
 
 .dark {
@@ -143,11 +151,6 @@
     font-style: var(--font-mono-style);
     font-weight: var(--font-mono-weight);
   }
-  .font-mono {
-    font-stretch: var(--font-mono-stretch);
-    font-style: var(--font-mono-style);
-    font-weight: var(--font-mono-weight);
-  }
   :root[data-cypheria-font-smoothing="true"] body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -177,4 +180,11 @@
     scroll-behavior: auto;
     transition-duration: 0.001ms;
   }
+}
+
+.font-mono {
+  font-size: var(--cypheria-code-font-size);
+  font-stretch: var(--font-mono-stretch);
+  font-style: var(--font-mono-style);
+  font-weight: var(--font-mono-weight);
 }

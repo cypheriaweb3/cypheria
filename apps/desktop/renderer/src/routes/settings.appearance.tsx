@@ -846,7 +846,7 @@ function DiffPreview({ markerStyle }: Readonly<{ markerStyle: DiffMarkerStyle }>
   return (
     <div
       className={cn(
-        "grid overflow-hidden rounded-xl border border-border bg-card font-mono text-[14px] leading-7 shadow-xs",
+        "grid overflow-hidden rounded-xl border border-border bg-card font-mono text-[var(--cypheria-code-font-size)] leading-[calc(var(--cypheria-code-font-size)*2)] shadow-xs",
         codeFontFaceClass
       )}
     >
