@@ -2,6 +2,7 @@ import {
   type CodexAppearanceThemeSettings,
   type CodexChromeTheme,
   type CodexCodeThemeId,
+  type CodexFontFace,
   cn,
   defaultCodexAppearanceThemeSettings,
   getCodexCodeThemeOptionsForMode,
@@ -678,8 +679,17 @@ function ChromeThemeCard({
         <CompactSetting
           control={
             <FontFamilyControl
+              face={theme.fonts.uiFace}
               systemDefault={defaultCodexAppearanceThemeSettings[mode].fonts.ui}
-              onChange={(ui) => onThemeChange({ fonts: { ...theme.fonts, ui } })}
+              onChange={(ui, uiFace) => {
+                const fonts = { ...theme.fonts, ui }
+                if (uiFace) {
+                  fonts.uiFace = uiFace
+                } else {
+                  delete fonts.uiFace
+                }
+                onThemeChange({ fonts })
+              }}
               value={theme.fonts.ui}
             />
           }
@@ -688,8 +698,18 @@ function ChromeThemeCard({
         <CompactSetting
           control={
             <FontFamilyControl
+              face={theme.fonts.codeFace}
+              monoOnly
               systemDefault={defaultCodexAppearanceThemeSettings[mode].fonts.code}
-              onChange={(code) => onThemeChange({ fonts: { ...theme.fonts, code } })}
+              onChange={(code, codeFace) => {
+                const fonts = { ...theme.fonts, code }
+                if (codeFace) {
+                  fonts.codeFace = codeFace
+                } else {
+                  delete fonts.codeFace
+                }
+                onThemeChange({ fonts })
+              }}
               value={theme.fonts.code}
             />
           }
@@ -1375,19 +1395,33 @@ function FontSizeInput({
 }
 
 function FontFamilyControl({
+  face,
+  monoOnly = false,
   onChange,
   systemDefault,
   value,
-}: Readonly<{ onChange: (value: string) => void; systemDefault: string; value: string }>) {
+}: Readonly<{
+  face?: CodexFontFace
+  monoOnly?: boolean
+  onChange: (value: string, face?: CodexFontFace) => void
+  systemDefault: string
+  value: string
+}>) {
   const [fontOptions, loadFontOptions] = useLocalFontOptions()
   const [familyOpen, setFamilyOpen] = useState(false)
   const familyContainerRef = useRef<HTMLDivElement>(null)
-  const isSystemDefault = value === systemDefault
-  const selectedOption = isSystemDefault ? undefined : findSelectedFontOption(fontOptions, value)
+  const options = useMemo(
+    () => (monoOnly ? fontOptions.filter(isLikelyMonospaceFontOption) : fontOptions),
+    [fontOptions, monoOnly]
+  )
+  const isSystemDefault = value === systemDefault && !face
+  const selectedOption = isSystemDefault ? undefined : findSelectedFontOption(options, value, face)
   const selectedFamily = isSystemDefault
     ? "System default"
-    : selectedOption?.family || formatFontFamilyLabel(value)
-  const selectedStyle = selectedOption ? getSelectedFontStyle(selectedOption, value) : "Regular"
+    : selectedOption?.family || face?.family || formatFontFamilyLabel(value)
+  const selectedStyle = selectedOption
+    ? getSelectedFontStyle(selectedOption, value, face)
+    : "Regular"
   const styles = selectedOption?.styles ?? ["Regular"]
   useOutsidePointerDismiss(familyContainerRef, familyOpen, () => setFamilyOpen(false))
 
@@ -1425,12 +1459,16 @@ function FontFamilyControl({
               {isSystemDefault ? <Check aria-hidden="true" size={22} /> : null}
             </button>
             <div className="my-2 h-px bg-border" />
-            {fontOptions.map((option) => (
+            {options.map((option) => (
               <button
                 className="flex h-11 w-full items-center justify-between gap-3 rounded-xl px-2 text-left text-lg hover:bg-muted/70"
                 key={option.family}
                 onClick={() => {
-                  onChange(getFontConfigForStyle(option, getPreferredFontStyle(option.styles)))
+                  const selection = getFontSelectionForStyle(
+                    option,
+                    getPreferredFontStyle(option.styles)
+                  )
+                  onChange(selection.family, selection.face)
                   setFamilyOpen(false)
                 }}
                 role="menuitem"
@@ -1449,7 +1487,8 @@ function FontFamilyControl({
         disabled={isSystemDefault || styles.length <= 1 || !selectedOption}
         onValueChange={(style) => {
           if (selectedOption && style) {
-            onChange(getFontConfigForStyle(selectedOption, style))
+            const selection = getFontSelectionForStyle(selectedOption, style)
+            onChange(selection.family, selection.face)
           }
         }}
         value={selectedStyle}
@@ -1626,8 +1665,12 @@ function getPreferredFontStyle(styles: readonly string[]): string {
   return styles[0] ?? "Regular"
 }
 
-function getSelectedFontStyle(option: LocalFontOption, value: string): string {
-  const normalizedValue = formatFontFamilyLabel(value)
+function getSelectedFontStyle(
+  option: LocalFontOption,
+  value: string,
+  face?: CodexFontFace
+): string {
+  const normalizedValue = face?.fullName ?? face?.postscriptName ?? formatFontFamilyLabel(value)
   const selected =
     option.faces.find((face) =>
       [face.fullName, face.postscriptName].some((name) => name && normalizedValue === name)
@@ -1640,9 +1683,10 @@ function getSelectedFontStyle(option: LocalFontOption, value: string): string {
 
 function findSelectedFontOption(
   options: readonly LocalFontOption[],
-  value: string
+  value: string,
+  face?: CodexFontFace
 ): LocalFontOption | undefined {
-  const normalizedValue = formatFontFamilyLabel(value)
+  const normalizedValue = face?.family ?? formatFontFamilyLabel(value)
   return options.find(
     (option) =>
       option.family === normalizedValue ||
@@ -1652,16 +1696,26 @@ function findSelectedFontOption(
   )
 }
 
-function getFontConfigForStyle(option: LocalFontOption, style: string): string {
+function getFontSelectionForStyle(
+  option: LocalFontOption,
+  style: string
+): { family: string; face?: CodexFontFace } {
   const face =
     option.faces.find((candidate) => normalizeFontStyle(candidate.style) === style) ??
     option.faces[0]
   const family = face?.family || option.family
-  const fullName = face?.fullName || family
-  if (fullName !== family && normalizeFontStyle(face?.style) !== "Regular") {
-    return `${quoteFontFamily(fullName)}, ${quoteFontFamily(family)}`
+  const selectedStyle = normalizeFontStyle(face?.style)
+  if (face && selectedStyle !== "Regular") {
+    return {
+      face: {
+        family,
+        ...(face.fullName ? { fullName: face.fullName } : {}),
+        ...(face.postscriptName ? { postscriptName: face.postscriptName } : {}),
+      },
+      family: quoteFontFamily(family),
+    }
   }
-  return quoteFontFamily(family)
+  return { family: quoteFontFamily(family) }
 }
 
 function quoteFontFamily(family: string): string {
@@ -1671,6 +1725,38 @@ function quoteFontFamily(family: string): string {
 function formatFontFamilyLabel(value: string): string {
   const [firstFamily] = value.split(",")
   return firstFamily?.trim().replace(/^["']|["']$/g, "") || "Custom"
+}
+
+const monospaceFontNamePattern =
+  /\b(mono|monospace|code|console|terminal|typewriter|courier|menlo|monaco|consolas|sfmono|sf mono|cascadia|jetbrains|iosevka|hack|inconsolata|fira code|source code|roboto mono|space mono|ibm plex mono)\b/i
+
+function isLikelyMonospaceFontOption(option: LocalFontOption): boolean {
+  if (
+    monospaceFontNamePattern.test(option.family) ||
+    option.faces.some((face) =>
+      [face.family, face.fullName, face.postscriptName].some(
+        (name) => name && monospaceFontNamePattern.test(name)
+      )
+    )
+  ) {
+    return true
+  }
+
+  if (typeof document === "undefined") {
+    return false
+  }
+
+  const canvas = document.createElement("canvas")
+  const context = canvas.getContext("2d")
+  if (!context) {
+    return false
+  }
+
+  context.font = `16px ${quoteFontFamily(option.family)}`
+  const narrow = context.measureText("iiiiiiii").width
+  const wide = context.measureText("WWWWWWWW").width
+  const digits = context.measureText("00000000").width
+  return Math.abs(narrow - wide) < 0.5 && Math.abs(digits - wide) < 0.5
 }
 
 function ToggleControl({
@@ -1735,6 +1821,12 @@ const parseCodexThemeShare = (
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null
 
+const isCodexFontFace = (face: unknown): face is CodexFontFace =>
+  isRecord(face) &&
+  typeof face.family === "string" &&
+  (face.fullName === undefined || typeof face.fullName === "string") &&
+  (face.postscriptName === undefined || typeof face.postscriptName === "string")
+
 const isCodexChromeTheme = (theme: unknown): theme is CodexChromeTheme =>
   isRecord(theme) &&
   typeof theme.accent === "string" &&
@@ -1744,7 +1836,9 @@ const isCodexChromeTheme = (theme: unknown): theme is CodexChromeTheme =>
   typeof theme.contrast === "number" &&
   isRecord(theme.fonts) &&
   typeof theme.fonts.code === "string" &&
+  (theme.fonts.codeFace === undefined || isCodexFontFace(theme.fonts.codeFace)) &&
   typeof theme.fonts.ui === "string" &&
+  (theme.fonts.uiFace === undefined || isCodexFontFace(theme.fonts.uiFace)) &&
   typeof theme.ink === "string" &&
   typeof theme.opaqueWindows === "boolean" &&
   isRecord(theme.semanticColors) &&

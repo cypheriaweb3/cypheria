@@ -65,6 +65,7 @@ export {
   mapCodexChromeThemeToCypheriaThemeStyles,
   type CodexAppearanceThemeSettings,
   type CodexChromeTheme,
+  type CodexFontFace,
   type CypheriaThemeMode,
   type CypheriaThemeState,
   type CypheriaThemeStateInput,

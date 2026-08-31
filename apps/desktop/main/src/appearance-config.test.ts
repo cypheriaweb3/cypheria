@@ -36,6 +36,16 @@ surface = "#ffffff"
 ui = "-apple-system, Blink"
 code = 'ui-monospace, "SFM"'
 
+[desktop.appearanceLightChromeTheme.fonts.codeFace]
+family = "Courier New"
+fullName = "Courier New Bold Italic"
+postscriptName = "CourierNewPS-BoldItalicMT"
+
+[desktop.appearanceLightChromeTheme.fonts.uiFace]
+family = "Book Antiqua"
+fullName = "Book Antiqua Bold"
+postscriptName = "BookAntiqua-Bold"
+
 [desktop.appearanceLightChromeTheme.semanticColors]
 diffAdded = "#00aa00"
 diffRemoved = "#dd0000"
@@ -48,7 +58,17 @@ skill = "#6600aa"
       contrast: 44,
       fonts: {
         code: 'ui-monospace, "SFM"',
+        codeFace: {
+          family: "Courier New",
+          fullName: "Courier New Bold Italic",
+          postscriptName: "CourierNewPS-BoldItalicMT",
+        },
         ui: "-apple-system, Blink",
+        uiFace: {
+          family: "Book Antiqua",
+          fullName: "Book Antiqua Bold",
+          postscriptName: "BookAntiqua-Bold",
+        },
       },
       semanticColors: {
         skill: "#6600aa",
@@ -137,6 +157,62 @@ command = "node"
     expect(merged).not.toContain('ui = "Old"')
     expect(merged).toContain('accent = "#123456"')
     expect(merged).toContain("[desktop.appearanceDarkChromeTheme.semanticColors]")
+  })
+
+  it("renders structured font faces and omits system-default font values", () => {
+    const merged = mergeAppearanceThemesIntoToml("", {
+      dark: {
+        accent: "#0169cc",
+        contrast: 60,
+        fonts: {
+          code: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono"',
+          ui: 'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        },
+        ink: "#fcfcfc",
+        opaqueWindows: true,
+        semanticColors: {
+          diffAdded: "#00a240",
+          diffRemoved: "#e02e2a",
+          skill: "#b06dff",
+        },
+        surface: "#111111",
+      },
+      light: {
+        accent: "#123456",
+        contrast: 45,
+        fonts: {
+          code: '"Courier New"',
+          codeFace: {
+            family: "Courier New",
+            fullName: "Courier New Bold Italic",
+            postscriptName: "CourierNewPS-BoldItalicMT",
+          },
+          ui: '"Book Antiqua"',
+          uiFace: {
+            family: "Book Antiqua",
+            fullName: "Book Antiqua Bold",
+            postscriptName: "BookAntiqua-Bold",
+          },
+        },
+        ink: "#0d0d0d",
+        opaqueWindows: false,
+        semanticColors: {
+          diffAdded: "#00a240",
+          diffRemoved: "#e02e2a",
+          skill: "#751ed9",
+        },
+        surface: "#ffffff",
+      },
+    })
+
+    expect(merged).toContain("[desktop.appearanceLightChromeTheme.fonts]")
+    expect(merged).toContain('ui = "\\"Book Antiqua\\""')
+    expect(merged).toContain('code = "\\"Courier New\\""')
+    expect(merged).toContain("[desktop.appearanceLightChromeTheme.fonts.uiFace]")
+    expect(merged).toContain('fullName = "Book Antiqua Bold"')
+    expect(merged).toContain("[desktop.appearanceLightChromeTheme.fonts.codeFace]")
+    expect(merged).toContain('postscriptName = "CourierNewPS-BoldItalicMT"')
+    expect(merged).not.toContain("[desktop.appearanceDarkChromeTheme.fonts]")
   })
 
   it("replaces only managed desktop appearance keys", () => {

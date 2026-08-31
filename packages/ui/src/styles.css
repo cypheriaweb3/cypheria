@@ -143,6 +143,11 @@
     font-style: var(--font-mono-style);
     font-weight: var(--font-mono-weight);
   }
+  .font-mono {
+    font-stretch: var(--font-mono-stretch);
+    font-style: var(--font-mono-style);
+    font-weight: var(--font-mono-weight);
+  }
   :root[data-cypheria-font-smoothing="true"] body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

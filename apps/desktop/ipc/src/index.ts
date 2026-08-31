@@ -131,7 +131,23 @@ export const AppearanceChromeThemeSchema = z
     fonts: z
       .object({
         code: z.string().min(1),
+        codeFace: z
+          .object({
+            family: z.string().min(1),
+            fullName: z.string().min(1).optional(),
+            postscriptName: z.string().min(1).optional(),
+          })
+          .strict()
+          .optional(),
         ui: z.string().min(1),
+        uiFace: z
+          .object({
+            family: z.string().min(1),
+            fullName: z.string().min(1).optional(),
+            postscriptName: z.string().min(1).optional(),
+          })
+          .strict()
+          .optional(),
       })
       .strict(),
     ink: HexColorSchema,

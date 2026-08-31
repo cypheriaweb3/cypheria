@@ -54,6 +54,12 @@ export interface CypheriaThemeStateInput {
   styles?: Partial<Record<CypheriaThemeMode, Partial<CypheriaThemeStyles>>>
 }
 
+export interface CodexFontFace {
+  readonly family: string
+  readonly fullName?: string
+  readonly postscriptName?: string
+}
+
 const defaultFontSans =
   'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 const defaultFontMono = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono"'
@@ -64,7 +70,9 @@ export interface CodexChromeTheme {
   readonly contrast: number
   readonly fonts: {
     readonly code: string
+    readonly codeFace?: CodexFontFace
     readonly ui: string
+    readonly uiFace?: CodexFontFace
   }
   readonly ink: string
   readonly opaqueWindows: boolean
@@ -193,13 +201,13 @@ export function mapCodexChromeThemeToCypheriaThemeStyles(
     "diff-added": theme.semanticColors.diffAdded,
     "diff-removed": theme.semanticColors.diffRemoved,
     "font-mono": theme.fonts.code,
-    "font-mono-stretch": inferFontStretch(theme.fonts.code),
-    "font-mono-style": inferFontStyle(theme.fonts.code),
-    "font-mono-weight": inferFontWeight(theme.fonts.code),
+    "font-mono-stretch": inferFontStretch(theme.fonts.codeFace?.fullName ?? theme.fonts.code),
+    "font-mono-style": inferFontStyle(theme.fonts.codeFace?.fullName ?? theme.fonts.code),
+    "font-mono-weight": inferFontWeight(theme.fonts.codeFace?.fullName ?? theme.fonts.code),
     "font-sans": theme.fonts.ui,
-    "font-sans-stretch": inferFontStretch(theme.fonts.ui),
-    "font-sans-style": inferFontStyle(theme.fonts.ui),
-    "font-sans-weight": inferFontWeight(theme.fonts.ui),
+    "font-sans-stretch": inferFontStretch(theme.fonts.uiFace?.fullName ?? theme.fonts.ui),
+    "font-sans-style": inferFontStyle(theme.fonts.uiFace?.fullName ?? theme.fonts.ui),
+    "font-sans-weight": inferFontWeight(theme.fonts.uiFace?.fullName ?? theme.fonts.ui),
     foreground: theme.ink,
     input: mix(theme.surface, theme.ink, border),
     muted: mix(theme.surface, theme.ink, subtle),

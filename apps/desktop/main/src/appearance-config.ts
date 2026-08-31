@@ -28,9 +28,13 @@ const managedDesktopAppearanceKeys = new Set([
 const themeSectionNames = new Set([
   lightSection,
   `${lightSection}.fonts`,
+  `${lightSection}.fonts.codeFace`,
+  `${lightSection}.fonts.uiFace`,
   `${lightSection}.semanticColors`,
   darkSection,
   `${darkSection}.fonts`,
+  `${darkSection}.fonts.codeFace`,
+  `${darkSection}.fonts.uiFace`,
   `${darkSection}.semanticColors`,
 ])
 
@@ -220,6 +224,23 @@ const applyParsedValue = (
     return
   }
 
+  if (section.endsWith(".fonts.codeFace") || section.endsWith(".fonts.uiFace")) {
+    if (
+      (key === "family" || key === "fullName" || key === "postscriptName") &&
+      typeof value === "string" &&
+      value.trim()
+    ) {
+      const faceKey = section.endsWith(".fonts.codeFace") ? "codeFace" : "uiFace"
+      const familyKey = faceKey === "codeFace" ? "code" : "ui"
+      target.fonts[faceKey] = {
+        family: parseCssFontFamily(target.fonts[familyKey]),
+        ...target.fonts[faceKey],
+        [key]: value,
+      }
+    }
+    return
+  }
+
   if (section.endsWith(".fonts")) {
     if ((key === "ui" || key === "code") && typeof value === "string" && value.trim()) {
       target.fonts[key] = value
@@ -348,6 +369,11 @@ const removeAppearanceThemeSections = (toml: string): string => {
 
 const quoteTomlString = (value: string): string => JSON.stringify(value)
 
+const parseCssFontFamily = (value: string): string => {
+  const [firstFamily] = value.split(",")
+  return firstFamily?.trim().replace(/^["']|["']$/g, "") || value
+}
+
 const renderDesktopAppearanceKeys = (
   settings: Pick<
     AppearanceSettings,
@@ -404,24 +430,76 @@ const mergeDesktopAppearanceKeysIntoToml = (
     : `[${desktopSection}]\n${renderedKeys}`
 }
 
-const renderTheme = (sectionName: string, theme: AppearanceChromeTheme): string => `[${sectionName}]
+const renderFontFace = (
+  sectionName: string,
+  faceKey: "codeFace" | "uiFace",
+  face: AppearanceChromeTheme["fonts"]["codeFace" | "uiFace"]
+): string => {
+  if (!face) {
+    return ""
+  }
+
+  return `
+[${sectionName}.fonts.${faceKey}]
+family = ${quoteTomlString(face.family)}
+${face.fullName ? `fullName = ${quoteTomlString(face.fullName)}\n` : ""}${face.postscriptName ? `postscriptName = ${quoteTomlString(face.postscriptName)}` : ""}`.trimEnd()
+}
+
+const renderFontSettings = (
+  sectionName: string,
+  theme: AppearanceChromeTheme,
+  defaultTheme: AppearanceChromeTheme
+): string => {
+  const fontLines: string[] = []
+  if (theme.fonts.ui !== defaultTheme.fonts.ui || theme.fonts.uiFace) {
+    fontLines.push(`ui = ${quoteTomlString(theme.fonts.ui)}`)
+  }
+  if (theme.fonts.code !== defaultTheme.fonts.code || theme.fonts.codeFace) {
+    fontLines.push(`code = ${quoteTomlString(theme.fonts.code)}`)
+  }
+
+  const faceSections = [
+    renderFontFace(sectionName, "uiFace", theme.fonts.uiFace),
+    renderFontFace(sectionName, "codeFace", theme.fonts.codeFace),
+  ].filter(Boolean)
+
+  if (fontLines.length === 0 && faceSections.length === 0) {
+    return ""
+  }
+
+  return [
+    `[${sectionName}.fonts]`,
+    ...fontLines,
+    ...faceSections.map((section) => `\n${section}`),
+  ].join("\n")
+}
+
+const renderTheme = (
+  sectionName: string,
+  theme: AppearanceChromeTheme,
+  defaultTheme: AppearanceChromeTheme
+): string => {
+  const fontSettings = renderFontSettings(sectionName, theme, defaultTheme)
+
+  return `[${sectionName}]
 accent = ${quoteTomlString(theme.accent)}
 ${theme.accentSource ? `accentSource = ${quoteTomlString(theme.accentSource)}\n` : ""}contrast = ${theme.contrast}
 ink = ${quoteTomlString(theme.ink)}
 opaqueWindows = ${theme.opaqueWindows}
 surface = ${quoteTomlString(theme.surface)}
 
-[${sectionName}.fonts]
-ui = ${quoteTomlString(theme.fonts.ui)}
-code = ${quoteTomlString(theme.fonts.code)}
-
+${fontSettings ? `${fontSettings}\n\n` : ""}\
 [${sectionName}.semanticColors]
 diffAdded = ${quoteTomlString(theme.semanticColors.diffAdded)}
 diffRemoved = ${quoteTomlString(theme.semanticColors.diffRemoved)}
 skill = ${quoteTomlString(theme.semanticColors.skill)}`
+}
 
 const renderAppearanceThemes = (themes: AppearanceSettings["themes"]): string =>
-  [renderTheme(lightSection, themes.light), renderTheme(darkSection, themes.dark)].join("\n\n")
+  [
+    renderTheme(lightSection, themes.light, defaultAppearanceThemes.light),
+    renderTheme(darkSection, themes.dark, defaultAppearanceThemes.dark),
+  ].join("\n\n")
 
 export const mergeAppearanceThemesIntoToml = (
   toml: string,

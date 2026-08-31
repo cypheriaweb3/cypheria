@@ -71,18 +71,28 @@ describe("Cypheria UI primitives", () => {
     expect(root.style.getPropertyValue("--primary")).toBe("oklch(0.8 0.1 240)")
   })
 
-  it("derives CSS font face variables from Codex font strings", () => {
+  it("derives CSS font face variables from structured Codex font faces", () => {
     const styles = mapCodexChromeThemeToCypheriaThemeStyles({
       ...defaultCodexAppearanceThemeSettings.light,
       fonts: {
-        code: '"Courier New Italic", "Courier New"',
-        ui: '"Avenir Next Demi Bold", "Avenir Next"',
+        code: '"Courier New"',
+        codeFace: {
+          family: "Courier New",
+          fullName: "Courier New Bold Italic",
+          postscriptName: "CourierNewPS-BoldItalicMT",
+        },
+        ui: '"Avenir Next"',
+        uiFace: {
+          family: "Avenir Next",
+          fullName: "Avenir Next Demi Bold",
+          postscriptName: "AvenirNext-DemiBold",
+        },
       },
     })
 
     expect(styles["font-sans-weight"]).toBe("600")
     expect(styles["font-sans-style"]).toBe("normal")
-    expect(styles["font-mono-weight"]).toBe("400")
+    expect(styles["font-mono-weight"]).toBe("700")
     expect(styles["font-mono-style"]).toBe("italic")
   })
 })
