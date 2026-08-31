@@ -916,11 +916,27 @@ function CodeLine({
   return (
     <div
       className={cn(
-        "grid min-h-7 grid-cols-[64px_minmax(0,1fr)]",
-        changed && color === "removed" && "border-l-4 border-[#ef2b2b] bg-[#fde8e4]",
-        changed && color === "added" && "border-l-4 border-[#05a84f] bg-[#e6f4e8]"
+        "grid min-h-7 grid-cols-[4px_34px_20px_minmax(0,1fr)] items-center",
+        changed && color === "removed" && "bg-[#fde8e4]",
+        changed && color === "added" && "bg-[#e6f4e8]"
       )}
     >
+      <span
+        className={cn(
+          "h-full",
+          changed && color === "removed" && "bg-[#ef2b2b]",
+          changed && color === "added" && "bg-[#05a84f]"
+        )}
+      />
+      <span
+        className={cn(
+          "text-right text-muted-foreground tabular-nums",
+          changed && color === "removed" && "text-[#ef2b2b]",
+          changed && color === "added" && "text-[#079b46]"
+        )}
+      >
+        {line}
+      </span>
       <span
         className={cn(
           "text-center text-muted-foreground",
@@ -928,7 +944,7 @@ function CodeLine({
           changed && color === "added" && "text-[#079b46]"
         )}
       >
-        {marker ? `${line} ${marker}` : line}
+        {marker}
       </span>
       <span className="truncate text-foreground">{children}</span>
     </div>
