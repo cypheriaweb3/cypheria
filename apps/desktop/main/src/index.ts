@@ -9,6 +9,7 @@ import {
   IPC_PROTOCOL_VERSION,
   type RuntimeInfo,
   runtimeInfoReadContract,
+  settingsAppearanceFontsListContract,
   settingsAppearanceReadContract,
   settingsAppearanceWriteContract,
 } from "../../ipc/src/index.js"
@@ -19,6 +20,7 @@ import {
   initializeDesktopRuntime,
   shutdownDesktopRuntime,
 } from "./runtime.js"
+import { listSystemFonts } from "./system-fonts.js"
 
 let mainWindow: BrowserWindow | null = null
 let desktopRuntimeContext: DesktopRuntimeContext | null = null
@@ -136,6 +138,7 @@ const registerIpcHandlers = (context: DesktopRuntimeContext): void => {
   registerIpcRoute(settingsAppearanceReadContract, () =>
     readAppearanceSettings(context.paths.codexHome)
   )
+  registerIpcRoute(settingsAppearanceFontsListContract, () => listSystemFonts())
   registerIpcRoute(settingsAppearanceWriteContract, (settings) =>
     writeAppearanceSettings(context.paths.codexHome, settings)
   )

@@ -1,6 +1,7 @@
 import type { IpcRendererEvent } from "electron"
 import { contextBridge, ipcRenderer } from "electron"
 import type {
+  AppearanceFontOption,
   AppearanceSettings,
   AppHealthStatus,
   AppMetadata,
@@ -34,6 +35,8 @@ const cypheriaApi: CypheriaPreloadApi = {
   },
   settings: {
     getAppearance: () => invoke<AppearanceSettings>(CYPHERIA_IPC_CHANNELS.settingsAppearanceRead),
+    listAppearanceFonts: () =>
+      invoke<AppearanceFontOption[]>(CYPHERIA_IPC_CHANNELS.settingsAppearanceFontsList),
     setAppearance: (themes) =>
       ipcRenderer.invoke(
         CYPHERIA_IPC_CHANNELS.settingsAppearanceWrite,

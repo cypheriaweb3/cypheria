@@ -25,6 +25,7 @@ export const CYPHERIA_IPC_CHANNELS = {
   appMetadataRead: "app.metadata.read",
   codexEvent: "codex.event",
   runtimeInfoRead: "runtime.info.read",
+  settingsAppearanceFontsList: "settings.appearance.fonts.list",
   settingsAppearanceRead: "settings.appearance.read",
   settingsAppearanceWrite: "settings.appearance.write",
 } as const
@@ -184,6 +185,25 @@ export type AppearanceSettingsWrite = Pick<
   | "useFontSmoothing"
   | "usePointerCursors"
 >
+
+export const AppearanceFontFaceSchema = z
+  .object({
+    family: z.string().min(1),
+    fullName: z.string().min(1).optional(),
+    postscriptName: z.string().min(1).optional(),
+    style: z.string().min(1).optional(),
+  })
+  .strict()
+export type AppearanceFontFace = z.infer<typeof AppearanceFontFaceSchema>
+
+export const AppearanceFontOptionSchema = z
+  .object({
+    faces: z.array(AppearanceFontFaceSchema),
+    family: z.string().min(1),
+    styles: z.array(z.string().min(1)),
+  })
+  .strict()
+export type AppearanceFontOption = z.infer<typeof AppearanceFontOptionSchema>
 
 export const IpcRequestEnvelopeSchema = z
   .object({
@@ -366,10 +386,19 @@ export const settingsAppearanceWriteContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<AppearanceSettingsWrite, AppearanceSettings>
 
+export const settingsAppearanceFontsListContract = {
+  channel: CYPHERIA_IPC_CHANNELS.settingsAppearanceFontsList,
+  namespace: "settings",
+  request: EmptyPayloadSchema,
+  response: z.array(AppearanceFontOptionSchema),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, AppearanceFontOption[]>
+
 export const ipcContracts = {
   appHealthCheck: appHealthCheckContract,
   appMetadataRead: appMetadataReadContract,
   runtimeInfoRead: runtimeInfoReadContract,
+  settingsAppearanceFontsList: settingsAppearanceFontsListContract,
   settingsAppearanceRead: settingsAppearanceReadContract,
   settingsAppearanceWrite: settingsAppearanceWriteContract,
 } as const
@@ -388,6 +417,7 @@ export type CypheriaPreloadApi = {
   }
   readonly settings: {
     readonly getAppearance: () => Promise<AppearanceSettings>
+    readonly listAppearanceFonts: () => Promise<AppearanceFontOption[]>
     readonly setAppearance: (settings: AppearanceSettingsWrite) => Promise<AppearanceSettings>
   }
 }

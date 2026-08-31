@@ -13,7 +13,7 @@ import { Input } from "@cypheria/ui/components/input"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Check, CheckCircle2, ChevronDown, Monitor, Moon, Sun, X } from "lucide-react"
-import { type ReactNode, useEffect, useMemo, useState } from "react"
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react"
 
 export const Route = createFileRoute("/settings/appearance")({
   component: AppearanceRoute,
@@ -27,6 +27,19 @@ type ReducedMotionPreference = "off" | "on" | "system"
 type ToastState = {
   readonly message: string
   readonly id: number
+}
+
+type LocalFontFace = {
+  readonly family: string
+  readonly fullName?: string
+  readonly postscriptName?: string
+  readonly style?: string
+}
+
+type LocalFontOption = {
+  readonly faces: readonly LocalFontFace[]
+  readonly family: string
+  readonly styles: readonly string[]
 }
 
 const appearanceModes = [
@@ -51,11 +64,19 @@ const fallbackAppearanceSettings = {
   usePointerCursors: false,
 } as const
 
+const chatGptAccent = "#3a83f7"
+
+declare global {
+  interface Window {
+    queryLocalFonts?: () => Promise<LocalFontFace[]>
+  }
+}
+
 function AppearanceRoute() {
   const queryClient = useQueryClient()
   const { setMode, setThemeState, themeState } = useCypheriaTheme()
   const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>("system")
-  const [codeFontSize, setCodeFontSize] = useState(12)
+  const [codeFontSize, setCodeFontSize] = useState(13)
   const [diffMarkerStyle, setDiffMarkerStyle] = useState<DiffMarkerStyle>("color")
   const [draftCodeThemes, setDraftCodeThemes] = useState<Record<
     ThemeMode,
@@ -83,17 +104,19 @@ function AppearanceRoute() {
     }
 
     const settings = appearanceQuery.data
+    const resolvedMode = resolveAppearanceMode(settings.appearanceTheme)
     setAppearanceMode(settings.appearanceTheme)
     setCodeFontSize(settings.codeFontSize)
     setDiffMarkerStyle(settings.diffMarkerStyle)
     setDraftCodeThemes(settings.codeThemes)
     setDraftThemes(settings.themes)
+    setPreviewMode(resolvedMode)
     setReducedMotionPreference(settings.reducedMotionPreference)
     setSansFontSize(settings.sansFontSize)
     setUseFontSmoothing(settings.useFontSmoothing)
     setUsePointerCursors(settings.usePointerCursors)
-    setThemeState(mapCodexAppearanceToCypheriaThemeState(settings.themes, previewMode))
-  }, [appearanceQuery.data, previewMode, setThemeState])
+    setThemeState(mapCodexAppearanceToCypheriaThemeState(settings.themes, resolvedMode))
+  }, [appearanceQuery.data, setThemeState])
 
   useEffect(() => {
     if (!draftThemes) {
@@ -131,7 +154,10 @@ function AppearanceRoute() {
       usePointerCursors: boolean
     }) =>
       window.cypheria?.settings.setAppearance(settings) ??
-      Promise.reject(new Error("IPC unavailable")),
+      Promise.resolve({
+        ...settings,
+        configPath: fallbackAppearanceSettings.configPath,
+      }),
     onSuccess: (settings) => {
       queryClient.setQueryData(["settings", "appearance"], settings)
       setAppearanceMode(settings.appearanceTheme)
@@ -143,7 +169,9 @@ function AppearanceRoute() {
       setSansFontSize(settings.sansFontSize)
       setUseFontSmoothing(settings.useFontSmoothing)
       setUsePointerCursors(settings.usePointerCursors)
-      setThemeState(mapCodexAppearanceToCypheriaThemeState(settings.themes, previewMode))
+      const resolvedMode = resolveAppearanceMode(settings.appearanceTheme)
+      setPreviewMode(resolvedMode)
+      setThemeState(mapCodexAppearanceToCypheriaThemeState(settings.themes, resolvedMode))
     },
   })
 
@@ -209,13 +237,12 @@ function AppearanceRoute() {
   }
 
   const handleAppearanceModeChange = (mode: AppearanceMode) => {
+    const resolvedMode = resolveAppearanceMode(mode)
     setAppearanceMode(mode)
-    if (mode !== "system") {
-      setPreviewMode(mode)
-      setMode(mode)
-      if (draftThemes) {
-        setThemeState(mapCodexAppearanceToCypheriaThemeState(draftThemes, mode))
-      }
+    setPreviewMode(resolvedMode)
+    setMode(resolvedMode)
+    if (draftThemes) {
+      setThemeState(mapCodexAppearanceToCypheriaThemeState(draftThemes, resolvedMode))
     }
   }
 
@@ -258,14 +285,6 @@ function AppearanceRoute() {
       id: Date.now(),
       message: `${mode === "light" ? "Light" : "Dark"} theme copied`,
     })
-  }
-
-  const previewTheme = (mode: ThemeMode) => {
-    setPreviewMode(mode)
-    setMode(mode)
-    if (draftThemes) {
-      setThemeState(mapCodexAppearanceToCypheriaThemeState(draftThemes, mode))
-    }
   }
 
   useEffect(() => {
@@ -343,9 +362,7 @@ function AppearanceRoute() {
             onCodeThemeChange={(value) => updateCodeTheme("light", value)}
             onCopy={() => copyTheme("light")}
             onImport={() => setImportDialogMode("light")}
-            onPreview={() => previewTheme("light")}
             onThemeChange={(patch) => updateTheme("light", patch)}
-            previewing={previewMode === "light"}
             theme={draftThemes.light}
             title="Light theme"
           />
@@ -355,9 +372,7 @@ function AppearanceRoute() {
             onCodeThemeChange={(value) => updateCodeTheme("dark", value)}
             onCopy={() => copyTheme("dark")}
             onImport={() => setImportDialogMode("dark")}
-            onPreview={() => previewTheme("dark")}
             onThemeChange={(patch) => updateTheme("dark", patch)}
-            previewing={previewMode === "dark"}
             theme={draftThemes.dark}
             title="Dark theme"
           />
@@ -527,9 +542,7 @@ function ChromeThemeCard({
   onCodeThemeChange,
   onCopy,
   onImport,
-  onPreview,
   onThemeChange,
-  previewing,
   theme,
   title,
 }: Readonly<{
@@ -538,9 +551,7 @@ function ChromeThemeCard({
   onCodeThemeChange: (value: CodexCodeThemeId) => void
   onCopy: () => void
   onImport: () => void
-  onPreview: () => void
   onThemeChange: (patch: Partial<CodexChromeTheme>) => void
-  previewing: boolean
   theme: CodexChromeTheme
   title: string
 }>) {
@@ -567,21 +578,18 @@ function ChromeThemeCard({
           >
             Copy theme
           </button>
-          <button
-            aria-pressed={previewing}
+          <span
+            aria-hidden="true"
             className={cn(
-              "inline-flex size-8 items-center justify-center rounded-lg border border-border text-xs font-semibold shadow-xs",
-              previewing && "ring-2 ring-foreground/20"
+              "inline-flex size-8 items-center justify-center rounded-lg border border-border text-xs font-semibold shadow-xs"
             )}
-            onClick={onPreview}
             style={{
               backgroundColor: mode === "dark" ? theme.surface : "#ffffff",
               color: theme.accent,
             }}
-            type="button"
           >
             Aa
-          </button>
+          </span>
           <CodeThemePicker mode={mode} onChange={onCodeThemeChange} value={codeTheme} />
         </div>
       </div>
@@ -594,7 +602,9 @@ function ChromeThemeCard({
               accentSource={accentSource}
               mode={mode}
               onAccentChange={(accent) => onThemeChange({ accent, accentSource: "custom" })}
-              onSourceChange={(source) => onThemeChange({ accentSource: source })}
+              onSourceChange={(source, accent) =>
+                onThemeChange(accent ? { accent, accentSource: source } : { accentSource: source })
+              }
             />
           }
           label="Accent"
@@ -675,6 +685,8 @@ function ThemeModeCards({
     <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-1">
       {appearanceModes.map(({ label, value: mode }) => (
         <button
+          aria-label={`Theme mode ${label}`}
+          aria-pressed={value === mode}
           className="grid gap-2 text-center text-sm text-muted-foreground"
           key={mode}
           onClick={() => onChange(mode)}
@@ -1013,10 +1025,9 @@ function AccentControl({
   accentSource: "chatgpt" | "custom"
   mode: ThemeMode
   onAccentChange: (accent: string) => void
-  onSourceChange: (source: "chatgpt" | "custom") => void
+  onSourceChange: (source: "chatgpt" | "custom", accent?: string) => void
 }>) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [pickerOpen, setPickerOpen] = useState(false)
   const selectedLabel = accentSource === "chatgpt" ? "Blue" : "Custom"
 
   return (
@@ -1048,10 +1059,9 @@ function AccentControl({
                   key={option.id}
                   onClick={() => {
                     if (option.id === "blue") {
-                      onSourceChange("chatgpt")
+                      onSourceChange("chatgpt", chatGptAccent)
                     } else if (option.id === "custom") {
                       onSourceChange("custom")
-                      setPickerOpen(true)
                     } else if (option.color) {
                       onSourceChange("custom")
                       onAccentChange(option.color)
@@ -1076,25 +1086,12 @@ function AccentControl({
         ) : null}
       </div>
       {accentSource === "custom" ? (
-        <div className="relative">
-          <button
-            aria-expanded={pickerOpen}
-            className="flex h-9 w-[142px] items-center gap-2 rounded-xl px-3 text-sm shadow-xs"
-            onClick={() => setPickerOpen((current) => !current)}
-            style={{ backgroundColor: accent, color: getReadableTextColor(accent) }}
-            type="button"
-          >
-            <span className="size-4 rounded-full border border-current opacity-40" />
-            <span className="uppercase tabular-nums">{accent}</span>
-          </button>
-          {pickerOpen ? (
-            <ColorPickerPopover
-              onChange={onAccentChange}
-              onClose={() => setPickerOpen(false)}
-              value={accent}
-            />
-          ) : null}
-        </div>
+        <ColorTextControl
+          accent
+          ariaLabel={`${mode} accent`}
+          onChange={onAccentChange}
+          value={accent}
+        />
       ) : null}
     </div>
   )
@@ -1119,30 +1116,74 @@ const accentOptions: readonly AccentOption[] = [
 ]
 
 function ColorTextControl({
+  accent = false,
   ariaLabel,
   onChange,
   value,
 }: Readonly<{
+  accent?: boolean
   ariaLabel: string
   onChange: (value: string) => void
   value: string
 }>) {
   const [pickerOpen, setPickerOpen] = useState(false)
-  const foreground = getReadableTextColor(value)
+  const [draft, setDraft] = useState(value.toUpperCase())
+  const normalizedValue = isHexColor(value) ? value : "#000000"
+  const foreground = getReadableTextColor(normalizedValue)
+
+  useEffect(() => {
+    setDraft(value.toUpperCase())
+  }, [value])
+
+  const commit = () => {
+    const normalized = normalizeHexInput(draft)
+    if (isHexColor(normalized)) {
+      onChange(normalized.toLowerCase())
+      return
+    }
+    setDraft(value.toUpperCase())
+  }
 
   return (
     <div className="relative">
-      <button
-        aria-expanded={pickerOpen}
-        aria-label={`${ariaLabel} color picker`}
-        className="flex h-7 w-[8.5rem] items-center gap-2 rounded-lg px-2 text-xs shadow-xs max-sm:w-full"
-        onClick={() => setPickerOpen((current) => !current)}
-        style={{ backgroundColor: value, color: foreground }}
-        type="button"
+      <div
+        className={cn(
+          "flex items-center gap-2 rounded-lg px-2 shadow-xs max-sm:w-full",
+          accent ? "h-9 w-[142px]" : "h-7 w-[8.5rem]"
+        )}
+        style={{ backgroundColor: normalizedValue, color: foreground }}
       >
-        <span className="size-3.5 shrink-0 rounded-full border border-current opacity-40" />
-        <span className="uppercase tabular-nums">{value}</span>
-      </button>
+        <button
+          aria-expanded={pickerOpen}
+          aria-label={`${ariaLabel} color picker`}
+          className={cn(
+            "shrink-0 rounded-full border border-current opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            accent ? "size-4" : "size-3.5"
+          )}
+          onClick={() => setPickerOpen((current) => !current)}
+          type="button"
+        />
+        <input
+          aria-label={ariaLabel}
+          className={cn(
+            "min-w-0 flex-1 bg-transparent uppercase tabular-nums outline-none placeholder:text-current/50",
+            accent ? "text-sm" : "text-xs"
+          )}
+          onBlur={commit}
+          onChange={(event) => setDraft(event.currentTarget.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.currentTarget.blur()
+            }
+            if (event.key === "Escape") {
+              setDraft(value.toUpperCase())
+              event.currentTarget.blur()
+            }
+          }}
+          spellCheck={false}
+          value={draft}
+        />
+      </div>
       {pickerOpen ? (
         <ColorPickerPopover
           onChange={onChange}
@@ -1269,38 +1310,266 @@ function FontFamilyControl({
   systemDefault,
   value,
 }: Readonly<{ onChange: (value: string) => void; systemDefault: string; value: string }>) {
+  const [fontOptions, loadFontOptions] = useLocalFontOptions()
+  const [familyOpen, setFamilyOpen] = useState(false)
+  const [styleOpen, setStyleOpen] = useState(false)
   const isSystemDefault = value === systemDefault
+  const selectedOption = isSystemDefault ? undefined : findSelectedFontOption(fontOptions, value)
+  const selectedFamily = isSystemDefault
+    ? "System default"
+    : selectedOption?.family || formatFontFamilyLabel(value)
+  const selectedStyle = selectedOption ? getSelectedFontStyle(selectedOption, value) : "Regular"
+  const styles = selectedOption?.styles ?? ["Regular"]
 
   return (
     <div className="flex items-center justify-end gap-2 max-sm:justify-start">
-      <select
-        aria-label="Font family"
-        className="h-8 w-36 rounded-lg border border-border bg-background px-3 text-sm outline-none"
-        onChange={(event) => {
-          if (event.currentTarget.value === "system") {
-            onChange(systemDefault)
-            return
-          }
-          const custom = window.prompt("Custom font family", value)
-          if (custom?.trim()) {
-            onChange(custom.trim())
-          }
-        }}
-        value={isSystemDefault ? "system" : "custom"}
-      >
-        <option value="system">System default</option>
-        <option value="custom">Custom</option>
-      </select>
-      <select
-        aria-label="Font style"
-        className="h-8 w-28 rounded-lg border border-border bg-muted/50 px-3 text-sm text-muted-foreground outline-none"
-        disabled
-        value="regular"
-      >
-        <option value="regular">Regular</option>
-      </select>
+      <div className="relative">
+        <button
+          aria-expanded={familyOpen}
+          aria-label="Font family"
+          className="inline-flex h-8 w-40 items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 text-sm shadow-xs outline-none hover:bg-muted/50"
+          onClick={() => {
+            void loadFontOptions()
+            setFamilyOpen((current) => !current)
+          }}
+          type="button"
+        >
+          <span className="min-w-0 truncate">{selectedFamily}</span>
+          <ChevronDown aria-hidden="true" className="shrink-0 text-muted-foreground" size={15} />
+        </button>
+        {familyOpen ? (
+          <div
+            className="absolute right-0 top-9 z-40 max-h-[420px] w-[280px] overflow-y-auto rounded-[22px] border border-border bg-popover p-3 text-popover-foreground shadow-2xl"
+            role="menu"
+          >
+            <button
+              className="flex h-11 w-full items-center justify-between gap-3 rounded-xl px-2 text-left text-lg hover:bg-muted/70"
+              onClick={() => {
+                onChange(systemDefault)
+                setFamilyOpen(false)
+              }}
+              role="menuitem"
+              type="button"
+            >
+              <span className="min-w-0 truncate">System default</span>
+              {isSystemDefault ? <Check aria-hidden="true" size={22} /> : null}
+            </button>
+            <div className="my-2 h-px bg-border" />
+            {fontOptions.map((option) => (
+              <button
+                className="flex h-11 w-full items-center justify-between gap-3 rounded-xl px-2 text-left text-lg hover:bg-muted/70"
+                key={option.family}
+                onClick={() => {
+                  onChange(getFontConfigForStyle(option, getPreferredFontStyle(option.styles)))
+                  setFamilyOpen(false)
+                }}
+                role="menuitem"
+                type="button"
+              >
+                <span className="min-w-0 truncate">{option.family}</span>
+                {!isSystemDefault && option.family === selectedFamily ? (
+                  <Check aria-hidden="true" size={22} />
+                ) : null}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
+      <div className="relative">
+        <button
+          aria-expanded={styleOpen}
+          aria-label="Font style"
+          className="inline-flex h-8 w-28 items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 text-sm shadow-xs outline-none hover:bg-muted/50 disabled:cursor-default disabled:bg-muted/35 disabled:text-muted-foreground"
+          disabled={isSystemDefault || styles.length <= 1}
+          onClick={() => setStyleOpen((current) => !current)}
+          type="button"
+        >
+          <span className="min-w-0 truncate">{selectedStyle}</span>
+          <ChevronDown aria-hidden="true" className="shrink-0 text-muted-foreground" size={15} />
+        </button>
+        {styleOpen && selectedOption ? (
+          <div
+            className="absolute right-0 top-9 z-40 max-h-[320px] w-[180px] overflow-y-auto rounded-[18px] border border-border bg-popover p-2 text-popover-foreground shadow-2xl"
+            role="menu"
+          >
+            {styles.map((style) => (
+              <button
+                className="flex h-9 w-full items-center justify-between gap-3 rounded-xl px-2 text-left text-sm hover:bg-muted/70"
+                key={style}
+                onClick={() => {
+                  onChange(getFontConfigForStyle(selectedOption, style))
+                  setStyleOpen(false)
+                }}
+                role="menuitem"
+                type="button"
+              >
+                <span className="min-w-0 truncate">{style}</span>
+                {style === selectedStyle ? <Check aria-hidden="true" size={17} /> : null}
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
     </div>
   )
+}
+
+const fallbackFontOptions: readonly LocalFontOption[] = [
+  createFallbackFontOption("Arial", ["Regular", "Bold", "Italic", "Bold Italic"]),
+  createFallbackFontOption("Courier New", ["Regular", "Bold", "Italic", "Bold Italic"]),
+  createFallbackFontOption("Georgia", ["Regular", "Bold", "Italic", "Bold Italic"]),
+  createFallbackFontOption("Helvetica Neue", ["Regular", "Bold", "Italic", "Bold Italic"]),
+  createFallbackFontOption("Menlo", ["Regular", "Bold", "Italic", "Bold Italic"]),
+  createFallbackFontOption("Monaco", ["Regular"]),
+  createFallbackFontOption("SF Mono", ["Regular", "Medium", "Semibold", "Bold"]),
+  createFallbackFontOption("SF Pro", ["Regular", "Medium", "Semibold", "Bold"]),
+  createFallbackFontOption("Times New Roman", ["Regular", "Bold", "Italic", "Bold Italic"]),
+]
+
+function useLocalFontOptions(): readonly [readonly LocalFontOption[], () => Promise<void>] {
+  const [options, setOptions] = useState(fallbackFontOptions)
+  const [hasLoaded, setHasLoaded] = useState(false)
+
+  const loadFontOptions = useCallback(async () => {
+    if (hasLoaded) {
+      return
+    }
+
+    try {
+      const ipcFonts = await window.cypheria?.settings.listAppearanceFonts()
+      if (ipcFonts && ipcFonts.length > 0) {
+        setOptions(ipcFonts)
+        setHasLoaded(true)
+        return
+      }
+
+      if (!window.queryLocalFonts) {
+        setHasLoaded(true)
+        return
+      }
+
+      const fonts = await window.queryLocalFonts()
+      const byFamily = new Map<string, LocalFontFace[]>()
+      for (const font of fonts) {
+        const family = font.family?.trim()
+        if (!family) {
+          continue
+        }
+        const faces = byFamily.get(family) ?? []
+        faces.push({
+          family,
+          fullName: font.fullName?.trim(),
+          postscriptName: font.postscriptName?.trim(),
+          style: font.style?.trim() || "Regular",
+        })
+        byFamily.set(family, faces)
+      }
+
+      const next = Array.from(byFamily.entries())
+        .map(([family, faces]) => ({
+          faces: faces.sort((first, second) =>
+            compareFontStyles(normalizeFontStyle(first.style), normalizeFontStyle(second.style))
+          ),
+          family,
+          styles: uniqueFontStyles(faces),
+        }))
+        .sort((first, second) => first.family.localeCompare(second.family))
+
+      if (next.length > 0) {
+        setOptions(next)
+        setHasLoaded(true)
+      }
+    } catch {
+      setOptions(fallbackFontOptions)
+      setHasLoaded(true)
+    }
+  }, [hasLoaded])
+
+  return [options, loadFontOptions]
+}
+
+function createFallbackFontOption(family: string, styles: readonly string[]): LocalFontOption {
+  return {
+    faces: styles.map((style) => ({
+      family,
+      fullName: style === "Regular" ? family : `${family} ${style}`,
+      style,
+    })),
+    family,
+    styles,
+  }
+}
+
+function uniqueFontStyles(faces: readonly LocalFontFace[]): readonly string[] {
+  const styles = Array.from(new Set(faces.map((face) => normalizeFontStyle(face.style))))
+  return styles.sort(compareFontStyles)
+}
+
+function normalizeFontStyle(style: string | undefined): string {
+  const normalized = style?.trim()
+  return normalized ? normalized : "Regular"
+}
+
+function compareFontStyles(first: string, second: string): number {
+  const preferredOrder = ["Regular", "Medium", "Semibold", "Bold", "Italic", "Bold Italic"]
+  const firstIndex = preferredOrder.indexOf(first)
+  const secondIndex = preferredOrder.indexOf(second)
+  if (firstIndex !== -1 || secondIndex !== -1) {
+    return (
+      (firstIndex === -1 ? Number.MAX_SAFE_INTEGER : firstIndex) -
+      (secondIndex === -1 ? Number.MAX_SAFE_INTEGER : secondIndex)
+    )
+  }
+  return first.localeCompare(second)
+}
+
+function getPreferredFontStyle(styles: readonly string[]): string {
+  if (styles.includes("Regular")) {
+    return "Regular"
+  }
+  return styles[0] ?? "Regular"
+}
+
+function getSelectedFontStyle(option: LocalFontOption, value: string): string {
+  const normalizedValue = formatFontFamilyLabel(value)
+  const selected =
+    option.faces.find((face) =>
+      [face.fullName, face.postscriptName].some((name) => name && normalizedValue === name)
+    ) ?? option.faces.find((face) => face.family === normalizedValue)
+  if (selected) {
+    return normalizeFontStyle(selected.style)
+  }
+  return getPreferredFontStyle(option.styles)
+}
+
+function findSelectedFontOption(
+  options: readonly LocalFontOption[],
+  value: string
+): LocalFontOption | undefined {
+  const normalizedValue = formatFontFamilyLabel(value)
+  return options.find(
+    (option) =>
+      option.family === normalizedValue ||
+      option.faces.some((face) =>
+        [face.fullName, face.postscriptName].some((name) => name && name === normalizedValue)
+      )
+  )
+}
+
+function getFontConfigForStyle(option: LocalFontOption, style: string): string {
+  const face =
+    option.faces.find((candidate) => normalizeFontStyle(candidate.style) === style) ??
+    option.faces[0]
+  return quoteFontFamily(face?.fullName || face?.family || option.family)
+}
+
+function quoteFontFamily(family: string): string {
+  return /^[a-zA-Z0-9_-]+$/.test(family) ? family : JSON.stringify(family)
+}
+
+function formatFontFamilyLabel(value: string): string {
+  const [firstFamily] = value.split(",")
+  return firstFamily?.trim().replace(/^["']|["']$/g, "") || "Custom"
 }
 
 function ToggleControl({
@@ -1384,6 +1653,28 @@ const isCodexChromeTheme = (theme: unknown): theme is CodexChromeTheme =>
   typeof theme.surface === "string"
 
 const isHexColor = (value: string): boolean => /^#[0-9a-fA-F]{6}$/.test(value)
+
+const normalizeHexInput = (value: string): string => {
+  const trimmed = value.trim()
+  if (/^[0-9a-fA-F]{6}$/.test(trimmed)) {
+    return `#${trimmed}`
+  }
+  if (/^#[0-9a-fA-F]{3}$/.test(trimmed)) {
+    return `#${trimmed
+      .slice(1)
+      .split("")
+      .map((char) => `${char}${char}`)
+      .join("")}`
+  }
+  return trimmed
+}
+
+const resolveAppearanceMode = (mode: AppearanceMode): ThemeMode => {
+  if (mode !== "system") {
+    return mode
+  }
+  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"
+}
 
 function getReadableTextColor(value: string): string {
   if (!isHexColor(value)) {
