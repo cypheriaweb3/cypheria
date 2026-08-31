@@ -79,6 +79,13 @@ const fallbackAppearanceSettings = {
   usePointerCursors: false,
 } as const
 
+const uiFontFaceClass =
+  "[font-stretch:var(--font-sans-stretch)] [font-style:var(--font-sans-style)]"
+const uiFontMediumClass = cn(uiFontFaceClass, "[font-weight:max(500,var(--font-sans-weight))]")
+const uiFontSemiboldClass = cn(uiFontFaceClass, "[font-weight:max(600,var(--font-sans-weight))]")
+const codeFontFaceClass =
+  "[font-stretch:var(--font-mono-stretch)] [font-style:var(--font-mono-style)] [font-weight:var(--font-mono-weight)]"
+
 declare global {
   interface Window {
     queryLocalFonts?: () => Promise<LocalFontFace[]>
@@ -373,11 +380,13 @@ function AppearanceRoute() {
         />
       ) : null}
       <header className="min-w-0">
-        <h1 className="text-[25px] font-semibold leading-8 text-foreground">Appearance</h1>
+        <h1 className={cn("text-[25px] leading-8 text-foreground", uiFontSemiboldClass)}>
+          Appearance
+        </h1>
       </header>
 
       <section className="grid gap-4">
-        <h2 className="text-sm font-semibold text-foreground">Theme</h2>
+        <h2 className={cn("text-sm text-foreground", uiFontSemiboldClass)}>Theme</h2>
         <ThemeModeCards value={appearanceMode} onChange={handleAppearanceModeChange} />
         <DiffPreview markerStyle={diffMarkerStyle} />
       </section>
@@ -414,7 +423,7 @@ function AppearanceRoute() {
       ) : null}
 
       <section className="mt-6 grid gap-4">
-        <h2 className="text-sm font-semibold text-foreground">Preferences</h2>
+        <h2 className={cn("text-sm text-foreground", uiFontSemiboldClass)}>Preferences</h2>
         <SettingsGroup>
           <SettingsRow
             control={<ToggleControl checked={usePointerCursors} onChange={setUsePointerCursors} />}
@@ -518,7 +527,7 @@ function ImportThemeDialog({
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/10 px-5 backdrop-blur-[1px]">
       <section className="w-full max-w-[560px] rounded-[28px] border border-border bg-popover p-6 text-popover-foreground shadow-2xl">
         <div className="flex items-start justify-between gap-4">
-          <h2 className="text-[28px] font-semibold leading-9">Import theme</h2>
+          <h2 className={cn("text-[28px] leading-9", uiFontSemiboldClass)}>Import theme</h2>
           <button
             aria-label="Close import theme"
             className="mt-1 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -596,7 +605,7 @@ function ChromeThemeCard({
   return (
     <section className="rounded-xl border border-border bg-card text-card-foreground shadow-xs">
       <div className="flex min-h-[58px] items-center justify-between gap-3 border-b border-border px-4 py-2.5 max-sm:flex-col max-sm:items-stretch">
-        <h2 className="text-sm font-semibold">{title}</h2>
+        <h2 className={cn("text-sm", uiFontSemiboldClass)}>{title}</h2>
         <div className="flex flex-wrap items-center justify-end gap-2 max-sm:justify-start">
           <button
             aria-label={`Import ${mode} theme`}
@@ -760,7 +769,9 @@ function ThemeModeCards({
           >
             <ThemeModePreview mode={mode} />
           </span>
-          <span className={cn(value === mode && "font-medium text-foreground")}>{label}</span>
+          <span className={cn(value === mode && "text-foreground", uiFontMediumClass)}>
+            {label}
+          </span>
         </button>
       ))}
     </div>
@@ -813,7 +824,12 @@ function DiffPreview({ markerStyle }: Readonly<{ markerStyle: DiffMarkerStyle }>
   const added = markerStyle === "symbols" ? "+" : ""
 
   return (
-    <div className="grid overflow-hidden rounded-xl border border-border bg-card font-mono text-[14px] leading-7 shadow-xs">
+    <div
+      className={cn(
+        "grid overflow-hidden rounded-xl border border-border bg-card font-mono text-[14px] leading-7 shadow-xs",
+        codeFontFaceClass
+      )}
+    >
       <div className="grid grid-cols-2">
         <div>
           <CodeLine line="1">
@@ -971,7 +987,7 @@ function SettingsRow({
   return (
     <div className="flex min-h-[52px] items-center justify-between gap-4 border-t border-border py-2.5 first:border-t-0 max-sm:flex-col max-sm:items-stretch">
       <div className="min-w-0">
-        <div className="text-sm font-medium">{label}</div>
+        <div className={cn("text-sm", uiFontMediumClass)}>{label}</div>
         {description ? (
           <div className="mt-0.5 text-xs text-muted-foreground">{description}</div>
         ) : null}
@@ -984,7 +1000,7 @@ function SettingsRow({
 function CompactSetting({ control, label }: Readonly<{ control: ReactNode; label: string }>) {
   return (
     <div className="grid min-h-[56px] grid-cols-[minmax(120px,1fr)_minmax(180px,auto)] items-center gap-3 border-t border-border px-4 py-2 first:border-t-0 max-sm:grid-cols-1">
-      <div className="text-sm font-medium">{label}</div>
+      <div className={cn("text-sm", uiFontMediumClass)}>{label}</div>
       <div className="justify-self-end max-sm:justify-self-stretch">{control}</div>
     </div>
   )
@@ -1009,7 +1025,8 @@ function SegmentedControl({
         <button
           aria-pressed={value === itemValue}
           className={cn(
-            "inline-flex h-[30px] min-w-[68px] items-center justify-center gap-1.5 rounded-md border-0 bg-transparent px-2 text-[13px] font-medium text-muted-foreground",
+            "inline-flex h-[30px] min-w-[68px] items-center justify-center gap-1.5 rounded-md border-0 bg-transparent px-2 text-[13px] text-muted-foreground",
+            uiFontMediumClass,
             value === itemValue && "bg-background text-foreground shadow-sm"
           )}
           key={itemValue}
