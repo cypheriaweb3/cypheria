@@ -96,6 +96,14 @@ function AppearanceRoute() {
   }, [appearanceQuery.data, previewMode, setThemeState])
 
   useEffect(() => {
+    if (!draftThemes) {
+      return
+    }
+
+    setThemeState(mapCodexAppearanceToCypheriaThemeState(draftThemes, previewMode))
+  }, [draftThemes, previewMode, setThemeState])
+
+  useEffect(() => {
     const root = document.documentElement
     root.style.setProperty("--cypheria-sans-font-size", `${sansFontSize}px`)
     root.style.setProperty("--cypheria-code-font-size", `${codeFontSize}px`)
@@ -196,7 +204,6 @@ function AppearanceRoute() {
           semanticColors: patch.semanticColors ?? current[mode].semanticColors,
         },
       }
-      setThemeState(mapCodexAppearanceToCypheriaThemeState(next, previewMode))
       return next
     })
   }
