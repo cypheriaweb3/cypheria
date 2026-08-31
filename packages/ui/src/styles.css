@@ -84,13 +84,21 @@
   --font-sans-size: 14px;
   --font-mono-size: 12px;
   --text-xs: calc(var(--font-sans-size) * 0.8571428571);
+  --text-xs--line-height: calc(var(--text-xs) * 1.3333333333);
   --text-sm: var(--font-sans-size);
+  --text-sm--line-height: calc(var(--text-sm) * 1.4285714286);
   --text-base: calc(var(--font-sans-size) * 1.1428571429);
+  --text-base--line-height: calc(var(--text-base) * 1.5);
   --text-lg: calc(var(--font-sans-size) * 1.2857142857);
+  --text-lg--line-height: calc(var(--text-lg) * 1.5555555556);
   --text-xl: calc(var(--font-sans-size) * 1.4285714286);
+  --text-xl--line-height: calc(var(--text-xl) * 1.4);
   --text-2xl: calc(var(--font-sans-size) * 1.7142857143);
+  --text-2xl--line-height: calc(var(--text-2xl) * 1.3333333333);
   --text-3xl: calc(var(--font-sans-size) * 2.1428571429);
+  --text-3xl--line-height: calc(var(--text-3xl) * 1.2);
   --text-4xl: calc(var(--font-sans-size) * 2.5714285714);
+  --text-4xl--line-height: calc(var(--text-4xl) * 1.1111111111);
 }
 
 .dark {
@@ -167,7 +175,6 @@
 
 .font-sans {
   font-family: var(--font-sans, "Inter Variable", sans-serif);
-  font-size: var(--font-sans-size, 14px);
   font-stretch: var(--font-sans-stretch, normal);
   font-style: var(--font-sans-style, normal);
   font-weight: var(--font-sans-weight, 400);
@@ -183,8 +190,47 @@
     Consolas,
     "Liberation Mono"
   );
-  font-size: var(--font-mono-size, 12px);
   font-stretch: var(--font-mono-stretch, normal);
   font-style: var(--font-mono-style, normal);
   font-weight: var(--font-mono-weight, 400);
+}
+
+.font-mono.text-xs {
+  font-size: calc(var(--font-mono-size, 12px) * 0.8571428571);
+  line-height: var(--tw-leading, calc(var(--font-mono-size, 12px) * 1.1428571428));
+}
+
+.font-mono.text-sm {
+  font-size: var(--font-mono-size, 12px);
+  line-height: var(--tw-leading, calc(var(--font-mono-size, 12px) * 1.4285714286));
+}
+
+.font-mono.text-base {
+  font-size: calc(var(--font-mono-size, 12px) * 1.1428571429);
+  line-height: var(--tw-leading, calc(var(--font-mono-size, 12px) * 1.7142857143));
+}
+
+.font-mono.text-lg {
+  font-size: calc(var(--font-mono-size, 12px) * 1.2857142857);
+  line-height: var(--tw-leading, calc(var(--font-mono-size, 12px) * 2));
+}
+
+.font-mono.text-xl {
+  font-size: calc(var(--font-mono-size, 12px) * 1.4285714286);
+  line-height: var(--tw-leading, calc(var(--font-mono-size, 12px) * 2));
+}
+
+.font-mono.text-2xl {
+  font-size: calc(var(--font-mono-size, 12px) * 1.7142857143);
+  line-height: var(--tw-leading, calc(var(--font-mono-size, 12px) * 2.2857142857));
+}
+
+.font-mono.text-3xl {
+  font-size: calc(var(--font-mono-size, 12px) * 2.1428571429);
+  line-height: var(--tw-leading, calc(var(--font-mono-size, 12px) * 2.5714285714));
+}
+
+.font-mono.text-4xl {
+  font-size: calc(var(--font-mono-size, 12px) * 2.5714285714);
+  line-height: var(--tw-leading, calc(var(--font-mono-size, 12px) * 2.8571428571));
 }

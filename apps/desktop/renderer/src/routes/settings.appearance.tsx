@@ -841,7 +841,7 @@ function DiffPreview({ markerStyle }: Readonly<{ markerStyle: DiffMarkerStyle }>
   const added = markerStyle === "symbols" ? "+" : ""
 
   return (
-    <div className="grid overflow-hidden rounded-xl border border-border bg-card font-mono text-[var(--font-mono-size)] leading-[calc(var(--font-mono-size)*2)] shadow-xs">
+    <div className="grid overflow-hidden rounded-xl border border-border bg-card font-mono text-sm leading-[calc(var(--font-mono-size)*2)] shadow-xs">
       <div className="grid grid-cols-2">
         <div>
           <CodeLine line="1">

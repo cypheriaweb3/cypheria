@@ -418,7 +418,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
       <head>
         <HeadContent />
       </head>
-      <body className="font-sans">
+      <body className="font-sans text-sm">
         <CypheriaThemeProvider>{children}</CypheriaThemeProvider>
         <Scripts />
       </body>
