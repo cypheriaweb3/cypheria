@@ -197,6 +197,20 @@ Codex-compatible theme presets are kept as immutable built-in `codex-theme-v1`
 payloads: choosing a preset copies its full chrome theme into the editable
 light or dark TOML section and records the matching code theme ID in `[desktop]`.
 
+Font handling stays aligned with Tailwind's default text-size scale. The
+configured UI font is exposed through `--font-sans`, with `text-sm` anchored to
+`--font-sans-size`; the rest of `text-xs` through `text-9xl` scales from that
+anchor and keeps Tailwind's matching default line-height ratios. The configured
+code font is exposed through `--font-mono`, with `font-mono text-xs` anchored to
+`--font-mono-size`; `font-mono text-sm` through `font-mono text-9xl` scale from
+that code anchor using the same Tailwind size and line-height ratios. `font-sans`
+and `font-mono` only apply family, style, weight, and stretch, so component code
+continues to use normal Tailwind `text-*` and `leading-*` utilities. Explicit
+`leading-*` utilities must keep precedence over the default mono line-height.
+When a user selects a concrete font face, the TOML should preserve Codex-compatible
+structured face metadata under `fonts.uiFace` or `fonts.codeFace` in addition to
+the family string.
+
 Cypheria-specific components:
 
 - Wallet switcher.

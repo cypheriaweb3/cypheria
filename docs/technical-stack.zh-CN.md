@@ -197,6 +197,18 @@ shadcn tokens。Codex-compatible theme presets 作为不可变内置
 复制到可编辑的 light 或 dark TOML section，并在 `[desktop]` 中记录对应的 code
 theme ID。
 
+字体处理保持和 Tailwind 默认 text-size scale 对齐。配置中的 UI font 暴露为
+`--font-sans`，并以 `text-sm = --font-sans-size` 作为锚点；`text-xs` 到
+`text-9xl` 的其它字号都从这个锚点按 Tailwind 默认比例缩放，默认 line-height
+也使用 Tailwind 对应比例。配置中的 code font 暴露为 `--font-mono`，并以
+`font-mono text-xs = --font-mono-size` 作为锚点；`font-mono text-sm` 到
+`font-mono text-9xl` 从 code 锚点按相同 Tailwind 字号和 line-height 比例缩放。
+`font-sans` 和 `font-mono` 只负责 family、style、weight 和 stretch，因此组件代码
+继续使用标准 Tailwind `text-*` 和 `leading-*` utilities。显式 `leading-*`
+utilities 必须优先于默认 mono line-height。用户选择具体 font face 时，TOML
+除了保存 family string，还应该以 Codex-compatible 的结构在 `fonts.uiFace` 或
+`fonts.codeFace` 中保存 face metadata。
+
 Cypheria-specific components：
 
 - Wallet switcher。
