@@ -63,14 +63,20 @@ skill = "#6600aa"
 appearanceTheme = "dark"
 appearanceLightCodeThemeId = "github"
 appearanceDarkCodeThemeId = "tokyo-night"
+appearanceDiffMarkerStyle = "symbols"
+sansFontSize = 15
+codeFontSize = 13
 preventSleepWhileRunning = true
 `)
 
     expect(settings.appearanceTheme).toBe("dark")
+    expect(settings.codeFontSize).toBe(13)
     expect(settings.codeThemes).toEqual({
       dark: "tokyo-night",
       light: "github",
     })
+    expect(settings.diffMarkerStyle).toBe("symbols")
+    expect(settings.sansFontSize).toBe(15)
   })
 
   it("replaces only managed appearance sections", () => {
@@ -142,10 +148,13 @@ approval_policy = "on-request"
 `,
       {
         appearanceTheme: "system",
+        codeFontSize: 12,
         codeThemes: {
           dark: "codex",
           light: "catppuccin",
         },
+        diffMarkerStyle: "color",
+        sansFontSize: 14,
         themes: {
           dark: {
             accent: "#0169cc",
@@ -182,6 +191,9 @@ approval_policy = "on-request"
     expect(merged).toContain('appearanceTheme = "system"')
     expect(merged).toContain('appearanceLightCodeThemeId = "catppuccin"')
     expect(merged).toContain('appearanceDarkCodeThemeId = "codex"')
+    expect(merged).toContain('appearanceDiffMarkerStyle = "color"')
+    expect(merged).toContain("sansFontSize = 14")
+    expect(merged).toContain("codeFontSize = 12")
     expect(merged).toContain("preventSleepWhileRunning = true")
     expect(merged).toContain("[profiles.default]")
     expect(merged).toContain('accentSource = "custom"')

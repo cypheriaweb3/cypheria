@@ -3,6 +3,7 @@ import { dirname, join } from "node:path"
 
 import {
   AppearanceCodeThemeIdSchema,
+  AppearanceDiffMarkerStyleSchema,
   AppearanceThemeModeSchema,
   type AppearanceChromeTheme,
   type AppearanceSettings,
@@ -13,8 +14,11 @@ const lightSection = "desktop.appearanceLightChromeTheme"
 const darkSection = "desktop.appearanceDarkChromeTheme"
 const managedDesktopAppearanceKeys = new Set([
   "appearanceDarkCodeThemeId",
+  "appearanceDiffMarkerStyle",
   "appearanceLightCodeThemeId",
   "appearanceTheme",
+  "codeFontSize",
+  "sansFontSize",
 ])
 
 const themeSectionNames = new Set([
@@ -69,10 +73,13 @@ export const defaultAppearanceThemes: AppearanceSettings["themes"] = {
 
 export const defaultAppearanceSettings = {
   appearanceTheme: "system",
+  codeFontSize: 12,
   codeThemes: {
     dark: "codex",
     light: "catppuccin",
   },
+  diffMarkerStyle: "color",
+  sansFontSize: 14,
   themes: defaultAppearanceThemes,
 } satisfies Omit<AppearanceSettings, "configPath">
 
@@ -155,6 +162,24 @@ const applyParsedValue = (
         settings.codeThemes[key === "appearanceLightCodeThemeId" ? "light" : "dark"] = parsed.data
       }
     }
+
+    if (key === "appearanceDiffMarkerStyle" && typeof value === "string") {
+      const parsed = AppearanceDiffMarkerStyleSchema.safeParse(value)
+      if (parsed.success) {
+        settings.diffMarkerStyle = parsed.data
+      }
+      return
+    }
+
+    if (key === "sansFontSize" && typeof value === "number") {
+      settings.sansFontSize = Math.min(16, Math.max(11, value))
+      return
+    }
+
+    if (key === "codeFontSize" && typeof value === "number") {
+      settings.codeFontSize = Math.min(24, Math.max(8, value))
+      return
+    }
     return
   }
 
@@ -212,7 +237,10 @@ export const parseAppearanceSettingsFromToml = (
 ): Omit<AppearanceSettings, "configPath"> => {
   const settings: Omit<AppearanceSettings, "configPath"> = {
     appearanceTheme: defaultAppearanceSettings.appearanceTheme,
+    codeFontSize: defaultAppearanceSettings.codeFontSize,
     codeThemes: { ...defaultAppearanceSettings.codeThemes },
+    diffMarkerStyle: defaultAppearanceSettings.diffMarkerStyle,
+    sansFontSize: defaultAppearanceSettings.sansFontSize,
     themes: cloneDefaults(),
   }
   let currentSection: string | undefined
@@ -293,17 +321,26 @@ const removeAppearanceThemeSections = (toml: string): string => {
 const quoteTomlString = (value: string): string => JSON.stringify(value)
 
 const renderDesktopAppearanceKeys = (
-  settings: Pick<AppearanceSettings, "appearanceTheme" | "codeThemes">
+  settings: Pick<
+    AppearanceSettings,
+    "appearanceTheme" | "codeFontSize" | "codeThemes" | "diffMarkerStyle" | "sansFontSize"
+  >
 ): string =>
   [
     `appearanceTheme = ${quoteTomlString(settings.appearanceTheme)}`,
     `appearanceLightCodeThemeId = ${quoteTomlString(settings.codeThemes.light)}`,
     `appearanceDarkCodeThemeId = ${quoteTomlString(settings.codeThemes.dark)}`,
+    `appearanceDiffMarkerStyle = ${quoteTomlString(settings.diffMarkerStyle)}`,
+    `sansFontSize = ${settings.sansFontSize}`,
+    `codeFontSize = ${settings.codeFontSize}`,
   ].join("\n")
 
 const mergeDesktopAppearanceKeysIntoToml = (
   toml: string,
-  settings: Pick<AppearanceSettings, "appearanceTheme" | "codeThemes">
+  settings: Pick<
+    AppearanceSettings,
+    "appearanceTheme" | "codeFontSize" | "codeThemes" | "diffMarkerStyle" | "sansFontSize"
+  >
 ): string => {
   const stripped = removeManagedDesktopAppearanceKeys(toml)
   const lines = stripped.split(/\r?\n/)
@@ -352,7 +389,15 @@ export const mergeAppearanceThemesIntoToml = (
 
 export const mergeAppearanceSettingsIntoToml = (
   toml: string,
-  settings: Pick<AppearanceSettings, "appearanceTheme" | "codeThemes" | "themes">
+  settings: Pick<
+    AppearanceSettings,
+    | "appearanceTheme"
+    | "codeFontSize"
+    | "codeThemes"
+    | "diffMarkerStyle"
+    | "sansFontSize"
+    | "themes"
+  >
 ): string =>
   mergeAppearanceThemesIntoToml(mergeDesktopAppearanceKeysIntoToml(toml, settings), settings.themes)
 
@@ -372,8 +417,11 @@ export const readAppearanceSettings = async (codexHome: string): Promise<Appeara
 
     return {
       appearanceTheme: defaultAppearanceSettings.appearanceTheme,
+      codeFontSize: defaultAppearanceSettings.codeFontSize,
       codeThemes: { ...defaultAppearanceSettings.codeThemes },
       configPath,
+      diffMarkerStyle: defaultAppearanceSettings.diffMarkerStyle,
+      sansFontSize: defaultAppearanceSettings.sansFontSize,
       themes: cloneDefaults(),
     }
   }
@@ -381,7 +429,15 @@ export const readAppearanceSettings = async (codexHome: string): Promise<Appeara
 
 export const writeAppearanceSettings = async (
   codexHome: string,
-  settings: Pick<AppearanceSettings, "appearanceTheme" | "codeThemes" | "themes">
+  settings: Pick<
+    AppearanceSettings,
+    | "appearanceTheme"
+    | "codeFontSize"
+    | "codeThemes"
+    | "diffMarkerStyle"
+    | "sansFontSize"
+    | "themes"
+  >
 ): Promise<AppearanceSettings> => {
   const configPath = getCodexConfigPath(codexHome)
   let existingToml = ""
@@ -399,8 +455,11 @@ export const writeAppearanceSettings = async (
 
   return {
     appearanceTheme: settings.appearanceTheme,
+    codeFontSize: settings.codeFontSize,
     codeThemes: settings.codeThemes,
     configPath,
+    diffMarkerStyle: settings.diffMarkerStyle,
+    sansFontSize: settings.sansFontSize,
     themes: settings.themes,
   }
 }

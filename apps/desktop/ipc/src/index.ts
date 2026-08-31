@@ -82,6 +82,9 @@ const HexColorSchema = z.string().regex(/^#[0-9a-fA-F]{6}$/)
 export const AppearanceThemeModeSchema = z.enum(["dark", "light", "system"])
 export type AppearanceThemeMode = z.infer<typeof AppearanceThemeModeSchema>
 
+export const AppearanceDiffMarkerStyleSchema = z.enum(["color", "symbols"])
+export type AppearanceDiffMarkerStyle = z.infer<typeof AppearanceDiffMarkerStyleSchema>
+
 export const AppearanceCodeThemeIdSchema = z.enum([
   "absolutely",
   "ayu",
@@ -142,6 +145,7 @@ export type AppearanceChromeTheme = z.infer<typeof AppearanceChromeThemeSchema>
 export const AppearanceSettingsSchema = z
   .object({
     appearanceTheme: AppearanceThemeModeSchema,
+    codeFontSize: z.number().min(8).max(24),
     codeThemes: z
       .object({
         dark: AppearanceCodeThemeIdSchema,
@@ -149,6 +153,8 @@ export const AppearanceSettingsSchema = z
       })
       .strict(),
     configPath: z.string().min(1),
+    diffMarkerStyle: AppearanceDiffMarkerStyleSchema,
+    sansFontSize: z.number().min(11).max(16),
     themes: z
       .object({
         dark: AppearanceChromeThemeSchema,
@@ -158,6 +164,10 @@ export const AppearanceSettingsSchema = z
   })
   .strict()
 export type AppearanceSettings = z.infer<typeof AppearanceSettingsSchema>
+export type AppearanceSettingsWrite = Pick<
+  AppearanceSettings,
+  "appearanceTheme" | "codeFontSize" | "codeThemes" | "diffMarkerStyle" | "sansFontSize" | "themes"
+>
 
 export const IpcRequestEnvelopeSchema = z
   .object({
@@ -325,13 +335,17 @@ export const settingsAppearanceReadContract = {
 export const settingsAppearanceWriteContract = {
   channel: CYPHERIA_IPC_CHANNELS.settingsAppearanceWrite,
   namespace: "settings",
-  request: AppearanceSettingsSchema.pick({ appearanceTheme: true, codeThemes: true, themes: true }),
+  request: AppearanceSettingsSchema.pick({
+    appearanceTheme: true,
+    codeFontSize: true,
+    codeThemes: true,
+    diffMarkerStyle: true,
+    sansFontSize: true,
+    themes: true,
+  }),
   response: AppearanceSettingsSchema,
   version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  Pick<AppearanceSettings, "appearanceTheme" | "codeThemes" | "themes">,
-  AppearanceSettings
->
+} satisfies IpcContract<AppearanceSettingsWrite, AppearanceSettings>
 
 export const ipcContracts = {
   appHealthCheck: appHealthCheckContract,
@@ -355,8 +369,6 @@ export type CypheriaPreloadApi = {
   }
   readonly settings: {
     readonly getAppearance: () => Promise<AppearanceSettings>
-    readonly setAppearance: (
-      settings: Pick<AppearanceSettings, "appearanceTheme" | "codeThemes" | "themes">
-    ) => Promise<AppearanceSettings>
+    readonly setAppearance: (settings: AppearanceSettingsWrite) => Promise<AppearanceSettings>
   }
 }

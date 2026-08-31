@@ -185,9 +185,10 @@ root shadcn tokens，而不是重写组件 class。
 Desktop appearance settings 存储在 Cypheria 管理的 Codex 配置
 `$CYPHERIA_HOME/codex/config.toml` 中。`[desktop]` section 保存
 `appearanceTheme`、`appearanceLightCodeThemeId` 和
-`appearanceDarkCodeThemeId`，`desktop.appearanceLightChromeTheme` 与
-`desktop.appearanceDarkChromeTheme` 保存可编辑的 chrome colors、fonts 和
-semantic colors。Electron main 通过 typed IPC 负责读写这些 TOML keys 和
+`appearanceDarkCodeThemeId`、`appearanceDiffMarkerStyle`、`sansFontSize` 和
+`codeFontSize`，`desktop.appearanceLightChromeTheme` 与
+`desktop.appearanceDarkChromeTheme` 保存可编辑的 chrome colors、`accentSource`
+（`chatgpt` 或 `custom`）、fonts 和 semantic colors。Electron main 通过 typed IPC 负责读写这些 TOML keys 和
 sections，并保留其它无关配置。renderer 将 Codex chrome theme 字段（如
 `surface`、`ink`、`accent`、`contrast`、fonts 和 semantic colors）映射为
 shadcn tokens。Codex-compatible theme presets 作为不可变内置
