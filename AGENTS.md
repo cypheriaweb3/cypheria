@@ -182,6 +182,7 @@ Electron browser defaults should remain conservative:
 
 - Prefer mature reusable components over custom base components.
 - Use shadcn/ui-style copied components as the default component source.
+- Before hand-writing common controls such as select menus, popovers, dropdown menus, dialogs, tabs, switches, sliders, color inputs, or tooltips, check whether the shadcn CLI can add the component to `packages/ui`; prefer installing and using the shared shadcn-style component unless the screen needs a genuinely custom control.
 - Use Base UI for overlays and interactive primitives where appropriate.
 - Keep the visual style close to Codex Desktop: quiet, dense enough for real work, low saturation, panel-oriented, and focused on workspaces, threads, diffs, terminals, approvals, wallets, policies, and browser context.
 - Avoid typical Web3 neon/gradient marketing aesthetics.

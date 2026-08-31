@@ -234,4 +234,22 @@ approval_policy = "on-request"
       await rm(codexHome, { force: true, recursive: true })
     }
   })
+
+  it("creates CODEX_HOME config.toml with default appearance settings when missing", async () => {
+    const codexHome = await mkdtemp(join(tmpdir(), "cypheria-codex-config-test-"))
+
+    try {
+      const configPath = getCodexConfigPath(codexHome)
+      const settings = await readAppearanceSettings(codexHome)
+      const toml = await readFile(configPath, "utf8")
+
+      expect(settings.configPath).toBe(configPath)
+      expect(toml).toContain("[desktop]")
+      expect(toml).toContain('appearanceTheme = "system"')
+      expect(toml).toContain("[desktop.appearanceLightChromeTheme]")
+      expect(toml).toContain("[desktop.appearanceDarkChromeTheme]")
+    } finally {
+      await rm(codexHome, { force: true, recursive: true })
+    }
+  })
 })

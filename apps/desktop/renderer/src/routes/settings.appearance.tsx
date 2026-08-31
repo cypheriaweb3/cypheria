@@ -10,6 +10,13 @@ import {
   useCypheriaTheme,
 } from "@cypheria/ui"
 import { Input } from "@cypheria/ui/components/input"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@cypheria/ui/components/select"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Check, CheckCircle2, ChevronDown, Monitor, Moon, Sun, X } from "lucide-react"
@@ -63,8 +70,6 @@ const fallbackAppearanceSettings = {
   useFontSmoothing: true,
   usePointerCursors: false,
 } as const
-
-const chatGptAccent = "#3a83f7"
 
 declare global {
   interface Window {
@@ -253,7 +258,22 @@ function AppearanceRoute() {
     }
 
     setDraftCodeThemes((current) => (current ? { ...current, [mode]: codeTheme } : current))
-    updateTheme(mode, cloneTheme(preset.theme))
+    setDraftThemes((current) => {
+      if (!current) {
+        return current
+      }
+
+      const currentTheme = current[mode]
+      const nextTheme = cloneTheme(preset.theme)
+      return {
+        ...current,
+        [mode]: {
+          ...nextTheme,
+          accent: currentTheme.accentSource === "custom" ? currentTheme.accent : nextTheme.accent,
+          accentSource: currentTheme.accentSource ?? nextTheme.accentSource,
+        },
+      }
+    })
   }
 
   const applyImportedTheme = (mode: ThemeMode, rawTheme: string): boolean => {
@@ -356,26 +376,32 @@ function AppearanceRoute() {
 
       {draftThemes && draftCodeThemes ? (
         <section className="grid gap-5">
-          <ChromeThemeCard
-            codeTheme={draftCodeThemes.light}
-            mode="light"
-            onCodeThemeChange={(value) => updateCodeTheme("light", value)}
-            onCopy={() => copyTheme("light")}
-            onImport={() => setImportDialogMode("light")}
-            onThemeChange={(patch) => updateTheme("light", patch)}
-            theme={draftThemes.light}
-            title="Light theme"
-          />
-          <ChromeThemeCard
-            codeTheme={draftCodeThemes.dark}
-            mode="dark"
-            onCodeThemeChange={(value) => updateCodeTheme("dark", value)}
-            onCopy={() => copyTheme("dark")}
-            onImport={() => setImportDialogMode("dark")}
-            onThemeChange={(patch) => updateTheme("dark", patch)}
-            theme={draftThemes.dark}
-            title="Dark theme"
-          />
+          {appearanceMode !== "dark" ? (
+            <ChromeThemeCard
+              codeTheme={draftCodeThemes.light}
+              defaultAccent={getDefaultCodeThemeAccent(draftCodeThemes.light, "light")}
+              mode="light"
+              onCodeThemeChange={(value) => updateCodeTheme("light", value)}
+              onCopy={() => copyTheme("light")}
+              onImport={() => setImportDialogMode("light")}
+              onThemeChange={(patch) => updateTheme("light", patch)}
+              theme={draftThemes.light}
+              title="Light theme"
+            />
+          ) : null}
+          {appearanceMode !== "light" ? (
+            <ChromeThemeCard
+              codeTheme={draftCodeThemes.dark}
+              defaultAccent={getDefaultCodeThemeAccent(draftCodeThemes.dark, "dark")}
+              mode="dark"
+              onCodeThemeChange={(value) => updateCodeTheme("dark", value)}
+              onCopy={() => copyTheme("dark")}
+              onImport={() => setImportDialogMode("dark")}
+              onThemeChange={(patch) => updateTheme("dark", patch)}
+              theme={draftThemes.dark}
+              title="Dark theme"
+            />
+          ) : null}
         </section>
       ) : null}
 
@@ -538,6 +564,7 @@ function ImportThemeDialog({
 
 function ChromeThemeCard({
   codeTheme,
+  defaultAccent,
   mode,
   onCodeThemeChange,
   onCopy,
@@ -547,6 +574,7 @@ function ChromeThemeCard({
   title,
 }: Readonly<{
   codeTheme: CodexCodeThemeId
+  defaultAccent: string
   mode: ThemeMode
   onCodeThemeChange: (value: CodexCodeThemeId) => void
   onCopy: () => void
@@ -600,6 +628,7 @@ function ChromeThemeCard({
             <AccentControl
               accent={theme.accent}
               accentSource={accentSource}
+              defaultAccent={defaultAccent}
               mode={mode}
               onAccentChange={(accent) => onThemeChange({ accent, accentSource: "custom" })}
               onSourceChange={(source, accent) =>
@@ -1017,81 +1046,74 @@ function CodeThemePicker({
 function AccentControl({
   accent,
   accentSource,
+  defaultAccent,
   mode,
   onAccentChange,
   onSourceChange,
 }: Readonly<{
   accent: string
   accentSource: "chatgpt" | "custom"
+  defaultAccent: string
   mode: ThemeMode
   onAccentChange: (accent: string) => void
   onSourceChange: (source: "chatgpt" | "custom", accent?: string) => void
 }>) {
-  const [menuOpen, setMenuOpen] = useState(false)
-  const selectedPreset = accentOptions.find(
+  const options = getAccentOptions(mode, defaultAccent)
+  const selectedPreset = options.find(
     (option) =>
       option.id !== "custom" && option.color && option.color.toLowerCase() === accent.toLowerCase()
   )
-  const selectedLabel = accentSource === "custom" ? "Custom" : (selectedPreset?.label ?? "Blue")
+  const selectedLabel = accentSource === "custom" ? "Custom" : (selectedPreset?.label ?? "Default")
+  const selectedValue = accentSource === "custom" ? "custom" : (selectedPreset?.id ?? "default")
 
   return (
     <div className="flex items-center justify-end gap-2 max-sm:justify-start">
-      <div className="relative">
-        <button
-          aria-expanded={menuOpen}
+      <Select
+        onValueChange={(value) => {
+          if (!value) {
+            return
+          }
+          const option = options.find((item) => item.id === value)
+          if (option?.id === "custom") {
+            onSourceChange("custom")
+            return
+          }
+          if (option?.color) {
+            onSourceChange("chatgpt", option.color)
+          }
+        }}
+        value={selectedValue}
+      >
+        <SelectTrigger
           aria-label={`${mode} accent source`}
-          className="inline-flex h-9 min-w-[102px] items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 text-sm shadow-xs hover:bg-muted/50"
-          onClick={() => setMenuOpen((current) => !current)}
-          type="button"
+          className="h-9 min-w-[102px] rounded-xl bg-background px-3 text-sm"
         >
-          {selectedLabel}
-          <ChevronDown aria-hidden="true" className="text-muted-foreground" size={16} />
-        </button>
-        {menuOpen ? (
-          <div
-            className="absolute right-0 top-10 z-40 w-[250px] rounded-[22px] border border-border bg-popover p-3 text-popover-foreground shadow-2xl"
-            role="menu"
-          >
-            {accentOptions.map((option) => {
-              const selected =
-                (option.id !== "custom" &&
-                  accentSource === "chatgpt" &&
-                  option.id === selectedPreset?.id) ||
-                (option.id === "custom" && accentSource === "custom")
-
-              return (
-                <button
-                  className="flex h-[42px] w-full items-center gap-3 rounded-xl px-2 text-left text-lg hover:bg-muted/70"
-                  key={option.id}
-                  onClick={() => {
-                    if (option.id === "blue") {
-                      onSourceChange("chatgpt", chatGptAccent)
-                    } else if (option.id === "custom") {
-                      onSourceChange("custom")
-                    } else if (option.color) {
-                      onSourceChange("chatgpt", option.color)
-                    }
-                    setMenuOpen(false)
-                  }}
-                  role="menuitem"
-                  type="button"
-                >
-                  {option.color ? (
-                    <span
-                      className="size-4 rounded-full border border-black/10"
-                      style={{ backgroundColor: option.color }}
-                    />
-                  ) : (
-                    <span className="size-4" />
-                  )}
-                  <span className="min-w-0 flex-1">{option.label}</span>
-                  {selected ? <Check aria-hidden="true" size={19} /> : null}
-                </button>
-              )
-            })}
-          </div>
-        ) : null}
-      </div>
+          <SelectValue>{selectedLabel}</SelectValue>
+        </SelectTrigger>
+        <SelectContent
+          align="end"
+          alignItemWithTrigger={false}
+          className="w-[250px] rounded-[22px] p-3"
+        >
+          {options.map((option) => (
+            <SelectItem
+              className="min-h-[42px] rounded-xl px-2 text-lg"
+              key={option.id}
+              value={option.id}
+            >
+              {option.color ? (
+                <span
+                  className="size-4 rounded-full border border-black/10"
+                  style={{ backgroundColor: option.color }}
+                />
+              ) : (
+                <span className="size-4" />
+              )}
+              <span>{option.label}</span>
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
       {accentSource === "custom" ? (
         <ColorTextControl
           accent
@@ -1111,16 +1133,27 @@ type AccentOption = {
 }
 
 const accentOptions: readonly AccentOption[] = [
-  { color: "#000000", id: "default", label: "Default" },
   { color: "#3a83f7", id: "blue", label: "Blue" },
   { color: "#4bb35f", id: "green", label: "Green" },
   { color: "#f3bd35", id: "yellow", label: "Yellow" },
   { color: "#e75d9e", id: "pink", label: "Pink" },
   { color: "#ed7434", id: "orange", label: "Orange" },
   { color: "#8147e8", id: "purple", label: "Purple" },
-  { color: "#000000", id: "black", label: "Black" },
   { id: "custom", label: "Custom" },
 ]
+
+const getAccentOptions = (mode: ThemeMode, defaultAccent: string): readonly AccentOption[] => [
+  { color: defaultAccent, id: "default", label: "Default" },
+  ...accentOptions.slice(0, -1),
+  mode === "dark"
+    ? { color: "#ffffff", id: "white", label: "White" }
+    : { color: "#000000", id: "black", label: "Black" },
+  accentOptions.at(-1) ?? { id: "custom", label: "Custom" },
+]
+
+const getDefaultCodeThemeAccent = (codeTheme: CodexCodeThemeId, mode: ThemeMode): string =>
+  getCodexCodeThemePresetVariant(codeTheme, mode)?.theme.accent ??
+  defaultCodexAppearanceThemeSettings[mode].accent
 
 function ColorTextControl({
   accent = false,
@@ -1337,7 +1370,6 @@ function FontFamilyControl({
 }: Readonly<{ onChange: (value: string) => void; systemDefault: string; value: string }>) {
   const [fontOptions, loadFontOptions] = useLocalFontOptions()
   const [familyOpen, setFamilyOpen] = useState(false)
-  const [styleOpen, setStyleOpen] = useState(false)
   const isSystemDefault = value === systemDefault
   const selectedOption = isSystemDefault ? undefined : findSelectedFontOption(fontOptions, value)
   const selectedFamily = isSystemDefault
@@ -1400,55 +1432,81 @@ function FontFamilyControl({
           </div>
         ) : null}
       </div>
-      <div className="relative">
-        <button
-          aria-expanded={styleOpen}
+      <Select
+        disabled={isSystemDefault || styles.length <= 1 || !selectedOption}
+        onValueChange={(style) => {
+          if (selectedOption && style) {
+            onChange(getFontConfigForStyle(selectedOption, style))
+          }
+        }}
+        value={selectedStyle}
+      >
+        <SelectTrigger
           aria-label="Font style"
-          className="inline-flex h-8 w-28 items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 text-sm shadow-xs outline-none hover:bg-muted/50 disabled:cursor-default disabled:bg-muted/35 disabled:text-muted-foreground"
-          disabled={isSystemDefault || styles.length <= 1}
-          onClick={() => setStyleOpen((current) => !current)}
-          type="button"
+          className="h-8 w-28 rounded-lg bg-background px-3 text-sm disabled:bg-muted/35 disabled:text-muted-foreground"
         >
-          <span className="min-w-0 truncate">{selectedStyle}</span>
-          <ChevronDown aria-hidden="true" className="shrink-0 text-muted-foreground" size={15} />
-        </button>
-        {styleOpen && selectedOption ? (
-          <div
-            className="absolute right-0 top-9 z-40 max-h-[320px] w-[180px] overflow-y-auto rounded-[18px] border border-border bg-popover p-2 text-popover-foreground shadow-2xl"
-            role="menu"
-          >
-            {styles.map((style) => (
-              <button
-                className="flex h-9 w-full items-center justify-between gap-3 rounded-xl px-2 text-left text-sm hover:bg-muted/70"
-                key={style}
-                onClick={() => {
-                  onChange(getFontConfigForStyle(selectedOption, style))
-                  setStyleOpen(false)
-                }}
-                role="menuitem"
-                type="button"
-              >
-                <span className="min-w-0 truncate">{style}</span>
-                {style === selectedStyle ? <Check aria-hidden="true" size={17} /> : null}
-              </button>
-            ))}
-          </div>
-        ) : null}
-      </div>
+          <SelectValue>{selectedStyle}</SelectValue>
+        </SelectTrigger>
+        <SelectContent
+          align="end"
+          alignItemWithTrigger={false}
+          className="w-[180px] rounded-[18px] p-2"
+        >
+          {styles.map((style) => (
+            <SelectItem className="min-h-9 rounded-xl px-2 text-sm" key={style} value={style}>
+              {style}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   )
 }
 
 const fallbackFontOptions: readonly LocalFontOption[] = [
+  createFallbackFontOption("Academy Engraved LET", ["Regular"]),
+  createFallbackFontOption("American Typewriter", [
+    "Regular",
+    "Light",
+    "Semibold",
+    "Bold",
+    "Condensed",
+  ]),
   createFallbackFontOption("Arial", ["Regular", "Bold", "Italic", "Bold Italic"]),
+  createFallbackFontOption("Avenir", ["Book", "Roman", "Medium", "Heavy", "Black"]),
+  createFallbackFontOption("Avenir Next", ["Regular", "Medium", "Demi Bold", "Bold", "Heavy"]),
+  createFallbackFontOption("Baskerville", ["Regular", "Italic", "Semibold", "Bold"]),
+  createFallbackFontOption("Big Caslon", ["Medium"]),
+  createFallbackFontOption("Chalkboard SE", ["Regular", "Light", "Bold"]),
+  createFallbackFontOption("Charter", ["Roman", "Italic", "Bold", "Black"]),
+  createFallbackFontOption("Cochin", ["Regular", "Italic", "Bold", "Bold Italic"]),
+  createFallbackFontOption("Copperplate", ["Regular", "Light", "Bold"]),
   createFallbackFontOption("Courier New", ["Regular", "Bold", "Italic", "Bold Italic"]),
+  createFallbackFontOption("DIN Alternate", ["Bold"]),
+  createFallbackFontOption("DIN Condensed", ["Bold"]),
+  createFallbackFontOption("Didot", ["Regular", "Italic", "Bold"]),
+  createFallbackFontOption("Futura", ["Medium", "Condensed Medium", "Condensed Extra Bold"]),
   createFallbackFontOption("Georgia", ["Regular", "Bold", "Italic", "Bold Italic"]),
+  createFallbackFontOption("Gill Sans", ["Regular", "Light", "SemiBold", "Bold", "UltraBold"]),
   createFallbackFontOption("Helvetica Neue", ["Regular", "Bold", "Italic", "Bold Italic"]),
+  createFallbackFontOption("Hoefler Text", ["Regular", "Italic", "Black"]),
+  createFallbackFontOption("Iowan Old Style", ["Roman", "Italic", "Bold", "Black"]),
+  createFallbackFontOption("Kohinoor Devanagari", ["Regular", "Medium", "Semibold"]),
   createFallbackFontOption("Menlo", ["Regular", "Bold", "Italic", "Bold Italic"]),
   createFallbackFontOption("Monaco", ["Regular"]),
+  createFallbackFontOption("New York", ["Regular", "Medium", "Semibold", "Bold"]),
+  createFallbackFontOption("Optima", ["Regular", "Italic", "Bold", "ExtraBlack"]),
+  createFallbackFontOption("Palatino", ["Roman", "Italic", "Bold", "Bold Italic"]),
+  createFallbackFontOption("Rockwell", ["Regular", "Italic", "Bold", "Bold Italic"]),
   createFallbackFontOption("SF Mono", ["Regular", "Medium", "Semibold", "Bold"]),
   createFallbackFontOption("SF Pro", ["Regular", "Medium", "Semibold", "Bold"]),
+  createFallbackFontOption("SF Pro Display", ["Regular", "Medium", "Semibold", "Bold"]),
+  createFallbackFontOption("SF Pro Text", ["Regular", "Medium", "Semibold", "Bold"]),
+  createFallbackFontOption("SF UI Display", ["Regular", "Medium", "Semibold", "Bold"]),
+  createFallbackFontOption("SF UI Text", ["Regular", "Medium", "Semibold", "Bold"]),
+  createFallbackFontOption("Snell Roundhand", ["Regular", "Bold", "Black"]),
   createFallbackFontOption("Times New Roman", ["Regular", "Bold", "Italic", "Bold Italic"]),
+  createFallbackFontOption("Verdana", ["Regular", "Bold", "Italic", "Bold Italic"]),
 ]
 
 function useLocalFontOptions(): readonly [readonly LocalFontOption[], () => Promise<void>] {

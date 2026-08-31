@@ -463,6 +463,13 @@ export const readAppearanceSettings = async (codexHome: string): Promise<Appeara
       throw error
     }
 
+    await mkdir(dirname(configPath), { recursive: true })
+    await writeFile(
+      configPath,
+      mergeAppearanceSettingsIntoToml("", defaultAppearanceSettings),
+      "utf8"
+    )
+
     return {
       appearanceTheme: defaultAppearanceSettings.appearanceTheme,
       codeFontSize: defaultAppearanceSettings.codeFontSize,
