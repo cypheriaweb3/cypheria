@@ -97,8 +97,8 @@ describe("Cypheria UI primitives", () => {
       root
     )
 
-    expect(root.style.getPropertyValue("--cypheria-sans-font-size")).toBe("11px")
-    expect(root.style.getPropertyValue("--cypheria-code-font-size")).toBe("24px")
+    expect(root.style.getPropertyValue("--font-sans-size")).toBe("11px")
+    expect(root.style.getPropertyValue("--font-mono-size")).toBe("24px")
     expect(root.dataset.cypheriaFontSmoothing).toBe("false")
     expect(root.dataset.cypheriaPointerCursors).toBe("true")
     expect(root.dataset.cypheriaReducedMotion).toBeUndefined()

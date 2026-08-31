@@ -359,14 +359,8 @@ export function applyCodexAppearancePreferencesToElement(
   preferences: CodexAppearancePreferences,
   rootElement: HTMLElement
 ) {
-  rootElement.style.setProperty(
-    "--cypheria-sans-font-size",
-    `${clamp(preferences.sansFontSize, 11, 16)}px`
-  )
-  rootElement.style.setProperty(
-    "--cypheria-code-font-size",
-    `${clamp(preferences.codeFontSize, 8, 24)}px`
-  )
+  rootElement.style.setProperty("--font-sans-size", `${clamp(preferences.sansFontSize, 11, 16)}px`)
+  rootElement.style.setProperty("--font-mono-size", `${clamp(preferences.codeFontSize, 8, 24)}px`)
   rootElement.dataset.cypheriaFontSmoothing = String(preferences.useFontSmoothing)
   rootElement.dataset.cypheriaPointerCursors = String(preferences.usePointerCursors)
 
