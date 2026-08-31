@@ -28,7 +28,13 @@ export const cypheriaThemeVariableNames = [
   "sidebar-border",
   "sidebar-ring",
   "font-sans",
+  "font-sans-stretch",
+  "font-sans-style",
+  "font-sans-weight",
   "font-mono",
+  "font-mono-stretch",
+  "font-mono-style",
+  "font-mono-weight",
   "diff-added",
   "diff-removed",
   "skill",
@@ -118,6 +124,54 @@ const clamp = (value: number, min: number, max: number): number =>
 const mix = (base: string, overlay: string, percent: number): string =>
   `color-mix(in oklch, ${base}, ${overlay} ${percent}%)`
 
+const inferFontStyle = (fontFamily: string): string =>
+  /\b(italic|oblique)\b/i.test(fontFamily) ? "italic" : "normal"
+
+const inferFontStretch = (fontFamily: string): string => {
+  const normalized = fontFamily.toLowerCase()
+  if (normalized.includes("condensed")) {
+    return "condensed"
+  }
+  if (normalized.includes("expanded")) {
+    return "expanded"
+  }
+  return "normal"
+}
+
+const inferFontWeight = (fontFamily: string): string => {
+  const normalized = fontFamily.toLowerCase()
+
+  if (/\b(thin|hairline)\b/.test(normalized)) {
+    return "100"
+  }
+  if (/\b(extra[\s-]?light|ultra[\s-]?light)\b/.test(normalized)) {
+    return "200"
+  }
+  if (/\blight\b/.test(normalized)) {
+    return "300"
+  }
+  if (/\b(book|regular|roman|normal)\b/.test(normalized)) {
+    return "400"
+  }
+  if (/\bmedium\b/.test(normalized)) {
+    return "500"
+  }
+  if (/\b(semi[\s-]?bold|demi[\s-]?bold)\b/.test(normalized)) {
+    return "600"
+  }
+  if (/\b(extra[\s-]?bold|ultra[\s-]?bold|heavy)\b/.test(normalized)) {
+    return "800"
+  }
+  if (/\b(black|extra[\s-]?black|ultra[\s-]?black)\b/.test(normalized)) {
+    return "900"
+  }
+  if (/\bbold\b/.test(normalized)) {
+    return "700"
+  }
+
+  return "400"
+}
+
 export function mapCodexChromeThemeToCypheriaThemeStyles(
   theme: CodexChromeTheme
 ): CypheriaThemeStyles {
@@ -139,7 +193,13 @@ export function mapCodexChromeThemeToCypheriaThemeStyles(
     "diff-added": theme.semanticColors.diffAdded,
     "diff-removed": theme.semanticColors.diffRemoved,
     "font-mono": theme.fonts.code,
+    "font-mono-stretch": inferFontStretch(theme.fonts.code),
+    "font-mono-style": inferFontStyle(theme.fonts.code),
+    "font-mono-weight": inferFontWeight(theme.fonts.code),
     "font-sans": theme.fonts.ui,
+    "font-sans-stretch": inferFontStretch(theme.fonts.ui),
+    "font-sans-style": inferFontStyle(theme.fonts.ui),
+    "font-sans-weight": inferFontWeight(theme.fonts.ui),
     foreground: theme.ink,
     input: mix(theme.surface, theme.ink, border),
     muted: mix(theme.surface, theme.ink, subtle),
@@ -210,7 +270,13 @@ export const defaultCypheriaThemeState: CypheriaThemeState = {
       "sidebar-border": "oklch(0.86 0 0)",
       "sidebar-ring": "oklch(0.708 0 0)",
       "font-sans": defaultFontSans,
+      "font-sans-stretch": "normal",
+      "font-sans-style": "normal",
+      "font-sans-weight": "400",
       "font-mono": defaultFontMono,
+      "font-mono-stretch": "normal",
+      "font-mono-style": "normal",
+      "font-mono-weight": "400",
       "diff-added": "#00a240",
       "diff-removed": "#e02e2a",
       skill: "#751ed9",
@@ -245,7 +311,13 @@ export const defaultCypheriaThemeState: CypheriaThemeState = {
       "sidebar-border": "oklch(1 0 0 / 10%)",
       "sidebar-ring": "oklch(0.556 0 0)",
       "font-sans": defaultFontSans,
+      "font-sans-stretch": "normal",
+      "font-sans-style": "normal",
+      "font-sans-weight": "400",
       "font-mono": defaultFontMono,
+      "font-mono-stretch": "normal",
+      "font-mono-style": "normal",
+      "font-mono-weight": "400",
       "diff-added": "#00a240",
       "diff-removed": "#e02e2a",
       skill: "#b06dff",

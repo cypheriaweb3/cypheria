@@ -129,6 +129,9 @@
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
     font-size: var(--cypheria-sans-font-size);
+    font-stretch: var(--font-sans-stretch);
+    font-style: var(--font-sans-style);
+    font-weight: var(--font-sans-weight);
   }
   code,
   kbd,
@@ -136,6 +139,9 @@
   samp {
     font-family: var(--font-mono);
     font-size: var(--cypheria-code-font-size);
+    font-stretch: var(--font-mono-stretch);
+    font-style: var(--font-mono-style);
+    font-weight: var(--font-mono-weight);
   }
   :root[data-cypheria-font-smoothing="true"] body {
     -webkit-font-smoothing: antialiased;

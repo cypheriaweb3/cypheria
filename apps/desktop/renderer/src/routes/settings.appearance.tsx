@@ -770,13 +770,25 @@ function ThemeModeCards({
 function ThemeModePreview({ mode }: Readonly<{ mode: AppearanceMode }>) {
   if (mode === "system") {
     return (
-      <span className="absolute inset-0 grid grid-cols-2">
-        <ThemeModePreview mode="light" />
-        <ThemeModePreview mode="dark" />
+      <span className="absolute inset-0 block">
+        <span className="absolute inset-y-0 left-0 w-1/2 overflow-hidden">
+          <span className="absolute inset-y-0 left-0 w-[200%]">
+            <SingleThemeModePreview mode="light" />
+          </span>
+        </span>
+        <span className="absolute inset-y-0 right-0 w-1/2 overflow-hidden">
+          <span className="absolute inset-y-0 right-0 w-[200%]">
+            <SingleThemeModePreview mode="dark" />
+          </span>
+        </span>
       </span>
     )
   }
 
+  return <SingleThemeModePreview mode={mode} />
+}
+
+function SingleThemeModePreview({ mode }: Readonly<{ mode: ThemeMode }>) {
   const dark = mode === "dark"
   return (
     <span className={cn("absolute inset-0 block", dark ? "bg-[#5f5f5d]" : "bg-[#f4f4f3]")}>
@@ -1130,19 +1142,19 @@ function AccentControl({
         >
           {options.map((option) => (
             <SelectItem
-              className="min-h-[42px] rounded-xl px-2 text-lg"
+              className="min-h-[42px] rounded-xl px-2 text-lg leading-none"
               key={option.id}
               value={option.id}
             >
               {option.color ? (
                 <span
-                  className="size-4 rounded-full border border-black/10"
+                  className="size-4 shrink-0 self-center rounded-full border border-black/10"
                   style={{ backgroundColor: option.color }}
                 />
               ) : (
-                <span className="size-4" />
+                <span className="size-4 shrink-0 self-center" />
               )}
-              <span>{option.label}</span>
+              <span className="inline-flex min-h-5 items-center">{option.label}</span>
             </SelectItem>
           ))}
         </SelectContent>
@@ -1199,12 +1211,9 @@ function ColorTextControl({
   onChange: (value: string) => void
   value: string
 }>) {
-  const [pickerOpen, setPickerOpen] = useState(false)
   const [draft, setDraft] = useState(value.toUpperCase())
-  const containerRef = useRef<HTMLDivElement>(null)
   const normalizedValue = isHexColor(value) ? value : "#000000"
   const foreground = getReadableTextColor(normalizedValue)
-  useOutsidePointerDismiss(containerRef, pickerOpen, () => setPickerOpen(false))
 
   useEffect(() => {
     setDraft(value.toUpperCase())
@@ -1220,7 +1229,7 @@ function ColorTextControl({
   }
 
   return (
-    <div className="relative" ref={containerRef}>
+    <div className="relative">
       <div
         className={cn(
           "flex items-center gap-2 rounded-lg px-2 shadow-xs max-sm:w-full",
@@ -1228,16 +1237,21 @@ function ColorTextControl({
         )}
         style={{ backgroundColor: normalizedValue, color: foreground }}
       >
-        <button
-          aria-expanded={pickerOpen}
-          aria-label={`${ariaLabel} color picker`}
+        <label
           className={cn(
-            "shrink-0 rounded-full border border-current opacity-40 outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "relative shrink-0 rounded-full border border-current opacity-40 outline-none focus-within:ring-2 focus-within:ring-ring",
             accent ? "size-4" : "size-3.5"
           )}
-          onClick={() => setPickerOpen((current) => !current)}
-          type="button"
-        />
+        >
+          <span className="sr-only">{`${ariaLabel} color picker`}</span>
+          <input
+            aria-label={`${ariaLabel} color picker`}
+            className="absolute inset-0 size-full cursor-pointer opacity-0"
+            onChange={(event) => onChange(event.currentTarget.value.toLowerCase())}
+            type="color"
+            value={normalizedValue}
+          />
+        </label>
         <input
           aria-label={ariaLabel}
           className={cn(
@@ -1259,77 +1273,6 @@ function ColorTextControl({
           value={draft}
         />
       </div>
-      {pickerOpen ? (
-        <ColorPickerPopover
-          onChange={onChange}
-          onClose={() => setPickerOpen(false)}
-          value={value}
-        />
-      ) : null}
-    </div>
-  )
-}
-
-function ColorPickerPopover({
-  onChange,
-  onClose,
-  value,
-}: Readonly<{ onChange: (value: string) => void; onClose: () => void; value: string }>) {
-  const normalizedValue = isHexColor(value) ? value : "#000000"
-  const hsv = hexToHsv(normalizedValue)
-  const hueColor = `hsl(${hsv.hue} 100% 50%)`
-
-  return (
-    <div className="absolute right-0 top-10 z-40 w-[238px] rounded-xl border border-border bg-popover p-1.5 shadow-2xl">
-      <button aria-label="Close color picker" className="sr-only" onClick={onClose} type="button" />
-      <label className="relative block h-[205px] overflow-hidden rounded-lg">
-        <span className="absolute inset-0" style={{ backgroundColor: hueColor }} />
-        <span
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(90deg, #ffffff 0%, transparent 100%), linear-gradient(180deg, transparent 0%, #000000 100%)",
-          }}
-        />
-        <input
-          aria-label="Custom color"
-          className="absolute inset-0 size-full cursor-crosshair opacity-0"
-          onChange={(event) => onChange(event.currentTarget.value.toLowerCase())}
-          type="color"
-          value={normalizedValue}
-        />
-        <span
-          className="absolute size-7 rounded-full border-[3px] border-white shadow-md"
-          style={{
-            left: `${hsv.saturation * 100}%`,
-            top: `${(1 - hsv.value) * 100}%`,
-            transform: "translate(-50%, -50%)",
-          }}
-        />
-      </label>
-      <label className="relative mt-1.5 block h-8 overflow-hidden rounded-b-lg">
-        <span
-          className="absolute inset-0"
-          style={{
-            background:
-              "linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)",
-          }}
-        />
-        <input
-          aria-label="Custom hue"
-          className="absolute inset-0 size-full opacity-0"
-          onChange={(event) => onChange(event.currentTarget.value.toLowerCase())}
-          type="color"
-          value={normalizedValue}
-        />
-        <span
-          className="absolute top-0 size-8 rounded-full border-[3px] border-white shadow-md"
-          style={{
-            left: `${(hsv.hue / 360) * 100}%`,
-            transform: "translateX(-50%)",
-          }}
-        />
-      </label>
     </div>
   )
 }
@@ -1680,7 +1623,12 @@ function getFontConfigForStyle(option: LocalFontOption, style: string): string {
   const face =
     option.faces.find((candidate) => normalizeFontStyle(candidate.style) === style) ??
     option.faces[0]
-  return quoteFontFamily(face?.fullName || face?.family || option.family)
+  const family = face?.family || option.family
+  const fullName = face?.fullName || family
+  if (fullName !== family && normalizeFontStyle(face?.style) !== "Regular") {
+    return `${quoteFontFamily(fullName)}, ${quoteFontFamily(family)}`
+  }
+  return quoteFontFamily(family)
 }
 
 function quoteFontFamily(family: string): string {
@@ -1787,34 +1735,6 @@ const normalizeHexInput = (value: string): string => {
       .join("")}`
   }
   return trimmed
-}
-
-function hexToHsv(hex: string): { hue: number; saturation: number; value: number } {
-  const red = Number.parseInt(hex.slice(1, 3), 16) / 255
-  const green = Number.parseInt(hex.slice(3, 5), 16) / 255
-  const blue = Number.parseInt(hex.slice(5, 7), 16) / 255
-  const max = Math.max(red, green, blue)
-  const min = Math.min(red, green, blue)
-  const delta = max - min
-  const saturation = max === 0 ? 0 : delta / max
-  let hue = 0
-
-  if (delta !== 0) {
-    if (max === red) {
-      hue = ((green - blue) / delta) % 6
-    } else if (max === green) {
-      hue = (blue - red) / delta + 2
-    } else {
-      hue = (red - green) / delta + 4
-    }
-    hue *= 60
-  }
-
-  return {
-    hue: Math.round(hue < 0 ? hue + 360 : hue),
-    saturation,
-    value: max,
-  }
 }
 
 const resolveAppearanceMode = (mode: AppearanceMode): ThemeMode => {

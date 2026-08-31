@@ -7,6 +7,8 @@ import {
   applyCypheriaThemeToElement,
   cn,
   createCypheriaThemeState,
+  defaultCodexAppearanceThemeSettings,
+  mapCodexChromeThemeToCypheriaThemeStyles,
   Textarea,
 } from "./index.js"
 
@@ -67,5 +69,20 @@ describe("Cypheria UI primitives", () => {
     expect(root.classList.contains("dark")).toBe(true)
     expect(root.style.getPropertyValue("--background")).toBe("oklch(0.2 0 0)")
     expect(root.style.getPropertyValue("--primary")).toBe("oklch(0.8 0.1 240)")
+  })
+
+  it("derives CSS font face variables from Codex font strings", () => {
+    const styles = mapCodexChromeThemeToCypheriaThemeStyles({
+      ...defaultCodexAppearanceThemeSettings.light,
+      fonts: {
+        code: '"Courier New Italic", "Courier New"',
+        ui: '"Avenir Next Demi Bold", "Avenir Next"',
+      },
+    })
+
+    expect(styles["font-sans-weight"]).toBe("600")
+    expect(styles["font-sans-style"]).toBe("normal")
+    expect(styles["font-mono-weight"]).toBe("400")
+    expect(styles["font-mono-style"]).toBe("italic")
   })
 })
