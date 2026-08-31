@@ -9,11 +9,10 @@ import {
   mapCodexAppearanceToCypheriaThemeState,
   useCypheriaTheme,
 } from "@cypheria/ui"
-import { Button } from "@cypheria/ui/components/button"
 import { Input } from "@cypheria/ui/components/input"
-import { useMutation, useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Check, Copy, Import, Monitor, Moon, RotateCcw, Save, Sun } from "lucide-react"
+import { Monitor, Moon, Sun } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 
 export const Route = createFileRoute("/settings/appearance")({
@@ -23,6 +22,7 @@ export const Route = createFileRoute("/settings/appearance")({
 type ThemeMode = keyof CodexAppearanceThemeSettings
 type AppearanceMode = "dark" | "light" | "system"
 type DiffMarkerStyle = "color" | "symbols"
+type ReducedMotionPreference = "off" | "on" | "system"
 
 const appearanceModes = [
   { icon: Monitor, label: "System", value: "system" },
@@ -32,18 +32,22 @@ const appearanceModes = [
 
 const fallbackAppearanceSettings = {
   appearanceTheme: "system",
-  codeFontSize: 12,
+  codeFontSize: 13,
   codeThemes: {
     dark: "codex",
-    light: "catppuccin",
+    light: "codex",
   },
   configPath: "Browser preview",
   diffMarkerStyle: "color",
+  reducedMotionPreference: "system",
   sansFontSize: 14,
   themes: defaultCodexAppearanceThemeSettings,
+  useFontSmoothing: true,
+  usePointerCursors: false,
 } as const
 
 function AppearanceRoute() {
+  const queryClient = useQueryClient()
   const { setMode, setThemeState, themeState } = useCypheriaTheme()
   const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>("system")
   const [codeFontSize, setCodeFontSize] = useState(12)
@@ -54,7 +58,11 @@ function AppearanceRoute() {
   > | null>(null)
   const [draftThemes, setDraftThemes] = useState<CodexAppearanceThemeSettings | null>(null)
   const [previewMode, setPreviewMode] = useState<ThemeMode>(themeState.currentMode)
+  const [reducedMotionPreference, setReducedMotionPreference] =
+    useState<ReducedMotionPreference>("system")
   const [sansFontSize, setSansFontSize] = useState(14)
+  const [useFontSmoothing, setUseFontSmoothing] = useState(true)
+  const [usePointerCursors, setUsePointerCursors] = useState(false)
 
   const appearanceQuery = useQuery({
     queryFn: () => window.cypheria?.settings.getAppearance() ?? fallbackAppearanceSettings,
@@ -73,14 +81,27 @@ function AppearanceRoute() {
     setDiffMarkerStyle(settings.diffMarkerStyle)
     setDraftCodeThemes(settings.codeThemes)
     setDraftThemes(settings.themes)
+    setReducedMotionPreference(settings.reducedMotionPreference)
     setSansFontSize(settings.sansFontSize)
+    setUseFontSmoothing(settings.useFontSmoothing)
+    setUsePointerCursors(settings.usePointerCursors)
     setThemeState(mapCodexAppearanceToCypheriaThemeState(settings.themes, previewMode))
   }, [appearanceQuery.data, previewMode, setThemeState])
 
   useEffect(() => {
-    document.documentElement.style.setProperty("--cypheria-sans-font-size", `${sansFontSize}px`)
-    document.documentElement.style.setProperty("--cypheria-code-font-size", `${codeFontSize}px`)
-  }, [codeFontSize, sansFontSize])
+    const root = document.documentElement
+    root.style.setProperty("--cypheria-sans-font-size", `${sansFontSize}px`)
+    root.style.setProperty("--cypheria-code-font-size", `${codeFontSize}px`)
+    root.dataset.cypheriaFontSmoothing = String(useFontSmoothing)
+    root.dataset.cypheriaPointerCursors = String(usePointerCursors)
+
+    if (reducedMotionPreference === "system") {
+      delete root.dataset.cypheriaReducedMotion
+      return
+    }
+
+    root.dataset.cypheriaReducedMotion = reducedMotionPreference
+  }, [codeFontSize, reducedMotionPreference, sansFontSize, useFontSmoothing, usePointerCursors])
 
   const writeMutation = useMutation({
     mutationFn: (settings: {
@@ -88,18 +109,25 @@ function AppearanceRoute() {
       codeFontSize: number
       codeThemes: Record<ThemeMode, CodexCodeThemeId>
       diffMarkerStyle: DiffMarkerStyle
+      reducedMotionPreference: ReducedMotionPreference
       sansFontSize: number
       themes: CodexAppearanceThemeSettings
+      useFontSmoothing: boolean
+      usePointerCursors: boolean
     }) =>
       window.cypheria?.settings.setAppearance(settings) ??
       Promise.reject(new Error("IPC unavailable")),
     onSuccess: (settings) => {
+      queryClient.setQueryData(["settings", "appearance"], settings)
       setAppearanceMode(settings.appearanceTheme)
       setCodeFontSize(settings.codeFontSize)
       setDiffMarkerStyle(settings.diffMarkerStyle)
       setDraftCodeThemes(settings.codeThemes)
       setDraftThemes(settings.themes)
+      setReducedMotionPreference(settings.reducedMotionPreference)
       setSansFontSize(settings.sansFontSize)
+      setUseFontSmoothing(settings.useFontSmoothing)
+      setUsePointerCursors(settings.usePointerCursors)
       setThemeState(mapCodexAppearanceToCypheriaThemeState(settings.themes, previewMode))
     },
   })
@@ -115,16 +143,22 @@ function AppearanceRoute() {
         codeFontSize,
         codeThemes: draftCodeThemes,
         diffMarkerStyle,
+        reducedMotionPreference,
         sansFontSize,
         themes: draftThemes,
+        useFontSmoothing,
+        usePointerCursors,
       }) !==
       JSON.stringify({
         appearanceTheme: appearanceQuery.data.appearanceTheme,
         codeFontSize: appearanceQuery.data.codeFontSize,
         codeThemes: appearanceQuery.data.codeThemes,
         diffMarkerStyle: appearanceQuery.data.diffMarkerStyle,
+        reducedMotionPreference: appearanceQuery.data.reducedMotionPreference,
         sansFontSize: appearanceQuery.data.sansFontSize,
         themes: appearanceQuery.data.themes,
+        useFontSmoothing: appearanceQuery.data.useFontSmoothing,
+        usePointerCursors: appearanceQuery.data.usePointerCursors,
       })
     )
   }, [
@@ -134,7 +168,10 @@ function AppearanceRoute() {
     diffMarkerStyle,
     draftCodeThemes,
     draftThemes,
+    reducedMotionPreference,
     sansFontSize,
+    useFontSmoothing,
+    usePointerCursors,
   ])
 
   const updateTheme = (mode: ThemeMode, patch: Partial<CodexChromeTheme>) => {
@@ -217,65 +254,48 @@ function AppearanceRoute() {
     }
   }
 
-  const handleReset = () => {
-    if (!appearanceQuery.data) {
-      return
-    }
-
-    setAppearanceMode(appearanceQuery.data.appearanceTheme)
-    setCodeFontSize(appearanceQuery.data.codeFontSize)
-    setDiffMarkerStyle(appearanceQuery.data.diffMarkerStyle)
-    setDraftCodeThemes(appearanceQuery.data.codeThemes)
-    setDraftThemes(appearanceQuery.data.themes)
-    setSansFontSize(appearanceQuery.data.sansFontSize)
-    setThemeState(mapCodexAppearanceToCypheriaThemeState(appearanceQuery.data.themes, previewMode))
-  }
-
-  const save = () => {
+  useEffect(() => {
     if (!draftCodeThemes || !draftThemes) {
       return
     }
+    if (!appearanceQuery.data || !isDirty || writeMutation.isPending) {
+      return
+    }
 
-    writeMutation.mutate({
-      appearanceTheme: appearanceMode,
-      codeFontSize,
-      codeThemes: draftCodeThemes,
-      diffMarkerStyle,
-      sansFontSize,
-      themes: draftThemes,
-    })
-  }
+    const timeout = window.setTimeout(() => {
+      writeMutation.mutate({
+        appearanceTheme: appearanceMode,
+        codeFontSize,
+        codeThemes: draftCodeThemes,
+        diffMarkerStyle,
+        reducedMotionPreference,
+        sansFontSize,
+        themes: draftThemes,
+        useFontSmoothing,
+        usePointerCursors,
+      })
+    }, 250)
+
+    return () => window.clearTimeout(timeout)
+  }, [
+    appearanceMode,
+    appearanceQuery.data,
+    codeFontSize,
+    diffMarkerStyle,
+    draftCodeThemes,
+    draftThemes,
+    isDirty,
+    reducedMotionPreference,
+    sansFontSize,
+    useFontSmoothing,
+    usePointerCursors,
+    writeMutation,
+  ])
 
   return (
-    <main className="mx-auto grid w-full max-w-3xl content-start gap-6 px-5 py-8 text-foreground">
-      <header className="flex min-w-0 items-center justify-between gap-4 max-sm:flex-col max-sm:items-stretch">
-        <div className="min-w-0">
-          <h1 className="text-[22px] font-semibold leading-7 text-foreground">Appearance</h1>
-          <p className="mt-1 truncate text-xs text-muted-foreground">
-            {appearanceQuery.data?.configPath ?? "Loading config"}
-          </p>
-        </div>
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            disabled={!isDirty || writeMutation.isPending}
-            onClick={handleReset}
-            variant="ghost"
-          >
-            <RotateCcw aria-hidden="true" size={15} strokeWidth={1.9} />
-            Reset
-          </Button>
-          <Button
-            disabled={!draftCodeThemes || !draftThemes || !isDirty || writeMutation.isPending}
-            onClick={save}
-          >
-            {writeMutation.isSuccess && !isDirty ? (
-              <Check aria-hidden="true" size={15} strokeWidth={1.9} />
-            ) : (
-              <Save aria-hidden="true" size={15} strokeWidth={1.9} />
-            )}
-            Save
-          </Button>
-        </div>
+    <main className="mx-auto grid h-full min-h-0 w-full max-w-[872px] content-start gap-6 overflow-y-auto px-5 py-12 pb-20 text-foreground">
+      <header className="min-w-0">
+        <h1 className="text-[25px] font-semibold leading-8 text-foreground">Appearance</h1>
       </header>
 
       <section className="grid gap-4">
@@ -313,34 +333,64 @@ function AppearanceRoute() {
         </section>
       ) : null}
 
-      <SettingsGroup>
-        <SettingsRow
-          control={
-            <SegmentedControl
-              items={[
-                { label: "Color", value: "color" },
-                { label: "+/-", value: "symbols" },
-              ]}
-              onChange={(value) => setDiffMarkerStyle(value as DiffMarkerStyle)}
-              value={diffMarkerStyle}
-            />
-          }
-          label="Diff markers"
-        />
-        <SettingsRow
-          control={
-            <FontSizeControl max={16} min={11} onChange={setSansFontSize} value={sansFontSize} />
-          }
-          description="Sans"
-          label="UI font size"
-        />
-        <SettingsRow
-          control={
-            <FontSizeControl max={24} min={8} onChange={setCodeFontSize} value={codeFontSize} />
-          }
-          label="Code font size"
-        />
-      </SettingsGroup>
+      <section className="mt-6 grid gap-4">
+        <h2 className="text-sm font-semibold text-foreground">Preferences</h2>
+        <SettingsGroup>
+          <SettingsRow
+            control={<ToggleControl checked={usePointerCursors} onChange={setUsePointerCursors} />}
+            description="Change the cursor to a pointer when hovering over interactive elements"
+            label="Use pointer cursors"
+          />
+          <SettingsRow
+            control={
+              <SegmentedControl
+                items={[
+                  { label: "System", value: "system" },
+                  { label: "On", value: "on" },
+                  { label: "Off", value: "off" },
+                ]}
+                onChange={(value) => setReducedMotionPreference(value as ReducedMotionPreference)}
+                value={reducedMotionPreference}
+              />
+            }
+            description="Reduce animations or match your system"
+            label="Reduce motion"
+          />
+          <SettingsRow
+            control={
+              <FontSizeInput max={16} min={11} onChange={setSansFontSize} value={sansFontSize} />
+            }
+            description="Adjust the base size used for the Cypheria UI"
+            label="UI font size"
+          />
+          <SettingsRow
+            control={
+              <FontSizeInput max={24} min={8} onChange={setCodeFontSize} value={codeFontSize} />
+            }
+            description="Adjust the base size used for code across chats and diffs"
+            label="Code font size"
+          />
+          <SettingsRow
+            control={
+              <SegmentedControl
+                items={[
+                  { label: "Color", value: "color" },
+                  { label: "+/-", value: "symbols" },
+                ]}
+                onChange={(value) => setDiffMarkerStyle(value as DiffMarkerStyle)}
+                value={diffMarkerStyle}
+              />
+            }
+            description="Show changes using colors or +/- markers"
+            label="Diff markers"
+          />
+          <SettingsRow
+            control={<ToggleControl checked={useFontSmoothing} onChange={setUseFontSmoothing} />}
+            description="Use native macOS font anti-aliasing"
+            label="Font smoothing"
+          />
+        </SettingsGroup>
+      </section>
 
       {writeMutation.isError ? (
         <p className="text-[13px] text-destructive">{String(writeMutation.error.message)}</p>
@@ -379,35 +429,34 @@ function ChromeThemeCard({
       <div className="flex min-h-[58px] items-center justify-between gap-3 border-b border-border px-4 py-2.5 max-sm:flex-col max-sm:items-stretch">
         <h2 className="text-sm font-semibold">{title}</h2>
         <div className="flex flex-wrap items-center justify-end gap-2 max-sm:justify-start">
-          <Button
+          <button
             aria-label={`Import ${mode} theme`}
+            className="h-8 rounded-md px-2 text-sm text-muted-foreground hover:text-foreground"
             onClick={onImport}
-            size="sm"
             type="button"
-            variant="ghost"
           >
-            <Import aria-hidden="true" size={14} strokeWidth={1.9} />
             Import
-          </Button>
-          <Button
+          </button>
+          <button
             aria-label={`Copy ${mode} theme`}
+            className="h-8 rounded-md px-2 text-sm text-muted-foreground hover:text-foreground"
             onClick={onCopy}
-            size="sm"
             type="button"
-            variant="ghost"
           >
-            <Copy aria-hidden="true" size={14} strokeWidth={1.9} />
             Copy theme
-          </Button>
-          <span
+          </button>
+          <button
+            aria-pressed={previewing}
             className="inline-flex size-8 items-center justify-center rounded-lg border border-border text-xs font-semibold"
+            onClick={onPreview}
             style={{
               backgroundColor: mode === "dark" ? theme.surface : "#ffffff",
               color: theme.accent,
             }}
+            type="button"
           >
             Aa
-          </span>
+          </button>
           <CodeThemePicker mode={mode} onChange={onCodeThemeChange} value={codeTheme} />
         </div>
       </div>
@@ -447,21 +496,6 @@ function ChromeThemeCard({
         />
         <CompactSetting
           control={
-            <ToggleControl
-              checked={!theme.opaqueWindows}
-              onChange={(checked) => onThemeChange({ opaqueWindows: !checked })}
-            />
-          }
-          label="Translucent sidebar"
-        />
-        <CompactSetting
-          control={
-            <ContrastControl onChange={(contrast) => onThemeChange({ contrast })} theme={theme} />
-          }
-          label="Contrast"
-        />
-        <CompactSetting
-          control={
             <FontFamilyControl
               systemDefault={defaultCodexAppearanceThemeSettings[mode].fonts.ui}
               onChange={(ui) => onThemeChange({ fonts: { ...theme.fonts, ui } })}
@@ -482,58 +516,18 @@ function ChromeThemeCard({
         />
         <CompactSetting
           control={
-            <ColorTextControl
-              ariaLabel={`${mode} diff added`}
-              onChange={(diffAdded) =>
-                onThemeChange({
-                  semanticColors: { ...theme.semanticColors, diffAdded },
-                })
-              }
-              value={theme.semanticColors.diffAdded}
+            <ToggleControl
+              checked={!theme.opaqueWindows}
+              onChange={(checked) => onThemeChange({ opaqueWindows: !checked })}
             />
           }
-          label="Diff added"
+          label="Translucent sidebar"
         />
         <CompactSetting
           control={
-            <ColorTextControl
-              ariaLabel={`${mode} diff removed`}
-              onChange={(diffRemoved) =>
-                onThemeChange({
-                  semanticColors: { ...theme.semanticColors, diffRemoved },
-                })
-              }
-              value={theme.semanticColors.diffRemoved}
-            />
+            <ContrastControl onChange={(contrast) => onThemeChange({ contrast })} theme={theme} />
           }
-          label="Diff removed"
-        />
-        <CompactSetting
-          control={
-            <ColorTextControl
-              ariaLabel={`${mode} skill`}
-              onChange={(skill) =>
-                onThemeChange({
-                  semanticColors: { ...theme.semanticColors, skill },
-                })
-              }
-              value={theme.semanticColors.skill}
-            />
-          }
-          label="Skill"
-        />
-        <CompactSetting
-          control={
-            <Button
-              onClick={onPreview}
-              size="sm"
-              type="button"
-              variant={previewing ? "secondary" : "outline"}
-            >
-              {previewing ? "Previewing" : "Preview"}
-            </Button>
-          }
-          label="Preview"
+          label="Contrast"
         />
       </div>
     </section>
@@ -864,7 +858,7 @@ function ContrastControl({
   )
 }
 
-function FontSizeControl({
+function FontSizeInput({
   max,
   min,
   onChange,
@@ -872,20 +866,17 @@ function FontSizeControl({
 }: Readonly<{ max: number; min: number; onChange: (value: number) => void; value: number }>) {
   return (
     <div className="flex h-8 items-center gap-2">
-      <input
-        className="h-0.5 w-36 accent-primary max-sm:w-full"
-        max={max}
-        min={min}
-        onChange={(event) => onChange(Number(event.currentTarget.value))}
-        type="range"
-        value={value}
-      />
       <Input
         aria-label="Font size"
-        className="h-8 w-16 text-center text-sm tabular-nums"
+        className="h-8 w-[68px] rounded-lg text-center text-sm tabular-nums"
         max={max}
         min={min}
-        onChange={(event) => onChange(Number(event.currentTarget.value))}
+        onChange={(event) => {
+          const next = Number(event.currentTarget.value)
+          if (Number.isFinite(next)) {
+            onChange(Math.min(max, Math.max(min, next)))
+          }
+        }}
         type="number"
         value={value}
       />

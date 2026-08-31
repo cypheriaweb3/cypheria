@@ -64,8 +64,11 @@ appearanceTheme = "dark"
 appearanceLightCodeThemeId = "github"
 appearanceDarkCodeThemeId = "tokyo-night"
 appearanceDiffMarkerStyle = "symbols"
+reduced-motion-preference = "on"
 sansFontSize = 15
 codeFontSize = 13
+useFontSmoothing = false
+usePointerCursors = true
 preventSleepWhileRunning = true
 `)
 
@@ -76,7 +79,10 @@ preventSleepWhileRunning = true
       light: "github",
     })
     expect(settings.diffMarkerStyle).toBe("symbols")
+    expect(settings.reducedMotionPreference).toBe("on")
     expect(settings.sansFontSize).toBe(15)
+    expect(settings.useFontSmoothing).toBe(false)
+    expect(settings.usePointerCursors).toBe(true)
   })
 
   it("replaces only managed appearance sections", () => {
@@ -148,13 +154,16 @@ approval_policy = "on-request"
 `,
       {
         appearanceTheme: "system",
-        codeFontSize: 12,
+        codeFontSize: 13,
         codeThemes: {
           dark: "codex",
-          light: "catppuccin",
+          light: "codex",
         },
         diffMarkerStyle: "color",
+        reducedMotionPreference: "system",
         sansFontSize: 14,
+        useFontSmoothing: true,
+        usePointerCursors: false,
         themes: {
           dark: {
             accent: "#0169cc",
@@ -189,11 +198,14 @@ approval_policy = "on-request"
     )
 
     expect(merged).toContain('appearanceTheme = "system"')
-    expect(merged).toContain('appearanceLightCodeThemeId = "catppuccin"')
+    expect(merged).toContain('appearanceLightCodeThemeId = "codex"')
     expect(merged).toContain('appearanceDarkCodeThemeId = "codex"')
     expect(merged).toContain('appearanceDiffMarkerStyle = "color"')
+    expect(merged).toContain('reduced-motion-preference = "system"')
     expect(merged).toContain("sansFontSize = 14")
-    expect(merged).toContain("codeFontSize = 12")
+    expect(merged).toContain("codeFontSize = 13")
+    expect(merged).toContain("useFontSmoothing = true")
+    expect(merged).toContain("usePointerCursors = false")
     expect(merged).toContain("preventSleepWhileRunning = true")
     expect(merged).toContain("[profiles.default]")
     expect(merged).toContain('accentSource = "custom"')
@@ -214,7 +226,7 @@ approval_policy = "on-request"
       const toml = await readFile(configPath, "utf8")
       expect(toml).toContain('model = "gpt-5"')
       expect(toml).toContain('accent = "#abcdef"')
-      expect(toml).toContain('appearanceLightCodeThemeId = "catppuccin"')
+      expect(toml).toContain('appearanceLightCodeThemeId = "codex"')
 
       const reread = await readAppearanceSettings(codexHome)
       expect(reread.themes.light.accent).toBe("#abcdef")

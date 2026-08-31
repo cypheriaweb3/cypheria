@@ -4,6 +4,7 @@ import { dirname, join } from "node:path"
 import {
   AppearanceCodeThemeIdSchema,
   AppearanceDiffMarkerStyleSchema,
+  AppearanceReducedMotionPreferenceSchema,
   AppearanceThemeModeSchema,
   type AppearanceChromeTheme,
   type AppearanceSettings,
@@ -18,7 +19,10 @@ const managedDesktopAppearanceKeys = new Set([
   "appearanceLightCodeThemeId",
   "appearanceTheme",
   "codeFontSize",
+  "reduced-motion-preference",
   "sansFontSize",
+  "useFontSmoothing",
+  "usePointerCursors",
 ])
 
 const themeSectionNames = new Set([
@@ -73,14 +77,17 @@ export const defaultAppearanceThemes: AppearanceSettings["themes"] = {
 
 export const defaultAppearanceSettings = {
   appearanceTheme: "system",
-  codeFontSize: 12,
+  codeFontSize: 13,
   codeThemes: {
     dark: "codex",
-    light: "catppuccin",
+    light: "codex",
   },
   diffMarkerStyle: "color",
+  reducedMotionPreference: "system",
   sansFontSize: 14,
   themes: defaultAppearanceThemes,
+  useFontSmoothing: true,
+  usePointerCursors: false,
 } satisfies Omit<AppearanceSettings, "configPath">
 
 const sectionHeaderPattern = /^\s*\[([^\]]+)]\s*(?:#.*)?$/
@@ -171,6 +178,14 @@ const applyParsedValue = (
       return
     }
 
+    if (key === "reduced-motion-preference" && typeof value === "string") {
+      const parsed = AppearanceReducedMotionPreferenceSchema.safeParse(value)
+      if (parsed.success) {
+        settings.reducedMotionPreference = parsed.data
+      }
+      return
+    }
+
     if (key === "sansFontSize" && typeof value === "number") {
       settings.sansFontSize = Math.min(16, Math.max(11, value))
       return
@@ -178,6 +193,16 @@ const applyParsedValue = (
 
     if (key === "codeFontSize" && typeof value === "number") {
       settings.codeFontSize = Math.min(24, Math.max(8, value))
+      return
+    }
+
+    if (key === "useFontSmoothing" && typeof value === "boolean") {
+      settings.useFontSmoothing = value
+      return
+    }
+
+    if (key === "usePointerCursors" && typeof value === "boolean") {
+      settings.usePointerCursors = value
       return
     }
     return
@@ -240,8 +265,11 @@ export const parseAppearanceSettingsFromToml = (
     codeFontSize: defaultAppearanceSettings.codeFontSize,
     codeThemes: { ...defaultAppearanceSettings.codeThemes },
     diffMarkerStyle: defaultAppearanceSettings.diffMarkerStyle,
+    reducedMotionPreference: defaultAppearanceSettings.reducedMotionPreference,
     sansFontSize: defaultAppearanceSettings.sansFontSize,
     themes: cloneDefaults(),
+    useFontSmoothing: defaultAppearanceSettings.useFontSmoothing,
+    usePointerCursors: defaultAppearanceSettings.usePointerCursors,
   }
   let currentSection: string | undefined
 
@@ -323,7 +351,14 @@ const quoteTomlString = (value: string): string => JSON.stringify(value)
 const renderDesktopAppearanceKeys = (
   settings: Pick<
     AppearanceSettings,
-    "appearanceTheme" | "codeFontSize" | "codeThemes" | "diffMarkerStyle" | "sansFontSize"
+    | "appearanceTheme"
+    | "codeFontSize"
+    | "codeThemes"
+    | "diffMarkerStyle"
+    | "reducedMotionPreference"
+    | "sansFontSize"
+    | "useFontSmoothing"
+    | "usePointerCursors"
   >
 ): string =>
   [
@@ -331,15 +366,25 @@ const renderDesktopAppearanceKeys = (
     `appearanceLightCodeThemeId = ${quoteTomlString(settings.codeThemes.light)}`,
     `appearanceDarkCodeThemeId = ${quoteTomlString(settings.codeThemes.dark)}`,
     `appearanceDiffMarkerStyle = ${quoteTomlString(settings.diffMarkerStyle)}`,
+    `reduced-motion-preference = ${quoteTomlString(settings.reducedMotionPreference)}`,
     `sansFontSize = ${settings.sansFontSize}`,
     `codeFontSize = ${settings.codeFontSize}`,
+    `useFontSmoothing = ${settings.useFontSmoothing}`,
+    `usePointerCursors = ${settings.usePointerCursors}`,
   ].join("\n")
 
 const mergeDesktopAppearanceKeysIntoToml = (
   toml: string,
   settings: Pick<
     AppearanceSettings,
-    "appearanceTheme" | "codeFontSize" | "codeThemes" | "diffMarkerStyle" | "sansFontSize"
+    | "appearanceTheme"
+    | "codeFontSize"
+    | "codeThemes"
+    | "diffMarkerStyle"
+    | "reducedMotionPreference"
+    | "sansFontSize"
+    | "useFontSmoothing"
+    | "usePointerCursors"
   >
 ): string => {
   const stripped = removeManagedDesktopAppearanceKeys(toml)
@@ -395,8 +440,11 @@ export const mergeAppearanceSettingsIntoToml = (
     | "codeFontSize"
     | "codeThemes"
     | "diffMarkerStyle"
+    | "reducedMotionPreference"
     | "sansFontSize"
     | "themes"
+    | "useFontSmoothing"
+    | "usePointerCursors"
   >
 ): string =>
   mergeAppearanceThemesIntoToml(mergeDesktopAppearanceKeysIntoToml(toml, settings), settings.themes)
@@ -421,8 +469,11 @@ export const readAppearanceSettings = async (codexHome: string): Promise<Appeara
       codeThemes: { ...defaultAppearanceSettings.codeThemes },
       configPath,
       diffMarkerStyle: defaultAppearanceSettings.diffMarkerStyle,
+      reducedMotionPreference: defaultAppearanceSettings.reducedMotionPreference,
       sansFontSize: defaultAppearanceSettings.sansFontSize,
       themes: cloneDefaults(),
+      useFontSmoothing: defaultAppearanceSettings.useFontSmoothing,
+      usePointerCursors: defaultAppearanceSettings.usePointerCursors,
     }
   }
 }
@@ -435,8 +486,11 @@ export const writeAppearanceSettings = async (
     | "codeFontSize"
     | "codeThemes"
     | "diffMarkerStyle"
+    | "reducedMotionPreference"
     | "sansFontSize"
     | "themes"
+    | "useFontSmoothing"
+    | "usePointerCursors"
   >
 ): Promise<AppearanceSettings> => {
   const configPath = getCodexConfigPath(codexHome)
@@ -459,7 +513,10 @@ export const writeAppearanceSettings = async (
     codeThemes: settings.codeThemes,
     configPath,
     diffMarkerStyle: settings.diffMarkerStyle,
+    reducedMotionPreference: settings.reducedMotionPreference,
     sansFontSize: settings.sansFontSize,
     themes: settings.themes,
+    useFontSmoothing: settings.useFontSmoothing,
+    usePointerCursors: settings.usePointerCursors,
   }
 }

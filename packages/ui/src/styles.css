@@ -135,4 +135,33 @@
   samp {
     font-size: var(--cypheria-code-font-size);
   }
+  :root[data-cypheria-font-smoothing="true"] body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  :root[data-cypheria-font-smoothing="false"] body {
+    -webkit-font-smoothing: auto;
+    -moz-osx-font-smoothing: auto;
+  }
+  :root[data-cypheria-pointer-cursors="true"] button,
+  :root[data-cypheria-pointer-cursors="true"] [role="button"],
+  :root[data-cypheria-pointer-cursors="true"] select,
+  :root[data-cypheria-pointer-cursors="true"] summary,
+  :root[data-cypheria-pointer-cursors="true"] input[type="button"],
+  :root[data-cypheria-pointer-cursors="true"] input[type="checkbox"],
+  :root[data-cypheria-pointer-cursors="true"] input[type="color"],
+  :root[data-cypheria-pointer-cursors="true"] input[type="range"],
+  :root[data-cypheria-pointer-cursors="true"] input[type="radio"],
+  :root[data-cypheria-pointer-cursors="true"] input[type="submit"],
+  :root[data-cypheria-pointer-cursors="true"] a[href] {
+    cursor: pointer;
+  }
+  :root[data-cypheria-reduced-motion="on"] *,
+  :root[data-cypheria-reduced-motion="on"] *::before,
+  :root[data-cypheria-reduced-motion="on"] *::after {
+    animation-duration: 0.001ms;
+    animation-iteration-count: 1;
+    scroll-behavior: auto;
+    transition-duration: 0.001ms;
+  }
 }

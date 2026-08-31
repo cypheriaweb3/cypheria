@@ -185,7 +185,8 @@ the root shadcn tokens at runtime instead of rewriting component classes.
 Desktop appearance settings are stored in the Cypheria-managed Codex config at
 `$CYPHERIA_HOME/codex/config.toml`. The `[desktop]` section owns
 `appearanceTheme`, `appearanceLightCodeThemeId`, `appearanceDarkCodeThemeId`,
-`appearanceDiffMarkerStyle`, `sansFontSize`, and `codeFontSize`,
+`appearanceDiffMarkerStyle`, `reduced-motion-preference`, `sansFontSize`,
+`codeFontSize`, `useFontSmoothing`, and `usePointerCursors`,
 while `desktop.appearanceLightChromeTheme` and `desktop.appearanceDarkChromeTheme`
 store editable chrome colors, `accentSource` (`chatgpt` or `custom`), fonts,
 and semantic colors. Electron main owns

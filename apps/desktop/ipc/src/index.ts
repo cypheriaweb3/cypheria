@@ -85,6 +85,11 @@ export type AppearanceThemeMode = z.infer<typeof AppearanceThemeModeSchema>
 export const AppearanceDiffMarkerStyleSchema = z.enum(["color", "symbols"])
 export type AppearanceDiffMarkerStyle = z.infer<typeof AppearanceDiffMarkerStyleSchema>
 
+export const AppearanceReducedMotionPreferenceSchema = z.enum(["system", "on", "off"])
+export type AppearanceReducedMotionPreference = z.infer<
+  typeof AppearanceReducedMotionPreferenceSchema
+>
+
 export const AppearanceCodeThemeIdSchema = z.enum([
   "absolutely",
   "ayu",
@@ -154,6 +159,7 @@ export const AppearanceSettingsSchema = z
       .strict(),
     configPath: z.string().min(1),
     diffMarkerStyle: AppearanceDiffMarkerStyleSchema,
+    reducedMotionPreference: AppearanceReducedMotionPreferenceSchema,
     sansFontSize: z.number().min(11).max(16),
     themes: z
       .object({
@@ -161,12 +167,22 @@ export const AppearanceSettingsSchema = z
         light: AppearanceChromeThemeSchema,
       })
       .strict(),
+    useFontSmoothing: z.boolean(),
+    usePointerCursors: z.boolean(),
   })
   .strict()
 export type AppearanceSettings = z.infer<typeof AppearanceSettingsSchema>
 export type AppearanceSettingsWrite = Pick<
   AppearanceSettings,
-  "appearanceTheme" | "codeFontSize" | "codeThemes" | "diffMarkerStyle" | "sansFontSize" | "themes"
+  | "appearanceTheme"
+  | "codeFontSize"
+  | "codeThemes"
+  | "diffMarkerStyle"
+  | "reducedMotionPreference"
+  | "sansFontSize"
+  | "themes"
+  | "useFontSmoothing"
+  | "usePointerCursors"
 >
 
 export const IpcRequestEnvelopeSchema = z
@@ -340,8 +356,11 @@ export const settingsAppearanceWriteContract = {
     codeFontSize: true,
     codeThemes: true,
     diffMarkerStyle: true,
+    reducedMotionPreference: true,
     sansFontSize: true,
     themes: true,
+    useFontSmoothing: true,
+    usePointerCursors: true,
   }),
   response: AppearanceSettingsSchema,
   version: IPC_PROTOCOL_VERSION,
