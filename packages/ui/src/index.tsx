@@ -56,6 +56,7 @@ export {
   useCypheriaTheme,
 } from "./theme-provider.js"
 export {
+  applyCodexAppearancePreferencesToElement,
   applyCypheriaThemeToElement,
   createCypheriaThemeState,
   cypheriaThemeVariableNames,
@@ -63,6 +64,7 @@ export {
   defaultCypheriaThemeState,
   mapCodexAppearanceToCypheriaThemeState,
   mapCodexChromeThemeToCypheriaThemeStyles,
+  type CodexAppearancePreferences,
   type CodexAppearanceThemeSettings,
   type CodexChromeTheme,
   type CodexFontFace,

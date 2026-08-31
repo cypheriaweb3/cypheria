@@ -89,6 +89,14 @@ export interface CodexAppearanceThemeSettings {
   readonly light: CodexChromeTheme
 }
 
+export interface CodexAppearancePreferences {
+  readonly codeFontSize: number
+  readonly reducedMotionPreference: "off" | "on" | "system"
+  readonly sansFontSize: number
+  readonly useFontSmoothing: boolean
+  readonly usePointerCursors: boolean
+}
+
 export const defaultCodexAppearanceThemeSettings: CodexAppearanceThemeSettings = {
   light: {
     accent: "#0169cc",
@@ -345,6 +353,29 @@ export function applyCypheriaThemeToElement(
   for (const variableName of cypheriaThemeVariableNames) {
     rootElement.style.setProperty(`--${variableName}`, activeStyles[variableName])
   }
+}
+
+export function applyCodexAppearancePreferencesToElement(
+  preferences: CodexAppearancePreferences,
+  rootElement: HTMLElement
+) {
+  rootElement.style.setProperty(
+    "--cypheria-sans-font-size",
+    `${clamp(preferences.sansFontSize, 11, 16)}px`
+  )
+  rootElement.style.setProperty(
+    "--cypheria-code-font-size",
+    `${clamp(preferences.codeFontSize, 8, 24)}px`
+  )
+  rootElement.dataset.cypheriaFontSmoothing = String(preferences.useFontSmoothing)
+  rootElement.dataset.cypheriaPointerCursors = String(preferences.usePointerCursors)
+
+  if (preferences.reducedMotionPreference === "system") {
+    delete rootElement.dataset.cypheriaReducedMotion
+    return
+  }
+
+  rootElement.dataset.cypheriaReducedMotion = preferences.reducedMotionPreference
 }
 
 export function createCypheriaThemeState(state: CypheriaThemeStateInput = {}): CypheriaThemeState {

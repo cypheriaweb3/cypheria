@@ -1,6 +1,12 @@
 /// <reference types="vite/client" />
 
-import { CypheriaThemeProvider, cn, useCypheriaTheme } from "@cypheria/ui"
+import {
+  CypheriaThemeProvider,
+  applyCodexAppearancePreferencesToElement,
+  cn,
+  mapCodexAppearanceToCypheriaThemeState,
+  useCypheriaTheme,
+} from "@cypheria/ui"
 import { Button } from "@cypheria/ui/components/button"
 import {
   Sidebar,
@@ -18,7 +24,7 @@ import {
   SidebarTrigger,
 } from "@cypheria/ui/components/sidebar"
 import { TooltipProvider } from "@cypheria/ui/components/tooltip"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query"
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router"
 import { Provider as JotaiProvider } from "jotai"
 import {
@@ -34,7 +40,8 @@ import {
   SquarePen,
   Workflow,
 } from "lucide-react"
-import { type CSSProperties, type ReactNode, useState } from "react"
+import { type CSSProperties, type ReactNode, useEffect, useState } from "react"
+import type { AppearanceThemeMode } from "../../../ipc/src/index.js"
 
 const navigationItems = [
   {
@@ -156,7 +163,49 @@ function QueryProvider({ children }: Readonly<{ children: ReactNode }>) {
       })
   )
 
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppearanceSettingsSynchronizer />
+      {children}
+    </QueryClientProvider>
+  )
+}
+
+function AppearanceSettingsSynchronizer() {
+  const { setThemeState } = useCypheriaTheme()
+  const appearanceQuery = useQuery({
+    enabled: typeof window !== "undefined" && Boolean(window.cypheria),
+    queryFn: () => window.cypheria?.settings.getAppearance() ?? null,
+    queryKey: ["settings", "appearance"],
+    staleTime: Number.POSITIVE_INFINITY,
+  })
+
+  useEffect(() => {
+    const settings = appearanceQuery.data
+    if (!settings) {
+      return
+    }
+
+    const applyThemeMode = (mode: "dark" | "light") => {
+      setThemeState(mapCodexAppearanceToCypheriaThemeState(settings.themes, mode))
+    }
+
+    applyThemeMode(resolveAppearanceMode(settings.appearanceTheme))
+    applyCodexAppearancePreferencesToElement(settings, document.documentElement)
+
+    if (settings.appearanceTheme !== "system" || typeof window === "undefined") {
+      return
+    }
+
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
+    const handleSystemThemeChange = () => {
+      applyThemeMode(mediaQuery.matches ? "dark" : "light")
+    }
+    mediaQuery.addEventListener("change", handleSystemThemeChange)
+    return () => mediaQuery.removeEventListener("change", handleSystemThemeChange)
+  }, [appearanceQuery.data, setThemeState])
+
+  return null
 }
 
 function AppShell({ children }: Readonly<{ children: ReactNode }>) {
@@ -349,6 +398,18 @@ function getDesktopPlatform(): "darwin" | "win32" | "unknown" {
 
   const platform = window.cypheria?.app.platform
   return platform === "darwin" || platform === "win32" ? platform : "unknown"
+}
+
+function resolveAppearanceMode(mode: AppearanceThemeMode): "dark" | "light" {
+  if (mode !== "system") {
+    return mode
+  }
+
+  if (typeof window === "undefined") {
+    return "light"
+  }
+
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
 }
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {

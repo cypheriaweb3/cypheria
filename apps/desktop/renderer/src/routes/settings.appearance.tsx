@@ -3,6 +3,7 @@ import {
   type CodexChromeTheme,
   type CodexCodeThemeId,
   type CodexFontFace,
+  applyCodexAppearancePreferencesToElement,
   cn,
   defaultCodexAppearanceThemeSettings,
   getCodexCodeThemeOptionsForMode,
@@ -84,8 +85,6 @@ const uiFontFaceClass =
   "[font-stretch:var(--font-sans-stretch)] [font-style:var(--font-sans-style)]"
 const uiFontMediumClass = cn(uiFontFaceClass, "[font-weight:max(500,var(--font-sans-weight))]")
 const uiFontSemiboldClass = cn(uiFontFaceClass, "[font-weight:max(600,var(--font-sans-weight))]")
-const codeFontFaceClass =
-  "[font-stretch:var(--font-mono-stretch)] [font-style:var(--font-mono-style)] [font-weight:var(--font-mono-weight)]"
 
 declare global {
   interface Window {
@@ -148,18 +147,16 @@ function AppearanceRoute() {
   }, [draftThemes, previewMode, setThemeState])
 
   useEffect(() => {
-    const root = document.documentElement
-    root.style.setProperty("--cypheria-sans-font-size", `${sansFontSize}px`)
-    root.style.setProperty("--cypheria-code-font-size", `${codeFontSize}px`)
-    root.dataset.cypheriaFontSmoothing = String(useFontSmoothing)
-    root.dataset.cypheriaPointerCursors = String(usePointerCursors)
-
-    if (reducedMotionPreference === "system") {
-      delete root.dataset.cypheriaReducedMotion
-      return
-    }
-
-    root.dataset.cypheriaReducedMotion = reducedMotionPreference
+    applyCodexAppearancePreferencesToElement(
+      {
+        codeFontSize,
+        reducedMotionPreference,
+        sansFontSize,
+        useFontSmoothing,
+        usePointerCursors,
+      },
+      document.documentElement
+    )
   }, [codeFontSize, reducedMotionPreference, sansFontSize, useFontSmoothing, usePointerCursors])
 
   const writeMutation = useMutation({
@@ -844,12 +841,7 @@ function DiffPreview({ markerStyle }: Readonly<{ markerStyle: DiffMarkerStyle }>
   const added = markerStyle === "symbols" ? "+" : ""
 
   return (
-    <div
-      className={cn(
-        "grid overflow-hidden rounded-xl border border-border bg-card font-mono text-[var(--cypheria-code-font-size)] leading-[calc(var(--cypheria-code-font-size)*2)] shadow-xs",
-        codeFontFaceClass
-      )}
-    >
+    <div className="grid overflow-hidden rounded-xl border border-border bg-card font-mono text-[var(--cypheria-code-font-size)] leading-[calc(var(--cypheria-code-font-size)*2)] shadow-xs">
       <div className="grid grid-cols-2">
         <div>
           <CodeLine line="1">

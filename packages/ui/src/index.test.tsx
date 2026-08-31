@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest"
 import {
   Badge,
   Button,
+  applyCodexAppearancePreferencesToElement,
   applyCypheriaThemeToElement,
   cn,
   createCypheriaThemeState,
@@ -53,7 +54,7 @@ describe("Cypheria UI primitives", () => {
           variables.set(propertyName, value)
         },
       },
-    } as HTMLElement
+    } as unknown as HTMLElement
     const themeState = createCypheriaThemeState({
       currentMode: "dark",
       styles: {
@@ -69,6 +70,38 @@ describe("Cypheria UI primitives", () => {
     expect(root.classList.contains("dark")).toBe(true)
     expect(root.style.getPropertyValue("--background")).toBe("oklch(0.2 0 0)")
     expect(root.style.getPropertyValue("--primary")).toBe("oklch(0.8 0.1 240)")
+  })
+
+  it("applies appearance preference variables to an element", () => {
+    const variables = new Map<string, string>()
+    const root = {
+      dataset: {
+        cypheriaReducedMotion: "on",
+      },
+      style: {
+        getPropertyValue: (propertyName: string) => variables.get(propertyName) ?? "",
+        setProperty: (propertyName: string, value: string) => {
+          variables.set(propertyName, value)
+        },
+      },
+    } as unknown as HTMLElement
+
+    applyCodexAppearancePreferencesToElement(
+      {
+        codeFontSize: 99,
+        reducedMotionPreference: "system",
+        sansFontSize: 4,
+        useFontSmoothing: false,
+        usePointerCursors: true,
+      },
+      root
+    )
+
+    expect(root.style.getPropertyValue("--cypheria-sans-font-size")).toBe("11px")
+    expect(root.style.getPropertyValue("--cypheria-code-font-size")).toBe("24px")
+    expect(root.dataset.cypheriaFontSmoothing).toBe("false")
+    expect(root.dataset.cypheriaPointerCursors).toBe("true")
+    expect(root.dataset.cypheriaReducedMotion).toBeUndefined()
   })
 
   it("derives CSS font face variables from structured Codex font faces", () => {
