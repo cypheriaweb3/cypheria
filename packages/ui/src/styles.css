@@ -127,12 +127,14 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
     font-size: var(--cypheria-sans-font-size);
   }
   code,
   kbd,
   pre,
   samp {
+    font-family: var(--font-mono);
     font-size: var(--cypheria-code-font-size);
   }
   :root[data-cypheria-font-smoothing="true"] body {

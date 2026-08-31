@@ -20,7 +20,15 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Check, CheckCircle2, ChevronDown, Monitor, Moon, Sun, X } from "lucide-react"
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react"
+import {
+  type ReactNode,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 
 export const Route = createFileRoute("/settings/appearance")({
   component: AppearanceRoute,
@@ -706,6 +714,29 @@ function SettingsGroup({ children }: Readonly<{ children: ReactNode }>) {
   )
 }
 
+function useOutsidePointerDismiss(
+  ref: RefObject<HTMLElement | null>,
+  open: boolean,
+  onDismiss: () => void
+) {
+  useEffect(() => {
+    if (!open) {
+      return
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target
+      if (target instanceof Node && ref.current?.contains(target)) {
+        return
+      }
+      onDismiss()
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown, true)
+    return () => document.removeEventListener("pointerdown", handlePointerDown, true)
+  }, [onDismiss, open, ref])
+}
+
 function ThemeModeCards({
   onChange,
   value,
@@ -991,12 +1022,14 @@ function CodeThemePicker({
   value: CodexCodeThemeId
 }>) {
   const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
   const options = getCodexCodeThemeOptionsForMode(mode)
   const selectedValue = options.some((option) => option.id === value) ? value : options[0]?.id
   const selectedOption = options.find((option) => option.id === selectedValue)
+  useOutsidePointerDismiss(containerRef, open, () => setOpen(false))
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <button
         aria-expanded={open}
         aria-label={`${mode} code theme`}
@@ -1168,8 +1201,10 @@ function ColorTextControl({
 }>) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [draft, setDraft] = useState(value.toUpperCase())
+  const containerRef = useRef<HTMLDivElement>(null)
   const normalizedValue = isHexColor(value) ? value : "#000000"
   const foreground = getReadableTextColor(normalizedValue)
+  useOutsidePointerDismiss(containerRef, pickerOpen, () => setPickerOpen(false))
 
   useEffect(() => {
     setDraft(value.toUpperCase())
@@ -1185,7 +1220,7 @@ function ColorTextControl({
   }
 
   return (
-    <div className="relative">
+    <div className="relative" ref={containerRef}>
       <div
         className={cn(
           "flex items-center gap-2 rounded-lg px-2 shadow-xs max-sm:w-full",
@@ -1370,6 +1405,7 @@ function FontFamilyControl({
 }: Readonly<{ onChange: (value: string) => void; systemDefault: string; value: string }>) {
   const [fontOptions, loadFontOptions] = useLocalFontOptions()
   const [familyOpen, setFamilyOpen] = useState(false)
+  const familyContainerRef = useRef<HTMLDivElement>(null)
   const isSystemDefault = value === systemDefault
   const selectedOption = isSystemDefault ? undefined : findSelectedFontOption(fontOptions, value)
   const selectedFamily = isSystemDefault
@@ -1377,10 +1413,11 @@ function FontFamilyControl({
     : selectedOption?.family || formatFontFamilyLabel(value)
   const selectedStyle = selectedOption ? getSelectedFontStyle(selectedOption, value) : "Regular"
   const styles = selectedOption?.styles ?? ["Regular"]
+  useOutsidePointerDismiss(familyContainerRef, familyOpen, () => setFamilyOpen(false))
 
   return (
     <div className="flex items-center justify-end gap-2 max-sm:justify-start">
-      <div className="relative">
+      <div className="relative" ref={familyContainerRef}>
         <button
           aria-expanded={familyOpen}
           aria-label="Font family"
