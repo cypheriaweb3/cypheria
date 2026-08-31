@@ -3,7 +3,6 @@ import {
   type CodexChromeTheme,
   type CodexCodeThemeId,
   cn,
-  codexCodeThemePresets,
   defaultCodexAppearanceThemeSettings,
   getCodexCodeThemeOptionsForMode,
   getCodexCodeThemePresetVariant,
@@ -14,7 +13,7 @@ import { Button } from "@cypheria/ui/components/button"
 import { Input } from "@cypheria/ui/components/input"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Check, ChevronDown, Copy, Import, Monitor, Moon, RotateCcw, Save, Sun } from "lucide-react"
+import { Check, Copy, Import, Monitor, Moon, RotateCcw, Save, Sun } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 
 export const Route = createFileRoute("/settings/appearance")({
@@ -54,7 +53,6 @@ function AppearanceRoute() {
     CodexCodeThemeId
   > | null>(null)
   const [draftThemes, setDraftThemes] = useState<CodexAppearanceThemeSettings | null>(null)
-  const [expandedTheme, setExpandedTheme] = useState<ThemeMode | null>("light")
   const [previewMode, setPreviewMode] = useState<ThemeMode>(themeState.currentMode)
   const [sansFontSize, setSansFontSize] = useState(14)
 
@@ -280,50 +278,40 @@ function AppearanceRoute() {
         </div>
       </header>
 
-      <SettingsGroup>
-        <SettingsRow
-          control={
-            <SegmentedControl
-              items={appearanceModes.map(({ icon, label, value }) => ({ icon, label, value }))}
-              onChange={(value) => handleAppearanceModeChange(value as AppearanceMode)}
-              value={appearanceMode}
-            />
-          }
-          label="Theme"
-        />
-        {draftThemes && draftCodeThemes ? (
-          <>
-            <ChromeThemeRow
-              codeTheme={draftCodeThemes.light}
-              expanded={expandedTheme === "light"}
-              mode="light"
-              onCodeThemeChange={(value) => updateCodeTheme("light", value)}
-              onCopy={() => copyTheme("light")}
-              onExpand={() => setExpandedTheme((current) => (current === "light" ? null : "light"))}
-              onImport={() => importTheme("light")}
-              onPreview={() => previewTheme("light")}
-              onThemeChange={(patch) => updateTheme("light", patch)}
-              previewing={previewMode === "light"}
-              theme={draftThemes.light}
-              title="Light theme"
-            />
-            <ChromeThemeRow
-              codeTheme={draftCodeThemes.dark}
-              expanded={expandedTheme === "dark"}
-              mode="dark"
-              onCodeThemeChange={(value) => updateCodeTheme("dark", value)}
-              onCopy={() => copyTheme("dark")}
-              onExpand={() => setExpandedTheme((current) => (current === "dark" ? null : "dark"))}
-              onImport={() => importTheme("dark")}
-              onPreview={() => previewTheme("dark")}
-              onThemeChange={(patch) => updateTheme("dark", patch)}
-              previewing={previewMode === "dark"}
-              theme={draftThemes.dark}
-              title="Dark theme"
-            />
-          </>
-        ) : null}
-      </SettingsGroup>
+      <section className="grid gap-4">
+        <h2 className="text-sm font-semibold text-foreground">Theme</h2>
+        <ThemeModeCards value={appearanceMode} onChange={handleAppearanceModeChange} />
+        <DiffPreview markerStyle={diffMarkerStyle} />
+      </section>
+
+      {draftThemes && draftCodeThemes ? (
+        <section className="grid gap-5">
+          <ChromeThemeCard
+            codeTheme={draftCodeThemes.light}
+            mode="light"
+            onCodeThemeChange={(value) => updateCodeTheme("light", value)}
+            onCopy={() => copyTheme("light")}
+            onImport={() => importTheme("light")}
+            onPreview={() => previewTheme("light")}
+            onThemeChange={(patch) => updateTheme("light", patch)}
+            previewing={previewMode === "light"}
+            theme={draftThemes.light}
+            title="Light theme"
+          />
+          <ChromeThemeCard
+            codeTheme={draftCodeThemes.dark}
+            mode="dark"
+            onCodeThemeChange={(value) => updateCodeTheme("dark", value)}
+            onCopy={() => copyTheme("dark")}
+            onImport={() => importTheme("dark")}
+            onPreview={() => previewTheme("dark")}
+            onThemeChange={(patch) => updateTheme("dark", patch)}
+            previewing={previewMode === "dark"}
+            theme={draftThemes.dark}
+            title="Dark theme"
+          />
+        </section>
+      ) : null}
 
       <SettingsGroup>
         <SettingsRow
@@ -361,13 +349,11 @@ function AppearanceRoute() {
   )
 }
 
-function ChromeThemeRow({
+function ChromeThemeCard({
   codeTheme,
-  expanded,
   mode,
   onCodeThemeChange,
   onCopy,
-  onExpand,
   onImport,
   onPreview,
   onThemeChange,
@@ -376,11 +362,9 @@ function ChromeThemeRow({
   title,
 }: Readonly<{
   codeTheme: CodexCodeThemeId
-  expanded: boolean
   mode: ThemeMode
   onCodeThemeChange: (value: CodexCodeThemeId) => void
   onCopy: () => void
-  onExpand: () => void
   onImport: () => void
   onPreview: () => void
   onThemeChange: (patch: Partial<CodexChromeTheme>) => void
@@ -391,27 +375,10 @@ function ChromeThemeRow({
   const accentSource = theme.accentSource ?? "custom"
 
   return (
-    <div className="border-t border-border first:border-t-0">
-      <div className="flex min-h-[52px] items-center justify-between gap-4 py-2.5">
-        <button
-          className="flex min-w-0 flex-1 items-center gap-3 text-left"
-          onClick={onExpand}
-          type="button"
-        >
-          <ThemeSwatch theme={theme} />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-medium">{title}</span>
-            <span className="block truncate text-xs text-muted-foreground">
-              {labelForCodeTheme(codeTheme)}
-            </span>
-          </span>
-          <ChevronDown
-            aria-hidden="true"
-            className={cn("text-muted-foreground transition-transform", expanded && "rotate-180")}
-            size={16}
-          />
-        </button>
-        <div className="flex shrink-0 items-center gap-1.5">
+    <section className="overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xs">
+      <div className="flex min-h-[58px] items-center justify-between gap-3 border-b border-border px-4 py-2.5 max-sm:flex-col max-sm:items-stretch">
+        <h2 className="text-sm font-semibold">{title}</h2>
+        <div className="flex flex-wrap items-center justify-end gap-2 max-sm:justify-start">
           <Button
             aria-label={`Import ${mode} theme`}
             onClick={onImport}
@@ -432,18 +399,131 @@ function ChromeThemeRow({
             <Copy aria-hidden="true" size={14} strokeWidth={1.9} />
             Copy theme
           </Button>
+          <span
+            className="inline-flex size-8 items-center justify-center rounded-lg border border-border text-xs font-semibold"
+            style={{
+              backgroundColor: mode === "dark" ? theme.surface : "#ffffff",
+              color: theme.accent,
+            }}
+          >
+            Aa
+          </span>
+          <CodeThemePicker mode={mode} onChange={onCodeThemeChange} value={codeTheme} />
         </div>
       </div>
 
-      {expanded ? (
-        <div className="grid gap-3 pb-4 pl-9 max-sm:pl-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <CodeThemePicker
+      <div className="grid">
+        <CompactSetting
+          control={
+            <AccentControl
+              accent={theme.accent}
+              accentSource={accentSource}
               mode={mode}
-              onChange={onCodeThemeChange}
-              theme={theme}
-              value={codeTheme}
+              onAccentChange={(accent) => onThemeChange({ accent, accentSource: "custom" })}
+              onSourceChange={(source) => onThemeChange({ accentSource: source })}
             />
+          }
+          label="Accent"
+        />
+        <CompactSetting
+          control={
+            <ColorTextControl
+              ariaLabel={`${mode} background`}
+              onChange={(surface) => onThemeChange({ surface })}
+              value={theme.surface}
+            />
+          }
+          label="Background"
+        />
+        <CompactSetting
+          control={
+            <ColorTextControl
+              ariaLabel={`${mode} foreground`}
+              onChange={(ink) => onThemeChange({ ink })}
+              value={theme.ink}
+            />
+          }
+          label="Foreground"
+        />
+        <CompactSetting
+          control={
+            <ToggleControl
+              checked={!theme.opaqueWindows}
+              onChange={(checked) => onThemeChange({ opaqueWindows: !checked })}
+            />
+          }
+          label="Translucent sidebar"
+        />
+        <CompactSetting
+          control={
+            <ContrastControl onChange={(contrast) => onThemeChange({ contrast })} theme={theme} />
+          }
+          label="Contrast"
+        />
+        <CompactSetting
+          control={
+            <FontFamilyControl
+              systemDefault={defaultCodexAppearanceThemeSettings[mode].fonts.ui}
+              onChange={(ui) => onThemeChange({ fonts: { ...theme.fonts, ui } })}
+              value={theme.fonts.ui}
+            />
+          }
+          label="UI font"
+        />
+        <CompactSetting
+          control={
+            <FontFamilyControl
+              systemDefault={defaultCodexAppearanceThemeSettings[mode].fonts.code}
+              onChange={(code) => onThemeChange({ fonts: { ...theme.fonts, code } })}
+              value={theme.fonts.code}
+            />
+          }
+          label="Code font"
+        />
+        <CompactSetting
+          control={
+            <ColorTextControl
+              ariaLabel={`${mode} diff added`}
+              onChange={(diffAdded) =>
+                onThemeChange({
+                  semanticColors: { ...theme.semanticColors, diffAdded },
+                })
+              }
+              value={theme.semanticColors.diffAdded}
+            />
+          }
+          label="Diff added"
+        />
+        <CompactSetting
+          control={
+            <ColorTextControl
+              ariaLabel={`${mode} diff removed`}
+              onChange={(diffRemoved) =>
+                onThemeChange({
+                  semanticColors: { ...theme.semanticColors, diffRemoved },
+                })
+              }
+              value={theme.semanticColors.diffRemoved}
+            />
+          }
+          label="Diff removed"
+        />
+        <CompactSetting
+          control={
+            <ColorTextControl
+              ariaLabel={`${mode} skill`}
+              onChange={(skill) =>
+                onThemeChange({
+                  semanticColors: { ...theme.semanticColors, skill },
+                })
+              }
+              value={theme.semanticColors.skill}
+            />
+          }
+          label="Skill"
+        />
+        <CompactSetting
+          control={
             <Button
               onClick={onPreview}
               size="sm"
@@ -452,123 +532,11 @@ function ChromeThemeRow({
             >
               {previewing ? "Previewing" : "Preview"}
             </Button>
-          </div>
-
-          <div className="grid gap-2 rounded-lg bg-muted/45 p-2.5">
-            <CompactSetting
-              control={
-                <AccentControl
-                  accent={theme.accent}
-                  accentSource={accentSource}
-                  mode={mode}
-                  onAccentChange={(accent) => onThemeChange({ accent, accentSource: "custom" })}
-                  onSourceChange={(source) => onThemeChange({ accentSource: source })}
-                />
-              }
-              label="Accent"
-            />
-            <CompactSetting
-              control={
-                <ColorTextControl
-                  ariaLabel={`${mode} background`}
-                  onChange={(surface) => onThemeChange({ surface })}
-                  value={theme.surface}
-                />
-              }
-              label="Background"
-            />
-            <CompactSetting
-              control={
-                <ColorTextControl
-                  ariaLabel={`${mode} foreground`}
-                  onChange={(ink) => onThemeChange({ ink })}
-                  value={theme.ink}
-                />
-              }
-              label="Foreground"
-            />
-            <CompactSetting
-              control={
-                <ToggleControl
-                  checked={!theme.opaqueWindows}
-                  onChange={(checked) => onThemeChange({ opaqueWindows: !checked })}
-                />
-              }
-              label="Translucent sidebar"
-            />
-            <CompactSetting
-              control={
-                <ContrastControl
-                  onChange={(contrast) => onThemeChange({ contrast })}
-                  theme={theme}
-                />
-              }
-              label="Contrast"
-            />
-            <CompactSetting
-              control={
-                <FontFamilyControl
-                  onChange={(ui) => onThemeChange({ fonts: { ...theme.fonts, ui } })}
-                  value={theme.fonts.ui}
-                />
-              }
-              label="UI font"
-            />
-            <CompactSetting
-              control={
-                <FontFamilyControl
-                  onChange={(code) => onThemeChange({ fonts: { ...theme.fonts, code } })}
-                  value={theme.fonts.code}
-                />
-              }
-              label="Code font"
-            />
-            <CompactSetting
-              control={
-                <ColorTextControl
-                  ariaLabel={`${mode} diff added`}
-                  onChange={(diffAdded) =>
-                    onThemeChange({
-                      semanticColors: { ...theme.semanticColors, diffAdded },
-                    })
-                  }
-                  value={theme.semanticColors.diffAdded}
-                />
-              }
-              label="Diff added"
-            />
-            <CompactSetting
-              control={
-                <ColorTextControl
-                  ariaLabel={`${mode} diff removed`}
-                  onChange={(diffRemoved) =>
-                    onThemeChange({
-                      semanticColors: { ...theme.semanticColors, diffRemoved },
-                    })
-                  }
-                  value={theme.semanticColors.diffRemoved}
-                />
-              }
-              label="Diff removed"
-            />
-            <CompactSetting
-              control={
-                <ColorTextControl
-                  ariaLabel={`${mode} skill`}
-                  onChange={(skill) =>
-                    onThemeChange({
-                      semanticColors: { ...theme.semanticColors, skill },
-                    })
-                  }
-                  value={theme.semanticColors.skill}
-                />
-              }
-              label="Skill"
-            />
-          </div>
-        </div>
-      ) : null}
-    </div>
+          }
+          label="Preview"
+        />
+      </div>
+    </section>
   )
 }
 
@@ -577,6 +545,130 @@ function SettingsGroup({ children }: Readonly<{ children: ReactNode }>) {
     <section className="rounded-xl border border-border bg-card px-4 text-card-foreground shadow-xs">
       {children}
     </section>
+  )
+}
+
+function ThemeModeCards({
+  onChange,
+  value,
+}: Readonly<{ onChange: (mode: AppearanceMode) => void; value: AppearanceMode }>) {
+  return (
+    <div className="grid grid-cols-3 gap-3 max-sm:grid-cols-1">
+      {appearanceModes.map(({ label, value: mode }) => (
+        <button
+          className="grid gap-2 text-center text-sm text-muted-foreground"
+          key={mode}
+          onClick={() => onChange(mode)}
+          type="button"
+        >
+          <span
+            className={cn(
+              "relative h-[112px] overflow-hidden rounded-xl border border-border bg-muted transition",
+              value === mode && "border-foreground shadow-[0_0_0_1px_var(--foreground)]"
+            )}
+          >
+            <ThemeModePreview mode={mode} />
+          </span>
+          <span className={cn(value === mode && "font-medium text-foreground")}>{label}</span>
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function ThemeModePreview({ mode }: Readonly<{ mode: AppearanceMode }>) {
+  if (mode === "system") {
+    return (
+      <span className="absolute inset-0 grid grid-cols-2">
+        <ThemeModePreview mode="light" />
+        <ThemeModePreview mode="dark" />
+      </span>
+    )
+  }
+
+  const dark = mode === "dark"
+  return (
+    <span className={cn("absolute inset-0 block", dark ? "bg-[#5f5f5d]" : "bg-[#f4f4f3]")}>
+      <span
+        className={cn(
+          "absolute inset-x-7 top-12 h-16 rounded-t-xl",
+          dark ? "bg-[#f8f8f5]" : "bg-white"
+        )}
+      />
+      <span className="absolute left-11 right-11 top-[58px] h-1.5 rounded-full bg-black/15" />
+      <span className="absolute left-11 top-[78px] h-2 w-16 rounded-full bg-black/15" />
+      <span className="absolute left-11 top-[96px] h-2 w-20 rounded-full bg-black/12" />
+      <span className="absolute left-11 top-[105px] h-0.5 w-24 rounded-full bg-black/10" />
+      <span className="absolute left-1/2 top-[22px] h-2 w-20 -translate-x-1/2 rounded-full bg-black/20" />
+      <span className="absolute left-1/2 top-[32px] h-1 w-28 -translate-x-1/2 rounded-full bg-black/15" />
+    </span>
+  )
+}
+
+function DiffPreview({ markerStyle }: Readonly<{ markerStyle: DiffMarkerStyle }>) {
+  const removed = markerStyle === "symbols" ? "-" : ""
+  const added = markerStyle === "symbols" ? "+" : ""
+
+  return (
+    <div className="grid overflow-hidden rounded-xl border border-border bg-card font-mono text-[13px] leading-7 shadow-xs">
+      <div className="grid grid-cols-2">
+        <div className="border-r border-border">
+          <CodeLine line="1" text="const themePreview: ThemeConfig = {" />
+          <CodeLine changed color="removed" line="2" marker={removed} text='surface: "sidebar",' />
+          <CodeLine changed color="removed" line="3" marker={removed} text='accent: "#2563eb",' />
+          <CodeLine changed color="removed" line="4" marker={removed} text="contrast: 42," />
+          <CodeLine line="5" text="};" />
+        </div>
+        <div>
+          <CodeLine line="1" text="const themePreview: ThemeConfig = {" />
+          <CodeLine
+            changed
+            color="added"
+            line="2"
+            marker={added}
+            text='surface: "sidebar-elevated",'
+          />
+          <CodeLine changed color="added" line="3" marker={added} text='accent: "#0ea5e9",' />
+          <CodeLine changed color="added" line="4" marker={added} text="contrast: 68," />
+          <CodeLine line="5" text="};" />
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CodeLine({
+  changed,
+  color,
+  line,
+  marker = "",
+  text,
+}: Readonly<{
+  changed?: boolean
+  color?: "added" | "removed"
+  line: string
+  marker?: string
+  text: string
+}>) {
+  return (
+    <div
+      className={cn(
+        "grid grid-cols-[48px_24px_minmax(0,1fr)]",
+        changed && color === "removed" && "bg-red-500/12",
+        changed && color === "added" && "bg-green-500/12"
+      )}
+    >
+      <span className="text-center text-muted-foreground">{line}</span>
+      <span
+        className={cn(
+          color === "removed" && "text-diff-removed",
+          color === "added" && "text-diff-added"
+        )}
+      >
+        {marker}
+      </span>
+      <span className="truncate text-foreground">{text}</span>
+    </div>
   )
 }
 
@@ -600,8 +692,8 @@ function SettingsRow({
 
 function CompactSetting({ control, label }: Readonly<{ control: ReactNode; label: string }>) {
   return (
-    <div className="grid min-h-9 grid-cols-[minmax(120px,1fr)_minmax(180px,auto)] items-center gap-3 max-sm:grid-cols-1">
-      <div className="text-xs font-medium text-muted-foreground">{label}</div>
+    <div className="grid min-h-[56px] grid-cols-[minmax(120px,1fr)_minmax(180px,auto)] items-center gap-3 border-t border-border px-4 py-2 first:border-t-0 max-sm:grid-cols-1">
+      <div className="text-sm font-medium">{label}</div>
       <div className="justify-self-end max-sm:justify-self-stretch">{control}</div>
     </div>
   )
@@ -644,24 +736,21 @@ function SegmentedControl({
 function CodeThemePicker({
   mode,
   onChange,
-  theme,
   value,
 }: Readonly<{
   mode: ThemeMode
   onChange: (value: CodexCodeThemeId) => void
-  theme: CodexChromeTheme
   value: CodexCodeThemeId
 }>) {
   const options = getCodexCodeThemeOptionsForMode(mode)
   const selectedValue = options.some((option) => option.id === value) ? value : options[0]?.id
 
   return (
-    <label className="inline-flex h-8 items-center gap-2 rounded-lg border border-border bg-background px-2 text-xs shadow-xs">
+    <label className="inline-flex h-8 items-center gap-2 rounded-lg border border-border bg-muted/55 px-2 text-xs shadow-xs">
       <span className="sr-only">{mode} code theme</span>
-      <ThemeSwatch theme={theme} />
       <select
         aria-label={`${mode} code theme`}
-        className="min-w-[9rem] bg-transparent text-sm outline-none"
+        className="min-w-[10rem] bg-transparent text-sm outline-none"
         onChange={(event) => onChange(event.currentTarget.value as CodexCodeThemeId)}
         value={selectedValue}
       >
@@ -690,14 +779,15 @@ function AccentControl({
 }>) {
   return (
     <div className="flex items-center justify-end gap-2 max-sm:justify-start">
-      <SegmentedControl
-        items={[
-          { label: "Default", value: "chatgpt" },
-          { label: "Custom", value: "custom" },
-        ]}
-        onChange={(value) => onSourceChange(value as "chatgpt" | "custom")}
+      <select
+        aria-label={`${mode} accent source`}
+        className="h-8 rounded-lg border border-border bg-background px-3 text-sm outline-none"
+        onChange={(event) => onSourceChange(event.currentTarget.value as "chatgpt" | "custom")}
         value={accentSource}
-      />
+      >
+        <option value="chatgpt">Blue</option>
+        <option value="custom">Custom</option>
+      </select>
       <ColorTextControl
         ariaLabel={`${mode} accent`}
         disabled={accentSource === "chatgpt"}
@@ -806,14 +896,40 @@ function FontSizeControl({
 
 function FontFamilyControl({
   onChange,
+  systemDefault,
   value,
-}: Readonly<{ onChange: (value: string) => void; value: string }>) {
+}: Readonly<{ onChange: (value: string) => void; systemDefault: string; value: string }>) {
+  const isSystemDefault = value === systemDefault
+
   return (
-    <Input
-      className="h-8 w-[16rem] max-sm:w-full"
-      onChange={(event) => onChange(event.currentTarget.value)}
-      value={value}
-    />
+    <div className="flex items-center justify-end gap-2 max-sm:justify-start">
+      <select
+        aria-label="Font family"
+        className="h-8 w-36 rounded-lg border border-border bg-background px-3 text-sm outline-none"
+        onChange={(event) => {
+          if (event.currentTarget.value === "system") {
+            onChange(systemDefault)
+            return
+          }
+          const custom = window.prompt("Custom font family", value)
+          if (custom?.trim()) {
+            onChange(custom.trim())
+          }
+        }}
+        value={isSystemDefault ? "system" : "custom"}
+      >
+        <option value="system">System default</option>
+        <option value="custom">Custom</option>
+      </select>
+      <select
+        aria-label="Font style"
+        className="h-8 w-28 rounded-lg border border-border bg-muted/50 px-3 text-sm text-muted-foreground outline-none"
+        disabled
+        value="regular"
+      >
+        <option value="regular">Regular</option>
+      </select>
+    </div>
   )
 }
 
@@ -841,30 +957,11 @@ function ToggleControl({
   )
 }
 
-function ThemeSwatch({
-  theme,
-}: Readonly<{ theme: Pick<CodexChromeTheme, "accent" | "ink" | "surface"> }>) {
-  return (
-    <span
-      aria-hidden="true"
-      className="grid size-5 shrink-0 grid-cols-2 overflow-hidden rounded-full border border-border shadow-xs"
-      style={{ backgroundColor: theme.surface }}
-    >
-      <span style={{ backgroundColor: theme.accent }} />
-      <span style={{ backgroundColor: theme.ink }} />
-      <span className="col-span-2" style={{ backgroundColor: theme.surface }} />
-    </span>
-  )
-}
-
 const cloneTheme = (theme: CodexChromeTheme): CodexChromeTheme => ({
   ...theme,
   fonts: { ...theme.fonts },
   semanticColors: { ...theme.semanticColors },
 })
-
-const labelForCodeTheme = (id: CodexCodeThemeId): string =>
-  codexCodeThemePresets.find((preset) => preset.id === id)?.label ?? id
 
 const parseCodexThemeShare = (
   share: string
