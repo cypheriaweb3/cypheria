@@ -1,20 +1,20 @@
 import type {
-  ImageModelV3,
+  ImageModelV4,
   JSONValue,
-  LanguageModelV3,
-  LanguageModelV3CallOptions,
-  LanguageModelV3Content,
-  LanguageModelV3FilePart,
-  LanguageModelV3FinishReason,
-  LanguageModelV3GenerateResult,
-  LanguageModelV3Message,
-  LanguageModelV3StreamPart,
-  LanguageModelV3StreamResult,
-  LanguageModelV3ToolResultOutput,
-  LanguageModelV3Usage,
-  ProviderV3,
-  SharedV3ProviderOptions,
-  SharedV3Warning,
+  LanguageModelV4,
+  LanguageModelV4CallOptions,
+  LanguageModelV4Content,
+  LanguageModelV4FilePart,
+  LanguageModelV4FinishReason,
+  LanguageModelV4GenerateResult,
+  LanguageModelV4Message,
+  LanguageModelV4StreamPart,
+  LanguageModelV4StreamResult,
+  LanguageModelV4ToolResultOutput,
+  LanguageModelV4Usage,
+  ProviderV4,
+  SharedV4ProviderOptions,
+  SharedV4Warning,
 } from "@ai-sdk/provider"
 
 import type {
@@ -48,7 +48,7 @@ export type CodexAppServerProviderSettings = {
   readonly cwd?: string
   readonly developerInstructions?: string
   readonly onSessionCreated?: (session: CodexAppServerAiSdkSession) => void
-  readonly reasoningEffort?: Exclude<ReasoningEffort, "none" | "minimal">
+  readonly reasoningEffort?: ReasoningEffort
   readonly reasoningSummary?: ReasoningSummary
   readonly resumeThreadId?: string
   readonly sandboxMode?: CodexAppServerSandboxMode
@@ -83,7 +83,7 @@ type AppServerJsonValue =
 const providerId = "cypheria.codex"
 const defaultThreadMode: CodexAppServerThreadMode = "persistent"
 
-const emptyUsage = (): LanguageModelV3Usage => ({
+const emptyUsage = (): LanguageModelV4Usage => ({
   inputTokens: {
     cacheRead: undefined,
     cacheWrite: undefined,
@@ -100,7 +100,7 @@ const emptyUsage = (): LanguageModelV3Usage => ({
 const finishReasonFromStatus = (
   status: v2.TurnStatus,
   error: v2.TurnError | null
-): LanguageModelV3FinishReason => {
+): LanguageModelV4FinishReason => {
   if (status === "completed") {
     return { raw: status, unified: "stop" }
   }
@@ -168,8 +168,8 @@ const safeJsonStringify = (value: unknown): string => {
   }
 }
 
-const unsupportedWarnings = (options: LanguageModelV3CallOptions): SharedV3Warning[] => {
-  const warnings: SharedV3Warning[] = []
+const unsupportedWarnings = (options: LanguageModelV4CallOptions): SharedV4Warning[] => {
+  const warnings: SharedV4Warning[] = []
   const add = (value: unknown, feature: string) => {
     if (value !== undefined) {
       warnings.push({
@@ -203,14 +203,15 @@ const mergeSettings = (
 })
 
 const getProviderOptions = (
-  options: SharedV3ProviderOptions | undefined
+  options: SharedV4ProviderOptions | undefined
 ): CodexAppServerProviderCallSettings | undefined => {
   const value = options?.[providerId] ?? options?.codex
   return isObject(value) ? (value as CodexAppServerProviderCallSettings) : undefined
 }
 
 const isImageMediaType = (mediaType: string | undefined): boolean =>
-  typeof mediaType === "string" && mediaType.toLowerCase().startsWith("image/")
+  typeof mediaType === "string" &&
+  (mediaType.toLowerCase() === "image" || mediaType.toLowerCase().startsWith("image/"))
 
 const fileUrlToPath = (url: URL): string => {
   const path = decodeURIComponent(url.pathname)
@@ -218,8 +219,8 @@ const fileUrlToPath = (url: URL): string => {
 }
 
 const toImageInput = (
-  part: LanguageModelV3FilePart,
-  warnings: SharedV3Warning[]
+  part: LanguageModelV4FilePart,
+  warnings: SharedV4Warning[]
 ): v2.UserInput | undefined => {
   if (!isImageMediaType(part.mediaType)) {
     warnings.push({
@@ -230,28 +231,39 @@ const toImageInput = (
   }
 
   const data = part.data
-  if (data instanceof URL) {
-    if (data.protocol === "file:") {
-      return { path: fileUrlToPath(data), type: "localImage" }
+  if (data.type === "url") {
+    if (data.url.protocol === "file:") {
+      return { path: fileUrlToPath(data.url), type: "localImage" }
     }
-    return { type: "image", url: data.href }
+    return { type: "image", url: data.url.href }
   }
-
-  if (typeof data === "string") {
-    if (data.startsWith("file://")) {
-      return { path: fileUrlToPath(new URL(data)), type: "localImage" }
-    }
-    if (data.startsWith("data:") || data.startsWith("http://") || data.startsWith("https://")) {
-      return { type: "image", url: data }
-    }
-    return { type: "image", url: `data:${part.mediaType};base64,${data}` }
+  if (data.type !== "data") {
+    warnings.push({
+      type: "unsupported",
+      feature: `file.data.${data.type}`,
+      details: "Codex image inputs require a URL or inline image bytes.",
+    })
+    return undefined
   }
-
-  const bytes = Array.from(data, (byte) => String.fromCharCode(byte)).join("")
-  return { type: "image", url: `data:${part.mediaType};base64,${btoa(bytes)}` }
+  if (part.mediaType === "image" || part.mediaType === "image/*") {
+    warnings.push({
+      type: "unsupported",
+      feature: "file.mediaType",
+      details: "Inline image bytes require a concrete media type such as image/png.",
+    })
+    return undefined
+  }
+  const base64 =
+    typeof data.data === "string"
+      ? data.data
+      : btoa(Array.from(data.data, (byte) => String.fromCharCode(byte)).join(""))
+  return { type: "image", url: `data:${part.mediaType};base64,${base64}` }
 }
 
-const formatToolResultOutput = (output: LanguageModelV3ToolResultOutput): string => {
+const formatToolResultOutput = (
+  output: LanguageModelV4ToolResultOutput,
+  warnings: SharedV4Warning[]
+): string => {
   switch (output.type) {
     case "text":
       return output.value
@@ -268,29 +280,43 @@ const formatToolResultOutput = (output: LanguageModelV3ToolResultOutput): string
           if (part.type === "text") {
             return part.text
           }
-          if (part.type === "file-data") {
+          if (part.type === "file") {
+            if (part.data.type === "text") {
+              return part.data.text
+            }
+            if (part.data.type === "url") {
+              return `[file: ${part.data.url.href}]`
+            }
+            warnings.push({
+              type: "unsupported",
+              feature: `tool-result.file.${part.data.type}`,
+              details:
+                "Tool result files are represented as text placeholders, not uploaded to Codex.",
+            })
             return part.filename
               ? `[file: ${part.filename}, ${part.mediaType}]`
               : `[file: ${part.mediaType}]`
           }
-          if (part.type === "file-url") {
-            return `[file: ${part.url}]`
-          }
-          return "[file]"
+          warnings.push({
+            type: "unsupported",
+            feature: "tool-result.custom",
+            details: "Codex app-server cannot replay custom tool content.",
+          })
+          return "[custom content]"
         })
         .join("\n")
   }
 }
 
-const systemPromptFromMessages = (prompt: LanguageModelV3Message[]): string | undefined => {
+const systemPromptFromMessages = (prompt: LanguageModelV4Message[]): string | undefined => {
   const parts = prompt
     .filter((message) => message.role === "system")
     .map((message) => message.content)
   return parts.length ? parts.join("\n\n") : undefined
 }
 
-const latestUserMessages = (prompt: LanguageModelV3Message[]): LanguageModelV3Message[] => {
-  const messages: LanguageModelV3Message[] = []
+const latestUserMessages = (prompt: LanguageModelV4Message[]): LanguageModelV4Message[] => {
+  const messages: LanguageModelV4Message[] = []
   for (let index = prompt.length - 1; index >= 0; index -= 1) {
     const message = prompt[index]
     if (!message) {
@@ -308,11 +334,11 @@ const latestUserMessages = (prompt: LanguageModelV3Message[]): LanguageModelV3Me
 }
 
 const transcriptFromMessages = (
-  prompt: LanguageModelV3Message[],
-  warnings: SharedV3Warning[]
-): { readonly images: LanguageModelV3FilePart[]; readonly text: string } => {
+  prompt: LanguageModelV4Message[],
+  warnings: SharedV4Warning[]
+): { readonly images: LanguageModelV4FilePart[]; readonly text: string } => {
   const lines: string[] = []
-  let images: LanguageModelV3FilePart[] = []
+  let images: LanguageModelV4FilePart[] = []
 
   for (const message of prompt) {
     if (message.role === "system") {
@@ -321,10 +347,12 @@ const transcriptFromMessages = (
 
     if (message.role === "user") {
       const textParts: string[] = []
-      const messageImages: LanguageModelV3FilePart[] = []
+      const messageImages: LanguageModelV4FilePart[] = []
       for (const part of message.content) {
         if (part.type === "text") {
           textParts.push(part.text)
+        } else if (part.type === "file" && part.data.type === "text") {
+          textParts.push(part.data.text)
         } else if (part.type === "file" && isImageMediaType(part.mediaType)) {
           messageImages.push(part)
         } else if (part.type === "file") {
@@ -358,7 +386,15 @@ const transcriptFromMessages = (
             return `Tool Call (${part.toolName}): ${safeJsonStringify(part.input)}`
           }
           if (part.type === "tool-result") {
-            return `Tool Result (${part.toolName}): ${formatToolResultOutput(part.output)}`
+            return `Tool Result (${part.toolName}): ${formatToolResultOutput(part.output, warnings)}`
+          }
+          if (part.type === "custom" || part.type === "reasoning-file") {
+            warnings.push({
+              type: "unsupported",
+              feature: part.type,
+              details: "Codex app-server cannot replay this assistant content.",
+            })
+            return ""
           }
           return part.type === "file" ? `[file: ${part.mediaType}]` : ""
         })
@@ -371,7 +407,9 @@ const transcriptFromMessages = (
 
     for (const part of message.content) {
       if (part.type === "tool-result") {
-        lines.push(`Tool Result (${part.toolName}): ${formatToolResultOutput(part.output)}`)
+        lines.push(
+          `Tool Result (${part.toolName}): ${formatToolResultOutput(part.output, warnings)}`
+        )
       } else {
         const decision = part.approved ? "approved" : "denied"
         const reason = part.reason ? ` (${part.reason})` : ""
@@ -384,14 +422,14 @@ const transcriptFromMessages = (
 }
 
 const convertPrompt = (
-  prompt: LanguageModelV3Message[],
+  prompt: LanguageModelV4Message[],
   threadMode: CodexAppServerThreadMode
 ): {
   readonly input: v2.UserInput[]
   readonly systemPrompt?: string
-  readonly warnings: SharedV3Warning[]
+  readonly warnings: SharedV4Warning[]
 } => {
-  const warnings: SharedV3Warning[] = []
+  const warnings: SharedV4Warning[] = []
   const systemPrompt = systemPromptFromMessages(prompt)
   const input: v2.UserInput[] = []
 
@@ -416,6 +454,8 @@ const convertPrompt = (
     for (const part of message.content) {
       if (part.type === "text") {
         input.push({ text: part.text, text_elements: [], type: "text" })
+      } else if (part.data.type === "text") {
+        input.push({ text: part.data.text, text_elements: [], type: "text" })
       } else {
         const imageInput = toImageInput(part, warnings)
         if (imageInput) {
@@ -613,9 +653,9 @@ export class CodexAppServerAiSdkSession {
   }
 }
 
-class CodexAppServerLanguageModel implements LanguageModelV3 {
+class CodexAppServerLanguageModel implements LanguageModelV4 {
   readonly provider = providerId
-  readonly specificationVersion = "v3"
+  readonly specificationVersion = "v4"
   readonly supportedUrls = {}
   #session: CodexAppServerAiSdkSession | null = null
 
@@ -628,15 +668,15 @@ class CodexAppServerLanguageModel implements LanguageModelV3 {
     return this.#session
   }
 
-  async doGenerate(options: LanguageModelV3CallOptions): Promise<LanguageModelV3GenerateResult> {
+  async doGenerate(options: LanguageModelV4CallOptions): Promise<LanguageModelV4GenerateResult> {
     const { stream } = await this.doStream(options)
     const reader = stream.getReader()
-    const content: LanguageModelV3Content[] = []
+    const content: LanguageModelV4Content[] = []
     const textById = new Map<string, string>()
     const reasoningById = new Map<string, string>()
-    let finishReason: LanguageModelV3FinishReason = { raw: undefined, unified: "other" }
+    let finishReason: LanguageModelV4FinishReason = { raw: undefined, unified: "other" }
     let usage = emptyUsage()
-    let warnings: SharedV3Warning[] = []
+    let warnings: SharedV4Warning[] = []
 
     while (true) {
       const { done, value } = await reader.read()
@@ -688,7 +728,7 @@ class CodexAppServerLanguageModel implements LanguageModelV3 {
     }
   }
 
-  async doStream(options: LanguageModelV3CallOptions): Promise<LanguageModelV3StreamResult> {
+  async doStream(options: LanguageModelV4CallOptions): Promise<LanguageModelV4StreamResult> {
     const callOptions = getProviderOptions(options.providerOptions)
     const settings = mergeSettings(this.settings, callOptions)
     const threadMode = settings.threadMode ?? defaultThreadMode
@@ -759,7 +799,9 @@ class CodexAppServerLanguageModel implements LanguageModelV3 {
         approvalPolicy: settings.approvalPolicy ?? "on-request",
         approvalsReviewer: settings.approvalsReviewer,
         cwd: settings.cwd,
-        effort: settings.reasoningEffort,
+        effort:
+          settings.reasoningEffort ??
+          (options.reasoning === "provider-default" ? undefined : options.reasoning),
         input: converted.input,
         model: this.modelId,
         outputSchema,
@@ -773,7 +815,7 @@ class CodexAppServerLanguageModel implements LanguageModelV3 {
     const turnId = turnResponse.turn.id
     session._setTurnId(turnId)
 
-    const stream = new ReadableStream<LanguageModelV3StreamPart>({
+    const stream = new ReadableStream<LanguageModelV4StreamPart>({
       start: (controller) => {
         const emitRaw = (notification: ServerNotification) => {
           if (options.includeRawChunks) {
@@ -948,8 +990,8 @@ class CodexAppServerLanguageModel implements LanguageModelV3 {
   }
 }
 
-export type CodexAppServerProvider = ProviderV3 & {
-  (modelId: string, settings?: CodexAppServerProviderCallSettings): LanguageModelV3
+export type CodexAppServerProvider = ProviderV4 & {
+  (modelId: string, settings?: CodexAppServerProviderCallSettings): LanguageModelV4
   readonly listModels: (params?: v2.ModelListParams) => Promise<ModelListResponse>
 }
 
@@ -968,11 +1010,11 @@ export const createCodexAppServerProvider = (
       },
       imageModel: (() => {
         throw new Error("Codex app-server provider does not support image models")
-      }) as (modelId: string) => ImageModelV3,
+      }) as (modelId: string) => ImageModelV4,
       languageModel: createModel,
       listModels: (params?: v2.ModelListParams) =>
         settings.bridge.request<"model/list", ModelListResponse>("model/list", params ?? {}),
-      specificationVersion: "v3" as const,
+      specificationVersion: "v4" as const,
     }
   ) as CodexAppServerProvider
 }

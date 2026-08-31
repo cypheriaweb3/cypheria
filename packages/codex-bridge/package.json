@@ -17,6 +17,6 @@
     "vitest": "^4.1.7"
   },
   "dependencies": {
-    "@ai-sdk/provider": "3.0.10"
+    "@ai-sdk/provider": "4.0.9"
   }
 }

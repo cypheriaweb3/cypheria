@@ -152,7 +152,11 @@ Desktop
 - 流式处理 server notifications。
 - 将 approvals 等 server requests 路由到 Electron main。
 - 处理 disconnect 和 overload errors。
-- 暴露 AI SDK `ProviderV3` adapter，供需要 AI SDK / AI Elements streams 的聊天界面使用，同时保留直接 bridge request API 给非 AI SDK 调用方。
+- 暴露 AI SDK `ProviderV4` adapter，供需要 AI SDK / AI Elements streams 的聊天界面使用，同时保留直接 bridge request API 给非 AI SDK 调用方。
+- 适配器实现 `LanguageModelV4`，声明 `specificationVersion: "v4"`，要求 Node.js 22 或更高版本。
+- V4 图片输入接受带类型标签的 URL 或内联 base64/字节数据；内联图片必须指定完整媒体类型。内联文本文件转换为文本输入。Provider 文件引用和不支持的媒体会返回警告。
+- 顶层 `reasoning` 映射到 Codex turn effort；显式 Codex `reasoningEffort` 设置优先，`provider-default` 不指定 effort。各推理级别是否受模型支持由 Codex 决定。
+- 无状态历史将 V4 工具结果内容转换为文本（文件 URL/标签仍是文本）。二进制/引用工具文件、自定义工具内容、助手自定义内容及推理文件无法原生重放，会返回警告。
 
 Electron main 拥有 `codex app-server` child process。它选择 localhost port，以 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动进程，等待 WebSocket handshake readiness，通过 `codex.event` 转发 renderer-safe Codex summaries，记录 stderr，并随 runtime 一起关闭进程。
 
