@@ -168,6 +168,8 @@ Generated files 需要提交，这样 CI 和贡献者不必为了 typecheck 而�
 
 UI 策略是复用成熟 primitives，只为 Cypheria-specific workflows 构建自定义组件。
 
+完整的 shadcn `base-mira` 预设组件集已安装到 `packages/ui/src/components`，依赖由 `@cypheria/ui` 管理。通过 `@cypheria/ui/components/<name>` 导入组件，并保留现有 Cypheria 定制。若需补充后续发布的组件，运行 `pnpm --filter @cypheria/ui shadcn:add --all --yes`，对已定制文件选择不覆盖。
+
 | Category | Choice |
 | --- | --- |
 | Component model | shadcn-style copied components |

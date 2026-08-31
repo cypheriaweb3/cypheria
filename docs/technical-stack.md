@@ -168,6 +168,8 @@ Generated files are committed so CI and contributors do not need a matching loca
 
 The UI strategy is to reuse mature primitives and build custom components only for Cypheria-specific workflows.
 
+The complete shadcn component set for the `base-mira` preset is installed in `packages/ui/src/components`, with dependencies owned by `@cypheria/ui`. Import components through `@cypheria/ui/components/<name>`. Existing Cypheria customizations are preserved. To add newly published components, run `pnpm --filter @cypheria/ui shadcn:add --all --yes` and decline overwrites of customized files.
+
 | Category | Choice |
 | --- | --- |
 | Component model | shadcn-style copied components |
