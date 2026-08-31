@@ -695,9 +695,59 @@ export const codexCodeThemePresets: readonly CodexCodeThemePreset[] = [
 
 export const codexCodeThemeOptions = codexCodeThemePresets.map(({ id, label }) => ({ id, label }))
 
+const lightThemeOrder: readonly CodexCodeThemeId[] = [
+  "absolutely",
+  "catppuccin",
+  "codex",
+  "everforest",
+  "github",
+  "gruvbox",
+  "linear",
+  "notion",
+  "one",
+  "proof",
+  "raycast",
+  "rose-pine",
+  "solarized",
+  "vercel",
+  "vscode-plus",
+  "xcode",
+]
+
+const darkThemeOrder: readonly CodexCodeThemeId[] = [
+  "absolutely",
+  "ayu",
+  "catppuccin",
+  "codex",
+  "dracula",
+  "everforest",
+  "github",
+  "gruvbox",
+  "linear",
+  "lobster",
+  "material",
+  "matrix",
+  "monokai",
+  "night-owl",
+  "nord",
+  "notion",
+  "one",
+  "oscurange",
+  "raycast",
+  "rose-pine",
+  "sentry",
+  "solarized",
+  "temple",
+  "tokyo-night",
+  "vercel",
+  "vscode-plus",
+  "xcode",
+]
+
 export const getCodexCodeThemeOptionsForMode = (variant: ThemeMode) =>
-  codexCodeThemePresets
-    .filter((preset) => preset.variants[variant] != null)
+  (variant === "light" ? lightThemeOrder : darkThemeOrder)
+    .map((id) => codexCodeThemePresets.find((preset) => preset.id === id))
+    .filter((preset): preset is CodexCodeThemePreset => preset?.variants[variant] != null)
     .map(({ id, label }) => ({ id, label }))
 
 export const getCodexCodeThemePresetVariant = (

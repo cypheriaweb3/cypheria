@@ -12,7 +12,7 @@ import {
 import { Input } from "@cypheria/ui/components/input"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { Monitor, Moon, Sun } from "lucide-react"
+import { Check, CheckCircle2, ChevronDown, Monitor, Moon, Sun, X } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
 
 export const Route = createFileRoute("/settings/appearance")({
@@ -23,6 +23,11 @@ type ThemeMode = keyof CodexAppearanceThemeSettings
 type AppearanceMode = "dark" | "light" | "system"
 type DiffMarkerStyle = "color" | "symbols"
 type ReducedMotionPreference = "off" | "on" | "system"
+
+type ToastState = {
+  readonly message: string
+  readonly id: number
+}
 
 const appearanceModes = [
   { icon: Monitor, label: "System", value: "system" },
@@ -61,6 +66,8 @@ function AppearanceRoute() {
   const [reducedMotionPreference, setReducedMotionPreference] =
     useState<ReducedMotionPreference>("system")
   const [sansFontSize, setSansFontSize] = useState(14)
+  const [importDialogMode, setImportDialogMode] = useState<ThemeMode | null>(null)
+  const [toast, setToast] = useState<ToastState | null>(null)
   const [useFontSmoothing, setUseFontSmoothing] = useState(true)
   const [usePointerCursors, setUsePointerCursors] = useState(false)
 
@@ -215,22 +222,18 @@ function AppearanceRoute() {
     updateTheme(mode, cloneTheme(preset.theme))
   }
 
-  const importTheme = (mode: ThemeMode) => {
-    const rawTheme = window.prompt(`Paste Codex ${mode} theme`)
-    if (!rawTheme) {
-      return
-    }
-
+  const applyImportedTheme = (mode: ThemeMode, rawTheme: string): boolean => {
     const parsed = parseCodexThemeShare(rawTheme)
     if (!parsed || parsed.variant !== mode) {
-      window.alert(`Expected a codex-theme-v1 ${mode} theme.`)
-      return
+      return false
     }
 
     setDraftCodeThemes((current) =>
       current ? { ...current, [mode]: parsed.codeThemeId } : current
     )
     updateTheme(mode, cloneTheme(parsed.theme))
+    setImportDialogMode(null)
+    return true
   }
 
   const copyTheme = (mode: ThemeMode) => {
@@ -244,6 +247,10 @@ function AppearanceRoute() {
       variant: mode,
     })}`
     void navigator.clipboard?.writeText(payload)
+    setToast({
+      id: Date.now(),
+      message: `${mode === "light" ? "Light" : "Dark"} theme copied`,
+    })
   }
 
   const previewTheme = (mode: ThemeMode) => {
@@ -292,8 +299,25 @@ function AppearanceRoute() {
     writeMutation,
   ])
 
+  useEffect(() => {
+    if (!toast) {
+      return
+    }
+
+    const timeout = window.setTimeout(() => setToast(null), 2600)
+    return () => window.clearTimeout(timeout)
+  }, [toast])
+
   return (
     <main className="mx-auto grid h-full min-h-0 w-full max-w-[872px] content-start gap-6 overflow-y-auto px-5 py-12 pb-20 text-foreground">
+      {toast ? <Toast message={toast.message} onClose={() => setToast(null)} /> : null}
+      {importDialogMode ? (
+        <ImportThemeDialog
+          mode={importDialogMode}
+          onClose={() => setImportDialogMode(null)}
+          onImport={(rawTheme) => applyImportedTheme(importDialogMode, rawTheme)}
+        />
+      ) : null}
       <header className="min-w-0">
         <h1 className="text-[25px] font-semibold leading-8 text-foreground">Appearance</h1>
       </header>
@@ -311,7 +335,7 @@ function AppearanceRoute() {
             mode="light"
             onCodeThemeChange={(value) => updateCodeTheme("light", value)}
             onCopy={() => copyTheme("light")}
-            onImport={() => importTheme("light")}
+            onImport={() => setImportDialogMode("light")}
             onPreview={() => previewTheme("light")}
             onThemeChange={(patch) => updateTheme("light", patch)}
             previewing={previewMode === "light"}
@@ -323,7 +347,7 @@ function AppearanceRoute() {
             mode="dark"
             onCodeThemeChange={(value) => updateCodeTheme("dark", value)}
             onCopy={() => copyTheme("dark")}
-            onImport={() => importTheme("dark")}
+            onImport={() => setImportDialogMode("dark")}
             onPreview={() => previewTheme("dark")}
             onThemeChange={(patch) => updateTheme("dark", patch)}
             previewing={previewMode === "dark"}
@@ -399,6 +423,97 @@ function AppearanceRoute() {
   )
 }
 
+function Toast({ message, onClose }: Readonly<{ message: string; onClose: () => void }>) {
+  return (
+    <div className="fixed right-8 top-6 z-50 flex h-14 items-center gap-3 rounded-2xl border border-green-200 bg-green-50/95 px-5 text-lg text-green-300 shadow-lg backdrop-blur">
+      <CheckCircle2 aria-hidden="true" size={20} strokeWidth={1.8} />
+      <span>{message}</span>
+      <button
+        aria-label="Close toast"
+        className="ml-1 text-green-300 hover:text-green-500"
+        onClick={onClose}
+        type="button"
+      >
+        <X aria-hidden="true" size={20} strokeWidth={1.8} />
+      </button>
+    </div>
+  )
+}
+
+function ImportThemeDialog({
+  mode,
+  onClose,
+  onImport,
+}: Readonly<{
+  mode: ThemeMode
+  onClose: () => void
+  onImport: (rawTheme: string) => boolean
+}>) {
+  const [rawTheme, setRawTheme] = useState("")
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = () => {
+    if (!onImport(rawTheme)) {
+      setError(`Paste a valid codex-theme-v1 ${mode} theme.`)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/10 px-5 backdrop-blur-[1px]">
+      <section className="w-full max-w-[560px] rounded-[28px] border border-border bg-popover p-6 text-popover-foreground shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <h2 className="text-[28px] font-semibold leading-9">Import theme</h2>
+          <button
+            aria-label="Close import theme"
+            className="mt-1 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            onClick={onClose}
+            type="button"
+          >
+            <X aria-hidden="true" size={22} strokeWidth={1.9} />
+          </button>
+        </div>
+        <Input
+          aria-label="Codex theme payload"
+          autoFocus
+          className="mt-8 h-10 rounded-xl px-4 text-base"
+          onChange={(event) => {
+            setRawTheme(event.currentTarget.value)
+            setError(null)
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              submit()
+            }
+            if (event.key === "Escape") {
+              onClose()
+            }
+          }}
+          placeholder='codex-theme-v1:{"codeThemeId":"codex","theme":{"accent":"#...'
+          value={rawTheme}
+        />
+        {error ? <p className="mt-2 text-sm text-destructive">{error}</p> : null}
+        <div className="mt-6 flex justify-end gap-5">
+          <button
+            className="h-10 rounded-xl px-3 text-lg text-muted-foreground hover:text-foreground"
+            onClick={onClose}
+            type="button"
+          >
+            Cancel
+          </button>
+          <button
+            className="h-10 rounded-xl bg-muted-foreground px-4 text-lg text-background disabled:opacity-45"
+            disabled={!rawTheme.trim()}
+            onClick={submit}
+            type="button"
+          >
+            Import theme
+          </button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
 function ChromeThemeCard({
   codeTheme,
   mode,
@@ -425,7 +540,7 @@ function ChromeThemeCard({
   const accentSource = theme.accentSource ?? "custom"
 
   return (
-    <section className="overflow-hidden rounded-xl border border-border bg-card text-card-foreground shadow-xs">
+    <section className="rounded-xl border border-border bg-card text-card-foreground shadow-xs">
       <div className="flex min-h-[58px] items-center justify-between gap-3 border-b border-border px-4 py-2.5 max-sm:flex-col max-sm:items-stretch">
         <h2 className="text-sm font-semibold">{title}</h2>
         <div className="flex flex-wrap items-center justify-end gap-2 max-sm:justify-start">
@@ -447,7 +562,10 @@ function ChromeThemeCard({
           </button>
           <button
             aria-pressed={previewing}
-            className="inline-flex size-8 items-center justify-center rounded-lg border border-border text-xs font-semibold"
+            className={cn(
+              "inline-flex size-8 items-center justify-center rounded-lg border border-border text-xs font-semibold shadow-xs",
+              previewing && "ring-2 ring-foreground/20"
+            )}
             onClick={onPreview}
             style={{
               backgroundColor: mode === "dark" ? theme.surface : "#ffffff",
@@ -604,27 +722,71 @@ function DiffPreview({ markerStyle }: Readonly<{ markerStyle: DiffMarkerStyle }>
   const added = markerStyle === "symbols" ? "+" : ""
 
   return (
-    <div className="grid overflow-hidden rounded-xl border border-border bg-card font-mono text-[13px] leading-7 shadow-xs">
+    <div className="grid overflow-hidden rounded-xl border border-border bg-card font-mono text-[14px] leading-7 shadow-xs">
       <div className="grid grid-cols-2">
-        <div className="border-r border-border">
-          <CodeLine line="1" text="const themePreview: ThemeConfig = {" />
-          <CodeLine changed color="removed" line="2" marker={removed} text='surface: "sidebar",' />
-          <CodeLine changed color="removed" line="3" marker={removed} text='accent: "#2563eb",' />
-          <CodeLine changed color="removed" line="4" marker={removed} text="contrast: 42," />
-          <CodeLine line="5" text="};" />
+        <div>
+          <CodeLine line="1">
+            <CodePreviewSource />
+          </CodeLine>
+          <CodeLine changed color="removed" line="2" marker={removed}>
+            <span className="pl-8">
+              <CodeKey>surface</CodeKey>
+              <CodePunctuation>: </CodePunctuation>
+              <CodeString>"sidebar"</CodeString>
+              <CodePunctuation>,</CodePunctuation>
+            </span>
+          </CodeLine>
+          <CodeLine changed color="removed" line="3" marker={removed}>
+            <span className="pl-8">
+              <CodeKey>accent</CodeKey>
+              <CodePunctuation>: </CodePunctuation>
+              <CodeString>"#2563eb"</CodeString>
+              <CodePunctuation>,</CodePunctuation>
+            </span>
+          </CodeLine>
+          <CodeLine changed color="removed" line="4" marker={removed}>
+            <span className="pl-8">
+              <CodeKey>contrast</CodeKey>
+              <CodePunctuation>: </CodePunctuation>
+              <CodeNumber>42</CodeNumber>
+              <CodePunctuation>,</CodePunctuation>
+            </span>
+          </CodeLine>
+          <CodeLine line="5">
+            <CodePunctuation>{"};"}</CodePunctuation>
+          </CodeLine>
         </div>
         <div>
-          <CodeLine line="1" text="const themePreview: ThemeConfig = {" />
-          <CodeLine
-            changed
-            color="added"
-            line="2"
-            marker={added}
-            text='surface: "sidebar-elevated",'
-          />
-          <CodeLine changed color="added" line="3" marker={added} text='accent: "#0ea5e9",' />
-          <CodeLine changed color="added" line="4" marker={added} text="contrast: 68," />
-          <CodeLine line="5" text="};" />
+          <CodeLine line="1">
+            <CodePreviewSource />
+          </CodeLine>
+          <CodeLine changed color="added" line="2" marker={added}>
+            <span className="pl-8">
+              <CodeKey>surface</CodeKey>
+              <CodePunctuation>: </CodePunctuation>
+              <CodeString>"sidebar-elevated"</CodeString>
+              <CodePunctuation>,</CodePunctuation>
+            </span>
+          </CodeLine>
+          <CodeLine changed color="added" line="3" marker={added}>
+            <span className="pl-8">
+              <CodeKey>accent</CodeKey>
+              <CodePunctuation>: </CodePunctuation>
+              <CodeString>"#0ea5e9"</CodeString>
+              <CodePunctuation>,</CodePunctuation>
+            </span>
+          </CodeLine>
+          <CodeLine changed color="added" line="4" marker={added}>
+            <span className="pl-8">
+              <CodeKey>contrast</CodeKey>
+              <CodePunctuation>: </CodePunctuation>
+              <CodeNumber>68</CodeNumber>
+              <CodePunctuation>,</CodePunctuation>
+            </span>
+          </CodeLine>
+          <CodeLine line="5">
+            <CodePunctuation>{"};"}</CodePunctuation>
+          </CodeLine>
         </div>
       </div>
     </div>
@@ -632,38 +794,82 @@ function DiffPreview({ markerStyle }: Readonly<{ markerStyle: DiffMarkerStyle }>
 }
 
 function CodeLine({
+  children,
   changed,
   color,
   line,
   marker = "",
-  text,
 }: Readonly<{
+  children: ReactNode
   changed?: boolean
   color?: "added" | "removed"
   line: string
   marker?: string
-  text: string
 }>) {
   return (
     <div
       className={cn(
-        "grid grid-cols-[48px_24px_minmax(0,1fr)]",
-        changed && color === "removed" && "bg-red-500/12",
-        changed && color === "added" && "bg-green-500/12"
+        "grid min-h-7 grid-cols-[64px_minmax(0,1fr)]",
+        changed && color === "removed" && "border-l-4 border-[#ef2b2b] bg-[#fde8e4]",
+        changed && color === "added" && "border-l-4 border-[#05a84f] bg-[#e6f4e8]"
       )}
     >
-      <span className="text-center text-muted-foreground">{line}</span>
       <span
         className={cn(
-          color === "removed" && "text-diff-removed",
-          color === "added" && "text-diff-added"
+          "text-center text-muted-foreground",
+          changed && color === "removed" && "text-[#ef2b2b]",
+          changed && color === "added" && "text-[#079b46]"
         )}
       >
-        {marker}
+        {marker ? `${line} ${marker}` : line}
       </span>
-      <span className="truncate text-foreground">{text}</span>
+      <span className="truncate text-foreground">{children}</span>
     </div>
   )
+}
+
+function CodePreviewSource() {
+  return (
+    <>
+      <CodeKeyword>const</CodeKeyword>
+      <span> </span>
+      <CodeKey>themePreview</CodeKey>
+      <CodePunctuation>: </CodePunctuation>
+      <CodeType>ThemeConfig</CodeType>
+      <span> </span>
+      <CodeOperator>=</CodeOperator>
+      <span> </span>
+      <CodePunctuation>{"{"}</CodePunctuation>
+    </>
+  )
+}
+
+function CodeKeyword({ children }: Readonly<{ children: ReactNode }>) {
+  return <span className="text-[#7c3cff]">{children}</span>
+}
+
+function CodeKey({ children }: Readonly<{ children: ReactNode }>) {
+  return <span className="text-[#c45a00]">{children}</span>
+}
+
+function CodeType({ children }: Readonly<{ children: ReactNode }>) {
+  return <span className="text-[#8b2cff]">{children}</span>
+}
+
+function CodeOperator({ children }: Readonly<{ children: ReactNode }>) {
+  return <span className="text-[#0a6fff]">{children}</span>
+}
+
+function CodeString({ children }: Readonly<{ children: ReactNode }>) {
+  return <span className="text-[#008a14]">{children}</span>
+}
+
+function CodeNumber({ children }: Readonly<{ children: ReactNode }>) {
+  return <span className="text-[#006fff]">{children}</span>
+}
+
+function CodePunctuation({ children }: Readonly<{ children: ReactNode }>) {
+  return <span className="text-[#666666]">{children}</span>
 }
 
 function SettingsRow({
@@ -736,25 +942,56 @@ function CodeThemePicker({
   onChange: (value: CodexCodeThemeId) => void
   value: CodexCodeThemeId
 }>) {
+  const [open, setOpen] = useState(false)
   const options = getCodexCodeThemeOptionsForMode(mode)
   const selectedValue = options.some((option) => option.id === value) ? value : options[0]?.id
+  const selectedOption = options.find((option) => option.id === selectedValue)
 
   return (
-    <label className="inline-flex h-8 items-center gap-2 rounded-lg border border-border bg-muted/55 px-2 text-xs shadow-xs">
-      <span className="sr-only">{mode} code theme</span>
-      <select
+    <div className="relative">
+      <button
+        aria-expanded={open}
         aria-label={`${mode} code theme`}
-        className="min-w-[10rem] bg-transparent text-sm outline-none"
-        onChange={(event) => onChange(event.currentTarget.value as CodexCodeThemeId)}
-        value={selectedValue}
+        className="inline-flex h-8 min-w-[10rem] items-center justify-between gap-3 rounded-lg border border-border bg-muted/55 px-3 text-sm shadow-xs outline-none hover:bg-muted"
+        onClick={() => setOpen((current) => !current)}
+        type="button"
       >
-        {options.map((option) => (
-          <option key={option.id} value={option.id}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </label>
+        <span>{selectedOption?.label ?? "Codex"}</span>
+        <ChevronDown aria-hidden="true" className="text-muted-foreground" size={16} />
+      </button>
+      {open ? (
+        <div
+          className="absolute right-0 top-9 z-30 max-h-[420px] w-[300px] overflow-y-auto rounded-[22px] border border-border bg-popover p-3 text-popover-foreground shadow-2xl"
+          role="menu"
+        >
+          {options.map((option) => {
+            const preset = getCodexCodeThemePresetVariant(option.id, mode)
+            if (!preset) {
+              return null
+            }
+
+            return (
+              <button
+                className="flex h-[54px] w-full items-center gap-3 rounded-xl px-2 text-left text-lg hover:bg-muted/70"
+                key={option.id}
+                onClick={() => {
+                  onChange(option.id)
+                  setOpen(false)
+                }}
+                role="menuitem"
+                type="button"
+              >
+                <ThemeSampleBadge mode={mode} theme={preset.theme} />
+                <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                {option.id === selectedValue ? (
+                  <Check aria-hidden="true" className="text-foreground" size={22} />
+                ) : null}
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
+    </div>
   )
 }
 
@@ -771,67 +1008,202 @@ function AccentControl({
   onAccentChange: (accent: string) => void
   onSourceChange: (source: "chatgpt" | "custom") => void
 }>) {
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const selectedLabel = accentSource === "chatgpt" ? "Blue" : "Custom"
+
   return (
     <div className="flex items-center justify-end gap-2 max-sm:justify-start">
-      <select
-        aria-label={`${mode} accent source`}
-        className="h-8 rounded-lg border border-border bg-background px-3 text-sm outline-none"
-        onChange={(event) => onSourceChange(event.currentTarget.value as "chatgpt" | "custom")}
-        value={accentSource}
-      >
-        <option value="chatgpt">Blue</option>
-        <option value="custom">Custom</option>
-      </select>
-      <ColorTextControl
-        ariaLabel={`${mode} accent`}
-        disabled={accentSource === "chatgpt"}
-        onChange={onAccentChange}
-        value={accent}
-      />
+      <div className="relative">
+        <button
+          aria-expanded={menuOpen}
+          aria-label={`${mode} accent source`}
+          className="inline-flex h-9 min-w-[102px] items-center justify-between gap-3 rounded-xl border border-border bg-background px-3 text-sm shadow-xs hover:bg-muted/50"
+          onClick={() => setMenuOpen((current) => !current)}
+          type="button"
+        >
+          {selectedLabel}
+          <ChevronDown aria-hidden="true" className="text-muted-foreground" size={16} />
+        </button>
+        {menuOpen ? (
+          <div
+            className="absolute right-0 top-10 z-40 w-[250px] rounded-[22px] border border-border bg-popover p-3 text-popover-foreground shadow-2xl"
+            role="menu"
+          >
+            {accentOptions.map((option) => {
+              const selected =
+                (option.id === "blue" && accentSource === "chatgpt") ||
+                (option.id === "custom" && accentSource === "custom")
+
+              return (
+                <button
+                  className="flex h-[42px] w-full items-center gap-3 rounded-xl px-2 text-left text-lg hover:bg-muted/70"
+                  key={option.id}
+                  onClick={() => {
+                    if (option.id === "blue") {
+                      onSourceChange("chatgpt")
+                    } else if (option.id === "custom") {
+                      onSourceChange("custom")
+                      setPickerOpen(true)
+                    } else if (option.color) {
+                      onSourceChange("custom")
+                      onAccentChange(option.color)
+                    }
+                    setMenuOpen(false)
+                  }}
+                  role="menuitem"
+                  type="button"
+                >
+                  {option.color ? (
+                    <span
+                      className="size-4 rounded-full border border-black/10"
+                      style={{ backgroundColor: option.color }}
+                    />
+                  ) : null}
+                  <span className="min-w-0 flex-1">{option.label}</span>
+                  {selected ? <Check aria-hidden="true" size={19} /> : null}
+                </button>
+              )
+            })}
+          </div>
+        ) : null}
+      </div>
+      {accentSource === "custom" ? (
+        <div className="relative">
+          <button
+            aria-expanded={pickerOpen}
+            className="flex h-9 w-[142px] items-center gap-2 rounded-xl px-3 text-sm shadow-xs"
+            onClick={() => setPickerOpen((current) => !current)}
+            style={{ backgroundColor: accent, color: getReadableTextColor(accent) }}
+            type="button"
+          >
+            <span className="size-4 rounded-full border border-current opacity-40" />
+            <span className="uppercase tabular-nums">{accent}</span>
+          </button>
+          {pickerOpen ? (
+            <ColorPickerPopover
+              onChange={onAccentChange}
+              onClose={() => setPickerOpen(false)}
+              value={accent}
+            />
+          ) : null}
+        </div>
+      ) : null}
     </div>
   )
 }
 
+type AccentOption = {
+  readonly color?: string
+  readonly id: string
+  readonly label: string
+}
+
+const accentOptions: readonly AccentOption[] = [
+  { color: "#000000", id: "default", label: "Default" },
+  { color: "#3a83f7", id: "blue", label: "Blue" },
+  { color: "#4bb35f", id: "green", label: "Green" },
+  { color: "#f3bd35", id: "yellow", label: "Yellow" },
+  { color: "#e75d9e", id: "pink", label: "Pink" },
+  { color: "#ed7434", id: "orange", label: "Orange" },
+  { color: "#8147e8", id: "purple", label: "Purple" },
+  { color: "#000000", id: "black", label: "Black" },
+  { id: "custom", label: "Custom" },
+]
+
 function ColorTextControl({
   ariaLabel,
-  disabled,
   onChange,
   value,
 }: Readonly<{
   ariaLabel: string
-  disabled?: boolean
   onChange: (value: string) => void
   value: string
 }>) {
+  const [pickerOpen, setPickerOpen] = useState(false)
   const foreground = getReadableTextColor(value)
 
   return (
-    <label
-      className="flex h-7 w-[8.5rem] items-center gap-2 rounded-lg px-2 text-xs shadow-xs max-sm:w-full"
-      style={{ backgroundColor: value, color: foreground }}
+    <div className="relative">
+      <button
+        aria-expanded={pickerOpen}
+        aria-label={`${ariaLabel} color picker`}
+        className="flex h-7 w-[8.5rem] items-center gap-2 rounded-lg px-2 text-xs shadow-xs max-sm:w-full"
+        onClick={() => setPickerOpen((current) => !current)}
+        style={{ backgroundColor: value, color: foreground }}
+        type="button"
+      >
+        <span className="size-3.5 shrink-0 rounded-full border border-current opacity-40" />
+        <span className="uppercase tabular-nums">{value}</span>
+      </button>
+      {pickerOpen ? (
+        <ColorPickerPopover
+          onChange={onChange}
+          onClose={() => setPickerOpen(false)}
+          value={value}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function ColorPickerPopover({
+  onChange,
+  onClose,
+  value,
+}: Readonly<{ onChange: (value: string) => void; onClose: () => void; value: string }>) {
+  return (
+    <div className="absolute right-0 top-10 z-40 w-[238px] rounded-xl border border-border bg-popover p-1.5 shadow-2xl">
+      <button aria-label="Close color picker" className="sr-only" onClick={onClose} type="button" />
+      <label className="relative block h-[205px] overflow-hidden rounded-lg">
+        <span
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(90deg, #ffffff 0%, transparent 48%), linear-gradient(180deg, transparent 0%, #000000 100%), linear-gradient(90deg, #ccd7ea 0%, #1465f2 100%)",
+          }}
+        />
+        <input
+          aria-label="Custom color"
+          className="absolute inset-0 size-full cursor-crosshair opacity-0"
+          onChange={(event) => onChange(event.currentTarget.value)}
+          type="color"
+          value={value}
+        />
+        <span className="absolute right-[42px] top-0 size-7 rounded-full border-[3px] border-white shadow-md" />
+      </label>
+      <label className="relative mt-1.5 block h-8 overflow-hidden rounded-b-lg">
+        <span
+          className="absolute inset-0"
+          style={{
+            background:
+              "linear-gradient(90deg, #ff0000, #ffff00, #00ff00, #00ffff, #0000ff, #ff00ff, #ff0000)",
+          }}
+        />
+        <input
+          aria-label="Custom hue"
+          className="absolute inset-0 size-full opacity-0"
+          onChange={(event) => onChange(event.currentTarget.value)}
+          type="color"
+          value={value}
+        />
+        <span className="absolute left-[145px] top-0 size-8 rounded-full border-[3px] border-white shadow-md" />
+      </label>
+    </div>
+  )
+}
+
+function ThemeSampleBadge({ mode, theme }: Readonly<{ mode: ThemeMode; theme: CodexChromeTheme }>) {
+  return (
+    <span
+      className="inline-flex size-10 shrink-0 items-center justify-center rounded-xl border border-border text-base font-semibold shadow-xs"
+      style={{
+        backgroundColor: mode === "dark" ? theme.surface : "#ffffff",
+        color: theme.accent,
+      }}
     >
-      <input
-        aria-label={`${ariaLabel} color`}
-        className="h-3.5 w-3.5 shrink-0 rounded-full border border-current bg-transparent p-0 disabled:opacity-55"
-        disabled={disabled}
-        onChange={(event) => onChange(event.currentTarget.value)}
-        type="color"
-        value={value}
-      />
-      <input
-        aria-label={ariaLabel}
-        className="min-w-0 flex-1 bg-transparent uppercase tabular-nums outline-none disabled:cursor-default"
-        disabled={disabled}
-        onChange={(event) => {
-          const next = normalizeHexInput(event.currentTarget.value)
-          if (isHexColor(next)) {
-            onChange(next.toLowerCase())
-          }
-        }}
-        spellCheck={false}
-        value={value.toUpperCase()}
-      />
-    </label>
+      Aa
+    </span>
   )
 }
 
@@ -1005,14 +1377,6 @@ const isCodexChromeTheme = (theme: unknown): theme is CodexChromeTheme =>
   typeof theme.surface === "string"
 
 const isHexColor = (value: string): boolean => /^#[0-9a-fA-F]{6}$/.test(value)
-
-const normalizeHexInput = (value: string): string => {
-  const hex = value
-    .toUpperCase()
-    .replace(/[^0-9A-F#]/g, "")
-    .replaceAll("#", "")
-  return hex.length === 0 ? "#" : `#${hex.slice(0, 6)}`
-}
 
 function getReadableTextColor(value: string): string {
   if (!isHexColor(value)) {
