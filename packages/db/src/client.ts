@@ -1,4 +1,4 @@
-import { type Client, createClient } from "@libsql/client"
+import { type Client, createClient } from "@libsql/client/sqlite3"
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql"
 
 import { buildDatabasePaths, type DatabasePathOptions } from "./paths.js"

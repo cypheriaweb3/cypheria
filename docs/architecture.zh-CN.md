@@ -203,6 +203,10 @@ Generated protocol files 需要提交。不要手写 Codex app-server protocol r
 
 Web3 browser 不与 Codex preview/browser capabilities 共享钱包权限模型。
 
+已实现的 browser boundary 会把远程 origin 规范化为 HTTPS（仅 loopback 开发环境允许 HTTP），通过 Drizzle/libSQL 持久化 `dapp_origins` 和 `dapp_permissions`，并且只在同一 origin 内复用一个持久化 Electron partition。Electron 的 session-data root 设置为 `$CYPHERIA_HOME/browser`。Desktop 创建 dApp `WebContentsView` 时禁用 Node integration，并启用 context isolation、sandbox 与 web security，同时拒绝跨 origin 导航、popup window 和环境 Electron permission request。独立的 dApp preload 只暴露 `window.ethereum.request`，不与产品 renderer preload 共用。
+
+Electron main 会把每个已创建的 WebContents ID 与其规范化 origin、session key 绑定。每个 provider IPC request 必须同时匹配这一可信注册信息和 sender 当前 URL，之后才能进入 `@cypheria/runtime` 的 `dapp.provider-request`。Runtime 验证 JSON-RPC payload、检查未过期的 origin/account/method permission、审计脱敏结果，并在 injected executor 完成请求前把所有签名方法转换为 dApp 来源的 signing intent。Renderer 或 dApp 自报的 origin 字段绝不作为权限依据。在 wallet/policy composition 安装该 runtime service 之前，desktop bridge 会以 EIP-1193 `4900` 错误 fail closed。
+
 ## 签名流程
 
 ```txt
@@ -243,7 +247,7 @@ V1 automation 是 local-first。Cloud agent execution 和复杂 workflow engine 
 
 ## 数据模型
 
-SQLite 是非敏感本地数据的 source of truth。敏感钱包材料保存在受 OS-backed key storage 保护的 encrypted vault 中。
+SQLite 是非敏感本地数据的 source of truth。Drizzle 通过 libSQL 的 SQLite 入口访问本地 `file:` 数据库；这不需要、也不代表使用远程 Turso/libSQL 服务。敏感钱包材料保存在受 OS-backed key storage 保护的 encrypted vault 中。
 
 钱包领域与 vault 的详细设计见 `docs/wallet-management.zh-CN.md`。
 
@@ -265,14 +269,14 @@ signing_policies
 signing_intent_claims
 signing_intents
 approval_requests
+dapp_origins
+dapp_permissions
 ```
 
 规划中的 runtime tables：
 
 ```txt
 rpc_endpoints
-dapp_origins
-dapp_permissions
 ```
 
 ## Runtime Home

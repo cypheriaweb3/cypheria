@@ -25,7 +25,7 @@ Cypheria V1 is a TypeScript Web3 agent product with CLI, SDK, desktop, and runti
 | Desktop Codex protocol types | `codex app-server generate-ts --out packages/codex-bridge/src/generated` |
 | Local database | SQLite |
 | ORM | Drizzle ORM |
-| SQLite driver | libSQL (`@libsql/client`) |
+| SQLite driver | libSQL local SQLite entry point (`@libsql/client/sqlite3`) |
 
 ## Workspace Layout
 
@@ -218,7 +218,7 @@ Visual direction: quiet, work-focused, low saturation, panel-oriented, dense eno
 Core packages:
 
 - `@cypheria/wallet-core`: wallet/account/chain/signing intent models.
-- `@cypheria/web3-browser`: dApp session, permission, and EIP-1193 provider bridge models.
+- `@cypheria/web3-browser`: strict dApp session and permission models, JSON-RPC envelopes, session manager, and EIP-1193 provider bridge.
 - `@cypheria/policy-engine`: signing policy schemas and deterministic evaluation.
 
 Private keys never enter renderer, dApp pages, localStorage, IndexedDB, or normal SQLite tables.
@@ -253,7 +253,7 @@ Automation is local-first. Tasks may use Codex SDK, read chain state, create sig
 | --- | --- |
 | Database | SQLite |
 | ORM | Drizzle ORM |
-| Driver | libSQL (`@libsql/client`) |
+| Driver | libSQL local SQLite entry point (`@libsql/client/sqlite3`) |
 | Migrations | drizzle-kit |
 | Search | SQLite FTS5 when needed |
 | Sensitive data | encrypted vault, not normal SQLite tables |
@@ -276,14 +276,14 @@ signing_policies
 signing_intent_claims
 signing_intents
 approval_requests
+dapp_origins
+dapp_permissions
 ```
 
 Planned tables:
 
 ```txt
 rpc_endpoints
-dapp_origins
-dapp_permissions
 ```
 
 ## Engineering Rules

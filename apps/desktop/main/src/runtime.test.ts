@@ -16,6 +16,9 @@ describe("desktop runtime bootstrap", () => {
       expect(context.runtime.lifecycleState).toBe("ready")
       expect(context.paths).toBe(context.runtime.paths)
       expect(context.codexEnv.CODEX_HOME).toBe(context.paths.codexHome)
+      await expect(context.dappSessions.open("https://app.example/path")).resolves.toMatchObject({
+        origin: "https://app.example",
+      })
 
       await expect(context.runtime.request("runtime.info")).resolves.toMatchObject({
         cypheriaHome: context.paths.cypheriaHome,

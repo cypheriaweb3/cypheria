@@ -4,6 +4,8 @@ import {
   ApprovalRequestViewSchema,
   approvalRequestDecideContract,
   approvalRequestsListContract,
+  browserSessionOpenContract,
+  dappProviderRequestContract,
 } from "./index.js"
 
 const view = {
@@ -69,5 +71,34 @@ describe("approval IPC contracts", () => {
         reviewer: "user",
       })
     ).toThrow()
+  })
+})
+
+describe("dApp browser IPC contracts", () => {
+  it("accepts scoped provider requests and rejects non-JSON parameters", () => {
+    expect(
+      dappProviderRequestContract.request.parse({
+        id: "provider_1",
+        method: "personal_sign",
+        origin: "https://app.example",
+        params: ["hello", "0x0000000000000000000000000000000000000001"],
+        sessionKey: "cypheria:dapp:https://app.example",
+      })
+    ).toMatchObject({ method: "personal_sign", origin: "https://app.example" })
+    expect(() =>
+      dappProviderRequestContract.request.parse({
+        id: "provider_2",
+        method: "personal_sign",
+        origin: "https://app.example",
+        params: [1n],
+        sessionKey: "cypheria:dapp:https://app.example",
+      })
+    ).toThrow()
+  })
+
+  it("restricts browser sessions to secure dApp URLs", () => {
+    expect(browserSessionOpenContract.request.parse({ url: "https://app.example/path" })).toEqual({
+      url: "https://app.example/path",
+    })
   })
 })

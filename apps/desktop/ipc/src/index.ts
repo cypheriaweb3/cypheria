@@ -1,4 +1,9 @@
 import { signingIntentSchema } from "@cypheria/wallet-core"
+import {
+  dappSessionSchema,
+  providerRequestSchema,
+  providerResponseSchema,
+} from "@cypheria/web3-browser"
 import { z } from "zod"
 
 export const IPC_PROTOCOL_VERSION = 1
@@ -26,7 +31,9 @@ export const CYPHERIA_IPC_CHANNELS = {
   appMetadataRead: "app.metadata.read",
   approvalRequestDecide: "approval.request.decide",
   approvalRequestsList: "approval.requests.list",
+  browserSessionOpen: "browser.session.open",
   codexEvent: "codex.event",
+  dappProviderRequest: "dapp.provider.request",
   runtimeInfoRead: "runtime.info.read",
   settingsAppearanceFontsList: "settings.appearance.fonts.list",
   settingsAppearanceRead: "settings.appearance.read",
@@ -282,6 +289,14 @@ export const ApprovalRequestDecideSchema = z
   .strict()
 export type ApprovalRequestDecide = z.infer<typeof ApprovalRequestDecideSchema>
 
+export const BrowserSessionOpenSchema = z.object({ url: z.url() }).strict()
+export type BrowserSessionOpen = z.infer<typeof BrowserSessionOpenSchema>
+
+export const BrowserSessionOpenResultSchema = z
+  .object({ session: dappSessionSchema, webContentsId: z.number().int().positive() })
+  .strict()
+export type BrowserSessionOpenResult = z.infer<typeof BrowserSessionOpenResultSchema>
+
 export const IpcRequestEnvelopeSchema = z
   .object({
     channel: z.string().min(1),
@@ -445,6 +460,25 @@ export const approvalRequestDecideContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<ApprovalRequestDecide, ApprovalRequestView>
 
+export const browserSessionOpenContract = {
+  channel: CYPHERIA_IPC_CHANNELS.browserSessionOpen,
+  namespace: "browser",
+  request: BrowserSessionOpenSchema,
+  response: BrowserSessionOpenResultSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<BrowserSessionOpen, BrowserSessionOpenResult>
+
+export const dappProviderRequestContract = {
+  channel: CYPHERIA_IPC_CHANNELS.dappProviderRequest,
+  namespace: "dapp",
+  request: providerRequestSchema,
+  response: providerResponseSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  z.input<typeof providerRequestSchema>,
+  z.output<typeof providerResponseSchema>
+>
+
 export const runtimeInfoReadContract = {
   channel: CYPHERIA_IPC_CHANNELS.runtimeInfoRead,
   namespace: "runtime",
@@ -492,6 +526,8 @@ export const ipcContracts = {
   appMetadataRead: appMetadataReadContract,
   approvalRequestDecide: approvalRequestDecideContract,
   approvalRequestsList: approvalRequestsListContract,
+  browserSessionOpen: browserSessionOpenContract,
+  dappProviderRequest: dappProviderRequestContract,
   runtimeInfoRead: runtimeInfoReadContract,
   settingsAppearanceFontsList: settingsAppearanceFontsListContract,
   settingsAppearanceRead: settingsAppearanceReadContract,
@@ -506,6 +542,9 @@ export type CypheriaPreloadApi = {
   }
   readonly codex: {
     readonly onEvent: (handler: (event: CodexEventEnvelope) => void) => () => void
+  }
+  readonly browser: {
+    readonly openDapp: (url: string) => Promise<BrowserSessionOpenResult>
   }
   readonly runtime: {
     readonly getInfo: () => Promise<RuntimeInfo>

@@ -152,7 +152,7 @@
   - 验收：dApp、automation 和 agent contexts 可以创建 signing intents；每个 intent 都经过 policy evaluation 且可审计。
   - 验证：runtime、policy、db 和 desktop IPC tests。
 
-- [ ] 实现 Web3 browser runtime service。
+- [x] 实现 Web3 browser runtime service。
   - 验收：desktop 可以创建 origin-isolated dApp sessions、注入 provider bridge，并将 provider requests 路由到 runtime。
   - 验证：web3-browser tests 和 desktop smoke test。
 

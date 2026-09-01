@@ -134,6 +134,9 @@ importers:
       '@cypheria/wallet-core':
         specifier: workspace:*
         version: link:../wallet-core
+      '@cypheria/web3-browser':
+        specifier: workspace:*
+        version: link:../web3-browser
       '@libsql/client':
         specifier: ^0.17.4
         version: 0.17.4
@@ -175,6 +178,9 @@ importers:
       '@cypheria/wallet-core':
         specifier: workspace:*
         version: link:../wallet-core
+      '@cypheria/web3-browser':
+        specifier: workspace:*
+        version: link:../web3-browser
       '@scure/bip39':
         specifier: ^1.6.0
         version: 1.6.0
@@ -280,6 +286,9 @@ importers:
       '@cypheria/wallet-core':
         specifier: workspace:*
         version: link:../wallet-core
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       vitest:
         specifier: ^4.1.7

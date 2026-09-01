@@ -152,7 +152,7 @@ Status legend:
   - Acceptance: dApp, automation, and agent contexts can create signing intents; each intent is evaluated by policy and auditable.
   - Verification: runtime, policy, db, and desktop IPC tests.
 
-- [ ] Implement Web3 browser runtime service.
+- [x] Implement Web3 browser runtime service.
   - Acceptance: desktop can create origin-isolated dApp sessions, inject the provider bridge, and route provider requests through runtime.
   - Verification: web3-browser tests and desktop smoke test.
 

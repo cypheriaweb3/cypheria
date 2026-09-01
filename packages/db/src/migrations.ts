@@ -195,6 +195,28 @@ export const initialSchemaStatements = [
     CONSTRAINT approval_requests_status_check CHECK (status IN ('approved', 'expired', 'pending', 'rejected'))
   )`,
   "CREATE INDEX IF NOT EXISTS approval_requests_status_idx ON approval_requests (status)",
+  `CREATE TABLE IF NOT EXISTS dapp_origins (
+    created_at text NOT NULL,
+    last_used_at text,
+    origin text PRIMARY KEY NOT NULL,
+    partition text NOT NULL,
+    session_key text NOT NULL UNIQUE
+  )`,
+  `CREATE TABLE IF NOT EXISTS dapp_permissions (
+    account_addresses text NOT NULL,
+    chain_id integer NOT NULL,
+    created_at text NOT NULL,
+    expires_at text,
+    id text PRIMARY KEY NOT NULL,
+    methods text NOT NULL,
+    origin text NOT NULL REFERENCES dapp_origins(origin) ON DELETE CASCADE,
+    session_key text NOT NULL,
+    updated_at text NOT NULL,
+    wallet_id text NOT NULL REFERENCES wallets(id) ON DELETE CASCADE
+  )`,
+  "CREATE UNIQUE INDEX IF NOT EXISTS dapp_permissions_origin_wallet_chain_unique ON dapp_permissions (origin, wallet_id, chain_id)",
+  "CREATE INDEX IF NOT EXISTS dapp_permissions_origin_idx ON dapp_permissions (origin)",
+  "CREATE INDEX IF NOT EXISTS dapp_permissions_wallet_id_idx ON dapp_permissions (wallet_id)",
 ] as const
 
 export const ensureDatabaseSchema = async (client: Client): Promise<void> => {

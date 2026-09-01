@@ -1,11 +1,14 @@
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
+import { type ProviderResponse, providerResponseSchema } from "@cypheria/web3-browser"
 import { app, BrowserWindow } from "electron"
 import {
   type AppHealthStatus,
   type AppMetadata,
   appHealthCheckContract,
   appMetadataReadContract,
+  browserSessionOpenContract,
+  dappProviderRequestContract,
   IPC_PROTOCOL_VERSION,
   type RuntimeInfo,
   runtimeInfoReadContract,
@@ -14,6 +17,11 @@ import {
   settingsAppearanceWriteContract,
 } from "../../ipc/src/index.js"
 import { readAppearanceSettings, writeAppearanceSettings } from "./appearance-config.js"
+import {
+  createDappBrowserController,
+  createElectronDappWebContentsFactory,
+  type DappBrowserController,
+} from "./dapp-browser.js"
 import { registerIpcRoute } from "./ipc.js"
 import {
   type DesktopRuntimeContext,
@@ -24,9 +32,11 @@ import { listSystemFonts } from "./system-fonts.js"
 
 let mainWindow: BrowserWindow | null = null
 let desktopRuntimeContext: DesktopRuntimeContext | null = null
+let dappBrowserController: DappBrowserController | null = null
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const preloadPath = join(currentDir, "../preload/index.cjs")
+const dappPreloadPath = join(currentDir, "../dapp-preload/index.cjs")
 
 const logFatalError = (error: unknown): void => {
   console.error("[cypheria:desktop] fatal error", error)
@@ -134,6 +144,18 @@ const registerIpcHandlers = (context: DesktopRuntimeContext): void => {
     }
   })
   registerIpcRoute(appMetadataReadContract, () => appMetadata)
+  registerIpcRoute(browserSessionOpenContract, ({ url }) => {
+    if (!dappBrowserController) throw new Error("The dApp browser is unavailable.")
+    return dappBrowserController.open(url)
+  })
+  registerIpcRoute(dappProviderRequestContract, async (request, event) => {
+    if (!dappBrowserController) throw new Error("The dApp browser is unavailable.")
+    return dappBrowserController.routeProviderRequest(
+      event.sender.id,
+      event.sender.getURL(),
+      request
+    )
+  })
   registerIpcRoute(runtimeInfoReadContract, () => toRuntimeInfo(context))
   registerIpcRoute(settingsAppearanceReadContract, () =>
     readAppearanceSettings(context.paths.codexHome)
@@ -176,6 +198,24 @@ const createMainWindow = async (context: DesktopRuntimeContext): Promise<Browser
     width: 1280,
   })
 
+  dappBrowserController = createDappBrowserController({
+    createWebContents: createElectronDappWebContentsFactory(window),
+    preloadPath: dappPreloadPath,
+    requestRuntime: async (request) => {
+      try {
+        return providerResponseSchema.parse(
+          await context.runtime.request("dapp.provider-request", request)
+        ) as ProviderResponse
+      } catch {
+        return {
+          error: { code: 4900, message: "The wallet provider runtime is unavailable." },
+          id: request.id,
+        }
+      }
+    },
+    sessions: context.dappSessions,
+  })
+
   window.once("ready-to-show", () => {
     window.show()
   })
@@ -183,6 +223,7 @@ const createMainWindow = async (context: DesktopRuntimeContext): Promise<Browser
   window.on("closed", () => {
     if (mainWindow === window) {
       mainWindow = null
+      dappBrowserController = null
     }
   })
 
@@ -249,6 +290,7 @@ const startDesktopApp = async (): Promise<void> => {
     clientVersion: app.getVersion(),
     codexAppServer: { windows: () => BrowserWindow.getAllWindows() },
   })
+  app.setPath("sessionData", desktopRuntimeContext.paths.browserDir)
   registerIpcHandlers(desktopRuntimeContext)
   mainWindow = await createMainWindow(desktopRuntimeContext)
 }

@@ -25,7 +25,7 @@ Cypheria V1 是一个 TypeScript Web3 agent 产品，包含 CLI、SDK、desktop 
 | Desktop Codex protocol types | `codex app-server generate-ts --out packages/codex-bridge/src/generated` |
 | Local database | SQLite |
 | ORM | Drizzle ORM |
-| SQLite driver | libSQL（`@libsql/client`） |
+| SQLite driver | libSQL 本地 SQLite 入口（`@libsql/client/sqlite3`） |
 
 ## Workspace 结构
 
@@ -218,7 +218,7 @@ Cypheria-specific components：
 核心 packages：
 
 - `@cypheria/wallet-core`：wallet/account/chain/signing intent models。
-- `@cypheria/web3-browser`：dApp session、permission 和 EIP-1193 provider bridge models。
+- `@cypheria/web3-browser`：严格的 dApp session 与 permission models、JSON-RPC envelopes、session manager 和 EIP-1193 provider bridge。
 - `@cypheria/policy-engine`：signing policy schemas 和 deterministic evaluation。
 
 私钥永远不进入 renderer、dApp pages、localStorage、IndexedDB 或普通 SQLite tables。
@@ -253,7 +253,7 @@ Automation 是 local-first。Tasks 可以使用 Codex SDK、读取链上状态�
 | --- | --- |
 | Database | SQLite |
 | ORM | Drizzle ORM |
-| Driver | libSQL（`@libsql/client`） |
+| Driver | libSQL 本地 SQLite 入口（`@libsql/client/sqlite3`） |
 | Migrations | drizzle-kit |
 | Search | SQLite FTS5 when needed |
 | Sensitive data | encrypted vault，不进普通 SQLite tables |
@@ -276,14 +276,14 @@ signing_policies
 signing_intent_claims
 signing_intents
 approval_requests
+dapp_origins
+dapp_permissions
 ```
 
 规划 tables：
 
 ```txt
 rpc_endpoints
-dapp_origins
-dapp_permissions
 ```
 
 ## 工程规则

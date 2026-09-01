@@ -203,6 +203,10 @@ Each dApp origin runs in its own isolated Electron session. dApp pages receive a
 
 The Web3 browser does not share its wallet permission model with Codex preview/browser capabilities.
 
+The implemented browser boundary normalizes remote origins to HTTPS (with HTTP allowed only for loopback development), persists `dapp_origins` and `dapp_permissions` through Drizzle/libSQL, and reuses one persistent Electron partition only within the same origin. Electron's session-data root is set to `$CYPHERIA_HOME/browser`. Desktop creates dApp `WebContentsView` instances with Node integration disabled, context isolation, sandboxing, and web security enabled. Cross-origin navigation, popup windows, and ambient Electron permission requests are denied. A dedicated dApp preload exposes only `window.ethereum.request`; it is separate from the product-renderer preload.
+
+Electron main registers each created WebContents ID with its normalized origin and session key. Every provider IPC request must match that trusted registration and the sender's current URL before it reaches `dapp.provider-request` in `@cypheria/runtime`. The runtime validates JSON-RPC payloads, checks unexpired origin/account/method permissions, audits redacted outcomes, and converts all signing methods into dApp-sourced signing intents before an injected executor can complete them. Renderer and dApp-supplied origin fields are never treated as authority. Until the wallet/policy composition installs that runtime service, the desktop bridge fails closed with EIP-1193 error `4900`.
+
 ## Signing Flow
 
 ```txt
@@ -243,7 +247,7 @@ V1 automation is local-first. Cloud agent execution and complex workflow engines
 
 ## Data Model
 
-SQLite is the local source of truth for non-secret data. Sensitive wallet material belongs in an encrypted vault protected by OS-backed key storage.
+SQLite is the local source of truth for non-secret data. Drizzle accesses a local `file:` database through the libSQL SQLite entry point; this does not require or imply a remote Turso/libSQL service. Sensitive wallet material belongs in an encrypted vault protected by OS-backed key storage.
 
 The wallet domain and vault design are specified in `docs/wallet-management.md`.
 
@@ -265,14 +269,14 @@ signing_policies
 signing_intent_claims
 signing_intents
 approval_requests
+dapp_origins
+dapp_permissions
 ```
 
 Planned runtime tables:
 
 ```txt
 rpc_endpoints
-dapp_origins
-dapp_permissions
 ```
 
 ## Runtime Home

@@ -23,6 +23,7 @@ export {
   type AutomationTaskRecord,
   createAutomationPersistenceService,
 } from "./automation.js"
+export { createDappBrowserPersistenceService } from "./browser.js"
 export {
   type CypheriaDatabase,
   createInMemoryDatabase,

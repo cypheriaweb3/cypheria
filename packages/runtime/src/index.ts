@@ -2,6 +2,7 @@ import { mkdir } from "node:fs/promises"
 import { homedir } from "node:os"
 import { resolve } from "node:path"
 
+export * from "./dapp-provider-service/index.js"
 export * from "./policy-service/index.js"
 export * from "./signing-intent-service/index.js"
 export * from "./wallet-manager/index.js"

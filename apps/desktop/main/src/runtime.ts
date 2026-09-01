@@ -1,10 +1,17 @@
 import {
+  createDappBrowserPersistenceService,
+  ensureDatabaseSchema,
+  type OpenDatabaseResult,
+  openCypheriaDatabase,
+} from "@cypheria/db"
+import {
   buildCodexEnvironment,
   CypheriaRuntime,
   type CypheriaRuntimeOptions,
   type CypheriaRuntimePaths,
   type RuntimeHomeEnv,
 } from "@cypheria/runtime"
+import { createDappSessionManager, type DappSessionManager } from "@cypheria/web3-browser"
 import {
   type CodexAppServerContext,
   type StartCodexAppServerOptions,
@@ -14,6 +21,8 @@ import {
 
 export type DesktopRuntimeContext = {
   readonly codexAppServer?: CodexAppServerContext
+  readonly dappSessions: DappSessionManager
+  readonly database: OpenDatabaseResult
   readonly paths: CypheriaRuntimePaths
   readonly codexEnv: RuntimeHomeEnv
   readonly runtime: CypheriaRuntime
@@ -30,11 +39,13 @@ export const initializeDesktopRuntime = async (
 ): Promise<DesktopRuntimeContext> => {
   const runtime = new CypheriaRuntime(options)
   await runtime.start()
+  const database = openCypheriaDatabase({ dbDir: runtime.paths.dbDir })
   const codexEnv = buildCodexEnvironment(runtime.paths)
   const shouldStartCodexAppServer = options.startCodexAppServer ?? true
   let codexAppServer: CodexAppServerContext | undefined
 
   try {
+    await ensureDatabaseSchema(database.client)
     codexAppServer = shouldStartCodexAppServer
       ? await startCodexAppServer({
           ...options.codexAppServer,
@@ -44,12 +55,17 @@ export const initializeDesktopRuntime = async (
         })
       : undefined
   } catch (error) {
+    database.close()
     await runtime.stop()
     throw error
   }
 
   return {
     codexAppServer,
+    database,
+    dappSessions: createDappSessionManager({
+      persistence: createDappBrowserPersistenceService(database.db),
+    }),
     paths: runtime.paths,
     codexEnv,
     runtime,
@@ -57,8 +73,15 @@ export const initializeDesktopRuntime = async (
 }
 
 export const shutdownDesktopRuntime = async (context: DesktopRuntimeContext): Promise<void> => {
-  if (context.codexAppServer) {
-    await shutdownCodexAppServer(context.codexAppServer)
+  try {
+    if (context.codexAppServer) {
+      await shutdownCodexAppServer(context.codexAppServer)
+    }
+  } finally {
+    try {
+      await context.runtime.stop()
+    } finally {
+      context.database.close()
+    }
   }
-  await context.runtime.stop()
 }

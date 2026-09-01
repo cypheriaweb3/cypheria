@@ -5,6 +5,7 @@ import type {
   AppearanceSettings,
   AppHealthStatus,
   AppMetadata,
+  BrowserSessionOpenResult,
   CodexEventEnvelope,
   CypheriaPreloadApi,
   RuntimeInfo,
@@ -18,6 +19,12 @@ const cypheriaApi: CypheriaPreloadApi = {
     platform: process.platform,
     getHealth: () => invoke<AppHealthStatus>(CYPHERIA_IPC_CHANNELS.appHealthCheck),
     getMetadata: () => invoke<AppMetadata>(CYPHERIA_IPC_CHANNELS.appMetadataRead),
+  },
+  browser: {
+    openDapp: (url) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.browserSessionOpen, {
+        url,
+      }) as Promise<BrowserSessionOpenResult>,
   },
   codex: {
     onEvent: (handler) => {
