@@ -1,6 +1,19 @@
 import type { Address, Hex, SignableMessage, TypedData, TypedDataDefinition } from "viem"
+import { z } from "zod"
 
-import type { ChainAccountId, ChainId, WalletAccountId, WalletId } from "./primitives.js"
+import {
+  type ChainAccountId,
+  type ChainId,
+  chainAccountIdSchema,
+  chainIdSchema,
+  hexAddressSchema,
+  hexDataSchema,
+  timestampSchema,
+  type WalletAccountId,
+  type WalletId,
+  walletAccountIdSchema,
+  walletIdSchema,
+} from "./primitives.js"
 
 export const walletModes = ["conditional-auto-signing", "human-approval", "read-only"] as const
 export type WalletMode = (typeof walletModes)[number]
@@ -13,6 +26,16 @@ export type SigningAccountRef = {
   readonly walletId: WalletId
 }
 
+export const signingAccountRefSchema = z
+  .object({
+    address: hexAddressSchema,
+    chainAccountId: chainAccountIdSchema,
+    chainId: chainIdSchema,
+    walletAccountId: walletAccountIdSchema,
+    walletId: walletIdSchema,
+  })
+  .strict()
+
 export type SignTransactionParameters = {
   readonly chainId: ChainId
   readonly data?: Hex
@@ -23,6 +46,19 @@ export type SignTransactionParameters = {
   readonly to?: Address
   readonly value?: bigint
 }
+
+export const signTransactionParametersSchema = z
+  .object({
+    chainId: chainIdSchema,
+    data: hexDataSchema.optional(),
+    gas: z.bigint().nonnegative().optional(),
+    maxFeePerGas: z.bigint().nonnegative().optional(),
+    maxPriorityFeePerGas: z.bigint().nonnegative().optional(),
+    nonce: z.number().int().nonnegative().optional(),
+    to: hexAddressSchema.optional(),
+    value: z.bigint().nonnegative().optional(),
+  })
+  .strict()
 
 export interface WalletSigner {
   readonly address: Address
@@ -68,3 +104,47 @@ export type TransactionIntent = SigningIntentBase & {
 }
 
 export type SigningIntent = PersonalSignIntent | TransactionIntent | TypedDataSignIntent
+
+const signingIntentBaseShape = {
+  account: signingAccountRefSchema,
+  correlationId: z.string().min(1),
+  createdAt: timestampSchema,
+  id: z.string().regex(/^signing_intent_[A-Za-z0-9][A-Za-z0-9_-]*$/u),
+  origin: z.string().min(1).optional(),
+} as const
+
+export const personalSignIntentSchema = z
+  .object({
+    ...signingIntentBaseShape,
+    kind: z.literal("personal-sign"),
+    message: z.string(),
+  })
+  .strict()
+
+export const typedDataSignIntentSchema = z
+  .object({
+    ...signingIntentBaseShape,
+    domain: z.unknown(),
+    kind: z.literal("typed-data"),
+    message: z.unknown(),
+    primaryType: z.string().min(1),
+    types: z.unknown(),
+  })
+  .strict()
+
+export const transactionIntentSchema = z
+  .object({
+    ...signingIntentBaseShape,
+    kind: z.enum(["send-transaction", "sign-transaction"]),
+    transaction: signTransactionParametersSchema,
+  })
+  .strict()
+
+export const signingIntentSchema = z.discriminatedUnion("kind", [
+  personalSignIntentSchema,
+  transactionIntentSchema,
+  typedDataSignIntentSchema,
+])
+
+export const parseSigningIntent = (value: unknown): SigningIntent =>
+  signingIntentSchema.parse(value) as SigningIntent

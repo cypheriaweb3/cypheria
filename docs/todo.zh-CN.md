@@ -139,7 +139,7 @@
   - 包括：新生成钱包快速初始化、导入成功前完成持久化、地址一致性检查、rename/delete 和 audit events。
   - 验证：runtime、wallet、database 与 vault tests。
 
-- [ ] 将钱包 signer 接入 signing-intent pipeline。
+- [x] 将钱包 signer 接入 signing-intent pipeline。
   - 验收：调用方获得签名能力而不是秘密材料；每次 message、typed-data 和 transaction 签名都绑定已批准 intent 并写入 audit。
   - 包括：viem signing adapters、signer/address 一致性检查、lock behavior、replay protection，并确保 renderer、dApp、agent 和 automation contexts 均不接触私钥。
   - 验证：runtime、policy、wallet 与 desktop IPC tests。

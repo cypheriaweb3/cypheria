@@ -10,6 +10,7 @@ import {
   defaultEvmHdDerivationScheme,
   derivePath,
   type HexAddress,
+  parseSigningIntent,
   parseWallet,
   toWalletView,
   type WalletSigner,
@@ -150,5 +151,27 @@ describe("wallet domain", () => {
     expectTypeOf<keyof WalletSigner>().toEqualTypeOf<
       "address" | "signMessage" | "signTransaction" | "signTypedData"
     >()
+  })
+
+  it("strictly validates signing intents", () => {
+    const intent = {
+      account: {
+        address,
+        chainAccountId: "chain_account_one",
+        chainId: 1,
+        walletAccountId: "account_one",
+        walletId: "wallet_one",
+      },
+      correlationId: "request_one",
+      createdAt: now,
+      id: "signing_intent_one",
+      kind: "sign-transaction",
+      transaction: { chainId: 1, value: 1n },
+    } as const
+    expect(parseSigningIntent(intent)).toEqual(intent)
+    expect(() => parseSigningIntent({ ...intent, privateKey: "secret" })).toThrow()
+    expect(() =>
+      parseSigningIntent({ ...intent, transaction: { chainId: 10, value: -1n } })
+    ).toThrow()
   })
 })

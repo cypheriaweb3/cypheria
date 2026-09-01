@@ -27,6 +27,10 @@ export {
 } from "./paths.js"
 export * from "./schema.js"
 export {
+  createSigningIntentReplayStore,
+  type SigningIntentReplayStore,
+} from "./signing.js"
+export {
   createWalletPublicStatePersistenceService,
   type ListWalletOptions,
   type PersistedActiveWalletContext,

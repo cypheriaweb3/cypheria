@@ -208,6 +208,7 @@ Web3 browser 不与 Codex preview/browser capabilities 共享钱包权限模型�
 ```txt
 dApp, automation, or agent context
   -> signing intent
+  -> durable one-time intent claim
   -> PolicyEngine
   -> simulation/risk metadata when available
   -> approval UI if required
@@ -217,6 +218,8 @@ dApp, automation, or agent context
 ```
 
 Codex 不直接签名交易。Automation 不直接签名交易。两者都只能创建 signing intents，并交给 Cypheria policy 处理。
+
+钱包签名 capability 绑定具体账户，并且只消费 intent 一次。它们要求注入 policy/approval authorizer，只通过 scoped callback 访问已解锁 vault 秘密，验证派生 signer 与生成签名，并写入脱敏 audit record。交易广播由独立 capability 提供。
 
 ## 自动化流程
 

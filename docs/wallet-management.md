@@ -82,4 +82,10 @@ Recovery reconciles lifecycle state and vault files; a missing vault marks an ex
 
 ## Signing
 
-Signing resolves an account, validates chain and address, routes an intent through policy and approval, constructs a viem account inside runtime, verifies its address against persisted state, signs, verifies the result where possible, and appends an audit event. Sending and signing a transaction remain distinct permissions. Secrets and sensitive signing inputs are redacted at every runtime boundary.
+`@cypheria/runtime` issues an opaque capability bound to one persisted wallet/account/chain reference. Its methods accept complete, strictly validated signing intents rather than arbitrary signing payloads. Every execution re-resolves ready local-wallet state, checks the bound address and chain, requires an unlocked vault, atomically claims the intent ID, and calls the required policy/approval authorizer. The signing service has no bypass path and does not accept `send-transaction`; signing and broadcasting remain distinct permissions.
+
+Production replay protection uses `signing_intent_claims` in libSQL. The intent ID is claimed with its canonical SHA-256 payload hash before authorization, so concurrent or later reuse is rejected across process restarts. A locked vault is detected before the claim, allowing the same intent to be retried after an explicit unlock. A process-local replay guard exists only as an explicit test or isolated-runtime adapter.
+
+After approval, the vault resolves a secret by wallet account ID only inside its scoped callback. Runtime reconstructs a viem account, verifies its address against public persistence, signs a message, EIP-712 typed data, or a transaction, and verifies the produced signature or recovered transaction sender. The capability returns only a signature or serialized signed transaction.
+
+Policy decisions, rejection, successful signatures, and failures are audited using the intent correlation ID and payload hash. Audit summaries contain identifiers and result types, never private keys, mnemonic material, messages, typed data, or transaction calldata. Public errors use stable redacted codes.

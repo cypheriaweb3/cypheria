@@ -139,7 +139,7 @@ Status legend:
   - Include: fast generated-wallet initialization, durable-before-success imports, address consistency checks, rename/delete, and audit events.
   - Verification: runtime, wallet, database, and vault tests.
 
-- [ ] Connect wallet signers to the signing-intent pipeline.
+- [x] Connect wallet signers to the signing-intent pipeline.
   - Acceptance: callers receive signing capabilities rather than secret material; every message, typed-data, and transaction signature is bound to an approved intent and audited.
   - Include: viem signing adapters, signer/address consistency checks, lock behavior, replay protection, and no private keys in renderer, dApp, agent, or automation contexts.
   - Verification: runtime, policy, wallet, and desktop IPC tests.

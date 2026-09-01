@@ -208,6 +208,7 @@ The Web3 browser does not share its wallet permission model with Codex preview/b
 ```txt
 dApp, automation, or agent context
   -> signing intent
+  -> durable one-time intent claim
   -> PolicyEngine
   -> simulation/risk metadata when available
   -> approval UI if required
@@ -217,6 +218,8 @@ dApp, automation, or agent context
 ```
 
 Codex does not directly sign transactions. Automation does not directly sign transactions. Both create signing intents routed through Cypheria policy.
+
+Wallet signing capabilities are account-bound and consume an intent exactly once. They require an injected policy/approval authorizer, access unlocked vault secrets only through a scoped callback, verify the derived signer and produced signature, and emit redacted audit records. Transaction broadcasting is a separate capability.
 
 ## Automation Flow
 

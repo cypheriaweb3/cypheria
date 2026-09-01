@@ -222,6 +222,12 @@ export const activeWalletContext = sqliteTable(
   ]
 )
 
+export const signingIntentClaims = sqliteTable("signing_intent_claims", {
+  claimedAt: text("claimed_at").notNull(),
+  intentId: text("intent_id").primaryKey(),
+  payloadHash: text("payload_hash").notNull(),
+})
+
 export const schema = {
   activeWalletContext,
   auditLogs,
@@ -230,6 +236,7 @@ export const schema = {
   chainAccounts,
   runtimeMetadata,
   settings,
+  signingIntentClaims,
   walletAccounts,
   walletHdSchemes,
   wallets,

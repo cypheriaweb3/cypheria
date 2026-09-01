@@ -14,6 +14,7 @@
   },
   "dependencies": {
     "@cypheria/db": "workspace:*",
+    "@cypheria/policy-engine": "workspace:*",
     "@cypheria/wallet-core": "workspace:*",
     "@scure/bip39": "^1.6.0",
     "ethers": "^6.17.0",

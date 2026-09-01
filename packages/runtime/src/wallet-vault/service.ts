@@ -128,6 +128,11 @@ export type WalletVault = {
 }
 
 export type WalletVaultController = WalletVault & {
+  readonly useAccountSecret: <T>(
+    vaultId: VaultId,
+    accountId: WalletAccountId,
+    operation: (secret: VaultSecret) => Promise<T> | T
+  ) => Promise<T>
   readonly useSecret: <T>(
     vaultId: VaultId,
     entryId: VaultEntryId,
@@ -207,6 +212,7 @@ export const createWalletVaultController = (options: WalletVaultOptions): Wallet
   const operations = new Map<VaultId, Promise<void>>()
   const unlockTokens = new Map<VaultId, symbol>()
   const unlocked = new Map<VaultId, Map<VaultEntryId, VaultSecret>>()
+  const unlockedAccounts = new Map<VaultId, Map<WalletAccountId, VaultEntryId>>()
   const pathForVault = (vaultId: VaultId): string =>
     join(options.vaultDir, fileNameForVault(vaultIdSchema.parse(vaultId)))
 
@@ -365,10 +371,12 @@ export const createWalletVaultController = (options: WalletVaultOptions): Wallet
       const parsedVaultId = vaultIdSchema.parse(vaultId)
       unlockTokens.delete(parsedVaultId)
       unlocked.delete(parsedVaultId)
+      unlockedAccounts.delete(parsedVaultId)
     },
     lockAll: () => {
       unlockTokens.clear()
       unlocked.clear()
+      unlockedAccounts.clear()
       options.keyProvider.clearCachedMasterKey?.()
     },
     putEntry: async (vaultIdValue, entryValue) => {
@@ -455,6 +463,14 @@ export const createWalletVaultController = (options: WalletVaultOptions): Wallet
           }
           if (unlockTokens.get(vaultId) === unlockToken) {
             unlocked.set(vaultId, nextSecrets)
+            unlockedAccounts.set(
+              vaultId,
+              new Map(
+                document.entries.flatMap((entry) =>
+                  entry.accountId ? [[entry.accountId, entry.id] as const] : []
+                )
+              )
+            )
           }
           return toSummary(document)
         })
@@ -464,6 +480,19 @@ export const createWalletVaultController = (options: WalletVaultOptions): Wallet
         }
         throw error
       }
+    },
+    useAccountSecret: async (vaultIdValue, accountIdValue, operation) => {
+      const vaultId = vaultIdSchema.parse(vaultIdValue)
+      const accountId = walletAccountIdSchema.parse(accountIdValue)
+      if (!unlocked.has(vaultId)) {
+        throw new WalletVaultError("VAULT_LOCKED", "The wallet vault is locked.")
+      }
+      const entryId = unlockedAccounts.get(vaultId)?.get(accountId)
+      const secret = entryId ? unlocked.get(vaultId)?.get(entryId) : undefined
+      if (!secret) {
+        throw new WalletVaultError("ENTRY_NOT_FOUND", "The wallet vault entry does not exist.")
+      }
+      return operation(secret)
     },
     useSecret: async (vaultIdValue, entryIdValue, operation) => {
       const vaultId = vaultIdSchema.parse(vaultIdValue)

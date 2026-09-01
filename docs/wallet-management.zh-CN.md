@@ -82,4 +82,10 @@ Active context 保存唯一一组已选择的 wallet、wallet account、chain ac
 
 ## 签名
 
-签名流程解析账户、验证 chain 和 address、让 intent 经过 policy 与 approval、在 runtime 内构建 viem account、验证其地址与持久化状态一致、执行签名、在可能时验证结果并追加 audit event。发送交易与仅签名交易是不同权限。秘密和敏感签名输入必须在所有 runtime boundary 中脱敏。
+`@cypheria/runtime` 签发绑定到一个已持久化 wallet/account/chain reference 的不透明 capability。其方法接收完整且经过严格验证的 signing intent，而不是任意签名 payload。每次执行都会重新解析 ready 本地钱包状态，检查绑定的地址和链，要求 vault 已解锁，原子 claim intent ID，并调用强制注入的 policy/approval authorizer。签名服务不存在绕过路径，也不接受 `send-transaction`；签名与广播仍是不同权限。
+
+生产环境的重放保护使用 libSQL 中的 `signing_intent_claims`。授权前会使用 canonical SHA-256 payload hash claim intent ID，因此并发或后续复用在进程重启后仍会被拒绝。Vault 锁定在 claim 前检查，使同一 intent 可在用户明确解锁后重试。进程内 replay guard 仅作为显式 test 或隔离 runtime adapter 提供。
+
+批准后，vault 只在 scoped callback 内按 wallet account ID 解析秘密。Runtime 重建 viem account、验证其地址与公开持久化状态一致、签署 message、EIP-712 typed data 或 transaction，并验证生成的签名或恢复出的交易发送方。Capability 只返回签名或序列化签名交易。
+
+Policy decision、拒绝、签名成功和失败均使用 intent correlation ID 与 payload hash 写入 audit。Audit summary 只包含标识与结果类型，绝不包含私钥、助记词、message、typed data 或 transaction calldata。公开错误使用稳定的脱敏 code。

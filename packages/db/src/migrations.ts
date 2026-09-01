@@ -135,6 +135,11 @@ export const initialSchemaStatements = [
     wallet_id text NOT NULL REFERENCES wallets(id) ON DELETE CASCADE,
     CONSTRAINT active_wallet_context_mode_check CHECK (mode IN ('conditional-auto-signing', 'human-approval', 'read-only'))
   )`,
+  `CREATE TABLE IF NOT EXISTS signing_intent_claims (
+    claimed_at text NOT NULL,
+    intent_id text PRIMARY KEY NOT NULL,
+    payload_hash text NOT NULL
+  )`,
 ] as const
 
 export const ensureDatabaseSchema = async (client: Client): Promise<void> => {

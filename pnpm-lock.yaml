@@ -137,6 +137,9 @@ importers:
       drizzle-orm:
         specifier: ^0.45.2
         version: 0.45.2(@libsql/client@0.17.4)
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       drizzle-kit:
         specifier: ^0.31.10
@@ -163,6 +166,9 @@ importers:
       '@cypheria/db':
         specifier: workspace:*
         version: link:../db
+      '@cypheria/policy-engine':
+        specifier: workspace:*
+        version: link:../policy-engine
       '@cypheria/wallet-core':
         specifier: workspace:*
         version: link:../wallet-core

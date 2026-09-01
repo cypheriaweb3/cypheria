@@ -15,11 +15,13 @@ export {
 export {
   type CreateVaultInput,
   createWalletVault,
+  createWalletVaultController,
   type UnlockedVaultSummary,
   type VaultEntryId,
   type VaultEntryInput,
   type VaultRecoveryReport,
   type WalletVault,
+  type WalletVaultController,
   WalletVaultError,
   type WalletVaultErrorCode,
   type WalletVaultOptions,
