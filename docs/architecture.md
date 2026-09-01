@@ -237,6 +237,8 @@ V1 automation is local-first. Cloud agent execution and complex workflow engines
 
 SQLite is the local source of truth for non-secret data. Sensitive wallet material belongs in an encrypted vault protected by OS-backed key storage.
 
+The wallet domain and vault design are specified in `docs/wallet-management.md`.
+
 Current core tables:
 
 ```txt

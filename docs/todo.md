@@ -115,9 +115,34 @@ Status legend:
 
 ## Runtime Web3 Capabilities
 
-- [ ] Implement wallet runtime service.
-  - Acceptance: runtime can list wallet/account state, manage read-only accounts, and expose active account context without private keys entering renderer.
-  - Verification: runtime and wallet tests.
+- [x] Adopt Drizzle with libSQL as the local database adapter and specify the wallet architecture.
+  - Acceptance: database services use `@libsql/client` instead of `better-sqlite3`; persistence APIs are asynchronous; English and Chinese wallet design documents define public data, encrypted vault, memory, and signing boundaries.
+  - Verification: `pnpm run ci`, `pnpm build`, database and desktop tests.
+
+- [ ] Replace the wallet domain baseline.
+  - Acceptance: `@cypheria/wallet-core` models HD, private-key, private-key-group, watch, and watch-group wallets independently from provider and storage concerns.
+  - Include: Zod boundary schemas, stable identifiers, wallet/account/chain-account hierarchy, fingerprints, lifecycle states, derivation schemes, and renderer-safe projections.
+  - Verification: `pnpm --filter @cypheria/wallet-core test`, `pnpm run ci`, `pnpm build`.
+
+- [ ] Add wallet public-state persistence.
+  - Acceptance: `@cypheria/db` persists wallets, wallet accounts, chain accounts, and HD derivation schemes through Drizzle and libSQL without secret material.
+  - Include: migrations, constraints, repository APIs, recovery states, and in-memory database tests.
+  - Verification: `pnpm --filter @cypheria/db test`, `pnpm run ci`, `pnpm build`.
+
+- [ ] Implement the encrypted wallet vault.
+  - Acceptance: wallet secrets are stored as per-wallet atomic vault files under `$CYPHERIA_HOME/vault`, encrypted with per-entry keys rooted in OS-backed key storage, and decrypted only into runtime memory.
+  - Include: narrow ethers Web3 Secret Storage codec, key-provider abstraction and test double, atomic writes, orphan recovery, lock, unlock, delete, and redacted errors.
+  - Verification: wallet vault tests, `pnpm run ci`, `pnpm build`.
+
+- [ ] Implement local and watch wallet management.
+  - Acceptance: runtime can generate/import HD wallets, import single/grouped private keys, manage single/grouped watch wallets, derive EVM accounts with viem, detect duplicates, list renderer-safe state, and expose active account context.
+  - Include: fast generated-wallet initialization, durable-before-success imports, address consistency checks, rename/delete, and audit events.
+  - Verification: runtime, wallet, database, and vault tests.
+
+- [ ] Connect wallet signers to the signing-intent pipeline.
+  - Acceptance: callers receive signing capabilities rather than secret material; every message, typed-data, and transaction signature is bound to an approved intent and audited.
+  - Include: viem signing adapters, signer/address consistency checks, lock behavior, replay protection, and no private keys in renderer, dApp, agent, or automation contexts.
+  - Verification: runtime, policy, wallet, and desktop IPC tests.
 
 - [ ] Implement policy runtime service.
   - Acceptance: runtime can list, validate, create, update, disable, and evaluate signing policies.

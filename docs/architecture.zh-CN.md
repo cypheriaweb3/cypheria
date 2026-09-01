@@ -237,6 +237,8 @@ V1 automation 是 local-first。Cloud agent execution 和复杂 workflow engine 
 
 SQLite 是非敏感本地数据的 source of truth。敏感钱包材料保存在受 OS-backed key storage 保护的 encrypted vault 中。
 
+钱包领域与 vault 的详细设计见 `docs/wallet-management.zh-CN.md`。
+
 当前核心表：
 
 ```txt

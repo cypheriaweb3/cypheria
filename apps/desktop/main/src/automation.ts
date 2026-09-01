@@ -105,9 +105,12 @@ export const createLocalAutomationRunner = (
 
       const queuedAt = now()
       const queuedRun = createQueuedAutomationRun(task, createRunId(), queuedAt)
-      options.persistence.saveTask({ ...task, runHistory: [...task.runHistory, queuedRun] })
-      options.persistence.saveRun(queuedRun)
-      options.auditLog?.append({
+      await options.persistence.saveTask({
+        ...task,
+        runHistory: [...task.runHistory, queuedRun],
+      })
+      await options.persistence.saveRun(queuedRun)
+      await options.auditLog?.append({
         actor: "automation",
         correlationId: queuedRun.auditCorrelationId,
         createdAt: queuedAt,
@@ -130,7 +133,7 @@ export const createLocalAutomationRunner = (
         startedAt,
         status: "running",
       }
-      options.persistence.saveRun(runningRun)
+      await options.persistence.saveRun(runningRun)
 
       try {
         const result = await workerBoundary.runNoopTask({
@@ -154,13 +157,13 @@ export const createLocalAutomationRunner = (
           status: "succeeded",
         }
 
-        options.persistence.saveRun(completedRun)
-        options.persistence.saveTask({
+        await options.persistence.saveRun(completedRun)
+        await options.persistence.saveTask({
           ...task,
           runHistory: [...task.runHistory, completedRun],
           updatedAt: completedAt,
         })
-        options.auditLog?.append({
+        await options.auditLog?.append({
           actor: "automation",
           correlationId: completedRun.auditCorrelationId,
           createdAt: completedAt,
@@ -191,13 +194,13 @@ export const createLocalAutomationRunner = (
           status: "failed",
         }
 
-        options.persistence.saveRun(failedRun)
-        options.persistence.saveTask({
+        await options.persistence.saveRun(failedRun)
+        await options.persistence.saveTask({
           ...task,
           runHistory: [...task.runHistory, failedRun],
           updatedAt: completedAt,
         })
-        options.auditLog?.append({
+        await options.auditLog?.append({
           actor: "automation",
           correlationId: failedRun.auditCorrelationId,
           createdAt: completedAt,

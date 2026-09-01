@@ -25,7 +25,7 @@ Cypheria V1 is a TypeScript Web3 agent product with CLI, SDK, desktop, and runti
 | Desktop Codex protocol types | `codex app-server generate-ts --out packages/codex-bridge/src/generated` |
 | Local database | SQLite |
 | ORM | Drizzle ORM |
-| SQLite driver | better-sqlite3 |
+| SQLite driver | libSQL (`@libsql/client`) |
 
 ## Workspace Layout
 
@@ -247,7 +247,7 @@ Automation is local-first. Tasks may use Codex SDK, read chain state, create sig
 | --- | --- |
 | Database | SQLite |
 | ORM | Drizzle ORM |
-| Driver | better-sqlite3 |
+| Driver | libSQL (`@libsql/client`) |
 | Migrations | drizzle-kit |
 | Search | SQLite FTS5 when needed |
 | Sensitive data | encrypted vault, not normal SQLite tables |

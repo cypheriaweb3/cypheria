@@ -29,9 +29,9 @@ const task = {
 } satisfies AutomationTask
 
 describe("automation persistence service", () => {
-  it("saves tasks and run status", () => {
+  it("saves tasks and run status", async () => {
     const database = createInMemoryDatabase()
-    ensureDatabaseSchema(database.sqlite)
+    await ensureDatabaseSchema(database.client)
     const service = createAutomationPersistenceService(database.db)
 
     const queuedRun = createQueuedAutomationRun(task, "run_test", "2026-05-29T00:01:00.000Z")
@@ -50,12 +50,12 @@ describe("automation persistence service", () => {
       status: "succeeded",
     } satisfies typeof queuedRun
 
-    service.saveTask({ ...task, runHistory: [succeededRun] })
-    service.saveRun(succeededRun)
+    await service.saveTask({ ...task, runHistory: [succeededRun] })
+    await service.saveRun(succeededRun)
 
-    expect(service.getTask(task.id)?.runHistory).toEqual([succeededRun])
-    expect(service.getRun(succeededRun.id)).toEqual(succeededRun)
-    expect(service.listRunsForTask(task.id)).toEqual([succeededRun])
+    expect((await service.getTask(task.id))?.runHistory).toEqual([succeededRun])
+    await expect(service.getRun(succeededRun.id)).resolves.toEqual(succeededRun)
+    await expect(service.listRunsForTask(task.id)).resolves.toEqual([succeededRun])
 
     database.close()
   })

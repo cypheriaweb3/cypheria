@@ -115,9 +115,34 @@
 
 ## Runtime Web3 能力
 
-- [ ] 实现 wallet runtime service。
-  - 验收：runtime 可以列出 wallet/account state、管理 read-only accounts，并暴露 active account context，且私钥不进入 renderer。
-  - 验证：runtime 和 wallet tests。
+- [x] 采用 Drizzle + libSQL 本地数据库适配器，并确定钱包架构。
+  - 验收：数据库服务使用 `@libsql/client` 替代 `better-sqlite3`；持久化 API 全部异步；中英文钱包设计文档明确公开数据、加密 vault、内存和签名边界。
+  - 验证：`pnpm run ci`、`pnpm build`、数据库与 desktop tests。
+
+- [ ] 替换 wallet domain baseline。
+  - 验收：`@cypheria/wallet-core` 在与 provider、storage 解耦的前提下建模 HD、private-key、private-key-group、watch 和 watch-group 钱包。
+  - 包括：Zod boundary schemas、稳定标识、wallet/account/chain-account 层次、fingerprints、生命周期状态、派生方案和 renderer-safe projections。
+  - 验证：`pnpm --filter @cypheria/wallet-core test`、`pnpm run ci`、`pnpm build`。
+
+- [ ] 添加钱包公开状态持久化。
+  - 验收：`@cypheria/db` 通过 Drizzle + libSQL 持久化 wallets、wallet accounts、chain accounts 和 HD derivation schemes，且不包含秘密材料。
+  - 包括：migrations、约束、repository APIs、恢复状态和内存数据库 tests。
+  - 验证：`pnpm --filter @cypheria/db test`、`pnpm run ci`、`pnpm build`。
+
+- [ ] 实现加密钱包 vault。
+  - 验收：钱包秘密以每钱包一个原子 vault 文件的形式保存在 `$CYPHERIA_HOME/vault`，使用根植于 OS-backed key storage 的每 entry 密钥加密，并且只解密到 runtime 内存。
+  - 包括：窄边界 ethers Web3 Secret Storage codec、key-provider abstraction 与 test double、atomic writes、orphan recovery、lock、unlock、delete 和脱敏错误。
+  - 验证：wallet vault tests、`pnpm run ci`、`pnpm build`。
+
+- [ ] 实现本地钱包与观察钱包管理。
+  - 验收：runtime 可以生成/导入 HD 钱包、导入单个/分组私钥、管理单个/分组观察钱包、使用 viem 派生 EVM 账户、检测重复、列出 renderer-safe 状态并暴露 active account context。
+  - 包括：新生成钱包快速初始化、导入成功前完成持久化、地址一致性检查、rename/delete 和 audit events。
+  - 验证：runtime、wallet、database 与 vault tests。
+
+- [ ] 将钱包 signer 接入 signing-intent pipeline。
+  - 验收：调用方获得签名能力而不是秘密材料；每次 message、typed-data 和 transaction 签名都绑定已批准 intent 并写入 audit。
+  - 包括：viem signing adapters、signer/address 一致性检查、lock behavior、replay protection，并确保 renderer、dApp、agent 和 automation contexts 均不接触私钥。
+  - 验证：runtime、policy、wallet 与 desktop IPC tests。
 
 - [ ] 实现 policy runtime service。
   - 验收：runtime 可以 list、validate、create、update、disable 和 evaluate signing policies。

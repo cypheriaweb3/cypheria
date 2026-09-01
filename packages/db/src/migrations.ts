@@ -1,4 +1,4 @@
-import type { Database } from "better-sqlite3"
+import type { Client } from "@libsql/client"
 
 export const initialSchemaStatements = [
   `CREATE TABLE IF NOT EXISTS audit_logs (
@@ -64,12 +64,10 @@ export const initialSchemaStatements = [
   "CREATE INDEX IF NOT EXISTS automation_runs_task_id_idx ON automation_runs (task_id)",
 ] as const
 
-export const ensureDatabaseSchema = (sqlite: Database): void => {
-  const migrate = sqlite.transaction(() => {
-    for (const statement of initialSchemaStatements) {
-      sqlite.prepare(statement).run()
-    }
-  })
-
-  migrate()
+export const ensureDatabaseSchema = async (client: Client): Promise<void> => {
+  await client.execute("PRAGMA foreign_keys = ON")
+  await client.batch(
+    initialSchemaStatements.map((sql) => ({ sql })),
+    "write"
+  )
 }

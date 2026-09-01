@@ -8,11 +8,11 @@ export type AutomationTaskRecord = typeof automationTasks.$inferSelect
 export type AutomationRunRecord = typeof automationRuns.$inferSelect
 
 export type AutomationPersistenceService = {
-  readonly getRun: (id: string) => AutomationTaskRun | undefined
-  readonly getTask: (id: string) => AutomationTask | undefined
-  readonly listRunsForTask: (taskId: string) => AutomationTaskRun[]
-  readonly saveRun: (run: AutomationTaskRun) => AutomationTaskRun
-  readonly saveTask: (task: AutomationTask) => AutomationTask
+  readonly getRun: (id: string) => Promise<AutomationTaskRun | undefined>
+  readonly getTask: (id: string) => Promise<AutomationTask | undefined>
+  readonly listRunsForTask: (taskId: string) => Promise<AutomationTaskRun[]>
+  readonly saveRun: (run: AutomationTaskRun) => Promise<AutomationTaskRun>
+  readonly saveTask: (task: AutomationTask) => Promise<AutomationTask>
 }
 
 const stringifyJson = (value: unknown): string => JSON.stringify(value)
@@ -72,41 +72,49 @@ const fromRunRecord = (record: AutomationRunRecord): AutomationTaskRun => ({
 export const createAutomationPersistenceService = (
   db: CypheriaDatabase
 ): AutomationPersistenceService => ({
-  getRun: (id) => {
-    const record = db.select().from(automationRuns).where(eq(automationRuns.id, id)).get()
+  getRun: async (id) => {
+    const [record] = await db
+      .select()
+      .from(automationRuns)
+      .where(eq(automationRuns.id, id))
+      .limit(1)
     return record ? fromRunRecord(record) : undefined
   },
-  getTask: (id) => {
-    const record = db.select().from(automationTasks).where(eq(automationTasks.id, id)).get()
+  getTask: async (id) => {
+    const [record] = await db
+      .select()
+      .from(automationTasks)
+      .where(eq(automationTasks.id, id))
+      .limit(1)
     return record ? fromTaskRecord(record) : undefined
   },
-  listRunsForTask: (taskId) =>
-    db
+  listRunsForTask: async (taskId) => {
+    const records = await db
       .select()
       .from(automationRuns)
       .where(eq(automationRuns.taskId, taskId))
       .orderBy(desc(automationRuns.startedAt))
-      .all()
-      .map(fromRunRecord),
-  saveRun: (run) => {
-    db.insert(automationRuns)
+    return records.map(fromRunRecord)
+  },
+  saveRun: async (run) => {
+    await db
+      .insert(automationRuns)
       .values(toRunRecord(run))
       .onConflictDoUpdate({
         set: toRunRecord(run),
         target: automationRuns.id,
       })
-      .run()
 
     return run
   },
-  saveTask: (task) => {
-    db.insert(automationTasks)
+  saveTask: async (task) => {
+    await db
+      .insert(automationTasks)
       .values(toTaskRecord(task))
       .onConflictDoUpdate({
         set: toTaskRecord(task),
         target: automationTasks.id,
       })
-      .run()
 
     return task
   },

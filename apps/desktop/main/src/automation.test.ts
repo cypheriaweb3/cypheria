@@ -35,7 +35,7 @@ const task = {
 describe("local automation runner", () => {
   it("runs a manual no-op task through a worker boundary and persists status", async () => {
     const database = createInMemoryDatabase()
-    ensureDatabaseSchema(database.sqlite)
+    await ensureDatabaseSchema(database.client)
     const persistence = createAutomationPersistenceService(database.db)
     const auditLog = createAuditLogService(database.db)
     const times = [
@@ -73,9 +73,9 @@ describe("local automation runner", () => {
       status: "succeeded",
       taskId: "task_noop",
     })
-    expect(persistence.getRun(run.id)).toEqual(run)
-    expect(persistence.getTask(task.id)?.runHistory).toEqual([run])
-    expect(auditLog.list({ limit: 2 }).map((record) => record.eventType)).toEqual([
+    await expect(persistence.getRun(run.id)).resolves.toEqual(run)
+    expect((await persistence.getTask(task.id))?.runHistory).toEqual([run])
+    expect((await auditLog.list({ limit: 2 })).map((record) => record.eventType)).toEqual([
       "automation.run.succeeded",
       "automation.run.queued",
     ])
@@ -83,9 +83,9 @@ describe("local automation runner", () => {
     database.close()
   })
 
-  it("exposes an explicit cancellation placeholder", () => {
+  it("exposes an explicit cancellation placeholder", async () => {
     const database = createInMemoryDatabase()
-    ensureDatabaseSchema(database.sqlite)
+    await ensureDatabaseSchema(database.client)
     const runner = createLocalAutomationRunner({
       persistence: createAutomationPersistenceService(database.db),
     })

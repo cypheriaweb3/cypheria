@@ -5,12 +5,12 @@ import { createInMemoryDatabase } from "./client.js"
 import { ensureDatabaseSchema } from "./migrations.js"
 
 describe("audit log service", () => {
-  it("appends and reads audit log records", () => {
+  it("appends and reads audit log records", async () => {
     const database = createInMemoryDatabase()
-    ensureDatabaseSchema(database.sqlite)
+    await ensureDatabaseSchema(database.client)
     const service = createAuditLogService(database.db)
 
-    const record = service.append({
+    const record = await service.append({
       actor: "user",
       correlationId: "corr_1",
       createdAt: "2026-05-28T00:00:00.000Z",
@@ -20,8 +20,8 @@ describe("audit log service", () => {
       source: "test",
     })
 
-    expect(service.getById(record.id)).toEqual(record)
-    expect(service.list()).toEqual([record])
+    await expect(service.getById(record.id)).resolves.toEqual(record)
+    await expect(service.list()).resolves.toEqual([record])
 
     database.close()
   })

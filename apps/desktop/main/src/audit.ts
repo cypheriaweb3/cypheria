@@ -13,11 +13,11 @@ export type DesktopAuditLogService = {
   readonly databaseFile: string
 }
 
-export const openDesktopAuditLogService = (
+export const openDesktopAuditLogService = async (
   context: DesktopRuntimeContext
-): DesktopAuditLogService => {
+): Promise<DesktopAuditLogService> => {
   const database = openCypheriaDatabase({ dbDir: context.paths.dbDir })
-  ensureDatabaseSchema(database.sqlite)
+  await ensureDatabaseSchema(database.client)
 
   return {
     auditLog: createAuditLogService(database.db),

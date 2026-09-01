@@ -1,49 +1,39 @@
-import BetterSqliteDatabase from "better-sqlite3"
-import { type BetterSQLite3Database, drizzle } from "drizzle-orm/better-sqlite3"
+import { type Client, createClient } from "@libsql/client"
+import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql"
 
 import { buildDatabasePaths, type DatabasePathOptions } from "./paths.js"
 import * as schema from "./schema.js"
 
-export type CypheriaDatabase = BetterSQLite3Database<typeof schema>
+export type CypheriaDatabase = LibSQLDatabase<typeof schema>
 
-export type OpenDatabaseOptions = DatabasePathOptions & {
-  readonly readonly?: boolean
-}
+export type OpenDatabaseOptions = DatabasePathOptions
 
 export type OpenDatabaseResult = {
+  readonly client: Client
   readonly close: () => void
   readonly databaseFile: string
   readonly db: CypheriaDatabase
-  readonly sqlite: BetterSqliteDatabase.Database
 }
 
 export const openCypheriaDatabase = (options: OpenDatabaseOptions = {}): OpenDatabaseResult => {
   const paths = buildDatabasePaths(options)
-  const sqlite = new BetterSqliteDatabase(paths.databaseFile, {
-    readonly: options.readonly,
-  })
-
-  if (!options.readonly) {
-    sqlite.pragma("journal_mode = WAL")
-    sqlite.pragma("foreign_keys = ON")
-  }
+  const client = createClient({ url: `file:${paths.databaseFile}` })
 
   return {
-    close: () => sqlite.close(),
+    client,
+    close: () => client.close(),
     databaseFile: paths.databaseFile,
-    db: drizzle(sqlite, { schema }),
-    sqlite,
+    db: drizzle(client, { schema }),
   }
 }
 
 export const createInMemoryDatabase = (): OpenDatabaseResult => {
-  const sqlite = new BetterSqliteDatabase(":memory:")
-  sqlite.pragma("foreign_keys = ON")
+  const client = createClient({ url: ":memory:" })
 
   return {
-    close: () => sqlite.close(),
+    client,
+    close: () => client.close(),
     databaseFile: ":memory:",
-    db: drizzle(sqlite, { schema }),
-    sqlite,
+    db: drizzle(client, { schema }),
   }
 }

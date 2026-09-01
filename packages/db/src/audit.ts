@@ -23,9 +23,9 @@ export type ListAuditLogsOptions = {
 }
 
 export type AuditLogService = {
-  readonly append: (input: AppendAuditLogInput) => AuditLogRecord
-  readonly getById: (id: string) => AuditLogRecord | undefined
-  readonly list: (options?: ListAuditLogsOptions) => AuditLogRecord[]
+  readonly append: (input: AppendAuditLogInput) => Promise<AuditLogRecord>
+  readonly getById: (id: string) => Promise<AuditLogRecord | undefined>
+  readonly list: (options?: ListAuditLogsOptions) => Promise<AuditLogRecord[]>
 }
 
 const toIsoString = (value: Date | string | undefined): string => {
@@ -37,7 +37,7 @@ const toIsoString = (value: Date | string | undefined): string => {
 }
 
 export const createAuditLogService = (db: CypheriaDatabase): AuditLogService => ({
-  append: (input) => {
+  append: async (input) => {
     const record: AuditLogRecord = {
       actor: input.actor,
       correlationId: input.correlationId ?? null,
@@ -49,15 +49,17 @@ export const createAuditLogService = (db: CypheriaDatabase): AuditLogService => 
       source: input.source,
     }
 
-    db.insert(auditLogs).values(record).run()
+    await db.insert(auditLogs).values(record)
     return record
   },
-  getById: (id) => db.select().from(auditLogs).where(eq(auditLogs.id, id)).get(),
-  list: (options = {}) =>
+  getById: async (id) => {
+    const records = await db.select().from(auditLogs).where(eq(auditLogs.id, id)).limit(1)
+    return records[0]
+  },
+  list: async (options = {}) =>
     db
       .select()
       .from(auditLogs)
       .orderBy(desc(auditLogs.createdAt))
-      .limit(options.limit ?? 100)
-      .all(),
+      .limit(options.limit ?? 100),
 })
