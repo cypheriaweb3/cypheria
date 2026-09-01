@@ -27,7 +27,7 @@ import {
   walletAccounts,
   walletHdSchemes,
   wallets,
-} from "./schema.js"
+} from "./schema/index.js"
 
 export type WalletPublicState = {
   readonly accounts: readonly WalletAccount[]

@@ -1,7 +1,7 @@
 import {
   type AuditLogService,
+  applyDatabaseMigrations,
   createAuditLogService,
-  ensureDatabaseSchema,
   openCypheriaDatabase,
 } from "@cypheria/db"
 
@@ -17,7 +17,7 @@ export const openDesktopAuditLogService = async (
   context: DesktopRuntimeContext
 ): Promise<DesktopAuditLogService> => {
   const database = openCypheriaDatabase({ dbDir: context.paths.dbDir })
-  await ensureDatabaseSchema(database.client)
+  await applyDatabaseMigrations(database.client)
 
   return {
     auditLog: createAuditLogService(database.db),

@@ -1,8 +1,8 @@
 import {
+  applyDatabaseMigrations,
   createAuditLogService,
   createAutomationPersistenceService,
   createDappBrowserPersistenceService,
-  ensureDatabaseSchema,
   type OpenDatabaseResult,
   openCypheriaDatabase,
 } from "@cypheria/db"
@@ -62,7 +62,7 @@ export const initializeDesktopRuntime = async (
   let codexAppServer: CodexAppServerContext | undefined
 
   try {
-    await ensureDatabaseSchema(database.client)
+    await applyDatabaseMigrations(database.client)
     const automation = createAutomationRuntimeService({
       ...automationOptions,
       audit: createAuditLogService(database.db),

@@ -3,10 +3,10 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 import {
+  applyDatabaseMigrations,
   createAuditLogService,
   createInMemoryDatabase,
   createWalletPublicStatePersistenceService,
-  ensureDatabaseSchema,
   type WalletPublicStatePersistenceService,
 } from "@cypheria/db"
 import { afterEach, describe, expect, it } from "vitest"
@@ -60,7 +60,7 @@ const createTestVault = (vaultDir: string): WalletVault =>
 
 const createHarness = async () => {
   const database = createInMemoryDatabase()
-  await ensureDatabaseSchema(database.client)
+  await applyDatabaseMigrations(database.client)
   const vaultDir = await makeVaultDir()
   const persistence = createWalletPublicStatePersistenceService(database.db)
   const audit = createAuditLogService(database.db)
@@ -79,7 +79,7 @@ const createHarness = async () => {
 describe("wallet manager", () => {
   it("publishes generated HD initialization before the vault is ready", async () => {
     const database = createInMemoryDatabase()
-    await ensureDatabaseSchema(database.client)
+    await applyDatabaseMigrations(database.client)
     const persistence = createWalletPublicStatePersistenceService(database.db)
     const vaultDir = await makeVaultDir()
     const realVault = createTestVault(vaultDir)
@@ -245,7 +245,7 @@ describe("wallet manager", () => {
 
   it("persists imported HD secrets before public success and compensates DB failure", async () => {
     const database = createInMemoryDatabase()
-    await ensureDatabaseSchema(database.client)
+    await applyDatabaseMigrations(database.client)
     const persistence = createWalletPublicStatePersistenceService(database.db)
     const vaultDir = await makeVaultDir()
     const vault = createTestVault(vaultDir)
@@ -274,7 +274,7 @@ describe("wallet manager", () => {
 
   it("retains a generated-wallet error state when vault initialization fails", async () => {
     const database = createInMemoryDatabase()
-    await ensureDatabaseSchema(database.client)
+    await applyDatabaseMigrations(database.client)
     const persistence = createWalletPublicStatePersistenceService(database.db)
     const vaultDir = await makeVaultDir()
     const realVault = createTestVault(vaultDir)

@@ -1,8 +1,8 @@
 import {
+  applyDatabaseMigrations,
   createAuditLogService,
   createAutomationPersistenceService,
   createInMemoryDatabase,
-  ensureDatabaseSchema,
   type SigningIntentRecord,
 } from "@cypheria/db"
 import { describe, expect, it, vi } from "vitest"
@@ -18,7 +18,7 @@ const createHarness = async (
   } = {}
 ) => {
   const database = createInMemoryDatabase()
-  await ensureDatabaseSchema(database.client)
+  await applyDatabaseMigrations(database.client)
   let tick = 0
   const service = createAutomationRuntimeService({
     ...options,

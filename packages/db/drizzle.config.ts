@@ -12,7 +12,7 @@ export default defineConfig({
   },
   dialect: "sqlite",
   out: "./drizzle",
-  schema: "./src/schema.ts",
+  schema: "./src/schema/index.ts",
   strict: true,
   verbose: true,
 })

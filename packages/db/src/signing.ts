@@ -1,7 +1,7 @@
 import { z } from "zod"
 
 import type { CypheriaDatabase } from "./client.js"
-import { signingIntentClaims } from "./schema.js"
+import { signingIntentClaims } from "./schema/index.js"
 
 const intentIdSchema = z.string().regex(/^signing_intent_[A-Za-z0-9][A-Za-z0-9_-]*$/u)
 const payloadHashSchema = z.string().regex(/^sha256:[a-f0-9]{64}$/u)

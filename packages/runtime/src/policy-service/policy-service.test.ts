@@ -1,9 +1,9 @@
 import {
+  applyDatabaseMigrations,
   createAuditLogService,
   createInMemoryDatabase,
   createSigningPolicyPersistenceService,
   createWalletPublicStatePersistenceService,
-  ensureDatabaseSchema,
 } from "@cypheria/db"
 import { describe, expect, it } from "vitest"
 
@@ -32,7 +32,7 @@ const unusedVault: WalletVault = {
 describe("signing policy runtime service", () => {
   it("creates, updates, disables, lists, and evaluates audited policies", async () => {
     const database = createInMemoryDatabase()
-    await ensureDatabaseSchema(database.client)
+    await applyDatabaseMigrations(database.client)
     const audit = createAuditLogService(database.db)
     const wallets = createWalletPublicStatePersistenceService(database.db)
     const manager = createWalletManager({
@@ -142,7 +142,7 @@ describe("signing policy runtime service", () => {
 
   it("rejects unknown wallets, duplicate ids, and unknown input fields", async () => {
     const database = createInMemoryDatabase()
-    await ensureDatabaseSchema(database.client)
+    await applyDatabaseMigrations(database.client)
     const audit = createAuditLogService(database.db)
     const wallets = createWalletPublicStatePersistenceService(database.db)
     const manager = createWalletManager({ persistence: wallets, vault: unusedVault })

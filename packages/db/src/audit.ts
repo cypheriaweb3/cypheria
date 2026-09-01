@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto"
 import { desc, eq } from "drizzle-orm"
 
 import type { CypheriaDatabase } from "./client.js"
-import { auditLogs } from "./schema.js"
+import { auditLogs } from "./schema/index.js"
 
 export type AuditLogRecord = typeof auditLogs.$inferSelect
 

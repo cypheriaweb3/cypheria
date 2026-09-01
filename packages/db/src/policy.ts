@@ -8,7 +8,7 @@ import { and, asc, eq } from "drizzle-orm"
 import { z } from "zod"
 
 import type { CypheriaDatabase } from "./client.js"
-import { signingPolicies } from "./schema.js"
+import { signingPolicies } from "./schema/index.js"
 
 export type SigningPolicyRecord = {
   readonly createdAt: string

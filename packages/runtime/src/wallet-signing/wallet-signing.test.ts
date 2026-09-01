@@ -3,11 +3,11 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 import {
+  applyDatabaseMigrations,
   createAuditLogService,
   createInMemoryDatabase,
   createSigningIntentReplayStore,
   createWalletPublicStatePersistenceService,
-  ensureDatabaseSchema,
 } from "@cypheria/db"
 import type { SigningAccountRef, SigningIntent } from "@cypheria/wallet-core"
 import { afterEach, describe, expect, it } from "vitest"
@@ -31,7 +31,7 @@ afterEach(async () => {
 
 const createHarness = async () => {
   const database = createInMemoryDatabase()
-  await ensureDatabaseSchema(database.client)
+  await applyDatabaseMigrations(database.client)
   const vaultDir = await mkdtemp(join(tmpdir(), "cypheria-signing-test-"))
   tempDirs.push(vaultDir)
   const audit = createAuditLogService(database.db)

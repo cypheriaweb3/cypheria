@@ -10,7 +10,7 @@ import { asc, eq } from "drizzle-orm"
 import { z } from "zod"
 
 import type { CypheriaDatabase } from "./client.js"
-import { dappOrigins, dappPermissions } from "./schema.js"
+import { dappOrigins, dappPermissions } from "./schema/index.js"
 
 const fromSessionRow = (row: typeof dappOrigins.$inferSelect): DappSession =>
   dappSessionSchema.parse({

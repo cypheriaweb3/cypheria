@@ -9,7 +9,7 @@ import {
 import { and, desc, eq, inArray } from "drizzle-orm"
 
 import type { CypheriaDatabase } from "./client.js"
-import { automationRuns, automationTasks } from "./schema.js"
+import { automationRuns, automationTasks } from "./schema/index.js"
 
 export type AutomationTaskRecord = typeof automationTasks.$inferSelect
 export type AutomationRunRecord = typeof automationRuns.$inferSelect

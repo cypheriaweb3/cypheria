@@ -256,9 +256,11 @@ Automation 是 local-first。Tasks 可以使用 Codex SDK、读取链上状态�
 | Database | SQLite |
 | ORM | Drizzle ORM |
 | Driver | libSQL 本地 SQLite 入口（`@libsql/client/sqlite3`） |
-| Migrations | drizzle-kit |
+| Migrations | Drizzle Kit code-first `generate` + `migrate` |
 | Search | SQLite FTS5 when needed |
 | Sensitive data | encrypted vault，不进普通 SQLite tables |
+
+数据库字段约定和单一来源迁移流程见 [`docs/database.zh-CN.md`](./database.zh-CN.md)。
 
 当前核心 tables：
 

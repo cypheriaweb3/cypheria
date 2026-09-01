@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest"
 
 import { createAutomationPersistenceService } from "./automation.js"
 import { createInMemoryDatabase } from "./client.js"
-import { ensureDatabaseSchema } from "./migrations.js"
+import { applyDatabaseMigrations } from "./migrations.js"
 
 const task = automationTaskSchema.parse({
   auditCorrelationId: "automation_task_test",
@@ -26,7 +26,7 @@ const task = automationTaskSchema.parse({
 describe("automation persistence service", () => {
   it("creates, lists, and atomically transitions tasks and runs", async () => {
     const database = createInMemoryDatabase()
-    await ensureDatabaseSchema(database.client)
+    await applyDatabaseMigrations(database.client)
     const service = createAutomationPersistenceService(database.db)
 
     await service.createTask(task)
@@ -63,7 +63,7 @@ describe("automation persistence service", () => {
 
   it("allows only one queued or running run per task", async () => {
     const database = createInMemoryDatabase()
-    await ensureDatabaseSchema(database.client)
+    await applyDatabaseMigrations(database.client)
     const service = createAutomationPersistenceService(database.db)
     await service.createTask(task)
     await service.createRun(createQueuedAutomationRun(task, "run_one", task.createdAt))
@@ -71,47 +71,6 @@ describe("automation persistence service", () => {
     await expect(
       service.createRun(createQueuedAutomationRun(task, "run_two", task.updatedAt))
     ).rejects.toThrow()
-    database.close()
-  })
-
-  it("upgrades the legacy automation baseline in a local SQLite database", async () => {
-    const database = createInMemoryDatabase()
-    await database.client.execute(`CREATE TABLE automation_tasks (
-      audit_correlation_id text NOT NULL,
-      created_at text NOT NULL,
-      description text,
-      id text PRIMARY KEY NOT NULL,
-      run_history text NOT NULL,
-      status text NOT NULL,
-      title text NOT NULL,
-      trigger text NOT NULL,
-      updated_at text NOT NULL,
-      wallet_policy_scope text NOT NULL,
-      workspace text NOT NULL
-    )`)
-    await database.client.execute({
-      args: [
-        task.auditCorrelationId,
-        task.createdAt,
-        task.id,
-        JSON.stringify([]),
-        task.status,
-        task.title,
-        JSON.stringify(task.trigger),
-        task.updatedAt,
-        JSON.stringify(task.walletPolicyScope),
-        JSON.stringify(task.workspace),
-      ],
-      sql: `INSERT INTO automation_tasks (
-        audit_correlation_id, created_at, id, run_history, status, title,
-        trigger, updated_at, wallet_policy_scope, workspace
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    })
-
-    await ensureDatabaseSchema(database.client)
-    await expect(createAutomationPersistenceService(database.db).getTask(task.id)).resolves.toEqual(
-      task
-    )
     database.close()
   })
 })

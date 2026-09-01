@@ -2,8 +2,8 @@ import { defaultEvmHdDerivationScheme, type Wallet } from "@cypheria/wallet-core
 import { describe, expect, it } from "vitest"
 
 import { createInMemoryDatabase } from "./client.js"
-import { ensureDatabaseSchema } from "./migrations.js"
-import { chainAccounts, walletAccounts, walletHdSchemes } from "./schema.js"
+import { applyDatabaseMigrations } from "./migrations.js"
+import { chainAccounts, walletAccounts, walletHdSchemes } from "./schema/index.js"
 import { createWalletPublicStatePersistenceService, type WalletPublicState } from "./wallet.js"
 
 const timestamp = "2026-09-01T00:00:00.000Z"
@@ -52,7 +52,7 @@ const hdState = {
 describe("wallet public-state persistence", () => {
   it("round-trips an HD wallet graph and exposes recovery states", async () => {
     const database = createInMemoryDatabase()
-    await ensureDatabaseSchema(database.client)
+    await applyDatabaseMigrations(database.client)
     const service = createWalletPublicStatePersistenceService(database.db)
 
     await expect(service.create(hdState)).resolves.toEqual(hdState)
@@ -76,7 +76,7 @@ describe("wallet public-state persistence", () => {
 
   it("rejects secret material and inconsistent ownership before writing", async () => {
     const database = createInMemoryDatabase()
-    await ensureDatabaseSchema(database.client)
+    await applyDatabaseMigrations(database.client)
     const service = createWalletPublicStatePersistenceService(database.db)
 
     const stateWithSecret = {
@@ -100,7 +100,7 @@ describe("wallet public-state persistence", () => {
 
   it("persists a validated active context and clears it through cascades", async () => {
     const database = createInMemoryDatabase()
-    await ensureDatabaseSchema(database.client)
+    await applyDatabaseMigrations(database.client)
     const service = createWalletPublicStatePersistenceService(database.db)
     await service.create(hdState)
     const context = {
@@ -124,7 +124,7 @@ describe("wallet public-state persistence", () => {
 
   it("enforces uniqueness and cascades wallet deletion", async () => {
     const database = createInMemoryDatabase()
-    await ensureDatabaseSchema(database.client)
+    await applyDatabaseMigrations(database.client)
     const service = createWalletPublicStatePersistenceService(database.db)
 
     await service.create(hdState)

@@ -9,7 +9,7 @@ import { and, asc, eq, exists, sql } from "drizzle-orm"
 import { z } from "zod"
 
 import type { CypheriaDatabase } from "./client.js"
-import { approvalRequests, signingIntents } from "./schema.js"
+import { approvalRequests, signingIntents } from "./schema/index.js"
 
 export const signingIntentSources = ["agent", "automation", "dapp"] as const
 export type SigningIntentSource = (typeof signingIntentSources)[number]

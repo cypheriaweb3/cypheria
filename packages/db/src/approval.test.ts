@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import type { SigningIntentRecord } from "./approval.js"
 import { createSigningIntentPersistenceService } from "./approval.js"
 import { createInMemoryDatabase } from "./client.js"
-import { ensureDatabaseSchema } from "./migrations.js"
+import { applyDatabaseMigrations } from "./migrations.js"
 
 const timestamp = "2026-09-01T05:00:00.000Z"
 const resolvedAt = "2026-09-01T05:01:00.000Z"
@@ -38,7 +38,7 @@ const intent: SigningIntentRecord = {
 describe("signing intent persistence", () => {
   it("round-trips exact payloads and atomically resolves an approval once", async () => {
     const database = createInMemoryDatabase()
-    await ensureDatabaseSchema(database.client)
+    await applyDatabaseMigrations(database.client)
     const service = createSigningIntentPersistenceService(database.db)
     const approval = {
       expiresAt: intent.expiresAt,

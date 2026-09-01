@@ -33,7 +33,10 @@ export {
   type OpenDatabaseResult,
   openCypheriaDatabase,
 } from "./client.js"
-export { ensureDatabaseSchema, initialSchemaStatements } from "./migrations.js"
+export {
+  type ApplyDatabaseMigrationsOptions,
+  applyDatabaseMigrations,
+} from "./migrations.js"
 export {
   buildDatabasePaths,
   type DatabasePathOptions,
@@ -47,7 +50,7 @@ export {
   type SigningPolicyPersistenceService,
   type SigningPolicyRecord,
 } from "./policy.js"
-export * from "./schema.js"
+export * from "./schema/index.js"
 export {
   createSigningIntentReplayStore,
   type SigningIntentReplayStore,

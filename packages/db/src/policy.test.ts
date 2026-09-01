@@ -2,7 +2,7 @@ import { parseSigningPolicy } from "@cypheria/policy-engine"
 import { describe, expect, it } from "vitest"
 
 import { createInMemoryDatabase } from "./client.js"
-import { ensureDatabaseSchema } from "./migrations.js"
+import { applyDatabaseMigrations } from "./migrations.js"
 import { createSigningPolicyPersistenceService } from "./policy.js"
 import { createWalletPublicStatePersistenceService } from "./wallet.js"
 
@@ -12,7 +12,7 @@ const fingerprint = `sha256:${"1".repeat(64)}` as const
 describe("signing policy persistence", () => {
   it("round-trips versioned policies, detects stale updates, and cascades wallet deletion", async () => {
     const database = createInMemoryDatabase()
-    await ensureDatabaseSchema(database.client)
+    await applyDatabaseMigrations(database.client)
     const wallets = createWalletPublicStatePersistenceService(database.db)
     await wallets.create({
       accounts: [],

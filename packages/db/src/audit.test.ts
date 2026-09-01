@@ -2,12 +2,12 @@ import { describe, expect, it } from "vitest"
 
 import { createAuditLogService } from "./audit.js"
 import { createInMemoryDatabase } from "./client.js"
-import { ensureDatabaseSchema } from "./migrations.js"
+import { applyDatabaseMigrations } from "./migrations.js"
 
 describe("audit log service", () => {
   it("appends and reads audit log records", async () => {
     const database = createInMemoryDatabase()
-    await ensureDatabaseSchema(database.client)
+    await applyDatabaseMigrations(database.client)
     const service = createAuditLogService(database.db)
 
     const record = await service.append({

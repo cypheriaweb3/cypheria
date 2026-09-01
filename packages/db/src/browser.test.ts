@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 
 import { createDappBrowserPersistenceService } from "./browser.js"
 import { createInMemoryDatabase } from "./client.js"
-import { ensureDatabaseSchema } from "./migrations.js"
+import { applyDatabaseMigrations } from "./migrations.js"
 import { createWalletPublicStatePersistenceService } from "./wallet.js"
 
 const timestamp = "2026-09-01T08:00:00.000Z"
@@ -11,7 +11,7 @@ const timestamp = "2026-09-01T08:00:00.000Z"
 describe("dApp browser persistence", () => {
   it("persists isolated sessions and origin-scoped permissions", async () => {
     const database = createInMemoryDatabase()
-    await ensureDatabaseSchema(database.client)
+    await applyDatabaseMigrations(database.client)
     await createWalletPublicStatePersistenceService(database.db).create({
       accounts: [],
       chainAccounts: [],

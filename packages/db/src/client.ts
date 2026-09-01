@@ -2,7 +2,7 @@ import { type Client, createClient } from "@libsql/client/sqlite3"
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql"
 
 import { buildDatabasePaths, type DatabasePathOptions } from "./paths.js"
-import * as schema from "./schema.js"
+import * as schema from "./schema/index.js"
 
 export type CypheriaDatabase = LibSQLDatabase<typeof schema>
 

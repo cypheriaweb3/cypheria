@@ -1,10 +1,10 @@
 import {
+  applyDatabaseMigrations,
   createAuditLogService,
   createInMemoryDatabase,
   createSigningIntentPersistenceService,
   createSigningPolicyPersistenceService,
   createWalletPublicStatePersistenceService,
-  ensureDatabaseSchema,
 } from "@cypheria/db"
 import type { SigningAccountRef } from "@cypheria/wallet-core"
 import { describe, expect, it } from "vitest"
@@ -34,7 +34,7 @@ const unusedVault: WalletVault = {
 
 const createHarness = async () => {
   const database = createInMemoryDatabase()
-  await ensureDatabaseSchema(database.client)
+  await applyDatabaseMigrations(database.client)
   const audit = createAuditLogService(database.db)
   const wallets = createWalletPublicStatePersistenceService(database.db)
   const manager = createWalletManager({

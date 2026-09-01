@@ -256,9 +256,12 @@ Automation is local-first. Tasks may use Codex SDK, read chain state, create sig
 | Database | SQLite |
 | ORM | Drizzle ORM |
 | Driver | libSQL local SQLite entry point (`@libsql/client/sqlite3`) |
-| Migrations | drizzle-kit |
+| Migrations | Drizzle Kit code-first `generate` + `migrate` |
 | Search | SQLite FTS5 when needed |
 | Sensitive data | encrypted vault, not normal SQLite tables |
+
+Database column conventions and the single-source migration workflow are defined in
+[`docs/database.md`](./database.md).
 
 Current core tables:
 

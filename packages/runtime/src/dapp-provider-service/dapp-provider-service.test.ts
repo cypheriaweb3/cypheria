@@ -1,9 +1,9 @@
 import {
+  applyDatabaseMigrations,
   createAuditLogService,
   createDappBrowserPersistenceService,
   createInMemoryDatabase,
   createWalletPublicStatePersistenceService,
-  ensureDatabaseSchema,
   type SigningIntentRecord,
 } from "@cypheria/db"
 import { parseSigningIntent, type SigningAccountRef } from "@cypheria/wallet-core"
@@ -19,7 +19,7 @@ const address = "0x0000000000000000000000000000000000000001" as const
 describe("dApp provider runtime service", () => {
   it("routes isolated, permissioned signing requests through signing intents", async () => {
     const database = createInMemoryDatabase()
-    await ensureDatabaseSchema(database.client)
+    await applyDatabaseMigrations(database.client)
     await createWalletPublicStatePersistenceService(database.db).create({
       accounts: [],
       chainAccounts: [],
