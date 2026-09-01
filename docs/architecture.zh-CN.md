@@ -208,11 +208,12 @@ Web3 browser 不与 Codex preview/browser capabilities 共享钱包权限模型�
 ```txt
 dApp, automation, or agent context
   -> signing intent
-  -> durable one-time intent claim
   -> PolicyEngine
+  -> persisted decision / approval request
   -> simulation/risk metadata when available
   -> approval UI if required
   -> WalletService
+  -> durable one-time intent claim
   -> RPC broadcast if applicable
   -> AuditLogService
 ```
@@ -222,6 +223,8 @@ Codex 不直接签名交易。Automation 不直接签名交易。两者都只能
 钱包签名 capability 绑定具体账户，并且只消费 intent 一次。它们要求注入 policy/approval authorizer，只通过 scoped callback 访问已解锁 vault 秘密，验证派生 signer 与生成签名，并写入脱敏 audit record。交易广播由独立 capability 提供。
 
 Signing policy 按钱包划分 scope，持久化在 libSQL 中，并通过使用严格 schema 和乐观 revision 检查的 runtime service 管理。评估具有确定性；conditional auto-signing 没有匹配的 allow policy 时会退回 human approval。Policy 变更和每次评估结果均写入 audit。
+
+Signing-intent runtime 只接受严格的来源上下文（`dapp`、`automation` 或 `agent`），由自身分配 intent ID 与创建时间，在持久化前完成 policy evaluation，并把精确的 canonical payload 及其 hash 保存到 libSQL。人工决议通过受乐观 revision 保护的 libSQL atomic batch 同时更新 `approval_requests` 与 `signing_intents`。Approval IPC 会暴露知情审阅所需的精确 intent，但绝不暴露 vault 材料；audit entry 只包含 payload hash 与脱敏摘要。
 
 ## 自动化流程
 
@@ -260,6 +263,8 @@ wallet_hd_schemes
 active_wallet_context
 signing_policies
 signing_intent_claims
+signing_intents
+approval_requests
 ```
 
 规划中的 runtime tables：
@@ -268,7 +273,6 @@ signing_intent_claims
 rpc_endpoints
 dapp_origins
 dapp_permissions
-approval_requests
 ```
 
 ## Runtime Home

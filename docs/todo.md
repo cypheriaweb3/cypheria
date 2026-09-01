@@ -148,7 +148,7 @@ Status legend:
   - Acceptance: runtime can list, validate, create, update, disable, and evaluate signing policies.
   - Verification: runtime and policy-engine tests.
 
-- [ ] Implement signing intent and approval runtime flow.
+- [x] Implement signing intent and approval runtime flow.
   - Acceptance: dApp, automation, and agent contexts can create signing intents; each intent is evaluated by policy and auditable.
   - Verification: runtime, policy, db, and desktop IPC tests.
 

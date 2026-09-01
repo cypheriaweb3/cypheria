@@ -243,6 +243,8 @@ Signing policy 保存在显式的 `signing_policies` libSQL 表中。`@cypheria/
 
 评估时先应用 wallet mode，再匹配已启用且未过期的钱包 policy。显式 deny 优先于 human approval，human approval 优先于 allow；policy ID 作为确定性 tie breaker。未匹配的 conditional auto-signing 请求必须进入 human approval。每次变更和评估结果都有稳定的 decision 或 policy 标识以及脱敏 audit record。
 
+Signing intents 与 approval requests 保存在显式的 libSQL tables 中。系统保留精确 canonical intent payload，以确保审批内容与最终签名的字节完全一致；audit log 只保留其 SHA-256 hash 和脱敏摘要。审批决议使用基于 revision 的 compare-and-swap 与原子 libSQL batch，防止两个 reviewer 对同一请求作出不同决议。待审批尝试会先授权、后执行一次性 replay claim，因此批准后可以重试；已批准尝试则在访问秘密并签名前立即 claim。
+
 Automation 是 local-first。Tasks 可以使用 Codex SDK、读取链上状态、创建 signing intents，并写入 audit logs。Tasks 不得绕过 policy engine。
 
 ## Data Stack
@@ -272,6 +274,8 @@ wallet_hd_schemes
 active_wallet_context
 signing_policies
 signing_intent_claims
+signing_intents
+approval_requests
 ```
 
 规划 tables：
@@ -280,7 +284,6 @@ signing_intent_claims
 rpc_endpoints
 dapp_origins
 dapp_permissions
-approval_requests
 ```
 
 ## 工程规则

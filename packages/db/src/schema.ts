@@ -259,8 +259,65 @@ export const signingPolicies = sqliteTable(
   ]
 )
 
+export const signingIntents = sqliteTable(
+  "signing_intents",
+  {
+    approvalId: text("approval_id"),
+    createdAt: text("created_at").notNull(),
+    decision: text("decision").notNull(),
+    decisionId: text("decision_id").notNull(),
+    expiresAt: text("expires_at").notNull(),
+    id: text("id").primaryKey(),
+    matchedPolicyId: text("matched_policy_id"),
+    mode: text("mode").notNull(),
+    payload: text("payload").notNull(),
+    payloadHash: text("payload_hash").notNull(),
+    revision: integer("revision").notNull(),
+    source: text("source").notNull(),
+    status: text("status").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    walletId: text("wallet_id").notNull(),
+  },
+  (table) => [
+    index("signing_intents_status_idx").on(table.status),
+    index("signing_intents_wallet_id_idx").on(table.walletId),
+    check("signing_intents_revision_check", sql`${table.revision} > 0`),
+    check("signing_intents_source_check", sql`${table.source} IN ('agent', 'automation', 'dapp')`),
+    check(
+      "signing_intents_status_check",
+      sql`${table.status} IN ('approved', 'expired', 'pending-approval', 'rejected')`
+    ),
+  ]
+)
+
+export const approvalRequests = sqliteTable(
+  "approval_requests",
+  {
+    expiresAt: text("expires_at").notNull(),
+    id: text("id").primaryKey(),
+    intentId: text("intent_id")
+      .notNull()
+      .unique()
+      .references(() => signingIntents.id, { onDelete: "cascade" }),
+    requestedAt: text("requested_at").notNull(),
+    resolvedAt: text("resolved_at"),
+    reviewer: text("reviewer"),
+    revision: integer("revision").notNull(),
+    status: text("status").notNull(),
+  },
+  (table) => [
+    index("approval_requests_status_idx").on(table.status),
+    check("approval_requests_revision_check", sql`${table.revision} > 0`),
+    check(
+      "approval_requests_status_check",
+      sql`${table.status} IN ('approved', 'expired', 'pending', 'rejected')`
+    ),
+  ]
+)
+
 export const schema = {
   activeWalletContext,
+  approvalRequests,
   auditLogs,
   automationRuns,
   automationTasks,
@@ -268,6 +325,7 @@ export const schema = {
   runtimeMetadata,
   settings,
   signingIntentClaims,
+  signingIntents,
   signingPolicies,
   walletAccounts,
   walletHdSchemes,

@@ -139,7 +139,7 @@ describe("wallet signing service", () => {
     })
     expect(JSON.stringify(capability)).not.toContain(privateKey)
     const events = await audit.list()
-    expect(events.filter((event) => event.eventType === "policy.decision")).toHaveLength(3)
+    expect(events.filter((event) => event.eventType === "policy.decision")).toHaveLength(4)
     expect(events.filter((event) => event.eventType === "wallet.signature.created")).toHaveLength(3)
     expect(JSON.stringify(events)).not.toContain(privateKey)
     expect(JSON.stringify(events)).not.toContain("hello")
@@ -231,6 +231,41 @@ describe("wallet signing service", () => {
     await expect(changedCapability.signMessage(mismatchIntent)).rejects.toMatchObject({
       code: "ADDRESS_MISMATCH",
     })
+    database.close()
+  })
+
+  it("does not consume an intent while human approval is pending", async () => {
+    const { audit, database, manager, persistence, vault } = await createHarness()
+    const wallet = await manager.importPrivateKeyWallet({ name: "Signer", privateKey })
+    if (!("vaultId" in wallet.wallet)) {
+      throw new Error("Expected a local wallet fixture.")
+    }
+    await vault.unlock(wallet.wallet.vaultId)
+    const account = accountRef(wallet)
+    let approved = false
+    const service = createWalletSigningService({
+      audit,
+      authorize: () => ({
+        approvalId: "approval_pending",
+        approved,
+        decision: "require-human-approval",
+        decisionId: "decision_pending",
+      }),
+      persistence,
+      replayGuard: createSigningIntentReplayStore(database.db),
+      vault,
+    })
+    const capability = await service.createCapability(account)
+    const intent = {
+      ...baseIntent(account, "signing_intent_pending_then_approved"),
+      kind: "personal-sign",
+      message: "approve me",
+    } as const
+
+    await expect(capability.signMessage(intent)).rejects.toMatchObject({ code: "POLICY_REJECTED" })
+    approved = true
+    await expect(capability.signMessage(intent)).resolves.toMatch(/^0x[0-9a-f]+$/u)
+    await expect(capability.signMessage(intent)).rejects.toMatchObject({ code: "INTENT_REPLAY" })
     database.close()
   })
 })

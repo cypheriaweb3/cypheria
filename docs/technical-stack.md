@@ -243,6 +243,8 @@ Signing policies are stored in the explicit `signing_policies` libSQL table. `@c
 
 Evaluation first applies wallet mode, then matching enabled and unexpired wallet policies. Explicit deny takes precedence over human approval, which takes precedence over allow; policy ID is the deterministic tie breaker. An unmatched conditional auto-signing request requires human approval. Every mutation and evaluation result receives a stable decision or policy identifier and a redacted audit record.
 
+Signing intents and approval requests are stored in explicit libSQL tables. The exact canonical intent payload is retained so an approval and the eventual signature refer to identical bytes, while audit logs retain only its SHA-256 hash and a redacted summary. Approval decisions use revision-based compare-and-swap and an atomic libSQL batch to prevent two reviewers from resolving the same request differently. A pending attempt is authorized before the one-time replay claim, so it can be retried after approval; an approved attempt is claimed immediately before secret access and signing.
+
 Automation is local-first. Tasks may use Codex SDK, read chain state, create signing intents, and write audit logs. Tasks must not bypass the policy engine.
 
 ## Data Stack
@@ -272,6 +274,8 @@ wallet_hd_schemes
 active_wallet_context
 signing_policies
 signing_intent_claims
+signing_intents
+approval_requests
 ```
 
 Planned tables:
@@ -280,7 +284,6 @@ Planned tables:
 rpc_endpoints
 dapp_origins
 dapp_permissions
-approval_requests
 ```
 
 ## Engineering Rules

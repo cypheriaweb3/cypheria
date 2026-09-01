@@ -1,3 +1,4 @@
+import { signingIntentSchema } from "@cypheria/wallet-core"
 import { z } from "zod"
 
 export const IPC_PROTOCOL_VERSION = 1
@@ -23,6 +24,8 @@ export type IpcNamespace = z.infer<typeof IpcNamespaceSchema>
 export const CYPHERIA_IPC_CHANNELS = {
   appHealthCheck: "app.health.check",
   appMetadataRead: "app.metadata.read",
+  approvalRequestDecide: "approval.request.decide",
+  approvalRequestsList: "approval.requests.list",
   codexEvent: "codex.event",
   runtimeInfoRead: "runtime.info.read",
   settingsAppearanceFontsList: "settings.appearance.fonts.list",
@@ -221,6 +224,64 @@ export const AppearanceFontOptionSchema = z
   .strict()
 export type AppearanceFontOption = z.infer<typeof AppearanceFontOptionSchema>
 
+export const ApprovalRequestStatusSchema = z.enum(["approved", "expired", "pending", "rejected"])
+export type ApprovalRequestStatus = z.infer<typeof ApprovalRequestStatusSchema>
+
+export const SigningIntentRecordSchema = z
+  .object({
+    approvalId: z.string().min(1).optional(),
+    decision: z.enum(["allow", "deny", "require-human-approval"]),
+    decisionId: z.string().min(1),
+    expiresAt: z.iso.datetime(),
+    intent: signingIntentSchema,
+    matchedPolicyId: z.string().min(1).optional(),
+    mode: z.enum(["conditional-auto-signing", "human-approval", "read-only"]),
+    payloadHash: z.string().regex(/^sha256:[a-f0-9]{64}$/u),
+    revision: z.number().int().positive(),
+    source: z.enum(["agent", "automation", "dapp"]),
+    status: z.enum(["approved", "expired", "pending-approval", "rejected"]),
+    updatedAt: z.iso.datetime(),
+  })
+  .strict()
+export type SigningIntentRecord = z.infer<typeof SigningIntentRecordSchema>
+
+export const ApprovalRequestRecordSchema = z
+  .object({
+    expiresAt: z.iso.datetime(),
+    id: z.string().regex(/^approval_[A-Za-z0-9][A-Za-z0-9_-]*$/u),
+    intentId: z.string().regex(/^signing_intent_[A-Za-z0-9][A-Za-z0-9_-]*$/u),
+    requestedAt: z.iso.datetime(),
+    resolvedAt: z.iso.datetime().optional(),
+    reviewer: z.string().min(1).optional(),
+    revision: z.number().int().positive(),
+    status: ApprovalRequestStatusSchema,
+  })
+  .strict()
+export type ApprovalRequestRecord = z.infer<typeof ApprovalRequestRecordSchema>
+
+export const ApprovalRequestViewSchema = z
+  .object({
+    approval: ApprovalRequestRecordSchema,
+    intent: SigningIntentRecordSchema,
+  })
+  .strict()
+export type ApprovalRequestView = z.infer<typeof ApprovalRequestViewSchema>
+
+export const ApprovalRequestsListSchema = z
+  .object({ status: ApprovalRequestStatusSchema.optional() })
+  .strict()
+export type ApprovalRequestsList = z.infer<typeof ApprovalRequestsListSchema>
+
+export const ApprovalRequestDecideSchema = z
+  .object({
+    approvalId: z.string().regex(/^approval_[A-Za-z0-9][A-Za-z0-9_-]*$/u),
+    decision: z.enum(["approved", "rejected"]),
+    expectedRevision: z.number().int().positive(),
+    reviewer: z.string().min(1).max(256),
+  })
+  .strict()
+export type ApprovalRequestDecide = z.infer<typeof ApprovalRequestDecideSchema>
+
 export const IpcRequestEnvelopeSchema = z
   .object({
     channel: z.string().min(1),
@@ -368,6 +429,22 @@ export const appHealthCheckContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<EmptyPayload, AppHealthStatus>
 
+export const approvalRequestsListContract = {
+  channel: CYPHERIA_IPC_CHANNELS.approvalRequestsList,
+  namespace: "approval",
+  request: ApprovalRequestsListSchema,
+  response: z.array(ApprovalRequestViewSchema),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<ApprovalRequestsList, ApprovalRequestView[]>
+
+export const approvalRequestDecideContract = {
+  channel: CYPHERIA_IPC_CHANNELS.approvalRequestDecide,
+  namespace: "approval",
+  request: ApprovalRequestDecideSchema,
+  response: ApprovalRequestViewSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<ApprovalRequestDecide, ApprovalRequestView>
+
 export const runtimeInfoReadContract = {
   channel: CYPHERIA_IPC_CHANNELS.runtimeInfoRead,
   namespace: "runtime",
@@ -413,6 +490,8 @@ export const settingsAppearanceFontsListContract = {
 export const ipcContracts = {
   appHealthCheck: appHealthCheckContract,
   appMetadataRead: appMetadataReadContract,
+  approvalRequestDecide: approvalRequestDecideContract,
+  approvalRequestsList: approvalRequestsListContract,
   runtimeInfoRead: runtimeInfoReadContract,
   settingsAppearanceFontsList: settingsAppearanceFontsListContract,
   settingsAppearanceRead: settingsAppearanceReadContract,

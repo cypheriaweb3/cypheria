@@ -1,4 +1,17 @@
 export {
+  type ApprovalRequestRecord,
+  type ApprovalRequestStatus,
+  type ApprovalResolution,
+  approvalRequestStatuses,
+  createSigningIntentPersistenceService,
+  type SigningIntentPersistenceService,
+  type SigningIntentRecord,
+  type SigningIntentSource,
+  type SigningIntentStatus,
+  signingIntentSources,
+  signingIntentStatuses,
+} from "./approval.js"
+export {
   type AppendAuditLogInput,
   type AuditLogRecord,
   type AuditLogService,

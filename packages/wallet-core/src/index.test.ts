@@ -9,9 +9,11 @@ import {
   createHdWalletFingerprint,
   defaultEvmHdDerivationScheme,
   derivePath,
+  deserializeSigningIntent,
   type HexAddress,
   parseSigningIntent,
   parseWallet,
+  serializeSigningIntent,
   toWalletView,
   type WalletSigner,
 } from "./index.js"
@@ -172,6 +174,46 @@ describe("wallet domain", () => {
     expect(() => parseSigningIntent({ ...intent, privateKey: "secret" })).toThrow()
     expect(() =>
       parseSigningIntent({ ...intent, transaction: { chainId: 10, value: -1n } })
+    ).toThrow()
+  })
+
+  it("canonically serializes signing intents with bigint payloads", () => {
+    const intent = parseSigningIntent({
+      account: {
+        address,
+        chainAccountId: "chain_account_one",
+        chainId: 1,
+        walletAccountId: "account_one",
+        walletId: "wallet_one",
+      },
+      correlationId: "request_serialized",
+      createdAt: now,
+      id: "signing_intent_serialized",
+      kind: "sign-transaction",
+      transaction: {
+        chainId: 1,
+        gas: 21_000n,
+        to: "0x0000000000000000000000000000000000000001",
+        value: 42n,
+      },
+    })
+
+    const serialized = serializeSigningIntent(intent)
+    expect(deserializeSigningIntent(serialized)).toEqual(intent)
+    if (intent.kind !== "sign-transaction") throw new Error("Expected a transaction intent.")
+    expect(serialized).toBe(
+      serializeSigningIntent({ ...intent, transaction: { ...intent.transaction } })
+    )
+    expect(() => deserializeSigningIntent(JSON.stringify(["bigint", "not-an-int"]))).toThrow()
+    expect(() =>
+      serializeSigningIntent({
+        ...intent,
+        kind: "typed-data",
+        domain: {},
+        message: { value: Number.NaN },
+        primaryType: "Message",
+        types: {},
+      })
     ).toThrow()
   })
 })

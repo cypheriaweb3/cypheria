@@ -148,7 +148,7 @@
   - 验收：runtime 可以 list、validate、create、update、disable 和 evaluate signing policies。
   - 验证：runtime 和 policy-engine tests。
 
-- [ ] 实现 signing intent 与 approval runtime flow。
+- [x] 实现 signing intent 与 approval runtime flow。
   - 验收：dApp、automation 和 agent contexts 可以创建 signing intents；每个 intent 都经过 policy evaluation 且可审计。
   - 验证：runtime、policy、db 和 desktop IPC tests。
 

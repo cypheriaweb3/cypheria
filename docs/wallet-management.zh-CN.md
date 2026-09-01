@@ -82,9 +82,9 @@ Active context 保存唯一一组已选择的 wallet、wallet account、chain ac
 
 ## 签名
 
-`@cypheria/runtime` 签发绑定到一个已持久化 wallet/account/chain reference 的不透明 capability。其方法接收完整且经过严格验证的 signing intent，而不是任意签名 payload。每次执行都会重新解析 ready 本地钱包状态，检查绑定的地址和链，要求 vault 已解锁，原子 claim intent ID，并调用强制注入的 policy/approval authorizer。签名服务不存在绕过路径，也不接受 `send-transaction`；签名与广播仍是不同权限。
+`@cypheria/runtime` 签发绑定到一个已持久化 wallet/account/chain reference 的不透明 capability。其方法接收完整且经过严格验证的 signing intent，而不是任意签名 payload。每次执行都会重新解析 ready 本地钱包状态，检查绑定的地址和链，要求 vault 已解锁，调用强制注入的 policy/approval authorizer，并在签名前原子 claim 已批准的 intent ID。签名服务不存在绕过路径，也不接受 `send-transaction`；签名与广播仍是不同权限。
 
-生产环境的重放保护使用 libSQL 中的 `signing_intent_claims`。授权前会使用 canonical SHA-256 payload hash claim intent ID，因此并发或后续复用在进程重启后仍会被拒绝。Vault 锁定在 claim 前检查，使同一 intent 可在用户明确解锁后重试。进程内 replay guard 仅作为显式 test 或隔离 runtime adapter 提供。
+生产环境的重放保护使用 libSQL 中的 `signing_intent_claims`。系统先授权、后 claim，因此等待人工审批的 intent 不会被提前消费，并可在作出决议后重试。批准后，系统会在访问秘密前使用 canonical SHA-256 payload hash claim intent ID，因此并发或后续复用在进程重启后仍会被拒绝。Vault 锁定同样在 claim 前检查，使同一 intent 可在用户明确解锁后重试。进程内 replay guard 仅作为显式 test 或隔离 runtime adapter 提供。
 
 批准后，vault 只在 scoped callback 内按 wallet account ID 解析秘密。Runtime 重建 viem account、验证其地址与公开持久化状态一致、签署 message、EIP-712 typed data 或 transaction，并验证生成的签名或恢复出的交易发送方。Capability 只返回签名或序列化签名交易。
 

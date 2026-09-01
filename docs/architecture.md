@@ -208,11 +208,12 @@ The Web3 browser does not share its wallet permission model with Codex preview/b
 ```txt
 dApp, automation, or agent context
   -> signing intent
-  -> durable one-time intent claim
   -> PolicyEngine
+  -> persisted decision / approval request
   -> simulation/risk metadata when available
   -> approval UI if required
   -> WalletService
+  -> durable one-time intent claim
   -> RPC broadcast if applicable
   -> AuditLogService
 ```
@@ -222,6 +223,8 @@ Codex does not directly sign transactions. Automation does not directly sign tra
 Wallet signing capabilities are account-bound and consume an intent exactly once. They require an injected policy/approval authorizer, access unlocked vault secrets only through a scoped callback, verify the derived signer and produced signature, and emit redacted audit records. Transaction broadcasting is a separate capability.
 
 Signing policies are wallet-scoped, persisted in libSQL, and managed through a runtime service with strict schemas and optimistic revision checks. Evaluation is deterministic and falls back to human approval when conditional auto-signing has no matching allow policy. Policy changes and every evaluation result are audited.
+
+The signing-intent runtime accepts only strict source contexts (`dapp`, `automation`, or `agent`), assigns the intent ID and creation time itself, evaluates policy before persistence, and stores the exact canonical payload plus its hash in libSQL. Human decisions update `approval_requests` and `signing_intents` together through a libSQL atomic batch guarded by an optimistic revision. Approval IPC exposes the exact intent needed for informed review but never vault material. Audit entries contain only the payload hash and a redacted summary.
 
 ## Automation Flow
 
@@ -260,6 +263,8 @@ wallet_hd_schemes
 active_wallet_context
 signing_policies
 signing_intent_claims
+signing_intents
+approval_requests
 ```
 
 Planned runtime tables:
@@ -268,7 +273,6 @@ Planned runtime tables:
 rpc_endpoints
 dapp_origins
 dapp_permissions
-approval_requests
 ```
 
 ## Runtime Home

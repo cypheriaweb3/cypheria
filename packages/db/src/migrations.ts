@@ -160,6 +160,41 @@ export const initialSchemaStatements = [
   )`,
   "CREATE INDEX IF NOT EXISTS signing_policies_wallet_id_idx ON signing_policies (wallet_id)",
   "CREATE INDEX IF NOT EXISTS signing_policies_enabled_idx ON signing_policies (enabled)",
+  `CREATE TABLE IF NOT EXISTS signing_intents (
+    approval_id text,
+    created_at text NOT NULL,
+    decision text NOT NULL,
+    decision_id text NOT NULL,
+    expires_at text NOT NULL,
+    id text PRIMARY KEY NOT NULL,
+    matched_policy_id text,
+    mode text NOT NULL,
+    payload text NOT NULL,
+    payload_hash text NOT NULL,
+    revision integer NOT NULL,
+    source text NOT NULL,
+    status text NOT NULL,
+    updated_at text NOT NULL,
+    wallet_id text NOT NULL,
+    CONSTRAINT signing_intents_revision_check CHECK (revision > 0),
+    CONSTRAINT signing_intents_source_check CHECK (source IN ('agent', 'automation', 'dapp')),
+    CONSTRAINT signing_intents_status_check CHECK (status IN ('approved', 'expired', 'pending-approval', 'rejected'))
+  )`,
+  "CREATE INDEX IF NOT EXISTS signing_intents_status_idx ON signing_intents (status)",
+  "CREATE INDEX IF NOT EXISTS signing_intents_wallet_id_idx ON signing_intents (wallet_id)",
+  `CREATE TABLE IF NOT EXISTS approval_requests (
+    expires_at text NOT NULL,
+    id text PRIMARY KEY NOT NULL,
+    intent_id text NOT NULL UNIQUE REFERENCES signing_intents(id) ON DELETE CASCADE,
+    requested_at text NOT NULL,
+    resolved_at text,
+    reviewer text,
+    revision integer NOT NULL,
+    status text NOT NULL,
+    CONSTRAINT approval_requests_revision_check CHECK (revision > 0),
+    CONSTRAINT approval_requests_status_check CHECK (status IN ('approved', 'expired', 'pending', 'rejected'))
+  )`,
+  "CREATE INDEX IF NOT EXISTS approval_requests_status_idx ON approval_requests (status)",
 ] as const
 
 export const ensureDatabaseSchema = async (client: Client): Promise<void> => {

@@ -148,3 +148,61 @@ export const signingIntentSchema = z.discriminatedUnion("kind", [
 
 export const parseSigningIntent = (value: unknown): SigningIntent =>
   signingIntentSchema.parse(value) as SigningIntent
+
+type EncodedIntentValue =
+  | boolean
+  | null
+  | number
+  | string
+  | ["array", EncodedIntentValue[]]
+  | ["bigint", string]
+  | ["object", [string, EncodedIntentValue][]]
+
+const encodeIntentValue = (value: unknown): EncodedIntentValue => {
+  if (value === null || typeof value === "boolean" || typeof value === "string") {
+    return value
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new Error("The signing intent contains a non-finite number.")
+    return value
+  }
+  if (typeof value === "bigint") {
+    return ["bigint", value.toString()]
+  }
+  if (Array.isArray(value)) {
+    return ["array", value.map(encodeIntentValue)]
+  }
+  if (value && typeof value === "object") {
+    const prototype = Object.getPrototypeOf(value)
+    if (prototype !== Object.prototype && prototype !== null) {
+      throw new Error("The signing intent contains an unsupported object.")
+    }
+    return [
+      "object",
+      Object.entries(value)
+        .filter(([, item]) => item !== undefined)
+        .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0))
+        .map(([key, item]) => [key, encodeIntentValue(item)]),
+    ]
+  }
+  throw new Error("The signing intent contains an unsupported value.")
+}
+
+const decodeIntentValue = (value: EncodedIntentValue): unknown => {
+  if (!Array.isArray(value)) {
+    return value
+  }
+  if (value[0] === "bigint") {
+    return BigInt(value[1])
+  }
+  if (value[0] === "array") {
+    return value[1].map(decodeIntentValue)
+  }
+  return Object.fromEntries(value[1].map(([key, item]) => [key, decodeIntentValue(item)]))
+}
+
+export const serializeSigningIntent = (intent: SigningIntent): string =>
+  JSON.stringify(encodeIntentValue(parseSigningIntent(intent)))
+
+export const deserializeSigningIntent = (serialized: string): SigningIntent =>
+  parseSigningIntent(decodeIntentValue(JSON.parse(serialized) as EncodedIntentValue))

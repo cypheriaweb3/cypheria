@@ -11,6 +11,7 @@ import {
   parseSigningIntent,
   type SigningAccountRef,
   type SigningIntent,
+  serializeSigningIntent,
   signingAccountRefSchema,
   type TransactionIntent,
   type TypedDataSignIntent,
@@ -129,28 +130,8 @@ export const createMemorySigningIntentReplayGuard = (): SigningIntentReplayGuard
   }
 }
 
-const canonicalize = (value: unknown): unknown => {
-  if (typeof value === "bigint") {
-    return { bigint: value.toString() }
-  }
-  if (Array.isArray(value)) {
-    return value.map(canonicalize)
-  }
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value)
-        .filter(([, item]) => item !== undefined)
-        .sort(([left], [right]) => left.localeCompare(right))
-        .map(([key, item]) => [key, canonicalize(item)])
-    )
-  }
-  return value
-}
-
 const hashIntent = (intent: SigningIntent): string =>
-  `sha256:${createHash("sha256")
-    .update(JSON.stringify(canonicalize(intent)))
-    .digest("hex")}`
+  `sha256:${createHash("sha256").update(serializeSigningIntent(intent)).digest("hex")}`
 
 const accountMatches = (left: SigningAccountRef, right: SigningAccountRef): boolean =>
   left.walletId === right.walletId &&
@@ -244,10 +225,6 @@ export const createWalletSigningService = (
     }
 
     const payloadHash = hashIntent(intent)
-    if (!(await replayGuard.claim(intent.id, payloadHash))) {
-      throw new WalletSigningError("INTENT_REPLAY", "The signing intent was already consumed.")
-    }
-
     let authorization: SigningAuthorization
     try {
       authorization = authorizationSchema.parse(await options.authorize(intent))
@@ -274,6 +251,9 @@ export const createWalletSigningService = (
         `Rejected signing intent ${intent.id}.`
       )
       throw new WalletSigningError("POLICY_REJECTED", "The signing intent was not approved.")
+    }
+    if (!(await replayGuard.claim(intent.id, payloadHash))) {
+      throw new WalletSigningError("INTENT_REPLAY", "The signing intent was already consumed.")
     }
 
     try {
