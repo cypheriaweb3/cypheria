@@ -54,13 +54,17 @@ Fingerprint 有意用于查重，不是认证秘密。
 
 每个包含秘密的钱包在 `$CYPHERIA_HOME/vault` 下拥有独立版本化文件。Private-key group 每个账户使用独立 encrypted entry，成员变化不会重写无关秘密。
 
-Runtime 从 OS-backed key provider 获取随机 master key，并以 vault 和 entry ID 通过 HKDF 派生每 entry key。窄边界 ethers adapter 只负责编解码 Web3 Secret Storage JSON。账户派生、签名、RPC、交易序列化和地址处理均使用 viem。
+Runtime 从 OS-backed key provider 获取一个随机 256-bit master key。Desktop 使用 Electron `safeStorage` 保护其序列化值，并保存在 `$CYPHERIA_HOME/config/wallet-master-key.bin`；protector 不可用或 Linux 退化为 `basic_text` 时 fail closed。并发首次访问采用 single-flight。每个 256-bit entry key 使用 vault ID 和 entry ID 通过 HKDF-SHA256 派生。
 
-Vault 先写同目录临时文件，sync 后 atomic rename。启动恢复绝不静默删除 vault 缺失的 ready 钱包。无引用 vault 文件先隔离，等待显式恢复。
+窄边界 ethers adapter 将私钥和 HD mnemonic entropy 编解码为 Web3 Secret Storage JSON。由于该标准无法保留非空 BIP-39 passphrase，Cypheria 使用同一 entry key 的独立 subkey，将 passphrase 保存为经过认证的 AES-256-GCM 扩展密文。账户派生、签名、RPC、交易序列化和地址处理均使用 viem。
+
+Vault 文件和受保护的 master-key blob 均使用仅 owner 可访问的权限。它们先写同目录临时文件，sync 后 atomic rename；删除先 atomic rename 为 tombstone。启动恢复会报告有引用但缺失的 vault，并隔离无引用、损坏及遗留临时文件，等待显式恢复；绝不静默删除 vault 缺失的 ready 钱包。
 
 ## 解锁内存
 
 常驻 runtime 可以在内存缓存解密秘密，但不得复制到 SQLite、browser storage、renderer state、日志、audit payload、错误、Codex context 或 worker。Lock 会丢弃缓存引用。JavaScript 无法承诺物理 secure zeroization，因此实现不得这样声称。
+
+Unlock 只返回标识与 entry kind。解密值保留在 internal controller 中，仅能由可信 runtime 钱包编排通过 scoped callback 使用。公开 vault 错误只包含稳定 code 和脱敏 message。
 
 调用方只获得 `signMessage`、`signTypedData` 和 `signTransaction` 等不透明签名能力。任何公共 interface 都不得暴露 `privateKey`、`mnemonic` 或 `getKeystore`。
 

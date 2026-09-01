@@ -129,7 +129,7 @@ Status legend:
   - Include: migrations, constraints, repository APIs, recovery states, and in-memory database tests.
   - Verification: `pnpm --filter @cypheria/db test`, `pnpm run ci`, `pnpm build`.
 
-- [ ] Implement the encrypted wallet vault.
+- [x] Implement the encrypted wallet vault.
   - Acceptance: wallet secrets are stored as per-wallet atomic vault files under `$CYPHERIA_HOME/vault`, encrypted with per-entry keys rooted in OS-backed key storage, and decrypted only into runtime memory.
   - Include: narrow ethers Web3 Secret Storage codec, key-provider abstraction and test double, atomic writes, orphan recovery, lock, unlock, delete, and redacted errors.
   - Verification: wallet vault tests, `pnpm run ci`, `pnpm build`.

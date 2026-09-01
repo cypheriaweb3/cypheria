@@ -54,13 +54,17 @@ Fingerprints deliberately support duplicate detection and are not authentication
 
 Each secret-bearing wallet has an independent versioned file under `$CYPHERIA_HOME/vault`. Private-key groups use one encrypted entry per account so membership changes do not rewrite unrelated secrets.
 
-The runtime obtains a random master key from an OS-backed key provider. Per-entry keys are derived with HKDF using vault and entry identifiers. A narrow ethers adapter only encodes and decodes Web3 Secret Storage JSON. Account derivation, signing, RPC, transaction serialization, and address handling use viem.
+The runtime obtains one random 256-bit master key from an OS-backed key provider. Desktop protects its serialized key with Electron `safeStorage` under `$CYPHERIA_HOME/config/wallet-master-key.bin`; an unavailable protector or Linux `basic_text` fallback fails closed. Concurrent first access is single-flight. Per-entry 256-bit keys are derived with HKDF-SHA256 using the vault and entry identifiers.
 
-Vault files are written to sibling temporary files, synced, and atomically renamed. Startup recovery never silently deletes a ready wallet whose vault is missing. Unreferenced vault files are quarantined for explicit recovery.
+A narrow ethers adapter encodes and decodes private keys and HD mnemonic entropy as Web3 Secret Storage JSON. Since that standard cannot retain a non-empty BIP-39 passphrase, Cypheria stores the passphrase as an authenticated AES-256-GCM extension encrypted by a distinct subkey of the same entry key. Account derivation, signing, RPC, transaction serialization, and address handling use viem.
+
+Vault files and the protected master-key blob use owner-only permissions. They are written to sibling temporary files, synced, and atomically renamed; deletion uses an atomic tombstone rename. Startup recovery reports referenced but missing vaults and quarantines unreferenced, corrupt, and stale temporary files for explicit recovery. It never silently deletes a ready wallet whose vault is missing.
 
 ## Unlocked Memory
 
 The long-lived runtime may cache decrypted secrets in memory. It never copies them to SQLite, browser storage, renderer state, logs, audit payloads, errors, Codex context, or workers. Locking drops cached references. JavaScript cannot promise physical secure zeroization, so the implementation must not claim it.
+
+Unlock returns identifiers and entry kinds only. Decrypted values remain in an internal controller and are available solely to a scoped callback used by trusted runtime wallet orchestration. Public vault errors contain stable codes and redacted messages.
 
 Callers receive opaque signing capabilities such as `signMessage`, `signTypedData`, and `signTransaction`. No public interface exposes `privateKey`, `mnemonic`, or `getKeystore`.
 

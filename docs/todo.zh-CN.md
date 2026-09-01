@@ -129,7 +129,7 @@
   - 包括：migrations、约束、repository APIs、恢复状态和内存数据库 tests。
   - 验证：`pnpm --filter @cypheria/db test`、`pnpm run ci`、`pnpm build`。
 
-- [ ] 实现加密钱包 vault。
+- [x] 实现加密钱包 vault。
   - 验收：钱包秘密以每钱包一个原子 vault 文件的形式保存在 `$CYPHERIA_HOME/vault`，使用根植于 OS-backed key storage 的每 entry 密钥加密，并且只解密到 runtime 内存。
   - 包括：窄边界 ethers Web3 Secret Storage codec、key-provider abstraction 与 test double、atomic writes、orphan recovery、lock、unlock、delete 和脱敏错误。
   - 验证：wallet vault tests、`pnpm run ci`、`pnpm build`。

@@ -12,6 +12,11 @@
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json"
   },
+  "dependencies": {
+    "@cypheria/wallet-core": "workspace:*",
+    "ethers": "^6.17.0",
+    "zod": "^4.4.3"
+  },
   "devDependencies": {
     "vitest": "^4.1.7"
   }
