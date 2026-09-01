@@ -26,11 +26,33 @@ export type SigningAccountRef = {
   readonly walletId: WalletId
 }
 
+export type SolanaSigningAccountRef = {
+  readonly address: string
+  readonly chainAccountId: ChainAccountId
+  readonly chainId: `solana:${string}`
+  readonly protocol: "solana"
+  readonly publicKey: string
+  readonly walletAccountId: WalletAccountId
+  readonly walletId: WalletId
+}
+
 export const signingAccountRefSchema = z
   .object({
     address: hexAddressSchema,
     chainAccountId: chainAccountIdSchema,
     chainId: chainIdSchema,
+    walletAccountId: walletAccountIdSchema,
+    walletId: walletIdSchema,
+  })
+  .strict()
+
+export const solanaSigningAccountRefSchema = z
+  .object({
+    address: z.string().min(32).max(44),
+    chainAccountId: chainAccountIdSchema,
+    chainId: z.string().regex(/^solana:[A-Za-z0-9][A-Za-z0-9._-]*$/u),
+    protocol: z.literal("solana"),
+    publicKey: z.string().regex(/^[A-Za-z0-9+/]{42}[AQgw]=$/u),
     walletAccountId: walletAccountIdSchema,
     walletId: walletIdSchema,
   })
@@ -74,11 +96,14 @@ export const signingIntentKinds = [
   "send-transaction",
   "sign-transaction",
   "typed-data",
+  "solana-sign-message",
+  "solana-sign-transaction",
+  "solana-sign-and-send-transaction",
 ] as const
 export type SigningIntentKind = (typeof signingIntentKinds)[number]
 
-export type SigningIntentBase = {
-  readonly account: SigningAccountRef
+export type SigningIntentBase<TAccount = SigningAccountRef> = {
+  readonly account: TAccount
   readonly correlationId: string
   readonly createdAt: string
   readonly id: string
@@ -103,7 +128,20 @@ export type TransactionIntent = SigningIntentBase & {
   readonly transaction: SignTransactionParameters
 }
 
-export type SigningIntent = PersonalSignIntent | TransactionIntent | TypedDataSignIntent
+export type SolanaSigningIntent = SigningIntentBase<SolanaSigningAccountRef> & {
+  readonly chainId: `solana:${string}`
+  readonly kind:
+    | "solana-sign-and-send-transaction"
+    | "solana-sign-message"
+    | "solana-sign-transaction"
+  readonly payload: string
+}
+
+export type SigningIntent =
+  | PersonalSignIntent
+  | SolanaSigningIntent
+  | TransactionIntent
+  | TypedDataSignIntent
 
 const signingIntentBaseShape = {
   account: signingAccountRefSchema,
@@ -140,10 +178,47 @@ export const transactionIntentSchema = z
   })
   .strict()
 
+const solanaSigningIntentDraftShape = {
+  account: solanaSigningAccountRefSchema,
+  chainId: z.string().regex(/^solana:[A-Za-z0-9][A-Za-z0-9._-]*$/u),
+  correlationId: z.string().min(1),
+  kind: z.enum([
+    "solana-sign-message",
+    "solana-sign-transaction",
+    "solana-sign-and-send-transaction",
+  ]),
+  origin: z.string().min(1).optional(),
+  payload: z.string().min(1).max(2_000_000),
+} as const
+
+const refineSolanaIntentChain = (
+  intent: { readonly account: { readonly chainId: string }; readonly chainId: string },
+  context: z.RefinementCtx
+): void => {
+  if (intent.chainId !== intent.account.chainId) {
+    context.addIssue({ code: "custom", message: "The Solana intent chain is inconsistent." })
+  }
+}
+
+export const solanaSigningIntentDraftSchema = z
+  .object(solanaSigningIntentDraftShape)
+  .strict()
+  .superRefine(refineSolanaIntentChain)
+
+export const solanaSigningIntentSchema = z
+  .object({
+    ...solanaSigningIntentDraftShape,
+    createdAt: timestampSchema,
+    id: z.string().regex(/^signing_intent_[A-Za-z0-9][A-Za-z0-9_-]*$/u),
+  })
+  .strict()
+  .superRefine(refineSolanaIntentChain)
+
 export const signingIntentSchema = z.discriminatedUnion("kind", [
   personalSignIntentSchema,
   transactionIntentSchema,
   typedDataSignIntentSchema,
+  solanaSigningIntentSchema,
 ])
 
 export const parseSigningIntent = (value: unknown): SigningIntent =>

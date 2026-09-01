@@ -152,9 +152,9 @@
   - 验收：dApp、automation 和 agent contexts 可以创建 signing intents；每个 intent 都经过 policy evaluation 且可审计。
   - 验证：runtime、policy、db 和 desktop IPC tests。
 
-- [x] 实现 Web3 browser runtime service。
-  - 验收：desktop 可以创建 origin-isolated dApp sessions、注入 provider bridge，并将 provider requests 路由到 runtime。
-  - 验证：web3-browser tests 和 desktop smoke test。
+- [x] 实现 wallet-provider 与 dApp browser runtime service。
+  - 验收：desktop 可以创建 origin-isolated dApp sessions；暴露并发现 Ethereum 与 Solana providers；持久化 protocol-scoped permissions；转发常用 Ethereum read-only RPC；投递 scoped provider events；并让 EVM 或 Solana signing 经过 policy-backed intents 与 injected executors。
+  - 验证：wallet-provider、database、runtime、desktop controller 与真实 sandboxed Electron discovery tests。
 
 - [x] 实现 automation runtime service。
   - 验收：runtime 可以 create、list、run、pause、resume 和 inspect automation tasks/runs。

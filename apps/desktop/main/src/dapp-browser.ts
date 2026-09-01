@@ -1,6 +1,16 @@
-import type { DappSessionManager, ProviderRequest, ProviderResponse } from "@cypheria/web3-browser"
-import { normalizeDappOrigin, providerRequestSchema } from "@cypheria/web3-browser"
+import type {
+  DappSessionManager,
+  WalletProviderEvent,
+  WalletProviderRequest,
+  WalletProviderResponse,
+} from "@cypheria/wallet-provider"
+import {
+  normalizeDappOrigin,
+  walletProviderEventSchema,
+  walletProviderRequestSchema,
+} from "@cypheria/wallet-provider"
 import { type BrowserWindow, session, WebContentsView } from "electron"
+import { CYPHERIA_IPC_CHANNELS } from "../../ipc/src/index.js"
 
 export const DAPP_WEB_PREFERENCES = {
   contextIsolation: true,
@@ -13,6 +23,7 @@ export type DappWebContents = {
   readonly destroy: () => void
   readonly getUrl: () => string
   readonly id: number
+  readonly send: (channel: string, payload: unknown) => void
 }
 
 export type DappWebContentsFactory = (input: {
@@ -25,7 +36,7 @@ export type DappWebContentsFactory = (input: {
 export type DappBrowserControllerOptions = {
   readonly createWebContents: DappWebContentsFactory
   readonly preloadPath: string
-  readonly requestRuntime: (request: ProviderRequest) => Promise<ProviderResponse>
+  readonly requestRuntime: (request: WalletProviderRequest) => Promise<WalletProviderResponse>
   readonly sessions: Pick<DappSessionManager, "open">
 }
 
@@ -35,11 +46,12 @@ export type DappBrowserController = {
     readonly session: Awaited<ReturnType<DappSessionManager["open"]>>
     readonly webContentsId: number
   }>
+  readonly emitProviderEvent: (webContentsId: number, event: unknown) => void
   readonly routeProviderRequest: (
     webContentsId: number,
     senderUrl: string,
     request: unknown
-  ) => Promise<ProviderResponse>
+  ) => Promise<WalletProviderResponse>
 }
 
 export class DappBrowserError extends Error {
@@ -59,6 +71,20 @@ export const createDappBrowserController = (
     number,
     { readonly origin: string; readonly sessionKey: string; readonly view: DappWebContents }
   >()
+  const emitProviderEvent = (webContentsId: number, eventValue: unknown): void => {
+    const registered = views.get(webContentsId)
+    if (!registered) {
+      throw new DappBrowserError("DAPP_VIEW_NOT_FOUND", "The dApp view is not registered.")
+    }
+    const event = walletProviderEventSchema.parse(eventValue) as WalletProviderEvent
+    if (event.origin !== registered.origin || event.sessionKey !== registered.sessionKey) {
+      throw new DappBrowserError(
+        "DAPP_SCOPE_MISMATCH",
+        "The provider event does not match its isolated dApp session."
+      )
+    }
+    registered.view.send(CYPHERIA_IPC_CHANNELS.dappProviderEvent, event)
+  }
   return {
     close: (webContentsId) => {
       const registered = views.get(webContentsId)
@@ -82,12 +108,13 @@ export const createDappBrowserController = (
       })
       return { session: dappSession, webContentsId: view.id }
     },
+    emitProviderEvent,
     routeProviderRequest: async (webContentsId, senderUrl, requestValue) => {
       const registered = views.get(webContentsId)
       if (!registered) {
         throw new DappBrowserError("DAPP_VIEW_NOT_FOUND", "The dApp view is not registered.")
       }
-      const request = providerRequestSchema.parse(requestValue) as ProviderRequest
+      const request = walletProviderRequestSchema.parse(requestValue) as WalletProviderRequest
       if (
         normalizeDappOrigin(senderUrl) !== registered.origin ||
         normalizeDappOrigin(registered.view.getUrl()) !== registered.origin ||
@@ -99,7 +126,51 @@ export const createDappBrowserController = (
           "The provider request sender does not match its isolated dApp session."
         )
       }
-      return options.requestRuntime(request)
+      const response = await options.requestRuntime(request)
+      if (!("error" in response)) {
+        const scope = { origin: registered.origin, sessionKey: registered.sessionKey }
+        if (
+          (request.method === "eth_accounts" || request.method === "eth_requestAccounts") &&
+          Array.isArray(response.result)
+        ) {
+          emitProviderEvent(webContentsId, {
+            ...scope,
+            event: "ethereum.accountsChanged",
+            payload: response.result,
+          })
+        } else if (request.method === "wallet_switchEthereumChain") {
+          const chainId = Array.isArray(request.params)
+            ? (request.params[0] as { readonly chainId?: unknown } | undefined)?.chainId
+            : undefined
+          if (typeof chainId === "string") {
+            emitProviderEvent(webContentsId, {
+              ...scope,
+              event: "ethereum.chainChanged",
+              payload: chainId,
+            })
+          }
+        } else if (request.method === "standard:connect") {
+          const accounts =
+            response.result &&
+            typeof response.result === "object" &&
+            "accounts" in response.result &&
+            Array.isArray(response.result.accounts)
+              ? response.result.accounts
+              : []
+          emitProviderEvent(webContentsId, {
+            ...scope,
+            event: "solana.accountsChanged",
+            payload: accounts,
+          })
+        } else if (request.method === "standard:disconnect") {
+          emitProviderEvent(webContentsId, {
+            ...scope,
+            event: "solana.accountsChanged",
+            payload: [],
+          })
+        }
+      }
+      return response
     },
   }
 }
@@ -143,5 +214,6 @@ export const createElectronDappWebContentsFactory =
       },
       getUrl: () => view.webContents.getURL(),
       id: view.webContents.id,
+      send: (channel, payload) => view.webContents.send(channel, payload),
     }
   }

@@ -38,3 +38,26 @@ export const dappPermissions = sqliteTable(
     index("dapp_permissions_wallet_id_idx").on(table.walletId),
   ]
 )
+
+export const solanaDappPermissions = sqliteTable(
+  "solana_dapp_permissions",
+  {
+    bindings: text("bindings").notNull(),
+    createdAt: text("created_at").notNull(),
+    expiresAt: text("expires_at"),
+    id: text("id").primaryKey(),
+    origin: text("origin")
+      .notNull()
+      .references(() => dappOrigins.origin, { onDelete: "cascade" }),
+    sessionKey: text("session_key").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    walletId: text("wallet_id")
+      .notNull()
+      .references(() => wallets.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("solana_dapp_permissions_origin_wallet_unique").on(table.origin, table.walletId),
+    index("solana_dapp_permissions_origin_idx").on(table.origin),
+    index("solana_dapp_permissions_wallet_id_idx").on(table.walletId),
+  ]
+)

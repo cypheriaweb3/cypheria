@@ -152,9 +152,9 @@ Status legend:
   - Acceptance: dApp, automation, and agent contexts can create signing intents; each intent is evaluated by policy and auditable.
   - Verification: runtime, policy, db, and desktop IPC tests.
 
-- [x] Implement Web3 browser runtime service.
-  - Acceptance: desktop can create origin-isolated dApp sessions, inject the provider bridge, and route provider requests through runtime.
-  - Verification: web3-browser tests and desktop smoke test.
+- [x] Implement wallet-provider and dApp browser runtime service.
+  - Acceptance: desktop can create origin-isolated dApp sessions; expose and discover Ethereum and Solana providers; persist protocol-scoped permissions; forward common Ethereum read-only RPC; deliver scoped provider events; and route EVM or Solana signing through policy-backed intents and injected executors.
+  - Verification: wallet-provider, database, runtime, desktop controller, and real sandboxed Electron discovery tests.
 
 - [x] Implement automation runtime service.
   - Acceptance: runtime can create, list, run, pause, resume, and inspect automation tasks and runs.

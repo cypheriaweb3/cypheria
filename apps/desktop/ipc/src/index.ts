@@ -9,9 +9,9 @@ import {
 import { signingIntentSchema } from "@cypheria/wallet-core"
 import {
   dappSessionSchema,
-  providerRequestSchema,
-  providerResponseSchema,
-} from "@cypheria/web3-browser"
+  walletProviderRequestSchema,
+  walletProviderResponseSchema,
+} from "@cypheria/wallet-provider"
 import { z } from "zod"
 
 export const IPC_PROTOCOL_VERSION = 1
@@ -50,6 +50,7 @@ export const CYPHERIA_IPC_CHANNELS = {
   browserSessionOpen: "browser.session.open",
   codexEvent: "codex.event",
   dappProviderRequest: "dapp.provider.request",
+  dappProviderEvent: "dapp.provider.event",
   runtimeInfoRead: "runtime.info.read",
   settingsAppearanceFontsList: "settings.appearance.fonts.list",
   settingsAppearanceRead: "settings.appearance.read",
@@ -513,12 +514,12 @@ export const browserSessionOpenContract = {
 export const dappProviderRequestContract = {
   channel: CYPHERIA_IPC_CHANNELS.dappProviderRequest,
   namespace: "dapp",
-  request: providerRequestSchema,
-  response: providerResponseSchema,
+  request: walletProviderRequestSchema,
+  response: walletProviderResponseSchema,
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<
-  z.input<typeof providerRequestSchema>,
-  z.output<typeof providerResponseSchema>
+  z.input<typeof walletProviderRequestSchema>,
+  z.output<typeof walletProviderResponseSchema>
 >
 
 export const automationTaskCreateContract = {

@@ -3,7 +3,7 @@ import { defineConfig } from "tsdown"
 export default defineConfig({
   clean: true,
   deps: {
-    alwaysBundle: [/^@cypheria\//],
+    alwaysBundle: (id) => id !== "electron" && !id.startsWith("node:"),
     neverBundle: ["electron"],
     onlyBundle: false,
   },

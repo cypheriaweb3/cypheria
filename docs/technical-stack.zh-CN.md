@@ -44,7 +44,7 @@ packages/runtime
 packages/codex-bridge
 packages/ui
 packages/wallet-core
-packages/web3-browser
+packages/wallet-provider
 packages/policy-engine
 packages/automation-core
 packages/db
@@ -218,7 +218,7 @@ Cypheria-specific components：
 核心 packages：
 
 - `@cypheria/wallet-core`：wallet/account/chain/signing intent models。
-- `@cypheria/web3-browser`：严格的 dApp session 与 permission models、JSON-RPC envelopes、session manager 和 EIP-1193 provider bridge。
+- `@cypheria/wallet-provider`：origin-scoped dApp sessions、Ethereum EIP-1193/EIP-6963 injection 与 discovery、有界 Ethereum JSON-RPC 和 permissions、Solana Wallet Standard discovery 与 byte envelopes、protocol-scoped events，以及 persistence contracts。
 - `@cypheria/policy-engine`：signing policy schemas 和 deterministic evaluation。
 
 私钥永远不进入 renderer、dApp pages、localStorage、IndexedDB 或普通 SQLite tables。

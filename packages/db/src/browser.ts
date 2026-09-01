@@ -1,16 +1,19 @@
 import {
-  type DappBrowserPersistence,
-  type DappPermissionRecord,
   type DappSession,
   dappPermissionRecordSchema,
   dappSessionSchema,
+  type EthereumProviderPermissionRecord,
+  type EthereumProviderPersistence,
   normalizeDappOrigin,
-} from "@cypheria/web3-browser"
+  type SolanaProviderPermissionRecord,
+  type SolanaProviderPersistence,
+  solanaProviderPermissionRecordSchema,
+} from "@cypheria/wallet-provider"
 import { asc, eq } from "drizzle-orm"
 import { z } from "zod"
 
 import type { CypheriaDatabase } from "./client.js"
-import { dappOrigins, dappPermissions } from "./schema/index.js"
+import { dappOrigins, dappPermissions, solanaDappPermissions } from "./schema/index.js"
 
 const fromSessionRow = (row: typeof dappOrigins.$inferSelect): DappSession =>
   dappSessionSchema.parse({
@@ -21,7 +24,9 @@ const fromSessionRow = (row: typeof dappOrigins.$inferSelect): DappSession =>
     partition: row.partition,
   })
 
-const fromPermissionRow = (row: typeof dappPermissions.$inferSelect): DappPermissionRecord =>
+const fromPermissionRow = (
+  row: typeof dappPermissions.$inferSelect
+): EthereumProviderPermissionRecord =>
   dappPermissionRecordSchema.parse({
     accountAddresses: JSON.parse(row.accountAddresses) as unknown,
     chainId: row.chainId,
@@ -33,11 +38,25 @@ const fromPermissionRow = (row: typeof dappPermissions.$inferSelect): DappPermis
     sessionKey: row.sessionKey,
     updatedAt: row.updatedAt,
     walletId: row.walletId,
-  }) as DappPermissionRecord
+  }) as EthereumProviderPermissionRecord
+
+const fromSolanaPermissionRow = (
+  row: typeof solanaDappPermissions.$inferSelect
+): SolanaProviderPermissionRecord =>
+  solanaProviderPermissionRecordSchema.parse({
+    bindings: JSON.parse(row.bindings) as unknown,
+    createdAt: row.createdAt,
+    ...(row.expiresAt ? { expiresAt: row.expiresAt } : {}),
+    id: row.id,
+    origin: row.origin,
+    sessionKey: row.sessionKey,
+    updatedAt: row.updatedAt,
+    walletId: row.walletId,
+  }) as SolanaProviderPermissionRecord
 
 export const createDappBrowserPersistenceService = (
   db: CypheriaDatabase
-): DappBrowserPersistence => ({
+): EthereumProviderPersistence & SolanaProviderPersistence => ({
   deletePermission: async (permissionId) => {
     const [deleted] = await db
       .delete(dappPermissions)
@@ -50,6 +69,13 @@ export const createDappBrowserPersistenceService = (
     const [row] = await db.select().from(dappOrigins).where(eq(dappOrigins.origin, origin)).limit(1)
     return row ? fromSessionRow(row) : undefined
   },
+  deleteSolanaPermission: async (permissionId) => {
+    const [deleted] = await db
+      .delete(solanaDappPermissions)
+      .where(eq(solanaDappPermissions.id, z.string().min(1).parse(permissionId)))
+      .returning({ id: solanaDappPermissions.id })
+    return Boolean(deleted)
+  },
   listPermissions: async (originValue) => {
     const origin = normalizeDappOrigin(originValue)
     const rows = await db
@@ -59,8 +85,19 @@ export const createDappBrowserPersistenceService = (
       .orderBy(asc(dappPermissions.createdAt), asc(dappPermissions.id))
     return rows.map(fromPermissionRow)
   },
+  listSolanaPermissions: async (originValue) => {
+    const origin = normalizeDappOrigin(originValue)
+    const rows = await db
+      .select()
+      .from(solanaDappPermissions)
+      .where(eq(solanaDappPermissions.origin, origin))
+      .orderBy(asc(solanaDappPermissions.createdAt), asc(solanaDappPermissions.id))
+    return rows.map(fromSolanaPermissionRow)
+  },
   savePermission: async (permissionValue) => {
-    const permission = dappPermissionRecordSchema.parse(permissionValue) as DappPermissionRecord
+    const permission = dappPermissionRecordSchema.parse(
+      permissionValue
+    ) as EthereumProviderPermissionRecord
     await db
       .insert(dappPermissions)
       .values({
@@ -122,4 +159,39 @@ export const createDappBrowserPersistenceService = (
     if (!saved) throw new Error("The dApp session was not persisted.")
     return fromSessionRow(saved)
   },
+  saveSolanaPermission: async (permissionValue) => {
+    const permission = solanaProviderPermissionRecordSchema.parse(
+      permissionValue
+    ) as SolanaProviderPermissionRecord
+    await db
+      .insert(solanaDappPermissions)
+      .values({
+        bindings: JSON.stringify(permission.bindings),
+        createdAt: permission.createdAt,
+        expiresAt: permission.expiresAt ?? null,
+        id: permission.id,
+        origin: permission.origin,
+        sessionKey: permission.sessionKey,
+        updatedAt: permission.updatedAt,
+        walletId: permission.walletId,
+      })
+      .onConflictDoUpdate({
+        set: {
+          bindings: JSON.stringify(permission.bindings),
+          expiresAt: permission.expiresAt ?? null,
+          sessionKey: permission.sessionKey,
+          updatedAt: permission.updatedAt,
+        },
+        target: [solanaDappPermissions.origin, solanaDappPermissions.walletId],
+      })
+    const rows = await db
+      .select()
+      .from(solanaDappPermissions)
+      .where(eq(solanaDappPermissions.origin, permission.origin))
+    const saved = rows.find((row) => row.walletId === permission.walletId)
+    if (!saved) throw new Error("The Solana dApp permission was not persisted.")
+    return fromSolanaPermissionRow(saved)
+  },
 })
+
+export const createWalletProviderPersistenceService = createDappBrowserPersistenceService

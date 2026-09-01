@@ -44,7 +44,7 @@ packages/runtime
 packages/codex-bridge
 packages/ui
 packages/wallet-core
-packages/web3-browser
+packages/wallet-provider
 packages/policy-engine
 packages/automation-core
 packages/db
@@ -218,7 +218,7 @@ Visual direction: quiet, work-focused, low saturation, panel-oriented, dense eno
 Core packages:
 
 - `@cypheria/wallet-core`: wallet/account/chain/signing intent models.
-- `@cypheria/web3-browser`: strict dApp session and permission models, JSON-RPC envelopes, session manager, and EIP-1193 provider bridge.
+- `@cypheria/wallet-provider`: origin-scoped dApp sessions, Ethereum EIP-1193/EIP-6963 injection and discovery, bounded Ethereum JSON-RPC and permissions, Solana Wallet Standard discovery and byte envelopes, protocol-scoped events, and persistence contracts.
 - `@cypheria/policy-engine`: signing policy schemas and deterministic evaluation.
 
 Private keys never enter renderer, dApp pages, localStorage, IndexedDB, or normal SQLite tables.

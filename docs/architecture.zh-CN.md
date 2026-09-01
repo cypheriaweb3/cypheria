@@ -189,23 +189,26 @@ codex app-server generate-ts --out packages/codex-bridge/src/generated
 
 Generated protocol files 需要提交。不要手写 Codex app-server protocol request、response、notification 或 server request types。
 
-## Web3 Browser 边界
+## Wallet Provider 与 dApp Browser 边界
 
-每个 dApp origin 都运行在独立 Electron session 中。dApp 页面会收到注入的 EIP-1193 provider bridge，但 provider requests 会转发到 Electron main，并通过 origin-scoped permissions 和 signing policy 评估。
+每个 dApp origin 都运行在独立 Electron session 中。dApp 页面会收到 Ethereum 与 Solana wallet-provider surfaces，但 requests 会转发到 Electron main，并通过 origin-scoped permissions 和 signing policy 评估。
 
-`@cypheria/web3-browser` 负责：
+`@cypheria/wallet-provider` 负责：
 
 - Origin-scoped session keys。
 - Persistent partition names。
-- dApp permission records。
-- EIP-1193 provider request/response envelopes。
-- Provider error mapping。
+- Ethereum 与 Solana dApp permission records，以及有界 request/response envelopes。
+- 完整的 EIP-1193 provider API：`request`、`on`、`removeListener`，包括五种标准事件和 `ProviderRpcError` 映射。
+- EIP-6963 provider metadata、不可变 announcement、request/re-announcement 生命周期，以及传统 `window.ethereum` 兼容性。
+- 实现 `standard:connect`、`standard:disconnect`、`standard:events`、`solana:signMessage`、`solana:signTransaction` 和 `solana:signAndSendTransaction` features 的 Solana Wallet Standard wallet。
+- 使用官方 Wallet Standard packages 对 Solana account、chain、feature、byte envelope 和批量响应边界进行运行时验证。
+- 用于 account、chain、connect、disconnect 与 message changes 的 protocol-scoped provider event envelopes。
 
-Web3 browser 不与 Codex preview/browser capabilities 共享钱包权限模型。
+dApp browser 不与 Codex preview/browser capabilities 共享钱包权限模型。
 
-已实现的 browser boundary 会把远程 origin 规范化为 HTTPS（仅 loopback 开发环境允许 HTTP），通过 Drizzle/libSQL 持久化 `dapp_origins` 和 `dapp_permissions`，并且只在同一 origin 内复用一个持久化 Electron partition。Electron 的 session-data root 设置为 `$CYPHERIA_HOME/browser`。Desktop 创建 dApp `WebContentsView` 时禁用 Node integration，并启用 context isolation、sandbox 与 web security，同时拒绝跨 origin 导航、popup window 和环境 Electron permission request。独立的 dApp preload 只暴露 `window.ethereum.request`，不与产品 renderer preload 共用。
+已实现的 browser boundary 会把远程 origin 规范化为 HTTPS（仅 loopback 开发环境允许 HTTP），通过 Drizzle/libSQL 持久化 `dapp_origins`、Ethereum `dapp_permissions` 与 `solana_dapp_permissions`，并且只在同一 origin 内复用一个持久化 Electron partition。Electron 的 session-data root 设置为 `$CYPHERIA_HOME/browser`。Desktop 创建 dApp `WebContentsView` 时禁用 Node integration，并启用 context isolation、sandbox 与 web security，同时拒绝跨 origin 导航、popup window 和环境 Electron permission request。独立的 dApp preload 把 EIP-1193 provider 暴露为 `window.ethereum`，通过 EIP-6963 announcement 发布它，并通过 Wallet Standard events 注册 Solana provider。Sandbox preload 会打包除 Electron 外的所有 runtime dependencies，使用 plain-data facade 让 Wallet Standard accounts 跨越 `contextBridge`，并把 provider icons 限制为 raster data URI。真实 Electron smoke test 会在这些 production isolation settings 下验证两种 discovery 机制。
 
-Electron main 会把每个已创建的 WebContents ID 与其规范化 origin、session key 绑定。每个 provider IPC request 必须同时匹配这一可信注册信息和 sender 当前 URL，之后才能进入 `@cypheria/runtime` 的 `dapp.provider-request`。Runtime 验证 JSON-RPC payload、检查未过期的 origin/account/method permission、审计脱敏结果，并在 injected executor 完成请求前把所有签名方法转换为 dApp 来源的 signing intent。Renderer 或 dApp 自报的 origin 字段绝不作为权限依据。在 wallet/policy composition 安装该 runtime service 之前，desktop bridge 会以 EIP-1193 `4900` 错误 fail closed。
+Electron main 会把每个已创建的 WebContents ID 与其规范化 origin、session key 绑定。每个 Ethereum 或 Solana provider IPC request 必须同时匹配这一可信注册信息和 sender 当前 URL，之后才能进入 `@cypheria/runtime` 的 `dapp.provider-request` 或 `dapp.solana-provider-request`。Ethereum runtime 无需钱包权限即可转发有界 allowlist 中常用的公共只读 RPC methods，对 privileged methods 检查未过期的 origin/account/method permission，审计脱敏结果，并在 injected executor 完成前把 signing methods 转换为 dApp 来源的 signing intents。Solana runtime 实现 silent/interactive connection、持久化 origin permissions、内存连接状态、account/feature/chain authorization，以及 message signing、transaction signing 和 sign-and-send 的 policy-backed signing intents。Main 只会向已注册的 dApp WebContents 发送成功的 account 与 chain changes；preload 再把它们转换为 EIP-1193 或 Wallet Standard events。Renderer 或 dApp 自报的 origin 字段绝不作为权限依据。Desktop runtime options 只会在提供相应 authorizer、dispatcher 或 executor 后安装 provider service；否则 bridge 会 fail closed。
 
 ## 签名流程
 
@@ -343,7 +346,7 @@ apps/desktop/ipc
 @cypheria/policy-engine
   Signing policy schemas, evaluator, and policy decisions.
 
-@cypheria/web3-browser
+@cypheria/wallet-provider
   dApp session, provider bridge, and browser permission models.
 
 @cypheria/automation-core

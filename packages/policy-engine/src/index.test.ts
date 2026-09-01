@@ -61,6 +61,24 @@ describe("policy engine", () => {
     })
   })
 
+  it("evaluates Solana signing methods against CAIP-style chain identifiers", () => {
+    const policy = parseSigningPolicy({
+      ...basePolicy,
+      chainIds: ["solana:mainnet"],
+      id: "policy_solana",
+      methods: ["solana-sign-message"],
+    })
+    expect(
+      evaluateSigningPolicies([policy], {
+        chainId: "solana:mainnet",
+        method: "solana-sign-message",
+        mode: "conditional-auto-signing",
+        origin: "https://app.example",
+        walletId: "wallet_1",
+      })
+    ).toMatchObject({ decision: "allow", matchedPolicyId: "policy_solana" })
+  })
+
   it("requires approval when value exceeds the policy limit", () => {
     expect(
       evaluateSigningPolicies([basePolicy], {

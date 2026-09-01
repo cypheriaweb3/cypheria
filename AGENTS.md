@@ -82,7 +82,7 @@ packages/runtime
 packages/codex-bridge
 packages/ui
 packages/wallet-core
-packages/web3-browser
+packages/wallet-provider
 packages/policy-engine
 packages/automation-core
 packages/db

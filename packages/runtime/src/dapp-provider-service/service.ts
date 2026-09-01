@@ -3,59 +3,75 @@ import { createHash, randomUUID } from "node:crypto"
 import type { AuditLogService, SigningIntentRecord } from "@cypheria/db"
 import type { SigningAccountRef, WalletMode } from "@cypheria/wallet-core"
 import {
-  type DappBrowserPersistence,
-  type DappPermissionRecord,
   DappSessionError,
   type DappSessionManager,
   dappPermissionRecordSchema,
+  type EthereumProviderPermissionRecord,
+  type EthereumProviderPersistence,
+  ethereumReadOnlyMethods,
   type ProviderError,
   type ProviderMethod,
   type ProviderRequest,
   type ProviderResponse,
   providerRequestSchema,
-} from "@cypheria/web3-browser"
+} from "@cypheria/wallet-provider"
 import { z } from "zod"
 
 import type { RuntimeService } from "../index.js"
 import type { SigningIntentRuntimeService } from "../signing-intent-service/index.js"
 
-export type DappPermissionGrant = {
-  readonly accountAddresses: DappPermissionRecord["accountAddresses"]
-  readonly chainId: DappPermissionRecord["chainId"]
+export type EthereumPermissionGrant = {
+  readonly accountAddresses: EthereumProviderPermissionRecord["accountAddresses"]
+  readonly chainId: EthereumProviderPermissionRecord["chainId"]
   readonly expiresAt?: string
   readonly methods: readonly ProviderMethod[]
-  readonly walletId: DappPermissionRecord["walletId"]
+  readonly walletId: EthereumProviderPermissionRecord["walletId"]
 }
 
-export type DappPermissionAuthorizer = (input: {
+/** @deprecated Use EthereumPermissionGrant. */
+export type DappPermissionGrant = EthereumPermissionGrant
+
+export type EthereumPermissionAuthorizer = (input: {
   readonly request: ProviderRequest<"eth_requestAccounts" | "wallet_requestPermissions">
   readonly requestedMethods: readonly ProviderMethod[]
-}) => Promise<DappPermissionGrant | undefined> | DappPermissionGrant | undefined
+}) => Promise<EthereumPermissionGrant | undefined> | EthereumPermissionGrant | undefined
 
-export type ActiveDappSigningContext = {
+/** @deprecated Use EthereumPermissionAuthorizer. */
+export type DappPermissionAuthorizer = EthereumPermissionAuthorizer
+
+export type ActiveEthereumSigningContext = {
   readonly account: SigningAccountRef
   readonly mode: WalletMode
 }
 
-export type DappProviderRuntimeServiceOptions = {
+/** @deprecated Use ActiveEthereumSigningContext. */
+export type ActiveDappSigningContext = ActiveEthereumSigningContext
+
+export type EthereumProviderRuntimeServiceOptions = {
   readonly audit: Pick<AuditLogService, "append">
   readonly dispatch: (
     request: ProviderRequest,
-    permission?: DappPermissionRecord
+    permission?: EthereumProviderPermissionRecord
   ) => Promise<unknown> | unknown
   readonly executeSigningIntent: (intent: SigningIntentRecord) => Promise<unknown>
-  readonly getActiveSigningContext: () => Promise<ActiveDappSigningContext | undefined>
+  readonly getActiveSigningContext: () => Promise<ActiveEthereumSigningContext | undefined>
   readonly idFactory?: { readonly permissionId: () => string }
   readonly now?: () => string
-  readonly permissionAuthorizer: DappPermissionAuthorizer
-  readonly persistence: Pick<DappBrowserPersistence, "listPermissions" | "savePermission">
+  readonly permissionAuthorizer: EthereumPermissionAuthorizer
+  readonly persistence: Pick<EthereumProviderPersistence, "listPermissions" | "savePermission">
   readonly sessions: Pick<DappSessionManager, "validateRequest">
   readonly signingIntents: Pick<SigningIntentRuntimeService, "create">
 }
 
-export type DappProviderRuntimeService = RuntimeService & {
+/** @deprecated Use EthereumProviderRuntimeServiceOptions. */
+export type DappProviderRuntimeServiceOptions = EthereumProviderRuntimeServiceOptions
+
+export type EthereumProviderRuntimeService = RuntimeService & {
   readonly handle: (request: unknown) => Promise<ProviderResponse>
 }
+
+/** @deprecated Use EthereumProviderRuntimeService. */
+export type DappProviderRuntimeService = EthereumProviderRuntimeService
 
 class DappProviderError extends Error {
   readonly error: ProviderError
@@ -73,7 +89,7 @@ const denied = (message: string): DappProviderError =>
 const invalidParams = (message: string): DappProviderError =>
   new DappProviderError({ code: -32602, message })
 
-const isExpired = (permission: DappPermissionRecord, now: string): boolean =>
+const isExpired = (permission: EthereumProviderPermissionRecord, now: string): boolean =>
   permission.expiresAt ? Date.parse(permission.expiresAt) <= Date.parse(now) : false
 
 const requestedPermissionMethods = (request: ProviderRequest): ProviderMethod[] => {
@@ -210,8 +226,8 @@ const signingMethods = new Set<ProviderMethod>([
 ])
 
 export const createDappProviderRuntimeService = (
-  options: DappProviderRuntimeServiceOptions
-): DappProviderRuntimeService => {
+  options: EthereumProviderRuntimeServiceOptions
+): EthereumProviderRuntimeService => {
   const now = options.now ?? (() => new Date().toISOString())
   const permissionId = options.idFactory?.permissionId ?? (() => `dapp_permission_${randomUUID()}`)
 
@@ -307,7 +323,7 @@ export const createDappProviderRuntimeService = (
         origin: request.origin,
         sessionKey: request.sessionKey,
         updatedAt: createdAt,
-      }) as DappPermissionRecord
+      }) as EthereumProviderPermissionRecord
       const saved = await options.persistence.savePermission(permission)
       await appendAudit("dapp.permission.granted", request, saved.id)
       return request.method === "eth_requestAccounts"
@@ -315,7 +331,7 @@ export const createDappProviderRuntimeService = (
         : grant.methods.map((method) => ({ caveats: [], parentCapability: method }))
     }
 
-    if (request.method === "eth_chainId") {
+    if (ethereumReadOnlyMethods.includes(request.method as never)) {
       return options.dispatch(request)
     }
 
@@ -398,3 +414,5 @@ export const createDappProviderRuntimeService = (
     namespace: "dapp",
   }
 }
+
+export const createEthereumProviderRuntimeService = createDappProviderRuntimeService

@@ -1,4 +1,8 @@
-import { createDappSession } from "@cypheria/web3-browser"
+import {
+  createDappSession,
+  type SolanaProviderPermissionRecord,
+  SolanaSignMessage,
+} from "@cypheria/wallet-provider"
 import { describe, expect, it } from "vitest"
 
 import { createDappBrowserPersistenceService } from "./browser.js"
@@ -47,6 +51,39 @@ describe("dApp browser persistence", () => {
     await expect(service.listPermissions(session.origin)).resolves.toEqual([permission])
     await expect(service.deletePermission(permission.id)).resolves.toBe(true)
     await expect(service.listPermissions(session.origin)).resolves.toEqual([])
+
+    const solanaPermission: SolanaProviderPermissionRecord = {
+      bindings: [
+        {
+          account: {
+            address: "11111111111111111111111111111111",
+            chains: ["solana:mainnet" as const],
+            features: [SolanaSignMessage] as const,
+            publicKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+          },
+          mode: "human-approval" as const,
+          signingAccount: {
+            address: "11111111111111111111111111111111",
+            chainAccountId: "chain_account_solana",
+            chainId: "solana:mainnet" as const,
+            protocol: "solana" as const,
+            publicKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            walletAccountId: "account_solana",
+            walletId: "wallet_browser" as const,
+          },
+        },
+      ],
+      createdAt: timestamp,
+      id: "solana_permission_one",
+      origin: session.origin,
+      sessionKey: session.key,
+      updatedAt: timestamp,
+      walletId: "wallet_browser" as const,
+    }
+    await expect(service.saveSolanaPermission(solanaPermission)).resolves.toEqual(solanaPermission)
+    await expect(service.listSolanaPermissions(session.origin)).resolves.toEqual([solanaPermission])
+    await expect(service.deleteSolanaPermission(solanaPermission.id)).resolves.toBe(true)
+    await expect(service.listSolanaPermissions(session.origin)).resolves.toEqual([])
     database.close()
   })
 })

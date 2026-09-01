@@ -99,6 +99,27 @@ describe("dApp browser IPC contracts", () => {
     ).toThrow()
   })
 
+  it("accepts scoped Solana Wallet Standard requests", () => {
+    expect(
+      dappProviderRequestContract.request.parse({
+        id: "solana_provider_1",
+        input: { silent: true },
+        method: "standard:connect",
+        origin: "https://app.example",
+        sessionKey: "cypheria:dapp:https://app.example",
+      })
+    ).toMatchObject({ method: "standard:connect", origin: "https://app.example" })
+    expect(() =>
+      dappProviderRequestContract.request.parse({
+        id: "solana_provider_2",
+        input: { silent: true },
+        method: "standard:connect",
+        origin: "https://app.example",
+        sessionKey: "cypheria:dapp:https://evil.example",
+      })
+    ).toThrow()
+  })
+
   it("restricts browser sessions to secure dApp URLs", () => {
     expect(browserSessionOpenContract.request.parse({ url: "https://app.example/path" })).toEqual({
       url: "https://app.example/path",

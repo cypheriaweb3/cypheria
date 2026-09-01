@@ -19,7 +19,7 @@
     "@cypheria/automation-core": "workspace:*",
     "@cypheria/policy-engine": "workspace:*",
     "@cypheria/wallet-core": "workspace:*",
-    "@cypheria/web3-browser": "workspace:*",
+    "@cypheria/wallet-provider": "workspace:*",
     "@libsql/client": "^0.17.4",
     "drizzle-orm": "^0.45.2",
     "zod": "^4.4.3"

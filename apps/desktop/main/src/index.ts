@@ -1,6 +1,9 @@
 import { dirname, join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { type ProviderResponse, providerResponseSchema } from "@cypheria/web3-browser"
+import {
+  type WalletProviderResponse,
+  walletProviderResponseSchema,
+} from "@cypheria/wallet-provider"
 import { app, BrowserWindow } from "electron"
 import {
   type AppHealthStatus,
@@ -223,9 +226,13 @@ const createMainWindow = async (context: DesktopRuntimeContext): Promise<Browser
     preloadPath: dappPreloadPath,
     requestRuntime: async (request) => {
       try {
-        return providerResponseSchema.parse(
-          await context.runtime.request("dapp.provider-request", request)
-        ) as ProviderResponse
+        const runtimeMethod =
+          request.method.startsWith("solana:") || request.method.startsWith("standard:")
+            ? "dapp.solana-provider-request"
+            : "dapp.provider-request"
+        return walletProviderResponseSchema.parse(
+          await context.runtime.request(runtimeMethod, request)
+        ) as WalletProviderResponse
       } catch {
         return {
           error: { code: 4900, message: "The wallet provider runtime is unavailable." },

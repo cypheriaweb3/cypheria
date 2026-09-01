@@ -13,7 +13,14 @@ export const signingPolicyIdSchema = z
 
 export const SigningPolicyObjectSchema = z
   .object({
-    chainIds: z.array(z.number().int().positive()).min(1),
+    chainIds: z
+      .array(
+        z.union([
+          z.number().int().positive(),
+          z.string().regex(/^solana:[A-Za-z0-9][A-Za-z0-9._-]*$/u),
+        ])
+      )
+      .min(1),
     contractAllowlist: z.array(z.string().regex(/^0x[a-fA-F0-9]{40}$/u)).optional(),
     effect: SigningPolicyEffectSchema.default("allow"),
     enabled: z.boolean(),
@@ -46,7 +53,10 @@ export type SigningPolicy = z.infer<typeof SigningPolicySchema>
 
 export const PolicyEvaluationInputSchema = z
   .object({
-    chainId: z.number().int().positive(),
+    chainId: z.union([
+      z.number().int().positive(),
+      z.string().regex(/^solana:[A-Za-z0-9][A-Za-z0-9._-]*$/u),
+    ]),
     contractAddress: z
       .string()
       .regex(/^0x[a-fA-F0-9]{40}$/u)

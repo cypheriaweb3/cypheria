@@ -1,4 +1,4 @@
-import { createDappSession } from "@cypheria/web3-browser"
+import { createDappSession } from "@cypheria/wallet-provider"
 import { describe, expect, it, vi } from "vitest"
 
 import { createDappBrowserController, DAPP_WEB_PREFERENCES } from "./dapp-browser.js"
@@ -8,11 +8,17 @@ describe("desktop dApp browser controller", () => {
     let nextId = 1
     const created: Array<{ partition: string; webPreferences: typeof DAPP_WEB_PREFERENCES }> = []
     const runtime = vi.fn(async (request) => ({ id: request.id, result: "0x1" }))
+    const sent: unknown[] = []
     const controller = createDappBrowserController({
       createWebContents: async (input) => {
         created.push({ partition: input.partition, webPreferences: input.webPreferences })
         const id = nextId++
-        return { destroy: vi.fn(), getUrl: () => input.url, id }
+        return {
+          destroy: vi.fn(),
+          getUrl: () => input.url,
+          id,
+          send: (_channel: string, payload: unknown) => sent.push(payload),
+        }
       },
       preloadPath: "/app/dapp-preload.cjs",
       requestRuntime: runtime,
@@ -43,5 +49,42 @@ describe("desktop dApp browser controller", () => {
       })
     ).rejects.toMatchObject({ code: "DAPP_SCOPE_MISMATCH" })
     expect(runtime).toHaveBeenCalledTimes(1)
+    expect(sent).toEqual([])
+  })
+
+  it("delivers successful account changes only to the matching dApp view", async () => {
+    const sent: unknown[] = []
+    const controller = createDappBrowserController({
+      createWebContents: async (input) => ({
+        destroy: vi.fn(),
+        getUrl: () => input.url,
+        id: 9,
+        send: (channel, payload) => sent.push({ channel, payload }),
+      }),
+      preloadPath: "/app/dapp-preload.cjs",
+      requestRuntime: async (request) => ({
+        id: request.id,
+        result: ["0x0000000000000000000000000000000000000001"],
+      }),
+      sessions: { open: async (url) => createDappSession(url, "2026-09-01T08:00:00.000Z") },
+    })
+    const opened = await controller.open("https://one.example/swap")
+    await controller.routeProviderRequest(opened.webContentsId, opened.session.origin, {
+      id: "provider_accounts",
+      method: "eth_requestAccounts",
+      origin: opened.session.origin,
+      sessionKey: opened.session.key,
+    })
+    expect(sent).toEqual([
+      {
+        channel: "dapp.provider.event",
+        payload: {
+          event: "ethereum.accountsChanged",
+          origin: opened.session.origin,
+          payload: ["0x0000000000000000000000000000000000000001"],
+          sessionKey: opened.session.key,
+        },
+      },
+    ])
   })
 })

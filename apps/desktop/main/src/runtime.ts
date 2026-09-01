@@ -2,7 +2,7 @@ import {
   applyDatabaseMigrations,
   createAuditLogService,
   createAutomationPersistenceService,
-  createDappBrowserPersistenceService,
+  createWalletProviderPersistenceService,
   type OpenDatabaseResult,
   openCypheriaDatabase,
 } from "@cypheria/db"
@@ -15,10 +15,14 @@ import {
   type CypheriaRuntimeOptions,
   type CypheriaRuntimePaths,
   createAutomationRuntimeService,
+  createEthereumProviderRuntimeService,
+  createSolanaProviderRuntimeService,
+  type EthereumProviderRuntimeServiceOptions,
   ensureRuntimeDirectories,
   type RuntimeHomeEnv,
+  type SolanaProviderRuntimeServiceOptions,
 } from "@cypheria/runtime"
-import { createDappSessionManager, type DappSessionManager } from "@cypheria/web3-browser"
+import { createDappSessionManager, type DappSessionManager } from "@cypheria/wallet-provider"
 import {
   type CodexAppServerContext,
   type StartCodexAppServerOptions,
@@ -40,6 +44,14 @@ export type DesktopRuntimeOptions = CypheriaRuntimeOptions & {
   readonly automation?: Omit<AutomationRuntimeServiceOptions, "audit" | "persistence">
   readonly codexAppServer?: Omit<StartCodexAppServerOptions, "clientVersion" | "codexEnv" | "paths">
   readonly clientVersion?: string
+  readonly ethereumProvider?: Omit<
+    EthereumProviderRuntimeServiceOptions,
+    "audit" | "persistence" | "sessions"
+  >
+  readonly solanaProvider?: Omit<
+    SolanaProviderRuntimeServiceOptions,
+    "audit" | "persistence" | "sessions"
+  >
   readonly startCodexAppServer?: boolean
 }
 
@@ -50,6 +62,8 @@ export const initializeDesktopRuntime = async (
     automation: automationOptions,
     clientVersion,
     codexAppServer: codexAppServerOptions,
+    ethereumProvider: ethereumProviderOptions,
+    solanaProvider: solanaProviderOptions,
     startCodexAppServer: shouldStartCodexAppServerOption,
     ...runtimeOptions
   } = options
@@ -63,15 +77,40 @@ export const initializeDesktopRuntime = async (
 
   try {
     await applyDatabaseMigrations(database.client)
+    const audit = createAuditLogService(database.db)
+    const walletProviderPersistence = createWalletProviderPersistenceService(database.db)
+    const dappSessions = createDappSessionManager({ persistence: walletProviderPersistence })
     const automation = createAutomationRuntimeService({
       ...automationOptions,
-      audit: createAuditLogService(database.db),
+      audit,
       persistence: createAutomationPersistenceService(database.db),
     })
+    const providerServices = [
+      ...(ethereumProviderOptions
+        ? [
+            createEthereumProviderRuntimeService({
+              ...ethereumProviderOptions,
+              audit,
+              persistence: walletProviderPersistence,
+              sessions: dappSessions,
+            }),
+          ]
+        : []),
+      ...(solanaProviderOptions
+        ? [
+            createSolanaProviderRuntimeService({
+              ...solanaProviderOptions,
+              audit,
+              persistence: walletProviderPersistence,
+              sessions: dappSessions,
+            }),
+          ]
+        : []),
+    ]
     runtime = new CypheriaRuntime({
       ...runtimeOptions,
       ensureDirectories: false,
-      services: [...(runtimeOptions.services ?? []), automation],
+      services: [...(runtimeOptions.services ?? []), automation, ...providerServices],
     })
     await runtime.start()
     codexAppServer = shouldStartCodexAppServer
@@ -86,9 +125,7 @@ export const initializeDesktopRuntime = async (
       automation,
       codexAppServer,
       database,
-      dappSessions: createDappSessionManager({
-        persistence: createDappBrowserPersistenceService(database.db),
-      }),
+      dappSessions,
       paths: runtime.paths,
       codexEnv,
       runtime,

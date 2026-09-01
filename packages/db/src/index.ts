@@ -25,7 +25,10 @@ export {
   type ListAutomationTaskOptions,
   type UpdateAutomationTaskStatusInput,
 } from "./automation.js"
-export { createDappBrowserPersistenceService } from "./browser.js"
+export {
+  createDappBrowserPersistenceService,
+  createWalletProviderPersistenceService,
+} from "./browser.js"
 export {
   type CypheriaDatabase,
   createInMemoryDatabase,

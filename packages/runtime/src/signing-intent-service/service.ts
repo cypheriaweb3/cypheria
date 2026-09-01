@@ -12,6 +12,7 @@ import {
   personalSignIntentSchema,
   type SigningIntent,
   serializeSigningIntent,
+  solanaSigningIntentDraftSchema,
   transactionIntentSchema,
   typedDataSignIntentSchema,
 } from "@cypheria/wallet-core"
@@ -23,6 +24,7 @@ const intentDraftSchema = z.discriminatedUnion("kind", [
   personalSignIntentSchema.omit({ createdAt: true, id: true }),
   transactionIntentSchema.omit({ createdAt: true, id: true }),
   typedDataSignIntentSchema.omit({ createdAt: true, id: true }),
+  solanaSigningIntentDraftSchema,
 ])
 
 const createInputSchema = z
@@ -115,6 +117,7 @@ const hashIntent = (intent: SigningIntent): string =>
   `sha256:${createHash("sha256").update(serializeSigningIntent(intent)).digest("hex")}`
 
 const policyMethod = (intent: SigningIntent): string => {
+  if (intent.kind.startsWith("solana-")) return intent.kind
   if (intent.kind === "personal-sign") return "personal_sign"
   if (intent.kind === "typed-data") return "eth_signTypedData_v4"
   return intent.kind === "send-transaction" ? "eth_sendTransaction" : "eth_signTransaction"

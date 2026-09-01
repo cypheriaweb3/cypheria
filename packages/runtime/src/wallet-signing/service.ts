@@ -11,6 +11,7 @@ import {
   parseSigningIntent,
   type SigningAccountRef,
   type SigningIntent,
+  type SolanaSigningIntent,
   serializeSigningIntent,
   signingAccountRefSchema,
   type TransactionIntent,
@@ -133,6 +134,11 @@ export const createMemorySigningIntentReplayGuard = (): SigningIntentReplayGuard
 const hashIntent = (intent: SigningIntent): string =>
   `sha256:${createHash("sha256").update(serializeSigningIntent(intent)).digest("hex")}`
 
+const isSolanaSigningIntent = (intent: SigningIntent): intent is SolanaSigningIntent =>
+  intent.kind === "solana-sign-message" ||
+  intent.kind === "solana-sign-transaction" ||
+  intent.kind === "solana-sign-and-send-transaction"
+
 const accountMatches = (left: SigningAccountRef, right: SigningAccountRef): boolean =>
   left.walletId === right.walletId &&
   left.walletAccountId === right.walletAccountId &&
@@ -197,9 +203,16 @@ export const createWalletSigningService = (
   }
 
   const execute = async (boundAccount: SigningAccountRef, intentValue: unknown): Promise<Hex> => {
-    let intent: SigningIntent
+    let intent: PersonalSignIntent | TransactionIntent | TypedDataSignIntent
     try {
-      intent = parseSigningIntent(intentValue)
+      const parsed = parseSigningIntent(intentValue)
+      if (isSolanaSigningIntent(parsed)) {
+        throw new WalletSigningError(
+          "INVALID_INTENT",
+          "The EVM wallet signing service cannot execute a Solana signing intent."
+        )
+      }
+      intent = parsed
     } catch {
       throw new WalletSigningError("INVALID_INTENT", "The signing intent is invalid.")
     }

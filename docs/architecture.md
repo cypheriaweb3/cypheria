@@ -189,23 +189,26 @@ codex app-server generate-ts --out packages/codex-bridge/src/generated
 
 Generated protocol files are committed. Do not hand-write Codex app-server protocol request, response, notification, or server request types.
 
-## Web3 Browser Boundary
+## Wallet Provider And dApp Browser Boundary
 
-Each dApp origin runs in its own isolated Electron session. dApp pages receive an injected EIP-1193 provider bridge, but provider requests are forwarded to Electron main and evaluated through origin-scoped permissions and signing policy.
+Each dApp origin runs in its own isolated Electron session. dApp pages receive Ethereum and Solana wallet-provider surfaces, but requests are forwarded to Electron main and evaluated through origin-scoped permissions and signing policy.
 
-`@cypheria/web3-browser` owns:
+`@cypheria/wallet-provider` owns:
 
 - Origin-scoped session keys.
 - Persistent partition names.
-- dApp permission records.
-- EIP-1193 provider request/response envelopes.
-- Provider error mapping.
+- Ethereum and Solana dApp permission records and bounded request/response envelopes.
+- The complete EIP-1193 provider API: `request`, `on`, and `removeListener`, including the five standard event types and `ProviderRpcError` mapping.
+- EIP-6963 provider metadata, immutable announcements, request/re-announcement lifecycle, and legacy `window.ethereum` compatibility.
+- A Solana Wallet Standard wallet with `standard:connect`, `standard:disconnect`, `standard:events`, `solana:signMessage`, `solana:signTransaction`, and `solana:signAndSendTransaction` features.
+- Runtime-validated Solana account, chain, feature, byte-envelope, and batched response boundaries using the official Wallet Standard packages.
+- Protocol-scoped provider event envelopes for account, chain, connection, disconnect, and message changes.
 
-The Web3 browser does not share its wallet permission model with Codex preview/browser capabilities.
+The dApp browser does not share its wallet permission model with Codex preview/browser capabilities.
 
-The implemented browser boundary normalizes remote origins to HTTPS (with HTTP allowed only for loopback development), persists `dapp_origins` and `dapp_permissions` through Drizzle/libSQL, and reuses one persistent Electron partition only within the same origin. Electron's session-data root is set to `$CYPHERIA_HOME/browser`. Desktop creates dApp `WebContentsView` instances with Node integration disabled, context isolation, sandboxing, and web security enabled. Cross-origin navigation, popup windows, and ambient Electron permission requests are denied. A dedicated dApp preload exposes only `window.ethereum.request`; it is separate from the product-renderer preload.
+The implemented browser boundary normalizes remote origins to HTTPS (with HTTP allowed only for loopback development), persists `dapp_origins`, Ethereum `dapp_permissions`, and `solana_dapp_permissions` through Drizzle/libSQL, and reuses one persistent Electron partition only within the same origin. Electron's session-data root is set to `$CYPHERIA_HOME/browser`. Desktop creates dApp `WebContentsView` instances with Node integration disabled, context isolation, sandboxing, and web security enabled. Cross-origin navigation, popup windows, and ambient Electron permission requests are denied. A dedicated dApp preload exposes the EIP-1193 provider as `window.ethereum`, announces it through EIP-6963, and registers the Solana provider through Wallet Standard events. The sandbox preload bundles all non-Electron runtime dependencies, uses a plain-data facade for Wallet Standard accounts crossing `contextBridge`, and restricts provider icons to raster data URIs. A real Electron smoke test verifies both discovery mechanisms under these production isolation settings.
 
-Electron main registers each created WebContents ID with its normalized origin and session key. Every provider IPC request must match that trusted registration and the sender's current URL before it reaches `dapp.provider-request` in `@cypheria/runtime`. The runtime validates JSON-RPC payloads, checks unexpired origin/account/method permissions, audits redacted outcomes, and converts all signing methods into dApp-sourced signing intents before an injected executor can complete them. Renderer and dApp-supplied origin fields are never treated as authority. Until the wallet/policy composition installs that runtime service, the desktop bridge fails closed with EIP-1193 error `4900`.
+Electron main registers each created WebContents ID with its normalized origin and session key. Every Ethereum or Solana provider IPC request must match that trusted registration and the sender's current URL before it reaches `dapp.provider-request` or `dapp.solana-provider-request` in `@cypheria/runtime`. The Ethereum runtime forwards a bounded allowlist of common public read-only RPC methods without wallet permission, checks unexpired origin/account/method permissions for privileged methods, audits redacted outcomes, and converts signing methods into dApp-sourced signing intents before an injected executor can complete them. The Solana runtime implements silent and interactive connection, persistent origin permissions, in-memory connection state, account/feature/chain authorization, and policy-backed signing intents for message signing, transaction signing, and sign-and-send. Main sends successful account and chain changes only to the registered dApp WebContents; preload turns them into EIP-1193 or Wallet Standard events. Renderer and dApp-supplied origin fields are never treated as authority. Desktop runtime options install either provider service only when its authorizer, dispatcher or executor is supplied; otherwise the bridge fails closed.
 
 ## Signing Flow
 
@@ -343,7 +346,7 @@ apps/desktop/ipc
 @cypheria/policy-engine
   Signing policy schemas, evaluator, and policy decisions.
 
-@cypheria/web3-browser
+@cypheria/wallet-provider
   dApp session, provider bridge, and browser permission models.
 
 @cypheria/automation-core

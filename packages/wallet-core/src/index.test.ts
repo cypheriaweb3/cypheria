@@ -216,4 +216,26 @@ describe("wallet domain", () => {
       })
     ).toThrow()
   })
+
+  it("validates and serializes Solana signing intents", () => {
+    const intent = parseSigningIntent({
+      account: {
+        address: "11111111111111111111111111111111",
+        chainAccountId: "chain_account_solana",
+        chainId: "solana:mainnet",
+        protocol: "solana",
+        publicKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        walletAccountId: "account_solana",
+        walletId: "wallet_solana",
+      },
+      chainId: "solana:mainnet",
+      correlationId: "request_solana",
+      createdAt: now,
+      id: "signing_intent_solana",
+      kind: "solana-sign-message",
+      payload: "AQID",
+    })
+    expect(deserializeSigningIntent(serializeSigningIntent(intent))).toEqual(intent)
+    expect(() => parseSigningIntent({ ...intent, chainId: "solana:devnet" })).toThrow()
+  })
 })

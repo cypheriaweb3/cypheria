@@ -14,6 +14,7 @@
     "dev": "pnpm build:main && pnpm build:preload && electron .",
     "dev:renderer": "vite dev --config vite.config.ts --host 127.0.0.1",
     "test": "vitest run",
+    "test:electron-wallet-provider": "pnpm build:dapp-preload && electron test/electron-wallet-provider-smoke.cjs",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
@@ -24,7 +25,8 @@
     "@cypheria/runtime": "workspace:*",
     "@cypheria/ui": "workspace:*",
     "@cypheria/wallet-core": "workspace:*",
-    "@cypheria/web3-browser": "workspace:*",
+    "@cypheria/wallet-provider": "workspace:*",
+    "@solana/wallet-standard-chains": "^1.1.2",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/react-query": "^5.100.14",
     "@tanstack/react-router": "^1.170.8",

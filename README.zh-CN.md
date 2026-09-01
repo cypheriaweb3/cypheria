@@ -74,7 +74,7 @@ packages/codex-bridge
 packages/ui
 packages/wallet-core
 packages/automation-core
-packages/web3-browser
+packages/wallet-provider
 packages/policy-engine
 packages/db
 ```
@@ -152,7 +152,7 @@ pnpm format
 
 ## 当前状态
 
-仓库已经包含基础 pnpm/Turborepo workspace、desktop-local typed IPC contracts、runtime home handling、Electron main process bootstrap、persistent desktop Codex App Server lifecycle、wallet/policy/Web3 browser domain baselines、本地 SQLite audit 与 automation persistence、共享 UI primitives，以及第一版 TanStack Start desktop shell。
+仓库已经包含基础 pnpm/Turborepo workspace、desktop-local typed IPC contracts、runtime home handling、Electron main process bootstrap、persistent desktop Codex App Server lifecycle、wallet/policy/dApp browser domain baselines、EIP-1193/EIP-6963 与 Solana Wallet Standard provider surfaces、本地 SQLite audit 与 automation persistence、共享 UI primitives，以及第一版 TanStack Start desktop shell。
 
 下一步实现顺序记录在 [docs/todo.zh-CN.md](docs/todo.zh-CN.md)。
 

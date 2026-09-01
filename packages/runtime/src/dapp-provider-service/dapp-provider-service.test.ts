@@ -7,11 +7,11 @@ import {
   type SigningIntentRecord,
 } from "@cypheria/db"
 import { parseSigningIntent, type SigningAccountRef } from "@cypheria/wallet-core"
-import { createDappSessionManager, createProviderBridge } from "@cypheria/web3-browser"
+import { createDappSessionManager, createProviderBridge } from "@cypheria/wallet-provider"
 import { describe, expect, it, vi } from "vitest"
 
 import { CypheriaRuntime } from "../index.js"
-import { createDappProviderRuntimeService } from "./service.js"
+import { createEthereumProviderRuntimeService } from "./service.js"
 
 const timestamp = "2026-09-01T09:00:00.000Z"
 const address = "0x0000000000000000000000000000000000000001" as const
@@ -49,10 +49,11 @@ describe("dApp provider runtime service", () => {
     const createdIntents: SigningIntentRecord[] = []
     const executeSigningIntent = vi.fn(async () => "0xsigned")
     let intentId = 0
-    const service = createDappProviderRuntimeService({
+    const service = createEthereumProviderRuntimeService({
       audit: createAuditLogService(database.db),
       dispatch: (request) => {
         if (request.method === "eth_chainId") return "0x1"
+        if (request.method === "eth_call") return "0x"
         throw new Error("Unexpected non-signing request.")
       },
       executeSigningIntent,
@@ -102,6 +103,12 @@ describe("dApp provider runtime service", () => {
     })
 
     await expect(bridge.request({ method: "eth_chainId" })).resolves.toBe("0x1")
+    await expect(
+      bridge.request({
+        method: "eth_call",
+        params: [{ to: address }, "latest"],
+      })
+    ).resolves.toBe("0x")
     await expect(bridge.request({ method: "eth_accounts" })).resolves.toEqual([])
     await expect(bridge.request({ method: "eth_requestAccounts" })).resolves.toEqual([address])
     await expect(bridge.request({ method: "eth_accounts" })).resolves.toEqual([address])
@@ -131,7 +138,7 @@ describe("dApp provider runtime service", () => {
       origin: "https://app.example",
       partition: "persist:cypheria:dapp:https://app.example",
     }
-    const service = createDappProviderRuntimeService({
+    const service = createEthereumProviderRuntimeService({
       audit: { append: vi.fn(async (entry) => ({ ...entry, id: "audit_one" })) },
       dispatch: () => "0x1",
       executeSigningIntent: async () => "unused",
