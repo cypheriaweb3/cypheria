@@ -239,6 +239,10 @@ Policy modes:
 - Human approval.
 - Conditional auto-signing.
 
+Signing policies are stored in the explicit `signing_policies` libSQL table. `@cypheria/runtime` provides strict create, get, list, update, disable, and evaluate operations. Records carry timestamps and a monotonically increasing revision; updates and disables use compare-and-swap semantics so concurrent editors cannot silently overwrite each other.
+
+Evaluation first applies wallet mode, then matching enabled and unexpired wallet policies. Explicit deny takes precedence over human approval, which takes precedence over allow; policy ID is the deterministic tie breaker. An unmatched conditional auto-signing request requires human approval. Every mutation and evaluation result receives a stable decision or policy identifier and a redacted audit record.
+
 Automation is local-first. Tasks may use Codex SDK, read chain state, create signing intents, and write audit logs. Tasks must not bypass the policy engine.
 
 ## Data Stack
@@ -252,7 +256,7 @@ Automation is local-first. Tasks may use Codex SDK, read chain state, create sig
 | Search | SQLite FTS5 when needed |
 | Sensitive data | encrypted vault, not normal SQLite tables |
 
-Initial tables:
+Current core tables:
 
 ```txt
 settings
@@ -261,18 +265,21 @@ workspaces
 runtime_metadata
 automation_tasks
 automation_runs
+wallets
+wallet_accounts
+chain_accounts
+wallet_hd_schemes
+active_wallet_context
+signing_policies
+signing_intent_claims
 ```
 
 Planned tables:
 
 ```txt
-wallets
-accounts
-chains
 rpc_endpoints
 dapp_origins
 dapp_permissions
-signing_policies
 approval_requests
 ```
 

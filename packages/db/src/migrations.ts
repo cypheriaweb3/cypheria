@@ -140,6 +140,26 @@ export const initialSchemaStatements = [
     intent_id text PRIMARY KEY NOT NULL,
     payload_hash text NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS signing_policies (
+    chain_ids text NOT NULL,
+    contract_allowlist text,
+    created_at text NOT NULL,
+    effect text NOT NULL,
+    enabled integer NOT NULL,
+    expires_at text,
+    id text PRIMARY KEY NOT NULL,
+    max_native_value text,
+    methods text NOT NULL,
+    origins text NOT NULL,
+    require_human_approval integer NOT NULL,
+    revision integer NOT NULL,
+    updated_at text NOT NULL,
+    wallet_id text NOT NULL REFERENCES wallets(id) ON DELETE CASCADE,
+    CONSTRAINT signing_policies_effect_check CHECK (effect IN ('allow', 'deny', 'require-human-approval')),
+    CONSTRAINT signing_policies_revision_check CHECK (revision > 0)
+  )`,
+  "CREATE INDEX IF NOT EXISTS signing_policies_wallet_id_idx ON signing_policies (wallet_id)",
+  "CREATE INDEX IF NOT EXISTS signing_policies_enabled_idx ON signing_policies (enabled)",
 ] as const
 
 export const ensureDatabaseSchema = async (client: Client): Promise<void> => {

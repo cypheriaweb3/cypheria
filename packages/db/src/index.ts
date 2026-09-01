@@ -25,6 +25,12 @@ export {
   DEFAULT_DATABASE_FILENAME,
   DEFAULT_MIGRATIONS_DIRNAME,
 } from "./paths.js"
+export {
+  createSigningPolicyPersistenceService,
+  type ListSigningPolicyOptions,
+  type SigningPolicyPersistenceService,
+  type SigningPolicyRecord,
+} from "./policy.js"
 export * from "./schema.js"
 export {
   createSigningIntentReplayStore,

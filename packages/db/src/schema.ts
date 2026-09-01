@@ -228,6 +228,37 @@ export const signingIntentClaims = sqliteTable("signing_intent_claims", {
   payloadHash: text("payload_hash").notNull(),
 })
 
+export const signingPolicies = sqliteTable(
+  "signing_policies",
+  {
+    chainIds: text("chain_ids").notNull(),
+    contractAllowlist: text("contract_allowlist"),
+    createdAt: text("created_at").notNull(),
+    effect: text("effect").notNull(),
+    enabled: integer("enabled", { mode: "boolean" }).notNull(),
+    expiresAt: text("expires_at"),
+    id: text("id").primaryKey(),
+    maxNativeValue: text("max_native_value"),
+    methods: text("methods").notNull(),
+    origins: text("origins").notNull(),
+    requireHumanApproval: integer("require_human_approval", { mode: "boolean" }).notNull(),
+    revision: integer("revision").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    walletId: text("wallet_id")
+      .notNull()
+      .references(() => wallets.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    index("signing_policies_wallet_id_idx").on(table.walletId),
+    index("signing_policies_enabled_idx").on(table.enabled),
+    check(
+      "signing_policies_effect_check",
+      sql`${table.effect} IN ('allow', 'deny', 'require-human-approval')`
+    ),
+    check("signing_policies_revision_check", sql`${table.revision} > 0`),
+  ]
+)
+
 export const schema = {
   activeWalletContext,
   auditLogs,
@@ -237,6 +268,7 @@ export const schema = {
   runtimeMetadata,
   settings,
   signingIntentClaims,
+  signingPolicies,
   walletAccounts,
   walletHdSchemes,
   wallets,

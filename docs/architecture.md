@@ -221,6 +221,8 @@ Codex does not directly sign transactions. Automation does not directly sign tra
 
 Wallet signing capabilities are account-bound and consume an intent exactly once. They require an injected policy/approval authorizer, access unlocked vault secrets only through a scoped callback, verify the derived signer and produced signature, and emit redacted audit records. Transaction broadcasting is a separate capability.
 
+Signing policies are wallet-scoped, persisted in libSQL, and managed through a runtime service with strict schemas and optimistic revision checks. Evaluation is deterministic and falls back to human approval when conditional auto-signing has no matching allow policy. Policy changes and every evaluation result are audited.
+
 ## Automation Flow
 
 ```txt
@@ -251,18 +253,21 @@ workspaces
 runtime_metadata
 automation_tasks
 automation_runs
+wallets
+wallet_accounts
+chain_accounts
+wallet_hd_schemes
+active_wallet_context
+signing_policies
+signing_intent_claims
 ```
 
 Planned runtime tables:
 
 ```txt
-wallets
-accounts
-chains
 rpc_endpoints
 dapp_origins
 dapp_permissions
-signing_policies
 approval_requests
 ```
 

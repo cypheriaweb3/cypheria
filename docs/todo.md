@@ -144,7 +144,7 @@ Status legend:
   - Include: viem signing adapters, signer/address consistency checks, lock behavior, replay protection, and no private keys in renderer, dApp, agent, or automation contexts.
   - Verification: runtime, policy, wallet, and desktop IPC tests.
 
-- [ ] Implement policy runtime service.
+- [x] Implement policy runtime service.
   - Acceptance: runtime can list, validate, create, update, disable, and evaluate signing policies.
   - Verification: runtime and policy-engine tests.
 

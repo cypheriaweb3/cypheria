@@ -239,6 +239,10 @@ Policy modes：
 - Human approval。
 - Conditional auto-signing。
 
+Signing policy 保存在显式的 `signing_policies` libSQL 表中。`@cypheria/runtime` 提供严格的 create、get、list、update、disable 和 evaluate 操作。记录包含 timestamp 与单调递增 revision；update 和 disable 使用 compare-and-swap 语义，避免并发编辑静默覆盖。
+
+评估时先应用 wallet mode，再匹配已启用且未过期的钱包 policy。显式 deny 优先于 human approval，human approval 优先于 allow；policy ID 作为确定性 tie breaker。未匹配的 conditional auto-signing 请求必须进入 human approval。每次变更和评估结果都有稳定的 decision 或 policy 标识以及脱敏 audit record。
+
 Automation 是 local-first。Tasks 可以使用 Codex SDK、读取链上状态、创建 signing intents，并写入 audit logs。Tasks 不得绕过 policy engine。
 
 ## Data Stack
@@ -252,7 +256,7 @@ Automation 是 local-first。Tasks 可以使用 Codex SDK、读取链上状态�
 | Search | SQLite FTS5 when needed |
 | Sensitive data | encrypted vault，不进普通 SQLite tables |
 
-初始 tables：
+当前核心 tables：
 
 ```txt
 settings
@@ -261,18 +265,21 @@ workspaces
 runtime_metadata
 automation_tasks
 automation_runs
+wallets
+wallet_accounts
+chain_accounts
+wallet_hd_schemes
+active_wallet_context
+signing_policies
+signing_intent_claims
 ```
 
 规划 tables：
 
 ```txt
-wallets
-accounts
-chains
 rpc_endpoints
 dapp_origins
 dapp_permissions
-signing_policies
 approval_requests
 ```
 

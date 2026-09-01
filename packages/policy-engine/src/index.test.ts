@@ -78,7 +78,7 @@ describe("policy engine", () => {
     const denyPolicy = parseSigningPolicy({
       ...basePolicy,
       effect: "deny",
-      id: "deny_1",
+      id: "policy_deny_1",
     })
 
     expect(
@@ -92,7 +92,23 @@ describe("policy engine", () => {
       })
     ).toMatchObject({
       decision: "deny",
-      matchedPolicyId: "deny_1",
+      matchedPolicyId: "policy_deny_1",
     })
+  })
+
+  it("uses policy ids as a deterministic tie breaker and rejects duplicate scopes", () => {
+    const later = parseSigningPolicy({ ...basePolicy, id: "policy_z" })
+    const earlier = parseSigningPolicy({ ...basePolicy, id: "policy_a" })
+    expect(
+      evaluateSigningPolicies([later, earlier], {
+        chainId: 1,
+        method: "eth_sendTransaction",
+        mode: "conditional-auto-signing",
+        nativeValue: "1",
+        origin: "https://app.example",
+        walletId: "wallet_1",
+      }).matchedPolicyId
+    ).toBe("policy_a")
+    expect(() => parseSigningPolicy({ ...basePolicy, chainIds: [1, 1] })).toThrow()
   })
 })

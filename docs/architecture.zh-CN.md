@@ -221,6 +221,8 @@ Codex 不直接签名交易。Automation 不直接签名交易。两者都只能
 
 钱包签名 capability 绑定具体账户，并且只消费 intent 一次。它们要求注入 policy/approval authorizer，只通过 scoped callback 访问已解锁 vault 秘密，验证派生 signer 与生成签名，并写入脱敏 audit record。交易广播由独立 capability 提供。
 
+Signing policy 按钱包划分 scope，持久化在 libSQL 中，并通过使用严格 schema 和乐观 revision 检查的 runtime service 管理。评估具有确定性；conditional auto-signing 没有匹配的 allow policy 时会退回 human approval。Policy 变更和每次评估结果均写入 audit。
+
 ## 自动化流程
 
 ```txt
@@ -251,18 +253,21 @@ workspaces
 runtime_metadata
 automation_tasks
 automation_runs
+wallets
+wallet_accounts
+chain_accounts
+wallet_hd_schemes
+active_wallet_context
+signing_policies
+signing_intent_claims
 ```
 
 规划中的 runtime tables：
 
 ```txt
-wallets
-accounts
-chains
 rpc_endpoints
 dapp_origins
 dapp_permissions
-signing_policies
 approval_requests
 ```
 

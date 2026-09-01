@@ -128,6 +128,9 @@ importers:
       '@cypheria/automation-core':
         specifier: workspace:*
         version: link:../automation-core
+      '@cypheria/policy-engine':
+        specifier: workspace:*
+        version: link:../policy-engine
       '@cypheria/wallet-core':
         specifier: workspace:*
         version: link:../wallet-core

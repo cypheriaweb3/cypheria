@@ -6,15 +6,19 @@ export type PolicyDecision = (typeof policyDecisions)[number]
 
 export const SigningPolicyEffectSchema = z.enum(policyDecisions)
 export type SigningPolicyEffect = z.infer<typeof SigningPolicyEffectSchema>
+export const signingPolicyIdSchema = z
+  .string()
+  .regex(/^policy_[A-Za-z0-9][A-Za-z0-9_-]*$/u)
+  .max(128)
 
-export const SigningPolicySchema = z
+export const SigningPolicyObjectSchema = z
   .object({
     chainIds: z.array(z.number().int().positive()).min(1),
     contractAllowlist: z.array(z.string().regex(/^0x[a-fA-F0-9]{40}$/u)).optional(),
     effect: SigningPolicyEffectSchema.default("allow"),
     enabled: z.boolean(),
     expiresAt: z.string().datetime().optional(),
-    id: z.string().min(1),
+    id: signingPolicyIdSchema,
     maxNativeValue: z
       .string()
       .regex(/^(0x[a-fA-F0-9]+|\d+)$/u)
@@ -25,6 +29,18 @@ export const SigningPolicySchema = z
     walletId: walletIdSchema,
   })
   .strict()
+
+export const SigningPolicySchema = SigningPolicyObjectSchema.superRefine((policy, context) => {
+  for (const field of ["chainIds", "methods", "origins", "contractAllowlist"] as const) {
+    const values = policy[field]
+    const normalized = values?.map((value) =>
+      field === "contractAllowlist" ? String(value).toLowerCase() : String(value)
+    )
+    if (normalized && new Set(normalized).size !== normalized.length) {
+      context.addIssue({ code: "custom", message: `${field} must not contain duplicates.` })
+    }
+  }
+})
 
 export type SigningPolicy = z.infer<typeof SigningPolicySchema>
 
@@ -135,7 +151,9 @@ export const evaluateSigningPolicies = (
     }
   }
 
-  const matchingPolicies = policies.filter((policy) => matchesPolicy(policy, input))
+  const matchingPolicies = policies
+    .filter((policy) => matchesPolicy(policy, input))
+    .sort((left, right) => left.id.localeCompare(right.id))
   const denyPolicy = matchingPolicies.find((policy) => policy.effect === "deny")
   if (denyPolicy) {
     return {

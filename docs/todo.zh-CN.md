@@ -144,7 +144,7 @@
   - 包括：viem signing adapters、signer/address 一致性检查、lock behavior、replay protection，并确保 renderer、dApp、agent 和 automation contexts 均不接触私钥。
   - 验证：runtime、policy、wallet 与 desktop IPC tests。
 
-- [ ] 实现 policy runtime service。
+- [x] 实现 policy runtime service。
   - 验收：runtime 可以 list、validate、create、update、disable 和 evaluate signing policies。
   - 验证：runtime 和 policy-engine tests。
 

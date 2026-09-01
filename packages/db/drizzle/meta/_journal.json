@@ -36,6 +36,13 @@
       "when": 1788257495519,
       "tag": "0004_real_nick_fury",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1788258188817,
+      "tag": "0005_exotic_warlock",
+      "breakpoints": true
     }
   ]
 }
