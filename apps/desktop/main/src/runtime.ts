@@ -1,14 +1,21 @@
 import {
+  createAuditLogService,
+  createAutomationPersistenceService,
   createDappBrowserPersistenceService,
   ensureDatabaseSchema,
   type OpenDatabaseResult,
   openCypheriaDatabase,
 } from "@cypheria/db"
 import {
+  type AutomationRuntimeService,
+  type AutomationRuntimeServiceOptions,
   buildCodexEnvironment,
+  buildRuntimePaths,
   CypheriaRuntime,
   type CypheriaRuntimeOptions,
   type CypheriaRuntimePaths,
+  createAutomationRuntimeService,
+  ensureRuntimeDirectories,
   type RuntimeHomeEnv,
 } from "@cypheria/runtime"
 import { createDappSessionManager, type DappSessionManager } from "@cypheria/web3-browser"
@@ -20,6 +27,7 @@ import {
 } from "./codex-app-server.js"
 
 export type DesktopRuntimeContext = {
+  readonly automation: AutomationRuntimeService
   readonly codexAppServer?: CodexAppServerContext
   readonly dappSessions: DappSessionManager
   readonly database: OpenDatabaseResult
@@ -29,6 +37,7 @@ export type DesktopRuntimeContext = {
 }
 
 export type DesktopRuntimeOptions = CypheriaRuntimeOptions & {
+  readonly automation?: Omit<AutomationRuntimeServiceOptions, "audit" | "persistence">
   readonly codexAppServer?: Omit<StartCodexAppServerOptions, "clientVersion" | "codexEnv" | "paths">
   readonly clientVersion?: string
   readonly startCodexAppServer?: boolean
@@ -37,38 +46,60 @@ export type DesktopRuntimeOptions = CypheriaRuntimeOptions & {
 export const initializeDesktopRuntime = async (
   options: DesktopRuntimeOptions = {}
 ): Promise<DesktopRuntimeContext> => {
-  const runtime = new CypheriaRuntime(options)
-  await runtime.start()
-  const database = openCypheriaDatabase({ dbDir: runtime.paths.dbDir })
-  const codexEnv = buildCodexEnvironment(runtime.paths)
-  const shouldStartCodexAppServer = options.startCodexAppServer ?? true
+  const {
+    automation: automationOptions,
+    clientVersion,
+    codexAppServer: codexAppServerOptions,
+    startCodexAppServer: shouldStartCodexAppServerOption,
+    ...runtimeOptions
+  } = options
+  const paths = buildRuntimePaths(runtimeOptions)
+  await ensureRuntimeDirectories(paths)
+  const database = openCypheriaDatabase({ dbDir: paths.dbDir })
+  const codexEnv = buildCodexEnvironment(paths)
+  const shouldStartCodexAppServer = shouldStartCodexAppServerOption ?? true
+  let runtime: CypheriaRuntime | undefined
   let codexAppServer: CodexAppServerContext | undefined
 
   try {
     await ensureDatabaseSchema(database.client)
+    const automation = createAutomationRuntimeService({
+      ...automationOptions,
+      audit: createAuditLogService(database.db),
+      persistence: createAutomationPersistenceService(database.db),
+    })
+    runtime = new CypheriaRuntime({
+      ...runtimeOptions,
+      ensureDirectories: false,
+      services: [...(runtimeOptions.services ?? []), automation],
+    })
+    await runtime.start()
     codexAppServer = shouldStartCodexAppServer
       ? await startCodexAppServer({
-          ...options.codexAppServer,
-          clientVersion: options.clientVersion ?? "0.0.0",
+          ...codexAppServerOptions,
+          clientVersion: clientVersion ?? "0.0.0",
           codexEnv,
-          paths: runtime.paths,
+          paths,
         })
       : undefined
+    return {
+      automation,
+      codexAppServer,
+      database,
+      dappSessions: createDappSessionManager({
+        persistence: createDappBrowserPersistenceService(database.db),
+      }),
+      paths: runtime.paths,
+      codexEnv,
+      runtime,
+    }
   } catch (error) {
-    database.close()
-    await runtime.stop()
+    try {
+      await runtime?.stop()
+    } finally {
+      database.close()
+    }
     throw error
-  }
-
-  return {
-    codexAppServer,
-    database,
-    dappSessions: createDappSessionManager({
-      persistence: createDappBrowserPersistenceService(database.db),
-    }),
-    paths: runtime.paths,
-    codexEnv,
-    runtime,
   }
 }
 

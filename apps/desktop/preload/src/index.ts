@@ -5,6 +5,7 @@ import type {
   AppearanceSettings,
   AppHealthStatus,
   AppMetadata,
+  AutomationTaskView,
   BrowserSessionOpenResult,
   CodexEventEnvelope,
   CypheriaPreloadApi,
@@ -19,6 +20,33 @@ const cypheriaApi: CypheriaPreloadApi = {
     platform: process.platform,
     getHealth: () => invoke<AppHealthStatus>(CYPHERIA_IPC_CHANNELS.appHealthCheck),
     getMetadata: () => invoke<AppMetadata>(CYPHERIA_IPC_CHANNELS.appMetadataRead),
+  },
+  automation: {
+    createTask: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.automationTaskCreate, input),
+    getRun: (runId) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.automationRunGet, { runId }),
+    getTask: (taskId) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.automationTaskGet, {
+        taskId,
+      }) as Promise<AutomationTaskView | undefined>,
+    listRuns: (taskId) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.automationRunList, {
+        ...(taskId ? { taskId } : {}),
+      }),
+    listTasks: (status) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.automationTaskList, {
+        ...(status ? { status } : {}),
+      }),
+    pauseTask: (taskId, expectedRevision) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.automationTaskPause, {
+        ...(expectedRevision ? { expectedRevision } : {}),
+        taskId,
+      }),
+    resumeTask: (taskId, expectedRevision) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.automationTaskResume, {
+        ...(expectedRevision ? { expectedRevision } : {}),
+        taskId,
+      }),
+    runTask: (taskId) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.automationRunStart, { taskId }),
   },
   browser: {
     openDapp: (url) =>

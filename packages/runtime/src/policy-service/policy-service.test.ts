@@ -85,6 +85,18 @@ describe("signing policy runtime service", () => {
       decisionId: "policy_decision_1",
       matchedPolicyId: "policy_generated",
     })
+    await expect(
+      service.evaluate({
+        chainId: 1,
+        correlationId: "request_scoped",
+        method: "eth_sendTransaction",
+        mode: "conditional-auto-signing",
+        nativeValue: "1",
+        origin: "https://app.example",
+        policyIds: ["policy_not_selected"],
+        walletId: wallet.wallet.id,
+      })
+    ).resolves.toMatchObject({ decision: "require-human-approval" })
 
     const updated = await service.update(created.policy.id, {
       expectedRevision: 1,
@@ -113,7 +125,7 @@ describe("signing policy runtime service", () => {
       })
     ).resolves.toMatchObject({
       decision: "require-human-approval",
-      decisionId: "policy_decision_2",
+      decisionId: "policy_decision_3",
     })
 
     const events = await audit.list()

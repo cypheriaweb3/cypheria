@@ -24,6 +24,17 @@ describe("desktop runtime bootstrap", () => {
         cypheriaHome: context.paths.cypheriaHome,
         lifecycleState: "ready",
       })
+      const task = await context.automation.createTask({
+        definition: { handler: "noop" },
+        status: "enabled",
+        title: "Desktop smoke task",
+        trigger: { kind: "manual", requestedBy: "user" },
+        walletPolicyScope: { accountIds: [], chainIds: [], mode: "read-only" },
+        workspace: { id: "desktop", path: homeDir },
+      })
+      await expect(
+        context.runtime.request("automation.run.start", { taskId: task.id })
+      ).resolves.toMatchObject({ status: "succeeded", taskId: task.id })
 
       await shutdownDesktopRuntime(context)
       expect(context.runtime.lifecycleState).toBe("stopped")

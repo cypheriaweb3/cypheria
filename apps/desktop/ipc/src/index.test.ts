@@ -4,6 +4,9 @@ import {
   ApprovalRequestViewSchema,
   approvalRequestDecideContract,
   approvalRequestsListContract,
+  automationRunStartContract,
+  automationTaskCreateContract,
+  automationTaskPauseContract,
   browserSessionOpenContract,
   dappProviderRequestContract,
 } from "./index.js"
@@ -100,5 +103,37 @@ describe("dApp browser IPC contracts", () => {
     expect(browserSessionOpenContract.request.parse({ url: "https://app.example/path" })).toEqual({
       url: "https://app.example/path",
     })
+  })
+})
+
+describe("automation IPC contracts", () => {
+  it("validates task creation and lifecycle inputs", () => {
+    expect(
+      automationTaskCreateContract.request.parse({
+        definition: { handler: "noop" },
+        title: "Inspect positions",
+        trigger: { kind: "manual", requestedBy: "user" },
+        walletPolicyScope: { accountIds: [], chainIds: [1], mode: "read-only" },
+        workspace: { id: "workspace_one", path: "/tmp/cypheria" },
+      })
+    ).toMatchObject({ definition: { handler: "noop" }, title: "Inspect positions" })
+    expect(
+      automationTaskPauseContract.request.parse({ expectedRevision: 1, taskId: "task_one" })
+    ).toEqual({ expectedRevision: 1, taskId: "task_one" })
+    expect(automationRunStartContract.request.parse({ taskId: "task_one" })).toEqual({
+      taskId: "task_one",
+    })
+  })
+
+  it("rejects secret or non-JSON task definition input", () => {
+    expect(() =>
+      automationTaskCreateContract.request.parse({
+        definition: { handler: "noop", input: { amount: 1n, privateKey: "secret" } },
+        title: "Invalid task",
+        trigger: { kind: "manual", requestedBy: "user" },
+        walletPolicyScope: { accountIds: [], chainIds: [1], mode: "read-only" },
+        workspace: { id: "workspace_one", path: "/tmp/cypheria" },
+      })
+    ).toThrow()
   })
 })

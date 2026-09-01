@@ -247,6 +247,8 @@ Signing intents and approval requests are stored in explicit libSQL tables. The 
 
 Automation is local-first. Tasks may use Codex SDK, read chain state, create signing intents, and write audit logs. Tasks must not bypass the policy engine.
 
+`@cypheria/runtime` owns the automation service and exposes `automation.task.create`, `automation.task.list`, `automation.task.get`, `automation.task.pause`, `automation.task.resume`, `automation.run.start`, `automation.run.get`, and `automation.run.list`. `@cypheria/automation-core` owns strict task/run schemas and state transitions; `@cypheria/db` owns asynchronous SQLite persistence and optimistic updates. Executors are injected by handler name and receive only scoped agent and signing-intent capabilities. The SDK can compose the agent capability directly with `@openai/codex-sdk`; desktop keeps its persistent App Server boundary separate.
+
 ## Data Stack
 
 | Category | Choice |

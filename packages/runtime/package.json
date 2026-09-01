@@ -13,6 +13,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@cypheria/automation-core": "workspace:*",
     "@cypheria/db": "workspace:*",
     "@cypheria/policy-engine": "workspace:*",
     "@cypheria/wallet-core": "workspace:*",

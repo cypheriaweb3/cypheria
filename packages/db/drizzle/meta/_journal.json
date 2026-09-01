@@ -57,6 +57,13 @@
       "when": 1788262397267,
       "tag": "0007_sad_hairball",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1788263926073,
+      "tag": "0008_wandering_magdalene",
+      "breakpoints": true
     }
   ]
 }

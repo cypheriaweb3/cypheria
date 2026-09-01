@@ -108,6 +108,9 @@ importers:
       '@cypheria/wallet-core':
         specifier: workspace:*
         version: link:../wallet-core
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       vitest:
         specifier: ^4.1.7
@@ -169,6 +172,9 @@ importers:
 
   packages/runtime:
     dependencies:
+      '@cypheria/automation-core':
+        specifier: workspace:*
+        version: link:../automation-core
       '@cypheria/db':
         specifier: workspace:*
         version: link:../db

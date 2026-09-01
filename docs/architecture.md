@@ -245,6 +245,10 @@ manual trigger or scheduler
 
 V1 automation is local-first. Cloud agent execution and complex workflow engines are out of scope.
 
+The implemented automation runtime persists strictly validated task definitions and independent run records in local SQLite. Tasks move through `draft`, `enabled`, `paused`, and `archived` states with optimistic revisions; only enabled tasks run, and a partial unique index permits at most one queued or running execution per task. Runtime methods cover task creation, listing, inspection, pause/resume, run start, and run inspection. Desktop exposes the same boundary through typed IPC.
+
+Task handlers are trusted runtime extensions selected by a persisted handler name and JSON-only, secret-rejecting input. They receive an abort signal plus narrow capabilities for an injected Codex agent runner and signing-intent creation. They never receive a wallet signer or secret. The signing capability forces `source: automation`, replaces the correlation ID with the run audit ID, enforces the task's wallet/account/chain/origin/policy scope, and then delegates to the normal signing-intent and policy pipeline. Runtime shutdown aborts and waits for active executions before the database closes.
+
 ## Data Model
 
 SQLite is the local source of truth for non-secret data. Drizzle accesses a local `file:` database through the libSQL SQLite entry point; this does not require or imply a remote Turso/libSQL service. Sensitive wallet material belongs in an encrypted vault protected by OS-backed key storage.

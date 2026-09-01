@@ -247,6 +247,8 @@ Signing intents 与 approval requests 保存在显式的 libSQL tables 中。系
 
 Automation 是 local-first。Tasks 可以使用 Codex SDK、读取链上状态、创建 signing intents，并写入 audit logs。Tasks 不得绕过 policy engine。
 
+`@cypheria/runtime` 拥有 automation service，并暴露 `automation.task.create`、`automation.task.list`、`automation.task.get`、`automation.task.pause`、`automation.task.resume`、`automation.run.start`、`automation.run.get` 与 `automation.run.list`。`@cypheria/automation-core` 负责严格 task/run schema 和状态流转，`@cypheria/db` 负责异步 SQLite 持久化与乐观更新。Executor 按 handler name 注入，且只能获得受 scope 限制的 agent 与 signing-intent capabilities。SDK 可以直接用 `@openai/codex-sdk` 组合 agent capability；desktop 继续保持独立的 persistent App Server boundary。
+
 ## Data Stack
 
 | 分类 | 选型 |

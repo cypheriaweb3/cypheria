@@ -38,7 +38,14 @@ const listPolicyInputSchema = z
 
 const evaluatePolicyInputSchema = PolicyEvaluationInputSchema.extend({
   correlationId: z.string().min(1),
-}).strict()
+  policyIds: z.array(signingPolicyIdSchema).min(1).optional(),
+})
+  .strict()
+  .superRefine((input, context) => {
+    if (input.policyIds && new Set(input.policyIds).size !== input.policyIds.length) {
+      context.addIssue({ code: "custom", message: "Policy IDs must be unique." })
+    }
+  })
 
 export type CreateSigningPolicyInput = z.input<typeof createPolicyInputSchema>
 export type UpdateSigningPolicyInput = z.input<typeof updatePolicyInputSchema>
@@ -207,7 +214,9 @@ export const createSigningPolicyRuntimeService = (
         walletId: input.walletId,
       }
       const result = evaluateSigningPolicies(
-        records.map((record) => record.policy),
+        records
+          .filter((record) => !input.policyIds || input.policyIds.includes(record.policy.id))
+          .map((record) => record.policy),
         evaluationInput
       )
       const decisionId = idFactory.decisionId()

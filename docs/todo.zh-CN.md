@@ -156,7 +156,7 @@
   - 验收：desktop 可以创建 origin-isolated dApp sessions、注入 provider bridge，并将 provider requests 路由到 runtime。
   - 验证：web3-browser tests 和 desktop smoke test。
 
-- [ ] 实现 automation runtime service。
+- [x] 实现 automation runtime service。
   - 验收：runtime 可以 create、list、run、pause、resume 和 inspect automation tasks/runs。
   - 包括：tasks 可以调用 Codex SDK 或创建 signing intents，但不能绕过 policy。
   - 验证：automation-core、db、runtime 和 desktop tests。

@@ -22,6 +22,8 @@ export {
   type AutomationRunRecord,
   type AutomationTaskRecord,
   createAutomationPersistenceService,
+  type ListAutomationTaskOptions,
+  type UpdateAutomationTaskStatusInput,
 } from "./automation.js"
 export { createDappBrowserPersistenceService } from "./browser.js"
 export {

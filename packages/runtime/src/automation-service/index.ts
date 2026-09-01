@@ -1,0 +1,16 @@
+export {
+  type AutomationAgentRequest,
+  type AutomationAgentRunner,
+  type AutomationExecutionCapabilities,
+  AutomationRuntimeError,
+  type AutomationRuntimeErrorCode,
+  type AutomationRuntimeIdFactory,
+  type AutomationRuntimeService,
+  type AutomationRuntimeServiceOptions,
+  type AutomationTaskExecutor,
+  type AutomationTaskExecutorInput,
+  type AutomationTaskExecutorResult,
+  type AutomationTaskView,
+  type CreateAutomationTaskInput,
+  createAutomationRuntimeService,
+} from "./service.js"

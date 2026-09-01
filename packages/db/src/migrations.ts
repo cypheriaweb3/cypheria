@@ -36,15 +36,19 @@ export const initialSchemaStatements = [
   `CREATE TABLE IF NOT EXISTS automation_tasks (
     audit_correlation_id text NOT NULL,
     created_at text NOT NULL,
+    definition text NOT NULL DEFAULT '{"handler":"noop"}',
     description text,
     id text PRIMARY KEY NOT NULL,
-    run_history text NOT NULL,
+    run_history text NOT NULL DEFAULT '[]',
+    revision integer NOT NULL DEFAULT 1,
     status text NOT NULL,
     title text NOT NULL,
     trigger text NOT NULL,
     updated_at text NOT NULL,
     wallet_policy_scope text NOT NULL,
-    workspace text NOT NULL
+    workspace text NOT NULL,
+    CONSTRAINT automation_tasks_status_check CHECK (status IN ('archived', 'draft', 'enabled', 'paused')),
+    CONSTRAINT automation_tasks_revision_check CHECK (revision > 0)
   )`,
   "CREATE INDEX IF NOT EXISTS automation_tasks_audit_correlation_id_idx ON automation_tasks (audit_correlation_id)",
   "CREATE INDEX IF NOT EXISTS automation_tasks_status_idx ON automation_tasks (status)",
@@ -55,13 +59,18 @@ export const initialSchemaStatements = [
     error text,
     id text PRIMARY KEY NOT NULL,
     logs text NOT NULL,
+    queued_at text NOT NULL DEFAULT '1970-01-01T00:00:00.000Z',
+    revision integer NOT NULL DEFAULT 1,
     started_at text,
     status text NOT NULL,
-    task_id text NOT NULL
+    task_id text NOT NULL REFERENCES automation_tasks(id) ON DELETE CASCADE,
+    CONSTRAINT automation_runs_status_check CHECK (status IN ('cancelled', 'failed', 'queued', 'running', 'succeeded')),
+    CONSTRAINT automation_runs_revision_check CHECK (revision > 0)
   )`,
   "CREATE INDEX IF NOT EXISTS automation_runs_audit_correlation_id_idx ON automation_runs (audit_correlation_id)",
   "CREATE INDEX IF NOT EXISTS automation_runs_status_idx ON automation_runs (status)",
   "CREATE INDEX IF NOT EXISTS automation_runs_task_id_idx ON automation_runs (task_id)",
+  "CREATE UNIQUE INDEX IF NOT EXISTS automation_runs_active_task_unique ON automation_runs (task_id) WHERE status IN ('queued', 'running')",
   `CREATE TABLE IF NOT EXISTS wallets (
     created_at text NOT NULL,
     fingerprint text NOT NULL,
@@ -225,4 +234,22 @@ export const ensureDatabaseSchema = async (client: Client): Promise<void> => {
     initialSchemaStatements.map((sql) => ({ sql })),
     "write"
   )
+  const ensureColumns = async (
+    table: string,
+    columns: Readonly<Record<string, string>>
+  ): Promise<void> => {
+    const result = await client.execute(`PRAGMA table_info(${table})`)
+    const existing = new Set(result.rows.map((row) => String(row.name)))
+    for (const [name, definition] of Object.entries(columns)) {
+      if (!existing.has(name)) await client.execute(`ALTER TABLE ${table} ADD COLUMN ${definition}`)
+    }
+  }
+  await ensureColumns("automation_tasks", {
+    definition: `definition text NOT NULL DEFAULT '{"handler":"noop"}'`,
+    revision: "revision integer NOT NULL DEFAULT 1",
+  })
+  await ensureColumns("automation_runs", {
+    queued_at: "queued_at text NOT NULL DEFAULT '1970-01-01T00:00:00.000Z'",
+    revision: "revision integer NOT NULL DEFAULT 1",
+  })
 }

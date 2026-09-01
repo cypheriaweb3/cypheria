@@ -245,6 +245,10 @@ manual trigger or scheduler
 
 V1 automation 是 local-first。Cloud agent execution 和复杂 workflow engine 不在范围内。
 
+已实现的 automation runtime 会把经过严格验证的 task definition 与独立 run record 持久化到本地 SQLite。Task 通过乐观 revision 在 `draft`、`enabled`、`paused` 和 `archived` 状态间流转；只有 enabled task 可以运行，partial unique index 保证每个 task 最多只有一个 queued 或 running execution。Runtime methods 覆盖 task create、list、inspect、pause/resume、run start 与 run inspect；desktop 通过 typed IPC 暴露相同边界。
+
+Task handler 是由持久化 handler name 和仅 JSON、拒绝 secret field 的 input 选择的受信 runtime extension。它们只能获得 abort signal，以及注入式 Codex agent runner 和 signing-intent creation 两种窄能力，绝不会获得 wallet signer 或 secret。Signing capability 会强制设置 `source: automation`、把 correlation ID 替换为 run audit ID、检查 task 的 wallet/account/chain/origin/policy scope，再委托给正常 signing-intent 与 policy pipeline。Runtime shutdown 会先中止并等待 active execution，再关闭数据库。
+
 ## 数据模型
 
 SQLite 是非敏感本地数据的 source of truth。Drizzle 通过 libSQL 的 SQLite 入口访问本地 `file:` 数据库；这不需要、也不代表使用远程 Turso/libSQL 服务。敏感钱包材料保存在受 OS-backed key storage 保护的 encrypted vault 中。

@@ -156,7 +156,7 @@ Status legend:
   - Acceptance: desktop can create origin-isolated dApp sessions, inject the provider bridge, and route provider requests through runtime.
   - Verification: web3-browser tests and desktop smoke test.
 
-- [ ] Implement automation runtime service.
+- [x] Implement automation runtime service.
   - Acceptance: runtime can create, list, run, pause, resume, and inspect automation tasks and runs.
   - Include: tasks may call Codex SDK or create signing intents but cannot bypass policy.
   - Verification: automation-core, db, runtime, and desktop tests.

@@ -6,6 +6,7 @@ import type {
   SigningIntentPersistenceService,
   SigningIntentRecord,
 } from "@cypheria/db"
+import { signingPolicyIdSchema } from "@cypheria/policy-engine"
 import {
   parseSigningIntent,
   personalSignIntentSchema,
@@ -29,6 +30,7 @@ const createInputSchema = z
     expiresAt: z.iso.datetime().optional(),
     intent: intentDraftSchema,
     mode: z.enum(["conditional-auto-signing", "human-approval", "read-only"]),
+    policyIds: z.array(signingPolicyIdSchema).min(1).optional(),
     source: z.enum(["agent", "automation", "dapp"]),
   })
   .strict()
@@ -197,6 +199,7 @@ export const createSigningIntentRuntimeService = (
         ...(transaction?.to ? { contractAddress: transaction.to } : {}),
         method: policyMethod(intent),
         mode: input.mode,
+        ...(input.policyIds ? { policyIds: input.policyIds } : {}),
         ...(transaction?.value === undefined ? {} : { nativeValue: transaction.value.toString() }),
         ...(intent.origin ? { origin: intent.origin } : {}),
         walletId: intent.account.walletId,
