@@ -15,6 +15,13 @@
       "when": 1779985789317,
       "tag": "0001_mighty_marvel_apes",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788253814084,
+      "tag": "0002_true_lightspeed",
+      "breakpoints": true
     }
   ]
 }

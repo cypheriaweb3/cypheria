@@ -124,7 +124,7 @@ Status legend:
   - Include: Zod boundary schemas, stable identifiers, wallet/account/chain-account hierarchy, fingerprints, lifecycle states, derivation schemes, and renderer-safe projections.
   - Verification: `pnpm --filter @cypheria/wallet-core test`, `pnpm run ci`, `pnpm build`.
 
-- [ ] Add wallet public-state persistence.
+- [x] Add wallet public-state persistence.
   - Acceptance: `@cypheria/db` persists wallets, wallet accounts, chain accounts, and HD derivation schemes through Drizzle and libSQL without secret material.
   - Include: migrations, constraints, repository APIs, recovery states, and in-memory database tests.
   - Verification: `pnpm --filter @cypheria/db test`, `pnpm run ci`, `pnpm build`.

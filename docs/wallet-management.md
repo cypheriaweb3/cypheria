@@ -27,7 +27,7 @@ HD schemes are stored per chain namespace. V1 implements EVM `eip155` accounts w
 
 ## Public Persistence
 
-SQLite is the source of truth for wallet metadata, lifecycle state, accounts, addresses, derivation paths, and active context:
+SQLite is the source of truth for wallet metadata, lifecycle state, accounts, addresses, derivation paths, and active context. The current public-state repository persists the first four tables; active-context persistence is added with local wallet management:
 
 ```txt
 wallets
@@ -38,6 +38,8 @@ active_wallet_context
 ```
 
 Normal columns and JSON must never contain mnemonic phrases or entropy, BIP-39 passphrases, private keys, vault encryption keys, decrypted keystores, or serialized local signers. Lifecycle states `initializing`, `ready`, `error`, and `deleting` support recovery across the SQLite/filesystem boundary.
+
+`@cypheria/db` validates complete wallet graphs with the strict wallet-core schemas before using an atomic libSQL batch. Foreign keys cascade wallet deletion, while unique and check constraints enforce fingerprints, names, account indexes, wallet/provider combinations, and the supported EVM derivation scheme. Recovery code can query wallets by lifecycle status without loading any vault secret.
 
 ## Fingerprints
 

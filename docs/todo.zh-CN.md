@@ -124,7 +124,7 @@
   - 包括：Zod boundary schemas、稳定标识、wallet/account/chain-account 层次、fingerprints、生命周期状态、派生方案和 renderer-safe projections。
   - 验证：`pnpm --filter @cypheria/wallet-core test`、`pnpm run ci`、`pnpm build`。
 
-- [ ] 添加钱包公开状态持久化。
+- [x] 添加钱包公开状态持久化。
   - 验收：`@cypheria/db` 通过 Drizzle + libSQL 持久化 wallets、wallet accounts、chain accounts 和 HD derivation schemes，且不包含秘密材料。
   - 包括：migrations、约束、repository APIs、恢复状态和内存数据库 tests。
   - 验证：`pnpm --filter @cypheria/db test`、`pnpm run ci`、`pnpm build`。

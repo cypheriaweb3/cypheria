@@ -27,7 +27,7 @@ HD 方案按 chain namespace 保存。V1 实现 EVM `eip155`、secp256k1 和 `m/
 
 ## 公开数据持久化
 
-SQLite 是钱包 metadata、生命周期、账户、地址、派生路径和 active context 的 source of truth：
+SQLite 是钱包 metadata、生命周期、账户、地址、派生路径和 active context 的 source of truth。当前公开状态仓储持久化前四张表；active context 持久化随本地钱包管理实现：
 
 ```txt
 wallets
@@ -38,6 +38,8 @@ active_wallet_context
 ```
 
 普通列和 JSON 不得包含助记词或 entropy、BIP-39 passphrase、私钥、vault encryption key、解密 keystore 或序列化 local signer。`initializing`、`ready`、`error` 和 `deleting` 生命周期用于跨 SQLite 与文件系统边界恢复。
+
+`@cypheria/db` 先使用 wallet-core 的严格 schema 验证完整钱包图，再通过原子 libSQL batch 写入。外键级联删除钱包；unique 与 check constraint 约束 fingerprint、名称、账户 index、钱包/provider 组合和已支持的 EVM 派生方案。恢复代码可按生命周期状态查询钱包，且无需加载任何 vault 秘密。
 
 ## Fingerprint
 

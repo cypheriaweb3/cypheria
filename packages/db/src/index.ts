@@ -25,5 +25,10 @@ export {
   DEFAULT_DATABASE_FILENAME,
   DEFAULT_MIGRATIONS_DIRNAME,
 } from "./paths.js"
-
 export * from "./schema.js"
+export {
+  createWalletPublicStatePersistenceService,
+  type ListWalletOptions,
+  type WalletPublicState,
+  type WalletPublicStatePersistenceService,
+} from "./wallet.js"
