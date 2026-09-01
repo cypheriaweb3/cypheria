@@ -1,6 +1,6 @@
 import {
-  type ReactNode,
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useLayoutEffect,
@@ -9,10 +9,10 @@ import {
 } from "react"
 
 import {
+  applyCypheriaThemeToElement,
   type CypheriaThemeMode,
   type CypheriaThemeState,
   type CypheriaThemeVariableName,
-  applyCypheriaThemeToElement,
   createCypheriaThemeState,
   defaultCypheriaThemeState,
 } from "./theme.js"

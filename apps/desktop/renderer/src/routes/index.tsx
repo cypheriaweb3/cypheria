@@ -13,8 +13,8 @@ import {
   LockKeyhole,
   MoreHorizontal,
   PanelRightClose,
-  Settings,
   Plus,
+  Settings,
   TerminalSquare,
   WalletCards,
 } from "lucide-react"

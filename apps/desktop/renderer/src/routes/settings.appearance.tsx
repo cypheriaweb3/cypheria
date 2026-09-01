@@ -1,9 +1,9 @@
 import {
+  applyCodexAppearancePreferencesToElement,
   type CodexAppearanceThemeSettings,
   type CodexChromeTheme,
   type CodexCodeThemeId,
   type CodexFontFace,
-  applyCodexAppearancePreferencesToElement,
   cn,
   defaultCodexAppearanceThemeSettings,
   getCodexCodeThemeOptionsForMode,

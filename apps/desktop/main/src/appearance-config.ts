@@ -2,12 +2,12 @@ import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { dirname, join } from "node:path"
 
 import {
+  type AppearanceChromeTheme,
   AppearanceCodeThemeIdSchema,
   AppearanceDiffMarkerStyleSchema,
   AppearanceReducedMotionPreferenceSchema,
-  AppearanceThemeModeSchema,
-  type AppearanceChromeTheme,
   type AppearanceSettings,
+  AppearanceThemeModeSchema,
 } from "../../ipc/src/index.js"
 
 const desktopSection = "desktop"

@@ -1,8 +1,8 @@
 /// <reference types="vite/client" />
 
 import {
-  CypheriaThemeProvider,
   applyCodexAppearancePreferencesToElement,
+  CypheriaThemeProvider,
   cn,
   mapCodexAppearanceToCypheriaThemeState,
   useCypheriaTheme,
