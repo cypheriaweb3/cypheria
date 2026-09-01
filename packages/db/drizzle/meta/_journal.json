@@ -22,6 +22,13 @@
       "when": 1788253814084,
       "tag": "0002_true_lightspeed",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788255624136,
+      "tag": "0003_tranquil_mister_sinister",
+      "breakpoints": true
     }
   ]
 }

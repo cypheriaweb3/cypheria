@@ -126,6 +126,15 @@ export const initialSchemaStatements = [
     CONSTRAINT wallet_hd_schemes_derive_position_check CHECK (derive_position = 4),
     CONSTRAINT wallet_hd_schemes_namespace_check CHECK (namespace = 'eip155')
   )`,
+  `CREATE TABLE IF NOT EXISTS active_wallet_context (
+    chain_account_id text NOT NULL REFERENCES chain_accounts(id) ON DELETE CASCADE,
+    id text PRIMARY KEY NOT NULL,
+    mode text NOT NULL,
+    updated_at text NOT NULL,
+    wallet_account_id text NOT NULL REFERENCES wallet_accounts(id) ON DELETE CASCADE,
+    wallet_id text NOT NULL REFERENCES wallets(id) ON DELETE CASCADE,
+    CONSTRAINT active_wallet_context_mode_check CHECK (mode IN ('conditional-auto-signing', 'human-approval', 'read-only'))
+  )`,
 ] as const
 
 export const ensureDatabaseSchema = async (client: Client): Promise<void> => {

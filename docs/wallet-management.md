@@ -27,7 +27,7 @@ HD schemes are stored per chain namespace. V1 implements EVM `eip155` accounts w
 
 ## Public Persistence
 
-SQLite is the source of truth for wallet metadata, lifecycle state, accounts, addresses, derivation paths, and active context. The current public-state repository persists the first four tables; active-context persistence is added with local wallet management:
+SQLite is the source of truth for wallet metadata, lifecycle state, accounts, addresses, derivation paths, and active context. The public-state repository persists these tables:
 
 ```txt
 wallets
@@ -45,7 +45,7 @@ Normal columns and JSON must never contain mnemonic phrases or entropy, BIP-39 p
 
 Fingerprints deliberately support duplicate detection and are not authentication secrets.
 
-- HD wallets hash a versioned canonical identity containing kind, curve, and the normalized address at the fixed EVM probe path `m/44'/60'/0'/0/0`.
+- HD wallets hash a versioned canonical identity containing kind, curve, and the normalized address at the fixed EVM probe path `m/44'/60'/0'/0/0`. Their derived accounts use a separate HD-account fingerprint domain.
 - Single private-key and watch wallets hash kind, namespace, and normalized address.
 - Group containers use random stable identities because membership changes. Each member has an account fingerprint for duplicate detection.
 - Kind is part of the fingerprint, allowing an HD-derived private key to be imported as a standalone wallet.
@@ -72,7 +72,13 @@ Callers receive opaque signing capabilities such as `signMessage`, `signTypedDat
 
 A newly generated HD wallet may appear as `initializing` while expensive encryption completes. It becomes usable only after the vault is atomically persisted and SQLite reaches `ready`.
 
-Imported wallets may already control funds, so HD and private-key imports must persist the vault before reporting success. Watch imports have no vault phase. Recovery reconciles lifecycle state and vault files; a missing vault marks an existing wallet as an error instead of erasing its record.
+Imported wallets may already control funds, so HD and private-key imports persist the vault before creating their public state or reporting success. If the public-state write fails, the newly created vault is removed as compensation. Watch imports have no vault phase. All secret imports may accept an expected address; the runtime derives with viem and rejects a mismatch before persistence.
+
+`@cypheria/runtime` exposes a wallet manager for generating and importing HD wallets, importing single and grouped private keys, adding single and grouped watch wallets, listing renderer-safe views, renaming, deletion, and active-context selection. Duplicate detection compares wallet and account fingerprints across persisted wallets and within a new group. Configured EVM chain IDs share the same EVM address while retaining distinct chain-account records.
+
+The active context stores one selected wallet, wallet account, chain account, and mode. Persistence verifies that all three identifiers belong to the same wallet graph. Only `ready` wallets can be selected, and watch wallets are restricted to `read-only`; deletion clears a selected context through foreign-key cascading. Mutations append redacted audit events without secret material.
+
+Recovery reconciles lifecycle state and vault files; a missing vault marks an existing wallet as an error instead of erasing its record. Deleting a local wallet first records `deleting`, atomically removes its vault, and only then removes public state; a vault failure leaves an `error` record for recovery.
 
 ## Signing
 

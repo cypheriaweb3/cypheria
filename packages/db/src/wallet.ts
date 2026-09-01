@@ -1,19 +1,33 @@
 import {
   type ChainAccount,
+  type ChainAccountId,
+  chainAccountIdSchema,
   chainAccountSchema,
   type HdDerivationScheme,
   hdDerivationSchemeSchema,
+  timestampSchema,
   type Wallet,
   type WalletAccount,
+  type WalletAccountId,
   type WalletId,
+  type WalletMode,
   type WalletStatus,
+  walletAccountIdSchema,
   walletAccountSchema,
+  walletIdSchema,
+  walletModes,
   walletSchema,
 } from "@cypheria/wallet-core"
 import { asc, eq, inArray } from "drizzle-orm"
 
 import type { CypheriaDatabase } from "./client.js"
-import { chainAccounts, walletAccounts, walletHdSchemes, wallets } from "./schema.js"
+import {
+  activeWalletContext,
+  chainAccounts,
+  walletAccounts,
+  walletHdSchemes,
+  wallets,
+} from "./schema.js"
 
 export type WalletPublicState = {
   readonly accounts: readonly WalletAccount[]
@@ -26,12 +40,40 @@ export type ListWalletOptions = {
   readonly statuses?: readonly WalletStatus[]
 }
 
+export type PersistedActiveWalletContext = {
+  readonly chainAccountId: ChainAccountId
+  readonly mode: WalletMode
+  readonly updatedAt: string
+  readonly walletAccountId: WalletAccountId
+  readonly walletId: WalletId
+}
+
 export type WalletPublicStatePersistenceService = {
   readonly create: (state: WalletPublicState) => Promise<WalletPublicState>
+  readonly clearActiveContext: () => Promise<void>
   readonly delete: (walletId: WalletId) => Promise<void>
   readonly get: (walletId: WalletId) => Promise<WalletPublicState | undefined>
+  readonly getActiveContext: () => Promise<PersistedActiveWalletContext | undefined>
   readonly listWallets: (options?: ListWalletOptions) => Promise<Wallet[]>
+  readonly setActiveContext: (
+    context: PersistedActiveWalletContext
+  ) => Promise<PersistedActiveWalletContext>
   readonly updateWallet: (wallet: Wallet) => Promise<Wallet>
+}
+
+const parseActiveContext = (
+  context: PersistedActiveWalletContext
+): PersistedActiveWalletContext => {
+  if (!walletModes.includes(context.mode)) {
+    throw new Error("Active wallet context has an invalid mode.")
+  }
+  return {
+    chainAccountId: chainAccountIdSchema.parse(context.chainAccountId),
+    mode: context.mode,
+    updatedAt: timestampSchema.parse(context.updatedAt),
+    walletAccountId: walletAccountIdSchema.parse(context.walletAccountId),
+    walletId: walletIdSchema.parse(context.walletId),
+  }
 }
 
 type WalletRecord = typeof wallets.$inferSelect
@@ -138,6 +180,9 @@ const loadPublicState = async (
 export const createWalletPublicStatePersistenceService = (
   db: CypheriaDatabase
 ): WalletPublicStatePersistenceService => ({
+  clearActiveContext: async () => {
+    await db.delete(activeWalletContext).where(eq(activeWalletContext.id, "default"))
+  },
   create: async (state) => {
     const parsed = parsePublicState(state)
     const queries = [
@@ -159,6 +204,23 @@ export const createWalletPublicStatePersistenceService = (
     await db.delete(wallets).where(eq(wallets.id, walletId))
   },
   get: (walletId) => loadPublicState(db, walletId),
+  getActiveContext: async () => {
+    const [record] = await db
+      .select()
+      .from(activeWalletContext)
+      .where(eq(activeWalletContext.id, "default"))
+      .limit(1)
+    if (!record) {
+      return undefined
+    }
+    return parseActiveContext({
+      chainAccountId: record.chainAccountId as ChainAccountId,
+      mode: record.mode as WalletMode,
+      updatedAt: record.updatedAt,
+      walletAccountId: record.walletAccountId as WalletAccountId,
+      walletId: record.walletId as WalletId,
+    })
+  },
   listWallets: async (options = {}) => {
     const records =
       options.statuses && options.statuses.length > 0
@@ -169,6 +231,23 @@ export const createWalletPublicStatePersistenceService = (
             .orderBy(asc(wallets.createdAt))
         : await db.select().from(wallets).orderBy(asc(wallets.createdAt))
     return records.map(fromWalletRecord)
+  },
+  setActiveContext: async (context) => {
+    const parsed = parseActiveContext(context)
+    const state = await loadPublicState(db, parsed.walletId)
+    const account = state?.accounts.find((item) => item.id === parsed.walletAccountId)
+    const chainAccount = state?.chainAccounts.find((item) => item.id === parsed.chainAccountId)
+    if (!state || !account || chainAccount?.walletAccountId !== account.id) {
+      throw new Error("Active wallet context must reference one persisted wallet account.")
+    }
+    await db
+      .insert(activeWalletContext)
+      .values({ ...parsed, id: "default" })
+      .onConflictDoUpdate({
+        set: parsed,
+        target: activeWalletContext.id,
+      })
+    return parsed
   },
   updateWallet: async (wallet) => {
     const parsed = walletSchema.parse(wallet)

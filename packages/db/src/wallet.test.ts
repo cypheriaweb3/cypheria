@@ -98,6 +98,30 @@ describe("wallet public-state persistence", () => {
     database.close()
   })
 
+  it("persists a validated active context and clears it through cascades", async () => {
+    const database = createInMemoryDatabase()
+    await ensureDatabaseSchema(database.client)
+    const service = createWalletPublicStatePersistenceService(database.db)
+    await service.create(hdState)
+    const context = {
+      chainAccountId: "chain_account_mainnet",
+      mode: "human-approval",
+      updatedAt: timestamp,
+      walletAccountId: "account_primary",
+      walletId: "wallet_hd",
+    } as const
+
+    await expect(service.setActiveContext(context)).resolves.toEqual(context)
+    await expect(service.getActiveContext()).resolves.toEqual(context)
+    await expect(
+      service.setActiveContext({ ...context, chainAccountId: "chain_account_missing" })
+    ).rejects.toThrow("Active wallet context")
+
+    await service.delete(hdState.wallet.id)
+    await expect(service.getActiveContext()).resolves.toBeUndefined()
+    database.close()
+  })
+
   it("enforces uniqueness and cascades wallet deletion", async () => {
     const database = createInMemoryDatabase()
     await ensureDatabaseSchema(database.client)

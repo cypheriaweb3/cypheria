@@ -134,7 +134,7 @@
   - 包括：窄边界 ethers Web3 Secret Storage codec、key-provider abstraction 与 test double、atomic writes、orphan recovery、lock、unlock、delete 和脱敏错误。
   - 验证：wallet vault tests、`pnpm run ci`、`pnpm build`。
 
-- [ ] 实现本地钱包与观察钱包管理。
+- [x] 实现本地钱包与观察钱包管理。
   - 验收：runtime 可以生成/导入 HD 钱包、导入单个/分组私钥、管理单个/分组观察钱包、使用 viem 派生 EVM 账户、检测重复、列出 renderer-safe 状态并暴露 active account context。
   - 包括：新生成钱包快速初始化、导入成功前完成持久化、地址一致性检查、rename/delete 和 audit events。
   - 验证：runtime、wallet、database 与 vault tests。

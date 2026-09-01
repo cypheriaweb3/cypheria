@@ -11,6 +11,9 @@ const normalizeAddress = (address: HexAddress): string => address.toLowerCase()
 export const createHdWalletFingerprint = (probeAddress: HexAddress): WalletFingerprint =>
   fingerprint(`cypheria:wallet:v1:hd:secp256k1:eip155:${normalizeAddress(probeAddress)}`)
 
+export const createHdAccountFingerprint = (address: HexAddress): WalletFingerprint =>
+  fingerprint(`cypheria:account:v1:hd:secp256k1:eip155:${normalizeAddress(address)}`)
+
 export const createAddressWalletFingerprint = (
   kind: "private-key" | "watch",
   namespace: ChainNamespace,

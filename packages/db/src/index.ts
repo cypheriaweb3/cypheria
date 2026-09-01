@@ -29,6 +29,7 @@ export * from "./schema.js"
 export {
   createWalletPublicStatePersistenceService,
   type ListWalletOptions,
+  type PersistedActiveWalletContext,
   type WalletPublicState,
   type WalletPublicStatePersistenceService,
 } from "./wallet.js"

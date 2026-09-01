@@ -1,0 +1,15 @@
+export {
+  type AddWatchGroupInput,
+  type AddWatchWalletInput,
+  createWalletManager,
+  type GenerateHdWalletInput,
+  type ImportHdWalletInput,
+  type ImportPrivateKeyGroupInput,
+  type ImportPrivateKeyWalletInput,
+  type SetActiveWalletContextInput,
+  type WalletManager,
+  WalletManagerError,
+  type WalletManagerErrorCode,
+  type WalletManagerIdFactory,
+  type WalletManagerOptions,
+} from "./service.js"

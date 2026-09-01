@@ -134,7 +134,7 @@ Status legend:
   - Include: narrow ethers Web3 Secret Storage codec, key-provider abstraction and test double, atomic writes, orphan recovery, lock, unlock, delete, and redacted errors.
   - Verification: wallet vault tests, `pnpm run ci`, `pnpm build`.
 
-- [ ] Implement local and watch wallet management.
+- [x] Implement local and watch wallet management.
   - Acceptance: runtime can generate/import HD wallets, import single/grouped private keys, manage single/grouped watch wallets, derive EVM accounts with viem, detect duplicates, list renderer-safe state, and expose active account context.
   - Include: fast generated-wallet initialization, durable-before-success imports, address consistency checks, rename/delete, and audit events.
   - Verification: runtime, wallet, database, and vault tests.

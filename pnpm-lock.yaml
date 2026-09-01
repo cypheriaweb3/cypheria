@@ -160,12 +160,21 @@ importers:
 
   packages/runtime:
     dependencies:
+      '@cypheria/db':
+        specifier: workspace:*
+        version: link:../db
       '@cypheria/wallet-core':
         specifier: workspace:*
         version: link:../wallet-core
+      '@scure/bip39':
+        specifier: ^1.6.0
+        version: 1.6.0
       ethers:
         specifier: ^6.17.0
         version: 6.17.0
+      viem:
+        specifier: ^2.56.1
+        version: 2.56.1(typescript@6.0.3)(zod@4.4.3)
       zod:
         specifier: ^4.4.3
         version: 4.4.3

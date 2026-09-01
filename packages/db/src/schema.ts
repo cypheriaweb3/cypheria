@@ -198,7 +198,32 @@ export const walletHdSchemes = sqliteTable(
   ]
 )
 
+export const activeWalletContext = sqliteTable(
+  "active_wallet_context",
+  {
+    chainAccountId: text("chain_account_id")
+      .notNull()
+      .references(() => chainAccounts.id, { onDelete: "cascade" }),
+    id: text("id").primaryKey(),
+    mode: text("mode").notNull(),
+    updatedAt: text("updated_at").notNull(),
+    walletAccountId: text("wallet_account_id")
+      .notNull()
+      .references(() => walletAccounts.id, { onDelete: "cascade" }),
+    walletId: text("wallet_id")
+      .notNull()
+      .references(() => wallets.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    check(
+      "active_wallet_context_mode_check",
+      sql`${table.mode} IN ('conditional-auto-signing', 'human-approval', 'read-only')`
+    ),
+  ]
+)
+
 export const schema = {
+  activeWalletContext,
   auditLogs,
   automationRuns,
   automationTasks,

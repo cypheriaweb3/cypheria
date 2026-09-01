@@ -27,7 +27,7 @@ HD 方案按 chain namespace 保存。V1 实现 EVM `eip155`、secp256k1 和 `m/
 
 ## 公开数据持久化
 
-SQLite 是钱包 metadata、生命周期、账户、地址、派生路径和 active context 的 source of truth。当前公开状态仓储持久化前四张表；active context 持久化随本地钱包管理实现：
+SQLite 是钱包 metadata、生命周期、账户、地址、派生路径和 active context 的 source of truth。公开状态仓储持久化以下数据表：
 
 ```txt
 wallets
@@ -45,7 +45,7 @@ active_wallet_context
 
 Fingerprint 有意用于查重，不是认证秘密。
 
-- HD 钱包对包含 kind、curve 和固定 EVM probe path `m/44'/60'/0'/0/0` 标准化地址的版本化 canonical identity 做 hash。
+- HD 钱包对包含 kind、curve 和固定 EVM probe path `m/44'/60'/0'/0/0` 标准化地址的版本化 canonical identity 做 hash；其派生账户使用独立的 HD account fingerprint domain。
 - 单私钥与单观察钱包对 kind、namespace 和标准化地址做 hash。
 - Group 容器使用随机稳定 identity，因为成员会变化；每个成员拥有用于查重的 account fingerprint。
 - Kind 是 fingerprint 的一部分，因此允许将 HD 派生私钥作为独立钱包导入。
@@ -72,7 +72,13 @@ Unlock 只返回标识与 entry kind。解密值保留在 internal controller �
 
 新生成 HD 钱包可在耗时加密期间显示为 `initializing`。只有 vault 完成 atomic persistence 且 SQLite 进入 `ready` 后才能使用。
 
-导入钱包可能已经控制资金，因此 HD 和私钥导入必须在成功持久化 vault 后才报告成功。Watch 导入没有 vault 阶段。恢复流程协调 lifecycle state 和 vault 文件；vault 缺失时将已有钱包标记为 error，而不是删除记录。
+导入钱包可能已经控制资金，因此 HD 和私钥导入先持久化 vault，再创建公开状态并报告成功；若公开状态写入失败，会补偿删除新建 vault。Watch 导入没有 vault 阶段。秘密导入均可提供 expected address；runtime 使用 viem 派生地址，并在持久化前拒绝不一致输入。
+
+`@cypheria/runtime` 提供 wallet manager，用于生成和导入 HD 钱包、导入单个或分组私钥、添加单个或分组观察钱包、列出 renderer-safe view、重命名、删除以及选择 active context。查重会比较已持久化钱包和新分组内部的 wallet/account fingerprint。配置的多个 EVM chain ID 共享同一 EVM 地址，但各自保留独立 chain-account 记录。
+
+Active context 保存唯一一组已选择的 wallet、wallet account、chain account 和 mode。持久化层会验证三个标识属于同一钱包图。只有 `ready` 钱包可被选择，观察钱包只允许 `read-only`；删除已选钱包时通过外键级联清除 context。变更操作写入不含秘密材料的脱敏 audit event。
+
+恢复流程协调 lifecycle state 和 vault 文件；vault 缺失时将已有钱包标记为 error，而不是删除记录。删除本地钱包时先记录 `deleting`，原子删除 vault 后再移除公开状态；vault 删除失败则保留 `error` 记录供恢复。
 
 ## 签名
 

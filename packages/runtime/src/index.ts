@@ -2,6 +2,7 @@ import { mkdir } from "node:fs/promises"
 import { homedir } from "node:os"
 import { resolve } from "node:path"
 
+export * from "./wallet-manager/index.js"
 export * from "./wallet-vault/index.js"
 
 export const CYPHERIA_HOME_ENV = "CYPHERIA_HOME"

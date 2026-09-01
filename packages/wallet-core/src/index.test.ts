@@ -5,6 +5,7 @@ import {
   createAccountFingerprint,
   createAddressWalletFingerprint,
   createGroupWalletFingerprint,
+  createHdAccountFingerprint,
   createHdWalletFingerprint,
   defaultEvmHdDerivationScheme,
   derivePath,
@@ -90,6 +91,7 @@ describe("wallet domain", () => {
     expect(createAccountFingerprint("private-key", "eip155", address)).not.toBe(
       createHdWalletFingerprint(address)
     )
+    expect(createHdAccountFingerprint(address)).not.toBe(createHdWalletFingerprint(address))
     expect(createGroupWalletFingerprint("watch-group", "wallet_one")).toBe(
       createGroupWalletFingerprint("watch-group", "wallet_one")
     )
