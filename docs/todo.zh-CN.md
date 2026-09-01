@@ -119,7 +119,7 @@
   - 验收：数据库服务使用 `@libsql/client` 替代 `better-sqlite3`；持久化 API 全部异步；中英文钱包设计文档明确公开数据、加密 vault、内存和签名边界。
   - 验证：`pnpm run ci`、`pnpm build`、数据库与 desktop tests。
 
-- [ ] 替换 wallet domain baseline。
+- [x] 替换 wallet domain baseline。
   - 验收：`@cypheria/wallet-core` 在与 provider、storage 解耦的前提下建模 HD、private-key、private-key-group、watch 和 watch-group 钱包。
   - 包括：Zod boundary schemas、稳定标识、wallet/account/chain-account 层次、fingerprints、生命周期状态、派生方案和 renderer-safe projections。
   - 验证：`pnpm --filter @cypheria/wallet-core test`、`pnpm run ci`、`pnpm build`。

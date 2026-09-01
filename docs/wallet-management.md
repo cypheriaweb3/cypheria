@@ -21,6 +21,8 @@ A `Wallet` is a user-visible container. A `WalletAccount` is a logical derived o
 
 Wallet kind and provider are independent. V1 secret wallets use provider `local-vault`; watch wallets use `read-only`. A future hardware HD wallet can reuse kind `hd` with provider `hardware`.
 
+Domain identifiers use explicit prefixes (`wallet_`, `account_`, `chain_account_`, and `vault_`). Strict Zod schemas validate every runtime boundary. Renderer projections use a nested `{ wallet, accounts }` shape and re-parse the complete value with strict schemas so accidental secret properties are rejected instead of serialized.
+
 HD schemes are stored per chain namespace. V1 implements EVM `eip155` accounts with secp256k1 and `m/44'/60'/0'/0/{index}`. The schema may represent future namespaces, but unsupported schemes must fail validation.
 
 ## Public Persistence

@@ -1,4 +1,4 @@
-import type { ChainId, HexAddress, WalletPermissionMethod } from "@cypheria/wallet-core"
+import type { ChainId, HexAddress, WalletId, WalletPermissionMethod } from "@cypheria/wallet-core"
 
 export type DappSessionKey = `cypheria:dapp:${string}`
 
@@ -34,7 +34,7 @@ export type DappPermissionRecord = {
   readonly origin: string
   readonly sessionKey: DappSessionKey
   readonly updatedAt: string
-  readonly walletId: string
+  readonly walletId: WalletId
 }
 
 export type ProviderRequestId = number | string

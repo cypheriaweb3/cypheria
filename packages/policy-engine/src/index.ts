@@ -1,4 +1,4 @@
-import { walletModes } from "@cypheria/wallet-core"
+import { walletIdSchema, walletModes } from "@cypheria/wallet-core"
 import { z } from "zod"
 
 export const policyDecisions = ["allow", "deny", "require-human-approval"] as const
@@ -22,7 +22,7 @@ export const SigningPolicySchema = z
     methods: z.array(z.string().min(1)).min(1),
     origins: z.array(z.string().min(1)).min(1),
     requireHumanApproval: z.boolean().default(false),
-    walletId: z.string().min(1),
+    walletId: walletIdSchema,
   })
   .strict()
 
@@ -43,7 +43,7 @@ export const PolicyEvaluationInputSchema = z
       .optional(),
     now: z.string().datetime().optional(),
     origin: z.string().min(1).optional(),
-    walletId: z.string().min(1),
+    walletId: walletIdSchema,
   })
   .strict()
 

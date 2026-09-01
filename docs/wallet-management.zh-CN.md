@@ -21,6 +21,8 @@ Wallet
 
 Wallet kind 与 provider 相互独立。V1 秘密钱包使用 `local-vault` provider，观察钱包使用 `read-only`。未来的硬件 HD 钱包可以复用 `hd` kind，并使用 `hardware` provider。
 
+领域标识使用明确前缀（`wallet_`、`account_`、`chain_account_` 和 `vault_`）。所有 runtime boundary 都使用严格 Zod schema 验证。Renderer projection 使用嵌套 `{ wallet, accounts }` 结构，并用严格 schema 重新解析完整值，使意外附带的秘密字段被拒绝而不是被序列化。
+
 HD 方案按 chain namespace 保存。V1 实现 EVM `eip155`、secp256k1 和 `m/44'/60'/0'/0/{index}`。Schema 可以表达未来 namespace，但尚未支持的方案必须验证失败。
 
 ## 公开数据持久化

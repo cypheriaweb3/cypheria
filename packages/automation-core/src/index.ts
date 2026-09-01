@@ -1,4 +1,4 @@
-import type { ChainId, WalletMode } from "@cypheria/wallet-core"
+import type { ChainId, WalletAccountId, WalletId, WalletMode } from "@cypheria/wallet-core"
 
 export type AutomationTaskId = `task_${string}`
 export type AutomationRunId = `run_${string}`
@@ -49,12 +49,12 @@ export type AutomationTrigger =
   | ScheduledAutomationTrigger
 
 export type AutomationWalletPolicyScope = {
-  readonly accountIds: readonly string[]
+  readonly accountIds: readonly WalletAccountId[]
   readonly chainIds: readonly ChainId[]
   readonly mode: WalletMode
   readonly origins?: readonly string[]
   readonly policyIds?: readonly string[]
-  readonly walletId?: string
+  readonly walletId?: WalletId
 }
 
 export type AutomationRunLogLevel = "debug" | "error" | "info" | "warn"
