@@ -4,7 +4,7 @@ import {
   type WalletProviderResponse,
   walletProviderResponseSchema,
 } from "@cypheria/wallet-provider"
-import { app, BrowserWindow, nativeTheme } from "electron"
+import { app, BrowserWindow, nativeTheme, shell } from "electron"
 import {
   type AppearanceSettings,
   type AppearanceSettingsWrite,
@@ -22,6 +22,16 @@ import {
   automationTaskResumeContract,
   browserSessionOpenContract,
   CYPHERIA_APPEARANCE_ARGUMENT_PREFIX,
+  codexAccountLoginCancelContract,
+  codexAccountLoginStartContract,
+  codexAccountLogoutContract,
+  codexAccountReadContract,
+  codexChatInterruptContract,
+  codexChatStartContract,
+  codexModelListContract,
+  codexModelSettingsReadContract,
+  codexModelSettingsWriteContract,
+  codexThreadListContract,
   dappProviderRequestContract,
   IPC_PROTOCOL_VERSION,
   type RuntimeInfo,
@@ -32,6 +42,18 @@ import {
 } from "../../ipc/src/index.js"
 import { readAppearanceSettings, writeAppearanceSettings } from "./appearance-config.js"
 import { resolveCodexCommand } from "./codex-command.js"
+import {
+  cancelCodexLogin,
+  interruptCodexChat,
+  listCodexModels,
+  listCodexThreads,
+  logoutCodexAccount,
+  readCodexAccount,
+  readCodexModelSettings,
+  startCodexChat,
+  startCodexLogin,
+  writeCodexModelSettings,
+} from "./codex-desktop.js"
 import {
   createDappBrowserController,
   createElectronDappWebContentsFactory,
@@ -167,6 +189,44 @@ const registerIpcHandlers = (context: DesktopRuntimeContext): void => {
     }
   })
   registerIpcRoute(appMetadataReadContract, () => appMetadata)
+  const codexBridge = () => {
+    const bridge = context.codexAppServer?.bridge
+    if (!bridge) throw new Error("Codex App Server is unavailable.")
+    return bridge
+  }
+  registerIpcRoute(codexAccountReadContract, () => readCodexAccount(codexBridge()))
+  registerIpcRoute(codexAccountLoginStartContract, async (request) => {
+    const result = await startCodexLogin(codexBridge(), request)
+    const loginUrl =
+      result.type === "chatgpt"
+        ? result.authUrl
+        : result.type === "chatgptDeviceCode"
+          ? result.verificationUrl
+          : undefined
+    if (loginUrl) await shell.openExternal(loginUrl)
+    return result
+  })
+  registerIpcRoute(codexAccountLoginCancelContract, async ({ loginId }) => ({
+    cancelled: await cancelCodexLogin(codexBridge(), loginId),
+  }))
+  registerIpcRoute(codexAccountLogoutContract, async () => {
+    await logoutCodexAccount(codexBridge())
+    return { loggedOut: true }
+  })
+  registerIpcRoute(codexModelListContract, ({ includeHidden }) =>
+    listCodexModels(codexBridge(), includeHidden)
+  )
+  registerIpcRoute(codexModelSettingsReadContract, () => readCodexModelSettings(codexBridge()))
+  registerIpcRoute(codexModelSettingsWriteContract, (settings) =>
+    writeCodexModelSettings(codexBridge(), settings)
+  )
+  registerIpcRoute(codexThreadListContract, (options) => listCodexThreads(codexBridge(), options))
+  registerIpcRoute(codexChatStartContract, (request, event) => ({
+    requestId: startCodexChat(codexBridge(), event.sender, request),
+  }))
+  registerIpcRoute(codexChatInterruptContract, async ({ requestId }) => ({
+    interrupted: await interruptCodexChat(requestId),
+  }))
   registerIpcRoute(automationTaskCreateContract, (input) => context.automation.createTask(input))
   registerIpcRoute(automationTaskListContract, ({ status }) => context.automation.listTasks(status))
   registerIpcRoute(automationTaskGetContract, ({ taskId }) => context.automation.getTask(taskId))

@@ -19,6 +19,7 @@ import type {
 
 import type {
   ClientRequest,
+  CodexClientRequestParams,
   CodexJsonValue,
   CodexServerNotificationByMethod,
   ReasoningEffort,
@@ -30,7 +31,7 @@ import type {
 export type CodexAppServerProviderBridge = {
   request<M extends ClientRequest["method"], TResponse = CodexJsonValue>(
     method: M,
-    params: Extract<ClientRequest, { readonly method: M }>["params"],
+    params: CodexClientRequestParams<M>,
     options?: { readonly retryOnOverload?: boolean }
   ): Promise<TResponse>
   on(type: "notification", handler: (event: ServerNotification) => void): () => void

@@ -13,6 +13,31 @@ import {
   walletProviderResponseSchema,
 } from "@cypheria/wallet-provider"
 import { z } from "zod"
+import {
+  type CodexAccountView,
+  CodexAccountViewSchema,
+  type CodexChatEvent,
+  CodexChatInterruptSchema,
+  type CodexChatStart,
+  type CodexChatStartResult,
+  CodexChatStartResultSchema,
+  CodexChatStartSchema,
+  CodexLoginCancelSchema,
+  type CodexLoginRequest,
+  CodexLoginRequestSchema,
+  type CodexLoginResult,
+  CodexLoginResultSchema,
+  CodexModelListRequestSchema,
+  type CodexModelSettings,
+  CodexModelSettingsSchema,
+  type CodexModelView,
+  CodexModelViewSchema,
+  CodexThreadListRequestSchema,
+  type CodexThreadView,
+  CodexThreadViewSchema,
+} from "./codex.js"
+
+export * from "./codex.js"
 
 export const IPC_PROTOCOL_VERSION = 1
 
@@ -48,7 +73,18 @@ export const CYPHERIA_IPC_CHANNELS = {
   automationTaskPause: "automation.task.pause",
   automationTaskResume: "automation.task.resume",
   browserSessionOpen: "browser.session.open",
+  codexAccountLoginCancel: "codex.account.login.cancel",
+  codexAccountLoginStart: "codex.account.login.start",
+  codexAccountLogout: "codex.account.logout",
+  codexAccountRead: "codex.account.read",
+  codexChatEvent: "codex.chat.event",
+  codexChatInterrupt: "codex.chat.interrupt",
+  codexChatStart: "codex.chat.start",
   codexEvent: "codex.event",
+  codexModelList: "codex.model.list",
+  codexModelSettingsRead: "codex.model.settings.read",
+  codexModelSettingsWrite: "codex.model.settings.write",
+  codexThreadList: "codex.thread.list",
   dappProviderRequest: "dapp.provider.request",
   dappProviderEvent: "dapp.provider.event",
   runtimeInfoRead: "runtime.info.read",
@@ -601,6 +637,86 @@ export const settingsAppearanceFontsListContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<EmptyPayload, AppearanceFontOption[]>
 
+export const codexAccountReadContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexAccountRead,
+  namespace: "codex",
+  request: EmptyPayloadSchema,
+  response: CodexAccountViewSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, CodexAccountView>
+
+export const codexAccountLoginStartContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexAccountLoginStart,
+  namespace: "codex",
+  request: CodexLoginRequestSchema,
+  response: CodexLoginResultSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<CodexLoginRequest, CodexLoginResult>
+
+export const codexAccountLoginCancelContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexAccountLoginCancel,
+  namespace: "codex",
+  request: CodexLoginCancelSchema,
+  response: z.object({ cancelled: z.boolean() }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ loginId: string }, { cancelled: boolean }>
+
+export const codexAccountLogoutContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexAccountLogout,
+  namespace: "codex",
+  request: EmptyPayloadSchema,
+  response: z.object({ loggedOut: z.boolean() }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, { loggedOut: boolean }>
+
+export const codexModelListContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexModelList,
+  namespace: "codex",
+  request: CodexModelListRequestSchema,
+  response: z.array(CodexModelViewSchema),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ includeHidden?: boolean }, CodexModelView[]>
+
+export const codexModelSettingsReadContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexModelSettingsRead,
+  namespace: "codex",
+  request: EmptyPayloadSchema,
+  response: CodexModelSettingsSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, CodexModelSettings>
+
+export const codexModelSettingsWriteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexModelSettingsWrite,
+  namespace: "codex",
+  request: CodexModelSettingsSchema,
+  response: CodexModelSettingsSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<CodexModelSettings, CodexModelSettings>
+
+export const codexThreadListContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexThreadList,
+  namespace: "codex",
+  request: CodexThreadListRequestSchema,
+  response: z.array(CodexThreadViewSchema),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ archived?: boolean; searchTerm?: string }, CodexThreadView[]>
+
+export const codexChatStartContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexChatStart,
+  namespace: "codex",
+  request: CodexChatStartSchema,
+  response: CodexChatStartResultSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<CodexChatStart, CodexChatStartResult>
+
+export const codexChatInterruptContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexChatInterrupt,
+  namespace: "codex",
+  request: CodexChatInterruptSchema,
+  response: z.object({ interrupted: z.boolean() }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ requestId: string }, { interrupted: boolean }>
+
 export const ipcContracts = {
   appHealthCheck: appHealthCheckContract,
   appMetadataRead: appMetadataReadContract,
@@ -615,6 +731,16 @@ export const ipcContracts = {
   automationTaskPause: automationTaskPauseContract,
   automationTaskResume: automationTaskResumeContract,
   browserSessionOpen: browserSessionOpenContract,
+  codexAccountLoginCancel: codexAccountLoginCancelContract,
+  codexAccountLoginStart: codexAccountLoginStartContract,
+  codexAccountLogout: codexAccountLogoutContract,
+  codexAccountRead: codexAccountReadContract,
+  codexChatInterrupt: codexChatInterruptContract,
+  codexChatStart: codexChatStartContract,
+  codexModelList: codexModelListContract,
+  codexModelSettingsRead: codexModelSettingsReadContract,
+  codexModelSettingsWrite: codexModelSettingsWriteContract,
+  codexThreadList: codexThreadListContract,
   dappProviderRequest: dappProviderRequestContract,
   runtimeInfoRead: runtimeInfoReadContract,
   settingsAppearanceFontsList: settingsAppearanceFontsListContract,
@@ -632,7 +758,21 @@ export type CypheriaPreloadApi = {
     readonly getMetadata: () => Promise<AppMetadata>
   }
   readonly codex: {
+    readonly cancelLogin: (loginId: string) => Promise<{ cancelled: boolean }>
+    readonly getAccount: () => Promise<CodexAccountView>
+    readonly getModelSettings: () => Promise<CodexModelSettings>
+    readonly interruptChat: (requestId: string) => Promise<{ interrupted: boolean }>
+    readonly listModels: (includeHidden?: boolean) => Promise<CodexModelView[]>
+    readonly listThreads: (options?: {
+      archived?: boolean
+      searchTerm?: string
+    }) => Promise<CodexThreadView[]>
+    readonly login: (request: CodexLoginRequest) => Promise<CodexLoginResult>
+    readonly logout: () => Promise<{ loggedOut: boolean }>
+    readonly onChatEvent: (handler: (event: CodexChatEvent) => void) => () => void
     readonly onEvent: (handler: (event: CodexEventEnvelope) => void) => () => void
+    readonly setModelSettings: (settings: CodexModelSettings) => Promise<CodexModelSettings>
+    readonly startChat: (request: CodexChatStart) => Promise<CodexChatStartResult>
   }
   readonly browser: {
     readonly openDapp: (url: string) => Promise<BrowserSessionOpenResult>

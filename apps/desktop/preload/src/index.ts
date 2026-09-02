@@ -7,6 +7,7 @@ import type {
   AppMetadata,
   AutomationTaskView,
   BrowserSessionOpenResult,
+  CodexChatEvent,
   CodexEventEnvelope,
   CypheriaPreloadApi,
   RuntimeInfo,
@@ -74,6 +75,29 @@ const cypheriaApi: CypheriaPreloadApi = {
       }) as Promise<BrowserSessionOpenResult>,
   },
   codex: {
+    cancelLogin: (loginId) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAccountLoginCancel, { loginId }),
+    getAccount: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAccountRead),
+    getModelSettings: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexModelSettingsRead),
+    interruptChat: (requestId) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexChatInterrupt, { requestId }),
+    listModels: (includeHidden) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexModelList, {
+        ...(includeHidden === undefined ? {} : { includeHidden }),
+      }),
+    listThreads: (options = {}) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadList, options),
+    login: (request) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAccountLoginStart, request),
+    logout: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAccountLogout),
+    onChatEvent: (handler) => {
+      const listener = (_event: IpcRendererEvent, chatEvent: CodexChatEvent): void => {
+        handler(chatEvent)
+      }
+      ipcRenderer.on(CYPHERIA_IPC_CHANNELS.codexChatEvent, listener)
+      return () => {
+        ipcRenderer.off(CYPHERIA_IPC_CHANNELS.codexChatEvent, listener)
+      }
+    },
     onEvent: (handler) => {
       const listener = (_event: IpcRendererEvent, envelope: CodexEventEnvelope): void => {
         handler(envelope)
@@ -83,6 +107,9 @@ const cypheriaApi: CypheriaPreloadApi = {
         ipcRenderer.off(CYPHERIA_IPC_CHANNELS.codexEvent, listener)
       }
     },
+    setModelSettings: (settings) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexModelSettingsWrite, settings),
+    startChat: (request) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexChatStart, request),
   },
   runtime: {
     getInfo: () => invoke<RuntimeInfo>(CYPHERIA_IPC_CHANNELS.runtimeInfoRead),
