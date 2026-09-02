@@ -110,6 +110,7 @@ Desktop keeps Electron + TanStack Start.
 | Main process | TypeScript built with tsdown |
 | Preload | TypeScript built with tsdown |
 | Renderer | TanStack Start built with Vite |
+| Production renderer transport | privileged standard `cypheria://` Electron protocol with SPA fallback |
 | IPC | Zod-validated contracts local to `apps/desktop/ipc` |
 | Renderer state | Jotai + TanStack Query |
 | UI primitives | `@cypheria/ui` |
@@ -129,6 +130,8 @@ Electron browser defaults:
 ```
 
 Renderer code uses typed IPC only. Electron main owns privileged services and Codex App Server lifecycle.
+
+The desktop main bundle leaves `@libsql/client` and its platform packages external so Electron loads the matching native binary at runtime. `build:main` copies the committed Drizzle migrations into `dist/drizzle`; packaged startup therefore uses the same migration source as tests and development. Electron user/session data is rooted under `$CYPHERIA_HOME/browser` before the application becomes ready.
 
 ## Codex Integration
 
@@ -176,7 +179,7 @@ The complete shadcn component set for the `base-mira` preset is installed in `pa
 
 The complete AI Elements registry is vendored in `packages/ui/src/components/ai-elements` and exported through `@cypheria/ui/ai-elements/<name>`. See [AI Elements Integration And Upgrade Guide](./ai-elements.md) for the regeneration procedure and the compatibility adaptations required by Base UI, NodeNext, strict TypeScript, React 19, and AI SDK 7.
 
-The desktop renderer uses `@ai-sdk/react` for chat state and a custom `ChatTransport` backed by typed Electron IPC. Electron main uses the `@cypheria/codex-bridge` `ProviderV4` adapter and converts App Server output into AI SDK UI-message chunks. Heavy interactive route shells are client-only because Electron ships the SPA output and does not execute the TanStack Start server bundle at runtime.
+The desktop renderer uses `@ai-sdk/react` for chat state and a custom `ChatTransport` backed by typed Electron IPC. Electron main uses the `@cypheria/codex-bridge` `ProviderV4` adapter and converts App Server output into AI SDK UI-message chunks. Heavy interactive route shells are client-only because Electron ships the SPA output through `cypheria://` and does not execute the TanStack Start server bundle at runtime.
 
 | Category | Choice |
 | --- | --- |

@@ -124,6 +124,11 @@ Status legend:
   - Exclude: generic custom providers and OpenCodex integration until the provider strategy is decided.
   - Verification: `pnpm run ci`, `pnpm build`, and `pnpm --filter @cypheria/desktop test`.
 
+- [x] Complete the desktop Web3 management loop and production renderer startup.
+  - Acceptance: wallet creation/import/watch management, active account context, vault lock state, signing policies, pending approval decisions, and audit records are usable through typed IPC-backed screens.
+  - Include: OS-backed desktop vault key storage, one-shot secret submission without renderer persistence, pending counts in the sidebar, packaged SPA routing through the privileged `cypheria://` scheme, bundled libSQL native resolution, and copied database migrations.
+  - Verification: all workspace tests, `pnpm run ci`, `pnpm build`, and real Electron smoke checks of the task workspace and wallet route.
+
 ## Runtime Web3 Capabilities
 
 - [x] Adopt Drizzle with libSQL as the local database adapter and specify the wallet architecture.
