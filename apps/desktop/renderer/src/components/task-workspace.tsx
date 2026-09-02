@@ -142,17 +142,16 @@ export default function TaskWorkspace() {
           </div>
           <div className="flex items-center gap-1">
             <Button
+              nativeButton={false}
               render={
                 <a href="/settings/models">
-                  <span className="sr-only">Model settings</span>
+                  <Settings aria-hidden="true" size={14} />
+                  Models
                 </a>
               }
               size="sm"
               variant="ghost"
-            >
-              <Settings aria-hidden="true" size={14} />
-              Models
-            </Button>
+            />
             <Button aria-label="Close workspace panel" size="icon" variant="ghost">
               <PanelRightClose aria-hidden="true" size={16} />
             </Button>

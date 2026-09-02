@@ -8,17 +8,16 @@ export function WorkbenchFrame({ children }: Readonly<{ children: ReactNode }>) 
       <div className="mx-auto grid max-w-5xl gap-6">
         <Button
           className="justify-self-start"
+          nativeButton={false}
           render={
             <a href="/">
-              <span className="sr-only">Back to workspace</span>
+              <ArrowLeft className="size-4" />
+              Workspace
             </a>
           }
           size="sm"
           variant="ghost"
-        >
-          <ArrowLeft className="size-4" />
-          Workspace
-        </Button>
+        />
         {children}
       </div>
     </main>

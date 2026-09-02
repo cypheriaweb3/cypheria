@@ -1,10 +1,13 @@
-import { dirname, join } from "node:path"
-import { fileURLToPath } from "node:url"
+import { existsSync } from "node:fs"
+import { mkdir } from "node:fs/promises"
+import { dirname, join, relative, resolve } from "node:path"
+import { fileURLToPath, pathToFileURL } from "node:url"
+import { buildRuntimePaths } from "@cypheria/runtime"
 import {
   type WalletProviderResponse,
   walletProviderResponseSchema,
 } from "@cypheria/wallet-provider"
-import { app, BrowserWindow, nativeTheme, shell } from "electron"
+import { app, BrowserWindow, nativeTheme, net, protocol, shell } from "electron"
 import {
   type AppearanceSettings,
   type AppearanceSettingsWrite,
@@ -101,6 +104,20 @@ let dappBrowserController: DappBrowserController | null = null
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const preloadPath = join(currentDir, "../preload/index.cjs")
 const dappPreloadPath = join(currentDir, "../dapp-preload/index.cjs")
+const rendererShellPath = join(currentDir, "../client/_shell.html")
+const rendererClientDir = dirname(rendererShellPath)
+
+protocol.registerSchemesAsPrivileged([
+  {
+    privileges: {
+      corsEnabled: true,
+      secure: true,
+      standard: true,
+      supportFetchAPI: true,
+    },
+    scheme: "cypheria",
+  },
+])
 
 const logFatalError = (error: unknown): void => {
   console.error("[cypheria:desktop] fatal error", error)
@@ -175,6 +192,17 @@ const buildPlaceholderHtml = (context: DesktopRuntimeContext): string => `<!doct
 const getRendererUrl = (): string | undefined => {
   const rendererUrl = process.env.CYPHERIA_RENDERER_URL?.trim()
   return rendererUrl ? rendererUrl : undefined
+}
+
+const registerRendererProtocol = (): void => {
+  protocol.handle("cypheria", (request) => {
+    const pathname = decodeURIComponent(new URL(request.url).pathname)
+    const requestedPath = pathname === "/" ? "_shell.html" : pathname.replace(/^\/+/, "")
+    const candidate = resolve(rendererClientDir, requestedPath)
+    const isWithinRenderer = !relative(rendererClientDir, candidate).startsWith("..")
+    const target = isWithinRenderer && existsSync(candidate) ? candidate : rendererShellPath
+    return net.fetch(pathToFileURL(target).toString())
+  })
 }
 
 const toRuntimeInfo = async (context: DesktopRuntimeContext): Promise<RuntimeInfo> => {
@@ -458,10 +486,16 @@ const createMainWindow = async (context: DesktopRuntimeContext): Promise<Browser
   const rendererUrl = getRendererUrl()
   if (rendererUrl) {
     await window.loadURL(rendererUrl)
+  } else if (existsSync(rendererShellPath)) {
+    await window.loadURL("cypheria://app/")
   } else {
     await window.loadURL(
       `data:text/html;charset=utf-8,${encodeURIComponent(buildPlaceholderHtml(context))}`
     )
+  }
+
+  if (!window.isVisible()) {
+    window.show()
   }
 
   return window
@@ -511,6 +545,10 @@ const registerLifecycleHandlers = (): void => {
 }
 
 const startDesktopApp = async (): Promise<void> => {
+  const runtimePaths = buildRuntimePaths()
+  await mkdir(runtimePaths.browserDir, { recursive: true })
+  app.setPath("userData", runtimePaths.browserDir)
+
   if (!app.requestSingleInstanceLock()) {
     app.quit()
     return
@@ -519,6 +557,7 @@ const startDesktopApp = async (): Promise<void> => {
   registerLifecycleHandlers()
 
   await app.whenReady()
+  registerRendererProtocol()
   desktopRuntimeContext = await initializeDesktopRuntime({
     clientVersion: app.getVersion(),
     codexAppServer: {
@@ -526,7 +565,6 @@ const startDesktopApp = async (): Promise<void> => {
       windows: () => BrowserWindow.getAllWindows(),
     },
   })
-  app.setPath("sessionData", desktopRuntimeContext.paths.browserDir)
   registerIpcHandlers(desktopRuntimeContext)
   mainWindow = await createMainWindow(desktopRuntimeContext)
 }

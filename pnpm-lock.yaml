@@ -57,6 +57,9 @@ importers:
       '@cypheria/wallet-provider':
         specifier: workspace:*
         version: link:../../packages/wallet-provider
+      '@libsql/client':
+        specifier: ^0.17.4
+        version: 0.17.4
       '@openai/codex':
         specifier: 0.151.0
         version: 0.151.0

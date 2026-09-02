@@ -15,53 +15,49 @@ export function SettingsFrame({
       <div className="mx-auto grid max-w-3xl gap-6">
         <nav className="flex flex-wrap items-center gap-2">
           <Button
+            nativeButton={false}
             render={
               <a href="/">
-                <span className="sr-only">Workspace</span>
+                <ArrowLeft className="size-4" />
+                Workspace
               </a>
             }
             size="sm"
             variant="ghost"
-          >
-            <ArrowLeft className="size-4" />
-            Workspace
-          </Button>
+          />
           <Button
+            nativeButton={false}
             render={
               <a href="/settings/models">
-                <span className="sr-only">Models</span>
+                <Bot className="size-4" />
+                Models
               </a>
             }
             size="sm"
             variant={itemVariant("models")}
-          >
-            <Bot className="size-4" />
-            Models
-          </Button>
+          />
           <Button
+            nativeButton={false}
             render={
               <a href="/settings/account">
-                <span className="sr-only">Account</span>
+                <LogIn className="size-4" />
+                Account
               </a>
             }
             size="sm"
             variant={itemVariant("account")}
-          >
-            <LogIn className="size-4" />
-            Account
-          </Button>
+          />
           <Button
+            nativeButton={false}
             render={
               <a href="/settings/appearance">
-                <span className="sr-only">Appearance</span>
+                <Palette className="size-4" />
+                Appearance
               </a>
             }
             size="sm"
             variant={itemVariant("appearance")}
-          >
-            <Palette className="size-4" />
-            Appearance
-          </Button>
+          />
         </nav>
         {children}
       </div>

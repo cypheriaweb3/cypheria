@@ -7,7 +7,7 @@
   "scripts": {
     "build": "pnpm build:main && pnpm build:preload && pnpm build:dapp-preload && pnpm build:renderer && pnpm typecheck",
     "build:dapp-preload": "tsdown --config tsdown.dapp-preload.config.mjs",
-    "build:main": "tsdown --config tsdown.config.mjs",
+    "build:main": "tsdown --config tsdown.config.mjs && node scripts/copy-db-migrations.mjs",
     "build:preload": "tsdown --config tsdown.preload.config.mjs",
     "build:renderer": "vite build --config vite.config.ts",
     "check": "pnpm typecheck",
@@ -27,6 +27,7 @@
     "@cypheria/ui": "workspace:*",
     "@cypheria/wallet-core": "workspace:*",
     "@cypheria/wallet-provider": "workspace:*",
+    "@libsql/client": "^0.17.4",
     "@openai/codex": "0.151.0",
     "@solana/wallet-standard-chains": "^1.1.2",
     "@tailwindcss/vite": "^4.3.0",

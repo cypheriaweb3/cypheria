@@ -169,6 +169,7 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         className="h-screen w-screen overflow-hidden bg-background"
         data-platform={platform}
         style={{ "--sidebar-width": "288px", "--sidebar-width-icon": "52px" } as CSSProperties}
+        suppressHydrationWarning
       >
         <Sidebar className="border-r border-sidebar-border" collapsible="icon">
           <SidebarHeader className={windowControlRowClassName}>
@@ -203,19 +204,17 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                       <SidebarMenuButton
                         render={
                           <a href={item.href}>
-                            <span className="sr-only">{item.label}</span>
+                            {item.icon}
+                            <span>{item.label}</span>
+                            {item.href === "/approvals" && approvalsQuery.data?.length ? (
+                              <span className="ml-auto rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
+                                {approvalsQuery.data.length}
+                              </span>
+                            ) : null}
                           </a>
                         }
                         tooltip={item.label}
-                      >
-                        {item.icon}
-                        <span>{item.label}</span>
-                        {item.href === "/approvals" && approvalsQuery.data?.length ? (
-                          <span className="ml-auto rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
-                            {approvalsQuery.data.length}
-                          </span>
-                        ) : null}
-                      </SidebarMenuButton>
+                      />
                     </SidebarMenuItem>
                   ))}
                 </SidebarMenu>
@@ -247,14 +246,12 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                       <SidebarMenuButton
                         render={
                           <a href={item.href}>
-                            <span className="sr-only">{item.label}</span>
+                            {item.icon}
+                            <span>{item.label}</span>
                           </a>
                         }
                         tooltip={item.label}
-                      >
-                        {item.icon}
-                        <span>{item.label}</span>
-                      </SidebarMenuButton>
+                      />
                     </SidebarMenuItem>
                   ))}
                 </SidebarMenu>
@@ -300,20 +297,18 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                       <SidebarMenuButton
                         render={
                           <a href={`/?thread=${encodeURIComponent(thread.id)}`}>
-                            <span className="sr-only">{thread.title}</span>
+                            <span
+                              className={cn(
+                                "size-1.5 shrink-0 rounded-full bg-muted-foreground/45",
+                                thread.status === "active" && "animate-pulse bg-primary",
+                                thread.status === "systemError" && "bg-destructive"
+                              )}
+                            />
+                            <span className="truncate">{thread.title}</span>
                           </a>
                         }
                         tooltip={thread.title}
-                      >
-                        <span
-                          className={cn(
-                            "size-1.5 shrink-0 rounded-full bg-muted-foreground/45",
-                            thread.status === "active" && "animate-pulse bg-primary",
-                            thread.status === "systemError" && "bg-destructive"
-                          )}
-                        />
-                        <span className="truncate">{thread.title}</span>
-                      </SidebarMenuButton>
+                      />
                     </SidebarMenuItem>
                   ))}
                   {recentThreads.length === 0 ? (
@@ -330,14 +325,12 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 <SidebarMenuButton
                   render={
                     <a href="/settings/models">
-                      <span className="sr-only">Settings</span>
+                      <Settings aria-hidden="true" size={16} strokeWidth={1.9} />
+                      <span>Settings</span>
                     </a>
                   }
                   tooltip="Settings"
-                >
-                  <Settings aria-hidden="true" size={16} strokeWidth={1.9} />
-                  <span>Settings</span>
-                </SidebarMenuButton>
+                />
               </SidebarMenuItem>
             </SidebarMenu>
             <ThemeModeButton />

@@ -4,7 +4,7 @@ export default defineConfig({
   clean: true,
   deps: {
     alwaysBundle: [/^@cypheria\//],
-    neverBundle: ["electron"],
+    neverBundle: ["electron", "@libsql/client", /^@libsql\//, "libsql"],
     onlyBundle: false,
   },
   entry: ["main/src/index.ts"],

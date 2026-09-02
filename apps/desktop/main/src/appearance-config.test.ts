@@ -316,6 +316,10 @@ approval_policy = "on-request"
       expect(settings.configPath).toBe(configPath)
       expect(toml).toContain("[desktop]")
       expect(toml).toContain('appearanceTheme = "system"')
+      expect(toml).toContain(
+        '[desktop]\nappearanceTheme = "system"\nappearanceLightCodeThemeId = "codex"'
+      )
+      expect(toml).not.toContain('",appearance')
       expect(toml).toContain("[desktop.appearanceLightChromeTheme]")
       expect(toml).toContain("[desktop.appearanceDarkChromeTheme]")
     } finally {

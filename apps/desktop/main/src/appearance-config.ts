@@ -435,8 +435,8 @@ const mergeDesktopAppearanceKeysIntoToml = (
   }
 
   return stripped
-    ? `${stripped}\n\n[${desktopSection}]\n${renderedKeys}`
-    : `[${desktopSection}]\n${renderedKeys}`
+    ? `${stripped}\n\n[${desktopSection}]\n${renderedKeys.join("\n")}`
+    : `[${desktopSection}]\n${renderedKeys.join("\n")}`
 }
 
 const renderFontFace = (

@@ -213,16 +213,15 @@ function DeviceCodeFlow({
         <div className="flex gap-2">
           {flow.verificationUrl ? (
             <Button
+              nativeButton={false}
               render={
-                <a href={flow.verificationUrl} target="_blank" rel="noreferrer">
-                  <span className="sr-only">Open verification page</span>
+                <a href={flow.verificationUrl} rel="noreferrer" target="_blank">
+                  <ExternalLink className="size-4" />
+                  Open verification page
                 </a>
               }
               variant="outline"
-            >
-              <ExternalLink className="size-4" />
-              Open verification page
-            </Button>
+            />
           ) : null}
           <Button variant="ghost" onClick={() => cancel.mutate()}>
             Cancel
