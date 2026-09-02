@@ -90,7 +90,7 @@ describe("Cypheria UI primitives", () => {
       {
         codeFontSize: 99,
         reducedMotionPreference: "system",
-        sansFontSize: 4,
+        uiFontSize: 4,
         useFontSmoothing: false,
         usePointerCursors: true,
       },

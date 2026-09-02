@@ -193,41 +193,24 @@ export type AppearanceChromeTheme = z.infer<typeof AppearanceChromeThemeSchema>
 
 export const AppearanceSettingsSchema = z
   .object({
-    appearanceTheme: AppearanceThemeModeSchema,
+    theme: AppearanceThemeModeSchema,
+    lightThemeId: AppearanceCodeThemeIdSchema,
+    darkThemeId: AppearanceCodeThemeIdSchema,
+    lightTheme: AppearanceChromeThemeSchema,
+    darkTheme: AppearanceChromeThemeSchema,
+    uiFontSize: z.number().min(11).max(16),
     codeFontSize: z.number().min(8).max(24),
-    codeThemes: z
-      .object({
-        dark: AppearanceCodeThemeIdSchema,
-        light: AppearanceCodeThemeIdSchema,
-      })
-      .strict(),
-    configPath: z.string().min(1),
     diffMarkerStyle: AppearanceDiffMarkerStyleSchema,
     reducedMotionPreference: AppearanceReducedMotionPreferenceSchema,
-    sansFontSize: z.number().min(11).max(16),
-    themes: z
-      .object({
-        dark: AppearanceChromeThemeSchema,
-        light: AppearanceChromeThemeSchema,
-      })
-      .strict(),
     useFontSmoothing: z.boolean(),
     usePointerCursors: z.boolean(),
+    configPath: z.string().min(1),
   })
   .strict()
 export type AppearanceSettings = z.infer<typeof AppearanceSettingsSchema>
-export type AppearanceSettingsWrite = Pick<
-  AppearanceSettings,
-  | "appearanceTheme"
-  | "codeFontSize"
-  | "codeThemes"
-  | "diffMarkerStyle"
-  | "reducedMotionPreference"
-  | "sansFontSize"
-  | "themes"
-  | "useFontSmoothing"
-  | "usePointerCursors"
->
+export const AppearanceSettingsWriteSchema = AppearanceSettingsSchema.omit({ configPath: true })
+export type AppearanceSettingsWrite = z.infer<typeof AppearanceSettingsWriteSchema>
+export const CYPHERIA_APPEARANCE_ARGUMENT_PREFIX = "--cypheria-appearance="
 
 export const AppearanceFontFaceSchema = z
   .object({
@@ -605,17 +588,7 @@ export const settingsAppearanceReadContract = {
 export const settingsAppearanceWriteContract = {
   channel: CYPHERIA_IPC_CHANNELS.settingsAppearanceWrite,
   namespace: "settings",
-  request: AppearanceSettingsSchema.pick({
-    appearanceTheme: true,
-    codeFontSize: true,
-    codeThemes: true,
-    diffMarkerStyle: true,
-    reducedMotionPreference: true,
-    sansFontSize: true,
-    themes: true,
-    useFontSmoothing: true,
-    usePointerCursors: true,
-  }),
+  request: AppearanceSettingsWriteSchema,
   response: AppearanceSettingsSchema,
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<AppearanceSettingsWrite, AppearanceSettings>
@@ -650,6 +623,9 @@ export const ipcContracts = {
 } as const
 
 export type CypheriaPreloadApi = {
+  readonly bootstrap: {
+    readonly appearance: AppearanceSettingsWrite
+  }
   readonly app: {
     readonly platform: NodeJS.Platform
     readonly getHealth: () => Promise<AppHealthStatus>

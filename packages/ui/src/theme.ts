@@ -92,7 +92,7 @@ export interface CodexAppearanceThemeSettings {
 export interface CodexAppearancePreferences {
   readonly codeFontSize: number
   readonly reducedMotionPreference: "off" | "on" | "system"
-  readonly sansFontSize: number
+  readonly uiFontSize: number
   readonly useFontSmoothing: boolean
   readonly usePointerCursors: boolean
 }
@@ -359,7 +359,7 @@ export function applyCodexAppearancePreferencesToElement(
   preferences: CodexAppearancePreferences,
   rootElement: HTMLElement
 ) {
-  rootElement.style.setProperty("--font-sans-size", `${clamp(preferences.sansFontSize, 11, 16)}px`)
+  rootElement.style.setProperty("--font-sans-size", `${clamp(preferences.uiFontSize, 11, 16)}px`)
   rootElement.style.setProperty("--font-mono-size", `${clamp(preferences.codeFontSize, 8, 24)}px`)
   rootElement.dataset.cypheriaFontSmoothing = String(preferences.useFontSmoothing)
   rootElement.dataset.cypheriaPointerCursors = String(preferences.usePointerCursors)

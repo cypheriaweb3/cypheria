@@ -70,7 +70,3 @@ export {
   mapCodexAppearanceToCypheriaThemeState,
   mapCodexChromeThemeToCypheriaThemeStyles,
 } from "./theme.js"
-export {
-  CypheriaThemeProvider,
-  useCypheriaTheme,
-} from "./theme-provider.js"

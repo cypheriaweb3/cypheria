@@ -4,8 +4,10 @@ import {
   type WalletProviderResponse,
   walletProviderResponseSchema,
 } from "@cypheria/wallet-provider"
-import { app, BrowserWindow } from "electron"
+import { app, BrowserWindow, nativeTheme } from "electron"
 import {
+  type AppearanceSettings,
+  type AppearanceSettingsWrite,
   type AppHealthStatus,
   type AppMetadata,
   appHealthCheckContract,
@@ -19,6 +21,7 @@ import {
   automationTaskPauseContract,
   automationTaskResumeContract,
   browserSessionOpenContract,
+  CYPHERIA_APPEARANCE_ARGUMENT_PREFIX,
   dappProviderRequestContract,
   IPC_PROTOCOL_VERSION,
   type RuntimeInfo,
@@ -44,6 +47,7 @@ import { listSystemFonts } from "./system-fonts.js"
 
 let mainWindow: BrowserWindow | null = null
 let desktopRuntimeContext: DesktopRuntimeContext | null = null
+let currentAppearanceSettings: AppearanceSettings | null = null
 
 const getCodexCommand = (): string =>
   resolveCodexCommand({
@@ -192,14 +196,70 @@ const registerIpcHandlers = (context: DesktopRuntimeContext): void => {
     readAppearanceSettings(context.paths.codexHome)
   )
   registerIpcRoute(settingsAppearanceFontsListContract, () => listSystemFonts())
-  registerIpcRoute(settingsAppearanceWriteContract, (settings) =>
-    writeAppearanceSettings(context.paths.codexHome, settings)
-  )
+  registerIpcRoute(settingsAppearanceWriteContract, async (settings) => {
+    const savedSettings = await writeAppearanceSettings(context.paths.codexHome, settings)
+    currentAppearanceSettings = savedSettings
+    applyNativeAppearance(mainWindow, savedSettings)
+    return savedSettings
+  })
+}
+
+const toAppearanceBootstrap = (settings: AppearanceSettings): AppearanceSettingsWrite => {
+  const { configPath: _, ...appearance } = settings
+  return appearance
+}
+
+const resolveNativeThemeMode = (settings: AppearanceSettings): "dark" | "light" => {
+  if (settings.theme !== "system") {
+    return settings.theme
+  }
+  return nativeTheme.shouldUseDarkColors ? "dark" : "light"
+}
+
+const getActiveChromeTheme = (settings: AppearanceSettings) =>
+  resolveNativeThemeMode(settings) === "dark" ? settings.darkTheme : settings.lightTheme
+
+const applyNativeAppearance = (
+  window: BrowserWindow | null,
+  settings: AppearanceSettings
+): void => {
+  nativeTheme.themeSource = settings.theme
+  if (!window || window.isDestroyed()) {
+    return
+  }
+
+  const activeTheme = getActiveChromeTheme(settings)
+  window.setBackgroundColor(activeTheme.surface)
+  if (process.platform === "win32") {
+    window.setTitleBarOverlay({ color: activeTheme.surface, symbolColor: activeTheme.ink })
+  }
+}
+
+const refreshNativeWindowChrome = (): void => {
+  if (!currentAppearanceSettings || !mainWindow || mainWindow.isDestroyed()) {
+    return
+  }
+
+  const activeTheme = getActiveChromeTheme(currentAppearanceSettings)
+  mainWindow.setBackgroundColor(activeTheme.surface)
+  if (process.platform === "win32") {
+    mainWindow.setTitleBarOverlay({ color: activeTheme.surface, symbolColor: activeTheme.ink })
+  }
 }
 
 const createMainWindow = async (context: DesktopRuntimeContext): Promise<BrowserWindow> => {
+  const appearance = await readAppearanceSettings(context.paths.codexHome)
+  currentAppearanceSettings = appearance
+  nativeTheme.themeSource = appearance.theme
+  const activeTheme = getActiveChromeTheme(appearance)
+  const appearanceArgument = `${CYPHERIA_APPEARANCE_ARGUMENT_PREFIX}${encodeURIComponent(
+    JSON.stringify(toAppearanceBootstrap(appearance))
+  )}`
   const window = new BrowserWindow({
-    backgroundColor: "#f8f8f7",
+    backgroundColor: activeTheme.surface,
+    ...(process.platform === "linux"
+      ? { darkTheme: resolveNativeThemeMode(appearance) === "dark" }
+      : {}),
     height: 860,
     minHeight: 640,
     minWidth: 960,
@@ -212,15 +272,18 @@ const createMainWindow = async (context: DesktopRuntimeContext): Promise<Browser
       : process.platform === "win32"
         ? {
             titleBarOverlay: {
-              color: "#f3f3f1",
-              symbolColor: "#575757",
+              color: activeTheme.surface,
+              symbolColor: activeTheme.ink,
             },
             titleBarStyle: "hidden" as const,
           }
         : {}),
     title: "Cypheria",
     webPreferences: {
+      additionalArguments: [appearanceArgument],
       contextIsolation: true,
+      defaultFontSize: appearance.uiFontSize,
+      defaultMonospaceFontSize: appearance.codeFontSize,
       nodeIntegration: false,
       preload: preloadPath,
       sandbox: true,
@@ -275,6 +338,8 @@ const createMainWindow = async (context: DesktopRuntimeContext): Promise<Browser
 }
 
 const registerLifecycleHandlers = (): void => {
+  nativeTheme.on("updated", refreshNativeWindowChrome)
+
   app.on("second-instance", () => {
     if (!mainWindow) {
       return

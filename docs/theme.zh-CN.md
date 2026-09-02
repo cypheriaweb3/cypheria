@@ -34,10 +34,26 @@ sections 保存可编辑的 light/dark chrome themes：
 Electron main 通过 typed IPC 负责读写这些 TOML keys。写入时会保留无关配置，只替换
 受管理的 `[desktop]` appearance keys 和受管理的 chrome theme sections。
 
+Cypheria 的 `AppearanceSettings` 使用简洁的应用层命名，同时 TOML adapter 保持 Codex
+原始名称不变：
+
+| `AppearanceSettings` | Codex config |
+| --- | --- |
+| `theme` | `appearanceTheme` |
+| `lightThemeId` | `appearanceLightCodeThemeId` |
+| `darkThemeId` | `appearanceDarkCodeThemeId` |
+| `lightTheme` | `desktop.appearanceLightChromeTheme` |
+| `darkTheme` | `desktop.appearanceDarkChromeTheme` |
+| `uiFontSize` | `sansFontSize` |
+
 ## Runtime Flow
 
-启动时，renderer 通过 IPC 读取 appearance settings。IPC 不可用时，例如普通 browser
-preview，renderer 会回退到本地默认 theme state。
+Electron main 在创建主窗口前读取 appearance config，并据此配置 native theme、窗口
+初始背景、title-bar colors，以及 Chromium 默认的 UI/code font sizes。序列化后的
+appearance 通过 bootstrap argument 传给 preload，再由 typed preload API 暴露。
+Renderer 在 React hydration 前应用该 bootstrap value，并将其作为内存 Jotai atom 的
+初始值，随后通过 IPC 刷新同一个 atom。Theme hooks 和 preferences hooks 都从这个
+单一 appearance state 派生；不再使用 localStorage。
 
 `appearanceTheme = "system"` 在 renderer 中通过 `prefers-color-scheme` 解析为实际
 mode，并在系统偏好变化时更新。Tailwind 和 shadcn 只接收解析后的 mode：root

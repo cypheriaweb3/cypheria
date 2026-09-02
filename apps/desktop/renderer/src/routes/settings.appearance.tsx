@@ -1,5 +1,4 @@
 import {
-  applyCodexAppearancePreferencesToElement,
   type CodexAppearanceThemeSettings,
   type CodexChromeTheme,
   type CodexCodeThemeId,
@@ -8,8 +7,6 @@ import {
   defaultCodexAppearanceThemeSettings,
   getCodexCodeThemeOptionsForMode,
   getCodexCodeThemePresetVariant,
-  mapCodexAppearanceToCypheriaThemeState,
-  useCypheriaTheme,
 } from "@cypheria/ui"
 import { Input } from "@cypheria/ui/components/input"
 import {
@@ -31,6 +28,7 @@ import {
   useRef,
   useState,
 } from "react"
+import { useAppearance } from "../appearance.js"
 
 export const Route = createFileRoute("/settings/appearance")({
   component: AppearanceRoute,
@@ -66,17 +64,16 @@ const appearanceModes = [
 ] as const
 
 const fallbackAppearanceSettings = {
-  appearanceTheme: "system",
+  theme: "system",
+  lightThemeId: "codex",
+  darkThemeId: "codex",
+  lightTheme: defaultCodexAppearanceThemeSettings.light,
+  darkTheme: defaultCodexAppearanceThemeSettings.dark,
+  uiFontSize: 14,
   codeFontSize: 13,
-  codeThemes: {
-    dark: "codex",
-    light: "codex",
-  },
   configPath: "Browser preview",
   diffMarkerStyle: "color",
   reducedMotionPreference: "system",
-  sansFontSize: 14,
-  themes: defaultCodexAppearanceThemeSettings,
   useFontSmoothing: true,
   usePointerCursors: false,
 } as const
@@ -94,7 +91,7 @@ declare global {
 
 function AppearanceRoute() {
   const queryClient = useQueryClient()
-  const { setMode, setThemeState, themeState } = useCypheriaTheme()
+  const { syncAppearance } = useAppearance()
   const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>("system")
   const [codeFontSize, setCodeFontSize] = useState(13)
   const [diffMarkerStyle, setDiffMarkerStyle] = useState<DiffMarkerStyle>("color")
@@ -103,10 +100,9 @@ function AppearanceRoute() {
     CodexCodeThemeId
   > | null>(null)
   const [draftThemes, setDraftThemes] = useState<CodexAppearanceThemeSettings | null>(null)
-  const [previewMode, setPreviewMode] = useState<ThemeMode>(themeState.currentMode)
   const [reducedMotionPreference, setReducedMotionPreference] =
     useState<ReducedMotionPreference>("system")
-  const [sansFontSize, setSansFontSize] = useState(14)
+  const [uiFontSize, setUiFontSize] = useState(14)
   const [importDialogMode, setImportDialogMode] = useState<ThemeMode | null>(null)
   const [toast, setToast] = useState<ToastState | null>(null)
   const [useFontSmoothing, setUseFontSmoothing] = useState(true)
@@ -124,50 +120,29 @@ function AppearanceRoute() {
     }
 
     const settings = appearanceQuery.data
-    const resolvedMode = resolveAppearanceMode(settings.appearanceTheme)
-    setAppearanceMode(settings.appearanceTheme)
+    setAppearanceMode(settings.theme)
     setCodeFontSize(settings.codeFontSize)
     setDiffMarkerStyle(settings.diffMarkerStyle)
-    setDraftCodeThemes(settings.codeThemes)
-    setDraftThemes(settings.themes)
-    setPreviewMode(resolvedMode)
+    setDraftCodeThemes({ dark: settings.darkThemeId, light: settings.lightThemeId })
+    setDraftThemes({ dark: settings.darkTheme, light: settings.lightTheme })
     setReducedMotionPreference(settings.reducedMotionPreference)
-    setSansFontSize(settings.sansFontSize)
+    setUiFontSize(settings.uiFontSize)
     setUseFontSmoothing(settings.useFontSmoothing)
     setUsePointerCursors(settings.usePointerCursors)
-    setThemeState(mapCodexAppearanceToCypheriaThemeState(settings.themes, resolvedMode))
-  }, [appearanceQuery.data, setThemeState])
-
-  useEffect(() => {
-    if (!draftThemes) {
-      return
-    }
-
-    setThemeState(mapCodexAppearanceToCypheriaThemeState(draftThemes, previewMode))
-  }, [draftThemes, previewMode, setThemeState])
-
-  useEffect(() => {
-    applyCodexAppearancePreferencesToElement(
-      {
-        codeFontSize,
-        reducedMotionPreference,
-        sansFontSize,
-        useFontSmoothing,
-        usePointerCursors,
-      },
-      document.documentElement
-    )
-  }, [codeFontSize, reducedMotionPreference, sansFontSize, useFontSmoothing, usePointerCursors])
+    syncAppearance(settings)
+  }, [appearanceQuery.data, syncAppearance])
 
   const writeMutation = useMutation({
     mutationFn: (settings: {
-      appearanceTheme: AppearanceMode
+      theme: AppearanceMode
+      lightThemeId: CodexCodeThemeId
+      darkThemeId: CodexCodeThemeId
+      lightTheme: CodexChromeTheme
+      darkTheme: CodexChromeTheme
+      uiFontSize: number
       codeFontSize: number
-      codeThemes: Record<ThemeMode, CodexCodeThemeId>
       diffMarkerStyle: DiffMarkerStyle
       reducedMotionPreference: ReducedMotionPreference
-      sansFontSize: number
-      themes: CodexAppearanceThemeSettings
       useFontSmoothing: boolean
       usePointerCursors: boolean
     }) =>
@@ -178,18 +153,16 @@ function AppearanceRoute() {
       }),
     onSuccess: (settings) => {
       queryClient.setQueryData(["settings", "appearance"], settings)
-      setAppearanceMode(settings.appearanceTheme)
+      setAppearanceMode(settings.theme)
       setCodeFontSize(settings.codeFontSize)
       setDiffMarkerStyle(settings.diffMarkerStyle)
-      setDraftCodeThemes(settings.codeThemes)
-      setDraftThemes(settings.themes)
+      setDraftCodeThemes({ dark: settings.darkThemeId, light: settings.lightThemeId })
+      setDraftThemes({ dark: settings.darkTheme, light: settings.lightTheme })
       setReducedMotionPreference(settings.reducedMotionPreference)
-      setSansFontSize(settings.sansFontSize)
+      setUiFontSize(settings.uiFontSize)
       setUseFontSmoothing(settings.useFontSmoothing)
       setUsePointerCursors(settings.usePointerCursors)
-      const resolvedMode = resolveAppearanceMode(settings.appearanceTheme)
-      setPreviewMode(resolvedMode)
-      setThemeState(mapCodexAppearanceToCypheriaThemeState(settings.themes, resolvedMode))
+      syncAppearance(settings)
     },
   })
 
@@ -200,24 +173,28 @@ function AppearanceRoute() {
 
     return (
       JSON.stringify({
-        appearanceTheme: appearanceMode,
+        theme: appearanceMode,
+        lightThemeId: draftCodeThemes.light,
+        darkThemeId: draftCodeThemes.dark,
+        lightTheme: draftThemes.light,
+        darkTheme: draftThemes.dark,
+        uiFontSize,
         codeFontSize,
-        codeThemes: draftCodeThemes,
         diffMarkerStyle,
         reducedMotionPreference,
-        sansFontSize,
-        themes: draftThemes,
         useFontSmoothing,
         usePointerCursors,
       }) !==
       JSON.stringify({
-        appearanceTheme: appearanceQuery.data.appearanceTheme,
+        theme: appearanceQuery.data.theme,
+        lightThemeId: appearanceQuery.data.lightThemeId,
+        darkThemeId: appearanceQuery.data.darkThemeId,
+        lightTheme: appearanceQuery.data.lightTheme,
+        darkTheme: appearanceQuery.data.darkTheme,
+        uiFontSize: appearanceQuery.data.uiFontSize,
         codeFontSize: appearanceQuery.data.codeFontSize,
-        codeThemes: appearanceQuery.data.codeThemes,
         diffMarkerStyle: appearanceQuery.data.diffMarkerStyle,
         reducedMotionPreference: appearanceQuery.data.reducedMotionPreference,
-        sansFontSize: appearanceQuery.data.sansFontSize,
-        themes: appearanceQuery.data.themes,
         useFontSmoothing: appearanceQuery.data.useFontSmoothing,
         usePointerCursors: appearanceQuery.data.usePointerCursors,
       })
@@ -230,7 +207,7 @@ function AppearanceRoute() {
     draftCodeThemes,
     draftThemes,
     reducedMotionPreference,
-    sansFontSize,
+    uiFontSize,
     useFontSmoothing,
     usePointerCursors,
   ])
@@ -255,13 +232,7 @@ function AppearanceRoute() {
   }
 
   const handleAppearanceModeChange = (mode: AppearanceMode) => {
-    const resolvedMode = resolveAppearanceMode(mode)
     setAppearanceMode(mode)
-    setPreviewMode(resolvedMode)
-    setMode(resolvedMode)
-    if (draftThemes) {
-      setThemeState(mapCodexAppearanceToCypheriaThemeState(draftThemes, resolvedMode))
-    }
   }
 
   const updateCodeTheme = (mode: ThemeMode, codeTheme: CodexCodeThemeId) => {
@@ -330,13 +301,15 @@ function AppearanceRoute() {
 
     const timeout = window.setTimeout(() => {
       writeMutation.mutate({
-        appearanceTheme: appearanceMode,
+        theme: appearanceMode,
+        lightThemeId: draftCodeThemes.light,
+        darkThemeId: draftCodeThemes.dark,
+        lightTheme: draftThemes.light,
+        darkTheme: draftThemes.dark,
+        uiFontSize,
         codeFontSize,
-        codeThemes: draftCodeThemes,
         diffMarkerStyle,
         reducedMotionPreference,
-        sansFontSize,
-        themes: draftThemes,
         useFontSmoothing,
         usePointerCursors,
       })
@@ -352,7 +325,7 @@ function AppearanceRoute() {
     draftThemes,
     isDirty,
     reducedMotionPreference,
-    sansFontSize,
+    uiFontSize,
     useFontSmoothing,
     usePointerCursors,
     writeMutation,
@@ -445,7 +418,7 @@ function AppearanceRoute() {
           />
           <SettingsRow
             control={
-              <FontSizeInput max={16} min={11} onChange={setSansFontSize} value={sansFontSize} />
+              <FontSizeInput max={16} min={11} onChange={setUiFontSize} value={uiFontSize} />
             }
             description="Adjust the base size used for the Cypheria UI"
             label="UI font size"
@@ -1854,13 +1827,6 @@ const normalizeHexInput = (value: string): string => {
       .join("")}`
   }
   return trimmed
-}
-
-const resolveAppearanceMode = (mode: AppearanceMode): ThemeMode => {
-  if (mode !== "system") {
-    return mode
-  }
-  return window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light"
 }
 
 function getReadableTextColor(value: string): string {

@@ -38,11 +38,28 @@ Electron main owns reading and writing these TOML keys through typed IPC. It
 preserves unrelated config and replaces only the managed `[desktop]` appearance
 keys and managed chrome theme sections.
 
+Cypheria's `AppearanceSettings` deliberately uses concise application-facing
+names while the TOML adapter preserves the original Codex names:
+
+| `AppearanceSettings` | Codex config |
+| --- | --- |
+| `theme` | `appearanceTheme` |
+| `lightThemeId` | `appearanceLightCodeThemeId` |
+| `darkThemeId` | `appearanceDarkCodeThemeId` |
+| `lightTheme` | `desktop.appearanceLightChromeTheme` |
+| `darkTheme` | `desktop.appearanceDarkChromeTheme` |
+| `uiFontSize` | `sansFontSize` |
+
 ## Runtime Flow
 
-At startup, the renderer reads appearance settings over IPC. When IPC is not
-available, such as in a plain browser preview, the renderer falls back to the
-local default theme state.
+Before creating the main window, Electron main reads the appearance config and
+uses it to configure native theme integration, the initial window background,
+title-bar colors, and Chromium's default UI/code font sizes. The serialized
+appearance is passed to preload as a bootstrap argument and exposed through the
+typed preload API. The renderer applies that bootstrap value before React
+hydration and uses it as the initial value of an in-memory Jotai atom. It then
+refreshes the same atom over IPC. Theme and preference hooks are derived from
+this single appearance state; localStorage is not used.
 
 `appearanceTheme = "system"` is resolved in the renderer with
 `prefers-color-scheme`; the active mode is updated when the system preference

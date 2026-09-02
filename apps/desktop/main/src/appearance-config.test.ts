@@ -52,7 +52,7 @@ diffRemoved = "#dd0000"
 skill = "#6600aa"
 `)
 
-    expect(themes.light).toMatchObject({
+    expect(themes.lightTheme).toMatchObject({
       accent: "#123456",
       accentSource: "custom",
       contrast: 44,
@@ -74,7 +74,7 @@ skill = "#6600aa"
         skill: "#6600aa",
       },
     })
-    expect(themes.dark.surface).toBe("#111111")
+    expect(themes.darkTheme.surface).toBe("#111111")
   })
 
   it("parses desktop appearance mode and code theme presets", () => {
@@ -92,15 +92,13 @@ usePointerCursors = true
 preventSleepWhileRunning = true
 `)
 
-    expect(settings.appearanceTheme).toBe("dark")
+    expect(settings.theme).toBe("dark")
     expect(settings.codeFontSize).toBe(13)
-    expect(settings.codeThemes).toEqual({
-      dark: "tokyo-night",
-      light: "github",
-    })
+    expect(settings.darkThemeId).toBe("tokyo-night")
+    expect(settings.lightThemeId).toBe("github")
     expect(settings.diffMarkerStyle).toBe("symbols")
     expect(settings.reducedMotionPreference).toBe("on")
-    expect(settings.sansFontSize).toBe(15)
+    expect(settings.uiFontSize).toBe(15)
     expect(settings.useFontSmoothing).toBe(false)
     expect(settings.usePointerCursors).toBe(true)
   })
@@ -122,7 +120,7 @@ ui = "Old"
 command = "node"
 `,
       {
-        dark: {
+        darkTheme: {
           accent: "#0169cc",
           contrast: 60,
           fonts: { code: "Mono", ui: "System" },
@@ -135,7 +133,7 @@ command = "node"
           },
           surface: "#111111",
         },
-        light: {
+        lightTheme: {
           accent: "#123456",
           contrast: 45,
           fonts: { code: "Mono", ui: "System" },
@@ -161,7 +159,7 @@ command = "node"
 
   it("renders structured font faces and omits system-default font values", () => {
     const merged = mergeAppearanceThemesIntoToml("", {
-      dark: {
+      darkTheme: {
         accent: "#0169cc",
         contrast: 60,
         fonts: {
@@ -177,7 +175,7 @@ command = "node"
         },
         surface: "#111111",
       },
-      light: {
+      lightTheme: {
         accent: "#123456",
         contrast: 45,
         fonts: {
@@ -229,46 +227,42 @@ preventSleepWhileRunning = true
 approval_policy = "on-request"
 `,
       {
-        appearanceTheme: "system",
+        theme: "system",
+        lightThemeId: "codex",
+        darkThemeId: "codex",
+        uiFontSize: 14,
         codeFontSize: 13,
-        codeThemes: {
-          dark: "codex",
-          light: "codex",
-        },
         diffMarkerStyle: "color",
         reducedMotionPreference: "system",
-        sansFontSize: 14,
         useFontSmoothing: true,
         usePointerCursors: false,
-        themes: {
-          dark: {
-            accent: "#0169cc",
-            accentSource: "chatgpt",
-            contrast: 60,
-            fonts: { code: "Mono", ui: "System" },
-            ink: "#fcfcfc",
-            opaqueWindows: true,
-            semanticColors: {
-              diffAdded: "#00a240",
-              diffRemoved: "#e02e2a",
-              skill: "#b06dff",
-            },
-            surface: "#111111",
+        darkTheme: {
+          accent: "#0169cc",
+          accentSource: "chatgpt",
+          contrast: 60,
+          fonts: { code: "Mono", ui: "System" },
+          ink: "#fcfcfc",
+          opaqueWindows: true,
+          semanticColors: {
+            diffAdded: "#00a240",
+            diffRemoved: "#e02e2a",
+            skill: "#b06dff",
           },
-          light: {
-            accent: "#123456",
-            accentSource: "custom",
-            contrast: 45,
-            fonts: { code: "Mono", ui: "System" },
-            ink: "#0d0d0d",
-            opaqueWindows: false,
-            semanticColors: {
-              diffAdded: "#00a240",
-              diffRemoved: "#e02e2a",
-              skill: "#751ed9",
-            },
-            surface: "#ffffff",
+          surface: "#111111",
+        },
+        lightTheme: {
+          accent: "#123456",
+          accentSource: "custom",
+          contrast: 45,
+          fonts: { code: "Mono", ui: "System" },
+          ink: "#0d0d0d",
+          opaqueWindows: false,
+          semanticColors: {
+            diffAdded: "#00a240",
+            diffRemoved: "#e02e2a",
+            skill: "#751ed9",
           },
+          surface: "#ffffff",
         },
       }
     )
@@ -295,7 +289,7 @@ approval_policy = "on-request"
       await writeFile(configPath, 'model = "gpt-5"\n', "utf8")
 
       const initial = await readAppearanceSettings(codexHome)
-      initial.themes.light.accent = "#abcdef"
+      initial.lightTheme.accent = "#abcdef"
 
       await writeAppearanceSettings(codexHome, initial)
 
@@ -305,7 +299,7 @@ approval_policy = "on-request"
       expect(toml).toContain('appearanceLightCodeThemeId = "codex"')
 
       const reread = await readAppearanceSettings(codexHome)
-      expect(reread.themes.light.accent).toBe("#abcdef")
+      expect(reread.lightTheme.accent).toBe("#abcdef")
     } finally {
       await rm(codexHome, { force: true, recursive: true })
     }

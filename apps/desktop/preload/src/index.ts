@@ -11,11 +11,30 @@ import type {
   CypheriaPreloadApi,
   RuntimeInfo,
 } from "../../ipc/src/index.js"
-import { CYPHERIA_IPC_CHANNELS } from "../../ipc/src/index.js"
+import {
+  AppearanceSettingsWriteSchema,
+  CYPHERIA_APPEARANCE_ARGUMENT_PREFIX,
+  CYPHERIA_IPC_CHANNELS,
+} from "../../ipc/src/index.js"
+
+const readBootstrapAppearance = () => {
+  const argument = process.argv.find((value) =>
+    value.startsWith(CYPHERIA_APPEARANCE_ARGUMENT_PREFIX)
+  )
+  if (!argument) {
+    throw new Error("Cypheria appearance bootstrap argument is missing")
+  }
+
+  const encodedAppearance = argument.slice(CYPHERIA_APPEARANCE_ARGUMENT_PREFIX.length)
+  return AppearanceSettingsWriteSchema.parse(JSON.parse(decodeURIComponent(encodedAppearance)))
+}
 
 const invoke = <T>(channel: string): Promise<T> => ipcRenderer.invoke(channel) as Promise<T>
 
 const cypheriaApi: CypheriaPreloadApi = {
+  bootstrap: {
+    appearance: readBootstrapAppearance(),
+  },
   app: {
     platform: process.platform,
     getHealth: () => invoke<AppHealthStatus>(CYPHERIA_IPC_CHANNELS.appHealthCheck),
@@ -72,10 +91,10 @@ const cypheriaApi: CypheriaPreloadApi = {
     getAppearance: () => invoke<AppearanceSettings>(CYPHERIA_IPC_CHANNELS.settingsAppearanceRead),
     listAppearanceFonts: () =>
       invoke<AppearanceFontOption[]>(CYPHERIA_IPC_CHANNELS.settingsAppearanceFontsList),
-    setAppearance: (themes) =>
+    setAppearance: (settings) =>
       ipcRenderer.invoke(
         CYPHERIA_IPC_CHANNELS.settingsAppearanceWrite,
-        themes
+        settings
       ) as Promise<AppearanceSettings>,
   },
 }

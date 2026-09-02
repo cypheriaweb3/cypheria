@@ -42,8 +42,8 @@ const defaultFontSans =
   'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 const defaultFontMono = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono"'
 
-export const defaultAppearanceThemes: AppearanceSettings["themes"] = {
-  light: {
+export const defaultAppearanceThemes = {
+  lightTheme: {
     accent: "#0169cc",
     accentSource: "chatgpt",
     contrast: 45,
@@ -60,7 +60,7 @@ export const defaultAppearanceThemes: AppearanceSettings["themes"] = {
     },
     surface: "#ffffff",
   },
-  dark: {
+  darkTheme: {
     accent: "#0169cc",
     accentSource: "chatgpt",
     contrast: 60,
@@ -77,19 +77,18 @@ export const defaultAppearanceThemes: AppearanceSettings["themes"] = {
     },
     surface: "#111111",
   },
-}
+} satisfies Pick<AppearanceSettings, "lightTheme" | "darkTheme">
 
 export const defaultAppearanceSettings = {
-  appearanceTheme: "system",
+  theme: "system",
+  lightThemeId: "codex",
+  darkThemeId: "codex",
+  lightTheme: defaultAppearanceThemes.lightTheme,
+  darkTheme: defaultAppearanceThemes.darkTheme,
+  uiFontSize: 14,
   codeFontSize: 13,
-  codeThemes: {
-    dark: "codex",
-    light: "codex",
-  },
   diffMarkerStyle: "color",
   reducedMotionPreference: "system",
-  sansFontSize: 14,
-  themes: defaultAppearanceThemes,
   useFontSmoothing: true,
   usePointerCursors: false,
 } satisfies Omit<AppearanceSettings, "configPath">
@@ -97,16 +96,16 @@ export const defaultAppearanceSettings = {
 const sectionHeaderPattern = /^\s*\[([^\]]+)]\s*(?:#.*)?$/
 const keyValuePattern = /^\s*([A-Za-z][A-Za-z0-9_-]*)\s*=\s*(.+?)\s*$/
 
-const cloneDefaults = (): AppearanceSettings["themes"] => ({
-  dark: {
-    ...defaultAppearanceThemes.dark,
-    fonts: { ...defaultAppearanceThemes.dark.fonts },
-    semanticColors: { ...defaultAppearanceThemes.dark.semanticColors },
+const cloneDefaultThemes = (): Pick<AppearanceSettings, "lightTheme" | "darkTheme"> => ({
+  darkTheme: {
+    ...defaultAppearanceThemes.darkTheme,
+    fonts: { ...defaultAppearanceThemes.darkTheme.fonts },
+    semanticColors: { ...defaultAppearanceThemes.darkTheme.semanticColors },
   },
-  light: {
-    ...defaultAppearanceThemes.light,
-    fonts: { ...defaultAppearanceThemes.light.fonts },
-    semanticColors: { ...defaultAppearanceThemes.light.semanticColors },
+  lightTheme: {
+    ...defaultAppearanceThemes.lightTheme,
+    fonts: { ...defaultAppearanceThemes.lightTheme.fonts },
+    semanticColors: { ...defaultAppearanceThemes.lightTheme.semanticColors },
   },
 })
 
@@ -159,7 +158,7 @@ const applyParsedValue = (
     if (key === "appearanceTheme" && typeof value === "string") {
       const parsed = AppearanceThemeModeSchema.safeParse(value)
       if (parsed.success) {
-        settings.appearanceTheme = parsed.data
+        settings.theme = parsed.data
       }
       return
     }
@@ -170,7 +169,11 @@ const applyParsedValue = (
     ) {
       const parsed = AppearanceCodeThemeIdSchema.safeParse(value)
       if (parsed.success) {
-        settings.codeThemes[key === "appearanceLightCodeThemeId" ? "light" : "dark"] = parsed.data
+        if (key === "appearanceLightCodeThemeId") {
+          settings.lightThemeId = parsed.data
+        } else {
+          settings.darkThemeId = parsed.data
+        }
       }
     }
 
@@ -191,7 +194,7 @@ const applyParsedValue = (
     }
 
     if (key === "sansFontSize" && typeof value === "number") {
-      settings.sansFontSize = Math.min(16, Math.max(11, value))
+      settings.uiFontSize = Math.min(16, Math.max(11, value))
       return
     }
 
@@ -212,12 +215,11 @@ const applyParsedValue = (
     return
   }
 
-  const { themes } = settings
   const target =
     section === lightSection || section.startsWith(`${lightSection}.`)
-      ? themes.light
+      ? settings.lightTheme
       : section === darkSection || section.startsWith(`${darkSection}.`)
-        ? themes.dark
+        ? settings.darkTheme
         : undefined
 
   if (!target) {
@@ -282,13 +284,14 @@ export const parseAppearanceSettingsFromToml = (
   toml: string
 ): Omit<AppearanceSettings, "configPath"> => {
   const settings: Omit<AppearanceSettings, "configPath"> = {
-    appearanceTheme: defaultAppearanceSettings.appearanceTheme,
+    theme: defaultAppearanceSettings.theme,
+    lightThemeId: defaultAppearanceSettings.lightThemeId,
+    darkThemeId: defaultAppearanceSettings.darkThemeId,
+    ...cloneDefaultThemes(),
+    uiFontSize: defaultAppearanceSettings.uiFontSize,
     codeFontSize: defaultAppearanceSettings.codeFontSize,
-    codeThemes: { ...defaultAppearanceSettings.codeThemes },
     diffMarkerStyle: defaultAppearanceSettings.diffMarkerStyle,
     reducedMotionPreference: defaultAppearanceSettings.reducedMotionPreference,
-    sansFontSize: defaultAppearanceSettings.sansFontSize,
-    themes: cloneDefaults(),
     useFontSmoothing: defaultAppearanceSettings.useFontSmoothing,
     usePointerCursors: defaultAppearanceSettings.usePointerCursors,
   }
@@ -319,8 +322,12 @@ export const parseAppearanceSettingsFromToml = (
   return settings
 }
 
-export const parseAppearanceThemesFromToml = (toml: string): AppearanceSettings["themes"] =>
-  parseAppearanceSettingsFromToml(toml).themes
+export const parseAppearanceThemesFromToml = (
+  toml: string
+): Pick<AppearanceSettings, "lightTheme" | "darkTheme"> => {
+  const { lightTheme, darkTheme } = parseAppearanceSettingsFromToml(toml)
+  return { lightTheme, darkTheme }
+}
 
 const removeManagedDesktopAppearanceKeys = (toml: string): string => {
   const keptLines: string[] = []
@@ -377,23 +384,24 @@ const parseCssFontFamily = (value: string): string => {
 const renderDesktopAppearanceKeys = (
   settings: Pick<
     AppearanceSettings,
-    | "appearanceTheme"
+    | "theme"
+    | "lightThemeId"
+    | "darkThemeId"
+    | "uiFontSize"
     | "codeFontSize"
-    | "codeThemes"
     | "diffMarkerStyle"
     | "reducedMotionPreference"
-    | "sansFontSize"
     | "useFontSmoothing"
     | "usePointerCursors"
   >
 ): string =>
   [
-    `appearanceTheme = ${quoteTomlString(settings.appearanceTheme)}`,
-    `appearanceLightCodeThemeId = ${quoteTomlString(settings.codeThemes.light)}`,
-    `appearanceDarkCodeThemeId = ${quoteTomlString(settings.codeThemes.dark)}`,
+    `appearanceTheme = ${quoteTomlString(settings.theme)}`,
+    `appearanceLightCodeThemeId = ${quoteTomlString(settings.lightThemeId)}`,
+    `appearanceDarkCodeThemeId = ${quoteTomlString(settings.darkThemeId)}`,
     `appearanceDiffMarkerStyle = ${quoteTomlString(settings.diffMarkerStyle)}`,
     `reduced-motion-preference = ${quoteTomlString(settings.reducedMotionPreference)}`,
-    `sansFontSize = ${settings.sansFontSize}`,
+    `sansFontSize = ${settings.uiFontSize}`,
     `codeFontSize = ${settings.codeFontSize}`,
     `useFontSmoothing = ${settings.useFontSmoothing}`,
     `usePointerCursors = ${settings.usePointerCursors}`,
@@ -403,12 +411,13 @@ const mergeDesktopAppearanceKeysIntoToml = (
   toml: string,
   settings: Pick<
     AppearanceSettings,
-    | "appearanceTheme"
+    | "theme"
+    | "lightThemeId"
+    | "darkThemeId"
+    | "uiFontSize"
     | "codeFontSize"
-    | "codeThemes"
     | "diffMarkerStyle"
     | "reducedMotionPreference"
-    | "sansFontSize"
     | "useFontSmoothing"
     | "usePointerCursors"
   >
@@ -495,18 +504,20 @@ diffRemoved = ${quoteTomlString(theme.semanticColors.diffRemoved)}
 skill = ${quoteTomlString(theme.semanticColors.skill)}`
 }
 
-const renderAppearanceThemes = (themes: AppearanceSettings["themes"]): string =>
+const renderAppearanceThemes = (
+  settings: Pick<AppearanceSettings, "lightTheme" | "darkTheme">
+): string =>
   [
-    renderTheme(lightSection, themes.light, defaultAppearanceThemes.light),
-    renderTheme(darkSection, themes.dark, defaultAppearanceThemes.dark),
+    renderTheme(lightSection, settings.lightTheme, defaultAppearanceThemes.lightTheme),
+    renderTheme(darkSection, settings.darkTheme, defaultAppearanceThemes.darkTheme),
   ].join("\n\n")
 
 export const mergeAppearanceThemesIntoToml = (
   toml: string,
-  themes: AppearanceSettings["themes"]
+  settings: Pick<AppearanceSettings, "lightTheme" | "darkTheme">
 ): string => {
   const base = removeAppearanceThemeSections(toml)
-  const renderedThemes = renderAppearanceThemes(themes)
+  const renderedThemes = renderAppearanceThemes(settings)
   return base ? `${base}\n\n${renderedThemes}\n` : `${renderedThemes}\n`
 }
 
@@ -514,18 +525,20 @@ export const mergeAppearanceSettingsIntoToml = (
   toml: string,
   settings: Pick<
     AppearanceSettings,
-    | "appearanceTheme"
+    | "theme"
+    | "lightThemeId"
+    | "darkThemeId"
+    | "lightTheme"
+    | "darkTheme"
+    | "uiFontSize"
     | "codeFontSize"
-    | "codeThemes"
     | "diffMarkerStyle"
     | "reducedMotionPreference"
-    | "sansFontSize"
-    | "themes"
     | "useFontSmoothing"
     | "usePointerCursors"
   >
 ): string =>
-  mergeAppearanceThemesIntoToml(mergeDesktopAppearanceKeysIntoToml(toml, settings), settings.themes)
+  mergeAppearanceThemesIntoToml(mergeDesktopAppearanceKeysIntoToml(toml, settings), settings)
 
 export const readAppearanceSettings = async (codexHome: string): Promise<AppearanceSettings> => {
   const configPath = getCodexConfigPath(codexHome)
@@ -549,14 +562,15 @@ export const readAppearanceSettings = async (codexHome: string): Promise<Appeara
     )
 
     return {
-      appearanceTheme: defaultAppearanceSettings.appearanceTheme,
+      theme: defaultAppearanceSettings.theme,
+      lightThemeId: defaultAppearanceSettings.lightThemeId,
+      darkThemeId: defaultAppearanceSettings.darkThemeId,
+      ...cloneDefaultThemes(),
+      uiFontSize: defaultAppearanceSettings.uiFontSize,
       codeFontSize: defaultAppearanceSettings.codeFontSize,
-      codeThemes: { ...defaultAppearanceSettings.codeThemes },
       configPath,
       diffMarkerStyle: defaultAppearanceSettings.diffMarkerStyle,
       reducedMotionPreference: defaultAppearanceSettings.reducedMotionPreference,
-      sansFontSize: defaultAppearanceSettings.sansFontSize,
-      themes: cloneDefaults(),
       useFontSmoothing: defaultAppearanceSettings.useFontSmoothing,
       usePointerCursors: defaultAppearanceSettings.usePointerCursors,
     }
@@ -567,13 +581,15 @@ export const writeAppearanceSettings = async (
   codexHome: string,
   settings: Pick<
     AppearanceSettings,
-    | "appearanceTheme"
+    | "theme"
+    | "lightThemeId"
+    | "darkThemeId"
+    | "lightTheme"
+    | "darkTheme"
+    | "uiFontSize"
     | "codeFontSize"
-    | "codeThemes"
     | "diffMarkerStyle"
     | "reducedMotionPreference"
-    | "sansFontSize"
-    | "themes"
     | "useFontSmoothing"
     | "usePointerCursors"
   >
@@ -593,14 +609,16 @@ export const writeAppearanceSettings = async (
   await writeFile(configPath, mergeAppearanceSettingsIntoToml(existingToml, settings), "utf8")
 
   return {
-    appearanceTheme: settings.appearanceTheme,
+    theme: settings.theme,
+    lightThemeId: settings.lightThemeId,
+    darkThemeId: settings.darkThemeId,
+    lightTheme: settings.lightTheme,
+    darkTheme: settings.darkTheme,
+    uiFontSize: settings.uiFontSize,
     codeFontSize: settings.codeFontSize,
-    codeThemes: settings.codeThemes,
     configPath,
     diffMarkerStyle: settings.diffMarkerStyle,
     reducedMotionPreference: settings.reducedMotionPreference,
-    sansFontSize: settings.sansFontSize,
-    themes: settings.themes,
     useFontSmoothing: settings.useFontSmoothing,
     usePointerCursors: settings.usePointerCursors,
   }

@@ -1,12 +1,6 @@
 /// <reference types="vite/client" />
 
-import {
-  applyCodexAppearancePreferencesToElement,
-  CypheriaThemeProvider,
-  cn,
-  mapCodexAppearanceToCypheriaThemeState,
-  useCypheriaTheme,
-} from "@cypheria/ui"
+import { cn } from "@cypheria/ui"
 import { Button } from "@cypheria/ui/components/button"
 import {
   Sidebar,
@@ -24,7 +18,7 @@ import {
   SidebarTrigger,
 } from "@cypheria/ui/components/sidebar"
 import { TooltipProvider } from "@cypheria/ui/components/tooltip"
-import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query"
+import { QueryClient, QueryClientProvider, useQueryClient } from "@tanstack/react-query"
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router"
 import { Provider as JotaiProvider } from "jotai"
 import {
@@ -40,8 +34,8 @@ import {
   SquarePen,
   Workflow,
 } from "lucide-react"
-import { type CSSProperties, type ReactNode, useEffect, useState } from "react"
-import type { AppearanceThemeMode } from "../../../ipc/src/index.js"
+import { type CSSProperties, type ReactNode, useState } from "react"
+import { resolveThemeMode, useAppearanceController, useTheme } from "../appearance.js"
 
 const navigationItems = [
   {
@@ -111,11 +105,9 @@ function RootNotFoundComponent() {
 function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <RootDocument>
-      <JotaiProvider>
-        <QueryProvider>
-          <AppShell>{children}</AppShell>
-        </QueryProvider>
-      </JotaiProvider>
+      <QueryProvider>
+        <AppShell>{children}</AppShell>
+      </QueryProvider>
     </RootDocument>
   )
 }
@@ -165,46 +157,14 @@ function QueryProvider({ children }: Readonly<{ children: ReactNode }>) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <AppearanceSettingsSynchronizer />
+      <AppearanceController />
       {children}
     </QueryClientProvider>
   )
 }
 
-function AppearanceSettingsSynchronizer() {
-  const { setThemeState } = useCypheriaTheme()
-  const appearanceQuery = useQuery({
-    enabled: typeof window !== "undefined" && Boolean(window.cypheria),
-    queryFn: () => window.cypheria?.settings.getAppearance() ?? null,
-    queryKey: ["settings", "appearance"],
-    staleTime: Number.POSITIVE_INFINITY,
-  })
-
-  useEffect(() => {
-    const settings = appearanceQuery.data
-    if (!settings) {
-      return
-    }
-
-    const applyThemeMode = (mode: "dark" | "light") => {
-      setThemeState(mapCodexAppearanceToCypheriaThemeState(settings.themes, mode))
-    }
-
-    applyThemeMode(resolveAppearanceMode(settings.appearanceTheme))
-    applyCodexAppearancePreferencesToElement(settings, document.documentElement)
-
-    if (settings.appearanceTheme !== "system" || typeof window === "undefined") {
-      return
-    }
-
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
-    const handleSystemThemeChange = () => {
-      applyThemeMode(mediaQuery.matches ? "dark" : "light")
-    }
-    mediaQuery.addEventListener("change", handleSystemThemeChange)
-    return () => mediaQuery.removeEventListener("change", handleSystemThemeChange)
-  }, [appearanceQuery.data, setThemeState])
-
+function AppearanceController() {
+  useAppearanceController()
   return null
 }
 
@@ -400,18 +360,6 @@ function getDesktopPlatform(): "darwin" | "win32" | "unknown" {
   return platform === "darwin" || platform === "win32" ? platform : "unknown"
 }
 
-function resolveAppearanceMode(mode: AppearanceThemeMode): "dark" | "light" {
-  if (mode !== "system") {
-    return mode
-  }
-
-  if (typeof window === "undefined") {
-    return "light"
-  }
-
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
-}
-
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <html lang="en" suppressHydrationWarning>
@@ -419,7 +367,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         <HeadContent />
       </head>
       <body className="font-sans text-sm">
-        <CypheriaThemeProvider>{children}</CypheriaThemeProvider>
+        <JotaiProvider>{children}</JotaiProvider>
         <Scripts />
       </body>
     </html>
@@ -427,14 +375,22 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
 }
 
 function ThemeModeButton() {
-  const { setMode, themeState } = useCypheriaTheme()
-  const nextMode = themeState.currentMode === "dark" ? "light" : "dark"
+  const queryClient = useQueryClient()
+  const { theme, updateTheme } = useTheme()
+  const nextMode = resolveThemeMode(theme.theme) === "dark" ? "light" : "dark"
+
+  const handleThemeModeChange = async () => {
+    const settings = await updateTheme({ ...theme, theme: nextMode })
+    if (settings) {
+      queryClient.setQueryData(["settings", "appearance"], settings)
+    }
+  }
 
   return (
     <Button
       aria-label={`Switch to ${nextMode} theme`}
       className="flex size-8 items-center justify-center rounded-md p-0 hover:bg-sidebar-accent"
-      onClick={() => setMode(nextMode)}
+      onClick={() => void handleThemeModeChange()}
       size="icon"
       suppressHydrationWarning
       type="button"
