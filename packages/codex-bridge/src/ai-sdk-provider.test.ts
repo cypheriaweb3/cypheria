@@ -125,7 +125,11 @@ const turn = (id: string, status: v2.TurnStatus): v2.Turn => ({
 describe("Codex app-server AI SDK provider", () => {
   it("starts a thread and turn, then streams app-server deltas as AI SDK parts", async () => {
     const bridge = new FakeBridge()
-    const provider = createCodexAppServerProvider({ bridge, cwd: "/tmp/project" })
+    const provider = createCodexAppServerProvider({
+      bridge,
+      cwd: "/tmp/project",
+      modelProvider: "ollama",
+    })
     const v4Provider: ProviderV4 = provider
     const model: LanguageModelV4 = v4Provider.languageModel("gpt-5.2-codex")
     expect(provider.specificationVersion).toBe("v4")
@@ -165,6 +169,7 @@ describe("Codex app-server AI SDK provider", () => {
       cwd: "/tmp/project",
       developerInstructions: "You are helpful.",
       model: "gpt-5.2-codex",
+      modelProvider: "ollama",
     })
     expect(bridge.requests[1]?.params).toMatchObject({
       input: [{ text: "Hello", text_elements: [], type: "text" }],

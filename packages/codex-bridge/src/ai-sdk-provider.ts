@@ -47,6 +47,7 @@ export type CodexAppServerProviderSettings = {
   readonly config?: Record<string, AppServerJsonValue>
   readonly cwd?: string
   readonly developerInstructions?: string
+  readonly modelProvider?: string
   readonly onSessionCreated?: (session: CodexAppServerAiSdkSession) => void
   readonly reasoningEffort?: ReasoningEffort
   readonly reasoningSummary?: ReasoningSummary
@@ -756,6 +757,7 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
           cwd: settings.cwd,
           developerInstructions: buildDeveloperInstructions(settings, converted.systemPrompt),
           model: this.modelId,
+          modelProvider: settings.modelProvider,
           sandbox: normalizeSandboxMode(settings.sandboxMode),
           serviceTier: settings.serviceTier,
         },
@@ -773,6 +775,7 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
           cwd: settings.cwd,
           developerInstructions: settings.developerInstructions,
           model: this.modelId,
+          modelProvider: settings.modelProvider,
           sandbox: settings.sandboxMode ? normalizeSandboxMode(settings.sandboxMode) : undefined,
           serviceTier: settings.serviceTier,
           threadId: settings.resumeThreadId,
