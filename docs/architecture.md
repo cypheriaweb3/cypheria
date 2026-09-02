@@ -173,7 +173,7 @@ Cypheria uses two Codex integration paths:
 - Overload retry handling for app-server overload errors.
 - AI SDK `ProviderV4` adaptation for chat surfaces that use AI SDK / AI Elements.
 
-Desktop main owns the Codex App Server process lifecycle. It selects a localhost port, starts `codex app-server` with `CODEX_HOME=$CYPHERIA_HOME/codex`, waits for bridge readiness, logs stderr, and shuts the child process down with the desktop runtime.
+Desktop main owns the Codex App Server process lifecycle. It selects a localhost port, starts `codex app-server` with `CODEX_HOME=$CYPHERIA_HOME/codex`, waits for bridge readiness, logs stderr, and shuts the child process down with the desktop runtime. The App Server binary and generated protocol are an atomic compatibility unit: development resolves the exact workspace `@openai/codex` dependency, packaged builds resolve the bundled Electron resource, and startup rejects a binary whose reported version differs from `CODEX_APP_SERVER_VERSION`. `CYPHERIA_CODEX_PATH` is reserved for explicit diagnostics and remains subject to the same version check.
 
 Codex app-server protocol TypeScript files live inside:
 
@@ -184,7 +184,7 @@ packages/codex-bridge/src/generated/
 They are generated with:
 
 ```sh
-codex app-server generate-ts --out packages/codex-bridge/src/generated
+pnpm codex:generate
 ```
 
 Generated protocol files are committed. Do not hand-write Codex app-server protocol request, response, notification, or server request types.

@@ -173,7 +173,7 @@ Cypheria 使用两条 Codex 集成路径：
 - app-server overload errors 的重试处理。
 - 为使用 AI SDK / AI Elements 的聊天界面提供 AI SDK `ProviderV4` adapter。
 
-Desktop main 拥有 Codex App Server process lifecycle。它选择 localhost port，以 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动 `codex app-server`，等待 bridge readiness，记录 stderr，并随 desktop runtime 一起关闭 child process。
+Desktop main 拥有 Codex App Server process lifecycle。它选择 localhost port，以 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动 `codex app-server`，等待 bridge readiness，记录 stderr，并随 desktop runtime 一起关闭 child process。App Server binary 与 generated protocol 是原子 compatibility unit：development 解析精确固定的 workspace `@openai/codex` dependency，packaged build 解析 Electron 内置 resource，启动时拒绝 reported version 与 `CODEX_APP_SERVER_VERSION` 不一致的 binary。`CYPHERIA_CODEX_PATH` 仅用于显式 diagnostics，并继续接受相同的版本检查。
 
 Codex app-server protocol TypeScript 文件放在：
 
@@ -184,7 +184,7 @@ packages/codex-bridge/src/generated/
 通过以下命令生成：
 
 ```sh
-codex app-server generate-ts --out packages/codex-bridge/src/generated
+pnpm codex:generate
 ```
 
 Generated protocol files 需要提交。不要手写 Codex app-server protocol request、response、notification 或 server request types。

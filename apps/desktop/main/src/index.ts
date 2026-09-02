@@ -28,6 +28,7 @@ import {
   settingsAppearanceWriteContract,
 } from "../../ipc/src/index.js"
 import { readAppearanceSettings, writeAppearanceSettings } from "./appearance-config.js"
+import { resolveCodexCommand } from "./codex-command.js"
 import {
   createDappBrowserController,
   createElectronDappWebContentsFactory,
@@ -43,6 +44,13 @@ import { listSystemFonts } from "./system-fonts.js"
 
 let mainWindow: BrowserWindow | null = null
 let desktopRuntimeContext: DesktopRuntimeContext | null = null
+
+const getCodexCommand = (): string =>
+  resolveCodexCommand({
+    isPackaged: app.isPackaged,
+    override: process.env.CYPHERIA_CODEX_PATH,
+    resourcesPath: process.resourcesPath,
+  })
 let dappBrowserController: DappBrowserController | null = null
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
@@ -283,7 +291,10 @@ const registerLifecycleHandlers = (): void => {
     if (BrowserWindow.getAllWindows().length === 0) {
       desktopRuntimeContext ??= await initializeDesktopRuntime({
         clientVersion: app.getVersion(),
-        codexAppServer: { windows: () => BrowserWindow.getAllWindows() },
+        codexAppServer: {
+          codexCommand: getCodexCommand(),
+          windows: () => BrowserWindow.getAllWindows(),
+        },
       })
       mainWindow = await createMainWindow(desktopRuntimeContext)
     }
@@ -315,7 +326,10 @@ const startDesktopApp = async (): Promise<void> => {
   await app.whenReady()
   desktopRuntimeContext = await initializeDesktopRuntime({
     clientVersion: app.getVersion(),
-    codexAppServer: { windows: () => BrowserWindow.getAllWindows() },
+    codexAppServer: {
+      codexCommand: getCodexCommand(),
+      windows: () => BrowserWindow.getAllWindows(),
+    },
   })
   app.setPath("sessionData", desktopRuntimeContext.paths.browserDir)
   registerIpcHandlers(desktopRuntimeContext)

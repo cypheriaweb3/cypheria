@@ -113,6 +113,11 @@
   - 包括：localhost port selection、process lifecycle、readiness、shutdown、stderr logging 和 renderer-safe event mapping。
   - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/desktop test`，如果 Codex 可用则做本地 desktop smoke test。
 
+- [x] 固定 Codex App Server runtime 与 generated protocol 版本。
+  - 验收：workspace 与 desktop 使用精确的 `@openai/codex` 版本；protocol generation 解析该 workspace binary；desktop 在启动前拒绝版本不匹配的 binary。
+  - 包括：development package resolution、显式 `CYPHERIA_CODEX_PATH` override，以及从 Electron resources 解析 packaged sidecar。
+  - 验证：`pnpm codex:version`、`pnpm run ci`、`pnpm build` 和 desktop tests。
+
 ## Runtime Web3 能力
 
 - [x] 采用 Drizzle + libSQL 本地数据库适配器，并确定钱包架构。

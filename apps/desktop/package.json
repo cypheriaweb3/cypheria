@@ -26,6 +26,7 @@
     "@cypheria/ui": "workspace:*",
     "@cypheria/wallet-core": "workspace:*",
     "@cypheria/wallet-provider": "workspace:*",
+    "@openai/codex": "0.151.0",
     "@solana/wallet-standard-chains": "^1.1.2",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/react-query": "^5.100.14",

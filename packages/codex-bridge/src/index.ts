@@ -24,6 +24,7 @@ export {
   createCodexAppServerProvider,
 } from "./ai-sdk-provider.js"
 export type * from "./generated/index.js"
+export { CODEX_APP_SERVER_VERSION } from "./version.js"
 
 export type CodexJsonValue =
   | boolean

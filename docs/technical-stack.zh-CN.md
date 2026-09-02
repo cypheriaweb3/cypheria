@@ -158,15 +158,15 @@ Desktop
 - 顶层 `reasoning` 映射到 Codex turn effort；显式 Codex `reasoningEffort` 设置优先，`provider-default` 不指定 effort。各推理级别是否受模型支持由 Codex 决定。
 - 无状态历史将 V4 工具结果内容转换为文本（文件 URL/标签仍是文本）。二进制/引用工具文件、自定义工具内容、助手自定义内容及推理文件无法原生重放，会返回警告。
 
-Electron main 拥有 `codex app-server` child process。它选择 localhost port，以 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动进程，等待 WebSocket handshake readiness，通过 `codex.event` 转发 renderer-safe Codex summaries，记录 stderr，并随 runtime 一起关闭进程。
+Electron main 拥有 `codex app-server` child process。它选择 localhost port，以 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动进程，等待 WebSocket handshake readiness，通过 `codex.event` 转发 renderer-safe Codex summaries，记录 stderr，并随 runtime 一起关闭进程。Workspace 与 desktop manifests 精确固定 `@openai/codex` 版本。Development 解析该 package，而不是用户的 `PATH`；packaged build 解析 `resources/codex/codex`（Windows 为 `codex.exe`）。`CYPHERIA_CODEX_PATH` 是显式 diagnostic override。Desktop 在启动 App Server 前检查 `codex --version` 是否与生成 committed protocol types 的版本一致。
 
 通过以下命令生成 protocol types：
 
 ```sh
-codex app-server generate-ts --out packages/codex-bridge/src/generated
+pnpm codex:generate
 ```
 
-Generated files 需要提交，这样 CI 和贡献者不必为了 typecheck 而拥有完全匹配的本地 Codex binary。
+Generated files 需要提交，这样 CI 和贡献者不必为了 typecheck 而拥有完全匹配的本地 Codex binary。升级 Codex 时，必须在同一 change 中更新两处精确 dependency declaration、更新 `CODEX_APP_SERVER_VERSION`、重新生成这些文件，并运行 bridge 与 desktop tests。
 
 ## UI Stack
 

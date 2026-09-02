@@ -113,6 +113,11 @@ Status legend:
   - Include: localhost port selection, process lifecycle, readiness, shutdown, stderr logging, and renderer-safe event mapping.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/desktop test`, local desktop smoke test when Codex is available.
 
+- [x] Pin the Codex App Server runtime and generated protocol version.
+  - Acceptance: the workspace and desktop use an exact `@openai/codex` version; protocol generation resolves that workspace binary; desktop rejects mismatched binaries before startup.
+  - Include: development package resolution, explicit `CYPHERIA_CODEX_PATH` override, and packaged sidecar resolution from Electron resources.
+  - Verification: `pnpm codex:version`, `pnpm run ci`, `pnpm build`, and desktop tests.
+
 ## Runtime Web3 Capabilities
 
 - [x] Adopt Drizzle with libSQL as the local database adapter and specify the wallet architecture.

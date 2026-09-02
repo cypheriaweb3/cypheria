@@ -1,7 +1,9 @@
-import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process"
+import { type ChildProcessWithoutNullStreams, execFile, spawn } from "node:child_process"
 import { createServer } from "node:net"
+import { promisify } from "node:util"
 
 import {
+  CODEX_APP_SERVER_VERSION,
   type CodexAppServerBridge,
   type CodexAppServerBridgeOptions,
   type CodexJsonValue,
@@ -38,6 +40,8 @@ export type CodexAppServerProcessFactory = (
   }
 ) => ChildProcessWithoutNullStreams
 
+export type CodexVersionReader = (command: string) => Promise<string>
+
 export type CodexAppServerBridgeFactory = (
   options: CodexAppServerBridgeOptions
 ) => CodexAppServerBridge
@@ -48,15 +52,40 @@ export type StartCodexAppServerOptions = {
   readonly codexCommand?: string
   readonly codexEnv: RuntimeHomeEnv
   readonly connectTimeoutMs?: number
+  readonly expectedCodexVersion?: string
   readonly paths: CypheriaRuntimePaths
   readonly port?: number
   readonly processFactory?: CodexAppServerProcessFactory
   readonly readyPollIntervalMs?: number
+  readonly versionReader?: CodexVersionReader
   readonly windows?: () => readonly BrowserWindow[]
 }
 
 const defaultConnectTimeoutMs = 10_000
 const defaultReadyPollIntervalMs = 100
+const execFileAsync = promisify(execFile)
+
+export const parseCodexVersion = (output: string): string | undefined =>
+  /(?:^|\s)(\d+\.\d+\.\d+)(?:\s|$)/u.exec(output.trim())?.[1]
+
+const readCodexVersion: CodexVersionReader = async (command) => {
+  const { stdout } = await execFileAsync(command, ["--version"])
+  return stdout
+}
+
+export const assertCodexVersion = async (
+  command: string,
+  expectedVersion: string,
+  versionReader: CodexVersionReader = readCodexVersion
+): Promise<void> => {
+  const output = await versionReader(command)
+  const actualVersion = parseCodexVersion(output)
+  if (actualVersion !== expectedVersion) {
+    throw new Error(
+      `Codex version mismatch: expected ${expectedVersion}, received ${actualVersion ?? JSON.stringify(output.trim())}`
+    )
+  }
+}
 
 const toJsonValue = (value: unknown): CodexJsonValue | undefined => {
   if (value === undefined) {
@@ -266,6 +295,12 @@ export const startCodexAppServer = async (
   const processFactory = options.processFactory ?? spawn
   const bridgeFactory = options.bridgeFactory ?? createCodexAppServerBridge
   const windows = options.windows ?? (() => [])
+
+  await assertCodexVersion(
+    command,
+    options.expectedCodexVersion ?? CODEX_APP_SERVER_VERSION,
+    options.versionReader
+  )
 
   broadcastCodexEvent(windows(), createLifecycleEvent("starting"))
 

@@ -119,6 +119,7 @@ describe("Codex app-server lifecycle", () => {
       port: 4567,
       processFactory,
       readyPollIntervalMs: 1,
+      versionReader: async () => "codex-cli 0.151.0",
     })
 
     expect(spawns).toEqual([
@@ -149,6 +150,7 @@ describe("Codex app-server lifecycle", () => {
       paths,
       port: 4567,
       processFactory: () => fakeChild as never,
+      versionReader: async () => "codex-cli 0.151.0",
       windows: () => [window],
     })
 
@@ -180,6 +182,7 @@ describe("Codex app-server lifecycle", () => {
         port: 4567,
         processFactory: () => fakeChild as never,
         readyPollIntervalMs: 1,
+        versionReader: async () => "codex-cli 0.151.0",
       })
     ).rejects.toThrow("Timed out waiting for Codex app-server readiness")
 
@@ -200,5 +203,22 @@ describe("Codex app-server lifecycle", () => {
         params: { message: "heads up" },
       },
     })
+  })
+
+  it("rejects a Codex binary that does not match the generated protocol version", async () => {
+    const paths = buildRuntimePaths({ homeDir: "/tmp/cypheria-test" })
+
+    await expect(
+      startCodexAppServer({
+        clientVersion: "1.2.3",
+        codexEnv: { CODEX_HOME: paths.codexHome },
+        paths,
+        port: 4567,
+        processFactory: () => {
+          throw new Error("must not spawn an incompatible Codex binary")
+        },
+        versionReader: async () => "codex-cli 0.150.0",
+      })
+    ).rejects.toThrow("Codex version mismatch: expected 0.151.0, received 0.150.0")
   })
 })

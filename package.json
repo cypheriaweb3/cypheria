@@ -9,6 +9,8 @@
     "build": "turbo build",
     "check": "turbo check",
     "ci": "biome ci . && turbo check",
+    "codex:generate": "pnpm --filter @cypheria/codex-bridge generate:codex-types",
+    "codex:version": "codex --version",
     "dev": "turbo dev",
     "format": "biome format --write .",
     "lint": "biome lint .",
@@ -16,6 +18,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.15",
+    "@openai/codex": "0.151.0",
     "@types/node": "^25.9.1",
     "turbo": "^2.9.14",
     "typescript": "^6.0.3"

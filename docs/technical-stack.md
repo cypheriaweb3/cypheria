@@ -158,15 +158,15 @@ Desktop
 - Top-level `reasoning` maps to Codex turn effort; explicit Codex `reasoningEffort` settings take precedence, and `provider-default` leaves the effort unset. Model support for each effort level is determined by Codex.
 - Stateless history converts V4 tool-result content into text (file URLs/labels remain textual). Binary/reference tool files, custom tool content, assistant custom content, and reasoning files cannot be replayed natively and produce warnings.
 
-Electron main owns the `codex app-server` child process. It selects a localhost port, starts the process with `CODEX_HOME=$CYPHERIA_HOME/codex`, waits for WebSocket handshake readiness, forwards renderer-safe Codex summaries through `codex.event`, logs stderr, and shuts the process down with the runtime.
+Electron main owns the `codex app-server` child process. It selects a localhost port, starts the process with `CODEX_HOME=$CYPHERIA_HOME/codex`, waits for WebSocket handshake readiness, forwards renderer-safe Codex summaries through `codex.event`, logs stderr, and shuts the process down with the runtime. The exact `@openai/codex` version is pinned in the workspace and desktop manifests. Development resolves that package instead of the user's `PATH`; packaged builds resolve `resources/codex/codex` (`codex.exe` on Windows). `CYPHERIA_CODEX_PATH` is an explicit diagnostic override. Desktop checks `codex --version` against the version that generated the committed protocol types before starting App Server.
 
 Generate protocol types with:
 
 ```sh
-codex app-server generate-ts --out packages/codex-bridge/src/generated
+pnpm codex:generate
 ```
 
-Generated files are committed so CI and contributors do not need a matching local Codex binary just to typecheck.
+Generated files are committed so CI and contributors do not need a matching local Codex binary just to typecheck. A Codex upgrade must update both exact dependency declarations, update `CODEX_APP_SERVER_VERSION`, regenerate these files, and run the bridge and desktop tests in one change.
 
 ## UI Stack
 
