@@ -36,8 +36,30 @@ import {
   type CodexThreadView,
   CodexThreadViewSchema,
 } from "./codex.js"
+import {
+  AuditLogListInputSchema,
+  AuditLogRecordSchema,
+  type AuditLogRecordView,
+  SigningPolicyCreateInputSchema,
+  SigningPolicyDisableInputSchema,
+  SigningPolicyListInputSchema,
+  SigningPolicyRecordSchema,
+  type SigningPolicyRecordView,
+  SigningPolicyUpdateInputSchema,
+  WalletActiveContextSchema,
+  WalletAddWatchInputSchema,
+  WalletGenerateHdInputSchema,
+  WalletIdInputSchema,
+  WalletImportHdInputSchema,
+  WalletImportPrivateKeyInputSchema,
+  WalletListSchema,
+  WalletRenameInputSchema,
+  WalletSetActiveInputSchema,
+  WalletVaultStateSchema,
+} from "./web3.js"
 
 export * from "./codex.js"
+export * from "./web3.js"
 
 export const IPC_PROTOCOL_VERSION = 1
 
@@ -62,6 +84,7 @@ export type IpcNamespace = z.infer<typeof IpcNamespaceSchema>
 export const CYPHERIA_IPC_CHANNELS = {
   appHealthCheck: "app.health.check",
   appMetadataRead: "app.metadata.read",
+  auditLogList: "audit.log.list",
   approvalRequestDecide: "approval.request.decide",
   approvalRequestsList: "approval.requests.list",
   automationRunGet: "automation.run.get",
@@ -87,10 +110,26 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexThreadList: "codex.thread.list",
   dappProviderRequest: "dapp.provider.request",
   dappProviderEvent: "dapp.provider.event",
+  policyCreate: "policy.create",
+  policyDisable: "policy.disable",
+  policyList: "policy.list",
+  policyUpdate: "policy.update",
   runtimeInfoRead: "runtime.info.read",
   settingsAppearanceFontsList: "settings.appearance.fonts.list",
   settingsAppearanceRead: "settings.appearance.read",
   settingsAppearanceWrite: "settings.appearance.write",
+  walletActiveClear: "wallet.active.clear",
+  walletActiveRead: "wallet.active.read",
+  walletActiveWrite: "wallet.active.write",
+  walletAddWatch: "wallet.add-watch",
+  walletDelete: "wallet.delete",
+  walletGenerateHd: "wallet.generate-hd",
+  walletImportHd: "wallet.import-hd",
+  walletImportPrivateKey: "wallet.import-private-key",
+  walletList: "wallet.list",
+  walletLock: "wallet.lock",
+  walletRename: "wallet.rename",
+  walletUnlock: "wallet.unlock",
 } as const
 
 export type CypheriaIpcChannel = (typeof CYPHERIA_IPC_CHANNELS)[keyof typeof CYPHERIA_IPC_CHANNELS]
@@ -506,6 +545,14 @@ export const appHealthCheckContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<EmptyPayload, AppHealthStatus>
 
+export const auditLogListContract = {
+  channel: CYPHERIA_IPC_CHANNELS.auditLogList,
+  namespace: "audit",
+  request: AuditLogListInputSchema,
+  response: z.array(AuditLogRecordSchema),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof AuditLogListInputSchema>, AuditLogRecordView[]>
+
 export const approvalRequestsListContract = {
   channel: CYPHERIA_IPC_CHANNELS.approvalRequestsList,
   namespace: "approval",
@@ -521,6 +568,144 @@ export const approvalRequestDecideContract = {
   response: ApprovalRequestViewSchema,
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<ApprovalRequestDecide, ApprovalRequestView>
+
+export const walletListContract = {
+  channel: CYPHERIA_IPC_CHANNELS.walletList,
+  namespace: "wallet",
+  request: EmptyPayloadSchema,
+  response: WalletListSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, z.output<typeof WalletListSchema>>
+export const walletActiveReadContract = {
+  channel: CYPHERIA_IPC_CHANNELS.walletActiveRead,
+  namespace: "wallet",
+  request: EmptyPayloadSchema,
+  response: WalletActiveContextSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, z.output<typeof WalletActiveContextSchema>>
+export const walletActiveWriteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.walletActiveWrite,
+  namespace: "wallet",
+  request: WalletSetActiveInputSchema,
+  response: WalletActiveContextSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  z.input<typeof WalletSetActiveInputSchema>,
+  z.output<typeof WalletActiveContextSchema>
+>
+export const walletActiveClearContract = {
+  channel: CYPHERIA_IPC_CHANNELS.walletActiveClear,
+  namespace: "wallet",
+  request: EmptyPayloadSchema,
+  response: z.object({ cleared: z.boolean() }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, { cleared: boolean }>
+export const walletGenerateHdContract = {
+  channel: CYPHERIA_IPC_CHANNELS.walletGenerateHd,
+  namespace: "wallet",
+  request: WalletGenerateHdInputSchema,
+  response: WalletListSchema.element,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  z.input<typeof WalletGenerateHdInputSchema>,
+  z.output<typeof WalletListSchema>[number]
+>
+export const walletImportHdContract = {
+  channel: CYPHERIA_IPC_CHANNELS.walletImportHd,
+  namespace: "wallet",
+  request: WalletImportHdInputSchema,
+  response: WalletListSchema.element,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  z.input<typeof WalletImportHdInputSchema>,
+  z.output<typeof WalletListSchema>[number]
+>
+export const walletImportPrivateKeyContract = {
+  channel: CYPHERIA_IPC_CHANNELS.walletImportPrivateKey,
+  namespace: "wallet",
+  request: WalletImportPrivateKeyInputSchema,
+  response: WalletListSchema.element,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  z.input<typeof WalletImportPrivateKeyInputSchema>,
+  z.output<typeof WalletListSchema>[number]
+>
+export const walletAddWatchContract = {
+  channel: CYPHERIA_IPC_CHANNELS.walletAddWatch,
+  namespace: "wallet",
+  request: WalletAddWatchInputSchema,
+  response: WalletListSchema.element,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  z.input<typeof WalletAddWatchInputSchema>,
+  z.output<typeof WalletListSchema>[number]
+>
+export const walletRenameContract = {
+  channel: CYPHERIA_IPC_CHANNELS.walletRename,
+  namespace: "wallet",
+  request: WalletRenameInputSchema,
+  response: WalletListSchema.element,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  z.input<typeof WalletRenameInputSchema>,
+  z.output<typeof WalletListSchema>[number]
+>
+export const walletDeleteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.walletDelete,
+  namespace: "wallet",
+  request: WalletIdInputSchema,
+  response: z.object({ deleted: z.boolean() }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof WalletIdInputSchema>, { deleted: boolean }>
+export const walletLockContract = {
+  channel: CYPHERIA_IPC_CHANNELS.walletLock,
+  namespace: "wallet",
+  request: WalletIdInputSchema,
+  response: WalletVaultStateSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  z.input<typeof WalletIdInputSchema>,
+  z.output<typeof WalletVaultStateSchema>
+>
+export const walletUnlockContract = {
+  channel: CYPHERIA_IPC_CHANNELS.walletUnlock,
+  namespace: "wallet",
+  request: WalletIdInputSchema,
+  response: WalletVaultStateSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  z.input<typeof WalletIdInputSchema>,
+  z.output<typeof WalletVaultStateSchema>
+>
+
+export const policyListContract = {
+  channel: CYPHERIA_IPC_CHANNELS.policyList,
+  namespace: "policy",
+  request: SigningPolicyListInputSchema,
+  response: z.array(SigningPolicyRecordSchema),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof SigningPolicyListInputSchema>, SigningPolicyRecordView[]>
+export const policyCreateContract = {
+  channel: CYPHERIA_IPC_CHANNELS.policyCreate,
+  namespace: "policy",
+  request: SigningPolicyCreateInputSchema,
+  response: SigningPolicyRecordSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof SigningPolicyCreateInputSchema>, SigningPolicyRecordView>
+export const policyUpdateContract = {
+  channel: CYPHERIA_IPC_CHANNELS.policyUpdate,
+  namespace: "policy",
+  request: SigningPolicyUpdateInputSchema,
+  response: SigningPolicyRecordSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof SigningPolicyUpdateInputSchema>, SigningPolicyRecordView>
+export const policyDisableContract = {
+  channel: CYPHERIA_IPC_CHANNELS.policyDisable,
+  namespace: "policy",
+  request: SigningPolicyDisableInputSchema,
+  response: SigningPolicyRecordSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof SigningPolicyDisableInputSchema>, SigningPolicyRecordView>
 
 export const browserSessionOpenContract = {
   channel: CYPHERIA_IPC_CHANNELS.browserSessionOpen,
@@ -720,6 +905,7 @@ export const codexChatInterruptContract = {
 export const ipcContracts = {
   appHealthCheck: appHealthCheckContract,
   appMetadataRead: appMetadataReadContract,
+  auditLogList: auditLogListContract,
   approvalRequestDecide: approvalRequestDecideContract,
   approvalRequestsList: approvalRequestsListContract,
   automationRunGet: automationRunGetContract,
@@ -742,10 +928,26 @@ export const ipcContracts = {
   codexModelSettingsWrite: codexModelSettingsWriteContract,
   codexThreadList: codexThreadListContract,
   dappProviderRequest: dappProviderRequestContract,
+  policyCreate: policyCreateContract,
+  policyDisable: policyDisableContract,
+  policyList: policyListContract,
+  policyUpdate: policyUpdateContract,
   runtimeInfoRead: runtimeInfoReadContract,
   settingsAppearanceFontsList: settingsAppearanceFontsListContract,
   settingsAppearanceRead: settingsAppearanceReadContract,
   settingsAppearanceWrite: settingsAppearanceWriteContract,
+  walletActiveClear: walletActiveClearContract,
+  walletActiveRead: walletActiveReadContract,
+  walletActiveWrite: walletActiveWriteContract,
+  walletAddWatch: walletAddWatchContract,
+  walletDelete: walletDeleteContract,
+  walletGenerateHd: walletGenerateHdContract,
+  walletImportHd: walletImportHdContract,
+  walletImportPrivateKey: walletImportPrivateKeyContract,
+  walletList: walletListContract,
+  walletLock: walletLockContract,
+  walletRename: walletRenameContract,
+  walletUnlock: walletUnlockContract,
 } as const
 
 export type CypheriaPreloadApi = {
@@ -756,6 +958,13 @@ export type CypheriaPreloadApi = {
     readonly platform: NodeJS.Platform
     readonly getHealth: () => Promise<AppHealthStatus>
     readonly getMetadata: () => Promise<AppMetadata>
+  }
+  readonly audit: {
+    readonly list: (limit?: number) => Promise<AuditLogRecordView[]>
+  }
+  readonly approval: {
+    readonly decide: (input: ApprovalRequestDecide) => Promise<ApprovalRequestView>
+    readonly list: (status?: ApprovalRequestStatus) => Promise<ApprovalRequestView[]>
   }
   readonly codex: {
     readonly cancelLogin: (loginId: string) => Promise<{ cancelled: boolean }>
@@ -802,9 +1011,51 @@ export type CypheriaPreloadApi = {
   readonly runtime: {
     readonly getInfo: () => Promise<RuntimeInfo>
   }
+  readonly policy: {
+    readonly create: (
+      input: z.input<typeof SigningPolicyCreateInputSchema>
+    ) => Promise<SigningPolicyRecordView>
+    readonly disable: (
+      policyId: string,
+      expectedRevision: number
+    ) => Promise<SigningPolicyRecordView>
+    readonly list: (
+      input?: z.input<typeof SigningPolicyListInputSchema>
+    ) => Promise<SigningPolicyRecordView[]>
+    readonly update: (
+      input: z.input<typeof SigningPolicyUpdateInputSchema>
+    ) => Promise<SigningPolicyRecordView>
+  }
   readonly settings: {
     readonly getAppearance: () => Promise<AppearanceSettings>
     readonly listAppearanceFonts: () => Promise<AppearanceFontOption[]>
     readonly setAppearance: (settings: AppearanceSettingsWrite) => Promise<AppearanceSettings>
+  }
+  readonly wallet: {
+    readonly addWatch: (
+      input: z.input<typeof WalletAddWatchInputSchema>
+    ) => Promise<z.output<typeof WalletListSchema>[number]>
+    readonly clearActive: () => Promise<{ cleared: boolean }>
+    readonly delete: (walletId: string) => Promise<{ deleted: boolean }>
+    readonly generateHd: (
+      input: z.input<typeof WalletGenerateHdInputSchema>
+    ) => Promise<z.output<typeof WalletListSchema>[number]>
+    readonly getActive: () => Promise<z.output<typeof WalletActiveContextSchema>>
+    readonly importHd: (
+      input: z.input<typeof WalletImportHdInputSchema>
+    ) => Promise<z.output<typeof WalletListSchema>[number]>
+    readonly importPrivateKey: (
+      input: z.input<typeof WalletImportPrivateKeyInputSchema>
+    ) => Promise<z.output<typeof WalletListSchema>[number]>
+    readonly list: () => Promise<z.output<typeof WalletListSchema>>
+    readonly lock: (walletId: string) => Promise<z.output<typeof WalletVaultStateSchema>>
+    readonly rename: (
+      walletId: string,
+      name: string
+    ) => Promise<z.output<typeof WalletListSchema>[number]>
+    readonly setActive: (
+      input: z.input<typeof WalletSetActiveInputSchema>
+    ) => Promise<z.output<typeof WalletActiveContextSchema>>
+    readonly unlock: (walletId: string) => Promise<z.output<typeof WalletVaultStateSchema>>
   }
 }

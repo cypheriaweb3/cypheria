@@ -1,8 +1,12 @@
 import {
+  type AuditLogService,
   applyDatabaseMigrations,
   createAuditLogService,
   createAutomationPersistenceService,
+  createSigningIntentPersistenceService,
+  createSigningPolicyPersistenceService,
   createWalletProviderPersistenceService,
+  createWalletPublicStatePersistenceService,
   type OpenDatabaseResult,
   openCypheriaDatabase,
 } from "@cypheria/db"
@@ -16,11 +20,21 @@ import {
   type CypheriaRuntimePaths,
   createAutomationRuntimeService,
   createEthereumProviderRuntimeService,
+  createSigningIntentRuntimeService,
+  createSigningPolicyRuntimeService,
   createSolanaProviderRuntimeService,
+  createWalletKeystoreCodec,
+  createWalletManager,
+  createWalletVaultController,
   type EthereumProviderRuntimeServiceOptions,
   ensureRuntimeDirectories,
   type RuntimeHomeEnv,
+  type SigningIntentRuntimeService,
+  type SigningPolicyRuntimeService,
   type SolanaProviderRuntimeServiceOptions,
+  type VaultMasterKeyProvider,
+  type WalletManager,
+  type WalletVaultController,
 } from "@cypheria/runtime"
 import { createDappSessionManager, type DappSessionManager } from "@cypheria/wallet-provider"
 import {
@@ -29,8 +43,10 @@ import {
   shutdownCodexAppServer,
   startCodexAppServer,
 } from "./codex-app-server.js"
+import { createDesktopVaultMasterKeyProvider } from "./vault-key-provider.js"
 
 export type DesktopRuntimeContext = {
+  readonly audit: AuditLogService
   readonly automation: AutomationRuntimeService
   readonly codexAppServer?: CodexAppServerContext
   readonly dappSessions: DappSessionManager
@@ -38,6 +54,10 @@ export type DesktopRuntimeContext = {
   readonly paths: CypheriaRuntimePaths
   readonly codexEnv: RuntimeHomeEnv
   readonly runtime: CypheriaRuntime
+  readonly policies: SigningPolicyRuntimeService
+  readonly signingIntents: SigningIntentRuntimeService
+  readonly vault: WalletVaultController
+  readonly wallets: WalletManager
 }
 
 export type DesktopRuntimeOptions = CypheriaRuntimeOptions & {
@@ -53,6 +73,7 @@ export type DesktopRuntimeOptions = CypheriaRuntimeOptions & {
     "audit" | "persistence" | "sessions"
   >
   readonly startCodexAppServer?: boolean
+  readonly vaultKeyProvider?: VaultMasterKeyProvider
 }
 
 export const initializeDesktopRuntime = async (
@@ -65,6 +86,7 @@ export const initializeDesktopRuntime = async (
     ethereumProvider: ethereumProviderOptions,
     solanaProvider: solanaProviderOptions,
     startCodexAppServer: shouldStartCodexAppServerOption,
+    vaultKeyProvider,
     ...runtimeOptions
   } = options
   const paths = buildRuntimePaths(runtimeOptions)
@@ -78,6 +100,23 @@ export const initializeDesktopRuntime = async (
   try {
     await applyDatabaseMigrations(database.client)
     const audit = createAuditLogService(database.db)
+    const walletPersistence = createWalletPublicStatePersistenceService(database.db)
+    const vault = createWalletVaultController({
+      codec: createWalletKeystoreCodec(),
+      keyProvider: vaultKeyProvider ?? createDesktopVaultMasterKeyProvider(paths.configDir),
+      vaultDir: paths.vaultDir,
+    })
+    const wallets = createWalletManager({ audit, persistence: walletPersistence, vault })
+    const policies = createSigningPolicyRuntimeService({
+      audit,
+      persistence: createSigningPolicyPersistenceService(database.db),
+      wallets: walletPersistence,
+    })
+    const signingIntents = createSigningIntentRuntimeService({
+      audit,
+      persistence: createSigningIntentPersistenceService(database.db),
+      policies,
+    })
     const walletProviderPersistence = createWalletProviderPersistenceService(database.db)
     const dappSessions = createDappSessionManager({ persistence: walletProviderPersistence })
     const automation = createAutomationRuntimeService({
@@ -122,13 +161,18 @@ export const initializeDesktopRuntime = async (
         })
       : undefined
     return {
+      audit,
       automation,
       codexAppServer,
       database,
       dappSessions,
       paths: runtime.paths,
       codexEnv,
+      policies,
       runtime,
+      signingIntents,
+      vault,
+      wallets,
     }
   } catch (error) {
     try {

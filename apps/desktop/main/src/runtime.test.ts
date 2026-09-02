@@ -2,6 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
+import { createMemoryVaultMasterKeyProvider } from "@cypheria/runtime"
 import { describe, expect, it } from "vitest"
 
 import { initializeDesktopRuntime, shutdownDesktopRuntime } from "./runtime.js"
@@ -11,7 +12,11 @@ describe("desktop runtime bootstrap", () => {
     const homeDir = await mkdtemp(join(tmpdir(), "cypheria-desktop-runtime-test-"))
 
     try {
-      const context = await initializeDesktopRuntime({ homeDir, startCodexAppServer: false })
+      const context = await initializeDesktopRuntime({
+        homeDir,
+        startCodexAppServer: false,
+        vaultKeyProvider: createMemoryVaultMasterKeyProvider(),
+      })
 
       expect(context.runtime.lifecycleState).toBe("ready")
       expect(context.paths).toBe(context.runtime.paths)
@@ -19,6 +24,11 @@ describe("desktop runtime bootstrap", () => {
       await expect(context.dappSessions.open("https://app.example/path")).resolves.toMatchObject({
         origin: "https://app.example",
       })
+      const wallet = await context.wallets.addWatchWallet({
+        address: "0x0000000000000000000000000000000000000001",
+        name: "Desktop watch wallet",
+      })
+      await expect(context.wallets.listWallets()).resolves.toEqual([wallet])
 
       await expect(context.runtime.request("runtime.info")).resolves.toMatchObject({
         cypheriaHome: context.paths.cypheriaHome,

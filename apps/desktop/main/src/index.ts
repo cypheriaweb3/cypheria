@@ -12,6 +12,9 @@ import {
   type AppMetadata,
   appHealthCheckContract,
   appMetadataReadContract,
+  approvalRequestDecideContract,
+  approvalRequestsListContract,
+  auditLogListContract,
   automationRunGetContract,
   automationRunListContract,
   automationRunStartContract,
@@ -34,11 +37,27 @@ import {
   codexThreadListContract,
   dappProviderRequestContract,
   IPC_PROTOCOL_VERSION,
+  policyCreateContract,
+  policyDisableContract,
+  policyListContract,
+  policyUpdateContract,
   type RuntimeInfo,
   runtimeInfoReadContract,
   settingsAppearanceFontsListContract,
   settingsAppearanceReadContract,
   settingsAppearanceWriteContract,
+  walletActiveClearContract,
+  walletActiveReadContract,
+  walletActiveWriteContract,
+  walletAddWatchContract,
+  walletDeleteContract,
+  walletGenerateHdContract,
+  walletImportHdContract,
+  walletImportPrivateKeyContract,
+  walletListContract,
+  walletLockContract,
+  walletRenameContract,
+  walletUnlockContract,
 } from "../../ipc/src/index.js"
 import { readAppearanceSettings, writeAppearanceSettings } from "./appearance-config.js"
 import { resolveCodexCommand } from "./codex-command.js"
@@ -189,6 +208,57 @@ const registerIpcHandlers = (context: DesktopRuntimeContext): void => {
     }
   })
   registerIpcRoute(appMetadataReadContract, () => appMetadata)
+  registerIpcRoute(auditLogListContract, ({ limit }) => context.audit.list({ limit }))
+  registerIpcRoute(approvalRequestsListContract, ({ status }) =>
+    context.signingIntents.listApprovals(status)
+  )
+  registerIpcRoute(
+    approvalRequestDecideContract,
+    ({ approvalId, decision, expectedRevision, reviewer }) =>
+      context.signingIntents.decide(approvalId, { decision, expectedRevision, reviewer })
+  )
+  registerIpcRoute(walletListContract, () => context.wallets.listWallets())
+  registerIpcRoute(walletActiveReadContract, () => context.wallets.getActiveContext())
+  registerIpcRoute(walletActiveWriteContract, (input) => context.wallets.setActiveContext(input))
+  registerIpcRoute(walletActiveClearContract, async () => {
+    await context.wallets.clearActiveContext()
+    return { cleared: true }
+  })
+  registerIpcRoute(walletGenerateHdContract, (input) => context.wallets.generateHdWallet(input))
+  registerIpcRoute(walletImportHdContract, (input) => context.wallets.importHdWallet(input))
+  registerIpcRoute(walletImportPrivateKeyContract, (input) =>
+    context.wallets.importPrivateKeyWallet(input)
+  )
+  registerIpcRoute(walletAddWatchContract, (input) => context.wallets.addWatchWallet(input))
+  registerIpcRoute(walletRenameContract, ({ name, walletId }) =>
+    context.wallets.renameWallet(walletId, name)
+  )
+  registerIpcRoute(walletDeleteContract, async ({ walletId }) => {
+    await context.wallets.deleteWallet(walletId)
+    return { deleted: true }
+  })
+  registerIpcRoute(walletLockContract, async ({ walletId }) => {
+    const wallet = await context.wallets.getWallet(walletId)
+    if (!wallet || !("vaultId" in wallet.wallet))
+      throw new Error("The wallet does not have a local vault.")
+    context.vault.lock(wallet.wallet.vaultId)
+    return { unlocked: false, walletId }
+  })
+  registerIpcRoute(walletUnlockContract, async ({ walletId }) => {
+    const wallet = await context.wallets.getWallet(walletId)
+    if (!wallet || !("vaultId" in wallet.wallet))
+      throw new Error("The wallet does not have a local vault.")
+    await context.vault.unlock(wallet.wallet.vaultId)
+    return { unlocked: true, walletId }
+  })
+  registerIpcRoute(policyListContract, (input) => context.policies.list(input))
+  registerIpcRoute(policyCreateContract, (input) => context.policies.create(input))
+  registerIpcRoute(policyUpdateContract, ({ policyId, ...input }) =>
+    context.policies.update(policyId, input)
+  )
+  registerIpcRoute(policyDisableContract, ({ expectedRevision, policyId }) =>
+    context.policies.disable(policyId, expectedRevision)
+  )
   const codexBridge = () => {
     const bridge = context.codexAppServer?.bridge
     if (!bridge) throw new Error("Codex App Server is unavailable.")

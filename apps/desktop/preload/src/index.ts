@@ -41,6 +41,17 @@ const cypheriaApi: CypheriaPreloadApi = {
     getHealth: () => invoke<AppHealthStatus>(CYPHERIA_IPC_CHANNELS.appHealthCheck),
     getMetadata: () => invoke<AppMetadata>(CYPHERIA_IPC_CHANNELS.appMetadataRead),
   },
+  approval: {
+    decide: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.approvalRequestDecide, input),
+    list: (status) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.approvalRequestsList, {
+        ...(status ? { status } : {}),
+      }),
+  },
+  audit: {
+    list: (limit) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.auditLogList, { ...(limit ? { limit } : {}) }),
+  },
   automation: {
     createTask: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.automationTaskCreate, input),
     getRun: (runId) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.automationRunGet, { runId }),
@@ -114,6 +125,13 @@ const cypheriaApi: CypheriaPreloadApi = {
   runtime: {
     getInfo: () => invoke<RuntimeInfo>(CYPHERIA_IPC_CHANNELS.runtimeInfoRead),
   },
+  policy: {
+    create: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.policyCreate, input),
+    disable: (policyId, expectedRevision) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.policyDisable, { expectedRevision, policyId }),
+    list: (input = {}) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.policyList, input),
+    update: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.policyUpdate, input),
+  },
   settings: {
     getAppearance: () => invoke<AppearanceSettings>(CYPHERIA_IPC_CHANNELS.settingsAppearanceRead),
     listAppearanceFonts: () =>
@@ -123,6 +141,22 @@ const cypheriaApi: CypheriaPreloadApi = {
         CYPHERIA_IPC_CHANNELS.settingsAppearanceWrite,
         settings
       ) as Promise<AppearanceSettings>,
+  },
+  wallet: {
+    addWatch: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletAddWatch, input),
+    clearActive: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletActiveClear),
+    delete: (walletId) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletDelete, { walletId }),
+    generateHd: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletGenerateHd, input),
+    getActive: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletActiveRead),
+    importHd: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletImportHd, input),
+    importPrivateKey: (input) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletImportPrivateKey, input),
+    list: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletList),
+    lock: (walletId) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletLock, { walletId }),
+    rename: (walletId, name) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletRename, { name, walletId }),
+    setActive: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletActiveWrite, input),
+    unlock: (walletId) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletUnlock, { walletId }),
   },
 }
 
