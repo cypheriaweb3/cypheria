@@ -30,8 +30,10 @@ import {
   ChevronRight,
   CircleUserRound,
   FolderGit2,
+  ScrollText,
   Search,
   Settings,
+  ShieldCheck,
   SquarePen,
   WalletCards,
   Workflow,
@@ -67,6 +69,16 @@ const workbenchItems = [
     href: "/automations",
     icon: <Workflow size={16} strokeWidth={1.9} />,
     label: "Automations",
+  },
+  {
+    href: "/policies",
+    icon: <ShieldCheck size={16} strokeWidth={1.9} />,
+    label: "Signing policies",
+  },
+  {
+    href: "/audit",
+    icon: <ScrollText size={16} strokeWidth={1.9} />,
+    label: "Audit log",
   },
   {
     href: "/plugins",
@@ -121,7 +133,7 @@ function AppearanceController() {
 }
 
 function AppShell({ children }: Readonly<{ children: ReactNode }>) {
-  const isSearchOpen = new URLSearchParams(globalThis.location.search).get("search") === "1"
+  const isSearchOpen = new URLSearchParams(globalThis.location?.search ?? "").get("search") === "1"
   const [searchTerm, setSearchTerm] = useState("")
   const threadsQuery = useQuery({
     queryFn: () =>
@@ -130,6 +142,11 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       }) ?? [],
     queryKey: ["codex", "threads", searchTerm.trim()],
     refetchInterval: 15_000,
+  })
+  const approvalsQuery = useQuery({
+    queryFn: () => window.cypheria?.approval.list("pending") ?? [],
+    queryKey: ["approval", "pending"],
+    refetchInterval: 5_000,
   })
   const threads = threadsQuery.data ?? []
   const projectGroups = new Map<string, typeof threads>()
@@ -193,6 +210,11 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                       >
                         {item.icon}
                         <span>{item.label}</span>
+                        {item.href === "/approvals" && approvalsQuery.data?.length ? (
+                          <span className="ml-auto rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
+                            {approvalsQuery.data.length}
+                          </span>
+                        ) : null}
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   ))}

@@ -29,6 +29,36 @@ describe("desktop runtime bootstrap", () => {
         name: "Desktop watch wallet",
       })
       await expect(context.wallets.listWallets()).resolves.toEqual([wallet])
+      const walletAccount = wallet.accounts[0]
+      const chainAccount = walletAccount?.chainAccounts[0]
+      if (!walletAccount || !chainAccount) throw new Error("Expected a wallet account.")
+      await context.policies.create({
+        chainIds: [chainAccount.chainId],
+        effect: "require-human-approval",
+        enabled: true,
+        methods: ["personal_sign"],
+        origins: ["https://app.example"],
+        requireHumanApproval: true,
+        walletId: wallet.wallet.id,
+      })
+      await context.signingIntents.create({
+        intent: {
+          account: {
+            address: chainAccount.address,
+            chainAccountId: chainAccount.id,
+            chainId: chainAccount.chainId,
+            walletAccountId: walletAccount.account.id,
+            walletId: wallet.wallet.id,
+          },
+          correlationId: "desktop-approval-smoke",
+          kind: "personal-sign",
+          message: "0x68656c6c6f",
+          origin: "https://app.example",
+        },
+        mode: "human-approval",
+        source: "dapp",
+      })
+      await expect(context.signingIntents.listApprovals("pending")).resolves.toHaveLength(1)
 
       await expect(context.runtime.request("runtime.info")).resolves.toMatchObject({
         cypheriaHome: context.paths.cypheriaHome,

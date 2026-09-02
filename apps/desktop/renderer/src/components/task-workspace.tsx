@@ -52,7 +52,7 @@ import {
   WalletCards,
 } from "lucide-react"
 import { type ReactNode, useMemo, useState } from "react"
-import type { CodexModelView } from "../../../ipc/src/index.js"
+import type { CodexModelView, WalletActiveContext } from "../../../ipc/src/index.js"
 import { CodexIpcChatTransport } from "../codex-chat.js"
 
 const fallbackModel: CodexModelView = {
@@ -79,6 +79,10 @@ export default function TaskWorkspace() {
   const modelsQuery = useQuery({
     queryFn: () => window.cypheria?.codex.listModels() ?? [],
     queryKey: ["codex", "models"],
+  })
+  const activeWalletQuery = useQuery({
+    queryFn: () => window.cypheria?.wallet.getActive(),
+    queryKey: ["wallet", "active"],
   })
   const settings = modelSettingsQuery.data
   const models = modelsQuery.data ?? []
@@ -238,7 +242,7 @@ export default function TaskWorkspace() {
           </div>
         </div>
       </main>
-      <WorkspacePanel />
+      <WorkspacePanel activeWallet={activeWalletQuery.data} />
     </section>
   )
 }
@@ -334,7 +338,7 @@ function ModelPicker({
   )
 }
 
-function WorkspacePanel() {
+function WorkspacePanel({ activeWallet }: Readonly<{ activeWallet?: WalletActiveContext }>) {
   return (
     <aside
       aria-label="Workspace panel"
@@ -355,10 +359,23 @@ function WorkspacePanel() {
               <div className="flex items-center gap-2 font-medium">
                 <WalletCards size={16} /> Web3 context
               </div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                No wallet or network selected. Signing remains unavailable until a policy-backed
-                intent is approved.
-              </p>
+              {activeWallet?.wallet && activeWallet.chainAccount ? (
+                <div className="mt-2 grid gap-1 text-sm">
+                  <span>
+                    {activeWallet.wallet.wallet.name} · {activeWallet.mode}
+                  </span>
+                  <span className="break-all font-mono text-xs text-muted-foreground">
+                    {activeWallet.chainAccount.address}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    Chain {activeWallet.chainAccount.chainId}
+                  </span>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  No wallet selected. The task remains read only.
+                </p>
+              )}
             </section>
             <section className="rounded-lg border bg-card p-4">
               <div className="flex items-center gap-2 font-medium">
