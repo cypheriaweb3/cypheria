@@ -2,6 +2,7 @@
 
 import { cn } from "@cypheria/ui"
 import { Button } from "@cypheria/ui/components/button"
+import { Input } from "@cypheria/ui/components/input"
 import {
   Sidebar,
   SidebarContent,
@@ -120,9 +121,14 @@ function AppearanceController() {
 }
 
 function AppShell({ children }: Readonly<{ children: ReactNode }>) {
+  const isSearchOpen = new URLSearchParams(globalThis.location.search).get("search") === "1"
+  const [searchTerm, setSearchTerm] = useState("")
   const threadsQuery = useQuery({
-    queryFn: () => window.cypheria?.codex.listThreads() ?? [],
-    queryKey: ["codex", "threads"],
+    queryFn: () =>
+      window.cypheria?.codex.listThreads({
+        ...(searchTerm.trim() ? { searchTerm: searchTerm.trim() } : {}),
+      }) ?? [],
+    queryKey: ["codex", "threads", searchTerm.trim()],
     refetchInterval: 15_000,
   })
   const threads = threadsQuery.data ?? []
@@ -193,6 +199,22 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>
+
+            {isSearchOpen ? (
+              <SidebarGroup>
+                <SidebarGroupLabel>Search tasks</SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <Input
+                    aria-label="Search tasks"
+                    autoFocus
+                    placeholder="Title or content"
+                    type="search"
+                    value={searchTerm}
+                    onChange={(event) => setSearchTerm(event.currentTarget.value)}
+                  />
+                </SidebarGroupContent>
+              </SidebarGroup>
+            ) : null}
 
             <SidebarGroup>
               <SidebarGroupLabel>Workbench</SidebarGroupLabel>
