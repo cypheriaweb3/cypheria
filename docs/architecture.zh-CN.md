@@ -155,6 +155,10 @@ Renderer 规则：
 - Renderer 将 preload capabilities 视为唯一 privileged bridge。
 - Renderer 通过 typed `codex.event` IPC channel 接收 Codex lifecycle、stderr、notification 和 server-request summaries。
 
+Desktop 的信息架构以任务为中心。常驻左侧导航首先提供新任务、搜索和待审批，其次提供钱包、自动化、plugins 与 skills，最后按 project 对 App Server threads 分组，并单列未分组的最近任务。任务工作区将 AI Elements conversation 与 composer 放在主区域，提供 model、reasoning、sandbox 和 wallet-context 控件，右侧是 context/files/review/terminal 面板。Settings 将账户身份验证、Codex 原生模型默认值和外观设置分开。
+
+Electron main 将 App Server 适配为 AI SDK `ProviderV4`，并通过 typed IPC 流式传输 AI SDK UI-message chunks；它同时负责 account login/logout 与 Codex config 读写。V1 支持 Codex 原生的 OpenAI、Amazon Bedrock、Ollama 和 LM Studio。Ollama 与 LM Studio 无需 OpenAI 身份验证即可使用。通用 custom-provider 表单与 OpenCodex 明确延后。
+
 ## Codex 集成
 
 Cypheria 使用两条 Codex 集成路径：

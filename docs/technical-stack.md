@@ -176,6 +176,8 @@ The complete shadcn component set for the `base-mira` preset is installed in `pa
 
 The complete AI Elements registry is vendored in `packages/ui/src/components/ai-elements` and exported through `@cypheria/ui/ai-elements/<name>`. See [AI Elements Integration And Upgrade Guide](./ai-elements.md) for the regeneration procedure and the compatibility adaptations required by Base UI, NodeNext, strict TypeScript, React 19, and AI SDK 7.
 
+The desktop renderer uses `@ai-sdk/react` for chat state and a custom `ChatTransport` backed by typed Electron IPC. Electron main uses the `@cypheria/codex-bridge` `ProviderV4` adapter and converts App Server output into AI SDK UI-message chunks. Heavy interactive route shells are client-only because Electron ships the SPA output and does not execute the TanStack Start server bundle at runtime.
+
 | Category | Choice |
 | --- | --- |
 | Component model | shadcn-style copied components |

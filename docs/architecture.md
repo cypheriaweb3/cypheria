@@ -155,6 +155,10 @@ Renderer rules:
 - Renderer treats preload capabilities as the only privileged bridge.
 - Renderer receives Codex lifecycle, stderr, notification, and server-request summaries through the typed `codex.event` IPC channel.
 
+The desktop information architecture is task-centered. The persistent sidebar puts new-task, search, and pending approvals first; then exposes wallets, automations, plugins and skills; and finally groups App Server threads by project with an ungrouped recent-task section. The task workspace combines an AI Elements conversation and composer with model, reasoning, sandbox, and wallet-context controls plus a right-hand context/files/review/terminal panel. Settings separate account authentication, native Codex model defaults, and appearance.
+
+Electron main adapts App Server to AI SDK `ProviderV4` and streams AI SDK UI-message chunks through typed IPC. It also owns account login/logout and Codex config reads/writes. Supported V1 provider choices are Codex-native OpenAI, Amazon Bedrock, Ollama, and LM Studio. Ollama and LM Studio can be used without OpenAI authentication. Generic custom-provider forms and OpenCodex are intentionally deferred.
+
 ## Codex Integration
 
 Cypheria uses two Codex integration paths:

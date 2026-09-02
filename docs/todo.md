@@ -118,6 +118,12 @@ Status legend:
   - Include: development package resolution, explicit `CYPHERIA_CODEX_PATH` override, and packaged sidecar resolution from Electron resources.
   - Verification: `pnpm codex:version`, `pnpm run ci`, `pnpm build`, and desktop tests.
 
+- [x] Add the task-centered desktop workspace, Codex authentication, and native model settings.
+  - Acceptance: the sidebar lists projects and recent threads; the main workspace streams AI SDK UI messages through App Server; account settings support ChatGPT, OpenAI API keys, and Amazon Bedrock; model settings support OpenAI, Bedrock, Ollama, and LM Studio.
+  - Include: unauthenticated local-model use, task interruption, model/reasoning/service-tier controls, automation supervision, isolated dApp launch, approval and plugin/skill workbench routes, and client-only route shells for Electron builds.
+  - Exclude: generic custom providers and OpenCodex integration until the provider strategy is decided.
+  - Verification: `pnpm run ci`, `pnpm build`, and `pnpm --filter @cypheria/desktop test`.
+
 ## Runtime Web3 Capabilities
 
 - [x] Adopt Drizzle with libSQL as the local database adapter and specify the wallet architecture.

@@ -118,6 +118,12 @@
   - 包括：development package resolution、显式 `CYPHERIA_CODEX_PATH` override，以及从 Electron resources 解析 packaged sidecar。
   - 验证：`pnpm codex:version`、`pnpm run ci`、`pnpm build` 和 desktop tests。
 
+- [x] 添加以任务为中心的 desktop workspace、Codex 身份验证与原生模型设置。
+  - 验收：左侧导航展示 projects 与最近 threads；主工作区通过 App Server 流式传输 AI SDK UI messages；账户设置支持 ChatGPT、OpenAI API key 与 Amazon Bedrock；模型设置支持 OpenAI、Bedrock、Ollama 与 LM Studio。
+  - 包括：无需登录的本地模型、任务中断、model/reasoning/service-tier 控件、automation 管理、隔离 dApp 启动、approval 与 plugin/skill 工作台路由，以及用于 Electron 构建的 client-only route shells。
+  - 不包括：在 provider 策略确定前，不实现通用 custom providers 与 OpenCodex 集成。
+  - 验证：`pnpm run ci`、`pnpm build` 和 `pnpm --filter @cypheria/desktop test`。
+
 ## Runtime Web3 能力
 
 - [x] 采用 Drizzle + libSQL 本地数据库适配器，并确定钱包架构。

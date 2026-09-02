@@ -9,11 +9,35 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from "./routes/__root"
+import { Route as WalletsRouteImport } from "./routes/wallets"
+import { Route as PluginsRouteImport } from "./routes/plugins"
+import { Route as AutomationsRouteImport } from "./routes/automations"
+import { Route as ApprovalsRouteImport } from "./routes/approvals"
 import { Route as IndexRouteImport } from "./routes/index"
 import { Route as SettingsModelsRouteImport } from "./routes/settings.models"
 import { Route as SettingsAppearanceRouteImport } from "./routes/settings.appearance"
 import { Route as SettingsAccountRouteImport } from "./routes/settings.account"
 
+const WalletsRoute = WalletsRouteImport.update({
+  id: "/wallets",
+  path: "/wallets",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PluginsRoute = PluginsRouteImport.update({
+  id: "/plugins",
+  path: "/plugins",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AutomationsRoute = AutomationsRouteImport.update({
+  id: "/automations",
+  path: "/automations",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApprovalsRoute = ApprovalsRouteImport.update({
+  id: "/approvals",
+  path: "/approvals",
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: "/",
   path: "/",
@@ -37,12 +61,20 @@ const SettingsAccountRoute = SettingsAccountRouteImport.update({
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute
+  "/approvals": typeof ApprovalsRoute
+  "/automations": typeof AutomationsRoute
+  "/plugins": typeof PluginsRoute
+  "/wallets": typeof WalletsRoute
   "/settings/account": typeof SettingsAccountRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
   "/settings/models": typeof SettingsModelsRoute
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute
+  "/approvals": typeof ApprovalsRoute
+  "/automations": typeof AutomationsRoute
+  "/plugins": typeof PluginsRoute
+  "/wallets": typeof WalletsRoute
   "/settings/account": typeof SettingsAccountRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
   "/settings/models": typeof SettingsModelsRoute
@@ -50,6 +82,10 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   "/": typeof IndexRoute
+  "/approvals": typeof ApprovalsRoute
+  "/automations": typeof AutomationsRoute
+  "/plugins": typeof PluginsRoute
+  "/wallets": typeof WalletsRoute
   "/settings/account": typeof SettingsAccountRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
   "/settings/models": typeof SettingsModelsRoute
@@ -58,14 +94,30 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | "/"
+    | "/approvals"
+    | "/automations"
+    | "/plugins"
+    | "/wallets"
     | "/settings/account"
     | "/settings/appearance"
     | "/settings/models"
   fileRoutesByTo: FileRoutesByTo
-  to: "/" | "/settings/account" | "/settings/appearance" | "/settings/models"
+  to:
+    | "/"
+    | "/approvals"
+    | "/automations"
+    | "/plugins"
+    | "/wallets"
+    | "/settings/account"
+    | "/settings/appearance"
+    | "/settings/models"
   id:
     | "__root__"
     | "/"
+    | "/approvals"
+    | "/automations"
+    | "/plugins"
+    | "/wallets"
     | "/settings/account"
     | "/settings/appearance"
     | "/settings/models"
@@ -73,6 +125,10 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  ApprovalsRoute: typeof ApprovalsRoute
+  AutomationsRoute: typeof AutomationsRoute
+  PluginsRoute: typeof PluginsRoute
+  WalletsRoute: typeof WalletsRoute
   SettingsAccountRoute: typeof SettingsAccountRoute
   SettingsAppearanceRoute: typeof SettingsAppearanceRoute
   SettingsModelsRoute: typeof SettingsModelsRoute
@@ -80,6 +136,34 @@ export interface RootRouteChildren {
 
 declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
+    "/wallets": {
+      id: "/wallets"
+      path: "/wallets"
+      fullPath: "/wallets"
+      preLoaderRoute: typeof WalletsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/plugins": {
+      id: "/plugins"
+      path: "/plugins"
+      fullPath: "/plugins"
+      preLoaderRoute: typeof PluginsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/automations": {
+      id: "/automations"
+      path: "/automations"
+      fullPath: "/automations"
+      preLoaderRoute: typeof AutomationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/approvals": {
+      id: "/approvals"
+      path: "/approvals"
+      fullPath: "/approvals"
+      preLoaderRoute: typeof ApprovalsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     "/": {
       id: "/"
       path: "/"
@@ -113,6 +197,10 @@ declare module "@tanstack/react-router" {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  ApprovalsRoute: ApprovalsRoute,
+  AutomationsRoute: AutomationsRoute,
+  PluginsRoute: PluginsRoute,
+  WalletsRoute: WalletsRoute,
   SettingsAccountRoute: SettingsAccountRoute,
   SettingsAppearanceRoute: SettingsAppearanceRoute,
   SettingsModelsRoute: SettingsModelsRoute,
