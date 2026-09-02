@@ -174,6 +174,8 @@ UI 策略是复用成熟 primitives，只为 Cypheria-specific workflows 构建�
 
 完整的 shadcn `base-mira` 预设组件集已安装到 `packages/ui/src/components`，依赖由 `@cypheria/ui` 管理。通过 `@cypheria/ui/components/<name>` 导入组件，并保留现有 Cypheria 定制。若需补充后续发布的组件，运行 `pnpm --filter @cypheria/ui shadcn:add --all --yes`，对已定制文件选择不覆盖。
 
+完整的 AI Elements registry 源码位于 `packages/ui/src/components/ai-elements`，并通过 `@cypheria/ui/ai-elements/<name>` 导出。重新生成步骤以及 Base UI、NodeNext、严格 TypeScript、React 19 和 AI SDK 7 所需的兼容性修改，参见 [AI Elements 集成与升级指南](./ai-elements.zh-CN.md)。
+
 | Category | Choice |
 | --- | --- |
 | Component model | shadcn-style copied components |
