@@ -20,7 +20,7 @@ import {
 } from "@cypheria/ui/components/sidebar"
 import { TooltipProvider } from "@cypheria/ui/components/tooltip"
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query"
-import { HeadContent, Outlet, Scripts, useLocation } from "@tanstack/react-router"
+import { HeadContent, Link, Outlet, Scripts, useLocation } from "@tanstack/react-router"
 import { Provider as JotaiProvider } from "jotai"
 import {
   Archive,
@@ -454,10 +454,10 @@ function SettingsNavigation({
               <SidebarMenuItem>
                 <SidebarMenuButton
                   render={
-                    <a href="/">
+                    <Link to="/">
                       <ChevronLeft aria-hidden="true" size={16} strokeWidth={1.9} />
                       <span>Back to workspace</span>
-                    </a>
+                    </Link>
                   }
                   tooltip="Back to workspace"
                 />
@@ -475,10 +475,10 @@ function SettingsNavigation({
                   <SidebarMenuButton
                     isActive={pathname === item.href}
                     render={
-                      <a href={item.href}>
+                      <Link to={item.href}>
                         {item.icon}
                         <span>{item.label}</span>
-                      </a>
+                      </Link>
                     }
                     tooltip={item.label}
                   />
