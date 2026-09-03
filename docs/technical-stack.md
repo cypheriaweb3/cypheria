@@ -105,6 +105,10 @@ SDK clients should be small wrappers around runtime services and Codex SDK agent
 
 Desktop keeps Electron + TanStack Start.
 
+Internal desktop navigation uses TanStack Router links to preserve the document, global styles, and appearance state. Global CSS is linked from the root document before client hydration. Task search parameters are validated by the index route; switching threads or choosing New task resets the task session without reloading the application.
+
+Search opens a shadcn Command dialog over the current page, with debounced task search, recent-task suggestions, keyboard selection, and explicit loading/error/empty states. Closing the dialog preserves the current draft; selecting a result navigates to that task.
+
 | Area | Choice |
 | --- | --- |
 | Main process | TypeScript built with tsdown |

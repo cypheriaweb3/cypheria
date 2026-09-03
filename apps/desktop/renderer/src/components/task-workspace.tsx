@@ -37,7 +37,9 @@ import { Button } from "@cypheria/ui/components/button"
 import { Separator } from "@cypheria/ui/components/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@cypheria/ui/components/tabs"
 import { useQuery } from "@tanstack/react-query"
+import { Link } from "@tanstack/react-router"
 import type { DynamicToolUIPart, FileUIPart, UIMessage } from "ai"
+import { useAtomValue } from "jotai"
 import {
   ChevronDown,
   FileDiff,
@@ -51,9 +53,11 @@ import {
   TerminalSquare,
   WalletCards,
 } from "lucide-react"
-import { type ReactNode, useMemo, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 import type { CodexModelView, WalletActiveContext } from "../../../ipc/src/index.js"
 import { CodexIpcChatTransport } from "../codex-chat.js"
+import { Route } from "../routes/index"
+import { newTaskRevisionAtom } from "./task-navigation"
 
 const fallbackModel: CodexModelView = {
   defaultReasoningEffort: "medium",
@@ -70,8 +74,12 @@ const fallbackModel: CodexModelView = {
 }
 
 export default function TaskWorkspace() {
-  const params = new URLSearchParams(globalThis.location?.search ?? "")
-  const resumeThreadId = params.get("thread") ?? undefined
+  const { thread } = Route.useSearch()
+  const revision = useAtomValue(newTaskRevisionAtom)
+  return <TaskSession key={thread ?? `new-task-${revision}`} resumeThreadId={thread} />
+}
+
+function TaskSession({ resumeThreadId }: Readonly<{ resumeThreadId?: string }>) {
   const modelSettingsQuery = useQuery({
     queryFn: () => window.cypheria?.codex.getModelSettings(),
     queryKey: ["codex", "model-settings"],
@@ -125,6 +133,13 @@ export default function TaskWorkspace() {
     transport,
   })
 
+  useEffect(
+    () => () => {
+      void stop()
+    },
+    [stop]
+  )
+
   const handleSubmit = async ({ text, files }: { text: string; files: FileUIPart[] }) => {
     const value = text.trim()
     if (!value && files.length === 0) return
@@ -144,10 +159,10 @@ export default function TaskWorkspace() {
             <Button
               nativeButton={false}
               render={
-                <a href="/settings/models">
+                <Link to="/settings/models">
                   <Settings aria-hidden="true" size={14} />
                   Models
-                </a>
+                </Link>
               }
               size="sm"
               variant="ghost"

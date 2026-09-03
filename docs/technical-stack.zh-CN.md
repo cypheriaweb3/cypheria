@@ -105,6 +105,10 @@ SDK clients 应该是 runtime services 与 Codex SDK agent threads 之上的轻�
 
 Desktop 保留 Electron + TanStack Start。
 
+桌面内部导航使用 TanStack Router 链接，保留当前文档、全局样式和外观状态。全局 CSS 在客户端 hydration 之前由根文档链接加载。任务查询参数由首页路由校验；切换任务或点击 New task 会重置任务会话，而不重新加载整个应用。
+
+Search 在当前页面上打开 shadcn Command 对话框，支持防抖任务搜索、最近任务、键盘选择，以及加载、错误和空结果状态。关闭对话框保留当前草稿，选择结果则导航至对应任务。
+
 | Area | Choice |
 | --- | --- |
 | Main process | TypeScript built with tsdown |

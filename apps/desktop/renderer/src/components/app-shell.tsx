@@ -2,7 +2,6 @@
 
 import { cn } from "@cypheria/ui"
 import { Button } from "@cypheria/ui/components/button"
-import { Input } from "@cypheria/ui/components/input"
 import {
   SidebarContent,
   SidebarFooter,
@@ -39,15 +38,16 @@ import {
   WalletCards,
   Workflow,
 } from "lucide-react"
-import { type CSSProperties, type ReactNode, useState } from "react"
+import { type ComponentProps, type CSSProperties, type ReactNode, useState } from "react"
 import { resolveThemeMode, useAppearanceController, useTheme } from "../appearance.js"
-
 import {
   DesktopCollapsedToolbar,
   DesktopSidebar as Sidebar,
   DesktopSidebarProvider as SidebarProvider,
   DesktopSidebarTrigger as SidebarTrigger,
 } from "./desktop-sidebar"
+import { NewTaskLink } from "./task-navigation"
+import { TaskSearch } from "./task-search"
 
 const navigationItems = [
   {
@@ -56,7 +56,7 @@ const navigationItems = [
     label: "New task",
   },
   {
-    href: "/?search=1",
+    href: "/",
     icon: <Search size={16} strokeWidth={1.9} />,
     label: "Search",
   },
@@ -161,14 +161,9 @@ function AppearanceController() {
 function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const { pathname } = useLocation()
   const isSettings = pathname.startsWith("/settings")
-  const isSearchOpen = new URLSearchParams(globalThis.location?.search ?? "").get("search") === "1"
-  const [searchTerm, setSearchTerm] = useState("")
   const threadsQuery = useQuery({
-    queryFn: () =>
-      window.cypheria?.codex.listThreads({
-        ...(searchTerm.trim() ? { searchTerm: searchTerm.trim() } : {}),
-      }) ?? [],
-    queryKey: ["codex", "threads", searchTerm.trim()],
+    queryFn: () => window.cypheria?.codex.listThreads({}) ?? [],
+    queryKey: ["codex", "threads", ""],
     refetchInterval: 15_000,
   })
   const approvalsQuery = useQuery({
@@ -237,41 +232,29 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                   <SidebarMenu>
                     {navigationItems.map((item) => (
                       <SidebarMenuItem key={item.label}>
-                        <SidebarMenuButton
-                          render={
-                            <a href={item.href}>
-                              {item.icon}
-                              <span>{item.label}</span>
-                              {item.href === "/approvals" && approvalsQuery.data?.length ? (
-                                <span className="ml-auto rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
-                                  {approvalsQuery.data.length}
-                                </span>
-                              ) : null}
-                            </a>
-                          }
-                          tooltip={item.label}
-                        />
+                        {item.label === "Search" ? (
+                          <TaskSearch />
+                        ) : (
+                          <SidebarMenuButton
+                            render={
+                              <NavigationLink item={item}>
+                                {item.icon}
+                                <span>{item.label}</span>
+                                {item.href === "/approvals" && approvalsQuery.data?.length ? (
+                                  <span className="ml-auto rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
+                                    {approvalsQuery.data.length}
+                                  </span>
+                                ) : null}
+                              </NavigationLink>
+                            }
+                            tooltip={item.label}
+                          />
+                        )}
                       </SidebarMenuItem>
                     ))}
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
-
-              {isSearchOpen ? (
-                <SidebarGroup>
-                  <SidebarGroupLabel>Search tasks</SidebarGroupLabel>
-                  <SidebarGroupContent>
-                    <Input
-                      aria-label="Search tasks"
-                      autoFocus
-                      placeholder="Title or content"
-                      type="search"
-                      value={searchTerm}
-                      onChange={(event) => setSearchTerm(event.currentTarget.value)}
-                    />
-                  </SidebarGroupContent>
-                </SidebarGroup>
-              ) : null}
 
               <SidebarGroup>
                 <SidebarGroupLabel>Workbench</SidebarGroupLabel>
@@ -281,10 +264,10 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                       <SidebarMenuItem key={item.label}>
                         <SidebarMenuButton
                           render={
-                            <a href={item.href}>
+                            <Link to={item.href}>
                               {item.icon}
                               <span>{item.label}</span>
-                            </a>
+                            </Link>
                           }
                           tooltip={item.label}
                         />
@@ -306,13 +289,14 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                         </SidebarMenuButton>
                         <div className="ml-7 grid border-l border-sidebar-border pl-2">
                           {projectThreads.slice(0, 5).map((thread) => (
-                            <a
+                            <Link
+                              to="/"
+                              search={{ thread: thread.id }}
                               className="truncate rounded-md px-2 py-1.5 text-sm text-sidebar-foreground no-underline hover:bg-sidebar-accent"
-                              href={`/?thread=${encodeURIComponent(thread.id)}`}
                               key={thread.id}
                             >
                               {thread.title}
-                            </a>
+                            </Link>
                           ))}
                         </div>
                       </SidebarMenuItem>
@@ -332,7 +316,7 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                       <SidebarMenuItem key={thread.id}>
                         <SidebarMenuButton
                           render={
-                            <a href={`/?thread=${encodeURIComponent(thread.id)}`}>
+                            <Link to="/" search={{ thread: thread.id }}>
                               <span
                                 className={cn(
                                   "size-1.5 shrink-0 rounded-full bg-muted-foreground/45",
@@ -341,7 +325,7 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                                 )}
                               />
                               <span className="truncate">{thread.title}</span>
-                            </a>
+                            </Link>
                           }
                           tooltip={thread.title}
                         />
@@ -360,10 +344,10 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     render={
-                      <a href="/settings/models">
+                      <Link to="/settings/models">
                         <Settings aria-hidden="true" size={16} strokeWidth={1.9} />
                         <span>Settings</span>
-                      </a>
+                      </Link>
                     }
                     tooltip="Settings"
                   />
@@ -381,7 +365,7 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
               aria-label="New chat"
               className={cn(chromeIconButtonClassName, "collapsed-secondary")}
               nativeButton={false}
-              render={<Link to="/" />}
+              render={<NewTaskLink />}
               size="icon"
               variant="ghost"
             >
@@ -546,4 +530,12 @@ function ThemeModeButton() {
       <CircleUserRound aria-hidden="true" size={17} strokeWidth={1.9} />
     </Button>
   )
+}
+
+function NavigationLink({
+  item,
+  ...props
+}: Readonly<{ item: (typeof navigationItems)[number] }> & Omit<ComponentProps<"a">, "href">) {
+  if (item.label === "New task") return <NewTaskLink {...props} />
+  return <Link {...props} to={item.href} search={{}} />
 }
