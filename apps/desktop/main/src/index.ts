@@ -7,7 +7,7 @@ import {
   type WalletProviderResponse,
   walletProviderResponseSchema,
 } from "@cypheria/wallet-provider"
-import { app, BrowserWindow, nativeTheme, net, protocol, shell } from "electron"
+import { app, BrowserWindow, Menu, nativeTheme, net, protocol, shell } from "electron"
 import {
   type AppearanceSettings,
   type AppearanceSettingsWrite,
@@ -405,6 +405,35 @@ const refreshNativeWindowChrome = (): void => {
   }
 }
 
+const registerDeveloperContextMenu = (window: BrowserWindow): void => {
+  if (app.isPackaged) {
+    return
+  }
+
+  window.webContents.on("context-menu", (_event, params) => {
+    const inspectElement = (): void => {
+      if (!window.isDestroyed()) {
+        window.webContents.inspectElement(params.x, params.y)
+      }
+    }
+
+    Menu.buildFromTemplate([
+      {
+        click: () => {
+          if (window.webContents.isDevToolsOpened()) {
+            inspectElement()
+            return
+          }
+
+          window.webContents.once("devtools-opened", inspectElement)
+          window.webContents.openDevTools({ activate: true, mode: "detach" })
+        },
+        label: "Inspect",
+      },
+    ]).popup({ window })
+  })
+}
+
 const createMainWindow = async (context: DesktopRuntimeContext): Promise<BrowserWindow> => {
   const appearance = await readAppearanceSettings(context.paths.codexHome)
   currentAppearanceSettings = appearance
@@ -449,6 +478,8 @@ const createMainWindow = async (context: DesktopRuntimeContext): Promise<Browser
     },
     width: 1280,
   })
+
+  registerDeveloperContextMenu(window)
 
   dappBrowserController = createDappBrowserController({
     createWebContents: createElectronDappWebContentsFactory(window),
