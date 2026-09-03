@@ -192,10 +192,10 @@ export function mapCodexChromeThemeToCypheriaThemeStyles(
   theme: CodexChromeTheme
 ): CypheriaThemeStyles {
   const contrast = clamp(theme.contrast, 0, 100)
-  const subtle = clamp(contrast * 0.16, 5, 18)
-  const muted = clamp(contrast * 0.22, 8, 26)
-  const border = clamp(contrast * 0.42, 14, 38)
-  const accentWash = clamp(contrast * 0.28, 10, 30)
+  const subtle = clamp(contrast * 0.08, 2.5, 9)
+  const muted = clamp(contrast * 0.11, 4, 13)
+  const border = clamp(contrast * 0.21, 7, 19)
+  const accentWash = clamp(contrast * 0.14, 5, 15)
 
   return {
     accent: mix(theme.surface, theme.accent, accentWash),

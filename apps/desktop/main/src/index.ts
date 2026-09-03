@@ -454,7 +454,7 @@ const createMainWindow = async (context: DesktopRuntimeContext): Promise<Browser
     ...(process.platform === "darwin"
       ? {
           titleBarStyle: "hiddenInset" as const,
-          trafficLightPosition: { x: 18, y: 18 },
+          trafficLightPosition: { x: 18, y: 15 },
         }
       : process.platform === "win32"
         ? {

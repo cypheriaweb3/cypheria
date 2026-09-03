@@ -132,9 +132,9 @@ export default function TaskWorkspace() {
   }
 
   return (
-    <section className="grid h-screen min-h-0 grid-cols-[minmax(520px,1fr)_minmax(320px,32vw)] bg-background max-[1180px]:grid-cols-1 max-[860px]:h-[calc(100vh-48px)]">
-      <main className="grid min-h-0 min-w-0 grid-rows-[54px_minmax(0,1fr)_auto] border-r border-border max-[1180px]:border-r-0">
-        <header className="flex min-h-[54px] items-center justify-between gap-3 border-b border-border px-4">
+    <section className="grid h-screen min-h-0 grid-cols-[minmax(520px,1fr)_minmax(320px,32vw)] bg-background max-[1180px]:grid-cols-1 max-[767px]:h-[calc(100vh-48px)]">
+      <main className="grid min-h-0 min-w-0 grid-rows-[var(--chrome-height,44px)_minmax(0,1fr)_auto] border-r border-border max-[1180px]:border-r-0">
+        <header className="desktop-titlebar flex min-h-[44px] items-center justify-between gap-3 border-b border-border px-4">
           <div className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold">
             <FolderGit2 aria-hidden="true" size={16} />
             <span className="truncate">{resumeThreadId ? "Task" : "New task"}</span>
@@ -343,7 +343,10 @@ function WorkspacePanel({ activeWallet }: Readonly<{ activeWallet?: WalletActive
       aria-label="Workspace panel"
       className="min-h-0 min-w-0 overflow-hidden bg-muted/20 max-[1180px]:hidden"
     >
-      <Tabs className="grid h-full grid-rows-[54px_minmax(0,1fr)]" defaultValue="context">
+      <Tabs
+        className="grid h-full grid-rows-[var(--chrome-height,44px)_minmax(0,1fr)]"
+        defaultValue="context"
+      >
         <div className="flex items-center border-b border-border px-3">
           <TabsList className="bg-transparent">
             <TabsTrigger value="context">Context</TabsTrigger>

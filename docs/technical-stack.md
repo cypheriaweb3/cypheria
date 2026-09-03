@@ -209,6 +209,8 @@ Cypheria-specific components:
 
 Visual direction: quiet, work-focused, low saturation, panel-oriented, dense enough for real engineering workflows, and close to Codex Desktop. Avoid neon Web3 marketing aesthetics.
 
+Desktop sidebar motion and hover previews live in `apps/desktop/renderer/src/components/desktop-sidebar.tsx` and its CSS, reusing the shared UI sidebar primitives. Pinned navigation animates its layout width while the panel slides offscreen; hover previews overlay content without reserving width. The task titlebar synchronizes its leading space with the collapsed toolbar. Native window controls stay fixed, and reduced-motion preferences disable transitions. Window chrome uses fixed pixel geometry: a 44px titlebar, 28px hit targets, 15px icons, and 6px gaps. These dimensions do not scale with the UI font setting; the toolbar center aligns with the native macOS traffic lights at y=22px. Sidebar toolbar icons remain stationary and are clipped by the retracting panel; the collapsed toolbar is revealed underneath without crossfading. The titlebar divider stays behind the sidebar, with no line below the sidebar toolbar. Clicking collapse suppresses hover previews until the pointer leaves the toggle and enters again. Dragging the right edge adjusts sidebar width from 240–480px (also constrained by window width); double-click resets to 288px, and the focused separator supports arrow keys and Home/End. Dragging more than 120px (half the minimum width) past the 240px minimum collapses the sidebar and closes any preview; reopening retains the minimum width. Width is retained across navigation for the current app session.
+
 ## Web3 Stack
 
 | Category | Choice |

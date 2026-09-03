@@ -81,6 +81,13 @@ renderer 将每个 Codex chrome theme 映射为 shadcn-compatible CSS variables�
 | `fonts.ui` | `--font-sans` |
 | `fonts.code` | `--font-mono` |
 
+混色使用 OKLCH，contrast 限制在 0–100。叠加色百分比为：
+`subtle = clamp(contrast × 0.08, 2.5, 9)` 用于 muted/sidebar 背景，
+`muted = clamp(contrast × 0.11, 4, 13)` 用于 secondary 背景，
+`border = clamp(contrast × 0.21, 7, 19)` 用于边框和输入框，
+`accentWash = clamp(contrast × 0.14, 5, 15)` 用于 accent 背景。
+这些较低权重让派生背景更接近基础背景色；默认 contrast 仍为浅色 45、深色 60。
+
 这个映射有意缩小 shadcn customization。shadcn 暴露很多彼此独立的 tokens，但
 Cypheria 从 Codex 的更小 theme model 派生它们，让 UI 保持可预测，并兼容 Codex
 theme import/export。

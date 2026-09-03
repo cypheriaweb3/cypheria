@@ -1,0 +1,200 @@
+.desktop-shell {
+  --chrome-duration: 280ms;
+  --chrome-ease: cubic-bezier(0.22, 0.68, 0, 1);
+  /* Native traffic lights: y=15px, diameter=14px, center=22px. */
+  --chrome-height: 44px;
+  --chrome-button-size: 28px;
+  --chrome-icon-size: 15px;
+  --chrome-gap: 6px;
+  --chrome-leading: 88px;
+  display: flex;
+  width: 100%;
+  min-width: 0;
+}
+[data-platform="win32"] .desktop-shell {
+  --chrome-leading: 14px;
+}
+@media (min-width: 768px) {
+  /* The fixed divider is revealed underneath the retracting sidebar. */
+  .desktop-shell::after {
+    content: "";
+    position: fixed;
+    top: calc(var(--chrome-height) - 1px);
+    left: 0;
+    right: 0;
+    height: 1px;
+    z-index: 25;
+    background: var(--border);
+    pointer-events: none;
+  }
+  /* Cancel the panel translation so its controls stay in window coordinates.
+     The moving panel's overflow clips/reveals them without moving the icons. */
+  .desktop-shell [data-slot="sidebar-header"] {
+    transform: translateX(0);
+    transition: transform var(--chrome-duration) var(--chrome-ease);
+  }
+  .desktop-shell[data-open="false"] [data-slot="sidebar-header"] {
+    transform: translateX(var(--sidebar-width));
+  }
+  .desktop-shell[data-preview="true"] [data-slot="sidebar-header"] {
+    transform: translateX(0);
+  }
+  .desktop-shell [data-slot="sidebar-gap"] {
+    transition: width var(--chrome-duration) var(--chrome-ease);
+  }
+  .desktop-shell [data-slot="sidebar-container"] {
+    left: 0;
+    transform: translateX(0);
+    overflow: hidden;
+    z-index: 30;
+    transition:
+      transform var(--chrome-duration) var(--chrome-ease),
+      border-radius var(--chrome-duration) var(--chrome-ease);
+  }
+  .desktop-shell[data-open="false"] [data-slot="sidebar-container"] {
+    transform: translateX(-100%);
+  }
+  .desktop-shell[data-preview="true"] [data-slot="sidebar-container"] {
+    transform: translateX(0);
+    border-radius: 0 14px 14px 0;
+    box-shadow: 3px 4px 16px #00000012;
+  }
+  .desktop-shell[data-preview="true"] [data-slot="sidebar-header"] > * {
+    visibility: hidden;
+  }
+  .desktop-shell [data-slot="sidebar-header"],
+  .desktop-collapsed-tools {
+    box-sizing: border-box;
+    height: var(--chrome-height);
+    min-height: var(--chrome-height);
+    max-height: var(--chrome-height);
+    flex-shrink: 0;
+    align-items: center;
+    gap: var(--chrome-gap);
+    padding: 0 12px 0 var(--chrome-leading);
+  }
+  .desktop-shell[data-preview="true"] [data-slot="sidebar-header"] {
+    -webkit-app-region: no-drag;
+  }
+  /* Pixel geometry must override the shared Button's rem-based SVG variants. */
+  .desktop-shell .desktop-chrome-button {
+    box-sizing: border-box;
+    width: var(--chrome-button-size);
+    height: var(--chrome-button-size);
+    min-width: var(--chrome-button-size);
+    min-height: var(--chrome-button-size);
+    flex: 0 0 var(--chrome-button-size);
+    padding: 0;
+    border-radius: 7px;
+    color: var(--muted-foreground);
+  }
+  .desktop-shell .desktop-chrome-button[aria-expanded="true"]:not(:hover) {
+    background: transparent;
+  }
+  .desktop-shell .desktop-chrome-button svg {
+    width: var(--chrome-icon-size);
+    height: var(--chrome-icon-size);
+  }
+  .desktop-chrome-separator {
+    width: 1px;
+    height: 16px;
+    flex: 0 0 1px;
+    margin: 0 4px;
+  }
+  .desktop-collapsed-tools {
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--chrome-gap);
+    /* The opaque sidebar reveals this stationary toolbar as it retracts.
+       Do not crossfade two sets of icons at the same screen coordinates. */
+    z-index: 20;
+    /* This floats over titlebar padding: native drag regions ignore DOM z-index. */
+    -webkit-app-region: no-drag;
+  }
+  .desktop-collapsed-tools button,
+  .desktop-collapsed-tools a {
+    -webkit-app-region: no-drag;
+  }
+  .desktop-shell[data-preview="true"] .desktop-collapsed-tools {
+    z-index: 40;
+  }
+  .desktop-shell[data-preview="true"] .desktop-collapsed-tools .collapsed-secondary {
+    opacity: 0;
+    pointer-events: none;
+  }
+  .desktop-shell .main-panel > :not(.desktop-collapsed-tools):not(:has(.desktop-titlebar)) {
+    margin-top: var(--chrome-height);
+    max-height: calc(100vh - var(--chrome-height));
+  }
+  .desktop-titlebar {
+    height: var(--chrome-height);
+    min-height: var(--chrome-height);
+    /* Keep the animated leading gutter out of Electron's native drag region. */
+    -webkit-app-region: no-drag;
+    padding-left: 16px;
+    transition: padding-left var(--chrome-duration) var(--chrome-ease);
+  }
+  .desktop-titlebar > div:first-child {
+    flex: 1;
+    align-self: stretch;
+    -webkit-app-region: drag;
+  }
+  .desktop-titlebar button,
+  .desktop-titlebar a {
+    -webkit-app-region: no-drag;
+  }
+  .desktop-shell[data-open="false"] .desktop-titlebar {
+    padding-left: calc(
+      var(--chrome-leading) +
+      2 *
+      var(--chrome-button-size) +
+      2 *
+      var(--chrome-gap) +
+      25px
+    );
+  }
+}
+@media (max-width: 767px) {
+  .desktop-collapsed-tools {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .desktop-shell {
+    --chrome-duration: 0ms;
+  }
+}
+
+.desktop-shell[data-resizing="true"] {
+  --chrome-duration: 0ms;
+  cursor: col-resize;
+  user-select: none;
+}
+.desktop-sidebar-resizer {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--sidebar-width) - 3px);
+  width: 6px;
+  z-index: 50;
+  cursor: col-resize;
+  touch-action: none;
+  -webkit-app-region: no-drag;
+}
+/* Keep the six-pixel hit target invisible; highlight only the existing border. */
+.desktop-sidebar-resizer::after {
+  content: "";
+  position: absolute;
+  inset-block: 0;
+  left: 2px;
+  width: 1px;
+  pointer-events: none;
+}
+.desktop-sidebar-resizer:hover::after,
+.desktop-sidebar-resizer:focus-visible::after,
+.desktop-shell[data-resizing="true"] .desktop-sidebar-resizer::after {
+  background: color-mix(in srgb, var(--border) 35%, var(--muted-foreground));
+}

@@ -104,6 +104,49 @@ describe("Cypheria UI primitives", () => {
     expect(root.dataset.cypheriaReducedMotion).toBeUndefined()
   })
 
+  it.each([
+    ["light", 3.6, 4.95, 9.45, 6.3],
+    ["dark", 4.8, 6.6, 12.6, 8.4],
+  ] as const)("derives softened %s default surfaces", (mode, subtle, muted, border, wash) => {
+    const theme = defaultCodexAppearanceThemeSettings[mode]
+    const styles = mapCodexChromeThemeToCypheriaThemeStyles(theme)
+    const expectMix = (value: string, overlay: string, percent: number) => {
+      expect(value).toMatch(/^color-mix\(in oklch, /)
+      expect(value).toContain(`${theme.surface}, ${overlay} `)
+      expect(Number(value.match(/([\d.]+)%\)$/)?.[1])).toBeCloseTo(percent)
+    }
+
+    expectMix(styles.muted, theme.ink, subtle)
+    expect(styles.sidebar).toBe(styles.muted)
+    expectMix(styles.secondary, theme.ink, muted)
+    expectMix(styles.border, theme.ink, border)
+    expect(styles.input).toBe(styles.border)
+    expect(styles["sidebar-border"]).toBe(styles.border)
+    expectMix(styles.accent, theme.accent, wash)
+    expect(styles["sidebar-accent"]).toBe(styles.accent)
+    expect(styles.background).toBe(theme.surface)
+    expect(styles.foreground).toBe(theme.ink)
+    expect(styles.primary).toBe(theme.accent)
+  })
+
+  it.each([
+    [-10, 2.5, 4, 7, 5],
+    [110, 8, 11, 19, 14],
+  ])("clamps derived surfaces at contrast %s", (contrast, subtle, muted, border, wash) => {
+    const styles = mapCodexChromeThemeToCypheriaThemeStyles({
+      ...defaultCodexAppearanceThemeSettings.light,
+      contrast,
+    })
+    for (const [token, percent] of [
+      ["muted", subtle],
+      ["secondary", muted],
+      ["border", border],
+      ["accent", wash],
+    ] as const) {
+      expect(Number(styles[token].match(/([\d.]+)%\)$/)?.[1])).toBeCloseTo(percent)
+    }
+  })
+
   it("derives CSS font face variables from structured Codex font faces", () => {
     const styles = mapCodexChromeThemeToCypheriaThemeStyles({
       ...defaultCodexAppearanceThemeSettings.light,

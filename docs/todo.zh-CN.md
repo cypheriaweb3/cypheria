@@ -94,6 +94,10 @@
   - 验收：`cypheria run`、`cypheria run --jsonl`、`cypheria runtime info`、`cypheria wallet list`、`cypheria policy list`、`cypheria automation run <task-id>` 和 `cypheria doctor` 接入 runtime 或 Codex SDK。
   - 验证：CLI unit tests 和 command smoke tests。
 
+- [x] 添加 desktop 包内的侧栏收起动画与悬停预览。
+  - 验收：原生窗口按钮保持固定，侧栏完全收起，收起工具栏与任务标题联动，悬停预览不改变内容宽度；共享 UI 基础组件保持不变。
+  - 验证：desktop 类型检查与构建、Biome，以及 Electron 界面检查。
+
 ## Desktop Codex App Server Bridge
 
 - [x] 将 Codex app-server TypeScript 生成到 `@cypheria/codex-bridge`。

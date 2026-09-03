@@ -94,6 +94,10 @@ Status legend:
   - Acceptance: `cypheria run`, `cypheria run --jsonl`, `cypheria runtime info`, `cypheria wallet list`, `cypheria policy list`, `cypheria automation run <task-id>`, and `cypheria doctor` are wired to runtime or Codex SDK.
   - Verification: CLI unit tests and command smoke tests.
 
+- [x] Add desktop-owned sidebar collapse motion and hover previews.
+  - Acceptance: native window controls remain fixed; the sidebar fully retracts, collapsed controls and the task title move together, and hover previews do not resize content. Shared UI primitives remain unchanged.
+  - Verification: desktop typecheck/build, Biome, and Electron visual checks.
+
 ## Desktop Codex App Server Bridge
 
 - [x] Regenerate Codex app-server TypeScript into `@cypheria/codex-bridge`.

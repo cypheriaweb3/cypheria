@@ -88,6 +88,14 @@ The renderer maps each Codex chrome theme into shadcn-compatible CSS variables:
 | `fonts.ui` | `--font-sans` |
 | `fonts.code` | `--font-mono` |
 
+Mixing uses OKLCH, with contrast clamped to 0–100. Overlay percentages are
+`subtle = clamp(contrast × 0.08, 2.5, 9)` for muted/sidebar backgrounds,
+`muted = clamp(contrast × 0.11, 4, 13)` for secondary backgrounds,
+`border = clamp(contrast × 0.21, 7, 19)` for borders/inputs, and
+`accentWash = clamp(contrast × 0.14, 5, 15)` for accent backgrounds.
+These restrained weights keep derived surfaces close to the base surface;
+the default contrast remains 45 for light mode and 60 for dark mode.
+
 This mapping intentionally narrows shadcn customization. shadcn exposes many
 independent tokens, but Cypheria derives them from Codex's smaller theme model so
 the UI remains predictable and compatible with Codex theme import/export.

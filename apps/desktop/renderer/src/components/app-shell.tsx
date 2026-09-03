@@ -4,7 +4,6 @@ import { cn } from "@cypheria/ui"
 import { Button } from "@cypheria/ui/components/button"
 import { Input } from "@cypheria/ui/components/input"
 import {
-  Sidebar,
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
@@ -15,8 +14,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarProvider,
-  SidebarTrigger,
 } from "@cypheria/ui/components/sidebar"
 import { TooltipProvider } from "@cypheria/ui/components/tooltip"
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -24,11 +21,12 @@ import { HeadContent, Link, Outlet, Scripts, useLocation } from "@tanstack/react
 import { Provider as JotaiProvider } from "jotai"
 import {
   Archive,
+  ArrowLeft,
+  ArrowRight,
   BellDot,
   Bot,
   Boxes,
   ChevronLeft,
-  ChevronRight,
   CircleUserRound,
   FolderGit2,
   LogIn,
@@ -43,6 +41,13 @@ import {
 } from "lucide-react"
 import { type CSSProperties, type ReactNode, useState } from "react"
 import { resolveThemeMode, useAppearanceController, useTheme } from "../appearance.js"
+
+import {
+  DesktopCollapsedToolbar,
+  DesktopSidebar as Sidebar,
+  DesktopSidebarProvider as SidebarProvider,
+  DesktopSidebarTrigger as SidebarTrigger,
+} from "./desktop-sidebar"
 
 const navigationItems = [
   {
@@ -181,10 +186,11 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const platform = getDesktopPlatform()
   const isWindows = platform === "win32"
   const windowControlRowClassName = cn(
-    "flex min-h-14 flex-row items-center gap-2.5 px-3 py-2 pl-[88px] [-webkit-app-region:drag] [&_button]:[-webkit-app-region:no-drag]",
+    "flex min-h-[44px] flex-row items-center gap-2.5 px-3 py-2 pl-[88px] [-webkit-app-region:drag] [&_button]:[-webkit-app-region:no-drag]",
     isWindows && "gap-[18px] px-3 pb-2 pt-3 pl-3.5"
   )
-  const chromeIconButtonClassName = "size-[30px] text-muted-foreground disabled:opacity-35"
+  const chromeIconButtonClassName =
+    "desktop-chrome-button text-muted-foreground disabled:opacity-35"
 
   return (
     <TooltipProvider>
@@ -211,7 +217,7 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 size="icon"
                 variant="ghost"
               >
-                <ChevronLeft aria-hidden="true" size={17} strokeWidth={1.8} />
+                <ArrowLeft aria-hidden="true" size={15} strokeWidth={1.8} />
               </Button>
               <Button
                 aria-label="Go forward"
@@ -220,7 +226,7 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 size="icon"
                 variant="ghost"
               >
-                <ChevronRight aria-hidden="true" size={17} strokeWidth={1.8} />
+                <ArrowRight aria-hidden="true" size={15} strokeWidth={1.8} />
               </Button>
               {isWindows ? <WindowsMenuBar /> : null}
             </SidebarHeader>
@@ -369,44 +375,24 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         )}
 
         <SidebarInset className="main-panel min-h-0 min-w-0 bg-background">
-          {!isSettings ? (
-            <div
-              className={cn(
-                "fixed left-0 top-0 z-20 hidden min-h-14 flex-row items-center gap-2.5 px-4 py-2 pl-[88px] [-webkit-app-region:drag] [[data-slot=sidebar][data-state=collapsed]~.main-panel_&]:flex [&_button]:[-webkit-app-region:no-drag]",
-                isWindows && "right-[138px] gap-[18px] pl-3.5"
-              )}
+          <DesktopCollapsedToolbar>
+            <SidebarTrigger aria-label="Toggle sidebar" className={chromeIconButtonClassName} />
+            <Button
+              aria-label="New chat"
+              className={cn(chromeIconButtonClassName, "collapsed-secondary")}
+              nativeButton={false}
+              render={<Link to="/" />}
+              size="icon"
+              variant="ghost"
             >
-              <SidebarTrigger aria-label="Open sidebar" className={chromeIconButtonClassName} />
-              <Button
-                aria-label="Go back"
-                className={chromeIconButtonClassName}
-                disabled
-                size="icon"
-                variant="ghost"
-              >
-                <ChevronLeft aria-hidden="true" size={17} strokeWidth={1.8} />
-              </Button>
-              <Button
-                aria-label="Go forward"
-                className={chromeIconButtonClassName}
-                disabled
-                size="icon"
-                variant="ghost"
-              >
-                <ChevronRight aria-hidden="true" size={17} strokeWidth={1.8} />
-              </Button>
-              <Button
-                aria-label="New chat"
-                className={chromeIconButtonClassName}
-                size="icon"
-                variant="ghost"
-              >
-                <SquarePen aria-hidden="true" size={16} strokeWidth={1.8} />
-              </Button>
-              {isWindows ? <WindowsMenuBar /> : null}
-            </div>
-          ) : null}
-          <div className="hidden min-h-12 items-center justify-between border-b border-border bg-sidebar px-2.5 text-sm font-semibold text-sidebar-foreground max-[860px]:flex [&_button]:[-webkit-app-region:no-drag]">
+              <SquarePen aria-hidden="true" size={16} strokeWidth={1.8} />
+            </Button>
+            <span
+              aria-hidden="true"
+              className="collapsed-secondary desktop-chrome-separator bg-border"
+            />
+          </DesktopCollapsedToolbar>
+          <div className="hidden min-h-12 items-center justify-between border-b border-border bg-sidebar px-2.5 text-sm font-semibold text-sidebar-foreground max-[767px]:flex [&_button]:[-webkit-app-region:no-drag]">
             <SidebarTrigger aria-label="Open sidebar" />
             <span>{isSettings ? "Settings" : "Cypheria"}</span>
             {isSettings ? (
@@ -437,7 +423,7 @@ function SettingsNavigation({
     <Sidebar className="border-r border-sidebar-border" collapsible="icon">
       <SidebarHeader
         className={cn(
-          "flex min-h-14 flex-row items-center gap-2.5 px-3 py-2 pl-[88px] [-webkit-app-region:drag] [&_a]:[-webkit-app-region:no-drag] [&_button]:[-webkit-app-region:no-drag]",
+          "flex min-h-[44px] flex-row items-center gap-2.5 px-3 py-2 pl-[88px] [-webkit-app-region:drag] [&_a]:[-webkit-app-region:no-drag] [&_button]:[-webkit-app-region:no-drag]",
           platform === "win32" && "px-3 pb-2 pt-3 pl-3.5"
         )}
       >
