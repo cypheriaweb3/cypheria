@@ -10,6 +10,7 @@ import {
   Badge,
   Button,
   cn,
+  codexCodeThemePresets,
   createCypheriaThemeState,
   defaultCodexAppearanceThemeSettings,
   mapCodexChromeThemeToCypheriaThemeStyles,
@@ -115,47 +116,42 @@ describe("Cypheria UI primitives", () => {
     expect(root.dataset.cypheriaReducedMotion).toBeUndefined()
   })
 
-  it.each([
-    ["light", 3.6, 4.95, 9.45, 6.3],
-    ["dark", 4.8, 6.6, 12.6, 8.4],
-  ] as const)("derives softened %s default surfaces", (mode, subtle, muted, border, wash) => {
+  it.each(["light", "dark"] as const)("derives semantic %s surfaces", (mode) => {
     const theme = defaultCodexAppearanceThemeSettings[mode]
     const styles = mapCodexChromeThemeToCypheriaThemeStyles(theme)
-    const expectMix = (value: string, overlay: string, percent: number) => {
-      expect(value).toMatch(/^color-mix\(in oklch, /)
-      expect(value).toContain(`${theme.surface}, ${overlay} `)
-      expect(Number(value.match(/([\d.]+)%\)$/)?.[1])).toBeCloseTo(percent)
-    }
-
-    expectMix(styles.muted, theme.ink, subtle)
-    expect(styles.sidebar).toBe(styles.muted)
-    expectMix(styles.secondary, theme.ink, muted)
-    expectMix(styles.border, theme.ink, border)
-    expect(styles.input).toBe(styles.border)
-    expect(styles["sidebar-border"]).toBe(styles.border)
-    expectMix(styles.accent, theme.accent, wash)
-    expect(styles["sidebar-accent"]).toBe(styles.accent)
+    expect(styles.sidebar).not.toBe(styles.muted)
+    expect(styles.secondary).toBe(styles.accent)
+    expect(styles.input).not.toBe(styles.border)
+    expect(styles["sidebar-border"]).not.toBe(styles.border)
+    expect(styles["sidebar-accent"]).not.toBe(styles.accent)
+    expect(styles.popover).toBe(styles.card)
+    if (mode === "light") expect(styles.card).toBe(theme.surface)
+    else expect(styles.card).not.toBe(theme.surface)
     expect(styles.background).toBe(theme.surface)
     expect(styles.foreground).toBe(theme.ink)
-    expect(styles.primary).toBe(theme.accent)
+    expect(styles["diff-removed"]).toBe(theme.semanticColors.diffRemoved)
+    const recolored = mapCodexChromeThemeToCypheriaThemeStyles({ ...theme, accent: "#ff00ff" })
+    for (const token of [
+      "accent",
+      "secondary",
+      "muted",
+      "sidebar",
+      "sidebar-accent",
+      "card",
+    ] as const) {
+      expect(recolored[token]).toBe(styles[token])
+    }
+    expect(recolored.primary).not.toBe(styles.primary)
   })
 
   it.each([
-    [-10, 2.5, 4, 7, 5],
-    [110, 8, 11, 19, 14],
-  ])("clamps derived surfaces at contrast %s", (contrast, subtle, muted, border, wash) => {
-    const styles = mapCodexChromeThemeToCypheriaThemeStyles({
-      ...defaultCodexAppearanceThemeSettings.light,
-      contrast,
-    })
-    for (const [token, percent] of [
-      ["muted", subtle],
-      ["secondary", muted],
-      ["border", border],
-      ["accent", wash],
-    ] as const) {
-      expect(Number(styles[token].match(/([\d.]+)%\)$/)?.[1])).toBeCloseTo(percent)
-    }
+    [-10, 0],
+    [110, 100],
+  ])("clamps derived surfaces at contrast %s", (contrast, expected) => {
+    const theme = defaultCodexAppearanceThemeSettings.light
+    expect(mapCodexChromeThemeToCypheriaThemeStyles({ ...theme, contrast })).toEqual(
+      mapCodexChromeThemeToCypheriaThemeStyles({ ...theme, contrast: expected })
+    )
   })
 
   it("derives CSS font face variables from structured Codex font faces", () => {
@@ -181,5 +177,68 @@ describe("Cypheria UI primitives", () => {
     expect(styles["font-sans-style"]).toBe("normal")
     expect(styles["font-mono-weight"]).toBe("700")
     expect(styles["font-mono-style"]).toBe("italic")
+  })
+
+  it.each(
+    codexCodeThemePresets
+  )("keeps $id derived text readable without changing its source", (preset) => {
+    const ratio = (a: string, b: string) => {
+      const luminance = (hex: string) => {
+        const channels = [1, 3, 5].map((offset) => {
+          const value = Number.parseInt(hex.slice(offset, offset + 2), 16) / 255
+          return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4
+        })
+        return (
+          (channels[0] ?? 0) * 0.2126 + (channels[1] ?? 0) * 0.7152 + (channels[2] ?? 0) * 0.0722
+        )
+      }
+      const x = luminance(a)
+      const y = luminance(b)
+      return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)
+    }
+    for (const variant of Object.values(preset.variants)) {
+      const before = JSON.stringify(variant.theme)
+      for (const contrast of [0, variant.theme.contrast, 100]) {
+        const styles = mapCodexChromeThemeToCypheriaThemeStyles({ ...variant.theme, contrast })
+        for (const token of [
+          "primary",
+          "card",
+          "popover",
+          "secondary",
+          "accent",
+          "sidebar",
+          "sidebar-primary",
+          "sidebar-accent",
+          "destructive",
+        ] as const) {
+          expect(
+            ratio(styles[token], styles[`${token}-foreground`]),
+            `${preset.id}: ${token}`
+          ).toBeGreaterThanOrEqual(4.5)
+        }
+        for (const token of [
+          "background",
+          "card",
+          "muted",
+          "accent",
+          "sidebar",
+          "sidebar-accent",
+        ] as const) {
+          expect(
+            ratio(styles["muted-foreground"], styles[token]),
+            `${preset.id}: muted on ${token}`
+          ).toBeGreaterThanOrEqual(4.5)
+          expect(
+            ratio(styles.destructive, styles[token]),
+            `${preset.id}: destructive on ${token}`
+          ).toBeGreaterThanOrEqual(4.5)
+          expect(
+            ratio(styles.ring, styles[token]),
+            `${preset.id}: ring on ${token}`
+          ).toBeGreaterThanOrEqual(3)
+        }
+      }
+      expect(JSON.stringify(variant.theme)).toBe(before)
+    }
   })
 })

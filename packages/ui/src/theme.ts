@@ -137,8 +137,62 @@ export const defaultCodexAppearanceThemeSettings: CodexAppearanceThemeSettings =
 const clamp = (value: number, min: number, max: number): number =>
   Math.min(Math.max(value, min), max)
 
-const mix = (base: string, overlay: string, percent: number): string =>
-  `color-mix(in oklch, ${base}, ${overlay} ${percent}%)`
+// Persisted appearance colors are six-digit hex. Keep CSS-color support for
+// callers of the UI mapper, but only promise contrast checks for hex inputs.
+const rgb = (color: string): number[] | undefined =>
+  /^#[\da-f]{6}$/i.test(color)
+    ? [1, 3, 5].map((offset) => Number.parseInt(color.slice(offset, offset + 2), 16))
+    : undefined
+
+const mix = (base: string, overlay: string, percent: number): string => {
+  const a = rgb(base)
+  const b = rgb(overlay)
+  if (!a || !b) return `color-mix(in srgb, ${base}, ${overlay} ${percent}%)`
+  return `#${a
+    .map((channel, i) =>
+      Math.round(channel + (((b[i] ?? channel) - channel) * percent) / 100)
+        .toString(16)
+        .padStart(2, "0")
+    )
+    .join("")}`
+}
+
+const luminance = (color: string): number | undefined => {
+  const channels = rgb(color)
+  if (!channels) return undefined
+  return channels.reduce((sum, channel, i) => {
+    const value = channel / 255
+    return (
+      sum +
+      (value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4) *
+        ([0.2126, 0.7152, 0.0722][i] ?? 0)
+    )
+  }, 0)
+}
+
+const contrastRatio = (a: string, b: string): number => {
+  const x = luminance(a)
+  const y = luminance(b)
+  if (x === undefined || y === undefined) return 1
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05)
+}
+
+const readable = (seed: string, backgrounds: string[], minimum = 4.5): string => {
+  if (!rgb(seed) || backgrounds.some((color) => !rgb(color))) return seed
+  const score = (color: string) => Math.min(...backgrounds.map((bg) => contrastRatio(color, bg)))
+  if (score(seed) >= minimum) return seed
+  const target = score("#000000") > score("#ffffff") ? "#000000" : "#ffffff"
+  for (let percent = 1; percent <= 100; percent++) {
+    const candidate = mix(seed, target, percent)
+    if (score(candidate) >= minimum) return candidate
+  }
+  return target
+}
+
+const onColor = (background: string): string =>
+  contrastRatio("#000000", background) > contrastRatio("#ffffff", background)
+    ? "#000000"
+    : "#ffffff"
 
 const inferFontStyle = (fontFamily: string): string =>
   /\b(italic|oblique)\b/i.test(fontFamily) ? "italic" : "normal"
@@ -192,20 +246,28 @@ export function mapCodexChromeThemeToCypheriaThemeStyles(
   theme: CodexChromeTheme
 ): CypheriaThemeStyles {
   const contrast = clamp(theme.contrast, 0, 100)
-  const subtle = clamp(contrast * 0.08, 2.5, 9)
-  const muted = clamp(contrast * 0.11, 4, 13)
-  const border = clamp(contrast * 0.21, 7, 19)
-  const accentWash = clamp(contrast * 0.14, 5, 15)
+  const dark = (luminance(theme.surface) ?? 1) < 0.179
+  const strength = contrast / 100
+  const neutral = (base: string, light: number, night: number, range: number) =>
+    mix(base, theme.ink, (dark ? night : light) + strength * range)
+  const card = dark ? neutral(theme.surface, 0, 4, 3) : theme.surface
+  const muted = neutral(theme.surface, 2, 5, 3)
+  const interaction = neutral(theme.surface, 3, 7, 4)
+  const sidebar = neutral(theme.surface, 1, 3, 2)
+  const sidebarAccent = neutral(sidebar, 3, 6, 3)
+  const surfaces = [theme.surface, card, muted, interaction, sidebar, sidebarAccent]
+  const primary = readable(theme.accent, [theme.surface, sidebar])
+  const destructive = readable(theme.semanticColors.diffRemoved, surfaces)
 
   return {
-    accent: mix(theme.surface, theme.accent, accentWash),
-    "accent-foreground": theme.ink,
+    accent: interaction,
+    "accent-foreground": readable(theme.ink, [interaction]),
     background: theme.surface,
-    border: mix(theme.surface, theme.ink, border),
-    card: theme.surface,
-    "card-foreground": theme.ink,
-    destructive: theme.semanticColors.diffRemoved,
-    "destructive-foreground": theme.surface,
+    border: neutral(theme.surface, 6, 10, 5),
+    card,
+    "card-foreground": readable(theme.ink, [card]),
+    destructive,
+    "destructive-foreground": onColor(destructive),
     "diff-added": theme.semanticColors.diffAdded,
     "diff-removed": theme.semanticColors.diffRemoved,
     "font-mono": theme.fonts.code,
@@ -217,25 +279,25 @@ export function mapCodexChromeThemeToCypheriaThemeStyles(
     "font-sans-style": inferFontStyle(theme.fonts.uiFace?.fullName ?? theme.fonts.ui),
     "font-sans-weight": inferFontWeight(theme.fonts.uiFace?.fullName ?? theme.fonts.ui),
     foreground: theme.ink,
-    input: mix(theme.surface, theme.ink, border),
-    muted: mix(theme.surface, theme.ink, subtle),
-    "muted-foreground": mix(theme.ink, theme.surface, 38),
-    popover: theme.surface,
-    "popover-foreground": theme.ink,
-    primary: theme.accent,
-    "primary-foreground": theme.surface,
+    input: neutral(theme.surface, 10, 16, 7),
+    muted,
+    "muted-foreground": readable(mix(theme.ink, theme.surface, 45 - strength * 10), surfaces),
+    popover: card,
+    "popover-foreground": readable(theme.ink, [card]),
+    primary,
+    "primary-foreground": onColor(primary),
     radius: "0.5rem",
-    ring: theme.accent,
-    secondary: mix(theme.surface, theme.ink, muted),
-    "secondary-foreground": theme.ink,
-    sidebar: mix(theme.surface, theme.ink, subtle),
-    "sidebar-accent": mix(theme.surface, theme.accent, accentWash),
-    "sidebar-accent-foreground": theme.ink,
-    "sidebar-border": mix(theme.surface, theme.ink, border),
-    "sidebar-foreground": theme.ink,
-    "sidebar-primary": theme.accent,
-    "sidebar-primary-foreground": theme.surface,
-    "sidebar-ring": theme.accent,
+    ring: readable(theme.accent, surfaces, 3),
+    secondary: interaction,
+    "secondary-foreground": readable(theme.ink, [interaction]),
+    sidebar,
+    "sidebar-accent": sidebarAccent,
+    "sidebar-accent-foreground": readable(theme.ink, [sidebarAccent]),
+    "sidebar-border": neutral(sidebar, 6, 10, 5),
+    "sidebar-foreground": readable(theme.ink, [sidebar]),
+    "sidebar-primary": primary,
+    "sidebar-primary-foreground": onColor(primary),
+    "sidebar-ring": readable(theme.accent, [sidebar, sidebarAccent], 3),
     skill: theme.semanticColors.skill,
   }
 }

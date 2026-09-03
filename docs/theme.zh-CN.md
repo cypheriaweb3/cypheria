@@ -70,23 +70,40 @@ renderer 将每个 Codex chrome theme 映射为 shadcn-compatible CSS variables�
 
 | Codex field | shadcn / Cypheria target |
 | --- | --- |
-| `surface` | `--background`、`--card`、`--popover` |
-| `ink` | `--foreground`、`--card-foreground`、`--popover-foreground` |
-| `accent` | `--primary`、`--ring`、`--sidebar-primary`、`--sidebar-ring` |
-| `contrast` | 派生 `--border`、`--input`、`--muted`、`--secondary`、`--sidebar`、`--sidebar-border` |
-| `accent` + `contrast` | 派生 `--accent`、`--sidebar-accent` accent washes |
+| `surface` | 原样保留 `--background`；作为所有派生背景的基色 |
+| `ink` | 原样保留 `--foreground`；作为中性背景和可读前景色的来源 |
+| `accent` | 对比度调整后的 `--primary`、`--ring`、`--sidebar-primary`、`--sidebar-ring` |
+| `surface` + `ink` + `contrast` | 独立的 card/popover、muted、secondary/accent、sidebar、sidebar-accent、border 和 input 角色 |
 | `semanticColors.diffAdded` | `--diff-added` |
 | `semanticColors.diffRemoved` | `--diff-removed`、`--destructive` |
 | `semanticColors.skill` | `--skill` |
 | `fonts.ui` | `--font-sans` |
 | `fonts.code` | `--font-mono` |
 
-混色使用 OKLCH，contrast 限制在 0–100。叠加色百分比为：
-`subtle = clamp(contrast × 0.08, 2.5, 9)` 用于 muted/sidebar 背景，
-`muted = clamp(contrast × 0.11, 4, 13)` 用于 secondary 背景，
-`border = clamp(contrast × 0.21, 7, 19)` 用于边框和输入框，
-`accentWash = clamp(contrast × 0.14, 5, 15)` 用于 accent 背景。
-这些较低权重让派生背景更接近基础背景色；默认 contrast 仍为浅色 45、深色 60。
+持久化的六位 hex 颜色使用 sRGB 混色并输出不透明 hex token，让对比度计算和
+渲染使用相同颜色。令 `t = clamp(contrast, 0, 100) / 100`。根据 surface 的相对
+亮度选择配色分支（低于 0.179 为深色），即使自定义预设放入了相反模式的槽位。
+默认 contrast 仍为浅色 45、深色 60。
+
+| 角色 | 浅色 ink 百分比 | 深色 ink 百分比 |
+| --- | --- | --- |
+| card / popover | 0 | `4 + 3t` |
+| muted | `2 + 3t` | `5 + 3t` |
+| secondary / accent | `3 + 4t` | `7 + 4t` |
+| sidebar | `1 + 2t` | `3 + 2t` |
+| sidebar-accent，以 sidebar 为基底 | `3 + 3t` | `6 + 3t` |
+| border | `6 + 5t` | `10 + 5t` |
+| input | `10 + 7t` | `16 + 7t` |
+| sidebar-border，以 sidebar 为基底 | `6 + 5t` | `10 + 5t` |
+
+Primary 仍由强调色派生，通用交互背景改为中性色。Primary 文字/链接色以 background
+和 sidebar 上的 4.5:1 为目标；填充 primary/destructive 的前景选择黑或白。
+派生前景色、次要文字和 destructive 文字在检查的背景上以 4.5:1 为目标，焦点色
+在组件透明度修饰之前以 3:1 为目标。不足时向黑白中更合适的端点混色，若无法同时
+满足所有背景则回退至该端点。次要文字初始值为 ink 混入 `45 - 10t` 百分比 surface。
+Diff 原色、源设置、导入导出载荷不变。这不代表全 UI 可访问性保证：源 background/ink
+以及组件透明度修饰不变。UI mapper 的非 hex 输入保留 CSS 混色，但跳过数值对比度
+检查。图表颜色、字体和圆角不变。
 
 这个映射有意缩小 shadcn customization。shadcn 暴露很多彼此独立的 tokens，但
 Cypheria 从 Codex 的更小 theme model 派生它们，让 UI 保持可预测，并兼容 Codex

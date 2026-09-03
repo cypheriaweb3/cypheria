@@ -77,24 +77,45 @@ The renderer maps each Codex chrome theme into shadcn-compatible CSS variables:
 
 | Codex field | shadcn / Cypheria target |
 | --- | --- |
-| `surface` | `--background`, `--card`, `--popover` |
-| `ink` | `--foreground`, `--card-foreground`, `--popover-foreground` |
-| `accent` | `--primary`, `--ring`, `--sidebar-primary`, `--sidebar-ring` |
-| `contrast` | derived `--border`, `--input`, `--muted`, `--secondary`, `--sidebar`, `--sidebar-border` |
-| `accent` + `contrast` | derived `--accent`, `--sidebar-accent` accent washes |
+| `surface` | unchanged `--background`; base for all derived surfaces |
+| `ink` | unchanged `--foreground`; seed for neutral surfaces and readable foregrounds |
+| `accent` | contrast-adjusted `--primary`, `--ring`, `--sidebar-primary`, `--sidebar-ring` |
+| `surface` + `ink` + `contrast` | independent card/popover, muted, secondary/accent, sidebar, sidebar-accent, border and input roles |
 | `semanticColors.diffAdded` | `--diff-added` |
 | `semanticColors.diffRemoved` | `--diff-removed`, `--destructive` |
 | `semanticColors.skill` | `--skill` |
 | `fonts.ui` | `--font-sans` |
 | `fonts.code` | `--font-mono` |
 
-Mixing uses OKLCH, with contrast clamped to 0–100. Overlay percentages are
-`subtle = clamp(contrast × 0.08, 2.5, 9)` for muted/sidebar backgrounds,
-`muted = clamp(contrast × 0.11, 4, 13)` for secondary backgrounds,
-`border = clamp(contrast × 0.21, 7, 19)` for borders/inputs, and
-`accentWash = clamp(contrast × 0.14, 5, 15)` for accent backgrounds.
-These restrained weights keep derived surfaces close to the base surface;
-the default contrast remains 45 for light mode and 60 for dark mode.
+Persisted six-digit hex colors are mixed in sRGB and emitted as opaque hex tokens,
+so contrast checks and rendering use the same colors. Let `t = clamp(contrast,
+0, 100) / 100`. The surface's relative luminance determines the palette branch
+(below 0.179 is dark), even for custom presets placed in the opposite mode slot.
+The default contrast remains 45 for light mode and 60 for dark mode.
+
+| Role | Light ink percentage | Dark ink percentage |
+| --- | --- | --- |
+| card / popover | 0 | `4 + 3t` |
+| muted | `2 + 3t` | `5 + 3t` |
+| secondary / accent | `3 + 4t` | `7 + 4t` |
+| sidebar | `1 + 2t` | `3 + 2t` |
+| sidebar-accent, mixed over sidebar | `3 + 3t` | `6 + 3t` |
+| border | `6 + 5t` | `10 + 5t` |
+| input | `10 + 7t` | `16 + 7t` |
+| sidebar-border, mixed over sidebar | `6 + 5t` | `10 + 5t` |
+
+Primary remains accent-derived; generic interaction backgrounds are neutral.
+Primary text/link color targets 4.5:1 against background and sidebar. Filled
+primary/destructive foregrounds select black or white. Derived foregrounds,
+muted text and destructive text target 4.5:1 on their checked surfaces; focus
+colors target 3:1 before component opacity modifiers. Insufficient colors are
+mixed toward the better black/white endpoint, falling back to that endpoint
+if the target cannot be met across all surfaces. Muted text starts from ink
+mixed with surface by `45 - 10t` percent. Diff colors, source settings and
+import/export payloads remain unchanged. This is not a whole-UI accessibility
+guarantee: source background/ink and component alpha modifiers remain untouched.
+Non-hex UI mapper inputs retain CSS mixing but skip numerical contrast checks.
+Chart colors, fonts and radius are unchanged.
 
 This mapping intentionally narrows shadcn customization. shadcn exposes many
 independent tokens, but Cypheria derives them from Codex's smaller theme model so
