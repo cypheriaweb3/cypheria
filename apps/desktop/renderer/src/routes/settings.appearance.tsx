@@ -29,6 +29,7 @@ import {
   useState,
 } from "react"
 import { useAppearance } from "../appearance.js"
+import { SettingsFrame } from "../components/settings-frame"
 
 export const Route = createFileRoute("/settings/appearance")({
   component: AppearanceRoute,
@@ -341,121 +342,125 @@ function AppearanceRoute() {
   }, [toast])
 
   return (
-    <main className="mx-auto grid h-full min-h-0 w-full max-w-[872px] content-start gap-6 overflow-y-auto px-5 py-12 pb-20 text-foreground">
-      {toast ? <Toast message={toast.message} onClose={() => setToast(null)} /> : null}
-      {importDialogMode ? (
-        <ImportThemeDialog
-          mode={importDialogMode}
-          onClose={() => setImportDialogMode(null)}
-          onImport={(rawTheme) => applyImportedTheme(importDialogMode, rawTheme)}
-        />
-      ) : null}
-      <header className="min-w-0">
-        <h1 className={cn("text-[25px] leading-8 text-foreground", uiFontSemiboldClass)}>
-          Appearance
-        </h1>
-      </header>
+    <SettingsFrame>
+      <div className="grid w-full content-start gap-6 pb-10 text-foreground">
+        {toast ? <Toast message={toast.message} onClose={() => setToast(null)} /> : null}
+        {importDialogMode ? (
+          <ImportThemeDialog
+            mode={importDialogMode}
+            onClose={() => setImportDialogMode(null)}
+            onImport={(rawTheme) => applyImportedTheme(importDialogMode, rawTheme)}
+          />
+        ) : null}
+        <header className="min-w-0">
+          <h1 className={cn("text-[25px] leading-8 text-foreground", uiFontSemiboldClass)}>
+            Appearance
+          </h1>
+        </header>
 
-      <section className="grid gap-4">
-        <h2 className={cn("text-sm text-foreground", uiFontSemiboldClass)}>Theme</h2>
-        <ThemeModeCards value={appearanceMode} onChange={handleAppearanceModeChange} />
-        <DiffPreview markerStyle={diffMarkerStyle} />
-      </section>
-
-      {draftThemes && draftCodeThemes ? (
-        <section className="grid gap-5">
-          {appearanceMode !== "dark" ? (
-            <ChromeThemeCard
-              codeTheme={draftCodeThemes.light}
-              defaultAccent={getDefaultCodeThemeAccent(draftCodeThemes.light, "light")}
-              mode="light"
-              onCodeThemeChange={(value) => updateCodeTheme("light", value)}
-              onCopy={() => copyTheme("light")}
-              onImport={() => setImportDialogMode("light")}
-              onThemeChange={(patch) => updateTheme("light", patch)}
-              theme={draftThemes.light}
-              title="Light theme"
-            />
-          ) : null}
-          {appearanceMode !== "light" ? (
-            <ChromeThemeCard
-              codeTheme={draftCodeThemes.dark}
-              defaultAccent={getDefaultCodeThemeAccent(draftCodeThemes.dark, "dark")}
-              mode="dark"
-              onCodeThemeChange={(value) => updateCodeTheme("dark", value)}
-              onCopy={() => copyTheme("dark")}
-              onImport={() => setImportDialogMode("dark")}
-              onThemeChange={(patch) => updateTheme("dark", patch)}
-              theme={draftThemes.dark}
-              title="Dark theme"
-            />
-          ) : null}
+        <section className="grid gap-4">
+          <h2 className={cn("text-sm text-foreground", uiFontSemiboldClass)}>Theme</h2>
+          <ThemeModeCards value={appearanceMode} onChange={handleAppearanceModeChange} />
+          <DiffPreview markerStyle={diffMarkerStyle} />
         </section>
-      ) : null}
 
-      <section className="mt-6 grid gap-4">
-        <h2 className={cn("text-sm text-foreground", uiFontSemiboldClass)}>Preferences</h2>
-        <SettingsGroup>
-          <SettingsRow
-            control={<ToggleControl checked={usePointerCursors} onChange={setUsePointerCursors} />}
-            description="Change the cursor to a pointer when hovering over interactive elements"
-            label="Use pointer cursors"
-          />
-          <SettingsRow
-            control={
-              <SegmentedControl
-                items={[
-                  { label: "System", value: "system" },
-                  { label: "On", value: "on" },
-                  { label: "Off", value: "off" },
-                ]}
-                onChange={(value) => setReducedMotionPreference(value as ReducedMotionPreference)}
-                value={reducedMotionPreference}
+        {draftThemes && draftCodeThemes ? (
+          <section className="grid gap-5">
+            {appearanceMode !== "dark" ? (
+              <ChromeThemeCard
+                codeTheme={draftCodeThemes.light}
+                defaultAccent={getDefaultCodeThemeAccent(draftCodeThemes.light, "light")}
+                mode="light"
+                onCodeThemeChange={(value) => updateCodeTheme("light", value)}
+                onCopy={() => copyTheme("light")}
+                onImport={() => setImportDialogMode("light")}
+                onThemeChange={(patch) => updateTheme("light", patch)}
+                theme={draftThemes.light}
+                title="Light theme"
               />
-            }
-            description="Reduce animations or match your system"
-            label="Reduce motion"
-          />
-          <SettingsRow
-            control={
-              <FontSizeInput max={16} min={11} onChange={setUiFontSize} value={uiFontSize} />
-            }
-            description="Adjust the base size used for the Cypheria UI"
-            label="UI font size"
-          />
-          <SettingsRow
-            control={
-              <FontSizeInput max={24} min={8} onChange={setCodeFontSize} value={codeFontSize} />
-            }
-            description="Adjust the base size used for code across chats and diffs"
-            label="Code font size"
-          />
-          <SettingsRow
-            control={
-              <SegmentedControl
-                items={[
-                  { label: "Color", value: "color" },
-                  { label: "+/-", value: "symbols" },
-                ]}
-                onChange={(value) => setDiffMarkerStyle(value as DiffMarkerStyle)}
-                value={diffMarkerStyle}
+            ) : null}
+            {appearanceMode !== "light" ? (
+              <ChromeThemeCard
+                codeTheme={draftCodeThemes.dark}
+                defaultAccent={getDefaultCodeThemeAccent(draftCodeThemes.dark, "dark")}
+                mode="dark"
+                onCodeThemeChange={(value) => updateCodeTheme("dark", value)}
+                onCopy={() => copyTheme("dark")}
+                onImport={() => setImportDialogMode("dark")}
+                onThemeChange={(patch) => updateTheme("dark", patch)}
+                theme={draftThemes.dark}
+                title="Dark theme"
               />
-            }
-            description="Show changes using colors or +/- markers"
-            label="Diff markers"
-          />
-          <SettingsRow
-            control={<ToggleControl checked={useFontSmoothing} onChange={setUseFontSmoothing} />}
-            description="Use native macOS font anti-aliasing"
-            label="Font smoothing"
-          />
-        </SettingsGroup>
-      </section>
+            ) : null}
+          </section>
+        ) : null}
 
-      {writeMutation.isError ? (
-        <p className="text-[13px] text-destructive">{String(writeMutation.error.message)}</p>
-      ) : null}
-    </main>
+        <section className="mt-6 grid gap-4">
+          <h2 className={cn("text-sm text-foreground", uiFontSemiboldClass)}>Preferences</h2>
+          <SettingsGroup>
+            <SettingsRow
+              control={
+                <ToggleControl checked={usePointerCursors} onChange={setUsePointerCursors} />
+              }
+              description="Change the cursor to a pointer when hovering over interactive elements"
+              label="Use pointer cursors"
+            />
+            <SettingsRow
+              control={
+                <SegmentedControl
+                  items={[
+                    { label: "System", value: "system" },
+                    { label: "On", value: "on" },
+                    { label: "Off", value: "off" },
+                  ]}
+                  onChange={(value) => setReducedMotionPreference(value as ReducedMotionPreference)}
+                  value={reducedMotionPreference}
+                />
+              }
+              description="Reduce animations or match your system"
+              label="Reduce motion"
+            />
+            <SettingsRow
+              control={
+                <FontSizeInput max={16} min={11} onChange={setUiFontSize} value={uiFontSize} />
+              }
+              description="Adjust the base size used for the Cypheria UI"
+              label="UI font size"
+            />
+            <SettingsRow
+              control={
+                <FontSizeInput max={24} min={8} onChange={setCodeFontSize} value={codeFontSize} />
+              }
+              description="Adjust the base size used for code across chats and diffs"
+              label="Code font size"
+            />
+            <SettingsRow
+              control={
+                <SegmentedControl
+                  items={[
+                    { label: "Color", value: "color" },
+                    { label: "+/-", value: "symbols" },
+                  ]}
+                  onChange={(value) => setDiffMarkerStyle(value as DiffMarkerStyle)}
+                  value={diffMarkerStyle}
+                />
+              }
+              description="Show changes using colors or +/- markers"
+              label="Diff markers"
+            />
+            <SettingsRow
+              control={<ToggleControl checked={useFontSmoothing} onChange={setUseFontSmoothing} />}
+              description="Use native macOS font anti-aliasing"
+              label="Font smoothing"
+            />
+          </SettingsGroup>
+        </section>
+
+        {writeMutation.isError ? (
+          <p className="text-[13px] text-destructive">{String(writeMutation.error.message)}</p>
+        ) : null}
+      </div>
+    </SettingsFrame>
   )
 }
 

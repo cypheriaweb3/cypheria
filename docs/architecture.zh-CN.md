@@ -155,7 +155,7 @@ Renderer 规则：
 - Renderer 将 preload capabilities 视为唯一 privileged bridge。
 - Renderer 通过 typed `codex.event` IPC channel 接收 Codex lifecycle、stderr、notification 和 server-request summaries。
 
-Desktop 的信息架构以任务为中心。常驻左侧导航首先提供新任务、搜索和待审批，其次提供钱包、自动化、signing policies、audit logs、plugins 与 skills，最后按 project 对 App Server threads 分组，并单列未分组的最近任务。待审批入口会显示尚未决议的 signing approvals 实时数量。任务工作区将 AI Elements conversation 与 composer 放在主区域，提供 model、reasoning、sandbox 和 wallet-context 控件，右侧是 context/files/review/terminal 面板。Settings 将账户身份验证、Codex 原生模型默认值和外观设置分开。
+Desktop 的信息架构以任务为中心。常驻左侧导航首先提供新任务、搜索和待审批，其次提供钱包、自动化、signing policies、audit logs、plugins 与 skills，最后按 project 对 App Server threads 分组，并单列未分组的最近任务。待审批入口会显示尚未决议的 signing approvals 实时数量。任务工作区将 AI Elements conversation 与 composer 放在主区域，提供 model、reasoning、sandbox 和 wallet-context 控件，右侧是 context/files/review/terminal 面板。进入 Settings 后，工作台左侧导航会替换为 Account、Appearance、Models 和返回工作台入口组成的专用设置导航。所有设置页都由完整的右侧内容面板承载滚动，因此滚动条保持在窗口最右侧。
 
 Web3 工作台完成本地管理闭环。钱包页面可以创建或导入加密本地钱包、添加 watch-only accounts、选择 active account 与 chain、锁定或解锁 vault，并启动隔离 dApp session。Policy 页面可以创建、编辑和停用 signing rules。Approval 页面会在接受或拒绝之前展示 canonical intent 与 payload hash，audit 页面则展示由此产生的本地安全历史。秘密表单值会从 uncontrolled forms 直接提交到 preload，不会复制到 React state、localStorage 或 IndexedDB。
 

@@ -68,13 +68,13 @@ function ModelSettingsRoute() {
 
   if (!draft)
     return (
-      <SettingsFrame active="models">
+      <SettingsFrame>
         <Skeleton className="h-80 w-full" />
       </SettingsFrame>
     )
 
   return (
-    <SettingsFrame active="models">
+    <SettingsFrame>
       <div className="grid gap-6">
         <div>
           <h1 className="text-2xl font-semibold">Models</h1>

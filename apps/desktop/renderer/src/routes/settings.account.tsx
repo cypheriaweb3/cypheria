@@ -60,13 +60,13 @@ function AccountSettingsRoute() {
 
   if (account.isLoading)
     return (
-      <SettingsFrame active="account">
+      <SettingsFrame>
         <Skeleton className="h-80 w-full" />
       </SettingsFrame>
     )
 
   return (
-    <SettingsFrame active="account">
+    <SettingsFrame>
       <div className="grid gap-6">
         <div>
           <h1 className="text-2xl font-semibold">Account & authentication</h1>
