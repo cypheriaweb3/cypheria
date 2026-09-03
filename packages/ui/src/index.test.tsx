@@ -1,6 +1,9 @@
 import { renderToStaticMarkup } from "react-dom/server"
 import { describe, expect, it } from "vitest"
 
+import { Input } from "./components/input.js"
+import { Label } from "./components/label.js"
+
 import {
   applyCodexAppearancePreferencesToElement,
   applyCypheriaThemeToElement,
@@ -30,6 +33,14 @@ describe("Cypheria UI primitives", () => {
     expect(markup).toContain('data-slot="button"')
     expect(markup).toContain('data-slot="textarea"')
     expect(markup).toContain('data-slot="badge"')
+  })
+
+  it("keeps Nova primary controls at the standard UI font size", () => {
+    expect(renderToStaticMarkup(<Button>Run</Button>)).toMatch(/class="[^"]*\btext-sm\b/)
+    expect(renderToStaticMarkup(<Label htmlFor="nova-prompt">Prompt</Label>)).toMatch(
+      /class="[^"]*\btext-sm\b/
+    )
+    expect(renderToStaticMarkup(<Input id="nova-prompt" />)).toMatch(/class="[^"]*\bmd:text-sm\b/)
   })
 
   it("applies theme variables to an element", () => {

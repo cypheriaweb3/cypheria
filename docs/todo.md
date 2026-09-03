@@ -10,6 +10,14 @@ Status legend:
 
 ## Foundation Already In Place
 
+- [x] Reinstall and adapt all AI Elements components for the Nova shared primitives.
+  - Acceptance: all 48 registry components are regenerated; existing compatibility and safety adaptations are retained; tooltip/context triggers avoid nested interactive elements; state styles target Base UI attributes.
+  - Verification: `pnpm run ci`, `pnpm build`, UI/desktop tests including Nova interaction regressions.
+
+- [x] Switch the shared shadcn component set to `base-nova`.
+  - Acceptance: UI and desktop registry configs use Nova; all registry components are reinstalled, compatibility adaptations are retained, and primary controls use the standard UI font size without changing application-level overrides.
+  - Verification: `pnpm run ci`, desktop build, UI and desktop tests.
+
 - [x] Initialize Turborepo + pnpm monorepo.
   - Acceptance: root scripts, workspace packages, TypeScript base config, Biome, Turbo pipeline, and lockfile are present.
   - Verification: `pnpm run ci`, `pnpm build`.

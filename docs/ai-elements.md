@@ -9,13 +9,17 @@ The components are shared UI source, not an opaque runtime dependency, and are e
 - Registry: `ai-elements@latest`
 - Installed components: all registry components (48 files at the time of installation)
 - Install directory: `packages/ui/src/components/ai-elements`
-- Shared primitives: `packages/ui/src/components`
+- Shared primitives: `packages/ui/src/components`, using `base-nova` in both registry configs
 - Package export: `@cypheria/ui/ai-elements/<component>`
 - Styling entry point: `@cypheria/ui/styles.css`
 
 AI Elements dependencies belong to `@cypheria/ui`. The workspace-level React type overrides in
 `pnpm-workspace.yaml` keep dependencies that bundle React 18 declarations on the workspace's React
 19 type version.
+
+The 48 components have been reinstalled against Nova. AI Elements uses one registry rather than a
+separate Nova variant: its controls inherit the local Nova primitives, while component-specific
+typography remains intact. Reinstallation alone does not replace the compatibility adaptations below.
 
 ## Upgrade Procedure
 
@@ -43,6 +47,17 @@ AI Elements dependencies belong to `@cypheria/ui`. The workspace-level React typ
 Do not use `--overwrite` blindly. AI Elements may request shadcn primitives that already exist in
 `packages/ui/src/components`; replacing them can change Base UI behavior across the desktop app.
 
+For a deliberate full reinstall, the equivalent shadcn command from `packages/ui` is:
+
+```sh
+pnpm exec shadcn add https://elements.ai-sdk.dev/api/registry/all.json --yes --overwrite
+```
+
+Before running it, snapshot the reviewed shared primitives. Afterwards, compare and restore their
+local adaptations from that snapshot (not from HEAD when the working tree contains changes), then
+reapply the AI Elements adaptations. Preserve local test files, the theme stylesheet, and desktop
+font-size overrides. Run `pnpm --filter @cypheria/ui test` and desktop tests as well as CI/build.
+
 ## Compatibility Adaptations
 
 ### NodeNext imports
@@ -65,6 +80,16 @@ Preserve this adapter when regenerating either hover-card consumers or the share
   `Button`, because Base UI render-state types differ.
 - Forward both arguments of Base UI `Dialog.onOpenChange`, while updating the controlled state with
   the boolean value.
+- Compose tooltip action buttons and context preview triggers with `render`, not a trigger wrapping
+  another interactive element. Preserve keyboard activation, disabled state, and custom context
+  trigger elements.
+
+### Base UI state styling
+
+Use Base UI attributes instead of Radix `data-state` selectors: collapsible roots/panels expose
+`data-open` / `data-closed`, collapsible triggers expose `data-panel-open`, and active tabs expose
+`data-active`. Arrow selectors must target the appropriate group (root or trigger); a closed trigger
+is the absence of `data-panel-open`. Keep these mappings when regenerating animations and tab styles.
 
 ### AI SDK usage fields
 
@@ -112,3 +137,7 @@ Apache-2.0; keep the source URL in the test file when updating or expanding thes
 Do not copy the upstream suite mechanically. Upstream tests can assume different shadcn primitives,
 AI SDK versions, or browser mocks. Select the tests related to changed components, adapt imports and
 fixtures to Cypheria, then add assertions for each local compatibility adapter.
+
+`nova-compatibility.test.tsx` additionally covers single-button tooltip composition, keyboard and
+disabled behavior, context triggers, Nova selector typography, prompt submission/stopping, and
+sandbox collapse/tab state styling.

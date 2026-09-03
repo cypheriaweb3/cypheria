@@ -175,7 +175,7 @@ Generated files are committed so CI and contributors do not need a matching loca
 
 The UI strategy is to reuse mature primitives and build custom components only for Cypheria-specific workflows.
 
-The complete shadcn component set for the `base-mira` preset is installed in `packages/ui/src/components`, with dependencies owned by `@cypheria/ui`. Import components through `@cypheria/ui/components/<name>`. Existing Cypheria customizations are preserved. To add newly published components, run `pnpm --filter @cypheria/ui shadcn:add --all --yes` and decline overwrites of customized files.
+The complete shadcn component set for the `base-nova` preset is installed in `packages/ui/src/components`, with dependencies owned by `@cypheria/ui`. Import components through `@cypheria/ui/components/<name>`. Primary controls use `text-sm` (14px with default appearance settings); secondary labels and explicit application-level size overrides can remain smaller. Existing Cypheria compatibility adaptations are preserved. To add newly published components, run `pnpm --filter @cypheria/ui shadcn:add --all --yes` and decline overwrites of customized files. When intentionally reinstalling with `--overwrite`, reapply compatibility adaptations and run UI/desktop tests.
 
 The complete AI Elements registry is vendored in `packages/ui/src/components/ai-elements` and exported through `@cypheria/ui/ai-elements/<name>`. See [AI Elements Integration And Upgrade Guide](./ai-elements.md) for the regeneration procedure and the compatibility adaptations required by Base UI, NodeNext, strict TypeScript, React 19, and AI SDK 7.
 

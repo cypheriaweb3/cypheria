@@ -9,12 +9,15 @@ Cypheria 将完整的 AI Elements registry 源码安装在
 - Registry：`ai-elements@latest`
 - 已安装组件：registry 中的全部组件（安装时共 48 个文件）
 - 安装目录：`packages/ui/src/components/ai-elements`
-- 共享基础组件：`packages/ui/src/components`
+- 共享基础组件：`packages/ui/src/components`，两处 registry 配置均使用 `base-nova`
 - 包导出路径：`@cypheria/ui/ai-elements/<component>`
 - 样式入口：`@cypheria/ui/styles.css`
 
 AI Elements 的依赖归属于 `@cypheria/ui`。`pnpm-workspace.yaml` 中 workspace 级别的 React 类型
 覆盖，会将自带 React 18 类型声明的依赖统一到项目使用的 React 19 类型版本。
+
+48 个组件已基于 Nova 重新安装。AI Elements 使用统一 registry，没有独立的 Nova 变体：
+控件继承本地 Nova 基础组件，组件自身的字号层级保持不变。仅重新安装不会替代下述兼容适配。
 
 ## 升级步骤
 
@@ -42,6 +45,16 @@ AI Elements 的依赖归属于 `@cypheria/ui`。`pnpm-workspace.yaml` 中 worksp
 不要直接使用 `--overwrite`。AI Elements 可能会请求已经存在于
 `packages/ui/src/components` 的 shadcn 基础组件，覆盖它们可能改变整个桌面应用的 Base UI 行为。
 
+有意全量重装时，在 `packages/ui` 中执行的等价 shadcn 命令为：
+
+```sh
+pnpm exec shadcn add https://elements.ai-sdk.dev/api/registry/all.json --yes --overwrite
+```
+
+执行前为已审查的共享基础组件保存快照；执行后对比并从快照补回本地适配（工作树有改动时，
+不能直接恢复 HEAD），然后重新应用 AI Elements 适配。保留本地测试、主题样式表和桌面字号覆盖。
+除 CI/build 外，还需运行 `pnpm --filter @cypheria/ui test` 及桌面测试。
+
 ## 兼容性修改
 
 ### NodeNext 导入
@@ -63,6 +76,15 @@ AI Elements 将 `openDelay` 和 `closeDelay` 建模为 Hover Card 根组件属�
 - `CollapsibleTrigger` 的属性应传给 trigger 本身，不要展开到用于 `render` 的 `Button`，因为两者的
   Base UI render-state 类型不同。
 - Base UI 的 `Dialog.onOpenChange` 有两个参数；更新受控状态时使用布尔值，同时完整转发两个参数。
+- Tooltip 操作按钮和上下文预览触发器使用 `render` 组合，不能用 trigger 再包裹交互元素。
+  保留键盘激活、禁用状态以及自定义上下文触发元素。
+
+### Base UI 状态样式
+
+使用 Base UI 属性替代 Radix 的 `data-state` 选择器：折叠根节点/面板提供 `data-open` /
+`data-closed`，折叠触发器提供 `data-panel-open`，选中的标签提供 `data-active`。
+箭头选择器需要匹配对应的 group（根节点或触发器）；触发器关闭时不存在 `data-panel-open`。
+重新生成动画和标签样式时保留这些映射。
 
 ### AI SDK usage 字段
 
@@ -107,3 +129,6 @@ Cypheria 专用断言。上游测试使用 Apache-2.0 许可证；更新或扩�
 
 不要机械复制整套上游测试。上游测试可能假设不同的 shadcn 基础组件、AI SDK 版本或浏览器 mock。
 应选择与变更组件相关的测试，按 Cypheria 的导入和 fixture 进行适配，再为每个本地兼容层补充断言。
+
+`nova-compatibility.test.tsx` 额外覆盖单按钮 Tooltip 组合、键盘和禁用行为、上下文触发器、
+Nova 选择器字号、输入提交/停止，以及 sandbox 折叠和标签状态样式。

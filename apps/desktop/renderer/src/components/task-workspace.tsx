@@ -230,7 +230,7 @@ export default function TaskWorkspace() {
               <PromptInputSubmit onStop={stop} status={status} />
             </PromptInputFooter>
           </PromptInput>
-          <div className="mt-2 flex items-center gap-3 px-2 text-[11px] text-muted-foreground">
+          <div className="mt-2 flex items-center gap-3 px-2 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1">
               <HardDrive size={12} /> Local agent
             </span>

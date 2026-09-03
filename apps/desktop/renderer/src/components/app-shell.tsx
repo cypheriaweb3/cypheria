@@ -307,7 +307,7 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                         <div className="ml-7 grid border-l border-sidebar-border pl-2">
                           {projectThreads.slice(0, 5).map((thread) => (
                             <a
-                              className="truncate rounded-md px-2 py-1.5 text-xs text-sidebar-foreground no-underline hover:bg-sidebar-accent"
+                              className="truncate rounded-md px-2 py-1.5 text-sm text-sidebar-foreground no-underline hover:bg-sidebar-accent"
                               href={`/?thread=${encodeURIComponent(thread.id)}`}
                               key={thread.id}
                             >

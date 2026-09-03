@@ -2,7 +2,7 @@
 
 import type { LanguageModelUsage } from "ai"
 import type { ComponentProps } from "react"
-import { createContext, useContext, useMemo } from "react"
+import { createContext, isValidElement, useContext, useMemo } from "react"
 import { getUsage } from "tokenlens"
 import { Button } from "#components/button"
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "#components/hover-card"
@@ -103,14 +103,22 @@ export const ContextTrigger = ({ children, ...props }: ContextTriggerProps) => {
   }).format(usedPercent)
 
   return (
-    <HoverCardTrigger>
-      {children ?? (
-        <Button type="button" variant="ghost" {...props}>
-          <span className="font-medium text-muted-foreground">{renderedPercent}</span>
-          <ContextIcon />
-        </Button>
-      )}
-    </HoverCardTrigger>
+    <HoverCardTrigger
+      render={
+        isValidElement(children) ? (
+          children
+        ) : (
+          <Button type="button" variant="ghost" {...props}>
+            {children ?? (
+              <>
+                <span className="font-medium text-muted-foreground">{renderedPercent}</span>
+                <ContextIcon />
+              </>
+            )}
+          </Button>
+        )
+      }
+    />
   )
 }
 

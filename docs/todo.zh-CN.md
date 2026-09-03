@@ -10,6 +10,14 @@
 
 ## 已完成的基础能力
 
+- [x] 重新安装全部 AI Elements 组件并适配 Nova 共享基础组件。
+  - 验收：重新生成全部 48 个 registry 组件，保留兼容与安全适配；Tooltip/上下文触发器不嵌套交互元素；状态样式匹配 Base UI 属性。
+  - 验证：`pnpm run ci`、`pnpm build`、UI/桌面测试及 Nova 交互回归测试。
+
+- [x] 将共享 shadcn 组件集切换为 `base-nova`。
+  - 验收：UI 与桌面 registry 配置使用 Nova；重新安装全部 registry 组件并保留兼容适配；主要控件使用标准 UI 字号，不调整应用层字号覆盖。
+  - 验证：`pnpm run ci`、桌面 build、UI 与桌面测试。
+
 - [x] 初始化 Turborepo + pnpm monorepo。
   - 验收：根 scripts、workspace packages、TypeScript base config、Biome、Turbo pipeline 和 lockfile 已存在。
   - 验证：`pnpm run ci`、`pnpm build`。
