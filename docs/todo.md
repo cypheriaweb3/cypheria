@@ -157,7 +157,7 @@ Status legend:
   - Include: migrations, catalog reconciliation, redacted projections, optimistic concurrency, non-cascading wallet/history behavior, and OS-backed credential protection.
   - Verification: database, credential-store, migration, and recovery tests; `pnpm run ci`, `pnpm build`.
 
-- [ ] Implement the runtime network manager and RPC router.
+- [x] Implement the runtime network manager and RPC router.
   - Acceptance: runtime probes endpoint identity, tracks disposable health, selects purpose-compatible endpoints, retries only safe reads, preserves operation stickiness, and reports ambiguous broadcasts without blind retry.
   - Include: SSRF destination policy, DNS/redirect checks, timeouts, response and concurrency bounds, redacted audit, and stable network errors.
   - Verification: runtime unit and integration tests with local fake EVM and Solana RPC servers; `pnpm run ci`, `pnpm build`.

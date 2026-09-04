@@ -77,6 +77,7 @@ const fromNetworkRow = (row: NetworkRow): NetworkDefinition =>
     name: row.name,
     nativeCurrency: row.nativeCurrency,
     explorers: row.explorers,
+    verification: row.verification,
     testnet: row.testnet,
     source: row.source,
     ...(row.catalogKey ? { catalogKey: row.catalogKey } : {}),
@@ -95,6 +96,7 @@ const toNetworkRow = (network: NetworkDefinition): typeof networks.$inferInsert 
   name: network.name,
   nativeCurrency: network.nativeCurrency,
   explorers: [...network.explorers],
+  verification: network.verification,
   testnet: network.testnet,
   source: network.source,
   catalogKey: network.catalogKey ?? null,
@@ -121,6 +123,7 @@ const fromEndpointRow = (row: EndpointRow): RpcEndpoint =>
             credentialRef: row.credentialRef,
           },
     source: row.source,
+    localDevelopment: row.localDevelopment,
     enabled: row.enabled,
     deprecated: row.deprecated,
     position: row.position,
@@ -140,6 +143,7 @@ const toEndpointRow = (endpoint: RpcEndpoint): typeof networkRpcEndpoints.$infer
   credentialRef:
     endpoint.connection.kind === "protected" ? endpoint.connection.credentialRef : null,
   source: endpoint.source,
+  localDevelopment: endpoint.localDevelopment,
   enabled: endpoint.enabled,
   deprecated: endpoint.deprecated,
   position: endpoint.position,
@@ -171,7 +175,8 @@ const networkMatchesCatalog = (row: NetworkRow, entry: NetworkCatalogEntry): boo
   row.testnet === entry.testnet &&
   !row.deprecated &&
   sameJson(row.nativeCurrency, entry.nativeCurrency) &&
-  sameJson(row.explorers, entry.explorers)
+  sameJson(row.explorers, entry.explorers) &&
+  sameJson(row.verification, entry.verification)
 
 const endpointMatchesCatalog = (
   row: EndpointRow,
@@ -181,6 +186,7 @@ const endpointMatchesCatalog = (
   row.transport === endpoint.transport &&
   row.connectionKind === "public" &&
   row.url === endpoint.url &&
+  !row.localDevelopment &&
   !row.deprecated
 
 const loadNetwork = async (
@@ -229,6 +235,7 @@ export const createNetworkPersistenceService = (
         name: entry.name,
         nativeCurrency: entry.nativeCurrency,
         explorers: entry.explorers,
+        verification: entry.verification,
         testnet: entry.testnet,
         source: "builtin",
         catalogKey: entry.catalogKey,
@@ -275,6 +282,7 @@ export const createNetworkPersistenceService = (
           transport: catalogEndpoint.transport,
           connection: { kind: "public", url: catalogEndpoint.url },
           source: "builtin",
+          localDevelopment: false,
           enabled: current?.enabled ?? true,
           deprecated: false,
           position: current?.position ?? nextEndpointPosition++,

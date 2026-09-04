@@ -43,6 +43,13 @@
       "when": 1788529202526,
       "tag": "0005_faithful_old_lace",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1788529649853,
+      "tag": "0006_clean_phantom_reporter",
+      "breakpoints": true
     }
   ]
 }

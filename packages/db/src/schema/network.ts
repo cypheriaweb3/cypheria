@@ -3,6 +3,7 @@ import type {
   NetworkCredentialRef,
   NetworkExplorer,
   NetworkId,
+  NetworkVerification,
   RpcEndpointId,
 } from "@cypheria/network-core"
 import { sql } from "drizzle-orm"
@@ -18,6 +19,7 @@ export const networks = sqliteTable(
     name: text("name").notNull(),
     nativeCurrency: text("native_currency", { mode: "json" }).$type<NativeCurrency>().notNull(),
     explorers: text("explorers", { mode: "json" }).$type<NetworkExplorer[]>().notNull(),
+    verification: text("verification", { mode: "json" }).$type<NetworkVerification>().notNull(),
     testnet: integer("testnet", { mode: "boolean" }).notNull(),
     source: text("source", { enum: ["builtin", "custom"] }).notNull(),
     catalogKey: text("catalog_key"),
@@ -61,6 +63,7 @@ export const networkRpcEndpoints = sqliteTable(
     displayUrl: text("display_url"),
     credentialRef: text("credential_ref").$type<NetworkCredentialRef>(),
     source: text("source", { enum: ["builtin", "custom"] }).notNull(),
+    localDevelopment: integer("local_development", { mode: "boolean" }).notNull().default(false),
     enabled: integer("enabled", { mode: "boolean" }).notNull(),
     deprecated: integer("deprecated", { mode: "boolean" }).notNull().default(false),
     position: integer("position").notNull(),
@@ -79,6 +82,10 @@ export const networkRpcEndpoints = sqliteTable(
     check("network_rpc_endpoints_position_check", sql`${table.position} >= 0`),
     check("network_rpc_endpoints_revision_check", sql`${table.revision} > 0`),
     check("network_rpc_endpoints_enabled_check", sql`${table.enabled} IN (0, 1)`),
+    check(
+      "network_rpc_endpoints_local_development_check",
+      sql`${table.localDevelopment} IN (0, 1)`
+    ),
     check("network_rpc_endpoints_deprecated_check", sql`${table.deprecated} IN (0, 1)`),
     check(
       "network_rpc_endpoints_transport_check",

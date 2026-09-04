@@ -6,6 +6,7 @@ import {
   rpcEndpointIdSchema,
   timestampSchema,
 } from "./primitives.js"
+import { isLoopbackHostname } from "./url.js"
 
 export const networkExplorerSchema = z
   .object({
@@ -22,6 +23,16 @@ export const nativeCurrencySchema = z
   })
   .strict()
 
+export const networkVerificationSchema = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("evm-chain-id") }).strict(),
+  z
+    .object({
+      kind: z.literal("solana-genesis-hash"),
+      genesisHash: z.string().regex(/^[1-9A-HJ-NP-Za-km-z]{32,64}$/u),
+    })
+    .strict(),
+])
+
 export const networkDefinitionSchema = z
   .object({
     id: networkIdSchema,
@@ -29,6 +40,7 @@ export const networkDefinitionSchema = z
     name: z.string().trim().min(1).max(80),
     nativeCurrency: nativeCurrencySchema,
     explorers: z.array(networkExplorerSchema).max(8),
+    verification: networkVerificationSchema,
     testnet: z.boolean(),
     source: z.enum(["builtin", "custom"]),
     catalogKey: z
@@ -49,6 +61,13 @@ export const networkDefinitionSchema = z
         code: "custom",
         message: "Built-in networks require a catalog key and custom networks must not have one.",
         path: ["catalogKey"],
+      })
+    }
+    if ((network.chain.namespace === "eip155") !== (network.verification.kind === "evm-chain-id")) {
+      context.addIssue({
+        code: "custom",
+        message: "Network verification must match its chain namespace.",
+        path: ["verification"],
       })
     }
   })
@@ -76,6 +95,7 @@ export const rpcEndpointSchema = z
     transport: z.enum(["http", "websocket"]),
     connection: rpcConnectionSchema,
     source: z.enum(["builtin", "custom"]),
+    localDevelopment: z.boolean(),
     enabled: z.boolean(),
     deprecated: z.boolean(),
     position: z.number().int().nonnegative(),
@@ -106,6 +126,17 @@ export const rpcEndpointSchema = z
         path: ["connection"],
       })
     }
+    if (
+      endpoint.localDevelopment
+        ? endpoint.source !== "custom" || !isLoopbackHostname(url.hostname)
+        : !new Set(["https:", "wss:"]).has(url.protocol)
+    ) {
+      context.addIssue({
+        code: "custom",
+        message: "Insecure RPC URLs are allowed only for explicit custom loopback development.",
+        path: ["localDevelopment"],
+      })
+    }
   })
 
 export const rpcEndpointHealthSchema = z
@@ -127,6 +158,7 @@ export const rpcEndpointViewSchema = z
     transport: z.enum(["http", "websocket"]),
     connection: z.object({ kind: z.enum(["public", "protected"]), displayUrl: z.url() }).strict(),
     source: z.enum(["builtin", "custom"]),
+    localDevelopment: z.boolean(),
     enabled: z.boolean(),
     deprecated: z.boolean(),
     position: z.number().int().nonnegative(),
@@ -139,6 +171,7 @@ export const rpcEndpointViewSchema = z
 
 export type NetworkExplorer = z.infer<typeof networkExplorerSchema>
 export type NativeCurrency = z.infer<typeof nativeCurrencySchema>
+export type NetworkVerification = z.infer<typeof networkVerificationSchema>
 export type NetworkDefinition = z.infer<typeof networkDefinitionSchema>
 export type RpcConnection = z.infer<typeof rpcConnectionSchema>
 export type RpcEndpoint = z.infer<typeof rpcEndpointSchema>

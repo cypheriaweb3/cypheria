@@ -157,7 +157,7 @@
   - 包括：migrations、catalog reconciliation、redacted projections、optimistic concurrency、不级联删除 wallet/history 的行为，以及 OS-backed credential protection。
   - 验证：database、credential-store、migration 与 recovery tests；`pnpm run ci`、`pnpm build`。
 
-- [ ] 实现 runtime network manager 与 RPC router。
+- [x] 实现 runtime network manager 与 RPC router。
   - 验收：runtime probe endpoint identity、追踪可丢弃 health、选择符合 purpose 的 endpoint、只重试安全 read、保持 operation stickiness，并在 broadcast 结果不明确时报告状态而不盲目重试。
   - 包括：SSRF destination policy、DNS/redirect 检查、timeout、response/concurrency bound、redacted audit 与稳定 network errors。
   - 验证：使用本地 fake EVM/Solana RPC server 的 runtime unit/integration tests；`pnpm run ci`、`pnpm build`。

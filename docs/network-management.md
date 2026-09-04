@@ -99,6 +99,9 @@ type NetworkDefinition = {
     decimals: number
   }
   explorers: readonly NetworkExplorer[]
+  verification:
+    | { kind: "evm-chain-id" }
+    | { kind: "solana-genesis-hash"; genesisHash: string }
   testnet: boolean
   source: "builtin" | "custom"
   catalogKey?: string
@@ -131,6 +134,7 @@ type RpcEndpoint = {
     | { kind: "public"; url: string }
     | { kind: "protected"; displayUrl: string; credentialRef: string }
   source: "builtin" | "custom"
+  localDevelopment: boolean
   enabled: boolean
   deprecated: boolean
   position: number

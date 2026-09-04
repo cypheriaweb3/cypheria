@@ -1,6 +1,10 @@
 import { z } from "zod"
 import { chainIdentitySchema } from "./chain.js"
-import { nativeCurrencySchema, networkExplorerSchema } from "./network.js"
+import {
+  nativeCurrencySchema,
+  networkExplorerSchema,
+  networkVerificationSchema,
+} from "./network.js"
 
 export const catalogRpcEndpointSchema = z
   .object({
@@ -18,6 +22,7 @@ export const networkCatalogEntrySchema = z
     name: z.string().trim().min(1).max(80),
     nativeCurrency: nativeCurrencySchema,
     explorers: z.array(networkExplorerSchema).max(8),
+    verification: networkVerificationSchema,
     testnet: z.boolean(),
     endpoints: z.array(catalogRpcEndpointSchema).min(1),
   })
@@ -35,6 +40,7 @@ export const bundledNetworkCatalog = networkCatalogEntrySchema.array().parse([
     name: "Ethereum",
     nativeCurrency: { name: "Ether", symbol: "ETH", decimals: 18 },
     explorers: [{ name: "Etherscan", url: "https://etherscan.io/" }],
+    verification: { kind: "evm-chain-id" },
     testnet: false,
     endpoints: [
       {
@@ -51,6 +57,7 @@ export const bundledNetworkCatalog = networkCatalogEntrySchema.array().parse([
     name: "Sepolia",
     nativeCurrency: { name: "Sepolia Ether", symbol: "ETH", decimals: 18 },
     explorers: [{ name: "Etherscan", url: "https://sepolia.etherscan.io/" }],
+    verification: { kind: "evm-chain-id" },
     testnet: true,
     endpoints: [
       {
@@ -67,6 +74,10 @@ export const bundledNetworkCatalog = networkCatalogEntrySchema.array().parse([
     name: "Solana",
     nativeCurrency: { name: "Solana", symbol: "SOL", decimals: 9 },
     explorers: [{ name: "Solana Explorer", url: "https://explorer.solana.com/" }],
+    verification: {
+      kind: "solana-genesis-hash",
+      genesisHash: "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+    },
     testnet: false,
     endpoints: [
       {
@@ -83,6 +94,10 @@ export const bundledNetworkCatalog = networkCatalogEntrySchema.array().parse([
     name: "Solana Devnet",
     nativeCurrency: { name: "Solana", symbol: "SOL", decimals: 9 },
     explorers: [{ name: "Solana Explorer", url: "https://explorer.solana.com/" }],
+    verification: {
+      kind: "solana-genesis-hash",
+      genesisHash: "EtWTRABZaYq6iMfeYKouRu166VU2xqa1",
+    },
     testnet: true,
     endpoints: [
       {
