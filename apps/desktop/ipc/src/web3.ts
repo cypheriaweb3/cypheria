@@ -1,10 +1,16 @@
 import {
+  networkDefinitionSchema,
+  networkIdSchema,
+  rpcEndpointViewSchema,
+} from "@cypheria/network-core"
+import {
   SigningPolicyObjectSchema,
   SigningPolicySchema,
   signingPolicyIdSchema,
 } from "@cypheria/policy-engine"
 import {
   chainAccountIdSchema,
+  chainAccountSchema,
   hexAddressSchema,
   walletAccountIdSchema,
   walletIdSchema,
@@ -18,6 +24,11 @@ const privateKeySchema = z.string().regex(/^0x[a-fA-F0-9]{64}$/u)
 
 export const WalletListSchema = z.array(walletViewSchema)
 export type WalletList = z.infer<typeof WalletListSchema>
+export const NetworkViewSchema = z
+  .object({ network: networkDefinitionSchema, endpoints: z.array(rpcEndpointViewSchema) })
+  .strict()
+export const NetworkListSchema = z.array(NetworkViewSchema)
+export type NetworkList = z.infer<typeof NetworkListSchema>
 export const WalletIdInputSchema = z.object({ walletId: walletIdSchema }).strict()
 export const WalletGenerateHdInputSchema = z
   .object({
@@ -59,17 +70,9 @@ export const WalletReorderAccountsInputSchema = z
   .strict()
 export const WalletActiveContextSchema = z
   .object({
-    chainAccount: z
-      .object({
-        address: z.string(),
-        chainId: z.union([z.number(), z.string()]),
-        id: z.string(),
-        namespace: z.string(),
-        walletAccountId: z.string(),
-      })
-      .loose()
-      .optional(),
+    chainAccount: chainAccountSchema.optional(),
     mode: z.enum(walletModes),
+    network: networkDefinitionSchema.optional(),
     wallet: walletViewSchema.optional(),
     walletAccount: z
       .object({
@@ -85,6 +88,7 @@ export const WalletSetActiveInputSchema = z
   .object({
     chainAccountId: chainAccountIdSchema,
     mode: z.enum(walletModes),
+    networkId: networkIdSchema,
     walletAccountId: walletAccountIdSchema,
     walletId: walletIdSchema,
   })

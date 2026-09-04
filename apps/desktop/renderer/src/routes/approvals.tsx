@@ -80,7 +80,7 @@ function ApprovalsRoute() {
                   <dt className="text-muted-foreground">Account</dt>
                   <dd className="font-mono text-xs">{view.intent.intent.account.address}</dd>
                   <dt className="text-muted-foreground">Chain</dt>
-                  <dd>{view.intent.intent.account.chainId}</dd>
+                  <dd>{view.intent.intent.account.chainKey}</dd>
                   <dt className="text-muted-foreground">Expires</dt>
                   <dd>{new Date(view.approval.expiresAt).toLocaleString()}</dd>
                   <dt className="text-muted-foreground">Payload hash</dt>

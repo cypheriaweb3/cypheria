@@ -162,7 +162,7 @@
   - 包括：SSRF destination policy、DNS/redirect 检查、timeout、response/concurrency bound、redacted audit 与稳定 network errors。
   - 验证：使用本地 fake EVM/Solana RPC server 的 runtime unit/integration tests；`pnpm run ci`、`pnpm build`。
 
-- [ ] 将 wallet、policy、automation 与 dApp boundary 迁移到 canonical chain identity。
+- [x] 将 wallet、policy、automation 与 dApp boundary 迁移到 canonical chain identity。
   - 验收：chain account、active wallet context、signing intent、policy、automation scope、permission 与 event 使用 `ChainIdentity`/`ChainKey`；active network identity 必须与所选 chain account 匹配。
   - 包括：data migration，以及 EIP-1193 hex ID 与 Solana Wallet Standard identifier 的 compatibility adapter。
   - 验证：wallet-core、policy-engine、automation-core、wallet-provider、database、runtime 与 desktop IPC tests。

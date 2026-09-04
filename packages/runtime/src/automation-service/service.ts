@@ -23,6 +23,7 @@ import type {
   AutomationPersistenceService,
   SigningIntentRecord,
 } from "@cypheria/db"
+import { chainKeySchema } from "@cypheria/network-core"
 import { z } from "zod"
 
 import type { RuntimeService } from "../index.js"
@@ -229,8 +230,8 @@ export const createAutomationRuntimeService = (
         (scope.walletId && scope.walletId !== account.walletId) ||
         (scope.accountIds.length > 0 &&
           !scope.accountIds.some((accountId) => accountId === account.walletAccountId)) ||
-        (scope.chainIds.length > 0 &&
-          (typeof account.chainId !== "number" || !scope.chainIds.includes(account.chainId))) ||
+        (scope.chainKeys.length > 0 &&
+          !scope.chainKeys.includes(chainKeySchema.parse(account.chainKey))) ||
         (input.intent.origin && !scope.origins?.includes(input.intent.origin))
       ) {
         throw new AutomationRuntimeError(

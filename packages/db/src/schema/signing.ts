@@ -28,7 +28,7 @@ export const signingPolicies = sqliteTable(
       .$type<WalletId>()
       .notNull()
       .references(() => wallets.id, { onDelete: "cascade" }),
-    chainIds: text("chain_ids", { mode: "json" }).$type<SigningPolicy["chainIds"]>().notNull(),
+    chainKeys: text("chain_keys", { mode: "json" }).$type<SigningPolicy["chainKeys"]>().notNull(),
     methods: text("methods", { mode: "json" }).$type<SigningPolicy["methods"]>().notNull(),
     origins: text("origins", { mode: "json" }).$type<SigningPolicy["origins"]>().notNull(),
     contractAllowlist: text("contract_allowlist", { mode: "json" }).$type<

@@ -6,6 +6,7 @@ import {
   applyDatabaseMigrations,
   createAuditLogService,
   createInMemoryDatabase,
+  createNetworkPersistenceService,
   createWalletPublicStatePersistenceService,
   type WalletPublicStatePersistenceService,
 } from "@cypheria/db"
@@ -63,18 +64,24 @@ const createHarness = async () => {
   await applyDatabaseMigrations(database.client)
   const vaultDir = await makeVaultDir()
   const persistence = createWalletPublicStatePersistenceService(database.db)
+  const networks = createNetworkPersistenceService(database.db)
+  await networks.reconcileCatalog()
   const audit = createAuditLogService(database.db)
   const vault = createTestVault(vaultDir)
   const manager = createWalletManager({
     audit,
-    chainIds: [1, 10],
+    chains: [
+      { namespace: "eip155", reference: "1" },
+      { namespace: "eip155", reference: "11155111" },
+    ],
     idFactory: createIdFactory(),
     mnemonicFactory: () => mnemonic,
     now: () => timestamp,
+    networks,
     persistence,
     vault,
   })
-  return { audit, database, manager, persistence, vault, vaultDir }
+  return { audit, database, manager, networks, persistence, vault, vaultDir }
 }
 
 describe("wallet manager", () => {
@@ -82,6 +89,8 @@ describe("wallet manager", () => {
     const database = createInMemoryDatabase()
     await applyDatabaseMigrations(database.client)
     const persistence = createWalletPublicStatePersistenceService(database.db)
+    const networks = createNetworkPersistenceService(database.db)
+    await networks.reconcileCatalog()
     const vaultDir = await makeVaultDir()
     const realVault = createTestVault(vaultDir)
     let releaseVault: (() => void) | undefined
@@ -104,6 +113,7 @@ describe("wallet manager", () => {
       idFactory: createIdFactory(),
       mnemonicFactory: () => mnemonic,
       now: () => timestamp,
+      networks,
       persistence,
       vault,
     })
@@ -120,7 +130,7 @@ describe("wallet manager", () => {
       status: "ready",
     })
     expect(view.accounts[0]?.chainAccounts[0]).toMatchObject({
-      chainId: 1,
+      chain: { namespace: "eip155", reference: "1" },
       derivationPath: "m/44'/60'/0'/0/0",
     })
     expect(JSON.stringify(view)).not.toContain(mnemonic)
@@ -229,17 +239,23 @@ describe("wallet manager", () => {
   })
 
   it("persists active context, enforces watch mode, renames, and deletes", async () => {
-    const { database, manager, persistence, vaultDir } = await createHarness()
+    const { database, manager, networks, persistence, vaultDir } = await createHarness()
     const vaultWallet = await manager.importPrivateKeyWallet({ name: "Signer", privateKey })
     const watch = await manager.addWatchWallet({
       address: "0x0000000000000000000000000000000000000001",
       name: "Observe",
     })
+    const sepolia = (await networks.listNetworks()).find(
+      ({ network }) =>
+        network.chain.namespace === "eip155" && network.chain.reference === "11155111"
+    )
+    if (!sepolia) throw new Error("Sepolia catalog fixture is missing.")
 
     await expect(
       manager.setActiveContext({
         chainAccountId: watch.accounts[0]?.chainAccounts[0]?.id ?? "chain_account_missing",
         mode: "human-approval",
+        networkId: sepolia.network.id,
         walletAccountId: watch.accounts[0]?.account.id ?? "account_missing",
         walletId: watch.wallet.id,
       })
@@ -247,11 +263,12 @@ describe("wallet manager", () => {
     const active = await manager.setActiveContext({
       chainAccountId: vaultWallet.accounts[0]?.chainAccounts[1]?.id ?? "chain_account_missing",
       mode: "human-approval",
+      networkId: sepolia.network.id,
       walletAccountId: vaultWallet.accounts[0]?.account.id ?? "account_missing",
       walletId: vaultWallet.wallet.id,
     })
     expect(active).toMatchObject({
-      chainAccount: { chainId: 10 },
+      chainAccount: { chain: { namespace: "eip155", reference: "11155111" } },
       mode: "human-approval",
       wallet: { wallet: { id: vaultWallet.wallet.id } },
     })
@@ -276,6 +293,8 @@ describe("wallet manager", () => {
     const database = createInMemoryDatabase()
     await applyDatabaseMigrations(database.client)
     const persistence = createWalletPublicStatePersistenceService(database.db)
+    const networks = createNetworkPersistenceService(database.db)
+    await networks.reconcileCatalog()
     const vaultDir = await makeVaultDir()
     const vault = createTestVault(vaultDir)
     const failingPersistence: WalletPublicStatePersistenceService = {
@@ -287,6 +306,7 @@ describe("wallet manager", () => {
     const manager = createWalletManager({
       idFactory: createIdFactory(),
       now: () => timestamp,
+      networks,
       persistence: failingPersistence,
       vault,
     })
@@ -305,12 +325,15 @@ describe("wallet manager", () => {
     const database = createInMemoryDatabase()
     await applyDatabaseMigrations(database.client)
     const persistence = createWalletPublicStatePersistenceService(database.db)
+    const networks = createNetworkPersistenceService(database.db)
+    await networks.reconcileCatalog()
     const vaultDir = await makeVaultDir()
     const realVault = createTestVault(vaultDir)
     const manager = createWalletManager({
       idFactory: createIdFactory(),
       mnemonicFactory: () => mnemonic,
       now: () => timestamp,
+      networks,
       persistence,
       vault: {
         ...realVault,

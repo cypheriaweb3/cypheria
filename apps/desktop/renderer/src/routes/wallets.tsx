@@ -69,6 +69,7 @@ type WalletAction =
       walletId: string
       walletAccountId: string
       chainAccountId: string
+      networkId: string
       mode: "read-only" | "human-approval" | "conditional-auto-signing"
     }
 
@@ -95,6 +96,10 @@ function WalletsRoute() {
   const wallets = useQuery({
     queryFn: () => window.cypheria?.wallet.list() ?? [],
     queryKey: ["wallet", "list"],
+  })
+  const networks = useQuery({
+    queryFn: () => window.cypheria?.network.list() ?? [],
+    queryKey: ["network", "list"],
   })
   const active = useQuery({
     queryFn: () => window.cypheria?.wallet.getActive(),
@@ -250,6 +255,7 @@ function WalletsRoute() {
             <WalletDetails
               active={active.data}
               actionPending={action.isPending}
+              networks={networks.data ?? []}
               unlocked={unlocked.has(selectedWallet.wallet.id)}
               view={selectedWallet}
               selectedAccountId={selectedAccountId}
@@ -711,6 +717,7 @@ function WalletAvatar({ name, watchOnly }: Readonly<{ name: string; watchOnly: b
 function WalletDetails({
   active,
   actionPending,
+  networks,
   selectedAccountId,
   unlocked,
   view,
@@ -721,6 +728,7 @@ function WalletDetails({
     | Awaited<ReturnType<NonNullable<typeof window.cypheria>["wallet"]["getActive"]>>
     | undefined
   actionPending: boolean
+  networks: Awaited<ReturnType<NonNullable<typeof window.cypheria>["network"]["list"]>>
   selectedAccountId?: string
   unlocked: boolean
   view: WalletView
@@ -788,12 +796,19 @@ function WalletDetails({
                 const accountIsActive = active?.chainAccount?.id === chainAccount.id
                 const watchOnly = view.wallet.kind === "watch" || view.wallet.kind === "watch-group"
                 const defaultMode = watchOnly ? "read-only" : "human-approval"
+                const matchingNetwork = networks.find(
+                  ({ network }) =>
+                    network.enabled &&
+                    !network.deprecated &&
+                    network.chain.namespace === chainAccount.chain.namespace &&
+                    network.chain.reference === chainAccount.chain.reference
+                )
                 return (
                   <div className="grid gap-3 p-3" key={chainAccount.id}>
                     <div className="flex min-w-0 items-center justify-between gap-3">
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 text-xs font-medium">
-                          Ethereum · Chain {chainAccount.chainId}
+                          {chainAccount.chain.namespace}:{chainAccount.chain.reference}
                           {accountIsActive ? (
                             <Badge variant="secondary">
                               <Check />
@@ -812,16 +827,19 @@ function WalletDetails({
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-xs text-muted-foreground">Activation mode</span>
                       <Select
+                        disabled={actionPending || !matchingNetwork}
                         value={accountIsActive ? active.mode : defaultMode}
-                        onValueChange={(mode) =>
+                        onValueChange={(mode) => {
+                          if (!matchingNetwork) return
                           onAction({
                             chainAccountId: chainAccount.id,
                             kind: "active",
                             mode: mode as WalletMode,
+                            networkId: matchingNetwork.network.id,
                             walletAccountId: account.id,
                             walletId: view.wallet.id,
                           })
-                        }
+                        }}
                       >
                         <SelectTrigger className="w-44">
                           <SelectValue />

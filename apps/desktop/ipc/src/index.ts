@@ -40,6 +40,7 @@ import {
   AuditLogListInputSchema,
   AuditLogRecordSchema,
   type AuditLogRecordView,
+  NetworkListSchema,
   SigningPolicyCreateInputSchema,
   SigningPolicyDisableInputSchema,
   SigningPolicyListInputSchema,
@@ -113,6 +114,7 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexThreadList: "codex.thread.list",
   dappProviderRequest: "dapp.provider.request",
   dappProviderEvent: "dapp.provider.event",
+  networkList: "network.list",
   policyCreate: "policy.create",
   policyDisable: "policy.disable",
   policyList: "policy.list",
@@ -582,6 +584,13 @@ export const walletListContract = {
   response: WalletListSchema,
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<EmptyPayload, z.output<typeof WalletListSchema>>
+export const networkListContract = {
+  channel: CYPHERIA_IPC_CHANNELS.networkList,
+  namespace: "chain",
+  request: EmptyPayloadSchema,
+  response: NetworkListSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, z.output<typeof NetworkListSchema>>
 export const walletActiveReadContract = {
   channel: CYPHERIA_IPC_CHANNELS.walletActiveRead,
   namespace: "wallet",
@@ -1058,6 +1067,9 @@ export type CypheriaPreloadApi = {
     readonly update: (
       input: z.input<typeof SigningPolicyUpdateInputSchema>
     ) => Promise<SigningPolicyRecordView>
+  }
+  readonly network: {
+    readonly list: () => Promise<z.output<typeof NetworkListSchema>>
   }
   readonly settings: {
     readonly getAppearance: () => Promise<AppearanceSettings>

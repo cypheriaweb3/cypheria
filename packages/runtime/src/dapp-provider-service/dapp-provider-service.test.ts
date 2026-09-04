@@ -41,7 +41,7 @@ describe("dApp provider runtime service", () => {
     const account: SigningAccountRef = {
       address,
       chainAccountId: "chain_account_browser",
-      chainId: 1,
+      chainKey: "eip155:1",
       walletAccountId: "account_browser",
       walletId: "wallet_browser",
     }
@@ -61,7 +61,7 @@ describe("dApp provider runtime service", () => {
       now: () => timestamp,
       permissionAuthorizer: ({ requestedMethods }) => ({
         accountAddresses: [address],
-        chainId: 1,
+        chainKey: "eip155:1",
         methods: requestedMethods,
         walletId: account.walletId,
       }),
@@ -95,7 +95,7 @@ describe("dApp provider runtime service", () => {
     const runtime = new CypheriaRuntime({ ensureDirectories: false, services: [service] })
     await runtime.start()
     const bridge = createProviderBridge({
-      chainId: 1,
+      chainKey: "eip155:1",
       origin: session.origin,
       sessionKey: session.key,
       transport: (request) => runtime.request("dapp.provider-request", request) as Promise<never>,

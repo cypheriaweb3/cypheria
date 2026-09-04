@@ -385,7 +385,8 @@ function WorkspacePanel({ activeWallet }: Readonly<{ activeWallet?: WalletActive
                     {activeWallet.chainAccount.address}
                   </span>
                   <span className="text-xs text-muted-foreground">
-                    Chain {activeWallet.chainAccount.chainId}
+                    {activeWallet.chainAccount.chain.namespace}:
+                    {activeWallet.chainAccount.chain.reference}
                   </span>
                 </div>
               ) : (

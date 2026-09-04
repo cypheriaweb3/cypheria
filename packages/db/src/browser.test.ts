@@ -40,7 +40,7 @@ describe("dApp browser persistence", () => {
       origin: session.origin,
       sessionKey: session.key,
       walletId: "wallet_browser" as const,
-      chainId: 1,
+      chainKey: "eip155:1" as const,
       accountAddresses: ["0x0000000000000000000000000000000000000001"] as const,
       methods: ["eth_accounts", "personal_sign"] as const,
       createdAt: timestamp,
@@ -68,7 +68,7 @@ describe("dApp browser persistence", () => {
           signingAccount: {
             address: "11111111111111111111111111111111",
             chainAccountId: "chain_account_solana",
-            chainId: "solana:mainnet" as const,
+            chainKey: "solana:mainnet" as const,
             protocol: "solana" as const,
             publicKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
             walletAccountId: "account_solana",

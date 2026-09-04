@@ -2,6 +2,7 @@ import {
   applyDatabaseMigrations,
   createAuditLogService,
   createInMemoryDatabase,
+  createNetworkPersistenceService,
   createSigningPolicyPersistenceService,
   createWalletPublicStatePersistenceService,
 } from "@cypheria/db"
@@ -35,8 +36,11 @@ describe("signing policy runtime service", () => {
     await applyDatabaseMigrations(database.client)
     const audit = createAuditLogService(database.db)
     const wallets = createWalletPublicStatePersistenceService(database.db)
+    const networks = createNetworkPersistenceService(database.db)
+    await networks.reconcileCatalog()
     const manager = createWalletManager({
       now: () => timestamp,
+      networks,
       persistence: wallets,
       vault: unusedVault,
     })
@@ -57,7 +61,7 @@ describe("signing policy runtime service", () => {
     })
 
     const created = await service.create({
-      chainIds: [1],
+      chainKeys: ["eip155:1"],
       maxNativeValue: "100",
       methods: ["eth_sendTransaction"],
       origins: ["https://app.example"],
@@ -72,7 +76,7 @@ describe("signing policy runtime service", () => {
 
     await expect(
       service.evaluate({
-        chainId: 1,
+        chainKey: "eip155:1",
         correlationId: "request_1",
         method: "eth_sendTransaction",
         mode: "conditional-auto-signing",
@@ -87,7 +91,7 @@ describe("signing policy runtime service", () => {
     })
     await expect(
       service.evaluate({
-        chainId: 1,
+        chainKey: "eip155:1",
         correlationId: "request_scoped",
         method: "eth_sendTransaction",
         mode: "conditional-auto-signing",
@@ -115,7 +119,7 @@ describe("signing policy runtime service", () => {
     expect(disabled).toMatchObject({ policy: { enabled: false }, revision: 3 })
     await expect(
       service.evaluate({
-        chainId: 1,
+        chainKey: "eip155:1",
         correlationId: "request_2",
         method: "eth_sendTransaction",
         mode: "conditional-auto-signing",
@@ -145,7 +149,9 @@ describe("signing policy runtime service", () => {
     await applyDatabaseMigrations(database.client)
     const audit = createAuditLogService(database.db)
     const wallets = createWalletPublicStatePersistenceService(database.db)
-    const manager = createWalletManager({ persistence: wallets, vault: unusedVault })
+    const networks = createNetworkPersistenceService(database.db)
+    await networks.reconcileCatalog()
+    const manager = createWalletManager({ networks, persistence: wallets, vault: unusedVault })
     const wallet = await manager.addWatchWallet({
       address: "0x0000000000000000000000000000000000000002",
       name: "Policy wallet",
@@ -156,7 +162,7 @@ describe("signing policy runtime service", () => {
       wallets,
     })
     const input = {
-      chainIds: [1],
+      chainKeys: ["eip155:1"],
       id: "policy_duplicate",
       methods: ["personal_sign"],
       origins: ["*"],

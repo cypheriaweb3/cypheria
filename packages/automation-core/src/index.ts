@@ -1,4 +1,5 @@
-import { chainIdSchema, walletAccountIdSchema, walletIdSchema } from "@cypheria/wallet-core"
+import { chainKeySchema } from "@cypheria/network-core"
+import { walletAccountIdSchema, walletIdSchema } from "@cypheria/wallet-core"
 import { z } from "zod"
 
 export type AutomationTaskId = `task_${string}`
@@ -128,7 +129,7 @@ export const automationTriggerSchema = z.discriminatedUnion("kind", [
 export const automationWalletPolicyScopeSchema = z
   .object({
     accountIds: z.array(walletAccountIdSchema),
-    chainIds: z.array(chainIdSchema),
+    chainKeys: z.array(chainKeySchema),
     mode: z.enum(["conditional-auto-signing", "human-approval", "read-only"]),
     origins: z
       .array(z.url().refine((value) => new URL(value).origin === value, "Expected an origin URL."))
@@ -140,14 +141,14 @@ export const automationWalletPolicyScopeSchema = z
   .superRefine((scope, context) => {
     const hasDuplicates = (values: readonly unknown[] | undefined): boolean =>
       Boolean(values && new Set(values).size !== values.length)
-    for (const values of [scope.accountIds, scope.chainIds, scope.origins, scope.policyIds]) {
+    for (const values of [scope.accountIds, scope.chainKeys, scope.origins, scope.policyIds]) {
       if (hasDuplicates(values)) {
         context.addIssue({ code: "custom", message: "Automation scope values must be unique." })
       }
     }
     if (
       scope.mode !== "read-only" &&
-      (!scope.walletId || scope.accountIds.length === 0 || scope.chainIds.length === 0)
+      (!scope.walletId || scope.accountIds.length === 0 || scope.chainKeys.length === 0)
     ) {
       context.addIssue({
         code: "custom",

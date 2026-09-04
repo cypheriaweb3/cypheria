@@ -6,10 +6,11 @@ import {
   applyDatabaseMigrations,
   createAuditLogService,
   createInMemoryDatabase,
+  createNetworkPersistenceService,
   createSigningIntentReplayStore,
   createWalletPublicStatePersistenceService,
 } from "@cypheria/db"
-import type { SigningAccountRef, SigningIntent } from "@cypheria/wallet-core"
+import { hexAddressSchema, type SigningAccountRef, type SigningIntent } from "@cypheria/wallet-core"
 import { afterEach, describe, expect, it } from "vitest"
 
 import { createWalletManager } from "../wallet-manager/index.js"
@@ -36,12 +37,14 @@ const createHarness = async () => {
   tempDirs.push(vaultDir)
   const audit = createAuditLogService(database.db)
   const persistence = createWalletPublicStatePersistenceService(database.db)
+  const networks = createNetworkPersistenceService(database.db)
+  await networks.reconcileCatalog()
   const vault = createWalletVaultController({
     codec: createWalletKeystoreCodec({ scryptN: 1024 }),
     keyProvider: createMemoryVaultMasterKeyProvider(new Uint8Array(32).fill(7)),
     vaultDir,
   })
-  const manager = createWalletManager({ audit, persistence, vault })
+  const manager = createWalletManager({ audit, networks, persistence, vault })
   return { audit, database, manager, persistence, vault }
 }
 
@@ -50,13 +53,13 @@ const accountRef = (
 ): SigningAccountRef => {
   const walletAccount = view?.accounts[0]
   const chainAccount = walletAccount?.chainAccounts[0]
-  if (!view || !walletAccount || !chainAccount) {
-    throw new Error("Expected a wallet account fixture.")
+  if (!view || !walletAccount || !chainAccount || chainAccount.chain.namespace !== "eip155") {
+    throw new Error("Expected an EVM wallet account fixture.")
   }
   return {
-    address: chainAccount.address,
+    address: hexAddressSchema.parse(chainAccount.address),
     chainAccountId: chainAccount.id,
-    chainId: chainAccount.chainId,
+    chainKey: "eip155:1",
     walletAccountId: walletAccount.account.id,
     walletId: view.wallet.id,
   }

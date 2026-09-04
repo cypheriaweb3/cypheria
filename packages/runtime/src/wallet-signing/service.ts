@@ -5,8 +5,10 @@ import type {
   WalletPublicState,
   WalletPublicStatePersistenceService,
 } from "@cypheria/db"
+import { evmChainIdentityToNumber, toChainKey } from "@cypheria/network-core"
 import type { PolicyDecision } from "@cypheria/policy-engine"
 import {
+  type ChainAccount,
   type PersonalSignIntent,
   parseSigningIntent,
   type SigningAccountRef,
@@ -143,13 +145,18 @@ const accountMatches = (left: SigningAccountRef, right: SigningAccountRef): bool
   left.walletId === right.walletId &&
   left.walletAccountId === right.walletAccountId &&
   left.chainAccountId === right.chainAccountId &&
-  left.chainId === right.chainId &&
+  left.chainKey === right.chainKey &&
   getAddress(left.address) === getAddress(right.address)
+
+type EvmChainAccount = Extract<ChainAccount, { chain: { namespace: "eip155" } }>
+
+const isEvmChainAccount = (account: ChainAccount): account is EvmChainAccount =>
+  account.chain.namespace === "eip155"
 
 const resolveAccount = (
   state: WalletPublicState,
   account: SigningAccountRef
-): { chainAccount: WalletPublicState["chainAccounts"][number] } => {
+): { chainAccount: EvmChainAccount } => {
   const walletAccount = state.accounts.find((item) => item.id === account.walletAccountId)
   const chainAccount = state.chainAccounts.find((item) => item.id === account.chainAccountId)
   if (
@@ -157,7 +164,8 @@ const resolveAccount = (
     walletAccount.walletId !== state.wallet.id ||
     !chainAccount ||
     chainAccount.walletAccountId !== walletAccount.id ||
-    chainAccount.chainId !== account.chainId ||
+    toChainKey(chainAccount.chain) !== account.chainKey ||
+    !isEvmChainAccount(chainAccount) ||
     getAddress(chainAccount.address) !== getAddress(account.address)
   ) {
     throw new WalletSigningError("ACCOUNT_MISMATCH", "The signing account does not match.")
@@ -233,7 +241,10 @@ export const createWalletSigningService = (
         "Sending a transaction requires a separate broadcast capability."
       )
     }
-    if (intent.kind === "sign-transaction" && intent.transaction.chainId !== boundAccount.chainId) {
+    if (
+      intent.kind === "sign-transaction" &&
+      intent.transaction.chainId !== evmChainIdentityToNumber(chainAccount.chain)
+    ) {
       throw new WalletSigningError("ACCOUNT_MISMATCH", "The transaction targets another chain.")
     }
 

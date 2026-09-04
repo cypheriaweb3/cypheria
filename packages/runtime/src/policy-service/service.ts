@@ -204,7 +204,7 @@ export const createSigningPolicyRuntimeService = (
       await requireWallet(input.walletId)
       const records = await options.persistence.list({ enabled: true, walletId: input.walletId })
       const evaluationInput: PolicyEvaluationInput = {
-        chainId: input.chainId,
+        chainKey: input.chainKey,
         ...(input.contractAddress ? { contractAddress: input.contractAddress } : {}),
         method: input.method,
         mode: input.mode,

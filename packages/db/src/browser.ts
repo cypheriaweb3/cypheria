@@ -32,7 +32,7 @@ const fromPermissionRow = (
     origin: row.origin,
     sessionKey: row.sessionKey,
     walletId: row.walletId,
-    chainId: row.chainId,
+    chainKey: row.chainKey,
     accountAddresses: row.accountAddresses,
     methods: row.methods,
     createdAt: row.createdAt,
@@ -48,7 +48,16 @@ const fromSolanaPermissionRow = (
     origin: row.origin,
     sessionKey: row.sessionKey,
     walletId: row.walletId,
-    bindings: row.bindings,
+    bindings: row.bindings.map((binding) => {
+      const account = binding.signingAccount as typeof binding.signingAccount & {
+        readonly chainId?: string
+      }
+      const { chainId, ...current } = account
+      return {
+        ...binding,
+        signingAccount: { ...current, chainKey: current.chainKey ?? chainId },
+      }
+    }),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
     ...(row.expiresAt ? { expiresAt: row.expiresAt } : {}),
@@ -105,7 +114,7 @@ export const createDappBrowserPersistenceService = (
         origin: permission.origin,
         sessionKey: permission.sessionKey,
         walletId: permission.walletId,
-        chainId: permission.chainId,
+        chainKey: permission.chainKey,
         accountAddresses: permission.accountAddresses,
         methods: permission.methods,
         createdAt: permission.createdAt,
@@ -120,14 +129,14 @@ export const createDappBrowserPersistenceService = (
           updatedAt: permission.updatedAt,
           expiresAt: permission.expiresAt ?? null,
         },
-        target: [dappPermissions.origin, dappPermissions.walletId, dappPermissions.chainId],
+        target: [dappPermissions.origin, dappPermissions.walletId, dappPermissions.chainKey],
       })
     const records = await db
       .select()
       .from(dappPermissions)
       .where(eq(dappPermissions.origin, permission.origin))
     const saved = records.find(
-      (record) => record.walletId === permission.walletId && record.chainId === permission.chainId
+      (record) => record.walletId === permission.walletId && record.chainKey === permission.chainKey
     )
     if (!saved) throw new Error("The dApp permission was not persisted.")
     return fromPermissionRow(saved)

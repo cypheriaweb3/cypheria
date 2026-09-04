@@ -1,8 +1,8 @@
+import { evmChainIdentitySchema, solanaChainIdentitySchema } from "@cypheria/network-core"
 import { z } from "zod"
 
 import {
   chainAccountIdSchema,
-  chainIdSchema,
   hexAddressSchema,
   hexDataSchema,
   timestampSchema,
@@ -11,7 +11,7 @@ import {
   walletIdSchema,
 } from "./primitives.js"
 
-/** Chain namespaces currently understood by wallet-core. */
+/** Key derivation namespaces currently understood by wallet-core. */
 export const chainNamespaces = ["eip155"] as const
 export type ChainNamespace = (typeof chainNamespaces)[number]
 
@@ -39,20 +39,34 @@ export type WalletAccount = z.infer<typeof walletAccountSchema>
 
 const derivationPathSchema = z.string().regex(/^m(?:\/[0-9]+['h]?)+$/u)
 
-/** Public identity of one logical wallet account on a particular chain. */
-export const chainAccountSchema = z
+const chainAccountBaseShape = {
+  id: chainAccountIdSchema,
+  walletAccountId: walletAccountIdSchema,
+  derivationPath: derivationPathSchema.optional(),
+  createdAt: timestampSchema,
+  updatedAt: timestampSchema,
+} as const
+
+const evmChainAccountSchema = z
   .object({
-    id: chainAccountIdSchema,
-    walletAccountId: walletAccountIdSchema,
-    namespace: z.enum(chainNamespaces),
-    chainId: chainIdSchema,
+    ...chainAccountBaseShape,
+    chain: evmChainIdentitySchema,
     address: hexAddressSchema,
     publicKey: hexDataSchema.optional(),
-    derivationPath: derivationPathSchema.optional(),
-    createdAt: timestampSchema,
-    updatedAt: timestampSchema,
   })
   .strict()
+
+const solanaChainAccountSchema = z
+  .object({
+    ...chainAccountBaseShape,
+    chain: solanaChainIdentitySchema,
+    address: z.string().min(32).max(44),
+    publicKey: z.string().regex(/^[A-Za-z0-9+/]{42}[AQgw]=$/u),
+  })
+  .strict()
+
+/** Public identity of one logical wallet account on a canonical chain identity. */
+export const chainAccountSchema = z.union([evmChainAccountSchema, solanaChainAccountSchema])
 
 export type ChainAccount = z.infer<typeof chainAccountSchema>
 

@@ -1,10 +1,11 @@
+import type { ChainKey } from "@cypheria/network-core"
 import type { WalletId } from "@cypheria/wallet-core"
 import type {
   DappSessionKey,
   EthereumProviderPermissionRecord,
   SolanaProviderPermissionRecord,
 } from "@cypheria/wallet-provider"
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core"
+import { index, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core"
 
 import { wallets } from "./wallet.js"
 
@@ -28,7 +29,7 @@ export const dappPermissions = sqliteTable(
       .$type<WalletId>()
       .notNull()
       .references(() => wallets.id, { onDelete: "cascade" }),
-    chainId: integer("chain_id").notNull(),
+    chainKey: text("chain_key").$type<ChainKey>().notNull(),
     accountAddresses: text("account_addresses", { mode: "json" })
       .$type<EthereumProviderPermissionRecord["accountAddresses"]>()
       .notNull(),
@@ -43,7 +44,7 @@ export const dappPermissions = sqliteTable(
     uniqueIndex("dapp_permissions_origin_wallet_chain_unique").on(
       table.origin,
       table.walletId,
-      table.chainId
+      table.chainKey
     ),
     index("dapp_permissions_origin_idx").on(table.origin),
     index("dapp_permissions_wallet_id_idx").on(table.walletId),

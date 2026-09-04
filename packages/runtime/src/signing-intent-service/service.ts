@@ -197,7 +197,7 @@ export const createSigningIntentRuntimeService = (
           ? intent.transaction
           : undefined
       const evaluation = await options.policies.evaluate({
-        chainId: intent.account.chainId,
+        chainKey: intent.account.chainKey,
         correlationId: intent.correlationId,
         ...(transaction?.to ? { contractAddress: transaction.to } : {}),
         method: policyMethod(intent),

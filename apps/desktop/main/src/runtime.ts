@@ -3,6 +3,7 @@ import {
   applyDatabaseMigrations,
   createAuditLogService,
   createAutomationPersistenceService,
+  createNetworkPersistenceService,
   createSigningIntentPersistenceService,
   createSigningPolicyPersistenceService,
   createWalletProviderPersistenceService,
@@ -20,6 +21,7 @@ import {
   type CypheriaRuntimePaths,
   createAutomationRuntimeService,
   createEthereumProviderRuntimeService,
+  createNetworkManager,
   createSigningIntentRuntimeService,
   createSigningPolicyRuntimeService,
   createSolanaProviderRuntimeService,
@@ -28,6 +30,8 @@ import {
   createWalletVaultController,
   type EthereumProviderRuntimeServiceOptions,
   ensureRuntimeDirectories,
+  type NetworkManager,
+  NetworkRpcRouter,
   type RuntimeHomeEnv,
   type SigningIntentRuntimeService,
   type SigningPolicyRuntimeService,
@@ -43,6 +47,7 @@ import {
   shutdownCodexAppServer,
   startCodexAppServer,
 } from "./codex-app-server.js"
+import { createDesktopNetworkCredentialStore } from "./network-credential-store.js"
 import { createDesktopVaultMasterKeyProvider } from "./vault-key-provider.js"
 
 export type DesktopRuntimeContext = {
@@ -55,6 +60,7 @@ export type DesktopRuntimeContext = {
   readonly codexEnv: RuntimeHomeEnv
   readonly runtime: CypheriaRuntime
   readonly policies: SigningPolicyRuntimeService
+  readonly networks: NetworkManager
   readonly signingIntents: SigningIntentRuntimeService
   readonly vault: WalletVaultController
   readonly wallets: WalletManager
@@ -100,13 +106,31 @@ export const initializeDesktopRuntime = async (
   try {
     await applyDatabaseMigrations(database.client)
     const audit = createAuditLogService(database.db)
+    const networkPersistence = createNetworkPersistenceService(database.db)
+    await networkPersistence.reconcileCatalog()
+    const networkCredentials = createDesktopNetworkCredentialStore(paths.configDir)
+    const networkRouter = new NetworkRpcRouter({
+      credentials: networkCredentials,
+      persistence: networkPersistence,
+    })
+    const networks = createNetworkManager({
+      audit,
+      credentials: networkCredentials,
+      persistence: networkPersistence,
+      router: networkRouter,
+    })
     const walletPersistence = createWalletPublicStatePersistenceService(database.db)
     const vault = createWalletVaultController({
       codec: createWalletKeystoreCodec(),
       keyProvider: vaultKeyProvider ?? createDesktopVaultMasterKeyProvider(paths.configDir),
       vaultDir: paths.vaultDir,
     })
-    const wallets = createWalletManager({ audit, persistence: walletPersistence, vault })
+    const wallets = createWalletManager({
+      audit,
+      networks: networkPersistence,
+      persistence: walletPersistence,
+      vault,
+    })
     const policies = createSigningPolicyRuntimeService({
       audit,
       persistence: createSigningPolicyPersistenceService(database.db),
@@ -166,6 +190,7 @@ export const initializeDesktopRuntime = async (
       codexAppServer,
       database,
       dappSessions,
+      networks,
       paths: runtime.paths,
       codexEnv,
       policies,

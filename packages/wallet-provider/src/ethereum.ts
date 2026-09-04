@@ -1,5 +1,6 @@
-import type { ChainId, HexAddress, WalletId } from "@cypheria/wallet-core"
-import { chainIdSchema, hexAddressSchema, walletIdSchema } from "@cypheria/wallet-core"
+import { type ChainKey, chainKeySchema } from "@cypheria/network-core"
+import type { HexAddress, WalletId } from "@cypheria/wallet-core"
+import { hexAddressSchema, walletIdSchema } from "@cypheria/wallet-core"
 import { z } from "zod"
 
 import { jsonRpcParamsSchema, jsonRpcValueSchema } from "./json-rpc.js"
@@ -66,7 +67,7 @@ export type ProviderMethod = EthereumProviderMethod
 
 export type EthereumProviderPermissionRecord = {
   readonly accountAddresses: readonly HexAddress[]
-  readonly chainId: ChainId
+  readonly chainKey: ChainKey
   readonly createdAt: string
   readonly expiresAt?: string
   readonly id: string
@@ -98,7 +99,7 @@ export const providerMethodSchema = z.enum(ethereumProviderMethods)
 export const dappPermissionRecordSchema = z
   .object({
     accountAddresses: z.array(hexAddressSchema).min(1).max(32),
-    chainId: chainIdSchema,
+    chainKey: chainKeySchema.refine((value) => value.startsWith("eip155:")),
     createdAt: z.iso.datetime(),
     expiresAt: z.iso.datetime().optional(),
     id: z
@@ -129,7 +130,7 @@ export type ProviderRequest<
   TMethod extends EthereumProviderMethod = EthereumProviderMethod,
   TParams = unknown,
 > = {
-  readonly chainId?: ChainId
+  readonly chainKey?: ChainKey
   readonly id: ProviderRequestId
   readonly method: TMethod
   readonly origin: string
@@ -148,7 +149,7 @@ export type ProviderResponse<TResult = unknown> =
 
 export const providerRequestSchema = z
   .object({
-    chainId: chainIdSchema.optional(),
+    chainKey: chainKeySchema.refine((value) => value.startsWith("eip155:")).optional(),
     id: z.union([z.number().finite(), z.string().min(1).max(128)]),
     method: providerMethodSchema,
     origin: z.string().transform(normalizeDappOrigin),
@@ -209,7 +210,7 @@ export type ProviderBridgeTransport = (
   request: ProviderRequest
 ) => Promise<ProviderResponse> | ProviderResponse
 export type ProviderBridgeOptions = {
-  readonly chainId?: ChainId
+  readonly chainKey?: ChainKey
   readonly origin: string
   readonly sessionKey?: DappSessionKey
   readonly transport: ProviderBridgeTransport
@@ -269,7 +270,7 @@ export const createEthereumProvider = (
       let request: ProviderRequest
       try {
         request = providerRequestSchema.parse({
-          chainId: options.chainId,
+          chainKey: options.chainKey,
           id: nextRequestId(),
           method: args.method,
           origin,

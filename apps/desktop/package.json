@@ -22,6 +22,7 @@
     "@cypheria/automation-core": "workspace:*",
     "@cypheria/codex-bridge": "workspace:*",
     "@cypheria/db": "workspace:*",
+    "@cypheria/network-core": "workspace:*",
     "@cypheria/policy-engine": "workspace:*",
     "@cypheria/runtime": "workspace:*",
     "@cypheria/ui": "workspace:*",

@@ -1,3 +1,9 @@
+import {
+  type ChainKey,
+  type NetworkDefinition,
+  type NetworkId,
+  toChainKey,
+} from "@cypheria/network-core"
 import { z } from "zod"
 
 import {
@@ -6,32 +12,9 @@ import {
   type WalletAccount,
   walletAccountSchema,
 } from "./account.js"
-import type { ChainId, WalletAccountId, WalletId } from "./primitives.js"
+import type { WalletAccountId, WalletId } from "./primitives.js"
 import type { WalletMode } from "./signing.js"
 import { type Wallet, walletSchema } from "./wallet.js"
-
-/** User-configured RPC endpoint for one EVM chain. */
-export type RpcEndpoint = {
-  readonly id: string
-  readonly chainId: ChainId
-  readonly url: string
-  readonly label?: string
-  readonly headers?: Readonly<Record<string, string>>
-}
-
-/** Public chain configuration used by wallet selection and RPC routing. */
-export type ChainDefinition = {
-  readonly id: ChainId
-  readonly name: string
-  readonly nativeCurrency: {
-    readonly name: string
-    readonly symbol: string
-    readonly decimals: number
-  }
-  readonly rpcEndpoints: readonly RpcEndpoint[]
-  readonly blockExplorerUrl?: string
-  readonly testnet?: boolean
-}
 
 /** Renderer-safe logical account together with its chain-specific identities. */
 export const walletAccountViewSchema = z
@@ -53,7 +36,7 @@ export type WalletView = z.infer<typeof walletViewSchema>
 
 /**
  * Builds a deterministic public projection. Unrelated records are ignored, account
- * ordering follows the persisted display index, and chain identities sort by chain ID.
+ * ordering follows the persisted display index, and chain identities sort by canonical key.
  */
 export const toWalletView = (
   wallet: Wallet,
@@ -70,7 +53,7 @@ export const toWalletView = (
         account,
         chainAccounts: chainAccounts
           .filter((chainAccount) => chainAccount.walletAccountId === account.id)
-          .sort((left, right) => left.chainId - right.chainId),
+          .sort((left, right) => toChainKey(left.chain).localeCompare(toChainKey(right.chain))),
       })),
   })
 
@@ -81,7 +64,7 @@ export const toWalletView = (
 export type ActiveWalletContext = {
   readonly wallet?: WalletView
   readonly walletAccount?: WalletAccountView
-  readonly chain?: ChainDefinition
+  readonly network?: NetworkDefinition
   readonly chainAccount?: ChainAccount
   readonly mode: WalletMode
 }
@@ -109,7 +92,8 @@ export type WalletPermission = {
   readonly origin: string
   readonly walletId: WalletId
   readonly accountId: WalletAccountId
-  readonly chainId: ChainId
+  readonly chainKey: ChainKey
+  readonly networkId: NetworkId
   readonly methods: readonly WalletPermissionMethod[]
   readonly mode: WalletMode
   readonly expiresAt?: string

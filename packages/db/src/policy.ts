@@ -39,7 +39,7 @@ const fromRow = (row: SigningPolicyRow): SigningPolicyRecord => ({
   policy: SigningPolicySchema.parse({
     id: row.id,
     walletId: row.walletId,
-    chainIds: row.chainIds,
+    chainKeys: row.chainKeys,
     methods: row.methods,
     origins: row.origins,
     ...(row.contractAllowlist ? { contractAllowlist: row.contractAllowlist } : {}),
@@ -60,7 +60,7 @@ const toValues = (policyValue: SigningPolicy, timestampValue: string) => {
   return {
     id: policy.id,
     walletId: policy.walletId,
-    chainIds: policy.chainIds,
+    chainKeys: policy.chainKeys,
     methods: policy.methods,
     origins: policy.origins,
     contractAllowlist: policy.contractAllowlist ?? null,
@@ -84,7 +84,7 @@ export const createSigningPolicyPersistenceService = (
       .values({
         id: columns.id,
         walletId: columns.walletId,
-        chainIds: columns.chainIds,
+        chainKeys: columns.chainKeys,
         methods: columns.methods,
         origins: columns.origins,
         contractAllowlist: columns.contractAllowlist,
@@ -129,7 +129,7 @@ export const createSigningPolicyPersistenceService = (
     const [updated] = await db
       .update(signingPolicies)
       .set({
-        chainIds: values.chainIds,
+        chainKeys: values.chainKeys,
         methods: values.methods,
         origins: values.origins,
         contractAllowlist: values.contractAllowlist,

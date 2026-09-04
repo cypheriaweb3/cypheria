@@ -125,6 +125,9 @@ const cypheriaApi: CypheriaPreloadApi = {
   runtime: {
     getInfo: () => invoke<RuntimeInfo>(CYPHERIA_IPC_CHANNELS.runtimeInfoRead),
   },
+  network: {
+    list: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkList),
+  },
   policy: {
     create: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.policyCreate, input),
     disable: (policyId, expectedRevision) =>

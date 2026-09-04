@@ -1,9 +1,8 @@
+import type { NetworkId } from "@cypheria/network-core"
 import {
   type ChainAccountId,
   chainNamespaces,
   curves,
-  type HexAddress,
-  type HexData,
   type VaultId,
   type Wallet,
   type WalletAccountId,
@@ -23,6 +22,7 @@ import {
   text,
   uniqueIndex,
 } from "drizzle-orm/sqlite-core"
+import { networks } from "./network.js"
 
 export const wallets = sqliteTable(
   "wallets",
@@ -90,24 +90,24 @@ export const chainAccounts = sqliteTable(
       .$type<WalletAccountId>()
       .notNull()
       .references(() => walletAccounts.id, { onDelete: "cascade" }),
-    namespace: text("namespace", { enum: chainNamespaces }).notNull(),
-    chainId: integer("chain_id").notNull(),
-    address: text("address").$type<HexAddress>().notNull(),
-    publicKey: text("public_key").$type<HexData>(),
+    namespace: text("namespace", { enum: ["eip155", "solana"] }).notNull(),
+    reference: text("reference").notNull(),
+    address: text("address").notNull(),
+    publicKey: text("public_key"),
     derivationPath: text("derivation_path"),
     createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
   },
   (table) => [
-    uniqueIndex("chain_accounts_account_namespace_chain_unique").on(
+    uniqueIndex("chain_accounts_account_namespace_reference_unique").on(
       table.walletAccountId,
       table.namespace,
-      table.chainId
+      table.reference
     ),
-    index("chain_accounts_address_idx").on(table.namespace, table.chainId, table.address),
+    index("chain_accounts_address_idx").on(table.namespace, table.reference, table.address),
     index("chain_accounts_wallet_account_id_idx").on(table.walletAccountId),
-    check("chain_accounts_chain_id_check", sql`${table.chainId} > 0`),
-    check("chain_accounts_namespace_check", sql`${table.namespace} = 'eip155'`),
+    check("chain_accounts_reference_check", sql`length(${table.reference}) > 0`),
+    check("chain_accounts_namespace_check", sql`${table.namespace} IN ('eip155', 'solana')`),
   ]
 )
 
@@ -148,6 +148,10 @@ export const activeWalletContext = sqliteTable(
       .$type<ChainAccountId>()
       .notNull()
       .references(() => chainAccounts.id, { onDelete: "cascade" }),
+    networkId: text("network_id")
+      .$type<NetworkId>()
+      .notNull()
+      .references(() => networks.id, { onDelete: "restrict" }),
     mode: text("mode", { enum: walletModes }).notNull(),
     updatedAt: text("updated_at").notNull(),
   },

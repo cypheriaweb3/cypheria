@@ -40,7 +40,7 @@ const taskInput = {
   status: "draft" as const,
   title: "Manual task",
   trigger: { kind: "manual" as const, requestedBy: "user" as const },
-  walletPolicyScope: { accountIds: [], chainIds: [1], mode: "read-only" as const },
+  walletPolicyScope: { accountIds: [], chainKeys: ["eip155:1"], mode: "read-only" as const },
   workspace: { id: "workspace_test", path: "/tmp/cypheria" },
 }
 
@@ -93,7 +93,7 @@ describe("automation runtime service", () => {
               account: {
                 address: "0x1111111111111111111111111111111111111111",
                 chainAccountId: "chain_account_1",
-                chainId: 1,
+                chainKey: "eip155:1",
                 walletAccountId: "account_1",
                 walletId: "wallet_1",
               },
@@ -113,7 +113,7 @@ describe("automation runtime service", () => {
       status: "enabled",
       walletPolicyScope: {
         accountIds: ["account_1"],
-        chainIds: [1],
+        chainKeys: ["eip155:1"],
         mode: "human-approval",
         policyIds: ["policy_selected"],
         walletId: "wallet_1",
@@ -146,7 +146,7 @@ describe("automation runtime service", () => {
               account: {
                 address: "0x1111111111111111111111111111111111111111",
                 chainAccountId: "chain_account_1",
-                chainId: 1,
+                chainKey: "eip155:1",
                 walletAccountId: "account_1",
                 walletId: "wallet_1",
               },

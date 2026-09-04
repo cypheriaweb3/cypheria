@@ -40,6 +40,7 @@ import {
   codexThreadListContract,
   dappProviderRequestContract,
   IPC_PROTOCOL_VERSION,
+  networkListContract,
   policyCreateContract,
   policyDisableContract,
   policyListContract,
@@ -249,6 +250,7 @@ const registerIpcHandlers = (context: DesktopRuntimeContext): void => {
       context.signingIntents.decide(approvalId, { decision, expectedRevision, reviewer })
   )
   registerIpcRoute(walletListContract, () => context.wallets.listWallets())
+  registerIpcRoute(networkListContract, () => context.networks.list())
   registerIpcRoute(walletActiveReadContract, () => context.wallets.getActiveContext())
   registerIpcRoute(walletActiveWriteContract, (input) => context.wallets.setActiveContext(input))
   registerIpcRoute(walletActiveClearContract, async () => {

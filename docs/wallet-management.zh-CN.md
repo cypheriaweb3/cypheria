@@ -78,9 +78,9 @@ Unlock 只返回标识与 entry kind。解密值保留在 internal controller �
 
 导入钱包可能已经控制资金，因此 HD 和私钥导入先持久化 vault，再创建公开状态并报告成功；若公开状态写入失败，会补偿删除新建 vault。Watch 导入没有 vault 阶段。秘密导入均可提供 expected address；runtime 使用 viem 派生地址，并在持久化前拒绝不一致输入。
 
-`@cypheria/runtime` 提供 wallet manager，用于生成和导入 HD 钱包、导入单个或分组私钥、添加单个或分组观察钱包、列出 renderer-safe view、重命名、删除以及选择 active context。查重会比较已持久化钱包和新分组内部的 wallet/account fingerprint。配置的多个 EVM chain ID 共享同一 EVM 地址，但各自保留独立 chain-account 记录。
+`@cypheria/runtime` 提供 wallet manager，用于生成和导入 HD 钱包、导入单个或分组私钥、添加单个或分组观察钱包、列出 renderer-safe view、重命名、删除以及选择 active context。查重会比较已持久化钱包和新分组内部的 wallet/account fingerprint。配置的多个 EVM `ChainIdentity` 共享同一 EVM 地址，但各自保留独立 chain-account 记录。
 
-Active context 保存唯一一组已选择的 wallet、wallet account、chain account 和 mode。持久化层会验证三个标识属于同一钱包图。只有 `ready` 钱包可被选择，观察钱包只允许 `read-only`；删除已选钱包时通过外键级联清除 context。变更操作写入不含秘密材料的脱敏 audit event。
+Active context 保存唯一一组已选择的 wallet、wallet account、chain account、network 和 mode。持久化层会验证 account 属于同一钱包图，并验证已启用 network 的 canonical `ChainIdentity` 与 chain account 完全一致。只有 `ready` 钱包可被选择，观察钱包只允许 `read-only`；删除已选钱包时通过外键级联清除 context，删除 network 时则显式清除。变更操作写入不含秘密材料的脱敏 audit event。
 
 恢复流程协调 lifecycle state 和 vault 文件；vault 缺失时将已有钱包标记为 error，而不是删除记录。删除 vault 钱包时先记录 `deleting`，原子删除 vault 后再移除公开状态；vault 删除失败则保留 `error` 记录供恢复。
 

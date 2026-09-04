@@ -161,7 +161,7 @@ export const createSolanaProviderRuntimeService = (
             candidate.account.address === input.account.address &&
             candidate.account.publicKey === input.account.publicKey &&
             candidate.account.features.includes(request.method) &&
-            (!requestedChain || candidate.signingAccount.chainId === requestedChain)
+            (!requestedChain || candidate.signingAccount.chainKey === requestedChain)
         )
       if (!binding) {
         throw new SolanaProviderRuntimeError(4100, "The Solana signing account is not permitted.")
@@ -170,7 +170,7 @@ export const createSolanaProviderRuntimeService = (
       const intent = await options.signingIntents.create({
         intent: {
           account: binding.signingAccount,
-          chainId: binding.signingAccount.chainId,
+          chainKey: binding.signingAccount.chainKey,
           correlationId: request.id,
           kind: methodToIntentKind(request.method),
           origin: request.origin,

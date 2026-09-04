@@ -54,7 +54,7 @@ describe("Wallet provider session model", () => {
   it("serializes provider requests to the configured transport", async () => {
     const requests: ProviderRequest[] = []
     const bridge = createProviderBridge({
-      chainId: 1,
+      chainKey: "eip155:1",
       origin: "https://app.example/swap",
       transport: (request) => {
         requests.push(request)
@@ -70,7 +70,7 @@ describe("Wallet provider session model", () => {
     ])
     expect(requests).toEqual([
       {
-        chainId: 1,
+        chainKey: "eip155:1",
         id: "provider_1",
         method: "eth_requestAccounts",
         origin: "https://app.example",

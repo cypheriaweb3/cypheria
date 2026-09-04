@@ -27,7 +27,7 @@ const task = automationTaskSchema.parse({
   updatedAt: "2026-05-29T00:00:00.000Z",
   walletPolicyScope: {
     accountIds: ["account_1"],
-    chainIds: [1],
+    chainKeys: ["eip155:1"],
     mode: "conditional-auto-signing",
     origins: ["https://app.example"],
     policyIds: ["policy_1"],
@@ -63,7 +63,7 @@ describe("automation task model", () => {
         ...task,
         walletPolicyScope: {
           accountIds: [],
-          chainIds: [],
+          chainKeys: [],
           mode: "conditional-auto-signing",
         },
       })

@@ -162,7 +162,7 @@ Status legend:
   - Include: SSRF destination policy, DNS/redirect checks, timeouts, response and concurrency bounds, redacted audit, and stable network errors.
   - Verification: runtime unit and integration tests with local fake EVM and Solana RPC servers; `pnpm run ci`, `pnpm build`.
 
-- [ ] Migrate wallet, policy, automation, and dApp boundaries to canonical chain identity.
+- [x] Migrate wallet, policy, automation, and dApp boundaries to canonical chain identity.
   - Acceptance: chain accounts, active wallet context, signing intents, policies, automation scopes, permissions, and events use `ChainIdentity`/`ChainKey`; active network identity must match the selected chain account.
   - Include: data migrations and compatibility adapters for EIP-1193 hexadecimal IDs and Solana Wallet Standard identifiers.
   - Verification: wallet-core, policy-engine, automation-core, wallet-provider, database, runtime, and desktop IPC tests.

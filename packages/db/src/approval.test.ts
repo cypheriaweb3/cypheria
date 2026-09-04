@@ -15,7 +15,7 @@ const intent: SigningIntentRecord = {
       walletId: "wallet_one",
       walletAccountId: "account_one",
       chainAccountId: "chain_account_one",
-      chainId: 1,
+      chainKey: "eip155:1",
       address: "0x0000000000000000000000000000000000000001",
     },
     kind: "sign-transaction",

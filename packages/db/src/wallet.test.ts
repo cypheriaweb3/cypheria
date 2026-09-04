@@ -1,3 +1,4 @@
+import { toChainKey } from "@cypheria/network-core"
 import {
   type ChainAccount,
   defaultEvmHdDerivationScheme,
@@ -8,6 +9,7 @@ import { describe, expect, it } from "vitest"
 
 import { createInMemoryDatabase } from "./client.js"
 import { applyDatabaseMigrations } from "./migrations.js"
+import { createNetworkPersistenceService } from "./network.js"
 import { chainAccounts, walletAccounts, walletHdSchemes } from "./schema/index.js"
 import { createWalletPublicStatePersistenceService, type WalletPublicState } from "./wallet.js"
 
@@ -41,8 +43,7 @@ const hdState = {
     {
       id: "chain_account_mainnet",
       walletAccountId: "account_primary",
-      namespace: "eip155",
-      chainId: 1,
+      chain: { namespace: "eip155", reference: "1" },
       address: "0x0000000000000000000000000000000000000001",
       publicKey: "0x02",
       derivationPath: "m/44'/60'/0'/0/0",
@@ -106,12 +107,19 @@ describe("wallet public-state persistence", () => {
     const database = createInMemoryDatabase()
     await applyDatabaseMigrations(database.client)
     const service = createWalletPublicStatePersistenceService(database.db)
+    const networks = createNetworkPersistenceService(database.db)
+    await networks.reconcileCatalog()
+    const ethereum = (await networks.listNetworks()).find(
+      ({ network }) => toChainKey(network.chain) === "eip155:1"
+    )
+    if (!ethereum) throw new Error("Ethereum catalog fixture is missing.")
     await service.create(hdState)
     const context = {
       walletId: "wallet_hd",
       walletAccountId: "account_primary",
       chainAccountId: "chain_account_mainnet",
       mode: "human-approval",
+      networkId: ethereum.network.id,
       updatedAt: timestamp,
     } as const
 

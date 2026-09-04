@@ -1,15 +1,22 @@
 import { randomUUID } from "node:crypto"
 import type {
   AuditLogService,
+  NetworkPersistenceService,
   PersistedActiveWalletContext,
   WalletPublicState,
   WalletPublicStatePersistenceService,
 } from "@cypheria/db"
 import {
+  type EvmChainIdentity,
+  evmChainIdentityFromNumber,
+  evmChainIdentitySchema,
+  networkIdSchema,
+  toChainKey,
+} from "@cypheria/network-core"
+import {
   type ActiveWalletContext,
   type ChainAccount,
   type ChainAccountId,
-  type ChainId,
   chainAccountIdSchema,
   createAccountFingerprint,
   createAddressWalletFingerprint,
@@ -111,6 +118,7 @@ const activeContextInputSchema = z
   .object({
     chainAccountId: chainAccountIdSchema,
     mode: z.enum(walletModes),
+    networkId: networkIdSchema,
     walletAccountId: walletAccountIdSchema,
     walletId: walletIdSchema,
   })
@@ -163,10 +171,11 @@ export type WalletManagerIdFactory = {
 
 export type WalletManagerOptions = {
   readonly audit?: Pick<AuditLogService, "append">
-  readonly chainIds?: readonly ChainId[]
+  readonly chains?: readonly EvmChainIdentity[]
   readonly idFactory?: WalletManagerIdFactory
   readonly mnemonicFactory?: (strength: 128 | 256) => string
   readonly now?: () => string
+  readonly networks: Pick<NetworkPersistenceService, "getNetwork">
   readonly persistence: WalletPublicStatePersistenceService
   readonly vault: WalletVault
 }
@@ -209,12 +218,9 @@ type PreparedMember = {
 const normalizeMnemonic = (value: string): string =>
   value.trim().toLowerCase().replaceAll(/\s+/gu, " ")
 
-const parseChainIds = (chainIds: readonly ChainId[]): ChainId[] => {
-  const parsed = [...new Set(chainIds)]
-  if (
-    parsed.length === 0 ||
-    parsed.some((chainId) => !Number.isSafeInteger(chainId) || chainId <= 0)
-  ) {
+const parseChains = (chains: readonly EvmChainIdentity[]): EvmChainIdentity[] => {
+  const parsed = chains.map((chain) => evmChainIdentitySchema.parse(chain))
+  if (parsed.length === 0 || new Set(parsed.map(toChainKey)).size !== parsed.length) {
     throw new WalletManagerError("INVALID_INPUT", "At least one valid chain is required.")
   }
   return parsed
@@ -236,7 +242,7 @@ const viewFromState = (state: WalletPublicState): WalletView =>
   toWalletView(state.wallet, state.accounts, state.chainAccounts)
 
 export const createWalletManager = (options: WalletManagerOptions): WalletManager => {
-  const chainIds = parseChainIds(options.chainIds ?? [1])
+  const chains = parseChains(options.chains ?? [evmChainIdentityFromNumber(1)])
   const idFactory = options.idFactory ?? defaultIdFactory
   const now = options.now ?? (() => new Date().toISOString())
   const mnemonicFactory =
@@ -303,14 +309,13 @@ export const createWalletManager = (options: WalletManagerOptions): WalletManage
         walletId: input.walletId,
       }
       accounts.push(account)
-      for (const chainId of chainIds) {
+      for (const chain of chains) {
         chainAccounts.push({
           address: member.address,
-          chainId,
+          chain,
           createdAt: timestamp,
           ...(member.derivationPath ? { derivationPath: member.derivationPath } : {}),
           id: idFactory.chainAccountId(),
-          namespace: "eip155",
           ...(member.publicKey ? { publicKey: member.publicKey } : {}),
           updatedAt: timestamp,
           walletAccountId: account.id,
@@ -427,11 +432,17 @@ export const createWalletManager = (options: WalletManagerOptions): WalletManage
     const chainAccount = walletAccount?.chainAccounts.find(
       (item) => item.id === persisted.chainAccountId
     )
-    if (!walletAccount || !chainAccount) {
+    const network = await options.networks.getNetwork(persisted.networkId)
+    if (
+      !walletAccount ||
+      !chainAccount ||
+      !network?.network.enabled ||
+      toChainKey(network.network.chain) !== toChainKey(chainAccount.chain)
+    ) {
       await options.persistence.clearActiveContext()
       return { mode: "read-only" }
     }
-    return { chainAccount, mode: persisted.mode, wallet, walletAccount }
+    return { chainAccount, mode: persisted.mode, network: network.network, wallet, walletAccount }
   }
 
   return {
@@ -563,13 +574,12 @@ export const createWalletManager = (options: WalletManagerOptions): WalletManage
         updatedAt: timestamp,
         walletId: state.wallet.id,
       }
-      const chainAccounts: ChainAccount[] = chainIds.map((chainId) => ({
+      const chainAccounts: ChainAccount[] = chains.map((chain) => ({
         address: prepared.address,
-        chainId,
+        chain,
         createdAt: timestamp,
         derivationPath,
         id: idFactory.chainAccountId(),
-        namespace: "eip155",
         publicKey: prepared.publicKey,
         updatedAt: timestamp,
         walletAccountId,

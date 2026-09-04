@@ -80,7 +80,7 @@ Imported wallets may already control funds, so HD and private-key imports persis
 
 `@cypheria/runtime` exposes a wallet manager for generating and importing HD wallets, importing single and grouped private keys, adding single and grouped watch wallets, listing renderer-safe views, renaming, deletion, and active-context selection. Duplicate detection compares wallet and account fingerprints across persisted wallets and within a new group. Configured EVM chain IDs share the same EVM address while retaining distinct chain-account records.
 
-The active context stores one selected wallet, wallet account, chain account, and mode. Persistence verifies that all three identifiers belong to the same wallet graph. Only `ready` wallets can be selected, and watch wallets are restricted to `read-only`; deletion clears a selected context through foreign-key cascading. Mutations append redacted audit events without secret material.
+The active context stores one selected wallet, wallet account, chain account, network, and mode. Persistence verifies that the account belongs to the wallet graph and that the enabled network has exactly the same canonical `ChainIdentity` as the chain account. Only `ready` wallets can be selected, and watch wallets are restricted to `read-only`; wallet deletion clears a selected context through foreign-key cascading. Network removal clears it explicitly. Mutations append redacted audit events without secret material.
 
 Recovery reconciles lifecycle state and vault files; a missing vault marks an existing wallet as an error instead of erasing its record. Deleting a vault wallet first records `deleting`, atomically removes its vault, and only then removes public state; a vault failure leaves an `error` record for recovery.
 

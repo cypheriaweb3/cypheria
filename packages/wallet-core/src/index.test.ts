@@ -67,11 +67,10 @@ describe("wallet domain", () => {
   it("normalizes chain account addresses and validates derivation paths", () => {
     const account = chainAccountSchema.parse({
       address: "0x00000000000000000000000000000000000000aa",
-      chainId: 1,
+      chain: { namespace: "eip155", reference: "1" },
       createdAt: now,
       derivationPath: "m/44'/60'/0'/0/0",
       id: "chain_account_one",
-      namespace: "eip155",
       updatedAt: now,
       walletAccountId: "account_one",
     })
@@ -124,10 +123,9 @@ describe("wallet domain", () => {
     }
     const chainAccount = chainAccountSchema.parse({
       address,
-      chainId: 1,
+      chain: { namespace: "eip155", reference: "1" },
       createdAt: now,
       id: "chain_account_one",
-      namespace: "eip155",
       updatedAt: now,
       walletAccountId: account.id,
     })
@@ -156,7 +154,7 @@ describe("wallet domain", () => {
       account: {
         address,
         chainAccountId: "chain_account_one",
-        chainId: 1,
+        chainKey: "eip155:1",
         walletAccountId: "account_one",
         walletId: "wallet_one",
       },
@@ -178,7 +176,7 @@ describe("wallet domain", () => {
       account: {
         address,
         chainAccountId: "chain_account_one",
-        chainId: 1,
+        chainKey: "eip155:1",
         walletAccountId: "account_one",
         walletId: "wallet_one",
       },
@@ -196,6 +194,9 @@ describe("wallet domain", () => {
 
     const serialized = serializeSigningIntent(intent)
     expect(deserializeSigningIntent(serialized)).toEqual(intent)
+    expect(
+      deserializeSigningIntent(serialized.replace('["chainKey","eip155:1"]', '["chainId",1]'))
+    ).toEqual(intent)
     if (intent.kind !== "sign-transaction") throw new Error("Expected a transaction intent.")
     expect(serialized).toBe(
       serializeSigningIntent({ ...intent, transaction: { ...intent.transaction } })
@@ -218,13 +219,13 @@ describe("wallet domain", () => {
       account: {
         address: "11111111111111111111111111111111",
         chainAccountId: "chain_account_solana",
-        chainId: "solana:mainnet",
+        chainKey: "solana:mainnet",
         protocol: "solana",
         publicKey: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
         walletAccountId: "account_solana",
         walletId: "wallet_solana",
       },
-      chainId: "solana:mainnet",
+      chainKey: "solana:mainnet",
       correlationId: "request_solana",
       createdAt: now,
       id: "signing_intent_solana",
@@ -232,6 +233,6 @@ describe("wallet domain", () => {
       payload: "AQID",
     })
     expect(deserializeSigningIntent(serializeSigningIntent(intent))).toEqual(intent)
-    expect(() => parseSigningIntent({ ...intent, chainId: "solana:devnet" })).toThrow()
+    expect(() => parseSigningIntent({ ...intent, chainKey: "solana:devnet" })).toThrow()
   })
 })

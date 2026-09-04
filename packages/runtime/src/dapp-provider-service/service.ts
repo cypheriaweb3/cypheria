@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto"
 
 import type { AuditLogService, SigningIntentRecord } from "@cypheria/db"
+import { evmChainIdentityToNumber, parseChainKey } from "@cypheria/network-core"
 import type { SigningAccountRef, WalletMode } from "@cypheria/wallet-core"
 import {
   DappSessionError,
@@ -22,7 +23,7 @@ import type { SigningIntentRuntimeService } from "../signing-intent-service/inde
 
 export type EthereumPermissionGrant = {
   readonly accountAddresses: EthereumProviderPermissionRecord["accountAddresses"]
-  readonly chainId: EthereumProviderPermissionRecord["chainId"]
+  readonly chainKey: EthereumProviderPermissionRecord["chainKey"]
   readonly expiresAt?: string
   readonly methods: readonly ProviderMethod[]
   readonly walletId: EthereumProviderPermissionRecord["walletId"]
@@ -133,6 +134,12 @@ const parseNonce = (value: unknown): number | undefined => {
   return nonce
 }
 
+const evmChainNumber = (chainKey: SigningAccountRef["chainKey"]): number => {
+  const chain = parseChainKey(chainKey)
+  if (chain.namespace !== "eip155") throw denied("The active account is not an EVM account.")
+  return evmChainIdentityToNumber(chain)
+}
+
 const createSigningDraft = (request: ProviderRequest, context: ActiveDappSigningContext) => {
   const base = {
     account: context.account,
@@ -191,7 +198,7 @@ const createSigningDraft = (request: ProviderRequest, context: ActiveDappSigning
       ...base,
       kind: "send-transaction" as const,
       transaction: {
-        chainId: context.account.chainId,
+        chainId: evmChainNumber(context.account.chainKey),
         ...(transaction.data ? { data: transaction.data } : {}),
         ...(transaction.gas === undefined ? {} : { gas: parseHexQuantity(transaction.gas, "gas") }),
         ...(transaction.maxFeePerGas === undefined
@@ -302,7 +309,7 @@ export const createDappProviderRuntimeService = (
         throw denied("The permission grant exceeds the requested methods.")
       }
       if (
-        (request.chainId !== undefined && request.chainId !== grant.chainId) ||
+        (request.chainKey !== undefined && request.chainKey !== grant.chainKey) ||
         (request.method === "eth_requestAccounts" && !grant.methods.includes("eth_accounts"))
       ) {
         throw denied("The permission grant does not match the requested wallet context.")
@@ -310,7 +317,7 @@ export const createDappProviderRuntimeService = (
       const createdAt = now()
       const existing = permissions.find(
         (permission) =>
-          permission.walletId === grant.walletId && permission.chainId === grant.chainId
+          permission.walletId === grant.walletId && permission.chainKey === grant.chainKey
       )
       const permission = dappPermissionRecordSchema.parse({
         ...grant,
@@ -341,9 +348,9 @@ export const createDappProviderRuntimeService = (
         ? permissions.find(
             (candidate) =>
               candidate.methods.includes(request.method) &&
-              (request.chainId === undefined || request.chainId === candidate.chainId) &&
+              (request.chainKey === undefined || request.chainKey === candidate.chainKey) &&
               context.account.walletId === candidate.walletId &&
-              context.account.chainId === candidate.chainId &&
+              context.account.chainKey === candidate.chainKey &&
               candidate.accountAddresses.some(
                 (address) => address.toLowerCase() === context.account.address.toLowerCase()
               )
@@ -371,7 +378,7 @@ export const createDappProviderRuntimeService = (
     const permission = permissions.find(
       (candidate) =>
         candidate.methods.includes(request.method) &&
-        (request.chainId === undefined || request.chainId === candidate.chainId)
+        (request.chainKey === undefined || request.chainKey === candidate.chainKey)
     )
     if (!permission) throw denied("The dApp does not have permission for this wallet method.")
     return options.dispatch(request, permission)

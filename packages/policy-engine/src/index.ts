@@ -1,3 +1,4 @@
+import { chainKeySchema } from "@cypheria/network-core"
 import { walletIdSchema, walletModes } from "@cypheria/wallet-core"
 import { z } from "zod"
 
@@ -13,14 +14,7 @@ export const signingPolicyIdSchema = z
 
 export const SigningPolicyObjectSchema = z
   .object({
-    chainIds: z
-      .array(
-        z.union([
-          z.number().int().positive(),
-          z.string().regex(/^solana:[A-Za-z0-9][A-Za-z0-9._-]*$/u),
-        ])
-      )
-      .min(1),
+    chainKeys: z.array(chainKeySchema).min(1),
     contractAllowlist: z.array(z.string().regex(/^0x[a-fA-F0-9]{40}$/u)).optional(),
     effect: SigningPolicyEffectSchema.default("allow"),
     enabled: z.boolean(),
@@ -38,7 +32,7 @@ export const SigningPolicyObjectSchema = z
   .strict()
 
 export const SigningPolicySchema = SigningPolicyObjectSchema.superRefine((policy, context) => {
-  for (const field of ["chainIds", "methods", "origins", "contractAllowlist"] as const) {
+  for (const field of ["chainKeys", "methods", "origins", "contractAllowlist"] as const) {
     const values = policy[field]
     const normalized = values?.map((value) =>
       field === "contractAllowlist" ? String(value).toLowerCase() : String(value)
@@ -53,10 +47,7 @@ export type SigningPolicy = z.infer<typeof SigningPolicySchema>
 
 export const PolicyEvaluationInputSchema = z
   .object({
-    chainId: z.union([
-      z.number().int().positive(),
-      z.string().regex(/^solana:[A-Za-z0-9][A-Za-z0-9._-]*$/u),
-    ]),
+    chainKey: chainKeySchema,
     contractAddress: z
       .string()
       .regex(/^0x[a-fA-F0-9]{40}$/u)
@@ -110,7 +101,7 @@ const matchesPolicy = (policy: SigningPolicy, input: PolicyEvaluationInput): boo
     return false
   }
 
-  if (!policy.chainIds.includes(input.chainId)) {
+  if (!policy.chainKeys.includes(input.chainKey)) {
     return false
   }
 

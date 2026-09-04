@@ -15,7 +15,7 @@ const task = automationTaskSchema.parse({
   title: "No-op task",
   trigger: { kind: "manual", requestedBy: "user" },
   definition: { handler: "noop" },
-  walletPolicyScope: { accountIds: [], chainIds: [1], mode: "read-only" },
+  walletPolicyScope: { accountIds: [], chainKeys: ["eip155:1"], mode: "read-only" },
   status: "enabled",
   revision: 1,
   auditCorrelationId: "automation_task_test",

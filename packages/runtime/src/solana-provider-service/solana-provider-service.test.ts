@@ -28,7 +28,7 @@ const account = {
 const signingAccount = {
   address: account.address,
   chainAccountId: "chain_account_solana" as const,
-  chainId: "solana:mainnet" as const,
+  chainKey: "solana:mainnet" as const,
   protocol: "solana" as const,
   publicKey,
   walletAccountId: "account_solana" as const,
@@ -121,7 +121,7 @@ describe("Solana provider runtime service", () => {
     })
     expect(output[0]?.signature).toHaveLength(64)
     expect(created[0]?.intent).toMatchObject({
-      chainId: "solana:mainnet",
+      chainKey: "solana:mainnet",
       kind: "solana-sign-message",
       origin: session.origin,
       payload: "AQID",

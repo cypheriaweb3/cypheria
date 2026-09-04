@@ -1,3 +1,4 @@
+import { chainKeySchema, type NetworkId, networkIdSchema, toChainKey } from "@cypheria/network-core"
 import {
   type ChainAccount,
   type ChainAccountId,
@@ -18,12 +19,13 @@ import {
   walletModes,
   walletSchema,
 } from "@cypheria/wallet-core"
-import { asc, eq, inArray, max } from "drizzle-orm"
+import { and, asc, eq, inArray, max } from "drizzle-orm"
 
 import type { CypheriaDatabase } from "./client.js"
 import {
   activeWalletContext,
   chainAccounts,
+  networks,
   walletAccounts,
   walletHdSchemes,
   wallets,
@@ -44,6 +46,7 @@ export type PersistedActiveWalletContext = {
   readonly walletId: WalletId
   readonly walletAccountId: WalletAccountId
   readonly chainAccountId: ChainAccountId
+  readonly networkId: NetworkId
   readonly mode: WalletMode
   readonly updatedAt: string
 }
@@ -81,6 +84,7 @@ const parseActiveContext = (
     walletId: walletIdSchema.parse(context.walletId),
     walletAccountId: walletAccountIdSchema.parse(context.walletAccountId),
     chainAccountId: chainAccountIdSchema.parse(context.chainAccountId),
+    networkId: networkIdSchema.parse(context.networkId),
     mode: context.mode,
     updatedAt: timestampSchema.parse(context.updatedAt),
   }
@@ -122,10 +126,27 @@ const fromWalletAccountRecord = (record: WalletAccountRecord): WalletAccount =>
 
 const fromChainAccountRecord = (record: ChainAccountRecord): ChainAccount =>
   chainAccountSchema.parse({
-    ...record,
+    id: record.id,
+    walletAccountId: record.walletAccountId,
+    chain: { namespace: record.namespace, reference: record.reference },
+    address: record.address,
     derivationPath: record.derivationPath ?? undefined,
     publicKey: record.publicKey ?? undefined,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
   })
+
+const toChainAccountRecord = (account: ChainAccount): typeof chainAccounts.$inferInsert => ({
+  id: account.id,
+  walletAccountId: account.walletAccountId,
+  namespace: account.chain.namespace,
+  reference: account.chain.reference,
+  address: account.address,
+  publicKey: account.publicKey,
+  derivationPath: account.derivationPath,
+  createdAt: account.createdAt,
+  updatedAt: account.updatedAt,
+})
 
 const fromHdSchemeRecord = (record: HdDerivationSchemeRecord): HdDerivationScheme =>
   hdDerivationSchemeSchema.parse(record)
@@ -178,7 +199,7 @@ const loadPublicState = async (
           .select()
           .from(chainAccounts)
           .where(inArray(chainAccounts.walletAccountId, accountIds))
-          .orderBy(asc(chainAccounts.chainId))
+          .orderBy(asc(chainAccounts.namespace), asc(chainAccounts.reference))
   const hdSchemeRecords = await db
     .select()
     .from(walletHdSchemes)
@@ -216,7 +237,7 @@ export const createWalletPublicStatePersistenceService = (
     const queries = [
       db.insert(walletAccounts).values(account),
       ...(parsedChainAccounts.length > 0
-        ? [db.insert(chainAccounts).values(parsedChainAccounts)]
+        ? [db.insert(chainAccounts).values(parsedChainAccounts.map(toChainAccountRecord))]
         : []),
     ] as const
     await db.batch(queries)
@@ -233,7 +254,7 @@ export const createWalletPublicStatePersistenceService = (
         ? [db.insert(walletAccounts).values([...parsed.accounts])]
         : []),
       ...(parsed.chainAccounts.length > 0
-        ? [db.insert(chainAccounts).values([...parsed.chainAccounts])]
+        ? [db.insert(chainAccounts).values(parsed.chainAccounts.map(toChainAccountRecord))]
         : []),
       ...(parsed.hdSchemes.length > 0
         ? [db.insert(walletHdSchemes).values([...parsed.hdSchemes])]
@@ -259,6 +280,7 @@ export const createWalletPublicStatePersistenceService = (
       walletId: record.walletId as WalletId,
       walletAccountId: record.walletAccountId as WalletAccountId,
       chainAccountId: record.chainAccountId as ChainAccountId,
+      networkId: record.networkId as NetworkId,
       mode: record.mode as WalletMode,
       updatedAt: record.updatedAt,
     })
@@ -330,7 +352,19 @@ export const createWalletPublicStatePersistenceService = (
     const state = await loadPublicState(db, parsed.walletId)
     const account = state?.accounts.find((item) => item.id === parsed.walletAccountId)
     const chainAccount = state?.chainAccounts.find((item) => item.id === parsed.chainAccountId)
-    if (!state || !account || chainAccount?.walletAccountId !== account.id) {
+    const [network] = await db
+      .select({ namespace: networks.namespace, reference: networks.reference })
+      .from(networks)
+      .where(and(eq(networks.id, parsed.networkId), eq(networks.enabled, true)))
+      .limit(1)
+    if (
+      !state ||
+      !account ||
+      chainAccount?.walletAccountId !== account.id ||
+      !network ||
+      chainKeySchema.parse(toChainKey(chainAccount.chain)) !==
+        toChainKey({ namespace: network.namespace, reference: network.reference })
+    ) {
       throw new Error("Active wallet context must reference one persisted wallet account.")
     }
     await db

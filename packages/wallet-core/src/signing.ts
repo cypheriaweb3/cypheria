@@ -1,11 +1,10 @@
+import { type ChainKey, chainKeySchema } from "@cypheria/network-core"
 import type { Address, Hex, SignableMessage, TypedData, TypedDataDefinition } from "viem"
 import { z } from "zod"
 
 import {
   type ChainAccountId,
-  type ChainId,
   chainAccountIdSchema,
-  chainIdSchema,
   hexAddressSchema,
   hexDataSchema,
   timestampSchema,
@@ -24,7 +23,7 @@ export type SigningAccountRef = {
   readonly walletId: WalletId
   readonly walletAccountId: WalletAccountId
   readonly chainAccountId: ChainAccountId
-  readonly chainId: ChainId
+  readonly chainKey: ChainKey
   readonly address: Address
 }
 
@@ -34,7 +33,7 @@ export type SolanaSigningAccountRef = {
   readonly walletId: WalletId
   readonly walletAccountId: WalletAccountId
   readonly chainAccountId: ChainAccountId
-  readonly chainId: `solana:${string}`
+  readonly chainKey: ChainKey
   readonly address: string
   readonly publicKey: string
 }
@@ -45,7 +44,7 @@ export const signingAccountRefSchema = z
     walletId: walletIdSchema,
     walletAccountId: walletAccountIdSchema,
     chainAccountId: chainAccountIdSchema,
-    chainId: chainIdSchema,
+    chainKey: chainKeySchema,
     address: hexAddressSchema,
   })
   .strict()
@@ -57,7 +56,7 @@ export const solanaSigningAccountRefSchema = z
     walletId: walletIdSchema,
     walletAccountId: walletAccountIdSchema,
     chainAccountId: chainAccountIdSchema,
-    chainId: z.string().regex(/^solana:[A-Za-z0-9][A-Za-z0-9._-]*$/u),
+    chainKey: chainKeySchema.refine((value) => value.startsWith("solana:")),
     address: z.string().min(32).max(44),
     publicKey: z.string().regex(/^[A-Za-z0-9+/]{42}[AQgw]=$/u),
   })
@@ -68,7 +67,7 @@ export const solanaSigningAccountRefSchema = z
  * part of this type or the WalletSigner capability.
  */
 export type SignTransactionParameters = {
-  readonly chainId: ChainId
+  readonly chainId: number
   readonly to?: Address
   readonly value?: bigint
   readonly data?: Hex
@@ -81,7 +80,7 @@ export type SignTransactionParameters = {
 /** Rejects unknown or negative transaction fields before policy evaluation. */
 export const signTransactionParametersSchema = z
   .object({
-    chainId: chainIdSchema,
+    chainId: z.number().int().positive(),
     to: hexAddressSchema.optional(),
     value: z.bigint().nonnegative().optional(),
     data: hexDataSchema.optional(),
@@ -153,7 +152,7 @@ export type SolanaSigningIntent = SigningIntentBase<SolanaSigningAccountRef> & {
     | "solana-sign-and-send-transaction"
     | "solana-sign-message"
     | "solana-sign-transaction"
-  readonly chainId: `solana:${string}`
+  readonly chainKey: ChainKey
   readonly payload: string
 }
 
@@ -207,7 +206,7 @@ const solanaSigningIntentRequestShape = {
   correlationId: z.string().min(1),
   origin: z.string().min(1).optional(),
   account: solanaSigningAccountRefSchema,
-  chainId: z.string().regex(/^solana:[A-Za-z0-9][A-Za-z0-9._-]*$/u),
+  chainKey: chainKeySchema.refine((value) => value.startsWith("solana:")),
   payload: z.string().min(1).max(2_000_000),
 } as const
 
@@ -218,11 +217,11 @@ const solanaSigningIntentKindSchema = z.enum([
 ])
 
 const refineSolanaIntentChain = (
-  intent: { readonly account: { readonly chainId: string }; readonly chainId: string },
+  intent: { readonly account: { readonly chainKey: string }; readonly chainKey: string },
   context: z.RefinementCtx
 ): void => {
   // Keep the top-level routing key bound to the account authorized by policy.
-  if (intent.chainId !== intent.account.chainId) {
+  if (intent.chainKey !== intent.account.chainKey) {
     context.addIssue({ code: "custom", message: "The Solana intent chain is inconsistent." })
   }
 }
@@ -322,5 +321,31 @@ export const serializeSigningIntent = (intent: SigningIntent): string =>
   JSON.stringify(encodeIntentValue(parseSigningIntent(intent)))
 
 /** Restores and revalidates an intent instead of trusting serialized storage. */
-export const deserializeSigningIntent = (serialized: string): SigningIntent =>
-  parseSigningIntent(decodeIntentValue(JSON.parse(serialized) as EncodedIntentValue))
+export const deserializeSigningIntent = (serialized: string): SigningIntent => {
+  const decoded = decodeIntentValue(JSON.parse(serialized) as EncodedIntentValue)
+  if (!decoded || typeof decoded !== "object" || Array.isArray(decoded)) {
+    return parseSigningIntent(decoded)
+  }
+  const legacy = decoded as Record<string, unknown>
+  const accountValue = legacy.account
+  if (!accountValue || typeof accountValue !== "object" || Array.isArray(accountValue)) {
+    return parseSigningIntent(decoded)
+  }
+  const account = accountValue as Record<string, unknown>
+  const legacyChainId = account.chainId
+  const chainKey =
+    typeof legacyChainId === "number"
+      ? `eip155:${legacyChainId}`
+      : typeof legacyChainId === "string"
+        ? legacyChainId
+        : account.chainKey
+  const { chainId: _accountChainId, ...accountWithoutLegacyChainId } = account
+  const { chainId: topLevelChainId, ...intentWithoutLegacyChainId } = legacy
+  return parseSigningIntent({
+    ...intentWithoutLegacyChainId,
+    account: { ...accountWithoutLegacyChainId, chainKey },
+    ...(legacy.kind && String(legacy.kind).startsWith("solana-")
+      ? { chainKey: legacy.chainKey ?? topLevelChainId }
+      : {}),
+  })
+}

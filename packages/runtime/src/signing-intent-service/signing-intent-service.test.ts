@@ -2,11 +2,12 @@ import {
   applyDatabaseMigrations,
   createAuditLogService,
   createInMemoryDatabase,
+  createNetworkPersistenceService,
   createSigningIntentPersistenceService,
   createSigningPolicyPersistenceService,
   createWalletPublicStatePersistenceService,
 } from "@cypheria/db"
-import type { SigningAccountRef } from "@cypheria/wallet-core"
+import { hexAddressSchema, type SigningAccountRef } from "@cypheria/wallet-core"
 import { describe, expect, it } from "vitest"
 
 import { createSigningPolicyRuntimeService } from "../policy-service/index.js"
@@ -37,8 +38,11 @@ const createHarness = async () => {
   await applyDatabaseMigrations(database.client)
   const audit = createAuditLogService(database.db)
   const wallets = createWalletPublicStatePersistenceService(database.db)
+  const networks = createNetworkPersistenceService(database.db)
+  await networks.reconcileCatalog()
   const manager = createWalletManager({
     now: () => initialTime,
+    networks,
     persistence: wallets,
     vault: unusedVault,
   })
@@ -48,11 +52,13 @@ const createHarness = async () => {
   })
   const walletAccount = wallet.accounts[0]
   const chainAccount = walletAccount?.chainAccounts[0]
-  if (!walletAccount || !chainAccount) throw new Error("Expected a wallet account fixture.")
+  if (!walletAccount || !chainAccount || chainAccount.chain.namespace !== "eip155") {
+    throw new Error("Expected an EVM wallet account fixture.")
+  }
   const account: SigningAccountRef = {
-    address: chainAccount.address,
+    address: hexAddressSchema.parse(chainAccount.address),
     chainAccountId: chainAccount.id,
-    chainId: chainAccount.chainId,
+    chainKey: "eip155:1",
     walletAccountId: walletAccount.account.id,
     walletId: wallet.wallet.id,
   }
@@ -104,7 +110,7 @@ describe("signing intent runtime service", () => {
   it("evaluates and persists dApp, automation, and agent intents", async () => {
     const { account, audit, database, policies, service } = await createHarness()
     await policies.create({
-      chainIds: [1],
+      chainKeys: ["eip155:1"],
       methods: ["personal_sign"],
       origins: ["https://app.example"],
       walletId: account.walletId,

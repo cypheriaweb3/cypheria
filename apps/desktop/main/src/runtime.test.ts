@@ -1,7 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-
+import { toChainKey } from "@cypheria/network-core"
 import { createMemoryVaultMasterKeyProvider } from "@cypheria/runtime"
 import { describe, expect, it } from "vitest"
 
@@ -31,9 +31,11 @@ describe("desktop runtime bootstrap", () => {
       await expect(context.wallets.listWallets()).resolves.toEqual([wallet])
       const walletAccount = wallet.accounts[0]
       const chainAccount = walletAccount?.chainAccounts[0]
-      if (!walletAccount || !chainAccount) throw new Error("Expected a wallet account.")
+      if (!walletAccount || !chainAccount || chainAccount.chain.namespace !== "eip155") {
+        throw new Error("Expected an EVM wallet account.")
+      }
       await context.policies.create({
-        chainIds: [chainAccount.chainId],
+        chainKeys: [toChainKey(chainAccount.chain)],
         effect: "require-human-approval",
         enabled: true,
         methods: ["personal_sign"],
@@ -46,7 +48,7 @@ describe("desktop runtime bootstrap", () => {
           account: {
             address: chainAccount.address,
             chainAccountId: chainAccount.id,
-            chainId: chainAccount.chainId,
+            chainKey: toChainKey(chainAccount.chain),
             walletAccountId: walletAccount.account.id,
             walletId: wallet.wallet.id,
           },
@@ -69,7 +71,7 @@ describe("desktop runtime bootstrap", () => {
         status: "enabled",
         title: "Desktop smoke task",
         trigger: { kind: "manual", requestedBy: "user" },
-        walletPolicyScope: { accountIds: [], chainIds: [], mode: "read-only" },
+        walletPolicyScope: { accountIds: [], chainKeys: [], mode: "read-only" },
         workspace: { id: "desktop", path: homeDir },
       })
       await expect(

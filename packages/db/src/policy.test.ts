@@ -33,7 +33,7 @@ describe("signing policy persistence", () => {
     const policy = parseSigningPolicy({
       id: "policy_one",
       walletId: "wallet_policy",
-      chainIds: [1, 10],
+      chainKeys: ["eip155:1", "eip155:10"],
       methods: ["eth_sendTransaction"],
       origins: ["https://app.example"],
       contractAllowlist: ["0x0000000000000000000000000000000000000001"],

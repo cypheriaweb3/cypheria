@@ -126,7 +126,7 @@ const solanaProviderPermissionBindingSchema = z
     if (
       binding.account.address !== binding.signingAccount.address ||
       binding.account.publicKey !== binding.signingAccount.publicKey ||
-      !binding.account.chains.includes(binding.signingAccount.chainId as IdentifierString)
+      !binding.account.chains.includes(binding.signingAccount.chainKey as IdentifierString)
     ) {
       context.addIssue({
         code: "custom",
@@ -160,7 +160,7 @@ export const solanaProviderPermissionRecordSchema = z
       context.addIssue({ code: "custom", message: "The Solana permission wallet is inconsistent." })
     }
     const keys = permission.bindings.map(
-      (binding) => `${binding.account.address}:${binding.signingAccount.chainId}`
+      (binding) => `${binding.account.address}:${binding.signingAccount.chainKey}`
     )
     if (new Set(keys).size !== keys.length) {
       context.addIssue({ code: "custom", message: "Solana permission bindings must be unique." })

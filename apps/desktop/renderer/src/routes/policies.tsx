@@ -1,3 +1,4 @@
+import { type ChainKey, chainKeySchema } from "@cypheria/network-core"
 import { Badge } from "@cypheria/ui/components/badge"
 import { Button } from "@cypheria/ui/components/button"
 import {
@@ -41,10 +42,8 @@ function parseList(value: FormDataEntryValue | null): string[] {
     .filter(Boolean)
 }
 
-function parseChainIds(value: FormDataEntryValue | null): Array<number | `solana:${string}`> {
-  return parseList(value).map((item) =>
-    item.startsWith("solana:") ? (item as `solana:${string}`) : Number(item)
-  )
+function parseChainKeys(value: FormDataEntryValue | null): ChainKey[] {
+  return parseList(value).map((item) => chainKeySchema.parse(item))
 }
 
 function PoliciesRoute() {
@@ -123,7 +122,7 @@ function PoliciesRoute() {
                   {record.policy.requireHumanApproval ? (
                     <Badge variant="outline">Human approval</Badge>
                   ) : null}
-                  {record.policy.chainIds.map((chain) => (
+                  {record.policy.chainKeys.map((chain) => (
                     <Badge key={chain} variant="outline">
                       {chain}
                     </Badge>
@@ -177,7 +176,7 @@ function PolicyDialog({
     mutationFn: async (form: FormData) => {
       if (!window.cypheria) throw new Error("Policies are only available in the desktop app.")
       const values = {
-        chainIds: parseChainIds(form.get("chainIds")),
+        chainKeys: parseChainKeys(form.get("chainKeys")),
         effect: String(form.get("effect")) as "allow" | "deny" | "require-human-approval",
         enabled: true,
         maxNativeValue: String(form.get("maxNativeValue") ?? "") || undefined,
@@ -249,13 +248,15 @@ function PolicyDialog({
               </Field>
             )}
             <Field>
-              <FieldLabel>Chain IDs</FieldLabel>
+              <FieldLabel>Chain keys</FieldLabel>
               <Input
-                name="chainIds"
-                defaultValue={record?.policy.chainIds.join(", ") ?? "1"}
+                name="chainKeys"
+                defaultValue={record?.policy.chainKeys.join(", ") ?? "eip155:1"}
                 required
               />
-              <FieldDescription>Comma-separated EVM IDs or Solana identifiers.</FieldDescription>
+              <FieldDescription>
+                Comma-separated canonical keys such as eip155:1 or solana:mainnet.
+              </FieldDescription>
             </Field>
             <Field>
               <FieldLabel>Origins</FieldLabel>

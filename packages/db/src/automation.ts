@@ -69,7 +69,17 @@ const fromTaskRecord = (record: AutomationTaskRecord): AutomationTask =>
     ...(record.description ? { description: record.description } : {}),
     trigger: record.trigger,
     definition: record.definition,
-    walletPolicyScope: record.walletPolicyScope,
+    walletPolicyScope: (() => {
+      const legacy = record.walletPolicyScope as typeof record.walletPolicyScope & {
+        readonly chainIds?: readonly (number | string)[]
+      }
+      if (legacy.chainKeys) return legacy
+      const { chainIds = [], ...scope } = legacy
+      return {
+        ...scope,
+        chainKeys: chainIds.map((chain) => (typeof chain === "number" ? `eip155:${chain}` : chain)),
+      }
+    })(),
     status: record.status,
     revision: record.revision,
     auditCorrelationId: record.auditCorrelationId,

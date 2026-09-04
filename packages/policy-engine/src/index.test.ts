@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest"
 import { evaluateSigningPolicies, parseSigningPolicy } from "./index.js"
 
 const basePolicy = parseSigningPolicy({
-  chainIds: [1],
+  chainKeys: ["eip155:1"],
   enabled: true,
   id: "policy_1",
   maxNativeValue: "100",
@@ -16,7 +16,7 @@ describe("policy engine", () => {
   it("allows read-only methods and denies signing methods in read-only mode", () => {
     expect(
       evaluateSigningPolicies([], {
-        chainId: 1,
+        chainKey: "eip155:1",
         method: "eth_chainId",
         mode: "read-only",
         walletId: "wallet_1",
@@ -25,7 +25,7 @@ describe("policy engine", () => {
 
     expect(
       evaluateSigningPolicies([], {
-        chainId: 1,
+        chainKey: "eip155:1",
         method: "eth_sendTransaction",
         mode: "read-only",
         walletId: "wallet_1",
@@ -36,7 +36,7 @@ describe("policy engine", () => {
   it("requires approval in human approval mode", () => {
     expect(
       evaluateSigningPolicies([basePolicy], {
-        chainId: 1,
+        chainKey: "eip155:1",
         method: "eth_sendTransaction",
         mode: "human-approval",
         origin: "https://app.example",
@@ -48,7 +48,7 @@ describe("policy engine", () => {
   it("allows a conditional auto-signing request when a policy matches", () => {
     expect(
       evaluateSigningPolicies([basePolicy], {
-        chainId: 1,
+        chainKey: "eip155:1",
         method: "eth_sendTransaction",
         mode: "conditional-auto-signing",
         nativeValue: "50",
@@ -64,13 +64,13 @@ describe("policy engine", () => {
   it("evaluates Solana signing methods against CAIP-style chain identifiers", () => {
     const policy = parseSigningPolicy({
       ...basePolicy,
-      chainIds: ["solana:mainnet"],
+      chainKeys: ["solana:mainnet"],
       id: "policy_solana",
       methods: ["solana-sign-message"],
     })
     expect(
       evaluateSigningPolicies([policy], {
-        chainId: "solana:mainnet",
+        chainKey: "solana:mainnet",
         method: "solana-sign-message",
         mode: "conditional-auto-signing",
         origin: "https://app.example",
@@ -82,7 +82,7 @@ describe("policy engine", () => {
   it("requires approval when value exceeds the policy limit", () => {
     expect(
       evaluateSigningPolicies([basePolicy], {
-        chainId: 1,
+        chainKey: "eip155:1",
         method: "eth_sendTransaction",
         mode: "conditional-auto-signing",
         nativeValue: "101",
@@ -101,7 +101,7 @@ describe("policy engine", () => {
 
     expect(
       evaluateSigningPolicies([basePolicy, denyPolicy], {
-        chainId: 1,
+        chainKey: "eip155:1",
         method: "eth_sendTransaction",
         mode: "conditional-auto-signing",
         nativeValue: "1",
@@ -119,7 +119,7 @@ describe("policy engine", () => {
     const earlier = parseSigningPolicy({ ...basePolicy, id: "policy_a" })
     expect(
       evaluateSigningPolicies([later, earlier], {
-        chainId: 1,
+        chainKey: "eip155:1",
         method: "eth_sendTransaction",
         mode: "conditional-auto-signing",
         nativeValue: "1",
@@ -127,6 +127,8 @@ describe("policy engine", () => {
         walletId: "wallet_1",
       }).matchedPolicyId
     ).toBe("policy_a")
-    expect(() => parseSigningPolicy({ ...basePolicy, chainIds: [1, 1] })).toThrow()
+    expect(() =>
+      parseSigningPolicy({ ...basePolicy, chainKeys: ["eip155:1", "eip155:1"] })
+    ).toThrow()
   })
 })

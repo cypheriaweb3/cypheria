@@ -29,7 +29,7 @@ const view = {
       account: {
         address: "0x0000000000000000000000000000000000000001",
         chainAccountId: "chain_account_one",
-        chainId: 1,
+        chainKey: "eip155:1",
         walletAccountId: "account_one",
         walletId: "wallet_one",
       },
@@ -134,7 +134,7 @@ describe("automation IPC contracts", () => {
         definition: { handler: "noop" },
         title: "Inspect positions",
         trigger: { kind: "manual", requestedBy: "user" },
-        walletPolicyScope: { accountIds: [], chainIds: [1], mode: "read-only" },
+        walletPolicyScope: { accountIds: [], chainKeys: ["eip155:1"], mode: "read-only" },
         workspace: { id: "workspace_one", path: "/tmp/cypheria" },
       })
     ).toMatchObject({ definition: { handler: "noop" }, title: "Inspect positions" })
@@ -152,7 +152,7 @@ describe("automation IPC contracts", () => {
         definition: { handler: "noop", input: { amount: 1n, privateKey: "secret" } },
         title: "Invalid task",
         trigger: { kind: "manual", requestedBy: "user" },
-        walletPolicyScope: { accountIds: [], chainIds: [1], mode: "read-only" },
+        walletPolicyScope: { accountIds: [], chainKeys: ["eip155:1"], mode: "read-only" },
         workspace: { id: "workspace_one", path: "/tmp/cypheria" },
       })
     ).toThrow()

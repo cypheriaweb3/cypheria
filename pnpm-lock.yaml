@@ -42,6 +42,9 @@ importers:
       '@cypheria/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@cypheria/network-core':
+        specifier: workspace:*
+        version: link:../../packages/network-core
       '@cypheria/policy-engine':
         specifier: workspace:*
         version: link:../../packages/policy-engine
@@ -133,6 +136,9 @@ importers:
 
   packages/automation-core:
     dependencies:
+      '@cypheria/network-core':
+        specifier: workspace:*
+        version: link:../network-core
       '@cypheria/wallet-core':
         specifier: workspace:*
         version: link:../wallet-core
@@ -200,6 +206,9 @@ importers:
 
   packages/policy-engine:
     dependencies:
+      '@cypheria/network-core':
+        specifier: workspace:*
+        version: link:../network-core
       '@cypheria/wallet-core':
         specifier: workspace:*
         version: link:../wallet-core
@@ -392,6 +401,9 @@ importers:
 
   packages/wallet-core:
     dependencies:
+      '@cypheria/network-core':
+        specifier: workspace:*
+        version: link:../network-core
       viem:
         specifier: ^2.56.1
         version: 2.56.1(typescript@6.0.3)(zod@4.4.3)
@@ -405,6 +417,9 @@ importers:
 
   packages/wallet-provider:
     dependencies:
+      '@cypheria/network-core':
+        specifier: workspace:*
+        version: link:../network-core
       '@cypheria/wallet-core':
         specifier: workspace:*
         version: link:../wallet-core
