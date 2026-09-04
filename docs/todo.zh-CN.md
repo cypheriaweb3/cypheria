@@ -147,7 +147,7 @@
   - 验收：中英文设计文档分析 Archmage-X 先例，并定义 canonical chain identity、package boundaries、catalog reconciliation、persistence、受保护 RPC credentials、endpoint probing/routing、origin-scoped dApp selection、failure semantics 与 V1 exclusions。
   - 验证：成对文档审查、`pnpm run ci`。
 
-- [ ] 添加 `@cypheria/network-core` 与 bundled network catalog。
+- [x] 添加 `@cypheria/network-core` 与 bundled network catalog。
   - 验收：严格的 EVM/Solana chain identity、network、explorer、endpoint、public projection 与 protocol-conversion schema 取代无类型或混用的 chain identifier。
   - 包括：stable IDs、canonical chain keys、immutable identity、URL normalization、精简且经过审核的 built-ins 与 catalog fixtures。
   - 验证：network-core tests、`pnpm run ci`、`pnpm build`。

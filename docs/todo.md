@@ -147,7 +147,7 @@ Status legend:
   - Acceptance: English and Chinese design documents analyze the Archmage-X precedent and define canonical chain identity, package boundaries, catalog reconciliation, persistence, protected RPC credentials, endpoint probing/routing, origin-scoped dApp selection, failure semantics, and V1 exclusions.
   - Verification: paired-document review, `pnpm run ci`.
 
-- [ ] Add `@cypheria/network-core` and the bundled network catalog.
+- [x] Add `@cypheria/network-core` and the bundled network catalog.
   - Acceptance: strict EVM and Solana chain identity, network, explorer, endpoint, public projection, and protocol-conversion schemas replace untyped or mixed chain identifiers.
   - Include: stable IDs, canonical chain keys, immutable identity, URL normalization, minimal reviewed built-ins, and catalog fixtures.
   - Verification: network-core tests, `pnpm run ci`, `pnpm build`.
