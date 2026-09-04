@@ -1,3 +1,4 @@
+import { evmChainIdentityFromHex, evmChainIdentityToHex } from "@cypheria/network-core"
 import type {
   DappSessionManager,
   WalletProviderEvent,
@@ -146,7 +147,7 @@ export const createDappBrowserController = (
             emitProviderEvent(webContentsId, {
               ...scope,
               event: "ethereum.chainChanged",
-              payload: chainId,
+              payload: evmChainIdentityToHex(evmChainIdentityFromHex(chainId)),
             })
           }
         } else if (request.method === "standard:connect") {

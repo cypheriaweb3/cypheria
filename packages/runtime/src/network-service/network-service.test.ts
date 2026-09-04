@@ -209,6 +209,61 @@ describe("fetch RPC transport", () => {
 })
 
 describe("NetworkManager", () => {
+  it("probes a proposal before approval and leaves no credentials when rejected", async () => {
+    const database = createInMemoryDatabase()
+    await applyDatabaseMigrations(database.client)
+    const networkPersistence = createNetworkPersistenceService(database.db)
+    const credentials = createMemoryNetworkCredentialStore()
+    const router = new NetworkRpcRouter({
+      credentials,
+      persistence: networkPersistence,
+      resolveAddresses: async () => ["8.8.8.8"],
+      transport: vi.fn().mockResolvedValueOnce("0x89").mockResolvedValueOnce("0x1"),
+    })
+    const manager = createNetworkManager({
+      audit: createAuditLogService(database.db),
+      credentials,
+      idFactory: {
+        credentialRef: () => "network_credential_proposal",
+        endpointId: () => "rpc_proposal",
+        networkId: () => "network_proposal",
+      },
+      now: () => timestamp,
+      persistence: networkPersistence,
+      router,
+    })
+    const review = vi.fn(async (proposal) => {
+      expect(proposal.endpoints[0]?.health).toMatchObject({
+        observedChainKey: "eip155:137",
+        state: "healthy",
+      })
+      return false
+    })
+    await expect(
+      manager.create(
+        {
+          chain: { namespace: "eip155", reference: "137" },
+          enabled: true,
+          endpoints: [{ label: "RPC", transport: "http", url: "https://polygon.example/key" }],
+          explorers: [],
+          name: "Polygon",
+          nativeCurrency: { decimals: 18, name: "POL", symbol: "POL" },
+          testnet: false,
+          verification: { kind: "evm-chain-id" },
+        },
+        review
+      )
+    ).rejects.toMatchObject({ code: "RPC_REQUEST_FAILED" })
+    expect(review).toHaveBeenCalledOnce()
+    await expect(credentials.get("network_credential_proposal")).resolves.toBeUndefined()
+    expect(
+      (await networkPersistence.listNetworks()).some(
+        ({ network }) => network.id === "network_proposal"
+      )
+    ).toBe(false)
+    database.close()
+  })
+
   it("creates verified networks and performs explicit lifecycle cleanup on removal", async () => {
     const database = createInMemoryDatabase()
     await applyDatabaseMigrations(database.client)

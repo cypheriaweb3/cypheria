@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto"
 
 import type { AuditLogService, SigningIntentRecord } from "@cypheria/db"
+import { type NetworkDefinition, toChainKey } from "@cypheria/network-core"
 import type { WalletId } from "@cypheria/wallet-core"
 import {
   DappSessionError,
@@ -15,6 +16,7 @@ import {
 } from "@cypheria/wallet-provider"
 
 import type { RuntimeService } from "../index.js"
+import type { NetworkManager } from "../network-service/index.js"
 import type { SigningIntentRuntimeService } from "../signing-intent-service/index.js"
 
 export type SolanaPermissionGrant = {
@@ -31,6 +33,7 @@ export type SolanaProviderRuntimeServiceOptions = {
   readonly audit: Pick<AuditLogService, "append">
   readonly executeSigningIntent: (intent: SigningIntentRecord) => Promise<unknown>
   readonly idFactory?: { readonly permissionId: () => string }
+  readonly networks?: Pick<NetworkManager, "getDappContext" | "list" | "setDappContext">
   readonly now?: () => string
   readonly permissionAuthorizer: SolanaPermissionAuthorizer
   readonly persistence: Pick<
@@ -101,6 +104,39 @@ export const createSolanaProviderRuntimeService = (
     })
   }
 
+  const resolveNetwork = async (
+    request: SolanaProviderRequest,
+    preferredChainKey?: string
+  ): Promise<NetworkDefinition | undefined> => {
+    if (!options.networks) return undefined
+    const views = await options.networks.list()
+    const context = await options.networks.getDappContext(request.origin, "solana")
+    const selected = context
+      ? views.find(({ network }) => network.id === context.networkId)
+      : views.find(
+          ({ network }) =>
+            network.chain.namespace === "solana" &&
+            network.enabled &&
+            !network.deprecated &&
+            (!preferredChainKey || toChainKey(network.chain) === preferredChainKey)
+        )
+    if (!selected?.network.enabled || selected.network.deprecated) {
+      throw new SolanaProviderRuntimeError(
+        4901,
+        "No enabled Solana network is selected for this site."
+      )
+    }
+    if (!context) {
+      await options.networks.setDappContext({
+        networkId: selected.network.id,
+        origin: request.origin,
+        protocol: "solana",
+        updatedAt: now(),
+      })
+    }
+    return selected.network
+  }
+
   const process = async (request: SolanaProviderRequest): Promise<unknown> => {
     try {
       await options.sessions.validateRequest(request)
@@ -119,14 +155,36 @@ export const createSolanaProviderRuntimeService = (
 
     if (request.method === "standard:connect") {
       if (permissions.length > 0) {
+        const preferredChainKey = permissions[0]?.bindings[0]?.signingAccount.chainKey
+        const network = await resolveNetwork(request, preferredChainKey)
+        const selectedPermissions = network
+          ? permissions.map((permission) => ({
+              ...permission,
+              bindings: permission.bindings.filter(
+                ({ signingAccount }) => signingAccount.chainKey === toChainKey(network.chain)
+              ),
+            }))
+          : permissions
         connectedSessions.add(request.sessionKey)
-        return { accounts: accountsFromPermissions(permissions) }
+        return { accounts: accountsFromPermissions(selectedPermissions) }
       }
       if (request.input.silent) return { accounts: [] }
       const grant = await options.permissionAuthorizer({
         request: request as SolanaProviderRequest & { readonly method: "standard:connect" },
       })
       if (!grant) throw new SolanaProviderRuntimeError(4001, "User rejected the request.")
+      const network = await resolveNetwork(request, grant.bindings[0]?.signingAccount.chainKey)
+      if (
+        network &&
+        !grant.bindings.some(
+          ({ signingAccount }) => signingAccount.chainKey === toChainKey(network.chain)
+        )
+      ) {
+        throw new SolanaProviderRuntimeError(
+          4100,
+          "The permission grant does not include the selected Solana network."
+        )
+      }
       const timestamp = now()
       const permission = solanaProviderPermissionRecordSchema.parse({
         ...grant,
@@ -139,7 +197,18 @@ export const createSolanaProviderRuntimeService = (
       const saved = await options.persistence.saveSolanaPermission(permission)
       connectedSessions.add(request.sessionKey)
       await audit("dapp.solana.permission.granted", request, saved.id)
-      return { accounts: accountsFromPermissions([saved]) }
+      return {
+        accounts: accountsFromPermissions([
+          network
+            ? {
+                ...saved,
+                bindings: saved.bindings.filter(
+                  ({ signingAccount }) => signingAccount.chainKey === toChainKey(network.chain)
+                ),
+              }
+            : saved,
+        ]),
+      }
     }
 
     if (request.method === "standard:disconnect") {
@@ -151,6 +220,12 @@ export const createSolanaProviderRuntimeService = (
       throw new SolanaProviderRuntimeError(4100, "The Solana wallet is not connected.")
     }
 
+    const network = await resolveNetwork(
+      request,
+      permissions[0]?.bindings[0]?.signingAccount.chainKey
+    )
+    const selectedChainKey = network ? toChainKey(network.chain) : undefined
+
     const results: unknown[] = []
     for (const input of request.input) {
       const requestedChain = "chain" in input ? input.chain : undefined
@@ -161,6 +236,7 @@ export const createSolanaProviderRuntimeService = (
             candidate.account.address === input.account.address &&
             candidate.account.publicKey === input.account.publicKey &&
             candidate.account.features.includes(request.method) &&
+            (!selectedChainKey || candidate.signingAccount.chainKey === selectedChainKey) &&
             (!requestedChain || candidate.signingAccount.chainKey === requestedChain)
         )
       if (!binding) {

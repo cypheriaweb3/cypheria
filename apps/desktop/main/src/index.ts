@@ -2,12 +2,12 @@ import { existsSync } from "node:fs"
 import { mkdir } from "node:fs/promises"
 import { dirname, join, relative, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
-import { buildRuntimePaths } from "@cypheria/runtime"
+import { buildRuntimePaths, type EthereumNetworkApproval } from "@cypheria/runtime"
 import {
   type WalletProviderResponse,
   walletProviderResponseSchema,
 } from "@cypheria/wallet-provider"
-import { app, BrowserWindow, Menu, nativeTheme, net, protocol, shell } from "electron"
+import { app, BrowserWindow, dialog, Menu, nativeTheme, net, protocol, shell } from "electron"
 import {
   type AppearanceSettings,
   type AppearanceSettingsWrite,
@@ -125,6 +125,42 @@ protocol.registerSchemesAsPrivileged([
 
 const logFatalError = (error: unknown): void => {
   console.error("[cypheria:desktop] fatal error", error)
+}
+
+const authorizeEthereumNetwork = async (approval: EthereumNetworkApproval): Promise<boolean> => {
+  const current = approval.currentNetwork
+    ? `${approval.currentNetwork.name} (${approval.currentNetwork.chain.reference})`
+    : "No current network"
+  const target = approval.kind === "switch" ? approval.targetNetwork : approval.proposal.network
+  const endpointHosts =
+    approval.kind === "add"
+      ? approval.proposal.endpoints.map(({ connection }) => new URL(connection.displayUrl).host)
+      : []
+  const details = [
+    `Site: ${approval.origin}`,
+    `Current: ${current}`,
+    `Requested: ${target.name} (eip155:${target.chain.reference})`,
+    ...(approval.kind === "add"
+      ? [
+          `Changed fields: ${approval.metadataChanges.join(", ") || "none"}`,
+          `Verified RPC hosts: ${endpointHosts.join(", ") || "existing configuration"}`,
+        ]
+      : []),
+  ]
+  const result = await dialog.showMessageBox({
+    buttons: ["Reject", approval.kind === "switch" ? "Switch network" : "Add network"],
+    cancelId: 0,
+    defaultId: 0,
+    detail: details.join("\n"),
+    message:
+      approval.kind === "switch"
+        ? "A dApp wants to switch its Ethereum network"
+        : "A dApp wants to add an Ethereum network",
+    noLink: true,
+    title: "Cypheria network approval",
+    type: "question",
+  })
+  return result.response === 1
 }
 
 const escapeHtml = (value: string): string =>
@@ -569,6 +605,7 @@ const registerLifecycleHandlers = (): void => {
           codexCommand: getCodexCommand(),
           windows: () => BrowserWindow.getAllWindows(),
         },
+        ethereumProvider: { networkAuthorizer: authorizeEthereumNetwork },
       })
       mainWindow = await createMainWindow(desktopRuntimeContext)
     }
@@ -609,6 +646,7 @@ const startDesktopApp = async (): Promise<void> => {
       codexCommand: getCodexCommand(),
       windows: () => BrowserWindow.getAllWindows(),
     },
+    ethereumProvider: { networkAuthorizer: authorizeEthereumNetwork },
   })
   registerIpcHandlers(desktopRuntimeContext)
   mainWindow = await createMainWindow(desktopRuntimeContext)

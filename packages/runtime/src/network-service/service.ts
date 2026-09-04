@@ -328,7 +328,10 @@ export type NetworkManagerOptions = {
 export type NetworkManager = {
   readonly initialize: () => Promise<void>
   readonly list: () => Promise<NetworkView[]>
-  readonly create: (input: CreateNetworkInput) => Promise<NetworkView>
+  readonly create: (
+    input: CreateNetworkInput,
+    beforeCommit?: (proposal: NetworkView) => Promise<boolean> | boolean
+  ) => Promise<NetworkView>
   readonly setEnabled: (
     networkId: NetworkId,
     enabled: boolean,
@@ -338,6 +341,11 @@ export type NetworkManager = {
     networkId: NetworkId,
     input: CreateRpcEndpointInput
   ) => Promise<RpcEndpointView>
+  readonly addEndpoints: (
+    networkId: NetworkId,
+    inputs: readonly CreateRpcEndpointInput[],
+    beforeCommit?: (proposal: NetworkView) => Promise<boolean> | boolean
+  ) => Promise<readonly RpcEndpointView[]>
   readonly probeEndpoint: (endpointId: RpcEndpointId) => Promise<RpcEndpointHealth>
   readonly removeEndpoint: (endpointId: RpcEndpointId) => Promise<void>
   readonly removeCustomNetwork: (networkId: NetworkId, confirmed: boolean) => Promise<void>
@@ -407,6 +415,45 @@ export const createNetworkManager = (options: NetworkManagerOptions): NetworkMan
     })
   }
 
+  const addEndpoints = async (
+    networkIdValue: NetworkId,
+    inputs: readonly CreateRpcEndpointInput[],
+    beforeCommit?: (proposal: NetworkView) => Promise<boolean> | boolean
+  ): Promise<readonly RpcEndpointView[]> => {
+    const networkId = networkIdSchema.parse(networkIdValue)
+    const current = await options.persistence.getNetwork(networkId)
+    if (!current) throw new NetworkRuntimeError("NETWORK_NOT_FOUND", "The network was not found.")
+    const endpoints: RpcEndpoint[] = []
+    try {
+      for (const [offset, input] of inputs.entries()) {
+        const endpoint = await createEndpoint(networkId, current.endpoints.length + offset, input)
+        endpoints.push(endpoint)
+        await options.router.probe(current.network, endpoint)
+      }
+      const proposal = mapNetworkView(options.router, {
+        network: current.network,
+        endpoints: [...current.endpoints, ...endpoints],
+      })
+      if (beforeCommit && !(await beforeCommit(proposal))) {
+        throw new NetworkRuntimeError("RPC_REQUEST_FAILED", "User rejected the endpoint proposal.")
+      }
+      const saved = await options.persistence.saveEndpoints(endpoints)
+      await audit("network.endpoints-added", `Added ${saved.length} RPC endpoint(s).`, networkId)
+      return saved.map((endpoint) =>
+        projectRpcEndpoint(endpoint, options.router.getHealth(endpoint.id))
+      )
+    } catch (error) {
+      await Promise.all(
+        endpoints.map((endpoint) =>
+          endpoint.connection.kind === "protected"
+            ? options.credentials.delete(endpoint.connection.credentialRef)
+            : Promise.resolve()
+        )
+      )
+      throw error
+    }
+  }
+
   return {
     initialize: async () => {
       await options.persistence.reconcileCatalog()
@@ -425,7 +472,7 @@ export const createNetworkManager = (options: NetworkManagerOptions): NetworkMan
       (await options.persistence.listNetworks()).map((entry) =>
         mapNetworkView(options.router, entry)
       ),
-    create: async (inputValue) => {
+    create: async (inputValue, beforeCommit) => {
       const input = createNetworkInputSchema.parse(inputValue)
       const { endpoints: endpointInputs, ...networkInput } = input
       const id = ids.networkId()
@@ -447,6 +494,10 @@ export const createNetworkManager = (options: NetworkManagerOptions): NetworkMan
           const endpoint = await createEndpoint(id, endpointPosition, endpointInput)
           endpoints.push(endpoint)
           await options.router.probe(network, endpoint)
+        }
+        const proposal = mapNetworkView(options.router, { network, endpoints })
+        if (beforeCommit && !(await beforeCommit(proposal))) {
+          throw new NetworkRuntimeError("RPC_REQUEST_FAILED", "User rejected the network proposal.")
         }
         const created = await options.persistence.createNetwork(network, endpoints)
         await audit("network.created", `Created ${toChainKey(network.chain)}.`, network.id)
@@ -492,22 +543,13 @@ export const createNetworkManager = (options: NetworkManagerOptions): NetworkMan
       return updated
     },
     addEndpoint: async (networkIdValue, input) => {
-      const networkId = networkIdSchema.parse(networkIdValue)
-      const current = await options.persistence.getNetwork(networkId)
-      if (!current) throw new NetworkRuntimeError("NETWORK_NOT_FOUND", "The network was not found.")
-      const endpoint = await createEndpoint(networkId, current.endpoints.length, input)
-      try {
-        await options.router.probe(current.network, endpoint)
-        const saved = await options.persistence.saveEndpoint(endpoint)
-        await audit("network.endpoint-added", `Added RPC endpoint ${saved.id}.`, networkId)
-        return projectRpcEndpoint(saved, options.router.getHealth(saved.id))
-      } catch (error) {
-        if (endpoint.connection.kind === "protected") {
-          await options.credentials.delete(endpoint.connection.credentialRef)
-        }
-        throw error
+      const [endpoint] = await addEndpoints(networkIdValue, [input])
+      if (!endpoint) {
+        throw new NetworkRuntimeError("RPC_ENDPOINT_UNAVAILABLE", "The RPC endpoint was not added.")
       }
+      return endpoint
     },
+    addEndpoints,
     probeEndpoint: async (endpointIdValue) => {
       const endpointId = rpcEndpointIdSchema.parse(endpointIdValue)
       const entry = (await options.persistence.listNetworks()).find(({ endpoints }) =>

@@ -70,13 +70,14 @@ export type DesktopRuntimeOptions = CypheriaRuntimeOptions & {
   readonly automation?: Omit<AutomationRuntimeServiceOptions, "audit" | "persistence">
   readonly codexAppServer?: Omit<StartCodexAppServerOptions, "clientVersion" | "codexEnv" | "paths">
   readonly clientVersion?: string
-  readonly ethereumProvider?: Omit<
-    EthereumProviderRuntimeServiceOptions,
-    "audit" | "persistence" | "sessions"
+  readonly ethereumProvider?: Partial<
+    Omit<
+      EthereumProviderRuntimeServiceOptions,
+      "audit" | "networks" | "persistence" | "router" | "sessions"
+    >
   >
-  readonly solanaProvider?: Omit<
-    SolanaProviderRuntimeServiceOptions,
-    "audit" | "persistence" | "sessions"
+  readonly solanaProvider?: Partial<
+    Omit<SolanaProviderRuntimeServiceOptions, "audit" | "networks" | "persistence" | "sessions">
   >
   readonly startCodexAppServer?: boolean
   readonly vaultKeyProvider?: VaultMasterKeyProvider
@@ -148,32 +149,47 @@ export const initializeDesktopRuntime = async (
       audit,
       persistence: createAutomationPersistenceService(database.db),
     })
-    const providerServices = [
-      ...(ethereumProviderOptions
-        ? [
-            createEthereumProviderRuntimeService({
-              ...ethereumProviderOptions,
-              audit,
-              persistence: walletProviderPersistence,
-              sessions: dappSessions,
-            }),
-          ]
-        : []),
-      ...(solanaProviderOptions
-        ? [
-            createSolanaProviderRuntimeService({
-              ...solanaProviderOptions,
-              audit,
-              persistence: walletProviderPersistence,
-              sessions: dappSessions,
-            }),
-          ]
-        : []),
-    ]
+    const ethereumProvider = createEthereumProviderRuntimeService({
+      executeSigningIntent:
+        ethereumProviderOptions?.executeSigningIntent ??
+        (async () => {
+          throw new Error("Ethereum signing is not configured.")
+        }),
+      getActiveSigningContext:
+        ethereumProviderOptions?.getActiveSigningContext ?? (async () => undefined),
+      permissionAuthorizer:
+        ethereumProviderOptions?.permissionAuthorizer ?? (async () => undefined),
+      ...ethereumProviderOptions,
+      audit,
+      networks,
+      persistence: walletProviderPersistence,
+      router: networkRouter,
+      sessions: dappSessions,
+      signingIntents,
+    })
+    const solanaProvider = createSolanaProviderRuntimeService({
+      executeSigningIntent:
+        solanaProviderOptions?.executeSigningIntent ??
+        (async () => {
+          throw new Error("Solana signing is not configured.")
+        }),
+      permissionAuthorizer: solanaProviderOptions?.permissionAuthorizer ?? (() => undefined),
+      ...solanaProviderOptions,
+      audit,
+      networks,
+      persistence: walletProviderPersistence,
+      sessions: dappSessions,
+      signingIntents,
+    })
+    const providerService = {
+      handlers: [...(ethereumProvider.handlers ?? []), ...(solanaProvider.handlers ?? [])],
+      name: "wallet-provider",
+      namespace: "dapp" as const,
+    }
     runtime = new CypheriaRuntime({
       ...runtimeOptions,
       ensureDirectories: false,
-      services: [...(runtimeOptions.services ?? []), automation, ...providerServices],
+      services: [...(runtimeOptions.services ?? []), automation, providerService],
     })
     await runtime.start()
     codexAppServer = shouldStartCodexAppServer

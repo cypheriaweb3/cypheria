@@ -87,4 +87,43 @@ describe("desktop dApp browser controller", () => {
       },
     ])
   })
+
+  it("emits a canonical chainChanged event only after a successful switch", async () => {
+    const sent: unknown[] = []
+    let approved = false
+    const controller = createDappBrowserController({
+      createWebContents: async (input) => ({
+        destroy: vi.fn(),
+        getUrl: () => input.url,
+        id: 10,
+        send: (_channel, payload) => sent.push(payload),
+      }),
+      preloadPath: "/app/dapp-preload.cjs",
+      requestRuntime: async (request) =>
+        approved
+          ? { id: request.id, result: null }
+          : { error: { code: 4001, message: "Rejected" }, id: request.id },
+      sessions: { open: async (url) => createDappSession(url, "2026-09-01T08:00:00.000Z") },
+    })
+    const opened = await controller.open("https://one.example/swap")
+    const request = {
+      id: "provider_switch",
+      method: "wallet_switchEthereumChain",
+      origin: opened.session.origin,
+      params: [{ chainId: "0xAA36A7" }],
+      sessionKey: opened.session.key,
+    }
+    await controller.routeProviderRequest(opened.webContentsId, opened.session.origin, request)
+    expect(sent).toEqual([])
+    approved = true
+    await controller.routeProviderRequest(opened.webContentsId, opened.session.origin, request)
+    expect(sent).toEqual([
+      {
+        event: "ethereum.chainChanged",
+        origin: opened.session.origin,
+        payload: "0xaa36a7",
+        sessionKey: opened.session.key,
+      },
+    ])
+  })
 })

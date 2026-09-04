@@ -57,6 +57,7 @@ export type NetworkPersistenceService = {
     expectedRevision: number
   ) => Promise<NetworkDefinition>
   readonly saveEndpoint: (endpoint: RpcEndpoint, expectedRevision?: number) => Promise<RpcEndpoint>
+  readonly saveEndpoints: (endpoints: readonly RpcEndpoint[]) => Promise<readonly RpcEndpoint[]>
   readonly deleteEndpoint: (endpointId: RpcEndpointId) => Promise<NetworkCredentialRef | undefined>
   readonly removeCustomNetwork: (networkId: NetworkId) => Promise<NetworkCredentialRef[]>
   readonly getDappContext: (
@@ -439,6 +440,22 @@ export const createNetworkPersistenceService = (
       .returning()
     if (!inserted) throw new Error("Endpoint was not persisted.")
     return fromEndpointRow(inserted)
+  },
+  saveEndpoints: async (endpointValues) => {
+    const endpoints = endpointValues.map((endpoint) => rpcEndpointSchema.parse(endpoint))
+    if (
+      endpoints.some((endpoint) => endpoint.source !== "custom" || endpoint.revision !== 1) ||
+      new Set(endpoints.map(({ id }) => id)).size !== endpoints.length
+    ) {
+      throw new Error("Only new custom endpoints can be saved as a batch.")
+    }
+    if (endpoints.length === 0) return []
+    const [first, ...rest] = endpoints.map((endpoint) =>
+      db.insert(networkRpcEndpoints).values(toEndpointRow(endpoint))
+    )
+    if (!first) return []
+    await db.batch([first, ...rest])
+    return endpoints
   },
   deleteEndpoint: async (endpointIdValue) => {
     const endpointId = rpcEndpointIdSchema.parse(endpointIdValue)

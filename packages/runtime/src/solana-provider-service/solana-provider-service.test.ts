@@ -59,6 +59,7 @@ describe("Solana provider runtime service", () => {
     const session = await sessions.open("https://sol.example/swap")
     let intentNumber = 0
     const created: SigningIntentRecord[] = []
+    let selectedNetworkId: string | undefined
     const service = createSolanaProviderRuntimeService({
       audit: createAuditLogService(database.db),
       executeSigningIntent: async (record) => {
@@ -72,6 +73,37 @@ describe("Solana provider runtime service", () => {
       },
       idFactory: { permissionId: () => "solana_permission_runtime" },
       now: () => timestamp,
+      networks: {
+        getDappContext: async () => undefined,
+        list: async () => [
+          {
+            endpoints: [],
+            network: {
+              chain: { namespace: "solana", reference: "mainnet" },
+              createdAt: timestamp,
+              deprecated: false,
+              enabled: true,
+              explorers: [],
+              id: "network_solana_mainnet",
+              name: "Solana",
+              nativeCurrency: { decimals: 9, name: "Solana", symbol: "SOL" },
+              position: 0,
+              revision: 1,
+              source: "custom",
+              testnet: false,
+              updatedAt: timestamp,
+              verification: {
+                genesisHash: "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+                kind: "solana-genesis-hash",
+              },
+            },
+          },
+        ],
+        setDappContext: async (context) => {
+          selectedNetworkId = context.networkId
+          return context
+        },
+      },
       permissionAuthorizer: () => ({
         bindings: [{ account, mode: "human-approval", signingAccount }],
         walletId: signingAccount.walletId,
@@ -120,6 +152,7 @@ describe("Solana provider runtime service", () => {
       message: new Uint8Array([1, 2, 3]),
     })
     expect(output[0]?.signature).toHaveLength(64)
+    expect(selectedNetworkId).toBe("network_solana_mainnet")
     expect(created[0]?.intent).toMatchObject({
       chainKey: "solana:mainnet",
       kind: "solana-sign-message",

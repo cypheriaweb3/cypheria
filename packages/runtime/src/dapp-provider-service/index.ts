@@ -7,6 +7,8 @@ export {
   type DappPermissionGrant,
   type DappProviderRuntimeService,
   type DappProviderRuntimeServiceOptions,
+  type EthereumNetworkApproval,
+  type EthereumNetworkAuthorizer,
   type EthereumPermissionAuthorizer,
   type EthereumPermissionGrant,
   type EthereumProviderRuntimeService,
