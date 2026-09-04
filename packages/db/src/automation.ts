@@ -3,6 +3,8 @@ import {
   type AutomationTask,
   type AutomationTaskRun,
   type AutomationTaskStatus,
+  automationRunIdSchema,
+  automationTaskIdSchema,
   automationTaskRunSchema,
   automationTaskSchema,
 } from "@cypheria/automation-core"
@@ -43,66 +45,63 @@ export type AutomationPersistenceService = {
   ) => Promise<AutomationTask | undefined>
 }
 
-const stringifyJson = (value: unknown): string => JSON.stringify(value)
-const parseJson = (value: string): unknown => JSON.parse(value) as unknown
-
 const toTaskRecord = (task: AutomationTask): AutomationTaskRecord => ({
+  id: task.id,
+  workspace: task.workspace,
+  title: task.title,
+  description: task.description ?? null,
+  trigger: task.trigger,
+  definition: task.definition,
+  walletPolicyScope: task.walletPolicyScope,
+  legacyRunHistory: [],
+  status: task.status,
+  revision: task.revision,
   auditCorrelationId: task.auditCorrelationId,
   createdAt: task.createdAt,
-  definition: stringifyJson(task.definition),
-  description: task.description ?? null,
-  id: task.id,
-  legacyRunHistory: "[]",
-  revision: task.revision,
-  status: task.status,
-  title: task.title,
-  trigger: stringifyJson(task.trigger),
   updatedAt: task.updatedAt,
-  walletPolicyScope: stringifyJson(task.walletPolicyScope),
-  workspace: stringifyJson(task.workspace),
 })
 
 const fromTaskRecord = (record: AutomationTaskRecord): AutomationTask =>
   automationTaskSchema.parse({
+    id: record.id,
+    workspace: record.workspace,
+    title: record.title,
+    ...(record.description ? { description: record.description } : {}),
+    trigger: record.trigger,
+    definition: record.definition,
+    walletPolicyScope: record.walletPolicyScope,
+    status: record.status,
+    revision: record.revision,
     auditCorrelationId: record.auditCorrelationId,
     createdAt: record.createdAt,
-    definition: parseJson(record.definition),
-    ...(record.description ? { description: record.description } : {}),
-    id: record.id,
-    revision: record.revision,
-    status: record.status,
-    title: record.title,
-    trigger: parseJson(record.trigger),
     updatedAt: record.updatedAt,
-    walletPolicyScope: parseJson(record.walletPolicyScope),
-    workspace: parseJson(record.workspace),
   }) as AutomationTask
 
 const toRunRecord = (run: AutomationTaskRun): AutomationRunRecord => ({
-  auditCorrelationId: run.auditCorrelationId,
-  completedAt: run.completedAt ?? null,
-  error: run.error ? stringifyJson(run.error) : null,
   id: run.id,
-  logs: stringifyJson(run.logs),
-  queuedAt: run.queuedAt,
-  revision: run.revision,
-  startedAt: run.startedAt ?? null,
-  status: run.status,
   taskId: run.taskId,
+  logs: run.logs,
+  error: run.error ?? null,
+  status: run.status,
+  revision: run.revision,
+  auditCorrelationId: run.auditCorrelationId,
+  queuedAt: run.queuedAt,
+  startedAt: run.startedAt ?? null,
+  completedAt: run.completedAt ?? null,
 })
 
 const fromRunRecord = (record: AutomationRunRecord): AutomationTaskRun =>
   automationTaskRunSchema.parse({
-    auditCorrelationId: record.auditCorrelationId,
-    ...(record.completedAt ? { completedAt: record.completedAt } : {}),
-    ...(record.error ? { error: parseJson(record.error) } : {}),
     id: record.id,
-    logs: parseJson(record.logs),
-    queuedAt: record.queuedAt,
-    revision: record.revision,
-    ...(record.startedAt ? { startedAt: record.startedAt } : {}),
-    status: record.status,
     taskId: record.taskId,
+    logs: record.logs,
+    ...(record.error ? { error: record.error } : {}),
+    status: record.status,
+    revision: record.revision,
+    auditCorrelationId: record.auditCorrelationId,
+    queuedAt: record.queuedAt,
+    ...(record.startedAt ? { startedAt: record.startedAt } : {}),
+    ...(record.completedAt ? { completedAt: record.completedAt } : {}),
   }) as AutomationTaskRun
 
 export const createAutomationPersistenceService = (
@@ -118,7 +117,8 @@ export const createAutomationPersistenceService = (
     await db.insert(automationTasks).values(toTaskRecord(task))
     return task
   },
-  getRun: async (id) => {
+  getRun: async (idValue) => {
+    const id = automationRunIdSchema.parse(idValue)
     const [record] = await db
       .select()
       .from(automationRuns)
@@ -126,7 +126,8 @@ export const createAutomationPersistenceService = (
       .limit(1)
     return record ? fromRunRecord(record) : undefined
   },
-  getTask: async (id) => {
+  getTask: async (idValue) => {
+    const id = automationTaskIdSchema.parse(idValue)
     const [record] = await db
       .select()
       .from(automationTasks)
@@ -134,7 +135,8 @@ export const createAutomationPersistenceService = (
       .limit(1)
     return record ? fromTaskRecord(record) : undefined
   },
-  listRuns: async (taskId) => {
+  listRuns: async (taskIdValue) => {
+    const taskId = taskIdValue ? automationTaskIdSchema.parse(taskIdValue) : undefined
     const records = taskId
       ? await db
           .select()
@@ -175,12 +177,13 @@ export const createAutomationPersistenceService = (
       .returning()
     return updated ? fromRunRecord(updated) : undefined
   },
-  updateTaskStatus: async (id, input) => {
+  updateTaskStatus: async (idValue, input) => {
+    const id = automationTaskIdSchema.parse(idValue)
     const [updated] = await db
       .update(automationTasks)
       .set({
-        revision: input.expectedRevision + 1,
         status: input.status,
+        revision: input.expectedRevision + 1,
         updatedAt: input.updatedAt,
       })
       .where(

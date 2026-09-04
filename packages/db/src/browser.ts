@@ -17,41 +17,41 @@ import { dappOrigins, dappPermissions, solanaDappPermissions } from "./schema/in
 
 const fromSessionRow = (row: typeof dappOrigins.$inferSelect): DappSession =>
   dappSessionSchema.parse({
-    createdAt: row.createdAt,
-    key: row.sessionKey,
-    ...(row.lastUsedAt ? { lastUsedAt: row.lastUsedAt } : {}),
     origin: row.origin,
+    key: row.sessionKey,
     partition: row.partition,
+    createdAt: row.createdAt,
+    ...(row.lastUsedAt ? { lastUsedAt: row.lastUsedAt } : {}),
   })
 
 const fromPermissionRow = (
   row: typeof dappPermissions.$inferSelect
 ): EthereumProviderPermissionRecord =>
   dappPermissionRecordSchema.parse({
-    accountAddresses: JSON.parse(row.accountAddresses) as unknown,
-    chainId: row.chainId,
-    createdAt: row.createdAt,
-    ...(row.expiresAt ? { expiresAt: row.expiresAt } : {}),
     id: row.id,
-    methods: JSON.parse(row.methods) as unknown,
     origin: row.origin,
     sessionKey: row.sessionKey,
-    updatedAt: row.updatedAt,
     walletId: row.walletId,
+    chainId: row.chainId,
+    accountAddresses: row.accountAddresses,
+    methods: row.methods,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    ...(row.expiresAt ? { expiresAt: row.expiresAt } : {}),
   }) as EthereumProviderPermissionRecord
 
 const fromSolanaPermissionRow = (
   row: typeof solanaDappPermissions.$inferSelect
 ): SolanaProviderPermissionRecord =>
   solanaProviderPermissionRecordSchema.parse({
-    bindings: JSON.parse(row.bindings) as unknown,
-    createdAt: row.createdAt,
-    ...(row.expiresAt ? { expiresAt: row.expiresAt } : {}),
     id: row.id,
     origin: row.origin,
     sessionKey: row.sessionKey,
-    updatedAt: row.updatedAt,
     walletId: row.walletId,
+    bindings: row.bindings,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    ...(row.expiresAt ? { expiresAt: row.expiresAt } : {}),
   }) as SolanaProviderPermissionRecord
 
 export const createDappBrowserPersistenceService = (
@@ -101,24 +101,24 @@ export const createDappBrowserPersistenceService = (
     await db
       .insert(dappPermissions)
       .values({
-        accountAddresses: JSON.stringify(permission.accountAddresses),
-        chainId: permission.chainId,
-        createdAt: permission.createdAt,
-        expiresAt: permission.expiresAt ?? null,
         id: permission.id,
-        methods: JSON.stringify(permission.methods),
         origin: permission.origin,
         sessionKey: permission.sessionKey,
-        updatedAt: permission.updatedAt,
         walletId: permission.walletId,
+        chainId: permission.chainId,
+        accountAddresses: permission.accountAddresses,
+        methods: permission.methods,
+        createdAt: permission.createdAt,
+        updatedAt: permission.updatedAt,
+        expiresAt: permission.expiresAt ?? null,
       })
       .onConflictDoUpdate({
         set: {
-          accountAddresses: JSON.stringify(permission.accountAddresses),
-          expiresAt: permission.expiresAt ?? null,
-          methods: JSON.stringify(permission.methods),
           sessionKey: permission.sessionKey,
+          accountAddresses: permission.accountAddresses,
+          methods: permission.methods,
           updatedAt: permission.updatedAt,
+          expiresAt: permission.expiresAt ?? null,
         },
         target: [dappPermissions.origin, dappPermissions.walletId, dappPermissions.chainId],
       })
@@ -137,17 +137,17 @@ export const createDappBrowserPersistenceService = (
     await db
       .insert(dappOrigins)
       .values({
+        origin: session.origin,
+        sessionKey: session.key,
+        partition: session.partition,
         createdAt: session.createdAt,
         lastUsedAt: session.lastUsedAt ?? null,
-        origin: session.origin,
-        partition: session.partition,
-        sessionKey: session.key,
       })
       .onConflictDoUpdate({
         set: {
-          lastUsedAt: session.lastUsedAt ?? session.createdAt,
-          partition: session.partition,
           sessionKey: session.key,
+          partition: session.partition,
+          lastUsedAt: session.lastUsedAt ?? session.createdAt,
         },
         target: dappOrigins.origin,
       })
@@ -166,21 +166,21 @@ export const createDappBrowserPersistenceService = (
     await db
       .insert(solanaDappPermissions)
       .values({
-        bindings: JSON.stringify(permission.bindings),
-        createdAt: permission.createdAt,
-        expiresAt: permission.expiresAt ?? null,
         id: permission.id,
         origin: permission.origin,
         sessionKey: permission.sessionKey,
-        updatedAt: permission.updatedAt,
         walletId: permission.walletId,
+        bindings: permission.bindings,
+        createdAt: permission.createdAt,
+        updatedAt: permission.updatedAt,
+        expiresAt: permission.expiresAt ?? null,
       })
       .onConflictDoUpdate({
         set: {
-          bindings: JSON.stringify(permission.bindings),
-          expiresAt: permission.expiresAt ?? null,
           sessionKey: permission.sessionKey,
+          bindings: permission.bindings,
           updatedAt: permission.updatedAt,
+          expiresAt: permission.expiresAt ?? null,
         },
         target: [solanaDappPermissions.origin, solanaDappPermissions.walletId],
       })

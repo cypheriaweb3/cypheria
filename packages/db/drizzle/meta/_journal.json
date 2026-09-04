@@ -22,6 +22,13 @@
       "when": 1788504061571,
       "tag": "0002_pale_lord_tyger",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1788512182307,
+      "tag": "0003_typed_columns",
+      "breakpoints": true
     }
   ]
 }

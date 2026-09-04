@@ -9,30 +9,30 @@ const timestamp = "2026-09-01T05:00:00.000Z"
 const resolvedAt = "2026-09-01T05:01:00.000Z"
 
 const intent: SigningIntentRecord = {
-  approvalId: "approval_one",
-  decision: "require-human-approval",
-  decisionId: "policy_decision_one",
-  expiresAt: "2026-09-01T05:05:00.000Z",
   intent: {
+    id: "signing_intent_one",
     account: {
-      address: "0x0000000000000000000000000000000000000001",
+      walletId: "wallet_one",
+      walletAccountId: "account_one",
       chainAccountId: "chain_account_one",
       chainId: 1,
-      walletAccountId: "account_one",
-      walletId: "wallet_one",
+      address: "0x0000000000000000000000000000000000000001",
     },
-    correlationId: "request_one",
-    createdAt: timestamp,
-    id: "signing_intent_one",
     kind: "sign-transaction",
     transaction: { chainId: 1, gas: 21_000n, value: 42n },
+    correlationId: "request_one",
+    createdAt: timestamp,
   },
-  mode: "human-approval",
+  approvalId: "approval_one",
   payloadHash: `sha256:${"1".repeat(64)}`,
-  revision: 1,
   source: "agent",
+  mode: "human-approval",
+  decision: "require-human-approval",
+  decisionId: "policy_decision_one",
   status: "pending-approval",
+  revision: 1,
   updatedAt: timestamp,
+  expiresAt: "2026-09-01T05:05:00.000Z",
 }
 
 describe("signing intent persistence", () => {
@@ -41,12 +41,12 @@ describe("signing intent persistence", () => {
     await applyDatabaseMigrations(database.client)
     const service = createSigningIntentPersistenceService(database.db)
     const approval = {
-      expiresAt: intent.expiresAt,
       id: "approval_one",
       intentId: intent.intent.id,
-      requestedAt: timestamp,
-      revision: 1,
       status: "pending" as const,
+      revision: 1,
+      requestedAt: timestamp,
+      expiresAt: intent.expiresAt,
     }
 
     await expect(service.create(intent, approval)).resolves.toEqual(intent)

@@ -11,9 +11,9 @@ import type { CypheriaDatabase } from "./client.js"
 import { signingPolicies } from "./schema/index.js"
 
 export type SigningPolicyRecord = {
-  readonly createdAt: string
   readonly policy: SigningPolicy
   readonly revision: number
+  readonly createdAt: string
   readonly updatedAt: string
 }
 
@@ -35,24 +35,22 @@ export type SigningPolicyPersistenceService = {
 
 type SigningPolicyRow = typeof signingPolicies.$inferSelect
 
-const parseJson = (value: string): unknown => JSON.parse(value) as unknown
-
 const fromRow = (row: SigningPolicyRow): SigningPolicyRecord => ({
-  createdAt: z.iso.datetime().parse(row.createdAt),
   policy: SigningPolicySchema.parse({
-    chainIds: parseJson(row.chainIds),
-    ...(row.contractAllowlist ? { contractAllowlist: parseJson(row.contractAllowlist) } : {}),
+    id: row.id,
+    walletId: row.walletId,
+    chainIds: row.chainIds,
+    methods: row.methods,
+    origins: row.origins,
+    ...(row.contractAllowlist ? { contractAllowlist: row.contractAllowlist } : {}),
+    ...(row.maxNativeValue ? { maxNativeValue: row.maxNativeValue } : {}),
     effect: row.effect,
+    requireHumanApproval: row.requireHumanApproval,
     enabled: row.enabled,
     ...(row.expiresAt ? { expiresAt: row.expiresAt } : {}),
-    id: row.id,
-    ...(row.maxNativeValue ? { maxNativeValue: row.maxNativeValue } : {}),
-    methods: parseJson(row.methods),
-    origins: parseJson(row.origins),
-    requireHumanApproval: row.requireHumanApproval,
-    walletId: row.walletId,
   }),
   revision: z.number().int().positive().parse(row.revision),
+  createdAt: z.iso.datetime().parse(row.createdAt),
   updatedAt: z.iso.datetime().parse(row.updatedAt),
 })
 
@@ -60,18 +58,18 @@ const toValues = (policyValue: SigningPolicy, timestampValue: string) => {
   const policy = SigningPolicySchema.parse(policyValue)
   const timestamp = z.iso.datetime().parse(timestampValue)
   return {
-    chainIds: JSON.stringify(policy.chainIds),
-    contractAllowlist: policy.contractAllowlist ? JSON.stringify(policy.contractAllowlist) : null,
+    id: policy.id,
+    walletId: policy.walletId,
+    chainIds: policy.chainIds,
+    methods: policy.methods,
+    origins: policy.origins,
+    contractAllowlist: policy.contractAllowlist ?? null,
+    maxNativeValue: policy.maxNativeValue ?? null,
     effect: policy.effect,
+    requireHumanApproval: policy.requireHumanApproval,
     enabled: policy.enabled,
     expiresAt: policy.expiresAt ?? null,
-    id: policy.id,
-    maxNativeValue: policy.maxNativeValue ?? null,
-    methods: JSON.stringify(policy.methods),
-    origins: JSON.stringify(policy.origins),
-    requireHumanApproval: policy.requireHumanApproval,
     timestamp,
-    walletId: policy.walletId,
   }
 }
 
@@ -84,10 +82,20 @@ export const createSigningPolicyPersistenceService = (
     const [created] = await db
       .insert(signingPolicies)
       .values({
-        ...columns,
-        createdAt: timestamp,
+        id: columns.id,
+        walletId: columns.walletId,
+        chainIds: columns.chainIds,
+        methods: columns.methods,
+        origins: columns.origins,
+        contractAllowlist: columns.contractAllowlist,
+        maxNativeValue: columns.maxNativeValue,
+        effect: columns.effect,
+        requireHumanApproval: columns.requireHumanApproval,
+        enabled: columns.enabled,
         revision: 1,
+        createdAt: timestamp,
         updatedAt: timestamp,
+        expiresAt: columns.expiresAt,
       })
       .returning()
     if (!created) {
@@ -122,16 +130,16 @@ export const createSigningPolicyPersistenceService = (
       .update(signingPolicies)
       .set({
         chainIds: values.chainIds,
-        contractAllowlist: values.contractAllowlist,
-        effect: values.effect,
-        enabled: values.enabled,
-        expiresAt: values.expiresAt,
-        maxNativeValue: values.maxNativeValue,
         methods: values.methods,
         origins: values.origins,
+        contractAllowlist: values.contractAllowlist,
+        maxNativeValue: values.maxNativeValue,
+        effect: values.effect,
         requireHumanApproval: values.requireHumanApproval,
+        enabled: values.enabled,
         revision: expectedRevision + 1,
         updatedAt: values.timestamp,
+        expiresAt: values.expiresAt,
       })
       .where(and(eq(signingPolicies.id, values.id), eq(signingPolicies.revision, expectedRevision)))
       .returning()

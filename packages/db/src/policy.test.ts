@@ -15,33 +15,33 @@ describe("signing policy persistence", () => {
     await applyDatabaseMigrations(database.client)
     const wallets = createWalletPublicStatePersistenceService(database.db)
     await wallets.create({
+      wallet: {
+        id: "wallet_policy",
+        name: "Policy wallet",
+        kind: "watch",
+        provider: "read-only",
+        fingerprint,
+        metadata: {},
+        status: "ready",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
       accounts: [],
       chainAccounts: [],
       hdSchemes: [],
-      wallet: {
-        createdAt: timestamp,
-        fingerprint,
-        id: "wallet_policy",
-        kind: "watch",
-        metadata: {},
-        name: "Policy wallet",
-        provider: "read-only",
-        status: "ready",
-        updatedAt: timestamp,
-      },
     })
     const service = createSigningPolicyPersistenceService(database.db)
     const policy = parseSigningPolicy({
-      chainIds: [1, 10],
-      contractAllowlist: ["0x0000000000000000000000000000000000000001"],
-      effect: "allow",
-      enabled: true,
       id: "policy_one",
-      maxNativeValue: "100",
+      walletId: "wallet_policy",
+      chainIds: [1, 10],
       methods: ["eth_sendTransaction"],
       origins: ["https://app.example"],
+      contractAllowlist: ["0x0000000000000000000000000000000000000001"],
+      maxNativeValue: "100",
+      effect: "allow",
       requireHumanApproval: false,
-      walletId: "wallet_policy",
+      enabled: true,
     })
 
     const created = await service.create(policy, timestamp)

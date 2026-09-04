@@ -10,17 +10,17 @@ import { createInMemoryDatabase } from "./client.js"
 import { applyDatabaseMigrations } from "./migrations.js"
 
 const task = automationTaskSchema.parse({
-  auditCorrelationId: "automation_task_test",
-  createdAt: "2026-05-29T00:00:00.000Z",
-  definition: { handler: "noop" },
   id: "task_test",
-  revision: 1,
-  status: "enabled",
+  workspace: { id: "workspace_test", path: "/tmp/cypheria" },
   title: "No-op task",
   trigger: { kind: "manual", requestedBy: "user" },
-  updatedAt: "2026-05-29T00:00:00.000Z",
+  definition: { handler: "noop" },
   walletPolicyScope: { accountIds: [], chainIds: [1], mode: "read-only" },
-  workspace: { id: "workspace_test", path: "/tmp/cypheria" },
+  status: "enabled",
+  revision: 1,
+  auditCorrelationId: "automation_task_test",
+  createdAt: "2026-05-29T00:00:00.000Z",
+  updatedAt: "2026-05-29T00:00:00.000Z",
 }) as AutomationTask
 
 describe("automation persistence service", () => {
@@ -51,9 +51,9 @@ describe("automation persistence service", () => {
     await service.createRun(queued)
     const running = {
       ...queued,
+      status: "running" as const,
       revision: 2,
       startedAt: "2026-05-29T00:04:00.000Z",
-      status: "running" as const,
     }
     await expect(service.updateRun(running, "queued", 1)).resolves.toEqual(running)
     await expect(service.listRuns(task.id)).resolves.toEqual([running])

@@ -15,43 +15,43 @@ const timestamp = "2026-09-01T00:00:00.000Z"
 const fingerprint = `sha256:${"1".repeat(64)}` as const
 
 const hdState = {
+  wallet: {
+    id: "wallet_hd",
+    name: "Primary",
+    kind: "hd",
+    provider: "local-vault",
+    fingerprint,
+    vaultId: "vault_hd",
+    metadata: { notBackedUp: true },
+    status: "initializing",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  },
   accounts: [
     {
-      createdAt: timestamp,
-      fingerprint,
       id: "account_primary",
+      walletId: "wallet_hd",
       index: 0,
       name: "Account 1",
+      fingerprint,
+      createdAt: timestamp,
       updatedAt: timestamp,
-      walletId: "wallet_hd",
     },
   ],
   chainAccounts: [
     {
-      address: "0x0000000000000000000000000000000000000001",
-      chainId: 1,
-      createdAt: timestamp,
-      derivationPath: "m/44'/60'/0'/0/0",
       id: "chain_account_mainnet",
-      namespace: "eip155",
-      publicKey: "0x02",
-      updatedAt: timestamp,
       walletAccountId: "account_primary",
+      namespace: "eip155",
+      chainId: 1,
+      address: "0x0000000000000000000000000000000000000001",
+      publicKey: "0x02",
+      derivationPath: "m/44'/60'/0'/0/0",
+      createdAt: timestamp,
+      updatedAt: timestamp,
     },
   ],
   hdSchemes: [defaultEvmHdDerivationScheme("wallet_hd")],
-  wallet: {
-    createdAt: timestamp,
-    fingerprint,
-    id: "wallet_hd",
-    kind: "hd",
-    metadata: { notBackedUp: true },
-    name: "Primary",
-    provider: "local-vault",
-    status: "initializing",
-    updatedAt: timestamp,
-    vaultId: "vault_hd",
-  },
 } satisfies WalletPublicState
 
 describe("wallet public-state persistence", () => {
@@ -109,11 +109,11 @@ describe("wallet public-state persistence", () => {
     const service = createWalletPublicStatePersistenceService(database.db)
     await service.create(hdState)
     const context = {
+      walletId: "wallet_hd",
+      walletAccountId: "account_primary",
       chainAccountId: "chain_account_mainnet",
       mode: "human-approval",
       updatedAt: timestamp,
-      walletAccountId: "account_primary",
-      walletId: "wallet_hd",
     } as const
 
     await expect(service.setActiveContext(context)).resolves.toEqual(context)
@@ -173,20 +173,20 @@ describe("wallet public-state persistence", () => {
     await applyDatabaseMigrations(database.client)
     const service = createWalletPublicStatePersistenceService(database.db)
     const watchState = (suffix: string, fingerprintCharacter: string): WalletPublicState => ({
+      wallet: {
+        id: `wallet_${suffix}`,
+        name: `Watch ${suffix}`,
+        kind: "watch",
+        provider: "read-only",
+        fingerprint: `sha256:${fingerprintCharacter.repeat(64)}`,
+        metadata: {},
+        status: "ready",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
       accounts: [],
       chainAccounts: [],
       hdSchemes: [],
-      wallet: {
-        createdAt: timestamp,
-        fingerprint: `sha256:${fingerprintCharacter.repeat(64)}`,
-        id: `wallet_${suffix}`,
-        kind: "watch",
-        metadata: {},
-        name: `Watch ${suffix}`,
-        provider: "read-only",
-        status: "ready",
-        updatedAt: timestamp,
-      },
     })
     const first = watchState("first", "2")
     const second = watchState("second", "3")
@@ -220,46 +220,24 @@ describe("wallet public-state persistence", () => {
     await service.create(hdState)
     await expect(
       service.create({
+        wallet: {
+          id: "wallet_watch",
+          name: "Watch",
+          kind: "watch",
+          provider: "read-only",
+          fingerprint,
+          metadata: {},
+          status: "ready",
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
         accounts: [],
         chainAccounts: [],
         hdSchemes: [],
-        wallet: {
-          createdAt: timestamp,
-          fingerprint,
-          id: "wallet_watch",
-          kind: "watch",
-          metadata: {},
-          name: "Watch",
-          provider: "read-only",
-          status: "ready",
-          updatedAt: timestamp,
-        },
       })
     ).rejects.toThrow()
 
     const duplicateAccountState = {
-      accounts: [
-        {
-          createdAt: timestamp,
-          fingerprint: `sha256:${"3".repeat(64)}` as const,
-          id: "account_duplicate_1" as const,
-          index: 0,
-          name: "Duplicate",
-          updatedAt: timestamp,
-          walletId: "wallet_duplicate" as const,
-        },
-        {
-          createdAt: timestamp,
-          fingerprint: `sha256:${"4".repeat(64)}` as const,
-          id: "account_duplicate_2" as const,
-          index: 1,
-          name: "Duplicate",
-          updatedAt: timestamp,
-          walletId: "wallet_duplicate" as const,
-        },
-      ],
-      chainAccounts: [],
-      hdSchemes: [defaultEvmHdDerivationScheme("wallet_duplicate")],
       wallet: {
         ...hdState.wallet,
         fingerprint: `sha256:${"2".repeat(64)}` as const,
@@ -267,6 +245,28 @@ describe("wallet public-state persistence", () => {
         name: "Duplicate account names",
         vaultId: "vault_duplicate" as const,
       },
+      accounts: [
+        {
+          id: "account_duplicate_1" as const,
+          walletId: "wallet_duplicate" as const,
+          index: 0,
+          name: "Duplicate",
+          fingerprint: `sha256:${"3".repeat(64)}` as const,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+        {
+          id: "account_duplicate_2" as const,
+          walletId: "wallet_duplicate" as const,
+          index: 1,
+          name: "Duplicate",
+          fingerprint: `sha256:${"4".repeat(64)}` as const,
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        },
+      ],
+      chainAccounts: [],
+      hdSchemes: [defaultEvmHdDerivationScheme("wallet_duplicate")],
     } satisfies WalletPublicState
     await expect(service.create(duplicateAccountState)).rejects.toThrow()
     await expect(service.get(duplicateAccountState.wallet.id)).resolves.toBeUndefined()

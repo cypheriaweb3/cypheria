@@ -19,7 +19,7 @@ export const createSigningIntentReplayStore = (
     const payloadHash = payloadHashSchema.parse(payloadHashValue)
     const inserted = await db
       .insert(signingIntentClaims)
-      .values({ claimedAt: z.iso.datetime().parse(now()), intentId, payloadHash })
+      .values({ intentId, payloadHash, claimedAt: z.iso.datetime().parse(now()) })
       .onConflictDoNothing({ target: signingIntentClaims.intentId })
       .returning({ intentId: signingIntentClaims.intentId })
     return inserted.length === 1

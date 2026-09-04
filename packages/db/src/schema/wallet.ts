@@ -1,3 +1,19 @@
+import {
+  type ChainAccountId,
+  chainNamespaces,
+  curves,
+  type HexAddress,
+  type HexData,
+  type VaultId,
+  type Wallet,
+  type WalletAccountId,
+  type WalletFingerprint,
+  type WalletId,
+  walletKinds,
+  walletModes,
+  walletProviders,
+  walletStatuses,
+} from "@cypheria/wallet-core"
 import { sql } from "drizzle-orm"
 import {
   check,
@@ -12,17 +28,17 @@ import {
 export const wallets = sqliteTable(
   "wallets",
   {
-    createdAt: text("created_at").notNull(),
-    fingerprint: text("fingerprint").notNull(),
-    id: text("id").primaryKey(),
-    kind: text("kind").notNull(),
-    metadata: text("metadata").notNull(),
+    id: text("id").$type<WalletId>().primaryKey(),
     name: text("name").notNull(),
+    kind: text("kind", { enum: walletKinds }).notNull(),
+    provider: text("provider", { enum: walletProviders }).notNull(),
+    fingerprint: text("fingerprint").$type<WalletFingerprint>().notNull(),
+    vaultId: text("vault_id").$type<VaultId>(),
+    metadata: text("metadata", { mode: "json" }).$type<Wallet["metadata"]>().notNull(),
     position: integer("position").notNull().default(0),
-    provider: text("provider").notNull(),
-    status: text("status").notNull(),
+    status: text("status", { enum: walletStatuses }).notNull(),
+    createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
-    vaultId: text("vault_id"),
   },
   (table) => [
     uniqueIndex("wallets_fingerprint_unique").on(table.fingerprint),
@@ -48,15 +64,16 @@ export const wallets = sqliteTable(
 export const walletAccounts = sqliteTable(
   "wallet_accounts",
   {
-    createdAt: text("created_at").notNull(),
-    fingerprint: text("fingerprint").notNull(),
-    id: text("id").primaryKey(),
-    index: integer("account_index").notNull(),
-    name: text("name").notNull(),
-    updatedAt: text("updated_at").notNull(),
+    id: text("id").$type<WalletAccountId>().primaryKey(),
     walletId: text("wallet_id")
+      .$type<WalletId>()
       .notNull()
       .references(() => wallets.id, { onDelete: "cascade" }),
+    index: integer("account_index").notNull(),
+    name: text("name").notNull(),
+    fingerprint: text("fingerprint").$type<WalletFingerprint>().notNull(),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
   },
   (table) => [
     uniqueIndex("wallet_accounts_wallet_index_unique").on(table.walletId, table.index),
@@ -70,17 +87,18 @@ export const walletAccounts = sqliteTable(
 export const chainAccounts = sqliteTable(
   "chain_accounts",
   {
-    address: text("address").notNull(),
-    chainId: integer("chain_id").notNull(),
-    createdAt: text("created_at").notNull(),
-    derivationPath: text("derivation_path"),
-    id: text("id").primaryKey(),
-    namespace: text("namespace").notNull(),
-    publicKey: text("public_key"),
-    updatedAt: text("updated_at").notNull(),
+    id: text("id").$type<ChainAccountId>().primaryKey(),
     walletAccountId: text("wallet_account_id")
+      .$type<WalletAccountId>()
       .notNull()
       .references(() => walletAccounts.id, { onDelete: "cascade" }),
+    namespace: text("namespace", { enum: chainNamespaces }).notNull(),
+    chainId: integer("chain_id").notNull(),
+    address: text("address").$type<HexAddress>().notNull(),
+    publicKey: text("public_key").$type<HexData>(),
+    derivationPath: text("derivation_path"),
+    createdAt: text("created_at").notNull(),
+    updatedAt: text("updated_at").notNull(),
   },
   (table) => [
     uniqueIndex("chain_accounts_account_namespace_chain_unique").on(
@@ -98,14 +116,15 @@ export const chainAccounts = sqliteTable(
 export const walletHdSchemes = sqliteTable(
   "wallet_hd_schemes",
   {
-    curve: text("curve").notNull(),
-    derivePosition: integer("derive_position").notNull(),
-    namespace: text("namespace").notNull(),
-    pathTemplate: text("path_template").notNull(),
-    probePath: text("probe_path").notNull(),
     walletId: text("wallet_id")
+      .$type<WalletId>()
       .notNull()
       .references(() => wallets.id, { onDelete: "cascade" }),
+    namespace: text("namespace", { enum: chainNamespaces }).notNull(),
+    curve: text("curve", { enum: curves }).notNull(),
+    pathTemplate: text("path_template").notNull(),
+    probePath: text("probe_path").notNull(),
+    derivePosition: integer("derive_position").notNull(),
   },
   (table) => [
     primaryKey({ columns: [table.walletId, table.namespace] }),
@@ -118,18 +137,21 @@ export const walletHdSchemes = sqliteTable(
 export const activeWalletContext = sqliteTable(
   "active_wallet_context",
   {
-    chainAccountId: text("chain_account_id")
-      .notNull()
-      .references(() => chainAccounts.id, { onDelete: "cascade" }),
-    id: text("id").primaryKey(),
-    mode: text("mode").notNull(),
-    updatedAt: text("updated_at").notNull(),
-    walletAccountId: text("wallet_account_id")
-      .notNull()
-      .references(() => walletAccounts.id, { onDelete: "cascade" }),
+    id: text("id").$type<"default">().primaryKey(),
     walletId: text("wallet_id")
+      .$type<WalletId>()
       .notNull()
       .references(() => wallets.id, { onDelete: "cascade" }),
+    walletAccountId: text("wallet_account_id")
+      .$type<WalletAccountId>()
+      .notNull()
+      .references(() => walletAccounts.id, { onDelete: "cascade" }),
+    chainAccountId: text("chain_account_id")
+      .$type<ChainAccountId>()
+      .notNull()
+      .references(() => chainAccounts.id, { onDelete: "cascade" }),
+    mode: text("mode", { enum: walletModes }).notNull(),
+    updatedAt: text("updated_at").notNull(),
   },
   (table) => [
     check(

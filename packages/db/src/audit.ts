@@ -8,14 +8,14 @@ import { auditLogs } from "./schema/index.js"
 export type AuditLogRecord = typeof auditLogs.$inferSelect
 
 export type AppendAuditLogInput = {
-  readonly actor: string
-  readonly correlationId?: string | null
-  readonly createdAt?: Date | string
-  readonly eventType: string
   readonly id?: string
+  readonly correlationId?: string | null
+  readonly actor: string
+  readonly eventType: string
+  readonly source: string
   readonly payloadHash?: string | null
   readonly payloadSummary?: string | null
-  readonly source: string
+  readonly createdAt?: Date | string
 }
 
 export type ListAuditLogsOptions = {
@@ -39,14 +39,14 @@ const toIsoString = (value: Date | string | undefined): string => {
 export const createAuditLogService = (db: CypheriaDatabase): AuditLogService => ({
   append: async (input) => {
     const record: AuditLogRecord = {
-      actor: input.actor,
-      correlationId: input.correlationId ?? null,
-      createdAt: toIsoString(input.createdAt),
-      eventType: input.eventType,
       id: input.id ?? randomUUID(),
+      correlationId: input.correlationId ?? null,
+      actor: input.actor,
+      eventType: input.eventType,
+      source: input.source,
       payloadHash: input.payloadHash ?? null,
       payloadSummary: input.payloadSummary ?? null,
-      source: input.source,
+      createdAt: toIsoString(input.createdAt),
     }
 
     await db.insert(auditLogs).values(record)

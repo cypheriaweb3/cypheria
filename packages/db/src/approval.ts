@@ -9,44 +9,43 @@ import { and, asc, eq, exists, sql } from "drizzle-orm"
 import { z } from "zod"
 
 import type { CypheriaDatabase } from "./client.js"
-import { approvalRequests, signingIntents } from "./schema/index.js"
+import {
+  approvalRequestStatuses,
+  approvalRequests,
+  signingIntentSources,
+  signingIntentStatuses,
+  signingIntents,
+} from "./schema/index.js"
 
-export const signingIntentSources = ["agent", "automation", "dapp"] as const
+export { approvalRequestStatuses, signingIntentSources, signingIntentStatuses }
 export type SigningIntentSource = (typeof signingIntentSources)[number]
-export const signingIntentStatuses = [
-  "approved",
-  "expired",
-  "pending-approval",
-  "rejected",
-] as const
 export type SigningIntentStatus = (typeof signingIntentStatuses)[number]
-export const approvalRequestStatuses = ["approved", "expired", "pending", "rejected"] as const
 export type ApprovalRequestStatus = (typeof approvalRequestStatuses)[number]
 
 export type SigningIntentRecord = {
+  readonly intent: SigningIntent
   readonly approvalId?: string
+  readonly matchedPolicyId?: string
+  readonly payloadHash: string
+  readonly source: SigningIntentSource
+  readonly mode: WalletMode
   readonly decision: PolicyDecision
   readonly decisionId: string
-  readonly expiresAt: string
-  readonly intent: SigningIntent
-  readonly matchedPolicyId?: string
-  readonly mode: WalletMode
-  readonly payloadHash: string
-  readonly revision: number
-  readonly source: SigningIntentSource
   readonly status: SigningIntentStatus
+  readonly revision: number
   readonly updatedAt: string
+  readonly expiresAt: string
 }
 
 export type ApprovalRequestRecord = {
-  readonly expiresAt: string
   readonly id: string
   readonly intentId: string
-  readonly requestedAt: string
-  readonly resolvedAt?: string
+  readonly status: ApprovalRequestStatus
   readonly reviewer?: string
   readonly revision: number
-  readonly status: ApprovalRequestStatus
+  readonly requestedAt: string
+  readonly expiresAt: string
+  readonly resolvedAt?: string
 }
 
 export type ApprovalResolution = "approved" | "expired" | "rejected"
@@ -82,32 +81,32 @@ const intentId = (value: string): string =>
     .parse(value)
 
 const fromIntentRow = (row: typeof signingIntents.$inferSelect): SigningIntentRecord => ({
-  ...(row.approvalId ? { approvalId: row.approvalId } : {}),
-  decision: z.enum(["allow", "deny", "require-human-approval"]).parse(row.decision),
-  decisionId: row.decisionId,
-  expiresAt: timestamp(row.expiresAt),
   intent: deserializeSigningIntent(row.payload),
+  ...(row.approvalId ? { approvalId: row.approvalId } : {}),
   ...(row.matchedPolicyId ? { matchedPolicyId: row.matchedPolicyId } : {}),
-  mode: z.enum(["conditional-auto-signing", "human-approval", "read-only"]).parse(row.mode),
   payloadHash: z
     .string()
     .regex(/^sha256:[a-f0-9]{64}$/u)
     .parse(row.payloadHash),
-  revision: positive(row.revision),
   source: z.enum(signingIntentSources).parse(row.source),
+  mode: z.enum(["conditional-auto-signing", "human-approval", "read-only"]).parse(row.mode),
+  decision: z.enum(["allow", "deny", "require-human-approval"]).parse(row.decision),
+  decisionId: row.decisionId,
   status: z.enum(signingIntentStatuses).parse(row.status),
+  revision: positive(row.revision),
   updatedAt: timestamp(row.updatedAt),
+  expiresAt: timestamp(row.expiresAt),
 })
 
 const fromApprovalRow = (row: typeof approvalRequests.$inferSelect): ApprovalRequestRecord => ({
-  expiresAt: timestamp(row.expiresAt),
   id: row.id,
   intentId: row.intentId,
-  requestedAt: timestamp(row.requestedAt),
-  ...(row.resolvedAt ? { resolvedAt: timestamp(row.resolvedAt) } : {}),
+  status: z.enum(approvalRequestStatuses).parse(row.status),
   ...(row.reviewer ? { reviewer: row.reviewer } : {}),
   revision: positive(row.revision),
-  status: z.enum(approvalRequestStatuses).parse(row.status),
+  requestedAt: timestamp(row.requestedAt),
+  expiresAt: timestamp(row.expiresAt),
+  ...(row.resolvedAt ? { resolvedAt: timestamp(row.resolvedAt) } : {}),
 })
 
 export const createSigningIntentPersistenceService = (
@@ -126,36 +125,36 @@ export const createSigningIntentPersistenceService = (
     }
     const queries = [
       db.insert(signingIntents).values({
-        approvalId: record.approvalId ?? null,
-        createdAt: timestamp(record.intent.createdAt),
-        decision: record.decision,
-        decisionId: record.decisionId,
-        expiresAt: timestamp(record.expiresAt),
         id: record.intent.id,
+        walletId: record.intent.account.walletId,
+        approvalId: record.approvalId ?? null,
         matchedPolicyId: record.matchedPolicyId ?? null,
-        mode: record.mode,
         payload: serializeSigningIntent(record.intent),
         payloadHash: z
           .string()
           .regex(/^sha256:[a-f0-9]{64}$/u)
           .parse(record.payloadHash),
-        revision: positive(record.revision),
         source: record.source,
+        mode: record.mode,
+        decision: record.decision,
+        decisionId: record.decisionId,
         status: record.status,
+        revision: positive(record.revision),
+        createdAt: timestamp(record.intent.createdAt),
         updatedAt: timestamp(record.updatedAt),
-        walletId: record.intent.account.walletId,
+        expiresAt: timestamp(record.expiresAt),
       }),
       ...(approval
         ? [
             db.insert(approvalRequests).values({
-              expiresAt: timestamp(approval.expiresAt),
               id: approvalId(approval.id),
               intentId: intentId(approval.intentId),
-              requestedAt: timestamp(approval.requestedAt),
-              resolvedAt: approval.resolvedAt ?? null,
+              status: approval.status,
               reviewer: approval.reviewer ?? null,
               revision: positive(approval.revision),
-              status: approval.status,
+              requestedAt: timestamp(approval.requestedAt),
+              expiresAt: timestamp(approval.expiresAt),
+              resolvedAt: approval.resolvedAt ?? null,
             }),
           ]
         : []),
@@ -198,10 +197,10 @@ export const createSigningIntentPersistenceService = (
     const approvalUpdate = db
       .update(approvalRequests)
       .set({
-        resolvedAt,
+        status: resolution,
         reviewer: z.string().min(1).parse(input.reviewer),
         revision: expectedRevision + 1,
-        status: resolution,
+        resolvedAt,
       })
       .where(
         and(
@@ -215,8 +214,8 @@ export const createSigningIntentPersistenceService = (
       .update(signingIntents)
       .set({
         status: intentStatus,
-        updatedAt: resolvedAt,
         revision: sql`${signingIntents.revision} + 1`,
+        updatedAt: resolvedAt,
       })
       .where(
         and(

@@ -11,13 +11,13 @@ describe("audit log service", () => {
     const service = createAuditLogService(database.db)
 
     const record = await service.append({
-      actor: "user",
       correlationId: "corr_1",
-      createdAt: "2026-05-28T00:00:00.000Z",
+      actor: "user",
       eventType: "policy.decision",
+      source: "test",
       payloadHash: "sha256:test",
       payloadSummary: "Policy allowed read-only action",
-      source: "test",
+      createdAt: "2026-05-28T00:00:00.000Z",
     })
 
     await expect(service.getById(record.id)).resolves.toEqual(record)

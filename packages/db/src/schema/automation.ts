@@ -1,22 +1,46 @@
+import {
+  type AutomationAuditCorrelationId,
+  type AutomationRunError,
+  type AutomationRunId,
+  type AutomationRunLogEntry,
+  type AutomationTaskDefinition,
+  type AutomationTaskId,
+  type AutomationTaskRun,
+  type AutomationTrigger,
+  type AutomationWalletPolicyScope,
+  type AutomationWorkspaceRef,
+  automationRunStatuses,
+  automationTaskStatuses,
+} from "@cypheria/automation-core"
 import { sql } from "drizzle-orm"
 import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core"
 
 export const automationTasks = sqliteTable(
   "automation_tasks",
   {
-    auditCorrelationId: text("audit_correlation_id").notNull(),
-    createdAt: text("created_at").notNull(),
-    definition: text("definition").notNull().default('{"handler":"noop"}'),
-    description: text("description"),
-    id: text("id").primaryKey(),
-    legacyRunHistory: text("run_history").notNull().default("[]"),
-    revision: integer("revision").notNull().default(1),
-    status: text("status").notNull(),
+    id: text("id").$type<AutomationTaskId>().primaryKey(),
+    workspace: text("workspace", { mode: "json" }).$type<AutomationWorkspaceRef>().notNull(),
     title: text("title").notNull(),
-    trigger: text("trigger").notNull(),
+    description: text("description"),
+    trigger: text("trigger", { mode: "json" }).$type<AutomationTrigger>().notNull(),
+    definition: text("definition", { mode: "json" })
+      .$type<AutomationTaskDefinition>()
+      .notNull()
+      .default({ handler: "noop" }),
+    walletPolicyScope: text("wallet_policy_scope", { mode: "json" })
+      .$type<AutomationWalletPolicyScope>()
+      .notNull(),
+    legacyRunHistory: text("run_history", { mode: "json" })
+      .$type<AutomationTaskRun[]>()
+      .notNull()
+      .default([]),
+    status: text("status", { enum: automationTaskStatuses }).notNull(),
+    revision: integer("revision").notNull().default(1),
+    auditCorrelationId: text("audit_correlation_id")
+      .$type<AutomationAuditCorrelationId>()
+      .notNull(),
+    createdAt: text("created_at").notNull(),
     updatedAt: text("updated_at").notNull(),
-    walletPolicyScope: text("wallet_policy_scope").notNull(),
-    workspace: text("workspace").notNull(),
   },
   (table) => [
     index("automation_tasks_audit_correlation_id_idx").on(table.auditCorrelationId),
@@ -33,18 +57,21 @@ export const automationTasks = sqliteTable(
 export const automationRuns = sqliteTable(
   "automation_runs",
   {
-    auditCorrelationId: text("audit_correlation_id").notNull(),
-    completedAt: text("completed_at"),
-    error: text("error"),
-    id: text("id").primaryKey(),
-    logs: text("logs").notNull(),
-    queuedAt: text("queued_at").notNull().default("1970-01-01T00:00:00.000Z"),
-    revision: integer("revision").notNull().default(1),
-    startedAt: text("started_at"),
-    status: text("status").notNull(),
+    id: text("id").$type<AutomationRunId>().primaryKey(),
     taskId: text("task_id")
+      .$type<AutomationTaskId>()
       .notNull()
       .references(() => automationTasks.id, { onDelete: "cascade" }),
+    logs: text("logs", { mode: "json" }).$type<AutomationRunLogEntry[]>().notNull(),
+    error: text("error", { mode: "json" }).$type<AutomationRunError>(),
+    status: text("status", { enum: automationRunStatuses }).notNull(),
+    revision: integer("revision").notNull().default(1),
+    auditCorrelationId: text("audit_correlation_id")
+      .$type<AutomationAuditCorrelationId>()
+      .notNull(),
+    queuedAt: text("queued_at").notNull().default("1970-01-01T00:00:00.000Z"),
+    startedAt: text("started_at"),
+    completedAt: text("completed_at"),
   },
   (table) => [
     index("automation_runs_audit_correlation_id_idx").on(table.auditCorrelationId),

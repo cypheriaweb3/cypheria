@@ -17,35 +17,35 @@ describe("dApp browser persistence", () => {
     const database = createInMemoryDatabase()
     await applyDatabaseMigrations(database.client)
     await createWalletPublicStatePersistenceService(database.db).create({
+      wallet: {
+        id: "wallet_browser",
+        name: "Browser wallet",
+        kind: "watch",
+        provider: "read-only",
+        fingerprint: `sha256:${"1".repeat(64)}`,
+        metadata: {},
+        status: "ready",
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      },
       accounts: [],
       chainAccounts: [],
       hdSchemes: [],
-      wallet: {
-        createdAt: timestamp,
-        fingerprint: `sha256:${"1".repeat(64)}`,
-        id: "wallet_browser",
-        kind: "watch",
-        metadata: {},
-        name: "Browser wallet",
-        provider: "read-only",
-        status: "ready",
-        updatedAt: timestamp,
-      },
     })
     const service = createDappBrowserPersistenceService(database.db)
     const session = createDappSession("https://app.example", timestamp)
     await expect(service.saveSession(session)).resolves.toEqual(session)
 
     const permission = {
-      accountAddresses: ["0x0000000000000000000000000000000000000001"] as const,
-      chainId: 1,
-      createdAt: timestamp,
       id: "dapp_permission_one",
-      methods: ["eth_accounts", "personal_sign"] as const,
       origin: session.origin,
       sessionKey: session.key,
-      updatedAt: timestamp,
       walletId: "wallet_browser" as const,
+      chainId: 1,
+      accountAddresses: ["0x0000000000000000000000000000000000000001"] as const,
+      methods: ["eth_accounts", "personal_sign"] as const,
+      createdAt: timestamp,
+      updatedAt: timestamp,
     }
     await expect(service.savePermission(permission)).resolves.toEqual(permission)
     await expect(service.listPermissions(session.origin)).resolves.toEqual([permission])
@@ -53,6 +53,10 @@ describe("dApp browser persistence", () => {
     await expect(service.listPermissions(session.origin)).resolves.toEqual([])
 
     const solanaPermission: SolanaProviderPermissionRecord = {
+      id: "solana_permission_one",
+      origin: session.origin,
+      sessionKey: session.key,
+      walletId: "wallet_browser" as const,
       bindings: [
         {
           account: {
@@ -74,11 +78,7 @@ describe("dApp browser persistence", () => {
         },
       ],
       createdAt: timestamp,
-      id: "solana_permission_one",
-      origin: session.origin,
-      sessionKey: session.key,
       updatedAt: timestamp,
-      walletId: "wallet_browser" as const,
     }
     await expect(service.saveSolanaPermission(solanaPermission)).resolves.toEqual(solanaPermission)
     await expect(service.listSolanaPermissions(session.origin)).resolves.toEqual([solanaPermission])

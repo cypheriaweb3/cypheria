@@ -30,10 +30,10 @@ import {
 } from "./schema/index.js"
 
 export type WalletPublicState = {
+  readonly wallet: Wallet
   readonly accounts: readonly WalletAccount[]
   readonly chainAccounts: readonly ChainAccount[]
   readonly hdSchemes: readonly HdDerivationScheme[]
-  readonly wallet: Wallet
 }
 
 export type ListWalletOptions = {
@@ -41,11 +41,11 @@ export type ListWalletOptions = {
 }
 
 export type PersistedActiveWalletContext = {
+  readonly walletId: WalletId
+  readonly walletAccountId: WalletAccountId
   readonly chainAccountId: ChainAccountId
   readonly mode: WalletMode
   readonly updatedAt: string
-  readonly walletAccountId: WalletAccountId
-  readonly walletId: WalletId
 }
 
 export type WalletPublicStatePersistenceService = {
@@ -78,11 +78,11 @@ const parseActiveContext = (
     throw new Error("Active wallet context has an invalid mode.")
   }
   return {
+    walletId: walletIdSchema.parse(context.walletId),
+    walletAccountId: walletAccountIdSchema.parse(context.walletAccountId),
     chainAccountId: chainAccountIdSchema.parse(context.chainAccountId),
     mode: context.mode,
     updatedAt: timestampSchema.parse(context.updatedAt),
-    walletAccountId: walletAccountIdSchema.parse(context.walletAccountId),
-    walletId: walletIdSchema.parse(context.walletId),
   }
 }
 
@@ -91,24 +91,32 @@ type WalletAccountRecord = typeof walletAccounts.$inferSelect
 type ChainAccountRecord = typeof chainAccounts.$inferSelect
 type HdDerivationSchemeRecord = typeof walletHdSchemes.$inferSelect
 
-const toWalletRecord = (wallet: Wallet): typeof wallets.$inferInsert => ({
-  ...wallet,
-  metadata: JSON.stringify(wallet.metadata),
+const toWalletRecord = (wallet: Wallet, position?: number): typeof wallets.$inferInsert => ({
+  id: wallet.id,
+  name: wallet.name,
+  kind: wallet.kind,
+  provider: wallet.provider,
+  fingerprint: wallet.fingerprint,
   vaultId: "vaultId" in wallet ? wallet.vaultId : null,
+  metadata: wallet.metadata,
+  ...(position === undefined ? {} : { position }),
+  status: wallet.status,
+  createdAt: wallet.createdAt,
+  updatedAt: wallet.updatedAt,
 })
 
 const fromWalletRecord = (record: WalletRecord): Wallet =>
   walletSchema.parse({
-    createdAt: record.createdAt,
-    fingerprint: record.fingerprint,
     id: record.id,
-    kind: record.kind,
-    metadata: JSON.parse(record.metadata) as unknown,
     name: record.name,
+    kind: record.kind,
     provider: record.provider,
-    status: record.status,
-    updatedAt: record.updatedAt,
+    fingerprint: record.fingerprint,
     ...(record.vaultId === null ? {} : { vaultId: record.vaultId }),
+    metadata: record.metadata,
+    status: record.status,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
   })
 
 const fromWalletAccountRecord = (record: WalletAccountRecord): WalletAccount =>
@@ -147,7 +155,7 @@ const parsePublicState = (state: WalletPublicState): WalletPublicState => {
     throw new Error("Only HD wallets may have derivation schemes.")
   }
 
-  return { accounts, chainAccounts: chainAccountValues, hdSchemes, wallet }
+  return { wallet, accounts, chainAccounts: chainAccountValues, hdSchemes }
 }
 
 const loadPublicState = async (
@@ -180,10 +188,10 @@ const loadPublicState = async (
     .orderBy(asc(walletHdSchemes.namespace))
 
   return parsePublicState({
+    wallet: fromWalletRecord(walletRecord),
     accounts: accountRecords.map(fromWalletAccountRecord),
     chainAccounts: chainAccountRecords.map(fromChainAccountRecord),
     hdSchemes: hdSchemeRecords.map(fromHdSchemeRecord),
-    wallet: fromWalletRecord(walletRecord),
   })
 }
 
@@ -222,9 +230,7 @@ export const createWalletPublicStatePersistenceService = (
     const parsed = parsePublicState(state)
     const [lastWallet] = await db.select({ position: max(wallets.position) }).from(wallets)
     const queries = [
-      db
-        .insert(wallets)
-        .values({ ...toWalletRecord(parsed.wallet), position: (lastWallet?.position ?? -1) + 1 }),
+      db.insert(wallets).values(toWalletRecord(parsed.wallet, (lastWallet?.position ?? -1) + 1)),
       ...(parsed.accounts.length > 0
         ? [db.insert(walletAccounts).values([...parsed.accounts])]
         : []),
@@ -252,11 +258,11 @@ export const createWalletPublicStatePersistenceService = (
       return undefined
     }
     return parseActiveContext({
+      walletId: record.walletId as WalletId,
+      walletAccountId: record.walletAccountId as WalletAccountId,
       chainAccountId: record.chainAccountId as ChainAccountId,
       mode: record.mode as WalletMode,
       updatedAt: record.updatedAt,
-      walletAccountId: record.walletAccountId as WalletAccountId,
-      walletId: record.walletId as WalletId,
     })
   },
   listWallets: async (options = {}) => {
@@ -331,7 +337,7 @@ export const createWalletPublicStatePersistenceService = (
     }
     await db
       .insert(activeWalletContext)
-      .values({ ...parsed, id: "default" })
+      .values({ id: "default", ...parsed })
       .onConflictDoUpdate({
         set: parsed,
         target: activeWalletContext.id,
