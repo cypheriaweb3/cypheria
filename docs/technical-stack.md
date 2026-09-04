@@ -43,6 +43,7 @@ packages/sdk
 packages/runtime
 packages/codex-bridge
 packages/ui
+packages/network-core
 packages/wallet-core
 packages/wallet-provider
 packages/policy-engine
@@ -225,16 +226,21 @@ Desktop sidebar motion and hover previews live in `apps/desktop/renderer/src/com
 | Embedded wallets | Privy |
 | External wallets | WalletConnect / Reown |
 | Chain registry | In-house registry compatible with viem chain format |
+| RPC routing | Purpose-aware ordered endpoints with health-based failover for idempotent reads |
+| RPC credentials | OS-protected connection records referenced from SQLite |
 | Asset providers | Adapter boundary for Alchemy / Reservoir / SimpleHash / Moralis |
 | Transaction simulation | Tenderly / Blocknative first; self-hosted simulation later |
 
 Core packages:
 
+- `@cypheria/network-core`: canonical chain identities, strict network/RPC schemas, catalog records, and protocol conversion helpers.
 - `@cypheria/wallet-core`: wallet/account/chain/signing intent models.
 - `@cypheria/wallet-provider`: origin-scoped dApp sessions, Ethereum EIP-1193/EIP-6963 injection and discovery, bounded Ethereum JSON-RPC and permissions, Solana Wallet Standard discovery and byte envelopes, protocol-scoped events, and persistence contracts.
 - `@cypheria/policy-engine`: signing policy schemas and deterministic evaluation.
 
 Private keys never enter renderer, dApp pages, localStorage, IndexedDB, or normal SQLite tables.
+
+Network configuration, endpoint selection, credential protection, dApp-scoped chain selection, and failure behavior are specified in `docs/network-management.md`.
 
 ## Policy And Automation Stack
 

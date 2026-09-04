@@ -345,11 +345,14 @@ Default rules:
 @cypheria/codex-bridge
   Desktop-side Codex App Server bridge, generated protocol types, transport, and event normalization.
 
+@cypheria/network-core
+  Canonical chain identities, strict network/RPC models, catalog entries, and protocol conversion helpers.
+
 apps/desktop/ipc
   Desktop-local typed Electron IPC contracts, schemas, channel names, and envelopes.
 
 @cypheria/wallet-core
-  Wallet domain types, accounts, chains, permissions, and signing intents.
+  Wallet domain types, accounts, chain-account bindings, permissions, and signing intents.
 
 @cypheria/policy-engine
   Signing policy schemas, evaluator, and policy decisions.
@@ -366,6 +369,14 @@ apps/desktop/ipc
 @cypheria/ui
   Shared UI primitives and Cypheria product components.
 ```
+
+## Network And RPC Boundary
+
+Chain identity, network metadata, RPC connectivity, and active selection are separate concepts. Wallet accounts and historical records retain canonical chain identity independently from whether a network is currently configured. `@cypheria/network-core` owns strict EVM and Solana identity and configuration schemas; `@cypheria/runtime` owns catalog reconciliation, endpoint probes, credential resolution, health-aware routing, and workspace or origin-scoped selection.
+
+RPC connection secrets are protected outside normal SQLite columns and never cross renderer or dApp IPC. Read-only calls may fail over across verified endpoints, while broadcasts are never blindly retried after an ambiguous response. Custom destinations are subject to SSRF controls, and a dApp can switch only its own origin-scoped provider context after approval.
+
+The complete model, persistence plan, routing rules, and implementation sequence are defined in `docs/network-management.md`.
 
 ## V1 Constraints
 

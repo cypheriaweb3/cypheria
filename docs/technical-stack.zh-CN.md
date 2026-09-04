@@ -43,6 +43,7 @@ packages/sdk
 packages/runtime
 packages/codex-bridge
 packages/ui
+packages/network-core
 packages/wallet-core
 packages/wallet-provider
 packages/policy-engine
@@ -225,16 +226,21 @@ Cypheria-specific components：
 | Embedded wallets | Privy |
 | External wallets | WalletConnect / Reown |
 | Chain registry | 兼容 viem chain format 的自维护 registry |
+| RPC routing | 按用途选择的有序 endpoints；仅对幂等读取进行基于 health 的 failover |
+| RPC credentials | SQLite 只保存引用，连接记录由 OS-backed 机制保护 |
 | Asset providers | Alchemy / Reservoir / SimpleHash / Moralis 的 adapter boundary |
 | Transaction simulation | Tenderly / Blocknative first; self-hosted simulation later |
 
 核心 packages：
 
+- `@cypheria/network-core`：canonical chain identity、严格 network/RPC schema、catalog record 与 protocol conversion helper。
 - `@cypheria/wallet-core`：wallet/account/chain/signing intent models。
 - `@cypheria/wallet-provider`：origin-scoped dApp sessions、Ethereum EIP-1193/EIP-6963 injection 与 discovery、有界 Ethereum JSON-RPC 和 permissions、Solana Wallet Standard discovery 与 byte envelopes、protocol-scoped events，以及 persistence contracts。
 - `@cypheria/policy-engine`：signing policy schemas 和 deterministic evaluation。
 
 私钥永远不进入 renderer、dApp pages、localStorage、IndexedDB 或普通 SQLite tables。
+
+Network configuration、endpoint selection、credential protection、dApp-scoped chain selection 与 failure behavior 详见 `docs/network-management.zh-CN.md`。
 
 ## Policy And Automation Stack
 

@@ -143,6 +143,35 @@ Status legend:
 
 ## Runtime Web3 Capabilities
 
+- [x] Specify the network and RPC architecture.
+  - Acceptance: English and Chinese design documents analyze the Archmage-X precedent and define canonical chain identity, package boundaries, catalog reconciliation, persistence, protected RPC credentials, endpoint probing/routing, origin-scoped dApp selection, failure semantics, and V1 exclusions.
+  - Verification: paired-document review, `pnpm run ci`.
+
+- [ ] Add `@cypheria/network-core` and the bundled network catalog.
+  - Acceptance: strict EVM and Solana chain identity, network, explorer, endpoint, public projection, and protocol-conversion schemas replace untyped or mixed chain identifiers.
+  - Include: stable IDs, canonical chain keys, immutable identity, URL normalization, minimal reviewed built-ins, and catalog fixtures.
+  - Verification: network-core tests, `pnpm run ci`, `pnpm build`.
+
+- [ ] Persist network configuration and protect RPC credentials.
+  - Acceptance: libSQL stores networks, ordered endpoints, revisions, and origin-scoped contexts while protected connection material remains outside ordinary columns under `$CYPHERIA_HOME/config/network-credentials`.
+  - Include: migrations, catalog reconciliation, redacted projections, optimistic concurrency, non-cascading wallet/history behavior, and OS-backed credential protection.
+  - Verification: database, credential-store, migration, and recovery tests; `pnpm run ci`, `pnpm build`.
+
+- [ ] Implement the runtime network manager and RPC router.
+  - Acceptance: runtime probes endpoint identity, tracks disposable health, selects purpose-compatible endpoints, retries only safe reads, preserves operation stickiness, and reports ambiguous broadcasts without blind retry.
+  - Include: SSRF destination policy, DNS/redirect checks, timeouts, response and concurrency bounds, redacted audit, and stable network errors.
+  - Verification: runtime unit and integration tests with local fake EVM and Solana RPC servers; `pnpm run ci`, `pnpm build`.
+
+- [ ] Migrate wallet, policy, automation, and dApp boundaries to canonical chain identity.
+  - Acceptance: chain accounts, active wallet context, signing intents, policies, automation scopes, permissions, and events use `ChainIdentity`/`ChainKey`; active network identity must match the selected chain account.
+  - Include: data migrations and compatibility adapters for EIP-1193 hexadecimal IDs and Solana Wallet Standard identifiers.
+  - Verification: wallet-core, policy-engine, automation-core, wallet-provider, database, runtime, and desktop IPC tests.
+
+- [ ] Add origin-scoped network add/switch flows and desktop management UI.
+  - Acceptance: each dApp origin selects Ethereum and Solana networks independently; EIP-3085 add and EIP-3326 switch requests require validated probes and approval; desktop manages network and endpoint ordering, enabled state, health, and redacted credentials.
+  - Include: typed IPC, provider events emitted only after successful selection changes, built-in disable/custom delete behavior, and approval metadata diffs.
+  - Verification: runtime, desktop, provider, and real sandboxed Electron tests; `pnpm run ci`, `pnpm build`.
+
 - [x] Adopt Drizzle with libSQL as the local database adapter and specify the wallet architecture.
   - Acceptance: database services use `@libsql/client` instead of `better-sqlite3`; persistence APIs are asynchronous; English and Chinese wallet design documents define public data, encrypted vault, memory, and signing boundaries.
   - Verification: `pnpm run ci`, `pnpm build`, database and desktop tests.

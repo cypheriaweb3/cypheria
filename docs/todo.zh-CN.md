@@ -143,6 +143,35 @@
 
 ## Runtime Web3 能力
 
+- [x] 明确 network 与 RPC 架构。
+  - 验收：中英文设计文档分析 Archmage-X 先例，并定义 canonical chain identity、package boundaries、catalog reconciliation、persistence、受保护 RPC credentials、endpoint probing/routing、origin-scoped dApp selection、failure semantics 与 V1 exclusions。
+  - 验证：成对文档审查、`pnpm run ci`。
+
+- [ ] 添加 `@cypheria/network-core` 与 bundled network catalog。
+  - 验收：严格的 EVM/Solana chain identity、network、explorer、endpoint、public projection 与 protocol-conversion schema 取代无类型或混用的 chain identifier。
+  - 包括：stable IDs、canonical chain keys、immutable identity、URL normalization、精简且经过审核的 built-ins 与 catalog fixtures。
+  - 验证：network-core tests、`pnpm run ci`、`pnpm build`。
+
+- [ ] 持久化 network configuration 并保护 RPC credentials。
+  - 验收：libSQL 保存 networks、ordered endpoints、revisions 与 origin-scoped contexts；受保护连接材料位于普通列之外的 `$CYPHERIA_HOME/config/network-credentials`。
+  - 包括：migrations、catalog reconciliation、redacted projections、optimistic concurrency、不级联删除 wallet/history 的行为，以及 OS-backed credential protection。
+  - 验证：database、credential-store、migration 与 recovery tests；`pnpm run ci`、`pnpm build`。
+
+- [ ] 实现 runtime network manager 与 RPC router。
+  - 验收：runtime probe endpoint identity、追踪可丢弃 health、选择符合 purpose 的 endpoint、只重试安全 read、保持 operation stickiness，并在 broadcast 结果不明确时报告状态而不盲目重试。
+  - 包括：SSRF destination policy、DNS/redirect 检查、timeout、response/concurrency bound、redacted audit 与稳定 network errors。
+  - 验证：使用本地 fake EVM/Solana RPC server 的 runtime unit/integration tests；`pnpm run ci`、`pnpm build`。
+
+- [ ] 将 wallet、policy、automation 与 dApp boundary 迁移到 canonical chain identity。
+  - 验收：chain account、active wallet context、signing intent、policy、automation scope、permission 与 event 使用 `ChainIdentity`/`ChainKey`；active network identity 必须与所选 chain account 匹配。
+  - 包括：data migration，以及 EIP-1193 hex ID 与 Solana Wallet Standard identifier 的 compatibility adapter。
+  - 验证：wallet-core、policy-engine、automation-core、wallet-provider、database、runtime 与 desktop IPC tests。
+
+- [ ] 添加 origin-scoped network add/switch flow 与 desktop management UI。
+  - 验收：每个 dApp origin 独立选择 Ethereum/Solana network；EIP-3085 add 与 EIP-3326 switch request 必须经过 probe 和 approval；desktop 管理 network/endpoint 排序、enabled state、health 与脱敏 credential。
+  - 包括：typed IPC、只在成功选择后发送 provider event、built-in disable/custom delete 行为与 approval metadata diff。
+  - 验证：runtime、desktop、provider 与真实 sandboxed Electron tests；`pnpm run ci`、`pnpm build`。
+
 - [x] 采用 Drizzle + libSQL 本地数据库适配器，并确定钱包架构。
   - 验收：数据库服务使用 `@libsql/client` 替代 `better-sqlite3`；持久化 API 全部异步；中英文钱包设计文档明确公开数据、加密 vault、内存和签名边界。
   - 验证：`pnpm run ci`、`pnpm build`、数据库与 desktop tests。

@@ -81,6 +81,7 @@ packages/sdk
 packages/runtime
 packages/codex-bridge
 packages/ui
+packages/network-core
 packages/wallet-core
 packages/wallet-provider
 packages/policy-engine

@@ -345,11 +345,14 @@ CODEX_HOME="$CYPHERIA_HOME/codex"
 @cypheria/codex-bridge
   Desktop-side Codex App Server bridge, generated protocol types, transport, and event normalization.
 
+@cypheria/network-core
+  Canonical chain identity、严格 network/RPC model、catalog entry 与 protocol conversion helper。
+
 apps/desktop/ipc
   Desktop-local typed Electron IPC contracts, schemas, channel names, and envelopes.
 
 @cypheria/wallet-core
-  Wallet domain types, accounts, chains, permissions, and signing intents.
+  Wallet domain types、accounts、chain-account bindings、permissions 与 signing intents。
 
 @cypheria/policy-engine
   Signing policy schemas, evaluator, and policy decisions.
@@ -366,6 +369,14 @@ apps/desktop/ipc
 @cypheria/ui
   Shared UI primitives and Cypheria product components.
 ```
+
+## Network 与 RPC 边界
+
+Chain identity、network metadata、RPC connectivity 与 active selection 是相互独立的概念。无论 network 当前是否已配置，wallet account 与历史 record 都会保留 canonical chain identity。`@cypheria/network-core` 负责严格的 EVM/Solana identity 与 configuration schema；`@cypheria/runtime` 负责 catalog reconciliation、endpoint probe、credential resolution、health-aware routing，以及 workspace/origin-scoped selection。
+
+RPC connection secret 在普通 SQLite 列之外受保护，永远不会跨越 renderer 或 dApp IPC。Read-only call 可以在经过验证的 endpoints 间 failover；broadcast 收到模糊响应后绝不盲目重试。Custom destination 必须经过 SSRF control，dApp 只有在批准后才能切换自身 origin-scoped provider context。
+
+完整模型、持久化方案、routing rule 与实施顺序见 `docs/network-management.zh-CN.md`。
 
 ## V1 约束
 
