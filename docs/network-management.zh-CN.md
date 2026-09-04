@@ -192,7 +192,7 @@ dapp_network_contexts
 
 Wallet chain account 保留 chain identity 列，不建立指向 `networks` 的 cascade foreign key。移除连接配置不得删除 account、policy、signing intent、transaction record 或 audit history。Active context reference 会被显式清除或拒绝，历史 record 保留其 chain key。
 
-Built-in network 只能禁用。Custom network 默认也先禁用，永久移除必须经过独立确认。永久移除会删除其 endpoint、受保护 credential 与可丢弃 health state；清除 workspace/dApp selection；撤销绑定到该配置的 origin grant；暂停受影响的 automation；并让待处理的 RPC-dependent work 以稳定的 unavailable error 失败。Policy 与历史 record 继续以 chain identity 为键，但在没有匹配的 enabled network 时不可执行。重新添加同一条链绝不会静默恢复 dApp grant 或 automation execution。
+Built-in network 只能禁用。Custom network 仅在用户明确操作且 identity probe 成功后启用，永久移除必须经过独立确认。永久移除会删除其 endpoint、受保护 credential 与可丢弃 health state；清除 workspace/dApp selection；撤销绑定到该配置的 origin grant；暂停受影响的 automation；并让待处理的 RPC-dependent work 以稳定的 unavailable error 失败。Policy 与历史 record 继续以 chain identity 为键，但在没有匹配的 enabled network 时不可执行。重新添加同一条链绝不会静默恢复 dApp grant 或 automation execution。
 
 ## Runtime Services
 
@@ -276,16 +276,17 @@ Desktop workspace selection 与 dApp selection 相互独立。用户可以为某
 
 Network 页面提供：
 
-- namespace、enabled/testnet 与搜索过滤；
 - built-in/custom 和 enabled/disabled badge；
-- network 与 endpoint 拖拽排序；
-- 带实时 chain-identity probe 的 add/edit flow；
+- network 与 endpoint 的显式排序控件；
+- 带实时 chain-identity probe 的 add flow 与启用状态变更；
 - endpoint health、last success、latency 与脱敏 URL；
 - 显式 primary endpoint 与有序 fallback；
 - built-in 使用 disable，custom network 使用受保护 delete；
 - 对 protected credential、local development endpoint 与 dApp-proposed network 给出清晰警告。
 
 Approval 页面在 add/switch approval 前展示 requesting origin、requested chain identity、current chain、metadata difference、全部脱敏 RPC host 与 probe result。
+
+当前 desktop flow 对同步 EIP-3085/EIP-3326 request 使用带 origin 标识的原生 approval dialog。Network workbench 通过 typed IPC 展示相同的脱敏定义与 health state；原始 credential URL 和 header 永远不会进入 renderer state。禁用 network 会清除匹配的 workspace/origin selection、撤销该 chain key 的 EVM 与 Solana grant、暂停相关 automation，并使进行中的 routed work 失效。删除 custom network 还会移除 endpoint、受保护 credential 与可丢弃 health，同时保留 policy、signing record 和 audit history。
 
 ## Failure Semantics
 

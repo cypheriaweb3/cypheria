@@ -1,3 +1,4 @@
+import { type ChainKey, chainKeySchema } from "@cypheria/network-core"
 import {
   type DappSession,
   dappPermissionRecordSchema,
@@ -9,7 +10,7 @@ import {
   type SolanaProviderPersistence,
   solanaProviderPermissionRecordSchema,
 } from "@cypheria/wallet-provider"
-import { asc, eq } from "drizzle-orm"
+import { asc, eq, inArray } from "drizzle-orm"
 import { z } from "zod"
 
 import type { CypheriaDatabase } from "./client.js"
@@ -63,9 +64,14 @@ const fromSolanaPermissionRow = (
     ...(row.expiresAt ? { expiresAt: row.expiresAt } : {}),
   }) as SolanaProviderPermissionRecord
 
+export type WalletProviderPersistenceService = EthereumProviderPersistence &
+  SolanaProviderPersistence & {
+    readonly revokeChainPermissions: (chainKey: ChainKey) => Promise<void>
+  }
+
 export const createDappBrowserPersistenceService = (
   db: CypheriaDatabase
-): EthereumProviderPersistence & SolanaProviderPersistence => ({
+): WalletProviderPersistenceService => ({
   deletePermission: async (permissionId) => {
     const [deleted] = await db
       .delete(dappPermissions)
@@ -200,6 +206,21 @@ export const createDappBrowserPersistenceService = (
     const saved = rows.find((row) => row.walletId === permission.walletId)
     if (!saved) throw new Error("The Solana dApp permission was not persisted.")
     return fromSolanaPermissionRow(saved)
+  },
+  revokeChainPermissions: async (chainKeyValue) => {
+    const chainKey = chainKeySchema.parse(chainKeyValue)
+    const solanaRows = await db.select().from(solanaDappPermissions)
+    const solanaIds = solanaRows
+      .filter((row) =>
+        row.bindings.some(({ signingAccount }) => signingAccount.chainKey === chainKey)
+      )
+      .map(({ id }) => id)
+    await db.batch([
+      db.delete(dappPermissions).where(eq(dappPermissions.chainKey, chainKey)),
+      ...(solanaIds.length
+        ? [db.delete(solanaDappPermissions).where(inArray(solanaDappPermissions.id, solanaIds))]
+        : []),
+    ])
   },
 })
 

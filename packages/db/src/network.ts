@@ -15,7 +15,7 @@ import {
   toChainKey,
 } from "@cypheria/network-core"
 import { normalizeDappOrigin } from "@cypheria/wallet-provider"
-import { and, asc, eq } from "drizzle-orm"
+import { and, asc, eq, sql } from "drizzle-orm"
 import { z } from "zod"
 import type { CypheriaDatabase } from "./client.js"
 import { dappNetworkContexts, networkRpcEndpoints, networks } from "./schema/index.js"
@@ -66,6 +66,12 @@ export type NetworkPersistenceService = {
   ) => Promise<DappNetworkContext | undefined>
   readonly setDappContext: (context: DappNetworkContext) => Promise<DappNetworkContext>
   readonly clearDappContexts: (networkId: NetworkId) => Promise<void>
+  readonly reorderNetworks: (networkIds: readonly NetworkId[], now: string) => Promise<void>
+  readonly reorderEndpoints: (
+    networkId: NetworkId,
+    endpointIds: readonly RpcEndpointId[],
+    now: string
+  ) => Promise<void>
 }
 
 type NetworkRow = typeof networks.$inferSelect
@@ -518,5 +524,60 @@ export const createNetworkPersistenceService = (
   clearDappContexts: async (networkIdValue) => {
     const networkId = networkIdSchema.parse(networkIdValue)
     await db.delete(dappNetworkContexts).where(eq(dappNetworkContexts.networkId, networkId))
+  },
+  reorderNetworks: async (networkIdValues, nowValue) => {
+    const networkIds = networkIdValues.map((id) => networkIdSchema.parse(id))
+    const now = timestampSchema.parse(nowValue)
+    const rows = await db.select({ id: networks.id }).from(networks)
+    if (
+      rows.length !== networkIds.length ||
+      new Set(networkIds).size !== networkIds.length ||
+      rows.some(({ id }) => !networkIds.includes(id))
+    ) {
+      throw new Error("Network ordering must contain every network exactly once.")
+    }
+    const offset = networkIds.length + 1
+    await db.batch([
+      db.update(networks).set({ position: sql`${networks.position} + ${offset}` }),
+      ...networkIds.map((id, position) =>
+        db
+          .update(networks)
+          .set({ position, revision: sql`${networks.revision} + 1`, updatedAt: now })
+          .where(eq(networks.id, id))
+      ),
+    ])
+  },
+  reorderEndpoints: async (networkIdValue, endpointIdValues, nowValue) => {
+    const networkId = networkIdSchema.parse(networkIdValue)
+    const endpointIds = endpointIdValues.map((id) => rpcEndpointIdSchema.parse(id))
+    const now = timestampSchema.parse(nowValue)
+    const rows = await db
+      .select({ id: networkRpcEndpoints.id })
+      .from(networkRpcEndpoints)
+      .where(eq(networkRpcEndpoints.networkId, networkId))
+    if (
+      rows.length !== endpointIds.length ||
+      new Set(endpointIds).size !== endpointIds.length ||
+      rows.some(({ id }) => !endpointIds.includes(id))
+    ) {
+      throw new Error("Endpoint ordering must contain every endpoint exactly once.")
+    }
+    const offset = endpointIds.length + 1
+    await db.batch([
+      db
+        .update(networkRpcEndpoints)
+        .set({ position: sql`${networkRpcEndpoints.position} + ${offset}` })
+        .where(eq(networkRpcEndpoints.networkId, networkId)),
+      ...endpointIds.map((id, position) =>
+        db
+          .update(networkRpcEndpoints)
+          .set({
+            position,
+            revision: sql`${networkRpcEndpoints.revision} + 1`,
+            updatedAt: now,
+          })
+          .where(eq(networkRpcEndpoints.id, id))
+      ),
+    ])
   },
 })

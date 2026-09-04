@@ -127,4 +127,43 @@ describe("network persistence", () => {
     ).rejects.toThrow("NETWORK_IDENTITY_MISMATCH")
     database.close()
   })
+
+  it("reorders complete network and endpoint sets without unique-position conflicts", async () => {
+    const database = createInMemoryDatabase()
+    await applyDatabaseMigrations(database.client)
+    const service = createNetworkPersistenceService(database.db)
+    await service.reconcileCatalog(bundledNetworkCatalog, timestamp)
+    const initial = await service.listNetworks()
+    const reversedIds = initial.map(({ network }) => network.id).reverse()
+    await service.reorderNetworks(reversedIds, "2026-09-04T00:01:00.000Z")
+    expect((await service.listNetworks()).map(({ network }) => network.id)).toEqual(reversedIds)
+
+    const first = (await service.listNetworks())[0]
+    if (!first) throw new Error("Expected a network.")
+    const primaryEndpoint = first.endpoints[0]
+    if (!primaryEndpoint) throw new Error("Expected a primary endpoint.")
+    const extra: RpcEndpoint = {
+      ...primaryEndpoint,
+      connection: {
+        kind: "protected",
+        displayUrl: "https://rpc.example/redacted",
+        credentialRef: "network_credential_order",
+      },
+      id: "rpc_order_extra",
+      position: 1,
+      revision: 1,
+      source: "custom",
+    }
+    await service.saveEndpoint(extra)
+    await service.reorderEndpoints(
+      first.network.id,
+      [extra.id, primaryEndpoint.id],
+      "2026-09-04T00:02:00.000Z"
+    )
+    expect((await service.getNetwork(first.network.id))?.endpoints.map(({ id }) => id)).toEqual([
+      extra.id,
+      primaryEndpoint.id,
+    ])
+    database.close()
+  })
 })

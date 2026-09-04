@@ -167,7 +167,7 @@
   - 包括：data migration，以及 EIP-1193 hex ID 与 Solana Wallet Standard identifier 的 compatibility adapter。
   - 验证：wallet-core、policy-engine、automation-core、wallet-provider、database、runtime 与 desktop IPC tests。
 
-- [ ] 添加 origin-scoped network add/switch flow 与 desktop management UI。
+- [x] 添加 origin-scoped network add/switch flow 与 desktop management UI。
   - 验收：每个 dApp origin 独立选择 Ethereum/Solana network；EIP-3085 add 与 EIP-3326 switch request 必须经过 probe 和 approval；desktop 管理 network/endpoint 排序、enabled state、health 与脱敏 credential。
   - 包括：typed IPC、只在成功选择后发送 provider event、built-in disable/custom delete 行为与 approval metadata diff。
   - 验证：runtime、desktop、provider 与真实 sandboxed Electron tests；`pnpm run ci`、`pnpm build`。

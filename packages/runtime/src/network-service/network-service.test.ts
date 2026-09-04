@@ -11,6 +11,7 @@ import {
   assertRpcDestination,
   createFetchRpcTransport,
   createNetworkManager,
+  createWebSocketRpcTransport,
   NetworkRpcRouter,
   NetworkRuntimeError,
 } from "./index.js"
@@ -208,7 +209,89 @@ describe("fetch RPC transport", () => {
   })
 })
 
+describe("WebSocket RPC transport", () => {
+  it("correlates one bounded JSON-RPC response", async () => {
+    class FakeSocket extends EventTarget {
+      close = vi.fn()
+      send = vi.fn((value: string) => {
+        const request = JSON.parse(value) as { id: number }
+        this.dispatchEvent(
+          new MessageEvent("message", {
+            data: JSON.stringify({ id: request.id, jsonrpc: "2.0", result: "0x1" }),
+          })
+        )
+      })
+    }
+    const socket = new FakeSocket()
+    const transport = createWebSocketRpcTransport({
+      createSocket: () => socket as unknown as WebSocket,
+    })
+    const result = transport({ method: "eth_chainId", timeoutMs: 1_000, url: "wss://rpc.example" })
+    await Promise.resolve()
+    socket.dispatchEvent(new Event("open"))
+    await expect(result).resolves.toBe("0x1")
+    expect(socket.close).toHaveBeenCalledOnce()
+  })
+
+  it("rejects invalid concurrency bounds", () => {
+    expect(() => createWebSocketRpcTransport({ maxConcurrentRequests: 0 })).toThrow(
+      "maxConcurrentRequests must be a positive integer."
+    )
+  })
+})
+
 describe("NetworkManager", () => {
+  it("manages endpoint enablement and ordering while preserving a usable HTTP route", async () => {
+    const database = createInMemoryDatabase()
+    await applyDatabaseMigrations(database.client)
+    const networkPersistence = createNetworkPersistenceService(database.db)
+    await networkPersistence.reconcileCatalog(undefined, timestamp)
+    const credentials = createMemoryNetworkCredentialStore()
+    const router = new NetworkRpcRouter({
+      credentials,
+      persistence: networkPersistence,
+      resolveAddresses: async () => ["8.8.8.8"],
+      transport: vi.fn(async ({ method }) => (method === "eth_chainId" ? "0x1" : "0x10")),
+    })
+    const manager = createNetworkManager({
+      audit: createAuditLogService(database.db),
+      credentials,
+      idFactory: {
+        credentialRef: () => "network_credential_fallback",
+        endpointId: () => "rpc_fallback",
+        networkId: () => "network_unused",
+      },
+      now: () => timestamp,
+      persistence: networkPersistence,
+      router,
+    })
+    const ethereum = (await manager.list()).find(
+      ({ network }) => network.chain.namespace === "eip155" && network.chain.reference === "1"
+    )
+    const primary = ethereum?.endpoints[0]
+    if (!ethereum || !primary) throw new Error("Expected Ethereum and its primary endpoint.")
+    await expect(
+      manager.setEndpointEnabled(primary.id, false, primary.revision)
+    ).rejects.toMatchObject({ code: "RPC_ENDPOINT_UNAVAILABLE" })
+
+    await manager.addEndpoint(ethereum.network.id, {
+      label: "Fallback",
+      transport: "http",
+      url: "https://fallback.example/key",
+    })
+    await manager.setEndpointEnabled(primary.id, false, primary.revision)
+    const endpoints = (await manager.list()).find(
+      ({ network }) => network.id === ethereum.network.id
+    )?.endpoints
+    if (!endpoints) throw new Error("Expected updated endpoints.")
+    await manager.reorderEndpoints(ethereum.network.id, endpoints.map(({ id }) => id).reverse())
+    expect(
+      (await manager.list()).find(({ network }) => network.id === ethereum.network.id)?.endpoints[0]
+        ?.id
+    ).toBe("rpc_fallback")
+    database.close()
+  })
+
   it("probes a proposal before approval and leaves no credentials when rejected", async () => {
     const database = createInMemoryDatabase()
     await applyDatabaseMigrations(database.client)

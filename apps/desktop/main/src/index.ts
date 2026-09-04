@@ -40,7 +40,16 @@ import {
   codexThreadListContract,
   dappProviderRequestContract,
   IPC_PROTOCOL_VERSION,
+  networkCreateContract,
+  networkEndpointAddContract,
+  networkEndpointProbeContract,
+  networkEndpointRemoveContract,
+  networkEndpointReorderContract,
+  networkEndpointSetEnabledContract,
   networkListContract,
+  networkRemoveContract,
+  networkReorderContract,
+  networkSetEnabledContract,
   policyCreateContract,
   policyDisableContract,
   policyListContract,
@@ -287,6 +296,35 @@ const registerIpcHandlers = (context: DesktopRuntimeContext): void => {
   )
   registerIpcRoute(walletListContract, () => context.wallets.listWallets())
   registerIpcRoute(networkListContract, () => context.networks.list())
+  registerIpcRoute(networkCreateContract, (input) => context.networks.create(input))
+  registerIpcRoute(networkSetEnabledContract, ({ enabled, expectedRevision, networkId }) =>
+    context.networks.setEnabled(networkId, enabled, expectedRevision)
+  )
+  registerIpcRoute(networkRemoveContract, async ({ confirmed, networkId }) => {
+    await context.networks.removeCustomNetwork(networkId, confirmed)
+    return { completed: true }
+  })
+  registerIpcRoute(networkReorderContract, async ({ networkIds }) => {
+    await context.networks.reorderNetworks(networkIds)
+    return { completed: true }
+  })
+  registerIpcRoute(networkEndpointAddContract, ({ endpoint, networkId }) =>
+    context.networks.addEndpoint(networkId, endpoint)
+  )
+  registerIpcRoute(networkEndpointProbeContract, ({ endpointId }) =>
+    context.networks.probeEndpoint(endpointId)
+  )
+  registerIpcRoute(networkEndpointSetEnabledContract, ({ enabled, endpointId, expectedRevision }) =>
+    context.networks.setEndpointEnabled(endpointId, enabled, expectedRevision)
+  )
+  registerIpcRoute(networkEndpointRemoveContract, async ({ endpointId }) => {
+    await context.networks.removeEndpoint(endpointId)
+    return { completed: true }
+  })
+  registerIpcRoute(networkEndpointReorderContract, async ({ endpointIds, networkId }) => {
+    await context.networks.reorderEndpoints(networkId, endpointIds)
+    return { completed: true }
+  })
   registerIpcRoute(walletActiveReadContract, () => context.wallets.getActiveContext())
   registerIpcRoute(walletActiveWriteContract, (input) => context.wallets.setActiveContext(input))
   registerIpcRoute(walletActiveClearContract, async () => {

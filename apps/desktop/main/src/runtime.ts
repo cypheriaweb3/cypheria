@@ -109,6 +109,13 @@ export const initializeDesktopRuntime = async (
     const audit = createAuditLogService(database.db)
     const networkPersistence = createNetworkPersistenceService(database.db)
     await networkPersistence.reconcileCatalog()
+    const walletPersistence = createWalletPublicStatePersistenceService(database.db)
+    const walletProviderPersistence = createWalletProviderPersistenceService(database.db)
+    const automation = createAutomationRuntimeService({
+      ...automationOptions,
+      audit,
+      persistence: createAutomationPersistenceService(database.db),
+    })
     const networkCredentials = createDesktopNetworkCredentialStore(paths.configDir)
     const networkRouter = new NetworkRpcRouter({
       credentials: networkCredentials,
@@ -117,10 +124,28 @@ export const initializeDesktopRuntime = async (
     const networks = createNetworkManager({
       audit,
       credentials: networkCredentials,
+      lifecycle: {
+        clearWorkspaceContext: async (networkId) => {
+          await walletPersistence.clearActiveContextForNetwork(networkId)
+        },
+        failPendingWork: async (chainKey) => {
+          networkRouter.invalidateChain(chainKey)
+        },
+        pauseAutomations: async (chainKey) => {
+          const tasks = await automation.listTasks("enabled")
+          await Promise.all(
+            tasks
+              .filter((task) => task.walletPolicyScope.chainKeys.includes(chainKey))
+              .map((task) => automation.pauseTask(task.id, task.revision))
+          )
+        },
+        revokeDappGrants: async (_networkId, chainKey) => {
+          await walletProviderPersistence.revokeChainPermissions(chainKey)
+        },
+      },
       persistence: networkPersistence,
       router: networkRouter,
     })
-    const walletPersistence = createWalletPublicStatePersistenceService(database.db)
     const vault = createWalletVaultController({
       codec: createWalletKeystoreCodec(),
       keyProvider: vaultKeyProvider ?? createDesktopVaultMasterKeyProvider(paths.configDir),
@@ -142,13 +167,7 @@ export const initializeDesktopRuntime = async (
       persistence: createSigningIntentPersistenceService(database.db),
       policies,
     })
-    const walletProviderPersistence = createWalletProviderPersistenceService(database.db)
     const dappSessions = createDappSessionManager({ persistence: walletProviderPersistence })
-    const automation = createAutomationRuntimeService({
-      ...automationOptions,
-      audit,
-      persistence: createAutomationPersistenceService(database.db),
-    })
     const ethereumProvider = createEthereumProviderRuntimeService({
       executeSigningIntent:
         ethereumProviderOptions?.executeSigningIntent ??

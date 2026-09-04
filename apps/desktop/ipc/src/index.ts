@@ -6,6 +6,7 @@ import {
   automationTaskStatusSchema,
   createAutomationTaskInputSchema,
 } from "@cypheria/automation-core"
+import { networkDefinitionSchema, rpcEndpointViewSchema } from "@cypheria/network-core"
 import { signingIntentSchema } from "@cypheria/wallet-core"
 import {
   dappSessionSchema,
@@ -40,7 +41,18 @@ import {
   AuditLogListInputSchema,
   AuditLogRecordSchema,
   type AuditLogRecordView,
+  NetworkCreateInputSchema,
+  NetworkEndpointAddInputSchema,
+  NetworkEndpointHealthSchema,
+  NetworkEndpointIdInputSchema,
+  NetworkEndpointReorderInputSchema,
+  NetworkEndpointSetEnabledInputSchema,
   NetworkListSchema,
+  NetworkMutationResultSchema,
+  NetworkRemoveInputSchema,
+  NetworkReorderInputSchema,
+  NetworkSetEnabledInputSchema,
+  NetworkViewSchema,
   SigningPolicyCreateInputSchema,
   SigningPolicyDisableInputSchema,
   SigningPolicyListInputSchema,
@@ -115,6 +127,15 @@ export const CYPHERIA_IPC_CHANNELS = {
   dappProviderRequest: "dapp.provider.request",
   dappProviderEvent: "dapp.provider.event",
   networkList: "network.list",
+  networkCreate: "network.create",
+  networkSetEnabled: "network.set-enabled",
+  networkRemove: "network.remove",
+  networkReorder: "network.reorder",
+  networkEndpointAdd: "network.endpoint.add",
+  networkEndpointProbe: "network.endpoint.probe",
+  networkEndpointRemove: "network.endpoint.remove",
+  networkEndpointReorder: "network.endpoint.reorder",
+  networkEndpointSetEnabled: "network.endpoint.set-enabled",
   policyCreate: "policy.create",
   policyDisable: "policy.disable",
   policyList: "policy.list",
@@ -591,6 +612,84 @@ export const networkListContract = {
   response: NetworkListSchema,
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<EmptyPayload, z.output<typeof NetworkListSchema>>
+export const networkCreateContract = {
+  channel: CYPHERIA_IPC_CHANNELS.networkCreate,
+  namespace: "chain",
+  request: NetworkCreateInputSchema,
+  response: NetworkViewSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  z.input<typeof NetworkCreateInputSchema>,
+  z.output<typeof NetworkViewSchema>
+>
+export const networkSetEnabledContract = {
+  channel: CYPHERIA_IPC_CHANNELS.networkSetEnabled,
+  namespace: "chain",
+  request: NetworkSetEnabledInputSchema,
+  response: networkDefinitionSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  z.input<typeof NetworkSetEnabledInputSchema>,
+  z.output<typeof networkDefinitionSchema>
+>
+export const networkRemoveContract = {
+  channel: CYPHERIA_IPC_CHANNELS.networkRemove,
+  namespace: "chain",
+  request: NetworkRemoveInputSchema,
+  response: NetworkMutationResultSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof NetworkRemoveInputSchema>, { completed: boolean }>
+export const networkReorderContract = {
+  channel: CYPHERIA_IPC_CHANNELS.networkReorder,
+  namespace: "chain",
+  request: NetworkReorderInputSchema,
+  response: NetworkMutationResultSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof NetworkReorderInputSchema>, { completed: boolean }>
+export const networkEndpointAddContract = {
+  channel: CYPHERIA_IPC_CHANNELS.networkEndpointAdd,
+  namespace: "chain",
+  request: NetworkEndpointAddInputSchema,
+  response: rpcEndpointViewSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  z.input<typeof NetworkEndpointAddInputSchema>,
+  z.output<typeof rpcEndpointViewSchema>
+>
+export const networkEndpointProbeContract = {
+  channel: CYPHERIA_IPC_CHANNELS.networkEndpointProbe,
+  namespace: "chain",
+  request: NetworkEndpointIdInputSchema,
+  response: NetworkEndpointHealthSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  z.input<typeof NetworkEndpointIdInputSchema>,
+  z.output<typeof NetworkEndpointHealthSchema>
+>
+export const networkEndpointRemoveContract = {
+  channel: CYPHERIA_IPC_CHANNELS.networkEndpointRemove,
+  namespace: "chain",
+  request: NetworkEndpointIdInputSchema,
+  response: NetworkMutationResultSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof NetworkEndpointIdInputSchema>, { completed: boolean }>
+export const networkEndpointReorderContract = {
+  channel: CYPHERIA_IPC_CHANNELS.networkEndpointReorder,
+  namespace: "chain",
+  request: NetworkEndpointReorderInputSchema,
+  response: NetworkMutationResultSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof NetworkEndpointReorderInputSchema>, { completed: boolean }>
+export const networkEndpointSetEnabledContract = {
+  channel: CYPHERIA_IPC_CHANNELS.networkEndpointSetEnabled,
+  namespace: "chain",
+  request: NetworkEndpointSetEnabledInputSchema,
+  response: rpcEndpointViewSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  z.input<typeof NetworkEndpointSetEnabledInputSchema>,
+  z.output<typeof rpcEndpointViewSchema>
+>
 export const walletActiveReadContract = {
   channel: CYPHERIA_IPC_CHANNELS.walletActiveRead,
   namespace: "wallet",
@@ -967,6 +1066,16 @@ export const ipcContracts = {
   codexModelSettingsWrite: codexModelSettingsWriteContract,
   codexThreadList: codexThreadListContract,
   dappProviderRequest: dappProviderRequestContract,
+  networkCreate: networkCreateContract,
+  networkEndpointAdd: networkEndpointAddContract,
+  networkEndpointProbe: networkEndpointProbeContract,
+  networkEndpointRemove: networkEndpointRemoveContract,
+  networkEndpointReorder: networkEndpointReorderContract,
+  networkEndpointSetEnabled: networkEndpointSetEnabledContract,
+  networkList: networkListContract,
+  networkRemove: networkRemoveContract,
+  networkReorder: networkReorderContract,
+  networkSetEnabled: networkSetEnabledContract,
   policyCreate: policyCreateContract,
   policyDisable: policyDisableContract,
   policyList: policyListContract,
@@ -1069,7 +1178,33 @@ export type CypheriaPreloadApi = {
     ) => Promise<SigningPolicyRecordView>
   }
   readonly network: {
+    readonly addEndpoint: (
+      input: z.input<typeof NetworkEndpointAddInputSchema>
+    ) => Promise<z.output<typeof rpcEndpointViewSchema>>
+    readonly create: (
+      input: z.input<typeof NetworkCreateInputSchema>
+    ) => Promise<z.output<typeof NetworkViewSchema>>
     readonly list: () => Promise<z.output<typeof NetworkListSchema>>
+    readonly probeEndpoint: (
+      endpointId: string
+    ) => Promise<z.output<typeof NetworkEndpointHealthSchema>>
+    readonly remove: (networkId: string, confirmed: boolean) => Promise<{ completed: boolean }>
+    readonly removeEndpoint: (endpointId: string) => Promise<{ completed: boolean }>
+    readonly reorder: (networkIds: readonly string[]) => Promise<{ completed: boolean }>
+    readonly reorderEndpoints: (
+      networkId: string,
+      endpointIds: readonly string[]
+    ) => Promise<{ completed: boolean }>
+    readonly setEnabled: (
+      networkId: string,
+      enabled: boolean,
+      expectedRevision: number
+    ) => Promise<z.output<typeof networkDefinitionSchema>>
+    readonly setEndpointEnabled: (
+      endpointId: string,
+      enabled: boolean,
+      expectedRevision: number
+    ) => Promise<z.output<typeof rpcEndpointViewSchema>>
   }
   readonly settings: {
     readonly getAppearance: () => Promise<AppearanceSettings>

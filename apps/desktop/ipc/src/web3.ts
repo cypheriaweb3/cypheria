@@ -1,6 +1,8 @@
 import {
   networkDefinitionSchema,
   networkIdSchema,
+  rpcEndpointHealthSchema,
+  rpcEndpointIdSchema,
   rpcEndpointViewSchema,
 } from "@cypheria/network-core"
 import {
@@ -8,6 +10,7 @@ import {
   SigningPolicySchema,
   signingPolicyIdSchema,
 } from "@cypheria/policy-engine"
+import { createNetworkInputSchema, createRpcEndpointInputSchema } from "@cypheria/runtime"
 import {
   chainAccountIdSchema,
   chainAccountSchema,
@@ -29,6 +32,34 @@ export const NetworkViewSchema = z
   .strict()
 export const NetworkListSchema = z.array(NetworkViewSchema)
 export type NetworkList = z.infer<typeof NetworkListSchema>
+export const NetworkCreateInputSchema = createNetworkInputSchema
+export const NetworkSetEnabledInputSchema = z
+  .object({
+    enabled: z.boolean(),
+    expectedRevision: z.number().int().positive(),
+    networkId: networkIdSchema,
+  })
+  .strict()
+export const NetworkRemoveInputSchema = z
+  .object({ confirmed: z.boolean(), networkId: networkIdSchema })
+  .strict()
+export const NetworkReorderInputSchema = z.object({ networkIds: z.array(networkIdSchema) }).strict()
+export const NetworkEndpointAddInputSchema = z
+  .object({ endpoint: createRpcEndpointInputSchema, networkId: networkIdSchema })
+  .strict()
+export const NetworkEndpointSetEnabledInputSchema = z
+  .object({
+    enabled: z.boolean(),
+    endpointId: rpcEndpointIdSchema,
+    expectedRevision: z.number().int().positive(),
+  })
+  .strict()
+export const NetworkEndpointIdInputSchema = z.object({ endpointId: rpcEndpointIdSchema }).strict()
+export const NetworkEndpointReorderInputSchema = z
+  .object({ endpointIds: z.array(rpcEndpointIdSchema), networkId: networkIdSchema })
+  .strict()
+export const NetworkMutationResultSchema = z.object({ completed: z.boolean() }).strict()
+export { rpcEndpointHealthSchema as NetworkEndpointHealthSchema }
 export const WalletIdInputSchema = z.object({ walletId: walletIdSchema }).strict()
 export const WalletGenerateHdInputSchema = z
   .object({

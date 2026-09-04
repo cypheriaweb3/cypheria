@@ -37,7 +37,11 @@ import {
   type NetworkRuntimeErrorCode,
   type ResolveRpcAddresses,
 } from "./destination.js"
-import { createFetchRpcTransport, type RpcTransport } from "./transport.js"
+import {
+  createFetchRpcTransport,
+  createWebSocketRpcTransport,
+  type RpcTransport,
+} from "./transport.js"
 
 export type RpcPurpose = "read" | "simulate" | "broadcast" | "subscribe"
 
@@ -63,6 +67,7 @@ export type NetworkRpcRouterOptions = {
   readonly resolveAddresses?: ResolveRpcAddresses
   readonly timeoutMs?: number
   readonly transport?: RpcTransport
+  readonly websocketTransport?: RpcTransport
 }
 
 type InternalEndpointHealth = RpcEndpointHealth & { readonly cooldownUntil?: number }
@@ -88,6 +93,7 @@ const endpointUrl = async (
 }
 
 export class NetworkRpcRouter {
+  readonly #chainEpochs = new Map<ChainKey, number>()
   readonly #credentials: NetworkCredentialStore
   readonly #health = new Map<RpcEndpointId, InternalEndpointHealth>()
   readonly #operationEndpoints = new Map<string, RpcEndpointId>()
@@ -96,6 +102,7 @@ export class NetworkRpcRouter {
   readonly #resolveAddresses?: ResolveRpcAddresses
   readonly #timeoutMs: number
   readonly #transport: RpcTransport
+  readonly #websocketTransport: RpcTransport
 
   constructor(options: NetworkRpcRouterOptions) {
     this.#credentials = options.credentials
@@ -104,6 +111,7 @@ export class NetworkRpcRouter {
     this.#resolveAddresses = options.resolveAddresses
     this.#timeoutMs = options.timeoutMs ?? 15_000
     this.#transport = options.transport ?? createFetchRpcTransport()
+    this.#websocketTransport = options.websocketTransport ?? createWebSocketRpcTransport()
   }
 
   getHealth(endpointId: RpcEndpointId): RpcEndpointHealth {
@@ -115,6 +123,12 @@ export class NetworkRpcRouter {
     for (const endpointId of endpointIds) this.#health.delete(endpointId)
   }
 
+  invalidateChain(chainKeyValue: ChainKey): void {
+    const chainKey = chainKeySchema.parse(chainKeyValue)
+    this.#chainEpochs.set(chainKey, (this.#chainEpochs.get(chainKey) ?? 0) + 1)
+    this.#operationEndpoints.clear()
+  }
+
   async #execute(endpoint: RpcEndpoint, request: RpcRequest): Promise<unknown> {
     const credential = await endpointUrl(endpoint, this.#credentials)
     await assertRpcDestination(
@@ -122,7 +136,7 @@ export class NetworkRpcRouter {
       { localDevelopment: endpoint.localDevelopment },
       this.#resolveAddresses
     )
-    return this.#transport({
+    return (endpoint.transport === "websocket" ? this.#websocketTransport : this.#transport)({
       url: credential.url,
       headers: credential.headers,
       method: request.method,
@@ -204,6 +218,7 @@ export class NetworkRpcRouter {
     routing: RpcRoutingOptions = {}
   ): Promise<unknown> {
     const chainKey = chainKeySchema.parse(chainKeyValue)
+    const requestEpoch = this.#chainEpochs.get(chainKey) ?? 0
     const networks = await this.#persistence.listNetworks()
     const entry = networks.find(({ network }) => toChainKey(network.chain) === chainKey)
     if (!entry) throw new NetworkRuntimeError("NETWORK_NOT_FOUND", "The network is not configured.")
@@ -250,6 +265,9 @@ export class NetworkRpcRouter {
           }
         }
         const result = await this.#execute(endpoint, request)
+        if ((this.#chainEpochs.get(chainKey) ?? 0) !== requestEpoch) {
+          throw new NetworkRuntimeError("NETWORK_DISABLED", "The network became unavailable.")
+        }
         this.#markSuccess(endpoint, chainKey)
         if (routing.operationKey) this.#operationEndpoints.set(routing.operationKey, endpoint.id)
         return result
@@ -277,7 +295,7 @@ export class NetworkRpcRouter {
   }
 }
 
-const createEndpointInputSchema = z
+export const createRpcEndpointInputSchema = z
   .object({
     label: z.string().trim().min(1).max(80),
     transport: z.enum(["http", "websocket"]),
@@ -288,7 +306,7 @@ const createEndpointInputSchema = z
   })
   .strict()
 
-const createNetworkInputSchema = z
+export const createNetworkInputSchema = z
   .object({
     chain: chainIdentitySchema,
     name: z.string().trim().min(1).max(80),
@@ -297,11 +315,11 @@ const createNetworkInputSchema = z
     verification: networkVerificationSchema,
     testnet: z.boolean(),
     enabled: z.boolean().default(true),
-    endpoints: z.array(createEndpointInputSchema).min(1),
+    endpoints: z.array(createRpcEndpointInputSchema).min(1),
   })
   .strict()
 
-export type CreateRpcEndpointInput = z.input<typeof createEndpointInputSchema>
+export type CreateRpcEndpointInput = z.input<typeof createRpcEndpointInputSchema>
 export type CreateNetworkInput = z.input<typeof createNetworkInputSchema>
 
 export type NetworkLifecycleCoordinator = {
@@ -347,6 +365,16 @@ export type NetworkManager = {
     beforeCommit?: (proposal: NetworkView) => Promise<boolean> | boolean
   ) => Promise<readonly RpcEndpointView[]>
   readonly probeEndpoint: (endpointId: RpcEndpointId) => Promise<RpcEndpointHealth>
+  readonly setEndpointEnabled: (
+    endpointId: RpcEndpointId,
+    enabled: boolean,
+    expectedRevision: number
+  ) => Promise<RpcEndpointView>
+  readonly reorderNetworks: (networkIds: readonly NetworkId[]) => Promise<void>
+  readonly reorderEndpoints: (
+    networkId: NetworkId,
+    endpointIds: readonly RpcEndpointId[]
+  ) => Promise<void>
   readonly removeEndpoint: (endpointId: RpcEndpointId) => Promise<void>
   readonly removeCustomNetwork: (networkId: NetworkId, confirmed: boolean) => Promise<void>
   readonly getDappContext: NetworkPersistenceService["getDappContext"]
@@ -385,7 +413,7 @@ export const createNetworkManager = (options: NetworkManagerOptions): NetworkMan
     position: number,
     inputValue: CreateRpcEndpointInput
   ): Promise<RpcEndpoint> => {
-    const input = createEndpointInputSchema.parse(inputValue)
+    const input = createRpcEndpointInputSchema.parse(inputValue)
     const normalizedUrl = normalizeRpcUrl(input.url, {
       allowLoopbackDevelopment: input.localDevelopment,
       transport: input.transport,
@@ -520,6 +548,27 @@ export const createNetworkManager = (options: NetworkManagerOptions): NetworkMan
       if (enabled && current.network.deprecated) {
         throw new NetworkRuntimeError("NETWORK_DISABLED", "A deprecated network cannot be enabled.")
       }
+      if (enabled && !current.network.enabled) {
+        const endpoints = current.endpoints.filter(
+          (endpoint) => endpoint.enabled && !endpoint.deprecated && endpoint.transport === "http"
+        )
+        if (endpoints.length === 0) {
+          throw new NetworkRuntimeError(
+            "RPC_ENDPOINT_UNAVAILABLE",
+            "The network has no enabled HTTP RPC endpoint."
+          )
+        }
+        try {
+          await Promise.any(
+            endpoints.map((endpoint) => options.router.probe(current.network, endpoint))
+          )
+        } catch {
+          throw new NetworkRuntimeError(
+            "RPC_ENDPOINT_UNAVAILABLE",
+            "No RPC endpoint passed the network identity probe."
+          )
+        }
+      }
       const updated = await options.persistence.updateNetwork(
         {
           ...current.network,
@@ -532,6 +581,7 @@ export const createNetworkManager = (options: NetworkManagerOptions): NetworkMan
       if (!enabled) {
         await options.persistence.clearDappContexts(networkId)
         await options.lifecycle?.clearWorkspaceContext?.(networkId)
+        await options.lifecycle?.revokeDappGrants?.(networkId, toChainKey(updated.chain))
         await options.lifecycle?.pauseAutomations?.(toChainKey(updated.chain))
         await options.lifecycle?.failPendingWork?.(toChainKey(updated.chain))
       }
@@ -561,8 +611,89 @@ export const createNetworkManager = (options: NetworkManagerOptions): NetworkMan
       }
       return options.router.probe(entry.network, endpoint)
     },
+    setEndpointEnabled: async (endpointIdValue, enabled, expectedRevision) => {
+      const endpointId = rpcEndpointIdSchema.parse(endpointIdValue)
+      const entry = (await options.persistence.listNetworks()).find(({ endpoints }) =>
+        endpoints.some(({ id }) => id === endpointId)
+      )
+      const endpoint = entry?.endpoints.find(({ id }) => id === endpointId)
+      if (!entry || !endpoint) {
+        throw new NetworkRuntimeError("RPC_ENDPOINT_UNAVAILABLE", "The RPC endpoint was not found.")
+      }
+      if (
+        !enabled &&
+        entry.network.enabled &&
+        endpoint.transport === "http" &&
+        entry.endpoints.filter(
+          (candidate) =>
+            candidate.id !== endpoint.id &&
+            candidate.transport === "http" &&
+            candidate.enabled &&
+            !candidate.deprecated
+        ).length === 0
+      ) {
+        throw new NetworkRuntimeError(
+          "RPC_ENDPOINT_UNAVAILABLE",
+          "An enabled network must keep at least one HTTP RPC endpoint."
+        )
+      }
+      if (enabled && !endpoint.enabled) {
+        await options.router.probe(entry.network, endpoint)
+      }
+      const updated = await options.persistence.saveEndpoint(
+        {
+          ...endpoint,
+          enabled,
+          revision: expectedRevision + 1,
+          updatedAt: timestampSchema.parse(now()),
+        },
+        expectedRevision
+      )
+      if (!enabled) options.router.clearHealth([endpointId])
+      await audit(
+        enabled ? "network.endpoint-enabled" : "network.endpoint-disabled",
+        `${enabled ? "Enabled" : "Disabled"} RPC endpoint ${endpointId}.`,
+        endpointId
+      )
+      return projectRpcEndpoint(updated, options.router.getHealth(endpointId))
+    },
+    reorderNetworks: async (networkIds) => {
+      await options.persistence.reorderNetworks(networkIds, timestampSchema.parse(now()))
+      await audit("network.reordered", "Reordered networks.", "network-order")
+    },
+    reorderEndpoints: async (networkId, endpointIds) => {
+      await options.persistence.reorderEndpoints(
+        networkIdSchema.parse(networkId),
+        endpointIds,
+        timestampSchema.parse(now())
+      )
+      await audit("network.endpoints-reordered", "Reordered RPC endpoints.", networkId)
+    },
     removeEndpoint: async (endpointIdValue) => {
       const endpointId = rpcEndpointIdSchema.parse(endpointIdValue)
+      const entry = (await options.persistence.listNetworks()).find(({ endpoints }) =>
+        endpoints.some(({ id }) => id === endpointId)
+      )
+      const endpoint = entry?.endpoints.find(({ id }) => id === endpointId)
+      if (!entry || !endpoint) {
+        throw new NetworkRuntimeError("RPC_ENDPOINT_UNAVAILABLE", "The RPC endpoint was not found.")
+      }
+      if (
+        entry.network.enabled &&
+        endpoint.transport === "http" &&
+        entry.endpoints.filter(
+          (candidate) =>
+            candidate.id !== endpoint.id &&
+            candidate.transport === "http" &&
+            candidate.enabled &&
+            !candidate.deprecated
+        ).length === 0
+      ) {
+        throw new NetworkRuntimeError(
+          "RPC_ENDPOINT_UNAVAILABLE",
+          "An enabled network must keep at least one HTTP RPC endpoint."
+        )
+      }
       const reference = await options.persistence.deleteEndpoint(endpointId)
       if (reference) await options.credentials.delete(reference)
       options.router.clearHealth([endpointId])

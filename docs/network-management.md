@@ -192,7 +192,7 @@ dapp_network_contexts
 
 Wallet chain accounts retain chain identity columns and do not have a cascading foreign key to `networks`. Removing connectivity must never delete accounts, policies, signing intents, transaction records, or audit history. References from active contexts are cleared or rejected explicitly; historical records retain their chain key.
 
-Built-in networks can only be disabled. Custom networks are disabled by default and require a separate confirmed operation for permanent removal. Permanent removal deletes their endpoints, protected credentials, and disposable health state; clears workspace and dApp selections; revokes origin grants tied to that configuration; pauses affected automations; and makes pending RPC-dependent work fail with a stable unavailable error. Policies and historical records remain keyed by chain identity but become non-executable while no enabled matching network exists. Re-adding the same chain never silently restores dApp grants or automation execution.
+Built-in networks can only be disabled. Custom networks become enabled only after an explicit user action and successful identity probe, and require a separate confirmed operation for permanent removal. Permanent removal deletes their endpoints, protected credentials, and disposable health state; clears workspace and dApp selections; revokes origin grants tied to that configuration; pauses affected automations; and makes pending RPC-dependent work fail with a stable unavailable error. Policies and historical records remain keyed by chain identity but become non-executable while no enabled matching network exists. Re-adding the same chain never silently restores dApp grants or automation execution.
 
 ## Runtime Services
 
@@ -276,16 +276,17 @@ The desktop workspace selection and dApp selections are separate. A user may exp
 
 The network screen provides:
 
-- namespace, enabled/testnet, and search filters;
 - built-in/custom and enabled/disabled badges;
-- drag ordering for networks and endpoints;
-- add/edit flows with live chain-identity probes;
+- explicit ordering controls for networks and endpoints;
+- add flows and enablement changes with live chain-identity probes;
 - endpoint health, last success, latency, and redacted URL;
 - an explicit primary endpoint with ordered fallbacks;
 - disable for built-ins and guarded delete for custom networks;
 - clear warnings for protected credentials, local development endpoints, and dApp-proposed networks.
 
 Approval screens show the requesting origin, requested chain identity, current chain, metadata differences, every redacted RPC host, and probe results before add or switch approval.
+
+The implemented desktop flow uses a native, origin-labelled approval dialog for synchronous EIP-3085/EIP-3326 requests. The network workbench exposes the same redacted definitions and health state through typed IPC; raw credential URLs and headers never cross into renderer state. Disabling a network clears matching workspace and origin selections, revokes EVM and Solana grants for its chain key, pauses scoped automations, and invalidates in-flight routed work. Custom deletion additionally removes endpoints, protected credentials, and disposable health while retaining policies, signing records, and audit history.
 
 ## Failure Semantics
 

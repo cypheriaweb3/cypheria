@@ -28,6 +28,7 @@ import {
   ChevronLeft,
   CircleUserRound,
   FolderGit2,
+  Globe2,
   LogIn,
   Palette,
   ScrollText,
@@ -68,6 +69,11 @@ const navigationItems = [
 ] as const
 
 const workbenchItems = [
+  {
+    href: "/networks",
+    icon: <Globe2 size={16} strokeWidth={1.9} />,
+    label: "Networks",
+  },
   {
     href: "/wallets",
     icon: <WalletCards size={16} strokeWidth={1.9} />,

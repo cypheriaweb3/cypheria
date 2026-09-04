@@ -1,6 +1,7 @@
 import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { createDappBrowserPersistenceService } from "@cypheria/db"
 import { toChainKey } from "@cypheria/network-core"
 import { createMemoryVaultMasterKeyProvider } from "@cypheria/runtime"
 import { describe, expect, it } from "vitest"
@@ -21,7 +22,8 @@ describe("desktop runtime bootstrap", () => {
       expect(context.runtime.lifecycleState).toBe("ready")
       expect(context.paths).toBe(context.runtime.paths)
       expect(context.codexEnv.CODEX_HOME).toBe(context.paths.codexHome)
-      await expect(context.dappSessions.open("https://app.example/path")).resolves.toMatchObject({
+      const dappSession = await context.dappSessions.open("https://app.example/path")
+      expect(dappSession).toMatchObject({
         origin: "https://app.example",
       })
       const wallet = await context.wallets.addWatchWallet({
@@ -71,12 +73,46 @@ describe("desktop runtime bootstrap", () => {
         status: "enabled",
         title: "Desktop smoke task",
         trigger: { kind: "manual", requestedBy: "user" },
-        walletPolicyScope: { accountIds: [], chainKeys: [], mode: "read-only" },
+        walletPolicyScope: { accountIds: [], chainKeys: ["eip155:1"], mode: "read-only" },
         workspace: { id: "desktop", path: homeDir },
       })
       await expect(
         context.runtime.request("automation.run.start", { taskId: task.id })
       ).resolves.toMatchObject({ status: "succeeded", taskId: task.id })
+
+      const ethereumNetwork = (await context.networks.list()).find(
+        ({ network }) => toChainKey(network.chain) === "eip155:1"
+      )
+      if (!ethereumNetwork) throw new Error("Expected the Ethereum network.")
+      await context.wallets.setActiveContext({
+        chainAccountId: chainAccount.id,
+        mode: "read-only",
+        networkId: ethereumNetwork.network.id,
+        walletAccountId: walletAccount.account.id,
+        walletId: wallet.wallet.id,
+      })
+      const browserPersistence = createDappBrowserPersistenceService(context.database.db)
+      await browserPersistence.savePermission({
+        accountAddresses: [chainAccount.address as `0x${string}`],
+        chainKey: "eip155:1",
+        createdAt: "2026-09-04T00:00:00.000Z",
+        id: "dapp_permission_lifecycle",
+        methods: ["eth_accounts"],
+        origin: dappSession.origin,
+        sessionKey: dappSession.key,
+        updatedAt: "2026-09-04T00:00:00.000Z",
+        walletId: wallet.wallet.id,
+      })
+      await context.networks.setEnabled(
+        ethereumNetwork.network.id,
+        false,
+        ethereumNetwork.network.revision
+      )
+      await expect(context.wallets.getActiveContext()).resolves.toEqual({ mode: "read-only" })
+      await expect(browserPersistence.listPermissions(dappSession.origin)).resolves.toEqual([])
+      await expect(context.automation.getTask(task.id)).resolves.toMatchObject({
+        task: { status: "paused" },
+      })
 
       await shutdownDesktopRuntime(context)
       expect(context.runtime.lifecycleState).toBe("stopped")

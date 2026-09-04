@@ -9,7 +9,9 @@ export {
 export {
   type CreateNetworkInput,
   type CreateRpcEndpointInput,
+  createNetworkInputSchema,
   createNetworkManager,
+  createRpcEndpointInputSchema,
   type NetworkLifecycleCoordinator,
   type NetworkManager,
   type NetworkManagerOptions,
@@ -22,7 +24,9 @@ export {
 } from "./service.js"
 export {
   createFetchRpcTransport,
+  createWebSocketRpcTransport,
   type FetchRpcTransportOptions,
   type RpcTransport,
   type RpcTransportRequest,
+  type WebSocketRpcTransportOptions,
 } from "./transport.js"

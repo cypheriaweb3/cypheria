@@ -126,7 +126,34 @@ const cypheriaApi: CypheriaPreloadApi = {
     getInfo: () => invoke<RuntimeInfo>(CYPHERIA_IPC_CHANNELS.runtimeInfoRead),
   },
   network: {
+    addEndpoint: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkEndpointAdd, input),
+    create: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkCreate, input),
     list: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkList),
+    probeEndpoint: (endpointId) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkEndpointProbe, { endpointId }),
+    remove: (networkId, confirmed) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkRemove, { confirmed, networkId }),
+    removeEndpoint: (endpointId) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkEndpointRemove, { endpointId }),
+    reorder: (networkIds) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkReorder, { networkIds }),
+    reorderEndpoints: (networkId, endpointIds) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkEndpointReorder, {
+        endpointIds,
+        networkId,
+      }),
+    setEnabled: (networkId, enabled, expectedRevision) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkSetEnabled, {
+        enabled,
+        expectedRevision,
+        networkId,
+      }),
+    setEndpointEnabled: (endpointId, enabled, expectedRevision) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkEndpointSetEnabled, {
+        enabled,
+        endpointId,
+        expectedRevision,
+      }),
   },
   policy: {
     create: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.policyCreate, input),

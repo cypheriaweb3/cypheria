@@ -48,8 +48,6 @@ describe("dApp browser persistence", () => {
     }
     await expect(service.savePermission(permission)).resolves.toEqual(permission)
     await expect(service.listPermissions(session.origin)).resolves.toEqual([permission])
-    await expect(service.deletePermission(permission.id)).resolves.toBe(true)
-    await expect(service.listPermissions(session.origin)).resolves.toEqual([])
 
     const solanaPermission: SolanaProviderPermissionRecord = {
       id: "solana_permission_one",
@@ -81,7 +79,10 @@ describe("dApp browser persistence", () => {
     }
     await expect(service.saveSolanaPermission(solanaPermission)).resolves.toEqual(solanaPermission)
     await expect(service.listSolanaPermissions(session.origin)).resolves.toEqual([solanaPermission])
-    await expect(service.deleteSolanaPermission(solanaPermission.id)).resolves.toBe(true)
+    await service.revokeChainPermissions("eip155:1")
+    await expect(service.listPermissions(session.origin)).resolves.toEqual([])
+    await expect(service.listSolanaPermissions(session.origin)).resolves.toEqual([solanaPermission])
+    await service.revokeChainPermissions("solana:mainnet")
     await expect(service.listSolanaPermissions(session.origin)).resolves.toEqual([])
     database.close()
   })

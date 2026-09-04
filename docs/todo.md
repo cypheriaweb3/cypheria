@@ -167,7 +167,7 @@ Status legend:
   - Include: data migrations and compatibility adapters for EIP-1193 hexadecimal IDs and Solana Wallet Standard identifiers.
   - Verification: wallet-core, policy-engine, automation-core, wallet-provider, database, runtime, and desktop IPC tests.
 
-- [ ] Add origin-scoped network add/switch flows and desktop management UI.
+- [x] Add origin-scoped network add/switch flows and desktop management UI.
   - Acceptance: each dApp origin selects Ethereum and Solana networks independently; EIP-3085 add and EIP-3326 switch requests require validated probes and approval; desktop manages network and endpoint ordering, enabled state, health, and redacted credentials.
   - Include: typed IPC, provider events emitted only after successful selection changes, built-in disable/custom delete behavior, and approval metadata diffs.
   - Verification: runtime, desktop, provider, and real sandboxed Electron tests; `pnpm run ci`, `pnpm build`.

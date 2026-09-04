@@ -454,6 +454,16 @@ export const createDappProviderRuntimeService = (
       }
       const knownUrls = new Set(existing.endpoints.map(({ connection }) => connection.displayUrl))
       const endpoints = input.endpoints.filter(({ url }) => !knownUrls.has(url))
+      const metadataChanges = [
+        ...(existing.network.name === input.name ? [] : ["chainName (existing value retained)"]),
+        ...(JSON.stringify(existing.network.nativeCurrency) === JSON.stringify(input.nativeCurrency)
+          ? []
+          : ["nativeCurrency (existing value retained)"]),
+        ...(JSON.stringify(existing.network.explorers) === JSON.stringify(input.explorers)
+          ? []
+          : ["blockExplorerUrls (existing values retained)"]),
+        ...(endpoints.length ? ["rpcUrls"] : []),
+      ]
       if (endpoints.length > 0) {
         await options.networks.addEndpoints(existing.network.id, endpoints, async (proposal) => {
           await authorizeNetwork({
@@ -461,7 +471,7 @@ export const createDappProviderRuntimeService = (
             origin: request.origin,
             ...(current ? { currentNetwork: current } : {}),
             proposal,
-            metadataChanges: ["rpcUrls"],
+            metadataChanges,
           })
           return true
         })
@@ -471,7 +481,7 @@ export const createDappProviderRuntimeService = (
           origin: request.origin,
           ...(current ? { currentNetwork: current } : {}),
           proposal: existing,
-          metadataChanges: [],
+          metadataChanges,
         })
       }
       target = existing.network

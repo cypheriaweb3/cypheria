@@ -9,6 +9,8 @@ import {
   automationTaskPauseContract,
   browserSessionOpenContract,
   dappProviderRequestContract,
+  networkCreateContract,
+  networkEndpointSetEnabledContract,
 } from "./index.js"
 
 const view = {
@@ -124,6 +126,45 @@ describe("dApp browser IPC contracts", () => {
     expect(browserSessionOpenContract.request.parse({ url: "https://app.example/path" })).toEqual({
       url: "https://app.example/path",
     })
+  })
+})
+
+describe("network IPC contracts", () => {
+  it("validates strict custom network inputs and optimistic endpoint mutations", () => {
+    expect(
+      networkCreateContract.request.parse({
+        chain: { namespace: "eip155", reference: "137" },
+        enabled: true,
+        endpoints: [
+          {
+            enabled: true,
+            label: "Primary",
+            localDevelopment: false,
+            transport: "http",
+            url: "https://polygon.example/rpc",
+          },
+        ],
+        explorers: [],
+        name: "Polygon",
+        nativeCurrency: { decimals: 18, name: "POL", symbol: "POL" },
+        testnet: false,
+        verification: { kind: "evm-chain-id" },
+      })
+    ).toMatchObject({ chain: { namespace: "eip155", reference: "137" } })
+    expect(
+      networkEndpointSetEnabledContract.request.parse({
+        enabled: false,
+        endpointId: "rpc_primary",
+        expectedRevision: 2,
+      })
+    ).toEqual({ enabled: false, endpointId: "rpc_primary", expectedRevision: 2 })
+    expect(() =>
+      networkEndpointSetEnabledContract.request.parse({
+        enabled: false,
+        endpointId: "rpc_primary",
+        expectedRevision: 0,
+      })
+    ).toThrow()
   })
 })
 

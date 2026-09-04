@@ -59,6 +59,7 @@ export type WalletPublicStatePersistenceService = {
   ) => Promise<void>
   readonly create: (state: WalletPublicState) => Promise<WalletPublicState>
   readonly clearActiveContext: () => Promise<void>
+  readonly clearActiveContextForNetwork: (networkId: NetworkId) => Promise<boolean>
   readonly delete: (walletId: WalletId) => Promise<void>
   readonly get: (walletId: WalletId) => Promise<WalletPublicState | undefined>
   readonly getActiveContext: () => Promise<PersistedActiveWalletContext | undefined>
@@ -244,6 +245,13 @@ export const createWalletPublicStatePersistenceService = (
   },
   clearActiveContext: async () => {
     await db.delete(activeWalletContext).where(eq(activeWalletContext.id, "default"))
+  },
+  clearActiveContextForNetwork: async (networkIdValue) => {
+    const [deleted] = await db
+      .delete(activeWalletContext)
+      .where(eq(activeWalletContext.networkId, networkIdSchema.parse(networkIdValue)))
+      .returning({ id: activeWalletContext.id })
+    return Boolean(deleted)
   },
   create: async (state) => {
     const parsed = parsePublicState(state)
