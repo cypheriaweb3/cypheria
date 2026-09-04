@@ -16,9 +16,6 @@ export const walletKinds = [
 ] as const
 export type WalletKind = (typeof walletKinds)[number]
 
-export const walletProviders = ["local-vault", "read-only"] as const
-export type WalletProvider = (typeof walletProviders)[number]
-
 export const walletStatuses = ["initializing", "ready", "error", "deleting"] as const
 export type WalletStatus = (typeof walletStatuses)[number]
 
@@ -45,7 +42,6 @@ const localWalletSchema = <TKind extends "hd" | "private-key" | "private-key-gro
       ...walletBaseShape,
       kind: z.literal(kind),
       metadata: walletMetadataSchema.default({}),
-      provider: z.literal("local-vault"),
       vaultId: vaultIdSchema,
     })
     .strict()
@@ -56,7 +52,6 @@ const watchWalletSchema = <TKind extends "watch" | "watch-group">(kind: TKind) =
       ...walletBaseShape,
       kind: z.literal(kind),
       metadata: walletMetadataSchema.default({}),
-      provider: z.literal("read-only"),
     })
     .strict()
 
@@ -66,7 +61,6 @@ export const walletSchema = z.discriminatedUnion("kind", [
       ...walletBaseShape,
       kind: z.literal("hd"),
       metadata: hdWalletMetadataSchema.default({}),
-      provider: z.literal("local-vault"),
       vaultId: vaultIdSchema,
     })
     .strict(),
@@ -77,16 +71,16 @@ export const walletSchema = z.discriminatedUnion("kind", [
 ])
 
 export type Wallet = z.infer<typeof walletSchema>
-export type LocalWallet = Extract<Wallet, { provider: "local-vault" }>
-export type WatchWallet = Extract<Wallet, { provider: "read-only" }>
+export type LocalWallet = Extract<Wallet, { kind: "hd" | "private-key" | "private-key-group" }>
+export type WatchWallet = Extract<Wallet, { kind: "watch" | "watch-group" }>
 
 export const parseWallet = (value: unknown): Wallet => walletSchema.parse(value)
 
 export const isLocalWallet = (wallet: Wallet): wallet is LocalWallet =>
-  wallet.provider === "local-vault"
+  wallet.kind === "hd" || wallet.kind === "private-key" || wallet.kind === "private-key-group"
 
 export const isWatchWallet = (wallet: Wallet): wallet is WatchWallet =>
-  wallet.provider === "read-only"
+  wallet.kind === "watch" || wallet.kind === "watch-group"
 
 export const isGroupWallet = (
   wallet: Wallet

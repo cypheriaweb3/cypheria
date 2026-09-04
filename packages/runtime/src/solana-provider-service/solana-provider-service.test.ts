@@ -50,7 +50,6 @@ describe("Solana provider runtime service", () => {
         kind: "watch",
         metadata: {},
         name: "Solana executor",
-        provider: "read-only",
         status: "ready",
         updatedAt: timestamp,
       },

@@ -473,7 +473,10 @@ function WalletListItem({
           type="button"
           onClick={() => onSelect(view.wallet.id)}
         >
-          <WalletAvatar name={view.wallet.name} watchOnly={view.wallet.provider === "read-only"} />
+          <WalletAvatar
+            name={view.wallet.name}
+            watchOnly={view.wallet.kind === "watch" || view.wallet.kind === "watch-group"}
+          />
           <span className="min-w-0 flex-1">
             <span className="flex items-center gap-1.5">
               <span className="truncate text-sm font-medium">{view.wallet.name}</span>
@@ -745,7 +748,7 @@ function WalletDetails({
           </div>
           <div className="flex items-center gap-1">
             <RenameWalletDialog view={view} onRenamed={onRenamed} />
-            {view.wallet.provider === "local-vault" ? (
+            {view.wallet.kind !== "watch" && view.wallet.kind !== "watch-group" ? (
               <Button
                 aria-label={unlocked ? `Lock ${view.wallet.name}` : `Unlock ${view.wallet.name}`}
                 disabled={actionPending}
@@ -783,8 +786,8 @@ function WalletDetails({
             <div className="divide-y">
               {chainAccounts.map((chainAccount) => {
                 const accountIsActive = active?.chainAccount?.id === chainAccount.id
-                const defaultMode =
-                  view.wallet.provider === "read-only" ? "read-only" : "human-approval"
+                const watchOnly = view.wallet.kind === "watch" || view.wallet.kind === "watch-group"
+                const defaultMode = watchOnly ? "read-only" : "human-approval"
                 return (
                   <div className="grid gap-3 p-3" key={chainAccount.id}>
                     <div className="flex min-w-0 items-center justify-between gap-3">
@@ -825,7 +828,7 @@ function WalletDetails({
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="read-only">Read only</SelectItem>
-                          {view.wallet.provider !== "read-only" ? (
+                          {!watchOnly ? (
                             <>
                               <SelectItem value="human-approval">Ask every time</SelectItem>
                               <SelectItem value="conditional-auto-signing">Use policy</SelectItem>

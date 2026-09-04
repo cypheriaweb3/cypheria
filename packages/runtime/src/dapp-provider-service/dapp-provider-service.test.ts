@@ -31,7 +31,6 @@ describe("dApp provider runtime service", () => {
         kind: "watch",
         metadata: {},
         name: "Browser wallet",
-        provider: "read-only",
         status: "ready",
         updatedAt: timestamp,
       },

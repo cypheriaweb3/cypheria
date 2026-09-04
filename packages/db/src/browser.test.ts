@@ -21,7 +21,6 @@ describe("dApp browser persistence", () => {
         id: "wallet_browser",
         name: "Browser wallet",
         kind: "watch",
-        provider: "read-only",
         fingerprint: `sha256:${"1".repeat(64)}`,
         metadata: {},
         status: "ready",

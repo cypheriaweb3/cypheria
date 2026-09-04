@@ -148,7 +148,7 @@ Status legend:
   - Verification: `pnpm run ci`, `pnpm build`, database and desktop tests.
 
 - [x] Replace the wallet domain baseline.
-  - Acceptance: `@cypheria/wallet-core` models HD, private-key, private-key-group, watch, and watch-group wallets independently from provider and storage concerns.
+  - Acceptance: `@cypheria/wallet-core` models HD, private-key, private-key-group, watch, and watch-group wallets independently from storage concerns; wallet kind determines local-vault and read-only capabilities.
   - Include: Zod boundary schemas, stable identifiers, wallet/account/chain-account hierarchy, fingerprints, lifecycle states, derivation schemes, and renderer-safe projections.
   - Verification: `pnpm --filter @cypheria/wallet-core test`, `pnpm run ci`, `pnpm build`.
 

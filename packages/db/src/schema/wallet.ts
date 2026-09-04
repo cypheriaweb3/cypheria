@@ -11,7 +11,6 @@ import {
   type WalletId,
   walletKinds,
   walletModes,
-  walletProviders,
   walletStatuses,
 } from "@cypheria/wallet-core"
 import { sql } from "drizzle-orm"
@@ -31,7 +30,6 @@ export const wallets = sqliteTable(
     id: text("id").$type<WalletId>().primaryKey(),
     name: text("name").notNull(),
     kind: text("kind", { enum: walletKinds }).notNull(),
-    provider: text("provider", { enum: walletProviders }).notNull(),
     fingerprint: text("fingerprint").$type<WalletFingerprint>().notNull(),
     vaultId: text("vault_id").$type<VaultId>(),
     metadata: text("metadata", { mode: "json" }).$type<Wallet["metadata"]>().notNull(),
@@ -47,11 +45,11 @@ export const wallets = sqliteTable(
     index("wallets_position_idx").on(table.position),
     index("wallets_status_idx").on(table.status),
     check(
-      "wallets_kind_provider_check",
+      "wallets_kind_vault_check",
       sql`(
-        (${table.kind} IN ('hd', 'private-key', 'private-key-group') AND ${table.provider} = 'local-vault' AND ${table.vaultId} IS NOT NULL)
+        (${table.kind} IN ('hd', 'private-key', 'private-key-group') AND ${table.vaultId} IS NOT NULL)
         OR
-        (${table.kind} IN ('watch', 'watch-group') AND ${table.provider} = 'read-only' AND ${table.vaultId} IS NULL)
+        (${table.kind} IN ('watch', 'watch-group') AND ${table.vaultId} IS NULL)
       )`
     ),
     check(

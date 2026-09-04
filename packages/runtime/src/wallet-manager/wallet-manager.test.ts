@@ -167,7 +167,7 @@ describe("wallet manager", () => {
     expect(local.accounts[0]?.chainAccounts).toHaveLength(2)
     expect(group.accounts).toHaveLength(2)
     expect(importedHd.wallet.kind).toBe("hd")
-    expect(watch.wallet.provider).toBe("read-only")
+    expect(watch.wallet.kind).toBe("watch")
     expect(watchGroup.wallet.kind).toBe("watch-group")
     expect(JSON.stringify(await manager.listWallets())).not.toContain(privateKey)
     await expect(

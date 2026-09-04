@@ -22,7 +22,7 @@ const address = "0x00000000000000000000000000000000000000AA" as HexAddress
 const now = "2026-09-01T00:00:00.000Z"
 
 describe("wallet domain", () => {
-  it("enforces wallet kind and provider combinations", () => {
+  it("enforces wallet kind and vault combinations", () => {
     const fingerprint = createHdWalletFingerprint(address)
     expect(
       parseWallet({
@@ -31,12 +31,11 @@ describe("wallet domain", () => {
         id: "wallet_one",
         kind: "hd",
         name: "Primary",
-        provider: "local-vault",
         status: "ready",
         updatedAt: now,
         vaultId: "vault_one",
       })
-    ).toMatchObject({ kind: "hd", metadata: {}, provider: "local-vault" })
+    ).toMatchObject({ kind: "hd", metadata: {} })
 
     expect(() =>
       parseWallet({
@@ -45,7 +44,6 @@ describe("wallet domain", () => {
         id: "wallet_one",
         kind: "watch",
         name: "Invalid watch wallet",
-        provider: "local-vault",
         status: "ready",
         updatedAt: now,
         vaultId: "vault_one",
@@ -60,7 +58,6 @@ describe("wallet domain", () => {
         kind: "watch",
         metadata: { notBackedUp: true },
         name: "Invalid metadata",
-        provider: "read-only",
         status: "ready",
         updatedAt: now,
       })
@@ -113,7 +110,6 @@ describe("wallet domain", () => {
       id: "wallet_one",
       kind: "watch",
       name: "Watched",
-      provider: "read-only",
       status: "ready",
       updatedAt: now,
     })

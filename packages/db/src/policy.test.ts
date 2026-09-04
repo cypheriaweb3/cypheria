@@ -19,7 +19,6 @@ describe("signing policy persistence", () => {
         id: "wallet_policy",
         name: "Policy wallet",
         kind: "watch",
-        provider: "read-only",
         fingerprint,
         metadata: {},
         status: "ready",

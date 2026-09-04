@@ -2,7 +2,7 @@
 
 ## Scope And Boundaries
 
-Cypheria V1 supports `hd`, `private-key`, `private-key-group`, `watch`, and `watch-group`. The model must permit future hardware, external, embedded, multisig, and account-abstraction providers without changing the local-wallet storage contract.
+Cypheria V1 supports `hd`, `private-key`, `private-key-group`, `watch`, and `watch-group`.
 
 - `@cypheria/wallet-core` owns domain types, validation, derivation rules, fingerprints, renderer-safe projections, and signer capabilities. It does not own files, databases, Electron, or OS credentials.
 - `@cypheria/db` stores non-secret wallet state through Drizzle and libSQL.
@@ -19,7 +19,7 @@ Wallet
 
 A `Wallet` is a user-visible container. A `WalletAccount` is a logical derived or imported account. A `ChainAccount` is its public identity for a namespace and chain. Indexes start at zero for every wallet kind; there is no pseudo index.
 
-Wallet kind and provider are independent. V1 secret wallets use provider `local-vault`; watch wallets use `read-only`. A future hardware HD wallet can reuse kind `hd` with provider `hardware`.
+Wallet kind determines its storage and signing capabilities. `hd`, `private-key`, and `private-key-group` wallets have a local vault, while `watch` and `watch-group` wallets are read-only and have no vault.
 
 Domain identifiers use explicit prefixes (`wallet_`, `account_`, `chain_account_`, and `vault_`). Strict Zod schemas validate every runtime boundary. Renderer projections use a nested `{ wallet, accounts }` shape and re-parse the complete value with strict schemas so accidental secret properties are rejected instead of serialized.
 
@@ -39,7 +39,7 @@ active_wallet_context
 
 Normal columns and JSON must never contain mnemonic phrases or entropy, BIP-39 passphrases, private keys, vault encryption keys, decrypted keystores, or serialized local signers. Lifecycle states `initializing`, `ready`, `error`, and `deleting` support recovery across the SQLite/filesystem boundary.
 
-`@cypheria/db` validates complete wallet graphs with the strict wallet-core schemas before using an atomic libSQL batch. Foreign keys cascade wallet deletion, while unique and check constraints enforce fingerprints, names, account indexes, wallet/provider combinations, and the supported EVM derivation scheme. Recovery code can query wallets by lifecycle status without loading any vault secret.
+`@cypheria/db` validates complete wallet graphs with the strict wallet-core schemas before using an atomic libSQL batch. Foreign keys cascade wallet deletion, while unique and check constraints enforce fingerprints, names, account indexes, wallet/vault combinations, and the supported EVM derivation scheme. Recovery code can query wallets by lifecycle status without loading any vault secret.
 
 Wallet display order is public state stored as a numeric position on the wallet record. The runtime accepts only a complete, duplicate-free ordering of all persisted wallet IDs, updates positions in one database batch, and appends newly created wallets after the current order. The desktop management screen combines `@tanstack/react-virtual` with the React-19-compatible `@hello-pangea/dnd` continuation of the drag-and-drop API used by Archmage.
 

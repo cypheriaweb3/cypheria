@@ -2,7 +2,7 @@
 
 ## 范围与边界
 
-Cypheria V1 支持 `hd`、`private-key`、`private-key-group`、`watch` 和 `watch-group`。领域模型必须允许未来添加 hardware、external、embedded、multisig 和 account-abstraction provider，而不改变本地钱包存储契约。
+Cypheria V1 支持 `hd`、`private-key`、`private-key-group`、`watch` 和 `watch-group`。
 
 - `@cypheria/wallet-core` 负责领域类型、验证、派生规则、fingerprint、renderer-safe projection 和 signer capability；不负责文件、数据库、Electron 或 OS credential。
 - `@cypheria/db` 通过 Drizzle + libSQL 保存非秘密钱包状态。
@@ -19,7 +19,7 @@ Wallet
 
 `Wallet` 是用户可见容器；`WalletAccount` 是逻辑派生或导入账户；`ChainAccount` 是某个 namespace 和 chain 上的公开身份。所有钱包类型的 index 都从零开始，不使用 pseudo index。
 
-Wallet kind 与 provider 相互独立。V1 秘密钱包使用 `local-vault` provider，观察钱包使用 `read-only`。未来的硬件 HD 钱包可以复用 `hd` kind，并使用 `hardware` provider。
+Wallet kind 决定其存储与签名能力。`hd`、`private-key` 和 `private-key-group` 钱包拥有本地 vault；`watch` 和 `watch-group` 钱包只读且没有 vault。
 
 领域标识使用明确前缀（`wallet_`、`account_`、`chain_account_` 和 `vault_`）。所有 runtime boundary 都使用严格 Zod schema 验证。Renderer projection 使用嵌套 `{ wallet, accounts }` 结构，并用严格 schema 重新解析完整值，使意外附带的秘密字段被拒绝而不是被序列化。
 
@@ -39,7 +39,7 @@ active_wallet_context
 
 普通列和 JSON 不得包含助记词或 entropy、BIP-39 passphrase、私钥、vault encryption key、解密 keystore 或序列化 local signer。`initializing`、`ready`、`error` 和 `deleting` 生命周期用于跨 SQLite 与文件系统边界恢复。
 
-`@cypheria/db` 先使用 wallet-core 的严格 schema 验证完整钱包图，再通过原子 libSQL batch 写入。外键级联删除钱包；unique 与 check constraint 约束 fingerprint、名称、账户 index、钱包/provider 组合和已支持的 EVM 派生方案。恢复代码可按生命周期状态查询钱包，且无需加载任何 vault 秘密。
+`@cypheria/db` 先使用 wallet-core 的严格 schema 验证完整钱包图，再通过原子 libSQL batch 写入。外键级联删除钱包；unique 与 check constraint 约束 fingerprint、名称、账户 index、钱包/vault 组合和已支持的 EVM 派生方案。恢复代码可按生命周期状态查询钱包，且无需加载任何 vault 秘密。
 
 钱包展示顺序属于公开状态，以数值 position 保存在 wallet record 中。Runtime 只接受包含全部已持久化 wallet ID、且无重复项的完整排序，通过一次 database batch 更新位置；新建钱包会追加到现有顺序末尾。Desktop 管理页面将 `@tanstack/react-virtual` 与兼容 React 19 的 `@hello-pangea/dnd` 结合使用；后者延续了 Archmage 所用拖拽 API。
 

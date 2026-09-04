@@ -20,6 +20,7 @@ import {
   derivePath,
   EVM_HD_PROBE_PATH,
   hexAddressSchema,
+  isWatchWallet,
   toWalletView,
   type VaultId,
   type Wallet,
@@ -324,7 +325,6 @@ export const createWalletManager = (options: WalletManagerOptions): WalletManage
       kind: input.kind,
       metadata: input.metadata ?? {},
       name: input.name,
-      provider: input.vaultId ? ("local-vault" as const) : ("read-only" as const),
       status: input.status,
       updatedAt: timestamp,
       ...(input.vaultId ? { vaultId: input.vaultId } : {}),
@@ -819,7 +819,7 @@ export const createWalletManager = (options: WalletManagerOptions): WalletManage
       if (state.wallet.status !== "ready") {
         throw new WalletManagerError("WALLET_NOT_READY", "The wallet is not ready.")
       }
-      if (state.wallet.provider === "read-only" && input.mode !== "read-only") {
+      if (isWatchWallet(state.wallet) && input.mode !== "read-only") {
         throw new WalletManagerError(
           "INVALID_INPUT",
           "A watch wallet only supports read-only mode."
