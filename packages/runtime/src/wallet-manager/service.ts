@@ -17,6 +17,7 @@ import {
   createHdAccountFingerprint,
   createHdWalletFingerprint,
   defaultEvmHdDerivationScheme,
+  derivePath,
   EVM_HD_PROBE_PATH,
   hexAddressSchema,
   toWalletView,
@@ -31,13 +32,13 @@ import {
   walletIdSchema,
   walletModes,
 } from "@cypheria/wallet-core"
-import { mnemonicToEntropy, validateMnemonic } from "@scure/bip39"
+import { entropyToMnemonic, mnemonicToEntropy, validateMnemonic } from "@scure/bip39"
 import { wordlist as english } from "@scure/bip39/wordlists/english"
-import { getAddress, type Hex, toHex } from "viem"
+import { getAddress, type Hex, hexToBytes, toHex } from "viem"
 import { generateMnemonic, mnemonicToAccount, privateKeyToAccount } from "viem/accounts"
 import { z } from "zod"
 
-import type { VaultEntryId, WalletVault } from "../wallet-vault/index.js"
+import type { VaultEntryId, WalletVault, WalletVaultController } from "../wallet-vault/index.js"
 
 const nameSchema = z.string().trim().min(1).max(128)
 const privateKeySchema = z
@@ -114,6 +115,10 @@ const activeContextInputSchema = z
   })
   .strict()
 
+const deriveHdAccountInputSchema = z
+  .object({ name: nameSchema.optional(), walletId: walletIdSchema })
+  .strict()
+
 export type GenerateHdWalletInput = z.input<typeof generateHdInputSchema>
 
 export type ImportHdWalletInput = z.input<typeof hdInputSchema>
@@ -123,12 +128,14 @@ export type ImportPrivateKeyGroupInput = z.input<typeof privateKeyGroupInputSche
 export type AddWatchWalletInput = z.input<typeof watchWalletInputSchema>
 export type AddWatchGroupInput = z.input<typeof watchGroupInputSchema>
 export type SetActiveWalletContextInput = z.input<typeof activeContextInputSchema>
+export type DeriveHdAccountInput = z.input<typeof deriveHdAccountInputSchema>
 
 export type WalletManager = {
   readonly addWatchGroup: (input: AddWatchGroupInput) => Promise<WalletView>
   readonly addWatchWallet: (input: AddWatchWalletInput) => Promise<WalletView>
   readonly clearActiveContext: () => Promise<void>
   readonly deleteWallet: (walletId: WalletId) => Promise<void>
+  readonly deriveHdAccount: (input: DeriveHdAccountInput) => Promise<WalletView>
   readonly generateHdWallet: (input: GenerateHdWalletInput) => Promise<WalletView>
   readonly getActiveContext: () => Promise<ActiveWalletContext>
   readonly getWallet: (walletId: WalletId) => Promise<WalletView | undefined>
@@ -137,6 +144,11 @@ export type WalletManager = {
   readonly importPrivateKeyWallet: (input: ImportPrivateKeyWalletInput) => Promise<WalletView>
   readonly listWallets: () => Promise<WalletView[]>
   readonly renameWallet: (walletId: WalletId, name: string) => Promise<WalletView>
+  readonly reorderWallets: (walletIds: readonly WalletId[]) => Promise<void>
+  readonly reorderWalletAccounts: (
+    walletId: WalletId,
+    walletAccountIds: readonly WalletAccountId[]
+  ) => Promise<void>
   readonly setActiveContext: (input: SetActiveWalletContextInput) => Promise<ActiveWalletContext>
 }
 
@@ -370,7 +382,7 @@ export const createWalletManager = (options: WalletManagerOptions): WalletManage
 
   const persistImportedLocal = async (
     state: WalletPublicState,
-    entries: Parameters<WalletVault["create"]>[0]["entries"]
+    entries: Parameters<WalletVaultController["create"]>[0]["entries"]
   ): Promise<WalletView> => {
     await assertUnique(state)
     const wallet = state.wallet
@@ -489,6 +501,104 @@ export const createWalletManager = (options: WalletManagerOptions): WalletManage
       }
       await options.persistence.delete(walletId)
       await appendAudit("wallet.deleted", walletId, `Deleted wallet ${walletId}.`)
+    },
+    deriveHdAccount: async (inputValue) => {
+      const input = deriveHdAccountInputSchema.parse(inputValue)
+      const state = await options.persistence.get(input.walletId)
+      if (!state) {
+        throw new WalletManagerError("WALLET_NOT_FOUND", "The wallet does not exist.")
+      }
+      if (state.wallet.kind !== "hd" || !("vaultId" in state.wallet)) {
+        throw new WalletManagerError("INVALID_INPUT", "Only an HD wallet can derive accounts.")
+      }
+      if (state.wallet.status !== "ready") {
+        throw new WalletManagerError("WALLET_NOT_READY", "The wallet is not ready.")
+      }
+      if (!("useAccountSecret" in options.vault)) {
+        throw new WalletManagerError(
+          "WALLET_NOT_READY",
+          "The wallet vault does not support HD account derivation."
+        )
+      }
+      const vault = options.vault as WalletVaultController
+      const vaultId = state.wallet.vaultId
+      await vault.unlock(vaultId)
+      const sourceAccount = state.accounts[0]
+      const scheme = state.hdSchemes.find((item) => item.namespace === "eip155")
+      if (!sourceAccount || !scheme) {
+        throw new WalletManagerError("INVALID_INPUT", "The HD derivation source is missing.")
+      }
+      const usedDerivationIndexes = state.chainAccounts.flatMap((chainAccount) => {
+        const match = chainAccount.derivationPath?.match(/\/([0-9]+)$/u)
+        return match?.[1] === undefined ? [] : [Number(match[1])]
+      })
+      const derivationPath = derivePath(scheme, Math.max(-1, ...usedDerivationIndexes) + 1)
+      const walletAccountId = idFactory.walletAccountId()
+      const vaultEntryId = idFactory.vaultEntryId()
+      const prepared = await vault.useAccountSecret(vaultId, sourceAccount.id, async (secret) => {
+        if (secret.kind !== "hd") {
+          throw new WalletManagerError("INVALID_INPUT", "The HD wallet secret is invalid.")
+        }
+        const account = mnemonicToAccount(
+          entropyToMnemonic(hexToBytes(secret.entropy as Hex), english),
+          {
+            passphrase: secret.passphrase,
+            path: derivationPath as `m/44'/60'/${string}`,
+          }
+        )
+        await vault.putEntry(vaultId, {
+          accountId: walletAccountId,
+          id: vaultEntryId,
+          secret,
+        })
+        return account
+      })
+      const timestamp = now()
+      const account: WalletAccount = {
+        createdAt: timestamp,
+        fingerprint: createHdAccountFingerprint(prepared.address),
+        id: walletAccountId,
+        index: Math.max(-1, ...state.accounts.map((item) => item.index)) + 1,
+        name: input.name ?? `Account ${state.accounts.length + 1}`,
+        updatedAt: timestamp,
+        walletId: state.wallet.id,
+      }
+      const chainAccounts: ChainAccount[] = chainIds.map((chainId) => ({
+        address: prepared.address,
+        chainId,
+        createdAt: timestamp,
+        derivationPath,
+        id: idFactory.chainAccountId(),
+        namespace: "eip155",
+        publicKey: prepared.publicKey,
+        updatedAt: timestamp,
+        walletAccountId,
+      }))
+      const states = await loadStates()
+      if (
+        states.some((item) =>
+          item.accounts.some((existing) => existing.fingerprint === account.fingerprint)
+        )
+      ) {
+        await vault.deleteEntry(vaultId, vaultEntryId).catch(() => undefined)
+        throw new WalletManagerError("DUPLICATE_ACCOUNT", "This wallet account already exists.")
+      }
+      try {
+        await options.persistence.addAccount(state.wallet.id, account, chainAccounts)
+      } catch (error) {
+        await vault.deleteEntry(vaultId, vaultEntryId).catch(() => undefined)
+        throw error
+      }
+      await appendAudit(
+        "wallet.account.derived",
+        state.wallet.id,
+        `Derived wallet account ${walletAccountId}.`
+      )
+      return viewFromState({
+        ...state,
+        accounts: [...state.accounts, account],
+        chainAccounts: [...state.chainAccounts, ...chainAccounts],
+      })
     },
     generateHdWallet: async (inputValue) => {
       const input = generateHdInputSchema.parse(inputValue)
@@ -674,6 +784,31 @@ export const createWalletManager = (options: WalletManagerOptions): WalletManage
       await options.persistence.updateWallet(wallet)
       await appendAudit("wallet.renamed", walletId, `Renamed wallet ${walletId}.`)
       return viewFromState({ ...state, wallet })
+    },
+    reorderWallets: async (walletIds) => {
+      const parsedIds = walletIds.map((walletId) => walletIdSchema.parse(walletId))
+      await options.persistence.reorderWallets(parsedIds)
+      await options.audit?.append({
+        actor: "user",
+        createdAt: now(),
+        eventType: "wallet.reordered",
+        payloadSummary: `Reordered ${parsedIds.length} wallets.`,
+        source: "runtime.wallet-manager",
+      })
+    },
+    reorderWalletAccounts: async (walletIdValue, walletAccountIds) => {
+      const walletId = walletIdSchema.parse(walletIdValue)
+      const parsedIds = walletAccountIds.map((accountId) => walletAccountIdSchema.parse(accountId))
+      const state = await options.persistence.get(walletId)
+      if (!state) {
+        throw new WalletManagerError("WALLET_NOT_FOUND", "The wallet does not exist.")
+      }
+      await options.persistence.reorderWalletAccounts(walletId, parsedIds)
+      await appendAudit(
+        "wallet.accounts.reordered",
+        walletId,
+        `Reordered ${parsedIds.length} wallet accounts.`
+      )
     },
     setActiveContext: async (inputValue) => {
       const input = activeContextInputSchema.parse(inputValue)

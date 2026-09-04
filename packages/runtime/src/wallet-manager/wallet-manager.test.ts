@@ -14,8 +14,8 @@ import { afterEach, describe, expect, it } from "vitest"
 import {
   createMemoryVaultMasterKeyProvider,
   createWalletKeystoreCodec,
-  createWalletVault,
-  type WalletVault,
+  createWalletVaultController,
+  type WalletVaultController,
 } from "../wallet-vault/index.js"
 import { createWalletManager, WalletManagerError, type WalletManagerIdFactory } from "./service.js"
 
@@ -51,8 +51,8 @@ const createIdFactory = (): WalletManagerIdFactory => {
   }
 }
 
-const createTestVault = (vaultDir: string): WalletVault =>
-  createWalletVault({
+const createTestVault = (vaultDir: string): WalletVaultController =>
+  createWalletVaultController({
     codec: createWalletKeystoreCodec({ scryptN: 1024 }),
     keyProvider: createMemoryVaultMasterKeyProvider(new Uint8Array(32).fill(9)),
     vaultDir,
@@ -64,6 +64,7 @@ const createHarness = async () => {
   const vaultDir = await makeVaultDir()
   const persistence = createWalletPublicStatePersistenceService(database.db)
   const audit = createAuditLogService(database.db)
+  const vault = createTestVault(vaultDir)
   const manager = createWalletManager({
     audit,
     chainIds: [1, 10],
@@ -71,9 +72,9 @@ const createHarness = async () => {
     mnemonicFactory: () => mnemonic,
     now: () => timestamp,
     persistence,
-    vault: createTestVault(vaultDir),
+    vault,
   })
-  return { audit, database, manager, persistence, vaultDir }
+  return { audit, database, manager, persistence, vault, vaultDir }
 }
 
 describe("wallet manager", () => {
@@ -91,7 +92,7 @@ describe("wallet manager", () => {
     const vaultGate = new Promise<void>((resolve) => {
       releaseVault = resolve
     })
-    const vault: WalletVault = {
+    const vault: WalletVaultController = {
       ...realVault,
       create: async (input) => {
         markVaultStarted?.()
@@ -196,6 +197,34 @@ describe("wallet manager", () => {
     expect(
       (await audit.list()).filter((event) => event.eventType === "wallet.imported")
     ).toHaveLength(3)
+    database.close()
+  })
+
+  it("derives and reorders HD wallet accounts without changing their derivation paths", async () => {
+    const { database, manager, vault } = await createHarness()
+    const hd = await manager.generateHdWallet({ name: "Primary" })
+    if (!("vaultId" in hd.wallet)) throw new Error("Expected an HD wallet vault.")
+
+    await vault.unlock(hd.wallet.vaultId)
+    const second = await manager.deriveHdAccount({ name: "Savings", walletId: hd.wallet.id })
+    await vault.unlock(hd.wallet.vaultId)
+    const third = await manager.deriveHdAccount({ name: "Operations", walletId: hd.wallet.id })
+
+    expect(second.accounts[1]?.chainAccounts[0]?.derivationPath).toBe("m/44'/60'/0'/0/1")
+    expect(third.accounts[2]?.chainAccounts[0]?.derivationPath).toBe("m/44'/60'/0'/0/2")
+    await manager.reorderWalletAccounts(
+      hd.wallet.id,
+      third.accounts.map(({ account }) => account.id).toReversed()
+    )
+    const reordered = await manager.getWallet(hd.wallet.id)
+    expect(reordered?.accounts.map(({ account }) => account.name)).toEqual([
+      "Operations",
+      "Savings",
+      "Account 1",
+    ])
+    expect(
+      reordered?.accounts.map(({ chainAccounts }) => chainAccounts[0]?.derivationPath)
+    ).toEqual(["m/44'/60'/0'/0/2", "m/44'/60'/0'/0/1", "m/44'/60'/0'/0/0"])
     database.close()
   })
 

@@ -27,6 +27,9 @@ export const WalletGenerateHdInputSchema = z
     strength: z.union([z.literal(128), z.literal(256)]).optional(),
   })
   .strict()
+export const WalletDeriveHdAccountInputSchema = z
+  .object({ name: nameSchema.optional(), walletId: walletIdSchema })
+  .strict()
 export const WalletImportHdInputSchema = z
   .object({
     accountName: nameSchema.optional(),
@@ -49,6 +52,10 @@ export const WalletAddWatchInputSchema = z
   .strict()
 export const WalletRenameInputSchema = z
   .object({ name: nameSchema, walletId: walletIdSchema })
+  .strict()
+export const WalletReorderInputSchema = z.object({ walletIds: z.array(walletIdSchema) }).strict()
+export const WalletReorderAccountsInputSchema = z
+  .object({ walletAccountIds: z.array(walletAccountIdSchema), walletId: walletIdSchema })
   .strict()
 export const WalletActiveContextSchema = z
   .object({

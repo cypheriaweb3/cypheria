@@ -48,12 +48,15 @@ import {
   SigningPolicyUpdateInputSchema,
   WalletActiveContextSchema,
   WalletAddWatchInputSchema,
+  WalletDeriveHdAccountInputSchema,
   WalletGenerateHdInputSchema,
   WalletIdInputSchema,
   WalletImportHdInputSchema,
   WalletImportPrivateKeyInputSchema,
   WalletListSchema,
   WalletRenameInputSchema,
+  WalletReorderAccountsInputSchema,
+  WalletReorderInputSchema,
   WalletSetActiveInputSchema,
   WalletVaultStateSchema,
 } from "./web3.js"
@@ -123,12 +126,15 @@ export const CYPHERIA_IPC_CHANNELS = {
   walletActiveWrite: "wallet.active.write",
   walletAddWatch: "wallet.add-watch",
   walletDelete: "wallet.delete",
+  walletDeriveHdAccount: "wallet.derive-hd-account",
   walletGenerateHd: "wallet.generate-hd",
   walletImportHd: "wallet.import-hd",
   walletImportPrivateKey: "wallet.import-private-key",
   walletList: "wallet.list",
   walletLock: "wallet.lock",
   walletRename: "wallet.rename",
+  walletReorder: "wallet.reorder",
+  walletReorderAccounts: "wallet.reorder-accounts",
   walletUnlock: "wallet.unlock",
 } as const
 
@@ -610,6 +616,16 @@ export const walletGenerateHdContract = {
   z.input<typeof WalletGenerateHdInputSchema>,
   z.output<typeof WalletListSchema>[number]
 >
+export const walletDeriveHdAccountContract = {
+  channel: CYPHERIA_IPC_CHANNELS.walletDeriveHdAccount,
+  namespace: "wallet",
+  request: WalletDeriveHdAccountInputSchema,
+  response: WalletListSchema.element,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  z.input<typeof WalletDeriveHdAccountInputSchema>,
+  z.output<typeof WalletListSchema>[number]
+>
 export const walletImportHdContract = {
   channel: CYPHERIA_IPC_CHANNELS.walletImportHd,
   namespace: "wallet",
@@ -650,6 +666,20 @@ export const walletRenameContract = {
   z.input<typeof WalletRenameInputSchema>,
   z.output<typeof WalletListSchema>[number]
 >
+export const walletReorderContract = {
+  channel: CYPHERIA_IPC_CHANNELS.walletReorder,
+  namespace: "wallet",
+  request: WalletReorderInputSchema,
+  response: z.object({ reordered: z.boolean() }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof WalletReorderInputSchema>, { reordered: boolean }>
+export const walletReorderAccountsContract = {
+  channel: CYPHERIA_IPC_CHANNELS.walletReorderAccounts,
+  namespace: "wallet",
+  request: WalletReorderAccountsInputSchema,
+  response: z.object({ reordered: z.boolean() }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof WalletReorderAccountsInputSchema>, { reordered: boolean }>
 export const walletDeleteContract = {
   channel: CYPHERIA_IPC_CHANNELS.walletDelete,
   namespace: "wallet",
@@ -941,12 +971,15 @@ export const ipcContracts = {
   walletActiveWrite: walletActiveWriteContract,
   walletAddWatch: walletAddWatchContract,
   walletDelete: walletDeleteContract,
+  walletDeriveHdAccount: walletDeriveHdAccountContract,
   walletGenerateHd: walletGenerateHdContract,
   walletImportHd: walletImportHdContract,
   walletImportPrivateKey: walletImportPrivateKeyContract,
   walletList: walletListContract,
   walletLock: walletLockContract,
   walletRename: walletRenameContract,
+  walletReorder: walletReorderContract,
+  walletReorderAccounts: walletReorderAccountsContract,
   walletUnlock: walletUnlockContract,
 } as const
 
@@ -1037,6 +1070,9 @@ export type CypheriaPreloadApi = {
     ) => Promise<z.output<typeof WalletListSchema>[number]>
     readonly clearActive: () => Promise<{ cleared: boolean }>
     readonly delete: (walletId: string) => Promise<{ deleted: boolean }>
+    readonly deriveHdAccount: (
+      input: z.input<typeof WalletDeriveHdAccountInputSchema>
+    ) => Promise<z.output<typeof WalletListSchema>[number]>
     readonly generateHd: (
       input: z.input<typeof WalletGenerateHdInputSchema>
     ) => Promise<z.output<typeof WalletListSchema>[number]>
@@ -1053,6 +1089,11 @@ export type CypheriaPreloadApi = {
       walletId: string,
       name: string
     ) => Promise<z.output<typeof WalletListSchema>[number]>
+    readonly reorder: (walletIds: string[]) => Promise<{ reordered: boolean }>
+    readonly reorderAccounts: (
+      walletId: string,
+      walletAccountIds: string[]
+    ) => Promise<{ reordered: boolean }>
     readonly setActive: (
       input: z.input<typeof WalletSetActiveInputSchema>
     ) => Promise<z.output<typeof WalletActiveContextSchema>>

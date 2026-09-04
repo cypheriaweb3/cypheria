@@ -15,6 +15,13 @@
       "when": 1788277461605,
       "tag": "0001_moaning_agent_brand",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1788504061571,
+      "tag": "0002_pale_lord_tyger",
+      "breakpoints": true
     }
   ]
 }

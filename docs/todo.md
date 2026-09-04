@@ -138,7 +138,7 @@ Status legend:
 
 - [x] Complete the desktop Web3 management loop and production renderer startup.
   - Acceptance: wallet creation/import/watch management, active account context, vault lock state, signing policies, pending approval decisions, and audit records are usable through typed IPC-backed screens.
-  - Include: OS-backed desktop vault key storage, one-shot secret submission without renderer persistence, pending counts in the sidebar, packaged SPA routing through the privileged `cypheria://` scheme, bundled libSQL native resolution, and copied database migrations.
+  - Include: OS-backed desktop vault key storage, one-shot secret submission without renderer persistence, a two-level virtualized wallet/account manager with durable drag ordering and HD account derivation, pending counts in the sidebar, packaged SPA routing through the privileged `cypheria://` scheme, bundled libSQL native resolution, and copied database migrations.
   - Verification: all workspace tests, `pnpm run ci`, `pnpm build`, and real Electron smoke checks of the task workspace and wallet route.
 
 ## Runtime Web3 Capabilities

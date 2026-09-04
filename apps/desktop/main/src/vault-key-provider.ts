@@ -14,6 +14,6 @@ export const createDesktopVaultMasterKeyProvider = (configDir: string): VaultMas
       encryptString: (plainText) => safeStorage.encryptString(plainText),
       isEncryptionAvailable: () =>
         safeStorage.isEncryptionAvailable() &&
-        safeStorage.getSelectedStorageBackend() !== "basic_text",
+        (process.platform !== "linux" || safeStorage.getSelectedStorageBackend() !== "basic_text"),
     },
   })

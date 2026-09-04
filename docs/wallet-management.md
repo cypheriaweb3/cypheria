@@ -41,6 +41,10 @@ Normal columns and JSON must never contain mnemonic phrases or entropy, BIP-39 p
 
 `@cypheria/db` validates complete wallet graphs with the strict wallet-core schemas before using an atomic libSQL batch. Foreign keys cascade wallet deletion, while unique and check constraints enforce fingerprints, names, account indexes, wallet/provider combinations, and the supported EVM derivation scheme. Recovery code can query wallets by lifecycle status without loading any vault secret.
 
+Wallet display order is public state stored as a numeric position on the wallet record. The runtime accepts only a complete, duplicate-free ordering of all persisted wallet IDs, updates positions in one database batch, and appends newly created wallets after the current order. The desktop management screen combines `@tanstack/react-virtual` with the React-19-compatible `@hello-pangea/dnd` continuation of the drag-and-drop API used by Archmage.
+
+Group wallets use a second virtualized list for their wallet accounts. HD, private-key-group, and watch-group rows can expand without flattening account identity into the top-level wallet order. Account rows are independently draggable, and persistence rewrites only their display indexes; HD derivation paths remain stable. The desktop can derive another HD account through typed IPC. Runtime selects the next unused path in the persisted scheme, duplicates the encrypted HD source into an account-bound vault entry, persists only its public account graph, and audits the mutation.
+
 ## Fingerprints
 
 Fingerprints deliberately support duplicate detection and are not authentication secrets.

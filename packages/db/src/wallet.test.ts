@@ -1,4 +1,9 @@
-import { defaultEvmHdDerivationScheme, type Wallet } from "@cypheria/wallet-core"
+import {
+  type ChainAccount,
+  defaultEvmHdDerivationScheme,
+  type Wallet,
+  type WalletAccount,
+} from "@cypheria/wallet-core"
 import { describe, expect, it } from "vitest"
 
 import { createInMemoryDatabase } from "./client.js"
@@ -119,6 +124,91 @@ describe("wallet public-state persistence", () => {
 
     await service.delete(hdState.wallet.id)
     await expect(service.getActiveContext()).resolves.toBeUndefined()
+    database.close()
+  })
+
+  it("appends and reorders wallet accounts atomically", async () => {
+    const database = createInMemoryDatabase()
+    await applyDatabaseMigrations(database.client)
+    const service = createWalletPublicStatePersistenceService(database.db)
+    await service.create(hdState)
+    const firstAccount = hdState.accounts[0]
+    const firstChainAccount = hdState.chainAccounts[0]
+    if (!firstAccount || !firstChainAccount) {
+      throw new Error("HD fixture must include its primary account")
+    }
+    const secondAccount: WalletAccount = {
+      ...firstAccount,
+      fingerprint: `sha256:${"2".repeat(64)}` as const,
+      id: "account_second",
+      index: 1,
+      name: "Account 2",
+    }
+    const secondChainAccount: ChainAccount = {
+      ...firstChainAccount,
+      address: "0x0000000000000000000000000000000000000002" as const,
+      derivationPath: "m/44'/60'/0'/0/1",
+      id: "chain_account_second",
+      walletAccountId: secondAccount.id,
+    }
+    await service.addAccount(hdState.wallet.id, secondAccount, [secondChainAccount])
+    await service.reorderWalletAccounts(hdState.wallet.id, [secondAccount.id, firstAccount.id])
+
+    const reordered = await service.get(hdState.wallet.id)
+    expect(reordered?.accounts.map(({ id, index }) => ({ id, index }))).toEqual([
+      { id: secondAccount.id, index: 0 },
+      { id: firstAccount.id, index: 1 },
+    ])
+    expect(reordered?.chainAccounts.find(({ id }) => id === secondChainAccount.id)).toMatchObject({
+      derivationPath: "m/44'/60'/0'/0/1",
+    })
+    await expect(
+      service.reorderWalletAccounts(hdState.wallet.id, [secondAccount.id])
+    ).rejects.toThrow("every account")
+    database.close()
+  })
+
+  it("persists wallet ordering and appends newly created wallets", async () => {
+    const database = createInMemoryDatabase()
+    await applyDatabaseMigrations(database.client)
+    const service = createWalletPublicStatePersistenceService(database.db)
+    const watchState = (suffix: string, fingerprintCharacter: string): WalletPublicState => ({
+      accounts: [],
+      chainAccounts: [],
+      hdSchemes: [],
+      wallet: {
+        createdAt: timestamp,
+        fingerprint: `sha256:${fingerprintCharacter.repeat(64)}`,
+        id: `wallet_${suffix}`,
+        kind: "watch",
+        metadata: {},
+        name: `Watch ${suffix}`,
+        provider: "read-only",
+        status: "ready",
+        updatedAt: timestamp,
+      },
+    })
+    const first = watchState("first", "2")
+    const second = watchState("second", "3")
+    const third = watchState("third", "4")
+    await service.create(first)
+    await service.create(second)
+
+    await service.reorderWallets([second.wallet.id, first.wallet.id])
+    expect((await service.listWallets()).map(({ id }) => id)).toEqual([
+      second.wallet.id,
+      first.wallet.id,
+    ])
+    await expect(service.reorderWallets([first.wallet.id])).rejects.toThrow(
+      "every persisted wallet"
+    )
+
+    await service.create(third)
+    expect((await service.listWallets()).map(({ id }) => id)).toEqual([
+      second.wallet.id,
+      first.wallet.id,
+      third.wallet.id,
+    ])
     database.close()
   })
 

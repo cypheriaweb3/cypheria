@@ -146,6 +146,8 @@ const cypheriaApi: CypheriaPreloadApi = {
     addWatch: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletAddWatch, input),
     clearActive: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletActiveClear),
     delete: (walletId) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletDelete, { walletId }),
+    deriveHdAccount: (input) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletDeriveHdAccount, input),
     generateHd: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletGenerateHd, input),
     getActive: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletActiveRead),
     importHd: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletImportHd, input),
@@ -155,6 +157,12 @@ const cypheriaApi: CypheriaPreloadApi = {
     lock: (walletId) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletLock, { walletId }),
     rename: (walletId, name) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletRename, { name, walletId }),
+    reorder: (walletIds) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletReorder, { walletIds }),
+    reorderAccounts: (walletId, walletAccountIds) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletReorderAccounts, {
+        walletAccountIds,
+        walletId,
+      }),
     setActive: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletActiveWrite, input),
     unlock: (walletId) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletUnlock, { walletId }),
   },

@@ -138,7 +138,7 @@
 
 - [x] 完成 desktop Web3 管理闭环与生产 renderer 启动链路。
   - 验收：可通过 typed IPC-backed screens 使用钱包创建/导入/观察管理、active account context、vault lock 状态、signing policies、待审批决议和 audit records。
-  - 包括：OS-backed desktop vault key storage、renderer 不持久化秘密的一次性提交、左侧导航待审批计数、通过 privileged `cypheria://` scheme 提供 packaged SPA routes、libSQL native resolution，以及随构建复制 database migrations。
+  - 包括：OS-backed desktop vault key storage、renderer 不持久化秘密的一次性提交、带持久化拖拽排序和 HD 账户派生的两级钱包/账户虚拟列表、左侧导航待审批计数、通过 privileged `cypheria://` scheme 提供 packaged SPA routes、libSQL native resolution，以及随构建复制 database migrations。
   - 验证：全部 workspace tests、`pnpm run ci`、`pnpm build`，以及 task workspace 与 wallet route 的真实 Electron smoke checks。
 
 ## Runtime Web3 能力

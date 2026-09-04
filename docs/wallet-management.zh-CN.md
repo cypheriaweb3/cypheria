@@ -41,6 +41,10 @@ active_wallet_context
 
 `@cypheria/db` 先使用 wallet-core 的严格 schema 验证完整钱包图，再通过原子 libSQL batch 写入。外键级联删除钱包；unique 与 check constraint 约束 fingerprint、名称、账户 index、钱包/provider 组合和已支持的 EVM 派生方案。恢复代码可按生命周期状态查询钱包，且无需加载任何 vault 秘密。
 
+钱包展示顺序属于公开状态，以数值 position 保存在 wallet record 中。Runtime 只接受包含全部已持久化 wallet ID、且无重复项的完整排序，通过一次 database batch 更新位置；新建钱包会追加到现有顺序末尾。Desktop 管理页面将 `@tanstack/react-virtual` 与兼容 React 19 的 `@hello-pangea/dnd` 结合使用；后者延续了 Archmage 所用拖拽 API。
+
+组钱包使用第二层虚拟列表展示 WalletAccount。HD、private-key-group 与 watch-group 行可以展开，账户身份不会被扁平化到一级钱包顺序中。账户行可独立拖拽；持久化仅重写其展示 index，HD 派生路径保持不变。Desktop 可以通过 typed IPC 派生新的 HD 账户。Runtime 从已持久化方案中选择下一个未使用路径，将加密 HD 源复制为绑定到账户的 vault entry，仅持久化公开账户图，并审计该变更。
+
 ## Fingerprint
 
 Fingerprint 有意用于查重，不是认证秘密。

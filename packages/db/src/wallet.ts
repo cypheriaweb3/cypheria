@@ -18,7 +18,7 @@ import {
   walletModes,
   walletSchema,
 } from "@cypheria/wallet-core"
-import { asc, eq, inArray } from "drizzle-orm"
+import { asc, eq, inArray, max } from "drizzle-orm"
 
 import type { CypheriaDatabase } from "./client.js"
 import {
@@ -49,12 +49,22 @@ export type PersistedActiveWalletContext = {
 }
 
 export type WalletPublicStatePersistenceService = {
+  readonly addAccount: (
+    walletId: WalletId,
+    account: WalletAccount,
+    chainAccounts: readonly ChainAccount[]
+  ) => Promise<void>
   readonly create: (state: WalletPublicState) => Promise<WalletPublicState>
   readonly clearActiveContext: () => Promise<void>
   readonly delete: (walletId: WalletId) => Promise<void>
   readonly get: (walletId: WalletId) => Promise<WalletPublicState | undefined>
   readonly getActiveContext: () => Promise<PersistedActiveWalletContext | undefined>
   readonly listWallets: (options?: ListWalletOptions) => Promise<Wallet[]>
+  readonly reorderWallets: (walletIds: readonly WalletId[]) => Promise<void>
+  readonly reorderWalletAccounts: (
+    walletId: WalletId,
+    walletAccountIds: readonly WalletAccountId[]
+  ) => Promise<void>
   readonly setActiveContext: (
     context: PersistedActiveWalletContext
   ) => Promise<PersistedActiveWalletContext>
@@ -180,13 +190,41 @@ const loadPublicState = async (
 export const createWalletPublicStatePersistenceService = (
   db: CypheriaDatabase
 ): WalletPublicStatePersistenceService => ({
+  addAccount: async (walletIdValue, accountValue, chainAccountValues) => {
+    const walletId = walletIdSchema.parse(walletIdValue)
+    const account = walletAccountSchema.parse(accountValue)
+    const parsedChainAccounts = chainAccountValues.map((item) => chainAccountSchema.parse(item))
+    if (account.walletId !== walletId) {
+      throw new Error("The wallet account must belong to the target wallet.")
+    }
+    if (parsedChainAccounts.some((item) => item.walletAccountId !== account.id)) {
+      throw new Error("Every chain account must belong to the new wallet account.")
+    }
+    const [wallet] = await db
+      .select({ id: wallets.id })
+      .from(wallets)
+      .where(eq(wallets.id, walletId))
+    if (!wallet) {
+      throw new Error(`Wallet ${walletId} does not exist.`)
+    }
+    const queries = [
+      db.insert(walletAccounts).values(account),
+      ...(parsedChainAccounts.length > 0
+        ? [db.insert(chainAccounts).values(parsedChainAccounts)]
+        : []),
+    ] as const
+    await db.batch(queries)
+  },
   clearActiveContext: async () => {
     await db.delete(activeWalletContext).where(eq(activeWalletContext.id, "default"))
   },
   create: async (state) => {
     const parsed = parsePublicState(state)
+    const [lastWallet] = await db.select({ position: max(wallets.position) }).from(wallets)
     const queries = [
-      db.insert(wallets).values(toWalletRecord(parsed.wallet)),
+      db
+        .insert(wallets)
+        .values({ ...toWalletRecord(parsed.wallet), position: (lastWallet?.position ?? -1) + 1 }),
       ...(parsed.accounts.length > 0
         ? [db.insert(walletAccounts).values([...parsed.accounts])]
         : []),
@@ -228,9 +266,60 @@ export const createWalletPublicStatePersistenceService = (
             .select()
             .from(wallets)
             .where(inArray(wallets.status, [...options.statuses]))
-            .orderBy(asc(wallets.createdAt))
-        : await db.select().from(wallets).orderBy(asc(wallets.createdAt))
+            .orderBy(asc(wallets.position), asc(wallets.createdAt))
+        : await db.select().from(wallets).orderBy(asc(wallets.position), asc(wallets.createdAt))
     return records.map(fromWalletRecord)
+  },
+  reorderWallets: async (walletIds) => {
+    const parsedIds = walletIds.map((walletId) => walletIdSchema.parse(walletId))
+    if (new Set(parsedIds).size !== parsedIds.length) {
+      throw new Error("Wallet order cannot contain duplicate wallet ids.")
+    }
+    const records = await db.select({ id: wallets.id }).from(wallets)
+    const persistedIds = new Set(records.map(({ id }) => id))
+    if (
+      persistedIds.size !== parsedIds.length ||
+      parsedIds.some((walletId) => !persistedIds.has(walletId))
+    ) {
+      throw new Error("Wallet order must contain every persisted wallet exactly once.")
+    }
+    if (parsedIds.length === 0) return
+    const queries = parsedIds.map((walletId, position) =>
+      db.update(wallets).set({ position }).where(eq(wallets.id, walletId))
+    )
+    await db.batch(queries as unknown as Parameters<typeof db.batch>[0])
+  },
+  reorderWalletAccounts: async (walletIdValue, walletAccountIds) => {
+    const walletId = walletIdSchema.parse(walletIdValue)
+    const parsedIds = walletAccountIds.map((accountId) => walletAccountIdSchema.parse(accountId))
+    if (new Set(parsedIds).size !== parsedIds.length) {
+      throw new Error("Wallet account order cannot contain duplicate account ids.")
+    }
+    const records = await db
+      .select({ id: walletAccounts.id, index: walletAccounts.index })
+      .from(walletAccounts)
+      .where(eq(walletAccounts.walletId, walletId))
+    const persistedIds = new Set(records.map(({ id }) => id))
+    if (
+      persistedIds.size !== parsedIds.length ||
+      parsedIds.some((accountId) => !persistedIds.has(accountId))
+    ) {
+      throw new Error("Wallet account order must contain every account exactly once.")
+    }
+    if (parsedIds.length === 0) return
+    const temporaryStart = Math.max(...records.map(({ index }) => index)) + parsedIds.length + 1
+    const queries = [
+      ...parsedIds.map((accountId, position) =>
+        db
+          .update(walletAccounts)
+          .set({ index: temporaryStart + position })
+          .where(eq(walletAccounts.id, accountId))
+      ),
+      ...parsedIds.map((accountId, index) =>
+        db.update(walletAccounts).set({ index }).where(eq(walletAccounts.id, accountId))
+      ),
+    ]
+    await db.batch(queries as unknown as Parameters<typeof db.batch>[0])
   },
   setActiveContext: async (context) => {
     const parsed = parseActiveContext(context)

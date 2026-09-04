@@ -18,6 +18,7 @@ export const wallets = sqliteTable(
     kind: text("kind").notNull(),
     metadata: text("metadata").notNull(),
     name: text("name").notNull(),
+    position: integer("position").notNull().default(0),
     provider: text("provider").notNull(),
     status: text("status").notNull(),
     updatedAt: text("updated_at").notNull(),
@@ -27,6 +28,7 @@ export const wallets = sqliteTable(
     uniqueIndex("wallets_fingerprint_unique").on(table.fingerprint),
     uniqueIndex("wallets_name_unique").on(table.name),
     uniqueIndex("wallets_vault_id_unique").on(table.vaultId),
+    index("wallets_position_idx").on(table.position),
     index("wallets_status_idx").on(table.status),
     check(
       "wallets_kind_provider_check",

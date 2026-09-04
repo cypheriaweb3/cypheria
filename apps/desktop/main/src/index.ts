@@ -54,12 +54,15 @@ import {
   walletActiveWriteContract,
   walletAddWatchContract,
   walletDeleteContract,
+  walletDeriveHdAccountContract,
   walletGenerateHdContract,
   walletImportHdContract,
   walletImportPrivateKeyContract,
   walletListContract,
   walletLockContract,
   walletRenameContract,
+  walletReorderAccountsContract,
+  walletReorderContract,
   walletUnlockContract,
 } from "../../ipc/src/index.js"
 import { readAppearanceSettings, writeAppearanceSettings } from "./appearance-config.js"
@@ -253,6 +256,7 @@ const registerIpcHandlers = (context: DesktopRuntimeContext): void => {
     return { cleared: true }
   })
   registerIpcRoute(walletGenerateHdContract, (input) => context.wallets.generateHdWallet(input))
+  registerIpcRoute(walletDeriveHdAccountContract, (input) => context.wallets.deriveHdAccount(input))
   registerIpcRoute(walletImportHdContract, (input) => context.wallets.importHdWallet(input))
   registerIpcRoute(walletImportPrivateKeyContract, (input) =>
     context.wallets.importPrivateKeyWallet(input)
@@ -261,6 +265,14 @@ const registerIpcHandlers = (context: DesktopRuntimeContext): void => {
   registerIpcRoute(walletRenameContract, ({ name, walletId }) =>
     context.wallets.renameWallet(walletId, name)
   )
+  registerIpcRoute(walletReorderContract, async ({ walletIds }) => {
+    await context.wallets.reorderWallets(walletIds)
+    return { reordered: true }
+  })
+  registerIpcRoute(walletReorderAccountsContract, async ({ walletAccountIds, walletId }) => {
+    await context.wallets.reorderWalletAccounts(walletId, walletAccountIds)
+    return { reordered: true }
+  })
   registerIpcRoute(walletDeleteContract, async ({ walletId }) => {
     await context.wallets.deleteWallet(walletId)
     return { deleted: true }
