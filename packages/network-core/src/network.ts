@@ -36,6 +36,7 @@ export const networkDefinitionSchema = z
       .regex(/^[a-z0-9][a-z0-9-]*$/u)
       .optional(),
     enabled: z.boolean(),
+    deprecated: z.boolean(),
     position: z.number().int().nonnegative(),
     revision: z.number().int().positive(),
     createdAt: timestampSchema,
@@ -76,6 +77,7 @@ export const rpcEndpointSchema = z
     connection: rpcConnectionSchema,
     source: z.enum(["builtin", "custom"]),
     enabled: z.boolean(),
+    deprecated: z.boolean(),
     position: z.number().int().nonnegative(),
     revision: z.number().int().positive(),
     createdAt: timestampSchema,
@@ -126,6 +128,7 @@ export const rpcEndpointViewSchema = z
     connection: z.object({ kind: z.enum(["public", "protected"]), displayUrl: z.url() }).strict(),
     source: z.enum(["builtin", "custom"]),
     enabled: z.boolean(),
+    deprecated: z.boolean(),
     position: z.number().int().nonnegative(),
     revision: z.number().int().positive(),
     createdAt: timestampSchema,

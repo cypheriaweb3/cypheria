@@ -4,6 +4,7 @@ import { resolve } from "node:path"
 
 export * from "./automation-service/index.js"
 export * from "./dapp-provider-service/index.js"
+export * from "./network-credentials/index.js"
 export * from "./policy-service/index.js"
 export * from "./signing-intent-service/index.js"
 export * from "./solana-provider-service/index.js"
@@ -38,6 +39,7 @@ export type CypheriaRuntimePaths = {
   readonly browserDir: string
   readonly automationDir: string
   readonly configDir: string
+  readonly networkCredentialsDir: string
 }
 
 export type RuntimeDirectoryName =
@@ -50,6 +52,7 @@ export type RuntimeDirectoryName =
   | "browserDir"
   | "automationDir"
   | "configDir"
+  | "networkCredentialsDir"
 
 export const RUNTIME_DIRECTORY_NAMES = [
   "cypheriaHome",
@@ -61,6 +64,7 @@ export const RUNTIME_DIRECTORY_NAMES = [
   "browserDir",
   "automationDir",
   "configDir",
+  "networkCredentialsDir",
 ] as const satisfies readonly RuntimeDirectoryName[]
 
 export const RUNTIME_METHOD_NAMESPACES = [
@@ -226,6 +230,7 @@ export const buildRuntimePaths = (options: RuntimeHomeOptions = {}): CypheriaRun
     browserDir: pathInHome("browser"),
     automationDir: pathInHome("automation"),
     configDir: pathInHome("config"),
+    networkCredentialsDir: pathInHome("config/network-credentials"),
   }
 }
 

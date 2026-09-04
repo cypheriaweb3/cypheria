@@ -159,6 +159,9 @@ importers:
       '@cypheria/automation-core':
         specifier: workspace:*
         version: link:../automation-core
+      '@cypheria/network-core':
+        specifier: workspace:*
+        version: link:../network-core
       '@cypheria/policy-engine':
         specifier: workspace:*
         version: link:../policy-engine
@@ -216,6 +219,9 @@ importers:
       '@cypheria/db':
         specifier: workspace:*
         version: link:../db
+      '@cypheria/network-core':
+        specifier: workspace:*
+        version: link:../network-core
       '@cypheria/policy-engine':
         specifier: workspace:*
         version: link:../policy-engine

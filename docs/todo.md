@@ -152,7 +152,7 @@ Status legend:
   - Include: stable IDs, canonical chain keys, immutable identity, URL normalization, minimal reviewed built-ins, and catalog fixtures.
   - Verification: network-core tests, `pnpm run ci`, `pnpm build`.
 
-- [ ] Persist network configuration and protect RPC credentials.
+- [x] Persist network configuration and protect RPC credentials.
   - Acceptance: libSQL stores networks, ordered endpoints, revisions, and origin-scoped contexts while protected connection material remains outside ordinary columns under `$CYPHERIA_HOME/config/network-credentials`.
   - Include: migrations, catalog reconciliation, redacted projections, optimistic concurrency, non-cascading wallet/history behavior, and OS-backed credential protection.
   - Verification: database, credential-store, migration, and recovery tests; `pnpm run ci`, `pnpm build`.

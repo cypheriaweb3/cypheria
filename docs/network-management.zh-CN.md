@@ -103,6 +103,7 @@ type NetworkDefinition = {
   source: "builtin" | "custom"
   catalogKey?: string
   enabled: boolean
+  deprecated: boolean
   position: number
   revision: number
   createdAt: string
@@ -131,6 +132,7 @@ type RpcEndpoint = {
     | { kind: "protected"; displayUrl: string; credentialRef: string }
   source: "builtin" | "custom"
   enabled: boolean
+  deprecated: boolean
   position: number
   revision: number
   createdAt: string

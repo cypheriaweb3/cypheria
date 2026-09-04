@@ -41,6 +41,13 @@ export {
   applyDatabaseMigrations,
 } from "./migrations.js"
 export {
+  type CatalogReconciliationResult,
+  createNetworkPersistenceService,
+  type DappNetworkContext,
+  type NetworkPersistenceService,
+  type NetworkWithEndpoints,
+} from "./network.js"
+export {
   buildDatabasePaths,
   type DatabasePathOptions,
   type DatabasePaths,

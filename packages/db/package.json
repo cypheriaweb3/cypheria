@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@cypheria/automation-core": "workspace:*",
+    "@cypheria/network-core": "workspace:*",
     "@cypheria/policy-engine": "workspace:*",
     "@cypheria/wallet-core": "workspace:*",
     "@cypheria/wallet-provider": "workspace:*",

@@ -152,7 +152,7 @@
   - 包括：stable IDs、canonical chain keys、immutable identity、URL normalization、精简且经过审核的 built-ins 与 catalog fixtures。
   - 验证：network-core tests、`pnpm run ci`、`pnpm build`。
 
-- [ ] 持久化 network configuration 并保护 RPC credentials。
+- [x] 持久化 network configuration 并保护 RPC credentials。
   - 验收：libSQL 保存 networks、ordered endpoints、revisions 与 origin-scoped contexts；受保护连接材料位于普通列之外的 `$CYPHERIA_HOME/config/network-credentials`。
   - 包括：migrations、catalog reconciliation、redacted projections、optimistic concurrency、不级联删除 wallet/history 的行为，以及 OS-backed credential protection。
   - 验证：database、credential-store、migration 与 recovery tests；`pnpm run ci`、`pnpm build`。

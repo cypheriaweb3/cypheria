@@ -15,6 +15,7 @@
   "dependencies": {
     "@cypheria/automation-core": "workspace:*",
     "@cypheria/db": "workspace:*",
+    "@cypheria/network-core": "workspace:*",
     "@cypheria/policy-engine": "workspace:*",
     "@cypheria/wallet-core": "workspace:*",
     "@cypheria/wallet-provider": "workspace:*",
