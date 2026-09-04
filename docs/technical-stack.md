@@ -221,7 +221,7 @@ Desktop sidebar motion and hover previews live in `apps/desktop/renderer/src/com
 | --- | --- |
 | EVM client | viem |
 | React wallet hooks | wagmi only for lightweight UI state if needed |
-| Local wallets | viem/accounts + encrypted vault |
+| Vault wallets | viem/accounts + encrypted vault |
 | Embedded wallets | Privy |
 | External wallets | WalletConnect / Reown |
 | Chain registry | In-house registry compatible with viem chain format |

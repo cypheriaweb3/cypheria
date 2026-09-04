@@ -157,7 +157,7 @@ Renderer 规则：
 
 Desktop 的信息架构以任务为中心。常驻左侧导航首先提供新任务、搜索和待审批，其次提供钱包、自动化、signing policies、audit logs、plugins 与 skills，最后按 project 对 App Server threads 分组，并单列未分组的最近任务。待审批入口会显示尚未决议的 signing approvals 实时数量。任务工作区将 AI Elements conversation 与 composer 放在主区域，提供 model、reasoning、sandbox 和 wallet-context 控件，右侧是 context/files/review/terminal 面板。进入 Settings 后，工作台左侧导航会替换为 Account、Appearance、Models 和返回工作台入口组成的专用设置导航。所有设置页都由完整的右侧内容面板承载滚动，因此滚动条保持在窗口最右侧。
 
-Web3 工作台完成本地管理闭环。钱包页面可以创建或导入加密本地钱包、添加 watch-only accounts、选择 active account 与 chain、锁定或解锁 vault，并启动隔离 dApp session。Policy 页面可以创建、编辑和停用 signing rules。Approval 页面会在接受或拒绝之前展示 canonical intent 与 payload hash，audit 页面则展示由此产生的本地安全历史。秘密表单值会从 uncontrolled forms 直接提交到 preload，不会复制到 React state、localStorage 或 IndexedDB。
+Web3 工作台完成本地管理闭环。钱包页面可以创建或导入加密 vault 钱包、添加 watch-only accounts、选择 active account 与 chain、锁定或解锁 vault，并启动隔离 dApp session。Policy 页面可以创建、编辑和停用 signing rules。Approval 页面会在接受或拒绝之前展示 canonical intent 与 payload hash，audit 页面则展示由此产生的本地安全历史。秘密表单值会从 uncontrolled forms 直接提交到 preload，不会复制到 React state、localStorage 或 IndexedDB。
 
 生产 renderer assets 由 Electron main 通过 privileged standard `cypheria://` scheme 提供。缺失的应用路径回退到 SPA shell，已解析的 assets 则被限制在构建后的 renderer directory 内。这样无需在生产环境运行 TanStack Start server bundle，也能直接导航到 workbench 与 settings routes。
 

@@ -127,15 +127,15 @@ describe("wallet manager", () => {
     database.close()
   })
 
-  it("imports local and watch wallets, detects duplicates, and never returns secrets", async () => {
+  it("imports vault and watch wallets, detects duplicates, and never returns secrets", async () => {
     const { audit, database, manager } = await createHarness()
 
-    const local = await manager.importPrivateKeyWallet({
+    const vaultWallet = await manager.importPrivateKeyWallet({
       name: "Signer",
       privateKey,
     })
     const watch = await manager.addWatchWallet({
-      address: local.accounts[0]?.chainAccounts[0]?.address ?? "",
+      address: vaultWallet.accounts[0]?.chainAccounts[0]?.address ?? "",
       name: "Observe signer",
     })
     const importedHd = await manager.importHdWallet({
@@ -164,7 +164,7 @@ describe("wallet manager", () => {
       name: "Observe team",
     })
 
-    expect(local.accounts[0]?.chainAccounts).toHaveLength(2)
+    expect(vaultWallet.accounts[0]?.chainAccounts).toHaveLength(2)
     expect(group.accounts).toHaveLength(2)
     expect(importedHd.wallet.kind).toBe("hd")
     expect(watch.wallet.kind).toBe("watch")
@@ -230,7 +230,7 @@ describe("wallet manager", () => {
 
   it("persists active context, enforces watch mode, renames, and deletes", async () => {
     const { database, manager, persistence, vaultDir } = await createHarness()
-    const local = await manager.importPrivateKeyWallet({ name: "Signer", privateKey })
+    const vaultWallet = await manager.importPrivateKeyWallet({ name: "Signer", privateKey })
     const watch = await manager.addWatchWallet({
       address: "0x0000000000000000000000000000000000000001",
       name: "Observe",
@@ -245,28 +245,28 @@ describe("wallet manager", () => {
       })
     ).rejects.toMatchObject({ code: "INVALID_INPUT" })
     const active = await manager.setActiveContext({
-      chainAccountId: local.accounts[0]?.chainAccounts[1]?.id ?? "chain_account_missing",
+      chainAccountId: vaultWallet.accounts[0]?.chainAccounts[1]?.id ?? "chain_account_missing",
       mode: "human-approval",
-      walletAccountId: local.accounts[0]?.account.id ?? "account_missing",
-      walletId: local.wallet.id,
+      walletAccountId: vaultWallet.accounts[0]?.account.id ?? "account_missing",
+      walletId: vaultWallet.wallet.id,
     })
     expect(active).toMatchObject({
       chainAccount: { chainId: 10 },
       mode: "human-approval",
-      wallet: { wallet: { id: local.wallet.id } },
+      wallet: { wallet: { id: vaultWallet.wallet.id } },
     })
     await expect(manager.getActiveContext()).resolves.toMatchObject({
-      wallet: { wallet: { id: local.wallet.id } },
+      wallet: { wallet: { id: vaultWallet.wallet.id } },
     })
 
-    const renamed = await manager.renameWallet(local.wallet.id, "Renamed")
+    const renamed = await manager.renameWallet(vaultWallet.wallet.id, "Renamed")
     expect(renamed.wallet.name).toBe("Renamed")
-    if (!("vaultId" in local.wallet)) {
-      throw new Error("Expected a local wallet in the test fixture.")
+    if (!("vaultId" in vaultWallet.wallet)) {
+      throw new Error("Expected a vault wallet in the test fixture.")
     }
-    const vaultFile = join(vaultDir, `${local.wallet.vaultId}.vault.json`)
-    await manager.deleteWallet(local.wallet.id)
-    await expect(manager.getWallet(local.wallet.id)).resolves.toBeUndefined()
+    const vaultFile = join(vaultDir, `${vaultWallet.wallet.vaultId}.vault.json`)
+    await manager.deleteWallet(vaultWallet.wallet.id)
+    await expect(manager.getWallet(vaultWallet.wallet.id)).resolves.toBeUndefined()
     await expect(persistence.getActiveContext()).resolves.toBeUndefined()
     await expect(stat(vaultFile)).rejects.toMatchObject({ code: "ENOENT" })
     database.close()

@@ -75,7 +75,7 @@ describe("wallet signing service", () => {
     const { audit, database, manager, persistence, vault } = await createHarness()
     const wallet = await manager.importPrivateKeyWallet({ name: "Signer", privateKey })
     if (!("vaultId" in wallet.wallet)) {
-      throw new Error("Expected a local wallet fixture.")
+      throw new Error("Expected a vault wallet fixture.")
     }
     await vault.unlock(wallet.wallet.vaultId)
     const account = accountRef(wallet)
@@ -150,7 +150,7 @@ describe("wallet signing service", () => {
     const { audit, database, manager, persistence, vault } = await createHarness()
     const wallet = await manager.importHdWallet({ mnemonic, name: "HD" })
     if (!("vaultId" in wallet.wallet)) {
-      throw new Error("Expected a local wallet fixture.")
+      throw new Error("Expected a vault wallet fixture.")
     }
     const account = accountRef(wallet)
     const service = createWalletSigningService({
@@ -196,7 +196,7 @@ describe("wallet signing service", () => {
       code: "WATCH_ONLY",
     })
     if (!("vaultId" in wallet.wallet)) {
-      throw new Error("Expected a local wallet fixture.")
+      throw new Error("Expected a vault wallet fixture.")
     }
     await vault.unlock(wallet.wallet.vaultId)
     const deniedCapability = await denied.createCapability(account)
@@ -238,7 +238,7 @@ describe("wallet signing service", () => {
     const { audit, database, manager, persistence, vault } = await createHarness()
     const wallet = await manager.importPrivateKeyWallet({ name: "Signer", privateKey })
     if (!("vaultId" in wallet.wallet)) {
-      throw new Error("Expected a local wallet fixture.")
+      throw new Error("Expected a vault wallet fixture.")
     }
     await vault.unlock(wallet.wallet.vaultId)
     const account = accountRef(wallet)

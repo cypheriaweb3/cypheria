@@ -15,73 +15,87 @@ import {
   walletIdSchema,
 } from "./primitives.js"
 
+/** User-selected policy posture for an active wallet context. */
 export const walletModes = ["conditional-auto-signing", "human-approval", "read-only"] as const
 export type WalletMode = (typeof walletModes)[number]
 
+/** Immutable references binding an EVM signing request to persisted public state. */
 export type SigningAccountRef = {
-  readonly address: Address
+  readonly walletId: WalletId
+  readonly walletAccountId: WalletAccountId
   readonly chainAccountId: ChainAccountId
   readonly chainId: ChainId
-  readonly walletAccountId: WalletAccountId
-  readonly walletId: WalletId
+  readonly address: Address
 }
 
+/** Solana equivalent of SigningAccountRef, including the expected public key. */
 export type SolanaSigningAccountRef = {
-  readonly address: string
+  readonly protocol: "solana"
+  readonly walletId: WalletId
+  readonly walletAccountId: WalletAccountId
   readonly chainAccountId: ChainAccountId
   readonly chainId: `solana:${string}`
-  readonly protocol: "solana"
+  readonly address: string
   readonly publicKey: string
-  readonly walletAccountId: WalletAccountId
-  readonly walletId: WalletId
 }
 
+/** Runtime validator for EVM account references received across trust boundaries. */
 export const signingAccountRefSchema = z
   .object({
-    address: hexAddressSchema,
+    walletId: walletIdSchema,
+    walletAccountId: walletAccountIdSchema,
     chainAccountId: chainAccountIdSchema,
     chainId: chainIdSchema,
-    walletAccountId: walletAccountIdSchema,
-    walletId: walletIdSchema,
+    address: hexAddressSchema,
   })
   .strict()
 
+/** Runtime validator for Solana account references received across trust boundaries. */
 export const solanaSigningAccountRefSchema = z
   .object({
-    address: z.string().min(32).max(44),
+    protocol: z.literal("solana"),
+    walletId: walletIdSchema,
+    walletAccountId: walletAccountIdSchema,
     chainAccountId: chainAccountIdSchema,
     chainId: z.string().regex(/^solana:[A-Za-z0-9][A-Za-z0-9._-]*$/u),
-    protocol: z.literal("solana"),
+    address: z.string().min(32).max(44),
     publicKey: z.string().regex(/^[A-Za-z0-9+/]{42}[AQgw]=$/u),
-    walletAccountId: walletAccountIdSchema,
-    walletId: walletIdSchema,
   })
   .strict()
 
+/**
+ * Supported EVM transaction fields for signing. Broadcasting is intentionally not
+ * part of this type or the WalletSigner capability.
+ */
 export type SignTransactionParameters = {
   readonly chainId: ChainId
+  readonly to?: Address
+  readonly value?: bigint
   readonly data?: Hex
+  readonly nonce?: number
   readonly gas?: bigint
   readonly maxFeePerGas?: bigint
   readonly maxPriorityFeePerGas?: bigint
-  readonly nonce?: number
-  readonly to?: Address
-  readonly value?: bigint
 }
 
+/** Rejects unknown or negative transaction fields before policy evaluation. */
 export const signTransactionParametersSchema = z
   .object({
     chainId: chainIdSchema,
+    to: hexAddressSchema.optional(),
+    value: z.bigint().nonnegative().optional(),
     data: hexDataSchema.optional(),
+    nonce: z.number().int().nonnegative().optional(),
     gas: z.bigint().nonnegative().optional(),
     maxFeePerGas: z.bigint().nonnegative().optional(),
     maxPriorityFeePerGas: z.bigint().nonnegative().optional(),
-    nonce: z.number().int().nonnegative().optional(),
-    to: hexAddressSchema.optional(),
-    value: z.bigint().nonnegative().optional(),
   })
   .strict()
 
+/**
+ * Opaque signing capability exposed by trusted runtime adapters. It deliberately
+ * has no private-key, mnemonic, keystore, or transaction-broadcasting API.
+ */
 export interface WalletSigner {
   readonly address: Address
   signMessage(parameters: { readonly message: SignableMessage }): Promise<Hex>
@@ -91,6 +105,7 @@ export interface WalletSigner {
   ): Promise<Hex>
 }
 
+/** Auditable operations that must pass signing policy before execution. */
 export const signingIntentKinds = [
   "personal-sign",
   "send-transaction",
@@ -102,38 +117,43 @@ export const signingIntentKinds = [
 ] as const
 export type SigningIntentKind = (typeof signingIntentKinds)[number]
 
+/** Shared identity, provenance, and account binding for every signing intent. */
 export type SigningIntentBase<TAccount = SigningAccountRef> = {
-  readonly account: TAccount
-  readonly correlationId: string
-  readonly createdAt: string
   readonly id: string
+  readonly correlationId: string
   readonly origin?: string
+  readonly account: TAccount
+  readonly createdAt: string
 }
 
+/** Raw-message request corresponding to EVM `personal_sign`. */
 export type PersonalSignIntent = SigningIntentBase & {
   readonly kind: "personal-sign"
   readonly message: Hex | string
 }
 
+/** Structured EIP-712 request; viem performs the final typed-data validation. */
 export type TypedDataSignIntent = SigningIntentBase & {
-  readonly domain: unknown
   readonly kind: "typed-data"
-  readonly message: unknown
-  readonly primaryType: string
+  readonly domain: unknown
   readonly types: unknown
+  readonly primaryType: string
+  readonly message: unknown
 }
 
+/** Transaction review request, retaining whether the caller also requested broadcast. */
 export type TransactionIntent = SigningIntentBase & {
   readonly kind: "send-transaction" | "sign-transaction"
   readonly transaction: SignTransactionParameters
 }
 
+/** Solana signing request with transport-safe encoded payload bytes. */
 export type SolanaSigningIntent = SigningIntentBase<SolanaSigningAccountRef> & {
-  readonly chainId: `solana:${string}`
   readonly kind:
     | "solana-sign-and-send-transaction"
     | "solana-sign-message"
     | "solana-sign-transaction"
+  readonly chainId: `solana:${string}`
   readonly payload: string
 }
 
@@ -144,76 +164,93 @@ export type SigningIntent =
   | TypedDataSignIntent
 
 const signingIntentBaseShape = {
-  account: signingAccountRefSchema,
-  correlationId: z.string().min(1),
-  createdAt: timestampSchema,
   id: z.string().regex(/^signing_intent_[A-Za-z0-9][A-Za-z0-9_-]*$/u),
+  correlationId: z.string().min(1),
   origin: z.string().min(1).optional(),
+  account: signingAccountRefSchema,
 } as const
 
+/** Complete persisted schema for an EVM personal-message intent. */
 export const personalSignIntentSchema = z
   .object({
-    ...signingIntentBaseShape,
     kind: z.literal("personal-sign"),
+    ...signingIntentBaseShape,
     message: z.string(),
+    createdAt: timestampSchema,
   })
   .strict()
 
+/** Complete persisted schema for an EIP-712 intent. */
 export const typedDataSignIntentSchema = z
   .object({
+    kind: z.literal("typed-data"),
     ...signingIntentBaseShape,
     domain: z.unknown(),
-    kind: z.literal("typed-data"),
-    message: z.unknown(),
-    primaryType: z.string().min(1),
     types: z.unknown(),
+    primaryType: z.string().min(1),
+    message: z.unknown(),
+    createdAt: timestampSchema,
   })
   .strict()
 
+/** Complete persisted schema shared by sign-only and send transaction requests. */
 export const transactionIntentSchema = z
   .object({
-    ...signingIntentBaseShape,
     kind: z.enum(["send-transaction", "sign-transaction"]),
+    ...signingIntentBaseShape,
     transaction: signTransactionParametersSchema,
+    createdAt: timestampSchema,
   })
   .strict()
 
-const solanaSigningIntentDraftShape = {
+const solanaSigningIntentRequestShape = {
+  correlationId: z.string().min(1),
+  origin: z.string().min(1).optional(),
   account: solanaSigningAccountRefSchema,
   chainId: z.string().regex(/^solana:[A-Za-z0-9][A-Za-z0-9._-]*$/u),
-  correlationId: z.string().min(1),
-  kind: z.enum([
-    "solana-sign-message",
-    "solana-sign-transaction",
-    "solana-sign-and-send-transaction",
-  ]),
-  origin: z.string().min(1).optional(),
   payload: z.string().min(1).max(2_000_000),
 } as const
+
+const solanaSigningIntentKindSchema = z.enum([
+  "solana-sign-message",
+  "solana-sign-transaction",
+  "solana-sign-and-send-transaction",
+])
 
 const refineSolanaIntentChain = (
   intent: { readonly account: { readonly chainId: string }; readonly chainId: string },
   context: z.RefinementCtx
 ): void => {
+  // Keep the top-level routing key bound to the account authorized by policy.
   if (intent.chainId !== intent.account.chainId) {
     context.addIssue({ code: "custom", message: "The Solana intent chain is inconsistent." })
   }
 }
 
+/** Validates a Solana request before persistence assigns its ID and timestamp. */
 export const solanaSigningIntentDraftSchema = z
-  .object(solanaSigningIntentDraftShape)
-  .strict()
-  .superRefine(refineSolanaIntentChain)
-
-export const solanaSigningIntentSchema = z
   .object({
-    ...solanaSigningIntentDraftShape,
-    createdAt: timestampSchema,
-    id: z.string().regex(/^signing_intent_[A-Za-z0-9][A-Za-z0-9_-]*$/u),
+    kind: solanaSigningIntentKindSchema,
+    ...solanaSigningIntentRequestShape,
   })
   .strict()
   .superRefine(refineSolanaIntentChain)
 
+/** Complete persisted schema for all supported Solana signing operations. */
+export const solanaSigningIntentSchema = z
+  .object({
+    kind: solanaSigningIntentKindSchema,
+    id: z.string().regex(/^signing_intent_[A-Za-z0-9][A-Za-z0-9_-]*$/u),
+    ...solanaSigningIntentRequestShape,
+    createdAt: timestampSchema,
+  })
+  .strict()
+  .superRefine(refineSolanaIntentChain)
+
+/**
+ * Validates a complete persisted intent. The discriminant selects protocol-specific
+ * payload validation while strict child schemas reject unexpected fields.
+ */
 export const signingIntentSchema = z.discriminatedUnion("kind", [
   personalSignIntentSchema,
   transactionIntentSchema,
@@ -221,6 +258,7 @@ export const signingIntentSchema = z.discriminatedUnion("kind", [
   solanaSigningIntentSchema,
 ])
 
+/** Parses untrusted input into a complete signing intent. */
 export const parseSigningIntent = (value: unknown): SigningIntent =>
   signingIntentSchema.parse(value) as SigningIntent
 
@@ -233,6 +271,8 @@ type EncodedIntentValue =
   | ["bigint", string]
   | ["object", [string, EncodedIntentValue][]]
 
+// Tagged containers preserve bigint values and distinguish arrays from objects;
+// sorted object keys make the serialized form deterministic for hashing and replay checks.
 const encodeIntentValue = (value: unknown): EncodedIntentValue => {
   if (value === null || typeof value === "boolean" || typeof value === "string") {
     return value
@@ -249,6 +289,7 @@ const encodeIntentValue = (value: unknown): EncodedIntentValue => {
   }
   if (value && typeof value === "object") {
     const prototype = Object.getPrototypeOf(value)
+    // Class instances may hide executable or lossy serialization behavior.
     if (prototype !== Object.prototype && prototype !== null) {
       throw new Error("The signing intent contains an unsupported object.")
     }
@@ -276,8 +317,10 @@ const decodeIntentValue = (value: EncodedIntentValue): unknown => {
   return Object.fromEntries(value[1].map(([key, item]) => [key, decodeIntentValue(item)]))
 }
 
+/** Produces a deterministic JSON representation that preserves bigint values. */
 export const serializeSigningIntent = (intent: SigningIntent): string =>
   JSON.stringify(encodeIntentValue(parseSigningIntent(intent)))
 
+/** Restores and revalidates an intent instead of trusting serialized storage. */
 export const deserializeSigningIntent = (serialized: string): SigningIntent =>
   parseSigningIntent(decodeIntentValue(JSON.parse(serialized) as EncodedIntentValue))

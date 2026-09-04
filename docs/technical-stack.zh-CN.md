@@ -221,7 +221,7 @@ Cypheria-specific components：
 | --- | --- |
 | EVM client | viem |
 | React wallet hooks | wagmi only for lightweight UI state if needed |
-| Local wallets | viem/accounts + encrypted vault |
+| Vault wallets | viem/accounts + encrypted vault |
 | Embedded wallets | Privy |
 | External wallets | WalletConnect / Reown |
 | Chain registry | 兼容 viem chain format 的自维护 registry |

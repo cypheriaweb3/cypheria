@@ -170,7 +170,7 @@ export const createWalletSigningService = (
 ): WalletSigningService => {
   const replayGuard = options.replayGuard
 
-  const loadLocalAccount = async (account: SigningAccountRef) => {
+  const loadVaultAccount = async (account: SigningAccountRef) => {
     const state = await options.persistence.get(account.walletId)
     if (!state) {
       throw new WalletSigningError("WALLET_NOT_FOUND", "The wallet does not exist.")
@@ -223,7 +223,7 @@ export const createWalletSigningService = (
       )
     }
 
-    const { chainAccount, vaultId } = await loadLocalAccount(boundAccount)
+    const { chainAccount, vaultId } = await loadVaultAccount(boundAccount)
     if (!options.vault.isUnlocked(vaultId)) {
       throw new WalletSigningError("VAULT_LOCKED", "The wallet vault is locked.")
     }
@@ -353,7 +353,7 @@ export const createWalletSigningService = (
   return {
     createCapability: async (accountValue) => {
       const account = signingAccountRefSchema.parse(accountValue) as SigningAccountRef
-      await loadLocalAccount(account)
+      await loadVaultAccount(account)
       return {
         account,
         signMessage: (intent) => execute(account, intent),

@@ -380,14 +380,14 @@ export const createWalletManager = (options: WalletManagerOptions): WalletManage
     }
   }
 
-  const persistImportedLocal = async (
+  const persistImportedVaultWallet = async (
     state: WalletPublicState,
     entries: Parameters<WalletVaultController["create"]>[0]["entries"]
   ): Promise<WalletView> => {
     await assertUnique(state)
     const wallet = state.wallet
     if (!("vaultId" in wallet)) {
-      throw new WalletManagerError("INVALID_INPUT", "A local wallet requires a vault.")
+      throw new WalletManagerError("INVALID_INPUT", "A vault wallet requires a vault.")
     }
     await options.vault.create({
       entries,
@@ -698,7 +698,7 @@ export const createWalletManager = (options: WalletManagerOptions): WalletManage
         vaultId,
         walletId,
       })
-      return persistImportedLocal(state, [
+      return persistImportedVaultWallet(state, [
         {
           accountId: accountIdAt(state, 0),
           id: idFactory.vaultEntryId(),
@@ -732,7 +732,7 @@ export const createWalletManager = (options: WalletManagerOptions): WalletManage
         vaultId,
         walletId,
       })
-      return persistImportedLocal(
+      return persistImportedVaultWallet(
         state,
         prepared.map(({ member }, index) => ({
           accountId: accountIdAt(state, index),
@@ -762,7 +762,7 @@ export const createWalletManager = (options: WalletManagerOptions): WalletManage
         vaultId,
         walletId,
       })
-      return persistImportedLocal(state, [
+      return persistImportedVaultWallet(state, [
         {
           accountId: accountIdAt(state, 0),
           id: idFactory.vaultEntryId(),

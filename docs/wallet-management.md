@@ -19,7 +19,7 @@ Wallet
 
 A `Wallet` is a user-visible container. A `WalletAccount` is a logical derived or imported account. A `ChainAccount` is its public identity for a namespace and chain. Indexes start at zero for every wallet kind; there is no pseudo index.
 
-Wallet kind determines its storage and signing capabilities. `hd`, `private-key`, and `private-key-group` wallets have a local vault, while `watch` and `watch-group` wallets are read-only and have no vault.
+Wallet kind determines its storage and signing capabilities. `hd`, `private-key`, and `private-key-group` are vault wallets, while `watch` and `watch-group` wallets are read-only and have no vault.
 
 Domain identifiers use explicit prefixes (`wallet_`, `account_`, `chain_account_`, and `vault_`). Strict Zod schemas validate every runtime boundary. Renderer projections use a nested `{ wallet, accounts }` shape and re-parse the complete value with strict schemas so accidental secret properties are rejected instead of serialized.
 
@@ -37,7 +37,7 @@ wallet_hd_schemes
 active_wallet_context
 ```
 
-Normal columns and JSON must never contain mnemonic phrases or entropy, BIP-39 passphrases, private keys, vault encryption keys, decrypted keystores, or serialized local signers. Lifecycle states `initializing`, `ready`, `error`, and `deleting` support recovery across the SQLite/filesystem boundary.
+Normal columns and JSON must never contain mnemonic phrases or entropy, BIP-39 passphrases, private keys, vault encryption keys, decrypted keystores, or serialized vault signers. Lifecycle states `initializing`, `ready`, `error`, and `deleting` support recovery across the SQLite/filesystem boundary.
 
 `@cypheria/db` validates complete wallet graphs with the strict wallet-core schemas before using an atomic libSQL batch. Foreign keys cascade wallet deletion, while unique and check constraints enforce fingerprints, names, account indexes, wallet/vault combinations, and the supported EVM derivation scheme. Recovery code can query wallets by lifecycle status without loading any vault secret.
 
@@ -82,11 +82,11 @@ Imported wallets may already control funds, so HD and private-key imports persis
 
 The active context stores one selected wallet, wallet account, chain account, and mode. Persistence verifies that all three identifiers belong to the same wallet graph. Only `ready` wallets can be selected, and watch wallets are restricted to `read-only`; deletion clears a selected context through foreign-key cascading. Mutations append redacted audit events without secret material.
 
-Recovery reconciles lifecycle state and vault files; a missing vault marks an existing wallet as an error instead of erasing its record. Deleting a local wallet first records `deleting`, atomically removes its vault, and only then removes public state; a vault failure leaves an `error` record for recovery.
+Recovery reconciles lifecycle state and vault files; a missing vault marks an existing wallet as an error instead of erasing its record. Deleting a vault wallet first records `deleting`, atomically removes its vault, and only then removes public state; a vault failure leaves an `error` record for recovery.
 
 ## Signing
 
-`@cypheria/runtime` issues an opaque capability bound to one persisted wallet/account/chain reference. Its methods accept complete, strictly validated signing intents rather than arbitrary signing payloads. Every execution re-resolves ready local-wallet state, checks the bound address and chain, requires an unlocked vault, calls the required policy/approval authorizer, and atomically claims an approved intent ID before signing. The signing service has no bypass path and does not accept `send-transaction`; signing and broadcasting remain distinct permissions.
+`@cypheria/runtime` issues an opaque capability bound to one persisted wallet/account/chain reference. Its methods accept complete, strictly validated signing intents rather than arbitrary signing payloads. Every execution re-resolves ready vault-wallet state, checks the bound address and chain, requires an unlocked vault, calls the required policy/approval authorizer, and atomically claims an approved intent ID before signing. The signing service has no bypass path and does not accept `send-transaction`; signing and broadcasting remain distinct permissions.
 
 Production replay protection uses `signing_intent_claims` in libSQL. Authorization occurs before the claim so an intent awaiting human approval is not consumed and can be retried after its decision. Once approved, the intent ID is claimed with its canonical SHA-256 payload hash before secret access, so concurrent or later reuse is rejected across process restarts. A locked vault is also detected before the claim, allowing the same intent to be retried after an explicit unlock. A process-local replay guard exists only as an explicit test or isolated-runtime adapter.
 

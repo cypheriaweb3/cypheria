@@ -3,8 +3,13 @@ import { z } from "zod"
 
 export type HexAddress = Address
 export type HexData = Hex
+/** Positive EVM chain ID. Other namespaces use their own chain identifier type. */
 export type ChainId = number
 
+/**
+ * Prefixed identifiers make cross-table references recognizable in logs and IPC.
+ * The template-literal brands aid TypeScript; the schemas below enforce them at runtime.
+ */
 export type WalletId = `wallet_${string}`
 export type WalletAccountId = `account_${string}`
 export type ChainAccountId = `chain_account_${string}`
@@ -30,14 +35,17 @@ export const walletFingerprintSchema = z
 
 export const chainIdSchema = z.number().int().positive()
 
+/** Validates an EVM address and returns its EIP-55 checksum representation. */
 export const hexAddressSchema = z
   .string()
   .refine(isAddress, "Invalid EVM address.")
   .transform((value) => getAddress(value))
 
+/** Accepts byte-aligned hexadecimal data, including the empty value `0x`. */
 export const hexDataSchema = z
   .string()
   .regex(/^0x(?:[a-fA-F0-9]{2})*$/u)
   .transform((value) => value as HexData)
 
+/** ISO 8601 datetime accepted at persistence and IPC boundaries. */
 export const timestampSchema = z.iso.datetime()
