@@ -141,6 +141,22 @@
   - 包括：OS-backed desktop vault key storage、renderer 不持久化秘密的一次性提交、带持久化拖拽排序和 HD 账户派生的两级钱包/账户虚拟列表、左侧导航待审批计数、通过 privileged `cypheria://` scheme 提供 packaged SPA routes、libSQL native resolution，以及随构建复制 database migrations。
   - 验证：全部 workspace tests、`pnpm run ci`、`pnpm build`，以及 task workspace 与 wallet route 的真实 Electron smoke checks。
 
+- [x] 实现 desktop 插件与技能管理闭环。
+  - 验收：工作台通过 App Server 列出和搜索 marketplace 与 skill；安装、卸载、启用和禁用 plugin；启用和禁用 skill；并经 typed IPC 添加或更新 marketplace source。
+  - 包括：renderer-safe Zod projection、source/installed filter、partial-load error、loading/empty state、隔离 Codex home ownership，以及成对的 evidence-based design note。
+  - 验证：desktop IPC 与 service tests、`pnpm run ci`、`pnpm build`，以及与官方 desktop reference 的视觉对比。
+
+- [x] 按用户桌面截图重构插件目录、详情与基础管理。
+  - 包括：已安装图标栏、平铺搜索、无边框条目、上下文菜单、条件详情分组、输入草稿与独立设置路由。
+  - 验证：38 项 desktop 测试、workspace 检查、renderer 构建及浏览器详情/草稿检查。完整视觉对齐仍见 `design-qa.md`。
+- [x] 补齐插件设置中的应用/MCP 管理与真实运行可用状态。
+  - 包括：五个计数页签、应用开关和外部连接页、MCP 清单/工具、独立服务器启停与 HTTP 添加、OAuth 完成通知、部分状态失败处理。
+  - 验证：47 项 desktop 测试、workspace 检查、desktop 构建、浏览器开关/搜索/表单测试，以及桌面和窄窗口归一化截图对比。
+- [x] 保留市场真实来源并增加受保护的本地市场移除。
+  - 包括：按市场类别查询，公开/个人视图，以及个人视图中的创建/共享/本地/工作区分组，移除确认与主进程二次校验；存在已安装插件时须先明确卸载。
+  - 验证：desktop 服务测试/类型检查，以及浏览器预览取消、移除和来源筛选。未移除用户真实市场。
+- [ ] 完成其余桌面插件对齐：技能录制及剩余截图状态。在 Electron 中验证真实登录连接授权。
+
 ## Runtime Web3 能力
 
 - [x] 明确 network 与 RPC 架构。

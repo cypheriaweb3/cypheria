@@ -32,11 +32,28 @@ import {
   codexAccountLoginStartContract,
   codexAccountLogoutContract,
   codexAccountReadContract,
+  codexAppConnectContract,
+  codexAppEnabledContract,
+  codexAppListContract,
   codexChatInterruptContract,
   codexChatStartContract,
+  codexMarketplaceAddContract,
+  codexMarketplaceRemoveContract,
+  codexMarketplaceUpgradeContract,
+  codexMcpAddContract,
+  codexMcpEnabledContract,
+  codexMcpListContract,
+  codexMcpLoginContract,
   codexModelListContract,
   codexModelSettingsReadContract,
   codexModelSettingsWriteContract,
+  codexPluginEnabledWriteContract,
+  codexPluginInstallContract,
+  codexPluginListContract,
+  codexPluginReadContract,
+  codexPluginUninstallContract,
+  codexSkillEnabledWriteContract,
+  codexSkillListContract,
   codexThreadListContract,
   dappProviderRequestContract,
   IPC_PROTOCOL_VERSION,
@@ -89,6 +106,27 @@ import {
   startCodexLogin,
   writeCodexModelSettings,
 } from "./codex-desktop.js"
+import {
+  addCodexMcp,
+  listCodexApps,
+  listCodexMcp,
+  loginCodexMcp,
+  openCodexAppConnection,
+  setCodexAppEnabled,
+  setCodexMcpEnabled,
+} from "./codex-integrations.js"
+import {
+  addCodexMarketplace,
+  installCodexPlugin,
+  listCodexPlugins,
+  listCodexSkills,
+  readCodexPlugin,
+  removeCodexMarketplace,
+  setCodexPluginEnabled,
+  setCodexSkillEnabled,
+  uninstallCodexPlugin,
+  upgradeCodexMarketplaces,
+} from "./codex-plugins.js"
 import {
   createDappBrowserController,
   createElectronDappWebContentsFactory,
@@ -407,6 +445,47 @@ const registerIpcHandlers = (context: DesktopRuntimeContext): void => {
     writeCodexModelSettings(codexBridge(), settings)
   )
   registerIpcRoute(codexThreadListContract, (options) => listCodexThreads(codexBridge(), options))
+  registerIpcRoute(codexPluginListContract, (options) => listCodexPlugins(codexBridge(), options))
+  registerIpcRoute(codexPluginReadContract, (options) => readCodexPlugin(codexBridge(), options))
+  registerIpcRoute(codexAppListContract, ({ forceRefetch }) =>
+    listCodexApps(codexBridge(), forceRefetch)
+  )
+  registerIpcRoute(codexAppEnabledContract, ({ appId, enabled }) =>
+    setCodexAppEnabled(codexBridge(), appId, enabled)
+  )
+  registerIpcRoute(codexAppConnectContract, ({ appId }) =>
+    openCodexAppConnection(codexBridge(), appId, (url) => shell.openExternal(url))
+  )
+  registerIpcRoute(codexMcpListContract, () => listCodexMcp(codexBridge()))
+  registerIpcRoute(codexMcpEnabledContract, ({ name, enabled }) =>
+    setCodexMcpEnabled(codexBridge(), name, enabled)
+  )
+  registerIpcRoute(codexMcpLoginContract, ({ name }) =>
+    loginCodexMcp(codexBridge(), name, (url) => shell.openExternal(url))
+  )
+  registerIpcRoute(codexMcpAddContract, (input) => addCodexMcp(codexBridge(), input))
+  registerIpcRoute(codexPluginInstallContract, (plugin) =>
+    installCodexPlugin(codexBridge(), plugin)
+  )
+  registerIpcRoute(codexPluginUninstallContract, ({ pluginId }) =>
+    uninstallCodexPlugin(codexBridge(), pluginId)
+  )
+  registerIpcRoute(codexPluginEnabledWriteContract, ({ enabled, pluginId }) =>
+    setCodexPluginEnabled(codexBridge(), pluginId, enabled)
+  )
+  registerIpcRoute(codexSkillListContract, (options) => listCodexSkills(codexBridge(), options))
+  registerIpcRoute(codexSkillEnabledWriteContract, ({ enabled, path }) =>
+    setCodexSkillEnabled(codexBridge(), path, enabled)
+  )
+  registerIpcRoute(codexMarketplaceAddContract, (input) =>
+    addCodexMarketplace(codexBridge(), input)
+  )
+  registerIpcRoute(codexMarketplaceUpgradeContract, ({ marketplaceName }) =>
+    upgradeCodexMarketplaces(codexBridge(), marketplaceName)
+  )
+  registerIpcRoute(codexMarketplaceRemoveContract, ({ marketplaceName }) =>
+    removeCodexMarketplace(codexBridge(), marketplaceName)
+  )
   registerIpcRoute(codexChatStartContract, (request, event) => ({
     requestId: startCodexChat(codexBridge(), event.sender, request),
   }))

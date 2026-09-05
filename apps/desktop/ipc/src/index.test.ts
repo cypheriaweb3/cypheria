@@ -8,6 +8,11 @@ import {
   automationTaskCreateContract,
   automationTaskPauseContract,
   browserSessionOpenContract,
+  codexMarketplaceAddContract,
+  codexMarketplaceRemoveContract,
+  codexPluginEnabledWriteContract,
+  codexPluginInstallContract,
+  codexSkillEnabledWriteContract,
   dappProviderRequestContract,
   networkCreateContract,
   networkEndpointSetEnabledContract,
@@ -197,5 +202,46 @@ describe("automation IPC contracts", () => {
         workspace: { id: "workspace_one", path: "/tmp/cypheria" },
       })
     ).toThrow()
+  })
+})
+
+describe("plugin and skill IPC contracts", () => {
+  it("accepts only an exact marketplace name for removal, never renderer paths", () => {
+    expect(codexMarketplaceRemoveContract.request.parse({ marketplaceName: "team" })).toEqual({
+      marketplaceName: "team",
+    })
+    expect(codexMarketplaceRemoveContract.request.safeParse({ marketplaceName: "" }).success).toBe(
+      false
+    )
+    expect(
+      codexMarketplaceRemoveContract.request.safeParse({
+        marketplaceName: "team",
+        path: "/tmp/other",
+      }).success
+    ).toBe(false)
+  })
+  it("validates plugin locators, toggles, and marketplace sources", () => {
+    expect(
+      codexPluginInstallContract.request.parse({
+        marketplaceName: "OpenAI",
+        marketplacePath: null,
+        pluginName: "github",
+      })
+    ).toMatchObject({ pluginName: "github" })
+    expect(
+      codexPluginEnabledWriteContract.request.parse({
+        enabled: false,
+        pluginId: "github@openai",
+      })
+    ).toEqual({ enabled: false, pluginId: "github@openai" })
+    expect(
+      codexSkillEnabledWriteContract.request.parse({
+        enabled: true,
+        path: "/skills/example/SKILL.md",
+      })
+    ).toMatchObject({ enabled: true })
+    expect(codexMarketplaceAddContract.request.parse({ source: "org/plugins" })).toEqual({
+      source: "org/plugins",
+    })
   })
 })

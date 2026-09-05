@@ -6,5 +6,6 @@ export const Route = createFileRoute("/")({
   ssr: false,
   validateSearch: z.object({
     thread: z.string().min(1).optional().catch(undefined),
+    prompt: z.string().optional().catch(undefined),
   }),
 })

@@ -28,15 +28,44 @@ import {
   CodexLoginRequestSchema,
   type CodexLoginResult,
   CodexLoginResultSchema,
+  CodexMarketplaceAddRequestSchema,
+  CodexMarketplaceMutationResultSchema,
   CodexModelListRequestSchema,
   type CodexModelSettings,
   CodexModelSettingsSchema,
   type CodexModelView,
   CodexModelViewSchema,
+  type CodexPluginDetailView,
+  CodexPluginDetailViewSchema,
+  CodexPluginEnabledRequestSchema,
+  type CodexPluginInstallResult,
+  CodexPluginInstallResultSchema,
+  CodexPluginListRequestSchema,
+  type CodexPluginListResult,
+  CodexPluginListResultSchema,
+  type CodexPluginLocator,
+  CodexPluginLocatorSchema,
+  CodexPluginUninstallRequestSchema,
+  CodexSkillEnabledRequestSchema,
+  CodexSkillListRequestSchema,
+  type CodexSkillListResult,
+  CodexSkillListResultSchema,
   CodexThreadListRequestSchema,
   type CodexThreadView,
   CodexThreadViewSchema,
 } from "./codex.js"
+import {
+  AppEnabledRequestSchema,
+  AppIdRequestSchema,
+  type CodexAppListResult,
+  CodexAppListResultSchema,
+  type CodexMcpListResult,
+  CodexMcpListResultSchema,
+  IntegrationListRequestSchema,
+  McpAddRequestSchema,
+  McpEnabledRequestSchema,
+  McpNameRequestSchema,
+} from "./integrations.js"
 import {
   AuditLogListInputSchema,
   AuditLogRecordSchema,
@@ -75,6 +104,7 @@ import {
 } from "./web3.js"
 
 export * from "./codex.js"
+export * from "./integrations.js"
 export * from "./web3.js"
 
 export const IPC_PROTOCOL_VERSION = 1
@@ -123,6 +153,23 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexModelList: "codex.model.list",
   codexModelSettingsRead: "codex.model.settings.read",
   codexModelSettingsWrite: "codex.model.settings.write",
+  codexMarketplaceAdd: "codex.marketplace.add",
+  codexMarketplaceUpgrade: "codex.marketplace.upgrade",
+  codexMarketplaceRemove: "codex.marketplace.remove",
+  codexPluginEnabledWrite: "codex.plugin.enabled.write",
+  codexPluginInstall: "codex.plugin.install",
+  codexPluginList: "codex.plugin.list",
+  codexPluginRead: "codex.plugin.read",
+  codexAppList: "codex.app.list",
+  codexAppEnabled: "codex.app.enabled",
+  codexAppConnect: "codex.app.connect",
+  codexMcpList: "codex.mcp.list",
+  codexMcpEnabled: "codex.mcp.enabled",
+  codexMcpLogin: "codex.mcp.login",
+  codexMcpAdd: "codex.mcp.add",
+  codexPluginUninstall: "codex.plugin.uninstall",
+  codexSkillEnabledWrite: "codex.skill.enabled.write",
+  codexSkillList: "codex.skill.list",
   codexThreadList: "codex.thread.list",
   dappProviderRequest: "dapp.provider.request",
   dappProviderEvent: "dapp.provider.event",
@@ -1040,6 +1087,145 @@ export const codexChatInterruptContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<{ requestId: string }, { interrupted: boolean }>
 
+export const codexPluginListContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexPluginList,
+  namespace: "codex",
+  request: CodexPluginListRequestSchema,
+  response: CodexPluginListResultSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ cwd?: string; forceRefetch?: boolean }, CodexPluginListResult>
+
+export const codexAppListContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexAppList,
+  namespace: "codex",
+  request: IntegrationListRequestSchema,
+  response: CodexAppListResultSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ forceRefetch?: boolean }, CodexAppListResult>
+export const codexAppEnabledContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexAppEnabled,
+  namespace: "codex",
+  request: AppEnabledRequestSchema,
+  response: z.object({ enabled: z.boolean() }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ appId: string; enabled: boolean }, { enabled: boolean }>
+export const codexAppConnectContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexAppConnect,
+  namespace: "codex",
+  request: AppIdRequestSchema,
+  response: z.object({ opened: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ appId: string }, { opened: true }>
+export const codexMcpListContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexMcpList,
+  namespace: "codex",
+  request: z.object({}).strict(),
+  response: CodexMcpListResultSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<Record<string, never>, CodexMcpListResult>
+export const codexMcpEnabledContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexMcpEnabled,
+  namespace: "codex",
+  request: McpEnabledRequestSchema,
+  response: z.object({ enabled: z.boolean() }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ name: string; enabled: boolean }, { enabled: boolean }>
+export const codexMcpLoginContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexMcpLogin,
+  namespace: "codex",
+  request: McpNameRequestSchema,
+  response: z.object({ opened: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ name: string }, { opened: true }>
+export const codexMcpAddContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexMcpAdd,
+  namespace: "codex",
+  request: McpAddRequestSchema,
+  response: z.object({ added: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ name: string; url: string }, { added: true }>
+
+export const codexPluginReadContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexPluginRead,
+  namespace: "codex",
+  request: CodexPluginLocatorSchema,
+  response: CodexPluginDetailViewSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<CodexPluginLocator, CodexPluginDetailView>
+
+export const codexPluginInstallContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexPluginInstall,
+  namespace: "codex",
+  request: CodexPluginLocatorSchema,
+  response: CodexPluginInstallResultSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<CodexPluginLocator, CodexPluginInstallResult>
+
+export const codexPluginUninstallContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexPluginUninstall,
+  namespace: "codex",
+  request: CodexPluginUninstallRequestSchema,
+  response: z.object({ uninstalled: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ pluginId: string }, { uninstalled: true }>
+
+export const codexPluginEnabledWriteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexPluginEnabledWrite,
+  namespace: "codex",
+  request: CodexPluginEnabledRequestSchema,
+  response: z.object({ enabled: z.boolean() }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ enabled: boolean; pluginId: string }, { enabled: boolean }>
+
+export const codexSkillListContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexSkillList,
+  namespace: "codex",
+  request: CodexSkillListRequestSchema,
+  response: CodexSkillListResultSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ cwd?: string; forceReload?: boolean }, CodexSkillListResult>
+
+export const codexSkillEnabledWriteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexSkillEnabledWrite,
+  namespace: "codex",
+  request: CodexSkillEnabledRequestSchema,
+  response: z.object({ enabled: z.boolean() }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ enabled: boolean; path: string }, { enabled: boolean }>
+
+export const codexMarketplaceAddContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexMarketplaceAdd,
+  namespace: "codex",
+  request: CodexMarketplaceAddRequestSchema,
+  response: CodexMarketplaceMutationResultSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  { refName?: string; source: string; sparsePaths?: string[] },
+  { marketplaceName: string | null; succeeded: true }
+>
+
+export const codexMarketplaceUpgradeContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexMarketplaceUpgrade,
+  namespace: "codex",
+  request: z.object({ marketplaceName: z.string().min(1).optional() }).strict(),
+  response: CodexMarketplaceMutationResultSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  { marketplaceName?: string },
+  { marketplaceName: string | null; succeeded: true }
+>
+
+export const codexMarketplaceRemoveContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexMarketplaceRemove,
+  namespace: "codex",
+  request: z.object({ marketplaceName: z.string().min(1) }).strict(),
+  response: CodexMarketplaceMutationResultSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  { marketplaceName: string },
+  { marketplaceName: string | null; succeeded: true }
+>
+
 export const ipcContracts = {
   appHealthCheck: appHealthCheckContract,
   appMetadataRead: appMetadataReadContract,
@@ -1064,6 +1250,23 @@ export const ipcContracts = {
   codexModelList: codexModelListContract,
   codexModelSettingsRead: codexModelSettingsReadContract,
   codexModelSettingsWrite: codexModelSettingsWriteContract,
+  codexMarketplaceAdd: codexMarketplaceAddContract,
+  codexMarketplaceUpgrade: codexMarketplaceUpgradeContract,
+  codexMarketplaceRemove: codexMarketplaceRemoveContract,
+  codexPluginEnabledWrite: codexPluginEnabledWriteContract,
+  codexPluginInstall: codexPluginInstallContract,
+  codexPluginList: codexPluginListContract,
+  codexAppList: codexAppListContract,
+  codexAppEnabled: codexAppEnabledContract,
+  codexAppConnect: codexAppConnectContract,
+  codexMcpList: codexMcpListContract,
+  codexMcpEnabled: codexMcpEnabledContract,
+  codexMcpLogin: codexMcpLoginContract,
+  codexMcpAdd: codexMcpAddContract,
+  codexPluginRead: codexPluginReadContract,
+  codexPluginUninstall: codexPluginUninstallContract,
+  codexSkillEnabledWrite: codexSkillEnabledWriteContract,
+  codexSkillList: codexSkillListContract,
   codexThreadList: codexThreadListContract,
   dappProviderRequest: dappProviderRequestContract,
   networkCreate: networkCreateContract,
@@ -1118,11 +1321,42 @@ export type CypheriaPreloadApi = {
     readonly list: (status?: ApprovalRequestStatus) => Promise<ApprovalRequestView[]>
   }
   readonly codex: {
+    readonly listApps: (forceRefetch?: boolean) => Promise<CodexAppListResult>
+    readonly setAppEnabled: (appId: string, enabled: boolean) => Promise<{ enabled: boolean }>
+    readonly connectApp: (appId: string) => Promise<{ opened: true }>
+    readonly listMcp: () => Promise<CodexMcpListResult>
+    readonly setMcpEnabled: (name: string, enabled: boolean) => Promise<{ enabled: boolean }>
+    readonly loginMcp: (name: string) => Promise<{ opened: true }>
+    readonly addMcp: (input: { name: string; url: string }) => Promise<{ added: true }>
     readonly cancelLogin: (loginId: string) => Promise<{ cancelled: boolean }>
     readonly getAccount: () => Promise<CodexAccountView>
     readonly getModelSettings: () => Promise<CodexModelSettings>
     readonly interruptChat: (requestId: string) => Promise<{ interrupted: boolean }>
     readonly listModels: (includeHidden?: boolean) => Promise<CodexModelView[]>
+    readonly listPlugins: (options?: {
+      cwd?: string
+      forceRefetch?: boolean
+    }) => Promise<CodexPluginListResult>
+    readonly installPlugin: (plugin: CodexPluginLocator) => Promise<CodexPluginInstallResult>
+    readonly readPlugin: (plugin: CodexPluginLocator) => Promise<CodexPluginDetailView>
+    readonly uninstallPlugin: (pluginId: string) => Promise<{ uninstalled: true }>
+    readonly setPluginEnabled: (pluginId: string, enabled: boolean) => Promise<{ enabled: boolean }>
+    readonly listSkills: (options?: {
+      cwd?: string
+      forceReload?: boolean
+    }) => Promise<CodexSkillListResult>
+    readonly setSkillEnabled: (path: string, enabled: boolean) => Promise<{ enabled: boolean }>
+    readonly addMarketplace: (input: {
+      refName?: string
+      source: string
+      sparsePaths?: string[]
+    }) => Promise<{ marketplaceName: string | null; succeeded: true }>
+    readonly removeMarketplace: (
+      marketplaceName: string
+    ) => Promise<{ marketplaceName: string | null; succeeded: true }>
+    readonly upgradeMarketplaces: (
+      marketplaceName?: string
+    ) => Promise<{ marketplaceName: string | null; succeeded: true }>
     readonly listThreads: (options?: {
       archived?: boolean
       searchTerm?: string

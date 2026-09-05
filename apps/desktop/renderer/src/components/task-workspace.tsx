@@ -74,12 +74,21 @@ const fallbackModel: CodexModelView = {
 }
 
 export default function TaskWorkspace() {
-  const { thread } = Route.useSearch()
+  const { thread, prompt } = Route.useSearch()
   const revision = useAtomValue(newTaskRevisionAtom)
-  return <TaskSession key={thread ?? `new-task-${revision}`} resumeThreadId={thread} />
+  return (
+    <TaskSession
+      key={thread ?? `new-task-${revision}-${prompt ?? ""}`}
+      resumeThreadId={thread}
+      initialPrompt={prompt}
+    />
+  )
 }
 
-function TaskSession({ resumeThreadId }: Readonly<{ resumeThreadId?: string }>) {
+function TaskSession({
+  resumeThreadId,
+  initialPrompt,
+}: Readonly<{ resumeThreadId?: string; initialPrompt?: string }>) {
   const modelSettingsQuery = useQuery({
     queryFn: () => window.cypheria?.codex.getModelSettings(),
     queryKey: ["codex", "model-settings"],
@@ -196,7 +205,10 @@ function TaskSession({ resumeThreadId }: Readonly<{ resumeThreadId?: string }>) 
         <div className="mx-auto w-full max-w-[880px] px-4 pb-5">
           <PromptInput accept="image/*,text/*,.md,.json" multiple onSubmit={handleSubmit}>
             <PromptInputBody>
-              <PromptInputTextarea placeholder="Ask Cypheria to inspect, edit, run, research, or review…" />
+              <PromptInputTextarea
+                defaultValue={initialPrompt}
+                placeholder="Ask Cypheria to inspect, edit, run, research, or review…"
+              />
             </PromptInputBody>
             <PromptInputFooter>
               <PromptInputTools>

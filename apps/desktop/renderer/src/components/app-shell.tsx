@@ -103,6 +103,11 @@ const workbenchItems = [
 
 const settingsItems = [
   {
+    href: "/settings/plugins",
+    icon: <Boxes size={16} strokeWidth={1.9} />,
+    label: "Plugins",
+  },
+  {
     href: "/settings/account",
     icon: <LogIn size={16} strokeWidth={1.9} />,
     label: "Account",

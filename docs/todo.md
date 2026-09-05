@@ -141,6 +141,22 @@ Status legend:
   - Include: OS-backed desktop vault key storage, one-shot secret submission without renderer persistence, a two-level virtualized wallet/account manager with durable drag ordering and HD account derivation, pending counts in the sidebar, packaged SPA routing through the privileged `cypheria://` scheme, bundled libSQL native resolution, and copied database migrations.
   - Verification: all workspace tests, `pnpm run ci`, `pnpm build`, and real Electron smoke checks of the task workspace and wallet route.
 
+- [x] Implement the desktop plugin and skill management loop.
+  - Acceptance: the workbench lists and searches App Server marketplaces and skills; installs, uninstalls, enables, and disables plugins; enables and disables skills; and adds or upgrades marketplace sources through typed IPC.
+  - Include: renderer-safe Zod projections, source and installed filters, partial-load errors, loading and empty states, isolated Codex home ownership, and a paired evidence-based design note.
+  - Verification: desktop IPC and service tests, `pnpm run ci`, `pnpm build`, and visual comparison against the official desktop reference.
+
+- [x] Rework plugin discovery, details and core management against the supplied desktop screenshots.
+  - Include: installed icon rail, flat search mode, borderless rows, context menus, conditional detail sections, composer drafts and a separate settings route.
+  - Verification: 38 desktop tests, workspace checks, renderer build and browser detail/composer checks. Full visual parity remains open in `design-qa.md`.
+- [x] Add Apps/MCP management and truthful runtime availability to plugin settings.
+  - Include: five count tabs, app enablement and external connection pages, MCP inventory/tools, standalone server enablement and HTTP addition, OAuth completion notifications, and partial-state handling.
+  - Verification: 47 desktop tests, workspace checks, desktop build, browser switch/search/form tests, and normalized screenshot comparison at desktop and narrow widths.
+- [x] Preserve marketplace source provenance and add guarded local marketplace removal.
+  - Include: kind-filtered discovery, Public/Personal views with created/shared/local/workspace sections, removal confirmation and main-process revalidation. Installed plugins must be explicitly uninstalled first.
+  - Verification: desktop service/type checks and browser preview cancellation/removal/source filtering. Real user marketplaces were not removed.
+- [ ] Complete remaining plugin desktop parity: skill recording and remaining screenshot states. Verify live authenticated connector authorization in Electron.
+
 ## Runtime Web3 Capabilities
 
 - [x] Specify the network and RPC architecture.
