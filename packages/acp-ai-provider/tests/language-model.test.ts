@@ -2,6 +2,7 @@
  * Tests for ACP Language Model
  */
 
+import type { LanguageModelV4CallOptions } from "@ai-sdk/provider"
 import { generateText, tool } from "ai"
 import { z } from "zod"
 import { acpTools } from "../src/acp-tool.js"
@@ -143,7 +144,7 @@ Deno.test("ACPLanguageModel - maps ACP stop reasons to AI SDK finish reasons", a
   for (let i = 0; i < promptResponses.length; i++) {
     const result = await model.doGenerate({
       prompt: [{ role: "user", content: "test" }],
-    } as any)
+    } as LanguageModelV4CallOptions)
     finishReasons.push(result.finishReason.unified)
     assertEquals(result.finishReason.raw, promptResponses[i].stopReason)
   }
@@ -689,9 +690,10 @@ async function readAll(stream: ReadableStream<unknown>): Promise<unknown[]> {
   return parts
 }
 
-async function readNext(reader: ReadableStreamDefaultReader<any>): Promise<any> {
+async function readNext<T>(reader: ReadableStreamDefaultReader<T>): Promise<T> {
   const { done, value } = await reader.read()
   assertEquals(done, false)
+  assertExists(value)
   return value
 }
 
@@ -735,7 +737,9 @@ Deno.test("doStream - raw ACP updates honor includeRawChunks", async () => {
       ...basicOptions,
       includeRawChunks,
     } as never)
-    h.updateHandler()!({
+    const updateHandler = h.updateHandler()
+    assertExists(updateHandler)
+    updateHandler({
       sessionId: "session-1",
       update: { sessionUpdate: "usage_update", used: 1, size: 10 },
     } as never)
@@ -934,7 +938,9 @@ Deno.test("doStream - stale session/update after close is dropped without throwi
   await reader.read() // stream-start
 
   // Updates while the stream is open still flow through.
-  h.updateHandler()!({
+  const updateHandler = h.updateHandler()
+  assertExists(updateHandler)
+  updateHandler({
     sessionId: "session-1",
     update: {
       sessionUpdate: "agent_message_chunk",
@@ -952,7 +958,7 @@ Deno.test("doStream - stale session/update after close is dropped without throwi
 
   // A late notification from the old turn must not write to the closed
   // controller (no "Controller is already closed").
-  h.updateHandler()!({
+  updateHandler({
     sessionId: "session-1",
     update: {
       sessionUpdate: "agent_message_chunk",

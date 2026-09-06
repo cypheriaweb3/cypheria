@@ -91,10 +91,10 @@ const CANCEL_DRAIN_TIMEOUT_MS = 30_000
  * Races a promise against a timeout, clearing the timer once one of them
  * settles so no dangling timer is left behind.
  */
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | void> {
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | undefined> {
   let timer: ReturnType<typeof setTimeout> | undefined
-  const timeout = new Promise<void>((resolve) => {
-    timer = setTimeout(resolve, ms)
+  const timeout = new Promise<undefined>((resolve) => {
+    timer = setTimeout(() => resolve(undefined), ms)
   })
   return Promise.race([promise, timeout]).finally(() => {
     if (timer) clearTimeout(timer)
@@ -777,7 +777,7 @@ export class ACPLanguageModel implements LanguageModelV4 {
       toolName,
       toolResult,
       isError,
-      status: update.status!,
+      status: update.status ?? undefined,
     }
   }
 
@@ -928,7 +928,7 @@ export class ACPLanguageModel implements LanguageModelV4 {
    * Starts a new session or updates the existing one.
    * Assumes connectClient() has been called.
    */
-  async startSession(acpTools?: Array<Tool<any, any> & { name: string }>): Promise<void> {
+  async startSession(acpTools?: Array<Tool & { name: string }>): Promise<void> {
     if (!this.connection) {
       throw new Error("Not connected")
     }
@@ -1128,9 +1128,7 @@ export class ACPLanguageModel implements LanguageModelV4 {
    *
    * @param acpTools - Tools from streamText options to proxy
    */
-  private async ensureConnected(
-    acpTools?: Array<Tool<any, any> & { name: string }>
-  ): Promise<void> {
+  private async ensureConnected(acpTools?: Array<Tool & { name: string }>): Promise<void> {
     await this.withLazyAuthRetry("session setup", async () => {
       await this.connectClient()
       await this.startSession(acpTools)
@@ -1163,7 +1161,8 @@ export class ACPLanguageModel implements LanguageModelV4 {
     const acpTools = extractACPTools(tools, false)
 
     await this.ensureConnected(acpTools.length > 0 ? acpTools : undefined)
-    return this.sessionResponse!
+    if (!this.sessionResponse) throw new Error("ACP session initialization returned no response")
+    return this.sessionResponse
   }
 
   /**
@@ -1241,7 +1240,9 @@ export class ACPLanguageModel implements LanguageModelV4 {
       )
     }
 
-    return await this.setConfigOption(matches[0]!.id, value)
+    const [match] = matches
+    if (!match) throw new Error(`No session config option is available for category "${category}".`)
+    return await this.setConfigOption(match.id, value)
   }
 
   /**
@@ -1260,10 +1261,11 @@ export class ACPLanguageModel implements LanguageModelV4 {
     if (!this.connection) {
       throw new Error("Not connected")
     }
+    const connection = this.connection
 
     try {
       const response = await this.withLazyAuthRetry("prompt", () =>
-        this.connection!.prompt(request as Parameters<ACPClientRuntime["prompt"]>[0])
+        connection.prompt(request as Parameters<ACPClientRuntime["prompt"]>[0])
       )
       this.debug.appendPromptResponse(response)
       return response
@@ -1296,7 +1298,8 @@ export class ACPLanguageModel implements LanguageModelV4 {
         )
       }
 
-      const option = modeOptions[0]!
+      const [option] = modeOptions
+      if (!option) throw new Error("The advertised mode option is unavailable")
       const availableValues = flattenSessionConfigSelectValues(option)
       if (availableValues.length > 0 && !availableValues.includes(modeId)) {
         const availableList = availableValues.join(", ")
@@ -1351,7 +1354,8 @@ export class ACPLanguageModel implements LanguageModelV4 {
         )
       }
 
-      const option = modelOptions[0]!
+      const [option] = modelOptions
+      if (!option) throw new Error("The advertised model option is unavailable")
       const availableValues = flattenSessionConfigSelectValues(option)
       if (availableValues.length > 0 && !availableValues.includes(modelId)) {
         const availableList = availableValues.join(", ")
@@ -1650,12 +1654,13 @@ export class ACPLanguageModel implements LanguageModelV4 {
 
         if (!existingToolCall) {
           // First time seeing this toolCallId
-          this.toolCallsMap.set(toolCallId, {
+          const toolState = {
             index: this.toolCallsMap.size,
             name: toolName,
             inputStarted: true,
             inputAvailable: false,
-          })
+          }
+          this.toolCallsMap.set(toolCallId, toolState)
 
           // Emit tool-input-start when we first see the tool call
           controller.enqueue({
@@ -1669,12 +1674,7 @@ export class ACPLanguageModel implements LanguageModelV4 {
 
           // If rawInput is already populated, emit tool-call immediately
           if (hasInput) {
-            this.emitToolInvocation(
-              controller,
-              toolCallId,
-              this.toolCallsMap.get(toolCallId)!,
-              toolInput
-            )
+            this.emitToolInvocation(controller, toolCallId, toolState, toolInput)
           }
         } else if (!existingToolCall.inputAvailable && hasInput) {
           // We previously got tool-input-start, now we have the actual input
@@ -1915,8 +1915,10 @@ export class ACPLanguageModel implements LanguageModelV4 {
         })
       }
 
+      const sessionId = this.sessionId
+      if (!sessionId) throw new Error("ACP session initialization returned no session ID")
       const response = await this.promptWithLazyAuthRetry({
-        sessionId: this.sessionId!,
+        sessionId,
         prompt: promptContent,
         ...(getACPPromptMeta(options) ? { _meta: getACPPromptMeta(options) } : {}),
       })
@@ -2029,7 +2031,8 @@ export class ACPLanguageModel implements LanguageModelV4 {
       this.previousPrompt = options.prompt
       this.isFreshSession = false
 
-      const sessionId = this.sessionId!
+      const sessionId = this.sessionId
+      if (!sessionId) throw new Error("ACP session initialization returned no session ID")
       const client = this.client
       const connection = this.connection
       const cleanup = () => this.cleanup()

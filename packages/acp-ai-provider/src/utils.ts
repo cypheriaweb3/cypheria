@@ -12,7 +12,16 @@ function isDebugEnabled(debug?: boolean): boolean {
   return value === "1" || value === "true"
 }
 
-export function logChunkToConsole(chunk: any, options?: { debug?: boolean }): void {
+interface LoggableChunk {
+  type?: unknown
+  rawValue?: unknown
+  text?: unknown
+  input?: unknown
+  output?: unknown
+  error?: unknown
+}
+
+export function logChunkToConsole(chunk: LoggableChunk, options?: { debug?: boolean }): void {
   const debug = isDebugEnabled(options?.debug)
 
   switch (chunk.type) {
@@ -25,7 +34,7 @@ export function logChunkToConsole(chunk: any, options?: { debug?: boolean }): vo
       // Write directly to stdout for streaming text
       // Using process.stdout.write so callers can stream partial text
       // eslint-disable-next-line no-console
-      process.stdout.write(chunk.text)
+      process.stdout.write(String(chunk.text ?? ""))
       break
     case "tool-call":
       if (!debug) break
@@ -48,7 +57,7 @@ export function logChunkToConsole(chunk: any, options?: { debug?: boolean }): vo
     case "reasoning-delta":
       if (!debug) break
       // eslint-disable-next-line no-console
-      process.stdout.write(`\n[Reasoning]: ${chunk.text}`)
+      process.stdout.write(`\n[Reasoning]: ${String(chunk.text ?? "")}`)
       break
     default:
       if (!debug) break

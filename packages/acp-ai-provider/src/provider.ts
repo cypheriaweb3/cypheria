@@ -32,6 +32,10 @@ export class ACPProvider {
     this.config = config
   }
 
+  private ensureModel(): ACPLanguageModel {
+    return this.model ?? this.languageModel()
+  }
+
   /**
    * Create a language model instance for a specific ACP agent
    *
@@ -92,10 +96,7 @@ export class ACPProvider {
    * Call this before prompting to discover available options.
    */
   initSession(tools?: Parameters<ACPLanguageModel["initSession"]>[0]): Promise<NewSessionResponse> {
-    if (!this.model) {
-      this.languageModel()
-    }
-    return this.model!.initSession(tools)
+    return this.ensureModel().initSession(tools)
   }
 
   /**
@@ -103,10 +104,7 @@ export class ACPProvider {
    * Useful if you need to reduce the time to the first token.
    */
   connect(): Promise<void> {
-    if (!this.model) {
-      this.languageModel()
-    }
-    return this.model!.connectClient()
+    return this.ensureModel().connectClient()
   }
 
   /**
@@ -115,10 +113,6 @@ export class ACPProvider {
    * If `methodId` is omitted, falls back to `config.authMethodId`.
    */
   authenticate(methodId?: string): Promise<void> {
-    if (!this.model) {
-      this.languageModel()
-    }
-
     const resolvedMethodId = methodId ?? this.config.authMethodId
     if (!resolvedMethodId) {
       throw new Error(
@@ -126,7 +120,7 @@ export class ACPProvider {
       )
     }
 
-    return this.model!.authenticate(resolvedMethodId)
+    return this.ensureModel().authenticate(resolvedMethodId)
   }
 
   /**
@@ -196,108 +190,87 @@ export class ACPProvider {
   }
 
   listSessions(params?: Parameters<ACPLanguageModel["listSessions"]>[0]) {
-    if (!this.model) this.languageModel()
-    return this.model!.listSessions(params)
+    return this.ensureModel().listSessions(params)
   }
 
   deleteSession(params: Parameters<ACPLanguageModel["deleteSession"]>[0]) {
-    if (!this.model) this.languageModel()
-    return this.model!.deleteSession(params)
+    return this.ensureModel().deleteSession(params)
   }
 
   forkSession(params: Parameters<ACPLanguageModel["forkSession"]>[0]) {
-    if (!this.model) this.languageModel()
-    return this.model!.forkSession(params)
+    return this.ensureModel().forkSession(params)
   }
 
   resumeSession(params: Parameters<ACPLanguageModel["resumeSession"]>[0]) {
-    if (!this.model) this.languageModel()
-    return this.model!.resumeSession(params)
+    return this.ensureModel().resumeSession(params)
   }
 
   closeSession(params: Parameters<ACPLanguageModel["closeSession"]>[0]) {
-    if (!this.model) this.languageModel()
-    return this.model!.closeSession(params)
+    return this.ensureModel().closeSession(params)
   }
 
   logout(): Promise<void> {
-    if (!this.model) this.languageModel()
-    return this.model!.logout()
+    return this.ensureModel().logout()
   }
 
   listProviders(params?: Parameters<ACPLanguageModel["listProviders"]>[0]) {
-    if (!this.model) this.languageModel()
-    return this.model!.listProviders(params)
+    return this.ensureModel().listProviders(params)
   }
 
   setProvider(params: Parameters<ACPLanguageModel["setProvider"]>[0]) {
-    if (!this.model) this.languageModel()
-    return this.model!.setProvider(params)
+    return this.ensureModel().setProvider(params)
   }
 
   disableProvider(params: Parameters<ACPLanguageModel["disableProvider"]>[0]) {
-    if (!this.model) this.languageModel()
-    return this.model!.disableProvider(params)
+    return this.ensureModel().disableProvider(params)
   }
 
   startNes(params: Parameters<ACPLanguageModel["startNes"]>[0]) {
-    if (!this.model) this.languageModel()
-    return this.model!.startNes(params)
+    return this.ensureModel().startNes(params)
   }
 
   suggestNes(params: Parameters<ACPLanguageModel["suggestNes"]>[0]) {
-    if (!this.model) this.languageModel()
-    return this.model!.suggestNes(params)
+    return this.ensureModel().suggestNes(params)
   }
 
   closeNes(params: Parameters<ACPLanguageModel["closeNes"]>[0]) {
-    if (!this.model) this.languageModel()
-    return this.model!.closeNes(params)
+    return this.ensureModel().closeNes(params)
   }
 
   acceptNes(params: Parameters<ACPLanguageModel["acceptNes"]>[0]) {
-    if (!this.model) this.languageModel()
-    return this.model!.acceptNes(params)
+    return this.ensureModel().acceptNes(params)
   }
 
   rejectNes(params: Parameters<ACPLanguageModel["rejectNes"]>[0]) {
-    if (!this.model) this.languageModel()
-    return this.model!.rejectNes(params)
+    return this.ensureModel().rejectNes(params)
   }
 
   documentDidOpen(params: Parameters<ACPLanguageModel["documentDidOpen"]>[0]) {
-    if (!this.model) this.languageModel()
-    return this.model!.documentDidOpen(params)
+    return this.ensureModel().documentDidOpen(params)
   }
 
   documentDidChange(params: Parameters<ACPLanguageModel["documentDidChange"]>[0]) {
-    if (!this.model) this.languageModel()
-    return this.model!.documentDidChange(params)
+    return this.ensureModel().documentDidChange(params)
   }
 
   documentDidClose(params: Parameters<ACPLanguageModel["documentDidClose"]>[0]) {
-    if (!this.model) this.languageModel()
-    return this.model!.documentDidClose(params)
+    return this.ensureModel().documentDidClose(params)
   }
 
   documentDidSave(params: Parameters<ACPLanguageModel["documentDidSave"]>[0]) {
-    if (!this.model) this.languageModel()
-    return this.model!.documentDidSave(params)
+    return this.ensureModel().documentDidSave(params)
   }
 
   documentDidFocus(params: Parameters<ACPLanguageModel["documentDidFocus"]>[0]) {
-    if (!this.model) this.languageModel()
-    return this.model!.documentDidFocus(params)
+    return this.ensureModel().documentDidFocus(params)
   }
 
   requestExtension<Response = unknown, Params = unknown>(method: `_${string}`, params?: Params) {
-    if (!this.model) this.languageModel()
-    return this.model!.requestExtension<Response, Params>(method, params)
+    return this.ensureModel().requestExtension<Response, Params>(method, params)
   }
 
   notifyExtension<Params = unknown>(method: `_${string}`, params?: Params) {
-    if (!this.model) this.languageModel()
-    return this.model!.notifyExtension(method, params)
+    return this.ensureModel().notifyExtension(method, params)
   }
 
   /**
