@@ -9,7 +9,10 @@ import type {
   BrowserSessionOpenResult,
   CodexChatEvent,
   CodexEventEnvelope,
+  ConnectionProxySettings,
+  ConnectionProxyTestResult,
   CypheriaPreloadApi,
+  HarnessEvent,
   RuntimeInfo,
 } from "../../ipc/src/index.js"
 import {
@@ -150,6 +153,32 @@ const cypheriaApi: CypheriaPreloadApi = {
         ...(marketplaceName ? { marketplaceName } : {}),
       }),
   },
+  harnesses: {
+    checkUpdate: (id) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessCheckUpdate, { id }),
+    closeAllTerminals: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessTerminalCloseAll),
+    closeTerminal: (terminalId) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessTerminalClose, { terminalId }),
+    install: (id) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessInstall, { id }),
+    list: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessList),
+    onEvent: (handler) => {
+      const listener = (_event: IpcRendererEvent, harnessEvent: HarnessEvent): void =>
+        handler(harnessEvent)
+      ipcRenderer.on(CYPHERIA_IPC_CHANNELS.harnessEvent, listener)
+      return () => ipcRenderer.off(CYPHERIA_IPC_CHANNELS.harnessEvent, listener)
+    },
+    openTerminal: (id, cwd) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessTerminalOpen, {
+        ...(cwd ? { cwd } : {}),
+        id,
+      }),
+    resizeTerminal: (terminalId, cols, rows) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessTerminalResize, { cols, rows, terminalId }),
+    setEnabled: (id, enabled) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessEnabledWrite, { enabled, id }),
+    update: (id) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessUpdate, { id }),
+    writeTerminal: (terminalId, data) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessTerminalWrite, { data, terminalId }),
+  },
   runtime: {
     getInfo: () => invoke<RuntimeInfo>(CYPHERIA_IPC_CHANNELS.runtimeInfoRead),
   },
@@ -192,6 +221,8 @@ const cypheriaApi: CypheriaPreloadApi = {
   },
   settings: {
     getAppearance: () => invoke<AppearanceSettings>(CYPHERIA_IPC_CHANNELS.settingsAppearanceRead),
+    getConnectionProxy: () =>
+      invoke<ConnectionProxySettings>(CYPHERIA_IPC_CHANNELS.settingsConnectionProxyRead),
     listAppearanceFonts: () =>
       invoke<AppearanceFontOption[]>(CYPHERIA_IPC_CHANNELS.settingsAppearanceFontsList),
     setAppearance: (settings) =>
@@ -199,6 +230,16 @@ const cypheriaApi: CypheriaPreloadApi = {
         CYPHERIA_IPC_CHANNELS.settingsAppearanceWrite,
         settings
       ) as Promise<AppearanceSettings>,
+    setConnectionProxy: (settings) =>
+      ipcRenderer.invoke(
+        CYPHERIA_IPC_CHANNELS.settingsConnectionProxyWrite,
+        settings
+      ) as Promise<ConnectionProxySettings>,
+    testConnectionProxy: (settings) =>
+      ipcRenderer.invoke(
+        CYPHERIA_IPC_CHANNELS.settingsConnectionProxyTest,
+        settings
+      ) as Promise<ConnectionProxyTestResult>,
   },
   wallet: {
     addWatch: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletAddWatch, input),

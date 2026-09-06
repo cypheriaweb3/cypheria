@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import { existsSync } from "node:fs"
 import { mkdir } from "node:fs/promises"
 import { dirname, join, relative, resolve } from "node:path"
@@ -7,7 +8,17 @@ import {
   type WalletProviderResponse,
   walletProviderResponseSchema,
 } from "@cypheria/wallet-provider"
-import { app, BrowserWindow, dialog, Menu, nativeTheme, net, protocol, shell } from "electron"
+import {
+  app,
+  BrowserWindow,
+  dialog,
+  Menu,
+  nativeTheme,
+  net,
+  protocol,
+  session,
+  shell,
+} from "electron"
 import {
   type AppearanceSettings,
   type AppearanceSettingsWrite,
@@ -27,6 +38,7 @@ import {
   automationTaskPauseContract,
   automationTaskResumeContract,
   browserSessionOpenContract,
+  CYPHERIA_IPC_CHANNELS,
   CYPHERIA_APPEARANCE_ARGUMENT_PREFIX,
   codexAccountLoginCancelContract,
   codexAccountLoginStartContract,
@@ -56,6 +68,16 @@ import {
   codexSkillListContract,
   codexThreadListContract,
   dappProviderRequestContract,
+  harnessCheckUpdateContract,
+  harnessEnabledWriteContract,
+  harnessInstallContract,
+  harnessListContract,
+  harnessTerminalCloseAllContract,
+  harnessTerminalCloseContract,
+  harnessTerminalOpenContract,
+  harnessTerminalResizeContract,
+  harnessTerminalWriteContract,
+  harnessUpdateContract,
   IPC_PROTOCOL_VERSION,
   networkCreateContract,
   networkEndpointAddContract,
@@ -76,6 +98,9 @@ import {
   settingsAppearanceFontsListContract,
   settingsAppearanceReadContract,
   settingsAppearanceWriteContract,
+  settingsConnectionProxyReadContract,
+  settingsConnectionProxyTestContract,
+  settingsConnectionProxyWriteContract,
   walletActiveClearContract,
   walletActiveReadContract,
   walletActiveWriteContract,
@@ -104,6 +129,7 @@ import {
   readCodexModelSettings,
   startCodexChat,
   startCodexLogin,
+  validateOpenAiApiKey,
   writeCodexModelSettings,
 } from "./codex-desktop.js"
 import {
@@ -128,11 +154,18 @@ import {
   upgradeCodexMarketplaces,
 } from "./codex-plugins.js"
 import {
+  applyConnectionProxyToSession,
+  readConnectionProxySettings,
+  testConnectionProxy,
+  writeConnectionProxySettings,
+} from "./connection-proxy.js"
+import {
   createDappBrowserController,
   createElectronDappWebContentsFactory,
   type DappBrowserController,
 } from "./dapp-browser.js"
 import { registerIpcRoute } from "./ipc.js"
+import { createHarnessManager, type HarnessManager } from "./harness-manager.js"
 import {
   type DesktopRuntimeContext,
   initializeDesktopRuntime,
@@ -143,6 +176,8 @@ import { listSystemFonts } from "./system-fonts.js"
 let mainWindow: BrowserWindow | null = null
 let desktopRuntimeContext: DesktopRuntimeContext | null = null
 let currentAppearanceSettings: AppearanceSettings | null = null
+let proxySettingsUnderTest: import("../../ipc/src/index.js").ConnectionProxySettings | null = null
+let harnessManager: HarnessManager | null = null
 
 const getCodexCommand = (): string =>
   resolveCodexCommand({
@@ -309,7 +344,7 @@ const toRuntimeInfo = async (context: DesktopRuntimeContext): Promise<RuntimeInf
   }
 }
 
-const registerIpcHandlers = (context: DesktopRuntimeContext): void => {
+const registerIpcHandlers = (context: DesktopRuntimeContext, harnesses: HarnessManager): void => {
   const appMetadata: AppMetadata = {
     name: app.getName(),
     version: app.getVersion(),
@@ -420,13 +455,10 @@ const registerIpcHandlers = (context: DesktopRuntimeContext): void => {
   }
   registerIpcRoute(codexAccountReadContract, () => readCodexAccount(codexBridge()))
   registerIpcRoute(codexAccountLoginStartContract, async (request) => {
-    const result = await startCodexLogin(codexBridge(), request)
-    const loginUrl =
-      result.type === "chatgpt"
-        ? result.authUrl
-        : result.type === "chatgptDeviceCode"
-          ? result.verificationUrl
-          : undefined
+    const result = await startCodexLogin(codexBridge(), request, (apiKey) =>
+      validateOpenAiApiKey(apiKey, session.defaultSession.fetch.bind(session.defaultSession))
+    )
+    const loginUrl = result.type === "chatgpt" ? result.authUrl : undefined
     if (loginUrl) await shell.openExternal(loginUrl)
     return result
   })
@@ -527,6 +559,41 @@ const registerIpcHandlers = (context: DesktopRuntimeContext): void => {
     applyNativeAppearance(mainWindow, savedSettings)
     return savedSettings
   })
+  registerIpcRoute(settingsConnectionProxyReadContract, () => context.connectionProxySettings)
+  registerIpcRoute(settingsConnectionProxyTestContract, async (settings) => {
+    const testSession = session.fromPartition(`proxy-test-${randomUUID()}`, { cache: false })
+    proxySettingsUnderTest = settings
+    try {
+      return await testConnectionProxy(testSession, settings)
+    } finally {
+      proxySettingsUnderTest = null
+      await testSession.clearStorageData()
+    }
+  })
+  registerIpcRoute(settingsConnectionProxyWriteContract, async (settings) => {
+    const saved = await writeConnectionProxySettings(context.paths.configDir, settings)
+    await applyConnectionProxyToSession(session.defaultSession, saved)
+    await context.restartCodexAppServer(saved)
+    return saved
+  })
+  registerIpcRoute(harnessListContract, () => harnesses.list())
+  registerIpcRoute(harnessCheckUpdateContract, ({ id }) => harnesses.checkUpdate(id))
+  registerIpcRoute(harnessInstallContract, ({ id }) => harnesses.install(id))
+  registerIpcRoute(harnessUpdateContract, ({ id }) => harnesses.install(id))
+  registerIpcRoute(harnessEnabledWriteContract, ({ enabled, id }) =>
+    harnesses.setEnabled(id, enabled)
+  )
+  registerIpcRoute(harnessTerminalOpenContract, ({ cwd, id }) => harnesses.openTerminal(id, cwd))
+  registerIpcRoute(harnessTerminalWriteContract, ({ data, terminalId }) =>
+    harnesses.writeTerminal(terminalId, data)
+  )
+  registerIpcRoute(harnessTerminalResizeContract, ({ cols, rows, terminalId }) =>
+    harnesses.resizeTerminal(terminalId, cols, rows)
+  )
+  registerIpcRoute(harnessTerminalCloseContract, ({ terminalId }) =>
+    harnesses.closeTerminal(terminalId)
+  )
+  registerIpcRoute(harnessTerminalCloseAllContract, () => harnesses.closeAllTerminals())
 }
 
 const toAppearanceBootstrap = (settings: AppearanceSettings): AppearanceSettingsWrite => {
@@ -702,6 +769,14 @@ const createMainWindow = async (context: DesktopRuntimeContext): Promise<Browser
 const registerLifecycleHandlers = (): void => {
   nativeTheme.on("updated", refreshNativeWindowChrome)
 
+  app.on("login", (event, _webContents, _details, authInfo, callback) => {
+    if (!authInfo.isProxy) return
+    const settings = proxySettingsUnderTest ?? desktopRuntimeContext?.connectionProxySettings
+    if (settings?.mode !== "manual" || (!settings.username && !settings.password)) return
+    event.preventDefault()
+    callback(settings.username, settings.password)
+  })
+
   app.on("second-instance", () => {
     if (!mainWindow) {
       return
@@ -735,6 +810,7 @@ const registerLifecycleHandlers = (): void => {
   })
 
   app.on("before-quit", () => {
+    harnessManager?.closeAllTerminals()
     if (!desktopRuntimeContext) {
       return
     }
@@ -757,6 +833,8 @@ const startDesktopApp = async (): Promise<void> => {
 
   await app.whenReady()
   registerRendererProtocol()
+  const proxySettings = await readConnectionProxySettings(runtimePaths.configDir)
+  await applyConnectionProxyToSession(session.defaultSession, proxySettings)
   desktopRuntimeContext = await initializeDesktopRuntime({
     clientVersion: app.getVersion(),
     codexAppServer: {
@@ -765,7 +843,17 @@ const startDesktopApp = async (): Promise<void> => {
     },
     ethereumProvider: { networkAuthorizer: authorizeEthereumNetwork },
   })
-  registerIpcHandlers(desktopRuntimeContext)
+  harnessManager = createHarnessManager({
+    cypheriaHome: desktopRuntimeContext.paths.cypheriaHome,
+    getProxySettings: () => desktopRuntimeContext?.connectionProxySettings ?? { mode: "system" },
+    onEvent: (event) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(CYPHERIA_IPC_CHANNELS.harnessEvent, event)
+      }
+    },
+  })
+  await harnessManager.readState()
+  registerIpcHandlers(desktopRuntimeContext, harnessManager)
   mainWindow = await createMainWindow(desktopRuntimeContext)
 }
 

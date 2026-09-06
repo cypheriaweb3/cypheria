@@ -41,19 +41,22 @@ import {
   type WalletVaultController,
 } from "@cypheria/runtime"
 import { createDappSessionManager, type DappSessionManager } from "@cypheria/wallet-provider"
+import type { ConnectionProxySettings } from "../../ipc/src/index.js"
 import {
   type CodexAppServerContext,
   type StartCodexAppServerOptions,
   shutdownCodexAppServer,
   startCodexAppServer,
 } from "./codex-app-server.js"
+import { readConnectionProxySettings } from "./connection-proxy.js"
 import { createDesktopNetworkCredentialStore } from "./network-credential-store.js"
 import { createDesktopVaultMasterKeyProvider } from "./vault-key-provider.js"
 
 export type DesktopRuntimeContext = {
   readonly audit: AuditLogService
   readonly automation: AutomationRuntimeService
-  readonly codexAppServer?: CodexAppServerContext
+  codexAppServer?: CodexAppServerContext
+  connectionProxySettings: ConnectionProxySettings
   readonly dappSessions: DappSessionManager
   readonly database: OpenDatabaseResult
   readonly paths: CypheriaRuntimePaths
@@ -64,6 +67,7 @@ export type DesktopRuntimeContext = {
   readonly signingIntents: SigningIntentRuntimeService
   readonly vault: WalletVaultController
   readonly wallets: WalletManager
+  readonly restartCodexAppServer: (settings: ConnectionProxySettings) => Promise<void>
 }
 
 export type DesktopRuntimeOptions = CypheriaRuntimeOptions & {
@@ -100,6 +104,7 @@ export const initializeDesktopRuntime = async (
   await ensureRuntimeDirectories(paths)
   const database = openCypheriaDatabase({ dbDir: paths.dbDir })
   const codexEnv = buildCodexEnvironment(paths)
+  const connectionProxySettings = await readConnectionProxySettings(paths.configDir)
   const shouldStartCodexAppServer = shouldStartCodexAppServerOption ?? true
   let runtime: CypheriaRuntime | undefined
   let codexAppServer: CodexAppServerContext | undefined
@@ -217,12 +222,14 @@ export const initializeDesktopRuntime = async (
           clientVersion: clientVersion ?? "0.0.0",
           codexEnv,
           paths,
+          proxySettings: connectionProxySettings,
         })
       : undefined
-    return {
+    const context: DesktopRuntimeContext = {
       audit,
       automation,
       codexAppServer,
+      connectionProxySettings,
       database,
       dappSessions,
       networks,
@@ -233,7 +240,25 @@ export const initializeDesktopRuntime = async (
       signingIntents,
       vault,
       wallets,
+      restartCodexAppServer: async (settings) => {
+        if (!shouldStartCodexAppServer) {
+          context.connectionProxySettings = settings
+          return
+        }
+        const previous = context.codexAppServer
+        context.codexAppServer = undefined
+        if (previous) await shutdownCodexAppServer(previous)
+        context.connectionProxySettings = settings
+        context.codexAppServer = await startCodexAppServer({
+          ...codexAppServerOptions,
+          clientVersion: clientVersion ?? "0.0.0",
+          codexEnv,
+          paths,
+          proxySettings: settings,
+        })
+      },
     }
+    return context
   } catch (error) {
     try {
       await runtime?.stop()

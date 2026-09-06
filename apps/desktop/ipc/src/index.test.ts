@@ -8,6 +8,8 @@ import {
   automationTaskCreateContract,
   automationTaskPauseContract,
   browserSessionOpenContract,
+  CodexLoginRequestSchema,
+  ConnectionProxySettingsSchema,
   codexMarketplaceAddContract,
   codexMarketplaceRemoveContract,
   codexPluginEnabledWriteContract,
@@ -131,6 +133,49 @@ describe("dApp browser IPC contracts", () => {
     expect(browserSessionOpenContract.request.parse({ url: "https://app.example/path" })).toEqual({
       url: "https://app.example/path",
     })
+  })
+})
+
+describe("Codex connection IPC contracts", () => {
+  it("accepts only API key and ChatGPT managed login requests", () => {
+    expect(CodexLoginRequestSchema.parse({ type: "chatgpt" })).toEqual({ type: "chatgpt" })
+    expect(CodexLoginRequestSchema.parse({ apiKey: "sk-test", type: "apiKey" })).toEqual({
+      apiKey: "sk-test",
+      type: "apiKey",
+    })
+    expect(CodexLoginRequestSchema.safeParse({ type: "chatgptDeviceCode" }).success).toBe(false)
+    expect(
+      CodexLoginRequestSchema.safeParse({
+        apiKey: "key",
+        region: "us-east-1",
+        type: "amazonBedrock",
+      }).success
+    ).toBe(false)
+  })
+
+  it("validates global manual proxy settings", () => {
+    expect(
+      ConnectionProxySettingsSchema.parse({
+        bypass: "localhost, example.test",
+        host: "127.0.0.1",
+        mode: "manual",
+        password: "secret",
+        port: 7890,
+        protocol: "socks5",
+        username: "proxy-user",
+      })
+    ).toMatchObject({ mode: "manual", port: 7890, protocol: "socks5" })
+    expect(
+      ConnectionProxySettingsSchema.safeParse({
+        bypass: "",
+        host: "https://proxy.example",
+        mode: "manual",
+        password: "",
+        port: 70_000,
+        protocol: "http",
+        username: "",
+      }).success
+    ).toBe(false)
   })
 })
 

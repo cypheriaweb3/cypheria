@@ -55,6 +55,23 @@ import {
   CodexThreadViewSchema,
 } from "./codex.js"
 import {
+  type ConnectionProxySettings,
+  ConnectionProxySettingsSchema,
+  type ConnectionProxyTestResult,
+  ConnectionProxyTestResultSchema,
+  HarnessEnabledRequestSchema,
+  type HarnessEvent,
+  HarnessIdRequestSchema,
+  type HarnessTerminalSession,
+  HarnessTerminalIdSchema,
+  HarnessTerminalResizeSchema,
+  HarnessTerminalSessionSchema,
+  HarnessTerminalOpenRequestSchema,
+  HarnessTerminalWriteSchema,
+  type HarnessView,
+  HarnessViewSchema,
+} from "./connections.js"
+import {
   AppEnabledRequestSchema,
   AppIdRequestSchema,
   type CodexAppListResult,
@@ -104,6 +121,7 @@ import {
 } from "./web3.js"
 
 export * from "./codex.js"
+export * from "./connections.js"
 export * from "./integrations.js"
 export * from "./web3.js"
 
@@ -171,6 +189,17 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexSkillEnabledWrite: "codex.skill.enabled.write",
   codexSkillList: "codex.skill.list",
   codexThreadList: "codex.thread.list",
+  harnessCheckUpdate: "harness.check-update",
+  harnessEnabledWrite: "harness.enabled.write",
+  harnessEvent: "harness.event",
+  harnessInstall: "harness.install",
+  harnessList: "harness.list",
+  harnessTerminalClose: "harness.terminal.close",
+  harnessTerminalCloseAll: "harness.terminal.close-all",
+  harnessTerminalOpen: "harness.terminal.open",
+  harnessTerminalResize: "harness.terminal.resize",
+  harnessTerminalWrite: "harness.terminal.write",
+  harnessUpdate: "harness.update",
   dappProviderRequest: "dapp.provider.request",
   dappProviderEvent: "dapp.provider.event",
   networkList: "network.list",
@@ -191,6 +220,9 @@ export const CYPHERIA_IPC_CHANNELS = {
   settingsAppearanceFontsList: "settings.appearance.fonts.list",
   settingsAppearanceRead: "settings.appearance.read",
   settingsAppearanceWrite: "settings.appearance.write",
+  settingsConnectionProxyRead: "settings.connection-proxy.read",
+  settingsConnectionProxyTest: "settings.connection-proxy.test",
+  settingsConnectionProxyWrite: "settings.connection-proxy.write",
   walletActiveClear: "wallet.active.clear",
   walletActiveRead: "wallet.active.read",
   walletActiveWrite: "wallet.active.write",
@@ -1007,6 +1039,104 @@ export const settingsAppearanceFontsListContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<EmptyPayload, AppearanceFontOption[]>
 
+export const settingsConnectionProxyReadContract = {
+  channel: CYPHERIA_IPC_CHANNELS.settingsConnectionProxyRead,
+  namespace: "settings",
+  request: EmptyPayloadSchema,
+  response: ConnectionProxySettingsSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, ConnectionProxySettings>
+
+export const settingsConnectionProxyWriteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.settingsConnectionProxyWrite,
+  namespace: "settings",
+  request: ConnectionProxySettingsSchema,
+  response: ConnectionProxySettingsSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<ConnectionProxySettings, ConnectionProxySettings>
+
+export const settingsConnectionProxyTestContract = {
+  channel: CYPHERIA_IPC_CHANNELS.settingsConnectionProxyTest,
+  namespace: "settings",
+  request: ConnectionProxySettingsSchema,
+  response: ConnectionProxyTestResultSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<ConnectionProxySettings, ConnectionProxyTestResult>
+
+export const harnessListContract = {
+  channel: CYPHERIA_IPC_CHANNELS.harnessList,
+  namespace: "settings",
+  request: EmptyPayloadSchema,
+  response: z.array(HarnessViewSchema),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, HarnessView[]>
+
+export const harnessInstallContract = {
+  channel: CYPHERIA_IPC_CHANNELS.harnessInstall,
+  namespace: "settings",
+  request: HarnessIdRequestSchema,
+  response: HarnessViewSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof HarnessIdRequestSchema>, HarnessView>
+
+export const harnessCheckUpdateContract = {
+  ...harnessInstallContract,
+  channel: CYPHERIA_IPC_CHANNELS.harnessCheckUpdate,
+} satisfies IpcContract<z.input<typeof HarnessIdRequestSchema>, HarnessView>
+
+export const harnessUpdateContract = {
+  ...harnessInstallContract,
+  channel: CYPHERIA_IPC_CHANNELS.harnessUpdate,
+} satisfies IpcContract<z.input<typeof HarnessIdRequestSchema>, HarnessView>
+
+export const harnessEnabledWriteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.harnessEnabledWrite,
+  namespace: "settings",
+  request: HarnessEnabledRequestSchema,
+  response: HarnessViewSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof HarnessEnabledRequestSchema>, HarnessView>
+
+export const harnessTerminalOpenContract = {
+  channel: CYPHERIA_IPC_CHANNELS.harnessTerminalOpen,
+  namespace: "settings",
+  request: HarnessTerminalOpenRequestSchema,
+  response: HarnessTerminalSessionSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof HarnessTerminalOpenRequestSchema>, HarnessTerminalSession>
+
+export const harnessTerminalWriteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.harnessTerminalWrite,
+  namespace: "settings",
+  request: HarnessTerminalWriteSchema,
+  response: z.object({ written: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof HarnessTerminalWriteSchema>, { written: true }>
+
+export const harnessTerminalResizeContract = {
+  channel: CYPHERIA_IPC_CHANNELS.harnessTerminalResize,
+  namespace: "settings",
+  request: HarnessTerminalResizeSchema,
+  response: z.object({ resized: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof HarnessTerminalResizeSchema>, { resized: true }>
+
+export const harnessTerminalCloseContract = {
+  channel: CYPHERIA_IPC_CHANNELS.harnessTerminalClose,
+  namespace: "settings",
+  request: HarnessTerminalIdSchema,
+  response: z.object({ closed: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof HarnessTerminalIdSchema>, { closed: true }>
+
+export const harnessTerminalCloseAllContract = {
+  channel: CYPHERIA_IPC_CHANNELS.harnessTerminalCloseAll,
+  namespace: "settings",
+  request: EmptyPayloadSchema,
+  response: z.object({ closed: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, { closed: true }>
+
 export const codexAccountReadContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexAccountRead,
   namespace: "codex",
@@ -1269,6 +1399,16 @@ export const ipcContracts = {
   codexSkillList: codexSkillListContract,
   codexThreadList: codexThreadListContract,
   dappProviderRequest: dappProviderRequestContract,
+  harnessCheckUpdate: harnessCheckUpdateContract,
+  harnessEnabledWrite: harnessEnabledWriteContract,
+  harnessInstall: harnessInstallContract,
+  harnessList: harnessListContract,
+  harnessTerminalClose: harnessTerminalCloseContract,
+  harnessTerminalCloseAll: harnessTerminalCloseAllContract,
+  harnessTerminalOpen: harnessTerminalOpenContract,
+  harnessTerminalResize: harnessTerminalResizeContract,
+  harnessTerminalWrite: harnessTerminalWriteContract,
+  harnessUpdate: harnessUpdateContract,
   networkCreate: networkCreateContract,
   networkEndpointAdd: networkEndpointAddContract,
   networkEndpointProbe: networkEndpointProbeContract,
@@ -1287,6 +1427,9 @@ export const ipcContracts = {
   settingsAppearanceFontsList: settingsAppearanceFontsListContract,
   settingsAppearanceRead: settingsAppearanceReadContract,
   settingsAppearanceWrite: settingsAppearanceWriteContract,
+  settingsConnectionProxyRead: settingsConnectionProxyReadContract,
+  settingsConnectionProxyTest: settingsConnectionProxyTestContract,
+  settingsConnectionProxyWrite: settingsConnectionProxyWriteContract,
   walletActiveClear: walletActiveClearContract,
   walletActiveRead: walletActiveReadContract,
   walletActiveWrite: walletActiveWriteContract,
@@ -1371,6 +1514,29 @@ export type CypheriaPreloadApi = {
   readonly browser: {
     readonly openDapp: (url: string) => Promise<BrowserSessionOpenResult>
   }
+  readonly harnesses: {
+    readonly checkUpdate: (id: import("./connections.js").HarnessId) => Promise<HarnessView>
+    readonly closeAllTerminals: () => Promise<{ closed: true }>
+    readonly closeTerminal: (terminalId: string) => Promise<{ closed: true }>
+    readonly install: (id: import("./connections.js").HarnessId) => Promise<HarnessView>
+    readonly list: () => Promise<HarnessView[]>
+    readonly onEvent: (handler: (event: HarnessEvent) => void) => () => void
+    readonly openTerminal: (
+      id: import("./connections.js").HarnessId,
+      cwd?: string
+    ) => Promise<HarnessTerminalSession>
+    readonly resizeTerminal: (
+      terminalId: string,
+      cols: number,
+      rows: number
+    ) => Promise<{ resized: true }>
+    readonly setEnabled: (
+      id: import("./connections.js").HarnessId,
+      enabled: boolean
+    ) => Promise<HarnessView>
+    readonly update: (id: import("./connections.js").HarnessId) => Promise<HarnessView>
+    readonly writeTerminal: (terminalId: string, data: string) => Promise<{ written: true }>
+  }
   readonly automation: {
     readonly createTask: (
       input: z.input<typeof createAutomationTaskInputSchema>
@@ -1442,8 +1608,15 @@ export type CypheriaPreloadApi = {
   }
   readonly settings: {
     readonly getAppearance: () => Promise<AppearanceSettings>
+    readonly getConnectionProxy: () => Promise<ConnectionProxySettings>
     readonly listAppearanceFonts: () => Promise<AppearanceFontOption[]>
     readonly setAppearance: (settings: AppearanceSettingsWrite) => Promise<AppearanceSettings>
+    readonly setConnectionProxy: (
+      settings: ConnectionProxySettings
+    ) => Promise<ConnectionProxySettings>
+    readonly testConnectionProxy: (
+      settings: ConnectionProxySettings
+    ) => Promise<ConnectionProxyTestResult>
   }
   readonly wallet: {
     readonly addWatch: (

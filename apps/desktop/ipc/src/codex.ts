@@ -15,24 +15,7 @@ export type CodexAccountView = z.infer<typeof CodexAccountViewSchema>
 
 export const CodexLoginRequestSchema = z.discriminatedUnion("type", [
   z.object({ type: z.literal("chatgpt") }).strict(),
-  z.object({ type: z.literal("chatgptDeviceCode") }).strict(),
   z.object({ apiKey: z.string().min(1), type: z.literal("apiKey") }).strict(),
-  z
-    .object({
-      apiKey: z.string().min(1),
-      region: z.string().min(1),
-      type: z.literal("amazonBedrock"),
-    })
-    .strict(),
-  z
-    .object({
-      accessKeyId: z.string().min(1),
-      region: z.string().min(1),
-      secretAccessKey: z.string().min(1),
-      sessionToken: z.string().min(1).optional(),
-      type: z.literal("amazonBedrockAccessKeys"),
-    })
-    .strict(),
 ])
 export type CodexLoginRequest = z.infer<typeof CodexLoginRequestSchema>
 
@@ -40,9 +23,7 @@ export const CodexLoginResultSchema = z
   .object({
     authUrl: z.url().optional(),
     loginId: z.string().optional(),
-    type: z.enum(["apiKey", "chatgpt", "chatgptDeviceCode", "amazonBedrock"]),
-    userCode: z.string().optional(),
-    verificationUrl: z.url().optional(),
+    type: z.enum(["apiKey", "chatgpt"]),
   })
   .strict()
 export type CodexLoginResult = z.infer<typeof CodexLoginResultSchema>

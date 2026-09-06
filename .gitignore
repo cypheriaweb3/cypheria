@@ -29,4 +29,3 @@ yarn-error.log*
 # Local reference checkouts
 codex
 ai-sdk-provider-codex-app-server
-start-monorepo

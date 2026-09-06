@@ -1,0 +1,9 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="gemini-cli-gradient" x1="0" y1="257.869" x2="512" y2="257.869" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#217BFE"/><stop offset=".335" stop-color="#078EFB"/><stop offset=".7" stop-color="#AC87EB"/><stop offset="1" stop-color="#EE4D5D"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="93.43" fill="#1E1E2E"/>
+  <path d="M419.776.008C470.82.655 512 42.233 512 93.43v325.142l-.008 1.204C511.344 470.82 469.768 512 418.572 512H93.43C41.83 512 0 470.168 0 418.572V93.43C0 42.233 41.179.655 92.223.008L93.43 0h325.142l1.204.008ZM93.43 29.898c-35.088.001-63.531 28.444-63.532 63.532v325.142c.001 35.084 28.444 63.528 63.532 63.528h325.142c35.084 0 63.528-28.444 63.528-63.528V93.43c0-35.088-28.444-63.531-63.528-63.532H93.43Zm264.496 193.231v78.145l-203.172 97.675v-56.652l166.445-80.098-166.445-80.093v-56.653l203.172 97.676Z" fill="url(#gemini-cli-gradient)"/>
+</svg>

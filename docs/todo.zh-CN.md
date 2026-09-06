@@ -130,11 +130,16 @@
   - 包括：development package resolution、显式 `CYPHERIA_CODEX_PATH` override，以及从 Electron resources 解析 packaged sidecar。
   - 验证：`pnpm codex:version`、`pnpm run ci`、`pnpm build` 和 desktop tests。
 
-- [x] 添加以任务为中心的 desktop workspace、Codex 身份验证与原生模型设置。
-  - 验收：左侧导航展示 projects 与最近 threads；主工作区通过 App Server 流式传输 AI SDK UI messages；账户设置支持 ChatGPT、OpenAI API key 与 Amazon Bedrock；模型设置支持 OpenAI、Bedrock、Ollama 与 LM Studio。
-  - 包括：无需登录的本地模型、任务中断、model/reasoning/service-tier 控件、automation 管理、隔离 dApp 启动、approval 与 plugin/skill 工作台路由，以及用于 Electron 构建的 client-only route shells。
+- [x] 添加以任务为中心的 desktop workspace、agent harness connections 与原生模型设置。
+  - 验收：左侧导航展示 projects 与最近 threads；主工作区通过 App Server 流式传输 AI SDK UI messages；Connections 按多种 agent harness 组织，并为 Codex 实现 ChatGPT managed 身份验证与经过校验的 OpenAI API key 登录；模型设置支持 OpenAI、Bedrock、Ollama 与 LM Studio。
+  - 包括：保存在 `$CYPHERIA_HOME/config/proxy.json` 的全局 system/direct/manual 代理、HTTP/HTTPS/SOCKS5 支持、连接测试、代理变更时重启 harness、无需登录的本地模型、任务中断、model/reasoning/service-tier 控件、automation 管理、隔离 dApp 启动、approval 与 plugin/skill 工作台路由，以及用于 Electron 构建的 client-only route shells。
   - 不包括：在 provider 策略确定前，不实现通用 custom providers 与 OpenCodex 集成。
   - 验证：`pnpm run ci`、`pnpm build` 和 `pnpm --filter @cypheria/desktop test`。
+
+- [x] 添加受管 ACP harness 安装与 Connections 终端会话。
+  - 验收：Grok Build、Cursor、Gemini CLI、Hermes 和 OpenCode 将最新版本安装到 `$CYPHERIA_HOME` 下，暴露已安装版本与启用状态，通过 ACP v1 初始化检查，并可打开并发的页面级终端标签；Connections 卸载时关闭全部终端。
+  - 包括：typed IPC、harness 专用 home、全局代理传递、通过 `HERMES_HOME`/`HERMES_INSTALL_DIR` 约束 Hermes 且不安装 desktop 包，以及包含变化文件与可执行文件哈希的可审计安装收据。
+  - 验证：desktop typecheck/tests/build，加真实 Electron Connections smoke check。
 
 - [x] 完成 desktop Web3 管理闭环与生产 renderer 启动链路。
   - 验收：可通过 typed IPC-backed screens 使用钱包创建/导入/观察管理、active account context、vault lock 状态、signing policies、待审批决议和 audit records。

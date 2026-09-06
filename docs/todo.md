@@ -130,11 +130,16 @@ Status legend:
   - Include: development package resolution, explicit `CYPHERIA_CODEX_PATH` override, and packaged sidecar resolution from Electron resources.
   - Verification: `pnpm codex:version`, `pnpm run ci`, `pnpm build`, and desktop tests.
 
-- [x] Add the task-centered desktop workspace, Codex authentication, and native model settings.
-  - Acceptance: the sidebar lists projects and recent threads; the main workspace streams AI SDK UI messages through App Server; account settings support ChatGPT, OpenAI API keys, and Amazon Bedrock; model settings support OpenAI, Bedrock, Ollama, and LM Studio.
-  - Include: unauthenticated local-model use, task interruption, model/reasoning/service-tier controls, automation supervision, isolated dApp launch, approval and plugin/skill workbench routes, and client-only route shells for Electron builds.
+- [x] Add the task-centered desktop workspace, harness connections, and native model settings.
+  - Acceptance: the sidebar lists projects and recent threads; the main workspace streams AI SDK UI messages through App Server; Connections is structured for multiple agent harnesses and implements Codex login with ChatGPT managed authentication and validated OpenAI API keys; model settings support OpenAI, Bedrock, Ollama, and LM Studio.
+  - Include: a global system/direct/manual proxy stored at `$CYPHERIA_HOME/config/proxy.json`, HTTP/HTTPS/SOCKS5 support, connection testing, harness restart on proxy changes, unauthenticated local-model use, task interruption, model/reasoning/service-tier controls, automation supervision, isolated dApp launch, approval and plugin/skill workbench routes, and client-only route shells for Electron builds.
   - Exclude: generic custom providers and OpenCodex integration until the provider strategy is decided.
   - Verification: `pnpm run ci`, `pnpm build`, and `pnpm --filter @cypheria/desktop test`.
+
+- [x] Add managed ACP harness installation and Connections terminal sessions.
+  - Acceptance: Grok Build, Cursor, Gemini CLI, Hermes, and OpenCode install their latest release below `$CYPHERIA_HOME`, expose installed version and enablement, pass an ACP v1 initialization check, and can open concurrent page-level terminal tabs that close when Connections unmounts.
+  - Include: typed IPC, harness-specific homes, global proxy propagation, Hermes `HERMES_HOME`/`HERMES_INSTALL_DIR` containment without its desktop package, and auditable install receipts containing changed files and executable hashes.
+  - Verification: desktop typecheck/tests/build plus a real Electron Connections smoke check.
 
 - [x] Complete the desktop Web3 management loop and production renderer startup.
   - Acceptance: wallet creation/import/watch management, active account context, vault lock state, signing policies, pending approval decisions, and audit records are usable through typed IPC-backed screens.

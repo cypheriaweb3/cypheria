@@ -6,6 +6,7 @@ import {
   readCodexAccount,
   readCodexModelSettings,
   startCodexLogin,
+  validateOpenAiApiKey,
   writeCodexModelSettings,
 } from "./codex-desktop.js"
 
@@ -60,6 +61,76 @@ describe("desktop Codex services", () => {
         useHostedLoginSuccessPage: true,
       },
     })
+  })
+
+  it("validates an API key before passing it to Codex", async () => {
+    const bridge = new FakeBridge({
+      "account/login/start": { type: "apiKey" },
+    })
+    const validatedKeys: string[] = []
+
+    await expect(
+      startCodexLogin(asBridge(bridge), { apiKey: "sk-test", type: "apiKey" }, async (apiKey) => {
+        validatedKeys.push(apiKey)
+      })
+    ).resolves.toEqual({ type: "apiKey" })
+    expect(validatedKeys).toEqual(["sk-test"])
+    expect(bridge.calls).toEqual([
+      {
+        method: "account/login/start",
+        params: { apiKey: "sk-test", type: "apiKey" },
+      },
+    ])
+  })
+
+  it("does not store an API key when validation fails", async () => {
+    const bridge = new FakeBridge({
+      "account/login/start": { type: "apiKey" },
+    })
+
+    await expect(
+      startCodexLogin(asBridge(bridge), { apiKey: "sk-invalid", type: "apiKey" }, async () => {
+        throw new Error("OpenAI rejected this API key. Check the key and try again.")
+      })
+    ).rejects.toThrow("OpenAI rejected this API key")
+    expect(bridge.calls).toEqual([])
+  })
+
+  it("validates API keys with OpenAI bearer authentication", async () => {
+    await expect(
+      validateOpenAiApiKey("sk-valid", async (input, init) => {
+        expect(input).toBe("https://api.openai.com/v1/models")
+        expect(init?.headers).toEqual({ Authorization: "Bearer sk-valid" })
+        return new Response(null, { status: 200 })
+      })
+    ).resolves.toBeUndefined()
+
+    await expect(
+      validateOpenAiApiKey(
+        "sk-invalid",
+        async () =>
+          new Response(JSON.stringify({ error: { message: "Incorrect API key provided." } }), {
+            headers: {
+              "content-type": "application/json",
+              "x-request-id": "req_test",
+            },
+            status: 401,
+          })
+      )
+    ).rejects.toThrow(
+      "OpenAI API key validation failed (HTTP 401): Incorrect API key provided. Request ID: req_test"
+    )
+
+    await expect(
+      validateOpenAiApiKey(
+        "sk-forbidden",
+        async () =>
+          new Response(JSON.stringify({ error: { message: "Project access is disabled." } }), {
+            headers: { "content-type": "application/json" },
+            status: 403,
+          })
+      )
+    ).rejects.toThrow("OpenAI API key validation failed (HTTP 403): Project access is disabled.")
   })
 
   it("loads model metadata through the AI SDK provider", async () => {

@@ -19,6 +19,7 @@ import { Route as ApprovalsRouteImport } from "./routes/approvals"
 import { Route as IndexRouteImport } from "./routes/index"
 import { Route as SettingsPluginsRouteImport } from "./routes/settings.plugins"
 import { Route as SettingsModelsRouteImport } from "./routes/settings.models"
+import { Route as SettingsConnectionsRouteImport } from "./routes/settings.connections"
 import { Route as SettingsAppearanceRouteImport } from "./routes/settings.appearance"
 import { Route as SettingsAccountRouteImport } from "./routes/settings.account"
 
@@ -72,6 +73,11 @@ const SettingsModelsRoute = SettingsModelsRouteImport.update({
   path: "/settings/models",
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsConnectionsRoute = SettingsConnectionsRouteImport.update({
+  id: "/settings/connections",
+  path: "/settings/connections",
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsAppearanceRoute = SettingsAppearanceRouteImport.update({
   id: "/settings/appearance",
   path: "/settings/appearance",
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   "/wallets": typeof WalletsRoute
   "/settings/account": typeof SettingsAccountRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
+  "/settings/connections": typeof SettingsConnectionsRoute
   "/settings/models": typeof SettingsModelsRoute
   "/settings/plugins": typeof SettingsPluginsRoute
 }
@@ -108,6 +115,7 @@ export interface FileRoutesByTo {
   "/wallets": typeof WalletsRoute
   "/settings/account": typeof SettingsAccountRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
+  "/settings/connections": typeof SettingsConnectionsRoute
   "/settings/models": typeof SettingsModelsRoute
   "/settings/plugins": typeof SettingsPluginsRoute
 }
@@ -123,6 +131,7 @@ export interface FileRoutesById {
   "/wallets": typeof WalletsRoute
   "/settings/account": typeof SettingsAccountRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
+  "/settings/connections": typeof SettingsConnectionsRoute
   "/settings/models": typeof SettingsModelsRoute
   "/settings/plugins": typeof SettingsPluginsRoute
 }
@@ -139,6 +148,7 @@ export interface FileRouteTypes {
     | "/wallets"
     | "/settings/account"
     | "/settings/appearance"
+    | "/settings/connections"
     | "/settings/models"
     | "/settings/plugins"
   fileRoutesByTo: FileRoutesByTo
@@ -153,6 +163,7 @@ export interface FileRouteTypes {
     | "/wallets"
     | "/settings/account"
     | "/settings/appearance"
+    | "/settings/connections"
     | "/settings/models"
     | "/settings/plugins"
   id:
@@ -167,6 +178,7 @@ export interface FileRouteTypes {
     | "/wallets"
     | "/settings/account"
     | "/settings/appearance"
+    | "/settings/connections"
     | "/settings/models"
     | "/settings/plugins"
   fileRoutesById: FileRoutesById
@@ -182,6 +194,7 @@ export interface RootRouteChildren {
   WalletsRoute: typeof WalletsRoute
   SettingsAccountRoute: typeof SettingsAccountRoute
   SettingsAppearanceRoute: typeof SettingsAppearanceRoute
+  SettingsConnectionsRoute: typeof SettingsConnectionsRoute
   SettingsModelsRoute: typeof SettingsModelsRoute
   SettingsPluginsRoute: typeof SettingsPluginsRoute
 }
@@ -258,6 +271,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof SettingsModelsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    "/settings/connections": {
+      id: "/settings/connections"
+      path: "/settings/connections"
+      fullPath: "/settings/connections"
+      preLoaderRoute: typeof SettingsConnectionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     "/settings/appearance": {
       id: "/settings/appearance"
       path: "/settings/appearance"
@@ -286,6 +306,7 @@ const rootRouteChildren: RootRouteChildren = {
   WalletsRoute: WalletsRoute,
   SettingsAccountRoute: SettingsAccountRoute,
   SettingsAppearanceRoute: SettingsAppearanceRoute,
+  SettingsConnectionsRoute: SettingsConnectionsRoute,
   SettingsModelsRoute: SettingsModelsRoute,
   SettingsPluginsRoute: SettingsPluginsRoute,
 }

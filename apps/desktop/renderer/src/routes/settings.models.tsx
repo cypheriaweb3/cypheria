@@ -85,9 +85,7 @@ function ModelSettingsRoute() {
         <Card>
           <CardHeader>
             <CardTitle>Provider</CardTitle>
-            <CardDescription>
-              Cypheria uses providers supported by the bundled Codex App Server.
-            </CardDescription>
+            <CardDescription>Cypheria uses model providers supported by Codex.</CardDescription>
           </CardHeader>
           <CardContent>
             <FieldGroup>
@@ -118,7 +116,7 @@ function ModelSettingsRoute() {
                 <FieldDescription>
                   {draft.provider === "ollama" || draft.provider === "lmstudio"
                     ? "This provider can run without signing in to OpenAI."
-                    : "Authentication is managed in Account & authentication."}
+                    : "Authentication is managed in Connections."}
                 </FieldDescription>
               </Field>
             </FieldGroup>

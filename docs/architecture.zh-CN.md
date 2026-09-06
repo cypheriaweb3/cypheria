@@ -155,15 +155,19 @@ Renderer 规则：
 - Renderer 将 preload capabilities 视为唯一 privileged bridge。
 - Renderer 通过 typed `codex.event` IPC channel 接收 Codex lifecycle、stderr、notification 和 server-request summaries。
 
-Desktop 的信息架构以任务为中心。常驻左侧导航首先提供新任务、搜索和待审批，其次提供钱包、自动化、signing policies、audit logs、plugins 与 skills，最后按 project 对 App Server threads 分组，并单列未分组的最近任务。待审批入口会显示尚未决议的 signing approvals 实时数量。任务工作区将 AI Elements conversation 与 composer 放在主区域，提供 model、reasoning、sandbox 和 wallet-context 控件，右侧是 context/files/review/terminal 面板。进入 Settings 后，工作台左侧导航会替换为 Account、Appearance、Models 和返回工作台入口组成的专用设置导航。所有设置页都由完整的右侧内容面板承载滚动，因此滚动条保持在窗口最右侧。
+Desktop 的信息架构以任务为中心。常驻左侧导航首先提供新任务、搜索和待审批，其次提供钱包、自动化、signing policies、audit logs、plugins 与 skills，最后按 project 对 App Server threads 分组，并单列未分组的最近任务。待审批入口会显示尚未决议的 signing approvals 实时数量。任务工作区将 AI Elements conversation 与 composer 放在主区域，提供 model、reasoning、sandbox 和 wallet-context 控件，右侧是 context/files/review/terminal 面板。进入 Settings 后，工作台左侧导航会替换为 Connections、Appearance、Models 和返回工作台入口组成的专用设置导航。所有设置页都由完整的右侧内容面板承载滚动，因此滚动条保持在窗口最右侧。
 
 插件与技能工作台通过 typed IPC 复用同一个 persistent App Server connection。Electron main 负责列出 marketplace 与 skill、安装和移除 plugin、写入 plugin/skill enabled state，以及添加或更新 marketplace。Settings 还提供含插件/应用/MCP/技能/市场五个页签的 Plugins 页面。Main 负责应用可用性与 MCP 清单投影、限定启用配置写入、HTTP MCP 添加和经过校验的外部授权地址。Renderer 监听授权完成通知并刷新状态，不把打开登录页当作授权成功。Main 将 generated protocol response 投影为 renderer-safe schema；renderer 不直接读取 `$CYPHERIA_HOME/codex`，也不会通过这些视图获得 MCP 凭据。基于证据的界面分析与当前对齐边界见[插件与技能管理](plugin-skill-management.zh-CN.md)。
 
-Web3 工作台完成本地管理闭环。钱包页面可以创建或导入加密 vault 钱包、添加 watch-only accounts、选择 active account 与 chain、锁定或解锁 vault，并启动隔离 dApp session。Policy 页面可以创建、编辑和停用 signing rules。Approval 页面会在接受或拒绝之前展示 canonical intent 与 payload hash，audit 页面则展示由此产生的本地安全历史。秘密表单值会从 uncontrolled forms 直接提交到 preload，不会复制到 React state、localStorage 或 IndexedDB。
+Web3 工作台完成本地管理闭环。钱包页面可以创建或导入加密 vault 钱包、添加 watch-only accounts、选择 active account 与 chain、锁定或解锁 vault，并启动隔离 dApp session。Policy 页面可以创建、编辑和停用 signing rules。Approval 页面会在接受或拒绝之前展示 canonical intent 与 payload hash，audit 页面则展示由此产生的本地安全历史。钱包秘密表单值会从 uncontrolled forms 直接提交到 preload，不会复制到 React state、localStorage 或 IndexedDB。
 
 生产 renderer assets 由 Electron main 通过 privileged standard `cypheria://` scheme 提供。缺失的应用路径回退到 SPA shell，已解析的 assets 则被限制在构建后的 renderer directory 内。这样无需在生产环境运行 TanStack Start server bundle，也能直接导航到 workbench 与 settings routes。
 
-Electron main 将 App Server 适配为 AI SDK `ProviderV4`，并通过 typed IPC 流式传输 AI SDK UI-message chunks；它同时负责 account login/logout 与 Codex config 读写。V1 支持 Codex 原生的 OpenAI、Amazon Bedrock、Ollama 和 LM Studio。Ollama 与 LM Studio 无需 OpenAI 身份验证即可使用。通用 custom-provider 表单与 OpenCodex 明确延后。
+Electron main 将 App Server 适配为 AI SDK `ProviderV4`，并通过 typed IPC 流式传输 AI SDK UI-message chunks；它同时负责 agent harness login/logout 与 Codex config 读写。Connections 设置页为 Codex 实现 ChatGPT managed 浏览器身份验证与 OpenAI API key 登录。Grok Build、Cursor、Gemini CLI、Hermes 和 OpenCode 是可选的 ACP v1 harness：Electron 可将最新版本安装到 `$CYPHERIA_HOME/harnesses/<id>`、展示已安装版本、启用或禁用集成，并在接受安装前验证 ACP 初始化。V1 模型 provider 支持 Codex 原生的 OpenAI、Amazon Bedrock、Ollama 和 LM Studio。Ollama 与 LM Studio 无需 OpenAI 身份验证即可使用。通用 custom-provider 表单明确延后。
+
+每个受管 ACP harness 都会获得合成 OS home 与该 harness 专用的 home 环境变量，因此二进制、配置、凭据、缓存和可变状态都留在 Cypheria home 下。Hermes 始终接收 `HERMES_HOME` 和 `HERMES_INSTALL_DIR`，且绝不安装 desktop 包。每次成功安装都会写入收据，记录安装器来源与参数、非秘密的受管环境、探测到的版本、可执行文件 SHA-256，以及该 harness 根目录下所有新增或变化的文件。Connections 拥有由 `node-pty` 支撑的页面级多标签 PTY dock；切换 harness 卡片不会关闭标签，离开该路由时 Electron 会关闭全部终端。上游命令、认证路径、更新信号和各 harness 的目录约束见 [ACP Harness Connections 设计](acp-harness-connections-design.zh-CN.md)。
+
+Connections 还维护一份供所有 agent harness 共用的全局代理配置，其控件默认折叠。选择 system、direct 或 manual 路由时会立即持久化；只有手动代理字段与已保存配置不同时，表单才显示保存操作。HTTP、HTTPS、SOCKS5 路由通过 typed IPC 校验，并以明文保存在 `$CYPHERIA_HOME/config/proxy.json`。Electron 将该路由用于自身连接请求，harness 子进程则接收对应的标准代理环境变量，同时强制让 loopback 地址绕过代理。保存新路由后会重启 persistent Codex process，使登录、模型发现、MCP 与模型流量使用同一设置。API key 校验和代理测试使用 Electron 网络栈；测试通过未认证的 OpenAI models 请求确认能够到达 OpenAI 并收到其认证响应。
 
 ## Codex 集成
 

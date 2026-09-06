@@ -11,13 +11,15 @@
     "build:preload": "tsdown --config tsdown.preload.config.mjs",
     "build:renderer": "vite build --config vite.config.ts",
     "check": "pnpm typecheck",
-    "dev": "pnpm build:main && pnpm build:preload && electron .",
+    "dev": "pnpm build:main && pnpm build:preload && pnpm build:renderer && pnpm rebuild:native && electron .",
     "dev:renderer": "vite dev --config vite.config.ts --host 127.0.0.1",
+    "rebuild:native": "electron-rebuild -f -w node-pty",
     "test": "vitest run",
     "test:electron-wallet-provider": "pnpm build:dapp-preload && electron test/electron-wallet-provider-smoke.cjs",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@agentclientprotocol/sdk": "^1.4.0",
     "@ai-sdk/react": "^4.0.90",
     "@cypheria/automation-core": "workspace:*",
     "@cypheria/codex-bridge": "workspace:*",
@@ -37,9 +39,12 @@
     "@tanstack/react-router": "^1.170.8",
     "@tanstack/react-start": "^1.168.14",
     "@tanstack/react-virtual": "^3.14.10",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
     "ai": "^7.0.87",
     "jotai": "^2.20.0",
     "lucide-react": "^1.16.0",
+    "node-pty": "^1.1.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
     "tailwindcss": "^4.3.0",
@@ -47,6 +52,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.2.0",
     "@types/react": "^19.2.15",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.2",

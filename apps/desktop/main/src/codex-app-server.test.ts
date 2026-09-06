@@ -124,7 +124,13 @@ describe("Codex app-server lifecycle", () => {
 
     expect(spawns).toEqual([
       {
-        args: ["app-server", "--listen", "ws://127.0.0.1:4567"],
+        args: [
+          "-c",
+          "features.respect_system_proxy=true",
+          "app-server",
+          "--listen",
+          "ws://127.0.0.1:4567",
+        ],
         command: "codex",
         env: expect.objectContaining({ CODEX_HOME: paths.codexHome }),
       },
@@ -135,6 +141,41 @@ describe("Codex app-server lifecycle", () => {
     await shutdownCodexAppServer(context)
     expect(fakeBridge.closed).toBe(true)
     expect(fakeChild.killedWith).toBe("SIGTERM")
+  })
+
+  it("passes a manual proxy to Codex while bypassing the local bridge", async () => {
+    const paths = buildRuntimePaths({ homeDir: "/tmp/cypheria-test" })
+    const fakeChild = new FakeChildProcess()
+    const fakeBridge = new FakeBridge()
+    let spawnedEnv: NodeJS.ProcessEnv | undefined
+
+    const context = await startCodexAppServer({
+      bridgeFactory: () => fakeBridge as unknown as CodexAppServerBridge,
+      clientVersion: "1.2.3",
+      codexEnv: { CODEX_HOME: paths.codexHome },
+      paths,
+      port: 4567,
+      processFactory: (_command, _args, options) => {
+        spawnedEnv = options.env
+        return fakeChild as never
+      },
+      proxySettings: {
+        bypass: "example.test",
+        host: "127.0.0.1",
+        mode: "manual",
+        password: "secret",
+        port: 7890,
+        protocol: "http",
+        username: "proxy-user",
+      },
+      versionReader: async () => "codex-cli 0.151.0",
+    })
+
+    expect(spawnedEnv).toMatchObject({
+      HTTPS_PROXY: "http://proxy-user:secret@127.0.0.1:7890",
+      NO_PROXY: "localhost,127.0.0.1,::1,example.test",
+    })
+    await shutdownCodexAppServer(context)
   })
 
   it("forwards bridge notifications through renderer-safe IPC events", async () => {

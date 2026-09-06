@@ -24,6 +24,30 @@ type ActiveChat = {
 }
 
 const activeChats = new Map<string, ActiveChat>()
+const OPENAI_MODELS_URL = "https://api.openai.com/v1/models"
+const OPENAI_API_KEY_VALIDATION_TIMEOUT_MS = 10_000
+
+type ApiKeyValidationFetch = (input: string | Request, init?: RequestInit) => Promise<Response>
+
+const readOpenAiErrorMessage = async (response: Response): Promise<string | null> => {
+  try {
+    const body: unknown = await response.json()
+    if (
+      typeof body === "object" &&
+      body !== null &&
+      "error" in body &&
+      typeof body.error === "object" &&
+      body.error !== null &&
+      "message" in body.error &&
+      typeof body.error.message === "string"
+    ) {
+      return body.error.message.trim() || null
+    }
+  } catch {
+    // OpenAI may return an empty or non-JSON response through an intermediary.
+  }
+  return null
+}
 
 const sendChatEvent = (sender: WebContents, event: CodexChatEvent): void => {
   if (!sender.isDestroyed()) {
@@ -44,10 +68,49 @@ export const readCodexAccount = async (bridge: CodexAppServerBridge): Promise<Co
   }
 }
 
+export const validateOpenAiApiKey = async (
+  apiKey: string,
+  fetcher: ApiKeyValidationFetch = fetch
+): Promise<void> => {
+  let response: Response
+  try {
+    response = await fetcher(OPENAI_MODELS_URL, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      method: "GET",
+      signal: AbortSignal.timeout(OPENAI_API_KEY_VALIDATION_TIMEOUT_MS),
+    })
+  } catch (error) {
+    if (error instanceof Error && error.name === "TimeoutError") {
+      throw new Error("OpenAI API key validation timed out. Try again.")
+    }
+    throw new Error("Could not validate the OpenAI API key. Check your connection and try again.")
+  }
+
+  if (response.ok) {
+    await response.body?.cancel()
+    return
+  }
+
+  const detail = await readOpenAiErrorMessage(response)
+  const requestId = response.headers.get("x-request-id")
+  const suffix = [detail, requestId ? `Request ID: ${requestId}` : null]
+    .filter((part): part is string => part !== null)
+    .join(" ")
+  throw new Error(
+    suffix
+      ? `OpenAI API key validation failed (HTTP ${response.status}): ${suffix}`
+      : `OpenAI API key validation failed (HTTP ${response.status}).`
+  )
+}
+
 export const startCodexLogin = async (
   bridge: CodexAppServerBridge,
-  request: CodexLoginRequest
+  request: CodexLoginRequest,
+  validateApiKey: (apiKey: string) => Promise<void> = validateOpenAiApiKey
 ): Promise<CodexLoginResult> => {
+  if (request.type === "apiKey") {
+    await validateApiKey(request.apiKey)
+  }
   const params: v2.LoginAccountParams =
     request.type === "chatgpt"
       ? {
@@ -61,10 +124,9 @@ export const startCodexLogin = async (
     "account/login/start",
     params
   )
-  if (response.type === "chatgptAuthTokens") {
-    throw new Error("Externally managed ChatGPT tokens are not supported by Cypheria Desktop.")
-  }
-  return response
+  if (response.type === "apiKey") return response
+  if (response.type === "chatgpt") return response
+  throw new Error(`Unsupported Codex login response: ${response.type}`)
 }
 
 export const cancelCodexLogin = async (

@@ -18,9 +18,11 @@ import {
   type CodexEventEnvelope,
   CodexEventEnvelopeSchema,
   type CodexEventPayload,
+  type ConnectionProxySettings,
   CYPHERIA_IPC_CHANNELS,
   IPC_PROTOCOL_VERSION,
 } from "../../ipc/src/index.js"
+import { buildConnectionProxyEnvironment } from "./connection-proxy.js"
 
 export type CodexAppServerState = "ready" | "starting" | "stopped" | "stopping"
 
@@ -56,6 +58,7 @@ export type StartCodexAppServerOptions = {
   readonly paths: CypheriaRuntimePaths
   readonly port?: number
   readonly processFactory?: CodexAppServerProcessFactory
+  readonly proxySettings?: ConnectionProxySettings
   readonly readyPollIntervalMs?: number
   readonly versionReader?: CodexVersionReader
   readonly windows?: () => readonly BrowserWindow[]
@@ -304,12 +307,23 @@ export const startCodexAppServer = async (
 
   broadcastCodexEvent(windows(), createLifecycleEvent("starting"))
 
-  const child = processFactory(command, ["app-server", "--listen", listenUrl], {
-    env: {
-      ...process.env,
-      ...options.codexEnv,
-      CODEX_HOME: options.paths.codexHome,
-    },
+  const commandArgs = [
+    ...((options.proxySettings?.mode ?? "system") === "system"
+      ? ["-c", "features.respect_system_proxy=true"]
+      : []),
+    "app-server",
+    "--listen",
+    listenUrl,
+  ]
+  const child = processFactory(command, commandArgs, {
+    env: buildConnectionProxyEnvironment(
+      {
+        ...process.env,
+        ...options.codexEnv,
+        CODEX_HOME: options.paths.codexHome,
+      },
+      options.proxySettings ?? { mode: "system" }
+    ),
   })
 
   wireCodexStderr(child, windows)
