@@ -25,6 +25,8 @@ Cypheria V1 is a TypeScript Web3 agent product with CLI, SDK, desktop, and runti
 | Desktop Codex integration | `codex app-server` over WebSocket JSON-RPC |
 | Desktop Codex protocol types | `codex app-server generate-ts --out packages/codex-bridge/src/generated` |
 | ACP bridge | `@agentclientprotocol/sdk@1.4.0` app API to AI SDK 7.x through `@ai-sdk/provider` 4.x `LanguageModelV4` |
+| Marketplace web runtime | TanStack Start on Cloudflare Workers |
+| Marketplace data | Cloudflare D1 system of record, R2 immutable artifacts, Queues, Workflows |
 | Local database | SQLite |
 | ORM | Drizzle ORM |
 | SQLite driver | libSQL local SQLite entry point (`@libsql/client/sqlite3`) |
@@ -40,6 +42,8 @@ apps/desktop
   main/
   preload/
   renderer/
+apps/marketplace
+  TanStack Start application deployed to Cloudflare Workers.
 
 packages/sdk
 packages/runtime
@@ -54,7 +58,13 @@ packages/automation-core
 packages/db
 ```
 
-`apps/cli` and `packages/sdk` are planned packages. The existing repository already contains the desktop app and the main domain packages.
+`apps/cli`, `apps/marketplace`, and `packages/sdk` are planned packages. The existing repository already contains the desktop app and the main domain packages.
+
+## Marketplace Stack
+
+`apps/marketplace` is an SSR-first TanStack Start application deployed to Cloudflare Workers. It reuses `@cypheria/ui`, TanStack Router/Query/Form, Zod, Drizzle, and Lingui. A custom Worker entrypoint delegates HTTP requests to TanStack Start and exposes public, publisher, reviewer, and versioned Desktop API surfaces.
+
+D1 is the system of record for identities, GitHub sources, drafts, scans, reviews, releases, publication, advisories, and audit events. R2 stores private-by-default immutable evidence and public assets. Queues distribute bounded jobs; Workflows coordinate source scanning, human review, and publication. A least-privilege GitHub App deterministically synchronizes active releases to `.agents/plugins/marketplace.json` in the official Cypheria repository. Only public open-source GitHub `url` and `git-subdir` sources pinned by commit SHA are admitted. Desktop uses the Marketplace API for discovery and App Server's Git marketplace operations for installation. See [Cypheria Marketplace Design](marketplace.md).
 
 ## Runtime Stack
 
@@ -174,9 +184,9 @@ Desktop
 - Handle disconnect and overload errors.
 - Expose an AI SDK `ProviderV4` adapter for chat surfaces that want AI SDK / AI Elements streams while preserving the direct bridge request API for non-AI-SDK callers.
 - The adapter implements `LanguageModelV4` and declares `specificationVersion: "v4"`. It requires Node.js 22 or later.
-- V4 image inputs accept tagged URL or inline base64/byte data; inline images require a concrete media type. Inline text files become text input. Provider file references and unsupported media produce warnings.
+- `LanguageModelV4` image inputs accept tagged URL or inline base64/byte data; inline images require a concrete media type. Inline text files become text input. Provider file references and unsupported media produce warnings.
 - Top-level `reasoning` maps to Codex turn effort; explicit Codex `reasoningEffort` settings take precedence, and `provider-default` leaves the effort unset. Model support for each effort level is determined by Codex.
-- Stateless history converts V4 tool-result content into text (file URLs/labels remain textual). Binary/reference tool files, custom tool content, assistant custom content, and reasoning files cannot be replayed natively and produce warnings.
+- Stateless history converts `LanguageModelV4` tool-result content into text (file URLs/labels remain textual). Binary/reference tool files, custom tool content, assistant custom content, and reasoning files cannot be replayed natively and produce warnings.
 
 Electron main owns the `codex app-server` child process. It selects a localhost port, starts the process with `CODEX_HOME=$CYPHERIA_HOME/codex`, waits for WebSocket handshake readiness, forwards renderer-safe Codex summaries through `codex.event`, logs stderr, and shuts the process down with the runtime. The exact `@openai/codex` version is pinned in the workspace and desktop manifests. Development resolves that package instead of the user's `PATH`; packaged builds resolve `resources/codex/codex` (`codex.exe` on Windows). `CYPHERIA_CODEX_PATH` is an explicit diagnostic override. Desktop checks `codex --version` against the version that generated the committed protocol types before starting App Server.
 

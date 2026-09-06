@@ -21,16 +21,25 @@ apps/desktop renderer
   -> @cypheria/runtime
   -> @cypheria/codex-bridge
   -> persistent codex app-server over WebSocket JSON-RPC
+
+apps/marketplace
+  -> TanStack Start on Cloudflare Workers
+  -> D1 publication system of record + R2 immutable artifacts
+  -> Queues + Workflows for scan/review/publication
+  -> official GitHub repo marketplace projection
 ```
 
-Cypheria 有三个产品 surface 和一个共享 runtime：
+Cypheria 有四个产品 surface 和一个共享 runtime：
 
 - `apps/cli`：无 TUI 的命令行应用，直接组合 Cypheria runtime 和 Codex TypeScript SDK。
 - `apps/desktop`：Electron + TanStack Start 应用，在 Electron main 中运行 Cypheria runtime，并连接常驻 Codex App Server。
+- `apps/marketplace`：部署在 Cloudflare Workers 上的 TanStack Start 应用，负责 ChatGPT/Codex-compatible 插件的提交、扫描、审核、发布与发现，再把 approved entry 同步到 Cypheria 官方 GitHub repo marketplace。
 - `packages/sdk`：公共 TypeScript SDK，直接组合 Cypheria runtime 和 Codex TypeScript SDK。
 - `packages/runtime`：Cypheria 自有非 agent 能力的 TypeScript runtime。
 
 Codex 负责 agent threads、turns、model execution、code edits、shell/tool execution、MCP 和 Codex approvals。Cypheria 负责 Web3 context、wallets、signing intents、policy evaluation、dApp browser permissions、automation state、本地数据和 audit logs。
+
+Marketplace 是独立的远程 trust boundary。D1 是 review/publication system of record；后端将 published release 确定性投影到 Cypheria 官方 GitHub repository 的 `$REPO_ROOT/.agents/plugins/marketplace.json`。Entry 只能使用由 commit SHA 固定的 public open-source GitHub `url` 或 `git-subdir` source。R2 保存不可变 evidence，Queues 分发有界工作，Workflows 编排 scan、review 与 catalog publication。Marketplace 不在 request Worker 中执行任意第三方代码，也不接收本地 wallet、Codex home、终端用户 connector credential 或 runtime state。详见 [Cypheria Marketplace 设计](marketplace.zh-CN.md)。
 
 ## Runtime 边界
 
@@ -157,7 +166,9 @@ Renderer 规则：
 
 Desktop 的信息架构以任务为中心。常驻左侧导航首先提供新任务、搜索和待审批，其次提供钱包、自动化、signing policies、audit logs、plugins 与 skills，最后按 project 对 App Server threads 分组，并单列未分组的最近任务。待审批入口会显示尚未决议的 signing approvals 实时数量。任务工作区将 AI Elements conversation 与 composer 放在主区域，提供 model、reasoning、sandbox 和 wallet-context 控件，右侧是 context/files/review/terminal 面板。进入 Settings 后，工作台左侧导航会替换为 Connections、Appearance、Models 和返回工作台入口组成的专用设置导航。所有设置页都由完整的右侧内容面板承载滚动，因此滚动条保持在窗口最右侧。
 
-插件与技能工作台通过 typed IPC 复用同一个 persistent App Server connection。Electron main 负责列出 marketplace 与 skill、安装和移除 plugin、写入 plugin/skill enabled state，以及添加或更新 marketplace。Settings 还提供含插件/应用/MCP/技能/市场五个页签的 Plugins 页面。Main 负责应用可用性与 MCP 清单投影、限定启用配置写入、HTTP MCP 添加和经过校验的外部授权地址。Renderer 监听授权完成通知并刷新状态，不把打开登录页当作授权成功。Main 将 generated protocol response 投影为 renderer-safe schema；renderer 不直接读取 `$CYPHERIA_HOME/codex`，也不会通过这些视图获得 MCP 凭据。基于证据的界面分析与当前对齐边界见[插件与技能管理](plugin-skill-management.zh-CN.md)。
+插件与技能工作台包含两个保留来源的 discovery provider 和一条 App Server 安装路径。已实现的 Codex provider 通过 typed IPC 支持公开远程、个人、分享、工作区、仓库、Git/npm-backed 和本地 marketplace。待实现的 Cypheria provider 读取版本化 `apps/marketplace` API，获得分页发现、review state 与 advisory；Electron main 随后通过 App Server 注册或升级固定的 Cypheria 官方 GitHub repo，并调用 `plugin/read`/`plugin/install`。两者可以复用 renderer component，但不能压平 provenance、trust 与 failure。
+
+Settings 仍提供含插件/应用/MCP/技能/市场五个页签的 Plugins 页面。Main 负责应用可用性与 MCP 清单投影、限定启用配置写入、HTTP MCP 添加和经过校验的外部授权地址。Renderer 监听授权完成通知并刷新状态，不把打开登录页当作授权成功。Renderer 只接收安全 schema，不直接读取 `$CYPHERIA_HOME`，也不会获得 MCP 凭据。详见[插件与技能管理](plugin-skill-management.zh-CN.md)和 [Cypheria Marketplace 设计](marketplace.zh-CN.md)。
 
 Web3 工作台完成本地管理闭环。钱包页面可以创建或导入加密 vault 钱包、添加 watch-only accounts、选择 active account 与 chain、锁定或解锁 vault，并启动隔离 dApp session。Policy 页面可以创建、编辑和停用 signing rules。Approval 页面会在接受或拒绝之前展示 canonical intent 与 payload hash，audit 页面则展示由此产生的本地安全历史。钱包秘密表单值会从 uncontrolled forms 直接提交到 preload，不会复制到 React state、localStorage 或 IndexedDB。
 

@@ -102,6 +102,41 @@ Status legend:
   - Acceptance: `cypheria run`, `cypheria run --jsonl`, `cypheria runtime info`, `cypheria wallet list`, `cypheria policy list`, `cypheria automation run <task-id>`, and `cypheria doctor` are wired to runtime or Codex SDK.
   - Verification: CLI unit tests and command smoke tests.
 
+## Marketplace
+
+- [x] Research and specify `apps/marketplace`.
+  - Acceptance: paired documents define an OpenAI-like submission/review/publication platform, mandatory ChatGPT/Codex compatibility, GitHub-only open-source `url`/`git-subdir` sources, deterministic official repo synchronization, App Server installation, Cloudflare boundaries, security, and delivery sequence.
+  - Verification: paired-document review and `pnpm run ci`.
+
+- [ ] Scaffold the TanStack Start marketplace Worker.
+  - Acceptance: `@cypheria/marketplace` builds and previews with the official Cloudflare Vite integration, a custom Worker entrypoint, locale-prefixed SSR routes, shared UI primitives, D1 migrations, typed bindings, and local tests.
+  - Must not import: Electron, desktop IPC, `@cypheria/runtime`, `@cypheria/codex-bridge`, or `@cypheria/db`.
+  - Verification: marketplace tests/typecheck/build/type generation, `pnpm run ci`, and `pnpm build`.
+
+- [ ] Implement marketplace identity, organizations, authorization, and publisher verification.
+  - Acceptance: OIDC sessions, organizations, scoped roles, publisher identities, domain/organization evidence, step-up actions, CSRF protection, rate limits, and append-only audit events are enforced server-side.
+  - Verification: role matrix, cross-organization isolation, session/CSRF, identity challenge, rate-limit, and audit tests.
+
+- [ ] Implement GitHub source verification, plugin drafts, validation, and submission.
+  - Acceptance: only public GitHub `url` and `git-subdir` sources with immutable SHA, a valid ChatGPT/Codex plugin tree, verified publisher relationship, and an OSI-approved license covering the plugin path are accepted; submission freezes an immutable source revision.
+  - Verification: repository visibility, ownership, SHA/ref, path containment, submodule/LFS, license coverage, schema, size, stale-scan, and submission-state tests.
+
+- [ ] Implement scanning and the reviewer workflow.
+  - Acceptance: bounded static and MCP scans run through Queues and durable Workflows; reviewers inspect immutable evidence and can request changes, reject, or approve without automatic publication.
+  - Verification: SSRF/rebinding/redirect, secret, schema, annotation, timeout, idempotency, workflow-resume, authorization, and decision-audit tests.
+
+- [ ] Implement publication and the public marketplace API.
+  - Acceptance: explicit publication deterministically regenerates the protected official GitHub repo's `.agents/plugins/marketplace.json` with SHA-pinned `url`/`git-subdir` entries, verifies the resulting commit, then exposes the release and catalog commit through localized routes and `/api/v1`.
+  - Verification: schema, stable ordering, expected-head race, GitHub failure, read-after-write, outbox recovery, reconciliation, suspension, withdrawal, and rollback tests.
+
+- [ ] Add the Cypheria Marketplace discovery/trust provider to Desktop.
+  - Acceptance: Electron main fetches the paginated Cypheria API, pins the official repository identity, registers/upgrades it through `marketplace/add`/`marketplace/upgrade`, verifies the expected catalog commit and source URL/path/SHA, obtains capability/permission approval, and installs through `plugin/install`.
+  - Verification: repository identity, catalog freshness, source mismatch, approval/rejection, install, update, uninstall, advisory, audit receipt, and renderer-boundary tests.
+
+- [x] Review existing Desktop support for other ChatGPT/Codex plugin sources.
+  - Acceptance: documentation maps the implemented generated App Server operations and the `vertical`, `workspace-directory`, `shared-with-me`, `created-by-me-remote`, and `local` source kinds, while stating account/feature/policy availability limits.
+  - Verification: source and protocol review of Desktop main, IPC, renderer, tests, and generated App Server types.
+
 - [x] Add desktop-owned sidebar collapse motion and hover previews.
   - Acceptance: native window controls remain fixed; the sidebar fully retracts, collapsed controls and the task title move together, and hover previews do not resize content. Shared UI primitives remain unchanged.
   - Verification: desktop typecheck/build, Biome, and Electron visual checks.

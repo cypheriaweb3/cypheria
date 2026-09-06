@@ -6,12 +6,13 @@ Cypheria 不重新实现 Codex agent core。CLI 和 SDK 使用官方 Codex TypeS
 
 ## 产品方向
 
-Cypheria V1 有四个入口：
+Cypheria V1 有五个入口：
 
 - **Runtime**：Cypheria 自己的 TypeScript 非 agent 核心，负责钱包、链、策略、自动化、浏览器权限、设置、本地状态和审计日志。
 - **CLI**：无 TUI 的命令行入口，直接组合 `@cypheria/runtime` 和 `@openai/codex-sdk`。
 - **SDK**：面向外部应用的 TypeScript library，直接组合 `@cypheria/runtime` 和 `@openai/codex-sdk`。
 - **Desktop**：Electron + TanStack Start 应用，在 main process 中运行 Cypheria runtime，并启动持久化 Codex App Server 承载富 agent 工作流。
+- **Marketplace**：部署在 Cloudflare Workers 上的 TanStack Start 应用，负责 ChatGPT/Codex 标准插件的提交、扫描、审核、发布、发现，并同步到 Cypheria 官方 GitHub repo marketplace。
 
 默认安全模型是人工审批。只读模式和条件自动签名都是显式策略模式。Codex 和 automation flow 可以创建 signing intent，但每个 signing intent 都必须先经过 Cypheria policy evaluation，之后才能签名或广播交易。
 
@@ -28,6 +29,7 @@ Cypheria V1 有四个入口：
 - **CLI/SDK agent integration**：`@openai/codex-sdk`
 - **Desktop agent integration**：`codex app-server` over WebSocket JSON-RPC
 - **Desktop Codex protocol types**：通过 `codex app-server generate-ts --out packages/codex-bridge/src/generated` 生成
+- **Marketplace hosting**：Cloudflare Workers、D1、R2、Queues 与 Workflows
 - **Web3**：viem、Privy、WalletConnect / Reown
 - **Data**：SQLite + Drizzle ORM
 
@@ -50,6 +52,16 @@ apps/desktop renderer
   -> @cypheria/runtime
   -> @cypheria/codex-bridge
   -> persistent codex app-server over WS
+
+apps/marketplace
+  -> TanStack Start on Cloudflare Workers
+  -> D1 publication system of record + R2 immutable artifacts
+  -> Queues + Workflows for scan/review/publication
+  -> 在官方 GitHub repo 生成 .agents/plugins/marketplace.json
+
+apps/desktop plugins
+  -> Cypheria Marketplace API 提供 discovery/trust（待实现）
+  -> Codex App Server marketplace/add + plugin/install
 ```
 
 Desktop renderer 是产品 UI，不是特权 runtime。它通过 typed IPC 向 Electron main 请求能力。私钥、签名操作、dApp browser sessions、本地数据库访问、自动化执行和 Codex App Server 生命周期管理都留在 renderer 之外。
@@ -68,6 +80,9 @@ apps/desktop
   preload/   面向 app 与 browser surface 的安全 bridge
   renderer/  TanStack Start renderer app
 
+apps/marketplace
+  插件提交、审核、发布、发现与 GitHub marketplace 同步应用
+
 packages/sdk
 packages/runtime
 packages/codex-bridge
@@ -81,7 +96,7 @@ packages/policy-engine
 packages/db
 ```
 
-`apps/cli` 和 `packages/sdk` 是规划中的 packages，属于目标架构，会按 todo 顺序实现。
+`apps/cli`、`apps/marketplace` 和 `packages/sdk` 是规划中的 packages，属于目标架构，会按 todo 顺序实现。Marketplace 设计及其 OpenAI 兼容边界见 [docs/marketplace.zh-CN.md](docs/marketplace.zh-CN.md)。
 
 ## Runtime Home
 

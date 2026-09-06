@@ -21,16 +21,25 @@ apps/desktop renderer
   -> @cypheria/runtime
   -> @cypheria/codex-bridge
   -> persistent codex app-server over WebSocket JSON-RPC
+
+apps/marketplace
+  -> TanStack Start on Cloudflare Workers
+  -> D1 publication system of record + R2 immutable artifacts
+  -> Queues + Workflows for scan/review/publication
+  -> official GitHub repo marketplace projection
 ```
 
-Cypheria has three product surfaces and one shared runtime:
+Cypheria has four product surfaces and one shared runtime:
 
 - `apps/cli`: a non-TUI command-line app that directly composes Cypheria runtime and the Codex TypeScript SDK.
 - `apps/desktop`: an Electron + TanStack Start app that runs Cypheria runtime in Electron main and connects to a long-lived Codex App Server.
+- `apps/marketplace`: a TanStack Start application on Cloudflare Workers for submitting, scanning, reviewing, publishing, and discovering ChatGPT/Codex-compatible plugins, then synchronizing approved entries to the official Cypheria GitHub repo marketplace.
 - `packages/sdk`: a public TypeScript SDK that directly composes Cypheria runtime and the Codex TypeScript SDK.
 - `packages/runtime`: the TypeScript runtime for Cypheria-owned non-agent capabilities.
 
 Codex owns agent threads, turns, model execution, code edits, shell/tool execution, MCP, and Codex approvals. Cypheria owns Web3 context, wallets, signing intents, policy evaluation, dApp browser permissions, automation state, local data, and audit logs.
+
+The marketplace is a separate remote trust boundary. D1 is the review/publication system of record; the backend deterministically projects published releases into `$REPO_ROOT/.agents/plugins/marketplace.json` in the official Cypheria GitHub repository. Entries may only use public open-source GitHub `url` or `git-subdir` sources pinned by commit SHA. R2 stores immutable evidence, Queues distribute bounded work, and Workflows coordinate scan, review, and catalog publication. The marketplace never executes arbitrary third-party code in request Workers and never receives local wallet, Codex home, end-user connector credential, or runtime state. See [Cypheria Marketplace Design](marketplace.md).
 
 ## Runtime Boundary
 
@@ -157,7 +166,9 @@ Renderer rules:
 
 The desktop information architecture is task-centered. The persistent sidebar puts new-task, search, and pending approvals first; then exposes wallets, automations, signing policies, audit logs, plugins, and skills; and finally groups App Server threads by project with an ungrouped recent-task section. The pending item shows the live number of unresolved signing approvals. The task workspace combines an AI Elements conversation and composer with model, reasoning, sandbox, and wallet-context controls plus a right-hand context/files/review/terminal panel. Entering Settings replaces the workbench sidebar with a dedicated navigation for Connections, Appearance, and Models plus a route back to the workspace. Every settings page scrolls in the full right pane so its scrollbar remains at the window edge.
 
-The plugin and skill workbench is backed by typed IPC over the same persistent App Server connection. Electron main lists marketplaces and skills, installs and removes plugins, writes plugin and skill enabled state, and adds or upgrades marketplaces. Settings also includes a Plugins page with Plugins/Apps/MCP/Skills/Markets tabs. Main owns application availability and MCP inventory projections, scoped enablement writes, HTTP MCP addition, and validated external authorization URLs. The renderer observes authorization completion notifications and refreshes status; opening a login page does not imply authorization success. It projects generated protocol responses into renderer-safe schemas; the renderer never reads `$CYPHERIA_HOME/codex` directly or receives MCP credentials through these views. See [Plugin and Skill Management](plugin-skill-management.md) for the evidence-based UI analysis and current parity boundary.
+The plugin and skill workbench has two source-aware discovery providers and one App Server installation path. The implemented Codex provider uses typed IPC for public remote, personal, shared, workspace, repository, Git/npm-backed, and local marketplaces. The planned Cypheria provider reads the versioned `apps/marketplace` API for paginated discovery, review state, and advisories; Electron main then registers or upgrades the pinned official Cypheria GitHub repo through App Server and invokes `plugin/read`/`plugin/install`. Both providers may share renderer components, but provenance, trust, and failures must not be flattened.
+
+Settings includes Plugins/Apps/MCP/Skills/Markets tabs. Main owns application availability and MCP inventory projections, scoped enablement writes, HTTP MCP addition, and validated external authorization URLs. The renderer observes authorization completion notifications and refreshes status; opening a login page does not imply authorization success. It receives renderer-safe schemas and never reads `$CYPHERIA_HOME` directly or receives MCP credentials. See [Plugin and Skill Management](plugin-skill-management.md) and [Cypheria Marketplace Design](marketplace.md).
 
 The Web3 workbench completes the local management loop. Wallet screens create or import encrypted vault wallets, add watch-only accounts, select the active account and chain, lock or unlock the vault, and launch an isolated dApp session. Policy screens create, edit, and disable signing rules. Approval screens show the canonical intent and payload hash before accepting or rejecting it, while the audit screen exposes the resulting local security history. Wallet secret form values are submitted directly from uncontrolled forms to preload and are never copied into React state, localStorage, or IndexedDB.
 

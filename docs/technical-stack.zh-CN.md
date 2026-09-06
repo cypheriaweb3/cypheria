@@ -25,6 +25,8 @@ Cypheria V1 是一个 TypeScript Web3 agent 产品，包含 CLI、SDK、desktop 
 | Desktop Codex integration | `codex app-server` over WebSocket JSON-RPC |
 | Desktop Codex protocol types | `codex app-server generate-ts --out packages/codex-bridge/src/generated` |
 | ACP bridge | `@agentclientprotocol/sdk@1.4.0` app API，通过 `@ai-sdk/provider` 4.x 的 `LanguageModelV4` 接口接入 AI SDK 7.x |
+| Marketplace web runtime | Cloudflare Workers 上的 TanStack Start |
+| Marketplace data | Cloudflare D1 system of record、R2 immutable artifact、Queues、Workflows |
 | Local database | SQLite |
 | ORM | Drizzle ORM |
 | SQLite driver | libSQL 本地 SQLite 入口（`@libsql/client/sqlite3`） |
@@ -40,6 +42,8 @@ apps/desktop
   main/
   preload/
   renderer/
+apps/marketplace
+  部署到 Cloudflare Workers 的 TanStack Start 应用。
 
 packages/sdk
 packages/runtime
@@ -54,7 +58,13 @@ packages/automation-core
 packages/db
 ```
 
-`apps/cli` 和 `packages/sdk` 是规划中的 packages。当前仓库已经包含 desktop app 和主要 domain packages。
+`apps/cli`、`apps/marketplace` 和 `packages/sdk` 是规划中的 packages。当前仓库已经包含 desktop app 和主要 domain packages。
+
+## Marketplace 技术栈
+
+`apps/marketplace` 是部署到 Cloudflare Workers 的 SSR-first TanStack Start 应用，复用 `@cypheria/ui`、TanStack Router/Query/Form、Zod、Drizzle 与 Lingui。自定义 Worker entrypoint 将 HTTP request 委托给 TanStack Start，并提供 public、publisher、reviewer 和版本化 Desktop API 界面。
+
+D1 是 identity、GitHub source、draft、scan、review、release、publication、advisory 和 audit event 的 source of truth。R2 保存默认私有的不可变 evidence 与 public asset。Queues 分发有界 job；Workflows 编排 source scanning、人工 review 和 publication。最小权限 GitHub App 将 active release 确定性同步到 Cypheria 官方 repository 的 `.agents/plugins/marketplace.json`。只接收由 commit SHA 固定的 public open-source GitHub `url` 与 `git-subdir` source。Desktop 使用 Marketplace API 发现，并通过 App Server Git marketplace operation 安装。详见 [Cypheria Marketplace 设计](marketplace.zh-CN.md)。
 
 ## Runtime Stack
 
@@ -174,9 +184,9 @@ Desktop
 - 处理 disconnect 和 overload errors。
 - 暴露 AI SDK `ProviderV4` adapter，供需要 AI SDK / AI Elements streams 的聊天界面使用，同时保留直接 bridge request API 给非 AI SDK 调用方。
 - 适配器实现 `LanguageModelV4`，声明 `specificationVersion: "v4"`，要求 Node.js 22 或更高版本。
-- V4 图片输入接受带类型标签的 URL 或内联 base64/字节数据；内联图片必须指定完整媒体类型。内联文本文件转换为文本输入。Provider 文件引用和不支持的媒体会返回警告。
+- `LanguageModelV4` 图片输入接受带类型标签的 URL 或内联 base64/字节数据；内联图片必须指定完整媒体类型。内联文本文件转换为文本输入。Provider 文件引用和不支持的媒体会返回警告。
 - 顶层 `reasoning` 映射到 Codex turn effort；显式 Codex `reasoningEffort` 设置优先，`provider-default` 不指定 effort。各推理级别是否受模型支持由 Codex 决定。
-- 无状态历史将 V4 工具结果内容转换为文本（文件 URL/标签仍是文本）。二进制/引用工具文件、自定义工具内容、助手自定义内容及推理文件无法原生重放，会返回警告。
+- 无状态历史将 `LanguageModelV4` 工具结果内容转换为文本（文件 URL/标签仍是文本）。二进制/引用工具文件、自定义工具内容、助手自定义内容及推理文件无法原生重放，会返回警告。
 
 Electron main 拥有 `codex app-server` child process。它选择 localhost port，以 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动进程，等待 WebSocket handshake readiness，通过 `codex.event` 转发 renderer-safe Codex summaries，记录 stderr，并随 runtime 一起关闭进程。Workspace 与 desktop manifests 精确固定 `@openai/codex` 版本。Development 解析该 package，而不是用户的 `PATH`；packaged build 解析 `resources/codex/codex`（Windows 为 `codex.exe`）。`CYPHERIA_CODEX_PATH` 是显式 diagnostic override。Desktop 在启动 App Server 前检查 `codex --version` 是否与生成 committed protocol types 的版本一致。
 

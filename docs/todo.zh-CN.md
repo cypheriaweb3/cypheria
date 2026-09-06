@@ -102,6 +102,41 @@
   - 验收：`cypheria run`、`cypheria run --jsonl`、`cypheria runtime info`、`cypheria wallet list`、`cypheria policy list`、`cypheria automation run <task-id>` 和 `cypheria doctor` 接入 runtime 或 Codex SDK。
   - 验证：CLI unit tests 和 command smoke tests。
 
+## Marketplace
+
+- [x] 调研并定义 `apps/marketplace`。
+  - 验收：中英文配套文档定义类似 OpenAI 的提交/审核/发布平台、强制 ChatGPT/Codex compatibility、GitHub-only open-source `url`/`git-subdir` source、确定性 official repo 同步、App Server 安装、Cloudflare 边界、安全和交付顺序。
+  - 验证：配套文档评审与 `pnpm run ci`。
+
+- [ ] 搭建 TanStack Start marketplace Worker。
+  - 验收：`@cypheria/marketplace` 使用官方 Cloudflare Vite 集成、自定义 Worker entrypoint、locale-prefixed SSR route、共享 UI primitive、D1 migration、typed binding 和本地测试完成构建与预览。
+  - 不得导入：Electron、desktop IPC、`@cypheria/runtime`、`@cypheria/codex-bridge` 或 `@cypheria/db`。
+  - 验证：marketplace test/typecheck/build/type generation、`pnpm run ci` 与 `pnpm build`。
+
+- [ ] 实现 marketplace identity、organization、authorization 和 publisher verification。
+  - 验收：服务端强制执行 OIDC session、organization、限定 role、publisher identity、domain/organization evidence、step-up action、CSRF protection、rate limit 和 append-only audit event。
+  - 验证：role matrix、跨组织隔离、session/CSRF、identity challenge、rate-limit 和 audit tests。
+
+- [ ] 实现 GitHub source verification、plugin draft、validation 与 submission。
+  - 验收：只接受具有 immutable SHA、有效 ChatGPT/Codex plugin tree、已验证 publisher relationship，以及覆盖 plugin path 的 OSI-approved license 的 public GitHub `url`/`git-subdir` source；提交冻结不可变 source revision。
+  - 验证：repository visibility、ownership、SHA/ref、path containment、submodule/LFS、license coverage、schema、size、stale-scan 和 submission-state tests。
+
+- [ ] 实现 scanning 与 reviewer workflow。
+  - 验收：有界 static/MCP scan 通过 Queues 和持久 Workflows 运行；reviewer 检查不可变 evidence，并可要求修改、拒绝或批准，但不自动发布。
+  - 验证：SSRF/rebinding/redirect、secret、schema、annotation、timeout、idempotency、workflow-resume、authorization 与 decision-audit tests。
+
+- [ ] 实现 publication 与 public marketplace API。
+  - 验收：显式 publication 确定性重新生成受保护 official GitHub repo 的 `.agents/plugins/marketplace.json`，其中仅含 SHA-pinned `url`/`git-subdir` entry；验证 resulting commit 后才通过本地化 route 与 `/api/v1` 暴露 release 和 catalog commit。
+  - 验证：schema、stable ordering、expected-head race、GitHub failure、read-after-write、outbox recovery、reconciliation、suspension、withdrawal 与 rollback tests。
+
+- [ ] 在 Desktop 中添加 Cypheria Marketplace discovery/trust provider。
+  - 验收：Electron main 获取分页 Cypheria API、固定 official repository identity、通过 `marketplace/add`/`marketplace/upgrade` 注册或升级、校验预期 catalog commit 与 source URL/path/SHA、获得 capability/permission approval，并通过 `plugin/install` 安装。
+  - 验证：repository identity、catalog freshness、source mismatch、approval/rejection、install、update、uninstall、advisory、audit receipt 与 renderer-boundary tests。
+
+- [x] 审阅 Desktop 对其他 ChatGPT/Codex 插件来源的现有支持。
+  - 验收：文档映射已实现的 generated App Server operation，以及 `vertical`、`workspace-directory`、`shared-with-me`、`created-by-me-remote` 和 `local` source kind，同时声明 account/feature/policy 可用性限制。
+  - 验证：审阅 Desktop main、IPC、renderer、tests 与 generated App Server types。
+
 - [x] 添加 desktop 包内的侧栏收起动画与悬停预览。
   - 验收：原生窗口按钮保持固定，侧栏完全收起，收起工具栏与任务标题联动，悬停预览不改变内容宽度；共享 UI 基础组件保持不变。
   - 验证：desktop 类型检查与构建、Biome，以及 Electron 界面检查。

@@ -6,12 +6,13 @@ Cypheria does not reimplement the Codex agent core. CLI and SDK surfaces use the
 
 ## Product Direction
 
-Cypheria V1 has four entry points:
+Cypheria V1 has five entry points:
 
 - **Runtime**: the TypeScript core for Cypheria-owned non-agent capabilities, including wallets, chains, policies, automation, browser permissions, settings, local state, and audit logs.
 - **CLI**: a non-TUI command-line surface that directly composes `@cypheria/runtime` and `@openai/codex-sdk`.
 - **SDK**: a TypeScript library for external apps that directly composes `@cypheria/runtime` and `@openai/codex-sdk`.
 - **Desktop**: an Electron + TanStack Start app that runs Cypheria runtime in the main process and a persistent Codex App Server for rich agent workflows.
+- **Marketplace**: a TanStack Start app on Cloudflare Workers for submission, scanning, review, publication, discovery, and synchronization of reviewed ChatGPT/Codex plugins to the official Cypheria GitHub repo marketplace.
 
 The default safety model is human approval. Read-only mode and conditional auto-signing are explicit policy modes. Codex and automation flows may create signing intents, but every signing intent must go through Cypheria policy evaluation before a signature or transaction broadcast.
 
@@ -28,6 +29,7 @@ The default safety model is human approval. Read-only mode and conditional auto-
 - **CLI/SDK agent integration**: `@openai/codex-sdk`
 - **Desktop agent integration**: `codex app-server` over WebSocket JSON-RPC
 - **Desktop Codex protocol types**: generated with `codex app-server generate-ts --out packages/codex-bridge/src/generated`
+- **Marketplace hosting**: Cloudflare Workers, D1, R2, Queues, and Workflows
 - **Web3**: viem, Privy, WalletConnect / Reown
 - **Data**: SQLite + Drizzle ORM
 
@@ -50,6 +52,16 @@ apps/desktop renderer
   -> @cypheria/runtime
   -> @cypheria/codex-bridge
   -> persistent codex app-server over WS
+
+apps/marketplace
+  -> TanStack Start on Cloudflare Workers
+  -> D1 publication system of record + R2 immutable artifacts
+  -> Queues + Workflows for scan/review/publication
+  -> generated .agents/plugins/marketplace.json in the official GitHub repo
+
+apps/desktop plugins
+  -> Cypheria Marketplace API for discovery/trust (planned)
+  -> Codex App Server marketplace/add + plugin/install
 ```
 
 The desktop renderer is a product UI, not a privileged runtime. It uses typed IPC to request capabilities from Electron main. Private keys, signing operations, dApp browser sessions, local database access, automation execution, and Codex App Server lifecycle management stay outside the renderer.
@@ -68,6 +80,9 @@ apps/desktop
   preload/   Secure bridges for app and browser surfaces
   renderer/  TanStack Start renderer app
 
+apps/marketplace
+  Plugin submission, review, publication, discovery, and GitHub marketplace synchronization
+
 packages/sdk
 packages/runtime
 packages/codex-bridge
@@ -81,7 +96,7 @@ packages/policy-engine
 packages/db
 ```
 
-`apps/cli` and `packages/sdk` are planned packages. They are part of the target architecture and will be implemented through the todo sequence.
+`apps/cli`, `apps/marketplace`, and `packages/sdk` are planned packages. They are part of the target architecture and will be implemented through the todo sequence. See [docs/marketplace.md](docs/marketplace.md) for the marketplace design and its OpenAI compatibility boundary.
 
 ## Runtime Home
 
