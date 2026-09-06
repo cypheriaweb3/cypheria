@@ -147,6 +147,12 @@ Status legend:
   - Include: typed IPC, harness-specific homes, global proxy propagation, Hermes `HERMES_HOME`/`HERMES_INSTALL_DIR` containment without its desktop package, and auditable install receipts containing changed files and executable hashes.
   - Verification: desktop typecheck/tests/build plus a real Electron Connections smoke check.
 
+- [x] Add the `@cypheria/acp-ai-provider` ACP-to-AI-SDK bridge.
+  - Acceptance: the package uses the official ACP 1.4 app API, launches or connects to ACP agents, and exposes native AI SDK 7 `LanguageModelV4` streaming/generation plus the ACP callback, lifecycle, configuration, control, transport, event, and draft-v2 surfaces.
+  - Include: capability-aware content conversion, safe default permission cancellation, filesystem/terminal/elicitation/ACP-MCP handlers, session and experimental controls, usage/provider metadata preservation, upstream provenance and commit pinning in paired package READMEs, the upstream MIT notice, and source plus protocol-level Vitest coverage.
+  - Verification: package typecheck/tests, workspace CI, and workspace build.
+  - Deferred: real Codex ACP, Gemini ACP, and Claude ACP process interoperability tests.
+
 - [x] Complete the desktop Web3 management loop and production renderer startup.
   - Acceptance: wallet creation/import/watch management, active account context, vault lock state, signing policies, pending approval decisions, and audit records are usable through typed IPC-backed screens.
   - Include: OS-backed desktop vault key storage, one-shot secret submission without renderer persistence, a two-level virtualized wallet/account manager with durable drag ordering and HD account derivation, pending counts in the sidebar, packaged SPA routing through the privileged `cypheria://` scheme, bundled libSQL native resolution, and copied database migrations.

@@ -147,6 +147,12 @@
   - 包括：typed IPC、harness 专用 home、全局代理传递、通过 `HERMES_HOME`/`HERMES_INSTALL_DIR` 约束 Hermes 且不安装 desktop 包，以及包含变化文件与可执行文件哈希的可审计安装收据。
   - 验证：desktop typecheck/tests/build，加真实 Electron Connections smoke check。
 
+- [x] 添加 `@cypheria/acp-ai-provider` ACP 到 AI SDK bridge。
+  - 验收：package 使用官方 ACP 1.4 app API，启动或连接 ACP agent，并暴露原生 AI SDK 7 `LanguageModelV4` streaming/generation，以及 ACP callback、lifecycle、configuration、control、transport、event 与 draft-v2 surfaces。
+  - 包括：能力感知的 content conversion、安全的默认权限取消、filesystem/terminal/elicitation/ACP-MCP handlers、session 与实验性 controls、usage/provider metadata 保留、在成对 package README 中记录上游来源与 commit、保留上游 MIT 声明，以及来源与协议级 Vitest 覆盖。
+  - 验证：package typecheck/tests、workspace CI 与 workspace build。
+  - 延后：真实 Codex ACP、Gemini ACP 与 Claude ACP 进程互操作测试。
+
 - [x] 完成 desktop Web3 管理闭环与生产 renderer 启动链路。
   - 验收：可通过 typed IPC-backed screens 使用钱包创建/导入/观察管理、active account context、vault lock 状态、signing policies、待审批决议和 audit records。
   - 包括：OS-backed desktop vault key storage、renderer 不持久化秘密的一次性提交、带持久化拖拽排序和 HD 账户派生的两级钱包/账户虚拟列表、左侧导航待审批计数、通过 privileged `cypheria://` scheme 提供 packaged SPA routes、libSQL native resolution，以及随构建复制 database migrations。

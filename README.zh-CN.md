@@ -71,6 +71,7 @@ apps/desktop
 packages/sdk
 packages/runtime
 packages/codex-bridge
+packages/acp-ai-provider
 packages/ui
 packages/network-core
 packages/wallet-core

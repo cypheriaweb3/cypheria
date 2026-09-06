@@ -24,6 +24,7 @@ Cypheria V1 is a TypeScript Web3 agent product with CLI, SDK, desktop, and runti
 | CLI/SDK Codex integration | `@openai/codex-sdk` |
 | Desktop Codex integration | `codex app-server` over WebSocket JSON-RPC |
 | Desktop Codex protocol types | `codex app-server generate-ts --out packages/codex-bridge/src/generated` |
+| ACP bridge | `@agentclientprotocol/sdk@1.4.0` app API to AI SDK 7.x through `@ai-sdk/provider` 4.x `LanguageModelV4` |
 | Local database | SQLite |
 | ORM | Drizzle ORM |
 | SQLite driver | libSQL local SQLite entry point (`@libsql/client/sqlite3`) |
@@ -43,6 +44,7 @@ apps/desktop
 packages/sdk
 packages/runtime
 packages/codex-bridge
+packages/acp-ai-provider
 packages/ui
 packages/network-core
 packages/wallet-core
@@ -102,6 +104,10 @@ It must not depend on:
 - `@cypheria/codex-bridge`
 
 SDK clients should be small wrappers around runtime services and Codex SDK agent threads.
+
+## ACP AI Provider Stack
+
+`@cypheria/acp-ai-provider` is the Node-side ACP bridge. Its stable entry point uses ACP v1 from the exact `@agentclientprotocol/sdk@1.4.0` dependency and implements AI SDK 7 through the `LanguageModelV4` interface supplied by `@ai-sdk/provider` 4.x. It supports stdio, injectable streams, experimental SDK HTTP/WebSocket transports, capability-derived client callbacks, independent model/session lifecycles, typed session configuration, negotiated NES controls, native resource links, control/event access, lossless raw ACP updates, and safe permission cancellation by default. Host tools use `@modelcontextprotocol/sdk` 1.x semantics through an authenticated loopback proxy and negotiate handshake versions through `2025-11-25`. The separate `experimental/v2` export exposes the official draft-v2 client context behind an explicit opt-in; it is not a `LanguageModelV4` adapter.
 
 ## Desktop Stack
 

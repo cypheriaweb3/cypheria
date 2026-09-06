@@ -205,6 +205,14 @@ pnpm codex:generate
 
 Generated protocol files 需要提交。不要手写 Codex app-server protocol request、response、notification 或 server request types。
 
+## ACP AI Provider
+
+`@cypheria/acp-ai-provider` 独立于 desktop-only Codex bridge。它通过官方 ACP 1.4 app-style client，把稳定 ACP v1 agent 适配为 AI SDK 7 `LanguageModelV4`。Language-model plane 映射文本、推理、媒体、原生 resource link、嵌入资源、来源、工具、停止原因、warning 与 raw 累计 usage；ACP control plane 则保留协商能力、client callback、session lifecycle/configuration、provider 与 next-edit control、document synchronization、extension method 和无损协议事件。不同 language-model 实例不共享 session 状态。可执行 AI SDK tool 通过仅监听 loopback、每实例认证的 MCP proxy 运行；由于 ACP 无法把调用挂起并作为独立 AI SDK step 恢复，不带 `execute` 的 client-side tool 会被拒绝。
+
+Client capability 由显式安装的 handler 派生。权限请求默认取消；host 安装对应 handler 前，filesystem、terminal、elicitation 与 ACP-transport MCP 能力均保持禁用。系统支持稳定 stdio 和自定义 stream；HTTP/WebSocket helper 与高级控制均需显式实验性 opt-in。Draft ACP v2 被隔离在独立 import 中，只暴露官方 v2 client context，不伪装成稳定 `LanguageModelV4` 实现。
+
+Package 测试通过内存 stream 连接官方 ACP 1.4 client 与 agent app。真实 Codex ACP、Gemini ACP 和 Claude ACP 进程互操作仍作为后续 integration-test 层。
+
 ## Wallet Provider 与 dApp Browser 边界
 
 每个 dApp origin 都运行在独立 Electron session 中。dApp 页面会收到 Ethereum 与 Solana wallet-provider surfaces，但 requests 会转发到 Electron main，并通过 origin-scoped permissions 和 signing policy 评估。
@@ -352,6 +360,9 @@ CODEX_HOME="$CYPHERIA_HOME/codex"
 
 @cypheria/codex-bridge
   Desktop-side Codex App Server bridge, generated protocol types, transport, and event normalization.
+
+@cypheria/acp-ai-provider
+  Node 侧 ACP 1.4 agent bridge，提供 AI SDK 7 LanguageModelV4 与 ACP callback/control/event surfaces。
 
 @cypheria/network-core
   Canonical chain identity、严格 network/RPC model、catalog entry 与 protocol conversion helper。

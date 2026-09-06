@@ -24,6 +24,7 @@ Cypheria V1 是一个 TypeScript Web3 agent 产品，包含 CLI、SDK、desktop 
 | CLI/SDK Codex integration | `@openai/codex-sdk` |
 | Desktop Codex integration | `codex app-server` over WebSocket JSON-RPC |
 | Desktop Codex protocol types | `codex app-server generate-ts --out packages/codex-bridge/src/generated` |
+| ACP bridge | `@agentclientprotocol/sdk@1.4.0` app API，通过 `@ai-sdk/provider` 4.x 的 `LanguageModelV4` 接口接入 AI SDK 7.x |
 | Local database | SQLite |
 | ORM | Drizzle ORM |
 | SQLite driver | libSQL 本地 SQLite 入口（`@libsql/client/sqlite3`） |
@@ -43,6 +44,7 @@ apps/desktop
 packages/sdk
 packages/runtime
 packages/codex-bridge
+packages/acp-ai-provider
 packages/ui
 packages/network-core
 packages/wallet-core
@@ -102,6 +104,10 @@ Runtime 不实现 Codex agent internals。
 - `@cypheria/codex-bridge`
 
 SDK clients 应该是 runtime services 与 Codex SDK agent threads 之上的轻量 wrappers。
+
+## ACP AI Provider Stack
+
+`@cypheria/acp-ai-provider` 是 Node 侧 ACP bridge。其稳定入口使用精确固定的 `@agentclientprotocol/sdk@1.4.0` 所提供的 ACP v1，并通过 `@ai-sdk/provider` 4.x 提供的 `LanguageModelV4` 接口实现 AI SDK 7。它支持 stdio、可注入 stream、实验性 SDK HTTP/WebSocket transport、由能力派生的 client callback、彼此独立的 model/session lifecycle、typed session configuration、经过协商的 NES 控制、原生 resource link、控制与事件访问、无损 raw ACP update，以及默认安全取消的权限请求。宿主工具通过带认证的 loopback proxy 使用 `@modelcontextprotocol/sdk` 1.x 语义，并协商至 `2025-11-25` 的 handshake 版本。独立的 `experimental/v2` export 在显式 opt-in 后暴露官方 draft-v2 client context；它不是 `LanguageModelV4` adapter。
 
 ## Desktop Stack
 

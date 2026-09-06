@@ -205,6 +205,14 @@ pnpm codex:generate
 
 Generated protocol files are committed. Do not hand-write Codex app-server protocol request, response, notification, or server request types.
 
+## ACP AI Provider
+
+`@cypheria/acp-ai-provider` is independent from the desktop-only Codex bridge. It adapts stable ACP v1 agents to AI SDK 7 `LanguageModelV4` through the official ACP 1.4 app-style client. The language-model plane maps text, reasoning, media, native resource links, embedded resources, sources, tools, stop reasons, warnings, and raw cumulative usage. The ACP control plane retains negotiated capabilities, client callbacks, session lifecycle/configuration, provider and next-edit controls, document synchronization, extension methods, and lossless protocol events. Language-model instances do not share session state. Executable AI SDK tools run through a loopback-only, per-instance authenticated MCP proxy; client-side tools without `execute` are rejected because ACP cannot suspend and resume their calls as a separate AI SDK step.
+
+Client capabilities are derived from explicitly installed handlers. Permission requests cancel by default, and filesystem, terminal, elicitation, and ACP-transport MCP capabilities remain disabled until the host installs their handlers. Stable stdio and custom streams are supported; HTTP/WebSocket helpers and advanced controls are explicit experimental opt-ins. Draft ACP v2 is isolated in a separate import that exposes the official v2 client context and does not masquerade as a stable `LanguageModelV4` implementation.
+
+Package tests connect official ACP 1.4 client and agent apps over in-memory streams. Real Codex ACP, Gemini ACP, and Claude ACP process interoperability remains a deferred integration-test layer.
+
 ## Wallet Provider And dApp Browser Boundary
 
 Each dApp origin runs in its own isolated Electron session. dApp pages receive Ethereum and Solana wallet-provider surfaces, but requests are forwarded to Electron main and evaluated through origin-scoped permissions and signing policy.
@@ -352,6 +360,9 @@ Default rules:
 
 @cypheria/codex-bridge
   Desktop-side Codex App Server bridge, generated protocol types, transport, and event normalization.
+
+@cypheria/acp-ai-provider
+  Node-side ACP 1.4 agent bridge with AI SDK 7 LanguageModelV4 and ACP callback/control/event surfaces.
 
 @cypheria/network-core
   Canonical chain identities, strict network/RPC models, catalog entries, and protocol conversion helpers.
