@@ -62,11 +62,11 @@ import {
   HarnessEnabledRequestSchema,
   type HarnessEvent,
   HarnessIdRequestSchema,
-  type HarnessTerminalSession,
   HarnessTerminalIdSchema,
-  HarnessTerminalResizeSchema,
-  HarnessTerminalSessionSchema,
   HarnessTerminalOpenRequestSchema,
+  HarnessTerminalResizeSchema,
+  type HarnessTerminalSession,
+  HarnessTerminalSessionSchema,
   HarnessTerminalWriteSchema,
   type HarnessView,
   HarnessViewSchema,
@@ -220,6 +220,9 @@ export const CYPHERIA_IPC_CHANNELS = {
   settingsAppearanceFontsList: "settings.appearance.fonts.list",
   settingsAppearanceRead: "settings.appearance.read",
   settingsAppearanceWrite: "settings.appearance.write",
+  settingsLanguageChanged: "settings.language.changed",
+  settingsLanguageRead: "settings.language.read",
+  settingsLanguageWrite: "settings.language.write",
   settingsConnectionProxyRead: "settings.connection-proxy.read",
   settingsConnectionProxyTest: "settings.connection-proxy.test",
   settingsConnectionProxyWrite: "settings.connection-proxy.write",
@@ -394,6 +397,91 @@ export type AppearanceSettings = z.infer<typeof AppearanceSettingsSchema>
 export const AppearanceSettingsWriteSchema = AppearanceSettingsSchema.omit({ configPath: true })
 export type AppearanceSettingsWrite = z.infer<typeof AppearanceSettingsWriteSchema>
 export const CYPHERIA_APPEARANCE_ARGUMENT_PREFIX = "--cypheria-appearance="
+
+export const SupportedLocaleSchema = z.enum(["en", "zh-CN"])
+export type SupportedLocale = z.infer<typeof SupportedLocaleSchema>
+export const LanguageLocaleSchema = z.enum([
+  "sq",
+  "is",
+  "zh-TW",
+  "zh-HK",
+  "ka",
+  "zh-CN",
+  "mk",
+  "mn",
+  "my",
+  "ja",
+  "so",
+  "hy",
+  "ms",
+  "bs",
+  "ca",
+  "cs",
+  "da",
+  "de",
+  "et",
+  "en",
+  "es-ES",
+  "es-419",
+  "fil",
+  "fr-CA",
+  "fr-FR",
+  "hr",
+  "id",
+  "it",
+  "sw",
+  "lv",
+  "lt",
+  "hu",
+  "nl",
+  "nb",
+  "pl",
+  "pt-BR",
+  "pt-PT",
+  "ro",
+  "sk",
+  "sl",
+  "fi",
+  "sv",
+  "vi",
+  "tr",
+  "el",
+  "bg",
+  "kk",
+  "ru",
+  "sr",
+  "uk",
+  "ur",
+  "ar",
+  "fa",
+  "am",
+  "mr",
+  "hi",
+  "bn",
+  "pa",
+  "gu",
+  "ta",
+  "te",
+  "kn",
+  "ml",
+  "th",
+  "ko",
+])
+export type LanguageLocale = z.infer<typeof LanguageLocaleSchema>
+export const LanguagePreferenceSchema = z.union([z.literal("system"), LanguageLocaleSchema])
+export type LanguagePreference = z.infer<typeof LanguagePreferenceSchema>
+export const LanguageSettingsWriteSchema = z
+  .object({ preference: LanguagePreferenceSchema })
+  .strict()
+export type LanguageSettingsWrite = z.infer<typeof LanguageSettingsWriteSchema>
+export const LanguageSettingsSchema = LanguageSettingsWriteSchema.extend({
+  configPath: z.string().min(1),
+  locale: SupportedLocaleSchema,
+}).strict()
+export type LanguageSettings = z.infer<typeof LanguageSettingsSchema>
+export const LanguageBootstrapSchema = LanguageSettingsSchema.omit({ configPath: true })
+export type LanguageBootstrap = z.infer<typeof LanguageBootstrapSchema>
+export const CYPHERIA_LANGUAGE_ARGUMENT_PREFIX = "--cypheria-language="
 
 export const AppearanceFontFaceSchema = z
   .object({
@@ -1039,6 +1127,22 @@ export const settingsAppearanceFontsListContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<EmptyPayload, AppearanceFontOption[]>
 
+export const settingsLanguageReadContract = {
+  channel: CYPHERIA_IPC_CHANNELS.settingsLanguageRead,
+  namespace: "settings",
+  request: EmptyPayloadSchema,
+  response: LanguageSettingsSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, LanguageSettings>
+
+export const settingsLanguageWriteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.settingsLanguageWrite,
+  namespace: "settings",
+  request: LanguageSettingsWriteSchema,
+  response: LanguageSettingsSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<LanguageSettingsWrite, LanguageSettings>
+
 export const settingsConnectionProxyReadContract = {
   channel: CYPHERIA_IPC_CHANNELS.settingsConnectionProxyRead,
   namespace: "settings",
@@ -1427,6 +1531,8 @@ export const ipcContracts = {
   settingsAppearanceFontsList: settingsAppearanceFontsListContract,
   settingsAppearanceRead: settingsAppearanceReadContract,
   settingsAppearanceWrite: settingsAppearanceWriteContract,
+  settingsLanguageRead: settingsLanguageReadContract,
+  settingsLanguageWrite: settingsLanguageWriteContract,
   settingsConnectionProxyRead: settingsConnectionProxyReadContract,
   settingsConnectionProxyTest: settingsConnectionProxyTestContract,
   settingsConnectionProxyWrite: settingsConnectionProxyWriteContract,
@@ -1450,6 +1556,7 @@ export const ipcContracts = {
 export type CypheriaPreloadApi = {
   readonly bootstrap: {
     readonly appearance: AppearanceSettingsWrite
+    readonly language: LanguageBootstrap
   }
   readonly app: {
     readonly platform: NodeJS.Platform
@@ -1609,11 +1716,14 @@ export type CypheriaPreloadApi = {
   readonly settings: {
     readonly getAppearance: () => Promise<AppearanceSettings>
     readonly getConnectionProxy: () => Promise<ConnectionProxySettings>
+    readonly getLanguage: () => Promise<LanguageSettings>
     readonly listAppearanceFonts: () => Promise<AppearanceFontOption[]>
+    readonly onLanguageChanged: (handler: (settings: LanguageSettings) => void) => () => void
     readonly setAppearance: (settings: AppearanceSettingsWrite) => Promise<AppearanceSettings>
     readonly setConnectionProxy: (
       settings: ConnectionProxySettings
     ) => Promise<ConnectionProxySettings>
+    readonly setLanguage: (settings: LanguageSettingsWrite) => Promise<LanguageSettings>
     readonly testConnectionProxy: (
       settings: ConnectionProxySettings
     ) => Promise<ConnectionProxyTestResult>

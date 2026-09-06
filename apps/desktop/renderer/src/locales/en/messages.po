@@ -1,0 +1,254 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-09-06 15:35+0800\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-search.tsx
+msgid "search.keyboardHelp"
+msgstr "↑↓ Navigate · Enter Open · Esc Close"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.appearance.tsx
+msgid "settings.appearance.title"
+msgstr "Appearance"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.appearance"
+msgstr "Appearance"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "navigation.auditLog"
+msgstr "Audit log"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/language-selector.tsx
+msgid "settings.language.automatic"
+msgstr "Automatic detection"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "navigation.automations"
+msgstr "Automations"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.backToWorkspace"
+msgstr "Back to workspace"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.connections"
+msgstr "Connections"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-search.tsx
+msgid "search.error"
+msgstr "Could not search tasks."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/language-selector.tsx
+#: renderer/src/i18n.test.ts
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.language.label"
+msgstr "Display language"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "menu.edit"
+msgstr "Edit"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "menu.file"
+msgstr "File"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.title"
+msgstr "General"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.section"
+msgstr "General"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.general"
+msgstr "General"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "menu.help"
+msgstr "Help"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.language.description"
+msgstr "Language for the app UI"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.models"
+msgstr "Models"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "navigation.networks"
+msgstr "Networks"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+#: renderer/src/i18n.test.ts
+msgid "navigation.newTask"
+msgstr "New task"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/language-selector.tsx
+msgid "settings.language.empty"
+msgstr "No languages found"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-search.tsx
+msgid "search.noMatches"
+msgstr "No matching tasks."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "navigation.noProjects"
+msgstr "No projects yet"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-search.tsx
+msgid "search.noRecent"
+msgstr "No recent tasks yet."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "navigation.noTasks"
+msgstr "No tasks yet"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "navigation.pending"
+msgstr "Pending"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.plugins"
+msgstr "Plugins"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "navigation.pluginsAndSkills"
+msgstr "Plugins & skills"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.appearance.tsx
+msgid "settings.preferences.title"
+msgstr "Preferences"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "navigation.projects"
+msgstr "Projects"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-search.tsx
+msgid "navigation.recentTasks"
+msgstr "Recent tasks"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-search.tsx
+msgid "navigation.search"
+msgstr "Search"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/language-selector.tsx
+msgid "settings.language.search"
+msgstr "Search languages"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-search.tsx
+msgid "search.title"
+msgstr "Search tasks"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-search.tsx
+msgid "search.placeholder"
+msgstr "Search tasks…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-search.tsx
+msgid "search.description"
+msgstr "Search your tasks and select one to open it."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-search.tsx
+msgid "search.searching"
+msgstr "Searching…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.title"
+msgstr "Settings"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "navigation.signingPolicies"
+msgstr "Signing policies"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-search.tsx
+msgid "search.tasks"
+msgstr "Tasks"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.appearance.tsx
+msgid "settings.theme.title"
+msgstr "Theme"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-search.tsx
+msgid "search.tryAgain"
+msgstr "Try again"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-search.tsx
+msgid "search.untitled"
+msgstr "Untitled task"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "menu.view"
+msgstr "View"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "navigation.wallets"
+msgstr "Wallets & assets"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "menu.window"
+msgstr "Window"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "navigation.workbench"
+msgstr "Workbench"

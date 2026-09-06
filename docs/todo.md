@@ -108,6 +108,12 @@ Status legend:
 
 ## Desktop Codex App Server Bridge
 
+- [x] Add the desktop internationalization foundation with Lingui.
+  - Acceptance: Electron resolves automatic detection and persists explicit choices as `[desktop].localeOverride` in the managed Codex `config.toml`; the renderer hydrates the prerendered shell deterministically, then activates the matching Lingui catalog, switches reactively without a reload, and synchronizes `lang`/`dir`; the desktop shell and language setting are localized.
+  - Include: a searchable Codex-style picker in General settings containing every reference language, English fallback for selections without a bundled catalog, typed bootstrap and settings IPC, locale/TOML preservation tests, committed PO catalogs, extraction/compile scripts, and paired architecture/technical-stack documentation.
+  - Verification: `pnpm run ci`, `pnpm build`, and `pnpm --filter @cypheria/desktop test`.
+  - Verification note: `pnpm run ci`, build, desktop tests, strict catalog compilation, and all Turbo checks pass.
+
 - [x] Regenerate Codex app-server TypeScript into `@cypheria/codex-bridge`.
   - Acceptance: generated files live in `packages/codex-bridge/src/generated` and are committed.
   - Command: `codex app-server generate-ts --out packages/codex-bridge/src/generated`.

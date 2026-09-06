@@ -13,12 +13,16 @@ import type {
   ConnectionProxyTestResult,
   CypheriaPreloadApi,
   HarnessEvent,
+  LanguageSettings,
   RuntimeInfo,
 } from "../../ipc/src/index.js"
 import {
   AppearanceSettingsWriteSchema,
   CYPHERIA_APPEARANCE_ARGUMENT_PREFIX,
   CYPHERIA_IPC_CHANNELS,
+  CYPHERIA_LANGUAGE_ARGUMENT_PREFIX,
+  LanguageBootstrapSchema,
+  LanguageSettingsSchema,
 } from "../../ipc/src/index.js"
 
 const readBootstrapAppearance = () => {
@@ -33,11 +37,22 @@ const readBootstrapAppearance = () => {
   return AppearanceSettingsWriteSchema.parse(JSON.parse(decodeURIComponent(encodedAppearance)))
 }
 
+const readBootstrapLanguage = () => {
+  const argument = process.argv.find((value) => value.startsWith(CYPHERIA_LANGUAGE_ARGUMENT_PREFIX))
+  if (!argument) {
+    throw new Error("Cypheria language bootstrap argument is missing")
+  }
+
+  const encodedLanguage = argument.slice(CYPHERIA_LANGUAGE_ARGUMENT_PREFIX.length)
+  return LanguageBootstrapSchema.parse(JSON.parse(decodeURIComponent(encodedLanguage)))
+}
+
 const invoke = <T>(channel: string): Promise<T> => ipcRenderer.invoke(channel) as Promise<T>
 
 const cypheriaApi: CypheriaPreloadApi = {
   bootstrap: {
     appearance: readBootstrapAppearance(),
+    language: readBootstrapLanguage(),
   },
   app: {
     platform: process.platform,
@@ -223,8 +238,16 @@ const cypheriaApi: CypheriaPreloadApi = {
     getAppearance: () => invoke<AppearanceSettings>(CYPHERIA_IPC_CHANNELS.settingsAppearanceRead),
     getConnectionProxy: () =>
       invoke<ConnectionProxySettings>(CYPHERIA_IPC_CHANNELS.settingsConnectionProxyRead),
+    getLanguage: () => invoke<LanguageSettings>(CYPHERIA_IPC_CHANNELS.settingsLanguageRead),
     listAppearanceFonts: () =>
       invoke<AppearanceFontOption[]>(CYPHERIA_IPC_CHANNELS.settingsAppearanceFontsList),
+    onLanguageChanged: (handler) => {
+      const listener = (_event: IpcRendererEvent, settings: LanguageSettings): void => {
+        handler(LanguageSettingsSchema.parse(settings))
+      }
+      ipcRenderer.on(CYPHERIA_IPC_CHANNELS.settingsLanguageChanged, listener)
+      return () => ipcRenderer.off(CYPHERIA_IPC_CHANNELS.settingsLanguageChanged, listener)
+    },
     setAppearance: (settings) =>
       ipcRenderer.invoke(
         CYPHERIA_IPC_CHANNELS.settingsAppearanceWrite,
@@ -235,6 +258,11 @@ const cypheriaApi: CypheriaPreloadApi = {
         CYPHERIA_IPC_CHANNELS.settingsConnectionProxyWrite,
         settings
       ) as Promise<ConnectionProxySettings>,
+    setLanguage: (settings) =>
+      ipcRenderer.invoke(
+        CYPHERIA_IPC_CHANNELS.settingsLanguageWrite,
+        settings
+      ) as Promise<LanguageSettings>,
     testConnectionProxy: (settings) =>
       ipcRenderer.invoke(
         CYPHERIA_IPC_CHANNELS.settingsConnectionProxyTest,

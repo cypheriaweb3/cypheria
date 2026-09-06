@@ -1,5 +1,5 @@
-import type { ReactNode } from "react"
 import { cn } from "@cypheria/ui/lib/utils"
+import type { ReactNode } from "react"
 
 export function SettingsFrame({
   children,

@@ -38,8 +38,9 @@ import {
   automationTaskPauseContract,
   automationTaskResumeContract,
   browserSessionOpenContract,
-  CYPHERIA_IPC_CHANNELS,
   CYPHERIA_APPEARANCE_ARGUMENT_PREFIX,
+  CYPHERIA_IPC_CHANNELS,
+  CYPHERIA_LANGUAGE_ARGUMENT_PREFIX,
   codexAccountLoginCancelContract,
   codexAccountLoginStartContract,
   codexAccountLogoutContract,
@@ -101,6 +102,8 @@ import {
   settingsConnectionProxyReadContract,
   settingsConnectionProxyTestContract,
   settingsConnectionProxyWriteContract,
+  settingsLanguageReadContract,
+  settingsLanguageWriteContract,
   walletActiveClearContract,
   walletActiveReadContract,
   walletActiveWriteContract,
@@ -164,8 +167,9 @@ import {
   createElectronDappWebContentsFactory,
   type DappBrowserController,
 } from "./dapp-browser.js"
-import { registerIpcRoute } from "./ipc.js"
 import { createHarnessManager, type HarnessManager } from "./harness-manager.js"
+import { registerIpcRoute } from "./ipc.js"
+import { readLanguageSettings, writeLanguageSettings } from "./language-config.js"
 import {
   type DesktopRuntimeContext,
   initializeDesktopRuntime,
@@ -559,6 +563,20 @@ const registerIpcHandlers = (context: DesktopRuntimeContext, harnesses: HarnessM
     applyNativeAppearance(mainWindow, savedSettings)
     return savedSettings
   })
+  registerIpcRoute(settingsLanguageReadContract, () =>
+    readLanguageSettings(context.paths.codexHome, app.getPreferredSystemLanguages())
+  )
+  registerIpcRoute(settingsLanguageWriteContract, async (settings) => {
+    const savedSettings = await writeLanguageSettings(
+      context.paths.codexHome,
+      settings,
+      app.getPreferredSystemLanguages()
+    )
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(CYPHERIA_IPC_CHANNELS.settingsLanguageChanged, savedSettings)
+    }
+    return savedSettings
+  })
   registerIpcRoute(settingsConnectionProxyReadContract, () => context.connectionProxySettings)
   registerIpcRoute(settingsConnectionProxyTestContract, async (settings) => {
     const testSession = session.fromPartition(`proxy-test-${randomUUID()}`, { cache: false })
@@ -670,11 +688,18 @@ const registerDeveloperContextMenu = (window: BrowserWindow): void => {
 
 const createMainWindow = async (context: DesktopRuntimeContext): Promise<BrowserWindow> => {
   const appearance = await readAppearanceSettings(context.paths.codexHome)
+  const language = await readLanguageSettings(
+    context.paths.codexHome,
+    app.getPreferredSystemLanguages()
+  )
   currentAppearanceSettings = appearance
   nativeTheme.themeSource = appearance.theme
   const activeTheme = getActiveChromeTheme(appearance)
   const appearanceArgument = `${CYPHERIA_APPEARANCE_ARGUMENT_PREFIX}${encodeURIComponent(
     JSON.stringify(toAppearanceBootstrap(appearance))
+  )}`
+  const languageArgument = `${CYPHERIA_LANGUAGE_ARGUMENT_PREFIX}${encodeURIComponent(
+    JSON.stringify({ locale: language.locale, preference: language.preference })
   )}`
   const window = new BrowserWindow({
     backgroundColor: activeTheme.surface,
@@ -701,7 +726,7 @@ const createMainWindow = async (context: DesktopRuntimeContext): Promise<Browser
         : {}),
     title: "Cypheria",
     webPreferences: {
-      additionalArguments: [appearanceArgument],
+      additionalArguments: [appearanceArgument, languageArgument],
       contextIsolation: true,
       defaultFontSize: appearance.uiFontSize,
       defaultMonospaceFontSize: appearance.codeFontSize,

@@ -16,25 +16,41 @@ import {
   DialogTrigger,
 } from "@cypheria/ui/components/dialog"
 import { SidebarMenuButton } from "@cypheria/ui/components/sidebar"
+import { msg } from "@lingui/core/macro"
+import { useLingui } from "@lingui/react"
+import { Trans } from "@lingui/react/macro"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { MessageSquare, Search } from "lucide-react"
 import { useEffect, useState } from "react"
 
 export function TaskSearch() {
+  const { i18n } = useLingui()
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<SidebarMenuButton tooltip="Search" />}>
+      <DialogTrigger
+        render={
+          <SidebarMenuButton
+            tooltip={i18n._(msg({ id: "navigation.search", message: "Search" }))}
+          />
+        }
+      >
         <Search size={16} strokeWidth={1.9} />
-        <span>Search</span>
+        <span>
+          <Trans id="navigation.search">Search</Trans>
+        </span>
       </DialogTrigger>
       <DialogContent className="overflow-hidden p-0 sm:max-w-xl" showCloseButton={false}>
         <DialogHeader className="sr-only">
-          <DialogTitle>Search tasks</DialogTitle>
-          <DialogDescription>Search your tasks and select one to open it.</DialogDescription>
+          <DialogTitle>
+            <Trans id="search.title">Search tasks</Trans>
+          </DialogTitle>
+          <DialogDescription>
+            <Trans id="search.description">Search your tasks and select one to open it.</Trans>
+          </DialogDescription>
         </DialogHeader>
         {open ? (
           <TaskSearchCommands
@@ -50,6 +66,7 @@ export function TaskSearch() {
 }
 
 function TaskSearchCommands({ onSelect }: Readonly<{ onSelect: (thread: string) => void }>) {
+  const { i18n } = useLingui()
   const [input, setInput] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   useEffect(() => {
@@ -67,31 +84,44 @@ function TaskSearchCommands({ onSelect }: Readonly<{ onSelect: (thread: string) 
   return (
     <Command shouldFilter={false}>
       <CommandInput
-        aria-label="Search tasks"
+        aria-label={i18n._(msg({ id: "search.title", message: "Search tasks" }))}
         autoFocus
-        placeholder="Search tasks…"
+        placeholder={i18n._(msg({ id: "search.placeholder", message: "Search tasks…" }))}
         value={input}
         onValueChange={setInput}
       />
-      <CommandList aria-label="Tasks" aria-busy={waiting}>
+      <CommandList
+        aria-label={i18n._(msg({ id: "search.tasks", message: "Tasks" }))}
+        aria-busy={waiting}
+      >
         {waiting ? (
           <div className="py-6 text-center text-sm text-muted-foreground" role="status">
-            Searching…
+            <Trans id="search.searching">Searching…</Trans>
           </div>
         ) : results.isError ? (
           <div className="grid justify-items-center gap-2 py-6" role="alert">
-            <p className="text-sm text-muted-foreground">Could not search tasks.</p>
+            <p className="text-sm text-muted-foreground">
+              <Trans id="search.error">Could not search tasks.</Trans>
+            </p>
             <Button size="sm" variant="outline" onClick={() => void results.refetch()}>
-              Try again
+              <Trans id="search.tryAgain">Try again</Trans>
             </Button>
           </div>
         ) : (
           <>
             <CommandEmpty>
-              {searchTerm ? "No matching tasks." : "No recent tasks yet."}
+              {searchTerm
+                ? i18n._(msg({ id: "search.noMatches", message: "No matching tasks." }))
+                : i18n._(msg({ id: "search.noRecent", message: "No recent tasks yet." }))}
             </CommandEmpty>
             {threads.length > 0 ? (
-              <CommandGroup heading={searchTerm ? "Tasks" : "Recent tasks"}>
+              <CommandGroup
+                heading={
+                  searchTerm
+                    ? i18n._(msg({ id: "search.tasks", message: "Tasks" }))
+                    : i18n._(msg({ id: "navigation.recentTasks", message: "Recent tasks" }))
+                }
+              >
                 {threads.map((thread) => (
                   <CommandItem
                     key={thread.id}
@@ -100,7 +130,10 @@ function TaskSearchCommands({ onSelect }: Readonly<{ onSelect: (thread: string) 
                   >
                     <MessageSquare aria-hidden="true" />
                     <div className="grid min-w-0 gap-0.5">
-                      <span className="truncate">{thread.title || "Untitled task"}</span>
+                      <span className="truncate">
+                        {thread.title ||
+                          i18n._(msg({ id: "search.untitled", message: "Untitled task" }))}
+                      </span>
                       {thread.cwd ? (
                         <span className="truncate text-xs text-muted-foreground">{thread.cwd}</span>
                       ) : null}
@@ -113,7 +146,7 @@ function TaskSearchCommands({ onSelect }: Readonly<{ onSelect: (thread: string) 
         )}
       </CommandList>
       <div className="border-t px-3 py-2 text-xs text-muted-foreground">
-        ↑↓ Navigate · Enter Open · Esc Close
+        <Trans id="search.keyboardHelp">↑↓ Navigate · Enter Open · Esc Close</Trans>
       </div>
     </Command>
   )

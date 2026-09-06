@@ -1,4 +1,6 @@
 import { resolve } from "node:path"
+import { lingui } from "@lingui/vite-plugin"
+import babel from "@rolldown/plugin-babel"
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import viteReact from "@vitejs/plugin-react"
@@ -27,7 +29,9 @@ export default defineConfig({
       },
       srcDirectory: "renderer/src",
     }),
+    babel({ plugins: ["@lingui/babel-plugin-lingui-macro"] }),
     viteReact(),
+    lingui(),
     tailwindcss(),
   ],
   resolve: {

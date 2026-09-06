@@ -1,19 +1,19 @@
-import { createHash, randomUUID } from "node:crypto"
 import { spawn } from "node:child_process"
+import { createHash, randomUUID } from "node:crypto"
 import { createReadStream, existsSync } from "node:fs"
-import { chmod, mkdir, readFile, readdir, rename, stat, writeFile } from "node:fs/promises"
+import { chmod, mkdir, readdir, readFile, rename, stat, writeFile } from "node:fs/promises"
 import { delimiter, join, relative, resolve } from "node:path"
 import { arch, platform } from "node:process"
 import { Readable, Writable } from "node:stream"
 import { client, methods, ndJsonStream, PROTOCOL_VERSION } from "@agentclientprotocol/sdk"
 import * as pty from "node-pty"
+import type { ConnectionProxySettings } from "../../ipc/src/connections.js"
 import type {
   HarnessEvent,
   HarnessId,
   HarnessInstallReceipt,
   HarnessView,
 } from "../../ipc/src/index.js"
-import type { ConnectionProxySettings } from "../../ipc/src/connections.js"
 import { buildConnectionProxyEnvironment } from "./connection-proxy.js"
 
 type HarnessRecord = {

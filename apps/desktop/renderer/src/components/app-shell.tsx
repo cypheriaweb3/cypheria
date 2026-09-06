@@ -15,6 +15,9 @@ import {
   SidebarMenuItem,
 } from "@cypheria/ui/components/sidebar"
 import { TooltipProvider } from "@cypheria/ui/components/tooltip"
+import { msg } from "@lingui/core/macro"
+import { I18nProvider, useLingui } from "@lingui/react"
+import { Trans } from "@lingui/react/macro"
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query"
 import { HeadContent, Link, Outlet, Scripts, useLocation } from "@tanstack/react-router"
 import { Provider as JotaiProvider } from "jotai"
@@ -39,8 +42,9 @@ import {
   WalletCards,
   Workflow,
 } from "lucide-react"
-import { type ComponentProps, type CSSProperties, type ReactNode, useState } from "react"
+import { type ComponentProps, type CSSProperties, type ReactNode, useEffect, useState } from "react"
 import { resolveThemeMode, useAppearanceController, useTheme } from "../appearance.js"
+import { activateLanguage, getBootstrapLanguage, i18n } from "../i18n.js"
 import {
   DesktopCollapsedToolbar,
   DesktopSidebar as Sidebar,
@@ -54,17 +58,20 @@ const navigationItems = [
   {
     href: "/",
     icon: <SquarePen size={16} strokeWidth={1.9} />,
-    label: "New task",
+    kind: "new-task",
+    label: msg({ id: "navigation.newTask", message: "New task" }),
   },
   {
     href: "/",
     icon: <Search size={16} strokeWidth={1.9} />,
-    label: "Search",
+    kind: "search",
+    label: msg({ id: "navigation.search", message: "Search" }),
   },
   {
     href: "/approvals",
     icon: <BellDot size={16} strokeWidth={1.9} />,
-    label: "Pending",
+    kind: "pending",
+    label: msg({ id: "navigation.pending", message: "Pending" }),
   },
 ] as const
 
@@ -72,55 +79,60 @@ const workbenchItems = [
   {
     href: "/networks",
     icon: <Globe2 size={16} strokeWidth={1.9} />,
-    label: "Networks",
+    label: msg({ id: "navigation.networks", message: "Networks" }),
   },
   {
     href: "/wallets",
     icon: <WalletCards size={16} strokeWidth={1.9} />,
-    label: "Wallets & assets",
+    label: msg({ id: "navigation.wallets", message: "Wallets & assets" }),
   },
   {
     href: "/automations",
     icon: <Workflow size={16} strokeWidth={1.9} />,
-    label: "Automations",
+    label: msg({ id: "navigation.automations", message: "Automations" }),
   },
   {
     href: "/policies",
     icon: <ShieldCheck size={16} strokeWidth={1.9} />,
-    label: "Signing policies",
+    label: msg({ id: "navigation.signingPolicies", message: "Signing policies" }),
   },
   {
     href: "/audit",
     icon: <ScrollText size={16} strokeWidth={1.9} />,
-    label: "Audit log",
+    label: msg({ id: "navigation.auditLog", message: "Audit log" }),
   },
   {
     href: "/plugins",
     icon: <Boxes size={16} strokeWidth={1.9} />,
-    label: "Plugins & skills",
+    label: msg({ id: "navigation.pluginsAndSkills", message: "Plugins & skills" }),
   },
 ] as const
 
 const settingsItems = [
   {
+    href: "/settings/general",
+    icon: <Settings size={16} strokeWidth={1.9} />,
+    label: msg({ id: "settings.general", message: "General" }),
+  },
+  {
     href: "/settings/plugins",
     icon: <Boxes size={16} strokeWidth={1.9} />,
-    label: "Plugins",
+    label: msg({ id: "settings.plugins", message: "Plugins" }),
   },
   {
     href: "/settings/connections",
     icon: <Cable size={16} strokeWidth={1.9} />,
-    label: "Connections",
+    label: msg({ id: "settings.connections", message: "Connections" }),
   },
   {
     href: "/settings/appearance",
     icon: <Palette size={16} strokeWidth={1.9} />,
-    label: "Appearance",
+    label: msg({ id: "settings.appearance", message: "Appearance" }),
   },
   {
     href: "/settings/models",
     icon: <Bot size={16} strokeWidth={1.9} />,
-    label: "Models",
+    label: msg({ id: "settings.models", message: "Models" }),
   },
 ] as const
 
@@ -135,9 +147,11 @@ export default function AppRoot() {
 function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <RootDocument>
-      <QueryProvider>
-        <AppShell>{children}</AppShell>
-      </QueryProvider>
+      <I18nProvider i18n={i18n}>
+        <QueryProvider>
+          <AppShell>{children}</AppShell>
+        </QueryProvider>
+      </I18nProvider>
     </RootDocument>
   )
 }
@@ -159,9 +173,27 @@ function QueryProvider({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <QueryClientProvider client={queryClient}>
       <AppearanceController />
+      <LanguageController />
       {children}
     </QueryClientProvider>
   )
+}
+
+function LanguageController() {
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    const cypheria = window.cypheria
+    activateLanguage(getBootstrapLanguage())
+    if (!cypheria) return
+
+    return cypheria.settings.onLanguageChanged((settings) => {
+      activateLanguage(settings)
+      queryClient.setQueryData(["settings", "language"], settings)
+    })
+  }, [queryClient])
+
+  return null
 }
 
 function AppearanceController() {
@@ -170,6 +202,7 @@ function AppearanceController() {
 }
 
 function AppShell({ children }: Readonly<{ children: ReactNode }>) {
+  const { i18n: activeI18n } = useLingui()
   const { pathname } = useLocation()
   const isSettings = pathname.startsWith("/settings")
   const threadsQuery = useQuery({
@@ -241,55 +274,65 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
               <SidebarGroup>
                 <SidebarGroupContent>
                   <SidebarMenu>
-                    {navigationItems.map((item) => (
-                      <SidebarMenuItem key={item.label}>
-                        {item.label === "Search" ? (
-                          <TaskSearch />
-                        ) : (
-                          <SidebarMenuButton
-                            render={
-                              <NavigationLink item={item}>
-                                {item.icon}
-                                <span>{item.label}</span>
-                                {item.href === "/approvals" && approvalsQuery.data?.length ? (
-                                  <span className="ml-auto rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
-                                    {approvalsQuery.data.length}
-                                  </span>
-                                ) : null}
-                              </NavigationLink>
-                            }
-                            tooltip={item.label}
-                          />
-                        )}
-                      </SidebarMenuItem>
-                    ))}
+                    {navigationItems.map((item) => {
+                      const label = activeI18n._(item.label)
+                      return (
+                        <SidebarMenuItem key={item.kind}>
+                          {item.kind === "search" ? (
+                            <TaskSearch />
+                          ) : (
+                            <SidebarMenuButton
+                              render={
+                                <NavigationLink item={item}>
+                                  {item.icon}
+                                  <span>{label}</span>
+                                  {item.href === "/approvals" && approvalsQuery.data?.length ? (
+                                    <span className="ml-auto rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
+                                      {approvalsQuery.data.length}
+                                    </span>
+                                  ) : null}
+                                </NavigationLink>
+                              }
+                              tooltip={label}
+                            />
+                          )}
+                        </SidebarMenuItem>
+                      )
+                    })}
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
 
               <SidebarGroup>
-                <SidebarGroupLabel>Workbench</SidebarGroupLabel>
+                <SidebarGroupLabel>
+                  <Trans id="navigation.workbench">Workbench</Trans>
+                </SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
-                    {workbenchItems.map((item) => (
-                      <SidebarMenuItem key={item.label}>
-                        <SidebarMenuButton
-                          render={
-                            <Link to={item.href}>
-                              {item.icon}
-                              <span>{item.label}</span>
-                            </Link>
-                          }
-                          tooltip={item.label}
-                        />
-                      </SidebarMenuItem>
-                    ))}
+                    {workbenchItems.map((item) => {
+                      const label = activeI18n._(item.label)
+                      return (
+                        <SidebarMenuItem key={item.href}>
+                          <SidebarMenuButton
+                            render={
+                              <Link to={item.href}>
+                                {item.icon}
+                                <span>{label}</span>
+                              </Link>
+                            }
+                            tooltip={label}
+                          />
+                        </SidebarMenuItem>
+                      )
+                    })}
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
 
               <SidebarGroup>
-                <SidebarGroupLabel>Projects</SidebarGroupLabel>
+                <SidebarGroupLabel>
+                  <Trans id="navigation.projects">Projects</Trans>
+                </SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {[...projectGroups.entries()].map(([projectId, projectThreads]) => (
@@ -313,14 +356,18 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                       </SidebarMenuItem>
                     ))}
                     {projectGroups.size === 0 ? (
-                      <div className="px-2 text-xs text-muted-foreground">No projects yet</div>
+                      <div className="px-2 text-xs text-muted-foreground">
+                        <Trans id="navigation.noProjects">No projects yet</Trans>
+                      </div>
                     ) : null}
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
 
               <SidebarGroup>
-                <SidebarGroupLabel>Recent tasks</SidebarGroupLabel>
+                <SidebarGroupLabel>
+                  <Trans id="navigation.recentTasks">Recent tasks</Trans>
+                </SidebarGroupLabel>
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {recentThreads.map((thread) => (
@@ -343,7 +390,9 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                       </SidebarMenuItem>
                     ))}
                     {recentThreads.length === 0 ? (
-                      <div className="px-2 text-xs text-muted-foreground">No tasks yet</div>
+                      <div className="px-2 text-xs text-muted-foreground">
+                        <Trans id="navigation.noTasks">No tasks yet</Trans>
+                      </div>
                     ) : null}
                   </SidebarMenu>
                 </SidebarGroupContent>
@@ -355,12 +404,14 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 <SidebarMenuItem>
                   <SidebarMenuButton
                     render={
-                      <Link to="/settings/models">
+                      <Link to="/settings/general">
                         <Settings aria-hidden="true" size={16} strokeWidth={1.9} />
-                        <span>Settings</span>
+                        <span>
+                          <Trans id="settings.title">Settings</Trans>
+                        </span>
                       </Link>
                     }
-                    tooltip="Settings"
+                    tooltip={activeI18n._(msg({ id: "settings.title", message: "Settings" }))}
                   />
                 </SidebarMenuItem>
               </SidebarMenu>
@@ -389,7 +440,7 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           </DesktopCollapsedToolbar>
           <div className="hidden min-h-12 items-center justify-between border-b border-border bg-sidebar px-2.5 text-sm font-semibold text-sidebar-foreground max-[767px]:flex [&_button]:[-webkit-app-region:no-drag]">
             <SidebarTrigger aria-label="Open sidebar" />
-            <span>{isSettings ? "Settings" : "Cypheria"}</span>
+            <span>{isSettings ? <Trans id="settings.title">Settings</Trans> : "Cypheria"}</span>
             {isSettings ? (
               <span aria-hidden="true" className="size-8" />
             ) : (
@@ -414,6 +465,11 @@ function SettingsNavigation({
   platform: "darwin" | "win32" | "unknown"
   triggerClassName: string
 }>) {
+  const { i18n: activeI18n } = useLingui()
+  const backToWorkspace = activeI18n._(
+    msg({ id: "settings.backToWorkspace", message: "Back to workspace" })
+  )
+
   return (
     <Sidebar className="border-r border-sidebar-border" collapsible="icon">
       <SidebarHeader
@@ -424,7 +480,7 @@ function SettingsNavigation({
       >
         <SidebarTrigger aria-label="Collapse settings sidebar" className={triggerClassName} />
         <span className="truncate text-sm font-semibold group-data-[collapsible=icon]:hidden">
-          Settings
+          <Trans id="settings.title">Settings</Trans>
         </span>
       </SidebarHeader>
 
@@ -437,10 +493,10 @@ function SettingsNavigation({
                   render={
                     <Link to="/">
                       <ChevronLeft aria-hidden="true" size={16} strokeWidth={1.9} />
-                      <span>Back to workspace</span>
+                      <span>{backToWorkspace}</span>
                     </Link>
                   }
-                  tooltip="Back to workspace"
+                  tooltip={backToWorkspace}
                 />
               </SidebarMenuItem>
             </SidebarMenu>
@@ -448,23 +504,28 @@ function SettingsNavigation({
         </SidebarGroup>
 
         <SidebarGroup>
-          <SidebarGroupLabel>Settings</SidebarGroupLabel>
+          <SidebarGroupLabel>
+            <Trans id="settings.title">Settings</Trans>
+          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {settingsItems.map((item) => (
-                <SidebarMenuItem key={item.href}>
-                  <SidebarMenuButton
-                    isActive={pathname === item.href}
-                    render={
-                      <Link to={item.href}>
-                        {item.icon}
-                        <span>{item.label}</span>
-                      </Link>
-                    }
-                    tooltip={item.label}
-                  />
-                </SidebarMenuItem>
-              ))}
+              {settingsItems.map((item) => {
+                const label = activeI18n._(item.label)
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton
+                      isActive={pathname === item.href}
+                      render={
+                        <Link to={item.href}>
+                          {item.icon}
+                          <span>{label}</span>
+                        </Link>
+                      }
+                      tooltip={label}
+                    />
+                  </SidebarMenuItem>
+                )
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -478,17 +539,28 @@ function SettingsNavigation({
 }
 
 function WindowsMenuBar() {
+  const { i18n: activeI18n } = useLingui()
+  const menuItems = [
+    msg({ id: "menu.file", message: "File" }),
+    msg({ id: "menu.edit", message: "Edit" }),
+    msg({ id: "menu.view", message: "View" }),
+    msg({ id: "menu.window", message: "Window" }),
+    msg({ id: "menu.help", message: "Help" }),
+  ]
   return (
     <nav aria-label="Application menu" className="ml-0 inline-flex h-[30px] items-center gap-1">
-      {["File", "Edit", "View", "Window", "Help"].map((item) => (
-        <button
-          className="h-[30px] rounded-[5px] border-0 bg-transparent px-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
-          key={item}
-          type="button"
-        >
-          {item}
-        </button>
-      ))}
+      {menuItems.map((item) => {
+        const label = activeI18n._(item)
+        return (
+          <button
+            className="h-[30px] rounded-[5px] border-0 bg-transparent px-2.5 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground"
+            key={item.id}
+            type="button"
+          >
+            {label}
+          </button>
+        )
+      })}
     </nav>
   )
 }
@@ -504,7 +576,7 @@ function getDesktopPlatform(): "darwin" | "win32" | "unknown" {
 
 function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html dir="ltr" lang={i18n.locale || "en"} suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
@@ -547,6 +619,6 @@ function NavigationLink({
   item,
   ...props
 }: Readonly<{ item: (typeof navigationItems)[number] }> & Omit<ComponentProps<"a">, "href">) {
-  if (item.label === "New task") return <NewTaskLink {...props} />
+  if (item.kind === "new-task") return <NewTaskLink {...props} />
   return <Link {...props} to={item.href} search={{}} />
 }

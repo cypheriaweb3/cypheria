@@ -18,6 +18,7 @@ Cypheria V1 is a TypeScript Web3 agent product with CLI, SDK, desktop, and runti
 | Server/cache state | TanStack Query |
 | UI state | Jotai |
 | Forms | TanStack Form + Zod |
+| Desktop internationalization | Lingui with committed PO catalogs |
 | Desktop build | Vite for renderer, tsdown for Electron main/preload |
 | Desktop packaging | electron-builder |
 | CLI/SDK Codex integration | `@openai/codex-sdk` |
@@ -118,6 +119,7 @@ Search opens a shadcn Command dialog over the current page, with debounced task 
 | Production renderer transport | privileged standard `cypheria://` Electron protocol with SPA fallback |
 | IPC | Zod-validated contracts local to `apps/desktop/ipc` |
 | Renderer state | Jotai + TanStack Query |
+| Renderer internationalization | Lingui (`@lingui/core`, `@lingui/react`, CLI, and Vite catalog compilation) |
 | UI primitives | `@cypheria/ui` |
 | Codex process | `codex app-server` |
 | Codex transport | WebSocket JSON-RPC on localhost |
@@ -135,6 +137,10 @@ Electron browser defaults:
 ```
 
 Renderer code uses typed IPC only. Electron main owns privileged services and Codex App Server lifecycle.
+
+The language picker lives on the General settings page.
+
+Desktop offers a searchable Codex-style language picker. An explicit choice is persisted as `localeOverride` in the `[desktop]` section of `$CYPHERIA_HOME/codex/config.toml`; automatic detection is represented by the absence of that key. Electron resolves automatic detection from its preferred-language list, passes both the preference and resolved catalog locale through preload bootstrap, and broadcasts later changes through typed IPC. Because the packaged SPA shell is prerendered at build time, both server output and the first client render use the English source catalog; immediately after hydration the renderer activates the bootstrapped catalog, updates the document `lang` and `dir` attributes, and changes language without reloading. This avoids locale-dependent hydration mismatches. English and Simplified Chinese have bundled catalogs; all other picker values currently resolve to English while retaining their original `localeOverride`. PO files are committed; `pnpm --filter @cypheria/desktop i18n:extract` updates them and `i18n:compile` validates that translations are complete.
 
 The desktop main bundle leaves `@libsql/client` and its platform packages external so Electron loads the matching native binary at runtime. `build:main` copies the committed Drizzle migrations into `dist/drizzle`; packaged startup therefore uses the same migration source as tests and development. Electron user/session data is rooted under `$CYPHERIA_HOME/browser` before the application becomes ready.
 

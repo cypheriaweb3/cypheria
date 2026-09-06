@@ -538,17 +538,26 @@ function HarnessConnectionCard({
     },
     onSuccess: onUpdated,
   })
+  const checkForUpdate = checkUpdate.mutate
+  const harnessId = harness?.id
 
   useEffect(() => {
     if (
+      harnessId &&
       harness?.installState === "installed" &&
       harness.updateCheck === "supported" &&
       (!harness.lastUpdateCheckAt ||
         Date.now() - new Date(harness.lastUpdateCheckAt).getTime() > 24 * 60 * 60 * 1_000)
     ) {
-      checkUpdate.mutate()
+      checkForUpdate()
     }
-  }, [harness?.id, harness?.installState, harness?.lastUpdateCheckAt, harness?.updateCheck])
+  }, [
+    checkForUpdate,
+    harnessId,
+    harness?.installState,
+    harness?.lastUpdateCheckAt,
+    harness?.updateCheck,
+  ])
 
   if (loading || !harness)
     return (
@@ -735,6 +744,8 @@ function ConnectionTerminal({
   const container = useRef<HTMLDivElement>(null)
   const terminal = useRef<Terminal | null>(null)
   const fit = useRef<FitAddon | null>(null)
+  const activeRef = useRef(active)
+  activeRef.current = active
   useEffect(() => {
     if (!container.current) return
     const instance = new Terminal({
@@ -759,7 +770,7 @@ function ConnectionTerminal({
         instance.write(`\r\n[process exited: ${event.exitCode}]\r\n`)
     })
     const resize = new ResizeObserver(() => {
-      if (!active) return
+      if (!activeRef.current) return
       fitAddon.fit()
       void window.cypheria?.harnesses.resizeTerminal(
         session.terminalId,

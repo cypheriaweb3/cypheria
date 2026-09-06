@@ -16,6 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@cypheria/ui/components/select"
+import { Trans } from "@lingui/react/macro"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Check, CheckCircle2, ChevronDown, Monitor, Moon, Sun, X } from "lucide-react"
@@ -354,12 +355,14 @@ function AppearanceRoute() {
         ) : null}
         <header className="min-w-0">
           <h1 className={cn("text-[25px] leading-8 text-foreground", uiFontSemiboldClass)}>
-            Appearance
+            <Trans id="settings.appearance.title">Appearance</Trans>
           </h1>
         </header>
 
         <section className="grid gap-4">
-          <h2 className={cn("text-sm text-foreground", uiFontSemiboldClass)}>Theme</h2>
+          <h2 className={cn("text-sm text-foreground", uiFontSemiboldClass)}>
+            <Trans id="settings.theme.title">Theme</Trans>
+          </h2>
           <ThemeModeCards value={appearanceMode} onChange={handleAppearanceModeChange} />
           <DiffPreview markerStyle={diffMarkerStyle} />
         </section>
@@ -396,7 +399,9 @@ function AppearanceRoute() {
         ) : null}
 
         <section className="mt-6 grid gap-4">
-          <h2 className={cn("text-sm text-foreground", uiFontSemiboldClass)}>Preferences</h2>
+          <h2 className={cn("text-sm text-foreground", uiFontSemiboldClass)}>
+            <Trans id="settings.preferences.title">Preferences</Trans>
+          </h2>
           <SettingsGroup>
             <SettingsRow
               control={

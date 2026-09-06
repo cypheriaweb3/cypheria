@@ -163,6 +163,8 @@ Web3 工作台完成本地管理闭环。钱包页面可以创建或导入加密
 
 生产 renderer assets 由 Electron main 通过 privileged standard `cypheria://` scheme 提供。缺失的应用路径回退到 SPA shell，已解析的 assets 则被限制在构建后的 renderer directory 内。这样无需在生产环境运行 TanStack Start server bundle，也能直接导航到 workbench 与 settings routes。
 
+Desktop 本地化在 TanStack Start renderer 中使用 Lingui，语言偏好的持久化和操作系统 locale 解析由 Electron main 负责。常规设置页中的可搜索语言选择器将 Codex 兼容的 `[desktop].localeOverride` 写入 `$CYPHERIA_HOME/codex/config.toml`；自动检测会删除该键。经过类型校验和编码的 preload argument 同时提供用户选择与最终 catalog locale。预渲染 SPA shell 与首次客户端渲染统一使用英语 source catalog，hydration 后 renderer 立即激活 bootstrap locale，从而保持 hydration 的确定性；初始及后续语言变化都通过 typed settings IPC 响应式生效。选择器提供桌面端参考截图中的完整 Codex 语言集合；renderer 当前随包提供英语与简体中文 catalog，其他显式选择或系统 locale 均回退到英语，同时保留已保存的语言选择。
+
 Electron main 将 App Server 适配为 AI SDK `ProviderV4`，并通过 typed IPC 流式传输 AI SDK UI-message chunks；它同时负责 agent harness login/logout 与 Codex config 读写。Connections 设置页为 Codex 实现 ChatGPT managed 浏览器身份验证与 OpenAI API key 登录。Grok Build、Cursor、Gemini CLI、Hermes 和 OpenCode 是可选的 ACP v1 harness：Electron 可将最新版本安装到 `$CYPHERIA_HOME/harnesses/<id>`、展示已安装版本、启用或禁用集成，并在接受安装前验证 ACP 初始化。V1 模型 provider 支持 Codex 原生的 OpenAI、Amazon Bedrock、Ollama 和 LM Studio。Ollama 与 LM Studio 无需 OpenAI 身份验证即可使用。通用 custom-provider 表单明确延后。
 
 每个受管 ACP harness 都会获得合成 OS home 与该 harness 专用的 home 环境变量，因此二进制、配置、凭据、缓存和可变状态都留在 Cypheria home 下。Hermes 始终接收 `HERMES_HOME` 和 `HERMES_INSTALL_DIR`，且绝不安装 desktop 包。每次成功安装都会写入收据，记录安装器来源与参数、非秘密的受管环境、探测到的版本、可执行文件 SHA-256，以及该 harness 根目录下所有新增或变化的文件。Connections 拥有由 `node-pty` 支撑的页面级多标签 PTY dock；切换 harness 卡片不会关闭标签，离开该路由时 Electron 会关闭全部终端。上游命令、认证路径、更新信号和各 harness 的目录约束见 [ACP Harness Connections 设计](acp-harness-connections-design.zh-CN.md)。
