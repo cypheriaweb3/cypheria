@@ -178,6 +178,12 @@ function TaskSession({
   const provider = settings?.provider ?? "openai"
   const projects = projectsQuery.data?.data ?? []
   const selectedProject = projects.find((project) => project.id === selectedProjectId)
+  const sandboxLabel =
+    sandboxMode === "read-only"
+      ? i18n._(msg({ id: "task.sandbox.readOnly", message: "Read only" }))
+      : sandboxMode === "workspace-write"
+        ? i18n._(msg({ id: "task.sandbox.workspaceWrite", message: "Workspace write" }))
+        : i18n._(msg({ id: "task.sandbox.fullAccess", message: "Full computer access" }))
   const transport = useMemo(
     () =>
       new CodexIpcChatTransport(
@@ -387,9 +393,10 @@ function TaskSession({
                 >
                   <PromptInputSelectTrigger className="max-w-48">
                     <FolderGit2 className="size-3.5" />
-                    <PromptInputSelectValue
-                      placeholder={i18n._(msg({ id: "task.project.none", message: "No project" }))}
-                    />
+                    <PromptInputSelectValue>
+                      {selectedProject?.name ??
+                        i18n._(msg({ id: "task.project.none", message: "No project" }))}
+                    </PromptInputSelectValue>
                   </PromptInputSelectTrigger>
                   <PromptInputSelectContent>
                     <PromptInputSelectItem value="none">
@@ -417,7 +424,7 @@ function TaskSession({
                 >
                   <PromptInputSelectTrigger className="w-auto">
                     <LockKeyhole className="size-3.5" />
-                    <PromptInputSelectValue />
+                    <PromptInputSelectValue>{sandboxLabel}</PromptInputSelectValue>
                   </PromptInputSelectTrigger>
                   <PromptInputSelectContent>
                     <PromptInputSelectItem value="read-only">
