@@ -19,6 +19,11 @@ msgid "search.keyboardHelp"
 msgstr "↑↓ 导航 · Enter 打开 · Esc 关闭"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.artifact.added"
+msgstr "已添加"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
 msgid "settings.appearance.title"
 msgstr "外观"
@@ -89,6 +94,11 @@ msgid "task.project.desktopOnly"
 msgstr "Codex 仅可在 Cypheria 桌面应用中使用。"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.command"
+msgstr "命令 {number}"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.connections"
 msgstr "连接"
@@ -97,6 +107,16 @@ msgstr "连接"
 #: renderer/src/components/task-workspace.tsx
 msgid "task.workspace.context"
 msgstr "上下文"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.copyDiff"
+msgstr "复制差异"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.copyTerminal"
+msgstr "复制终端输出"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-search.tsx
@@ -124,6 +144,11 @@ msgid "task.model.default"
 msgstr "默认"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.artifact.deleted"
+msgstr "已删除"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
 #: renderer/src/i18n.test.ts
 #: renderer/src/routes/settings.general.tsx
@@ -139,6 +164,11 @@ msgstr "已完成"
 #: renderer/src/components/app-shell.tsx
 msgid "menu.edit"
 msgstr "编辑"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.exitCode"
+msgstr "退出 {code}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
@@ -474,6 +504,11 @@ msgstr "重试"
 #: renderer/src/components/task-search.tsx
 msgid "search.untitled"
 msgstr "未命名任务"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.artifact.updated"
+msgstr "已更新"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx

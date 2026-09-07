@@ -113,6 +113,7 @@ import { Route } from "../routes/index"
 import { newTaskRevisionAtom } from "./task-navigation"
 import {
   deriveTaskWorkspaceArtifacts,
+  displayTaskArtifactPath,
   type TaskWorkspaceArtifacts,
 } from "./task-workspace-artifacts"
 
@@ -519,7 +520,11 @@ function TaskSession({
         />
       </main>
       {workspacePanelOpen ? (
-        <WorkspacePanel activeWallet={activeWalletQuery.data} artifacts={workspaceArtifacts} />
+        <WorkspacePanel
+          activeWallet={activeWalletQuery.data}
+          artifacts={workspaceArtifacts}
+          projectRoot={selectedProject?.roots[0]}
+        />
       ) : null}
     </section>
   )
@@ -970,7 +975,12 @@ function ModelPicker({
 function WorkspacePanel({
   activeWallet,
   artifacts,
-}: Readonly<{ activeWallet?: WalletActiveContext; artifacts: TaskWorkspaceArtifacts }>) {
+  projectRoot,
+}: Readonly<{
+  activeWallet?: WalletActiveContext
+  artifacts: TaskWorkspaceArtifacts
+  projectRoot?: string
+}>) {
   const { i18n } = useLingui()
   const statusLabel = (status: string) => {
     if (status === "completed") return i18n._(msg({ id: "task.artifact.done", message: "Done" }))
@@ -978,6 +988,11 @@ function WorkspacePanel({
     if (status === "declined")
       return i18n._(msg({ id: "task.artifact.declined", message: "Declined" }))
     return i18n._(msg({ id: "task.artifact.running", message: "Running" }))
+  }
+  const kindLabel = (kind: TaskWorkspaceArtifacts["files"][number]["kind"]) => {
+    if (kind === "add") return i18n._(msg({ id: "task.artifact.added", message: "Added" }))
+    if (kind === "delete") return i18n._(msg({ id: "task.artifact.deleted", message: "Deleted" }))
+    return i18n._(msg({ id: "task.artifact.updated", message: "Updated" }))
   }
   return (
     <aside
@@ -1055,9 +1070,11 @@ function WorkspacePanel({
               {artifacts.files.map((file) => (
                 <section className="rounded-lg border bg-card p-3" key={file.path}>
                   <div className="flex items-start justify-between gap-2">
-                    <span className="min-w-0 break-all font-mono text-xs">{file.path}</span>
+                    <span className="min-w-0 break-all font-mono text-xs">
+                      {displayTaskArtifactPath(file.path, projectRoot)}
+                    </span>
                     <Badge className="shrink-0" variant="outline">
-                      {file.kind}
+                      {kindLabel(file.kind)}
                     </Badge>
                   </div>
                   <div className="mt-2 text-xs text-muted-foreground">
@@ -1088,11 +1105,20 @@ function WorkspacePanel({
                     <CodeBlockHeader>
                       <CodeBlockTitle>
                         <FileDiff size={14} />
-                        <CodeBlockFilename>{file.path}</CodeBlockFilename>
+                        <CodeBlockFilename>
+                          {displayTaskArtifactPath(file.path, projectRoot)}
+                        </CodeBlockFilename>
                       </CodeBlockTitle>
                       <CodeBlockActions>
                         <Badge variant="outline">{statusLabel(file.status)}</Badge>
-                        <CodeBlockCopyButton />
+                        <CodeBlockCopyButton
+                          aria-label={i18n._(
+                            msg({ id: "task.workspace.copyDiff", message: "Copy diff" })
+                          )}
+                          title={i18n._(
+                            msg({ id: "task.workspace.copyDiff", message: "Copy diff" })
+                          )}
+                        />
                       </CodeBlockActions>
                     </CodeBlockHeader>
                   </CodeBlock>
@@ -1113,7 +1139,7 @@ function WorkspacePanel({
         <TabsContent className="m-0 overflow-auto p-4" value="terminal">
           {artifacts.commands.length ? (
             <div className="grid gap-4">
-              {artifacts.commands.map((command) => (
+              {artifacts.commands.map((command, index) => (
                 <AiTerminal
                   isStreaming={command.status === "inProgress"}
                   key={command.id}
@@ -1121,7 +1147,12 @@ function WorkspacePanel({
                 >
                   <TerminalHeader>
                     <TerminalTitle className="min-w-0">
-                      <span className="truncate font-mono text-xs">{command.command}</span>
+                      <span className="truncate font-mono text-xs">
+                        {i18n._({
+                          ...msg({ id: "task.workspace.command", message: "Command {number}" }),
+                          values: { number: index + 1 },
+                        })}
+                      </span>
                     </TerminalTitle>
                     <div className="flex shrink-0 items-center gap-1">
                       <TerminalStatus>{statusLabel(command.status)}</TerminalStatus>
@@ -1129,11 +1160,27 @@ function WorkspacePanel({
                         <span className="text-xs text-zinc-500">
                           {command.exitCode === null
                             ? statusLabel(command.status)
-                            : command.exitCode}
+                            : i18n._({
+                                ...msg({ id: "task.workspace.exitCode", message: "Exit {code}" }),
+                                values: { code: command.exitCode },
+                              })}
                         </span>
                       ) : null}
                       <TerminalActions>
-                        <TerminalCopyButton />
+                        <TerminalCopyButton
+                          aria-label={i18n._(
+                            msg({
+                              id: "task.workspace.copyTerminal",
+                              message: "Copy terminal output",
+                            })
+                          )}
+                          title={i18n._(
+                            msg({
+                              id: "task.workspace.copyTerminal",
+                              message: "Copy terminal output",
+                            })
+                          )}
+                        />
                       </TerminalActions>
                     </div>
                   </TerminalHeader>

@@ -19,6 +19,11 @@ msgid "search.keyboardHelp"
 msgstr "↑↓ Navigate · Enter Open · Esc Close"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.artifact.added"
+msgstr "Added"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
 msgid "settings.appearance.title"
 msgstr "Appearance"
@@ -89,6 +94,11 @@ msgid "task.project.desktopOnly"
 msgstr "Codex is only available in the Cypheria desktop app."
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.command"
+msgstr "Command {number}"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.connections"
 msgstr "Connections"
@@ -97,6 +107,16 @@ msgstr "Connections"
 #: renderer/src/components/task-workspace.tsx
 msgid "task.workspace.context"
 msgstr "Context"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.copyDiff"
+msgstr "Copy diff"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.copyTerminal"
+msgstr "Copy terminal output"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-search.tsx
@@ -124,6 +144,11 @@ msgid "task.model.default"
 msgstr "Default"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.artifact.deleted"
+msgstr "Deleted"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
 #: renderer/src/i18n.test.ts
 #: renderer/src/routes/settings.general.tsx
@@ -139,6 +164,11 @@ msgstr "Done"
 #: renderer/src/components/app-shell.tsx
 msgid "menu.edit"
 msgstr "Edit"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.exitCode"
+msgstr "Exit {code}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
@@ -474,6 +504,11 @@ msgstr "Try again"
 #: renderer/src/components/task-search.tsx
 msgid "search.untitled"
 msgstr "Untitled task"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.artifact.updated"
+msgstr "Updated"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx

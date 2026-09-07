@@ -24,6 +24,15 @@ export type TaskWorkspaceArtifacts = {
   files: TaskFileArtifact[]
 }
 
+export const displayTaskArtifactPath = (path: string, projectRoot?: string): string => {
+  if (!projectRoot) return path
+  const normalizedPath = path.replaceAll("\\", "/")
+  const normalizedRoot = projectRoot.replaceAll("\\", "/").replace(/\/+$/u, "")
+  if (normalizedPath === normalizedRoot) return "."
+  const rootPrefix = `${normalizedRoot}/`
+  return normalizedPath.startsWith(rootPrefix) ? normalizedPath.slice(rootPrefix.length) : path
+}
+
 const asRecord = (value: unknown): JsonRecord | undefined => {
   if (typeof value === "string") {
     try {

@@ -1,7 +1,15 @@
 import type { UIMessage } from "ai"
 import { describe, expect, it } from "vitest"
 
-import { deriveTaskWorkspaceArtifacts } from "./task-workspace-artifacts"
+import { deriveTaskWorkspaceArtifacts, displayTaskArtifactPath } from "./task-workspace-artifacts"
+
+describe("displayTaskArtifactPath", () => {
+  it("shortens project files across platform path separators", () => {
+    expect(displayTaskArtifactPath("/repo/src/index.ts", "/repo/")).toBe("src/index.ts")
+    expect(displayTaskArtifactPath("C:\\repo\\src\\index.ts", "C:\\repo")).toBe("src/index.ts")
+    expect(displayTaskArtifactPath("/elsewhere/index.ts", "/repo")).toBe("/elsewhere/index.ts")
+  })
+})
 
 describe("deriveTaskWorkspaceArtifacts", () => {
   it("derives the latest changed files and command transcripts", () => {
