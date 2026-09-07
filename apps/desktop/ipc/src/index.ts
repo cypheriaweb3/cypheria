@@ -23,6 +23,9 @@ import {
   type CodexChatStartResult,
   CodexChatStartResultSchema,
   CodexChatStartSchema,
+  type CodexInteractionEvent,
+  type CodexInteractionResponse,
+  CodexInteractionResponseSchema,
   CodexLoginCancelSchema,
   type CodexLoginRequest,
   CodexLoginRequestSchema,
@@ -167,6 +170,8 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexChatEvent: "codex.chat.event",
   codexChatInterrupt: "codex.chat.interrupt",
   codexChatStart: "codex.chat.start",
+  codexInteractionEvent: "codex.interaction.event",
+  codexInteractionRespond: "codex.interaction.respond",
   codexEvent: "codex.event",
   codexModelList: "codex.model.list",
   codexModelSettingsRead: "codex.model.settings.read",
@@ -1330,6 +1335,14 @@ export const codexChatInterruptContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<{ requestId: string }, { interrupted: boolean }>
 
+export const codexInteractionRespondContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexInteractionRespond,
+  namespace: "codex",
+  request: CodexInteractionResponseSchema,
+  response: z.object({ resolved: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<CodexInteractionResponse, { resolved: true }>
+
 export const codexPluginListContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexPluginList,
   namespace: "codex",
@@ -1626,9 +1639,13 @@ export type CypheriaPreloadApi = {
     readonly login: (request: CodexLoginRequest) => Promise<CodexLoginResult>
     readonly logout: () => Promise<{ loggedOut: boolean }>
     readonly onChatEvent: (handler: (event: CodexChatEvent) => void) => () => void
+    readonly onInteraction: (handler: (event: CodexInteractionEvent) => void) => () => void
     readonly onEvent: (handler: (event: CodexEventEnvelope) => void) => () => void
     readonly setModelSettings: (settings: CodexModelSettings) => Promise<CodexModelSettings>
     readonly startChat: (request: CodexChatStart) => Promise<CodexChatStartResult>
+    readonly respondToInteraction: (
+      response: CodexInteractionResponse
+    ) => Promise<{ resolved: true }>
   }
   readonly browser: {
     readonly openDapp: (url: string) => Promise<BrowserSessionOpenResult>

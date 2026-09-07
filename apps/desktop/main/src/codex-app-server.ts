@@ -18,17 +18,20 @@ import {
   type CodexEventEnvelope,
   CodexEventEnvelopeSchema,
   type CodexEventPayload,
+  CodexInteractionEventSchema,
   type ConnectionProxySettings,
   CYPHERIA_IPC_CHANNELS,
   IPC_PROTOCOL_VERSION,
 } from "../../ipc/src/index.js"
 import { buildConnectionProxyEnvironment } from "./connection-proxy.js"
+import { type CodexInteractionBroker, createCodexInteractionBroker } from "./codex-interactions.js"
 
 export type CodexAppServerState = "ready" | "starting" | "stopped" | "stopping"
 
 export type CodexAppServerContext = {
   readonly bridge: CodexAppServerBridge
   readonly child: ChildProcessWithoutNullStreams
+  readonly interactions: CodexInteractionBroker
   readonly listenUrl: string
   readonly port: number
   readonly state: CodexAppServerState
@@ -367,9 +370,22 @@ export const startCodexAppServer = async (
 
   broadcastCodexEvent(windows(), createLifecycleEvent("ready"))
 
+  const interactions = createCodexInteractionBroker({
+    bridge,
+    emit: (event) => {
+      const parsed = CodexInteractionEventSchema.parse(event)
+      for (const window of windows()) {
+        if (!window.isDestroyed()) {
+          window.webContents.send(CYPHERIA_IPC_CHANNELS.codexInteractionEvent, parsed)
+        }
+      }
+    },
+  })
+
   return {
     bridge,
     child,
+    interactions,
     listenUrl,
     port,
     state: "ready",
@@ -377,6 +393,7 @@ export const startCodexAppServer = async (
 }
 
 export const shutdownCodexAppServer = async (context: CodexAppServerContext): Promise<void> => {
+  context.interactions.close()
   await context.bridge.close()
   await terminateCodexChild(context.child)
 }

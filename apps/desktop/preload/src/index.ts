@@ -9,6 +9,7 @@ import type {
   BrowserSessionOpenResult,
   CodexChatEvent,
   CodexEventEnvelope,
+  CodexInteractionEvent,
   ConnectionProxySettings,
   ConnectionProxyTestResult,
   CypheriaPreloadApi,
@@ -151,6 +152,17 @@ const cypheriaApi: CypheriaPreloadApi = {
         ipcRenderer.off(CYPHERIA_IPC_CHANNELS.codexEvent, listener)
       }
     },
+    onInteraction: (handler) => {
+      const listener = (_event: IpcRendererEvent, interaction: CodexInteractionEvent): void => {
+        handler(interaction)
+      }
+      ipcRenderer.on(CYPHERIA_IPC_CHANNELS.codexInteractionEvent, listener)
+      return () => {
+        ipcRenderer.off(CYPHERIA_IPC_CHANNELS.codexInteractionEvent, listener)
+      }
+    },
+    respondToInteraction: (response) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexInteractionRespond, response),
     setModelSettings: (settings) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexModelSettingsWrite, settings),
     setPluginEnabled: (pluginId, enabled) =>

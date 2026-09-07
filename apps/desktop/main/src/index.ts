@@ -50,6 +50,7 @@ import {
   codexAppListContract,
   codexChatInterruptContract,
   codexChatStartContract,
+  codexInteractionRespondContract,
   codexMarketplaceAddContract,
   codexMarketplaceRemoveContract,
   codexMarketplaceUpgradeContract,
@@ -536,6 +537,19 @@ const registerIpcHandlers = (context: DesktopRuntimeContext, harnesses: HarnessM
   registerIpcRoute(codexChatInterruptContract, async ({ requestId }) => ({
     interrupted: await interruptCodexChat(requestId),
   }))
+  registerIpcRoute(codexInteractionRespondContract, async (response) => {
+    const server = context.codexAppServer
+    if (!server) throw new Error("Codex app-server is unavailable")
+    await server.interactions.respond(response)
+    await context.audit.append({
+      actor: "user",
+      correlationId: response.interactionId,
+      eventType: "codex.interaction.resolved",
+      payloadSummary: `Codex interaction resolved with ${response.action}.`,
+      source: "desktop",
+    })
+    return { resolved: true }
+  })
   registerIpcRoute(automationTaskCreateContract, (input) => context.automation.createTask(input))
   registerIpcRoute(automationTaskListContract, ({ status }) => context.automation.listTasks(status))
   registerIpcRoute(automationTaskGetContract, ({ taskId }) => context.automation.getTask(taskId))

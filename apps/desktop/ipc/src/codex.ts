@@ -135,6 +135,54 @@ export const CodexChatEventSchema = z.discriminatedUnion("type", [
 ])
 export type CodexChatEvent = z.infer<typeof CodexChatEventSchema>
 
+export const CodexInteractionMethodSchema = z.enum([
+  "applyPatchApproval",
+  "execCommandApproval",
+  "item/commandExecution/requestApproval",
+  "item/fileChange/requestApproval",
+  "item/permissions/requestApproval",
+  "item/tool/requestUserInput",
+  "mcpServer/elicitation/request",
+])
+export type CodexInteractionMethod = z.infer<typeof CodexInteractionMethodSchema>
+
+export const CodexInteractionQuestionSchema = z
+  .object({
+    header: z.string(),
+    id: z.string().min(1),
+    isOther: z.boolean(),
+    isSecret: z.boolean(),
+    options: z.array(z.object({ description: z.string(), label: z.string() }).strict()).nullable(),
+    question: z.string(),
+  })
+  .strict()
+export type CodexInteractionQuestion = z.infer<typeof CodexInteractionQuestionSchema>
+
+export const CodexInteractionEventSchema = z
+  .object({
+    description: z.string().nullable(),
+    interactionId: z.uuid(),
+    kind: z.enum(["approval", "elicitation", "user-input"]),
+    method: CodexInteractionMethodSchema,
+    params: z.unknown(),
+    questions: z.array(CodexInteractionQuestionSchema).optional(),
+    threadId: z.string().nullable(),
+    title: z.string(),
+    turnId: z.string().nullable(),
+  })
+  .strict()
+export type CodexInteractionEvent = z.infer<typeof CodexInteractionEventSchema>
+
+export const CodexInteractionResponseSchema = z
+  .object({
+    action: z.enum(["accept", "accept-for-session", "cancel", "decline"]),
+    answers: z.record(z.string(), z.array(z.string())).optional(),
+    content: z.json().optional(),
+    interactionId: z.uuid(),
+  })
+  .strict()
+export type CodexInteractionResponse = z.infer<typeof CodexInteractionResponseSchema>
+
 export const CodexPluginViewSchema = z
   .object({
     availability: z.enum(["AVAILABLE", "DISABLED_BY_ADMIN"]),

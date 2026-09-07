@@ -6,7 +6,10 @@ import type {
   CodexAppServerBridgeEventMap,
   CodexAppServerBridgeHandler,
   CodexAppServerBridgeOptions,
+  CodexJsonValue,
+  CodexServerRequestByMethod,
   InitializeResponse,
+  ServerRequest,
 } from "@cypheria/codex-bridge"
 import { buildRuntimePaths } from "@cypheria/runtime"
 import type { BrowserWindow } from "electron"
@@ -46,6 +49,13 @@ class FakeBridge {
     listeners.add(handler as (event: unknown) => void)
     this.listeners.set(type, listeners)
     return () => listeners.delete(handler as (event: unknown) => void)
+  }
+
+  onServerRequest<M extends ServerRequest["method"]>(
+    _method: M,
+    _handler: (request: CodexServerRequestByMethod<M>) => CodexJsonValue | Promise<CodexJsonValue>
+  ): () => void {
+    return () => undefined
   }
 
   emit<K extends keyof CodexAppServerBridgeEventMap>(

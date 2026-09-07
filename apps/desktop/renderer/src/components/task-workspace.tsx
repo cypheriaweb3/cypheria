@@ -54,7 +54,12 @@ import {
   WalletCards,
 } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useState } from "react"
-import type { CodexModelView, WalletActiveContext } from "../../../ipc/src/index.js"
+import type {
+  CodexInteractionEvent,
+  CodexInteractionResponse,
+  CodexModelView,
+  WalletActiveContext,
+} from "../../../ipc/src/index.js"
 import { CodexIpcChatTransport } from "../codex-chat.js"
 import { Route } from "../routes/index"
 import { newTaskRevisionAtom } from "./task-navigation"
@@ -113,6 +118,7 @@ function TaskSession({
   const [sandboxMode, setSandboxMode] = useState<
     "read-only" | "workspace-write" | "danger-full-access"
   >("workspace-write")
+  const [interactions, setInteractions] = useState<CodexInteractionEvent[]>([])
   const selectedModel = models.find((model) => model.model === selectedModelId) ?? initialModel
   const selectedReasoning =
     reasoningEffort ?? settings?.reasoningEffort ?? selectedModel.defaultReasoningEffort
@@ -148,6 +154,26 @@ function TaskSession({
     },
     [stop]
   )
+
+  useEffect(() => {
+    const api = window.cypheria?.codex
+    if (!api) return
+    return api.onInteraction((interaction) => {
+      if (resumeThreadId && interaction.threadId && interaction.threadId !== resumeThreadId) return
+      setInteractions((current) =>
+        current.some((item) => item.interactionId === interaction.interactionId)
+          ? current
+          : [...current, interaction]
+      )
+    })
+  }, [resumeThreadId])
+
+  const resolveInteraction = async (response: CodexInteractionResponse) => {
+    await window.cypheria?.codex.respondToInteraction(response)
+    setInteractions((current) =>
+      current.filter((item) => item.interactionId !== response.interactionId)
+    )
+  }
 
   const handleSubmit = async ({ text, files }: { text: string; files: FileUIPart[] }) => {
     const value = text.trim()
@@ -203,6 +229,13 @@ function TaskSession({
         </Conversation>
 
         <div className="mx-auto w-full max-w-[880px] px-4 pb-5">
+          {interactions.map((interaction) => (
+            <CodexInteractionCard
+              interaction={interaction}
+              key={interaction.interactionId}
+              onResolve={resolveInteraction}
+            />
+          ))}
           <PromptInput accept="image/*,text/*,.md,.json" multiple onSubmit={handleSubmit}>
             <PromptInputBody>
               <PromptInputTextarea
@@ -269,6 +302,134 @@ function TaskSession({
         </div>
       </main>
       <WorkspacePanel activeWallet={activeWalletQuery.data} />
+    </section>
+  )
+}
+
+function CodexInteractionCard({
+  interaction,
+  onResolve,
+}: Readonly<{
+  interaction: CodexInteractionEvent
+  onResolve: (response: CodexInteractionResponse) => Promise<void>
+}>) {
+  const [answers, setAnswers] = useState<Record<string, string>>({})
+  const [content, setContent] = useState("{}")
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const submit = async (action: CodexInteractionResponse["action"]) => {
+    setSubmitting(true)
+    setError(null)
+    try {
+      let parsedContent: CodexInteractionResponse["content"]
+      if (interaction.kind === "elicitation" && action === "accept") {
+        parsedContent = JSON.parse(content)
+      }
+      await onResolve({
+        action,
+        ...(interaction.kind === "user-input"
+          ? {
+              answers: Object.fromEntries(
+                Object.entries(answers).map(([id, answer]) => [id, [answer]])
+              ),
+            }
+          : {}),
+        ...(interaction.kind === "elicitation" && action === "accept"
+          ? { content: parsedContent }
+          : {}),
+        interactionId: interaction.interactionId,
+      })
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason))
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <section className="mb-3 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-medium">{interaction.title}</div>
+          {interaction.description ? (
+            <p className="mt-1 text-xs text-muted-foreground">{interaction.description}</p>
+          ) : null}
+        </div>
+        <Badge variant="outline">Action required</Badge>
+      </div>
+
+      {interaction.kind === "approval" ? (
+        <pre className="mt-3 max-h-32 overflow-auto rounded-md bg-muted p-2 text-[11px]">
+          {JSON.stringify(interaction.params, null, 2)}
+        </pre>
+      ) : null}
+
+      {interaction.questions?.map((question) => (
+        <label className="mt-3 grid gap-1 text-xs" key={question.id}>
+          <span className="font-medium">{question.header || question.question}</span>
+          {question.header ? (
+            <span className="text-muted-foreground">{question.question}</span>
+          ) : null}
+          {question.options ? (
+            <select
+              className="h-9 rounded-md border bg-background px-2"
+              onChange={(event) =>
+                setAnswers((current) => ({ ...current, [question.id]: event.target.value }))
+              }
+              value={answers[question.id] ?? ""}
+            >
+              <option value="">Select…</option>
+              {question.options.map((option) => (
+                <option key={option.label} value={option.label}>
+                  {option.label} — {option.description}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              className="h-9 rounded-md border bg-background px-2"
+              onChange={(event) =>
+                setAnswers((current) => ({ ...current, [question.id]: event.target.value }))
+              }
+              type={question.isSecret ? "password" : "text"}
+              value={answers[question.id] ?? ""}
+            />
+          )}
+        </label>
+      ))}
+
+      {interaction.kind === "elicitation" ? (
+        <textarea
+          className="mt-3 min-h-24 w-full rounded-md border bg-background p-2 font-mono text-xs"
+          onChange={(event) => setContent(event.target.value)}
+          value={content}
+        />
+      ) : null}
+
+      {error ? <p className="mt-2 text-xs text-destructive">{error}</p> : null}
+      <div className="mt-3 flex justify-end gap-2">
+        <Button
+          disabled={submitting}
+          onClick={() => void submit("decline")}
+          size="sm"
+          variant="ghost"
+        >
+          Decline
+        </Button>
+        {interaction.kind === "approval" ? (
+          <Button
+            disabled={submitting}
+            onClick={() => void submit("accept-for-session")}
+            size="sm"
+            variant="outline"
+          >
+            Allow for session
+          </Button>
+        ) : null}
+        <Button disabled={submitting} onClick={() => void submit("accept")} size="sm">
+          {interaction.kind === "user-input" ? "Submit" : "Allow"}
+        </Button>
+      </div>
     </section>
   )
 }
