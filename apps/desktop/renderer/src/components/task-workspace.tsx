@@ -323,8 +323,8 @@ function TaskSession({
           </div>
         </header>
 
-        <Conversation className="min-h-0">
-          <ConversationContent className="mx-auto w-full max-w-3xl px-6 py-8">
+        <Conversation className="min-h-0 min-w-0 overflow-x-hidden">
+          <ConversationContent className="mx-auto w-[calc(100%-3rem)] min-w-0 max-w-3xl py-8">
             {resumeThreadId && threadQuery.isPending ? (
               <div
                 className="flex min-h-48 items-center justify-center gap-2 text-sm text-muted-foreground"
