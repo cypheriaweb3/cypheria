@@ -105,9 +105,10 @@ with conditional cleanup must explicitly return `undefined` on the path without 
 
 ### Third-party JSX component declarations
 
-`react-jsx-parser` and `ansi-to-react` can resolve as module objects under NodeNext even though their
-runtime default exports are React components. Keep the narrow local `ComponentType` adapters at the
-render boundary; do not weaken TypeScript settings for the package.
+`react-jsx-parser` and `ansi-to-react` can resolve as nested CommonJS module objects under NodeNext
+and Vite even though their eventual default exports are React components. Keep the narrow local
+`resolveComponent` adapter at the render boundary so it unwraps those default exports at runtime;
+do not replace it with a type-only cast or weaken TypeScript settings for the package.
 
 ### XYFlow styles
 

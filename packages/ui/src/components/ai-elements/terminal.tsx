@@ -2,12 +2,13 @@
 
 import Ansi from "ansi-to-react"
 import { CheckIcon, CopyIcon, TerminalIcon, Trash2Icon } from "lucide-react"
-import type { ComponentProps, ComponentType, HTMLAttributes } from "react"
+import type { ComponentProps, HTMLAttributes } from "react"
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "#components/button"
+import { resolveComponent } from "#lib/resolve-component"
 import { cn } from "#lib/utils"
 
-const AnsiComponent = Ansi as unknown as ComponentType<{ children?: string }>
+const AnsiComponent = resolveComponent<{ children?: string }>(Ansi)
 
 interface TerminalContextType {
   output: string

@@ -1,7 +1,7 @@
 "use client"
 
 import { AlertCircle } from "lucide-react"
-import type { ComponentProps, ComponentType, ReactNode } from "react"
+import type { ComponentProps, ReactNode } from "react"
 import {
   createContext,
   memo,
@@ -14,6 +14,7 @@ import {
 } from "react"
 import type { TProps as JsxParserProps } from "react-jsx-parser"
 import JsxParser from "react-jsx-parser"
+import { resolveComponent } from "#lib/resolve-component"
 import { cn } from "#lib/utils"
 
 interface JSXPreviewContextValue {
@@ -31,7 +32,7 @@ interface JSXPreviewContextValue {
 const JSXPreviewContext = createContext<JSXPreviewContextValue | null>(null)
 
 const TAG_REGEX = /<\/?([a-zA-Z][a-zA-Z0-9]*)\s*([^>]*?)(\/)?>/
-const JsxParserComponent = JsxParser as unknown as ComponentType<JsxParserProps>
+const JsxParserComponent = resolveComponent<JsxParserProps>(JsxParser)
 
 export const useJSXPreview = () => {
   const context = useContext(JSXPreviewContext)

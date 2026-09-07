@@ -100,9 +100,9 @@ Cypheria 启用了 `noUncheckedIndexedAccess` 和 `noImplicitReturns`。正则�
 
 ### 第三方 JSX 组件声明
 
-在 NodeNext 下，`react-jsx-parser` 和 `ansi-to-react` 可能被解析为模块对象，尽管它们的运行时默认
-导出实际是 React 组件。应保留渲染边界处范围有限的 `ComponentType` 适配，不要为此放宽整个包的
-TypeScript 配置。
+在 NodeNext 与 Vite 下，`react-jsx-parser` 和 `ansi-to-react` 可能被解析为嵌套的 CommonJS 模块
+对象，尽管最终的默认导出实际是 React 组件。应在渲染边界保留范围有限的 `resolveComponent`
+运行时适配以解开这些默认导出；不能只做类型断言，也不要为此放宽整个包的 TypeScript 配置。
 
 ### XYFlow 样式
 
