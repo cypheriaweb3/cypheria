@@ -52,6 +52,7 @@ export type CodexAppServerProviderSettings = {
   readonly dynamicTools?: readonly v2.DynamicToolSpec[]
   readonly modelProvider?: string
   readonly onSessionCreated?: (session: CodexAppServerAiSdkSession) => void
+  readonly projectId?: string
   readonly reasoningEffort?: ReasoningEffort
   readonly reasoningSummary?: ReasoningSummary
   readonly resumeThreadId?: string
@@ -992,6 +993,7 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
           dynamicTools: settings.dynamicTools ? [...settings.dynamicTools] : undefined,
           model: this.modelId,
           modelProvider: settings.modelProvider,
+          projectId: settings.projectId,
           sandbox: normalizeSandboxMode(settings.sandboxMode),
           serviceTier: settings.serviceTier,
         },

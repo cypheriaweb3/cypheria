@@ -49,6 +49,15 @@ import {
   type CodexPluginLocator,
   CodexPluginLocatorSchema,
   CodexPluginUninstallRequestSchema,
+  CodexProjectCreateRequestSchema,
+  CodexProjectDeleteRequestSchema,
+  type CodexProjectListPage,
+  CodexProjectListPageSchema,
+  CodexProjectListRequestSchema,
+  CodexProjectRootPickResultSchema,
+  CodexProjectUpdateRequestSchema,
+  type CodexProjectView,
+  CodexProjectViewSchema,
   CodexSkillEnabledRequestSchema,
   CodexSkillListRequestSchema,
   type CodexSkillListResult,
@@ -191,6 +200,11 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexMcpLogin: "codex.mcp.login",
   codexMcpAdd: "codex.mcp.add",
   codexPluginUninstall: "codex.plugin.uninstall",
+  codexProjectCreate: "codex.project.create",
+  codexProjectDelete: "codex.project.delete",
+  codexProjectList: "codex.project.list",
+  codexProjectRootPick: "codex.project.root.pick",
+  codexProjectUpdate: "codex.project.update",
   codexSkillEnabledWrite: "codex.skill.enabled.write",
   codexSkillList: "codex.skill.list",
   codexThreadList: "codex.thread.list",
@@ -1319,6 +1333,46 @@ export const codexThreadListContract = {
   CodexThreadListPage
 >
 
+export const codexProjectListContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexProjectList,
+  namespace: "codex",
+  request: CodexProjectListRequestSchema,
+  response: CodexProjectListPageSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ cursor?: string | null; limit?: number }, CodexProjectListPage>
+
+export const codexProjectCreateContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexProjectCreate,
+  namespace: "codex",
+  request: CodexProjectCreateRequestSchema,
+  response: CodexProjectViewSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ name: string; root: string }, CodexProjectView>
+
+export const codexProjectUpdateContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexProjectUpdate,
+  namespace: "codex",
+  request: CodexProjectUpdateRequestSchema,
+  response: CodexProjectViewSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ id: string; name: string }, CodexProjectView>
+
+export const codexProjectDeleteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexProjectDelete,
+  namespace: "codex",
+  request: CodexProjectDeleteRequestSchema,
+  response: z.object({ deleted: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ id: string }, { deleted: true }>
+
+export const codexProjectRootPickContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexProjectRootPick,
+  namespace: "codex",
+  request: EmptyPayloadSchema,
+  response: CodexProjectRootPickResultSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, { path: string | null }>
+
 export const codexChatStartContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexChatStart,
   namespace: "codex",
@@ -1521,6 +1575,11 @@ export const ipcContracts = {
   codexMcpAdd: codexMcpAddContract,
   codexPluginRead: codexPluginReadContract,
   codexPluginUninstall: codexPluginUninstallContract,
+  codexProjectCreate: codexProjectCreateContract,
+  codexProjectDelete: codexProjectDeleteContract,
+  codexProjectList: codexProjectListContract,
+  codexProjectRootPick: codexProjectRootPickContract,
+  codexProjectUpdate: codexProjectUpdateContract,
   codexSkillEnabledWrite: codexSkillEnabledWriteContract,
   codexSkillList: codexSkillListContract,
   codexThreadList: codexThreadListContract,
@@ -1609,6 +1668,14 @@ export type CypheriaPreloadApi = {
       cwd?: string
       forceRefetch?: boolean
     }) => Promise<CodexPluginListResult>
+    readonly listProjects: (options?: {
+      cursor?: string | null
+      limit?: number
+    }) => Promise<CodexProjectListPage>
+    readonly createProject: (input: { name: string; root: string }) => Promise<CodexProjectView>
+    readonly updateProject: (input: { id: string; name: string }) => Promise<CodexProjectView>
+    readonly deleteProject: (id: string) => Promise<{ deleted: true }>
+    readonly pickProjectRoot: () => Promise<{ path: string | null }>
     readonly installPlugin: (plugin: CodexPluginLocator) => Promise<CodexPluginInstallResult>
     readonly readPlugin: (plugin: CodexPluginLocator) => Promise<CodexPluginDetailView>
     readonly uninstallPlugin: (pluginId: string) => Promise<{ uninstalled: true }>

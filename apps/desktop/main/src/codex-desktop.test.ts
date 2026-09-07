@@ -1,11 +1,15 @@
 import type { CodexAppServerBridge } from "@cypheria/codex-bridge"
 import { describe, expect, it } from "vitest"
 import {
+  createCodexProject,
+  deleteCodexProject,
   listCodexModels,
+  listCodexProjects,
   listCodexThreads,
   readCodexAccount,
   readCodexModelSettings,
   startCodexLogin,
+  updateCodexProject,
   validateOpenAiApiKey,
   writeCodexModelSettings,
 } from "./codex-desktop.js"
@@ -244,6 +248,43 @@ describe("desktop Codex services", () => {
         sortDirection: "desc",
         sortKey: "updated_at",
       },
+    })
+  })
+
+  it("manages App Server projects through desktop views", async () => {
+    const project = {
+      createdAt: 1,
+      id: "project-1",
+      metadata: {},
+      name: "Cypheria",
+      position: 0,
+      recencyAt: null,
+      roots: [{ path: "/work/cypheria" }],
+      updatedAt: 2,
+    }
+    const bridge = new FakeBridge({
+      "project/create": { project },
+      "project/delete": {},
+      "project/list": { data: [project], nextCursor: null },
+      "project/update": { project: { ...project, name: "Cypheria Desktop" } },
+    })
+
+    await expect(listCodexProjects(asBridge(bridge))).resolves.toEqual({
+      data: [expect.objectContaining({ id: "project-1", roots: ["/work/cypheria"] })],
+      nextCursor: null,
+    })
+    await expect(
+      createCodexProject(asBridge(bridge), { name: "Cypheria", root: "/work/cypheria" })
+    ).resolves.toMatchObject({ id: "project-1", name: "Cypheria" })
+    await expect(
+      updateCodexProject(asBridge(bridge), { id: "project-1", name: "Cypheria Desktop" })
+    ).resolves.toMatchObject({ id: "project-1", name: "Cypheria Desktop" })
+    await expect(deleteCodexProject(asBridge(bridge), "project-1")).resolves.toEqual({
+      deleted: true,
+    })
+    expect(bridge.calls.find((call) => call.method === "project/create")?.params).toMatchObject({
+      name: "Cypheria",
+      roots: [{ path: "/work/cypheria" }],
     })
   })
 })

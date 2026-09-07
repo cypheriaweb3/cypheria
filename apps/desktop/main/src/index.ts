@@ -66,6 +66,11 @@ import {
   codexPluginListContract,
   codexPluginReadContract,
   codexPluginUninstallContract,
+  codexProjectCreateContract,
+  codexProjectDeleteContract,
+  codexProjectListContract,
+  codexProjectRootPickContract,
+  codexProjectUpdateContract,
   codexSkillEnabledWriteContract,
   codexSkillListContract,
   codexThreadListContract,
@@ -125,14 +130,18 @@ import { readAppearanceSettings, writeAppearanceSettings } from "./appearance-co
 import { resolveCodexCommand } from "./codex-command.js"
 import {
   cancelCodexLogin,
+  createCodexProject,
+  deleteCodexProject,
   interruptCodexChat,
   listCodexModels,
+  listCodexProjects,
   listCodexThreads,
   logoutCodexAccount,
   readCodexAccount,
   readCodexModelSettings,
   startCodexChat,
   startCodexLogin,
+  updateCodexProject,
   validateOpenAiApiKey,
   writeCodexModelSettings,
 } from "./codex-desktop.js"
@@ -490,6 +499,17 @@ const registerIpcHandlers = (context: DesktopRuntimeContext, harnesses: HarnessM
     writeCodexModelSettings(codexBridge(), settings)
   )
   registerIpcRoute(codexThreadListContract, (options) => listCodexThreads(codexBridge(), options))
+  registerIpcRoute(codexProjectListContract, (options) => listCodexProjects(codexBridge(), options))
+  registerIpcRoute(codexProjectCreateContract, (input) => createCodexProject(codexBridge(), input))
+  registerIpcRoute(codexProjectUpdateContract, (input) => updateCodexProject(codexBridge(), input))
+  registerIpcRoute(codexProjectDeleteContract, ({ id }) => deleteCodexProject(codexBridge(), id))
+  registerIpcRoute(codexProjectRootPickContract, async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ["openDirectory", "createDirectory"],
+      title: "Choose a project folder",
+    })
+    return { path: result.canceled ? null : (result.filePaths[0] ?? null) }
+  })
   registerIpcRoute(codexPluginListContract, (options) => listCodexPlugins(codexBridge(), options))
   registerIpcRoute(codexPluginReadContract, (options) => readCodexPlugin(codexBridge(), options))
   registerIpcRoute(codexAppListContract, ({ forceRefetch }) =>

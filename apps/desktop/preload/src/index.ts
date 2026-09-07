@@ -118,6 +118,12 @@ const cypheriaApi: CypheriaPreloadApi = {
       }),
     listPlugins: (options = {}) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPluginList, options),
+    listProjects: (options = {}) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectList, options),
+    createProject: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectCreate, input),
+    updateProject: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectUpdate, input),
+    deleteProject: (id) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectDelete, { id }),
+    pickProjectRoot: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectRootPick, {}),
     listApps: (forceRefetch = false) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAppList, { forceRefetch }),
     setAppEnabled: (appId, enabled) =>

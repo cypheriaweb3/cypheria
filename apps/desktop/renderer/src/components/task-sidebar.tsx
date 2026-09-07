@@ -3,7 +3,7 @@ import { SidebarMenuButton } from "@cypheria/ui/components/sidebar"
 import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
-import { useInfiniteQuery } from "@tanstack/react-query"
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
@@ -118,10 +118,19 @@ export function TaskSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     refetchInterval: 15_000,
   })
+  const projectsQuery = useQuery({
+    queryFn: () =>
+      window.cypheria?.codex.listProjects({ limit: 100 }) ?? { data: [], nextCursor: null },
+    queryKey: ["codex", "projects"],
+    refetchInterval: 15_000,
+  })
 
   const pinnedThreads = pinnedQuery.data?.pages.flatMap((page) => page.data) ?? []
   const catalogThreads = catalogQuery.data?.pages.flatMap((page) => page.data) ?? []
-  const projectGroups = useMemo(() => groupProjectThreads(catalogThreads), [catalogThreads])
+  const projectGroups = useMemo(
+    () => groupProjectThreads(catalogThreads, projectsQuery.data?.data ?? []),
+    [catalogThreads, projectsQuery.data?.data]
+  )
   const recentThreads = useMemo(
     () => catalogThreads.filter((thread) => thread.projectId == null),
     [catalogThreads]
@@ -371,7 +380,7 @@ function TaskSidebarRowView({
             <ChevronRight aria-hidden="true" size={13} />
           )}
           <FolderGit2 aria-hidden="true" size={15} strokeWidth={1.9} />
-          <span className="truncate">{row.projectId}</span>
+          <span className="truncate">{row.projectName}</span>
         </button>
       )
     }

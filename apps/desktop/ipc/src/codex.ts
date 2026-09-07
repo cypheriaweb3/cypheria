@@ -86,6 +86,45 @@ export const CodexThreadListPageSchema = z
   .strict()
 export type CodexThreadListPage = z.infer<typeof CodexThreadListPageSchema>
 
+export const CodexProjectViewSchema = z
+  .object({
+    createdAt: z.number(),
+    id: z.string().min(1),
+    name: z.string().min(1),
+    position: z.number(),
+    recencyAt: z.number().nullable(),
+    roots: z.array(z.string().min(1)),
+    updatedAt: z.number(),
+  })
+  .strict()
+export type CodexProjectView = z.infer<typeof CodexProjectViewSchema>
+
+export const CodexProjectListPageSchema = z
+  .object({ data: z.array(CodexProjectViewSchema), nextCursor: z.string().nullable() })
+  .strict()
+export type CodexProjectListPage = z.infer<typeof CodexProjectListPageSchema>
+
+export const CodexProjectListRequestSchema = z
+  .object({
+    cursor: z.string().nullable().optional(),
+    limit: z.number().int().min(1).max(100).optional(),
+  })
+  .strict()
+
+export const CodexProjectCreateRequestSchema = z
+  .object({ name: z.string().trim().min(1), root: z.string().min(1) })
+  .strict()
+
+export const CodexProjectUpdateRequestSchema = z
+  .object({ id: z.string().min(1), name: z.string().trim().min(1) })
+  .strict()
+
+export const CodexProjectDeleteRequestSchema = z.object({ id: z.string().min(1) }).strict()
+
+export const CodexProjectRootPickResultSchema = z
+  .object({ path: z.string().min(1).nullable() })
+  .strict()
+
 export const CodexThreadListRequestSchema = z
   .object({
     archived: z.boolean().optional(),
@@ -112,6 +151,7 @@ export const CodexChatStartSchema = z
     messages: z.array(CodexUiMessageSchema).min(1),
     model: z.string().min(1),
     provider: CodexNativeProviderSchema,
+    projectId: z.string().min(1).optional(),
     requestId: z.uuid(),
     reasoningEffort: z.string().min(1).optional(),
     resumeThreadId: z.string().min(1).optional(),

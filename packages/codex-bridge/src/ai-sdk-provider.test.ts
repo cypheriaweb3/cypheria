@@ -150,6 +150,7 @@ describe("Codex app-server AI SDK provider", () => {
       bridge,
       cwd: "/tmp/project",
       modelProvider: "ollama",
+      projectId: "project-1",
     })
     const v4Provider: ProviderV4 = provider
     const model: LanguageModelV4 = v4Provider.languageModel("gpt-5.2-codex")
@@ -191,6 +192,7 @@ describe("Codex app-server AI SDK provider", () => {
       developerInstructions: "You are helpful.",
       model: "gpt-5.2-codex",
       modelProvider: "ollama",
+      projectId: "project-1",
     })
     expect(bridge.requests[1]?.params).toMatchObject({
       input: [{ text: "Hello", text_elements: [], type: "text" }],

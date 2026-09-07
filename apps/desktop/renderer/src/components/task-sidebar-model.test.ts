@@ -99,4 +99,25 @@ describe("task sidebar row model", () => {
     expect(groups.map((group) => group.projectId)).toEqual(["a", "b"])
     expect(groups[0]?.threads.map(({ id }) => id)).toEqual(["a-new", "a-old"])
   })
+
+  it("keeps empty projects visible and uses their display names", () => {
+    const groups = groupProjectThreads(
+      [],
+      [
+        {
+          createdAt: 1,
+          id: "project-a",
+          name: "Cypheria",
+          position: 0,
+          recencyAt: null,
+          roots: ["/work/cypheria"],
+          updatedAt: 1,
+        },
+      ]
+    )
+
+    expect(groups).toEqual([
+      { projectId: "project-a", projectName: "Cypheria", threads: [], updatedAt: 0 },
+    ])
+  })
 })

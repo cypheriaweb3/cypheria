@@ -42,9 +42,19 @@ import { Task, TaskContent, TaskItem, TaskTrigger } from "@cypheria/ui/ai-elemen
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "@cypheria/ui/ai-elements/tool"
 import { Badge } from "@cypheria/ui/components/badge"
 import { Button } from "@cypheria/ui/components/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@cypheria/ui/components/dialog"
+import { Input } from "@cypheria/ui/components/input"
+import { Label } from "@cypheria/ui/components/label"
 import { Separator } from "@cypheria/ui/components/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@cypheria/ui/components/tabs"
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import type {
   CustomContentUIPart,
@@ -63,6 +73,7 @@ import {
   HardDrive,
   LockKeyhole,
   PanelRightClose,
+  Plus,
   Settings,
   Sparkles,
   TerminalSquare,
@@ -117,6 +128,11 @@ function TaskSession({
     queryFn: () => window.cypheria?.codex.listModels() ?? [],
     queryKey: ["codex", "models"],
   })
+  const projectsQuery = useQuery({
+    queryFn: () =>
+      window.cypheria?.codex.listProjects({ limit: 100 }) ?? { data: [], nextCursor: null },
+    queryKey: ["codex", "projects"],
+  })
   const activeWalletQuery = useQuery({
     queryFn: () => window.cypheria?.wallet.getActive(),
     queryKey: ["wallet", "active"],
@@ -130,6 +146,8 @@ function TaskSession({
     fallbackModel
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null)
   const [reasoningEffort, setReasoningEffort] = useState<string | null>(null)
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [sandboxMode, setSandboxMode] = useState<
     "read-only" | "workspace-write" | "danger-full-access"
   >("workspace-write")
@@ -138,11 +156,15 @@ function TaskSession({
   const selectedReasoning =
     reasoningEffort ?? settings?.reasoningEffort ?? selectedModel.defaultReasoningEffort
   const provider = settings?.provider ?? "openai"
+  const projects = projectsQuery.data?.data ?? []
+  const selectedProject = projects.find((project) => project.id === selectedProjectId)
   const transport = useMemo(
     () =>
       new CodexIpcChatTransport(() => ({
         approvalPolicy: "on-request",
         model: selectedModel.model,
+        cwd: selectedProject?.roots[0],
+        projectId: selectedProject?.id,
         provider,
         reasoningEffort: selectedReasoning,
         resumeThreadId,
@@ -151,6 +173,8 @@ function TaskSession({
       })),
     [
       provider,
+      selectedProject?.id,
+      selectedProject?.roots,
       resumeThreadId,
       sandboxMode,
       selectedModel.model,
@@ -261,6 +285,34 @@ function TaskSession({
             <PromptInputFooter>
               <PromptInputTools>
                 <PromptInputSelect
+                  onValueChange={(value) =>
+                    setSelectedProjectId(value === "none" ? null : String(value))
+                  }
+                  value={selectedProjectId ?? "none"}
+                >
+                  <PromptInputSelectTrigger className="max-w-48">
+                    <FolderGit2 className="size-3.5" />
+                    <PromptInputSelectValue placeholder="No project" />
+                  </PromptInputSelectTrigger>
+                  <PromptInputSelectContent>
+                    <PromptInputSelectItem value="none">No project</PromptInputSelectItem>
+                    {projects.map((project) => (
+                      <PromptInputSelectItem key={project.id} value={project.id}>
+                        {project.name}
+                      </PromptInputSelectItem>
+                    ))}
+                  </PromptInputSelectContent>
+                </PromptInputSelect>
+                <Button
+                  aria-label="Create project"
+                  onClick={() => setProjectDialogOpen(true)}
+                  size="icon-sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <Plus aria-hidden="true" />
+                </Button>
+                <PromptInputSelect
                   onValueChange={(value) => setSandboxMode(value as typeof sandboxMode)}
                   value={sandboxMode}
                 >
@@ -315,9 +367,107 @@ function TaskSession({
             <span>{provider}</span>
           </div>
         </div>
+        <NewProjectDialog
+          onCreated={(projectId) => {
+            setSelectedProjectId(projectId)
+            setProjectDialogOpen(false)
+          }}
+          onOpenChange={setProjectDialogOpen}
+          open={projectDialogOpen}
+        />
       </main>
       <WorkspacePanel activeWallet={activeWalletQuery.data} />
     </section>
+  )
+}
+
+function NewProjectDialog({
+  onCreated,
+  onOpenChange,
+  open,
+}: Readonly<{
+  onCreated: (projectId: string) => void
+  onOpenChange: (open: boolean) => void
+  open: boolean
+}>) {
+  const queryClient = useQueryClient()
+  const [name, setName] = useState("")
+  const [root, setRoot] = useState("")
+  const [error, setError] = useState<string | null>(null)
+  const createProject = useMutation({
+    mutationFn: () => {
+      const api = window.cypheria?.codex
+      if (!api) throw new Error("Codex is only available in the Cypheria desktop app.")
+      return api.createProject({ name: name.trim(), root })
+    },
+    onSuccess: async (project) => {
+      await queryClient.invalidateQueries({ queryKey: ["codex", "projects"] })
+      setName("")
+      setRoot("")
+      onCreated(project.id)
+    },
+  })
+
+  const chooseRoot = async () => {
+    const result = await window.cypheria?.codex.pickProjectRoot()
+    if (!result?.path) return
+    setRoot(result.path)
+    if (!name.trim()) setName(result.path.split(/[\\/]/u).filter(Boolean).at(-1) ?? "Project")
+  }
+
+  const submit = async () => {
+    setError(null)
+    if (!name.trim() || !root) {
+      setError("Choose a folder and enter a project name.")
+      return
+    }
+    try {
+      await createProject.mutateAsync()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason))
+    }
+  }
+
+  return (
+    <Dialog onOpenChange={onOpenChange} open={open}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create project</DialogTitle>
+          <DialogDescription>
+            Group tasks around a local workspace and use it as the task working directory.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="grid gap-3">
+          <div className="grid gap-1.5">
+            <Label htmlFor="project-name">Name</Label>
+            <Input
+              id="project-name"
+              onChange={(event) => setName(event.target.value)}
+              placeholder="My project"
+              value={name}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <Label htmlFor="project-root">Folder</Label>
+            <div className="flex gap-2">
+              <Input id="project-root" readOnly value={root} />
+              <Button onClick={() => void chooseRoot()} type="button" variant="outline">
+                Choose…
+              </Button>
+            </div>
+          </div>
+          {error ? <p className="text-sm text-destructive">{error}</p> : null}
+        </div>
+        <DialogFooter>
+          <Button disabled={createProject.isPending} onClick={() => void submit()} type="button">
+            {createProject.isPending ? "Creating…" : "Create project"}
+          </Button>
+          <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
+            Cancel
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

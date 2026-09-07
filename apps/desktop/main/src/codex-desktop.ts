@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto"
 import {
   type CodexAppServerAiSdkSession,
   type CodexAppServerBridge,
@@ -251,6 +252,58 @@ export const listCodexThreads = async (
   }
 }
 
+const toCodexProjectView = (project: v2.Project) => ({
+  createdAt: project.createdAt,
+  id: project.id,
+  name: project.name,
+  position: project.position,
+  recencyAt: project.recencyAt,
+  roots: project.roots.map(({ path }) => path),
+  updatedAt: project.updatedAt,
+})
+
+export const listCodexProjects = async (
+  bridge: CodexAppServerBridge,
+  options: { readonly cursor?: string | null; readonly limit?: number } = {}
+) => {
+  const response = await bridge.request<"project/list", v2.ProjectListResponse>("project/list", {
+    cursor: options.cursor,
+    limit: options.limit ?? 100,
+  })
+  return { data: response.data.map(toCodexProjectView), nextCursor: response.nextCursor }
+}
+
+export const createCodexProject = async (
+  bridge: CodexAppServerBridge,
+  input: { readonly name: string; readonly root: string }
+) => {
+  const response = await bridge.request<"project/create", v2.ProjectCreateResponse>(
+    "project/create",
+    {
+      idempotencyKey: randomUUID(),
+      name: input.name,
+      roots: [{ path: input.root }],
+    }
+  )
+  return toCodexProjectView(response.project)
+}
+
+export const updateCodexProject = async (
+  bridge: CodexAppServerBridge,
+  input: { readonly id: string; readonly name: string }
+) => {
+  const response = await bridge.request<"project/update", v2.ProjectUpdateResponse>(
+    "project/update",
+    { name: input.name, projectId: input.id }
+  )
+  return toCodexProjectView(response.project)
+}
+
+export const deleteCodexProject = async (bridge: CodexAppServerBridge, projectId: string) => {
+  await bridge.request<"project/delete", v2.ProjectDeleteResponse>("project/delete", { projectId })
+  return { deleted: true as const }
+}
+
 const runChat = async (
   bridge: CodexAppServerBridge,
   sender: WebContents,
@@ -272,6 +325,7 @@ const runChat = async (
         threadId = session.threadId
       },
       reasoningEffort: request.reasoningEffort,
+      projectId: request.projectId,
       resumeThreadId: request.resumeThreadId,
       sandboxMode: request.sandboxMode,
       serviceTier: request.serviceTier,

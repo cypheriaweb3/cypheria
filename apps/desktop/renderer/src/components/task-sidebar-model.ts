@@ -1,4 +1,4 @@
-import type { CodexThreadView } from "../../../ipc/src/index.js"
+import type { CodexProjectView, CodexThreadView } from "../../../ipc/src/index.js"
 
 export const SIDEBAR_BATCH_SIZE = 5
 
@@ -6,6 +6,7 @@ export type SidebarSectionId = "pinned" | "projects" | "recents"
 
 export type SidebarProjectGroup = {
   projectId: string
+  projectName: string
   threads: CodexThreadView[]
   updatedAt: number
 }
@@ -13,7 +14,7 @@ export type SidebarProjectGroup = {
 export type TaskSidebarRow =
   | { key: string; kind: "navigation"; navigationId: string }
   | { key: string; kind: "section"; section: SidebarSectionId }
-  | { key: string; kind: "project"; projectId: string }
+  | { key: string; kind: "project"; projectId: string; projectName: string }
   | {
       key: string
       kind: "thread"
@@ -30,12 +31,18 @@ export type TaskSidebarRow =
   | { key: string; kind: "loading"; target: "projects" | "recent" }
   | { key: string; kind: "empty"; section: SidebarSectionId }
 
-export function groupProjectThreads(threads: readonly CodexThreadView[]): SidebarProjectGroup[] {
+export function groupProjectThreads(
+  threads: readonly CodexThreadView[],
+  projects: readonly CodexProjectView[] = []
+): SidebarProjectGroup[] {
   const groups = new Map<string, CodexThreadView[]>()
   for (const thread of threads) {
     if (!thread.projectId) continue
     groups.set(thread.projectId, [...(groups.get(thread.projectId) ?? []), thread])
   }
+
+  const projectNames = new Map(projects.map((project) => [project.id, project.name]))
+  for (const project of projects) groups.set(project.id, groups.get(project.id) ?? [])
 
   return [...groups.entries()]
     .map(([projectId, projectThreads]) => {
@@ -44,6 +51,7 @@ export function groupProjectThreads(threads: readonly CodexThreadView[]): Sideba
       )
       return {
         projectId,
+        projectName: projectNames.get(projectId) ?? projectId,
         threads: sortedThreads,
         updatedAt: sortedThreads[0]?.updatedAt ?? 0,
       }
@@ -112,6 +120,7 @@ export function buildTaskSidebarRows({
         key: `project:${project.projectId}`,
         kind: "project",
         projectId: project.projectId,
+        projectName: project.projectName,
       })
       if (!expandedProjects.has(project.projectId)) continue
 
