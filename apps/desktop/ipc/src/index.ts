@@ -50,9 +50,9 @@ import {
   CodexSkillListRequestSchema,
   type CodexSkillListResult,
   CodexSkillListResultSchema,
+  type CodexThreadListPage,
+  CodexThreadListPageSchema,
   CodexThreadListRequestSchema,
-  type CodexThreadView,
-  CodexThreadViewSchema,
 } from "./codex.js"
 import {
   type ConnectionProxySettings,
@@ -1301,9 +1301,18 @@ export const codexThreadListContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexThreadList,
   namespace: "codex",
   request: CodexThreadListRequestSchema,
-  response: z.array(CodexThreadViewSchema),
+  response: CodexThreadListPageSchema,
   version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ archived?: boolean; searchTerm?: string }, CodexThreadView[]>
+} satisfies IpcContract<
+  {
+    archived?: boolean
+    cursor?: string | null
+    limit?: number
+    searchTerm?: string
+    sectionId?: string | null
+  },
+  CodexThreadListPage
+>
 
 export const codexChatStartContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexChatStart,
@@ -1609,8 +1618,11 @@ export type CypheriaPreloadApi = {
     ) => Promise<{ marketplaceName: string | null; succeeded: true }>
     readonly listThreads: (options?: {
       archived?: boolean
+      cursor?: string | null
+      limit?: number
       searchTerm?: string
-    }) => Promise<CodexThreadView[]>
+      sectionId?: string | null
+    }) => Promise<CodexThreadListPage>
     readonly login: (request: CodexLoginRequest) => Promise<CodexLoginResult>
     readonly logout: () => Promise<{ loggedOut: boolean }>
     readonly onChatEvent: (handler: (event: CodexChatEvent) => void) => () => void

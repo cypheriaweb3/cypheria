@@ -29,7 +29,7 @@ msgid "settings.appearance"
 msgstr "Appearance"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.auditLog"
 msgstr "Audit log"
 
@@ -39,7 +39,7 @@ msgid "settings.language.automatic"
 msgstr "Automatic detection"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.automations"
 msgstr "Automations"
 
@@ -107,12 +107,17 @@ msgid "plugins.detail.loading"
 msgstr "Loading {pluginName} plugin details"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.loadingMore"
+msgstr "Loading more"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.models"
 msgstr "Models"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.networks"
 msgstr "Networks"
 
@@ -133,7 +138,12 @@ msgid "search.noMatches"
 msgstr "No matching tasks."
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.noPinned"
+msgstr "No pinned tasks"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.noProjects"
 msgstr "No projects yet"
 
@@ -143,14 +153,19 @@ msgid "search.noRecent"
 msgstr "No recent tasks yet."
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.noTasks"
 msgstr "No tasks yet"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.pending"
 msgstr "Pending"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.pinned"
+msgstr "Pinned"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -158,7 +173,7 @@ msgid "settings.plugins"
 msgstr "Plugins"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.pluginsAndSkills"
 msgstr "Plugins & skills"
 
@@ -168,15 +183,19 @@ msgid "settings.preferences.title"
 msgstr "Preferences"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.projects"
 msgstr "Projects"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
 #: renderer/src/components/task-search.tsx
 msgid "navigation.recentTasks"
 msgstr "Recent tasks"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.recents"
+msgstr "Recents"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -215,7 +234,12 @@ msgid "settings.title"
 msgstr "Settings"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.showMore"
+msgstr "Show more"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.signingPolicies"
 msgstr "Signing policies"
 
@@ -245,7 +269,7 @@ msgid "menu.view"
 msgstr "View"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.wallets"
 msgstr "Wallets & assets"
 
@@ -255,6 +279,6 @@ msgid "menu.window"
 msgstr "Window"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-msgid "navigation.workbench"
-msgstr "Workbench"
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.workspace"
+msgstr "Workspace navigation"

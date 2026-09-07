@@ -25,22 +25,15 @@ import {
   Archive,
   ArrowLeft,
   ArrowRight,
-  BellDot,
   Bot,
   Boxes,
   Cable,
   ChevronLeft,
   CircleUserRound,
-  FolderGit2,
-  Globe2,
   Palette,
-  ScrollText,
   Search,
   Settings,
-  ShieldCheck,
   SquarePen,
-  WalletCards,
-  Workflow,
 } from "lucide-react"
 import { type ComponentProps, type CSSProperties, type ReactNode, useEffect, useState } from "react"
 import { resolveThemeMode, useAppearanceController, useTheme } from "../appearance.js"
@@ -53,6 +46,7 @@ import {
 } from "./desktop-sidebar"
 import { NewTaskLink } from "./task-navigation"
 import { TaskSearch } from "./task-search"
+import { TaskSidebar } from "./task-sidebar"
 
 const navigationItems = [
   {
@@ -66,45 +60,6 @@ const navigationItems = [
     icon: <Search size={16} strokeWidth={1.9} />,
     kind: "search",
     label: msg({ id: "navigation.search", message: "Search" }),
-  },
-  {
-    href: "/approvals",
-    icon: <BellDot size={16} strokeWidth={1.9} />,
-    kind: "pending",
-    label: msg({ id: "navigation.pending", message: "Pending" }),
-  },
-] as const
-
-const workbenchItems = [
-  {
-    href: "/networks",
-    icon: <Globe2 size={16} strokeWidth={1.9} />,
-    label: msg({ id: "navigation.networks", message: "Networks" }),
-  },
-  {
-    href: "/wallets",
-    icon: <WalletCards size={16} strokeWidth={1.9} />,
-    label: msg({ id: "navigation.wallets", message: "Wallets & assets" }),
-  },
-  {
-    href: "/automations",
-    icon: <Workflow size={16} strokeWidth={1.9} />,
-    label: msg({ id: "navigation.automations", message: "Automations" }),
-  },
-  {
-    href: "/policies",
-    icon: <ShieldCheck size={16} strokeWidth={1.9} />,
-    label: msg({ id: "navigation.signingPolicies", message: "Signing policies" }),
-  },
-  {
-    href: "/audit",
-    icon: <ScrollText size={16} strokeWidth={1.9} />,
-    label: msg({ id: "navigation.auditLog", message: "Audit log" }),
-  },
-  {
-    href: "/plugins",
-    icon: <Boxes size={16} strokeWidth={1.9} />,
-    label: msg({ id: "navigation.pluginsAndSkills", message: "Plugins & skills" }),
   },
 ] as const
 
@@ -205,23 +160,11 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const { i18n: activeI18n } = useLingui()
   const { pathname } = useLocation()
   const isSettings = pathname.startsWith("/settings")
-  const threadsQuery = useQuery({
-    queryFn: () => window.cypheria?.codex.listThreads({}) ?? [],
-    queryKey: ["codex", "threads", ""],
-    refetchInterval: 15_000,
-  })
   const approvalsQuery = useQuery({
     queryFn: () => window.cypheria?.approval.list("pending") ?? [],
     queryKey: ["approval", "pending"],
     refetchInterval: 5_000,
   })
-  const threads = threadsQuery.data ?? []
-  const projectGroups = new Map<string, typeof threads>()
-  for (const thread of threads) {
-    if (!thread.projectId) continue
-    projectGroups.set(thread.projectId, [...(projectGroups.get(thread.projectId) ?? []), thread])
-  }
-  const recentThreads = threads.filter((thread) => !thread.projectId).slice(0, 8)
   const platform = getDesktopPlatform()
   const isWindows = platform === "win32"
   const windowControlRowClassName = cn(
@@ -270,8 +213,8 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
               {isWindows ? <WindowsMenuBar /> : null}
             </SidebarHeader>
 
-            <SidebarContent className="grid min-h-0 content-start gap-4 overflow-auto px-3 pb-3 pt-0.5">
-              <SidebarGroup>
+            <SidebarContent className="min-h-0 overflow-hidden px-3 pb-3 pt-0.5">
+              <SidebarGroup className="shrink-0 px-2 py-0">
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {navigationItems.map((item) => {
@@ -286,11 +229,6 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                                 <NavigationLink item={item}>
                                   {item.icon}
                                   <span>{label}</span>
-                                  {item.href === "/approvals" && approvalsQuery.data?.length ? (
-                                    <span className="ml-auto rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
-                                      {approvalsQuery.data.length}
-                                    </span>
-                                  ) : null}
                                 </NavigationLink>
                               }
                               tooltip={label}
@@ -302,101 +240,7 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
-
-              <SidebarGroup>
-                <SidebarGroupLabel>
-                  <Trans id="navigation.workbench">Workbench</Trans>
-                </SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {workbenchItems.map((item) => {
-                      const label = activeI18n._(item.label)
-                      return (
-                        <SidebarMenuItem key={item.href}>
-                          <SidebarMenuButton
-                            render={
-                              <Link to={item.href}>
-                                {item.icon}
-                                <span>{label}</span>
-                              </Link>
-                            }
-                            tooltip={label}
-                          />
-                        </SidebarMenuItem>
-                      )
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-
-              <SidebarGroup>
-                <SidebarGroupLabel>
-                  <Trans id="navigation.projects">Projects</Trans>
-                </SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {[...projectGroups.entries()].map(([projectId, projectThreads]) => (
-                      <SidebarMenuItem key={projectId}>
-                        <SidebarMenuButton tooltip={projectId}>
-                          <FolderGit2 aria-hidden="true" size={15} strokeWidth={1.9} />
-                          <span className="truncate">{projectId}</span>
-                        </SidebarMenuButton>
-                        <div className="ml-7 grid border-l border-sidebar-border pl-2">
-                          {projectThreads.slice(0, 5).map((thread) => (
-                            <Link
-                              to="/"
-                              search={{ thread: thread.id }}
-                              className="truncate rounded-md px-2 py-1.5 text-sm text-sidebar-foreground no-underline hover:bg-sidebar-accent"
-                              key={thread.id}
-                            >
-                              {thread.title}
-                            </Link>
-                          ))}
-                        </div>
-                      </SidebarMenuItem>
-                    ))}
-                    {projectGroups.size === 0 ? (
-                      <div className="px-2 text-xs text-muted-foreground">
-                        <Trans id="navigation.noProjects">No projects yet</Trans>
-                      </div>
-                    ) : null}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-
-              <SidebarGroup>
-                <SidebarGroupLabel>
-                  <Trans id="navigation.recentTasks">Recent tasks</Trans>
-                </SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    {recentThreads.map((thread) => (
-                      <SidebarMenuItem key={thread.id}>
-                        <SidebarMenuButton
-                          render={
-                            <Link to="/" search={{ thread: thread.id }}>
-                              <span
-                                className={cn(
-                                  "size-1.5 shrink-0 rounded-full bg-muted-foreground/45",
-                                  thread.status === "active" && "animate-pulse bg-primary",
-                                  thread.status === "systemError" && "bg-destructive"
-                                )}
-                              />
-                              <span className="truncate">{thread.title}</span>
-                            </Link>
-                          }
-                          tooltip={thread.title}
-                        />
-                      </SidebarMenuItem>
-                    ))}
-                    {recentThreads.length === 0 ? (
-                      <div className="px-2 text-xs text-muted-foreground">
-                        <Trans id="navigation.noTasks">No tasks yet</Trans>
-                      </div>
-                    ) : null}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
+              <TaskSidebar pendingCount={approvalsQuery.data?.length ?? 0} />
             </SidebarContent>
 
             <SidebarFooter className="grid min-h-[58px] grid-cols-[minmax(0,1fr)_34px] items-center gap-2 px-3 pb-3 pt-2.5">

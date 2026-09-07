@@ -76,10 +76,14 @@ function TaskSearchCommands({ onSelect }: Readonly<{ onSelect: (thread: string) 
 
   const results = useQuery({
     queryKey: ["codex", "threads", "search", searchTerm],
-    queryFn: () => window.cypheria?.codex.listThreads(searchTerm ? { searchTerm } : {}) ?? [],
+    queryFn: () =>
+      window.cypheria?.codex.listThreads({
+        limit: 100,
+        ...(searchTerm ? { searchTerm } : {}),
+      }) ?? { data: [], nextCursor: null },
   })
   const waiting = input.trim() !== searchTerm || results.isPending
-  const threads = results.data ?? []
+  const threads = results.data?.data ?? []
 
   return (
     <Command shouldFilter={false}>

@@ -213,16 +213,37 @@ describe("desktop Codex services", () => {
         nextCursor: null,
       },
     })
-    await expect(listCodexThreads(asBridge(bridge), {})).resolves.toEqual([
-      {
-        cwd: "/work/cypheria",
-        id: "thread-1",
-        modelProvider: "openai",
-        projectId: "project-1",
-        status: "idle",
-        title: "Desktop UI",
-        updatedAt: 42,
+    await expect(
+      listCodexThreads(asBridge(bridge), {
+        cursor: "next-page",
+        limit: 5,
+        sectionId: null,
+      })
+    ).resolves.toEqual({
+      data: [
+        {
+          cwd: "/work/cypheria",
+          id: "thread-1",
+          modelProvider: "openai",
+          projectId: "project-1",
+          sectionId: null,
+          sectionName: null,
+          status: "idle",
+          title: "Desktop UI",
+          updatedAt: 42,
+        },
+      ],
+      nextCursor: null,
+    })
+    expect(bridge.calls.at(-1)).toMatchObject({
+      method: "thread/list",
+      params: {
+        cursor: "next-page",
+        limit: 5,
+        sectionId: null,
+        sortDirection: "desc",
+        sortKey: "updated_at",
       },
-    ])
+    })
   })
 })

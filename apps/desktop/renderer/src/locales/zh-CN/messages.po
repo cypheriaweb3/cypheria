@@ -29,7 +29,7 @@ msgid "settings.appearance"
 msgstr "外观"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.auditLog"
 msgstr "审计日志"
 
@@ -39,7 +39,7 @@ msgid "settings.language.automatic"
 msgstr "自动检测"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.automations"
 msgstr "自动化"
 
@@ -107,12 +107,17 @@ msgid "plugins.detail.loading"
 msgstr "正在加载 {pluginName} 插件详情"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.loadingMore"
+msgstr "正在加载更多"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.models"
 msgstr "模型"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.networks"
 msgstr "网络"
 
@@ -133,7 +138,12 @@ msgid "search.noMatches"
 msgstr "没有匹配的任务。"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.noPinned"
+msgstr "暂无置顶任务"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.noProjects"
 msgstr "暂无项目"
 
@@ -143,14 +153,19 @@ msgid "search.noRecent"
 msgstr "暂无最近任务。"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.noTasks"
 msgstr "暂无任务"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.pending"
 msgstr "待处理"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.pinned"
+msgstr "置顶"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -158,7 +173,7 @@ msgid "settings.plugins"
 msgstr "插件"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.pluginsAndSkills"
 msgstr "插件与技能"
 
@@ -168,15 +183,19 @@ msgid "settings.preferences.title"
 msgstr "偏好设置"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.projects"
 msgstr "项目"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
 #: renderer/src/components/task-search.tsx
 msgid "navigation.recentTasks"
 msgstr "最近任务"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.recents"
+msgstr "最近"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -215,7 +234,12 @@ msgid "settings.title"
 msgstr "设置"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.showMore"
+msgstr "显示更多"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.signingPolicies"
 msgstr "签名策略"
 
@@ -245,7 +269,7 @@ msgid "menu.view"
 msgstr "查看"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.wallets"
 msgstr "钱包与资产"
 
@@ -255,6 +279,6 @@ msgid "menu.window"
 msgstr "窗口"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-msgid "navigation.workbench"
-msgstr "工作台"
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.workspace"
+msgstr "工作区导航"

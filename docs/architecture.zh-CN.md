@@ -164,7 +164,7 @@ Renderer 规则：
 - Renderer 将 preload capabilities 视为唯一 privileged bridge。
 - Renderer 通过 typed `codex.event` IPC channel 接收 Codex lifecycle、stderr、notification 和 server-request summaries。
 
-Desktop 的信息架构以任务为中心。常驻左侧导航首先提供新任务、搜索和待审批，其次提供钱包、自动化、signing policies、audit logs、plugins 与 skills，最后按 project 对 App Server threads 分组，并单列未分组的最近任务。待审批入口会显示尚未决议的 signing approvals 实时数量。任务工作区将 AI Elements conversation 与 composer 放在主区域，提供 model、reasoning、sandbox 和 wallet-context 控件，右侧是 context/files/review/terminal 面板。进入 Settings 后，工作台左侧导航会替换为 Connections、Appearance、Models 和返回工作台入口组成的专用设置导航。所有设置页都由完整的右侧内容面板承载滚动，因此滚动条保持在窗口最右侧。
+Desktop 的信息架构以任务为中心。新任务和搜索固定在常驻左侧导航顶部；待审批、钱包、自动化、signing policies、audit logs、plugins 与 skills 则和可折叠的 Pinned、Projects、Recents 分组共用同一个虚拟滚动区域。Pinned 与一级项目仅在用户明确点击 Show more 后再展示 5 条；展开后的每个项目也以每次 5 个任务的方式渐进展示。Recents 不设置展示数量上限，其末尾加载行进入视口时会获取下一页 App Server cursor。待审批入口会显示尚未决议的 signing approvals 实时数量。任务工作区将 AI Elements conversation 与 composer 放在主区域，提供 model、reasoning、sandbox 和 wallet-context 控件，右侧是 context/files/review/terminal 面板。进入 Settings 后，工作台左侧导航会替换为 Connections、Appearance、Models 和返回工作台入口组成的专用设置导航。所有设置页都由完整的右侧内容面板承载滚动，因此滚动条保持在窗口最右侧。
 
 插件与技能工作台包含两个 discovery provider 和一条 App Server 安装路径。已实现的 Codex provider 通过 typed IPC 投影 `plugin/list` 返回的 marketplace record，用精确名称白名单识别 OpenAI 与 Cypheria 官方 identity，并把其他 marketplace 全部归入 Personal。待实现的 Cypheria provider 读取版本化 `apps/marketplace` API，获得分页发现、review state 与 advisory；Electron main 随后通过 App Server 注册或升级固定的 Cypheria 官方 GitHub repo，并调用 `plugin/read`/`plugin/install`。两者可以复用 renderer component，但不能压平 provenance、trust 与 failure。
 

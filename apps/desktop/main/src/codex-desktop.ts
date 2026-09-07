@@ -218,24 +218,37 @@ export const writeCodexModelSettings = async (
 
 export const listCodexThreads = async (
   bridge: CodexAppServerBridge,
-  options: { readonly archived?: boolean; readonly searchTerm?: string }
-): Promise<CodexThreadView[]> => {
+  options: {
+    readonly archived?: boolean
+    readonly cursor?: string | null
+    readonly limit?: number
+    readonly searchTerm?: string
+    readonly sectionId?: string | null
+  }
+): Promise<{ data: CodexThreadView[]; nextCursor: string | null }> => {
   const response = await bridge.request<"thread/list", v2.ThreadListResponse>("thread/list", {
     archived: options.archived ?? false,
-    limit: 100,
+    cursor: options.cursor,
+    limit: options.limit ?? 100,
     searchTerm: options.searchTerm,
+    ...(Object.hasOwn(options, "sectionId") ? { sectionId: options.sectionId } : {}),
     sortDirection: "desc",
     sortKey: "updated_at",
   })
-  return response.data.map((thread) => ({
-    cwd: thread.cwd,
-    id: thread.id,
-    modelProvider: thread.modelProvider,
-    projectId: thread.projectId,
-    status: thread.status.type,
-    title: thread.name?.trim() || thread.preview.trim() || "Untitled task",
-    updatedAt: thread.updatedAt,
-  }))
+  return {
+    data: response.data.map((thread) => ({
+      cwd: thread.cwd,
+      id: thread.id,
+      modelProvider: thread.modelProvider,
+      projectId: thread.projectId,
+      sectionId: thread.section?.id ?? null,
+      sectionName: thread.section?.name ?? null,
+      status: thread.status.type,
+      title: thread.name?.trim() || thread.preview.trim() || "Untitled task",
+      updatedAt: thread.updatedAt,
+    })),
+    nextCursor: response.nextCursor,
+  }
 }
 
 const runChat = async (

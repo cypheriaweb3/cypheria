@@ -69,6 +69,8 @@ export const CodexThreadViewSchema = z
     id: z.string().min(1),
     modelProvider: z.string(),
     projectId: z.string().nullable(),
+    sectionId: z.string().nullable(),
+    sectionName: z.string().nullable(),
     status: z.enum(["active", "idle", "notLoaded", "systemError"]),
     title: z.string(),
     updatedAt: z.number(),
@@ -76,8 +78,22 @@ export const CodexThreadViewSchema = z
   .strict()
 export type CodexThreadView = z.infer<typeof CodexThreadViewSchema>
 
+export const CodexThreadListPageSchema = z
+  .object({
+    data: z.array(CodexThreadViewSchema),
+    nextCursor: z.string().nullable(),
+  })
+  .strict()
+export type CodexThreadListPage = z.infer<typeof CodexThreadListPageSchema>
+
 export const CodexThreadListRequestSchema = z
-  .object({ archived: z.boolean().optional(), searchTerm: z.string().optional() })
+  .object({
+    archived: z.boolean().optional(),
+    cursor: z.string().nullable().optional(),
+    limit: z.number().int().min(1).max(100).optional(),
+    searchTerm: z.string().optional(),
+    sectionId: z.string().nullable().optional(),
+  })
   .strict()
 
 export const CodexUiMessageSchema = z
