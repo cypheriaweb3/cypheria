@@ -278,7 +278,7 @@ function TaskSession({
         workspacePanelOpen ? "grid-cols-[minmax(520px,1fr)_minmax(320px,32vw)]" : "grid-cols-1"
       )}
     >
-      <main className="grid min-h-0 min-w-0 grid-rows-[var(--chrome-height,44px)_minmax(0,1fr)_auto] border-r border-border max-[1180px]:border-r-0">
+      <main className="grid min-h-0 min-w-0 grid-rows-[var(--chrome-height,44px)_minmax(0,1fr)_auto] overflow-hidden border-r border-border [container-type:inline-size] max-[1180px]:border-r-0">
         <header className="desktop-titlebar flex min-h-[44px] items-center justify-between gap-3 border-b border-border px-4">
           <div className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold">
             <FolderGit2 aria-hidden="true" size={16} />
@@ -324,7 +324,7 @@ function TaskSession({
         </header>
 
         <Conversation className="min-h-0 min-w-0 overflow-x-hidden">
-          <ConversationContent className="mx-auto w-[calc(100%-3rem)] min-w-0 max-w-3xl py-8">
+          <ConversationContent className="mx-auto w-[calc(100cqw-3rem)] min-w-0 max-w-3xl py-8">
             {resumeThreadId && threadQuery.isPending ? (
               <div
                 className="flex min-h-48 items-center justify-center gap-2 text-sm text-muted-foreground"
