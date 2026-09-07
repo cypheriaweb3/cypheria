@@ -4,7 +4,10 @@ import type { CodexChatEvent, CodexChatStart } from "../../ipc/src/index.js"
 export type CodexChatOptions = Omit<CodexChatStart, "chatId" | "messages" | "requestId">
 
 export class CodexIpcChatTransport implements ChatTransport<UIMessage> {
-  constructor(private readonly getOptions: () => CodexChatOptions) {}
+  constructor(
+    private readonly getOptions: () => CodexChatOptions,
+    private readonly onThreadCreated?: (threadId: string) => void
+  ) {}
 
   async sendMessages({
     abortSignal,
@@ -37,6 +40,7 @@ export class CodexIpcChatTransport implements ChatTransport<UIMessage> {
             unsubscribe()
             controller.error(new Error(event.message))
           } else {
+            if (event.threadId) this.onThreadCreated?.(event.threadId)
             close()
           }
         }

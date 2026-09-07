@@ -71,6 +71,7 @@ import {
   FolderGit2,
   Globe2,
   HardDrive,
+  LoaderCircle,
   LockKeyhole,
   PanelRightClose,
   Plus,
@@ -79,7 +80,7 @@ import {
   TerminalSquare,
   WalletCards,
 } from "lucide-react"
-import { type ReactNode, useEffect, useMemo, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import type {
   CodexInteractionEvent,
   CodexInteractionResponse,
@@ -120,6 +121,18 @@ function TaskSession({
   resumeThreadId,
   initialPrompt,
 }: Readonly<{ resumeThreadId?: string; initialPrompt?: string }>) {
+  const navigate = Route.useNavigate()
+  const queryClient = useQueryClient()
+  const hydratedThreadId = useRef<string | null>(null)
+  const threadQuery = useQuery({
+    enabled: Boolean(resumeThreadId),
+    queryFn: () => {
+      const api = window.cypheria?.codex
+      if (!api || !resumeThreadId) throw new Error("Codex thread is unavailable.")
+      return api.readThread(resumeThreadId)
+    },
+    queryKey: ["codex", "thread", resumeThreadId],
+  })
   const modelSettingsQuery = useQuery({
     queryFn: () => window.cypheria?.codex.getModelSettings(),
     queryKey: ["codex", "model-settings"],
@@ -160,19 +173,29 @@ function TaskSession({
   const selectedProject = projects.find((project) => project.id === selectedProjectId)
   const transport = useMemo(
     () =>
-      new CodexIpcChatTransport(() => ({
-        approvalPolicy: "on-request",
-        model: selectedModel.model,
-        cwd: selectedProject?.roots[0],
-        projectId: selectedProject?.id,
-        provider,
-        reasoningEffort: selectedReasoning,
-        resumeThreadId,
-        sandboxMode,
-        serviceTier: settings?.serviceTier ?? undefined,
-      })),
+      new CodexIpcChatTransport(
+        () => ({
+          approvalPolicy: "on-request",
+          cwd: selectedProject?.roots[0],
+          model: selectedModel.model,
+          projectId: selectedProject?.id,
+          provider,
+          reasoningEffort: selectedReasoning,
+          resumeThreadId,
+          sandboxMode,
+          serviceTier: settings?.serviceTier ?? undefined,
+        }),
+        (threadId) => {
+          if (resumeThreadId) return
+          void queryClient.invalidateQueries({ queryKey: ["codex", "threads"] })
+          void queryClient.invalidateQueries({ queryKey: ["codex", "projects"] })
+          void navigate({ replace: true, search: { thread: threadId } })
+        }
+      ),
     [
       provider,
+      navigate,
+      queryClient,
       selectedProject?.id,
       selectedProject?.roots,
       resumeThreadId,
@@ -182,10 +205,17 @@ function TaskSession({
       settings?.serviceTier,
     ]
   )
-  const { error, messages, sendMessage, status, stop } = useChat({
+  const { error, messages, sendMessage, setMessages, status, stop } = useChat({
     id: resumeThreadId ?? "new-task",
     transport,
   })
+
+  useEffect(() => {
+    if (!resumeThreadId || !threadQuery.data || hydratedThreadId.current === resumeThreadId) return
+    hydratedThreadId.current = resumeThreadId
+    setMessages(threadQuery.data.messages as UIMessage[])
+    setSelectedProjectId(threadQuery.data.projectId)
+  }, [resumeThreadId, setMessages, threadQuery.data])
 
   useEffect(
     () => () => {
@@ -226,7 +256,9 @@ function TaskSession({
         <header className="desktop-titlebar flex min-h-[44px] items-center justify-between gap-3 border-b border-border px-4">
           <div className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold">
             <FolderGit2 aria-hidden="true" size={16} />
-            <span className="truncate">{resumeThreadId ? "Task" : "New task"}</span>
+            <span className="truncate">
+              {threadQuery.data?.title ?? (resumeThreadId ? "Task" : "New task")}
+            </span>
             <Badge variant="outline">{status === "ready" ? "Local" : status}</Badge>
           </div>
           <div className="flex items-center gap-1">
@@ -249,7 +281,19 @@ function TaskSession({
 
         <Conversation className="min-h-0">
           <ConversationContent className="mx-auto w-full max-w-3xl px-6 py-8">
-            {messages.length === 0 ? (
+            {resumeThreadId && threadQuery.isPending ? (
+              <div
+                className="flex min-h-48 items-center justify-center gap-2 text-sm text-muted-foreground"
+                role="status"
+              >
+                <LoaderCircle aria-hidden="true" className="animate-spin" size={16} />
+                Loading conversation…
+              </div>
+            ) : threadQuery.error ? (
+              <div className="rounded-lg border border-destructive/35 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                {threadQuery.error.message}
+              </div>
+            ) : messages.length === 0 ? (
               <ConversationEmptyState
                 description="Work across code, wallets, and the web while you stay in control of permissions."
                 icon={<Sparkles className="size-6" />}

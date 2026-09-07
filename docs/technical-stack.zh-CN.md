@@ -211,7 +211,7 @@ UI 策略是复用成熟 primitives，只为 Cypheria-specific workflows 构建�
 
 完整的 AI Elements registry 源码位于 `packages/ui/src/components/ai-elements`，并通过 `@cypheria/ui/ai-elements/<name>` 导出。重新生成步骤以及 Base UI、NodeNext、严格 TypeScript、React 19 和 AI SDK 7 所需的兼容性修改，参见 [AI Elements 集成与升级指南](./ai-elements.zh-CN.md)。
 
-Desktop renderer 使用 `@ai-sdk/react` 管理 chat state，并通过基于 typed Electron IPC 的自定义 `ChatTransport` 通信。Electron main 使用 `@cypheria/codex-bridge` 的 `ProviderV4` adapter，将 App Server 输出转换为 AI SDK UI-message chunks。App Server reverse request 使用独立的 typed interaction IPC channel，因此 approval 与 elicitation 不会编码为 model message。较重的交互式 route shells 仅在客户端加载，因为 Electron 通过 `cypheria://` 发布 SPA 输出，运行时不会执行 TanStack Start server bundle。
+Desktop renderer 使用 `@ai-sdk/react` 管理 chat state，并通过基于 typed Electron IPC 的自定义 `ChatTransport` 通信。Electron main 使用 `@cypheria/codex-bridge` 的 `ProviderV4` adapter，将 App Server 输出转换为 AI SDK UI-message chunks。Transport 会报告新建的 thread ID，让 renderer 用持久任务 route 替换 new-task route。重新打开任务时会读取 metadata 与按升序分页的 `thread/items/list`，并把已存的 user、assistant、reasoning、tool、generated-file 和 Codex-specific item 重新映射为 AI SDK `UIMessage` parts。App Server reverse request 使用独立的 typed interaction IPC channel，因此 approval 与 elicitation 不会编码为 model message。较重的交互式 route shells 仅在客户端加载，因为 Electron 通过 `cypheria://` 发布 SPA 输出，运行时不会执行 TanStack Start server bundle。
 
 | Category | Choice |
 | --- | --- |

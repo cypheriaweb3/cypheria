@@ -62,9 +62,12 @@ import {
   CodexSkillListRequestSchema,
   type CodexSkillListResult,
   CodexSkillListResultSchema,
+  type CodexThreadDetailView,
+  CodexThreadDetailViewSchema,
   type CodexThreadListPage,
   CodexThreadListPageSchema,
   CodexThreadListRequestSchema,
+  CodexThreadReadRequestSchema,
 } from "./codex.js"
 import {
   type ConnectionProxySettings,
@@ -208,6 +211,7 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexSkillEnabledWrite: "codex.skill.enabled.write",
   codexSkillList: "codex.skill.list",
   codexThreadList: "codex.thread.list",
+  codexThreadRead: "codex.thread.read",
   harnessCheckUpdate: "harness.check-update",
   harnessEnabledWrite: "harness.enabled.write",
   harnessEvent: "harness.event",
@@ -1333,6 +1337,14 @@ export const codexThreadListContract = {
   CodexThreadListPage
 >
 
+export const codexThreadReadContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexThreadRead,
+  namespace: "codex",
+  request: CodexThreadReadRequestSchema,
+  response: CodexThreadDetailViewSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ threadId: string }, CodexThreadDetailView>
+
 export const codexProjectListContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexProjectList,
   namespace: "codex",
@@ -1583,6 +1595,7 @@ export const ipcContracts = {
   codexSkillEnabledWrite: codexSkillEnabledWriteContract,
   codexSkillList: codexSkillListContract,
   codexThreadList: codexThreadListContract,
+  codexThreadRead: codexThreadReadContract,
   dappProviderRequest: dappProviderRequestContract,
   harnessCheckUpdate: harnessCheckUpdateContract,
   harnessEnabledWrite: harnessEnabledWriteContract,
@@ -1703,6 +1716,7 @@ export type CypheriaPreloadApi = {
       searchTerm?: string
       sectionId?: string | null
     }) => Promise<CodexThreadListPage>
+    readonly readThread: (threadId: string) => Promise<CodexThreadDetailView>
     readonly login: (request: CodexLoginRequest) => Promise<CodexLoginResult>
     readonly logout: () => Promise<{ loggedOut: boolean }>
     readonly onChatEvent: (handler: (event: CodexChatEvent) => void) => () => void

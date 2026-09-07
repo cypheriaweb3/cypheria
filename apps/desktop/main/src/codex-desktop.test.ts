@@ -6,8 +6,10 @@ import {
   listCodexModels,
   listCodexProjects,
   listCodexThreads,
+  mapCodexThreadItemsToUiMessages,
   readCodexAccount,
   readCodexModelSettings,
+  readCodexThread,
   startCodexLogin,
   updateCodexProject,
   validateOpenAiApiKey,
@@ -285,6 +287,63 @@ describe("desktop Codex services", () => {
     expect(bridge.calls.find((call) => call.method === "project/create")?.params).toMatchObject({
       name: "Cypheria",
       roots: [{ path: "/work/cypheria" }],
+    })
+  })
+
+  it("hydrates stored thread items as AI SDK UI messages", async () => {
+    const thread = {
+      cwd: "/work/cypheria",
+      id: "thread-1",
+      name: "History",
+      preview: "",
+      projectId: "project-1",
+    }
+    const entries = [
+      {
+        item: {
+          clientId: null,
+          content: [{ text: "Hello", text_elements: [], type: "text" as const }],
+          id: "user-1",
+          type: "userMessage" as const,
+        },
+        turnId: "turn-1",
+      },
+      {
+        item: {
+          delivery: null,
+          id: "assistant-1",
+          memoryCitation: null,
+          phase: null,
+          questions: null,
+          text: "Hi",
+          type: "agentMessage" as const,
+        },
+        turnId: "turn-1",
+      },
+    ]
+    const bridge = new FakeBridge({
+      "thread/items/list": { backwardsCursor: null, data: entries, nextCursor: null },
+      "thread/read": { thread },
+    })
+
+    expect(mapCodexThreadItemsToUiMessages(entries)).toEqual([
+      { id: "user-1", parts: [{ text: "Hello", type: "text" }], role: "user" },
+      {
+        id: "turn-turn-1",
+        metadata: "turn-1",
+        parts: [{ text: "Hi", type: "text" }],
+        role: "assistant",
+      },
+    ])
+    await expect(readCodexThread(asBridge(bridge), "thread-1")).resolves.toMatchObject({
+      id: "thread-1",
+      messages: expect.arrayContaining([expect.objectContaining({ id: "user-1" })]),
+      projectId: "project-1",
+      title: "History",
+    })
+    expect(bridge.calls).toContainEqual({
+      method: "thread/items/list",
+      params: { cursor: undefined, limit: 100, sortDirection: "asc", threadId: "thread-1" },
     })
   })
 })

@@ -143,6 +143,19 @@ export const CodexUiMessageSchema = z
   })
   .loose()
 
+export const CodexThreadDetailViewSchema = z
+  .object({
+    cwd: z.string(),
+    id: z.string().min(1),
+    messages: z.array(CodexUiMessageSchema),
+    projectId: z.string().nullable(),
+    title: z.string(),
+  })
+  .strict()
+export type CodexThreadDetailView = z.infer<typeof CodexThreadDetailViewSchema>
+
+export const CodexThreadReadRequestSchema = z.object({ threadId: z.string().min(1) }).strict()
+
 export const CodexChatStartSchema = z
   .object({
     approvalPolicy: z.enum(["untrusted", "on-request", "never"]).default("on-request"),

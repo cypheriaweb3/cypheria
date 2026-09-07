@@ -138,6 +138,8 @@ const cypheriaApi: CypheriaPreloadApi = {
     listSkills: (options = {}) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexSkillList, options),
     listThreads: (options = {}) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadList, options),
+    readThread: (threadId) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadRead, { threadId }),
     login: (request) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAccountLoginStart, request),
     logout: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAccountLogout),
     onChatEvent: (handler) => {

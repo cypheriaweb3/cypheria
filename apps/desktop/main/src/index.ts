@@ -74,6 +74,7 @@ import {
   codexSkillEnabledWriteContract,
   codexSkillListContract,
   codexThreadListContract,
+  codexThreadReadContract,
   dappProviderRequestContract,
   harnessCheckUpdateContract,
   harnessEnabledWriteContract,
@@ -139,6 +140,7 @@ import {
   logoutCodexAccount,
   readCodexAccount,
   readCodexModelSettings,
+  readCodexThread,
   startCodexChat,
   startCodexLogin,
   updateCodexProject,
@@ -499,6 +501,9 @@ const registerIpcHandlers = (context: DesktopRuntimeContext, harnesses: HarnessM
     writeCodexModelSettings(codexBridge(), settings)
   )
   registerIpcRoute(codexThreadListContract, (options) => listCodexThreads(codexBridge(), options))
+  registerIpcRoute(codexThreadReadContract, ({ threadId }) =>
+    readCodexThread(codexBridge(), threadId)
+  )
   registerIpcRoute(codexProjectListContract, (options) => listCodexProjects(codexBridge(), options))
   registerIpcRoute(codexProjectCreateContract, (input) => createCodexProject(codexBridge(), input))
   registerIpcRoute(codexProjectUpdateContract, (input) => updateCodexProject(codexBridge(), input))
