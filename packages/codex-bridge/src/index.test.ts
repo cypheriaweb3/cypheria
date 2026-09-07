@@ -227,6 +227,77 @@ describe("Codex app-server bridge", () => {
     })
   })
 
+  it("fails closed when a server request has no registered handler", async () => {
+    const bridge = createCodexAppServerBridge({
+      WebSocketImpl: FakeWebSocket,
+      clientInfo: { name: "cypheria", title: "Cypheria", version: "0.0.0" },
+      url: "ws://127.0.0.1:1234",
+    })
+    const connectPromise = bridge.connect()
+    const socket = nextSocket()
+    socket.open()
+    await waitForMicrotask()
+    socket.serverSend({
+      id: "cypheria_1",
+      result: { codexHome: "/tmp", platformFamily: "unix", platformOs: "macos", userAgent: "x" },
+    })
+    await connectPromise
+
+    socket.serverSend({
+      id: "server_unhandled",
+      method: "item/fileChange/requestApproval",
+      params: {
+        changes: {},
+        itemId: "item-1",
+        reason: null,
+        threadId: "thread-1",
+        turnId: "turn-1",
+      },
+    })
+    await waitForMicrotask()
+
+    expect(socket.sent.map((line) => JSON.parse(line)).at(-1)).toEqual({
+      error: {
+        code: -32601,
+        message:
+          "No handler registered for Codex app-server request: item/fileChange/requestApproval",
+      },
+      id: "server_unhandled",
+    })
+  })
+
+  it("returns a JSON-RPC error when a server request handler fails", async () => {
+    const bridge = createCodexAppServerBridge({
+      WebSocketImpl: FakeWebSocket,
+      clientInfo: { name: "cypheria", title: "Cypheria", version: "0.0.0" },
+      url: "ws://127.0.0.1:1234",
+    })
+    bridge.onServerRequest("item/tool/requestUserInput", () => {
+      throw new Error("interaction canceled")
+    })
+    const connectPromise = bridge.connect()
+    const socket = nextSocket()
+    socket.open()
+    await waitForMicrotask()
+    socket.serverSend({
+      id: "cypheria_1",
+      result: { codexHome: "/tmp", platformFamily: "unix", platformOs: "macos", userAgent: "x" },
+    })
+    await connectPromise
+
+    socket.serverSend({
+      id: "server_failed",
+      method: "item/tool/requestUserInput",
+      params: { itemId: "item-1", questions: [], threadId: "thread-1", turnId: "turn-1" },
+    })
+    await waitForMicrotask()
+
+    expect(socket.sent.map((line) => JSON.parse(line)).at(-1)).toEqual({
+      error: { code: -32603, message: "interaction canceled" },
+      id: "server_failed",
+    })
+  })
+
   it("rejects pending requests when the socket closes", async () => {
     const bridge = createCodexAppServerBridge({
       WebSocketImpl: FakeWebSocket,

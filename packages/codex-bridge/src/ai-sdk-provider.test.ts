@@ -21,13 +21,16 @@ class FakeBridge implements CodexAppServerProviderBridge {
 
     if (method === "thread/start") {
       return {
+        activePermissionProfile: null,
         approvalPolicy: "on-request",
         approvalsReviewer: "user",
         cwd: "/tmp",
         instructionSources: [],
         model: "gpt-5.2-codex",
         modelProvider: "openai",
+        multiAgentMode: "explicitRequestOnly",
         reasoningEffort: "medium",
+        runtimeWorkspaceRoots: [],
         sandbox: { type: "dangerFullAccess" },
         serviceTier: null,
         thread: thread("thread-1"),
@@ -36,14 +39,18 @@ class FakeBridge implements CodexAppServerProviderBridge {
 
     if (method === "thread/resume") {
       return {
+        activePermissionProfile: null,
         approvalPolicy: "on-request",
         approvalsReviewer: "user",
         cwd: "/tmp",
         instructionSources: [],
         itemsBackwardsCursor: null,
+        initialTurnsPage: null,
         model: "gpt-5.2-codex",
         modelProvider: "openai",
+        multiAgentMode: "explicitRequestOnly",
         reasoningEffort: "medium",
+        runtimeWorkspaceRoots: [],
         sandbox: { type: "dangerFullAccess" },
         serviceTier: null,
         thread: thread("thread-resumed"),
@@ -86,10 +93,12 @@ class FakeBridge implements CodexAppServerProviderBridge {
 const thread = (id: string): v2.Thread => ({
   agentNickname: null,
   agentRole: null,
+  canAcceptDirectInput: true,
   cliVersion: "test",
   createdAt: 0,
   cwd: "/tmp",
   ephemeral: false,
+  extra: null,
   forkedFromId: null,
   gitInfo: null,
   historyMode: "legacy",

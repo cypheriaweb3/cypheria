@@ -92,6 +92,7 @@ export type CodexAppServerInboundMessage =
 export type CodexAppServerOutboundMessage =
   | ClientNotification
   | ClientRequest
+  | CodexAppServerError
   | CodexAppServerSuccess
 
 export type CodexAppServerRequestOptions = {
@@ -569,8 +570,29 @@ export class CodexAppServerBridge {
   async #handleServerRequest(request: ServerRequest): Promise<void> {
     this.#emit("server-request", request)
     const handler = this.#serverRequestHandlers.get(request.method)
-    const result = handler ? await handler(request) : {}
-    this.#send({ id: request.id, result })
+    if (!handler) {
+      this.#send({
+        error: {
+          code: -32601,
+          message: `No handler registered for Codex app-server request: ${request.method}`,
+        },
+        id: request.id,
+      })
+      return
+    }
+
+    try {
+      const result = await handler(request)
+      this.#send({ id: request.id, result })
+    } catch (error) {
+      this.#send({
+        error: {
+          code: -32603,
+          message: error instanceof Error ? error.message : String(error),
+        },
+        id: request.id,
+      })
+    }
   }
 
   #send(message: CodexAppServerOutboundMessage): void {

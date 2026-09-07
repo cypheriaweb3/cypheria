@@ -147,6 +147,11 @@
 
 ## Desktop Codex App Server Bridge
 
+- [ ] 完成 Codex App Server capability 与 interaction bridge。
+  - 验收：AI SDK V4 provider 保留所有可兼容的 text、reasoning、media、source、tool、usage、metadata、error 与 control surface；启用 experimental App Server API；application-level thread、review、account、plugin、skill、MCP、terminal 与 configuration operation 继续使用直接 typed bridge service；反向 JSON-RPC request 使用 fail-closed desktop interaction broker、typed IPC 和可审计的用户决策。
+  - 包含：token usage、audio、generated file、web source、progress result、resume inheritance、stream failure handling、dynamic tool、approval、user input、MCP elicitation，以及成对的中英文 architecture 文档。
+  - 验证：bridge 与 desktop protocol tests、interaction 与 renderer-boundary tests、`pnpm run ci` 和 `pnpm build`。
+
 - [x] 使用 Lingui 添加桌面端国际化基础设施。
   - 验收标准：Electron 能解析自动检测，并将显式选择作为 `[desktop].localeOverride` 持久化到受管 Codex `config.toml`；renderer 以确定性的 source locale hydrate 预渲染 shell，随后激活对应 Lingui catalog，可无刷新响应式切换，并同步 `lang`/`dir`；桌面壳与语言设置完成本地化。
   - 包含：常规设置页中囊括参考截图全部语言的 Codex 风格可搜索选择器、未内置 catalog 的选择回退英语、类型化 bootstrap 与设置 IPC、locale/TOML 保留测试、提交到仓库的 PO catalog、抽取/编译脚本，以及成对的架构/技术栈文档。

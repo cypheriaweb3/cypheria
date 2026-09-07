@@ -351,6 +351,7 @@ export const startCodexAppServer = async (
     bridge = await connectBridgeWhenReady(
       bridgeFactory,
       {
+        capabilities: { experimentalApi: true, requestAttestation: false },
         clientInfo: { name: "cypheria", title: "Cypheria", version: options.clientVersion },
         url: listenUrl,
       },

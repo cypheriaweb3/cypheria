@@ -147,6 +147,11 @@ Status legend:
 
 ## Desktop Codex App Server Bridge
 
+- [ ] Complete the Codex App Server capability and interaction bridge.
+  - Acceptance: the AI SDK V4 provider preserves every compatible text, reasoning, media, source, tool, usage, metadata, error, and control surface; experimental App Server APIs are enabled; application-level thread, review, account, plugin, skill, MCP, terminal, and configuration operations remain direct typed bridge services; reverse JSON-RPC requests use a fail-closed desktop interaction broker with typed IPC and auditable user decisions.
+  - Include: token usage, audio, generated files, web sources, progress results, resume inheritance, stream failure handling, dynamic tools, approvals, user input, MCP elicitation, and paired English/Chinese architecture documentation.
+  - Verification: bridge and desktop protocol tests, interaction and renderer-boundary tests, `pnpm run ci`, and `pnpm build`.
+
 - [x] Add the desktop internationalization foundation with Lingui.
   - Acceptance: Electron resolves automatic detection and persists explicit choices as `[desktop].localeOverride` in the managed Codex `config.toml`; the renderer hydrates the prerendered shell deterministically, then activates the matching Lingui catalog, switches reactively without a reload, and synchronizes `lang`/`dir`; the desktop shell and language setting are localized.
   - Include: a searchable Codex-style picker in General settings containing every reference language, English fallback for selections without a bundled catalog, typed bootstrap and settings IPC, locale/TOML preservation tests, committed PO catalogs, extraction/compile scripts, and paired architecture/technical-stack documentation.
