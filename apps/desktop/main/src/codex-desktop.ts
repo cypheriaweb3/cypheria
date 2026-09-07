@@ -256,7 +256,8 @@ const runChat = async (
   sender: WebContents,
   requestId: string,
   request: CodexChatStart,
-  activeChat: ActiveChat
+  activeChat: ActiveChat,
+  dynamicTools?: readonly v2.DynamicToolSpec[]
 ): Promise<void> => {
   let threadId: string | undefined = request.resumeThreadId
   try {
@@ -264,6 +265,7 @@ const runChat = async (
       approvalPolicy: request.approvalPolicy,
       bridge,
       cwd: request.cwd,
+      dynamicTools,
       modelProvider: request.provider,
       onSessionCreated: (session) => {
         activeChat.session = session
@@ -301,12 +303,13 @@ const runChat = async (
 export const startCodexChat = (
   bridge: CodexAppServerBridge,
   sender: WebContents,
-  request: CodexChatStart
+  request: CodexChatStart,
+  dynamicTools?: readonly v2.DynamicToolSpec[]
 ): string => {
   const requestId = request.requestId
   const activeChat: ActiveChat = { abortController: new AbortController() }
   activeChats.set(requestId, activeChat)
-  void runChat(bridge, sender, requestId, request, activeChat)
+  void runChat(bridge, sender, requestId, request, activeChat, dynamicTools)
   return requestId
 }
 

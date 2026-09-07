@@ -25,6 +25,11 @@ export {
 } from "./ai-sdk-provider.js"
 export type * from "./generated/index.js"
 export { CODEX_APP_SERVER_VERSION } from "./version.js"
+export {
+  createCodexDynamicToolRegistry,
+  type CodexDynamicToolHandler,
+  type CodexDynamicToolRegistry,
+} from "./dynamic-tools.js"
 
 export type CodexJsonValue =
   | boolean
@@ -460,6 +465,10 @@ export class CodexAppServerBridge {
     return () => {
       listeners.delete(handler as (event: unknown) => void)
     }
+  }
+
+  onError(handler: (error: CodexTransportError) => void): () => void {
+    return this.on("error", handler)
   }
 
   onServerRequest<M extends ServerRequest["method"]>(

@@ -6,9 +6,11 @@ import {
   CODEX_APP_SERVER_VERSION,
   type CodexAppServerBridge,
   type CodexAppServerBridgeOptions,
+  type CodexDynamicToolRegistry,
   type CodexJsonValue,
   type CodexLifecycleState,
   createCodexAppServerBridge,
+  createCodexDynamicToolRegistry,
   type ServerNotification,
   type ServerRequest,
 } from "@cypheria/codex-bridge"
@@ -31,6 +33,7 @@ export type CodexAppServerState = "ready" | "starting" | "stopped" | "stopping"
 export type CodexAppServerContext = {
   readonly bridge: CodexAppServerBridge
   readonly child: ChildProcessWithoutNullStreams
+  readonly dynamicTools: CodexDynamicToolRegistry
   readonly interactions: CodexInteractionBroker
   readonly listenUrl: string
   readonly port: number
@@ -381,10 +384,12 @@ export const startCodexAppServer = async (
       }
     },
   })
+  const dynamicTools = createCodexDynamicToolRegistry(bridge)
 
   return {
     bridge,
     child,
+    dynamicTools,
     interactions,
     listenUrl,
     port,
@@ -393,6 +398,7 @@ export const startCodexAppServer = async (
 }
 
 export const shutdownCodexAppServer = async (context: CodexAppServerContext): Promise<void> => {
+  context.dynamicTools.close()
   context.interactions.close()
   await context.bridge.close()
   await terminateCodexChild(context.child)

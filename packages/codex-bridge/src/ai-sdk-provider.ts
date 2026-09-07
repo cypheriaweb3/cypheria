@@ -35,6 +35,7 @@ export type CodexAppServerProviderBridge = {
     options?: { readonly retryOnOverload?: boolean }
   ): Promise<TResponse>
   on(type: "notification", handler: (event: ServerNotification) => void): () => void
+  onError?: (handler: (error: unknown) => void) => () => void
 }
 
 export type CodexAppServerThreadMode = "persistent" | "stateless"
@@ -48,6 +49,7 @@ export type CodexAppServerProviderSettings = {
   readonly config?: Record<string, AppServerJsonValue>
   readonly cwd?: string
   readonly developerInstructions?: string
+  readonly dynamicTools?: readonly v2.DynamicToolSpec[]
   readonly modelProvider?: string
   readonly onSessionCreated?: (session: CodexAppServerAiSdkSession) => void
   readonly reasoningEffort?: ReasoningEffort
@@ -98,6 +100,29 @@ const emptyUsage = (): LanguageModelV4Usage => ({
     total: undefined,
   },
 })
+
+const usageFromTokenBreakdown = (
+  usage: v2.TokenUsageBreakdown | undefined
+): LanguageModelV4Usage => {
+  if (!usage) return emptyUsage()
+  return {
+    inputTokens: {
+      cacheRead: usage.cachedInputTokens,
+      cacheWrite: usage.cacheWriteInputTokens,
+      noCache: Math.max(
+        0,
+        usage.inputTokens - usage.cachedInputTokens - usage.cacheWriteInputTokens
+      ),
+      total: usage.inputTokens,
+    },
+    outputTokens: {
+      reasoning: usage.reasoningOutputTokens,
+      text: Math.max(0, usage.outputTokens - usage.reasoningOutputTokens),
+      total: usage.outputTokens,
+    },
+    raw: usage,
+  }
+}
 
 const finishReasonFromStatus = (
   status: v2.TurnStatus,
@@ -190,8 +215,17 @@ const unsupportedWarnings = (options: LanguageModelV4CallOptions): SharedV4Warni
   add(options.frequencyPenalty, "frequencyPenalty")
   add(options.stopSequences?.length ? options.stopSequences : undefined, "stopSequences")
   add(options.seed, "seed")
+  add(options.headers, "headers")
   add(options.tools?.length ? options.tools : undefined, "tools")
   add(options.toolChoice, "toolChoice")
+  add(
+    options.responseFormat?.type === "json" ? options.responseFormat.name : undefined,
+    "responseFormat.name"
+  )
+  add(
+    options.responseFormat?.type === "json" ? options.responseFormat.description : undefined,
+    "responseFormat.description"
+  )
   return warnings
 }
 
@@ -215,6 +249,10 @@ const isImageMediaType = (mediaType: string | undefined): boolean =>
   typeof mediaType === "string" &&
   (mediaType.toLowerCase() === "image" || mediaType.toLowerCase().startsWith("image/"))
 
+const isAudioMediaType = (mediaType: string | undefined): boolean =>
+  typeof mediaType === "string" &&
+  (mediaType.toLowerCase() === "audio" || mediaType.toLowerCase().startsWith("audio/"))
+
 const fileUrlToPath = (url: URL): string => {
   const path = decodeURIComponent(url.pathname)
   return url.hostname ? `//${url.hostname}${path}` : path
@@ -237,7 +275,12 @@ const toImageInput = (
     if (data.url.protocol === "file:") {
       return { path: fileUrlToPath(data.url), type: "localImage" }
     }
-    return { type: "image", url: data.url.href }
+    warnings.push({
+      details: "Codex image inputs accept data URLs or local files, not remote URLs.",
+      feature: "file.data.url",
+      type: "unsupported",
+    })
+    return undefined
   }
   if (data.type !== "data") {
     warnings.push({
@@ -260,6 +303,69 @@ const toImageInput = (
       ? data.data
       : btoa(Array.from(data.data, (byte) => String.fromCharCode(byte)).join(""))
   return { type: "image", url: `data:${part.mediaType};base64,${base64}` }
+}
+
+const supportedAudioMediaTypes = new Set([
+  "audio/m4a",
+  "audio/mp3",
+  "audio/mpeg",
+  "audio/ogg",
+  "audio/mp4",
+  "audio/wave",
+  "audio/wav",
+  "audio/webm",
+])
+
+const toAudioInput = (
+  part: LanguageModelV4FilePart,
+  warnings: SharedV4Warning[]
+): v2.UserInput | undefined => {
+  const data = part.data
+  if (data.type === "url") {
+    if (data.url.protocol === "file:") {
+      return { path: fileUrlToPath(data.url), type: "localAudio" }
+    }
+    warnings.push({
+      details: "Codex audio inputs accept data URLs or local files, not remote URLs.",
+      feature: "file.data.url",
+      type: "unsupported",
+    })
+    return undefined
+  }
+  if (data.type !== "data") {
+    warnings.push({
+      details: "Codex audio inputs require inline bytes or a local file.",
+      feature: `file.data.${data.type}`,
+      type: "unsupported",
+    })
+    return undefined
+  }
+  const mediaType = part.mediaType.toLowerCase()
+  if (!supportedAudioMediaTypes.has(mediaType)) {
+    warnings.push({
+      message: `Unsupported audio mediaType "${part.mediaType}".`,
+      type: "other",
+    })
+    return undefined
+  }
+  const base64 =
+    typeof data.data === "string"
+      ? data.data
+      : btoa(Array.from(data.data, (byte) => String.fromCharCode(byte)).join(""))
+  return { type: "audio", url: `data:${mediaType};base64,${base64}` }
+}
+
+const toUserInput = (
+  part: LanguageModelV4FilePart,
+  warnings: SharedV4Warning[]
+): v2.UserInput | undefined => {
+  if (isImageMediaType(part.mediaType)) return toImageInput(part, warnings)
+  if (isAudioMediaType(part.mediaType)) return toAudioInput(part, warnings)
+  warnings.push({
+    message: `Unsupported file mediaType "${part.mediaType}"; image/* and supported audio/* are accepted.`,
+    type: "other",
+  })
+  return undefined
 }
 
 const formatToolResultOutput = (
@@ -355,7 +461,10 @@ const transcriptFromMessages = (
           textParts.push(part.text)
         } else if (part.type === "file" && part.data.type === "text") {
           textParts.push(part.data.text)
-        } else if (part.type === "file" && isImageMediaType(part.mediaType)) {
+        } else if (
+          part.type === "file" &&
+          (isImageMediaType(part.mediaType) || isAudioMediaType(part.mediaType))
+        ) {
           messageImages.push(part)
         } else if (part.type === "file") {
           warnings.push({
@@ -367,7 +476,9 @@ const transcriptFromMessages = (
       if (messageImages.length) {
         images = messageImages
       }
-      const imageNote = messageImages.length ? `[${messageImages.length} image(s) attached]` : ""
+      const imageNote = messageImages.length
+        ? `[${messageImages.length} media file(s) attached]`
+        : ""
       const text = [...textParts, imageNote].filter(Boolean).join("\n")
       if (text) {
         lines.push(`User: ${text}`)
@@ -441,7 +552,7 @@ const convertPrompt = (
       input.push({ text: transcript.text, text_elements: [], type: "text" })
     }
     for (const image of transcript.images) {
-      const imageInput = toImageInput(image, warnings)
+      const imageInput = toUserInput(image, warnings)
       if (imageInput) {
         input.push(imageInput)
       }
@@ -459,7 +570,7 @@ const convertPrompt = (
       } else if (part.data.type === "text") {
         input.push({ text: part.data.text, text_elements: [], type: "text" })
       } else {
-        const imageInput = toImageInput(part, warnings)
+        const imageInput = toUserInput(part, warnings)
         if (imageInput) {
           input.push(imageInput)
         }
@@ -485,7 +596,8 @@ const normalizeSandboxMode = (mode?: CodexAppServerSandboxMode): v2.SandboxMode 
   return mode ?? "workspace-write"
 }
 
-const sandboxPolicyFromMode = (mode?: CodexAppServerSandboxMode): v2.SandboxPolicy => {
+const sandboxPolicyFromMode = (mode?: CodexAppServerSandboxMode): v2.SandboxPolicy | undefined => {
+  if (!mode) return undefined
   switch (normalizeSandboxMode(mode)) {
     case "danger-full-access":
       return { type: "dangerFullAccess" }
@@ -502,11 +614,17 @@ const sandboxPolicyFromMode = (mode?: CodexAppServerSandboxMode): v2.SandboxPoli
   }
 }
 
-const threadMetadata = (threadId: string, turnId?: string) => ({
+const threadMetadata = (threadId: string, turnId?: string, usage?: v2.ThreadTokenUsage) => ({
   [providerId]: {
     sessionId: threadId,
     threadId,
     ...(turnId ? { turnId } : {}),
+    ...(usage
+      ? {
+          modelContextWindow: usage.modelContextWindow,
+          totalUsage: usage.total,
+        }
+      : {}),
   },
 })
 
@@ -527,6 +645,13 @@ const resolveToolName = (
       }
     case "webSearch":
       return { dynamic: true, toolName: "webSearch" }
+    case "collabAgentToolCall":
+      return { dynamic: true, toolName: `collaboration.${item.tool}` }
+    case "functionCallOutput":
+      return {
+        dynamic: true,
+        toolName: item.namespace ? `${item.namespace}.${item.name}` : item.name,
+      }
     default:
       return { dynamic: false, toolName: item.type }
   }
@@ -543,6 +668,15 @@ const itemInput = (item: v2.ThreadItem): string => {
       return safeJsonStringify(item.arguments)
     case "webSearch":
       return JSON.stringify({ query: item.query })
+    case "collabAgentToolCall":
+      return JSON.stringify({
+        model: item.model,
+        prompt: item.prompt,
+        reasoningEffort: item.reasoningEffort,
+        receiverThreadIds: item.receiverThreadIds,
+      })
+    case "functionCallOutput":
+      return "{}"
     default:
       return "{}"
   }
@@ -580,7 +714,14 @@ const itemResult = (
         },
       }
     case "webSearch":
-      return { result: { action: item.action, query: item.query } }
+      return { result: { action: item.action, query: item.query, results: item.results } }
+    case "collabAgentToolCall":
+      return {
+        isError: item.status === "failed",
+        result: { agentsStates: item.agentsStates, status: item.status },
+      }
+    case "functionCallOutput":
+      return { result: toAiSdkJsonValue(item.output) }
     default:
       return { result: toAiSdkJsonValue(item) }
   }
@@ -591,7 +732,61 @@ const isToolItem = (item: v2.ThreadItem): boolean =>
   item.type === "fileChange" ||
   item.type === "mcpToolCall" ||
   item.type === "dynamicToolCall" ||
-  item.type === "webSearch"
+  item.type === "webSearch" ||
+  item.type === "collabAgentToolCall" ||
+  item.type === "functionCallOutput"
+
+const customContentFromItem = (
+  item: v2.ThreadItem
+): Extract<LanguageModelV4Content, { type: "custom" }> => ({
+  kind: `cypheria.codex-${item.type}`,
+  providerMetadata: { [providerId]: { item: toAiSdkJsonValue(item) } },
+  type: "custom",
+})
+
+const sourcesFromWebSearch = (item: Extract<v2.ThreadItem, { type: "webSearch" }>) => {
+  const candidates: unknown[] = [...(item.results ?? [])]
+  if (item.action?.type === "openPage" && item.action.url) {
+    candidates.push({ url: item.action.url })
+  }
+  const seen = new Set<string>()
+  return candidates.flatMap(
+    (candidate, index): Array<Extract<LanguageModelV4Content, { type: "source" }>> => {
+      if (!isObject(candidate) || typeof candidate.url !== "string" || seen.has(candidate.url)) {
+        return []
+      }
+      seen.add(candidate.url)
+      return [
+        {
+          id: `${item.id}-source-${index}`,
+          sourceType: "url",
+          title: typeof candidate.title === "string" ? candidate.title : undefined,
+          type: "source",
+          url: candidate.url,
+        },
+      ]
+    }
+  )
+}
+
+const imageFileFromItem = (
+  item: Extract<v2.ThreadItem, { type: "imageGeneration" }>
+): Extract<LanguageModelV4Content, { type: "file" }> | undefined => {
+  if (!item.result || item.failure) return undefined
+  const match = /^data:(image\/[^;]+);base64,(.+)$/su.exec(item.result)
+  return {
+    data: { data: match?.[2] ?? item.result, type: "data" },
+    mediaType: match?.[1] ?? "image/png",
+    providerMetadata: {
+      [providerId]: {
+        revisedPrompt: item.revisedPrompt,
+        savedPath: item.savedPath ?? null,
+        transparentBackground: item.transparentBackground ?? null,
+      },
+    },
+    type: "file",
+  }
+}
 
 export class CodexAppServerAiSdkSession {
   #active = false
@@ -674,11 +869,12 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
     const { stream } = await this.doStream(options)
     const reader = stream.getReader()
     const content: LanguageModelV4Content[] = []
-    const textById = new Map<string, string>()
-    const reasoningById = new Map<string, string>()
+    const contentIndexById = new Map<string, number>()
     let finishReason: LanguageModelV4FinishReason = { raw: undefined, unified: "other" }
     let usage = emptyUsage()
     let warnings: SharedV4Warning[] = []
+    let providerMetadata: LanguageModelV4GenerateResult["providerMetadata"]
+    let responseId: string | undefined
 
     while (true) {
       const { done, value } = await reader.read()
@@ -687,41 +883,65 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
       }
       if (value.type === "stream-start") {
         warnings = value.warnings
+      } else if (value.type === "response-metadata") {
+        responseId = value.id
+      } else if (value.type === "text-start") {
+        contentIndexById.set(value.id, content.length)
+        content.push({ text: "", type: "text" })
       } else if (value.type === "text-delta") {
-        textById.set(value.id, `${textById.get(value.id) ?? ""}${value.delta}`)
+        const index = contentIndexById.get(value.id)
+        if (index === undefined) {
+          contentIndexById.set(value.id, content.length)
+          content.push({ text: value.delta, type: "text" })
+        } else {
+          const current = content[index]
+          if (current?.type === "text") {
+            content[index] = { ...current, text: `${current.text}${value.delta}` }
+          }
+        }
+      } else if (value.type === "reasoning-start") {
+        contentIndexById.set(value.id, content.length)
+        content.push({ text: "", type: "reasoning" })
       } else if (value.type === "reasoning-delta") {
-        reasoningById.set(value.id, `${reasoningById.get(value.id) ?? ""}${value.delta}`)
+        const index = contentIndexById.get(value.id)
+        if (index === undefined) {
+          contentIndexById.set(value.id, content.length)
+          content.push({ text: value.delta, type: "reasoning" })
+        } else {
+          const current = content[index]
+          if (current?.type === "reasoning") {
+            content[index] = { ...current, text: `${current.text}${value.delta}` }
+          }
+        }
       } else if (
         value.type === "tool-call" ||
         value.type === "tool-result" ||
-        value.type === "tool-approval-request"
+        value.type === "tool-approval-request" ||
+        value.type === "file" ||
+        value.type === "reasoning-file" ||
+        value.type === "source" ||
+        value.type === "custom"
       ) {
         content.push(value)
       } else if (value.type === "finish") {
         finishReason = value.finishReason
         usage = value.usage
-      }
-    }
-
-    for (const text of textById.values()) {
-      if (text) {
-        content.push({ text, type: "text" })
-      }
-    }
-    for (const text of reasoningById.values()) {
-      if (text) {
-        content.push({ text, type: "reasoning" })
+        providerMetadata = value.providerMetadata
       }
     }
 
     return {
-      content,
+      content: content.filter(
+        (part) => (part.type !== "text" && part.type !== "reasoning") || part.text.length > 0
+      ),
       finishReason,
-      providerMetadata: this.#session
-        ? threadMetadata(this.#session.threadId, this.#session.turnId ?? undefined)
-        : undefined,
+      providerMetadata:
+        providerMetadata ??
+        (this.#session
+          ? threadMetadata(this.#session.threadId, this.#session.turnId ?? undefined)
+          : undefined),
       response: {
-        id: this.#session?.turnId ?? undefined,
+        id: responseId ?? this.#session?.turnId ?? undefined,
         modelId: this.modelId,
         timestamp: new Date(),
       },
@@ -736,6 +956,15 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
     const threadMode = settings.threadMode ?? defaultThreadMode
     const converted = convertPrompt(options.prompt, threadMode)
     const warnings = [...unsupportedWarnings(options), ...converted.warnings]
+    if (options.responseFormat?.type === "json" && !options.responseFormat.schema) {
+      warnings.push({
+        message: "Codex structured output requires a JSON Schema; JSON mode was not constrained.",
+        type: "other",
+      })
+    }
+    if (!converted.input.length) {
+      throw new Error("Codex app-server requires at least one supported user input part.")
+    }
 
     const shouldReuseThread =
       threadMode !== "stateless" && (settings.resumeThreadId || this.#session)
@@ -746,8 +975,10 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
       })
     }
 
+    const startsNewThread =
+      threadMode === "stateless" || (!settings.resumeThreadId && !this.#session)
     let threadId: string
-    if (threadMode === "stateless" || (!settings.resumeThreadId && !this.#session)) {
+    if (startsNewThread) {
       const response = await settings.bridge.request<"thread/start", ThreadStartResponse>(
         "thread/start",
         {
@@ -757,6 +988,7 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
           config: settings.config,
           cwd: settings.cwd,
           developerInstructions: buildDeveloperInstructions(settings, converted.systemPrompt),
+          dynamicTools: settings.dynamicTools ? [...settings.dynamicTools] : undefined,
           model: this.modelId,
           modelProvider: settings.modelProvider,
           sandbox: normalizeSandboxMode(settings.sandboxMode),
@@ -800,7 +1032,9 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
     const turnResponse = await settings.bridge.request<"turn/start", TurnStartResponse>(
       "turn/start",
       {
-        approvalPolicy: settings.approvalPolicy ?? "on-request",
+        approvalPolicy: startsNewThread
+          ? (settings.approvalPolicy ?? "on-request")
+          : settings.approvalPolicy,
         approvalsReviewer: settings.approvalsReviewer,
         cwd: settings.cwd,
         effort:
@@ -809,7 +1043,9 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
         input: converted.input,
         model: this.modelId,
         outputSchema,
-        sandboxPolicy: sandboxPolicyFromMode(settings.sandboxMode),
+        sandboxPolicy: sandboxPolicyFromMode(
+          startsNewThread ? (settings.sandboxMode ?? "workspace-write") : settings.sandboxMode
+        ),
         serviceTier: settings.serviceTier,
         summary: settings.reasoningSummary,
         threadId,
@@ -828,10 +1064,18 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
         }
         const textIds = new Set<string>()
         const reasoningIds = new Set<string>()
-        const toolIds = new Set<string>()
+        const toolIds = new Map<string, { dynamic: boolean; toolName: string }>()
+        const progressById = new Map<string, string>()
+        let latestTokenUsage: v2.ThreadTokenUsage | undefined
         const sameTurn = (params: { readonly threadId: string; readonly turnId: string }) =>
           params.threadId === threadId && params.turnId === turnId
-        const unsubscribe = settings.bridge.on("notification", (notification) => {
+        let unsubscribeNotification: () => void = () => undefined
+        let unsubscribeError: () => void = () => undefined
+        const cleanup = () => {
+          unsubscribeNotification()
+          unsubscribeError()
+        }
+        unsubscribeNotification = settings.bridge.on("notification", (notification) => {
           emitRaw(notification)
           switch (notification.method) {
             case "item/agentMessage/delta": {
@@ -873,7 +1117,7 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
                 return
               }
               const tool = resolveToolName(params.item)
-              toolIds.add(params.item.id)
+              toolIds.set(params.item.id, tool)
               controller.enqueue({
                 dynamic: tool.dynamic,
                 id: params.item.id,
@@ -895,6 +1139,43 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
                 toolName: tool.toolName,
                 type: "tool-call",
               })
+              break
+            }
+            case "item/commandExecution/outputDelta":
+            case "item/fileChange/outputDelta":
+            case "item/mcpToolCall/progress": {
+              const params = notification.params as
+                | CodexServerNotificationByMethod<"item/commandExecution/outputDelta">["params"]
+                | CodexServerNotificationByMethod<"item/fileChange/outputDelta">["params"]
+                | CodexServerNotificationByMethod<"item/mcpToolCall/progress">["params"]
+              if (!sameTurn(params)) return
+              const tool = toolIds.get(params.itemId)
+              if (!tool) return
+              const delta = "delta" in params ? params.delta : params.message
+              const progress = `${progressById.get(params.itemId) ?? ""}${delta}`
+              progressById.set(params.itemId, progress)
+              controller.enqueue({
+                dynamic: tool.dynamic,
+                preliminary: true,
+                result: { output: progress, status: "inProgress" },
+                toolCallId: params.itemId,
+                toolName: tool.toolName,
+                type: "tool-result",
+              })
+              break
+            }
+            case "thread/tokenUsage/updated": {
+              const params =
+                notification.params as CodexServerNotificationByMethod<"thread/tokenUsage/updated">["params"]
+              if (!sameTurn(params)) return
+              latestTokenUsage = params.tokenUsage
+              break
+            }
+            case "error": {
+              const params =
+                notification.params as CodexServerNotificationByMethod<"error">["params"]
+              if (!sameTurn(params) || params.willRetry) return
+              controller.enqueue({ error: new Error(params.error.message), type: "error" })
               break
             }
             case "item/completed": {
@@ -947,6 +1228,21 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
                   toolName: tool.toolName,
                   type: "tool-result",
                 })
+                if (params.item.type === "webSearch") {
+                  for (const source of sourcesFromWebSearch(params.item)) {
+                    controller.enqueue(source)
+                  }
+                }
+                return
+              }
+              if (params.item.type === "imageGeneration") {
+                const file = imageFileFromItem(params.item)
+                if (file) controller.enqueue(file)
+                else controller.enqueue(customContentFromItem(params.item))
+                return
+              }
+              if (params.item.type !== "userMessage" && params.item.type !== "hookPrompt") {
+                controller.enqueue(customContentFromItem(params.item))
               }
               break
             }
@@ -959,11 +1255,11 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
               session._setInactive()
               controller.enqueue({
                 finishReason: finishReasonFromStatus(params.turn.status, params.turn.error),
-                providerMetadata: threadMetadata(threadId, turnId),
+                providerMetadata: threadMetadata(threadId, turnId, latestTokenUsage),
                 type: "finish",
-                usage: emptyUsage(),
+                usage: usageFromTokenBreakdown(latestTokenUsage?.last),
               })
-              unsubscribe()
+              cleanup()
               if (threadMode === "stateless") {
                 this.#session = null
               }
@@ -972,6 +1268,13 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
             }
           }
         })
+        unsubscribeError =
+          settings.bridge.onError?.((error) => {
+            session._setInactive()
+            controller.enqueue({ error, type: "error" })
+            cleanup()
+            controller.close()
+          }) ?? (() => undefined)
 
         controller.enqueue({ type: "stream-start", warnings })
         controller.enqueue({
@@ -981,12 +1284,14 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
           type: "response-metadata",
         })
 
-        options.abortSignal?.addEventListener("abort", () => {
+        const abort = () => {
           void session.interrupt().finally(() => {
-            unsubscribe()
+            cleanup()
             controller.close()
           })
-        })
+        }
+        if (options.abortSignal?.aborted) abort()
+        else options.abortSignal?.addEventListener("abort", abort, { once: true })
       },
     })
 

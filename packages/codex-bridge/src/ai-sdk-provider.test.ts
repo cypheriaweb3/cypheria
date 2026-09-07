@@ -10,6 +10,7 @@ import type {
 import { createCodexAppServerProvider } from "./index.js"
 
 class FakeBridge implements CodexAppServerProviderBridge {
+  readonly errors = new Set<(error: unknown) => void>()
   readonly notifications = new Set<(event: ServerNotification) => void>()
   readonly requests: Array<{ readonly method: string; readonly params: unknown }> = []
 
@@ -83,10 +84,19 @@ class FakeBridge implements CodexAppServerProviderBridge {
     return () => this.notifications.delete(handler)
   }
 
+  onError(handler: (error: unknown) => void): () => void {
+    this.errors.add(handler)
+    return () => this.errors.delete(handler)
+  }
+
   emit(notification: ServerNotification): void {
     for (const handler of this.notifications) {
       handler(notification)
     }
+  }
+
+  emitError(error: unknown): void {
+    for (const handler of this.errors) handler(error)
   }
 }
 
@@ -226,6 +236,193 @@ describe("Codex app-server AI SDK provider", () => {
     })
   })
 
+  it("registers experimental dynamic tools and preserves resumed thread policies", async () => {
+    const bridge = new FakeBridge()
+    const dynamicTools: v2.DynamicToolSpec[] = [
+      {
+        description: "Read wallet state",
+        inputSchema: { properties: {}, type: "object" },
+        name: "read_wallet",
+        type: "function",
+      },
+    ]
+    await createCodexAppServerProvider({ bridge, dynamicTools })("test").doStream({
+      prompt: [{ role: "user", content: [{ type: "text", text: "Read it" }] }],
+    })
+    expect(bridge.requests[0]?.params).toMatchObject({ dynamicTools })
+
+    const resumedBridge = new FakeBridge()
+    await createCodexAppServerProvider({
+      bridge: resumedBridge,
+      resumeThreadId: "persisted-thread",
+    })("test").doStream({
+      prompt: [{ role: "user", content: [{ type: "text", text: "Continue" }] }],
+    })
+    expect(resumedBridge.requests[0]).toMatchObject({
+      method: "thread/resume",
+      params: { approvalPolicy: undefined, sandbox: undefined },
+    })
+    expect(resumedBridge.requests[1]).toMatchObject({
+      method: "turn/start",
+      params: { approvalPolicy: undefined, sandboxPolicy: undefined },
+    })
+  })
+
+  it("streams progress, sources, files, custom items, errors, and token usage", async () => {
+    const bridge = new FakeBridge()
+    const { stream } = await createCodexAppServerProvider({ bridge })("test").doStream({
+      prompt: [{ role: "user", content: [{ type: "text", text: "Work" }] }],
+    })
+    const reader = stream.getReader()
+    bridge.emit({
+      method: "item/started",
+      params: {
+        item: {
+          aggregatedOutput: null,
+          command: "pnpm test",
+          commandActions: [],
+          cwd: "/tmp",
+          durationMs: null,
+          exitCode: null,
+          id: "command-1",
+          pluginId: null,
+          processId: null,
+          scriptPath: null,
+          source: "agent",
+          status: "inProgress",
+          type: "commandExecution",
+        },
+        startedAtMs: 1,
+        threadId: "thread-1",
+        turnId: "turn-1",
+      },
+    })
+    bridge.emit({
+      method: "item/commandExecution/outputDelta",
+      params: {
+        delta: "running",
+        itemId: "command-1",
+        threadId: "thread-1",
+        turnId: "turn-1",
+      },
+    })
+    bridge.emit({
+      method: "item/completed",
+      params: {
+        completedAtMs: 2,
+        item: {
+          action: { type: "openPage", url: "https://example.com" },
+          id: "search-1",
+          query: "example",
+          results: [{ title: "Example", url: "https://example.com" }],
+          type: "webSearch",
+        },
+        threadId: "thread-1",
+        turnId: "turn-1",
+      },
+    })
+    bridge.emit({
+      method: "item/completed",
+      params: {
+        completedAtMs: 3,
+        item: {
+          failure: null,
+          id: "image-1",
+          result: "AQID",
+          revisedPrompt: "A wallet",
+          status: "completed",
+          type: "imageGeneration",
+        },
+        threadId: "thread-1",
+        turnId: "turn-1",
+      },
+    })
+    bridge.emit({
+      method: "item/completed",
+      params: {
+        completedAtMs: 4,
+        item: { id: "plan-1", text: "1. Test", type: "plan" },
+        threadId: "thread-1",
+        turnId: "turn-1",
+      },
+    })
+    bridge.emit({
+      method: "error",
+      params: {
+        error: {
+          additionalDetails: null,
+          codexErrorInfo: null,
+          message: "temporary",
+          misalignment: null,
+        },
+        threadId: "thread-1",
+        turnId: "turn-1",
+        willRetry: true,
+      },
+    })
+    bridge.emit({
+      method: "thread/tokenUsage/updated",
+      params: {
+        threadId: "thread-1",
+        tokenUsage: {
+          last: {
+            cachedInputTokens: 20,
+            cacheWriteInputTokens: 10,
+            inputTokens: 100,
+            outputTokens: 50,
+            reasoningOutputTokens: 15,
+            totalTokens: 150,
+          },
+          modelContextWindow: 200_000,
+          total: {
+            cachedInputTokens: 20,
+            cacheWriteInputTokens: 10,
+            inputTokens: 100,
+            outputTokens: 50,
+            reasoningOutputTokens: 15,
+            totalTokens: 150,
+          },
+        },
+        turnId: "turn-1",
+      },
+    })
+    bridge.emit({
+      method: "turn/completed",
+      params: { threadId: "thread-1", turn: turn("turn-1", "completed") },
+    })
+
+    const parts: unknown[] = []
+    while (true) {
+      const part = await reader.read()
+      if (part.done) break
+      parts.push(part.value)
+    }
+    expect(parts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ preliminary: true, toolCallId: "command-1" }),
+        expect.objectContaining({
+          sourceType: "url",
+          type: "source",
+          url: "https://example.com",
+        }),
+        expect.objectContaining({ mediaType: "image/png", type: "file" }),
+        expect.objectContaining({ kind: "cypheria.codex-plan", type: "custom" }),
+        expect.objectContaining({
+          providerMetadata: {
+            "cypheria.codex": expect.objectContaining({ modelContextWindow: 200_000 }),
+          },
+          type: "finish",
+          usage: {
+            inputTokens: { cacheRead: 20, cacheWrite: 10, noCache: 70, total: 100 },
+            outputTokens: { reasoning: 15, text: 35, total: 50 },
+            raw: expect.anything(),
+          },
+        }),
+      ])
+    )
+    expect(parts).not.toContainEqual(expect.objectContaining({ type: "error" }))
+  })
+
   it.each([
     "persistent",
     "stateless",
@@ -257,6 +454,12 @@ describe("Codex app-server AI SDK provider", () => {
               mediaType: "image/png",
               data: { type: "url", url: new URL("file:///tmp/my%20image.png") },
             },
+            { type: "file", mediaType: "audio/wav", data: { type: "data", data: "AQID" } },
+            {
+              type: "file",
+              mediaType: "audio/mpeg",
+              data: { type: "url", url: new URL("file:///tmp/recording.mp3") },
+            },
           ],
         },
       ],
@@ -269,11 +472,15 @@ describe("Codex app-server AI SDK provider", () => {
         }),
         { type: "image", url: "data:image/png;base64,AQID" },
         { type: "image", url: "data:image/png;base64,AQID" },
-        { type: "image", url: "https://example.com/image.png" },
         { type: "localImage", path: "/tmp/my image.png" },
+        { type: "audio", url: "data:audio/wav;base64,AQID" },
+        { type: "localAudio", path: "/tmp/recording.mp3" },
       ],
     })
-    expect((await stream.getReader().read()).value).toEqual({ type: "stream-start", warnings: [] })
+    expect((await stream.getReader().read()).value).toMatchObject({
+      type: "stream-start",
+      warnings: [{ feature: "file.data.url", type: "unsupported" }],
+    })
     bridge.emit({
       method: "turn/completed",
       params: { threadId: "thread-1", turn: turn("turn-1", "completed") },
@@ -450,12 +657,45 @@ describe("Codex app-server AI SDK provider", () => {
     })
     expect(await result).toMatchObject({
       content: [
-        { type: "text", text: "Answer" },
         { type: "reasoning", text: "Thinking" },
+        { type: "text", text: "Answer" },
       ],
       finishReason: { raw: "completed", unified: "stop" },
       warnings: [],
     })
     expect(bridge.notifications.size).toBe(0)
+  })
+
+  it("retains the response id for stateless non-streaming generation", async () => {
+    const bridge = new FakeBridge()
+    const result = createCodexAppServerProvider({ bridge, threadMode: "stateless" })(
+      "test"
+    ).doGenerate({
+      prompt: [{ role: "user", content: [{ type: "text", text: "Answer" }] }],
+    })
+    await vi.waitFor(() => expect(bridge.notifications.size).toBe(1))
+    bridge.emit({
+      method: "turn/completed",
+      params: { threadId: "thread-1", turn: turn("turn-1", "completed") },
+    })
+
+    expect(await result).toMatchObject({ response: { id: "turn-1" } })
+  })
+
+  it("surfaces transport errors and releases stream subscriptions", async () => {
+    const bridge = new FakeBridge()
+    const { stream } = await createCodexAppServerProvider({ bridge })("test").doStream({
+      prompt: [{ role: "user", content: [{ type: "text", text: "Answer" }] }],
+    })
+    const reader = stream.getReader()
+    await reader.read()
+    await reader.read()
+    const failure = new Error("connection lost")
+    bridge.emitError(failure)
+
+    expect(await reader.read()).toEqual({ done: false, value: { error: failure, type: "error" } })
+    expect(await reader.read()).toEqual({ done: true, value: undefined })
+    expect(bridge.notifications.size).toBe(0)
+    expect(bridge.errors.size).toBe(0)
   })
 })

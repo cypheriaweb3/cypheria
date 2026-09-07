@@ -531,9 +531,18 @@ const registerIpcHandlers = (context: DesktopRuntimeContext, harnesses: HarnessM
   registerIpcRoute(codexMarketplaceRemoveContract, ({ marketplaceName }) =>
     removeCodexMarketplace(codexBridge(), marketplaceName)
   )
-  registerIpcRoute(codexChatStartContract, (request, event) => ({
-    requestId: startCodexChat(codexBridge(), event.sender, request),
-  }))
+  registerIpcRoute(codexChatStartContract, (request, event) => {
+    const server = context.codexAppServer
+    if (!server) throw new Error("Codex app-server is unavailable")
+    return {
+      requestId: startCodexChat(
+        server.bridge,
+        event.sender,
+        request,
+        server.dynamicTools.getSpecs()
+      ),
+    }
+  })
   registerIpcRoute(codexChatInterruptContract, async ({ requestId }) => ({
     interrupted: await interruptCodexChat(requestId),
   }))
