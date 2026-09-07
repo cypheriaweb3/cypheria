@@ -162,6 +162,7 @@ describe("Codex app-server AI SDK provider", () => {
         { content: "You are helpful.", role: "system" },
         { content: [{ text: "Hello", type: "text" }], role: "user" },
       ],
+      toolChoice: { type: "auto" },
     })
 
     const reader = result.stream.getReader()

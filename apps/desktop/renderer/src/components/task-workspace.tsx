@@ -1,4 +1,5 @@
 import { useChat } from "@ai-sdk/react"
+import { cn } from "@cypheria/ui"
 import {
   Attachment,
   AttachmentInfo,
@@ -54,6 +55,9 @@ import { Input } from "@cypheria/ui/components/input"
 import { Label } from "@cypheria/ui/components/label"
 import { Separator } from "@cypheria/ui/components/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@cypheria/ui/components/tabs"
+import { msg } from "@lingui/core/macro"
+import { useLingui } from "@lingui/react"
+import { Trans } from "@lingui/react/macro"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import type {
@@ -74,6 +78,7 @@ import {
   LoaderCircle,
   LockKeyhole,
   PanelRightClose,
+  PanelRightOpen,
   Plus,
   Settings,
   Sparkles,
@@ -121,6 +126,7 @@ function TaskSession({
   resumeThreadId,
   initialPrompt,
 }: Readonly<{ resumeThreadId?: string; initialPrompt?: string }>) {
+  const { i18n } = useLingui()
   const navigate = Route.useNavigate()
   const queryClient = useQueryClient()
   const hydratedThreadId = useRef<string | null>(null)
@@ -161,6 +167,7 @@ function TaskSession({
   const [reasoningEffort, setReasoningEffort] = useState<string | null>(null)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
+  const [workspacePanelOpen, setWorkspacePanelOpen] = useState(true)
   const [sandboxMode, setSandboxMode] = useState<
     "read-only" | "workspace-write" | "danger-full-access"
   >("workspace-write")
@@ -209,6 +216,14 @@ function TaskSession({
     id: resumeThreadId ?? "new-task",
     transport,
   })
+  const statusLabel =
+    status === "ready"
+      ? i18n._(msg({ id: "task.status.local", message: "Local" }))
+      : status === "submitted"
+        ? i18n._(msg({ id: "task.status.starting", message: "Starting…" }))
+        : status === "streaming"
+          ? i18n._(msg({ id: "task.status.working", message: "Working…" }))
+          : i18n._(msg({ id: "task.status.attention", message: "Needs attention" }))
 
   useEffect(() => {
     if (!resumeThreadId || !threadQuery.data || hydratedThreadId.current === resumeThreadId) return
@@ -251,15 +266,25 @@ function TaskSession({
   }
 
   return (
-    <section className="grid h-screen min-h-0 grid-cols-[minmax(520px,1fr)_minmax(320px,32vw)] bg-background max-[1180px]:grid-cols-1 max-[767px]:h-[calc(100vh-48px)]">
+    <section
+      className={cn(
+        "grid h-screen min-h-0 bg-background max-[1180px]:grid-cols-1 max-[767px]:h-[calc(100vh-48px)]",
+        workspacePanelOpen ? "grid-cols-[minmax(520px,1fr)_minmax(320px,32vw)]" : "grid-cols-1"
+      )}
+    >
       <main className="grid min-h-0 min-w-0 grid-rows-[var(--chrome-height,44px)_minmax(0,1fr)_auto] border-r border-border max-[1180px]:border-r-0">
         <header className="desktop-titlebar flex min-h-[44px] items-center justify-between gap-3 border-b border-border px-4">
           <div className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold">
             <FolderGit2 aria-hidden="true" size={16} />
             <span className="truncate">
-              {threadQuery.data?.title ?? (resumeThreadId ? "Task" : "New task")}
+              {threadQuery.data?.title ??
+                (resumeThreadId
+                  ? i18n._(msg({ id: "task.title.task", message: "Task" }))
+                  : i18n._(msg({ id: "navigation.newTask", message: "New task" })))}
             </span>
-            <Badge variant="outline">{status === "ready" ? "Local" : status}</Badge>
+            <Badge aria-live="polite" variant="outline">
+              {statusLabel}
+            </Badge>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -267,14 +292,27 @@ function TaskSession({
               render={
                 <Link to="/settings/models">
                   <Settings aria-hidden="true" size={14} />
-                  Models
+                  <Trans id="settings.models">Models</Trans>
                 </Link>
               }
               size="sm"
               variant="ghost"
             />
-            <Button aria-label="Close workspace panel" size="icon" variant="ghost">
-              <PanelRightClose aria-hidden="true" size={16} />
+            <Button
+              aria-label={
+                workspacePanelOpen
+                  ? i18n._(msg({ id: "task.workspace.close", message: "Close workspace panel" }))
+                  : i18n._(msg({ id: "task.workspace.open", message: "Open workspace panel" }))
+              }
+              onClick={() => setWorkspacePanelOpen((open) => !open)}
+              size="icon"
+              variant="ghost"
+            >
+              {workspacePanelOpen ? (
+                <PanelRightClose aria-hidden="true" size={16} />
+              ) : (
+                <PanelRightOpen aria-hidden="true" size={16} />
+              )}
             </Button>
           </div>
         </header>
@@ -287,7 +325,7 @@ function TaskSession({
                 role="status"
               >
                 <LoaderCircle aria-hidden="true" className="animate-spin" size={16} />
-                Loading conversation…
+                <Trans id="task.loadingConversation">Loading conversation…</Trans>
               </div>
             ) : threadQuery.error ? (
               <div className="rounded-lg border border-destructive/35 bg-destructive/5 px-3 py-2 text-sm text-destructive">
@@ -295,9 +333,17 @@ function TaskSession({
               </div>
             ) : messages.length === 0 ? (
               <ConversationEmptyState
-                description="Work across code, wallets, and the web while you stay in control of permissions."
+                description={i18n._(
+                  msg({
+                    id: "task.empty.description",
+                    message:
+                      "Work across code, wallets, and the web while you stay in control of permissions.",
+                  })
+                )}
                 icon={<Sparkles className="size-6" />}
-                title="What should Cypheria work on?"
+                title={i18n._(
+                  msg({ id: "task.empty.title", message: "What should Cypheria work on?" })
+                )}
               />
             ) : (
               messages.map((message) => <ChatMessage key={message.id} message={message} />)
@@ -323,7 +369,12 @@ function TaskSession({
             <PromptInputBody>
               <PromptInputTextarea
                 defaultValue={initialPrompt}
-                placeholder="Ask Cypheria to inspect, edit, run, research, or review…"
+                placeholder={i18n._(
+                  msg({
+                    id: "task.prompt.placeholder",
+                    message: "Ask Cypheria to inspect, edit, run, research, or review…",
+                  })
+                )}
               />
             </PromptInputBody>
             <PromptInputFooter>
@@ -336,10 +387,14 @@ function TaskSession({
                 >
                   <PromptInputSelectTrigger className="max-w-48">
                     <FolderGit2 className="size-3.5" />
-                    <PromptInputSelectValue placeholder="No project" />
+                    <PromptInputSelectValue
+                      placeholder={i18n._(msg({ id: "task.project.none", message: "No project" }))}
+                    />
                   </PromptInputSelectTrigger>
                   <PromptInputSelectContent>
-                    <PromptInputSelectItem value="none">No project</PromptInputSelectItem>
+                    <PromptInputSelectItem value="none">
+                      <Trans id="task.project.none">No project</Trans>
+                    </PromptInputSelectItem>
                     {projects.map((project) => (
                       <PromptInputSelectItem key={project.id} value={project.id}>
                         {project.name}
@@ -348,7 +403,7 @@ function TaskSession({
                   </PromptInputSelectContent>
                 </PromptInputSelect>
                 <Button
-                  aria-label="Create project"
+                  aria-label={i18n._(msg({ id: "task.project.create", message: "Create project" }))}
                   onClick={() => setProjectDialogOpen(true)}
                   size="icon-sm"
                   type="button"
@@ -365,12 +420,14 @@ function TaskSession({
                     <PromptInputSelectValue />
                   </PromptInputSelectTrigger>
                   <PromptInputSelectContent>
-                    <PromptInputSelectItem value="read-only">Read only</PromptInputSelectItem>
+                    <PromptInputSelectItem value="read-only">
+                      <Trans id="task.sandbox.readOnly">Read only</Trans>
+                    </PromptInputSelectItem>
                     <PromptInputSelectItem value="workspace-write">
-                      Workspace write
+                      <Trans id="task.sandbox.workspaceWrite">Workspace write</Trans>
                     </PromptInputSelectItem>
                     <PromptInputSelectItem value="danger-full-access">
-                      Full computer access
+                      <Trans id="task.sandbox.fullAccess">Full computer access</Trans>
                     </PromptInputSelectItem>
                   </PromptInputSelectContent>
                 </PromptInputSelect>
@@ -401,12 +458,25 @@ function TaskSession({
               <PromptInputSubmit onStop={stop} status={status} />
             </PromptInputFooter>
           </PromptInput>
+          {status !== "ready" ? (
+            <div
+              aria-live="polite"
+              className="mt-2 flex items-center gap-2 px-2 text-xs font-medium text-foreground"
+              role="status"
+            >
+              {status !== "error" ? (
+                <LoaderCircle aria-hidden="true" className="animate-spin" size={12} />
+              ) : null}
+              {statusLabel}
+            </div>
+          ) : null}
           <div className="mt-2 flex items-center gap-3 px-2 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1">
-              <HardDrive size={12} /> Local agent
+              <HardDrive size={12} /> <Trans id="task.localAgent">Local agent</Trans>
             </span>
             <span className="inline-flex items-center gap-1">
-              <WalletCards size={12} /> No signing authority
+              <WalletCards size={12} />
+              <Trans id="task.noSigningAuthority">No signing authority</Trans>
             </span>
             <span>{provider}</span>
           </div>
@@ -420,7 +490,7 @@ function TaskSession({
           open={projectDialogOpen}
         />
       </main>
-      <WorkspacePanel activeWallet={activeWalletQuery.data} />
+      {workspacePanelOpen ? <WorkspacePanel activeWallet={activeWalletQuery.data} /> : null}
     </section>
   )
 }
@@ -434,6 +504,7 @@ function NewProjectDialog({
   onOpenChange: (open: boolean) => void
   open: boolean
 }>) {
+  const { i18n } = useLingui()
   const queryClient = useQueryClient()
   const [name, setName] = useState("")
   const [root, setRoot] = useState("")
@@ -441,7 +512,15 @@ function NewProjectDialog({
   const createProject = useMutation({
     mutationFn: () => {
       const api = window.cypheria?.codex
-      if (!api) throw new Error("Codex is only available in the Cypheria desktop app.")
+      if (!api)
+        throw new Error(
+          i18n._(
+            msg({
+              id: "task.project.desktopOnly",
+              message: "Codex is only available in the Cypheria desktop app.",
+            })
+          )
+        )
       return api.createProject({ name: name.trim(), root })
     },
     onSuccess: async (project) => {
@@ -462,7 +541,14 @@ function NewProjectDialog({
   const submit = async () => {
     setError(null)
     if (!name.trim() || !root) {
-      setError("Choose a folder and enter a project name.")
+      setError(
+        i18n._(
+          msg({
+            id: "task.project.validation",
+            message: "Choose a folder and enter a project name.",
+          })
+        )
+      )
       return
     }
     try {
@@ -476,27 +562,37 @@ function NewProjectDialog({
     <Dialog onOpenChange={onOpenChange} open={open}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create project</DialogTitle>
+          <DialogTitle>
+            <Trans id="task.project.create">Create project</Trans>
+          </DialogTitle>
           <DialogDescription>
-            Group tasks around a local workspace and use it as the task working directory.
+            <Trans id="task.project.description">
+              Group tasks around a local workspace and use it as the task working directory.
+            </Trans>
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
           <div className="grid gap-1.5">
-            <Label htmlFor="project-name">Name</Label>
+            <Label htmlFor="project-name">
+              <Trans id="task.project.name">Name</Trans>
+            </Label>
             <Input
               id="project-name"
               onChange={(event) => setName(event.target.value)}
-              placeholder="My project"
+              placeholder={i18n._(
+                msg({ id: "task.project.namePlaceholder", message: "My project" })
+              )}
               value={name}
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="project-root">Folder</Label>
+            <Label htmlFor="project-root">
+              <Trans id="task.project.folder">Folder</Trans>
+            </Label>
             <div className="flex gap-2">
               <Input id="project-root" readOnly value={root} />
               <Button onClick={() => void chooseRoot()} type="button" variant="outline">
-                Choose…
+                <Trans id="task.project.chooseFolder">Choose…</Trans>
               </Button>
             </div>
           </div>
@@ -504,10 +600,14 @@ function NewProjectDialog({
         </div>
         <DialogFooter>
           <Button disabled={createProject.isPending} onClick={() => void submit()} type="button">
-            {createProject.isPending ? "Creating…" : "Create project"}
+            {createProject.isPending ? (
+              <Trans id="task.project.creating">Creating…</Trans>
+            ) : (
+              <Trans id="task.project.create">Create project</Trans>
+            )}
           </Button>
           <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
-            Cancel
+            <Trans id="task.cancel">Cancel</Trans>
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -790,6 +890,7 @@ function ModelPicker({
   onSelect: (model: CodexModelView) => void
   selected: CodexModelView
 }>) {
+  const { i18n } = useLingui()
   const [open, setOpen] = useState(false)
   return (
     <ModelSelector onOpenChange={setOpen} open={open}>
@@ -802,10 +903,16 @@ function ModelPicker({
         }
       />
       <ModelSelectorContent>
-        <ModelSelectorInput placeholder="Search models…" />
+        <ModelSelectorInput
+          placeholder={i18n._(msg({ id: "task.model.search", message: "Search models…" }))}
+        />
         <ModelSelectorList>
-          <ModelSelectorEmpty>No models found.</ModelSelectorEmpty>
-          <ModelSelectorGroup heading="Available models">
+          <ModelSelectorEmpty>
+            <Trans id="task.model.empty">No models found.</Trans>
+          </ModelSelectorEmpty>
+          <ModelSelectorGroup
+            heading={i18n._(msg({ id: "task.model.available", message: "Available models" }))}
+          >
             {models.map((model) => (
               <ModelSelectorItem
                 key={model.id}
@@ -816,7 +923,11 @@ function ModelPicker({
                 value={`${model.displayName} ${model.model}`}
               >
                 <ModelSelectorName>{model.displayName}</ModelSelectorName>
-                {model.isDefault ? <Badge variant="secondary">Default</Badge> : null}
+                {model.isDefault ? (
+                  <Badge variant="secondary">
+                    <Trans id="task.model.default">Default</Trans>
+                  </Badge>
+                ) : null}
               </ModelSelectorItem>
             ))}
           </ModelSelectorGroup>
@@ -827,9 +938,10 @@ function ModelPicker({
 }
 
 function WorkspacePanel({ activeWallet }: Readonly<{ activeWallet?: WalletActiveContext }>) {
+  const { i18n } = useLingui()
   return (
     <aside
-      aria-label="Workspace panel"
+      aria-label={i18n._(msg({ id: "task.workspace.label", message: "Workspace panel" }))}
       className="min-h-0 min-w-0 overflow-hidden bg-muted/20 max-[1180px]:hidden"
     >
       <Tabs
@@ -838,17 +950,26 @@ function WorkspacePanel({ activeWallet }: Readonly<{ activeWallet?: WalletActive
       >
         <div className="flex items-center border-b border-border px-3">
           <TabsList className="bg-transparent">
-            <TabsTrigger value="context">Context</TabsTrigger>
-            <TabsTrigger value="files">Files</TabsTrigger>
-            <TabsTrigger value="review">Review</TabsTrigger>
-            <TabsTrigger value="terminal">Terminal</TabsTrigger>
+            <TabsTrigger value="context">
+              <Trans id="task.workspace.context">Context</Trans>
+            </TabsTrigger>
+            <TabsTrigger value="files">
+              <Trans id="task.workspace.files">Files</Trans>
+            </TabsTrigger>
+            <TabsTrigger value="review">
+              <Trans id="task.workspace.review">Review</Trans>
+            </TabsTrigger>
+            <TabsTrigger value="terminal">
+              <Trans id="task.workspace.terminal">Terminal</Trans>
+            </TabsTrigger>
           </TabsList>
         </div>
         <TabsContent className="m-0 overflow-auto p-4" value="context">
           <div className="grid gap-4">
             <section className="rounded-lg border bg-card p-4">
               <div className="flex items-center gap-2 font-medium">
-                <WalletCards size={16} /> Web3 context
+                <WalletCards size={16} />
+                <Trans id="task.workspace.web3Context">Web3 context</Trans>
               </div>
               {activeWallet?.wallet && activeWallet.chainAccount ? (
                 <div className="mt-2 grid gap-1 text-sm">
@@ -865,28 +986,53 @@ function WorkspacePanel({ activeWallet }: Readonly<{ activeWallet?: WalletActive
                 </div>
               ) : (
                 <p className="mt-2 text-sm text-muted-foreground">
-                  No wallet selected. The task remains read only.
+                  <Trans id="task.workspace.noWallet">
+                    No wallet selected. On-chain actions remain read only.
+                  </Trans>
                 </p>
               )}
             </section>
             <section className="rounded-lg border bg-card p-4">
               <div className="flex items-center gap-2 font-medium">
-                <Globe2 size={16} /> Browser
+                <Globe2 size={16} /> <Trans id="task.workspace.browser">Browser</Trans>
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
-                Open an isolated dApp session from a task result or browser action.
+                <Trans id="task.workspace.browserDescription">
+                  Open an isolated dApp session from a task result or browser action.
+                </Trans>
               </p>
             </section>
           </div>
         </TabsContent>
         <TabsContent className="m-0 p-4" value="files">
-          <EmptyPanel icon={<FolderGit2 />} text="Workspace files open here." />
+          <EmptyPanel
+            icon={<FolderGit2 />}
+            text={i18n._(
+              msg({ id: "task.workspace.filesEmpty", message: "Workspace files open here." })
+            )}
+          />
         </TabsContent>
         <TabsContent className="m-0 p-4" value="review">
-          <EmptyPanel icon={<FileDiff />} text="Code changes open here for review." />
+          <EmptyPanel
+            icon={<FileDiff />}
+            text={i18n._(
+              msg({
+                id: "task.workspace.reviewEmpty",
+                message: "Code changes open here for review.",
+              })
+            )}
+          />
         </TabsContent>
         <TabsContent className="m-0 p-4" value="terminal">
-          <EmptyPanel icon={<TerminalSquare />} text="Command output opens here." />
+          <EmptyPanel
+            icon={<TerminalSquare />}
+            text={i18n._(
+              msg({
+                id: "task.workspace.terminalEmpty",
+                message: "Command output opens here.",
+              })
+            )}
+          />
         </TabsContent>
       </Tabs>
     </aside>

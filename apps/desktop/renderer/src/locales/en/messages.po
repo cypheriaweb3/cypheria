@@ -29,6 +29,11 @@ msgid "settings.appearance"
 msgstr "Appearance"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.prompt.placeholder"
+msgstr "Ask Cypheria to inspect, edit, run, research, or review…"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
 msgid "navigation.auditLog"
 msgstr "Audit log"
@@ -44,9 +49,54 @@ msgid "navigation.automations"
 msgstr "Automations"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.model.available"
+msgstr "Available models"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.backToWorkspace"
 msgstr "Back to workspace"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.browser"
+msgstr "Browser"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.cancel"
+msgstr "Cancel"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.validation"
+msgstr "Choose a folder and enter a project name."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.chooseFolder"
+msgstr "Choose…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.close"
+msgstr "Close workspace panel"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.reviewEmpty"
+msgstr "Code changes open here for review."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.desktopOnly"
+msgstr "Codex is only available in the Cypheria desktop app."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.terminalEmpty"
+msgstr "Command output opens here."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -54,9 +104,29 @@ msgid "settings.connections"
 msgstr "Connections"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.context"
+msgstr "Context"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/task-search.tsx
 msgid "search.error"
 msgstr "Could not search tasks."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.create"
+msgstr "Create project"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.creating"
+msgstr "Creating…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.model.default"
+msgstr "Default"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
@@ -76,6 +146,21 @@ msgid "menu.file"
 msgstr "File"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.files"
+msgstr "Files"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.folder"
+msgstr "Folder"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.sandbox.fullAccess"
+msgstr "Full computer access"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.title"
 msgstr "General"
@@ -89,6 +174,11 @@ msgstr "General"
 #: renderer/src/components/app-shell.tsx
 msgid "settings.general"
 msgstr "General"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.description"
+msgstr "Group tasks around a local workspace and use it as the task working directory."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -107,14 +197,45 @@ msgid "plugins.detail.loading"
 msgstr "Loading {pluginName} plugin details"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.loadingConversation"
+msgstr "Loading conversation…"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
 msgid "navigation.loadingMore"
 msgstr "Loading more"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.status.local"
+msgstr "Local"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.localAgent"
+msgstr "Local agent"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-workspace.tsx
 msgid "settings.models"
 msgstr "Models"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.namePlaceholder"
+msgstr "My project"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.name"
+msgstr "Name"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.status.attention"
+msgstr "Needs attention"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
@@ -123,6 +244,7 @@ msgstr "Networks"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-workspace.tsx
 #: renderer/src/i18n.test.ts
 msgid "navigation.newTask"
 msgstr "New task"
@@ -138,9 +260,19 @@ msgid "search.noMatches"
 msgstr "No matching tasks."
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.model.empty"
+msgstr "No models found."
+
+#. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
 msgid "navigation.noPinned"
 msgstr "No pinned tasks"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.none"
+msgstr "No project"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
@@ -153,9 +285,29 @@ msgid "search.noRecent"
 msgstr "No recent tasks yet."
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.noSigningAuthority"
+msgstr "No signing authority"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
 msgid "navigation.noTasks"
 msgstr "No tasks yet"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.noWallet"
+msgstr "No wallet selected. On-chain actions remain read only."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.browserDescription"
+msgstr "Open an isolated dApp session from a task result or browser action."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.open"
+msgstr "Open workspace panel"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
@@ -188,6 +340,11 @@ msgid "navigation.projects"
 msgstr "Projects"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.sandbox.readOnly"
+msgstr "Read only"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/task-search.tsx
 msgid "navigation.recentTasks"
 msgstr "Recent tasks"
@@ -196,6 +353,11 @@ msgstr "Recent tasks"
 #: renderer/src/components/task-sidebar.tsx
 msgid "navigation.recents"
 msgstr "Recents"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.review"
+msgstr "Review"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -207,6 +369,11 @@ msgstr "Search"
 #: renderer/src/components/language-selector.tsx
 msgid "settings.language.search"
 msgstr "Search languages"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.model.search"
+msgstr "Search models…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-search.tsx
@@ -244,9 +411,24 @@ msgid "navigation.signingPolicies"
 msgstr "Signing policies"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.status.starting"
+msgstr "Starting…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.title.task"
+msgstr "Task"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/task-search.tsx
 msgid "search.tasks"
 msgstr "Tasks"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.terminal"
+msgstr "Terminal"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
@@ -274,11 +456,46 @@ msgid "navigation.wallets"
 msgstr "Wallets & assets"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.web3Context"
+msgstr "Web3 context"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.empty.title"
+msgstr "What should Cypheria work on?"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "menu.window"
 msgstr "Window"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.empty.description"
+msgstr "Work across code, wallets, and the web while you stay in control of permissions."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.status.working"
+msgstr "Working…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.filesEmpty"
+msgstr "Workspace files open here."
+
+#. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
 msgid "navigation.workspace"
 msgstr "Workspace navigation"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.label"
+msgstr "Workspace panel"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.sandbox.workspaceWrite"
+msgstr "Workspace write"

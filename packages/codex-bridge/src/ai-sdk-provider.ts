@@ -218,7 +218,7 @@ const unsupportedWarnings = (options: LanguageModelV4CallOptions): SharedV4Warni
   add(options.seed, "seed")
   add(options.headers, "headers")
   add(options.tools?.length ? options.tools : undefined, "tools")
-  add(options.toolChoice, "toolChoice")
+  add(options.tools?.length ? options.toolChoice : undefined, "toolChoice")
   add(
     options.responseFormat?.type === "json" ? options.responseFormat.name : undefined,
     "responseFormat.name"

@@ -29,6 +29,11 @@ msgid "settings.appearance"
 msgstr "外观"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.prompt.placeholder"
+msgstr "让 Cypheria 检查、编辑、运行、研究或审阅…"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
 msgid "navigation.auditLog"
 msgstr "审计日志"
@@ -44,9 +49,54 @@ msgid "navigation.automations"
 msgstr "自动化"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.model.available"
+msgstr "可用模型"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.backToWorkspace"
 msgstr "返回工作区"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.browser"
+msgstr "浏览器"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.cancel"
+msgstr "取消"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.validation"
+msgstr "请选择文件夹并输入项目名称。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.chooseFolder"
+msgstr "选择…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.close"
+msgstr "关闭工作区面板"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.reviewEmpty"
+msgstr "代码更改会在这里打开供你审阅。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.desktopOnly"
+msgstr "Codex 仅可在 Cypheria 桌面应用中使用。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.terminalEmpty"
+msgstr "命令输出会在这里打开。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -54,9 +104,29 @@ msgid "settings.connections"
 msgstr "连接"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.context"
+msgstr "上下文"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/task-search.tsx
 msgid "search.error"
 msgstr "无法搜索任务。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.create"
+msgstr "创建项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.creating"
+msgstr "正在创建…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.model.default"
+msgstr "默认"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
@@ -76,6 +146,21 @@ msgid "menu.file"
 msgstr "文件"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.files"
+msgstr "文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.folder"
+msgstr "文件夹"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.sandbox.fullAccess"
+msgstr "完整电脑访问权限"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.title"
 msgstr "常规"
@@ -89,6 +174,11 @@ msgstr "常规"
 #: renderer/src/components/app-shell.tsx
 msgid "settings.general"
 msgstr "常规"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.description"
+msgstr "围绕本地工作区组织任务，并将其用作任务工作目录。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -107,14 +197,45 @@ msgid "plugins.detail.loading"
 msgstr "正在加载 {pluginName} 插件详情"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.loadingConversation"
+msgstr "正在加载对话…"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
 msgid "navigation.loadingMore"
 msgstr "正在加载更多"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.status.local"
+msgstr "本地"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.localAgent"
+msgstr "本地智能体"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-workspace.tsx
 msgid "settings.models"
 msgstr "模型"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.namePlaceholder"
+msgstr "我的项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.name"
+msgstr "名称"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.status.attention"
+msgstr "需要处理"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
@@ -123,6 +244,7 @@ msgstr "网络"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
+#: renderer/src/components/task-workspace.tsx
 #: renderer/src/i18n.test.ts
 msgid "navigation.newTask"
 msgstr "新建任务"
@@ -138,9 +260,19 @@ msgid "search.noMatches"
 msgstr "没有匹配的任务。"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.model.empty"
+msgstr "未找到模型。"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
 msgid "navigation.noPinned"
 msgstr "暂无置顶任务"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.project.none"
+msgstr "无项目"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
@@ -153,9 +285,29 @@ msgid "search.noRecent"
 msgstr "暂无最近任务。"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.noSigningAuthority"
+msgstr "无签名权限"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
 msgid "navigation.noTasks"
 msgstr "暂无任务"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.noWallet"
+msgstr "未选择钱包。链上操作仍为只读。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.browserDescription"
+msgstr "从任务结果或浏览器操作中打开隔离的 dApp 会话。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.open"
+msgstr "打开工作区面板"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
@@ -188,6 +340,11 @@ msgid "navigation.projects"
 msgstr "项目"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.sandbox.readOnly"
+msgstr "只读"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/task-search.tsx
 msgid "navigation.recentTasks"
 msgstr "最近任务"
@@ -196,6 +353,11 @@ msgstr "最近任务"
 #: renderer/src/components/task-sidebar.tsx
 msgid "navigation.recents"
 msgstr "最近"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.review"
+msgstr "审阅"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -207,6 +369,11 @@ msgstr "搜索"
 #: renderer/src/components/language-selector.tsx
 msgid "settings.language.search"
 msgstr "搜索语言"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.model.search"
+msgstr "搜索模型…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-search.tsx
@@ -244,9 +411,24 @@ msgid "navigation.signingPolicies"
 msgstr "签名策略"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.status.starting"
+msgstr "正在启动…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.title.task"
+msgstr "任务"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/task-search.tsx
 msgid "search.tasks"
 msgstr "任务"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.terminal"
+msgstr "终端"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
@@ -274,11 +456,46 @@ msgid "navigation.wallets"
 msgstr "钱包与资产"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.web3Context"
+msgstr "Web3 上下文"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.empty.title"
+msgstr "想让 Cypheria 做什么？"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "menu.window"
 msgstr "窗口"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.empty.description"
+msgstr "在你掌控权限的同时，处理代码、钱包和网页任务。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.status.working"
+msgstr "正在处理…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.filesEmpty"
+msgstr "工作区文件会在这里打开。"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
 msgid "navigation.workspace"
 msgstr "工作区导航"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.label"
+msgstr "工作区面板"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.sandbox.workspaceWrite"
+msgstr "工作区写入"
