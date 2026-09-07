@@ -147,10 +147,11 @@
 
 ## Desktop Codex App Server Bridge
 
-- [ ] 完成 Codex App Server capability 与 interaction bridge。
+- [x] 完成 Codex App Server capability 与 interaction bridge。
   - 验收：AI SDK V4 provider 保留所有可兼容的 text、reasoning、media、source、tool、usage、metadata、error 与 control surface；启用 experimental App Server API；application-level thread、review、account、plugin、skill、MCP、terminal 与 configuration operation 继续使用直接 typed bridge service；反向 JSON-RPC request 使用 fail-closed desktop interaction broker、typed IPC 和可审计的用户决策。
   - 包含：token usage、audio、generated file、web source、progress result、resume inheritance、stream failure handling、dynamic tool、approval、user input、MCP elicitation，以及成对的中英文 architecture 文档。
   - 验证：bridge 与 desktop protocol tests、interaction 与 renderer-boundary tests、`pnpm run ci` 和 `pnpm build`。
+  - 验证说明：experimental protocol generation、26 个 bridge tests、77 个 desktop tests、renderer production build、全仓 CI 与全仓 build 均通过。
 
 - [x] 使用 Lingui 添加桌面端国际化基础设施。
   - 验收标准：Electron 能解析自动检测，并将显式选择作为 `[desktop].localeOverride` 持久化到受管 Codex `config.toml`；renderer 以确定性的 source locale hydrate 预渲染 shell，随后激活对应 Lingui catalog，可无刷新响应式切换，并同步 `lang`/`dir`；桌面壳与语言设置完成本地化。
@@ -160,7 +161,7 @@
 
 - [x] 将 Codex app-server TypeScript 生成到 `@cypheria/codex-bridge`。
   - 验收：generated files 位于 `packages/codex-bridge/src/generated` 且提交进仓库。
-  - 命令：`codex app-server generate-ts --out packages/codex-bridge/src/generated`。
+  - 命令：`codex app-server generate-ts --experimental --out packages/codex-bridge/src/generated`。
   - 包括：添加 package script，用于显式 Codex 升级时重新生成文件。
   - 不得创建：`@cypheria/codex-protocol`。
   - 验证：`pnpm --filter @cypheria/codex-bridge check`。

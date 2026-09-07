@@ -70,9 +70,11 @@ describe("Codex interaction broker", () => {
       threadId: "thread-1",
       title: "Approve command execution",
     })
+    const interaction = events[0]
+    if (!interaction) throw new Error("Expected an approval interaction")
     await broker.respond({
       action: "accept-for-session",
-      interactionId: events[0]!.interactionId,
+      interactionId: interaction.interactionId,
     })
     await expect(resultPromise).resolves.toEqual({ decision: "acceptForSession" })
   })
@@ -101,10 +103,12 @@ describe("Codex interaction broker", () => {
       },
     })
 
+    const interaction = events[0]
+    if (!interaction) throw new Error("Expected a user-input interaction")
     await broker.respond({
       action: "accept",
       answers: { network: ["Mainnet"] },
-      interactionId: events[0]!.interactionId,
+      interactionId: interaction.interactionId,
     })
     await expect(resultPromise).resolves.toEqual({
       answers: { network: { answers: ["Mainnet"] } },

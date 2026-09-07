@@ -379,39 +379,46 @@ function CodexInteractionCard({
         </pre>
       ) : null}
 
-      {interaction.questions?.map((question) => (
-        <label className="mt-3 grid gap-1 text-xs" key={question.id}>
-          <span className="font-medium">{question.header || question.question}</span>
-          {question.header ? (
-            <span className="text-muted-foreground">{question.question}</span>
-          ) : null}
-          {question.options ? (
-            <select
-              className="h-9 rounded-md border bg-background px-2"
-              onChange={(event) =>
-                setAnswers((current) => ({ ...current, [question.id]: event.target.value }))
-              }
-              value={answers[question.id] ?? ""}
-            >
-              <option value="">Select…</option>
-              {question.options.map((option) => (
-                <option key={option.label} value={option.label}>
-                  {option.label} — {option.description}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input
-              className="h-9 rounded-md border bg-background px-2"
-              onChange={(event) =>
-                setAnswers((current) => ({ ...current, [question.id]: event.target.value }))
-              }
-              type={question.isSecret ? "password" : "text"}
-              value={answers[question.id] ?? ""}
-            />
-          )}
-        </label>
-      ))}
+      {interaction.questions?.map((question) => {
+        const inputId = `${interaction.interactionId}-${question.id}`
+        return (
+          <div className="mt-3 grid gap-1 text-xs" key={question.id}>
+            <label className="font-medium" htmlFor={inputId}>
+              {question.header || question.question}
+            </label>
+            {question.header ? (
+              <span className="text-muted-foreground">{question.question}</span>
+            ) : null}
+            {question.options ? (
+              <select
+                className="h-9 rounded-md border bg-background px-2"
+                id={inputId}
+                onChange={(event) =>
+                  setAnswers((current) => ({ ...current, [question.id]: event.target.value }))
+                }
+                value={answers[question.id] ?? ""}
+              >
+                <option value="">Select…</option>
+                {question.options.map((option) => (
+                  <option key={option.label} value={option.label}>
+                    {option.label} — {option.description}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <input
+                className="h-9 rounded-md border bg-background px-2"
+                id={inputId}
+                onChange={(event) =>
+                  setAnswers((current) => ({ ...current, [question.id]: event.target.value }))
+                }
+                type={question.isSecret ? "password" : "text"}
+                value={answers[question.id] ?? ""}
+              />
+            )}
+          </div>
+        )
+      })}
 
       {interaction.kind === "elicitation" ? (
         <textarea
@@ -494,14 +501,8 @@ function ChatMessage({ message }: Readonly<{ message: UIMessage }>) {
             )
           }
           if (part.type === "file" || part.type === "reasoning-file") {
-            return (
-              <CodexFilePart
-                index={index}
-                key={`${message.id}-file-${index}`}
-                messageId={message.id}
-                part={part}
-              />
-            )
+            const fileId = codexFilePartId(message.id, part)
+            return <CodexFilePart fileId={fileId} key={fileId} part={part} />
           }
           if (part.type === "source-url") {
             if (index !== firstSourceIndex) return null
@@ -531,7 +532,12 @@ function ChatMessage({ message }: Readonly<{ message: UIMessage }>) {
             )
           }
           if (part.type === "custom") {
-            return <CodexCustomPart key={`${message.id}-custom-${index}`} part={part} />
+            const item = part.providerMetadata?.["cypheria.codex"]?.item
+            const itemId =
+              typeof item === "object" && item !== null && "id" in item
+                ? String(item.id)
+                : part.kind
+            return <CodexCustomPart key={`${message.id}-custom-${itemId}`} part={part} />
           }
           return null
         })}
@@ -541,17 +547,15 @@ function ChatMessage({ message }: Readonly<{ message: UIMessage }>) {
 }
 
 function CodexFilePart({
-  index,
-  messageId,
+  fileId,
   part,
 }: Readonly<{
-  index: number
-  messageId: string
+  fileId: string
   part: FileUIPart | ReasoningFileUIPart
 }>) {
   const file: FileUIPart & { id: string } = {
     ...part,
-    id: `${messageId}-file-${index}`,
+    id: fileId,
     type: "file",
   }
   return (
@@ -562,6 +566,11 @@ function CodexFilePart({
       </Attachment>
     </Attachments>
   )
+}
+
+function codexFilePartId(messageId: string, part: FileUIPart | ReasoningFileUIPart): string {
+  const itemId = part.providerMetadata?.["cypheria.codex"]?.itemId
+  return `${messageId}-file-${typeof itemId === "string" ? itemId : part.url}`
 }
 
 function CodexCustomPart({ part }: Readonly<{ part: CustomContentUIPart }>) {

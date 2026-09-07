@@ -779,6 +779,7 @@ const imageFileFromItem = (
     mediaType: match?.[1] ?? "image/png",
     providerMetadata: {
       [providerId]: {
+        itemId: item.id,
         revisedPrompt: item.revisedPrompt,
         savedPath: item.savedPath ?? null,
         transparentBackground: item.transparentBackground ?? null,

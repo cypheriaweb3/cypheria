@@ -25,8 +25,8 @@ import {
   CYPHERIA_IPC_CHANNELS,
   IPC_PROTOCOL_VERSION,
 } from "../../ipc/src/index.js"
-import { buildConnectionProxyEnvironment } from "./connection-proxy.js"
 import { type CodexInteractionBroker, createCodexInteractionBroker } from "./codex-interactions.js"
+import { buildConnectionProxyEnvironment } from "./connection-proxy.js"
 
 export type CodexAppServerState = "ready" | "starting" | "stopped" | "stopping"
 

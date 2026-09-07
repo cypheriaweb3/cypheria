@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto"
 import type {
   CodexAppServerBridge,
   CodexJsonValue,
-  CodexServerRequestByMethod,
   ServerRequest,
   v2,
 } from "@cypheria/codex-bridge"

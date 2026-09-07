@@ -195,12 +195,19 @@ Cypheria uses two Codex integration paths:
 - JSON-RPC request/response correlation.
 - `initialize` request and `initialized` notification handshake.
 - Server notification stream.
-- Server-initiated approval request routing.
+- Server-initiated approval, user-input, and MCP-elicitation request routing.
 - Disconnect and lifecycle handling.
 - Overload retry handling for app-server overload errors.
 - AI SDK `ProviderV4` adaptation for chat surfaces that use AI SDK / AI Elements.
+- Experimental dynamic-tool registration and dispatch to Electron-main handlers.
 
 Desktop main owns the Codex App Server process lifecycle. It selects a localhost port, starts `codex app-server` with `CODEX_HOME=$CYPHERIA_HOME/codex`, waits for bridge readiness, logs stderr, and shuts the child process down with the desktop runtime. The App Server binary and generated protocol are an atomic compatibility unit: development resolves the exact workspace `@openai/codex` dependency, packaged builds resolve the bundled Electron resource, and startup rejects a binary whose reported version differs from `CODEX_APP_SERVER_VERSION`. `CYPHERIA_CODEX_PATH` is reserved for explicit diagnostics and remains subject to the same version check.
+
+The integration deliberately has two capability planes. The AI SDK adapter is the message plane used by `@ai-sdk/react` and AI Elements. It maps compatible Codex input and output into `LanguageModelV4`: text, reasoning, images, audio, structured output, provider-executed tools and progress, generated files, web sources, provider-specific completed items, token usage, response metadata, model listing, turn interruption, and mid-turn steering. Unsupported AI SDK call settings and media are reported as warnings rather than silently changing semantics. Persistent resumes inherit App Server approval and sandbox settings unless the caller explicitly overrides them.
+
+Capabilities that are application operations rather than language-model generation do not pass through AI SDK. Thread and project lifecycle, review and diff state, account and login, plugins, skills, MCP servers, terminals, configuration, and other stable or experimental App Server methods use generated request/response types over the direct bridge and are exposed to the renderer only through narrow typed IPC services. Experimental protocol types are generated with `--experimental`, and desktop advertises `experimentalApi: true` during initialization, so new experimental methods can be adopted without widening the AI SDK abstraction. Client attestation remains unadvertised until Cypheria has a real platform attestation provider; App Server-managed authentication does not install the external ChatGPT token-refresh callback.
+
+Reverse JSON-RPC requests are not AI SDK stream parts. A fail-closed Electron-main broker handles command, file-change, and permission approvals, tool user-input questions, and MCP elicitation. It forwards validated renderer-safe prompts over typed IPC, validates the response shape for the exact request method, records the decision in the audit log, and cancels or rejects on timeout, disconnect, shutdown, or missing handlers. Experimental dynamic tools use a separate registry: their definitions are included in `thread/start`, while `item/tool/call` executes the registered Electron-main handler. This keeps wallet, policy, signing, and other privileged implementations outside the renderer and outside an AI SDK client-tool callback.
 
 Codex app-server protocol TypeScript files live inside:
 

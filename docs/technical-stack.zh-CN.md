@@ -23,7 +23,7 @@ Cypheria V1 是一个 TypeScript Web3 agent 产品，包含 CLI、SDK、desktop 
 | Desktop packaging | electron-builder |
 | CLI/SDK Codex integration | `@openai/codex-sdk` |
 | Desktop Codex integration | `codex app-server` over WebSocket JSON-RPC |
-| Desktop Codex protocol types | `codex app-server generate-ts --out packages/codex-bridge/src/generated` |
+| Desktop Codex protocol types | `codex app-server generate-ts --experimental --out packages/codex-bridge/src/generated` |
 | ACP bridge | `@agentclientprotocol/sdk@1.4.0` app API，通过 `@ai-sdk/provider` 4.x 的 `LanguageModelV4` 接口接入 AI SDK 7.x |
 | Marketplace web runtime | Cloudflare Workers 上的 TanStack Start |
 | Marketplace data | Cloudflare D1 system of record、R2 immutable artifact、Queues、Workflows |
@@ -180,13 +180,18 @@ Desktop
 - 执行 `initialize` request 和 `initialized` notification handshake。
 - 关联 JSON-RPC requests 和 responses。
 - 流式处理 server notifications。
-- 将 approvals 等 server requests 路由到 Electron main。
+- 将 approval、user-input、MCP-elicitation 与 experimental dynamic-tool server request 路由到 Electron main。
 - 处理 disconnect 和 overload errors。
 - 暴露 AI SDK `ProviderV4` adapter，供需要 AI SDK / AI Elements streams 的聊天界面使用，同时保留直接 bridge request API 给非 AI SDK 调用方。
 - 适配器实现 `LanguageModelV4`，声明 `specificationVersion: "v4"`，要求 Node.js 22 或更高版本。
-- `LanguageModelV4` 图片输入接受带类型标签的 URL 或内联 base64/字节数据；内联图片必须指定完整媒体类型。内联文本文件转换为文本输入。Provider 文件引用和不支持的媒体会返回警告。
+- `LanguageModelV4` 输入保留 text、inline/local image、受支持的 inline/local audio 与 inline text file。Remote media 尽可能由 AI SDK normalization；无法解析的 remote URL、provider file reference、含糊的 image type 和不支持的 media 会返回 warning。
 - 顶层 `reasoning` 映射到 Codex turn effort；显式 Codex `reasoningEffort` 设置优先，`provider-default` 不指定 effort。各推理级别是否受模型支持由 Codex 决定。
+- Streaming output 保留有序 text/reasoning、provider-executed command/file/MCP/dynamic/collaboration/web tool、preliminary progress、作为 file 的 generated image、web source、作为 custom content 的 Codex-specific completed item、token usage、metadata、不可重试的 App Server failure 与 transport failure。AI Elements 从生成的 UI message part 展示 file、source、tool、reasoning 与 Codex custom item。
+- Persistent thread resume 默认继承已存的 approval 与 sandbox policy，只有显式提供时才覆盖。Abort 使用 `turn/interrupt`；active session 可以使用 `turn/steer`，也可以直接开始后续 turn。
+- AI SDK tool definition 不会被当作 App Server dynamic-tool callback。Electron-main service 在 `CodexDynamicToolRegistry` 中注册 experimental dynamic-tool schema 与 handler；schema 随 `thread/start` 发送，`item/tool/call` 由 registry 分发到对应 handler。
 - 无状态历史将 `LanguageModelV4` 工具结果内容转换为文本（文件 URL/标签仍是文本）。二进制/引用工具文件、自定义工具内容、助手自定义内容及推理文件无法原生重放，会返回警告。
+
+Direct bridge 是 application capability plane。Thread、project、review、account、login、plugin、skill、MCP、terminal、configuration 和未来 App Server capability 的 generated stable/experimental method，均继续保留在 typed request API 中，而不是强行塞进 `LanguageModelV4`。Electron main 只把需要暴露给 renderer 的 operation 包装成收窄的 typed IPC service。Desktop initialize 时设置 `experimentalApi: true`。Reverse request 使用 typed fail-closed interaction broker：handler 缺失、response 无效、timeout、disconnect 和 shutdown 都不会被解释为批准，用户 decision 会写入 audit。只有具备真实 attestation implementation 后才声明该能力；App Server-managed authentication 不需要外部 token-refresh callback。
 
 Electron main 拥有 `codex app-server` child process。它选择 localhost port，以 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动进程，等待 WebSocket handshake readiness，通过 `codex.event` 转发 renderer-safe Codex summaries，记录 stderr，并随 runtime 一起关闭进程。Workspace 与 desktop manifests 精确固定 `@openai/codex` 版本。Development 解析该 package，而不是用户的 `PATH`；packaged build 解析 `resources/codex/codex`（Windows 为 `codex.exe`）。`CYPHERIA_CODEX_PATH` 是显式 diagnostic override。Desktop 在启动 App Server 前检查 `codex --version` 是否与生成 committed protocol types 的版本一致。
 
@@ -206,7 +211,7 @@ UI 策略是复用成熟 primitives，只为 Cypheria-specific workflows 构建�
 
 完整的 AI Elements registry 源码位于 `packages/ui/src/components/ai-elements`，并通过 `@cypheria/ui/ai-elements/<name>` 导出。重新生成步骤以及 Base UI、NodeNext、严格 TypeScript、React 19 和 AI SDK 7 所需的兼容性修改，参见 [AI Elements 集成与升级指南](./ai-elements.zh-CN.md)。
 
-Desktop renderer 使用 `@ai-sdk/react` 管理 chat state，并通过基于 typed Electron IPC 的自定义 `ChatTransport` 通信。Electron main 使用 `@cypheria/codex-bridge` 的 `ProviderV4` adapter，将 App Server 输出转换为 AI SDK UI-message chunks。较重的交互式 route shells 仅在客户端加载，因为 Electron 通过 `cypheria://` 发布 SPA 输出，运行时不会执行 TanStack Start server bundle。
+Desktop renderer 使用 `@ai-sdk/react` 管理 chat state，并通过基于 typed Electron IPC 的自定义 `ChatTransport` 通信。Electron main 使用 `@cypheria/codex-bridge` 的 `ProviderV4` adapter，将 App Server 输出转换为 AI SDK UI-message chunks。App Server reverse request 使用独立的 typed interaction IPC channel，因此 approval 与 elicitation 不会编码为 model message。较重的交互式 route shells 仅在客户端加载，因为 Electron 通过 `cypheria://` 发布 SPA 输出，运行时不会执行 TanStack Start server bundle。
 
 | Category | Choice |
 | --- | --- |

@@ -28,7 +28,7 @@ The default safety model is human approval. Read-only mode and conditional auto-
 - **UI**: shadcn-style copied components, Base UI primitives, Cypheria CSS tokens, lucide-react
 - **CLI/SDK agent integration**: `@openai/codex-sdk`
 - **Desktop agent integration**: `codex app-server` over WebSocket JSON-RPC
-- **Desktop Codex protocol types**: generated with `codex app-server generate-ts --out packages/codex-bridge/src/generated`
+- **Desktop Codex protocol types**: generated with `codex app-server generate-ts --experimental --out packages/codex-bridge/src/generated`
 - **Marketplace hosting**: Cloudflare Workers, D1, R2, Queues, and Workflows
 - **Web3**: viem, Privy, WalletConnect / Reown
 - **Data**: SQLite + Drizzle ORM

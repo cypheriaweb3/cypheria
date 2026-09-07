@@ -28,7 +28,7 @@ Cypheria V1 有五个入口：
 - **UI**：shadcn-style copied components、Base UI primitives、Cypheria CSS tokens、lucide-react
 - **CLI/SDK agent integration**：`@openai/codex-sdk`
 - **Desktop agent integration**：`codex app-server` over WebSocket JSON-RPC
-- **Desktop Codex protocol types**：通过 `codex app-server generate-ts --out packages/codex-bridge/src/generated` 生成
+- **Desktop Codex protocol types**：通过 `codex app-server generate-ts --experimental --out packages/codex-bridge/src/generated` 生成
 - **Marketplace hosting**：Cloudflare Workers、D1、R2、Queues 与 Workflows
 - **Web3**：viem、Privy、WalletConnect / Reown
 - **Data**：SQLite + Drizzle ORM

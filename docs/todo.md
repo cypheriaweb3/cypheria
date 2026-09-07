@@ -147,10 +147,11 @@ Status legend:
 
 ## Desktop Codex App Server Bridge
 
-- [ ] Complete the Codex App Server capability and interaction bridge.
+- [x] Complete the Codex App Server capability and interaction bridge.
   - Acceptance: the AI SDK V4 provider preserves every compatible text, reasoning, media, source, tool, usage, metadata, error, and control surface; experimental App Server APIs are enabled; application-level thread, review, account, plugin, skill, MCP, terminal, and configuration operations remain direct typed bridge services; reverse JSON-RPC requests use a fail-closed desktop interaction broker with typed IPC and auditable user decisions.
   - Include: token usage, audio, generated files, web sources, progress results, resume inheritance, stream failure handling, dynamic tools, approvals, user input, MCP elicitation, and paired English/Chinese architecture documentation.
   - Verification: bridge and desktop protocol tests, interaction and renderer-boundary tests, `pnpm run ci`, and `pnpm build`.
+  - Verification note: experimental protocol generation, 26 bridge tests, 77 desktop tests, renderer production build, full repository CI, and full repository build pass.
 
 - [x] Add the desktop internationalization foundation with Lingui.
   - Acceptance: Electron resolves automatic detection and persists explicit choices as `[desktop].localeOverride` in the managed Codex `config.toml`; the renderer hydrates the prerendered shell deterministically, then activates the matching Lingui catalog, switches reactively without a reload, and synchronizes `lang`/`dir`; the desktop shell and language setting are localized.
@@ -160,7 +161,7 @@ Status legend:
 
 - [x] Regenerate Codex app-server TypeScript into `@cypheria/codex-bridge`.
   - Acceptance: generated files live in `packages/codex-bridge/src/generated` and are committed.
-  - Command: `codex app-server generate-ts --out packages/codex-bridge/src/generated`.
+  - Command: `codex app-server generate-ts --experimental --out packages/codex-bridge/src/generated`.
   - Include: package script to regenerate the files during explicit Codex upgrades.
   - Must not create: `@cypheria/codex-protocol`.
   - Verification: `pnpm --filter @cypheria/codex-bridge check`.

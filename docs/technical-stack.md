@@ -23,7 +23,7 @@ Cypheria V1 is a TypeScript Web3 agent product with CLI, SDK, desktop, and runti
 | Desktop packaging | electron-builder |
 | CLI/SDK Codex integration | `@openai/codex-sdk` |
 | Desktop Codex integration | `codex app-server` over WebSocket JSON-RPC |
-| Desktop Codex protocol types | `codex app-server generate-ts --out packages/codex-bridge/src/generated` |
+| Desktop Codex protocol types | `codex app-server generate-ts --experimental --out packages/codex-bridge/src/generated` |
 | ACP bridge | `@agentclientprotocol/sdk@1.4.0` app API to AI SDK 7.x through `@ai-sdk/provider` 4.x `LanguageModelV4` |
 | Marketplace web runtime | TanStack Start on Cloudflare Workers |
 | Marketplace data | Cloudflare D1 system of record, R2 immutable artifacts, Queues, Workflows |
@@ -180,13 +180,18 @@ Desktop
 - Perform the `initialize` request and `initialized` notification handshake.
 - Correlate JSON-RPC requests and responses.
 - Stream server notifications.
-- Route server requests such as approvals to Electron main.
+- Route approval, user-input, MCP-elicitation, and experimental dynamic-tool server requests to Electron main.
 - Handle disconnect and overload errors.
 - Expose an AI SDK `ProviderV4` adapter for chat surfaces that want AI SDK / AI Elements streams while preserving the direct bridge request API for non-AI-SDK callers.
 - The adapter implements `LanguageModelV4` and declares `specificationVersion: "v4"`. It requires Node.js 22 or later.
-- `LanguageModelV4` image inputs accept tagged URL or inline base64/byte data; inline images require a concrete media type. Inline text files become text input. Provider file references and unsupported media produce warnings.
+- `LanguageModelV4` inputs preserve text, inline/local images, supported inline/local audio, and inline text files. Remote media is normalized by AI SDK when possible; unresolved remote URLs, provider file references, ambiguous image types, and unsupported media produce warnings.
 - Top-level `reasoning` maps to Codex turn effort; explicit Codex `reasoningEffort` settings take precedence, and `provider-default` leaves the effort unset. Model support for each effort level is determined by Codex.
+- Streaming output preserves ordered text and reasoning, provider-executed command/file/MCP/dynamic/collaboration/web tools, preliminary progress, generated images as files, web sources, Codex-specific completed items as custom content, token usage, metadata, non-retrying App Server failures, and transport failures. AI Elements renders files, sources, tools, reasoning, and custom Codex items from the resulting UI message parts.
+- Persistent thread resumes inherit stored approval and sandbox policy unless explicitly overridden. Abort uses `turn/interrupt`; an active session can use `turn/steer` and can start a later turn directly.
+- AI SDK tool definitions are not treated as App Server dynamic-tool callbacks. Electron-main services register experimental dynamic-tool schemas and handlers in `CodexDynamicToolRegistry`; schemas are sent in `thread/start` and `item/tool/call` is dispatched to the registered handler.
 - Stateless history converts `LanguageModelV4` tool-result content into text (file URLs/labels remain textual). Binary/reference tool files, custom tool content, assistant custom content, and reasoning files cannot be replayed natively and produce warnings.
+
+The direct bridge is the application capability plane. Generated stable and experimental methods for threads, projects, reviews, accounts, login, plugins, skills, MCP, terminals, configuration, and future App Server capabilities remain available on its typed request API instead of being forced through `LanguageModelV4`. Electron main wraps only the operations exposed to the renderer in narrow typed IPC services. Desktop initializes with `experimentalApi: true`. Reverse requests use a typed fail-closed interaction broker: missing handlers, invalid responses, timeout, disconnect, and shutdown never imply approval. User decisions are audited. Attestation is advertised only after a real attestation implementation exists, and App Server-managed authentication does not require the external token-refresh callback.
 
 Electron main owns the `codex app-server` child process. It selects a localhost port, starts the process with `CODEX_HOME=$CYPHERIA_HOME/codex`, waits for WebSocket handshake readiness, forwards renderer-safe Codex summaries through `codex.event`, logs stderr, and shuts the process down with the runtime. The exact `@openai/codex` version is pinned in the workspace and desktop manifests. Development resolves that package instead of the user's `PATH`; packaged builds resolve `resources/codex/codex` (`codex.exe` on Windows). `CYPHERIA_CODEX_PATH` is an explicit diagnostic override. Desktop checks `codex --version` against the version that generated the committed protocol types before starting App Server.
 
@@ -206,7 +211,7 @@ The complete shadcn component set for the `base-nova` preset is installed in `pa
 
 The complete AI Elements registry is vendored in `packages/ui/src/components/ai-elements` and exported through `@cypheria/ui/ai-elements/<name>`. See [AI Elements Integration And Upgrade Guide](./ai-elements.md) for the regeneration procedure and the compatibility adaptations required by Base UI, NodeNext, strict TypeScript, React 19, and AI SDK 7.
 
-The desktop renderer uses `@ai-sdk/react` for chat state and a custom `ChatTransport` backed by typed Electron IPC. Electron main uses the `@cypheria/codex-bridge` `ProviderV4` adapter and converts App Server output into AI SDK UI-message chunks. Heavy interactive route shells are client-only because Electron ships the SPA output through `cypheria://` and does not execute the TanStack Start server bundle at runtime.
+The desktop renderer uses `@ai-sdk/react` for chat state and a custom `ChatTransport` backed by typed Electron IPC. Electron main uses the `@cypheria/codex-bridge` `ProviderV4` adapter and converts App Server output into AI SDK UI-message chunks. App Server reverse requests travel on a separate typed interaction IPC channel, so approvals and elicitation are not encoded as model messages. Heavy interactive route shells are client-only because Electron ships the SPA output through `cypheria://` and does not execute the TanStack Start server bundle at runtime.
 
 | Category | Choice |
 | --- | --- |

@@ -114,7 +114,7 @@ packages/codex-bridge/src/generated
 Generate those files with:
 
 ```sh
-codex app-server generate-ts --out packages/codex-bridge/src/generated
+codex app-server generate-ts --experimental --out packages/codex-bridge/src/generated
 ```
 
 Generated protocol files should be committed so CI and contributors can typecheck without a matching local Codex binary.

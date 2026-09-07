@@ -1,6 +1,5 @@
-import type { CodexAppServerBridge } from "./index.js"
-import type { CodexJsonValue } from "./index.js"
 import type { v2 } from "./generated/index.js"
+import type { CodexAppServerBridge, CodexJsonValue } from "./index.js"
 
 export type CodexDynamicToolHandler = (
   request: v2.DynamicToolCallParams

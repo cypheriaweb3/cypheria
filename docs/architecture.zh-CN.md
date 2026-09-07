@@ -195,12 +195,19 @@ Cypheria 使用两条 Codex 集成路径：
 - JSON-RPC request/response correlation。
 - `initialize` request 和 `initialized` notification handshake。
 - Server notification stream。
-- Server-initiated approval request routing。
+- Server-initiated approval、user-input 与 MCP-elicitation request routing。
 - Disconnect 和 lifecycle handling。
 - app-server overload errors 的重试处理。
 - 为使用 AI SDK / AI Elements 的聊天界面提供 AI SDK `ProviderV4` adapter。
+- Experimental dynamic-tool registration，以及向 Electron-main handler 的 dispatch。
 
 Desktop main 拥有 Codex App Server process lifecycle。它选择 localhost port，以 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动 `codex app-server`，等待 bridge readiness，记录 stderr，并随 desktop runtime 一起关闭 child process。App Server binary 与 generated protocol 是原子 compatibility unit：development 解析精确固定的 workspace `@openai/codex` dependency，packaged build 解析 Electron 内置 resource，启动时拒绝 reported version 与 `CODEX_APP_SERVER_VERSION` 不一致的 binary。`CYPHERIA_CODEX_PATH` 仅用于显式 diagnostics，并继续接受相同的版本检查。
+
+这套集成明确分为两个 capability plane。AI SDK adapter 是 `@ai-sdk/react` 与 AI Elements 使用的消息平面。它把可兼容的 Codex 输入和输出映射为 `LanguageModelV4`：text、reasoning、image、audio、structured output、provider-executed tool 及 progress、generated file、web source、provider-specific completed item、token usage、response metadata、model listing、turn interrupt 与 mid-turn steer。不支持的 AI SDK call setting 和 media 会形成 warning，不会静默改变语义。持久 thread resume 默认继承 App Server 已存的 approval 与 sandbox setting，只有调用方显式提供时才覆盖。
+
+不属于 language-model generation 的 application operation 不经过 AI SDK。Thread/project lifecycle、review/diff state、account/login、plugin、skill、MCP server、terminal、configuration，以及其他 stable 或 experimental App Server method，均通过 direct bridge 使用 generated request/response type，并且只通过收窄的 typed IPC service 暴露给 renderer。Protocol type 使用 `--experimental` 生成，desktop 在 initialize 时声明 `experimentalApi: true`，因此可以接入新的 experimental method，而无需扩大 AI SDK abstraction。Cypheria 拥有真实的 platform attestation provider 之前，不声明 client attestation；使用 App Server-managed authentication 时也不安装外部 ChatGPT token-refresh callback。
+
+反向 JSON-RPC request 不是 AI SDK stream part。Electron-main 中的 fail-closed broker 处理 command、file-change、permission approval、tool user-input question 与 MCP elicitation。它通过 typed IPC 转发经过验证、适合 renderer 的 prompt，按具体 request method 校验 response shape，将 decision 写入 audit log，并在 timeout、disconnect、shutdown 或 handler 缺失时取消或拒绝。Experimental dynamic tool 使用独立 registry：定义随 `thread/start` 发送，`item/tool/call` 则执行已注册的 Electron-main handler。这样 wallet、policy、signing 及其他 privileged implementation 都不会进入 renderer，也不会落入 AI SDK client-tool callback。
 
 Codex app-server protocol TypeScript 文件放在：
 
