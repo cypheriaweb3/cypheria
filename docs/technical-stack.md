@@ -195,6 +195,8 @@ The direct bridge is the application capability plane. Generated stable and expe
 
 Electron main owns the `codex app-server` child process. It selects a localhost port, starts the process with `CODEX_HOME=$CYPHERIA_HOME/codex`, waits for WebSocket handshake readiness, forwards renderer-safe Codex summaries through `codex.event`, logs stderr, and shuts the process down with the runtime. The exact `@openai/codex` version is pinned in the workspace and desktop manifests. Development resolves that package instead of the user's `PATH`; packaged builds resolve `resources/codex/codex` (`codex.exe` on Windows). `CYPHERIA_CODEX_PATH` is an explicit diagnostic override. Desktop checks `codex --version` against the version that generated the committed protocol types before starting App Server.
 
+Before Electron becomes ready, desktop disables Chromium's `CompressionDictionaryTransport` and `CompressionDictionaryTransportBackend` features. Cypheria does not depend on shared HTTP compression dictionaries, and disabling the optional transport prevents incompatible or interrupted Chromium disk-cache state under `$CYPHERIA_HOME/browser` from emitting repeated startup warnings. Ordinary HTTP caching and the rest of the browser profile remain enabled.
+
 Generate protocol types with:
 
 ```sh

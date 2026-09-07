@@ -195,6 +195,8 @@ Direct bridge 是 application capability plane。Thread、project、review、acc
 
 Electron main 拥有 `codex app-server` child process。它选择 localhost port，以 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动进程，等待 WebSocket handshake readiness，通过 `codex.event` 转发 renderer-safe Codex summaries，记录 stderr，并随 runtime 一起关闭进程。Workspace 与 desktop manifests 精确固定 `@openai/codex` 版本。Development 解析该 package，而不是用户的 `PATH`；packaged build 解析 `resources/codex/codex`（Windows 为 `codex.exe`）。`CYPHERIA_CODEX_PATH` 是显式 diagnostic override。Desktop 在启动 App Server 前检查 `codex --version` 是否与生成 committed protocol types 的版本一致。
 
+在 Electron ready 之前，desktop 会关闭 Chromium 的 `CompressionDictionaryTransport` 与 `CompressionDictionaryTransportBackend` features。Cypheria 不依赖共享 HTTP 压缩字典，关闭这项可选 transport 可以避免 `$CYPHERIA_HOME/browser` 下不兼容或因中断而残留的 Chromium disk-cache 状态反复产生启动警告；普通 HTTP 缓存和 browser profile 的其他部分仍保持启用。
+
 通过以下命令生成 protocol types：
 
 ```sh

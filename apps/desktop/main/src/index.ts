@@ -128,6 +128,7 @@ import {
   walletUnlockContract,
 } from "../../ipc/src/index.js"
 import { readAppearanceSettings, writeAppearanceSettings } from "./appearance-config.js"
+import { configureChromiumFeatures } from "./chromium-features.js"
 import { resolveCodexCommand } from "./codex-command.js"
 import {
   cancelCodexLogin,
@@ -902,6 +903,7 @@ const registerLifecycleHandlers = (): void => {
 }
 
 const startDesktopApp = async (): Promise<void> => {
+  configureChromiumFeatures(app.commandLine)
   const runtimePaths = buildRuntimePaths()
   await mkdir(runtimePaths.browserDir, { recursive: true })
   app.setPath("userData", runtimePaths.browserDir)
