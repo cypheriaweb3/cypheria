@@ -42,6 +42,10 @@ Status legend:
   - Acceptance: desktop has a runnable Electron main process, preload bridge baseline, and TanStack Start renderer shell with sidebar navigation.
   - Verification: `pnpm run ci`, `pnpm build`.
 
+- [x] Establish the Cypheria brand asset system.
+  - Acceptance: SVG remains the editable source of truth; Electron window/Dock icons, browser favicon, and cross-platform packaging derivatives share the approved mark and documented usage rules.
+  - Verification: `pnpm --filter @cypheria/desktop brand:generate`, desktop checks/build, and visual inspection at favicon and application-icon sizes.
+
 - [x] Add typed IPC contract and router baseline.
   - Acceptance: desktop-local IPC contracts define initial app/runtime contracts and desktop main validates handler inputs/outputs.
   - Verification: `pnpm run ci`, `pnpm build`.
@@ -134,7 +138,7 @@ Status legend:
   - Verification: repository identity, catalog freshness, source mismatch, approval/rejection, install, update, uninstall, advisory, audit receipt, and renderer-boundary tests.
 
 - [x] Review existing Desktop support for other ChatGPT/Codex plugin sources.
-  - Acceptance: documentation maps the implemented generated App Server operations and the `vertical`, `workspace-directory`, `shared-with-me`, `created-by-me-remote`, and `local` source kinds, while stating account/feature/policy availability limits.
+  - Acceptance: documentation maps the implemented generated App Server operations, treats `plugin/list.marketplaces` as the discovery boundary, classifies official identities with exact-name allowlists, and treats every other marketplace as Personal.
   - Verification: source and protocol review of Desktop main, IPC, renderer, tests, and generated App Server types.
 
 - [x] Add desktop-owned sidebar collapse motion and hover previews.
@@ -205,7 +209,7 @@ Status legend:
   - Include: five count tabs, app enablement and external connection pages, MCP inventory/tools, standalone server enablement and HTTP addition, OAuth completion notifications, and partial-state handling.
   - Verification: 47 desktop tests, workspace checks, desktop build, browser switch/search/form tests, and normalized screenshot comparison at desktop and narrow widths.
 - [x] Preserve marketplace source provenance and add guarded local marketplace removal.
-  - Include: kind-filtered discovery, Public/Personal views with created/shared/local/workspace sections, removal confirmation and main-process revalidation. Installed plugins must be explicitly uninstalled first.
+  - Include: Public/OpenAI/Personal discovery from returned marketplace records and trusted allowlists, one section per personal marketplace, removal confirmation and main-process revalidation. Installed plugins must be explicitly uninstalled first.
   - Verification: desktop service/type checks and browser preview cancellation/removal/source filtering. Real user marketplaces were not removed.
 - [ ] Complete remaining plugin desktop parity: skill recording and remaining screenshot states. Verify live authenticated connector authorization in Electron.
 

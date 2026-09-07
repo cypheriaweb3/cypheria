@@ -177,6 +177,11 @@ import {
 } from "./runtime.js"
 import { listSystemFonts } from "./system-fonts.js"
 
+app.setName("Cypheria")
+
+const isDevelopmentShell = process.env.CYPHERIA_DEVELOPMENT_SHELL === "1"
+const isPackagedRuntime = app.isPackaged && !isDevelopmentShell
+
 let mainWindow: BrowserWindow | null = null
 let desktopRuntimeContext: DesktopRuntimeContext | null = null
 let currentAppearanceSettings: AppearanceSettings | null = null
@@ -185,7 +190,7 @@ let harnessManager: HarnessManager | null = null
 
 const getCodexCommand = (): string =>
   resolveCodexCommand({
-    isPackaged: app.isPackaged,
+    isPackaged: isPackagedRuntime,
     override: process.env.CYPHERIA_CODEX_PATH,
     resourcesPath: process.resourcesPath,
   })
@@ -196,6 +201,9 @@ const preloadPath = join(currentDir, "../preload/index.cjs")
 const dappPreloadPath = join(currentDir, "../dapp-preload/index.cjs")
 const rendererShellPath = join(currentDir, "../client/_shell.html")
 const rendererClientDir = dirname(rendererShellPath)
+const applicationIconPath = isPackagedRuntime
+  ? join(process.resourcesPath, "icons/icon.png")
+  : join(currentDir, "../../resources/icons/icon.png")
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -658,7 +666,7 @@ const refreshNativeWindowChrome = (): void => {
 }
 
 const registerDeveloperContextMenu = (window: BrowserWindow): void => {
-  if (app.isPackaged) {
+  if (isPackagedRuntime) {
     return
   }
 
@@ -707,6 +715,7 @@ const createMainWindow = async (context: DesktopRuntimeContext): Promise<Browser
       ? { darkTheme: resolveNativeThemeMode(appearance) === "dark" }
       : {}),
     height: 860,
+    icon: applicationIconPath,
     minHeight: 640,
     minWidth: 960,
     show: false,
@@ -857,6 +866,9 @@ const startDesktopApp = async (): Promise<void> => {
   registerLifecycleHandlers()
 
   await app.whenReady()
+  if (process.platform === "darwin") {
+    app.dock?.setIcon(applicationIconPath)
+  }
   registerRendererProtocol()
   const proxySettings = await readConnectionProxySettings(runtimePaths.configDir)
   await applyConnectionProxyToSession(session.defaultSession, proxySettings)

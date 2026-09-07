@@ -9,6 +9,7 @@ build/
 .vite/
 coverage/
 apps/desktop/renderer/src/locales/*/messages.js
+apps/desktop/.dev-app/
 
 # Environment
 .env

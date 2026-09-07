@@ -172,6 +172,7 @@ In this repository, pnpm-related commands should usually run outside the sandbox
 The repository contains the foundational pnpm/Turborepo workspace, desktop-local typed IPC contracts, runtime home handling, Electron main process bootstrap, persistent desktop Codex App Server lifecycle, wallet/policy/dApp browser domain baselines, EIP-1193/EIP-6963 and Solana Wallet Standard provider surfaces, local SQLite audit and automation persistence, shared UI primitives, and the first TanStack Start desktop shell.
 
 The next implementation sequence is tracked in [docs/todo.md](docs/todo.md).
+The canonical logo, application-icon assets, and usage rules are documented in [docs/brand.md](docs/brand.md).
 
 ## License
 

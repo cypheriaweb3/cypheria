@@ -166,7 +166,7 @@ Renderer 规则：
 
 Desktop 的信息架构以任务为中心。常驻左侧导航首先提供新任务、搜索和待审批，其次提供钱包、自动化、signing policies、audit logs、plugins 与 skills，最后按 project 对 App Server threads 分组，并单列未分组的最近任务。待审批入口会显示尚未决议的 signing approvals 实时数量。任务工作区将 AI Elements conversation 与 composer 放在主区域，提供 model、reasoning、sandbox 和 wallet-context 控件，右侧是 context/files/review/terminal 面板。进入 Settings 后，工作台左侧导航会替换为 Connections、Appearance、Models 和返回工作台入口组成的专用设置导航。所有设置页都由完整的右侧内容面板承载滚动，因此滚动条保持在窗口最右侧。
 
-插件与技能工作台包含两个保留来源的 discovery provider 和一条 App Server 安装路径。已实现的 Codex provider 通过 typed IPC 支持公开远程、个人、分享、工作区、仓库、Git/npm-backed 和本地 marketplace。待实现的 Cypheria provider 读取版本化 `apps/marketplace` API，获得分页发现、review state 与 advisory；Electron main 随后通过 App Server 注册或升级固定的 Cypheria 官方 GitHub repo，并调用 `plugin/read`/`plugin/install`。两者可以复用 renderer component，但不能压平 provenance、trust 与 failure。
+插件与技能工作台包含两个 discovery provider 和一条 App Server 安装路径。已实现的 Codex provider 通过 typed IPC 投影 `plugin/list` 返回的 marketplace record，用精确名称白名单识别 OpenAI 与 Cypheria 官方 identity，并把其他 marketplace 全部归入 Personal。待实现的 Cypheria provider 读取版本化 `apps/marketplace` API，获得分页发现、review state 与 advisory；Electron main 随后通过 App Server 注册或升级固定的 Cypheria 官方 GitHub repo，并调用 `plugin/read`/`plugin/install`。两者可以复用 renderer component，但不能压平 provenance、trust 与 failure。
 
 Settings 仍提供含插件/应用/MCP/技能/市场五个页签的 Plugins 页面。Main 负责应用可用性与 MCP 清单投影、限定启用配置写入、HTTP MCP 添加和经过校验的外部授权地址。Renderer 监听授权完成通知并刷新状态，不把打开登录页当作授权成功。Renderer 只接收安全 schema，不直接读取 `$CYPHERIA_HOME`，也不会获得 MCP 凭据。详见[插件与技能管理](plugin-skill-management.zh-CN.md)和 [Cypheria Marketplace 设计](marketplace.zh-CN.md)。
 

@@ -11,7 +11,7 @@
 Cypheria Desktop supports two discovery channels over one Codex-compatible installation model:
 
 1. **Cypheria Marketplace**, discovered from the public API owned by `apps/marketplace`. Approved releases are aggregated into an official public Cypheria GitHub marketplace repository, which Desktop registers and installs through Codex App Server.
-2. **Codex-compatible sources**, discovered and managed through the bundled Codex App Server. These include the public remote directory and personal, shared, workspace, repository, Git, npm, and local marketplace sources exposed by that App Server version.
+2. **Codex-compatible marketplaces**, discovered and managed through the bundled Codex App Server. These include OpenAI's official marketplaces and marketplaces added by the user.
 
 The channels may share one UI and the App Server installation executor, but their identity, provenance, trust state, and update policy remain explicit. Cypheria does not proxy, republish, or claim ownership of OpenAI's universal plugin directory.
 
@@ -126,8 +126,8 @@ Cypheria Desktop
   -> marketplace/upgrade + plugin/install
   -> $CYPHERIA_HOME/codex
 
-Other Desktop sources
-  -> Codex App Server public/personal/shared/workspace/repo/local sources
+Other Desktop marketplaces
+  -> Codex App Server plugin/list marketplace records
 ```
 
 `apps/marketplace` is a separate remote trust boundary. It must not import Electron, desktop IPC, `@cypheria/runtime`, `@cypheria/codex-bridge`, or the local SQLite adapter in `@cypheria/db`. Framework-neutral schemas, API contracts, and UI primitives may move to dedicated packages once stable.
@@ -260,17 +260,11 @@ Cypheria Marketplace is therefore a first-class discovery and trust provider, bu
 
 Desktop already calls generated App Server methods for `plugin/list`, `plugin/read`, `plugin/install`, `plugin/uninstall`, plugin enablement through `config/value/write`, `skills/list`, `skills/config/write`, and `marketplace/add`, `marketplace/upgrade`, and guarded `marketplace/remove`.
 
-It queries these generated marketplace kinds independently:
-
-- `vertical`: public remote directory exposed by App Server.
-- `workspace-directory`: workspace-provided marketplaces.
-- `shared-with-me`: remote marketplaces shared with the user.
-- `created-by-me-remote`: remote marketplaces created by the user.
-- `local`: personal, repository, Git/npm-backed, or local sources resolved by App Server.
+App Server has no separate `marketplace/list` method: `plugin/list` returns the live `marketplaces[]` inventory with each marketplace's `plugins[]`. Cypheria classifies those marketplace records with trusted exact-name allowlists. Known OpenAI names, including `openai-curated-remote`, `openai-bundled`, and `openai-primary-runtime`, form OpenAI. The pinned official Cypheria marketplace identity, `cypheria-curated`, forms Public. Every remaining marketplace forms Personal, even if a user-controlled name contains `openai` or `cypheria`. Bundled and primary-runtime marketplaces are shown when returned and are otherwise optional.
 
 `marketplace/add` accepts the App Server source string plus optional ref and sparse paths, so parsing, cloning, upgrading, and plugin installation remain App Server responsibilities. Desktop preserves provenance and partial failures, revalidates destructive operations in Electron main, and keeps state under `CODEX_HOME="$CYPHERIA_HOME/codex"`.
 
-This is compatibility support, not the Cypheria Marketplace provider. Public and account-scoped remote sources depend on the bundled App Server, feature flags, account, workspace policy, and network. Desktop must show failures truthfully and never substitute Cypheria data.
+This is compatibility support, not the Cypheria Marketplace provider. OpenAI remote availability depends on the bundled App Server, feature flags, account, and network. Desktop must show failures truthfully and never substitute Cypheria data.
 
 ## Authentication, Operations, And Recovery
 

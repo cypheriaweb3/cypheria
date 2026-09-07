@@ -42,6 +42,10 @@
   - 验收：desktop 有可运行的 Electron main process、preload bridge baseline 和带 sidebar navigation 的 TanStack Start renderer shell。
   - 验证：`pnpm run ci`、`pnpm build`。
 
+- [x] 建立 Cypheria 品牌资产体系。
+  - 验收：SVG 保持为可编辑的 source of truth；Electron 窗口/Dock 图标、浏览器 favicon 与跨平台打包衍生文件统一使用 approved mark，并有成文的使用规则。
+  - 验证：`pnpm --filter @cypheria/desktop brand:generate`、desktop checks/build，以及 favicon 与应用图标尺寸的视觉检查。
+
 - [x] 添加 typed IPC contract 和 router baseline。
   - 验收：desktop-local IPC contracts 定义初始 app/runtime contracts，desktop main 会验证 handler inputs/outputs。
   - 验证：`pnpm run ci`、`pnpm build`。
@@ -134,7 +138,7 @@
   - 验证：repository identity、catalog freshness、source mismatch、approval/rejection、install、update、uninstall、advisory、audit receipt 与 renderer-boundary tests。
 
 - [x] 审阅 Desktop 对其他 ChatGPT/Codex 插件来源的现有支持。
-  - 验收：文档映射已实现的 generated App Server operation，以及 `vertical`、`workspace-directory`、`shared-with-me`、`created-by-me-remote` 和 `local` source kind，同时声明 account/feature/policy 可用性限制。
+  - 验收：文档映射已实现的 generated App Server operation；以 `plugin/list.marketplaces` 作为发现边界，用精确名称白名单识别官方 identity，把其他 marketplace 归入 Personal。
   - 验证：审阅 Desktop main、IPC、renderer、tests 与 generated App Server types。
 
 - [x] 添加 desktop 包内的侧栏收起动画与悬停预览。
@@ -205,7 +209,7 @@
   - 包括：五个计数页签、应用开关和外部连接页、MCP 清单/工具、独立服务器启停与 HTTP 添加、OAuth 完成通知、部分状态失败处理。
   - 验证：47 项 desktop 测试、workspace 检查、desktop 构建、浏览器开关/搜索/表单测试，以及桌面和窄窗口归一化截图对比。
 - [x] 保留市场真实来源并增加受保护的本地市场移除。
-  - 包括：按市场类别查询，公开/个人视图，以及个人视图中的创建/共享/本地/工作区分组，移除确认与主进程二次校验；存在已安装插件时须先明确卸载。
+  - 包括：基于返回 marketplace record 与受信任白名单的 Public/OpenAI/Personal 发现、每个 personal marketplace 独立分区、移除确认与主进程二次校验；存在已安装插件时须先明确卸载。
   - 验证：desktop 服务测试/类型检查，以及浏览器预览取消、移除和来源筛选。未移除用户真实市场。
 - [ ] 完成其余桌面插件对齐：技能录制及剩余截图状态。在 Electron 中验证真实登录连接授权。
 

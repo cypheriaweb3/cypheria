@@ -9,13 +9,21 @@ import type {
   CodexSkillListResult,
 } from "../../ipc/src/index.js"
 
-const marketplaceKinds = [
-  "local",
-  "vertical",
-  "workspace-directory",
-  "shared-with-me",
-  "created-by-me-remote",
-] as const
+const openAiMarketplaceNames = new Set([
+  "openai-api-curated",
+  "openai-bundled",
+  "openai-curated",
+  "openai-curated-remote",
+  "openai-primary-runtime",
+])
+
+const cypheriaMarketplaceName = "cypheria-curated"
+
+const marketplaceCatalog = (marketplaceName: string): CodexMarketplaceView["catalog"] => {
+  if (marketplaceName === cypheriaMarketplaceName) return "public"
+  if (openAiMarketplaceNames.has(marketplaceName)) return "openai"
+  return "personal"
+}
 
 const webLink = (value: string | null | undefined) => {
   if (!value) return null
@@ -84,109 +92,97 @@ export const listCodexPlugins = async (
   bridge: CodexAppServerBridge,
   options: { cwd?: string; forceRefetch?: boolean }
 ): Promise<CodexPluginListResult> => {
-  const results = await Promise.all(
-    marketplaceKinds.map(async (kind): Promise<CodexPluginListResult> => {
-      try {
-        const response = await bridge.request<"plugin/list", v2.PluginListResponse>("plugin/list", {
-          cwds: options.cwd ? [options.cwd] : null,
-          forceRefetch: options.forceRefetch ?? false,
-          marketplaceKinds: [kind],
-        })
-        const featured = new Set(response.featuredPluginIds)
-        const marketplaces: CodexMarketplaceView[] = await Promise.all(
-          response.marketplaces.map(async (marketplace) => ({
-            name: marketplace.name,
-            kinds: [kind],
-            path: marketplace.path,
-            plugins: await Promise.all(
-              marketplace.plugins.map(async (plugin) => ({
-                availability: plugin.availability,
-                brandColor: plugin.interface?.brandColor ?? null,
-                capabilities: plugin.interface?.capabilities ?? [],
-                category: plugin.interface?.category ?? null,
-                description:
-                  plugin.interface?.shortDescription ?? plugin.interface?.longDescription ?? null,
-                developerName: plugin.interface?.developerName ?? null,
-                displayName: plugin.interface?.displayName ?? plugin.name,
-                enabled: plugin.enabled,
-                featured: featured.has(plugin.id),
-                id: plugin.id,
-                installed: plugin.installed,
-                installPolicy: plugin.installPolicy,
-                logoUrl: await pluginImage(
-                  plugin.interface?.logoUrl ?? plugin.interface?.composerIconUrl,
-                  plugin.interface?.logo ?? plugin.interface?.composerIcon
-                ),
-                marketplaceName: marketplace.name,
-                marketplacePath: marketplace.path,
-                name: plugin.name,
-                sourceType: plugin.source.type,
-                sourceKinds: [kind],
-                version: plugin.localVersion ?? plugin.version,
-              }))
-            ),
-          }))
-        )
-
-        return {
-          errors: response.marketplaceLoadErrors.map((error) => ({
-            message: error.message,
-            path: error.marketplacePath,
-          })),
-          marketplaces,
-        }
-      } catch (error) {
-        return {
-          marketplaces: [],
-          errors: [
-            {
-              path: `source:${kind}`,
-              message: `${kind}: ${error instanceof Error ? error.message : "Unable to load source"}`,
-            },
-          ],
-        }
-      }
+  try {
+    const response = await bridge.request<"plugin/list", v2.PluginListResponse>("plugin/list", {
+      cwds: options.cwd ? [options.cwd] : null,
+      forceRefetch: options.forceRefetch ?? false,
     })
-  )
-  const merged = new Map<string, CodexMarketplaceView>()
-  for (const market of results.flatMap((result) => result.marketplaces)) {
-    const key = JSON.stringify([market.name, market.path])
-    const existing = merged.get(key)
-    if (!existing) {
-      merged.set(key, market)
-      continue
+    const featured = new Set(response.featuredPluginIds)
+    const featuredPluginNames = new Set(
+      response.featuredPluginIds.map((id) => {
+        const separator = id.lastIndexOf("@")
+        return separator > 0 ? id.slice(0, separator) : id
+      })
+    )
+    const marketplaces: CodexMarketplaceView[] = await Promise.all(
+      response.marketplaces.map(async (marketplace) => {
+        const catalog = marketplaceCatalog(marketplace.name)
+        return {
+          catalog,
+          displayName: marketplace.interface?.displayName?.trim() || marketplace.name,
+          name: marketplace.name,
+          path: marketplace.path,
+          plugins: await Promise.all(
+            marketplace.plugins.map(async (plugin) => ({
+              availability: plugin.availability,
+              brandColor: plugin.interface?.brandColor ?? null,
+              capabilities: plugin.interface?.capabilities ?? [],
+              category: plugin.interface?.category ?? null,
+              description:
+                plugin.interface?.shortDescription ?? plugin.interface?.longDescription ?? null,
+              developerName: plugin.interface?.developerName ?? null,
+              displayName: plugin.interface?.displayName ?? plugin.name,
+              enabled: plugin.enabled,
+              featured:
+                featured.has(plugin.id) ||
+                (catalog === "openai" && featuredPluginNames.has(plugin.name)),
+              id: plugin.id,
+              installed: plugin.installed,
+              installPolicy: plugin.installPolicy,
+              logoUrl: await pluginImage(
+                plugin.interface?.logoUrl ?? plugin.interface?.composerIconUrl,
+                plugin.interface?.logo ?? plugin.interface?.composerIcon
+              ),
+              marketplaceName: marketplace.name,
+              marketplacePath: marketplace.path,
+              name: plugin.name,
+              sourceType: plugin.source.type,
+              version: plugin.localVersion ?? plugin.version,
+            }))
+          ),
+        }
+      })
+    )
+    return {
+      errors: response.marketplaceLoadErrors.map((error) => ({
+        message: error.message,
+        path: error.marketplacePath,
+      })),
+      marketplaces,
     }
-    existing.kinds = [...new Set([...(existing.kinds ?? []), ...(market.kinds ?? [])])]
-    for (const plugin of market.plugins) {
-      const previous = existing.plugins.find((item) => item.id === plugin.id)
-      if (!previous) existing.plugins.push(plugin)
-      else {
-        previous.sourceKinds = [
-          ...new Set([...(previous.sourceKinds ?? []), ...(plugin.sourceKinds ?? [])]),
-        ]
-        previous.featured ||= plugin.featured
-      }
+  } catch (error) {
+    return {
+      marketplaces: [],
+      errors: [
+        {
+          path: "catalog:app-server",
+          message: error instanceof Error ? error.message : "Unable to load plugin catalog",
+        },
+      ],
     }
   }
-  return { errors: results.flatMap((result) => result.errors), marketplaces: [...merged.values()] }
 }
 
 export const removeCodexMarketplace = async (
   bridge: CodexAppServerBridge,
   marketplaceName: string
 ): Promise<{ marketplaceName: string; succeeded: true }> => {
+  if (marketplaceCatalog(marketplaceName) !== "personal")
+    throw new Error("Official marketplaces cannot be removed.")
   const current = await bridge.request<"plugin/list", v2.PluginListResponse>("plugin/list", {
-    marketplaceKinds: ["local"],
     forceRefetch: true,
     cwds: null,
   })
   if (current.marketplaceLoadErrors.length)
     throw new Error("Refresh marketplace sources before removing one.")
   const matches = current.marketplaces.filter(
-    (market) => market.name === marketplaceName && market.path !== null
+    (market) =>
+      market.name === marketplaceName &&
+      marketplaceCatalog(market.name) === "personal" &&
+      market.path !== null
   )
   if (matches.length !== 1)
-    throw new Error("The local marketplace could not be uniquely resolved. Refresh and try again.")
+    throw new Error("The marketplace could not be uniquely resolved. Refresh and try again.")
   if (matches[0]?.plugins.some((plugin) => plugin.installed))
     throw new Error("Uninstall this marketplace’s plugins before removing its source.")
   await bridge.request<"marketplace/remove", v2.MarketplaceRemoveResponse>("marketplace/remove", {

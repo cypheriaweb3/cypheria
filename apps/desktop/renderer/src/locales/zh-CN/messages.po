@@ -101,6 +101,12 @@ msgid "settings.language.description"
 msgstr "应用 UI 语言"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/plugins-page.tsx
+#: renderer/src/i18n.test.ts
+msgid "plugins.detail.loading"
+msgstr "正在加载 {pluginName} 插件详情"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.models"
 msgstr "模型"

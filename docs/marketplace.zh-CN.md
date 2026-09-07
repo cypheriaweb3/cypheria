@@ -11,7 +11,7 @@
 Cypheria Desktop 在同一套 Codex-compatible 安装模型上支持两条发现渠道：
 
 1. **Cypheria Marketplace**：从 `apps/marketplace` 自有公共 API 发现；审核通过的 release 被汇总到 Cypheria 官方公开 GitHub marketplace repository，Desktop 通过 Codex App Server 注册并安装。
-2. **Codex 兼容来源**：通过随 Desktop 捆绑的 Codex App Server 发现和管理，包括该版本 App Server 暴露的公开远程目录、个人、分享、工作区、仓库、Git、npm 和本地 marketplace 来源。
+2. **Codex 兼容 marketplace**：通过随 Desktop 捆绑的 Codex App Server 发现和管理，包括 OpenAI 官方 marketplace 与用户自行添加的 marketplace。
 
 两条渠道可以共用 UI 和 App Server 安装执行器，但必须明确保留各自的身份、来源、信任状态和更新策略。Cypheria 不代理、重新发布或宣称拥有 OpenAI universal plugin directory。
 
@@ -126,8 +126,8 @@ Cypheria Desktop
   -> marketplace/upgrade + plugin/install
   -> $CYPHERIA_HOME/codex
 
-Desktop 其他来源
-  -> Codex App Server public/personal/shared/workspace/repo/local 来源
+Desktop 其他 marketplace
+  -> Codex App Server plugin/list 返回的 marketplace record
 ```
 
 `apps/marketplace` 是独立远程信任边界，不得导入 Electron、desktop IPC、`@cypheria/runtime`、`@cypheria/codex-bridge` 或 `@cypheria/db` 的本地 SQLite adapter。边界稳定后，可通过专用 package 共享与运行环境无关的 schema、API contract 和 UI primitive。
@@ -260,17 +260,11 @@ Desktop 在应用配置中固定官方 repository URL，不接受 renderer 提�
 
 Desktop 已经通过生成的 App Server method 调用 `plugin/list`、`plugin/read`、`plugin/install`、`plugin/uninstall`、通过 `config/value/write` 控制插件启停、`skills/list`、`skills/config/write`，以及 `marketplace/add`、`marketplace/upgrade` 和带保护的 `marketplace/remove`。
 
-它分别查询这些生成的 marketplace kind：
-
-- `vertical`：App Server 暴露的公开远程目录。
-- `workspace-directory`：工作区提供的 marketplace。
-- `shared-with-me`：分享给当前用户的远程 marketplace。
-- `created-by-me-remote`：当前用户创建的远程 marketplace。
-- `local`：由 App Server 解析的个人、仓库、Git/npm-backed 或本地来源。
+App Server 没有独立的 `marketplace/list` method：`plugin/list` 直接返回实时 `marketplaces[]` 清单，每个 marketplace 内嵌自己的 `plugins[]`。Cypheria 用受信任的精确名称白名单对 marketplace record 分类：`openai-curated-remote`、`openai-bundled`、`openai-primary-runtime` 等已知官方名称归入 OpenAI；固定的 Cypheria 官方 marketplace identity `cypheria-curated` 归入 Public；其他 marketplace 一律归入 Personal，即使用户可控名称中包含 `openai` 或 `cypheria`。bundled 与 primary-runtime 在 App Server 返回时显示，未返回时视为可选。
 
 `marketplace/add` 接收 App Server source string、可选 ref 和 sparse path，所以 parsing、clone、upgrade 和 installation 都由 App Server 负责。Desktop 保留 provenance 与 partial failure，在 Electron main 中重新校验破坏性操作，并把状态限定在 `CODEX_HOME="$CYPHERIA_HOME/codex"`。
 
-这属于兼容支持，不是 Cypheria Marketplace provider。Public 和 account-scoped remote source 依赖捆绑的 App Server、feature flag、account、workspace policy 与网络。Desktop 必须真实展示失败，不能用 Cypheria 数据替代。
+这属于兼容支持，不是 Cypheria Marketplace provider。OpenAI remote availability 依赖捆绑的 App Server、feature flag、account 与网络。Desktop 必须真实展示失败，不能用 Cypheria 数据替代。
 
 ## 认证、运维与恢复
 

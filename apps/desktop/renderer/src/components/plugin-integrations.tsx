@@ -18,81 +18,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ChevronDown, ExternalLink, Plug, Settings } from "lucide-react"
 import { useEffect, useId, useState } from "react"
 import { z } from "zod"
-import type {
-  CodexAppListResult,
-  CodexAppView,
-  CodexMcpListResult,
-  CodexMcpView,
-} from "../../../ipc/src/index.js"
+import type { CodexAppView, CodexMcpView } from "../../../ipc/src/index.js"
 import { McpAddRequestSchema } from "../../../ipc/src/integrations.js"
-import githubLogo from "../assets/plugins/github.svg"
-import gmailLogo from "../assets/plugins/gmail.svg"
-
-const previewApps: CodexAppListResult = {
-  runtimeError: null,
-  apps: [
-    {
-      id: "github",
-      name: "GitHub",
-      description: "Access repositories, issues, and pull requests",
-      logoUrl: githubLogo,
-      installUrl: "https://github.com",
-      accessible: true,
-      enabled: true,
-      effectiveEnabled: true,
-      callable: true,
-      pluginNames: ["GitHub"],
-    },
-    {
-      id: "gmail",
-      name: "Gmail",
-      description: "Read and manage Gmail",
-      logoUrl: gmailLogo,
-      installUrl: "https://mail.google.com",
-      accessible: false,
-      enabled: true,
-      effectiveEnabled: null,
-      callable: null,
-      pluginNames: ["Gmail"],
-    },
-  ],
-}
-const previewMcp: CodexMcpListResult = {
-  servers: [
-    {
-      name: "codex-security",
-      pluginId: "codex-security@openai-curated",
-      enabled: null,
-      configurable: false,
-      authStatus: "oAuth",
-      runtimeStatus: "connected",
-      tools: [
-        { name: "scan", description: "Inspect authorized repositories for security findings." },
-      ],
-      resourceCount: 0,
-    },
-    {
-      name: "project-docs",
-      pluginId: null,
-      enabled: true,
-      configurable: true,
-      authStatus: "notLoggedIn",
-      runtimeStatus: "authenticationRequired",
-      tools: [],
-      resourceCount: 0,
-    },
-    {
-      name: "local-tools",
-      pluginId: null,
-      enabled: false,
-      configurable: true,
-      authStatus: "unsupported",
-      runtimeStatus: "disabled",
-      tools: [],
-      resourceCount: 0,
-    },
-  ],
-}
 
 const completionSchema = z.object({
   method: z.literal("mcpServer/oauthLogin/completed"),
@@ -104,19 +31,23 @@ const errorText = (error: unknown) =>
 
 export function usePluginIntegrations(active: boolean) {
   const cache = useQueryClient()
-  const [sampleApps, setSampleApps] = useState(previewApps)
-  const [sampleMcp, setSampleMcp] = useState(previewMcp)
   const [notice, setNotice] = useState<string | null>(null)
   const [authorizing, setAuthorizing] = useState<string | null>(null)
   const appsQuery = useQuery({
     queryKey: ["codex", "apps"],
     enabled: active,
-    queryFn: () => window.cypheria?.codex.listApps(true) ?? sampleApps,
+    queryFn: () => {
+      if (!window.cypheria) throw new Error("App data is available in Cypheria Desktop.")
+      return window.cypheria.codex.listApps(true)
+    },
   })
   const mcpQuery = useQuery({
     queryKey: ["codex", "mcp"],
     enabled: active,
-    queryFn: () => window.cypheria?.codex.listMcp() ?? sampleMcp,
+    queryFn: () => {
+      if (!window.cypheria) throw new Error("MCP data is available in Cypheria Desktop.")
+      return window.cypheria.codex.listMcp()
+    },
   })
   const refresh = async () => {
     await Promise.all([
@@ -164,45 +95,21 @@ export function usePluginIntegrations(active: boolean) {
   }, [authorizing])
   const appMutation = useMutation({
     mutationFn: async ({ app, enabled }: { app: CodexAppView; enabled: boolean }) => {
-      if (window.cypheria) {
-        await window.cypheria.codex.setAppEnabled(app.id, enabled)
-        return
-      }
-      setSampleApps((old) => ({
-        ...old,
-        apps: old.apps.map((a) =>
-          a.id === app.id
-            ? { ...a, enabled, effectiveEnabled: enabled, callable: enabled && a.accessible }
-            : a
-        ),
-      }))
+      if (!window.cypheria) throw new Error("App management requires Cypheria Desktop.")
+      await window.cypheria.codex.setAppEnabled(app.id, enabled)
     },
     onSettled: refresh,
   })
   const mcpMutation = useMutation({
     mutationFn: async ({ server, enabled }: { server: CodexMcpView; enabled: boolean }) => {
-      if (window.cypheria) {
-        await window.cypheria.codex.setMcpEnabled(server.name, enabled)
-        return
-      }
-      setSampleMcp((old) => ({
-        servers: old.servers.map((s) =>
-          s.name === server.name
-            ? { ...s, enabled, runtimeStatus: enabled ? "notStarted" : "disabled" }
-            : s
-        ),
-      }))
+      if (!window.cypheria) throw new Error("MCP management requires Cypheria Desktop.")
+      await window.cypheria.codex.setMcpEnabled(server.name, enabled)
     },
     onSettled: refresh,
   })
   const connect = useMutation({
     mutationFn: async (app: CodexAppView) => {
-      if (!window.cypheria) {
-        setNotice(
-          "Preview only. In Electron this opens the app connection page; returning refreshes availability."
-        )
-        return
-      }
+      if (!window.cypheria) throw new Error("App connections require Cypheria Desktop.")
       await window.cypheria.codex.connectApp(app.id)
       setNotice(
         "Complete connection in your browser, then return here. Availability will be refreshed."
@@ -215,12 +122,7 @@ export function usePluginIntegrations(active: boolean) {
       if (window.cypheria) setAuthorizing(server.name)
     },
     mutationFn: async (server: CodexMcpView) => {
-      if (!window.cypheria) {
-        setNotice(
-          "Preview only. OAuth is started by Electron; the preview does not change authentication state."
-        )
-        return
-      }
+      if (!window.cypheria) throw new Error("MCP authorization requires Cypheria Desktop.")
       await window.cypheria.codex.loginMcp(server.name)
     },
     onError: () => setAuthorizing(null),
@@ -228,33 +130,14 @@ export function usePluginIntegrations(active: boolean) {
   const addMcp = useMutation({
     mutationFn: async (input: { name: string; url: string }) => {
       McpAddRequestSchema.parse(input)
-      if (window.cypheria) {
-        await window.cypheria.codex.addMcp(input)
-        return
-      }
-      if (sampleMcp.servers.some((server) => server.name === input.name))
-        throw new Error("A server with this name already exists.")
-      setSampleMcp((old) => ({
-        servers: [
-          ...old.servers,
-          {
-            name: input.name,
-            pluginId: null,
-            enabled: true,
-            configurable: true,
-            authStatus: "unknown",
-            runtimeStatus: null,
-            tools: [],
-            resourceCount: 0,
-          },
-        ],
-      }))
+      if (!window.cypheria) throw new Error("Adding MCP servers requires Cypheria Desktop.")
+      await window.cypheria.codex.addMcp(input)
     },
     onSettled: refresh,
   })
   return {
-    apps: window.cypheria ? (appsQuery.data?.apps ?? []) : sampleApps.apps,
-    servers: window.cypheria ? (mcpQuery.data?.servers ?? []) : sampleMcp.servers,
+    apps: appsQuery.data?.apps ?? [],
+    servers: mcpQuery.data?.servers ?? [],
     appsQuery,
     mcpQuery,
     notice,

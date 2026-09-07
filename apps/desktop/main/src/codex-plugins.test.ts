@@ -26,24 +26,32 @@ class FakeBridge {
 const asBridge = (bridge: FakeBridge) => bridge as unknown as CodexAppServerBridge
 
 describe("desktop plugin and skill services", () => {
-  it("retains successful sources when a personal catalog request fails", async () => {
+  it("reports an App Server catalog failure", async () => {
     const bridge = {
-      request: async (_method: string, params: { marketplaceKinds: string[] }) => {
-        if (params.marketplaceKinds[0] === "shared-with-me") throw new Error("Sign in required")
-        return {
-          featuredPluginIds: [],
-          marketplaceLoadErrors: [],
-          marketplaces: [{ name: params.marketplaceKinds[0], path: null, plugins: [] }],
-        }
+      request: async () => {
+        throw new Error("ChatGPT authentication required for remote plugin catalog")
       },
     } as unknown as CodexAppServerBridge
     const result = await listCodexPlugins(bridge, {})
-    expect(result.marketplaces).toHaveLength(4)
+    expect(result.marketplaces).toEqual([])
     expect(result.errors).toEqual([
-      { path: "source:shared-with-me", message: "shared-with-me: Sign in required" },
+      {
+        path: "catalog:app-server",
+        message: "ChatGPT authentication required for remote plugin catalog",
+      },
     ])
   })
-  it("revalidates local marketplace removal and never implicitly uninstalls plugins", async () => {
+  it("revalidates marketplace removal and never implicitly uninstalls plugins", async () => {
+    const builtInBridge = new FakeBridge({})
+    await expect(removeCodexMarketplace(asBridge(builtInBridge), "openai-curated")).rejects.toThrow(
+      "cannot be removed"
+    )
+    expect(builtInBridge.calls).toEqual([])
+    await expect(
+      removeCodexMarketplace(asBridge(builtInBridge), "cypheria-curated")
+    ).rejects.toThrow("cannot be removed")
+    expect(builtInBridge.calls).toEqual([])
+
     for (const scenario of ["installed", "missing", "ambiguous", "load-error", "remote"]) {
       const market = {
         name: "team",
@@ -75,21 +83,69 @@ describe("desktop plugin and skill services", () => {
       params: { marketplaceName: "team" },
     })
   })
-  it("keeps source visibility from kind-filtered queries, not git transport", async () => {
+  it("classifies marketplaces by trusted marketplace-name allowlists", async () => {
     const bridge = {
-      request: async (_method: string, params: { marketplaceKinds: string[] }) => ({
+      request: async () => ({
         featuredPluginIds: [],
         marketplaceLoadErrors: [],
-        marketplaces: [{ name: params.marketplaceKinds[0], path: null, plugins: [] }],
+        marketplaces: [
+          {
+            interface: { displayName: "OpenAI" },
+            name: "openai-curated-remote",
+            path: null,
+            plugins: [],
+          },
+          {
+            interface: { displayName: "Built in" },
+            name: "openai-bundled",
+            path: "/market/bundled",
+            plugins: [],
+          },
+          {
+            interface: { displayName: "Runtime" },
+            name: "openai-primary-runtime",
+            path: "/market/runtime",
+            plugins: [],
+          },
+          {
+            interface: { displayName: "My tools" },
+            name: "my-tools",
+            path: "/market/my-tools",
+            plugins: [],
+          },
+          {
+            interface: { displayName: "Cypheria Marketplace" },
+            name: "cypheria-curated",
+            path: "/market/cypheria",
+            plugins: [],
+          },
+          {
+            interface: { displayName: "User OpenAI helpers" },
+            name: "my-openai-helpers",
+            path: "/market/my-openai-helpers",
+            plugins: [],
+          },
+        ],
       }),
     } as unknown as CodexAppServerBridge
     const result = await listCodexPlugins(bridge, {})
-    expect(result.marketplaces.map((market) => market.kinds)).toEqual([
-      ["local"],
-      ["vertical"],
-      ["workspace-directory"],
-      ["shared-with-me"],
-      ["created-by-me-remote"],
+    expect(
+      result.marketplaces.map(({ catalog, displayName, name }) => ({
+        catalog,
+        displayName,
+        name,
+      }))
+    ).toEqual([
+      { catalog: "openai", displayName: "OpenAI", name: "openai-curated-remote" },
+      { catalog: "openai", displayName: "Built in", name: "openai-bundled" },
+      { catalog: "openai", displayName: "Runtime", name: "openai-primary-runtime" },
+      { catalog: "personal", displayName: "My tools", name: "my-tools" },
+      { catalog: "public", displayName: "Cypheria Marketplace", name: "cypheria-curated" },
+      {
+        catalog: "personal",
+        displayName: "User OpenAI helpers",
+        name: "my-openai-helpers",
+      },
     ])
   })
   it("projects plugin details and keeps local marketplace lookup local", async () => {
@@ -137,12 +193,12 @@ describe("desktop plugin and skill services", () => {
   it("flattens generated App Server plugin metadata into renderer-safe views", async () => {
     const bridge = new FakeBridge({
       "plugin/list": {
-        featuredPluginIds: ["github@openai"],
+        featuredPluginIds: ["github@openai-curated-remote"],
         marketplaceLoadErrors: [],
         marketplaces: [
           {
-            interface: null,
-            name: "OpenAI",
+            interface: { displayName: "OpenAI" },
+            name: "openai-curated-remote",
             path: null,
             plugins: [
               {
@@ -151,7 +207,7 @@ describe("desktop plugin and skill services", () => {
                 disabledReason: null,
                 eligiblePlanTypes: null,
                 enabled: true,
-                id: "github@openai",
+                id: "github@openai-curated-remote",
                 installPolicy: "AVAILABLE",
                 installPolicySource: null,
                 installed: true,
@@ -196,7 +252,9 @@ describe("desktop plugin and skill services", () => {
       errors: [],
       marketplaces: [
         expect.objectContaining({
-          name: "OpenAI",
+          catalog: "openai",
+          displayName: "OpenAI",
+          name: "openai-curated-remote",
           plugins: [
             expect.objectContaining({
               displayName: "GitHub",
@@ -210,8 +268,9 @@ describe("desktop plugin and skill services", () => {
     })
     expect(bridge.calls[0]).toMatchObject({
       method: "plugin/list",
-      params: { forceRefetch: false, marketplaceKinds: expect.arrayContaining(["local"]) },
+      params: { cwds: null, forceRefetch: false },
     })
+    expect(bridge.calls[0]?.params).toEqual({ cwds: null, forceRefetch: false })
   })
 
   it("routes plugin lifecycle and marketplace mutations through generated methods", async () => {

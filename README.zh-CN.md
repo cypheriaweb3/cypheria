@@ -172,6 +172,7 @@ pnpm format
 仓库已经包含基础 pnpm/Turborepo workspace、desktop-local typed IPC contracts、runtime home handling、Electron main process bootstrap、persistent desktop Codex App Server lifecycle、wallet/policy/dApp browser domain baselines、EIP-1193/EIP-6963 与 Solana Wallet Standard provider surfaces、本地 SQLite audit 与 automation persistence、共享 UI primitives，以及第一版 TanStack Start desktop shell。
 
 下一步实现顺序记录在 [docs/todo.zh-CN.md](docs/todo.zh-CN.md)。
+规范化 logo、应用图标资产与使用规则见 [docs/brand.zh-CN.md](docs/brand.zh-CN.md)。
 
 ## License
 

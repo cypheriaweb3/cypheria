@@ -101,6 +101,12 @@ msgid "settings.language.description"
 msgstr "Language for the app UI"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/plugins-page.tsx
+#: renderer/src/i18n.test.ts
+msgid "plugins.detail.loading"
+msgstr "Loading {pluginName} plugin details"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.models"
 msgstr "Models"

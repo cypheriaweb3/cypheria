@@ -1,3 +1,4 @@
+import { Alert, AlertDescription, AlertTitle } from "@cypheria/ui/components/alert"
 import { Button } from "@cypheria/ui/components/button"
 import {
   Dialog,
@@ -17,6 +18,8 @@ import {
 import { Input } from "@cypheria/ui/components/input"
 import { Switch } from "@cypheria/ui/components/switch"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@cypheria/ui/components/tooltip"
+import { msg } from "@lingui/core/macro"
+import { useLingui } from "@lingui/react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useSearch } from "@tanstack/react-router"
 import {
@@ -25,6 +28,7 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  CircleAlert,
   CircleX,
   ExternalLink,
   Link2,
@@ -40,12 +44,20 @@ import {
 import { type ReactNode, useState } from "react"
 import { z } from "zod"
 import type {
+  CodexAccountView,
+  CodexMarketplaceView,
   CodexPluginDetailView,
   CodexPluginView,
   CodexSkillView,
 } from "../../../ipc/src/index.js"
+import cypheriaMark from "../assets/brand/cypheria-mark.svg"
 import promptWallpaper from "../assets/plugins/prompt-wallpaper.webp"
-import { githubPreviewDetail, pluginDemo, skillDemo } from "../components/plugin-preview"
+import {
+  openAiPluginCategories,
+  openAiPopularPlugins,
+  pluginsInOpenAiCategory,
+} from "./openai-plugin-directory"
+import { isRemotePluginCatalogAuthError } from "./plugin-catalog-auth"
 import {
   AddMcpDialog,
   AppConnection,
@@ -147,6 +159,7 @@ export function PluginManagementPage() {
 }
 
 export function PluginsRoute({ management = false }: { management?: boolean }) {
+  const { i18n } = useLingui()
   const search = z
     .object({
       view: z.enum(["plugins", "skills", "manage"]).optional(),
@@ -158,11 +171,8 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
   const integrations = usePluginIntegrations(view === "manage" || !!pluginId)
   const navigate = useNavigate()
   const cache = useQueryClient()
-  const preview = !window.cypheria
-  const [previewPlugins, setPreviewPlugins] = useState(pluginDemo)
-  const [previewSkills, setPreviewSkills] = useState(skillDemo)
   const [query, setQuery] = useState("")
-  const [source, setSource] = useState("public")
+  const [source, setSource] = useState<"public" | "openai" | "personal">("public")
   const [scope, setScope] = useState("all")
   const [manageTab, setManageTab] = useState("plugins")
   const [expanded, setExpanded] = useState<string[]>([])
@@ -177,16 +187,42 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
   const [copied, setCopied] = useState(false)
   const pluginsQuery = useQuery({
     queryKey: ["codex", "plugins"],
-    queryFn: () => window.cypheria?.codex.listPlugins() ?? pluginDemo,
+    queryFn: () => {
+      if (!window.cypheria) throw new Error("Plugin data is available in Cypheria Desktop.")
+      return window.cypheria.codex.listPlugins()
+    },
+  })
+  const accountQuery = useQuery({
+    queryKey: ["codex", "account"],
+    queryFn: (): Promise<CodexAccountView> => {
+      if (!window.cypheria)
+        throw new Error("Codex account status is available in Cypheria Desktop.")
+      return window.cypheria.codex.getAccount()
+    },
   })
   const skillsQuery = useQuery({
     queryKey: ["codex", "skills"],
-    queryFn: () => window.cypheria?.codex.listSkills() ?? skillDemo,
+    queryFn: () => {
+      if (!window.cypheria) throw new Error("Skill data is available in Cypheria Desktop.")
+      return window.cypheria.codex.listSkills()
+    },
   })
-  const data = preview ? previewPlugins : pluginsQuery.data
-  const skills = (preview ? previewSkills : skillsQuery.data)?.skills ?? []
+  const data = pluginsQuery.data
+  const skills = skillsQuery.data?.skills ?? []
+  const marketplaces = data?.marketplaces ?? []
   const plugins = data?.marketplaces.flatMap((m) => m.plugins) ?? []
-  const publicPlugins = plugins.filter((p) => p.sourceKinds?.includes("vertical"))
+  const openAiPlugins = marketplaces
+    .filter((marketplace) => marketplace.catalog === "openai")
+    .flatMap((marketplace) => marketplace.plugins)
+  const popularOpenAiPlugins = openAiPopularPlugins(marketplaces)
+  const publicMarketplaces = marketplaces.filter((marketplace) => marketplace.catalog === "public")
+  const personalMarketplaces = marketplaces.filter(
+    (marketplace) => marketplace.catalog === "personal"
+  )
+  const catalogAuthErrors = data?.errors.filter(isRemotePluginCatalogAuthError) ?? []
+  const otherPluginErrors =
+    data?.errors.filter((entry) => !isRemotePluginCatalogAuthError(entry)) ?? []
+  const catalogNeedsChatGpt = catalogAuthErrors.length > 0
   const removalTarget = data?.marketplaces.find((m) => m.name === removeMarketName)
   const removalBlocked = !removalTarget?.path || removalTarget.plugins.some((p) => p.installed)
   const selected = plugins.find((p) => p.id === pluginId)
@@ -196,19 +232,8 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
     enabled: !!selected,
     queryFn: async (): Promise<CodexPluginDetailView> => {
       if (!selected) throw new Error("Plugin not found")
-      if (window.cypheria) return window.cypheria.codex.readPlugin(locator(selected))
-      if (selected.name === "github") return githubPreviewDetail
-      return {
-        description: selected.description,
-        shareUrl: null,
-        prompts: [],
-        websiteUrl: null,
-        privacyPolicyUrl: null,
-        termsOfServiceUrl: null,
-        apps: [],
-        mcpServers: [],
-        skills: [],
-      }
+      if (!window.cypheria) throw new Error("Plugin details are available in Cypheria Desktop.")
+      return window.cypheria.codex.readPlugin(locator(selected))
     },
   })
   const detail = detailQuery.data
@@ -228,24 +253,7 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
       plugin: CodexPluginView
     }) => {
       const p = action.plugin
-      if (!window.cypheria) {
-        setPreviewPlugins((old) => ({
-          ...old,
-          marketplaces: old.marketplaces.map((m) => ({
-            ...m,
-            plugins: m.plugins.map((item) =>
-              item.id !== p.id
-                ? item
-                : {
-                    ...item,
-                    installed: action.type !== "uninstall",
-                    enabled: action.type === "toggle" ? !p.enabled : action.type === "install",
-                  }
-            ),
-          })),
-        }))
-        return
-      }
+      if (!window.cypheria) throw new Error("Plugin management requires Cypheria Desktop.")
       if (action.type === "install") {
         const result = await window.cypheria.codex.installPlugin(locator(p))
         if (result.appsNeedingAuth.length)
@@ -265,20 +273,14 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
   })
   const skillMutation = useMutation({
     mutationFn: async (skill: CodexSkillView) => {
-      if (window.cypheria) await window.cypheria.codex.setSkillEnabled(skill.path, !skill.enabled)
-      else
-        setPreviewSkills((old) => ({
-          ...old,
-          skills: old.skills.map((s) =>
-            s.path === skill.path ? { ...s, enabled: !s.enabled } : s
-          ),
-        }))
+      if (!window.cypheria) throw new Error("Skill management requires Cypheria Desktop.")
+      await window.cypheria.codex.setSkillEnabled(skill.path, !skill.enabled)
     },
     onSuccess: () => cache.invalidateQueries({ queryKey: ["codex", "skills"] }),
   })
   const refresh = useMutation({
     mutationFn: async () => {
-      if (!window.cypheria) return
+      if (!window.cypheria) throw new Error("Refreshing plugins requires Cypheria Desktop.")
       const [p, s] = await Promise.all([
         window.cypheria.codex.listPlugins({ forceRefetch: true }),
         window.cypheria.codex.listSkills({ forceReload: true }),
@@ -315,12 +317,8 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
     mutationFn: async (name: string) => {
       if (removalBlocked)
         throw new Error("Uninstall this marketplace’s plugins before removing its source.")
-      if (window.cypheria) await window.cypheria.codex.removeMarketplace(name)
-      else
-        setPreviewPlugins((old) => ({
-          ...old,
-          marketplaces: old.marketplaces.filter((m) => m.name !== name),
-        }))
+      if (!window.cypheria) throw new Error("Marketplace removal requires Cypheria Desktop.")
+      await window.cypheria.codex.removeMarketplace(name)
     },
     onSuccess: async () => {
       await cache.invalidateQueries({ queryKey: ["codex", "plugins"] })
@@ -363,6 +361,10 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
     refresh.error ??
     updateMarket.error ??
     (view === "skills" ? skillsQuery.error : pluginsQuery.error)
+
+  const openCodexConnections = () => {
+    void navigate({ to: "/settings/connections", search: { focus: "codex" } })
+  }
 
   function PluginMenu({ plugin: p }: { plugin: CodexPluginView }) {
     return (
@@ -522,6 +524,9 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
       </Section>
     ) : null
   }
+  function PersonalMarketplaceGroup({ marketplace }: { marketplace: CodexMarketplaceView }) {
+    return <PluginGroup title={marketplace.displayName} items={marketplace.plugins} />
+  }
   function SkillGroup({ title, items }: { title: string; items: CodexSkillView[] }) {
     const open = expanded.includes(title)
     return (
@@ -632,9 +637,6 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
             ))}
           </nav>
         )}
-        {preview && (
-          <span className="ml-auto text-xs text-muted-foreground">Preview · sample catalog</span>
-        )}
         {!selected && view !== "manage" && (
           <div className="flex items-center gap-2">
             <IconButton
@@ -651,594 +653,661 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
           </div>
         )}
       </header>
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <main
-          className={`mx-auto w-full px-6 pb-20 pt-7 ${view === "manage" ? "max-w-[816px]" : "max-w-[768px]"}`}
-        >
-          {(error || notice || integrations.notice) && (
-            <div role={error ? "alert" : "status"} className="mb-5 rounded-xl border p-3 text-sm">
-              {error ? errorText(error) : (notice ?? integrations.notice)}
-            </div>
-          )}
-          {selected ? (
-            <>
-              {selected.logoUrl && (
-                <div className="mb-5">
-                  <Icon src={selected.logoUrl} name={selected.displayName} large />
-                </div>
-              )}
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <h1 className="text-[22px] font-medium">{selected.displayName}</h1>
-                  <p className="mt-1 text-sm text-muted-foreground">{selected.description}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {selected.installed && <PluginMenu plugin={selected} />}
-                  {detail?.shareUrl && (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(detail.shareUrl ?? "")
-                          setCopied(true)
-                        } catch (e) {
-                          setNotice(errorText(e))
-                        }
-                      }}
-                    >
-                      <Link2 className="size-4" />
-                      {copied ? "Copied" : "Copy link"}
-                    </Button>
-                  )}
-                  <Button
-                    size="sm"
-                    className="bg-foreground text-background hover:bg-foreground/85"
-                    disabled={busy || unavailable(selected)}
-                    onClick={() =>
-                      selected.installed
-                        ? tryPrompt(`Use the ${selected.displayName} plugin to `)
-                        : mutation.mutate({ type: "install", plugin: selected })
-                    }
-                  >
-                    {selected.installed ? (
-                      <Sparkles className="size-4" />
-                    ) : (
-                      <Plus className="size-4" />
-                    )}
-                    {selected.installed ? "Try now" : busy ? "Installing…" : "Install plugin"}
-                  </Button>
-                </div>
+      <div className="relative min-h-0 flex-1 overflow-y-auto">
+        {selected && detailQuery.isPending ? (
+          <div
+            role="status"
+            aria-label={i18n._({
+              ...msg({
+                id: "plugins.detail.loading",
+                message: "Loading {pluginName} plugin details",
+              }),
+              values: { pluginName: selected.displayName },
+            })}
+            className="absolute inset-0 flex items-center justify-center bg-background"
+          >
+            <img
+              src={cypheriaMark}
+              alt=""
+              className="size-11 opacity-20 motion-safe:animate-pulse dark:invert"
+            />
+          </div>
+        ) : (
+          <main
+            className={`mx-auto w-full px-6 pb-20 pt-7 ${view === "manage" ? "max-w-[816px]" : "max-w-[768px]"}`}
+          >
+            {(error || notice || integrations.notice) && (
+              <div role={error ? "alert" : "status"} className="mb-5 rounded-xl border p-3 text-sm">
+                {error ? errorText(error) : (notice ?? integrations.notice)}
               </div>
-              {detailQuery.isPending && (
-                <p className="mt-8 text-sm text-muted-foreground">Loading plugin details…</p>
-              )}
-              {detailQuery.error && (
-                <p role="alert" className="mt-8 text-sm text-destructive">
-                  {errorText(detailQuery.error)}
-                </p>
-              )}
-              {!!detail?.prompts.length && (
-                <div
-                  className="mt-7 grid gap-4 rounded-2xl bg-muted bg-cover bg-center p-7 sm:px-20"
-                  style={{
-                    backgroundImage: `linear-gradient(#ffffffa6, #ffffffa6), url(${promptWallpaper})`,
-                  }}
-                >
-                  {detail.prompts.map((prompt) => (
-                    <button
-                      key={prompt}
-                      type="button"
-                      disabled={!selected.installed}
-                      onClick={() => tryPrompt(`Use the ${selected.displayName} plugin. ${prompt}`)}
-                      className="flex items-center gap-3 rounded-2xl bg-background/80 p-3 text-left text-sm disabled:opacity-65"
-                    >
-                      <span className="min-w-0 flex-1">
-                        <span className="mr-2 font-medium">{selected.displayName}</span>
-                        {prompt}
-                      </span>
-                      <ArrowRight className="size-7 shrink-0 rounded-full bg-muted p-1.5" />
-                    </button>
-                  ))}
-                </div>
-              )}
-              {detail?.description && (
-                <p className="mt-7 text-sm leading-6 text-muted-foreground">{detail.description}</p>
-              )}
-              {!!detail?.apps.length && (
-                <Section title="Apps" count={detail.apps.length}>
-                  {Array.from(new Set(detail.apps.map((a) => a.category))).map((category) => (
-                    <div key={category ?? "apps"}>
-                      {category && (
-                        <p className="mb-2 mt-5 text-sm text-muted-foreground">{category}</p>
-                      )}
-                      {detail.apps
-                        .filter((a) => a.category === category)
-                        .map((app) => {
-                          const linkedApp = integrations.apps.find((entry) => entry.id === app.id)
-                          return (
-                            <div key={app.id} className="flex items-center gap-3 py-3">
-                              <Icon src={linkedApp?.logoUrl ?? null} name={app.name} />
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm">{app.name}</p>
-                                <p className="mt-1 truncate text-sm text-muted-foreground">
-                                  {app.description}
-                                </p>
-                              </div>
-                              {linkedApp ? (
-                                <AppConnection app={linkedApp} integrations={integrations} />
-                              ) : app.installUrl ? (
-                                <a
-                                  href={app.installUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="flex shrink-0 items-center gap-1 rounded-lg border px-2 py-1 text-xs"
-                                >
-                                  Connect
-                                  <ExternalLink className="size-3" />
-                                </a>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">
-                                  {integrations.appsQuery.isPending
-                                    ? "Checking…"
-                                    : "Availability unknown"}
-                                </span>
-                              )}
-                            </div>
-                          )
-                        })}
-                    </div>
-                  ))}
-                </Section>
-              )}
-              {!!detail?.mcpServers.length && (
-                <Section title="MCP servers" count={detail.mcpServers.length}>
-                  {detail.mcpServers.map((server) => {
-                    const linkedServer = integrations.servers.find((entry) => entry.name === server)
-                    return linkedServer ? (
-                      <McpServerRow
-                        key={server}
-                        server={linkedServer}
-                        integrations={integrations}
-                        compact
-                      />
-                    ) : (
-                      <div key={server} className="flex items-center gap-3 px-2 py-4 text-sm">
-                        <Blocks className="size-5 text-muted-foreground" />
-                        {server}
-                      </div>
-                    )
-                  })}
-                </Section>
-              )}
-              {!!detail?.skills.length && (
-                <Section title="Skills" count={detail.skills.length}>
-                  <div className="grid gap-x-7 gap-y-1 sm:grid-cols-2">
-                    {detail.skills.map((s) => (
-                      <div key={s.name} className="flex items-center gap-3 px-2 py-3">
-                        <Icon src={null} name={s.name} skill />
-                        <div className="min-w-0">
-                          <p className="truncate text-sm">{s.name}</p>
-                          <p className="mt-1 truncate text-sm text-muted-foreground">
-                            {s.description}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </Section>
-              )}
-              <Section title="Information">
-                <dl className="grid grid-cols-[140px_1fr] gap-y-3 text-sm">
-                  {[
-                    ["Capabilities", selected.capabilities.join(", ")],
-                    ["Developer", selected.developerName],
-                    ["Category", selected.category],
-                    ["Version", selected.version],
-                  ]
-                    .filter(([, value]) => value)
-                    .map(([label, value]) => (
-                      <Info key={label} label={label ?? ""}>
-                        {value}
-                      </Info>
-                    ))}
-                  {[
-                    ["Website", detail?.websiteUrl],
-                    ["Privacy policy", detail?.privacyPolicyUrl],
-                    ["Terms of service", detail?.termsOfServiceUrl],
-                  ]
-                    .filter(([, url]) => url)
-                    .map(([label, url]) => (
-                      <Info key={label} label={label ?? ""}>
-                        <a
-                          aria-label={label ?? undefined}
-                          href={url ?? ""}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          <ExternalLink className="size-3.5" />
-                        </a>
-                      </Info>
-                    ))}
-                </dl>
-              </Section>
-            </>
-          ) : (
-            <>
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <h1 className="text-[28px] font-medium leading-9">
-                    {view === "skills" ? "Skills" : "Plugins"}
-                  </h1>
-                  <p className="mt-2 text-base text-muted-foreground">
-                    {view === "manage"
-                      ? "Manage plugins, apps, MCP and skills"
-                      : view === "skills"
-                        ? "Extend Cypheria with task-specific skills"
-                        : "Use Cypheria with your favorite tools"}
-                  </p>
-                </div>
-                {view === "manage" && (
-                  <div className="flex shrink-0 items-center gap-2">
-                    <IconButton
-                      label="Refresh"
-                      disabled={refresh.isPending}
-                      onClick={() => refresh.mutate()}
-                    >
-                      <RefreshCw className={`size-4 ${refresh.isPending ? "animate-spin" : ""}`} />
-                    </IconButton>
-                    <Button size="sm" variant="outline" onClick={() => changeView("plugins")}>
-                      Browse directory
-                    </Button>
-                    {AddMenu}
+            )}
+            {selected ? (
+              <>
+                {selected.logoUrl && (
+                  <div className="mb-5">
+                    <Icon src={selected.logoUrl} name={selected.displayName} large />
                   </div>
                 )}
-              </div>
-              <div
-                className={`relative mt-6 ${view === "manage" ? "sm:float-right sm:mt-7 sm:w-52" : ""}`}
-              >
-                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  aria-label={`Search ${view === "manage" ? manageTab : view === "skills" ? "skills" : "plugins"}`}
-                  placeholder={`Search ${view === "manage" ? manageTab : view === "skills" ? "skills" : "plugins"}`}
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  className="h-9 rounded-full pl-10 pr-10 shadow-none"
-                />
-                {query && (
-                  <button
-                    aria-label="Clear search"
-                    type="button"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
-                    onClick={() => setQuery("")}
-                  >
-                    <CircleX className="size-4" />
-                  </button>
-                )}
-              </div>
-              {!preview &&
-              (view === "manage"
-                ? manageTab === "plugins" || manageTab === "marketplaces"
-                  ? pluginsQuery.isPending
-                  : manageTab === "skills"
-                    ? skillsQuery.isPending
-                    : false
-                : view === "skills"
-                  ? skillsQuery.isPending
-                  : pluginsQuery.isPending) ? (
-                <div role="status" className="mt-10 text-sm text-muted-foreground">
-                  Loading directory…
-                </div>
-              ) : view === "manage" ? (
-                <>
-                  <nav
-                    aria-label="Management sections"
-                    className="mt-7 flex min-h-9 gap-1 overflow-x-auto sm:mr-56"
-                  >
-                    {[
-                      ["plugins", installed.length],
-                      ["apps", integrations.apps.length],
-                      ["mcp", integrations.servers.length],
-                      ["skills", skills.length],
-                      ["marketplaces", data?.marketplaces.length ?? 0],
-                    ].map(([tab, count]) => (
-                      <button
-                        key={tab}
-                        type="button"
-                        aria-pressed={manageTab === tab}
-                        className={pill}
-                        onClick={() => {
-                          setManageTab(String(tab))
-                          setQuery("")
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <h1 className="text-[22px] font-medium">{selected.displayName}</h1>
+                    <p className="mt-1 text-sm text-muted-foreground">{selected.description}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {selected.installed && <PluginMenu plugin={selected} />}
+                    {detail?.shareUrl && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(detail.shareUrl ?? "")
+                            setCopied(true)
+                          } catch (e) {
+                            setNotice(errorText(e))
+                          }
                         }}
                       >
-                        <span className="capitalize">
-                          {tab === "mcp" ? "MCP" : tab === "marketplaces" ? "Markets" : tab}
-                        </span>{" "}
-                        <span className="text-muted-foreground">{count}</span>
+                        <Link2 className="size-4" />
+                        {copied ? "Copied" : "Copy link"}
+                      </Button>
+                    )}
+                    <Button
+                      size="sm"
+                      className="bg-foreground text-background hover:bg-foreground/85"
+                      disabled={busy || unavailable(selected)}
+                      onClick={() =>
+                        selected.installed
+                          ? tryPrompt(`Use the ${selected.displayName} plugin to `)
+                          : mutation.mutate({ type: "install", plugin: selected })
+                      }
+                    >
+                      {selected.installed ? (
+                        <Sparkles className="size-4" />
+                      ) : (
+                        <Plus className="size-4" />
+                      )}
+                      {selected.installed ? "Try now" : busy ? "Installing…" : "Install plugin"}
+                    </Button>
+                  </div>
+                </div>
+                {detailQuery.error && (
+                  <p role="alert" className="mt-8 text-sm text-destructive">
+                    {errorText(detailQuery.error)}
+                  </p>
+                )}
+                {!!detail?.prompts.length && (
+                  <div
+                    className="mt-7 grid gap-4 rounded-2xl bg-muted bg-cover bg-center p-7 sm:px-20"
+                    style={{
+                      backgroundImage: `linear-gradient(#ffffffa6, #ffffffa6), url(${promptWallpaper})`,
+                    }}
+                  >
+                    {detail.prompts.map((prompt) => (
+                      <button
+                        key={prompt}
+                        type="button"
+                        disabled={!selected.installed}
+                        onClick={() =>
+                          tryPrompt(`Use the ${selected.displayName} plugin. ${prompt}`)
+                        }
+                        className="flex items-center gap-3 rounded-2xl bg-background/80 p-3 text-left text-sm disabled:opacity-65"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="mr-2 font-medium">{selected.displayName}</span>
+                          {prompt}
+                        </span>
+                        <ArrowRight className="size-7 shrink-0 rounded-full bg-muted p-1.5" />
                       </button>
                     ))}
-                  </nav>
-                  <div className="clear-both mt-8 grid gap-2">
-                    {(manageTab === "apps" || manageTab === "mcp") && (
-                      <>
-                        {(manageTab === "apps"
-                          ? integrations.appsQuery.isPending
-                          : integrations.mcpQuery.isPending) &&
-                          !preview && (
+                  </div>
+                )}
+                {detail?.description && (
+                  <p className="mt-7 text-sm leading-6 text-muted-foreground">
+                    {detail.description}
+                  </p>
+                )}
+                {!!detail?.apps.length && (
+                  <Section title="Apps" count={detail.apps.length}>
+                    {Array.from(new Set(detail.apps.map((a) => a.category))).map((category) => (
+                      <div key={category ?? "apps"}>
+                        {category && (
+                          <p className="mb-2 mt-5 text-sm text-muted-foreground">{category}</p>
+                        )}
+                        {detail.apps
+                          .filter((a) => a.category === category)
+                          .map((app) => {
+                            const linkedApp = integrations.apps.find((entry) => entry.id === app.id)
+                            return (
+                              <div key={app.id} className="flex items-center gap-3 py-3">
+                                <Icon src={linkedApp?.logoUrl ?? null} name={app.name} />
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm">{app.name}</p>
+                                  <p className="mt-1 truncate text-sm text-muted-foreground">
+                                    {app.description}
+                                  </p>
+                                </div>
+                                {linkedApp ? (
+                                  <AppConnection app={linkedApp} integrations={integrations} />
+                                ) : app.installUrl ? (
+                                  <a
+                                    href={app.installUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="flex shrink-0 items-center gap-1 rounded-lg border px-2 py-1 text-xs"
+                                  >
+                                    Connect
+                                    <ExternalLink className="size-3" />
+                                  </a>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">
+                                    {integrations.appsQuery.isPending
+                                      ? "Checking…"
+                                      : "Availability unknown"}
+                                  </span>
+                                )}
+                              </div>
+                            )
+                          })}
+                      </div>
+                    ))}
+                  </Section>
+                )}
+                {!!detail?.mcpServers.length && (
+                  <Section title="MCP servers" count={detail.mcpServers.length}>
+                    {detail.mcpServers.map((server) => {
+                      const linkedServer = integrations.servers.find(
+                        (entry) => entry.name === server
+                      )
+                      return linkedServer ? (
+                        <McpServerRow
+                          key={server}
+                          server={linkedServer}
+                          integrations={integrations}
+                          compact
+                        />
+                      ) : (
+                        <div key={server} className="flex items-center gap-3 px-2 py-4 text-sm">
+                          <Blocks className="size-5 text-muted-foreground" />
+                          {server}
+                        </div>
+                      )
+                    })}
+                  </Section>
+                )}
+                {!!detail?.skills.length && (
+                  <Section title="Skills" count={detail.skills.length}>
+                    <div className="grid gap-x-7 gap-y-1 sm:grid-cols-2">
+                      {detail.skills.map((s) => (
+                        <div key={s.name} className="flex items-center gap-3 px-2 py-3">
+                          <Icon src={null} name={s.name} skill />
+                          <div className="min-w-0">
+                            <p className="truncate text-sm">{s.name}</p>
+                            <p className="mt-1 truncate text-sm text-muted-foreground">
+                              {s.description}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </Section>
+                )}
+                <Section title="Information">
+                  <dl className="grid grid-cols-[140px_1fr] gap-y-3 text-sm">
+                    {[
+                      ["Capabilities", selected.capabilities.join(", ")],
+                      ["Developer", selected.developerName],
+                      ["Category", selected.category],
+                      ["Version", selected.version],
+                    ]
+                      .filter(([, value]) => value)
+                      .map(([label, value]) => (
+                        <Info key={label} label={label ?? ""}>
+                          {value}
+                        </Info>
+                      ))}
+                    {[
+                      ["Website", detail?.websiteUrl],
+                      ["Privacy policy", detail?.privacyPolicyUrl],
+                      ["Terms of service", detail?.termsOfServiceUrl],
+                    ]
+                      .filter(([, url]) => url)
+                      .map(([label, url]) => (
+                        <Info key={label} label={label ?? ""}>
+                          <a
+                            aria-label={label ?? undefined}
+                            href={url ?? ""}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <ExternalLink className="size-3.5" />
+                          </a>
+                        </Info>
+                      ))}
+                  </dl>
+                </Section>
+              </>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <h1 className="text-[28px] font-medium leading-9">
+                      {view === "skills" ? "Skills" : "Plugins"}
+                    </h1>
+                    <p className="mt-2 text-base text-muted-foreground">
+                      {view === "manage"
+                        ? "Manage plugins, apps, MCP and skills"
+                        : view === "skills"
+                          ? "Extend Cypheria with task-specific skills"
+                          : "Use Cypheria with your favorite tools"}
+                    </p>
+                  </div>
+                  {view === "manage" && (
+                    <div className="flex shrink-0 items-center gap-2">
+                      <IconButton
+                        label="Refresh"
+                        disabled={refresh.isPending}
+                        onClick={() => refresh.mutate()}
+                      >
+                        <RefreshCw
+                          className={`size-4 ${refresh.isPending ? "animate-spin" : ""}`}
+                        />
+                      </IconButton>
+                      <Button size="sm" variant="outline" onClick={() => changeView("plugins")}>
+                        Browse directory
+                      </Button>
+                      {AddMenu}
+                    </div>
+                  )}
+                </div>
+                <div
+                  className={`relative mt-6 ${view === "manage" ? "sm:float-right sm:mt-7 sm:w-52" : ""}`}
+                >
+                  <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    aria-label={`Search ${view === "manage" ? manageTab : view === "skills" ? "skills" : "plugins"}`}
+                    placeholder={`Search ${view === "manage" ? manageTab : view === "skills" ? "skills" : "plugins"}`}
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    className="h-9 rounded-full pl-10 pr-10 shadow-none"
+                  />
+                  {query && (
+                    <button
+                      aria-label="Clear search"
+                      type="button"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                      onClick={() => setQuery("")}
+                    >
+                      <CircleX className="size-4" />
+                    </button>
+                  )}
+                </div>
+                {catalogNeedsChatGpt && view !== "skills" ? (
+                  <Alert className="mt-6">
+                    <CircleAlert className="size-4" />
+                    <AlertTitle>
+                      {accountQuery.data?.type === "apiKey"
+                        ? "ChatGPT sign-in is required for the full plugin catalog"
+                        : "Sign in with ChatGPT to load remote plugins"}
+                    </AlertTitle>
+                    <AlertDescription className="grid gap-3">
+                      <p>
+                        {accountQuery.data?.type === "apiKey"
+                          ? "Codex is currently connected with an OpenAI API key. The key can still be used for model requests, but this App Server rejected the remote plugin catalog because it requires a ChatGPT session."
+                          : accountQuery.data?.type === "chatgpt"
+                            ? "Codex reports a ChatGPT connection, but the remote plugin catalog rejected it. Open Connections to reconnect, then refresh this page."
+                            : "The remote plugin catalog requires a ChatGPT session. Connect Codex with ChatGPT, then return and refresh this page."}
+                      </p>
+                      <Button
+                        className="w-fit"
+                        size="sm"
+                        variant="outline"
+                        onClick={openCodexConnections}
+                      >
+                        Open Codex sign-in settings
+                        <ArrowRight className="size-3.5" />
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
+                {(
+                  view === "manage"
+                    ? manageTab === "plugins" || manageTab === "marketplaces"
+                      ? pluginsQuery.isPending
+                      : manageTab === "skills"
+                        ? skillsQuery.isPending
+                        : false
+                    : view === "skills"
+                      ? skillsQuery.isPending
+                      : pluginsQuery.isPending
+                ) ? (
+                  <div role="status" className="mt-10 text-sm text-muted-foreground">
+                    Loading directory…
+                  </div>
+                ) : view === "manage" ? (
+                  <>
+                    <nav
+                      aria-label="Management sections"
+                      className="mt-7 flex min-h-9 gap-1 overflow-x-auto sm:mr-56"
+                    >
+                      {[
+                        ["plugins", installed.length],
+                        ["apps", integrations.apps.length],
+                        ["mcp", integrations.servers.length],
+                        ["skills", skills.length],
+                        ["marketplaces", data?.marketplaces.length ?? 0],
+                      ].map(([tab, count]) => (
+                        <button
+                          key={tab}
+                          type="button"
+                          aria-pressed={manageTab === tab}
+                          className={pill}
+                          onClick={() => {
+                            setManageTab(String(tab))
+                            setQuery("")
+                          }}
+                        >
+                          <span className="capitalize">
+                            {tab === "mcp" ? "MCP" : tab === "marketplaces" ? "Markets" : tab}
+                          </span>{" "}
+                          <span className="text-muted-foreground">{count}</span>
+                        </button>
+                      ))}
+                    </nav>
+                    <div className="clear-both mt-8 grid gap-2">
+                      {(manageTab === "apps" || manageTab === "mcp") && (
+                        <>
+                          {(manageTab === "apps"
+                            ? integrations.appsQuery.isPending
+                            : integrations.mcpQuery.isPending) && (
                             <p role="status" className="py-6 text-sm text-muted-foreground">
                               Loading {manageTab}…
                             </p>
                           )}
-                        {(manageTab === "apps"
-                          ? integrations.appsQuery.error
-                          : integrations.mcpQuery.error) && (
-                          <div
-                            role="alert"
-                            className="flex items-center justify-between gap-3 py-4 text-sm text-destructive"
-                          >
-                            {errorText(
-                              manageTab === "apps"
-                                ? integrations.appsQuery.error
-                                : integrations.mcpQuery.error
-                            )}
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => void integrations.refresh()}
+                          {(manageTab === "apps"
+                            ? integrations.appsQuery.error
+                            : integrations.mcpQuery.error) && (
+                            <div
+                              role="alert"
+                              className="flex items-center justify-between gap-3 py-4 text-sm text-destructive"
                             >
-                              Retry
-                            </Button>
-                          </div>
-                        )}
-                        {manageTab === "apps" && integrations.appsQuery.data?.runtimeError && (
-                          <p role="status" className="py-2 text-sm text-muted-foreground">
-                            {integrations.appsQuery.data.runtimeError}
-                          </p>
-                        )}
-                        {manageTab === "apps"
-                          ? integrations.apps
-                              .filter((app) => matching(`${app.name} ${app.description}`))
-                              .map((app) => (
-                                <IntegrationAppRow
-                                  key={app.id}
-                                  app={app}
-                                  integrations={integrations}
-                                />
-                              ))
-                          : integrations.servers
-                              .filter((server) => matching(server.name))
-                              .map((server) => (
-                                <McpServerRow
-                                  key={server.name}
-                                  server={server}
-                                  integrations={integrations}
-                                />
-                              ))}
-                        {!(manageTab === "apps"
-                          ? integrations.apps.filter((app) =>
-                              matching(`${app.name} ${app.description}`)
-                            ).length
-                          : integrations.servers.filter((server) => matching(server.name))
-                              .length) &&
-                          (preview ||
-                            (manageTab === "apps"
-                              ? integrations.appsQuery.isSuccess
-                              : integrations.mcpQuery.isSuccess)) && (
-                            <p className="py-10 text-center text-sm text-muted-foreground">
-                              {query
-                                ? `No results for “${query}”.`
-                                : `No ${manageTab === "apps" ? "apps available" : "MCP servers configured"}.`}
+                              {errorText(
+                                manageTab === "apps"
+                                  ? integrations.appsQuery.error
+                                  : integrations.mcpQuery.error
+                              )}
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => void integrations.refresh()}
+                              >
+                                Retry
+                              </Button>
+                            </div>
+                          )}
+                          {manageTab === "apps" && integrations.appsQuery.data?.runtimeError && (
+                            <p role="status" className="py-2 text-sm text-muted-foreground">
+                              {integrations.appsQuery.data.runtimeError}
                             </p>
                           )}
-                      </>
-                    )}
-                    {manageTab === "plugins"
-                      ? filteredPlugins
-                          .filter((p) => p.installed)
-                          .map((p) => <PluginRow key={p.id} plugin={p} manage />)
-                      : manageTab === "skills"
-                        ? filteredSkills.map((s) => <SkillRow key={s.path} skill={s} manage />)
-                        : manageTab === "marketplaces"
-                          ? data?.marketplaces
-                              .filter((m) => matching(m.name))
-                              .map((m) => (
-                                <div
-                                  key={m.name}
-                                  className="flex items-center justify-between gap-4 rounded-xl px-2 py-4"
-                                >
-                                  <div>
-                                    <p className="text-sm font-medium">{m.name}</p>
-                                    <p className="mt-1 text-sm text-muted-foreground">
-                                      {m.plugins.length}{" "}
-                                      {m.plugins.length === 1 ? "plugin" : "plugins"}
-                                    </p>
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      disabled={updateMarket.isPending}
-                                      onClick={() => updateMarket.mutate(m.name)}
-                                    >
-                                      Update
-                                    </Button>
-                                    {m.path && (
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => {
-                                          removeMarket.reset()
-                                          setRemoveMarketName(m.name)
-                                          setRemoveMarketOpen(true)
-                                        }}
-                                      >
-                                        Remove
-                                      </Button>
+                          {manageTab === "apps"
+                            ? integrations.apps
+                                .filter((app) => matching(`${app.name} ${app.description}`))
+                                .map((app) => (
+                                  <IntegrationAppRow
+                                    key={app.id}
+                                    app={app}
+                                    integrations={integrations}
+                                  />
+                                ))
+                            : integrations.servers
+                                .filter((server) => matching(server.name))
+                                .map((server) => (
+                                  <McpServerRow
+                                    key={server.name}
+                                    server={server}
+                                    integrations={integrations}
+                                  />
+                                ))}
+                          {!(manageTab === "apps"
+                            ? integrations.apps.filter((app) =>
+                                matching(`${app.name} ${app.description}`)
+                              ).length
+                            : integrations.servers.filter((server) => matching(server.name))
+                                .length) &&
+                            (manageTab === "apps"
+                              ? integrations.appsQuery.isSuccess
+                              : integrations.mcpQuery.isSuccess) && (
+                              <p className="py-10 text-center text-sm text-muted-foreground">
+                                {query
+                                  ? `No results for “${query}”.`
+                                  : `No ${manageTab === "apps" ? "apps available" : "MCP servers configured"}.`}
+                              </p>
+                            )}
+                        </>
+                      )}
+                      {manageTab === "plugins"
+                        ? filteredPlugins
+                            .filter((p) => p.installed)
+                            .map((p) => <PluginRow key={p.id} plugin={p} manage />)
+                        : manageTab === "skills"
+                          ? filteredSkills.map((s) => <SkillRow key={s.path} skill={s} manage />)
+                          : manageTab === "marketplaces"
+                            ? data?.marketplaces
+                                .filter((m) => matching(m.name))
+                                .map((m) => (
+                                  <div
+                                    key={m.name}
+                                    className="flex items-center justify-between gap-4 rounded-xl px-2 py-4"
+                                  >
+                                    <div>
+                                      <p className="text-sm font-medium">{m.displayName}</p>
+                                      <p className="mt-1 text-sm text-muted-foreground">
+                                        {m.catalog === "public"
+                                          ? "Public"
+                                          : m.catalog === "openai"
+                                            ? "OpenAI"
+                                            : "Personal"}{" "}
+                                        · {m.plugins.length}{" "}
+                                        {m.plugins.length === 1 ? "plugin" : "plugins"}
+                                      </p>
+                                    </div>
+                                    {m.catalog === "personal" && (
+                                      <div className="flex items-center gap-2">
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          disabled={updateMarket.isPending}
+                                          onClick={() => updateMarket.mutate(m.name)}
+                                        >
+                                          Update
+                                        </Button>
+                                        {m.path && (
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => {
+                                              removeMarket.reset()
+                                              setRemoveMarketName(m.name)
+                                              setRemoveMarketOpen(true)
+                                            }}
+                                          >
+                                            Remove
+                                          </Button>
+                                        )}
+                                      </div>
                                     )}
                                   </div>
-                                </div>
-                              ))
-                          : null}
+                                ))
+                            : null}
+                    </div>
+                  </>
+                ) : query.trim() ? (
+                  <div className="mt-7 grid gap-x-7 gap-y-1 sm:grid-cols-2">
+                    {view === "plugins"
+                      ? filteredPlugins.map((p) => <PluginRow key={p.id} plugin={p} />)
+                      : filteredSkills.map((s) => <SkillRow key={s.path} skill={s} />)}
+                    {!(view === "plugins" ? filteredPlugins.length : filteredSkills.length) && (
+                      <p className="col-span-full py-10 text-center text-sm text-muted-foreground">
+                        No results for “{query}”. Try another search.
+                      </p>
+                    )}
                   </div>
-                </>
-              ) : query.trim() ? (
-                <div className="mt-7 grid gap-x-7 gap-y-1 sm:grid-cols-2">
-                  {view === "plugins"
-                    ? filteredPlugins.map((p) => <PluginRow key={p.id} plugin={p} />)
-                    : filteredSkills.map((s) => <SkillRow key={s.path} skill={s} />)}
-                  {!(view === "plugins" ? filteredPlugins.length : filteredSkills.length) && (
-                    <p className="col-span-full py-10 text-center text-sm text-muted-foreground">
-                      No results for “{query}”. Try another search.
-                    </p>
-                  )}
-                </div>
-              ) : view === "skills" ? (
-                <>
-                  <SkillGroup title="Installed" items={skills.filter((s) => s.enabled)} />
-                  <nav aria-label="Skill sources" className="mt-10 flex flex-wrap gap-1">
-                    {skillSources.map((sourceLabel) => (
+                ) : view === "skills" ? (
+                  <>
+                    <SkillGroup title="Installed" items={skills.filter((s) => s.enabled)} />
+                    <nav aria-label="Skill sources" className="mt-10 flex flex-wrap gap-1">
+                      {skillSources.map((sourceLabel) => (
+                        <button
+                          key={sourceLabel}
+                          type="button"
+                          aria-pressed={activeSkillSource === sourceLabel}
+                          className={pill}
+                          onClick={() => setScope(sourceLabel)}
+                        >
+                          {sourceLabel}
+                        </button>
+                      ))}
+                    </nav>
+                    <SkillGroup
+                      title={activeSkillSource ?? "Skills"}
+                      items={skills.filter(
+                        (skill) => skillSourceLabel(skill) === activeSkillSource
+                      )}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Section
+                      title="Installed"
+                      action={
+                        <IconButton
+                          label="Manage installed plugins"
+                          onClick={() => changeView("manage")}
+                        >
+                          <Settings className="size-4" />
+                        </IconButton>
+                      }
+                    >
+                      <div className="flex gap-2 overflow-x-auto px-2 pb-3 pt-1">
+                        {installed.map((p) => (
+                          <Tooltip key={p.id}>
+                            <TooltipTrigger
+                              render={
+                                <button
+                                  type="button"
+                                  aria-label={p.displayName}
+                                  className="shrink-0 rounded-xl transition-transform hover:-translate-y-1 focus-visible:outline-2"
+                                  onClick={() => changeView("plugins", p.id)}
+                                />
+                              }
+                            >
+                              <Icon src={p.logoUrl} name={p.displayName} />
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">{p.displayName}</TooltipContent>
+                          </Tooltip>
+                        ))}
+                        {!installed.length && (
+                          <p className="py-3 text-sm text-muted-foreground">
+                            Installed plugins will appear here.
+                          </p>
+                        )}
+                      </div>
+                    </Section>
+                    <nav aria-label="Plugin sources" className="mt-5 flex flex-wrap gap-1">
                       <button
-                        key={sourceLabel}
                         type="button"
-                        aria-pressed={activeSkillSource === sourceLabel}
                         className={pill}
-                        onClick={() => setScope(sourceLabel)}
+                        aria-pressed={source === "public"}
+                        onClick={() => setSource("public")}
                       >
-                        {sourceLabel}
+                        Public
                       </button>
-                    ))}
-                  </nav>
-                  <SkillGroup
-                    title={activeSkillSource ?? "Skills"}
-                    items={skills.filter((skill) => skillSourceLabel(skill) === activeSkillSource)}
-                  />
-                </>
-              ) : (
-                <>
-                  <Section
-                    title="Installed"
-                    action={
-                      <IconButton
-                        label="Manage installed plugins"
-                        onClick={() => changeView("manage")}
+                      <button
+                        type="button"
+                        className={pill}
+                        aria-pressed={source === "openai"}
+                        onClick={() => setSource("openai")}
                       >
-                        <Settings className="size-4" />
-                      </IconButton>
-                    }
-                  >
-                    <div className="flex gap-2 overflow-x-auto px-2 pb-3 pt-1">
-                      {installed.map((p) => (
-                        <Tooltip key={p.id}>
-                          <TooltipTrigger
-                            render={
-                              <button
-                                type="button"
-                                aria-label={p.displayName}
-                                className="shrink-0 rounded-xl transition-transform hover:-translate-y-1 focus-visible:outline-2"
-                                onClick={() => changeView("plugins", p.id)}
-                              />
-                            }
-                          >
-                            <Icon src={p.logoUrl} name={p.displayName} />
-                          </TooltipTrigger>
-                          <TooltipContent side="bottom">{p.displayName}</TooltipContent>
-                        </Tooltip>
-                      ))}
-                      {!installed.length && (
-                        <p className="py-3 text-sm text-muted-foreground">
-                          Installed plugins will appear here.
-                        </p>
-                      )}
-                    </div>
-                  </Section>
-                  <nav aria-label="Plugin sources" className="mt-5 flex flex-wrap gap-1">
-                    <button
-                      type="button"
-                      className={pill}
-                      aria-pressed={source === "public"}
-                      onClick={() => setSource("public")}
-                    >
-                      Public
-                    </button>
-                    <button
-                      type="button"
-                      className={pill}
-                      aria-pressed={source === "personal"}
-                      onClick={() => setSource("personal")}
-                    >
-                      Personal
-                    </button>
-                  </nav>
-                  {source !== "public" ? (
-                    <>
-                      <PluginGroup
-                        title="Created by me"
-                        items={plugins.filter((p) =>
-                          p.sourceKinds?.includes("created-by-me-remote")
+                        OpenAI
+                      </button>
+                      <button
+                        type="button"
+                        className={pill}
+                        aria-pressed={source === "personal"}
+                        onClick={() => setSource("personal")}
+                      >
+                        Personal
+                      </button>
+                    </nav>
+                    {source === "public" ? (
+                      publicMarketplaces.length ? (
+                        publicMarketplaces.map((marketplace) => (
+                          <PluginGroup
+                            key={`${marketplace.name}:${marketplace.path ?? "remote"}`}
+                            title={marketplace.displayName}
+                            items={marketplace.plugins}
+                          />
+                        ))
+                      ) : (
+                        <div className="mt-12 rounded-2xl border border-dashed border-border px-6 py-12 text-center">
+                          <h2 className="text-base font-medium">Cypheria Marketplace</h2>
+                          <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+                            Public plugins reviewed and published by Cypheria will appear here. The
+                            official marketplace is not available yet.
+                          </p>
+                        </div>
+                      )
+                    ) : source === "personal" ? (
+                      <>
+                        {personalMarketplaces.map((marketplace) => (
+                          <PersonalMarketplaceGroup
+                            key={`${marketplace.name}:${marketplace.path ?? "remote"}`}
+                            marketplace={marketplace}
+                          />
+                        ))}
+                        {!personalMarketplaces.length && (
+                          <p className="mt-10 text-sm text-muted-foreground">
+                            No personal marketplaces yet. Add a Git repository or local directory to
+                            see its plugins here.
+                          </p>
                         )}
-                      />
-                      <PluginGroup
-                        title="Shared with me"
-                        items={plugins.filter((p) => p.sourceKinds?.includes("shared-with-me"))}
-                      />
-                      <PluginGroup
-                        title="Local marketplaces"
-                        items={plugins.filter((p) => p.sourceKinds?.includes("local"))}
-                      />
-                      <PluginGroup
-                        title="Workspace"
-                        items={plugins.filter((p) =>
-                          p.sourceKinds?.includes("workspace-directory")
+                      </>
+                    ) : (
+                      <>
+                        <PluginGroup title="Popular" items={popularOpenAiPlugins} />
+                        {openAiPluginCategories(openAiPlugins).map((category) => (
+                          <PluginGroup
+                            key={category}
+                            title={category}
+                            items={pluginsInOpenAiCategory(openAiPlugins, category)}
+                          />
+                        ))}
+                        {!openAiPlugins.length && (
+                          <p className="mt-10 text-sm text-muted-foreground">
+                            No OpenAI plugins are available for this Codex account.
+                          </p>
                         )}
-                      />
-                      {!plugins.some((p) => p.sourceKinds?.some((kind) => kind !== "vertical")) && (
-                        <p className="mt-10 text-sm text-muted-foreground">
-                          No personal plugins yet. Plugins you create, receive, or add locally will
-                          appear here.
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <PluginGroup
-                        title="Featured"
-                        items={publicPlugins.filter((p) => p.featured)}
-                      />
-                      {Array.from(
-                        new Set(
-                          publicPlugins
-                            .filter((p) => !p.featured)
-                            .map((p) => p.category ?? "More plugins")
-                        )
-                      ).map((category) => (
-                        <PluginGroup
-                          key={category}
-                          title={category}
-                          items={publicPlugins.filter(
-                            (p) => !p.featured && (p.category ?? "More plugins") === category
-                          )}
-                        />
-                      ))}
-                    </>
-                  )}
-                  {!plugins.length && (
-                    <div className="mt-12 text-center text-sm text-muted-foreground">
-                      No plugins found. Add a marketplace to get started.
-                    </div>
-                  )}
-                </>
-              )}
-            </>
-          )}
-          {(data?.errors.length ?? 0) > 0 && (
-            <div role="alert" className="mt-8 text-sm text-destructive">
-              {data?.errors.map((e) => (
-                <p key={e.path}>{e.message}</p>
-              ))}
-            </div>
-          )}
-        </main>
+                      </>
+                    )}
+                    {!plugins.length && (
+                      <div className="mt-12 text-center text-sm text-muted-foreground">
+                        No plugins found. Add a marketplace to get started.
+                      </div>
+                    )}
+                  </>
+                )}
+              </>
+            )}
+            {otherPluginErrors.length > 0 && (
+              <div role="alert" className="mt-8 text-sm text-destructive">
+                {otherPluginErrors.map((e) => (
+                  <p key={e.path}>{e.message}</p>
+                ))}
+              </div>
+            )}
+          </main>
+        )}
       </div>
       <Dialog
         open={removeMarketOpen}

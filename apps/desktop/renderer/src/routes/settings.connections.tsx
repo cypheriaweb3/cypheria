@@ -44,6 +44,7 @@ import {
   X,
 } from "lucide-react"
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react"
+import { z } from "zod"
 import type {
   CodexAccountView,
   CodexLoginRequest,
@@ -69,6 +70,7 @@ import { SettingsFrame } from "../components/settings-frame"
 
 export const Route = createFileRoute("/settings/connections")({
   component: ConnectionsSettingsRoute,
+  validateSearch: z.object({ focus: z.literal("codex").optional().catch(undefined) }),
 })
 
 type ThemeLogoSources = {
@@ -202,6 +204,7 @@ const proxyDraftToSettings = (draft: ProxyDraft): ConnectionProxySettings => {
 }
 
 function ConnectionsSettingsRoute() {
+  const search = Route.useSearch()
   const queryClient = useQueryClient()
   const [selectedHarness, setSelectedHarness] = useState<"codex" | HarnessId>("codex")
   const [terminals, setTerminals] = useState<HarnessTerminalSession[]>([])
@@ -275,6 +278,12 @@ function ConnectionsSettingsRoute() {
       }),
     [queryClient]
   )
+
+  useEffect(() => {
+    if (search.focus === "codex") {
+      document.getElementById("codex-connection")?.scrollIntoView({ block: "start" })
+    }
+  }, [search.focus])
 
   useEffect(() => {
     return () => {
@@ -351,7 +360,7 @@ function ConnectionsSettingsRoute() {
         </Card>
 
         {selectedHarness === "codex" ? (
-          <Card>
+          <Card className="scroll-mt-6" id="codex-connection">
             <CardHeader>
               <div className="flex items-start justify-between gap-4">
                 <div className="grid gap-1.5">
@@ -1080,6 +1089,16 @@ function ConnectedAccount({
           <span className="text-sm text-muted-foreground">ChatGPT {account.planType}</span>
         ) : null}
       </div>
+      {account.type === "apiKey" ? (
+        <Alert>
+          <CircleAlert className="size-4" />
+          <AlertTitle>Some Codex features require ChatGPT</AlertTitle>
+          <AlertDescription>
+            The remote plugin catalog may not be available with an API key. Sign out below, then
+            choose Sign in with ChatGPT.
+          </AlertDescription>
+        </Alert>
+      ) : null}
       <Button
         className="justify-self-start"
         disabled={pending}

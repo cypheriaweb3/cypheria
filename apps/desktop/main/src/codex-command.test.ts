@@ -19,7 +19,7 @@ describe("resolveCodexCommand", () => {
 
   it("resolves the pinned workspace package during development", () => {
     const command = resolveCodexCommand({ isPackaged: false })
-    expect(command).toContain("0.151.0-")
+    expect(command).toContain("0.153.4-")
     expect(command).toContain(`${sep}vendor${sep}`)
     expect(basename(command)).toBe(process.platform === "win32" ? "codex.exe" : "codex")
   })

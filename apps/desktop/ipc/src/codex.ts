@@ -138,17 +138,6 @@ export const CodexPluginViewSchema = z
     marketplacePath: z.string().nullable(),
     name: z.string().min(1),
     sourceType: z.enum(["local", "git", "npm", "remote"]),
-    sourceKinds: z
-      .array(
-        z.enum([
-          "local",
-          "vertical",
-          "workspace-directory",
-          "shared-with-me",
-          "created-by-me-remote",
-        ])
-      )
-      .optional(),
     version: z.string().nullable(),
   })
   .strict()
@@ -190,18 +179,9 @@ export type CodexPluginDetailView = z.infer<typeof CodexPluginDetailViewSchema>
 
 export const CodexMarketplaceViewSchema = z
   .object({
+    catalog: z.enum(["public", "openai", "personal"]),
+    displayName: z.string().min(1),
     name: z.string().min(1),
-    kinds: z
-      .array(
-        z.enum([
-          "local",
-          "vertical",
-          "workspace-directory",
-          "shared-with-me",
-          "created-by-me-remote",
-        ])
-      )
-      .optional(),
     path: z.string().nullable(),
     plugins: z.array(CodexPluginViewSchema),
   })

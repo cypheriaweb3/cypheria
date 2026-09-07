@@ -119,7 +119,7 @@ describe("Codex app-server lifecycle", () => {
       port: 4567,
       processFactory,
       readyPollIntervalMs: 1,
-      versionReader: async () => "codex-cli 0.151.0",
+      versionReader: async () => "codex-cli 0.153.4",
     })
 
     expect(spawns).toEqual([
@@ -168,7 +168,7 @@ describe("Codex app-server lifecycle", () => {
         protocol: "http",
         username: "proxy-user",
       },
-      versionReader: async () => "codex-cli 0.151.0",
+      versionReader: async () => "codex-cli 0.153.4",
     })
 
     expect(spawnedEnv).toMatchObject({
@@ -191,7 +191,7 @@ describe("Codex app-server lifecycle", () => {
       paths,
       port: 4567,
       processFactory: () => fakeChild as never,
-      versionReader: async () => "codex-cli 0.151.0",
+      versionReader: async () => "codex-cli 0.153.4",
       windows: () => [window],
     })
 
@@ -223,7 +223,7 @@ describe("Codex app-server lifecycle", () => {
         port: 4567,
         processFactory: () => fakeChild as never,
         readyPollIntervalMs: 1,
-        versionReader: async () => "codex-cli 0.151.0",
+        versionReader: async () => "codex-cli 0.153.4",
       })
     ).rejects.toThrow("Timed out waiting for Codex app-server readiness")
 
@@ -260,6 +260,6 @@ describe("Codex app-server lifecycle", () => {
         },
         versionReader: async () => "codex-cli 0.150.0",
       })
-    ).rejects.toThrow("Codex version mismatch: expected 0.151.0, received 0.150.0")
+    ).rejects.toThrow("Codex version mismatch: expected 0.153.4, received 0.150.0")
   })
 })
