@@ -85,18 +85,8 @@ msgstr "Close workspace panel"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
-msgid "task.workspace.reviewEmpty"
-msgstr "Code changes open here for review."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
 msgid "task.project.desktopOnly"
 msgstr "Codex is only available in the Cypheria desktop app."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
-msgid "task.workspace.terminalEmpty"
-msgstr "Command output opens here."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -125,6 +115,11 @@ msgstr "Creating…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
+msgid "task.artifact.declined"
+msgstr "Declined"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
 msgid "task.model.default"
 msgstr "Default"
 
@@ -136,9 +131,19 @@ msgid "settings.language.label"
 msgstr "Display language"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.artifact.done"
+msgstr "Done"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "menu.edit"
 msgstr "Edit"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.artifact.failed"
+msgstr "Failed"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -149,6 +154,11 @@ msgstr "File"
 #: renderer/src/components/task-workspace.tsx
 msgid "task.workspace.files"
 msgstr "Files"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.filesSummary"
+msgstr "Files changed by this task, with their latest recorded state."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
@@ -248,6 +258,21 @@ msgstr "Networks"
 #: renderer/src/i18n.test.ts
 msgid "navigation.newTask"
 msgstr "New task"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.reviewEmpty"
+msgstr "Code changes open here for review."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.terminalEmpty"
+msgstr "Command output opens here."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.filesEmpty"
+msgstr "Workspace files open here."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
@@ -358,6 +383,11 @@ msgstr "Recents"
 #: renderer/src/components/task-workspace.tsx
 msgid "task.workspace.review"
 msgstr "Review"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.artifact.running"
+msgstr "Running"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -479,11 +509,6 @@ msgstr "Work across code, wallets, and the web while you stay in control of perm
 #: renderer/src/components/task-workspace.tsx
 msgid "task.status.working"
 msgstr "Working…"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
-msgid "task.workspace.filesEmpty"
-msgstr "Workspace files open here."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx

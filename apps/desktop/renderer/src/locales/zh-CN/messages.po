@@ -85,18 +85,8 @@ msgstr "关闭工作区面板"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
-msgid "task.workspace.reviewEmpty"
-msgstr "代码更改会在这里打开供你审阅。"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
 msgid "task.project.desktopOnly"
 msgstr "Codex 仅可在 Cypheria 桌面应用中使用。"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
-msgid "task.workspace.terminalEmpty"
-msgstr "命令输出会在这里打开。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -125,6 +115,11 @@ msgstr "正在创建…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
+msgid "task.artifact.declined"
+msgstr "已拒绝"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
 msgid "task.model.default"
 msgstr "默认"
 
@@ -136,9 +131,19 @@ msgid "settings.language.label"
 msgstr "显示语言"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.artifact.done"
+msgstr "已完成"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "menu.edit"
 msgstr "编辑"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.artifact.failed"
+msgstr "失败"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -149,6 +154,11 @@ msgstr "文件"
 #: renderer/src/components/task-workspace.tsx
 msgid "task.workspace.files"
 msgstr "文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.filesSummary"
+msgstr "本任务更改的文件及其最新记录状态。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
@@ -248,6 +258,21 @@ msgstr "网络"
 #: renderer/src/i18n.test.ts
 msgid "navigation.newTask"
 msgstr "新建任务"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.reviewEmpty"
+msgstr "暂时没有可供审阅的代码更改。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.terminalEmpty"
+msgstr "本任务尚未运行任何命令。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.workspace.filesEmpty"
+msgstr "本任务尚未更改任何文件。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
@@ -358,6 +383,11 @@ msgstr "最近"
 #: renderer/src/components/task-workspace.tsx
 msgid "task.workspace.review"
 msgstr "审阅"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-workspace.tsx
+msgid "task.artifact.running"
+msgstr "运行中"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -479,11 +509,6 @@ msgstr "在你掌控权限的同时，处理代码、钱包和网页任务。"
 #: renderer/src/components/task-workspace.tsx
 msgid "task.status.working"
 msgstr "正在处理…"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
-msgid "task.workspace.filesEmpty"
-msgstr "工作区文件会在这里打开。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx

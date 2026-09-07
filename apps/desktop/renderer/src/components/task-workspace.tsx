@@ -7,6 +7,14 @@ import {
   Attachments,
 } from "@cypheria/ui/ai-elements/attachments"
 import {
+  CodeBlock,
+  CodeBlockActions,
+  CodeBlockCopyButton,
+  CodeBlockFilename,
+  CodeBlockHeader,
+  CodeBlockTitle,
+} from "@cypheria/ui/ai-elements/code-block"
+import {
   Conversation,
   ConversationContent,
   ConversationEmptyState,
@@ -40,6 +48,15 @@ import {
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@cypheria/ui/ai-elements/reasoning"
 import { Source, Sources, SourcesContent, SourcesTrigger } from "@cypheria/ui/ai-elements/sources"
 import { Task, TaskContent, TaskItem, TaskTrigger } from "@cypheria/ui/ai-elements/task"
+import {
+  Terminal as AiTerminal,
+  TerminalActions,
+  TerminalContent,
+  TerminalCopyButton,
+  TerminalHeader,
+  TerminalStatus,
+  TerminalTitle,
+} from "@cypheria/ui/ai-elements/terminal"
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "@cypheria/ui/ai-elements/tool"
 import { Badge } from "@cypheria/ui/components/badge"
 import { Button } from "@cypheria/ui/components/button"
@@ -53,7 +70,6 @@ import {
 } from "@cypheria/ui/components/dialog"
 import { Input } from "@cypheria/ui/components/input"
 import { Label } from "@cypheria/ui/components/label"
-import { Separator } from "@cypheria/ui/components/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@cypheria/ui/components/tabs"
 import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
@@ -95,6 +111,10 @@ import type {
 import { CodexIpcChatTransport } from "../codex-chat.js"
 import { Route } from "../routes/index"
 import { newTaskRevisionAtom } from "./task-navigation"
+import {
+  deriveTaskWorkspaceArtifacts,
+  type TaskWorkspaceArtifacts,
+} from "./task-workspace-artifacts"
 
 const fallbackModel: CodexModelView = {
   defaultReasoningEffort: "medium",
@@ -222,6 +242,7 @@ function TaskSession({
     id: resumeThreadId ?? "new-task",
     transport,
   })
+  const workspaceArtifacts = useMemo(() => deriveTaskWorkspaceArtifacts(messages), [messages])
   const statusLabel =
     status === "ready"
       ? i18n._(msg({ id: "task.status.local", message: "Local" }))
@@ -497,7 +518,9 @@ function TaskSession({
           open={projectDialogOpen}
         />
       </main>
-      {workspacePanelOpen ? <WorkspacePanel activeWallet={activeWalletQuery.data} /> : null}
+      {workspacePanelOpen ? (
+        <WorkspacePanel activeWallet={activeWalletQuery.data} artifacts={workspaceArtifacts} />
+      ) : null}
     </section>
   )
 }
@@ -944,8 +967,18 @@ function ModelPicker({
   )
 }
 
-function WorkspacePanel({ activeWallet }: Readonly<{ activeWallet?: WalletActiveContext }>) {
+function WorkspacePanel({
+  activeWallet,
+  artifacts,
+}: Readonly<{ activeWallet?: WalletActiveContext; artifacts: TaskWorkspaceArtifacts }>) {
   const { i18n } = useLingui()
+  const statusLabel = (status: string) => {
+    if (status === "completed") return i18n._(msg({ id: "task.artifact.done", message: "Done" }))
+    if (status === "failed") return i18n._(msg({ id: "task.artifact.failed", message: "Failed" }))
+    if (status === "declined")
+      return i18n._(msg({ id: "task.artifact.declined", message: "Declined" }))
+    return i18n._(msg({ id: "task.artifact.running", message: "Running" }))
+  }
   return (
     <aside
       aria-label={i18n._(msg({ id: "task.workspace.label", message: "Workspace panel" }))}
@@ -1011,35 +1044,114 @@ function WorkspacePanel({ activeWallet }: Readonly<{ activeWallet?: WalletActive
             </section>
           </div>
         </TabsContent>
-        <TabsContent className="m-0 p-4" value="files">
-          <EmptyPanel
-            icon={<FolderGit2 />}
-            text={i18n._(
-              msg({ id: "task.workspace.filesEmpty", message: "Workspace files open here." })
-            )}
-          />
+        <TabsContent className="m-0 overflow-auto p-4" value="files">
+          {artifacts.files.length ? (
+            <div className="grid gap-2">
+              <p className="text-xs text-muted-foreground">
+                <Trans id="task.workspace.filesSummary">
+                  Files changed by this task, with their latest recorded state.
+                </Trans>
+              </p>
+              {artifacts.files.map((file) => (
+                <section className="rounded-lg border bg-card p-3" key={file.path}>
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="min-w-0 break-all font-mono text-xs">{file.path}</span>
+                    <Badge className="shrink-0" variant="outline">
+                      {file.kind}
+                    </Badge>
+                  </div>
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    {statusLabel(file.status)}
+                  </div>
+                </section>
+              ))}
+            </div>
+          ) : (
+            <EmptyPanel
+              icon={<FolderGit2 />}
+              text={i18n._(
+                msg({
+                  id: "task.workspace.filesEmpty",
+                  message: "No files have been changed in this task yet.",
+                })
+              )}
+            />
+          )}
         </TabsContent>
-        <TabsContent className="m-0 p-4" value="review">
-          <EmptyPanel
-            icon={<FileDiff />}
-            text={i18n._(
-              msg({
-                id: "task.workspace.reviewEmpty",
-                message: "Code changes open here for review.",
-              })
-            )}
-          />
+        <TabsContent className="m-0 overflow-auto p-4" value="review">
+          {artifacts.files.some((file) => file.diff) ? (
+            <div className="grid gap-4">
+              {artifacts.files
+                .filter((file) => file.diff)
+                .map((file) => (
+                  <CodeBlock code={file.diff} key={file.id} language="diff">
+                    <CodeBlockHeader>
+                      <CodeBlockTitle>
+                        <FileDiff size={14} />
+                        <CodeBlockFilename>{file.path}</CodeBlockFilename>
+                      </CodeBlockTitle>
+                      <CodeBlockActions>
+                        <Badge variant="outline">{statusLabel(file.status)}</Badge>
+                        <CodeBlockCopyButton />
+                      </CodeBlockActions>
+                    </CodeBlockHeader>
+                  </CodeBlock>
+                ))}
+            </div>
+          ) : (
+            <EmptyPanel
+              icon={<FileDiff />}
+              text={i18n._(
+                msg({
+                  id: "task.workspace.reviewEmpty",
+                  message: "No code changes are available for review yet.",
+                })
+              )}
+            />
+          )}
         </TabsContent>
-        <TabsContent className="m-0 p-4" value="terminal">
-          <EmptyPanel
-            icon={<TerminalSquare />}
-            text={i18n._(
-              msg({
-                id: "task.workspace.terminalEmpty",
-                message: "Command output opens here.",
-              })
-            )}
-          />
+        <TabsContent className="m-0 overflow-auto p-4" value="terminal">
+          {artifacts.commands.length ? (
+            <div className="grid gap-4">
+              {artifacts.commands.map((command) => (
+                <AiTerminal
+                  isStreaming={command.status === "inProgress"}
+                  key={command.id}
+                  output={`$ ${command.command}\n${command.output}`}
+                >
+                  <TerminalHeader>
+                    <TerminalTitle className="min-w-0">
+                      <span className="truncate font-mono text-xs">{command.command}</span>
+                    </TerminalTitle>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <TerminalStatus>{statusLabel(command.status)}</TerminalStatus>
+                      {command.status !== "inProgress" ? (
+                        <span className="text-xs text-zinc-500">
+                          {command.exitCode === null
+                            ? statusLabel(command.status)
+                            : command.exitCode}
+                        </span>
+                      ) : null}
+                      <TerminalActions>
+                        <TerminalCopyButton />
+                      </TerminalActions>
+                    </div>
+                  </TerminalHeader>
+                  <TerminalContent className="max-h-72 text-xs" />
+                </AiTerminal>
+              ))}
+            </div>
+          ) : (
+            <EmptyPanel
+              icon={<TerminalSquare />}
+              text={i18n._(
+                msg({
+                  id: "task.workspace.terminalEmpty",
+                  message: "No commands have been run in this task yet.",
+                })
+              )}
+            />
+          )}
         </TabsContent>
       </Tabs>
     </aside>
@@ -1048,10 +1160,9 @@ function WorkspacePanel({ activeWallet }: Readonly<{ activeWallet?: WalletActive
 
 function EmptyPanel({ icon, text }: Readonly<{ icon: ReactNode; text: string }>) {
   return (
-    <div className="grid h-full place-content-center gap-3 text-center text-sm text-muted-foreground">
-      {icon}
-      <Separator />
-      {text}
+    <div className="grid min-h-48 place-content-center gap-3 px-6 text-center text-sm text-muted-foreground">
+      <span className="mx-auto">{icon}</span>
+      <span>{text}</span>
     </div>
   )
 }
