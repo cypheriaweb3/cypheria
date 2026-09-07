@@ -1,5 +1,11 @@
 import { useChat } from "@ai-sdk/react"
 import {
+  Attachment,
+  AttachmentInfo,
+  AttachmentPreview,
+  Attachments,
+} from "@cypheria/ui/ai-elements/attachments"
+import {
   Conversation,
   ConversationContent,
   ConversationEmptyState,
@@ -31,6 +37,8 @@ import {
   PromptInputTools,
 } from "@cypheria/ui/ai-elements/prompt-input"
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@cypheria/ui/ai-elements/reasoning"
+import { Source, Sources, SourcesContent, SourcesTrigger } from "@cypheria/ui/ai-elements/sources"
+import { Task, TaskContent, TaskItem, TaskTrigger } from "@cypheria/ui/ai-elements/task"
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "@cypheria/ui/ai-elements/tool"
 import { Badge } from "@cypheria/ui/components/badge"
 import { Button } from "@cypheria/ui/components/button"
@@ -38,7 +46,14 @@ import { Separator } from "@cypheria/ui/components/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@cypheria/ui/components/tabs"
 import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
-import type { DynamicToolUIPart, FileUIPart, UIMessage } from "ai"
+import type {
+  CustomContentUIPart,
+  DynamicToolUIPart,
+  FileUIPart,
+  ReasoningFileUIPart,
+  SourceUrlUIPart,
+  UIMessage,
+} from "ai"
 import { useAtomValue } from "jotai"
 import {
   ChevronDown,
@@ -236,7 +251,7 @@ function TaskSession({
               onResolve={resolveInteraction}
             />
           ))}
-          <PromptInput accept="image/*,text/*,.md,.json" multiple onSubmit={handleSubmit}>
+          <PromptInput accept="image/*,audio/*,text/*,.md,.json" multiple onSubmit={handleSubmit}>
             <PromptInputBody>
               <PromptInputTextarea
                 defaultValue={initialPrompt}
@@ -435,10 +450,15 @@ function CodexInteractionCard({
 }
 
 function ChatMessage({ message }: Readonly<{ message: UIMessage }>) {
+  const sources = message.parts.filter(
+    (part): part is SourceUrlUIPart => part.type === "source-url"
+  )
+  const firstSourceIndex = message.parts.findIndex((part) => part.type === "source-url")
+
   return (
     <Message from={message.role}>
       <MessageContent>
-        {message.parts.map((part) => {
+        {message.parts.map((part, index) => {
           if (part.type === "text")
             return (
               <MessageResponse key={`${message.id}-text-${part.text}`}>{part.text}</MessageResponse>
@@ -473,10 +493,88 @@ function ChatMessage({ message }: Readonly<{ message: UIMessage }>) {
               </Tool>
             )
           }
+          if (part.type === "file" || part.type === "reasoning-file") {
+            return (
+              <CodexFilePart
+                index={index}
+                key={`${message.id}-file-${index}`}
+                messageId={message.id}
+                part={part}
+              />
+            )
+          }
+          if (part.type === "source-url") {
+            if (index !== firstSourceIndex) return null
+            return (
+              <Sources key={`${message.id}-sources`}>
+                <SourcesTrigger count={sources.length} />
+                <SourcesContent>
+                  {sources.map((source) => (
+                    <Source
+                      href={source.url}
+                      key={source.sourceId}
+                      title={source.title ?? source.url}
+                    />
+                  ))}
+                </SourcesContent>
+              </Sources>
+            )
+          }
+          if (part.type === "source-document") {
+            return (
+              <Attachments key={`${message.id}-source-${part.sourceId}`} variant="list">
+                <Attachment data={{ ...part, id: part.sourceId }}>
+                  <AttachmentPreview />
+                  <AttachmentInfo showMediaType />
+                </Attachment>
+              </Attachments>
+            )
+          }
+          if (part.type === "custom") {
+            return <CodexCustomPart key={`${message.id}-custom-${index}`} part={part} />
+          }
           return null
         })}
       </MessageContent>
     </Message>
+  )
+}
+
+function CodexFilePart({
+  index,
+  messageId,
+  part,
+}: Readonly<{
+  index: number
+  messageId: string
+  part: FileUIPart | ReasoningFileUIPart
+}>) {
+  const file: FileUIPart & { id: string } = {
+    ...part,
+    id: `${messageId}-file-${index}`,
+    type: "file",
+  }
+  return (
+    <Attachments variant={file.mediaType.startsWith("image/") ? "grid" : "list"}>
+      <Attachment data={file}>
+        <AttachmentPreview />
+        <AttachmentInfo showMediaType />
+      </Attachment>
+    </Attachments>
+  )
+}
+
+function CodexCustomPart({ part }: Readonly<{ part: CustomContentUIPart }>) {
+  const item = part.providerMetadata?.["cypheria.codex"]?.item
+  return (
+    <Task defaultOpen={false}>
+      <TaskTrigger title={part.kind.replace("cypheria.codex-", "Codex: ")} />
+      <TaskContent>
+        <TaskItem className="whitespace-pre-wrap break-all font-mono text-xs">
+          {item === undefined ? part.kind : JSON.stringify(item, null, 2)}
+        </TaskItem>
+      </TaskContent>
+    </Task>
   )
 }
 
