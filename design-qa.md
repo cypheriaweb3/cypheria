@@ -54,6 +54,52 @@ final result: passed
 
 ---
 
+# Sidebar Thread Marker Design QA
+
+- Source visual truth: `/var/folders/py/l0kx36b51vj9l6c8tdgqc9380000gn/T/codex-clipboard-5bce4ccf-9bfd-4fc5-ab09-1e809ffe1d51.png`
+- Implementation screenshot: `/Users/ridewindx/Code/web3/cypheria/.artifacts/design-qa/sidebar-threads-no-dots.jpg`
+- Combined comparison: `/Users/ridewindx/Code/web3/cypheria/.artifacts/design-qa/sidebar-threads-no-dots-comparison.jpg`
+- Viewport: 1280 × 860 CSS px, Electron device pixel ratio 2, CUA output 1144 × 768 px, light theme, Chinese locale
+- Pixels and normalization: the 1062 × 218 px Codex reference and a 260 × 230 px Cypheria sidebar crop were each fit into an 800 × 250 px comparison panel without cropping.
+- State: Projects and Recents are expanded; project and recent task rows are visible.
+
+## Full-view and focused comparison evidence
+
+The focused side-by-side comparison shows that both Codex and Cypheria now render thread titles directly on the row without a leading circular marker. Project indentation and Recents alignment remain distinct and readable. The focused crop is sufficient because the change affects only the thread-row leading decoration; the full implementation screenshot verifies that surrounding navigation and workspace layout remain unchanged.
+
+## Required fidelity surfaces
+
+- Fonts and typography: unchanged; task title size, weight, truncation, and line height remain consistent.
+- Spacing and layout rhythm: removing the marker also removes its flex gap, matching Codex's direct title alignment while retaining project nesting.
+- Colors and visual tokens: unchanged; no obsolete status-colored dot remains.
+- Image quality and asset fidelity: no image assets or icons were added or replaced.
+- Copy and content: all thread titles and grouping labels remain unchanged.
+
+## Interaction and runtime checks
+
+- Verified task rows in Projects and Recents in the running Electron app.
+- Confirmed the custom section empty state is unaffected; the shared thread row renderer covers Pinned, project, Recents, and custom-section task rows.
+- Typecheck, 20 test files / 86 tests, and renderer production build passed.
+
+## Comparison history
+
+1. Initial P2: Cypheria displayed a decorative/status dot before every thread title while Codex displayed titles without that marker.
+2. Removed the marker from the shared thread-row renderer. Post-fix evidence shows clean title-leading edges in both project and recent rows, with no new alignment regression.
+
+## Findings
+
+No actionable P0, P1, or P2 findings remain.
+
+## Implementation checklist
+
+- [x] Remove the leading marker from the shared thread row.
+- [x] Preserve project nesting and title truncation.
+- [x] Verify project and recent task rows in the running app.
+
+final result: passed
+
+---
+
 # Task Workspace Clipping Design QA
 
 - Source visual truth: `/var/folders/py/l0kx36b51vj9l6c8tdgqc9380000gn/T/codex-clipboard-4ab2a3ed-a85e-450f-8d2f-6808b852c943.png`

@@ -553,13 +553,6 @@ function TaskSidebarRowView(props: RowViewProps) {
         render={<Link to="/" search={{ thread: row.thread.id }} />}
         tooltip={row.thread.title}
       >
-        <span
-          className={cn(
-            "size-1.5 shrink-0 rounded-full bg-muted-foreground/45",
-            row.thread.status === "active" && "animate-pulse bg-primary",
-            row.thread.status === "systemError" && "bg-destructive"
-          )}
-        />
         <span className="truncate">{row.thread.title}</span>
       </SidebarMenuButton>
     )
