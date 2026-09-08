@@ -101,7 +101,6 @@ import type {
   CodexUiMessage,
   WalletActiveContext,
 } from "../../../ipc/src/index.js"
-import { CodexAutoReviewRetrySchema } from "../../../ipc/src/index.js"
 import { CodexIpcChatTransport } from "../codex-chat.js"
 import { Route } from "../routes/index"
 import { newChatRevisionAtom } from "./chat-navigation"
@@ -391,7 +390,7 @@ function ChatSession({
       )
         return
       const next: AutoReviewView = {
-        event: CodexAutoReviewRetrySchema.shape.event.safeParse(params.event).data ?? null,
+        event: jsonValueOrNull(params.event),
         rationale: typeof review.rationale === "string" ? review.rationale : null,
         reviewId: params.reviewId,
         riskLevel: typeof review.riskLevel === "string" ? review.riskLevel : null,
@@ -951,6 +950,20 @@ const jsonObject = (value: unknown): Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : {}
+
+const isJsonValue = (value: unknown): value is NonNullable<CodexInteractionResponse["content"]> => {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return true
+  if (typeof value === "number") return Number.isFinite(value)
+  if (Array.isArray(value)) return value.every(isJsonValue)
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    Object.values(value).every((entry) => isJsonValue(entry))
+  )
+}
+
+const jsonValueOrNull = (value: unknown): CodexInteractionResponse["content"] | null =>
+  isJsonValue(value) ? value : null
 
 const decisionAvailable = (decisions: unknown[] | null, expected: string): boolean =>
   !decisions || decisions.some((decision) => decision === expected)
