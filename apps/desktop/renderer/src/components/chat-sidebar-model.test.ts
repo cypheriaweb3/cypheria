@@ -107,6 +107,7 @@ describe("chat sidebar row model", () => {
         {
           createdAt: 1,
           id: "project-a",
+          metadata: {},
           name: "Cypheria",
           position: 0,
           recencyAt: null,

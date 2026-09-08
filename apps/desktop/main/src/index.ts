@@ -77,12 +77,16 @@ import {
   codexProjectCreateContract,
   codexProjectDeleteContract,
   codexProjectListContract,
+  codexProjectRevealContract,
   codexProjectRootPickContract,
   codexProjectUpdateContract,
   codexSkillEnabledWriteContract,
   codexSkillListContract,
+  codexThreadArchiveContract,
+  codexThreadDeleteContract,
   codexThreadForkContract,
   codexThreadListContract,
+  codexThreadProjectMoveContract,
   codexThreadQueueAddContract,
   codexThreadReadContract,
   codexThreadRenameContract,
@@ -152,10 +156,12 @@ import { readAppearanceSettings, writeAppearanceSettings } from "./appearance-co
 import { configureChromiumFeatures } from "./chromium-features.js"
 import { resolveCodexCommand } from "./codex-command.js"
 import {
+  archiveCodexThread,
   cancelCodexLogin,
   createCodexProject,
   createCodexThreadSection,
   deleteCodexProject,
+  deleteCodexThread,
   deleteCodexThreadSection,
   forkCodexThread,
   interruptCodexChat,
@@ -164,6 +170,7 @@ import {
   listCodexThreadSections,
   listCodexThreads,
   logoutCodexAccount,
+  moveCodexThreadToProject,
   moveCodexThreadToSection,
   queueCodexThreadMessage,
   readCodexAccount,
@@ -575,6 +582,12 @@ const registerIpcHandlers = (
     return listCodexPermissions(codexBridge(), context.paths.codexHome)
   })
   registerIpcRoute(codexThreadListContract, (options) => listCodexThreads(codexBridge(), options))
+  registerIpcRoute(codexThreadArchiveContract, ({ threadId }) =>
+    archiveCodexThread(codexBridge(), threadId)
+  )
+  registerIpcRoute(codexThreadDeleteContract, ({ threadId }) =>
+    deleteCodexThread(codexBridge(), threadId)
+  )
   registerIpcRoute(codexThreadForkContract, ({ lastTurnId, threadId }) =>
     forkCodexThread(codexBridge(), threadId, lastTurnId)
   )
@@ -583,6 +596,9 @@ const registerIpcHandlers = (
   )
   registerIpcRoute(codexThreadRenameContract, ({ name, threadId }) =>
     renameCodexThread(codexBridge(), threadId, name)
+  )
+  registerIpcRoute(codexThreadProjectMoveContract, ({ projectId, threadId }) =>
+    moveCodexThreadToProject(codexBridge(), threadId, projectId)
   )
   registerIpcRoute(codexThreadSectionListContract, (options) =>
     listCodexThreadSections(codexBridge(), options)
@@ -603,6 +619,14 @@ const registerIpcHandlers = (
   registerIpcRoute(codexProjectCreateContract, (input) => createCodexProject(codexBridge(), input))
   registerIpcRoute(codexProjectUpdateContract, (input) => updateCodexProject(codexBridge(), input))
   registerIpcRoute(codexProjectDeleteContract, ({ id }) => deleteCodexProject(codexBridge(), id))
+  registerIpcRoute(codexProjectRevealContract, async ({ id }) => {
+    const page = await listCodexProjects(codexBridge(), { limit: 100 })
+    const project = page.data.find((candidate) => candidate.id === id)
+    const root = project?.roots[0]
+    if (!root) throw new Error("Project folder is unavailable.")
+    shell.showItemInFolder(root)
+    return { revealed: true }
+  })
   registerIpcRoute(codexProjectRootPickContract, async () => {
     const result = await dialog.showOpenDialog({
       properties: ["openDirectory", "createDirectory"],

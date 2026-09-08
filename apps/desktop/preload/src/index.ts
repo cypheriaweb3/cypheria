@@ -132,6 +132,7 @@ const cypheriaApi: CypheriaPreloadApi = {
     createProject: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectCreate, input),
     updateProject: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectUpdate, input),
     deleteProject: (id) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectDelete, { id }),
+    revealProject: (id) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectReveal, { id }),
     pickProjectRoot: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectRootPick, {}),
     listApps: (forceRefetch = false) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAppList, { forceRefetch }),
@@ -147,6 +148,10 @@ const cypheriaApi: CypheriaPreloadApi = {
     listSkills: (options = {}) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexSkillList, options),
     listThreads: (options = {}) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadList, options),
+    archiveThread: (threadId) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadArchive, { threadId }),
+    deleteThread: (threadId) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadDelete, { threadId }),
     forkThread: (threadId, lastTurnId) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadFork, {
         ...(lastTurnId ? { lastTurnId } : {}),
@@ -156,6 +161,11 @@ const cypheriaApi: CypheriaPreloadApi = {
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadRead, { threadId }),
     renameThread: (threadId, name) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadRename, { name, threadId }),
+    moveThreadToProject: (threadId, projectId) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadProjectMove, {
+        projectId,
+        threadId,
+      }),
     queueThreadMessage: (threadId, clientUserMessageId, input) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadQueueAdd, {
         ...input,

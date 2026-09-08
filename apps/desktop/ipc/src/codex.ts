@@ -185,6 +185,7 @@ export const CodexProjectViewSchema = z
   .object({
     createdAt: z.number(),
     id: z.string().min(1),
+    metadata: z.record(z.string(), z.string()),
     name: z.string().min(1),
     position: z.number(),
     recencyAt: z.number().nullable(),
@@ -213,7 +214,11 @@ export const CodexProjectCreateRequestSchema = z
   .strict()
 
 export const CodexProjectUpdateRequestSchema = z
-  .object({ id: z.string().min(1), name: z.string().trim().min(1) })
+  .object({
+    id: z.string().min(1),
+    metadata: z.record(z.string(), z.string()).optional(),
+    name: z.string().trim().min(1),
+  })
   .strict()
 
 export const CodexProjectDeleteRequestSchema = z.object({ id: z.string().min(1) }).strict()
@@ -289,6 +294,12 @@ export const CodexThreadDetailViewSchema = z
 export type CodexThreadDetailView = z.infer<typeof CodexThreadDetailViewSchema>
 
 export const CodexThreadReadRequestSchema = z.object({ threadId: z.string().min(1) }).strict()
+
+export const CodexThreadMutationRequestSchema = z.object({ threadId: z.string().min(1) }).strict()
+
+export const CodexThreadProjectMoveRequestSchema = z
+  .object({ projectId: z.string().min(1).nullable(), threadId: z.string().min(1) })
+  .strict()
 
 export const CodexThreadForkRequestSchema = z
   .object({ lastTurnId: z.string().min(1).optional(), threadId: z.string().min(1) })

@@ -80,6 +80,8 @@ import {
   type CodexThreadListPage,
   CodexThreadListPageSchema,
   CodexThreadListRequestSchema,
+  CodexThreadMutationRequestSchema,
+  CodexThreadProjectMoveRequestSchema,
   CodexThreadQueueAddSchema,
   CodexThreadReadRequestSchema,
   CodexThreadRenameRequestSchema,
@@ -247,12 +249,16 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexProjectCreate: "codex.project.create",
   codexProjectDelete: "codex.project.delete",
   codexProjectList: "codex.project.list",
+  codexProjectReveal: "codex.project.reveal",
   codexProjectRootPick: "codex.project.root.pick",
   codexProjectUpdate: "codex.project.update",
   codexSkillEnabledWrite: "codex.skill.enabled.write",
   codexSkillList: "codex.skill.list",
   codexThreadList: "codex.thread.list",
+  codexThreadArchive: "codex.thread.archive",
+  codexThreadDelete: "codex.thread.delete",
   codexThreadFork: "codex.thread.fork",
+  codexThreadProjectMove: "codex.thread.project.move",
   codexThreadRead: "codex.thread.read",
   codexThreadRename: "codex.thread.rename",
   codexThreadQueueAdd: "codex.thread.queue.add",
@@ -1496,6 +1502,22 @@ export const codexThreadReadContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<{ threadId: string }, CodexThreadDetailView>
 
+export const codexThreadArchiveContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexThreadArchive,
+  namespace: "codex",
+  request: CodexThreadMutationRequestSchema,
+  response: z.object({ archived: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ threadId: string }, { archived: true }>
+
+export const codexThreadDeleteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexThreadDelete,
+  namespace: "codex",
+  request: CodexThreadMutationRequestSchema,
+  response: z.object({ deleted: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ threadId: string }, { deleted: true }>
+
 export const codexThreadForkContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexThreadFork,
   namespace: "codex",
@@ -1511,6 +1533,14 @@ export const codexThreadRenameContract = {
   response: z.object({ renamed: z.literal(true) }).strict(),
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<{ name: string; threadId: string }, { renamed: true }>
+
+export const codexThreadProjectMoveContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexThreadProjectMove,
+  namespace: "codex",
+  request: CodexThreadProjectMoveRequestSchema,
+  response: z.object({ moved: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ projectId: string | null; threadId: string }, { moved: true }>
 
 export const codexThreadSectionListContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexThreadSectionList,
@@ -1585,7 +1615,18 @@ export const codexProjectUpdateContract = {
   request: CodexProjectUpdateRequestSchema,
   response: CodexProjectViewSchema,
   version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ id: string; name: string }, CodexProjectView>
+} satisfies IpcContract<
+  { id: string; metadata?: Record<string, string>; name: string },
+  CodexProjectView
+>
+
+export const codexProjectRevealContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexProjectReveal,
+  namespace: "codex",
+  request: CodexProjectDeleteRequestSchema,
+  response: z.object({ revealed: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ id: string }, { revealed: true }>
 
 export const codexProjectDeleteContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexProjectDelete,
@@ -1834,12 +1875,16 @@ export const ipcContracts = {
   codexProjectCreate: codexProjectCreateContract,
   codexProjectDelete: codexProjectDeleteContract,
   codexProjectList: codexProjectListContract,
+  codexProjectReveal: codexProjectRevealContract,
   codexProjectRootPick: codexProjectRootPickContract,
   codexProjectUpdate: codexProjectUpdateContract,
   codexSkillEnabledWrite: codexSkillEnabledWriteContract,
   codexSkillList: codexSkillListContract,
   codexThreadList: codexThreadListContract,
+  codexThreadArchive: codexThreadArchiveContract,
+  codexThreadDelete: codexThreadDeleteContract,
   codexThreadFork: codexThreadForkContract,
+  codexThreadProjectMove: codexThreadProjectMoveContract,
   codexThreadRead: codexThreadReadContract,
   codexThreadRename: codexThreadRenameContract,
   codexThreadQueueAdd: codexThreadQueueAddContract,
@@ -1951,8 +1996,13 @@ export type CypheriaPreloadApi = {
       sortKey?: "position" | "recencyAt"
     }) => Promise<CodexProjectListPage>
     readonly createProject: (input: { name: string; root: string }) => Promise<CodexProjectView>
-    readonly updateProject: (input: { id: string; name: string }) => Promise<CodexProjectView>
+    readonly updateProject: (input: {
+      id: string
+      metadata?: Record<string, string>
+      name: string
+    }) => Promise<CodexProjectView>
     readonly deleteProject: (id: string) => Promise<{ deleted: true }>
+    readonly revealProject: (id: string) => Promise<{ revealed: true }>
     readonly pickProjectRoot: () => Promise<{ path: string | null }>
     readonly installPlugin: (plugin: CodexPluginLocator) => Promise<CodexPluginInstallResult>
     readonly readPlugin: (plugin: CodexPluginLocator) => Promise<CodexPluginDetailView>
@@ -1983,7 +2033,13 @@ export type CypheriaPreloadApi = {
       sortDirection?: "asc" | "desc"
       sortKey?: "created_at" | "updated_at" | "recency_at" | "section_position"
     }) => Promise<CodexThreadListPage>
+    readonly archiveThread: (threadId: string) => Promise<{ archived: true }>
+    readonly deleteThread: (threadId: string) => Promise<{ deleted: true }>
     readonly forkThread: (threadId: string, lastTurnId?: string) => Promise<{ threadId: string }>
+    readonly moveThreadToProject: (
+      threadId: string,
+      projectId: string | null
+    ) => Promise<{ moved: true }>
     readonly readThread: (threadId: string) => Promise<CodexThreadDetailView>
     readonly renameThread: (threadId: string, name: string) => Promise<{ renamed: true }>
     readonly queueThreadMessage: (

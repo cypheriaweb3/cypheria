@@ -3,9 +3,11 @@ import type { WebContents } from "electron"
 import { describe, expect, it, vi } from "vitest"
 import type { CodexChatEvent } from "../../ipc/src/index.js"
 import {
+  archiveCodexThread,
   createCodexProject,
   createCodexThreadSection,
   deleteCodexProject,
+  deleteCodexThread,
   deleteCodexThreadSection,
   forkCodexThread,
   listCodexModels,
@@ -13,6 +15,7 @@ import {
   listCodexThreadSections,
   listCodexThreads,
   mapCodexTurnsToUiMessages,
+  moveCodexThreadToProject,
   moveCodexThreadToSection,
   queueCodexThreadMessage,
   readCodexAccount,
@@ -303,7 +306,11 @@ describe("desktop Codex services", () => {
       createCodexProject(asBridge(bridge), { name: "Cypheria", root: "/work/cypheria" })
     ).resolves.toMatchObject({ id: "project-1", name: "Cypheria" })
     await expect(
-      updateCodexProject(asBridge(bridge), { id: "project-1", name: "Cypheria Desktop" })
+      updateCodexProject(asBridge(bridge), {
+        id: "project-1",
+        metadata: { "cypheria.sidebar.pinned": "true" },
+        name: "Cypheria Desktop",
+      })
     ).resolves.toMatchObject({ id: "project-1", name: "Cypheria Desktop" })
     await expect(deleteCodexProject(asBridge(bridge), "project-1")).resolves.toEqual({
       deleted: true,
@@ -311,6 +318,10 @@ describe("desktop Codex services", () => {
     expect(bridge.calls.find((call) => call.method === "project/create")?.params).toMatchObject({
       name: "Cypheria",
       roots: [{ path: "/work/cypheria" }],
+    })
+    expect(bridge.calls.find((call) => call.method === "project/update")?.params).toMatchObject({
+      metadata: { "cypheria.sidebar.pinned": "true" },
+      projectId: "project-1",
     })
   })
 
@@ -366,6 +377,27 @@ describe("desktop Codex services", () => {
     expect(bridge.calls).toContainEqual({
       method: "thread/name/set",
       params: { name: "Focused work", threadId: "thread-1" },
+    })
+  })
+
+  it("archives, deletes, and moves sidebar threads through App Server", async () => {
+    const bridge = new FakeBridge({
+      "thread/archive": {},
+      "thread/delete": {},
+      "thread/metadata/update": { thread: {} },
+    })
+    await expect(archiveCodexThread(asBridge(bridge), "thread-1")).resolves.toEqual({
+      archived: true,
+    })
+    await expect(deleteCodexThread(asBridge(bridge), "thread-1")).resolves.toEqual({
+      deleted: true,
+    })
+    await expect(moveCodexThreadToProject(asBridge(bridge), "thread-1", null)).resolves.toEqual({
+      moved: true,
+    })
+    expect(bridge.calls).toContainEqual({
+      method: "thread/metadata/update",
+      params: { projectId: "", threadId: "thread-1" },
     })
   })
 

@@ -218,6 +218,11 @@ Status legend:
   - Include: generated experimental App Server section methods behind typed IPC, persisted non-sensitive sidebar preferences, virtualized custom section rows, and workbench-relative right-panel sizing.
   - Verification: desktop typecheck/tests/build plus a real Electron visual and interaction smoke test against the supplied Codex Desktop references.
 
+- [ ] Complete ChatGPT Desktop sidebar menus for projects, sections, and chat rows.
+  - Acceptance: project and chat rows expose the applicable pin, rename/edit, move, copy, archive, delete/remove, and new-chat actions; custom sections archive their chats; destructive actions require confirmation; and every mutation refreshes the affected virtualized sidebar groups.
+  - Include: App Server-owned thread/project/section mutations behind typed IPC, Cypheria namespaced project sidebar metadata, and safe project-folder reveal resolved in Electron main from a project identifier.
+  - Verification: desktop tests/typecheck/build, full repository CI/build, and a real Electron smoke test of reversible actions plus disposable archive/delete flows against ChatGPT Desktop 26.901.51231.
+
 - [x] Add managed ACP harness installation and Connections terminal sessions.
   - Acceptance: Grok Build, Cursor, Gemini CLI, Hermes, and OpenCode install their latest release below `$CYPHERIA_HOME`, expose installed version and enablement, pass an ACP v1 initialization check, and can open concurrent page-level terminal tabs that close when Connections unmounts.
   - Include: typed IPC, harness-specific homes, global proxy propagation, Hermes `HERMES_HOME`/`HERMES_INSTALL_DIR` containment without its desktop package, and auditable install receipts containing changed files and executable hashes.

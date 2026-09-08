@@ -16,7 +16,10 @@ import {
   codexPluginEnabledWriteContract,
   codexPluginInstallContract,
   codexSkillEnabledWriteContract,
+  codexThreadArchiveContract,
+  codexThreadDeleteContract,
   codexThreadForkContract,
+  codexThreadProjectMoveContract,
   codexThreadQueueAddContract,
   codexThreadRenameContract,
   dappProviderRequestContract,
@@ -352,6 +355,24 @@ describe("chat follow-up IPC contracts", () => {
     ).toEqual({ name: "Focus", threadId: "thread-1" })
     expect(
       codexThreadRenameContract.request.safeParse({ name: " ", threadId: "thread-1" }).success
+    ).toBe(false)
+  })
+
+  it("scopes sidebar thread mutations to server-owned identifiers", () => {
+    expect(codexThreadArchiveContract.request.parse({ threadId: "thread-1" })).toEqual({
+      threadId: "thread-1",
+    })
+    expect(codexThreadDeleteContract.request.parse({ threadId: "thread-1" })).toEqual({
+      threadId: "thread-1",
+    })
+    expect(
+      codexThreadProjectMoveContract.request.parse({ projectId: null, threadId: "thread-1" })
+    ).toEqual({ projectId: null, threadId: "thread-1" })
+    expect(
+      codexThreadProjectMoveContract.request.safeParse({
+        projectId: "/renderer/chosen/path",
+        threadId: "",
+      }).success
     ).toBe(false)
   })
 })

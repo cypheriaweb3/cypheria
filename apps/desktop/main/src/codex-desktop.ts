@@ -315,6 +315,7 @@ export const listCodexThreads = async (
 const toCodexProjectView = (project: v2.Project) => ({
   createdAt: project.createdAt,
   id: project.id,
+  metadata: project.metadata,
   name: project.name,
   position: project.position,
   recencyAt: project.recencyAt,
@@ -357,11 +358,15 @@ export const createCodexProject = async (
 
 export const updateCodexProject = async (
   bridge: CodexAppServerBridge,
-  input: { readonly id: string; readonly name: string }
+  input: {
+    readonly id: string
+    readonly metadata?: Record<string, string>
+    readonly name: string
+  }
 ) => {
   const response = await bridge.request<"project/update", v2.ProjectUpdateResponse>(
     "project/update",
-    { name: input.name, projectId: input.id }
+    { metadata: input.metadata, name: input.name, projectId: input.id }
   )
   return toCodexProjectView(response.project)
 }
@@ -685,6 +690,34 @@ export const renameCodexThread = async (
     threadId,
   })
   return { renamed: true }
+}
+
+export const archiveCodexThread = async (
+  bridge: CodexAppServerBridge,
+  threadId: string
+): Promise<{ archived: true }> => {
+  await bridge.request<"thread/archive", v2.ThreadArchiveResponse>("thread/archive", { threadId })
+  return { archived: true }
+}
+
+export const deleteCodexThread = async (
+  bridge: CodexAppServerBridge,
+  threadId: string
+): Promise<{ deleted: true }> => {
+  await bridge.request<"thread/delete", v2.ThreadDeleteResponse>("thread/delete", { threadId })
+  return { deleted: true }
+}
+
+export const moveCodexThreadToProject = async (
+  bridge: CodexAppServerBridge,
+  threadId: string,
+  projectId: string | null
+): Promise<{ moved: true }> => {
+  await bridge.request<"thread/metadata/update", v2.ThreadMetadataUpdateResponse>(
+    "thread/metadata/update",
+    { projectId: projectId ?? "", threadId }
+  )
+  return { moved: true }
 }
 
 const runChat = async (
