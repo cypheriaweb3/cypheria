@@ -301,21 +301,21 @@ function TaskSession({
         workspacePanelOpen ? "grid-cols-[minmax(0,1fr)_clamp(320px,38%,440px)]" : "grid-cols-1"
       )}
     >
-      <main className="grid min-h-0 min-w-0 grid-rows-[var(--chrome-height,44px)_minmax(0,1fr)_auto] overflow-hidden border-r border-border [container-type:inline-size] max-[1180px]:border-r-0">
+      <main className="grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[var(--chrome-height,44px)_minmax(0,1fr)_auto] overflow-hidden border-r border-border [container-type:inline-size] max-[1180px]:border-r-0">
         <header className="desktop-titlebar flex min-h-[44px] items-center justify-between gap-3 border-b border-border px-4">
-          <div className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold">
-            <FolderGit2 aria-hidden="true" size={16} />
+          <div className="inline-flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm font-semibold">
+            <FolderGit2 aria-hidden="true" className="shrink-0" size={16} />
             <span className="truncate">
               {threadQuery.data?.title ??
                 (resumeThreadId
                   ? i18n._(msg({ id: "task.title.task", message: "Task" }))
                   : i18n._(msg({ id: "navigation.newTask", message: "New task" })))}
             </span>
-            <Badge aria-live="polite" variant="outline">
+            <Badge aria-live="polite" className="shrink-0" variant="outline">
               {statusLabel}
             </Badge>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             <Button
               nativeButton={false}
               render={
