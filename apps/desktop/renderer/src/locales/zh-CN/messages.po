@@ -346,6 +346,11 @@ msgid "settings.configuration.option.detailed"
 msgstr "详细"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.prompt.dictation"
+msgstr "语音输入"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.configuration.tsx
 msgid "settings.configuration.option.disabled"
 msgstr "已禁用"
@@ -361,6 +366,11 @@ msgstr "显示语言"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.artifact.done"
 msgstr "已完成"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.header.renameHint"
+msgstr "双击重命名"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -875,6 +885,11 @@ msgstr "最近"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.prompt.removeAttachment"
 msgstr "移除附件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.header.rename"
+msgstr "重命名会话"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx

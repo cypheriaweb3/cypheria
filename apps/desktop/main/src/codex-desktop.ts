@@ -675,6 +675,18 @@ export const forkCodexThread = async (
   return { threadId: response.thread.id }
 }
 
+export const renameCodexThread = async (
+  bridge: CodexAppServerBridge,
+  threadId: string,
+  name: string
+): Promise<{ renamed: true }> => {
+  await bridge.request<"thread/name/set", v2.ThreadSetNameResponse>("thread/name/set", {
+    name,
+    threadId,
+  })
+  return { renamed: true }
+}
+
 const runChat = async (
   bridge: CodexAppServerBridge,
   sender: WebContents,

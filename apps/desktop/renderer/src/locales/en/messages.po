@@ -346,6 +346,11 @@ msgid "settings.configuration.option.detailed"
 msgstr "Detailed"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.prompt.dictation"
+msgstr "Dictation"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.configuration.tsx
 msgid "settings.configuration.option.disabled"
 msgstr "Disabled"
@@ -361,6 +366,11 @@ msgstr "Display language"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.artifact.done"
 msgstr "Done"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.header.renameHint"
+msgstr "Double-click to rename"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -875,6 +885,11 @@ msgstr "Recents"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.prompt.removeAttachment"
 msgstr "Remove attachment"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.header.rename"
+msgstr "Rename chat"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx

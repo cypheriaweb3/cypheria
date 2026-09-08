@@ -208,10 +208,10 @@ Status legend:
   - Exclude: generic custom providers and OpenCodex integration until the provider strategy is decided.
   - Verification: `pnpm run ci`, `pnpm build`, and `pnpm --filter @cypheria/desktop test`.
 
-- [ ] Align the chat workspace with the installed ChatGPT desktop workbench.
+- [x] Align the chat workspace with the installed ChatGPT desktop workbench.
   - Acceptance: the conversation header and full-featured composer match the desktop interaction model; long conversations use TanStack Virtual without breaking live turn growth, history hydration, or follow-to-bottom behavior; the right panel is independently resizable; and a resizable bottom panel provides persistent multi-tab PTY terminals with the native toggle and keyboard shortcut.
   - Include: rigorous comparison of user and assistant turn presentation, panel chrome and empty states, project-scoped terminal IPC that does not accept renderer-chosen filesystem paths, and reuse of shadcn/ui and AI Elements where they fit.
-  - Verification: desktop tests/typecheck/build, full repository CI/build, and a real Electron visual and interaction smoke test against the locally installed ChatGPT desktop package.
+  - Verification: 108 desktop tests, desktop typecheck/build, full repository CI/build, and a clean Electron interaction smoke test covering the composer, inline rename, and persistent bottom/right PTY placement against ChatGPT Desktop 26.901.51231.
 
 - [x] Match Codex Desktop sidebar organization and section controls.
   - Acceptance: Pinned and chat sorting, project and one-list organization, project creation, custom section lifecycle, section-scoped new chats, and Recents new-chat controls work through the compact Codex-style section headers and menus.

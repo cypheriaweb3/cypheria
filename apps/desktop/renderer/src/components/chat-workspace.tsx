@@ -63,6 +63,7 @@ import {
 } from "@cypheria/ui/ai-elements/prompt-input"
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@cypheria/ui/ai-elements/reasoning"
 import { Source, Sources, SourcesContent, SourcesTrigger } from "@cypheria/ui/ai-elements/sources"
+import { SpeechInput } from "@cypheria/ui/ai-elements/speech-input"
 import { Task, TaskContent, TaskItem, TaskTrigger } from "@cypheria/ui/ai-elements/task"
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "@cypheria/ui/ai-elements/tool"
 import { Badge } from "@cypheria/ui/components/badge"
@@ -74,6 +75,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@cypheria/ui/components/dropdown-menu"
+import { Input } from "@cypheria/ui/components/input"
 import {
   ResizableHandle,
   ResizablePanel,
@@ -110,6 +112,7 @@ import {
   PanelBottomOpen,
   PanelRightClose,
   PanelRightOpen,
+  Pencil,
   Plus,
   Settings,
   Sparkles,
@@ -267,6 +270,9 @@ function ChatSession({
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [attachmentError, setAttachmentError] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleOverride, setTitleOverride] = useState<string | null>(null)
+  const [titleDraft, setTitleDraft] = useState("")
   const submitMode = useRef<"queue" | "steer" | null>(null)
   const [workspacePanelOpen, setWorkspacePanelOpen] = useState(true)
   const [bottomPanelOpen, setBottomPanelOpen] = useState(false)
@@ -386,6 +392,12 @@ function ChatSession({
         : status === "streaming"
           ? i18n._(msg({ id: "chat.status.working", message: "Working…" }))
           : i18n._(msg({ id: "chat.status.attention", message: "Needs attention" }))
+  const displayedTitle =
+    titleOverride ??
+    threadQuery.data?.title ??
+    (resumeThreadId
+      ? i18n._(msg({ id: "chat.title.chat", message: "Chat" }))
+      : i18n._(msg({ id: "navigation.newChat", message: "New chat" })))
 
   useEffect(() => {
     if (!resumeThreadId || !threadQuery.data || hydratedThreadId.current === resumeThreadId) return
@@ -501,6 +513,21 @@ function ChatSession({
     await navigate({ search: { thread: fork.threadId } })
   }
 
+  const commitTitle = async () => {
+    const name = titleDraft.trim()
+    setEditingTitle(false)
+    if (!resumeThreadId || !name || name === displayedTitle) return
+    try {
+      const result = await window.cypheria?.codex.renameThread(resumeThreadId, name)
+      if (!result?.renamed) return
+      setTitleOverride(name)
+      void queryClient.invalidateQueries({ queryKey: ["codex", "threads"] })
+      void queryClient.invalidateQueries({ queryKey: ["codex", "thread", resumeThreadId] })
+    } catch {
+      setTitleDraft(displayedTitle)
+    }
+  }
+
   const handleSubmit = async ({ text, files }: { text: string; files: FileUIPart[] }) => {
     const value = text.trim()
     if (!value && files.length === 0) return
@@ -548,12 +575,45 @@ function ChatSession({
                     <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
                       <FolderGit2 aria-hidden="true" size={13} />
                     </span>
-                    <span className="min-w-[2ch] truncate">
-                      {threadQuery.data?.title ??
-                        (resumeThreadId
-                          ? i18n._(msg({ id: "chat.title.chat", message: "Chat" }))
-                          : i18n._(msg({ id: "navigation.newChat", message: "New chat" })))}
-                    </span>
+                    {editingTitle ? (
+                      <Input
+                        aria-label={i18n._(
+                          msg({ id: "chat.header.rename", message: "Rename chat" })
+                        )}
+                        autoFocus
+                        className="h-7 min-w-32 border-0 bg-transparent px-1 font-medium shadow-none focus-visible:ring-1"
+                        maxLength={200}
+                        onBlur={() => void commitTitle()}
+                        onChange={(event) => setTitleDraft(event.currentTarget.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter") event.currentTarget.blur()
+                          if (event.key === "Escape") setEditingTitle(false)
+                        }}
+                        value={titleDraft}
+                      />
+                    ) : (
+                      <button
+                        className="min-w-[2ch] truncate text-left"
+                        disabled={!resumeThreadId}
+                        onDoubleClick={() => {
+                          setTitleDraft(displayedTitle)
+                          setEditingTitle(true)
+                        }}
+                        title={
+                          resumeThreadId
+                            ? i18n._(
+                                msg({
+                                  id: "chat.header.renameHint",
+                                  message: "Double-click to rename",
+                                })
+                              )
+                            : undefined
+                        }
+                        type="button"
+                      >
+                        {displayedTitle}
+                      </button>
+                    )}
                     {selectedProject ? (
                       <span className="shrink truncate text-xs font-normal text-muted-foreground">
                         {selectedProject.name}
@@ -637,6 +697,16 @@ function ChatSession({
                         }
                       />
                       <DropdownMenuContent align="end" className="w-52">
+                        <DropdownMenuItem
+                          disabled={!resumeThreadId}
+                          onClick={() => {
+                            setTitleDraft(displayedTitle)
+                            setEditingTitle(true)
+                          }}
+                        >
+                          <Pencil aria-hidden="true" />
+                          <Trans id="chat.header.rename">Rename chat</Trans>
+                        </DropdownMenuItem>
                         <DropdownMenuItem render={<Link to="/settings/models" />}>
                           <Settings aria-hidden="true" />
                           <Trans id="settings.models">Models</Trans>
@@ -930,6 +1000,7 @@ function ChatSession({
                             </PromptInputSelectContent>
                           </PromptInputSelect>
                         </PromptInputTools>
+                        <ComposerSpeechInput />
                         {status === "submitted" || status === "streaming" ? (
                           <>
                             <Button
@@ -1679,6 +1750,24 @@ function ComposerAttachments() {
         </Attachment>
       ))}
     </Attachments>
+  )
+}
+
+function ComposerSpeechInput() {
+  const { i18n } = useLingui()
+  const { textInput } = usePromptInputController()
+  return (
+    <SpeechInput
+      aria-label={i18n._(msg({ id: "chat.prompt.dictation", message: "Dictation" }))}
+      lang={typeof navigator === "undefined" ? "en-US" : navigator.language || "en-US"}
+      onTranscriptionChange={(transcript) => {
+        const prefix = textInput.value && !textInput.value.endsWith(" ") ? " " : ""
+        textInput.setInput(`${textInput.value}${prefix}${transcript}`)
+      }}
+      size="icon-sm"
+      title={i18n._(msg({ id: "chat.prompt.dictation", message: "Dictation" }))}
+      type="button"
+    />
   )
 }
 

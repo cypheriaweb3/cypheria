@@ -208,10 +208,10 @@
   - 不包括：在 provider 策略确定前，不实现通用 custom providers 与 OpenCodex 集成。
   - 验证：`pnpm run ci`、`pnpm build` 和 `pnpm --filter @cypheria/desktop test`。
 
-- [ ] 对齐会话工作区与本机已安装 ChatGPT desktop 的工作台体验。
+- [x] 对齐会话工作区与本机已安装 ChatGPT desktop 的工作台体验。
   - 验收：会话顶部标题栏与完整功能输入框匹配 desktop 交互模型；长会话使用 TanStack Virtual，且不破坏实时 turn 增长、历史恢复或自动跟随底部；右侧面板可独立调节尺寸；可调节尺寸的底部面板提供持久化多标签 PTY 终端、原生开关和键盘快捷键。
   - 包括：严谨对比 user/assistant turn 呈现、面板 chrome 与空状态；project-scoped terminal IPC 不接受 renderer 自选文件系统路径；在合适处复用 shadcn/ui 和 AI Elements。
-  - 验证：desktop tests/typecheck/build、全仓 CI/build，以及针对本机已安装 ChatGPT desktop 应用包的真实 Electron 视觉与交互 smoke test。
+  - 验证：108 项 desktop tests、desktop typecheck/build、全仓 CI/build，以及针对 ChatGPT Desktop 26.901.51231 的干净 Electron 交互 smoke test，覆盖输入框、行内重命名和底部/右侧持久 PTY 布局。
 
 - [x] 对齐 Codex Desktop 的侧栏组织与分组控件。
   - 验收：Pinned 与普通对话排序、按项目与单列表组织、项目创建、自定义分组生命周期、分组内新对话和 Recents 新对话，都通过紧凑的 Codex 风格分组标题与菜单正常工作。

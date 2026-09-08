@@ -154,6 +154,8 @@ const cypheriaApi: CypheriaPreloadApi = {
       }),
     readThread: (threadId) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadRead, { threadId }),
+    renameThread: (threadId, name) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadRename, { name, threadId }),
     queueThreadMessage: (threadId, clientUserMessageId, input) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadQueueAdd, {
         ...input,

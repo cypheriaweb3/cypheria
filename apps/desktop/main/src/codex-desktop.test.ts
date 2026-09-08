@@ -18,6 +18,7 @@ import {
   readCodexAccount,
   readCodexModelSettings,
   readCodexThread,
+  renameCodexThread,
   startCodexChat,
   startCodexLogin,
   steerCodexChat,
@@ -354,6 +355,17 @@ describe("desktop Codex services", () => {
     expect(bridge.calls).toContainEqual({
       method: "thread/fork",
       params: { excludeTurns: true, lastTurnId: "turn-3", threadId: "thread-1" },
+    })
+  })
+
+  it("renames a thread through App Server", async () => {
+    const bridge = new FakeBridge({ "thread/name/set": {} })
+    await expect(renameCodexThread(asBridge(bridge), "thread-1", "Focused work")).resolves.toEqual({
+      renamed: true,
+    })
+    expect(bridge.calls).toContainEqual({
+      method: "thread/name/set",
+      params: { name: "Focused work", threadId: "thread-1" },
     })
   })
 

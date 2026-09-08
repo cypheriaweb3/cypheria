@@ -296,6 +296,10 @@ export const CodexThreadForkRequestSchema = z
 
 export const CodexThreadForkResultSchema = z.object({ threadId: z.string().min(1) }).strict()
 
+export const CodexThreadRenameRequestSchema = z
+  .object({ name: z.string().trim().min(1).max(200), threadId: z.string().min(1) })
+  .strict()
+
 export const CodexChatStartSchema = z
   .object({
     chatId: z.string().min(1),

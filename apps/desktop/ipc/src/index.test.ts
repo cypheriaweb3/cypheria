@@ -18,6 +18,7 @@ import {
   codexSkillEnabledWriteContract,
   codexThreadForkContract,
   codexThreadQueueAddContract,
+  codexThreadRenameContract,
   dappProviderRequestContract,
   networkCreateContract,
   networkEndpointSetEnabledContract,
@@ -343,5 +344,14 @@ describe("chat follow-up IPC contracts", () => {
     expect(
       codexThreadForkContract.request.parse({ lastTurnId: "turn-3", threadId: "thread-1" })
     ).toEqual({ lastTurnId: "turn-3", threadId: "thread-1" })
+  })
+
+  it("validates thread rename length and trims the title", () => {
+    expect(
+      codexThreadRenameContract.request.parse({ name: "  Focus  ", threadId: "thread-1" })
+    ).toEqual({ name: "Focus", threadId: "thread-1" })
+    expect(
+      codexThreadRenameContract.request.safeParse({ name: " ", threadId: "thread-1" }).success
+    ).toBe(false)
   })
 })

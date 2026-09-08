@@ -82,6 +82,7 @@ import {
   CodexThreadListRequestSchema,
   CodexThreadQueueAddSchema,
   CodexThreadReadRequestSchema,
+  CodexThreadRenameRequestSchema,
   CodexThreadSectionCreateRequestSchema,
   CodexThreadSectionDeleteRequestSchema,
   type CodexThreadSectionListPage,
@@ -253,6 +254,7 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexThreadList: "codex.thread.list",
   codexThreadFork: "codex.thread.fork",
   codexThreadRead: "codex.thread.read",
+  codexThreadRename: "codex.thread.rename",
   codexThreadQueueAdd: "codex.thread.queue.add",
   codexThreadSectionCreate: "codex.thread-section.create",
   codexThreadSectionDelete: "codex.thread-section.delete",
@@ -1502,6 +1504,14 @@ export const codexThreadForkContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<{ lastTurnId?: string; threadId: string }, { threadId: string }>
 
+export const codexThreadRenameContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexThreadRename,
+  namespace: "codex",
+  request: CodexThreadRenameRequestSchema,
+  response: z.object({ renamed: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ name: string; threadId: string }, { renamed: true }>
+
 export const codexThreadSectionListContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexThreadSectionList,
   namespace: "codex",
@@ -1831,6 +1841,7 @@ export const ipcContracts = {
   codexThreadList: codexThreadListContract,
   codexThreadFork: codexThreadForkContract,
   codexThreadRead: codexThreadReadContract,
+  codexThreadRename: codexThreadRenameContract,
   codexThreadQueueAdd: codexThreadQueueAddContract,
   codexThreadSectionCreate: codexThreadSectionCreateContract,
   codexThreadSectionDelete: codexThreadSectionDeleteContract,
@@ -1974,6 +1985,7 @@ export type CypheriaPreloadApi = {
     }) => Promise<CodexThreadListPage>
     readonly forkThread: (threadId: string, lastTurnId?: string) => Promise<{ threadId: string }>
     readonly readThread: (threadId: string) => Promise<CodexThreadDetailView>
+    readonly renameThread: (threadId: string, name: string) => Promise<{ renamed: true }>
     readonly queueThreadMessage: (
       threadId: string,
       clientUserMessageId: string,

@@ -85,6 +85,7 @@ import {
   codexThreadListContract,
   codexThreadQueueAddContract,
   codexThreadReadContract,
+  codexThreadRenameContract,
   codexThreadSectionCreateContract,
   codexThreadSectionDeleteContract,
   codexThreadSectionListContract,
@@ -168,6 +169,7 @@ import {
   readCodexAccount,
   readCodexModelSettings,
   readCodexThread,
+  renameCodexThread,
   startCodexChat,
   startCodexLogin,
   steerCodexChat,
@@ -578,6 +580,9 @@ const registerIpcHandlers = (
   )
   registerIpcRoute(codexThreadReadContract, ({ threadId }) =>
     readCodexThread(codexBridge(), threadId)
+  )
+  registerIpcRoute(codexThreadRenameContract, ({ name, threadId }) =>
+    renameCodexThread(codexBridge(), threadId, name)
   )
   registerIpcRoute(codexThreadSectionListContract, (options) =>
     listCodexThreadSections(codexBridge(), options)
