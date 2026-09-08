@@ -1,3 +1,74 @@
+# Generated Image Result Card Design QA
+
+- Source visual truth: `/var/folders/py/l0kx36b51vj9l6c8tdgqc9380000gn/T/codex-clipboard-190dbbac-7c40-407a-888f-f820ac53c650.png`
+- In-progress source visual truth: `/var/folders/py/l0kx36b51vj9l6c8tdgqc9380000gn/T/codex-clipboard-395582bc-6882-4873-a7eb-b80c645d900f.png`
+- Async-placeholder source visual truth: `/var/folders/py/l0kx36b51vj9l6c8tdgqc9380000gn/T/codex-clipboard-76afbdcb-e3b8-4a9b-96a4-80b9c4dca0d9.png`
+- Installed-app implementation reference: `/Applications/ChatGPT.app/Contents/Resources/app.asar`, `generated-image` gallery modules
+- Implementation screenshot: live CUA capture of `app.cypheria.desktop.dev`, conversation `01a08095-6417-78c0-bf7f-4d06acec23cb` (the CUA surface did not expose a persistent screenshot path)
+- Viewport: 1144 × 768 output px, light theme, English locale
+- Pixels and normalization: the supplied Codex screenshot is 1536 × 1324 px; the Cypheria app capture is 1144 × 768 px. Comparison focused on the image-result region because the surrounding window layouts and source image aspect ratios differ.
+- State: completed image-generation turn with the activity summary collapsed, generated image visible, final answer visible, and composer below.
+
+## Full-view comparison evidence
+
+The refreshed Electron view now follows the Codex response order: activity summary, standalone generated image, then final answer. The generated image no longer sits inside nested tool disclosure UI, and the conversation remains free of horizontal clipping.
+
+The installed implementation and the supplied in-progress screenshots were checked for asynchronous state. As soon as the active turn contains an image-generation item with no result or failure, Cypheria moves it out of activity and renders a 400 px maximum, square, `rounded-2xl`, busy placeholder in the response body. The placeholder now uses Codex's animated dot-field treatment: two softly overlapping fields of fine dots drift independently over the quiet secondary surface, with a static frame under reduced-motion preferences. This intentionally uses the image-specific pending state instead of waiting for the generic tool lifecycle, because Cypheria's blocking image tool does not complete that lifecycle until the pixels arrive. Completed pixels replace the placeholder in the same output region, even if the surrounding turn is still finishing. Image-generation failures stay in activity.
+
+The broader result pipeline now mirrors the same boundary: successful MCP `resource_link` output, explicit website/App resources, latest Artifact Session metadata, and final-answer links to common generated document/media/archive formats become quiet attachment cards in the response body. Failed or unfinished tool calls stay in activity. Code-file references are intentionally not promoted. Completed diff output appears with the other result blocks before the final answer, while proposed plans remain a distinct post-response block.
+
+## Focused region comparison evidence
+
+The source and live implementation both show an uncropped image with a 16 px rounded frame, a subtle dark fade at the bottom, and a blurred dark `Edit` pill at the lower left. Cypheria intentionally omits the source upload/share button. The `Edit` control is retained as an accessible disabled placeholder and has no action.
+
+## Required fidelity surfaces
+
+- Fonts and typography: existing Inter/system UI typography is retained; the compact button label matches the surrounding Codex-scale controls.
+- Spacing and layout rhythm: the image is separated from both the activity row and final answer by the existing 16 px message rhythm; portrait, landscape, and panoramic images use Codex-derived 25rem, 30rem, and full-width caps.
+- Colors and visual tokens: the card uses the existing muted surface plus Codex-derived black/45 overlay treatment, white text, subtle shadow, and backdrop blur.
+- Image quality and asset fidelity: the original generated-image data URL is rendered directly with natural aspect ratio and no crop, recompression, or placeholder asset.
+- Copy and content: the revised generation prompt remains the image alt text; `Edit` is localized; no upload control is rendered.
+
+## Interaction and runtime checks
+
+- Rebuilt the production renderer, refreshed the already-running Cypheria development app, and reopened the existing generated-image conversation.
+- Verified the generated image is outside the collapsed activity details, the final answer follows it, `Edit` is disabled, and no upload button is present.
+- Added lifecycle coverage for all transition edges: an active turn with a resultless image item immediately renders a response-body placeholder, generic item completion cannot prematurely relabel it as generated, and completed pixels appear in that same response-body position while the surrounding turn remains active.
+- Added resource normalization coverage for MCP files, websites, Artifact Sessions, failed calls, local artifact links with spaces, source-code-link exclusion, and PPTX image-gallery replacement.
+- Verified 21 test files / 97 tests, desktop TypeScript checking, Lingui catalog compilation, and renderer production build.
+
+## Comparison history
+
+1. The first refresh still showed the old renderer build; rebuilding the one-shot development renderer made the new component available.
+2. The initial implementation used lazy loading without a reserved image height, which could leave the result blank after refresh. Eager loading restored the image.
+3. The first visible pass let the assistant content shrink around the final-answer text. Making the assistant message content full-width restored the Codex-like activity divider and stable image sizing.
+4. The in-progress screenshot exposed an early generic lifecycle completion edge. Image generation now uses its dedicated status for the spinner/label and renders as a standalone activity item, matching the installed Codex grouping rule.
+5. A subsequent screenshot and live runtime logs exposed that turn status and image-tool lifecycle had been conflated. Cypheria's image tool remains blocked for the full generation duration, so waiting for its generic lifecycle can never expose an intermediate placeholder. The response body now follows the image-specific pending state directly.
+6. The initial response-body placeholder reused the shared gray pulse skeleton and therefore lacked Codex's recognizable motion. It was replaced with the installed app's fine animated dot-field pattern and matching 400 px rounded-square geometry.
+
+## Findings
+
+No actionable P0, P1, or P2 findings remain. The absence of upload/share is intentional per the requested scope. Persisting a CUA screenshot file was unavailable, but the final state was inspected directly in the active Electron window.
+
+## Implementation checklist
+
+- [x] Move completed generated images into the final response body.
+- [x] Show an accessible square response-body placeholder as soon as an active turn contains a pending image result.
+- [x] Match Codex's animated dot-field placeholder and reduced-motion behavior.
+- [x] Keep image generation standalone in activity and prioritize its dedicated status over generic item lifecycle completion.
+- [x] Preserve natural aspect ratio and Codex-derived responsive width caps.
+- [x] Add the rounded frame, bottom fade, and disabled `Edit` placeholder.
+- [x] Omit upload/share controls.
+- [x] Promote successful file, website, App, and Artifact Session resources into response-body attachment cards.
+- [x] Keep unsuccessful resource calls in activity and avoid promoting ordinary source-code links.
+- [x] Place completed Diff output before the final answer and keep plans in a separate block.
+- [x] Let PPTX output replace the image gallery.
+- [x] Refresh and verify the running development app.
+
+final result: passed
+
+---
+
 # Desktop Sidebar Design QA
 
 - Source visual truth: `/var/folders/py/l0kx36b51vj9l6c8tdgqc9380000gn/T/codex-clipboard-39e65d74-815a-4a24-9449-7fb6cd43dcc4.png` through `/var/folders/py/l0kx36b51vj9l6c8tdgqc9380000gn/T/codex-clipboard-f4a646fb-5368-4329-ac20-6e6845eabcd8.png`

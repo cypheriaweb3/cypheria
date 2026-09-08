@@ -34,6 +34,11 @@ msgid "chat.turn.agentActivity"
 msgstr "智能体 {tool}"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.artifact.app"
+msgstr "应用"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
 msgid "settings.appearance.title"
 msgstr "外观"
@@ -213,6 +218,11 @@ msgid "menu.edit"
 msgstr "编辑"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.generatedImage.edit"
+msgstr "编辑"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.editSection"
 msgstr "编辑分组"
@@ -251,6 +261,11 @@ msgstr "失败"
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.failedAfter"
 msgstr "在 {time} 后失败"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.artifact.file"
+msgstr "文件"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -299,6 +314,11 @@ msgstr "已生成图像"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
+msgid "chat.artifact.outputs"
+msgstr "生成的内容"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.generatingImage"
 msgstr "正在生成图像"
 
@@ -316,6 +336,11 @@ msgstr "帮助"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.inOneList"
 msgstr "合并为一个列表"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.artifact.interactive"
+msgstr "交互式生成物"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -746,6 +771,11 @@ msgstr "钱包与资产"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.workspace.web3Context"
 msgstr "Web3 上下文"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.artifact.website"
+msgstr "网站"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx

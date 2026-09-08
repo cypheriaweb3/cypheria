@@ -34,6 +34,11 @@ msgid "chat.turn.agentActivity"
 msgstr "Agent {tool}"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.artifact.app"
+msgstr "App"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
 msgid "settings.appearance.title"
 msgstr "Appearance"
@@ -213,6 +218,11 @@ msgid "menu.edit"
 msgstr "Edit"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.generatedImage.edit"
+msgstr "Edit"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.editSection"
 msgstr "Edit section"
@@ -251,6 +261,11 @@ msgstr "Failed"
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.failedAfter"
 msgstr "Failed after {time}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.artifact.file"
+msgstr "File"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -299,6 +314,11 @@ msgstr "Generated images"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
+msgid "chat.artifact.outputs"
+msgstr "Generated outputs"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.generatingImage"
 msgstr "Generating image"
 
@@ -316,6 +336,11 @@ msgstr "Help"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.inOneList"
 msgstr "In one list"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.artifact.interactive"
+msgstr "Interactive artifact"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -746,6 +771,11 @@ msgstr "Wallets & assets"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.workspace.web3Context"
 msgstr "Web3 context"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.artifact.website"
+msgstr "Website"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx

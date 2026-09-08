@@ -2,7 +2,11 @@ import type { CodexTurnItemSnapshot, CodexTurnSnapshot } from "@cypheria/codex-b
 import { describe, expect, it } from "vitest"
 
 import type { CodexUiMessage } from "../../../ipc/src/index.js"
-import { deriveCodexTurnView, groupCodexActivity } from "./codex-turn-view.js"
+import {
+  deriveCodexTurnView,
+  groupCodexActivity,
+  isCodexTurnItemActive,
+} from "./codex-turn-view.js"
 
 const turn: CodexTurnSnapshot = {
   completedAt: 20,
@@ -107,5 +111,317 @@ describe("Codex turn view", () => {
     expect(groupCodexActivity(items)).toMatchObject([
       { id: "activity-group:one", items: [{ item: { id: "one" } }, { item: { id: "two" } }] },
     ])
+  })
+
+  it("separates completed generated images from collapsible activity", () => {
+    const generatedImage = snapshot(
+      {
+        failure: null,
+        id: "generated-image",
+        result: "iVBORw0KGgoAAA",
+        revisedPrompt: "A quiet landscape",
+        status: "completed",
+        type: "imageGeneration",
+      },
+      0
+    )
+    const message: CodexUiMessage = {
+      id: "turn-1",
+      parts: [
+        { data: turn, id: "turn-1", type: "data-codex-turn" },
+        { data: generatedImage, id: generatedImage.item.id, type: "data-codex-item" },
+      ],
+      role: "assistant",
+    }
+
+    const view = deriveCodexTurnView(message)
+    expect(view?.generatedImages).toMatchObject([{ item: { id: "generated-image" } }])
+    expect(view?.activity).toEqual([])
+  })
+
+  it("moves asynchronous image generation into a body placeholder while the turn continues", () => {
+    const generatingImage = snapshot(
+      {
+        failure: null,
+        id: "generating-image",
+        result: "",
+        revisedPrompt: "A quiet landscape",
+        status: "inProgress",
+        type: "imageGeneration",
+      },
+      0
+    )
+    const activeTurn: CodexTurnSnapshot = {
+      ...turn,
+      completedAt: null,
+      durationMs: null,
+      status: "inProgress",
+    }
+    const message: CodexUiMessage = {
+      id: "turn-1",
+      parts: [
+        { data: activeTurn, id: "turn-1", type: "data-codex-turn" },
+        { data: generatingImage, id: generatingImage.item.id, type: "data-codex-item" },
+      ],
+      role: "assistant",
+    }
+
+    const view = deriveCodexTurnView(message)
+    expect(view?.pendingGeneratedImageCount).toBe(1)
+    expect(view?.activity).toEqual([])
+  })
+
+  it("shows the body placeholder as soon as image generation starts", () => {
+    const generatingImage = {
+      ...snapshot(
+        {
+          failure: null,
+          id: "generating-image",
+          result: "",
+          revisedPrompt: "A quiet landscape",
+          status: "inProgress",
+          type: "imageGeneration",
+        },
+        0
+      ),
+      completedAtMs: null,
+      lifecycle: "started" as const,
+    }
+    const activeTurn: CodexTurnSnapshot = {
+      ...turn,
+      completedAt: null,
+      durationMs: null,
+      status: "inProgress",
+    }
+    const message: CodexUiMessage = {
+      id: "turn-1",
+      parts: [
+        { data: activeTurn, id: "turn-1", type: "data-codex-turn" },
+        { data: generatingImage, id: generatingImage.item.id, type: "data-codex-item" },
+      ],
+      role: "assistant",
+    }
+
+    const view = deriveCodexTurnView(message)
+    expect(view?.pendingGeneratedImageCount).toBe(1)
+    expect(view?.activity).toEqual([])
+  })
+
+  it("treats a resultless in-progress image as active after its item completion event", () => {
+    const generatingImage = snapshot(
+      {
+        failure: null,
+        id: "generating-image",
+        result: "",
+        revisedPrompt: "A quiet landscape",
+        status: "inProgress",
+        type: "imageGeneration",
+      },
+      0
+    )
+
+    expect(generatingImage.lifecycle).toBe("completed")
+    expect(isCodexTurnItemActive(generatingImage)).toBe(true)
+  })
+
+  it("shows a finished image in the response body while the main turn is still working", () => {
+    const generatedImage = snapshot(
+      {
+        failure: null,
+        id: "generated-image",
+        result: "iVBORw0KGgoAAA",
+        revisedPrompt: "A quiet landscape",
+        status: "completed",
+        type: "imageGeneration",
+      },
+      0
+    )
+    const activeTurn: CodexTurnSnapshot = {
+      ...turn,
+      completedAt: null,
+      durationMs: null,
+      status: "inProgress",
+    }
+    const message: CodexUiMessage = {
+      id: "turn-1",
+      parts: [
+        { data: activeTurn, id: "turn-1", type: "data-codex-turn" },
+        { data: generatedImage, id: generatedImage.item.id, type: "data-codex-item" },
+      ],
+      role: "assistant",
+    }
+
+    const view = deriveCodexTurnView(message)
+    expect(view?.generatedImages).toMatchObject([{ item: { id: "generated-image" } }])
+    expect(view?.activity).toEqual([])
+  })
+
+  it("collects successful MCP resource outputs into response artifacts", () => {
+    const resourceCall = snapshot(
+      {
+        appContext: null,
+        arguments: {},
+        durationMs: 10,
+        error: null,
+        id: "resource-call",
+        pluginId: null,
+        readOnlyHint: false,
+        result: {
+          _meta: {
+            artifact: {
+              kind: "document",
+              ref: "artifact-1",
+              stateVersion: 2,
+              title: "Quarterly brief",
+            },
+          },
+          content: [
+            {
+              description: "Presentation deck",
+              mimeType: "application/pdf",
+              name: "brief.pdf",
+              type: "resource_link",
+              uri: "file:///tmp/brief.pdf",
+            },
+          ],
+          structuredContent: {
+            resources: [
+              {
+                title: "Preview site",
+                type: "website",
+                url: "https://preview.example.com",
+              },
+            ],
+          },
+        },
+        server: "artifact_session",
+        status: "completed",
+        tool: "js",
+        type: "mcpToolCall",
+      },
+      0
+    )
+    const message: CodexUiMessage = {
+      id: "turn-1",
+      parts: [
+        { data: turn, id: "turn-1", type: "data-codex-turn" },
+        { data: resourceCall, id: resourceCall.item.id, type: "data-codex-item" },
+      ],
+      role: "assistant",
+    }
+
+    const view = deriveCodexTurnView(message)
+    expect(view?.artifacts).toMatchObject([
+      { kind: "file", title: "brief.pdf", uri: "file:///tmp/brief.pdf" },
+      { kind: "website", title: "Preview site", uri: "https://preview.example.com" },
+      { kind: "artifact", title: "Quarterly brief", uri: "artifact:artifact-1" },
+    ])
+
+    const activeView = deriveCodexTurnView({
+      ...message,
+      parts: message.parts.map((part) =>
+        part.type === "data-codex-turn"
+          ? {
+              ...part,
+              data: {
+                ...part.data,
+                completedAt: null,
+                durationMs: null,
+                status: "inProgress" as const,
+              },
+            }
+          : part
+      ),
+    })
+    expect(activeView?.artifacts).toEqual([])
+  })
+
+  it("does not promote resources from failed tool calls or active turns", () => {
+    const failedResourceCall = snapshot(
+      {
+        appContext: null,
+        arguments: {},
+        durationMs: 10,
+        error: { message: "failed" },
+        id: "failed-resource-call",
+        pluginId: null,
+        readOnlyHint: false,
+        result: {
+          _meta: null,
+          content: [
+            {
+              name: "broken.pdf",
+              type: "resource_link",
+              uri: "file:///tmp/broken.pdf",
+            },
+          ],
+          structuredContent: null,
+        },
+        server: "files",
+        status: "failed",
+        tool: "create",
+        type: "mcpToolCall",
+      },
+      0
+    )
+    const message: CodexUiMessage = {
+      id: "turn-1",
+      parts: [
+        { data: turn, id: "turn-1", type: "data-codex-turn" },
+        { data: failedResourceCall, id: failedResourceCall.item.id, type: "data-codex-item" },
+      ],
+      role: "assistant",
+    }
+
+    const view = deriveCodexTurnView(message)
+    expect(view?.artifacts).toEqual([])
+    expect(view?.activity).toMatchObject([
+      { items: [{ item: { id: "failed-resource-call" } }], kind: "group" },
+    ])
+  })
+
+  it("extracts final-answer file outputs and lets PPTX output replace the image gallery", () => {
+    const generatedImage = snapshot(
+      {
+        failure: null,
+        id: "generated-image",
+        result: "iVBORw0KGgoAAA",
+        revisedPrompt: "Slide preview",
+        status: "completed",
+        type: "imageGeneration",
+      },
+      0
+    )
+    const finalAnswer = snapshot(
+      {
+        delivery: null,
+        id: "final",
+        memoryCitation: null,
+        phase: "final_answer",
+        questions: null,
+        text: "Created [deck.pptx](</tmp/Quarterly deck.pptx>). See [source](/tmp/source.ts).",
+        type: "agentMessage",
+      },
+      1
+    )
+    const message: CodexUiMessage = {
+      id: "turn-1",
+      parts: [
+        { data: turn, id: "turn-1", type: "data-codex-turn" },
+        ...[generatedImage, finalAnswer].map((item) => ({
+          data: item,
+          id: item.item.id,
+          type: "data-codex-item" as const,
+        })),
+      ],
+      role: "assistant",
+    }
+
+    const view = deriveCodexTurnView(message)
+    expect(view?.artifacts).toMatchObject([
+      { kind: "file", title: "deck.pptx", uri: "/tmp/Quarterly deck.pptx" },
+    ])
+    expect(view?.generatedImages).toEqual([])
+    expect(view?.activity).toEqual([])
   })
 })

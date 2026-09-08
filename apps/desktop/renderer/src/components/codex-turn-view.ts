@@ -9,13 +9,32 @@ export type CodexActivityUnit =
     }
   | {
       readonly id: string
+      readonly item: CodexTurnItemSnapshot
+      readonly kind: "item"
+    }
+  | {
+      readonly id: string
       readonly items: readonly CodexTurnItemSnapshot[]
       readonly kind: "group"
       readonly reasoning?: CodexTurnItemSnapshot
     }
 
+export type CodexGeneratedArtifact = {
+  readonly description: string | null
+  readonly id: string
+  readonly kind: "app" | "artifact" | "file" | "website"
+  readonly title: string
+  readonly uri: string
+}
+
 export type CodexTurnView = {
   readonly activity: readonly CodexActivityUnit[]
+  readonly artifacts: readonly CodexGeneratedArtifact[]
+  readonly generatedImages: readonly (CodexTurnItemSnapshot & {
+    readonly item: Extract<CodexTurnItemSnapshot["item"], { type: "imageGeneration" }>
+  })[]
+  readonly pendingGeneratedImageCount: number
+  readonly pendingGeneratedImageIds: readonly string[]
   readonly diff:
     | Extract<CodexUiMessage["parts"][number], { type: "data-codex-diff" }>["data"]
     | null
@@ -39,6 +58,151 @@ const isCommentary = (snapshot: CodexTurnItemSnapshot): boolean =>
   snapshot.item.type === "agentMessage" && snapshot.item.phase === "commentary"
 
 const isReasoning = (snapshot: CodexTurnItemSnapshot): boolean => snapshot.item.type === "reasoning"
+
+const isPendingGeneratedImage = (snapshot: CodexTurnItemSnapshot): boolean =>
+  snapshot.item.type === "imageGeneration" &&
+  !snapshot.item.result &&
+  !snapshot.item.failure &&
+  ["inProgress", "in_progress", "running"].includes(snapshot.item.status)
+
+export const isCodexTurnItemActive = (snapshot: CodexTurnItemSnapshot): boolean => {
+  if (isPendingGeneratedImage(snapshot)) return true
+  if (snapshot.lifecycle === "completed") return false
+  const item = snapshot.item
+  if ("status" in item && typeof item.status === "string") {
+    return item.status === "inProgress" || item.status === "running"
+  }
+  return true
+}
+
+const recordValue = (value: unknown): Record<string, unknown> | null =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null
+
+const stringValue = (value: unknown): string | null =>
+  typeof value === "string" && value.trim() ? value.trim() : null
+
+const artifactFromResource = (
+  value: Record<string, unknown>,
+  fallbackId: string
+): CodexGeneratedArtifact | null => {
+  const artifact = recordValue(value.artifact)
+  const artifactRef = stringValue(value.artifactRef) ?? stringValue(artifact?.ref)
+  const type = stringValue(value.type) ?? (artifactRef ? "artifact-session" : null)
+  if (!type || !["resource_link", "appgen-app", "artifact-session", "website"].includes(type)) {
+    return null
+  }
+  const appRef = stringValue(value.appId) ?? stringValue(value.id)
+  const rawUri =
+    stringValue(value.uri) ??
+    stringValue(value.url) ??
+    stringValue(value.path) ??
+    (artifactRef
+      ? `artifact:${artifactRef}`
+      : type === "appgen-app" && appRef
+        ? `appgen:${appRef}`
+        : null)
+  if (!rawUri) return null
+
+  const mimeType = stringValue(value.mimeType) ?? stringValue(value.mime_type)
+  const kind =
+    type === "appgen-app" || rawUri.startsWith("appgen:")
+      ? "app"
+      : type === "artifact-session" || rawUri.startsWith("artifact:")
+        ? "artifact"
+        : type === "website" ||
+            (mimeType?.toLowerCase().startsWith("text/html") && /^https?:\/\//u.test(rawUri))
+          ? "website"
+          : "file"
+  const title =
+    stringValue(value.title) ??
+    stringValue(value.name) ??
+    stringValue(artifact?.title) ??
+    rawUri.split(/[\\/]/u).filter(Boolean).at(-1) ??
+    rawUri
+
+  return {
+    description: stringValue(value.description),
+    id: `${fallbackId}:${kind}:${rawUri}`,
+    kind,
+    title,
+    uri: rawUri,
+  }
+}
+
+const collectResourceArtifacts = (
+  value: unknown,
+  fallbackId: string,
+  depth = 0
+): CodexGeneratedArtifact[] => {
+  if (depth > 6) return []
+  if (Array.isArray(value)) {
+    return value.flatMap((entry, index) =>
+      collectResourceArtifacts(entry, `${fallbackId}:${index}`, depth + 1)
+    )
+  }
+  const record = recordValue(value)
+  if (!record) return []
+  const artifact = artifactFromResource(record, fallbackId)
+  if (artifact) return [artifact]
+  return Object.entries(record).flatMap(([key, entry]) =>
+    collectResourceArtifacts(entry, `${fallbackId}:${key}`, depth + 1)
+  )
+}
+
+const artifactsFromFinalAnswer = (
+  finalAnswer: CodexTurnItemSnapshot | null
+): CodexGeneratedArtifact[] => {
+  if (finalAnswer?.item.type !== "agentMessage") return []
+  const artifacts: CodexGeneratedArtifact[] = []
+  const markdownLink = /\[([^\]]+)\]\((?:<((?:file:\/\/|\/)[^>]+)>|((?:file:\/\/|\/)[^) \t]+))\)/gu
+  const artifactExtension =
+    /\.(?:csv|docx?|gif|html?|jpe?g|m4a|mov|mp3|mp4|pdf|png|pptx?|svg|tar|tsv|wav|webm|webp|xlsx?|zip)(?::\d+)?(?:$|[?#])/iu
+  for (const match of finalAnswer.item.text.matchAll(markdownLink)) {
+    const title = match[1]?.trim()
+    const uri = (match[2] ?? match[3])?.trim()
+    if (!title || !uri || !artifactExtension.test(uri)) continue
+    artifacts.push({
+      description: null,
+      id: `assistant-file:${uri}`,
+      kind: "file",
+      title,
+      uri,
+    })
+  }
+  return artifacts
+}
+
+const selectGeneratedArtifacts = (
+  items: readonly CodexTurnItemSnapshot[],
+  finalAnswer: CodexTurnItemSnapshot | null,
+  turnStatus: CodexTurnView["turn"]["status"]
+): CodexGeneratedArtifact[] => {
+  if (turnStatus !== "completed") return []
+  const candidates = [...artifactsFromFinalAnswer(finalAnswer)]
+  for (const snapshot of items) {
+    if (
+      snapshot.item.type !== "mcpToolCall" ||
+      snapshot.item.status !== "completed" ||
+      snapshot.item.error ||
+      !snapshot.item.result
+    ) {
+      continue
+    }
+    candidates.push(
+      ...collectResourceArtifacts(snapshot.item.result.content, snapshot.item.id),
+      ...collectResourceArtifacts(snapshot.item.result.structuredContent, snapshot.item.id),
+      ...collectResourceArtifacts(snapshot.item.result._meta, snapshot.item.id)
+    )
+  }
+  return candidates.filter(
+    (artifact, index) =>
+      candidates.findIndex(
+        (candidate) => candidate.kind === artifact.kind && candidate.uri === artifact.uri
+      ) === index
+  )
+}
 
 const selectFinalAnswer = (
   items: readonly CodexTurnItemSnapshot[]
@@ -79,6 +243,11 @@ export const groupCodexActivity = (
     if (isCommentary(snapshot)) {
       flush()
       groups.push({ id: snapshot.item.id, item: snapshot, kind: "commentary" })
+      continue
+    }
+    if (snapshot.item.type === "imageGeneration") {
+      flush()
+      groups.push({ id: snapshot.item.id, item: snapshot, kind: "item" })
       continue
     }
     if (isReasoning(snapshot)) {
@@ -132,19 +301,46 @@ export const deriveCodexTurnView = (message: CodexUiMessage): CodexTurnView | nu
 
   items.sort((left, right) => left.order - right.order)
   const finalAnswer = selectFinalAnswer(items)
+  const artifacts = selectGeneratedArtifacts(items, finalAnswer, turn.status)
+  const hidesImageGallery = artifacts.some(
+    (artifact) => artifact.kind === "file" && /\.pptx(?:$|[?#])/iu.test(artifact.uri)
+  )
+  const allGeneratedImages = items.filter(
+    (
+      snapshot
+    ): snapshot is CodexTurnItemSnapshot & {
+      item: Extract<CodexTurnItemSnapshot["item"], { type: "imageGeneration" }>
+    } =>
+      snapshot.item.type === "imageGeneration" &&
+      Boolean(snapshot.item.result) &&
+      !snapshot.item.failure
+  )
+  const generatedImages = hidesImageGallery ? [] : allGeneratedImages
+  const generatedImageIds = new Set(allGeneratedImages.map((snapshot) => snapshot.item.id))
+  const pendingGeneratedImageIds = new Set(
+    turn.status === "inProgress" && !hidesImageGallery
+      ? items.filter(isPendingGeneratedImage).map((snapshot) => snapshot.item.id)
+      : []
+  )
   const activityItems = items.filter(
     (snapshot) =>
       snapshot.item.id !== finalAnswer?.item.id &&
+      !generatedImageIds.has(snapshot.item.id) &&
+      !pendingGeneratedImageIds.has(snapshot.item.id) &&
       snapshot.item.type !== "userMessage" &&
       snapshot.item.type !== "hookPrompt"
   )
   return {
     activity: groupCodexActivity(activityItems),
+    artifacts,
     diff,
     events,
     finalAnswer,
+    generatedImages,
     items,
     modelReroutes,
+    pendingGeneratedImageCount: pendingGeneratedImageIds.size,
+    pendingGeneratedImageIds: [...pendingGeneratedImageIds],
     plan,
     turn,
   }
