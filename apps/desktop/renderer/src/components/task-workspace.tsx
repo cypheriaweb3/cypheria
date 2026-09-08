@@ -297,7 +297,9 @@ function TaskSession({
     <section
       className={cn(
         "grid h-screen min-h-0 bg-background max-[1180px]:grid-cols-1 max-[767px]:h-[calc(100vh-48px)]",
-        workspacePanelOpen ? "grid-cols-[minmax(520px,1fr)_minmax(320px,32vw)]" : "grid-cols-1"
+        workspacePanelOpen
+          ? "grid-cols-[minmax(0,1fr)_clamp(320px,38%,440px)]"
+          : "grid-cols-1"
       )}
     >
       <main className="grid min-h-0 min-w-0 grid-rows-[var(--chrome-height,44px)_minmax(0,1fr)_auto] overflow-hidden border-r border-border [container-type:inline-size] max-[1180px]:border-r-0">
