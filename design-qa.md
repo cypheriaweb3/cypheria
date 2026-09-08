@@ -54,6 +54,52 @@ final result: passed
 
 ---
 
+# Sidebar Section Top Spacing Design QA
+
+- Source visual truth: `/var/folders/py/l0kx36b51vj9l6c8tdgqc9380000gn/T/codex-clipboard-f4a646fb-5368-4329-ac20-6e6845eabcd8.png` and the existing Codex sidebar references supplied with this task
+- Pre-fix screenshot: `/Users/ridewindx/Code/web3/cypheria/.artifacts/design-qa/sidebar-section-density-final.jpg`
+- Implementation screenshot: `/Users/ridewindx/Code/web3/cypheria/.artifacts/design-qa/sidebar-section-top-spacing-final.jpg`
+- Combined comparison: `/Users/ridewindx/Code/web3/cypheria/.artifacts/design-qa/sidebar-section-top-spacing-comparison.jpg`
+- Viewport: 1280 × 860 CSS px, Electron device pixel ratio 2, CUA output 1144 × 768 px, light theme, English locale
+- State: Pinned, one custom section, Projects, and Recents are all expanded.
+
+## Full-view comparison evidence
+
+Each group label now has a clearer visual break from the content above, while its relationship to the first row below remains compact. The additional space is consistent across built-in and custom sections.
+
+## Focused region comparison evidence
+
+Live DOM geometry confirms each section row increased from 36 px to 40 px. Because the header remains bottom-aligned, the label-to-first-row offset stays at 27 px, while the space from the preceding row to the next section label increases from 9 px to 13 px.
+
+## Required fidelity surfaces
+
+- Fonts and typography: unchanged.
+- Spacing and layout rhythm: section top separation gains 4 px without adding bottom whitespace.
+- Colors and visual tokens: unchanged.
+- Image quality and asset fidelity: unchanged; existing icon-library assets remain sharp.
+- Copy and content: unchanged.
+
+## Interaction and runtime checks
+
+- Verified Pinned, custom section, Projects, and Recents in the running Electron development app.
+- Verified section disclosure and action controls remain present and aligned.
+- Typecheck, automated tests, and renderer production build passed.
+
+## Findings
+
+No actionable P0, P1, or P2 findings remain.
+
+## Implementation checklist
+
+- [x] Increase the visual separation above every section heading.
+- [x] Preserve the compact heading-to-content relationship.
+- [x] Apply the same spacing to custom sections.
+- [x] Verify the result in the running desktop app.
+
+final result: passed
+
+---
+
 # Sidebar Section Density Design QA
 
 - Source visual truth: `/var/folders/py/l0kx36b51vj9l6c8tdgqc9380000gn/T/codex-clipboard-f4a646fb-5368-4329-ac20-6e6845eabcd8.png` and `/var/folders/py/l0kx36b51vj9l6c8tdgqc9380000gn/T/codex-clipboard-5bce4ccf-9bfd-4fc5-ab09-1e809ffe1d51.png`
