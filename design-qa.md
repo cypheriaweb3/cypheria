@@ -54,6 +54,51 @@ final result: passed
 
 ---
 
+# Sidebar Adjacent Action Spacing Design QA
+
+- Source visual truth: the existing Codex sidebar references supplied with this task
+- Pre-fix screenshot: `/Users/ridewindx/Code/web3/cypheria/.artifacts/design-qa/sidebar-icon-size-final.jpg`
+- Implementation screenshot: `/Users/ridewindx/Code/web3/cypheria/.artifacts/design-qa/sidebar-action-gap-final.jpg`
+- Focused comparison: `/Users/ridewindx/Code/web3/cypheria/.artifacts/design-qa/sidebar-action-gap-comparison.jpg`
+- Viewport: 1280 × 860 CSS px, Electron device pixel ratio 2, CUA output 1144 × 768 px, light theme, English locale
+- State: expanded navigation with custom-section, Projects, and Recents action pairs visible.
+
+## Full-view comparison evidence
+
+The compact `size-4` controls remain visually consistent, while adjacent overflow and create/new-task controls are now clearly separated instead of reading as one combined mark.
+
+## Focused region comparison evidence
+
+The focused before/after comparison covers all three paired-action rows. Live DOM geometry confirms each icon control remains 14 × 14 CSS px and the visible gap increases from 1.75 px to 7 px. Their invisible hit-area extensions meet without overlapping.
+
+## Required fidelity surfaces
+
+- Fonts and typography: unchanged.
+- Spacing and layout rhythm: paired section actions now use `gap-2`; all other spacing remains unchanged.
+- Colors and visual tokens: unchanged.
+- Image quality and asset fidelity: unchanged vector icons.
+- Copy and content: unchanged.
+
+## Interaction and runtime checks
+
+- Verified custom-section, Projects, and Recents paired actions in the running Electron app.
+- Renderer production build passed.
+
+## Findings
+
+No actionable P0, P1, or P2 findings remain.
+
+## Implementation checklist
+
+- [x] Preserve `size-4` control sizing.
+- [x] Add clear spacing between adjacent action controls.
+- [x] Avoid overlapping expanded pointer areas.
+- [x] Verify the affected rows visually and geometrically.
+
+final result: passed
+
+---
+
 # Sidebar Control Size Consistency Design QA
 
 - Source visual truth: `/var/folders/py/l0kx36b51vj9l6c8tdgqc9380000gn/T/codex-clipboard-f4a646fb-5368-4329-ac20-6e6845eabcd8.png` and the existing Codex sidebar references supplied with this task

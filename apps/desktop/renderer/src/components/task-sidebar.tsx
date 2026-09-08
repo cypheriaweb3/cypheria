@@ -638,7 +638,7 @@ function SectionHeader({
           <ChevronRight aria-hidden="true" className="size-4" />
         )}
       </button>
-      <span className="ml-auto flex items-center gap-0.5">
+      <span className="ml-auto flex items-center gap-2">
         {menu}
         {newAction ? <NewChatOrProjectAction action={newAction} label={label} /> : null}
       </span>
