@@ -473,7 +473,7 @@ function TaskSidebarRowView(props: RowViewProps) {
     const label = i18n._(item.label)
     return (
       <SidebarMenuButton render={<Link to={item.href} />} tooltip={label}>
-        <Icon aria-hidden="true" size={16} strokeWidth={1.9} />
+        <Icon aria-hidden="true" className="size-4" strokeWidth={1.9} />
         <span>{label}</span>
         {item.id === "pending" && props.pendingCount > 0 ? (
           <span className="ml-auto rounded-full bg-primary px-1.5 text-[10px] text-primary-foreground">
@@ -541,7 +541,7 @@ function TaskSidebarRowView(props: RowViewProps) {
         type="button"
         onClick={() => props.onToggleProject(row.projectId)}
       >
-        <Icon aria-hidden="true" size={17} strokeWidth={1.8} />
+        <Icon aria-hidden="true" className="size-4" strokeWidth={1.8} />
         <span className="truncate">{row.projectName}</span>
       </button>
     )
@@ -549,7 +549,7 @@ function TaskSidebarRowView(props: RowViewProps) {
   if (row.kind === "thread")
     return (
       <SidebarMenuButton
-        className={cn(row.source === "project" ? "pl-[calc(17px+0.5rem)]" : "px-0.5")}
+        className={cn(row.source === "project" ? "pl-[calc(1rem+0.5rem)]" : "px-0.5")}
         render={<Link to="/" search={{ thread: row.thread.id }} />}
         tooltip={row.thread.title}
       >
@@ -580,7 +580,7 @@ function TaskSidebarRowView(props: RowViewProps) {
               : row.projectId && props.onShowMoreProjectTasks(row.projectId)
         }
       >
-        {loading ? <LoaderCircle aria-hidden="true" className="animate-spin" size={13} /> : null}
+        {loading ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : null}
         <Trans id="navigation.showMore">Show more</Trans>
       </button>
     )
@@ -588,7 +588,7 @@ function TaskSidebarRowView(props: RowViewProps) {
   if (row.kind === "loading")
     return (
       <div className="flex h-9 items-center justify-center text-muted-foreground" role="status">
-        <LoaderCircle aria-hidden="true" className="animate-spin" size={15} />
+        <LoaderCircle aria-hidden="true" className="size-4 animate-spin" />
       </div>
     )
   if (row.kind === "customEmpty")
@@ -633,9 +633,9 @@ function SectionHeader({
       >
         <span className="truncate">{label}</span>
         {expanded ? (
-          <ChevronDown aria-hidden="true" size={14} />
+          <ChevronDown aria-hidden="true" className="size-4" />
         ) : (
-          <ChevronRight aria-hidden="true" size={14} />
+          <ChevronRight aria-hidden="true" className="size-4" />
         )}
       </button>
       <span className="ml-auto flex items-center gap-0.5">
@@ -657,14 +657,14 @@ function NewChatOrProjectAction({
       ? `New chat in ${label}`
       : "New chat"
   const actionClass =
-    "flex size-6 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2"
+    "relative flex size-4 items-center justify-center rounded text-muted-foreground outline-none after:absolute after:-inset-1 hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2"
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           isProject ? (
             <button aria-label={tooltip} className={actionClass} type="button" onClick={action}>
-              <Plus size={16} />
+              <Plus className="size-4" />
             </button>
           ) : (
             <Link
@@ -673,7 +673,7 @@ function NewChatOrProjectAction({
               to="/"
               search={typeof action === "object" ? { section: action.sectionId } : {}}
             >
-              <SquarePen size={16} />
+              <SquarePen className="size-4" />
             </Link>
           )
         }
@@ -689,12 +689,12 @@ function MenuButton() {
       render={
         <button
           aria-label="More options"
-          className="flex size-6 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2"
+          className="relative flex size-4 items-center justify-center rounded text-muted-foreground outline-none after:absolute after:-inset-1 hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2"
           type="button"
         />
       }
     >
-      <MoreHorizontal size={16} />
+      <MoreHorizontal className="size-4" />
     </DropdownMenuTrigger>
   )
 }

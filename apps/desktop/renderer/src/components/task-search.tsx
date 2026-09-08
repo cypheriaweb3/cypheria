@@ -38,7 +38,7 @@ export function TaskSearch() {
           />
         }
       >
-        <Search size={16} strokeWidth={1.9} />
+        <Search className="size-4" strokeWidth={1.9} />
         <span>
           <Trans id="navigation.search">Search</Trans>
         </span>

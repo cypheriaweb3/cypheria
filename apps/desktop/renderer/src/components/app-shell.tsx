@@ -51,13 +51,13 @@ import { TaskSidebar } from "./task-sidebar"
 const navigationItems = [
   {
     href: "/",
-    icon: <SquarePen size={16} strokeWidth={1.9} />,
+    icon: <SquarePen className="size-4" strokeWidth={1.9} />,
     kind: "new-task",
     label: msg({ id: "navigation.newTask", message: "New task" }),
   },
   {
     href: "/",
-    icon: <Search size={16} strokeWidth={1.9} />,
+    icon: <Search className="size-4" strokeWidth={1.9} />,
     kind: "search",
     label: msg({ id: "navigation.search", message: "Search" }),
   },
@@ -66,27 +66,27 @@ const navigationItems = [
 const settingsItems = [
   {
     href: "/settings/general",
-    icon: <Settings size={16} strokeWidth={1.9} />,
+    icon: <Settings className="size-4" strokeWidth={1.9} />,
     label: msg({ id: "settings.general", message: "General" }),
   },
   {
     href: "/settings/plugins",
-    icon: <Boxes size={16} strokeWidth={1.9} />,
+    icon: <Boxes className="size-4" strokeWidth={1.9} />,
     label: msg({ id: "settings.plugins", message: "Plugins" }),
   },
   {
     href: "/settings/connections",
-    icon: <Cable size={16} strokeWidth={1.9} />,
+    icon: <Cable className="size-4" strokeWidth={1.9} />,
     label: msg({ id: "settings.connections", message: "Connections" }),
   },
   {
     href: "/settings/appearance",
-    icon: <Palette size={16} strokeWidth={1.9} />,
+    icon: <Palette className="size-4" strokeWidth={1.9} />,
     label: msg({ id: "settings.appearance", message: "Appearance" }),
   },
   {
     href: "/settings/models",
-    icon: <Bot size={16} strokeWidth={1.9} />,
+    icon: <Bot className="size-4" strokeWidth={1.9} />,
     label: msg({ id: "settings.models", message: "Models" }),
   },
 ] as const
@@ -249,7 +249,7 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                   <SidebarMenuButton
                     render={
                       <Link to="/settings/general">
-                        <Settings aria-hidden="true" size={16} strokeWidth={1.9} />
+                        <Settings aria-hidden="true" className="size-4" strokeWidth={1.9} />
                         <span>
                           <Trans id="settings.title">Settings</Trans>
                         </span>
@@ -336,7 +336,7 @@ function SettingsNavigation({
                 <SidebarMenuButton
                   render={
                     <Link to="/">
-                      <ChevronLeft aria-hidden="true" size={16} strokeWidth={1.9} />
+                      <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={1.9} />
                       <span>{backToWorkspace}</span>
                     </Link>
                   }
@@ -447,14 +447,14 @@ function ThemeModeButton() {
   return (
     <Button
       aria-label={`Switch to ${nextMode} theme`}
-      className="flex size-8 items-center justify-center rounded-md p-0 hover:bg-sidebar-accent"
+      className="relative flex size-4 items-center justify-center justify-self-center rounded p-0 after:absolute after:-inset-1 hover:bg-sidebar-accent"
       onClick={() => void handleThemeModeChange()}
       size="icon"
       suppressHydrationWarning
       type="button"
       variant="ghost"
     >
-      <CircleUserRound aria-hidden="true" size={17} strokeWidth={1.9} />
+      <CircleUserRound aria-hidden="true" className="size-4" strokeWidth={1.9} />
     </Button>
   )
 }

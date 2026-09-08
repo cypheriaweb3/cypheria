@@ -54,6 +54,53 @@ final result: passed
 
 ---
 
+# Sidebar Control Size Consistency Design QA
+
+- Source visual truth: `/var/folders/py/l0kx36b51vj9l6c8tdgqc9380000gn/T/codex-clipboard-f4a646fb-5368-4329-ac20-6e6845eabcd8.png` and the existing Codex sidebar references supplied with this task
+- Pre-fix screenshot: `/Users/ridewindx/Code/web3/cypheria/.artifacts/design-qa/sidebar-section-top-spacing-final.jpg`
+- Implementation screenshot: `/Users/ridewindx/Code/web3/cypheria/.artifacts/design-qa/sidebar-icon-size-final.jpg`
+- Combined comparison: `/Users/ridewindx/Code/web3/cypheria/.artifacts/design-qa/sidebar-icon-size-comparison.jpg`
+- Viewport: 1280 × 860 CSS px, Electron device pixel ratio 2, CUA output 1144 × 768 px, light theme, English locale
+- State: expanded navigation with Pinned, a custom section, Projects, and Recents visible.
+
+## Full-view comparison evidence
+
+All navigation-area icons and standalone icon controls now share one `size-4` visual footprint. The larger collapse/back/forward controls in the top window-control row remain intentionally unchanged.
+
+## Focused region comparison evidence
+
+Live DOM inspection confirms every visible sidebar icon below the window-control row renders at 14 × 14 CSS px under the current 14 px UI scale. Overflow, create-project, custom-section new-task, Recents new-task, and theme controls also occupy 14 × 14 CSS px; invisible one-unit pseudo-element insets preserve a more forgiving pointer target without changing layout.
+
+## Required fidelity surfaces
+
+- Fonts and typography: unchanged.
+- Spacing and layout rhythm: project task indentation was recalculated from the shared `1rem` icon token, preserving exact project-title alignment.
+- Colors and visual tokens: unchanged.
+- Image quality and asset fidelity: all Lucide icons remain vector-sharp and now use one shared size token.
+- Copy and content: unchanged.
+
+## Interaction and runtime checks
+
+- Opened the Projects overflow menu from the new compact control and confirmed both menu branches remain available.
+- Verified fixed navigation, section disclosure, project, action, Settings, and theme icons in the running Electron app.
+- Typecheck, automated tests, and renderer production build passed.
+
+## Findings
+
+No actionable P0, P1, or P2 findings remain.
+
+## Implementation checklist
+
+- [x] Normalize navigation icons to `size-4`.
+- [x] Normalize standalone sidebar icon controls to `size-4`.
+- [x] Preserve pointer affordance with invisible hit-area expansion.
+- [x] Preserve project/task text alignment.
+- [x] Keep top window-control buttons as the explicit exception.
+
+final result: passed
+
+---
+
 # Sidebar Section Top Spacing Design QA
 
 - Source visual truth: `/var/folders/py/l0kx36b51vj9l6c8tdgqc9380000gn/T/codex-clipboard-f4a646fb-5368-4329-ac20-6e6845eabcd8.png` and the existing Codex sidebar references supplied with this task
