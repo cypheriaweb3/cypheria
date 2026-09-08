@@ -54,6 +54,57 @@ final result: passed
 
 ---
 
+# Sidebar Thread Text Alignment Design QA
+
+- Source visual truth: `/var/folders/py/l0kx36b51vj9l6c8tdgqc9380000gn/T/codex-clipboard-5bce4ccf-9bfd-4fc5-ab09-1e809ffe1d51.png`
+- Pre-fix reproduction: `/Users/ridewindx/Code/web3/cypheria/.artifacts/design-qa/sidebar-threads-no-dots.jpg`
+- Implementation screenshot: `/Users/ridewindx/Code/web3/cypheria/.artifacts/design-qa/sidebar-thread-alignment-final.jpg`
+- Combined comparison: `/Users/ridewindx/Code/web3/cypheria/.artifacts/design-qa/sidebar-thread-alignment-comparison.jpg`
+- Viewport: 1280 × 860 CSS px, Electron device pixel ratio 2, CUA output 1144 × 768 px, light theme
+- Pixels and normalization: the Codex reference and 260 × 260 px pre/post Cypheria sidebar crops were each fit into 600 × 320 px panels without cropping.
+- State: Projects and Recents expanded with two project task rows and one recent task row visible.
+
+## Full-view and focused comparison evidence
+
+The final full Electron view preserves the existing sidebar hierarchy and working controls. The focused comparison shows the corrected text columns: Recents task text now starts on the same vertical guide as the Recents label, while project task text starts on the same guide as the project name after its folder icon.
+
+Live layout measurement confirms exact CSS-pixel equality: project name and project task text both start at x=41.5; Recents label and recent task text both start at x=19.25.
+
+## Required fidelity surfaces
+
+- Fonts and typography: unchanged; title weight, size, line height, and truncation remain intact.
+- Spacing and layout rhythm: top-level tasks use the section label's horizontal inset; nested tasks use the project icon width plus row gap, so alignment remains correct when the UI font size changes.
+- Colors and visual tokens: unchanged.
+- Image quality and asset fidelity: no assets or icons were added, removed, or replaced.
+- Copy and content: unchanged; only the title start positions moved.
+
+## Interaction and runtime checks
+
+- Verified Projects and Recents expanded together in the running Electron app.
+- Confirmed both requested pairs have equal measured x coordinates.
+- Typecheck, 20 test files / 86 tests, and renderer production build passed.
+
+## Comparison history
+
+1. Initial P2: recent task text was 5.25 px to the right of the Recents label, and project task text was 4 px to the right of the project name.
+2. Top-level thread padding now matches the section label inset. Nested thread padding is derived from the 17 px project folder icon plus the shared `0.5rem` gap.
+3. Post-fix screenshot and live geometry show exact text alignment with no hierarchy, truncation, or hit-target regression.
+
+## Findings
+
+No actionable P0, P1, or P2 findings remain.
+
+## Implementation checklist
+
+- [x] Align top-level task text with section labels.
+- [x] Align nested task text with project names.
+- [x] Preserve nested hierarchy and full-row click targets.
+- [x] Verify exact coordinates in the running app.
+
+final result: passed
+
+---
+
 # Sidebar Thread Marker Design QA
 
 - Source visual truth: `/var/folders/py/l0kx36b51vj9l6c8tdgqc9380000gn/T/codex-clipboard-5bce4ccf-9bfd-4fc5-ab09-1e809ffe1d51.png`

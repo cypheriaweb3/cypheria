@@ -549,7 +549,7 @@ function TaskSidebarRowView(props: RowViewProps) {
   if (row.kind === "thread")
     return (
       <SidebarMenuButton
-        className={cn(row.source === "project" && "pl-8")}
+        className={cn(row.source === "project" ? "pl-[calc(17px+0.5rem)]" : "px-0.5")}
         render={<Link to="/" search={{ thread: row.thread.id }} />}
         tooltip={row.thread.title}
       >
