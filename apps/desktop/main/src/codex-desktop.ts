@@ -662,6 +662,19 @@ export const readCodexThread = async (
   }
 }
 
+export const forkCodexThread = async (
+  bridge: CodexAppServerBridge,
+  threadId: string,
+  lastTurnId?: string
+): Promise<{ threadId: string }> => {
+  const response = await bridge.request<"thread/fork", v2.ThreadForkResponse>("thread/fork", {
+    excludeTurns: true,
+    ...(lastTurnId ? { lastTurnId } : {}),
+    threadId,
+  })
+  return { threadId: response.thread.id }
+}
+
 const runChat = async (
   bridge: CodexAppServerBridge,
   sender: WebContents,

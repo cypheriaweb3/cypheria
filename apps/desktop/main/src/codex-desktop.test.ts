@@ -7,6 +7,7 @@ import {
   createCodexThreadSection,
   deleteCodexProject,
   deleteCodexThreadSection,
+  forkCodexThread,
   listCodexModels,
   listCodexProjects,
   listCodexThreadSections,
@@ -341,6 +342,18 @@ describe("desktop Codex services", () => {
     ).resolves.toEqual({ moved: true })
     await expect(deleteCodexThreadSection(asBridge(bridge), "section-1")).resolves.toEqual({
       deleted: true,
+    })
+  })
+
+  it("forks a thread through a completed turn", async () => {
+    const bridge = new FakeBridge({ "thread/fork": { thread: { id: "thread-fork" } } })
+
+    await expect(forkCodexThread(asBridge(bridge), "thread-1", "turn-3")).resolves.toEqual({
+      threadId: "thread-fork",
+    })
+    expect(bridge.calls).toContainEqual({
+      method: "thread/fork",
+      params: { excludeTurns: true, lastTurnId: "turn-3", threadId: "thread-1" },
     })
   })
 

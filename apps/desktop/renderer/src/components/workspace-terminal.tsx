@@ -5,7 +5,7 @@ import { Terminal } from "@xterm/xterm"
 import "@xterm/xterm/css/xterm.css"
 import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
-import { Plus, TerminalSquare, X } from "lucide-react"
+import { PanelBottomOpen, PanelRightOpen, Plus, TerminalSquare, X } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import type { WorkspaceTerminalEvent, WorkspaceTerminalSession } from "../../../ipc/src/index.js"
 
@@ -74,9 +74,13 @@ export type WorkspaceTerminalsController = ReturnType<typeof useWorkspaceTermina
 export function WorkspaceTerminalView({
   controller,
   onHide,
+  onMove,
+  placement = "bottom",
 }: Readonly<{
   controller: WorkspaceTerminalsController
   onHide: () => void
+  onMove?: () => void
+  placement?: "bottom" | "right"
 }>) {
   const { i18n } = useLingui()
   const {
@@ -143,17 +147,46 @@ export function WorkspaceTerminalView({
             <Plus className="size-3.5" />
           </Button>
         </div>
-        <Button
-          aria-label={i18n._(
-            msg({ id: "chat.workspace.hideBottomPanel", message: "Hide bottom panel" })
-          )}
-          className="shrink-0"
-          onClick={onHide}
-          size="icon-sm"
-          variant="ghost"
-        >
-          <X className="size-3.5" />
-        </Button>
+        <div className="flex shrink-0 items-center">
+          {onMove ? (
+            <Button
+              aria-label={
+                placement === "bottom"
+                  ? i18n._(
+                      msg({
+                        id: "chat.workspace.moveTerminalRight",
+                        message: "Move terminal right",
+                      })
+                    )
+                  : i18n._(
+                      msg({
+                        id: "chat.workspace.moveTerminalBottom",
+                        message: "Move terminal to bottom",
+                      })
+                    )
+              }
+              onClick={onMove}
+              size="icon-sm"
+              variant="ghost"
+            >
+              {placement === "bottom" ? (
+                <PanelRightOpen className="size-3.5" />
+              ) : (
+                <PanelBottomOpen className="size-3.5" />
+              )}
+            </Button>
+          ) : null}
+          <Button
+            aria-label={i18n._(
+              msg({ id: "chat.workspace.hideTerminalPanel", message: "Hide terminal panel" })
+            )}
+            onClick={onHide}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <X className="size-3.5" />
+          </Button>
+        </div>
       </div>
       <div className="relative min-h-0 bg-zinc-950">
         {sessions.map((session) => (

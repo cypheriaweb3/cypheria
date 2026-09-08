@@ -75,6 +75,8 @@ import {
   CodexSkillListResultSchema,
   type CodexThreadDetailView,
   CodexThreadDetailViewSchema,
+  CodexThreadForkRequestSchema,
+  CodexThreadForkResultSchema,
   type CodexThreadListPage,
   CodexThreadListPageSchema,
   CodexThreadListRequestSchema,
@@ -249,6 +251,7 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexSkillEnabledWrite: "codex.skill.enabled.write",
   codexSkillList: "codex.skill.list",
   codexThreadList: "codex.thread.list",
+  codexThreadFork: "codex.thread.fork",
   codexThreadRead: "codex.thread.read",
   codexThreadQueueAdd: "codex.thread.queue.add",
   codexThreadSectionCreate: "codex.thread-section.create",
@@ -1491,6 +1494,14 @@ export const codexThreadReadContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<{ threadId: string }, CodexThreadDetailView>
 
+export const codexThreadForkContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexThreadFork,
+  namespace: "codex",
+  request: CodexThreadForkRequestSchema,
+  response: CodexThreadForkResultSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ lastTurnId?: string; threadId: string }, { threadId: string }>
+
 export const codexThreadSectionListContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexThreadSectionList,
   namespace: "codex",
@@ -1818,6 +1829,7 @@ export const ipcContracts = {
   codexSkillEnabledWrite: codexSkillEnabledWriteContract,
   codexSkillList: codexSkillListContract,
   codexThreadList: codexThreadListContract,
+  codexThreadFork: codexThreadForkContract,
   codexThreadRead: codexThreadReadContract,
   codexThreadQueueAdd: codexThreadQueueAddContract,
   codexThreadSectionCreate: codexThreadSectionCreateContract,
@@ -1960,6 +1972,7 @@ export type CypheriaPreloadApi = {
       sortDirection?: "asc" | "desc"
       sortKey?: "created_at" | "updated_at" | "recency_at" | "section_position"
     }) => Promise<CodexThreadListPage>
+    readonly forkThread: (threadId: string, lastTurnId?: string) => Promise<{ threadId: string }>
     readonly readThread: (threadId: string) => Promise<CodexThreadDetailView>
     readonly queueThreadMessage: (
       threadId: string,

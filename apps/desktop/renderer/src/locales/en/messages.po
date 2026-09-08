@@ -19,6 +19,16 @@ msgid "search.keyboardHelp"
 msgstr "↑↓ Navigate · Enter Open · Esc Close"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.prompt.addFiles"
+msgstr "Add files"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.prompt.addContext"
+msgstr "Add files or screen context"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
 msgid "chat.project.addFolders"
 msgstr "Add folders Codex can read and edit"
@@ -120,6 +130,11 @@ msgstr "Back to workspace"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
+msgid "chat.workspace.bottomPanelShortcut"
+msgstr "Bottom panel (⌘J)"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
 msgid "chat.workspace.browser"
 msgstr "Browser"
 
@@ -148,6 +163,11 @@ msgstr "Cancel"
 #: renderer/src/components/project-create-dialog.tsx
 msgid "chat.cancel"
 msgstr "Cancel"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.turn.changedFiles"
+msgstr "changed files"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -195,14 +215,14 @@ msgid "settings.configuration.approval.description"
 msgstr "Choose when ChatGPT asks for approval"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.close"
-msgstr "Close workspace panel"
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.closeTerminal"
+msgstr "Close terminal"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.command"
-msgstr "Command {number}"
+msgid "chat.workspace.close"
+msgstr "Close workspace panel"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
@@ -256,8 +276,13 @@ msgstr "Copy diff"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.copyTerminal"
-msgstr "Copy terminal output"
+msgid "chat.turn.copyMessage"
+msgstr "Copy message"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.copyResponse"
+msgstr "Copy response"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -373,11 +398,6 @@ msgid "chat.turn.enteredReview"
 msgstr "Entered review mode"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.exitCode"
-msgstr "Exit {code}"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.exitedReview"
 msgstr "Exited review mode"
@@ -411,6 +431,16 @@ msgstr "Files"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.workspace.filesSummary"
 msgstr "Files changed by this chat, with their latest recorded state."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.prompt.followUpOptions"
+msgstr "Follow-up options"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.forkFromHere"
+msgstr "Fork from here"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -466,6 +496,16 @@ msgstr "Group chats and projects however you like"
 #: renderer/src/components/app-shell.tsx
 msgid "menu.help"
 msgstr "Help"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.workspace.hideBottomPanel"
+msgstr "Hide bottom panel"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.hideTerminalPanel"
+msgstr "Hide terminal panel"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.configuration.tsx
@@ -549,6 +589,11 @@ msgid "settings.configuration.option.medium"
 msgstr "Medium"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.prompt.label"
+msgstr "Message Cypheria"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.modelRerouted"
 msgstr "Model changed from {fromModel} to {toModel}"
@@ -563,6 +608,21 @@ msgstr "Model default"
 #: renderer/src/components/chat-workspace.tsx
 msgid "settings.models"
 msgstr "Models"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.header.moreActions"
+msgstr "More chat actions"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.moveTerminalRight"
+msgstr "Move terminal right"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.moveTerminalBottom"
+msgstr "Move terminal to bottom"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -592,6 +652,11 @@ msgid "navigation.newSection"
 msgstr "New section"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.newTerminal"
+msgstr "New terminal"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.noChats"
 msgstr "No chats yet"
@@ -603,8 +668,8 @@ msgstr "Code changes open here for review."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.terminalEmpty"
-msgstr "Command output opens here."
+msgid "chat.prompt.noSkills"
+msgstr "No enabled skills"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -712,6 +777,11 @@ msgid "chat.turn.plan"
 msgstr "Plan"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.turn.planSteps"
+msgstr "plan steps"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.plugins"
 msgstr "Plugins"
@@ -750,6 +820,11 @@ msgstr "Projects"
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.proposedPlan"
 msgstr "Proposed plan"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.prompt.queue"
+msgstr "Queue for next turn"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
@@ -795,6 +870,11 @@ msgstr "Recent chats"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.recents"
 msgstr "Recents"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.prompt.removeAttachment"
+msgstr "Remove attachment"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -883,6 +963,11 @@ msgid "settings.title"
 msgstr "Settings"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.workspace.showBottomPanel"
+msgstr "Show bottom panel"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.permissions.full.toggle"
 msgstr "Show Full access in the composer"
@@ -896,6 +981,11 @@ msgstr "Show more"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.signingPolicies"
 msgstr "Signing policies"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.prompt.skills"
+msgstr "Skills"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -914,8 +1004,23 @@ msgstr "Starting…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
+msgid "chat.prompt.steer"
+msgstr "Steer active turn"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.prompt.addScreenshot"
+msgstr "Take screenshot"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
 msgid "chat.workspace.terminal"
 msgstr "Terminal"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.terminalTabs"
+msgstr "Terminal tabs"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
@@ -931,6 +1036,16 @@ msgstr "Thinking"
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.thought"
 msgstr "Thought"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.workspace.toggleBottomPanel"
+msgstr "Toggle bottom panel"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.workspace.toggleSidePanel"
+msgstr "Toggle side panel"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx

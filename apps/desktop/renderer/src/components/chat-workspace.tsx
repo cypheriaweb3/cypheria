@@ -20,7 +20,13 @@ import {
   ConversationEmptyState,
   ConversationScrollButton,
 } from "@cypheria/ui/ai-elements/conversation"
-import { Message, MessageContent, MessageResponse } from "@cypheria/ui/ai-elements/message"
+import {
+  Message,
+  MessageAction,
+  MessageActions,
+  MessageContent,
+  MessageResponse,
+} from "@cypheria/ui/ai-elements/message"
 import {
   ModelSelector,
   ModelSelectorContent,
@@ -91,6 +97,7 @@ import type {
 import { useAtomValue } from "jotai"
 import {
   ChevronDown,
+  Copy,
   CornerDownLeft,
   Ellipsis,
   FileDiff,
@@ -129,7 +136,11 @@ import {
 } from "./chat-workspace-artifacts"
 import { CodexTurnMessage } from "./codex-turn.js"
 import { ProjectCreateDialog } from "./project-create-dialog"
-import { useWorkspaceTerminals, WorkspaceTerminalView } from "./workspace-terminal"
+import {
+  useWorkspaceTerminals,
+  type WorkspaceTerminalsController,
+  WorkspaceTerminalView,
+} from "./workspace-terminal"
 
 const fallbackModel: CodexModelView = {
   defaultReasoningEffort: "medium",
@@ -259,6 +270,7 @@ function ChatSession({
   const submitMode = useRef<"queue" | "steer" | null>(null)
   const [workspacePanelOpen, setWorkspacePanelOpen] = useState(true)
   const [bottomPanelOpen, setBottomPanelOpen] = useState(false)
+  const [terminalLocation, setTerminalLocation] = useState<"bottom" | "right">("bottom")
   const [wideViewport, setWideViewport] = useState(true)
   const [permissionSelection, setPermissionSelection] = useState<CodexPermissionSelection | null>(
     null
@@ -336,6 +348,24 @@ function ChatSession({
     transport,
   })
   const workspaceArtifacts = useMemo(() => deriveChatWorkspaceArtifacts(messages), [messages])
+  const activeTurnProgress = useMemo(() => {
+    const activeMessage = messages.findLast((message) =>
+      message.parts.some(
+        (part) => part.type === "data-codex-turn" && part.data.status === "inProgress"
+      )
+    )
+    if (!activeMessage) return null
+    const plan = activeMessage.parts.find((part) => part.type === "data-codex-plan")
+    const completedSteps =
+      plan?.type === "data-codex-plan"
+        ? plan.data.plan.filter((step) => step.status === "completed").length
+        : 0
+    return {
+      changedFiles: workspaceArtifacts.files.length,
+      completedSteps,
+      totalSteps: plan?.type === "data-codex-plan" ? plan.data.plan.length : 0,
+    }
+  }, [messages, workspaceArtifacts.files.length])
   const visibleTurnIds = useMemo(
     () =>
       new Set(
@@ -448,6 +478,7 @@ function ChatSession({
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "j") {
         event.preventDefault()
+        setTerminalLocation("bottom")
         setBottomPanelOpen((open) => !open)
       }
     }
@@ -460,6 +491,14 @@ function ChatSession({
     setInteractions((current) =>
       current.filter((item) => item.interactionId !== response.interactionId)
     )
+  }
+
+  const forkFromTurn = async (turnId: string) => {
+    if (!resumeThreadId) return
+    const fork = await window.cypheria?.codex.forkThread(resumeThreadId, turnId)
+    if (!fork) return
+    void queryClient.invalidateQueries({ queryKey: ["codex", "threads"] })
+    await navigate({ search: { thread: fork.threadId } })
   }
 
   const handleSubmit = async ({ text, files }: { text: string; files: FileUIPart[] }) => {
@@ -561,7 +600,10 @@ function ChatSession({
                               })
                             )
                       }
-                      onClick={() => setBottomPanelOpen((open) => !open)}
+                      onClick={() => {
+                        setTerminalLocation("bottom")
+                        setBottomPanelOpen((open) => !open)
+                      }}
                       size="icon"
                       title={i18n._(
                         msg({
@@ -603,7 +645,12 @@ function ChatSession({
                           <PanelRightOpen aria-hidden="true" />
                           <Trans id="chat.workspace.toggleSidePanel">Toggle side panel</Trans>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => setBottomPanelOpen((open) => !open)}>
+                        <DropdownMenuItem
+                          onClick={() => {
+                            setTerminalLocation("bottom")
+                            setBottomPanelOpen((open) => !open)
+                          }}
+                        >
                           <PanelBottomOpen aria-hidden="true" />
                           <Trans id="chat.workspace.toggleBottomPanel">Toggle bottom panel</Trans>
                           <span className="ml-auto text-xs text-muted-foreground">⌘J</span>
@@ -650,6 +697,7 @@ function ChatSession({
                         <VirtualizedChatMessages
                           interactions={interactions}
                           messages={messages}
+                          onForkTurn={forkFromTurn}
                           onResolve={resolveInteraction}
                           scrollElementRef={conversation.scrollRef}
                         />
@@ -665,6 +713,30 @@ function ChatSession({
                 </Conversation>
 
                 <div className="mx-auto w-full max-w-[880px] px-4 pb-5">
+                  {activeTurnProgress &&
+                  (activeTurnProgress.totalSteps || activeTurnProgress.changedFiles) ? (
+                    <div className="mb-2 flex justify-center" data-in-progress-fixed-content="true">
+                      <div className="flex max-w-full items-center gap-3 rounded-3xl border border-border/80 bg-background/85 px-3 py-1.5 text-xs shadow-sm backdrop-blur-sm">
+                        <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
+                        {activeTurnProgress.totalSteps ? (
+                          <span>
+                            {activeTurnProgress.completedSteps}/{activeTurnProgress.totalSteps}{" "}
+                            <Trans id="chat.turn.planSteps">plan steps</Trans>
+                          </span>
+                        ) : null}
+                        {activeTurnProgress.changedFiles ? (
+                          <button
+                            className="text-muted-foreground hover:text-foreground"
+                            onClick={() => setWorkspacePanelOpen(true)}
+                            type="button"
+                          >
+                            {activeTurnProgress.changedFiles}{" "}
+                            <Trans id="chat.turn.changedFiles">changed files</Trans>
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
                   {autoReviews
                     .filter((review) => !resumeThreadId || review.threadId === resumeThreadId)
                     .map((review) => (
@@ -956,15 +1028,22 @@ function ChatSession({
                   <WorkspacePanel
                     activeWallet={activeWalletQuery.data}
                     artifacts={workspaceArtifacts}
+                    key={terminalLocation}
                     onClose={() => setWorkspacePanelOpen(false)}
+                    onMoveTerminalToBottom={() => {
+                      setTerminalLocation("bottom")
+                      setBottomPanelOpen(true)
+                    }}
                     projectRoot={selectedProject?.roots[0]}
+                    terminalController={workspaceTerminals}
+                    terminalInSidePanel={terminalLocation === "right"}
                   />
                 </ResizablePanel>
               </>
             ) : null}
           </ResizablePanelGroup>
         </ResizablePanel>
-        {bottomPanelOpen ? (
+        {bottomPanelOpen && terminalLocation === "bottom" ? (
           <>
             <ResizableHandle className="z-20 hover:bg-ring/45" />
             <ResizablePanel
@@ -977,6 +1056,11 @@ function ChatSession({
               <WorkspaceTerminalView
                 controller={workspaceTerminals}
                 onHide={() => setBottomPanelOpen(false)}
+                onMove={() => {
+                  setTerminalLocation("right")
+                  setBottomPanelOpen(false)
+                  setWorkspacePanelOpen(true)
+                }}
               />
             </ResizablePanel>
           </>
@@ -1342,11 +1426,13 @@ function ApprovalDetails({
 function VirtualizedChatMessages({
   interactions,
   messages,
+  onForkTurn,
   onResolve,
   scrollElementRef,
 }: Readonly<{
   interactions: CodexInteractionEvent[]
   messages: CodexUiMessage[]
+  onForkTurn: (turnId: string) => Promise<void>
   onResolve: (response: CodexInteractionResponse) => Promise<void>
   scrollElementRef: Readonly<{ current: HTMLElement | null }>
 }>) {
@@ -1375,7 +1461,12 @@ function VirtualizedChatMessages({
             ref={virtualizer.measureElement}
             style={{ transform: `translateY(${virtualRow.start}px)` }}
           >
-            <ChatMessage interactions={interactions} message={message} onResolve={onResolve} />
+            <ChatMessage
+              interactions={interactions}
+              message={message}
+              onForkTurn={onForkTurn}
+              onResolve={onResolve}
+            />
           </div>
         )
       })}
@@ -1386,12 +1477,15 @@ function VirtualizedChatMessages({
 function ChatMessage({
   interactions,
   message,
+  onForkTurn,
   onResolve,
 }: Readonly<{
   interactions: readonly CodexInteractionEvent[]
   message: CodexUiMessage
+  onForkTurn: (turnId: string) => Promise<void>
   onResolve: (response: CodexInteractionResponse) => Promise<void>
 }>) {
+  const { i18n } = useLingui()
   const turn = message.parts.find((part) => part.type === "data-codex-turn")
   if (message.role === "assistant" && turn?.type === "data-codex-turn") {
     const turnInteractions = interactions.filter(
@@ -1411,6 +1505,7 @@ function ChatMessage({
             : undefined
         }
         message={message}
+        onFork={onForkTurn}
       />
     )
   }
@@ -1499,6 +1594,28 @@ function ChatMessage({
           return null
         })}
       </MessageContent>
+      {message.parts.some((part) => part.type === "text") ? (
+        <MessageActions
+          className={
+            message.role === "user"
+              ? "justify-end opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
+              : "opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
+          }
+        >
+          <MessageAction
+            onClick={() =>
+              void navigator.clipboard.writeText(
+                message.parts
+                  .flatMap((part) => (part.type === "text" ? [part.text] : []))
+                  .join("\n\n")
+              )
+            }
+            tooltip={i18n._(msg({ id: "chat.turn.copyMessage", message: "Copy message" }))}
+          >
+            <Copy className="size-3.5" />
+          </MessageAction>
+        </MessageActions>
+      ) : null}
     </Message>
   )
 }
@@ -1666,12 +1783,18 @@ function WorkspacePanel({
   activeWallet,
   artifacts,
   onClose,
+  onMoveTerminalToBottom,
   projectRoot,
+  terminalController,
+  terminalInSidePanel,
 }: Readonly<{
   activeWallet?: WalletActiveContext
   artifacts: ChatWorkspaceArtifacts
   onClose: () => void
+  onMoveTerminalToBottom: () => void
   projectRoot?: string
+  terminalController: WorkspaceTerminalsController
+  terminalInSidePanel: boolean
 }>) {
   const { i18n } = useLingui()
   const statusLabel = (status: string) => {
@@ -1693,7 +1816,7 @@ function WorkspacePanel({
     >
       <Tabs
         className="grid h-full grid-rows-[var(--chrome-height,44px)_minmax(0,1fr)]"
-        defaultValue="context"
+        defaultValue={terminalInSidePanel ? "terminal" : "context"}
       >
         <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border px-2">
           <TabsList className="min-w-0 bg-transparent">
@@ -1706,6 +1829,11 @@ function WorkspacePanel({
             <TabsTrigger value="review">
               <Trans id="chat.workspace.review">Review</Trans>
             </TabsTrigger>
+            {terminalInSidePanel ? (
+              <TabsTrigger value="terminal">
+                <Trans id="chat.workspace.terminal">Terminal</Trans>
+              </TabsTrigger>
+            ) : null}
           </TabsList>
           <Button
             aria-label={i18n._(
@@ -1836,6 +1964,16 @@ function WorkspacePanel({
             />
           )}
         </TabsContent>
+        {terminalInSidePanel ? (
+          <TabsContent className="m-0 min-h-0 overflow-hidden" value="terminal">
+            <WorkspaceTerminalView
+              controller={terminalController}
+              onHide={onClose}
+              onMove={onMoveTerminalToBottom}
+              placement="right"
+            />
+          </TabsContent>
+        ) : null}
       </Tabs>
     </aside>
   )

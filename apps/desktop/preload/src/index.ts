@@ -147,6 +147,11 @@ const cypheriaApi: CypheriaPreloadApi = {
     listSkills: (options = {}) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexSkillList, options),
     listThreads: (options = {}) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadList, options),
+    forkThread: (threadId, lastTurnId) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadFork, {
+        ...(lastTurnId ? { lastTurnId } : {}),
+        threadId,
+      }),
     readThread: (threadId) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadRead, { threadId }),
     queueThreadMessage: (threadId, clientUserMessageId, input) =>

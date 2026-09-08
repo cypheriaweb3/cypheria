@@ -81,6 +81,7 @@ import {
   codexProjectUpdateContract,
   codexSkillEnabledWriteContract,
   codexSkillListContract,
+  codexThreadForkContract,
   codexThreadListContract,
   codexThreadQueueAddContract,
   codexThreadReadContract,
@@ -155,6 +156,7 @@ import {
   createCodexThreadSection,
   deleteCodexProject,
   deleteCodexThreadSection,
+  forkCodexThread,
   interruptCodexChat,
   listCodexModels,
   listCodexProjects,
@@ -571,6 +573,9 @@ const registerIpcHandlers = (
     return listCodexPermissions(codexBridge(), context.paths.codexHome)
   })
   registerIpcRoute(codexThreadListContract, (options) => listCodexThreads(codexBridge(), options))
+  registerIpcRoute(codexThreadForkContract, ({ lastTurnId, threadId }) =>
+    forkCodexThread(codexBridge(), threadId, lastTurnId)
+  )
   registerIpcRoute(codexThreadReadContract, ({ threadId }) =>
     readCodexThread(codexBridge(), threadId)
   )

@@ -1,7 +1,13 @@
 import { type CodexTurnItemSnapshot, codexGeneratedImageData } from "@cypheria/codex-bridge"
 import { cn } from "@cypheria/ui"
 import { CodeBlock } from "@cypheria/ui/ai-elements/code-block"
-import { Message, MessageContent, MessageResponse } from "@cypheria/ui/ai-elements/message"
+import {
+  Message,
+  MessageAction,
+  MessageActions,
+  MessageContent,
+  MessageResponse,
+} from "@cypheria/ui/ai-elements/message"
 import { Task, TaskContent, TaskItem, TaskTrigger } from "@cypheria/ui/ai-elements/task"
 import {
   Attachment,
@@ -26,9 +32,11 @@ import {
   ChevronDown,
   CircleAlert,
   Clock3,
+  Copy,
   FilePenLine,
   FileSearch,
   FileText,
+  GitFork,
   Globe2,
   ImageIcon,
   ListChecks,
@@ -599,7 +607,12 @@ function ActivityUnit({ unit }: Readonly<{ unit: CodexActivityUnit }>) {
 export function CodexTurnMessage({
   blockingContent,
   message,
-}: Readonly<{ blockingContent?: ReactNode; message: CodexUiMessage }>) {
+  onFork,
+}: Readonly<{
+  blockingContent?: ReactNode
+  message: CodexUiMessage
+  onFork?: (turnId: string) => Promise<void>
+}>) {
   const { i18n } = useLingui()
   const view = useMemo(() => deriveCodexTurnView(message), [message])
   const shouldCollapse = Boolean(
@@ -609,6 +622,7 @@ export function CodexTurnMessage({
       !blockingContent
   )
   const [activityOpen, setActivityOpen] = useState(!shouldCollapse)
+  const [forking, setForking] = useState(false)
   const userChangedOpen = useRef(false)
 
   useEffect(() => {
@@ -624,6 +638,8 @@ export function CodexTurnMessage({
   )
 
   if (!view) return null
+  const finalAnswerText =
+    view.finalAnswer?.item.type === "agentMessage" ? view.finalAnswer.item.text : null
   const elapsed = formatDuration(duration)
   const activityLabel =
     view.turn.status === "inProgress"
@@ -740,8 +756,48 @@ export function CodexTurnMessage({
           </Task>
         ) : null}
 
-        {view.finalAnswer?.item.type === "agentMessage" ? (
-          <MessageResponse>{view.finalAnswer.item.text}</MessageResponse>
+        {finalAnswerText ? <MessageResponse>{finalAnswerText}</MessageResponse> : null}
+
+        {view.turn.status !== "inProgress" && finalAnswerText ? (
+          <MessageActions className="opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+            <MessageAction
+              onClick={() => void navigator.clipboard.writeText(finalAnswerText)}
+              tooltip={i18n._(msg({ id: "chat.turn.copyResponse", message: "Copy response" }))}
+            >
+              <Copy className="size-3.5" />
+            </MessageAction>
+            {onFork ? (
+              <MessageAction
+                disabled={forking}
+                onClick={async () => {
+                  setForking(true)
+                  try {
+                    await onFork(view.turn.id)
+                  } finally {
+                    setForking(false)
+                  }
+                }}
+                tooltip={i18n._(msg({ id: "chat.turn.forkFromHere", message: "Fork from here" }))}
+              >
+                {forking ? (
+                  <LoaderCircle className="size-3.5 animate-spin" />
+                ) : (
+                  <GitFork className="size-3.5" />
+                )}
+              </MessageAction>
+            ) : null}
+            {view.turn.startedAt ? (
+              <span
+                className="px-1 text-[11px] text-muted-foreground"
+                title={new Date(view.turn.startedAt * 1000).toLocaleString()}
+              >
+                {new Date(view.turn.startedAt * 1000).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </span>
+            ) : null}
+          </MessageActions>
         ) : null}
 
         {view.turn.error ? (

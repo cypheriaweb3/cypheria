@@ -290,6 +290,12 @@ export type CodexThreadDetailView = z.infer<typeof CodexThreadDetailViewSchema>
 
 export const CodexThreadReadRequestSchema = z.object({ threadId: z.string().min(1) }).strict()
 
+export const CodexThreadForkRequestSchema = z
+  .object({ lastTurnId: z.string().min(1).optional(), threadId: z.string().min(1) })
+  .strict()
+
+export const CodexThreadForkResultSchema = z.object({ threadId: z.string().min(1) }).strict()
+
 export const CodexChatStartSchema = z
   .object({
     chatId: z.string().min(1),

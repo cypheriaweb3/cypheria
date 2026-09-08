@@ -16,6 +16,7 @@ import {
   codexPluginEnabledWriteContract,
   codexPluginInstallContract,
   codexSkillEnabledWriteContract,
+  codexThreadForkContract,
   codexThreadQueueAddContract,
   dappProviderRequestContract,
   networkCreateContract,
@@ -336,5 +337,11 @@ describe("chat follow-up IPC contracts", () => {
     expect(
       codexChatSteerContract.request.safeParse({ files: [], requestId, text: "   " }).success
     ).toBe(false)
+  })
+
+  it("scopes a fork to a concrete thread and optional completed turn", () => {
+    expect(
+      codexThreadForkContract.request.parse({ lastTurnId: "turn-3", threadId: "thread-1" })
+    ).toEqual({ lastTurnId: "turn-3", threadId: "thread-1" })
   })
 })
