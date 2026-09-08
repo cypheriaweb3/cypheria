@@ -119,6 +119,8 @@ const cypheriaApi: CypheriaPreloadApi = {
       }),
     interruptChat: (requestId) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexChatInterrupt, { requestId }),
+    steerChat: (requestId, input) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexChatSteer, { ...input, requestId }),
     listModels: (includeHidden) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexModelList, {
         ...(includeHidden === undefined ? {} : { includeHidden }),
@@ -147,6 +149,12 @@ const cypheriaApi: CypheriaPreloadApi = {
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadList, options),
     readThread: (threadId) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadRead, { threadId }),
+    queueThreadMessage: (threadId, clientUserMessageId, input) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadQueueAdd, {
+        ...input,
+        clientUserMessageId,
+        threadId,
+      }),
     listThreadSections: (options = {}) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadSectionList, options),
     createThreadSection: (input) =>

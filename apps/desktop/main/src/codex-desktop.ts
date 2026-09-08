@@ -14,6 +14,7 @@ import type { WebContents } from "electron"
 import type {
   CodexAccountView,
   CodexChatEvent,
+  CodexChatFollowUp,
   CodexChatStart,
   CodexLoginRequest,
   CodexLoginResult,
@@ -751,4 +752,46 @@ export const interruptCodexChat = async (requestId: string): Promise<boolean> =>
   await activeChat.session?.interrupt()
   activeChats.delete(requestId)
   return true
+}
+
+const followUpUserInput = (input: CodexChatFollowUp): v2.UserInput[] => {
+  const userInput: v2.UserInput[] = []
+  if (input.text.trim()) {
+    userInput.push({ text: input.text.trim(), text_elements: [], type: "text" })
+  }
+  for (const file of input.files) {
+    if (file.mediaType.toLowerCase().startsWith("image/")) {
+      userInput.push({ type: "image", url: file.url })
+    } else if (file.mediaType.toLowerCase().startsWith("audio/")) {
+      userInput.push({ type: "audio", url: file.url })
+    } else {
+      throw new Error(
+        `Follow-up attachment "${file.filename ?? file.mediaType}" is not supported by Codex.`
+      )
+    }
+  }
+  return userInput
+}
+
+export const steerCodexChat = async (
+  requestId: string,
+  input: CodexChatFollowUp
+): Promise<boolean> => {
+  const session = activeChats.get(requestId)?.session
+  if (!session?.isActive()) return false
+  await session.injectMessage(followUpUserInput(input))
+  return true
+}
+
+export const queueCodexThreadMessage = async (
+  bridge: CodexAppServerBridge,
+  threadId: string,
+  clientUserMessageId: string,
+  input: CodexChatFollowUp
+): Promise<string> => {
+  const response = await bridge.request<"thread/queue/add", v2.ThreadQueueAddResponse>(
+    "thread/queue/add",
+    { clientUserMessageId, input: followUpUserInput(input), threadId }
+  )
+  return response.queuedSubmission.id
 }

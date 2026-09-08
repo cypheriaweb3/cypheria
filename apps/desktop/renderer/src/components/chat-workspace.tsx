@@ -3,6 +3,7 @@ import {
   Attachment,
   AttachmentInfo,
   AttachmentPreview,
+  AttachmentRemove,
   Attachments,
 } from "@cypheria/ui/ai-elements/attachments"
 import {
@@ -33,8 +34,16 @@ import {
 } from "@cypheria/ui/ai-elements/model-selector"
 import {
   PromptInput,
+  PromptInputActionAddAttachments,
+  PromptInputActionAddScreenshot,
+  PromptInputActionMenu,
+  PromptInputActionMenuContent,
+  PromptInputActionMenuItem,
+  PromptInputActionMenuTrigger,
   PromptInputBody,
   PromptInputFooter,
+  PromptInputHeader,
+  PromptInputProvider,
   PromptInputSelect,
   PromptInputSelectContent,
   PromptInputSelectItem,
@@ -43,6 +52,8 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
   PromptInputTools,
+  usePromptInputAttachments,
+  usePromptInputController,
 } from "@cypheria/ui/ai-elements/prompt-input"
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@cypheria/ui/ai-elements/reasoning"
 import { Source, Sources, SourcesContent, SourcesTrigger } from "@cypheria/ui/ai-elements/sources"
@@ -51,6 +62,12 @@ import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "@cypheria/
 import { Badge } from "@cypheria/ui/components/badge"
 import { Button } from "@cypheria/ui/components/button"
 import { Checkbox } from "@cypheria/ui/components/checkbox"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@cypheria/ui/components/dropdown-menu"
 import {
   ResizableHandle,
   ResizablePanel,
@@ -63,6 +80,7 @@ import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import type {
   CustomContentUIPart,
   DynamicToolUIPart,
@@ -73,6 +91,8 @@ import type {
 import { useAtomValue } from "jotai"
 import {
   ChevronDown,
+  CornerDownLeft,
+  Ellipsis,
   FileDiff,
   FolderGit2,
   Globe2,
@@ -88,12 +108,14 @@ import {
   Sparkles,
   WalletCards,
 } from "lucide-react"
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
+import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react"
 import type {
+  CodexChatFollowUp,
   CodexInteractionEvent,
   CodexInteractionResponse,
   CodexModelView,
   CodexPermissionSelection,
+  CodexSkillView,
   CodexUiMessage,
   WalletActiveContext,
 } from "../../../ipc/src/index.js"
@@ -194,6 +216,7 @@ function ChatSession({
   const { i18n } = useLingui()
   const navigate = Route.useNavigate()
   const queryClient = useQueryClient()
+  const composerFormId = useId()
   const hydratedThreadId = useRef<string | null>(null)
   const threadQuery = useQuery({
     enabled: Boolean(resumeThreadId),
@@ -232,6 +255,8 @@ function ChatSession({
   const [reasoningEffort, setReasoningEffort] = useState<string | null>(null)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
+  const [attachmentError, setAttachmentError] = useState<string | null>(null)
+  const submitMode = useRef<"queue" | "steer" | null>(null)
   const [workspacePanelOpen, setWorkspacePanelOpen] = useState(true)
   const [bottomPanelOpen, setBottomPanelOpen] = useState(false)
   const [wideViewport, setWideViewport] = useState(true)
@@ -251,6 +276,10 @@ function ChatSession({
   const permissionsQuery = useQuery({
     queryFn: () => window.cypheria?.codex.getPermissionsCatalog(selectedProject?.roots[0]),
     queryKey: ["codex", "permissions", selectedProject?.roots[0] ?? null],
+  })
+  const skillsQuery = useQuery({
+    queryFn: () => window.cypheria?.codex.listSkills({ cwd: selectedProject?.roots[0] }),
+    queryKey: ["codex", "skills", selectedProject?.roots[0] ?? null],
   })
   const effectivePermissionSelection = permissionSelection ??
     permissionsQuery.data?.selected ?? {
@@ -436,6 +465,35 @@ function ChatSession({
   const handleSubmit = async ({ text, files }: { text: string; files: FileUIPart[] }) => {
     const value = text.trim()
     if (!value && files.length === 0) return
+    setAttachmentError(null)
+    const followUp: CodexChatFollowUp = {
+      files: files.map(({ filename, mediaType, url }) => ({
+        ...(filename ? { filename } : {}),
+        mediaType,
+        url,
+      })),
+      text: value,
+    }
+    if (status === "submitted" || status === "streaming") {
+      const mode = submitMode.current ?? "steer"
+      submitMode.current = null
+      try {
+        if (mode === "queue") {
+          if (!resumeThreadId) throw new Error("Wait for this new chat to finish before queueing.")
+          await window.cypheria?.codex.queueThreadMessage(
+            resumeThreadId,
+            crypto.randomUUID(),
+            followUp
+          )
+        } else {
+          await transport.steer(followUp)
+        }
+      } catch (reason) {
+        setAttachmentError(reason instanceof Error ? reason.message : String(reason))
+        throw reason
+      }
+      return
+    }
     await sendMessage({ files, text: value })
   }
 
@@ -447,30 +505,26 @@ function ChatSession({
             <ResizablePanel id="conversation" minSize={480}>
               <main className="grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[var(--chrome-height,44px)_minmax(0,1fr)_auto] overflow-hidden [container-type:inline-size]">
                 <header className="desktop-titlebar flex min-h-[44px] items-center justify-between gap-3 border-b border-border px-4">
-                  <div className="inline-flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm font-semibold">
-                    <FolderGit2 aria-hidden="true" className="shrink-0" size={16} />
-                    <span className="truncate">
+                  <div className="inline-flex min-w-0 max-w-[420px] flex-1 items-center gap-2 overflow-hidden text-sm font-medium">
+                    <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                      <FolderGit2 aria-hidden="true" size={13} />
+                    </span>
+                    <span className="min-w-[2ch] truncate">
                       {threadQuery.data?.title ??
                         (resumeThreadId
                           ? i18n._(msg({ id: "chat.title.chat", message: "Chat" }))
                           : i18n._(msg({ id: "navigation.newChat", message: "New chat" })))}
                     </span>
-                    <Badge aria-live="polite" className="shrink-0" variant="outline">
+                    {selectedProject ? (
+                      <span className="shrink truncate text-xs font-normal text-muted-foreground">
+                        {selectedProject.name}
+                      </span>
+                    ) : null}
+                    <span aria-live="polite" className="sr-only">
                       {statusLabel}
-                    </Badge>
+                    </span>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
-                    <Button
-                      nativeButton={false}
-                      render={
-                        <Link to="/settings/models">
-                          <Settings aria-hidden="true" size={14} />
-                          <Trans id="settings.models">Models</Trans>
-                        </Link>
-                      }
-                      size="sm"
-                      variant="ghost"
-                    />
                     <Button
                       aria-label={
                         workspacePanelOpen
@@ -523,53 +577,90 @@ function ChatSession({
                         <PanelBottomOpen aria-hidden="true" size={16} />
                       )}
                     </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            aria-label={i18n._(
+                              msg({
+                                id: "chat.header.moreActions",
+                                message: "More chat actions",
+                              })
+                            )}
+                            size="icon"
+                            variant="ghost"
+                          >
+                            <Ellipsis aria-hidden="true" size={16} />
+                          </Button>
+                        }
+                      />
+                      <DropdownMenuContent align="end" className="w-52">
+                        <DropdownMenuItem render={<Link to="/settings/models" />}>
+                          <Settings aria-hidden="true" />
+                          <Trans id="settings.models">Models</Trans>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setWorkspacePanelOpen((open) => !open)}>
+                          <PanelRightOpen aria-hidden="true" />
+                          <Trans id="chat.workspace.toggleSidePanel">Toggle side panel</Trans>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setBottomPanelOpen((open) => !open)}>
+                          <PanelBottomOpen aria-hidden="true" />
+                          <Trans id="chat.workspace.toggleBottomPanel">Toggle bottom panel</Trans>
+                          <span className="ml-auto text-xs text-muted-foreground">⌘J</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </div>
                 </header>
 
                 <Conversation className="min-h-0 min-w-0 overflow-x-hidden">
-                  <ConversationContent className="mx-auto w-[calc(100cqw-3rem)] min-w-0 max-w-3xl py-8">
-                    {resumeThreadId && threadQuery.isPending ? (
-                      <div
-                        className="flex min-h-48 items-center justify-center gap-2 text-sm text-muted-foreground"
-                        role="status"
-                      >
-                        <LoaderCircle aria-hidden="true" className="animate-spin" size={16} />
-                        <Trans id="chat.loadingConversation">Loading conversation…</Trans>
-                      </div>
-                    ) : threadQuery.error ? (
-                      <div className="rounded-lg border border-destructive/35 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                        {threadQuery.error.message}
-                      </div>
-                    ) : messages.length === 0 ? (
-                      <ConversationEmptyState
-                        description={i18n._(
-                          msg({
-                            id: "chat.empty.description",
-                            message:
-                              "Work across code, wallets, and the web while you stay in control of permissions.",
-                          })
-                        )}
-                        icon={<Sparkles className="size-6" />}
-                        title={i18n._(
-                          msg({ id: "chat.empty.title", message: "What should Cypheria work on?" })
-                        )}
-                      />
-                    ) : (
-                      messages.map((message) => (
-                        <ChatMessage
-                          interactions={interactions}
-                          key={message.id}
-                          message={message}
-                          onResolve={resolveInteraction}
+                  <ConversationContent className="mx-auto min-h-full w-[calc(100cqw-3rem)] min-w-0 max-w-3xl px-4 py-8">
+                    {(conversation) =>
+                      resumeThreadId && threadQuery.isPending ? (
+                        <div
+                          className="flex min-h-48 items-center justify-center gap-2 text-sm text-muted-foreground"
+                          role="status"
+                        >
+                          <LoaderCircle aria-hidden="true" className="animate-spin" size={16} />
+                          <Trans id="chat.loadingConversation">Loading conversation…</Trans>
+                        </div>
+                      ) : threadQuery.error ? (
+                        <div className="rounded-lg border border-destructive/35 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                          {threadQuery.error.message}
+                        </div>
+                      ) : messages.length === 0 ? (
+                        <ConversationEmptyState
+                          className="min-h-[60vh]"
+                          description={i18n._(
+                            msg({
+                              id: "chat.empty.description",
+                              message:
+                                "Work across code, wallets, and the web while you stay in control of permissions.",
+                            })
+                          )}
+                          icon={<Sparkles className="size-6" />}
+                          title={i18n._(
+                            msg({
+                              id: "chat.empty.title",
+                              message: "What should Cypheria work on?",
+                            })
+                          )}
                         />
-                      ))
-                    )}
-                    {error ? (
-                      <div className="rounded-lg border border-destructive/35 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                        {error.message}
-                      </div>
-                    ) : null}
+                      ) : (
+                        <VirtualizedChatMessages
+                          interactions={interactions}
+                          messages={messages}
+                          onResolve={resolveInteraction}
+                          scrollElementRef={conversation.scrollRef}
+                        />
+                      )
+                    }
                   </ConversationContent>
+                  {error ? (
+                    <div className="absolute inset-x-4 bottom-4 mx-auto max-w-3xl rounded-lg border border-destructive/35 bg-background px-3 py-2 text-sm text-destructive shadow-lg">
+                      {error.message}
+                    </div>
+                  ) : null}
                   <ConversationScrollButton />
                 </Conversation>
 
@@ -592,136 +683,233 @@ function ChatSession({
                       onResolve={resolveInteraction}
                     />
                   ))}
-                  <PromptInput
-                    accept="image/*,audio/*,text/*,.md,.json"
-                    multiple
-                    onSubmit={handleSubmit}
-                  >
-                    <PromptInputBody>
-                      <PromptInputTextarea
-                        defaultValue={initialPrompt}
-                        placeholder={i18n._(
-                          msg({
-                            id: "chat.prompt.placeholder",
-                            message: "Ask Cypheria to inspect, edit, run, research, or review…",
-                          })
-                        )}
-                      />
-                    </PromptInputBody>
-                    <PromptInputFooter>
-                      <PromptInputTools>
-                        <PromptInputSelect
-                          onValueChange={(value) =>
-                            setSelectedProjectId(value === "none" ? null : String(value))
-                          }
-                          value={selectedProjectId ?? "none"}
-                        >
-                          <PromptInputSelectTrigger className="max-w-48">
-                            <FolderGit2 className="size-3.5" />
-                            <PromptInputSelectValue>
-                              {selectedProject?.name ??
-                                i18n._(msg({ id: "chat.project.none", message: "No project" }))}
-                            </PromptInputSelectValue>
-                          </PromptInputSelectTrigger>
-                          <PromptInputSelectContent>
-                            <PromptInputSelectItem value="none">
-                              <Trans id="chat.project.none">No project</Trans>
-                            </PromptInputSelectItem>
-                            {projects.map((project) => (
-                              <PromptInputSelectItem key={project.id} value={project.id}>
-                                {project.name}
-                              </PromptInputSelectItem>
-                            ))}
-                          </PromptInputSelectContent>
-                        </PromptInputSelect>
-                        <Button
+                  {attachmentError ? (
+                    <div className="mb-2 rounded-lg border border-destructive/35 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+                      {attachmentError}
+                    </div>
+                  ) : null}
+                  <PromptInputProvider initialInput={initialPrompt}>
+                    <PromptInput
+                      accept="image/*,audio/*,video/*,text/*,.md,.json,.pdf"
+                      className="[&_[data-slot=input-group]]:rounded-2xl [&_[data-slot=input-group]]:shadow-sm"
+                      globalDrop
+                      id={composerFormId}
+                      maxFileSize={25 * 1024 * 1024}
+                      maxFiles={20}
+                      multiple
+                      onError={(nextError) => setAttachmentError(nextError.message)}
+                      onSubmit={handleSubmit}
+                    >
+                      <PromptInputHeader>
+                        <ComposerAttachments />
+                      </PromptInputHeader>
+                      <PromptInputBody>
+                        <PromptInputTextarea
                           aria-label={i18n._(
-                            msg({ id: "chat.project.create", message: "Create project" })
+                            msg({ id: "chat.prompt.label", message: "Message Cypheria" })
                           )}
-                          onClick={() => setProjectDialogOpen(true)}
-                          size="icon-sm"
-                          type="button"
-                          variant="ghost"
-                        >
-                          <Plus aria-hidden="true" />
-                        </Button>
-                        <PromptInputSelect
-                          onValueChange={(value) =>
-                            setPermissionSelection(permissionSelectionFromValue(String(value)))
-                          }
-                          value={permissionValue}
-                        >
-                          <PromptInputSelectTrigger className="w-auto">
-                            <LockKeyhole className="size-3.5" />
-                            <PromptInputSelectValue>{permissionLabel}</PromptInputSelectValue>
-                          </PromptInputSelectTrigger>
-                          <PromptInputSelectContent>
-                            {permissionsQuery.data?.availableAgentModes.includes("read-only") !==
-                            false ? (
-                              <PromptInputSelectItem value="mode:read-only">
-                                <Trans id="chat.sandbox.readOnly">Read only</Trans>
+                          className="min-h-14"
+                          placeholder={i18n._(
+                            msg({
+                              id: "chat.prompt.placeholder",
+                              message: "Ask Cypheria to inspect, edit, run, research, or review…",
+                            })
+                          )}
+                        />
+                      </PromptInputBody>
+                      <PromptInputFooter>
+                        <PromptInputTools className="flex-wrap">
+                          <PromptInputActionMenu>
+                            <PromptInputActionMenuTrigger
+                              tooltip={i18n._(
+                                msg({
+                                  id: "chat.prompt.addContext",
+                                  message: "Add files or screen context",
+                                })
+                              )}
+                            />
+                            <PromptInputActionMenuContent className="w-56">
+                              <PromptInputActionAddAttachments
+                                label={i18n._(
+                                  msg({ id: "chat.prompt.addFiles", message: "Add files" })
+                                )}
+                              />
+                              <PromptInputActionAddScreenshot
+                                label={i18n._(
+                                  msg({
+                                    id: "chat.prompt.addScreenshot",
+                                    message: "Take screenshot",
+                                  })
+                                )}
+                              />
+                            </PromptInputActionMenuContent>
+                          </PromptInputActionMenu>
+                          <ComposerSkillPicker
+                            skills={(skillsQuery.data?.skills ?? []).filter(
+                              (skill) => skill.enabled
+                            )}
+                          />
+                          <PromptInputSelect
+                            onValueChange={(value) =>
+                              setSelectedProjectId(value === "none" ? null : String(value))
+                            }
+                            value={selectedProjectId ?? "none"}
+                          >
+                            <PromptInputSelectTrigger className="max-w-48">
+                              <FolderGit2 className="size-3.5" />
+                              <PromptInputSelectValue>
+                                {selectedProject?.name ??
+                                  i18n._(msg({ id: "chat.project.none", message: "No project" }))}
+                              </PromptInputSelectValue>
+                            </PromptInputSelectTrigger>
+                            <PromptInputSelectContent>
+                              <PromptInputSelectItem value="none">
+                                <Trans id="chat.project.none">No project</Trans>
                               </PromptInputSelectItem>
-                            ) : null}
-                            {permissionsQuery.data?.availableAgentModes.includes("auto") !==
-                            false ? (
-                              <PromptInputSelectItem value="mode:auto">
-                                <Trans id="chat.permissions.ask">Ask for approval</Trans>
-                              </PromptInputSelectItem>
-                            ) : null}
-                            {permissionsQuery.data?.availableAgentModes.includes(
-                              "guardian-approvals"
-                            ) ? (
-                              <PromptInputSelectItem value="mode:guardian-approvals">
-                                <Trans id="chat.permissions.autoReview">Approve for me</Trans>
-                              </PromptInputSelectItem>
-                            ) : null}
-                            {permissionsQuery.data?.profiles
-                              .filter((profile) => profile.allowed)
-                              .map((profile) => (
-                                <PromptInputSelectItem
-                                  key={profile.id}
-                                  value={`profile:${profile.id}`}
-                                >
-                                  {profile.description
-                                    ? `${profile.id} — ${profile.description}`
-                                    : profile.id}
+                              {projects.map((project) => (
+                                <PromptInputSelectItem key={project.id} value={project.id}>
+                                  {project.name}
                                 </PromptInputSelectItem>
                               ))}
-                            {permissionsQuery.data?.showFullAccess &&
-                            permissionsQuery.data.fullAccessCanBeShown ? (
-                              <PromptInputSelectItem value="mode:full-access">
-                                <Trans id="chat.sandbox.fullAccess">Full access</Trans>
-                              </PromptInputSelectItem>
-                            ) : null}
-                          </PromptInputSelectContent>
-                        </PromptInputSelect>
-                        <ModelPicker
-                          models={models.length ? models : [fallbackModel]}
-                          onSelect={(model) => {
-                            setSelectedModelId(model.model)
-                            setReasoningEffort(model.defaultReasoningEffort)
-                          }}
-                          selected={selectedModel}
-                        />
-                        <PromptInputSelect
-                          onValueChange={(value) => setReasoningEffort(String(value))}
-                          value={selectedReasoning}
-                        >
-                          <PromptInputSelectTrigger className="w-auto">
-                            <PromptInputSelectValue />
-                          </PromptInputSelectTrigger>
-                          <PromptInputSelectContent>
-                            {selectedModel.reasoningEfforts.map((effort) => (
-                              <PromptInputSelectItem key={effort.value} value={effort.value}>
-                                {effort.value}
-                              </PromptInputSelectItem>
-                            ))}
-                          </PromptInputSelectContent>
-                        </PromptInputSelect>
-                      </PromptInputTools>
-                      <PromptInputSubmit onStop={stop} status={status} />
-                    </PromptInputFooter>
-                  </PromptInput>
+                            </PromptInputSelectContent>
+                          </PromptInputSelect>
+                          <Button
+                            aria-label={i18n._(
+                              msg({ id: "chat.project.create", message: "Create project" })
+                            )}
+                            onClick={() => setProjectDialogOpen(true)}
+                            size="icon-sm"
+                            type="button"
+                            variant="ghost"
+                          >
+                            <Plus aria-hidden="true" />
+                          </Button>
+                          <PromptInputSelect
+                            onValueChange={(value) =>
+                              setPermissionSelection(permissionSelectionFromValue(String(value)))
+                            }
+                            value={permissionValue}
+                          >
+                            <PromptInputSelectTrigger className="w-auto">
+                              <LockKeyhole className="size-3.5" />
+                              <PromptInputSelectValue>{permissionLabel}</PromptInputSelectValue>
+                            </PromptInputSelectTrigger>
+                            <PromptInputSelectContent>
+                              {permissionsQuery.data?.availableAgentModes.includes("read-only") !==
+                              false ? (
+                                <PromptInputSelectItem value="mode:read-only">
+                                  <Trans id="chat.sandbox.readOnly">Read only</Trans>
+                                </PromptInputSelectItem>
+                              ) : null}
+                              {permissionsQuery.data?.availableAgentModes.includes("auto") !==
+                              false ? (
+                                <PromptInputSelectItem value="mode:auto">
+                                  <Trans id="chat.permissions.ask">Ask for approval</Trans>
+                                </PromptInputSelectItem>
+                              ) : null}
+                              {permissionsQuery.data?.availableAgentModes.includes(
+                                "guardian-approvals"
+                              ) ? (
+                                <PromptInputSelectItem value="mode:guardian-approvals">
+                                  <Trans id="chat.permissions.autoReview">Approve for me</Trans>
+                                </PromptInputSelectItem>
+                              ) : null}
+                              {permissionsQuery.data?.profiles
+                                .filter((profile) => profile.allowed)
+                                .map((profile) => (
+                                  <PromptInputSelectItem
+                                    key={profile.id}
+                                    value={`profile:${profile.id}`}
+                                  >
+                                    {profile.description
+                                      ? `${profile.id} — ${profile.description}`
+                                      : profile.id}
+                                  </PromptInputSelectItem>
+                                ))}
+                              {permissionsQuery.data?.showFullAccess &&
+                              permissionsQuery.data.fullAccessCanBeShown ? (
+                                <PromptInputSelectItem value="mode:full-access">
+                                  <Trans id="chat.sandbox.fullAccess">Full access</Trans>
+                                </PromptInputSelectItem>
+                              ) : null}
+                            </PromptInputSelectContent>
+                          </PromptInputSelect>
+                          <ModelPicker
+                            models={models.length ? models : [fallbackModel]}
+                            onSelect={(model) => {
+                              setSelectedModelId(model.model)
+                              setReasoningEffort(model.defaultReasoningEffort)
+                            }}
+                            selected={selectedModel}
+                          />
+                          <PromptInputSelect
+                            onValueChange={(value) => setReasoningEffort(String(value))}
+                            value={selectedReasoning}
+                          >
+                            <PromptInputSelectTrigger className="w-auto">
+                              <PromptInputSelectValue />
+                            </PromptInputSelectTrigger>
+                            <PromptInputSelectContent>
+                              {selectedModel.reasoningEfforts.map((effort) => (
+                                <PromptInputSelectItem key={effort.value} value={effort.value}>
+                                  {effort.value}
+                                </PromptInputSelectItem>
+                              ))}
+                            </PromptInputSelectContent>
+                          </PromptInputSelect>
+                        </PromptInputTools>
+                        {status === "submitted" || status === "streaming" ? (
+                          <>
+                            <Button
+                              aria-label={i18n._(
+                                msg({ id: "chat.prompt.steer", message: "Steer active turn" })
+                              )}
+                              size="icon-sm"
+                              title={i18n._(
+                                msg({ id: "chat.prompt.steer", message: "Steer active turn" })
+                              )}
+                              type="submit"
+                              variant="secondary"
+                            >
+                              <CornerDownLeft aria-hidden="true" />
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger
+                                render={
+                                  <Button
+                                    aria-label={i18n._(
+                                      msg({
+                                        id: "chat.prompt.followUpOptions",
+                                        message: "Follow-up options",
+                                      })
+                                    )}
+                                    size="icon-sm"
+                                    type="button"
+                                    variant="ghost"
+                                  >
+                                    <ChevronDown aria-hidden="true" />
+                                  </Button>
+                                }
+                              />
+                              <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuItem
+                                  disabled={!resumeThreadId}
+                                  onClick={() => {
+                                    submitMode.current = "queue"
+                                    const form = document.getElementById(composerFormId)
+                                    if (form instanceof HTMLFormElement) form.requestSubmit()
+                                  }}
+                                >
+                                  <Trans id="chat.prompt.queue">Queue for next turn</Trans>
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </>
+                        ) : null}
+                        <PromptInputSubmit onStop={stop} status={status} />
+                      </PromptInputFooter>
+                    </PromptInput>
+                  </PromptInputProvider>
                   {status !== "ready" ? (
                     <div
                       aria-live="polite"
@@ -1151,6 +1339,50 @@ function ApprovalDetails({
   )
 }
 
+function VirtualizedChatMessages({
+  interactions,
+  messages,
+  onResolve,
+  scrollElementRef,
+}: Readonly<{
+  interactions: CodexInteractionEvent[]
+  messages: CodexUiMessage[]
+  onResolve: (response: CodexInteractionResponse) => Promise<void>
+  scrollElementRef: Readonly<{ current: HTMLElement | null }>
+}>) {
+  const virtualizer = useVirtualizer({
+    count: messages.length,
+    estimateSize: (index) => (messages[index]?.role === "user" ? 112 : 320),
+    getItemKey: (index) => messages[index]?.id ?? index,
+    getScrollElement: () => scrollElementRef.current,
+    overscan: 4,
+  })
+
+  return (
+    <div
+      className="relative w-full"
+      data-chat-virtualizer="true"
+      style={{ height: virtualizer.getTotalSize() }}
+    >
+      {virtualizer.getVirtualItems().map((virtualRow) => {
+        const message = messages[virtualRow.index]
+        if (!message) return null
+        return (
+          <div
+            className="absolute top-0 left-0 w-full pb-8"
+            data-index={virtualRow.index}
+            key={virtualRow.key}
+            ref={virtualizer.measureElement}
+            style={{ transform: `translateY(${virtualRow.start}px)` }}
+          >
+            <ChatMessage interactions={interactions} message={message} onResolve={onResolve} />
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function ChatMessage({
   interactions,
   message,
@@ -1309,6 +1541,68 @@ function CodexCustomPart({ part }: Readonly<{ part: CustomContentUIPart }>) {
         </TaskItem>
       </TaskContent>
     </Task>
+  )
+}
+
+function ComposerAttachments() {
+  const { i18n } = useLingui()
+  const attachments = usePromptInputAttachments()
+  if (!attachments.files.length) return null
+  return (
+    <Attachments className="ml-0 max-w-full" variant="inline">
+      {attachments.files.map((file) => (
+        <Attachment data={file} key={file.id} onRemove={() => attachments.remove(file.id)}>
+          <AttachmentPreview />
+          <AttachmentInfo />
+          <AttachmentRemove
+            label={i18n._(
+              msg({ id: "chat.prompt.removeAttachment", message: "Remove attachment" })
+            )}
+          />
+        </Attachment>
+      ))}
+    </Attachments>
+  )
+}
+
+function ComposerSkillPicker({ skills }: Readonly<{ skills: CodexSkillView[] }>) {
+  const { i18n } = useLingui()
+  const { textInput } = usePromptInputController()
+  const insertSkill = (skill: CodexSkillView) => {
+    const prefix = textInput.value && !textInput.value.endsWith(" ") ? " " : ""
+    textInput.setInput(`${textInput.value}${prefix}$${skill.name} `)
+  }
+  return (
+    <PromptInputActionMenu>
+      <PromptInputActionMenuTrigger
+        disabled={!skills.length}
+        tooltip={i18n._(msg({ id: "chat.prompt.skills", message: "Skills" }))}
+      >
+        <Sparkles className="size-3.5" />
+        <span className="max-[620px]:hidden">
+          <Trans id="chat.prompt.skills">Skills</Trans>
+        </span>
+      </PromptInputActionMenuTrigger>
+      <PromptInputActionMenuContent className="max-h-80 w-72 overflow-y-auto">
+        {skills.length ? (
+          skills.map((skill) => (
+            <PromptInputActionMenuItem key={skill.path} onSelect={() => insertSkill(skill)}>
+              <Sparkles className="size-3.5" />
+              <span className="min-w-0">
+                <span className="block truncate font-medium">{skill.displayName}</span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {skill.description}
+                </span>
+              </span>
+            </PromptInputActionMenuItem>
+          ))
+        ) : (
+          <PromptInputActionMenuItem disabled>
+            <Trans id="chat.prompt.noSkills">No enabled skills</Trans>
+          </PromptInputActionMenuItem>
+        )}
+      </PromptInputActionMenuContent>
+    </PromptInputActionMenu>
   )
 }
 

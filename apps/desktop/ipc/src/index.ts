@@ -19,11 +19,13 @@ import {
   CodexAccountViewSchema,
   CodexAutoReviewRetrySchema,
   type CodexChatEvent,
+  type CodexChatFollowUp,
   CodexChatInterruptSchema,
   type CodexChatStart,
   type CodexChatStartResult,
   CodexChatStartResultSchema,
   CodexChatStartSchema,
+  CodexChatSteerSchema,
   type CodexInteractionEvent,
   type CodexInteractionResponse,
   CodexInteractionResponseSchema,
@@ -76,6 +78,7 @@ import {
   type CodexThreadListPage,
   CodexThreadListPageSchema,
   CodexThreadListRequestSchema,
+  CodexThreadQueueAddSchema,
   CodexThreadReadRequestSchema,
   CodexThreadSectionCreateRequestSchema,
   CodexThreadSectionDeleteRequestSchema,
@@ -210,6 +213,7 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexAutoReviewRetry: "codex.auto-review.retry",
   codexChatEvent: "codex.chat.event",
   codexChatInterrupt: "codex.chat.interrupt",
+  codexChatSteer: "codex.chat.steer",
   codexChatStart: "codex.chat.start",
   codexInteractionEvent: "codex.interaction.event",
   codexInteractionRespond: "codex.interaction.respond",
@@ -246,6 +250,7 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexSkillList: "codex.skill.list",
   codexThreadList: "codex.thread.list",
   codexThreadRead: "codex.thread.read",
+  codexThreadQueueAdd: "codex.thread.queue.add",
   codexThreadSectionCreate: "codex.thread-section.create",
   codexThreadSectionDelete: "codex.thread-section.delete",
   codexThreadSectionList: "codex.thread-section.list",
@@ -1593,6 +1598,25 @@ export const codexChatInterruptContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<{ requestId: string }, { interrupted: boolean }>
 
+export const codexChatSteerContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexChatSteer,
+  namespace: "codex",
+  request: CodexChatSteerSchema,
+  response: z.object({ steered: z.boolean() }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<CodexChatFollowUp & { requestId: string }, { steered: boolean }>
+
+export const codexThreadQueueAddContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexThreadQueueAdd,
+  namespace: "codex",
+  request: CodexThreadQueueAddSchema,
+  response: z.object({ queuedSubmissionId: z.string().min(1) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  CodexChatFollowUp & { clientUserMessageId: string; threadId: string },
+  { queuedSubmissionId: string }
+>
+
 export const codexInteractionRespondContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexInteractionRespond,
   namespace: "codex",
@@ -1760,6 +1784,7 @@ export const ipcContracts = {
   codexAccountLogout: codexAccountLogoutContract,
   codexAccountRead: codexAccountReadContract,
   codexChatInterrupt: codexChatInterruptContract,
+  codexChatSteer: codexChatSteerContract,
   codexChatStart: codexChatStartContract,
   codexAutoReviewRetry: codexAutoReviewRetryContract,
   codexModelList: codexModelListContract,
@@ -1794,6 +1819,7 @@ export const ipcContracts = {
   codexSkillList: codexSkillListContract,
   codexThreadList: codexThreadListContract,
   codexThreadRead: codexThreadReadContract,
+  codexThreadQueueAdd: codexThreadQueueAddContract,
   codexThreadSectionCreate: codexThreadSectionCreateContract,
   codexThreadSectionDelete: codexThreadSectionDeleteContract,
   codexThreadSectionList: codexThreadSectionListContract,
@@ -1886,6 +1912,10 @@ export type CypheriaPreloadApi = {
     readonly getPermissionDefaults: () => Promise<CodexPermissionDefaults>
     readonly getPermissionsCatalog: (cwd?: string) => Promise<CodexPermissionsCatalog>
     readonly interruptChat: (requestId: string) => Promise<{ interrupted: boolean }>
+    readonly steerChat: (
+      requestId: string,
+      input: CodexChatFollowUp
+    ) => Promise<{ steered: boolean }>
     readonly listModels: (includeHidden?: boolean) => Promise<CodexModelView[]>
     readonly listPlugins: (options?: {
       cwd?: string
@@ -1931,6 +1961,11 @@ export type CypheriaPreloadApi = {
       sortKey?: "created_at" | "updated_at" | "recency_at" | "section_position"
     }) => Promise<CodexThreadListPage>
     readonly readThread: (threadId: string) => Promise<CodexThreadDetailView>
+    readonly queueThreadMessage: (
+      threadId: string,
+      clientUserMessageId: string,
+      input: CodexChatFollowUp
+    ) => Promise<{ queuedSubmissionId: string }>
     readonly listThreadSections: (options?: {
       cursor?: string | null
       limit?: number

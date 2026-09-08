@@ -312,6 +312,35 @@ export type CodexChatStartResult = z.infer<typeof CodexChatStartResultSchema>
 
 export const CodexChatInterruptSchema = z.object({ requestId: z.string().min(1) }).strict()
 
+export const CodexChatFollowUpFileSchema = z
+  .object({
+    filename: z.string().min(1).optional(),
+    mediaType: z.string().min(1),
+    url: z.string().min(1),
+  })
+  .strict()
+
+const CodexChatFollowUpBaseSchema = z
+  .object({ files: z.array(CodexChatFollowUpFileSchema).max(20).default([]), text: z.string() })
+  .strict()
+
+const hasFollowUpContent = (input: { files: unknown[]; text: string }) =>
+  input.text.trim().length > 0 || input.files.length > 0
+
+export const CodexChatFollowUpSchema = CodexChatFollowUpBaseSchema.refine(hasFollowUpContent, {
+  message: "A follow-up must include text or an attachment.",
+})
+export type CodexChatFollowUp = z.infer<typeof CodexChatFollowUpSchema>
+
+export const CodexChatSteerSchema = CodexChatFollowUpBaseSchema.extend({
+  requestId: z.uuid(),
+}).refine(hasFollowUpContent, { message: "A follow-up must include text or an attachment." })
+
+export const CodexThreadQueueAddSchema = CodexChatFollowUpBaseSchema.extend({
+  clientUserMessageId: z.uuid(),
+  threadId: z.string().min(1),
+}).refine(hasFollowUpContent, { message: "A follow-up must include text or an attachment." })
+
 export const CodexChatEventSchema = z.discriminatedUnion("type", [
   z.object({ chunk: z.unknown(), requestId: z.string(), type: z.literal("chunk") }).strict(),
   z

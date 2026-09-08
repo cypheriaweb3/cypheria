@@ -13,11 +13,13 @@ import {
   listCodexThreads,
   mapCodexTurnsToUiMessages,
   moveCodexThreadToSection,
+  queueCodexThreadMessage,
   readCodexAccount,
   readCodexModelSettings,
   readCodexThread,
   startCodexChat,
   startCodexLogin,
+  steerCodexChat,
   updateCodexProject,
   updateCodexThreadSection,
   validateOpenAiApiKey,
@@ -440,6 +442,7 @@ describe("desktop Codex services", () => {
     const bridge = new FakeBridge({
       "thread/start": { thread: { id: "thread-live" } },
       "turn/start": { turn: inProgressTurn },
+      "turn/steer": { turnId: "turn-live" },
     })
     const events: CodexChatEvent[] = []
     const sender = {
@@ -452,11 +455,25 @@ describe("desktop Codex services", () => {
       messages: [{ id: "user-live", parts: [{ text: "Hello", type: "text" }], role: "user" }],
       model: "test-model",
       provider: "openai",
-      requestId: "0199-1111-7111-8111-111111111111",
+      requestId: "01991111-1111-7111-8111-111111111111",
       permissionSelection: { agentMode: "auto", kind: "agent-mode" },
     })
 
     await vi.waitFor(() => expect(bridge.notifications.size).toBe(1))
+    await expect(
+      steerCodexChat("01991111-1111-7111-8111-111111111111", {
+        files: [],
+        text: "Focus on tests",
+      })
+    ).resolves.toBe(true)
+    expect(bridge.calls).toContainEqual({
+      method: "turn/steer",
+      params: {
+        expectedTurnId: "turn-live",
+        input: [{ text: "Focus on tests", text_elements: [], type: "text" }],
+        threadId: "thread-live",
+      },
+    })
     const startedItem = {
       delivery: null,
       id: "agent-live",
@@ -526,5 +543,44 @@ describe("desktop Codex services", () => {
         expect.objectContaining({ delta: "Done", type: "text-delta" }),
       ])
     )
+  })
+
+  it("queues validated follow-up input for the next turn", async () => {
+    const bridge = new FakeBridge({
+      "thread/queue/add": {
+        queuedSubmission: {
+          clientUserMessageId: "01992222-2222-7222-8222-222222222222",
+          id: "queued-1",
+          input: [],
+        },
+      },
+    })
+
+    await expect(
+      queueCodexThreadMessage(
+        asBridge(bridge),
+        "thread-1",
+        "01992222-2222-7222-8222-222222222222",
+        {
+          files: [
+            { mediaType: "image/png", url: "data:image/png;base64,AQID" },
+            { filename: "note.m4a", mediaType: "audio/m4a", url: "data:audio/m4a;base64,AQID" },
+          ],
+          text: "Continue next",
+        }
+      )
+    ).resolves.toBe("queued-1")
+    expect(bridge.calls).toContainEqual({
+      method: "thread/queue/add",
+      params: {
+        clientUserMessageId: "01992222-2222-7222-8222-222222222222",
+        input: [
+          { text: "Continue next", text_elements: [], type: "text" },
+          { type: "image", url: "data:image/png;base64,AQID" },
+          { type: "audio", url: "data:audio/m4a;base64,AQID" },
+        ],
+        threadId: "thread-1",
+      },
+    })
   })
 })

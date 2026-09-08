@@ -52,6 +52,7 @@ import {
   codexAutoReviewRetryContract,
   codexChatInterruptContract,
   codexChatStartContract,
+  codexChatSteerContract,
   codexInteractionRespondContract,
   codexMarketplaceAddContract,
   codexMarketplaceRemoveContract,
@@ -81,6 +82,7 @@ import {
   codexSkillEnabledWriteContract,
   codexSkillListContract,
   codexThreadListContract,
+  codexThreadQueueAddContract,
   codexThreadReadContract,
   codexThreadSectionCreateContract,
   codexThreadSectionDeleteContract,
@@ -160,11 +162,13 @@ import {
   listCodexThreads,
   logoutCodexAccount,
   moveCodexThreadToSection,
+  queueCodexThreadMessage,
   readCodexAccount,
   readCodexModelSettings,
   readCodexThread,
   startCodexChat,
   startCodexLogin,
+  steerCodexChat,
   updateCodexProject,
   updateCodexThreadSection,
   validateOpenAiApiKey,
@@ -652,6 +656,20 @@ const registerIpcHandlers = (
   registerIpcRoute(codexChatInterruptContract, async ({ requestId }) => ({
     interrupted: await interruptCodexChat(requestId),
   }))
+  registerIpcRoute(codexChatSteerContract, async ({ files, requestId, text }) => ({
+    steered: await steerCodexChat(requestId, { files, text }),
+  }))
+  registerIpcRoute(
+    codexThreadQueueAddContract,
+    async ({ clientUserMessageId, files, text, threadId }) => ({
+      queuedSubmissionId: await queueCodexThreadMessage(
+        codexBridge(),
+        threadId,
+        clientUserMessageId,
+        { files, text }
+      ),
+    })
+  )
   registerIpcRoute(codexInteractionRespondContract, async (response) => {
     const server = context.codexAppServer
     if (!server) throw new Error("Codex app-server is unavailable")

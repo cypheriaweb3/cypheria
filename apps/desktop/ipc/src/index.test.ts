@@ -10,11 +10,13 @@ import {
   browserSessionOpenContract,
   CodexLoginRequestSchema,
   ConnectionProxySettingsSchema,
+  codexChatSteerContract,
   codexMarketplaceAddContract,
   codexMarketplaceRemoveContract,
   codexPluginEnabledWriteContract,
   codexPluginInstallContract,
   codexSkillEnabledWriteContract,
+  codexThreadQueueAddContract,
   dappProviderRequestContract,
   networkCreateContract,
   networkEndpointSetEnabledContract,
@@ -314,5 +316,25 @@ describe("plugin and skill IPC contracts", () => {
     expect(codexMarketplaceAddContract.request.parse({ source: "org/plugins" })).toEqual({
       source: "org/plugins",
     })
+  })
+})
+
+describe("chat follow-up IPC contracts", () => {
+  it("accepts steer and queue input while rejecting empty follow-ups", () => {
+    const requestId = "01991111-1111-7111-8111-111111111111"
+    expect(
+      codexChatSteerContract.request.parse({ files: [], requestId, text: "Focus on tests" })
+    ).toMatchObject({ requestId, text: "Focus on tests" })
+    expect(
+      codexThreadQueueAddContract.request.parse({
+        clientUserMessageId: "01992222-2222-7222-8222-222222222222",
+        files: [{ mediaType: "image/png", url: "data:image/png;base64,AQID" }],
+        text: "",
+        threadId: "thread-1",
+      })
+    ).toMatchObject({ threadId: "thread-1" })
+    expect(
+      codexChatSteerContract.request.safeParse({ files: [], requestId, text: "   " }).success
+    ).toBe(false)
   })
 })
