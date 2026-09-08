@@ -5,6 +5,7 @@ export const SIDEBAR_BATCH_SIZE = 5
 export type SidebarSectionId = "pinned" | "projects" | "recents"
 
 export type SidebarProjectGroup = {
+  project: CodexProjectView
   projectId: string
   projectName: string
   threads: CodexThreadView[]
@@ -14,6 +15,7 @@ export type SidebarProjectGroup = {
 export type SidebarCustomSection = {
   id: string
   name: string
+  projects: SidebarProjectGroup[]
   threads: CodexThreadView[]
 }
 
@@ -21,7 +23,7 @@ export type ChatSidebarRow =
   | { key: string; kind: "navigation"; navigationId: string }
   | { key: string; kind: "section"; section: SidebarSectionId }
   | { key: string; kind: "customSection"; sectionId: string; sectionName: string }
-  | { key: string; kind: "project"; projectId: string; projectName: string }
+  | { key: string; kind: "project"; project: CodexProjectView }
   | {
       key: string
       kind: "thread"
@@ -49,7 +51,7 @@ export function groupProjectThreads(
     groups.set(thread.projectId, [...(groups.get(thread.projectId) ?? []), thread])
   }
 
-  const projectNames = new Map(projects.map((project) => [project.id, project.name]))
+  const projectById = new Map(projects.map((project) => [project.id, project]))
   for (const project of projects) groups.set(project.id, groups.get(project.id) ?? [])
 
   return [...groups.entries()]
@@ -57,9 +59,20 @@ export function groupProjectThreads(
       const sortedThreads = projectThreads.toSorted(
         (left, right) => right.updatedAt - left.updatedAt
       )
+      const project = projectById.get(projectId) ?? {
+        createdAt: 0,
+        id: projectId,
+        metadata: {},
+        name: projectId,
+        position: 0,
+        recencyAt: sortedThreads[0]?.updatedAt ?? null,
+        roots: [],
+        updatedAt: sortedThreads[0]?.updatedAt ?? 0,
+      }
       return {
+        project,
         projectId,
-        projectName: projectNames.get(projectId) ?? projectId,
+        projectName: project.name,
         threads: sortedThreads,
         updatedAt: sortedThreads[0]?.updatedAt ?? 0,
       }
@@ -77,6 +90,7 @@ export function buildChatSidebarRows({
   customSections = [],
   navigationIds,
   pinnedHasMore,
+  pinnedProjects = [],
   pinnedThreads,
   projectGroups,
   projectChatLimits,
@@ -93,6 +107,7 @@ export function buildChatSidebarRows({
   customSections?: readonly SidebarCustomSection[]
   navigationIds: readonly string[]
   pinnedHasMore: boolean
+  pinnedProjects?: readonly SidebarProjectGroup[]
   pinnedThreads: readonly CodexThreadView[]
   projectGroups: readonly SidebarProjectGroup[]
   projectChatLimits: Readonly<Record<string, number>>
@@ -109,8 +124,37 @@ export function buildChatSidebarRows({
     navigationId,
   }))
 
+  const appendProject = (project: SidebarProjectGroup, keyPrefix: string) => {
+    rows.push({
+      key: `${keyPrefix}:project:${project.projectId}`,
+      kind: "project",
+      project: project.project,
+    })
+    if (!expandedProjects.has(project.projectId)) return
+    const chatLimit = projectChatLimits[project.projectId] ?? SIDEBAR_BATCH_SIZE
+    rows.push(
+      ...project.threads.slice(0, chatLimit).map(
+        (thread): ChatSidebarRow => ({
+          key: `${keyPrefix}:project:${project.projectId}:thread:${thread.id}`,
+          kind: "thread",
+          parentProjectId: project.projectId,
+          source: "project",
+          thread,
+        })
+      )
+    )
+    if (project.threads.length > chatLimit || projectsHasMore)
+      rows.push({
+        key: `${keyPrefix}:show-more:project:${project.projectId}`,
+        kind: "showMore",
+        projectId: project.projectId,
+        target: "project",
+      })
+  }
+
   rows.push({ key: "section:pinned", kind: "section", section: "pinned" })
   if (expandedSections.has("pinned")) {
+    for (const project of pinnedProjects) appendProject(project, "pinned")
     rows.push(
       ...pinnedThreads.map(
         (thread): ChatSidebarRow => ({
@@ -121,7 +165,7 @@ export function buildChatSidebarRows({
         })
       )
     )
-    if (pinnedThreads.length === 0 && !pinnedHasMore)
+    if (pinnedProjects.length === 0 && pinnedThreads.length === 0 && !pinnedHasMore)
       rows.push({ key: "empty:pinned", kind: "empty", section: "pinned" })
     if (pinnedHasMore) rows.push({ key: "show-more:pinned", kind: "showMore", target: "pinned" })
   }
@@ -134,6 +178,7 @@ export function buildChatSidebarRows({
       sectionName: section.name,
     })
     if (!expandedCustomSections.has(section.id)) continue
+    for (const project of section.projects) appendProject(project, `custom-section:${section.id}`)
     rows.push(
       ...section.threads.map(
         (thread): ChatSidebarRow => ({
@@ -144,44 +189,14 @@ export function buildChatSidebarRows({
         })
       )
     )
-    if (section.threads.length === 0)
+    if (section.projects.length === 0 && section.threads.length === 0)
       rows.push({ key: `custom-empty:${section.id}`, kind: "customEmpty", sectionId: section.id })
   }
 
   if (showProjects) rows.push({ key: "section:projects", kind: "section", section: "projects" })
   if (showProjects && expandedSections.has("projects")) {
     const visibleProjects = projectGroups.slice(0, visibleProjectCount)
-    for (const project of visibleProjects) {
-      rows.push({
-        key: `project:${project.projectId}`,
-        kind: "project",
-        projectId: project.projectId,
-        projectName: project.projectName,
-      })
-      if (!expandedProjects.has(project.projectId)) continue
-
-      const chatLimit = projectChatLimits[project.projectId] ?? SIDEBAR_BATCH_SIZE
-      const visibleThreads = project.threads.slice(0, chatLimit)
-      rows.push(
-        ...visibleThreads.map(
-          (thread): ChatSidebarRow => ({
-            key: `project:${project.projectId}:thread:${thread.id}`,
-            kind: "thread",
-            parentProjectId: project.projectId,
-            source: "project",
-            thread,
-          })
-        )
-      )
-      if (project.threads.length > chatLimit || projectsHasMore) {
-        rows.push({
-          key: `show-more:project:${project.projectId}`,
-          kind: "showMore",
-          projectId: project.projectId,
-          target: "project",
-        })
-      }
-    }
+    for (const project of visibleProjects) appendProject(project, "projects")
     if (projectGroups.length === 0 && !projectsHasMore)
       rows.push({ key: "empty:projects", kind: "empty", section: "projects" })
     if (projectGroups.length > visibleProjectCount || projectsHasMore) {

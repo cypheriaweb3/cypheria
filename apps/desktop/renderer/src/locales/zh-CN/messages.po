@@ -89,6 +89,16 @@ msgid "navigation.archiveSection"
 msgstr "归档所有对话"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.archiveChat"
+msgstr "归档会话"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.archiveProjectChats"
+msgstr "归档会话"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.prompt.placeholder"
 msgstr "让 Cypheria 检查、编辑、运行、研究或审阅…"
@@ -173,6 +183,11 @@ msgstr "个变更文件"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.title.chat"
 msgstr "对话"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.chatTitle"
+msgstr "会话标题"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -270,6 +285,21 @@ msgid "chat.turn.coordinatedAgents"
 msgstr "协调了智能体"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.copy"
+msgstr "复制"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.copyLink"
+msgstr "复制应用链接"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.copyMarkdown"
+msgstr "将会话复制为 Markdown"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.workspace.copyDiff"
 msgstr "复制差异"
@@ -285,9 +315,19 @@ msgid "chat.turn.copyResponse"
 msgstr "复制回复"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.copyWorkingDirectory"
+msgstr "复制工作目录"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.error"
 msgstr "无法搜索对话。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.sidebarActionFailed"
+msgstr "侧栏操作失败"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -332,6 +372,11 @@ msgstr "始终显示默认权限"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.deleteChat"
+msgstr "删除会话"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.deleteSection"
 msgstr "删除分组"
 
@@ -363,6 +408,11 @@ msgid "settings.language.label"
 msgstr "显示语言"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "chat.done"
+msgstr "完成"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.artifact.done"
 msgstr "已完成"
@@ -389,6 +439,11 @@ msgstr "编辑"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.editProject"
+msgstr "编辑项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.editSection"
 msgstr "编辑分组"
 
@@ -406,6 +461,16 @@ msgstr "正在编辑文件"
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.enteredReview"
 msgstr "已进入审查模式"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.archiveProjectDescription"
+msgstr "此项目中的所有会话都会移至已归档会话。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.archiveSectionDescription"
+msgstr "此分区内的所有会话以及项目中的会话都会移至已归档会话。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
@@ -538,6 +603,11 @@ msgid "chat.artifact.interactive"
 msgstr "交互式生成物"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.renameChatDescription"
+msgstr "请使用简短且容易识别的标题。"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.language.description"
 msgstr "应用 UI 语言"
@@ -635,6 +705,16 @@ msgid "chat.workspace.moveTerminalBottom"
 msgstr "将终端移到底部"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.moveToProject"
+msgstr "移至项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.moveToSection"
+msgstr "移至分区"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.status.attention"
 msgstr "需要处理"
@@ -655,6 +735,11 @@ msgstr "从不"
 #: renderer/src/i18n.test.ts
 msgid "navigation.newChat"
 msgstr "新建对话"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.newChatInProject"
+msgstr "在项目中新建会话"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -778,6 +863,16 @@ msgstr "权限"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.pinChat"
+msgstr "置顶会话"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.pinProject"
+msgstr "置顶项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.pinned"
 msgstr "置顶"
 
@@ -810,6 +905,11 @@ msgstr "偏好设置"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sort.priority"
 msgstr "优先级"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.projectName"
+msgstr "项目名称"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
@@ -887,9 +987,34 @@ msgid "chat.prompt.removeAttachment"
 msgstr "移除附件"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.removeFromProject"
+msgstr "从项目中移除"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.removeFromSection"
+msgstr "从分区中移除"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.removeProject"
+msgstr "移除项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.renameChat"
+msgstr "重命名会话"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.header.rename"
 msgstr "重命名会话"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.revealProject"
+msgstr "在访达中显示"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -910,6 +1035,11 @@ msgstr "正在运行 {command}"
 #: renderer/src/routes/settings.configuration.tsx
 msgid "settings.configuration.sandbox.title"
 msgstr "沙盒设置"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.save"
+msgstr "保存"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -971,6 +1101,11 @@ msgstr "在网页中搜索了 {query}"
 #: renderer/src/components/chat-search.tsx
 msgid "search.searching"
 msgstr "正在搜索…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.section"
+msgstr "分区"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -1038,6 +1173,11 @@ msgid "chat.workspace.terminalTabs"
 msgstr "终端标签"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.archiveChatDescription"
+msgstr "该会话将移至已归档会话。"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
 msgid "settings.theme.title"
 msgstr "主题"
@@ -1046,6 +1186,16 @@ msgstr "主题"
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.thinking"
 msgstr "思考中"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.deleteChatDescription"
+msgstr "此操作会永久删除该会话，且无法撤销。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.removeProjectDescription"
+msgstr "此操作只会从侧栏移除项目，不会删除项目文件或会话。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
@@ -1073,6 +1223,16 @@ msgid "chat.turn.diff"
 msgstr "本轮更改"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.unpinChat"
+msgstr "取消置顶会话"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.unpinProject"
+msgstr "取消置顶项目"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.untitled"
 msgstr "未命名对话"
@@ -1086,6 +1246,11 @@ msgstr "不受信任的命令"
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.update"
 msgstr "更新"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.editProjectDescription"
+msgstr "更新此项目在侧栏中显示的名称。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx

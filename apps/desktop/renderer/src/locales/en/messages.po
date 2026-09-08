@@ -89,6 +89,16 @@ msgid "navigation.archiveSection"
 msgstr "Archive all chats"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.archiveChat"
+msgstr "Archive chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.archiveProjectChats"
+msgstr "Archive chats"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.prompt.placeholder"
 msgstr "Ask Cypheria to inspect, edit, run, research, or review…"
@@ -173,6 +183,11 @@ msgstr "changed files"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.title.chat"
 msgstr "Chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.chatTitle"
+msgstr "Chat title"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -270,6 +285,21 @@ msgid "chat.turn.coordinatedAgents"
 msgstr "Coordinated agents"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.copy"
+msgstr "Copy"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.copyLink"
+msgstr "Copy app link"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.copyMarkdown"
+msgstr "Copy chat as Markdown"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.workspace.copyDiff"
 msgstr "Copy diff"
@@ -285,9 +315,19 @@ msgid "chat.turn.copyResponse"
 msgstr "Copy response"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.copyWorkingDirectory"
+msgstr "Copy working directory"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.error"
 msgstr "Could not search chats."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.sidebarActionFailed"
+msgstr "Couldn’t update the sidebar"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -332,6 +372,11 @@ msgstr "Default permissions are always shown"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.deleteChat"
+msgstr "Delete chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.deleteSection"
 msgstr "Delete section"
 
@@ -363,6 +408,11 @@ msgid "settings.language.label"
 msgstr "Display language"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "chat.done"
+msgstr "Done"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.artifact.done"
 msgstr "Done"
@@ -389,6 +439,11 @@ msgstr "Edit"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.editProject"
+msgstr "Edit project"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.editSection"
 msgstr "Edit section"
 
@@ -406,6 +461,16 @@ msgstr "Editing files"
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.enteredReview"
 msgstr "Entered review mode"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.archiveProjectDescription"
+msgstr "Every chat in this project will move to Archived chats."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.archiveSectionDescription"
+msgstr "Every chat in this section and its projects will move to Archived chats."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
@@ -538,6 +603,11 @@ msgid "chat.artifact.interactive"
 msgstr "Interactive artifact"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.renameChatDescription"
+msgstr "Keep the title short and recognizable."
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.language.description"
 msgstr "Language for the app UI"
@@ -635,6 +705,16 @@ msgid "chat.workspace.moveTerminalBottom"
 msgstr "Move terminal to bottom"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.moveToProject"
+msgstr "Move to project"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.moveToSection"
+msgstr "Move to section"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.status.attention"
 msgstr "Needs attention"
@@ -655,6 +735,11 @@ msgstr "Never"
 #: renderer/src/i18n.test.ts
 msgid "navigation.newChat"
 msgstr "New chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.newChatInProject"
+msgstr "New chat in project"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -778,6 +863,16 @@ msgstr "Permissions"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.pinChat"
+msgstr "Pin chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.pinProject"
+msgstr "Pin project"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.pinned"
 msgstr "Pinned"
 
@@ -810,6 +905,11 @@ msgstr "Preferences"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sort.priority"
 msgstr "Priority"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.projectName"
+msgstr "Project name"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
@@ -887,9 +987,34 @@ msgid "chat.prompt.removeAttachment"
 msgstr "Remove attachment"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.removeFromProject"
+msgstr "Remove from project"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.removeFromSection"
+msgstr "Remove from section"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.removeProject"
+msgstr "Remove project"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.renameChat"
+msgstr "Rename chat"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.header.rename"
 msgstr "Rename chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.revealProject"
+msgstr "Reveal in Finder"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -910,6 +1035,11 @@ msgstr "Running {command}"
 #: renderer/src/routes/settings.configuration.tsx
 msgid "settings.configuration.sandbox.title"
 msgstr "Sandbox settings"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.save"
+msgstr "Save"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -971,6 +1101,11 @@ msgstr "Searched the web for {query}"
 #: renderer/src/components/chat-search.tsx
 msgid "search.searching"
 msgstr "Searching…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.section"
+msgstr "Section"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -1038,6 +1173,11 @@ msgid "chat.workspace.terminalTabs"
 msgstr "Terminal tabs"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.archiveChatDescription"
+msgstr "The chat will move to Archived chats."
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
 msgid "settings.theme.title"
 msgstr "Theme"
@@ -1046,6 +1186,16 @@ msgstr "Theme"
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.thinking"
 msgstr "Thinking"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.deleteChatDescription"
+msgstr "This permanently deletes the chat and cannot be undone."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.removeProjectDescription"
+msgstr "This removes the project from Cypheria without deleting its files or chats."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
@@ -1073,6 +1223,16 @@ msgid "chat.turn.diff"
 msgstr "Turn changes"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.unpinChat"
+msgstr "Unpin chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.unpinProject"
+msgstr "Unpin project"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.untitled"
 msgstr "Untitled chat"
@@ -1086,6 +1246,11 @@ msgstr "Untrusted commands"
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.update"
 msgstr "Update"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.editProjectDescription"
+msgstr "Update the project name shown in the sidebar."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx

@@ -218,7 +218,7 @@
   - 包括：经 typed IPC 暴露的 generated experimental App Server 分组方法、持久化非敏感侧栏偏好、虚拟化自定义分组行，以及相对工作台约束的右侧面板尺寸。
   - 验证：desktop typecheck/tests/build，并依据用户提供的 Codex Desktop 参考图完成真实 Electron 视觉与交互 smoke test。
 
-- [ ] 补齐 ChatGPT Desktop 中 Projects、Sections 与会话条目的侧栏菜单。
+- [x] 补齐 ChatGPT Desktop 中 Projects、Sections 与会话条目的侧栏菜单。
   - 验收：Project 与会话条目按适用范围提供置顶、重命名/编辑、移动、复制、归档、删除/移除和新建会话操作；自定义 Section 可归档其中会话；破坏性操作要求确认；每次变更都会刷新受影响的虚拟化侧栏分组。
   - 包括：通过 typed IPC 调用 App Server 所有的 thread/project/section 变更、Cypheria 命名空间下的 Project 侧栏元数据，以及 Electron main 根据 Project ID 安全解析并在文件管理器显示项目目录。
   - 验证：desktop tests/typecheck/build、全仓 CI/build，以及对照 ChatGPT Desktop 26.901.51231 的真实 Electron smoke test，覆盖可逆操作与一次性测试数据上的归档/删除流程。

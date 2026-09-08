@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import type { CodexThreadView } from "../../../ipc/src/index.js"
+import type { CodexProjectView, CodexThreadView } from "../../../ipc/src/index.js"
 import {
   buildChatSidebarRows,
   groupProjectThreads,
@@ -52,13 +52,13 @@ describe("chat sidebar row model", () => {
       "pinned:pinned-1",
       "show-more:pinned",
       "section:projects",
-      "project:project-a",
-      "project:project-a:thread:chat-1",
-      "project:project-a:thread:chat-2",
-      "project:project-a:thread:chat-3",
-      "project:project-a:thread:chat-4",
-      "project:project-a:thread:chat-5",
-      "show-more:project:project-a",
+      "projects:project:project-a",
+      "projects:project:project-a:thread:chat-1",
+      "projects:project:project-a:thread:chat-2",
+      "projects:project:project-a:thread:chat-3",
+      "projects:project:project-a:thread:chat-4",
+      "projects:project:project-a:thread:chat-5",
+      "projects:show-more:project:project-a",
       "section:recents",
       "recent:recent-1",
       "loading:recents",
@@ -118,13 +118,18 @@ describe("chat sidebar row model", () => {
     )
 
     expect(groups).toEqual([
-      { projectId: "project-a", projectName: "Cypheria", threads: [], updatedAt: 0 },
+      expect.objectContaining({
+        projectId: "project-a",
+        projectName: "Cypheria",
+        threads: [],
+        updatedAt: 0,
+      }),
     ])
   })
 
   it("places custom sections above projects and can hide project grouping", () => {
     const rows = buildChatSidebarRows({
-      customSections: [{ id: "section-1", name: "Test", threads: [] }],
+      customSections: [{ id: "section-1", name: "Test", projects: [], threads: [] }],
       expandedCustomSections: new Set(["section-1"]),
       expandedProjects: new Set(["project-a"]),
       expandedSections: allSections,
@@ -149,5 +154,65 @@ describe("chat sidebar row model", () => {
       "section:recents",
       "recent:chat-1",
     ])
+  })
+
+  it("renders pinned and sectioned projects with their nested chats", () => {
+    const projects: CodexProjectView[] = [
+      {
+        createdAt: 1,
+        id: "pinned-project",
+        metadata: { "cypheria.sidebar.pinned": "true" },
+        name: "Pinned project",
+        position: 0,
+        recencyAt: 2,
+        roots: ["/work/pinned"],
+        updatedAt: 2,
+      },
+      {
+        createdAt: 1,
+        id: "section-project",
+        metadata: { "cypheria.sidebar.sectionId": "section-1" },
+        name: "Section project",
+        position: 1,
+        recencyAt: 1,
+        roots: ["/work/section"],
+        updatedAt: 1,
+      },
+    ]
+    const groups = groupProjectThreads(
+      [thread("pinned-chat", "pinned-project"), thread("section-chat", "section-project")],
+      projects
+    )
+    const rows = buildChatSidebarRows({
+      customSections: [
+        {
+          id: "section-1",
+          name: "Work",
+          projects: groups.filter(({ projectId }) => projectId === "section-project"),
+          threads: [],
+        },
+      ],
+      expandedCustomSections: new Set(["section-1"]),
+      expandedProjects: new Set(["pinned-project", "section-project"]),
+      expandedSections: allSections,
+      navigationIds: [],
+      pinnedHasMore: false,
+      pinnedProjects: groups.filter(({ projectId }) => projectId === "pinned-project"),
+      pinnedThreads: [],
+      projectGroups: [],
+      projectChatLimits: {},
+      projectsHasMore: false,
+      recentHasMore: false,
+      recentLoading: false,
+      recentThreads: [],
+      visibleProjectCount: SIDEBAR_BATCH_SIZE,
+    })
+
+    expect(rows.map(({ key }) => key)).toContain("pinned:project:pinned-project")
+    expect(rows.map(({ key }) => key)).toContain("pinned:project:pinned-project:thread:pinned-chat")
+    expect(rows.map(({ key }) => key)).toContain("custom-section:section-1:project:section-project")
+    expect(rows.map(({ key }) => key)).toContain(
+      "custom-section:section-1:project:section-project:thread:section-chat"
+    )
   })
 })

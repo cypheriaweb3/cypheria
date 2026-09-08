@@ -247,6 +247,8 @@ Desktop sidebar motion and hover previews live in `apps/desktop/renderer/src/com
 
 The workspace navigation below New chat and Search is flattened into stable keyed rows and rendered by one `@tanstack/react-virtual` virtualizer. Section and project expansion rebuild only the visible row model. Pinned pagination is filtered through the App Server's built-in pinned section; unsectioned thread pages supply Projects and Recents, while custom sections are listed and mutated with generated experimental `threadSection/*` and `thread/section/move` calls exposed through renderer-safe IPC. Non-sensitive organization and sort preferences are retained in renderer storage. Show more actions control five-entry disclosure for Pinned, Projects, and project chats, while only the terminal Recents loader automatically requests another cursor page.
 
+Row menus use shared shadcn-style dropdown, submenu, dialog, input, and button primitives. Thread archive/delete/project-move and project update/delete calls stay behind narrow typed IPC. Project pinning and custom-section placement use `cypheria.sidebar.*` metadata keys. Project folder reveal accepts only an App Server project ID at the renderer boundary and resolves the first registered root in Electron main before calling the operating-system shell. Bulk archive enumerates App Server cursors before mutating each matching thread so collapsed and not-yet-rendered rows are included.
+
 ## Web3 Stack
 
 | Category | Choice |

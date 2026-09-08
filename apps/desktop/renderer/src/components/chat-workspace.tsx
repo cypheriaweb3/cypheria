@@ -210,11 +210,12 @@ const permissionSelectionLabel = (selection: CodexPermissionSelection, i18n: I18
 }
 
 export default function ChatWorkspace() {
-  const { thread, prompt, section } = Route.useSearch()
+  const { thread, prompt, project, section } = Route.useSearch()
   const revision = useAtomValue(newChatRevisionAtom)
   return (
     <ChatSession
-      key={thread ?? `new-chat-${revision}-${prompt ?? ""}-${section ?? ""}`}
+      key={thread ?? `new-chat-${revision}-${prompt ?? ""}-${project ?? ""}-${section ?? ""}`}
+      initialProjectId={project}
       resumeThreadId={thread}
       initialPrompt={prompt}
       initialSectionId={section}
@@ -225,8 +226,14 @@ export default function ChatWorkspace() {
 function ChatSession({
   resumeThreadId,
   initialPrompt,
+  initialProjectId,
   initialSectionId,
-}: Readonly<{ resumeThreadId?: string; initialPrompt?: string; initialSectionId?: string }>) {
+}: Readonly<{
+  resumeThreadId?: string
+  initialPrompt?: string
+  initialProjectId?: string
+  initialSectionId?: string
+}>) {
   const { i18n } = useLingui()
   const navigate = Route.useNavigate()
   const queryClient = useQueryClient()
@@ -267,7 +274,9 @@ function ChatSession({
     fallbackModel
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null)
   const [reasoningEffort, setReasoningEffort] = useState<string | null>(null)
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    initialProjectId ?? null
+  )
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [attachmentError, setAttachmentError] = useState<string | null>(null)
   const [editingTitle, setEditingTitle] = useState(false)

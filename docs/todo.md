@@ -218,7 +218,7 @@ Status legend:
   - Include: generated experimental App Server section methods behind typed IPC, persisted non-sensitive sidebar preferences, virtualized custom section rows, and workbench-relative right-panel sizing.
   - Verification: desktop typecheck/tests/build plus a real Electron visual and interaction smoke test against the supplied Codex Desktop references.
 
-- [ ] Complete ChatGPT Desktop sidebar menus for projects, sections, and chat rows.
+- [x] Complete ChatGPT Desktop sidebar menus for projects, sections, and chat rows.
   - Acceptance: project and chat rows expose the applicable pin, rename/edit, move, copy, archive, delete/remove, and new-chat actions; custom sections archive their chats; destructive actions require confirmation; and every mutation refreshes the affected virtualized sidebar groups.
   - Include: App Server-owned thread/project/section mutations behind typed IPC, Cypheria namespaced project sidebar metadata, and safe project-folder reveal resolved in Electron main from a project identifier.
   - Verification: desktop tests/typecheck/build, full repository CI/build, and a real Electron smoke test of reversible actions plus disposable archive/delete flows against ChatGPT Desktop 26.901.51231.

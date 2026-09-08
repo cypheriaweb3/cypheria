@@ -36,7 +36,7 @@ import {
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query"
-import { Link } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
   Archive,
@@ -45,16 +45,22 @@ import {
   Check,
   ChevronDown,
   ChevronRight,
+  Copy,
+  ExternalLink,
   Folder,
+  FolderInput,
   FolderOpen,
   Globe2,
   LoaderCircle,
   MoreHorizontal,
   Pencil,
+  Pin,
+  PinOff,
   Plus,
   ScrollText,
   ShieldCheck,
   SquarePen,
+  Trash2,
   WalletCards,
   Workflow,
   X,
@@ -68,7 +74,11 @@ import {
   useRef,
   useState,
 } from "react"
-import type { CodexThreadSectionView } from "../../../ipc/src/index.js"
+import type {
+  CodexProjectView,
+  CodexThreadSectionView,
+  CodexThreadView,
+} from "../../../ipc/src/index.js"
 import {
   buildChatSidebarRows,
   type ChatSidebarRow,
@@ -81,8 +91,13 @@ import {
 import { ProjectCreateDialog } from "./project-create-dialog"
 
 const PINNED_THREAD_SECTION_ID = "01984de2-8f74-7c91-a3b2-5c5e937cf318"
+const PROJECT_PIN_METADATA_KEY = "cypheria.sidebar.pinned"
+const PROJECT_SECTION_METADATA_KEY = "cypheria.sidebar.sectionId"
 const THREAD_PAGE_SIZE = 30
 type SidebarSort = "priority" | "updated" | "manual"
+type SectionDialogState =
+  | { mode: "create"; target?: { id: string; kind: "project" | "thread" } }
+  | { mode: "edit"; section: CodexThreadSectionView }
 
 const virtualNavigationItems = [
   {
@@ -152,6 +167,8 @@ const readPreference = <T extends string>(key: string, fallback: T): T => {
 
 export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>) {
   const { i18n } = useLingui()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const scrollRef = useRef<HTMLDivElement>(null)
   const [expandedSections, setExpandedSections] = useState<Set<SidebarSectionId>>(
     () => new Set(["pinned", "projects", "recents"])
@@ -171,10 +188,18 @@ export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
     readPreference("cypheria.sidebar.chat-sort", "updated")
   )
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
-  const [sectionDialog, setSectionDialog] = useState<
-    { mode: "create" } | { mode: "edit"; section: CodexThreadSectionView } | null
-  >(null)
+  const [sectionDialog, setSectionDialog] = useState<SectionDialogState | null>(null)
   const [deletingSection, setDeletingSection] = useState<CodexThreadSectionView | null>(null)
+  const [threadDialog, setThreadDialog] = useState<{
+    kind: "archive" | "delete" | "rename"
+    thread: CodexThreadView
+  } | null>(null)
+  const [projectDialog, setProjectDialog] = useState<{
+    kind: "archive" | "edit" | "remove"
+    project: CodexProjectView
+  } | null>(null)
+  const [archivingSection, setArchivingSection] = useState<CodexThreadSectionView | null>(null)
+  const [mutationError, setMutationError] = useState<string | null>(null)
 
   const pinnedQuery = useInfiniteQuery({
     initialPageParam: null as string | null,
@@ -242,9 +267,25 @@ export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
 
   const pinnedThreads = pinnedQuery.data?.pages.flatMap((page) => page.data) ?? []
   const catalogThreads = catalogQuery.data?.pages.flatMap((page) => page.data) ?? []
-  const projectGroups = useMemo(
+  const allProjectGroups = useMemo(
     () => groupProjectThreads(catalogThreads, projectsQuery.data?.data ?? []),
     [catalogThreads, projectsQuery.data?.data]
+  )
+  const pinnedProjectGroups = useMemo(
+    () =>
+      allProjectGroups.filter(
+        ({ project }) => project.metadata[PROJECT_PIN_METADATA_KEY] === "true"
+      ),
+    [allProjectGroups]
+  )
+  const projectGroups = useMemo(
+    () =>
+      allProjectGroups.filter(
+        ({ project }) =>
+          project.metadata[PROJECT_PIN_METADATA_KEY] !== "true" &&
+          !project.metadata[PROJECT_SECTION_METADATA_KEY]
+      ),
+    [allProjectGroups]
   )
   const recentThreads = useMemo(
     () =>
@@ -257,16 +298,23 @@ export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
     () =>
       sections.map((section, index) => ({
         ...section,
+        projects: allProjectGroups.filter(
+          ({ project }) =>
+            project.metadata[PROJECT_PIN_METADATA_KEY] !== "true" &&
+            project.metadata[PROJECT_SECTION_METADATA_KEY] === section.id
+        ),
         threads: customThreadQueries[index]?.data?.data ?? [],
       })),
-    [customThreadQueries, sections]
+    [allProjectGroups, customThreadQueries, sections]
   )
   const expandedProjects = useMemo(
     () =>
       new Set(
-        projectGroups.map(({ projectId }) => projectId).filter((id) => !collapsedProjects.has(id))
+        allProjectGroups
+          .map(({ projectId }) => projectId)
+          .filter((id) => !collapsedProjects.has(id))
       ),
-    [collapsedProjects, projectGroups]
+    [allProjectGroups, collapsedProjects]
   )
   const rows = useMemo(
     () =>
@@ -277,6 +325,7 @@ export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
         expandedSections,
         navigationIds: virtualNavigationItems.map(({ id }) => id),
         pinnedHasMore: pinnedQuery.hasNextPage,
+        pinnedProjects: pinnedProjectGroups,
         pinnedThreads,
         projectGroups,
         projectChatLimits,
@@ -297,6 +346,7 @@ export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
       expandedSections,
       organizeByProject,
       pinnedQuery.hasNextPage,
+      pinnedProjectGroups,
       pinnedThreads,
       projectGroups,
       projectChatLimits,
@@ -318,12 +368,12 @@ export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
     if (!catalogQuery.hasNextPage) return setCatalogLoadIntent(null)
     const reached =
       catalogLoadIntent === "projects"
-        ? projectGroups.length >= visibleProjectCount
-        : (projectGroups.find(({ projectId }) => projectId === catalogLoadIntent)?.threads.length ??
-            0) >= (projectChatLimits[catalogLoadIntent] ?? SIDEBAR_BATCH_SIZE)
+        ? allProjectGroups.length >= visibleProjectCount
+        : (allProjectGroups.find(({ projectId }) => projectId === catalogLoadIntent)?.threads
+            .length ?? 0) >= (projectChatLimits[catalogLoadIntent] ?? SIDEBAR_BATCH_SIZE)
     if (reached) return setCatalogLoadIntent(null)
     void catalogQuery.fetchNextPage()
-  }, [catalogLoadIntent, catalogQuery, projectGroups, projectChatLimits, visibleProjectCount])
+  }, [allProjectGroups, catalogLoadIntent, catalogQuery, projectChatLimits, visibleProjectCount])
   useEffect(() => {
     if (!catalogQuery.hasNextPage || catalogQuery.isFetchingNextPage || catalogLoadIntent != null)
       return
@@ -352,6 +402,81 @@ export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
   const updateChatSort = (sort: SidebarSort) => {
     setChatSort(sort)
     globalThis.localStorage?.setItem("cypheria.sidebar.chat-sort", sort)
+  }
+  const invalidateSidebar = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["codex", "projects"] }),
+      queryClient.invalidateQueries({ queryKey: ["codex", "thread-sections"] }),
+      queryClient.invalidateQueries({ queryKey: ["codex", "threads"] }),
+    ])
+  }
+  const runSidebarMutation = async (mutation: () => Promise<unknown>) => {
+    setMutationError(null)
+    try {
+      await mutation()
+      await invalidateSidebar()
+      return true
+    } catch (reason) {
+      setMutationError(reason instanceof Error ? reason.message : String(reason))
+      return false
+    }
+  }
+  const moveThreadToSection = (thread: CodexThreadView, sectionId: string | null) =>
+    runSidebarMutation(async () => {
+      await window.cypheria?.codex.moveThreadToSection({ sectionId, threadId: thread.id })
+    })
+  const moveThreadToProject = (thread: CodexThreadView, projectId: string | null) =>
+    runSidebarMutation(async () => {
+      await window.cypheria?.codex.moveThreadToProject(thread.id, projectId)
+    })
+  const updateProjectSidebarMetadata = (
+    project: CodexProjectView,
+    update: (metadata: Record<string, string>) => void
+  ) =>
+    runSidebarMutation(async () => {
+      const metadata = { ...project.metadata }
+      update(metadata)
+      await window.cypheria?.codex.updateProject({
+        id: project.id,
+        metadata,
+        name: project.name,
+      })
+    })
+  const copyText = async (value: string) => {
+    try {
+      await navigator.clipboard.writeText(value)
+    } catch (reason) {
+      setMutationError(reason instanceof Error ? reason.message : String(reason))
+    }
+  }
+  const copyThreadMarkdown = async (thread: CodexThreadView) => {
+    try {
+      const detail = await window.cypheria?.codex.readThread(thread.id)
+      if (!detail) return
+      const markdown = detail.messages
+        .map((message) => {
+          const text = message.parts
+            .flatMap((part) => (part.type === "text" ? [part.text] : []))
+            .join("\n")
+          return `## ${message.role === "user" ? "User" : "Assistant"}\n\n${text}`
+        })
+        .join("\n\n")
+      await copyText(`# ${detail.title}\n\n${markdown}`)
+    } catch (reason) {
+      setMutationError(reason instanceof Error ? reason.message : String(reason))
+    }
+  }
+  const archiveMatchingThreads = async (matches: (thread: CodexThreadView) => boolean) => {
+    const api = window.cypheria?.codex
+    if (!api) throw new Error("Codex is only available in the Cypheria desktop app.")
+    let cursor: string | null = null
+    const threadIds: string[] = []
+    do {
+      const page = await api.listThreads({ cursor, limit: 100 })
+      threadIds.push(...page.data.filter(matches).map(({ id }) => id))
+      cursor = page.nextCursor
+    } while (cursor)
+    for (const threadId of threadIds) await api.archiveThread(threadId)
   }
 
   return (
@@ -385,14 +510,47 @@ export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
                     expandedSections={expandedSections}
                     organizeByProject={organizeByProject}
                     pendingCount={pendingCount}
+                    projects={projectsQuery.data?.data ?? []}
                     pinnedLoading={pinnedQuery.isFetchingNextPage}
                     pinnedSort={pinnedSort}
                     row={row}
+                    sections={sections}
+                    onArchiveSection={setArchivingSection}
+                    onCopyThread={(kind, thread) => {
+                      if (kind === "cwd") void copyText(thread.cwd)
+                      if (kind === "link")
+                        void copyText(`cypheria://app/?thread=${encodeURIComponent(thread.id)}`)
+                      if (kind === "markdown") void copyThreadMarkdown(thread)
+                    }}
                     onCreateProject={() => setProjectDialogOpen(true)}
                     onCreateSection={() => setSectionDialog({ mode: "create" })}
+                    onCreateSectionFor={(target) => setSectionDialog({ mode: "create", target })}
                     onDeleteSection={setDeletingSection}
                     onEditSection={(section) => setSectionDialog({ mode: "edit", section })}
                     onOrganizationChange={setOrganization}
+                    onNewChatProject={(project) =>
+                      void navigate({ search: { project: project.id }, to: "/" })
+                    }
+                    onProjectDialog={(kind, project) => setProjectDialog({ kind, project })}
+                    onProjectMoveSection={(project, sectionId) =>
+                      void updateProjectSidebarMetadata(project, (metadata) => {
+                        delete metadata[PROJECT_PIN_METADATA_KEY]
+                        if (sectionId) metadata[PROJECT_SECTION_METADATA_KEY] = sectionId
+                        else delete metadata[PROJECT_SECTION_METADATA_KEY]
+                      })
+                    }
+                    onProjectPin={(project, pinned) =>
+                      void updateProjectSidebarMetadata(project, (metadata) => {
+                        delete metadata[PROJECT_SECTION_METADATA_KEY]
+                        if (pinned) metadata[PROJECT_PIN_METADATA_KEY] = "true"
+                        else delete metadata[PROJECT_PIN_METADATA_KEY]
+                      })
+                    }
+                    onRevealProject={(project) =>
+                      void runSidebarMutation(async () => {
+                        await window.cypheria?.codex.revealProject(project.id)
+                      })
+                    }
                     onPinnedSortChange={updatePinnedSort}
                     onShowMorePinned={() => void pinnedQuery.fetchNextPage()}
                     onShowMoreProjectChats={(projectId) => {
@@ -413,6 +571,13 @@ export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
                         setCatalogLoadIntent("projects")
                     }}
                     onSortChange={updateChatSort}
+                    onThreadDialog={(kind, thread) => setThreadDialog({ kind, thread })}
+                    onThreadMoveProject={(thread, projectId) =>
+                      void moveThreadToProject(thread, projectId)
+                    }
+                    onThreadMoveSection={(thread, sectionId) =>
+                      void moveThreadToSection(thread, sectionId)
+                    }
                     onToggleCustomSection={(id) => toggleSet(setExpandedCustomSections, id)}
                     onToggleProject={(id) => toggleSet(setCollapsedProjects, id)}
                     onToggleSection={(id) => toggleSet(setExpandedSections, id)}
@@ -426,12 +591,197 @@ export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
       <ProjectCreateDialog onOpenChange={setProjectDialogOpen} open={projectDialogOpen} />
       <SectionDialog
         dialog={sectionDialog}
+        onCreated={async (section, target) => {
+          if (!target) return
+          if (target.kind === "thread") {
+            await window.cypheria?.codex.moveThreadToSection({
+              sectionId: section.id,
+              threadId: target.id,
+            })
+            return
+          }
+          const project = projectsQuery.data?.data.find(({ id }) => id === target.id)
+          if (!project) throw new Error("Project is no longer available.")
+          const metadata: Record<string, string> = {
+            ...project.metadata,
+            [PROJECT_SECTION_METADATA_KEY]: section.id,
+          }
+          delete metadata[PROJECT_PIN_METADATA_KEY]
+          await window.cypheria?.codex.updateProject({
+            id: project.id,
+            metadata,
+            name: project.name,
+          })
+        }}
         onOpenChange={(open) => !open && setSectionDialog(null)}
       />
       <DeleteSectionDialog
         section={deletingSection}
         onOpenChange={(open) => !open && setDeletingSection(null)}
       />
+      <SidebarMutationDialog
+        confirmLabel={
+          threadDialog?.kind === "rename"
+            ? i18n._(msg({ id: "navigation.save", message: "Save" }))
+            : threadDialog?.kind === "archive"
+              ? i18n._(msg({ id: "navigation.archiveChat", message: "Archive chat" }))
+              : i18n._(msg({ id: "navigation.deleteChat", message: "Delete chat" }))
+        }
+        description={
+          threadDialog?.kind === "delete"
+            ? i18n._(
+                msg({
+                  id: "navigation.deleteChatDescription",
+                  message: "This permanently deletes the chat and cannot be undone.",
+                })
+              )
+            : threadDialog?.kind === "archive"
+              ? i18n._(
+                  msg({
+                    id: "navigation.archiveChatDescription",
+                    message: "The chat will move to Archived chats.",
+                  })
+                )
+              : i18n._(
+                  msg({
+                    id: "navigation.renameChatDescription",
+                    message: "Keep the title short and recognizable.",
+                  })
+                )
+        }
+        destructive={threadDialog?.kind === "delete"}
+        inputLabel={
+          threadDialog?.kind === "rename"
+            ? i18n._(msg({ id: "navigation.chatTitle", message: "Chat title" }))
+            : undefined
+        }
+        initialValue={threadDialog?.thread.title}
+        open={threadDialog != null}
+        title={
+          threadDialog?.kind === "rename"
+            ? i18n._(msg({ id: "navigation.renameChat", message: "Rename chat" }))
+            : threadDialog?.kind === "archive"
+              ? i18n._(msg({ id: "navigation.archiveChat", message: "Archive chat" }))
+              : i18n._(msg({ id: "navigation.deleteChat", message: "Delete chat" }))
+        }
+        onConfirm={async (value) => {
+          if (!threadDialog) return false
+          const { kind, thread } = threadDialog
+          const succeeded = await runSidebarMutation(async () => {
+            if (kind === "rename")
+              await window.cypheria?.codex.renameThread(thread.id, value.trim())
+            if (kind === "archive") await window.cypheria?.codex.archiveThread(thread.id)
+            if (kind === "delete") await window.cypheria?.codex.deleteThread(thread.id)
+          })
+          if (succeeded && kind !== "rename") {
+            const activeThread = new URL(globalThis.location.href).searchParams.get("thread")
+            if (activeThread === thread.id) await navigate({ to: "/" })
+          }
+          if (succeeded) setThreadDialog(null)
+          return succeeded
+        }}
+        onOpenChange={(open) => !open && setThreadDialog(null)}
+      />
+      <SidebarMutationDialog
+        confirmLabel={
+          projectDialog?.kind === "edit"
+            ? i18n._(msg({ id: "navigation.save", message: "Save" }))
+            : projectDialog?.kind === "archive"
+              ? i18n._(msg({ id: "navigation.archiveProjectChats", message: "Archive chats" }))
+              : i18n._(msg({ id: "navigation.removeProject", message: "Remove project" }))
+        }
+        description={
+          projectDialog?.kind === "remove"
+            ? i18n._(
+                msg({
+                  id: "navigation.removeProjectDescription",
+                  message:
+                    "This removes the project from Cypheria without deleting its files or chats.",
+                })
+              )
+            : projectDialog?.kind === "archive"
+              ? i18n._(
+                  msg({
+                    id: "navigation.archiveProjectDescription",
+                    message: "Every chat in this project will move to Archived chats.",
+                  })
+                )
+              : i18n._(
+                  msg({
+                    id: "navigation.editProjectDescription",
+                    message: "Update the project name shown in the sidebar.",
+                  })
+                )
+        }
+        destructive={projectDialog?.kind === "remove"}
+        inputLabel={
+          projectDialog?.kind === "edit"
+            ? i18n._(msg({ id: "navigation.projectName", message: "Project name" }))
+            : undefined
+        }
+        initialValue={projectDialog?.project.name}
+        open={projectDialog != null}
+        title={
+          projectDialog?.kind === "edit"
+            ? i18n._(msg({ id: "navigation.editProject", message: "Edit project" }))
+            : projectDialog?.kind === "archive"
+              ? i18n._(msg({ id: "navigation.archiveProjectChats", message: "Archive chats" }))
+              : i18n._(msg({ id: "navigation.removeProject", message: "Remove project" }))
+        }
+        onConfirm={async (value) => {
+          if (!projectDialog) return false
+          const { kind, project } = projectDialog
+          const succeeded = await runSidebarMutation(async () => {
+            if (kind === "edit")
+              await window.cypheria?.codex.updateProject({
+                id: project.id,
+                metadata: project.metadata,
+                name: value.trim(),
+              })
+            if (kind === "archive")
+              await archiveMatchingThreads((thread) => thread.projectId === project.id)
+            if (kind === "remove") await window.cypheria?.codex.deleteProject(project.id)
+          })
+          if (succeeded) setProjectDialog(null)
+          return succeeded
+        }}
+        onOpenChange={(open) => !open && setProjectDialog(null)}
+      />
+      <SidebarMutationDialog
+        confirmLabel={i18n._(
+          msg({ id: "navigation.archiveSection", message: "Archive all chats" })
+        )}
+        description={i18n._(
+          msg({
+            id: "navigation.archiveSectionDescription",
+            message: "Every chat in this section and its projects will move to Archived chats.",
+          })
+        )}
+        open={archivingSection != null}
+        title={i18n._(msg({ id: "navigation.archiveSection", message: "Archive all chats" }))}
+        onConfirm={async () => {
+          if (!archivingSection) return false
+          const projectIds = new Set(
+            allProjectGroups
+              .filter(
+                ({ project }) =>
+                  project.metadata[PROJECT_SECTION_METADATA_KEY] === archivingSection.id
+              )
+              .map(({ projectId }) => projectId)
+          )
+          const succeeded = await runSidebarMutation(() =>
+            archiveMatchingThreads(
+              (thread) =>
+                thread.sectionId === archivingSection.id ||
+                (thread.projectId != null && projectIds.has(thread.projectId))
+            )
+          )
+          if (succeeded) setArchivingSection(null)
+          return succeeded
+        }}
+        onOpenChange={(open) => !open && setArchivingSection(null)}
+      />
+      <SidebarErrorDialog error={mutationError} onClose={() => setMutationError(null)} />
     </>
   )
 }
@@ -445,19 +795,32 @@ type RowViewProps = Readonly<{
   expandedSections: ReadonlySet<SidebarSectionId>
   organizeByProject: boolean
   pendingCount: number
+  projects: readonly CodexProjectView[]
   pinnedLoading: boolean
   pinnedSort: SidebarSort
   row: ChatSidebarRow
+  sections: readonly CodexThreadSectionView[]
+  onArchiveSection: (section: CodexThreadSectionView) => void
+  onCopyThread: (kind: "cwd" | "link" | "markdown", thread: CodexThreadView) => void
   onCreateProject: () => void
   onCreateSection: () => void
+  onCreateSectionFor: (target: { id: string; kind: "project" | "thread" }) => void
   onDeleteSection: (section: CodexThreadSectionView) => void
   onEditSection: (section: CodexThreadSectionView) => void
   onOrganizationChange: (value: boolean) => void
+  onNewChatProject: (project: CodexProjectView) => void
+  onProjectDialog: (kind: "archive" | "edit" | "remove", project: CodexProjectView) => void
+  onProjectMoveSection: (project: CodexProjectView, sectionId: string | null) => void
+  onProjectPin: (project: CodexProjectView, pinned: boolean) => void
+  onRevealProject: (project: CodexProjectView) => void
   onPinnedSortChange: (sort: SidebarSort) => void
   onShowMorePinned: () => void
   onShowMoreProjectChats: (id: string) => void
   onShowMoreProjects: () => void
   onSortChange: (sort: SidebarSort) => void
+  onThreadDialog: (kind: "archive" | "delete" | "rename", thread: CodexThreadView) => void
+  onThreadMoveProject: (thread: CodexThreadView, projectId: string | null) => void
+  onThreadMoveSection: (thread: CodexThreadView, sectionId: string | null) => void
   onToggleCustomSection: (id: string) => void
   onToggleProject: (id: string) => void
   onToggleSection: (id: SidebarSectionId) => void
@@ -522,6 +885,7 @@ function ChatSidebarRowView(props: RowViewProps) {
         menu={
           <CustomSectionMenu
             section={section}
+            onArchive={props.onArchiveSection}
             onDelete={props.onDeleteSection}
             onEdit={props.onEditSection}
           />
@@ -532,29 +896,61 @@ function ChatSidebarRowView(props: RowViewProps) {
     )
   }
   if (row.kind === "project") {
-    const expanded = !props.collapsedProjects.has(row.projectId)
+    const expanded = !props.collapsedProjects.has(row.project.id)
     const Icon = expanded ? FolderOpen : Folder
     return (
-      <button
-        aria-expanded={expanded}
-        className="flex h-8 w-full items-center gap-2 rounded-md px-0 text-left text-sm outline-none hover:bg-sidebar-accent focus-visible:ring-2 focus-visible:ring-sidebar-ring"
-        type="button"
-        onClick={() => props.onToggleProject(row.projectId)}
-      >
-        <Icon aria-hidden="true" className="size-4" strokeWidth={1.8} />
-        <span className="truncate">{row.projectName}</span>
-      </button>
+      <div className="group/project flex h-8 w-full items-center rounded-md hover:bg-sidebar-accent focus-within:bg-sidebar-accent">
+        <button
+          aria-expanded={expanded}
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-md px-0 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+          type="button"
+          onClick={() => props.onToggleProject(row.project.id)}
+        >
+          <Icon aria-hidden="true" className="size-4" strokeWidth={1.8} />
+          <span className="truncate">{row.project.name}</span>
+        </button>
+        <ProjectMenu
+          project={row.project}
+          sections={props.sections}
+          onArchive={() => props.onProjectDialog("archive", row.project)}
+          onCreateSection={() => props.onCreateSectionFor({ id: row.project.id, kind: "project" })}
+          onEdit={() => props.onProjectDialog("edit", row.project)}
+          onMoveSection={(sectionId) => props.onProjectMoveSection(row.project, sectionId)}
+          onNewChat={() => props.onNewChatProject(row.project)}
+          onPin={(pinned) => props.onProjectPin(row.project, pinned)}
+          onRemove={() => props.onProjectDialog("remove", row.project)}
+          onReveal={() => props.onRevealProject(row.project)}
+        />
+      </div>
     )
   }
   if (row.kind === "thread")
     return (
-      <SidebarMenuButton
-        className={cn(row.source === "project" ? "pl-[calc(1rem+0.5rem)]" : "px-0.5")}
-        render={<Link to="/" search={{ thread: row.thread.id }} />}
-        tooltip={row.thread.title}
-      >
-        <span className="truncate">{row.thread.title}</span>
-      </SidebarMenuButton>
+      <div className="group/thread flex h-8 w-full items-center rounded-md hover:bg-sidebar-accent focus-within:bg-sidebar-accent">
+        <SidebarMenuButton
+          className={cn(
+            "h-8 min-w-0 flex-1 bg-transparent hover:bg-transparent",
+            row.source === "project" ? "pl-[calc(1rem+0.5rem)]" : "px-0.5"
+          )}
+          render={<Link to="/" search={{ thread: row.thread.id }} />}
+          tooltip={row.thread.title}
+        >
+          <span className="truncate">{row.thread.title}</span>
+        </SidebarMenuButton>
+        <ThreadMenu
+          projects={props.projects}
+          sections={props.sections}
+          source={row.source}
+          thread={row.thread}
+          onArchive={() => props.onThreadDialog("archive", row.thread)}
+          onCopy={(kind) => props.onCopyThread(kind, row.thread)}
+          onCreateSection={() => props.onCreateSectionFor({ id: row.thread.id, kind: "thread" })}
+          onDelete={() => props.onThreadDialog("delete", row.thread)}
+          onMoveProject={(projectId) => props.onThreadMoveProject(row.thread, projectId)}
+          onMoveSection={(sectionId) => props.onThreadMoveSection(row.thread, sectionId)}
+          onRename={() => props.onThreadDialog("rename", row.thread)}
+        />
+      </div>
     )
   if (row.kind === "showMore") {
     const loading =
@@ -806,12 +1202,262 @@ function SidebarOrganizationMenu({
   )
 }
 
+function RowMenuButton({ label }: Readonly<{ label: string }>) {
+  return (
+    <DropdownMenuTrigger
+      render={
+        <button
+          aria-label={label}
+          className="mr-0.5 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:opacity-100 focus-visible:ring-2 group-focus-within/thread:opacity-100 group-focus-within/project:opacity-100 group-hover/thread:opacity-100 group-hover/project:opacity-100 data-popup-open:opacity-100"
+          type="button"
+        />
+      }
+    >
+      <MoreHorizontal aria-hidden="true" className="size-4" />
+    </DropdownMenuTrigger>
+  )
+}
+
+function ThreadMenu({
+  projects,
+  sections,
+  source,
+  thread,
+  onArchive,
+  onCopy,
+  onCreateSection,
+  onDelete,
+  onMoveProject,
+  onMoveSection,
+  onRename,
+}: Readonly<{
+  projects: readonly CodexProjectView[]
+  sections: readonly CodexThreadSectionView[]
+  source: "pinned" | "project" | "recent"
+  thread: CodexThreadView
+  onArchive: () => void
+  onCopy: (kind: "cwd" | "link" | "markdown") => void
+  onCreateSection: () => void
+  onDelete: () => void
+  onMoveProject: (projectId: string | null) => void
+  onMoveSection: (sectionId: string | null) => void
+  onRename: () => void
+}>) {
+  return (
+    <DropdownMenu>
+      <RowMenuButton label={`Options for ${thread.title}`} />
+      <DropdownMenuContent align="start" className="min-w-56 rounded-2xl p-1.5" side="right">
+        <DropdownMenuItem
+          className="py-1.5"
+          onClick={() => onMoveSection(source === "pinned" ? null : PINNED_THREAD_SECTION_ID)}
+        >
+          {source === "pinned" ? <PinOff /> : <Pin />}
+          {source === "pinned" ? (
+            <Trans id="navigation.unpinChat">Unpin chat</Trans>
+          ) : (
+            <Trans id="navigation.pinChat">Pin chat</Trans>
+          )}
+        </DropdownMenuItem>
+        <DropdownMenuItem className="py-1.5" onClick={onRename}>
+          <Pencil />
+          <Trans id="navigation.renameChat">Rename chat</Trans>
+        </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="py-1.5">
+            <FolderInput />
+            <Trans id="navigation.moveToProject">Move to project</Trans>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="min-w-48 rounded-2xl p-1.5">
+            {projects.map((project) => (
+              <DropdownMenuItem
+                className="py-1.5"
+                disabled={project.id === thread.projectId}
+                key={project.id}
+                onClick={() => onMoveProject(project.id)}
+              >
+                <span className="truncate">{project.name}</span>
+              </DropdownMenuItem>
+            ))}
+            {thread.projectId ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="py-1.5" onClick={() => onMoveProject(null)}>
+                  <Trans id="navigation.removeFromProject">Remove from project</Trans>
+                </DropdownMenuItem>
+              </>
+            ) : null}
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="py-1.5">
+            <Trans id="navigation.moveToSection">Move to section</Trans>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="min-w-48 rounded-2xl p-1.5">
+            {sections.map((section) => (
+              <DropdownMenuItem
+                className="py-1.5"
+                disabled={section.id === thread.sectionId}
+                key={section.id}
+                onClick={() => onMoveSection(section.id)}
+              >
+                <span className="truncate">{section.name}</span>
+              </DropdownMenuItem>
+            ))}
+            {thread.sectionId && thread.sectionId !== PINNED_THREAD_SECTION_ID ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="py-1.5" onClick={() => onMoveSection(null)}>
+                  <Trans id="navigation.removeFromSection">Remove from section</Trans>
+                </DropdownMenuItem>
+              </>
+            ) : null}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="py-1.5" onClick={onCreateSection}>
+              <Plus />
+              <Trans id="navigation.newSection">New section</Trans>
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="py-1.5">
+            <Copy />
+            <Trans id="navigation.copy">Copy</Trans>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="min-w-52 rounded-2xl p-1.5">
+            <DropdownMenuItem className="py-1.5" onClick={() => onCopy("link")}>
+              <Trans id="navigation.copyLink">Copy app link</Trans>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="py-1.5" onClick={() => onCopy("markdown")}>
+              <Trans id="navigation.copyMarkdown">Copy chat as Markdown</Trans>
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="py-1.5"
+              disabled={!thread.cwd}
+              onClick={() => onCopy("cwd")}
+            >
+              <Trans id="navigation.copyWorkingDirectory">Copy working directory</Trans>
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="py-1.5" onClick={onArchive}>
+          <Archive />
+          <Trans id="navigation.archiveChat">Archive chat</Trans>
+        </DropdownMenuItem>
+        <DropdownMenuItem className="py-1.5 text-destructive" onClick={onDelete}>
+          <Trash2 />
+          <Trans id="navigation.deleteChat">Delete chat</Trans>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function ProjectMenu({
+  project,
+  sections,
+  onArchive,
+  onCreateSection,
+  onEdit,
+  onMoveSection,
+  onNewChat,
+  onPin,
+  onRemove,
+  onReveal,
+}: Readonly<{
+  project: CodexProjectView
+  sections: readonly CodexThreadSectionView[]
+  onArchive: () => void
+  onCreateSection: () => void
+  onEdit: () => void
+  onMoveSection: (sectionId: string | null) => void
+  onNewChat: () => void
+  onPin: (pinned: boolean) => void
+  onRemove: () => void
+  onReveal: () => void
+}>) {
+  const pinned = project.metadata[PROJECT_PIN_METADATA_KEY] === "true"
+  const sectionId = project.metadata[PROJECT_SECTION_METADATA_KEY] ?? null
+  return (
+    <DropdownMenu>
+      <RowMenuButton label={`Options for ${project.name}`} />
+      <DropdownMenuContent align="start" className="min-w-56 rounded-2xl p-1.5" side="right">
+        <DropdownMenuItem className="py-1.5" onClick={() => onPin(!pinned)}>
+          {pinned ? <PinOff /> : <Pin />}
+          {pinned ? (
+            <Trans id="navigation.unpinProject">Unpin project</Trans>
+          ) : (
+            <Trans id="navigation.pinProject">Pin project</Trans>
+          )}
+        </DropdownMenuItem>
+        <DropdownMenuItem className="py-1.5" onClick={onEdit}>
+          <Pencil />
+          <Trans id="navigation.editProject">Edit project</Trans>
+        </DropdownMenuItem>
+        <DropdownMenuItem className="py-1.5" onClick={onNewChat}>
+          <SquarePen />
+          <Trans id="navigation.newChatInProject">New chat in project</Trans>
+        </DropdownMenuItem>
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger className="py-1.5">
+            <Trans id="navigation.section">Section</Trans>
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent className="min-w-48 rounded-2xl p-1.5">
+            {sections.map((section) => (
+              <DropdownMenuItem
+                className="py-1.5"
+                disabled={section.id === sectionId}
+                key={section.id}
+                onClick={() => onMoveSection(section.id)}
+              >
+                <span className="truncate">{section.name}</span>
+              </DropdownMenuItem>
+            ))}
+            {sectionId ? (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem className="py-1.5" onClick={() => onMoveSection(null)}>
+                  <Trans id="navigation.removeFromSection">Remove from section</Trans>
+                </DropdownMenuItem>
+              </>
+            ) : null}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="py-1.5" onClick={onCreateSection}>
+              <Plus />
+              <Trans id="navigation.newSection">New section</Trans>
+            </DropdownMenuItem>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+        <DropdownMenuItem
+          className="py-1.5"
+          disabled={project.roots.length === 0}
+          onClick={onReveal}
+        >
+          <ExternalLink />
+          <Trans id="navigation.revealProject">Reveal in Finder</Trans>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="py-1.5" onClick={onArchive}>
+          <Archive />
+          <Trans id="navigation.archiveProjectChats">Archive chats</Trans>
+        </DropdownMenuItem>
+        <DropdownMenuItem className="py-1.5 text-destructive" onClick={onRemove}>
+          <Trash2 />
+          <Trans id="navigation.removeProject">Remove project</Trans>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
 function CustomSectionMenu({
   section,
+  onArchive,
   onDelete,
   onEdit,
 }: Readonly<{
   section: CodexThreadSectionView
+  onArchive: (section: CodexThreadSectionView) => void
   onDelete: (section: CodexThreadSectionView) => void
   onEdit: (section: CodexThreadSectionView) => void
 }>) {
@@ -828,7 +1474,7 @@ function CustomSectionMenu({
           <Pencil />
           <Trans id="navigation.editSection">Edit section</Trans>
         </DropdownMenuItem>
-        <DropdownMenuItem className="py-1.5" disabled>
+        <DropdownMenuItem className="py-1.5" onClick={() => onArchive(section)}>
           <Archive />
           <Trans id="navigation.archiveSection">Archive all chats</Trans>
         </DropdownMenuItem>
@@ -843,9 +1489,14 @@ function CustomSectionMenu({
 
 function SectionDialog({
   dialog,
+  onCreated,
   onOpenChange,
 }: Readonly<{
-  dialog: { mode: "create" } | { mode: "edit"; section: CodexThreadSectionView } | null
+  dialog: SectionDialogState | null
+  onCreated: (
+    section: CodexThreadSectionView,
+    target?: { id: string; kind: "project" | "thread" }
+  ) => Promise<void>
   onOpenChange: (open: boolean) => void
 }>) {
   const queryClient = useQueryClient()
@@ -863,8 +1514,11 @@ function SectionDialog({
         ? api.updateThreadSection({ id: dialog.section.id, name: name.trim() })
         : api.createThreadSection({ name: name.trim() })
     },
-    onSuccess: async () => {
+    onSuccess: async (section) => {
+      if (dialog?.mode === "create") await onCreated(section, dialog.target)
       await queryClient.invalidateQueries({ queryKey: ["codex", "thread-sections"] })
+      await queryClient.invalidateQueries({ queryKey: ["codex", "projects"] })
+      await queryClient.invalidateQueries({ queryKey: ["codex", "threads"] })
       onOpenChange(false)
     },
   })
@@ -971,6 +1625,100 @@ function DeleteSectionDialog({
             onClick={() => void mutation.mutateAsync()}
           >
             <Trans id="navigation.deleteSection">Delete section</Trans>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function SidebarMutationDialog({
+  confirmLabel,
+  description,
+  destructive = false,
+  initialValue = "",
+  inputLabel,
+  open,
+  title,
+  onConfirm,
+  onOpenChange,
+}: Readonly<{
+  confirmLabel: string
+  description: string
+  destructive?: boolean
+  initialValue?: string
+  inputLabel?: string
+  open: boolean
+  title: string
+  onConfirm: (value: string) => Promise<boolean>
+  onOpenChange: (open: boolean) => void
+}>) {
+  const [value, setValue] = useState(initialValue)
+  const [pending, setPending] = useState(false)
+  useEffect(() => setValue(initialValue), [initialValue])
+  const submit = async () => {
+    if (inputLabel && !value.trim()) return
+    setPending(true)
+    try {
+      await onConfirm(value)
+    } finally {
+      setPending(false)
+    }
+  }
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="rounded-2xl">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
+        {inputLabel ? (
+          <Input
+            aria-label={inputLabel}
+            autoFocus
+            maxLength={200}
+            onChange={(event) => setValue(event.currentTarget.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") void submit()
+            }}
+            value={value}
+          />
+        ) : null}
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Trans id="chat.cancel">Cancel</Trans>
+          </Button>
+          <Button
+            disabled={pending || (Boolean(inputLabel) && !value.trim())}
+            type="button"
+            variant={destructive ? "destructive" : "default"}
+            onClick={() => void submit()}
+          >
+            {pending ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : null}
+            {confirmLabel}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function SidebarErrorDialog({
+  error,
+  onClose,
+}: Readonly<{ error: string | null; onClose: () => void }>) {
+  return (
+    <Dialog open={error != null} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent className="rounded-2xl">
+        <DialogHeader>
+          <DialogTitle>
+            <Trans id="navigation.sidebarActionFailed">Couldn’t update the sidebar</Trans>
+          </DialogTitle>
+          <DialogDescription>{error}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button type="button" onClick={onClose}>
+            <Trans id="chat.done">Done</Trans>
           </Button>
         </DialogFooter>
       </DialogContent>
