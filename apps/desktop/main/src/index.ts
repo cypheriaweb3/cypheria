@@ -75,6 +75,11 @@ import {
   codexSkillListContract,
   codexThreadListContract,
   codexThreadReadContract,
+  codexThreadSectionCreateContract,
+  codexThreadSectionDeleteContract,
+  codexThreadSectionListContract,
+  codexThreadSectionMoveContract,
+  codexThreadSectionUpdateContract,
   dappProviderRequestContract,
   harnessCheckUpdateContract,
   harnessEnabledWriteContract,
@@ -133,18 +138,23 @@ import { resolveCodexCommand } from "./codex-command.js"
 import {
   cancelCodexLogin,
   createCodexProject,
+  createCodexThreadSection,
   deleteCodexProject,
+  deleteCodexThreadSection,
   interruptCodexChat,
   listCodexModels,
   listCodexProjects,
+  listCodexThreadSections,
   listCodexThreads,
   logoutCodexAccount,
+  moveCodexThreadToSection,
   readCodexAccount,
   readCodexModelSettings,
   readCodexThread,
   startCodexChat,
   startCodexLogin,
   updateCodexProject,
+  updateCodexThreadSection,
   validateOpenAiApiKey,
   writeCodexModelSettings,
 } from "./codex-desktop.js"
@@ -504,6 +514,21 @@ const registerIpcHandlers = (context: DesktopRuntimeContext, harnesses: HarnessM
   registerIpcRoute(codexThreadListContract, (options) => listCodexThreads(codexBridge(), options))
   registerIpcRoute(codexThreadReadContract, ({ threadId }) =>
     readCodexThread(codexBridge(), threadId)
+  )
+  registerIpcRoute(codexThreadSectionListContract, (options) =>
+    listCodexThreadSections(codexBridge(), options)
+  )
+  registerIpcRoute(codexThreadSectionCreateContract, ({ name }) =>
+    createCodexThreadSection(codexBridge(), name)
+  )
+  registerIpcRoute(codexThreadSectionUpdateContract, (input) =>
+    updateCodexThreadSection(codexBridge(), input)
+  )
+  registerIpcRoute(codexThreadSectionDeleteContract, ({ id }) =>
+    deleteCodexThreadSection(codexBridge(), id)
+  )
+  registerIpcRoute(codexThreadSectionMoveContract, (input) =>
+    moveCodexThreadToSection(codexBridge(), input)
   )
   registerIpcRoute(codexProjectListContract, (options) => listCodexProjects(codexBridge(), options))
   registerIpcRoute(codexProjectCreateContract, (input) => createCodexProject(codexBridge(), input))

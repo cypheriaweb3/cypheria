@@ -11,9 +11,16 @@ export type SidebarProjectGroup = {
   updatedAt: number
 }
 
+export type SidebarCustomSection = {
+  id: string
+  name: string
+  threads: CodexThreadView[]
+}
+
 export type TaskSidebarRow =
   | { key: string; kind: "navigation"; navigationId: string }
   | { key: string; kind: "section"; section: SidebarSectionId }
+  | { key: string; kind: "customSection"; sectionId: string; sectionName: string }
   | { key: string; kind: "project"; projectId: string; projectName: string }
   | {
       key: string
@@ -30,6 +37,7 @@ export type TaskSidebarRow =
     }
   | { key: string; kind: "loading"; target: "projects" | "recent" }
   | { key: string; kind: "empty"; section: SidebarSectionId }
+  | { key: string; kind: "customEmpty"; sectionId: string }
 
 export function groupProjectThreads(
   threads: readonly CodexThreadView[],
@@ -65,6 +73,8 @@ export function groupProjectThreads(
 export function buildTaskSidebarRows({
   expandedProjects,
   expandedSections,
+  expandedCustomSections = new Set(),
+  customSections = [],
   navigationIds,
   pinnedHasMore,
   pinnedThreads,
@@ -74,10 +84,13 @@ export function buildTaskSidebarRows({
   recentHasMore,
   recentLoading,
   recentThreads,
+  showProjects = true,
   visibleProjectCount,
 }: {
   expandedProjects: ReadonlySet<string>
   expandedSections: ReadonlySet<SidebarSectionId>
+  expandedCustomSections?: ReadonlySet<string>
+  customSections?: readonly SidebarCustomSection[]
   navigationIds: readonly string[]
   pinnedHasMore: boolean
   pinnedThreads: readonly CodexThreadView[]
@@ -87,6 +100,7 @@ export function buildTaskSidebarRows({
   recentHasMore: boolean
   recentLoading: boolean
   recentThreads: readonly CodexThreadView[]
+  showProjects?: boolean
   visibleProjectCount: number
 }): TaskSidebarRow[] {
   const rows: TaskSidebarRow[] = navigationIds.map((navigationId) => ({
@@ -112,8 +126,30 @@ export function buildTaskSidebarRows({
     if (pinnedHasMore) rows.push({ key: "show-more:pinned", kind: "showMore", target: "pinned" })
   }
 
-  rows.push({ key: "section:projects", kind: "section", section: "projects" })
-  if (expandedSections.has("projects")) {
+  for (const section of customSections) {
+    rows.push({
+      key: `custom-section:${section.id}`,
+      kind: "customSection",
+      sectionId: section.id,
+      sectionName: section.name,
+    })
+    if (!expandedCustomSections.has(section.id)) continue
+    rows.push(
+      ...section.threads.map(
+        (thread): TaskSidebarRow => ({
+          key: `custom-section:${section.id}:thread:${thread.id}`,
+          kind: "thread",
+          source: "recent",
+          thread,
+        })
+      )
+    )
+    if (section.threads.length === 0)
+      rows.push({ key: `custom-empty:${section.id}`, kind: "customEmpty", sectionId: section.id })
+  }
+
+  if (showProjects) rows.push({ key: "section:projects", kind: "section", section: "projects" })
+  if (showProjects && expandedSections.has("projects")) {
     const visibleProjects = projectGroups.slice(0, visibleProjectCount)
     for (const project of visibleProjects) {
       rows.push({
@@ -177,11 +213,13 @@ export function buildTaskSidebarRows({
 export function estimateTaskSidebarRowSize(row: TaskSidebarRow): number {
   switch (row.kind) {
     case "section":
+    case "customSection":
       return 40
     case "showMore":
       return 30
     case "loading":
     case "empty":
+    case "customEmpty":
       return 36
     case "navigation":
     case "project":

@@ -68,6 +68,15 @@ import {
   CodexThreadListPageSchema,
   CodexThreadListRequestSchema,
   CodexThreadReadRequestSchema,
+  CodexThreadSectionCreateRequestSchema,
+  CodexThreadSectionDeleteRequestSchema,
+  type CodexThreadSectionListPage,
+  CodexThreadSectionListPageSchema,
+  CodexThreadSectionListRequestSchema,
+  CodexThreadSectionMoveRequestSchema,
+  CodexThreadSectionUpdateRequestSchema,
+  type CodexThreadSectionView,
+  CodexThreadSectionViewSchema,
 } from "./codex.js"
 import {
   type ConnectionProxySettings,
@@ -212,6 +221,11 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexSkillList: "codex.skill.list",
   codexThreadList: "codex.thread.list",
   codexThreadRead: "codex.thread.read",
+  codexThreadSectionCreate: "codex.thread-section.create",
+  codexThreadSectionDelete: "codex.thread-section.delete",
+  codexThreadSectionList: "codex.thread-section.list",
+  codexThreadSectionMove: "codex.thread-section.move",
+  codexThreadSectionUpdate: "codex.thread-section.update",
   harnessCheckUpdate: "harness.check-update",
   harnessEnabledWrite: "harness.enabled.write",
   harnessEvent: "harness.event",
@@ -1333,6 +1347,8 @@ export const codexThreadListContract = {
     limit?: number
     searchTerm?: string
     sectionId?: string | null
+    sortDirection?: "asc" | "desc"
+    sortKey?: "created_at" | "updated_at" | "recency_at" | "section_position"
   },
   CodexThreadListPage
 >
@@ -1345,13 +1361,64 @@ export const codexThreadReadContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<{ threadId: string }, CodexThreadDetailView>
 
+export const codexThreadSectionListContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexThreadSectionList,
+  namespace: "codex",
+  request: CodexThreadSectionListRequestSchema,
+  response: CodexThreadSectionListPageSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ cursor?: string | null; limit?: number }, CodexThreadSectionListPage>
+
+export const codexThreadSectionCreateContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexThreadSectionCreate,
+  namespace: "codex",
+  request: CodexThreadSectionCreateRequestSchema,
+  response: CodexThreadSectionViewSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ name: string }, CodexThreadSectionView>
+
+export const codexThreadSectionUpdateContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexThreadSectionUpdate,
+  namespace: "codex",
+  request: CodexThreadSectionUpdateRequestSchema,
+  response: CodexThreadSectionViewSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ id: string; name: string }, CodexThreadSectionView>
+
+export const codexThreadSectionDeleteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexThreadSectionDelete,
+  namespace: "codex",
+  request: CodexThreadSectionDeleteRequestSchema,
+  response: z.object({ deleted: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ id: string }, { deleted: true }>
+
+export const codexThreadSectionMoveContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexThreadSectionMove,
+  namespace: "codex",
+  request: CodexThreadSectionMoveRequestSchema,
+  response: z.object({ moved: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  { beforeThreadId?: string | null; sectionId: string | null; threadId: string },
+  { moved: true }
+>
+
 export const codexProjectListContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexProjectList,
   namespace: "codex",
   request: CodexProjectListRequestSchema,
   response: CodexProjectListPageSchema,
   version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ cursor?: string | null; limit?: number }, CodexProjectListPage>
+} satisfies IpcContract<
+  {
+    cursor?: string | null
+    limit?: number
+    sortDirection?: "asc" | "desc"
+    sortKey?: "position" | "recencyAt"
+  },
+  CodexProjectListPage
+>
 
 export const codexProjectCreateContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexProjectCreate,
@@ -1596,6 +1663,11 @@ export const ipcContracts = {
   codexSkillList: codexSkillListContract,
   codexThreadList: codexThreadListContract,
   codexThreadRead: codexThreadReadContract,
+  codexThreadSectionCreate: codexThreadSectionCreateContract,
+  codexThreadSectionDelete: codexThreadSectionDeleteContract,
+  codexThreadSectionList: codexThreadSectionListContract,
+  codexThreadSectionMove: codexThreadSectionMoveContract,
+  codexThreadSectionUpdate: codexThreadSectionUpdateContract,
   dappProviderRequest: dappProviderRequestContract,
   harnessCheckUpdate: harnessCheckUpdateContract,
   harnessEnabledWrite: harnessEnabledWriteContract,
@@ -1684,6 +1756,8 @@ export type CypheriaPreloadApi = {
     readonly listProjects: (options?: {
       cursor?: string | null
       limit?: number
+      sortDirection?: "asc" | "desc"
+      sortKey?: "position" | "recencyAt"
     }) => Promise<CodexProjectListPage>
     readonly createProject: (input: { name: string; root: string }) => Promise<CodexProjectView>
     readonly updateProject: (input: { id: string; name: string }) => Promise<CodexProjectView>
@@ -1715,8 +1789,25 @@ export type CypheriaPreloadApi = {
       limit?: number
       searchTerm?: string
       sectionId?: string | null
+      sortDirection?: "asc" | "desc"
+      sortKey?: "created_at" | "updated_at" | "recency_at" | "section_position"
     }) => Promise<CodexThreadListPage>
     readonly readThread: (threadId: string) => Promise<CodexThreadDetailView>
+    readonly listThreadSections: (options?: {
+      cursor?: string | null
+      limit?: number
+    }) => Promise<CodexThreadSectionListPage>
+    readonly createThreadSection: (input: { name: string }) => Promise<CodexThreadSectionView>
+    readonly updateThreadSection: (input: {
+      id: string
+      name: string
+    }) => Promise<CodexThreadSectionView>
+    readonly deleteThreadSection: (id: string) => Promise<{ deleted: true }>
+    readonly moveThreadToSection: (input: {
+      beforeThreadId?: string | null
+      sectionId: string | null
+      threadId: string
+    }) => Promise<{ moved: true }>
     readonly login: (request: CodexLoginRequest) => Promise<CodexLoginResult>
     readonly logout: () => Promise<{ loggedOut: boolean }>
     readonly onChatEvent: (handler: (event: CodexChatEvent) => void) => () => void

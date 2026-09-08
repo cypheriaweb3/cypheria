@@ -120,4 +120,33 @@ describe("task sidebar row model", () => {
       { projectId: "project-a", projectName: "Cypheria", threads: [], updatedAt: 0 },
     ])
   })
+
+  it("places custom sections above projects and can hide project grouping", () => {
+    const rows = buildTaskSidebarRows({
+      customSections: [{ id: "section-1", name: "Test", threads: [] }],
+      expandedCustomSections: new Set(["section-1"]),
+      expandedProjects: new Set(["project-a"]),
+      expandedSections: allSections,
+      navigationIds: [],
+      pinnedHasMore: false,
+      pinnedThreads: [],
+      projectGroups: groupProjectThreads([thread("task-1", "project-a")]),
+      projectTaskLimits: {},
+      projectsHasMore: false,
+      recentHasMore: false,
+      recentLoading: false,
+      recentThreads: [thread("task-1", "project-a")],
+      showProjects: false,
+      visibleProjectCount: SIDEBAR_BATCH_SIZE,
+    })
+
+    expect(rows.map((row) => row.key)).toEqual([
+      "section:pinned",
+      "empty:pinned",
+      "custom-section:section-1",
+      "custom-empty:section-1",
+      "section:recents",
+      "recent:task-1",
+    ])
+  })
 })

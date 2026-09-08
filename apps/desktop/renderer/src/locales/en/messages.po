@@ -19,6 +19,11 @@ msgid "search.keyboardHelp"
 msgstr "↑↓ Navigate · Enter Open · Esc Close"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/project-create-dialog.tsx
+msgid "task.project.addFolders"
+msgstr "Add folders Codex can read and edit"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
 msgid "task.artifact.added"
 msgstr "Added"
@@ -32,6 +37,11 @@ msgstr "Appearance"
 #: renderer/src/components/app-shell.tsx
 msgid "settings.appearance"
 msgstr "Appearance"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.archiveSection"
+msgstr "Archive all chats"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
@@ -69,29 +79,30 @@ msgid "task.workspace.browser"
 msgstr "Browser"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.byProject"
+msgstr "By project"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-create-dialog.tsx
+#: renderer/src/components/task-sidebar.tsx
 msgid "task.cancel"
 msgstr "Cancel"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.deleteSectionDescription"
+msgstr "Chats in this section will return to Recents."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-create-dialog.tsx
 msgid "task.project.validation"
 msgstr "Choose a folder and enter a project name."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
-msgid "task.project.chooseFolder"
-msgstr "Choose…"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
 msgid "task.workspace.close"
 msgstr "Close workspace panel"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
-msgid "task.project.desktopOnly"
-msgstr "Codex is only available in the Cypheria desktop app."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
@@ -124,14 +135,15 @@ msgid "search.error"
 msgstr "Could not search tasks."
 
 #. js-lingui-explicit-id
+#: renderer/src/components/project-create-dialog.tsx
 #: renderer/src/components/task-workspace.tsx
 msgid "task.project.create"
 msgstr "Create project"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
-msgid "task.project.creating"
-msgstr "Creating…"
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.createSection"
+msgstr "Create section"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
@@ -142,6 +154,11 @@ msgstr "Declined"
 #: renderer/src/components/task-workspace.tsx
 msgid "task.model.default"
 msgstr "Default"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.deleteSection"
+msgstr "Delete section"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
@@ -161,9 +178,19 @@ msgid "task.artifact.done"
 msgstr "Done"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.section.empty"
+msgstr "Drop chats here"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "menu.edit"
 msgstr "Edit"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.editSection"
+msgstr "Edit section"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
@@ -192,11 +219,6 @@ msgstr "Files changed by this task, with their latest recorded state."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
-msgid "task.project.folder"
-msgstr "Folder"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
 msgid "task.sandbox.fullAccess"
 msgstr "Full computer access"
 
@@ -216,9 +238,9 @@ msgid "settings.general"
 msgstr "General"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
-msgid "task.project.description"
-msgstr "Group tasks around a local workspace and use it as the task working directory."
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.sectionDescription"
+msgstr "Group chats and projects however you like"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -226,9 +248,19 @@ msgid "menu.help"
 msgstr "Help"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.inOneList"
+msgstr "In one list"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.language.description"
 msgstr "Language for the app UI"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.sort.updated"
+msgstr "Last updated"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/plugins-page.tsx
@@ -242,11 +274,6 @@ msgid "task.loadingConversation"
 msgstr "Loading conversation…"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/task-sidebar.tsx
-msgid "navigation.loadingMore"
-msgstr "Loading more"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
 msgid "task.status.local"
 msgstr "Local"
@@ -257,20 +284,15 @@ msgid "task.localAgent"
 msgstr "Local agent"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.sort.manual"
+msgstr "Manual order"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 #: renderer/src/components/task-workspace.tsx
 msgid "settings.models"
 msgstr "Models"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
-msgid "task.project.namePlaceholder"
-msgstr "My project"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
-msgid "task.project.name"
-msgstr "Name"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
@@ -281,6 +303,11 @@ msgstr "Needs attention"
 #: renderer/src/components/task-sidebar.tsx
 msgid "navigation.networks"
 msgstr "Networks"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.newSection"
+msgstr "New section"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -366,6 +393,11 @@ msgstr "Open workspace panel"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
+msgid "navigation.organizeSidebar"
+msgstr "Organize sidebar"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.pending"
 msgstr "Pending"
 
@@ -388,6 +420,21 @@ msgstr "Plugins & skills"
 #: renderer/src/routes/settings.appearance.tsx
 msgid "settings.preferences.title"
 msgstr "Preferences"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.sort.priority"
+msgstr "Priority"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-create-dialog.tsx
+msgid "task.project.name"
+msgstr "Name"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-create-dialog.tsx
+msgid "task.project.namePlaceholder"
+msgstr "My project"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
@@ -418,6 +465,11 @@ msgstr "Review"
 #: renderer/src/components/task-workspace.tsx
 msgid "task.artifact.running"
 msgstr "Running"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.saveSection"
+msgstr "Save section"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -469,6 +521,16 @@ msgstr "Show more"
 #: renderer/src/components/task-sidebar.tsx
 msgid "navigation.signingPolicies"
 msgstr "Signing policies"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.sortChatsBy"
+msgstr "Sort chats by"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-create-dialog.tsx
+msgid "task.project.sourceFolders"
+msgstr "Source folders"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx

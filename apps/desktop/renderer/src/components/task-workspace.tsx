@@ -60,21 +60,11 @@ import {
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "@cypheria/ui/ai-elements/tool"
 import { Badge } from "@cypheria/ui/components/badge"
 import { Button } from "@cypheria/ui/components/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@cypheria/ui/components/dialog"
-import { Input } from "@cypheria/ui/components/input"
-import { Label } from "@cypheria/ui/components/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@cypheria/ui/components/tabs"
 import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import type {
   CustomContentUIPart,
@@ -110,6 +100,7 @@ import type {
 } from "../../../ipc/src/index.js"
 import { CodexIpcChatTransport } from "../codex-chat.js"
 import { Route } from "../routes/index"
+import { ProjectCreateDialog } from "./project-create-dialog"
 import { newTaskRevisionAtom } from "./task-navigation"
 import {
   deriveTaskWorkspaceArtifacts,
@@ -132,13 +123,14 @@ const fallbackModel: CodexModelView = {
 }
 
 export default function TaskWorkspace() {
-  const { thread, prompt } = Route.useSearch()
+  const { thread, prompt, section } = Route.useSearch()
   const revision = useAtomValue(newTaskRevisionAtom)
   return (
     <TaskSession
-      key={thread ?? `new-task-${revision}-${prompt ?? ""}`}
+      key={thread ?? `new-task-${revision}-${prompt ?? ""}-${section ?? ""}`}
       resumeThreadId={thread}
       initialPrompt={prompt}
+      initialSectionId={section}
     />
   )
 }
@@ -146,7 +138,8 @@ export default function TaskWorkspace() {
 function TaskSession({
   resumeThreadId,
   initialPrompt,
-}: Readonly<{ resumeThreadId?: string; initialPrompt?: string }>) {
+  initialSectionId,
+}: Readonly<{ resumeThreadId?: string; initialPrompt?: string; initialSectionId?: string }>) {
   const { i18n } = useLingui()
   const navigate = Route.useNavigate()
   const queryClient = useQueryClient()
@@ -219,8 +212,15 @@ function TaskSession({
           sandboxMode,
           serviceTier: settings?.serviceTier ?? undefined,
         }),
-        (threadId) => {
+        async (threadId) => {
           if (resumeThreadId) return
+          if (initialSectionId) {
+            await window.cypheria?.codex.moveThreadToSection({
+              sectionId: initialSectionId,
+              threadId,
+            })
+            void queryClient.invalidateQueries({ queryKey: ["codex", "thread-sections"] })
+          }
           void queryClient.invalidateQueries({ queryKey: ["codex", "threads"] })
           void queryClient.invalidateQueries({ queryKey: ["codex", "projects"] })
           void navigate({ replace: true, search: { thread: threadId } })
@@ -228,6 +228,7 @@ function TaskSession({
       ),
     [
       provider,
+      initialSectionId,
       navigate,
       queryClient,
       selectedProject?.id,
@@ -297,9 +298,7 @@ function TaskSession({
     <section
       className={cn(
         "grid h-screen min-h-0 bg-background max-[1180px]:grid-cols-1 max-[767px]:h-[calc(100vh-48px)]",
-        workspacePanelOpen
-          ? "grid-cols-[minmax(0,1fr)_clamp(320px,38%,440px)]"
-          : "grid-cols-1"
+        workspacePanelOpen ? "grid-cols-[minmax(0,1fr)_clamp(320px,38%,440px)]" : "grid-cols-1"
       )}
     >
       <main className="grid min-h-0 min-w-0 grid-rows-[var(--chrome-height,44px)_minmax(0,1fr)_auto] overflow-hidden border-r border-border [container-type:inline-size] max-[1180px]:border-r-0">
@@ -512,7 +511,7 @@ function TaskSession({
             <span>{provider}</span>
           </div>
         </div>
-        <NewProjectDialog
+        <ProjectCreateDialog
           onCreated={(projectId) => {
             setSelectedProjectId(projectId)
             setProjectDialogOpen(false)
@@ -529,126 +528,6 @@ function TaskSession({
         />
       ) : null}
     </section>
-  )
-}
-
-function NewProjectDialog({
-  onCreated,
-  onOpenChange,
-  open,
-}: Readonly<{
-  onCreated: (projectId: string) => void
-  onOpenChange: (open: boolean) => void
-  open: boolean
-}>) {
-  const { i18n } = useLingui()
-  const queryClient = useQueryClient()
-  const [name, setName] = useState("")
-  const [root, setRoot] = useState("")
-  const [error, setError] = useState<string | null>(null)
-  const createProject = useMutation({
-    mutationFn: () => {
-      const api = window.cypheria?.codex
-      if (!api)
-        throw new Error(
-          i18n._(
-            msg({
-              id: "task.project.desktopOnly",
-              message: "Codex is only available in the Cypheria desktop app.",
-            })
-          )
-        )
-      return api.createProject({ name: name.trim(), root })
-    },
-    onSuccess: async (project) => {
-      await queryClient.invalidateQueries({ queryKey: ["codex", "projects"] })
-      setName("")
-      setRoot("")
-      onCreated(project.id)
-    },
-  })
-
-  const chooseRoot = async () => {
-    const result = await window.cypheria?.codex.pickProjectRoot()
-    if (!result?.path) return
-    setRoot(result.path)
-    if (!name.trim()) setName(result.path.split(/[\\/]/u).filter(Boolean).at(-1) ?? "Project")
-  }
-
-  const submit = async () => {
-    setError(null)
-    if (!name.trim() || !root) {
-      setError(
-        i18n._(
-          msg({
-            id: "task.project.validation",
-            message: "Choose a folder and enter a project name.",
-          })
-        )
-      )
-      return
-    }
-    try {
-      await createProject.mutateAsync()
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : String(reason))
-    }
-  }
-
-  return (
-    <Dialog onOpenChange={onOpenChange} open={open}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
-            <Trans id="task.project.create">Create project</Trans>
-          </DialogTitle>
-          <DialogDescription>
-            <Trans id="task.project.description">
-              Group tasks around a local workspace and use it as the task working directory.
-            </Trans>
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-3">
-          <div className="grid gap-1.5">
-            <Label htmlFor="project-name">
-              <Trans id="task.project.name">Name</Trans>
-            </Label>
-            <Input
-              id="project-name"
-              onChange={(event) => setName(event.target.value)}
-              placeholder={i18n._(
-                msg({ id: "task.project.namePlaceholder", message: "My project" })
-              )}
-              value={name}
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <Label htmlFor="project-root">
-              <Trans id="task.project.folder">Folder</Trans>
-            </Label>
-            <div className="flex gap-2">
-              <Input id="project-root" readOnly value={root} />
-              <Button onClick={() => void chooseRoot()} type="button" variant="outline">
-                <Trans id="task.project.chooseFolder">Choose…</Trans>
-              </Button>
-            </div>
-          </div>
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        </div>
-        <DialogFooter>
-          <Button disabled={createProject.isPending} onClick={() => void submit()} type="button">
-            {createProject.isPending ? (
-              <Trans id="task.project.creating">Creating…</Trans>
-            ) : (
-              <Trans id="task.project.create">Create project</Trans>
-            )}
-          </Button>
-          <Button onClick={() => onOpenChange(false)} type="button" variant="outline">
-            <Trans id="task.cancel">Cancel</Trans>
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   )
 }
 

@@ -2,16 +2,21 @@ import type { CodexAppServerBridge } from "@cypheria/codex-bridge"
 import { describe, expect, it } from "vitest"
 import {
   createCodexProject,
+  createCodexThreadSection,
   deleteCodexProject,
+  deleteCodexThreadSection,
   listCodexModels,
   listCodexProjects,
+  listCodexThreadSections,
   listCodexThreads,
   mapCodexThreadItemsToUiMessages,
+  moveCodexThreadToSection,
   readCodexAccount,
   readCodexModelSettings,
   readCodexThread,
   startCodexLogin,
   updateCodexProject,
+  updateCodexThreadSection,
   validateOpenAiApiKey,
   writeCodexModelSettings,
 } from "./codex-desktop.js"
@@ -287,6 +292,38 @@ describe("desktop Codex services", () => {
     expect(bridge.calls.find((call) => call.method === "project/create")?.params).toMatchObject({
       name: "Cypheria",
       roots: [{ path: "/work/cypheria" }],
+    })
+  })
+
+  it("manages App Server thread sections through desktop views", async () => {
+    const section = { appearance: null, id: "section-1", name: "Research" }
+    const bridge = new FakeBridge({
+      "thread/section/move": {},
+      "threadSection/create": { section },
+      "threadSection/delete": {},
+      "threadSection/list": { data: [section], nextCursor: null },
+      "threadSection/update": { section: { ...section, name: "Design" } },
+    })
+
+    await expect(listCodexThreadSections(asBridge(bridge))).resolves.toEqual({
+      data: [{ id: "section-1", name: "Research" }],
+      nextCursor: null,
+    })
+    await expect(createCodexThreadSection(asBridge(bridge), "Research")).resolves.toEqual({
+      id: "section-1",
+      name: "Research",
+    })
+    await expect(
+      updateCodexThreadSection(asBridge(bridge), { id: "section-1", name: "Design" })
+    ).resolves.toEqual({ id: "section-1", name: "Design" })
+    await expect(
+      moveCodexThreadToSection(asBridge(bridge), {
+        sectionId: "section-1",
+        threadId: "thread-1",
+      })
+    ).resolves.toEqual({ moved: true })
+    await expect(deleteCodexThreadSection(asBridge(bridge), "section-1")).resolves.toEqual({
+      deleted: true,
     })
   })
 

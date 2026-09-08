@@ -245,7 +245,7 @@ Cypheria-specific components：
 
 桌面侧栏动画与悬停预览由 `apps/desktop/renderer/src/components/desktop-sidebar.tsx` 及其 CSS 实现，复用共享 UI 侧栏基础组件。固定侧栏收起时同步改变布局占位宽度并将面板滑出；悬停预览覆盖内容，不占布局宽度。任务标题栏的左侧预留空间与收起后的工具栏同步变化。原生窗口控制按钮保持固定，并在用户偏好减少动态效果时禁用过渡。 窗口工具栏使用固定像素尺寸：标题栏 44px、点击区域 28px、图标 15px、间距 6px；这些尺寸不随 UI 字体设置缩放，工具栏中心与 macOS 原生红黄绿按钮的 y=22px 中心对齐。 侧栏工具栏图标保持固定，由收起中的面板裁切，并露出下方收起工具栏，不交叉淡化。标题栏底部分隔线位于侧栏下方，侧栏工具栏底部不显示分隔线。点击收起后，只有光标移出切换按钮再进入才触发预览。拖拽右边线可在 240–480px 范围内调宽（同时受窗口宽度约束），双击恢复 288px；聚焦边线后支持方向键与 Home/End。拖到 240px 最小宽度后继续向左超过 120px（最小宽度的一半） 会收起侧栏并关闭预览；再次展开时保留最小宽度。宽度在当前应用会话的页面切换间保留。
 
-新任务和搜索下方的工作区导航会先扁平化为具有稳定 key 的行，再由单个 `@tanstack/react-virtual` virtualizer 渲染。分组和项目的展开状态只重建可见行模型。Pinned 分页使用 App Server 内置 pinned section 过滤，未分组线程分页同时为 Projects 与 Recents 提供数据。Pinned、Projects 和项目任务仅由 Show more 操作控制每次 5 条的渐进展示，只有 Recents 末尾加载行会自动请求下一页 cursor。
+新任务和搜索下方的工作区导航会先扁平化为具有稳定 key 的行，再由单个 `@tanstack/react-virtual` virtualizer 渲染。分组和项目的展开状态只重建可见行模型。Pinned 分页使用 App Server 内置 pinned section 过滤，未分组线程分页同时为 Projects 与 Recents 提供数据；自定义分组通过 renderer-safe IPC 调用 generated experimental `threadSection/*` 与 `thread/section/move` 方法来查询和变更。非敏感的组织与排序偏好保存在 renderer 存储中。Pinned、Projects 和项目任务仅由 Show more 操作控制每次 5 条的渐进展示，只有 Recents 末尾加载行会自动请求下一页 cursor。
 
 ## Web3 Stack
 

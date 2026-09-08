@@ -19,6 +19,11 @@ msgid "search.keyboardHelp"
 msgstr "↑↓ 导航 · Enter 打开 · Esc 关闭"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/project-create-dialog.tsx
+msgid "task.project.addFolders"
+msgstr "添加 Codex 可以读取和编辑的文件夹"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
 msgid "task.artifact.added"
 msgstr "已添加"
@@ -32,6 +37,11 @@ msgstr "外观"
 #: renderer/src/components/app-shell.tsx
 msgid "settings.appearance"
 msgstr "外观"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.archiveSection"
+msgstr "归档所有对话"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
@@ -69,29 +79,30 @@ msgid "task.workspace.browser"
 msgstr "浏览器"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.byProject"
+msgstr "按项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-create-dialog.tsx
+#: renderer/src/components/task-sidebar.tsx
 msgid "task.cancel"
 msgstr "取消"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.deleteSectionDescription"
+msgstr "此分组中的对话将返回到最近列表。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-create-dialog.tsx
 msgid "task.project.validation"
 msgstr "请选择文件夹并输入项目名称。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
-msgid "task.project.chooseFolder"
-msgstr "选择…"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
 msgid "task.workspace.close"
 msgstr "关闭工作区面板"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
-msgid "task.project.desktopOnly"
-msgstr "Codex 仅可在 Cypheria 桌面应用中使用。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
@@ -124,14 +135,15 @@ msgid "search.error"
 msgstr "无法搜索任务。"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/project-create-dialog.tsx
 #: renderer/src/components/task-workspace.tsx
 msgid "task.project.create"
 msgstr "创建项目"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
-msgid "task.project.creating"
-msgstr "正在创建…"
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.createSection"
+msgstr "创建分组"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
@@ -142,6 +154,11 @@ msgstr "已拒绝"
 #: renderer/src/components/task-workspace.tsx
 msgid "task.model.default"
 msgstr "默认"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.deleteSection"
+msgstr "删除分组"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
@@ -161,9 +178,19 @@ msgid "task.artifact.done"
 msgstr "已完成"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.section.empty"
+msgstr "将对话或项目拖放到这里"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "menu.edit"
 msgstr "编辑"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.editSection"
+msgstr "编辑分组"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
@@ -192,11 +219,6 @@ msgstr "本任务更改的文件及其最新记录状态。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
-msgid "task.project.folder"
-msgstr "文件夹"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
 msgid "task.sandbox.fullAccess"
 msgstr "完整电脑访问权限"
 
@@ -216,9 +238,9 @@ msgid "settings.general"
 msgstr "常规"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
-msgid "task.project.description"
-msgstr "围绕本地工作区组织任务，并将其用作任务工作目录。"
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.sectionDescription"
+msgstr "按你喜欢的方式组织对话和项目"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -226,9 +248,19 @@ msgid "menu.help"
 msgstr "帮助"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.inOneList"
+msgstr "合并为一个列表"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.language.description"
 msgstr "应用 UI 语言"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.sort.updated"
+msgstr "最近更新"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/plugins-page.tsx
@@ -242,11 +274,6 @@ msgid "task.loadingConversation"
 msgstr "正在加载对话…"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/task-sidebar.tsx
-msgid "navigation.loadingMore"
-msgstr "正在加载更多"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
 msgid "task.status.local"
 msgstr "本地"
@@ -257,20 +284,15 @@ msgid "task.localAgent"
 msgstr "本地智能体"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.sort.manual"
+msgstr "手动排序"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 #: renderer/src/components/task-workspace.tsx
 msgid "settings.models"
 msgstr "模型"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
-msgid "task.project.namePlaceholder"
-msgstr "我的项目"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/task-workspace.tsx
-msgid "task.project.name"
-msgstr "名称"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx
@@ -281,6 +303,11 @@ msgstr "需要处理"
 #: renderer/src/components/task-sidebar.tsx
 msgid "navigation.networks"
 msgstr "网络"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.newSection"
+msgstr "新建分组"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -366,6 +393,11 @@ msgstr "打开工作区面板"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
+msgid "navigation.organizeSidebar"
+msgstr "组织侧栏"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
 msgid "navigation.pending"
 msgstr "待处理"
 
@@ -388,6 +420,21 @@ msgstr "插件与技能"
 #: renderer/src/routes/settings.appearance.tsx
 msgid "settings.preferences.title"
 msgstr "偏好设置"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.sort.priority"
+msgstr "优先级"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-create-dialog.tsx
+msgid "task.project.name"
+msgstr "名称"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-create-dialog.tsx
+msgid "task.project.namePlaceholder"
+msgstr "我的项目"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-sidebar.tsx
@@ -418,6 +465,11 @@ msgstr "审阅"
 #: renderer/src/components/task-workspace.tsx
 msgid "task.artifact.running"
 msgstr "运行中"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.saveSection"
+msgstr "保存分组"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -469,6 +521,16 @@ msgstr "显示更多"
 #: renderer/src/components/task-sidebar.tsx
 msgid "navigation.signingPolicies"
 msgstr "签名策略"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/task-sidebar.tsx
+msgid "navigation.sortChatsBy"
+msgstr "对话排序方式"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-create-dialog.tsx
+msgid "task.project.sourceFolders"
+msgstr "源文件夹"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/task-workspace.tsx

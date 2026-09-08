@@ -108,6 +108,8 @@ export const CodexProjectListRequestSchema = z
   .object({
     cursor: z.string().nullable().optional(),
     limit: z.number().int().min(1).max(100).optional(),
+    sortDirection: z.enum(["asc", "desc"]).optional(),
+    sortKey: z.enum(["position", "recencyAt"]).optional(),
   })
   .strict()
 
@@ -132,6 +134,43 @@ export const CodexThreadListRequestSchema = z
     limit: z.number().int().min(1).max(100).optional(),
     searchTerm: z.string().optional(),
     sectionId: z.string().nullable().optional(),
+    sortDirection: z.enum(["asc", "desc"]).optional(),
+    sortKey: z.enum(["created_at", "updated_at", "recency_at", "section_position"]).optional(),
+  })
+  .strict()
+
+export const CodexThreadSectionViewSchema = z
+  .object({ id: z.string().min(1), name: z.string().trim().min(1) })
+  .strict()
+export type CodexThreadSectionView = z.infer<typeof CodexThreadSectionViewSchema>
+
+export const CodexThreadSectionListPageSchema = z
+  .object({ data: z.array(CodexThreadSectionViewSchema), nextCursor: z.string().nullable() })
+  .strict()
+export type CodexThreadSectionListPage = z.infer<typeof CodexThreadSectionListPageSchema>
+
+export const CodexThreadSectionListRequestSchema = z
+  .object({
+    cursor: z.string().nullable().optional(),
+    limit: z.number().int().min(1).max(100).optional(),
+  })
+  .strict()
+
+export const CodexThreadSectionCreateRequestSchema = z
+  .object({ name: z.string().trim().min(1) })
+  .strict()
+
+export const CodexThreadSectionUpdateRequestSchema = z
+  .object({ id: z.string().min(1), name: z.string().trim().min(1) })
+  .strict()
+
+export const CodexThreadSectionDeleteRequestSchema = z.object({ id: z.string().min(1) }).strict()
+
+export const CodexThreadSectionMoveRequestSchema = z
+  .object({
+    beforeThreadId: z.string().min(1).nullable().optional(),
+    sectionId: z.string().min(1).nullable(),
+    threadId: z.string().min(1),
   })
   .strict()
 

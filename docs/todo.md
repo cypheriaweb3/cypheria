@@ -187,6 +187,11 @@ Status legend:
   - Exclude: generic custom providers and OpenCodex integration until the provider strategy is decided.
   - Verification: `pnpm run ci`, `pnpm build`, and `pnpm --filter @cypheria/desktop test`.
 
+- [x] Match Codex Desktop sidebar organization and section controls.
+  - Acceptance: Pinned and chat sorting, project and one-list organization, project creation, custom section lifecycle, section-scoped new chats, and Recents new-chat controls work through the compact Codex-style section headers and menus.
+  - Include: generated experimental App Server section methods behind typed IPC, persisted non-sensitive sidebar preferences, virtualized custom section rows, and workbench-relative right-panel sizing.
+  - Verification: desktop typecheck/tests/build plus a real Electron visual and interaction smoke test against the supplied Codex Desktop references.
+
 - [x] Add managed ACP harness installation and Connections terminal sessions.
   - Acceptance: Grok Build, Cursor, Gemini CLI, Hermes, and OpenCode install their latest release below `$CYPHERIA_HOME`, expose installed version and enablement, pass an ACP v1 initialization check, and can open concurrent page-level terminal tabs that close when Connections unmounts.
   - Include: typed IPC, harness-specific homes, global proxy propagation, Hermes `HERMES_HOME`/`HERMES_INSTALL_DIR` containment without its desktop package, and auditable install receipts containing changed files and executable hashes.

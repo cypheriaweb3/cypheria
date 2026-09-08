@@ -187,6 +187,11 @@
   - 不包括：在 provider 策略确定前，不实现通用 custom providers 与 OpenCodex 集成。
   - 验证：`pnpm run ci`、`pnpm build` 和 `pnpm --filter @cypheria/desktop test`。
 
+- [x] 对齐 Codex Desktop 的侧栏组织与分组控件。
+  - 验收：Pinned 与普通对话排序、按项目与单列表组织、项目创建、自定义分组生命周期、分组内新对话和 Recents 新对话，都通过紧凑的 Codex 风格分组标题与菜单正常工作。
+  - 包括：经 typed IPC 暴露的 generated experimental App Server 分组方法、持久化非敏感侧栏偏好、虚拟化自定义分组行，以及相对工作台约束的右侧面板尺寸。
+  - 验证：desktop typecheck/tests/build，并依据用户提供的 Codex Desktop 参考图完成真实 Electron 视觉与交互 smoke test。
+
 - [x] 添加受管 ACP harness 安装与 Connections 终端会话。
   - 验收：Grok Build、Cursor、Gemini CLI、Hermes 和 OpenCode 将最新版本安装到 `$CYPHERIA_HOME` 下，暴露已安装版本与启用状态，通过 ACP v1 初始化检查，并可打开并发的页面级终端标签；Connections 卸载时关闭全部终端。
   - 包括：typed IPC、harness 专用 home、全局代理传递、通过 `HERMES_HOME`/`HERMES_INSTALL_DIR` 约束 Hermes 且不安装 desktop 包，以及包含变化文件与可执行文件哈希的可审计安装收据。

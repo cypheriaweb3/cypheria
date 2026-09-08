@@ -226,6 +226,8 @@ export const listCodexThreads = async (
     readonly limit?: number
     readonly searchTerm?: string
     readonly sectionId?: string | null
+    readonly sortDirection?: "asc" | "desc"
+    readonly sortKey?: "created_at" | "updated_at" | "recency_at" | "section_position"
   }
 ): Promise<{ data: CodexThreadView[]; nextCursor: string | null }> => {
   const response = await bridge.request<"thread/list", v2.ThreadListResponse>("thread/list", {
@@ -234,8 +236,8 @@ export const listCodexThreads = async (
     limit: options.limit ?? 100,
     searchTerm: options.searchTerm,
     ...(Object.hasOwn(options, "sectionId") ? { sectionId: options.sectionId } : {}),
-    sortDirection: "desc",
-    sortKey: "updated_at",
+    sortDirection: options.sortDirection ?? "desc",
+    sortKey: options.sortKey ?? "updated_at",
   })
   return {
     data: response.data.map((thread) => ({
@@ -265,11 +267,18 @@ const toCodexProjectView = (project: v2.Project) => ({
 
 export const listCodexProjects = async (
   bridge: CodexAppServerBridge,
-  options: { readonly cursor?: string | null; readonly limit?: number } = {}
+  options: {
+    readonly cursor?: string | null
+    readonly limit?: number
+    readonly sortDirection?: "asc" | "desc"
+    readonly sortKey?: "position" | "recencyAt"
+  } = {}
 ) => {
   const response = await bridge.request<"project/list", v2.ProjectListResponse>("project/list", {
     cursor: options.cursor,
     limit: options.limit ?? 100,
+    sortDirection: options.sortDirection,
+    sortKey: options.sortKey,
   })
   return { data: response.data.map(toCodexProjectView), nextCursor: response.nextCursor }
 }
@@ -303,6 +312,64 @@ export const updateCodexProject = async (
 export const deleteCodexProject = async (bridge: CodexAppServerBridge, projectId: string) => {
   await bridge.request<"project/delete", v2.ProjectDeleteResponse>("project/delete", { projectId })
   return { deleted: true as const }
+}
+
+const toCodexThreadSectionView = (section: v2.ThreadSection) => ({
+  id: section.id,
+  name: section.name,
+})
+
+export const listCodexThreadSections = async (
+  bridge: CodexAppServerBridge,
+  options: { readonly cursor?: string | null; readonly limit?: number } = {}
+) => {
+  const response = await bridge.request<"threadSection/list", v2.ThreadSectionListResponse>(
+    "threadSection/list",
+    { cursor: options.cursor, limit: options.limit ?? 100 }
+  )
+  return { data: response.data.map(toCodexThreadSectionView), nextCursor: response.nextCursor }
+}
+
+export const createCodexThreadSection = async (bridge: CodexAppServerBridge, name: string) => {
+  const response = await bridge.request<"threadSection/create", v2.ThreadSectionCreateResponse>(
+    "threadSection/create",
+    { name }
+  )
+  return toCodexThreadSectionView(response.section)
+}
+
+export const updateCodexThreadSection = async (
+  bridge: CodexAppServerBridge,
+  input: { readonly id: string; readonly name: string }
+) => {
+  const response = await bridge.request<"threadSection/update", v2.ThreadSectionUpdateResponse>(
+    "threadSection/update",
+    { name: input.name, sectionId: input.id }
+  )
+  return toCodexThreadSectionView(response.section)
+}
+
+export const deleteCodexThreadSection = async (bridge: CodexAppServerBridge, sectionId: string) => {
+  await bridge.request<"threadSection/delete", v2.ThreadSectionDeleteResponse>(
+    "threadSection/delete",
+    { sectionId }
+  )
+  return { deleted: true as const }
+}
+
+export const moveCodexThreadToSection = async (
+  bridge: CodexAppServerBridge,
+  input: {
+    readonly beforeThreadId?: string | null
+    readonly sectionId: string | null
+    readonly threadId: string
+  }
+) => {
+  await bridge.request<"thread/section/move", v2.ThreadSectionMoveResponse>(
+    "thread/section/move",
+    input
+  )
+  return { moved: true as const }
 }
 
 const customHistoryPart = (item: v2.ThreadItem): UIMessage["parts"][number] =>
