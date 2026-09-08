@@ -29,6 +29,7 @@ export {
   createCodexDynamicToolRegistry,
 } from "./dynamic-tools.js"
 export type * from "./generated/index.js"
+export { type CodexGeneratedImageData, codexGeneratedImageData } from "./image-generation.js"
 export {
   type CodexTerminalInteraction,
   type CodexTurnDiffSnapshot,

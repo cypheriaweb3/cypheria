@@ -16,7 +16,7 @@ import type {
   SharedV4ProviderOptions,
   SharedV4Warning,
 } from "@ai-sdk/provider"
-
+import { codexGeneratedImageData } from "./image-generation.js"
 import type {
   ClientRequest,
   CodexClientRequestParams,
@@ -783,11 +783,11 @@ const imageFileFromItem = (
   item: Extract<v2.ThreadItem, { type: "imageGeneration" }>,
   snapshot?: CodexTurnItemSnapshot
 ): Extract<LanguageModelV4Content, { type: "file" }> | undefined => {
-  if (!item.result || item.failure) return undefined
-  const match = /^data:(image\/[^;]+);base64,(.+)$/su.exec(item.result)
+  const image = codexGeneratedImageData(item)
+  if (!image) return undefined
   return {
-    data: { data: match?.[2] ?? item.result, type: "data" },
-    mediaType: match?.[1] ?? "image/png",
+    data: { data: image.base64, type: "data" },
+    mediaType: image.mediaType,
     providerMetadata: {
       [providerId]: {
         itemId: item.id,

@@ -1,4 +1,4 @@
-import type { CodexTurnItemSnapshot } from "@cypheria/codex-bridge"
+import { type CodexTurnItemSnapshot, codexGeneratedImageData } from "@cypheria/codex-bridge"
 import { cn } from "@cypheria/ui"
 import { CodeBlock } from "@cypheria/ui/ai-elements/code-block"
 import { Message, MessageContent, MessageResponse } from "@cypheria/ui/ai-elements/message"
@@ -271,18 +271,21 @@ function ActivityItem({ snapshot }: Readonly<{ snapshot: CodexTurnItemSnapshot }
         <CodeBlock code={jsonValue(item.results)} language="json" />
       ) : null
       break
-    case "imageGeneration":
-      detail =
-        item.result && !item.failure ? (
-          <img
-            alt={item.revisedPrompt ?? "Generated"}
-            className="max-h-80 rounded-lg"
-            src={item.result}
-          />
-        ) : item.failure ? (
-          <CodeBlock code={jsonValue(item.failure)} language="json" />
-        ) : null
+    case "imageGeneration": {
+      const image = codexGeneratedImageData(item)
+      detail = image ? (
+        <img
+          alt={item.revisedPrompt ?? "Generated"}
+          className="max-h-80 rounded-lg"
+          height={1024}
+          src={image.url}
+          width={1024}
+        />
+      ) : item.failure ? (
+        <CodeBlock code={jsonValue(item.failure)} language="json" />
+      ) : null
       break
+    }
     case "plan":
       detail = <MessageResponse>{item.text}</MessageResponse>
       break

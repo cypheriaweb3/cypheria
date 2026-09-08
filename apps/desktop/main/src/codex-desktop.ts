@@ -5,6 +5,7 @@ import {
   CodexTurnProjector,
   type CodexTurnSnapshot,
   type CodexTurnUpdate,
+  codexGeneratedImageData,
   createCodexAppServerProvider,
   type v2,
 } from "@cypheria/codex-bridge"
@@ -496,13 +497,14 @@ const historyPartsFromItem = (item: v2.ThreadItem): CodexUiMessage["parts"] => {
       : []
   }
   if (item.type === "imageGeneration" && item.result && !item.failure) {
-    const match = /^data:(image\/[^;]+);base64,/u.exec(item.result)
+    const image = codexGeneratedImageData(item)
+    if (!image) return []
     return [
       {
-        mediaType: match?.[1] ?? "image/png",
+        mediaType: image.mediaType,
         providerMetadata: { "cypheria.codex": { item, itemId: item.id } },
         type: "file",
-        url: item.result,
+        url: image.url,
       },
     ]
   }
