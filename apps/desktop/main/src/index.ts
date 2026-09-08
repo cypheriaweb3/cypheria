@@ -138,6 +138,11 @@ import {
   walletReorderAccountsContract,
   walletReorderContract,
   walletUnlockContract,
+  workspaceTerminalCloseAllContract,
+  workspaceTerminalCloseContract,
+  workspaceTerminalOpenContract,
+  workspaceTerminalResizeContract,
+  workspaceTerminalWriteContract,
 } from "../../ipc/src/index.js"
 import { readAppearanceSettings, writeAppearanceSettings } from "./appearance-config.js"
 import { configureChromiumFeatures } from "./chromium-features.js"
@@ -212,6 +217,10 @@ import {
   shutdownDesktopRuntime,
 } from "./runtime.js"
 import { listSystemFonts } from "./system-fonts.js"
+import {
+  createWorkspaceTerminalManager,
+  type WorkspaceTerminalManager,
+} from "./workspace-terminal-manager.js"
 
 app.setName("Cypheria")
 
@@ -223,6 +232,7 @@ let desktopRuntimeContext: DesktopRuntimeContext | null = null
 let currentAppearanceSettings: AppearanceSettings | null = null
 let proxySettingsUnderTest: import("../../ipc/src/index.js").ConnectionProxySettings | null = null
 let harnessManager: HarnessManager | null = null
+let workspaceTerminalManager: WorkspaceTerminalManager | null = null
 
 const getCodexCommand = (): string =>
   resolveCodexCommand({
@@ -392,7 +402,11 @@ const toRuntimeInfo = async (context: DesktopRuntimeContext): Promise<RuntimeInf
   }
 }
 
-const registerIpcHandlers = (context: DesktopRuntimeContext, harnesses: HarnessManager): void => {
+const registerIpcHandlers = (
+  context: DesktopRuntimeContext,
+  harnesses: HarnessManager,
+  workspaceTerminals: WorkspaceTerminalManager
+): void => {
   const appMetadata: AppMetadata = {
     name: app.getName(),
     version: app.getVersion(),
@@ -735,6 +749,26 @@ const registerIpcHandlers = (context: DesktopRuntimeContext, harnesses: HarnessM
     harnesses.closeTerminal(terminalId)
   )
   registerIpcRoute(harnessTerminalCloseAllContract, () => harnesses.closeAllTerminals())
+  registerIpcRoute(workspaceTerminalOpenContract, async ({ projectId }) => {
+    let cwd: string | undefined
+    if (projectId) {
+      const projects = await listCodexProjects(codexBridge(), { limit: 100 })
+      const project = projects.data.find((candidate) => candidate.id === projectId)
+      if (!project?.roots[0]) throw new Error("The selected project is unavailable.")
+      cwd = project.roots[0]
+    }
+    return workspaceTerminals.openTerminal(cwd)
+  })
+  registerIpcRoute(workspaceTerminalWriteContract, ({ data, terminalId }) =>
+    workspaceTerminals.writeTerminal(terminalId, data)
+  )
+  registerIpcRoute(workspaceTerminalResizeContract, ({ cols, rows, terminalId }) =>
+    workspaceTerminals.resizeTerminal(terminalId, cols, rows)
+  )
+  registerIpcRoute(workspaceTerminalCloseContract, ({ terminalId }) =>
+    workspaceTerminals.closeTerminal(terminalId)
+  )
+  registerIpcRoute(workspaceTerminalCloseAllContract, () => workspaceTerminals.closeAllTerminals())
 }
 
 const toAppearanceBootstrap = (settings: AppearanceSettings): AppearanceSettingsWrite => {
@@ -960,6 +994,7 @@ const registerLifecycleHandlers = (): void => {
 
   app.on("before-quit", () => {
     harnessManager?.closeAllTerminals()
+    workspaceTerminalManager?.closeAllTerminals()
     if (!desktopRuntimeContext) {
       return
     }
@@ -1005,8 +1040,15 @@ const startDesktopApp = async (): Promise<void> => {
       }
     },
   })
+  workspaceTerminalManager = createWorkspaceTerminalManager({
+    onEvent: (event) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(CYPHERIA_IPC_CHANNELS.workspaceTerminalEvent, event)
+      }
+    },
+  })
   await harnessManager.readState()
-  registerIpcHandlers(desktopRuntimeContext, harnessManager)
+  registerIpcHandlers(desktopRuntimeContext, harnessManager, workspaceTerminalManager)
   mainWindow = await createMainWindow(desktopRuntimeContext)
 }
 

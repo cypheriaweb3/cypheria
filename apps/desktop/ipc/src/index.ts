@@ -152,11 +152,21 @@ import {
   WalletSetActiveInputSchema,
   WalletVaultStateSchema,
 } from "./web3.js"
+import {
+  type WorkspaceTerminalEvent,
+  WorkspaceTerminalIdSchema,
+  WorkspaceTerminalOpenRequestSchema,
+  WorkspaceTerminalResizeSchema,
+  type WorkspaceTerminalSession,
+  WorkspaceTerminalSessionSchema,
+  WorkspaceTerminalWriteSchema,
+} from "./workspace-terminal.js"
 
 export * from "./codex.js"
 export * from "./connections.js"
 export * from "./integrations.js"
 export * from "./web3.js"
+export * from "./workspace-terminal.js"
 
 export const IPC_PROTOCOL_VERSION = 1
 
@@ -252,6 +262,12 @@ export const CYPHERIA_IPC_CHANNELS = {
   harnessTerminalResize: "harness.terminal.resize",
   harnessTerminalWrite: "harness.terminal.write",
   harnessUpdate: "harness.update",
+  workspaceTerminalClose: "workspace.terminal.close",
+  workspaceTerminalCloseAll: "workspace.terminal.close-all",
+  workspaceTerminalEvent: "workspace.terminal.event",
+  workspaceTerminalOpen: "workspace.terminal.open",
+  workspaceTerminalResize: "workspace.terminal.resize",
+  workspaceTerminalWrite: "workspace.terminal.write",
   dappProviderRequest: "dapp.provider.request",
   dappProviderEvent: "dapp.provider.event",
   networkList: "network.list",
@@ -1293,6 +1309,49 @@ export const harnessTerminalCloseAllContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<EmptyPayload, { closed: true }>
 
+export const workspaceTerminalOpenContract = {
+  channel: CYPHERIA_IPC_CHANNELS.workspaceTerminalOpen,
+  namespace: "codex",
+  request: WorkspaceTerminalOpenRequestSchema,
+  response: WorkspaceTerminalSessionSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  z.input<typeof WorkspaceTerminalOpenRequestSchema>,
+  WorkspaceTerminalSession
+>
+
+export const workspaceTerminalWriteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.workspaceTerminalWrite,
+  namespace: "codex",
+  request: WorkspaceTerminalWriteSchema,
+  response: z.object({ written: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof WorkspaceTerminalWriteSchema>, { written: true }>
+
+export const workspaceTerminalResizeContract = {
+  channel: CYPHERIA_IPC_CHANNELS.workspaceTerminalResize,
+  namespace: "codex",
+  request: WorkspaceTerminalResizeSchema,
+  response: z.object({ resized: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof WorkspaceTerminalResizeSchema>, { resized: true }>
+
+export const workspaceTerminalCloseContract = {
+  channel: CYPHERIA_IPC_CHANNELS.workspaceTerminalClose,
+  namespace: "codex",
+  request: WorkspaceTerminalIdSchema,
+  response: z.object({ closed: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<z.input<typeof WorkspaceTerminalIdSchema>, { closed: true }>
+
+export const workspaceTerminalCloseAllContract = {
+  channel: CYPHERIA_IPC_CHANNELS.workspaceTerminalCloseAll,
+  namespace: "codex",
+  request: EmptyPayloadSchema,
+  response: z.object({ closed: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, { closed: true }>
+
 export const codexAccountReadContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexAccountRead,
   namespace: "codex",
@@ -1751,6 +1810,11 @@ export const ipcContracts = {
   harnessTerminalResize: harnessTerminalResizeContract,
   harnessTerminalWrite: harnessTerminalWriteContract,
   harnessUpdate: harnessUpdateContract,
+  workspaceTerminalClose: workspaceTerminalCloseContract,
+  workspaceTerminalCloseAll: workspaceTerminalCloseAllContract,
+  workspaceTerminalOpen: workspaceTerminalOpenContract,
+  workspaceTerminalResize: workspaceTerminalResizeContract,
+  workspaceTerminalWrite: workspaceTerminalWriteContract,
   networkCreate: networkCreateContract,
   networkEndpointAdd: networkEndpointAddContract,
   networkEndpointProbe: networkEndpointProbeContract,
@@ -1927,6 +1991,14 @@ export type CypheriaPreloadApi = {
     ) => Promise<HarnessView>
     readonly update: (id: import("./connections.js").HarnessId) => Promise<HarnessView>
     readonly writeTerminal: (terminalId: string, data: string) => Promise<{ written: true }>
+  }
+  readonly workspaceTerminal: {
+    readonly closeAll: () => Promise<{ closed: true }>
+    readonly close: (terminalId: string) => Promise<{ closed: true }>
+    readonly onEvent: (handler: (event: WorkspaceTerminalEvent) => void) => () => void
+    readonly open: (projectId?: string) => Promise<WorkspaceTerminalSession>
+    readonly resize: (terminalId: string, cols: number, rows: number) => Promise<{ resized: true }>
+    readonly write: (terminalId: string, data: string) => Promise<{ written: true }>
   }
   readonly automation: {
     readonly createTask: (

@@ -18,6 +18,9 @@ import {
   dappProviderRequestContract,
   networkCreateContract,
   networkEndpointSetEnabledContract,
+  workspaceTerminalOpenContract,
+  workspaceTerminalResizeContract,
+  workspaceTerminalWriteContract,
 } from "./index.js"
 
 const view = {
@@ -175,6 +178,29 @@ describe("Codex connection IPC contracts", () => {
         protocol: "http",
         username: "",
       }).success
+    ).toBe(false)
+  })
+})
+
+describe("workspace terminal IPC contracts", () => {
+  it("keeps terminal working directories behind project identifiers", () => {
+    expect(workspaceTerminalOpenContract.request.parse({ projectId: "project-1" })).toEqual({
+      projectId: "project-1",
+    })
+    expect(workspaceTerminalOpenContract.request.safeParse({ cwd: "/private" }).success).toBe(false)
+  })
+
+  it("bounds terminal input and resize messages", () => {
+    const terminalId = "de305d54-75b4-431b-adb2-eb6b9e546014"
+    expect(workspaceTerminalWriteContract.request.parse({ data: "pwd\r", terminalId })).toEqual({
+      data: "pwd\r",
+      terminalId,
+    })
+    expect(
+      workspaceTerminalResizeContract.request.parse({ cols: 120, rows: 32, terminalId })
+    ).toEqual({ cols: 120, rows: 32, terminalId })
+    expect(
+      workspaceTerminalResizeContract.request.safeParse({ cols: 1, rows: 32, terminalId }).success
     ).toBe(false)
   })
 })

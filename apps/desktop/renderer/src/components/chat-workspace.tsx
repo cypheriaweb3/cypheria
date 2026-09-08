@@ -1,5 +1,4 @@
 import { useChat } from "@ai-sdk/react"
-import { cn } from "@cypheria/ui"
 import {
   Attachment,
   AttachmentInfo,
@@ -48,19 +47,15 @@ import {
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "@cypheria/ui/ai-elements/reasoning"
 import { Source, Sources, SourcesContent, SourcesTrigger } from "@cypheria/ui/ai-elements/sources"
 import { Task, TaskContent, TaskItem, TaskTrigger } from "@cypheria/ui/ai-elements/task"
-import {
-  Terminal as AiTerminal,
-  TerminalActions,
-  TerminalContent,
-  TerminalCopyButton,
-  TerminalHeader,
-  TerminalStatus,
-  TerminalTitle,
-} from "@cypheria/ui/ai-elements/terminal"
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "@cypheria/ui/ai-elements/tool"
 import { Badge } from "@cypheria/ui/components/badge"
 import { Button } from "@cypheria/ui/components/button"
 import { Checkbox } from "@cypheria/ui/components/checkbox"
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from "@cypheria/ui/components/resizable"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@cypheria/ui/components/tabs"
 import type { I18n } from "@lingui/core"
 import { msg } from "@lingui/core/macro"
@@ -84,12 +79,13 @@ import {
   HardDrive,
   LoaderCircle,
   LockKeyhole,
+  PanelBottomClose,
+  PanelBottomOpen,
   PanelRightClose,
   PanelRightOpen,
   Plus,
   Settings,
   Sparkles,
-  TerminalSquare,
   WalletCards,
 } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
@@ -111,6 +107,7 @@ import {
 } from "./chat-workspace-artifacts"
 import { CodexTurnMessage } from "./codex-turn.js"
 import { ProjectCreateDialog } from "./project-create-dialog"
+import { useWorkspaceTerminals, WorkspaceTerminalView } from "./workspace-terminal"
 
 const fallbackModel: CodexModelView = {
   defaultReasoningEffort: "medium",
@@ -236,6 +233,8 @@ function ChatSession({
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [workspacePanelOpen, setWorkspacePanelOpen] = useState(true)
+  const [bottomPanelOpen, setBottomPanelOpen] = useState(false)
+  const [wideViewport, setWideViewport] = useState(true)
   const [permissionSelection, setPermissionSelection] = useState<CodexPermissionSelection | null>(
     null
   )
@@ -248,6 +247,7 @@ function ChatSession({
   const provider = settings?.provider ?? "openai"
   const projects = projectsQuery.data?.data ?? []
   const selectedProject = projects.find((project) => project.id === selectedProjectId)
+  const workspaceTerminals = useWorkspaceTerminals(selectedProjectId ?? undefined)
   const permissionsQuery = useQuery({
     queryFn: () => window.cypheria?.codex.getPermissionsCatalog(selectedProject?.roots[0]),
     queryKey: ["codex", "permissions", selectedProject?.roots[0] ?? null],
@@ -407,6 +407,25 @@ function ChatSession({
     })
   }, [])
 
+  useEffect(() => {
+    const media = window.matchMedia("(min-width: 1181px)")
+    const update = () => setWideViewport(media.matches)
+    update()
+    media.addEventListener("change", update)
+    return () => media.removeEventListener("change", update)
+  }, [])
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "j") {
+        event.preventDefault()
+        setBottomPanelOpen((open) => !open)
+      }
+    }
+    window.addEventListener("keydown", onKeyDown)
+    return () => window.removeEventListener("keydown", onKeyDown)
+  }, [])
+
   const resolveInteraction = async (response: CodexInteractionResponse) => {
     await window.cypheria?.codex.respondToInteraction(response)
     setInteractions((current) =>
@@ -421,278 +440,360 @@ function ChatSession({
   }
 
   return (
-    <section
-      className={cn(
-        "grid h-screen min-h-0 bg-background max-[1180px]:grid-cols-1 max-[767px]:h-[calc(100vh-48px)]",
-        workspacePanelOpen ? "grid-cols-[minmax(0,1fr)_clamp(320px,38%,440px)]" : "grid-cols-1"
-      )}
-    >
-      <main className="grid min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[var(--chrome-height,44px)_minmax(0,1fr)_auto] overflow-hidden border-r border-border [container-type:inline-size] max-[1180px]:border-r-0">
-        <header className="desktop-titlebar flex min-h-[44px] items-center justify-between gap-3 border-b border-border px-4">
-          <div className="inline-flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm font-semibold">
-            <FolderGit2 aria-hidden="true" className="shrink-0" size={16} />
-            <span className="truncate">
-              {threadQuery.data?.title ??
-                (resumeThreadId
-                  ? i18n._(msg({ id: "chat.title.chat", message: "Chat" }))
-                  : i18n._(msg({ id: "navigation.newChat", message: "New chat" })))}
-            </span>
-            <Badge aria-live="polite" className="shrink-0" variant="outline">
-              {statusLabel}
-            </Badge>
-          </div>
-          <div className="flex shrink-0 items-center gap-1">
-            <Button
-              nativeButton={false}
-              render={
-                <Link to="/settings/models">
-                  <Settings aria-hidden="true" size={14} />
-                  <Trans id="settings.models">Models</Trans>
-                </Link>
-              }
-              size="sm"
-              variant="ghost"
-            />
-            <Button
-              aria-label={
-                workspacePanelOpen
-                  ? i18n._(msg({ id: "chat.workspace.close", message: "Close workspace panel" }))
-                  : i18n._(msg({ id: "chat.workspace.open", message: "Open workspace panel" }))
-              }
-              onClick={() => setWorkspacePanelOpen((open) => !open)}
-              size="icon"
-              variant="ghost"
-            >
-              {workspacePanelOpen ? (
-                <PanelRightClose aria-hidden="true" size={16} />
-              ) : (
-                <PanelRightOpen aria-hidden="true" size={16} />
-              )}
-            </Button>
-          </div>
-        </header>
+    <section className="h-screen min-h-0 bg-background max-[767px]:h-[calc(100vh-48px)]">
+      <ResizablePanelGroup orientation="vertical">
+        <ResizablePanel id="workspace" minSize={240}>
+          <ResizablePanelGroup orientation="horizontal">
+            <ResizablePanel id="conversation" minSize={480}>
+              <main className="grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[var(--chrome-height,44px)_minmax(0,1fr)_auto] overflow-hidden [container-type:inline-size]">
+                <header className="desktop-titlebar flex min-h-[44px] items-center justify-between gap-3 border-b border-border px-4">
+                  <div className="inline-flex min-w-0 flex-1 items-center gap-2 overflow-hidden text-sm font-semibold">
+                    <FolderGit2 aria-hidden="true" className="shrink-0" size={16} />
+                    <span className="truncate">
+                      {threadQuery.data?.title ??
+                        (resumeThreadId
+                          ? i18n._(msg({ id: "chat.title.chat", message: "Chat" }))
+                          : i18n._(msg({ id: "navigation.newChat", message: "New chat" })))}
+                    </span>
+                    <Badge aria-live="polite" className="shrink-0" variant="outline">
+                      {statusLabel}
+                    </Badge>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-1">
+                    <Button
+                      nativeButton={false}
+                      render={
+                        <Link to="/settings/models">
+                          <Settings aria-hidden="true" size={14} />
+                          <Trans id="settings.models">Models</Trans>
+                        </Link>
+                      }
+                      size="sm"
+                      variant="ghost"
+                    />
+                    <Button
+                      aria-label={
+                        workspacePanelOpen
+                          ? i18n._(
+                              msg({ id: "chat.workspace.close", message: "Close workspace panel" })
+                            )
+                          : i18n._(
+                              msg({ id: "chat.workspace.open", message: "Open workspace panel" })
+                            )
+                      }
+                      onClick={() => setWorkspacePanelOpen((open) => !open)}
+                      size="icon"
+                      variant="ghost"
+                    >
+                      {workspacePanelOpen ? (
+                        <PanelRightClose aria-hidden="true" size={16} />
+                      ) : (
+                        <PanelRightOpen aria-hidden="true" size={16} />
+                      )}
+                    </Button>
+                    <Button
+                      aria-label={
+                        bottomPanelOpen
+                          ? i18n._(
+                              msg({
+                                id: "chat.workspace.hideBottomPanel",
+                                message: "Hide bottom panel",
+                              })
+                            )
+                          : i18n._(
+                              msg({
+                                id: "chat.workspace.showBottomPanel",
+                                message: "Show bottom panel",
+                              })
+                            )
+                      }
+                      onClick={() => setBottomPanelOpen((open) => !open)}
+                      size="icon"
+                      title={i18n._(
+                        msg({
+                          id: "chat.workspace.bottomPanelShortcut",
+                          message: "Bottom panel (⌘J)",
+                        })
+                      )}
+                      variant="ghost"
+                    >
+                      {bottomPanelOpen ? (
+                        <PanelBottomClose aria-hidden="true" size={16} />
+                      ) : (
+                        <PanelBottomOpen aria-hidden="true" size={16} />
+                      )}
+                    </Button>
+                  </div>
+                </header>
 
-        <Conversation className="min-h-0 min-w-0 overflow-x-hidden">
-          <ConversationContent className="mx-auto w-[calc(100cqw-3rem)] min-w-0 max-w-3xl py-8">
-            {resumeThreadId && threadQuery.isPending ? (
-              <div
-                className="flex min-h-48 items-center justify-center gap-2 text-sm text-muted-foreground"
-                role="status"
-              >
-                <LoaderCircle aria-hidden="true" className="animate-spin" size={16} />
-                <Trans id="chat.loadingConversation">Loading conversation…</Trans>
-              </div>
-            ) : threadQuery.error ? (
-              <div className="rounded-lg border border-destructive/35 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                {threadQuery.error.message}
-              </div>
-            ) : messages.length === 0 ? (
-              <ConversationEmptyState
-                description={i18n._(
-                  msg({
-                    id: "chat.empty.description",
-                    message:
-                      "Work across code, wallets, and the web while you stay in control of permissions.",
-                  })
-                )}
-                icon={<Sparkles className="size-6" />}
-                title={i18n._(
-                  msg({ id: "chat.empty.title", message: "What should Cypheria work on?" })
-                )}
-              />
-            ) : (
-              messages.map((message) => (
-                <ChatMessage
-                  interactions={interactions}
-                  key={message.id}
-                  message={message}
-                  onResolve={resolveInteraction}
-                />
-              ))
-            )}
-            {error ? (
-              <div className="rounded-lg border border-destructive/35 bg-destructive/5 px-3 py-2 text-sm text-destructive">
-                {error.message}
-              </div>
-            ) : null}
-          </ConversationContent>
-          <ConversationScrollButton />
-        </Conversation>
+                <Conversation className="min-h-0 min-w-0 overflow-x-hidden">
+                  <ConversationContent className="mx-auto w-[calc(100cqw-3rem)] min-w-0 max-w-3xl py-8">
+                    {resumeThreadId && threadQuery.isPending ? (
+                      <div
+                        className="flex min-h-48 items-center justify-center gap-2 text-sm text-muted-foreground"
+                        role="status"
+                      >
+                        <LoaderCircle aria-hidden="true" className="animate-spin" size={16} />
+                        <Trans id="chat.loadingConversation">Loading conversation…</Trans>
+                      </div>
+                    ) : threadQuery.error ? (
+                      <div className="rounded-lg border border-destructive/35 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                        {threadQuery.error.message}
+                      </div>
+                    ) : messages.length === 0 ? (
+                      <ConversationEmptyState
+                        description={i18n._(
+                          msg({
+                            id: "chat.empty.description",
+                            message:
+                              "Work across code, wallets, and the web while you stay in control of permissions.",
+                          })
+                        )}
+                        icon={<Sparkles className="size-6" />}
+                        title={i18n._(
+                          msg({ id: "chat.empty.title", message: "What should Cypheria work on?" })
+                        )}
+                      />
+                    ) : (
+                      messages.map((message) => (
+                        <ChatMessage
+                          interactions={interactions}
+                          key={message.id}
+                          message={message}
+                          onResolve={resolveInteraction}
+                        />
+                      ))
+                    )}
+                    {error ? (
+                      <div className="rounded-lg border border-destructive/35 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                        {error.message}
+                      </div>
+                    ) : null}
+                  </ConversationContent>
+                  <ConversationScrollButton />
+                </Conversation>
 
-        <div className="mx-auto w-full max-w-[880px] px-4 pb-5">
-          {autoReviews
-            .filter((review) => !resumeThreadId || review.threadId === resumeThreadId)
-            .map((review) => (
-              <AutoReviewCard key={review.reviewId} review={review} />
-            ))}
-          {strictReviewTurns.size ? (
-            <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
-              Strict Auto-review is active for this turn. Every subsequent command is reviewed.
-            </div>
-          ) : null}
-          {unboundInteractions.map((interaction) => (
-            <CodexInteractionCard
-              interaction={interaction}
-              key={interaction.interactionId}
-              onResolve={resolveInteraction}
-            />
-          ))}
-          <PromptInput accept="image/*,audio/*,text/*,.md,.json" multiple onSubmit={handleSubmit}>
-            <PromptInputBody>
-              <PromptInputTextarea
-                defaultValue={initialPrompt}
-                placeholder={i18n._(
-                  msg({
-                    id: "chat.prompt.placeholder",
-                    message: "Ask Cypheria to inspect, edit, run, research, or review…",
-                  })
-                )}
-              />
-            </PromptInputBody>
-            <PromptInputFooter>
-              <PromptInputTools>
-                <PromptInputSelect
-                  onValueChange={(value) =>
-                    setSelectedProjectId(value === "none" ? null : String(value))
-                  }
-                  value={selectedProjectId ?? "none"}
-                >
-                  <PromptInputSelectTrigger className="max-w-48">
-                    <FolderGit2 className="size-3.5" />
-                    <PromptInputSelectValue>
-                      {selectedProject?.name ??
-                        i18n._(msg({ id: "chat.project.none", message: "No project" }))}
-                    </PromptInputSelectValue>
-                  </PromptInputSelectTrigger>
-                  <PromptInputSelectContent>
-                    <PromptInputSelectItem value="none">
-                      <Trans id="chat.project.none">No project</Trans>
-                    </PromptInputSelectItem>
-                    {projects.map((project) => (
-                      <PromptInputSelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </PromptInputSelectItem>
+                <div className="mx-auto w-full max-w-[880px] px-4 pb-5">
+                  {autoReviews
+                    .filter((review) => !resumeThreadId || review.threadId === resumeThreadId)
+                    .map((review) => (
+                      <AutoReviewCard key={review.reviewId} review={review} />
                     ))}
-                  </PromptInputSelectContent>
-                </PromptInputSelect>
-                <Button
-                  aria-label={i18n._(msg({ id: "chat.project.create", message: "Create project" }))}
-                  onClick={() => setProjectDialogOpen(true)}
-                  size="icon-sm"
-                  type="button"
-                  variant="ghost"
-                >
-                  <Plus aria-hidden="true" />
-                </Button>
-                <PromptInputSelect
-                  onValueChange={(value) =>
-                    setPermissionSelection(permissionSelectionFromValue(String(value)))
-                  }
-                  value={permissionValue}
-                >
-                  <PromptInputSelectTrigger className="w-auto">
-                    <LockKeyhole className="size-3.5" />
-                    <PromptInputSelectValue>{permissionLabel}</PromptInputSelectValue>
-                  </PromptInputSelectTrigger>
-                  <PromptInputSelectContent>
-                    {permissionsQuery.data?.availableAgentModes.includes("read-only") !== false ? (
-                      <PromptInputSelectItem value="mode:read-only">
-                        <Trans id="chat.sandbox.readOnly">Read only</Trans>
-                      </PromptInputSelectItem>
-                    ) : null}
-                    {permissionsQuery.data?.availableAgentModes.includes("auto") !== false ? (
-                      <PromptInputSelectItem value="mode:auto">
-                        <Trans id="chat.permissions.ask">Ask for approval</Trans>
-                      </PromptInputSelectItem>
-                    ) : null}
-                    {permissionsQuery.data?.availableAgentModes.includes("guardian-approvals") ? (
-                      <PromptInputSelectItem value="mode:guardian-approvals">
-                        <Trans id="chat.permissions.autoReview">Approve for me</Trans>
-                      </PromptInputSelectItem>
-                    ) : null}
-                    {permissionsQuery.data?.profiles
-                      .filter((profile) => profile.allowed)
-                      .map((profile) => (
-                        <PromptInputSelectItem key={profile.id} value={`profile:${profile.id}`}>
-                          {profile.description
-                            ? `${profile.id} — ${profile.description}`
-                            : profile.id}
-                        </PromptInputSelectItem>
-                      ))}
-                    {permissionsQuery.data?.showFullAccess &&
-                    permissionsQuery.data.fullAccessCanBeShown ? (
-                      <PromptInputSelectItem value="mode:full-access">
-                        <Trans id="chat.sandbox.fullAccess">Full access</Trans>
-                      </PromptInputSelectItem>
-                    ) : null}
-                  </PromptInputSelectContent>
-                </PromptInputSelect>
-                <ModelPicker
-                  models={models.length ? models : [fallbackModel]}
-                  onSelect={(model) => {
-                    setSelectedModelId(model.model)
-                    setReasoningEffort(model.defaultReasoningEffort)
+                  {strictReviewTurns.size ? (
+                    <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+                      Strict Auto-review is active for this turn. Every subsequent command is
+                      reviewed.
+                    </div>
+                  ) : null}
+                  {unboundInteractions.map((interaction) => (
+                    <CodexInteractionCard
+                      interaction={interaction}
+                      key={interaction.interactionId}
+                      onResolve={resolveInteraction}
+                    />
+                  ))}
+                  <PromptInput
+                    accept="image/*,audio/*,text/*,.md,.json"
+                    multiple
+                    onSubmit={handleSubmit}
+                  >
+                    <PromptInputBody>
+                      <PromptInputTextarea
+                        defaultValue={initialPrompt}
+                        placeholder={i18n._(
+                          msg({
+                            id: "chat.prompt.placeholder",
+                            message: "Ask Cypheria to inspect, edit, run, research, or review…",
+                          })
+                        )}
+                      />
+                    </PromptInputBody>
+                    <PromptInputFooter>
+                      <PromptInputTools>
+                        <PromptInputSelect
+                          onValueChange={(value) =>
+                            setSelectedProjectId(value === "none" ? null : String(value))
+                          }
+                          value={selectedProjectId ?? "none"}
+                        >
+                          <PromptInputSelectTrigger className="max-w-48">
+                            <FolderGit2 className="size-3.5" />
+                            <PromptInputSelectValue>
+                              {selectedProject?.name ??
+                                i18n._(msg({ id: "chat.project.none", message: "No project" }))}
+                            </PromptInputSelectValue>
+                          </PromptInputSelectTrigger>
+                          <PromptInputSelectContent>
+                            <PromptInputSelectItem value="none">
+                              <Trans id="chat.project.none">No project</Trans>
+                            </PromptInputSelectItem>
+                            {projects.map((project) => (
+                              <PromptInputSelectItem key={project.id} value={project.id}>
+                                {project.name}
+                              </PromptInputSelectItem>
+                            ))}
+                          </PromptInputSelectContent>
+                        </PromptInputSelect>
+                        <Button
+                          aria-label={i18n._(
+                            msg({ id: "chat.project.create", message: "Create project" })
+                          )}
+                          onClick={() => setProjectDialogOpen(true)}
+                          size="icon-sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <Plus aria-hidden="true" />
+                        </Button>
+                        <PromptInputSelect
+                          onValueChange={(value) =>
+                            setPermissionSelection(permissionSelectionFromValue(String(value)))
+                          }
+                          value={permissionValue}
+                        >
+                          <PromptInputSelectTrigger className="w-auto">
+                            <LockKeyhole className="size-3.5" />
+                            <PromptInputSelectValue>{permissionLabel}</PromptInputSelectValue>
+                          </PromptInputSelectTrigger>
+                          <PromptInputSelectContent>
+                            {permissionsQuery.data?.availableAgentModes.includes("read-only") !==
+                            false ? (
+                              <PromptInputSelectItem value="mode:read-only">
+                                <Trans id="chat.sandbox.readOnly">Read only</Trans>
+                              </PromptInputSelectItem>
+                            ) : null}
+                            {permissionsQuery.data?.availableAgentModes.includes("auto") !==
+                            false ? (
+                              <PromptInputSelectItem value="mode:auto">
+                                <Trans id="chat.permissions.ask">Ask for approval</Trans>
+                              </PromptInputSelectItem>
+                            ) : null}
+                            {permissionsQuery.data?.availableAgentModes.includes(
+                              "guardian-approvals"
+                            ) ? (
+                              <PromptInputSelectItem value="mode:guardian-approvals">
+                                <Trans id="chat.permissions.autoReview">Approve for me</Trans>
+                              </PromptInputSelectItem>
+                            ) : null}
+                            {permissionsQuery.data?.profiles
+                              .filter((profile) => profile.allowed)
+                              .map((profile) => (
+                                <PromptInputSelectItem
+                                  key={profile.id}
+                                  value={`profile:${profile.id}`}
+                                >
+                                  {profile.description
+                                    ? `${profile.id} — ${profile.description}`
+                                    : profile.id}
+                                </PromptInputSelectItem>
+                              ))}
+                            {permissionsQuery.data?.showFullAccess &&
+                            permissionsQuery.data.fullAccessCanBeShown ? (
+                              <PromptInputSelectItem value="mode:full-access">
+                                <Trans id="chat.sandbox.fullAccess">Full access</Trans>
+                              </PromptInputSelectItem>
+                            ) : null}
+                          </PromptInputSelectContent>
+                        </PromptInputSelect>
+                        <ModelPicker
+                          models={models.length ? models : [fallbackModel]}
+                          onSelect={(model) => {
+                            setSelectedModelId(model.model)
+                            setReasoningEffort(model.defaultReasoningEffort)
+                          }}
+                          selected={selectedModel}
+                        />
+                        <PromptInputSelect
+                          onValueChange={(value) => setReasoningEffort(String(value))}
+                          value={selectedReasoning}
+                        >
+                          <PromptInputSelectTrigger className="w-auto">
+                            <PromptInputSelectValue />
+                          </PromptInputSelectTrigger>
+                          <PromptInputSelectContent>
+                            {selectedModel.reasoningEfforts.map((effort) => (
+                              <PromptInputSelectItem key={effort.value} value={effort.value}>
+                                {effort.value}
+                              </PromptInputSelectItem>
+                            ))}
+                          </PromptInputSelectContent>
+                        </PromptInputSelect>
+                      </PromptInputTools>
+                      <PromptInputSubmit onStop={stop} status={status} />
+                    </PromptInputFooter>
+                  </PromptInput>
+                  {status !== "ready" ? (
+                    <div
+                      aria-live="polite"
+                      className="mt-2 flex items-center gap-2 px-2 text-xs font-medium text-foreground"
+                      role="status"
+                    >
+                      {status !== "error" ? (
+                        <LoaderCircle aria-hidden="true" className="animate-spin" size={12} />
+                      ) : null}
+                      {statusLabel}
+                    </div>
+                  ) : null}
+                  <div className="mt-2 flex items-center gap-3 px-2 text-xs text-muted-foreground">
+                    <span className="inline-flex items-center gap-1">
+                      <HardDrive size={12} /> <Trans id="chat.localAgent">Local agent</Trans>
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <WalletCards size={12} />
+                      <Trans id="chat.noSigningAuthority">No signing authority</Trans>
+                    </span>
+                    <span>{provider}</span>
+                  </div>
+                </div>
+                <ProjectCreateDialog
+                  onCreated={(projectId) => {
+                    setSelectedProjectId(projectId)
+                    setProjectDialogOpen(false)
                   }}
-                  selected={selectedModel}
+                  onOpenChange={setProjectDialogOpen}
+                  open={projectDialogOpen}
                 />
-                <PromptInputSelect
-                  onValueChange={(value) => setReasoningEffort(String(value))}
-                  value={selectedReasoning}
+              </main>
+            </ResizablePanel>
+            {workspacePanelOpen && wideViewport ? (
+              <>
+                <ResizableHandle className="z-10 hover:bg-ring/45" />
+                <ResizablePanel
+                  defaultSize={420}
+                  groupResizeBehavior="preserve-pixel-size"
+                  id="side-panel"
+                  maxSize="50%"
+                  minSize={320}
                 >
-                  <PromptInputSelectTrigger className="w-auto">
-                    <PromptInputSelectValue />
-                  </PromptInputSelectTrigger>
-                  <PromptInputSelectContent>
-                    {selectedModel.reasoningEfforts.map((effort) => (
-                      <PromptInputSelectItem key={effort.value} value={effort.value}>
-                        {effort.value}
-                      </PromptInputSelectItem>
-                    ))}
-                  </PromptInputSelectContent>
-                </PromptInputSelect>
-              </PromptInputTools>
-              <PromptInputSubmit onStop={stop} status={status} />
-            </PromptInputFooter>
-          </PromptInput>
-          {status !== "ready" ? (
-            <div
-              aria-live="polite"
-              className="mt-2 flex items-center gap-2 px-2 text-xs font-medium text-foreground"
-              role="status"
+                  <WorkspacePanel
+                    activeWallet={activeWalletQuery.data}
+                    artifacts={workspaceArtifacts}
+                    onClose={() => setWorkspacePanelOpen(false)}
+                    projectRoot={selectedProject?.roots[0]}
+                  />
+                </ResizablePanel>
+              </>
+            ) : null}
+          </ResizablePanelGroup>
+        </ResizablePanel>
+        {bottomPanelOpen ? (
+          <>
+            <ResizableHandle className="z-20 hover:bg-ring/45" />
+            <ResizablePanel
+              defaultSize={280}
+              groupResizeBehavior="preserve-pixel-size"
+              id="bottom-panel"
+              maxSize="50%"
+              minSize={160}
             >
-              {status !== "error" ? (
-                <LoaderCircle aria-hidden="true" className="animate-spin" size={12} />
-              ) : null}
-              {statusLabel}
-            </div>
-          ) : null}
-          <div className="mt-2 flex items-center gap-3 px-2 text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <HardDrive size={12} /> <Trans id="chat.localAgent">Local agent</Trans>
-            </span>
-            <span className="inline-flex items-center gap-1">
-              <WalletCards size={12} />
-              <Trans id="chat.noSigningAuthority">No signing authority</Trans>
-            </span>
-            <span>{provider}</span>
-          </div>
-        </div>
-        <ProjectCreateDialog
-          onCreated={(projectId) => {
-            setSelectedProjectId(projectId)
-            setProjectDialogOpen(false)
-          }}
-          onOpenChange={setProjectDialogOpen}
-          open={projectDialogOpen}
-        />
-      </main>
-      {workspacePanelOpen ? (
-        <WorkspacePanel
-          activeWallet={activeWalletQuery.data}
-          artifacts={workspaceArtifacts}
-          projectRoot={selectedProject?.roots[0]}
-        />
-      ) : null}
+              <WorkspaceTerminalView
+                controller={workspaceTerminals}
+                onHide={() => setBottomPanelOpen(false)}
+              />
+            </ResizablePanel>
+          </>
+        ) : null}
+      </ResizablePanelGroup>
     </section>
   )
 }
@@ -1270,10 +1371,12 @@ function ModelPicker({
 function WorkspacePanel({
   activeWallet,
   artifacts,
+  onClose,
   projectRoot,
 }: Readonly<{
   activeWallet?: WalletActiveContext
   artifacts: ChatWorkspaceArtifacts
+  onClose: () => void
   projectRoot?: string
 }>) {
   const { i18n } = useLingui()
@@ -1292,14 +1395,14 @@ function WorkspacePanel({
   return (
     <aside
       aria-label={i18n._(msg({ id: "chat.workspace.label", message: "Workspace panel" }))}
-      className="min-h-0 min-w-0 overflow-hidden bg-muted/20 max-[1180px]:hidden"
+      className="min-h-0 min-w-0 overflow-hidden border-l border-border bg-background shadow-[-8px_0_20px_-18px_rgb(0_0_0/0.45)]"
     >
       <Tabs
         className="grid h-full grid-rows-[var(--chrome-height,44px)_minmax(0,1fr)]"
         defaultValue="context"
       >
-        <div className="flex items-center border-b border-border px-3">
-          <TabsList className="bg-transparent">
+        <div className="flex min-w-0 items-center justify-between gap-2 border-b border-border px-2">
+          <TabsList className="min-w-0 bg-transparent">
             <TabsTrigger value="context">
               <Trans id="chat.workspace.context">Context</Trans>
             </TabsTrigger>
@@ -1309,10 +1412,18 @@ function WorkspacePanel({
             <TabsTrigger value="review">
               <Trans id="chat.workspace.review">Review</Trans>
             </TabsTrigger>
-            <TabsTrigger value="terminal">
-              <Trans id="chat.workspace.terminal">Terminal</Trans>
-            </TabsTrigger>
           </TabsList>
+          <Button
+            aria-label={i18n._(
+              msg({ id: "chat.workspace.close", message: "Close workspace panel" })
+            )}
+            className="shrink-0"
+            onClick={onClose}
+            size="icon-sm"
+            variant="ghost"
+          >
+            <PanelRightClose aria-hidden="true" className="size-3.5" />
+          </Button>
         </div>
         <TabsContent className="m-0 overflow-auto p-4" value="context">
           <div className="grid gap-4">
@@ -1426,70 +1537,6 @@ function WorkspacePanel({
                 msg({
                   id: "chat.workspace.reviewEmpty",
                   message: "No code changes are available for review yet.",
-                })
-              )}
-            />
-          )}
-        </TabsContent>
-        <TabsContent className="m-0 overflow-auto p-4" value="terminal">
-          {artifacts.commands.length ? (
-            <div className="grid gap-4">
-              {artifacts.commands.map((command, index) => (
-                <AiTerminal
-                  isStreaming={command.status === "inProgress"}
-                  key={command.id}
-                  output={`$ ${command.command}\n${command.output}`}
-                >
-                  <TerminalHeader>
-                    <TerminalTitle className="min-w-0">
-                      <span className="truncate font-mono text-xs">
-                        {i18n._({
-                          ...msg({ id: "chat.workspace.command", message: "Command {number}" }),
-                          values: { number: index + 1 },
-                        })}
-                      </span>
-                    </TerminalTitle>
-                    <div className="flex shrink-0 items-center gap-1">
-                      <TerminalStatus>{statusLabel(command.status)}</TerminalStatus>
-                      {command.status !== "inProgress" ? (
-                        <span className="text-xs text-zinc-500">
-                          {command.exitCode === null
-                            ? statusLabel(command.status)
-                            : i18n._({
-                                ...msg({ id: "chat.workspace.exitCode", message: "Exit {code}" }),
-                                values: { code: command.exitCode },
-                              })}
-                        </span>
-                      ) : null}
-                      <TerminalActions>
-                        <TerminalCopyButton
-                          aria-label={i18n._(
-                            msg({
-                              id: "chat.workspace.copyTerminal",
-                              message: "Copy terminal output",
-                            })
-                          )}
-                          title={i18n._(
-                            msg({
-                              id: "chat.workspace.copyTerminal",
-                              message: "Copy terminal output",
-                            })
-                          )}
-                        />
-                      </TerminalActions>
-                    </div>
-                  </TerminalHeader>
-                  <TerminalContent className="max-h-72 text-xs" />
-                </AiTerminal>
-              ))}
-            </div>
-          ) : (
-            <EmptyPanel
-              icon={<TerminalSquare />}
-              text={i18n._(
-                msg({
-                  id: "chat.workspace.terminalEmpty",
-                  message: "No commands have been run in this chat yet.",
                 })
               )}
             />

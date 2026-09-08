@@ -16,6 +16,7 @@ import type {
   HarnessEvent,
   LanguageSettings,
   RuntimeInfo,
+  WorkspaceTerminalEvent,
 } from "../../ipc/src/index.js"
 import {
   AppearanceSettingsWriteSchema,
@@ -237,6 +238,29 @@ const cypheriaApi: CypheriaPreloadApi = {
     update: (id) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessUpdate, { id }),
     writeTerminal: (terminalId, data) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessTerminalWrite, { data, terminalId }),
+  },
+  workspaceTerminal: {
+    closeAll: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.workspaceTerminalCloseAll),
+    close: (terminalId) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.workspaceTerminalClose, { terminalId }),
+    onEvent: (handler) => {
+      const listener = (_event: IpcRendererEvent, terminalEvent: WorkspaceTerminalEvent): void =>
+        handler(terminalEvent)
+      ipcRenderer.on(CYPHERIA_IPC_CHANNELS.workspaceTerminalEvent, listener)
+      return () => ipcRenderer.off(CYPHERIA_IPC_CHANNELS.workspaceTerminalEvent, listener)
+    },
+    open: (projectId) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.workspaceTerminalOpen, {
+        ...(projectId ? { projectId } : {}),
+      }),
+    resize: (terminalId, cols, rows) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.workspaceTerminalResize, {
+        cols,
+        rows,
+        terminalId,
+      }),
+    write: (terminalId, data) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.workspaceTerminalWrite, { data, terminalId }),
   },
   runtime: {
     getInfo: () => invoke<RuntimeInfo>(CYPHERIA_IPC_CHANNELS.runtimeInfoRead),
