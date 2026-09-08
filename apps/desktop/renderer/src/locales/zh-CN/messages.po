@@ -29,6 +29,11 @@ msgid "chat.artifact.added"
 msgstr "已添加"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.agentActivity"
+msgstr "智能体 {tool}"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
 msgid "settings.appearance.title"
 msgstr "外观"
@@ -120,6 +125,11 @@ msgid "chat.workspace.command"
 msgstr "命令 {number}"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.compacted"
+msgstr "已压缩会话上下文"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.connections"
 msgstr "连接"
@@ -128,6 +138,11 @@ msgstr "连接"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.workspace.context"
 msgstr "上下文"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.coordinatedAgents"
+msgstr "协调了智能体"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -203,14 +218,39 @@ msgid "navigation.editSection"
 msgstr "编辑分组"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.editedFiles"
+msgstr "已编辑文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.editingFiles"
+msgstr "正在编辑文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.enteredReview"
+msgstr "已进入审查模式"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.workspace.exitCode"
 msgstr "退出 {code}"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.exitedReview"
+msgstr "已退出审查模式"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.artifact.failed"
 msgstr "失败"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.failedAfter"
+msgstr "在 {time} 后失败"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -246,6 +286,21 @@ msgstr "常规"
 #: renderer/src/components/app-shell.tsx
 msgid "settings.general"
 msgstr "常规"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.generatedImage"
+msgstr "已生成图像"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.generatedImages"
+msgstr "已生成图像"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.generatingImage"
+msgstr "正在生成图像"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -297,6 +352,11 @@ msgstr "本地智能体"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sort.manual"
 msgstr "手动排序"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.modelRerouted"
+msgstr "模型已从 {fromModel} 切换至 {toModel}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -417,6 +477,11 @@ msgid "navigation.pinned"
 msgstr "置顶"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.plan"
+msgstr "计划"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.plugins"
 msgstr "插件"
@@ -452,6 +517,31 @@ msgid "navigation.projects"
 msgstr "项目"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.proposedPlan"
+msgstr "提出了计划"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.ranCommand"
+msgstr "运行了 {command}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.ranCommands"
+msgstr "运行了命令"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.readFile"
+msgstr "读取了 {name}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.readFiles"
+msgstr "读取了文件"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.sandbox.readOnly"
 msgstr "只读"
@@ -475,6 +565,11 @@ msgstr "审阅"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.artifact.running"
 msgstr "运行中"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.runningCommand"
+msgstr "正在运行 {command}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -511,6 +606,26 @@ msgstr "搜索模型…"
 #: renderer/src/components/chat-search.tsx
 msgid "search.description"
 msgstr "搜索你的对话并选择一个打开。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.searchedCode"
+msgstr "搜索了代码"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.searched"
+msgstr "搜索了 {query}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.searchedWebShort"
+msgstr "搜索了网页"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.searchedWeb"
+msgstr "在网页中搜索了 {query}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -558,9 +673,24 @@ msgid "settings.theme.title"
 msgstr "主题"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.thinking"
+msgstr "思考中"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.thought"
+msgstr "思考"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.tryAgain"
 msgstr "重试"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.diff"
+msgstr "本轮更改"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -568,14 +698,44 @@ msgid "search.untitled"
 msgstr "未命名对话"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.update"
+msgstr "更新"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.artifact.updated"
 msgstr "已更新"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.updatedPlan"
+msgstr "更新了计划"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.usedTools"
+msgstr "使用了工具"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "menu.view"
 msgstr "查看"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.viewedImage"
+msgstr "查看了 {path}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.viewedImages"
+msgstr "查看了图像"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.waited"
+msgstr "等待了 {time}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -603,6 +763,21 @@ msgid "chat.empty.description"
 msgstr "在你掌控权限的同时，处理代码、钱包和网页任务。"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.workedFor"
+msgstr "工作了 {time}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.working"
+msgstr "工作中"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.workingFor"
+msgstr "已工作 {time}"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.status.working"
 msgstr "正在处理…"
@@ -621,3 +796,8 @@ msgstr "工作区面板"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.sandbox.workspaceWrite"
 msgstr "工作区写入"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.stoppedAfter"
+msgstr "你在 {time} 后停止了工作"

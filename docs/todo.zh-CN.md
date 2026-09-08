@@ -147,6 +147,12 @@
 
 ## Desktop Codex App Server Bridge
 
+- [x] 通过 AI SDK UI stream 完整保留并渲染 Codex turn。
+  - 验收：实时会话与历史恢复共用同一个 turn projector；实时流保留所有 turn-scoped update，历史恢复忠实投影完整的持久 App Server turn snapshot；只要 App Server 提供，turn timing/status、item 生命周期及完整 generated item payload、commentary/final-answer phase、reasoning、tool、plan、diff、model reroute 与 terminal progress 就对 renderer 保持可用；会话 UI 以 Codex Desktop 风格将 agent activity 分组折叠，并与 final answer 分离展示。
+  - 包括：按 turn/item ID 对账的 typed AI SDK data parts、兼容标准 part 上的 provider metadata、可复用 turn projection tests、基于 AI Elements 的 activity 渲染，以及中英文配套架构文档。
+  - 验证：codex-bridge 与 desktop tests/typechecks、renderer build、`pnpm run ci` 和 `pnpm build`。
+  - 验证记录：29 个 codex-bridge 测试、89 个 desktop 测试（包含实时 UI-stream reconcile）、严格本地化编译、全仓 CI、全仓构建，以及基于 packaged renderer 的历史 turn 分组/折叠桌面烟测全部通过。
+
 - [x] 完成 Codex App Server capability 与 interaction bridge。
   - 验收：AI SDK V4 provider 保留所有可兼容的 text、reasoning、media、source、tool、usage、metadata、error 与 control surface；启用 experimental App Server API；application-level thread、review、account、plugin、skill、MCP、terminal 与 configuration operation 继续使用直接 typed bridge service；反向 JSON-RPC request 使用 fail-closed desktop interaction broker、typed IPC 和可审计的用户决策。
   - 包含：token usage、audio、generated file、web source、progress result、resume inheritance、stream failure handling、dynamic tool、approval、user input、MCP elicitation，以及成对的中英文 architecture 文档。

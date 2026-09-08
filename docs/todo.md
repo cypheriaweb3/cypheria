@@ -147,6 +147,12 @@ Status legend:
 
 ## Desktop Codex App Server Bridge
 
+- [x] Preserve and render complete Codex turns through the AI SDK UI stream.
+  - Acceptance: live and hydrated chats share one turn projector; the live stream preserves all turn-scoped updates, while hydration faithfully projects the full durable App Server turn snapshot; turn timing/status, item lifecycle and full generated item payloads, commentary/final-answer phases, reasoning, tools, plans, diffs, model reroutes, and terminal progress remain available to the renderer whenever supplied by App Server; the conversation UI groups and collapses agent activity separately from the final answer in the Codex Desktop style.
+  - Include: typed AI SDK data parts reconciled by turn/item ID, provider metadata on compatible standard parts, reusable turn projection tests, AI Elements-based activity rendering, and paired English/Chinese architecture documentation.
+  - Verification: codex-bridge and desktop tests/typechecks, renderer build, `pnpm run ci`, and `pnpm build`.
+  - Verification note: 29 codex-bridge tests, 89 desktop tests (including live UI-stream reconciliation), strict localization compilation, full repository CI, full repository build, and a packaged-renderer desktop smoke test of restored turn grouping/collapse all pass.
+
 - [x] Complete the Codex App Server capability and interaction bridge.
   - Acceptance: the AI SDK V4 provider preserves every compatible text, reasoning, media, source, tool, usage, metadata, error, and control surface; experimental App Server APIs are enabled; application-level thread, review, account, plugin, skill, MCP, terminal, and configuration operations remain direct typed bridge services; reverse JSON-RPC requests use a fail-closed desktop interaction broker with typed IPC and auditable user decisions.
   - Include: token usage, audio, generated files, web sources, progress results, resume inheritance, stream failure handling, dynamic tools, approvals, user input, MCP elicitation, and paired English/Chinese architecture documentation.

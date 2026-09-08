@@ -2,10 +2,13 @@ import { randomUUID } from "node:crypto"
 import {
   type CodexAppServerAiSdkSession,
   type CodexAppServerBridge,
+  CodexTurnProjector,
+  type CodexTurnSnapshot,
+  type CodexTurnUpdate,
   createCodexAppServerProvider,
   type v2,
 } from "@cypheria/codex-bridge"
-import { convertToModelMessages, streamText, toUIMessageStream, type UIMessage } from "ai"
+import { convertToModelMessages, streamText, toUIMessageStream, type UIMessageChunk } from "ai"
 import type { WebContents } from "electron"
 import type {
   CodexAccountView,
@@ -17,6 +20,8 @@ import type {
   CodexModelView,
   CodexThreadDetailView,
   CodexThreadView,
+  CodexUiDataTypes,
+  CodexUiMessage,
 } from "../../ipc/src/index.js"
 import { CYPHERIA_IPC_CHANNELS } from "../../ipc/src/index.js"
 
@@ -372,14 +377,40 @@ export const moveCodexThreadToSection = async (
   return { moved: true as const }
 }
 
-const customHistoryPart = (item: v2.ThreadItem): UIMessage["parts"][number] =>
+const turnUpdatePart = (update: CodexTurnUpdate): CodexUiMessage["parts"][number] => {
+  switch (update.type) {
+    case "turn":
+      return { data: update.data, id: update.id, type: "data-codex-turn" }
+    case "item":
+      return { data: update.data, id: update.id, type: "data-codex-item" }
+    case "diff":
+      return { data: update.data, id: update.id, type: "data-codex-diff" }
+    case "plan":
+      return { data: update.data, id: update.id, type: "data-codex-plan" }
+    case "model-reroute":
+      return { data: update.data, id: update.id, type: "data-codex-model-reroute" }
+    case "event":
+      return { data: update.data, id: update.id, type: "data-codex-event" }
+  }
+}
+
+const turnUpdateChunk = (
+  update: CodexTurnUpdate
+): UIMessageChunk<CodexTurnSnapshot, CodexUiDataTypes> =>
+  turnUpdatePart(update) as UIMessageChunk<CodexTurnSnapshot, CodexUiDataTypes>
+
+const historyItemMetadata = (item: v2.ThreadItem) => ({
+  "cypheria.codex": { item },
+})
+
+const customHistoryPart = (item: v2.ThreadItem): CodexUiMessage["parts"][number] =>
   ({
     kind: `cypheria.codex-${item.type}`,
-    providerMetadata: { "cypheria.codex": { item } },
+    providerMetadata: historyItemMetadata(item),
     type: "custom",
-  }) as UIMessage["parts"][number]
+  }) as CodexUiMessage["parts"][number]
 
-const historyToolPart = (item: v2.ThreadItem): UIMessage["parts"][number] | undefined => {
+const historyToolPart = (item: v2.ThreadItem): CodexUiMessage["parts"][number] | undefined => {
   let toolName: string
   let input: unknown
   let output: unknown
@@ -431,29 +462,45 @@ const historyToolPart = (item: v2.ThreadItem): UIMessage["parts"][number] | unde
   }
 
   return {
+    callProviderMetadata: historyItemMetadata(item),
     errorText,
     input,
     output,
     providerExecuted: true,
+    resultProviderMetadata: historyItemMetadata(item),
     state: errorText ? "output-error" : "output-available",
     toolCallId: item.id,
     toolName,
     type: "dynamic-tool",
-  } as UIMessage["parts"][number]
+  } as CodexUiMessage["parts"][number]
 }
 
-const historyPartsFromItem = (item: v2.ThreadItem): UIMessage["parts"] => {
-  if (item.type === "agentMessage") return item.text ? [{ text: item.text, type: "text" }] : []
+const historyPartsFromItem = (item: v2.ThreadItem): CodexUiMessage["parts"] => {
+  if (item.type === "agentMessage") {
+    return item.text
+      ? [{ providerMetadata: historyItemMetadata(item), text: item.text, type: "text" }]
+      : []
+  }
   if (item.type === "reasoning") {
     const text = [...item.summary, ...item.content].join("\n")
-    return text ? [{ id: item.id, state: "done", text, type: "reasoning" }] : []
+    return text
+      ? [
+          {
+            id: item.id,
+            providerMetadata: historyItemMetadata(item),
+            state: "done",
+            text,
+            type: "reasoning",
+          },
+        ]
+      : []
   }
   if (item.type === "imageGeneration" && item.result && !item.failure) {
     const match = /^data:(image\/[^;]+);base64,/u.exec(item.result)
     return [
       {
         mediaType: match?.[1] ?? "image/png",
-        providerMetadata: { "cypheria.codex": { itemId: item.id } },
+        providerMetadata: { "cypheria.codex": { item, itemId: item.id } },
         type: "file",
         url: item.result,
       },
@@ -465,8 +512,8 @@ const historyPartsFromItem = (item: v2.ThreadItem): UIMessage["parts"] => {
 
 const userHistoryParts = (
   item: Extract<v2.ThreadItem, { type: "userMessage" }>
-): UIMessage["parts"] =>
-  item.content.map((content): UIMessage["parts"][number] => {
+): CodexUiMessage["parts"] =>
+  item.content.map((content): CodexUiMessage["parts"][number] => {
     switch (content.type) {
       case "text":
         return { text: content.text, type: "text" }
@@ -485,26 +532,53 @@ const userHistoryParts = (
     return customHistoryPart(item)
   })
 
-export const mapCodexThreadItemsToUiMessages = (
-  entries: readonly v2.ThreadItemEntry[]
-): UIMessage[] => {
-  const messages: UIMessage[] = []
-  for (const { item, turnId } of entries) {
-    if (item.type === "hookPrompt") continue
-    if (item.type === "userMessage") {
-      messages.push({ id: item.id, parts: userHistoryParts(item), role: "user" })
-      continue
+export const mapCodexTurnsToUiMessages = (
+  threadId: string,
+  turns: readonly v2.Turn[]
+): CodexUiMessage[] => {
+  const messages: CodexUiMessage[] = []
+  for (const turn of turns) {
+    for (const item of turn.items) {
+      if (item.type === "userMessage") {
+        messages.push({ id: item.id, parts: userHistoryParts(item), role: "user" })
+      }
     }
-    const parts = historyPartsFromItem(item)
-    if (parts.length === 0) continue
-    const previous = messages.at(-1)
-    if (previous?.role === "assistant" && previous.metadata === turnId) {
-      previous.parts.push(...parts)
-    } else {
-      messages.push({ id: `turn-${turnId}`, metadata: turnId, parts, role: "assistant" })
+
+    const projector = new CodexTurnProjector(threadId, turn)
+    const updates = projector.initialUpdates()
+    const metadata = updates.find(
+      (update): update is Extract<CodexTurnUpdate, { type: "turn" }> => update.type === "turn"
+    )?.data
+    const parts: CodexUiMessage["parts"] = updates.map(turnUpdatePart)
+    for (const item of turn.items) {
+      if (item.type !== "userMessage" && item.type !== "hookPrompt") {
+        parts.push(...historyPartsFromItem(item))
+      }
     }
+    messages.push({ id: turn.id, metadata, parts, role: "assistant" })
   }
   return messages
+}
+
+export const mapCodexThreadItemsToUiMessages = (
+  entries: readonly v2.ThreadItemEntry[]
+): CodexUiMessage[] => {
+  const turns = new Map<string, v2.Turn>()
+  for (const entry of entries) {
+    const turn = turns.get(entry.turnId) ?? {
+      completedAt: null,
+      durationMs: null,
+      error: null,
+      id: entry.turnId,
+      items: [],
+      itemsView: "full" as const,
+      startedAt: null,
+      status: "completed" as const,
+    }
+    turn.items.push(entry.item)
+    turns.set(entry.turnId, turn)
+  }
+  return mapCodexTurnsToUiMessages("unknown", [...turns.values()])
 }
 
 export const readCodexThread = async (
@@ -515,21 +589,21 @@ export const readCodexThread = async (
     includeTurns: false,
     threadId,
   })
-  const entries: v2.ThreadItemEntry[] = []
+  const turns: v2.Turn[] = []
   let cursor: string | null | undefined
   do {
-    const page = await bridge.request<"thread/items/list", v2.ThreadItemsListResponse>(
-      "thread/items/list",
-      { cursor, limit: 100, sortDirection: "asc", threadId }
+    const page = await bridge.request<"thread/turns/list", v2.ThreadTurnsListResponse>(
+      "thread/turns/list",
+      { cursor, itemsView: "full", limit: 100, sortDirection: "asc", threadId }
     )
-    entries.push(...page.data)
+    turns.push(...page.data)
     cursor = page.nextCursor
   } while (cursor)
 
   return {
     cwd: thread.cwd,
     id: thread.id,
-    messages: mapCodexThreadItemsToUiMessages(entries) as CodexThreadDetailView["messages"],
+    messages: mapCodexTurnsToUiMessages(threadId, turns) as CodexThreadDetailView["messages"],
     projectId: thread.projectId,
     title: thread.name?.trim() || thread.preview.trim() || "Untitled chat",
   }
@@ -544,6 +618,16 @@ const runChat = async (
   dynamicTools?: readonly v2.DynamicToolSpec[]
 ): Promise<void> => {
   let threadId: string | undefined = request.resumeThreadId
+  let streamStarted = false
+  const pendingTurnChunks: UIMessageChunk<CodexTurnSnapshot, CodexUiDataTypes>[] = []
+  const emitTurnUpdate = (update: CodexTurnUpdate) => {
+    const chunk = turnUpdateChunk(update)
+    if (streamStarted) {
+      sendChatEvent(sender, { chunk, requestId, type: "chunk" })
+    } else {
+      pendingTurnChunks.push(chunk)
+    }
+  }
   try {
     const provider = createCodexAppServerProvider({
       approvalPolicy: request.approvalPolicy,
@@ -555,6 +639,7 @@ const runChat = async (
         activeChat.session = session
         threadId = session.threadId
       },
+      onTurnUpdate: emitTurnUpdate,
       reasoningEffort: request.reasoningEffort,
       projectId: request.projectId,
       resumeThreadId: request.resumeThreadId,
@@ -564,14 +649,23 @@ const runChat = async (
     })
     const result = streamText({
       abortSignal: activeChat.abortController.signal,
-      messages: await convertToModelMessages(request.messages as UIMessage[]),
+      messages: await convertToModelMessages(request.messages as CodexUiMessage[]),
       model: provider(request.model),
     })
-    const reader = toUIMessageStream({ stream: result.fullStream }).getReader()
+    const reader = toUIMessageStream({
+      sendSources: true,
+      stream: result.fullStream,
+    }).getReader()
     while (true) {
       const part = await reader.read()
       if (part.done) break
       sendChatEvent(sender, { chunk: part.value, requestId, type: "chunk" })
+      if (part.value.type === "start") {
+        streamStarted = true
+        for (const chunk of pendingTurnChunks.splice(0)) {
+          sendChatEvent(sender, { chunk, requestId, type: "chunk" })
+        }
+      }
     }
     sendChatEvent(sender, { requestId, threadId, type: "done" })
   } catch (error) {

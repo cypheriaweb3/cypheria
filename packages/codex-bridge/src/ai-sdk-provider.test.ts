@@ -273,7 +273,11 @@ describe("Codex app-server AI SDK provider", () => {
 
   it("streams progress, sources, files, custom items, errors, and token usage", async () => {
     const bridge = new FakeBridge()
-    const { stream } = await createCodexAppServerProvider({ bridge })("test").doStream({
+    const turnUpdates: unknown[] = []
+    const { stream } = await createCodexAppServerProvider({
+      bridge,
+      onTurnUpdate: (update) => turnUpdates.push(update),
+    })("test").doStream({
       prompt: [{ role: "user", content: [{ type: "text", text: "Work" }] }],
     })
     const reader = stream.getReader()
@@ -424,6 +428,29 @@ describe("Codex app-server AI SDK provider", () => {
       ])
     )
     expect(parts).not.toContainEqual(expect.objectContaining({ type: "error" }))
+    expect(turnUpdates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          data: expect.objectContaining({ id: "turn-1", status: "inProgress" }),
+          type: "turn",
+        }),
+        expect.objectContaining({
+          data: expect.objectContaining({
+            item: expect.objectContaining({
+              aggregatedOutput: "running",
+              id: "command-1",
+            }),
+            lifecycle: "started",
+          }),
+          id: "command-1",
+          type: "item",
+        }),
+        expect.objectContaining({
+          data: expect.objectContaining({ id: "turn-1", status: "completed" }),
+          type: "turn",
+        }),
+      ])
+    )
   })
 
   it.each([

@@ -29,6 +29,11 @@ msgid "chat.artifact.added"
 msgstr "Added"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.agentActivity"
+msgstr "Agent {tool}"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
 msgid "settings.appearance.title"
 msgstr "Appearance"
@@ -120,6 +125,11 @@ msgid "chat.workspace.command"
 msgstr "Command {number}"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.compacted"
+msgstr "Compacted conversation context"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.connections"
 msgstr "Connections"
@@ -128,6 +138,11 @@ msgstr "Connections"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.workspace.context"
 msgstr "Context"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.coordinatedAgents"
+msgstr "Coordinated agents"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -203,14 +218,39 @@ msgid "navigation.editSection"
 msgstr "Edit section"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.editedFiles"
+msgstr "Edited files"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.editingFiles"
+msgstr "Editing files"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.enteredReview"
+msgstr "Entered review mode"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.workspace.exitCode"
 msgstr "Exit {code}"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.exitedReview"
+msgstr "Exited review mode"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.artifact.failed"
 msgstr "Failed"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.failedAfter"
+msgstr "Failed after {time}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -246,6 +286,21 @@ msgstr "General"
 #: renderer/src/components/app-shell.tsx
 msgid "settings.general"
 msgstr "General"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.generatedImage"
+msgstr "Generated image"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.generatedImages"
+msgstr "Generated images"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.generatingImage"
+msgstr "Generating image"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -297,6 +352,11 @@ msgstr "Local agent"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sort.manual"
 msgstr "Manual order"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.modelRerouted"
+msgstr "Model changed from {fromModel} to {toModel}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -417,6 +477,11 @@ msgid "navigation.pinned"
 msgstr "Pinned"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.plan"
+msgstr "Plan"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.plugins"
 msgstr "Plugins"
@@ -452,6 +517,31 @@ msgid "navigation.projects"
 msgstr "Projects"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.proposedPlan"
+msgstr "Proposed plan"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.ranCommand"
+msgstr "Ran {command}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.ranCommands"
+msgstr "Ran commands"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.readFile"
+msgstr "Read {name}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.readFiles"
+msgstr "Read files"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.sandbox.readOnly"
 msgstr "Read only"
@@ -475,6 +565,11 @@ msgstr "Review"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.artifact.running"
 msgstr "Running"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.runningCommand"
+msgstr "Running {command}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -511,6 +606,26 @@ msgstr "Search models…"
 #: renderer/src/components/chat-search.tsx
 msgid "search.description"
 msgstr "Search your chats and select one to open it."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.searchedCode"
+msgstr "Searched code"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.searched"
+msgstr "Searched for {query}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.searchedWebShort"
+msgstr "Searched the web"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.searchedWeb"
+msgstr "Searched the web for {query}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -558,9 +673,24 @@ msgid "settings.theme.title"
 msgstr "Theme"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.thinking"
+msgstr "Thinking"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.thought"
+msgstr "Thought"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.tryAgain"
 msgstr "Try again"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.diff"
+msgstr "Turn changes"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -568,14 +698,44 @@ msgid "search.untitled"
 msgstr "Untitled chat"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.update"
+msgstr "Update"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.artifact.updated"
 msgstr "Updated"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.updatedPlan"
+msgstr "Updated plan"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.usedTools"
+msgstr "Used tools"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "menu.view"
 msgstr "View"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.viewedImage"
+msgstr "Viewed {path}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.viewedImages"
+msgstr "Viewed images"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.waited"
+msgstr "Waited {time}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -603,6 +763,21 @@ msgid "chat.empty.description"
 msgstr "Work across code, wallets, and the web while you stay in control of permissions."
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.workedFor"
+msgstr "Worked for {time}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.working"
+msgstr "Working"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.workingFor"
+msgstr "Working for {time}"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.status.working"
 msgstr "Working…"
@@ -621,3 +796,8 @@ msgstr "Workspace panel"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.sandbox.workspaceWrite"
 msgstr "Workspace write"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.turn.stoppedAfter"
+msgstr "You stopped after {time}"

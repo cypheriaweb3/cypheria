@@ -27,6 +27,11 @@ import type {
   ServerNotification,
   v2,
 } from "./index.js"
+import {
+  type CodexTurnItemSnapshot,
+  CodexTurnProjector,
+  type CodexTurnUpdate,
+} from "./turn-projection.js"
 
 export type CodexAppServerProviderBridge = {
   request<M extends ClientRequest["method"], TResponse = CodexJsonValue>(
@@ -52,6 +57,7 @@ export type CodexAppServerProviderSettings = {
   readonly dynamicTools?: readonly v2.DynamicToolSpec[]
   readonly modelProvider?: string
   readonly onSessionCreated?: (session: CodexAppServerAiSdkSession) => void
+  readonly onTurnUpdate?: (update: CodexTurnUpdate) => void
   readonly projectId?: string
   readonly reasoningEffort?: ReasoningEffort
   readonly reasoningSummary?: ReasoningSummary
@@ -629,6 +635,9 @@ const threadMetadata = (threadId: string, turnId?: string, usage?: v2.ThreadToke
   },
 })
 
+const itemMetadata = (snapshot: CodexTurnItemSnapshot | undefined) =>
+  snapshot ? { [providerId]: { turnItem: toAiSdkJsonValue(snapshot) } } : undefined
+
 const resolveToolName = (
   item: v2.ThreadItem
 ): { readonly dynamic: boolean; readonly toolName: string } => {
@@ -771,7 +780,8 @@ const sourcesFromWebSearch = (item: Extract<v2.ThreadItem, { type: "webSearch" }
 }
 
 const imageFileFromItem = (
-  item: Extract<v2.ThreadItem, { type: "imageGeneration" }>
+  item: Extract<v2.ThreadItem, { type: "imageGeneration" }>,
+  snapshot?: CodexTurnItemSnapshot
 ): Extract<LanguageModelV4Content, { type: "file" }> | undefined => {
   if (!item.result || item.failure) return undefined
   const match = /^data:(image\/[^;]+);base64,(.+)$/su.exec(item.result)
@@ -784,6 +794,7 @@ const imageFileFromItem = (
         revisedPrompt: item.revisedPrompt,
         savedPath: item.savedPath ?? null,
         transparentBackground: item.transparentBackground ?? null,
+        ...(snapshot ? { turnItem: toAiSdkJsonValue(snapshot) } : {}),
       },
     },
     type: "file",
@@ -1057,9 +1068,14 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
     )
     const turnId = turnResponse.turn.id
     session._setTurnId(turnId)
+    const turnProjector = new CodexTurnProjector(threadId, turnResponse.turn)
 
     const stream = new ReadableStream<LanguageModelV4StreamPart>({
       start: (controller) => {
+        const emitTurnUpdates = (updates: readonly CodexTurnUpdate[]) => {
+          for (const update of updates) settings.onTurnUpdate?.(update)
+        }
+        emitTurnUpdates(turnProjector.initialUpdates())
         const emitRaw = (notification: ServerNotification) => {
           if (options.includeRawChunks) {
             controller.enqueue({ rawValue: notification, type: "raw" })
@@ -1080,6 +1096,7 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
         }
         unsubscribeNotification = settings.bridge.on("notification", (notification) => {
           emitRaw(notification)
+          emitTurnUpdates(turnProjector.apply(notification))
           switch (notification.method) {
             case "item/agentMessage/delta": {
               const params =
@@ -1089,7 +1106,11 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
               }
               if (!textIds.has(params.itemId)) {
                 textIds.add(params.itemId)
-                controller.enqueue({ id: params.itemId, type: "text-start" })
+                controller.enqueue({
+                  id: params.itemId,
+                  providerMetadata: itemMetadata(turnProjector.item(params.itemId)),
+                  type: "text-start",
+                })
               }
               controller.enqueue({ delta: params.delta, id: params.itemId, type: "text-delta" })
               break
@@ -1104,7 +1125,11 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
               }
               if (!reasoningIds.has(params.itemId)) {
                 reasoningIds.add(params.itemId)
-                controller.enqueue({ id: params.itemId, type: "reasoning-start" })
+                controller.enqueue({
+                  id: params.itemId,
+                  providerMetadata: itemMetadata(turnProjector.item(params.itemId)),
+                  type: "reasoning-start",
+                })
               }
               controller.enqueue({
                 delta: params.delta,
@@ -1125,6 +1150,7 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
                 dynamic: tool.dynamic,
                 id: params.item.id,
                 providerExecuted: true,
+                providerMetadata: itemMetadata(turnProjector.item(params.item.id)),
                 toolName: tool.toolName,
                 type: "tool-input-start",
               })
@@ -1138,6 +1164,7 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
                 dynamic: tool.dynamic,
                 input: itemInput(params.item),
                 providerExecuted: true,
+                providerMetadata: itemMetadata(turnProjector.item(params.item.id)),
                 toolCallId: params.item.id,
                 toolName: tool.toolName,
                 type: "tool-call",
@@ -1189,25 +1216,41 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
               }
               if (params.item.type === "agentMessage") {
                 if (!textIds.has(params.item.id) && params.item.text) {
-                  controller.enqueue({ id: params.item.id, type: "text-start" })
+                  controller.enqueue({
+                    id: params.item.id,
+                    providerMetadata: itemMetadata(turnProjector.item(params.item.id)),
+                    type: "text-start",
+                  })
                   controller.enqueue({
                     delta: params.item.text,
                     id: params.item.id,
                     type: "text-delta",
                   })
                 }
-                controller.enqueue({ id: params.item.id, type: "text-end" })
+                controller.enqueue({
+                  id: params.item.id,
+                  providerMetadata: itemMetadata(turnProjector.item(params.item.id)),
+                  type: "text-end",
+                })
                 return
               }
               if (params.item.type === "reasoning") {
                 if (!reasoningIds.has(params.item.id)) {
                   const text = [...params.item.summary, ...params.item.content].join("\n")
                   if (text) {
-                    controller.enqueue({ id: params.item.id, type: "reasoning-start" })
+                    controller.enqueue({
+                      id: params.item.id,
+                      providerMetadata: itemMetadata(turnProjector.item(params.item.id)),
+                      type: "reasoning-start",
+                    })
                     controller.enqueue({ delta: text, id: params.item.id, type: "reasoning-delta" })
                   }
                 }
-                controller.enqueue({ id: params.item.id, type: "reasoning-end" })
+                controller.enqueue({
+                  id: params.item.id,
+                  providerMetadata: itemMetadata(turnProjector.item(params.item.id)),
+                  type: "reasoning-end",
+                })
                 return
               }
               if (isToolItem(params.item)) {
@@ -1218,6 +1261,7 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
                     dynamic: tool.dynamic,
                     input: itemInput(params.item),
                     providerExecuted: true,
+                    providerMetadata: itemMetadata(turnProjector.item(params.item.id)),
                     toolCallId: params.item.id,
                     toolName: tool.toolName,
                     type: "tool-call",
@@ -1226,6 +1270,7 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
                 controller.enqueue({
                   dynamic: tool.dynamic,
                   isError: result.isError,
+                  providerMetadata: itemMetadata(turnProjector.item(params.item.id)),
                   result: result.result,
                   toolCallId: params.item.id,
                   toolName: tool.toolName,
@@ -1239,7 +1284,7 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
                 return
               }
               if (params.item.type === "imageGeneration") {
-                const file = imageFileFromItem(params.item)
+                const file = imageFileFromItem(params.item, turnProjector.item(params.item.id))
                 if (file) controller.enqueue(file)
                 else controller.enqueue(customContentFromItem(params.item))
                 return

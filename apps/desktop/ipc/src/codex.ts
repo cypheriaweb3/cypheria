@@ -1,4 +1,24 @@
+import type {
+  CodexTurnDiffSnapshot,
+  CodexTurnEventSnapshot,
+  CodexTurnItemSnapshot,
+  CodexTurnModelRerouteSnapshot,
+  CodexTurnPlanSnapshot,
+  CodexTurnSnapshot,
+} from "@cypheria/codex-bridge"
+import type { UIMessage } from "ai"
 import { z } from "zod"
+
+export type CodexUiDataTypes = {
+  readonly "codex-diff": CodexTurnDiffSnapshot
+  readonly "codex-event": CodexTurnEventSnapshot
+  readonly "codex-item": CodexTurnItemSnapshot
+  readonly "codex-model-reroute": CodexTurnModelRerouteSnapshot
+  readonly "codex-plan": CodexTurnPlanSnapshot
+  readonly "codex-turn": CodexTurnSnapshot
+}
+
+export type CodexUiMessage = UIMessage<CodexTurnSnapshot, CodexUiDataTypes>
 
 export const CodexNativeProviderSchema = z.enum(["openai", "amazon-bedrock", "ollama", "lmstudio"])
 export type CodexNativeProvider = z.infer<typeof CodexNativeProviderSchema>

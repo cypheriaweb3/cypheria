@@ -29,6 +29,17 @@ export {
   createCodexDynamicToolRegistry,
 } from "./dynamic-tools.js"
 export type * from "./generated/index.js"
+export {
+  type CodexTerminalInteraction,
+  type CodexTurnDiffSnapshot,
+  type CodexTurnEventSnapshot,
+  type CodexTurnItemSnapshot,
+  type CodexTurnModelRerouteSnapshot,
+  type CodexTurnPlanSnapshot,
+  CodexTurnProjector,
+  type CodexTurnSnapshot,
+  type CodexTurnUpdate,
+} from "./turn-projection.js"
 export { CODEX_APP_SERVER_VERSION } from "./version.js"
 
 export type CodexJsonValue =

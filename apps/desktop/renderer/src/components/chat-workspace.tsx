@@ -72,7 +72,6 @@ import type {
   FileUIPart,
   ReasoningFileUIPart,
   SourceUrlUIPart,
-  UIMessage,
 } from "ai"
 import { useAtomValue } from "jotai"
 import {
@@ -96,6 +95,7 @@ import type {
   CodexInteractionEvent,
   CodexInteractionResponse,
   CodexModelView,
+  CodexUiMessage,
   WalletActiveContext,
 } from "../../../ipc/src/index.js"
 import { CodexIpcChatTransport } from "../codex-chat.js"
@@ -106,6 +106,7 @@ import {
   deriveChatWorkspaceArtifacts,
   displayChatArtifactPath,
 } from "./chat-workspace-artifacts"
+import { CodexTurnMessage } from "./codex-turn.js"
 import { ProjectCreateDialog } from "./project-create-dialog"
 
 const fallbackModel: CodexModelView = {
@@ -240,11 +241,23 @@ function ChatSession({
       settings?.serviceTier,
     ]
   )
-  const { error, messages, sendMessage, setMessages, status, stop } = useChat({
+  const { error, messages, sendMessage, setMessages, status, stop } = useChat<CodexUiMessage>({
     id: resumeThreadId ?? "new-chat",
     transport,
   })
   const workspaceArtifacts = useMemo(() => deriveChatWorkspaceArtifacts(messages), [messages])
+  const visibleTurnIds = useMemo(
+    () =>
+      new Set(
+        messages.flatMap((message) =>
+          message.parts.flatMap((part) => (part.type === "data-codex-turn" ? [part.data.id] : []))
+        )
+      ),
+    [messages]
+  )
+  const unboundInteractions = interactions.filter(
+    (interaction) => !interaction.turnId || !visibleTurnIds.has(interaction.turnId)
+  )
   const statusLabel =
     status === "ready"
       ? i18n._(msg({ id: "chat.status.local", message: "Local" }))
@@ -257,7 +270,7 @@ function ChatSession({
   useEffect(() => {
     if (!resumeThreadId || !threadQuery.data || hydratedThreadId.current === resumeThreadId) return
     hydratedThreadId.current = resumeThreadId
-    setMessages(threadQuery.data.messages as UIMessage[])
+    setMessages(threadQuery.data.messages as CodexUiMessage[])
     setSelectedProjectId(threadQuery.data.projectId)
   }, [resumeThreadId, setMessages, threadQuery.data])
 
@@ -375,7 +388,14 @@ function ChatSession({
                 )}
               />
             ) : (
-              messages.map((message) => <ChatMessage key={message.id} message={message} />)
+              messages.map((message) => (
+                <ChatMessage
+                  interactions={interactions}
+                  key={message.id}
+                  message={message}
+                  onResolve={resolveInteraction}
+                />
+              ))
             )}
             {error ? (
               <div className="rounded-lg border border-destructive/35 bg-destructive/5 px-3 py-2 text-sm text-destructive">
@@ -387,7 +407,7 @@ function ChatSession({
         </Conversation>
 
         <div className="mx-auto w-full max-w-[880px] px-4 pb-5">
-          {interactions.map((interaction) => (
+          {unboundInteractions.map((interaction) => (
             <CodexInteractionCard
               interaction={interaction}
               key={interaction.interactionId}
@@ -666,7 +686,37 @@ function CodexInteractionCard({
   )
 }
 
-function ChatMessage({ message }: Readonly<{ message: UIMessage }>) {
+function ChatMessage({
+  interactions,
+  message,
+  onResolve,
+}: Readonly<{
+  interactions: readonly CodexInteractionEvent[]
+  message: CodexUiMessage
+  onResolve: (response: CodexInteractionResponse) => Promise<void>
+}>) {
+  const turn = message.parts.find((part) => part.type === "data-codex-turn")
+  if (message.role === "assistant" && turn?.type === "data-codex-turn") {
+    const turnInteractions = interactions.filter(
+      (interaction) => interaction.turnId === turn.data.id
+    )
+    return (
+      <CodexTurnMessage
+        blockingContent={
+          turnInteractions.length
+            ? turnInteractions.map((interaction) => (
+                <CodexInteractionCard
+                  interaction={interaction}
+                  key={interaction.interactionId}
+                  onResolve={onResolve}
+                />
+              ))
+            : undefined
+        }
+        message={message}
+      />
+    )
+  }
   const sources = message.parts.filter(
     (part): part is SourceUrlUIPart => part.type === "source-url"
   )

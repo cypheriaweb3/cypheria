@@ -1,9 +1,9 @@
-import type { ChatTransport, UIMessage, UIMessageChunk } from "ai"
-import type { CodexChatEvent, CodexChatStart } from "../../ipc/src/index.js"
+import type { ChatTransport, InferUIMessageChunk } from "ai"
+import type { CodexChatEvent, CodexChatStart, CodexUiMessage } from "../../ipc/src/index.js"
 
 export type CodexChatOptions = Omit<CodexChatStart, "chatId" | "messages" | "requestId">
 
-export class CodexIpcChatTransport implements ChatTransport<UIMessage> {
+export class CodexIpcChatTransport implements ChatTransport<CodexUiMessage> {
   constructor(
     private readonly getOptions: () => CodexChatOptions,
     private readonly onThreadCreated?: (threadId: string) => void
@@ -13,8 +13,8 @@ export class CodexIpcChatTransport implements ChatTransport<UIMessage> {
     abortSignal,
     chatId,
     messages,
-  }: Parameters<ChatTransport<UIMessage>["sendMessages"]>[0]): Promise<
-    ReadableStream<UIMessageChunk>
+  }: Parameters<ChatTransport<CodexUiMessage>["sendMessages"]>[0]): Promise<
+    ReadableStream<InferUIMessageChunk<CodexUiMessage>>
   > {
     const api = window.cypheria?.codex
     if (!api) {
@@ -22,7 +22,7 @@ export class CodexIpcChatTransport implements ChatTransport<UIMessage> {
     }
 
     const requestId = crypto.randomUUID()
-    return new globalThis.ReadableStream<UIMessageChunk>({
+    return new globalThis.ReadableStream<InferUIMessageChunk<CodexUiMessage>>({
       start: async (controller) => {
         let closed = false
         const close = () => {
@@ -34,7 +34,7 @@ export class CodexIpcChatTransport implements ChatTransport<UIMessage> {
         const onEvent = (event: CodexChatEvent) => {
           if (event.requestId !== requestId || closed) return
           if (event.type === "chunk") {
-            controller.enqueue(event.chunk as UIMessageChunk)
+            controller.enqueue(event.chunk as InferUIMessageChunk<CodexUiMessage>)
           } else if (event.type === "error") {
             closed = true
             unsubscribe()
@@ -70,7 +70,7 @@ export class CodexIpcChatTransport implements ChatTransport<UIMessage> {
     })
   }
 
-  async reconnectToStream(): Promise<ReadableStream<UIMessageChunk> | null> {
+  async reconnectToStream(): Promise<ReadableStream<InferUIMessageChunk<CodexUiMessage>> | null> {
     return null
   }
 }

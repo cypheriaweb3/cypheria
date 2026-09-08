@@ -1,5 +1,7 @@
 import type { CodexAppServerBridge } from "@cypheria/codex-bridge"
-import { describe, expect, it } from "vitest"
+import type { WebContents } from "electron"
+import { describe, expect, it, vi } from "vitest"
+import type { CodexChatEvent } from "../../ipc/src/index.js"
 import {
   createCodexProject,
   createCodexThreadSection,
@@ -9,11 +11,12 @@ import {
   listCodexProjects,
   listCodexThreadSections,
   listCodexThreads,
-  mapCodexThreadItemsToUiMessages,
+  mapCodexTurnsToUiMessages,
   moveCodexThreadToSection,
   readCodexAccount,
   readCodexModelSettings,
   readCodexThread,
+  startCodexChat,
   startCodexLogin,
   updateCodexProject,
   updateCodexThreadSection,
@@ -23,6 +26,8 @@ import {
 
 class FakeBridge {
   readonly calls: Array<{ method: string; params: unknown }> = []
+  readonly errors = new Set<(error: unknown) => void>()
+  readonly notifications = new Set<(event: unknown) => void>()
   constructor(private readonly responses: Record<string, unknown>) {}
 
   async request(method: string, params: unknown): Promise<unknown> {
@@ -32,8 +37,18 @@ class FakeBridge {
     return response
   }
 
-  on(): () => void {
-    return () => undefined
+  on(_type: "notification", handler: (event: unknown) => void): () => void {
+    this.notifications.add(handler)
+    return () => this.notifications.delete(handler)
+  }
+
+  onError(handler: (error: unknown) => void): () => void {
+    this.errors.add(handler)
+    return () => this.errors.delete(handler)
+  }
+
+  emit(event: unknown): void {
+    for (const handler of this.notifications) handler(event)
   }
 }
 
@@ -335,40 +350,61 @@ describe("desktop Codex services", () => {
       preview: "",
       projectId: "project-1",
     }
-    const entries = [
-      {
-        item: {
+    const storedTurn = {
+      completedAt: 20,
+      durationMs: 10_000,
+      error: null,
+      id: "turn-1",
+      items: [
+        {
           clientId: null,
           content: [{ text: "Hello", text_elements: [], type: "text" as const }],
           id: "user-1",
           type: "userMessage" as const,
         },
-        turnId: "turn-1",
-      },
-      {
-        item: {
+        {
           delivery: null,
           id: "assistant-1",
           memoryCitation: null,
-          phase: null,
+          phase: "final_answer" as const,
           questions: null,
           text: "Hi",
           type: "agentMessage" as const,
         },
-        turnId: "turn-1",
-      },
-    ]
+      ],
+      itemsView: "full" as const,
+      startedAt: 10,
+      status: "completed" as const,
+    }
     const bridge = new FakeBridge({
-      "thread/items/list": { backwardsCursor: null, data: entries, nextCursor: null },
+      "thread/turns/list": { backwardsCursor: null, data: [storedTurn], nextCursor: null },
       "thread/read": { thread },
     })
 
-    expect(mapCodexThreadItemsToUiMessages(entries)).toEqual([
+    expect(mapCodexTurnsToUiMessages("thread-1", [storedTurn])).toMatchObject([
       { id: "user-1", parts: [{ text: "Hello", type: "text" }], role: "user" },
       {
-        id: "turn-turn-1",
-        metadata: "turn-1",
-        parts: [{ text: "Hi", type: "text" }],
+        id: "turn-1",
+        metadata: {
+          durationMs: 10_000,
+          id: "turn-1",
+          status: "completed",
+          threadId: "thread-1",
+        },
+        parts: [
+          { id: "turn-1", type: "data-codex-turn" },
+          { id: "user-1", type: "data-codex-item" },
+          { id: "assistant-1", type: "data-codex-item" },
+          {
+            providerMetadata: {
+              "cypheria.codex": {
+                item: { id: "assistant-1", phase: "final_answer", type: "agentMessage" },
+              },
+            },
+            text: "Hi",
+            type: "text",
+          },
+        ],
         role: "assistant",
       },
     ])
@@ -379,8 +415,117 @@ describe("desktop Codex services", () => {
       title: "History",
     })
     expect(bridge.calls).toContainEqual({
-      method: "thread/items/list",
-      params: { cursor: undefined, limit: 100, sortDirection: "asc", threadId: "thread-1" },
+      method: "thread/turns/list",
+      params: {
+        cursor: undefined,
+        itemsView: "full",
+        limit: 100,
+        sortDirection: "asc",
+        threadId: "thread-1",
+      },
     })
+  })
+
+  it("injects reconciled Codex turn data into the live AI SDK UI stream", async () => {
+    const inProgressTurn = {
+      completedAt: null,
+      durationMs: null,
+      error: null,
+      id: "turn-live",
+      items: [],
+      itemsView: "full" as const,
+      startedAt: 10,
+      status: "inProgress" as const,
+    }
+    const bridge = new FakeBridge({
+      "thread/start": { thread: { id: "thread-live" } },
+      "turn/start": { turn: inProgressTurn },
+    })
+    const events: CodexChatEvent[] = []
+    const sender = {
+      isDestroyed: () => false,
+      send: (_channel: string, event: CodexChatEvent) => events.push(event),
+    } as unknown as WebContents
+
+    startCodexChat(asBridge(bridge), sender, {
+      approvalPolicy: "on-request",
+      chatId: "chat-live",
+      messages: [{ id: "user-live", parts: [{ text: "Hello", type: "text" }], role: "user" }],
+      model: "test-model",
+      provider: "openai",
+      requestId: "0199-1111-7111-8111-111111111111",
+      sandboxMode: "workspace-write",
+    })
+
+    await vi.waitFor(() => expect(bridge.notifications.size).toBe(1))
+    const startedItem = {
+      delivery: null,
+      id: "agent-live",
+      memoryCitation: null,
+      phase: "final_answer" as const,
+      questions: null,
+      text: "",
+      type: "agentMessage" as const,
+    }
+    bridge.emit({
+      method: "item/started",
+      params: {
+        item: startedItem,
+        startedAtMs: 10_000,
+        threadId: "thread-live",
+        turnId: "turn-live",
+      },
+    })
+    bridge.emit({
+      method: "item/agentMessage/delta",
+      params: {
+        delta: "Done",
+        itemId: "agent-live",
+        threadId: "thread-live",
+        turnId: "turn-live",
+      },
+    })
+    const completedItem = { ...startedItem, text: "Done" }
+    bridge.emit({
+      method: "item/completed",
+      params: {
+        completedAtMs: 11_000,
+        item: completedItem,
+        threadId: "thread-live",
+        turnId: "turn-live",
+      },
+    })
+    bridge.emit({
+      method: "turn/completed",
+      params: {
+        threadId: "thread-live",
+        turn: {
+          ...inProgressTurn,
+          completedAt: 11,
+          durationMs: 1_000,
+          items: [completedItem],
+          status: "completed",
+        },
+      },
+    })
+
+    await vi.waitFor(() => expect(events.some((event) => event.type === "done")).toBe(true))
+    const chunks = events.flatMap((event) => (event.type === "chunk" ? [event.chunk] : []))
+    expect(chunks).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "start" }),
+        expect.objectContaining({ id: "turn-live", type: "data-codex-turn" }),
+        expect.objectContaining({
+          data: expect.objectContaining({
+            item: expect.objectContaining({ id: "agent-live", text: "Done" }),
+            lifecycle: "completed",
+          }),
+          id: "agent-live",
+          type: "data-codex-item",
+        }),
+        expect.objectContaining({ type: "text-start" }),
+        expect.objectContaining({ delta: "Done", type: "text-delta" }),
+      ])
+    )
   })
 })
