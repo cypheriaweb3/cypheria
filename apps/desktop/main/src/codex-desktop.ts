@@ -700,6 +700,16 @@ export const archiveCodexThread = async (
   return { archived: true }
 }
 
+export const unarchiveCodexThread = async (
+  bridge: CodexAppServerBridge,
+  threadId: string
+): Promise<{ unarchived: true }> => {
+  await bridge.request<"thread/unarchive", v2.ThreadUnarchiveResponse>("thread/unarchive", {
+    threadId,
+  })
+  return { unarchived: true }
+}
+
 export const deleteCodexThread = async (
   bridge: CodexAppServerBridge,
   threadId: string

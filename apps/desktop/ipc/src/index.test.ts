@@ -22,6 +22,7 @@ import {
   codexThreadProjectMoveContract,
   codexThreadQueueAddContract,
   codexThreadRenameContract,
+  codexThreadUnarchiveContract,
   dappProviderRequestContract,
   networkCreateContract,
   networkEndpointSetEnabledContract,
@@ -360,6 +361,9 @@ describe("chat follow-up IPC contracts", () => {
 
   it("scopes sidebar thread mutations to server-owned identifiers", () => {
     expect(codexThreadArchiveContract.request.parse({ threadId: "thread-1" })).toEqual({
+      threadId: "thread-1",
+    })
+    expect(codexThreadUnarchiveContract.request.parse({ threadId: "thread-1" })).toEqual({
       threadId: "thread-1",
     })
     expect(codexThreadDeleteContract.request.parse({ threadId: "thread-1" })).toEqual({

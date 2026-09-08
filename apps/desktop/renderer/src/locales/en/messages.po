@@ -99,6 +99,21 @@ msgid "navigation.archiveProjectChats"
 msgstr "Archive chats"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.group.archived"
+msgstr "Archived"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.title"
+msgstr "Archived chats"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.archived"
+msgstr "Archived chats"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.prompt.placeholder"
 msgstr "Ask Cypheria to inspect, edit, run, research, or review…"
@@ -164,6 +179,7 @@ msgid "settings.configuration.option.cached"
 msgstr "Cached"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
 #: renderer/src/routes/settings.general.tsx
 msgid "common.cancel"
 msgstr "Cancel"
@@ -238,6 +254,11 @@ msgstr "Close terminal"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.workspace.close"
 msgstr "Close workspace panel"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.group.coding"
+msgstr "Coding"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
@@ -369,6 +390,21 @@ msgstr "Default permissions"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.permissions.default.toggle"
 msgstr "Default permissions are always shown"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.delete"
+msgstr "Delete"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.deleteAria"
+msgstr "Delete archived chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.deleteConfirm.title"
+msgstr "Delete archived chat?"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -598,6 +634,11 @@ msgid "settings.configuration.option.indexed"
 msgstr "Indexed"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.group.integrations"
+msgstr "Integrations"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.artifact.interactive"
 msgstr "Interactive artifact"
@@ -752,6 +793,11 @@ msgid "chat.workspace.newTerminal"
 msgstr "New terminal"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.empty"
+msgstr "No archived chats"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.noChats"
 msgstr "No chats yet"
@@ -777,6 +823,11 @@ msgid "settings.language.empty"
 msgstr "No languages found"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.noMatches"
+msgstr "No matching archived chats"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.noMatches"
 msgstr "No matching chats."
@@ -792,6 +843,11 @@ msgid "navigation.noPinnedChats"
 msgstr "No pinned chats"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.noProject"
+msgstr "No project"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.project.none"
 msgstr "No project"
@@ -805,6 +861,11 @@ msgstr "No projects yet"
 #: renderer/src/components/chat-search.tsx
 msgid "search.noRecent"
 msgstr "No recent chats yet."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.search.empty"
+msgstr "No results found"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -860,6 +921,11 @@ msgstr "Pending"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.permissions.title"
 msgstr "Permissions"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.group.personal"
+msgstr "Personal"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1012,6 +1078,21 @@ msgid "chat.header.rename"
 msgstr "Rename chat"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.restore"
+msgstr "Restore"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.restoreAria"
+msgstr "Restore chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.description"
+msgstr "Restore chats to the sidebar or permanently delete ones you no longer need."
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.revealProject"
 msgstr "Reveal in Finder"
@@ -1053,6 +1134,11 @@ msgid "navigation.search"
 msgstr "Search"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.search"
+msgstr "Search archived chats"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.title"
 msgstr "Search chats"
@@ -1071,6 +1157,16 @@ msgstr "Search languages"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.model.search"
 msgstr "Search models…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.search.label"
+msgstr "Search settings"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.search.placeholder"
+msgstr "Search settings…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -1124,6 +1220,7 @@ msgstr "Show Full access in the composer"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+#: renderer/src/routes/settings.archived.tsx
 msgid "navigation.showMore"
 msgstr "Show more"
 
@@ -1188,6 +1285,11 @@ msgid "chat.turn.thinking"
 msgstr "Thinking"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.deleteConfirm.description"
+msgstr "This permanently deletes the chat and cannot be undone."
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.deleteChatDescription"
 msgstr "This permanently deletes the chat and cannot be undone."
@@ -1231,6 +1333,11 @@ msgstr "Unpin chat"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.unpinProject"
 msgstr "Unpin project"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "chat.untitled"
+msgstr "Untitled chat"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx

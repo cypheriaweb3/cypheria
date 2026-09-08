@@ -158,6 +158,8 @@ Renderer code 只使用 typed IPC。Electron main 拥有 privileged services 和
 
 Desktop 提供 Codex 风格的可搜索语言选择器。显式选择会作为 `[desktop]` section 下的 `localeOverride` 持久化到 `$CYPHERIA_HOME/codex/config.toml`；自动检测以该键不存在来表示。Electron 根据 preferred-language list 解析自动检测，通过 preload bootstrap 传入偏好与最终 catalog locale，并通过 typed IPC 广播后续变更。由于打包后的 SPA shell 在构建时预渲染，服务端输出与首次客户端渲染统一使用英语 source catalog；hydration 完成后，renderer 立即激活 bootstrap catalog，同步 document 的 `lang` 与 `dir` 属性，并在不重载页面的情况下切换语言，从而避免 locale 导致的 hydration mismatch。英语与简体中文随包提供 catalog；其他选择当前保留原始 `localeOverride`，但界面回退英语。PO 文件提交到仓库；`pnpm --filter @cypheria/desktop i18n:extract` 用于更新 catalog，`i18n:compile` 用于严格校验翻译完整性。
 
+设置导航分为“个人”“集成”“编码”和“已归档”，并按本地化后的目标名称筛选；`Cmd/Ctrl+F` 可以在任意设置路由聚焦搜索。已归档聊天路由通过 `archived: true` 分页调用 `thread/list`，把查询作为 `searchTerm` 交给 App Server，并经由 main/preload 边界暴露 typed `thread/unarchive` 与需要确认的 `thread/delete` 操作。缺少 Codex App Server 或 Cypheria 自有后端的 ChatGPT 服务设置保持在范围之外，不显示成无法工作的空壳控件。
+
 Desktop main bundle 将 `@libsql/client` 及其 platform packages 保持为 external，使 Electron 在运行时加载匹配的 native binary。`build:main` 会把已提交的 Drizzle migrations 复制到 `dist/drizzle`，因此 packaged startup 与 tests、development 使用同一 migration source。应用 ready 之前，Electron user/session data 会以 `$CYPHERIA_HOME/browser` 为根目录。
 
 ## Codex 集成

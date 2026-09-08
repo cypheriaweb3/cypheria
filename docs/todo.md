@@ -223,6 +223,11 @@ Status legend:
   - Include: App Server-owned thread/project/section mutations behind typed IPC, Cypheria namespaced project sidebar metadata, and safe project-folder reveal resolved in Electron main from a project identifier.
   - Verification: desktop tests/typecheck/build, full repository CI/build, and a real Electron smoke test of reversible actions plus disposable archive/delete flows against ChatGPT Desktop 26.901.51231.
 
+- [x] Close the feasible ChatGPT Desktop settings gaps.
+  - Acceptance: settings navigation is grouped and searchable with the desktop keyboard shortcut; archived App Server chats can be searched, restored, or permanently deleted with confirmation; and the result is verified in the real Electron app.
+  - Include: generated `thread/unarchive` behind typed IPC, a cursor-backed archived-chat settings route, localized navigation/search states, and explicit deferral of account, notification, personalization, voice, storage, and updater controls that depend on ChatGPT services or unimplemented desktop infrastructure.
+  - Verification: strict 291-message English/Chinese catalog compilation, desktop typecheck, 111 desktop tests, desktop and full repository builds, full repository CI, and a real Electron create/archive/search/restore/re-archive/delete smoke flow against ChatGPT Desktop 26.901.51231.
+
 - [x] Add managed ACP harness installation and Connections terminal sessions.
   - Acceptance: Grok Build, Cursor, Gemini CLI, Hermes, and OpenCode install their latest release below `$CYPHERIA_HOME`, expose installed version and enablement, pass an ACP v1 initialization check, and can open concurrent page-level terminal tabs that close when Connections unmounts.
   - Include: typed IPC, harness-specific homes, global proxy propagation, Hermes `HERMES_HOME`/`HERMES_INSTALL_DIR` containment without its desktop package, and auditable install receipts containing changed files and executable hashes.

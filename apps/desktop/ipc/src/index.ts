@@ -256,6 +256,7 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexSkillList: "codex.skill.list",
   codexThreadList: "codex.thread.list",
   codexThreadArchive: "codex.thread.archive",
+  codexThreadUnarchive: "codex.thread.unarchive",
   codexThreadDelete: "codex.thread.delete",
   codexThreadFork: "codex.thread.fork",
   codexThreadProjectMove: "codex.thread.project.move",
@@ -1510,6 +1511,14 @@ export const codexThreadArchiveContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<{ threadId: string }, { archived: true }>
 
+export const codexThreadUnarchiveContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexThreadUnarchive,
+  namespace: "codex",
+  request: CodexThreadMutationRequestSchema,
+  response: z.object({ unarchived: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ threadId: string }, { unarchived: true }>
+
 export const codexThreadDeleteContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexThreadDelete,
   namespace: "codex",
@@ -1882,6 +1891,7 @@ export const ipcContracts = {
   codexSkillList: codexSkillListContract,
   codexThreadList: codexThreadListContract,
   codexThreadArchive: codexThreadArchiveContract,
+  codexThreadUnarchive: codexThreadUnarchiveContract,
   codexThreadDelete: codexThreadDeleteContract,
   codexThreadFork: codexThreadForkContract,
   codexThreadProjectMove: codexThreadProjectMoveContract,
@@ -2034,6 +2044,7 @@ export type CypheriaPreloadApi = {
       sortKey?: "created_at" | "updated_at" | "recency_at" | "section_position"
     }) => Promise<CodexThreadListPage>
     readonly archiveThread: (threadId: string) => Promise<{ archived: true }>
+    readonly unarchiveThread: (threadId: string) => Promise<{ unarchived: true }>
     readonly deleteThread: (threadId: string) => Promise<{ deleted: true }>
     readonly forkThread: (threadId: string, lastTurnId?: string) => Promise<{ threadId: string }>
     readonly moveThreadToProject: (

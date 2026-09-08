@@ -223,6 +223,11 @@
   - 包括：通过 typed IPC 调用 App Server 所有的 thread/project/section 变更、Cypheria 命名空间下的 Project 侧栏元数据，以及 Electron main 根据 Project ID 安全解析并在文件管理器显示项目目录。
   - 验证：desktop tests/typecheck/build、全仓 CI/build，以及对照 ChatGPT Desktop 26.901.51231 的真实 Electron smoke test，覆盖可逆操作与一次性测试数据上的归档/删除流程。
 
+- [x] 补齐 ChatGPT Desktop 设置页中当前可落地的缺口。
+  - 验收：设置导航按组展示并支持搜索及桌面快捷键；App Server 已归档会话可搜索、恢复或经确认永久删除；结果在真实 Electron 应用中验证。
+  - 包括：typed IPC 后方的 generated `thread/unarchive`、基于 cursor 的已归档会话设置路由、本地化的导航/搜索状态，以及对依赖 ChatGPT 服务或尚未实现桌面基础设施的账户、通知、个性化、语音、存储和更新器控件作明确延后。
+  - 验证：严格编译 291 条中英文消息、desktop typecheck、111 项 desktop tests、desktop 与全仓 build、全仓 CI，以及针对 ChatGPT Desktop 26.901.51231 的真实 Electron 创建/归档/搜索/恢复/再次归档/删除 smoke 流程。
+
 - [x] 添加受管 ACP harness 安装与 Connections 终端会话。
   - 验收：Grok Build、Cursor、Gemini CLI、Hermes 和 OpenCode 将最新版本安装到 `$CYPHERIA_HOME` 下，暴露已安装版本与启用状态，通过 ACP v1 初始化检查，并可打开并发的页面级终端标签；Connections 卸载时关闭全部终端。
   - 包括：typed IPC、harness 专用 home、全局代理传递、通过 `HERMES_HOME`/`HERMES_INSTALL_DIR` 约束 Hermes 且不安装 desktop 包，以及包含变化文件与可执行文件哈希的可审计安装收据。

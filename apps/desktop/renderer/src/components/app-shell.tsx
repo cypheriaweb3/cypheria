@@ -2,6 +2,7 @@
 
 import { cn } from "@cypheria/ui"
 import { Button } from "@cypheria/ui/components/button"
+import { Input } from "@cypheria/ui/components/input"
 import {
   SidebarContent,
   SidebarFooter,
@@ -36,7 +37,15 @@ import {
   SlidersHorizontal,
   SquarePen,
 } from "lucide-react"
-import { type ComponentProps, type CSSProperties, type ReactNode, useEffect, useState } from "react"
+import {
+  type ComponentProps,
+  type CSSProperties,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import { resolveThemeMode, useAppearanceController, useTheme } from "../appearance.js"
 import { activateLanguage, getBootstrapLanguage, i18n } from "../i18n.js"
 import { NewChatLink } from "./chat-navigation"
@@ -66,34 +75,65 @@ const navigationItems = [
 
 const settingsItems = [
   {
+    group: "personal",
     href: "/settings/general",
     icon: <Settings className="size-4" strokeWidth={1.9} />,
     label: msg({ id: "settings.general", message: "General" }),
   },
   {
-    href: "/settings/configuration",
-    icon: <SlidersHorizontal className="size-4" strokeWidth={1.9} />,
-    label: msg({ id: "settings.configuration", message: "Configuration" }),
-  },
-  {
-    href: "/settings/plugins",
-    icon: <Boxes className="size-4" strokeWidth={1.9} />,
-    label: msg({ id: "settings.plugins", message: "Plugins" }),
-  },
-  {
-    href: "/settings/connections",
-    icon: <Cable className="size-4" strokeWidth={1.9} />,
-    label: msg({ id: "settings.connections", message: "Connections" }),
-  },
-  {
+    group: "personal",
     href: "/settings/appearance",
     icon: <Palette className="size-4" strokeWidth={1.9} />,
     label: msg({ id: "settings.appearance", message: "Appearance" }),
   },
   {
+    group: "coding",
+    href: "/settings/configuration",
+    icon: <SlidersHorizontal className="size-4" strokeWidth={1.9} />,
+    label: msg({ id: "settings.configuration", message: "Configuration" }),
+  },
+  {
+    group: "coding",
     href: "/settings/models",
     icon: <Bot className="size-4" strokeWidth={1.9} />,
     label: msg({ id: "settings.models", message: "Models" }),
+  },
+  {
+    group: "integrations",
+    href: "/settings/connections",
+    icon: <Cable className="size-4" strokeWidth={1.9} />,
+    label: msg({ id: "settings.connections", message: "Connections" }),
+  },
+  {
+    group: "integrations",
+    href: "/settings/plugins",
+    icon: <Boxes className="size-4" strokeWidth={1.9} />,
+    label: msg({ id: "settings.plugins", message: "Plugins" }),
+  },
+  {
+    group: "archived",
+    href: "/settings/archived",
+    icon: <Archive className="size-4" strokeWidth={1.9} />,
+    label: msg({ id: "settings.archived", message: "Archived chats" }),
+  },
+] as const
+
+const settingsGroups = [
+  {
+    id: "personal",
+    label: msg({ id: "settings.group.personal", message: "Personal" }),
+  },
+  {
+    id: "integrations",
+    label: msg({ id: "settings.group.integrations", message: "Integrations" }),
+  },
+  {
+    id: "coding",
+    label: msg({ id: "settings.group.coding", message: "Coding" }),
+  },
+  {
+    id: "archived",
+    label: msg({ id: "settings.group.archived", message: "Archived" }),
   },
 ] as const
 
@@ -316,9 +356,37 @@ function SettingsNavigation({
   triggerClassName: string
 }>) {
   const { i18n: activeI18n } = useLingui()
+  const [searchQuery, setSearchQuery] = useState("")
+  const searchRef = useRef<HTMLInputElement>(null)
   const backToWorkspace = activeI18n._(
     msg({ id: "settings.backToWorkspace", message: "Back to workspace" })
   )
+  const visibleGroups = useMemo(() => {
+    const needle = searchQuery.trim().toLocaleLowerCase(activeI18n.locale)
+    return settingsGroups
+      .map((group) => ({
+        ...group,
+        items: settingsItems.filter(
+          (item) =>
+            item.group === group.id &&
+            (!needle ||
+              activeI18n._(item.label).toLocaleLowerCase(activeI18n.locale).includes(needle))
+        ),
+      }))
+      .filter(({ items }) => items.length > 0)
+  }, [activeI18n, searchQuery])
+
+  useEffect(() => {
+    const focusSearch = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLocaleLowerCase() === "f") {
+        event.preventDefault()
+        searchRef.current?.focus()
+        searchRef.current?.select()
+      }
+    }
+    window.addEventListener("keydown", focusSearch)
+    return () => window.removeEventListener("keydown", focusSearch)
+  }, [])
 
   return (
     <Sidebar className="border-r border-sidebar-border" collapsible="icon">
@@ -334,7 +402,7 @@ function SettingsNavigation({
         </span>
       </SidebarHeader>
 
-      <SidebarContent className="grid min-h-0 content-start gap-4 overflow-auto px-3 pb-3 pt-0.5">
+      <SidebarContent className="grid min-h-0 content-start gap-3 overflow-auto px-3 pb-3 pt-0.5">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -353,32 +421,58 @@ function SettingsNavigation({
           </SidebarGroupContent>
         </SidebarGroup>
 
-        <SidebarGroup>
-          <SidebarGroupLabel>
-            <Trans id="settings.title">Settings</Trans>
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {settingsItems.map((item) => {
-                const label = activeI18n._(item.label)
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      isActive={pathname === item.href}
-                      render={
-                        <Link to={item.href}>
-                          {item.icon}
-                          <span>{label}</span>
-                        </Link>
-                      }
-                      tooltip={label}
-                    />
-                  </SidebarMenuItem>
-                )
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        <div className="relative px-2 group-data-[collapsible=icon]:hidden">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+          />
+          <Input
+            aria-label={activeI18n._(
+              msg({ id: "settings.search.label", message: "Search settings" })
+            )}
+            className="h-8 rounded-lg bg-sidebar-accent/60 pl-8 text-sm shadow-none"
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={activeI18n._(
+              msg({ id: "settings.search.placeholder", message: "Search settings…" })
+            )}
+            ref={searchRef}
+            type="search"
+            value={searchQuery}
+          />
+        </div>
+
+        {visibleGroups.length > 0 ? (
+          visibleGroups.map((group) => (
+            <SidebarGroup className="py-0" key={group.id}>
+              <SidebarGroupLabel>{activeI18n._(group.label)}</SidebarGroupLabel>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {group.items.map((item) => {
+                    const label = activeI18n._(item.label)
+                    return (
+                      <SidebarMenuItem key={item.href}>
+                        <SidebarMenuButton
+                          isActive={pathname === item.href}
+                          render={
+                            <Link to={item.href}>
+                              {item.icon}
+                              <span>{label}</span>
+                            </Link>
+                          }
+                          tooltip={label}
+                        />
+                      </SidebarMenuItem>
+                    )
+                  })}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          ))
+        ) : (
+          <p className="px-4 py-2 text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">
+            <Trans id="settings.search.empty">No results found</Trans>
+          </p>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="flex min-h-[58px] items-end px-3 pb-3 pt-2.5">

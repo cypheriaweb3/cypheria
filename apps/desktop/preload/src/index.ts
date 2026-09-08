@@ -150,6 +150,8 @@ const cypheriaApi: CypheriaPreloadApi = {
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadList, options),
     archiveThread: (threadId) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadArchive, { threadId }),
+    unarchiveThread: (threadId) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadUnarchive, { threadId }),
     deleteThread: (threadId) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadDelete, { threadId }),
     forkThread: (threadId, lastTurnId) =>

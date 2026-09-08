@@ -95,6 +95,7 @@ import {
   codexThreadSectionListContract,
   codexThreadSectionMoveContract,
   codexThreadSectionUpdateContract,
+  codexThreadUnarchiveContract,
   dappProviderRequestContract,
   harnessCheckUpdateContract,
   harnessEnabledWriteContract,
@@ -180,6 +181,7 @@ import {
   startCodexChat,
   startCodexLogin,
   steerCodexChat,
+  unarchiveCodexThread,
   updateCodexProject,
   updateCodexThreadSection,
   validateOpenAiApiKey,
@@ -584,6 +586,9 @@ const registerIpcHandlers = (
   registerIpcRoute(codexThreadListContract, (options) => listCodexThreads(codexBridge(), options))
   registerIpcRoute(codexThreadArchiveContract, ({ threadId }) =>
     archiveCodexThread(codexBridge(), threadId)
+  )
+  registerIpcRoute(codexThreadUnarchiveContract, ({ threadId }) =>
+    unarchiveCodexThread(codexBridge(), threadId)
   )
   registerIpcRoute(codexThreadDeleteContract, ({ threadId }) =>
     deleteCodexThread(codexBridge(), threadId)

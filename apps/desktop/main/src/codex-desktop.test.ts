@@ -25,6 +25,7 @@ import {
   startCodexChat,
   startCodexLogin,
   steerCodexChat,
+  unarchiveCodexThread,
   updateCodexProject,
   updateCodexThreadSection,
   validateOpenAiApiKey,
@@ -380,20 +381,28 @@ describe("desktop Codex services", () => {
     })
   })
 
-  it("archives, deletes, and moves sidebar threads through App Server", async () => {
+  it("archives, restores, deletes, and moves sidebar threads through App Server", async () => {
     const bridge = new FakeBridge({
       "thread/archive": {},
       "thread/delete": {},
       "thread/metadata/update": { thread: {} },
+      "thread/unarchive": {},
     })
     await expect(archiveCodexThread(asBridge(bridge), "thread-1")).resolves.toEqual({
       archived: true,
+    })
+    await expect(unarchiveCodexThread(asBridge(bridge), "thread-1")).resolves.toEqual({
+      unarchived: true,
     })
     await expect(deleteCodexThread(asBridge(bridge), "thread-1")).resolves.toEqual({
       deleted: true,
     })
     await expect(moveCodexThreadToProject(asBridge(bridge), "thread-1", null)).resolves.toEqual({
       moved: true,
+    })
+    expect(bridge.calls).toContainEqual({
+      method: "thread/unarchive",
+      params: { threadId: "thread-1" },
     })
     expect(bridge.calls).toContainEqual({
       method: "thread/metadata/update",

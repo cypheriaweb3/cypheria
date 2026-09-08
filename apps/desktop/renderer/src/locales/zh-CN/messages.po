@@ -99,6 +99,21 @@ msgid "navigation.archiveProjectChats"
 msgstr "归档会话"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.group.archived"
+msgstr "已归档"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.title"
+msgstr "已归档会话"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.archived"
+msgstr "已归档会话"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.prompt.placeholder"
 msgstr "让 Cypheria 检查、编辑、运行、研究或审阅…"
@@ -164,6 +179,7 @@ msgid "settings.configuration.option.cached"
 msgstr "已缓存"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
 #: renderer/src/routes/settings.general.tsx
 msgid "common.cancel"
 msgstr "取消"
@@ -238,6 +254,11 @@ msgstr "关闭终端"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.workspace.close"
 msgstr "关闭工作区面板"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.group.coding"
+msgstr "编程"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
@@ -369,6 +390,21 @@ msgstr "默认权限"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.permissions.default.toggle"
 msgstr "始终显示默认权限"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.delete"
+msgstr "删除"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.deleteAria"
+msgstr "删除已归档会话"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.deleteConfirm.title"
+msgstr "删除已归档会话？"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -598,6 +634,11 @@ msgid "settings.configuration.option.indexed"
 msgstr "已索引"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.group.integrations"
+msgstr "集成"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.artifact.interactive"
 msgstr "交互式生成物"
@@ -752,6 +793,11 @@ msgid "chat.workspace.newTerminal"
 msgstr "新建终端"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.empty"
+msgstr "没有已归档会话"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.noChats"
 msgstr "暂无对话"
@@ -777,6 +823,11 @@ msgid "settings.language.empty"
 msgstr "未找到语言"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.noMatches"
+msgstr "没有匹配的已归档会话"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.noMatches"
 msgstr "没有匹配的对话。"
@@ -792,6 +843,11 @@ msgid "navigation.noPinnedChats"
 msgstr "暂无置顶对话"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.noProject"
+msgstr "无项目"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.project.none"
 msgstr "无项目"
@@ -805,6 +861,11 @@ msgstr "暂无项目"
 #: renderer/src/components/chat-search.tsx
 msgid "search.noRecent"
 msgstr "暂无最近对话。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.search.empty"
+msgstr "未找到结果"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -860,6 +921,11 @@ msgstr "待处理"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.permissions.title"
 msgstr "权限"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.group.personal"
+msgstr "个人"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1012,6 +1078,21 @@ msgid "chat.header.rename"
 msgstr "重命名会话"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.restore"
+msgstr "恢复"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.restoreAria"
+msgstr "恢复会话"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.description"
+msgstr "将会话恢复到侧栏，或永久删除不再需要的会话。"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.revealProject"
 msgstr "在访达中显示"
@@ -1053,6 +1134,11 @@ msgid "navigation.search"
 msgstr "搜索"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.search"
+msgstr "搜索已归档会话"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.title"
 msgstr "搜索对话"
@@ -1071,6 +1157,16 @@ msgstr "搜索语言"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.model.search"
 msgstr "搜索模型…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.search.label"
+msgstr "搜索设置"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.search.placeholder"
+msgstr "搜索设置…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -1124,6 +1220,7 @@ msgstr "在输入框中显示完整访问权限"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+#: renderer/src/routes/settings.archived.tsx
 msgid "navigation.showMore"
 msgstr "显示更多"
 
@@ -1188,6 +1285,11 @@ msgid "chat.turn.thinking"
 msgstr "思考中"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.deleteConfirm.description"
+msgstr "此操作会永久删除该会话，且无法撤销。"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.deleteChatDescription"
 msgstr "此操作会永久删除该会话，且无法撤销。"
@@ -1231,6 +1333,11 @@ msgstr "取消置顶会话"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.unpinProject"
 msgstr "取消置顶项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.archived.tsx
+msgid "chat.untitled"
+msgstr "未命名会话"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
