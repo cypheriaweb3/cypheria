@@ -34,6 +34,21 @@ msgid "chat.turn.agentActivity"
 msgstr "智能体 {tool}"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.defaults"
+msgstr "智能体默认设置"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.network.title"
+msgstr "允许网络访问"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.network.description"
+msgstr "当沙盒设为工作空间写入时允许网络访问"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.artifact.app"
 msgstr "应用"
@@ -49,6 +64,16 @@ msgid "settings.appearance"
 msgstr "外观"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.approval.title"
+msgstr "批准策略"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.permissions.autoReview"
+msgstr "为我批准"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.archiveSection"
 msgstr "归档所有对话"
@@ -59,9 +84,19 @@ msgid "chat.prompt.placeholder"
 msgstr "让 Cypheria 检查、编辑、运行、研究或审阅…"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.permissions.ask"
+msgstr "请求批准"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.auditLog"
 msgstr "审计日志"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.auto"
+msgstr "自动"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
@@ -89,9 +124,24 @@ msgid "chat.workspace.browser"
 msgstr "浏览器"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.permissions.default.description"
+msgstr "默认情况下，ChatGPT 可以读取和编辑其工作空间中的文件。需要时，它可以请求额外访问权限。"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.byProject"
 msgstr "按项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.cached"
+msgstr "已缓存"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "common.cancel"
+msgstr "取消"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -120,6 +170,31 @@ msgid "chat.project.validation"
 msgstr "请选择文件夹并输入项目名称。"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.webSearch.description"
+msgstr "选择 ChatGPT 访问网络的方式"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.summary.description"
+msgstr "选择 ChatGPT 总结其推理的方式"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.verbosity.description"
+msgstr "选择 ChatGPT 回复包含细节的详细程度"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.sandbox.description"
+msgstr "选择 ChatGPT 运行命令时的权限范围"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.approval.description"
+msgstr "选择 ChatGPT 何时请求批准"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.workspace.close"
 msgstr "关闭工作区面板"
@@ -133,6 +208,31 @@ msgstr "命令 {number}"
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.compacted"
 msgstr "已压缩会话上下文"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.concise"
+msgstr "简洁"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.title"
+msgstr "配置"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.configuration"
+msgstr "配置"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.description"
+msgstr "配置新聊天的权限、网页访问和智能体回复。"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "common.confirm"
+msgstr "确认"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -177,6 +277,16 @@ msgstr "创建分组"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
+msgid "chat.permissions.custom"
+msgstr "自定义"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.dangerFullAccess"
+msgstr "完全访问"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
 msgid "chat.artifact.declined"
 msgstr "已拒绝"
 
@@ -184,6 +294,16 @@ msgstr "已拒绝"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.model.default"
 msgstr "默认"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.permissions.default.title"
+msgstr "默认权限"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.permissions.default.toggle"
+msgstr "始终显示默认权限"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -194,6 +314,16 @@ msgstr "删除分组"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.artifact.deleted"
 msgstr "已删除"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.detailed"
+msgstr "详细"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.disabled"
+msgstr "已禁用"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
@@ -263,13 +393,13 @@ msgid "chat.turn.failedAfter"
 msgstr "在 {time} 后失败"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.artifact.file"
+#: renderer/src/components/app-shell.tsx
+msgid "menu.file"
 msgstr "文件"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-msgid "menu.file"
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.artifact.file"
 msgstr "文件"
 
 #. js-lingui-explicit-id
@@ -281,6 +411,11 @@ msgstr "文件"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.workspace.filesSummary"
 msgstr "本对话更改的文件及其最新记录状态。"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.permissions.full.title"
+msgstr "完整访问权限"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -333,9 +468,19 @@ msgid "menu.help"
 msgstr "帮助"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.high"
+msgstr "高"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.inOneList"
 msgstr "合并为一个列表"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.indexed"
+msgstr "已索引"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
@@ -351,6 +496,11 @@ msgstr "应用 UI 语言"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sort.updated"
 msgstr "最近更新"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.live"
+msgstr "实时"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/plugins-page.tsx
@@ -374,14 +524,39 @@ msgid "chat.localAgent"
 msgstr "本地智能体"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.low"
+msgstr "低"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.permissions.full.confirm.title"
+msgstr "允许使用完整访问权限？"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.permissions.managed"
+msgstr "受管理"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sort.manual"
 msgstr "手动排序"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.medium"
+msgstr "中"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.modelRerouted"
 msgstr "模型已从 {fromModel} 切换至 {toModel}"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.modelDefault"
+msgstr "模型默认"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -398,6 +573,11 @@ msgstr "需要处理"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.networks"
 msgstr "网络"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.never"
+msgstr "从不"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -477,9 +657,24 @@ msgid "chat.workspace.noWallet"
 msgstr "未选择钱包。链上操作仍为只读。"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.none"
+msgstr "无"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.onRequest"
+msgstr "按请求"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.workspace.browserDescription"
 msgstr "从对话结果或浏览器操作中打开隔离的 dApp 会话。"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.openConfig"
+msgstr "打开 config.toml"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -492,9 +687,19 @@ msgid "navigation.organizeSidebar"
 msgstr "组织侧栏"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.verbosity.title"
+msgstr "输出详细程度"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.pending"
 msgstr "待处理"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.permissions.title"
+msgstr "权限"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -567,9 +772,19 @@ msgid "chat.turn.readFiles"
 msgstr "读取了文件"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.readOnly"
+msgstr "只读"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.sandbox.readOnly"
 msgstr "只读"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.summary.title"
+msgstr "推理摘要"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -595,6 +810,11 @@ msgstr "运行中"
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.runningCommand"
 msgstr "正在运行 {command}"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.sandbox.title"
+msgstr "沙盒设置"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -663,6 +883,11 @@ msgid "settings.title"
 msgstr "设置"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.permissions.full.toggle"
+msgstr "在输入框中显示完整访问权限"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.showMore"
 msgstr "显示更多"
@@ -723,6 +948,11 @@ msgid "search.untitled"
 msgstr "未命名对话"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.untrusted"
+msgstr "不受信任的命令"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.update"
 msgstr "更新"
@@ -768,6 +998,11 @@ msgid "navigation.wallets"
 msgstr "钱包与资产"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.webSearch.title"
+msgstr "网页搜索"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.workspace.web3Context"
 msgstr "Web3 上下文"
@@ -781,6 +1016,16 @@ msgstr "网站"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.empty.title"
 msgstr "想让 Cypheria 做什么？"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.permissions.full.description"
+msgstr "当 ChatGPT 以完整访问权限运行时，它无需你的批准即可编辑你电脑上的任何文件，并运行可访问网络的命令。这会显著增加数据丢失、泄露或意外行为的风险。"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.permissions.full.confirm.body"
+msgstr "选择后，ChatGPT 可以访问网络并读取和编辑文件，而无需请求批准——包括可能具有破坏性的命令。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -823,9 +1068,9 @@ msgid "chat.workspace.label"
 msgstr "工作区面板"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.sandbox.workspaceWrite"
-msgstr "工作区写入"
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.workspaceWrite"
+msgstr "工作空间写入"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx

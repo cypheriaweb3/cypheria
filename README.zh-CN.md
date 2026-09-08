@@ -66,7 +66,7 @@ apps/desktop plugins
 
 Desktop renderer 是产品 UI，不是特权 runtime。它通过 typed IPC 向 Electron main 请求能力。私钥、签名操作、dApp browser sessions、本地数据库访问、自动化执行和 Codex App Server 生命周期管理都留在 renderer 之外。
 
-架构基线见 [docs/architecture.zh-CN.md](docs/architecture.zh-CN.md)，network 与 RPC 设计见 [docs/network-management.zh-CN.md](docs/network-management.zh-CN.md)。
+架构基线见 [docs/architecture.zh-CN.md](docs/architecture.zh-CN.md)，Codex Desktop permissions 设计见 [docs/codex-permissions.zh-CN.md](docs/codex-permissions.zh-CN.md)，network 与 RPC 设计见 [docs/network-management.zh-CN.md](docs/network-management.zh-CN.md)。
 
 ## 仓库结构
 

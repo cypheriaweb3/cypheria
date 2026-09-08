@@ -69,6 +69,35 @@ final result: passed
 
 ---
 
+# Codex Permissions Settings Design QA
+
+- Source visual truth: `/var/folders/py/l0kx36b51vj9l6c8tdgqc9380000gn/T/codex-clipboard-89a3dcbd-2067-4d45-a8e1-7f428342de70.png` and `/var/folders/py/l0kx36b51vj9l6c8tdgqc9380000gn/T/codex-clipboard-ac31eea9-109d-45a8-a09b-f7fddb8f2221.png`
+- Installed implementation reference: `/Applications/ChatGPT.app/Contents/Resources/app.asar`
+- Implementation screenshot: live CUA captures of `/settings/general` and `/settings/configuration` (the CUA surface did not expose a persistent screenshot path)
+- Viewport: 612 × 934 output px, light theme, English and Chinese locales
+
+## Comparison evidence
+
+The new General page preserves the reference hierarchy: a Permissions group first, a quiet rounded card, fixed-on Default permissions, independently gated Full access, and the existing General controls below. The Configuration page preserves the reference's title, supporting copy, Agent defaults heading, right-aligned `config.toml` action, six row card, compact selectors, separators, and network switch. The user/administrator configuration selector is intentionally absent per the requested single user-configuration scope.
+
+Responsive verification used the narrower available CUA viewport. Labels wrap without colliding with controls, cards retain their inset rhythm, and the page stays free of horizontal clipping. English and Chinese General states were both inspected. The first Configuration capture exposed raw enum values in closed selectors; the trigger was corrected to render localized labels and the page was recaptured with “On request,” “Workspace write,” “Cached,” “Model default,” and “Auto” visible.
+
+## Interaction and runtime checks
+
+- Opened the approval-policy selector and verified all eligible choices render in the menu with the selected state.
+- Switched the browser-preview locale to Simplified Chinese and verified the General permission copy, labels, switch descriptions, and language control.
+- Verified the Default permissions switch is checked and disabled, while Full access is a separate visibility preference.
+- Verified the Configuration route loads without the removed user-scope selector.
+- Verified settings controls use the existing shared Switch, Select, Dialog, Button, and SettingsFrame components.
+
+## Findings
+
+No actionable P0, P1, or P2 visual or interaction findings remain.
+
+final result: passed
+
+---
+
 # Desktop Sidebar Design QA
 
 - Source visual truth: `/var/folders/py/l0kx36b51vj9l6c8tdgqc9380000gn/T/codex-clipboard-39e65d74-815a-4a24-9449-7fb6cd43dcc4.png` through `/var/folders/py/l0kx36b51vj9l6c8tdgqc9380000gn/T/codex-clipboard-f4a646fb-5368-4329-ac20-6e6845eabcd8.png`

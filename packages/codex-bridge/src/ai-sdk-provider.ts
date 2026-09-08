@@ -59,6 +59,7 @@ export type CodexAppServerProviderSettings = {
   readonly onSessionCreated?: (session: CodexAppServerAiSdkSession) => void
   readonly onTurnUpdate?: (update: CodexTurnUpdate) => void
   readonly projectId?: string
+  readonly permissionProfile?: string
   readonly reasoningEffort?: ReasoningEffort
   readonly reasoningSummary?: ReasoningSummary
   readonly resumeThreadId?: string
@@ -992,6 +993,7 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
       threadMode === "stateless" || (!settings.resumeThreadId && !this.#session)
     let threadId: string
     if (startsNewThread) {
+      const usesPermissionProfile = settings.permissionProfile !== undefined
       const response = await settings.bridge.request<"thread/start", ThreadStartResponse>(
         "thread/start",
         {
@@ -1005,13 +1007,15 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
           model: this.modelId,
           modelProvider: settings.modelProvider,
           projectId: settings.projectId,
-          sandbox: normalizeSandboxMode(settings.sandboxMode),
+          permissions: settings.permissionProfile,
+          sandbox: usesPermissionProfile ? undefined : normalizeSandboxMode(settings.sandboxMode),
           serviceTier: settings.serviceTier,
         },
         { retryOnOverload: true }
       )
       threadId = response.thread.id
     } else if (settings.resumeThreadId) {
+      const usesPermissionProfile = settings.permissionProfile !== undefined
       const response = await settings.bridge.request<"thread/resume", ThreadResumeResponse>(
         "thread/resume",
         {
@@ -1023,7 +1027,11 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
           developerInstructions: settings.developerInstructions,
           model: this.modelId,
           modelProvider: settings.modelProvider,
-          sandbox: settings.sandboxMode ? normalizeSandboxMode(settings.sandboxMode) : undefined,
+          permissions: settings.permissionProfile,
+          sandbox:
+            usesPermissionProfile || !settings.sandboxMode
+              ? undefined
+              : normalizeSandboxMode(settings.sandboxMode),
           serviceTier: settings.serviceTier,
           threadId: settings.resumeThreadId,
         },
@@ -1057,9 +1065,12 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
         input: converted.input,
         model: this.modelId,
         outputSchema,
-        sandboxPolicy: sandboxPolicyFromMode(
-          startsNewThread ? (settings.sandboxMode ?? "workspace-write") : settings.sandboxMode
-        ),
+        permissions: settings.permissionProfile,
+        sandboxPolicy: settings.permissionProfile
+          ? undefined
+          : sandboxPolicyFromMode(
+              startsNewThread ? (settings.sandboxMode ?? "workspace-write") : settings.sandboxMode
+            ),
         serviceTier: settings.serviceTier,
         summary: settings.reasoningSummary,
         threadId,

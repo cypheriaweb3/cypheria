@@ -448,13 +448,12 @@ describe("desktop Codex services", () => {
     } as unknown as WebContents
 
     startCodexChat(asBridge(bridge), sender, {
-      approvalPolicy: "on-request",
       chatId: "chat-live",
       messages: [{ id: "user-live", parts: [{ text: "Hello", type: "text" }], role: "user" }],
       model: "test-model",
       provider: "openai",
       requestId: "0199-1111-7111-8111-111111111111",
-      sandboxMode: "workspace-write",
+      permissionSelection: { agentMode: "auto", kind: "agent-mode" },
     })
 
     await vi.waitFor(() => expect(bridge.notifications.size).toBe(1))

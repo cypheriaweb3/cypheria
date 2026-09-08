@@ -147,6 +147,21 @@
 
 ## Desktop Codex App Server Bridge
 
+- [x] 设计基于 App Server 的 Codex Desktop 风格 permissions。
+  - 验收：中英文配对文档精确定义 Codex permission profile、legacy sandbox、approval policy、reviewer、managed requirement、approval request 与 Auto-review 语义，且不把它们扩展为 Cypheria Web3 permissions。
+  - 包含：OpenAI 官方文档、生成的 App Server types、本机 Desktop bundle 证据、当前缺口分析、wire mappings、交付顺序与可测试的完成标准。
+  - 验证：配对文档 review，并将生成协议与本机 `codex-cli 0.153.4` 对比。
+
+- [x] 在 Desktop 中增加 Codex permission discovery 与 selection。
+  - 验收：composer 根据 App Server config、requirements、profiles、model capability 与 cwd 解析 standard modes、named profiles、custom config 与 managed defaults；new、resumed 与 updated tasks 保持有效 choice。
+  - 包含：typed IPC、pagination、requirements filtering、profile 与 sandbox 互斥、Full access confirmation、invalidation 与 native Windows readiness。
+  - 验证：针对 standard、named、custom、managed、resume、update、stale selection、pagination 与 platform cases 的 bridge/desktop tests；`pnpm run ci`、`pnpm build`。
+
+- [x] 完成 Codex approval 与 Auto-review parity。
+  - 验收：command、file 与 additional-permission approvals 使用 method-specific typed projections 与 generated decisions；支持 subset grants 与 scopes；Auto-review lifecycle、strict review 与 exact denied-action retry 可见且 fail closed。
+  - 包含：`availableDecisions`、policy amendments、network-specific prompts、resolved-event reconciliation、disconnect/timeout cleanup，以及当前 reviewer aliases compatibility。
+  - 验证：broker、IPC、renderer、lifecycle 与 real App Server tests；`pnpm run ci`、`pnpm build`。
+
 - [x] 通过 AI SDK UI stream 完整保留并渲染 Codex turn。
   - 验收：实时会话与历史恢复共用同一个 turn projector；实时流保留所有 turn-scoped update，历史恢复忠实投影完整的持久 App Server turn snapshot；只要 App Server 提供，turn timing/status、item 生命周期及完整 generated item payload、commentary/final-answer phase、reasoning、tool、plan、diff、model reroute 与 terminal progress 就对 renderer 保持可用；会话 UI 以 Codex Desktop 风格将 agent activity 分组折叠，并与 final answer 分离展示。
   - 包括：按 turn/item ID 对账的 typed AI SDK data parts、兼容标准 part 上的 provider metadata、可复用 turn projection tests、基于 AI Elements 的 activity 渲染，以及中英文配套架构文档。

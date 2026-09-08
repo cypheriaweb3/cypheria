@@ -17,6 +17,7 @@ import { z } from "zod"
 import {
   type CodexAccountView,
   CodexAccountViewSchema,
+  CodexAutoReviewRetrySchema,
   type CodexChatEvent,
   CodexChatInterruptSchema,
   type CodexChatStart,
@@ -38,6 +39,13 @@ import {
   CodexModelSettingsSchema,
   type CodexModelView,
   CodexModelViewSchema,
+  type CodexPermissionDefaults,
+  CodexPermissionDefaultsSchema,
+  type CodexPermissionDefaultsWrite,
+  CodexPermissionDefaultsWriteSchema,
+  type CodexPermissionsCatalog,
+  CodexPermissionsCatalogRequestSchema,
+  CodexPermissionsCatalogSchema,
   type CodexPluginDetailView,
   CodexPluginDetailViewSchema,
   CodexPluginEnabledRequestSchema,
@@ -58,6 +66,7 @@ import {
   CodexProjectUpdateRequestSchema,
   type CodexProjectView,
   CodexProjectViewSchema,
+  CodexShowFullAccessWriteSchema,
   CodexSkillEnabledRequestSchema,
   CodexSkillListRequestSchema,
   type CodexSkillListResult,
@@ -188,6 +197,7 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexAccountLoginStart: "codex.account.login.start",
   codexAccountLogout: "codex.account.logout",
   codexAccountRead: "codex.account.read",
+  codexAutoReviewRetry: "codex.auto-review.retry",
   codexChatEvent: "codex.chat.event",
   codexChatInterrupt: "codex.chat.interrupt",
   codexChatStart: "codex.chat.start",
@@ -197,6 +207,11 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexModelList: "codex.model.list",
   codexModelSettingsRead: "codex.model.settings.read",
   codexModelSettingsWrite: "codex.model.settings.write",
+  codexPermissionDefaultsRead: "codex.permission-defaults.read",
+  codexPermissionDefaultsWrite: "codex.permission-defaults.write",
+  codexPermissionsCatalogRead: "codex.permissions.catalog.read",
+  codexPermissionsConfigOpen: "codex.permissions.config.open",
+  codexPermissionsShowFullAccessWrite: "codex.permissions.show-full-access.write",
   codexMarketplaceAdd: "codex.marketplace.add",
   codexMarketplaceUpgrade: "codex.marketplace.upgrade",
   codexMarketplaceRemove: "codex.marketplace.remove",
@@ -1334,6 +1349,57 @@ export const codexModelSettingsWriteContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<CodexModelSettings, CodexModelSettings>
 
+export const codexPermissionDefaultsReadContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexPermissionDefaultsRead,
+  namespace: "codex",
+  request: EmptyPayloadSchema,
+  response: CodexPermissionDefaultsSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, CodexPermissionDefaults>
+
+export const codexPermissionDefaultsWriteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexPermissionDefaultsWrite,
+  namespace: "codex",
+  request: CodexPermissionDefaultsWriteSchema,
+  response: CodexPermissionDefaultsSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<CodexPermissionDefaultsWrite, CodexPermissionDefaults>
+
+export const codexPermissionsCatalogReadContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexPermissionsCatalogRead,
+  namespace: "codex",
+  request: CodexPermissionsCatalogRequestSchema,
+  response: CodexPermissionsCatalogSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ cwd?: string }, CodexPermissionsCatalog>
+
+export const codexPermissionsConfigOpenContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexPermissionsConfigOpen,
+  namespace: "codex",
+  request: EmptyPayloadSchema,
+  response: z.object({ opened: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, { opened: true }>
+
+export const codexPermissionsShowFullAccessWriteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexPermissionsShowFullAccessWrite,
+  namespace: "codex",
+  request: CodexShowFullAccessWriteSchema,
+  response: CodexPermissionsCatalogSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ enabled: boolean }, CodexPermissionsCatalog>
+
+export const codexAutoReviewRetryContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexAutoReviewRetry,
+  namespace: "codex",
+  request: CodexAutoReviewRetrySchema,
+  response: z.object({ accepted: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  { event: z.infer<typeof CodexAutoReviewRetrySchema>["event"]; threadId: string },
+  { accepted: true }
+>
+
 export const codexThreadListContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexThreadList,
   namespace: "codex",
@@ -1636,9 +1702,15 @@ export const ipcContracts = {
   codexAccountRead: codexAccountReadContract,
   codexChatInterrupt: codexChatInterruptContract,
   codexChatStart: codexChatStartContract,
+  codexAutoReviewRetry: codexAutoReviewRetryContract,
   codexModelList: codexModelListContract,
   codexModelSettingsRead: codexModelSettingsReadContract,
   codexModelSettingsWrite: codexModelSettingsWriteContract,
+  codexPermissionDefaultsRead: codexPermissionDefaultsReadContract,
+  codexPermissionDefaultsWrite: codexPermissionDefaultsWriteContract,
+  codexPermissionsCatalogRead: codexPermissionsCatalogReadContract,
+  codexPermissionsConfigOpen: codexPermissionsConfigOpenContract,
+  codexPermissionsShowFullAccessWrite: codexPermissionsShowFullAccessWriteContract,
   codexMarketplaceAdd: codexMarketplaceAddContract,
   codexMarketplaceUpgrade: codexMarketplaceUpgradeContract,
   codexMarketplaceRemove: codexMarketplaceRemoveContract,
@@ -1747,6 +1819,8 @@ export type CypheriaPreloadApi = {
     readonly cancelLogin: (loginId: string) => Promise<{ cancelled: boolean }>
     readonly getAccount: () => Promise<CodexAccountView>
     readonly getModelSettings: () => Promise<CodexModelSettings>
+    readonly getPermissionDefaults: () => Promise<CodexPermissionDefaults>
+    readonly getPermissionsCatalog: (cwd?: string) => Promise<CodexPermissionsCatalog>
     readonly interruptChat: (requestId: string) => Promise<{ interrupted: boolean }>
     readonly listModels: (includeHidden?: boolean) => Promise<CodexModelView[]>
     readonly listPlugins: (options?: {
@@ -1809,11 +1883,20 @@ export type CypheriaPreloadApi = {
       threadId: string
     }) => Promise<{ moved: true }>
     readonly login: (request: CodexLoginRequest) => Promise<CodexLoginResult>
+    readonly retryAutoReviewDenial: (
+      threadId: string,
+      event: z.infer<typeof CodexAutoReviewRetrySchema>["event"]
+    ) => Promise<{ accepted: true }>
     readonly logout: () => Promise<{ loggedOut: boolean }>
     readonly onChatEvent: (handler: (event: CodexChatEvent) => void) => () => void
     readonly onInteraction: (handler: (event: CodexInteractionEvent) => void) => () => void
     readonly onEvent: (handler: (event: CodexEventEnvelope) => void) => () => void
     readonly setModelSettings: (settings: CodexModelSettings) => Promise<CodexModelSettings>
+    readonly setPermissionDefaults: (
+      settings: CodexPermissionDefaultsWrite
+    ) => Promise<CodexPermissionDefaults>
+    readonly setShowFullAccess: (enabled: boolean) => Promise<CodexPermissionsCatalog>
+    readonly openPermissionsConfig: () => Promise<{ opened: true }>
     readonly startChat: (request: CodexChatStart) => Promise<CodexChatStartResult>
     readonly respondToInteraction: (
       response: CodexInteractionResponse

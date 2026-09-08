@@ -31,6 +31,56 @@ type ActiveChat = {
   session?: CodexAppServerAiSdkSession
 }
 
+const permissionSettings = (
+  selection: CodexChatStart["permissionSelection"]
+): Pick<
+  Parameters<typeof createCodexAppServerProvider>[0],
+  "approvalPolicy" | "approvalsReviewer" | "permissionProfile" | "sandboxMode"
+> => {
+  if (!selection || selection.kind === "custom" || selection.kind === "server-default") return {}
+  if (selection.kind === "profile") return { permissionProfile: selection.profileId }
+  switch (selection.agentMode) {
+    case "read-only":
+      return {
+        approvalPolicy: "on-request",
+        approvalsReviewer: "user",
+        permissionProfile: ":read-only",
+      }
+    case "auto":
+      return {
+        approvalPolicy: "on-request",
+        approvalsReviewer: "user",
+        permissionProfile: ":workspace",
+      }
+    case "granular":
+      return {
+        approvalPolicy: {
+          granular: {
+            mcp_elicitations: false,
+            request_permissions: true,
+            rules: false,
+            sandbox_approval: false,
+            skill_approval: false,
+          },
+        },
+        approvalsReviewer: "user",
+        permissionProfile: ":workspace",
+      }
+    case "guardian-approvals":
+      return {
+        approvalPolicy: "on-request",
+        approvalsReviewer: "auto_review",
+        permissionProfile: ":workspace",
+      }
+    case "full-access":
+      return {
+        approvalPolicy: "never",
+        approvalsReviewer: "user",
+        permissionProfile: ":danger-full-access",
+      }
+  }
+}
+
 const activeChats = new Map<string, ActiveChat>()
 const OPENAI_MODELS_URL = "https://api.openai.com/v1/models"
 const OPENAI_API_KEY_VALIDATION_TIMEOUT_MS = 10_000
@@ -631,8 +681,9 @@ const runChat = async (
     }
   }
   try {
+    const permissions = permissionSettings(request.permissionSelection)
     const provider = createCodexAppServerProvider({
-      approvalPolicy: request.approvalPolicy,
+      ...permissions,
       bridge,
       cwd: request.cwd,
       dynamicTools,
@@ -645,7 +696,6 @@ const runChat = async (
       reasoningEffort: request.reasoningEffort,
       projectId: request.projectId,
       resumeThreadId: request.resumeThreadId,
-      sandboxMode: request.sandboxMode,
       serviceTier: request.serviceTier,
       threadMode: "persistent",
     })

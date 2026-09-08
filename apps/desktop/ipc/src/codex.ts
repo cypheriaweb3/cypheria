@@ -83,6 +83,81 @@ export const CodexModelSettingsSchema = z
   .strict()
 export type CodexModelSettings = z.infer<typeof CodexModelSettingsSchema>
 
+export const CodexApprovalPolicySchema = z.enum(["untrusted", "on-request", "never"])
+export const CodexApprovalsReviewerSchema = z.enum(["user", "auto_review", "guardian_subagent"])
+export const CodexSandboxModeSchema = z.enum(["read-only", "workspace-write", "danger-full-access"])
+
+export const CodexPermissionSelectionSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      agentMode: z.enum(["read-only", "auto", "granular", "guardian-approvals", "full-access"]),
+      kind: z.literal("agent-mode"),
+    })
+    .strict(),
+  z.object({ kind: z.literal("profile"), profileId: z.string().min(1) }).strict(),
+  z.object({ kind: z.literal("custom") }).strict(),
+  z.object({ kind: z.literal("server-default") }).strict(),
+])
+export type CodexPermissionSelection = z.infer<typeof CodexPermissionSelectionSchema>
+
+export const CodexPermissionProfileSchema = z
+  .object({ allowed: z.boolean(), description: z.string().nullable(), id: z.string().min(1) })
+  .strict()
+
+export const CodexPermissionsCatalogSchema = z
+  .object({
+    autoReviewAvailable: z.boolean(),
+    availableAgentModes: z.array(
+      z.enum(["read-only", "auto", "granular", "guardian-approvals", "full-access"])
+    ),
+    configPath: z.string().min(1),
+    fullAccessCanBeShown: z.boolean(),
+    profiles: z.array(CodexPermissionProfileSchema),
+    selected: CodexPermissionSelectionSchema,
+    showFullAccess: z.boolean(),
+    source: z.enum(["config", "managed", "selection", "server-default"]),
+  })
+  .strict()
+export type CodexPermissionsCatalog = z.infer<typeof CodexPermissionsCatalogSchema>
+
+export const CodexPermissionDefaultsSchema = z
+  .object({
+    allowedApprovalPolicies: z.array(CodexApprovalPolicySchema).nullable(),
+    allowedSandboxModes: z.array(CodexSandboxModeSchema).nullable(),
+    allowedWebSearchModes: z.array(z.enum(["disabled", "cached", "indexed", "live"])).nullable(),
+    approvalPolicy: CodexApprovalPolicySchema,
+    approvalsReviewer: CodexApprovalsReviewerSchema,
+    configPath: z.string().min(1),
+    modelReasoningSummary: z.enum(["auto", "concise", "detailed", "none"]).nullable(),
+    modelVerbosity: z.enum(["low", "medium", "high"]).nullable(),
+    networkAccess: z.boolean(),
+    sandboxMode: CodexSandboxModeSchema,
+    webSearch: z.enum(["disabled", "cached", "indexed", "live"]).nullable(),
+  })
+  .strict()
+export type CodexPermissionDefaults = z.infer<typeof CodexPermissionDefaultsSchema>
+
+export const CodexPermissionDefaultsWriteSchema = CodexPermissionDefaultsSchema.pick({
+  approvalPolicy: true,
+  approvalsReviewer: true,
+  modelReasoningSummary: true,
+  modelVerbosity: true,
+  networkAccess: true,
+  sandboxMode: true,
+  webSearch: true,
+})
+export type CodexPermissionDefaultsWrite = z.infer<typeof CodexPermissionDefaultsWriteSchema>
+
+export const CodexPermissionsCatalogRequestSchema = z
+  .object({ cwd: z.string().min(1).optional() })
+  .strict()
+
+export const CodexShowFullAccessWriteSchema = z.object({ enabled: z.boolean() }).strict()
+
+export const CodexAutoReviewRetrySchema = z
+  .object({ event: z.json(), threadId: z.string().min(1) })
+  .strict()
+
 export const CodexThreadViewSchema = z
   .object({
     cwd: z.string(),
@@ -217,17 +292,16 @@ export const CodexThreadReadRequestSchema = z.object({ threadId: z.string().min(
 
 export const CodexChatStartSchema = z
   .object({
-    approvalPolicy: z.enum(["untrusted", "on-request", "never"]).default("on-request"),
     chatId: z.string().min(1),
     cwd: z.string().min(1).optional(),
     messages: z.array(CodexUiMessageSchema).min(1),
     model: z.string().min(1),
     provider: CodexNativeProviderSchema,
     projectId: z.string().min(1).optional(),
+    permissionSelection: CodexPermissionSelectionSchema.optional(),
     requestId: z.uuid(),
     reasoningEffort: z.string().min(1).optional(),
     resumeThreadId: z.string().min(1).optional(),
-    sandboxMode: z.enum(["read-only", "workspace-write", "danger-full-access"]),
     serviceTier: z.string().min(1).optional(),
   })
   .strict()
@@ -278,6 +352,7 @@ export const CodexInteractionEventSchema = z
     method: CodexInteractionMethodSchema,
     params: z.unknown(),
     questions: z.array(CodexInteractionQuestionSchema).optional(),
+    serverRequestId: z.union([z.string(), z.number()]),
     threadId: z.string().nullable(),
     title: z.string(),
     turnId: z.string().nullable(),
@@ -290,7 +365,14 @@ export const CodexInteractionResponseSchema = z
     action: z.enum(["accept", "accept-for-session", "cancel", "decline"]),
     answers: z.record(z.string(), z.array(z.string())).optional(),
     content: z.json().optional(),
+    decision: z.json().optional(),
     interactionId: z.uuid(),
+    permissions: z
+      .object({ fileSystem: z.json().optional(), network: z.json().optional() })
+      .strict()
+      .optional(),
+    scope: z.enum(["turn", "session"]).optional(),
+    strictAutoReview: z.boolean().optional(),
   })
   .strict()
 export type CodexInteractionResponse = z.infer<typeof CodexInteractionResponseSchema>

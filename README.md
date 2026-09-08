@@ -66,7 +66,7 @@ apps/desktop plugins
 
 The desktop renderer is a product UI, not a privileged runtime. It uses typed IPC to request capabilities from Electron main. Private keys, signing operations, dApp browser sessions, local database access, automation execution, and Codex App Server lifecycle management stay outside the renderer.
 
-See [docs/architecture.md](docs/architecture.md) for the architecture baseline and [docs/network-management.md](docs/network-management.md) for the network and RPC design.
+See [docs/architecture.md](docs/architecture.md) for the architecture baseline, [docs/codex-permissions.md](docs/codex-permissions.md) for the Codex Desktop permissions design, and [docs/network-management.md](docs/network-management.md) for the network and RPC design.
 
 ## Repository Layout
 

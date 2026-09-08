@@ -147,6 +147,21 @@ Status legend:
 
 ## Desktop Codex App Server Bridge
 
+- [x] Specify Codex Desktop-style permissions over App Server.
+  - Acceptance: paired documents define the exact Codex permission-profile, legacy sandbox, approval-policy, reviewer, managed-requirement, approval-request, and Auto-review semantics without extending them into Cypheria Web3 permissions.
+  - Include: official OpenAI documentation, generated App Server types, installed Desktop bundle evidence, current-gap analysis, wire mappings, delivery sequence, and testable completion criteria.
+  - Verification: paired-document review and generated-protocol comparison with the installed `codex-cli 0.153.4`.
+
+- [x] Add Codex permission discovery and selection to Desktop.
+  - Acceptance: the composer resolves standard modes, named profiles, custom config, and managed defaults from App Server config, requirements, profiles, model capability, and cwd; new, resumed, and updated tasks preserve the effective choice.
+  - Include: typed IPC, pagination, requirements filtering, profile-versus-sandbox mutual exclusion, Full access confirmation, invalidation, and native Windows readiness.
+  - Verification: bridge and desktop tests for standard, named, custom, managed, resume, update, stale selection, pagination, and platform cases; `pnpm run ci`, `pnpm build`.
+
+- [x] Complete Codex approval and Auto-review parity.
+  - Acceptance: command, file, and additional-permission approvals use method-specific typed projections and generated decisions; subset grants and scopes work; Auto-review lifecycle, strict review, and exact denied-action retry are visible and fail closed.
+  - Include: `availableDecisions`, policy amendments, network-specific prompts, resolved-event reconciliation, disconnect/timeout cleanup, and current reviewer-alias compatibility.
+  - Verification: broker, IPC, renderer, lifecycle, and real App Server tests; `pnpm run ci`, `pnpm build`.
+
 - [x] Preserve and render complete Codex turns through the AI SDK UI stream.
   - Acceptance: live and hydrated chats share one turn projector; the live stream preserves all turn-scoped updates, while hydration faithfully projects the full durable App Server turn snapshot; turn timing/status, item lifecycle and full generated item payloads, commentary/final-answer phases, reasoning, tools, plans, diffs, model reroutes, and terminal progress remain available to the renderer whenever supplied by App Server; the conversation UI groups and collapses agent activity separately from the final answer in the Codex Desktop style.
   - Include: typed AI SDK data parts reconciled by turn/item ID, provider metadata on compatible standard parts, reusable turn projection tests, AI Elements-based activity rendering, and paired English/Chinese architecture documentation.

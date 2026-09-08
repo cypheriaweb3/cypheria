@@ -115,6 +115,41 @@ describe("Codex interaction broker", () => {
     })
   })
 
+  it("returns only the permission subset selected by the user", async () => {
+    const { bridge, broker, events } = createHarness()
+    const resultPromise = bridge.dispatch({
+      id: "server-permissions",
+      method: "item/permissions/requestApproval",
+      params: {
+        cwd: "/tmp/project",
+        environmentId: null,
+        itemId: "item-permissions",
+        permissions: {
+          fileSystem: { read: ["/tmp/docs"], write: ["/tmp/docs"] },
+          network: { enabled: true },
+        },
+        reason: "Read docs and fetch metadata",
+        startedAtMs: 1,
+        threadId: "thread-1",
+        turnId: "turn-1",
+      },
+    })
+    const interaction = events[0]
+    if (!interaction) throw new Error("Expected a permissions interaction")
+    await broker.respond({
+      action: "accept",
+      interactionId: interaction.interactionId,
+      permissions: { network: { enabled: true } },
+      scope: "turn",
+      strictAutoReview: true,
+    })
+    await expect(resultPromise).resolves.toEqual({
+      permissions: { network: { enabled: true } },
+      scope: "turn",
+      strictAutoReview: true,
+    })
+  })
+
   it("fails closed by canceling pending interactions when closed", async () => {
     const { bridge, broker } = createHarness()
     const resultPromise = bridge.dispatch({

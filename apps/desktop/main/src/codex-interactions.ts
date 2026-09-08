@@ -60,6 +60,7 @@ const eventFromRequest = (
       method: request.method,
       params: request.params,
       questions: request.params.questions,
+      serverRequestId: request.id,
       threadId: request.params.threadId,
       title: "Codex needs your input",
       turnId: request.params.turnId,
@@ -72,6 +73,7 @@ const eventFromRequest = (
       kind: "elicitation",
       method: request.method,
       params: request.params,
+      serverRequestId: request.id,
       threadId: request.params.threadId,
       title: `Input requested by ${request.params.serverName}`,
       turnId: request.params.turnId,
@@ -91,6 +93,7 @@ const eventFromRequest = (
     kind: "approval",
     method: request.method,
     params: request.params,
+    serverRequestId: request.id,
     threadId: threadIdOf(request),
     title,
     turnId: turnIdOf(request),
@@ -127,21 +130,25 @@ const resultForResponse = (
     case "item/fileChange/requestApproval":
       return {
         decision:
-          response.action === "accept"
+          response.decision ??
+          (response.action === "accept"
             ? "accept"
             : response.action === "accept-for-session"
               ? "acceptForSession"
               : response.action === "decline"
                 ? "decline"
-                : "cancel",
+                : "cancel"),
       }
     case "item/permissions/requestApproval":
       return {
         permissions:
           response.action === "accept" || response.action === "accept-for-session"
-            ? grantedPermissions(request.params.permissions)
+            ? (response.permissions ?? grantedPermissions(request.params.permissions))
             : {},
-        scope: response.action === "accept-for-session" ? "session" : "turn",
+        scope: response.scope ?? (response.action === "accept-for-session" ? "session" : "turn"),
+        ...(response.strictAutoReview === undefined
+          ? {}
+          : { strictAutoReview: response.strictAutoReview }),
       }
     case "item/tool/requestUserInput":
       return {

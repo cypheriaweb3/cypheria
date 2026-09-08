@@ -21,6 +21,7 @@ import { Route as SettingsPluginsRouteImport } from "./routes/settings.plugins"
 import { Route as SettingsModelsRouteImport } from "./routes/settings.models"
 import { Route as SettingsGeneralRouteImport } from "./routes/settings.general"
 import { Route as SettingsConnectionsRouteImport } from "./routes/settings.connections"
+import { Route as SettingsConfigurationRouteImport } from "./routes/settings.configuration"
 import { Route as SettingsAppearanceRouteImport } from "./routes/settings.appearance"
 import { Route as SettingsAccountRouteImport } from "./routes/settings.account"
 
@@ -84,6 +85,11 @@ const SettingsConnectionsRoute = SettingsConnectionsRouteImport.update({
   path: "/settings/connections",
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsConfigurationRoute = SettingsConfigurationRouteImport.update({
+  id: "/settings/configuration",
+  path: "/settings/configuration",
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsAppearanceRoute = SettingsAppearanceRouteImport.update({
   id: "/settings/appearance",
   path: "/settings/appearance",
@@ -106,6 +112,7 @@ export interface FileRoutesByFullPath {
   "/wallets": typeof WalletsRoute
   "/settings/account": typeof SettingsAccountRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
+  "/settings/configuration": typeof SettingsConfigurationRoute
   "/settings/connections": typeof SettingsConnectionsRoute
   "/settings/general": typeof SettingsGeneralRoute
   "/settings/models": typeof SettingsModelsRoute
@@ -122,6 +129,7 @@ export interface FileRoutesByTo {
   "/wallets": typeof WalletsRoute
   "/settings/account": typeof SettingsAccountRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
+  "/settings/configuration": typeof SettingsConfigurationRoute
   "/settings/connections": typeof SettingsConnectionsRoute
   "/settings/general": typeof SettingsGeneralRoute
   "/settings/models": typeof SettingsModelsRoute
@@ -139,6 +147,7 @@ export interface FileRoutesById {
   "/wallets": typeof WalletsRoute
   "/settings/account": typeof SettingsAccountRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
+  "/settings/configuration": typeof SettingsConfigurationRoute
   "/settings/connections": typeof SettingsConnectionsRoute
   "/settings/general": typeof SettingsGeneralRoute
   "/settings/models": typeof SettingsModelsRoute
@@ -157,6 +166,7 @@ export interface FileRouteTypes {
     | "/wallets"
     | "/settings/account"
     | "/settings/appearance"
+    | "/settings/configuration"
     | "/settings/connections"
     | "/settings/general"
     | "/settings/models"
@@ -173,6 +183,7 @@ export interface FileRouteTypes {
     | "/wallets"
     | "/settings/account"
     | "/settings/appearance"
+    | "/settings/configuration"
     | "/settings/connections"
     | "/settings/general"
     | "/settings/models"
@@ -189,6 +200,7 @@ export interface FileRouteTypes {
     | "/wallets"
     | "/settings/account"
     | "/settings/appearance"
+    | "/settings/configuration"
     | "/settings/connections"
     | "/settings/general"
     | "/settings/models"
@@ -206,6 +218,7 @@ export interface RootRouteChildren {
   WalletsRoute: typeof WalletsRoute
   SettingsAccountRoute: typeof SettingsAccountRoute
   SettingsAppearanceRoute: typeof SettingsAppearanceRoute
+  SettingsConfigurationRoute: typeof SettingsConfigurationRoute
   SettingsConnectionsRoute: typeof SettingsConnectionsRoute
   SettingsGeneralRoute: typeof SettingsGeneralRoute
   SettingsModelsRoute: typeof SettingsModelsRoute
@@ -298,6 +311,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof SettingsConnectionsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    "/settings/configuration": {
+      id: "/settings/configuration"
+      path: "/settings/configuration"
+      fullPath: "/settings/configuration"
+      preLoaderRoute: typeof SettingsConfigurationRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     "/settings/appearance": {
       id: "/settings/appearance"
       path: "/settings/appearance"
@@ -326,6 +346,7 @@ const rootRouteChildren: RootRouteChildren = {
   WalletsRoute: WalletsRoute,
   SettingsAccountRoute: SettingsAccountRoute,
   SettingsAppearanceRoute: SettingsAppearanceRoute,
+  SettingsConfigurationRoute: SettingsConfigurationRoute,
   SettingsConnectionsRoute: SettingsConnectionsRoute,
   SettingsGeneralRoute: SettingsGeneralRoute,
   SettingsModelsRoute: SettingsModelsRoute,

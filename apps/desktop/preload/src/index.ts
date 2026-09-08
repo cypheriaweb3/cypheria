@@ -110,6 +110,12 @@ const cypheriaApi: CypheriaPreloadApi = {
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAccountLoginCancel, { loginId }),
     getAccount: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAccountRead),
     getModelSettings: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexModelSettingsRead),
+    getPermissionDefaults: () =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPermissionDefaultsRead),
+    getPermissionsCatalog: (cwd) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPermissionsCatalogRead, {
+        ...(cwd ? { cwd } : {}),
+      }),
     interruptChat: (requestId) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexChatInterrupt, { requestId }),
     listModels: (includeHidden) =>
@@ -151,6 +157,8 @@ const cypheriaApi: CypheriaPreloadApi = {
     moveThreadToSection: (input) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadSectionMove, input),
     login: (request) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAccountLoginStart, request),
+    retryAutoReviewDenial: (threadId, event) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAutoReviewRetry, { event, threadId }),
     logout: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAccountLogout),
     onChatEvent: (handler) => {
       const listener = (_event: IpcRendererEvent, chatEvent: CodexChatEvent): void => {
@@ -183,6 +191,12 @@ const cypheriaApi: CypheriaPreloadApi = {
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexInteractionRespond, response),
     setModelSettings: (settings) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexModelSettingsWrite, settings),
+    setPermissionDefaults: (settings) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPermissionDefaultsWrite, settings),
+    setShowFullAccess: (enabled) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPermissionsShowFullAccessWrite, { enabled }),
+    openPermissionsConfig: () =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPermissionsConfigOpen),
     setPluginEnabled: (pluginId, enabled) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPluginEnabledWrite, { enabled, pluginId }),
     setSkillEnabled: (path, enabled) =>

@@ -33,6 +33,7 @@ import {
   Palette,
   Search,
   Settings,
+  SlidersHorizontal,
   SquarePen,
 } from "lucide-react"
 import { type ComponentProps, type CSSProperties, type ReactNode, useEffect, useState } from "react"
@@ -68,6 +69,11 @@ const settingsItems = [
     href: "/settings/general",
     icon: <Settings className="size-4" strokeWidth={1.9} />,
     label: msg({ id: "settings.general", message: "General" }),
+  },
+  {
+    href: "/settings/configuration",
+    icon: <SlidersHorizontal className="size-4" strokeWidth={1.9} />,
+    label: msg({ id: "settings.configuration", message: "Configuration" }),
   },
   {
     href: "/settings/plugins",

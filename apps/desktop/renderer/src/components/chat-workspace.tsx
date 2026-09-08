@@ -60,7 +60,9 @@ import {
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from "@cypheria/ui/ai-elements/tool"
 import { Badge } from "@cypheria/ui/components/badge"
 import { Button } from "@cypheria/ui/components/button"
+import { Checkbox } from "@cypheria/ui/components/checkbox"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@cypheria/ui/components/tabs"
+import type { I18n } from "@lingui/core"
 import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
@@ -95,9 +97,11 @@ import type {
   CodexInteractionEvent,
   CodexInteractionResponse,
   CodexModelView,
+  CodexPermissionSelection,
   CodexUiMessage,
   WalletActiveContext,
 } from "../../../ipc/src/index.js"
+import { CodexAutoReviewRetrySchema } from "../../../ipc/src/index.js"
 import { CodexIpcChatTransport } from "../codex-chat.js"
 import { Route } from "../routes/index"
 import { newChatRevisionAtom } from "./chat-navigation"
@@ -121,6 +125,56 @@ const fallbackModel: CodexModelView = {
   model: "default",
   reasoningEfforts: [{ description: "Balanced reasoning", value: "medium" }],
   serviceTiers: [],
+}
+
+type AutoReviewView = {
+  readonly event: CodexInteractionResponse["content"] | null
+  readonly rationale: string | null
+  readonly reviewId: string
+  readonly riskLevel: string | null
+  readonly status: string
+  readonly threadId: string
+  readonly turnId: string
+  readonly userAuthorization: string | null
+}
+
+const permissionSelectionValue = (selection: CodexPermissionSelection): string =>
+  selection.kind === "agent-mode"
+    ? `mode:${selection.agentMode}`
+    : selection.kind === "profile"
+      ? `profile:${selection.profileId}`
+      : selection.kind
+
+const permissionSelectionFromValue = (value: string): CodexPermissionSelection => {
+  if (value.startsWith("profile:")) return { kind: "profile", profileId: value.slice(8) }
+  if (value === "custom") return { kind: "custom" }
+  if (value === "server-default") return { kind: "server-default" }
+  return {
+    agentMode: value.slice(5) as Extract<
+      CodexPermissionSelection,
+      { kind: "agent-mode" }
+    >["agentMode"],
+    kind: "agent-mode",
+  }
+}
+
+const permissionSelectionLabel = (selection: CodexPermissionSelection, i18n: I18n): string => {
+  if (selection.kind === "profile") return selection.profileId
+  if (selection.kind === "custom")
+    return i18n._(msg({ id: "chat.permissions.custom", message: "Custom" }))
+  if (selection.kind === "server-default")
+    return i18n._(msg({ id: "chat.permissions.managed", message: "Managed" }))
+  switch (selection.agentMode) {
+    case "read-only":
+      return i18n._(msg({ id: "chat.sandbox.readOnly", message: "Read only" }))
+    case "guardian-approvals":
+      return i18n._(msg({ id: "chat.permissions.autoReview", message: "Approve for me" }))
+    case "full-access":
+      return i18n._(msg({ id: "chat.sandbox.fullAccess", message: "Full access" }))
+    case "auto":
+    case "granular":
+      return i18n._(msg({ id: "chat.permissions.ask", message: "Ask for approval" }))
+  }
 }
 
 export default function ChatWorkspace() {
@@ -183,34 +237,41 @@ function ChatSession({
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [workspacePanelOpen, setWorkspacePanelOpen] = useState(true)
-  const [sandboxMode, setSandboxMode] = useState<
-    "read-only" | "workspace-write" | "danger-full-access"
-  >("workspace-write")
+  const [permissionSelection, setPermissionSelection] = useState<CodexPermissionSelection | null>(
+    null
+  )
   const [interactions, setInteractions] = useState<CodexInteractionEvent[]>([])
+  const [autoReviews, setAutoReviews] = useState<AutoReviewView[]>([])
+  const [strictReviewTurns, setStrictReviewTurns] = useState<Set<string>>(() => new Set())
   const selectedModel = models.find((model) => model.model === selectedModelId) ?? initialModel
   const selectedReasoning =
     reasoningEffort ?? settings?.reasoningEffort ?? selectedModel.defaultReasoningEffort
   const provider = settings?.provider ?? "openai"
   const projects = projectsQuery.data?.data ?? []
   const selectedProject = projects.find((project) => project.id === selectedProjectId)
-  const sandboxLabel =
-    sandboxMode === "read-only"
-      ? i18n._(msg({ id: "chat.sandbox.readOnly", message: "Read only" }))
-      : sandboxMode === "workspace-write"
-        ? i18n._(msg({ id: "chat.sandbox.workspaceWrite", message: "Workspace write" }))
-        : i18n._(msg({ id: "chat.sandbox.fullAccess", message: "Full computer access" }))
+  const permissionsQuery = useQuery({
+    queryFn: () => window.cypheria?.codex.getPermissionsCatalog(selectedProject?.roots[0]),
+    queryKey: ["codex", "permissions", selectedProject?.roots[0] ?? null],
+  })
+  const effectivePermissionSelection = permissionSelection ??
+    permissionsQuery.data?.selected ?? {
+      agentMode: "auto" as const,
+      kind: "agent-mode" as const,
+    }
+  const permissionValue = permissionSelectionValue(effectivePermissionSelection)
+  const permissionLabel = permissionSelectionLabel(effectivePermissionSelection, i18n)
   const transport = useMemo(
     () =>
       new CodexIpcChatTransport(
         () => ({
-          approvalPolicy: "on-request",
           cwd: selectedProject?.roots[0],
           model: selectedModel.model,
           projectId: selectedProject?.id,
           provider,
           reasoningEffort: selectedReasoning,
           resumeThreadId,
-          sandboxMode,
+          permissionSelection:
+            resumeThreadId && !permissionSelection ? undefined : effectivePermissionSelection,
           serviceTier: settings?.serviceTier ?? undefined,
         }),
         async (threadId) => {
@@ -235,7 +296,8 @@ function ChatSession({
       selectedProject?.id,
       selectedProject?.roots,
       resumeThreadId,
-      sandboxMode,
+      effectivePermissionSelection,
+      permissionSelection,
       selectedModel.model,
       selectedReasoning,
       settings?.serviceTier,
@@ -293,6 +355,58 @@ function ChatSession({
       )
     })
   }, [resumeThreadId])
+
+  useEffect(() => {
+    const api = window.cypheria?.codex
+    if (!api) return
+    return api.onEvent((event) => {
+      if (event.event !== "codex.notification" || !("method" in event.payload)) return
+      if (event.payload.method === "serverRequest/resolved") {
+        const params = jsonObject(event.payload.params)
+        if (typeof params.requestId === "string" || typeof params.requestId === "number") {
+          setInteractions((current) =>
+            current.filter((interaction) => interaction.serverRequestId !== params.requestId)
+          )
+        }
+        return
+      }
+      if (event.payload.method === "autoApprovalReview/strictReviewRequired") {
+        const params = jsonObject(event.payload.params)
+        if (typeof params.turnId === "string") {
+          setStrictReviewTurns((current) => new Set(current).add(params.turnId as string))
+        }
+        return
+      }
+      if (
+        event.payload.method !== "item/autoApprovalReview/started" &&
+        event.payload.method !== "item/autoApprovalReview/completed"
+      )
+        return
+      const params = jsonObject(event.payload.params)
+      const review = jsonObject(params.review)
+      if (
+        typeof params.reviewId !== "string" ||
+        typeof params.threadId !== "string" ||
+        typeof params.turnId !== "string"
+      )
+        return
+      const next: AutoReviewView = {
+        event: CodexAutoReviewRetrySchema.shape.event.safeParse(params.event).data ?? null,
+        rationale: typeof review.rationale === "string" ? review.rationale : null,
+        reviewId: params.reviewId,
+        riskLevel: typeof review.riskLevel === "string" ? review.riskLevel : null,
+        status: typeof review.status === "string" ? review.status : "inProgress",
+        threadId: params.threadId,
+        turnId: params.turnId,
+        userAuthorization:
+          typeof review.userAuthorization === "string" ? review.userAuthorization : null,
+      }
+      setAutoReviews((current) => [
+        ...current.filter((item) => item.reviewId !== next.reviewId),
+        next,
+      ])
+    })
+  }, [])
 
   const resolveInteraction = async (response: CodexInteractionResponse) => {
     await window.cypheria?.codex.respondToInteraction(response)
@@ -407,6 +521,16 @@ function ChatSession({
         </Conversation>
 
         <div className="mx-auto w-full max-w-[880px] px-4 pb-5">
+          {autoReviews
+            .filter((review) => !resumeThreadId || review.threadId === resumeThreadId)
+            .map((review) => (
+              <AutoReviewCard key={review.reviewId} review={review} />
+            ))}
+          {strictReviewTurns.size ? (
+            <div className="mb-3 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-800 dark:text-amber-200">
+              Strict Auto-review is active for this turn. Every subsequent command is reviewed.
+            </div>
+          ) : null}
           {unboundInteractions.map((interaction) => (
             <CodexInteractionCard
               interaction={interaction}
@@ -462,23 +586,46 @@ function ChatSession({
                   <Plus aria-hidden="true" />
                 </Button>
                 <PromptInputSelect
-                  onValueChange={(value) => setSandboxMode(value as typeof sandboxMode)}
-                  value={sandboxMode}
+                  onValueChange={(value) =>
+                    setPermissionSelection(permissionSelectionFromValue(String(value)))
+                  }
+                  value={permissionValue}
                 >
                   <PromptInputSelectTrigger className="w-auto">
                     <LockKeyhole className="size-3.5" />
-                    <PromptInputSelectValue>{sandboxLabel}</PromptInputSelectValue>
+                    <PromptInputSelectValue>{permissionLabel}</PromptInputSelectValue>
                   </PromptInputSelectTrigger>
                   <PromptInputSelectContent>
-                    <PromptInputSelectItem value="read-only">
-                      <Trans id="chat.sandbox.readOnly">Read only</Trans>
-                    </PromptInputSelectItem>
-                    <PromptInputSelectItem value="workspace-write">
-                      <Trans id="chat.sandbox.workspaceWrite">Workspace write</Trans>
-                    </PromptInputSelectItem>
-                    <PromptInputSelectItem value="danger-full-access">
-                      <Trans id="chat.sandbox.fullAccess">Full computer access</Trans>
-                    </PromptInputSelectItem>
+                    {permissionsQuery.data?.availableAgentModes.includes("read-only") !== false ? (
+                      <PromptInputSelectItem value="mode:read-only">
+                        <Trans id="chat.sandbox.readOnly">Read only</Trans>
+                      </PromptInputSelectItem>
+                    ) : null}
+                    {permissionsQuery.data?.availableAgentModes.includes("auto") !== false ? (
+                      <PromptInputSelectItem value="mode:auto">
+                        <Trans id="chat.permissions.ask">Ask for approval</Trans>
+                      </PromptInputSelectItem>
+                    ) : null}
+                    {permissionsQuery.data?.availableAgentModes.includes("guardian-approvals") ? (
+                      <PromptInputSelectItem value="mode:guardian-approvals">
+                        <Trans id="chat.permissions.autoReview">Approve for me</Trans>
+                      </PromptInputSelectItem>
+                    ) : null}
+                    {permissionsQuery.data?.profiles
+                      .filter((profile) => profile.allowed)
+                      .map((profile) => (
+                        <PromptInputSelectItem key={profile.id} value={`profile:${profile.id}`}>
+                          {profile.description
+                            ? `${profile.id} — ${profile.description}`
+                            : profile.id}
+                        </PromptInputSelectItem>
+                      ))}
+                    {permissionsQuery.data?.showFullAccess &&
+                    permissionsQuery.data.fullAccessCanBeShown ? (
+                      <PromptInputSelectItem value="mode:full-access">
+                        <Trans id="chat.sandbox.fullAccess">Full access</Trans>
+                      </PromptInputSelectItem>
+                    ) : null}
                   </PromptInputSelectContent>
                 </PromptInputSelect>
                 <ModelPicker
@@ -551,6 +698,62 @@ function ChatSession({
   )
 }
 
+function AutoReviewCard({ review }: Readonly<{ review: AutoReviewView }>) {
+  const [retrying, setRetrying] = useState(false)
+  const [retried, setRetried] = useState(false)
+  const retryEvent = review.event
+  const statusLabel =
+    review.status === "inProgress"
+      ? "Reviewing"
+      : review.status === "timedOut"
+        ? "Timed out"
+        : review.status.charAt(0).toUpperCase() + review.status.slice(1)
+  return (
+    <section className="mb-3 rounded-xl border border-violet-500/25 bg-violet-500/5 p-3 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          {review.status === "inProgress" ? (
+            <LoaderCircle className="size-3.5 animate-spin" />
+          ) : (
+            <LockKeyhole className="size-3.5" />
+          )}
+          Auto-review
+        </div>
+        <Badge variant="outline">{statusLabel}</Badge>
+      </div>
+      {review.rationale ? (
+        <p className="mt-2 text-xs leading-5 text-muted-foreground">{review.rationale}</p>
+      ) : null}
+      {review.riskLevel || review.userAuthorization ? (
+        <div className="mt-2 flex gap-2 text-[11px] text-muted-foreground">
+          {review.riskLevel ? <span>Risk: {review.riskLevel}</span> : null}
+          {review.userAuthorization ? <span>Authorization: {review.userAuthorization}</span> : null}
+        </div>
+      ) : null}
+      {review.status === "denied" && retryEvent ? (
+        <div className="mt-3 flex justify-end">
+          <Button
+            disabled={retrying || retried}
+            onClick={async () => {
+              setRetrying(true)
+              try {
+                await window.cypheria?.codex.retryAutoReviewDenial(review.threadId, retryEvent)
+                setRetried(true)
+              } finally {
+                setRetrying(false)
+              }
+            }}
+            size="sm"
+            variant="outline"
+          >
+            {retried ? "Approval recorded" : retrying ? "Recording…" : "Approve one retry"}
+          </Button>
+        </div>
+      ) : null}
+    </section>
+  )
+}
+
 function CodexInteractionCard({
   interaction,
   onResolve,
@@ -562,6 +765,13 @@ function CodexInteractionCard({
   const [content, setContent] = useState("{}")
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [grantFileSystem, setGrantFileSystem] = useState(true)
+  const [grantNetwork, setGrantNetwork] = useState(true)
+  const params = jsonObject(interaction.params)
+  const requestedPermissions = jsonObject(params.permissions)
+  const availableDecisions = Array.isArray(params.availableDecisions)
+    ? params.availableDecisions
+    : null
 
   const submit = async (action: CodexInteractionResponse["action"]) => {
     setSubmitting(true)
@@ -584,6 +794,19 @@ function CodexInteractionCard({
           ? { content: parsedContent }
           : {}),
         interactionId: interaction.interactionId,
+        ...(interaction.method === "item/permissions/requestApproval" && action.startsWith("accept")
+          ? {
+              permissions: {
+                ...(grantFileSystem && requestedPermissions.fileSystem
+                  ? { fileSystem: requestedPermissions.fileSystem }
+                  : {}),
+                ...(grantNetwork && requestedPermissions.network
+                  ? { network: requestedPermissions.network }
+                  : {}),
+              } as CodexInteractionResponse["permissions"],
+              scope: action === "accept-for-session" ? ("session" as const) : ("turn" as const),
+            }
+          : {}),
       })
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason))
@@ -604,9 +827,15 @@ function CodexInteractionCard({
       </div>
 
       {interaction.kind === "approval" ? (
-        <pre className="mt-3 max-h-32 overflow-auto rounded-md bg-muted p-2 text-[11px]">
-          {JSON.stringify(interaction.params, null, 2)}
-        </pre>
+        <ApprovalDetails
+          interaction={interaction}
+          params={params}
+          requestedPermissions={requestedPermissions}
+          grantFileSystem={grantFileSystem}
+          grantNetwork={grantNetwork}
+          onGrantFileSystem={setGrantFileSystem}
+          onGrantNetwork={setGrantNetwork}
+        />
       ) : null}
 
       {interaction.questions?.map((question) => {
@@ -660,15 +889,18 @@ function CodexInteractionCard({
 
       {error ? <p className="mt-2 text-xs text-destructive">{error}</p> : null}
       <div className="mt-3 flex justify-end gap-2">
-        <Button
-          disabled={submitting}
-          onClick={() => void submit("decline")}
-          size="sm"
-          variant="ghost"
-        >
-          Decline
-        </Button>
-        {interaction.kind === "approval" ? (
+        {decisionAvailable(availableDecisions, "decline") ? (
+          <Button
+            disabled={submitting}
+            onClick={() => void submit("decline")}
+            size="sm"
+            variant="ghost"
+          >
+            Decline
+          </Button>
+        ) : null}
+        {interaction.kind === "approval" &&
+        decisionAvailable(availableDecisions, "acceptForSession") ? (
           <Button
             disabled={submitting}
             onClick={() => void submit("accept-for-session")}
@@ -678,11 +910,130 @@ function CodexInteractionCard({
             Allow for session
           </Button>
         ) : null}
-        <Button disabled={submitting} onClick={() => void submit("accept")} size="sm">
-          {interaction.kind === "user-input" ? "Submit" : "Allow"}
-        </Button>
+        {interaction.kind === "approval" &&
+          availableDecisions?.map((decision) => {
+            if (typeof decision === "string") return null
+            const amendment = jsonObject(decision)
+            if (
+              !("acceptWithExecpolicyAmendment" in amendment) &&
+              !("applyNetworkPolicyAmendment" in amendment)
+            )
+              return null
+            return (
+              <Button
+                disabled={submitting}
+                key={JSON.stringify(decision)}
+                onClick={() =>
+                  void onResolve({
+                    action: "accept",
+                    decision: decision as CodexInteractionResponse["decision"],
+                    interactionId: interaction.interactionId,
+                  })
+                }
+                size="sm"
+                variant="outline"
+              >
+                Allow and remember
+              </Button>
+            )
+          })}
+        {decisionAvailable(availableDecisions, "accept") ? (
+          <Button disabled={submitting} onClick={() => void submit("accept")} size="sm">
+            {interaction.kind === "user-input" ? "Submit" : "Allow"}
+          </Button>
+        ) : null}
       </div>
     </section>
+  )
+}
+
+const jsonObject = (value: unknown): Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {}
+
+const decisionAvailable = (decisions: unknown[] | null, expected: string): boolean =>
+  !decisions || decisions.some((decision) => decision === expected)
+
+function ApprovalDetails({
+  grantFileSystem,
+  grantNetwork,
+  interaction,
+  onGrantFileSystem,
+  onGrantNetwork,
+  params,
+  requestedPermissions,
+}: Readonly<{
+  grantFileSystem: boolean
+  grantNetwork: boolean
+  interaction: CodexInteractionEvent
+  onGrantFileSystem: (value: boolean) => void
+  onGrantNetwork: (value: boolean) => void
+  params: Record<string, unknown>
+  requestedPermissions: Record<string, unknown>
+}>) {
+  if (interaction.method === "item/permissions/requestApproval") {
+    return (
+      <div className="mt-3 grid gap-2 rounded-lg bg-muted/60 p-3 text-xs">
+        {requestedPermissions.fileSystem ? (
+          <label
+            className="flex items-start gap-2"
+            htmlFor={`${interaction.interactionId}-filesystem`}
+          >
+            <Checkbox
+              checked={grantFileSystem}
+              id={`${interaction.interactionId}-filesystem`}
+              onCheckedChange={(value) => onGrantFileSystem(value === true)}
+            />
+            <span>
+              <strong>File access</strong>
+              <span className="mt-0.5 block break-all text-muted-foreground">
+                {JSON.stringify(requestedPermissions.fileSystem)}
+              </span>
+            </span>
+          </label>
+        ) : null}
+        {requestedPermissions.network ? (
+          <label
+            className="flex items-start gap-2"
+            htmlFor={`${interaction.interactionId}-network`}
+          >
+            <Checkbox
+              checked={grantNetwork}
+              id={`${interaction.interactionId}-network`}
+              onCheckedChange={(value) => onGrantNetwork(value === true)}
+            />
+            <span>
+              <strong>Network access</strong>
+              <span className="mt-0.5 block break-all text-muted-foreground">
+                {JSON.stringify(requestedPermissions.network)}
+              </span>
+            </span>
+          </label>
+        ) : null}
+        {typeof params.cwd === "string" ? (
+          <span className="text-muted-foreground">Working directory: {params.cwd}</span>
+        ) : null}
+      </div>
+    )
+  }
+  return (
+    <div className="mt-3 grid gap-1 rounded-lg bg-muted/60 p-3 text-xs">
+      {typeof params.command === "string" ? (
+        <code className="break-all font-mono text-[12px]">{params.command}</code>
+      ) : null}
+      {typeof params.cwd === "string" ? (
+        <span className="text-muted-foreground">Working directory: {params.cwd}</span>
+      ) : null}
+      {typeof params.grantRoot === "string" ? (
+        <span className="text-muted-foreground">Requested write root: {params.grantRoot}</span>
+      ) : null}
+      {params.networkApprovalContext ? (
+        <span className="font-medium text-amber-700 dark:text-amber-300">
+          This command is requesting network access.
+        </span>
+      ) : null}
+    </div>
   )
 }
 

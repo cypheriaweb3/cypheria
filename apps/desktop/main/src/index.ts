@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto"
 import { existsSync } from "node:fs"
-import { mkdir } from "node:fs/promises"
+import { mkdir, writeFile } from "node:fs/promises"
 import { dirname, join, relative, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
+import type { v2 } from "@cypheria/codex-bridge"
 import { buildRuntimePaths, type EthereumNetworkApproval } from "@cypheria/runtime"
 import {
   type WalletProviderResponse,
@@ -48,6 +49,7 @@ import {
   codexAppConnectContract,
   codexAppEnabledContract,
   codexAppListContract,
+  codexAutoReviewRetryContract,
   codexChatInterruptContract,
   codexChatStartContract,
   codexInteractionRespondContract,
@@ -61,6 +63,11 @@ import {
   codexModelListContract,
   codexModelSettingsReadContract,
   codexModelSettingsWriteContract,
+  codexPermissionDefaultsReadContract,
+  codexPermissionDefaultsWriteContract,
+  codexPermissionsCatalogReadContract,
+  codexPermissionsConfigOpenContract,
+  codexPermissionsShowFullAccessWriteContract,
   codexPluginEnabledWriteContract,
   codexPluginInstallContract,
   codexPluginListContract,
@@ -167,6 +174,12 @@ import {
   setCodexAppEnabled,
   setCodexMcpEnabled,
 } from "./codex-integrations.js"
+import {
+  listCodexPermissions,
+  readCodexPermissionDefaults,
+  writeCodexPermissionDefaults,
+  writeShowFullAccess,
+} from "./codex-permissions.js"
 import {
   addCodexMarketplace,
   installCodexPlugin,
@@ -489,6 +502,13 @@ const registerIpcHandlers = (context: DesktopRuntimeContext, harnesses: HarnessM
     return bridge
   }
   registerIpcRoute(codexAccountReadContract, () => readCodexAccount(codexBridge()))
+  registerIpcRoute(codexAutoReviewRetryContract, async ({ event, threadId }) => {
+    await codexBridge().request<
+      "thread/approveGuardianDeniedAction",
+      v2.ThreadApproveGuardianDeniedActionResponse
+    >("thread/approveGuardianDeniedAction", { event, threadId })
+    return { accepted: true }
+  })
   registerIpcRoute(codexAccountLoginStartContract, async (request) => {
     const result = await startCodexLogin(codexBridge(), request, (apiKey) =>
       validateOpenAiApiKey(apiKey, session.defaultSession.fetch.bind(session.defaultSession))
@@ -511,6 +531,27 @@ const registerIpcHandlers = (context: DesktopRuntimeContext, harnesses: HarnessM
   registerIpcRoute(codexModelSettingsWriteContract, (settings) =>
     writeCodexModelSettings(codexBridge(), settings)
   )
+  registerIpcRoute(codexPermissionDefaultsReadContract, () =>
+    readCodexPermissionDefaults(codexBridge(), context.paths.codexHome)
+  )
+  registerIpcRoute(codexPermissionDefaultsWriteContract, (settings) =>
+    writeCodexPermissionDefaults(codexBridge(), context.paths.codexHome, settings)
+  )
+  registerIpcRoute(codexPermissionsCatalogReadContract, ({ cwd }) =>
+    listCodexPermissions(codexBridge(), context.paths.codexHome, cwd)
+  )
+  registerIpcRoute(codexPermissionsConfigOpenContract, async () => {
+    const configPath = join(context.paths.codexHome, "config.toml")
+    await mkdir(context.paths.codexHome, { recursive: true })
+    await writeFile(configPath, "", { flag: "a" })
+    const result = await shell.openPath(configPath)
+    if (result) throw new Error(result)
+    return { opened: true }
+  })
+  registerIpcRoute(codexPermissionsShowFullAccessWriteContract, async ({ enabled }) => {
+    await writeShowFullAccess(codexBridge(), enabled)
+    return listCodexPermissions(codexBridge(), context.paths.codexHome)
+  })
   registerIpcRoute(codexThreadListContract, (options) => listCodexThreads(codexBridge(), options))
   registerIpcRoute(codexThreadReadContract, ({ threadId }) =>
     readCodexThread(codexBridge(), threadId)
