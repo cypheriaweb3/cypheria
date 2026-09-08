@@ -11,7 +11,7 @@ describe("desktop renderer internationalization", () => {
     activateLanguage({ locale: "zh-CN", preference: "zh-CN" })
 
     expect(i18n.locale).toBe("zh-CN")
-    expect(i18n._("navigation.newTask")).toBe("新建任务")
+    expect(i18n._("navigation.newChat")).toBe("新建对话")
     expect(i18n._("plugins.detail.loading", { pluginName: "GitHub" })).toBe(
       "正在加载 GitHub 插件详情"
     )

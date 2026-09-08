@@ -38,22 +38,22 @@ import {
 import { type ComponentProps, type CSSProperties, type ReactNode, useEffect, useState } from "react"
 import { resolveThemeMode, useAppearanceController, useTheme } from "../appearance.js"
 import { activateLanguage, getBootstrapLanguage, i18n } from "../i18n.js"
+import { NewChatLink } from "./chat-navigation"
+import { ChatSearch } from "./chat-search"
+import { ChatSidebar } from "./chat-sidebar"
 import {
   DesktopCollapsedToolbar,
   DesktopSidebar as Sidebar,
   DesktopSidebarProvider as SidebarProvider,
   DesktopSidebarTrigger as SidebarTrigger,
 } from "./desktop-sidebar"
-import { NewTaskLink } from "./task-navigation"
-import { TaskSearch } from "./task-search"
-import { TaskSidebar } from "./task-sidebar"
 
 const navigationItems = [
   {
     href: "/",
     icon: <SquarePen className="size-4" strokeWidth={1.9} />,
-    kind: "new-task",
-    label: msg({ id: "navigation.newTask", message: "New task" }),
+    kind: "new-chat",
+    label: msg({ id: "navigation.newChat", message: "New chat" }),
   },
   {
     href: "/",
@@ -222,7 +222,7 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                       return (
                         <SidebarMenuItem key={item.kind}>
                           {item.kind === "search" ? (
-                            <TaskSearch />
+                            <ChatSearch />
                           ) : (
                             <SidebarMenuButton
                               render={
@@ -240,7 +240,7 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
-              <TaskSidebar pendingCount={approvalsQuery.data?.length ?? 0} />
+              <ChatSidebar pendingCount={approvalsQuery.data?.length ?? 0} />
             </SidebarContent>
 
             <SidebarFooter className="grid min-h-[58px] grid-cols-[minmax(0,1fr)_34px] items-center gap-2 px-3 pb-3 pt-2.5">
@@ -271,7 +271,7 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
               aria-label="New chat"
               className={cn(chromeIconButtonClassName, "collapsed-secondary")}
               nativeButton={false}
-              render={<NewTaskLink />}
+              render={<NewChatLink />}
               size="icon"
               variant="ghost"
             >
@@ -463,6 +463,6 @@ function NavigationLink({
   item,
   ...props
 }: Readonly<{ item: (typeof navigationItems)[number] }> & Omit<ComponentProps<"a">, "href">) {
-  if (item.kind === "new-task") return <NewTaskLink {...props} />
+  if (item.kind === "new-chat") return <NewChatLink {...props} />
   return <Link {...props} to={item.href} search={{}} />
 }

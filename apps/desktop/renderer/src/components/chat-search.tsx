@@ -24,7 +24,7 @@ import { useNavigate } from "@tanstack/react-router"
 import { MessageSquare, Search } from "lucide-react"
 import { useEffect, useState } from "react"
 
-export function TaskSearch() {
+export function ChatSearch() {
   const { i18n } = useLingui()
   const [open, setOpen] = useState(false)
   const navigate = useNavigate()
@@ -46,14 +46,14 @@ export function TaskSearch() {
       <DialogContent className="overflow-hidden p-0 sm:max-w-xl" showCloseButton={false}>
         <DialogHeader className="sr-only">
           <DialogTitle>
-            <Trans id="search.title">Search tasks</Trans>
+            <Trans id="search.title">Search chats</Trans>
           </DialogTitle>
           <DialogDescription>
-            <Trans id="search.description">Search your tasks and select one to open it.</Trans>
+            <Trans id="search.description">Search your chats and select one to open it.</Trans>
           </DialogDescription>
         </DialogHeader>
         {open ? (
-          <TaskSearchCommands
+          <ChatSearchCommands
             onSelect={(thread) => {
               setOpen(false)
               void navigate({ to: "/", search: { thread } })
@@ -65,7 +65,7 @@ export function TaskSearch() {
   )
 }
 
-function TaskSearchCommands({ onSelect }: Readonly<{ onSelect: (thread: string) => void }>) {
+function ChatSearchCommands({ onSelect }: Readonly<{ onSelect: (thread: string) => void }>) {
   const { i18n } = useLingui()
   const [input, setInput] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
@@ -88,14 +88,14 @@ function TaskSearchCommands({ onSelect }: Readonly<{ onSelect: (thread: string) 
   return (
     <Command shouldFilter={false}>
       <CommandInput
-        aria-label={i18n._(msg({ id: "search.title", message: "Search tasks" }))}
+        aria-label={i18n._(msg({ id: "search.title", message: "Search chats" }))}
         autoFocus
-        placeholder={i18n._(msg({ id: "search.placeholder", message: "Search tasks…" }))}
+        placeholder={i18n._(msg({ id: "search.placeholder", message: "Search chats…" }))}
         value={input}
         onValueChange={setInput}
       />
       <CommandList
-        aria-label={i18n._(msg({ id: "search.tasks", message: "Tasks" }))}
+        aria-label={i18n._(msg({ id: "search.chats", message: "Chats" }))}
         aria-busy={waiting}
       >
         {waiting ? (
@@ -105,7 +105,7 @@ function TaskSearchCommands({ onSelect }: Readonly<{ onSelect: (thread: string) 
         ) : results.isError ? (
           <div className="grid justify-items-center gap-2 py-6" role="alert">
             <p className="text-sm text-muted-foreground">
-              <Trans id="search.error">Could not search tasks.</Trans>
+              <Trans id="search.error">Could not search chats.</Trans>
             </p>
             <Button size="sm" variant="outline" onClick={() => void results.refetch()}>
               <Trans id="search.tryAgain">Try again</Trans>
@@ -115,15 +115,15 @@ function TaskSearchCommands({ onSelect }: Readonly<{ onSelect: (thread: string) 
           <>
             <CommandEmpty>
               {searchTerm
-                ? i18n._(msg({ id: "search.noMatches", message: "No matching tasks." }))
-                : i18n._(msg({ id: "search.noRecent", message: "No recent tasks yet." }))}
+                ? i18n._(msg({ id: "search.noMatches", message: "No matching chats." }))
+                : i18n._(msg({ id: "search.noRecent", message: "No recent chats yet." }))}
             </CommandEmpty>
             {threads.length > 0 ? (
               <CommandGroup
                 heading={
                   searchTerm
-                    ? i18n._(msg({ id: "search.tasks", message: "Tasks" }))
-                    : i18n._(msg({ id: "navigation.recentTasks", message: "Recent tasks" }))
+                    ? i18n._(msg({ id: "search.chats", message: "Chats" }))
+                    : i18n._(msg({ id: "navigation.recentChats", message: "Recent chats" }))
                 }
               >
                 {threads.map((thread) => (
@@ -136,7 +136,7 @@ function TaskSearchCommands({ onSelect }: Readonly<{ onSelect: (thread: string) 
                     <div className="grid min-w-0 gap-0.5">
                       <span className="truncate">
                         {thread.title ||
-                          i18n._(msg({ id: "search.untitled", message: "Untitled task" }))}
+                          i18n._(msg({ id: "search.untitled", message: "Untitled chat" }))}
                       </span>
                       {thread.cwd ? (
                         <span className="truncate text-xs text-muted-foreground">{thread.cwd}</span>

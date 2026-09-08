@@ -11,7 +11,7 @@ Codex 保持现有专用 App Server 集成并始终启动。其余 harness 统�
 
 - 首次安装总是解析并安装当时的最新版本。Cypheria 记录实际版本用于展示和追溯，但不保存版本约束。
 - Installed、Enabled、Running、Authenticated/Configured 是相互独立的状态。
-- Enable 仅使 harness 可选，不启动进程；选择使用时才启动 ACP，disable 后停止并禁止新任务。
+- Enable 仅使 harness 可选，不启动进程；选择使用时才启动 ACP，disable 后停止并禁止新对话。
 - binary、runtime、cache、配置、credential 与 session 全部放在 `$CYPHERIA_HOME/harnesses/<id>` 下。
 - 能检测时显示已安装版本；只有上游存在可靠检查机制时才显示“有新版本”提示，更新由用户点击触发。
 - Connections 页面内容区域底部提供页面级、多标签的应用内 PTY terminal；可以同时打开多个 agent terminal，切换 connection 时保留，离开 Connections route 时统一关闭。只接入有官方本地服务文档的 Web UI：OpenCode Web 与可选的 Hermes Web Dashboard。
@@ -125,10 +125,10 @@ running -> stopping -> enabled-idle -> installed-disabled
 
 - Codex 不进入此状态机并始终启动。
 - Install 不等于 enable，enable 不等于 running。
-- 用户选择 harness 或重新打开其 task 时才启动 ACP。
+- 用户选择 harness 或重新打开其 chat 时才启动 ACP。
 - Disable 阻止新 turn 并停止 ACP/本地 Web UI。有 active turn 时默认“本轮后 disable”，另提供“立即停止”。
 - 打开的配置 terminal 可能有未完成交互，disable 时需单独确认是否关闭。
-- 只有 task 正在等待时才做有限次数的 crash restart。
+- 只有 chat 正在等待时才做有限次数的 crash restart。
 - 未验证跨进程 session recovery 前，不做 idle shutdown。
 
 ## 认证、应用内 Terminal 与 Web UI
@@ -233,4 +233,4 @@ IPC 覆盖 list/install/update/uninstall/check、enable/lifecycle/auth、PTY cre
 
 验收要求：五个 harness 可独立安装 latest、经 ACP 使用、disable、更新和卸载；所有 owned file 都在 `$CYPHERIA_HOME`，测试证明真实 home 未改变；version/update 状态遵循上表；disabled process 全部退出；terminal 使用完全相同的 managed env；OpenCode/Hermes Web UI 只绑定 loopback 且可可靠清理；Hermes 不安装 Desktop、不强制 Nous 登录；secret 不进入 renderer persistence 或普通日志。
 
-按独立、可 review 的 todo 实现：paths/state/descriptors；ACP bridge；lazy supervisor/task binding；PTY；逐个 installer（OpenCode、Gemini、Grok、Cursor、Hermes）；update UI；local Web UI；可靠性与平台测试。
+按独立、可 review 的 todo 实现：paths/state/descriptors；ACP bridge；lazy supervisor/chat binding；PTY；逐个 installer（OpenCode、Gemini、Grok、Cursor、Hermes）；update UI；local Web UI；可靠性与平台测试。

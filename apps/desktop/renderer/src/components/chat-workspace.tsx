@@ -100,13 +100,13 @@ import type {
 } from "../../../ipc/src/index.js"
 import { CodexIpcChatTransport } from "../codex-chat.js"
 import { Route } from "../routes/index"
-import { ProjectCreateDialog } from "./project-create-dialog"
-import { newTaskRevisionAtom } from "./task-navigation"
+import { newChatRevisionAtom } from "./chat-navigation"
 import {
-  deriveTaskWorkspaceArtifacts,
-  displayTaskArtifactPath,
-  type TaskWorkspaceArtifacts,
-} from "./task-workspace-artifacts"
+  type ChatWorkspaceArtifacts,
+  deriveChatWorkspaceArtifacts,
+  displayChatArtifactPath,
+} from "./chat-workspace-artifacts"
+import { ProjectCreateDialog } from "./project-create-dialog"
 
 const fallbackModel: CodexModelView = {
   defaultReasoningEffort: "medium",
@@ -122,12 +122,12 @@ const fallbackModel: CodexModelView = {
   serviceTiers: [],
 }
 
-export default function TaskWorkspace() {
+export default function ChatWorkspace() {
   const { thread, prompt, section } = Route.useSearch()
-  const revision = useAtomValue(newTaskRevisionAtom)
+  const revision = useAtomValue(newChatRevisionAtom)
   return (
-    <TaskSession
-      key={thread ?? `new-task-${revision}-${prompt ?? ""}-${section ?? ""}`}
+    <ChatSession
+      key={thread ?? `new-chat-${revision}-${prompt ?? ""}-${section ?? ""}`}
       resumeThreadId={thread}
       initialPrompt={prompt}
       initialSectionId={section}
@@ -135,7 +135,7 @@ export default function TaskWorkspace() {
   )
 }
 
-function TaskSession({
+function ChatSession({
   resumeThreadId,
   initialPrompt,
   initialSectionId,
@@ -194,10 +194,10 @@ function TaskSession({
   const selectedProject = projects.find((project) => project.id === selectedProjectId)
   const sandboxLabel =
     sandboxMode === "read-only"
-      ? i18n._(msg({ id: "task.sandbox.readOnly", message: "Read only" }))
+      ? i18n._(msg({ id: "chat.sandbox.readOnly", message: "Read only" }))
       : sandboxMode === "workspace-write"
-        ? i18n._(msg({ id: "task.sandbox.workspaceWrite", message: "Workspace write" }))
-        : i18n._(msg({ id: "task.sandbox.fullAccess", message: "Full computer access" }))
+        ? i18n._(msg({ id: "chat.sandbox.workspaceWrite", message: "Workspace write" }))
+        : i18n._(msg({ id: "chat.sandbox.fullAccess", message: "Full computer access" }))
   const transport = useMemo(
     () =>
       new CodexIpcChatTransport(
@@ -241,18 +241,18 @@ function TaskSession({
     ]
   )
   const { error, messages, sendMessage, setMessages, status, stop } = useChat({
-    id: resumeThreadId ?? "new-task",
+    id: resumeThreadId ?? "new-chat",
     transport,
   })
-  const workspaceArtifacts = useMemo(() => deriveTaskWorkspaceArtifacts(messages), [messages])
+  const workspaceArtifacts = useMemo(() => deriveChatWorkspaceArtifacts(messages), [messages])
   const statusLabel =
     status === "ready"
-      ? i18n._(msg({ id: "task.status.local", message: "Local" }))
+      ? i18n._(msg({ id: "chat.status.local", message: "Local" }))
       : status === "submitted"
-        ? i18n._(msg({ id: "task.status.starting", message: "Starting…" }))
+        ? i18n._(msg({ id: "chat.status.starting", message: "Starting…" }))
         : status === "streaming"
-          ? i18n._(msg({ id: "task.status.working", message: "Working…" }))
-          : i18n._(msg({ id: "task.status.attention", message: "Needs attention" }))
+          ? i18n._(msg({ id: "chat.status.working", message: "Working…" }))
+          : i18n._(msg({ id: "chat.status.attention", message: "Needs attention" }))
 
   useEffect(() => {
     if (!resumeThreadId || !threadQuery.data || hydratedThreadId.current === resumeThreadId) return
@@ -308,8 +308,8 @@ function TaskSession({
             <span className="truncate">
               {threadQuery.data?.title ??
                 (resumeThreadId
-                  ? i18n._(msg({ id: "task.title.task", message: "Task" }))
-                  : i18n._(msg({ id: "navigation.newTask", message: "New task" })))}
+                  ? i18n._(msg({ id: "chat.title.chat", message: "Chat" }))
+                  : i18n._(msg({ id: "navigation.newChat", message: "New chat" })))}
             </span>
             <Badge aria-live="polite" className="shrink-0" variant="outline">
               {statusLabel}
@@ -330,8 +330,8 @@ function TaskSession({
             <Button
               aria-label={
                 workspacePanelOpen
-                  ? i18n._(msg({ id: "task.workspace.close", message: "Close workspace panel" }))
-                  : i18n._(msg({ id: "task.workspace.open", message: "Open workspace panel" }))
+                  ? i18n._(msg({ id: "chat.workspace.close", message: "Close workspace panel" }))
+                  : i18n._(msg({ id: "chat.workspace.open", message: "Open workspace panel" }))
               }
               onClick={() => setWorkspacePanelOpen((open) => !open)}
               size="icon"
@@ -354,7 +354,7 @@ function TaskSession({
                 role="status"
               >
                 <LoaderCircle aria-hidden="true" className="animate-spin" size={16} />
-                <Trans id="task.loadingConversation">Loading conversation…</Trans>
+                <Trans id="chat.loadingConversation">Loading conversation…</Trans>
               </div>
             ) : threadQuery.error ? (
               <div className="rounded-lg border border-destructive/35 bg-destructive/5 px-3 py-2 text-sm text-destructive">
@@ -364,14 +364,14 @@ function TaskSession({
               <ConversationEmptyState
                 description={i18n._(
                   msg({
-                    id: "task.empty.description",
+                    id: "chat.empty.description",
                     message:
                       "Work across code, wallets, and the web while you stay in control of permissions.",
                   })
                 )}
                 icon={<Sparkles className="size-6" />}
                 title={i18n._(
-                  msg({ id: "task.empty.title", message: "What should Cypheria work on?" })
+                  msg({ id: "chat.empty.title", message: "What should Cypheria work on?" })
                 )}
               />
             ) : (
@@ -400,7 +400,7 @@ function TaskSession({
                 defaultValue={initialPrompt}
                 placeholder={i18n._(
                   msg({
-                    id: "task.prompt.placeholder",
+                    id: "chat.prompt.placeholder",
                     message: "Ask Cypheria to inspect, edit, run, research, or review…",
                   })
                 )}
@@ -418,12 +418,12 @@ function TaskSession({
                     <FolderGit2 className="size-3.5" />
                     <PromptInputSelectValue>
                       {selectedProject?.name ??
-                        i18n._(msg({ id: "task.project.none", message: "No project" }))}
+                        i18n._(msg({ id: "chat.project.none", message: "No project" }))}
                     </PromptInputSelectValue>
                   </PromptInputSelectTrigger>
                   <PromptInputSelectContent>
                     <PromptInputSelectItem value="none">
-                      <Trans id="task.project.none">No project</Trans>
+                      <Trans id="chat.project.none">No project</Trans>
                     </PromptInputSelectItem>
                     {projects.map((project) => (
                       <PromptInputSelectItem key={project.id} value={project.id}>
@@ -433,7 +433,7 @@ function TaskSession({
                   </PromptInputSelectContent>
                 </PromptInputSelect>
                 <Button
-                  aria-label={i18n._(msg({ id: "task.project.create", message: "Create project" }))}
+                  aria-label={i18n._(msg({ id: "chat.project.create", message: "Create project" }))}
                   onClick={() => setProjectDialogOpen(true)}
                   size="icon-sm"
                   type="button"
@@ -451,13 +451,13 @@ function TaskSession({
                   </PromptInputSelectTrigger>
                   <PromptInputSelectContent>
                     <PromptInputSelectItem value="read-only">
-                      <Trans id="task.sandbox.readOnly">Read only</Trans>
+                      <Trans id="chat.sandbox.readOnly">Read only</Trans>
                     </PromptInputSelectItem>
                     <PromptInputSelectItem value="workspace-write">
-                      <Trans id="task.sandbox.workspaceWrite">Workspace write</Trans>
+                      <Trans id="chat.sandbox.workspaceWrite">Workspace write</Trans>
                     </PromptInputSelectItem>
                     <PromptInputSelectItem value="danger-full-access">
-                      <Trans id="task.sandbox.fullAccess">Full computer access</Trans>
+                      <Trans id="chat.sandbox.fullAccess">Full computer access</Trans>
                     </PromptInputSelectItem>
                   </PromptInputSelectContent>
                 </PromptInputSelect>
@@ -502,11 +502,11 @@ function TaskSession({
           ) : null}
           <div className="mt-2 flex items-center gap-3 px-2 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1">
-              <HardDrive size={12} /> <Trans id="task.localAgent">Local agent</Trans>
+              <HardDrive size={12} /> <Trans id="chat.localAgent">Local agent</Trans>
             </span>
             <span className="inline-flex items-center gap-1">
               <WalletCards size={12} />
-              <Trans id="task.noSigningAuthority">No signing authority</Trans>
+              <Trans id="chat.noSigningAuthority">No signing authority</Trans>
             </span>
             <span>{provider}</span>
           </div>
@@ -820,14 +820,14 @@ function ModelPicker({
       />
       <ModelSelectorContent>
         <ModelSelectorInput
-          placeholder={i18n._(msg({ id: "task.model.search", message: "Search models…" }))}
+          placeholder={i18n._(msg({ id: "chat.model.search", message: "Search models…" }))}
         />
         <ModelSelectorList>
           <ModelSelectorEmpty>
-            <Trans id="task.model.empty">No models found.</Trans>
+            <Trans id="chat.model.empty">No models found.</Trans>
           </ModelSelectorEmpty>
           <ModelSelectorGroup
-            heading={i18n._(msg({ id: "task.model.available", message: "Available models" }))}
+            heading={i18n._(msg({ id: "chat.model.available", message: "Available models" }))}
           >
             {models.map((model) => (
               <ModelSelectorItem
@@ -841,7 +841,7 @@ function ModelPicker({
                 <ModelSelectorName>{model.displayName}</ModelSelectorName>
                 {model.isDefault ? (
                   <Badge variant="secondary">
-                    <Trans id="task.model.default">Default</Trans>
+                    <Trans id="chat.model.default">Default</Trans>
                   </Badge>
                 ) : null}
               </ModelSelectorItem>
@@ -859,25 +859,25 @@ function WorkspacePanel({
   projectRoot,
 }: Readonly<{
   activeWallet?: WalletActiveContext
-  artifacts: TaskWorkspaceArtifacts
+  artifacts: ChatWorkspaceArtifacts
   projectRoot?: string
 }>) {
   const { i18n } = useLingui()
   const statusLabel = (status: string) => {
-    if (status === "completed") return i18n._(msg({ id: "task.artifact.done", message: "Done" }))
-    if (status === "failed") return i18n._(msg({ id: "task.artifact.failed", message: "Failed" }))
+    if (status === "completed") return i18n._(msg({ id: "chat.artifact.done", message: "Done" }))
+    if (status === "failed") return i18n._(msg({ id: "chat.artifact.failed", message: "Failed" }))
     if (status === "declined")
-      return i18n._(msg({ id: "task.artifact.declined", message: "Declined" }))
-    return i18n._(msg({ id: "task.artifact.running", message: "Running" }))
+      return i18n._(msg({ id: "chat.artifact.declined", message: "Declined" }))
+    return i18n._(msg({ id: "chat.artifact.running", message: "Running" }))
   }
-  const kindLabel = (kind: TaskWorkspaceArtifacts["files"][number]["kind"]) => {
-    if (kind === "add") return i18n._(msg({ id: "task.artifact.added", message: "Added" }))
-    if (kind === "delete") return i18n._(msg({ id: "task.artifact.deleted", message: "Deleted" }))
-    return i18n._(msg({ id: "task.artifact.updated", message: "Updated" }))
+  const kindLabel = (kind: ChatWorkspaceArtifacts["files"][number]["kind"]) => {
+    if (kind === "add") return i18n._(msg({ id: "chat.artifact.added", message: "Added" }))
+    if (kind === "delete") return i18n._(msg({ id: "chat.artifact.deleted", message: "Deleted" }))
+    return i18n._(msg({ id: "chat.artifact.updated", message: "Updated" }))
   }
   return (
     <aside
-      aria-label={i18n._(msg({ id: "task.workspace.label", message: "Workspace panel" }))}
+      aria-label={i18n._(msg({ id: "chat.workspace.label", message: "Workspace panel" }))}
       className="min-h-0 min-w-0 overflow-hidden bg-muted/20 max-[1180px]:hidden"
     >
       <Tabs
@@ -887,16 +887,16 @@ function WorkspacePanel({
         <div className="flex items-center border-b border-border px-3">
           <TabsList className="bg-transparent">
             <TabsTrigger value="context">
-              <Trans id="task.workspace.context">Context</Trans>
+              <Trans id="chat.workspace.context">Context</Trans>
             </TabsTrigger>
             <TabsTrigger value="files">
-              <Trans id="task.workspace.files">Files</Trans>
+              <Trans id="chat.workspace.files">Files</Trans>
             </TabsTrigger>
             <TabsTrigger value="review">
-              <Trans id="task.workspace.review">Review</Trans>
+              <Trans id="chat.workspace.review">Review</Trans>
             </TabsTrigger>
             <TabsTrigger value="terminal">
-              <Trans id="task.workspace.terminal">Terminal</Trans>
+              <Trans id="chat.workspace.terminal">Terminal</Trans>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -905,7 +905,7 @@ function WorkspacePanel({
             <section className="rounded-lg border bg-card p-4">
               <div className="flex items-center gap-2 font-medium">
                 <WalletCards size={16} />
-                <Trans id="task.workspace.web3Context">Web3 context</Trans>
+                <Trans id="chat.workspace.web3Context">Web3 context</Trans>
               </div>
               {activeWallet?.wallet && activeWallet.chainAccount ? (
                 <div className="mt-2 grid gap-1 text-sm">
@@ -922,7 +922,7 @@ function WorkspacePanel({
                 </div>
               ) : (
                 <p className="mt-2 text-sm text-muted-foreground">
-                  <Trans id="task.workspace.noWallet">
+                  <Trans id="chat.workspace.noWallet">
                     No wallet selected. On-chain actions remain read only.
                   </Trans>
                 </p>
@@ -930,11 +930,11 @@ function WorkspacePanel({
             </section>
             <section className="rounded-lg border bg-card p-4">
               <div className="flex items-center gap-2 font-medium">
-                <Globe2 size={16} /> <Trans id="task.workspace.browser">Browser</Trans>
+                <Globe2 size={16} /> <Trans id="chat.workspace.browser">Browser</Trans>
               </div>
               <p className="mt-2 text-sm text-muted-foreground">
-                <Trans id="task.workspace.browserDescription">
-                  Open an isolated dApp session from a task result or browser action.
+                <Trans id="chat.workspace.browserDescription">
+                  Open an isolated dApp session from a chat result or browser action.
                 </Trans>
               </p>
             </section>
@@ -944,15 +944,15 @@ function WorkspacePanel({
           {artifacts.files.length ? (
             <div className="grid gap-2">
               <p className="text-xs text-muted-foreground">
-                <Trans id="task.workspace.filesSummary">
-                  Files changed by this task, with their latest recorded state.
+                <Trans id="chat.workspace.filesSummary">
+                  Files changed by this chat, with their latest recorded state.
                 </Trans>
               </p>
               {artifacts.files.map((file) => (
                 <section className="rounded-lg border bg-card p-3" key={file.path}>
                   <div className="flex items-start justify-between gap-2">
                     <span className="min-w-0 break-all font-mono text-xs">
-                      {displayTaskArtifactPath(file.path, projectRoot)}
+                      {displayChatArtifactPath(file.path, projectRoot)}
                     </span>
                     <Badge className="shrink-0" variant="outline">
                       {kindLabel(file.kind)}
@@ -969,8 +969,8 @@ function WorkspacePanel({
               icon={<FolderGit2 />}
               text={i18n._(
                 msg({
-                  id: "task.workspace.filesEmpty",
-                  message: "No files have been changed in this task yet.",
+                  id: "chat.workspace.filesEmpty",
+                  message: "No files have been changed in this chat yet.",
                 })
               )}
             />
@@ -987,17 +987,17 @@ function WorkspacePanel({
                       <CodeBlockTitle>
                         <FileDiff size={14} />
                         <CodeBlockFilename>
-                          {displayTaskArtifactPath(file.path, projectRoot)}
+                          {displayChatArtifactPath(file.path, projectRoot)}
                         </CodeBlockFilename>
                       </CodeBlockTitle>
                       <CodeBlockActions>
                         <Badge variant="outline">{statusLabel(file.status)}</Badge>
                         <CodeBlockCopyButton
                           aria-label={i18n._(
-                            msg({ id: "task.workspace.copyDiff", message: "Copy diff" })
+                            msg({ id: "chat.workspace.copyDiff", message: "Copy diff" })
                           )}
                           title={i18n._(
-                            msg({ id: "task.workspace.copyDiff", message: "Copy diff" })
+                            msg({ id: "chat.workspace.copyDiff", message: "Copy diff" })
                           )}
                         />
                       </CodeBlockActions>
@@ -1010,7 +1010,7 @@ function WorkspacePanel({
               icon={<FileDiff />}
               text={i18n._(
                 msg({
-                  id: "task.workspace.reviewEmpty",
+                  id: "chat.workspace.reviewEmpty",
                   message: "No code changes are available for review yet.",
                 })
               )}
@@ -1030,7 +1030,7 @@ function WorkspacePanel({
                     <TerminalTitle className="min-w-0">
                       <span className="truncate font-mono text-xs">
                         {i18n._({
-                          ...msg({ id: "task.workspace.command", message: "Command {number}" }),
+                          ...msg({ id: "chat.workspace.command", message: "Command {number}" }),
                           values: { number: index + 1 },
                         })}
                       </span>
@@ -1042,7 +1042,7 @@ function WorkspacePanel({
                           {command.exitCode === null
                             ? statusLabel(command.status)
                             : i18n._({
-                                ...msg({ id: "task.workspace.exitCode", message: "Exit {code}" }),
+                                ...msg({ id: "chat.workspace.exitCode", message: "Exit {code}" }),
                                 values: { code: command.exitCode },
                               })}
                         </span>
@@ -1051,13 +1051,13 @@ function WorkspacePanel({
                         <TerminalCopyButton
                           aria-label={i18n._(
                             msg({
-                              id: "task.workspace.copyTerminal",
+                              id: "chat.workspace.copyTerminal",
                               message: "Copy terminal output",
                             })
                           )}
                           title={i18n._(
                             msg({
-                              id: "task.workspace.copyTerminal",
+                              id: "chat.workspace.copyTerminal",
                               message: "Copy terminal output",
                             })
                           )}
@@ -1074,8 +1074,8 @@ function WorkspacePanel({
               icon={<TerminalSquare />}
               text={i18n._(
                 msg({
-                  id: "task.workspace.terminalEmpty",
-                  message: "No commands have been run in this task yet.",
+                  id: "chat.workspace.terminalEmpty",
+                  message: "No commands have been run in this chat yet.",
                 })
               )}
             />

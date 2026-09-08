@@ -2,11 +2,11 @@ import { Link } from "@tanstack/react-router"
 import { atom, useSetAtom } from "jotai"
 import type { ComponentProps } from "react"
 
-export const newTaskRevisionAtom = atom(0)
+export const newChatRevisionAtom = atom(0)
 
 // A new draft must also reset when the current URL is already "/".
-export function NewTaskLink({ onClick, ...props }: Omit<ComponentProps<"a">, "href">) {
-  const setRevision = useSetAtom(newTaskRevisionAtom)
+export function NewChatLink({ onClick, ...props }: Omit<ComponentProps<"a">, "href">) {
+  const setRevision = useSetAtom(newChatRevisionAtom)
   return (
     <Link
       {...props}

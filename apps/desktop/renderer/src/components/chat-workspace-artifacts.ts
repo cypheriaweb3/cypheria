@@ -2,7 +2,7 @@ import type { DynamicToolUIPart, UIMessage } from "ai"
 
 type JsonRecord = Record<string, unknown>
 
-export type TaskFileArtifact = {
+export type ChatFileArtifact = {
   diff: string
   id: string
   kind: "add" | "delete" | "update"
@@ -10,7 +10,7 @@ export type TaskFileArtifact = {
   status: string
 }
 
-export type TaskCommandArtifact = {
+export type ChatCommandArtifact = {
   command: string
   cwd: string
   exitCode: number | null
@@ -19,12 +19,12 @@ export type TaskCommandArtifact = {
   status: string
 }
 
-export type TaskWorkspaceArtifacts = {
-  commands: TaskCommandArtifact[]
-  files: TaskFileArtifact[]
+export type ChatWorkspaceArtifacts = {
+  commands: ChatCommandArtifact[]
+  files: ChatFileArtifact[]
 }
 
-export const displayTaskArtifactPath = (path: string, projectRoot?: string): string => {
+export const displayChatArtifactPath = (path: string, projectRoot?: string): string => {
   if (!projectRoot) return path
   const normalizedPath = path.replaceAll("\\", "/")
   const normalizedRoot = projectRoot.replaceAll("\\", "/").replace(/\/+$/u, "")
@@ -57,9 +57,9 @@ const toolStatus = (part: DynamicToolUIPart, output: JsonRecord | undefined): st
   return "inProgress"
 }
 
-const fileKind = (value: unknown): TaskFileArtifact["kind"] => {
+const fileKind = (value: unknown): ChatFileArtifact["kind"] => {
   if (typeof value === "string" && ["add", "delete", "update"].includes(value)) {
-    return value as TaskFileArtifact["kind"]
+    return value as ChatFileArtifact["kind"]
   }
   const kind = asString(asRecord(value)?.type)
   return kind === "add" || kind === "delete" ? kind : "update"
@@ -69,7 +69,7 @@ const collectFileChanges = (
   part: DynamicToolUIPart,
   input: JsonRecord | undefined,
   output: JsonRecord | undefined
-): TaskFileArtifact[] => {
+): ChatFileArtifact[] => {
   const rawChanges = Array.isArray(output?.changes)
     ? output.changes
     : Array.isArray(input?.changes)
@@ -96,7 +96,7 @@ const collectCommand = (
   part: DynamicToolUIPart,
   input: JsonRecord | undefined,
   output: JsonRecord | undefined
-): TaskCommandArtifact => ({
+): ChatCommandArtifact => ({
   command: asString(input?.command, "Command"),
   cwd: asString(input?.cwd),
   exitCode: typeof output?.exitCode === "number" ? output.exitCode : null,
@@ -105,11 +105,11 @@ const collectCommand = (
   status: toolStatus(part, output),
 })
 
-export const deriveTaskWorkspaceArtifacts = (
+export const deriveChatWorkspaceArtifacts = (
   messages: readonly UIMessage[]
-): TaskWorkspaceArtifacts => {
-  const commands: TaskCommandArtifact[] = []
-  const filesByPath = new Map<string, TaskFileArtifact>()
+): ChatWorkspaceArtifacts => {
+  const commands: ChatCommandArtifact[] = []
+  const filesByPath = new Map<string, ChatFileArtifact>()
 
   for (const message of messages) {
     for (const rawPart of message.parts) {

@@ -123,9 +123,9 @@ SDK clients 应该是 runtime services 与 Codex SDK agent threads 之上的轻�
 
 Desktop 保留 Electron + TanStack Start。
 
-桌面内部导航使用 TanStack Router 链接，保留当前文档、全局样式和外观状态。全局 CSS 在客户端 hydration 之前由根文档链接加载。任务查询参数由首页路由校验；切换任务或点击 New task 会重置任务会话，而不重新加载整个应用。
+桌面内部导航使用 TanStack Router 链接，保留当前文档、全局样式和外观状态。全局 CSS 在客户端 hydration 之前由根文档链接加载。对话查询参数由首页路由校验；切换对话或点击 New chat 会重置对话会话，而不重新加载整个应用。
 
-Search 在当前页面上打开 shadcn Command 对话框，支持防抖任务搜索、最近任务、键盘选择，以及加载、错误和空结果状态。关闭对话框保留当前草稿，选择结果则导航至对应任务。
+Search 在当前页面上打开 shadcn Command 对话框，支持防抖对话搜索、最近对话、键盘选择，以及加载、错误和空结果状态。关闭对话框保留当前草稿，选择结果则导航至对应对话。
 
 | Area | Choice |
 | --- | --- |
@@ -213,7 +213,7 @@ UI 策略是复用成熟 primitives，只为 Cypheria-specific workflows 构建�
 
 完整的 AI Elements registry 源码位于 `packages/ui/src/components/ai-elements`，并通过 `@cypheria/ui/ai-elements/<name>` 导出。重新生成步骤以及 Base UI、NodeNext、严格 TypeScript、React 19 和 AI SDK 7 所需的兼容性修改，参见 [AI Elements 集成与升级指南](./ai-elements.zh-CN.md)。
 
-Desktop renderer 使用 `@ai-sdk/react` 管理 chat state，并通过基于 typed Electron IPC 的自定义 `ChatTransport` 通信。Electron main 使用 `@cypheria/codex-bridge` 的 `ProviderV4` adapter，将 App Server 输出转换为 AI SDK UI-message chunks。Transport 会报告新建的 thread ID，让 renderer 用持久任务 route 替换 new-task route。重新打开任务时会读取 metadata 与按升序分页的 `thread/items/list`，并把已存的 user、assistant、reasoning、tool、generated-file 和 Codex-specific item 重新映射为 AI SDK `UIMessage` parts。动态 `fileChange` 与 `commandExecution` parts 也会被投影到工作区的 Files、Review 和 Terminal 面板，让最新 diff、ANSI 输出、流式状态与完成 metadata 在实时和已恢复对话中保持一致。App Server reverse request 使用独立的 typed interaction IPC channel，因此 approval 与 elicitation 不会编码为 model message。较重的交互式 route shells 仅在客户端加载，因为 Electron 通过 `cypheria://` 发布 SPA 输出，运行时不会执行 TanStack Start server bundle。
+Desktop renderer 使用 `@ai-sdk/react` 管理 chat state，并通过基于 typed Electron IPC 的自定义 `ChatTransport` 通信。Electron main 使用 `@cypheria/codex-bridge` 的 `ProviderV4` adapter，将 App Server 输出转换为 AI SDK UI-message chunks。Transport 会报告新建的 thread ID，让 renderer 用持久对话 route 替换 new-chat route。重新打开对话时会读取 metadata 与按升序分页的 `thread/items/list`，并把已存的 user、assistant、reasoning、tool、generated-file 和 Codex-specific item 重新映射为 AI SDK `UIMessage` parts。动态 `fileChange` 与 `commandExecution` parts 也会被投影到工作区的 Files、Review 和 Terminal 面板，让最新 diff、ANSI 输出、流式状态与完成 metadata 在实时和已恢复对话中保持一致。App Server reverse request 使用独立的 typed interaction IPC channel，因此 approval 与 elicitation 不会编码为 model message。较重的交互式 route shells 仅在客户端加载，因为 Electron 通过 `cypheria://` 发布 SPA 输出，运行时不会执行 TanStack Start server bundle。
 
 | Category | Choice |
 | --- | --- |
@@ -243,9 +243,9 @@ Cypheria-specific components：
 
 视觉方向：安静、工作导向、低饱和、面板化，信息密度足够支撑真实工程工作流，并接近 Codex Desktop。避免 Web3 霓虹营销风格。
 
-桌面侧栏动画与悬停预览由 `apps/desktop/renderer/src/components/desktop-sidebar.tsx` 及其 CSS 实现，复用共享 UI 侧栏基础组件。固定侧栏收起时同步改变布局占位宽度并将面板滑出；悬停预览覆盖内容，不占布局宽度。任务标题栏的左侧预留空间与收起后的工具栏同步变化。原生窗口控制按钮保持固定，并在用户偏好减少动态效果时禁用过渡。 窗口工具栏使用固定像素尺寸：标题栏 44px、点击区域 28px、图标 15px、间距 6px；这些尺寸不随 UI 字体设置缩放，工具栏中心与 macOS 原生红黄绿按钮的 y=22px 中心对齐。 侧栏工具栏图标保持固定，由收起中的面板裁切，并露出下方收起工具栏，不交叉淡化。标题栏底部分隔线位于侧栏下方，侧栏工具栏底部不显示分隔线。点击收起后，只有光标移出切换按钮再进入才触发预览。拖拽右边线可在 240–480px 范围内调宽（同时受窗口宽度约束），双击恢复 288px；聚焦边线后支持方向键与 Home/End。拖到 240px 最小宽度后继续向左超过 120px（最小宽度的一半） 会收起侧栏并关闭预览；再次展开时保留最小宽度。宽度在当前应用会话的页面切换间保留。
+桌面侧栏动画与悬停预览由 `apps/desktop/renderer/src/components/desktop-sidebar.tsx` 及其 CSS 实现，复用共享 UI 侧栏基础组件。固定侧栏收起时同步改变布局占位宽度并将面板滑出；悬停预览覆盖内容，不占布局宽度。对话标题栏的左侧预留空间与收起后的工具栏同步变化。原生窗口控制按钮保持固定，并在用户偏好减少动态效果时禁用过渡。 窗口工具栏使用固定像素尺寸：标题栏 44px、点击区域 28px、图标 15px、间距 6px；这些尺寸不随 UI 字体设置缩放，工具栏中心与 macOS 原生红黄绿按钮的 y=22px 中心对齐。 侧栏工具栏图标保持固定，由收起中的面板裁切，并露出下方收起工具栏，不交叉淡化。标题栏底部分隔线位于侧栏下方，侧栏工具栏底部不显示分隔线。点击收起后，只有光标移出切换按钮再进入才触发预览。拖拽右边线可在 240–480px 范围内调宽（同时受窗口宽度约束），双击恢复 288px；聚焦边线后支持方向键与 Home/End。拖到 240px 最小宽度后继续向左超过 120px（最小宽度的一半） 会收起侧栏并关闭预览；再次展开时保留最小宽度。宽度在当前应用会话的页面切换间保留。
 
-新任务和搜索下方的工作区导航会先扁平化为具有稳定 key 的行，再由单个 `@tanstack/react-virtual` virtualizer 渲染。分组和项目的展开状态只重建可见行模型。Pinned 分页使用 App Server 内置 pinned section 过滤，未分组线程分页同时为 Projects 与 Recents 提供数据；自定义分组通过 renderer-safe IPC 调用 generated experimental `threadSection/*` 与 `thread/section/move` 方法来查询和变更。非敏感的组织与排序偏好保存在 renderer 存储中。Pinned、Projects 和项目任务仅由 Show more 操作控制每次 5 条的渐进展示，只有 Recents 末尾加载行会自动请求下一页 cursor。
+新对话和搜索下方的工作区导航会先扁平化为具有稳定 key 的行，再由单个 `@tanstack/react-virtual` virtualizer 渲染。分组和项目的展开状态只重建可见行模型。Pinned 分页使用 App Server 内置 pinned section 过滤，未分组线程分页同时为 Projects 与 Recents 提供数据；自定义分组通过 renderer-safe IPC 调用 generated experimental `threadSection/*` 与 `thread/section/move` 方法来查询和变更。非敏感的组织与排序偏好保存在 renderer 存储中。Pinned、Projects 和项目对话仅由 Show more 操作控制每次 5 条的渐进展示，只有 Recents 末尾加载行会自动请求下一页 cursor。
 
 ## Web3 Stack
 

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest"
 import type { CodexThreadView } from "../../../ipc/src/index.js"
 import {
-  buildTaskSidebarRows,
+  buildChatSidebarRows,
   groupProjectThreads,
   SIDEBAR_BATCH_SIZE,
   type SidebarSectionId,
-} from "./task-sidebar-model.js"
+} from "./chat-sidebar-model.js"
 
 const thread = (
   id: string,
@@ -25,19 +25,19 @@ const thread = (
 
 const allSections = new Set<SidebarSectionId>(["pinned", "projects", "recents"])
 
-describe("task sidebar row model", () => {
-  it("flattens navigation, collapsible groups, projects, tasks, and loaders", () => {
+describe("chat sidebar row model", () => {
+  it("flattens navigation, collapsible groups, projects, chats, and loaders", () => {
     const projectThreads = Array.from({ length: 7 }, (_, index) =>
-      thread(`task-${index + 1}`, "project-a", 10 - index)
+      thread(`chat-${index + 1}`, "project-a", 10 - index)
     )
-    const rows = buildTaskSidebarRows({
+    const rows = buildChatSidebarRows({
       expandedProjects: new Set(["project-a"]),
       expandedSections: allSections,
       navigationIds: ["pending", "wallets"],
       pinnedHasMore: true,
       pinnedThreads: [thread("pinned-1")],
       projectGroups: groupProjectThreads(projectThreads),
-      projectTaskLimits: {},
+      projectChatLimits: {},
       projectsHasMore: false,
       recentHasMore: true,
       recentLoading: false,
@@ -53,11 +53,11 @@ describe("task sidebar row model", () => {
       "show-more:pinned",
       "section:projects",
       "project:project-a",
-      "project:project-a:thread:task-1",
-      "project:project-a:thread:task-2",
-      "project:project-a:thread:task-3",
-      "project:project-a:thread:task-4",
-      "project:project-a:thread:task-5",
+      "project:project-a:thread:chat-1",
+      "project:project-a:thread:chat-2",
+      "project:project-a:thread:chat-3",
+      "project:project-a:thread:chat-4",
+      "project:project-a:thread:chat-5",
       "show-more:project:project-a",
       "section:recents",
       "recent:recent-1",
@@ -66,14 +66,14 @@ describe("task sidebar row model", () => {
   })
 
   it("removes group descendants while preserving group headings", () => {
-    const rows = buildTaskSidebarRows({
+    const rows = buildChatSidebarRows({
       expandedProjects: new Set(),
       expandedSections: new Set(),
       navigationIds: ["pending"],
       pinnedHasMore: true,
       pinnedThreads: [thread("pinned-1")],
-      projectGroups: groupProjectThreads([thread("task-1", "project-a")]),
-      projectTaskLimits: {},
+      projectGroups: groupProjectThreads([thread("chat-1", "project-a")]),
+      projectChatLimits: {},
       projectsHasMore: true,
       recentHasMore: true,
       recentLoading: false,
@@ -89,7 +89,7 @@ describe("task sidebar row model", () => {
     ])
   })
 
-  it("sorts projects and their tasks by recency", () => {
+  it("sorts projects and their chats by recency", () => {
     const groups = groupProjectThreads([
       thread("a-old", "a", 1),
       thread("b-new", "b", 8),
@@ -122,7 +122,7 @@ describe("task sidebar row model", () => {
   })
 
   it("places custom sections above projects and can hide project grouping", () => {
-    const rows = buildTaskSidebarRows({
+    const rows = buildChatSidebarRows({
       customSections: [{ id: "section-1", name: "Test", threads: [] }],
       expandedCustomSections: new Set(["section-1"]),
       expandedProjects: new Set(["project-a"]),
@@ -130,12 +130,12 @@ describe("task sidebar row model", () => {
       navigationIds: [],
       pinnedHasMore: false,
       pinnedThreads: [],
-      projectGroups: groupProjectThreads([thread("task-1", "project-a")]),
-      projectTaskLimits: {},
+      projectGroups: groupProjectThreads([thread("chat-1", "project-a")]),
+      projectChatLimits: {},
       projectsHasMore: false,
       recentHasMore: false,
       recentLoading: false,
-      recentThreads: [thread("task-1", "project-a")],
+      recentThreads: [thread("chat-1", "project-a")],
       showProjects: false,
       visibleProjectCount: SIDEBAR_BATCH_SIZE,
     })
@@ -146,7 +146,7 @@ describe("task sidebar row model", () => {
       "custom-section:section-1",
       "custom-empty:section-1",
       "section:recents",
-      "recent:task-1",
+      "recent:chat-1",
     ])
   })
 })

@@ -1,17 +1,17 @@
 import type { UIMessage } from "ai"
 import { describe, expect, it } from "vitest"
 
-import { deriveTaskWorkspaceArtifacts, displayTaskArtifactPath } from "./task-workspace-artifacts"
+import { deriveChatWorkspaceArtifacts, displayChatArtifactPath } from "./chat-workspace-artifacts"
 
-describe("displayTaskArtifactPath", () => {
+describe("displayChatArtifactPath", () => {
   it("shortens project files across platform path separators", () => {
-    expect(displayTaskArtifactPath("/repo/src/index.ts", "/repo/")).toBe("src/index.ts")
-    expect(displayTaskArtifactPath("C:\\repo\\src\\index.ts", "C:\\repo")).toBe("src/index.ts")
-    expect(displayTaskArtifactPath("/elsewhere/index.ts", "/repo")).toBe("/elsewhere/index.ts")
+    expect(displayChatArtifactPath("/repo/src/index.ts", "/repo/")).toBe("src/index.ts")
+    expect(displayChatArtifactPath("C:\\repo\\src\\index.ts", "C:\\repo")).toBe("src/index.ts")
+    expect(displayChatArtifactPath("/elsewhere/index.ts", "/repo")).toBe("/elsewhere/index.ts")
   })
 })
 
-describe("deriveTaskWorkspaceArtifacts", () => {
+describe("deriveChatWorkspaceArtifacts", () => {
   it("derives the latest changed files and command transcripts", () => {
     const messages = [
       {
@@ -49,7 +49,7 @@ describe("deriveTaskWorkspaceArtifacts", () => {
       },
     ] as UIMessage[]
 
-    expect(deriveTaskWorkspaceArtifacts(messages)).toEqual({
+    expect(deriveChatWorkspaceArtifacts(messages)).toEqual({
       commands: [
         {
           command: "pnpm test",
@@ -109,7 +109,7 @@ describe("deriveTaskWorkspaceArtifacts", () => {
       },
     ] as UIMessage[]
 
-    const artifacts = deriveTaskWorkspaceArtifacts(messages)
+    const artifacts = deriveChatWorkspaceArtifacts(messages)
     expect(artifacts.files).toHaveLength(1)
     expect(artifacts.files[0]?.diff).toBe("+second")
     expect(artifacts.commands[0]).toMatchObject({ output: "building", status: "inProgress" })

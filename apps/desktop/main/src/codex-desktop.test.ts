@@ -206,7 +206,7 @@ describe("desktop Codex services", () => {
     })
   })
 
-  it("maps recent tasks for the desktop sidebar", async () => {
+  it("maps recent chats for the desktop sidebar", async () => {
     const bridge = new FakeBridge({
       "thread/list": {
         data: [

@@ -60,7 +60,7 @@ export function ProjectCreateDialog({
       setError(
         i18n._(
           msg({
-            id: "task.project.validation",
+            id: "chat.project.validation",
             message: "Choose a folder and enter a project name.",
           })
         )
@@ -79,7 +79,7 @@ export function ProjectCreateDialog({
       <DialogContent className="max-w-2xl gap-6 rounded-[28px] p-7 sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle className="text-2xl font-semibold">
-            <Trans id="task.project.create">Create project</Trans>
+            <Trans id="chat.project.create">Create project</Trans>
           </DialogTitle>
         </DialogHeader>
         <div className="grid gap-5">
@@ -88,19 +88,19 @@ export function ProjectCreateDialog({
               <Folder aria-hidden="true" size={18} />
             </span>
             <Input
-              aria-label={i18n._(msg({ id: "task.project.name", message: "Project name" }))}
+              aria-label={i18n._(msg({ id: "chat.project.name", message: "Project name" }))}
               autoFocus
               className="h-full rounded-none border-0 shadow-none focus-visible:ring-0"
               onChange={(event) => setName(event.target.value)}
               placeholder={i18n._(
-                msg({ id: "task.project.namePlaceholder", message: "Project name" })
+                msg({ id: "chat.project.namePlaceholder", message: "Project name" })
               )}
               value={name}
             />
           </div>
           <div className="grid gap-2.5">
             <div className="text-sm font-medium">
-              <Trans id="task.project.sourceFolders">Source folders</Trans>
+              <Trans id="chat.project.sourceFolders">Source folders</Trans>
             </div>
             <button
               className="flex min-h-32 w-full flex-col items-center justify-center gap-3 rounded-xl border bg-background px-5 text-center outline-none hover:bg-muted/40 focus-visible:ring-2 focus-visible:ring-ring"
@@ -112,7 +112,7 @@ export function ProjectCreateDialog({
                 <span className="max-w-full truncate text-sm font-medium">{root}</span>
               ) : (
                 <span className="text-base">
-                  <Trans id="task.project.addFolders">Add folders Codex can read and edit</Trans>
+                  <Trans id="chat.project.addFolders">Add folders Codex can read and edit</Trans>
                 </span>
               )}
             </button>
@@ -121,7 +121,7 @@ export function ProjectCreateDialog({
         </div>
         <DialogFooter className="gap-2 sm:justify-end">
           <Button onClick={() => onOpenChange(false)} size="lg" type="button" variant="ghost">
-            <Trans id="task.cancel">Cancel</Trans>
+            <Trans id="chat.cancel">Cancel</Trans>
           </Button>
           <Button
             className="min-w-36 rounded-xl"
@@ -133,7 +133,7 @@ export function ProjectCreateDialog({
             {createProject.isPending ? (
               <LoaderCircle aria-hidden="true" className="animate-spin" />
             ) : null}
-            <Trans id="task.project.create">Create project</Trans>
+            <Trans id="chat.project.create">Create project</Trans>
           </Button>
         </DialogFooter>
       </DialogContent>

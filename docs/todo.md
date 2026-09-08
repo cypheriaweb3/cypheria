@@ -142,7 +142,7 @@ Status legend:
   - Verification: source and protocol review of Desktop main, IPC, renderer, tests, and generated App Server types.
 
 - [x] Add desktop-owned sidebar collapse motion and hover previews.
-  - Acceptance: native window controls remain fixed; the sidebar fully retracts, collapsed controls and the task title move together, and hover previews do not resize content. Shared UI primitives remain unchanged.
+  - Acceptance: native window controls remain fixed; the sidebar fully retracts, collapsed controls and the chat title move together, and hover previews do not resize content. Shared UI primitives remain unchanged.
   - Verification: desktop typecheck/build, Biome, and Electron visual checks.
 
 ## Desktop Codex App Server Bridge
@@ -181,9 +181,9 @@ Status legend:
   - Include: development package resolution, explicit `CYPHERIA_CODEX_PATH` override, and packaged sidecar resolution from Electron resources.
   - Verification: `pnpm codex:version`, `pnpm run ci`, `pnpm build`, and desktop tests.
 
-- [x] Add the task-centered desktop workspace, harness connections, and native model settings.
+- [x] Add the chat-centered desktop workspace, harness connections, and native model settings.
   - Acceptance: the sidebar lists projects and recent threads; the main workspace streams AI SDK UI messages through App Server; Connections is structured for multiple agent harnesses and implements Codex login with ChatGPT managed authentication and validated OpenAI API keys; model settings support OpenAI, Bedrock, Ollama, and LM Studio.
-  - Include: a global system/direct/manual proxy stored at `$CYPHERIA_HOME/config/proxy.json`, HTTP/HTTPS/SOCKS5 support, connection testing, harness restart on proxy changes, unauthenticated local-model use, task interruption, model/reasoning/service-tier controls, automation supervision, isolated dApp launch, approval and plugin/skill workbench routes, and client-only route shells for Electron builds.
+  - Include: a global system/direct/manual proxy stored at `$CYPHERIA_HOME/config/proxy.json`, HTTP/HTTPS/SOCKS5 support, connection testing, harness restart on proxy changes, unauthenticated local-model use, chat interruption, model/reasoning/service-tier controls, automation supervision, isolated dApp launch, approval and plugin/skill workbench routes, and client-only route shells for Electron builds.
   - Exclude: generic custom providers and OpenCodex integration until the provider strategy is decided.
   - Verification: `pnpm run ci`, `pnpm build`, and `pnpm --filter @cypheria/desktop test`.
 
@@ -206,7 +206,7 @@ Status legend:
 - [x] Complete the desktop Web3 management loop and production renderer startup.
   - Acceptance: wallet creation/import/watch management, active account context, vault lock state, signing policies, pending approval decisions, and audit records are usable through typed IPC-backed screens.
   - Include: OS-backed desktop vault key storage, one-shot secret submission without renderer persistence, a two-level virtualized wallet/account manager with durable drag ordering and HD account derivation, pending counts in the sidebar, packaged SPA routing through the privileged `cypheria://` scheme, bundled libSQL native resolution, and copied database migrations.
-  - Verification: all workspace tests, `pnpm run ci`, `pnpm build`, and real Electron smoke checks of the task workspace and wallet route.
+  - Verification: all workspace tests, `pnpm run ci`, `pnpm build`, and real Electron smoke checks of the chat workspace and wallet route.
 
 - [x] Implement the desktop plugin and skill management loop.
   - Acceptance: the workbench lists and searches App Server marketplaces and skills; installs, uninstalls, enables, and disables plugins; enables and disables skills; and adds or upgrades marketplace sources through typed IPC.

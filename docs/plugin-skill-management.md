@@ -32,7 +32,7 @@ Browser-only mode does not synthesize plugin, skill, app, or MCP records. It rep
 
 The plugin directory also reads `account/read`. When App Server rejects remote catalog requests because the current session uses an API key, the UI hides the repeated low-level source errors and explains that model access remains connected while the requested remote catalog requires ChatGPT authentication. Its action opens `/settings/connections?focus=codex`, selects the existing Codex connection surface, and scrolls the login card into view. An API-key connection also explains there that the user should sign out before choosing ChatGPT sign-in. Signed-out and stale ChatGPT sessions receive corresponding copy; unrelated source failures remain visible.
 
-Create plugin/skill and Try now populate the task composer without submitting. App install links appear only when supplied. Installed does not imply authenticated. Missing share URLs do not produce fake links.
+Create plugin/skill and Try now populate the chat composer without submitting. App install links appear only when supplied. Installed does not imply authenticated. Missing share URLs do not produce fake links.
 
 ## Remaining parity work
 

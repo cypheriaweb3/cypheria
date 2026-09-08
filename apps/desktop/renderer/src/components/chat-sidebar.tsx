@@ -69,16 +69,16 @@ import {
   useState,
 } from "react"
 import type { CodexThreadSectionView } from "../../../ipc/src/index.js"
-import { ProjectCreateDialog } from "./project-create-dialog"
 import {
-  buildTaskSidebarRows,
-  estimateTaskSidebarRowSize,
+  buildChatSidebarRows,
+  type ChatSidebarRow,
+  estimateChatSidebarRowSize,
   groupProjectThreads,
   SIDEBAR_BATCH_SIZE,
   type SidebarCustomSection,
   type SidebarSectionId,
-  type TaskSidebarRow,
-} from "./task-sidebar-model.js"
+} from "./chat-sidebar-model.js"
+import { ProjectCreateDialog } from "./project-create-dialog"
 
 const PINNED_THREAD_SECTION_ID = "01984de2-8f74-7c91-a3b2-5c5e937cf318"
 const THREAD_PAGE_SIZE = 30
@@ -150,7 +150,7 @@ const readPreference = <T extends string>(key: string, fallback: T): T => {
   }
 }
 
-export function TaskSidebar({ pendingCount }: Readonly<{ pendingCount: number }>) {
+export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>) {
   const { i18n } = useLingui()
   const scrollRef = useRef<HTMLDivElement>(null)
   const [expandedSections, setExpandedSections] = useState<Set<SidebarSectionId>>(
@@ -159,7 +159,7 @@ export function TaskSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
   const [expandedCustomSections, setExpandedCustomSections] = useState<Set<string>>(new Set())
   const [collapsedProjects, setCollapsedProjects] = useState<Set<string>>(() => new Set())
   const [visibleProjectCount, setVisibleProjectCount] = useState(SIDEBAR_BATCH_SIZE)
-  const [projectTaskLimits, setProjectTaskLimits] = useState<Record<string, number>>({})
+  const [projectChatLimits, setProjectChatLimits] = useState<Record<string, number>>({})
   const [catalogLoadIntent, setCatalogLoadIntent] = useState<"projects" | string | null>(null)
   const [organizeByProject, setOrganizeByProject] = useState(
     () => readPreference("cypheria.sidebar.organization", "by-project") === "by-project"
@@ -270,7 +270,7 @@ export function TaskSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
   )
   const rows = useMemo(
     () =>
-      buildTaskSidebarRows({
+      buildChatSidebarRows({
         customSections,
         expandedCustomSections,
         expandedProjects,
@@ -279,7 +279,7 @@ export function TaskSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
         pinnedHasMore: pinnedQuery.hasNextPage,
         pinnedThreads,
         projectGroups,
-        projectTaskLimits,
+        projectChatLimits,
         projectsHasMore: catalogQuery.hasNextPage,
         recentHasMore: catalogQuery.hasNextPage,
         recentLoading: catalogQuery.isFetchingNextPage && catalogLoadIntent == null,
@@ -299,14 +299,14 @@ export function TaskSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
       pinnedQuery.hasNextPage,
       pinnedThreads,
       projectGroups,
-      projectTaskLimits,
+      projectChatLimits,
       recentThreads,
       visibleProjectCount,
     ]
   )
   const virtualizer = useVirtualizer({
     count: rows.length,
-    estimateSize: (index) => estimateTaskSidebarRowSize(rows[index] as TaskSidebarRow),
+    estimateSize: (index) => estimateChatSidebarRowSize(rows[index] as ChatSidebarRow),
     getItemKey: (index) => rows[index]?.key ?? index,
     getScrollElement: () => scrollRef.current,
     overscan: 8,
@@ -320,10 +320,10 @@ export function TaskSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
       catalogLoadIntent === "projects"
         ? projectGroups.length >= visibleProjectCount
         : (projectGroups.find(({ projectId }) => projectId === catalogLoadIntent)?.threads.length ??
-            0) >= (projectTaskLimits[catalogLoadIntent] ?? SIDEBAR_BATCH_SIZE)
+            0) >= (projectChatLimits[catalogLoadIntent] ?? SIDEBAR_BATCH_SIZE)
     if (reached) return setCatalogLoadIntent(null)
     void catalogQuery.fetchNextPage()
-  }, [catalogLoadIntent, catalogQuery, projectGroups, projectTaskLimits, visibleProjectCount])
+  }, [catalogLoadIntent, catalogQuery, projectGroups, projectChatLimits, visibleProjectCount])
   useEffect(() => {
     if (!catalogQuery.hasNextPage || catalogQuery.isFetchingNextPage || catalogLoadIntent != null)
       return
@@ -376,7 +376,7 @@ export function TaskSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 >
-                  <TaskSidebarRowView
+                  <ChatSidebarRowView
                     catalogLoading={catalogQuery.isFetchingNextPage}
                     catalogLoadIntent={catalogLoadIntent}
                     chatSort={chatSort}
@@ -395,10 +395,10 @@ export function TaskSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
                     onOrganizationChange={setOrganization}
                     onPinnedSortChange={updatePinnedSort}
                     onShowMorePinned={() => void pinnedQuery.fetchNextPage()}
-                    onShowMoreProjectTasks={(projectId) => {
+                    onShowMoreProjectChats={(projectId) => {
                       const target =
-                        (projectTaskLimits[projectId] ?? SIDEBAR_BATCH_SIZE) + SIDEBAR_BATCH_SIZE
-                      setProjectTaskLimits((current) => ({ ...current, [projectId]: target }))
+                        (projectChatLimits[projectId] ?? SIDEBAR_BATCH_SIZE) + SIDEBAR_BATCH_SIZE
+                      setProjectChatLimits((current) => ({ ...current, [projectId]: target }))
                       if (
                         (projectGroups.find((project) => project.projectId === projectId)?.threads
                           .length ?? 0) < target &&
@@ -447,7 +447,7 @@ type RowViewProps = Readonly<{
   pendingCount: number
   pinnedLoading: boolean
   pinnedSort: SidebarSort
-  row: TaskSidebarRow
+  row: ChatSidebarRow
   onCreateProject: () => void
   onCreateSection: () => void
   onDeleteSection: (section: CodexThreadSectionView) => void
@@ -455,7 +455,7 @@ type RowViewProps = Readonly<{
   onOrganizationChange: (value: boolean) => void
   onPinnedSortChange: (sort: SidebarSort) => void
   onShowMorePinned: () => void
-  onShowMoreProjectTasks: (id: string) => void
+  onShowMoreProjectChats: (id: string) => void
   onShowMoreProjects: () => void
   onSortChange: (sort: SidebarSort) => void
   onToggleCustomSection: (id: string) => void
@@ -463,7 +463,7 @@ type RowViewProps = Readonly<{
   onToggleSection: (id: SidebarSectionId) => void
 }>
 
-function TaskSidebarRowView(props: RowViewProps) {
+function ChatSidebarRowView(props: RowViewProps) {
   const { i18n } = useLingui()
   const { row } = props
   if (row.kind === "navigation") {
@@ -577,7 +577,7 @@ function TaskSidebarRowView(props: RowViewProps) {
             ? props.onShowMorePinned()
             : row.target === "projects"
               ? props.onShowMoreProjects()
-              : row.projectId && props.onShowMoreProjectTasks(row.projectId)
+              : row.projectId && props.onShowMoreProjectChats(row.projectId)
         }
       >
         {loading ? <LoaderCircle aria-hidden="true" className="size-4 animate-spin" /> : null}
@@ -600,11 +600,11 @@ function TaskSidebarRowView(props: RowViewProps) {
   return (
     <div className="flex h-9 items-center px-2 text-xs text-muted-foreground">
       {row.section === "pinned" ? (
-        <Trans id="navigation.noPinned">No pinned tasks</Trans>
+        <Trans id="navigation.noPinnedChats">No pinned chats</Trans>
       ) : row.section === "projects" ? (
         <Trans id="navigation.noProjects">No projects yet</Trans>
       ) : (
-        <Trans id="navigation.noTasks">No tasks yet</Trans>
+        <Trans id="navigation.noChats">No chats yet</Trans>
       )}
     </div>
   )
@@ -912,7 +912,7 @@ function SectionDialog({
             type="button"
             variant="outline"
           >
-            <Trans id="task.cancel">Cancel</Trans>
+            <Trans id="chat.cancel">Cancel</Trans>
           </Button>
           <Button
             className="min-w-36 rounded-xl"
@@ -963,7 +963,7 @@ function DeleteSectionDialog({
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            <Trans id="task.cancel">Cancel</Trans>
+            <Trans id="chat.cancel">Cancel</Trans>
           </Button>
           <Button
             variant="destructive"

@@ -123,10 +123,10 @@ running -> stopping -> enabled-idle -> installed-disabled
 
 - Codex stays outside this state machine and always starts.
 - Install does not imply enable; enable does not imply run.
-- Selecting a harness or reopening its task starts ACP on demand.
+- Selecting a harness or reopening its chat starts ACP on demand.
 - Disable blocks new turns and stops ACP/local Web UI. With an active turn, default to “disable after turn” and offer “stop now.”
 - Confirm before closing an open configuration terminal because it may contain interactive work.
-- Restart crashed processes only with bounded attempts while a task is waiting.
+- Restart crashed processes only with bounded attempts while a chat is waiting.
 - Do not add idle shutdown until cross-process session recovery is verified.
 
 ## Authentication, terminal, and Web UI
@@ -231,4 +231,4 @@ IPC covers list/install/update/uninstall/check, enable/lifecycle/auth, PTY creat
 
 Acceptance requires: all five install latest and operate over ACP independently; every owned file stays below `$CYPHERIA_HOME`; real user home remains unchanged; version/update states follow the table; disabled processes are gone; each terminal uses the exact managed environment; OpenCode/Hermes local Web UI is loopback-only and cleaned up; Hermes neither installs Desktop nor forces Nous login; secrets never enter renderer persistence or ordinary logs.
 
-Implement as separate reviewable todos: paths/state/descriptors; ACP bridge; lazy supervisor/task binding; PTY; one installer at a time (OpenCode, Gemini, Grok, Cursor, Hermes); update UI; local Web UIs; reliability/platform tests.
+Implement as separate reviewable todos: paths/state/descriptors; ACP bridge; lazy supervisor/chat binding; PTY; one installer at a time (OpenCode, Gemini, Grok, Cursor, Hermes); update UI; local Web UIs; reliability/platform tests.

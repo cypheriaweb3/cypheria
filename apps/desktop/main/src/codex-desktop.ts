@@ -248,7 +248,7 @@ export const listCodexThreads = async (
       sectionId: thread.section?.id ?? null,
       sectionName: thread.section?.name ?? null,
       status: thread.status.type,
-      title: thread.name?.trim() || thread.preview.trim() || "Untitled task",
+      title: thread.name?.trim() || thread.preview.trim() || "Untitled chat",
       updatedAt: thread.updatedAt,
     })),
     nextCursor: response.nextCursor,
@@ -531,7 +531,7 @@ export const readCodexThread = async (
     id: thread.id,
     messages: mapCodexThreadItemsToUiMessages(entries) as CodexThreadDetailView["messages"],
     projectId: thread.projectId,
-    title: thread.name?.trim() || thread.preview.trim() || "Untitled task",
+    title: thread.name?.trim() || thread.preview.trim() || "Untitled chat",
   }
 }
 

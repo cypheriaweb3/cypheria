@@ -142,7 +142,7 @@
   - 验证：审阅 Desktop main、IPC、renderer、tests 与 generated App Server types。
 
 - [x] 添加 desktop 包内的侧栏收起动画与悬停预览。
-  - 验收：原生窗口按钮保持固定，侧栏完全收起，收起工具栏与任务标题联动，悬停预览不改变内容宽度；共享 UI 基础组件保持不变。
+  - 验收：原生窗口按钮保持固定，侧栏完全收起，收起工具栏与对话标题联动，悬停预览不改变内容宽度；共享 UI 基础组件保持不变。
   - 验证：desktop 类型检查与构建、Biome，以及 Electron 界面检查。
 
 ## Desktop Codex App Server Bridge
@@ -181,9 +181,9 @@
   - 包括：development package resolution、显式 `CYPHERIA_CODEX_PATH` override，以及从 Electron resources 解析 packaged sidecar。
   - 验证：`pnpm codex:version`、`pnpm run ci`、`pnpm build` 和 desktop tests。
 
-- [x] 添加以任务为中心的 desktop workspace、agent harness connections 与原生模型设置。
+- [x] 添加以对话为中心的 desktop workspace、agent harness connections 与原生模型设置。
   - 验收：左侧导航展示 projects 与最近 threads；主工作区通过 App Server 流式传输 AI SDK UI messages；Connections 按多种 agent harness 组织，并为 Codex 实现 ChatGPT managed 身份验证与经过校验的 OpenAI API key 登录；模型设置支持 OpenAI、Bedrock、Ollama 与 LM Studio。
-  - 包括：保存在 `$CYPHERIA_HOME/config/proxy.json` 的全局 system/direct/manual 代理、HTTP/HTTPS/SOCKS5 支持、连接测试、代理变更时重启 harness、无需登录的本地模型、任务中断、model/reasoning/service-tier 控件、automation 管理、隔离 dApp 启动、approval 与 plugin/skill 工作台路由，以及用于 Electron 构建的 client-only route shells。
+  - 包括：保存在 `$CYPHERIA_HOME/config/proxy.json` 的全局 system/direct/manual 代理、HTTP/HTTPS/SOCKS5 支持、连接测试、代理变更时重启 harness、无需登录的本地模型、对话中断、model/reasoning/service-tier 控件、automation 管理、隔离 dApp 启动、approval 与 plugin/skill 工作台路由，以及用于 Electron 构建的 client-only route shells。
   - 不包括：在 provider 策略确定前，不实现通用 custom providers 与 OpenCodex 集成。
   - 验证：`pnpm run ci`、`pnpm build` 和 `pnpm --filter @cypheria/desktop test`。
 
@@ -206,7 +206,7 @@
 - [x] 完成 desktop Web3 管理闭环与生产 renderer 启动链路。
   - 验收：可通过 typed IPC-backed screens 使用钱包创建/导入/观察管理、active account context、vault lock 状态、signing policies、待审批决议和 audit records。
   - 包括：OS-backed desktop vault key storage、renderer 不持久化秘密的一次性提交、带持久化拖拽排序和 HD 账户派生的两级钱包/账户虚拟列表、左侧导航待审批计数、通过 privileged `cypheria://` scheme 提供 packaged SPA routes、libSQL native resolution，以及随构建复制 database migrations。
-  - 验证：全部 workspace tests、`pnpm run ci`、`pnpm build`，以及 task workspace 与 wallet route 的真实 Electron smoke checks。
+  - 验证：全部 workspace tests、`pnpm run ci`、`pnpm build`，以及 chat workspace 与 wallet route 的真实 Electron smoke checks。
 
 - [x] 实现 desktop 插件与技能管理闭环。
   - 验收：工作台通过 App Server 列出和搜索 marketplace 与 skill；安装、卸载、启用和禁用 plugin；启用和禁用 skill；并经 typed IPC 添加或更新 marketplace source。

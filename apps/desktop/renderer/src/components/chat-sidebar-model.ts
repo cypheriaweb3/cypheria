@@ -17,7 +17,7 @@ export type SidebarCustomSection = {
   threads: CodexThreadView[]
 }
 
-export type TaskSidebarRow =
+export type ChatSidebarRow =
   | { key: string; kind: "navigation"; navigationId: string }
   | { key: string; kind: "section"; section: SidebarSectionId }
   | { key: string; kind: "customSection"; sectionId: string; sectionName: string }
@@ -70,7 +70,7 @@ export function groupProjectThreads(
     )
 }
 
-export function buildTaskSidebarRows({
+export function buildChatSidebarRows({
   expandedProjects,
   expandedSections,
   expandedCustomSections = new Set(),
@@ -79,7 +79,7 @@ export function buildTaskSidebarRows({
   pinnedHasMore,
   pinnedThreads,
   projectGroups,
-  projectTaskLimits,
+  projectChatLimits,
   projectsHasMore,
   recentHasMore,
   recentLoading,
@@ -95,15 +95,15 @@ export function buildTaskSidebarRows({
   pinnedHasMore: boolean
   pinnedThreads: readonly CodexThreadView[]
   projectGroups: readonly SidebarProjectGroup[]
-  projectTaskLimits: Readonly<Record<string, number>>
+  projectChatLimits: Readonly<Record<string, number>>
   projectsHasMore: boolean
   recentHasMore: boolean
   recentLoading: boolean
   recentThreads: readonly CodexThreadView[]
   showProjects?: boolean
   visibleProjectCount: number
-}): TaskSidebarRow[] {
-  const rows: TaskSidebarRow[] = navigationIds.map((navigationId) => ({
+}): ChatSidebarRow[] {
+  const rows: ChatSidebarRow[] = navigationIds.map((navigationId) => ({
     key: `navigation:${navigationId}`,
     kind: "navigation",
     navigationId,
@@ -113,7 +113,7 @@ export function buildTaskSidebarRows({
   if (expandedSections.has("pinned")) {
     rows.push(
       ...pinnedThreads.map(
-        (thread): TaskSidebarRow => ({
+        (thread): ChatSidebarRow => ({
           key: `pinned:${thread.id}`,
           kind: "thread",
           source: "pinned",
@@ -136,7 +136,7 @@ export function buildTaskSidebarRows({
     if (!expandedCustomSections.has(section.id)) continue
     rows.push(
       ...section.threads.map(
-        (thread): TaskSidebarRow => ({
+        (thread): ChatSidebarRow => ({
           key: `custom-section:${section.id}:thread:${thread.id}`,
           kind: "thread",
           source: "recent",
@@ -160,11 +160,11 @@ export function buildTaskSidebarRows({
       })
       if (!expandedProjects.has(project.projectId)) continue
 
-      const taskLimit = projectTaskLimits[project.projectId] ?? SIDEBAR_BATCH_SIZE
-      const visibleThreads = project.threads.slice(0, taskLimit)
+      const chatLimit = projectChatLimits[project.projectId] ?? SIDEBAR_BATCH_SIZE
+      const visibleThreads = project.threads.slice(0, chatLimit)
       rows.push(
         ...visibleThreads.map(
-          (thread): TaskSidebarRow => ({
+          (thread): ChatSidebarRow => ({
             key: `project:${project.projectId}:thread:${thread.id}`,
             kind: "thread",
             parentProjectId: project.projectId,
@@ -173,7 +173,7 @@ export function buildTaskSidebarRows({
           })
         )
       )
-      if (project.threads.length > taskLimit || projectsHasMore) {
+      if (project.threads.length > chatLimit || projectsHasMore) {
         rows.push({
           key: `show-more:project:${project.projectId}`,
           kind: "showMore",
@@ -193,7 +193,7 @@ export function buildTaskSidebarRows({
   if (expandedSections.has("recents")) {
     rows.push(
       ...recentThreads.map(
-        (thread): TaskSidebarRow => ({
+        (thread): ChatSidebarRow => ({
           key: `recent:${thread.id}`,
           kind: "thread",
           source: "recent",
@@ -210,7 +210,7 @@ export function buildTaskSidebarRows({
   return rows
 }
 
-export function estimateTaskSidebarRowSize(row: TaskSidebarRow): number {
+export function estimateChatSidebarRowSize(row: ChatSidebarRow): number {
   switch (row.kind) {
     case "section":
     case "customSection":
