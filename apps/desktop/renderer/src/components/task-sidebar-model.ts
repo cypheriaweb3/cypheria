@@ -214,7 +214,7 @@ export function estimateTaskSidebarRowSize(row: TaskSidebarRow): number {
   switch (row.kind) {
     case "section":
     case "customSection":
-      return 40
+      return 36
     case "showMore":
       return 30
     case "loading":

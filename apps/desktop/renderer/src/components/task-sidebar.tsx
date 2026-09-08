@@ -624,7 +624,7 @@ function SectionHeader({
   onToggle: () => void
 }>) {
   return (
-    <div className="flex h-10 items-end gap-1 px-0 pb-1 text-sm text-sidebar-foreground/55 group-data-[collapsible=icon]:hidden">
+    <div className="flex h-full items-end gap-1 px-0 pb-1 text-sm text-sidebar-foreground/55 group-data-[collapsible=icon]:hidden">
       <button
         aria-expanded={expanded}
         className="flex min-w-0 items-center gap-1 rounded px-0.5 py-1 text-left font-medium outline-none hover:text-sidebar-foreground focus-visible:ring-2"
@@ -657,14 +657,14 @@ function NewChatOrProjectAction({
       ? `New chat in ${label}`
       : "New chat"
   const actionClass =
-    "flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2"
+    "flex size-6 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2"
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           isProject ? (
             <button aria-label={tooltip} className={actionClass} type="button" onClick={action}>
-              <Plus size={18} />
+              <Plus size={16} />
             </button>
           ) : (
             <Link
@@ -673,7 +673,7 @@ function NewChatOrProjectAction({
               to="/"
               search={typeof action === "object" ? { section: action.sectionId } : {}}
             >
-              <SquarePen size={17} />
+              <SquarePen size={16} />
             </Link>
           )
         }
@@ -689,12 +689,12 @@ function MenuButton() {
       render={
         <button
           aria-label="More options"
-          className="flex size-7 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2"
+          className="flex size-6 items-center justify-center rounded-md text-muted-foreground outline-none hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:ring-2"
           type="button"
         />
       }
     >
-      <MoreHorizontal size={18} />
+      <MoreHorizontal size={16} />
     </DropdownMenuTrigger>
   )
 }
