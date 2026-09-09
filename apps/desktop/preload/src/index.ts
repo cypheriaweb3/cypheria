@@ -16,6 +16,7 @@ import type {
   HarnessEvent,
   LanguageSettings,
   RuntimeInfo,
+  WorkspaceLayoutSettings,
   WorkspaceTerminalEvent,
 } from "../../ipc/src/index.js"
 import {
@@ -215,6 +216,7 @@ const cypheriaApi: CypheriaPreloadApi = {
         ipcRenderer.off(CYPHERIA_IPC_CHANNELS.codexInteractionEvent, listener)
       }
     },
+    listInteractions: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexInteractionList, {}),
     respondToInteraction: (response) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexInteractionRespond, response),
     setModelSettings: (settings) =>
@@ -334,6 +336,8 @@ const cypheriaApi: CypheriaPreloadApi = {
     getConnectionProxy: () =>
       invoke<ConnectionProxySettings>(CYPHERIA_IPC_CHANNELS.settingsConnectionProxyRead),
     getLanguage: () => invoke<LanguageSettings>(CYPHERIA_IPC_CHANNELS.settingsLanguageRead),
+    getWorkspaceLayout: () =>
+      invoke<WorkspaceLayoutSettings>(CYPHERIA_IPC_CHANNELS.settingsWorkspaceLayoutRead),
     listAppearanceFonts: () =>
       invoke<AppearanceFontOption[]>(CYPHERIA_IPC_CHANNELS.settingsAppearanceFontsList),
     onLanguageChanged: (handler) => {
@@ -358,6 +362,11 @@ const cypheriaApi: CypheriaPreloadApi = {
         CYPHERIA_IPC_CHANNELS.settingsLanguageWrite,
         settings
       ) as Promise<LanguageSettings>,
+    setWorkspaceLayout: (settings) =>
+      ipcRenderer.invoke(
+        CYPHERIA_IPC_CHANNELS.settingsWorkspaceLayoutWrite,
+        settings
+      ) as Promise<WorkspaceLayoutSettings>,
     testConnectionProxy: (settings) =>
       ipcRenderer.invoke(
         CYPHERIA_IPC_CHANNELS.settingsConnectionProxyTest,

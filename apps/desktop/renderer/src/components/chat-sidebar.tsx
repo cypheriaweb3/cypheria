@@ -50,8 +50,11 @@ import {
   Folder,
   FolderInput,
   FolderOpen,
+  GitFork,
   Globe2,
   LoaderCircle,
+  Mail,
+  MailOpen,
   MoreHorizontal,
   Pencil,
   Pin,
@@ -73,12 +76,14 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from "react"
 import type {
   CodexProjectView,
   CodexThreadSectionView,
   CodexThreadView,
 } from "../../../ipc/src/index.js"
+import { unreadThreadMutationFromCodexEvent, unreadThreadStore } from "../chat-unread-state.js"
 import {
   buildChatSidebarRows,
   type ChatSidebarRow,
@@ -94,7 +99,7 @@ const PINNED_THREAD_SECTION_ID = "01984de2-8f74-7c91-a3b2-5c5e937cf318"
 const PROJECT_PIN_METADATA_KEY = "cypheria.sidebar.pinned"
 const PROJECT_SECTION_METADATA_KEY = "cypheria.sidebar.sectionId"
 const THREAD_PAGE_SIZE = 30
-type SidebarSort = "priority" | "updated" | "manual"
+type SidebarSort = "priority" | "updated" | "created" | "manual"
 type SectionDialogState =
   | { mode: "create"; target?: { id: string; kind: "project" | "thread" } }
   | { mode: "edit"; section: CodexThreadSectionView }
@@ -155,7 +160,9 @@ const sortRequest = (sort: SidebarSort) =>
     ? ({ sortDirection: "asc", sortKey: "section_position" } as const)
     : sort === "priority"
       ? ({ sortDirection: "desc", sortKey: "recency_at" } as const)
-      : ({ sortDirection: "desc", sortKey: "updated_at" } as const)
+      : sort === "created"
+        ? ({ sortDirection: "desc", sortKey: "created_at" } as const)
+        : ({ sortDirection: "desc", sortKey: "updated_at" } as const)
 
 const readPreference = <T extends string>(key: string, fallback: T): T => {
   try {
@@ -165,7 +172,10 @@ const readPreference = <T extends string>(key: string, fallback: T): T => {
   }
 }
 
-export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>) {
+export function ChatSidebar({
+  activeThreadId,
+  pendingCount,
+}: Readonly<{ activeThreadId?: string; pendingCount: number }>) {
   const { i18n } = useLingui()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -191,7 +201,7 @@ export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
   const [sectionDialog, setSectionDialog] = useState<SectionDialogState | null>(null)
   const [deletingSection, setDeletingSection] = useState<CodexThreadSectionView | null>(null)
   const [threadDialog, setThreadDialog] = useState<{
-    kind: "archive" | "delete" | "rename"
+    kind: "archive" | "rename"
     thread: CodexThreadView
   } | null>(null)
   const [projectDialog, setProjectDialog] = useState<{
@@ -200,6 +210,26 @@ export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
   } | null>(null)
   const [archivingSection, setArchivingSection] = useState<CodexThreadSectionView | null>(null)
   const [mutationError, setMutationError] = useState<string | null>(null)
+  const unreadThreadIds = useSyncExternalStore(
+    unreadThreadStore.subscribe,
+    unreadThreadStore.getSnapshot,
+    unreadThreadStore.getSnapshot
+  )
+
+  useEffect(() => {
+    if (activeThreadId) unreadThreadStore.markRead(activeThreadId)
+  }, [activeThreadId])
+
+  useEffect(() => {
+    const api = window.cypheria?.codex
+    if (!api) return
+    return api.onEvent((event) => {
+      const mutation = unreadThreadMutationFromCodexEvent(event, activeThreadId)
+      if (!mutation) return
+      if (mutation.action === "unread") unreadThreadStore.markUnread(mutation.threadId)
+      else unreadThreadStore.markRead(mutation.threadId)
+    })
+  }, [activeThreadId])
 
   const pinnedQuery = useInfiniteQuery({
     initialPageParam: null as string | null,
@@ -429,6 +459,13 @@ export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
     runSidebarMutation(async () => {
       await window.cypheria?.codex.moveThreadToProject(thread.id, projectId)
     })
+  const forkThread = (thread: CodexThreadView) =>
+    runSidebarMutation(async () => {
+      const fork = await window.cypheria?.codex.forkThread(thread.id)
+      if (!fork) throw new Error("Codex is only available in the Cypheria desktop app.")
+      unreadThreadStore.markRead(fork.threadId)
+      await navigate({ search: { thread: fork.threadId }, to: "/" })
+    })
   const updateProjectSidebarMetadata = (
     project: CodexProjectView,
     update: (metadata: Record<string, string>) => void
@@ -571,6 +608,7 @@ export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
                         setCatalogLoadIntent("projects")
                     }}
                     onSortChange={updateChatSort}
+                    onThreadFork={(thread) => void forkThread(thread)}
                     onThreadDialog={(kind, thread) => setThreadDialog({ kind, thread })}
                     onThreadMoveProject={(thread, projectId) =>
                       void moveThreadToProject(thread, projectId)
@@ -578,9 +616,14 @@ export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
                     onThreadMoveSection={(thread, sectionId) =>
                       void moveThreadToSection(thread, sectionId)
                     }
+                    onThreadReadState={(thread, unread) => {
+                      if (unread) unreadThreadStore.markUnread(thread.id)
+                      else unreadThreadStore.markRead(thread.id)
+                    }}
                     onToggleCustomSection={(id) => toggleSet(setExpandedCustomSections, id)}
                     onToggleProject={(id) => toggleSet(setCollapsedProjects, id)}
                     onToggleSection={(id) => toggleSet(setExpandedSections, id)}
+                    unreadThreadIds={unreadThreadIds}
                   />
                 </li>
               )
@@ -623,33 +666,23 @@ export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
         confirmLabel={
           threadDialog?.kind === "rename"
             ? i18n._(msg({ id: "navigation.save", message: "Save" }))
-            : threadDialog?.kind === "archive"
-              ? i18n._(msg({ id: "navigation.archiveChat", message: "Archive chat" }))
-              : i18n._(msg({ id: "navigation.deleteChat", message: "Delete chat" }))
+            : i18n._(msg({ id: "navigation.archiveChat", message: "Archive chat" }))
         }
         description={
-          threadDialog?.kind === "delete"
+          threadDialog?.kind === "archive"
             ? i18n._(
                 msg({
-                  id: "navigation.deleteChatDescription",
-                  message: "This permanently deletes the chat and cannot be undone.",
+                  id: "navigation.archiveChatDescription",
+                  message: "The chat will move to Archived chats.",
                 })
               )
-            : threadDialog?.kind === "archive"
-              ? i18n._(
-                  msg({
-                    id: "navigation.archiveChatDescription",
-                    message: "The chat will move to Archived chats.",
-                  })
-                )
-              : i18n._(
-                  msg({
-                    id: "navigation.renameChatDescription",
-                    message: "Keep the title short and recognizable.",
-                  })
-                )
+            : i18n._(
+                msg({
+                  id: "navigation.renameChatDescription",
+                  message: "Keep the title short and recognizable.",
+                })
+              )
         }
-        destructive={threadDialog?.kind === "delete"}
         inputLabel={
           threadDialog?.kind === "rename"
             ? i18n._(msg({ id: "navigation.chatTitle", message: "Chat title" }))
@@ -660,9 +693,7 @@ export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
         title={
           threadDialog?.kind === "rename"
             ? i18n._(msg({ id: "navigation.renameChat", message: "Rename chat" }))
-            : threadDialog?.kind === "archive"
-              ? i18n._(msg({ id: "navigation.archiveChat", message: "Archive chat" }))
-              : i18n._(msg({ id: "navigation.deleteChat", message: "Delete chat" }))
+            : i18n._(msg({ id: "navigation.archiveChat", message: "Archive chat" }))
         }
         onConfirm={async (value) => {
           if (!threadDialog) return false
@@ -671,7 +702,6 @@ export function ChatSidebar({ pendingCount }: Readonly<{ pendingCount: number }>
             if (kind === "rename")
               await window.cypheria?.codex.renameThread(thread.id, value.trim())
             if (kind === "archive") await window.cypheria?.codex.archiveThread(thread.id)
-            if (kind === "delete") await window.cypheria?.codex.deleteThread(thread.id)
           })
           if (succeeded && kind !== "rename") {
             const activeThread = new URL(globalThis.location.href).searchParams.get("thread")
@@ -800,6 +830,7 @@ type RowViewProps = Readonly<{
   pinnedSort: SidebarSort
   row: ChatSidebarRow
   sections: readonly CodexThreadSectionView[]
+  unreadThreadIds: ReadonlySet<string>
   onArchiveSection: (section: CodexThreadSectionView) => void
   onCopyThread: (kind: "cwd" | "link" | "markdown", thread: CodexThreadView) => void
   onCreateProject: () => void
@@ -818,9 +849,11 @@ type RowViewProps = Readonly<{
   onShowMoreProjectChats: (id: string) => void
   onShowMoreProjects: () => void
   onSortChange: (sort: SidebarSort) => void
-  onThreadDialog: (kind: "archive" | "delete" | "rename", thread: CodexThreadView) => void
+  onThreadDialog: (kind: "archive" | "rename", thread: CodexThreadView) => void
+  onThreadFork: (thread: CodexThreadView) => void
   onThreadMoveProject: (thread: CodexThreadView, projectId: string | null) => void
   onThreadMoveSection: (thread: CodexThreadView, sectionId: string | null) => void
+  onThreadReadState: (thread: CodexThreadView, unread: boolean) => void
   onToggleCustomSection: (id: string) => void
   onToggleProject: (id: string) => void
   onToggleSection: (id: SidebarSectionId) => void
@@ -884,6 +917,7 @@ function ChatSidebarRowView(props: RowViewProps) {
         label={row.sectionName}
         menu={
           <CustomSectionMenu
+            archiveEnabled={row.archiveEnabled}
             section={section}
             onArchive={props.onArchiveSection}
             onDelete={props.onDeleteSection}
@@ -898,6 +932,14 @@ function ChatSidebarRowView(props: RowViewProps) {
   if (row.kind === "project") {
     const expanded = !props.collapsedProjects.has(row.project.id)
     const Icon = expanded ? FolderOpen : Folder
+    const hasUnread = row.threads.some(({ id }) => props.unreadThreadIds.has(id))
+    const newChatLabel = i18n._({
+      ...msg({
+        id: "navigation.newChatInNamedProject",
+        message: "New chat in {projectName}",
+      }),
+      values: { projectName: row.project.name },
+    })
     return (
       <div className="group/project flex h-8 w-full items-center rounded-md hover:bg-sidebar-accent focus-within:bg-sidebar-accent">
         <button
@@ -909,14 +951,36 @@ function ChatSidebarRowView(props: RowViewProps) {
           <Icon aria-hidden="true" className="size-4" strokeWidth={1.8} />
           <span className="truncate">{row.project.name}</span>
         </button>
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <button
+                aria-label={newChatLabel}
+                className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 outline-none hover:bg-sidebar-accent hover:text-sidebar-foreground focus-visible:opacity-100 focus-visible:ring-2 group-focus-within/project:opacity-100 group-hover/project:opacity-100"
+                type="button"
+                onClick={() => props.onNewChatProject(row.project)}
+              />
+            }
+          >
+            <SquarePen aria-hidden="true" className="size-4" />
+          </TooltipTrigger>
+          <TooltipContent side="right">{newChatLabel}</TooltipContent>
+        </Tooltip>
         <ProjectMenu
+          archiveEnabled={row.threads.length > 0}
           project={row.project}
           sections={props.sections}
           onArchive={() => props.onProjectDialog("archive", row.project)}
           onCreateSection={() => props.onCreateSectionFor({ id: row.project.id, kind: "project" })}
           onEdit={() => props.onProjectDialog("edit", row.project)}
+          onMarkRead={
+            hasUnread
+              ? () => {
+                  for (const { id } of row.threads) unreadThreadStore.markRead(id)
+                }
+              : undefined
+          }
           onMoveSection={(sectionId) => props.onProjectMoveSection(row.project, sectionId)}
-          onNewChat={() => props.onNewChatProject(row.project)}
           onPin={(pinned) => props.onProjectPin(row.project, pinned)}
           onRemove={() => props.onProjectDialog("remove", row.project)}
           onReveal={() => props.onRevealProject(row.project)}
@@ -924,7 +988,8 @@ function ChatSidebarRowView(props: RowViewProps) {
       </div>
     )
   }
-  if (row.kind === "thread")
+  if (row.kind === "thread") {
+    const isUnread = props.unreadThreadIds.has(row.thread.id)
     return (
       <div className="group/thread flex h-8 w-full items-center rounded-md hover:bg-sidebar-accent focus-within:bg-sidebar-accent">
         <SidebarMenuButton
@@ -932,10 +997,26 @@ function ChatSidebarRowView(props: RowViewProps) {
             "h-8 min-w-0 flex-1 bg-transparent hover:bg-transparent",
             row.source === "project" ? "pl-[calc(1rem+0.5rem)]" : "px-0.5"
           )}
-          render={<Link to="/" search={{ thread: row.thread.id }} />}
+          render={
+            <Link
+              to="/"
+              search={{ thread: row.thread.id }}
+              onClick={() => props.onThreadReadState(row.thread, false)}
+            />
+          }
           tooltip={row.thread.title}
         >
-          <span className="truncate">{row.thread.title}</span>
+          <span className={cn("min-w-0 flex-1 truncate", isUnread && "font-semibold")}>
+            {row.thread.title}
+          </span>
+          {isUnread ? (
+            <>
+              <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-primary" />
+              <span className="sr-only">
+                <Trans id="navigation.unread">Unread</Trans>
+              </span>
+            </>
+          ) : null}
         </SidebarMenuButton>
         <ThreadMenu
           projects={props.projects}
@@ -945,13 +1026,16 @@ function ChatSidebarRowView(props: RowViewProps) {
           onArchive={() => props.onThreadDialog("archive", row.thread)}
           onCopy={(kind) => props.onCopyThread(kind, row.thread)}
           onCreateSection={() => props.onCreateSectionFor({ id: row.thread.id, kind: "thread" })}
-          onDelete={() => props.onThreadDialog("delete", row.thread)}
+          onFork={() => props.onThreadFork(row.thread)}
           onMoveProject={(projectId) => props.onThreadMoveProject(row.thread, projectId)}
           onMoveSection={(sectionId) => props.onThreadMoveSection(row.thread, sectionId)}
+          onReadState={() => props.onThreadReadState(row.thread, !isUnread)}
           onRename={() => props.onThreadDialog("rename", row.thread)}
+          unread={isUnread}
         />
       </div>
     )
+  }
   if (row.kind === "showMore") {
     const loading =
       row.target === "pinned"
@@ -1118,6 +1202,9 @@ function SortItems({
       <CheckItem active={sort === "updated"} onClick={() => onSortChange("updated")}>
         <Trans id="navigation.sort.updated">Last updated</Trans>
       </CheckItem>
+      <CheckItem active={sort === "created"} onClick={() => onSortChange("created")}>
+        <Trans id="navigation.sort.created">Created</Trans>
+      </CheckItem>
       <CheckItem active={sort === "manual"} onClick={() => onSortChange("manual")}>
         <Trans id="navigation.sort.manual">Manual order</Trans>
       </CheckItem>
@@ -1226,10 +1313,12 @@ function ThreadMenu({
   onArchive,
   onCopy,
   onCreateSection,
-  onDelete,
+  onFork,
   onMoveProject,
   onMoveSection,
+  onReadState,
   onRename,
+  unread,
 }: Readonly<{
   projects: readonly CodexProjectView[]
   sections: readonly CodexThreadSectionView[]
@@ -1238,34 +1327,49 @@ function ThreadMenu({
   onArchive: () => void
   onCopy: (kind: "cwd" | "link" | "markdown") => void
   onCreateSection: () => void
-  onDelete: () => void
+  onFork: () => void
   onMoveProject: (projectId: string | null) => void
   onMoveSection: (sectionId: string | null) => void
+  onReadState: () => void
   onRename: () => void
+  unread: boolean
 }>) {
   return (
     <DropdownMenu>
       <RowMenuButton label={`Options for ${thread.title}`} />
       <DropdownMenuContent align="start" className="min-w-56 rounded-2xl p-1.5" side="right">
+        <DropdownMenuItem className="py-1.5" onClick={onRename}>
+          <Pencil />
+          <Trans id="navigation.rename">Rename</Trans>
+        </DropdownMenuItem>
         <DropdownMenuItem
           className="py-1.5"
           onClick={() => onMoveSection(source === "pinned" ? null : PINNED_THREAD_SECTION_ID)}
         >
           {source === "pinned" ? <PinOff /> : <Pin />}
           {source === "pinned" ? (
-            <Trans id="navigation.unpinChat">Unpin chat</Trans>
+            <Trans id="navigation.unpin">Unpin</Trans>
           ) : (
-            <Trans id="navigation.pinChat">Pin chat</Trans>
+            <Trans id="navigation.pin">Pin</Trans>
           )}
         </DropdownMenuItem>
-        <DropdownMenuItem className="py-1.5" onClick={onRename}>
-          <Pencil />
-          <Trans id="navigation.renameChat">Rename chat</Trans>
+        <DropdownMenuItem className="py-1.5" onClick={onReadState}>
+          {unread ? <MailOpen /> : <Mail />}
+          {unread ? (
+            <Trans id="navigation.markAsRead">Mark as read</Trans>
+          ) : (
+            <Trans id="navigation.markAsUnread">Mark as unread</Trans>
+          )}
         </DropdownMenuItem>
+        <DropdownMenuItem className="py-1.5" onClick={onArchive}>
+          <Archive />
+          <Trans id="navigation.archive">Archive</Trans>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuSub>
           <DropdownMenuSubTrigger className="py-1.5">
             <FolderInput />
-            <Trans id="navigation.moveToProject">Move to project</Trans>
+            <Trans id="navigation.project">Project</Trans>
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="min-w-48 rounded-2xl p-1.5">
             {projects.map((project) => (
@@ -1290,7 +1394,7 @@ function ThreadMenu({
         </DropdownMenuSub>
         <DropdownMenuSub>
           <DropdownMenuSubTrigger className="py-1.5">
-            <Trans id="navigation.moveToSection">Move to section</Trans>
+            <Trans id="navigation.section">Section</Trans>
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="min-w-48 rounded-2xl p-1.5">
             {sections.map((section) => (
@@ -1318,18 +1422,13 @@ function ThreadMenu({
             </DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
+        <DropdownMenuSeparator />
         <DropdownMenuSub>
           <DropdownMenuSubTrigger className="py-1.5">
             <Copy />
             <Trans id="navigation.copy">Copy</Trans>
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="min-w-52 rounded-2xl p-1.5">
-            <DropdownMenuItem className="py-1.5" onClick={() => onCopy("link")}>
-              <Trans id="navigation.copyLink">Copy app link</Trans>
-            </DropdownMenuItem>
-            <DropdownMenuItem className="py-1.5" onClick={() => onCopy("markdown")}>
-              <Trans id="navigation.copyMarkdown">Copy chat as Markdown</Trans>
-            </DropdownMenuItem>
             <DropdownMenuItem
               className="py-1.5"
               disabled={!thread.cwd}
@@ -1337,16 +1436,18 @@ function ThreadMenu({
             >
               <Trans id="navigation.copyWorkingDirectory">Copy working directory</Trans>
             </DropdownMenuItem>
+            <DropdownMenuItem className="py-1.5" onClick={() => onCopy("link")}>
+              <Trans id="navigation.copyLink">Copy app link</Trans>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="py-1.5" onClick={() => onCopy("markdown")}>
+              <Trans id="navigation.copyMarkdown">Copy chat as Markdown</Trans>
+            </DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="py-1.5" onClick={onArchive}>
-          <Archive />
-          <Trans id="navigation.archiveChat">Archive chat</Trans>
-        </DropdownMenuItem>
-        <DropdownMenuItem className="py-1.5 text-destructive" onClick={onDelete}>
-          <Trash2 />
-          <Trans id="navigation.deleteChat">Delete chat</Trans>
+        <DropdownMenuItem className="py-1.5" onClick={onFork}>
+          <GitFork />
+          <Trans id="navigation.forkChat">Fork chat</Trans>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -1354,24 +1455,26 @@ function ThreadMenu({
 }
 
 function ProjectMenu({
+  archiveEnabled,
   project,
   sections,
   onArchive,
   onCreateSection,
   onEdit,
+  onMarkRead,
   onMoveSection,
-  onNewChat,
   onPin,
   onRemove,
   onReveal,
 }: Readonly<{
+  archiveEnabled: boolean
   project: CodexProjectView
   sections: readonly CodexThreadSectionView[]
   onArchive: () => void
   onCreateSection: () => void
   onEdit: () => void
+  onMarkRead?: () => void
   onMoveSection: (sectionId: string | null) => void
-  onNewChat: () => void
   onPin: (pinned: boolean) => void
   onRemove: () => void
   onReveal: () => void
@@ -1385,19 +1488,16 @@ function ProjectMenu({
         <DropdownMenuItem className="py-1.5" onClick={() => onPin(!pinned)}>
           {pinned ? <PinOff /> : <Pin />}
           {pinned ? (
-            <Trans id="navigation.unpinProject">Unpin project</Trans>
+            <Trans id="navigation.unpin">Unpin</Trans>
           ) : (
-            <Trans id="navigation.pinProject">Pin project</Trans>
+            <Trans id="navigation.pin">Pin</Trans>
           )}
         </DropdownMenuItem>
         <DropdownMenuItem className="py-1.5" onClick={onEdit}>
           <Pencil />
-          <Trans id="navigation.editProject">Edit project</Trans>
+          <Trans id="navigation.edit">Edit</Trans>
         </DropdownMenuItem>
-        <DropdownMenuItem className="py-1.5" onClick={onNewChat}>
-          <SquarePen />
-          <Trans id="navigation.newChatInProject">New chat in project</Trans>
-        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuSub>
           <DropdownMenuSubTrigger className="py-1.5">
             <Trans id="navigation.section">Section</Trans>
@@ -1437,11 +1537,18 @@ function ProjectMenu({
           <Trans id="navigation.revealProject">Reveal in Finder</Trans>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem className="py-1.5" onClick={onArchive}>
+        {onMarkRead ? (
+          <DropdownMenuItem className="py-1.5" onClick={onMarkRead}>
+            <MailOpen />
+            <Trans id="navigation.markAllAsRead">Mark all as read</Trans>
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem className="py-1.5" disabled={!archiveEnabled} onClick={onArchive}>
           <Archive />
           <Trans id="navigation.archiveProjectChats">Archive chats</Trans>
         </DropdownMenuItem>
-        <DropdownMenuItem className="py-1.5 text-destructive" onClick={onRemove}>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem className="py-1.5" onClick={onRemove}>
           <Trash2 />
           <Trans id="navigation.removeProject">Remove project</Trans>
         </DropdownMenuItem>
@@ -1451,11 +1558,13 @@ function ProjectMenu({
 }
 
 function CustomSectionMenu({
+  archiveEnabled,
   section,
   onArchive,
   onDelete,
   onEdit,
 }: Readonly<{
+  archiveEnabled: boolean
   section: CodexThreadSectionView
   onArchive: (section: CodexThreadSectionView) => void
   onDelete: (section: CodexThreadSectionView) => void
@@ -1474,7 +1583,11 @@ function CustomSectionMenu({
           <Pencil />
           <Trans id="navigation.editSection">Edit section</Trans>
         </DropdownMenuItem>
-        <DropdownMenuItem className="py-1.5" onClick={() => onArchive(section)}>
+        <DropdownMenuItem
+          className="py-1.5"
+          disabled={!archiveEnabled}
+          onClick={() => onArchive(section)}
+        >
           <Archive />
           <Trans id="navigation.archiveSection">Archive all chats</Trans>
         </DropdownMenuItem>

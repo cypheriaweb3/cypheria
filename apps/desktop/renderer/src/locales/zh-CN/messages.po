@@ -85,6 +85,11 @@ msgstr "为我批准"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.archive"
+msgstr "归档"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.archiveSection"
 msgstr "归档所有对话"
 
@@ -154,9 +159,19 @@ msgid "settings.backToWorkspace"
 msgstr "返回工作区"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.workspace.terminalLocation.bottom"
+msgstr "底部"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.workspace.bottomPanelShortcut"
-msgstr "⌘J"
+msgstr "底部面板 (⌘J)"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.workspace.bottomPanelControl.title"
+msgstr "底部面板控件"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -244,6 +259,16 @@ msgstr "选择 ChatGPT 运行命令时的权限范围"
 #: renderer/src/routes/settings.configuration.tsx
 msgid "settings.configuration.approval.description"
 msgstr "选择 ChatGPT 何时请求批准"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.workspace.terminalLocation.description"
+msgstr "选择通过面板控件或快捷键打开终端的位置"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.closeBottomPanel"
+msgstr "关闭"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
@@ -362,6 +387,11 @@ msgid "navigation.createSection"
 msgstr "创建分组"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.sort.created"
+msgstr "创建时间"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.permissions.custom"
 msgstr "自定义"
@@ -387,6 +417,16 @@ msgid "settings.permissions.default.toggle"
 msgstr "始终显示默认权限"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.workspace.terminalLocation.title"
+msgstr "默认终端位置"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.workspace.terminalLocation.label"
+msgstr "默认终端位置"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.delete"
 msgstr "删除"
@@ -400,11 +440,6 @@ msgstr "删除已归档会话"
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.deleteConfirm.title"
 msgstr "删除已归档会话？"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.deleteChat"
-msgstr "删除会话"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -461,6 +496,11 @@ msgstr "将对话或项目拖放到这里"
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "menu.edit"
+msgstr "编辑"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.edit"
 msgstr "编辑"
 
 #. js-lingui-explicit-id
@@ -549,6 +589,11 @@ msgid "chat.prompt.followUpOptions"
 msgstr "后续消息选项"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.forkChat"
+msgstr "Fork 会话"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.forkFromHere"
 msgstr "从这里分叉"
@@ -610,6 +655,7 @@ msgstr "帮助"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
+#: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.hideBottomPanel"
 msgstr "隐藏底部面板"
 
@@ -619,13 +665,13 @@ msgid "chat.workspace.hideTerminalPanel"
 msgstr "隐藏终端面板"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.reasoning.high"
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.high"
 msgstr "高"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.high"
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.reasoning.high"
 msgstr "高"
 
 #. js-lingui-explicit-id
@@ -685,13 +731,13 @@ msgid "chat.status.local"
 msgstr "本地"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.reasoning.low"
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.low"
 msgstr "低"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.low"
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.reasoning.low"
 msgstr "低"
 
 #. js-lingui-explicit-id
@@ -710,18 +756,33 @@ msgid "navigation.sort.manual"
 msgstr "手动排序"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.markAllAsRead"
+msgstr "全部标为已读"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.markAsRead"
+msgstr "标记为已读"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.markAsUnread"
+msgstr "标记为未读"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.reasoning.max"
 msgstr "最高"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.reasoning.medium"
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.medium"
 msgstr "中"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.medium"
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.reasoning.medium"
 msgstr "中"
 
 #. js-lingui-explicit-id
@@ -766,16 +827,6 @@ msgid "chat.workspace.moveTerminalBottom"
 msgstr "将终端移到底部"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.moveToProject"
-msgstr "移至项目"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.moveToSection"
-msgstr "移至分区"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.status.attention"
 msgstr "需要处理"
@@ -799,8 +850,8 @@ msgstr "新建对话"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.newChatInProject"
-msgstr "在项目中新建会话"
+msgid "navigation.newChatInNamedProject"
+msgstr "在 {projectName} 中新建会话"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -811,6 +862,11 @@ msgstr "新建分组"
 #: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.newTerminal"
 msgstr "新建终端"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.question.next"
+msgstr "下一题"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
@@ -888,13 +944,13 @@ msgid "chat.workspace.noWallet"
 msgstr "未选择钱包。链上操作仍为只读。"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.reasoning.none"
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.none"
 msgstr "无"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.none"
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.reasoning.none"
 msgstr "无"
 
 #. js-lingui-explicit-id
@@ -908,6 +964,11 @@ msgid "chat.workspace.browserDescription"
 msgstr "从对话结果或浏览器操作中打开隔离的 dApp 会话。"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.openBottomPanelTab"
+msgstr "打开底部面板标签"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.configuration.tsx
 msgid "settings.configuration.openConfig"
 msgstr "打开 config.toml"
@@ -918,6 +979,11 @@ msgid "chat.workspace.open"
 msgstr "打开工作区面板"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.question.customResponsePlaceholder"
+msgstr "或者输入自定义回复"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.organizeSidebar"
 msgstr "组织侧栏"
@@ -926,6 +992,15 @@ msgstr "组织侧栏"
 #: renderer/src/routes/settings.configuration.tsx
 msgid "settings.configuration.verbosity.title"
 msgstr "输出详细程度"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.prompt.pastedText"
+msgstr "粘贴的文本"
+
+#: renderer/src/components/chat-workspace.tsx
+msgid "Pasted text"
+msgstr "粘贴的文本"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -944,13 +1019,8 @@ msgstr "个人"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.pinChat"
-msgstr "置顶会话"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.pinProject"
-msgstr "置顶项目"
+msgid "navigation.pin"
+msgstr "置顶"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -989,6 +1059,11 @@ msgstr "优先级"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.project"
+msgstr "项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.projectName"
 msgstr "项目名称"
 
@@ -1011,6 +1086,11 @@ msgstr "项目"
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.proposedPlan"
 msgstr "提出了计划"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.question.header"
+msgstr "问题"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -1083,9 +1163,19 @@ msgid "navigation.removeFromSection"
 msgstr "从分区中移除"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.prompt.removePastedText"
+msgstr "移除粘贴文本附件"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.removeProject"
 msgstr "移除项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.rename"
+msgstr "重命名"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1123,6 +1213,11 @@ msgid "chat.workspace.review"
 msgstr "审阅"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.workspace.terminalLocation.right"
+msgstr "右侧"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.artifact.running"
 msgstr "运行中"
@@ -1146,6 +1241,11 @@ msgstr "保存"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.saveSection"
 msgstr "保存分组"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.scrollToBottom"
+msgstr "滚动到底部"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -1219,9 +1319,24 @@ msgid "navigation.section"
 msgstr "分区"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.question.send"
+msgstr "发送"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.question.sent"
+msgstr "已发送"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.title"
 msgstr "设置"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.workspace.bottomPanelControl.description"
+msgstr "在会话标题栏中显示终端面板快捷控件"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -1230,8 +1345,17 @@ msgstr "显示底部面板"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
+msgid "settings.workspace.bottomPanelControl.toggle"
+msgstr "在应用标题栏中显示底部面板控件"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
 msgid "settings.permissions.full.toggle"
 msgstr "在输入框中显示完整访问权限"
+
+#: renderer/src/components/chat-workspace.tsx
+msgid "Show in text field"
+msgstr "在文本框中显示"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1316,11 +1440,6 @@ msgstr "此操作会永久删除该会话，且无法撤销。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.deleteChatDescription"
-msgstr "此操作会永久删除该会话，且无法撤销。"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.removeProjectDescription"
 msgstr "此操作只会从侧栏移除项目，不会删除项目文件或会话。"
 
@@ -1340,6 +1459,11 @@ msgid "chat.workspace.toggleSidePanel"
 msgstr "切换右侧面板"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.workspace.toggleTerminal"
+msgstr "切换终端"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.tryAgain"
 msgstr "重试"
@@ -1351,13 +1475,13 @@ msgstr "本轮更改"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.unpinChat"
-msgstr "取消置顶会话"
+msgid "navigation.unpin"
+msgstr "取消置顶"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.unpinProject"
-msgstr "取消置顶项目"
+msgid "navigation.unread"
+msgstr "未读"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
@@ -1498,6 +1622,11 @@ msgstr "工作区面板"
 #: renderer/src/routes/settings.configuration.tsx
 msgid "settings.configuration.option.workspaceWrite"
 msgstr "工作空间写入"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.question.customResponse"
+msgstr "输入自定义回复"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx

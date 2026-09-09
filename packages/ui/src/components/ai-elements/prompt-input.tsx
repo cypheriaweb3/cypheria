@@ -14,6 +14,7 @@ import type {
   KeyboardEventHandler,
   PropsWithChildren,
   ReactNode,
+  Ref,
   RefObject,
 } from "react"
 import {
@@ -81,6 +82,70 @@ const convertBlobUrlToDataUrl = async (url: string): Promise<string | null> => {
   } catch {
     return null
   }
+}
+
+export const PASTED_TEXT_ATTACHMENT_THRESHOLD = 5000
+
+export type PromptInputPastedTextMetadata = {
+  characterCount: number
+  codeBlockLanguage: string | null
+  preview: string
+}
+
+export type PromptInputFile = FileUIPart & {
+  pastedText?: PromptInputPastedTextMetadata
+}
+
+export type PromptInputAttachment = PromptInputFile & { id: string }
+
+export const isPromptInputPastedText = (
+  attachment: PromptInputFile
+): attachment is PromptInputFile & { pastedText: PromptInputPastedTextMetadata } =>
+  attachment.mediaType.toLowerCase().startsWith("text/") && attachment.pastedText !== undefined
+
+const pastedTextPreview = (text: string): string => {
+  const firstLine = text.split(/\r?\n/).find((line) => line.trim().length > 0)
+  return firstLine?.trim().replaceAll(/\s+/g, " ").slice(0, 120) ?? ""
+}
+
+const createPastedTextAttachment = (
+  text: string,
+  codeBlockLanguage: string | null = null
+): PromptInputAttachment => {
+  const file = new File([text], "Pasted text.txt", { type: "text/plain" })
+  return {
+    filename: file.name,
+    id: nanoid(),
+    mediaType: file.type,
+    pastedText: {
+      characterCount: text.length,
+      codeBlockLanguage,
+      preview: pastedTextPreview(text),
+    },
+    type: "file",
+    url: URL.createObjectURL(file),
+  }
+}
+
+const clipboardHtmlContainsOnlyImages = (html: string | undefined): boolean => {
+  if (!html || typeof document === "undefined") return false
+  const template = document.createElement("template")
+  template.innerHTML = html
+  if (!template.content.querySelector("img, picture, svg")) return false
+  const clone = template.content.cloneNode(true) as DocumentFragment
+  for (const element of clone.querySelectorAll("img, picture, svg, style, script")) element.remove()
+  return (clone.textContent ?? "").trim().length === 0
+}
+
+const clipboardLineFilename = (line: string): string => {
+  const trimmed = line.trim().replace(/^['"]|['"]$/g, "")
+  const segments = trimmed.split(/[\\/]/)
+  return segments.at(-1) ?? trimmed
+}
+
+const assignRef = <T,>(ref: Ref<T> | undefined, value: T | null) => {
+  if (typeof ref === "function") ref(value)
+  else if (ref) ref.current = value
 }
 
 const captureScreenshot = async (): Promise<File | null> => {
@@ -162,8 +227,9 @@ const captureScreenshot = async (): Promise<File | null> => {
 // ============================================================================
 
 export interface AttachmentsContext {
-  files: (FileUIPart & { id: string })[]
+  files: PromptInputAttachment[]
   add: (files: File[] | FileList) => void
+  addPastedText: (text: string, codeBlockLanguage?: string | null) => void
   remove: (id: string) => void
   clear: () => void
   openFileDialog: () => void
@@ -173,6 +239,7 @@ export interface AttachmentsContext {
 export interface TextInputContext {
   value: string
   setInput: (v: string) => void
+  insertAtSelection: (value: string) => void
   clear: () => void
 }
 
@@ -181,6 +248,8 @@ export interface PromptInputControllerProps {
   attachments: AttachmentsContext
   /** INTERNAL: Allows PromptInput to register its file textInput + "open" callback */
   __registerFileInput: (ref: RefObject<HTMLInputElement | null>, open: () => void) => void
+  /** INTERNAL: Allows restored pasted text to target the current textarea selection. */
+  __registerTextInput: (ref: RefObject<HTMLTextAreaElement | null>) => void
 }
 
 const PromptInputController = createContext<PromptInputControllerProps | null>(null)
@@ -212,7 +281,11 @@ export const useProviderAttachments = () => {
 const useOptionalProviderAttachments = () => useContext(ProviderAttachmentsContext)
 
 export type PromptInputProviderProps = PropsWithChildren<{
+  initialAttachments?: PromptInputAttachment[]
   initialInput?: string
+  onAttachmentsChange?: (attachments: PromptInputAttachment[]) => void
+  onInputChange?: (value: string) => void
+  retainAttachmentsOnUnmount?: boolean
 }>
 
 /**
@@ -220,75 +293,106 @@ export type PromptInputProviderProps = PropsWithChildren<{
  * If you don't use it, PromptInput stays fully self-managed.
  */
 export const PromptInputProvider = ({
+  initialAttachments = [],
   initialInput: initialTextInput = "",
+  onAttachmentsChange,
+  onInputChange,
+  retainAttachmentsOnUnmount = false,
   children,
 }: PromptInputProviderProps) => {
   // ----- textInput state
   const [textInput, setTextInput] = useState(initialTextInput)
-  const clearInput = useCallback(() => setTextInput(""), [])
+  const updateTextInput = useCallback(
+    (value: string) => {
+      setTextInput(value)
+      onInputChange?.(value)
+    },
+    [onInputChange]
+  )
+  const clearInput = useCallback(() => updateTextInput(""), [updateTextInput])
 
   // ----- attachments state (global when wrapped)
-  const [attachmentFiles, setAttachmentFiles] = useState<(FileUIPart & { id: string })[]>([])
+  const [attachmentFiles, setAttachmentFiles] =
+    useState<PromptInputAttachment[]>(initialAttachments)
+  const attachmentsRef = useRef(attachmentFiles)
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const textAreaRef = useRef<HTMLTextAreaElement | null>(null)
+  const textInputRef = useRef(textInput)
   // oxlint-disable-next-line eslint(no-empty-function)
   const openRef = useRef<() => void>(() => {})
 
-  const add = useCallback((files: File[] | FileList) => {
-    const incoming = [...files]
-    if (incoming.length === 0) {
-      return
-    }
+  const updateAttachments = useCallback(
+    (attachments: PromptInputAttachment[]) => {
+      attachmentsRef.current = attachments
+      setAttachmentFiles(attachments)
+      onAttachmentsChange?.(attachments)
+    },
+    [onAttachmentsChange]
+  )
 
-    setAttachmentFiles((prev) => [
-      ...prev,
-      ...incoming.map((file) => ({
-        filename: file.name,
-        id: nanoid(),
-        mediaType: file.type,
-        type: "file" as const,
-        url: URL.createObjectURL(file),
-      })),
-    ])
-  }, [])
+  useEffect(() => {
+    textInputRef.current = textInput
+  }, [textInput])
 
-  const remove = useCallback((id: string) => {
-    setAttachmentFiles((prev) => {
-      const found = prev.find((f) => f.id === id)
+  const add = useCallback(
+    (files: File[] | FileList) => {
+      const incoming = [...files]
+      if (incoming.length === 0) return
+      updateAttachments([
+        ...attachmentsRef.current,
+        ...incoming.map((file) => ({
+          filename: file.name,
+          id: nanoid(),
+          mediaType: file.type,
+          type: "file" as const,
+          url: URL.createObjectURL(file),
+        })),
+      ])
+    },
+    [updateAttachments]
+  )
+
+  const addPastedText = useCallback(
+    (text: string, codeBlockLanguage?: string | null) => {
+      updateAttachments([
+        ...attachmentsRef.current,
+        createPastedTextAttachment(text, codeBlockLanguage),
+      ])
+    },
+    [updateAttachments]
+  )
+
+  const remove = useCallback(
+    (id: string) => {
+      const found = attachmentsRef.current.find((file) => file.id === id)
       if (found?.url) {
         URL.revokeObjectURL(found.url)
       }
-      return prev.filter((f) => f.id !== id)
-    })
-  }, [])
+      updateAttachments(attachmentsRef.current.filter((file) => file.id !== id))
+    },
+    [updateAttachments]
+  )
 
   const clear = useCallback(() => {
-    setAttachmentFiles((prev) => {
-      for (const f of prev) {
-        if (f.url) {
-          URL.revokeObjectURL(f.url)
-        }
+    for (const file of attachmentsRef.current) {
+      if (file.url) {
+        URL.revokeObjectURL(file.url)
       }
-      return []
-    })
-  }, [])
-
-  // Keep a ref to attachments for cleanup on unmount (avoids stale closure)
-  const attachmentsRef = useRef(attachmentFiles)
-
-  useEffect(() => {
-    attachmentsRef.current = attachmentFiles
-  }, [attachmentFiles])
+    }
+    updateAttachments([])
+  }, [updateAttachments])
 
   // Cleanup blob URLs on unmount to prevent memory leaks
   useEffect(
     () => () => {
+      if (retainAttachmentsOnUnmount) return
       for (const f of attachmentsRef.current) {
         if (f.url) {
           URL.revokeObjectURL(f.url)
         }
       }
     },
-    []
+    [retainAttachmentsOnUnmount]
   )
 
   const openFileDialog = useCallback(() => {
@@ -298,13 +402,14 @@ export const PromptInputProvider = ({
   const attachments = useMemo<AttachmentsContext>(
     () => ({
       add,
+      addPastedText,
       clear,
       fileInputRef,
       files: attachmentFiles,
       openFileDialog,
       remove,
     }),
-    [attachmentFiles, add, remove, clear, openFileDialog]
+    [attachmentFiles, add, addPastedText, remove, clear, openFileDialog]
   )
 
   const __registerFileInput = useCallback(
@@ -315,17 +420,48 @@ export const PromptInputProvider = ({
     []
   )
 
+  const __registerTextInput = useCallback((ref: RefObject<HTMLTextAreaElement | null>) => {
+    textAreaRef.current = ref.current
+  }, [])
+
+  const insertAtSelection = useCallback(
+    (value: string) => {
+      const input = textAreaRef.current
+      const current = textInputRef.current
+      const start = input?.selectionStart ?? current.length
+      const end = input?.selectionEnd ?? start
+      const next = `${current.slice(0, start)}${value}${current.slice(end)}`
+      const caret = start + value.length
+      updateTextInput(next)
+      requestAnimationFrame(() => {
+        input?.focus()
+        input?.setSelectionRange(caret, caret)
+      })
+    },
+    [updateTextInput]
+  )
+
   const controller = useMemo<PromptInputControllerProps>(
     () => ({
       __registerFileInput,
+      __registerTextInput,
       attachments,
       textInput: {
         clear: clearInput,
-        setInput: setTextInput,
+        insertAtSelection,
+        setInput: updateTextInput,
         value: textInput,
       },
     }),
-    [textInput, clearInput, attachments, __registerFileInput]
+    [
+      textInput,
+      clearInput,
+      insertAtSelection,
+      updateTextInput,
+      attachments,
+      __registerFileInput,
+      __registerTextInput,
+    ]
   )
 
   return (
@@ -450,7 +586,7 @@ export const PromptInputActionAddScreenshot = ({
 
 export interface PromptInputMessage {
   text: string
-  files: FileUIPart[]
+  files: PromptInputFile[]
 }
 
 export type PromptInputProps = Omit<HTMLAttributes<HTMLFormElement>, "onSubmit" | "onError"> & {
@@ -491,7 +627,7 @@ export const PromptInput = ({
   const formRef = useRef<HTMLFormElement | null>(null)
 
   // ----- Local attachments (only used when no provider)
-  const [items, setItems] = useState<(FileUIPart & { id: string })[]>([])
+  const [items, setItems] = useState<PromptInputAttachment[]>([])
   const files = usingProvider ? controller.attachments.files : items
 
   // ----- Local referenced sources (always local to PromptInput)
@@ -564,7 +700,7 @@ export const PromptInput = ({
             message: "Too many files. Some were not added.",
           })
         }
-        const next: (FileUIPart & { id: string })[] = []
+        const next: PromptInputAttachment[] = []
         for (const file of capped) {
           next.push({
             filename: file.name,
@@ -630,6 +766,39 @@ export const PromptInput = ({
       }
     },
     [matchesAccept, maxFileSize, maxFiles, onError, files.length, controller]
+  )
+
+  const canAddPastedText = useCallback(
+    (text: string): boolean => {
+      if (maxFileSize && new Blob([text]).size > maxFileSize) {
+        onError?.({
+          code: "max_file_size",
+          message: "Pasted text exceeds the maximum attachment size.",
+        })
+        return false
+      }
+      if (typeof maxFiles === "number" && files.length >= maxFiles) {
+        onError?.({
+          code: "max_files",
+          message: "Too many files. Remove an attachment before adding pasted text.",
+        })
+        return false
+      }
+      return true
+    },
+    [files.length, maxFileSize, maxFiles, onError]
+  )
+
+  const addPastedText = useCallback(
+    (text: string, codeBlockLanguage?: string | null) => {
+      if (!canAddPastedText(text)) return
+      if (usingProvider) {
+        controller?.attachments.addPastedText(text, codeBlockLanguage)
+        return
+      }
+      setItems((previous) => [...previous, createPastedTextAttachment(text, codeBlockLanguage)])
+    },
+    [canAddPastedText, controller, usingProvider]
   )
 
   const clearAttachments = useCallback(
@@ -759,13 +928,14 @@ export const PromptInput = ({
   const attachmentsCtx = useMemo<AttachmentsContext>(
     () => ({
       add,
+      addPastedText,
       clear: clearAttachments,
       fileInputRef: inputRef,
       files: files.map((item) => ({ ...item, id: item.id })),
       openFileDialog,
       remove,
     }),
-    [files, add, remove, clearAttachments, openFileDialog]
+    [files, add, addPastedText, remove, clearAttachments, openFileDialog]
   )
 
   const refsCtx = useMemo<ReferencedSourcesContext>(
@@ -803,7 +973,7 @@ export const PromptInput = ({
 
       try {
         // Convert blob URLs to data URLs asynchronously
-        const convertedFiles: FileUIPart[] = await Promise.all(
+        const convertedFiles: PromptInputFile[] = await Promise.all(
           files.map(async ({ id: _id, ...item }) => {
             if (item.url?.startsWith("blob:")) {
               const dataUrl = await convertBlobUrlToDataUrl(item.url)
@@ -888,6 +1058,8 @@ export type PromptInputTextareaProps = ComponentProps<typeof InputGroupTextarea>
 export const PromptInputTextarea = ({
   onChange,
   onKeyDown,
+  onPaste,
+  ref,
   className,
   placeholder = "What would you like to know?",
   ...props
@@ -895,6 +1067,19 @@ export const PromptInputTextarea = ({
   const controller = useOptionalPromptInputController()
   const attachments = usePromptInputAttachments()
   const [isComposing, setIsComposing] = useState(false)
+  const textAreaRef = useRef<HTMLTextAreaElement | null>(null)
+  const setTextAreaRef = useCallback(
+    (element: HTMLTextAreaElement | null) => {
+      textAreaRef.current = element
+      assignRef(ref, element)
+    },
+    [ref]
+  )
+
+  useEffect(() => {
+    controller?.__registerTextInput(textAreaRef)
+    return () => controller?.__registerTextInput({ current: null })
+  }, [controller])
 
   const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = useCallback(
     (e) => {
@@ -941,29 +1126,53 @@ export const PromptInputTextarea = ({
 
   const handlePaste: ClipboardEventHandler<HTMLTextAreaElement> = useCallback(
     (event) => {
+      onPaste?.(event)
+      if (event.defaultPrevented) return
+
       const items = event.clipboardData?.items
 
       if (!items) {
         return
       }
 
-      const files: File[] = []
+      const imageFiles: File[] = []
+      const otherFiles: File[] = []
 
-      for (const item of items) {
+      for (const item of Array.from(items)) {
         if (item.kind === "file") {
           const file = item.getAsFile()
           if (file) {
-            files.push(file)
+            if (file.type.toLowerCase().startsWith("image/")) imageFiles.push(file)
+            else otherFiles.push(file)
           }
         }
       }
 
-      if (files.length > 0) {
+      const text = event.clipboardData?.getData("text/plain")
+      const html = event.clipboardData?.getData("text/html")
+      const imageNames = new Set(imageFiles.map((file) => file.name))
+      const hasIndependentText =
+        text.trim().length > 0 &&
+        text
+          .split(/\r?\n/)
+          .some((line) => line.trim().length > 0 && !imageNames.has(clipboardLineFilename(line)))
+
+      if (
+        otherFiles.length > 0 ||
+        (imageFiles.length > 0 &&
+          (!hasIndependentText || clipboardHtmlContainsOnlyImages(html || undefined)))
+      ) {
         event.preventDefault()
-        attachments.add(files)
+        attachments.add([...imageFiles, ...otherFiles])
+        return
+      }
+
+      if (text.length >= PASTED_TEXT_ATTACHMENT_THRESHOLD) {
+        event.preventDefault()
+        attachments.addPastedText(text)
       }
     },
-    [attachments]
+    [attachments, onPaste]
   )
 
   const handleCompositionEnd = useCallback(() => setIsComposing(false), [])
@@ -990,6 +1199,7 @@ export const PromptInputTextarea = ({
       onKeyDown={handleKeyDown}
       onPaste={handlePaste}
       placeholder={placeholder}
+      ref={setTextAreaRef}
       {...props}
       {...controlledProps}
     />

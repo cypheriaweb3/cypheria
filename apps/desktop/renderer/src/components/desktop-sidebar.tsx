@@ -17,6 +17,17 @@ import {
 } from "react"
 import "./desktop-sidebar.css"
 
+export const DESKTOP_SIDEBAR_DEFAULT_WIDTH = 275
+export const DESKTOP_SIDEBAR_MIN_WIDTH = 240
+export const DESKTOP_SIDEBAR_MAX_WIDTH = 520
+export const DESKTOP_SIDEBAR_MIN_REMAINING_WIDTH = 320
+
+export const clampDesktopSidebarWidth = (value: number, windowWidth: number) =>
+  Math.max(
+    DESKTOP_SIDEBAR_MIN_WIDTH,
+    Math.min(value, DESKTOP_SIDEBAR_MAX_WIDTH, windowWidth - DESKTOP_SIDEBAR_MIN_REMAINING_WIDTH)
+  )
+
 const PreviewContext = createContext({
   preview: false,
   enter: () => {},
@@ -28,24 +39,29 @@ const PreviewContext = createContext({
 
 export function DesktopSidebarProvider({
   children,
+  fixedWidth,
   ...props
-}: ComponentProps<typeof SidebarProvider>) {
+}: ComponentProps<typeof SidebarProvider> & { fixedWidth?: number }) {
   return (
     <SidebarProvider {...props}>
-      <DesktopSidebarLayout>{children}</DesktopSidebarLayout>
+      <DesktopSidebarLayout fixedWidth={fixedWidth}>{children}</DesktopSidebarLayout>
     </SidebarProvider>
   )
 }
 
-function DesktopSidebarLayout({ children }: ComponentProps<"div">) {
+function DesktopSidebarLayout({
+  children,
+  fixedWidth,
+}: ComponentProps<"div"> & { fixedWidth?: number }) {
   const { open, isMobile, setOpen } = useSidebar()
   const [preview, setPreview] = useState(false)
-  const [width, setWidth] = useState(288)
+  const [width, setWidth] = useState(DESKTOP_SIDEBAR_DEFAULT_WIDTH)
   const [resizing, setResizing] = useState(false)
   const dragStart = useRef<{ x: number; width: number } | null>(null)
   const blockedTrigger = useRef<DOMRect | null>(null)
-  const clampWidth = (value: number) => Math.max(240, Math.min(value, 480, window.innerWidth - 520))
+  const clampWidth = (value: number) => clampDesktopSidebarWidth(value, window.innerWidth)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const effectiveWidth = fixedWidth ?? width
   const clear = () => clearTimeout(timer.current)
   const dismiss = () => {
     clear()
@@ -69,8 +85,7 @@ function DesktopSidebarLayout({ children }: ComponentProps<"div">) {
       )
         blockedTrigger.current = null
     }
-    const onResize = () =>
-      setWidth((value) => Math.max(240, Math.min(value, 480, window.innerWidth - 520)))
+    const onResize = () => setWidth((value) => clampDesktopSidebarWidth(value, window.innerWidth))
     window.addEventListener("pointermove", onMove)
     window.addEventListener("resize", onResize)
     return () => {
@@ -114,18 +129,18 @@ function DesktopSidebarLayout({ children }: ComponentProps<"div">) {
         data-open={open}
         data-preview={preview && !open}
         data-resizing={resizing}
-        style={{ "--sidebar-width": `${width}px` } as CSSProperties}
+        style={{ "--sidebar-width": `${effectiveWidth}px` } as CSSProperties}
       >
         {children}
-        {!isMobile && (open || preview) ? (
+        {!isMobile && fixedWidth === undefined && (open || preview) ? (
           // biome-ignore lint/a11y/useSemanticElements: This focusable separator is an interactive window splitter, not a thematic break.
           <div
             className="desktop-sidebar-resizer"
             role="separator"
             aria-label="Sidebar width"
             aria-orientation="vertical"
-            aria-valuemin={240}
-            aria-valuemax={480}
+            aria-valuemin={DESKTOP_SIDEBAR_MIN_WIDTH}
+            aria-valuemax={DESKTOP_SIDEBAR_MAX_WIDTH}
             aria-valuenow={width}
             tabIndex={0}
             onPointerEnter={clear}
@@ -144,11 +159,11 @@ function DesktopSidebarLayout({ children }: ComponentProps<"div">) {
               if (!dragStart.current) return
               const requestedWidth = dragStart.current.width + event.clientX - dragStart.current.x
               // Collapse only after dragging past half of the minimum sidebar width.
-              if (requestedWidth < 240 / 2) {
+              if (requestedWidth < DESKTOP_SIDEBAR_MIN_WIDTH / 2) {
                 dragStart.current = null
                 if (event.currentTarget.hasPointerCapture(event.pointerId))
                   event.currentTarget.releasePointerCapture(event.pointerId)
-                setWidth(240)
+                setWidth(DESKTOP_SIDEBAR_MIN_WIDTH)
                 setResizing(false)
                 dismiss()
                 setOpen(false)
@@ -170,7 +185,7 @@ function DesktopSidebarLayout({ children }: ComponentProps<"div">) {
               dragStart.current = null
               setResizing(false)
             }}
-            onDoubleClick={() => setWidth(288)}
+            onDoubleClick={() => setWidth(DESKTOP_SIDEBAR_DEFAULT_WIDTH)}
             onKeyDown={(event) => {
               if (
                 event.key !== "ArrowLeft" &&
@@ -183,9 +198,9 @@ function DesktopSidebarLayout({ children }: ComponentProps<"div">) {
               setWidth(
                 clampWidth(
                   event.key === "Home"
-                    ? 240
+                    ? DESKTOP_SIDEBAR_MIN_WIDTH
                     : event.key === "End"
-                      ? 480
+                      ? DESKTOP_SIDEBAR_MAX_WIDTH
                       : width + (event.key === "ArrowLeft" ? -16 : 16)
                 )
               )

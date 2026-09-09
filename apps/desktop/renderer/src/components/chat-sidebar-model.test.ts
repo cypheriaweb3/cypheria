@@ -63,6 +63,9 @@ describe("chat sidebar row model", () => {
       "recent:recent-1",
       "loading:recents",
     ])
+    expect(rows.find((row) => row.kind === "project")).toEqual(
+      expect.objectContaining({ threads: projectThreads })
+    )
   })
 
   it("removes group descendants while preserving group headings", () => {
@@ -154,6 +157,9 @@ describe("chat sidebar row model", () => {
       "section:recents",
       "recent:chat-1",
     ])
+    expect(rows.find((row) => row.kind === "customSection")).toEqual(
+      expect.objectContaining({ archiveEnabled: false })
+    )
   })
 
   it("renders pinned and sectioned projects with their nested chats", () => {
@@ -214,5 +220,11 @@ describe("chat sidebar row model", () => {
     expect(rows.map(({ key }) => key)).toContain(
       "custom-section:section-1:project:section-project:thread:section-chat"
     )
+    const sectionRow = rows.find(
+      (row) => row.kind === "customSection" && row.sectionId === "section-1"
+    )
+    expect(sectionRow?.kind).toBe("customSection")
+    if (sectionRow?.kind !== "customSection") throw new Error("Expected custom section row")
+    expect(sectionRow.archiveEnabled).toBe(true)
   })
 })

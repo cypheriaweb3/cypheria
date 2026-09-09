@@ -211,6 +211,31 @@ describe("Codex app-server AI SDK provider", () => {
     ])
   })
 
+  it("closes once when turn completion races with an abort", async () => {
+    const bridge = new FakeBridge()
+    const abortController = new AbortController()
+    const provider = createCodexAppServerProvider({ bridge })
+    const result = await provider("gpt-5.2-codex").doStream({
+      abortSignal: abortController.signal,
+      prompt: [{ content: [{ text: "Start", type: "text" }], role: "user" }],
+    })
+    const reader = result.stream.getReader()
+    await reader.read()
+    await reader.read()
+
+    abortController.abort()
+    bridge.emit({
+      method: "turn/completed",
+      params: { threadId: "thread-1", turn: turn("turn-1", "interrupted") },
+    })
+
+    while (!(await reader.read()).done) {
+      // Drain the stream so a duplicate close would surface as a rejected read.
+    }
+    await Promise.resolve()
+    expect(bridge.requests.map((request) => request.method)).toContain("turn/interrupt")
+  })
+
   it("uses turn/steer for mid-execution session injection", async () => {
     const bridge = new FakeBridge()
     let session: CodexAppServerAiSdkSession | undefined
@@ -453,6 +478,38 @@ describe("Codex app-server AI SDK provider", () => {
     )
   })
 
+  it("does not emit an unmatched end for empty reasoning items", async () => {
+    const bridge = new FakeBridge()
+    const { stream } = await createCodexAppServerProvider({ bridge })("test").doStream({
+      prompt: [{ role: "user", content: [{ type: "text", text: "Work" }] }],
+    })
+    const reader = stream.getReader()
+
+    bridge.emit({
+      method: "item/completed",
+      params: {
+        completedAtMs: 2,
+        item: { content: [], id: "reasoning-empty", summary: [], type: "reasoning" },
+        threadId: "thread-1",
+        turnId: "turn-1",
+      },
+    })
+    bridge.emit({
+      method: "turn/completed",
+      params: { threadId: "thread-1", turn: turn("turn-1", "completed") },
+    })
+
+    const parts: unknown[] = []
+    while (true) {
+      const part = await reader.read()
+      if (part.done) break
+      parts.push(part.value)
+    }
+    expect(parts).not.toContainEqual(
+      expect.objectContaining({ id: "reasoning-empty", type: "reasoning-end" })
+    )
+  })
+
   it.each([
     "persistent",
     "stateless",
@@ -467,6 +524,18 @@ describe("Codex app-server AI SDK provider", () => {
               type: "file",
               mediaType: "text/plain",
               data: { type: "text", text: "Read this document" },
+            },
+            {
+              type: "file",
+              mediaType: "text/plain",
+              data: {
+                type: "data",
+                data: btoa(
+                  Array.from(new TextEncoder().encode("完整的粘贴内容"), (byte) =>
+                    String.fromCharCode(byte)
+                  ).join("")
+                ),
+              },
             },
             { type: "file", mediaType: "image/png", data: { type: "data", data: "AQID" } },
             {
@@ -500,6 +569,9 @@ describe("Codex app-server AI SDK provider", () => {
           type: "text",
           text: expect.stringContaining("Read this document"),
         }),
+        ...(threadMode === "persistent"
+          ? [{ type: "text" as const, text: "完整的粘贴内容", text_elements: [] }]
+          : []),
         { type: "image", url: "data:image/png;base64,AQID" },
         { type: "image", url: "data:image/png;base64,AQID" },
         { type: "localImage", path: "/tmp/my image.png" },
@@ -507,6 +579,7 @@ describe("Codex app-server AI SDK provider", () => {
         { type: "localAudio", path: "/tmp/recording.mp3" },
       ],
     })
+    expect(JSON.stringify(bridge.requests[1]?.params)).toContain("完整的粘贴内容")
     expect((await stream.getReader().read()).value).toMatchObject({
       type: "stream-start",
       warnings: [{ feature: "file.data.url", type: "unsupported" }],

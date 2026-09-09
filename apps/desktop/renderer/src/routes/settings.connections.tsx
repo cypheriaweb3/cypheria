@@ -31,6 +31,8 @@ import { createFileRoute } from "@tanstack/react-router"
 import { FitAddon } from "@xterm/addon-fit"
 import { Terminal } from "@xterm/xterm"
 import "@xterm/xterm/css/xterm.css"
+import { terminalAppearanceFromElement } from "../components/terminal-appearance.js"
+import "../components/workspace-terminal.css"
 import {
   CheckCircle2,
   ChevronDown,
@@ -676,7 +678,7 @@ function HarnessConnectionCard({
         </div>
 
         {progress.length > 0 ? (
-          <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border bg-zinc-950 p-3 text-xs text-zinc-300">
+          <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border bg-muted p-3 text-xs text-muted-foreground">
             {progress.join("\n")}
           </pre>
         ) : null}
@@ -704,8 +706,8 @@ function ConnectionTerminalDock({
   onCloseTerminal: (terminalId: string) => void
 }>) {
   return (
-    <section className="sticky bottom-0 overflow-hidden rounded-lg border bg-zinc-950 shadow-2xl">
-      <div className="flex items-center justify-between border-zinc-800 border-b px-2">
+    <section className="sticky bottom-0 overflow-hidden rounded-lg border bg-background shadow-2xl">
+      <div className="flex items-center justify-between border-b border-border px-2">
         <Tabs
           value={activeTerminal ?? terminals[0]?.terminalId}
           onValueChange={onActiveTerminalChange}
@@ -714,14 +716,14 @@ function ConnectionTerminalDock({
             {terminals.map((terminal) => (
               <span className="relative" key={terminal.terminalId}>
                 <TabsTrigger
-                  className="data-active:bg-zinc-800 data-active:text-zinc-100 pr-7"
+                  className="pr-7 data-active:bg-muted data-active:text-foreground"
                   value={terminal.terminalId}
                 >
                   {terminal.title}
                 </TabsTrigger>
                 <button
                   aria-label={`Close ${terminal.title} terminal`}
-                  className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded p-0.5 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-100"
+                  className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
                   type="button"
                   onClick={() => onCloseTerminal(terminal.terminalId)}
                 >
@@ -731,7 +733,9 @@ function ConnectionTerminalDock({
             ))}
           </TabsList>
         </Tabs>
-        <span className="pr-3 text-xs text-zinc-500">Terminals close when leaving Connections</span>
+        <span className="pr-3 text-xs text-muted-foreground">
+          Terminals close when leaving Connections
+        </span>
       </div>
       <div className="h-72">
         {terminals.map((terminal) => (
@@ -757,12 +761,13 @@ function ConnectionTerminal({
   activeRef.current = active
   useEffect(() => {
     if (!container.current) return
+    const appearance = terminalAppearanceFromElement(container.current)
     const instance = new Terminal({
       convertEol: true,
       cursorBlink: true,
-      fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
-      fontSize: 12,
-      theme: { background: "#09090b", foreground: "#d4d4d8" },
+      fontFamily: appearance.fontFamily,
+      fontSize: appearance.fontSize,
+      theme: appearance.theme,
     })
     const fitAddon = new FitAddon()
     instance.loadAddon(fitAddon)
@@ -788,8 +793,19 @@ function ConnectionTerminal({
       )
     })
     resize.observe(container.current)
+    const theme = new MutationObserver(() => {
+      if (!container.current) return
+      const appearance = terminalAppearanceFromElement(container.current)
+      instance.options.fontFamily = appearance.fontFamily
+      instance.options.fontSize = appearance.fontSize
+      instance.options.theme = appearance.theme
+      if (instance.rows > 0) instance.refresh(0, instance.rows - 1)
+      requestAnimationFrame(() => fitAddon.fit())
+    })
+    theme.observe(document.documentElement, { attributes: true })
     requestAnimationFrame(() => fitAddon.fit())
     return () => {
+      theme.disconnect()
       resize.disconnect()
       unsubscribe?.()
       data.dispose()
@@ -805,7 +821,16 @@ function ConnectionTerminal({
         terminal.current?.focus()
       })
   }, [active])
-  return <div className={active ? "h-full p-2" : "hidden"} ref={container} />
+  return (
+    <div
+      className={
+        active
+          ? "cypheria-terminal h-full p-2 font-mono text-[length:var(--font-mono-size)]"
+          : "cypheria-terminal hidden font-mono text-[length:var(--font-mono-size)]"
+      }
+      ref={container}
+    />
+  )
 }
 
 function ProxySettingsCard() {

@@ -28,6 +28,7 @@ import {
   MessageResponse,
 } from "@cypheria/ui/ai-elements/message"
 import {
+  isPromptInputPastedText,
   PromptInput,
   PromptInputActionAddAttachments,
   PromptInputActionAddScreenshot,
@@ -36,6 +37,7 @@ import {
   PromptInputActionMenuItem,
   PromptInputActionMenuTrigger,
   PromptInputBody,
+  type PromptInputFile,
   PromptInputFooter,
   PromptInputHeader,
   PromptInputProvider,
@@ -73,6 +75,7 @@ import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
+  type ResizablePanelHandle,
 } from "@cypheria/ui/components/resizable"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@cypheria/ui/components/tabs"
 import type { I18n } from "@lingui/core"
@@ -110,6 +113,7 @@ import {
   Settings,
   Sparkles,
   Square,
+  TerminalSquare,
   WalletCards,
   Zap,
 } from "lucide-react"
@@ -130,11 +134,19 @@ import type {
   CodexModelView,
   CodexPermissionSelection,
   CodexSkillView,
+  CodexThreadDetailView,
   CodexUiMessage,
   WalletActiveContext,
 } from "../../../ipc/src/index.js"
-import { CodexIpcChatTransport } from "../codex-chat.js"
+import {
+  acquireCodexChatThreadScope,
+  type CodexChatThreadScopeBindings,
+  mountCodexChatThreadScope,
+} from "../chat-thread-scope.js"
+import { type CodexChatOptions, interruptActiveCodexTurns } from "../codex-chat.js"
+import { codexMarkdownUrlTransform } from "../generated-image-url.js"
 import { Route } from "../routes/index"
+import { composerMediaCapabilities } from "./chat-composer"
 import { newChatRevisionAtom } from "./chat-navigation"
 import {
   type ChatWorkspaceArtifacts,
@@ -142,7 +154,13 @@ import {
   displayChatArtifactPath,
 } from "./chat-workspace-artifacts"
 import { CodexTurnMessage } from "./codex-turn.js"
+import { deriveCodexTurnView } from "./codex-turn-view.js"
 import { ProjectCreateDialog } from "./project-create-dialog"
+import {
+  type TerminalLocation,
+  toggleBottomPanelState,
+  toggleTerminalPanelState,
+} from "./terminal-panel-state"
 import {
   getBottomDistanceRestoreOffset,
   type ThreadScrollController,
@@ -167,6 +185,11 @@ const fallbackModel: CodexModelView = {
   model: "default",
   reasoningEfforts: [{ description: "Balanced reasoning", value: "medium" }],
   serviceTiers: [],
+}
+
+const threadIdFromMessage = (message: CodexUiMessage): string | null => {
+  const turn = message.parts.find((part) => part.type === "data-codex-turn")
+  return turn?.type === "data-codex-turn" ? turn.data.threadId : null
 }
 
 type AutoReviewView = {
@@ -222,32 +245,81 @@ const permissionSelectionLabel = (selection: CodexPermissionSelection, i18n: I18
 export default function ChatWorkspace() {
   const { thread, prompt, project, section } = Route.useSearch()
   const revision = useAtomValue(newChatRevisionAtom)
-  const sessionKey =
+  const routeSessionKey =
     thread ?? `new-chat-${revision}-${prompt ?? ""}-${project ?? ""}-${section ?? ""}`
+  const [sessionKey, setSessionKey] = useState(routeSessionKey)
+  const adoptedThreadId = useRef<string | null>(null)
+  const [bottomPanelOpen, setBottomPanelOpen] = useState(false)
+  const [terminalLocation, setTerminalLocation] = useState<TerminalLocation>("bottom")
+  const bottomPanelSize = useRef(280)
+  const [terminalProjectId, setTerminalProjectId] = useState<string | undefined>(project)
+  const workspaceTerminals = useWorkspaceTerminals(terminalProjectId)
+  const getBottomPanelSize = useCallback(() => bottomPanelSize.current, [])
+  const rememberBottomPanelSize = useCallback((size: number) => {
+    bottomPanelSize.current = size
+  }, [])
+
+  useEffect(() => {
+    if (thread && adoptedThreadId.current === thread) {
+      adoptedThreadId.current = null
+      return
+    }
+    setSessionKey(routeSessionKey)
+  }, [routeSessionKey, thread])
+
   return (
     <ChatSession
+      bottomPanelOpen={bottomPanelOpen}
+      getBottomPanelSize={getBottomPanelSize}
       key={sessionKey}
       initialProjectId={project}
       resumeThreadId={thread}
       initialPrompt={prompt}
       initialSectionId={section}
       scrollStateKey={sessionKey}
+      onThreadAdopted={(threadId) => {
+        adoptedThreadId.current = threadId
+      }}
+      onTerminalProjectChange={setTerminalProjectId}
+      rememberBottomPanelSize={rememberBottomPanelSize}
+      setBottomPanelOpen={setBottomPanelOpen}
+      setTerminalLocation={setTerminalLocation}
+      terminalLocation={terminalLocation}
+      workspaceTerminals={workspaceTerminals}
     />
   )
 }
 
 function ChatSession({
+  bottomPanelOpen,
+  getBottomPanelSize,
   resumeThreadId,
   initialPrompt,
   initialProjectId,
   initialSectionId,
   scrollStateKey,
+  onThreadAdopted,
+  onTerminalProjectChange,
+  rememberBottomPanelSize,
+  setBottomPanelOpen,
+  setTerminalLocation,
+  terminalLocation,
+  workspaceTerminals,
 }: Readonly<{
+  bottomPanelOpen: boolean
+  getBottomPanelSize: () => number
   resumeThreadId?: string
   initialPrompt?: string
   initialProjectId?: string
   initialSectionId?: string
   scrollStateKey: string
+  onThreadAdopted: (threadId: string) => void
+  onTerminalProjectChange: (projectId: string | undefined) => void
+  rememberBottomPanelSize: (size: number) => void
+  setBottomPanelOpen: (open: boolean) => void
+  setTerminalLocation: (location: TerminalLocation) => void
+  terminalLocation: TerminalLocation
+  workspaceTerminals: WorkspaceTerminalsController
 }>) {
   const { i18n } = useLingui()
   const navigate = Route.useNavigate()
@@ -271,6 +343,16 @@ function ChatSession({
   const modelsQuery = useQuery({
     queryFn: () => window.cypheria?.codex.listModels() ?? [],
     queryKey: ["codex", "models"],
+  })
+  const workspaceLayoutQuery = useQuery({
+    queryFn: () =>
+      window.cypheria?.settings.getWorkspaceLayout() ?? {
+        configPath: "Browser preview",
+        defaultTerminalLocation: "bottom" as const,
+        showBottomPanelControl: true,
+      },
+    queryKey: ["settings", "workspace-layout"],
+    staleTime: Number.POSITIVE_INFINITY,
   })
   const projectsQuery = useQuery({
     queryFn: () =>
@@ -300,8 +382,7 @@ function ChatSession({
   const [titleDraft, setTitleDraft] = useState("")
   const submitMode = useRef<"queue" | "steer" | null>(null)
   const [workspacePanelOpen, setWorkspacePanelOpen] = useState(true)
-  const [bottomPanelOpen, setBottomPanelOpen] = useState(false)
-  const [terminalLocation, setTerminalLocation] = useState<"bottom" | "right">("bottom")
+  const bottomPanelRef = useRef<ResizablePanelHandle>(null)
   const [wideViewport, setWideViewport] = useState(true)
   const [permissionSelection, setPermissionSelection] = useState<CodexPermissionSelection | null>(
     null
@@ -309,17 +390,21 @@ function ChatSession({
   const [interactions, setInteractions] = useState<CodexInteractionEvent[]>([])
   const [autoReviews, setAutoReviews] = useState<AutoReviewView[]>([])
   const [strictReviewTurns, setStrictReviewTurns] = useState<Set<string>>(() => new Set())
+  const [createdThreadId, setCreatedThreadId] = useState<string | null>(null)
+  const chatScopeMounted = useRef(false)
   const selectedModel = models.find((model) => model.model === selectedModelId) ?? initialModel
+  const composerMedia = composerMediaCapabilities(selectedModel.inputModalities)
   const selectedReasoning =
     reasoningEffort ?? settings?.reasoningEffort ?? selectedModel.defaultReasoningEffort
   const provider = settings?.provider ?? "openai"
   const projects = projectsQuery.data?.data ?? []
   const selectedProject = projects.find((project) => project.id === selectedProjectId)
-  const workspaceTerminals = useWorkspaceTerminals(selectedProjectId ?? undefined)
   const permissionsQuery = useQuery({
     queryFn: () => window.cypheria?.codex.getPermissionsCatalog(selectedProject?.roots[0]),
     queryKey: ["codex", "permissions", selectedProject?.roots[0] ?? null],
   })
+  const defaultTerminalLocation = workspaceLayoutQuery.data?.defaultTerminalLocation ?? "bottom"
+  const showBottomPanelControl = workspaceLayoutQuery.data?.showBottomPanelControl ?? true
   const skillsQuery = useQuery({
     queryFn: () => window.cypheria?.codex.listSkills({ cwd: selectedProject?.roots[0] }),
     queryKey: ["codex", "skills", selectedProject?.roots[0] ?? null],
@@ -331,54 +416,46 @@ function ChatSession({
     }
   const permissionValue = permissionSelectionValue(effectivePermissionSelection)
   const permissionLabel = permissionSelectionLabel(effectivePermissionSelection, i18n)
-  const transport = useMemo(
-    () =>
-      new CodexIpcChatTransport(
-        () => ({
-          cwd: selectedProject?.roots[0],
-          model: selectedModel.model,
-          projectId: selectedProject?.id,
-          provider,
-          reasoningEffort: selectedReasoning,
-          resumeThreadId,
-          permissionSelection:
-            resumeThreadId && !permissionSelection ? undefined : effectivePermissionSelection,
-          serviceTier: settings?.serviceTier ?? undefined,
-        }),
-        async (threadId) => {
-          if (resumeThreadId) return
-          threadScroll.adoptStateKey(threadId)
-          if (initialSectionId) {
-            await window.cypheria?.codex.moveThreadToSection({
-              sectionId: initialSectionId,
-              threadId,
-            })
-            void queryClient.invalidateQueries({ queryKey: ["codex", "thread-sections"] })
-          }
-          void queryClient.invalidateQueries({ queryKey: ["codex", "threads"] })
-          void queryClient.invalidateQueries({ queryKey: ["codex", "projects"] })
-          void navigate({ replace: true, search: { thread: threadId } })
+
+  useEffect(() => {
+    onTerminalProjectChange(selectedProjectId ?? undefined)
+  }, [onTerminalProjectChange, selectedProjectId])
+  const transportOptions: CodexChatOptions = {
+    cwd: selectedProject?.roots[0],
+    model: selectedModel.model,
+    projectId: selectedProject?.id,
+    provider,
+    reasoningEffort: selectedReasoning,
+    resumeThreadId,
+    permissionSelection:
+      resumeThreadId && !permissionSelection ? undefined : effectivePermissionSelection,
+    serviceTier: settings?.serviceTier ?? undefined,
+  }
+  const chatScopeBindings: CodexChatThreadScopeBindings = {
+    initialComposerText: initialPrompt,
+    onFinish: ({ message, messages: finishedMessages }) => {
+      const threadId = threadIdFromMessage(message) ?? resumeThreadId
+      if (!threadId) return
+      queryClient.setQueryData<CodexThreadDetailView>(["codex", "thread", threadId], (detail) => {
+        if (!detail) return detail
+        return {
+          ...detail,
+          messages: finishedMessages as unknown as CodexThreadDetailView["messages"],
         }
-      ),
-    [
-      provider,
-      initialSectionId,
-      navigate,
-      queryClient,
-      selectedProject?.id,
-      selectedProject?.roots,
-      resumeThreadId,
-      effectivePermissionSelection,
-      permissionSelection,
-      selectedModel.model,
-      selectedReasoning,
-      settings?.serviceTier,
-      threadScroll.adoptStateKey,
-    ]
-  )
+      })
+      void queryClient.invalidateQueries({ queryKey: ["codex", "threads"] })
+    },
+    onThreadCreated: (threadId) => {
+      if (!chatScopeMounted.current || resumeThreadId) return
+      setCreatedThreadId(threadId)
+    },
+    options: transportOptions,
+  }
+  const [chatScope] = useState(() => acquireCodexChatThreadScope(scrollStateKey, chatScopeBindings))
+  chatScope.bindings = chatScopeBindings
+  const transport = chatScope.transport
   const { error, messages, sendMessage, setMessages, status, stop } = useChat<CodexUiMessage>({
-    id: resumeThreadId ?? "new-chat",
-    transport,
+    chat: chatScope.chat,
   })
   const workspaceArtifacts = useMemo(() => deriveChatWorkspaceArtifacts(messages), [messages])
   const activeTurnProgress = useMemo(() => {
@@ -394,11 +471,11 @@ function ChatSession({
         ? plan.data.plan.filter((step) => step.status === "completed").length
         : 0
     return {
-      changedFiles: workspaceArtifacts.files.length,
+      changedFiles: deriveCodexTurnView(activeMessage)?.changedFileCount ?? 0,
       completedSteps,
       totalSteps: plan?.type === "data-codex-plan" ? plan.data.plan.length : 0,
     }
-  }, [messages, workspaceArtifacts.files.length])
+  }, [messages])
   const visibleTurnIds = useMemo(
     () =>
       new Set(
@@ -408,6 +485,15 @@ function ChatSession({
       ),
     [messages]
   )
+  const activeThreadId =
+    resumeThreadId ??
+    createdThreadId ??
+    messages.reduce<string | null>(
+      (current, message) => threadIdFromMessage(message) ?? current,
+      null
+    )
+  const activeThreadIdRef = useRef(activeThreadId)
+  activeThreadIdRef.current = activeThreadId
   const unboundInteractions = interactions.filter(
     (interaction) => !interaction.turnId || !visibleTurnIds.has(interaction.turnId)
   )
@@ -419,6 +505,9 @@ function ChatSession({
         : status === "streaming"
           ? i18n._(msg({ id: "chat.status.working", message: "Working…" }))
           : i18n._(msg({ id: "chat.status.attention", message: "Needs attention" }))
+  const scrollToBottomLabel = i18n._(
+    msg({ id: "chat.scrollToBottom", message: "Scroll to bottom" })
+  )
   const displayedTitle =
     titleOverride ??
     threadQuery.data?.title ??
@@ -429,29 +518,101 @@ function ChatSession({
   useEffect(() => {
     if (!resumeThreadId || !threadQuery.data || hydratedThreadId.current === resumeThreadId) return
     hydratedThreadId.current = resumeThreadId
-    setMessages(threadQuery.data.messages as CodexUiMessage[])
+    if (messages.length === 0) setMessages(threadQuery.data.messages as CodexUiMessage[])
     setSelectedProjectId(threadQuery.data.projectId)
-  }, [resumeThreadId, setMessages, threadQuery.data])
+  }, [messages.length, resumeThreadId, setMessages, threadQuery.data])
 
-  useEffect(
-    () => () => {
-      void stop()
-    },
-    [stop]
-  )
+  useEffect(() => {
+    chatScopeMounted.current = true
+    const release = mountCodexChatThreadScope(chatScope)
+    return () => {
+      chatScopeMounted.current = false
+      release()
+    }
+  }, [chatScope])
+  useEffect(() => {
+    if (!createdThreadId || resumeThreadId || status !== "ready") return
+    const threadId = createdThreadId
+    setCreatedThreadId(null)
+    hydratedThreadId.current = threadId
+    threadScroll.adoptStateKey(threadId)
+    onThreadAdopted(threadId)
+    void (async () => {
+      if (initialSectionId) {
+        await window.cypheria?.codex.moveThreadToSection({
+          sectionId: initialSectionId,
+          threadId,
+        })
+        void queryClient.invalidateQueries({ queryKey: ["codex", "thread-sections"] })
+      }
+      void queryClient.invalidateQueries({ queryKey: ["codex", "threads"] })
+      void queryClient.invalidateQueries({ queryKey: ["codex", "projects"] })
+      await navigate({ replace: true, search: { thread: threadId } })
+    })()
+  }, [
+    createdThreadId,
+    initialSectionId,
+    navigate,
+    onThreadAdopted,
+    queryClient,
+    resumeThreadId,
+    status,
+    threadScroll,
+  ])
+  const stopActiveTurn = useCallback(async () => {
+    await stop()
+    const interruptedMessages = interruptActiveCodexTurns(messages)
+    setMessages(interruptedMessages)
+    const threadId =
+      resumeThreadId ??
+      interruptedMessages.reduce<string | null>(
+        (current, message) => threadIdFromMessage(message) ?? current,
+        null
+      )
+    if (!threadId) return
+    queryClient.setQueryData<CodexThreadDetailView>(["codex", "thread", threadId], (detail) =>
+      detail
+        ? {
+            ...detail,
+            messages: interruptedMessages as unknown as CodexThreadDetailView["messages"],
+          }
+        : detail
+    )
+    void queryClient.invalidateQueries({ queryKey: ["codex", "thread", threadId] })
+    void queryClient.invalidateQueries({ queryKey: ["codex", "threads"] })
+  }, [messages, queryClient, resumeThreadId, setMessages, stop])
 
   useEffect(() => {
     const api = window.cypheria?.codex
     if (!api) return
-    return api.onInteraction((interaction) => {
-      if (resumeThreadId && interaction.threadId && interaction.threadId !== resumeThreadId) return
-      setInteractions((current) =>
-        current.some((item) => item.interactionId === interaction.interactionId)
-          ? current
-          : [...current, interaction]
-      )
+    let disposed = false
+    const belongsToCurrentThread = (interaction: CodexInteractionEvent) =>
+      interaction.threadId === null || interaction.threadId === activeThreadIdRef.current
+    const mergeInteractions = (incoming: readonly CodexInteractionEvent[]) => {
+      setInteractions((current) => {
+        const next = [...current]
+        for (const interaction of incoming) {
+          if (!next.some((item) => item.interactionId === interaction.interactionId)) {
+            next.push(interaction)
+          }
+        }
+        return next
+      })
+    }
+    const unsubscribe = api.onInteraction((interaction) => {
+      if (belongsToCurrentThread(interaction)) mergeInteractions([interaction])
     })
-  }, [resumeThreadId])
+    void api
+      .listInteractions()
+      .then((pending) => {
+        if (!disposed) mergeInteractions(pending.filter(belongsToCurrentThread))
+      })
+      .catch(() => undefined)
+    return () => {
+      disposed = true
+      unsubscribe()
+    }
+  }, [])
 
   useEffect(() => {
     const api = window.cypheria?.codex
@@ -513,17 +674,87 @@ function ChatSession({
     return () => media.removeEventListener("change", update)
   }, [])
 
+  const toggleTerminalPanel = useCallback(() => {
+    const nextState = toggleTerminalPanelState(
+      { bottomPanelOpen, terminalLocation, workspacePanelOpen },
+      defaultTerminalLocation
+    )
+    setBottomPanelOpen(nextState.bottomPanelOpen)
+    setTerminalLocation(nextState.terminalLocation)
+    setWorkspacePanelOpen(nextState.workspacePanelOpen)
+    if (
+      nextState.bottomPanelOpen &&
+      nextState.terminalLocation === "bottom" &&
+      workspaceTerminals.sessions.length === 0
+    ) {
+      void workspaceTerminals.openTerminal()
+    }
+  }, [
+    bottomPanelOpen,
+    defaultTerminalLocation,
+    setBottomPanelOpen,
+    setTerminalLocation,
+    terminalLocation,
+    workspaceTerminals.openTerminal,
+    workspaceTerminals.sessions.length,
+    workspacePanelOpen,
+  ])
+
+  const toggleBottomPanel = useCallback(() => {
+    const nextState = toggleBottomPanelState({
+      bottomPanelOpen,
+      terminalLocation,
+      workspacePanelOpen,
+    })
+    setBottomPanelOpen(nextState.bottomPanelOpen)
+    setTerminalLocation(nextState.terminalLocation)
+    setWorkspacePanelOpen(nextState.workspacePanelOpen)
+    if (
+      nextState.bottomPanelOpen &&
+      nextState.terminalLocation === "bottom" &&
+      workspaceTerminals.sessions.length === 0
+    ) {
+      void workspaceTerminals.openTerminal()
+    }
+  }, [
+    bottomPanelOpen,
+    setBottomPanelOpen,
+    setTerminalLocation,
+    terminalLocation,
+    workspaceTerminals.openTerminal,
+    workspaceTerminals.sessions.length,
+    workspacePanelOpen,
+  ])
+
+  const bottomPanelVisible = bottomPanelOpen && terminalLocation === "bottom"
+
+  useLayoutEffect(() => {
+    const panel = bottomPanelRef.current
+    if (!panel || terminalLocation !== "bottom") return
+    if (bottomPanelOpen) {
+      panel.resize(getBottomPanelSize())
+      return
+    }
+    const currentSize = panel.getSize().inPixels
+    if (currentSize >= 160) rememberBottomPanelSize(currentSize)
+    panel.collapse()
+  }, [bottomPanelOpen, getBottomPanelSize, rememberBottomPanelSize, terminalLocation])
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "j") {
         event.preventDefault()
-        setTerminalLocation("bottom")
-        setBottomPanelOpen((open) => !open)
+        toggleBottomPanel()
+        return
+      }
+      if (event.ctrlKey && event.code === "Backquote") {
+        event.preventDefault()
+        toggleTerminalPanel()
       }
     }
     window.addEventListener("keydown", onKeyDown)
     return () => window.removeEventListener("keydown", onKeyDown)
-  }, [])
+  }, [toggleBottomPanel, toggleTerminalPanel])
 
   const resolveInteraction = async (response: CodexInteractionResponse) => {
     await window.cypheria?.codex.respondToInteraction(response)
@@ -555,7 +786,7 @@ function ChatSession({
     }
   }
 
-  const handleSubmit = async ({ text, files }: { text: string; files: FileUIPart[] }) => {
+  const handleSubmit = ({ text, files }: { text: string; files: PromptInputFile[] }) => {
     const value = text.trim()
     if (!value && files.length === 0) return
     setAttachmentError(null)
@@ -570,24 +801,41 @@ function ChatSession({
     if (status === "submitted" || status === "streaming") {
       const mode = submitMode.current ?? "steer"
       submitMode.current = null
-      try {
-        if (mode === "queue") {
-          if (!resumeThreadId) throw new Error("Wait for this new chat to finish before queueing.")
-          await window.cypheria?.codex.queueThreadMessage(
-            resumeThreadId,
-            crypto.randomUUID(),
-            followUp
-          )
-        } else {
-          await transport.steer(followUp)
+      void (async () => {
+        try {
+          if (mode === "queue") {
+            if (!resumeThreadId)
+              throw new Error("Wait for this new chat to finish before queueing.")
+            await window.cypheria?.codex.queueThreadMessage(
+              resumeThreadId,
+              crypto.randomUUID(),
+              followUp
+            )
+          } else {
+            await transport.steer(followUp)
+          }
+        } catch (reason) {
+          setAttachmentError(reason instanceof Error ? reason.message : String(reason))
         }
-      } catch (reason) {
-        setAttachmentError(reason instanceof Error ? reason.message : String(reason))
-        throw reason
-      }
+      })()
       return
     }
-    await sendMessage({ files, text: value })
+    void sendMessage({ files, text: value }).catch((reason: unknown) => {
+      setAttachmentError(reason instanceof Error ? reason.message : String(reason))
+    })
+  }
+
+  const answerAsyncQuestions = async (text: string) => {
+    setAttachmentError(null)
+    const followUp: CodexChatFollowUp = { files: [], text }
+    try {
+      if (status === "submitted" || status === "streaming") await transport.steer(followUp)
+      else await sendMessage({ text })
+    } catch (reason) {
+      const message = reason instanceof Error ? reason.message : String(reason)
+      setAttachmentError(message)
+      throw reason
+    }
   }
 
   return (
@@ -671,41 +919,41 @@ function ChatSession({
                         <PanelRightOpen aria-hidden="true" size={16} />
                       )}
                     </Button>
-                    <Button
-                      aria-label={
-                        bottomPanelOpen
-                          ? i18n._(
-                              msg({
-                                id: "chat.workspace.hideBottomPanel",
-                                message: "Hide bottom panel",
-                              })
-                            )
-                          : i18n._(
-                              msg({
-                                id: "chat.workspace.showBottomPanel",
-                                message: "Show bottom panel",
-                              })
-                            )
-                      }
-                      onClick={() => {
-                        setTerminalLocation("bottom")
-                        setBottomPanelOpen((open) => !open)
-                      }}
-                      size="icon"
-                      title={i18n._(
-                        msg({
-                          id: "chat.workspace.bottomPanelShortcut",
-                          message: "Bottom panel (⌘J)",
-                        })
-                      )}
-                      variant="ghost"
-                    >
-                      {bottomPanelOpen ? (
-                        <PanelBottomClose aria-hidden="true" size={16} />
-                      ) : (
-                        <PanelBottomOpen aria-hidden="true" size={16} />
-                      )}
-                    </Button>
+                    {showBottomPanelControl ? (
+                      <Button
+                        aria-pressed={bottomPanelVisible}
+                        aria-label={
+                          bottomPanelVisible
+                            ? i18n._(
+                                msg({
+                                  id: "chat.workspace.hideBottomPanel",
+                                  message: "Hide bottom panel",
+                                })
+                              )
+                            : i18n._(
+                                msg({
+                                  id: "chat.workspace.showBottomPanel",
+                                  message: "Show bottom panel",
+                                })
+                              )
+                        }
+                        onClick={toggleBottomPanel}
+                        size="icon"
+                        title={i18n._(
+                          msg({
+                            id: "chat.workspace.bottomPanelShortcut",
+                            message: "Bottom panel (⌘J)",
+                          })
+                        )}
+                        variant="ghost"
+                      >
+                        {bottomPanelVisible ? (
+                          <PanelBottomClose aria-hidden="true" size={16} />
+                        ) : (
+                          <PanelBottomOpen aria-hidden="true" size={16} />
+                        )}
+                      </Button>
+                    ) : null}
                     <DropdownMenu>
                       <DropdownMenuTrigger
                         render={
@@ -742,15 +990,15 @@ function ChatSession({
                           <PanelRightOpen aria-hidden="true" />
                           <Trans id="chat.workspace.toggleSidePanel">Toggle side panel</Trans>
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setTerminalLocation("bottom")
-                            setBottomPanelOpen((open) => !open)
-                          }}
-                        >
+                        <DropdownMenuItem onClick={toggleBottomPanel}>
                           <PanelBottomOpen aria-hidden="true" />
                           <Trans id="chat.workspace.toggleBottomPanel">Toggle bottom panel</Trans>
                           <span className="ml-auto text-xs text-muted-foreground">⌘J</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={toggleTerminalPanel}>
+                          <TerminalSquare aria-hidden="true" />
+                          <Trans id="chat.workspace.toggleTerminal">Toggle terminal</Trans>
+                          <span className="ml-auto text-xs text-muted-foreground">⌃`</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -802,6 +1050,7 @@ function ChatSession({
                         <VirtualizedChatMessages
                           interactions={interactions}
                           messages={messages}
+                          onAnswerAsyncQuestions={answerAsyncQuestions}
                           onForkTurn={forkFromTurn}
                           onResolve={resolveInteraction}
                           scrollController={threadScroll}
@@ -815,7 +1064,10 @@ function ChatSession({
                       {error.message}
                     </div>
                   ) : null}
-                  <ConversationScrollButton />
+                  <ConversationScrollButton
+                    aria-label={scrollToBottomLabel}
+                    title={scrollToBottomLabel}
+                  />
                 </Conversation>
 
                 <div className="mx-auto w-full max-w-(--thread-content-max-width) px-4 pb-5">
@@ -844,7 +1096,11 @@ function ChatSession({
                     </div>
                   ) : null}
                   {autoReviews
-                    .filter((review) => !resumeThreadId || review.threadId === resumeThreadId)
+                    .filter(
+                      (review) =>
+                        review.status !== "approved" &&
+                        (!resumeThreadId || review.threadId === resumeThreadId)
+                    )
                     .map((review) => (
                       <AutoReviewCard key={review.reviewId} review={review} />
                     ))}
@@ -866,11 +1122,17 @@ function ChatSession({
                       {attachmentError}
                     </div>
                   ) : null}
-                  <PromptInputProvider initialInput={initialPrompt}>
+                  <PromptInputProvider
+                    initialAttachments={chatScope.composerAttachments}
+                    initialInput={chatScope.composerText}
+                    onAttachmentsChange={chatScope.setComposerAttachments}
+                    onInputChange={chatScope.setComposerText}
+                    retainAttachmentsOnUnmount
+                  >
                     <PromptInput
-                      accept="image/*,audio/*,video/*,text/*,.md,.json,.pdf"
-                      className="cypheria-composer [&_[data-slot=input-group]]:bg-white"
-                      globalDrop
+                      accept={composerMedia.accept}
+                      className="cypheria-composer [&_[data-slot=input-group]]:bg-card"
+                      globalDrop={composerMedia.canAttach}
                       id={composerFormId}
                       maxFileSize={25 * 1024 * 1024}
                       maxFiles={20}
@@ -878,7 +1140,7 @@ function ChatSession({
                       onError={(nextError) => setAttachmentError(nextError.message)}
                       onSubmit={handleSubmit}
                     >
-                      <ComposerAttachments />
+                      <ComposerAttachments onError={setAttachmentError} />
                       <PromptInputBody>
                         <PromptInputTextarea
                           aria-label={i18n._(
@@ -904,6 +1166,7 @@ function ChatSession({
                                 })
                               )}
                               className="cypheria-composer-icon-button"
+                              disabled={!composerMedia.canAttach}
                               tooltip={i18n._(
                                 msg({
                                   id: "chat.prompt.addContext",
@@ -913,11 +1176,13 @@ function ChatSession({
                             />
                             <PromptInputActionMenuContent className="w-56">
                               <PromptInputActionAddAttachments
+                                disabled={!composerMedia.canAttach}
                                 label={i18n._(
                                   msg({ id: "chat.prompt.addFiles", message: "Add files" })
                                 )}
                               />
                               <PromptInputActionAddScreenshot
+                                disabled={!composerMedia.image}
                                 label={i18n._(
                                   msg({
                                     id: "chat.prompt.addScreenshot",
@@ -1082,7 +1347,10 @@ function ChatSession({
                               </DropdownMenu>
                             </>
                           ) : null}
-                          <ComposerSubmitButton onStop={stop} status={status} />
+                          <ComposerSubmitButton
+                            onStop={() => void stopActiveTurn()}
+                            status={status}
+                          />
                         </div>
                       </PromptInputFooter>
                     </PromptInput>
@@ -1131,17 +1399,27 @@ function ChatSession({
             ) : null}
           </ResizablePanelGroup>
         </ResizablePanel>
-        {bottomPanelOpen && terminalLocation === "bottom" ? (
+        {terminalLocation === "bottom" ? (
           <>
-            <ResizableHandle className="z-20 hover:bg-ring/45" />
+            <ResizableHandle
+              aria-hidden={!bottomPanelVisible}
+              className={bottomPanelVisible ? "z-20 hover:bg-ring/45" : "hidden"}
+            />
             <ResizablePanel
-              defaultSize={280}
+              collapsible
+              collapsedSize={0}
+              defaultSize={bottomPanelVisible ? getBottomPanelSize() : 0}
               groupResizeBehavior="preserve-pixel-size"
               id="bottom-panel"
               maxSize="50%"
               minSize={160}
+              onResize={({ inPixels }) => {
+                if (inPixels >= 160) rememberBottomPanelSize(inPixels)
+              }}
+              panelRef={bottomPanelRef}
             >
               <WorkspaceTerminalView
+                active={bottomPanelVisible}
                 controller={workspaceTerminals}
                 onHide={() => setBottomPanelOpen(false)}
                 onMove={() => {
@@ -1149,6 +1427,7 @@ function ChatSession({
                   setBottomPanelOpen(false)
                   setWorkspacePanelOpen(true)
                 }}
+                openWhenEmpty={false}
               />
             </ResizablePanel>
           </>
@@ -1514,6 +1793,7 @@ function ApprovalDetails({
 function VirtualizedChatMessages({
   interactions,
   messages,
+  onAnswerAsyncQuestions,
   onForkTurn,
   onResolve,
   scrollController,
@@ -1521,6 +1801,7 @@ function VirtualizedChatMessages({
 }: Readonly<{
   interactions: CodexInteractionEvent[]
   messages: CodexUiMessage[]
+  onAnswerAsyncQuestions: (text: string) => Promise<void>
   onForkTurn: (turnId: string) => Promise<void>
   onResolve: (response: CodexInteractionResponse) => Promise<void>
   scrollController: ThreadScrollController
@@ -1660,7 +1941,7 @@ function VirtualizedChatMessages({
         if (!message) return null
         return (
           <div
-            className="absolute top-0 left-0 w-full pb-8"
+            className="absolute top-0 left-0 w-full pb-6"
             data-index={virtualRow.index}
             data-thread-message-key={message.id}
             key={virtualRow.key}
@@ -1670,6 +1951,7 @@ function VirtualizedChatMessages({
             <ChatMessage
               interactions={interactions}
               message={message}
+              onAnswerAsyncQuestions={onAnswerAsyncQuestions}
               onForkTurn={onForkTurn}
               onResolve={onResolve}
             />
@@ -1683,11 +1965,13 @@ function VirtualizedChatMessages({
 function ChatMessage({
   interactions,
   message,
+  onAnswerAsyncQuestions,
   onForkTurn,
   onResolve,
 }: Readonly<{
   interactions: readonly CodexInteractionEvent[]
   message: CodexUiMessage
+  onAnswerAsyncQuestions: (text: string) => Promise<void>
   onForkTurn: (turnId: string) => Promise<void>
   onResolve: (response: CodexInteractionResponse) => Promise<void>
 }>) {
@@ -1711,6 +1995,7 @@ function ChatMessage({
             : undefined
         }
         message={message}
+        onAnswerAsyncQuestions={onAnswerAsyncQuestions}
         onFork={onForkTurn}
       />
     )
@@ -1726,7 +2011,12 @@ function ChatMessage({
         {message.parts.map((part, index) => {
           if (part.type === "text")
             return (
-              <MessageResponse key={`${message.id}-text-${part.text}`}>{part.text}</MessageResponse>
+              <MessageResponse
+                key={`${message.id}-text-${part.text}`}
+                urlTransform={codexMarkdownUrlTransform}
+              >
+                {part.text}
+              </MessageResponse>
             )
           if (part.type === "reasoning")
             return (
@@ -1867,24 +2157,84 @@ function CodexCustomPart({ part }: Readonly<{ part: CustomContentUIPart }>) {
   )
 }
 
-function ComposerAttachments() {
+function ComposerAttachments({ onError }: Readonly<{ onError: (message: string) => void }>) {
   const { i18n } = useLingui()
   const attachments = usePromptInputAttachments()
+  const { textInput } = usePromptInputController()
   if (!attachments.files.length) return null
+
+  const restorePastedText = async (file: (typeof attachments.files)[number]) => {
+    if (!isPromptInputPastedText(file) || file.pastedText.characterCount > 25_000) return
+    try {
+      const response = await fetch(file.url)
+      if (!response.ok) throw new Error("Pasted text is no longer available.")
+      const text = await response.text()
+      if (text.length > 25_000) throw new Error("Pasted text is too large to restore.")
+      textInput.insertAtSelection(text)
+      attachments.remove(file.id)
+    } catch (reason) {
+      onError(reason instanceof Error ? reason.message : String(reason))
+    }
+  }
+
   return (
     <PromptInputHeader className="cypheria-composer-attachments">
       <Attachments className="ml-0 max-w-full" variant="inline">
-        {attachments.files.map((file) => (
-          <Attachment data={file} key={file.id} onRemove={() => attachments.remove(file.id)}>
-            <AttachmentPreview />
-            <AttachmentInfo />
-            <AttachmentRemove
-              label={i18n._(
-                msg({ id: "chat.prompt.removeAttachment", message: "Remove attachment" })
+        {attachments.files.map((file) => {
+          const pastedText = isPromptInputPastedText(file) ? file.pastedText : null
+          const canRestore = pastedText !== null && pastedText.characterCount <= 25_000
+          return (
+            <Attachment
+              className={
+                pastedText ? "h-14 min-w-52 max-w-72 gap-2 px-2 py-1.5 font-normal" : undefined
+              }
+              data={file}
+              key={file.id}
+              onRemove={() => attachments.remove(file.id)}
+            >
+              <AttachmentPreview
+                className={pastedText ? "size-9 rounded-md bg-muted" : undefined}
+              />
+              {pastedText ? (
+                <div className="min-w-0 flex-1 leading-tight">
+                  <span className="block truncate font-medium">
+                    {pastedText.preview ||
+                      i18n._(msg({ id: "chat.prompt.pastedText", message: "Pasted text" }))}
+                  </span>
+                  {canRestore ? (
+                    <button
+                      className="mt-1 inline-flex items-center gap-1 text-muted-foreground text-xs underline underline-offset-2 hover:text-foreground"
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        void restorePastedText(file)
+                      }}
+                      type="button"
+                    >
+                      <Trans>Show in text field</Trans>
+                      <CornerDownLeft aria-hidden="true" className="size-3" />
+                    </button>
+                  ) : (
+                    <span className="mt-1 block text-muted-foreground text-xs">
+                      <Trans>Pasted text</Trans>
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <AttachmentInfo />
               )}
-            />
-          </Attachment>
-        ))}
+              <AttachmentRemove
+                label={i18n._(
+                  pastedText
+                    ? msg({
+                        id: "chat.prompt.removePastedText",
+                        message: "Remove pasted text attachment",
+                      })
+                    : msg({ id: "chat.prompt.removeAttachment", message: "Remove attachment" })
+                )}
+              />
+            </Attachment>
+          )
+        })}
       </Attachments>
     </PromptInputHeader>
   )
@@ -2079,7 +2429,11 @@ function ComposerSubmitButton({
   return (
     <PromptInputSubmit
       aria-label={label}
-      className={`cypheria-composer-submit-button ${isGenerating ? "is-generating" : ""}`}
+      className={`cypheria-composer-submit-button disabled:bg-muted disabled:text-muted-foreground ${
+        isGenerating
+          ? "bg-primary text-primary-foreground hover:bg-primary/90"
+          : "bg-foreground text-background hover:bg-foreground/85"
+      }`}
       disabled={disabled}
       onStop={onStop}
       status={status}

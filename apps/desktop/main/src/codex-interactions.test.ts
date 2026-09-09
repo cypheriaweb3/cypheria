@@ -115,6 +115,30 @@ describe("Codex interaction broker", () => {
     })
   })
 
+  it("lists unresolved interactions so a remounted renderer can recover them", async () => {
+    const { bridge, broker, events } = createHarness()
+    const resultPromise = bridge.dispatch({
+      id: "server-recover",
+      method: "item/fileChange/requestApproval",
+      params: {
+        grantRoot: null,
+        itemId: "item-recover",
+        reason: "Apply the generated patch",
+        startedAtMs: 1,
+        threadId: "thread-recover",
+        turnId: "turn-recover",
+      },
+    })
+
+    expect(broker.list()).toEqual(events)
+    const interaction = broker.list()[0]
+    if (!interaction) throw new Error("Expected a recoverable interaction")
+    await broker.respond({ action: "decline", interactionId: interaction.interactionId })
+
+    expect(broker.list()).toEqual([])
+    await expect(resultPromise).resolves.toEqual({ decision: "decline" })
+  })
+
   it("returns only the permission subset selected by the user", async () => {
     const { bridge, broker, events } = createHarness()
     const resultPromise = bridge.dispatch({

@@ -27,9 +27,24 @@ export type CodexGeneratedArtifact = {
   readonly uri: string
 }
 
+export type CodexAsyncQuestion = {
+  readonly id: string
+  readonly options: readonly string[]
+  readonly questionIndex: number | null
+  readonly sourceItemId: string
+  readonly title: string
+}
+
+export type CodexAsyncQuestionAnswer = {
+  readonly answer: string
+  readonly question: CodexAsyncQuestion
+}
+
 export type CodexTurnView = {
   readonly activity: readonly CodexActivityUnit[]
   readonly artifacts: readonly CodexGeneratedArtifact[]
+  readonly asyncQuestions: readonly CodexAsyncQuestion[]
+  readonly changedFileCount: number
   readonly generatedImages: readonly (CodexTurnItemSnapshot & {
     readonly item: Extract<CodexTurnItemSnapshot["item"], { type: "imageGeneration" }>
   })[]
@@ -55,7 +70,8 @@ export type CodexTurnView = {
 }
 
 const isCommentary = (snapshot: CodexTurnItemSnapshot): boolean =>
-  snapshot.item.type === "agentMessage" && snapshot.item.phase === "commentary"
+  snapshot.item.type === "agentMessage" &&
+  (snapshot.item.phase === "commentary" || snapshot.item.delivery === "async")
 
 const isReasoning = (snapshot: CodexTurnItemSnapshot): boolean => snapshot.item.type === "reasoning"
 
@@ -212,13 +228,60 @@ const selectFinalAnswer = (
       snapshot
     ): snapshot is CodexTurnItemSnapshot & {
       item: Extract<CodexTurnItemSnapshot["item"], { type: "agentMessage" }>
-    } => snapshot.item.type === "agentMessage" && snapshot.item.text.length > 0
+    } =>
+      snapshot.item.type === "agentMessage" &&
+      snapshot.item.delivery !== "async" &&
+      snapshot.item.text.length > 0
   )
   return (
     assistantItems.findLast((snapshot) => snapshot.item.phase === "final_answer") ??
     assistantItems.findLast((snapshot) => snapshot.item.phase === null) ??
     null
   )
+}
+
+const selectAsyncQuestions = (items: readonly CodexTurnItemSnapshot[]): CodexAsyncQuestion[] =>
+  items.flatMap<CodexAsyncQuestion>((snapshot) => {
+    if (snapshot.item.type !== "agentMessage" || snapshot.item.delivery !== "async") return []
+    const { id: sourceItemId, questions, text } = snapshot.item
+    if (!questions?.length) {
+      return [
+        {
+          id: sourceItemId,
+          options: [],
+          questionIndex: null,
+          sourceItemId,
+          title: text,
+        },
+      ]
+    }
+    return questions.map((question, questionIndex) => ({
+      id: JSON.stringify(["request_user_input_async", sourceItemId, questionIndex]),
+      options: question.options ?? [],
+      questionIndex,
+      sourceItemId,
+      title: question.title,
+    }))
+  })
+
+export const formatCodexAsyncQuestionReply = (
+  answers: readonly CodexAsyncQuestionAnswer[]
+): string =>
+  `<send_user_message_question_reply>\n${JSON.stringify(
+    answers.map(({ answer, question }) => ({
+      answer,
+      question: question.title,
+      questionItemId: question.id,
+    }))
+  )}\n</send_user_message_question_reply>`
+
+const countChangedFiles = (items: readonly CodexTurnItemSnapshot[]): number => {
+  const paths = new Set<string>()
+  for (const snapshot of items) {
+    if (snapshot.item.type !== "fileChange") continue
+    for (const change of snapshot.item.changes) paths.add(change.path)
+  }
+  return paths.size
 }
 
 export const groupCodexActivity = (
@@ -301,6 +364,7 @@ export const deriveCodexTurnView = (message: CodexUiMessage): CodexTurnView | nu
 
   items.sort((left, right) => left.order - right.order)
   const finalAnswer = selectFinalAnswer(items)
+  const asyncQuestions = selectAsyncQuestions(items)
   const artifacts = selectGeneratedArtifacts(items, finalAnswer, turn.status)
   const hidesImageGallery = artifacts.some(
     (artifact) => artifact.kind === "file" && /\.pptx(?:$|[?#])/iu.test(artifact.uri)
@@ -333,6 +397,8 @@ export const deriveCodexTurnView = (message: CodexUiMessage): CodexTurnView | nu
   return {
     activity: groupCodexActivity(activityItems),
     artifacts,
+    asyncQuestions,
+    changedFileCount: countChangedFiles(items),
     diff,
     events,
     finalAnswer,

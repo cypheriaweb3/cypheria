@@ -53,6 +53,7 @@ import {
   codexChatInterruptContract,
   codexChatStartContract,
   codexChatSteerContract,
+  codexInteractionListContract,
   codexInteractionRespondContract,
   codexMarketplaceAddContract,
   codexMarketplaceRemoveContract,
@@ -132,6 +133,8 @@ import {
   settingsConnectionProxyWriteContract,
   settingsLanguageReadContract,
   settingsLanguageWriteContract,
+  settingsWorkspaceLayoutReadContract,
+  settingsWorkspaceLayoutWriteContract,
   walletActiveClearContract,
   walletActiveReadContract,
   walletActiveWriteContract,
@@ -228,12 +231,17 @@ import {
 import { createHarnessManager, type HarnessManager } from "./harness-manager.js"
 import { registerIpcRoute } from "./ipc.js"
 import { readLanguageSettings, writeLanguageSettings } from "./language-config.js"
+import { resolveGeneratedImageProtocolPath } from "./renderer-protocol.js"
 import {
   type DesktopRuntimeContext,
   initializeDesktopRuntime,
   shutdownDesktopRuntime,
 } from "./runtime.js"
 import { listSystemFonts } from "./system-fonts.js"
+import {
+  readWorkspaceLayoutSettings,
+  writeWorkspaceLayoutSettings,
+} from "./workspace-layout-config.js"
 import {
   createWorkspaceTerminalManager,
   type WorkspaceTerminalManager,
@@ -392,9 +400,19 @@ const getRendererUrl = (): string | undefined => {
   return rendererUrl ? rendererUrl : undefined
 }
 
-const registerRendererProtocol = (): void => {
+const registerRendererProtocol = (codexHome: string): void => {
+  const generatedImagesDir = join(codexHome, "generated_images")
   protocol.handle("cypheria", (request) => {
-    const pathname = decodeURIComponent(new URL(request.url).pathname)
+    const generatedImagePath = resolveGeneratedImageProtocolPath(request.url, generatedImagesDir)
+    if (generatedImagePath) {
+      return existsSync(generatedImagePath)
+        ? net.fetch(pathToFileURL(generatedImagePath).toString())
+        : new Response(null, { status: 404 })
+    }
+
+    const url = new URL(request.url)
+    if (url.hostname !== "app") return new Response(null, { status: 404 })
+    const pathname = decodeURIComponent(url.pathname)
     const requestedPath = pathname === "/" ? "_shell.html" : pathname.replace(/^\/+/, "")
     const candidate = resolve(rendererClientDir, requestedPath)
     const isWithinRenderer = !relative(rendererClientDir, candidate).startsWith("..")
@@ -723,6 +741,11 @@ const registerIpcHandlers = (
     })
     return { resolved: true }
   })
+  registerIpcRoute(codexInteractionListContract, () => {
+    const server = context.codexAppServer
+    if (!server) throw new Error("Codex app-server is unavailable")
+    return server.interactions.list()
+  })
   registerIpcRoute(automationTaskCreateContract, (input) => context.automation.createTask(input))
   registerIpcRoute(automationTaskListContract, ({ status }) => context.automation.listTasks(status))
   registerIpcRoute(automationTaskGetContract, ({ taskId }) => context.automation.getTask(taskId))
@@ -772,6 +795,12 @@ const registerIpcHandlers = (
     }
     return savedSettings
   })
+  registerIpcRoute(settingsWorkspaceLayoutReadContract, () =>
+    readWorkspaceLayoutSettings(context.paths.configDir)
+  )
+  registerIpcRoute(settingsWorkspaceLayoutWriteContract, (settings) =>
+    writeWorkspaceLayoutSettings(context.paths.configDir, settings)
+  )
   registerIpcRoute(settingsConnectionProxyReadContract, () => context.connectionProxySettings)
   registerIpcRoute(settingsConnectionProxyTestContract, async (settings) => {
     const testSession = session.fromPartition(`proxy-test-${randomUUID()}`, { cache: false })
@@ -942,10 +971,9 @@ const createMainWindow = async (context: DesktopRuntimeContext): Promise<Browser
         : {}),
     title: "Cypheria",
     webPreferences: {
+      // Keep Chromium's 16px rem baseline; renderer typography is controlled by CSS tokens.
       additionalArguments: [appearanceArgument, languageArgument],
       contextIsolation: true,
-      defaultFontSize: appearance.uiFontSize,
-      defaultMonospaceFontSize: appearance.codeFontSize,
       nodeIntegration: false,
       preload: preloadPath,
       sandbox: true,
@@ -1094,7 +1122,7 @@ const startDesktopApp = async (): Promise<void> => {
   if (process.platform === "darwin") {
     app.dock?.setIcon(applicationIconPath)
   }
-  registerRendererProtocol()
+  registerRendererProtocol(runtimePaths.codexHome)
   const proxySettings = await readConnectionProxySettings(runtimePaths.configDir)
   await applyConnectionProxyToSession(session.defaultSession, proxySettings)
   desktopRuntimeContext = await initializeDesktopRuntime({

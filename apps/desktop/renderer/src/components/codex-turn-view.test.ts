@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest"
 import type { CodexUiMessage } from "../../../ipc/src/index.js"
 import {
   deriveCodexTurnView,
+  formatCodexAsyncQuestionReply,
   groupCodexActivity,
   isCodexTurnItemActive,
 } from "./codex-turn-view.js"
@@ -102,6 +103,100 @@ describe("Codex turn view", () => {
         reasoning: { item: { id: "reasoning" } },
       },
     ])
+  })
+
+  it("projects asynchronous questions as commentary and formats the structured steer reply", () => {
+    const asyncQuestion = snapshot(
+      {
+        delivery: "async",
+        id: "async-question",
+        memoryCitation: null,
+        phase: "final_answer",
+        questions: [{ options: ["Alpha", "Beta"], title: "Choose a branch" }],
+        text: "Choose a branch\n- Alpha\n- Beta",
+        type: "agentMessage",
+      },
+      0
+    )
+    const message: CodexUiMessage = {
+      id: "turn-1",
+      parts: [
+        { data: turn, id: "turn-1", type: "data-codex-turn" },
+        { data: asyncQuestion, id: asyncQuestion.item.id, type: "data-codex-item" },
+      ],
+      role: "assistant",
+    }
+
+    const view = deriveCodexTurnView(message)
+    const question = view?.asyncQuestions[0]
+    expect(view?.finalAnswer).toBeNull()
+    expect(view?.activity).toMatchObject([{ id: "async-question", kind: "commentary" }])
+    expect(question).toEqual({
+      id: JSON.stringify(["request_user_input_async", "async-question", 0]),
+      options: ["Alpha", "Beta"],
+      questionIndex: 0,
+      sourceItemId: "async-question",
+      title: "Choose a branch",
+    })
+    expect(
+      question ? formatCodexAsyncQuestionReply([{ answer: "Alpha", question }]) : "missing question"
+    ).toBe(
+      `<send_user_message_question_reply>\n${JSON.stringify([
+        {
+          answer: "Alpha",
+          question: "Choose a branch",
+          questionItemId: JSON.stringify(["request_user_input_async", "async-question", 0]),
+        },
+      ])}\n</send_user_message_question_reply>`
+    )
+  })
+
+  it("counts changed files within the current turn only", () => {
+    const firstChange = snapshot(
+      {
+        changes: [
+          {
+            diff: "+first",
+            kind: { move_path: null, type: "update" },
+            path: "src/a.ts",
+          },
+          { diff: "+second", kind: { type: "add" }, path: "src/b.ts" },
+        ],
+        id: "change-one",
+        status: "completed",
+        type: "fileChange",
+      },
+      0
+    )
+    const repeatedPath = snapshot(
+      {
+        changes: [
+          {
+            diff: "+latest",
+            kind: { move_path: null, type: "update" },
+            path: "src/a.ts",
+          },
+        ],
+        id: "change-two",
+        status: "completed",
+        type: "fileChange",
+      },
+      1
+    )
+    const message: CodexUiMessage = {
+      id: "turn-1",
+      parts: [
+        { data: turn, id: "turn-1", type: "data-codex-turn" },
+        ...[firstChange, repeatedPath].map((item) => ({
+          data: item,
+          id: item.item.id,
+          type: "data-codex-item" as const,
+        })),
+      ],
+      role: "assistant",
+    }
+
+    expect(deriveCodexTurnView(message)?.changedFileCount).toBe(2)
   })
 
   it("keeps consecutive tool activity in one group", () => {

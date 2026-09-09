@@ -19,6 +19,8 @@ import type {
   CodexPermissionsCatalog,
   LanguagePreference,
   LanguageSettings,
+  WorkspaceLayoutSettings,
+  WorkspaceLayoutSettingsWrite,
 } from "../../../ipc/src/index.js"
 import { LanguageSelector } from "../components/language-selector.js"
 import { SettingsFrame } from "../components/settings-frame"
@@ -41,6 +43,11 @@ const fallbackPermissionsCatalog: CodexPermissionsCatalog = {
   showFullAccess: false,
   source: "server-default",
 }
+const fallbackWorkspaceLayoutSettings: WorkspaceLayoutSettings = {
+  configPath: "Browser preview",
+  defaultTerminalLocation: "bottom",
+  showBottomPanelControl: true,
+}
 
 function GeneralSettingsRoute() {
   const { i18n } = useLingui()
@@ -54,6 +61,12 @@ function GeneralSettingsRoute() {
   const permissionsQuery = useQuery({
     queryFn: () => window.cypheria?.codex.getPermissionsCatalog() ?? fallbackPermissionsCatalog,
     queryKey: ["codex", "permissions", null],
+  })
+  const workspaceLayoutQuery = useQuery({
+    queryFn: () =>
+      window.cypheria?.settings.getWorkspaceLayout() ?? fallbackWorkspaceLayoutSettings,
+    queryKey: ["settings", "workspace-layout"],
+    staleTime: Number.POSITIVE_INFINITY,
   })
   const languageMutation = useMutation({
     mutationFn: (preference: LanguagePreference) =>
@@ -78,12 +91,30 @@ function GeneralSettingsRoute() {
       setConfirmFullAccess(false)
     },
   })
+  const workspaceLayoutMutation = useMutation({
+    mutationFn: (settings: WorkspaceLayoutSettingsWrite) =>
+      window.cypheria?.settings.setWorkspaceLayout(settings) ??
+      Promise.resolve<WorkspaceLayoutSettings>({
+        ...settings,
+        configPath: fallbackWorkspaceLayoutSettings.configPath,
+      }),
+    onSuccess: (settings) => {
+      queryClient.setQueryData(["settings", "workspace-layout"], settings)
+    },
+  })
+  const workspaceLayout = workspaceLayoutQuery.data ?? fallbackWorkspaceLayoutSettings
+  const updateWorkspaceLayout = (update: Partial<WorkspaceLayoutSettingsWrite>) =>
+    workspaceLayoutMutation.mutate({
+      defaultTerminalLocation: workspaceLayout.defaultTerminalLocation,
+      showBottomPanelControl: workspaceLayout.showBottomPanelControl,
+      ...update,
+    })
 
   return (
-    <SettingsFrame wide>
+    <SettingsFrame>
       <div className="grid w-full content-start gap-10 pb-10 text-foreground">
         <header>
-          <h1 className="text-[28px] font-semibold leading-9">
+          <h1 className="text-2xl font-semibold leading-8">
             <Trans id="settings.general.title">General</Trans>
           </h1>
         </header>
@@ -157,11 +188,86 @@ function GeneralSettingsRoute() {
                 value={languageQuery.data?.preference ?? "system"}
               />
             </SettingRow>
+            <SettingRow
+              description={
+                <Trans id="settings.workspace.bottomPanelControl.description">
+                  Show a quick terminal panel control in the chat title bar
+                </Trans>
+              }
+              title={
+                <Trans id="settings.workspace.bottomPanelControl.title">Bottom panel control</Trans>
+              }
+            >
+              <Switch
+                aria-label={i18n._(
+                  msg({
+                    id: "settings.workspace.bottomPanelControl.toggle",
+                    message: "Show bottom panel control in the app title bar",
+                  })
+                )}
+                checked={workspaceLayout.showBottomPanelControl}
+                disabled={workspaceLayoutMutation.isPending}
+                onCheckedChange={(showBottomPanelControl) =>
+                  updateWorkspaceLayout({ showBottomPanelControl })
+                }
+              />
+            </SettingRow>
+            <SettingRow
+              description={
+                <Trans id="settings.workspace.terminalLocation.description">
+                  Choose where the terminal opens when using the panel control or shortcut
+                </Trans>
+              }
+              title={
+                <Trans id="settings.workspace.terminalLocation.title">
+                  Default terminal location
+                </Trans>
+              }
+            >
+              <fieldset
+                aria-label={i18n._(
+                  msg({
+                    id: "settings.workspace.terminalLocation.label",
+                    message: "Default terminal location",
+                  })
+                )}
+                className="inline-flex rounded-lg border-0 bg-muted p-0.5"
+              >
+                {(["bottom", "right"] as const).map((location) => {
+                  const selected = workspaceLayout.defaultTerminalLocation === location
+                  return (
+                    <Button
+                      aria-pressed={selected}
+                      className="h-7 rounded-md px-3 text-xs data-[selected=true]:bg-background data-[selected=true]:text-foreground data-[selected=true]:shadow-sm"
+                      data-selected={selected}
+                      disabled={workspaceLayoutMutation.isPending}
+                      key={location}
+                      onClick={() => updateWorkspaceLayout({ defaultTerminalLocation: location })}
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      {location === "bottom" ? (
+                        <Trans id="settings.workspace.terminalLocation.bottom">Bottom</Trans>
+                      ) : (
+                        <Trans id="settings.workspace.terminalLocation.right">Right</Trans>
+                      )}
+                    </Button>
+                  )
+                })}
+              </fieldset>
+            </SettingRow>
           </div>
         </section>
-        {languageMutation.isError || fullAccessMutation.isError ? (
+        {languageMutation.isError ||
+        fullAccessMutation.isError ||
+        workspaceLayoutMutation.isError ? (
           <p className="text-[13px] text-destructive">
-            {String(languageMutation.error?.message ?? fullAccessMutation.error?.message)}
+            {String(
+              languageMutation.error?.message ??
+                fullAccessMutation.error?.message ??
+                workspaceLayoutMutation.error?.message
+            )}
           </p>
         ) : null}
       </div>

@@ -26,13 +26,7 @@ const TerminalContext = createContext<TerminalContextType>({
 export type TerminalHeaderProps = HTMLAttributes<HTMLDivElement>
 
 export const TerminalHeader = ({ className, children, ...props }: TerminalHeaderProps) => (
-  <div
-    className={cn(
-      "flex items-center justify-between border-zinc-800 border-b px-4 py-2",
-      className
-    )}
-    {...props}
-  >
+  <div className={cn("flex items-center justify-between border-b px-4 py-2", className)} {...props}>
     {children}
   </div>
 )
@@ -40,7 +34,10 @@ export const TerminalHeader = ({ className, children, ...props }: TerminalHeader
 export type TerminalTitleProps = HTMLAttributes<HTMLDivElement>
 
 export const TerminalTitle = ({ className, children, ...props }: TerminalTitleProps) => (
-  <div className={cn("flex items-center gap-2 text-sm text-zinc-400", className)} {...props}>
+  <div
+    className={cn("flex items-center gap-2 text-sm text-muted-foreground", className)}
+    {...props}
+  >
     <TerminalIcon className="size-4" />
     {children ?? "Terminal"}
   </div>
@@ -56,7 +53,10 @@ export const TerminalStatus = ({ className, children, ...props }: TerminalStatus
   }
 
   return (
-    <div className={cn("flex items-center gap-2 text-xs text-zinc-400", className)} {...props}>
+    <div
+      className={cn("flex items-center gap-2 text-xs text-muted-foreground", className)}
+      {...props}
+    >
       {children}
     </div>
   )
@@ -116,7 +116,7 @@ export const TerminalCopyButton = ({
   return (
     <Button
       className={cn(
-        "size-7 shrink-0 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100",
+        "size-7 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground",
         className
       )}
       onClick={copyToClipboard}
@@ -145,7 +145,7 @@ export const TerminalClearButton = ({
   return (
     <Button
       className={cn(
-        "size-7 shrink-0 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100",
+        "size-7 shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground",
         className
       )}
       onClick={onClear}
@@ -181,7 +181,7 @@ export const TerminalContent = ({ className, children, ...props }: TerminalConte
         <pre className="whitespace-pre-wrap break-words">
           <AnsiComponent>{output}</AnsiComponent>
           {isStreaming && (
-            <span className="ml-0.5 inline-block h-4 w-2 animate-pulse bg-zinc-100" />
+            <span className="ml-0.5 inline-block h-4 w-2 animate-pulse bg-foreground" />
           )}
         </pre>
       )}
@@ -214,7 +214,7 @@ export const Terminal = ({
     <TerminalContext.Provider value={contextValue}>
       <div
         className={cn(
-          "flex flex-col overflow-hidden rounded-lg border bg-zinc-950 text-zinc-100",
+          "flex flex-col overflow-hidden rounded-lg border bg-background text-foreground",
           className
         )}
         {...props}

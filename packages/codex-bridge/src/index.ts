@@ -30,6 +30,7 @@ export {
 } from "./dynamic-tools.js"
 export type * from "./generated/index.js"
 export { type CodexGeneratedImageData, codexGeneratedImageData } from "./image-generation.js"
+export { inlineTextFromBytes, inlineTextFromDataUrl } from "./inline-file.js"
 export {
   type CodexTerminalInteraction,
   type CodexTurnDiffSnapshot,

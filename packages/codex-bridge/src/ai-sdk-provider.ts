@@ -27,6 +27,7 @@ import type {
   ServerNotification,
   v2,
 } from "./index.js"
+import { inlineTextFromBytes } from "./inline-file.js"
 import {
   type CodexTurnItemSnapshot,
   CodexTurnProjector,
@@ -261,6 +262,10 @@ const isAudioMediaType = (mediaType: string | undefined): boolean =>
   typeof mediaType === "string" &&
   (mediaType.toLowerCase() === "audio" || mediaType.toLowerCase().startsWith("audio/"))
 
+const isTextMediaType = (mediaType: string | undefined): boolean =>
+  typeof mediaType === "string" &&
+  (mediaType.toLowerCase() === "text" || mediaType.toLowerCase().startsWith("text/"))
+
 const fileUrlToPath = (url: URL): string => {
   const path = decodeURIComponent(url.pathname)
   return url.hostname ? `//${url.hostname}${path}` : path
@@ -363,14 +368,43 @@ const toAudioInput = (
   return { type: "audio", url: `data:${mediaType};base64,${base64}` }
 }
 
+const toTextInput = (
+  part: LanguageModelV4FilePart,
+  warnings: SharedV4Warning[]
+): v2.UserInput | undefined => {
+  const data = part.data
+  if (data.type === "text") {
+    return { text: data.text, text_elements: [], type: "text" }
+  }
+  if (data.type !== "data") {
+    warnings.push({
+      details: "Codex pasted-text inputs require inline text bytes.",
+      feature: `file.data.${data.type}`,
+      type: "unsupported",
+    })
+    return undefined
+  }
+  try {
+    return { text: inlineTextFromBytes(data.data), text_elements: [], type: "text" }
+  } catch {
+    warnings.push({
+      details: "Codex could not decode the pasted-text attachment as UTF-8.",
+      feature: "file.data.data",
+      type: "unsupported",
+    })
+    return undefined
+  }
+}
+
 const toUserInput = (
   part: LanguageModelV4FilePart,
   warnings: SharedV4Warning[]
 ): v2.UserInput | undefined => {
+  if (isTextMediaType(part.mediaType)) return toTextInput(part, warnings)
   if (isImageMediaType(part.mediaType)) return toImageInput(part, warnings)
   if (isAudioMediaType(part.mediaType)) return toAudioInput(part, warnings)
   warnings.push({
-    message: `Unsupported file mediaType "${part.mediaType}"; image/* and supported audio/* are accepted.`,
+    message: `Unsupported file mediaType "${part.mediaType}"; text/*, image/*, and supported audio/* are accepted.`,
     type: "other",
   })
   return undefined
@@ -467,8 +501,9 @@ const transcriptFromMessages = (
       for (const part of message.content) {
         if (part.type === "text") {
           textParts.push(part.text)
-        } else if (part.type === "file" && part.data.type === "text") {
-          textParts.push(part.data.text)
+        } else if (part.type === "file" && isTextMediaType(part.mediaType)) {
+          const textInput = toTextInput(part, warnings)
+          if (textInput?.type === "text") textParts.push(textInput.text)
         } else if (
           part.type === "file" &&
           (isImageMediaType(part.mediaType) || isAudioMediaType(part.mediaType))
@@ -476,7 +511,7 @@ const transcriptFromMessages = (
           messageImages.push(part)
         } else if (part.type === "file") {
           warnings.push({
-            message: `Unsupported file mediaType "${part.mediaType}"; only image/* is supported.`,
+            message: `Unsupported file mediaType "${part.mediaType}"; text/*, image/*, and supported audio/* are accepted.`,
             type: "other",
           })
         }
@@ -1094,16 +1129,26 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
         }
         const textIds = new Set<string>()
         const reasoningIds = new Set<string>()
+        const endedReasoningIds = new Set<string>()
         const toolIds = new Map<string, { dynamic: boolean; toolName: string }>()
         const progressById = new Map<string, string>()
         let latestTokenUsage: v2.ThreadTokenUsage | undefined
         const sameTurn = (params: { readonly threadId: string; readonly turnId: string }) =>
           params.threadId === threadId && params.turnId === turnId
+        let closed = false
         let unsubscribeNotification: () => void = () => undefined
         let unsubscribeError: () => void = () => undefined
+        let unsubscribeAbort: () => void = () => undefined
         const cleanup = () => {
           unsubscribeNotification()
           unsubscribeError()
+          unsubscribeAbort()
+        }
+        const close = () => {
+          if (closed) return
+          closed = true
+          cleanup()
+          controller.close()
         }
         unsubscribeNotification = settings.bridge.on("notification", (notification) => {
           emitRaw(notification)
@@ -1134,6 +1179,7 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
               if (!sameTurn(params)) {
                 return
               }
+              if (endedReasoningIds.has(params.itemId)) return
               if (!reasoningIds.has(params.itemId)) {
                 reasoningIds.add(params.itemId)
                 controller.enqueue({
@@ -1246,17 +1292,19 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
                 return
               }
               if (params.item.type === "reasoning") {
+                if (endedReasoningIds.has(params.item.id)) return
                 if (!reasoningIds.has(params.item.id)) {
                   const text = [...params.item.summary, ...params.item.content].join("\n")
-                  if (text) {
-                    controller.enqueue({
-                      id: params.item.id,
-                      providerMetadata: itemMetadata(turnProjector.item(params.item.id)),
-                      type: "reasoning-start",
-                    })
-                    controller.enqueue({ delta: text, id: params.item.id, type: "reasoning-delta" })
-                  }
+                  if (!text) return
+                  reasoningIds.add(params.item.id)
+                  controller.enqueue({
+                    id: params.item.id,
+                    providerMetadata: itemMetadata(turnProjector.item(params.item.id)),
+                    type: "reasoning-start",
+                  })
+                  controller.enqueue({ delta: text, id: params.item.id, type: "reasoning-delta" })
                 }
+                endedReasoningIds.add(params.item.id)
                 controller.enqueue({
                   id: params.item.id,
                   providerMetadata: itemMetadata(turnProjector.item(params.item.id)),
@@ -1318,11 +1366,10 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
                 type: "finish",
                 usage: usageFromTokenBreakdown(latestTokenUsage?.last),
               })
-              cleanup()
               if (threadMode === "stateless") {
                 this.#session = null
               }
-              controller.close()
+              close()
               break
             }
           }
@@ -1331,8 +1378,7 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
           settings.bridge.onError?.((error) => {
             session._setInactive()
             controller.enqueue({ error, type: "error" })
-            cleanup()
-            controller.close()
+            close()
           }) ?? (() => undefined)
 
         controller.enqueue({ type: "stream-start", warnings })
@@ -1345,12 +1391,14 @@ class CodexAppServerLanguageModel implements LanguageModelV4 {
 
         const abort = () => {
           void session.interrupt().finally(() => {
-            cleanup()
-            controller.close()
+            close()
           })
         }
         if (options.abortSignal?.aborted) abort()
-        else options.abortSignal?.addEventListener("abort", abort, { once: true })
+        else if (options.abortSignal) {
+          options.abortSignal.addEventListener("abort", abort, { once: true })
+          unsubscribeAbort = () => options.abortSignal?.removeEventListener("abort", abort)
+        }
       },
     })
 

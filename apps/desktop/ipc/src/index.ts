@@ -27,6 +27,7 @@ import {
   CodexChatStartSchema,
   CodexChatSteerSchema,
   type CodexInteractionEvent,
+  CodexInteractionEventSchema,
   type CodexInteractionResponse,
   CodexInteractionResponseSchema,
   CodexLoginCancelSchema,
@@ -221,6 +222,7 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexChatSteer: "codex.chat.steer",
   codexChatStart: "codex.chat.start",
   codexInteractionEvent: "codex.interaction.event",
+  codexInteractionList: "codex.interaction.list",
   codexInteractionRespond: "codex.interaction.respond",
   codexEvent: "codex.event",
   codexModelList: "codex.model.list",
@@ -308,6 +310,8 @@ export const CYPHERIA_IPC_CHANNELS = {
   settingsLanguageChanged: "settings.language.changed",
   settingsLanguageRead: "settings.language.read",
   settingsLanguageWrite: "settings.language.write",
+  settingsWorkspaceLayoutRead: "settings.workspace-layout.read",
+  settingsWorkspaceLayoutWrite: "settings.workspace-layout.write",
   settingsConnectionProxyRead: "settings.connection-proxy.read",
   settingsConnectionProxyTest: "settings.connection-proxy.test",
   settingsConnectionProxyWrite: "settings.connection-proxy.write",
@@ -567,6 +571,18 @@ export type LanguageSettings = z.infer<typeof LanguageSettingsSchema>
 export const LanguageBootstrapSchema = LanguageSettingsSchema.omit({ configPath: true })
 export type LanguageBootstrap = z.infer<typeof LanguageBootstrapSchema>
 export const CYPHERIA_LANGUAGE_ARGUMENT_PREFIX = "--cypheria-language="
+
+export const WorkspaceLayoutSettingsWriteSchema = z
+  .object({
+    defaultTerminalLocation: z.enum(["bottom", "right"]),
+    showBottomPanelControl: z.boolean(),
+  })
+  .strict()
+export type WorkspaceLayoutSettingsWrite = z.infer<typeof WorkspaceLayoutSettingsWriteSchema>
+export const WorkspaceLayoutSettingsSchema = WorkspaceLayoutSettingsWriteSchema.extend({
+  configPath: z.string().min(1),
+}).strict()
+export type WorkspaceLayoutSettings = z.infer<typeof WorkspaceLayoutSettingsSchema>
 
 export const AppearanceFontFaceSchema = z
   .object({
@@ -1228,6 +1244,22 @@ export const settingsLanguageWriteContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<LanguageSettingsWrite, LanguageSettings>
 
+export const settingsWorkspaceLayoutReadContract = {
+  channel: CYPHERIA_IPC_CHANNELS.settingsWorkspaceLayoutRead,
+  namespace: "settings",
+  request: EmptyPayloadSchema,
+  response: WorkspaceLayoutSettingsSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, WorkspaceLayoutSettings>
+
+export const settingsWorkspaceLayoutWriteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.settingsWorkspaceLayoutWrite,
+  namespace: "settings",
+  request: WorkspaceLayoutSettingsWriteSchema,
+  response: WorkspaceLayoutSettingsSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<WorkspaceLayoutSettingsWrite, WorkspaceLayoutSettings>
+
 export const settingsConnectionProxyReadContract = {
   channel: CYPHERIA_IPC_CHANNELS.settingsConnectionProxyRead,
   namespace: "settings",
@@ -1696,6 +1728,14 @@ export const codexInteractionRespondContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<CodexInteractionResponse, { resolved: true }>
 
+export const codexInteractionListContract = {
+  channel: CYPHERIA_IPC_CHANNELS.codexInteractionList,
+  namespace: "codex",
+  request: EmptyPayloadSchema,
+  response: z.array(CodexInteractionEventSchema),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, CodexInteractionEvent[]>
+
 export const codexPluginListContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexPluginList,
   namespace: "codex",
@@ -1939,6 +1979,8 @@ export const ipcContracts = {
   settingsAppearanceWrite: settingsAppearanceWriteContract,
   settingsLanguageRead: settingsLanguageReadContract,
   settingsLanguageWrite: settingsLanguageWriteContract,
+  settingsWorkspaceLayoutRead: settingsWorkspaceLayoutReadContract,
+  settingsWorkspaceLayoutWrite: settingsWorkspaceLayoutWriteContract,
   settingsConnectionProxyRead: settingsConnectionProxyReadContract,
   settingsConnectionProxyTest: settingsConnectionProxyTestContract,
   settingsConnectionProxyWrite: settingsConnectionProxyWriteContract,
@@ -2082,6 +2124,7 @@ export type CypheriaPreloadApi = {
     readonly onChatEvent: (handler: (event: CodexChatEvent) => void) => () => void
     readonly onInteraction: (handler: (event: CodexInteractionEvent) => void) => () => void
     readonly onEvent: (handler: (event: CodexEventEnvelope) => void) => () => void
+    readonly listInteractions: () => Promise<CodexInteractionEvent[]>
     readonly setModelSettings: (settings: CodexModelSettings) => Promise<CodexModelSettings>
     readonly setPermissionDefaults: (
       settings: CodexPermissionDefaultsWrite
@@ -2200,6 +2243,7 @@ export type CypheriaPreloadApi = {
     readonly getAppearance: () => Promise<AppearanceSettings>
     readonly getConnectionProxy: () => Promise<ConnectionProxySettings>
     readonly getLanguage: () => Promise<LanguageSettings>
+    readonly getWorkspaceLayout: () => Promise<WorkspaceLayoutSettings>
     readonly listAppearanceFonts: () => Promise<AppearanceFontOption[]>
     readonly onLanguageChanged: (handler: (settings: LanguageSettings) => void) => () => void
     readonly setAppearance: (settings: AppearanceSettingsWrite) => Promise<AppearanceSettings>
@@ -2207,6 +2251,9 @@ export type CypheriaPreloadApi = {
       settings: ConnectionProxySettings
     ) => Promise<ConnectionProxySettings>
     readonly setLanguage: (settings: LanguageSettingsWrite) => Promise<LanguageSettings>
+    readonly setWorkspaceLayout: (
+      settings: WorkspaceLayoutSettingsWrite
+    ) => Promise<WorkspaceLayoutSettings>
     readonly testConnectionProxy: (
       settings: ConnectionProxySettings
     ) => Promise<ConnectionProxyTestResult>

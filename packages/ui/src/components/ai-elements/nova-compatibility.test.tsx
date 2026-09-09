@@ -2,7 +2,7 @@
 
 import "@testing-library/jest-dom/vitest"
 
-import { cleanup, render, screen, waitFor } from "@testing-library/react"
+import { cleanup, createEvent, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { userEvent } from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { Button } from "#components/button"
@@ -21,11 +21,13 @@ import { MessageAction } from "./message.js"
 import {
   PromptInput,
   PromptInputButton,
+  PromptInputProvider,
   PromptInputSelect,
   PromptInputSelectTrigger,
   PromptInputSelectValue,
   PromptInputSubmit,
   PromptInputTextarea,
+  usePromptInputController,
 } from "./prompt-input.js"
 import {
   Sandbox,
@@ -37,7 +39,41 @@ import {
   SandboxTabsTrigger,
 } from "./sandbox.js"
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.restoreAllMocks()
+})
+
+const ProviderAttachmentNames = () => {
+  const { attachments } = usePromptInputController()
+  return <output aria-label="Retained attachments">{attachments.files.map(StringFileName)}</output>
+}
+
+const ProviderAttachmentDetails = () => {
+  const { attachments } = usePromptInputController()
+  const attachment = attachments.files[0]
+  return (
+    <output aria-label="Retained attachment details">
+      {attachment
+        ? JSON.stringify({
+            filename: attachment.filename,
+            pastedText: attachment.pastedText,
+          })
+        : "empty"}
+    </output>
+  )
+}
+
+const InsertAtSelection = ({ value }: { value: string }) => {
+  const { textInput } = usePromptInputController()
+  return (
+    <button onClick={() => textInput.insertAtSelection(value)} type="button">
+      Restore pasted text
+    </button>
+  )
+}
+
+const StringFileName = (file: { filename?: string }) => file.filename ?? "Attachment"
 
 describe("AI Elements with base-nova primitives", () => {
   it.each([
@@ -159,6 +195,156 @@ describe("AI Elements with base-nova primitives", () => {
     await user.click(screen.getByRole("button", { name: "Stop" }))
     expect(onStop).toHaveBeenCalledTimes(1)
     expect(onSubmit).toHaveBeenCalledTimes(1)
+  })
+
+  it("reports provider text changes and clears the retained draft after submission", async () => {
+    const user = userEvent.setup()
+    const onInputChange = vi.fn()
+    render(
+      <PromptInputProvider initialInput="Saved draft" onInputChange={onInputChange}>
+        <PromptInput onSubmit={() => undefined}>
+          <PromptInputTextarea aria-label="Retained prompt" />
+          <PromptInputSubmit />
+        </PromptInput>
+      </PromptInputProvider>
+    )
+
+    const textarea = screen.getByRole("textbox", { name: "Retained prompt" })
+    expect(textarea).toHaveValue("Saved draft")
+    await user.type(textarea, " updated")
+    expect(onInputChange).toHaveBeenLastCalledWith("Saved draft updated")
+
+    await user.click(screen.getByRole("button", { name: "Submit" }))
+    expect(onInputChange).toHaveBeenLastCalledWith("")
+    expect(textarea).toHaveValue("")
+  })
+
+  it("restores externally retained provider attachments without owning their unmount cleanup", () => {
+    const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined)
+    const attachment = {
+      filename: "reference.png",
+      id: "attachment-1",
+      mediaType: "image/png",
+      type: "file" as const,
+      url: "blob:retained-attachment",
+    }
+    const { unmount } = render(
+      <PromptInputProvider initialAttachments={[attachment]} retainAttachmentsOnUnmount>
+        <ProviderAttachmentNames />
+      </PromptInputProvider>
+    )
+
+    expect(screen.getByRole("status", { name: "Retained attachments" })).toHaveTextContent(
+      "reference.png"
+    )
+    unmount()
+    expect(revokeObjectURL).not.toHaveBeenCalled()
+  })
+
+  it("turns a 5000-character paste into a restorable pasted-text attachment", () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:pasted-text")
+    render(
+      <PromptInputProvider>
+        <PromptInput maxFileSize={25 * 1024 * 1024} maxFiles={20} onSubmit={() => undefined}>
+          <PromptInputTextarea aria-label="Prompt" />
+        </PromptInput>
+        <ProviderAttachmentDetails />
+      </PromptInputProvider>
+    )
+
+    const text = `Preview line\n${"x".repeat(5000 - 13)}`
+    const event = createEvent.paste(screen.getByRole("textbox", { name: "Prompt" }), {
+      clipboardData: {
+        getData: (type: string) => (type === "text/plain" ? text : ""),
+        items: [],
+      },
+    })
+    fireEvent(screen.getByRole("textbox", { name: "Prompt" }), event)
+
+    expect(event.defaultPrevented).toBe(true)
+    expect(screen.getByRole("status", { name: "Retained attachment details" })).toHaveTextContent(
+      '"filename":"Pasted text.txt"'
+    )
+    expect(screen.getByRole("status", { name: "Retained attachment details" })).toHaveTextContent(
+      '"characterCount":5000'
+    )
+    expect(screen.getByRole("status", { name: "Retained attachment details" })).toHaveTextContent(
+      '"preview":"Preview line"'
+    )
+  })
+
+  it("keeps short text and image-plus-independent-text in the native paste path", () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:clipboard-image")
+    render(
+      <PromptInputProvider>
+        <PromptInput accept="image/*" onSubmit={() => undefined}>
+          <PromptInputTextarea aria-label="Prompt" />
+        </PromptInput>
+        <ProviderAttachmentNames />
+      </PromptInputProvider>
+    )
+    const textarea = screen.getByRole("textbox", { name: "Prompt" }) as HTMLTextAreaElement
+    const shortText = createEvent.paste(textarea, {
+      clipboardData: {
+        getData: (type: string) => (type === "text/plain" ? "short text" : ""),
+        items: [],
+      },
+    })
+    fireEvent(textarea, shortText)
+    expect(shortText.defaultPrevented).toBe(false)
+
+    const image = new File([new Uint8Array([1])], "capture.png", { type: "image/png" })
+    const mixed = createEvent.paste(textarea, {
+      clipboardData: {
+        getData: (type: string) =>
+          type === "text/plain" ? "capture.png\nPlease inspect this image" : "",
+        items: [{ getAsFile: () => image, kind: "file" }],
+      },
+    })
+    fireEvent(textarea, mixed)
+    expect(mixed.defaultPrevented).toBe(false)
+    expect(screen.getByRole("status", { name: "Retained attachments" })).toHaveTextContent("")
+  })
+
+  it("consumes an image-only clipboard payload as an attachment", () => {
+    vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:clipboard-image")
+    render(
+      <PromptInputProvider>
+        <PromptInput accept="image/*" onSubmit={() => undefined}>
+          <PromptInputTextarea aria-label="Prompt" />
+        </PromptInput>
+        <ProviderAttachmentNames />
+      </PromptInputProvider>
+    )
+    const image = new File([new Uint8Array([1])], "capture.png", { type: "image/png" })
+    const event = createEvent.paste(screen.getByRole("textbox", { name: "Prompt" }), {
+      clipboardData: {
+        getData: (type: string) => (type === "text/plain" ? "capture.png" : ""),
+        items: [{ getAsFile: () => image, kind: "file" }],
+      },
+    })
+    fireEvent(screen.getByRole("textbox", { name: "Prompt" }), event)
+    expect(event.defaultPrevented).toBe(true)
+    expect(screen.getByRole("status", { name: "Retained attachments" })).toHaveTextContent(
+      "capture.png"
+    )
+  })
+
+  it("restores pasted text at the active textarea selection", async () => {
+    const user = userEvent.setup()
+    render(
+      <PromptInputProvider initialInput="alpha omega">
+        <PromptInput onSubmit={() => undefined}>
+          <PromptInputTextarea aria-label="Prompt" />
+        </PromptInput>
+        <InsertAtSelection value="beta " />
+      </PromptInputProvider>
+    )
+    const textarea = screen.getByRole("textbox", { name: "Prompt" }) as HTMLTextAreaElement
+    textarea.focus()
+    textarea.setSelectionRange(6, 6)
+    await user.click(screen.getByRole("button", { name: "Restore pasted text" }))
+    expect(textarea).toHaveValue("alpha beta omega")
   })
 
   it("uses Base UI open and active attributes for sandbox styling", async () => {

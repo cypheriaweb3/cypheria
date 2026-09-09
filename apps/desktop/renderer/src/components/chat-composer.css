@@ -28,11 +28,6 @@
   opacity: 1;
 }
 
-.dark .cypheria-composer [data-slot="input-group"] {
-  background: color-mix(in oklab, var(--card) 90%, var(--foreground) 10%);
-  box-shadow: inset 0 0 1px color-mix(in srgb, white 20%, transparent);
-}
-
 .cypheria-composer textarea[data-slot="input-group-control"] {
   min-height: 52px;
   max-height: 25dvh;
@@ -119,8 +114,6 @@
   height: 28px;
   padding: 0;
   border-radius: 9999px;
-  background: var(--foreground);
-  color: var(--background);
   box-shadow: none;
   transition:
     color 150ms ease,
@@ -128,24 +121,12 @@
     transform 150ms ease;
 }
 
-.cypheria-composer .cypheria-composer-submit-button:hover {
-  background: color-mix(in oklab, var(--foreground) 84%, var(--background) 16%);
-}
-
 .cypheria-composer .cypheria-composer-submit-button:active {
   transform: scale(0.94);
 }
 
 .cypheria-composer .cypheria-composer-submit-button:disabled {
-  background: var(--muted);
-  color: var(--muted-foreground);
   opacity: 0.55;
-}
-
-.cypheria-composer .cypheria-composer-submit-button.is-generating {
-  background: oklch(0.62 0.22 295);
-  color: white;
-  opacity: 1;
 }
 
 @container cypheria-composer (width < 620px) {

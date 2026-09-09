@@ -22,8 +22,19 @@ export type SidebarCustomSection = {
 export type ChatSidebarRow =
   | { key: string; kind: "navigation"; navigationId: string }
   | { key: string; kind: "section"; section: SidebarSectionId }
-  | { key: string; kind: "customSection"; sectionId: string; sectionName: string }
-  | { key: string; kind: "project"; project: CodexProjectView }
+  | {
+      archiveEnabled: boolean
+      key: string
+      kind: "customSection"
+      sectionId: string
+      sectionName: string
+    }
+  | {
+      key: string
+      kind: "project"
+      project: CodexProjectView
+      threads: readonly CodexThreadView[]
+    }
   | {
       key: string
       kind: "thread"
@@ -129,6 +140,7 @@ export function buildChatSidebarRows({
       key: `${keyPrefix}:project:${project.projectId}`,
       kind: "project",
       project: project.project,
+      threads: project.threads,
     })
     if (!expandedProjects.has(project.projectId)) return
     const chatLimit = projectChatLimits[project.projectId] ?? SIDEBAR_BATCH_SIZE
@@ -172,6 +184,8 @@ export function buildChatSidebarRows({
 
   for (const section of customSections) {
     rows.push({
+      archiveEnabled:
+        section.threads.length > 0 || section.projects.some(({ threads }) => threads.length > 0),
       key: `custom-section:${section.id}`,
       kind: "customSection",
       sectionId: section.id,

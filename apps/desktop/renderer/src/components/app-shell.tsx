@@ -52,6 +52,7 @@ import { NewChatLink } from "./chat-navigation"
 import { ChatSearch } from "./chat-search"
 import { ChatSidebar } from "./chat-sidebar"
 import {
+  DESKTOP_SIDEBAR_DEFAULT_WIDTH,
   DesktopCollapsedToolbar,
   DesktopSidebar as Sidebar,
   DesktopSidebarProvider as SidebarProvider,
@@ -204,7 +205,12 @@ function AppearanceController() {
 
 function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const { i18n: activeI18n } = useLingui()
-  const { pathname } = useLocation()
+  const location = useLocation()
+  const { pathname } = location
+  const activeThreadId =
+    pathname === "/" && typeof location.search.thread === "string"
+      ? location.search.thread
+      : undefined
   const isSettings = pathname.startsWith("/settings")
   const approvalsQuery = useQuery({
     queryFn: () => window.cypheria?.approval.list("pending") ?? [],
@@ -225,7 +231,13 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       <SidebarProvider
         className="h-screen w-screen overflow-hidden bg-background"
         data-platform={platform}
-        style={{ "--sidebar-width": "288px", "--sidebar-width-icon": "52px" } as CSSProperties}
+        fixedWidth={isSettings ? 232 : undefined}
+        style={
+          {
+            "--sidebar-width": `${DESKTOP_SIDEBAR_DEFAULT_WIDTH}px`,
+            "--sidebar-width-icon": "52px",
+          } as CSSProperties
+        }
         suppressHydrationWarning
       >
         {isSettings ? (
@@ -286,7 +298,10 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                   </SidebarMenu>
                 </SidebarGroupContent>
               </SidebarGroup>
-              <ChatSidebar pendingCount={approvalsQuery.data?.length ?? 0} />
+              <ChatSidebar
+                activeThreadId={activeThreadId}
+                pendingCount={approvalsQuery.data?.length ?? 0}
+              />
             </SidebarContent>
 
             <SidebarFooter className="grid min-h-[58px] grid-cols-[minmax(0,1fr)_34px] items-center gap-2 px-3 pb-3 pt-2.5">

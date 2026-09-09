@@ -7,6 +7,7 @@ import {
   type CodexTurnUpdate,
   codexGeneratedImageData,
   createCodexAppServerProvider,
+  inlineTextFromDataUrl,
   type v2,
 } from "@cypheria/codex-bridge"
 import { convertToModelMessages, streamText, toUIMessageStream, type UIMessageChunk } from "ai"
@@ -590,14 +591,52 @@ const userHistoryParts = (
     return customHistoryPart(item)
   })
 
+const asyncQuestionItemIds = (items: readonly v2.ThreadItem[]): Set<string> =>
+  new Set(
+    items.flatMap((item) => {
+      if (item.type !== "agentMessage" || item.delivery !== "async") return []
+      if (!item.questions?.length) return [item.id]
+      return item.questions.map((_question, questionIndex) =>
+        JSON.stringify(["request_user_input_async", item.id, questionIndex])
+      )
+    })
+  )
+
+const isAsyncQuestionReply = (
+  item: Extract<v2.ThreadItem, { type: "userMessage" }>,
+  questionItemIds: ReadonlySet<string>
+): boolean => {
+  if (!questionItemIds.size || item.content.length !== 1) return false
+  const [content] = item.content
+  if (content?.type !== "text") return false
+
+  const openTag = "<send_user_message_question_reply>"
+  const closeTag = "</send_user_message_question_reply>"
+  const text = content.text.trim()
+  if (!text.startsWith(openTag) || !text.endsWith(closeTag)) return false
+
+  try {
+    const parsed: unknown = JSON.parse(text.slice(openTag.length, -closeTag.length).trim())
+    const replies = Array.isArray(parsed) ? parsed : [parsed]
+    return replies.some((reply) => {
+      if (!reply || typeof reply !== "object" || Array.isArray(reply)) return false
+      const questionItemId = (reply as Record<string, unknown>).questionItemId
+      return typeof questionItemId === "string" && questionItemIds.has(questionItemId)
+    })
+  } catch {
+    return false
+  }
+}
+
 export const mapCodexTurnsToUiMessages = (
   threadId: string,
   turns: readonly v2.Turn[]
 ): CodexUiMessage[] => {
   const messages: CodexUiMessage[] = []
   for (const turn of turns) {
+    const questionItemIds = asyncQuestionItemIds(turn.items)
     for (const item of turn.items) {
-      if (item.type === "userMessage") {
+      if (item.type === "userMessage" && !isAsyncQuestionReply(item, questionItemIds)) {
         messages.push({ id: item.id, parts: userHistoryParts(item), role: "user" })
       }
     }
@@ -816,9 +855,12 @@ export const startCodexChat = (
 export const interruptCodexChat = async (requestId: string): Promise<boolean> => {
   const activeChat = activeChats.get(requestId)
   if (!activeChat) return false
-  activeChat.abortController.abort()
-  await activeChat.session?.interrupt()
-  activeChats.delete(requestId)
+  try {
+    await activeChat.session?.interrupt()
+  } finally {
+    activeChat.abortController.abort()
+    activeChats.delete(requestId)
+  }
   return true
 }
 
@@ -828,7 +870,15 @@ const followUpUserInput = (input: CodexChatFollowUp): v2.UserInput[] => {
     userInput.push({ text: input.text.trim(), text_elements: [], type: "text" })
   }
   for (const file of input.files) {
-    if (file.mediaType.toLowerCase().startsWith("image/")) {
+    if (file.mediaType.toLowerCase().startsWith("text/")) {
+      const text = inlineTextFromDataUrl(file.url)
+      if (text === null) {
+        throw new Error(
+          `Follow-up text attachment "${file.filename ?? file.mediaType}" is not valid inline text.`
+        )
+      }
+      userInput.push({ text, text_elements: [], type: "text" })
+    } else if (file.mediaType.toLowerCase().startsWith("image/")) {
       userInput.push({ type: "image", url: file.url })
     } else if (file.mediaType.toLowerCase().startsWith("audio/")) {
       userInput.push({ type: "audio", url: file.url })

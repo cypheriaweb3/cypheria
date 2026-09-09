@@ -11,6 +11,7 @@ import {
   CodexLoginRequestSchema,
   ConnectionProxySettingsSchema,
   codexChatSteerContract,
+  codexInteractionListContract,
   codexMarketplaceAddContract,
   codexMarketplaceRemoveContract,
   codexPluginEnabledWriteContract,
@@ -187,6 +188,25 @@ describe("Codex connection IPC contracts", () => {
         username: "",
       }).success
     ).toBe(false)
+  })
+
+  it("validates the pending-interaction recovery channel", () => {
+    expect(codexInteractionListContract.request.parse({})).toEqual({})
+    expect(
+      codexInteractionListContract.response.parse([
+        {
+          description: null,
+          interactionId: "de305d54-75b4-431b-adb2-eb6b9e546014",
+          kind: "approval",
+          method: "item/fileChange/requestApproval",
+          params: {},
+          serverRequestId: "request-1",
+          threadId: "thread-1",
+          title: "Approve file changes",
+          turnId: "turn-1",
+        },
+      ])
+    ).toHaveLength(1)
   })
 })
 

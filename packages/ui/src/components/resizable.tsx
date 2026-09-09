@@ -39,4 +39,7 @@ function ResizableHandle({
   )
 }
 
+type ResizablePanelHandle = ResizablePrimitive.PanelImperativeHandle
+
+export type { ResizablePanelHandle }
 export { ResizableHandle, ResizablePanel, ResizablePanelGroup }

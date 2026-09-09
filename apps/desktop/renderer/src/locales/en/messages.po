@@ -85,6 +85,11 @@ msgstr "Approve for me"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.archive"
+msgstr "Archive"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.archiveSection"
 msgstr "Archive all chats"
 
@@ -154,9 +159,19 @@ msgid "settings.backToWorkspace"
 msgstr "Back to workspace"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.workspace.terminalLocation.bottom"
+msgstr "Bottom"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.workspace.bottomPanelShortcut"
 msgstr "Bottom panel (⌘J)"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.workspace.bottomPanelControl.title"
+msgstr "Bottom panel control"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -244,6 +259,16 @@ msgstr "Choose the permission scope when ChatGPT runs commands"
 #: renderer/src/routes/settings.configuration.tsx
 msgid "settings.configuration.approval.description"
 msgstr "Choose when ChatGPT asks for approval"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.workspace.terminalLocation.description"
+msgstr "Choose where the terminal opens when using the panel control or shortcut"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.closeBottomPanel"
+msgstr "Close"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
@@ -362,6 +387,11 @@ msgid "navigation.createSection"
 msgstr "Create section"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.sort.created"
+msgstr "Date created"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.permissions.custom"
 msgstr "Custom"
@@ -387,6 +417,16 @@ msgid "settings.permissions.default.toggle"
 msgstr "Default permissions are always shown"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.workspace.terminalLocation.title"
+msgstr "Default terminal location"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.workspace.terminalLocation.label"
+msgstr "Default terminal location"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.delete"
 msgstr "Delete"
@@ -400,11 +440,6 @@ msgstr "Delete archived chat"
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.deleteConfirm.title"
 msgstr "Delete archived chat?"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.deleteChat"
-msgstr "Delete chat"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -461,6 +496,11 @@ msgstr "Drop chats here"
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "menu.edit"
+msgstr "Edit"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.edit"
 msgstr "Edit"
 
 #. js-lingui-explicit-id
@@ -549,6 +589,11 @@ msgid "chat.prompt.followUpOptions"
 msgstr "Follow-up options"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.forkChat"
+msgstr "Fork chat"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.forkFromHere"
 msgstr "Fork from here"
@@ -610,6 +655,7 @@ msgstr "Help"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
+#: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.hideBottomPanel"
 msgstr "Hide bottom panel"
 
@@ -619,13 +665,13 @@ msgid "chat.workspace.hideTerminalPanel"
 msgstr "Hide terminal panel"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.reasoning.high"
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.high"
 msgstr "High"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.high"
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.reasoning.high"
 msgstr "High"
 
 #. js-lingui-explicit-id
@@ -685,13 +731,13 @@ msgid "chat.status.local"
 msgstr "Local"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.reasoning.low"
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.low"
 msgstr "Low"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.low"
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.reasoning.low"
 msgstr "Low"
 
 #. js-lingui-explicit-id
@@ -710,18 +756,33 @@ msgid "navigation.sort.manual"
 msgstr "Manual order"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.markAllAsRead"
+msgstr "Mark all as read"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.markAsRead"
+msgstr "Mark as read"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.markAsUnread"
+msgstr "Mark as unread"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.reasoning.max"
 msgstr "Max"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.reasoning.medium"
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.medium"
 msgstr "Medium"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.medium"
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.reasoning.medium"
 msgstr "Medium"
 
 #. js-lingui-explicit-id
@@ -766,16 +827,6 @@ msgid "chat.workspace.moveTerminalBottom"
 msgstr "Move terminal to bottom"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.moveToProject"
-msgstr "Move to project"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.moveToSection"
-msgstr "Move to section"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.status.attention"
 msgstr "Needs attention"
@@ -799,8 +850,8 @@ msgstr "New chat"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.newChatInProject"
-msgstr "New chat in project"
+msgid "navigation.newChatInNamedProject"
+msgstr "New chat in {projectName}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -811,6 +862,11 @@ msgstr "New section"
 #: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.newTerminal"
 msgstr "New terminal"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.question.next"
+msgstr "Next"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
@@ -888,13 +944,13 @@ msgid "chat.workspace.noWallet"
 msgstr "No wallet selected. On-chain actions remain read only."
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.reasoning.none"
+#: renderer/src/routes/settings.configuration.tsx
+msgid "settings.configuration.option.none"
 msgstr "None"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.none"
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.reasoning.none"
 msgstr "None"
 
 #. js-lingui-explicit-id
@@ -908,6 +964,11 @@ msgid "chat.workspace.browserDescription"
 msgstr "Open an isolated dApp session from a chat result or browser action."
 
 #. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.openBottomPanelTab"
+msgstr "Open bottom panel tab"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.configuration.tsx
 msgid "settings.configuration.openConfig"
 msgstr "Open config.toml"
@@ -918,6 +979,11 @@ msgid "chat.workspace.open"
 msgstr "Open workspace panel"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.question.customResponsePlaceholder"
+msgstr "Or write your own response"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.organizeSidebar"
 msgstr "Organize sidebar"
@@ -926,6 +992,15 @@ msgstr "Organize sidebar"
 #: renderer/src/routes/settings.configuration.tsx
 msgid "settings.configuration.verbosity.title"
 msgstr "Output detail"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.prompt.pastedText"
+msgstr "Pasted text"
+
+#: renderer/src/components/chat-workspace.tsx
+msgid "Pasted text"
+msgstr "Pasted text"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -944,13 +1019,8 @@ msgstr "Personal"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.pinChat"
-msgstr "Pin chat"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.pinProject"
-msgstr "Pin project"
+msgid "navigation.pin"
+msgstr "Pin"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -989,6 +1059,11 @@ msgstr "Priority"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.project"
+msgstr "Project"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.projectName"
 msgstr "Project name"
 
@@ -1011,6 +1086,11 @@ msgstr "Projects"
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.turn.proposedPlan"
 msgstr "Proposed plan"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.question.header"
+msgstr "Question"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -1083,9 +1163,19 @@ msgid "navigation.removeFromSection"
 msgstr "Remove from section"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.prompt.removePastedText"
+msgstr "Remove pasted text attachment"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.removeProject"
 msgstr "Remove project"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.rename"
+msgstr "Rename"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1123,6 +1213,11 @@ msgid "chat.workspace.review"
 msgstr "Review"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.workspace.terminalLocation.right"
+msgstr "Right"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.artifact.running"
 msgstr "Running"
@@ -1146,6 +1241,11 @@ msgstr "Save"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.saveSection"
 msgstr "Save section"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.scrollToBottom"
+msgstr "Scroll to bottom"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -1219,9 +1319,24 @@ msgid "navigation.section"
 msgstr "Section"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.question.send"
+msgstr "Send"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.question.sent"
+msgstr "Sent"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.title"
 msgstr "Settings"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.workspace.bottomPanelControl.description"
+msgstr "Show a quick terminal panel control in the chat title bar"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -1230,8 +1345,17 @@ msgstr "Show bottom panel"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
+msgid "settings.workspace.bottomPanelControl.toggle"
+msgstr "Show bottom panel control in the app title bar"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
 msgid "settings.permissions.full.toggle"
 msgstr "Show Full access in the composer"
+
+#: renderer/src/components/chat-workspace.tsx
+msgid "Show in text field"
+msgstr "Show in text field"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1316,11 +1440,6 @@ msgstr "This permanently deletes the chat and cannot be undone."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.deleteChatDescription"
-msgstr "This permanently deletes the chat and cannot be undone."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.removeProjectDescription"
 msgstr "This removes the project from Cypheria without deleting its files or chats."
 
@@ -1340,6 +1459,11 @@ msgid "chat.workspace.toggleSidePanel"
 msgstr "Toggle side panel"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.workspace.toggleTerminal"
+msgstr "Toggle terminal"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.tryAgain"
 msgstr "Try again"
@@ -1351,13 +1475,13 @@ msgstr "Turn changes"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.unpinChat"
-msgstr "Unpin chat"
+msgid "navigation.unpin"
+msgstr "Unpin"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.unpinProject"
-msgstr "Unpin project"
+msgid "navigation.unread"
+msgstr "Unread"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
@@ -1498,6 +1622,11 @@ msgstr "Workspace panel"
 #: renderer/src/routes/settings.configuration.tsx
 msgid "settings.configuration.option.workspaceWrite"
 msgstr "Workspace write"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/codex-turn.tsx
+msgid "chat.question.customResponse"
+msgstr "Write your own response"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx

@@ -8,7 +8,6 @@ import {
   MessageContent,
   MessageResponse,
 } from "@cypheria/ui/ai-elements/message"
-import { Task, TaskContent, TaskItem, TaskTrigger } from "@cypheria/ui/ai-elements/task"
 import {
   Attachment,
   AttachmentContent,
@@ -23,6 +22,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@cypheria/ui/components/collapsible"
+import { Input } from "@cypheria/ui/components/input"
 import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
 import {
@@ -31,6 +31,7 @@ import {
   Check,
   ChevronDown,
   CircleAlert,
+  CircleHelp,
   Clock3,
   Copy,
   FilePenLine,
@@ -49,13 +50,19 @@ import {
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 
 import type { CodexUiMessage } from "../../../ipc/src/index.js"
+import { codexMarkdownUrlTransform } from "../generated-image-url.js"
 import {
   type CodexActivityUnit,
+  type CodexAsyncQuestion,
+  type CodexAsyncQuestionAnswer,
   type CodexGeneratedArtifact,
   type CodexTurnView,
   deriveCodexTurnView,
+  formatCodexAsyncQuestionReply,
   isCodexTurnItemActive,
 } from "./codex-turn-view.js"
+
+const ASYNC_QUESTION_SELECTION_DELAY_MS = 180
 
 const formatDuration = (durationMs: number): string => {
   const seconds = Math.max(0, Math.round(durationMs / 1000))
@@ -448,24 +455,30 @@ function GeneratedArtifactCard({ artifact }: Readonly<{ artifact: CodexGenerated
 function PlanOutput({ plan }: Readonly<{ plan: NonNullable<CodexTurnView["plan"]> }>) {
   const { i18n } = useLingui()
   return (
-    <Task defaultOpen={false}>
-      <TaskTrigger title={i18n._(msg({ id: "chat.turn.plan", message: "Plan" }))} />
-      <TaskContent>
-        {plan.explanation ? <TaskItem>{plan.explanation}</TaskItem> : null}
+    <Collapsible>
+      <CollapsibleTrigger className="group flex min-h-6 items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground">
+        <ListChecks className="size-3.5" />
+        {i18n._(msg({ id: "chat.turn.plan", message: "Plan" }))}
+        <ChevronDown className="size-3.5 transition-transform group-data-panel-open:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-1.5 space-y-1 border-border border-l pl-3 data-closed:hidden">
+        {plan.explanation ? (
+          <div className="text-[13px] text-muted-foreground">{plan.explanation}</div>
+        ) : null}
         {plan.plan.map((step) => (
-          <TaskItem className="flex gap-2" key={step.step}>
+          <div className="flex gap-2 text-[13px] text-muted-foreground" key={step.step}>
             {step.status === "completed" ? (
-              <Check className="mt-0.5 size-4 shrink-0" />
+              <Check className="mt-0.5 size-3.5 shrink-0" />
             ) : step.status === "inProgress" ? (
-              <LoaderCircle className="mt-0.5 size-4 shrink-0 animate-spin" />
+              <LoaderCircle className="mt-0.5 size-3.5 shrink-0 animate-spin" />
             ) : (
               <span className="mt-1.5 size-2 shrink-0 rounded-full border" />
             )}
             {step.step}
-          </TaskItem>
+          </div>
         ))}
-      </TaskContent>
-    </Task>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
 
@@ -526,29 +539,33 @@ function ActivityItem({ snapshot }: Readonly<{ snapshot: CodexTurnItemSnapshot }
       break
     }
     case "plan":
-      detail = <MessageResponse>{item.text}</MessageResponse>
+      detail = (
+        <MessageResponse urlTransform={codexMarkdownUrlTransform}>{item.text}</MessageResponse>
+      )
       break
     case "enteredReviewMode":
     case "exitedReviewMode":
-      detail = <MessageResponse>{item.review}</MessageResponse>
+      detail = (
+        <MessageResponse urlTransform={codexMarkdownUrlTransform}>{item.review}</MessageResponse>
+      )
       break
   }
 
   if (!detail) {
     return (
-      <TaskItem className="flex min-w-0 items-start gap-2 py-1.5">
-        <span className="mt-0.5 size-4 shrink-0 [&_svg]:size-4">{itemIcon(snapshot)}</span>
+      <div className="flex min-h-6 min-w-0 items-start gap-1.5 py-0.5 text-[13px] text-muted-foreground">
+        <span className="mt-0.5 size-3.5 shrink-0 [&_svg]:size-3.5">{itemIcon(snapshot)}</span>
         <span className="min-w-0 break-words">{itemTitle(snapshot, i18n)}</span>
         {active ? <LoaderCircle className="ml-auto size-3.5 shrink-0 animate-spin" /> : null}
-      </TaskItem>
+      </div>
     )
   }
 
   return (
-    <Task className="min-w-0" defaultOpen={false}>
-      <TaskTrigger className="w-full" title={itemTitle(snapshot, i18n)}>
-        <div className="flex w-full min-w-0 cursor-pointer items-start gap-2 py-1.5 text-muted-foreground text-sm hover:text-foreground">
-          <span className="mt-0.5 size-4 shrink-0 [&_svg]:size-4">{itemIcon(snapshot)}</span>
+    <Collapsible className="min-w-0">
+      <CollapsibleTrigger className="group w-full">
+        <div className="flex min-h-6 w-full min-w-0 cursor-pointer items-start gap-1.5 py-0.5 text-[13px] text-muted-foreground hover:text-foreground">
+          <span className="mt-0.5 size-3.5 shrink-0 [&_svg]:size-3.5">{itemIcon(snapshot)}</span>
           <span className="min-w-0 flex-1 break-words text-left">{itemTitle(snapshot, i18n)}</span>
           {active ? (
             <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
@@ -556,9 +573,11 @@ function ActivityItem({ snapshot }: Readonly<{ snapshot: CodexTurnItemSnapshot }
             <ChevronDown className="size-3.5 shrink-0 transition-transform group-data-panel-open:rotate-180" />
           )}
         </div>
-      </TaskTrigger>
-      <TaskContent className="pb-2">{detail}</TaskContent>
-    </Task>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-1 mb-2 ml-5 data-closed:hidden">
+        {detail}
+      </CollapsibleContent>
+    </Collapsible>
   )
 }
 
@@ -566,8 +585,15 @@ function ActivityUnit({ unit }: Readonly<{ unit: CodexActivityUnit }>) {
   const { i18n } = useLingui()
   if (unit.kind === "item") return <ActivityItem snapshot={unit.item} />
   if (unit.kind === "commentary") {
-    return unit.item.item.type === "agentMessage" && unit.item.item.text ? (
-      <MessageResponse className="py-1">{unit.item.item.text}</MessageResponse>
+    if (unit.item.item.type !== "agentMessage") return null
+    const text =
+      unit.item.item.delivery === "async" && unit.item.item.questions?.length
+        ? unit.item.item.questions.map((question) => question.title).join("\n\n")
+        : unit.item.item.text
+    return text ? (
+      <MessageResponse className="py-1" urlTransform={codexMarkdownUrlTransform}>
+        {text}
+      </MessageResponse>
     ) : null
   }
   const reasoning = unit.reasoning
@@ -578,39 +604,204 @@ function ActivityUnit({ unit }: Readonly<{ unit: CodexActivityUnit }>) {
   const active =
     Boolean(reasoning && isCodexTurnItemActive(reasoning)) || unit.items.some(isCodexTurnItemActive)
   return (
-    <Task defaultOpen={active}>
-      <TaskTrigger title={groupTitle(unit, i18n)}>
-        <div className="flex w-full cursor-pointer items-center gap-2 py-1 text-muted-foreground text-sm transition-colors hover:text-foreground">
+    <Collapsible defaultOpen={active}>
+      <CollapsibleTrigger className="group w-full">
+        <div className="flex min-h-6 w-full cursor-pointer items-center gap-1.5 text-[13px] text-muted-foreground transition-colors hover:text-foreground">
           {active ? (
-            <LoaderCircle className="size-4 shrink-0 animate-spin" />
+            <LoaderCircle className="size-3.5 shrink-0 animate-spin" />
           ) : (
-            <BookOpen className="size-4 shrink-0" />
+            <BookOpen className="size-3.5 shrink-0" />
           )}
           <span className="min-w-0 flex-1 truncate text-left">{groupTitle(unit, i18n)}</span>
-          <ChevronDown className="size-4 shrink-0 transition-transform group-data-panel-open:rotate-180" />
+          <ChevronDown className="size-3.5 shrink-0 transition-transform group-data-panel-open:rotate-180" />
         </div>
-      </TaskTrigger>
-      <TaskContent>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-1.5 space-y-0.5 border-border border-l pl-3 data-closed:hidden">
         {reasoningBody ? (
-          <div className="max-h-56 overflow-auto border-border border-b pb-3 text-muted-foreground text-sm">
-            <MessageResponse>{reasoningBody}</MessageResponse>
+          <div className="mb-1.5 max-h-56 overflow-auto border-border border-b pb-2 text-[13px] text-muted-foreground">
+            <MessageResponse urlTransform={codexMarkdownUrlTransform}>
+              {reasoningBody}
+            </MessageResponse>
           </div>
         ) : null}
         {unit.items.map((snapshot) => (
           <ActivityItem key={snapshot.item.id} snapshot={snapshot} />
         ))}
-      </TaskContent>
-    </Task>
+      </CollapsibleContent>
+    </Collapsible>
+  )
+}
+
+function AsyncQuestionPanel({
+  onAnswer,
+  questions,
+}: Readonly<{
+  onAnswer: (text: string) => Promise<void>
+  questions: readonly CodexAsyncQuestion[]
+}>) {
+  const { i18n } = useLingui()
+  const [answers, setAnswers] = useState(() => questions.map(() => ""))
+  const [currentIndex, setCurrentIndex] = useState(0)
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
+  const timerRef = useRef<number | null>(null)
+  const current = questions[currentIndex]
+
+  useEffect(
+    () => () => {
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current)
+    },
+    []
+  )
+
+  if (!current) return null
+
+  const submit = async (nextAnswers: readonly string[]) => {
+    const replies: CodexAsyncQuestionAnswer[] = questions.flatMap((question, index) => {
+      const answer = nextAnswers[index]?.trim()
+      return answer ? [{ answer, question }] : []
+    })
+    if (!replies.length || submitting) return
+    setSubmitting(true)
+    setError(null)
+    try {
+      await onAnswer(formatCodexAsyncQuestionReply(replies))
+      setSubmitted(true)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  const selectOption = (option: string) => {
+    if (submitting) return
+    const nextAnswers = answers.map((answer, index) => (index === currentIndex ? option : answer))
+    setAnswers(nextAnswers)
+    if (timerRef.current !== null) window.clearTimeout(timerRef.current)
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = null
+      if (currentIndex < questions.length - 1) setCurrentIndex(currentIndex + 1)
+      else void submit(nextAnswers)
+    }, ASYNC_QUESTION_SELECTION_DELAY_MS)
+  }
+
+  const nextOrSubmit = () => {
+    if (!answers[currentIndex]?.trim()) return
+    if (currentIndex < questions.length - 1) setCurrentIndex(currentIndex + 1)
+    else void submit(answers)
+  }
+
+  return (
+    <section
+      className="isolate mb-2 overflow-hidden rounded-2xl border border-border bg-background shadow-sm"
+      data-testid="async-question-panel"
+    >
+      <div className="flex items-center justify-between gap-3 border-border border-b px-4 py-3">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <CircleHelp className="size-4 text-muted-foreground" />
+          {i18n._(msg({ id: "chat.question.header", message: "Question" }))}
+        </div>
+        {questions.length > 1 ? (
+          <span className="text-xs text-muted-foreground">
+            {currentIndex + 1} / {questions.length}
+          </span>
+        ) : null}
+      </div>
+      <div className="space-y-3 p-4">
+        <p className="whitespace-pre-wrap text-sm leading-6">{current.title}</p>
+        {current.options.length ? (
+          <div className="grid gap-2">
+            {current.options.map((option, optionIndex) => {
+              const selected = answers[currentIndex] === option
+              return (
+                <button
+                  aria-pressed={selected}
+                  className={cn(
+                    "flex min-h-10 w-full items-center gap-3 rounded-xl border px-3 py-2 text-left text-sm transition-colors",
+                    selected
+                      ? "border-foreground/20 bg-accent text-accent-foreground"
+                      : "border-border bg-background hover:bg-accent/60"
+                  )}
+                  disabled={submitting}
+                  key={option}
+                  onClick={() => selectOption(option)}
+                  type="button"
+                >
+                  <span className="flex size-5 shrink-0 items-center justify-center rounded-md border border-border bg-muted font-medium text-[11px] text-muted-foreground">
+                    {optionIndex + 1}
+                  </span>
+                  <span className="min-w-0 flex-1 break-words">{option}</span>
+                  {selected ? <Check className="size-4 shrink-0" /> : null}
+                </button>
+              )
+            })}
+          </div>
+        ) : null}
+        <div className="flex gap-2">
+          <Input
+            aria-label={i18n._(
+              msg({ id: "chat.question.customResponse", message: "Write your own response" })
+            )}
+            className="h-10 rounded-xl"
+            disabled={submitting}
+            onChange={(event) => {
+              if (timerRef.current !== null) {
+                window.clearTimeout(timerRef.current)
+                timerRef.current = null
+              }
+              const value = event.currentTarget.value
+              setAnswers((currentAnswers) =>
+                currentAnswers.map((answer, index) => (index === currentIndex ? value : answer))
+              )
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                event.preventDefault()
+                nextOrSubmit()
+              }
+            }}
+            placeholder={i18n._(
+              msg({
+                id: "chat.question.customResponsePlaceholder",
+                message: "Or write your own response",
+              })
+            )}
+            value={answers[currentIndex] ?? ""}
+          />
+          <Button
+            className="h-10 shrink-0 rounded-xl"
+            disabled={!answers[currentIndex]?.trim() || submitting}
+            onClick={nextOrSubmit}
+            type="button"
+          >
+            {submitting ? (
+              <LoaderCircle className="size-4 animate-spin" />
+            ) : submitted ? (
+              i18n._(msg({ id: "chat.question.sent", message: "Sent" }))
+            ) : currentIndex < questions.length - 1 ? (
+              i18n._(msg({ id: "chat.question.next", message: "Next" }))
+            ) : (
+              i18n._(msg({ id: "chat.question.send", message: "Send" }))
+            )}
+          </Button>
+        </div>
+        {error ? <p className="text-destructive text-xs">{error}</p> : null}
+      </div>
+    </section>
   )
 }
 
 export function CodexTurnMessage({
   blockingContent,
   message,
+  onAnswerAsyncQuestions,
   onFork,
 }: Readonly<{
   blockingContent?: ReactNode
   message: CodexUiMessage
+  onAnswerAsyncQuestions?: (text: string) => Promise<void>
   onFork?: (turnId: string) => Promise<void>
 }>) {
   const { i18n } = useLingui()
@@ -666,7 +857,7 @@ export function CodexTurnMessage({
 
   return (
     <Message from="assistant">
-      <MessageContent className="w-full gap-4">
+      <MessageContent className="w-full gap-3 overflow-visible">
         {view.activity.length || view.turn.status === "inProgress" || blockingContent ? (
           <Collapsible
             onOpenChange={(open) => {
@@ -675,25 +866,25 @@ export function CodexTurnMessage({
             }}
             open={activityOpen}
           >
-            <div className="flex items-center gap-3 py-1 text-muted-foreground">
-              <CollapsibleTrigger className="group flex shrink-0 items-center gap-2 text-sm hover:text-foreground">
+            <div className="flex min-h-6 items-center gap-2 text-muted-foreground">
+              <CollapsibleTrigger className="group flex shrink-0 items-center gap-1.5 text-[13px] hover:text-foreground">
                 {view.turn.status === "inProgress" ? (
-                  <LoaderCircle className="size-4 animate-spin" />
+                  <LoaderCircle className="size-3.5 animate-spin" />
                 ) : view.turn.status === "failed" ? (
-                  <CircleAlert className="size-4 text-destructive" />
+                  <CircleAlert className="size-3.5 text-destructive" />
                 ) : view.turn.status === "interrupted" ? (
-                  <Clock3 className="size-4" />
+                  <Clock3 className="size-3.5" />
                 ) : (
-                  <Check className="size-4" />
+                  <Check className="size-3.5" />
                 )}
                 <span>{activityLabel}</span>
                 <ChevronDown
-                  className={cn("size-4 transition-transform", activityOpen && "rotate-180")}
+                  className={cn("size-3.5 transition-transform", activityOpen && "rotate-180")}
                 />
               </CollapsibleTrigger>
-              <span className="h-px min-w-8 flex-1 bg-border" />
+              <span className="min-w-8 flex-1 border-border border-t" />
             </div>
-            <CollapsibleContent className="space-y-4 pt-4 data-closed:animate-out data-open:animate-in">
+            <CollapsibleContent className="space-y-2 pt-2 data-closed:hidden">
               {view.activity.length ? (
                 view.activity.map((unit) => <ActivityUnit key={unit.id} unit={unit} />)
               ) : (
@@ -747,16 +938,30 @@ export function CodexTurnMessage({
           </AttachmentGroup>
         ) : null}
 
-        {view.turn.status !== "inProgress" && view.diff?.diff ? (
-          <Task defaultOpen={false}>
-            <TaskTrigger title={i18n._(msg({ id: "chat.turn.diff", message: "Turn changes" }))} />
-            <TaskContent>
-              <CodeBlock code={view.diff.diff} language="diff" />
-            </TaskContent>
-          </Task>
+        {view.turn.status === "inProgress" &&
+        view.asyncQuestions.length &&
+        onAnswerAsyncQuestions ? (
+          <AsyncQuestionPanel onAnswer={onAnswerAsyncQuestions} questions={view.asyncQuestions} />
         ) : null}
 
-        {finalAnswerText ? <MessageResponse>{finalAnswerText}</MessageResponse> : null}
+        {finalAnswerText ? (
+          <MessageResponse urlTransform={codexMarkdownUrlTransform}>
+            {finalAnswerText}
+          </MessageResponse>
+        ) : null}
+
+        {view.turn.status !== "inProgress" && view.diff?.diff ? (
+          <Collapsible>
+            <CollapsibleTrigger className="group flex min-h-6 items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground">
+              <FilePenLine className="size-3.5" />
+              {i18n._(msg({ id: "chat.turn.diff", message: "Turn changes" }))}
+              <ChevronDown className="size-3.5 transition-transform group-data-panel-open:rotate-180" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-1.5 data-closed:hidden">
+              <CodeBlock code={view.diff.diff} language="diff" />
+            </CollapsibleContent>
+          </Collapsible>
+        ) : null}
 
         {view.turn.status !== "inProgress" && finalAnswerText ? (
           <MessageActions className="opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
@@ -805,8 +1010,6 @@ export function CodexTurnMessage({
             {view.turn.error.message}
           </div>
         ) : null}
-
-        {view.turn.status !== "inProgress" && view.plan ? <PlanOutput plan={view.plan} /> : null}
       </MessageContent>
     </Message>
   )

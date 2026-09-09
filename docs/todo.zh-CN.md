@@ -209,9 +209,9 @@
   - 验证：`pnpm run ci`、`pnpm build` 和 `pnpm --filter @cypheria/desktop test`。
 
 - [x] 对齐会话工作区与本机已安装 ChatGPT desktop 的工作台体验。
-  - 验收：会话顶部标题栏与完整功能输入框匹配 desktop 交互模型；长会话使用 TanStack Virtual，且不破坏实时 turn 增长、历史恢复或自动跟随底部；右侧面板可独立调节尺寸；可调节尺寸的底部面板提供持久化多标签 PTY 终端、原生开关和键盘快捷键。
+  - 验收：会话顶部标题栏与完整功能输入框匹配 desktop 交互模型；长会话使用 TanStack Virtual，且不破坏实时 turn 增长、历史恢复或自动跟随底部；右侧面板可独立调节尺寸；可调节尺寸的底部面板提供持久化多标签 PTY 终端、专用标题栏开关，以及与终端操作相互独立的 `Cmd/Ctrl+J`。
   - 包括：严谨对比 user/assistant turn 呈现、面板 chrome 与空状态；project-scoped terminal IPC 不接受 renderer 自选文件系统路径；在合适处复用 shadcn/ui 和 AI Elements。
-  - 验证：115 项 desktop tests、desktop typecheck/build、全仓 CI/build，以及针对 ChatGPT Desktop 26.901.51231 的干净 Electron 交互 smoke tests，覆盖输入框、行内重命名、底部/右侧持久 PTY 布局、冷打开锁底、媒体密集会话跨 thread 精确恢复锚点、即时回到底部，以及 macOS 关闭/重开时保留 renderer。
+  - 验证：162 项 desktop tests、desktop typecheck/build、全仓 CI/build，以及针对 ChatGPT Desktop 26.901.51231 的干净 Electron 交互 smoke tests，覆盖输入框、跨导航与 renderer 重启恢复的 scope-owned prompt 草稿、跨导航保留并在删除/提交/LRU 淘汰时释放的 scope-owned session 附件、与源码一致的纯图片/图片加文本剪贴板路由，以及完整 UTF-8 内容可进入初次 turn、steer 和排队 turn 的 5,000 字符粘贴文本卡片、Chromium 16 像素 rem 基线下与源码一致的 768 像素共享内容列及由 token 独立控制的 14 像素视觉 UI 字号（包括持久化执行的 14→16→14 Appearance 实测，期间 `48rem` 始终为 768 像素）、模型约束的媒体输入（包括系统剪贴板中只含图片的截图，所选模型成功读取其唯一视觉标记）、单次中断的 transport 清理、即时停止状态投影、行内重命名、专用底部面板控件与 `Cmd/Ctrl+J`、带默认底部/右侧位置的独立 `Control+反引号` 终端操作、与源码一致的可滚动标签和固定新增标签控件、关闭最后标签后保留空 dock 直到执行“关闭”，以及从隐藏的空 dock 明确重开时创建 fallback 终端、隐藏/重开底部面板时保留同一 Xterm DOM、终端输出和手动调整后的像素高度、跨会话导航保留已打开 dock、PTY、活动标签、高度和重放输出、高右侧面板中受限且去重的 PTY resize、token 化终端主题与匹配应用包源码的 Xterm 滚动条、冷打开锁底、媒体密集会话跨 thread 精确恢复锚点、即时回到底部、macOS 关闭/重开 renderer 保留、切换页面后后台 turn 继续完成、离开并返回会话后的待回答问题恢复、不放开任意本地文件读取的受限历史生成图片加载、有界持久侧栏未读状态，以及与源码匹配的侧栏宽度约束。另以相同模型、相同提示词新建 item 覆盖 turn，真实完成命令失败、两次文件修改审批、TypeScript 验证、网页搜索、清理及最终 Markdown 渲染；renderer 冷启动后，从 App Server 持久 turn 展开的折叠活动仍完整恢复计划、commentary、命令、文件编辑和网页搜索 item。
 
 - [x] 对齐 Codex Desktop 的侧栏组织与分组控件。
   - 验收：Pinned 与普通对话排序、按项目与单列表组织、项目创建、自定义分组生命周期、分组内新对话和 Recents 新对话，都通过紧凑的 Codex 风格分组标题与菜单正常工作。
@@ -219,8 +219,8 @@
   - 验证：desktop typecheck/tests/build，并依据用户提供的 Codex Desktop 参考图完成真实 Electron 视觉与交互 smoke test。
 
 - [x] 补齐 ChatGPT Desktop 中 Projects、Sections 与会话条目的侧栏菜单。
-  - 验收：Project 与会话条目按适用范围提供置顶、重命名/编辑、移动、复制、归档、删除/移除和新建会话操作；自定义 Section 可归档其中会话；破坏性操作要求确认；每次变更都会刷新受影响的虚拟化侧栏分组。
-  - 包括：通过 typed IPC 调用 App Server 所有的 thread/project/section 变更、Cypheria 命名空间下的 Project 侧栏元数据，以及 Electron main 根据 Project ID 安全解析并在文件管理器显示项目目录。
+  - 验收：Project 与会话条目按适用范围提供置顶、重命名/编辑、标记已读/未读、移动、复制、Fork、归档、移除和新建会话操作；活跃条目只提供归档而不直接永久删除；自定义 Section 可归档其中会话；破坏性操作要求确认；每次变更都会刷新受影响的虚拟化侧栏分组。
+  - 包括：通过 typed IPC 调用 App Server 所有的 thread/project/section 变更、为 App Server 未暴露的 metadata 提供有界 renderer 未读状态、priority/更新时间/创建时间/手动排序、Cypheria 命名空间下的 Project 侧栏元数据，以及 Electron main 根据 Project ID 安全解析并在文件管理器显示项目目录。
   - 验证：desktop tests/typecheck/build、全仓 CI/build，以及对照 ChatGPT Desktop 26.901.51231 的真实 Electron smoke test，覆盖可逆操作与一次性测试数据上的归档/删除流程。
 
 - [x] 补齐 ChatGPT Desktop 设置页中当前可落地的缺口。

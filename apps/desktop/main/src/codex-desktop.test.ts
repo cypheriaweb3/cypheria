@@ -10,6 +10,7 @@ import {
   deleteCodexThread,
   deleteCodexThreadSection,
   forkCodexThread,
+  interruptCodexChat,
   listCodexModels,
   listCodexProjects,
   listCodexThreadSections,
@@ -494,6 +495,65 @@ describe("desktop Codex services", () => {
     })
   })
 
+  it("keeps matching async-question replies internal when hydrating a turn", () => {
+    const questionId = JSON.stringify(["request_user_input_async", "question-1", 0])
+    const storedTurn = {
+      completedAt: 20,
+      durationMs: 10_000,
+      error: null,
+      id: "turn-1",
+      items: [
+        {
+          clientId: null,
+          content: [{ text: "Choose a branch", text_elements: [], type: "text" as const }],
+          id: "user-1",
+          type: "userMessage" as const,
+        },
+        {
+          delivery: "async" as const,
+          id: "question-1",
+          memoryCitation: null,
+          phase: "final_answer" as const,
+          questions: [{ options: ["Alpha", "Beta"], title: "Choose a branch" }],
+          text: "Choose a branch\n- Alpha\n- Beta",
+          type: "agentMessage" as const,
+        },
+        {
+          clientId: null,
+          content: [
+            {
+              text: `<send_user_message_question_reply>\n${JSON.stringify([
+                { answer: "Alpha", question: "Choose a branch", questionItemId: questionId },
+              ])}\n</send_user_message_question_reply>`,
+              text_elements: [],
+              type: "text" as const,
+            },
+          ],
+          id: "reply-1",
+          type: "userMessage" as const,
+        },
+        {
+          delivery: null,
+          id: "assistant-1",
+          memoryCitation: null,
+          phase: "final_answer" as const,
+          questions: null,
+          text: "You chose Alpha.",
+          type: "agentMessage" as const,
+        },
+      ],
+      itemsView: "full" as const,
+      startedAt: 10,
+      status: "completed" as const,
+    }
+
+    const messages = mapCodexTurnsToUiMessages("thread-1", [storedTurn])
+    expect(messages.map((message) => message.id)).toEqual(["user-1", "turn-1"])
+    expect(messages[1]?.parts).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "reply-1", type: "data-codex-item" })])
+    )
+  })
+
   it("injects reconciled Codex turn data into the live AI SDK UI stream", async () => {
     const inProgressTurn = {
       completedAt: null,
@@ -518,7 +578,21 @@ describe("desktop Codex services", () => {
 
     startCodexChat(asBridge(bridge), sender, {
       chatId: "chat-live",
-      messages: [{ id: "user-live", parts: [{ text: "Hello", type: "text" }], role: "user" }],
+      messages: [
+        {
+          id: "user-live",
+          parts: [
+            { text: "Hello", type: "text" },
+            {
+              filename: "Pasted text.txt",
+              mediaType: "text/plain",
+              type: "file",
+              url: "data:text/plain;base64,5a6M5pW055qE57KY6LS05YaF5a65",
+            },
+          ],
+          role: "user",
+        },
+      ],
       model: "test-model",
       provider: "openai",
       requestId: "01991111-1111-7111-8111-111111111111",
@@ -526,6 +600,15 @@ describe("desktop Codex services", () => {
     })
 
     await vi.waitFor(() => expect(bridge.notifications.size).toBe(1))
+    expect(bridge.calls).toContainEqual({
+      method: "turn/start",
+      params: expect.objectContaining({
+        input: [
+          { text: "Hello", text_elements: [], type: "text" },
+          { text: "完整的粘贴内容", text_elements: [], type: "text" },
+        ],
+      }),
+    })
     await expect(
       steerCodexChat("01991111-1111-7111-8111-111111111111", {
         files: [],
@@ -611,6 +694,47 @@ describe("desktop Codex services", () => {
     )
   })
 
+  it("interrupts an active App Server turn only once before closing its AI SDK stream", async () => {
+    const requestId = "01993333-3333-7333-8333-333333333333"
+    const bridge = new FakeBridge({
+      "thread/start": { thread: { id: "thread-interrupt" } },
+      "turn/interrupt": {},
+      "turn/start": {
+        turn: {
+          completedAt: null,
+          durationMs: null,
+          error: null,
+          id: "turn-interrupt",
+          items: [],
+          itemsView: "full",
+          startedAt: 10,
+          status: "inProgress",
+        },
+      },
+    })
+    const events: CodexChatEvent[] = []
+    const sender = {
+      isDestroyed: () => false,
+      send: (_channel: string, event: CodexChatEvent) => events.push(event),
+    } as unknown as WebContents
+
+    startCodexChat(asBridge(bridge), sender, {
+      chatId: "chat-interrupt",
+      messages: [{ id: "user-interrupt", parts: [{ text: "Wait", type: "text" }], role: "user" }],
+      model: "test-model",
+      provider: "openai",
+      requestId,
+    })
+    await vi.waitFor(() =>
+      expect(bridge.calls.some((call) => call.method === "turn/start")).toBe(true)
+    )
+
+    await expect(interruptCodexChat(requestId)).resolves.toBe(true)
+    await vi.waitFor(() => expect(events.some((event) => event.type === "done")).toBe(true))
+    expect(bridge.calls.filter((call) => call.method === "turn/interrupt")).toHaveLength(1)
+    await expect(interruptCodexChat(requestId)).resolves.toBe(false)
+  })
+
   it("queues validated follow-up input for the next turn", async () => {
     const bridge = new FakeBridge({
       "thread/queue/add": {
@@ -629,6 +753,11 @@ describe("desktop Codex services", () => {
         "01992222-2222-7222-8222-222222222222",
         {
           files: [
+            {
+              filename: "Pasted text.txt",
+              mediaType: "text/plain",
+              url: "data:text/plain;base64,5a6M5pW055qE57KY6LS05YaF5a65",
+            },
             { mediaType: "image/png", url: "data:image/png;base64,AQID" },
             { filename: "note.m4a", mediaType: "audio/m4a", url: "data:audio/m4a;base64,AQID" },
           ],
@@ -642,6 +771,7 @@ describe("desktop Codex services", () => {
         clientUserMessageId: "01992222-2222-7222-8222-222222222222",
         input: [
           { text: "Continue next", text_elements: [], type: "text" },
+          { text: "完整的粘贴内容", text_elements: [], type: "text" },
           { type: "image", url: "data:image/png;base64,AQID" },
           { type: "audio", url: "data:audio/m4a;base64,AQID" },
         ],

@@ -14,6 +14,7 @@ import type {
 type SupportedRequest = Extract<ServerRequest, { method: CodexInteractionMethod }>
 
 type PendingInteraction = {
+  readonly event: CodexInteractionEvent
   readonly request: SupportedRequest
   readonly resolve: (value: CodexJsonValue) => void
   readonly timer: ReturnType<typeof setTimeout>
@@ -21,6 +22,7 @@ type PendingInteraction = {
 
 export type CodexInteractionBroker = {
   readonly close: () => void
+  readonly list: () => CodexInteractionEvent[]
   readonly respond: (response: CodexInteractionResponse) => Promise<void>
 }
 
@@ -181,6 +183,7 @@ export const createCodexInteractionBroker = (
         new Promise<CodexJsonValue>((resolve) => {
           const supportedRequest = request as SupportedRequest
           const interactionId = randomUUID()
+          const event = eventFromRequest(interactionId, supportedRequest)
           const timer = setTimeout(
             () => {
               const current = pending.get(interactionId)
@@ -195,8 +198,8 @@ export const createCodexInteractionBroker = (
             },
             options.timeoutMs ?? 5 * 60_000
           )
-          pending.set(interactionId, { request: supportedRequest, resolve, timer })
-          options.emit(eventFromRequest(interactionId, supportedRequest))
+          pending.set(interactionId, { event, request: supportedRequest, resolve, timer })
+          options.emit(event)
         })
     )
   )
@@ -222,6 +225,7 @@ export const createCodexInteractionBroker = (
       }
       pending.clear()
     },
+    list: () => Array.from(pending.values(), ({ event }) => event),
     respond,
   }
 }

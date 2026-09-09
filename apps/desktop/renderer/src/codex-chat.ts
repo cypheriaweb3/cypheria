@@ -8,6 +8,52 @@ import type {
 
 export type CodexChatOptions = Omit<CodexChatStart, "chatId" | "messages" | "requestId">
 
+export const interruptActiveCodexTurns = (
+  messages: readonly CodexUiMessage[],
+  completedAtMs = Date.now()
+): CodexUiMessage[] => {
+  const completedAt = completedAtMs / 1_000
+  return messages.map((message) => {
+    const activeTurnIds = new Set(
+      message.parts.flatMap((part) =>
+        part.type === "data-codex-turn" && part.data.status === "inProgress" ? [part.data.id] : []
+      )
+    )
+    if (!activeTurnIds.size) return message
+
+    return {
+      ...message,
+      parts: message.parts.map((part) => {
+        if (part.type === "data-codex-turn" && activeTurnIds.has(part.data.id)) {
+          return {
+            ...part,
+            data: {
+              ...part.data,
+              completedAt,
+              durationMs:
+                part.data.startedAt === null
+                  ? null
+                  : Math.max(0, Math.round((completedAt - part.data.startedAt) * 1_000)),
+              status: "interrupted" as const,
+            },
+          }
+        }
+        if (part.type === "data-codex-item" && activeTurnIds.has(part.data.turnId)) {
+          return {
+            ...part,
+            data: {
+              ...part.data,
+              completedAtMs,
+              lifecycle: "completed" as const,
+            },
+          }
+        }
+        return part
+      }),
+    }
+  })
+}
+
 export class CodexIpcChatTransport implements ChatTransport<CodexUiMessage> {
   #requestId: string | null = null
 
@@ -30,38 +76,56 @@ export class CodexIpcChatTransport implements ChatTransport<CodexUiMessage> {
 
     const requestId = crypto.randomUUID()
     this.#requestId = requestId
+    let disposeActiveRequest: (() => boolean) | null = null
     return new globalThis.ReadableStream<InferUIMessageChunk<CodexUiMessage>>({
       start: async (controller) => {
         let closed = false
-        const close = () => {
-          if (closed) return
+        let unsubscribe: () => void = () => undefined
+        const abort = () => {
+          if (!dispose()) return
+          void api.interruptChat(requestId)
+          controller.close()
+        }
+        const dispose = () => {
+          if (closed) return false
           closed = true
           if (this.#requestId === requestId) this.#requestId = null
+          abortSignal?.removeEventListener("abort", abort)
           unsubscribe()
+          disposeActiveRequest = null
+          return true
+        }
+        const close = () => {
+          if (!dispose()) return false
           controller.close()
+          return true
+        }
+        const fail = (error: unknown) => {
+          if (!dispose()) return
+          controller.error(error)
         }
         const onEvent = (event: CodexChatEvent) => {
           if (event.requestId !== requestId || closed) return
           if (event.type === "chunk") {
             controller.enqueue(event.chunk as InferUIMessageChunk<CodexUiMessage>)
           } else if (event.type === "error") {
-            closed = true
-            if (this.#requestId === requestId) this.#requestId = null
-            unsubscribe()
-            controller.error(new Error(event.message))
+            fail(new Error(event.message))
           } else {
-            if (event.threadId) this.onThreadCreated?.(event.threadId)
-            close()
+            const threadId = event.threadId
+            if (close() && threadId) this.onThreadCreated?.(threadId)
           }
         }
-        const unsubscribe = api.onChatEvent(onEvent)
-        const abort = () => {
-          void api.interruptChat(requestId)
-          close()
-        }
-        abortSignal?.addEventListener("abort", abort, { once: true })
+        disposeActiveRequest = dispose
 
         try {
+          const removeListener = api.onChatEvent(onEvent)
+          unsubscribe = removeListener
+          if (closed) removeListener()
+          abortSignal?.addEventListener("abort", abort, { once: true })
+          if (abortSignal?.aborted) {
+            abort()
+            return
+          }
           await api.startChat({
             ...this.getOptions(),
             chatId,
@@ -69,14 +133,11 @@ export class CodexIpcChatTransport implements ChatTransport<CodexUiMessage> {
             requestId,
           })
         } catch (error) {
-          closed = true
-          if (this.#requestId === requestId) this.#requestId = null
-          unsubscribe()
-          controller.error(error)
+          fail(error)
         }
       },
       cancel: async () => {
-        await api.interruptChat(requestId)
+        if (disposeActiveRequest?.()) await api.interruptChat(requestId)
       },
     })
   }
