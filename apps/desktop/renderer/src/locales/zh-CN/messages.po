@@ -377,11 +377,6 @@ msgid "chat.artifact.declined"
 msgstr "已拒绝"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.model.default"
-msgstr "默认"
-
-#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.permissions.default.title"
 msgstr "默认权限"
@@ -515,6 +510,11 @@ msgstr "已退出审查模式"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
+msgid "chat.reasoning.xhigh"
+msgstr "超高"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
 msgid "chat.artifact.failed"
 msgstr "失败"
 
@@ -619,6 +619,11 @@ msgid "chat.workspace.hideTerminalPanel"
 msgstr "隐藏终端面板"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.reasoning.high"
+msgstr "高"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.configuration.tsx
 msgid "settings.configuration.option.high"
 msgstr "高"
@@ -681,8 +686,8 @@ msgstr "本地"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
-msgid "chat.localAgent"
-msgstr "本地智能体"
+msgid "chat.reasoning.low"
+msgstr "低"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.configuration.tsx
@@ -705,6 +710,16 @@ msgid "navigation.sort.manual"
 msgstr "手动排序"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.reasoning.max"
+msgstr "最高"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.reasoning.medium"
+msgstr "中"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.configuration.tsx
 msgid "settings.configuration.option.medium"
 msgstr "中"
@@ -713,6 +728,11 @@ msgstr "中"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.prompt.label"
 msgstr "给 Cypheria 发消息"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.reasoning.minimal"
+msgstr "最低"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
@@ -833,11 +853,6 @@ msgid "search.noMatches"
 msgstr "没有匹配的对话。"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.model.empty"
-msgstr "未找到模型。"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.noPinnedChats"
 msgstr "暂无置顶对话"
@@ -869,13 +884,13 @@ msgstr "未找到结果"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
-msgid "chat.noSigningAuthority"
-msgstr "无签名权限"
+msgid "chat.workspace.noWallet"
+msgstr "未选择钱包。链上操作仍为只读。"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.noWallet"
-msgstr "未选择钱包。链上操作仍为只读。"
+msgid "chat.reasoning.none"
+msgstr "无"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.configuration.tsx
@@ -1033,6 +1048,11 @@ msgid "chat.sandbox.readOnly"
 msgstr "只读"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.model.reasoning"
+msgstr "推理强度"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.configuration.tsx
 msgid "settings.configuration.summary.title"
 msgstr "推理摘要"
@@ -1154,11 +1174,6 @@ msgid "settings.language.search"
 msgstr "搜索语言"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.model.search"
-msgstr "搜索模型…"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.search.label"
 msgstr "搜索设置"
@@ -1253,6 +1268,16 @@ msgstr "正在启动…"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.prompt.steer"
 msgstr "引导当前任务"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.prompt.stop"
+msgstr "停止"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.prompt.submit"
+msgstr "发送"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx

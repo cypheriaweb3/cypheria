@@ -116,6 +116,33 @@ Import `@xyflow/react/dist/style.css` from `packages/ui/src/styles.css`, not fro
 NodeNext does not provide a declaration for the component-level side-effect CSS import, while the
 shared stylesheet is already the package's public styling entry point.
 
+### Desktop composer ownership
+
+AI Elements supplies the prompt-input state, attachment validation, speech input, and submission
+plumbing, but the desktop workspace owns the composer layout and interaction density. The current
+layout was checked against ChatGPT Desktop 26.901.51231 (build 8109): the conversation and composer
+inherit one `--thread-content-max-width` (`48rem`) and the same toolbar padding rather than keeping
+independent fixed widths. A borderless 20-pixel-radius surface uses the desktop composer elevation,
+the text editor occupies its own top row, and explicit
+leading and trailing footer groups prevent controls from spreading across the available width.
+Empty attachment chrome must not reserve a header row. The editor grows with its contents up to
+`25dvh`, then becomes the only scrolling surface inside the composer.
+
+The leading group contains context, skills, project, and permission controls. The trailing group
+contains a single model/reasoning menu, dictation, active-turn steer/queue actions when applicable,
+and the circular submit/stop control. Model and reasoning radio-group labels must remain inside the
+corresponding Base UI `Menu.RadioGroup`; rendering a `Menu.GroupLabel` outside a group throws at
+runtime even though the composition type-checks. The idle submit control is disabled for an empty
+prompt without attachments, becomes an arrow action for a valid prompt, and changes to the explicit
+stop state while generation is active.
+
+Do not rely on platform-default scrollbar colors. ChatGPT keeps the macOS overlay scrollbar
+geometry but sets a transparent track and a quiet thumb that strengthens on hover or active scroll.
+Cypheria mirrors that behavior through the shared `scrollbar-color` tokens on standard overflow
+utilities and the explicit `cypheria-scrollbar` class. Avoid forcing WebKit scrollbar widths: doing
+so replaces the native overlay behavior and leaves permanent gutters that ChatGPT Desktop does not
+show.
+
 ### Conversation scrolling ownership
 
 The desktop chat must pass a Cypheria-owned external `instance` to AI Elements `Conversation`.
@@ -155,6 +182,10 @@ state.
   removing the local adapters.
 - Confirm the desktop still supplies the external Conversation instance and that regenerated
   defaults cannot re-enable spring scrolling or duplicate resize anchoring.
+- Confirm the desktop composer still owns its grouped footer, `25dvh` editor cap, combined
+  model/reasoning menu, and submit/stop states; open every Base UI menu in a production build.
+- Confirm shared overflow surfaces retain native overlay geometry, transparent tracks, and the
+  stronger hover/active scrollbar thumb in both light and dark themes.
 - Check whether the React type overrides are still required with `pnpm why @types/react -r`.
 - Run UI and desktop typechecks before the full CI/build commands.
 

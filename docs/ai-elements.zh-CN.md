@@ -109,6 +109,26 @@ Cypheria 启用了 `noUncheckedIndexedAccess` 和 `noImplicitReturns`。正则�
 应从 `packages/ui/src/styles.css` 导入 `@xyflow/react/dist/style.css`，不要在 `canvas.tsx` 中导入。
 NodeNext 无法为组件级副作用 CSS 导入找到声明，而共享样式表本来就是该包的公共样式入口。
 
+### Desktop 输入框职责
+
+AI Elements 负责 prompt-input 状态、附件校验、语音输入和提交管线，但 desktop workspace 自己负责
+输入框布局与交互密度。当前布局已对照 ChatGPT Desktop 26.901.51231（build 8109）：会话内容与
+composer 继承同一个 `--thread-content-max-width`（`48rem`）并使用相同的 toolbar padding，而不是分别维护
+固定宽度。无边框、20 像素圆角的 surface 使用 desktop composer 阴影；文本编辑器独占顶部一行；footer 显式划分左右控制组，
+避免控件被可用宽度平均撑散。没有附件时不得为空的 attachment header 预留高度。编辑器随内容增高，
+到 `25dvh` 后只有编辑器内部继续滚动。
+
+左侧控制组包含上下文、技能、项目和权限，右侧包含合并后的模型/推理菜单、听写，以及仅在需要时
+出现的运行中 steer/queue 操作和圆形提交/停止按钮。模型与推理的 radio-group label 必须放在对应的
+Base UI `Menu.RadioGroup` 内部；即使类型检查通过，把 `Menu.GroupLabel` 放在 group 外也会在运行时
+抛错。没有文字和附件时提交按钮禁用，有有效 prompt 时显示箭头操作，生成过程中则明确切换到停止
+状态。
+
+滚动条颜色不能只依赖平台默认值。ChatGPT 保留 macOS overlay scrollbar 的原生几何形态，但使用透明
+track 和低对比度 thumb，并在 hover 或主动滚动时增强。Cypheria 通过共享 `scrollbar-color` token 将该
+行为应用到标准 overflow utility 与显式的 `cypheria-scrollbar` class。不要强制设置 WebKit scrollbar
+宽度，否则会替换原生 overlay 行为并留下 ChatGPT Desktop 中不存在的永久 gutter。
+
 ### Conversation 滚动职责
 
 桌面会话必须向 AI Elements `Conversation` 传入由 Cypheria 管理的外部 `instance`。
@@ -141,6 +161,10 @@ layout effect 中运行：用户离开底部阅读时优先恢复稳定消息锚
 - 删除本地适配前，检查 `react-jsx-parser` 和 `ansi-to-react` 是否已修复 NodeNext 声明。
 - 确认 desktop 仍传入外部 Conversation instance，且重新生成后的默认值不会恢复弹簧滚动或重复的
   resize anchoring。
+- 确认 desktop 输入框仍保留分组 footer、`25dvh` 编辑器上限、合并的模型/推理菜单与提交/停止状态；
+  并在 production build 中真实打开每个 Base UI 菜单。
+- 确认共享 overflow surface 在亮色与暗色主题中都保留原生 overlay 几何、透明 track，以及 hover/主动
+  滚动时增强的 scrollbar thumb。
 - 使用 `pnpm why @types/react -r` 检查 React 类型覆盖是否仍有必要。
 - 在运行完整 CI 和构建命令前，先执行 UI 与桌面端 typecheck。
 

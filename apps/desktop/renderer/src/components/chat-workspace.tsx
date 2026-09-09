@@ -28,17 +28,6 @@ import {
   MessageResponse,
 } from "@cypheria/ui/ai-elements/message"
 import {
-  ModelSelector,
-  ModelSelectorContent,
-  ModelSelectorEmpty,
-  ModelSelectorGroup,
-  ModelSelectorInput,
-  ModelSelectorItem,
-  ModelSelectorList,
-  ModelSelectorName,
-  ModelSelectorTrigger,
-} from "@cypheria/ui/ai-elements/model-selector"
-import {
   PromptInput,
   PromptInputActionAddAttachments,
   PromptInputActionAddScreenshot,
@@ -73,6 +62,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@cypheria/ui/components/dropdown-menu"
 import { Input } from "@cypheria/ui/components/input"
@@ -98,6 +91,7 @@ import type {
 } from "ai"
 import { useAtomValue } from "jotai"
 import {
+  ArrowUp,
   ChevronDown,
   Copy,
   CornerDownLeft,
@@ -105,7 +99,6 @@ import {
   FileDiff,
   FolderGit2,
   Globe2,
-  HardDrive,
   LoaderCircle,
   LockKeyhole,
   PanelBottomClose,
@@ -116,7 +109,9 @@ import {
   Plus,
   Settings,
   Sparkles,
+  Square,
   WalletCards,
+  Zap,
 } from "lucide-react"
 import {
   type ReactNode,
@@ -158,6 +153,7 @@ import {
   type WorkspaceTerminalsController,
   WorkspaceTerminalView,
 } from "./workspace-terminal"
+import "./chat-composer.css"
 
 const fallbackModel: CodexModelView = {
   defaultReasoningEffort: "medium",
@@ -600,7 +596,7 @@ function ChatSession({
         <ResizablePanel id="workspace" minSize={240}>
           <ResizablePanelGroup orientation="horizontal">
             <ResizablePanel id="conversation" minSize={480}>
-              <main className="grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[var(--chrome-height,44px)_minmax(0,1fr)_auto] overflow-hidden [container-type:inline-size]">
+              <main className="grid h-full min-h-0 min-w-0 grid-cols-[minmax(0,1fr)] grid-rows-[var(--chrome-height,44px)_minmax(0,1fr)_auto] overflow-hidden [--thread-content-max-width:48rem] [container-type:inline-size]">
                 <header className="desktop-titlebar flex min-h-[44px] items-center justify-between gap-3 border-b border-border px-4">
                   <div className="inline-flex min-w-0 max-w-[420px] flex-1 items-center gap-2 overflow-hidden text-sm font-medium">
                     <span className="flex size-5 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
@@ -768,8 +764,8 @@ function ChatSession({
                   resize="instant"
                 >
                   <ConversationContent
-                    className="mx-auto min-h-full w-[calc(100cqw-3rem)] min-w-0 max-w-3xl px-4 py-8"
-                    scrollClassName="overflow-y-auto overscroll-contain [overflow-anchor:none]"
+                    className="mx-auto min-h-full w-full min-w-0 max-w-(--thread-content-max-width) px-4 py-8"
+                    scrollClassName="cypheria-scrollbar overflow-y-auto overscroll-contain [overflow-anchor:none]"
                   >
                     {(conversation) =>
                       resumeThreadId && threadQuery.isPending ? (
@@ -815,14 +811,14 @@ function ChatSession({
                     }
                   </ConversationContent>
                   {error ? (
-                    <div className="absolute inset-x-4 bottom-4 mx-auto max-w-3xl rounded-lg border border-destructive/35 bg-background px-3 py-2 text-sm text-destructive shadow-lg">
+                    <div className="absolute inset-x-4 bottom-4 mx-auto max-w-(--thread-content-max-width) rounded-lg border border-destructive/35 bg-background px-3 py-2 text-sm text-destructive shadow-lg">
                       {error.message}
                     </div>
                   ) : null}
                   <ConversationScrollButton />
                 </Conversation>
 
-                <div className="mx-auto w-full max-w-[880px] px-4 pb-5">
+                <div className="mx-auto w-full max-w-(--thread-content-max-width) px-4 pb-5">
                   {activeTurnProgress &&
                   (activeTurnProgress.totalSteps || activeTurnProgress.changedFiles) ? (
                     <div className="mb-2 flex justify-center" data-in-progress-fixed-content="true">
@@ -873,7 +869,7 @@ function ChatSession({
                   <PromptInputProvider initialInput={initialPrompt}>
                     <PromptInput
                       accept="image/*,audio/*,video/*,text/*,.md,.json,.pdf"
-                      className="[&_[data-slot=input-group]]:rounded-2xl [&_[data-slot=input-group]]:shadow-sm"
+                      className="cypheria-composer [&_[data-slot=input-group]]:bg-white"
                       globalDrop
                       id={composerFormId}
                       maxFileSize={25 * 1024 * 1024}
@@ -882,15 +878,13 @@ function ChatSession({
                       onError={(nextError) => setAttachmentError(nextError.message)}
                       onSubmit={handleSubmit}
                     >
-                      <PromptInputHeader>
-                        <ComposerAttachments />
-                      </PromptInputHeader>
+                      <ComposerAttachments />
                       <PromptInputBody>
                         <PromptInputTextarea
                           aria-label={i18n._(
                             msg({ id: "chat.prompt.label", message: "Message Cypheria" })
                           )}
-                          className="min-h-14"
+                          className="cypheria-scrollbar"
                           placeholder={i18n._(
                             msg({
                               id: "chat.prompt.placeholder",
@@ -899,10 +893,17 @@ function ChatSession({
                           )}
                         />
                       </PromptInputBody>
-                      <PromptInputFooter>
-                        <PromptInputTools className="flex-wrap">
+                      <PromptInputFooter className="cypheria-composer-footer">
+                        <PromptInputTools className="cypheria-composer-leading-controls">
                           <PromptInputActionMenu>
                             <PromptInputActionMenuTrigger
+                              aria-label={i18n._(
+                                msg({
+                                  id: "chat.prompt.addContext",
+                                  message: "Add files or screen context",
+                                })
+                              )}
+                              className="cypheria-composer-icon-button"
                               tooltip={i18n._(
                                 msg({
                                   id: "chat.prompt.addContext",
@@ -932,12 +933,16 @@ function ChatSession({
                             )}
                           />
                           <PromptInputSelect
-                            onValueChange={(value) =>
+                            onValueChange={(value) => {
+                              if (value === "create-project") {
+                                setProjectDialogOpen(true)
+                                return
+                              }
                               setSelectedProjectId(value === "none" ? null : String(value))
-                            }
+                            }}
                             value={selectedProjectId ?? "none"}
                           >
-                            <PromptInputSelectTrigger className="max-w-48">
+                            <PromptInputSelectTrigger className="cypheria-composer-control max-w-44">
                               <FolderGit2 className="size-3.5" />
                               <PromptInputSelectValue>
                                 {selectedProject?.name ??
@@ -953,26 +958,26 @@ function ChatSession({
                                   {project.name}
                                 </PromptInputSelectItem>
                               ))}
+                              <PromptInputSelectItem value="create-project">
+                                <Plus aria-hidden="true" />
+                                <Trans id="chat.project.create">Create project</Trans>
+                              </PromptInputSelectItem>
                             </PromptInputSelectContent>
                           </PromptInputSelect>
-                          <Button
-                            aria-label={i18n._(
-                              msg({ id: "chat.project.create", message: "Create project" })
-                            )}
-                            onClick={() => setProjectDialogOpen(true)}
-                            size="icon-sm"
-                            type="button"
-                            variant="ghost"
-                          >
-                            <Plus aria-hidden="true" />
-                          </Button>
                           <PromptInputSelect
                             onValueChange={(value) =>
                               setPermissionSelection(permissionSelectionFromValue(String(value)))
                             }
                             value={permissionValue}
                           >
-                            <PromptInputSelectTrigger className="w-auto">
+                            <PromptInputSelectTrigger
+                              className={`cypheria-composer-control w-auto ${
+                                effectivePermissionSelection.kind === "agent-mode" &&
+                                effectivePermissionSelection.agentMode === "full-access"
+                                  ? "text-amber-600 hover:text-amber-700 dark:text-amber-400 dark:hover:text-amber-300"
+                                  : ""
+                              }`}
+                            >
                               <LockKeyhole className="size-3.5" />
                               <PromptInputSelectValue>{permissionLabel}</PromptInputSelectValue>
                             </PromptInputSelectTrigger>
@@ -1016,105 +1021,77 @@ function ChatSession({
                               ) : null}
                             </PromptInputSelectContent>
                           </PromptInputSelect>
+                        </PromptInputTools>
+                        <div className="cypheria-composer-trailing-controls">
                           <ModelPicker
                             models={models.length ? models : [fallbackModel]}
+                            onReasoningEffortChange={setReasoningEffort}
                             onSelect={(model) => {
                               setSelectedModelId(model.model)
                               setReasoningEffort(model.defaultReasoningEffort)
                             }}
+                            reasoningEffort={selectedReasoning}
                             selected={selectedModel}
                           />
-                          <PromptInputSelect
-                            onValueChange={(value) => setReasoningEffort(String(value))}
-                            value={selectedReasoning}
-                          >
-                            <PromptInputSelectTrigger className="w-auto">
-                              <PromptInputSelectValue />
-                            </PromptInputSelectTrigger>
-                            <PromptInputSelectContent>
-                              {selectedModel.reasoningEfforts.map((effort) => (
-                                <PromptInputSelectItem key={effort.value} value={effort.value}>
-                                  {effort.value}
-                                </PromptInputSelectItem>
-                              ))}
-                            </PromptInputSelectContent>
-                          </PromptInputSelect>
-                        </PromptInputTools>
-                        <ComposerSpeechInput />
-                        {status === "submitted" || status === "streaming" ? (
-                          <>
-                            <Button
-                              aria-label={i18n._(
-                                msg({ id: "chat.prompt.steer", message: "Steer active turn" })
-                              )}
-                              size="icon-sm"
-                              title={i18n._(
-                                msg({ id: "chat.prompt.steer", message: "Steer active turn" })
-                              )}
-                              type="submit"
-                              variant="secondary"
-                            >
-                              <CornerDownLeft aria-hidden="true" />
-                            </Button>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger
-                                render={
-                                  <Button
-                                    aria-label={i18n._(
-                                      msg({
-                                        id: "chat.prompt.followUpOptions",
-                                        message: "Follow-up options",
-                                      })
-                                    )}
-                                    size="icon-sm"
-                                    type="button"
-                                    variant="ghost"
+                          <ComposerSpeechInput />
+                          {status === "submitted" || status === "streaming" ? (
+                            <>
+                              <Button
+                                aria-label={i18n._(
+                                  msg({ id: "chat.prompt.steer", message: "Steer active turn" })
+                                )}
+                                size="icon-sm"
+                                title={i18n._(
+                                  msg({ id: "chat.prompt.steer", message: "Steer active turn" })
+                                )}
+                                type="submit"
+                                variant="ghost"
+                              >
+                                <CornerDownLeft aria-hidden="true" />
+                              </Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger
+                                  render={
+                                    <Button
+                                      aria-label={i18n._(
+                                        msg({
+                                          id: "chat.prompt.followUpOptions",
+                                          message: "Follow-up options",
+                                        })
+                                      )}
+                                      size="icon-sm"
+                                      type="button"
+                                      variant="ghost"
+                                    >
+                                      <ChevronDown aria-hidden="true" />
+                                    </Button>
+                                  }
+                                />
+                                <DropdownMenuContent align="end" className="w-48">
+                                  <DropdownMenuItem
+                                    disabled={!resumeThreadId}
+                                    onClick={() => {
+                                      submitMode.current = "queue"
+                                      const form = document.getElementById(composerFormId)
+                                      if (form instanceof HTMLFormElement) form.requestSubmit()
+                                    }}
                                   >
-                                    <ChevronDown aria-hidden="true" />
-                                  </Button>
-                                }
-                              />
-                              <DropdownMenuContent align="end" className="w-48">
-                                <DropdownMenuItem
-                                  disabled={!resumeThreadId}
-                                  onClick={() => {
-                                    submitMode.current = "queue"
-                                    const form = document.getElementById(composerFormId)
-                                    if (form instanceof HTMLFormElement) form.requestSubmit()
-                                  }}
-                                >
-                                  <Trans id="chat.prompt.queue">Queue for next turn</Trans>
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </>
-                        ) : null}
-                        <PromptInputSubmit onStop={stop} status={status} />
+                                    <Trans id="chat.prompt.queue">Queue for next turn</Trans>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </>
+                          ) : null}
+                          <ComposerSubmitButton onStop={stop} status={status} />
+                        </div>
                       </PromptInputFooter>
                     </PromptInput>
                   </PromptInputProvider>
                   {status !== "ready" ? (
-                    <div
-                      aria-live="polite"
-                      className="mt-2 flex items-center gap-2 px-2 text-xs font-medium text-foreground"
-                      role="status"
-                    >
-                      {status !== "error" ? (
-                        <LoaderCircle aria-hidden="true" className="animate-spin" size={12} />
-                      ) : null}
+                    <div aria-live="polite" className="sr-only" role="status">
                       {statusLabel}
                     </div>
                   ) : null}
-                  <div className="mt-2 flex items-center gap-3 px-2 text-xs text-muted-foreground">
-                    <span className="inline-flex items-center gap-1">
-                      <HardDrive size={12} /> <Trans id="chat.localAgent">Local agent</Trans>
-                    </span>
-                    <span className="inline-flex items-center gap-1">
-                      <WalletCards size={12} />
-                      <Trans id="chat.noSigningAuthority">No signing authority</Trans>
-                    </span>
-                    <span>{provider}</span>
-                  </div>
                 </div>
                 <ProjectCreateDialog
                   onCreated={(projectId) => {
@@ -1895,19 +1872,21 @@ function ComposerAttachments() {
   const attachments = usePromptInputAttachments()
   if (!attachments.files.length) return null
   return (
-    <Attachments className="ml-0 max-w-full" variant="inline">
-      {attachments.files.map((file) => (
-        <Attachment data={file} key={file.id} onRemove={() => attachments.remove(file.id)}>
-          <AttachmentPreview />
-          <AttachmentInfo />
-          <AttachmentRemove
-            label={i18n._(
-              msg({ id: "chat.prompt.removeAttachment", message: "Remove attachment" })
-            )}
-          />
-        </Attachment>
-      ))}
-    </Attachments>
+    <PromptInputHeader className="cypheria-composer-attachments">
+      <Attachments className="ml-0 max-w-full" variant="inline">
+        {attachments.files.map((file) => (
+          <Attachment data={file} key={file.id} onRemove={() => attachments.remove(file.id)}>
+            <AttachmentPreview />
+            <AttachmentInfo />
+            <AttachmentRemove
+              label={i18n._(
+                msg({ id: "chat.prompt.removeAttachment", message: "Remove attachment" })
+              )}
+            />
+          </Attachment>
+        ))}
+      </Attachments>
+    </PromptInputHeader>
   )
 }
 
@@ -1922,6 +1901,7 @@ function ComposerSpeechInput() {
         const prefix = textInput.value && !textInput.value.endsWith(" ") ? " " : ""
         textInput.setInput(`${textInput.value}${prefix}${transcript}`)
       }}
+      className="cypheria-composer-speech-button"
       size="icon-sm"
       title={i18n._(msg({ id: "chat.prompt.dictation", message: "Dictation" }))}
       type="button"
@@ -1939,13 +1919,12 @@ function ComposerSkillPicker({ skills }: Readonly<{ skills: CodexSkillView[] }>)
   return (
     <PromptInputActionMenu>
       <PromptInputActionMenuTrigger
+        aria-label={i18n._(msg({ id: "chat.prompt.skills", message: "Skills" }))}
+        className="cypheria-composer-icon-button"
         disabled={!skills.length}
         tooltip={i18n._(msg({ id: "chat.prompt.skills", message: "Skills" }))}
       >
         <Sparkles className="size-3.5" />
-        <span className="max-[620px]:hidden">
-          <Trans id="chat.prompt.skills">Skills</Trans>
-        </span>
       </PromptInputActionMenuTrigger>
       <PromptInputActionMenuContent className="max-h-80 w-72 overflow-y-auto">
         {skills.length ? (
@@ -1972,57 +1951,148 @@ function ComposerSkillPicker({ skills }: Readonly<{ skills: CodexSkillView[] }>)
 
 function ModelPicker({
   models,
+  onReasoningEffortChange,
   onSelect,
+  reasoningEffort,
   selected,
 }: Readonly<{
   models: CodexModelView[]
+  onReasoningEffortChange: (effort: string) => void
   onSelect: (model: CodexModelView) => void
+  reasoningEffort: string
   selected: CodexModelView
 }>) {
   const { i18n } = useLingui()
-  const [open, setOpen] = useState(false)
   return (
-    <ModelSelector onOpenChange={setOpen} open={open}>
-      <ModelSelectorTrigger
+    <DropdownMenu>
+      <DropdownMenuTrigger
         render={
-          <Button className="max-w-44 gap-1 px-2" size="sm" variant="ghost">
-            <span className="truncate">{selected.displayName}</span>
-            <ChevronDown className="size-3.5" />
+          <Button
+            aria-label={`${selected.displayName}, ${reasoningEffortLabel(reasoningEffort, i18n)}`}
+            className="cypheria-composer-model-button"
+            size="sm"
+            variant="ghost"
+          >
+            <Zap aria-hidden="true" className="size-3.5 fill-current" />
+            <span className="min-w-0 truncate">{selected.displayName}</span>
+            <span className="shrink-0 text-muted-foreground">
+              {reasoningEffortLabel(reasoningEffort, i18n)}
+            </span>
+            <ChevronDown aria-hidden="true" className="size-3.5 shrink-0" />
           </Button>
         }
       />
-      <ModelSelectorContent>
-        <ModelSelectorInput
-          placeholder={i18n._(msg({ id: "chat.model.search", message: "Search models…" }))}
-        />
-        <ModelSelectorList>
-          <ModelSelectorEmpty>
-            <Trans id="chat.model.empty">No models found.</Trans>
-          </ModelSelectorEmpty>
-          <ModelSelectorGroup
-            heading={i18n._(msg({ id: "chat.model.available", message: "Available models" }))}
-          >
-            {models.map((model) => (
-              <ModelSelectorItem
-                key={model.id}
-                onSelect={() => {
-                  onSelect(model)
-                  setOpen(false)
-                }}
-                value={`${model.displayName} ${model.model}`}
-              >
-                <ModelSelectorName>{model.displayName}</ModelSelectorName>
-                {model.isDefault ? (
-                  <Badge variant="secondary">
-                    <Trans id="chat.model.default">Default</Trans>
-                  </Badge>
-                ) : null}
-              </ModelSelectorItem>
-            ))}
-          </ModelSelectorGroup>
-        </ModelSelectorList>
-      </ModelSelectorContent>
-    </ModelSelector>
+      <DropdownMenuContent
+        align="end"
+        className="cypheria-scrollbar max-h-[min(28rem,var(--available-height))] w-72"
+        side="top"
+        sideOffset={8}
+      >
+        <DropdownMenuRadioGroup
+          onValueChange={(value) => {
+            const model = models.find((candidate) => candidate.model === String(value))
+            if (model) onSelect(model)
+          }}
+          value={selected.model}
+        >
+          <DropdownMenuLabel>
+            <Trans id="chat.model.available">Available models</Trans>
+          </DropdownMenuLabel>
+          {models.map((model) => (
+            <DropdownMenuRadioItem
+              className="items-start py-2"
+              closeOnClick={false}
+              key={model.id}
+              value={model.model}
+            >
+              <span className="min-w-0">
+                <span className="block truncate font-medium">{model.displayName}</span>
+                <span className="block line-clamp-2 text-xs text-muted-foreground">
+                  {model.description}
+                </span>
+              </span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuRadioGroup
+          onValueChange={(value) => onReasoningEffortChange(String(value))}
+          value={reasoningEffort}
+        >
+          <DropdownMenuLabel>
+            <Trans id="chat.model.reasoning">Reasoning</Trans>
+          </DropdownMenuLabel>
+          {selected.reasoningEfforts.map((effort) => (
+            <DropdownMenuRadioItem closeOnClick={false} key={effort.value} value={effort.value}>
+              <span className="min-w-0">
+                <span className="block font-medium">
+                  {reasoningEffortLabel(effort.value, i18n)}
+                </span>
+                <span className="block line-clamp-2 text-xs text-muted-foreground">
+                  {effort.description}
+                </span>
+              </span>
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function reasoningEffortLabel(value: string, i18n: I18n): string {
+  switch (value) {
+    case "none":
+      return i18n._(msg({ id: "chat.reasoning.none", message: "None" }))
+    case "minimal":
+      return i18n._(msg({ id: "chat.reasoning.minimal", message: "Minimal" }))
+    case "low":
+      return i18n._(msg({ id: "chat.reasoning.low", message: "Low" }))
+    case "medium":
+      return i18n._(msg({ id: "chat.reasoning.medium", message: "Medium" }))
+    case "high":
+      return i18n._(msg({ id: "chat.reasoning.high", message: "High" }))
+    case "xhigh":
+      return i18n._(msg({ id: "chat.reasoning.xhigh", message: "Extra high" }))
+    case "max":
+      return i18n._(msg({ id: "chat.reasoning.max", message: "Max" }))
+    default:
+      return value
+  }
+}
+
+function ComposerSubmitButton({
+  onStop,
+  status,
+}: Readonly<{
+  onStop: () => void
+  status: "error" | "ready" | "streaming" | "submitted"
+}>) {
+  const { i18n } = useLingui()
+  const attachments = usePromptInputAttachments()
+  const { textInput } = usePromptInputController()
+  const isGenerating = status === "submitted" || status === "streaming"
+  const disabled = !isGenerating && !textInput.value.trim() && attachments.files.length === 0
+  const label = isGenerating
+    ? i18n._(msg({ id: "chat.prompt.stop", message: "Stop" }))
+    : i18n._(msg({ id: "chat.prompt.submit", message: "Submit" }))
+  return (
+    <PromptInputSubmit
+      aria-label={label}
+      className={`cypheria-composer-submit-button ${isGenerating ? "is-generating" : ""}`}
+      disabled={disabled}
+      onStop={onStop}
+      status={status}
+      title={label}
+    >
+      {status === "submitted" ? (
+        <LoaderCircle aria-hidden="true" className="size-3.5 animate-spin" />
+      ) : status === "streaming" ? (
+        <Square aria-hidden="true" className="size-3 fill-current" />
+      ) : (
+        <ArrowUp aria-hidden="true" className="size-4" />
+      )}
+    </PromptInputSubmit>
   )
 }
 

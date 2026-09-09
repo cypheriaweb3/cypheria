@@ -6,6 +6,14 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react"
 import { userEvent } from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { Button } from "#components/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "#components/dropdown-menu"
 import { TooltipProvider } from "#components/tooltip"
 import { ArtifactAction } from "./artifact.js"
 import { Context, ContextTrigger } from "./context.js"
@@ -100,6 +108,29 @@ describe("AI Elements with base-nova primitives", () => {
       "text-sm",
       "data-[size=default]:h-8"
     )
+  })
+
+  it("opens a labeled Base UI menu radio group without losing its group context", async () => {
+    render(
+      <DropdownMenu defaultOpen>
+        <DropdownMenuTrigger render={<Button>Model and reasoning</Button>} />
+        <DropdownMenuContent>
+          <DropdownMenuRadioGroup value="balanced">
+            <DropdownMenuLabel>Reasoning</DropdownMenuLabel>
+            <DropdownMenuRadioItem value="fast">Fast</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="balanced">Balanced</DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+
+    await waitFor(() => {
+      expect(screen.getByText("Reasoning")).toBeInTheDocument()
+      expect(screen.getByRole("menuitemradio", { name: "Balanced" })).toHaveAttribute(
+        "aria-checked",
+        "true"
+      )
+    })
   })
 
   it("submits text and stops generation through Nova input buttons", async () => {

@@ -377,11 +377,6 @@ msgid "chat.artifact.declined"
 msgstr "Declined"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.model.default"
-msgstr "Default"
-
-#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.permissions.default.title"
 msgstr "Default permissions"
@@ -515,6 +510,11 @@ msgstr "Exited review mode"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
+msgid "chat.reasoning.xhigh"
+msgstr "Extra high"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
 msgid "chat.artifact.failed"
 msgstr "Failed"
 
@@ -619,6 +619,11 @@ msgid "chat.workspace.hideTerminalPanel"
 msgstr "Hide terminal panel"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.reasoning.high"
+msgstr "High"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.configuration.tsx
 msgid "settings.configuration.option.high"
 msgstr "High"
@@ -681,8 +686,8 @@ msgstr "Local"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
-msgid "chat.localAgent"
-msgstr "Local agent"
+msgid "chat.reasoning.low"
+msgstr "Low"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.configuration.tsx
@@ -705,6 +710,16 @@ msgid "navigation.sort.manual"
 msgstr "Manual order"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.reasoning.max"
+msgstr "Max"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.reasoning.medium"
+msgstr "Medium"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.configuration.tsx
 msgid "settings.configuration.option.medium"
 msgstr "Medium"
@@ -713,6 +728,11 @@ msgstr "Medium"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.prompt.label"
 msgstr "Message Cypheria"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.reasoning.minimal"
+msgstr "Minimal"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
@@ -833,11 +853,6 @@ msgid "search.noMatches"
 msgstr "No matching chats."
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.model.empty"
-msgstr "No models found."
-
-#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.noPinnedChats"
 msgstr "No pinned chats"
@@ -869,13 +884,13 @@ msgstr "No results found"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
-msgid "chat.noSigningAuthority"
-msgstr "No signing authority"
+msgid "chat.workspace.noWallet"
+msgstr "No wallet selected. On-chain actions remain read only."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.noWallet"
-msgstr "No wallet selected. On-chain actions remain read only."
+msgid "chat.reasoning.none"
+msgstr "None"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.configuration.tsx
@@ -1033,6 +1048,11 @@ msgid "chat.sandbox.readOnly"
 msgstr "Read only"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.model.reasoning"
+msgstr "Reasoning"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.configuration.tsx
 msgid "settings.configuration.summary.title"
 msgstr "Reasoning summary"
@@ -1154,11 +1174,6 @@ msgid "settings.language.search"
 msgstr "Search languages"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.model.search"
-msgstr "Search models…"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.search.label"
 msgstr "Search settings"
@@ -1253,6 +1268,16 @@ msgstr "Starting…"
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.prompt.steer"
 msgstr "Steer active turn"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.prompt.stop"
+msgstr "Stop"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-workspace.tsx
+msgid "chat.prompt.submit"
+msgstr "Submit"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx

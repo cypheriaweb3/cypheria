@@ -82,6 +82,8 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+  --scrollbar-thumb: color-mix(in srgb, var(--foreground) 10%, transparent);
+  --scrollbar-thumb-strong: color-mix(in srgb, var(--foreground) 18%, transparent);
   --font-sans-size: 14px;
   --font-mono-size: 12px;
   --text-xs: calc(var(--font-sans-size) * 0.8571428571);
@@ -144,6 +146,8 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
+  --scrollbar-thumb: color-mix(in srgb, var(--foreground) 13%, transparent);
+  --scrollbar-thumb-strong: color-mix(in srgb, var(--foreground) 22%, transparent);
 }
 
 @layer base {
@@ -182,6 +186,50 @@
     scroll-behavior: auto;
     transition-duration: 0.001ms;
   }
+}
+
+/* Match ChatGPT Desktop's quiet native-overlay scrollbars. */
+:is(
+  .overflow-auto,
+  .overflow-scroll,
+  .overflow-x-auto,
+  .overflow-y-auto,
+  .overflow-x-scroll,
+  .overflow-y-scroll
+),
+.cypheria-scrollbar {
+  scrollbar-color: var(--scrollbar-thumb) transparent;
+}
+
+:is(
+  .overflow-auto,
+  .overflow-scroll,
+  .overflow-x-auto,
+  .overflow-y-auto,
+  .overflow-x-scroll,
+  .overflow-y-scroll
+):hover,
+:is(
+  .overflow-auto,
+  .overflow-scroll,
+  .overflow-x-auto,
+  .overflow-y-auto,
+  .overflow-x-scroll,
+  .overflow-y-scroll
+):active,
+.cypheria-scrollbar:hover,
+.cypheria-scrollbar:active {
+  scrollbar-color: var(--scrollbar-thumb-strong) transparent;
+}
+
+.scrollbar-on-hover {
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 150ms ease;
+}
+
+.scrollbar-on-hover:hover,
+.scrollbar-on-hover:active {
+  scrollbar-color: var(--scrollbar-thumb-strong) transparent;
 }
 
 .font-sans {
