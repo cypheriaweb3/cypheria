@@ -245,6 +245,7 @@ const isDevelopmentShell = process.env.CYPHERIA_DEVELOPMENT_SHELL === "1"
 const isPackagedRuntime = app.isPackaged && !isDevelopmentShell
 
 let mainWindow: BrowserWindow | null = null
+let isQuitting = false
 let desktopRuntimeContext: DesktopRuntimeContext | null = null
 let currentAppearanceSettings: AppearanceSettings | null = null
 let proxySettingsUnderTest: import("../../ipc/src/index.js").ConnectionProxySettings | null = null
@@ -981,6 +982,12 @@ const createMainWindow = async (context: DesktopRuntimeContext): Promise<Browser
     window.show()
   })
 
+  window.on("close", (event) => {
+    if (process.platform !== "darwin" || isQuitting) return
+    event.preventDefault()
+    window.hide()
+  })
+
   window.on("closed", () => {
     if (mainWindow === window) {
       mainWindow = null
@@ -1026,10 +1033,19 @@ const registerLifecycleHandlers = (): void => {
       mainWindow.restore()
     }
 
+    if (!mainWindow.isVisible()) {
+      mainWindow.show()
+    }
     mainWindow.focus()
   })
 
   app.on("activate", async () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      if (!mainWindow.isVisible()) mainWindow.show()
+      mainWindow.focus()
+      return
+    }
     if (BrowserWindow.getAllWindows().length === 0) {
       desktopRuntimeContext ??= await initializeDesktopRuntime({
         clientVersion: app.getVersion(),
@@ -1050,6 +1066,7 @@ const registerLifecycleHandlers = (): void => {
   })
 
   app.on("before-quit", () => {
+    isQuitting = true
     harnessManager?.closeAllTerminals()
     workspaceTerminalManager?.closeAllTerminals()
     if (!desktopRuntimeContext) {

@@ -118,7 +118,16 @@ import {
   Sparkles,
   WalletCards,
 } from "lucide-react"
-import { type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react"
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
 import type {
   CodexChatFollowUp,
   CodexInteractionEvent,
@@ -139,6 +148,11 @@ import {
 } from "./chat-workspace-artifacts"
 import { CodexTurnMessage } from "./codex-turn.js"
 import { ProjectCreateDialog } from "./project-create-dialog"
+import {
+  getBottomDistanceRestoreOffset,
+  type ThreadScrollController,
+  useThreadScrollController,
+} from "./thread-scroll-controller"
 import {
   useWorkspaceTerminals,
   type WorkspaceTerminalsController,
@@ -212,13 +226,16 @@ const permissionSelectionLabel = (selection: CodexPermissionSelection, i18n: I18
 export default function ChatWorkspace() {
   const { thread, prompt, project, section } = Route.useSearch()
   const revision = useAtomValue(newChatRevisionAtom)
+  const sessionKey =
+    thread ?? `new-chat-${revision}-${prompt ?? ""}-${project ?? ""}-${section ?? ""}`
   return (
     <ChatSession
-      key={thread ?? `new-chat-${revision}-${prompt ?? ""}-${project ?? ""}-${section ?? ""}`}
+      key={sessionKey}
       initialProjectId={project}
       resumeThreadId={thread}
       initialPrompt={prompt}
       initialSectionId={section}
+      scrollStateKey={sessionKey}
     />
   )
 }
@@ -228,17 +245,20 @@ function ChatSession({
   initialPrompt,
   initialProjectId,
   initialSectionId,
+  scrollStateKey,
 }: Readonly<{
   resumeThreadId?: string
   initialPrompt?: string
   initialProjectId?: string
   initialSectionId?: string
+  scrollStateKey: string
 }>) {
   const { i18n } = useLingui()
   const navigate = Route.useNavigate()
   const queryClient = useQueryClient()
   const composerFormId = useId()
   const hydratedThreadId = useRef<string | null>(null)
+  const threadScroll = useThreadScrollController(scrollStateKey)
   const threadQuery = useQuery({
     enabled: Boolean(resumeThreadId),
     queryFn: () => {
@@ -331,6 +351,7 @@ function ChatSession({
         }),
         async (threadId) => {
           if (resumeThreadId) return
+          threadScroll.adoptStateKey(threadId)
           if (initialSectionId) {
             await window.cypheria?.codex.moveThreadToSection({
               sectionId: initialSectionId,
@@ -356,6 +377,7 @@ function ChatSession({
       selectedModel.model,
       selectedReasoning,
       settings?.serviceTier,
+      threadScroll.adoptStateKey,
     ]
   )
   const { error, messages, sendMessage, setMessages, status, stop } = useChat<CodexUiMessage>({
@@ -739,8 +761,16 @@ function ChatSession({
                   </div>
                 </header>
 
-                <Conversation className="min-h-0 min-w-0 overflow-x-hidden">
-                  <ConversationContent className="mx-auto min-h-full w-[calc(100cqw-3rem)] min-w-0 max-w-3xl px-4 py-8">
+                <Conversation
+                  className="min-h-0 min-w-0 overflow-x-hidden"
+                  initial={false}
+                  instance={threadScroll.conversationInstance}
+                  resize="instant"
+                >
+                  <ConversationContent
+                    className="mx-auto min-h-full w-[calc(100cqw-3rem)] min-w-0 max-w-3xl px-4 py-8"
+                    scrollClassName="overflow-y-auto overscroll-contain [overflow-anchor:none]"
+                  >
                     {(conversation) =>
                       resumeThreadId && threadQuery.isPending ? (
                         <div
@@ -778,6 +808,7 @@ function ChatSession({
                           messages={messages}
                           onForkTurn={forkFromTurn}
                           onResolve={resolveInteraction}
+                          scrollController={threadScroll}
                           scrollElementRef={conversation.scrollRef}
                         />
                       )
@@ -1508,26 +1539,143 @@ function VirtualizedChatMessages({
   messages,
   onForkTurn,
   onResolve,
+  scrollController,
   scrollElementRef,
 }: Readonly<{
   interactions: CodexInteractionEvent[]
   messages: CodexUiMessage[]
   onForkTurn: (turnId: string) => Promise<void>
   onResolve: (response: CodexInteractionResponse) => Promise<void>
+  scrollController: ThreadScrollController
   scrollElementRef: Readonly<{ current: HTMLElement | null }>
 }>) {
+  const restoreStateRef = useRef(scrollController.initialRestoreState)
+  const virtualizerRootRef = useRef<HTMLDivElement | null>(null)
+  const didRestoreRef = useRef(false)
+  const getItemKey = useCallback(
+    (index: number) => messages[index]?.id ?? `missing-message-${index}`,
+    [messages]
+  )
+  const estimateSize = useCallback(
+    (index: number) => (messages[index]?.role === "user" ? 112 : 320),
+    [messages]
+  )
+  const initialMeasurements = useMemo(() => {
+    const restoreState = restoreStateRef.current
+    if (!restoreState) return []
+    const indexByKey = new Map(messages.map((message, index) => [message.id, index]))
+    return restoreState.measurements.flatMap((measurement) => {
+      const key = String(measurement.key)
+      const index = indexByKey.get(key)
+      return index == null ? [] : [{ ...measurement, index, key }]
+    })
+  }, [messages])
+  const estimatedInitialOffset = useMemo(() => {
+    const restoreState = restoreStateRef.current
+    if (restoreState) return restoreState.scrollOffsetPx
+    const viewportHeight = 800
+    return Math.max(
+      0,
+      messages.reduce((total, _message, index) => total + estimateSize(index), 0) - viewportHeight
+    )
+  }, [estimateSize, messages])
   const virtualizer = useVirtualizer({
+    anchorTo: "end",
     count: messages.length,
-    estimateSize: (index) => (messages[index]?.role === "user" ? 112 : 320),
-    getItemKey: (index) => messages[index]?.id ?? index,
+    estimateSize,
+    followOnAppend: "auto",
+    getItemKey,
     getScrollElement: () => scrollElementRef.current,
+    initialMeasurementsCache: initialMeasurements,
+    initialOffset: estimatedInitialOffset,
+    initialRect: {
+      height: restoreStateRef.current?.viewportHeightPx ?? 800,
+      width: 0,
+    },
     overscan: 4,
+    scrollEndThreshold: 24,
+    useAnimationFrameWithResizeObserver: true,
   })
+
+  const { completeInitialRestore, registerVirtualizer, saveState } = scrollController
+
+  useLayoutEffect(() => {
+    registerVirtualizer(virtualizer)
+    return () => {
+      saveState()
+      registerVirtualizer(null)
+    }
+  }, [registerVirtualizer, saveState, virtualizer])
+
+  useLayoutEffect(() => {
+    if (didRestoreRef.current) return
+    const element = scrollElementRef.current
+    if (!element) return
+    let animationFrame = 0
+    let settleFrameCount = 0
+    let cancelled = false
+
+    const restorePosition = () => {
+      if (cancelled) return
+      const restoreState = restoreStateRef.current
+      const maxOffset = Math.max(0, element.scrollHeight - element.clientHeight)
+      let targetOffset = maxOffset
+
+      if (restoreState) {
+        targetOffset = getBottomDistanceRestoreOffset({
+          clientHeight: element.clientHeight,
+          distanceFromBottomPx: restoreState.distanceFromBottomPx,
+          scrollHeight: element.scrollHeight,
+        })
+        if (!restoreState.wasAtBottom && restoreState.anchor && virtualizerRootRef.current) {
+          const anchorIndex = messages.findIndex(
+            (message) => message.id === restoreState.anchor?.key
+          )
+          const anchorMeasurement =
+            anchorIndex < 0 ? null : virtualizer.measurementsCache[anchorIndex]
+          if (anchorMeasurement) {
+            const viewportBounds = element.getBoundingClientRect()
+            const virtualizerBounds = virtualizerRootRef.current.getBoundingClientRect()
+            const virtualizerTopInScrollContent =
+              virtualizerBounds.top - viewportBounds.top + element.scrollTop
+            targetOffset =
+              virtualizerTopInScrollContent +
+              anchorMeasurement.start -
+              restoreState.anchor.offsetFromViewportTopPx
+          }
+        }
+      }
+
+      element.scrollTo({
+        behavior: "auto",
+        top: Math.min(maxOffset, Math.max(0, targetOffset)),
+      })
+    }
+
+    const settleRestore = () => {
+      restorePosition()
+      settleFrameCount += 1
+      if (settleFrameCount < 2) {
+        animationFrame = window.requestAnimationFrame(settleRestore)
+        return
+      }
+      didRestoreRef.current = true
+      completeInitialRestore()
+    }
+
+    restorePosition()
+    animationFrame = window.requestAnimationFrame(settleRestore)
+    return () => {
+      cancelled = true
+      window.cancelAnimationFrame(animationFrame)
+    }
+  }, [completeInitialRestore, messages, scrollElementRef, virtualizer])
 
   return (
     <div
       className="relative w-full"
       data-chat-virtualizer="true"
+      ref={virtualizerRootRef}
       style={{ height: virtualizer.getTotalSize() }}
     >
       {virtualizer.getVirtualItems().map((virtualRow) => {
@@ -1537,6 +1685,7 @@ function VirtualizedChatMessages({
           <div
             className="absolute top-0 left-0 w-full pb-8"
             data-index={virtualRow.index}
+            data-thread-message-key={message.id}
             key={virtualRow.key}
             ref={virtualizer.measureElement}
             style={{ transform: `translateY(${virtualRow.start}px)` }}

@@ -217,6 +217,8 @@ UI 策略是复用成熟 primitives，只为 Cypheria-specific workflows 构建�
 
 Desktop renderer 使用 `@ai-sdk/react` 管理 chat state，并通过基于 typed Electron IPC 的自定义 `ChatTransport` 通信。Electron main 使用 `@cypheria/codex-bridge` 的 `ProviderV4` adapter，将 App Server 输出转换为 AI SDK UI-message chunks。Transport 会报告新建的 thread ID，让 renderer 用持久对话 route 替换 new-chat route。实时 turn 会保留 turn status/timing、完整 item snapshot/order、agent-message phase、progress、plan、diff、reroute 与 raw turn-scoped event。重新打开对话时会读取 metadata 与设置了 `itemsView: "full"`、按升序分页的 `thread/turns/list`，并让这些持久 turn/item snapshot 经过同一个 `CodexTurnProjector`；除非 App Server 把 notification-only state 写入 stored turn，否则它必然只能在实时流中存在。Renderer 将 final answer 与分组后的 activity 分开，完成后自动折叠工作记录，并在匹配的 reverse request 待处理时保持 activity 展开。标准 AI SDK parts 继续用于通用渲染，并驱动工作区的 Files、Review 和 Terminal 面板，让最新 diff、ANSI output、streaming state 与 completion metadata 在实时和已恢复对话中保持一致。App Server reverse request 使用独立的 typed interaction IPC channel，因此 approval 与 elicitation 不会编码为 model message。较重的交互式 route shells 仅在客户端加载，因为 Electron 通过 `cypheria://` 发布 SPA output，运行时不会执行 TanStack Start server bundle。
 
+会话滚动平面归 renderer 所有。AI Elements 提供已复制到本地的 `Conversation` 外壳，但 DOM ref 与即时回到底部操作由 Cypheria instance 管理；高度可变列表、row 测量、末端锚定与追加跟随由 TanStack Virtual 管理。有界内存 thread-state cache 会在工作区导航间恢复稳定可见 row 锚点与测量快照。Electron main 在 macOS 上通过关闭时隐藏主窗口、激活应用时展示同一窗口来保留该缓存；真正退出应用仍是销毁边界。
+
 | Category | Choice |
 | --- | --- |
 | Component model | shadcn-style copied components |

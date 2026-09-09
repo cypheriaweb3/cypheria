@@ -109,6 +109,28 @@ Cypheria 启用了 `noUncheckedIndexedAccess` 和 `noImplicitReturns`。正则�
 应从 `packages/ui/src/styles.css` 导入 `@xyflow/react/dist/style.css`，不要在 `canvas.tsx` 中导入。
 NodeNext 无法为组件级副作用 CSS 导入找到声明，而共享样式表本来就是该包的公共样式入口。
 
+### Conversation 滚动职责
+
+桌面会话必须向 AI Elements `Conversation` 传入由 Cypheria 管理的外部 `instance`。
+`Conversation` 仍会创建默认的 `use-stick-to-bottom` hook，但选择外部 instance 后，默认 hook 的
+ref 不会挂到 DOM，因此其弹簧动画与 resize observer 不会生效。应保留 `initial={false}`、
+`resize="instant"`，并在滚动视口禁用原生 CSS scroll anchoring。升级 AI Elements 时，不得让默认的
+初始/尺寸变化平滑滚动重新接管 desktop workspace。
+
+消息虚拟化与测量高度修正由 TanStack Virtual 负责。消息 ID 是稳定的 row key；启用末端锚定与
+追加跟随；ResizeObserver 测量通过 animation frame 调度。Renderer 维护一个最多保留 20 个 thread
+状态的 LRU，并以 thread ID 为 key。每份状态记录原始 offset、距底部距离、是否位于底部、视口高度、
+第一个可见稳定消息及其相对视口 offset，以及 TanStack 的已测量 row 快照。恢复过程在绘制前的
+layout effect 中运行：用户离开底部阅读时优先恢复稳定消息锚点；锚点不存在时回退为距底部距离；
+新 thread 或锁底 thread 则跟随真实底部。另一个即时 resize observer 覆盖虚拟列表测量根之外的
+布局变化，包括会话 padding 与延迟媒体布局；它只会在锁底状态下写入滚动位置，不会把正在阅读
+较早 turn 的用户拖走。
+
+该设计复刻了从 ChatGPT Desktop 26.901.51231（build 8109）中确认的 renderer-owned
+`ThreadScope` 行为，同时使用 TanStack Virtual 的公共测量快照与末端锚定能力，替代 ChatGPT 的
+私有 virtualizer。macOS 关闭主窗口时只隐藏窗口，不销毁 renderer；重新激活应用会展示同一窗口，
+所以内存中的 thread scope 与滚动状态仍然存在。真正退出应用时会按预期清除这些 session-only 状态。
+
 ## 升级审查清单
 
 - 确认 registry 组件数量，并检查新增或删除的文件。
@@ -117,6 +139,8 @@ NodeNext 无法为组件级副作用 CSS 导入找到声明，而共享样式表
 - 检查 Base UI 是否移动了 Preview Card 延迟属性或修改了事件签名。
 - 检查 AI SDK 是否修改了 `LanguageModelUsage`、工具描述或 UI part 类型。
 - 删除本地适配前，检查 `react-jsx-parser` 和 `ansi-to-react` 是否已修复 NodeNext 声明。
+- 确认 desktop 仍传入外部 Conversation instance，且重新生成后的默认值不会恢复弹簧滚动或重复的
+  resize anchoring。
 - 使用 `pnpm why @types/react -r` 检查 React 类型覆盖是否仍有必要。
 - 在运行完整 CI 和构建命令前，先执行 UI 与桌面端 typecheck。
 

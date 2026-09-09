@@ -116,6 +116,34 @@ Import `@xyflow/react/dist/style.css` from `packages/ui/src/styles.css`, not fro
 NodeNext does not provide a declaration for the component-level side-effect CSS import, while the
 shared stylesheet is already the package's public styling entry point.
 
+### Conversation scrolling ownership
+
+The desktop chat must pass a Cypheria-owned external `instance` to AI Elements `Conversation`.
+`Conversation` still constructs its default `use-stick-to-bottom` hook, but the default hook's refs
+are not attached to the DOM when the external instance is selected, so its spring animation and
+resize observer remain inactive. Keep `initial={false}` and `resize="instant"`, and keep native CSS
+scroll anchoring disabled on the scroll viewport. An AI Elements refresh must not silently restore
+the default smooth initial/resize behavior for the desktop workspace.
+
+TanStack Virtual owns message virtualization and measured-height correction. Message IDs are stable
+row keys; end anchoring and append following are enabled; and ResizeObserver measurements are
+scheduled through animation frames. A renderer-owned LRU retains at most 20 thread states keyed by
+thread ID. Each state records the raw offset, distance from the bottom, whether the viewport was at
+the bottom, viewport height, the first visible stable message plus its viewport-relative offset,
+and TanStack's measured-row snapshot. Restoration runs in a layout effect before paint: it prefers
+the stable message anchor while the reader is away from the bottom, falls back to bottom-relative
+distance when the anchor is unavailable, and follows the true bottom for a new or bottom-locked
+thread. A separate immediate resize observer covers layout outside the virtualizer's measurement
+root, including conversation padding and late media layout, but writes only while bottom following
+is active so it cannot drag a reader away from an earlier turn.
+
+This mirrors the renderer-owned `ThreadScope` behavior inspected in ChatGPT Desktop
+26.901.51231 (build 8109), while using TanStack Virtual's public measurement snapshot and end-anchor
+features instead of ChatGPT's private virtualizer. On macOS, closing the main window hides it rather
+than destroying the renderer; activating the app shows the same window, so the in-memory thread
+scope and scroll state survive. A real application quit intentionally clears this session-only
+state.
+
 ## Upgrade Review Checklist
 
 - Confirm the registry component count and inspect added or removed files.
@@ -125,6 +153,8 @@ shared stylesheet is already the package's public styling entry point.
 - Check whether AI SDK changed `LanguageModelUsage`, tool descriptions, or UI part types.
 - Check whether `react-jsx-parser` and `ansi-to-react` fixed their NodeNext declarations before
   removing the local adapters.
+- Confirm the desktop still supplies the external Conversation instance and that regenerated
+  defaults cannot re-enable spring scrolling or duplicate resize anchoring.
 - Check whether the React type overrides are still required with `pnpm why @types/react -r`.
 - Run UI and desktop typechecks before the full CI/build commands.
 

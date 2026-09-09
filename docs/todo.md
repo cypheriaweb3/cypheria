@@ -211,7 +211,7 @@ Status legend:
 - [x] Align the chat workspace with the installed ChatGPT desktop workbench.
   - Acceptance: the conversation header and full-featured composer match the desktop interaction model; long conversations use TanStack Virtual without breaking live turn growth, history hydration, or follow-to-bottom behavior; the right panel is independently resizable; and a resizable bottom panel provides persistent multi-tab PTY terminals with the native toggle and keyboard shortcut.
   - Include: rigorous comparison of user and assistant turn presentation, panel chrome and empty states, project-scoped terminal IPC that does not accept renderer-chosen filesystem paths, and reuse of shadcn/ui and AI Elements where they fit.
-  - Verification: 108 desktop tests, desktop typecheck/build, full repository CI/build, and a clean Electron interaction smoke test covering the composer, inline rename, and persistent bottom/right PTY placement against ChatGPT Desktop 26.901.51231.
+  - Verification: 115 desktop tests, desktop typecheck/build, full repository CI/build, and clean Electron interaction smoke tests against ChatGPT Desktop 26.901.51231 covering the composer, inline rename, persistent bottom/right PTY placement, cold-open bottom following, exact cross-thread anchor restoration in a media-heavy thread, instant return-to-bottom, and macOS close/reopen renderer retention.
 
 - [x] Match Codex Desktop sidebar organization and section controls.
   - Acceptance: Pinned and chat sorting, project and one-list organization, project creation, custom section lifecycle, section-scoped new chats, and Recents new-chat controls work through the compact Codex-style section headers and menus.
