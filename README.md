@@ -29,14 +29,15 @@ The default safety model is human approval. Read-only mode and conditional auto-
 - **Forms and validation**: TanStack Form + Zod
 - **Lint/format**: Biome
 - **UI**: shadcn-style copied components, Base UI primitives, Cypheria CSS tokens, lucide-react
-- **Cypheria client protocol**: versioned Zod contracts in `@cypheria/protocol`
+- **Cypheria client protocol**: versioned Zod contracts with metadata-assisted `bigint` transport in `@cypheria/protocol`
 - **Desktop agent integration**: `codex app-server` over WebSocket JSON-RPC
-- **Desktop Codex protocol types**: generated with `codex app-server generate-ts --experimental --out packages/codex-bridge/src/generated`
+- **Desktop Codex protocol types**: generated with `pnpm --filter @cypheria/codex-bridge generate:codex-types`
 - **Marketplace hosting**: Cloudflare Workers, D1, R2, Queues, and Workflows
 - **Web3**: viem, Privy, WalletConnect / Reown
 - **Data**: SQLite + Drizzle ORM
 
 See [docs/technical-stack.md](docs/technical-stack.md) for the full technical stack.
+See [docs/codex-app-server-api.md](docs/codex-app-server-api.md) for the complete generated Codex App Server API reference.
 
 ## Architecture
 

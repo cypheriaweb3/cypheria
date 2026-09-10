@@ -1,0 +1,13 @@
+{
+  "account/chatgptAuthTokens/refresh": "ChatgptAuthTokensRefreshResponse",
+  "applyPatchApproval": "ApplyPatchApprovalResponse",
+  "attestation/generate": "AttestationGenerateResponse",
+  "currentTime/read": "CurrentTimeReadResponse",
+  "execCommandApproval": "ExecCommandApprovalResponse",
+  "item/commandExecution/requestApproval": "CommandExecutionRequestApprovalResponse",
+  "item/fileChange/requestApproval": "FileChangeRequestApprovalResponse",
+  "item/permissions/requestApproval": "PermissionsRequestApprovalResponse",
+  "item/tool/call": "DynamicToolCallResponse",
+  "item/tool/requestUserInput": "ToolRequestUserInputResponse",
+  "mcpServer/elicitation/request": "McpServerElicitationRequestResponse"
+}

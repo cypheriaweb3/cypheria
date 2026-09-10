@@ -91,7 +91,7 @@ describe("Codex app-server bridge", () => {
   it("initializes over WebSocket and sends initialized notification", async () => {
     const bridge = createCodexAppServerBridge({
       WebSocketImpl: FakeWebSocket,
-      capabilities: { experimentalApi: true, requestAttestation: false },
+      capabilities: { experimentalApi: false, requestAttestation: false },
       clientInfo: { name: "cypheria", title: "Cypheria", version: "0.0.0" },
       url: "ws://127.0.0.1:1234",
     })
@@ -160,6 +160,65 @@ describe("Codex app-server bridge", () => {
       data: [],
       nextCursor: null,
     })
+  })
+
+  it("rejects response payloads that do not match the generated schema", async () => {
+    const bridge = createCodexAppServerBridge({
+      WebSocketImpl: FakeWebSocket,
+      clientInfo: { name: "cypheria", title: "Cypheria", version: "0.0.0" },
+      url: "ws://127.0.0.1:1234",
+    })
+    const errors: string[] = []
+    bridge.on("error", (error) => errors.push(error.code))
+    const connectPromise = bridge.connect()
+    const socket = nextSocket()
+    socket.open()
+    await waitForMicrotask()
+    socket.serverSend({
+      id: "cypheria_1",
+      result: { codexHome: "/tmp", platformFamily: "unix", platformOs: "macos", userAgent: "x" },
+    })
+    await connectPromise
+
+    const requestPromise = bridge.request("thread/list", {
+      archived: false,
+      limit: 20,
+      sortDirection: "desc",
+      sortKey: "updated_at",
+    })
+    socket.serverSend({ id: "cypheria_2", result: { data: "not-an-array" } })
+
+    await expect(requestPromise).rejects.toThrow(
+      "Invalid Codex app-server response for thread/list"
+    )
+    expect(errors).toContain("INVALID_MESSAGE")
+  })
+
+  it("preserves undefined, empty-object, and null params on the wire", async () => {
+    const bridge = createCodexAppServerBridge({
+      WebSocketImpl: FakeWebSocket,
+      clientInfo: { name: "cypheria", title: "Cypheria", version: "0.0.0" },
+      url: "ws://127.0.0.1:1234",
+    })
+    const connectPromise = bridge.connect()
+    const socket = nextSocket()
+    socket.open()
+    await waitForMicrotask()
+    socket.serverSend({
+      id: "cypheria_1",
+      result: { codexHome: "/tmp", platformFamily: "unix", platformOs: "macos", userAgent: "x" },
+    })
+    await connectPromise
+
+    void bridge.request("account/logout", undefined)
+    void bridge.request("modelProvider/capabilities/read", {})
+    void bridge.request("remoteControl/enable", null)
+
+    expect(socket.sent.slice(-3).map((line) => JSON.parse(line))).toEqual([
+      { id: "cypheria_2", method: "account/logout" },
+      { id: "cypheria_3", method: "modelProvider/capabilities/read", params: {} },
+      { id: "cypheria_4", method: "remoteControl/enable", params: null },
+    ])
   })
 
   it("emits server notifications", async () => {
@@ -250,6 +309,7 @@ describe("Codex app-server bridge", () => {
         changes: {},
         itemId: "item-1",
         reason: null,
+        startedAtMs: 1,
         threadId: "thread-1",
         turnId: "turn-1",
       },
@@ -288,7 +348,14 @@ describe("Codex app-server bridge", () => {
     socket.serverSend({
       id: "server_failed",
       method: "item/tool/requestUserInput",
-      params: { itemId: "item-1", questions: [], threadId: "thread-1", turnId: "turn-1" },
+      params: {
+        autoResolutionMs: null,
+        isBlocking: true,
+        itemId: "item-1",
+        questions: [],
+        threadId: "thread-1",
+        turnId: "turn-1",
+      },
     })
     await waitForMicrotask()
 

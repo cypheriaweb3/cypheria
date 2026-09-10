@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto"
 import type {
   CodexAppServerBridge,
-  CodexJsonValue,
+  CodexServerRequestResponse,
   ServerRequest,
   v2,
 } from "@cypheria/codex-bridge"
+import { assertCodexServerRequestResponse } from "@cypheria/codex-bridge"
 import type {
   CodexInteractionEvent,
   CodexInteractionMethod,
@@ -12,11 +13,12 @@ import type {
 } from "../../ipc/src/index.js"
 
 type SupportedRequest = Extract<ServerRequest, { method: CodexInteractionMethod }>
+type SupportedResponse = CodexServerRequestResponse<CodexInteractionMethod>
 
 type PendingInteraction = {
   readonly event: CodexInteractionEvent
   readonly request: SupportedRequest
-  readonly resolve: (value: CodexJsonValue) => void
+  readonly resolve: (value: SupportedResponse) => void
   readonly timer: ReturnType<typeof setTimeout>
 }
 
@@ -102,7 +104,9 @@ const eventFromRequest = (
   }
 }
 
-const legacyDecision = (response: CodexInteractionResponse): CodexJsonValue => ({
+const legacyDecision = (
+  response: CodexInteractionResponse
+): CodexServerRequestResponse<"applyPatchApproval" | "execCommandApproval"> => ({
   decision:
     response.action === "accept"
       ? "approved"
@@ -120,17 +124,22 @@ const grantedPermissions = (
   ...(permissions.network ? { network: permissions.network } : {}),
 })
 
+const checkedResult = (request: SupportedRequest, value: unknown): SupportedResponse => {
+  assertCodexServerRequestResponse(request.method, value)
+  return value
+}
+
 const resultForResponse = (
   request: SupportedRequest,
   response: CodexInteractionResponse
-): CodexJsonValue => {
+): SupportedResponse => {
   switch (request.method) {
     case "applyPatchApproval":
     case "execCommandApproval":
       return legacyDecision(response)
     case "item/commandExecution/requestApproval":
     case "item/fileChange/requestApproval":
-      return {
+      return checkedResult(request, {
         decision:
           response.decision ??
           (response.action === "accept"
@@ -140,9 +149,9 @@ const resultForResponse = (
               : response.action === "decline"
                 ? "decline"
                 : "cancel"),
-      }
+      })
     case "item/permissions/requestApproval":
-      return {
+      return checkedResult(request, {
         permissions:
           response.action === "accept" || response.action === "accept-for-session"
             ? (response.permissions ?? grantedPermissions(request.params.permissions))
@@ -151,15 +160,15 @@ const resultForResponse = (
         ...(response.strictAutoReview === undefined
           ? {}
           : { strictAutoReview: response.strictAutoReview }),
-      }
+      })
     case "item/tool/requestUserInput":
-      return {
+      return checkedResult(request, {
         answers: Object.fromEntries(
           Object.entries(response.answers ?? {}).map(([id, answers]) => [id, { answers }])
         ),
-      }
+      })
     case "mcpServer/elicitation/request":
-      return {
+      return checkedResult(request, {
         _meta: null,
         action:
           response.action === "accept"
@@ -168,7 +177,7 @@ const resultForResponse = (
               ? "decline"
               : "cancel",
         content: response.action === "accept" ? (response.content ?? null) : null,
-      }
+      })
   }
 }
 
@@ -180,7 +189,7 @@ export const createCodexInteractionBroker = (
     options.bridge.onServerRequest(
       method,
       (request) =>
-        new Promise<CodexJsonValue>((resolve) => {
+        new Promise<SupportedResponse>((resolve) => {
           const supportedRequest = request as SupportedRequest
           const interactionId = randomUUID()
           const event = eventFromRequest(interactionId, supportedRequest)

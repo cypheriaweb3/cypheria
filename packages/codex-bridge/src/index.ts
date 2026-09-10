@@ -9,6 +9,12 @@ import type {
   ServerNotification,
   ServerRequest,
 } from "./generated/index.js"
+import {
+  assertCodexServerRequestResponse,
+  validateCodexClientResponse,
+  validateCodexServerMessage,
+} from "./protocol-validation.js"
+import type { CodexClientResponse, CodexServerRequestResponse } from "./response-map.js"
 
 export type {
   CodexAppServerProvider,
@@ -31,6 +37,13 @@ export {
 export type * from "./generated/index.js"
 export { type CodexGeneratedImageData, codexGeneratedImageData } from "./image-generation.js"
 export { inlineTextFromBytes, inlineTextFromDataUrl } from "./inline-file.js"
+export { assertCodexServerRequestResponse } from "./protocol-validation.js"
+export type {
+  CodexClientResponse,
+  CodexClientResponseMap,
+  CodexServerRequestResponse,
+  CodexServerRequestResponseMap,
+} from "./response-map.js"
 export {
   type CodexTerminalInteraction,
   type CodexTurnDiffSnapshot,
@@ -86,9 +99,9 @@ export type CodexServerRequestByMethod<M extends ServerRequest["method"]> = Extr
   { readonly method: M }
 >
 
-export type CodexAppServerSuccess = {
+export type CodexAppServerSuccess<TResult = CodexJsonValue> = {
   readonly id: CodexRequestId
-  readonly result: CodexJsonValue
+  readonly result: TResult
 }
 
 export type CodexJsonRpcErrorObject = {
@@ -111,7 +124,7 @@ export type CodexAppServerOutboundMessage =
   | ClientNotification
   | ClientRequest
   | CodexAppServerError
-  | CodexAppServerSuccess
+  | CodexAppServerSuccess<unknown>
 
 export type CodexAppServerRequestOptions = {
   readonly retryOnOverload?: boolean
@@ -143,9 +156,10 @@ export type CodexAppServerBridgeHandler<K extends keyof CodexAppServerBridgeEven
   event: CodexAppServerBridgeEventMap[K]
 ) => void
 
-export type CodexServerRequestHandler = (
-  request: ServerRequest
-) => CodexJsonValue | Promise<CodexJsonValue>
+export type CodexServerRequestHandler<M extends ServerRequest["method"] = ServerRequest["method"]> =
+  (
+    request: CodexServerRequestByMethod<M>
+  ) => CodexServerRequestResponse<M> | Promise<CodexServerRequestResponse<M>>
 
 export type CodexWebSocketEvent = { readonly data?: unknown; readonly error?: unknown }
 
@@ -266,10 +280,13 @@ const parseAppServerMessage = (data: unknown): CodexAppServerInboundMessage | un
     return undefined
   }
 
-  return "id" in value
-    ? isRequestId(value.id)
-      ? (value as ServerRequest)
-      : undefined
+  if ("id" in value) {
+    if (!isRequestId(value.id)) return undefined
+    return validateCodexServerMessage("request", value) ? undefined : (value as ServerRequest)
+  }
+
+  return validateCodexServerMessage("notification", value)
+    ? undefined
     : (value as ServerNotification)
 }
 
@@ -329,18 +346,22 @@ export const isCodexAppServerRetryableError = (error: unknown): boolean =>
   (error instanceof CodexAppServerRpcError && isServerOverloadedData(error.data))
 
 export class CodexAppServerBridge {
-  readonly #capabilities: InitializeCapabilities | null
+  readonly #capabilities: InitializeCapabilities
   readonly #clientInfo: ClientInfo
   readonly #listeners = new Map<keyof CodexAppServerBridgeEventMap, Set<(event: unknown) => void>>()
   readonly #pending = new Map<
     CodexRequestId,
     {
+      readonly method: ClientRequest["method"]
       readonly reject: (error: Error) => void
       readonly resolve: (value: CodexJsonValue) => void
     }
   >()
   readonly #retry: Required<CodexRetryOptions>
-  readonly #serverRequestHandlers = new Map<ServerRequest["method"], CodexServerRequestHandler>()
+  readonly #serverRequestHandlers = new Map<
+    ServerRequest["method"],
+    (request: ServerRequest) => Promise<unknown> | unknown
+  >()
   readonly #url: string
   readonly #WebSocketImpl: CodexWebSocketConstructor
   #nextId = 1
@@ -351,7 +372,11 @@ export class CodexAppServerBridge {
     this.#url = options.url.toString()
     this.#WebSocketImpl = options.WebSocketImpl ?? getDefaultWebSocketImpl()
     this.#clientInfo = options.clientInfo
-    this.#capabilities = options.capabilities ?? null
+    this.#capabilities = {
+      ...options.capabilities,
+      experimentalApi: true,
+      requestAttestation: options.capabilities?.requestAttestation ?? false,
+    }
     this.#retry = {
       initialDelayMs: options.retry?.initialDelayMs ?? 250,
       jitterRatio: options.retry?.jitterRatio ?? 0.2,
@@ -412,14 +437,22 @@ export class CodexAppServerBridge {
   }
 
   initialize(params?: Partial<InitializeParams>): Promise<InitializeResponse> {
-    return this.request<"initialize", InitializeResponse>("initialize", {
-      capabilities: this.#capabilities,
+    return this.request("initialize", {
       clientInfo: this.#clientInfo,
       ...params,
+      capabilities: {
+        ...(params?.capabilities ?? this.#capabilities),
+        experimentalApi: true,
+        requestAttestation:
+          params?.capabilities?.requestAttestation ?? this.#capabilities.requestAttestation,
+      },
     })
   }
 
-  request<M extends ClientRequest["method"], TResponse = CodexJsonValue>(
+  request<
+    M extends ClientRequest["method"],
+    TResponse extends CodexClientResponse<M> = CodexClientResponse<M>,
+  >(
     method: M,
     params: CodexClientRequestParams<M>,
     options?: CodexAppServerRequestOptions
@@ -431,7 +464,10 @@ export class CodexAppServerBridge {
     return this.#requestOnce<M, TResponse>(method, params)
   }
 
-  async requestWithRetryOnOverload<M extends ClientRequest["method"], TResponse = CodexJsonValue>(
+  async requestWithRetryOnOverload<
+    M extends ClientRequest["method"],
+    TResponse extends CodexClientResponse<M> = CodexClientResponse<M>,
+  >(
     method: M,
     params: CodexClientRequestParams<M>,
     options?: CodexRetryOptions
@@ -486,9 +522,11 @@ export class CodexAppServerBridge {
 
   onServerRequest<M extends ServerRequest["method"]>(
     method: M,
-    handler: (request: CodexServerRequestByMethod<M>) => CodexJsonValue | Promise<CodexJsonValue>
+    handler: CodexServerRequestHandler<M>
   ): () => void {
-    const typedHandler = handler as CodexServerRequestHandler
+    const typedHandler = handler as unknown as (
+      request: ServerRequest
+    ) => Promise<unknown> | unknown
     this.#serverRequestHandlers.set(method, typedHandler)
     return () => {
       if (this.#serverRequestHandlers.get(method) === typedHandler) {
@@ -506,6 +544,7 @@ export class CodexAppServerBridge {
 
     return new Promise<TResponse>((resolve, reject) => {
       this.#pending.set(id, {
+        method,
         reject,
         resolve: (value) => resolve(value as TResponse),
       })
@@ -586,6 +625,20 @@ export class CodexAppServerBridge {
       return
     }
 
+    const validationError = validateCodexClientResponse(pending.method, response.result)
+    if (validationError) {
+      const error = new Error(
+        `Invalid Codex app-server response for ${pending.method}: ${validationError}`
+      )
+      pending.reject(error)
+      this.#emitError({
+        cause: response.result,
+        code: "INVALID_MESSAGE",
+        message: error.message,
+      })
+      return
+    }
+
     pending.resolve(response.result)
   }
 
@@ -605,6 +658,7 @@ export class CodexAppServerBridge {
 
     try {
       const result = await handler(request)
+      assertCodexServerRequestResponse(request.method, result)
       this.#send({ id: request.id, result })
     } catch (error) {
       this.#send({

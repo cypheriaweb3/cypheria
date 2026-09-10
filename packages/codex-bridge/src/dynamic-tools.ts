@@ -1,5 +1,5 @@
 import type { v2 } from "./generated/index.js"
-import type { CodexAppServerBridge, CodexJsonValue } from "./index.js"
+import type { CodexAppServerBridge } from "./index.js"
 
 export type CodexDynamicToolHandler = (
   request: v2.DynamicToolCallParams
@@ -35,7 +35,7 @@ export const createCodexDynamicToolRegistry = (
         `No Cypheria dynamic tool handler is registered for ${requestKey(request.params)}.`
       )
     }
-    return (await registration.handler(request.params)) as unknown as CodexJsonValue
+    return registration.handler(request.params)
   })
 
   return {

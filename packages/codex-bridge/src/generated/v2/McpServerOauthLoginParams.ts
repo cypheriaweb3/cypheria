@@ -7,4 +7,4 @@ export type McpServerOauthLoginParams = { name: string, threadId?: string | null
 /**
  * Registration strategy for this login only; omission selects automatic discovery.
  */
-clientRegistration?: McpServerOauthClientRegistration | null, scopes?: Array<string> | null, timeoutSecs?: bigint | null, };
+clientRegistration?: McpServerOauthClientRegistration | null, scopes?: Array<string> | null, timeoutSecs?: number | null, };

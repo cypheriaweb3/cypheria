@@ -5,5 +5,5 @@
     "moduleResolution": "Bundler",
     "rootDir": "src"
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*.ts", "src/**/*.json"]
 }

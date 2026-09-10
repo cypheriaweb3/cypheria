@@ -191,7 +191,7 @@ Status legend:
 
 - [x] Regenerate Codex app-server TypeScript into `@cypheria/codex-bridge`.
   - Acceptance: generated files live in `packages/codex-bridge/src/generated` and are committed.
-  - Command: `codex app-server generate-ts --experimental --out packages/codex-bridge/src/generated`.
+  - Command: `pnpm --filter @cypheria/codex-bridge generate:codex-types`.
   - Include: package script to regenerate the files during explicit Codex upgrades.
   - Must not create: `@cypheria/codex-protocol`.
   - Verification: `pnpm --filter @cypheria/codex-bridge check`.

@@ -121,10 +121,10 @@ packages/codex-bridge/src/generated
 Generate those files with:
 
 ```sh
-codex app-server generate-ts --experimental --out packages/codex-bridge/src/generated
+pnpm --filter @cypheria/codex-bridge generate:codex-types
 ```
 
-Generated protocol files should be committed so CI and contributors can typecheck without a matching local Codex binary.
+The package script always enables experimental APIs, normalizes generated Rust 64-bit integers to the JSON wire type `number`, and generates the JSON Schemas used by the bridge. Generated protocol files and schemas should be committed so CI and contributors can typecheck and validate without a matching local Codex binary.
 
 ## Formatting And Type Safety
 

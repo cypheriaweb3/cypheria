@@ -191,7 +191,7 @@
 
 - [x] 将 Codex app-server TypeScript 生成到 `@cypheria/codex-bridge`。
   - 验收：generated files 位于 `packages/codex-bridge/src/generated` 且提交进仓库。
-  - 命令：`codex app-server generate-ts --experimental --out packages/codex-bridge/src/generated`。
+  - 命令：`pnpm --filter @cypheria/codex-bridge generate:codex-types`。
   - 包括：添加 package script，用于显式 Codex 升级时重新生成文件。
   - 不得创建：`@cypheria/codex-protocol`。
   - 验证：`pnpm --filter @cypheria/codex-bridge check`。

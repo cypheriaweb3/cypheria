@@ -46,7 +46,7 @@ Codex owns agent threads, turns, model execution, code edits, shell/tool executi
 
 `apps/server` is the only target-architecture process that owns `@cypheria/runtime`. It exposes a small Hono HTTP operations API and a versioned WebSocket session protocol from `@cypheria/protocol`. A supervisor owns the PID lock, worker heartbeat, bounded crash restart, and graceful shutdown; the replaceable worker owns Hono, active sessions, runtime lifecycle, and runtime-event broadcasting.
 
-`@cypheria/protocol` defines Cypheria client messages, server messages, HTTP bodies, and runtime method validation. It is unrelated to the generated Codex App Server protocol in `@cypheria/codex-bridge`. Client code may depend on `@cypheria/protocol`; it must not import server internals or privileged domain implementations.
+`@cypheria/protocol` defines Cypheria client messages, server messages, HTTP bodies, and runtime method validation. WebSocket messages remain plain JSON when their values are JSON-native; a versioned SuperJSON envelope carries metadata only when Cypheria-owned payloads contain values such as `bigint`. It is unrelated to the generated Codex App Server protocol in `@cypheria/codex-bridge`. Client code may depend on `@cypheria/protocol`; it must not import server internals or privileged domain implementations.
 
 The initial server deliberately registers only the runtime's built-in information, health, and service-list methods. Agent, project, wallet, policy, browser, and automation product services remain out of scope until the server boundary is reviewed. See [Cypheria Server](server.md).
 

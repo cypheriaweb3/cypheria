@@ -28,7 +28,7 @@ Cypheria V1 是一个 TypeScript Web3 agent 产品，由一个特权 server 与 
 | Desktop packaging | electron-builder |
 | CLI/SDK 目标 integration | Cypheria server protocol |
 | Desktop Codex integration | `codex app-server` over WebSocket JSON-RPC |
-| Desktop Codex protocol types | `codex app-server generate-ts --experimental --out packages/codex-bridge/src/generated` |
+| Desktop Codex protocol types | `pnpm --filter @cypheria/codex-bridge generate:codex-types` |
 | ACP bridge | `@agentclientprotocol/sdk@1.4.0` app API，通过 `@ai-sdk/provider` 4.x 的 `LanguageModelV4` 接口接入 AI SDK 7.x |
 | Marketplace web runtime | Cloudflare Workers 上的 TanStack Start |
 | Marketplace data | Cloudflare D1 system of record、R2 immutable artifact、Queues、Workflows |
@@ -191,6 +191,8 @@ Desktop
 `@cypheria/codex-bridge` 只负责 desktop 集成。它应该：
 
 - 使用 `src/generated` 中生成的 Codex app-server TypeScript 文件。
+- 使用 `pnpm --filter @cypheria/codex-bridge generate:codex-types` 同时重新生成 TypeScript 与 JSON Schema；package script 始终包含 experimental API，并把从 Rust 64 位整数生成的声明规范化为 JSON wire type `number`。
+- 将每个 request method 映射到对应 generated response type，并在运行时通过 generated JSON Schema 校验 response、反向 request 与 notification。
 - 实现 WebSocket transport。
 - 执行 `initialize` request 和 `initialized` notification handshake。
 - 关联 JSON-RPC requests 和 responses。
@@ -207,6 +209,8 @@ Desktop
 - 无状态历史将 `LanguageModelV4` 工具结果内容转换为文本（文件 URL/标签仍是文本）。二进制/引用工具文件、自定义工具内容、助手自定义内容及推理文件无法原生重放，会返回警告。
 
 Direct bridge 是 application capability plane。Thread、project、review、account、login、plugin、skill、MCP、terminal、configuration 和未来 App Server capability 的 generated stable/experimental method，均继续保留在 typed request API 中，而不是强行塞进 `LanguageModelV4`。Electron main 只把需要暴露给 renderer 的 operation 包装成收窄的 typed IPC service。Desktop initialize 时设置 `experimentalApi: true`。Reverse request 使用 typed fail-closed interaction broker：handler 缺失、response 无效、timeout、disconnect 和 shutdown 都不会被解释为批准，用户 decision 会写入 audit。只有具备真实 attestation implementation 后才声明该能力；App Server-managed authentication 不需要外部 token-refresh callback。
+
+完整的 generated method 清单见 [Codex App Server API 参考](codex-app-server-api.zh-CN.md)。
 
 Electron main 拥有 `codex app-server` child process。它选择 localhost port，以 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动进程，等待 WebSocket handshake readiness，通过 `codex.event` 转发 renderer-safe Codex summaries，记录 stderr，并随 runtime 一起关闭进程。Workspace 与 desktop manifests 精确固定 `@openai/codex` 版本。Development 解析该 package，而不是用户的 `PATH`；packaged build 解析 `resources/codex/codex`（Windows 为 `codex.exe`）。`CYPHERIA_CODEX_PATH` 是显式 diagnostic override。Desktop 在启动 App Server 前检查 `codex --version` 是否与生成 committed protocol types 的版本一致。
 

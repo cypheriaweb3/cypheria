@@ -1,8 +1,24 @@
+import superjson, { type SuperJSONResult, type SuperJSONValue } from "superjson"
 import { z } from "zod"
 
 export const CYPHERIA_PROTOCOL_VERSION = 1 as const
 export const CYPHERIA_WEBSOCKET_PATH = "/api/v1/ws" as const
 export const CYPHERIA_WEBSOCKET_PROTOCOL = `cypheria.v${CYPHERIA_PROTOCOL_VERSION}` as const
+const CYPHERIA_SUPERJSON_MARKER = "cypheria.superjson.v1" as const
+
+type CypheriaSuperJsonEnvelope = SuperJSONResult & {
+  $cypheria: typeof CYPHERIA_SUPERJSON_MARKER
+  meta: NonNullable<SuperJSONResult["meta"]>
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
+
+const isCypheriaSuperJsonEnvelope = (value: unknown): value is CypheriaSuperJsonEnvelope =>
+  isRecord(value) &&
+  value.$cypheria === CYPHERIA_SUPERJSON_MARKER &&
+  "json" in value &&
+  isRecord(value.meta)
 
 export const ClientKindSchema = z.enum(["cli", "desktop", "expo", "mobile", "sdk", "web"])
 export type ClientKind = z.infer<typeof ClientKindSchema>
@@ -241,6 +257,35 @@ export function parseClientMessage(value: unknown): ClientMessage {
 
 export function parseServerMessage(value: unknown): ServerMessage {
   return ServerMessageSchema.parse(value)
+}
+
+/**
+ * Encodes Cypheria protocol values as plain JSON whenever possible and adds a
+ * versioned SuperJSON envelope only when values such as bigint need metadata.
+ */
+export function stringifyProtocolMessage(value: unknown): string {
+  const serialized = superjson.serialize(value as SuperJSONValue)
+  if (!serialized.meta) return JSON.stringify(serialized.json)
+
+  return JSON.stringify({
+    $cypheria: CYPHERIA_SUPERJSON_MARKER,
+    ...serialized,
+    meta: serialized.meta,
+  } satisfies CypheriaSuperJsonEnvelope)
+}
+
+export function parseProtocolMessageText(raw: string): unknown {
+  const value: unknown = JSON.parse(raw)
+  if (!isCypheriaSuperJsonEnvelope(value)) return value
+  return superjson.deserialize({ json: value.json, meta: value.meta })
+}
+
+export function parseClientMessageText(raw: string): ClientMessage {
+  return parseClientMessage(parseProtocolMessageText(raw))
+}
+
+export function parseServerMessageText(raw: string): ServerMessage {
+  return parseServerMessage(parseProtocolMessageText(raw))
 }
 
 export function createWebSocketProtocols(token?: string): string[] {

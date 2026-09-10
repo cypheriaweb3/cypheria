@@ -1,9 +1,10 @@
 import {
   CYPHERIA_PROTOCOL_VERSION,
   createWebSocketProtocols,
-  parseServerMessage,
+  parseServerMessageText,
   type ServerInfo,
   type ServerMessage,
+  stringifyProtocolMessage,
 } from "@cypheria/protocol"
 
 import { resolveServerWebSocketUrl } from "./server-url"
@@ -128,14 +129,14 @@ export class CypheriaServerClient {
         reject(new Error("Server request timed out"))
       }, 15_000)
       this.#pending.set(message.requestId, { reject, resolve, timeout })
-      this.#socket?.send(JSON.stringify(message))
+      this.#socket?.send(stringifyProtocolMessage(message))
     })
   }
 
   #receive(data: unknown): void {
     if (typeof data !== "string") return
     try {
-      const message = parseServerMessage(JSON.parse(data))
+      const message = parseServerMessageText(data)
       if (message.type === "runtime.event") return
       if (!message.requestId) return
       const pending = this.#pending.get(message.requestId)

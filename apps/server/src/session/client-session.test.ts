@@ -1,4 +1,9 @@
-import type { ServerDiagnostics, ServerIdentity, ServerInfo } from "@cypheria/protocol"
+import {
+  parseServerMessageText,
+  type ServerDiagnostics,
+  type ServerIdentity,
+  type ServerInfo,
+} from "@cypheria/protocol"
 import { describe, expect, it, vi } from "vitest"
 
 import { ClientSession, type SessionHost, type SessionTransport } from "./client-session.js"
@@ -15,7 +20,7 @@ const createFixture = () => {
   const sent: unknown[] = []
   const transport: SessionTransport = {
     close: vi.fn(),
-    send: (data) => sent.push(JSON.parse(data)),
+    send: (data) => sent.push(parseServerMessageText(data)),
   }
   const info: ServerInfo = {
     ...identity,
@@ -77,5 +82,35 @@ describe("ClientSession", () => {
       requestId: "info-1",
       type: "server.error",
     })
+  })
+
+  it("sends bigint runtime results through the protocol codec", async () => {
+    const fixture = createFixture()
+    fixture.host.requestRuntime = vi.fn(async () => ({ value: 18_446_744_073_709_551_615n }))
+    await fixture.session.receive(
+      JSON.stringify({
+        payload: {
+          capabilities: [],
+          client: { id: "web-1", kind: "web" },
+          protocolVersion: 1,
+        },
+        requestId: "hello-bigint",
+        type: "session.hello",
+      })
+    )
+    await fixture.session.receive(
+      JSON.stringify({
+        payload: { method: "wallet.balance" },
+        requestId: "runtime-bigint",
+        type: "runtime.request",
+      })
+    )
+
+    expect(fixture.sent[1]).toEqual({
+      payload: { result: { value: 18_446_744_073_709_551_615n } },
+      requestId: "runtime-bigint",
+      type: "runtime.response",
+    })
+    fixture.session.close()
   })
 })

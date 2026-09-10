@@ -46,7 +46,7 @@ Codex 负责 agent threads、turns、model execution、code edits、shell/tool e
 
 `apps/server` 是目标架构中唯一持有 `@cypheria/runtime` 的进程。它提供小型 Hono HTTP 运维 API，以及由 `@cypheria/protocol` 定义的版本化 WebSocket session protocol。Supervisor 持有 PID lock、worker heartbeat、有界 crash restart 与 graceful shutdown；可替换 worker 持有 Hono、active sessions、runtime lifecycle 与 runtime-event broadcasting。
 
-`@cypheria/protocol` 定义 Cypheria client message、server message、HTTP body 与 runtime method validation。它和 `@cypheria/codex-bridge` 中生成的 Codex App Server protocol 无关。Client code 可以依赖 `@cypheria/protocol`，但不能导入 server internals 或特权 domain implementation。
+`@cypheria/protocol` 定义 Cypheria client message、server message、HTTP body 与 runtime method validation。WebSocket message 在值均为 JSON 原生类型时仍使用普通 JSON；只有 Cypheria 自有 payload 包含 `bigint` 等值时，才使用版本化 SuperJSON 信封携带元数据。它和 `@cypheria/codex-bridge` 中生成的 Codex App Server protocol 无关。Client code 可以依赖 `@cypheria/protocol`，但不能导入 server internals 或特权 domain implementation。
 
 初始 server 刻意只注册 runtime 内置的 information、health 与 service-list method。Agent、project、wallet、policy、browser 和 automation 产品 service 等到 server boundary 通过评审后再接入。详见 [Cypheria Server](server.zh-CN.md)。
 

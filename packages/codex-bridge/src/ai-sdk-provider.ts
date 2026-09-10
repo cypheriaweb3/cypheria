@@ -20,7 +20,7 @@ import { codexGeneratedImageData } from "./image-generation.js"
 import type {
   ClientRequest,
   CodexClientRequestParams,
-  CodexJsonValue,
+  CodexClientResponse,
   CodexServerNotificationByMethod,
   ReasoningEffort,
   ReasoningSummary,
@@ -35,7 +35,10 @@ import {
 } from "./turn-projection.js"
 
 export type CodexAppServerProviderBridge = {
-  request<M extends ClientRequest["method"], TResponse = CodexJsonValue>(
+  request<
+    M extends ClientRequest["method"],
+    TResponse extends CodexClientResponse<M> = CodexClientResponse<M>,
+  >(
     method: M,
     params: CodexClientRequestParams<M>,
     options?: { readonly retryOnOverload?: boolean }

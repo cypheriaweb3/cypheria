@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "pnpm typecheck",
-    "generate:codex-types": "pnpm exec codex app-server generate-ts --experimental --out src/generated",
+    "generate:codex-types": "pnpm exec codex app-server generate-ts --experimental --out src/generated && node scripts/normalize-generated-types.mjs && pnpm exec codex app-server generate-json-schema --experimental --out src/generated-schema && node scripts/prune-generated-schemas.mjs && node scripts/generate-response-schema-map.mjs && pnpm exec biome format --write src/generated-schema",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json"
   },
@@ -17,6 +17,7 @@
     "vitest": "^4.1.7"
   },
   "dependencies": {
-    "@ai-sdk/provider": "4.0.9"
+    "@ai-sdk/provider": "4.0.9",
+    "ajv": "^8.20.0"
   }
 }

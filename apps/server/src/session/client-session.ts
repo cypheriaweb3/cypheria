@@ -4,12 +4,13 @@ import {
   type ClientDescriptor,
   type ClientMessage,
   CYPHERIA_PROTOCOL_VERSION,
-  parseClientMessage,
+  parseClientMessageText,
   type ServerDiagnostics,
   type ServerErrorCode,
   type ServerIdentity,
   type ServerInfo,
   type ServerMessage,
+  stringifyProtocolMessage,
 } from "@cypheria/protocol"
 import { ZodError } from "zod"
 
@@ -68,7 +69,7 @@ export class ClientSession {
   }
 
   send(message: ServerMessage): void {
-    if (!this.#closed) this.#transport.send(JSON.stringify(message))
+    if (!this.#closed) this.#transport.send(stringifyProtocolMessage(message))
   }
 
   async receive(raw: string): Promise<void> {
@@ -76,7 +77,7 @@ export class ClientSession {
 
     let message: ClientMessage
     try {
-      message = parseClientMessage(JSON.parse(raw))
+      message = parseClientMessageText(raw)
     } catch (error) {
       const detail = error instanceof ZodError ? error.issues[0]?.message : errorMessage(error)
       this.#sendError("INVALID_MESSAGE", detail || "Invalid message")
