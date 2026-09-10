@@ -56,9 +56,18 @@
 
 ## 架构对齐
 
-- [x] 按最终 Runtime / CLI / SDK / Desktop 架构重写文档。
+- [x] 添加 Cypheria client/server 基础，不迁移 desktop。
+  - 验收：`apps/server` 提供 Hono HTTP/WebSocket control plane、版本化 client session、runtime lifecycle、运维 endpoint、supervised daemon lifecycle 与内置 Expo web hosting；`apps/expo` 面向 iOS、Android 与静态 web；`@cypheria/protocol` 提供共享 validated contracts。
+  - 排除：agent、project、wallet、policy、browser 与 automation 产品 method；任何 `apps/desktop` code change。
+  - 验证：protocol/server/Expo tests 与 typechecks、Expo compatibility check 与 static export、server build 与 embedded-web smoke test、daemon start/status/restart/stop smoke test、全仓库 CI/build。
+
+- [ ] 在明确评审后将 desktop 迁移到 Cypheria server。
+  - 验收：Electron main 确保本地 supervised server 正在运行，desktop 使用共享 protocol，并保持 Electron-only dApp/browser、secure-storage、approval、preload 与 OS-integration 边界。
+  - 前置条件：明确批准 server 基础；不得作为 foundation change 的一部分开始。
+
+- [x] 按 server 与 multi-client 目标架构重写文档。
   - 验收：README、architecture、technical stack、todo docs 和 `AGENTS.md` 只描述当前目标架构。
-  - 包括：不创建 `@cypheria/codex-protocol`、CLI 不依赖 SDK、CLI/SDK 使用 `@openai/codex-sdk`、desktop 使用 Codex App Server over WebSocket、generated app-server TS 位于 `@cypheria/codex-bridge` 内部。
+  - 包括：不创建 `@cypheria/codex-protocol`、client 共用 `@cypheria/protocol`、目标架构由 server 持有 runtime、desktop migration 显式分阶段，并且 generated Codex app-server TS 仍位于 `@cypheria/codex-bridge` 内部。
   - 验证：`pnpm run ci`、`pnpm build`。
 
 ## Runtime
@@ -82,10 +91,10 @@
 ## SDK
 
 - [ ] 添加 `packages/sdk`。
-  - 验收：package 导出公共 `Cypheria` client。
+  - 验收：package 导出公共 `Cypheria` server client。
   - 包括：runtime、wallet、policy、automation 和 agent clients。
-  - Agent path：直接使用 `@openai/codex-sdk`。
-  - 不得导入：`apps/cli`、`apps/desktop`、Electron 或 `@cypheria/codex-bridge`。
+  - Agent path：使用版本化 server operation 与 event。
+  - 不得导入：`apps/cli`、`apps/desktop`、Electron、`@cypheria/runtime` 或 `@cypheria/codex-bridge`。
   - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/sdk test`。
 
 - [ ] 为 SDK 添加 runtime 和 Codex SDK test doubles。
@@ -97,13 +106,13 @@
 
 - [ ] 添加 `apps/cli`。
   - 验收：package 构建无 TUI 的 `cypheria` Node CLI。
-  - 包括：argument parsing、runtime initialization、readable output、JSONL output mode 和 non-zero failure exits。
-  - 依赖：直接 import `@cypheria/runtime` 和 `@openai/codex-sdk`。
-  - 不得导入：`@cypheria/sdk`、Electron、desktop packages 或 `@cypheria/codex-bridge`。
+  - 包括：argument parsing、server connection/configuration、readable output、JSONL output mode 和 non-zero failure exits。
+  - 依赖：`@cypheria/protocol` 与 Node transport。
+  - 不得导入：`@cypheria/sdk`、`@cypheria/runtime`、Electron、desktop packages 或 `@cypheria/codex-bridge`。
   - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/cli test`。
 
 - [ ] 实现初始 CLI commands。
-  - 验收：`cypheria run`、`cypheria run --jsonl`、`cypheria runtime info`、`cypheria wallet list`、`cypheria policy list`、`cypheria automation run <task-id>` 和 `cypheria doctor` 接入 runtime 或 Codex SDK。
+  - 验收：`cypheria run`、`cypheria run --jsonl`、`cypheria runtime info`、`cypheria wallet list`、`cypheria policy list`、`cypheria automation run <task-id>` 和 `cypheria doctor` 接入 server operations。
   - 验证：CLI unit tests 和 command smoke tests。
 
 ## Marketplace

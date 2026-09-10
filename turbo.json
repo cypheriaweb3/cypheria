@@ -5,6 +5,14 @@
       "dependsOn": ["^build"],
       "outputs": []
     },
+    "@cypheria/expo#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
+    "@cypheria/server#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["dist/**"]
+    },
     "check": {
       "dependsOn": ["^check"],
       "outputs": []

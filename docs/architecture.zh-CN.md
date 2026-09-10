@@ -7,13 +7,14 @@ Cypheria 是一个 TypeScript Web3 agent 产品：它复用 Codex 承载软件�
 ## 系统概览
 
 ```txt
-apps/cli
-  -> @cypheria/runtime
-  -> @openai/codex-sdk
+apps/expo / 未来的 apps/cli / packages/sdk
+  -> @cypheria/protocol
+  -> 通过 HTTP 或 WebSocket 连接 apps/server
 
-packages/sdk
+apps/server
+  -> Hono control plane + supervised worker
   -> @cypheria/runtime
-  -> @openai/codex-sdk
+  -> 内置 apps/expo web export
 
 apps/desktop renderer
   -> Electron typed IPC
@@ -21,6 +22,7 @@ apps/desktop renderer
   -> @cypheria/runtime
   -> @cypheria/codex-bridge
   -> persistent codex app-server over WebSocket JSON-RPC
+  （等待 server 评审与迁移期间的临时实现）
 
 apps/marketplace
   -> TanStack Start on Cloudflare Workers
@@ -29,15 +31,28 @@ apps/marketplace
   -> official GitHub repo marketplace projection
 ```
 
-Cypheria 有四个产品 surface 和一个共享 runtime：
+Cypheria 有一个特权 server、多个 client、一个独立 marketplace 与一个共享 runtime：
 
-- `apps/cli`：无 TUI 的命令行应用，直接组合 Cypheria runtime 和 Codex TypeScript SDK。
-- `apps/desktop`：Electron + TanStack Start 应用，在 Electron main 中运行 Cypheria runtime，并连接常驻 Codex App Server。
+- `apps/server`：Node.js/Hono control plane，负责 runtime ownership、版本化 client session、运维、进程监督与 web hosting。
+- `apps/expo`：第一个 Cypheria protocol client，一套代码构建 iOS、Android 与静态 web。
+- `apps/cli` 与 `packages/sdk`：规划中的 Cypheria protocol clients。
+- `apps/desktop`：未来负责自托管 server 的 client；在 server 评审前，当前 Electron-main runtime 与 Codex ownership 刻意保持不变。
 - `apps/marketplace`：部署在 Cloudflare Workers 上的 TanStack Start 应用，负责 ChatGPT/Codex-compatible 插件的提交、扫描、审核、发布与发现，再把 approved entry 同步到 Cypheria 官方 GitHub repo marketplace。
-- `packages/sdk`：公共 TypeScript SDK，直接组合 Cypheria runtime 和 Codex TypeScript SDK。
 - `packages/runtime`：Cypheria 自有非 agent 能力的 TypeScript runtime。
 
 Codex 负责 agent threads、turns、model execution、code edits、shell/tool execution、MCP 和 Codex approvals。Cypheria 负责 Web3 context、wallets、signing intents、policy evaluation、dApp browser permissions、automation state、本地数据和 audit logs。
+
+## Server 与 Protocol 边界
+
+`apps/server` 是目标架构中唯一持有 `@cypheria/runtime` 的进程。它提供小型 Hono HTTP 运维 API，以及由 `@cypheria/protocol` 定义的版本化 WebSocket session protocol。Supervisor 持有 PID lock、worker heartbeat、有界 crash restart 与 graceful shutdown；可替换 worker 持有 Hono、active sessions、runtime lifecycle 与 runtime-event broadcasting。
+
+`@cypheria/protocol` 定义 Cypheria client message、server message、HTTP body 与 runtime method validation。它和 `@cypheria/codex-bridge` 中生成的 Codex App Server protocol 无关。Client code 可以依赖 `@cypheria/protocol`，但不能导入 server internals 或特权 domain implementation。
+
+初始 server 刻意只注册 runtime 内置的 information、health 与 service-list method。Agent、project、wallet、policy、browser 和 automation 产品 service 等到 server boundary 通过评审后再接入。详见 [Cypheria Server](server.zh-CN.md)。
+
+## Expo Client
+
+`apps/expo` 是 Expo SDK 57 + Expo Router 应用，一套 source tree 面向 iOS、Android 与 web。它执行版本化 session hello、关联 server request、使用有界 backoff 重连，并读取 server information。Static web export 会复制到 server build 中，由 Hono 提供 SPA fallback。Credential 不会编译进公开 Expo bundle。
 
 Marketplace 是独立的远程 trust boundary。D1 是 review/publication system of record；后端将 published release 确定性投影到 Cypheria 官方 GitHub repository 的 `$REPO_ROOT/.agents/plugins/marketplace.json`。Entry 只能使用由 commit SHA 固定的 public open-source GitHub `url` 或 `git-subdir` source。R2 保存不可变 evidence，Queues 分发有界工作，Workflows 编排 scan、review 与 catalog publication。Marketplace 不在 request Worker 中执行任意第三方代码，也不接收本地 wallet、Codex home、终端用户 connector credential 或 runtime state。详见 [Cypheria Marketplace 设计](marketplace.zh-CN.md)。
 
@@ -83,10 +98,7 @@ settings.*
 
 ## CLI
 
-`apps/cli` 是 Node-based CLI，V1 不做 TUI。它不依赖 `@cypheria/sdk`，而是直接组合：
-
-- `@cypheria/runtime`：Cypheria 自有本地/Web3 能力。
-- `@openai/codex-sdk`：agent 工作流。
+`apps/cli` 是规划中的 Node-based CLI，V1 不做 TUI。它是 `apps/server` 的 Cypheria protocol client，不依赖 `@cypheria/sdk`，也不导入特权 runtime 或 desktop internals。
 
 初始命令组：
 
@@ -104,10 +116,7 @@ CLI 应支持 human-readable 输出和面向自动化的 JSONL 输出。CLI 不�
 
 ## SDK
 
-`@cypheria/sdk` 是面向外部 Node 应用的公共 TypeScript API。它直接组合：
-
-- `@cypheria/runtime`：Cypheria 自有能力。
-- `@openai/codex-sdk`：Codex agent threads。
+`@cypheria/sdk` 是规划中的公共 TypeScript client。它封装其他 client 共用的版本化 server protocol，不持有 runtime 或 Codex process lifecycle。
 
 目标 SDK 形态：
 
@@ -121,11 +130,11 @@ const thread = cypheria.agent().startThread({ workingDirectory: process.cwd() })
 const result = await thread.run("Analyze this repo")
 ```
 
-SDK 不应依赖 Electron、desktop IPC 或 `@cypheria/codex-bridge`。
+SDK 不应依赖 Electron、desktop IPC、`@cypheria/runtime` 或 `@cypheria/codex-bridge`。
 
 ## Desktop
 
-Desktop 保留现有 Electron + TanStack Start 架构。
+在当前评审阶段，Desktop 保留现有 Electron + TanStack Start 实现，本次不修改任何 desktop code。目标是由 Electron main 确保本地 Cypheria server 正在运行，再让 desktop 成为 protocol client；该迁移必须作为独立、明确评审的变更进行。
 
 ```txt
 TanStack Start Renderer
@@ -186,9 +195,9 @@ Connections 还维护一份供所有 agent harness 共用的全局代理配置�
 
 ## Codex 集成
 
-Cypheria 使用两条 Codex 集成路径：
+目标架构由 Cypheria server 为所有 protocol client 持有 Codex integration。在刻意保留的 desktop 过渡期内，当前仓库仍存在两条 direct Codex integration path：
 
-- CLI 和 SDK 使用 `@openai/codex-sdk`。
+- 未来的 CLI 与 SDK 必须使用 Cypheria server protocol。
 - Desktop 使用 `codex app-server` over WebSocket JSON-RPC。
 
 `@cypheria/codex-bridge` 是 desktop-side app-server client。它负责：
@@ -285,7 +294,7 @@ Signing-intent runtime 只接受严格的来源上下文（`dapp`、`automation`
 manual trigger or scheduler
   -> AutomationRunner
   -> worker boundary
-  -> runtime services / Codex SDK as needed
+  -> 按需使用 server-owned runtime / agent services
   -> signing intent for write operations
   -> PolicyEngine
   -> approval or policy decision
@@ -377,8 +386,11 @@ CODEX_HOME="$CYPHERIA_HOME/codex"
 @cypheria/runtime
   Cypheria non-agent runtime host and service orchestration.
 
+@cypheria/protocol
+  版本化、transport-neutral 的 Cypheria client/server contract 与 Zod validation。
+
 @cypheria/sdk
-  Public TS SDK; composes runtime and @openai/codex-sdk.
+  规划中的 Cypheria server protocol 公共 TS client。
 
 @cypheria/codex-bridge
   Desktop-side Codex App Server bridge, generated protocol types, transport, and event normalization.

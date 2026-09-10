@@ -1,6 +1,6 @@
 # Cypheria Technical Stack
 
-Cypheria V1 is a TypeScript Web3 agent product with CLI, SDK, desktop, and runtime surfaces. It reuses Codex for agent workflows and implements Cypheria-owned Web3 capabilities locally.
+Cypheria V1 is a TypeScript Web3 agent product with one privileged server and desktop, Expo, web, mobile, CLI, and SDK clients. It reuses Codex for agent workflows and implements Cypheria-owned Web3 capabilities locally behind the server boundary.
 
 ## Platform Choices
 
@@ -12,6 +12,11 @@ Cypheria V1 is a TypeScript Web3 agent product with CLI, SDK, desktop, and runti
 | Lint / format | Biome |
 | Tests | Vitest, Testing Library, Playwright |
 | Runtime validation | Zod |
+| Server | Hono 4 on Node.js, `@hono/node-server`, `ws`, Pino |
+| Server build and daemon | tsdown, supervisor/worker, PID lock, heartbeat, bounded restart |
+| Client protocol | `@cypheria/protocol`, Zod, HTTP + WebSocket `cypheria.v1` |
+| Cross-platform client | Expo SDK 57, Expo Router, React Native 0.86, React 19 |
+| Expo web output | Static Metro export embedded in the server build |
 | Desktop runtime | Electron |
 | Frontend app | TanStack Start |
 | Router | TanStack Router |
@@ -21,7 +26,7 @@ Cypheria V1 is a TypeScript Web3 agent product with CLI, SDK, desktop, and runti
 | Desktop internationalization | Lingui with committed PO catalogs |
 | Desktop build | Vite for renderer, tsdown for Electron main/preload |
 | Desktop packaging | electron-builder |
-| CLI/SDK Codex integration | `@openai/codex-sdk` |
+| CLI/SDK target integration | Cypheria server protocol |
 | Desktop Codex integration | `codex app-server` over WebSocket JSON-RPC |
 | Desktop Codex protocol types | `codex app-server generate-ts --experimental --out packages/codex-bridge/src/generated` |
 | ACP bridge | `@agentclientprotocol/sdk@1.4.0` app API to AI SDK 7.x through `@ai-sdk/provider` 4.x `LanguageModelV4` |
@@ -37,6 +42,12 @@ Cypheria V1 is a TypeScript Web3 agent product with CLI, SDK, desktop, and runti
 apps/cli
   Non-TUI command-line app.
 
+apps/expo
+  Expo Router application for iOS, Android, and static web.
+
+apps/server
+  Hono control plane, runtime host, static web host, and supervised daemon.
+
 apps/desktop
   ipc/
   main/
@@ -46,6 +57,7 @@ apps/marketplace
   TanStack Start application deployed to Cloudflare Workers.
 
 packages/sdk
+packages/protocol
 packages/runtime
 packages/codex-bridge
 packages/acp-ai-provider
@@ -58,7 +70,15 @@ packages/automation-core
 packages/db
 ```
 
-`apps/cli`, `apps/marketplace`, and `packages/sdk` are planned packages. The existing repository already contains the desktop app and the main domain packages.
+`apps/cli`, `apps/marketplace`, and `packages/sdk` are planned packages. `apps/server`, `apps/expo`, and `packages/protocol` are implemented as the client/server foundation. Desktop remains unchanged until the foundation is reviewed.
+
+## Server And Expo Stack
+
+`apps/server` uses Hono rather than Express. Hono owns JSON routes, validation middleware, strict API fallthrough, static files, and the WebSocket upgrade route. The Node adapter shares one HTTP listener with a `ws` no-server instance. A transport-neutral session state machine requires a versioned hello, correlates requests, bounds frames, broadcasts runtime events, and exposes server information, diagnostics, runtime forwarding, and lifecycle requests.
+
+The daemon is split into supervisor and worker processes. The supervisor owns the PID record, heartbeat watchdog, crash budget, restart backoff, and signals. The worker owns `CypheriaRuntime` and the network listener. Both append structured Pino logs below `$CYPHERIA_HOME`. See [Cypheria Server](server.md).
+
+`apps/expo` uses Expo Router static output for web and the same routes/components for iOS and Android. Expo's monorepo-aware Metro setup resolves workspace packages without manual watch folders. The server build depends on the Expo build and copies its complete `dist` tree to `apps/server/dist/web`; Hono serves it with an SPA fallback.
 
 ## Marketplace Stack
 
@@ -76,44 +96,40 @@ Runtime responsibilities:
 - Derive `CODEX_HOME=$CYPHERIA_HOME/codex`.
 - Initialize runtime directories.
 - Wire database, audit, wallet, policy, browser, automation, and settings services.
-- Expose a typed request/event API for CLI, SDK, and desktop main.
+- Expose a typed request/event API to `apps/server`.
 
 Runtime does not implement Codex agent internals.
 
 ## CLI Stack
 
-`apps/cli` is a Node CLI without TUI. It directly depends on:
-
-- `@cypheria/runtime`
-- `@openai/codex-sdk`
+`apps/cli` is a planned Node CLI without TUI. It depends on the shared Cypheria protocol and connects to `apps/server`.
 
 It must not depend on:
 
 - `@cypheria/sdk`
+- `@cypheria/runtime`
 - `@cypheria/codex-bridge`
 - Electron or desktop packages
 
 Initial command behavior:
 
-- `cypheria run <prompt>` uses Codex SDK for agent execution.
+- `cypheria run <prompt>` asks the server to execute the agent workflow.
 - `cypheria run --jsonl <prompt>` emits machine-readable event/result output.
 - `cypheria runtime info` reads Cypheria runtime metadata.
-- Web3 commands use runtime services directly.
+- Web3 commands use versioned server operations.
 
 ## SDK Stack
 
-`@cypheria/sdk` is a public TypeScript library for Node applications. It directly depends on:
-
-- `@cypheria/runtime`
-- `@openai/codex-sdk`
+`@cypheria/sdk` is a planned public TypeScript server client for Node and compatible JavaScript applications. It depends on `@cypheria/protocol` and a transport implementation.
 
 It must not depend on:
 
 - `apps/cli`
+- `@cypheria/runtime`
 - Electron or desktop packages
 - `@cypheria/codex-bridge`
 
-SDK clients should be small wrappers around runtime services and Codex SDK agent threads.
+SDK clients should be small wrappers around versioned server operations and event streams.
 
 ## ACP AI Provider Stack
 
@@ -121,7 +137,7 @@ SDK clients should be small wrappers around runtime services and Codex SDK agent
 
 ## Desktop Stack
 
-Desktop keeps Electron + TanStack Start.
+Desktop keeps its current Electron + TanStack Start implementation during server review. A later change will make it a self-starting Cypheria server client.
 
 Internal desktop navigation uses TanStack Router links to preserve the document, global styles, and appearance state. Global CSS is linked from the root document before client hydration. Chat search parameters are validated by the index route; switching threads or choosing New chat resets the chat session without reloading the application.
 
@@ -164,12 +180,9 @@ The desktop main bundle leaves `@libsql/client` and its platform packages extern
 
 ## Codex Integration
 
-Cypheria uses Codex in two ways:
+The target server will own Codex for every client. The following direct path describes the temporary, unchanged desktop implementation:
 
 ```txt
-CLI / SDK
-  -> @openai/codex-sdk
-
 Desktop
   -> @cypheria/codex-bridge
   -> codex app-server over WebSocket JSON-RPC
@@ -318,7 +331,7 @@ Signing intents and approval requests are stored in explicit libSQL tables. The 
 
 Automation is local-first. Tasks may use Codex SDK, read chain state, create signing intents, and write audit logs. Tasks must not bypass the policy engine.
 
-`@cypheria/runtime` owns the automation service and exposes `automation.task.create`, `automation.task.list`, `automation.task.get`, `automation.task.pause`, `automation.task.resume`, `automation.run.start`, `automation.run.get`, and `automation.run.list`. `@cypheria/automation-core` owns strict task/run schemas and state transitions; `@cypheria/db` owns asynchronous SQLite persistence and optimistic updates. Executors are injected by handler name and receive only scoped agent and signing-intent capabilities. The SDK can compose the agent capability directly with `@openai/codex-sdk`; desktop keeps its persistent App Server boundary separate.
+`@cypheria/runtime` owns the automation service and exposes `automation.task.create`, `automation.task.list`, `automation.task.get`, `automation.task.pause`, `automation.task.resume`, `automation.run.start`, `automation.run.get`, and `automation.run.list`. `@cypheria/automation-core` owns strict task/run schemas and state transitions; `@cypheria/db` owns asynchronous SQLite persistence and optimistic updates. Executors are injected by handler name and receive only scoped agent and signing-intent capabilities. In the target architecture the server composes agent capability and exposes only bounded operations to clients; desktop retains its existing path until migration.
 
 ## Data Stack
 

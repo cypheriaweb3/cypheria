@@ -1,0 +1,37 @@
+{
+  "name": "@cypheria/expo",
+  "version": "0.0.0",
+  "private": true,
+  "main": "expo-router/entry",
+  "scripts": {
+    "android": "expo start --android",
+    "build": "pnpm build:web",
+    "build:web": "expo export --platform web --output-dir dist",
+    "check": "pnpm typecheck",
+    "dev": "expo start",
+    "ios": "expo start --ios",
+    "start": "expo start",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@cypheria/protocol": "workspace:*",
+    "expo": "~57.0.21",
+    "expo-constants": "~57.0.17",
+    "expo-linking": "~57.0.9",
+    "expo-router": "~57.0.20",
+    "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.3",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-web": "~0.21.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.15",
+    "vitest": "^4.1.7"
+  }
+}

@@ -7,13 +7,14 @@ The architecture has one central rule: agent work, Web3 signing, automation exec
 ## System Overview
 
 ```txt
-apps/cli
-  -> @cypheria/runtime
-  -> @openai/codex-sdk
+apps/expo / future apps/cli / packages/sdk
+  -> @cypheria/protocol
+  -> apps/server over HTTP or WebSocket
 
-packages/sdk
+apps/server
+  -> Hono control plane + supervised worker
   -> @cypheria/runtime
-  -> @openai/codex-sdk
+  -> embedded apps/expo web export
 
 apps/desktop renderer
   -> Electron typed IPC
@@ -21,6 +22,7 @@ apps/desktop renderer
   -> @cypheria/runtime
   -> @cypheria/codex-bridge
   -> persistent codex app-server over WebSocket JSON-RPC
+  (temporary implementation until the reviewed server migration)
 
 apps/marketplace
   -> TanStack Start on Cloudflare Workers
@@ -29,15 +31,28 @@ apps/marketplace
   -> official GitHub repo marketplace projection
 ```
 
-Cypheria has four product surfaces and one shared runtime:
+Cypheria has one privileged server, multiple clients, a separate marketplace, and one shared runtime:
 
-- `apps/cli`: a non-TUI command-line app that directly composes Cypheria runtime and the Codex TypeScript SDK.
-- `apps/desktop`: an Electron + TanStack Start app that runs Cypheria runtime in Electron main and connects to a long-lived Codex App Server.
+- `apps/server`: the Node.js/Hono control plane for runtime ownership, versioned client sessions, operations, process supervision, and web hosting.
+- `apps/expo`: the first Cypheria protocol client, built once for iOS, Android, and static web.
+- `apps/cli` and `packages/sdk`: planned Cypheria protocol clients.
+- `apps/desktop`: the future self-hosting client. Its current Electron-main runtime and Codex ownership is intentionally unchanged until server review.
 - `apps/marketplace`: a TanStack Start application on Cloudflare Workers for submitting, scanning, reviewing, publishing, and discovering ChatGPT/Codex-compatible plugins, then synchronizing approved entries to the official Cypheria GitHub repo marketplace.
-- `packages/sdk`: a public TypeScript SDK that directly composes Cypheria runtime and the Codex TypeScript SDK.
 - `packages/runtime`: the TypeScript runtime for Cypheria-owned non-agent capabilities.
 
 Codex owns agent threads, turns, model execution, code edits, shell/tool execution, MCP, and Codex approvals. Cypheria owns Web3 context, wallets, signing intents, policy evaluation, dApp browser permissions, automation state, local data, and audit logs.
+
+## Server And Protocol Boundary
+
+`apps/server` is the only target-architecture process that owns `@cypheria/runtime`. It exposes a small Hono HTTP operations API and a versioned WebSocket session protocol from `@cypheria/protocol`. A supervisor owns the PID lock, worker heartbeat, bounded crash restart, and graceful shutdown; the replaceable worker owns Hono, active sessions, runtime lifecycle, and runtime-event broadcasting.
+
+`@cypheria/protocol` defines Cypheria client messages, server messages, HTTP bodies, and runtime method validation. It is unrelated to the generated Codex App Server protocol in `@cypheria/codex-bridge`. Client code may depend on `@cypheria/protocol`; it must not import server internals or privileged domain implementations.
+
+The initial server deliberately registers only the runtime's built-in information, health, and service-list methods. Agent, project, wallet, policy, browser, and automation product services remain out of scope until the server boundary is reviewed. See [Cypheria Server](server.md).
+
+## Expo Client
+
+`apps/expo` is an Expo SDK 57 + Expo Router application with one source tree for iOS, Android, and web. It performs the versioned session hello, correlates server requests, reconnects with bounded backoff, and consumes server information. Static web export is copied into the server build and served by Hono with SPA fallback. Credentials are not compiled into the public Expo bundle.
 
 The marketplace is a separate remote trust boundary. D1 is the review/publication system of record; the backend deterministically projects published releases into `$REPO_ROOT/.agents/plugins/marketplace.json` in the official Cypheria GitHub repository. Entries may only use public open-source GitHub `url` or `git-subdir` sources pinned by commit SHA. R2 stores immutable evidence, Queues distribute bounded work, and Workflows coordinate scan, review, and catalog publication. The marketplace never executes arbitrary third-party code in request Workers and never receives local wallet, Codex home, end-user connector credential, or runtime state. See [Cypheria Marketplace Design](marketplace.md).
 
@@ -83,10 +98,7 @@ settings.*
 
 ## CLI
 
-`apps/cli` is a Node-based CLI with no TUI in V1. It does not depend on `@cypheria/sdk`. It directly composes:
-
-- `@cypheria/runtime` for Cypheria-owned local/Web3 capabilities.
-- `@openai/codex-sdk` for agent workflows.
+`apps/cli` is a planned Node-based CLI with no TUI in V1. It is a Cypheria protocol client of `apps/server`, does not depend on `@cypheria/sdk`, and does not import the privileged runtime or desktop internals.
 
 Initial command groups:
 
@@ -104,10 +116,7 @@ The CLI should support human-readable output and JSONL output for automation. It
 
 ## SDK
 
-`@cypheria/sdk` is the public TypeScript API for external Node applications. It directly composes:
-
-- `@cypheria/runtime` for Cypheria-owned capabilities.
-- `@openai/codex-sdk` for Codex agent threads.
+`@cypheria/sdk` is the planned public TypeScript client for external applications. It wraps the same versioned server protocol used by other clients and does not own runtime or Codex process lifecycle.
 
 Target SDK shape:
 
@@ -121,11 +130,11 @@ const thread = cypheria.agent().startThread({ workingDirectory: process.cwd() })
 const result = await thread.run("Analyze this repo")
 ```
 
-The SDK should not depend on Electron, desktop IPC, or `@cypheria/codex-bridge`.
+The SDK should not depend on Electron, desktop IPC, `@cypheria/runtime`, or `@cypheria/codex-bridge`.
 
 ## Desktop
 
-Desktop keeps the existing Electron + TanStack Start architecture.
+Desktop remains on the existing Electron + TanStack Start implementation during this review stage. No desktop code is changed. The target is for Electron main to ensure a local Cypheria server is running and for desktop to become a protocol client, but that migration is a separate, explicitly reviewed change.
 
 ```txt
 TanStack Start Renderer
@@ -186,9 +195,9 @@ Connections also owns one global proxy configuration for every agent harness. It
 
 ## Codex Integration
 
-Cypheria uses two Codex integration paths:
+The target Cypheria server will own Codex integration for all protocol clients. During the deliberate desktop transition, the current repository still uses two direct Codex integration paths:
 
-- CLI and SDK use `@openai/codex-sdk`.
+- Future CLI and SDK work must use the Cypheria server protocol.
 - Desktop uses `codex app-server` over WebSocket JSON-RPC.
 
 `@cypheria/codex-bridge` is the desktop-side app-server client. It owns:
@@ -285,7 +294,7 @@ The signing-intent runtime accepts only strict source contexts (`dapp`, `automat
 manual trigger or scheduler
   -> AutomationRunner
   -> worker boundary
-  -> runtime services / Codex SDK as needed
+  -> server-owned runtime / agent services as needed
   -> signing intent for write operations
   -> PolicyEngine
   -> approval or policy decision
@@ -377,8 +386,11 @@ Default rules:
 @cypheria/runtime
   Cypheria non-agent runtime host and service orchestration.
 
+@cypheria/protocol
+  Versioned, transport-neutral Cypheria client/server contracts and Zod validation.
+
 @cypheria/sdk
-  Public TS SDK; composes runtime and @openai/codex-sdk.
+  Planned public TS client for the Cypheria server protocol.
 
 @cypheria/codex-bridge
   Desktop-side Codex App Server bridge, generated protocol types, transport, and event normalization.

@@ -2,7 +2,7 @@
   "name": "cypheria",
   "version": "0.0.0",
   "private": true,
-  "description": "A cross-platform Web3 agent desktop inspired by Codex Desktop.",
+  "description": "A cross-platform Web3 agent platform with a shared server and multiple clients.",
   "license": "MIT",
   "packageManager": "pnpm@11.1.3",
   "scripts": {

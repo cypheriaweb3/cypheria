@@ -1,0 +1,41 @@
+{
+  "name": "@cypheria/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "bin": {
+    "cypheria-server": "./dist/cli.mjs"
+  },
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "tsdown --config tsdown.config.mjs && node scripts/embed-web.mjs",
+    "check": "pnpm typecheck",
+    "daemon": "node dist/cli.mjs",
+    "dev": "tsx watch src/dev.ts",
+    "start": "node dist/main.mjs",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@cypheria/protocol": "workspace:*",
+    "@cypheria/runtime": "workspace:*",
+    "@hono/node-server": "^2.1.1",
+    "@hono/zod-validator": "^0.9.1",
+    "hono": "^4.13.7",
+    "pino": "^10.3.1",
+    "ws": "^8.21.3",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@cypheria/expo": "workspace:*",
+    "@types/ws": "^8.18.1",
+    "tsdown": "^0.23.0",
+    "tsx": "^4.23.13",
+    "vitest": "^4.1.7"
+  }
+}

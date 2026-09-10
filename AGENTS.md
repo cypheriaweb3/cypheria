@@ -4,12 +4,14 @@ This file provides working instructions for agents contributing to Cypheria.
 
 ## Project Context
 
-Cypheria is a TypeScript Web3 agent product inspired by Codex. It has five target surfaces:
+Cypheria is a TypeScript Web3 agent product inspired by Codex. Its target architecture has one privileged server and multiple clients:
 
 - `@cypheria/runtime`: Cypheria-owned non-agent runtime for Web3, wallets, signing policy, dApp browser permissions, automation, local state, and audit logs.
-- `apps/cli`: a non-TUI CLI that directly composes `@cypheria/runtime` and `@openai/codex-sdk`.
-- `@cypheria/sdk`: a public TypeScript SDK that directly composes `@cypheria/runtime` and `@openai/codex-sdk`.
-- `apps/desktop`: an Electron + TanStack Start app that runs Cypheria runtime in Electron main and talks to a persistent Codex App Server over WebSocket JSON-RPC.
+- `apps/server`: the Hono/Node.js process boundary that owns runtime lifecycle, versioned client connections, operations, web hosting, and eventually Codex/product services.
+- `apps/expo`: the Expo Router client for iOS, Android, and static web; its web export is embedded by the server.
+- `apps/cli`: a planned non-TUI client of the Cypheria server protocol.
+- `@cypheria/sdk`: a planned public TypeScript client of the Cypheria server protocol.
+- `apps/desktop`: an Electron + TanStack Start client that will ensure a local server is running. Until its migration is explicitly approved, its current direct runtime/Codex ownership remains unchanged.
 - `apps/marketplace`: a TanStack Start application on Cloudflare Workers that owns Cypheria plugin submission, scanning, review, publication, public discovery, and deterministic synchronization to the official Cypheria GitHub repo marketplace.
 
 Cypheria does not reimplement or fork the Codex agent runtime. Web3-specific capabilities belong to Cypheria runtime. Codex is used for agent threads, turns, model execution, code edits, shell/tool execution, MCP, and Codex approvals.
@@ -77,9 +79,12 @@ apps/desktop
   main/
   preload/
   renderer/
+apps/expo
 apps/marketplace
+apps/server
 
 packages/sdk
+packages/protocol
 packages/runtime
 packages/codex-bridge
 packages/ui
@@ -91,17 +96,19 @@ packages/automation-core
 packages/db
 ```
 
-`apps/cli`, `apps/marketplace`, and `packages/sdk` are planned packages. Do not treat their absence as a reason to route CLI or SDK behavior through desktop internals.
+`apps/cli`, `apps/marketplace`, and `packages/sdk` are planned packages. Do not treat their absence as a reason to route CLI or SDK behavior through desktop internals or to bypass the server protocol.
 
 Every Cypheria Marketplace plugin must follow the ChatGPT/Codex plugin specification and use a public open-source GitHub `url` or `git-subdir` source pinned by commit SHA. D1 owns review/publication state; the backend deterministically aggregates published entries into the official Cypheria GitHub repo at `.agents/plugins/marketplace.json`. Desktop uses the Cypheria API for discovery and trust metadata, then uses generated Codex App Server `marketplace/add`, `marketplace/upgrade`, and `plugin/install` methods for installation. Other public, personal, shared, workspace, repository, Git, npm, and local sources remain App Server-owned. Preserve provider provenance and never present one provider's trust or availability as the other's.
 
 ## Codex Integration Rules
 
-- CLI directly uses `@cypheria/runtime` and `@openai/codex-sdk`.
-- SDK directly uses `@cypheria/runtime` and `@openai/codex-sdk`.
+- The target server owns `@cypheria/runtime` and Codex process/SDK integration for all clients.
+- CLI and SDK use the versioned Cypheria server protocol and must not import `@cypheria/runtime` or `@openai/codex-sdk` directly.
 - CLI must not depend on `@cypheria/sdk`.
 - CLI and SDK must not depend on Electron, desktop packages, or `@cypheria/codex-bridge`.
-- Desktop uses a persistent `codex app-server` process over WebSocket JSON-RPC.
+- Desktop currently uses a persistent `codex app-server` process and runtime inside Electron main. Keep that implementation unchanged until the server is reviewed and desktop migration is explicitly requested.
+- After migration, Electron main has the special client responsibility of ensuring a local Cypheria server is running while retaining Electron-only browser, secure-storage, preload, approval, and OS integration boundaries.
+- `@cypheria/protocol` is the Cypheria client/server protocol. It must remain independent of generated Codex App Server types.
 - `@cypheria/codex-bridge` is the desktop-side Codex App Server bridge.
 - Do not create `@cypheria/codex-protocol`.
 - Do not hand-write Codex App Server protocol types.
@@ -164,7 +171,7 @@ Implementation notes:
 
 ## Security Boundaries
 
-- Private keys, signing, automation execution, local database access, and browser session management belong in Electron main, Cypheria runtime, or isolated child/worker processes.
+- Private keys, signing, automation execution, local database access, and browser session management belong in the Cypheria server/runtime, Electron-only privileged services during the staged migration, or isolated child/worker processes.
 - Renderer code should use typed IPC only.
 - dApp pages should never receive Node.js access or private key material.
 - Codex and automation flows should create signing intents, not direct signatures.

@@ -2,16 +2,17 @@
 
 Cypheria 是一款受 Codex 启发的跨平台 Web3 agent 产品。它使用 TypeScript 构建，将 Codex 驱动的软件工程工作流与 Cypheria 自己实现的 Web3 runtime 能力结合起来，包括钱包、隔离的 dApp 浏览器、签名策略、本地自动化和审计日志。
 
-Cypheria 不重新实现 Codex agent core。CLI 和 SDK 使用官方 Codex TypeScript SDK 执行 agent 工作流。Desktop 启动常驻 Codex App Server，并通过 WebSocket JSON-RPC 与其通信。Web3 权限、钱包状态、签名、自动化、策略评估和审计能力属于 Cypheria runtime。
+Cypheria 不重新实现 Codex agent core。目标架构由一个常驻 Cypheria server 持有特权 runtime 与 Codex integration，desktop、Expo、web、mobile、CLI 和 SDK 都是 client。Web3 权限、钱包状态、签名、自动化、策略评估和审计能力仍位于 server 边界后的 Cypheria runtime 中。
 
 ## 产品方向
 
-Cypheria V1 有五个入口：
+Cypheria V1 围绕一个 server 与多个 client 组织：
 
 - **Runtime**：Cypheria 自己的 TypeScript 非 agent 核心，负责钱包、链、策略、自动化、浏览器权限、设置、本地状态和审计日志。
-- **CLI**：无 TUI 的命令行入口，直接组合 `@cypheria/runtime` 和 `@openai/codex-sdk`。
-- **SDK**：面向外部应用的 TypeScript library，直接组合 `@cypheria/runtime` 和 `@openai/codex-sdk`。
-- **Desktop**：Electron + TanStack Start 应用，在 main process 中运行 Cypheria runtime，并启动持久化 Codex App Server 承载富 agent 工作流。
+- **Server**：基于 Hono + Node.js 的 control plane，负责 runtime lifecycle、client session、diagnostics、静态 web hosting，并在后续承载 Codex 与产品 services。
+- **Expo client**：一套面向 iOS、Android 与静态 web output 的 Expo Router 应用；server 会内置其 web output。
+- **CLI 与 SDK clients**：规划中的 protocol clients，不持有特权 runtime。
+- **Desktop client**：最终会在需要时自启动本地 server 并连接它。当前 desktop 实现保持不变，等新 server 通过评审后再迁移。
 - **Marketplace**：部署在 Cloudflare Workers 上的 TanStack Start 应用，负责 ChatGPT/Codex 标准插件的提交、扫描、审核、发布、发现，并同步到 Cypheria 官方 GitHub repo marketplace。
 
 默认安全模型是人工审批。只读模式和条件自动签名都是显式策略模式。Codex 和 automation flow 可以创建 signing intent，但每个 signing intent 都必须先经过 Cypheria policy evaluation，之后才能签名或广播交易。
@@ -21,12 +22,14 @@ Cypheria V1 有五个入口：
 - **Language**：TypeScript
 - **Monorepo**：Turborepo + pnpm workspace
 - **Desktop**：Electron
+- **跨平台 client**：Expo SDK 57 + Expo Router
+- **Server**：Node.js 上的 Hono，提供 HTTP 与 WebSocket transports
 - **Frontend**：TanStack Start、TanStack Router、TanStack Query
 - **State**：Jotai
 - **Forms and validation**：TanStack Form + Zod
 - **Lint/format**：Biome
 - **UI**：shadcn-style copied components、Base UI primitives、Cypheria CSS tokens、lucide-react
-- **CLI/SDK agent integration**：`@openai/codex-sdk`
+- **Cypheria client protocol**：`@cypheria/protocol` 中版本化的 Zod contracts
 - **Desktop agent integration**：`codex app-server` over WebSocket JSON-RPC
 - **Desktop Codex protocol types**：通过 `codex app-server generate-ts --experimental --out packages/codex-bridge/src/generated` 生成
 - **Marketplace hosting**：Cloudflare Workers、D1、R2、Queues 与 Workflows
@@ -38,13 +41,15 @@ Cypheria V1 有五个入口：
 ## 架构
 
 ```txt
-apps/cli
+apps/expo / 未来的 apps/cli / packages/sdk
+  -> 通过 HTTP 或 WebSocket 使用 @cypheria/protocol
+  -> apps/server
   -> @cypheria/runtime
-  -> @openai/codex-sdk
 
-packages/sdk
-  -> @cypheria/runtime
-  -> @openai/codex-sdk
+apps/server
+  -> Hono HTTP + WebSocket control plane
+  -> supervisor + worker lifecycle
+  -> 内置 apps/expo static web export
 
 apps/desktop renderer
   -> Electron typed IPC
@@ -52,6 +57,7 @@ apps/desktop renderer
   -> @cypheria/runtime
   -> @cypheria/codex-bridge
   -> persistent codex app-server over WS
+  （迁移前的临时实现；本次不改动）
 
 apps/marketplace
   -> TanStack Start on Cloudflare Workers
@@ -74,6 +80,12 @@ Desktop renderer 是产品 UI，不是特权 runtime。它通过 typed IPC 向 E
 apps/cli
   无 TUI 的命令行应用。
 
+apps/expo
+  面向 iOS、Android 与静态 web 的 Expo Router client。
+
+apps/server
+  Hono server、client-session protocol、runtime host、web host 与 supervised daemon。
+
 apps/desktop
   ipc/        Desktop-local typed IPC contracts and schemas
   main/       Electron main process
@@ -84,6 +96,7 @@ apps/marketplace
   插件提交、审核、发布、发现与 GitHub marketplace 同步应用
 
 packages/sdk
+packages/protocol
 packages/runtime
 packages/codex-bridge
 packages/acp-ai-provider
@@ -96,7 +109,7 @@ packages/policy-engine
 packages/db
 ```
 
-`apps/cli`、`apps/marketplace` 和 `packages/sdk` 是规划中的 packages，属于目标架构，会按 todo 顺序实现。Marketplace 设计及其 OpenAI 兼容边界见 [docs/marketplace.zh-CN.md](docs/marketplace.zh-CN.md)。
+`apps/cli`、`apps/marketplace` 和 `packages/sdk` 仍是规划中的 packages。`apps/server`、`apps/expo` 和 `packages/protocol` 已提供新的 client/server 基础。协议、运维、安全与打包约定见 [docs/server.zh-CN.md](docs/server.zh-CN.md)。
 
 ## Runtime Home
 
@@ -147,6 +160,14 @@ pnpm check
 pnpm build
 ```
 
+开发时运行 server daemon 或 Expo client：
+
+```sh
+pnpm --filter @cypheria/server build
+pnpm --filter @cypheria/server daemon start
+pnpm --filter @cypheria/expo dev
+```
+
 运行 renderer dev server：
 
 ```sh
@@ -169,7 +190,7 @@ pnpm format
 
 ## 当前状态
 
-仓库已经包含基础 pnpm/Turborepo workspace、desktop-local typed IPC contracts、runtime home handling、Electron main process bootstrap、persistent desktop Codex App Server lifecycle、wallet/policy/dApp browser domain baselines、EIP-1193/EIP-6963 与 Solana Wallet Standard provider surfaces、本地 SQLite audit 与 automation persistence、共享 UI primitives，以及第一版 TanStack Start desktop shell。
+仓库现在已经包含版本化 Cypheria client protocol、带 HTTP/WebSocket 运维与内置 web hosting 的 supervised Hono server，以及可导出 iOS、Android 与静态 web surface 的 Expo SDK 57 client。现有 desktop 实现刻意保持不变，在 server 评审和独立迁移变更之前继续使用当前 direct-runtime path。
 
 下一步实现顺序记录在 [docs/todo.zh-CN.md](docs/todo.zh-CN.md)。
 规范化 logo、应用图标资产与使用规则见 [docs/brand.zh-CN.md](docs/brand.zh-CN.md)。

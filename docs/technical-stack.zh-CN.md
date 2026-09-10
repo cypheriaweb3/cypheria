@@ -1,6 +1,6 @@
 # Cypheria 技术选型
 
-Cypheria V1 是一个 TypeScript Web3 agent 产品，包含 CLI、SDK、desktop 和 runtime surfaces。它复用 Codex 承载 agent 工作流，并在本地实现 Cypheria 自有 Web3 能力。
+Cypheria V1 是一个 TypeScript Web3 agent 产品，由一个特权 server 与 desktop、Expo、web、mobile、CLI、SDK clients 组成。它复用 Codex 承载 agent 工作流，并在 server 边界后实现 Cypheria 自有 Web3 能力。
 
 ## 平台选型
 
@@ -12,6 +12,11 @@ Cypheria V1 是一个 TypeScript Web3 agent 产品，包含 CLI、SDK、desktop 
 | Lint / format | Biome |
 | Tests | Vitest、Testing Library、Playwright |
 | Runtime validation | Zod |
+| Server | Node.js 上的 Hono 4、`@hono/node-server`、`ws`、Pino |
+| Server build 与 daemon | tsdown、supervisor/worker、PID lock、heartbeat、有界 restart |
+| Client protocol | `@cypheria/protocol`、Zod、HTTP + WebSocket `cypheria.v1` |
+| 跨平台 client | Expo SDK 57、Expo Router、React Native 0.86、React 19 |
+| Expo web output | 内置到 server build 的静态 Metro export |
 | Desktop runtime | Electron |
 | Frontend app | TanStack Start |
 | Router | TanStack Router |
@@ -21,7 +26,7 @@ Cypheria V1 是一个 TypeScript Web3 agent 产品，包含 CLI、SDK、desktop 
 | Desktop 国际化 | Lingui 与已提交的 PO catalogs |
 | Desktop build | Renderer 使用 Vite，Electron main/preload 使用 tsdown |
 | Desktop packaging | electron-builder |
-| CLI/SDK Codex integration | `@openai/codex-sdk` |
+| CLI/SDK 目标 integration | Cypheria server protocol |
 | Desktop Codex integration | `codex app-server` over WebSocket JSON-RPC |
 | Desktop Codex protocol types | `codex app-server generate-ts --experimental --out packages/codex-bridge/src/generated` |
 | ACP bridge | `@agentclientprotocol/sdk@1.4.0` app API，通过 `@ai-sdk/provider` 4.x 的 `LanguageModelV4` 接口接入 AI SDK 7.x |
@@ -37,6 +42,12 @@ Cypheria V1 是一个 TypeScript Web3 agent 产品，包含 CLI、SDK、desktop 
 apps/cli
   无 TUI 的命令行应用。
 
+apps/expo
+  面向 iOS、Android 与静态 web 的 Expo Router 应用。
+
+apps/server
+  Hono control plane、runtime host、静态 web host 与 supervised daemon。
+
 apps/desktop
   ipc/
   main/
@@ -46,6 +57,7 @@ apps/marketplace
   部署到 Cloudflare Workers 的 TanStack Start 应用。
 
 packages/sdk
+packages/protocol
 packages/runtime
 packages/codex-bridge
 packages/acp-ai-provider
@@ -58,7 +70,15 @@ packages/automation-core
 packages/db
 ```
 
-`apps/cli`、`apps/marketplace` 和 `packages/sdk` 是规划中的 packages。当前仓库已经包含 desktop app 和主要 domain packages。
+`apps/cli`、`apps/marketplace` 和 `packages/sdk` 是规划中的 packages。`apps/server`、`apps/expo` 与 `packages/protocol` 已实现 client/server 基础。Desktop 在该基础通过评审前保持不变。
+
+## Server 与 Expo 技术栈
+
+`apps/server` 使用 Hono 而不是 Express。Hono 负责 JSON route、validation middleware、严格 API fallthrough、static file 与 WebSocket upgrade route。Node adapter 让一个 HTTP listener 与 `ws` no-server instance 共用端口。Transport-neutral session state machine 要求版本化 hello、关联 request、限制 frame、广播 runtime event，并暴露 server information、diagnostics、runtime forwarding 与 lifecycle request。
+
+Daemon 分为 supervisor 与 worker process。Supervisor 持有 PID record、heartbeat watchdog、crash budget、restart backoff 与 signal；worker 持有 `CypheriaRuntime` 和 network listener。两者都向 `$CYPHERIA_HOME` 下追加结构化 Pino log。详见 [Cypheria Server](server.zh-CN.md)。
+
+`apps/expo` 对 web 使用 Expo Router static output，并由同一套 route/component 构建 iOS 与 Android。Expo 的 monorepo-aware Metro setup 无需手工配置 watch folder 即可解析 workspace package。Server build 依赖 Expo build，并把完整 `dist` tree 复制到 `apps/server/dist/web`；Hono 使用 SPA fallback 提供这些文件。
 
 ## Marketplace 技术栈
 
@@ -76,44 +96,40 @@ Runtime 职责：
 - 派生 `CODEX_HOME=$CYPHERIA_HOME/codex`。
 - 初始化 runtime directories。
 - 连接 database、audit、wallet、policy、browser、automation 和 settings services。
-- 为 CLI、SDK 和 desktop main 暴露 typed request/event API。
+- 向 `apps/server` 暴露 typed request/event API。
 
 Runtime 不实现 Codex agent internals。
 
 ## CLI Stack
 
-`apps/cli` 是没有 TUI 的 Node CLI。它直接依赖：
-
-- `@cypheria/runtime`
-- `@openai/codex-sdk`
+`apps/cli` 是规划中的无 TUI Node CLI。它依赖共享 Cypheria protocol，并连接 `apps/server`。
 
 它不得依赖：
 
 - `@cypheria/sdk`
+- `@cypheria/runtime`
 - `@cypheria/codex-bridge`
 - Electron 或 desktop packages
 
 初始命令行为：
 
-- `cypheria run <prompt>` 使用 Codex SDK 执行 agent。
+- `cypheria run <prompt>` 请求 server 执行 agent workflow。
 - `cypheria run --jsonl <prompt>` 输出机器可读的 event/result。
 - `cypheria runtime info` 读取 Cypheria runtime metadata。
-- Web3 命令直接使用 runtime services。
+- Web3 命令使用版本化 server operations。
 
 ## SDK Stack
 
-`@cypheria/sdk` 是面向 Node 应用的公共 TypeScript library。它直接依赖：
-
-- `@cypheria/runtime`
-- `@openai/codex-sdk`
+`@cypheria/sdk` 是规划中的公共 TypeScript server client，面向 Node 与兼容的 JavaScript 应用。它依赖 `@cypheria/protocol` 与 transport implementation。
 
 它不得依赖：
 
 - `apps/cli`
+- `@cypheria/runtime`
 - Electron 或 desktop packages
 - `@cypheria/codex-bridge`
 
-SDK clients 应该是 runtime services 与 Codex SDK agent threads 之上的轻量 wrappers。
+SDK clients 应该是版本化 server operation 与 event stream 之上的轻量 wrapper。
 
 ## ACP AI Provider Stack
 
@@ -121,7 +137,7 @@ SDK clients 应该是 runtime services 与 Codex SDK agent threads 之上的轻�
 
 ## Desktop Stack
 
-Desktop 保留 Electron + TanStack Start。
+在 server 评审期间，Desktop 保留当前 Electron + TanStack Start 实现。后续变更会让它成为可自启动 Cypheria server 的 client。
 
 桌面内部导航使用 TanStack Router 链接，保留当前文档、全局样式和外观状态。全局 CSS 在客户端 hydration 之前由根文档链接加载。对话查询参数由首页路由校验；切换对话或点击 New chat 会重置对话会话，而不重新加载整个应用。
 
@@ -164,12 +180,9 @@ Desktop main bundle 将 `@libsql/client` 及其 platform packages 保持为 exte
 
 ## Codex 集成
 
-Cypheria 通过两种方式使用 Codex：
+目标架构由 server 为每个 client 持有 Codex。以下 direct path 描述临时保留且未修改的 desktop 实现：
 
 ```txt
-CLI / SDK
-  -> @openai/codex-sdk
-
 Desktop
   -> @cypheria/codex-bridge
   -> codex app-server over WebSocket JSON-RPC
@@ -317,7 +330,7 @@ Signing intents 与 approval requests 保存在显式的 libSQL tables 中。系
 
 Automation 是 local-first。Tasks 可以使用 Codex SDK、读取链上状态、创建 signing intents，并写入 audit logs。Tasks 不得绕过 policy engine。
 
-`@cypheria/runtime` 拥有 automation service，并暴露 `automation.task.create`、`automation.task.list`、`automation.task.get`、`automation.task.pause`、`automation.task.resume`、`automation.run.start`、`automation.run.get` 与 `automation.run.list`。`@cypheria/automation-core` 负责严格 task/run schema 和状态流转，`@cypheria/db` 负责异步 SQLite 持久化与乐观更新。Executor 按 handler name 注入，且只能获得受 scope 限制的 agent 与 signing-intent capabilities。SDK 可以直接用 `@openai/codex-sdk` 组合 agent capability；desktop 继续保持独立的 persistent App Server boundary。
+`@cypheria/runtime` 拥有 automation service，并暴露 `automation.task.create`、`automation.task.list`、`automation.task.get`、`automation.task.pause`、`automation.task.resume`、`automation.run.start`、`automation.run.get` 与 `automation.run.list`。`@cypheria/automation-core` 负责严格 task/run schema 和状态流转，`@cypheria/db` 负责异步 SQLite 持久化与乐观更新。Executor 按 handler name 注入，且只能获得受 scope 限制的 agent 与 signing-intent capabilities。目标架构由 server 组合 agent capability，只向 client 暴露有界 operation；desktop 在迁移前保留现有 path。
 
 ## Data Stack
 

@@ -56,9 +56,18 @@ Status legend:
 
 ## Architecture Alignment
 
-- [x] Rewrite docs for the final Runtime / CLI / SDK / Desktop architecture.
+- [x] Add the Cypheria client/server foundation without migrating desktop.
+  - Acceptance: `apps/server` provides a Hono HTTP/WebSocket control plane, versioned client sessions, runtime lifecycle, operations endpoints, supervised daemon lifecycle, and embedded Expo web hosting; `apps/expo` targets iOS, Android, and static web; `@cypheria/protocol` provides shared validated contracts.
+  - Exclude: agent, project, wallet, policy, browser, and automation product methods; any `apps/desktop` code change.
+  - Verification: protocol/server/Expo tests and typechecks, Expo compatibility check and static export, server build and embedded-web smoke test, daemon start/status/restart/stop smoke test, full repository CI/build.
+
+- [ ] Migrate desktop to the Cypheria server after explicit review.
+  - Acceptance: Electron main ensures the local supervised server is running, desktop uses the shared protocol, and Electron-only dApp/browser, secure-storage, approval, preload, and OS-integration boundaries remain intact.
+  - Prerequisite: explicit approval of the server foundation; do not begin as part of the foundation change.
+
+- [x] Rewrite docs for the server and multi-client target architecture.
   - Acceptance: README, architecture, technical stack, todo docs, and `AGENTS.md` describe the current target architecture only.
-  - Include: no `@cypheria/codex-protocol`, CLI does not depend on SDK, CLI/SDK use `@openai/codex-sdk`, desktop uses Codex App Server over WebSocket, and generated app-server TS lives inside `@cypheria/codex-bridge`.
+  - Include: no `@cypheria/codex-protocol`, clients share `@cypheria/protocol`, server owns runtime in the target architecture, desktop migration is explicitly staged, and generated Codex app-server TS remains inside `@cypheria/codex-bridge`.
   - Verification: `pnpm run ci`, `pnpm build`.
 
 ## Runtime
@@ -82,10 +91,10 @@ Status legend:
 ## SDK
 
 - [ ] Add `packages/sdk`.
-  - Acceptance: package exports a public `Cypheria` client.
+  - Acceptance: package exports a public `Cypheria` server client.
   - Include: clients for runtime, wallet, policy, automation, and agent.
-  - Agent path: directly use `@openai/codex-sdk`.
-  - Must not import: `apps/cli`, `apps/desktop`, Electron, or `@cypheria/codex-bridge`.
+  - Agent path: use versioned server operations and events.
+  - Must not import: `apps/cli`, `apps/desktop`, Electron, `@cypheria/runtime`, or `@cypheria/codex-bridge`.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/sdk test`.
 
 - [ ] Add SDK test doubles for runtime and Codex SDK.
@@ -97,13 +106,13 @@ Status legend:
 
 - [ ] Add `apps/cli`.
   - Acceptance: package builds a `cypheria` Node CLI with no TUI.
-  - Include: argument parsing, runtime initialization, readable output, JSONL output mode, and non-zero failure exits.
-  - Dependencies: direct imports from `@cypheria/runtime` and `@openai/codex-sdk`.
-  - Must not import: `@cypheria/sdk`, Electron, desktop packages, or `@cypheria/codex-bridge`.
+  - Include: argument parsing, server connection/configuration, readable output, JSONL output mode, and non-zero failure exits.
+  - Dependencies: `@cypheria/protocol` plus a Node transport.
+  - Must not import: `@cypheria/sdk`, `@cypheria/runtime`, Electron, desktop packages, or `@cypheria/codex-bridge`.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/cli test`.
 
 - [ ] Implement initial CLI commands.
-  - Acceptance: `cypheria run`, `cypheria run --jsonl`, `cypheria runtime info`, `cypheria wallet list`, `cypheria policy list`, `cypheria automation run <task-id>`, and `cypheria doctor` are wired to runtime or Codex SDK.
+  - Acceptance: `cypheria run`, `cypheria run --jsonl`, `cypheria runtime info`, `cypheria wallet list`, `cypheria policy list`, `cypheria automation run <task-id>`, and `cypheria doctor` are wired to server operations.
   - Verification: CLI unit tests and command smoke tests.
 
 ## Marketplace
