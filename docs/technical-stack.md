@@ -159,6 +159,7 @@ Search opens a shadcn Command dialog over the current page, with debounced chat 
 | Codex transport | WebSocket JSON-RPC on localhost |
 | Codex protocol types | generated into `packages/protocol/src/generated/codex/ts` |
 | Codex protocol schemas | generated into `packages/protocol/src/generated/codex/schema` and adapted to per-message Zod schemas |
+| Codex derived registries | generated as `packages/protocol/src/generated/codex/messages.ts` and `response-map.ts` |
 
 Electron browser defaults:
 
@@ -225,7 +226,7 @@ Generate protocol types with:
 pnpm codex:generate
 ```
 
-Generated files are committed so CI and contributors do not need a matching local Codex binary just to typecheck. A Codex upgrade must update both exact dependency declarations, update `CODEX_APP_SERVER_VERSION`, regenerate these files, and run the bridge and desktop tests in one change.
+Generated files are committed so CI and contributors do not need a matching local Codex binary just to typecheck. Codex `generate-ts` remains the authoritative TypeScript source. The protocol package wraps the generated JSON Schema definitions as OpenAPI 3.1 input for pinned `@hey-api/openapi-ts`, commits 815 static Zod 4 schemas, and checks their generated output before build, test, and typecheck. The preprocessing preserves real fields named `default`, removes only schema default annotations to avoid parse-time mutation, and maps Rust 64-bit integer formats to the JSON wire type `number`; a custom object resolver preserves JSON Schema's strict, open, and typed additional-property behavior. The Cypheria-specific generator then composes those definition validators into every `agent.codex.*` request, response, and notification schema. A Codex upgrade must update both exact dependency declarations, update `CODEX_APP_SERVER_VERSION`, regenerate these files, and run the bridge and desktop tests in one change.
 
 ## UI Stack
 

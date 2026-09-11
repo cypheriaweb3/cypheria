@@ -1,20 +1,11 @@
-import type {
-  ApplyPatchApprovalResponse,
-  ExecCommandApprovalResponse,
-  FuzzyFileSearchResponse,
-  FuzzyFileSearchSessionStartResponse,
-  FuzzyFileSearchSessionStopResponse,
-  FuzzyFileSearchSessionUpdateResponse,
-  GetAuthStatusResponse,
-  GetConversationSummaryResponse,
-  GitDiffToRemoteResponse,
-  InitializeResponse,
-  v2,
-} from "../generated/codex/ts/index.ts"
+// GENERATED CODE! DO NOT MODIFY BY HAND!
+// Generated from Codex request unions and response types by process-codex-app-server-generated.mjs.
+
+import type { ApplyPatchApprovalResponse, ExecCommandApprovalResponse, FuzzyFileSearchResponse, FuzzyFileSearchSessionStartResponse, FuzzyFileSearchSessionStopResponse, FuzzyFileSearchSessionUpdateResponse, GetAuthStatusResponse, GetConversationSummaryResponse, GitDiffToRemoteResponse, InitializeResponse, v2 } from "./ts/index.ts"
 
 /** Compile-time mapping from every client request method to its generated result type. */
 export type CodexClientResponseMap = {
-  readonly initialize: InitializeResponse
+  readonly "initialize": InitializeResponse
   readonly "server/diagnostics": v2.ServerDiagnosticsResponse
   readonly "thread/start": v2.ThreadStartResponse
   readonly "thread/resume": v2.ThreadResumeResponse
@@ -165,10 +156,10 @@ export type CodexClientResponseMap = {
   readonly "config/batchWrite": v2.ConfigWriteResponse
   readonly "configRequirements/read": v2.ConfigRequirementsReadResponse
   readonly "account/read": v2.GetAccountResponse
-  readonly getConversationSummary: GetConversationSummaryResponse
-  readonly gitDiffToRemote: GitDiffToRemoteResponse
-  readonly getAuthStatus: GetAuthStatusResponse
-  readonly fuzzyFileSearch: FuzzyFileSearchResponse
+  readonly "getConversationSummary": GetConversationSummaryResponse
+  readonly "gitDiffToRemote": GitDiffToRemoteResponse
+  readonly "getAuthStatus": GetAuthStatusResponse
+  readonly "fuzzyFileSearch": FuzzyFileSearchResponse
   readonly "fuzzyFileSearch/sessionStart": FuzzyFileSearchSessionStartResponse
   readonly "fuzzyFileSearch/sessionUpdate": FuzzyFileSearchSessionUpdateResponse
   readonly "fuzzyFileSearch/sessionStop": FuzzyFileSearchSessionStopResponse
@@ -185,8 +176,8 @@ export type CodexServerRequestResponseMap = {
   readonly "account/chatgptAuthTokens/refresh": v2.ChatgptAuthTokensRefreshResponse
   readonly "attestation/generate": v2.AttestationGenerateResponse
   readonly "currentTime/read": v2.CurrentTimeReadResponse
-  readonly applyPatchApproval: ApplyPatchApprovalResponse
-  readonly execCommandApproval: ExecCommandApprovalResponse
+  readonly "applyPatchApproval": ApplyPatchApprovalResponse
+  readonly "execCommandApproval": ExecCommandApprovalResponse
 }
 
 export type CodexClientResponse<M extends keyof CodexClientResponseMap> = CodexClientResponseMap[M]

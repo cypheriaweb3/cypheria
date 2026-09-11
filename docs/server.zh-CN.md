@@ -32,7 +32,7 @@ cypheria-server stop
 
 ## Client Protocol
 
-`@cypheria/protocol` 持有 Cypheria wire protocol 与 generated Codex App Server 产物。Codex DTO 不会手写：TypeScript、JSON Schema、response mapping、validator 与提交到仓库的 dotted API registry 都在本 package 中统一生成或派生。`@cypheria/codex-bridge` 只消费专用 protocol subpath。所有 HTTP 与 WebSocket boundary value 都使用 Zod 或 generated Codex JSON Schema 校验。
+`@cypheria/protocol` 持有 Cypheria wire protocol 与 generated Codex App Server 产物。Codex DTO 不会手写：TypeScript、JSON Schema、response mapping、validator 与提交到仓库的 dotted API registry 都在本 package 中统一生成或派生。Codex-generated TypeScript 继续作为 compile-time source of truth；固定版本的 Hey API generation 把 Codex JSON Schema definitions 转换为提交到仓库的静态 Zod 4 validators。`@cypheria/codex-bridge` 只消费专用 protocol subpath。所有 HTTP 与 WebSocket boundary value 都使用 Zod 校验。
 
 WebSocket client 使用 `cypheria.v1` subprotocol 连接 `/api/v1/ws`。第一条消息必须是 `session.hello`，包含 protocol version、client identity、client kind 与 capabilities。Server 返回 `session.ready` 和稳定 session ID。每个 request 都带 caller 提供的 request ID；runtime event 广播不带 request ID。
 

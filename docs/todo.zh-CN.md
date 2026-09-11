@@ -63,7 +63,7 @@
 
 - [x] 在 `@cypheria/protocol` 中定义完整 Codex App Server API。
   - 验收：所有 generated client RPC、反向 server RPC、server notification 与 client notification 都以无冲突的 `agent.codex.*` dotted wire name 进入 live Zod message union，并提供 request/response correlation 与上游 method/schema metadata。
-  - 包括：protocol 持有的 generated Codex DTO 与 JSON Schema、机械生成的 catalog、反向 lookup、漂移检查、provider-transparent JSON payload 和配套中英文 protocol 文档；本项不连接 server dispatch。
+  - 包括：以 Codex-generated TypeScript 作为类型来源；使用固定版本 Hey API 从 Codex JSON Schema 生成并提交静态 Zod 4 definition validator；保留名为 `default` 的 wire field；把 64-bit integer 归一化为 JSON number；继续保留 protocol 持有的 generated Codex DTO 与 JSON Schema、机械生成的 catalog、反向 lookup、漂移检查、provider-transparent JSON payload、配套中英文 protocol 文档，以及 Cypheria-owned dotted envelope 与 response mapping generation；本项不连接 server dispatch。
   - 验证：protocol generation check、typecheck、test、build 与全仓库 CI。
 
 - [x] 向 `@cypheria/protocol` 添加 ACP wire envelope。
@@ -200,7 +200,7 @@
   - 验证说明：`pnpm run ci`、构建、desktop tests、严格 catalog 编译和全部 Turbo checks 均通过。
 
 - [x] 将 Codex app-server TypeScript 与 schema 生成到 `@cypheria/protocol`。
-  - 验收：generated type 位于 `packages/protocol/src/generated/codex/ts`，generated schema 与 response mapping 位于 `packages/protocol/src/generated/codex/schema`，并全部提交进仓库。
+  - 验收：generated type 位于 `packages/protocol/src/generated/codex/ts`，generated schema 位于 `packages/protocol/src/generated/codex/schema`，派生的消息与 response-map 注册表直接位于 `packages/protocol/src/generated/codex`，并全部提交进仓库。
   - 命令：`pnpm --filter @cypheria/protocol generate:codex-all`。
   - 包括：添加 package script，用于显式 Codex 升级时重新生成文件。
   - 不得创建：`@cypheria/codex-protocol`。

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url"
 const packageRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..")
 const generatedTypeRoot = resolve(packageRoot, "src/generated/codex/ts")
 const generatedSchemaRoot = resolve(packageRoot, "src/generated/codex/schema")
-const outputPath = resolve(packageRoot, "src/agent/codex-app-server-messages.generated.ts")
+const outputPath = resolve(packageRoot, "src/generated/codex/messages.ts")
 const checkOnly = process.argv.includes("--check")
 
 const readJson = async (path) => JSON.parse(await readFile(path, "utf8"))
@@ -22,11 +22,17 @@ const [
   readFile(resolve(generatedTypeRoot, "ClientNotification.ts"), "utf8"),
 ])
 
-const [clientResponseMap, serverResponseMap, zodProtocolSchema] = await Promise.all([
+const [clientResponseMap, serverResponseMap, generatedZodRegistry] = await Promise.all([
   readJson(resolve(generatedSchemaRoot, "client-response-map.json")),
   readJson(resolve(generatedSchemaRoot, "server-response-map.json")),
-  readJson(resolve(generatedSchemaRoot, "codex_app_server_protocol.zod.schemas.json")),
+  readFile(resolve(packageRoot, "src/generated/codex/zod/registry.gen.ts"), "utf8"),
 ])
+
+const generatedZodDefinitions = new Set(
+  [...generatedZodRegistry.matchAll(/^ {2}"([A-Za-z0-9_$]+)": schemas\.z/gmu)].map(
+    (match) => match[1]
+  )
+)
 
 const collectRequests = (source) =>
   [...source.matchAll(/\{ "method": "([^"]+)", id: RequestId, params\??: (.*?), \}/g)].map(
@@ -88,7 +94,7 @@ const legacySchemaDefinitions = new Set([
 const hasSchema = (typeName) =>
   typeName === "undefined" ||
   typeName === null ||
-  typeName in zodProtocolSchema.definitions ||
+  generatedZodDefinitions.has(typeName) ||
   legacySchemaDefinitions.has(typeName)
 const missingSchemas = [
   ...clientRequests.map(({ paramsType }) => paramsType),
@@ -167,10 +173,10 @@ const output = `// GENERATED CODE! DO NOT MODIFY BY HAND!
 // biome-ignore-all format: Keep the generated message registry compact and reviewable.
 // Run \`pnpm --filter @cypheria/protocol generate:agent-codex-app-server-messages\` after regenerating Codex types.
 
-import type { ClientNotification as CodexClientNotification, ClientRequest as CodexClientRequest, ServerNotification as CodexServerNotification, ServerRequest as CodexServerRequest } from "../generated/codex/ts/index.ts"
-import type { RequestId } from "../request-id.ts"
-import type { CodexClientResponseMap, CodexServerRequestResponseMap } from "./codex-app-server-response-map.ts"
-import { codexMessageSchemaUnion, codexNotificationMessageSchema, codexResponseMessageSchema, codexTopLevelParamsMessageSchema } from "./codex-app-server-schema-registry.ts"
+import type { ClientNotification as CodexClientNotification, ClientRequest as CodexClientRequest, ServerNotification as CodexServerNotification, ServerRequest as CodexServerRequest } from "./ts/index.ts"
+import type { RequestId } from "../../request-id.ts"
+import type { CodexClientResponseMap, CodexServerRequestResponseMap } from "./response-map.ts"
+import { codexMessageSchemaUnion, codexNotificationMessageSchema, codexResponseMessageSchema, codexTopLevelParamsMessageSchema } from "../../agent/codex-app-server-schema-registry.ts"
 
 /** Cypheria wire names for every Codex App Server client-initiated RPC. */
 export const AGENT_CODEX_CLIENT_RPC = {

@@ -42,7 +42,7 @@ const clientRequests = await readUnion("ClientRequest.ts", true)
 const serverRequests = await readUnion("ServerRequest.ts", true)
 const serverNotifications = await readUnion("ServerNotification.ts", false)
 const responseMapSource = await readFile(
-  resolve(packageRoot, "src/agent/codex-app-server-response-map.ts"),
+  resolve(packageRoot, "src/generated/codex/response-map.ts"),
   "utf8"
 )
 const [clientResponseSection, serverResponseSection] = responseMapSource.split(

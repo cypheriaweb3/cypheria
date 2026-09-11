@@ -4,7 +4,8 @@ import { dirname, extname, join, resolve } from "node:path"
 const packageRoot = resolve(import.meta.dirname, "..")
 const generatedTypeRoot = resolve(packageRoot, "src/generated/codex/ts")
 const generatedSchemaRoot = resolve(packageRoot, "src/generated/codex/schema")
-const responseMapPath = resolve(packageRoot, "src/agent/codex-app-server-response-map.ts")
+const responseMapPath = resolve(packageRoot, "src/generated/codex/response-map.ts")
+const checkOnly = process.argv.includes("--check")
 
 const retainedCodexSchemas = new Set([
   "codex_app_server_protocol.schemas.json",
@@ -88,72 +89,154 @@ const pruneGeneratedSchemas = async () => {
   }
 }
 
-const responseEntries = (section) =>
-  [...section.matchAll(/readonly (?:"([^"]+)"|(\w+)):\s+(?:v2\.)?(\w+)/g)]
-    .map((match) => [match[1] ?? match[2], match[3]])
+const responseTypeOverrides = {
+  "account/logout": "LogoutAccountResponse",
+  "account/rateLimits/read": "GetAccountRateLimitsResponse",
+  "account/workspaceMessages/read": "GetWorkspaceMessagesResponse",
+  "config/batchWrite": "ConfigWriteResponse",
+  "config/mcpServer/reload": "McpServerRefreshResponse",
+  "config/value/write": "ConfigWriteResponse",
+  "configRequirements/read": "ConfigRequirementsReadResponse",
+  "externalAgentConfig/import/readHistories": "ExternalAgentConfigImportHistoriesReadResponse",
+  "memory/reset": "MemoryResetResponse",
+  "remoteControl/status/read": "RemoteControlStatusReadResponse",
+  "windowsSandbox/readiness": "WindowsSandboxReadinessResponse",
+}
+
+const responseTypeLocation = async (responseType) => {
+  const locations = await Promise.all(
+    ["root", "v2"].map(async (namespace) => {
+      const directory = namespace === "root" ? generatedTypeRoot : resolve(generatedTypeRoot, "v2")
+      try {
+        await readFile(resolve(directory, `${responseType}.ts`), "utf8")
+        return namespace
+      } catch (error) {
+        if (error?.code === "ENOENT") return null
+        throw error
+      }
+    })
+  )
+  const matches = locations.filter(Boolean)
+  if (matches.length !== 1) {
+    throw new Error(
+      `Expected exactly one generated TypeScript definition for ${responseType}, found ${matches.length}`
+    )
+  }
+  return matches[0]
+}
+
+const requestResponseEntries = async (fileName, overrides = {}) => {
+  const source = await readFile(resolve(generatedTypeRoot, fileName), "utf8")
+  const requests = [
+    ...source.matchAll(/\{ "method": "([^"]+)", id: RequestId, params\??: (.*?), \}/g),
+  ]
+
+  return Promise.all(
+    requests.map(async ([, method, rawParamsType]) => {
+      const paramsType = rawParamsType.replace(/ \| (?:null|undefined)/g, "")
+      const responseType = overrides[method] ?? paramsType.replace(/Params$/, "Response")
+      if (responseType === paramsType) {
+        throw new Error(`Cannot infer the response type for ${method} from ${paramsType}`)
+      }
+      return {
+        method,
+        namespace: await responseTypeLocation(responseType),
+        responseType,
+      }
+    })
+  )
+}
+
+const responseTypeReference = ({ namespace, responseType }) =>
+  namespace === "v2" ? `v2.${responseType}` : responseType
+
+const renderResponseMap = (name, description, entries) => `/** ${description} */
+export type ${name} = {
+${entries.map((entry) => `  readonly ${JSON.stringify(entry.method)}: ${responseTypeReference(entry)}`).join("\n")}
+}`
+
+const checkGeneratedFile = async (path, expected) => {
+  const actual = await readFile(path, "utf8")
+  if (actual !== expected) {
+    throw new Error(`Generated Codex response mapping is stale: ${path}`)
+  }
+}
+
+const generateResponseMaps = async () => {
+  const [clientEntries, serverEntries] = await Promise.all([
+    requestResponseEntries("ClientRequest.ts", responseTypeOverrides),
+    requestResponseEntries("ServerRequest.ts"),
+  ])
+  const rootResponseTypes = [
+    ...new Set(
+      [...clientEntries, ...serverEntries]
+        .filter(({ namespace }) => namespace === "root")
+        .map(({ responseType }) => responseType)
+    ),
+  ].sort()
+  const responseMapSource = `// GENERATED CODE! DO NOT MODIFY BY HAND!
+// Generated from Codex request unions and response types by process-codex-app-server-generated.mjs.
+
+import type { ${[...rootResponseTypes, "v2"].join(", ")} } from "./ts/index.ts"
+
+${renderResponseMap(
+  "CodexClientResponseMap",
+  "Compile-time mapping from every client request method to its generated result type.",
+  clientEntries
+)}
+
+${renderResponseMap(
+  "CodexServerRequestResponseMap",
+  "Compile-time mapping from every server-initiated request to the required client result.",
+  serverEntries
+)}
+
+export type CodexClientResponse<M extends keyof CodexClientResponseMap> = CodexClientResponseMap[M]
+
+export type CodexServerRequestResponse<M extends keyof CodexServerRequestResponseMap> =
+  CodexServerRequestResponseMap[M]
+`
+  const clientSchemaEntries = clientEntries
+    .map(({ method, responseType }) => [method, responseType])
+    .sort(([left], [right]) => left.localeCompare(right))
+  const serverSchemaEntries = serverEntries
+    .map(({ method, responseType }) => [method, responseType])
     .sort(([left], [right]) => left.localeCompare(right))
 
-const generateResponseSchemaMaps = async () => {
-  const source = await readFile(responseMapPath, "utf8")
-  const [clientSection, serverSection] = source.split(
-    "/** Compile-time mapping from every server-initiated request"
-  )
-  const clientEntries = responseEntries(clientSection)
-  const serverEntries = responseEntries(serverSection)
+  const clientSchemaSource = `${JSON.stringify(Object.fromEntries(clientSchemaEntries), null, 2)}\n`
+  const serverSchemaSource = `${JSON.stringify(Object.fromEntries(serverSchemaEntries), null, 2)}\n`
+
+  if (checkOnly) {
+    await Promise.all([
+      checkGeneratedFile(responseMapPath, responseMapSource),
+      checkGeneratedFile(
+        resolve(generatedSchemaRoot, "client-response-map.json"),
+        clientSchemaSource
+      ),
+      checkGeneratedFile(
+        resolve(generatedSchemaRoot, "server-response-map.json"),
+        serverSchemaSource
+      ),
+    ])
+    console.log(
+      `Checked response mappings for ${clientEntries.length} client and ${serverEntries.length} server request methods.`
+    )
+    return
+  }
 
   await mkdir(generatedSchemaRoot, { recursive: true })
   await Promise.all([
-    writeFile(
-      resolve(generatedSchemaRoot, "client-response-map.json"),
-      `${JSON.stringify(Object.fromEntries(clientEntries), null, 2)}\n`
-    ),
-    writeFile(
-      resolve(generatedSchemaRoot, "server-response-map.json"),
-      `${JSON.stringify(Object.fromEntries(serverEntries), null, 2)}\n`
-    ),
+    writeFile(responseMapPath, responseMapSource),
+    writeFile(resolve(generatedSchemaRoot, "client-response-map.json"), clientSchemaSource),
+    writeFile(resolve(generatedSchemaRoot, "server-response-map.json"), serverSchemaSource),
   ])
   console.log(
     `Generated response schema mappings for ${clientEntries.length} client and ${serverEntries.length} server request methods.`
   )
 }
 
-const rewriteV2References = (value) => {
-  if (Array.isArray(value)) return value.map(rewriteV2References)
-  if (typeof value !== "object" || value === null) return value
-
-  return Object.fromEntries(
-    Object.entries(value)
-      .filter(([key]) => key !== "default")
-      .map(([key, entry]) => [
-        key,
-        key === "$ref" && typeof entry === "string"
-          ? entry.replace("#/definitions/v2/", "#/definitions/")
-          : rewriteV2References(entry),
-      ])
-  )
+if (!checkOnly) {
+  await normalizeGeneratedTypes()
+  await pruneGeneratedSchemas()
 }
-
-const generateZodCompatibleSchema = async () => {
-  const sourcePath = resolve(generatedSchemaRoot, "codex_app_server_protocol.schemas.json")
-  const protocolSchema = JSON.parse(await readFile(sourcePath, "utf8"))
-  const rewritten = rewriteV2References(protocolSchema)
-  const v2Definitions = rewritten.definitions.v2
-  rewritten.definitions = {
-    ...rewritten.definitions,
-    ...v2Definitions,
-  }
-  delete rewritten.definitions.v2
-
-  await writeFile(
-    resolve(generatedSchemaRoot, "codex_app_server_protocol.zod.schemas.json"),
-    `${JSON.stringify(rewritten, null, 2)}\n`
-  )
-  console.log(
-    `Generated a z.fromJSONSchema-compatible registry with ${Object.keys(rewritten.definitions).length} definitions.`
-  )
-}
-
-await normalizeGeneratedTypes()
-await pruneGeneratedSchemas()
-await generateResponseSchemaMaps()
-await generateZodCompatibleSchema()
+await generateResponseMaps()

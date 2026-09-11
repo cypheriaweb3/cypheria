@@ -63,7 +63,7 @@ Status legend:
 
 - [x] Define the complete Codex App Server API in `@cypheria/protocol`.
   - Acceptance: all generated client RPCs, reverse server RPCs, server notifications, and client notifications have collision-free `agent.codex.*` dotted wire names in the live Zod message unions, with request/response correlation and upstream method/schema metadata.
-  - Include: protocol-owned generated Codex DTOs and JSON Schemas, mechanically generated catalogs, reverse lookups, drift checks, provider-transparent JSON payloads, and paired protocol documentation; do not connect server dispatch in this item.
+  - Include: keep Codex-generated TypeScript as the type source; generate committed static Zod 4 definition validators from the Codex JSON Schemas with pinned Hey API; preserve wire fields named `default`; normalize 64-bit integers to JSON numbers; retain protocol-owned generated Codex DTOs and JSON Schemas, mechanically generated catalogs, reverse lookups, drift checks, provider-transparent JSON payloads, paired protocol documentation, and Cypheria-owned dotted envelope and response mapping generation; do not connect server dispatch in this item.
   - Verification: protocol generation check, typecheck, tests, build, and full repository CI.
 
 - [x] Add ACP wire envelopes to `@cypheria/protocol`.
@@ -200,7 +200,7 @@ Status legend:
   - Verification note: `pnpm run ci`, build, desktop tests, strict catalog compilation, and all Turbo checks pass.
 
 - [x] Regenerate Codex app-server TypeScript and schemas into `@cypheria/protocol`.
-  - Acceptance: generated types live in `packages/protocol/src/generated/codex/ts`, generated schemas and response mappings live in `packages/protocol/src/generated/codex/schema`, and all artifacts are committed.
+  - Acceptance: generated types live in `packages/protocol/src/generated/codex/ts`, generated schemas live in `packages/protocol/src/generated/codex/schema`, derived message and response-map registries live directly under `packages/protocol/src/generated/codex`, and all artifacts are committed.
   - Command: `pnpm --filter @cypheria/protocol generate:codex-all`.
   - Include: package script to regenerate the files during explicit Codex upgrades.
   - Must not create: `@cypheria/codex-protocol`.

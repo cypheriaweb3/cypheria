@@ -1,7 +1,4 @@
 import { z } from "zod"
-import codexProtocolSchema from "../generated/codex/schema/codex_app_server_protocol.zod.schemas.json" with {
-  type: "json",
-}
 import type {
   ConversationSummary,
   GetAuthStatusParams,
@@ -12,28 +9,11 @@ import type {
   GitDiffToRemoteResponse,
   SessionSource,
 } from "../generated/codex/ts/index.ts"
+import { codexGeneratedZodSchemas } from "../generated/codex/zod/registry.gen.ts"
 import { RequestIdSchema } from "../request-id.ts"
 
-const definitionNames = Object.keys(codexProtocolSchema.definitions)
-const definitionRegistrySchema = z.fromJSONSchema({
-  $schema: "http://json-schema.org/draft-07/schema#",
-  additionalProperties: false,
-  definitions: codexProtocolSchema.definitions,
-  properties: Object.fromEntries(
-    definitionNames.map((name) => [name, { $ref: `#/definitions/${name}` }])
-  ),
-  required: definitionNames,
-  type: "object",
-})
-
-if (!(definitionRegistrySchema instanceof z.ZodObject)) {
-  throw new TypeError("Codex generated definitions did not produce a Zod object registry")
-}
-
-const generatedDefinitionSchemas = definitionRegistrySchema.shape
-
 const generatedDefinitionSchema = <T>(name: string): z.ZodType<T> => {
-  const schema = generatedDefinitionSchemas[name]
+  const schema = codexGeneratedZodSchemas[name]
   if (!schema) throw new TypeError(`Missing generated Codex schema definition: ${name}`)
   return schema as z.ZodType<T>
 }

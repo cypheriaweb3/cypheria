@@ -159,6 +159,7 @@ Search 在当前页面上打开 shadcn Command 对话框，支持防抖对话搜
 | Codex transport | localhost WebSocket JSON-RPC |
 | Codex protocol types | generated into `packages/protocol/src/generated/codex/ts` |
 | Codex protocol schemas | generated into `packages/protocol/src/generated/codex/schema`，并适配为逐消息 Zod schema |
+| Codex 派生注册表 | 生成到 `packages/protocol/src/generated/codex/messages.ts` 与 `response-map.ts` |
 
 Electron browser defaults：
 
@@ -225,7 +226,7 @@ Electron main 拥有 `codex app-server` child process。它选择 localhost port
 pnpm codex:generate
 ```
 
-Generated files 需要提交，这样 CI 和贡献者不必为了 typecheck 而拥有完全匹配的本地 Codex binary。升级 Codex 时，必须在同一 change 中更新两处精确 dependency declaration、更新 `CODEX_APP_SERVER_VERSION`、重新生成这些文件，并运行 bridge 与 desktop tests。
+Generated files 需要提交，这样 CI 和贡献者不必为了 typecheck 而拥有完全匹配的本地 Codex binary。Codex `generate-ts` 继续作为 authoritative TypeScript source。Protocol package 把 generated JSON Schema definitions 包装成 OpenAPI 3.1 input，交给固定版本的 `@hey-api/openapi-ts`，提交 815 个静态 Zod 4 schema，并在 build、test 与 typecheck 前检查 generated output。预处理保留真正名为 `default` 的字段，只删除会导致 parse-time mutation 的 schema default annotation，并把 Rust 64-bit integer format 映射为 JSON wire type `number`；custom object resolver 保留 JSON Schema 的 strict、open 与 typed additional-property 行为。随后 Cypheria-specific generator 把这些 definition validator 组合成每个 `agent.codex.*` request、response 与 notification schema。升级 Codex 时，必须在同一 change 中更新两处精确 dependency declaration、更新 `CODEX_APP_SERVER_VERSION`、重新生成这些文件，并运行 bridge 与 desktop tests。
 
 ## UI Stack
 

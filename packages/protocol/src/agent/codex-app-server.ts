@@ -5,7 +5,7 @@ import {
   AGENT_CODEX_CLIENT_RPC,
   AGENT_CODEX_SERVER_NOTIFICATIONS,
   AGENT_CODEX_SERVER_RPC,
-} from "./codex-app-server-messages.generated.ts"
+} from "../generated/codex/messages.ts"
 
 const values = <T extends Record<string, Record<K, string>>, K extends string>(
   record: T,
@@ -65,11 +65,11 @@ export const AGENT_CODEX_CLIENT_NOTIFICATION_TYPE_TO_METHOD = methodByType(
   "notification"
 )
 
-export * from "./codex-app-server-messages.generated.ts"
+export * from "../generated/codex/messages.ts"
 export type {
   CodexClientResponse,
   CodexClientResponseMap,
   CodexServerRequestResponse,
   CodexServerRequestResponseMap,
-} from "./codex-app-server-response-map.ts"
+} from "../generated/codex/response-map.ts"
 export { codexGeneratedTypeSchema } from "./codex-app-server-schema-registry.ts"

@@ -9,15 +9,18 @@
   },
   "scripts": {
     "check:agent-codex-app-server-messages": "node scripts/generate-agent-codex-app-server-messages.mjs --check",
+    "check:codex-response-map": "node scripts/process-codex-app-server-generated.mjs --check",
+    "check:codex-zod": "node scripts/generate-codex-app-server-zod.mjs --check",
     "build": "tsc -p tsconfig.json",
     "check": "pnpm typecheck",
     "generate:codex-types": "pnpm exec codex app-server generate-ts --experimental --out src/generated/codex/ts && pnpm exec codex app-server generate-json-schema --experimental --out src/generated/codex/schema && node scripts/process-codex-app-server-generated.mjs",
+    "generate:codex-zod": "node scripts/generate-codex-app-server-zod.mjs",
     "generate:agent-codex-app-server-messages": "node scripts/generate-agent-codex-app-server-messages.mjs",
     "generate:codex-app-server-api-docs": "node scripts/generate-codex-app-server-api-docs.mjs",
-    "generate:codex-all": "pnpm generate:codex-types && pnpm generate:agent-codex-app-server-messages && pnpm generate:codex-app-server-api-docs",
-    "prebuild": "pnpm check:agent-codex-app-server-messages",
-    "pretest": "pnpm check:agent-codex-app-server-messages",
-    "pretypecheck": "pnpm check:agent-codex-app-server-messages",
+    "generate:codex-all": "pnpm generate:codex-types && pnpm generate:codex-zod && pnpm generate:agent-codex-app-server-messages && pnpm generate:codex-app-server-api-docs",
+    "prebuild": "pnpm check:codex-response-map && pnpm check:codex-zod && pnpm check:agent-codex-app-server-messages",
+    "pretest": "pnpm check:codex-response-map && pnpm check:codex-zod && pnpm check:agent-codex-app-server-messages",
+    "pretypecheck": "pnpm check:codex-response-map && pnpm check:codex-zod && pnpm check:agent-codex-app-server-messages",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json"
   },
@@ -27,6 +30,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@hey-api/openapi-ts": "0.99.0",
     "vitest": "^4.1.7"
   }
 }

@@ -2,10 +2,10 @@
 // biome-ignore-all format: Keep the generated message registry compact and reviewable.
 // Run `pnpm --filter @cypheria/protocol generate:agent-codex-app-server-messages` after regenerating Codex types.
 
-import type { ClientNotification as CodexClientNotification, ClientRequest as CodexClientRequest, ServerNotification as CodexServerNotification, ServerRequest as CodexServerRequest } from "../generated/codex/ts/index.ts"
-import type { RequestId } from "../request-id.ts"
-import type { CodexClientResponseMap, CodexServerRequestResponseMap } from "./codex-app-server-response-map.ts"
-import { codexMessageSchemaUnion, codexNotificationMessageSchema, codexResponseMessageSchema, codexTopLevelParamsMessageSchema } from "./codex-app-server-schema-registry.ts"
+import type { ClientNotification as CodexClientNotification, ClientRequest as CodexClientRequest, ServerNotification as CodexServerNotification, ServerRequest as CodexServerRequest } from "./ts/index.ts"
+import type { RequestId } from "../../request-id.ts"
+import type { CodexClientResponseMap, CodexServerRequestResponseMap } from "./response-map.ts"
+import { codexMessageSchemaUnion, codexNotificationMessageSchema, codexResponseMessageSchema, codexTopLevelParamsMessageSchema } from "../../agent/codex-app-server-schema-registry.ts"
 
 /** Cypheria wire names for every Codex App Server client-initiated RPC. */
 export const AGENT_CODEX_CLIENT_RPC = {

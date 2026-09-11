@@ -1,6 +1,11 @@
 import { describe, expect, expectTypeOf, it } from "vitest"
 import type { z } from "zod"
 
+import type * as CodexV2 from "../generated/codex/ts/v2/index.ts"
+import {
+  zCurrentTimeReadResponse,
+  zMcpElicitationStringSchema,
+} from "../generated/codex/zod/zod.gen.ts"
 import {
   AGENT_CODEX_CLIENT_NOTIFICATION_MESSAGE_SCHEMAS,
   AGENT_CODEX_CLIENT_NOTIFICATIONS,
@@ -22,6 +27,7 @@ import {
   type AgentCodexClientRequestMessage,
   type AgentCodexClientResponseMessage,
   ClientMessageSchema,
+  codexGeneratedTypeSchema,
   ServerMessageSchema,
 } from "../index.js"
 
@@ -77,6 +83,41 @@ describe("agent.codex protocol", () => {
     expectTypeOf<
       z.infer<(typeof AGENT_CODEX_CLIENT_RESPONSE_MESSAGE_SCHEMAS)["thread/start"]>
     >().toEqualTypeOf<ThreadStartResponse>()
+  })
+
+  it("generates static Zod schemas with JSON number output for 64-bit integers", () => {
+    expectTypeOf<z.infer<typeof zCurrentTimeReadResponse>["currentTimeAt"]>().toEqualTypeOf<
+      CodexV2.CurrentTimeReadResponse["currentTimeAt"]
+    >()
+    expect(zCurrentTimeReadResponse.parse({ currentTimeAt: 1_789_000_000 })).toEqual({
+      currentTimeAt: 1_789_000_000,
+    })
+    expect(zCurrentTimeReadResponse.safeParse({ currentTimeAt: 1n }).success).toBe(false)
+  })
+
+  it("preserves and validates protocol fields named default", () => {
+    const value = { default: "hello", type: "string" } as const
+    const schema = codexGeneratedTypeSchema<CodexV2.McpElicitationStringSchema>(
+      "McpElicitationStringSchema"
+    )
+
+    expect(zMcpElicitationStringSchema.parse(value)).toEqual(value)
+    expect(schema.parse(value)).toEqual(value)
+    expect(schema.safeParse({ default: 42, type: "string" }).success).toBe(false)
+  })
+
+  it("preserves JSON Schema additionalProperties behavior", () => {
+    const strictSchema = codexGeneratedTypeSchema<CodexV2.McpElicitationStringSchema>(
+      "McpElicitationStringSchema"
+    )
+    const openSchema = codexGeneratedTypeSchema<Record<string, unknown>>(
+      "AttestationGenerateParams"
+    )
+
+    expect(strictSchema.safeParse({ extra: true, type: "string" }).success).toBe(false)
+    expect(openSchema.parse({ providerExtension: { enabled: true } })).toEqual({
+      providerExtension: { enabled: true },
+    })
   })
 
   it("indexes wire types back to their upstream methods", () => {
