@@ -72,7 +72,7 @@ packages/db
 
 `apps/cli`、`apps/marketplace` 和 `packages/sdk` 是规划中的 packages。`apps/server`、`apps/expo` 与 `packages/protocol` 已实现 client/server 基础。Desktop 在该基础通过评审前保持不变。
 
-`@cypheria/protocol` 使用 Zod author live WebSocket contract，并持有 generated Codex App Server TypeScript、JSON Schema、response mapping 与 validator。完整 `agent.codex.*` RPC 与 notification catalog 从这些已提交产物机械派生；provider payload 在共享 wire 上保持 JSON-transparent。它还导出有方向的 `agent.acp.*` envelope，直接采用官方 SDK 的稳定 v1、显式 draft-v2 types 与 generated Zod validator，包括 method/direction check 和 v2 batch 语义。一个最小且固定版本的 pnpm patch 会暴露 SDK 已发布但私有的 v1/v2 Zod module，无需复制。Codex catalog 发生漂移时，build、typecheck 与 test lifecycle check 会失败。
+`@cypheria/protocol` 使用 Zod author live WebSocket contract，并持有 generated Codex App Server TypeScript、JSON Schema、response mapping 与 validator。完整 `agent.codex.*` RPC 与 notification catalog 从这些已提交产物机械派生；provider payload 在共享 wire 上保持 JSON-transparent。Cypheria 自有 envelope 显式使用 strict object，provider-owned extension surface 显式使用 loose object，大型消息族按 `type` 或 `protocolVersion` discriminator 分派，而不是线性尝试 union。对象 schema 使用 `.extend()` 或 shape spread 组合；只有上游 JSON Schema 将 variant union 与公共约束组合时，才保留生成的 intersection。它还导出有方向的 `agent.acp.*` envelope，直接采用官方 SDK 的稳定 v1、显式 draft-v2 types 与 generated Zod validator，包括 method/direction check 和 variadic-tuple v2 batch 语义。一个最小且固定版本的 pnpm patch 会暴露 SDK 已发布但私有的 v1/v2 Zod module，无需复制。Codex catalog 发生漂移时，build、typecheck 与 test lifecycle check 会失败。
 
 ## Server 与 Expo 技术栈
 

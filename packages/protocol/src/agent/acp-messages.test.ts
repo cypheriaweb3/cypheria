@@ -111,6 +111,23 @@ describe("agent.acp protocol", () => {
     ).toBe(true)
   })
 
+  it("preserves JSON extension fields inside ACP messages", () => {
+    const wrapped = {
+      type: "agent.acp.client.message",
+      payload: {
+        protocolVersion: 2,
+        message: {
+          jsonrpc: "2.0",
+          method: "_cypheria/test",
+          params: { uri: "file:///workspace" },
+          providerExtension: { enabled: true },
+        },
+      },
+    } as const
+
+    expect(ClientMessageSchema.parse(wrapped)).toEqual(wrapped)
+  })
+
   it("rejects empty and mixed v2 batches", () => {
     expect(AcpV2WireMessageSchema.safeParse([]).success).toBe(false)
     expect(

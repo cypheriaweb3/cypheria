@@ -49,9 +49,9 @@ import { z } from "zod"
 export const ACP_V1_PROTOCOL_VERSION = ACP_V1_SDK_PROTOCOL_VERSION
 export const ACP_V2_PROTOCOL_VERSION = ACP_V2_SDK_PROTOCOL_VERSION
 
-export const AcpProtocolVersionSchema = z.union([
-  z.literal(ACP_V1_PROTOCOL_VERSION),
-  z.literal(ACP_V2_PROTOCOL_VERSION),
+export const AcpProtocolVersionSchema = z.literal([
+  ACP_V1_PROTOCOL_VERSION,
+  ACP_V2_PROTOCOL_VERSION,
 ])
 export type AcpProtocolVersion = z.infer<typeof AcpProtocolVersionSchema>
 
@@ -166,13 +166,12 @@ const sdkMessageSchema = <Message>(
   paramsSchemas?: ParamsSchemas,
   knownMethods?: ReadonlySet<string>
 ): z.ZodType<Message> =>
-  z.intersection(
-    z.json(),
-    z.custom<Message>(
+  z
+    .json()
+    .refine(
       (value) => matchesSdkSchema(value, schema, kind, paramsSchemas, knownMethods),
       `Invalid ${description}`
-    )
-  ) as z.ZodType<Message>
+    ) as unknown as z.ZodType<Message>
 
 const acpV1AgentRequestParams = {
   [ACP_V1_AGENT_METHODS.initialize]: acpV1Zod.zInitializeRequest,
@@ -286,7 +285,7 @@ const acpV2KnownMethods = new Set<string>([
 ])
 
 export const AcpV1ProtocolNotificationSchema = sdkMessageSchema<AcpV1ProtocolNotification>(
-  z.object({
+  z.looseObject({
     jsonrpc: z.literal("2.0"),
     method: z.literal(ACP_V1_PROTOCOL_METHODS.cancel_request),
     params: acpV1Zod.zCancelRequestNotification.nullish(),
@@ -355,13 +354,10 @@ export const AcpV1WireMessageSchema = z.union([
 ]) as z.ZodType<AcpV1WireMessage>
 
 export const AcpV2ProtocolNotificationSchema = sdkMessageSchema<AcpV2ProtocolNotification>(
-  z.intersection(
-    acpV2Zod.zProtocolLevelNotification,
-    z.object({
-      method: z.literal(ACP_V2_PROTOCOL_METHODS.cancel_request),
-      params: acpV2Zod.zCancelRequestNotification.nullish(),
-    })
-  ),
+  acpV2Zod.zProtocolLevelNotification.extend({
+    method: z.literal(ACP_V2_PROTOCOL_METHODS.cancel_request),
+    params: acpV2Zod.zCancelRequestNotification.nullish(),
+  }),
   "notification",
   "ACP v2 protocol notification"
 )
@@ -396,8 +392,7 @@ export const AcpV2ClientMessageSchema = z.union([
   AcpV2ClientResponseSchema,
 ]) as z.ZodType<AcpV2ClientMessage>
 const AcpV2ClientCallBatchSchema = z
-  .array(AcpV2ClientCallSchema)
-  .nonempty()
+  .tuple([AcpV2ClientCallSchema], AcpV2ClientCallSchema)
   .refine(
     (messages) =>
       !messages.some(
@@ -408,7 +403,7 @@ const AcpV2ClientCallBatchSchema = z
 export const AcpV2ClientWireMessageSchema = z.union([
   AcpV2ClientMessageSchema,
   AcpV2ClientCallBatchSchema,
-  z.array(AcpV2ClientResponseSchema).nonempty(),
+  z.tuple([AcpV2ClientResponseSchema], AcpV2ClientResponseSchema),
 ]) as z.ZodType<AcpV2ClientWireMessage>
 
 export const AcpV2AgentRequestSchema = sdkMessageSchema<AcpV2AgentRequest>(
@@ -442,8 +437,8 @@ export const AcpV2AgentMessageSchema = z.union([
 ]) as z.ZodType<AcpV2AgentMessage>
 export const AcpV2AgentWireMessageSchema = z.union([
   AcpV2AgentMessageSchema,
-  z.array(AcpV2AgentCallSchema).nonempty(),
-  z.array(AcpV2AgentResponseSchema).nonempty(),
+  z.tuple([AcpV2AgentCallSchema], AcpV2AgentCallSchema),
+  z.tuple([AcpV2AgentResponseSchema], AcpV2AgentResponseSchema),
 ]) as z.ZodType<AcpV2AgentWireMessage>
 
 export const AcpV2WireMessageSchema = z.union([
@@ -452,11 +447,11 @@ export const AcpV2WireMessageSchema = z.union([
 ]) as z.ZodType<AcpV2WireMessage>
 
 export const AcpWirePayloadSchema = z.discriminatedUnion("protocolVersion", [
-  z.object({
+  z.strictObject({
     protocolVersion: z.literal(ACP_V1_PROTOCOL_VERSION),
     message: AcpV1WireMessageSchema,
   }),
-  z.object({
+  z.strictObject({
     protocolVersion: z.literal(ACP_V2_PROTOCOL_VERSION),
     message: AcpV2WireMessageSchema,
   }),
@@ -464,11 +459,11 @@ export const AcpWirePayloadSchema = z.discriminatedUnion("protocolVersion", [
 export type AcpWirePayload = z.infer<typeof AcpWirePayloadSchema>
 
 export const AcpClientWirePayloadSchema = z.discriminatedUnion("protocolVersion", [
-  z.object({
+  z.strictObject({
     protocolVersion: z.literal(ACP_V1_PROTOCOL_VERSION),
     message: AcpV1ClientMessageSchema,
   }),
-  z.object({
+  z.strictObject({
     protocolVersion: z.literal(ACP_V2_PROTOCOL_VERSION),
     message: AcpV2ClientWireMessageSchema,
   }),
@@ -476,11 +471,11 @@ export const AcpClientWirePayloadSchema = z.discriminatedUnion("protocolVersion"
 export type AcpClientWirePayload = z.infer<typeof AcpClientWirePayloadSchema>
 
 export const AcpServerWirePayloadSchema = z.discriminatedUnion("protocolVersion", [
-  z.object({
+  z.strictObject({
     protocolVersion: z.literal(ACP_V1_PROTOCOL_VERSION),
     message: AcpV1AgentMessageSchema,
   }),
-  z.object({
+  z.strictObject({
     protocolVersion: z.literal(ACP_V2_PROTOCOL_VERSION),
     message: AcpV2AgentWireMessageSchema,
   }),
@@ -488,14 +483,14 @@ export const AcpServerWirePayloadSchema = z.discriminatedUnion("protocolVersion"
 export type AcpServerWirePayload = z.infer<typeof AcpServerWirePayloadSchema>
 
 /** ACP traffic sent by a Cypheria client to the server-owned agent connection. */
-export const AgentAcpClientMessageSchema = z.object({
+export const AgentAcpClientMessageSchema = z.strictObject({
   type: z.literal("agent.acp.client.message"),
   payload: AcpClientWirePayloadSchema,
 })
 export type AgentAcpClientMessage = z.infer<typeof AgentAcpClientMessageSchema>
 
 /** ACP traffic sent by the server-owned agent connection to a Cypheria client. */
-export const AgentAcpServerMessageSchema = z.object({
+export const AgentAcpServerMessageSchema = z.strictObject({
   type: z.literal("agent.acp.server.message"),
   payload: AcpServerWirePayloadSchema,
 })

@@ -46,7 +46,7 @@ export const RuntimeMethodSchema = z
     "Runtime method must use a supported namespace"
   )
 
-export const ClientDescriptorSchema = z.object({
+export const ClientDescriptorSchema = z.strictObject({
   id: z.string().trim().min(1).max(128),
   kind: ClientKindSchema,
   name: z.string().trim().min(1).max(128).optional(),
@@ -54,61 +54,74 @@ export const ClientDescriptorSchema = z.object({
 })
 export type ClientDescriptor = z.infer<typeof ClientDescriptorSchema>
 
-export const SessionHelloMessageSchema = z.object({
+export const SessionHelloMessageSchema = z.strictObject({
   type: z.literal("session.hello"),
   requestId: RequestIdSchema,
-  payload: z.object({
+  payload: z.strictObject({
     capabilities: z.array(z.string().trim().min(1).max(128)).max(128).default([]),
     client: ClientDescriptorSchema,
-    protocolVersion: z.number().int().positive(),
+    protocolVersion: z.int().positive(),
   }),
 })
 
-export const ServerPingMessageSchema = z.object({
+export const ServerPingMessageSchema = z.strictObject({
   type: z.literal("server.ping"),
   requestId: RequestIdSchema,
   payload: z
-    .object({
-      sentAt: z.string().datetime().optional(),
+    .strictObject({
+      sentAt: z.iso.datetime().optional(),
     })
     .default({}),
 })
 
-export const ServerInfoRequestMessageSchema = z.object({
+export const ServerInfoRequestMessageSchema = z.strictObject({
   type: z.literal("server.info"),
   requestId: RequestIdSchema,
 })
 
-export const ServerDiagnosticsRequestMessageSchema = z.object({
+export const ServerDiagnosticsRequestMessageSchema = z.strictObject({
   type: z.literal("server.diagnostics"),
   requestId: RequestIdSchema,
 })
 
-export const RuntimeRequestMessageSchema = z.object({
+export const RuntimeRequestMessageSchema = z.strictObject({
   type: z.literal("runtime.request"),
   requestId: RequestIdSchema,
-  payload: z.object({
+  payload: z.strictObject({
     method: RuntimeMethodSchema,
     params: z.unknown().optional(),
   }),
 })
 
-export const ServerLifecycleRequestMessageSchema = z.object({
+export const ServerLifecycleRequestMessageSchema = z.strictObject({
   type: z.enum(["server.restart", "server.shutdown"]),
   requestId: RequestIdSchema,
   payload: z
-    .object({
+    .strictObject({
       reason: z.string().trim().min(1).max(256).optional(),
     })
     .default({}),
 })
 
-export const SessionGoodbyeMessageSchema = z.object({
+export const SessionGoodbyeMessageSchema = z.strictObject({
   type: z.literal("session.goodbye"),
   requestId: RequestIdSchema,
 })
 
-export const ClientMessageSchema = z.union([
+export type ClientMessage =
+  | z.infer<typeof SessionHelloMessageSchema>
+  | z.infer<typeof ServerPingMessageSchema>
+  | z.infer<typeof ServerInfoRequestMessageSchema>
+  | z.infer<typeof ServerDiagnosticsRequestMessageSchema>
+  | z.infer<typeof RuntimeRequestMessageSchema>
+  | z.infer<typeof ServerLifecycleRequestMessageSchema>
+  | z.infer<typeof SessionGoodbyeMessageSchema>
+  | z.infer<typeof AgentAcpClientMessageSchema>
+  | z.infer<typeof AgentCodexClientRequestMessageSchema>
+  | z.infer<typeof AgentCodexServerResponseMessageSchema>
+  | z.infer<typeof AgentCodexClientNotificationMessageSchema>
+
+export const ClientMessageSchema = z.discriminatedUnion("type", [
   SessionHelloMessageSchema,
   ServerPingMessageSchema,
   ServerInfoRequestMessageSchema,
@@ -120,45 +133,45 @@ export const ClientMessageSchema = z.union([
   AgentCodexClientRequestMessageSchema,
   AgentCodexServerResponseMessageSchema,
   AgentCodexClientNotificationMessageSchema,
-])
-export type ClientMessage = z.infer<typeof ClientMessageSchema>
+] as unknown as [z.ZodObject, z.ZodObject, ...z.ZodObject[]]) as unknown as z.ZodType<ClientMessage>
 
 export const RuntimeStateSchema = z.enum(["errored", "ready", "starting", "stopped", "stopping"])
 
-export const ServerIdentitySchema = z.object({
+export const ServerIdentitySchema = z.strictObject({
   hostname: z.string(),
   id: z.string(),
   protocolVersion: z.literal(CYPHERIA_PROTOCOL_VERSION),
-  startedAt: z.string().datetime(),
+  startedAt: z.iso.datetime(),
   version: z.string(),
 })
 export type ServerIdentity = z.infer<typeof ServerIdentitySchema>
 
-export const ServerInfoSchema = ServerIdentitySchema.extend({
-  connections: z.number().int().nonnegative(),
+export const ServerInfoSchema = z.strictObject({
+  ...ServerIdentitySchema.shape,
+  connections: z.int().nonnegative(),
   runtimeState: RuntimeStateSchema,
-  webApp: z.object({
+  webApp: z.strictObject({
     enabled: z.boolean(),
   }),
 })
 export type ServerInfo = z.infer<typeof ServerInfoSchema>
 
-export const ServerDiagnosticsSchema = z.object({
-  collectedAt: z.string().datetime(),
-  connections: z.object({
-    active: z.number().int().nonnegative(),
-    acceptedTotal: z.number().int().nonnegative(),
-    rejectedTotal: z.number().int().nonnegative(),
+export const ServerDiagnosticsSchema = z.strictObject({
+  collectedAt: z.iso.datetime(),
+  connections: z.strictObject({
+    active: z.int().nonnegative(),
+    acceptedTotal: z.int().nonnegative(),
+    rejectedTotal: z.int().nonnegative(),
   }),
-  memory: z.object({
+  memory: z.strictObject({
     arrayBuffers: z.number().nonnegative(),
     external: z.number().nonnegative(),
     heapTotal: z.number().nonnegative(),
     heapUsed: z.number().nonnegative(),
     rss: z.number().nonnegative(),
   }),
-  process: z.object({
-    pid: z.number().int().positive(),
+  process: z.strictObject({
+    pid: z.int().positive(),
     uptimeSeconds: z.number().nonnegative(),
   }),
   runtimeState: RuntimeStateSchema,
@@ -176,71 +189,85 @@ export const ServerErrorCodeSchema = z.enum([
 ])
 export type ServerErrorCode = z.infer<typeof ServerErrorCodeSchema>
 
-export const SessionReadyMessageSchema = z.object({
+export const SessionReadyMessageSchema = z.strictObject({
   type: z.literal("session.ready"),
   requestId: RequestIdSchema,
-  payload: z.object({
+  payload: z.strictObject({
     capabilities: z.array(z.string()),
     server: ServerIdentitySchema,
     sessionId: z.string(),
   }),
 })
 
-export const ServerPongMessageSchema = z.object({
+export const ServerPongMessageSchema = z.strictObject({
   type: z.literal("server.pong"),
   requestId: RequestIdSchema,
-  payload: z.object({
-    clientSentAt: z.string().datetime().optional(),
-    serverReceivedAt: z.string().datetime(),
-    serverSentAt: z.string().datetime(),
+  payload: z.strictObject({
+    clientSentAt: z.iso.datetime().optional(),
+    serverReceivedAt: z.iso.datetime(),
+    serverSentAt: z.iso.datetime(),
   }),
 })
 
-export const ServerInfoMessageSchema = z.object({
+export const ServerInfoMessageSchema = z.strictObject({
   type: z.literal("server.info.result"),
   requestId: RequestIdSchema,
   payload: ServerInfoSchema,
 })
 
-export const ServerDiagnosticsMessageSchema = z.object({
+export const ServerDiagnosticsMessageSchema = z.strictObject({
   type: z.literal("server.diagnostics.result"),
   requestId: RequestIdSchema,
   payload: ServerDiagnosticsSchema,
 })
 
-export const RuntimeResponseMessageSchema = z.object({
+export const RuntimeResponseMessageSchema = z.strictObject({
   type: z.literal("runtime.response"),
   requestId: RequestIdSchema,
-  payload: z.object({
+  payload: z.strictObject({
     result: z.unknown(),
   }),
 })
 
-export const RuntimeEventMessageSchema = z.object({
+export const RuntimeEventMessageSchema = z.strictObject({
   type: z.literal("runtime.event"),
-  payload: z.object({
+  payload: z.strictObject({
     event: z.unknown(),
   }),
 })
 
-export const ServerLifecycleAcceptedMessageSchema = z.object({
+export const ServerLifecycleAcceptedMessageSchema = z.strictObject({
   type: z.literal("server.lifecycle.accepted"),
   requestId: RequestIdSchema,
-  payload: z.object({
+  payload: z.strictObject({
     action: z.enum(["restart", "shutdown"]),
   }),
 })
 
-export const ServerErrorMessageSchema = z.object({
+export const ServerErrorMessageSchema = z.strictObject({
   type: z.literal("server.error"),
   requestId: RequestIdSchema.optional(),
-  payload: z.object({
+  payload: z.strictObject({
     code: ServerErrorCodeSchema,
     message: z.string(),
   }),
 })
 
-export const ServerMessageSchema = z.union([
+export type ServerMessage =
+  | z.infer<typeof SessionReadyMessageSchema>
+  | z.infer<typeof ServerPongMessageSchema>
+  | z.infer<typeof ServerInfoMessageSchema>
+  | z.infer<typeof ServerDiagnosticsMessageSchema>
+  | z.infer<typeof RuntimeResponseMessageSchema>
+  | z.infer<typeof RuntimeEventMessageSchema>
+  | z.infer<typeof ServerLifecycleAcceptedMessageSchema>
+  | z.infer<typeof ServerErrorMessageSchema>
+  | z.infer<typeof AgentAcpServerMessageSchema>
+  | z.infer<typeof AgentCodexClientResponseMessageSchema>
+  | z.infer<typeof AgentCodexServerRequestMessageSchema>
+  | z.infer<typeof AgentCodexServerNotificationMessageSchema>
+
+export const ServerMessageSchema = z.discriminatedUnion("type", [
   SessionReadyMessageSchema,
   ServerPongMessageSchema,
   ServerInfoMessageSchema,
@@ -253,16 +280,15 @@ export const ServerMessageSchema = z.union([
   AgentCodexClientResponseMessageSchema,
   AgentCodexServerRequestMessageSchema,
   AgentCodexServerNotificationMessageSchema,
-])
-export type ServerMessage = z.infer<typeof ServerMessageSchema>
+] as unknown as [z.ZodObject, z.ZodObject, ...z.ZodObject[]]) as unknown as z.ZodType<ServerMessage>
 
-export const HttpRuntimeRequestSchema = z.object({
+export const HttpRuntimeRequestSchema = z.strictObject({
   method: RuntimeMethodSchema,
   params: z.unknown().optional(),
 })
 export type HttpRuntimeRequest = z.infer<typeof HttpRuntimeRequestSchema>
 
-export const HttpLifecycleRequestSchema = z.object({
+export const HttpLifecycleRequestSchema = z.strictObject({
   reason: z.string().trim().min(1).max(256).optional(),
 })
 export type HttpLifecycleRequest = z.infer<typeof HttpLifecycleRequestSchema>

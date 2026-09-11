@@ -147,6 +147,18 @@ describe("agent.codex protocol", () => {
     })
   })
 
+  it("validates strict Codex params after removing Cypheria envelope fields", () => {
+    const request = {
+      type: "agent.codex.turn.settings.update.request",
+      requestId: "turn-settings-1",
+      threadId: "thread-1",
+      turnId: "turn-1",
+    } as const
+
+    expect(ClientMessageSchema.parse(request)).toEqual(request)
+    expect(ClientMessageSchema.safeParse({ ...request, unexpected: true }).success).toBe(false)
+  })
+
   it("accepts correlated server RPC responses inside payload", () => {
     expect(
       ServerMessageSchema.parse({

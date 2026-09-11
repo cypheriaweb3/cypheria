@@ -30,6 +30,28 @@ describe("Cypheria protocol", () => {
     expect(RuntimeMethodSchema.safeParse("agent.create").success).toBe(false)
   })
 
+  it("rejects unknown fields in Cypheria-owned envelopes", () => {
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "session.goodbye",
+        requestId: "goodbye-1",
+        unexpected: true,
+      }).success
+    ).toBe(false)
+    expect(
+      ClientMessageSchema.safeParse({
+        type: "session.hello",
+        requestId: "hello-1",
+        payload: {
+          capabilities: [],
+          client: { id: "client-1", kind: "expo" },
+          protocolVersion: CYPHERIA_PROTOCOL_VERSION,
+          unexpected: true,
+        },
+      }).success
+    ).toBe(false)
+  })
+
   it("validates correlated server responses", () => {
     expect(
       ServerMessageSchema.safeParse({
