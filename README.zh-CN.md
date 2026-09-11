@@ -11,7 +11,9 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 - **Runtime**：Cypheria 自己的 TypeScript 非 agent 核心，负责钱包、链、策略、自动化、浏览器权限、设置、本地状态和审计日志。
 - **Server**：基于 Hono + Node.js 的 control plane，负责 runtime lifecycle、client session、diagnostics、静态 web hosting，并在后续承载 Codex 与产品 services。
 - **Expo client**：一套面向 iOS、Android 与静态 web output 的 Expo Router 应用；server 会内置其 web output。
-- **CLI 与 SDK clients**：规划中的 protocol clients，不持有特权 runtime。
+- **共享 client**：`@cypheria/client` 提供 WebSocket protocol driver、借用 API 门面与持有连接的
+  client 门面，但不持有特权 runtime。
+- **CLI 与 SDK clients**：规划中的 server protocol 产品 clients。
 - **Desktop client**：最终会在需要时自启动本地 server 并连接它。当前 desktop 实现保持不变，等新 server 通过评审后再迁移。
 - **Marketplace**：部署在 Cloudflare Workers 上的 TanStack Start 应用，负责 ChatGPT/Codex 标准插件的提交、扫描、审核、发布、发现，并同步到 Cypheria 官方 GitHub repo marketplace。
 
@@ -42,7 +44,7 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 ## 架构
 
 ```txt
-apps/expo / 未来的 apps/cli / packages/sdk
+apps/expo / @cypheria/client / 未来的 apps/cli / packages/sdk
   -> 通过 HTTP 或 WebSocket 使用 @cypheria/protocol
   -> apps/server
   -> @cypheria/runtime
@@ -97,6 +99,7 @@ apps/marketplace
   插件提交、审核、发布、发现与 GitHub marketplace 同步应用
 
 packages/sdk
+packages/client
 packages/protocol
 packages/runtime
 packages/codex-bridge
@@ -110,7 +113,9 @@ packages/policy-engine
 packages/db
 ```
 
-`apps/cli`、`apps/marketplace` 和 `packages/sdk` 仍是规划中的 packages。`apps/server`、`apps/expo` 和 `packages/protocol` 已提供新的 client/server 基础。协议、运维、安全与打包约定见 [docs/server.zh-CN.md](docs/server.zh-CN.md)。
+`apps/cli`、`apps/marketplace` 和 `packages/sdk` 仍是规划中的 packages。`apps/server`、
+`apps/expo`、`packages/client` 和 `packages/protocol` 已提供 client/server 基础。协议、运维、安全与
+打包约定见 [docs/server.zh-CN.md](docs/server.zh-CN.md)。
 
 ## Runtime Home
 
@@ -191,7 +196,10 @@ pnpm format
 
 ## 当前状态
 
-仓库现在已经包含版本化 Cypheria client protocol、带 HTTP/WebSocket 运维与内置 web hosting 的 supervised Hono server，以及可导出 iOS、Android 与静态 web surface 的 Expo SDK 57 client。现有 desktop 实现刻意保持不变，在 server 评审和独立迁移变更之前继续使用当前 direct-runtime path。
+仓库现在已经包含版本化 Cypheria protocol、分层的 `@cypheria/client`、带 HTTP/WebSocket
+运维与内置 web hosting 的 supervised Hono server，以及可导出 iOS、Android 与静态 web
+surface 的 Expo SDK 57 client。现有 desktop 实现刻意保持不变，在 server 评审和独立迁移变更
+之前继续使用当前 direct-runtime path。
 
 下一步实现顺序记录在 [docs/todo.zh-CN.md](docs/todo.zh-CN.md)。
 规范化 logo、应用图标资产与使用规则见 [docs/brand.zh-CN.md](docs/brand.zh-CN.md)。

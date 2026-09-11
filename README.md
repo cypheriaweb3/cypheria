@@ -11,7 +11,9 @@ Cypheria V1 is organized around one server and multiple clients:
 - **Runtime**: the TypeScript core for Cypheria-owned non-agent capabilities, including wallets, chains, policies, automation, browser permissions, settings, local state, and audit logs.
 - **Server**: a Hono + Node.js control plane that owns runtime lifecycle, client sessions, diagnostics, static web hosting, and later Codex/product services.
 - **Expo client**: one Expo Router application for iOS, Android, and static web output. The server embeds the web output.
-- **CLI and SDK clients**: planned protocol clients that do not own the privileged runtime.
+- **Shared client**: `@cypheria/client` provides the WebSocket protocol driver, a borrowed API
+  facade, and a connection-owning facade without owning the privileged runtime.
+- **CLI and SDK clients**: planned product clients built on the server protocol.
 - **Desktop client**: eventually starts a local server when necessary and connects to it. The current desktop implementation remains unchanged until the new server is reviewed and migration is approved.
 - **Marketplace**: a TanStack Start app on Cloudflare Workers for submission, scanning, review, publication, discovery, and synchronization of reviewed ChatGPT/Codex plugins to the official Cypheria GitHub repo marketplace.
 
@@ -42,7 +44,7 @@ See [docs/codex-app-server-api.md](docs/codex-app-server-api.md) for the complet
 ## Architecture
 
 ```txt
-apps/expo / future apps/cli / packages/sdk
+apps/expo / @cypheria/client / future apps/cli / packages/sdk
   -> @cypheria/protocol over HTTP or WebSocket
   -> apps/server
   -> @cypheria/runtime
@@ -97,6 +99,7 @@ apps/marketplace
   Plugin submission, review, publication, discovery, and GitHub marketplace synchronization
 
 packages/sdk
+packages/client
 packages/protocol
 packages/runtime
 packages/codex-bridge
@@ -110,7 +113,9 @@ packages/policy-engine
 packages/db
 ```
 
-`apps/cli`, `apps/marketplace`, and `packages/sdk` remain planned. `apps/server`, `apps/expo`, and `packages/protocol` provide the new client/server foundation. See [docs/server.md](docs/server.md) for its protocol, operations, security, and packaging contract.
+`apps/cli`, `apps/marketplace`, and `packages/sdk` remain planned. `apps/server`, `apps/expo`,
+`packages/client`, and `packages/protocol` provide the client/server foundation. See
+[docs/server.md](docs/server.md) for its protocol, operations, security, and packaging contract.
 
 ## Runtime Home
 
@@ -191,7 +196,11 @@ In this repository, pnpm-related commands should usually run outside the sandbox
 
 ## Current Status
 
-The repository now includes the versioned Cypheria client protocol, a supervised Hono server with HTTP/WebSocket operations and embedded web hosting, and an Expo SDK 57 client that exports iOS, Android, and static web surfaces. The existing desktop implementation is deliberately untouched and remains on its current direct-runtime path until server review and a separate migration change.
+The repository now includes the versioned Cypheria protocol, the layered `@cypheria/client`, a
+supervised Hono server with HTTP/WebSocket operations and embedded web hosting, and an Expo SDK 57
+client that exports iOS, Android, and static web surfaces. The existing desktop implementation is
+deliberately untouched and remains on its current direct-runtime path until server review and a
+separate migration change.
 
 The next implementation sequence is tracked in [docs/todo.md](docs/todo.md).
 The canonical logo, application-icon assets, and usage rules are documented in [docs/brand.md](docs/brand.md).

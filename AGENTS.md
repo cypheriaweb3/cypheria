@@ -7,6 +7,7 @@ This file provides working instructions for agents contributing to Cypheria.
 Cypheria is a TypeScript Web3 agent product inspired by Codex. Its target architecture has one privileged server and multiple clients:
 
 - `@cypheria/runtime`: Cypheria-owned non-agent runtime for Web3, wallets, signing policy, dApp browser permissions, automation, local state, and audit logs.
+- `@cypheria/client`: the layered WebSocket client for the versioned Cypheria server protocol; `ServerClient` owns a connection, `CypheriaApi` borrows one, and `CypheriaClient` adds lifecycle control.
 - `apps/server`: the Hono/Node.js process boundary that owns runtime lifecycle, versioned client connections, operations, web hosting, and eventually Codex/product services.
 - `apps/expo`: the Expo Router client for iOS, Android, and static web; its web export is embedded by the server.
 - `apps/cli`: a planned non-TUI client of the Cypheria server protocol.
@@ -84,6 +85,7 @@ apps/marketplace
 apps/server
 
 packages/sdk
+packages/client
 packages/protocol
 packages/runtime
 packages/codex-bridge

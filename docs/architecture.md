@@ -7,7 +7,7 @@ The architecture has one central rule: agent work, Web3 signing, automation exec
 ## System Overview
 
 ```txt
-apps/expo / future apps/cli / packages/sdk
+apps/expo / @cypheria/client / future apps/cli / packages/sdk
   -> @cypheria/protocol
   -> apps/server over HTTP or WebSocket
 
@@ -35,6 +35,7 @@ Cypheria has one privileged server, multiple clients, a separate marketplace, an
 
 - `apps/server`: the Node.js/Hono control plane for runtime ownership, versioned client sessions, operations, process supervision, and web hosting.
 - `apps/expo`: the first Cypheria protocol client, built once for iOS, Android, and static web.
+- `packages/client`: the shared WebSocket protocol driver and capability facade for Cypheria clients. It owns neither the privileged runtime nor a Codex process.
 - `apps/cli` and `packages/sdk`: planned Cypheria protocol clients.
 - `apps/desktop`: the future self-hosting client. Its current Electron-main runtime and Codex ownership is intentionally unchanged until server review.
 - `apps/marketplace`: a TanStack Start application on Cloudflare Workers for submitting, scanning, reviewing, publishing, and discovering ChatGPT/Codex-compatible plugins, then synchronizing approved entries to the official Cypheria GitHub repo marketplace.
@@ -46,7 +47,7 @@ Codex owns agent threads, turns, model execution, code edits, shell/tool executi
 
 `apps/server` is the only target-architecture process that owns `@cypheria/runtime`. It exposes a small Hono HTTP operations API and a versioned WebSocket session protocol from `@cypheria/protocol`. A supervisor owns the PID lock, worker heartbeat, bounded crash restart, and graceful shutdown; the replaceable worker owns Hono, active sessions, runtime lifecycle, and runtime-event broadcasting.
 
-`@cypheria/protocol` defines Cypheria client messages, server messages, HTTP bodies, and runtime method validation. WebSocket messages remain plain JSON when their values are JSON-native; a versioned SuperJSON envelope carries metadata only when Cypheria-owned payloads contain values such as `bigint`. The package owns generated Codex App Server TypeScript, JSON Schemas, response mappings, and per-message Zod validators, and exposes the complete provider-transparent Cypheria API as `agent.codex.<operation>.request|response|notification` from its root entry. Raw generated Codex types are isolated behind `@cypheria/protocol/codex-types`. `@cypheria/codex-bridge` consumes these artifacts without maintaining another generated copy and temporarily owns raw Codex JSON-RPC validation until it is refactored around the Cypheria messages. Client code may depend on `@cypheria/protocol`; it must not import server internals or privileged domain implementations.
+`@cypheria/protocol` defines Cypheria client messages, server messages, HTTP bodies, and runtime method validation. WebSocket messages remain plain JSON when their values are JSON-native; a versioned SuperJSON envelope carries metadata only when Cypheria-owned payloads contain values such as `bigint`. The package owns generated Codex App Server TypeScript, JSON Schemas, response mappings, and per-message Zod validators, and exposes the complete provider-transparent Cypheria API as `agent.codex.<operation>.request|response|notification` from its root entry. Raw generated Codex types are isolated behind `@cypheria/protocol/codex-types`. `@cypheria/codex-bridge` consumes these artifacts without maintaining another generated copy and temporarily owns raw Codex JSON-RPC validation until it is refactored around the Cypheria messages. Client code may depend on `@cypheria/protocol`; it must not import server internals or privileged domain implementations. `@cypheria/client` packages this boundary into three layers: `ServerClient` owns a validated WebSocket session, `CypheriaApi` borrows an existing `ServerClient` without lifecycle control, and `CypheriaClient` combines that facade with connection lifecycle. This keeps one host-owned connection shareable without allowing a plugin or local surface to close it.
 
 The initial server deliberately registers only the runtime's built-in information, health, and service-list methods. The Codex wire contracts are defined, but their server dispatch is not yet connected. Wallet, policy, browser, automation, and the remaining product services stay outside the running foundation. See [Cypheria Server](server.md).
 
@@ -390,6 +391,9 @@ Default rules:
 
 @cypheria/protocol
   Versioned, transport-neutral Cypheria client/server contracts and Zod validation.
+
+@cypheria/client
+  Layered WebSocket protocol driver, borrowed API facade, and connection-owning client.
 
 @cypheria/sdk
   Planned public TS client for the Cypheria server protocol.

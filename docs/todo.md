@@ -98,7 +98,13 @@ Status legend:
   - Include: desktop bootstrap tests and explicit database path wiring that does not reintroduce a db-to-runtime dependency.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/desktop test`.
 
-## SDK
+## Client And SDK
+
+- [x] Add the layered `packages/client` protocol client.
+  - Acceptance: `ServerClient` owns transport and WebSocket session lifecycle, correlation, subscriptions, and reconnect policy; `CypheriaApi` borrows an existing connection and exposes only current protocol-defined operations; `CypheriaClient` combines the API with lifecycle controls.
+  - Include: lazy connection, versioned hello/authentication, browser/Node/custom transport support, request timeout and typed error handling, bounded exponential reconnects, generic runtime request/events, one generated async method per Codex request/response pair, typed message notifications, ACP traffic, paired package documentation, and no privileged implementation dependencies.
+  - Verification: `pnpm --filter @cypheria/client test`, package typecheck/build, `pnpm run ci`, and `pnpm build`.
+  - Verification record: 23 client unit tests, a live client/server runtime-info smoke test, full repository CI, and full repository build pass.
 
 - [ ] Add `packages/sdk`.
   - Acceptance: package exports a public `Cypheria` server client.

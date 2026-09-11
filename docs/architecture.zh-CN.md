@@ -7,7 +7,7 @@ Cypheria 是一个 TypeScript Web3 agent 产品：它复用 Codex 承载软件�
 ## 系统概览
 
 ```txt
-apps/expo / 未来的 apps/cli / packages/sdk
+apps/expo / @cypheria/client / 未来的 apps/cli / packages/sdk
   -> @cypheria/protocol
   -> 通过 HTTP 或 WebSocket 连接 apps/server
 
@@ -35,6 +35,7 @@ Cypheria 有一个特权 server、多个 client、一个独立 marketplace 与�
 
 - `apps/server`：Node.js/Hono control plane，负责 runtime ownership、版本化 client session、运维、进程监督与 web hosting。
 - `apps/expo`：第一个 Cypheria protocol client，一套代码构建 iOS、Android 与静态 web。
+- `packages/client`：Cypheria clients 共用的 WebSocket protocol driver 与能力门面；它既不持有特权 runtime，也不持有 Codex process。
 - `apps/cli` 与 `packages/sdk`：规划中的 Cypheria protocol clients。
 - `apps/desktop`：未来负责自托管 server 的 client；在 server 评审前，当前 Electron-main runtime 与 Codex ownership 刻意保持不变。
 - `apps/marketplace`：部署在 Cloudflare Workers 上的 TanStack Start 应用，负责 ChatGPT/Codex-compatible 插件的提交、扫描、审核、发布与发现，再把 approved entry 同步到 Cypheria 官方 GitHub repo marketplace。
@@ -46,7 +47,7 @@ Codex 负责 agent threads、turns、model execution、code edits、shell/tool e
 
 `apps/server` 是目标架构中唯一持有 `@cypheria/runtime` 的进程。它提供小型 Hono HTTP 运维 API，以及由 `@cypheria/protocol` 定义的版本化 WebSocket session protocol。Supervisor 持有 PID lock、worker heartbeat、有界 crash restart 与 graceful shutdown；可替换 worker 持有 Hono、active sessions、runtime lifecycle 与 runtime-event broadcasting。
 
-`@cypheria/protocol` 定义 Cypheria client message、server message、HTTP body 与 runtime method validation。WebSocket message 在值均为 JSON 原生类型时仍使用普通 JSON；只有 Cypheria 自有 payload 包含 `bigint` 等值时，才使用版本化 SuperJSON 信封携带元数据。该 package 持有 generated Codex App Server TypeScript、JSON Schema、response mapping 与逐消息 Zod validator，并从根入口以 `agent.codex.<operation>.request|response|notification` 暴露完整、provider-transparent 的 Cypheria API。原始 generated Codex type 隔离在 `@cypheria/protocol/codex-types`。`@cypheria/codex-bridge` 只消费这些产物，不再维护另一份 generated copy；在改为围绕 Cypheria message 工作之前，原始 Codex JSON-RPC validation 暂时仍由 bridge 持有。Client code 可以依赖 `@cypheria/protocol`，但不能导入 server internals 或特权 domain implementation。
+`@cypheria/protocol` 定义 Cypheria client message、server message、HTTP body 与 runtime method validation。WebSocket message 在值均为 JSON 原生类型时仍使用普通 JSON；只有 Cypheria 自有 payload 包含 `bigint` 等值时，才使用版本化 SuperJSON 信封携带元数据。该 package 持有 generated Codex App Server TypeScript、JSON Schema、response mapping 与逐消息 Zod validator，并从根入口以 `agent.codex.<operation>.request|response|notification` 暴露完整、provider-transparent 的 Cypheria API。原始 generated Codex type 隔离在 `@cypheria/protocol/codex-types`。`@cypheria/codex-bridge` 只消费这些产物，不再维护另一份 generated copy；在改为围绕 Cypheria message 工作之前，原始 Codex JSON-RPC validation 暂时仍由 bridge 持有。Client code 可以依赖 `@cypheria/protocol`，但不能导入 server internals 或特权 domain implementation。`@cypheria/client` 将这个边界分成三层：`ServerClient` 持有经过校验的 WebSocket session；`CypheriaApi` 借用已有 `ServerClient`，但不获得 lifecycle control；`CypheriaClient` 则把该门面与 connection lifecycle 组合起来。这样 host 持有的一条连接可以安全共享，而 plugin 或局部 surface 不能将其关闭。
 
 初始 server 刻意只注册 runtime 内置的 information、health 与 service-list method。Codex wire contract 已经定义，但 server dispatch 尚未连接；wallet、policy、browser、automation 与其余产品 service 仍不在当前运行中的 foundation 范围内。详见 [Cypheria Server](server.zh-CN.md)。
 
@@ -390,6 +391,9 @@ CODEX_HOME="$CYPHERIA_HOME/codex"
 
 @cypheria/protocol
   版本化、transport-neutral 的 Cypheria client/server contract 与 Zod validation。
+
+@cypheria/client
+  分层的 WebSocket protocol driver、借用 API 门面与持有连接的 client。
 
 @cypheria/sdk
   规划中的 Cypheria server protocol 公共 TS client。

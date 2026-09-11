@@ -98,7 +98,13 @@
   - 包括：desktop bootstrap tests，以及不重新引入 db-to-runtime dependency 的显式 database path wiring。
   - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/desktop test`。
 
-## SDK
+## Client 与 SDK
+
+- [x] 添加分层的 `packages/client` protocol client。
+  - 验收：`ServerClient` 持有 transport 与 WebSocket session lifecycle、请求关联、订阅与重连策略；`CypheriaApi` 借用已有连接且只暴露当前 protocol 已定义的 operation；`CypheriaClient` 将 API 与 lifecycle control 组合起来。
+  - 包括：懒连接、版本化 hello/authentication、browser/Node/custom transport 支持、请求超时与 typed error handling、有界指数退避重连、通用 runtime request/event、每个 Codex request/response pair 对应一个 generated async 方法、typed message notification、ACP traffic、配套双语 package 文档，并且不依赖特权 implementation。
+  - 验证：`pnpm --filter @cypheria/client test`、package typecheck/build、`pnpm run ci` 与 `pnpm build`。
+  - 验证记录：23 个 client unit tests、真实 client/server runtime-info smoke test、全仓 CI 与全仓 build 均通过。
 
 - [ ] 添加 `packages/sdk`。
   - 验收：package 导出公共 `Cypheria` server client。
