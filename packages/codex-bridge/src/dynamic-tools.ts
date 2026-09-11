@@ -1,4 +1,4 @@
-import type { v2 } from "./generated/index.js"
+import type { v2 } from "@cypheria/protocol/codex-types"
 import type { CodexAppServerBridge } from "./index.js"
 
 export type CodexDynamicToolHandler = (

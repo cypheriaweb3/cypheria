@@ -46,9 +46,9 @@ Codex 负责 agent threads、turns、model execution、code edits、shell/tool e
 
 `apps/server` 是目标架构中唯一持有 `@cypheria/runtime` 的进程。它提供小型 Hono HTTP 运维 API，以及由 `@cypheria/protocol` 定义的版本化 WebSocket session protocol。Supervisor 持有 PID lock、worker heartbeat、有界 crash restart 与 graceful shutdown；可替换 worker 持有 Hono、active sessions、runtime lifecycle 与 runtime-event broadcasting。
 
-`@cypheria/protocol` 定义 Cypheria client message、server message、HTTP body 与 runtime method validation。WebSocket message 在值均为 JSON 原生类型时仍使用普通 JSON；只有 Cypheria 自有 payload 包含 `bigint` 等值时，才使用版本化 SuperJSON 信封携带元数据。它和 `@cypheria/codex-bridge` 中生成的 Codex App Server protocol 无关。Client code 可以依赖 `@cypheria/protocol`，但不能导入 server internals 或特权 domain implementation。
+`@cypheria/protocol` 定义 Cypheria client message、server message、HTTP body 与 runtime method validation。WebSocket message 在值均为 JSON 原生类型时仍使用普通 JSON；只有 Cypheria 自有 payload 包含 `bigint` 等值时，才使用版本化 SuperJSON 信封携带元数据。该 package 持有 generated Codex App Server TypeScript、JSON Schema、response mapping 与逐消息 Zod validator，并从根入口以 `agent.codex.<operation>.request|response|notification` 暴露完整、provider-transparent 的 Cypheria API。原始 generated Codex type 隔离在 `@cypheria/protocol/codex-types`。`@cypheria/codex-bridge` 只消费这些产物，不再维护另一份 generated copy；在改为围绕 Cypheria message 工作之前，原始 Codex JSON-RPC validation 暂时仍由 bridge 持有。Client code 可以依赖 `@cypheria/protocol`，但不能导入 server internals 或特权 domain implementation。
 
-初始 server 刻意只注册 runtime 内置的 information、health 与 service-list method。Agent、project、wallet、policy、browser 和 automation 产品 service 等到 server boundary 通过评审后再接入。详见 [Cypheria Server](server.zh-CN.md)。
+初始 server 刻意只注册 runtime 内置的 information、health 与 service-list method。Codex wire contract 已经定义，但 server dispatch 尚未连接；wallet、policy、browser、automation 与其余产品 service 仍不在当前运行中的 foundation 范围内。详见 [Cypheria Server](server.zh-CN.md)。
 
 ## Expo Client
 
@@ -222,10 +222,12 @@ Renderer 会识别增强后的 turn shape，并把 final answer 与可折叠 act
 
 反向 JSON-RPC request 不是 AI SDK stream part。Electron-main 中的 fail-closed broker 处理 command、file-change、permission approval、tool user-input question 与 MCP elicitation。它通过 typed IPC 转发经过验证、适合 renderer 的 prompt，按具体 request method 校验 response shape，将 decision 写入 audit log，并在 timeout、disconnect、shutdown 或 handler 缺失时取消或拒绝。Experimental dynamic tool 使用独立 registry：定义随 `thread/start` 发送，`item/tool/call` 则执行已注册的 Electron-main handler。这样 wallet、policy、signing 及其他 privileged implementation 都不会进入 renderer，也不会落入 AI SDK client-tool callback。
 
-Codex app-server protocol TypeScript 文件放在：
+Codex app-server generated artifacts 放在：
 
 ```txt
-packages/codex-bridge/src/generated/
+packages/protocol/src/generated/codex/
+  ts/      generated TypeScript
+  schema/  generated 与 validation-adapter JSON Schema
 ```
 
 通过以下命令生成：

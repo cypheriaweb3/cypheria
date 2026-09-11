@@ -28,7 +28,7 @@ Cypheria V1 是一个 TypeScript Web3 agent 产品，由一个特权 server 与 
 | Desktop packaging | electron-builder |
 | CLI/SDK 目标 integration | Cypheria server protocol |
 | Desktop Codex integration | `codex app-server` over WebSocket JSON-RPC |
-| Desktop Codex protocol types | `pnpm --filter @cypheria/codex-bridge generate:codex-types` |
+| Codex protocol types 与 validation | `pnpm --filter @cypheria/protocol generate:codex-all` |
 | ACP bridge | `@agentclientprotocol/sdk@1.4.0` app API，通过 `@ai-sdk/provider` 4.x 的 `LanguageModelV4` 接口接入 AI SDK 7.x |
 | Marketplace web runtime | Cloudflare Workers 上的 TanStack Start |
 | Marketplace data | Cloudflare D1 system of record、R2 immutable artifact、Queues、Workflows |
@@ -71,6 +71,8 @@ packages/db
 ```
 
 `apps/cli`、`apps/marketplace` 和 `packages/sdk` 是规划中的 packages。`apps/server`、`apps/expo` 与 `packages/protocol` 已实现 client/server 基础。Desktop 在该基础通过评审前保持不变。
+
+`@cypheria/protocol` 使用 Zod author live WebSocket contract，并持有 generated Codex App Server TypeScript、JSON Schema、response mapping 与 validator。完整 `agent.codex.*` RPC 与 notification catalog 从这些已提交产物机械派生；provider payload 在共享 wire 上保持 JSON-transparent。Catalog 发生漂移时，build、typecheck 与 test lifecycle check 会失败。
 
 ## Server 与 Expo 技术栈
 
@@ -155,7 +157,8 @@ Search 在当前页面上打开 shadcn Command 对话框，支持防抖对话搜
 | UI primitives | `@cypheria/ui` |
 | Codex process | `codex app-server` |
 | Codex transport | localhost WebSocket JSON-RPC |
-| Codex protocol types | generated into `packages/codex-bridge/src/generated` |
+| Codex protocol types | generated into `packages/protocol/src/generated/codex/ts` |
+| Codex protocol schemas | generated into `packages/protocol/src/generated/codex/schema`，并适配为逐消息 Zod schema |
 
 Electron browser defaults：
 
@@ -190,9 +193,9 @@ Desktop
 
 `@cypheria/codex-bridge` 只负责 desktop 集成。它应该：
 
-- 使用 `src/generated` 中生成的 Codex app-server TypeScript 文件。
-- 使用 `pnpm --filter @cypheria/codex-bridge generate:codex-types` 同时重新生成 TypeScript 与 JSON Schema；package script 始终包含 experimental API，并把从 Rust 64 位整数生成的声明规范化为 JSON wire type `number`。
-- 将每个 request method 映射到对应 generated response type，并在运行时通过 generated JSON Schema 校验 response、反向 request 与 notification。
+- 从 `@cypheria/protocol/codex-types` 消费原始 generated Codex app-server type，并从 `@cypheria/protocol` 消费 Cypheria message contract。
+- 由 `@cypheria/protocol` 持有 protocol generation 与 schema；`pnpm --filter @cypheria/protocol generate:codex-all` 始终包含 experimental API，把从 Rust 64 位整数生成的声明规范化为 JSON wire type `number`，为 generated relative import 补齐 TypeScript extension 以兼容 NodeNext consumer，并刷新 dotted message schema 与 API 参考文档。
+- 使用 protocol 持有的 request/response mapping；在 bridge 改为围绕 protocol dotted message 与 Zod schema 工作之前，暂时在 bridge 内校验原始 response、反向 request 与 notification。
 - 实现 WebSocket transport。
 - 执行 `initialize` request 和 `initialized` notification handshake。
 - 关联 JSON-RPC requests 和 responses。

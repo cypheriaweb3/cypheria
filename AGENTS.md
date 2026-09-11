@@ -108,23 +108,25 @@ Every Cypheria Marketplace plugin must follow the ChatGPT/Codex plugin specifica
 - CLI and SDK must not depend on Electron, desktop packages, or `@cypheria/codex-bridge`.
 - Desktop currently uses a persistent `codex app-server` process and runtime inside Electron main. Keep that implementation unchanged until the server is reviewed and desktop migration is explicitly requested.
 - After migration, Electron main has the special client responsibility of ensuring a local Cypheria server is running while retaining Electron-only browser, secure-storage, preload, approval, and OS integration boundaries.
-- `@cypheria/protocol` is the Cypheria client/server protocol. It must remain independent of generated Codex App Server types.
-- `@cypheria/codex-bridge` is the desktop-side Codex App Server bridge.
+- `@cypheria/protocol` owns the Cypheria client/server protocol plus the generated Codex App Server types, JSON Schemas, response mappings, and per-message Zod validators.
+- `@cypheria/codex-bridge` is the desktop-side Codex App Server bridge. It consumes raw Codex types from `@cypheria/protocol/codex-types` and Cypheria message contracts from `@cypheria/protocol`; it must not own a generated copy. Until the bridge is refactored around the Cypheria messages, its raw Codex JSON-RPC validation remains bridge-owned.
 - Do not create `@cypheria/codex-protocol`.
 - Do not hand-write Codex App Server protocol types.
-- Codex App Server generated TypeScript must live in:
+- Codex App Server generated artifacts must live in:
 
 ```txt
-packages/codex-bridge/src/generated
+packages/protocol/src/generated/codex/
+  ts/
+  schema/
 ```
 
 Generate those files with:
 
 ```sh
-pnpm --filter @cypheria/codex-bridge generate:codex-types
+pnpm --filter @cypheria/protocol generate:codex-all
 ```
 
-The package script always enables experimental APIs, normalizes generated Rust 64-bit integers to the JSON wire type `number`, and generates the JSON Schemas used by the bridge. Generated protocol files and schemas should be committed so CI and contributors can typecheck and validate without a matching local Codex binary.
+The protocol package script always enables experimental APIs, normalizes generated Rust 64-bit integers to the JSON wire type `number`, adds explicit TypeScript extensions to relative generated imports for NodeNext consumers, and generates the JSON Schemas, response mappings, and per-message Zod schemas used for validation. Generated protocol files and schemas should be committed so CI and contributors can typecheck and validate without a matching local Codex binary.
 
 ## Formatting And Type Safety
 

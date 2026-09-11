@@ -27,7 +27,3 @@ yarn-error.log*
 .DS_Store
 .idea/
 .vscode/
-
-# Local reference checkouts
-codex
-ai-sdk-provider-codex-app-server

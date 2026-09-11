@@ -46,9 +46,9 @@ Codex owns agent threads, turns, model execution, code edits, shell/tool executi
 
 `apps/server` is the only target-architecture process that owns `@cypheria/runtime`. It exposes a small Hono HTTP operations API and a versioned WebSocket session protocol from `@cypheria/protocol`. A supervisor owns the PID lock, worker heartbeat, bounded crash restart, and graceful shutdown; the replaceable worker owns Hono, active sessions, runtime lifecycle, and runtime-event broadcasting.
 
-`@cypheria/protocol` defines Cypheria client messages, server messages, HTTP bodies, and runtime method validation. WebSocket messages remain plain JSON when their values are JSON-native; a versioned SuperJSON envelope carries metadata only when Cypheria-owned payloads contain values such as `bigint`. It is unrelated to the generated Codex App Server protocol in `@cypheria/codex-bridge`. Client code may depend on `@cypheria/protocol`; it must not import server internals or privileged domain implementations.
+`@cypheria/protocol` defines Cypheria client messages, server messages, HTTP bodies, and runtime method validation. WebSocket messages remain plain JSON when their values are JSON-native; a versioned SuperJSON envelope carries metadata only when Cypheria-owned payloads contain values such as `bigint`. The package owns generated Codex App Server TypeScript, JSON Schemas, response mappings, and per-message Zod validators, and exposes the complete provider-transparent Cypheria API as `agent.codex.<operation>.request|response|notification` from its root entry. Raw generated Codex types are isolated behind `@cypheria/protocol/codex-types`. `@cypheria/codex-bridge` consumes these artifacts without maintaining another generated copy and temporarily owns raw Codex JSON-RPC validation until it is refactored around the Cypheria messages. Client code may depend on `@cypheria/protocol`; it must not import server internals or privileged domain implementations.
 
-The initial server deliberately registers only the runtime's built-in information, health, and service-list methods. Agent, project, wallet, policy, browser, and automation product services remain out of scope until the server boundary is reviewed. See [Cypheria Server](server.md).
+The initial server deliberately registers only the runtime's built-in information, health, and service-list methods. The Codex wire contracts are defined, but their server dispatch is not yet connected. Wallet, policy, browser, automation, and the remaining product services stay outside the running foundation. See [Cypheria Server](server.md).
 
 ## Expo Client
 
@@ -222,10 +222,12 @@ Capabilities that are application operations rather than language-model generati
 
 Reverse JSON-RPC requests are not AI SDK stream parts. A fail-closed Electron-main broker handles command, file-change, and permission approvals, tool user-input questions, and MCP elicitation. It forwards validated renderer-safe prompts over typed IPC, validates the response shape for the exact request method, records the decision in the audit log, and cancels or rejects on timeout, disconnect, shutdown, or missing handlers. Experimental dynamic tools use a separate registry: their definitions are included in `thread/start`, while `item/tool/call` executes the registered Electron-main handler. This keeps wallet, policy, signing, and other privileged implementations outside the renderer and outside an AI SDK client-tool callback.
 
-Codex app-server protocol TypeScript files live inside:
+Codex app-server generated artifacts live inside:
 
 ```txt
-packages/codex-bridge/src/generated/
+packages/protocol/src/generated/codex/
+  ts/      generated TypeScript
+  schema/  generated and validation-adapter JSON Schemas
 ```
 
 They are generated with:

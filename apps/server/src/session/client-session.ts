@@ -37,6 +37,16 @@ export type ClientSessionOptions = {
 const errorMessage = (error: unknown): string =>
   error instanceof Error ? error.message : "Unknown server error"
 
+const correlatedRequestId = (message: object): string | undefined => {
+  if ("requestId" in message && typeof message.requestId === "string") return message.requestId
+  if (!("payload" in message) || typeof message.payload !== "object" || message.payload === null) {
+    return undefined
+  }
+  return "requestId" in message.payload && typeof message.payload.requestId === "string"
+    ? message.payload.requestId
+    : undefined
+}
+
 export class ClientSession {
   readonly id = `ses_${randomUUID()}`
 
@@ -94,16 +104,17 @@ export class ClientSession {
       return
     }
 
-    if (this.#inFlight.has(message.requestId)) {
-      this.#sendError("INVALID_MESSAGE", "Request id is already in flight", message.requestId)
+    const messageRequestId = correlatedRequestId(message)
+    if (messageRequestId && this.#inFlight.has(messageRequestId)) {
+      this.#sendError("INVALID_MESSAGE", "Request id is already in flight", messageRequestId)
       return
     }
 
-    this.#inFlight.add(message.requestId)
+    if (messageRequestId) this.#inFlight.add(messageRequestId)
     try {
       await this.#handleReadyMessage(message)
     } finally {
-      this.#inFlight.delete(message.requestId)
+      if (messageRequestId) this.#inFlight.delete(messageRequestId)
     }
   }
 
@@ -124,7 +135,11 @@ export class ClientSession {
 
   #acceptHello(message: ClientMessage): void {
     if (message.type !== "session.hello") {
-      this.#sendError("NOT_READY", "The first message must be session.hello", message.requestId)
+      this.#sendError(
+        "NOT_READY",
+        "The first message must be session.hello",
+        correlatedRequestId(message)
+      )
       this.close(1008, "Session hello required")
       return
     }

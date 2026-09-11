@@ -1,4 +1,4 @@
-import type { ServerNotification, v2 } from "./generated/index.js"
+import type { ServerNotification, v2 } from "@cypheria/protocol/codex-types"
 
 export type CodexTurnSnapshot = Omit<v2.Turn, "items"> & {
   readonly threadId: string

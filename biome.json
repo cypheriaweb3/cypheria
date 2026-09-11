@@ -24,7 +24,8 @@
       "!coverage",
       "!pnpm-lock.yaml",
       "!apps/desktop/renderer/src/routeTree.gen.ts",
-      "!packages/codex-bridge/src/generated"
+      "!packages/protocol/src/agent/codex-app-server-messages.generated.ts",
+      "!packages/protocol/src/generated"
     ]
   },
   "formatter": {

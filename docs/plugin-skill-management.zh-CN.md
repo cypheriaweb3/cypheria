@@ -64,4 +64,4 @@ Desktop 测试覆盖生命周期、来源分类、部分来源失败、市场移
 - [Codex App Server](https://learn.chatgpt.com/docs/app-server)
 - [Cypheria Marketplace 设计](marketplace.zh-CN.md)
 
-以 `packages/codex-bridge/src/generated` 的生成协议作为实现契约，不因文档成熟度标签屏蔽已有能力。
+以 `packages/protocol/src/generated/codex` 的生成协议作为实现契约，不因文档成熟度标签屏蔽已有能力。

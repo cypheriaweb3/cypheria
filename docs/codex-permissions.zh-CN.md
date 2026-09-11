@@ -2,7 +2,7 @@
 
 本文定义 Cypheria Desktop 如何通过 Codex App Server 暴露 Codex permissions。它不定义 Cypheria 自己的权限模型，也不向 Codex permissions 添加任何 Web3 语义。
 
-本设计依据当前 OpenAI 官方文档，并于 2026-09-08 对照了本机 ChatGPT Desktop 应用包及其内置 `codex-cli 0.153.4`。除仓库中额外存在一个生成的 `ProfileV2` 文件外，`packages/codex-bridge/src/generated` 与该 binary 生成的协议一致。
+本设计依据当前 OpenAI 官方文档，并于 2026-09-08 对照了本机 ChatGPT Desktop 应用包及其内置 `codex-cli 0.153.4`。除仓库中额外存在一个生成的 `ProfileV2` 文件外，`packages/protocol/src/generated/codex` 与该 binary 生成的协议一致。
 
 参考资料：[permission profiles](https://learn.chatgpt.com/docs/permissions)、[sandboxing](https://learn.chatgpt.com/docs/sandboxing?surface=app)、[Auto-review](https://learn.chatgpt.com/docs/sandboxing/auto-review)、[approvals and security](https://learn.chatgpt.com/docs/agent-approvals-security)、[cloud internet access](https://learn.chatgpt.com/docs/cloud/internet-access) 与 [App Server](https://learn.chatgpt.com/docs/app-server)。
 

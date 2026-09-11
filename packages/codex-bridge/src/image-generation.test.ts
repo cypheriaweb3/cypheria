@@ -1,6 +1,5 @@
+import type { v2 } from "@cypheria/protocol/codex-types"
 import { describe, expect, it } from "vitest"
-
-import type { v2 } from "./generated/index.js"
 import { codexGeneratedImageData } from "./image-generation.js"
 
 const imageItem = (

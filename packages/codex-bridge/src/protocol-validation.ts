@@ -1,81 +1,51 @@
-import Ajv, { type ErrorObject, type ValidateFunction } from "ajv"
+import {
+  AGENT_CODEX_CLIENT_RPC,
+  AGENT_CODEX_SERVER_RPC,
+  type CodexClientResponse,
+  type CodexClientResponseMap,
+  type CodexServerRequestResponse,
+  type CodexServerRequestResponseMap,
+  codexGeneratedTypeSchema,
+} from "@cypheria/protocol"
+import type { ServerNotification, ServerRequest } from "@cypheria/protocol/codex-types"
 
-import responseSchemaNames from "./generated-schema/client-response-map.json" with { type: "json" }
-import protocolSchema from "./generated-schema/codex_app_server_protocol.schemas.json" with {
-  type: "json",
-}
-import serverResponseSchemaNames from "./generated-schema/server-response-map.json" with {
-  type: "json",
-}
-import type {
-  CodexClientResponseMap,
-  CodexServerRequestResponse,
-  CodexServerRequestResponseMap,
-} from "./response-map.js"
+const formatValidationError = (
+  issues: readonly { message: string; path: PropertyKey[] }[]
+): string =>
+  issues
+    .map(
+      ({ message, path }) => `${path.length ? path.map(String).join(".") : "message"} ${message}`
+    )
+    .join("; ")
 
-const ajv = new Ajv({ allErrors: true, strict: false })
-
-const compileDefinition = (definition: "ServerNotification" | "ServerRequest"): ValidateFunction =>
-  ajv.compile({
-    ...protocolSchema,
-    $ref: `#/definitions/${definition}`,
-  })
-
-const validateServerNotification = compileDefinition("ServerNotification")
-const validateServerRequest = compileDefinition("ServerRequest")
-const responseValidators = new Map<keyof CodexClientResponseMap, ValidateFunction>()
-const serverResponseValidators = new Map<keyof CodexServerRequestResponseMap, ValidateFunction>()
-
-const compileResponseDefinition = (definition: string): ValidateFunction => {
-  const definitionPath = definition in protocolSchema.definitions ? definition : `v2/${definition}`
-  return ajv.compile({
-    ...protocolSchema,
-    $ref: `#/definitions/${definitionPath}`,
-  })
-}
-
-const formatError = (error: ErrorObject): string => {
-  const path = error.instancePath || "message"
-  return `${path} ${error.message ?? "is invalid"}`
+const validateGeneratedType = <T>(definition: string, value: unknown): string | undefined => {
+  const result = codexGeneratedTypeSchema<T>(definition).safeParse(value)
+  return result.success ? undefined : formatValidationError(result.error.issues)
 }
 
 export const validateCodexServerMessage = (
   kind: "notification" | "request",
   value: unknown
-): string | undefined => {
-  const validate = kind === "request" ? validateServerRequest : validateServerNotification
-  if (validate(value)) return undefined
-  return validate.errors?.map(formatError).join("; ") || "message does not match the protocol"
-}
+): string | undefined =>
+  kind === "request"
+    ? validateGeneratedType<ServerRequest>("ServerRequest", value)
+    : validateGeneratedType<ServerNotification>("ServerNotification", value)
 
 export const validateCodexClientResponse = <M extends keyof CodexClientResponseMap>(
   method: M,
   value: unknown
-): string | undefined => {
-  let validate = responseValidators.get(method)
-  if (!validate) {
-    const definition = responseSchemaNames[method]
-    validate = compileResponseDefinition(definition)
-    responseValidators.set(method, validate)
-  }
-
-  if (validate(value)) return undefined
-  return validate.errors?.map(formatError).join("; ") || "response does not match the protocol"
-}
+): string | undefined =>
+  validateGeneratedType<CodexClientResponse<M>>(AGENT_CODEX_CLIENT_RPC[method].resultType, value)
 
 export function assertCodexServerRequestResponse<M extends keyof CodexServerRequestResponseMap>(
   method: M,
   value: unknown
 ): asserts value is CodexServerRequestResponse<M> {
-  let validate = serverResponseValidators.get(method)
-  if (!validate) {
-    validate = compileResponseDefinition(serverResponseSchemaNames[method])
-    serverResponseValidators.set(method, validate)
-  }
-
-  if (!validate(value)) {
-    const detail =
-      validate.errors?.map(formatError).join("; ") || "response does not match the protocol"
-    throw new Error(`Invalid response for Codex app-server request ${method}: ${detail}`)
+  const validationError = validateGeneratedType<CodexServerRequestResponse<M>>(
+    AGENT_CODEX_SERVER_RPC[method].resultType,
+    value
+  )
+  if (validationError) {
+    throw new Error(`Invalid response for Codex app-server request ${method}: ${validationError}`)
   }
 }

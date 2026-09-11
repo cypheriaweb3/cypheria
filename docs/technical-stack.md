@@ -28,7 +28,7 @@ Cypheria V1 is a TypeScript Web3 agent product with one privileged server and de
 | Desktop packaging | electron-builder |
 | CLI/SDK target integration | Cypheria server protocol |
 | Desktop Codex integration | `codex app-server` over WebSocket JSON-RPC |
-| Desktop Codex protocol types | `pnpm --filter @cypheria/codex-bridge generate:codex-types` |
+| Codex protocol types and validation | `pnpm --filter @cypheria/protocol generate:codex-all` |
 | ACP bridge | `@agentclientprotocol/sdk@1.4.0` app API to AI SDK 7.x through `@ai-sdk/provider` 4.x `LanguageModelV4` |
 | Marketplace web runtime | TanStack Start on Cloudflare Workers |
 | Marketplace data | Cloudflare D1 system of record, R2 immutable artifacts, Queues, Workflows |
@@ -71,6 +71,8 @@ packages/db
 ```
 
 `apps/cli`, `apps/marketplace`, and `packages/sdk` are planned packages. `apps/server`, `apps/expo`, and `packages/protocol` are implemented as the client/server foundation. Desktop remains unchanged until the foundation is reviewed.
+
+`@cypheria/protocol` authors live WebSocket contracts with Zod and owns the generated Codex App Server TypeScript, JSON Schemas, response mappings, and validators. Its complete `agent.codex.*` RPC and notification catalog is mechanically derived from those committed artifacts; provider payloads stay JSON-transparent on the shared wire. Build, typecheck, and test lifecycle checks fail when the catalog drifts.
 
 ## Server And Expo Stack
 
@@ -155,7 +157,8 @@ Search opens a shadcn Command dialog over the current page, with debounced chat 
 | UI primitives | `@cypheria/ui` |
 | Codex process | `codex app-server` |
 | Codex transport | WebSocket JSON-RPC on localhost |
-| Codex protocol types | generated into `packages/codex-bridge/src/generated` |
+| Codex protocol types | generated into `packages/protocol/src/generated/codex/ts` |
+| Codex protocol schemas | generated into `packages/protocol/src/generated/codex/schema` and adapted to per-message Zod schemas |
 
 Electron browser defaults:
 
@@ -190,9 +193,9 @@ Desktop
 
 `@cypheria/codex-bridge` owns desktop integration only. It should:
 
-- Use generated Codex app-server TypeScript files from `src/generated`.
-- Regenerate TypeScript and JSON Schema together with `pnpm --filter @cypheria/codex-bridge generate:codex-types`; the package script always includes experimental APIs and normalizes generated Rust 64-bit integer declarations to the JSON wire type `number`.
-- Map every request method to its generated response type and validate responses, reverse requests, and notifications against generated JSON Schema at runtime.
+- Consume raw generated Codex app-server types from `@cypheria/protocol/codex-types` and Cypheria message contracts from `@cypheria/protocol`.
+- Leave protocol generation and schema ownership to `@cypheria/protocol`; `pnpm --filter @cypheria/protocol generate:codex-all` always includes experimental APIs, normalizes generated Rust 64-bit integer declarations to the JSON wire type `number`, adds explicit TypeScript extensions to relative generated imports for NodeNext consumers, and refreshes the dotted message schemas and API reference.
+- Use the protocol-owned request/response mappings and temporarily validate raw responses, reverse requests, and notifications inside the bridge until it is refactored around the protocol's dotted messages and Zod schemas.
 - Implement WebSocket transport.
 - Perform the `initialize` request and `initialized` notification handshake.
 - Correlate JSON-RPC requests and responses.

@@ -25,6 +25,16 @@ type PendingRequest = {
 
 const requestId = (): string => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
 
+const correlatedRequestId = (message: object): string | undefined => {
+  if ("requestId" in message && typeof message.requestId === "string") return message.requestId
+  if (!("payload" in message) || typeof message.payload !== "object" || message.payload === null) {
+    return undefined
+  }
+  return "requestId" in message.payload && typeof message.payload.requestId === "string"
+    ? message.payload.requestId
+    : undefined
+}
+
 export class CypheriaServerClient {
   #attempt = 0
   #clientId = `expo-${requestId()}`
@@ -138,10 +148,11 @@ export class CypheriaServerClient {
     try {
       const message = parseServerMessageText(data)
       if (message.type === "runtime.event") return
-      if (!message.requestId) return
-      const pending = this.#pending.get(message.requestId)
+      const responseRequestId = correlatedRequestId(message)
+      if (!responseRequestId) return
+      const pending = this.#pending.get(responseRequestId)
       if (!pending) return
-      this.#pending.delete(message.requestId)
+      this.#pending.delete(responseRequestId)
       clearTimeout(pending.timeout)
       if (message.type === "server.error") pending.reject(new Error(message.payload.message))
       else pending.resolve(message)

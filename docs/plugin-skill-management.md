@@ -64,4 +64,4 @@ Desktop tests cover lifecycle, source provenance, partial-source failure, guarde
 - [Codex App Server](https://learn.chatgpt.com/docs/app-server)
 - [Cypheria Marketplace Design](marketplace.md)
 
-The generated protocol in `packages/codex-bridge/src/generated` is the implementation contract. Documentation maturity labels do not disable implemented capabilities.
+The generated protocol in `packages/protocol/src/generated/codex` is the implementation contract. Documentation maturity labels do not disable implemented capabilities.

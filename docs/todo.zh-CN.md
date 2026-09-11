@@ -61,13 +61,18 @@
   - 排除：agent、project、wallet、policy、browser 与 automation 产品 method；任何 `apps/desktop` code change。
   - 验证：protocol/server/Expo tests 与 typechecks、Expo compatibility check 与 static export、server build 与 embedded-web smoke test、daemon start/status/restart/stop smoke test、全仓库 CI/build。
 
+- [x] 在 `@cypheria/protocol` 中定义完整 Codex App Server API。
+  - 验收：所有 generated client RPC、反向 server RPC、server notification 与 client notification 都以无冲突的 `agent.codex.*` dotted wire name 进入 live Zod message union，并提供 request/response correlation 与上游 method/schema metadata。
+  - 包括：protocol 持有的 generated Codex DTO 与 JSON Schema、机械生成的 catalog、反向 lookup、漂移检查、provider-transparent JSON payload 和配套中英文 protocol 文档；本项不连接 server dispatch。
+  - 验证：protocol generation check、typecheck、test、build 与全仓库 CI。
+
 - [ ] 在明确评审后将 desktop 迁移到 Cypheria server。
   - 验收：Electron main 确保本地 supervised server 正在运行，desktop 使用共享 protocol，并保持 Electron-only dApp/browser、secure-storage、approval、preload 与 OS-integration 边界。
   - 前置条件：明确批准 server 基础；不得作为 foundation change 的一部分开始。
 
 - [x] 按 server 与 multi-client 目标架构重写文档。
   - 验收：README、architecture、technical stack、todo docs 和 `AGENTS.md` 只描述当前目标架构。
-  - 包括：不创建 `@cypheria/codex-protocol`、client 共用 `@cypheria/protocol`、目标架构由 server 持有 runtime、desktop migration 显式分阶段，并且 generated Codex app-server TS 仍位于 `@cypheria/codex-bridge` 内部。
+  - 包括：不创建 `@cypheria/codex-protocol`、client 共用 `@cypheria/protocol`、目标架构由 server 持有 runtime、desktop migration 显式分阶段，并且 generated Codex app-server 产物位于 `@cypheria/protocol`。
   - 验证：`pnpm run ci`、`pnpm build`。
 
 ## Runtime
@@ -189,12 +194,12 @@
   - 验证：`pnpm run ci`、`pnpm build` 和 `pnpm --filter @cypheria/desktop test`。
   - 验证说明：`pnpm run ci`、构建、desktop tests、严格 catalog 编译和全部 Turbo checks 均通过。
 
-- [x] 将 Codex app-server TypeScript 生成到 `@cypheria/codex-bridge`。
-  - 验收：generated files 位于 `packages/codex-bridge/src/generated` 且提交进仓库。
-  - 命令：`pnpm --filter @cypheria/codex-bridge generate:codex-types`。
+- [x] 将 Codex app-server TypeScript 与 schema 生成到 `@cypheria/protocol`。
+  - 验收：generated type 位于 `packages/protocol/src/generated/codex/ts`，generated schema 与 response mapping 位于 `packages/protocol/src/generated/codex/schema`，并全部提交进仓库。
+  - 命令：`pnpm --filter @cypheria/protocol generate:codex-all`。
   - 包括：添加 package script，用于显式 Codex 升级时重新生成文件。
   - 不得创建：`@cypheria/codex-protocol`。
-  - 验证：`pnpm --filter @cypheria/codex-bridge check`。
+  - 验证：`pnpm --filter @cypheria/protocol check`。
 
 - [x] 重构 `@cypheria/codex-bridge` 使用 generated app-server types。
   - 验收：bridge 使用 generated request、response、notification 和 server request types，不再手写 Codex app-server protocol types。

@@ -8,7 +8,7 @@ import type {
   RequestId,
   ServerNotification,
   ServerRequest,
-} from "./generated/index.js"
+} from "@cypheria/protocol/codex-types"
 import {
   assertCodexServerRequestResponse,
   validateCodexClientResponse,
@@ -16,6 +16,7 @@ import {
 } from "./protocol-validation.js"
 import type { CodexClientResponse, CodexServerRequestResponse } from "./response-map.js"
 
+export type * from "@cypheria/protocol/codex-types"
 export type {
   CodexAppServerProvider,
   CodexAppServerProviderBridge,
@@ -34,7 +35,6 @@ export {
   type CodexDynamicToolRegistry,
   createCodexDynamicToolRegistry,
 } from "./dynamic-tools.js"
-export type * from "./generated/index.js"
 export { type CodexGeneratedImageData, codexGeneratedImageData } from "./image-generation.js"
 export { inlineTextFromBytes, inlineTextFromDataUrl } from "./inline-file.js"
 export { assertCodexServerRequestResponse } from "./protocol-validation.js"

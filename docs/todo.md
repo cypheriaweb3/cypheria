@@ -61,13 +61,18 @@ Status legend:
   - Exclude: agent, project, wallet, policy, browser, and automation product methods; any `apps/desktop` code change.
   - Verification: protocol/server/Expo tests and typechecks, Expo compatibility check and static export, server build and embedded-web smoke test, daemon start/status/restart/stop smoke test, full repository CI/build.
 
+- [x] Define the complete Codex App Server API in `@cypheria/protocol`.
+  - Acceptance: all generated client RPCs, reverse server RPCs, server notifications, and client notifications have collision-free `agent.codex.*` dotted wire names in the live Zod message unions, with request/response correlation and upstream method/schema metadata.
+  - Include: protocol-owned generated Codex DTOs and JSON Schemas, mechanically generated catalogs, reverse lookups, drift checks, provider-transparent JSON payloads, and paired protocol documentation; do not connect server dispatch in this item.
+  - Verification: protocol generation check, typecheck, tests, build, and full repository CI.
+
 - [ ] Migrate desktop to the Cypheria server after explicit review.
   - Acceptance: Electron main ensures the local supervised server is running, desktop uses the shared protocol, and Electron-only dApp/browser, secure-storage, approval, preload, and OS-integration boundaries remain intact.
   - Prerequisite: explicit approval of the server foundation; do not begin as part of the foundation change.
 
 - [x] Rewrite docs for the server and multi-client target architecture.
   - Acceptance: README, architecture, technical stack, todo docs, and `AGENTS.md` describe the current target architecture only.
-  - Include: no `@cypheria/codex-protocol`, clients share `@cypheria/protocol`, server owns runtime in the target architecture, desktop migration is explicitly staged, and generated Codex app-server TS remains inside `@cypheria/codex-bridge`.
+  - Include: no `@cypheria/codex-protocol`, clients share `@cypheria/protocol`, server owns runtime in the target architecture, desktop migration is explicitly staged, and generated Codex app-server artifacts live in `@cypheria/protocol`.
   - Verification: `pnpm run ci`, `pnpm build`.
 
 ## Runtime
@@ -189,12 +194,12 @@ Status legend:
   - Verification: `pnpm run ci`, `pnpm build`, and `pnpm --filter @cypheria/desktop test`.
   - Verification note: `pnpm run ci`, build, desktop tests, strict catalog compilation, and all Turbo checks pass.
 
-- [x] Regenerate Codex app-server TypeScript into `@cypheria/codex-bridge`.
-  - Acceptance: generated files live in `packages/codex-bridge/src/generated` and are committed.
-  - Command: `pnpm --filter @cypheria/codex-bridge generate:codex-types`.
+- [x] Regenerate Codex app-server TypeScript and schemas into `@cypheria/protocol`.
+  - Acceptance: generated types live in `packages/protocol/src/generated/codex/ts`, generated schemas and response mappings live in `packages/protocol/src/generated/codex/schema`, and all artifacts are committed.
+  - Command: `pnpm --filter @cypheria/protocol generate:codex-all`.
   - Include: package script to regenerate the files during explicit Codex upgrades.
   - Must not create: `@cypheria/codex-protocol`.
-  - Verification: `pnpm --filter @cypheria/codex-bridge check`.
+  - Verification: `pnpm --filter @cypheria/protocol check`.
 
 - [x] Refactor `@cypheria/codex-bridge` to use generated app-server types.
   - Acceptance: bridge uses generated request, response, notification, and server request types instead of hand-written Codex app-server protocol types.

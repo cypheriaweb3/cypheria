@@ -1,6 +1,8 @@
 # Codex App Server API reference
 
-This document analyzes the generated protocol currently committed under `packages/codex-bridge/src/generated`. It covers the complete API surface generated with experimental definitions enabled: 158 client requests, 11 server-initiated requests, 83 server notifications, and one client notification.
+This document analyzes the generated protocol currently committed under `packages/protocol/src/generated/codex`. It covers the complete API surface generated with experimental definitions enabled: 158 client requests, 11 server-initiated requests, 83 server notifications, and one client notification.
+
+The Cypheria client protocol exposes this complete surface with mechanically generated dotted names under `agent.codex`. Slash separators become dots, camel-case segments become snake case, and the message direction is explicit: `.request`, `.response`, or `.notification`. Every dotted message has a method-specific Zod schema derived from the generated JSON Schema and statically paired with the matching generated Codex TypeScript type. These message contracts are exported from `@cypheria/protocol`, while raw generated Codex types are isolated behind `@cypheria/protocol/codex-types`.
 
 The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method`, and method-specific `params`; server requests use the same shape in the reverse direction; notifications have no `id`; successful responses contain `id` and `result`; errors contain `id` and `error`. A trailing `?` below marks an optional top-level field. The generated type named before each field list is the source of truth for nested structures and enum values.
 

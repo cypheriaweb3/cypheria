@@ -4,11 +4,20 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./codex-types": "./src/generated/codex/ts/index.ts"
   },
   "scripts": {
+    "check:agent-codex-app-server-messages": "node scripts/generate-agent-codex-app-server-messages.mjs --check",
     "build": "tsc -p tsconfig.json",
     "check": "pnpm typecheck",
+    "generate:codex-types": "pnpm exec codex app-server generate-ts --experimental --out src/generated/codex/ts && pnpm exec codex app-server generate-json-schema --experimental --out src/generated/codex/schema && node scripts/process-codex-app-server-generated.mjs",
+    "generate:agent-codex-app-server-messages": "node scripts/generate-agent-codex-app-server-messages.mjs",
+    "generate:codex-app-server-api-docs": "node scripts/generate-codex-app-server-api-docs.mjs",
+    "generate:codex-all": "pnpm generate:codex-types && pnpm generate:agent-codex-app-server-messages && pnpm generate:codex-app-server-api-docs",
+    "prebuild": "pnpm check:agent-codex-app-server-messages",
+    "pretest": "pnpm check:agent-codex-app-server-messages",
+    "pretypecheck": "pnpm check:agent-codex-app-server-messages",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json"
   },

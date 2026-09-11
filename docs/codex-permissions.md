@@ -2,7 +2,7 @@
 
 This document specifies how Cypheria Desktop exposes Codex permissions through Codex App Server. It does not define a Cypheria permission model and does not add Web3 meaning to Codex permissions.
 
-The design follows the current OpenAI documentation and was checked on 2026-09-08 against the installed ChatGPT Desktop bundle and its bundled `codex-cli 0.153.4`. The generated protocol in `packages/codex-bridge/src/generated` matches that bundled binary except for one repository-only generated `ProfileV2` file.
+The design follows the current OpenAI documentation and was checked on 2026-09-08 against the installed ChatGPT Desktop bundle and its bundled `codex-cli 0.153.4`. The generated protocol in `packages/protocol/src/generated/codex` matches that bundled binary except for one repository-only generated `ProfileV2` file.
 
 References: [profiles](https://learn.chatgpt.com/docs/permissions), [sandboxing](https://learn.chatgpt.com/docs/sandboxing?surface=app), [Auto-review](https://learn.chatgpt.com/docs/sandboxing/auto-review), [approvals and security](https://learn.chatgpt.com/docs/agent-approvals-security), [cloud internet access](https://learn.chatgpt.com/docs/cloud/internet-access), and [App Server](https://learn.chatgpt.com/docs/app-server).
 

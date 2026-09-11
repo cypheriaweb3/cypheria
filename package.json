@@ -9,7 +9,7 @@
     "build": "turbo build",
     "check": "turbo check",
     "ci": "biome ci . && turbo check",
-    "codex:generate": "pnpm --filter @cypheria/codex-bridge generate:codex-types",
+    "codex:generate": "pnpm --filter @cypheria/protocol generate:codex-all",
     "codex:version": "codex --version",
     "dev": "turbo dev",
     "format": "biome format --write .",

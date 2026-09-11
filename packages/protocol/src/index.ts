@@ -1,6 +1,19 @@
 import superjson, { type SuperJSONResult, type SuperJSONValue } from "superjson"
 import { z } from "zod"
 
+import {
+  AgentCodexClientNotificationMessageSchema,
+  AgentCodexClientRequestMessageSchema,
+  AgentCodexClientResponseMessageSchema,
+  AgentCodexServerNotificationMessageSchema,
+  AgentCodexServerRequestMessageSchema,
+  AgentCodexServerResponseMessageSchema,
+} from "./agent/codex-app-server.ts"
+import { RequestIdSchema } from "./request-id.ts"
+
+export * from "./agent/codex-app-server.ts"
+export { type RequestId, RequestIdSchema } from "./request-id.ts"
+
 export const CYPHERIA_PROTOCOL_VERSION = 1 as const
 export const CYPHERIA_WEBSOCKET_PATH = "/api/v1/ws" as const
 export const CYPHERIA_WEBSOCKET_PROTOCOL = `cypheria.v${CYPHERIA_PROTOCOL_VERSION}` as const
@@ -22,12 +35,6 @@ const isCypheriaSuperJsonEnvelope = (value: unknown): value is CypheriaSuperJson
 
 export const ClientKindSchema = z.enum(["cli", "desktop", "expo", "mobile", "sdk", "web"])
 export type ClientKind = z.infer<typeof ClientKindSchema>
-
-export const RequestIdSchema = z
-  .string()
-  .min(1)
-  .max(128)
-  .regex(/^[A-Za-z0-9._:-]+$/, "Request id contains unsupported characters")
 
 export const RuntimeMethodSchema = z
   .string()
@@ -100,7 +107,7 @@ export const SessionGoodbyeMessageSchema = z.object({
   requestId: RequestIdSchema,
 })
 
-export const ClientMessageSchema = z.discriminatedUnion("type", [
+export const ClientMessageSchema = z.union([
   SessionHelloMessageSchema,
   ServerPingMessageSchema,
   ServerInfoRequestMessageSchema,
@@ -108,6 +115,9 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   RuntimeRequestMessageSchema,
   ServerLifecycleRequestMessageSchema,
   SessionGoodbyeMessageSchema,
+  AgentCodexClientRequestMessageSchema,
+  AgentCodexServerResponseMessageSchema,
+  AgentCodexClientNotificationMessageSchema,
 ])
 export type ClientMessage = z.infer<typeof ClientMessageSchema>
 
@@ -228,7 +238,7 @@ export const ServerErrorMessageSchema = z.object({
   }),
 })
 
-export const ServerMessageSchema = z.discriminatedUnion("type", [
+export const ServerMessageSchema = z.union([
   SessionReadyMessageSchema,
   ServerPongMessageSchema,
   ServerInfoMessageSchema,
@@ -237,6 +247,9 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   RuntimeEventMessageSchema,
   ServerLifecycleAcceptedMessageSchema,
   ServerErrorMessageSchema,
+  AgentCodexClientResponseMessageSchema,
+  AgentCodexServerRequestMessageSchema,
+  AgentCodexServerNotificationMessageSchema,
 ])
 export type ServerMessage = z.infer<typeof ServerMessageSchema>
 

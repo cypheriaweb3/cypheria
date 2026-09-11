@@ -2,7 +2,7 @@
 
 `apps/server` is the process boundary between Cypheria clients and privileged local capabilities. It follows the useful daemon shape from Paseo—a stable supervisor, a replaceable worker, explicit session handshake, health and diagnostics, PID ownership, crash recovery, and graceful lifecycle control—while using Hono instead of Express.
 
-This foundation intentionally exposes no agent, project, wallet, policy, or automation product API. It hosts a bare `CypheriaRuntime`, whose built-in `runtime.info`, `runtime.health`, and `runtime.services` methods are enough to validate the transport. Product services can be injected after the server architecture and security boundary are reviewed.
+The running foundation server still dispatches no agent, project, wallet, policy, or automation product service. It hosts a bare `CypheriaRuntime`, whose built-in `runtime.info`, `runtime.health`, and `runtime.services` methods are enough to validate the transport. `@cypheria/protocol` now reserves the complete Codex App Server API under `agent.codex.*`; server-side Codex dispatch remains a separate implementation step.
 
 ## Process Model
 
@@ -32,7 +32,7 @@ cypheria-server stop
 
 ## Client Protocol
 
-`@cypheria/protocol` owns the Cypheria protocol only. It does not duplicate or hand-write Codex App Server types. All HTTP and WebSocket boundary values are validated with Zod.
+`@cypheria/protocol` owns the Cypheria wire protocol and the generated Codex App Server artifacts. It does not hand-write Codex DTOs: TypeScript, JSON Schemas, response mappings, validators, and the checked-in dotted API registry are generated or derived together in this package. `@cypheria/codex-bridge` consumes the dedicated protocol subpath. All HTTP and WebSocket boundary values are validated with Zod or the generated Codex JSON Schemas.
 
 WebSocket clients connect to `/api/v1/ws` with the `cypheria.v1` subprotocol. Their first message must be `session.hello` with protocol version, client identity, client kind, and capabilities. The server responds with `session.ready` and a stable session ID. Every request has a caller-supplied request ID; runtime events are broadcast without one.
 
@@ -49,6 +49,29 @@ Supported foundation messages are:
 | `session.goodbye` | connection close | Graceful client disconnect |
 
 Invalid messages return `server.error`. The server rejects binary frames, duplicate in-flight request IDs, incompatible protocol versions, oversized messages, and sessions that do not send hello within the configured deadline. A transport-level ping/pong heartbeat terminates stale sockets so the operational connection registry cannot retain dead clients indefinitely.
+
+### Codex agent API names
+
+The complete Codex App Server surface is part of the live client/server unions using new, dotted Cypheria names:
+
+```txt
+agent.codex.<operation>.request
+agent.codex.<operation>.response
+agent.codex.<operation>.notification
+```
+
+Upstream slash separators become dots and camel-case segments become snake case. For example:
+
+```txt
+thread/start                 -> agent.codex.thread.start.request
+thread/memoryMode/set        -> agent.codex.thread.memory_mode.set.request
+threadSection/list           -> agent.codex.thread_section.list.request
+getConversationSummary      -> agent.codex.get_conversation_summary.request
+```
+
+For ordinary RPCs, the client sends `{ type, requestId, ...params }` and the server returns `{ type, payload: { requestId, ...result } }`. This follows Paseo's current convention: request fields are top-level, while correlated response fields live in `payload`. For App Server-initiated RPCs such as approvals, the server sends the request and the capable client returns the response. Server notifications carry the upstream notification params directly in `payload`; the App Server `initialized` client notification has no payload.
+
+The generated registry records all 158 client-initiated RPCs, 11 server-initiated RPCs, 83 server notifications, and one client notification, including each upstream Params/Response type name and reverse wire-name lookup. Its generation check runs before protocol build, typecheck, and test so a Codex regeneration cannot silently drift from the public Cypheria API catalog.
 
 ## HTTP Operations
 

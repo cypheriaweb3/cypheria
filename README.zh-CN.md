@@ -31,7 +31,7 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 - **UI**：shadcn-style copied components、Base UI primitives、Cypheria CSS tokens、lucide-react
 - **Cypheria client protocol**：`@cypheria/protocol` 中版本化的 Zod contracts，并支持带元数据的 `bigint` 传输
 - **Desktop agent integration**：`codex app-server` over WebSocket JSON-RPC
-- **Desktop Codex protocol types**：通过 `pnpm --filter @cypheria/codex-bridge generate:codex-types` 生成
+- **Codex protocol types 与 validation**：由 `@cypheria/protocol` 持有，并通过 `pnpm --filter @cypheria/protocol generate:codex-all` 生成
 - **Marketplace hosting**：Cloudflare Workers、D1、R2、Queues 与 Workflows
 - **Web3**：viem、Privy、WalletConnect / Reown
 - **Data**：SQLite + Drizzle ORM

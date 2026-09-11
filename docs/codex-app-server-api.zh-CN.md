@@ -1,6 +1,8 @@
 # Codex App Server API 参考
 
-本文分析当前提交在 `packages/codex-bridge/src/generated` 下的自动生成协议，覆盖启用实验定义后生成的完整 API：158 个客户端请求、11 个服务端反向请求、83 个服务端通知，以及 1 个客户端通知。
+本文分析当前提交在 `packages/protocol/src/generated/codex` 下的自动生成协议，覆盖启用实验定义后生成的完整 API：158 个客户端请求、11 个服务端反向请求、83 个服务端通知，以及 1 个客户端通知。
+
+Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴露这套完整 API。Slash separator 转为 dot，camel-case segment 转为 snake case，并以 `.request`、`.response` 或 `.notification` 明确消息方向。每种 dotted message 都有从 generated JSON Schema 派生的专用 Zod schema，并在静态类型上与对应 generated Codex TypeScript type 配对。这些 message contract 从 `@cypheria/protocol` 导出，原始 generated Codex type 则隔离在 `@cypheria/protocol/codex-types`。
 
 协议采用 JSON-RPC 风格消息。客户端请求包含 `id`、`method` 和各方法专用的 `params`；服务端反向请求使用相同结构但方向相反；通知没有 `id`；成功响应包含 `id` 和 `result`；错误响应包含 `id` 和 `error`。下文顶层字段名后的 `?` 表示可选。字段列表前的生成类型名是嵌套结构和枚举值的最终依据。
 

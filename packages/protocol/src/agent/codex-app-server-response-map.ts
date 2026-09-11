@@ -1,0 +1,195 @@
+import type {
+  ApplyPatchApprovalResponse,
+  ExecCommandApprovalResponse,
+  FuzzyFileSearchResponse,
+  FuzzyFileSearchSessionStartResponse,
+  FuzzyFileSearchSessionStopResponse,
+  FuzzyFileSearchSessionUpdateResponse,
+  GetAuthStatusResponse,
+  GetConversationSummaryResponse,
+  GitDiffToRemoteResponse,
+  InitializeResponse,
+  v2,
+} from "../generated/codex/ts/index.ts"
+
+/** Compile-time mapping from every client request method to its generated result type. */
+export type CodexClientResponseMap = {
+  readonly initialize: InitializeResponse
+  readonly "server/diagnostics": v2.ServerDiagnosticsResponse
+  readonly "thread/start": v2.ThreadStartResponse
+  readonly "thread/resume": v2.ThreadResumeResponse
+  readonly "thread/fork": v2.ThreadForkResponse
+  readonly "thread/archive": v2.ThreadArchiveResponse
+  readonly "thread/delete": v2.ThreadDeleteResponse
+  readonly "thread/unsubscribe": v2.ThreadUnsubscribeResponse
+  readonly "thread/increment_elicitation": v2.ThreadIncrementElicitationResponse
+  readonly "thread/decrement_elicitation": v2.ThreadDecrementElicitationResponse
+  readonly "thread/name/set": v2.ThreadSetNameResponse
+  readonly "thread/goal/set": v2.ThreadGoalSetResponse
+  readonly "thread/goal/get": v2.ThreadGoalGetResponse
+  readonly "thread/goal/clear": v2.ThreadGoalClearResponse
+  readonly "thread/queue/add": v2.ThreadQueueAddResponse
+  readonly "thread/queue/list": v2.ThreadQueueListResponse
+  readonly "thread/queue/update": v2.ThreadQueueUpdateResponse
+  readonly "thread/queue/delete": v2.ThreadQueueDeleteResponse
+  readonly "thread/queue/reorder": v2.ThreadQueueReorderResponse
+  readonly "thread/queue/start": v2.ThreadQueueStartResponse
+  readonly "thread/metadata/update": v2.ThreadMetadataUpdateResponse
+  readonly "thread/section/move": v2.ThreadSectionMoveResponse
+  readonly "thread/settings/update": v2.ThreadSettingsUpdateResponse
+  readonly "thread/memoryMode/set": v2.ThreadMemoryModeSetResponse
+  readonly "memory/reset": v2.MemoryResetResponse
+  readonly "thread/unarchive": v2.ThreadUnarchiveResponse
+  readonly "thread/compact/start": v2.ThreadCompactStartResponse
+  readonly "thread/shellCommand": v2.ThreadShellCommandResponse
+  readonly "thread/approveGuardianDeniedAction": v2.ThreadApproveGuardianDeniedActionResponse
+  readonly "thread/backgroundTerminals/clean": v2.ThreadBackgroundTerminalsCleanResponse
+  readonly "thread/backgroundTerminals/list": v2.ThreadBackgroundTerminalsListResponse
+  readonly "thread/backgroundTerminals/terminate": v2.ThreadBackgroundTerminalsTerminateResponse
+  readonly "thread/rollback": v2.ThreadRollbackResponse
+  readonly "thread/revert": v2.ThreadRevertResponse
+  readonly "thread/list": v2.ThreadListResponse
+  readonly "project/list": v2.ProjectListResponse
+  readonly "project/read": v2.ProjectReadResponse
+  readonly "project/create": v2.ProjectCreateResponse
+  readonly "project/import": v2.ProjectImportResponse
+  readonly "project/update": v2.ProjectUpdateResponse
+  readonly "project/move": v2.ProjectMoveResponse
+  readonly "project/delete": v2.ProjectDeleteResponse
+  readonly "threadSection/list": v2.ThreadSectionListResponse
+  readonly "threadSection/create": v2.ThreadSectionCreateResponse
+  readonly "threadSection/update": v2.ThreadSectionUpdateResponse
+  readonly "threadSection/delete": v2.ThreadSectionDeleteResponse
+  readonly "thread/search": v2.ThreadSearchResponse
+  readonly "thread/searchOccurrences": v2.ThreadSearchOccurrencesResponse
+  readonly "thread/loaded/list": v2.ThreadLoadedListResponse
+  readonly "thread/read": v2.ThreadReadResponse
+  readonly "thread/turns/list": v2.ThreadTurnsListResponse
+  readonly "thread/items/list": v2.ThreadItemsListResponse
+  readonly "thread/inject_items": v2.ThreadInjectItemsResponse
+  readonly "skills/list": v2.SkillsListResponse
+  readonly "skills/extraRoots/set": v2.SkillsExtraRootsSetResponse
+  readonly "hooks/list": v2.HooksListResponse
+  readonly "marketplace/add": v2.MarketplaceAddResponse
+  readonly "marketplace/remove": v2.MarketplaceRemoveResponse
+  readonly "marketplace/upgrade": v2.MarketplaceUpgradeResponse
+  readonly "plugin/list": v2.PluginListResponse
+  readonly "plugin/search": v2.PluginSearchResponse
+  readonly "plugin/installed": v2.PluginInstalledResponse
+  readonly "plugin/reconcile": v2.PluginReconcileResponse
+  readonly "plugin/read": v2.PluginReadResponse
+  readonly "plugin/skill/read": v2.PluginSkillReadResponse
+  readonly "plugin/share/save": v2.PluginShareSaveResponse
+  readonly "plugin/share/updateTargets": v2.PluginShareUpdateTargetsResponse
+  readonly "plugin/share/list": v2.PluginShareListResponse
+  readonly "plugin/share/checkout": v2.PluginShareCheckoutResponse
+  readonly "plugin/share/delete": v2.PluginShareDeleteResponse
+  readonly "app/read": v2.AppsReadResponse
+  readonly "app/list": v2.AppsListResponse
+  readonly "app/installed": v2.AppsInstalledResponse
+  readonly "fs/readFile": v2.FsReadFileResponse
+  readonly "fs/writeFile": v2.FsWriteFileResponse
+  readonly "fs/createDirectory": v2.FsCreateDirectoryResponse
+  readonly "fs/getMetadata": v2.FsGetMetadataResponse
+  readonly "fs/readDirectory": v2.FsReadDirectoryResponse
+  readonly "fs/remove": v2.FsRemoveResponse
+  readonly "fs/copy": v2.FsCopyResponse
+  readonly "fs/watch": v2.FsWatchResponse
+  readonly "fs/unwatch": v2.FsUnwatchResponse
+  readonly "skills/config/write": v2.SkillsConfigWriteResponse
+  readonly "plugin/install": v2.PluginInstallResponse
+  readonly "plugin/uninstall": v2.PluginUninstallResponse
+  readonly "turn/start": v2.TurnStartResponse
+  readonly "turn/settings/update": v2.TurnSettingsUpdateResponse
+  readonly "turn/steer": v2.TurnSteerResponse
+  readonly "turn/interrupt": v2.TurnInterruptResponse
+  readonly "thread/realtime/start": v2.ThreadRealtimeStartResponse
+  readonly "thread/realtime/appendAudio": v2.ThreadRealtimeAppendAudioResponse
+  readonly "thread/realtime/appendText": v2.ThreadRealtimeAppendTextResponse
+  readonly "thread/realtime/appendSpeech": v2.ThreadRealtimeAppendSpeechResponse
+  readonly "thread/realtime/stop": v2.ThreadRealtimeStopResponse
+  readonly "thread/timeline/list": v2.ThreadTimelineListResponse
+  readonly "thread/realtime/listVoices": v2.ThreadRealtimeListVoicesResponse
+  readonly "review/start": v2.ReviewStartResponse
+  readonly "model/list": v2.ModelListResponse
+  readonly "modelProvider/capabilities/read": v2.ModelProviderCapabilitiesReadResponse
+  readonly "experimentalFeature/list": v2.ExperimentalFeatureListResponse
+  readonly "permissionProfile/list": v2.PermissionProfileListResponse
+  readonly "experimentalFeature/enablement/set": v2.ExperimentalFeatureEnablementSetResponse
+  readonly "remoteControl/enable": v2.RemoteControlEnableResponse
+  readonly "remoteControl/disable": v2.RemoteControlDisableResponse
+  readonly "remoteControl/status/read": v2.RemoteControlStatusReadResponse
+  readonly "remoteControl/pairing/start": v2.RemoteControlPairingStartResponse
+  readonly "remoteControl/pairing/status": v2.RemoteControlPairingStatusResponse
+  readonly "remoteControl/client/list": v2.RemoteControlClientsListResponse
+  readonly "remoteControl/client/revoke": v2.RemoteControlClientsRevokeResponse
+  readonly "collaborationMode/list": v2.CollaborationModeListResponse
+  readonly "mock/experimentalMethod": v2.MockExperimentalMethodResponse
+  readonly "environment/add": v2.EnvironmentAddResponse
+  readonly "environment/info": v2.EnvironmentInfoResponse
+  readonly "environment/status": v2.EnvironmentStatusResponse
+  readonly "mcpServer/oauth/login": v2.McpServerOauthLoginResponse
+  readonly "config/mcpServer/reload": v2.McpServerRefreshResponse
+  readonly "mcpServerStatus/list": v2.ListMcpServerStatusResponse
+  readonly "mcpServer/resource/read": v2.McpResourceReadResponse
+  readonly "mcpServer/event/stream/start": v2.McpServerEventStreamStartResponse
+  readonly "mcpServer/event/stream/stop": v2.McpServerEventStreamStopResponse
+  readonly "mcpServer/tool/call": v2.McpServerToolCallResponse
+  readonly "windowsSandbox/setupStart": v2.WindowsSandboxSetupStartResponse
+  readonly "windowsSandbox/readiness": v2.WindowsSandboxReadinessResponse
+  readonly "account/login/start": v2.LoginAccountResponse
+  readonly "account/bedrock/discover": v2.BedrockDiscoverResponse
+  readonly "account/bedrock/setup": v2.BedrockSetupResponse
+  readonly "account/login/cancel": v2.CancelLoginAccountResponse
+  readonly "account/logout": v2.LogoutAccountResponse
+  readonly "account/rateLimits/read": v2.GetAccountRateLimitsResponse
+  readonly "account/rateLimitResetCredit/consume": v2.ConsumeAccountRateLimitResetCreditResponse
+  readonly "account/usage/read": v2.GetAccountTokenUsageResponse
+  readonly "account/workspaceMessages/read": v2.GetWorkspaceMessagesResponse
+  readonly "account/sendAddCreditsNudgeEmail": v2.SendAddCreditsNudgeEmailResponse
+  readonly "feedback/upload": v2.FeedbackUploadResponse
+  readonly "command/exec": v2.CommandExecResponse
+  readonly "command/exec/write": v2.CommandExecWriteResponse
+  readonly "command/exec/terminate": v2.CommandExecTerminateResponse
+  readonly "command/exec/resize": v2.CommandExecResizeResponse
+  readonly "process/spawn": v2.ProcessSpawnResponse
+  readonly "process/writeStdin": v2.ProcessWriteStdinResponse
+  readonly "process/kill": v2.ProcessKillResponse
+  readonly "process/resizePty": v2.ProcessResizePtyResponse
+  readonly "config/read": v2.ConfigReadResponse
+  readonly "externalAgentConfig/detect": v2.ExternalAgentConfigDetectResponse
+  readonly "externalAgentConfig/import": v2.ExternalAgentConfigImportResponse
+  readonly "externalAgentConfig/import/recordHistory": v2.ExternalAgentConfigImportHistoryRecordResponse
+  readonly "externalAgentConfig/import/readHistories": v2.ExternalAgentConfigImportHistoriesReadResponse
+  readonly "config/value/write": v2.ConfigWriteResponse
+  readonly "config/batchWrite": v2.ConfigWriteResponse
+  readonly "configRequirements/read": v2.ConfigRequirementsReadResponse
+  readonly "account/read": v2.GetAccountResponse
+  readonly getConversationSummary: GetConversationSummaryResponse
+  readonly gitDiffToRemote: GitDiffToRemoteResponse
+  readonly getAuthStatus: GetAuthStatusResponse
+  readonly fuzzyFileSearch: FuzzyFileSearchResponse
+  readonly "fuzzyFileSearch/sessionStart": FuzzyFileSearchSessionStartResponse
+  readonly "fuzzyFileSearch/sessionUpdate": FuzzyFileSearchSessionUpdateResponse
+  readonly "fuzzyFileSearch/sessionStop": FuzzyFileSearchSessionStopResponse
+}
+
+/** Compile-time mapping from every server-initiated request to the required client result. */
+export type CodexServerRequestResponseMap = {
+  readonly "item/commandExecution/requestApproval": v2.CommandExecutionRequestApprovalResponse
+  readonly "item/fileChange/requestApproval": v2.FileChangeRequestApprovalResponse
+  readonly "item/tool/requestUserInput": v2.ToolRequestUserInputResponse
+  readonly "mcpServer/elicitation/request": v2.McpServerElicitationRequestResponse
+  readonly "item/permissions/requestApproval": v2.PermissionsRequestApprovalResponse
+  readonly "item/tool/call": v2.DynamicToolCallResponse
+  readonly "account/chatgptAuthTokens/refresh": v2.ChatgptAuthTokensRefreshResponse
+  readonly "attestation/generate": v2.AttestationGenerateResponse
+  readonly "currentTime/read": v2.CurrentTimeReadResponse
+  readonly applyPatchApproval: ApplyPatchApprovalResponse
+  readonly execCommandApproval: ExecCommandApprovalResponse
+}
+
+export type CodexClientResponse<M extends keyof CodexClientResponseMap> = CodexClientResponseMap[M]
+
+export type CodexServerRequestResponse<M extends keyof CodexServerRequestResponseMap> =
+  CodexServerRequestResponseMap[M]
