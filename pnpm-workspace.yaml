@@ -11,3 +11,5 @@ allowBuilds:
 onlyBuiltDependencies:
   - electron
   - esbuild
+patchedDependencies:
+  '@agentclientprotocol/sdk@1.4.0': patches/@agentclientprotocol__sdk@1.4.0.patch

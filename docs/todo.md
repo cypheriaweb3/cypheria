@@ -66,6 +66,11 @@ Status legend:
   - Include: protocol-owned generated Codex DTOs and JSON Schemas, mechanically generated catalogs, reverse lookups, drift checks, provider-transparent JSON payloads, and paired protocol documentation; do not connect server dispatch in this item.
   - Verification: protocol generation check, typecheck, tests, build, and full repository CI.
 
+- [x] Add ACP wire envelopes to `@cypheria/protocol`.
+  - Acceptance: directional `agent.acp.*` messages carry JSON-transparent ACP traffic in the live client/server unions, discriminate stable v1 from draft v2, and preserve v2 batch semantics.
+  - Include: official `@agentclientprotocol/sdk@1.4.0` protocol constants, directional types, generated Zod schemas, per-method parameter validation, JSON-RPC boundary validation, and paired protocol documentation; expose the SDK's shipped Zod modules with a minimal pinned package-export patch instead of copying them; do not connect server dispatch in this item.
+  - Verification: protocol typecheck, tests, and build.
+
 - [ ] Migrate desktop to the Cypheria server after explicit review.
   - Acceptance: Electron main ensures the local supervised server is running, desktop uses the shared protocol, and Electron-only dApp/browser, secure-storage, approval, preload, and OS-integration boundaries remain intact.
   - Prerequisite: explicit approval of the server foundation; do not begin as part of the foundation change.

@@ -1,0 +1,26 @@
+diff --git a/package.json b/package.json
+index 1122ef9568fa8214cac23356f310583fd523d648..4b4da4605357043ba63f7ba6fd5f55fda10b0bf1 100644
+--- a/package.json
++++ b/package.json
+@@ -31,11 +31,21 @@
+       "import": "./dist/acp.js",
+       "default": "./dist/acp.js"
+     },
++    "./zod": {
++      "types": "./dist/schema/zod.gen.d.ts",
++      "import": "./dist/schema/zod.gen.js",
++      "default": "./dist/schema/zod.gen.js"
++    },
+     "./experimental/v2": {
+       "types": "./dist/v2/acp.d.ts",
+       "import": "./dist/v2/acp.js",
+       "default": "./dist/v2/acp.js"
+     },
++    "./experimental/v2/zod": {
++      "types": "./dist/v2/schema/zod.gen.d.ts",
++      "import": "./dist/v2/schema/zod.gen.js",
++      "default": "./dist/v2/schema/zod.gen.js"
++    },
+     "./experimental/http-client": {
+       "types": "./dist/http-stream.d.ts",
+       "import": "./dist/http-stream.js",

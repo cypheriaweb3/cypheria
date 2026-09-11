@@ -1,6 +1,6 @@
 import superjson, { type SuperJSONResult, type SuperJSONValue } from "superjson"
 import { z } from "zod"
-
+import { AgentAcpClientMessageSchema, AgentAcpServerMessageSchema } from "./agent/acp-messages.ts"
 import {
   AgentCodexClientNotificationMessageSchema,
   AgentCodexClientRequestMessageSchema,
@@ -11,6 +11,7 @@ import {
 } from "./agent/codex-app-server.ts"
 import { RequestIdSchema } from "./request-id.ts"
 
+export * from "./agent/acp-messages.ts"
 export * from "./agent/codex-app-server.ts"
 export { type RequestId, RequestIdSchema } from "./request-id.ts"
 
@@ -115,6 +116,7 @@ export const ClientMessageSchema = z.union([
   RuntimeRequestMessageSchema,
   ServerLifecycleRequestMessageSchema,
   SessionGoodbyeMessageSchema,
+  AgentAcpClientMessageSchema,
   AgentCodexClientRequestMessageSchema,
   AgentCodexServerResponseMessageSchema,
   AgentCodexClientNotificationMessageSchema,
@@ -247,6 +249,7 @@ export const ServerMessageSchema = z.union([
   RuntimeEventMessageSchema,
   ServerLifecycleAcceptedMessageSchema,
   ServerErrorMessageSchema,
+  AgentAcpServerMessageSchema,
   AgentCodexClientResponseMessageSchema,
   AgentCodexServerRequestMessageSchema,
   AgentCodexServerNotificationMessageSchema,

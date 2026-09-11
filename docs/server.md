@@ -2,7 +2,7 @@
 
 `apps/server` is the process boundary between Cypheria clients and privileged local capabilities. It follows the useful daemon shape from Paseo—a stable supervisor, a replaceable worker, explicit session handshake, health and diagnostics, PID ownership, crash recovery, and graceful lifecycle control—while using Hono instead of Express.
 
-The running foundation server still dispatches no agent, project, wallet, policy, or automation product service. It hosts a bare `CypheriaRuntime`, whose built-in `runtime.info`, `runtime.health`, and `runtime.services` methods are enough to validate the transport. `@cypheria/protocol` now reserves the complete Codex App Server API under `agent.codex.*`; server-side Codex dispatch remains a separate implementation step.
+The running foundation server still dispatches no agent, project, wallet, policy, or automation product service. It hosts a bare `CypheriaRuntime`, whose built-in `runtime.info`, `runtime.health`, and `runtime.services` methods are enough to validate the transport. `@cypheria/protocol` now reserves the complete Codex App Server API under `agent.codex.*` and carries ACP under `agent.acp.*`; server-side agent dispatch remains a separate implementation step.
 
 ## Process Model
 
@@ -72,6 +72,28 @@ getConversationSummary      -> agent.codex.get_conversation_summary.request
 For ordinary RPCs, the client sends `{ type, requestId, ...params }` and the server returns `{ type, payload: { requestId, ...result } }`. This follows Paseo's current convention: request fields are top-level, while correlated response fields live in `payload`. For App Server-initiated RPCs such as approvals, the server sends the request and the capable client returns the response. Server notifications carry the upstream notification params directly in `payload`; the App Server `initialized` client notification has no payload.
 
 The generated registry records all 158 client-initiated RPCs, 11 server-initiated RPCs, 83 server notifications, and one client notification, including each upstream Params/Response type name and reverse wire-name lookup. Its generation check runs before protocol build, typecheck, and test so a Codex regeneration cannot silently drift from the public Cypheria API catalog.
+
+### ACP agent messages
+
+ACP traffic remains an unmodified JSON-RPC wire message inside one of two directional Cypheria envelopes:
+
+```ts
+{
+  type: "agent.acp.client.message"
+  payload: { protocolVersion: 1 | 2; message: AcpWireMessage }
+}
+
+{
+  type: "agent.acp.server.message"
+  payload: { protocolVersion: 1 | 2; message: AcpWireMessage }
+}
+```
+
+`client` and `server` identify the Cypheria sender, while the inner ACP method or response correlation determines the ACP client/agent role. Protocol version `1` uses the stable `@agentclientprotocol/sdk` types and accepts one message; version `2` uses its explicit `experimental/v2` types and additionally accepts non-empty call or response batches. The boundary composes the SDK-generated `AgentRequest`, `AgentResponse`, `AgentNotification`, `ClientRequest`, `ClientResponse`, and `ClientNotification` Zod schemas, then applies the same per-method request and notification parameter schemas used by the SDK App API. It rejects known methods used in the wrong direction and preserves unknown extension methods as JSON. Method-specific response validation and capability/lifecycle enforcement remain connection-state responsibilities because a JSON-RPC response carries an ID but no method.
+
+SDK 1.4.0 ships those generated Zod modules but does not expose them through package exports. A minimal pinned pnpm patch exposes `@agentclientprotocol/sdk/zod` and `@agentclientprotocol/sdk/experimental/v2/zod`; Cypheria imports the upstream modules directly instead of copying their generated definitions.
+
+`Acp-Connection-Id` is an ACP HTTP transport header, not an ACP JSON-RPC field. It is therefore not embedded in these WebSocket envelopes; the Cypheria session and its server-owned ACP connection provide routing context.
 
 ## HTTP Operations
 

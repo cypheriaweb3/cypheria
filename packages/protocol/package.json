@@ -22,6 +22,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@agentclientprotocol/sdk": "1.4.0",
     "superjson": "^2.2.6",
     "zod": "^4.4.3"
   },

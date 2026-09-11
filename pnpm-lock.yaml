@@ -8,6 +8,9 @@ overrides:
   '@types/react': ^19.2.15
   '@types/react-dom': ^19.2.3
 
+patchedDependencies:
+  '@agentclientprotocol/sdk@1.4.0': a1d8a0a08bf8b0459cc70226380a92de11417af05f8f1dd34be0b447df17314d
+
 importers:
 
   .:
@@ -32,7 +35,7 @@ importers:
     dependencies:
       '@agentclientprotocol/sdk':
         specifier: ^1.4.0
-        version: 1.4.0(zod@4.4.3)
+        version: 1.4.0(patch_hash=a1d8a0a08bf8b0459cc70226380a92de11417af05f8f1dd34be0b447df17314d)(zod@4.4.3)
       '@ai-sdk/react':
         specifier: ^4.0.90
         version: 4.0.90(react@19.2.6)(zod@4.4.3)
@@ -284,7 +287,7 @@ importers:
     dependencies:
       '@agentclientprotocol/sdk':
         specifier: 1.4.0
-        version: 1.4.0(zod@4.4.3)
+        version: 1.4.0(patch_hash=a1d8a0a08bf8b0459cc70226380a92de11417af05f8f1dd34be0b447df17314d)(zod@4.4.3)
       '@ai-sdk/provider':
         specifier: 4.0.9
         version: 4.0.9
@@ -396,6 +399,9 @@ importers:
 
   packages/protocol:
     dependencies:
+      '@agentclientprotocol/sdk':
+        specifier: 1.4.0
+        version: 1.4.0(patch_hash=a1d8a0a08bf8b0459cc70226380a92de11417af05f8f1dd34be0b447df17314d)(zod@4.4.3)
       superjson:
         specifier: ^2.2.6
         version: 2.2.6
@@ -8584,7 +8590,7 @@ snapshots:
 
   '@adraffy/ens-normalize@1.11.1': {}
 
-  '@agentclientprotocol/sdk@1.4.0(zod@4.4.3)':
+  '@agentclientprotocol/sdk@1.4.0(patch_hash=a1d8a0a08bf8b0459cc70226380a92de11417af05f8f1dd34be0b447df17314d)(zod@4.4.3)':
     dependencies:
       zod: 4.4.3
 

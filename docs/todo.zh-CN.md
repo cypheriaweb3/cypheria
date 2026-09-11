@@ -66,6 +66,11 @@
   - 包括：protocol 持有的 generated Codex DTO 与 JSON Schema、机械生成的 catalog、反向 lookup、漂移检查、provider-transparent JSON payload 和配套中英文 protocol 文档；本项不连接 server dispatch。
   - 验证：protocol generation check、typecheck、test、build 与全仓库 CI。
 
+- [x] 向 `@cypheria/protocol` 添加 ACP wire envelope。
+  - 验收：有方向的 `agent.acp.*` 消息在 live client/server union 中承载 JSON-transparent ACP traffic，区分稳定 v1 与 draft v2，并保留 v2 batch 语义。
+  - 包括：官方 `@agentclientprotocol/sdk@1.4.0` protocol constant、directional type、generated Zod schema、per-method parameter validation、JSON-RPC boundary validation 和配套中英文 protocol 文档；通过最小且固定版本的 package-export patch 暴露 SDK 已发布的 Zod module，不复制它们；本项不连接 server dispatch。
+  - 验证：protocol typecheck、test 与 build。
+
 - [ ] 在明确评审后将 desktop 迁移到 Cypheria server。
   - 验收：Electron main 确保本地 supervised server 正在运行，desktop 使用共享 protocol，并保持 Electron-only dApp/browser、secure-storage、approval、preload 与 OS-integration 边界。
   - 前置条件：明确批准 server 基础；不得作为 foundation change 的一部分开始。

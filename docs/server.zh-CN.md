@@ -2,7 +2,7 @@
 
 `apps/server` 是 Cypheria client 与本地特权能力之间的进程边界。它复用了 Paseo daemon 中有价值的结构：稳定 supervisor、可替换 worker、显式 session handshake、health 与 diagnostics、PID ownership、crash recovery 和 graceful lifecycle control，同时以 Hono 替代 Express。
 
-当前运行中的基础 server 仍不分发 agent、project、wallet、policy 或 automation 产品 service。它只托管一个裸 `CypheriaRuntime`；runtime 内置的 `runtime.info`、`runtime.health` 与 `runtime.services` 足以验证 transport。`@cypheria/protocol` 现在已经在 `agent.codex.*` 下预留完整 Codex App Server API；server 侧 Codex dispatch 仍是独立的后续实现步骤。
+当前运行中的基础 server 仍不分发 agent、project、wallet、policy 或 automation 产品 service。它只托管一个裸 `CypheriaRuntime`；runtime 内置的 `runtime.info`、`runtime.health` 与 `runtime.services` 足以验证 transport。`@cypheria/protocol` 现在已经在 `agent.codex.*` 下预留完整 Codex App Server API，并在 `agent.acp.*` 下承载 ACP；server 侧 agent dispatch 仍是独立的后续实现步骤。
 
 ## 进程模型
 
@@ -72,6 +72,28 @@ getConversationSummary      -> agent.codex.get_conversation_summary.request
 普通 RPC 由 client 发送 `{ type, requestId, ...params }`，server 返回 `{ type, payload: { requestId, ...result } }`。这遵循 Paseo 当前约定：request field 位于消息顶层，带关联信息的 response field 位于 `payload`。审批等 App Server 发起的反向 RPC 则由 server 发送 request、具备对应能力的 client 返回 response。Server notification 把上游 notification params 直接放入 `payload`；App Server 的 `initialized` client notification 不带 payload。
 
 生成的 registry 覆盖 158 个 client-initiated RPC、11 个 server-initiated RPC、83 个 server notification 与 1 个 client notification，同时记录每项上游 Params/Response type name 和反向 wire-name lookup。Protocol build、typecheck 和 test 之前都会执行生成一致性检查，因此 Codex 升级后不会无提示地让公共 Cypheria API catalog 漂移。
+
+### ACP agent 消息
+
+ACP traffic 作为不改写的 JSON-RPC wire message 放入以下两个有方向的 Cypheria envelope 之一：
+
+```ts
+{
+  type: "agent.acp.client.message"
+  payload: { protocolVersion: 1 | 2; message: AcpWireMessage }
+}
+
+{
+  type: "agent.acp.server.message"
+  payload: { protocolVersion: 1 | 2; message: AcpWireMessage }
+}
+```
+
+`client` 与 `server` 表示 Cypheria sender，内部 ACP method 或 response correlation 决定 ACP client/agent role。Protocol version `1` 使用稳定入口 `@agentclientprotocol/sdk` 的 types，只接受单条消息；version `2` 使用显式的 `experimental/v2` types，并额外接受非空的 call batch 或 response batch。Boundary 组合 SDK generated `AgentRequest`、`AgentResponse`、`AgentNotification`、`ClientRequest`、`ClientResponse` 与 `ClientNotification` Zod schema，再应用 SDK App API 使用的相同 per-method request/notification parameter schema。已知 method 放在错误方向时会被拒绝，未知 extension method 则保持为 JSON。由于 JSON-RPC response 只有 ID 而没有 method，method-specific response validation 以及 capability/lifecycle enforcement 继续由有连接状态的 SDK connection 负责。
+
+SDK 1.4.0 发布了这些 generated Zod module，但没有通过 package exports 暴露它们。Workspace 使用一个最小且固定版本的 pnpm patch 暴露 `@agentclientprotocol/sdk/zod` 与 `@agentclientprotocol/sdk/experimental/v2/zod`；Cypheria 直接导入上游 module，而不是复制 generated definition。
+
+`Acp-Connection-Id` 是 ACP HTTP transport header，而不是 ACP JSON-RPC field。因此它不会嵌入这些 WebSocket envelope；Cypheria session 及其 server-owned ACP connection 提供 routing context。
 
 ## HTTP 运维接口
 

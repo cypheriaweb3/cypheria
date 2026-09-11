@@ -72,7 +72,7 @@ packages/db
 
 `apps/cli`, `apps/marketplace`, and `packages/sdk` are planned packages. `apps/server`, `apps/expo`, and `packages/protocol` are implemented as the client/server foundation. Desktop remains unchanged until the foundation is reviewed.
 
-`@cypheria/protocol` authors live WebSocket contracts with Zod and owns the generated Codex App Server TypeScript, JSON Schemas, response mappings, and validators. Its complete `agent.codex.*` RPC and notification catalog is mechanically derived from those committed artifacts; provider payloads stay JSON-transparent on the shared wire. Build, typecheck, and test lifecycle checks fail when the catalog drifts.
+`@cypheria/protocol` authors live WebSocket contracts with Zod and owns the generated Codex App Server TypeScript, JSON Schemas, response mappings, and validators. Its complete `agent.codex.*` RPC and notification catalog is mechanically derived from those committed artifacts; provider payloads stay JSON-transparent on the shared wire. It also exposes directional `agent.acp.*` envelopes backed by the official SDK's stable-v1 and explicit draft-v2 types and generated Zod validators, including method/direction checks and v2 batch semantics. A minimal pinned pnpm patch exposes the SDK's shipped-but-private v1/v2 Zod modules without copying them. Build, typecheck, and test lifecycle checks fail when the Codex catalog drifts.
 
 ## Server And Expo Stack
 
