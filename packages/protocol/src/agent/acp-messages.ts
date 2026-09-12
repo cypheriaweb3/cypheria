@@ -46,18 +46,34 @@ import * as acpV2Zod from "@agentclientprotocol/sdk/experimental/v2/zod"
 import * as acpV1Zod from "@agentclientprotocol/sdk/zod"
 import { z } from "zod"
 
+// ACP v1 and v2 have independent protocol-version constants. Keeping the SDK values as the
+// source of truth prevents Cypheria's envelope discriminator from drifting from the ACP payload.
 export const ACP_V1_PROTOCOL_VERSION = ACP_V1_SDK_PROTOCOL_VERSION
 export const ACP_V2_PROTOCOL_VERSION = ACP_V2_SDK_PROTOCOL_VERSION
 
+/** The ACP version carried by the outer Cypheria wire envelope. */
 export const AcpProtocolVersionSchema = z.literal([
   ACP_V1_PROTOCOL_VERSION,
   ACP_V2_PROTOCOL_VERSION,
 ])
+// `z.infer` derives the TypeScript union from the runtime schema, so adding a supported version to
+// the schema updates validation and static narrowing together.
 export type AcpProtocolVersion = z.infer<typeof AcpProtocolVersionSchema>
 
+/**
+ * Adds the JSON-RPC version marker to every member of an SDK union.
+ *
+ * `T extends unknown ? ... : never` intentionally makes this a distributive conditional type. If
+ * `T` is `RequestA | RequestB`, the result is `(RequestA & JsonRpc) | (RequestB & JsonRpc)`, so each
+ * method-specific member keeps its own discriminants and params type.
+ */
 type WithJsonRpc<T> = T extends unknown ? T & { jsonrpc: "2.0" } : never
+
+/** A variadic tuple representing a JSON-RPC batch with at least one entry. */
 type NonEmptyBatch<T> = readonly [T, ...T[]]
 
+// Cancellation is a protocol-level notification rather than an agent- or client-owned method.
+// Define it explicitly so it can legally travel in either direction.
 export type AcpV1ProtocolNotification = {
   jsonrpc: "2.0"
   method: typeof ACP_V1_PROTOCOL_METHODS.cancel_request
@@ -70,6 +86,9 @@ export type AcpV2ProtocolNotification = {
   params?: AcpV2CancelRequestNotification | null
 }
 
+// Stable ACP v1 only permits one JSON-RPC message per wire frame. The names below describe the
+// sender: `AcpV1ClientRequest` is sent by a Cypheria client to the server-owned agent, while
+// `AcpV1AgentRequest` travels in the reverse direction.
 export type AcpV1ClientRequest = WithJsonRpc<AcpV1SdkClientRequest>
 export type AcpV1ClientResponse = WithJsonRpc<AcpV1SdkClientResponse>
 export type AcpV1ClientNotification = WithJsonRpc<AcpV1SdkClientNotification>
@@ -88,8 +107,12 @@ export type AcpV1AgentMessage =
   | AcpV1AgentNotification
   | AcpV1ProtocolNotification
 
+/** Direction-neutral ACP v1 message, primarily useful for generic tooling and diagnostics. */
 export type AcpV1WireMessage = AcpV1SdkMessage
 
+// Draft ACP v2 distinguishes a "call" (request or notification) from a response. A wire frame can
+// contain one message, a non-empty call batch, or a non-empty response batch. Calls and responses
+// are deliberately not mixed in the same typed batch.
 export type AcpV2ClientCall =
   | AcpV2ClientRequest
   | AcpV2ClientNotification
@@ -113,16 +136,25 @@ export type AcpV2AgentWireMessage =
   | NonEmptyBatch<AcpV2AgentCall>
   | NonEmptyBatch<AcpV2AgentResponse>
 
+/** Direction-neutral ACP v2 message, including the SDK's batch-capable wire forms. */
 export type AcpV2WireMessage = AcpV2SdkWireMessage
 
+/** Narrows an unknown JSON value to a non-array object before property inspection. */
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
 
+/** JSON-RPC permits string, finite-number, and null ids; booleans and non-finite numbers are invalid. */
 const isJsonRpcId = (value: unknown): value is string | number | null =>
   value === null ||
   typeof value === "string" ||
   (typeof value === "number" && Number.isFinite(value))
 
+/**
+ * Performs the JSON-RPC shape checks shared by all ACP message schemas.
+ *
+ * A value with `method` is a request when it also has `id`, otherwise it is a notification. A
+ * value without `method` is a response and must contain exactly one of `result` and `error`.
+ */
 const isAcpJsonRpcMessage = (value: unknown): value is AcpV1WireMessage => {
   if (!isRecord(value) || value.jsonrpc !== "2.0") return false
 
@@ -136,12 +168,32 @@ const isAcpJsonRpcMessage = (value: unknown): value is AcpV1WireMessage => {
   return Object.hasOwn(value, "result") !== Object.hasOwn(value, "error")
 }
 
+/** Loose runtime lookup used after a message's method string has been inspected. */
 type ParamsSchemas = Readonly<Record<string, z.ZodType>>
+
+/** The three JSON-RPC shapes that must remain distinct even when SDK schemas are permissive. */
 type AcpMessageKind = "notification" | "request" | "response"
+
+/**
+ * Compile-time contract for a complete method-to-params-schema table.
+ *
+ * The mapped type requires one entry for every SDK method in `Method`. Indexing
+ * `ParamsByMethod[Name]` also checks that each Zod schema parses the exact params type associated
+ * with that method. The `satisfies` expressions below validate the tables without widening their
+ * useful literal keys.
+ */
 type SdkParamsSchemas<Method extends string, ParamsByMethod extends Record<Method, unknown>> = {
   readonly [Name in Method]: z.ZodType<ParamsByMethod[Name]>
 }
 
+/**
+ * Combines the SDK's broad directional schema with Cypheria's stricter checks.
+ *
+ * The SDK schema validates the general request/response union. Cypheria additionally verifies the
+ * requested JSON-RPC kind and, for calls, validates params using the schema selected by `method`.
+ * Unknown extension methods remain legal; a known method found in the wrong direction is rejected
+ * instead of being mistaken for an extension.
+ */
 const matchesSdkSchema = (
   value: unknown,
   schema: z.ZodType,
@@ -159,6 +211,13 @@ const matchesSdkSchema = (
   return !knownMethods?.has(value.method)
 }
 
+/**
+ * Wraps the predicate above as a typed Zod schema.
+ *
+ * `z.json()` first excludes non-JSON values such as `undefined`, functions, and `bigint`. The final
+ * cast is necessary because `refine()` cannot express the full generic `Message` type to
+ * TypeScript, even though `matchesSdkSchema` enforces it at runtime.
+ */
 const sdkMessageSchema = <Message>(
   schema: z.ZodType,
   kind: AcpMessageKind,
@@ -173,6 +232,8 @@ const sdkMessageSchema = <Message>(
       `Invalid ${description}`
     ) as unknown as z.ZodType<Message>
 
+// Requests sent by a client target agent methods, so this table is keyed by AGENT_METHODS. The
+// mapped `satisfies` type guarantees that no official v1 request method is missing or mismatched.
 const acpV1AgentRequestParams = {
   [ACP_V1_AGENT_METHODS.initialize]: acpV1Zod.zInitializeRequest,
   [ACP_V1_AGENT_METHODS.authenticate]: acpV1Zod.zAuthenticateRequest,
@@ -195,6 +256,7 @@ const acpV1AgentRequestParams = {
   [ACP_V1_AGENT_METHODS.nes_close]: acpV1Zod.zCloseNesRequest,
 } satisfies SdkParamsSchemas<AcpV1AgentRequestMethod, AcpV1AgentRequestParamsByMethod>
 
+// Notifications sent by a client also target agent methods, but use the notification catalog.
 const acpV1AgentNotificationParams = {
   [ACP_V1_AGENT_METHODS.session_cancel]: acpV1Zod.zCancelNotification,
   [ACP_V1_AGENT_METHODS.document_did_open]: acpV1Zod.zDidOpenDocumentNotification,
@@ -206,6 +268,7 @@ const acpV1AgentNotificationParams = {
   [ACP_V1_AGENT_METHODS.nes_reject]: acpV1Zod.zRejectNesNotification,
 } satisfies SdkParamsSchemas<AcpV1AgentNotificationMethod, AcpV1AgentNotificationParamsByMethod>
 
+// Requests sent by the agent target capabilities implemented by the client.
 const acpV1ClientRequestParams = {
   [ACP_V1_CLIENT_METHODS.session_request_permission]: acpV1Zod.zRequestPermissionRequest,
   [ACP_V1_CLIENT_METHODS.fs_write_text_file]: acpV1Zod.zWriteTextFileRequest,
@@ -218,11 +281,15 @@ const acpV1ClientRequestParams = {
   [ACP_V1_CLIENT_METHODS.elicitation_create]: acpV1Zod.zCreateElicitationRequest,
 } satisfies SdkParamsSchemas<AcpV1ClientRequestMethod, AcpV1ClientRequestParamsByMethod>
 
+// Notifications sent by the agent target client-side notification handlers.
 const acpV1ClientNotificationParams = {
   [ACP_V1_CLIENT_METHODS.session_update]: acpV1Zod.zSessionNotification,
   [ACP_V1_CLIENT_METHODS.elicitation_complete]: acpV1Zod.zCompleteElicitationNotification,
 } satisfies SdkParamsSchemas<AcpV1ClientNotificationMethod, AcpV1ClientNotificationParamsByMethod>
 
+// The v2 tables repeat the same directional method-to-params relationship for the draft catalog.
+// Initialize receives one extra check because the generated request schema accepts a wider version
+// shape than this v2-only entry point should allow.
 const acpV2AgentRequestParams = {
   [ACP_V2_AGENT_METHODS.initialize]: acpV2Zod.zInitializeRequest.refine(
     (request) => request.protocolVersion === ACP_V2_PROTOCOL_VERSION,
@@ -247,6 +314,7 @@ const acpV2AgentRequestParams = {
   [ACP_V2_AGENT_METHODS.nes_close]: acpV2Zod.zCloseNesRequest,
 } satisfies SdkParamsSchemas<AcpV2AgentRequestMethod, AcpV2AgentRequestParamsByMethod>
 
+/** Complete params schemas for v2 notifications sent from client to agent. */
 const acpV2AgentNotificationParams = {
   [ACP_V2_AGENT_METHODS.session_cancel]: acpV2Zod.zCancelSessionNotification,
   [ACP_V2_AGENT_METHODS.mcp_message]: acpV2Zod.zMessageMcpNotification,
@@ -259,6 +327,7 @@ const acpV2AgentNotificationParams = {
   [ACP_V2_AGENT_METHODS.nes_reject]: acpV2Zod.zRejectNesNotification,
 } satisfies SdkParamsSchemas<AcpV2AgentNotificationMethod, AcpV2AgentNotificationParamsByMethod>
 
+/** Complete params schemas for v2 requests sent from agent to client. */
 const acpV2ClientRequestParams = {
   [ACP_V2_CLIENT_METHODS.session_request_permission]: acpV2Zod.zRequestPermissionRequest,
   [ACP_V2_CLIENT_METHODS.mcp_connect]: acpV2Zod.zConnectMcpRequest,
@@ -267,12 +336,16 @@ const acpV2ClientRequestParams = {
   [ACP_V2_CLIENT_METHODS.elicitation_create]: acpV2Zod.zCreateElicitationRequest,
 } satisfies SdkParamsSchemas<AcpV2ClientRequestMethod, AcpV2ClientRequestParamsByMethod>
 
+/** Complete params schemas for v2 notifications sent from agent to client. */
 const acpV2ClientNotificationParams = {
   [ACP_V2_CLIENT_METHODS.session_update]: acpV2Zod.zUpdateSessionNotification,
   [ACP_V2_CLIENT_METHODS.mcp_message]: acpV2Zod.zMessageMcpNotification,
   [ACP_V2_CLIENT_METHODS.elicitation_complete]: acpV2Zod.zCompleteElicitationNotification,
 } satisfies SdkParamsSchemas<AcpV2ClientNotificationMethod, AcpV2ClientNotificationParamsByMethod>
 
+// These sets cover methods from both directions plus protocol-level methods. They let
+// `matchesSdkSchema` distinguish a legitimate unknown extension from a known method used with the
+// wrong sender or JSON-RPC kind.
 const acpV1KnownMethods = new Set<string>([
   ...Object.values(ACP_V1_AGENT_METHODS),
   ...Object.values(ACP_V1_CLIENT_METHODS),
@@ -284,6 +357,8 @@ const acpV2KnownMethods = new Set<string>([
   ...Object.values(ACP_V2_PROTOCOL_METHODS),
 ])
 
+// Protocol-level cancellation is validated separately because it is valid in both directions and
+// therefore does not belong exclusively to either the agent or client method tables.
 export const AcpV1ProtocolNotificationSchema = sdkMessageSchema<AcpV1ProtocolNotification>(
   z.looseObject({
     jsonrpc: z.literal("2.0"),
@@ -294,6 +369,8 @@ export const AcpV1ProtocolNotificationSchema = sdkMessageSchema<AcpV1ProtocolNot
   "ACP v1 protocol notification"
 )
 
+// "Client" schemas below mean messages whose sender is the Cypheria client. Consequently, client
+// requests and notifications validate params against the agent-side method catalogs.
 export const AcpV1ClientRequestSchema = sdkMessageSchema<AcpV1ClientRequest>(
   acpV1Zod.zClientRequest,
   "request",
@@ -314,6 +391,8 @@ export const AcpV1ClientNotificationSchema = sdkMessageSchema<AcpV1ClientNotific
   acpV1KnownMethods
 )
 
+// `sdkMessageSchema` already guarantees each member's runtime shape. The cast records the precise
+// union for TypeScript because Zod cannot recover the generic refinement's discriminated members.
 export const AcpV1ClientMessageSchema = z.union([
   AcpV1ClientRequestSchema,
   AcpV1ClientResponseSchema,
@@ -321,6 +400,8 @@ export const AcpV1ClientMessageSchema = z.union([
   AcpV1ProtocolNotificationSchema,
 ]) as z.ZodType<AcpV1ClientMessage>
 
+// "Agent" schemas mean messages emitted by the server-owned agent. Its calls therefore use the
+// client-side method catalogs, i.e. capabilities that the Cypheria client must implement.
 export const AcpV1AgentRequestSchema = sdkMessageSchema<AcpV1AgentRequest>(
   acpV1Zod.zAgentRequest,
   "request",
@@ -341,6 +422,7 @@ export const AcpV1AgentNotificationSchema = sdkMessageSchema<AcpV1AgentNotificat
   acpV1KnownMethods
 )
 
+/** Every valid single ACP v1 message emitted by the agent. */
 export const AcpV1AgentMessageSchema = z.union([
   AcpV1AgentRequestSchema,
   AcpV1AgentResponseSchema,
@@ -348,11 +430,14 @@ export const AcpV1AgentMessageSchema = z.union([
   AcpV1ProtocolNotificationSchema,
 ]) as z.ZodType<AcpV1AgentMessage>
 
+/** Direction-neutral v1 schema; directional boundaries should prefer the schemas above. */
 export const AcpV1WireMessageSchema = z.union([
   AcpV1ClientMessageSchema,
   AcpV1AgentMessageSchema,
 ]) as z.ZodType<AcpV1WireMessage>
 
+// V2 exposes a generated protocol-notification base schema, then narrows it to the only currently
+// supported protocol method and its method-specific params.
 export const AcpV2ProtocolNotificationSchema = sdkMessageSchema<AcpV2ProtocolNotification>(
   acpV2Zod.zProtocolLevelNotification.extend({
     method: z.literal(ACP_V2_PROTOCOL_METHODS.cancel_request),
@@ -362,6 +447,8 @@ export const AcpV2ProtocolNotificationSchema = sdkMessageSchema<AcpV2ProtocolNot
   "ACP v2 protocol notification"
 )
 
+// As in v1, client-emitted calls are checked against agent method params. Responses need no method
+// lookup because JSON-RPC correlates their result/error shape through `id` at the connection layer.
 export const AcpV2ClientRequestSchema = sdkMessageSchema<AcpV2ClientRequest>(
   acpV2Zod.zClientRequest,
   "request",
@@ -382,15 +469,22 @@ export const AcpV2ClientNotificationSchema = sdkMessageSchema<AcpV2ClientNotific
   acpV2KnownMethods
 )
 
+/** A client-emitted v2 call: request, notification, or bidirectional protocol notification. */
 export const AcpV2ClientCallSchema = z.union([
   AcpV2ClientRequestSchema,
   AcpV2ClientNotificationSchema,
   AcpV2ProtocolNotificationSchema,
 ]) as z.ZodType<AcpV2ClientCall>
+
+/** One non-batched v2 message emitted by the client. */
 export const AcpV2ClientMessageSchema = z.union([
   AcpV2ClientCallSchema,
   AcpV2ClientResponseSchema,
 ]) as z.ZodType<AcpV2ClientMessage>
+
+// `z.tuple([head], rest)` mirrors NonEmptyBatch<T>: one required first entry followed by zero or
+// more entries of the same type. Initialize must remain a singleton because it establishes the
+// connection's protocol state before any other request can be interpreted safely.
 const AcpV2ClientCallBatchSchema = z
   .tuple([AcpV2ClientCallSchema], AcpV2ClientCallSchema)
   .refine(
@@ -400,12 +494,16 @@ const AcpV2ClientCallBatchSchema = z
       ) || messages.length === 1,
     "ACP v2 initialize must be the only entry in its batch"
   )
+
+// A v2 client wire frame is either one message, a non-empty call batch, or a non-empty response
+// batch. Keeping call and response batches separate matches `AcpV2ClientWireMessage` above.
 export const AcpV2ClientWireMessageSchema = z.union([
   AcpV2ClientMessageSchema,
   AcpV2ClientCallBatchSchema,
   z.tuple([AcpV2ClientResponseSchema], AcpV2ClientResponseSchema),
 ]) as z.ZodType<AcpV2ClientWireMessage>
 
+// Agent-emitted calls are the mirror image: their params must match client-side capabilities.
 export const AcpV2AgentRequestSchema = sdkMessageSchema<AcpV2AgentRequest>(
   acpV2Zod.zAgentRequest,
   "request",
@@ -426,26 +524,35 @@ export const AcpV2AgentNotificationSchema = sdkMessageSchema<AcpV2AgentNotificat
   acpV2KnownMethods
 )
 
+/** An agent-emitted v2 call: request, notification, or protocol notification. */
 export const AcpV2AgentCallSchema = z.union([
   AcpV2AgentRequestSchema,
   AcpV2AgentNotificationSchema,
   AcpV2ProtocolNotificationSchema,
 ]) as z.ZodType<AcpV2AgentCall>
+
+/** One non-batched v2 message emitted by the agent. */
 export const AcpV2AgentMessageSchema = z.union([
   AcpV2AgentCallSchema,
   AcpV2AgentResponseSchema,
 ]) as z.ZodType<AcpV2AgentMessage>
+
+// The agent-side wire union has the same three alternatives as the client side. No initialize
+// singleton refinement is needed here because initialize is a client-to-agent request.
 export const AcpV2AgentWireMessageSchema = z.union([
   AcpV2AgentMessageSchema,
   z.tuple([AcpV2AgentCallSchema], AcpV2AgentCallSchema),
   z.tuple([AcpV2AgentResponseSchema], AcpV2AgentResponseSchema),
 ]) as z.ZodType<AcpV2AgentWireMessage>
 
+/** Direction-neutral v2 schema, including both batch directions. */
 export const AcpV2WireMessageSchema = z.union([
   AcpV2ClientWireMessageSchema,
   AcpV2AgentWireMessageSchema,
 ]) as z.ZodType<AcpV2WireMessage>
 
+// This broad envelope is useful when direction is not yet known. `protocolVersion` is a true
+// discriminator: once narrowed to 1 or 2, TypeScript and Zod select the matching message family.
 export const AcpWirePayloadSchema = z.discriminatedUnion("protocolVersion", [
   z.strictObject({
     protocolVersion: z.literal(ACP_V1_PROTOCOL_VERSION),
@@ -456,8 +563,12 @@ export const AcpWirePayloadSchema = z.discriminatedUnion("protocolVersion", [
     message: AcpV2WireMessageSchema,
   }),
 ])
+// The remaining payload/message aliases use the same pattern: infer the public TypeScript type
+// directly from its boundary schema rather than maintaining a second handwritten union.
 export type AcpWirePayload = z.infer<typeof AcpWirePayloadSchema>
 
+// Use this envelope at client-to-server boundaries. Unlike AcpWirePayloadSchema, it cannot accept
+// an agent-originated request or notification, even if that message is otherwise valid ACP.
 export const AcpClientWirePayloadSchema = z.discriminatedUnion("protocolVersion", [
   z.strictObject({
     protocolVersion: z.literal(ACP_V1_PROTOCOL_VERSION),
@@ -470,6 +581,7 @@ export const AcpClientWirePayloadSchema = z.discriminatedUnion("protocolVersion"
 ])
 export type AcpClientWirePayload = z.infer<typeof AcpClientWirePayloadSchema>
 
+// Mirror of AcpClientWirePayloadSchema for server-to-client traffic emitted by the hosted agent.
 export const AcpServerWirePayloadSchema = z.discriminatedUnion("protocolVersion", [
   z.strictObject({
     protocolVersion: z.literal(ACP_V1_PROTOCOL_VERSION),
@@ -482,14 +594,20 @@ export const AcpServerWirePayloadSchema = z.discriminatedUnion("protocolVersion"
 ])
 export type AcpServerWirePayload = z.infer<typeof AcpServerWirePayloadSchema>
 
-/** ACP traffic sent by a Cypheria client to the server-owned agent connection. */
+/**
+ * Top-level Cypheria protocol message carrying ACP traffic from a client to the server-owned agent.
+ * The outer `type` routes the message; the nested `protocolVersion` selects ACP v1 or v2.
+ */
 export const AgentAcpClientMessageSchema = z.strictObject({
   type: z.literal("agent.acp.client.message"),
   payload: AcpClientWirePayloadSchema,
 })
 export type AgentAcpClientMessage = z.infer<typeof AgentAcpClientMessageSchema>
 
-/** ACP traffic sent by the server-owned agent connection to a Cypheria client. */
+/**
+ * Top-level Cypheria protocol message carrying ACP traffic from the server-owned agent to a client.
+ * It is intentionally directional, so client-originated ACP calls cannot pass this boundary.
+ */
 export const AgentAcpServerMessageSchema = z.strictObject({
   type: z.literal("agent.acp.server.message"),
   payload: AcpServerWirePayloadSchema,

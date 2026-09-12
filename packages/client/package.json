@@ -5,6 +5,9 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./acp": "./src/acp.ts",
+    "./acp/v2": "./src/acp-v2.ts",
+    "./codex": "./src/codex.ts",
     "./internal/server-client": "./src/server-client.ts"
   },
   "scripts": {
@@ -14,6 +17,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@agentclientprotocol/sdk": "1.4.0",
     "@cypheria/protocol": "workspace:*",
     "@cypheria/relay": "workspace:*"
   },

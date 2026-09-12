@@ -1,6 +1,7 @@
 import { parseClientMessageText, stringifyProtocolMessage } from "@cypheria/protocol"
 import { afterEach, describe, expect, it } from "vitest"
 
+import { client as createCodexApp } from "./codex.js"
 import { createCypheriaApi, createCypheriaClient } from "./index.js"
 import { ServerClient } from "./server-client.js"
 import { TestWebSocket, testWebSocketFactory } from "./test-websocket.js"
@@ -80,12 +81,13 @@ describe("Cypheria client facade", () => {
     await client.close()
   })
 
-  it("exposes each Codex request/response pair as an async method", async () => {
+  it("exposes a Codex endpoint accepted by the SDK-shaped ClientApp", async () => {
     const client = createCypheriaClient({
       clientId: "client-codex",
       webSocketFactory: testWebSocketFactory,
     })
-    const resultPromise = client.agent.codex.memory.reset()
+    const connection = createCodexApp().connect(client.agent.codex)
+    const resultPromise = connection.codex.request("memory/reset")
     const socket = await acceptConnection(client.ensureConnected())
     await tick()
 
@@ -101,6 +103,7 @@ describe("Cypheria client facade", () => {
     )
 
     await expect(resultPromise).resolves.toEqual({})
+    connection.close()
     await client.close()
   })
 

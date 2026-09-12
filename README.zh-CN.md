@@ -11,8 +11,9 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 - **Runtime**：Cypheria 自己的 TypeScript 非 agent 核心，负责钱包、链、策略、自动化、浏览器权限、设置、本地状态和审计日志。
 - **Server**：基于 Hono + Node.js 的 control plane，负责 runtime lifecycle、client session、diagnostics、静态 web hosting，并在后续承载 Codex 与产品 services。
 - **Expo client**：一套面向 iOS、Android 与静态 web output 的 Expo Router 应用；server 会内置其 web output。
-- **共享 client**：`@cypheria/client` 提供 WebSocket protocol driver、借用 API 门面与持有连接的
-  client 门面，但不持有特权 runtime。
+- **共享 client**：`@cypheria/client` 提供 WebSocket protocol driver、借用 API 门面、持有连接的
+  client 门面、Cypheria 自有的 Codex `client()` / `ClientApp` API 与 ACP SDK-compatible
+  stable-v1/draft-v2 API，但不持有特权 runtime。
 - **Relay**：Go `apps/relay` 服务和 TypeScript `@cypheria/relay` 包为同一 server protocol
   提供可选的 E2EE 远程通道。
 - **CLI 与 SDK clients**：规划中的 server protocol 产品 clients。
@@ -35,6 +36,7 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 - **Lint/format**：Biome
 - **UI**：shadcn-style copied components、Base UI primitives、Cypheria CSS tokens、lucide-react
 - **Cypheria client protocol**：`@cypheria/protocol` 中版本化的 Zod contracts，并支持带元数据的 `bigint` 传输
+- **ACP client API**：以官方 `@agentclientprotocol/sdk@1.4.0` 为底层，在 Cypheria 有方向 WebSocket envelope 上提供自有的 SDK-shaped `client()` / `ClientApp` API
 - **Desktop agent integration**：`codex app-server` over WebSocket JSON-RPC
 - **Codex protocol types 与 validation**：由 `@cypheria/protocol` 持有，并通过 `pnpm --filter @cypheria/protocol generate:codex-all` 生成
 - **Marketplace hosting**：Cloudflare Workers、D1、R2、Queues 与 Workflows

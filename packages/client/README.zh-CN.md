@@ -1,8 +1,8 @@
 # `@cypheria/client`
 
 `@cypheria/client` 是版本化 Cypheria server protocol 的可复用 client。它依赖
-`@cypheria/protocol` 与只处理传输的 `@cypheria/relay`，不导入 runtime、server、Codex
-bridge 或 Electron 代码。
+`@cypheria/protocol`、只处理传输的 `@cypheria/relay`，以及 protocol 所用的同一精确版本官方
+ACP SDK；不导入 runtime、server、Codex bridge 或 Electron 代码。
 
 ## 分层
 
@@ -32,32 +32,105 @@ CypheriaClient = CypheriaApi + connection lifecycle
 - `agent.acp`：有方向的 ACP envelope。
 
 它不会根据 runtime method 字符串发明 wallet、policy、automation 或 runtime-info 产品方法。
-只有相应 contract 进入 `@cypheria/protocol` 后，才应增加高层 action。
+只有相应 contract 进入 `@cypheria/protocol` 后，才应增加高层 API。
 
-每一个 Codex client request/response pair 都按 upstream method path 暴露为独立的 generated
-async 方法。例如，`thread/list` 会成为 `agent.codex.thread.list()`；通用请求关联机制仅保留在
-内部。接收 notification 与反向 request 使用 Paseo 风格的 typed
-`on(messageType, handler)`；向 server 发送的 client notification 位于
-`agent.codex.notify`，反向 response 位于 `agent.codex.respond`，二者也都是 async 方法。
+## Codex client API
+
+`@cypheria/client/codex` 实现 Cypheria 自有的 SDK-shaped `client()` 与 `ClientApp`。它的
+`connect()` 和 `connectWith()` 接收 `cypheria.agent.codex`；后者保持为最小 typed endpoint，
+而不是 generated action tree。`ClientContext.request()` 把每个 protocol request 与 response
+组合成一个 typed async call。`ClientApp.onRequest()` 会等待反向 request handler，并写回 typed
+response；`onNotification()` 负责分派 server notification。向 server 发送 client notification
+则使用 `ClientContext.notify()`。
+
+```ts
+import { client as createCodexApp, methods } from "@cypheria/client/codex"
+import { createCypheriaClient } from "@cypheria/client"
+
+const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
+const app = createCodexApp()
+  .onRequest(methods.client.request["currentTime/read"], ({ params }) => ({
+    currentTimeAt: Math.floor(Date.now() / 1_000),
+  }))
+  .onNotification(methods.client.notification["thread/started"], ({ params }) => {
+    console.log(params.thread)
+  })
+
+const connection = app.connect(cypheria.agent.codex)
+const threads = await connection.codex.request(methods.server.request["thread/list"], {})
+await connection.codex.notify(methods.server.notification.initialized)
+
+connection.close()
+await cypheria.close()
+```
+
+`@cypheria/client/codex` 会导出 method constant 与全部 generated Codex type。
+`connectWith(endpoint, operation)` 提供 scoped connection，并且一定在 operation 结束后释放。
+每个 endpoint 同时只允许一个 Codex app 消费；transport loss 会中止 connection 与 pending
+request。低层 consumer 仍可直接调用 endpoint method，但不得把手动反向 response 处理与活跃
+`ClientApp` 混用。
+
+## ACP SDK API
+
+稳定入口 `@cypheria/client/acp` 自行实现了 SDK-shaped `client()` 与 `ClientApp`。Handler
+registration、context、session、cancellation、error、method constant 与 generated protocol
+type 保持官方 SDK API；`connect()` 和 `connectWith()` 则改为接收 Cypheria ACP endpoint，而非
+Web Stream。其他可用 SDK export 使用白名单重新导出；我们重新实现的名字及已废弃 connection
+API 不会导出，尤其不包含旧的 `ClientSideConnection`、`AgentSideConnection` 或
+`TerminalHandle` API。
+
+```ts
+import { client as createAcpApp, methods, PROTOCOL_VERSION } from "@cypheria/client/acp"
+import { createCypheriaClient } from "@cypheria/client"
+
+const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
+const app = createAcpApp().onNotification(methods.client.session.update, ({ params }) => {
+  console.log(params.update)
+})
+
+const connection = app.connect(cypheria.agent.acp)
+await connection.agent.request(methods.agent.initialize, {
+  protocolVersion: PROTOCOL_VERSION,
+})
+
+const session = await connection.agent.buildSession("/absolute/workspace").start()
+await session.prompt("Explain this project")
+
+session.dispose()
+connection.close()
+await cypheria.close()
+```
+
+`app.connectWith(cypheria.agent.acp, operation)` 提供 SDK 的 scoped connection 风格。Draft ACP
+v2 使用显式隔离入口：
+
+```ts
+import { client as createAcpV2App } from "@cypheria/client/acp/v2"
+
+const connection = createAcpV2App().connect(cypheria.agent.acp)
+```
+
+v2 adapter 保留非空 JSON-RPC batch。由于 envelope 刻意不携带第二个 connection ID，每个
+Cypheria ACP endpoint 只允许一个活跃 ACP connection。底层 transport 断开时，ACP connection
+会关闭并拒绝 pending request；Cypheria session 恢复后应创建新的 ACP connection。
+
+`cypheria.agent.acp` 本身仍是最小的 `send(payload)` / `subscribe(handler)` endpoint。不得将这些
+低层 operation 与活跃 `ClientApp` connection 混用。
 
 ## 使用
 
 ```ts
 import { createCypheriaClient } from "@cypheria/client"
+import { client as createCodexApp, methods as codexMethods } from "@cypheria/client/codex"
 
 const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
+const codex = createCodexApp().connect(cypheria.agent.codex)
 
 const server = await cypheria.server.info()
 const runtimeInfo = await cypheria.runtime.request("runtime.info")
-const threads = await cypheria.agent.codex.thread.list({})
+const threads = await codex.codex.request(codexMethods.server.request["thread/list"], {})
 
-const unsubscribe = cypheria.on("agent.codex.thread.started.notification", (message) => {
-  console.log(message.payload.thread)
-})
-
-await cypheria.agent.codex.notify.initialized()
-
-unsubscribe()
+codex.close()
 await cypheria.close()
 ```
 

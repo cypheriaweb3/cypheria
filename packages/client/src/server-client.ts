@@ -12,6 +12,8 @@ import {
   ClientDescriptorSchema,
   type ClientKind,
   type ClientMessage,
+  type CodexClientResponseMap,
+  type CodexServerRequestResponseMap,
   type ConnectionOfferV2,
   ConnectionOfferV2Schema,
   CYPHERIA_PROTOCOL_VERSION,
@@ -27,14 +29,14 @@ import {
   type ServerMessage,
   stringifyProtocolMessage,
 } from "@cypheria/protocol"
-import {
-  type CodexActions,
-  type CodexClientMethod,
-  type CodexClientNotificationMethod,
-  type CodexServerMethod,
-  createCodexActions,
-} from "./codex-actions.js"
-import { createRelayServerTransportFactory } from "./relay-server-transport.js"
+import type {
+  CodexClientMethod,
+  CodexClientNotificationMethod,
+  CodexClientNotificationParams,
+  CodexRequestParams,
+  CodexServerMethod,
+} from "./codex-endpoint.js"
+import { createRelayServerTransportFactory } from "./server-client-relay-e2ee-transport.js"
 import type {
   ServerTransport,
   ServerTransportFactory,
@@ -76,14 +78,15 @@ export type ServerClientConfig = {
 }
 
 export type RequestOptions = {
+  readonly signal?: AbortSignal
   readonly timeoutMs?: number
 }
 
 type PendingRequest = {
+  readonly cleanup: () => void
   readonly expectedType: string
   readonly reject: (error: Error) => void
   readonly resolve: (message: ServerMessage) => void
-  readonly timeout: ReturnType<typeof setTimeout>
 }
 
 type ConnectCallbacks = {
@@ -178,8 +181,6 @@ const decodeTextFrame = (data: unknown): string => {
 
 /** Owns one versioned Cypheria server connection and executes only protocol-defined messages. */
 export class ServerClient {
-  readonly codex: CodexActions
-
   readonly #config: ServerClientConfig
   readonly #connectionHandlers = new Set<ConnectionHandler>()
   readonly #descriptor: ClientDescriptor
@@ -230,11 +231,6 @@ export class ServerClient {
       ? createRelayServerTransportFactory(relayOffer, webSocketTransportFactory)
       : (config.transportFactory ?? webSocketTransportFactory)
     parseClientMessage(this.#createHelloMessage("req:hello:config"))
-    this.codex = createCodexActions({
-      notify: (method, params) => this.#notifyCodex(method, params),
-      request: (method, params) => this.#requestCodex(method, params),
-      respond: (method, requestId, response) => this.#respondToCodex(method, requestId, response),
-    })
   }
 
   getConnectionState(): ConnectionState {
@@ -408,7 +404,11 @@ export class ServerClient {
     return (message as Extract<ServerMessage, { type: "server.lifecycle.accepted" }>).payload
   }
 
-  async #requestCodex(method: CodexClientMethod, params?: unknown): Promise<unknown> {
+  async requestCodex<Method extends CodexClientMethod>(
+    method: Method,
+    params?: CodexRequestParams<Method>,
+    options?: RequestOptions
+  ): Promise<CodexClientResponseMap[Method]> {
     const definition = AGENT_CODEX_CLIENT_RPC[method]
     const message = await this.#request(
       {
@@ -416,25 +416,29 @@ export class ServerClient {
         requestId: this.#nextRequestId("codex"),
         type: definition.request,
       } as AgentCodexClientRequestMessage,
-      definition.response
+      definition.response,
+      options
     )
     const { requestId: _requestId, ...result } = (
       message as Extract<ServerMessage, { payload: { requestId: RequestId } }>
     ).payload
-    return result
+    return result as CodexClientResponseMap[Method]
   }
 
-  async #notifyCodex(method: CodexClientNotificationMethod, params?: unknown): Promise<void> {
+  async notifyCodex<Method extends CodexClientNotificationMethod>(
+    method: Method,
+    params?: CodexClientNotificationParams<Method>
+  ): Promise<void> {
     await this.#sendWhenConnected({
       ...((params ?? {}) as object),
       type: AGENT_CODEX_CLIENT_NOTIFICATIONS[method].notification,
     } as AgentCodexClientNotificationMessage)
   }
 
-  async #respondToCodex(
-    method: CodexServerMethod,
+  async respondToCodex<Method extends CodexServerMethod>(
+    method: Method,
     requestId: RequestId,
-    response: unknown
+    response: CodexServerRequestResponseMap[Method]
   ): Promise<void> {
     await this.#sendWhenConnected({
       payload: { requestId, ...(response as object) },
@@ -546,18 +550,35 @@ export class ServerClient {
     }
     const requestId = parsed.requestId
     return new Promise<ServerMessage>((resolve, reject) => {
+      const cleanup = (): void => {
+        clearTimeout(timeout)
+        options?.signal?.removeEventListener("abort", onAbort)
+      }
+      const onAbort = (): void => {
+        const pending = this.#pending.get(requestId)
+        if (!pending) return
+        this.#pending.delete(requestId)
+        pending.cleanup()
+        pending.reject(asError(options?.signal?.reason, `Request ${requestId} was aborted`))
+      }
       const timeout = setTimeout(
         () => {
           this.#pending.delete(requestId)
+          options?.signal?.removeEventListener("abort", onAbort)
           reject(new CypheriaConnectionError(`Timed out waiting for ${expectedType}`))
         },
         options?.timeoutMs ?? this.#config.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS
       )
-      this.#pending.set(requestId, { expectedType, reject, resolve, timeout })
+      this.#pending.set(requestId, { cleanup, expectedType, reject, resolve })
+      options?.signal?.addEventListener("abort", onAbort, { once: true })
+      if (options?.signal?.aborted) {
+        onAbort()
+        return
+      }
       void this.#sendWhenConnected(parsed).catch((error) => {
         const pending = this.#pending.get(requestId)
         if (!pending) return
-        clearTimeout(pending.timeout)
+        pending.cleanup()
         this.#pending.delete(requestId)
         pending.reject(asError(error, "Failed to send Cypheria request"))
       })
@@ -583,7 +604,7 @@ export class ServerClient {
   #settleResponse(requestId: RequestId, message: ServerMessage): void {
     const pending = this.#pending.get(requestId)
     if (!pending) return
-    clearTimeout(pending.timeout)
+    pending.cleanup()
     this.#pending.delete(requestId)
     if (message.type !== pending.expectedType) {
       pending.reject(
@@ -599,7 +620,7 @@ export class ServerClient {
   #settleError(requestId: RequestId, error: Error): void {
     const pending = this.#pending.get(requestId)
     if (!pending) return
-    clearTimeout(pending.timeout)
+    pending.cleanup()
     this.#pending.delete(requestId)
     pending.reject(error)
   }
@@ -695,7 +716,7 @@ export class ServerClient {
 
   #rejectPending(error: Error): void {
     for (const pending of this.#pending.values()) {
-      clearTimeout(pending.timeout)
+      pending.cleanup()
       pending.reject(error)
     }
     this.#pending.clear()
@@ -729,20 +750,6 @@ export class ServerClient {
   }
 }
 
-export type {
-  CodexActions,
-  CodexClientMethod,
-  CodexClientNotificationAction,
-  CodexClientNotificationActions,
-  CodexClientNotificationMethod,
-  CodexClientNotificationParams,
-  CodexRequestAction,
-  CodexRequestActions,
-  CodexRequestParams,
-  CodexServerMethod,
-  CodexServerResponseAction,
-  CodexServerResponseActions,
-} from "./codex-actions.js"
 export type {
   ServerTransport,
   ServerTransportFactory,

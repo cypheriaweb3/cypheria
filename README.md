@@ -12,7 +12,8 @@ Cypheria V1 is organized around one server and multiple clients:
 - **Server**: a Hono + Node.js control plane that owns runtime lifecycle, client sessions, diagnostics, static web hosting, and later Codex/product services.
 - **Expo client**: one Expo Router application for iOS, Android, and static web output. The server embeds the web output.
 - **Shared client**: `@cypheria/client` provides the WebSocket protocol driver, a borrowed API
-  facade, and a connection-owning facade without owning the privileged runtime.
+  facade, a connection-owning facade, a Cypheria-owned Codex `client()` / `ClientApp` API, and ACP
+  SDK-compatible stable-v1/draft-v2 APIs without owning the privileged runtime.
 - **Relay**: the Go `apps/relay` service and TypeScript `@cypheria/relay` package provide an
   optional E2EE remote path to the same server protocol.
 - **CLI and SDK clients**: planned product clients built on the server protocol.
@@ -35,6 +36,7 @@ The default safety model is human approval. Read-only mode and conditional auto-
 - **Lint/format**: Biome
 - **UI**: shadcn-style copied components, Base UI primitives, Cypheria CSS tokens, lucide-react
 - **Cypheria client protocol**: versioned Zod contracts with metadata-assisted `bigint` transport in `@cypheria/protocol`
+- **ACP client API**: Cypheria-owned SDK-shaped `client()` / `ClientApp` APIs, backed by `@agentclientprotocol/sdk@1.4.0`, over directional WebSocket envelopes
 - **Desktop agent integration**: `codex app-server` over WebSocket JSON-RPC
 - **Codex protocol types and validation**: owned by `@cypheria/protocol` and generated with `pnpm --filter @cypheria/protocol generate:codex-all`
 - **Marketplace hosting**: Cloudflare Workers, D1, R2, Queues, and Workflows

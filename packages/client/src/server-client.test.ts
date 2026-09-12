@@ -1,7 +1,4 @@
 import {
-  AGENT_CODEX_CLIENT_NOTIFICATIONS,
-  AGENT_CODEX_CLIENT_RPC,
-  AGENT_CODEX_SERVER_RPC,
   type ConnectionOfferV2,
   parseClientMessageText,
   type ServerIdentity,
@@ -30,17 +27,6 @@ const identity: ServerIdentity = {
 }
 
 const tick = () => new Promise<void>((resolve) => queueMicrotask(resolve))
-
-const resolveAction = (root: unknown, path: string): unknown =>
-  path
-    .split("/")
-    .reduce<unknown>(
-      (node, segment) =>
-        typeof node === "object" || typeof node === "function"
-          ? (node as Record<string, unknown>)[segment]
-          : undefined,
-      root
-    )
 
 const acceptSocket = (socket: TestWebSocket, sessionId = "ses_test"): void => {
   socket.open()
@@ -324,7 +310,7 @@ describe("ServerClient", () => {
     })
     const socket = await connect(client)
 
-    const resultPromise = client.codex.memory.reset()
+    const resultPromise = client.requestCodex("memory/reset")
     await tick()
     const request = parseClientMessageText(socket.sent.at(-1) ?? "")
     expect(request).toMatchObject({ type: "agent.codex.memory.reset.request" })
@@ -340,41 +326,19 @@ describe("ServerClient", () => {
     await client.close()
   })
 
-  it("creates an async action for every protocol-defined Codex message direction", async () => {
-    const client = new ServerClient({
-      clientId: "client-test",
-      webSocketFactory: testWebSocketFactory,
-    })
-
-    for (const method of Object.keys(AGENT_CODEX_CLIENT_RPC)) {
-      expect(resolveAction(client.codex, method), method).toBeTypeOf("function")
-    }
-    for (const method of Object.keys(AGENT_CODEX_CLIENT_NOTIFICATIONS)) {
-      expect(resolveAction(client.codex.notify, method), method).toBeTypeOf("function")
-    }
-    for (const method of Object.keys(AGENT_CODEX_SERVER_RPC)) {
-      expect(resolveAction(client.codex.respond, method), method).toBeTypeOf("function")
-    }
-
-    await client.close()
-  })
-
-  it("implements client notifications and reverse responses as async methods", async () => {
+  it("implements Codex notifications and reverse responses as async transport methods", async () => {
     const client = new ServerClient({
       clientId: "client-test",
       webSocketFactory: testWebSocketFactory,
     })
     const socket = await connect(client)
 
-    expect(typeof client.codex.command.exec).toBe("function")
-    expect(typeof client.codex.command.exec.write).toBe("function")
-
-    await client.codex.notify.initialized()
+    await client.notifyCodex("initialized")
     expect(parseClientMessageText(socket.sent.at(-1) ?? "")).toEqual({
       type: "agent.codex.initialized.notification",
     })
 
-    await client.codex.respond.currentTime.read("current-time-1", {
+    await client.respondToCodex("currentTime/read", "current-time-1", {
       currentTimeAt: 1_789_000_000,
     })
     expect(parseClientMessageText(socket.sent.at(-1) ?? "")).toEqual({

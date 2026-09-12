@@ -119,9 +119,19 @@ Status legend:
 
 - [x] Add the layered `packages/client` protocol client.
   - Acceptance: `ServerClient` owns transport and WebSocket session lifecycle, correlation, subscriptions, and reconnect policy; `CypheriaApi` borrows an existing connection and exposes only current protocol-defined operations; `CypheriaClient` combines the API with lifecycle controls.
-  - Include: lazy connection, versioned hello/authentication, browser/Node/custom transport support, request timeout and typed error handling, bounded exponential reconnects, generic runtime request/events, one generated async method per Codex request/response pair, typed message notifications, ACP traffic, paired package documentation, and no privileged implementation dependencies.
+  - Include: lazy connection, versioned hello/authentication, browser/Node/custom transport support, request timeout and typed error handling, bounded exponential reconnects, generic runtime request/events, typed Codex endpoint traffic, typed message notifications, ACP traffic, paired package documentation, and no privileged implementation dependencies.
   - Verification: `pnpm --filter @cypheria/client test`, package typecheck/build, `pnpm run ci`, and `pnpm build`.
   - Verification record: 23 client unit tests, a live client/server runtime-info smoke test, full repository CI, and full repository build pass.
+
+- [x] Add an ACP SDK-style API to `@cypheria/client`.
+  - Acceptance: stable-v1 and explicit draft-v2 ACP app APIs work over the directional wire envelopes already defined by `@cypheria/protocol`, while callers retain the official SDK's typed contexts, handlers, sessions, cancellation, errors, and v2 batches.
+  - Include: Cypheria-owned `client()` and `ClientApp` at `@cypheria/client/acp` and `@cypheria/client/acp/v2`; endpoint-based `connect` and `connectWith`; selective pinned-SDK re-exports without reimplemented or deprecated APIs; protocol-owned outbound validation; inbound version filtering; one active ACP connection per endpoint across borrowed facades; teardown on transport loss; retained low-level envelope access; and paired package/architecture/stack documentation. Do not add server-side ACP dispatch in this item.
+  - Verification: 32 client unit tests, client typecheck/build, full repository CI, and full repository build.
+
+- [x] Replace Codex actions with a Codex SDK-style API in `@cypheria/client`.
+  - Acceptance: callers use a Cypheria-owned `client()` / `ClientApp` API for all Codex wire methods already defined by `@cypheria/protocol`; each outbound request and correlated response is one typed async call, while notifications and reverse requests use fluent typed handlers.
+  - Include: the `@cypheria/client/codex` entry; endpoint-based `connect` and `connectWith`; typed `ClientContext.request` and `notify`; typed `onRequest` and `onNotification`; automatic reverse responses; cancellation and teardown on close or transport loss; one active app per endpoint; generated Codex type re-exports; method constants; removal of `CodexActions`; and paired package/architecture/stack documentation. Do not add protocol methods or server-side Codex dispatch in this item.
+  - Verification: 39 client unit tests, client typecheck/build, full repository CI, and full repository build.
 
 - [ ] Add `packages/sdk`.
   - Acceptance: package exports a public `Cypheria` server client.

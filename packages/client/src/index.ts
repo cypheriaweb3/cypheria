@@ -7,7 +7,8 @@ import type {
   ServerMessage,
 } from "@cypheria/protocol"
 
-import type { CodexActions } from "./codex-actions.js"
+import { type AcpEndpoint, createAcpEndpoint } from "./acp-client.js"
+import { type CodexEndpoint, createCodexEndpoint, isCodexServerMessage } from "./codex-endpoint.js"
 import {
   type ConnectionState,
   ServerClient,
@@ -29,16 +30,9 @@ export interface RuntimeActions {
   subscribe(handler: (event: RuntimeEvent) => void): () => void
 }
 
-export type CodexAgentActions = CodexActions
-
-export interface AcpAgentActions {
-  send(payload: AcpClientWirePayload): Promise<void>
-  subscribe(handler: (payload: AcpServerWirePayload) => void): () => void
-}
-
 export interface AgentActions {
-  readonly acp: AcpAgentActions
-  readonly codex: CodexAgentActions
+  readonly acp: AcpEndpoint
+  readonly codex: CodexEndpoint
 }
 
 export interface ServerActions {
@@ -75,6 +69,44 @@ export interface CypheriaClient extends CypheriaApi {
 
 export type CypheriaClientConfig = ServerClientConfig
 
+const acpEndpointsByServerClient = new WeakMap<ServerClient, AcpEndpoint>()
+const codexEndpointsByServerClient = new WeakMap<ServerClient, CodexEndpoint>()
+
+const getAcpEndpoint = (serverClient: ServerClient): AcpEndpoint => {
+  const existing = acpEndpointsByServerClient.get(serverClient)
+  if (existing) return existing
+  const endpoint = createAcpEndpoint({
+    send: (payload) => serverClient.sendAcp(payload),
+    subscribe: (handler) =>
+      serverClient.on("agent.acp.server.message", (message) => handler(message.payload)),
+    subscribeConnectionStatus: (handler) => serverClient.subscribeConnectionStatus(handler),
+  })
+  acpEndpointsByServerClient.set(serverClient, endpoint)
+  return endpoint
+}
+
+const getCodexEndpoint = (serverClient: ServerClient): CodexEndpoint => {
+  const existing = codexEndpointsByServerClient.get(serverClient)
+  if (existing) return existing
+  const notify: CodexEndpoint["notify"] = (method, ...args) =>
+    serverClient.notifyCodex(method, args[0])
+  const request: CodexEndpoint["request"] = (method, ...args) =>
+    serverClient.requestCodex(method, args[0], args[1])
+  const endpoint = createCodexEndpoint({
+    notify,
+    request,
+    respond: (method, requestId, response) =>
+      serverClient.respondToCodex(method, requestId, response),
+    subscribe: (handler) =>
+      serverClient.subscribe((message) => {
+        if (isCodexServerMessage(message)) handler(message)
+      }),
+    subscribeConnectionStatus: (handler) => serverClient.subscribeConnectionStatus(handler),
+  })
+  codexEndpointsByServerClient.set(serverClient, endpoint)
+  return endpoint
+}
+
 /** Creates a public client which owns exactly one Cypheria server connection. */
 export function createCypheriaClient(config: CypheriaClientConfig = {}): CypheriaClient {
   const serverClient = new ServerClient(config)
@@ -103,12 +135,8 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
 
   return {
     agent: {
-      acp: {
-        send: async (payload) => serverClient.sendAcp(payload),
-        subscribe: (handler) =>
-          serverClient.on("agent.acp.server.message", (message) => handler(message.payload)),
-      },
-      codex: serverClient.codex,
+      acp: getAcpEndpoint(serverClient),
+      codex: getCodexEndpoint(serverClient),
     },
     on,
     runtime: {
@@ -127,12 +155,6 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
   }
 }
 
-export type {
-  CodexActions,
-  CodexClientNotificationActions,
-  CodexRequestActions,
-  CodexServerResponseActions,
-} from "./codex-actions.js"
 export {
   type ConnectionState,
   CypheriaConnectionError,
@@ -140,3 +162,4 @@ export {
   CypheriaServerError,
   type ServerSession,
 } from "./server-client.js"
+export type { AcpClientWirePayload, AcpEndpoint, AcpServerWirePayload, CodexEndpoint }
