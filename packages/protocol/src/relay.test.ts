@@ -23,8 +23,8 @@ describe("relay connection offers", () => {
     expect(parseConnectionOffer(encoded)).toEqual(offer)
   })
 
-  it("rejects unknown fields and unsupported versions", () => {
-    expect(() => ConnectionOfferV2Schema.parse({ ...offer, extra: true })).toThrow()
+  it("strips unknown fields and rejects unsupported versions", () => {
+    expect(ConnectionOfferV2Schema.parse({ ...offer, extra: true })).toEqual(offer)
     expect(() => ConnectionOfferV2Schema.parse({ ...offer, v: 1 })).toThrow()
   })
 

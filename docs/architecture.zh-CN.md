@@ -56,6 +56,14 @@ Codex 负责 agent threads、turns、model execution、code edits、shell/tool e
 
 `@cypheria/protocol` 定义 Cypheria client message、server message、HTTP body 与 runtime method validation。WebSocket message 在值均为 JSON 原生类型时仍使用普通 JSON；只有 Cypheria 自有 payload 包含 `bigint` 等值时，才使用版本化 SuperJSON 信封携带元数据。该 package 持有 generated Codex App Server TypeScript、JSON Schema、response mapping 与逐消息 Zod validator，并从根入口以 `agent.codex.<operation>.request|response|notification` 暴露完整、provider-transparent 的 Cypheria API。原始 generated Codex type 隔离在 `@cypheria/protocol/codex-types`。`@cypheria/codex-bridge` 只消费这些产物，不再维护另一份 generated copy；在改为围绕 Cypheria message 工作之前，原始 Codex JSON-RPC validation 暂时仍由 bridge 持有。Client code 可以依赖 `@cypheria/protocol`，但不能导入 server internals 或特权 domain implementation。`@cypheria/client` 将这个边界分成三层：`ServerClient` 持有经过校验的 WebSocket session；`CypheriaApi` 借用已有 `ServerClient`，但不获得 lifecycle control；`CypheriaClient` 则把该门面与 connection lifecycle 组合起来。其 `codex` 入口实现 Cypheria 自有的 SDK-shaped `client()` 与 `ClientApp`；`connect()` 和 `connectWith()` 通过共享的 `CypheriaApi` 类型接收任一门面，并在内部选择最小的 `agent.codex` endpoint。typed request call、反向 request handler 与 notification handler 随后直接运行，不再生成 action tree。其 stable 与 draft-v2 ACP 入口提供相同 app 形态，并从传入的 `CypheriaApi` 选择 `agent.acp`；它们复用官方 handler/JSON-RPC engine，并选择性重新导出支持的 SDK type 与 helper，不包含已废弃 connection class。这样 host 持有的一条连接可以安全共享，而 plugin 或局部 surface 不能将其关闭。
 
+Cypheria 自有 object schema 会剥离未知 key。可选的 `session.ready.features` record 是例外：
+它会保留未知 boolean flag，以支持不同版本 peer。每个具名 compatibility gate 必须保持可选，
+并通过 `COMPAT(name)` comment 记录引入版本与移除日期。最终 protocol union 使用 Zod 显式
+AOT compile；ACP call validation 会跳过 SDK 宽泛且未关联 method 的 params union，直接使用选中的
+method schema。每个 Codex client connection 都持有初始化状态机；`initialize()` 执行 request 与
+initialized notification，`connection.initialized` 暴露协商 snapshot。每个反向 request 都会以
+typed response 或 `client.error` 结束（前提是 transport 仍然可用）。
+
 初始 server 刻意只注册 runtime 内置的 information、health 与 service-list method。Codex wire contract 已经定义，但 server dispatch 尚未连接；wallet、policy、browser、automation 与其余产品 service 仍不在当前运行中的 foundation 范围内。详见 [Cypheria Server](server.zh-CN.md)。
 
 ## Relay 边界

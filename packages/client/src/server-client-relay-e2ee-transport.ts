@@ -82,13 +82,11 @@ export class RelayServerTransport implements ServerTransport {
     )
   }
 
-  send(data: string | Uint8Array | ArrayBuffer): void {
+  send(data: string | Uint8Array | ArrayBuffer): Promise<void> {
     const channel = this.#channel
     if (!channel) throw new Error("Relay E2EE channel is not ready")
     const normalized = data instanceof Uint8Array ? data.slice().buffer : data
-    void channel.send(normalized).catch((error) => {
-      for (const handler of this.#errorHandlers) handler(error)
-    })
+    return channel.send(normalized)
   }
 
   close(code?: number, reason?: string): void {

@@ -12,6 +12,7 @@ import {
   type AgentCodexServerRequestMessage,
   type RequestId as CypheriaRequestId,
 } from "@cypheria/protocol"
+import type { RequestOptions } from "./request-options.js"
 
 export type CodexClientMethod = keyof typeof AGENT_CODEX_CLIENT_RPC
 export type CodexClientNotificationMethod = keyof typeof AGENT_CODEX_CLIENT_NOTIFICATIONS
@@ -50,10 +51,7 @@ export type CodexServerNotificationParams<Method extends CodexServerNotification
     ? Params
     : Record<never, never>
 
-export type CodexRequestOptions = {
-  readonly signal?: AbortSignal
-  readonly timeoutMs?: number
-}
+export type CodexRequestOptions = RequestOptions
 
 export type CodexServerMessage =
   | AgentCodexServerRequestMessage
@@ -96,6 +94,14 @@ export interface CodexEndpoint {
 }
 
 interface CodexEndpointTransport extends CodexEndpoint {
+  respondError(
+    requestId: CypheriaRequestId,
+    error: {
+      readonly code: "HANDLER_FAILED" | "REQUEST_CANCELLED" | "REQUEST_NOT_SUPPORTED"
+      readonly message: string
+      readonly requestType?: string
+    }
+  ): Promise<void>
   subscribeConnectionStatus?(handler: (state: CodexConnectionState) => void): () => void
 }
 
@@ -115,6 +121,17 @@ export const createCodexEndpoint = (transport: CodexEndpointTransport): CodexEnd
   } as CodexEndpoint
   endpointTransports.set(endpoint, transport)
   return endpoint
+}
+
+/** @internal Sends the terminal error for a server-initiated request. */
+export const respondCodexError = (
+  endpoint: CodexEndpoint,
+  requestId: CypheriaRequestId,
+  error: Parameters<CodexEndpointTransport["respondError"]>[1]
+): Promise<void> => {
+  const transport = endpointTransports.get(endpoint)
+  if (!transport) throw new Error("Codex endpoint transport is unavailable")
+  return transport.respondError(requestId, error)
 }
 
 /** @internal Reserves one endpoint for one ClientApp and observes transport termination. */

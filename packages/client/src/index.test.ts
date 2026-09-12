@@ -18,7 +18,7 @@ const acceptConnection = async (connectPromise: Promise<void>): Promise<TestWebS
   socket.message(
     stringifyProtocolMessage({
       payload: {
-        capabilities: ["runtime.request"],
+        capabilities: ["runtime.request", "agent.acp", "agent.codex"],
         server: {
           hostname: "test",
           id: "srv_test",
@@ -103,8 +103,30 @@ describe("Cypheria client facade", () => {
       webSocketFactory: testWebSocketFactory,
     })
     const connection = createCodexApp().connect(client)
-    const resultPromise = connection.codex.request("memory/reset")
     const socket = await acceptConnection(client.ensureConnected())
+    const initializePromise = connection.codex.initialize({
+      capabilities: null,
+      clientInfo: { name: "cypheria-test", title: null, version: "0.0.0" },
+    })
+    await tick()
+    const initializeRequest = parseClientMessageText(socket.sent.at(-1) ?? "")
+    if (initializeRequest.type !== "agent.codex.initialize.request") {
+      throw new Error("Expected Codex initialize request")
+    }
+    socket.message(
+      stringifyProtocolMessage({
+        payload: {
+          codexHome: "/tmp/codex",
+          platformFamily: "unix",
+          platformOs: "macos",
+          requestId: initializeRequest.requestId,
+          userAgent: "codex-test",
+        },
+        type: "agent.codex.initialize.response",
+      })
+    )
+    await initializePromise
+    const resultPromise = connection.codex.request("memory/reset")
     await tick()
 
     const request = parseClientMessageText(socket.sent.at(-1) ?? "")

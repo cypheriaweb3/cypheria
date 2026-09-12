@@ -57,14 +57,20 @@ const app = createCodexApp()
   })
 
 const connection = app.connect(cypheria)
+await connection.codex.initialize({
+  capabilities: null,
+  clientInfo: { name: "example", title: "Example", version: "1.0.0" },
+})
 const threads = await connection.codex.request(methods.server.request["thread/list"], {})
-await connection.codex.notify(methods.server.notification.initialized)
 
 connection.close()
 await cypheria.close()
 ```
 
-`@cypheria/client/codex` 会导出 method constant 与全部 generated Codex type。
+`initialize()` 负责必需的 Codex initialize request/initialized notification 握手。
+`connection.initialized` 会解析为该握手的 request/response snapshot；重复初始化是幂等的，
+其他 context 调用则会在初始化成功前给出清晰错误。`@cypheria/client/codex` 会导出 method
+constant 与全部 generated Codex type。
 `connectWith(cypheria, operation)` 提供 scoped connection，并且一定在 operation 结束后释放。
 每个 endpoint 同时只允许一个 Codex app 消费；transport loss 会中止 connection 与 pending
 request。低层 consumer 仍可直接调用 endpoint method，但不得把手动反向 response 处理与活跃
@@ -128,6 +134,10 @@ const codex = createCodexApp().connect(cypheria)
 
 const server = await cypheria.server.info()
 const runtimeInfo = await cypheria.runtime.request("runtime.info")
+await codex.codex.initialize({
+  capabilities: null,
+  clientInfo: { name: "example", title: "Example", version: "1.0.0" },
+})
 const threads = await codex.codex.request(codexMethods.server.request["thread/list"], {})
 
 codex.close()
@@ -137,6 +147,17 @@ await cypheria.close()
 请求会懒连接。`close()` 会永久释放该 client。在 close 之前，transport 断开会拒绝进行中的
 请求，并默认安排有界指数退避重连；如果 embedding host 自己负责 retry policy，可将
 `reconnect.enabled` 设为 `false`。
+
+所有有关联的 facade method 都接受最后一个 `{ signal, timeoutMs }` request options 参数。
+timeout 或 abort 也会取消仍在等待懒连接的请求，避免它稍后变成 ghost request。
+`cypheria.server.supports(name)` 查询协商后的 capability；`supportsFeature(name)` 查询可选且
+可向前兼容的 feature flag。若调用所需的 server capability 未被声明，client 会在写 transport
+前失败。
+
+只要 transport 仍可用，Codex 反向 request 就一定会收到终态 response：handler 缺失、handler
+失败和 ClientApp 的逻辑取消都会生成 typed `client.error` message。Protocol 通过默认的
+`client.rpc-errors` client capability 声明该行为；server dispatch 支持按约定留到后续 server
+实现阶段。
 
 默认 adapter 使用当前 runtime 的全局 WebSocket。其他环境可以注入 `webSocketFactory`，或
 完整的 `transportFactory`。HTTP(S) 根 URL 会转换到版本化 `/api/v1/ws` WS(S) endpoint。

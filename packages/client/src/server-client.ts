@@ -8,6 +8,7 @@ import {
   type AgentCodexServerNotificationMessage,
   type AgentCodexServerRequestMessage,
   type AgentCodexServerResponseMessage,
+  CLIENT_CAPABILITIES,
   type ClientDescriptor,
   ClientDescriptorSchema,
   type ClientKind,
@@ -19,10 +20,12 @@ import {
   CYPHERIA_PROTOCOL_VERSION,
   CYPHERIA_WEBSOCKET_PATH,
   createWebSocketProtocols,
+  isClientResponseMessage,
   parseClientMessage,
   parseConnectionOffer,
   parseServerMessageText,
   type RequestId,
+  SERVER_CAPABILITIES,
   type ServerDiagnostics,
   type ServerErrorCode,
   type ServerInfo,
@@ -36,6 +39,7 @@ import type {
   CodexRequestParams,
   CodexServerMethod,
 } from "./codex-endpoint.js"
+import { assertRequestTimeout, type RequestOptions } from "./request-options.js"
 import { createRelayServerTransportFactory } from "./server-client-relay-e2ee-transport.js"
 import type {
   ServerTransport,
@@ -77,12 +81,8 @@ export type ServerClientConfig = {
   readonly webSocketFactory?: WebSocketFactory
 }
 
-export type RequestOptions = {
-  readonly signal?: AbortSignal
-  readonly timeoutMs?: number
-}
-
 type PendingRequest = {
+  readonly abortSend: (reason?: unknown) => void
   readonly cleanup: () => void
   readonly expectedType: string
   readonly reject: (error: Error) => void
@@ -120,6 +120,23 @@ export class CypheriaProtocolError extends Error {
   constructor(message: string, options?: ErrorOptions) {
     super(message, options)
     this.name = "CypheriaProtocolError"
+  }
+}
+
+export class CypheriaTimeoutError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = "CypheriaTimeoutError"
+  }
+}
+
+export class CypheriaCapabilityError extends Error {
+  readonly capability: string
+
+  constructor(capability: string) {
+    super(`Cypheria server does not advertise the '${capability}' capability`)
+    this.name = "CypheriaCapabilityError"
+    this.capability = capability
   }
 }
 
@@ -245,6 +262,14 @@ export class ServerClient {
     return this.#session
   }
 
+  supports(capability: string): boolean {
+    return this.#session?.capabilities.includes(capability) ?? false
+  }
+
+  supportsFeature(feature: string): boolean {
+    return this.#session?.features?.[feature] === true
+  }
+
   subscribeConnectionStatus(handler: ConnectionHandler): () => void {
     this.#connectionHandlers.add(handler)
     this.#callConnectionHandler(handler, this.#state)
@@ -318,7 +343,7 @@ export class ServerClient {
     const transport = this.#transport
     if (this.#state.status === "connected" && transport) {
       try {
-        this.#sendNow({
+        await this.#sendNow({
           requestId: this.#nextRequestId("goodbye"),
           type: "session.goodbye",
         })
@@ -365,7 +390,8 @@ export class ServerClient {
     const message = await this.#request(
       { requestId: this.#nextRequestId("diagnostics"), type: "server.diagnostics" },
       "server.diagnostics.result",
-      options
+      options,
+      SERVER_CAPABILITIES.diagnostics
     )
     return (message as Extract<ServerMessage, { type: "server.diagnostics.result" }>).payload
   }
@@ -382,7 +408,8 @@ export class ServerClient {
         type: "runtime.request",
       },
       "runtime.response",
-      options
+      options,
+      SERVER_CAPABILITIES.runtimeRequest
     )
     return (message as Extract<ServerMessage, { type: "runtime.response" }>).payload.result as T
   }
@@ -399,9 +426,17 @@ export class ServerClient {
         type: `server.${action}`,
       },
       "server.lifecycle.accepted",
-      options
+      options,
+      SERVER_CAPABILITIES.lifecycle
     )
-    return (message as Extract<ServerMessage, { type: "server.lifecycle.accepted" }>).payload
+    const payload = (message as Extract<ServerMessage, { type: "server.lifecycle.accepted" }>)
+      .payload
+    if (payload.action !== action) {
+      throw new CypheriaProtocolError(
+        `Expected lifecycle action ${action}, received ${payload.action}`
+      )
+    }
+    return payload
   }
 
   async requestCodex<Method extends CodexClientMethod>(
@@ -417,7 +452,8 @@ export class ServerClient {
         type: definition.request,
       } as AgentCodexClientRequestMessage,
       definition.response,
-      options
+      options,
+      SERVER_CAPABILITIES.codex
     )
     const { requestId: _requestId, ...result } = (
       message as Extract<ServerMessage, { payload: { requestId: RequestId } }>
@@ -429,10 +465,14 @@ export class ServerClient {
     method: Method,
     params?: CodexClientNotificationParams<Method>
   ): Promise<void> {
-    await this.#sendWhenConnected({
-      ...((params ?? {}) as object),
-      type: AGENT_CODEX_CLIENT_NOTIFICATIONS[method].notification,
-    } as AgentCodexClientNotificationMessage)
+    await this.#sendWhenConnected(
+      {
+        ...((params ?? {}) as object),
+        type: AGENT_CODEX_CLIENT_NOTIFICATIONS[method].notification,
+      } as AgentCodexClientNotificationMessage,
+      undefined,
+      SERVER_CAPABILITIES.codex
+    )
   }
 
   async respondToCodex<Method extends CodexServerMethod>(
@@ -446,8 +486,27 @@ export class ServerClient {
     } as AgentCodexServerResponseMessage)
   }
 
+  async respondToClientRequestError(
+    requestId: RequestId,
+    error: {
+      readonly code: "HANDLER_FAILED" | "REQUEST_CANCELLED" | "REQUEST_NOT_SUPPORTED"
+      readonly message: string
+      readonly requestType?: string
+    }
+  ): Promise<void> {
+    await this.#sendWhenConnected({
+      payload: error,
+      requestId,
+      type: "client.error",
+    })
+  }
+
   async sendAcp(payload: AcpClientWirePayload): Promise<void> {
-    await this.#sendWhenConnected({ payload, type: "agent.acp.client.message" })
+    await this.#sendWhenConnected(
+      { payload, type: "agent.acp.client.message" },
+      undefined,
+      SERVER_CAPABILITIES.acp
+    )
   }
 
   #bindTransport(transport: ServerTransport): void {
@@ -461,11 +520,9 @@ export class ServerClient {
         if (!isCurrent()) return
         const requestId = this.#nextRequestId("hello")
         this.#helloRequestId = requestId
-        try {
-          this.#sendNow(this.#createHelloMessage(requestId))
-        } catch (error) {
+        void this.#sendNow(this.#createHelloMessage(requestId)).catch((error) => {
           this.#handleDisconnect(asError(error, "Invalid Cypheria session hello"), 1002)
-        }
+        })
       }),
       transport.onMessage((data, isBinary) => {
         if (!isCurrent()) return
@@ -532,7 +589,7 @@ export class ServerClient {
       } else if (message.requestId) {
         this.#settleError(message.requestId, error)
       }
-    } else if (requestId) {
+    } else if (requestId && isClientResponseMessage(message)) {
       this.#settleResponse(requestId, message)
     }
 
@@ -542,40 +599,59 @@ export class ServerClient {
   async #request(
     message: ClientMessage,
     expectedType: string,
-    options?: RequestOptions
+    options?: RequestOptions,
+    requiredCapability?: string
   ): Promise<ServerMessage> {
+    assertRequestTimeout(options?.timeoutMs)
     const parsed = parseClientMessage(message)
     if (!("requestId" in parsed) || typeof parsed.requestId !== "string") {
       throw new CypheriaProtocolError("A correlated Cypheria request must have a request id")
     }
     const requestId = parsed.requestId
     return new Promise<ServerMessage>((resolve, reject) => {
+      const sendController = new AbortController()
       const cleanup = (): void => {
         clearTimeout(timeout)
         options?.signal?.removeEventListener("abort", onAbort)
+        sendController.abort()
       }
       const onAbort = (): void => {
         const pending = this.#pending.get(requestId)
         if (!pending) return
         this.#pending.delete(requestId)
+        const error = asError(options?.signal?.reason, `Request ${requestId} was aborted`)
+        pending.abortSend(error)
         pending.cleanup()
-        pending.reject(asError(options?.signal?.reason, `Request ${requestId} was aborted`))
+        pending.reject(error)
       }
       const timeout = setTimeout(
         () => {
+          const pending = this.#pending.get(requestId)
+          if (!pending) return
           this.#pending.delete(requestId)
-          options?.signal?.removeEventListener("abort", onAbort)
-          reject(new CypheriaConnectionError(`Timed out waiting for ${expectedType}`))
+          const error = new CypheriaTimeoutError(`Timed out waiting for ${expectedType}`)
+          pending.abortSend(error)
+          pending.cleanup()
+          pending.reject(error)
         },
         options?.timeoutMs ?? this.#config.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS
       )
-      this.#pending.set(requestId, { cleanup, expectedType, reject, resolve })
+      this.#pending.set(requestId, {
+        abortSend: (reason) => sendController.abort(reason),
+        cleanup,
+        expectedType,
+        reject,
+        resolve,
+      })
       options?.signal?.addEventListener("abort", onAbort, { once: true })
       if (options?.signal?.aborted) {
         onAbort()
         return
       }
-      void this.#sendWhenConnected(parsed).catch((error) => {
+      const signal = options?.signal
+        ? AbortSignal.any([sendController.signal, options.signal])
+        : sendController.signal
+      void this.#sendParsedWhenConnected(parsed, signal, requiredCapability).catch((error) => {
         const pending = this.#pending.get(requestId)
         if (!pending) return
         pending.cleanup()
@@ -585,20 +661,44 @@ export class ServerClient {
     })
   }
 
-  async #sendWhenConnected(message: ClientMessage): Promise<void> {
+  async #sendWhenConnected(
+    message: ClientMessage,
+    signal?: AbortSignal,
+    requiredCapability?: string
+  ): Promise<void> {
     const parsed = parseClientMessage(message)
+    return this.#sendParsedWhenConnected(parsed, signal, requiredCapability)
+  }
+
+  async #sendParsedWhenConnected(
+    message: ClientMessage,
+    signal?: AbortSignal,
+    requiredCapability?: string
+  ): Promise<void> {
+    if (signal?.aborted) throw asError(signal.reason, "Cypheria send was aborted")
     if (this.#state.status === "connected") {
-      this.#sendNow(parsed)
+      if (requiredCapability && !this.supports(requiredCapability)) {
+        throw new CypheriaCapabilityError(requiredCapability)
+      }
+      await this.#sendValidated(message)
       return
     }
     await this.ensureConnected()
-    this.#sendNow(parsed)
+    if (signal?.aborted) throw asError(signal.reason, "Cypheria send was aborted")
+    if (requiredCapability && !this.supports(requiredCapability)) {
+      throw new CypheriaCapabilityError(requiredCapability)
+    }
+    await this.#sendValidated(message)
   }
 
-  #sendNow(message: ClientMessage): void {
+  async #sendNow(message: ClientMessage): Promise<void> {
+    return this.#sendValidated(parseClientMessage(message))
+  }
+
+  async #sendValidated(message: ClientMessage): Promise<void> {
     const transport = this.#transport
     if (!transport) throw new CypheriaConnectionError("Cypheria client is not connected")
-    transport.send(stringifyProtocolMessage(parseClientMessage(message)))
+    await transport.send(stringifyProtocolMessage(message))
   }
 
   #settleResponse(requestId: RequestId, message: ServerMessage): void {
@@ -716,6 +816,7 @@ export class ServerClient {
 
   #rejectPending(error: Error): void {
     for (const pending of this.#pending.values()) {
+      pending.abortSend(error)
       pending.cleanup()
       pending.reject(error)
     }
@@ -740,7 +841,7 @@ export class ServerClient {
   #createHelloMessage(requestId: RequestId): Extract<ClientMessage, { type: "session.hello" }> {
     return {
       payload: {
-        capabilities: [...(this.#config.capabilities ?? [])],
+        capabilities: [...(this.#config.capabilities ?? Object.values(CLIENT_CAPABILITIES))],
         client: this.#descriptor,
         protocolVersion: CYPHERIA_PROTOCOL_VERSION,
       },
@@ -750,6 +851,7 @@ export class ServerClient {
   }
 }
 
+export type { RequestOptions } from "./request-options.js"
 export type {
   ServerTransport,
   ServerTransportFactory,

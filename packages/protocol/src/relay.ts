@@ -3,13 +3,13 @@ import { z } from "zod"
 export const CYPHERIA_RELAY_PROTOCOL_VERSION = 2 as const
 export const CYPHERIA_PAIRING_SCHEME = "cypheria://pair" as const
 
-export const RelayEndpointSchema = z.strictObject({
+export const RelayEndpointSchema = z.object({
   endpoint: z.string().trim().min(1).max(2048),
   useTls: z.boolean().optional(),
 })
 export type RelayEndpoint = z.infer<typeof RelayEndpointSchema>
 
-export const ConnectionOfferV2Schema = z.strictObject({
+export const ConnectionOfferV2Schema = z.object({
   relay: RelayEndpointSchema,
   serverId: z.string().trim().min(1).max(256),
   serverPublicKeyB64: z.string().trim().min(1).max(128),
@@ -17,7 +17,7 @@ export const ConnectionOfferV2Schema = z.strictObject({
 })
 export type ConnectionOfferV2 = z.infer<typeof ConnectionOfferV2Schema>
 
-export const RelayPairingOfferResponseSchema = z.strictObject({
+export const RelayPairingOfferResponseSchema = z.object({
   offer: ConnectionOfferV2Schema,
   relayConnected: z.boolean(),
   url: z.string().url(),

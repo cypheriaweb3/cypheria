@@ -24,6 +24,7 @@ import {
   type CodexServerNotificationMethod,
   type CodexServerNotificationParams,
   type CodexServerRequestParams,
+  respondCodexError,
 } from "./codex-endpoint.js"
 import type { CypheriaApi } from "./index.js"
 
@@ -59,6 +60,13 @@ export type {
 
 export type MaybePromise<T> = T | PromiseLike<T>
 
+export type CodexInitializationSnapshot = Readonly<{
+  request: CodexRequestParams<"initialize">
+  response: CodexClientResponseMap["initialize"]
+}>
+
+export type CodexInitializationState = "idle" | "initializing" | "initialized" | "failed" | "closed"
+
 export type AppOptions = {
   readonly name?: string
   readonly onHandlerError?: (error: Error, message?: CodexServerMessage) => void
@@ -90,6 +98,7 @@ export type ClientConnectHandler = (connection: ClientConnection) => MaybePromis
 export interface ClientConnection {
   readonly closed: Promise<void>
   readonly codex: ClientContext
+  readonly initialized: Promise<CodexInitializationSnapshot>
   readonly signal: AbortSignal
   close(error?: unknown): void
 }
@@ -125,15 +134,117 @@ const notificationParams = (
   message: AgentCodexServerNotificationMessage
 ): Record<string, unknown> => ("payload" in message ? message.payload : {})
 
+const raceWithAbort = <T>(promise: PromiseLike<T>, signal: AbortSignal): Promise<T> =>
+  new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(asError(signal.reason, "Codex client connection closed"))
+    signal.addEventListener("abort", onAbort, { once: true })
+    Promise.resolve(promise).then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort)
+        resolve(value)
+      },
+      (error) => {
+        signal.removeEventListener("abort", onAbort)
+        reject(error)
+      }
+    )
+    if (signal.aborted) onAbort()
+  })
+
+class CodexInitialization {
+  readonly initialized: Promise<CodexInitializationSnapshot>
+  #operation: Promise<CodexClientResponseMap["initialize"]> | undefined
+  #reject!: (error: Error) => void
+  #resolve!: (snapshot: CodexInitializationSnapshot) => void
+  #snapshot: CodexInitializationSnapshot | undefined
+  #state: CodexInitializationState = "idle"
+
+  constructor(
+    private readonly endpoint: CodexEndpoint,
+    private readonly signal: AbortSignal
+  ) {
+    this.initialized = new Promise<CodexInitializationSnapshot>((resolve, reject) => {
+      this.#resolve = resolve
+      this.#reject = reject
+    })
+    // The lifecycle promise remains safe when a caller only uses `closed`.
+    void this.initialized.catch(() => undefined)
+  }
+
+  get state(): CodexInitializationState {
+    return this.#state
+  }
+
+  initialize(
+    params: CodexRequestParams<"initialize">,
+    options?: CodexRequestOptions
+  ): Promise<CodexClientResponseMap["initialize"]> {
+    if (this.#snapshot) return Promise.resolve(this.#snapshot.response)
+    if (this.#operation) return this.#operation
+    if (this.#state === "closed" || this.#state === "failed") {
+      throw new Error(`Codex client cannot initialize from state '${this.#state}'`)
+    }
+
+    this.#state = "initializing"
+    const signal = options?.signal ? AbortSignal.any([this.signal, options.signal]) : this.signal
+    this.#operation = (async () => {
+      try {
+        const response = await this.endpoint.request("initialize", params, { ...options, signal })
+        signal.throwIfAborted()
+        await this.endpoint.notify("initialized")
+        const snapshot = { request: params, response } as const
+        this.#snapshot = snapshot
+        this.#state = "initialized"
+        this.#resolve(snapshot)
+        return response
+      } catch (error) {
+        const failure = asError(error, "Codex initialization failed")
+        this.#state = this.signal.aborted ? "closed" : "failed"
+        this.#reject(failure)
+        throw failure
+      }
+    })()
+    return this.#operation
+  }
+
+  assertInitialized(): void {
+    if (this.#state !== "initialized") {
+      throw new Error("Codex client must be initialized before using this method")
+    }
+  }
+
+  close(error?: unknown): void {
+    if (this.#state === "initialized" || this.#state === "failed" || this.#state === "closed") {
+      return
+    }
+    this.#state = "closed"
+    this.#reject(asError(error, "Codex client connection closed before initialization"))
+  }
+}
+
 /** Typed context for calling the server-owned Codex App Server. */
 export class ClientContext {
   readonly #endpoint: CodexEndpoint
+  readonly #initialization: CodexInitialization
   readonly #signal: AbortSignal
 
   /** @internal */
-  constructor(endpoint: CodexEndpoint, signal: AbortSignal) {
+  constructor(endpoint: CodexEndpoint, signal: AbortSignal, initialization: CodexInitialization) {
     this.#endpoint = endpoint
     this.#signal = signal
+    this.#initialization = initialization
+  }
+
+  get initializationState(): CodexInitializationState {
+    return this.#initialization.state
+  }
+
+  initialize(
+    params: CodexRequestParams<"initialize">,
+    options?: CodexRequestOptions
+  ): Promise<CodexClientResponseMap["initialize"]> {
+    this.#signal.throwIfAborted()
+    return this.#initialization.initialize(params, options)
   }
 
   async notify<Method extends CodexClientNotificationMethod>(
@@ -143,6 +254,10 @@ export class ClientContext {
       : [params: CodexClientNotificationParams<Method>]
   ): Promise<void> {
     this.#signal.throwIfAborted()
+    if (method === "initialized") {
+      throw new Error("The initialized notification is sent automatically by codex.initialize()")
+    }
+    this.#initialization.assertInitialized()
     return this.#endpoint.notify(method, args[0] as never)
   }
 
@@ -154,6 +269,12 @@ export class ClientContext {
   ): Promise<CodexClientResponseMap[Method]> {
     this.#signal.throwIfAborted()
     const options = args[1]
+    if (method === "initialize") {
+      return this.#initialization.initialize(args[0] as never, options) as Promise<
+        CodexClientResponseMap[Method]
+      >
+    }
+    this.#initialization.assertInitialized()
     const signal = options?.signal ? AbortSignal.any([this.#signal, options.signal]) : this.#signal
     return this.#endpoint.request(method, args[0] as never, { ...options, signal })
   }
@@ -251,27 +372,35 @@ export class ClientApp {
 class CodexClientConnection implements ClientConnection {
   readonly closed: Promise<void>
   readonly codex: ClientContext
+  readonly initialized: Promise<CodexInitializationSnapshot>
   readonly signal: AbortSignal
 
   readonly #abortController = new AbortController()
   readonly #app: ClientApp
   readonly #endpoint: CodexEndpoint
+  readonly #initialization: CodexInitialization
   readonly #resolveClosed: () => void
   #releaseEndpoint: (() => void) | undefined
+  #transportAvailable = true
   #unsubscribeMessages: (() => void) | undefined
 
   constructor(app: ClientApp, endpoint: CodexEndpoint) {
     this.#app = app
     this.#endpoint = endpoint
     this.signal = this.#abortController.signal
-    this.codex = new ClientContext(endpoint, this.signal)
+    this.#initialization = new CodexInitialization(endpoint, this.signal)
+    this.initialized = this.#initialization.initialized
+    this.codex = new ClientContext(endpoint, this.signal, this.#initialization)
     let resolveClosed!: () => void
     this.closed = new Promise<void>((resolve) => {
       resolveClosed = resolve
     })
     this.#resolveClosed = resolveClosed
 
-    this.#releaseEndpoint = attachCodexEndpoint(endpoint, (error) => this.close(error))
+    this.#releaseEndpoint = attachCodexEndpoint(endpoint, (error) => {
+      this.#transportAvailable = false
+      this.close(error)
+    })
     if (this.signal.aborted) {
       this.#releaseEndpoint()
       this.#releaseEndpoint = undefined
@@ -279,7 +408,7 @@ class CodexClientConnection implements ClientConnection {
     }
     try {
       this.#unsubscribeMessages = endpoint.subscribe((message) => {
-        void this.#dispatch(message)
+        void this.#dispatch(message).catch((error) => app.reportError(error, message))
       })
       for (const handler of app.connectHandlers()) {
         let result: MaybePromise<void>
@@ -303,6 +432,7 @@ class CodexClientConnection implements ClientConnection {
 
   close(error?: unknown): void {
     if (this.signal.aborted) return
+    this.#initialization.close(error)
     this.#abortController.abort(error)
     this.#unsubscribeMessages?.()
     this.#unsubscribeMessages = undefined
@@ -345,22 +475,39 @@ class CodexClientConnection implements ClientConnection {
   ): Promise<void> {
     const handler = this.#app.requestHandler(method)
     if (!handler) {
-      this.#app.reportError(
-        new Error(`No Codex client handler registered for '${method}'`),
-        message
-      )
+      const error = new Error(`No Codex client handler registered for '${method}'`)
+      this.#app.reportError(error, message)
+      await respondCodexError(this.#endpoint, message.requestId, {
+        code: "REQUEST_NOT_SUPPORTED",
+        message: error.message,
+        requestType: message.type,
+      })
       return
     }
     try {
-      const response = await handler({
-        codex: this.codex,
-        params: requestParams(message),
-        requestId: message.requestId,
-        signal: this.signal,
-      } as never)
-      if (!this.signal.aborted) await this.#endpoint.respond(method, message.requestId, response)
+      const response = await raceWithAbort(
+        Promise.resolve(
+          handler({
+            codex: this.codex,
+            params: requestParams(message),
+            requestId: message.requestId,
+            signal: this.signal,
+          } as never)
+        ),
+        this.signal
+      )
+      await this.#endpoint.respond(method, message.requestId, response)
     } catch (error) {
       this.#app.reportError(error, message)
+      // A lost transport cannot receive the terminal cancellation and must not be reconnected just
+      // to deliver a stale reverse-RPC response. A logical ClientApp close keeps the borrowed
+      // Cypheria transport alive, so it can still terminate the server request explicitly.
+      if (this.signal.aborted && !this.#transportAvailable) return
+      await respondCodexError(this.#endpoint, message.requestId, {
+        code: this.signal.aborted ? "REQUEST_CANCELLED" : "HANDLER_FAILED",
+        message: asError(error, "Codex client handler failed").message,
+        requestType: message.type,
+      })
     }
   }
 }

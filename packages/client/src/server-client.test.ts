@@ -1,6 +1,7 @@
 import {
   type ConnectionOfferV2,
   parseClientMessageText,
+  SERVER_CAPABILITIES,
   type ServerIdentity,
   stringifyProtocolMessage,
 } from "@cypheria/protocol"
@@ -34,7 +35,7 @@ const acceptSocket = (socket: TestWebSocket, sessionId = "ses_test"): void => {
   if (hello.type !== "session.hello") throw new Error("Expected session hello")
   socket.message(
     stringifyProtocolMessage({
-      payload: { capabilities: ["runtime.request"], server: identity, sessionId },
+      payload: { capabilities: Object.values(SERVER_CAPABILITIES), server: identity, sessionId },
       requestId: hello.requestId,
       type: "session.ready",
     })
@@ -196,6 +197,62 @@ describe("ServerClient", () => {
     await client.close()
   })
 
+  it("does not send a queued request after its deadline expires", async () => {
+    vi.useFakeTimers()
+    const client = new ServerClient({
+      clientId: "client-timeout-before-ready",
+      reconnect: { enabled: false },
+      webSocketFactory: testWebSocketFactory,
+    })
+
+    const infoPromise = client.getServerInfo({ timeoutMs: 10 })
+    const socket = TestWebSocket.instances[0]
+    if (!socket) throw new Error("Expected socket")
+    const rejection = expect(infoPromise).rejects.toMatchObject({ name: "CypheriaTimeoutError" })
+    await vi.advanceTimersByTimeAsync(10)
+    await rejection
+
+    acceptSocket(socket)
+    await tick()
+    expect(socket.sent.map((raw) => parseClientMessageText(raw).type)).toEqual(["session.hello"])
+    await client.close()
+  })
+
+  it("does not settle a client request from a reverse RPC with the same request id", async () => {
+    const client = new ServerClient({
+      clientId: "client-correlation-direction",
+      webSocketFactory: testWebSocketFactory,
+    })
+    const socket = await connect(client)
+    const resultPromise = client.getServerInfo()
+    await tick()
+    const request = parseClientMessageText(socket.sent.at(-1) ?? "")
+    if (request.type !== "server.info") throw new Error("Expected server info request")
+
+    socket.message(
+      stringifyProtocolMessage({
+        requestId: request.requestId,
+        threadId: "thread-1",
+        type: "agent.codex.current_time.read.request",
+      })
+    )
+    socket.message(
+      stringifyProtocolMessage({
+        payload: {
+          ...identity,
+          connections: 1,
+          runtimeState: "ready",
+          webApp: { enabled: true },
+        },
+        requestId: request.requestId,
+        type: "server.info.result",
+      })
+    )
+
+    await expect(resultPromise).resolves.toMatchObject({ runtimeState: "ready" })
+    await client.close()
+  })
+
   it("correlates runtime responses and preserves protocol bigint values", async () => {
     const client = new ServerClient({
       clientId: "client-test",
@@ -298,6 +355,10 @@ describe("ServerClient", () => {
 
     await expect(client.requestRuntime("not-a-runtime-method")).rejects.toThrow(
       "Runtime method must use a supported namespace"
+    )
+    expect(TestWebSocket.instances).toHaveLength(0)
+    await expect(client.getServerInfo({ timeoutMs: 0 })).rejects.toThrow(
+      "timeoutMs must be a positive integer"
     )
     expect(TestWebSocket.instances).toHaveLength(0)
     await client.close()

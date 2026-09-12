@@ -128,8 +128,5 @@ export const codexNotificationMessageSchema = <T>(
 
 export const codexMessageSchemaUnion = <T>(schemas: z.ZodType<T>[]): z.ZodType<T> => {
   if (schemas.length < 2) return schemas[0] as z.ZodType<T>
-  return z.discriminatedUnion(
-    "type",
-    schemas as unknown as [z.ZodObject, z.ZodObject, ...z.ZodObject[]]
-  ) as unknown as z.ZodType<T>
+  return z.compile(z.union(schemas as [z.ZodType<T>, z.ZodType<T>, ...z.ZodType<T>[]]))
 }

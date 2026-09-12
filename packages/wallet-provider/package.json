@@ -20,7 +20,7 @@
     "@wallet-standard/features": "^1.1.1",
     "@wallet-standard/wallet": "^1.1.1",
     "bs58": "^6.0.0",
-    "zod": "^4.4.3"
+    "zod": "^4.6.2"
   },
   "devDependencies": {
     "vitest": "^4.1.7"

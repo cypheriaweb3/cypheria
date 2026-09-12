@@ -59,14 +59,20 @@ const app = createCodexApp()
   })
 
 const connection = app.connect(cypheria)
+await connection.codex.initialize({
+  capabilities: null,
+  clientInfo: { name: "example", title: "Example", version: "1.0.0" },
+})
 const threads = await connection.codex.request(methods.server.request["thread/list"], {})
-await connection.codex.notify(methods.server.notification.initialized)
 
 connection.close()
 await cypheria.close()
 ```
 
-Method constants and every generated Codex type are exported from `@cypheria/client/codex`.
+`initialize()` owns the required Codex initialize-request/initialized-notification handshake.
+`connection.initialized` resolves to its request/response snapshot, repeated initialization is
+idempotent, and other context calls fail clearly until initialization succeeds. Method constants
+and every generated Codex type are exported from `@cypheria/client/codex`.
 `connectWith(cypheria, operation)` provides a scoped connection and always releases it after the
 operation settles. Only one Codex app may consume an endpoint at a time; transport loss aborts the
 connection and its pending requests. Low-level consumers can still call endpoint methods directly,
@@ -131,6 +137,10 @@ const codex = createCodexApp().connect(cypheria)
 
 const server = await cypheria.server.info()
 const runtimeInfo = await cypheria.runtime.request("runtime.info")
+await codex.codex.initialize({
+  capabilities: null,
+  clientInfo: { name: "example", title: "Example", version: "1.0.0" },
+})
 const threads = await codex.codex.request(codexMethods.server.request["thread/list"], {})
 
 codex.close()
@@ -140,6 +150,18 @@ await cypheria.close()
 Requests connect lazily. `close()` permanently disposes that client. Before it is closed, transport
 loss rejects in-flight work and schedules a bounded exponential reconnect by default. Set
 `reconnect.enabled` to `false` when the embedding host owns retry policy.
+
+Every correlated facade method accepts a final `{ signal, timeoutMs }` request-options argument.
+Timeouts and aborts also cancel a request that is waiting for the lazy connection, so it cannot be
+sent later as a ghost request. `cypheria.server.supports(name)` inspects negotiated capabilities;
+`supportsFeature(name)` inspects optional, forward-compatible feature flags. Calls with a required
+but unadvertised server capability fail before writing to the transport.
+
+While the transport remains available, reverse Codex requests always receive a terminal response:
+missing handlers, handler failures, and logical ClientApp cancellation produce a typed
+`client.error` message. The protocol advertises this behavior through the default
+`client.rpc-errors` client capability; server-side dispatch support is intentionally left to the
+server implementation phase.
 
 The default adapter uses the runtime's global WebSocket. Other environments can inject a
 `webSocketFactory`, or a complete `transportFactory`. HTTP(S) root URLs are normalized to the

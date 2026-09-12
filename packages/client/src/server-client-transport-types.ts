@@ -9,7 +9,7 @@ export interface ServerTransport {
   onError(handler: (event?: unknown) => void): () => void
   onMessage(handler: ServerTransportMessageHandler): () => void
   onOpen(handler: () => void): () => void
-  send(data: ServerTransportFrame): void
+  send(data: ServerTransportFrame): void | Promise<void>
 }
 
 export type ServerTransportFactoryOptions = {

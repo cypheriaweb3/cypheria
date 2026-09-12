@@ -2,7 +2,7 @@ import { parseClientMessageText, stringifyProtocolMessage } from "@cypheria/prot
 import { afterEach, describe, expect, it } from "vitest"
 
 import * as codex from "./codex.js"
-import { ClientApp, client as createCodexApp, methods } from "./codex.js"
+import { ClientApp, type ClientConnection, client as createCodexApp, methods } from "./codex.js"
 import { createCypheriaClient } from "./index.js"
 import { TestWebSocket, testWebSocketFactory } from "./test-websocket.js"
 
@@ -35,6 +35,37 @@ const acceptConnection = async (connectPromise: Promise<void>): Promise<TestWebS
   return socket
 }
 
+const initialize = async (connection: ClientConnection, socket: TestWebSocket): Promise<void> => {
+  const initialized = connection.codex.initialize({
+    capabilities: null,
+    clientInfo: { name: "cypheria-test", title: null, version: "0.0.0" },
+  })
+  await tick()
+  const request = parseClientMessageText(socket.sent.at(-1) ?? "")
+  if (request.type !== "agent.codex.initialize.request") {
+    throw new Error("Expected Codex initialize request")
+  }
+  socket.message(
+    stringifyProtocolMessage({
+      payload: {
+        codexHome: "/tmp/codex",
+        platformFamily: "unix",
+        platformOs: "macos",
+        requestId: request.requestId,
+        userAgent: "codex-test",
+      },
+      type: "agent.codex.initialize.response",
+    })
+  )
+  await initialized
+  await expect(connection.initialized).resolves.toMatchObject({
+    response: { userAgent: "codex-test" },
+  })
+  expect(parseClientMessageText(socket.sent.at(-1) ?? "")).toEqual({
+    type: "agent.codex.initialized.notification",
+  })
+}
+
 afterEach(() => TestWebSocket.reset())
 
 describe("Cypheria Codex client API", () => {
@@ -44,8 +75,9 @@ describe("Cypheria Codex client API", () => {
       webSocketFactory: testWebSocketFactory,
     })
     const connection = createCodexApp().connect(cypheria)
-    const resultPromise = connection.codex.request(methods.server.request["memory/reset"])
     const socket = await acceptConnection(cypheria.connect())
+    await initialize(connection, socket)
+    const resultPromise = connection.codex.request(methods.server.request["memory/reset"])
     await tick()
 
     const request = parseClientMessageText(socket.sent.at(-1) ?? "")
@@ -89,8 +121,7 @@ describe("Cypheria Codex client API", () => {
         type: "agent.codex.current_time.read.request",
       })
     )
-    await tick()
-    await tick()
+    for (let index = 0; index < 5; index += 1) await tick()
 
     expect(parseClientMessageText(socket.sent.at(-1) ?? "")).toEqual({
       payload: { currentTimeAt: 1_789_000_000, requestId: "current-time-1" },
@@ -98,6 +129,92 @@ describe("Cypheria Codex client API", () => {
     })
 
     connection.close()
+    await cypheria.close()
+  })
+
+  it("sends terminal errors for missing and failed reverse-request handlers", async () => {
+    const cypheria = createCypheriaClient({
+      clientId: "client-codex-reverse-errors",
+      webSocketFactory: testWebSocketFactory,
+    })
+    const failures: Error[] = []
+    const connection = createCodexApp({ onHandlerError: (error) => failures.push(error) })
+      .onRequest(methods.client.request["currentTime/read"], () => {
+        throw new Error("clock failed")
+      })
+      .connect(cypheria)
+    const socket = await acceptConnection(cypheria.connect())
+
+    socket.message(
+      stringifyProtocolMessage({
+        requestId: "failed-request",
+        threadId: "thread-1",
+        type: "agent.codex.current_time.read.request",
+      })
+    )
+    await tick()
+    await tick()
+    expect(parseClientMessageText(socket.sent.at(-1) ?? "")).toEqual({
+      payload: {
+        code: "HANDLER_FAILED",
+        message: "clock failed",
+        requestType: "agent.codex.current_time.read.request",
+      },
+      requestId: "failed-request",
+      type: "client.error",
+    })
+    expect(failures.at(-1)?.message).toBe("clock failed")
+
+    connection.close()
+    const missingConnection = createCodexApp().connect(cypheria)
+    socket.message(
+      stringifyProtocolMessage({
+        requestId: "missing-request",
+        threadId: "thread-1",
+        type: "agent.codex.current_time.read.request",
+      })
+    )
+    await tick()
+    expect(parseClientMessageText(socket.sent.at(-1) ?? "")).toMatchObject({
+      payload: { code: "REQUEST_NOT_SUPPORTED" },
+      requestId: "missing-request",
+      type: "client.error",
+    })
+
+    missingConnection.close()
+    await cypheria.close()
+  })
+
+  it("cancels an active reverse request when the Codex app closes", async () => {
+    const cypheria = createCypheriaClient({
+      clientId: "client-codex-reverse-cancel",
+      webSocketFactory: testWebSocketFactory,
+    })
+    const connection = createCodexApp()
+      .onRequest(
+        methods.client.request["currentTime/read"],
+        () => new Promise<never>(() => undefined)
+      )
+      .connect(cypheria)
+    const socket = await acceptConnection(cypheria.connect())
+
+    socket.message(
+      stringifyProtocolMessage({
+        requestId: "cancelled-request",
+        threadId: "thread-1",
+        type: "agent.codex.current_time.read.request",
+      })
+    )
+    await tick()
+    connection.close(new Error("consumer closed"))
+    await tick()
+    await tick()
+
+    expect(parseClientMessageText(socket.sent.at(-1) ?? "")).toMatchObject({
+      payload: { code: "REQUEST_CANCELLED", message: "consumer closed" },
+      requestId: "cancelled-request",
+      type: "client.error",
+    })
     await cypheria.close()
   })
 
@@ -136,11 +253,34 @@ describe("Cypheria Codex client API", () => {
       clientId: "client-codex-connect-with",
       webSocketFactory: testWebSocketFactory,
     })
-    const resultPromise = createCodexApp().connectWith(cypheria, (context) =>
-      context.request(methods.server.request["memory/reset"])
-    )
+    let connectedContext: Parameters<Parameters<ClientApp["connectWith"]>[1]>[0] | undefined
+    const resultPromise = createCodexApp().connectWith(cypheria, async (context) => {
+      connectedContext = context
+      await context.initialize({
+        capabilities: null,
+        clientInfo: { name: "cypheria-test", title: null, version: "0.0.0" },
+      })
+      return context.request(methods.server.request["memory/reset"])
+    })
     const socket = await acceptConnection(cypheria.connect())
-    await tick()
+    while (!connectedContext) await tick()
+    const initializeRequest = parseClientMessageText(socket.sent.at(-1) ?? "")
+    if (initializeRequest.type !== "agent.codex.initialize.request") {
+      throw new Error("Expected Codex initialize request")
+    }
+    socket.message(
+      stringifyProtocolMessage({
+        payload: {
+          codexHome: "/tmp/codex",
+          platformFamily: "unix",
+          platformOs: "macos",
+          requestId: initializeRequest.requestId,
+          userAgent: "codex-test",
+        },
+        type: "agent.codex.initialize.response",
+      })
+    )
+    for (let index = 0; index < 8; index += 1) await tick()
 
     const request = parseClientMessageText(socket.sent.at(-1) ?? "")
     if (request.type !== "agent.codex.memory.reset.request") {
@@ -202,8 +342,9 @@ describe("Cypheria Codex client API", () => {
       webSocketFactory: testWebSocketFactory,
     })
     const connection = createCodexApp().connect(cypheria)
-    const resultPromise = connection.codex.request(methods.server.request["memory/reset"])
     const socket = await acceptConnection(cypheria.connect())
+    await initialize(connection, socket)
+    const resultPromise = connection.codex.request(methods.server.request["memory/reset"])
     await tick()
 
     socket.close(1006, "relay unavailable")

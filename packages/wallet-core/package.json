@@ -15,7 +15,7 @@
   "dependencies": {
     "@cypheria/network-core": "workspace:*",
     "viem": "^2.56.1",
-    "zod": "^4.4.3"
+    "zod": "^4.6.2"
   },
   "devDependencies": {
     "vitest": "^4.1.7"

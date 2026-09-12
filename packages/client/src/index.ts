@@ -11,6 +11,7 @@ import { type AcpEndpoint, createAcpEndpoint } from "./acp-client.js"
 import { type CodexEndpoint, createCodexEndpoint, isCodexServerMessage } from "./codex-endpoint.js"
 import {
   type ConnectionState,
+  type RequestOptions,
   ServerClient,
   type ServerClientConfig,
   type ServerSession,
@@ -26,7 +27,11 @@ export type ServerLifecycleAccepted = Extract<
 
 /** The generic runtime request/event pair currently defined by @cypheria/protocol. */
 export interface RuntimeActions {
-  request<T = unknown>(method: RuntimeMethod, params?: unknown): Promise<T>
+  request<T = unknown>(
+    method: RuntimeMethod,
+    params?: unknown,
+    options?: RequestOptions
+  ): Promise<T>
   subscribe(handler: (event: RuntimeEvent) => void): () => void
 }
 
@@ -36,11 +41,13 @@ export interface AgentActions {
 }
 
 export interface ServerActions {
-  diagnostics(): Promise<ServerDiagnostics>
-  info(): Promise<ServerInfo>
-  ping(sentAt?: string): Promise<ServerPong>
-  restart(reason?: string): Promise<ServerLifecycleAccepted>
-  shutdown(reason?: string): Promise<ServerLifecycleAccepted>
+  diagnostics(options?: RequestOptions): Promise<ServerDiagnostics>
+  info(options?: RequestOptions): Promise<ServerInfo>
+  ping(sentAt?: string, options?: RequestOptions): Promise<ServerPong>
+  restart(reason?: string, options?: RequestOptions): Promise<ServerLifecycleAccepted>
+  shutdown(reason?: string, options?: RequestOptions): Promise<ServerLifecycleAccepted>
+  supports(capability: string): boolean
+  supportsFeature(feature: string): boolean
 }
 
 /** Capability-only facade. Every operation maps directly to a current protocol message. */
@@ -97,6 +104,7 @@ const getCodexEndpoint = (serverClient: ServerClient): CodexEndpoint => {
     request,
     respond: (method, requestId, response) =>
       serverClient.respondToCodex(method, requestId, response),
+    respondError: (requestId, error) => serverClient.respondToClientRequestError(requestId, error),
     subscribe: (handler) =>
       serverClient.subscribe((message) => {
         if (isCodexServerMessage(message)) handler(message)
@@ -140,16 +148,20 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
     },
     on,
     runtime: {
-      request: async (method, params) => serverClient.requestRuntime(method, params),
+      request: async (method, params, options) =>
+        serverClient.requestRuntime(method, params, options),
       subscribe: (handler) =>
         serverClient.on("runtime.event", (message) => handler(message.payload.event)),
     },
     server: {
-      diagnostics: async () => serverClient.getServerDiagnostics(),
-      info: async () => serverClient.getServerInfo(),
-      ping: async (sentAt) => serverClient.ping(sentAt),
-      restart: async (reason) => serverClient.requestLifecycle("restart", reason),
-      shutdown: async (reason) => serverClient.requestLifecycle("shutdown", reason),
+      diagnostics: async (options) => serverClient.getServerDiagnostics(options),
+      info: async (options) => serverClient.getServerInfo(options),
+      ping: async (sentAt, options) => serverClient.ping(sentAt, options),
+      restart: async (reason, options) => serverClient.requestLifecycle("restart", reason, options),
+      shutdown: async (reason, options) =>
+        serverClient.requestLifecycle("shutdown", reason, options),
+      supports: (capability) => serverClient.supports(capability),
+      supportsFeature: (feature) => serverClient.supportsFeature(feature),
     },
     subscribe: (handler) => serverClient.subscribe(handler),
   }
@@ -157,9 +169,12 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
 
 export {
   type ConnectionState,
+  CypheriaCapabilityError,
   CypheriaConnectionError,
   CypheriaProtocolError,
   CypheriaServerError,
+  CypheriaTimeoutError,
+  type RequestOptions,
   type ServerSession,
 } from "./server-client.js"
 export type { AcpClientWirePayload, AcpEndpoint, AcpServerWirePayload, CodexEndpoint }

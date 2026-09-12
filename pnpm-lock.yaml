@@ -35,10 +35,10 @@ importers:
     dependencies:
       '@agentclientprotocol/sdk':
         specifier: ^1.4.0
-        version: 1.4.0(patch_hash=a1d8a0a08bf8b0459cc70226380a92de11417af05f8f1dd34be0b447df17314d)(zod@4.4.3)
+        version: 1.4.0(patch_hash=a1d8a0a08bf8b0459cc70226380a92de11417af05f8f1dd34be0b447df17314d)(zod@4.6.2)
       '@ai-sdk/react':
         specifier: ^4.0.90
-        version: 4.0.90(react@19.2.6)(zod@4.4.3)
+        version: 4.0.90(react@19.2.6)(zod@4.6.2)
       '@cypheria/automation-core':
         specifier: workspace:*
         version: link:../../packages/automation-core
@@ -107,7 +107,7 @@ importers:
         version: 6.0.0
       ai:
         specifier: ^7.0.87
-        version: 7.0.87(zod@4.4.3)
+        version: 7.0.87(zod@4.6.2)
       jotai:
         specifier: ^2.20.0
         version: 2.20.0(@babel/core@8.0.1)(@babel/template@8.0.0)(@types/react@19.2.15)(react@19.2.6)
@@ -133,8 +133,8 @@ importers:
         specifier: ^1.4.0
         version: 1.4.0
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.6.2
+        version: 4.6.2
     devDependencies:
       '@babel/core':
         specifier: ^8.0.1
@@ -258,7 +258,7 @@ importers:
         version: 2.1.1(hono@4.13.7)
       '@hono/zod-validator':
         specifier: ^0.9.1
-        version: 0.9.1(hono@4.13.7)(zod@4.4.3)
+        version: 0.9.1(hono@4.13.7)(zod@4.6.2)
       hono:
         specifier: ^4.13.7
         version: 4.13.7
@@ -269,8 +269,8 @@ importers:
         specifier: ^8.21.3
         version: 8.21.3
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.6.2
+        version: 4.6.2
     devDependencies:
       '@cypheria/client':
         specifier: workspace:*
@@ -295,22 +295,22 @@ importers:
     dependencies:
       '@agentclientprotocol/sdk':
         specifier: 1.4.0
-        version: 1.4.0(patch_hash=a1d8a0a08bf8b0459cc70226380a92de11417af05f8f1dd34be0b447df17314d)(zod@4.4.3)
+        version: 1.4.0(patch_hash=a1d8a0a08bf8b0459cc70226380a92de11417af05f8f1dd34be0b447df17314d)(zod@4.6.2)
       '@ai-sdk/provider':
         specifier: 4.0.9
         version: 4.0.9
       '@ai-sdk/provider-utils':
         specifier: 5.0.34
-        version: 5.0.34(zod@4.4.3)
+        version: 5.0.34(zod@4.6.2)
       '@modelcontextprotocol/sdk':
         specifier: ^1.29.0
-        version: 1.29.0(zod@4.4.3)
+        version: 1.29.0(zod@4.6.2)
       ai:
         specifier: ^7.0.87
-        version: 7.0.87(zod@4.4.3)
+        version: 7.0.87(zod@4.6.2)
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.6.2
+        version: 4.6.2
     devDependencies:
       vitest:
         specifier: ^4.1.7
@@ -325,8 +325,8 @@ importers:
         specifier: workspace:*
         version: link:../wallet-core
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.6.2
+        version: 4.6.2
     devDependencies:
       vitest:
         specifier: ^4.1.7
@@ -336,7 +336,7 @@ importers:
     dependencies:
       '@agentclientprotocol/sdk':
         specifier: 1.4.0
-        version: 1.4.0(patch_hash=a1d8a0a08bf8b0459cc70226380a92de11417af05f8f1dd34be0b447df17314d)(zod@4.4.3)
+        version: 1.4.0(patch_hash=a1d8a0a08bf8b0459cc70226380a92de11417af05f8f1dd34be0b447df17314d)(zod@4.6.2)
       '@cypheria/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -385,8 +385,8 @@ importers:
         specifier: ^0.45.2
         version: 0.45.2(@libsql/client@0.17.4)
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.6.2
+        version: 4.6.2
     devDependencies:
       drizzle-kit:
         specifier: ^0.31.10
@@ -398,8 +398,8 @@ importers:
   packages/network-core:
     dependencies:
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.6.2
+        version: 4.6.2
     devDependencies:
       vitest:
         specifier: ^4.1.7
@@ -414,8 +414,8 @@ importers:
         specifier: workspace:*
         version: link:../wallet-core
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.6.2
+        version: 4.6.2
     devDependencies:
       vitest:
         specifier: ^4.1.7
@@ -425,13 +425,13 @@ importers:
     dependencies:
       '@agentclientprotocol/sdk':
         specifier: 1.4.0
-        version: 1.4.0(patch_hash=a1d8a0a08bf8b0459cc70226380a92de11417af05f8f1dd34be0b447df17314d)(zod@4.4.3)
+        version: 1.4.0(patch_hash=a1d8a0a08bf8b0459cc70226380a92de11417af05f8f1dd34be0b447df17314d)(zod@4.6.2)
       superjson:
         specifier: ^2.2.6
         version: 2.2.6
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.6.2
+        version: 4.6.2
     devDependencies:
       '@hey-api/openapi-ts':
         specifier: 0.99.0
@@ -484,10 +484,10 @@ importers:
         version: 6.17.0
       viem:
         specifier: ^2.56.1
-        version: 2.56.1(typescript@6.0.3)(zod@4.4.3)
+        version: 2.56.1(typescript@6.0.3)(zod@4.6.2)
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.6.2
+        version: 4.6.2
     devDependencies:
       vitest:
         specifier: ^4.1.7
@@ -527,7 +527,7 @@ importers:
         version: 12.11.6(@types/react-dom@19.2.3(@types/react@19.2.15))(@types/react@19.2.15)(immer@11.1.18)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       ai:
         specifier: ^7.0.87
-        version: 7.0.87(zod@4.4.3)
+        version: 7.0.87(zod@4.6.2)
       ansi-to-react:
         specifier: ^6.2.6
         version: 6.2.6(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -632,8 +632,8 @@ importers:
         specifier: ^4.1.7
         version: 4.1.7(@types/node@25.9.1)(jsdom@30.0.1(@noble/hashes@1.8.0))(msw@2.14.6(@types/node@25.9.1)(typescript@6.0.3))(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.0))
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.6.2
+        version: 4.6.2
 
   packages/wallet-core:
     dependencies:
@@ -642,10 +642,10 @@ importers:
         version: link:../network-core
       viem:
         specifier: ^2.56.1
-        version: 2.56.1(typescript@6.0.3)(zod@4.4.3)
+        version: 2.56.1(typescript@6.0.3)(zod@4.6.2)
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.6.2
+        version: 4.6.2
     devDependencies:
       vitest:
         specifier: ^4.1.7
@@ -675,8 +675,8 @@ importers:
         specifier: ^6.0.0
         version: 6.0.0
       zod:
-        specifier: ^4.4.3
-        version: 4.4.3
+        specifier: ^4.6.2
+        version: 4.6.2
     devDependencies:
       vitest:
         specifier: ^4.1.7
@@ -8700,6 +8700,9 @@ packages:
   zod@4.4.3:
     resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
 
+  zod@4.6.2:
+    resolution: {integrity: sha512-lh5RCAGFa1Cm2hjtNwLQhSs/AsqdWnTQaBER9fEwN/88pSh7KOtJavtBx/0VlkN/uFd61SwYmljLMDAsHlvzBQ==}
+
   zustand@4.5.7:
     resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
     engines: {node: '>=12.7.0'}
@@ -8724,44 +8727,44 @@ snapshots:
 
   '@adraffy/ens-normalize@1.11.1': {}
 
-  '@agentclientprotocol/sdk@1.4.0(patch_hash=a1d8a0a08bf8b0459cc70226380a92de11417af05f8f1dd34be0b447df17314d)(zod@4.4.3)':
+  '@agentclientprotocol/sdk@1.4.0(patch_hash=a1d8a0a08bf8b0459cc70226380a92de11417af05f8f1dd34be0b447df17314d)(zod@4.6.2)':
     dependencies:
-      zod: 4.4.3
+      zod: 4.6.2
 
-  '@ai-sdk/gateway@4.0.70(zod@4.4.3)':
+  '@ai-sdk/gateway@4.0.70(zod@4.6.2)':
     dependencies:
       '@ai-sdk/provider': 4.0.9
-      '@ai-sdk/provider-utils': 5.0.34(zod@4.4.3)
+      '@ai-sdk/provider-utils': 5.0.34(zod@4.6.2)
       '@vercel/oidc': 3.2.0
-      zod: 4.4.3
+      zod: 4.6.2
 
-  '@ai-sdk/mcp@2.0.41(zod@4.4.3)':
+  '@ai-sdk/mcp@2.0.41(zod@4.6.2)':
     dependencies:
       '@ai-sdk/provider': 4.0.9
-      '@ai-sdk/provider-utils': 5.0.34(zod@4.4.3)
+      '@ai-sdk/provider-utils': 5.0.34(zod@4.6.2)
       cross-spawn: 7.0.6
       pkce-challenge: 5.0.1
-      zod: 4.4.3
+      zod: 4.6.2
 
-  '@ai-sdk/provider-utils@5.0.34(zod@4.4.3)':
+  '@ai-sdk/provider-utils@5.0.34(zod@4.6.2)':
     dependencies:
       '@ai-sdk/provider': 4.0.9
       '@standard-schema/spec': 1.1.0
       '@workflow/serde': 4.1.0
       eventsource-parser: 3.1.0
       undici: 7.29.0
-      zod: 4.4.3
+      zod: 4.6.2
 
   '@ai-sdk/provider@4.0.9':
     dependencies:
       json-schema: 0.4.0
 
-  '@ai-sdk/react@4.0.90(react@19.2.6)(zod@4.4.3)':
+  '@ai-sdk/react@4.0.90(react@19.2.6)(zod@4.6.2)':
     dependencies:
-      '@ai-sdk/mcp': 2.0.41(zod@4.4.3)
+      '@ai-sdk/mcp': 2.0.41(zod@4.6.2)
       '@ai-sdk/provider': 4.0.9
-      '@ai-sdk/provider-utils': 5.0.34(zod@4.4.3)
-      ai: 7.0.87(zod@4.4.3)
+      '@ai-sdk/provider-utils': 5.0.34(zod@4.6.2)
+      ai: 7.0.87(zod@4.6.2)
       react: 19.2.6
       swr: 2.5.1(react@19.2.6)
       throttleit: 2.1.0
@@ -10327,10 +10330,10 @@ snapshots:
     dependencies:
       hono: 4.13.7
 
-  '@hono/zod-validator@0.9.1(hono@4.13.7)(zod@4.4.3)':
+  '@hono/zod-validator@0.9.1(hono@4.13.7)(zod@4.6.2)':
     dependencies:
       hono: 4.13.7
-      zod: 4.4.3
+      zod: 4.6.2
 
   '@iconify/types@2.0.0': {}
 
@@ -10723,7 +10726,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@modelcontextprotocol/sdk@1.29.0(zod@4.4.3)':
+  '@modelcontextprotocol/sdk@1.29.0(zod@4.6.2)':
     dependencies:
       '@hono/node-server': 1.19.14(hono@4.12.23)
       ajv: 8.20.0
@@ -10740,8 +10743,8 @@ snapshots:
       json-schema-typed: 8.0.2
       pkce-challenge: 5.0.1
       raw-body: 3.0.2
-      zod: 4.4.3
-      zod-to-json-schema: 3.25.2(zod@4.4.3)
+      zod: 4.6.2
+      zod-to-json-schema: 3.25.2(zod@4.6.2)
     transitivePeerDependencies:
       - supports-color
 
@@ -12407,10 +12410,10 @@ snapshots:
 
   abbrev@4.0.0: {}
 
-  abitype@1.2.3(typescript@6.0.3)(zod@4.4.3):
+  abitype@1.2.3(typescript@6.0.3)(zod@4.6.2):
     optionalDependencies:
       typescript: 6.0.3
-      zod: 4.4.3
+      zod: 4.6.2
 
   abort-controller@3.0.0:
     dependencies:
@@ -12438,12 +12441,12 @@ snapshots:
 
   agent-cli-detector@0.1.7: {}
 
-  ai@7.0.87(zod@4.4.3):
+  ai@7.0.87(zod@4.6.2):
     dependencies:
-      '@ai-sdk/gateway': 4.0.70(zod@4.4.3)
+      '@ai-sdk/gateway': 4.0.70(zod@4.6.2)
       '@ai-sdk/provider': 4.0.9
-      '@ai-sdk/provider-utils': 5.0.34(zod@4.4.3)
-      zod: 4.4.3
+      '@ai-sdk/provider-utils': 5.0.34(zod@4.6.2)
+      zod: 4.6.2
 
   ajv-formats@3.0.1(ajv@8.20.0):
     optionalDependencies:
@@ -15873,7 +15876,7 @@ snapshots:
 
   outvariant@1.4.3: {}
 
-  ox@0.14.34(typescript@6.0.3)(zod@4.4.3):
+  ox@0.14.34(typescript@6.0.3)(zod@4.6.2):
     dependencies:
       '@adraffy/ens-normalize': 1.11.1
       '@noble/ciphers': 1.3.0
@@ -15881,7 +15884,7 @@ snapshots:
       '@noble/hashes': 1.8.0
       '@scure/bip32': 1.7.0
       '@scure/bip39': 1.6.0
-      abitype: 1.2.3(typescript@6.0.3)(zod@4.4.3)
+      abitype: 1.2.3(typescript@6.0.3)(zod@4.6.2)
       eventemitter3: 5.0.1
     optionalDependencies:
       typescript: 6.0.3
@@ -17527,15 +17530,15 @@ snapshots:
       d3-time: 3.1.0
       d3-timer: 3.0.1
 
-  viem@2.56.1(typescript@6.0.3)(zod@4.4.3):
+  viem@2.56.1(typescript@6.0.3)(zod@4.6.2):
     dependencies:
       '@noble/curves': 1.9.1
       '@noble/hashes': 1.8.0
       '@scure/bip32': 1.7.0
       '@scure/bip39': 1.6.0
-      abitype: 1.2.3(typescript@6.0.3)(zod@4.4.3)
+      abitype: 1.2.3(typescript@6.0.3)(zod@4.6.2)
       isows: 1.0.7(ws@8.21.0)
-      ox: 0.14.34(typescript@6.0.3)(zod@4.4.3)
+      ox: 0.14.34(typescript@6.0.3)(zod@4.6.2)
       ws: 8.21.0
     optionalDependencies:
       typescript: 6.0.3
@@ -17780,13 +17783,15 @@ snapshots:
     dependencies:
       zod: 3.25.76
 
-  zod-to-json-schema@3.25.2(zod@4.4.3):
+  zod-to-json-schema@3.25.2(zod@4.6.2):
     dependencies:
-      zod: 4.4.3
+      zod: 4.6.2
 
   zod@3.25.76: {}
 
   zod@4.4.3: {}
+
+  zod@4.6.2: {}
 
   zustand@4.5.7(@types/react@19.2.15)(immer@11.1.18)(react@19.2.6):
     dependencies:
