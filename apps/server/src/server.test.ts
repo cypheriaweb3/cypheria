@@ -101,6 +101,24 @@ describe("CypheriaServer", () => {
     try {
       const health = await fetch(`${address.url}/api/v1/health`)
       expect(health.status).toBe(200)
+      const initialConfig = await fetch(`${address.url}/api/v1/config`)
+      expect(await initialConfig.json()).toMatchObject({
+        config: { server: { sessions: { reconnectGraceMs: 30_000 } }, version: 1 },
+        restartRequiredPaths: [],
+      })
+      const patchedConfig = await fetch(`${address.url}/api/v1/config/patch`, {
+        body: JSON.stringify({ server: { sessions: { reconnectGraceMs: 45_000 } } }),
+        headers: { "content-type": "application/json" },
+        method: "POST",
+      })
+      expect(await patchedConfig.json()).toMatchObject({
+        config: { server: { sessions: { reconnectGraceMs: 45_000 } } },
+        restartRequiredPaths: ["server.sessions.reconnectGraceMs"],
+      })
+      expect(await (await fetch(`${address.url}/api/v1/state`)).json()).toMatchObject({
+        config: { restartRequired: true },
+        connections: { active: 0, retained: 0 },
+      })
       expect(
         (await fetch(`${address.url}/api/v1/lifecycle/restart`, { method: "POST" })).status
       ).toBe(202)

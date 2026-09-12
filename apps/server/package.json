@@ -15,7 +15,7 @@
   "scripts": {
     "build": "tsdown --config tsdown.config.mjs && node scripts/embed-web.mjs",
     "check": "pnpm typecheck",
-    "daemon": "node dist/cli.mjs",
+    "server": "node dist/cli.mjs",
     "dev": "tsx watch src/dev.ts",
     "start": "node dist/main.mjs",
     "test": "vitest run",

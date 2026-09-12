@@ -11,7 +11,8 @@ import {
 import type { Logger } from "pino"
 import WebSocket from "ws"
 
-import { ClientSession, type SessionHost } from "./session/client-session.js"
+import type { ClientConnection } from "./session/client-connection.js"
+import type { SessionHost } from "./session/client-session.js"
 import type { ConnectionRegistry } from "./session/connection-registry.js"
 
 const CONTROL_RECONNECT_MIN_MS = 1_000
@@ -33,7 +34,7 @@ export type RelayConnectionOptions = {
 
 type DataConnection = {
   channel?: EncryptedChannel
-  session?: ClientSession
+  connection?: ClientConnection
   socket: WebSocket
   timeout: NodeJS.Timeout
 }
@@ -225,22 +226,22 @@ export class RelayConnection {
     this.#dataConnections.set(connectionId, connection)
     socket.on("open", () => {
       clearTimeout(connection.timeout)
-      let session: ClientSession | undefined
+      let clientConnection: ClientConnection | undefined
       const transport = createTransport(socket)
       void createServerChannel(
         transport,
         this.#options.keyPair,
         {
-          onclose: () => session?.transportClosed(),
+          onclose: () => clientConnection?.transportClosed(),
           onerror: (error) =>
             this.#options.logger.warn({ connectionId, err: error }, "Relay E2EE channel failed"),
           onmessage: (message) => {
-            if (!session) return
+            if (!clientConnection) return
             if (typeof message !== "string") {
-              session.close(1003, "Only JSON text messages are supported")
+              clientConnection.close(1003, "Only JSON text messages are supported")
               return
             }
-            void session.receive(message)
+            void clientConnection.receive(message)
           },
         },
         { handshakeTimeoutMs: this.#options.helloTimeoutMs }
@@ -251,25 +252,19 @@ export class RelayConnection {
             return
           }
           connection.channel = channel
-          session = new ClientSession({
-            helloTimeoutMs: this.#options.helloTimeoutMs,
-            host: this.#options.host,
-            onClose: (closedSession) => this.#options.registry.remove(closedSession.id),
-            transport: {
-              close: (code, reason) => channel.close(code, reason),
-              send: (data) => {
-                void channel.send(data).catch((error) => {
-                  this.#options.logger.warn(
-                    { connectionId, err: error },
-                    "Failed to send encrypted relay frame"
-                  )
-                  channel.close(1011, "Relay send failed")
-                })
-              },
+          clientConnection = this.#options.registry.accept({
+            close: (code, reason) => channel.close(code, reason),
+            send: (data) => {
+              void channel.send(data).catch((error) => {
+                this.#options.logger.warn(
+                  { connectionId, err: error },
+                  "Failed to send encrypted relay frame"
+                )
+                channel.close(1011, "Relay send failed")
+              })
             },
           })
-          connection.session = session
-          this.#options.registry.add(session)
+          connection.connection = clientConnection
         })
         .catch((error) => {
           this.#options.logger.warn({ connectionId, err: error }, "Relay E2EE handshake failed")
@@ -281,7 +276,7 @@ export class RelayConnection {
     })
     socket.on("close", () => {
       clearTimeout(connection.timeout)
-      connection.session?.transportClosed()
+      connection.connection?.transportClosed()
       if (this.#dataConnections.get(connectionId) === connection) {
         this.#dataConnections.delete(connectionId)
       }

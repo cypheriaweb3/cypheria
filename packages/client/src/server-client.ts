@@ -21,15 +21,18 @@ import {
   CYPHERIA_WEBSOCKET_PATH,
   createWebSocketProtocols,
   isClientResponseMessage,
+  type PersistedServerConfigPatch,
   parseClientMessage,
   parseConnectionOffer,
   parseServerMessageText,
   type RequestId,
   SERVER_CAPABILITIES,
+  type ServerConfigSnapshot,
   type ServerDiagnostics,
   type ServerErrorCode,
   type ServerInfo,
   type ServerMessage,
+  type ServerOperationalState,
   stringifyProtocolMessage,
 } from "@cypheria/protocol"
 import type {
@@ -215,6 +218,7 @@ export class ServerClient {
   #lastError: Error | undefined
   #reconnectTimer: ReturnType<typeof setTimeout> | undefined
   #requestSequence = 0
+  #resumeSessionId: string | undefined
   #session: ServerSession | undefined
   #shouldReconnect = false
   #state: ConnectionState = { status: "idle" }
@@ -358,6 +362,7 @@ export class ServerClient {
     this.#rejectPending(error)
     this.#rejectConnect(error)
     this.#session = undefined
+    this.#resumeSessionId = undefined
     this.#setState({ status: "disposed" })
   }
 
@@ -394,6 +399,53 @@ export class ServerClient {
       SERVER_CAPABILITIES.diagnostics
     )
     return (message as Extract<ServerMessage, { type: "server.diagnostics.result" }>).payload
+  }
+
+  async getServerConfig(options?: RequestOptions): Promise<ServerConfigSnapshot> {
+    const message = await this.#request(
+      { requestId: this.#nextRequestId("config"), type: "server.config.get" },
+      "server.config.result",
+      options,
+      SERVER_CAPABILITIES.config
+    )
+    return (message as Extract<ServerMessage, { type: "server.config.result" }>).payload
+  }
+
+  async patchServerConfig(
+    patch: PersistedServerConfigPatch,
+    options?: RequestOptions
+  ): Promise<ServerConfigSnapshot> {
+    const message = await this.#request(
+      {
+        payload: { patch },
+        requestId: this.#nextRequestId("config-patch"),
+        type: "server.config.patch",
+      },
+      "server.config.result",
+      options,
+      SERVER_CAPABILITIES.config
+    )
+    return (message as Extract<ServerMessage, { type: "server.config.result" }>).payload
+  }
+
+  async reloadServerConfig(options?: RequestOptions): Promise<ServerConfigSnapshot> {
+    const message = await this.#request(
+      { requestId: this.#nextRequestId("config-reload"), type: "server.config.reload" },
+      "server.config.result",
+      options,
+      SERVER_CAPABILITIES.config
+    )
+    return (message as Extract<ServerMessage, { type: "server.config.result" }>).payload
+  }
+
+  async getServerState(options?: RequestOptions): Promise<ServerOperationalState> {
+    const message = await this.#request(
+      { requestId: this.#nextRequestId("state"), type: "server.state" },
+      "server.state.result",
+      options,
+      SERVER_CAPABILITIES.state
+    )
+    return (message as Extract<ServerMessage, { type: "server.state.result" }>).payload
   }
 
   async requestRuntime<T = unknown>(
@@ -576,6 +628,7 @@ export class ServerClient {
       this.#attempt = 0
       this.#lastError = undefined
       this.#session = message.payload
+      this.#resumeSessionId = message.payload.sessionId
       this.#setState({ sessionId: message.payload.sessionId, status: "connected" })
       this.#resolveConnect()
     } else if (message.type === "server.error") {
@@ -844,6 +897,7 @@ export class ServerClient {
         capabilities: [...(this.#config.capabilities ?? Object.values(CLIENT_CAPABILITIES))],
         client: this.#descriptor,
         protocolVersion: CYPHERIA_PROTOCOL_VERSION,
+        ...(this.#resumeSessionId ? { resumeSessionId: this.#resumeSessionId } : {}),
       },
       requestId,
       type: "session.hello",

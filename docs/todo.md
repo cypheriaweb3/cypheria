@@ -74,7 +74,7 @@ Status legend:
     CI, and build.
 
 - [x] Add the Cypheria client/server foundation without migrating desktop.
-  - Acceptance: `apps/server` provides a Hono HTTP/WebSocket control plane, versioned client sessions, runtime lifecycle, operations endpoints, supervised daemon lifecycle, and embedded Expo web hosting; `apps/expo` targets iOS, Android, and static web; `@cypheria/protocol` provides shared validated contracts.
+  - Acceptance: `apps/server` provides a Hono HTTP/WebSocket control plane, resumable versioned client sessions, runtime lifecycle, persisted server configuration and live state, operations endpoints, supervised server lifecycle, relay ingress, and embedded Expo web hosting; `apps/expo` targets iOS, Android, and static web; `@cypheria/protocol` provides shared validated contracts.
   - Exclude: agent, project, wallet, policy, browser, and automation product methods; any `apps/desktop` code change.
   - Verification: protocol/server/Expo tests and typechecks, Expo compatibility check and static export, server build and embedded-web smoke test, daemon start/status/restart/stop smoke test, full repository CI/build.
 

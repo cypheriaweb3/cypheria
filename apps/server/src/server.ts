@@ -6,10 +6,14 @@ import { resolve } from "node:path"
 import {
   CYPHERIA_PROTOCOL_VERSION,
   CYPHERIA_WEBSOCKET_PROTOCOL,
+  type PersistedServerConfigPatch,
   type RelayPairingOfferResponse,
+  SERVER_CAPABILITIES,
+  type ServerConfigSnapshot,
   type ServerDiagnostics,
   type ServerIdentity,
   type ServerInfo,
+  type ServerOperationalState,
 } from "@cypheria/protocol"
 import {
   CypheriaRuntime,
@@ -26,6 +30,7 @@ import { createHttpApp, type HttpAppHost } from "./http-app.js"
 import { loadOrCreateServerId } from "./identity.js"
 import { RelayConnection } from "./relay-connection.js"
 import { loadOrCreateRelayKeyPair } from "./relay-key.js"
+import { ServerConfigStore } from "./server-config-store.js"
 import { ConnectionRegistry } from "./session/connection-registry.js"
 import { CYPHERIA_SERVER_VERSION } from "./version.js"
 
@@ -38,6 +43,7 @@ export type ServerLifecycleRequest = {
 
 export type CypheriaServerOptions = {
   config?: CypheriaServerConfig
+  configStore?: ServerConfigStore
   logger?: Logger
   onLifecycleRequest?: (request: ServerLifecycleRequest) => void
   runtime?: CypheriaRuntime
@@ -51,8 +57,9 @@ export type CypheriaServerAddress = {
 
 export class CypheriaServer implements HttpAppHost {
   readonly config: CypheriaServerConfig
+  readonly configStore: ServerConfigStore
   readonly logger: Logger
-  readonly registry = new ConnectionRegistry()
+  readonly registry: ConnectionRegistry
   readonly runtime: CypheriaRuntime
 
   #address: CypheriaServerAddress | undefined
@@ -67,9 +74,20 @@ export class CypheriaServer implements HttpAppHost {
   #webSocketHeartbeat: NodeJS.Timeout | undefined
 
   constructor(options: CypheriaServerOptions = {}) {
-    this.config = options.config ?? loadServerConfig()
     this.logger = options.logger ?? pino({ name: "cypheria-server" })
     this.runtime = options.runtime ?? new CypheriaRuntime()
+    this.configStore =
+      options.configStore ??
+      ServerConfigStore.fromResolved(
+        this.runtime.paths.configDir,
+        options.config ?? loadServerConfig()
+      )
+    this.config = this.configStore.effective
+    this.registry = new ConnectionRegistry({
+      helloTimeoutMs: this.config.sessionHelloTimeoutMs,
+      host: this,
+      reconnectGraceMs: this.config.sessionReconnectGraceMs,
+    })
     this.#lifecycleHandler = options.onLifecycleRequest
   }
 
@@ -198,6 +216,52 @@ export class CypheriaServer implements HttpAppHost {
 
   getDiagnostics(): ServerDiagnostics {
     return collectDiagnostics(this.registry.diagnostics(), this.runtime.lifecycleState)
+  }
+
+  getConfig(): ServerConfigSnapshot {
+    return this.configStore.getSnapshot()
+  }
+
+  async patchConfig(patch: PersistedServerConfigPatch): Promise<ServerConfigSnapshot> {
+    return this.configStore.patch(patch)
+  }
+
+  async reloadConfig(): Promise<ServerConfigSnapshot> {
+    return this.configStore.reload()
+  }
+
+  getSessionCapabilities(): string[] {
+    return [
+      SERVER_CAPABILITIES.config,
+      SERVER_CAPABILITIES.diagnostics,
+      SERVER_CAPABILITIES.lifecycle,
+      SERVER_CAPABILITIES.runtimeEvents,
+      SERVER_CAPABILITIES.runtimeRequest,
+      SERVER_CAPABILITIES.state,
+    ]
+  }
+
+  getState(): ServerOperationalState {
+    const config = this.configStore.getSnapshot()
+    return {
+      config: {
+        path: config.path,
+        restartRequired: config.restartRequiredPaths.length > 0,
+      },
+      connections: {
+        active: this.registry.size,
+        retained: this.registry.retained,
+      },
+      relay: {
+        connected: this.#relayConnection?.connected ?? false,
+        enabled: this.config.relayEnabled,
+      },
+      runtimeState: this.runtime.lifecycleState,
+      worker: {
+        pid: process.pid,
+        ...(typeof process.send === "function" ? { supervisorPid: process.ppid } : {}),
+      },
+    }
   }
 
   getRelayPairingOffer(): RelayPairingOfferResponse | undefined {

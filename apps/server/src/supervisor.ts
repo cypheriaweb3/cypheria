@@ -16,6 +16,7 @@ export type ServerSupervisorOptions = {
 
 const MAX_RESTARTS = 5
 const RESTART_WINDOW_MS = 60_000
+const SUPERVISOR_HEARTBEAT_MS = 1_000
 const HEARTBEAT_TIMEOUT_MS = 30_000
 
 export class ServerSupervisor {
@@ -55,11 +56,11 @@ export class ServerSupervisor {
       this.#stopTimer = setTimeout(() => {
         if (this.#child === child) {
           this.#options.logger.error({ pid: child.pid }, "Forcing an unresponsive worker to stop")
-          child.kill("SIGKILL")
+          this.#killWorker(child, "SIGKILL")
         }
       }, 10_000)
     } else if (this.#child) {
-      this.#child.kill("SIGTERM")
+      this.#killWorker(this.#child, "SIGTERM")
     } else if (action === "restart") {
       this.#requestedAction = undefined
       this.#spawnWorker()
@@ -69,13 +70,27 @@ export class ServerSupervisor {
   #spawnWorker(): void {
     this.#lastHeartbeat = Date.now()
     const child = fork(this.#options.workerPath, [], {
+      detached: process.platform !== "win32",
       env: process.env,
       stdio: ["ignore", "inherit", "inherit", "ipc"],
     })
     this.#child = child
     this.#options.logger.info({ pid: child.pid }, "Started Cypheria server worker")
     child.on("message", (message) => this.#handleMessage(message))
-    child.once("exit", (code, signal) => this.#handleExit(code, signal))
+    const supervisorHeartbeat = setInterval(() => {
+      if (!child.connected) return
+      const message: SupervisorToWorkerMessage = { timestamp: Date.now(), type: "heartbeat" }
+      child.send(message, (error) => {
+        if (error && this.#child === child) {
+          this.#options.logger.warn({ err: error }, "Unable to send supervisor heartbeat")
+        }
+      })
+    }, SUPERVISOR_HEARTBEAT_MS)
+    supervisorHeartbeat.unref()
+    child.once("exit", (code, signal) => {
+      clearInterval(supervisorHeartbeat)
+      this.#handleExit(code, signal)
+    })
     child.once("error", (error) =>
       this.#options.logger.error({ err: error }, "Server worker process failed")
     )
@@ -147,7 +162,21 @@ export class ServerSupervisor {
   #checkHeartbeat(): void {
     if (!this.#child || Date.now() - this.#lastHeartbeat <= HEARTBEAT_TIMEOUT_MS) return
     this.#options.logger.error({ pid: this.#child.pid }, "Server worker heartbeat timed out")
-    this.#child.kill("SIGKILL")
+    this.#killWorker(this.#child, "SIGKILL")
+  }
+
+  #killWorker(child: ChildProcess, signal: NodeJS.Signals): void {
+    if (process.platform !== "win32" && child.pid) {
+      try {
+        process.kill(-child.pid, signal)
+        return
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== "ESRCH") {
+          this.#options.logger.warn({ err: error, pid: child.pid }, "Process-group signal failed")
+        }
+      }
+    }
+    child.kill(signal)
   }
 
   #installSignals(): void {

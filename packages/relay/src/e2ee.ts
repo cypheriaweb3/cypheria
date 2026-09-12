@@ -19,7 +19,6 @@ export type {
 export {
   base64EncryptedWireByteLength,
   createClientChannel,
-  createDaemonChannel,
   createServerChannel,
   EncryptedChannel,
   isE2EEHelloMessage,

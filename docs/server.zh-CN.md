@@ -1,6 +1,6 @@
 # Cypheria Server
 
-`apps/server` 是 Cypheria client 与本地特权能力之间的进程边界。它复用了 Paseo daemon 中有价值的结构：稳定 supervisor、可替换 worker、显式 session handshake、health 与 diagnostics、PID ownership、crash recovery 和 graceful lifecycle control，同时以 Hono 替代 Express。
+`apps/server` 是 Cypheria client 与本地特权能力之间的进程边界。它复用了 Paseo 中有价值的进程结构：稳定 supervisor、可替换 worker、显式 session handshake、health 与 diagnostics、PID ownership、crash recovery 和 graceful lifecycle control；Cypheria 对进程与 API 统一使用 server 命名，并以 Hono 替代 Express。
 
 当前运行中的基础 server 仍不分发 agent、project、wallet、policy 或 automation 产品 service。它只托管一个裸 `CypheriaRuntime`；runtime 内置的 `runtime.info`、`runtime.health` 与 `runtime.services` 足以验证 transport。`@cypheria/protocol` 现在已经在 `agent.codex.*` 下预留完整 Codex App Server API，并在 `agent.acp.*` 下承载 ACP；server 侧 agent dispatch 仍是独立的后续实现步骤。
 
@@ -18,7 +18,7 @@ cypheria-server CLI
             -> 内置 Expo web application
 ```
 
-Supervisor 会在显式 restart 或意外 failure 后重启 worker，采用有界指数退避；一分钟内失败五次后停止；worker 忽略 shutdown 时会被强制终止。Worker 每五秒发送 heartbeat。进程日志追加到 `$CYPHERIA_HOME/logs/server.log`；稳定 server identity 以仅 owner 可访问的权限保存在 `$CYPHERIA_HOME/config/server-id`。
+Supervisor 会在显式 restart 或意外 failure 后重启 worker，采用有界指数退避；一分钟内失败五次后停止；graceful shutdown 超时后会终止 worker 进程组。Liveness 是双向的：worker heartbeat 让 supervisor 发现卡死的 worker；每秒一次的 supervisor heartbeat 加上 parent/IPC 检查，则保证 supervisor 消失后 worker 不会作为孤儿进程继续运行。进程日志追加到 `$CYPHERIA_HOME/logs/server.log`；稳定 server identity 以仅 owner 可访问的权限保存在 `$CYPHERIA_HOME/config/server-id`。
 
 Server CLI 支持：
 
@@ -36,7 +36,7 @@ cypheria-server stop
 
 `@cypheria/client` 是该 contract 的可复用 consumer。其内部 `ServerClient` 持有 transport、WebSocket session、请求关联、订阅、超时处理与重连策略；`createCypheriaApi()` 暴露不带连接控制权的借用能力门面；`createCypheriaClient()` 创建持有 connection lifecycle 的门面。该 API 只映射当前 protocol message family，不会从通用 runtime method name 推断 wallet、policy、automation 或其他产品 API。该 package 依赖 `@cypheria/protocol`、只处理传输的 `@cypheria/relay` 与 protocol 所用的同一精确版本官方 ACP SDK，不会启动 server、runtime 或 Codex。其 stable 与 draft-v2 入口在最小 `agent.acp` endpoint 上提供 Cypheria 自有的 SDK-shaped `client()` 与 `ClientApp` API，并选择性重新导出受支持的 upstream helper 与 type。
 
-WebSocket client 使用 `cypheria.v1` subprotocol 连接 `/api/v1/ws`。第一条消息必须是 `session.hello`，包含 protocol version、client identity、client kind 与 capabilities。Server 返回 `session.ready` 和稳定 session ID。每个 request 都带 caller 提供的 request ID；runtime event 广播不带 request ID。
+WebSocket client 使用 `cypheria.v1` subprotocol 连接 `/api/v1/ws`。第一条消息必须是 `session.hello`，包含 protocol version、client identity、client kind 与 capabilities。Server 返回 `session.ready` 和稳定的逻辑 session ID。物理 WebSocket 或解密后的 relay channel 断开时，逻辑 session 不会立刻销毁；在配置的 grace period 内，`@cypheria/client` 会携带 `resumeSessionId` 重连，server 仅在 session ID 与 client ID 都匹配时恢复。`session.goodbye` 仍表示永久关闭。每个 request 都带 caller 提供的 request ID；runtime event 广播不带 request ID。
 
 基础消息如下：
 
@@ -46,6 +46,8 @@ WebSocket client 使用 `cypheria.v1` subprotocol 连接 `/api/v1/ws`。第一�
 | `server.ping` | `server.pong` | Liveness 与 latency timestamps |
 | `server.info` | `server.info.result` | Identity、version、runtime state 与 connection count |
 | `server.diagnostics` | `server.diagnostics.result` | Process、memory、connection 与 runtime diagnostics |
+| `server.config.get` / `.patch` / `.reload` | `server.config.result` | 读取或持久化 server desired config |
+| `server.state` | `server.state.result` | 读取 connection、relay、worker、runtime 与 restart live state |
 | `runtime.request` | `runtime.response` | 转发经过校验的 runtime method |
 | `server.restart` / `server.shutdown` | `server.lifecycle.accepted` | 请求 supervised lifecycle action |
 | `session.goodbye` | connection close | Client graceful disconnect |
@@ -104,11 +106,15 @@ SDK 1.4.0 发布了这些 generated Zod module，但没有通过 package exports
 | `GET` | `/api/v1/health` | 无 | Process liveness |
 | `GET` | `/api/v1/ready` | 无 | Runtime/listener readiness |
 | `GET` | `/api/v1/status` | 配置时使用 Bearer | Server information |
+| `GET` | `/api/v1/state` | 配置时使用 Bearer | Live operational state |
 | `GET` | `/api/v1/diagnostics` | 配置时使用 Bearer | Operational diagnostics |
+| `GET` | `/api/v1/config` | 配置时使用 Bearer | Desired config 与 restart status |
+| `POST` | `/api/v1/config/patch` | 配置时使用 Bearer | 校验并原子持久化 config patch |
+| `POST` | `/api/v1/config/reload` | 配置时使用 Bearer | 从磁盘重新读取 desired config |
 | `GET` | `/api/v1/relay/pairing-offer` | 配置时使用 Bearer | E2EE relay offer 与连接状态 |
 | `POST` | `/api/v1/runtime/request` | 配置时使用 Bearer | Runtime request forwarding |
 | `POST` | `/api/v1/lifecycle/restart` | 配置时使用 Bearer | Supervised worker restart |
-| `POST` | `/api/v1/lifecycle/shutdown` | 配置时使用 Bearer | 关闭整个 daemon |
+| `POST` | `/api/v1/lifecycle/shutdown` | 配置时使用 Bearer | 关闭整个 server |
 
 API route 不会落入 SPA fallback。Request body 与 runtime method namespace 都有边界并经过校验。
 
@@ -118,7 +124,13 @@ API route 不会落入 SPA fallback。Request body 与 runtime method namespace 
 
 没有 `Origin` header 的 native client 可以连接。Browser WebSocket 默认只允许 same-origin。Cross-origin HTTP 与 WebSocket 必须通过 `CYPHERIA_SERVER_ALLOWED_ORIGINS` 显式加入 allowlist。Token 不接受 URL 传递，Expo bundle 也不会把 server token 编译进公共 client code。
 
-配置变量：
+## 配置与状态
+
+Desired config 存储在 `$CYPHERIA_HOME/config/server.json`，schema version 为 `1`。文件不存在时使用安全默认值，但不会仅因读取而写入用户状态。Patch 会先作为完整配置进行校验，再以仅 owner 可访问的权限原子写入。运行中的 worker 保持 resolved startup snapshot 不变：变化字段通过 `restartRequiredPaths` 返回；由启动环境变量控制的值通过 `overrideControlledPaths` 返回，不会被错误标记为由配置文件控制。
+
+持久化文档负责 listener、CORS、message limit、relay、session deadline、shutdown 与 embedded web 设置。`CYPHERIA_SERVER_TOKEN` 只从环境读取，config/state API 永远不会返回它。Live state 与配置分离，报告 active/retained session、relay 连接状态、runtime lifecycle、worker/supervisor PID，以及 desired config 是否要求 restart。PID ownership 仍在 `$CYPHERIA_HOME/config/server.pid`；identity 与 relay key 继续使用独立的 owner-only 文件。
+
+环境变量覆盖：
 
 | 变量 | 默认值 | 含义 |
 | --- | --- | --- |
@@ -128,6 +140,7 @@ API route 不会落入 SPA fallback。Request body 与 runtime method namespace 
 | `CYPHERIA_SERVER_ALLOWED_ORIGINS` | 未设置 | 逗号分隔的 cross-origin allowlist |
 | `CYPHERIA_SERVER_MAX_MESSAGE_BYTES` | `1048576` | HTTP runtime body 与 WebSocket frame 上限 |
 | `CYPHERIA_SERVER_HELLO_TIMEOUT_MS` | `10000` | WebSocket hello deadline |
+| `CYPHERIA_SERVER_RECONNECT_GRACE_MS` | `30000` | Transport 断开后保留逻辑 session 的时间 |
 | `CYPHERIA_SERVER_SHUTDOWN_TIMEOUT_MS` | `10000` | HTTP graceful-shutdown deadline |
 | `CYPHERIA_SERVER_WEB_ENABLED` | `true` | 启用内置 Expo web hosting |
 | `CYPHERIA_SERVER_WEB_DIR` | 内置 `dist/web` | 覆盖 static directory |

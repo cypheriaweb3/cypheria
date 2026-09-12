@@ -101,7 +101,7 @@ export class EncryptedChannel {
   readonly #encryptKey: SharedKey
   readonly #sharedKey: SharedKey
   readonly #transport: Transport
-  readonly #daemonKeyPair: KeyPair | undefined
+  readonly #serverKeyPair: KeyPair | undefined
   readonly #onOpenCallbacks: Array<() => void> = []
   readonly #onCloseCallbacks: Array<() => void> = []
   #binaryCiphertext: boolean
@@ -112,7 +112,7 @@ export class EncryptedChannel {
     transport: Transport,
     sharedKey: SharedKey,
     events: EncryptedChannelEvents = {},
-    options: { binaryCiphertext?: boolean; daemonKeyPair?: KeyPair; role: ChannelRole }
+    options: { binaryCiphertext?: boolean; role: ChannelRole; serverKeyPair?: KeyPair }
   ) {
     this.#transport = transport
     this.#sharedKey = sharedKey
@@ -122,7 +122,7 @@ export class EncryptedChannel {
     this.#decryptKey =
       options.role === "client" ? directionalKeys.serverToClient : directionalKeys.clientToServer
     this.#events = events
-    this.#daemonKeyPair = options.daemonKeyPair
+    this.#serverKeyPair = options.serverKeyPair
     this.#binaryCiphertext = options.binaryCiphertext ?? false
     transport.onmessage = (message) => void this.#handleMessage(message)
     transport.onclose = (code, reason) => {
@@ -203,7 +203,7 @@ export class EncryptedChannel {
         if (text.trim().startsWith("{")) {
           const parsed: unknown = JSON.parse(text)
           if (isE2EEHelloMessage(parsed)) {
-            await this.#handleDaemonRehello(parsed)
+            await this.#handleServerRehello(parsed)
             return
           }
           if (isE2EEReadyMessage(parsed)) return
@@ -235,9 +235,9 @@ export class EncryptedChannel {
     }
   }
 
-  async #handleDaemonRehello(message: E2EEHelloMessage): Promise<void> {
-    if (!this.#daemonKeyPair) return
-    const retryKey = deriveSharedKey(this.#daemonKeyPair.secretKey, importPublicKey(message.key))
+  async #handleServerRehello(message: E2EEHelloMessage): Promise<void> {
+    if (!this.#serverKeyPair) return
+    const retryKey = deriveSharedKey(this.#serverKeyPair.secretKey, importPublicKey(message.key))
     if (!constantTimeEqual(retryKey, this.#sharedKey)) {
       this.#state = "closed"
       this.#transport.close(REHANDSHAKE_REJECTION_CODE, REHANDSHAKE_KEY_MISMATCH_CLOSE_REASON)
@@ -364,7 +364,7 @@ export const createServerChannel = async (
           if (settled) return
           const channel = new EncryptedChannel(transport, sharedKey, events, {
             binaryCiphertext,
-            daemonKeyPair: serverKeyPair,
+            serverKeyPair,
             role: "server",
           })
           channel.setState("open")
@@ -381,4 +381,3 @@ export const createServerChannel = async (
   })
 
 /** @deprecated Use createServerChannel. */
-export const createDaemonChannel = createServerChannel

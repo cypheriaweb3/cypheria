@@ -97,7 +97,7 @@ apps/expo
   Expo Router client for iOS, Android, and static web.
 
 apps/server
-  Hono server, client-session protocol, runtime host, web host, and supervised daemon.
+  Hono server, client-session protocol, runtime host, web host, and supervised server process.
 
 apps/relay
   Go relay with single-process and clustered gateway/worker operation for opaque E2EE WebSocket forwarding.
@@ -182,11 +182,11 @@ Run the build pipeline:
 pnpm build
 ```
 
-Run the server daemon or Expo client during development:
+Run the server or Expo client during development:
 
 ```sh
 pnpm --filter @cypheria/server build
-pnpm --filter @cypheria/server daemon start
+pnpm --filter @cypheria/server server start
 pnpm --filter @cypheria/expo dev
 ```
 

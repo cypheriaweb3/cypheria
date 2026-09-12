@@ -457,10 +457,25 @@ describe("ServerClient", () => {
     expect(TestWebSocket.instances).toHaveLength(2)
     const replacement = TestWebSocket.instances[1]
     if (!replacement) throw new Error("Expected replacement socket")
-    acceptSocket(replacement, "ses_reconnected")
+    replacement.open()
+    const resumeHello = parseClientMessageText(replacement.sent.at(-1) ?? "")
+    expect(resumeHello).toMatchObject({ payload: { resumeSessionId: "ses_test" } })
+    if (resumeHello.type !== "session.hello") throw new Error("Expected resume hello")
+    replacement.message(
+      stringifyProtocolMessage({
+        payload: {
+          capabilities: Object.values(SERVER_CAPABILITIES),
+          resumed: true,
+          server: identity,
+          sessionId: "ses_test",
+        },
+        requestId: resumeHello.requestId,
+        type: "session.ready",
+      })
+    )
     await tick()
     expect(client.getConnectionState()).toEqual({
-      sessionId: "ses_reconnected",
+      sessionId: "ses_test",
       status: "connected",
     })
     await client.close()

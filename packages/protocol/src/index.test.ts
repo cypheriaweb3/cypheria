@@ -5,6 +5,7 @@ import {
   CYPHERIA_PROTOCOL_VERSION,
   createWebSocketProtocols,
   isClientResponseMessage,
+  PersistedServerConfigPatchSchema,
   parseServerMessageText,
   RuntimeMethodSchema,
   SERVER_CAPABILITIES,
@@ -29,6 +30,31 @@ describe("Cypheria protocol", () => {
         },
       })
     ).toMatchObject({ type: "session.hello" })
+  })
+
+  it("validates session resume and bounded server config patches", () => {
+    expect(
+      ClientMessageSchema.safeParse({
+        payload: {
+          capabilities: [],
+          client: { id: "client-1", kind: "expo" },
+          protocolVersion: CYPHERIA_PROTOCOL_VERSION,
+          resumeSessionId: "ses_previous",
+        },
+        requestId: "hello-resume",
+        type: "session.hello",
+      }).success
+    ).toBe(true)
+    expect(
+      PersistedServerConfigPatchSchema.safeParse({
+        server: { sessions: { reconnectGraceMs: 30_000 } },
+      }).success
+    ).toBe(true)
+    expect(
+      PersistedServerConfigPatchSchema.safeParse({
+        server: { sessions: { reconnectGraceMs: 600_000 } },
+      }).success
+    ).toBe(false)
   })
 
   it("limits runtime requests to runtime-owned namespaces", () => {

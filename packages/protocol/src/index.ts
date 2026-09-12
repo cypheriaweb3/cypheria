@@ -34,10 +34,12 @@ export type ClientCapability = (typeof CLIENT_CAPABILITIES)[keyof typeof CLIENT_
 export const SERVER_CAPABILITIES = {
   acp: "agent.acp",
   codex: "agent.codex",
+  config: "server.config",
   diagnostics: "diagnostics",
   lifecycle: "server.lifecycle",
   runtimeEvents: "runtime.events",
   runtimeRequest: "runtime.request",
+  state: "server.state",
 } as const
 export type ServerCapability = (typeof SERVER_CAPABILITIES)[keyof typeof SERVER_CAPABILITIES]
 
@@ -90,6 +92,7 @@ export const SessionHelloMessageSchema = z.object({
     capabilities: z.array(z.string().trim().min(1).max(128)).max(128).default([]),
     client: ClientDescriptorSchema,
     protocolVersion: z.int().positive(),
+    resumeSessionId: z.string().trim().min(1).max(128).optional(),
   }),
 })
 
@@ -110,6 +113,21 @@ export const ServerInfoRequestMessageSchema = z.object({
 
 export const ServerDiagnosticsRequestMessageSchema = z.object({
   type: z.literal("server.diagnostics"),
+  requestId: RequestIdSchema,
+})
+
+export const ServerConfigRequestMessageSchema = z.object({
+  type: z.literal("server.config.get"),
+  requestId: RequestIdSchema,
+})
+
+export const ServerConfigReloadMessageSchema = z.object({
+  type: z.literal("server.config.reload"),
+  requestId: RequestIdSchema,
+})
+
+export const ServerStateRequestMessageSchema = z.object({
+  type: z.literal("server.state"),
   requestId: RequestIdSchema,
 })
 
@@ -155,40 +173,6 @@ export const ClientRpcErrorMessageSchema = z.object({
   }),
 })
 
-export type ClientMessage =
-  | z.infer<typeof SessionHelloMessageSchema>
-  | z.infer<typeof ServerPingMessageSchema>
-  | z.infer<typeof ServerInfoRequestMessageSchema>
-  | z.infer<typeof ServerDiagnosticsRequestMessageSchema>
-  | z.infer<typeof RuntimeRequestMessageSchema>
-  | z.infer<typeof ServerLifecycleRequestMessageSchema>
-  | z.infer<typeof SessionGoodbyeMessageSchema>
-  | z.infer<typeof ClientRpcErrorMessageSchema>
-  | z.infer<typeof AgentAcpClientMessageSchema>
-  | z.infer<typeof AgentCodexClientRequestMessageSchema>
-  | z.infer<typeof AgentCodexServerResponseMessageSchema>
-  | z.infer<typeof AgentCodexClientNotificationMessageSchema>
-
-// Some agent families are themselves unions/refined schemas, so they cannot satisfy Zod's
-// discriminated-union option type without unsafe casts. A compiled ordinary union keeps the
-// public type honest and lets Zod generate the optimized parser once for this hot boundary.
-export const ClientMessageSchema: z.ZodType<ClientMessage> = z.compile(
-  z.union([
-    SessionHelloMessageSchema,
-    ServerPingMessageSchema,
-    ServerInfoRequestMessageSchema,
-    ServerDiagnosticsRequestMessageSchema,
-    RuntimeRequestMessageSchema,
-    ServerLifecycleRequestMessageSchema,
-    SessionGoodbyeMessageSchema,
-    ClientRpcErrorMessageSchema,
-    AgentAcpClientMessageSchema,
-    AgentCodexClientRequestMessageSchema,
-    AgentCodexServerResponseMessageSchema,
-    AgentCodexClientNotificationMessageSchema,
-  ])
-)
-
 export const RuntimeStateSchema = z.enum(["errored", "ready", "starting", "stopped", "stopping"])
 
 export const ServerIdentitySchema = z.object({
@@ -216,6 +200,8 @@ export const ServerDiagnosticsSchema = z.object({
     active: z.int().nonnegative(),
     acceptedTotal: z.int().nonnegative(),
     rejectedTotal: z.int().nonnegative(),
+    resumedTotal: z.int().nonnegative().optional(),
+    retained: z.int().nonnegative().optional(),
   }),
   memory: z.object({
     arrayBuffers: z.number().nonnegative(),
@@ -231,6 +217,201 @@ export const ServerDiagnosticsSchema = z.object({
   runtimeState: RuntimeStateSchema,
 })
 export type ServerDiagnostics = z.infer<typeof ServerDiagnosticsSchema>
+
+const OptionalRelayEndpointSchema = z.string().trim().min(1).max(2048).optional()
+
+export const PersistedServerConfigSchema = z
+  .object({
+    version: z.literal(1),
+    server: z
+      .object({
+        cors: z
+          .object({
+            allowedOrigins: z.array(z.string().url()).default([]),
+          })
+          .strict(),
+        limits: z
+          .object({
+            maxMessageBytes: z
+              .int()
+              .positive()
+              .max(16 * 1024 * 1024),
+          })
+          .strict(),
+        listen: z
+          .object({
+            host: z.string().trim().min(1),
+            port: z.int().min(0).max(65_535),
+          })
+          .strict(),
+        relay: z
+          .object({
+            enabled: z.boolean(),
+            endpoint: OptionalRelayEndpointSchema,
+            publicEndpoint: OptionalRelayEndpointSchema,
+            publicUseTls: z.boolean(),
+            useTls: z.boolean(),
+          })
+          .strict(),
+        sessions: z
+          .object({
+            helloTimeoutMs: z.int().positive().max(60_000),
+            reconnectGraceMs: z
+              .int()
+              .nonnegative()
+              .max(5 * 60_000),
+          })
+          .strict(),
+        shutdownTimeoutMs: z.int().positive().max(120_000),
+        webApp: z
+          .object({
+            directory: z.string().trim().min(1).optional(),
+            enabled: z.boolean(),
+          })
+          .strict(),
+      })
+      .strict(),
+  })
+  .strict()
+export type PersistedServerConfig = z.infer<typeof PersistedServerConfigSchema>
+
+export const PersistedServerConfigPatchSchema = z
+  .object({
+    server: z
+      .object({
+        cors: z
+          .object({ allowedOrigins: z.array(z.string().url()).optional() })
+          .strict()
+          .optional(),
+        limits: z
+          .object({
+            maxMessageBytes: z
+              .int()
+              .positive()
+              .max(16 * 1024 * 1024)
+              .optional(),
+          })
+          .strict()
+          .optional(),
+        listen: z
+          .object({
+            host: z.string().trim().min(1).optional(),
+            port: z.int().min(0).max(65_535).optional(),
+          })
+          .strict()
+          .optional(),
+        relay: z
+          .object({
+            enabled: z.boolean().optional(),
+            endpoint: OptionalRelayEndpointSchema,
+            publicEndpoint: OptionalRelayEndpointSchema,
+            publicUseTls: z.boolean().optional(),
+            useTls: z.boolean().optional(),
+          })
+          .strict()
+          .optional(),
+        sessions: z
+          .object({
+            helloTimeoutMs: z.int().positive().max(60_000).optional(),
+            reconnectGraceMs: z
+              .int()
+              .nonnegative()
+              .max(5 * 60_000)
+              .optional(),
+          })
+          .strict()
+          .optional(),
+        shutdownTimeoutMs: z.int().positive().max(120_000).optional(),
+        webApp: z
+          .object({
+            directory: z.string().trim().min(1).optional(),
+            enabled: z.boolean().optional(),
+          })
+          .strict()
+          .optional(),
+      })
+      .strict()
+      .optional(),
+  })
+  .strict()
+export type PersistedServerConfigPatch = z.infer<typeof PersistedServerConfigPatchSchema>
+
+export const ServerConfigSnapshotSchema = z.object({
+  config: PersistedServerConfigSchema,
+  overrideControlledPaths: z.array(z.string()),
+  path: z.string(),
+  restartRequiredPaths: z.array(z.string()),
+})
+export type ServerConfigSnapshot = z.infer<typeof ServerConfigSnapshotSchema>
+
+export const ServerConfigPatchMessageSchema = z.object({
+  type: z.literal("server.config.patch"),
+  requestId: RequestIdSchema,
+  payload: z.object({ patch: PersistedServerConfigPatchSchema }),
+})
+
+export const ServerOperationalStateSchema = z.object({
+  config: z.object({
+    path: z.string(),
+    restartRequired: z.boolean(),
+  }),
+  connections: z.object({
+    active: z.int().nonnegative(),
+    retained: z.int().nonnegative(),
+  }),
+  relay: z.object({
+    connected: z.boolean(),
+    enabled: z.boolean(),
+  }),
+  runtimeState: RuntimeStateSchema,
+  worker: z.object({
+    pid: z.int().positive(),
+    supervisorPid: z.int().positive().optional(),
+  }),
+})
+export type ServerOperationalState = z.infer<typeof ServerOperationalStateSchema>
+
+export type ClientMessage =
+  | z.infer<typeof SessionHelloMessageSchema>
+  | z.infer<typeof ServerPingMessageSchema>
+  | z.infer<typeof ServerInfoRequestMessageSchema>
+  | z.infer<typeof ServerDiagnosticsRequestMessageSchema>
+  | z.infer<typeof ServerConfigRequestMessageSchema>
+  | z.infer<typeof ServerConfigPatchMessageSchema>
+  | z.infer<typeof ServerConfigReloadMessageSchema>
+  | z.infer<typeof ServerStateRequestMessageSchema>
+  | z.infer<typeof RuntimeRequestMessageSchema>
+  | z.infer<typeof ServerLifecycleRequestMessageSchema>
+  | z.infer<typeof SessionGoodbyeMessageSchema>
+  | z.infer<typeof ClientRpcErrorMessageSchema>
+  | z.infer<typeof AgentAcpClientMessageSchema>
+  | z.infer<typeof AgentCodexClientRequestMessageSchema>
+  | z.infer<typeof AgentCodexServerResponseMessageSchema>
+  | z.infer<typeof AgentCodexClientNotificationMessageSchema>
+
+// Some agent families are themselves unions/refined schemas, so they cannot satisfy Zod's
+// discriminated-union option type without unsafe casts. A compiled ordinary union keeps the
+// public type honest and lets Zod generate the optimized parser once for this hot boundary.
+export const ClientMessageSchema: z.ZodType<ClientMessage> = z.compile(
+  z.union([
+    SessionHelloMessageSchema,
+    ServerPingMessageSchema,
+    ServerInfoRequestMessageSchema,
+    ServerDiagnosticsRequestMessageSchema,
+    ServerConfigRequestMessageSchema,
+    ServerConfigPatchMessageSchema,
+    ServerConfigReloadMessageSchema,
+    ServerStateRequestMessageSchema,
+    RuntimeRequestMessageSchema,
+    ServerLifecycleRequestMessageSchema,
+    SessionGoodbyeMessageSchema,
+    ClientRpcErrorMessageSchema,
+    AgentAcpClientMessageSchema,
+    AgentCodexClientRequestMessageSchema,
+    AgentCodexServerResponseMessageSchema,
+    AgentCodexClientNotificationMessageSchema,
+  ])
+)
 
 export const KNOWN_SERVER_ERROR_CODES = [
   "AUTHENTICATION_REQUIRED",
@@ -253,6 +434,8 @@ export const SessionReadyMessageSchema = z.object({
   payload: z.object({
     capabilities: z.array(z.string()),
     features: ServerFeatureFlagsSchema.optional(),
+    reconnectGraceMs: z.int().nonnegative().optional(),
+    resumed: z.boolean().optional(),
     server: ServerIdentitySchema,
     sessionId: z.string(),
   }),
@@ -278,6 +461,18 @@ export const ServerDiagnosticsMessageSchema = z.object({
   type: z.literal("server.diagnostics.result"),
   requestId: RequestIdSchema,
   payload: ServerDiagnosticsSchema,
+})
+
+export const ServerConfigMessageSchema = z.object({
+  type: z.literal("server.config.result"),
+  requestId: RequestIdSchema,
+  payload: ServerConfigSnapshotSchema,
+})
+
+export const ServerStateMessageSchema = z.object({
+  type: z.literal("server.state.result"),
+  requestId: RequestIdSchema,
+  payload: ServerOperationalStateSchema,
 })
 
 export const RuntimeResponseMessageSchema = z.object({
@@ -317,6 +512,8 @@ export type ServerMessage =
   | z.infer<typeof ServerPongMessageSchema>
   | z.infer<typeof ServerInfoMessageSchema>
   | z.infer<typeof ServerDiagnosticsMessageSchema>
+  | z.infer<typeof ServerConfigMessageSchema>
+  | z.infer<typeof ServerStateMessageSchema>
   | z.infer<typeof RuntimeResponseMessageSchema>
   | z.infer<typeof RuntimeEventMessageSchema>
   | z.infer<typeof ServerLifecycleAcceptedMessageSchema>
@@ -332,6 +529,8 @@ export const ServerMessageSchema: z.ZodType<ServerMessage> = z.compile(
     ServerPongMessageSchema,
     ServerInfoMessageSchema,
     ServerDiagnosticsMessageSchema,
+    ServerConfigMessageSchema,
+    ServerStateMessageSchema,
     RuntimeResponseMessageSchema,
     RuntimeEventMessageSchema,
     ServerLifecycleAcceptedMessageSchema,
@@ -348,6 +547,8 @@ const clientResponseTypes = new Set<string>([
   "server.pong",
   "server.info.result",
   "server.diagnostics.result",
+  "server.config.result",
+  "server.state.result",
   "runtime.response",
   "server.lifecycle.accepted",
   ...Object.values(AGENT_CODEX_CLIENT_RPC).map(({ response }) => response),

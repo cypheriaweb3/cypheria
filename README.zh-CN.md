@@ -97,7 +97,7 @@ apps/expo
   面向 iOS、Android 与静态 web 的 Expo Router client。
 
 apps/server
-  Hono server、client-session protocol、runtime host、web host 与 supervised daemon。
+  Hono server、client-session protocol、runtime host、web host 与 supervised server process。
 
 apps/relay
   以单进程或集群 gateway/worker 形态转发不透明 E2EE WebSocket 的 Go relay。
@@ -182,11 +182,11 @@ pnpm check
 pnpm build
 ```
 
-开发时运行 server daemon 或 Expo client：
+开发时运行 server 或 Expo client：
 
 ```sh
 pnpm --filter @cypheria/server build
-pnpm --filter @cypheria/server daemon start
+pnpm --filter @cypheria/server server start
 pnpm --filter @cypheria/expo dev
 ```
 

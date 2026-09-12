@@ -136,6 +136,8 @@ const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
 const codex = createCodexApp().connect(cypheria)
 
 const server = await cypheria.server.info()
+const state = await cypheria.server.state()
+const config = await cypheria.server.config()
 const runtimeInfo = await cypheria.runtime.request("runtime.info")
 await codex.codex.initialize({
   capabilities: null,
@@ -148,8 +150,12 @@ await cypheria.close()
 ```
 
 Requests connect lazily. `close()` permanently disposes that client. Before it is closed, transport
-loss rejects in-flight work and schedules a bounded exponential reconnect by default. Set
-`reconnect.enabled` to `false` when the embedding host owns retry policy.
+loss rejects in-flight work and schedules a bounded exponential reconnect by default. The reconnect
+hello carries the last negotiated session ID, allowing the server to resume the same logical
+session during its grace period. Set `reconnect.enabled` to `false` when the embedding host owns
+retry policy. `server.config()`, `patchConfig()`, and `reloadConfig()` expose validated desired
+configuration and the paths that require a supervised worker restart; `server.state()` exposes live
+operational state. Authentication tokens are never part of either result.
 
 Every correlated facade method accepts a final `{ signal, timeoutMs }` request-options argument.
 Timeouts and aborts also cancel a request that is waiting for the lazy connection, so it cannot be

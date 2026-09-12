@@ -2,9 +2,12 @@ import type {
   AcpClientWirePayload,
   AcpServerWirePayload,
   ClientMessage,
+  PersistedServerConfigPatch,
+  ServerConfigSnapshot,
   ServerDiagnostics,
   ServerInfo,
   ServerMessage,
+  ServerOperationalState,
 } from "@cypheria/protocol"
 
 import { type AcpEndpoint, createAcpEndpoint } from "./acp-client.js"
@@ -41,11 +44,18 @@ export interface AgentActions {
 }
 
 export interface ServerActions {
+  config(options?: RequestOptions): Promise<ServerConfigSnapshot>
   diagnostics(options?: RequestOptions): Promise<ServerDiagnostics>
   info(options?: RequestOptions): Promise<ServerInfo>
+  patchConfig(
+    patch: PersistedServerConfigPatch,
+    options?: RequestOptions
+  ): Promise<ServerConfigSnapshot>
   ping(sentAt?: string, options?: RequestOptions): Promise<ServerPong>
+  reloadConfig(options?: RequestOptions): Promise<ServerConfigSnapshot>
   restart(reason?: string, options?: RequestOptions): Promise<ServerLifecycleAccepted>
   shutdown(reason?: string, options?: RequestOptions): Promise<ServerLifecycleAccepted>
+  state(options?: RequestOptions): Promise<ServerOperationalState>
   supports(capability: string): boolean
   supportsFeature(feature: string): boolean
 }
@@ -154,12 +164,16 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
         serverClient.on("runtime.event", (message) => handler(message.payload.event)),
     },
     server: {
+      config: async (options) => serverClient.getServerConfig(options),
       diagnostics: async (options) => serverClient.getServerDiagnostics(options),
       info: async (options) => serverClient.getServerInfo(options),
+      patchConfig: async (patch, options) => serverClient.patchServerConfig(patch, options),
       ping: async (sentAt, options) => serverClient.ping(sentAt, options),
+      reloadConfig: async (options) => serverClient.reloadServerConfig(options),
       restart: async (reason, options) => serverClient.requestLifecycle("restart", reason, options),
       shutdown: async (reason, options) =>
         serverClient.requestLifecycle("shutdown", reason, options),
+      state: async (options) => serverClient.getServerState(options),
       supports: (capability) => serverClient.supports(capability),
       supportsFeature: (feature) => serverClient.supportsFeature(feature),
     },

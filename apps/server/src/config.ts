@@ -1,5 +1,8 @@
 import { fileURLToPath } from "node:url"
+import type { PersistedServerConfig } from "@cypheria/protocol"
 import { z } from "zod"
+
+import { DEFAULT_PERSISTED_SERVER_CONFIG } from "./persisted-config.js"
 
 const PortSchema = z.coerce.number().int().min(0).max(65_535)
 
@@ -35,7 +38,13 @@ export const CypheriaServerConfigSchema = z
     relayPublicUseTls: z.boolean(),
     relayUseTls: z.boolean(),
     sessionHelloTimeoutMs: z.number().int().positive().max(60_000),
+    sessionReconnectGraceMs: z
+      .number()
+      .int()
+      .nonnegative()
+      .max(5 * 60_000),
     shutdownTimeoutMs: z.number().int().positive().max(120_000),
+    overrideControlledPaths: z.array(z.string()),
     webAppDir: z.string().min(1),
     webAppEnabled: z.boolean(),
   })
@@ -84,30 +93,97 @@ export function resolveBundledWebAppDirectory(moduleUrl = import.meta.url): stri
 
 export function loadServerConfig(
   env: NodeJS.ProcessEnv = process.env,
-  overrides: CypheriaServerConfigOverrides = {}
+  overrides: CypheriaServerConfigOverrides = {},
+  persisted: PersistedServerConfig = DEFAULT_PERSISTED_SERVER_CONFIG
 ): CypheriaServerConfig {
+  const configured = persisted.server
+  const overrideControlledPaths: string[] = []
+  const fromEnvironment = <T>(
+    name: string,
+    path: string,
+    parse: (value: string) => T
+  ): T | undefined => {
+    const raw = env[name]
+    if (raw === undefined || raw.trim() === "") return undefined
+    overrideControlledPaths.push(path)
+    return parse(raw)
+  }
+  const environmentRelayUseTls = fromEnvironment(
+    "CYPHERIA_SERVER_RELAY_USE_TLS",
+    "server.relay.useTls",
+    (value) => readBoolean(value, configured.relay.useTls)
+  )
   const input = {
-    allowedOrigins: splitList(env.CYPHERIA_SERVER_ALLOWED_ORIGINS),
+    allowedOrigins:
+      fromEnvironment("CYPHERIA_SERVER_ALLOWED_ORIGINS", "server.cors.allowedOrigins", (value) =>
+        splitList(value)
+      ) ?? configured.cors.allowedOrigins,
     authToken: env.CYPHERIA_SERVER_TOKEN?.trim() || undefined,
-    host: env.CYPHERIA_SERVER_HOST?.trim() || "127.0.0.1",
-    maxMessageBytes: readPositiveInteger(env.CYPHERIA_SERVER_MAX_MESSAGE_BYTES, 1024 * 1024),
-    port: env.CYPHERIA_SERVER_PORT ?? 6768,
-    relayEnabled: readBoolean(env.CYPHERIA_SERVER_RELAY_ENABLED, false),
-    relayEndpoint: env.CYPHERIA_SERVER_RELAY_ENDPOINT?.trim() || undefined,
+    host:
+      fromEnvironment("CYPHERIA_SERVER_HOST", "server.listen.host", (value) => value.trim()) ??
+      configured.listen.host,
+    maxMessageBytes:
+      fromEnvironment(
+        "CYPHERIA_SERVER_MAX_MESSAGE_BYTES",
+        "server.limits.maxMessageBytes",
+        (value) => readPositiveInteger(value, configured.limits.maxMessageBytes)
+      ) ?? configured.limits.maxMessageBytes,
+    port:
+      fromEnvironment("CYPHERIA_SERVER_PORT", "server.listen.port", (value) =>
+        z.coerce.number().int().min(0).max(65_535).parse(value)
+      ) ?? configured.listen.port,
+    relayEnabled:
+      fromEnvironment("CYPHERIA_SERVER_RELAY_ENABLED", "server.relay.enabled", (value) =>
+        readBoolean(value, configured.relay.enabled)
+      ) ?? configured.relay.enabled,
+    relayEndpoint:
+      fromEnvironment("CYPHERIA_SERVER_RELAY_ENDPOINT", "server.relay.endpoint", (value) =>
+        value.trim()
+      ) ?? configured.relay.endpoint,
     relayPublicEndpoint:
-      env.CYPHERIA_SERVER_RELAY_PUBLIC_ENDPOINT?.trim() ||
-      env.CYPHERIA_SERVER_RELAY_ENDPOINT?.trim() ||
-      undefined,
-    relayPublicUseTls: readBoolean(
-      env.CYPHERIA_SERVER_RELAY_PUBLIC_USE_TLS,
-      readBoolean(env.CYPHERIA_SERVER_RELAY_USE_TLS, true)
-    ),
-    relayUseTls: readBoolean(env.CYPHERIA_SERVER_RELAY_USE_TLS, true),
-    sessionHelloTimeoutMs: readPositiveInteger(env.CYPHERIA_SERVER_HELLO_TIMEOUT_MS, 10_000),
-    shutdownTimeoutMs: readPositiveInteger(env.CYPHERIA_SERVER_SHUTDOWN_TIMEOUT_MS, 10_000),
+      fromEnvironment(
+        "CYPHERIA_SERVER_RELAY_PUBLIC_ENDPOINT",
+        "server.relay.publicEndpoint",
+        (value) => value.trim()
+      ) ??
+      configured.relay.publicEndpoint ??
+      configured.relay.endpoint,
+    relayPublicUseTls:
+      fromEnvironment(
+        "CYPHERIA_SERVER_RELAY_PUBLIC_USE_TLS",
+        "server.relay.publicUseTls",
+        (value) => readBoolean(value, environmentRelayUseTls ?? configured.relay.publicUseTls)
+      ) ??
+      environmentRelayUseTls ??
+      configured.relay.publicUseTls,
+    relayUseTls: environmentRelayUseTls ?? configured.relay.useTls,
+    sessionHelloTimeoutMs:
+      fromEnvironment(
+        "CYPHERIA_SERVER_HELLO_TIMEOUT_MS",
+        "server.sessions.helloTimeoutMs",
+        (value) => readPositiveInteger(value, configured.sessions.helloTimeoutMs)
+      ) ?? configured.sessions.helloTimeoutMs,
+    sessionReconnectGraceMs:
+      fromEnvironment(
+        "CYPHERIA_SERVER_RECONNECT_GRACE_MS",
+        "server.sessions.reconnectGraceMs",
+        (value) => z.coerce.number().int().nonnegative().parse(value)
+      ) ?? configured.sessions.reconnectGraceMs,
+    shutdownTimeoutMs:
+      fromEnvironment("CYPHERIA_SERVER_SHUTDOWN_TIMEOUT_MS", "server.shutdownTimeoutMs", (value) =>
+        readPositiveInteger(value, configured.shutdownTimeoutMs)
+      ) ?? configured.shutdownTimeoutMs,
+    overrideControlledPaths,
     webAppDir:
-      env.CYPHERIA_SERVER_WEB_DIR?.trim() || resolveBundledWebAppDirectory(import.meta.url),
-    webAppEnabled: readBoolean(env.CYPHERIA_SERVER_WEB_ENABLED, true),
+      fromEnvironment("CYPHERIA_SERVER_WEB_DIR", "server.webApp.directory", (value) =>
+        value.trim()
+      ) ??
+      configured.webApp.directory ??
+      resolveBundledWebAppDirectory(import.meta.url),
+    webAppEnabled:
+      fromEnvironment("CYPHERIA_SERVER_WEB_ENABLED", "server.webApp.enabled", (value) =>
+        readBoolean(value, configured.webApp.enabled)
+      ) ?? configured.webApp.enabled,
     ...overrides,
   }
   input.relayPublicEndpoint ??= input.relayEndpoint

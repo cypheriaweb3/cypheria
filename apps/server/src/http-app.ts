@@ -3,6 +3,7 @@ import {
   createConnectionOfferUrl,
   HttpLifecycleRequestSchema,
   HttpRuntimeRequestSchema,
+  PersistedServerConfigPatchSchema,
   type RelayPairingOfferResponse,
 } from "@cypheria/protocol"
 import type { CypheriaRuntimeMethod } from "@cypheria/runtime"
@@ -22,7 +23,8 @@ import {
   readWebSocketToken,
 } from "./auth.js"
 import type { CypheriaServerConfig } from "./config.js"
-import { ClientSession, type SessionHost } from "./session/client-session.js"
+import type { ClientConnection } from "./session/client-connection.js"
+import type { SessionHost } from "./session/client-session.js"
 import type { ConnectionRegistry } from "./session/connection-registry.js"
 
 export type HttpAppHost = SessionHost & {
@@ -83,7 +85,19 @@ export function createHttpApp(options: CreateHttpAppOptions): Hono {
   })
 
   app.get("/api/v1/status", (context) => context.json(host.getInfo()))
+  app.get("/api/v1/state", (context) => context.json(host.getState()))
   app.get("/api/v1/diagnostics", (context) => context.json(host.getDiagnostics()))
+  app.get("/api/v1/config", (context) => context.json(host.getConfig()))
+  app.post(
+    "/api/v1/config/patch",
+    bodyLimit({ maxSize: config.maxMessageBytes }),
+    zValidator("json", PersistedServerConfigPatchSchema, (result, context) => {
+      if (!result.success) return context.json(jsonError("Invalid server config patch"), 400)
+      return undefined
+    }),
+    async (context) => context.json(await host.patchConfig(context.req.valid("json")))
+  )
+  app.post("/api/v1/config/reload", async (context) => context.json(await host.reloadConfig()))
   app.get("/api/v1/relay/pairing-offer", (context) => {
     const pairing = host.getRelayPairingOffer()
     if (!pairing) {
@@ -160,32 +174,26 @@ export function createHttpApp(options: CreateHttpAppOptions): Hono {
     CYPHERIA_WEBSOCKET_PATH,
     upgradeWebSocket(
       () => {
-        let session: ClientSession | undefined
+        let connection: ClientConnection | undefined
         return {
-          onClose: () => session?.transportClosed(),
+          onClose: () => connection?.transportClosed(),
           onMessage: (event) => {
-            if (!session) return
+            if (!connection) return
             if (typeof event.data !== "string") {
-              session.close(1003, "Only JSON text messages are supported")
+              connection.close(1003, "Only JSON text messages are supported")
               return
             }
             if (Buffer.byteLength(event.data) > config.maxMessageBytes) {
-              session.close(1009, "Message is too large")
+              connection.close(1009, "Message is too large")
               return
             }
-            void session.receive(event.data)
+            void connection.receive(event.data)
           },
           onOpen: (_event, socket) => {
-            session = new ClientSession({
-              helloTimeoutMs: config.sessionHelloTimeoutMs,
-              host,
-              onClose: (closedSession) => registry.remove(closedSession.id),
-              transport: {
-                close: (code, reason) => socket.close(code, reason),
-                send: (data) => socket.send(data),
-              },
+            connection = registry.accept({
+              close: (code, reason) => socket.close(code, reason),
+              send: (data) => socket.send(data),
             })
-            registry.add(session)
           },
         }
       },

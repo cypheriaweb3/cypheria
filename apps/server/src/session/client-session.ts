@@ -3,16 +3,16 @@ import { randomUUID } from "node:crypto"
 import {
   type ClientDescriptor,
   type ClientMessage,
-  CYPHERIA_PROTOCOL_VERSION,
-  parseClientMessageText,
+  type PersistedServerConfigPatch,
+  type ServerConfigSnapshot,
   type ServerDiagnostics,
   type ServerErrorCode,
   type ServerIdentity,
   type ServerInfo,
   type ServerMessage,
+  type ServerOperationalState,
   stringifyProtocolMessage,
 } from "@cypheria/protocol"
-import { ZodError } from "zod"
 
 export type SessionTransport = {
   close(code: number, reason: string): void
@@ -20,18 +20,24 @@ export type SessionTransport = {
 }
 
 export type SessionHost = {
+  getConfig(): ServerConfigSnapshot
   getDiagnostics(): ServerDiagnostics
   getIdentity(): ServerIdentity
   getInfo(): ServerInfo
+  getSessionCapabilities(): string[]
+  getState(): ServerOperationalState
+  patchConfig(patch: PersistedServerConfigPatch): Promise<ServerConfigSnapshot>
+  reloadConfig(): Promise<ServerConfigSnapshot>
   requestLifecycle(action: "restart" | "shutdown", reason?: string): void
   requestRuntime(method: string, params?: unknown): Promise<unknown>
 }
 
 export type ClientSessionOptions = {
-  helloTimeoutMs: number
+  client: ClientDescriptor
   host: SessionHost
   onClose?: (session: ClientSession) => void
-  transport: SessionTransport
+  onDetach?: (session: ClientSession) => void
+  reconnectGraceMs: number
 }
 
 const errorMessage = (error: unknown): string =>
@@ -48,71 +54,63 @@ const correlatedRequestId = (message: object): string | undefined => {
 }
 
 export class ClientSession {
+  readonly client: ClientDescriptor
   readonly id = `ses_${randomUUID()}`
+  readonly reconnectGraceMs: number
 
-  #client: ClientDescriptor | undefined
   #closed = false
-  #helloTimer: NodeJS.Timeout
   #host: SessionHost
   #inFlight = new Set<string>()
   #onClose: ((session: ClientSession) => void) | undefined
-  #ready = false
-  #transport: SessionTransport
+  #onDetach: ((session: ClientSession) => void) | undefined
+  #transport: SessionTransport | undefined
 
   constructor(options: ClientSessionOptions) {
+    this.client = options.client
     this.#host = options.host
     this.#onClose = options.onClose
-    this.#transport = options.transport
-    this.#helloTimer = setTimeout(() => {
-      this.#sendError("NOT_READY", "session.hello was not received in time")
-      this.close(1008, "Session hello timeout")
-    }, options.helloTimeoutMs)
-    this.#helloTimer.unref()
+    this.#onDetach = options.onDetach
+    this.reconnectGraceMs = options.reconnectGraceMs
   }
 
-  get client(): ClientDescriptor | undefined {
-    return this.#client
+  get attached(): boolean {
+    return this.#transport !== undefined
   }
 
-  get ready(): boolean {
-    return this.#ready
+  attach(transport: SessionTransport, requestId: string, resumed: boolean): void {
+    if (this.#closed) throw new Error("Cannot attach a closed client session")
+    const previous = this.#transport
+    this.#transport = transport
+    if (previous && previous !== transport) previous.close(1012, "Session resumed elsewhere")
+    this.send({
+      payload: {
+        capabilities: this.#host.getSessionCapabilities(),
+        reconnectGraceMs: this.reconnectGraceMs,
+        resumed,
+        server: this.#host.getIdentity(),
+        sessionId: this.id,
+      },
+      requestId,
+      type: "session.ready",
+    })
   }
 
   send(message: ServerMessage): void {
-    if (!this.#closed) this.#transport.send(stringifyProtocolMessage(message))
+    if (!this.#closed && this.#transport) {
+      this.#transport.send(stringifyProtocolMessage(message))
+    }
   }
 
-  async receive(raw: string): Promise<void> {
-    if (this.#closed) return
-
-    let message: ClientMessage
-    try {
-      message = parseClientMessageText(raw)
-    } catch (error) {
-      const detail = error instanceof ZodError ? error.issues[0]?.message : errorMessage(error)
-      this.#sendError("INVALID_MESSAGE", detail || "Invalid message")
-      return
-    }
-
-    if (!this.#ready) {
-      this.#acceptHello(message)
-      return
-    }
-
-    if (message.type === "session.hello") {
-      this.#sendError("INVALID_MESSAGE", "session.hello may only be sent once", message.requestId)
-      return
-    }
-
+  async receive(message: Exclude<ClientMessage, { type: "session.hello" }>): Promise<void> {
+    if (this.#closed || !this.#transport) return
     const messageRequestId = correlatedRequestId(message)
     if (messageRequestId && this.#inFlight.has(messageRequestId)) {
       this.#sendError("INVALID_MESSAGE", "Request id is already in flight", messageRequestId)
       return
     }
-
     if (messageRequestId) this.#inFlight.add(messageRequestId)
     try {
-      await this.#handleReadyMessage(message)
+      await this.#handleMessage(message)
     } finally {
       if (messageRequestId) this.#inFlight.delete(messageRequestId)
     }
@@ -121,54 +119,19 @@ export class ClientSession {
   close(code = 1000, reason = "Session closed"): void {
     if (this.#closed) return
     this.#closed = true
-    clearTimeout(this.#helloTimer)
-    this.#transport.close(code, reason)
+    const transport = this.#transport
+    this.#transport = undefined
+    transport?.close(code, reason)
     this.#onClose?.(this)
   }
 
-  transportClosed(): void {
-    if (this.#closed) return
-    this.#closed = true
-    clearTimeout(this.#helloTimer)
-    this.#onClose?.(this)
+  transportClosed(transport: SessionTransport): void {
+    if (this.#closed || this.#transport !== transport) return
+    this.#transport = undefined
+    this.#onDetach?.(this)
   }
 
-  #acceptHello(message: ClientMessage): void {
-    if (message.type !== "session.hello") {
-      this.#sendError(
-        "NOT_READY",
-        "The first message must be session.hello",
-        correlatedRequestId(message)
-      )
-      this.close(1008, "Session hello required")
-      return
-    }
-
-    if (message.payload.protocolVersion !== CYPHERIA_PROTOCOL_VERSION) {
-      this.#sendError(
-        "PROTOCOL_MISMATCH",
-        `Expected protocol version ${CYPHERIA_PROTOCOL_VERSION}`,
-        message.requestId
-      )
-      this.close(1002, "Protocol version mismatch")
-      return
-    }
-
-    this.#client = message.payload.client
-    this.#ready = true
-    clearTimeout(this.#helloTimer)
-    this.send({
-      payload: {
-        capabilities: ["diagnostics", "runtime.request", "runtime.events", "server.lifecycle"],
-        server: this.#host.getIdentity(),
-        sessionId: this.id,
-      },
-      requestId: message.requestId,
-      type: "session.ready",
-    })
-  }
-
-  async #handleReadyMessage(message: Exclude<ClientMessage, { type: "session.hello" }>) {
+  async #handleMessage(message: Exclude<ClientMessage, { type: "session.hello" }>): Promise<void> {
     switch (message.type) {
       case "server.ping": {
         const receivedAt = new Date().toISOString()
@@ -197,6 +160,28 @@ export class ClientSession {
           type: "server.diagnostics.result",
         })
         break
+      case "server.config.get":
+        this.send({
+          payload: this.#host.getConfig(),
+          requestId: message.requestId,
+          type: "server.config.result",
+        })
+        break
+      case "server.config.patch":
+        await this.#handleConfigChange(message.requestId, () =>
+          this.#host.patchConfig(message.payload.patch)
+        )
+        break
+      case "server.config.reload":
+        await this.#handleConfigChange(message.requestId, () => this.#host.reloadConfig())
+        break
+      case "server.state":
+        this.send({
+          payload: this.#host.getState(),
+          requestId: message.requestId,
+          type: "server.state.result",
+        })
+        break
       case "runtime.request":
         await this.#handleRuntimeRequest(message)
         break
@@ -214,6 +199,24 @@ export class ClientSession {
       case "session.goodbye":
         this.close(1000, "Client disconnected")
         break
+      default:
+        this.#sendError(
+          "REQUEST_NOT_SUPPORTED",
+          `Message type is not handled by the server: ${message.type}`,
+          correlatedRequestId(message)
+        )
+        break
+    }
+  }
+
+  async #handleConfigChange(
+    requestId: string,
+    change: () => Promise<ServerConfigSnapshot>
+  ): Promise<void> {
+    try {
+      this.send({ payload: await change(), requestId, type: "server.config.result" })
+    } catch (error) {
+      this.#sendError("HANDLER_FAILED", errorMessage(error), requestId)
     }
   }
 
@@ -233,10 +236,6 @@ export class ClientSession {
   }
 
   #sendError(code: ServerErrorCode, message: string, requestId?: string): void {
-    this.send({
-      payload: { code, message },
-      requestId,
-      type: "server.error",
-    })
+    this.send({ payload: { code, message }, requestId, type: "server.error" })
   }
 }

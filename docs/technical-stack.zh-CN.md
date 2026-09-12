@@ -16,7 +16,7 @@ Cypheria V1 是一个 TypeScript Web3 agent 产品，由一个特权 server 与 
 | Relay | Go、`coder/websocket`、etcd client v3、内部 TLS 1.3 mTLS |
 | Relay E2EE | `tweetnacl`、X25519、XSalsa20-Poly1305、`base64-js` |
 | Relay 可观测性 | OpenTelemetry SDK、OTLP/gRPC metrics/traces、外部 Collector |
-| Server build 与 daemon | tsdown、supervisor/worker、PID lock、heartbeat、有界 restart |
+| Server build 与进程模型 | tsdown、supervisor/worker、PID lock、heartbeat、有界 restart |
 | Client protocol | `@cypheria/protocol`、Zod、HTTP + WebSocket `cypheria.v1` |
 | 跨平台 client | Expo SDK 57、Expo Router、React Native 0.86、React 19 |
 | Expo web output | 内置到 server build 的静态 Metro export |
@@ -49,7 +49,7 @@ apps/expo
   面向 iOS、Android 与静态 web 的 Expo Router 应用。
 
 apps/server
-  Hono control plane、runtime host、静态 web host 与 supervised daemon。
+  Hono control plane、runtime host、静态 web host 与 supervised server。
 
 apps/relay
   支持单进程和集群 gateway/worker 运行形态的 Go relay。
@@ -102,7 +102,7 @@ Cypheria session 握手之前完成 E2EE。`apps/relay` 使用 Go 1.25；`--mode
 
 `apps/server` 使用 Hono 而不是 Express。Hono 负责 JSON route、validation middleware、严格 API fallthrough、static file 与 WebSocket upgrade route。Node adapter 让一个 HTTP listener 与 `ws` no-server instance 共用端口。Transport-neutral session state machine 要求版本化 hello、关联 request、限制 frame、广播 runtime event，并暴露 server information、diagnostics、runtime forwarding 与 lifecycle request。
 
-Daemon 分为 supervisor 与 worker process。Supervisor 持有 PID record、heartbeat watchdog、crash budget、restart backoff 与 signal；worker 持有 `CypheriaRuntime` 和 network listener。两者都向 `$CYPHERIA_HOME` 下追加结构化 Pino log。详见 [Cypheria Server](server.zh-CN.md)。
+Server 分为 supervisor 与 worker process。Supervisor 持有 PID record、双向 heartbeat watchdog、crash budget、restart backoff、process-group termination 与 signal；worker 持有 `CypheriaRuntime`、逻辑 client session、持久化 server config、relay ingress 和 network listener。两者都向 `$CYPHERIA_HOME` 下追加结构化 Pino log。详见 [Cypheria Server](server.zh-CN.md)。
 
 `apps/expo` 对 web 使用 Expo Router static output，并由同一套 route/component 构建 iOS 与 Android。Expo 的 monorepo-aware Metro setup 无需手工配置 watch folder 即可解析 workspace package。Server build 依赖 Expo build，并把完整 `dist` tree 复制到 `apps/server/dist/web`；Hono 使用 SPA fallback 提供这些文件。
 

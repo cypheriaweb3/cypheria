@@ -72,7 +72,7 @@
     tests、Go race tests、Go relay 到 Cypheria server/client 的跨语言 E2E、workspace CI 与 build。
 
 - [x] 添加 Cypheria client/server 基础，不迁移 desktop。
-  - 验收：`apps/server` 提供 Hono HTTP/WebSocket control plane、版本化 client session、runtime lifecycle、运维 endpoint、supervised daemon lifecycle 与内置 Expo web hosting；`apps/expo` 面向 iOS、Android 与静态 web；`@cypheria/protocol` 提供共享 validated contracts。
+  - 验收：`apps/server` 提供 Hono HTTP/WebSocket control plane、可恢复的版本化 client session、runtime lifecycle、持久化 server config 与 live state、运维 endpoint、supervised server lifecycle、relay ingress 与内置 Expo web hosting；`apps/expo` 面向 iOS、Android 与静态 web；`@cypheria/protocol` 提供共享 validated contracts。
   - 排除：agent、project、wallet、policy、browser 与 automation 产品 method；任何 `apps/desktop` code change。
   - 验证：protocol/server/Expo tests 与 typechecks、Expo compatibility check 与 static export、server build 与 embedded-web smoke test、daemon start/status/restart/stop smoke test、全仓库 CI/build。
 

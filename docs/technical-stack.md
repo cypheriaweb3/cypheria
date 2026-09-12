@@ -16,7 +16,7 @@ Cypheria V1 is a TypeScript Web3 agent product with one privileged server and de
 | Relay | Go, `coder/websocket`, etcd client v3, internal TLS 1.3 mTLS |
 | Relay E2EE | `tweetnacl`, X25519, XSalsa20-Poly1305, `base64-js` |
 | Relay observability | OpenTelemetry SDK, OTLP/gRPC metrics and traces; external Collector |
-| Server build and daemon | tsdown, supervisor/worker, PID lock, heartbeat, bounded restart |
+| Server build and process model | tsdown, supervisor/worker, PID lock, heartbeat, bounded restart |
 | Client protocol | `@cypheria/protocol`, Zod, HTTP + WebSocket `cypheria.v1` |
 | Cross-platform client | Expo SDK 57, Expo Router, React Native 0.86, React 19 |
 | Expo web output | Static Metro export embedded in the server build |
@@ -49,7 +49,7 @@ apps/expo
   Expo Router application for iOS, Android, and static web.
 
 apps/server
-  Hono control plane, runtime host, static web host, and supervised daemon.
+  Hono control plane, runtime host, static web host, and supervised server.
 
 apps/relay
   Go relay with single-process and clustered gateway/worker operation.
@@ -104,7 +104,7 @@ metrics and short routing spans over OTLP/gRPC only and exposes no Prometheus en
 
 `apps/server` uses Hono rather than Express. Hono owns JSON routes, validation middleware, strict API fallthrough, static files, and the WebSocket upgrade route. The Node adapter shares one HTTP listener with a `ws` no-server instance. A transport-neutral session state machine requires a versioned hello, correlates requests, bounds frames, broadcasts runtime events, and exposes server information, diagnostics, runtime forwarding, and lifecycle requests.
 
-The daemon is split into supervisor and worker processes. The supervisor owns the PID record, heartbeat watchdog, crash budget, restart backoff, and signals. The worker owns `CypheriaRuntime` and the network listener. Both append structured Pino logs below `$CYPHERIA_HOME`. See [Cypheria Server](server.md).
+The server is split into supervisor and worker processes. The supervisor owns the PID record, bidirectional heartbeat watchdog, crash budget, restart backoff, process-group termination, and signals. The worker owns `CypheriaRuntime`, logical client sessions, persisted server configuration, relay ingress, and the network listener. Both append structured Pino logs below `$CYPHERIA_HOME`. See [Cypheria Server](server.md).
 
 `apps/expo` uses Expo Router static output for web and the same routes/components for iOS and Android. Expo's monorepo-aware Metro setup resolves workspace packages without manual watch folders. The server build depends on the Expo build and copies its complete `dist` tree to `apps/server/dist/web`; Hono serves it with an SPA fallback.
 

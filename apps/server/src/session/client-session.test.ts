@@ -6,7 +6,9 @@ import {
 } from "@cypheria/protocol"
 import { describe, expect, it, vi } from "vitest"
 
-import { ClientSession, type SessionHost, type SessionTransport } from "./client-session.js"
+import { DEFAULT_PERSISTED_SERVER_CONFIG } from "../persisted-config.js"
+import type { SessionHost, SessionTransport } from "./client-session.js"
+import { ConnectionRegistry } from "./connection-registry.js"
 
 const identity: ServerIdentity = {
   hostname: "test",
@@ -36,13 +38,34 @@ const createFixture = () => {
     runtimeState: "ready",
   }
   const host: SessionHost = {
+    getConfig: () => ({
+      config: DEFAULT_PERSISTED_SERVER_CONFIG,
+      overrideControlledPaths: [],
+      path: "/tmp/server.json",
+      restartRequiredPaths: [],
+    }),
     getDiagnostics: () => diagnostics,
     getIdentity: () => identity,
     getInfo: () => info,
+    getSessionCapabilities: () => [],
+    getState: () => ({
+      config: { path: "/tmp/server.json", restartRequired: false },
+      connections: { active: 1, retained: 0 },
+      relay: { connected: false, enabled: false },
+      runtimeState: "ready",
+      worker: { pid: 1 },
+    }),
+    patchConfig: vi.fn(async () => host.getConfig()),
+    reloadConfig: vi.fn(async () => host.getConfig()),
     requestLifecycle: vi.fn(),
     requestRuntime: vi.fn(async () => ({ ok: true })),
   }
-  return { host, sent, session: new ClientSession({ helloTimeoutMs: 1000, host, transport }) }
+  const registry = new ConnectionRegistry({
+    helloTimeoutMs: 1000,
+    host,
+    reconnectGraceMs: 1000,
+  })
+  return { host, registry, sent, session: registry.accept(transport) }
 }
 
 describe("ClientSession", () => {
@@ -72,6 +95,53 @@ describe("ClientSession", () => {
       { payload: { result: { ok: true } }, requestId: "runtime-1", type: "runtime.response" },
     ])
     fixture.session.close()
+  })
+
+  it("retains and resumes a logical session across transport loss", async () => {
+    const fixture = createFixture()
+    await fixture.session.receive(
+      JSON.stringify({
+        payload: {
+          capabilities: [],
+          client: { id: "web-resume", kind: "web" },
+          protocolVersion: 1,
+        },
+        requestId: "hello-original",
+        type: "session.hello",
+      })
+    )
+    const ready = fixture.sent[0] as { payload: { sessionId: string } }
+    fixture.session.transportClosed()
+    expect(fixture.registry.diagnostics()).toMatchObject({ active: 0, retained: 1 })
+
+    const resumedMessages: unknown[] = []
+    const resumed = fixture.registry.accept({
+      close: vi.fn(),
+      send: (data) => resumedMessages.push(parseServerMessageText(data)),
+    })
+    await resumed.receive(
+      JSON.stringify({
+        payload: {
+          capabilities: [],
+          client: { id: "web-resume", kind: "web" },
+          protocolVersion: 1,
+          resumeSessionId: ready.payload.sessionId,
+        },
+        requestId: "hello-resumed",
+        type: "session.hello",
+      })
+    )
+
+    expect(resumedMessages[0]).toMatchObject({
+      payload: { resumed: true, sessionId: ready.payload.sessionId },
+      type: "session.ready",
+    })
+    expect(fixture.registry.diagnostics()).toMatchObject({
+      active: 1,
+      resumedTotal: 1,
+      retained: 0,
+    })
+    resumed.close()
   })
 
   it("rejects messages sent before hello", async () => {
@@ -111,6 +181,37 @@ describe("ClientSession", () => {
       requestId: "runtime-bigint",
       type: "runtime.response",
     })
+    fixture.session.close()
+  })
+
+  it("dispatches validated config and state operations", async () => {
+    const fixture = createFixture()
+    await fixture.session.receive(
+      JSON.stringify({
+        payload: {
+          capabilities: [],
+          client: { id: "web-config", kind: "web" },
+          protocolVersion: 1,
+        },
+        requestId: "hello-config",
+        type: "session.hello",
+      })
+    )
+    await fixture.session.receive(
+      JSON.stringify({
+        payload: { patch: { server: { listen: { port: 7788 } } } },
+        requestId: "config-patch",
+        type: "server.config.patch",
+      })
+    )
+    await fixture.session.receive(JSON.stringify({ requestId: "state", type: "server.state" }))
+
+    expect(fixture.host.patchConfig).toHaveBeenCalledWith({ server: { listen: { port: 7788 } } })
+    expect(fixture.sent).toMatchObject([
+      { type: "session.ready" },
+      { requestId: "config-patch", type: "server.config.result" },
+      { requestId: "state", type: "server.state.result" },
+    ])
     fixture.session.close()
   })
 })

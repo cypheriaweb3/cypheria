@@ -133,6 +133,8 @@ const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
 const codex = createCodexApp().connect(cypheria)
 
 const server = await cypheria.server.info()
+const state = await cypheria.server.state()
+const config = await cypheria.server.config()
 const runtimeInfo = await cypheria.runtime.request("runtime.info")
 await codex.codex.initialize({
   capabilities: null,
@@ -145,8 +147,11 @@ await cypheria.close()
 ```
 
 请求会懒连接。`close()` 会永久释放该 client。在 close 之前，transport 断开会拒绝进行中的
-请求，并默认安排有界指数退避重连；如果 embedding host 自己负责 retry policy，可将
-`reconnect.enabled` 设为 `false`。
+请求，并默认安排有界指数退避重连。重连 hello 会携带上一次协商的 session ID，让 server
+可以在 grace period 内恢复同一个逻辑 session。如果 embedding host 自己负责 retry policy，
+可将 `reconnect.enabled` 设为 `false`。`server.config()`、`patchConfig()` 与 `reloadConfig()`
+暴露经过校验的 desired config 及需要 supervised worker restart 的路径；`server.state()`
+暴露 live operational state。两者都不会返回认证 token。
 
 所有有关联的 facade method 都接受最后一个 `{ signal, timeoutMs }` request options 参数。
 timeout 或 abort 也会取消仍在等待懒连接的请求，避免它稍后变成 ghost request。

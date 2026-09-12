@@ -147,8 +147,9 @@ describe("Cypheria relay end to end", () => {
       })
       await waitFor(async () => {
         if (client.getConnectionState().status !== "connected") return false
-        return client.getSession()?.sessionId !== originalSessionId
+        return client.getSession()?.sessionId === originalSessionId
       })
+      expect(client.getSession()?.resumed).toBe(true)
       await expect(client.server.ping()).resolves.toMatchObject({
         serverSentAt: expect.any(String),
       })

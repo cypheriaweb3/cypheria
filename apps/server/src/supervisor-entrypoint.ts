@@ -8,6 +8,7 @@ import { ServerSupervisor } from "./supervisor.js"
 
 const logger = createServerProcessLogger("cypheria-server-supervisor")
 const paths = buildRuntimePaths()
+process.title = "Cypheria Server Supervisor"
 
 try {
   const lock = await ServerPidLock.acquire(paths.configDir)
