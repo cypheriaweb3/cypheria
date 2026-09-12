@@ -12,10 +12,13 @@ import {
   ClientDescriptorSchema,
   type ClientKind,
   type ClientMessage,
+  type ConnectionOfferV2,
+  ConnectionOfferV2Schema,
   CYPHERIA_PROTOCOL_VERSION,
   CYPHERIA_WEBSOCKET_PATH,
   createWebSocketProtocols,
   parseClientMessage,
+  parseConnectionOffer,
   parseServerMessageText,
   type RequestId,
   type ServerDiagnostics,
@@ -31,6 +34,7 @@ import {
   type CodexServerMethod,
   createCodexActions,
 } from "./codex-actions.js"
+import { createRelayServerTransportFactory } from "./relay-server-transport.js"
 import type {
   ServerTransport,
   ServerTransportFactory,
@@ -63,6 +67,7 @@ export type ServerClientConfig = {
   readonly connectTimeoutMs?: number
   readonly onListenerError?: (error: Error, message: ServerMessage) => void
   readonly reconnect?: ReconnectConfig
+  readonly relayOffer?: ConnectionOfferV2 | string
   readonly requestTimeoutMs?: number
   readonly token?: string
   readonly transportFactory?: ServerTransportFactory
@@ -203,16 +208,27 @@ export class ServerClient {
     assertDuration("requestTimeoutMs", config.requestTimeoutMs)
     assertDuration("reconnect.baseDelayMs", config.reconnect?.baseDelayMs, true)
     assertDuration("reconnect.maxDelayMs", config.reconnect?.maxDelayMs, true)
+    if (config.relayOffer && (config.url || config.token || config.transportFactory)) {
+      throw new Error("relayOffer cannot be combined with url, token, or transportFactory")
+    }
     this.#config = config
-    this.#url = resolveWebSocketUrl(config.url)
+    const relayOffer =
+      typeof config.relayOffer === "string"
+        ? parseConnectionOffer(config.relayOffer)
+        : config.relayOffer
+          ? ConnectionOfferV2Schema.parse(config.relayOffer)
+          : undefined
+    this.#url = relayOffer ? "cypheria-relay://offer" : resolveWebSocketUrl(config.url)
     this.#descriptor = ClientDescriptorSchema.parse({
       id: config.clientId ?? createClientId(),
       kind: config.clientKind ?? "sdk",
       ...(config.clientName ? { name: config.clientName } : {}),
       ...(config.clientVersion ? { version: config.clientVersion } : {}),
     })
-    this.#transportFactory =
-      config.transportFactory ?? createWebSocketTransportFactory(config.webSocketFactory)
+    const webSocketTransportFactory = createWebSocketTransportFactory(config.webSocketFactory)
+    this.#transportFactory = relayOffer
+      ? createRelayServerTransportFactory(relayOffer, webSocketTransportFactory)
+      : (config.transportFactory ?? webSocketTransportFactory)
     parseClientMessage(this.#createHelloMessage("req:hello:config"))
     this.codex = createCodexActions({
       notify: (method, params) => this.#notifyCodex(method, params),
@@ -284,7 +300,7 @@ export class ServerClient {
 
     try {
       const transport = this.#transportFactory({
-        protocols: createWebSocketProtocols(this.#config.token),
+        protocols: this.#config.relayOffer ? [] : createWebSocketProtocols(this.#config.token),
         url: this.#url,
       })
       this.#bindTransport(transport)

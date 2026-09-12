@@ -9,6 +9,10 @@ Cypheria is a TypeScript Web3 agent product inspired by Codex. Its target archit
 - `@cypheria/runtime`: Cypheria-owned non-agent runtime for Web3, wallets, signing policy, dApp browser permissions, automation, local state, and audit logs.
 - `@cypheria/client`: the layered WebSocket client for the versioned Cypheria server protocol; `ServerClient` owns a connection, `CypheriaApi` borrows one, and `CypheriaClient` adds lifecycle control.
 - `apps/server`: the Hono/Node.js process boundary that owns runtime lifecycle, versioned client connections, operations, web hosting, and eventually Codex/product services.
+- `apps/relay`: the Go relay data plane with single-process mode and clustered gateway/worker roles; it forwards
+  opaque E2EE WebSocket frames and uses etcd only for regional ownership.
+- `@cypheria/relay`: transport-neutral TypeScript E2EE, pairing, and relay URL helpers shared by
+  `@cypheria/client` and `apps/server`.
 - `apps/expo`: the Expo Router client for iOS, Android, and static web; its web export is embedded by the server.
 - `apps/cli`: a planned non-TUI client of the Cypheria server protocol.
 - `@cypheria/sdk`: a planned public TypeScript client of the Cypheria server protocol.
@@ -82,11 +86,13 @@ apps/desktop
   renderer/
 apps/expo
 apps/marketplace
+apps/relay
 apps/server
 
 packages/sdk
 packages/client
 packages/protocol
+packages/relay
 packages/runtime
 packages/codex-bridge
 packages/ui

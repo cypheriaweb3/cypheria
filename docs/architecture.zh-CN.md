@@ -16,6 +16,11 @@ apps/server
   -> @cypheria/runtime
   -> 内置 apps/expo web export
 
+remote clients
+  -> @cypheria/relay E2EE
+  -> apps/relay（single，或 cluster gateway -> worker）
+  -> apps/server relay data socket
+
 apps/desktop renderer
   -> Electron typed IPC
   -> Electron main
@@ -40,6 +45,8 @@ Cypheria 有一个特权 server、多个 client、一个独立 marketplace 与�
 - `apps/desktop`：未来负责自托管 server 的 client；在 server 评审前，当前 Electron-main runtime 与 Codex ownership 刻意保持不变。
 - `apps/marketplace`：部署在 Cloudflare Workers 上的 TanStack Start 应用，负责 ChatGPT/Codex-compatible 插件的提交、扫描、审核、发布与发现，再把 approved entry 同步到 Cypheria 官方 GitHub repo marketplace。
 - `packages/runtime`：Cypheria 自有非 agent 能力的 TypeScript runtime。
+- `apps/relay`：可选的 Go gateway/worker 数据面，负责不透明远程 WebSocket 转发。
+- `packages/relay`：server/client 共用、传输无关的 TypeScript E2EE 与 relay URL 工具。
 
 Codex 负责 agent threads、turns、model execution、code edits、shell/tool execution、MCP 和 Codex approvals。Cypheria 负责 Web3 context、wallets、signing intents、policy evaluation、dApp browser permissions、automation state、本地数据和 audit logs。
 
@@ -50,6 +57,22 @@ Codex 负责 agent threads、turns、model execution、code edits、shell/tool e
 `@cypheria/protocol` 定义 Cypheria client message、server message、HTTP body 与 runtime method validation。WebSocket message 在值均为 JSON 原生类型时仍使用普通 JSON；只有 Cypheria 自有 payload 包含 `bigint` 等值时，才使用版本化 SuperJSON 信封携带元数据。该 package 持有 generated Codex App Server TypeScript、JSON Schema、response mapping 与逐消息 Zod validator，并从根入口以 `agent.codex.<operation>.request|response|notification` 暴露完整、provider-transparent 的 Cypheria API。原始 generated Codex type 隔离在 `@cypheria/protocol/codex-types`。`@cypheria/codex-bridge` 只消费这些产物，不再维护另一份 generated copy；在改为围绕 Cypheria message 工作之前，原始 Codex JSON-RPC validation 暂时仍由 bridge 持有。Client code 可以依赖 `@cypheria/protocol`，但不能导入 server internals 或特权 domain implementation。`@cypheria/client` 将这个边界分成三层：`ServerClient` 持有经过校验的 WebSocket session；`CypheriaApi` 借用已有 `ServerClient`，但不获得 lifecycle control；`CypheriaClient` 则把该门面与 connection lifecycle 组合起来。这样 host 持有的一条连接可以安全共享，而 plugin 或局部 surface 不能将其关闭。
 
 初始 server 刻意只注册 runtime 内置的 information、health 与 service-list method。Codex wire contract 已经定义，但 server dispatch 尚未连接；wallet、policy、browser、automation 与其余产品 service 仍不在当前运行中的 foundation 范围内。详见 [Cypheria Server](server.zh-CN.md)。
+
+## Relay 边界
+
+远程 client 可以用 `ConnectionOfferV2` 替代直连 URL/token。受认证的 server pairing endpoint
+生成包含 relay endpoint、server ID 和服务端 X25519 公钥的 `cypheria://pair` URL。
+`@cypheria/client` 在发送现有 `session.hello` 前完成 E2EE；`apps/server` 把每条解密后的 relay
+data socket 转换为直连 WebSocket 共用的 transport-neutral `ClientSession`。relay 能看到路由
+metadata 和密文，但看不到直连 Bearer token 或应用明文。
+
+当前部署范围是单 region。`--mode=single` 让 gateway 与 worker 严格共存于唯一一个进程，
+使用内存路由，不需要 etcd 或内部 listener。cluster 模式拆分 `--role=gateway` 与
+`--role=worker`，使用 etcd ownership 和 mTLS，并可跨可用区部署。TOML 配置与 Kustomize
+base 覆盖这两类运行形态；etcd 与 OpenTelemetry Collector 仍是外部组件。独立的各 region
+集群、home-region 路由、全局线性一致
+coordinator、fencing generation 与自动故障转移已经设计但暂缓实现。详见
+[Cypheria Relay](relay.zh-CN.md)。
 
 ## Expo Client
 

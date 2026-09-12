@@ -2,10 +2,20 @@ import {
   AGENT_CODEX_CLIENT_NOTIFICATIONS,
   AGENT_CODEX_CLIENT_RPC,
   AGENT_CODEX_SERVER_RPC,
+  type ConnectionOfferV2,
   parseClientMessageText,
   type ServerIdentity,
   stringifyProtocolMessage,
 } from "@cypheria/protocol"
+import {
+  decrypt,
+  deriveDirectionalKeys,
+  deriveSharedKey,
+  encrypt,
+  exportPublicKey,
+  generateKeyPair,
+  importPublicKey,
+} from "@cypheria/relay"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { CypheriaProtocolError, type CypheriaServerError, ServerClient } from "./server-client.js"
@@ -60,6 +70,67 @@ afterEach(() => {
 })
 
 describe("ServerClient", () => {
+  it("connects from a relay offer without exposing a bearer token", async () => {
+    const serverKeyPair = generateKeyPair()
+    const offer: ConnectionOfferV2 = {
+      relay: { endpoint: "relay.cypheria.test/ws", useTls: true },
+      serverId: "srv_relay",
+      serverPublicKeyB64: exportPublicKey(serverKeyPair.publicKey),
+      v: 2,
+    }
+    expect(
+      () =>
+        new ServerClient({
+          relayOffer: offer,
+          token: "must-not-leak",
+          webSocketFactory: testWebSocketFactory,
+        })
+    ).toThrow("cannot be combined")
+
+    const client = new ServerClient({
+      clientId: "client-relay",
+      relayOffer: offer,
+      webSocketFactory: testWebSocketFactory,
+    })
+    const connected = client.connect()
+    const socket = TestWebSocket.instances.at(-1)
+    if (!socket) throw new Error("Expected relay WebSocket")
+    expect(socket.url).toContain("role=client")
+    expect(socket.url).toContain("serverId=srv_relay")
+    expect(socket.url).not.toContain("token")
+    expect(socket.options?.protocols).toEqual([])
+
+    socket.open()
+    await tick()
+    const e2eeHello = JSON.parse(socket.sent[0] ?? "") as { key: string; type: string }
+    expect(e2eeHello.type).toBe("e2ee_hello")
+    const sharedKey = deriveSharedKey(serverKeyPair.secretKey, importPublicKey(e2eeHello.key))
+    const directionalKeys = deriveDirectionalKeys(sharedKey)
+    socket.message(JSON.stringify({ capabilities: { binaryCiphertext: true }, type: "e2ee_ready" }))
+    await tick()
+    const encryptedHello = socket.sent[1]
+    if (!encryptedHello) throw new Error("Expected encrypted session hello")
+    expect(encryptedHello).not.toContain("session.hello")
+
+    const encryptedHelloBytes = Uint8Array.from(atob(encryptedHello), (value) =>
+      value.charCodeAt(0)
+    )
+    const helloRequest = parseClientMessageText(
+      new TextDecoder().decode(decrypt(directionalKeys.clientToServer, encryptedHelloBytes.buffer))
+    )
+    if (helloRequest.type !== "session.hello") throw new Error("Expected session hello")
+    const ready = stringifyProtocolMessage({
+      payload: { capabilities: [], server: identity, sessionId: "ses_relay" },
+      requestId: helloRequest.requestId,
+      type: "session.ready",
+    })
+    const encryptedReady = encrypt(directionalKeys.serverToClient, ready)
+    socket.message(btoa(String.fromCharCode(...new Uint8Array(encryptedReady))))
+    await connected
+    expect(client.getSession()?.sessionId).toBe("ses_relay")
+    await client.close()
+  })
+
   it("validates connection configuration before creating a transport", () => {
     expect(
       () =>

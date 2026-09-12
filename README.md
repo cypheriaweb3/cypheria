@@ -13,6 +13,8 @@ Cypheria V1 is organized around one server and multiple clients:
 - **Expo client**: one Expo Router application for iOS, Android, and static web output. The server embeds the web output.
 - **Shared client**: `@cypheria/client` provides the WebSocket protocol driver, a borrowed API
   facade, and a connection-owning facade without owning the privileged runtime.
+- **Relay**: the Go `apps/relay` service and TypeScript `@cypheria/relay` package provide an
+  optional E2EE remote path to the same server protocol.
 - **CLI and SDK clients**: planned product clients built on the server protocol.
 - **Desktop client**: eventually starts a local server when necessary and connects to it. The current desktop implementation remains unchanged until the new server is reviewed and migration is approved.
 - **Marketplace**: a TanStack Start app on Cloudflare Workers for submission, scanning, review, publication, discovery, and synchronization of reviewed ChatGPT/Codex plugins to the official Cypheria GitHub repo marketplace.
@@ -21,11 +23,12 @@ The default safety model is human approval. Read-only mode and conditional auto-
 
 ## Tech Stack
 
-- **Language**: TypeScript
+- **Languages**: TypeScript, plus Go for the relay data plane
 - **Monorepo**: Turborepo + pnpm workspace
 - **Desktop**: Electron
 - **Cross-platform client**: Expo SDK 57 + Expo Router
 - **Server**: Hono on Node.js with HTTP and WebSocket transports
+- **Relay**: Go, v2 control/data WebSockets, etcd regional ownership, internal mTLS, OTLP
 - **Frontend**: TanStack Start, TanStack Router, TanStack Query
 - **State**: Jotai
 - **Forms and validation**: TanStack Form + Zod
@@ -53,6 +56,11 @@ apps/server
   -> Hono HTTP + WebSocket control plane
   -> supervisor + worker lifecycle
   -> embedded apps/expo static web export
+
+remote @cypheria/client
+  -> @cypheria/relay E2EE
+  -> apps/relay gateway/worker
+  -> apps/server relay data socket
 
 apps/desktop renderer
   -> Electron typed IPC
@@ -89,6 +97,9 @@ apps/expo
 apps/server
   Hono server, client-session protocol, runtime host, web host, and supervised daemon.
 
+apps/relay
+  Go relay with single-process and clustered gateway/worker operation for opaque E2EE WebSocket forwarding.
+
 apps/desktop
   ipc/        Desktop-local typed IPC contracts and schemas
   main/       Electron main process
@@ -101,6 +112,7 @@ apps/marketplace
 packages/sdk
 packages/client
 packages/protocol
+packages/relay
 packages/runtime
 packages/codex-bridge
 packages/acp-ai-provider
@@ -114,8 +126,10 @@ packages/db
 ```
 
 `apps/cli`, `apps/marketplace`, and `packages/sdk` remain planned. `apps/server`, `apps/expo`,
-`packages/client`, and `packages/protocol` provide the client/server foundation. See
+`packages/client`, `packages/protocol`, and `packages/relay` provide the client/server foundation. See
 [docs/server.md](docs/server.md) for its protocol, operations, security, and packaging contract.
+See [docs/relay.md](docs/relay.md) for relay protocol, security, scaling, observability, and the
+future multi-region design.
 
 ## Runtime Home
 
@@ -174,6 +188,12 @@ pnpm --filter @cypheria/server daemon start
 pnpm --filter @cypheria/expo dev
 ```
 
+Run the single-process relay, which needs no etcd:
+
+```sh
+pnpm --filter @cypheria/cypheria-relay dev -- --mode=single
+```
+
 Run the renderer dev server:
 
 ```sh
@@ -198,9 +218,10 @@ In this repository, pnpm-related commands should usually run outside the sandbox
 
 The repository now includes the versioned Cypheria protocol, the layered `@cypheria/client`, a
 supervised Hono server with HTTP/WebSocket operations and embedded web hosting, and an Expo SDK 57
-client that exports iOS, Android, and static web surfaces. The existing desktop implementation is
-deliberately untouched and remains on its current direct-runtime path until server review and a
-separate migration change.
+client that exports iOS, Android, and static web surfaces. It also includes an E2EE relay client,
+server integration, and a Go relay with `single` mode plus `cluster` gateway/worker roles. The existing desktop
+implementation is deliberately untouched and remains on its current direct-runtime path until
+server review and a separate migration change.
 
 The next implementation sequence is tracked in [docs/todo.md](docs/todo.md).
 The canonical logo, application-icon assets, and usage rules are documented in [docs/brand.md](docs/brand.md).

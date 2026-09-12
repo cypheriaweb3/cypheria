@@ -26,4 +26,27 @@ describe("loadServerConfig", () => {
     expect(config.port).toBe(7788)
     expect(config.webAppEnabled).toBe(false)
   })
+
+  it("requires an endpoint when relay is enabled", () => {
+    expect(() => loadServerConfig({ CYPHERIA_SERVER_RELAY_ENABLED: "true" })).toThrow(
+      "required when relay is enabled"
+    )
+    expect(
+      loadServerConfig({
+        CYPHERIA_SERVER_RELAY_ENABLED: "true",
+        CYPHERIA_SERVER_RELAY_ENDPOINT: "relay.internal.test/ws",
+        CYPHERIA_SERVER_RELAY_PUBLIC_ENDPOINT: "relay.example.test/ws",
+      })
+    ).toMatchObject({
+      relayEnabled: true,
+      relayEndpoint: "relay.internal.test/ws",
+      relayPublicEndpoint: "relay.example.test/ws",
+    })
+    expect(
+      loadServerConfig(
+        {},
+        { relayEnabled: true, relayEndpoint: "relay.override.test/ws", webAppEnabled: false }
+      ).relayPublicEndpoint
+    ).toBe("relay.override.test/ws")
+  })
 })

@@ -29,6 +29,11 @@ export const CypheriaServerConfigSchema = z
       .positive()
       .max(16 * 1024 * 1024),
     port: PortSchema,
+    relayEnabled: z.boolean(),
+    relayEndpoint: z.string().trim().min(1).max(2048).optional(),
+    relayPublicEndpoint: z.string().trim().min(1).max(2048).optional(),
+    relayPublicUseTls: z.boolean(),
+    relayUseTls: z.boolean(),
     sessionHelloTimeoutMs: z.number().int().positive().max(60_000),
     shutdownTimeoutMs: z.number().int().positive().max(120_000),
     webAppDir: z.string().min(1),
@@ -40,6 +45,13 @@ export const CypheriaServerConfigSchema = z
         code: "custom",
         message: "CYPHERIA_SERVER_TOKEN is required when binding outside loopback",
         path: ["authToken"],
+      })
+    }
+    if (config.relayEnabled && !config.relayEndpoint) {
+      context.addIssue({
+        code: "custom",
+        message: "CYPHERIA_SERVER_RELAY_ENDPOINT is required when relay is enabled",
+        path: ["relayEndpoint"],
       })
     }
   })
@@ -74,17 +86,30 @@ export function loadServerConfig(
   env: NodeJS.ProcessEnv = process.env,
   overrides: CypheriaServerConfigOverrides = {}
 ): CypheriaServerConfig {
-  return CypheriaServerConfigSchema.parse({
+  const input = {
     allowedOrigins: splitList(env.CYPHERIA_SERVER_ALLOWED_ORIGINS),
     authToken: env.CYPHERIA_SERVER_TOKEN?.trim() || undefined,
     host: env.CYPHERIA_SERVER_HOST?.trim() || "127.0.0.1",
     maxMessageBytes: readPositiveInteger(env.CYPHERIA_SERVER_MAX_MESSAGE_BYTES, 1024 * 1024),
     port: env.CYPHERIA_SERVER_PORT ?? 6768,
+    relayEnabled: readBoolean(env.CYPHERIA_SERVER_RELAY_ENABLED, false),
+    relayEndpoint: env.CYPHERIA_SERVER_RELAY_ENDPOINT?.trim() || undefined,
+    relayPublicEndpoint:
+      env.CYPHERIA_SERVER_RELAY_PUBLIC_ENDPOINT?.trim() ||
+      env.CYPHERIA_SERVER_RELAY_ENDPOINT?.trim() ||
+      undefined,
+    relayPublicUseTls: readBoolean(
+      env.CYPHERIA_SERVER_RELAY_PUBLIC_USE_TLS,
+      readBoolean(env.CYPHERIA_SERVER_RELAY_USE_TLS, true)
+    ),
+    relayUseTls: readBoolean(env.CYPHERIA_SERVER_RELAY_USE_TLS, true),
     sessionHelloTimeoutMs: readPositiveInteger(env.CYPHERIA_SERVER_HELLO_TIMEOUT_MS, 10_000),
     shutdownTimeoutMs: readPositiveInteger(env.CYPHERIA_SERVER_SHUTDOWN_TIMEOUT_MS, 10_000),
     webAppDir:
       env.CYPHERIA_SERVER_WEB_DIR?.trim() || resolveBundledWebAppDirectory(import.meta.url),
     webAppEnabled: readBoolean(env.CYPHERIA_SERVER_WEB_ENABLED, true),
     ...overrides,
-  })
+  }
+  input.relayPublicEndpoint ??= input.relayEndpoint
+  return CypheriaServerConfigSchema.parse(input)
 }

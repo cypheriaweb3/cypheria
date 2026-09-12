@@ -16,6 +16,11 @@ apps/server
   -> @cypheria/runtime
   -> embedded apps/expo web export
 
+remote clients
+  -> @cypheria/relay E2EE
+  -> apps/relay (single, or cluster gateway -> worker)
+  -> apps/server relay data socket
+
 apps/desktop renderer
   -> Electron typed IPC
   -> Electron main
@@ -40,6 +45,9 @@ Cypheria has one privileged server, multiple clients, a separate marketplace, an
 - `apps/desktop`: the future self-hosting client. Its current Electron-main runtime and Codex ownership is intentionally unchanged until server review.
 - `apps/marketplace`: a TanStack Start application on Cloudflare Workers for submitting, scanning, reviewing, publishing, and discovering ChatGPT/Codex-compatible plugins, then synchronizing approved entries to the official Cypheria GitHub repo marketplace.
 - `packages/runtime`: the TypeScript runtime for Cypheria-owned non-agent capabilities.
+- `apps/relay`: the optional Go gateway/worker data plane for opaque remote WebSocket forwarding.
+- `packages/relay`: transport-neutral TypeScript E2EE and relay URL helpers shared by server and
+  clients.
 
 Codex owns agent threads, turns, model execution, code edits, shell/tool execution, MCP, and Codex approvals. Cypheria owns Web3 context, wallets, signing intents, policy evaluation, dApp browser permissions, automation state, local data, and audit logs.
 
@@ -50,6 +58,23 @@ Codex owns agent threads, turns, model execution, code edits, shell/tool executi
 `@cypheria/protocol` defines Cypheria client messages, server messages, HTTP bodies, and runtime method validation. WebSocket messages remain plain JSON when their values are JSON-native; a versioned SuperJSON envelope carries metadata only when Cypheria-owned payloads contain values such as `bigint`. The package owns generated Codex App Server TypeScript, JSON Schemas, response mappings, and per-message Zod validators, and exposes the complete provider-transparent Cypheria API as `agent.codex.<operation>.request|response|notification` from its root entry. Raw generated Codex types are isolated behind `@cypheria/protocol/codex-types`. `@cypheria/codex-bridge` consumes these artifacts without maintaining another generated copy and temporarily owns raw Codex JSON-RPC validation until it is refactored around the Cypheria messages. Client code may depend on `@cypheria/protocol`; it must not import server internals or privileged domain implementations. `@cypheria/client` packages this boundary into three layers: `ServerClient` owns a validated WebSocket session, `CypheriaApi` borrows an existing `ServerClient` without lifecycle control, and `CypheriaClient` combines that facade with connection lifecycle. This keeps one host-owned connection shareable without allowing a plugin or local surface to close it.
 
 The initial server deliberately registers only the runtime's built-in information, health, and service-list methods. The Codex wire contracts are defined, but their server dispatch is not yet connected. Wallet, policy, browser, automation, and the remaining product services stay outside the running foundation. See [Cypheria Server](server.md).
+
+## Relay Boundary
+
+Remote clients may use a `ConnectionOfferV2` instead of a direct URL/token. The authenticated
+server pairing endpoint creates a `cypheria://pair` URL containing a relay endpoint, server ID, and
+server X25519 public key. `@cypheria/client` completes E2EE before sending the existing
+`session.hello`; `apps/server` converts each decrypted relay data socket into the same
+transport-neutral `ClientSession` used by direct WebSockets. The relay sees routing metadata and
+ciphertext but never sees the direct Bearer token or application plaintext.
+
+The implemented deployment scope is one region. `--mode=single` colocates gateway and worker in
+exactly one process with in-memory routing and no etcd or internal listener. Cluster mode separates
+`--role=gateway` and `--role=worker`, uses etcd ownership and mTLS, and may span availability zones.
+TOML configuration and a Kustomize base cover both operational shapes; etcd and the OpenTelemetry
+Collector remain external components.
+Independent per-region clusters, home-region routing, a global linearizable coordinator, fencing
+generations, and automatic failover are designed but deferred. See [Cypheria Relay](relay.md).
 
 ## Expo Client
 

@@ -39,6 +39,14 @@ describe("CypheriaServer", () => {
           })
         ).status
       ).toBe(200)
+      expect((await fetch(`${address.url}/api/v1/relay/pairing-offer`)).status).toBe(401)
+      expect(
+        (
+          await fetch(`${address.url}/api/v1/relay/pairing-offer`, {
+            headers: { authorization: `Bearer ${token}` },
+          })
+        ).status
+      ).toBe(409)
 
       const socket = new WebSocket(
         `${address.url.replace("http://", "ws://")}/api/v1/ws`,

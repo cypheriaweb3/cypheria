@@ -56,6 +56,21 @@
 
 ## 架构对齐
 
+- [x] 添加 Cypheria E2EE relay 应用与共享 relay package。
+  - 验收：`apps/relay` 是支持 `--mode=single|cluster` 与 cluster-only
+    `--role=gateway|worker` 的 Go 1.25 服务；v2 control 与
+    per-client data socket 转发不透明 E2EE frame；`@cypheria/relay` 提供传输无关的
+    X25519/XSalsa20-Poly1305 channel；protocol offer、共享 client 支持与受认证的 server
+    pairing endpoint 形成一条可运行链路。
+  - 包括：不依赖 etcd 的 standalone 单进程 memory mode、协同模式的 etcd lease 与 rendezvous
+    ownership、内部 mTLS、有界入口与队列、容器感知内存限制、只使用 OTLP/gRPC 的 metrics
+    与短 span（无 Prometheus endpoint）、持久化 `0600` server key、严格 TOML 配置与示例、
+    Kubernetes Kustomize 清单、连接/部署图，以及未来 home-region/global fencing 设计文档。
+  - 排除：Desktop/Expo UI integration、实际部署验证、etcd/Collector 部署，以及
+    GlobalCoordinator 实现。
+  - 验证：protocol/relay/client/server Vitest、Go unit/真实 WebSocket/embedded etcd/mTLS/OTel
+    tests、Go race tests、Go relay 到 Cypheria server/client 的跨语言 E2E、workspace CI 与 build。
+
 - [x] 添加 Cypheria client/server 基础，不迁移 desktop。
   - 验收：`apps/server` 提供 Hono HTTP/WebSocket control plane、版本化 client session、runtime lifecycle、运维 endpoint、supervised daemon lifecycle 与内置 Expo web hosting；`apps/expo` 面向 iOS、Android 与静态 web；`@cypheria/protocol` 提供共享 validated contracts。
   - 排除：agent、project、wallet、policy、browser 与 automation 产品 method；任何 `apps/desktop` code change。

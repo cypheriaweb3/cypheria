@@ -34,7 +34,7 @@ cypheria-server stop
 
 `@cypheria/protocol` 持有 Cypheria wire protocol 与 generated Codex App Server 产物。Codex DTO 不会手写：TypeScript、JSON Schema、response mapping、validator 与提交到仓库的 dotted API registry 都在本 package 中统一生成或派生。Codex-generated TypeScript 继续作为 compile-time source of truth；固定版本的 Hey API generation 把 Codex JSON Schema definitions 转换为提交到仓库的静态 Zod 4 validators。`@cypheria/codex-bridge` 只消费专用 protocol subpath。所有 HTTP 与 WebSocket boundary value 都使用 Zod 校验。
 
-`@cypheria/client` 是该 contract 的可复用 consumer。其内部 `ServerClient` 持有 transport、WebSocket session、请求关联、订阅、超时处理与重连策略；`createCypheriaApi()` 暴露不带连接控制权的借用能力门面；`createCypheriaClient()` 创建持有 connection lifecycle 的门面。该 API 只映射当前 protocol message family，不会从通用 runtime method name 推断 wallet、policy、automation 或其他产品 API。该 package 只依赖 `@cypheria/protocol`，不会启动 server、runtime 或 Codex。
+`@cypheria/client` 是该 contract 的可复用 consumer。其内部 `ServerClient` 持有 transport、WebSocket session、请求关联、订阅、超时处理与重连策略；`createCypheriaApi()` 暴露不带连接控制权的借用能力门面；`createCypheriaClient()` 创建持有 connection lifecycle 的门面。该 API 只映射当前 protocol message family，不会从通用 runtime method name 推断 wallet、policy、automation 或其他产品 API。该 package 依赖 `@cypheria/protocol` 与只处理传输的 `@cypheria/relay`，不会启动 server、runtime 或 Codex。
 
 WebSocket client 使用 `cypheria.v1` subprotocol 连接 `/api/v1/ws`。第一条消息必须是 `session.hello`，包含 protocol version、client identity、client kind 与 capabilities。Server 返回 `session.ready` 和稳定 session ID。每个 request 都带 caller 提供的 request ID；runtime event 广播不带 request ID。
 
@@ -105,6 +105,7 @@ SDK 1.4.0 发布了这些 generated Zod module，但没有通过 package exports
 | `GET` | `/api/v1/ready` | 无 | Runtime/listener readiness |
 | `GET` | `/api/v1/status` | 配置时使用 Bearer | Server information |
 | `GET` | `/api/v1/diagnostics` | 配置时使用 Bearer | Operational diagnostics |
+| `GET` | `/api/v1/relay/pairing-offer` | 配置时使用 Bearer | E2EE relay offer 与连接状态 |
 | `POST` | `/api/v1/runtime/request` | 配置时使用 Bearer | Runtime request forwarding |
 | `POST` | `/api/v1/lifecycle/restart` | 配置时使用 Bearer | Supervised worker restart |
 | `POST` | `/api/v1/lifecycle/shutdown` | 配置时使用 Bearer | 关闭整个 daemon |
@@ -130,8 +131,18 @@ API route 不会落入 SPA fallback。Request body 与 runtime method namespace 
 | `CYPHERIA_SERVER_SHUTDOWN_TIMEOUT_MS` | `10000` | HTTP graceful-shutdown deadline |
 | `CYPHERIA_SERVER_WEB_ENABLED` | `true` | 启用内置 Expo web hosting |
 | `CYPHERIA_SERVER_WEB_DIR` | 内置 `dist/web` | 覆盖 static directory |
+| `CYPHERIA_SERVER_RELAY_ENABLED` | `false` | 让 server 连接 relay |
+| `CYPHERIA_SERVER_RELAY_ENDPOINT` | 未设置 | 面向 server 的 relay endpoint |
+| `CYPHERIA_SERVER_RELAY_USE_TLS` | `true` | server-facing endpoint 的默认 scheme |
+| `CYPHERIA_SERVER_RELAY_PUBLIC_ENDPOINT` | server endpoint | pairing offer 公布的 endpoint |
+| `CYPHERIA_SERVER_RELAY_PUBLIC_USE_TLS` | server TLS 设置 | offer 公布的默认 scheme |
 
 TLS termination 刻意放在 Node process 外。任何非 loopback 部署除了认证与显式 origin allowlist，还应把 server 放在可信 TLS reverse proxy 后。
+
+启用 relay 后，server 保持一条 control socket，并为每个远程 client 创建一条加密 data
+socket。X25519 key 以 `0600` 模式保存在 `$CYPHERIA_HOME/config/relay-key.json`。pairing
+endpoint 继续使用正常的 HTTP Bearer 策略，而 relay data socket 不携带该 token。详见
+[Cypheria Relay](relay.zh-CN.md)。
 
 ## Expo 打包
 

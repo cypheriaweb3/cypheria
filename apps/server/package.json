@@ -23,6 +23,7 @@
   },
   "dependencies": {
     "@cypheria/protocol": "workspace:*",
+    "@cypheria/relay": "workspace:*",
     "@cypheria/runtime": "workspace:*",
     "@hono/node-server": "^2.1.1",
     "@hono/zod-validator": "^0.9.1",
@@ -32,6 +33,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@cypheria/client": "workspace:*",
     "@cypheria/expo": "workspace:*",
     "@types/ws": "^8.18.1",
     "tsdown": "^0.23.0",

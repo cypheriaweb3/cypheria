@@ -6,13 +6,16 @@ Cypheria V1 是一个 TypeScript Web3 agent 产品，由一个特权 server 与 
 
 | 分类 | 选型 |
 | --- | --- |
-| Primary language | TypeScript |
+| Primary languages | TypeScript；relay 数据面使用 Go 1.25 |
 | Monorepo | Turborepo |
 | Package manager | pnpm |
 | Lint / format | Biome |
 | Tests | Vitest、Testing Library、Playwright |
 | Runtime validation | Zod |
 | Server | Node.js 上的 Hono 4、`@hono/node-server`、`ws`、Pino |
+| Relay | Go、`coder/websocket`、etcd client v3、内部 TLS 1.3 mTLS |
+| Relay E2EE | `tweetnacl`、X25519、XSalsa20-Poly1305、`base64-js` |
+| Relay 可观测性 | OpenTelemetry SDK、OTLP/gRPC metrics/traces、外部 Collector |
 | Server build 与 daemon | tsdown、supervisor/worker、PID lock、heartbeat、有界 restart |
 | Client protocol | `@cypheria/protocol`、Zod、HTTP + WebSocket `cypheria.v1` |
 | 跨平台 client | Expo SDK 57、Expo Router、React Native 0.86、React 19 |
@@ -48,6 +51,9 @@ apps/expo
 apps/server
   Hono control plane、runtime host、静态 web host 与 supervised daemon。
 
+apps/relay
+  支持单进程和集群 gateway/worker 运行形态的 Go relay。
+
 apps/desktop
   ipc/
   main/
@@ -59,6 +65,7 @@ apps/marketplace
 packages/sdk
 packages/client
 packages/protocol
+packages/relay
 packages/runtime
 packages/codex-bridge
 packages/acp-ai-provider
@@ -75,7 +82,16 @@ packages/db
 
 `@cypheria/protocol` 使用 Zod author live WebSocket contract，并持有 generated Codex App Server TypeScript、JSON Schema、response mapping 与 validator。完整 `agent.codex.*` RPC 与 notification catalog 从这些已提交产物机械派生；provider payload 在共享 wire 上保持 JSON-transparent。Cypheria 自有 envelope 显式使用 strict object，provider-owned extension surface 显式使用 loose object，大型消息族按 `type` 或 `protocolVersion` discriminator 分派，而不是线性尝试 union。对象 schema 使用 `.extend()` 或 shape spread 组合；只有上游 JSON Schema 将 variant union 与公共约束组合时，才保留生成的 intersection。它还导出有方向的 `agent.acp.*` envelope，直接采用官方 SDK 的稳定 v1、显式 draft-v2 types 与 generated Zod validator，包括 method/direction check 和 variadic-tuple v2 batch 语义。一个最小且固定版本的 pnpm patch 会暴露 SDK 已发布但私有的 v1/v2 Zod module，无需复制。Codex catalog 发生漂移时，build、typecheck 与 test lifecycle check 会失败。
 
-`@cypheria/client` 只依赖 `@cypheria/protocol`。它的 `ServerClient` 实现可注入 transport boundary、browser 与 Node WebSocket adapter、hello/authentication、请求关联、超时、protocol validation、typed error、事件分发与有界指数退避重连。`CypheriaApi` 是不带 lifecycle 的借用门面；`CypheriaClient` 持有一条连接。该门面只暴露当前 protocol message family：server operation、通用 runtime request/event、generated Codex traffic 与 ACP envelope；它不会从 runtime method 字符串推断产品 action。每个 generated Codex request/response pair 都成为独立的嵌套 async 方法；接收 notification 与反向 request 使用 typed `on(messageType, handler)` 订阅，与 Paseo low-level client pattern 保持一致。
+`@cypheria/client` 依赖 `@cypheria/protocol` 与只处理传输的 `@cypheria/relay`。它的 `ServerClient` 实现可注入 transport boundary、browser 与 Node WebSocket adapter、hello/authentication、请求关联、超时、protocol validation、typed error、事件分发与有界指数退避重连。`CypheriaApi` 是不带 lifecycle 的借用门面；`CypheriaClient` 持有一条连接。该门面只暴露当前 protocol message family：server operation、通用 runtime request/event、generated Codex traffic 与 ACP envelope；它不会从 runtime method 字符串推断产品 action。每个 generated Codex request/response pair 都成为独立的嵌套 async 方法；接收 notification 与反向 request 使用 typed `on(messageType, handler)` 订阅，与 Paseo low-level client pattern 保持一致。
+
+`@cypheria/client` 还接受与直连配置互斥的 `relayOffer`。它通过 `@cypheria/relay` 在现有
+Cypheria session 握手之前完成 E2EE。`apps/relay` 使用 Go 1.25；`--mode=single` 在单进程内
+组合 gateway、worker 与 memory coordinator，不需要 etcd，但必须严格只有一个副本。
+`--mode=cluster` 拆分 gateway 与 worker role，并增加 etcd v3 lease、rendezvous ownership 和
+内部 TLS 1.3 双向认证。仓库提供 TOML 配置和 Kustomize base，etcd 与 Collector 仍由外部提供。
+两个模式都使用 `coder/websocket`、显式加权入口内存预算和容器感知 Go 内存上限。
+进程只通过 OTLP/gRPC 导出 metrics 和短生命周期 routing span，不提供 Prometheus endpoint。
+详见 [Cypheria Relay](relay.zh-CN.md)。
 
 ## Server 与 Expo 技术栈
 

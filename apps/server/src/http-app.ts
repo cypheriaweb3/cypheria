@@ -1,7 +1,9 @@
 import {
   CYPHERIA_WEBSOCKET_PATH,
+  createConnectionOfferUrl,
   HttpLifecycleRequestSchema,
   HttpRuntimeRequestSchema,
+  type RelayPairingOfferResponse,
 } from "@cypheria/protocol"
 import type { CypheriaRuntimeMethod } from "@cypheria/runtime"
 import { upgradeWebSocket } from "@hono/node-server"
@@ -24,6 +26,7 @@ import { ClientSession, type SessionHost } from "./session/client-session.js"
 import type { ConnectionRegistry } from "./session/connection-registry.js"
 
 export type HttpAppHost = SessionHost & {
+  getRelayPairingOffer(): RelayPairingOfferResponse | undefined
   isReady(): boolean
 }
 
@@ -81,6 +84,13 @@ export function createHttpApp(options: CreateHttpAppOptions): Hono {
 
   app.get("/api/v1/status", (context) => context.json(host.getInfo()))
   app.get("/api/v1/diagnostics", (context) => context.json(host.getDiagnostics()))
+  app.get("/api/v1/relay/pairing-offer", (context) => {
+    const pairing = host.getRelayPairingOffer()
+    if (!pairing) {
+      return context.json(jsonError("Relay is not enabled", "RELAY_DISABLED"), 409)
+    }
+    return context.json({ ...pairing, url: createConnectionOfferUrl(pairing.offer) })
+  })
 
   app.post(
     "/api/v1/runtime/request",

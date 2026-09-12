@@ -1,0 +1,20 @@
+# One process contains both the public gateway and worker hub. Run one replica.
+mode = "single"
+node_id = "relay-single-1"
+
+[network]
+public_addr = "0.0.0.0:6770"
+
+[telemetry]
+# Leave empty to disable export. The Collector is external to cypheria-relay.
+# otlp_endpoint = "127.0.0.1:4317"
+
+[limits]
+max_data_bytes = 33554418
+max_control_bytes = 65536
+ingress_budget_bytes = 536870912
+
+[timeouts]
+attach = "15s"
+delivery = "30s"
+transport = "35s"

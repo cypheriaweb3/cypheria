@@ -1,0 +1,34 @@
+mode = "cluster"
+role = "worker"
+node_id = "relay-worker-1"
+
+[network]
+# The public listener exposes health probes only for a worker.
+public_addr = "0.0.0.0:6770"
+internal_addr = "0.0.0.0:6771"
+advertise_internal = "https://relay-worker-1.example.internal:6771"
+
+[coordination]
+etcd_endpoints = [
+  "https://etcd-1.example.internal:2379",
+  "https://etcd-2.example.internal:2379",
+  "https://etcd-3.example.internal:2379",
+]
+
+[internal_tls]
+ca_file = "/etc/cypheria-relay/tls/ca.crt"
+cert_file = "/etc/cypheria-relay/tls/tls.crt"
+key_file = "/etc/cypheria-relay/tls/tls.key"
+
+[telemetry]
+otlp_endpoint = "otel-collector.example.internal:4317"
+
+[limits]
+max_data_bytes = 33554418
+max_control_bytes = 65536
+ingress_budget_bytes = 536870912
+
+[timeouts]
+attach = "15s"
+delivery = "30s"
+transport = "35s"

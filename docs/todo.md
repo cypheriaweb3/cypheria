@@ -56,6 +56,23 @@ Status legend:
 
 ## Architecture Alignment
 
+- [x] Add the Cypheria E2EE relay application and shared relay package.
+  - Acceptance: `apps/relay` is a Go 1.25 service with `--mode=single|cluster` and cluster-only
+    `--role=gateway|worker`; v2 control and
+    per-client data sockets forward opaque E2EE frames; `@cypheria/relay` supplies transport-neutral
+    X25519/XSalsa20-Poly1305 channels; protocol offers, shared client support, and the authenticated
+    server pairing endpoint form one working path.
+  - Include: standalone single-process memory mode without etcd, coordinated etcd leases and
+    rendezvous ownership, internal mTLS, bounded ingress/queues, container-aware memory limits,
+    OTLP/gRPC metrics and short spans without a Prometheus endpoint, persistent `0600` server keys,
+    strict TOML configuration with examples, Kubernetes Kustomize manifests, documented
+    connection/deployment diagrams, and a future home-region/global fencing design.
+  - Exclude: Desktop/Expo UI integration, live deployment validation, etcd/Collector deployment,
+    and implementation of the global coordinator.
+  - Verification: protocol/relay/client/server Vitest suites, Go unit/real-WebSocket/embedded-etcd/
+    mTLS/OTel tests, Go race tests, cross-language Go-relay-to-Cypheria-server/client E2E, workspace
+    CI, and build.
+
 - [x] Add the Cypheria client/server foundation without migrating desktop.
   - Acceptance: `apps/server` provides a Hono HTTP/WebSocket control plane, versioned client sessions, runtime lifecycle, operations endpoints, supervised daemon lifecycle, and embedded Expo web hosting; `apps/expo` targets iOS, Android, and static web; `@cypheria/protocol` provides shared validated contracts.
   - Exclude: agent, project, wallet, policy, browser, and automation product methods; any `apps/desktop` code change.

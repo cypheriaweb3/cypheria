@@ -13,6 +13,7 @@ import { RequestIdSchema } from "./request-id.ts"
 
 export * from "./agent/acp-messages.ts"
 export * from "./agent/codex-app-server.ts"
+export * from "./relay.ts"
 export { type RequestId, RequestIdSchema } from "./request-id.ts"
 
 export const CYPHERIA_PROTOCOL_VERSION = 1 as const

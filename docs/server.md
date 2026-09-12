@@ -34,7 +34,7 @@ cypheria-server stop
 
 `@cypheria/protocol` owns the Cypheria wire protocol and the generated Codex App Server artifacts. It does not hand-write Codex DTOs: TypeScript, JSON Schemas, response mappings, validators, and the checked-in dotted API registry are generated or derived together in this package. Codex-generated TypeScript remains the compile-time source of truth; pinned Hey API generation converts the Codex JSON Schema definitions into committed static Zod 4 validators. `@cypheria/codex-bridge` consumes the dedicated protocol subpath. All HTTP and WebSocket boundary values are validated with Zod.
 
-`@cypheria/client` is the reusable consumer of this contract. Its internal `ServerClient` owns the transport, WebSocket session, request correlation, subscriptions, timeout handling, and reconnect policy. `createCypheriaApi()` exposes a borrowed capability facade without connection controls, while `createCypheriaClient()` creates a facade that owns its connection lifecycle. The API maps only current protocol message families and does not infer wallet, policy, automation, or other product APIs from generic runtime method names. The package depends only on `@cypheria/protocol` and does not start the server, runtime, or Codex.
+`@cypheria/client` is the reusable consumer of this contract. Its internal `ServerClient` owns the transport, WebSocket session, request correlation, subscriptions, timeout handling, and reconnect policy. `createCypheriaApi()` exposes a borrowed capability facade without connection controls, while `createCypheriaClient()` creates a facade that owns its connection lifecycle. The API maps only current protocol message families and does not infer wallet, policy, automation, or other product APIs from generic runtime method names. The package depends on `@cypheria/protocol` and transport-only `@cypheria/relay`; it does not start the server, runtime, or Codex.
 
 WebSocket clients connect to `/api/v1/ws` with the `cypheria.v1` subprotocol. Their first message must be `session.hello` with protocol version, client identity, client kind, and capabilities. The server responds with `session.ready` and a stable session ID. Every request has a caller-supplied request ID; runtime events are broadcast without one.
 
@@ -105,6 +105,7 @@ SDK 1.4.0 ships those generated Zod modules but does not expose them through pac
 | `GET` | `/api/v1/ready` | No | Runtime/listener readiness |
 | `GET` | `/api/v1/status` | Bearer when configured | Server information |
 | `GET` | `/api/v1/diagnostics` | Bearer when configured | Operational diagnostics |
+| `GET` | `/api/v1/relay/pairing-offer` | Bearer when configured | E2EE relay offer and connection state |
 | `POST` | `/api/v1/runtime/request` | Bearer when configured | Runtime request forwarding |
 | `POST` | `/api/v1/lifecycle/restart` | Bearer when configured | Supervised worker restart |
 | `POST` | `/api/v1/lifecycle/shutdown` | Bearer when configured | Full daemon shutdown |
@@ -130,8 +131,18 @@ Configuration variables:
 | `CYPHERIA_SERVER_SHUTDOWN_TIMEOUT_MS` | `10000` | HTTP graceful-shutdown deadline |
 | `CYPHERIA_SERVER_WEB_ENABLED` | `true` | Enable embedded Expo web hosting |
 | `CYPHERIA_SERVER_WEB_DIR` | bundled `dist/web` | Override the hosted static directory |
+| `CYPHERIA_SERVER_RELAY_ENABLED` | `false` | Connect the server to a relay |
+| `CYPHERIA_SERVER_RELAY_ENDPOINT` | unset | Server-facing relay endpoint |
+| `CYPHERIA_SERVER_RELAY_USE_TLS` | `true` | Default scheme for the server-facing endpoint |
+| `CYPHERIA_SERVER_RELAY_PUBLIC_ENDPOINT` | server endpoint | Endpoint published in pairing offers |
+| `CYPHERIA_SERVER_RELAY_PUBLIC_USE_TLS` | server TLS setting | Default scheme published in offers |
 
 TLS termination is intentionally outside this Node process. Any non-loopback deployment should place the server behind a trusted TLS reverse proxy in addition to using authentication and an explicit origin allowlist.
+
+When relay support is enabled, the server keeps a control socket and creates one encrypted data
+socket per remote client. Its X25519 key is stored at `$CYPHERIA_HOME/config/relay-key.json` with
+mode `0600`. The pairing endpoint remains under the normal HTTP Bearer policy, while relay data
+sockets do not carry that token. See [Cypheria Relay](relay.md).
 
 ## Expo Packaging
 

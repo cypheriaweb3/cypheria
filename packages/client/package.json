@@ -14,7 +14,8 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@cypheria/protocol": "workspace:*"
+    "@cypheria/protocol": "workspace:*",
+    "@cypheria/relay": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^4.1.7"

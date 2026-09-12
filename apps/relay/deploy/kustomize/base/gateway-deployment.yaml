@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cypheria-relay-gateway
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cypheria-relay
+      app.kubernetes.io/component: gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cypheria-relay
+        app.kubernetes.io/component: gateway
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 45
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: relay
+          image: cypheria-relay
+          imagePullPolicy: IfNotPresent
+          args:
+            - --config=/etc/cypheria-relay/config/relay.toml
+            - --node-id=$(POD_NAME)
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          ports:
+            - name: public
+              containerPort: 6770
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: public
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: public
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: config
+              mountPath: /etc/cypheria-relay/config
+              readOnly: true
+            - name: internal-tls
+              mountPath: /etc/cypheria-relay/tls
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: cypheria-relay-gateway-config
+        - name: internal-tls
+          secret:
+            secretName: cypheria-relay-gateway-tls
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: topology.kubernetes.io/zone
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: cypheria-relay
+              app.kubernetes.io/component: gateway
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app.kubernetes.io/name: cypheria-relay
+              app.kubernetes.io/component: gateway

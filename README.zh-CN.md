@@ -13,6 +13,8 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 - **Expo client**：一套面向 iOS、Android 与静态 web output 的 Expo Router 应用；server 会内置其 web output。
 - **共享 client**：`@cypheria/client` 提供 WebSocket protocol driver、借用 API 门面与持有连接的
   client 门面，但不持有特权 runtime。
+- **Relay**：Go `apps/relay` 服务和 TypeScript `@cypheria/relay` 包为同一 server protocol
+  提供可选的 E2EE 远程通道。
 - **CLI 与 SDK clients**：规划中的 server protocol 产品 clients。
 - **Desktop client**：最终会在需要时自启动本地 server 并连接它。当前 desktop 实现保持不变，等新 server 通过评审后再迁移。
 - **Marketplace**：部署在 Cloudflare Workers 上的 TanStack Start 应用，负责 ChatGPT/Codex 标准插件的提交、扫描、审核、发布、发现，并同步到 Cypheria 官方 GitHub repo marketplace。
@@ -21,11 +23,12 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 
 ## 技术栈
 
-- **Language**：TypeScript
+- **Languages**：TypeScript；relay 数据面使用 Go
 - **Monorepo**：Turborepo + pnpm workspace
 - **Desktop**：Electron
 - **跨平台 client**：Expo SDK 57 + Expo Router
 - **Server**：Node.js 上的 Hono，提供 HTTP 与 WebSocket transports
+- **Relay**：Go、v2 control/data WebSocket、etcd 地域所有权、内部 mTLS、OTLP
 - **Frontend**：TanStack Start、TanStack Router、TanStack Query
 - **State**：Jotai
 - **Forms and validation**：TanStack Form + Zod
@@ -53,6 +56,11 @@ apps/server
   -> Hono HTTP + WebSocket control plane
   -> supervisor + worker lifecycle
   -> 内置 apps/expo static web export
+
+remote @cypheria/client
+  -> @cypheria/relay E2EE
+  -> apps/relay gateway/worker
+  -> apps/server relay data socket
 
 apps/desktop renderer
   -> Electron typed IPC
@@ -89,6 +97,9 @@ apps/expo
 apps/server
   Hono server、client-session protocol、runtime host、web host 与 supervised daemon。
 
+apps/relay
+  以单进程或集群 gateway/worker 形态转发不透明 E2EE WebSocket 的 Go relay。
+
 apps/desktop
   ipc/        Desktop-local typed IPC contracts and schemas
   main/       Electron main process
@@ -101,6 +112,7 @@ apps/marketplace
 packages/sdk
 packages/client
 packages/protocol
+packages/relay
 packages/runtime
 packages/codex-bridge
 packages/acp-ai-provider
@@ -114,8 +126,10 @@ packages/db
 ```
 
 `apps/cli`、`apps/marketplace` 和 `packages/sdk` 仍是规划中的 packages。`apps/server`、
-`apps/expo`、`packages/client` 和 `packages/protocol` 已提供 client/server 基础。协议、运维、安全与
+`apps/expo`、`packages/client`、`packages/protocol` 和 `packages/relay` 已提供 client/server 基础。协议、运维、安全与
 打包约定见 [docs/server.zh-CN.md](docs/server.zh-CN.md)。
+relay 协议、安全、扩缩容、可观测性与未来多地域设计见
+[docs/relay.zh-CN.md](docs/relay.zh-CN.md)。
 
 ## Runtime Home
 
@@ -174,6 +188,12 @@ pnpm --filter @cypheria/server daemon start
 pnpm --filter @cypheria/expo dev
 ```
 
+运行不需要 etcd 的单进程 relay：
+
+```sh
+pnpm --filter @cypheria/cypheria-relay dev -- --mode=single
+```
+
 运行 renderer dev server：
 
 ```sh
@@ -198,8 +218,9 @@ pnpm format
 
 仓库现在已经包含版本化 Cypheria protocol、分层的 `@cypheria/client`、带 HTTP/WebSocket
 运维与内置 web hosting 的 supervised Hono server，以及可导出 iOS、Android 与静态 web
-surface 的 Expo SDK 57 client。现有 desktop 实现刻意保持不变，在 server 评审和独立迁移变更
-之前继续使用当前 direct-runtime path。
+surface 的 Expo SDK 57 client。仓库也包含 E2EE relay client、server integration，以及支持
+`single` 模式和 `cluster` gateway/worker 角色的 Go relay。现有 desktop 实现刻意保持不变，在 server 评审
+和独立迁移变更之前继续使用当前 direct-runtime path。
 
 下一步实现顺序记录在 [docs/todo.zh-CN.md](docs/todo.zh-CN.md)。
 规范化 logo、应用图标资产与使用规则见 [docs/brand.zh-CN.md](docs/brand.zh-CN.md)。

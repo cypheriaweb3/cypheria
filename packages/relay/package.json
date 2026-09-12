@@ -1,0 +1,24 @@
+{
+  "name": "@cypheria/relay",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./e2ee": "./src/e2ee.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "pnpm typecheck",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@cypheria/protocol": "workspace:*",
+    "base64-js": "^1.5.1",
+    "tweetnacl": "^1.0.3"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.7"
+  }
+}

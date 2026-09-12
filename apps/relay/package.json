@@ -1,0 +1,12 @@
+{
+  "name": "@cypheria/cypheria-relay",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "build": "go build ./...",
+    "check": "node scripts/check-gofmt.mjs && go vet ./... && go test ./...",
+    "dev": "go run ./cmd/cypheria-relay",
+    "test": "go test ./...",
+    "test:race": "go test -race ./..."
+  }
+}

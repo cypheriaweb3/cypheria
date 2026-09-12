@@ -1,7 +1,8 @@
 # `@cypheria/client`
 
-`@cypheria/client` 是版本化 Cypheria server protocol 的可复用 client。它只依赖
-`@cypheria/protocol`，不导入 runtime、server、Codex bridge 或 Electron 代码。
+`@cypheria/client` 是版本化 Cypheria server protocol 的可复用 client。它依赖
+`@cypheria/protocol` 与只处理传输的 `@cypheria/relay`，不导入 runtime、server、Codex
+bridge 或 Electron 代码。
 
 ## 分层
 
@@ -67,6 +68,16 @@ await cypheria.close()
 默认 adapter 使用当前 runtime 的全局 WebSocket。其他环境可以注入 `webSocketFactory`，或
 完整的 `transportFactory`。HTTP(S) 根 URL 会转换到版本化 `/api/v1/ws` WS(S) endpoint。
 鉴权 token 使用 WebSocket subprotocol，不会放入 URL。
+
+端到端加密的远程连接可传入解码后的 offer 或 pairing URL：
+
+```ts
+const cypheria = createCypheriaClient({ relayOffer: "cypheria://pair#offer=..." })
+```
+
+`relayOffer` 不能与 `url`、`token` 或 `transportFactory` 同时使用；没有全局 WebSocket 的
+runtime 仍可提供自定义 `webSocketFactory`。E2EE 会先于 `session.hello` 完成，直连 Bearer
+token 绝不会发送给 relay。
 
 ## 借用已有连接
 

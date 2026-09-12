@@ -1,0 +1,25 @@
+mode = "cluster"
+role = "gateway"
+
+[network]
+public_addr = "0.0.0.0:6770"
+
+[coordination]
+# Replace this endpoint with the external etcd service for the region.
+etcd_endpoints = ["https://etcd.cypheria-infra.svc.cluster.local:2379"]
+
+[internal_tls]
+ca_file = "/etc/cypheria-relay/tls/ca.crt"
+cert_file = "/etc/cypheria-relay/tls/tls.crt"
+key_file = "/etc/cypheria-relay/tls/tls.key"
+server_name = "cypheria-relay-worker.cypheria-relay.svc.cluster.local"
+
+[limits]
+max_data_bytes = 33554418
+max_control_bytes = 65536
+ingress_budget_bytes = 536870912
+
+[timeouts]
+attach = "15s"
+delivery = "30s"
+transport = "35s"

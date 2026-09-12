@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: cypheria-relay
+
+resources:
+  - namespace.yaml
+  - gateway-deployment.yaml
+  - gateway-service.yaml
+  - worker-deployment.yaml
+  - worker-service.yaml
+  - pod-disruption-budgets.yaml
+
+configMapGenerator:
+  - name: cypheria-relay-gateway-config
+    files:
+      - relay.toml=config/gateway.toml
+  - name: cypheria-relay-worker-config
+    files:
+      - relay.toml=config/worker.toml
+
+images:
+  - name: cypheria-relay
+    newName: ghcr.io/cypheriaweb3/cypheria-relay
+    newTag: latest

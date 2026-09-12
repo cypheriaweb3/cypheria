@@ -6,13 +6,16 @@ Cypheria V1 is a TypeScript Web3 agent product with one privileged server and de
 
 | Category | Choice |
 | --- | --- |
-| Primary language | TypeScript |
+| Primary languages | TypeScript; Go 1.25 for the relay data plane |
 | Monorepo | Turborepo |
 | Package manager | pnpm |
 | Lint / format | Biome |
 | Tests | Vitest, Testing Library, Playwright |
 | Runtime validation | Zod |
 | Server | Hono 4 on Node.js, `@hono/node-server`, `ws`, Pino |
+| Relay | Go, `coder/websocket`, etcd client v3, internal TLS 1.3 mTLS |
+| Relay E2EE | `tweetnacl`, X25519, XSalsa20-Poly1305, `base64-js` |
+| Relay observability | OpenTelemetry SDK, OTLP/gRPC metrics and traces; external Collector |
 | Server build and daemon | tsdown, supervisor/worker, PID lock, heartbeat, bounded restart |
 | Client protocol | `@cypheria/protocol`, Zod, HTTP + WebSocket `cypheria.v1` |
 | Cross-platform client | Expo SDK 57, Expo Router, React Native 0.86, React 19 |
@@ -48,6 +51,9 @@ apps/expo
 apps/server
   Hono control plane, runtime host, static web host, and supervised daemon.
 
+apps/relay
+  Go relay with single-process and clustered gateway/worker operation.
+
 apps/desktop
   ipc/
   main/
@@ -59,6 +65,7 @@ apps/marketplace
 packages/sdk
 packages/client
 packages/protocol
+packages/relay
 packages/runtime
 packages/codex-bridge
 packages/acp-ai-provider
@@ -75,7 +82,17 @@ packages/db
 
 `@cypheria/protocol` authors live WebSocket contracts with Zod and owns the generated Codex App Server TypeScript, JSON Schemas, response mappings, and validators. Its complete `agent.codex.*` RPC and notification catalog is mechanically derived from those committed artifacts; provider payloads stay JSON-transparent on the shared wire. Cypheria-owned envelopes use explicit strict objects, provider-owned extension surfaces use explicit loose objects, and large message families use their `type` or `protocolVersion` discriminator rather than linear unions. Object schemas are composed with `.extend()` or shape spread; generated intersections are retained only when an upstream JSON Schema combines a variant union with common constraints. It also exposes directional `agent.acp.*` envelopes backed by the official SDK's stable-v1 and explicit draft-v2 types and generated Zod validators, including method/direction checks and variadic-tuple v2 batch semantics. A minimal pinned pnpm patch exposes the SDK's shipped-but-private v1/v2 Zod modules without copying them. Build, typecheck, and test lifecycle checks fail when the Codex catalog drifts.
 
-`@cypheria/client` depends only on `@cypheria/protocol`. Its `ServerClient` implements an injectable transport boundary, browser and Node WebSocket adapters, hello/authentication, correlation, timeouts, protocol validation, typed errors, event delivery, and bounded exponential reconnects. `CypheriaApi` is a lifecycle-free borrowed facade; `CypheriaClient` owns one connection. The facade exposes only current protocol message families: server operations, generic runtime request/events, generated Codex traffic, and ACP envelopes. It does not infer product actions from runtime method strings. Every generated Codex request/response pair becomes a dedicated nested async method; inbound notifications and reverse requests use a typed `on(messageType, handler)` subscription, matching the low-level Paseo client pattern.
+`@cypheria/client` depends on `@cypheria/protocol` and the transport-only `@cypheria/relay`. Its `ServerClient` implements an injectable transport boundary, browser and Node WebSocket adapters, hello/authentication, correlation, timeouts, protocol validation, typed errors, event delivery, and bounded exponential reconnects. `CypheriaApi` is a lifecycle-free borrowed facade; `CypheriaClient` owns one connection. The facade exposes only current protocol message families: server operations, generic runtime request/events, generated Codex traffic, and ACP envelopes. It does not infer product actions from runtime method strings. Every generated Codex request/response pair becomes a dedicated nested async method; inbound notifications and reverse requests use a typed `on(messageType, handler)` subscription, matching the low-level Paseo client pattern.
+
+`@cypheria/client` also accepts a mutually exclusive `relayOffer` transport configuration. It uses
+`@cypheria/relay` to complete E2EE before the unchanged Cypheria session handshake. `apps/relay`
+runs on Go 1.25. `--mode=single` uses an in-process gateway, worker, and memory coordinator without
+etcd; it must have exactly one replica. `--mode=cluster` separates gateway and worker roles and adds
+etcd v3 leases, rendezvous ownership, and internal TLS 1.3 mutual authentication. TOML configuration
+and a Kustomize base are provided, while etcd and the Collector remain external. Both modes use `coder/websocket`,
+an explicit weighted ingress budget, and container-aware Go memory limits. The process exports
+metrics and short routing spans over OTLP/gRPC only and exposes no Prometheus endpoint. See
+[Cypheria Relay](relay.md).
 
 ## Server And Expo Stack
 

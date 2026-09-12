@@ -1,7 +1,8 @@
 # `@cypheria/client`
 
 `@cypheria/client` is the reusable client for the versioned Cypheria server protocol. It depends
-only on `@cypheria/protocol`; it does not import runtime, server, Codex bridge, or Electron code.
+on `@cypheria/protocol` and transport-only `@cypheria/relay`; it does not import runtime, server,
+Codex bridge, or Electron code.
 
 ## Layers
 
@@ -70,6 +71,16 @@ The default adapter uses the runtime's global WebSocket. Other environments can 
 `webSocketFactory`, or a complete `transportFactory`. HTTP(S) root URLs are normalized to the
 versioned `/api/v1/ws` WS(S) endpoint. Authentication tokens use WebSocket subprotocols and are not
 placed in the URL.
+
+For an end-to-end encrypted remote connection, pass a decoded offer or its pairing URL:
+
+```ts
+const cypheria = createCypheriaClient({ relayOffer: "cypheria://pair#offer=..." })
+```
+
+`relayOffer` cannot be combined with `url`, `token`, or `transportFactory`; a custom
+`webSocketFactory` remains available for runtimes without a global WebSocket. E2EE completes before
+`session.hello`, and the direct Bearer token is never sent to the relay.
 
 ## Borrowing an existing connection
 

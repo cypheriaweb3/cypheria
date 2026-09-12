@@ -6,6 +6,7 @@ import { resolve } from "node:path"
 import {
   CYPHERIA_PROTOCOL_VERSION,
   CYPHERIA_WEBSOCKET_PROTOCOL,
+  type RelayPairingOfferResponse,
   type ServerDiagnostics,
   type ServerIdentity,
   type ServerInfo,
@@ -23,6 +24,8 @@ import { type CypheriaServerConfig, loadServerConfig } from "./config.js"
 import { collectDiagnostics } from "./diagnostics.js"
 import { createHttpApp, type HttpAppHost } from "./http-app.js"
 import { loadOrCreateServerId } from "./identity.js"
+import { RelayConnection } from "./relay-connection.js"
+import { loadOrCreateRelayKeyPair } from "./relay-key.js"
 import { ConnectionRegistry } from "./session/connection-registry.js"
 import { CYPHERIA_SERVER_VERSION } from "./version.js"
 
@@ -57,6 +60,7 @@ export class CypheriaServer implements HttpAppHost {
   #httpServer: HttpServer | undefined
   #identity: ServerIdentity | undefined
   #lifecycleHandler: ((request: ServerLifecycleRequest) => void) | undefined
+  #relayConnection: RelayConnection | undefined
   #startPromise: Promise<CypheriaServerAddress> | undefined
   #stopPromise: Promise<void> | undefined
   #webSocketServer: WebSocketServer | undefined
@@ -98,6 +102,24 @@ export class CypheriaServer implements HttpAppHost {
         protocolVersion: CYPHERIA_PROTOCOL_VERSION,
         startedAt,
         version: CYPHERIA_SERVER_VERSION,
+      }
+
+      if (this.config.relayEnabled) {
+        const endpoint = this.config.relayEndpoint
+        const publicEndpoint = this.config.relayPublicEndpoint
+        if (!endpoint || !publicEndpoint) throw new Error("Relay endpoints are not configured")
+        const keyPair = await loadOrCreateRelayKeyPair(this.runtime.paths.configDir)
+        this.#relayConnection = new RelayConnection({
+          endpoint: { endpoint, useTls: this.config.relayUseTls },
+          helloTimeoutMs: this.config.sessionHelloTimeoutMs,
+          host: this,
+          keyPair,
+          logger: this.logger,
+          publicEndpoint: { endpoint: publicEndpoint, useTls: this.config.relayPublicUseTls },
+          registry: this.registry,
+          serverId: id,
+        })
+        this.#relayConnection.start()
       }
 
       this.#eventPump = this.#broadcastRuntimeEvents()
@@ -150,6 +172,8 @@ export class CypheriaServer implements HttpAppHost {
       this.#identity = undefined
       this.#webSocketServer = undefined
       this.#webSocketHeartbeat = undefined
+      this.#relayConnection?.stop()
+      this.#relayConnection = undefined
       throw error
     }
   }
@@ -176,6 +200,16 @@ export class CypheriaServer implements HttpAppHost {
     return collectDiagnostics(this.registry.diagnostics(), this.runtime.lifecycleState)
   }
 
+  getRelayPairingOffer(): RelayPairingOfferResponse | undefined {
+    const relay = this.#relayConnection
+    if (!relay) return undefined
+    return {
+      offer: relay.offer,
+      relayConnected: relay.connected,
+      url: "cypheria://pair",
+    }
+  }
+
   async requestRuntime(method: string, params?: unknown): Promise<unknown> {
     return this.runtime.request(method as CypheriaRuntimeMethod, params)
   }
@@ -199,6 +233,8 @@ export class CypheriaServer implements HttpAppHost {
     if (!this.#httpServer && this.runtime.lifecycleState === "stopped") return
     this.logger.info({ reason }, "Stopping Cypheria server")
     this.#address = undefined
+    this.#relayConnection?.stop()
+    this.#relayConnection = undefined
     this.registry.closeAll(1001, reason)
     if (this.#webSocketHeartbeat) clearInterval(this.#webSocketHeartbeat)
     this.#webSocketHeartbeat = undefined
