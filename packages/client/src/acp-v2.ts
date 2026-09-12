@@ -16,7 +16,8 @@ import {
   type UnrecognizedMethod,
 } from "@agentclientprotocol/sdk/experimental/v2"
 
-import { type AcpEndpoint, openAcpV2Stream } from "./acp-client.js"
+import { openAcpV2Stream } from "./acp-client.js"
+import type { CypheriaApi } from "./index.js"
 
 export type {
   AcpConnection,
@@ -123,7 +124,7 @@ export function client(options?: AppOptions): ClientApp {
 }
 
 /**
- * Draft ACP v2 client app with the official handler API and a Cypheria endpoint transport.
+ * Draft ACP v2 client app with the official handler API over a borrowed Cypheria API.
  */
 export class ClientApp {
   readonly #app: SdkClientApp
@@ -132,8 +133,8 @@ export class ClientApp {
     this.#app = new SdkClientApp(options)
   }
 
-  connect(endpoint: AcpEndpoint): ClientConnection {
-    const stream = openAcpV2Stream(endpoint)
+  connect(cypheria: CypheriaApi): ClientConnection {
+    const stream = openAcpV2Stream(cypheria.agent.acp)
     try {
       const connection = this.#app.connect(stream)
       void connection.closed.then(
@@ -148,10 +149,10 @@ export class ClientApp {
   }
 
   async connectWith<T>(
-    endpoint: AcpEndpoint,
+    cypheria: CypheriaApi,
     operation: (context: ClientContext) => MaybePromise<T>
   ): Promise<T> {
-    const stream = openAcpV2Stream(endpoint)
+    const stream = openAcpV2Stream(cypheria.agent.acp)
     try {
       return await this.#app.connectWith(stream, operation)
     } finally {

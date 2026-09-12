@@ -25,6 +25,7 @@ import {
   type CodexServerNotificationParams,
   type CodexServerRequestParams,
 } from "./codex-endpoint.js"
+import type { CypheriaApi } from "./index.js"
 
 export type {
   AgentCodexClientNotificationMessage,
@@ -177,15 +178,15 @@ export class ClientApp {
     this.#options = options
   }
 
-  connect(endpoint: CodexEndpoint): ClientConnection {
-    return new CodexClientConnection(this, endpoint)
+  connect(cypheria: CypheriaApi): ClientConnection {
+    return new CodexClientConnection(this, cypheria.agent.codex)
   }
 
   async connectWith<T>(
-    endpoint: CodexEndpoint,
+    cypheria: CypheriaApi,
     operation: (context: ClientContext) => MaybePromise<T>
   ): Promise<T> {
-    const connection = this.connect(endpoint)
+    const connection = this.connect(cypheria)
     try {
       return await operation(connection.codex)
     } finally {

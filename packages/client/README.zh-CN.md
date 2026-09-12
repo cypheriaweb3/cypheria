@@ -37,11 +37,11 @@ CypheriaClient = CypheriaApi + connection lifecycle
 ## Codex client API
 
 `@cypheria/client/codex` 实现 Cypheria 自有的 SDK-shaped `client()` 与 `ClientApp`。它的
-`connect()` 和 `connectWith()` 接收 `cypheria.agent.codex`；后者保持为最小 typed endpoint，
-而不是 generated action tree。`ClientContext.request()` 把每个 protocol request 与 response
-组合成一个 typed async call。`ClientApp.onRequest()` 会等待反向 request handler，并写回 typed
-response；`onNotification()` 负责分派 server notification。向 server 发送 client notification
-则使用 `ClientContext.notify()`。
+`connect()` 和 `connectWith()` 接收 `CypheriaApi`，并在内部选择最小的 `agent.codex`
+endpoint。`ClientContext.request()` 把每个 protocol request 与 response 组合成一个 typed async
+call。`ClientApp.onRequest()` 会等待反向 request handler，并写回 typed response；
+`onNotification()` 负责分派 server notification。向 server 发送 client notification 则使用
+`ClientContext.notify()`。
 
 ```ts
 import { client as createCodexApp, methods } from "@cypheria/client/codex"
@@ -56,7 +56,7 @@ const app = createCodexApp()
     console.log(params.thread)
   })
 
-const connection = app.connect(cypheria.agent.codex)
+const connection = app.connect(cypheria)
 const threads = await connection.codex.request(methods.server.request["thread/list"], {})
 await connection.codex.notify(methods.server.notification.initialized)
 
@@ -65,7 +65,7 @@ await cypheria.close()
 ```
 
 `@cypheria/client/codex` 会导出 method constant 与全部 generated Codex type。
-`connectWith(endpoint, operation)` 提供 scoped connection，并且一定在 operation 结束后释放。
+`connectWith(cypheria, operation)` 提供 scoped connection，并且一定在 operation 结束后释放。
 每个 endpoint 同时只允许一个 Codex app 消费；transport loss 会中止 connection 与 pending
 request。低层 consumer 仍可直接调用 endpoint method，但不得把手动反向 response 处理与活跃
 `ClientApp` 混用。
@@ -74,8 +74,8 @@ request。低层 consumer 仍可直接调用 endpoint method，但不得把手�
 
 稳定入口 `@cypheria/client/acp` 自行实现了 SDK-shaped `client()` 与 `ClientApp`。Handler
 registration、context、session、cancellation、error、method constant 与 generated protocol
-type 保持官方 SDK API；`connect()` 和 `connectWith()` 则改为接收 Cypheria ACP endpoint，而非
-Web Stream。其他可用 SDK export 使用白名单重新导出；我们重新实现的名字及已废弃 connection
+type 保持官方 SDK API；`connect()` 和 `connectWith()` 则改为接收 `CypheriaApi`，而非 Web
+Stream。其他可用 SDK export 使用白名单重新导出；我们重新实现的名字及已废弃 connection
 API 不会导出，尤其不包含旧的 `ClientSideConnection`、`AgentSideConnection` 或
 `TerminalHandle` API。
 
@@ -88,7 +88,7 @@ const app = createAcpApp().onNotification(methods.client.session.update, ({ para
   console.log(params.update)
 })
 
-const connection = app.connect(cypheria.agent.acp)
+const connection = app.connect(cypheria)
 await connection.agent.request(methods.agent.initialize, {
   protocolVersion: PROTOCOL_VERSION,
 })
@@ -101,13 +101,13 @@ connection.close()
 await cypheria.close()
 ```
 
-`app.connectWith(cypheria.agent.acp, operation)` 提供 SDK 的 scoped connection 风格。Draft ACP
+`app.connectWith(cypheria, operation)` 提供 SDK 的 scoped connection 风格。Draft ACP
 v2 使用显式隔离入口：
 
 ```ts
 import { client as createAcpV2App } from "@cypheria/client/acp/v2"
 
-const connection = createAcpV2App().connect(cypheria.agent.acp)
+const connection = createAcpV2App().connect(cypheria)
 ```
 
 v2 adapter 保留非空 JSON-RPC batch。由于 envelope 刻意不携带第二个 connection ID，每个
@@ -124,7 +124,7 @@ import { createCypheriaClient } from "@cypheria/client"
 import { client as createCodexApp, methods as codexMethods } from "@cypheria/client/codex"
 
 const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
-const codex = createCodexApp().connect(cypheria.agent.codex)
+const codex = createCodexApp().connect(cypheria)
 
 const server = await cypheria.server.info()
 const runtimeInfo = await cypheria.runtime.request("runtime.info")

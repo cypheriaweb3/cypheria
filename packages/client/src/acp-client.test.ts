@@ -58,7 +58,7 @@ describe("Cypheria ACP SDK adapter", () => {
       clientId: "client-acp-v1",
       webSocketFactory: testWebSocketFactory,
     })
-    const connection = createAcpClient().connect(cypheria.agent.acp)
+    const connection = createAcpClient().connect(cypheria)
     const resultPromise = connection.agent.request<{ accepted: boolean }, { value: number }>(
       "_cypheria/test",
       { value: 7 }
@@ -113,7 +113,7 @@ describe("Cypheria ACP SDK adapter", () => {
       },
       ({ params }) => ({ text: params.text.toUpperCase() })
     )
-    const connection = app.connect(cypheria.agent.acp)
+    const connection = app.connect(cypheria)
     const socket = await acceptConnection(cypheria.connect())
 
     socket.message(
@@ -173,7 +173,7 @@ describe("Cypheria ACP SDK adapter", () => {
         received = params.value
       }
     )
-    const connection = app.connect(cypheria.agent.acp)
+    const connection = app.connect(cypheria)
     const socket = await acceptConnection(cypheria.connect())
 
     socket.message(
@@ -201,7 +201,7 @@ describe("Cypheria ACP SDK adapter", () => {
       clientId: "client-acp-connect-with",
       webSocketFactory: testWebSocketFactory,
     })
-    const resultPromise = createAcpClient().connectWith(cypheria.agent.acp, (agent) =>
+    const resultPromise = createAcpClient().connectWith(cypheria, (agent) =>
       agent.request<{ doubled: number }, { value: number }>("_cypheria/double", { value: 8 })
     )
     const socket = await acceptConnection(cypheria.connect())
@@ -230,7 +230,7 @@ describe("Cypheria ACP SDK adapter", () => {
       clientId: "client-acp-v2",
       webSocketFactory: testWebSocketFactory,
     })
-    const connection = createAcpV2Client().connect(cypheria.agent.acp)
+    const connection = createAcpV2Client().connect(cypheria)
     const initializePromise = connection.agent.request(acpV2Methods.agent.initialize, {
       info: { name: "cypheria-test", version: "1.0.0" },
       protocolVersion: ACP_V2_VERSION,
@@ -292,7 +292,7 @@ describe("Cypheria ACP SDK adapter", () => {
       reconnect: { enabled: false },
       webSocketFactory: testWebSocketFactory,
     })
-    const connection = createAcpClient().connect(cypheria.agent.acp)
+    const connection = createAcpClient().connect(cypheria)
     const resultPromise = connection.agent.request("_cypheria/pending", {})
     const socket = await acceptConnection(cypheria.connect())
     await tick()
@@ -309,15 +309,13 @@ describe("Cypheria ACP SDK adapter", () => {
       clientId: "client-acp-exclusive",
       webSocketFactory: testWebSocketFactory,
     })
-    const connection = createAcpClient().connect(cypheria.agent.acp)
+    const connection = createAcpClient().connect(cypheria)
 
-    expect(() => createAcpV2Client().connect(cypheria.agent.acp)).toThrow(
-      "already has an active connection"
-    )
+    expect(() => createAcpV2Client().connect(cypheria)).toThrow("already has an active connection")
 
     connection.close()
     await connection.closed
-    const nextConnection = createAcpClient().connect(cypheria.agent.acp)
+    const nextConnection = createAcpClient().connect(cypheria)
     nextConnection.close()
     await cypheria.close()
   })

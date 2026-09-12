@@ -123,13 +123,13 @@
 
 - [x] 为 `@cypheria/client` 添加 ACP SDK 风格 API。
   - 验收：stable-v1 与显式 draft-v2 ACP app API 可通过 `@cypheria/protocol` 已定义的有方向 wire envelope 工作，同时 caller 保留官方 SDK 的 typed context、handler、session、cancellation、error 与 v2 batch。
-  - 包括：在 `@cypheria/client/acp` 与 `@cypheria/client/acp/v2` 提供 Cypheria 自有的 `client()` 与 `ClientApp`；基于 endpoint 的 `connect` 与 `connectWith`；精确固定 SDK 并选择性重新导出，不包含重新实现或已废弃 API；使用 protocol-owned schema 校验 outbound；按版本过滤 inbound；所有借用门面在每个 endpoint 上只允许一个活跃 ACP connection；transport loss 时 teardown；保留低层 envelope access；以及配套中英文 package/architecture/stack 文档。本项不增加 server-side ACP dispatch。
+  - 包括：在 `@cypheria/client/acp` 与 `@cypheria/client/acp/v2` 提供 Cypheria 自有的 `client()` 与 `ClientApp`；基于 `CypheriaApi` 的 `connect` 与 `connectWith`；精确固定 SDK 并选择性重新导出，不包含重新实现或已废弃 API；使用 protocol-owned schema 校验 outbound；按版本过滤 inbound；所有借用门面在每个 endpoint 上只允许一个活跃 ACP connection；transport loss 时 teardown；保留低层 envelope access；以及配套中英文 package/architecture/stack 文档。本项不增加 server-side ACP dispatch。
   - 验证：32 个 client unit tests、client typecheck/build、全仓 CI 与全仓 build。
 
 - [x] 在 `@cypheria/client` 中以 Codex SDK 风格 API 替换 Codex actions。
   - 验收：caller 使用 Cypheria 自有的 `client()` / `ClientApp` API 调用 `@cypheria/protocol` 已定义的全部 Codex wire method；每个 outbound request 与 correlated response 是一个 typed async call，notification 与反向 request 则使用 fluent typed handler。
-  - 包括：`@cypheria/client/codex` 入口；基于 endpoint 的 `connect` 与 `connectWith`；typed `ClientContext.request` 和 `notify`；typed `onRequest` 和 `onNotification`；自动写回反向 response；close 或 transport loss 时 cancellation 与 teardown；每个 endpoint 只允许一个活跃 app；重新导出 generated Codex type；method constant；移除 `CodexActions`；以及配套 package/architecture/stack 中英文文档。本项不添加 protocol method 或 server-side Codex dispatch。
-  - 验证：39 个 client unit tests、client typecheck/build、全仓 CI 与全仓 build。
+  - 包括：`@cypheria/client/codex` 入口；基于 `CypheriaApi` 的 `connect` 与 `connectWith`；typed `ClientContext.request` 和 `notify`；typed `onRequest` 和 `onNotification`；自动写回反向 response；close 或 transport loss 时 cancellation 与 teardown；每个 endpoint 只允许一个活跃 app；重新导出 generated Codex type；method constant；移除 `CodexActions`；以及配套 package/architecture/stack 中英文文档。本项不添加 protocol method 或 server-side Codex dispatch。
+  - 验证：40 个 client unit tests、client typecheck/build、全仓 CI 与全仓 build。
 
 - [ ] 添加 `packages/sdk`。
   - 验收：package 导出公共 `Cypheria` server client。

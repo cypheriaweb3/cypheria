@@ -43,7 +43,7 @@ describe("Cypheria Codex client API", () => {
       clientId: "client-codex-request",
       webSocketFactory: testWebSocketFactory,
     })
-    const connection = createCodexApp().connect(cypheria.agent.codex)
+    const connection = createCodexApp().connect(cypheria)
     const resultPromise = connection.codex.request(methods.server.request["memory/reset"])
     const socket = await acceptConnection(cypheria.connect())
     await tick()
@@ -79,7 +79,7 @@ describe("Cypheria Codex client API", () => {
         return { currentTimeAt: 1_789_000_000 }
       }
     )
-    const connection = app.connect(cypheria.agent.codex)
+    const connection = app.connect(cypheria)
     const socket = await acceptConnection(cypheria.connect())
 
     socket.message(
@@ -115,7 +115,7 @@ describe("Cypheria Codex client API", () => {
         handled = true
       }
     )
-    const connection = app.connect(cypheria.agent.codex)
+    const connection = app.connect(cypheria)
     const socket = await acceptConnection(cypheria.connect())
 
     socket.message(
@@ -136,7 +136,7 @@ describe("Cypheria Codex client API", () => {
       clientId: "client-codex-connect-with",
       webSocketFactory: testWebSocketFactory,
     })
-    const resultPromise = createCodexApp().connectWith(cypheria.agent.codex, (context) =>
+    const resultPromise = createCodexApp().connectWith(cypheria, (context) =>
       context.request(methods.server.request["memory/reset"])
     )
     const socket = await acceptConnection(cypheria.connect())
@@ -154,7 +154,7 @@ describe("Cypheria Codex client API", () => {
     )
     await expect(resultPromise).resolves.toEqual({})
 
-    const nextConnection = createCodexApp().connect(cypheria.agent.codex)
+    const nextConnection = createCodexApp().connect(cypheria)
     nextConnection.close()
     await cypheria.close()
   })
@@ -164,15 +164,13 @@ describe("Cypheria Codex client API", () => {
       clientId: "client-codex-exclusive",
       webSocketFactory: testWebSocketFactory,
     })
-    const connection = createCodexApp().connect(cypheria.agent.codex)
+    const connection = createCodexApp().connect(cypheria)
 
-    expect(() => createCodexApp().connect(cypheria.agent.codex)).toThrow(
-      "already has an active connection"
-    )
+    expect(() => createCodexApp().connect(cypheria)).toThrow("already has an active connection")
 
     connection.close()
     await connection.closed
-    const nextConnection = createCodexApp().connect(cypheria.agent.codex)
+    const nextConnection = createCodexApp().connect(cypheria)
     nextConnection.close()
     await cypheria.close()
   })
@@ -189,10 +187,10 @@ describe("Cypheria Codex client API", () => {
       }
     )
 
-    expect(() => app.connect(cypheria.agent.codex)).toThrow("setup failed")
+    expect(() => app.connect(cypheria)).toThrow("setup failed")
     expect(failures.map((error) => error.message)).toEqual(["setup failed"])
 
-    const nextConnection = createCodexApp().connect(cypheria.agent.codex)
+    const nextConnection = createCodexApp().connect(cypheria)
     nextConnection.close()
     await cypheria.close()
   })
@@ -203,7 +201,7 @@ describe("Cypheria Codex client API", () => {
       reconnect: { enabled: false },
       webSocketFactory: testWebSocketFactory,
     })
-    const connection = createCodexApp().connect(cypheria.agent.codex)
+    const connection = createCodexApp().connect(cypheria)
     const resultPromise = connection.codex.request(methods.server.request["memory/reset"])
     const socket = await acceptConnection(cypheria.connect())
     await tick()

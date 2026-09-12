@@ -11,10 +11,11 @@ This package is the reusable TypeScript client for the versioned Cypheria server
   JSON-RPC engine, selectively re-export supported names, and omit reimplemented or deprecated
   exports. Validate adapted wire with protocol-owned directional envelope schemas.
 - Treat `ClientMessage` and `ServerMessage` as the capability source of truth.
-- The Codex entry point must expose a Cypheria-owned SDK-shaped `client()` / `ClientApp` API over
-  the minimal `agent.codex` endpoint. Keep request/response correlation and wire lookup inside
-  `ServerClient`; expose protocol method names through typed `request`, `notify`, `onRequest`, and
-  `onNotification` APIs rather than a generated action tree.
+- The Codex entry point must expose a Cypheria-owned SDK-shaped `client()` / `ClientApp` API.
+  `connect()` and `connectWith()` accept a `CypheriaApi` and select its minimal `agent.codex`
+  endpoint internally. Keep request/response correlation and wire lookup inside `ServerClient`;
+  expose protocol method names through typed `request`, `notify`, `onRequest`, and `onNotification`
+  APIs rather than a generated action tree.
 - Do not infer high-level wallet, policy, automation, browser, or other product APIs from generic
   runtime method strings. Add an action only after its request and response contract exists in the
   protocol package.
@@ -43,8 +44,9 @@ This package is the reusable TypeScript client for the versioned Cypheria server
 - Reject in-flight requests on disconnect, isolate consumer listener failures, and prevent stale
   transport events from mutating the current connection.
 - Reconnects must be bounded and cancellable by `close()`.
-- Permit only one active ACP or Codex `ClientApp` connection per corresponding endpoint across
-  borrowed API facades, and close it when the underlying Cypheria connection is lost.
+- ACP and Codex `ClientApp.connect()` / `connectWith()` accept a `CypheriaApi`, not a nested
+  endpoint. Permit only one active connection per corresponding endpoint across borrowed API
+  facades, and close it when the underlying Cypheria connection is lost.
 
 ## Verification
 

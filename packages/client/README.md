@@ -39,11 +39,11 @@ strings. Add a high-level API only after its contract exists in `@cypheria/proto
 ## Codex client API
 
 `@cypheria/client/codex` implements a Cypheria-owned SDK-shaped `client()` and `ClientApp`. Its
-`connect()` and `connectWith()` methods accept `cypheria.agent.codex`, which remains a minimal typed
-endpoint rather than a generated action tree. `ClientContext.request()` combines each protocol
-request and response into one typed async call. `ClientApp.onRequest()` awaits reverse-request
-handlers and writes their typed responses; `onNotification()` dispatches server notifications.
-Outbound client notifications use `ClientContext.notify()`.
+`connect()` and `connectWith()` methods accept a `CypheriaApi` and select its minimal
+`agent.codex` endpoint internally. `ClientContext.request()` combines each protocol request and
+response into one typed async call. `ClientApp.onRequest()` awaits reverse-request handlers and
+writes their typed responses; `onNotification()` dispatches server notifications. Outbound client
+notifications use `ClientContext.notify()`.
 
 ```ts
 import { client as createCodexApp, methods } from "@cypheria/client/codex"
@@ -58,7 +58,7 @@ const app = createCodexApp()
     console.log(params.thread)
   })
 
-const connection = app.connect(cypheria.agent.codex)
+const connection = app.connect(cypheria)
 const threads = await connection.codex.request(methods.server.request["thread/list"], {})
 await connection.codex.notify(methods.server.notification.initialized)
 
@@ -67,7 +67,7 @@ await cypheria.close()
 ```
 
 Method constants and every generated Codex type are exported from `@cypheria/client/codex`.
-`connectWith(endpoint, operation)` provides a scoped connection and always releases it after the
+`connectWith(cypheria, operation)` provides a scoped connection and always releases it after the
 operation settles. Only one Codex app may consume an endpoint at a time; transport loss aborts the
 connection and its pending requests. Low-level consumers can still call endpoint methods directly,
 but must not mix manual reverse-response handling with an active `ClientApp`.
@@ -76,8 +76,8 @@ but must not mix manual reverse-response handling with an active `ClientApp`.
 
 The stable `@cypheria/client/acp` entry implements its own SDK-shaped `client()` and `ClientApp`.
 Handler registration, contexts, sessions, cancellation, errors, method constants, and generated
-protocol types retain the official SDK API, while `connect()` and `connectWith()` accept a Cypheria
-ACP endpoint instead of a Web Stream. Other supported SDK exports are selectively re-exported;
+protocol types retain the official SDK API, while `connect()` and `connectWith()` accept a
+`CypheriaApi` instead of a Web Stream. Other supported SDK exports are selectively re-exported;
 reimplemented names and deprecated connection APIs are omitted. In particular, the entry point does
 not expose the legacy `ClientSideConnection`, `AgentSideConnection`, or `TerminalHandle` APIs.
 
@@ -90,7 +90,7 @@ const app = createAcpApp().onNotification(methods.client.session.update, ({ para
   console.log(params.update)
 })
 
-const connection = app.connect(cypheria.agent.acp)
+const connection = app.connect(cypheria)
 await connection.agent.request(methods.agent.initialize, {
   protocolVersion: PROTOCOL_VERSION,
 })
@@ -103,13 +103,13 @@ connection.close()
 await cypheria.close()
 ```
 
-`app.connectWith(cypheria.agent.acp, operation)` provides the SDK's scoped connection style. Draft
+`app.connectWith(cypheria, operation)` provides the SDK's scoped connection style. Draft
 ACP v2 is explicitly isolated:
 
 ```ts
 import { client as createAcpV2App } from "@cypheria/client/acp/v2"
 
-const connection = createAcpV2App().connect(cypheria.agent.acp)
+const connection = createAcpV2App().connect(cypheria)
 ```
 
 The v2 adapter preserves non-empty JSON-RPC batches. Only one active ACP connection is allowed per
@@ -127,7 +127,7 @@ import { createCypheriaClient } from "@cypheria/client"
 import { client as createCodexApp, methods as codexMethods } from "@cypheria/client/codex"
 
 const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
-const codex = createCodexApp().connect(cypheria.agent.codex)
+const codex = createCodexApp().connect(cypheria)
 
 const server = await cypheria.server.info()
 const runtimeInfo = await cypheria.runtime.request("runtime.info")

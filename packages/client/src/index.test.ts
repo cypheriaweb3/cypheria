@@ -1,8 +1,9 @@
 import { parseClientMessageText, stringifyProtocolMessage } from "@cypheria/protocol"
 import { afterEach, describe, expect, it } from "vitest"
 
+import { client as createAcpApp } from "./acp.js"
 import { client as createCodexApp } from "./codex.js"
-import { createCypheriaApi, createCypheriaClient } from "./index.js"
+import { type CypheriaApi, createCypheriaApi, createCypheriaClient } from "./index.js"
 import { ServerClient } from "./server-client.js"
 import { TestWebSocket, testWebSocketFactory } from "./test-websocket.js"
 
@@ -56,6 +57,21 @@ describe("Cypheria client facade", () => {
     await serverClient.close()
   })
 
+  it("accepts a borrowed CypheriaApi in both agent ClientApps", async () => {
+    const serverClient = new ServerClient({
+      clientId: "client-borrowed-agent-apps",
+      webSocketFactory: testWebSocketFactory,
+    })
+    const cypheria: CypheriaApi = createCypheriaApi(serverClient)
+
+    const codexConnection = createCodexApp().connect(cypheria)
+    const acpConnection = createAcpApp().connect(cypheria)
+
+    codexConnection.close()
+    acpConnection.close()
+    await serverClient.close()
+  })
+
   it("owns lifecycle and lazily sends the generic runtime request", async () => {
     const client = createCypheriaClient({
       clientId: "client-api",
@@ -86,7 +102,7 @@ describe("Cypheria client facade", () => {
       clientId: "client-codex",
       webSocketFactory: testWebSocketFactory,
     })
-    const connection = createCodexApp().connect(client.agent.codex)
+    const connection = createCodexApp().connect(client)
     const resultPromise = connection.codex.request("memory/reset")
     const socket = await acceptConnection(client.ensureConnected())
     await tick()
