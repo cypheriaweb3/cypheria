@@ -36,7 +36,7 @@ The default safety model is human approval. Read-only mode and conditional auto-
 - **Lint/format**: Biome
 - **UI**: shadcn-style copied components, Base UI primitives, Cypheria CSS tokens, lucide-react
 - **Cypheria client protocol**: versioned Zod contracts with metadata-assisted `bigint` transport in `@cypheria/protocol`
-- **ACP client API**: Cypheria-owned SDK-shaped `client()` / `ClientApp` APIs, backed by `@agentclientprotocol/sdk@1.4.0`, over directional WebSocket envelopes
+- **ACP client API**: Cypheria-owned SDK-shaped `client()` / `ClientApp` APIs, backed by `@agentclientprotocol/sdk@1.4.0`, over directly discriminable logical WebSocket messages
 - **Desktop agent integration**: `codex app-server` over WebSocket JSON-RPC
 - **Codex protocol types and validation**: owned by `@cypheria/protocol` and generated with `pnpm --filter @cypheria/protocol generate:codex-all`
 - **Marketplace hosting**: Cloudflare Workers, D1, R2, Queues, and Workflows

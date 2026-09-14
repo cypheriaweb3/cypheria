@@ -146,18 +146,16 @@ describe("CypheriaServer", () => {
       )
       socket.send(
         JSON.stringify({
-          payload: {
-            capabilities: [],
-            client: { id: "test-client", kind: "sdk" },
-            protocolVersion: CYPHERIA_PROTOCOL_VERSION,
-          },
-          requestId: "hello-1",
-          type: "session.hello",
+          capabilities: {},
+          clientId: "test-client",
+          clientType: "cli",
+          protocolVersion: CYPHERIA_PROTOCOL_VERSION,
+          type: "hello",
         })
       )
       await expect(response).resolves.toMatchObject({
-        requestId: "hello-1",
-        type: "session.ready",
+        message: { payload: { runtimeState: "ready" }, type: "server.status.notification" },
+        type: "session",
       })
       socket.close()
     } finally {

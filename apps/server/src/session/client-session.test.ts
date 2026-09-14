@@ -1,14 +1,21 @@
 import {
-  parseServerMessageText,
+  parseWSOutboundMessageText,
   type ServerDiagnostics,
   type ServerIdentity,
-  type ServerInfo,
+  type ServerMessage,
+  type ServerStatus,
+  stringifyProtocolMessage,
+  wrapClientSessionMessage,
 } from "@cypheria/protocol"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 
 import { DEFAULT_PERSISTED_SERVER_CONFIG } from "../persisted-config.js"
 import type { SessionHost, SessionTransport } from "./client-session.js"
-import { ConnectionRegistry } from "./connection-registry.js"
+import {
+  ConnectionRegistry,
+  OWNER_SESSION_ADMISSION,
+  type SessionAdmission,
+} from "./connection-registry.js"
 
 const identity: ServerIdentity = {
   hostname: "test",
@@ -19,20 +26,16 @@ const identity: ServerIdentity = {
 }
 
 const createFixture = () => {
-  const sent: unknown[] = []
-  const transport: SessionTransport = {
-    close: vi.fn(),
-    send: (data) => sent.push(parseServerMessageText(data)),
-  }
-  const info: ServerInfo = {
+  const status: ServerStatus = {
     ...identity,
+    capabilities: [],
     connections: 1,
     runtimeState: "ready",
     webApp: { enabled: true },
   }
   const diagnostics: ServerDiagnostics = {
     collectedAt: "2026-01-01T00:00:00.000Z",
-    connections: { acceptedTotal: 1, active: 1, rejectedTotal: 0 },
+    connections: { acceptedTotal: 1, active: 1, activeSessions: 1, rejectedTotal: 0 },
     memory: { arrayBuffers: 0, external: 0, heapTotal: 0, heapUsed: 0, rss: 0 },
     process: { pid: 1, uptimeSeconds: 1 },
     runtimeState: "ready",
@@ -45,173 +48,151 @@ const createFixture = () => {
       restartRequiredPaths: [],
     }),
     getDiagnostics: () => diagnostics,
-    getIdentity: () => identity,
-    getInfo: () => info,
-    getSessionCapabilities: () => [],
-    getState: () => ({
-      config: { path: "/tmp/server.json", restartRequired: false },
-      connections: { active: 1, retained: 0 },
-      relay: { connected: false, enabled: false },
-      runtimeState: "ready",
-      worker: { pid: 1 },
-    }),
+    getStatus: () => status,
     patchConfig: vi.fn(async () => host.getConfig()),
     reloadConfig: vi.fn(async () => host.getConfig()),
-    requestLifecycle: vi.fn(),
-    requestRuntime: vi.fn(async () => ({ ok: true })),
   }
-  const registry = new ConnectionRegistry({
-    helloTimeoutMs: 1000,
-    host,
-    reconnectGraceMs: 1000,
-  })
-  return { host, registry, sent, session: registry.accept(transport) }
+  const registry = new ConnectionRegistry({ helloTimeoutMs: 1000, host, reconnectGraceMs: 1000 })
+  const createConnection = (admission: SessionAdmission = OWNER_SESSION_ADMISSION) => {
+    const sent: Array<ServerMessage | { type: "pong" }> = []
+    const transport: SessionTransport = {
+      close: vi.fn(),
+      send: (data) => {
+        const envelope = parseWSOutboundMessageText(data)
+        sent.push(envelope.type === "session" ? envelope.message : envelope)
+      },
+    }
+    return { connection: registry.accept(transport, admission), sent, transport }
+  }
+  return { createConnection, host, registry }
 }
 
-describe("ClientSession", () => {
-  it("requires a compatible hello before handling requests", async () => {
-    const fixture = createFixture()
-    await fixture.session.receive(
-      JSON.stringify({
-        payload: {
-          capabilities: [],
-          client: { id: "web-1", kind: "web" },
-          protocolVersion: 1,
-        },
-        requestId: "hello-1",
-        type: "session.hello",
-      })
-    )
-    await fixture.session.receive(
-      JSON.stringify({
-        payload: { method: "runtime.info" },
-        requestId: "runtime-1",
-        type: "runtime.request",
-      })
-    )
-
-    expect(fixture.sent).toMatchObject([
-      { requestId: "hello-1", type: "session.ready" },
-      { payload: { result: { ok: true } }, requestId: "runtime-1", type: "runtime.response" },
-    ])
-    fixture.session.close()
+const hello = (clientId: string) =>
+  stringifyProtocolMessage({
+    capabilities: { voice: true },
+    clientId,
+    clientType: "web",
+    protocolVersion: 1,
+    type: "hello",
   })
 
-  it("retains and resumes a logical session across transport loss", async () => {
+const sessionMessage = (message: Parameters<typeof wrapClientSessionMessage>[0]) =>
+  stringifyProtocolMessage(wrapClientSessionMessage(message))
+
+afterEach(() => vi.useRealTimers())
+
+describe("ClientSession", () => {
+  it("requires hello, answers top-level ping, and handles logical messages", async () => {
     const fixture = createFixture()
-    await fixture.session.receive(
-      JSON.stringify({
-        payload: {
-          capabilities: [],
-          client: { id: "web-resume", kind: "web" },
-          protocolVersion: 1,
-        },
-        requestId: "hello-original",
-        type: "session.hello",
-      })
-    )
-    const ready = fixture.sent[0] as { payload: { sessionId: string } }
-    fixture.session.transportClosed()
-    expect(fixture.registry.diagnostics()).toMatchObject({ active: 0, retained: 1 })
-
-    const resumedMessages: unknown[] = []
-    const resumed = fixture.registry.accept({
-      close: vi.fn(),
-      send: (data) => resumedMessages.push(parseServerMessageText(data)),
-    })
-    await resumed.receive(
-      JSON.stringify({
-        payload: {
-          capabilities: [],
-          client: { id: "web-resume", kind: "web" },
-          protocolVersion: 1,
-          resumeSessionId: ready.payload.sessionId,
-        },
-        requestId: "hello-resumed",
-        type: "session.hello",
+    const client = fixture.createConnection()
+    await client.connection.receive(stringifyProtocolMessage({ type: "ping" }))
+    await client.connection.receive(hello("web-1"))
+    await client.connection.receive(
+      sessionMessage({
+        requestId: "status-1",
+        type: "server.status.request",
       })
     )
 
-    expect(resumedMessages[0]).toMatchObject({
-      payload: { resumed: true, sessionId: ready.payload.sessionId },
-      type: "session.ready",
-    })
+    expect(client.sent).toMatchObject([
+      { type: "pong" },
+      { payload: { id: "srv_test" }, type: "server.status.notification" },
+      { payload: { id: "srv_test" }, requestId: "status-1", type: "server.status.response" },
+    ])
+    client.connection.close()
+  })
+
+  it("shares one logical session across simultaneous and reconnected transports", async () => {
+    const fixture = createFixture()
+    const first = fixture.createConnection()
+    await first.connection.receive(hello("web-shared"))
+    const second = fixture.createConnection()
+    await second.connection.receive(hello("web-shared"))
+
     expect(fixture.registry.diagnostics()).toMatchObject({
-      active: 1,
+      active: 2,
+      activeSessions: 1,
       resumedTotal: 1,
       retained: 0,
     })
-    resumed.close()
-  })
-
-  it("rejects messages sent before hello", async () => {
-    const fixture = createFixture()
-    await fixture.session.receive(JSON.stringify({ requestId: "info-1", type: "server.info" }))
-    expect(fixture.sent[0]).toMatchObject({
-      payload: { code: "NOT_READY" },
-      requestId: "info-1",
-      type: "server.error",
+    fixture.registry.broadcast({
+      payload: fixture.host.getStatus(),
+      type: "server.status.notification",
     })
-  })
+    expect(first.sent.at(-1)).toMatchObject({ type: "server.status.notification" })
+    expect(second.sent.at(-1)).toMatchObject({ type: "server.status.notification" })
 
-  it("sends bigint runtime results through the protocol codec", async () => {
-    const fixture = createFixture()
-    fixture.host.requestRuntime = vi.fn(async () => ({ value: 18_446_744_073_709_551_615n }))
-    await fixture.session.receive(
-      JSON.stringify({
-        payload: {
-          capabilities: [],
-          client: { id: "web-1", kind: "web" },
-          protocolVersion: 1,
-        },
-        requestId: "hello-bigint",
-        type: "session.hello",
-      })
-    )
-    await fixture.session.receive(
-      JSON.stringify({
-        payload: { method: "wallet.balance" },
-        requestId: "runtime-bigint",
-        type: "runtime.request",
-      })
-    )
+    first.connection.transportClosed()
+    expect(fixture.registry.diagnostics()).toMatchObject({ active: 1, retained: 0 })
+    second.connection.transportClosed()
+    expect(fixture.registry.diagnostics()).toMatchObject({ active: 0, retained: 1 })
 
-    expect(fixture.sent[1]).toEqual({
-      payload: { result: { value: 18_446_744_073_709_551_615n } },
-      requestId: "runtime-bigint",
-      type: "runtime.response",
+    const replacement = fixture.createConnection()
+    await replacement.connection.receive(hello("web-shared"))
+    expect(fixture.registry.diagnostics()).toMatchObject({
+      active: 1,
+      activeSessions: 1,
+      resumedTotal: 2,
+      retained: 0,
     })
-    fixture.session.close()
+    replacement.connection.close()
   })
 
-  it("dispatches validated config and state operations", async () => {
+  it("isolates identical client IDs belonging to different principals", async () => {
     const fixture = createFixture()
-    await fixture.session.receive(
-      JSON.stringify({
-        payload: {
-          capabilities: [],
-          client: { id: "web-config", kind: "web" },
-          protocolVersion: 1,
-        },
-        requestId: "hello-config",
-        type: "session.hello",
-      })
+    const owner = fixture.createConnection({ principalId: "owner" })
+    const guest = fixture.createConnection({ principalId: "guest" })
+    await owner.connection.receive(hello("shared-id"))
+    await guest.connection.receive(hello("shared-id"))
+
+    expect(fixture.registry.diagnostics()).toMatchObject({ active: 2, activeSessions: 2 })
+    owner.connection.close()
+    guest.connection.close()
+  })
+
+  it("removes a retained logical session when its grace period expires", async () => {
+    vi.useFakeTimers()
+    const fixture = createFixture()
+    const client = fixture.createConnection()
+    await client.connection.receive(hello("web-expiring"))
+    client.connection.transportClosed()
+    expect(fixture.registry.diagnostics()).toMatchObject({ active: 0, retained: 1 })
+
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(fixture.registry.diagnostics()).toMatchObject({ active: 0, retained: 0 })
+  })
+
+  it("closes a connection that sends session messages before hello", async () => {
+    const fixture = createFixture()
+    const client = fixture.createConnection()
+    await client.connection.receive(
+      sessionMessage({ requestId: "status-1", type: "server.status.request" })
     )
-    await fixture.session.receive(
-      JSON.stringify({
+    expect(client.transport.close).toHaveBeenCalledWith(1008, "Hello required")
+    expect(client.sent).toEqual([])
+  })
+
+  it("routes correlated responses only to their physical source", async () => {
+    const fixture = createFixture()
+    const first = fixture.createConnection()
+    const second = fixture.createConnection()
+    await first.connection.receive(hello("web-routing"))
+    await second.connection.receive(hello("web-routing"))
+    await second.connection.receive(
+      sessionMessage({
         payload: { patch: { server: { listen: { port: 7788 } } } },
         requestId: "config-patch",
-        type: "server.config.patch",
+        type: "server.config.patch.request",
       })
     )
-    await fixture.session.receive(JSON.stringify({ requestId: "state", type: "server.state" }))
 
     expect(fixture.host.patchConfig).toHaveBeenCalledWith({ server: { listen: { port: 7788 } } })
-    expect(fixture.sent).toMatchObject([
-      { type: "session.ready" },
-      { requestId: "config-patch", type: "server.config.result" },
-      { requestId: "state", type: "server.state.result" },
-    ])
-    fixture.session.close()
+    expect(first.sent).toHaveLength(1)
+    expect(second.sent.at(-1)).toMatchObject({
+      requestId: "config-patch",
+      type: "server.config.patch.response",
+    })
+    first.connection.close()
+    second.connection.close()
   })
 })

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest"
+import { z } from "zod"
 
 import {
   ClientMessageSchema,
@@ -6,11 +7,18 @@ import {
   createWebSocketProtocols,
   isClientResponseMessage,
   PersistedServerConfigPatchSchema,
-  parseServerMessageText,
+  parseWSInboundMessageText,
+  parseWSOutboundMessageText,
   RuntimeMethodSchema,
   SERVER_CAPABILITIES,
   ServerMessageSchema,
+  SessionInboundMessageSchema,
+  SessionOutboundMessageSchema,
   stringifyProtocolMessage,
+  WSInboundMessageSchema,
+  WSOutboundMessageSchema,
+  wrapClientSessionMessage,
+  wrapServerSessionMessage,
 } from "./index.js"
 
 describe("Cypheria protocol", () => {
@@ -18,32 +26,26 @@ describe("Cypheria protocol", () => {
     expect(SERVER_CAPABILITIES.diagnostics).toBe("diagnostics")
   })
 
-  it("accepts a versioned session hello", () => {
-    expect(
-      ClientMessageSchema.parse({
-        type: "session.hello",
-        requestId: "hello-1",
-        payload: {
-          capabilities: ["runtime.request"],
-          client: { id: "client-1", kind: "expo" },
+  it("accepts Paseo-aligned client roles and app versions in the top-level hello", () => {
+    for (const clientType of ["desktop", "mobile", "web", "cli", "mcp", "hub"] as const) {
+      expect(
+        WSInboundMessageSchema.parse({
+          appVersion: "",
+          capabilities: { futureFeature: true },
+          clientId: `client-${clientType}`,
+          clientType,
           protocolVersion: CYPHERIA_PROTOCOL_VERSION,
-        },
-      })
-    ).toMatchObject({ type: "session.hello" })
+          type: "hello",
+        })
+      ).toMatchObject({ appVersion: "", clientType, type: "hello" })
+    }
   })
 
-  it("validates session resume and bounded server config patches", () => {
+  it("wraps logical session messages and validates bounded server config patches", () => {
     expect(
-      ClientMessageSchema.safeParse({
-        payload: {
-          capabilities: [],
-          client: { id: "client-1", kind: "expo" },
-          protocolVersion: CYPHERIA_PROTOCOL_VERSION,
-          resumeSessionId: "ses_previous",
-        },
-        requestId: "hello-resume",
-        type: "session.hello",
-      }).success
+      WSInboundMessageSchema.safeParse(
+        wrapClientSessionMessage({ requestId: "status-1", type: "server.status.request" })
+      ).success
     ).toBe(true)
     expect(
       PersistedServerConfigPatchSchema.safeParse({
@@ -57,108 +59,88 @@ describe("Cypheria protocol", () => {
     ).toBe(false)
   })
 
+  it("dispatches every logical session wire type from a flat discriminator", () => {
+    expect(SessionInboundMessageSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
+    expect(SessionOutboundMessageSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
+    expect((SessionInboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(9)
+    expect((SessionOutboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(10)
+  })
+
   it("limits runtime requests to runtime-owned namespaces", () => {
     expect(RuntimeMethodSchema.safeParse("runtime.info").success).toBe(true)
     expect(RuntimeMethodSchema.safeParse("agent.create").success).toBe(false)
   })
 
-  it("strips unknown fields from Cypheria-owned envelopes", () => {
+  it("normalizes WebSocket envelopes and session payloads", () => {
     expect(
-      ClientMessageSchema.parse({
-        type: "session.goodbye",
-        requestId: "goodbye-1",
+      WSInboundMessageSchema.parse({
+        clientId: "client-1",
+        clientType: "mobile",
+        protocolVersion: CYPHERIA_PROTOCOL_VERSION,
+        type: "hello",
         unexpected: true,
       })
-    ).toEqual({ type: "session.goodbye", requestId: "goodbye-1" })
+    ).toEqual({
+      clientId: "client-1",
+      clientType: "mobile",
+      protocolVersion: CYPHERIA_PROTOCOL_VERSION,
+      type: "hello",
+    })
     expect(
       ClientMessageSchema.parse({
-        type: "session.hello",
-        requestId: "hello-1",
-        payload: {
-          capabilities: [],
-          client: { id: "client-1", kind: "expo" },
-          protocolVersion: CYPHERIA_PROTOCOL_VERSION,
-          unexpected: true,
-        },
+        requestId: "status-1",
+        type: "server.status.request",
+        unexpected: true,
       })
-    ).toEqual({
-      type: "session.hello",
-      requestId: "hello-1",
-      payload: {
-        capabilities: [],
-        client: { id: "client-1", kind: "expo" },
-        protocolVersion: CYPHERIA_PROTOCOL_VERSION,
-      },
-    })
+    ).toEqual({ requestId: "status-1", type: "server.status.request" })
   })
 
-  it("preserves optional feature flags and accepts future server error codes", () => {
-    const ready = ServerMessageSchema.parse({
-      type: "session.ready",
-      requestId: "hello-1",
+  it("accepts open feature names on logical session messages", () => {
+    const status = ServerMessageSchema.parse({
       payload: {
         capabilities: [],
+        connections: 1,
         features: { futureFeature: true },
-        server: {
-          hostname: "test",
-          id: "server-1",
-          protocolVersion: CYPHERIA_PROTOCOL_VERSION,
-          startedAt: "2026-09-12T00:00:00.000Z",
-          version: "0.0.0",
-        },
-        sessionId: "session-1",
+        hostname: "test",
+        id: "srv_test",
+        protocolVersion: CYPHERIA_PROTOCOL_VERSION,
+        runtimeState: "ready",
+        startedAt: "2026-01-01T00:00:00.000Z",
+        version: "0.0.0",
+        webApp: { enabled: false },
       },
+      type: "server.status.notification",
     })
-    if (ready.type !== "session.ready") throw new Error("Expected session ready")
-    expect(ready.payload.features).toEqual({ futureFeature: true })
-
-    expect(
-      ServerMessageSchema.safeParse({
-        type: "server.error",
-        requestId: "request-1",
-        payload: { code: "FUTURE_ERROR_CODE", message: "new diagnostic" },
-      }).success
-    ).toBe(true)
+    if (status.type !== "server.status.notification") throw new Error("Expected server status")
+    expect(status.payload.features).toEqual({ futureFeature: true })
   })
 
-  it("defines terminal client RPC errors and classifies only actual responses", () => {
-    expect(
-      ClientMessageSchema.safeParse({
-        type: "client.error",
-        requestId: "reverse-1",
-        payload: {
-          code: "REQUEST_NOT_SUPPORTED",
-          message: "No handler",
-          requestType: "agent.codex.current_time.read.request",
-        },
-      }).success
-    ).toBe(true)
-
-    const reverseRequest = ServerMessageSchema.parse({
-      type: "agent.codex.current_time.read.request",
-      requestId: "colliding-id",
+  it("distinguishes correlated responses from reverse RPCs", () => {
+    const reverse = ServerMessageSchema.parse({
+      requestId: "same-id",
       threadId: "thread-1",
+      type: "agent.codex.current_time.read.request",
     })
     const response = ServerMessageSchema.parse({
-      type: "runtime.response",
-      requestId: "request-1",
-      payload: { result: null },
+      payload: {
+        capabilities: [],
+        connections: 1,
+        hostname: "test",
+        id: "srv_test",
+        protocolVersion: CYPHERIA_PROTOCOL_VERSION,
+        runtimeState: "ready",
+        startedAt: "2026-01-01T00:00:00.000Z",
+        version: "0.0.0",
+        webApp: { enabled: false },
+      },
+      requestId: "same-id",
+      type: "server.status.response",
     })
-    expect(isClientResponseMessage(reverseRequest)).toBe(false)
+    expect(isClientResponseMessage(reverse)).toBe(false)
     expect(isClientResponseMessage(response)).toBe(true)
   })
 
-  it("validates correlated server responses", () => {
-    expect(
-      ServerMessageSchema.safeParse({
-        type: "runtime.response",
-        requestId: "request-1",
-        payload: { result: { ok: true } },
-      }).success
-    ).toBe(true)
-  })
-
-  it("builds the version and optional bearer subprotocols", () => {
+  it("builds the versioned WebSocket subprotocol list", () => {
     expect(createWebSocketProtocols()).toEqual(["cypheria.v1"])
     expect(createWebSocketProtocols("token_123")).toEqual([
       "cypheria.v1",
@@ -166,26 +148,25 @@ describe("Cypheria protocol", () => {
     ])
   })
 
-  it("round-trips bigint values in Cypheria runtime payloads", () => {
-    const message = {
-      type: "runtime.response",
-      requestId: "request-bigint",
-      payload: { result: { value: 18_446_744_073_709_551_615n } },
-    } as const
-
-    const encoded = stringifyProtocolMessage(message)
-
-    expect(JSON.parse(encoded)).toMatchObject({ $cypheria: "cypheria.superjson.v1" })
-    expect(parseServerMessageText(encoded)).toEqual(message)
-  })
-
-  it("keeps ordinary protocol messages as plain JSON", () => {
-    const message = {
-      type: "runtime.response",
-      requestId: "request-json",
-      payload: { result: { ok: true } },
-    } as const
-
-    expect(JSON.parse(stringifyProtocolMessage(message))).toEqual(message)
+  it("round-trips top-level ping and session envelopes", () => {
+    expect(parseWSInboundMessageText(stringifyProtocolMessage({ type: "ping" }))).toEqual({
+      type: "ping",
+    })
+    const envelope = wrapServerSessionMessage({
+      payload: {
+        capabilities: [],
+        connections: 1,
+        hostname: "test",
+        id: "srv_test",
+        protocolVersion: CYPHERIA_PROTOCOL_VERSION,
+        runtimeState: "ready",
+        startedAt: "2026-01-01T00:00:00.000Z",
+        version: "0.0.0",
+        webApp: { enabled: false },
+      },
+      type: "server.status.notification",
+    })
+    expect(WSOutboundMessageSchema.parse(envelope)).toEqual(envelope)
+    expect(parseWSOutboundMessageText(stringifyProtocolMessage(envelope))).toEqual(envelope)
   })
 })

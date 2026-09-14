@@ -106,7 +106,7 @@ func TestRelayRejectsPlaintextFirstClientFrame(t *testing.T) {
 	}
 	data := dialRelay(t, server.URL, url.Values{"connectionId": {connected.ConnectionID}, "serverId": {"srv"}, "role": {"server"}, "v": {"2"}})
 	defer data.CloseNow()
-	if err := client.Write(context.Background(), websocket.MessageText, []byte(`{"type":"session.hello"}`)); err != nil {
+	if err := client.Write(context.Background(), websocket.MessageText, []byte(`{"type":"hello","clientId":"client-test","clientType":"cli","protocolVersion":1}`)); err != nil {
 		t.Fatal(err)
 	}
 	_, _, err = data.Read(context.Background())

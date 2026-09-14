@@ -12,8 +12,8 @@ import {
   type ServerConfigSnapshot,
   type ServerDiagnostics,
   type ServerIdentity,
-  type ServerInfo,
   type ServerOperationalState,
+  type ServerStatus,
 } from "@cypheria/protocol"
 import {
   CypheriaRuntime,
@@ -63,7 +63,6 @@ export class CypheriaServer implements HttpAppHost {
   readonly runtime: CypheriaRuntime
 
   #address: CypheriaServerAddress | undefined
-  #eventPump: Promise<void> | undefined
   #httpServer: HttpServer | undefined
   #identity: ServerIdentity | undefined
   #lifecycleHandler: ((request: ServerLifecycleRequest) => void) | undefined
@@ -140,7 +139,6 @@ export class CypheriaServer implements HttpAppHost {
         this.#relayConnection.start()
       }
 
-      this.#eventPump = this.#broadcastRuntimeEvents()
       const app = createHttpApp({
         config: this.config,
         host: this,
@@ -185,8 +183,6 @@ export class CypheriaServer implements HttpAppHost {
       if (this.#webSocketHeartbeat) clearInterval(this.#webSocketHeartbeat)
       this.#webSocketServer?.close()
       await Promise.allSettled([this.#closeHttpListener(), this.runtime.stop()])
-      await this.#eventPump
-      this.#eventPump = undefined
       this.#identity = undefined
       this.#webSocketServer = undefined
       this.#webSocketHeartbeat = undefined
@@ -205,9 +201,10 @@ export class CypheriaServer implements HttpAppHost {
     return this.#identity
   }
 
-  getInfo(): ServerInfo {
+  getStatus(): ServerStatus {
     return {
       ...this.getIdentity(),
+      capabilities: this.getSessionCapabilities(),
       connections: this.registry.size,
       runtimeState: this.runtime.lifecycleState,
       webApp: { enabled: this.config.webAppEnabled },
@@ -231,14 +228,7 @@ export class CypheriaServer implements HttpAppHost {
   }
 
   getSessionCapabilities(): string[] {
-    return [
-      SERVER_CAPABILITIES.config,
-      SERVER_CAPABILITIES.diagnostics,
-      SERVER_CAPABILITIES.lifecycle,
-      SERVER_CAPABILITIES.runtimeEvents,
-      SERVER_CAPABILITIES.runtimeRequest,
-      SERVER_CAPABILITIES.state,
-    ]
+    return [SERVER_CAPABILITIES.config, SERVER_CAPABILITIES.diagnostics, SERVER_CAPABILITIES.status]
   }
 
   getState(): ServerOperationalState {
@@ -250,6 +240,7 @@ export class CypheriaServer implements HttpAppHost {
       },
       connections: {
         active: this.registry.size,
+        activeSessions: this.registry.activeSessions,
         retained: this.registry.retained,
       },
       relay: {
@@ -306,8 +297,6 @@ export class CypheriaServer implements HttpAppHost {
     this.#webSocketServer = undefined
 
     const results = await Promise.allSettled([this.#closeHttpListener(), this.runtime.stop()])
-    await this.#eventPump
-    this.#eventPump = undefined
     this.#identity = undefined
     const failures = results.filter((result) => result.status === "rejected")
     if (failures.length > 0) {
@@ -335,12 +324,6 @@ export class CypheriaServer implements HttpAppHost {
         else resolve()
       })
     })
-  }
-
-  async #broadcastRuntimeEvents(): Promise<void> {
-    for await (const event of this.runtime.events()) {
-      this.registry.broadcast({ payload: { event }, type: "runtime.event" })
-    }
   }
 
   #startWebSocketHeartbeat(webSocketServer: WebSocketServer): NodeJS.Timeout {

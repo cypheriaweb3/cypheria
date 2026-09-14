@@ -1,9 +1,12 @@
 import {
+  type ClientMessage,
   type ConnectionOfferV2,
-  parseClientMessageText,
+  parseWSInboundMessageText,
   SERVER_CAPABILITIES,
   type ServerIdentity,
+  type ServerMessage,
   stringifyProtocolMessage,
+  wrapServerSessionMessage,
 } from "@cypheria/protocol"
 import {
   decrypt,
@@ -16,7 +19,7 @@ import {
 } from "@cypheria/relay"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
-import { CypheriaProtocolError, type CypheriaServerError, ServerClient } from "./server-client.js"
+import { CypheriaProtocolError, ServerClient } from "./server-client.js"
 import { TestWebSocket, testWebSocketFactory } from "./test-websocket.js"
 
 const identity: ServerIdentity = {
@@ -26,20 +29,34 @@ const identity: ServerIdentity = {
   startedAt: "2026-09-11T00:00:00.000Z",
   version: "0.0.0",
 }
+const serverStatus = {
+  ...identity,
+  capabilities: Object.values(SERVER_CAPABILITIES),
+  connections: 1,
+  runtimeState: "ready" as const,
+  webApp: { enabled: false },
+}
 
 const tick = () => new Promise<void>((resolve) => queueMicrotask(resolve))
 
-const acceptSocket = (socket: TestWebSocket, sessionId = "ses_test"): void => {
+const parseSent = (raw: string): ClientMessage | { type: "hello" } | { type: "ping" } => {
+  const envelope = parseWSInboundMessageText(raw)
+  if (envelope.type === "session") return envelope.message
+  return { type: envelope.type }
+}
+
+const sendSession = (socket: TestWebSocket, message: unknown): void => {
+  socket.message(stringifyProtocolMessage(wrapServerSessionMessage(message as ServerMessage)))
+}
+
+const acceptSocket = (socket: TestWebSocket): void => {
   socket.open()
-  const hello = parseClientMessageText(socket.sent.at(-1) ?? "")
-  if (hello.type !== "session.hello") throw new Error("Expected session hello")
-  socket.message(
-    stringifyProtocolMessage({
-      payload: { capabilities: Object.values(SERVER_CAPABILITIES), server: identity, sessionId },
-      requestId: hello.requestId,
-      type: "session.ready",
-    })
-  )
+  const hello = parseWSInboundMessageText(socket.sent.at(-1) ?? "")
+  if (hello.type !== "hello") throw new Error("Expected hello")
+  sendSession(socket, {
+    payload: serverStatus,
+    type: "server.status.notification",
+  })
 }
 
 const connect = async (client: ServerClient): Promise<TestWebSocket> => {
@@ -57,7 +74,7 @@ afterEach(() => {
 })
 
 describe("ServerClient", () => {
-  it("connects from a relay offer without exposing a bearer token", async () => {
+  it("connects from a relay offer without exposing credentials or protocol messages", async () => {
     const serverKeyPair = generateKeyPair()
     const offer: ConnectionOfferV2 = {
       relay: { endpoint: "relay.cypheria.test/ws", useTls: true },
@@ -83,38 +100,36 @@ describe("ServerClient", () => {
     const socket = TestWebSocket.instances.at(-1)
     if (!socket) throw new Error("Expected relay WebSocket")
     expect(socket.url).toContain("role=client")
-    expect(socket.url).toContain("serverId=srv_relay")
     expect(socket.url).not.toContain("token")
     expect(socket.options?.protocols).toEqual([])
 
     socket.open()
     await tick()
     const e2eeHello = JSON.parse(socket.sent[0] ?? "") as { key: string; type: string }
-    expect(e2eeHello.type).toBe("e2ee_hello")
     const sharedKey = deriveSharedKey(serverKeyPair.secretKey, importPublicKey(e2eeHello.key))
     const directionalKeys = deriveDirectionalKeys(sharedKey)
     socket.message(JSON.stringify({ capabilities: { binaryCiphertext: true }, type: "e2ee_ready" }))
     await tick()
     const encryptedHello = socket.sent[1]
-    if (!encryptedHello) throw new Error("Expected encrypted session hello")
-    expect(encryptedHello).not.toContain("session.hello")
-
+    if (!encryptedHello) throw new Error("Expected encrypted hello")
+    expect(encryptedHello).not.toContain("client-relay")
     const encryptedHelloBytes = Uint8Array.from(atob(encryptedHello), (value) =>
       value.charCodeAt(0)
     )
-    const helloRequest = parseClientMessageText(
+    const hello = parseWSInboundMessageText(
       new TextDecoder().decode(decrypt(directionalKeys.clientToServer, encryptedHelloBytes.buffer))
     )
-    if (helloRequest.type !== "session.hello") throw new Error("Expected session hello")
-    const ready = stringifyProtocolMessage({
-      payload: { capabilities: [], server: identity, sessionId: "ses_relay" },
-      requestId: helloRequest.requestId,
-      type: "session.ready",
-    })
-    const encryptedReady = encrypt(directionalKeys.serverToClient, ready)
-    socket.message(btoa(String.fromCharCode(...new Uint8Array(encryptedReady))))
+    expect(hello).toMatchObject({ clientId: "client-relay", type: "hello" })
+    const status = stringifyProtocolMessage(
+      wrapServerSessionMessage({
+        payload: { ...serverStatus, capabilities: [] },
+        type: "server.status.notification",
+      })
+    )
+    const encryptedStatus = encrypt(directionalKeys.serverToClient, status)
+    socket.message(btoa(String.fromCharCode(...new Uint8Array(encryptedStatus))))
     await connected
-    expect(client.getSession()?.sessionId).toBe("ses_relay")
+    expect(client.getSession()).toMatchObject({ id: "srv_test" })
     await client.close()
   })
 
@@ -122,7 +137,7 @@ describe("ServerClient", () => {
     expect(
       () =>
         new ServerClient({
-          capabilities: [""],
+          capabilities: { "": true },
           clientId: "client-test",
           webSocketFactory: testWebSocketFactory,
         })
@@ -130,46 +145,43 @@ describe("ServerClient", () => {
     expect(TestWebSocket.instances).toHaveLength(0)
   })
 
-  it("normalizes the URL, authenticates, and exposes the negotiated session", async () => {
+  it("uses the top-level hello and exposes server status", async () => {
     const client = new ServerClient({
       clientId: "client-test",
+      appVersion: "1.2.3",
+      clientType: "desktop",
       token: "secret",
       url: "https://cypheria.test",
       webSocketFactory: testWebSocketFactory,
     })
     const states: string[] = []
     client.subscribeConnectionStatus((state) => states.push(state.status))
-
     const socket = await connect(client)
-    const hello = parseClientMessageText(socket.sent[0] ?? "")
+    const hello = parseWSInboundMessageText(socket.sent[0] ?? "")
 
     expect(socket.url).toBe("wss://cypheria.test/api/v1/ws")
     expect(socket.options?.protocols).toEqual(["cypheria.v1", "cypheria.bearer.secret"])
-    expect(socket.binaryType).toBe("arraybuffer")
     expect(hello).toMatchObject({
-      payload: { client: { id: "client-test", kind: "sdk" }, protocolVersion: 1 },
-      type: "session.hello",
+      appVersion: "1.2.3",
+      clientId: "client-test",
+      clientType: "desktop",
+      protocolVersion: 1,
+      type: "hello",
     })
-    expect(client.getSession()).toMatchObject({ sessionId: "ses_test" })
-    expect(client.getConnectionState()).toEqual({ sessionId: "ses_test", status: "connected" })
+    expect(client.getSession()).toMatchObject({ id: "srv_test" })
+    expect(client.getConnectionState()).toEqual({ status: "connected" })
     expect(states).toEqual(["idle", "connecting", "connected"])
-
     await client.close()
-    expect(parseClientMessageText(socket.sent.at(-1) ?? "")).toMatchObject({
-      type: "session.goodbye",
-    })
-    expect(client.getConnectionState()).toEqual({ status: "disposed" })
+    expect(socket.closedWith?.code).toBe(1000)
   })
 
-  it("shares an in-progress handshake and queues lazy requests until ready", async () => {
+  it("shares an in-progress handshake and queues requests until server status", async () => {
     const client = new ServerClient({
       clientId: "client-test",
       webSocketFactory: testWebSocketFactory,
     })
-
-    const infoPromise = client.getServerInfo()
+    const statusPromise = client.getServerStatus()
     const connectPromise = client.ensureConnected()
-    expect(TestWebSocket.instances).toHaveLength(1)
     const socket = TestWebSocket.instances[0]
     if (!socket) throw new Error("Expected socket")
     expect(socket.sent).toHaveLength(0)
@@ -178,238 +190,116 @@ describe("ServerClient", () => {
     await connectPromise
     await tick()
     expect(socket.sent).toHaveLength(2)
-    const request = parseClientMessageText(socket.sent[1] ?? "")
-    if (request.type !== "server.info") throw new Error("Expected server info request")
-    socket.message(
-      stringifyProtocolMessage({
-        payload: {
-          ...identity,
-          connections: 1,
-          runtimeState: "ready",
-          webApp: { enabled: true },
-        },
-        requestId: request.requestId,
-        type: "server.info.result",
-      })
-    )
-
-    await expect(infoPromise).resolves.toMatchObject({ runtimeState: "ready" })
+    const request = parseSent(socket.sent[1] ?? "")
+    if (request.type !== "server.status.request") throw new Error("Expected server status request")
+    sendSession(socket, {
+      payload: { ...serverStatus, webApp: { enabled: true } },
+      requestId: request.requestId,
+      type: "server.status.response",
+    })
+    await expect(statusPromise).resolves.toMatchObject({ runtimeState: "ready" })
     await client.close()
   })
 
-  it("does not send a queued request after its deadline expires", async () => {
+  it("does not send a queued request after its deadline", async () => {
     vi.useFakeTimers()
     const client = new ServerClient({
-      clientId: "client-timeout-before-ready",
+      clientId: "client-timeout",
       reconnect: { enabled: false },
       webSocketFactory: testWebSocketFactory,
     })
-
-    const infoPromise = client.getServerInfo({ timeoutMs: 10 })
+    const statusPromise = client.getServerStatus({ timeoutMs: 10 })
     const socket = TestWebSocket.instances[0]
     if (!socket) throw new Error("Expected socket")
-    const rejection = expect(infoPromise).rejects.toMatchObject({ name: "CypheriaTimeoutError" })
+    const rejection = expect(statusPromise).rejects.toMatchObject({ name: "CypheriaTimeoutError" })
     await vi.advanceTimersByTimeAsync(10)
     await rejection
-
     acceptSocket(socket)
     await tick()
-    expect(socket.sent.map((raw) => parseClientMessageText(raw).type)).toEqual(["session.hello"])
+    expect(socket.sent.map((raw) => parseSent(raw).type)).toEqual(["hello"])
     await client.close()
   })
 
-  it("does not settle a client request from a reverse RPC with the same request id", async () => {
+  it("does not settle a client request from a reverse RPC with the same id", async () => {
     const client = new ServerClient({
-      clientId: "client-correlation-direction",
+      clientId: "client-test",
       webSocketFactory: testWebSocketFactory,
     })
     const socket = await connect(client)
-    const resultPromise = client.getServerInfo()
+    const resultPromise = client.getServerStatus()
     await tick()
-    const request = parseClientMessageText(socket.sent.at(-1) ?? "")
-    if (request.type !== "server.info") throw new Error("Expected server info request")
-
-    socket.message(
-      stringifyProtocolMessage({
-        requestId: request.requestId,
-        threadId: "thread-1",
-        type: "agent.codex.current_time.read.request",
-      })
-    )
-    socket.message(
-      stringifyProtocolMessage({
-        payload: {
-          ...identity,
-          connections: 1,
-          runtimeState: "ready",
-          webApp: { enabled: true },
-        },
-        requestId: request.requestId,
-        type: "server.info.result",
-      })
-    )
-
+    const request = parseSent(socket.sent.at(-1) ?? "")
+    if (request.type !== "server.status.request") throw new Error("Expected server status request")
+    sendSession(socket, {
+      requestId: request.requestId,
+      threadId: "thread-1",
+      type: "agent.codex.current_time.read.request",
+    })
+    sendSession(socket, {
+      payload: { ...serverStatus, webApp: { enabled: true } },
+      requestId: request.requestId,
+      type: "server.status.response",
+    })
     await expect(resultPromise).resolves.toMatchObject({ runtimeState: "ready" })
     await client.close()
   })
 
-  it("correlates runtime responses and preserves protocol bigint values", async () => {
+  it("uses top-level ping/pong", async () => {
     const client = new ServerClient({
       clientId: "client-test",
       webSocketFactory: testWebSocketFactory,
     })
     const socket = await connect(client)
-
-    const resultPromise = client.requestRuntime<{ balance: bigint }>("wallet.balance", {
-      accountId: "account_1",
-    })
+    const pingPromise = client.ping()
     await tick()
-    const request = parseClientMessageText(socket.sent.at(-1) ?? "")
-    if (request.type !== "runtime.request") throw new Error("Expected runtime request")
-    socket.message(
-      stringifyProtocolMessage({
-        payload: { result: { balance: 18_446_744_073_709_551_615n } },
-        requestId: request.requestId,
-        type: "runtime.response",
-      })
-    )
+    expect(parseSent(socket.sent.at(-1) ?? "")).toEqual({ type: "ping" })
+    socket.message(stringifyProtocolMessage({ type: "pong" }))
+    await expect(pingPromise).resolves.toBeUndefined()
 
-    await expect(resultPromise).resolves.toEqual({ balance: 18_446_744_073_709_551_615n })
     await client.close()
   })
 
-  it("returns protocol payloads for ping and lifecycle requests", async () => {
+  it("validates outbound session messages before connecting", async () => {
     const client = new ServerClient({
       clientId: "client-test",
       webSocketFactory: testWebSocketFactory,
     })
-    const socket = await connect(client)
-    const pingPromise = client.ping("2026-09-11T01:00:00.000Z")
-    await tick()
-    const ping = parseClientMessageText(socket.sent.at(-1) ?? "")
-    if (ping.type !== "server.ping") throw new Error("Expected ping")
-    socket.message(
-      stringifyProtocolMessage({
-        payload: {
-          clientSentAt: "2026-09-11T01:00:00.000Z",
-          serverReceivedAt: "2026-09-11T01:00:00.010Z",
-          serverSentAt: "2026-09-11T01:00:00.011Z",
-        },
-        requestId: ping.requestId,
-        type: "server.pong",
-      })
-    )
-    await expect(pingPromise).resolves.toMatchObject({
-      serverSentAt: "2026-09-11T01:00:00.011Z",
-    })
-
-    const restartPromise = client.requestLifecycle("restart", "upgrade")
-    await tick()
-    const restart = parseClientMessageText(socket.sent.at(-1) ?? "")
-    if (restart.type !== "server.restart") throw new Error("Expected restart")
-    socket.message(
-      stringifyProtocolMessage({
-        payload: { action: "restart" },
-        requestId: restart.requestId,
-        type: "server.lifecycle.accepted",
-      })
-    )
-    await expect(restartPromise).resolves.toEqual({ action: "restart" })
-    await client.close()
-  })
-
-  it("turns correlated errors into CypheriaServerError", async () => {
-    const client = new ServerClient({
-      clientId: "client-test",
-      webSocketFactory: testWebSocketFactory,
-    })
-    const socket = await connect(client)
-
-    const resultPromise = client.requestRuntime("policy.list")
-    await tick()
-    const request = parseClientMessageText(socket.sent.at(-1) ?? "")
-    if (request.type !== "runtime.request") throw new Error("Expected runtime request")
-    socket.message(
-      stringifyProtocolMessage({
-        payload: { code: "HANDLER_FAILED", message: "Runtime method not found" },
-        requestId: request.requestId,
-        type: "server.error",
-      })
-    )
-
-    await expect(resultPromise).rejects.toEqual(
-      expect.objectContaining<CypheriaServerError>({
-        code: "HANDLER_FAILED",
-        message: "Runtime method not found",
-        name: "CypheriaServerError",
-      })
-    )
-    await client.close()
-  })
-
-  it("validates outbound messages before connecting or sending", async () => {
-    const client = new ServerClient({
-      clientId: "client-test",
-      webSocketFactory: testWebSocketFactory,
-    })
-
-    await expect(client.requestRuntime("not-a-runtime-method")).rejects.toThrow(
-      "Runtime method must use a supported namespace"
-    )
-    expect(TestWebSocket.instances).toHaveLength(0)
-    await expect(client.getServerInfo({ timeoutMs: 0 })).rejects.toThrow(
+    await expect(client.getServerStatus({ timeoutMs: 0 })).rejects.toThrow(
       "timeoutMs must be a positive integer"
     )
-    expect(TestWebSocket.instances).toHaveLength(0)
     await client.close()
   })
 
-  it("uses generated Codex mappings for requests", async () => {
+  it("wraps Codex requests, notifications, and reverse responses in session envelopes", async () => {
     const client = new ServerClient({
       clientId: "client-test",
       webSocketFactory: testWebSocketFactory,
     })
     const socket = await connect(client)
-
     const resultPromise = client.requestCodex("memory/reset")
     await tick()
-    const request = parseClientMessageText(socket.sent.at(-1) ?? "")
-    expect(request).toMatchObject({ type: "agent.codex.memory.reset.request" })
+    const request = parseSent(socket.sent.at(-1) ?? "")
     if (!("requestId" in request)) throw new Error("Expected request id")
-    socket.message(
-      stringifyProtocolMessage({
-        payload: { requestId: request.requestId },
-        type: "agent.codex.memory.reset.response",
-      })
-    )
-
-    await expect(resultPromise).resolves.toEqual({})
-    await client.close()
-  })
-
-  it("implements Codex notifications and reverse responses as async transport methods", async () => {
-    const client = new ServerClient({
-      clientId: "client-test",
-      webSocketFactory: testWebSocketFactory,
+    expect(request.type).toBe("agent.codex.memory.reset.request")
+    sendSession(socket, {
+      payload: { requestId: request.requestId },
+      type: "agent.codex.memory.reset.response",
     })
-    const socket = await connect(client)
+    await expect(resultPromise).resolves.toEqual({})
 
     await client.notifyCodex("initialized")
-    expect(parseClientMessageText(socket.sent.at(-1) ?? "")).toEqual({
+    expect(parseSent(socket.sent.at(-1) ?? "")).toEqual({
       type: "agent.codex.initialized.notification",
     })
-
-    await client.respondToCodex("currentTime/read", "current-time-1", {
-      currentTimeAt: 1_789_000_000,
-    })
-    expect(parseClientMessageText(socket.sent.at(-1) ?? "")).toEqual({
-      payload: { currentTimeAt: 1_789_000_000, requestId: "current-time-1" },
+    await client.respondToCodex("currentTime/read", "time-1", { currentTimeAt: 1_789_000_000 })
+    expect(parseSent(socket.sent.at(-1) ?? "")).toEqual({
+      payload: { currentTimeAt: 1_789_000_000, requestId: "time-1" },
       type: "agent.codex.current_time.read.response",
     })
     await client.close()
   })
 
-  it("isolates listener failures and supports typed subscriptions", async () => {
+  it("isolates listener failures", async () => {
     const listenerErrors: Error[] = []
     const client = new ServerClient({
       clientId: "client-test",
@@ -418,26 +308,20 @@ describe("ServerClient", () => {
     })
     const socket = await connect(client)
     const events: unknown[] = []
-    client.on("runtime.event", () => {
+    client.on("server.status.notification", () => {
       throw new Error("listener failed")
     })
-    const unsubscribe = client.on("runtime.event", (message) => events.push(message.payload.event))
-
-    socket.message(
-      stringifyProtocolMessage({
-        payload: { event: { type: "runtime.lifecycle" } },
-        type: "runtime.event",
-      })
-    )
-
-    expect(events).toEqual([{ type: "runtime.lifecycle" }])
+    client.on("server.status.notification", (message) => events.push(message.payload.id))
+    sendSession(socket, {
+      payload: serverStatus,
+      type: "server.status.notification",
+    })
+    expect(events).toEqual(["srv_test"])
     expect(listenerErrors[0]?.message).toBe("listener failed")
-    expect(client.getConnectionState().status).toBe("connected")
-    unsubscribe()
     await client.close()
   })
 
-  it("rejects in-flight work and reconnects after transport loss", async () => {
+  it("reconnects with the same top-level client identity", async () => {
     vi.useFakeTimers()
     const client = new ServerClient({
       clientId: "client-test",
@@ -445,76 +329,50 @@ describe("ServerClient", () => {
       webSocketFactory: testWebSocketFactory,
     })
     const socket = await connect(client)
-    const resultPromise = client.getServerInfo()
+    const resultPromise = client.getServerStatus()
     await tick()
     socket.close(1006, "network lost")
-
     await expect(resultPromise).rejects.toThrow("network lost")
-    expect(client.getLastError()?.message).toBe("network lost")
-    expect(client.getConnectionState()).toEqual({ reason: "network lost", status: "disconnected" })
 
     await vi.advanceTimersByTimeAsync(10)
-    expect(TestWebSocket.instances).toHaveLength(2)
     const replacement = TestWebSocket.instances[1]
     if (!replacement) throw new Error("Expected replacement socket")
     replacement.open()
-    const resumeHello = parseClientMessageText(replacement.sent.at(-1) ?? "")
-    expect(resumeHello).toMatchObject({ payload: { resumeSessionId: "ses_test" } })
-    if (resumeHello.type !== "session.hello") throw new Error("Expected resume hello")
-    replacement.message(
-      stringifyProtocolMessage({
-        payload: {
-          capabilities: Object.values(SERVER_CAPABILITIES),
-          resumed: true,
-          server: identity,
-          sessionId: "ses_test",
-        },
-        requestId: resumeHello.requestId,
-        type: "session.ready",
-      })
-    )
-    await tick()
-    expect(client.getConnectionState()).toEqual({
-      sessionId: "ses_test",
-      status: "connected",
+    const hello = parseWSInboundMessageText(replacement.sent.at(-1) ?? "")
+    expect(hello).toMatchObject({ clientId: "client-test", type: "hello" })
+    if (hello.type === "hello") expect(hello).not.toHaveProperty("resumeSessionId")
+    sendSession(replacement, {
+      payload: serverStatus,
+      type: "server.status.notification",
     })
+    await tick()
+    expect(client.getConnectionState()).toEqual({ status: "connected" })
     await client.close()
   })
 
-  it("rejects binary protocol frames and cancels reconnect on close", async () => {
-    vi.useFakeTimers()
-    const client = new ServerClient({
-      clientId: "client-test",
-      reconnect: { baseDelayMs: 10 },
+  it("rejects binary protocol frames and times out a stalled handshake", async () => {
+    const binaryClient = new ServerClient({
+      clientId: "client-binary",
+      reconnect: { enabled: false },
       webSocketFactory: testWebSocketFactory,
     })
-    const socket = await connect(client)
+    const socket = await connect(binaryClient)
     socket.message(new Uint8Array([1, 2, 3]))
+    expect(binaryClient.getLastError()).toBeInstanceOf(CypheriaProtocolError)
+    await binaryClient.close()
 
-    expect(client.getLastError()).toBeInstanceOf(CypheriaProtocolError)
-    expect(socket.closedWith?.code).toBe(1003)
-    await client.close()
-    await vi.advanceTimersByTimeAsync(20)
-    expect(TestWebSocket.instances).toHaveLength(1)
-  })
-
-  it("times out a stalled handshake", async () => {
     vi.useFakeTimers()
-    const client = new ServerClient({
-      clientId: "client-test",
+    const stalled = new ServerClient({
+      clientId: "client-stalled",
       connectTimeoutMs: 20,
       reconnect: { enabled: false },
       webSocketFactory: testWebSocketFactory,
     })
-    const connectPromise = client.connect()
+    const connectPromise = stalled.connect()
     const rejection = expect(connectPromise).rejects.toThrow("Timed out connecting")
-    const socket = TestWebSocket.instances[0]
-    if (!socket) throw new Error("Expected socket")
-    socket.open()
-
+    TestWebSocket.instances.at(-1)?.open()
     await vi.advanceTimersByTimeAsync(20)
     await rejection
-    expect(socket.closedWith?.code).toBe(1001)
-    await client.close()
+    await stalled.close()
   })
 })

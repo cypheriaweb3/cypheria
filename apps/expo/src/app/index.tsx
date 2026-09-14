@@ -31,9 +31,9 @@ export default function HomeScreen() {
             <View style={styles.rule} />
             <Text style={styles.label}>SERVER</Text>
             <Text style={styles.value}>{server.state}</Text>
-            {server.info ? (
+            {server.status ? (
               <Text style={styles.detail}>
-                {server.info.id} · runtime {server.info.runtimeState}
+                {server.status.id} · runtime {server.status.runtimeState}
               </Text>
             ) : null}
             {server.error ? <Text style={styles.error}>{server.error}</Text> : null}

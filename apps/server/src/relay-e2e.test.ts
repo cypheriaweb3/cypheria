@@ -116,15 +116,9 @@ describe("Cypheria relay end to end", () => {
         webSocketFactory: (url) => new WebSocket(url) as never,
       })
       await client.connect()
-      await expect(client.server.ping()).resolves.toMatchObject({
-        serverSentAt: expect.any(String),
-      })
-      await expect(client.server.info()).resolves.toMatchObject({ id: pairing.offer.serverId })
-      await expect(client.runtime.request("runtime.info")).resolves.toMatchObject({
-        lifecycleState: "ready",
-      })
+      await expect(client.server.ping()).resolves.toBeUndefined()
+      await expect(client.server.status()).resolves.toMatchObject({ id: pairing.offer.serverId })
 
-      const originalSessionId = client.getSession()?.sessionId
       const disconnected = new Promise<void>((resolve) => {
         const unsubscribe = client.subscribeConnectionStatus((state) => {
           if (state.status === "disconnected") {
@@ -146,17 +140,19 @@ describe("Cypheria relay end to end", () => {
         }
       })
       await waitFor(async () => {
-        if (client.getConnectionState().status !== "connected") return false
-        return client.getSession()?.sessionId === originalSessionId
+        return client.getConnectionState().status === "connected"
       })
-      expect(client.getSession()?.resumed).toBe(true)
-      await expect(client.server.ping()).resolves.toMatchObject({
-        serverSentAt: expect.any(String),
+      const diagnostics = await fetch(`${address.url}/api/v1/diagnostics`, {
+        headers: { authorization: `Bearer ${token}` },
       })
+      await expect(diagnostics.json()).resolves.toMatchObject({
+        connections: { resumedTotal: 1 },
+      })
+      await expect(client.server.ping()).resolves.toBeUndefined()
       await client.close()
 
       expect(relayOutput).not.toContain(token)
-      expect(relayOutput).not.toContain("session.hello")
+      expect(relayOutput).not.toContain("relay-e2e-client")
     } finally {
       await server?.stop("Relay E2E complete")
       relayProcess?.kill("SIGTERM")

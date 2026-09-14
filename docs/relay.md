@@ -52,9 +52,9 @@ sequenceDiagram
     S->>R: e2ee_ready
     R->>C: Forward opaque ready
     Note over C,S: X25519 plus direction-separated encrypted channel established
-    C->>R: Encrypted session.hello
+    C->>R: Encrypted top-level hello
     R->>S: Forward ciphertext
-    S->>R: Encrypted session.ready and later messages
+    S->>R: Encrypted session(server.status.notification) and later envelopes
     R->>C: Forward ciphertext
 ```
 

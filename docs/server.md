@@ -36,23 +36,23 @@ cypheria-server stop
 
 `@cypheria/client` is the reusable consumer of this contract. Its internal `ServerClient` owns the transport, WebSocket session, request correlation, subscriptions, timeout handling, and reconnect policy. `createCypheriaApi()` exposes a borrowed capability facade without connection controls, while `createCypheriaClient()` creates a facade that owns its connection lifecycle. The API maps only current protocol message families and does not infer wallet, policy, automation, or other product APIs from generic runtime method names. The package depends on `@cypheria/protocol`, transport-only `@cypheria/relay`, and the exact official ACP SDK version used by protocol; it does not start the server, runtime, or Codex. Its stable and draft-v2 entries provide Cypheria-owned, SDK-shaped `client()` and `ClientApp` APIs over the minimal `agent.acp` endpoint and selectively re-export supported upstream helpers and types.
 
-WebSocket clients connect to `/api/v1/ws` with the `cypheria.v1` subprotocol. Their first message must be `session.hello` with protocol version, client identity, client kind, and capabilities. The server responds with `session.ready` and a stable logical session ID. A physical WebSocket or decrypted relay channel may detach without immediately destroying that logical session. During the configured grace period, `@cypheria/client` reconnects with `resumeSessionId`; the server resumes it only when the session ID and client ID match. `session.goodbye` remains an explicit permanent close. Every request has a caller-supplied request ID; runtime events are broadcast without one.
+WebSocket clients connect to `/api/v1/ws` with the existing `cypheria.v1` subprotocol. The wire follows Paseo's two-level shape. WebSocket-level messages are `hello`, `ping`, `pong`, and `session`; server operations, ACP messages, and Codex messages are logical-session messages carried as `{ type: "session", message }`. The first non-ping client message must be a top-level `hello` containing protocol version, client identity, client type, optional app version, and optional per-transport capabilities. Supported client types are `desktop`, `mobile`, `web`, `cli`, `mcp`, and `hub`. There is no `session.ready`: the server confirms attachment with the logical `server.status.notification` message.
+
+The in-memory registry keys a logical session by authenticated principal and `clientId`. The current direct-token and relay-pairing admission paths both resolve to the single local owner principal. Multiple physical WebSockets or decrypted relay channels may attach to the same logical session at once. A correlated response returns only through the source transport, while status broadcasts reach every attached transport. The reconnect grace period starts only after the final transport detaches. Reconnecting with the same authenticated principal and `clientId` automatically resumes that logical session; no public session ID, resume token, or `session.goodbye` message exists. Closing a client closes only its physical transport. Logical sessions are not persisted across worker restart.
 
 Supported foundation messages are:
 
-| Client message | Server result | Purpose |
+| Level / client message | Server result | Purpose |
 | --- | --- | --- |
-| `session.hello` | `session.ready` | Negotiate protocol and client metadata |
-| `server.ping` | `server.pong` | Liveness and latency timestamps |
-| `server.info` | `server.info.result` | Identity, version, runtime state, and connection count |
-| `server.diagnostics` | `server.diagnostics.result` | Process, memory, connection, and runtime diagnostics |
-| `server.config.get` / `.patch` / `.reload` | `server.config.result` | Read or persist desired server configuration |
-| `server.state` | `server.state.result` | Read live connection, relay, worker, runtime, and restart state |
-| `runtime.request` | `runtime.response` | Forward a validated runtime method |
-| `server.restart` / `server.shutdown` | `server.lifecycle.accepted` | Request supervised lifecycle action |
-| `session.goodbye` | connection close | Graceful client disconnect |
+| WebSocket `hello` | session `server.status.notification` | Attach this transport and advertise peer metadata |
+| WebSocket `ping` | WebSocket `pong` | Transport liveness |
+| `server.status.request` | `server.status.response` | Identity, version, runtime state, and connection count |
+| `server.diagnostics.request` | `server.diagnostics.response` | Process, memory, connection, and runtime diagnostics |
+| `server.config.get.request` | `server.config.get.response` | Read desired server configuration |
+| `server.config.patch.request` | `server.config.patch.response` | Persist a partial desired server configuration |
+| `server.config.reload.request` | `server.config.reload.response` | Reload desired server configuration from disk |
 
-Invalid messages return `server.error`. The server rejects binary frames, duplicate in-flight request IDs, incompatible protocol versions, oversized messages, and sessions that do not send hello within the configured deadline. A transport-level ping/pong heartbeat terminates stale sockets so the operational connection registry cannot retain dead clients indefinitely.
+Rows without a WebSocket prefix are logical-session messages and therefore travel inside the top-level `session` envelope. The server closes a connection that sends an invalid or unsupported logical message. The server rejects binary frames, duplicate in-flight request IDs on the same source transport, incompatible protocol versions, oversized messages, and connections that do not send hello within the configured deadline. An RFC 6455 heartbeat also terminates stale direct sockets so the operational registry cannot retain dead clients indefinitely.
 
 ### Codex agent API names
 
@@ -73,27 +73,34 @@ threadSection/list           -> agent.codex.thread_section.list.request
 getConversationSummary      -> agent.codex.get_conversation_summary.request
 ```
 
-For ordinary RPCs, the client sends `{ type, requestId, ...params }` and the server returns `{ type, payload: { requestId, ...result } }`. This follows Paseo's current convention: request fields are top-level, while correlated response fields live in `payload`. For App Server-initiated RPCs such as approvals, the server sends the request and the capable client returns the response. Server notifications carry the upstream notification params directly in `payload`; the App Server `initialized` client notification has no payload.
+For ordinary RPCs, the inner logical message sent by the client is `{ type, requestId, ...params }` and the inner server response is `{ type, payload: { requestId, ...result } }`. Both are wrapped by the directional top-level `session` envelope. This follows Paseo's current convention: request fields are top-level, while correlated response fields live in `payload`. For App Server-initiated RPCs such as approvals, the server sends the request and the capable client returns the response. Server notifications carry the upstream notification params directly in `payload`; the App Server `initialized` client notification has no payload.
 
 The generated registry records all 158 client-initiated RPCs, 11 server-initiated RPCs, 83 server notifications, and one client notification, including each upstream Params/Response type name and reverse wire-name lookup. Its generation check runs before protocol build, typecheck, and test so a Codex regeneration cannot silently drift from the public Cypheria API catalog.
 
 ### ACP agent messages
 
-ACP traffic remains an unmodified JSON-RPC wire message inside one of two directional Cypheria envelopes:
+ACP traffic is normalized into directly discriminable logical-session messages before it enters the top-level `session` envelope. The normalized method and direction are exposed by `type`; stable v1 and draft v2 are selected by the numeric `protocolVersion` discriminator:
 
 ```ts
 {
-  type: "agent.acp.client.message"
-  payload: { protocolVersion: 1 | 2; message: AcpWireMessage }
+  type: "agent.acp.session.new.request"
+  protocolVersion: 1
+  requestId: 7
+  cwd: "/workspace"
 }
 
 {
-  type: "agent.acp.server.message"
-  payload: { protocolVersion: 1 | 2; message: AcpWireMessage }
+  type: "agent.acp.session.new.response"
+  protocolVersion: 1
+  payload: { requestId: 7; result: { sessionId: "session-1" } }
 }
 ```
 
-`client` and `server` identify the Cypheria sender, while the inner ACP method or response correlation determines the ACP client/agent role. Protocol version `1` uses the stable `@agentclientprotocol/sdk` types and accepts one message; version `2` uses its explicit `experimental/v2` types and additionally accepts non-empty call or response batches. The boundary composes the SDK-generated `AgentRequest`, `AgentResponse`, `AgentNotification`, `ClientRequest`, `ClientResponse`, and `ClientNotification` Zod schemas, then applies the same per-method request and notification parameter schemas used by the SDK App API. It rejects known methods used in the wrong direction and preserves unknown extension methods as JSON. Method-specific response validation and capability/lifecycle enforcement remain connection-state responsibilities because a JSON-RPC response carries an ID but no method.
+Known requests flatten their method params beside `type`, `protocolVersion`, and `requestId`; notifications carry method params in `payload`; responses carry `requestId` plus exactly one of `result` or `error` in `payload`. Every known params/result value is returned in the canonical form produced by its official SDK validator. Extension methods use `agent.acp.extension.request|response|notification`, require an underscore-prefixed `method`, and keep that method plus optional `params` nested in `payload`. Protocol cancellation uses `agent.acp.cancel_request.notification` and requires its request ID payload.
+
+ACP v2 batches use the special `agent.acp.batch` type with `protocolVersion: 2` and store non-empty logical messages under `payload.messages`. That array has its own `type`-based discriminated union. Call and response entries cannot be mixed, initialization requests and responses must be the only batch entry, and v1 has no batch message. The session schema nests its `type` discriminator around the ACP family, whose next discriminator is `protocolVersion`, followed by each version's `type` discriminator.
+
+The generated catalog is derived from the official SDK handler declarations and checked before protocol build, test, and typecheck. It currently records 51 RPC pairs and 22 notifications across v1 and v2. Each known request, response, and notification uses the corresponding SDK-generated method-specific Zod schema. The client adapter reconstructs the SDK's raw JSON-RPC stream and uses connection-local request-ID correlation when an SDK response must be assigned its logical response type.
 
 SDK 1.4.0 ships those generated Zod modules but does not expose them through package exports. A minimal pinned pnpm patch exposes `@agentclientprotocol/sdk/zod` and `@agentclientprotocol/sdk/experimental/v2/zod`; Cypheria imports the upstream modules directly instead of copying their generated definitions.
 

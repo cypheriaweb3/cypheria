@@ -28,10 +28,9 @@ CypheriaClient = CypheriaApi + connection lifecycle
 `CypheriaApi` deliberately exposes only operations represented by current
 `@cypheria/protocol` messages:
 
-- `server`: ping, information, diagnostics, restart, and shutdown;
-- `runtime`: the generic `runtime.request` call and `runtime.event` subscription;
+- `server`: ping, status, diagnostics, and configuration;
 - `agent.codex`: generated Codex requests, notifications, reverse requests, and responses;
-- `agent.acp`: directional ACP envelopes.
+- `agent.acp`: directly discriminable ACP logical messages.
 
 It does not invent wallet, policy, automation, or runtime-info product methods from runtime method
 strings. Add a high-level API only after its contract exists in `@cypheria/protocol`.
@@ -118,12 +117,15 @@ import { client as createAcpV2App } from "@cypheria/client/acp/v2"
 const connection = createAcpV2App().connect(cypheria)
 ```
 
-The v2 adapter preserves non-empty JSON-RPC batches. Only one active ACP connection is allowed per
-Cypheria ACP endpoint because the envelope deliberately carries no second connection ID. Transport
+The adapter translates the SDK's raw JSON-RPC stream to `agent.acp.<operation>.<direction>`
+logical messages whose numeric `protocolVersion` selects stable v1 or draft v2. Underscore-prefixed
+extension methods use dedicated extension types, and v2 batches use `agent.acp.batch` with a nested
+discriminated union in `payload.messages`. Only one active ACP connection is allowed per
+Cypheria ACP endpoint because the logical messages deliberately carry no second connection ID. Transport
 loss closes the ACP connection and rejects its pending requests; reconnect by creating a new ACP
 connection after the Cypheria session recovers.
 
-`cypheria.agent.acp` itself remains the minimal `send(payload)` / `subscribe(handler)` endpoint.
+`cypheria.agent.acp` itself remains the minimal `send(message)` / `subscribe(handler)` endpoint.
 Do not mix those low-level operations with an active `ClientApp` connection.
 
 ## Usage
@@ -135,10 +137,8 @@ import { client as createCodexApp, methods as codexMethods } from "@cypheria/cli
 const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
 const codex = createCodexApp().connect(cypheria)
 
-const server = await cypheria.server.info()
-const state = await cypheria.server.state()
+const status = await cypheria.server.status()
 const config = await cypheria.server.config()
-const runtimeInfo = await cypheria.runtime.request("runtime.info")
 await codex.codex.initialize({
   capabilities: null,
   clientInfo: { name: "example", title: "Example", version: "1.0.0" },
@@ -151,11 +151,11 @@ await cypheria.close()
 
 Requests connect lazily. `close()` permanently disposes that client. Before it is closed, transport
 loss rejects in-flight work and schedules a bounded exponential reconnect by default. The reconnect
-hello carries the last negotiated session ID, allowing the server to resume the same logical
-session during its grace period. Set `reconnect.enabled` to `false` when the embedding host owns
+uses the same stable client ID, allowing the server to resume the principal-scoped logical session
+during its grace period without exposing a session ID or resume token. Set `reconnect.enabled` to `false` when the embedding host owns
 retry policy. `server.config()`, `patchConfig()`, and `reloadConfig()` expose validated desired
-configuration and the paths that require a supervised worker restart; `server.state()` exposes live
-operational state. Authentication tokens are never part of either result.
+configuration and the paths that require a supervised worker restart. Authentication tokens are
+never part of status or configuration results.
 
 Every correlated facade method accepts a final `{ signal, timeoutMs }` request-options argument.
 Timeouts and aborts also cancel a request that is waiting for the lazy connection, so it cannot be
@@ -163,11 +163,9 @@ sent later as a ghost request. `cypheria.server.supports(name)` inspects negotia
 `supportsFeature(name)` inspects optional, forward-compatible feature flags. Calls with a required
 but unadvertised server capability fail before writing to the transport.
 
-While the transport remains available, reverse Codex requests always receive a terminal response:
-missing handlers, handler failures, and logical ClientApp cancellation produce a typed
-`client.error` message. The protocol advertises this behavior through the default
-`client.rpc-errors` client capability; server-side dispatch support is intentionally left to the
-server implementation phase.
+Reverse Codex requests write only their Codex-defined typed responses. Missing handlers, handler
+failures, and logical ClientApp cancellation are reported through the local handler-error hook; the
+foundation protocol does not define a generic client error message.
 
 The default adapter uses the runtime's global WebSocket. Other environments can inject a
 `webSocketFactory`, or a complete `transportFactory`. HTTP(S) root URLs are normalized to the
@@ -182,7 +180,8 @@ const cypheria = createCypheriaClient({ relayOffer: "cypheria://pair#offer=..." 
 
 `relayOffer` cannot be combined with `url`, `token`, or `transportFactory`; a custom
 `webSocketFactory` remains available for runtimes without a global WebSocket. E2EE completes before
-`session.hello`, and the direct Bearer token is never sent to the relay.
+the top-level `hello`, and the direct Bearer token is never sent to the relay. Server operations,
+ACP, and Codex traffic all travel inside top-level `session` envelopes.
 
 ## Borrowing an existing connection
 
@@ -194,12 +193,12 @@ const connection = new ServerClient({ url: "http://127.0.0.1:6768" })
 await connection.connect()
 
 const api = createCypheriaApi(connection)
-await api.runtime.request("runtime.health")
+await api.server.status()
 
 // The host that created the connection remains responsible for it.
 await connection.close()
 ```
 
 Multiple borrowed facades may share one connection. The current foundation server dispatches its
-built-in server and runtime messages; Codex and ACP contracts exist in the protocol but their server
-dispatch is still planned.
+built-in status, diagnostics, and configuration messages; Codex and ACP contracts exist in the
+protocol but their server dispatch is still planned.

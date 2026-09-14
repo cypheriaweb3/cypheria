@@ -72,17 +72,17 @@
     tests、Go race tests、Go relay 到 Cypheria server/client 的跨语言 E2E、workspace CI 与 build。
 
 - [x] 添加 Cypheria client/server 基础，不迁移 desktop。
-  - 验收：`apps/server` 提供 Hono HTTP/WebSocket control plane、可恢复的版本化 client session、runtime lifecycle、持久化 server config 与 live state、运维 endpoint、supervised server lifecycle、relay ingress 与内置 Expo web hosting；`apps/expo` 面向 iOS、Android 与静态 web；`@cypheria/protocol` 提供共享 validated contracts。
+  - 验收：`apps/server` 提供 Hono HTTP/WebSocket control plane、Paseo 形态的顶层 envelope、以 principal 与 client 为 key 且支持多 transport 和 grace-period 自动恢复的逻辑 session、runtime lifecycle、持久化 server config 与 live state、运维 endpoint、supervised server lifecycle、relay ingress 与内置 Expo web hosting；`apps/expo` 面向 iOS、Android 与静态 web；`@cypheria/protocol` 提供共享 validated contracts。
   - 排除：agent、project、wallet、policy、browser 与 automation 产品 method；任何 `apps/desktop` code change。
-  - 验证：protocol/server/Expo tests 与 typechecks、Expo compatibility check 与 static export、server build 与 embedded-web smoke test、daemon start/status/restart/stop smoke test、全仓库 CI/build。
+  - 验证：protocol/server/client/Expo tests 与 typechecks、relay tests、Expo compatibility check 与 static export、server build 与 embedded-web smoke test、server start/status/restart/stop smoke test、全仓库 CI/build。
 
 - [x] 在 `@cypheria/protocol` 中定义完整 Codex App Server API。
   - 验收：所有 generated client RPC、反向 server RPC、server notification 与 client notification 都以无冲突的 `agent.codex.*` dotted wire name 进入 live Zod message union，并提供 request/response correlation 与上游 method/schema metadata。
   - 包括：以 Codex-generated TypeScript 作为类型来源；使用固定版本 Hey API 从 Codex JSON Schema 生成并提交静态 Zod 4 definition validator；保留名为 `default` 的 wire field；把 64-bit integer 归一化为 JSON number；继续保留 protocol 持有的 generated Codex DTO 与 JSON Schema、机械生成的 catalog、反向 lookup、漂移检查、provider-transparent JSON payload、配套中英文 protocol 文档，以及 Cypheria-owned dotted envelope 与 response mapping generation；本项不连接 server dispatch。
   - 验证：protocol generation check、typecheck、test、build 与全仓库 CI。
 
-- [x] 向 `@cypheria/protocol` 添加 ACP wire envelope。
-  - 验收：有方向的 `agent.acp.*` 消息在 live client/server union 中承载 JSON-transparent ACP traffic，区分稳定 v1 与 draft v2，并保留 v2 batch 语义。
+- [x] 向 `@cypheria/protocol` 添加 ACP 逻辑消息。
+  - 验收：具体 `agent.acp.<operation>.request|response|notification` 消息可由嵌套 client/server discriminated union 直接路由；数字 `protocolVersion` 选择稳定 v1 或 draft v2，以 underscore 开头的 extension method 与 v2 batch 使用专用 type，batch entry 使用另一层嵌套 discriminated union。
   - 包括：官方 `@agentclientprotocol/sdk@1.4.0` protocol constant、directional type、generated Zod schema、per-method parameter validation、JSON-RPC boundary validation 和配套中英文 protocol 文档；通过最小且固定版本的 package-export patch 暴露 SDK 已发布的 Zod module，不复制它们；本项不连接 server dispatch。
   - 验证：protocol typecheck、test 与 build。
 
@@ -117,13 +117,13 @@
 
 - [x] 添加分层的 `packages/client` protocol client。
   - 验收：`ServerClient` 持有 transport 与 WebSocket session lifecycle、请求关联、订阅与重连策略；`CypheriaApi` 借用已有连接且只暴露当前 protocol 已定义的 operation；`CypheriaClient` 将 API 与 lifecycle control 组合起来。
-  - 包括：懒连接、版本化 hello/authentication、browser/Node/custom transport 支持、请求超时与 typed error handling、有界指数退避重连、通用 runtime request/event、typed Codex endpoint traffic、typed message notification、ACP traffic、配套双语 package 文档，并且不依赖特权 implementation。
+  - 包括：懒连接、版本化 hello/authentication、browser/Node/custom transport 支持、请求超时处理、有界指数退避重连、server status/diagnostics/configuration RPC、typed Codex endpoint traffic、typed message notification、ACP traffic、配套双语 package 文档，并且不依赖特权 implementation。
   - 验证：`pnpm --filter @cypheria/client test`、package typecheck/build、`pnpm run ci` 与 `pnpm build`。
-  - 验证记录：23 个 client unit tests、真实 client/server runtime-info smoke test、全仓 CI 与全仓 build 均通过。
+  - 验证记录：client unit tests、真实 client/server status smoke test、全仓 CI 与全仓 build 均通过。
 
 - [x] 为 `@cypheria/client` 添加 ACP SDK 风格 API。
-  - 验收：stable-v1 与显式 draft-v2 ACP app API 可通过 `@cypheria/protocol` 已定义的有方向 wire envelope 工作，同时 caller 保留官方 SDK 的 typed context、handler、session、cancellation、error 与 v2 batch。
-  - 包括：在 `@cypheria/client/acp` 与 `@cypheria/client/acp/v2` 提供 Cypheria 自有的 `client()` 与 `ClientApp`；基于 `CypheriaApi` 的 `connect` 与 `connectWith`；精确固定 SDK 并选择性重新导出，不包含重新实现或已废弃 API；使用 protocol-owned schema 校验 outbound；按版本过滤 inbound；所有借用门面在每个 endpoint 上只允许一个活跃 ACP connection；transport loss 时 teardown；保留低层 envelope access；以及配套中英文 package/architecture/stack 文档。本项不增加 server-side ACP dispatch。
+  - 验收：stable-v1 与显式 draft-v2 ACP app API 可通过 `@cypheria/protocol` 已定义的逻辑消息工作，同时 caller 保留官方 SDK 的 typed context、handler、session、cancellation、error 与 v2 batch。
+  - 包括：在 `@cypheria/client/acp` 与 `@cypheria/client/acp/v2` 提供 Cypheria 自有的 `client()` 与 `ClientApp`；基于 `CypheriaApi` 的 `connect` 与 `connectWith`；精确固定 SDK 并选择性重新导出，不包含重新实现或已废弃 API；使用 protocol-owned schema 校验 outbound；使用 connection-local response correlation 转换 JSON-RPC/逻辑消息；按版本过滤 inbound；所有借用门面在每个 endpoint 上只允许一个活跃 ACP connection；transport loss 时 teardown；保留低层逻辑消息 access；以及配套中英文 package/architecture/stack 文档。本项不增加 server-side ACP dispatch。
   - 验证：32 个 client unit tests、client typecheck/build、全仓 CI 与全仓 build。
 
 - [x] 在 `@cypheria/client` 中以 Codex SDK 风格 API 替换 Codex actions。

@@ -36,23 +36,23 @@ cypheria-server stop
 
 `@cypheria/client` 是该 contract 的可复用 consumer。其内部 `ServerClient` 持有 transport、WebSocket session、请求关联、订阅、超时处理与重连策略；`createCypheriaApi()` 暴露不带连接控制权的借用能力门面；`createCypheriaClient()` 创建持有 connection lifecycle 的门面。该 API 只映射当前 protocol message family，不会从通用 runtime method name 推断 wallet、policy、automation 或其他产品 API。该 package 依赖 `@cypheria/protocol`、只处理传输的 `@cypheria/relay` 与 protocol 所用的同一精确版本官方 ACP SDK，不会启动 server、runtime 或 Codex。其 stable 与 draft-v2 入口在最小 `agent.acp` endpoint 上提供 Cypheria 自有的 SDK-shaped `client()` 与 `ClientApp` API，并选择性重新导出受支持的 upstream helper 与 type。
 
-WebSocket client 使用 `cypheria.v1` subprotocol 连接 `/api/v1/ws`。第一条消息必须是 `session.hello`，包含 protocol version、client identity、client kind 与 capabilities。Server 返回 `session.ready` 和稳定的逻辑 session ID。物理 WebSocket 或解密后的 relay channel 断开时，逻辑 session 不会立刻销毁；在配置的 grace period 内，`@cypheria/client` 会携带 `resumeSessionId` 重连，server 仅在 session ID 与 client ID 都匹配时恢复。`session.goodbye` 仍表示永久关闭。每个 request 都带 caller 提供的 request ID；runtime event 广播不带 request ID。
+WebSocket client 继续使用现有的 `cypheria.v1` subprotocol 连接 `/api/v1/ws`。Wire format 采用 Paseo 的两层结构：WebSocket 顶层消息只有 `hello`、`ping`、`pong` 与 `session`；server operation、ACP message 和 Codex message 都是逻辑 session 消息，通过 `{ type: "session", message }` 承载。除 `ping` 外，client 的第一条消息必须是顶层 `hello`，其中包含 protocol version、client identity、client type、可选 app version 和可选的 transport capabilities。支持的 client type 是 `desktop`、`mobile`、`web`、`cli`、`mcp` 与 `hub`。不再有 `session.ready`；server 通过逻辑 `server.status.notification` 消息确认挂接。
+
+内存 registry 以 authenticated principal 和 `clientId` 作为逻辑 session key。当前直连 token 与 relay pairing 的 admission 都解析为单一本地 owner principal。同一个逻辑 session 可以同时挂接多条物理 WebSocket 或解密后的 relay channel。有关联的 response 只返回来源 transport，status broadcast则发给全部已挂接 transport。只有最后一条 transport 离开后才开始 reconnect grace period；同一 authenticated principal 与 `clientId` 重连时会自动恢复逻辑 session，不存在公开 session ID、resume token 或 `session.goodbye` 消息。Client close 只关闭自身物理 transport。Worker 重启后不会保留逻辑 session。
 
 基础消息如下：
 
-| Client message | Server result | 用途 |
+| 层级 / Client message | Server result | 用途 |
 | --- | --- | --- |
-| `session.hello` | `session.ready` | 协商 protocol 与 client metadata |
-| `server.ping` | `server.pong` | Liveness 与 latency timestamps |
-| `server.info` | `server.info.result` | Identity、version、runtime state 与 connection count |
-| `server.diagnostics` | `server.diagnostics.result` | Process、memory、connection 与 runtime diagnostics |
-| `server.config.get` / `.patch` / `.reload` | `server.config.result` | 读取或持久化 server desired config |
-| `server.state` | `server.state.result` | 读取 connection、relay、worker、runtime 与 restart live state |
-| `runtime.request` | `runtime.response` | 转发经过校验的 runtime method |
-| `server.restart` / `server.shutdown` | `server.lifecycle.accepted` | 请求 supervised lifecycle action |
-| `session.goodbye` | connection close | Client graceful disconnect |
+| WebSocket `hello` | session `server.status.notification` | 挂接 transport 并声明 peer metadata |
+| WebSocket `ping` | WebSocket `pong` | Transport liveness |
+| `server.status.request` | `server.status.response` | Identity、version、runtime state 与 connection count |
+| `server.diagnostics.request` | `server.diagnostics.response` | Process、memory、connection 与 runtime diagnostics |
+| `server.config.get.request` | `server.config.get.response` | 读取 server desired config |
+| `server.config.patch.request` | `server.config.patch.response` | 持久化部分 server desired config |
+| `server.config.reload.request` | `server.config.reload.response` | 从磁盘重新加载 server desired config |
 
-无效消息返回 `server.error`。Server 会拒绝 binary frame、重复的 in-flight request ID、不兼容 protocol version、超大消息，以及未在 deadline 内发送 hello 的 session。Transport-level ping/pong heartbeat 会终止 stale socket，避免运维 connection registry 无限保留已失效 client。
+表中未标注 WebSocket 的行都是逻辑 session 消息，因此会放在顶层 `session` envelope 内传输。发送无效或不支持的逻辑消息会导致连接关闭。Server 会拒绝 binary frame、同一来源 transport 上重复的 in-flight request ID、不兼容 protocol version、超大消息，以及未在 deadline 内发送 hello 的连接。RFC 6455 heartbeat 也会终止 stale direct socket，避免 operational registry 无限期保留 dead client。
 
 ### Codex agent API 命名
 
@@ -73,27 +73,34 @@ threadSection/list           -> agent.codex.thread_section.list.request
 getConversationSummary      -> agent.codex.get_conversation_summary.request
 ```
 
-普通 RPC 由 client 发送 `{ type, requestId, ...params }`，server 返回 `{ type, payload: { requestId, ...result } }`。这遵循 Paseo 当前约定：request field 位于消息顶层，带关联信息的 response field 位于 `payload`。审批等 App Server 发起的反向 RPC 则由 server 发送 request、具备对应能力的 client 返回 response。Server notification 把上游 notification params 直接放入 `payload`；App Server 的 `initialized` client notification 不带 payload。
+普通 RPC 的内层逻辑消息由 client 发送 `{ type, requestId, ...params }`，server 的内层响应为 `{ type, payload: { requestId, ...result } }`；两个方向都再由顶层 `session` envelope 包装。这遵循 Paseo 当前约定：request field 位于消息顶层，带关联信息的 response field 位于 `payload`。审批等 App Server 发起的反向 RPC 则由 server 发送 request、具备对应能力的 client 返回 response。Server notification 把上游 notification params 直接放入 `payload`；App Server 的 `initialized` client notification 不带 payload。
 
 生成的 registry 覆盖 158 个 client-initiated RPC、11 个 server-initiated RPC、83 个 server notification 与 1 个 client notification，同时记录每项上游 Params/Response type name 和反向 wire-name lookup。Protocol build、typecheck 和 test 之前都会执行生成一致性检查，因此 Codex 升级后不会无提示地让公共 Cypheria API catalog 漂移。
 
 ### ACP agent 消息
 
-ACP traffic 作为不改写的 JSON-RPC wire message 放入以下两个有方向的 Cypheria envelope 之一：
+ACP traffic 会先规范化成可直接判别的逻辑 session 消息，再进入顶层 `session` envelope。规范化 method 与方向暴露在 `type` 中；稳定 v1 与 draft v2 则由数字 `protocolVersion` discriminator 选择：
 
 ```ts
 {
-  type: "agent.acp.client.message"
-  payload: { protocolVersion: 1 | 2; message: AcpWireMessage }
+  type: "agent.acp.session.new.request"
+  protocolVersion: 1
+  requestId: 7
+  cwd: "/workspace"
 }
 
 {
-  type: "agent.acp.server.message"
-  payload: { protocolVersion: 1 | 2; message: AcpWireMessage }
+  type: "agent.acp.session.new.response"
+  protocolVersion: 1
+  payload: { requestId: 7; result: { sessionId: "session-1" } }
 }
 ```
 
-`client` 与 `server` 表示 Cypheria sender，内部 ACP method 或 response correlation 决定 ACP client/agent role。Protocol version `1` 使用稳定入口 `@agentclientprotocol/sdk` 的 types，只接受单条消息；version `2` 使用显式的 `experimental/v2` types，并额外接受非空的 call batch 或 response batch。Boundary 组合 SDK generated `AgentRequest`、`AgentResponse`、`AgentNotification`、`ClientRequest`、`ClientResponse` 与 `ClientNotification` Zod schema，再应用 SDK App API 使用的相同 per-method request/notification parameter schema。已知 method 放在错误方向时会被拒绝，未知 extension method 则保持为 JSON。由于 JSON-RPC response 只有 ID 而没有 method，method-specific response validation 以及 capability/lifecycle enforcement 继续由有连接状态的 SDK connection 负责。
+已知 request 将 method params 与 `type`、`protocolVersion`、`requestId` 平铺；notification 将 method params 放在 `payload`；response 在 `payload` 中携带 `requestId`，以及 `result` 或 `error` 中恰好一个。每个已知 params/result 都返回其官方 SDK validator 生成的规范形式。Extension method 使用 `agent.acp.extension.request|response|notification`，要求 `method` 以 underscore 开头，并把该 method 与可选 `params` 嵌套在 `payload` 中。协议取消使用 `agent.acp.cancel_request.notification`，且必须携带 request ID payload。
+
+ACP v2 batch 使用带 `protocolVersion: 2` 的专用 `agent.acp.batch` type，并把非空逻辑消息放在 `payload.messages`。该数组自身使用基于 `type` 的嵌套 discriminated union。call 与 response entry 不得混合，initialize request 与 response 都必须是 batch 中唯一的 entry，v1 则没有 batch message。Session schema 先按 `type` 嵌套 ACP family，ACP family 再按 `protocolVersion` 判别，随后由各版本自己的 `type` discriminator 分派。
+
+生成 catalog 来自官方 SDK handler declaration，并在 protocol build、test 与 typecheck 前检查。它目前覆盖 v1/v2 共 51 组 RPC 与 22 个 notification。每个已知 request、response 和 notification 都使用相应 SDK-generated method-specific Zod schema。Client adapter 会还原 SDK 的原始 JSON-RPC stream，并在 SDK response 需要恢复逻辑 response type 时使用 connection-local request-ID correlation。
 
 SDK 1.4.0 发布了这些 generated Zod module，但没有通过 package exports 暴露它们。Workspace 使用一个最小且固定版本的 pnpm patch 暴露 `@agentclientprotocol/sdk/zod` 与 `@agentclientprotocol/sdk/experimental/v2/zod`；Cypheria 直接导入上游 module，而不是复制 generated definition。
 

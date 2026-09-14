@@ -1,4 +1,10 @@
-import { parseClientMessageText, stringifyProtocolMessage } from "@cypheria/protocol"
+import {
+  type ClientMessage,
+  parseWSInboundMessageText,
+  type ServerMessage,
+  stringifyProtocolMessage as stringifyEnvelope,
+  wrapServerSessionMessage,
+} from "@cypheria/protocol"
 import { afterEach, describe, expect, it } from "vitest"
 
 import { client as createAcpApp } from "./acp.js"
@@ -9,27 +15,35 @@ import { TestWebSocket, testWebSocketFactory } from "./test-websocket.js"
 
 const tick = () => new Promise<void>((resolve) => queueMicrotask(resolve))
 
+const parseClientMessageText = (raw: string): ClientMessage => {
+  const envelope = parseWSInboundMessageText(raw)
+  if (envelope.type !== "session") throw new Error("Expected session envelope")
+  return envelope.message
+}
+
+const stringifyProtocolMessage = (message: unknown): string =>
+  stringifyEnvelope(wrapServerSessionMessage(message as ServerMessage))
+
 const acceptConnection = async (connectPromise: Promise<void>): Promise<TestWebSocket> => {
   const socket = TestWebSocket.instances.at(-1)
   if (!socket) throw new Error("Expected a WebSocket")
   socket.open()
-  const hello = parseClientMessageText(socket.sent[0] ?? "")
-  if (hello.type !== "session.hello") throw new Error("Expected session hello")
+  const hello = parseWSInboundMessageText(socket.sent[0] ?? "")
+  if (hello.type !== "hello") throw new Error("Expected hello")
   socket.message(
     stringifyProtocolMessage({
       payload: {
-        capabilities: ["runtime.request", "agent.acp", "agent.codex"],
-        server: {
-          hostname: "test",
-          id: "srv_test",
-          protocolVersion: 1,
-          startedAt: "2026-09-11T00:00:00.000Z",
-          version: "0.0.0",
-        },
-        sessionId: "ses_test",
+        capabilities: ["agent.acp", "agent.codex", "server.status"],
+        connections: 1,
+        hostname: "test",
+        id: "srv_test",
+        protocolVersion: 1,
+        runtimeState: "ready",
+        startedAt: "2026-09-11T00:00:00.000Z",
+        version: "0.0.0",
+        webApp: { enabled: false },
       },
-      requestId: hello.requestId,
-      type: "session.ready",
+      type: "server.status.notification",
     })
   )
   await connectPromise
@@ -46,8 +60,7 @@ describe("Cypheria client facade", () => {
     })
     const api = createCypheriaApi(serverClient)
 
-    expect(Object.keys(api).sort()).toEqual(["agent", "on", "runtime", "server", "subscribe"])
-    expect(Object.keys(api.runtime).sort()).toEqual(["request", "subscribe"])
+    expect(Object.keys(api).sort()).toEqual(["agent", "on", "server", "subscribe"])
     expect("wallet" in api).toBe(false)
     expect("policy" in api).toBe(false)
     expect("automation" in api).toBe(false)
@@ -72,28 +85,37 @@ describe("Cypheria client facade", () => {
     await serverClient.close()
   })
 
-  it("owns lifecycle and lazily sends the generic runtime request", async () => {
+  it("owns lifecycle and lazily sends the server status request", async () => {
     const client = createCypheriaClient({
       clientId: "client-api",
       webSocketFactory: testWebSocketFactory,
     })
-    const resultPromise = client.runtime.request<{ lifecycleState: string }>("runtime.info")
+    const resultPromise = client.server.status()
     const socket = await acceptConnection(client.ensureConnected())
     await tick()
 
     const request = parseClientMessageText(socket.sent.at(-1) ?? "")
-    if (request.type !== "runtime.request") throw new Error("Expected runtime request")
-    expect(request.payload).toEqual({ method: "runtime.info" })
+    if (request.type !== "server.status.request") throw new Error("Expected status request")
     socket.message(
       stringifyProtocolMessage({
-        payload: { result: { lifecycleState: "ready" } },
+        payload: {
+          capabilities: ["server.status"],
+          connections: 1,
+          hostname: "test",
+          id: "srv_test",
+          protocolVersion: 1,
+          runtimeState: "ready",
+          startedAt: "2026-09-11T00:00:00.000Z",
+          version: "0.0.0",
+          webApp: { enabled: false },
+        },
         requestId: request.requestId,
-        type: "runtime.response",
+        type: "server.status.response",
       })
     )
 
-    await expect(resultPromise).resolves.toEqual({ lifecycleState: "ready" })
-    expect(client.getSession()?.sessionId).toBe("ses_test")
+    await expect(resultPromise).resolves.toMatchObject({ runtimeState: "ready" })
+    expect(client.getSession()?.id).toBe("srv_test")
     await client.close()
   })
 
@@ -145,36 +167,29 @@ describe("Cypheria client facade", () => {
     await client.close()
   })
 
-  it("routes runtime and ACP protocol events", async () => {
+  it("routes ACP protocol events", async () => {
     const client = createCypheriaClient({
       clientId: "client-events",
       webSocketFactory: testWebSocketFactory,
     })
     const socket = await acceptConnection(client.connect())
-    const runtimeEvents: unknown[] = []
     const acpMessages: unknown[] = []
-    const unsubscribeRuntime = client.runtime.subscribe((event) => runtimeEvents.push(event))
-    const unsubscribeAcp = client.agent.acp.subscribe((payload) => acpMessages.push(payload))
-
+    const unsubscribeAcp = client.agent.acp.subscribe((message) => acpMessages.push(message))
     socket.message(
       stringifyProtocolMessage({
-        payload: { event: { type: "runtime.lifecycle" } },
-        type: "runtime.event",
-      })
-    )
-    socket.message(
-      stringifyProtocolMessage({
-        payload: {
-          message: { jsonrpc: "2.0", method: "example/update", params: {} },
-          protocolVersion: 1,
-        },
-        type: "agent.acp.server.message",
+        payload: { method: "_example/update", params: {} },
+        protocolVersion: 1,
+        type: "agent.acp.extension.notification",
       })
     )
 
-    expect(runtimeEvents).toEqual([{ type: "runtime.lifecycle" }])
-    expect(acpMessages).toHaveLength(1)
-    unsubscribeRuntime()
+    expect(acpMessages).toEqual([
+      {
+        payload: { method: "_example/update", params: {} },
+        protocolVersion: 1,
+        type: "agent.acp.extension.notification",
+      },
+    ])
     unsubscribeAcp()
     await client.close()
   })
@@ -208,27 +223,12 @@ describe("Cypheria client facade", () => {
       webSocketFactory: testWebSocketFactory,
     })
     const socket = await acceptConnection(client.connect())
-    const resultPromise = client.server.ping("2026-09-11T01:00:00.000Z")
+    const resultPromise = client.server.ping()
     await tick()
-    const request = parseClientMessageText(socket.sent.at(-1) ?? "")
-    if (request.type !== "server.ping") throw new Error("Expected ping")
-    socket.message(
-      stringifyProtocolMessage({
-        payload: {
-          clientSentAt: "2026-09-11T01:00:00.000Z",
-          serverReceivedAt: "2026-09-11T01:00:00.001Z",
-          serverSentAt: "2026-09-11T01:00:00.002Z",
-        },
-        requestId: request.requestId,
-        type: "server.pong",
-      })
-    )
+    expect(parseWSInboundMessageText(socket.sent.at(-1) ?? "")).toEqual({ type: "ping" })
+    socket.message(stringifyEnvelope({ type: "pong" }))
 
-    await expect(resultPromise).resolves.toEqual({
-      clientSentAt: "2026-09-11T01:00:00.000Z",
-      serverReceivedAt: "2026-09-11T01:00:00.001Z",
-      serverSentAt: "2026-09-11T01:00:00.002Z",
-    })
+    await expect(resultPromise).resolves.toBeUndefined()
     await client.close()
   })
 })

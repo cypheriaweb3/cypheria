@@ -1,4 +1,10 @@
-import { parseClientMessageText, stringifyProtocolMessage } from "@cypheria/protocol"
+import {
+  type ClientMessage,
+  parseWSInboundMessageText,
+  type ServerMessage,
+  stringifyProtocolMessage as stringifyEnvelope,
+  wrapServerSessionMessage,
+} from "@cypheria/protocol"
 import { afterEach, describe, expect, it } from "vitest"
 
 import * as codex from "./codex.js"
@@ -8,27 +14,35 @@ import { TestWebSocket, testWebSocketFactory } from "./test-websocket.js"
 
 const tick = () => new Promise<void>((resolve) => queueMicrotask(resolve))
 
+const parseClientMessageText = (raw: string): ClientMessage => {
+  const envelope = parseWSInboundMessageText(raw)
+  if (envelope.type !== "session") throw new Error("Expected session envelope")
+  return envelope.message
+}
+
+const stringifyProtocolMessage = (message: unknown): string =>
+  stringifyEnvelope(wrapServerSessionMessage(message as ServerMessage))
+
 const acceptConnection = async (connectPromise: Promise<void>): Promise<TestWebSocket> => {
   const socket = TestWebSocket.instances.at(-1)
   if (!socket) throw new Error("Expected a WebSocket")
   socket.open()
-  const hello = parseClientMessageText(socket.sent[0] ?? "")
-  if (hello.type !== "session.hello") throw new Error("Expected session hello")
+  const hello = parseWSInboundMessageText(socket.sent[0] ?? "")
+  if (hello.type !== "hello") throw new Error("Expected hello")
   socket.message(
     stringifyProtocolMessage({
       payload: {
         capabilities: ["agent.codex"],
-        server: {
-          hostname: "test",
-          id: "srv_test",
-          protocolVersion: 1,
-          startedAt: "2026-09-12T00:00:00.000Z",
-          version: "0.0.0",
-        },
-        sessionId: "ses_test",
+        connections: 1,
+        hostname: "test",
+        id: "srv_test",
+        protocolVersion: 1,
+        runtimeState: "ready",
+        startedAt: "2026-09-12T00:00:00.000Z",
+        version: "0.0.0",
+        webApp: { enabled: false },
       },
-      requestId: hello.requestId,
-      type: "session.ready",
+      type: "server.status.notification",
     })
   )
   await connectPromise
@@ -132,7 +146,7 @@ describe("Cypheria Codex client API", () => {
     await cypheria.close()
   })
 
-  it("sends terminal errors for missing and failed reverse-request handlers", async () => {
+  it("reports missing and failed reverse-request handlers locally", async () => {
     const cypheria = createCypheriaClient({
       clientId: "client-codex-reverse-errors",
       webSocketFactory: testWebSocketFactory,
@@ -154,15 +168,7 @@ describe("Cypheria Codex client API", () => {
     )
     await tick()
     await tick()
-    expect(parseClientMessageText(socket.sent.at(-1) ?? "")).toEqual({
-      payload: {
-        code: "HANDLER_FAILED",
-        message: "clock failed",
-        requestType: "agent.codex.current_time.read.request",
-      },
-      requestId: "failed-request",
-      type: "client.error",
-    })
+    expect(socket.sent).toHaveLength(1)
     expect(failures.at(-1)?.message).toBe("clock failed")
 
     connection.close()
@@ -175,11 +181,7 @@ describe("Cypheria Codex client API", () => {
       })
     )
     await tick()
-    expect(parseClientMessageText(socket.sent.at(-1) ?? "")).toMatchObject({
-      payload: { code: "REQUEST_NOT_SUPPORTED" },
-      requestId: "missing-request",
-      type: "client.error",
-    })
+    expect(socket.sent).toHaveLength(1)
 
     missingConnection.close()
     await cypheria.close()
@@ -210,11 +212,7 @@ describe("Cypheria Codex client API", () => {
     await tick()
     await tick()
 
-    expect(parseClientMessageText(socket.sent.at(-1) ?? "")).toMatchObject({
-      payload: { code: "REQUEST_CANCELLED", message: "consumer closed" },
-      requestId: "cancelled-request",
-      type: "client.error",
-    })
+    expect(socket.sent).toHaveLength(1)
     await cypheria.close()
   })
 

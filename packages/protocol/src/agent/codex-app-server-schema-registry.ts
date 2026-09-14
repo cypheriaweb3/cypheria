@@ -72,7 +72,7 @@ export const codexGeneratedTypeSchema = <T>(name: string): z.ZodType<T> => {
   return generatedDefinitionSchema<T>(name)
 }
 
-export const codexTopLevelParamsMessageSchema = <T>(
+export const codexTopLevelParamsSchema = <T>(
   type: string,
   paramsType: string | null
 ): z.ZodType<T> => {
@@ -93,7 +93,7 @@ export const codexTopLevelParamsMessageSchema = <T>(
     ) as unknown as z.ZodType<T>
 }
 
-export const codexResponseMessageSchema = <T>(type: string, resultType: string): z.ZodType<T> => {
+export const codexResponseSchema = <T>(type: string, resultType: string): z.ZodType<T> => {
   const resultSchema = codexGeneratedTypeSchema(resultType)
   const payloadSchema = z.looseObject({ requestId: RequestIdSchema }).refine((payload) => {
     const { requestId: _requestId, ...result } = payload
@@ -111,10 +111,7 @@ export const codexResponseMessageSchema = <T>(type: string, resultType: string):
     ) as unknown as z.ZodType<T>
 }
 
-export const codexNotificationMessageSchema = <T>(
-  type: string,
-  paramsType: string | null
-): z.ZodType<T> =>
+export const codexNotificationSchema = <T>(type: string, paramsType: string | null): z.ZodType<T> =>
   z
     .looseObject(
       paramsType === null
@@ -126,7 +123,14 @@ export const codexNotificationMessageSchema = <T>(
       "Codex message must be JSON"
     ) as unknown as z.ZodType<T>
 
-export const codexMessageSchemaUnion = <T>(schemas: z.ZodType<T>[]): z.ZodType<T> => {
-  if (schemas.length < 2) return schemas[0] as z.ZodType<T>
-  return z.compile(z.union(schemas as [z.ZodType<T>, z.ZodType<T>, ...z.ZodType<T>[]]))
-}
+/**
+ * Builds the public Codex family schemas by their concrete Cypheria wire `type`.
+ *
+ * The generic builders above deliberately expose `ZodType<T>` because their refined object output
+ * is tied to generated Codex types. At runtime each branch is still a discriminable Zod object;
+ * this adapter restores that erased constraint for Zod's tuple-based API.
+ */
+export const codexDiscriminatedUnion = <T>(schemas: readonly z.ZodType[]): z.ZodType<T> =>
+  z.compile(
+    z.discriminatedUnion("type", schemas as unknown as Parameters<typeof z.discriminatedUnion>[1])
+  ) as z.ZodType<T>

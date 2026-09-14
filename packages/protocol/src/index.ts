@@ -1,18 +1,29 @@
 import superjson, { type SuperJSONResult, type SuperJSONValue } from "superjson"
 import { z } from "zod"
-import { AgentAcpClientMessageSchema, AgentAcpServerMessageSchema } from "./agent/acp-messages.ts"
+import {
+  type AgentAcpClientMessage,
+  AgentAcpClientMessageSchema,
+  type AgentAcpServerMessage,
+  AgentAcpServerMessageSchema,
+} from "./agent/acp.ts"
 import {
   AGENT_CODEX_CLIENT_RPC,
-  AgentCodexClientNotificationMessageSchema,
-  AgentCodexClientRequestMessageSchema,
-  AgentCodexClientResponseMessageSchema,
-  AgentCodexServerNotificationMessageSchema,
-  AgentCodexServerRequestMessageSchema,
-  AgentCodexServerResponseMessageSchema,
+  type AgentCodexClientNotification,
+  AgentCodexClientNotificationSchema,
+  type AgentCodexClientRequest,
+  AgentCodexClientRequestSchema,
+  type AgentCodexClientResponse,
+  AgentCodexClientResponseSchema,
+  type AgentCodexServerNotification,
+  AgentCodexServerNotificationSchema,
+  type AgentCodexServerRequest,
+  AgentCodexServerRequestSchema,
+  type AgentCodexServerResponse,
+  AgentCodexServerResponseSchema,
 } from "./agent/codex-app-server.ts"
 import { RequestIdSchema } from "./request-id.ts"
 
-export * from "./agent/acp-messages.ts"
+export * from "./agent/acp.ts"
 export * from "./agent/codex-app-server.ts"
 export * from "./relay.ts"
 export { type RequestId, RequestIdSchema } from "./request-id.ts"
@@ -22,24 +33,13 @@ export const CYPHERIA_WEBSOCKET_PATH = "/api/v1/ws" as const
 export const CYPHERIA_WEBSOCKET_PROTOCOL = `cypheria.v${CYPHERIA_PROTOCOL_VERSION}` as const
 const CYPHERIA_SUPERJSON_MARKER = "cypheria.superjson.v1" as const
 
-/** Stable capabilities a client can advertise in `session.hello`. */
-export const CLIENT_CAPABILITIES = {
-  acp: "agent.acp",
-  codex: "agent.codex",
-  rpcErrors: "client.rpc-errors",
-} as const
-export type ClientCapability = (typeof CLIENT_CAPABILITIES)[keyof typeof CLIENT_CAPABILITIES]
-
-/** Stable capabilities a server can advertise in `session.ready`. */
+/** Stable capabilities a server can advertise in the `server.status.notification` message. */
 export const SERVER_CAPABILITIES = {
   acp: "agent.acp",
   codex: "agent.codex",
   config: "server.config",
   diagnostics: "diagnostics",
-  lifecycle: "server.lifecycle",
-  runtimeEvents: "runtime.events",
-  runtimeRequest: "runtime.request",
-  state: "server.state",
+  status: "server.status",
 } as const
 export type ServerCapability = (typeof SERVER_CAPABILITIES)[keyof typeof SERVER_CAPABILITIES]
 
@@ -65,7 +65,7 @@ const isCypheriaSuperJsonEnvelope = (value: unknown): value is CypheriaSuperJson
   "json" in value &&
   isRecord(value.meta)
 
-export const ClientKindSchema = z.enum(["cli", "desktop", "expo", "mobile", "sdk", "web"])
+export const ClientKindSchema = z.enum(["desktop", "mobile", "web", "cli", "mcp", "hub"])
 export type ClientKind = z.infer<typeof ClientKindSchema>
 
 export const RuntimeMethodSchema = z
@@ -81,96 +81,47 @@ export const ClientDescriptorSchema = z.object({
   id: z.string().trim().min(1).max(128),
   kind: ClientKindSchema,
   name: z.string().trim().min(1).max(128).optional(),
-  version: z.string().trim().min(1).max(64).optional(),
+  version: z.string().optional(),
 })
 export type ClientDescriptor = z.infer<typeof ClientDescriptorSchema>
 
-export const SessionHelloMessageSchema = z.object({
-  type: z.literal("session.hello"),
-  requestId: RequestIdSchema,
-  payload: z.object({
-    capabilities: z.array(z.string().trim().min(1).max(128)).max(128).default([]),
-    client: ClientDescriptorSchema,
-    protocolVersion: z.int().positive(),
-    resumeSessionId: z.string().trim().min(1).max(128).optional(),
-  }),
-})
+export const ClientCapabilitiesSchema = z.record(z.string().trim().min(1).max(128), z.unknown())
+export type ClientCapabilities = z.infer<typeof ClientCapabilitiesSchema>
 
-export const ServerPingMessageSchema = z.object({
-  type: z.literal("server.ping"),
-  requestId: RequestIdSchema,
-  payload: z
-    .object({
-      sentAt: z.iso.datetime().optional(),
-    })
-    .default({}),
+export const WSHelloMessageSchema = z.object({
+  type: z.literal("hello"),
+  clientId: z.string().trim().min(1).max(128),
+  clientType: ClientKindSchema,
+  protocolVersion: z.int().positive(),
+  appVersion: z.string().optional(),
+  capabilities: ClientCapabilitiesSchema.optional(),
 })
+export type WSHelloMessage = z.infer<typeof WSHelloMessageSchema>
 
-export const ServerInfoRequestMessageSchema = z.object({
-  type: z.literal("server.info"),
-  requestId: RequestIdSchema,
-})
+export const WSPingMessageSchema = z.object({ type: z.literal("ping") })
+export type WSPingMessage = z.infer<typeof WSPingMessageSchema>
 
-export const ServerDiagnosticsRequestMessageSchema = z.object({
-  type: z.literal("server.diagnostics"),
+export const WSPongMessageSchema = z.object({ type: z.literal("pong") })
+export type WSPongMessage = z.infer<typeof WSPongMessageSchema>
+
+export const ServerStatusGetRequestSchema = z.object({
+  type: z.literal("server.status.request"),
   requestId: RequestIdSchema,
 })
 
-export const ServerConfigRequestMessageSchema = z.object({
-  type: z.literal("server.config.get"),
+export const ServerDiagnosticsRequestSchema = z.object({
+  type: z.literal("server.diagnostics.request"),
   requestId: RequestIdSchema,
 })
 
-export const ServerConfigReloadMessageSchema = z.object({
-  type: z.literal("server.config.reload"),
+export const ServerConfigGetRequestSchema = z.object({
+  type: z.literal("server.config.get.request"),
   requestId: RequestIdSchema,
 })
 
-export const ServerStateRequestMessageSchema = z.object({
-  type: z.literal("server.state"),
+export const ServerConfigReloadRequestSchema = z.object({
+  type: z.literal("server.config.reload.request"),
   requestId: RequestIdSchema,
-})
-
-export const RuntimeRequestMessageSchema = z.object({
-  type: z.literal("runtime.request"),
-  requestId: RequestIdSchema,
-  payload: z.object({
-    method: RuntimeMethodSchema,
-    params: z.unknown().optional(),
-  }),
-})
-
-export const ServerLifecycleRequestMessageSchema = z.object({
-  type: z.enum(["server.restart", "server.shutdown"]),
-  requestId: RequestIdSchema,
-  payload: z
-    .object({
-      reason: z.string().trim().min(1).max(256).optional(),
-    })
-    .default({}),
-})
-
-export const SessionGoodbyeMessageSchema = z.object({
-  type: z.literal("session.goodbye"),
-  requestId: RequestIdSchema,
-})
-
-export const ClientRpcErrorCodeSchema = z.enum([
-  "HANDLER_FAILED",
-  "REQUEST_CANCELLED",
-  "REQUEST_NOT_SUPPORTED",
-])
-export type ClientRpcErrorCode = z.infer<typeof ClientRpcErrorCodeSchema>
-
-/** Terminal error response for a request initiated by the server. */
-export const ClientRpcErrorMessageSchema = z.object({
-  type: z.literal("client.error"),
-  requestId: RequestIdSchema,
-  payload: z.object({
-    code: ClientRpcErrorCodeSchema,
-    message: z.string().min(1),
-    requestType: z.string().min(1).optional(),
-  }),
 })
 
 export const RuntimeStateSchema = z.enum(["errored", "ready", "starting", "stopped", "stopping"])
@@ -184,20 +135,23 @@ export const ServerIdentitySchema = z.object({
 })
 export type ServerIdentity = z.infer<typeof ServerIdentitySchema>
 
-export const ServerInfoSchema = z.object({
+export const ServerStatusSchema = z.object({
   ...ServerIdentitySchema.shape,
+  capabilities: z.array(z.string()),
   connections: z.int().nonnegative(),
+  features: ServerFeatureFlagsSchema.optional(),
   runtimeState: RuntimeStateSchema,
   webApp: z.object({
     enabled: z.boolean(),
   }),
 })
-export type ServerInfo = z.infer<typeof ServerInfoSchema>
+export type ServerStatus = z.infer<typeof ServerStatusSchema>
 
 export const ServerDiagnosticsSchema = z.object({
   collectedAt: z.iso.datetime(),
   connections: z.object({
     active: z.int().nonnegative(),
+    activeSessions: z.int().nonnegative(),
     acceptedTotal: z.int().nonnegative(),
     rejectedTotal: z.int().nonnegative(),
     resumedTotal: z.int().nonnegative().optional(),
@@ -344,8 +298,8 @@ export const ServerConfigSnapshotSchema = z.object({
 })
 export type ServerConfigSnapshot = z.infer<typeof ServerConfigSnapshotSchema>
 
-export const ServerConfigPatchMessageSchema = z.object({
-  type: z.literal("server.config.patch"),
+export const ServerConfigPatchRequestSchema = z.object({
+  type: z.literal("server.config.patch.request"),
   requestId: RequestIdSchema,
   payload: z.object({ patch: PersistedServerConfigPatchSchema }),
 })
@@ -357,6 +311,7 @@ export const ServerOperationalStateSchema = z.object({
   }),
   connections: z.object({
     active: z.int().nonnegative(),
+    activeSessions: z.int().nonnegative(),
     retained: z.int().nonnegative(),
   }),
   relay: z.object({
@@ -371,192 +326,154 @@ export const ServerOperationalStateSchema = z.object({
 })
 export type ServerOperationalState = z.infer<typeof ServerOperationalStateSchema>
 
-export type ClientMessage =
-  | z.infer<typeof SessionHelloMessageSchema>
-  | z.infer<typeof ServerPingMessageSchema>
-  | z.infer<typeof ServerInfoRequestMessageSchema>
-  | z.infer<typeof ServerDiagnosticsRequestMessageSchema>
-  | z.infer<typeof ServerConfigRequestMessageSchema>
-  | z.infer<typeof ServerConfigPatchMessageSchema>
-  | z.infer<typeof ServerConfigReloadMessageSchema>
-  | z.infer<typeof ServerStateRequestMessageSchema>
-  | z.infer<typeof RuntimeRequestMessageSchema>
-  | z.infer<typeof ServerLifecycleRequestMessageSchema>
-  | z.infer<typeof SessionGoodbyeMessageSchema>
-  | z.infer<typeof ClientRpcErrorMessageSchema>
-  | z.infer<typeof AgentAcpClientMessageSchema>
-  | z.infer<typeof AgentCodexClientRequestMessageSchema>
-  | z.infer<typeof AgentCodexServerResponseMessageSchema>
-  | z.infer<typeof AgentCodexClientNotificationMessageSchema>
+const discriminatedUnionByType = <T>(schemas: readonly z.ZodType[]): z.ZodType<T> =>
+  z.compile(
+    z.discriminatedUnion("type", schemas as unknown as Parameters<typeof z.discriminatedUnion>[1])
+  ) as z.ZodType<T>
 
-// Some agent families are themselves unions/refined schemas, so they cannot satisfy Zod's
-// discriminated-union option type without unsafe casts. A compiled ordinary union keeps the
-// public type honest and lets Zod generate the optimized parser once for this hot boundary.
-export const ClientMessageSchema: z.ZodType<ClientMessage> = z.compile(
-  z.union([
-    SessionHelloMessageSchema,
-    ServerPingMessageSchema,
-    ServerInfoRequestMessageSchema,
-    ServerDiagnosticsRequestMessageSchema,
-    ServerConfigRequestMessageSchema,
-    ServerConfigPatchMessageSchema,
-    ServerConfigReloadMessageSchema,
-    ServerStateRequestMessageSchema,
-    RuntimeRequestMessageSchema,
-    ServerLifecycleRequestMessageSchema,
-    SessionGoodbyeMessageSchema,
-    ClientRpcErrorMessageSchema,
-    AgentAcpClientMessageSchema,
-    AgentCodexClientRequestMessageSchema,
-    AgentCodexServerResponseMessageSchema,
-    AgentCodexClientNotificationMessageSchema,
-  ])
-)
+/** A client-to-server message carried inside a top-level WebSocket `session` envelope. */
+export type SessionInboundMessage =
+  | z.infer<typeof ServerStatusGetRequestSchema>
+  | z.infer<typeof ServerDiagnosticsRequestSchema>
+  | z.infer<typeof ServerConfigGetRequestSchema>
+  | z.infer<typeof ServerConfigPatchRequestSchema>
+  | z.infer<typeof ServerConfigReloadRequestSchema>
+  | AgentAcpClientMessage
+  | AgentCodexClientRequest
+  | AgentCodexServerResponse
+  | AgentCodexClientNotification
 
-export const KNOWN_SERVER_ERROR_CODES = [
-  "AUTHENTICATION_REQUIRED",
-  "HANDLER_FAILED",
-  "INTERNAL_ERROR",
-  "INVALID_MESSAGE",
-  "NOT_READY",
-  "PROTOCOL_MISMATCH",
-  "REQUEST_NOT_SUPPORTED",
-] as const
-export type KnownServerErrorCode = (typeof KNOWN_SERVER_ERROR_CODES)[number]
-// Error codes are open-ended so newer servers do not disconnect older clients merely for adding
-// a diagnostic code. Consumers can compare against KNOWN_SERVER_ERROR_CODES when needed.
-export const ServerErrorCodeSchema = z.string().trim().min(1).max(128)
-export type ServerErrorCode = z.infer<typeof ServerErrorCodeSchema>
+// Nested family discriminators keep each concrete wire `type` visible while allowing ACP to use
+// `protocolVersion` as its second-level discriminator for types shared by v1 and v2.
+export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInboundMessage>([
+  ServerStatusGetRequestSchema,
+  ServerDiagnosticsRequestSchema,
+  ServerConfigGetRequestSchema,
+  ServerConfigPatchRequestSchema,
+  ServerConfigReloadRequestSchema,
+  AgentAcpClientMessageSchema,
+  AgentCodexClientRequestSchema,
+  AgentCodexServerResponseSchema,
+  AgentCodexClientNotificationSchema,
+])
 
-export const SessionReadyMessageSchema = z.object({
-  type: z.literal("session.ready"),
+export type ClientMessage = SessionInboundMessage
+export const ClientMessageSchema = SessionInboundMessageSchema
+
+/** Status notification sent after hello and whenever server status materially changes. */
+export const ServerStatusNotificationSchema = z.object({
+  type: z.literal("server.status.notification"),
+  payload: ServerStatusSchema,
+})
+export type ServerStatusNotification = z.infer<typeof ServerStatusNotificationSchema>
+
+export const ServerStatusGetResponseSchema = z.object({
+  type: z.literal("server.status.response"),
   requestId: RequestIdSchema,
-  payload: z.object({
-    capabilities: z.array(z.string()),
-    features: ServerFeatureFlagsSchema.optional(),
-    reconnectGraceMs: z.int().nonnegative().optional(),
-    resumed: z.boolean().optional(),
-    server: ServerIdentitySchema,
-    sessionId: z.string(),
-  }),
+  payload: ServerStatusSchema,
 })
 
-export const ServerPongMessageSchema = z.object({
-  type: z.literal("server.pong"),
-  requestId: RequestIdSchema,
-  payload: z.object({
-    clientSentAt: z.iso.datetime().optional(),
-    serverReceivedAt: z.iso.datetime(),
-    serverSentAt: z.iso.datetime(),
-  }),
-})
-
-export const ServerInfoMessageSchema = z.object({
-  type: z.literal("server.info.result"),
-  requestId: RequestIdSchema,
-  payload: ServerInfoSchema,
-})
-
-export const ServerDiagnosticsMessageSchema = z.object({
-  type: z.literal("server.diagnostics.result"),
+export const ServerDiagnosticsResponseSchema = z.object({
+  type: z.literal("server.diagnostics.response"),
   requestId: RequestIdSchema,
   payload: ServerDiagnosticsSchema,
 })
 
-export const ServerConfigMessageSchema = z.object({
-  type: z.literal("server.config.result"),
+export const ServerConfigGetResponseSchema = z.object({
+  type: z.literal("server.config.get.response"),
   requestId: RequestIdSchema,
   payload: ServerConfigSnapshotSchema,
 })
 
-export const ServerStateMessageSchema = z.object({
-  type: z.literal("server.state.result"),
+export const ServerConfigPatchResponseSchema = z.object({
+  type: z.literal("server.config.patch.response"),
   requestId: RequestIdSchema,
-  payload: ServerOperationalStateSchema,
+  payload: ServerConfigSnapshotSchema,
 })
 
-export const RuntimeResponseMessageSchema = z.object({
-  type: z.literal("runtime.response"),
+export const ServerConfigReloadResponseSchema = z.object({
+  type: z.literal("server.config.reload.response"),
   requestId: RequestIdSchema,
-  payload: z.object({
-    result: z.unknown(),
-  }),
+  payload: ServerConfigSnapshotSchema,
 })
 
-export const RuntimeEventMessageSchema = z.object({
-  type: z.literal("runtime.event"),
-  payload: z.object({
-    event: z.unknown(),
-  }),
-})
+/** A server-to-client message carried inside a top-level WebSocket `session` envelope. */
+export type SessionOutboundMessage =
+  | z.infer<typeof ServerStatusNotificationSchema>
+  | z.infer<typeof ServerStatusGetResponseSchema>
+  | z.infer<typeof ServerDiagnosticsResponseSchema>
+  | z.infer<typeof ServerConfigGetResponseSchema>
+  | z.infer<typeof ServerConfigPatchResponseSchema>
+  | z.infer<typeof ServerConfigReloadResponseSchema>
+  | AgentAcpServerMessage
+  | AgentCodexClientResponse
+  | AgentCodexServerRequest
+  | AgentCodexServerNotification
 
-export const ServerLifecycleAcceptedMessageSchema = z.object({
-  type: z.literal("server.lifecycle.accepted"),
-  requestId: RequestIdSchema,
-  payload: z.object({
-    action: z.enum(["restart", "shutdown"]),
-  }),
-})
+export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutboundMessage>([
+  ServerStatusNotificationSchema,
+  ServerStatusGetResponseSchema,
+  ServerDiagnosticsResponseSchema,
+  ServerConfigGetResponseSchema,
+  ServerConfigPatchResponseSchema,
+  ServerConfigReloadResponseSchema,
+  AgentAcpServerMessageSchema,
+  AgentCodexClientResponseSchema,
+  AgentCodexServerRequestSchema,
+  AgentCodexServerNotificationSchema,
+])
 
-export const ServerErrorMessageSchema = z.object({
-  type: z.literal("server.error"),
-  requestId: RequestIdSchema.optional(),
-  payload: z.object({
-    code: ServerErrorCodeSchema,
-    message: z.string(),
-  }),
-})
-
-export type ServerMessage =
-  | z.infer<typeof SessionReadyMessageSchema>
-  | z.infer<typeof ServerPongMessageSchema>
-  | z.infer<typeof ServerInfoMessageSchema>
-  | z.infer<typeof ServerDiagnosticsMessageSchema>
-  | z.infer<typeof ServerConfigMessageSchema>
-  | z.infer<typeof ServerStateMessageSchema>
-  | z.infer<typeof RuntimeResponseMessageSchema>
-  | z.infer<typeof RuntimeEventMessageSchema>
-  | z.infer<typeof ServerLifecycleAcceptedMessageSchema>
-  | z.infer<typeof ServerErrorMessageSchema>
-  | z.infer<typeof AgentAcpServerMessageSchema>
-  | z.infer<typeof AgentCodexClientResponseMessageSchema>
-  | z.infer<typeof AgentCodexServerRequestMessageSchema>
-  | z.infer<typeof AgentCodexServerNotificationMessageSchema>
-
-export const ServerMessageSchema: z.ZodType<ServerMessage> = z.compile(
-  z.union([
-    SessionReadyMessageSchema,
-    ServerPongMessageSchema,
-    ServerInfoMessageSchema,
-    ServerDiagnosticsMessageSchema,
-    ServerConfigMessageSchema,
-    ServerStateMessageSchema,
-    RuntimeResponseMessageSchema,
-    RuntimeEventMessageSchema,
-    ServerLifecycleAcceptedMessageSchema,
-    ServerErrorMessageSchema,
-    AgentAcpServerMessageSchema,
-    AgentCodexClientResponseMessageSchema,
-    AgentCodexServerRequestMessageSchema,
-    AgentCodexServerNotificationMessageSchema,
-  ])
-)
+export type ServerMessage = SessionOutboundMessage
+export const ServerMessageSchema = SessionOutboundMessageSchema
 
 const clientResponseTypes = new Set<string>([
-  "session.ready",
-  "server.pong",
-  "server.info.result",
-  "server.diagnostics.result",
-  "server.config.result",
-  "server.state.result",
-  "runtime.response",
-  "server.lifecycle.accepted",
+  "server.status.response",
+  "server.diagnostics.response",
+  "server.config.get.response",
+  "server.config.patch.response",
+  "server.config.reload.response",
   ...Object.values(AGENT_CODEX_CLIENT_RPC).map(({ response }) => response),
 ])
 
 /** Distinguishes responses to client requests from reverse RPCs that happen to share an id. */
 export const isClientResponseMessage = (message: ServerMessage): boolean =>
   clientResponseTypes.has(message.type)
+
+export const WSSessionInboundMessageSchema = z.object({
+  type: z.literal("session"),
+  message: SessionInboundMessageSchema,
+})
+export type WSSessionInboundMessage = z.infer<typeof WSSessionInboundMessageSchema>
+
+export const WSSessionOutboundMessageSchema = z.object({
+  type: z.literal("session"),
+  message: SessionOutboundMessageSchema,
+})
+export type WSSessionOutboundMessage = z.infer<typeof WSSessionOutboundMessageSchema>
+
+export type WSInboundMessage = WSHelloMessage | WSPingMessage | WSSessionInboundMessage
+export const WSInboundMessageSchema: z.ZodType<WSInboundMessage> = z.compile(
+  z.discriminatedUnion("type", [
+    WSHelloMessageSchema,
+    WSPingMessageSchema,
+    WSSessionInboundMessageSchema,
+  ])
+)
+
+export type WSOutboundMessage = WSPongMessage | WSSessionOutboundMessage
+export const WSOutboundMessageSchema: z.ZodType<WSOutboundMessage> = z.compile(
+  z.discriminatedUnion("type", [WSPongMessageSchema, WSSessionOutboundMessageSchema])
+)
+
+export const wrapClientSessionMessage = (message: ClientMessage): WSSessionInboundMessage => ({
+  message,
+  type: "session",
+})
+
+export const wrapServerSessionMessage = (message: ServerMessage): WSSessionOutboundMessage => ({
+  message,
+  type: "session",
+})
 
 export const HttpRuntimeRequestSchema = z.object({
   method: RuntimeMethodSchema,
@@ -570,11 +487,27 @@ export const HttpLifecycleRequestSchema = z.object({
 export type HttpLifecycleRequest = z.infer<typeof HttpLifecycleRequestSchema>
 
 export function parseClientMessage(value: unknown): ClientMessage {
-  return ClientMessageSchema.parse(value)
+  return parseSessionInboundMessage(value)
 }
 
 export function parseServerMessage(value: unknown): ServerMessage {
-  return ServerMessageSchema.parse(value)
+  return parseSessionOutboundMessage(value)
+}
+
+export function parseSessionInboundMessage(value: unknown): SessionInboundMessage {
+  return SessionInboundMessageSchema.parse(value)
+}
+
+export function parseSessionOutboundMessage(value: unknown): SessionOutboundMessage {
+  return SessionOutboundMessageSchema.parse(value)
+}
+
+export function parseWSInboundMessage(value: unknown): WSInboundMessage {
+  return WSInboundMessageSchema.parse(value)
+}
+
+export function parseWSOutboundMessage(value: unknown): WSOutboundMessage {
+  return WSOutboundMessageSchema.parse(value)
 }
 
 /**
@@ -599,11 +532,27 @@ export function parseProtocolMessageText(raw: string): unknown {
 }
 
 export function parseClientMessageText(raw: string): ClientMessage {
-  return parseClientMessage(parseProtocolMessageText(raw))
+  return parseSessionInboundMessageText(raw)
 }
 
 export function parseServerMessageText(raw: string): ServerMessage {
-  return parseServerMessage(parseProtocolMessageText(raw))
+  return parseSessionOutboundMessageText(raw)
+}
+
+export function parseSessionInboundMessageText(raw: string): SessionInboundMessage {
+  return parseSessionInboundMessage(parseProtocolMessageText(raw))
+}
+
+export function parseSessionOutboundMessageText(raw: string): SessionOutboundMessage {
+  return parseSessionOutboundMessage(parseProtocolMessageText(raw))
+}
+
+export function parseWSInboundMessageText(raw: string): WSInboundMessage {
+  return parseWSInboundMessage(parseProtocolMessageText(raw))
+}
+
+export function parseWSOutboundMessageText(raw: string): WSOutboundMessage {
+  return parseWSOutboundMessage(parseProtocolMessageText(raw))
 }
 
 export function createWebSocketProtocols(token?: string): string[] {

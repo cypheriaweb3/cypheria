@@ -143,7 +143,7 @@ const renderRequestSchemas = (entries, messageType) =>
   entries
     .map(({ method, paramsType }) => {
       const type = wireName(method, "request")
-      return `  ${quote(method)}: codexTopLevelParamsMessageSchema<Extract<${messageType}, { type: ${quote(
+      return `  ${quote(method)}: codexTopLevelParamsSchema<Extract<${messageType}, { type: ${quote(
         type
       )} }>>(${quote(type)}, ${paramsType === "undefined" ? "null" : quote(paramsType)}),`
     })
@@ -153,7 +153,7 @@ const renderResponseSchemas = (entries, responseMap, messageType) =>
   entries
     .map(({ method }) => {
       const type = wireName(method, "response")
-      return `  ${quote(method)}: codexResponseMessageSchema<Extract<${messageType}, { type: ${quote(
+      return `  ${quote(method)}: codexResponseSchema<Extract<${messageType}, { type: ${quote(
         type
       )} }>>(${quote(type)}, ${quote(responseMap[method])}),`
     })
@@ -163,7 +163,7 @@ const renderNotificationSchemas = (entries, messageType) =>
   entries
     .map(({ method, paramsType }) => {
       const type = wireName(method, "notification")
-      return `  ${quote(method)}: codexNotificationMessageSchema<Extract<${messageType}, { type: ${quote(
+      return `  ${quote(method)}: codexNotificationSchema<Extract<${messageType}, { type: ${quote(
         type
       )} }>>(${quote(type)}, ${paramsType === null ? "null" : quote(paramsType)}),`
     })
@@ -176,7 +176,7 @@ const output = `// GENERATED CODE! DO NOT MODIFY BY HAND!
 import type { ClientNotification as CodexClientNotification, ClientRequest as CodexClientRequest, ServerNotification as CodexServerNotification, ServerRequest as CodexServerRequest } from "./ts/index.ts"
 import type { RequestId } from "../../request-id.ts"
 import type { CodexClientResponseMap, CodexServerRequestResponseMap } from "./response-map.ts"
-import { codexMessageSchemaUnion, codexNotificationMessageSchema, codexResponseMessageSchema, codexTopLevelParamsMessageSchema } from "../../agent/codex-app-server-schema-registry.ts"
+import { codexDiscriminatedUnion, codexNotificationSchema, codexResponseSchema, codexTopLevelParamsSchema } from "../../agent/codex-app-server-schema-registry.ts"
 
 /** Cypheria wire names for every Codex App Server client-initiated RPC. */
 export const AGENT_CODEX_CLIENT_RPC = {
@@ -200,57 +200,57 @@ ${renderNotifications(clientNotifications)}
 
 type DefinedCodexParams<T> = [Exclude<T, null | undefined>] extends [never] ? Record<never, never> : Exclude<T, null | undefined>
 type CodexParams<T> = T extends { params?: infer P } ? DefinedCodexParams<P> : Record<never, never>
-type CodexNotificationMessage<T, Type extends string> = T extends { params: infer P } ? { type: Type, payload: P } : { type: Type }
+type CodexNotification<T, Type extends string> = T extends { params: infer P } ? { type: Type, payload: P } : { type: Type }
 
 type ClientMethod = keyof typeof AGENT_CODEX_CLIENT_RPC
 type ServerMethod = keyof typeof AGENT_CODEX_SERVER_RPC
 type ServerNotificationMethod = keyof typeof AGENT_CODEX_SERVER_NOTIFICATIONS
 type ClientNotificationMethod = keyof typeof AGENT_CODEX_CLIENT_NOTIFICATIONS
 
-export type AgentCodexClientRequestMessage = {
+export type AgentCodexClientRequest = {
   [M in ClientMethod]: { type: (typeof AGENT_CODEX_CLIENT_RPC)[M]["request"], requestId: RequestId } & CodexParams<Extract<CodexClientRequest, { method: M }>>
 }[ClientMethod]
-export type AgentCodexClientResponseMessage = {
+export type AgentCodexClientResponse = {
   [M in ClientMethod]: { type: (typeof AGENT_CODEX_CLIENT_RPC)[M]["response"], payload: { requestId: RequestId } & CodexClientResponseMap[M] }
 }[ClientMethod]
-export type AgentCodexServerRequestMessage = {
+export type AgentCodexServerRequest = {
   [M in ServerMethod]: { type: (typeof AGENT_CODEX_SERVER_RPC)[M]["request"], requestId: RequestId } & CodexParams<Extract<CodexServerRequest, { method: M }>>
 }[ServerMethod]
-export type AgentCodexServerResponseMessage = {
+export type AgentCodexServerResponse = {
   [M in ServerMethod]: { type: (typeof AGENT_CODEX_SERVER_RPC)[M]["response"], payload: { requestId: RequestId } & CodexServerRequestResponseMap[M] }
 }[ServerMethod]
-export type AgentCodexServerNotificationMessage = {
-  [M in ServerNotificationMethod]: CodexNotificationMessage<Extract<CodexServerNotification, { method: M }>, (typeof AGENT_CODEX_SERVER_NOTIFICATIONS)[M]["notification"]>
+export type AgentCodexServerNotification = {
+  [M in ServerNotificationMethod]: CodexNotification<Extract<CodexServerNotification, { method: M }>, (typeof AGENT_CODEX_SERVER_NOTIFICATIONS)[M]["notification"]>
 }[ServerNotificationMethod]
-export type AgentCodexClientNotificationMessage = {
-  [M in ClientNotificationMethod]: CodexNotificationMessage<Extract<CodexClientNotification, { method: M }>, (typeof AGENT_CODEX_CLIENT_NOTIFICATIONS)[M]["notification"]>
+export type AgentCodexClientNotification = {
+  [M in ClientNotificationMethod]: CodexNotification<Extract<CodexClientNotification, { method: M }>, (typeof AGENT_CODEX_CLIENT_NOTIFICATIONS)[M]["notification"]>
 }[ClientNotificationMethod]
 
-export const AGENT_CODEX_CLIENT_REQUEST_MESSAGE_SCHEMAS = {
-${renderRequestSchemas(clientRequests, "AgentCodexClientRequestMessage")}
+export const AGENT_CODEX_CLIENT_REQUEST_SCHEMAS = {
+${renderRequestSchemas(clientRequests, "AgentCodexClientRequest")}
 } as const
-export const AGENT_CODEX_CLIENT_RESPONSE_MESSAGE_SCHEMAS = {
-${renderResponseSchemas(clientRequests, clientResponseMap, "AgentCodexClientResponseMessage")}
+export const AGENT_CODEX_CLIENT_RESPONSE_SCHEMAS = {
+${renderResponseSchemas(clientRequests, clientResponseMap, "AgentCodexClientResponse")}
 } as const
-export const AGENT_CODEX_SERVER_REQUEST_MESSAGE_SCHEMAS = {
-${renderRequestSchemas(serverRequests, "AgentCodexServerRequestMessage")}
+export const AGENT_CODEX_SERVER_REQUEST_SCHEMAS = {
+${renderRequestSchemas(serverRequests, "AgentCodexServerRequest")}
 } as const
-export const AGENT_CODEX_SERVER_RESPONSE_MESSAGE_SCHEMAS = {
-${renderResponseSchemas(serverRequests, serverResponseMap, "AgentCodexServerResponseMessage")}
+export const AGENT_CODEX_SERVER_RESPONSE_SCHEMAS = {
+${renderResponseSchemas(serverRequests, serverResponseMap, "AgentCodexServerResponse")}
 } as const
-export const AGENT_CODEX_SERVER_NOTIFICATION_MESSAGE_SCHEMAS = {
-${renderNotificationSchemas(serverNotifications, "AgentCodexServerNotificationMessage")}
+export const AGENT_CODEX_SERVER_NOTIFICATION_SCHEMAS = {
+${renderNotificationSchemas(serverNotifications, "AgentCodexServerNotification")}
 } as const
-export const AGENT_CODEX_CLIENT_NOTIFICATION_MESSAGE_SCHEMAS = {
-${renderNotificationSchemas(clientNotifications, "AgentCodexClientNotificationMessage")}
+export const AGENT_CODEX_CLIENT_NOTIFICATION_SCHEMAS = {
+${renderNotificationSchemas(clientNotifications, "AgentCodexClientNotification")}
 } as const
 
-export const AgentCodexClientRequestMessageSchema = codexMessageSchemaUnion<AgentCodexClientRequestMessage>(Object.values(AGENT_CODEX_CLIENT_REQUEST_MESSAGE_SCHEMAS))
-export const AgentCodexClientResponseMessageSchema = codexMessageSchemaUnion<AgentCodexClientResponseMessage>(Object.values(AGENT_CODEX_CLIENT_RESPONSE_MESSAGE_SCHEMAS))
-export const AgentCodexServerRequestMessageSchema = codexMessageSchemaUnion<AgentCodexServerRequestMessage>(Object.values(AGENT_CODEX_SERVER_REQUEST_MESSAGE_SCHEMAS))
-export const AgentCodexServerResponseMessageSchema = codexMessageSchemaUnion<AgentCodexServerResponseMessage>(Object.values(AGENT_CODEX_SERVER_RESPONSE_MESSAGE_SCHEMAS))
-export const AgentCodexServerNotificationMessageSchema = codexMessageSchemaUnion<AgentCodexServerNotificationMessage>(Object.values(AGENT_CODEX_SERVER_NOTIFICATION_MESSAGE_SCHEMAS))
-export const AgentCodexClientNotificationMessageSchema = codexMessageSchemaUnion<AgentCodexClientNotificationMessage>(Object.values(AGENT_CODEX_CLIENT_NOTIFICATION_MESSAGE_SCHEMAS))
+export const AgentCodexClientRequestSchema = codexDiscriminatedUnion<AgentCodexClientRequest>(Object.values(AGENT_CODEX_CLIENT_REQUEST_SCHEMAS))
+export const AgentCodexClientResponseSchema = codexDiscriminatedUnion<AgentCodexClientResponse>(Object.values(AGENT_CODEX_CLIENT_RESPONSE_SCHEMAS))
+export const AgentCodexServerRequestSchema = codexDiscriminatedUnion<AgentCodexServerRequest>(Object.values(AGENT_CODEX_SERVER_REQUEST_SCHEMAS))
+export const AgentCodexServerResponseSchema = codexDiscriminatedUnion<AgentCodexServerResponse>(Object.values(AGENT_CODEX_SERVER_RESPONSE_SCHEMAS))
+export const AgentCodexServerNotificationSchema = codexDiscriminatedUnion<AgentCodexServerNotification>(Object.values(AGENT_CODEX_SERVER_NOTIFICATION_SCHEMAS))
+export const AgentCodexClientNotificationSchema = codexDiscriminatedUnion<AgentCodexClientNotification>(Object.values(AGENT_CODEX_CLIENT_NOTIFICATION_SCHEMAS))
 `
 
 if (checkOnly) {

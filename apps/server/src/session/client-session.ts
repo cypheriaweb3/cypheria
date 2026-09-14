@@ -1,17 +1,17 @@
 import { randomUUID } from "node:crypto"
 
 import {
+  type ClientCapabilities,
   type ClientDescriptor,
   type ClientMessage,
   type PersistedServerConfigPatch,
   type ServerConfigSnapshot,
   type ServerDiagnostics,
-  type ServerErrorCode,
-  type ServerIdentity,
-  type ServerInfo,
   type ServerMessage,
-  type ServerOperationalState,
+  type ServerStatus,
   stringifyProtocolMessage,
+  type WSHelloMessage,
+  wrapServerSessionMessage,
 } from "@cypheria/protocol"
 
 export type SessionTransport = {
@@ -22,26 +22,24 @@ export type SessionTransport = {
 export type SessionHost = {
   getConfig(): ServerConfigSnapshot
   getDiagnostics(): ServerDiagnostics
-  getIdentity(): ServerIdentity
-  getInfo(): ServerInfo
-  getSessionCapabilities(): string[]
-  getState(): ServerOperationalState
+  getStatus(): ServerStatus
   patchConfig(patch: PersistedServerConfigPatch): Promise<ServerConfigSnapshot>
   reloadConfig(): Promise<ServerConfigSnapshot>
-  requestLifecycle(action: "restart" | "shutdown", reason?: string): void
-  requestRuntime(method: string, params?: unknown): Promise<unknown>
 }
 
 export type ClientSessionOptions = {
-  client: ClientDescriptor
+  hello: WSHelloMessage
   host: SessionHost
   onClose?: (session: ClientSession) => void
   onDetach?: (session: ClientSession) => void
+  principalId: string
   reconnectGraceMs: number
 }
 
-const errorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : "Unknown server error"
+type SessionSource = {
+  capabilities: ClientCapabilities
+  inFlight: Set<string>
+}
 
 const correlatedRequestId = (message: object): string | undefined => {
   if ("requestId" in message && typeof message.requestId === "string") return message.requestId
@@ -53,189 +51,149 @@ const correlatedRequestId = (message: object): string | undefined => {
     : undefined
 }
 
+const descriptorFromHello = (hello: WSHelloMessage): ClientDescriptor => ({
+  id: hello.clientId,
+  kind: hello.clientType,
+  ...(hello.appVersion ? { version: hello.appVersion } : {}),
+})
+
 export class ClientSession {
-  readonly client: ClientDescriptor
   readonly id = `ses_${randomUUID()}`
+  readonly principalId: string
   readonly reconnectGraceMs: number
 
+  #client: ClientDescriptor
   #closed = false
   #host: SessionHost
-  #inFlight = new Set<string>()
   #onClose: ((session: ClientSession) => void) | undefined
   #onDetach: ((session: ClientSession) => void) | undefined
-  #transport: SessionTransport | undefined
+  readonly #sources = new Map<SessionTransport, SessionSource>()
 
   constructor(options: ClientSessionOptions) {
-    this.client = options.client
+    this.#client = descriptorFromHello(options.hello)
     this.#host = options.host
     this.#onClose = options.onClose
     this.#onDetach = options.onDetach
+    this.principalId = options.principalId
     this.reconnectGraceMs = options.reconnectGraceMs
   }
 
   get attached(): boolean {
-    return this.#transport !== undefined
+    return this.#sources.size > 0
   }
 
-  attach(transport: SessionTransport, requestId: string, resumed: boolean): void {
+  get client(): ClientDescriptor {
+    return this.#client
+  }
+
+  get transportCount(): number {
+    return this.#sources.size
+  }
+
+  attach(transport: SessionTransport, hello: WSHelloMessage): void {
     if (this.#closed) throw new Error("Cannot attach a closed client session")
-    const previous = this.#transport
-    this.#transport = transport
-    if (previous && previous !== transport) previous.close(1012, "Session resumed elsewhere")
-    this.send({
-      payload: {
-        capabilities: this.#host.getSessionCapabilities(),
-        reconnectGraceMs: this.reconnectGraceMs,
-        resumed,
-        server: this.#host.getIdentity(),
-        sessionId: this.id,
-      },
-      requestId,
-      type: "session.ready",
+    this.#client = descriptorFromHello(hello)
+    this.#sources.set(transport, {
+      capabilities: hello.capabilities ?? {},
+      inFlight: new Set(),
+    })
+    this.sendTo(transport, {
+      payload: this.#host.getStatus(),
+      type: "server.status.notification",
     })
   }
 
+  supports(capability: string, source?: SessionTransport): boolean {
+    if (source) return this.#sources.get(source)?.capabilities[capability] === true
+    for (const state of this.#sources.values()) {
+      if (state.capabilities[capability] === true) return true
+    }
+    return false
+  }
+
   send(message: ServerMessage): void {
-    if (!this.#closed && this.#transport) {
-      this.#transport.send(stringifyProtocolMessage(message))
+    for (const transport of this.#sources.keys()) this.sendTo(transport, message)
+  }
+
+  sendTo(transport: SessionTransport, message: ServerMessage): void {
+    if (!this.#closed && this.#sources.has(transport)) {
+      transport.send(stringifyProtocolMessage(wrapServerSessionMessage(message)))
     }
   }
 
-  async receive(message: Exclude<ClientMessage, { type: "session.hello" }>): Promise<void> {
-    if (this.#closed || !this.#transport) return
+  async receive(message: ClientMessage, source: SessionTransport): Promise<void> {
+    if (this.#closed) return
+    const sourceState = this.#sources.get(source)
+    if (!sourceState) return
     const messageRequestId = correlatedRequestId(message)
-    if (messageRequestId && this.#inFlight.has(messageRequestId)) {
-      this.#sendError("INVALID_MESSAGE", "Request id is already in flight", messageRequestId)
+    if (messageRequestId && sourceState.inFlight.has(messageRequestId)) {
+      source.close(1008, "Request id is already in flight")
       return
     }
-    if (messageRequestId) this.#inFlight.add(messageRequestId)
+    if (messageRequestId) sourceState.inFlight.add(messageRequestId)
     try {
-      await this.#handleMessage(message)
+      await this.#handleMessage(message, source)
+    } catch (error) {
+      source.close(1011, error instanceof Error ? error.message.slice(0, 123) : "Request failed")
     } finally {
-      if (messageRequestId) this.#inFlight.delete(messageRequestId)
+      if (messageRequestId) sourceState.inFlight.delete(messageRequestId)
     }
   }
 
   close(code = 1000, reason = "Session closed"): void {
     if (this.#closed) return
     this.#closed = true
-    const transport = this.#transport
-    this.#transport = undefined
-    transport?.close(code, reason)
+    const transports = [...this.#sources.keys()]
+    this.#sources.clear()
+    for (const transport of transports) transport.close(code, reason)
     this.#onClose?.(this)
   }
 
   transportClosed(transport: SessionTransport): void {
-    if (this.#closed || this.#transport !== transport) return
-    this.#transport = undefined
-    this.#onDetach?.(this)
+    if (this.#closed || !this.#sources.delete(transport)) return
+    if (this.#sources.size === 0) this.#onDetach?.(this)
   }
 
-  async #handleMessage(message: Exclude<ClientMessage, { type: "session.hello" }>): Promise<void> {
+  async #handleMessage(message: ClientMessage, source: SessionTransport): Promise<void> {
     switch (message.type) {
-      case "server.ping": {
-        const receivedAt = new Date().toISOString()
-        this.send({
-          payload: {
-            clientSentAt: message.payload.sentAt,
-            serverReceivedAt: receivedAt,
-            serverSentAt: new Date().toISOString(),
-          },
+      case "server.status.request":
+        this.sendTo(source, {
+          payload: this.#host.getStatus(),
           requestId: message.requestId,
-          type: "server.pong",
+          type: "server.status.response",
         })
         break
-      }
-      case "server.info":
-        this.send({
-          payload: this.#host.getInfo(),
-          requestId: message.requestId,
-          type: "server.info.result",
-        })
-        break
-      case "server.diagnostics":
-        this.send({
+      case "server.diagnostics.request":
+        this.sendTo(source, {
           payload: this.#host.getDiagnostics(),
           requestId: message.requestId,
-          type: "server.diagnostics.result",
+          type: "server.diagnostics.response",
         })
         break
-      case "server.config.get":
-        this.send({
+      case "server.config.get.request":
+        this.sendTo(source, {
           payload: this.#host.getConfig(),
           requestId: message.requestId,
-          type: "server.config.result",
+          type: "server.config.get.response",
         })
         break
-      case "server.config.patch":
-        await this.#handleConfigChange(message.requestId, () =>
-          this.#host.patchConfig(message.payload.patch)
-        )
-        break
-      case "server.config.reload":
-        await this.#handleConfigChange(message.requestId, () => this.#host.reloadConfig())
-        break
-      case "server.state":
-        this.send({
-          payload: this.#host.getState(),
+      case "server.config.patch.request":
+        this.sendTo(source, {
+          payload: await this.#host.patchConfig(message.payload.patch),
           requestId: message.requestId,
-          type: "server.state.result",
+          type: "server.config.patch.response",
         })
         break
-      case "runtime.request":
-        await this.#handleRuntimeRequest(message)
-        break
-      case "server.restart":
-      case "server.shutdown": {
-        const action = message.type === "server.restart" ? "restart" : "shutdown"
-        this.send({
-          payload: { action },
+      case "server.config.reload.request":
+        this.sendTo(source, {
+          payload: await this.#host.reloadConfig(),
           requestId: message.requestId,
-          type: "server.lifecycle.accepted",
+          type: "server.config.reload.response",
         })
-        queueMicrotask(() => this.#host.requestLifecycle(action, message.payload.reason))
-        break
-      }
-      case "session.goodbye":
-        this.close(1000, "Client disconnected")
         break
       default:
-        this.#sendError(
-          "REQUEST_NOT_SUPPORTED",
-          `Message type is not handled by the server: ${message.type}`,
-          correlatedRequestId(message)
-        )
+        source.close(1003, `Message type is not handled by the server: ${message.type}`)
         break
     }
-  }
-
-  async #handleConfigChange(
-    requestId: string,
-    change: () => Promise<ServerConfigSnapshot>
-  ): Promise<void> {
-    try {
-      this.send({ payload: await change(), requestId, type: "server.config.result" })
-    } catch (error) {
-      this.#sendError("HANDLER_FAILED", errorMessage(error), requestId)
-    }
-  }
-
-  async #handleRuntimeRequest(
-    message: Extract<ClientMessage, { type: "runtime.request" }>
-  ): Promise<void> {
-    try {
-      const result = await this.#host.requestRuntime(message.payload.method, message.payload.params)
-      this.send({
-        payload: { result: result ?? null },
-        requestId: message.requestId,
-        type: "runtime.response",
-      })
-    } catch (error) {
-      this.#sendError("HANDLER_FAILED", errorMessage(error), message.requestId)
-    }
-  }
-
-  #sendError(code: ServerErrorCode, message: string, requestId?: string): void {
-    this.send({ payload: { code, message }, requestId, type: "server.error" })
   }
 }

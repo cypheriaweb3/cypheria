@@ -13,7 +13,7 @@ import WebSocket from "ws"
 
 import type { ClientConnection } from "./session/client-connection.js"
 import type { SessionHost } from "./session/client-session.js"
-import type { ConnectionRegistry } from "./session/connection-registry.js"
+import { type ConnectionRegistry, OWNER_SESSION_ADMISSION } from "./session/connection-registry.js"
 
 const CONTROL_RECONNECT_MIN_MS = 1_000
 const CONTROL_RECONNECT_MAX_MS = 30_000
@@ -252,18 +252,21 @@ export class RelayConnection {
             return
           }
           connection.channel = channel
-          clientConnection = this.#options.registry.accept({
-            close: (code, reason) => channel.close(code, reason),
-            send: (data) => {
-              void channel.send(data).catch((error) => {
-                this.#options.logger.warn(
-                  { connectionId, err: error },
-                  "Failed to send encrypted relay frame"
-                )
-                channel.close(1011, "Relay send failed")
-              })
+          clientConnection = this.#options.registry.accept(
+            {
+              close: (code, reason) => channel.close(code, reason),
+              send: (data) => {
+                void channel.send(data).catch((error) => {
+                  this.#options.logger.warn(
+                    { connectionId, err: error },
+                    "Failed to send encrypted relay frame"
+                  )
+                  channel.close(1011, "Relay send failed")
+                })
+              },
             },
-          })
+            OWNER_SESSION_ADMISSION
+          )
           connection.connection = clientConnection
         })
         .catch((error) => {

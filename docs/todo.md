@@ -74,17 +74,17 @@ Status legend:
     CI, and build.
 
 - [x] Add the Cypheria client/server foundation without migrating desktop.
-  - Acceptance: `apps/server` provides a Hono HTTP/WebSocket control plane, resumable versioned client sessions, runtime lifecycle, persisted server configuration and live state, operations endpoints, supervised server lifecycle, relay ingress, and embedded Expo web hosting; `apps/expo` targets iOS, Android, and static web; `@cypheria/protocol` provides shared validated contracts.
+  - Acceptance: `apps/server` provides a Hono HTTP/WebSocket control plane, Paseo-shaped top-level envelopes, principal-and-client-keyed multi-transport logical sessions with automatic grace-period resume, runtime lifecycle, persisted server configuration and live state, operations endpoints, supervised server lifecycle, relay ingress, and embedded Expo web hosting; `apps/expo` targets iOS, Android, and static web; `@cypheria/protocol` provides shared validated contracts.
   - Exclude: agent, project, wallet, policy, browser, and automation product methods; any `apps/desktop` code change.
-  - Verification: protocol/server/Expo tests and typechecks, Expo compatibility check and static export, server build and embedded-web smoke test, daemon start/status/restart/stop smoke test, full repository CI/build.
+  - Verification: protocol/server/client/Expo tests and typechecks, relay tests, Expo compatibility check and static export, server build and embedded-web smoke test, server start/status/restart/stop smoke test, full repository CI/build.
 
 - [x] Define the complete Codex App Server API in `@cypheria/protocol`.
   - Acceptance: all generated client RPCs, reverse server RPCs, server notifications, and client notifications have collision-free `agent.codex.*` dotted wire names in the live Zod message unions, with request/response correlation and upstream method/schema metadata.
   - Include: keep Codex-generated TypeScript as the type source; generate committed static Zod 4 definition validators from the Codex JSON Schemas with pinned Hey API; preserve wire fields named `default`; normalize 64-bit integers to JSON numbers; retain protocol-owned generated Codex DTOs and JSON Schemas, mechanically generated catalogs, reverse lookups, drift checks, provider-transparent JSON payloads, paired protocol documentation, and Cypheria-owned dotted envelope and response mapping generation; do not connect server dispatch in this item.
   - Verification: protocol generation check, typecheck, tests, build, and full repository CI.
 
-- [x] Add ACP wire envelopes to `@cypheria/protocol`.
-  - Acceptance: directional `agent.acp.*` messages carry JSON-transparent ACP traffic in the live client/server unions, discriminate stable v1 from draft v2, and preserve v2 batch semantics.
+- [x] Add ACP logical messages to `@cypheria/protocol`.
+  - Acceptance: concrete `agent.acp.<operation>.request|response|notification` messages are directly routable through nested client/server discriminated unions; numeric `protocolVersion` selects stable v1 or draft v2, underscore-prefixed extension methods and v2 batches use dedicated types, and batch entries use another nested discriminated union.
   - Include: official `@agentclientprotocol/sdk@1.4.0` protocol constants, directional types, generated Zod schemas, per-method parameter validation, JSON-RPC boundary validation, and paired protocol documentation; expose the SDK's shipped Zod modules with a minimal pinned package-export patch instead of copying them; do not connect server dispatch in this item.
   - Verification: protocol typecheck, tests, and build.
 
@@ -119,13 +119,13 @@ Status legend:
 
 - [x] Add the layered `packages/client` protocol client.
   - Acceptance: `ServerClient` owns transport and WebSocket session lifecycle, correlation, subscriptions, and reconnect policy; `CypheriaApi` borrows an existing connection and exposes only current protocol-defined operations; `CypheriaClient` combines the API with lifecycle controls.
-  - Include: lazy connection, versioned hello/authentication, browser/Node/custom transport support, request timeout and typed error handling, bounded exponential reconnects, generic runtime request/events, typed Codex endpoint traffic, typed message notifications, ACP traffic, paired package documentation, and no privileged implementation dependencies.
+  - Include: lazy connection, versioned hello/authentication, browser/Node/custom transport support, request timeout handling, bounded exponential reconnects, server status/diagnostics/configuration RPCs, typed Codex endpoint traffic, typed message notifications, ACP traffic, paired package documentation, and no privileged implementation dependencies.
   - Verification: `pnpm --filter @cypheria/client test`, package typecheck/build, `pnpm run ci`, and `pnpm build`.
-  - Verification record: 23 client unit tests, a live client/server runtime-info smoke test, full repository CI, and full repository build pass.
+  - Verification record: client unit tests, a live client/server status smoke test, full repository CI, and full repository build pass.
 
 - [x] Add an ACP SDK-style API to `@cypheria/client`.
-  - Acceptance: stable-v1 and explicit draft-v2 ACP app APIs work over the directional wire envelopes already defined by `@cypheria/protocol`, while callers retain the official SDK's typed contexts, handlers, sessions, cancellation, errors, and v2 batches.
-  - Include: Cypheria-owned `client()` and `ClientApp` at `@cypheria/client/acp` and `@cypheria/client/acp/v2`; `CypheriaApi`-based `connect` and `connectWith`; selective pinned-SDK re-exports without reimplemented or deprecated APIs; protocol-owned outbound validation; inbound version filtering; one active ACP connection per endpoint across borrowed facades; teardown on transport loss; retained low-level envelope access; and paired package/architecture/stack documentation. Do not add server-side ACP dispatch in this item.
+  - Acceptance: stable-v1 and explicit draft-v2 ACP app APIs work over the logical messages defined by `@cypheria/protocol`, while callers retain the official SDK's typed contexts, handlers, sessions, cancellation, errors, and v2 batches.
+  - Include: Cypheria-owned `client()` and `ClientApp` at `@cypheria/client/acp` and `@cypheria/client/acp/v2`; `CypheriaApi`-based `connect` and `connectWith`; selective pinned-SDK re-exports without reimplemented or deprecated APIs; protocol-owned outbound validation; JSON-RPC/logical-message translation with connection-local response correlation; inbound version filtering; one active ACP connection per endpoint across borrowed facades; teardown on transport loss; retained low-level logical-message access; and paired package/architecture/stack documentation. Do not add server-side ACP dispatch in this item.
   - Verification: 32 client unit tests, client typecheck/build, full repository CI, and full repository build.
 
 - [x] Replace Codex actions with a Codex SDK-style API in `@cypheria/client`.

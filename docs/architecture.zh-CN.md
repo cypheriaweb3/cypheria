@@ -52,17 +52,19 @@ Codex 负责 agent threads、turns、model execution、code edits、shell/tool e
 
 ## Server 与 Protocol 边界
 
-`apps/server` 是目标架构中唯一持有 `@cypheria/runtime` 的进程。它提供小型 Hono HTTP 运维 API，以及由 `@cypheria/protocol` 定义的版本化 WebSocket session protocol。Supervisor 持有 PID lock、双向 liveness supervision、有界 crash restart、process-group termination 与 graceful shutdown；可替换 worker 持有 Hono、逻辑 session、runtime lifecycle 与 runtime-event broadcasting。直连 socket 和解密后的 relay channel 进入同一个物理连接边界；transport 断开后，逻辑 session 会在有界 grace period 内保留，让 `@cypheria/client` 使用原 session ID 与匹配的 client identity 恢复连接。Desired server config 位于 `$CYPHERIA_HOME/config/server.json`；worker 在启动时一次性解析环境变量覆盖，并暴露 desired-versus-running restart state，但不会返回只存在于环境中的认证 token。
+`apps/server` 是目标架构中唯一持有 `@cypheria/runtime` 的进程。它提供小型 Hono HTTP 运维 API，以及由 `@cypheria/protocol` 定义的版本化 WebSocket session protocol。Supervisor 持有 PID lock、双向 liveness supervision、有界 crash restart、process-group termination 与 graceful shutdown；可替换 worker 持有 Hono、逻辑 session、runtime lifecycle。直连 socket 和解密后的 relay channel 进入同一个物理连接边界。逻辑 session 以 authenticated principal 加 `clientId` 为 key，可以同时持有多条物理 transport，并且只在最后一条 transport 断开后进入有界 grace period；同一身份重连会自动恢复，不使用公开 session ID 或 resume token。Desired server config 位于 `$CYPHERIA_HOME/config/server.json`；worker 在启动时一次性解析环境变量覆盖，并暴露 desired-versus-running restart state，但不会返回只存在于环境中的认证 token。
 
-`@cypheria/protocol` 定义 Cypheria client message、server message、HTTP body 与 runtime method validation。WebSocket message 在值均为 JSON 原生类型时仍使用普通 JSON；只有 Cypheria 自有 payload 包含 `bigint` 等值时，才使用版本化 SuperJSON 信封携带元数据。该 package 持有 generated Codex App Server TypeScript、JSON Schema、response mapping 与逐消息 Zod validator，并从根入口以 `agent.codex.<operation>.request|response|notification` 暴露完整、provider-transparent 的 Cypheria API。原始 generated Codex type 隔离在 `@cypheria/protocol/codex-types`。`@cypheria/codex-bridge` 只消费这些产物，不再维护另一份 generated copy；在改为围绕 Cypheria message 工作之前，原始 Codex JSON-RPC validation 暂时仍由 bridge 持有。Client code 可以依赖 `@cypheria/protocol`，但不能导入 server internals 或特权 domain implementation。`@cypheria/client` 将这个边界分成三层：`ServerClient` 持有经过校验的 WebSocket session；`CypheriaApi` 借用已有 `ServerClient`，但不获得 lifecycle control；`CypheriaClient` 则把该门面与 connection lifecycle 组合起来。其 `codex` 入口实现 Cypheria 自有的 SDK-shaped `client()` 与 `ClientApp`；`connect()` 和 `connectWith()` 通过共享的 `CypheriaApi` 类型接收任一门面，并在内部选择最小的 `agent.codex` endpoint。typed request call、反向 request handler 与 notification handler 随后直接运行，不再生成 action tree。其 stable 与 draft-v2 ACP 入口提供相同 app 形态，并从传入的 `CypheriaApi` 选择 `agent.acp`；它们复用官方 handler/JSON-RPC engine，并选择性重新导出支持的 SDK type 与 helper，不包含已废弃 connection class。这样 host 持有的一条连接可以安全共享，而 plugin 或局部 surface 不能将其关闭。
+`@cypheria/protocol` 定义 Cypheria client message、server message、HTTP body 与 runtime method validation。WebSocket 层沿用 Paseo：顶层 `hello`、`ping` 与 `pong` 处理物理连接，`{ type: "session", message }` 承载全部逻辑 server、ACP 与 Codex traffic。逻辑 `server.status.notification` 消息表示挂接完成，不存在 `session.ready`。WebSocket message 在值均为 JSON 原生类型时仍使用普通 JSON；只有 Cypheria 自有 payload 包含 `bigint` 等值时，才使用版本化 SuperJSON 信封携带元数据。该 package 持有 generated Codex App Server TypeScript、JSON Schema、response mapping 与逐消息 Zod validator，并从根入口以 `agent.codex.<operation>.request|response|notification` 暴露完整、provider-transparent 的 Cypheria API。原始 generated Codex type 隔离在 `@cypheria/protocol/codex-types`。`@cypheria/codex-bridge` 只消费这些产物，不再维护另一份 generated copy；在改为围绕 Cypheria message 工作之前，原始 Codex JSON-RPC validation 暂时仍由 bridge 持有。Client code 可以依赖 `@cypheria/protocol`，但不能导入 server internals 或特权 domain implementation。`@cypheria/client` 将这个边界分成三层：`ServerClient` 持有经过校验的 WebSocket session；`CypheriaApi` 借用已有 `ServerClient`，但不获得 lifecycle control；`CypheriaClient` 则把该门面与 connection lifecycle 组合起来。其 `codex` 入口实现 Cypheria 自有的 SDK-shaped `client()` 与 `ClientApp`；`connect()` 和 `connectWith()` 通过共享的 `CypheriaApi` 类型接收任一门面，并在内部选择最小的 `agent.codex` endpoint。typed request call、反向 request handler 与 notification handler 随后直接运行，不再生成 action tree。其 stable 与 draft-v2 ACP 入口提供相同 app 形态，并从传入的 `CypheriaApi` 选择 `agent.acp`；它们复用官方 handler/JSON-RPC engine，并选择性重新导出支持的 SDK type 与 helper，不包含已废弃 connection class。这样 host 持有的一条连接可以安全共享，而 plugin 或局部 surface 不能将其关闭。
 
-Cypheria 自有 object schema 会剥离未知 key。可选的 `session.ready.features` record 是例外：
+Generated Codex schema 名称不再包含多余的 `Message` 片段，例如 `AgentCodexClientRequestSchema`。Inbound 与 outbound session schema 会在 session `type` discriminator 中嵌套 Codex 与 ACP family discriminator，同时让每个具体消息 type 都可直接路由。ACP wire name 包含规范化 method 与 request/response/notification 后缀；独立的数字 `protocolVersion` 用于判别稳定 v1 与 draft v2。以 underscore 开头的 extension method 使用专用 extension message type，并把 `method` 嵌套在 `payload`；v2 使用专用 batch type，其 `payload.messages` 是另一层嵌套 discriminated union。Generated ACP catalog 从固定版本 SDK declaration 派生已知 method 配对与 method-specific validator，已知 params/result 使用 SDK parser 的规范输出。
+
+Cypheria 自有 object schema 会剥离未知 key。可选的 `server.status.features` record 是例外：
 它会保留未知 boolean flag，以支持不同版本 peer。每个具名 compatibility gate 必须保持可选，
 并通过 `COMPAT(name)` comment 记录引入版本与移除日期。最终 protocol union 使用 Zod 显式
 AOT compile；ACP call validation 会跳过 SDK 宽泛且未关联 method 的 params union，直接使用选中的
 method schema。每个 Codex client connection 都持有初始化状态机；`initialize()` 执行 request 与
-initialized notification，`connection.initialized` 暴露协商 snapshot。每个反向 request 都会以
-typed response 或 `client.error` 结束（前提是 transport 仍然可用）。
+initialized notification，`connection.initialized` 暴露协商 snapshot。反向 request 只写回
+Codex 自身定义的 typed response；缺失或失败的 handler 在本地报告。
 
 初始 server 刻意只注册 runtime 内置的 information、health 与 service-list method。Codex wire contract 已经定义，但 server dispatch 尚未连接；wallet、policy、browser、automation 与其余产品 service 仍不在当前运行中的 foundation 范围内。详见 [Cypheria Server](server.zh-CN.md)。
 
@@ -70,7 +72,7 @@ typed response 或 `client.error` 结束（前提是 transport 仍然可用）�
 
 远程 client 可以用 `ConnectionOfferV2` 替代直连 URL/token。受认证的 server pairing endpoint
 生成包含 relay endpoint、server ID 和服务端 X25519 公钥的 `cypheria://pair` URL。
-`@cypheria/client` 在发送现有 `session.hello` 前完成 E2EE；`apps/server` 把每条解密后的 relay
+`@cypheria/client` 在发送顶层 `hello` 前完成 E2EE；`apps/server` 把每条解密后的 relay
 data socket 转换为直连 WebSocket 共用的 transport-neutral `ClientSession`。relay 能看到路由
 metadata 和密文，但看不到直连 Bearer token 或应用明文。
 

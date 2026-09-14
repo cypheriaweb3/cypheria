@@ -1,15 +1,21 @@
-import type { ClientMessage, ServerMessage } from "@cypheria/protocol"
+import type { ServerMessage, WSHelloMessage } from "@cypheria/protocol"
 
 import { ClientConnection } from "./client-connection.js"
 import { ClientSession, type SessionHost, type SessionTransport } from "./client-session.js"
 
-type SessionHello = Extract<ClientMessage, { type: "session.hello" }>
+export type SessionAdmission = {
+  principalId: string
+}
 
 export type ConnectionRegistryOptions = {
   helloTimeoutMs: number
   host: SessionHost
   reconnectGraceMs: number
 }
+
+export const OWNER_SESSION_ADMISSION: SessionAdmission = Object.freeze({ principalId: "owner" })
+const sessionKey = (principalId: string, clientId: string): string =>
+  JSON.stringify([principalId, clientId])
 
 export class ConnectionRegistry {
   readonly #options: ConnectionRegistryOptions
@@ -24,10 +30,10 @@ export class ConnectionRegistry {
     this.#options = options
   }
 
-  accept(transport: SessionTransport): ClientConnection {
+  accept(transport: SessionTransport, admission: SessionAdmission): ClientConnection {
     this.#acceptedTotal += 1
     return new ClientConnection({
-      attach: (hello, acceptedTransport) => this.#attach(hello, acceptedTransport),
+      attach: (hello, acceptedTransport) => this.#attach(hello, acceptedTransport, admission),
       helloTimeoutMs: this.#options.helloTimeoutMs,
       transport,
     })
@@ -48,68 +54,81 @@ export class ConnectionRegistry {
     this.#sessions.clear()
   }
 
+  /** Number of active physical transports. */
   get size(): number {
+    let active = 0
+    for (const session of this.#sessions.values()) active += session.transportCount
+    return active
+  }
+
+  get activeSessions(): number {
     let active = 0
     for (const session of this.#sessions.values()) if (session.attached) active += 1
     return active
   }
 
   get retained(): number {
-    return this.#sessions.size - this.size
+    return this.#sessions.size - this.activeSessions
   }
 
   diagnostics() {
     return {
       acceptedTotal: this.#acceptedTotal,
       active: this.size,
+      activeSessions: this.activeSessions,
       rejectedTotal: this.#rejectedTotal,
       resumedTotal: this.#resumedTotal,
       retained: this.retained,
     }
   }
 
-  #attach(hello: SessionHello, transport: SessionTransport): ClientSession {
-    const requestedId = hello.payload.resumeSessionId
-    const retained = requestedId ? this.#sessions.get(requestedId) : undefined
-    const canResume = retained?.client.id === hello.payload.client.id
-    const session = canResume
-      ? retained
-      : new ClientSession({
-          client: hello.payload.client,
-          host: this.#options.host,
-          onClose: (closed) => this.#remove(closed.id),
-          onDetach: (detached) => this.#retain(detached),
-          reconnectGraceMs: this.#options.reconnectGraceMs,
-        })
+  #attach(
+    hello: WSHelloMessage,
+    transport: SessionTransport,
+    admission: SessionAdmission
+  ): ClientSession {
+    const key = sessionKey(admission.principalId, hello.clientId)
+    const existing = this.#sessions.get(key)
+    const session =
+      existing ??
+      new ClientSession({
+        hello,
+        host: this.#options.host,
+        onClose: (closed) => this.#remove(key, closed),
+        onDetach: (detached) => this.#retain(key, detached),
+        principalId: admission.principalId,
+        reconnectGraceMs: this.#options.reconnectGraceMs,
+      })
 
-    if (!canResume) this.#sessions.set(session.id, session)
-    else this.#resumedTotal += 1
-    const timer = this.#retentionTimers.get(session.id)
+    if (existing) this.#resumedTotal += 1
+    else this.#sessions.set(key, session)
+    const timer = this.#retentionTimers.get(key)
     if (timer) clearTimeout(timer)
-    this.#retentionTimers.delete(session.id)
-    session.attach(transport, hello.requestId, canResume)
+    this.#retentionTimers.delete(key)
+    session.attach(transport, hello)
     return session
   }
 
-  #retain(session: ClientSession): void {
-    const existing = this.#retentionTimers.get(session.id)
+  #retain(key: string, session: ClientSession): void {
+    const existing = this.#retentionTimers.get(key)
     if (existing) clearTimeout(existing)
     if (session.reconnectGraceMs === 0) {
       session.close(1000, "Reconnect grace period disabled")
       return
     }
     const timer = setTimeout(() => {
-      this.#retentionTimers.delete(session.id)
+      if (this.#sessions.get(key) !== session || session.attached) return
+      this.#retentionTimers.delete(key)
       session.close(1000, "Reconnect grace period expired")
     }, session.reconnectGraceMs)
     timer.unref()
-    this.#retentionTimers.set(session.id, timer)
+    this.#retentionTimers.set(key, timer)
   }
 
-  #remove(id: string): void {
-    const timer = this.#retentionTimers.get(id)
+  #remove(key: string, session: ClientSession): void {
+    const timer = this.#retentionTimers.get(key)
     if (timer) clearTimeout(timer)
-    this.#retentionTimers.delete(id)
-    this.#sessions.delete(id)
+    this.#retentionTimers.delete(key)
+    if (this.#sessions.get(key) === session) this.#sessions.delete(key)
   }
 }

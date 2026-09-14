@@ -6,8 +6,8 @@ import {
   AGENT_CODEX_SERVER_NOTIFICATIONS,
   AGENT_CODEX_SERVER_REQUEST_TYPE_TO_METHOD,
   AGENT_CODEX_SERVER_RPC,
-  type AgentCodexServerNotificationMessage,
-  type AgentCodexServerRequestMessage,
+  type AgentCodexServerNotification,
+  type AgentCodexServerRequest,
   type RequestId as CypheriaRequestId,
 } from "@cypheria/protocol"
 
@@ -24,17 +24,16 @@ import {
   type CodexServerNotificationMethod,
   type CodexServerNotificationParams,
   type CodexServerRequestParams,
-  respondCodexError,
 } from "./codex-endpoint.js"
 import type { CypheriaApi } from "./index.js"
 
 export type {
-  AgentCodexClientNotificationMessage,
-  AgentCodexClientRequestMessage,
-  AgentCodexClientResponseMessage,
-  AgentCodexServerNotificationMessage,
-  AgentCodexServerRequestMessage,
-  AgentCodexServerResponseMessage,
+  AgentCodexClientNotification,
+  AgentCodexClientRequest,
+  AgentCodexClientResponse,
+  AgentCodexServerNotification,
+  AgentCodexServerRequest,
+  AgentCodexServerResponse,
   CodexClientResponseMap,
   CodexServerRequestResponseMap,
 } from "@cypheria/protocol"
@@ -125,14 +124,13 @@ export const methods = {
 const asError = (value: unknown, fallback: string): Error =>
   value instanceof Error ? value : new Error(value === undefined ? fallback : String(value))
 
-const requestParams = (message: AgentCodexServerRequestMessage): Record<string, unknown> => {
+const requestParams = (message: AgentCodexServerRequest): Record<string, unknown> => {
   const { requestId: _requestId, type: _type, ...params } = message
   return params
 }
 
-const notificationParams = (
-  message: AgentCodexServerNotificationMessage
-): Record<string, unknown> => ("payload" in message ? message.payload : {})
+const notificationParams = (message: AgentCodexServerNotification): Record<string, unknown> =>
+  "payload" in message ? message.payload : {}
 
 const raceWithAbort = <T>(promise: PromiseLike<T>, signal: AbortSignal): Promise<T> =>
   new Promise<T>((resolve, reject) => {
@@ -381,7 +379,6 @@ class CodexClientConnection implements ClientConnection {
   readonly #initialization: CodexInitialization
   readonly #resolveClosed: () => void
   #releaseEndpoint: (() => void) | undefined
-  #transportAvailable = true
   #unsubscribeMessages: (() => void) | undefined
 
   constructor(app: ClientApp, endpoint: CodexEndpoint) {
@@ -398,7 +395,6 @@ class CodexClientConnection implements ClientConnection {
     this.#resolveClosed = resolveClosed
 
     this.#releaseEndpoint = attachCodexEndpoint(endpoint, (error) => {
-      this.#transportAvailable = false
       this.close(error)
     })
     if (this.signal.aborted) {
@@ -447,7 +443,7 @@ class CodexClientConnection implements ClientConnection {
       AGENT_CODEX_SERVER_REQUEST_TYPE_TO_METHOD as Partial<Record<string, CodexServerMethod>>
     )[message.type]
     if (requestMethod) {
-      await this.#dispatchRequest(message as AgentCodexServerRequestMessage, requestMethod)
+      await this.#dispatchRequest(message as AgentCodexServerRequest, requestMethod)
       return
     }
     const method = (
@@ -461,7 +457,7 @@ class CodexClientConnection implements ClientConnection {
     try {
       await handler({
         codex: this.codex,
-        params: notificationParams(message as AgentCodexServerNotificationMessage),
+        params: notificationParams(message as AgentCodexServerNotification),
         signal: this.signal,
       } as never)
     } catch (error) {
@@ -470,18 +466,13 @@ class CodexClientConnection implements ClientConnection {
   }
 
   async #dispatchRequest(
-    message: AgentCodexServerRequestMessage,
+    message: AgentCodexServerRequest,
     method: CodexServerMethod
   ): Promise<void> {
     const handler = this.#app.requestHandler(method)
     if (!handler) {
       const error = new Error(`No Codex client handler registered for '${method}'`)
       this.#app.reportError(error, message)
-      await respondCodexError(this.#endpoint, message.requestId, {
-        code: "REQUEST_NOT_SUPPORTED",
-        message: error.message,
-        requestType: message.type,
-      })
       return
     }
     try {
@@ -499,15 +490,7 @@ class CodexClientConnection implements ClientConnection {
       await this.#endpoint.respond(method, message.requestId, response)
     } catch (error) {
       this.#app.reportError(error, message)
-      // A lost transport cannot receive the terminal cancellation and must not be reconnected just
-      // to deliver a stale reverse-RPC response. A logical ClientApp close keeps the borrowed
-      // Cypheria transport alive, so it can still terminate the server request explicitly.
-      if (this.signal.aborted && !this.#transportAvailable) return
-      await respondCodexError(this.#endpoint, message.requestId, {
-        code: this.signal.aborted ? "REQUEST_CANCELLED" : "HANDLER_FAILED",
-        message: asError(error, "Codex client handler failed").message,
-        requestType: message.type,
-      })
+      return
     }
   }
 }

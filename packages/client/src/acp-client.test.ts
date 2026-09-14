@@ -2,10 +2,12 @@ import * as sdkAcp from "@agentclientprotocol/sdk"
 import { ClientApp as SdkClientApp } from "@agentclientprotocol/sdk"
 import * as sdkAcpV2 from "@agentclientprotocol/sdk/experimental/v2"
 import {
-  ACP_V1_PROTOCOL_VERSION,
   ACP_V2_PROTOCOL_VERSION,
-  parseClientMessageText,
-  stringifyProtocolMessage,
+  type ClientMessage,
+  parseWSInboundMessageText,
+  type ServerMessage,
+  stringifyProtocolMessage as stringifyEnvelope,
+  wrapServerSessionMessage,
 } from "@cypheria/protocol"
 import { afterEach, describe, expect, it } from "vitest"
 import * as acp from "./acp.js"
@@ -23,27 +25,35 @@ import { TestWebSocket, testWebSocketFactory } from "./test-websocket.js"
 
 const tick = () => new Promise<void>((resolve) => queueMicrotask(resolve))
 
+const parseClientMessageText = (raw: string): ClientMessage => {
+  const envelope = parseWSInboundMessageText(raw)
+  if (envelope.type !== "session") throw new Error("Expected session envelope")
+  return envelope.message
+}
+
+const stringifyProtocolMessage = (message: unknown): string =>
+  stringifyEnvelope(wrapServerSessionMessage(message as ServerMessage))
+
 const acceptConnection = async (connectPromise: Promise<void>): Promise<TestWebSocket> => {
   const socket = TestWebSocket.instances.at(-1)
   if (!socket) throw new Error("Expected a WebSocket")
   socket.open()
-  const hello = parseClientMessageText(socket.sent[0] ?? "")
-  if (hello.type !== "session.hello") throw new Error("Expected session hello")
+  const hello = parseWSInboundMessageText(socket.sent[0] ?? "")
+  if (hello.type !== "hello") throw new Error("Expected hello")
   socket.message(
     stringifyProtocolMessage({
       payload: {
         capabilities: ["agent.acp"],
-        server: {
-          hostname: "test",
-          id: "srv_test",
-          protocolVersion: 1,
-          startedAt: "2026-09-12T00:00:00.000Z",
-          version: "0.0.0",
-        },
-        sessionId: "ses_test",
+        connections: 1,
+        hostname: "test",
+        id: "srv_test",
+        protocolVersion: 1,
+        runtimeState: "ready",
+        startedAt: "2026-09-12T00:00:00.000Z",
+        version: "0.0.0",
+        webApp: { enabled: false },
       },
-      requestId: hello.requestId,
-      type: "session.ready",
+      type: "server.status.notification",
     })
   )
   await connectPromise
@@ -67,24 +77,18 @@ describe("Cypheria ACP SDK adapter", () => {
     await tick()
 
     const request = parseClientMessageText(socket.sent.at(-1) ?? "")
-    if (request.type !== "agent.acp.client.message") throw new Error("Expected ACP message")
-    expect(request.payload).toEqual({
-      message: {
-        id: 0,
-        jsonrpc: "2.0",
-        method: "_cypheria/test",
-        params: { value: 7 },
-      },
-      protocolVersion: ACP_V1_PROTOCOL_VERSION,
+    expect(request).toEqual({
+      payload: { method: "_cypheria/test", params: { value: 7 } },
+      protocolVersion: 1,
+      requestId: 0,
+      type: "agent.acp.extension.request",
     })
 
     socket.message(
       stringifyProtocolMessage({
-        payload: {
-          message: { id: 0, jsonrpc: "2.0", result: { accepted: true } },
-          protocolVersion: ACP_V1_PROTOCOL_VERSION,
-        },
-        type: "agent.acp.server.message",
+        payload: { requestId: 0, result: { accepted: true } },
+        protocolVersion: 1,
+        type: "agent.acp.extension.response",
       })
     )
 
@@ -118,16 +122,10 @@ describe("Cypheria ACP SDK adapter", () => {
 
     socket.message(
       stringifyProtocolMessage({
-        payload: {
-          message: {
-            id: "agent-request-1",
-            jsonrpc: "2.0",
-            method: "_cypheria/uppercase",
-            params: { text: "cypheria" },
-          },
-          protocolVersion: ACP_V1_PROTOCOL_VERSION,
-        },
-        type: "agent.acp.server.message",
+        payload: { method: "_cypheria/uppercase", params: { text: "cypheria" } },
+        protocolVersion: 1,
+        requestId: "agent-request-1",
+        type: "agent.acp.extension.request",
       })
     )
     await tick()
@@ -135,15 +133,9 @@ describe("Cypheria ACP SDK adapter", () => {
 
     const response = parseClientMessageText(socket.sent.at(-1) ?? "")
     expect(response).toEqual({
-      payload: {
-        message: {
-          id: "agent-request-1",
-          jsonrpc: "2.0",
-          result: { text: "CYPHERIA" },
-        },
-        protocolVersion: ACP_V1_PROTOCOL_VERSION,
-      },
-      type: "agent.acp.client.message",
+      payload: { requestId: "agent-request-1", result: { text: "CYPHERIA" } },
+      protocolVersion: 1,
+      type: "agent.acp.extension.response",
     })
 
     connection.close()
@@ -178,15 +170,9 @@ describe("Cypheria ACP SDK adapter", () => {
 
     socket.message(
       stringifyProtocolMessage({
-        payload: {
-          message: {
-            jsonrpc: "2.0",
-            method: "_cypheria/event",
-            params: { value: "ready" },
-          },
-          protocolVersion: ACP_V1_PROTOCOL_VERSION,
-        },
-        type: "agent.acp.server.message",
+        payload: { method: "_cypheria/event", params: { value: "ready" } },
+        protocolVersion: 1,
+        type: "agent.acp.extension.notification",
       })
     )
     await tick()
@@ -207,17 +193,12 @@ describe("Cypheria ACP SDK adapter", () => {
     const socket = await acceptConnection(cypheria.connect())
     await tick()
 
-    const request = parseClientMessageText(socket.sent.at(-1) ?? "")
-    if (request.type !== "agent.acp.client.message" || Array.isArray(request.payload.message)) {
-      throw new Error("Expected ACP request")
-    }
+    parseClientMessageText(socket.sent.at(-1) ?? "")
     socket.message(
       stringifyProtocolMessage({
-        payload: {
-          message: { id: 0, jsonrpc: "2.0", result: { doubled: 16 } },
-          protocolVersion: ACP_V1_PROTOCOL_VERSION,
-        },
-        type: "agent.acp.server.message",
+        payload: { requestId: 0, result: { doubled: 16 } },
+        protocolVersion: 1,
+        type: "agent.acp.extension.response",
       })
     )
 
@@ -239,31 +220,22 @@ describe("Cypheria ACP SDK adapter", () => {
     await tick()
 
     const initialize = parseClientMessageText(socket.sent.at(-1) ?? "")
-    if (initialize.type !== "agent.acp.client.message") throw new Error("Expected ACP message")
-    if (
-      Array.isArray(initialize.payload.message) ||
-      !("id" in initialize.payload.message) ||
-      !("method" in initialize.payload.message)
-    ) {
+    if (initialize.type !== "agent.acp.initialize.request") {
       throw new Error("Expected ACP initialize request")
     }
-    expect(initialize.payload.protocolVersion).toBe(ACP_V2_PROTOCOL_VERSION)
-    expect(initialize.payload.message.method).toBe(acpV2Methods.agent.initialize)
+    expect(initialize.protocolVersion).toBe(ACP_V2_PROTOCOL_VERSION)
 
     socket.message(
       stringifyProtocolMessage({
         payload: {
-          message: {
-            id: initialize.payload.message.id,
-            jsonrpc: "2.0",
-            result: {
-              info: { name: "test-agent", version: "1.0.0" },
-              protocolVersion: ACP_V2_VERSION,
-            },
+          requestId: initialize.requestId,
+          result: {
+            info: { name: "test-agent", version: "1.0.0" },
+            protocolVersion: ACP_V2_VERSION,
           },
-          protocolVersion: ACP_V2_PROTOCOL_VERSION,
         },
-        type: "agent.acp.server.message",
+        protocolVersion: 2,
+        type: "agent.acp.initialize.response",
       })
     )
     await expect(initializePromise).resolves.toMatchObject({ protocolVersion: ACP_V2_VERSION })
@@ -273,13 +245,20 @@ describe("Cypheria ACP SDK adapter", () => {
       batchNotification("_cypheria/second", { value: 2 }),
     ])
     const batch = parseClientMessageText(socket.sent.at(-1) ?? "")
-    if (batch.type !== "agent.acp.client.message") throw new Error("Expected ACP batch")
+    if (batch.type !== "agent.acp.batch") throw new Error("Expected ACP batch")
     expect(batch.payload).toMatchObject({
-      message: [
-        { method: "_cypheria/first", params: { value: 1 } },
-        { method: "_cypheria/second", params: { value: 2 } },
+      messages: [
+        {
+          payload: { method: "_cypheria/first", params: { value: 1 } },
+          protocolVersion: 2,
+          type: "agent.acp.extension.notification",
+        },
+        {
+          payload: { method: "_cypheria/second", params: { value: 2 } },
+          protocolVersion: 2,
+          type: "agent.acp.extension.notification",
+        },
       ],
-      protocolVersion: ACP_V2_PROTOCOL_VERSION,
     })
 
     connection.close()

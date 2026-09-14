@@ -26,10 +26,9 @@ CypheriaClient = CypheriaApi + connection lifecycle
 
 `CypheriaApi` 刻意只暴露当前 `@cypheria/protocol` message 已表示的操作：
 
-- `server`：ping、information、diagnostics、restart 与 shutdown；
-- `runtime`：通用 `runtime.request` 调用与 `runtime.event` 订阅；
+- `server`：ping、status、diagnostics 与 configuration；
 - `agent.codex`：generated Codex request、notification、反向 request 与 response；
-- `agent.acp`：有方向的 ACP envelope。
+- `agent.acp`：可直接判别的 ACP 逻辑消息。
 
 它不会根据 runtime method 字符串发明 wallet、policy、automation 或 runtime-info 产品方法。
 只有相应 contract 进入 `@cypheria/protocol` 后，才应增加高层 API。
@@ -116,11 +115,14 @@ import { client as createAcpV2App } from "@cypheria/client/acp/v2"
 const connection = createAcpV2App().connect(cypheria)
 ```
 
-v2 adapter 保留非空 JSON-RPC batch。由于 envelope 刻意不携带第二个 connection ID，每个
+Adapter 会把 SDK 原始 JSON-RPC stream 转换成 `agent.acp.<operation>.<direction>` 逻辑消息，
+由数字 `protocolVersion` 选择稳定 v1 或 draft v2。以 underscore 开头的 extension method 使用专用
+extension type；v2 batch 使用 `agent.acp.batch`，并在
+`payload.messages` 中使用嵌套 discriminated union。由于逻辑消息刻意不携带第二个 connection ID，每个
 Cypheria ACP endpoint 只允许一个活跃 ACP connection。底层 transport 断开时，ACP connection
 会关闭并拒绝 pending request；Cypheria session 恢复后应创建新的 ACP connection。
 
-`cypheria.agent.acp` 本身仍是最小的 `send(payload)` / `subscribe(handler)` endpoint。不得将这些
+`cypheria.agent.acp` 本身仍是最小的 `send(message)` / `subscribe(handler)` endpoint。不得将这些
 低层 operation 与活跃 `ClientApp` connection 混用。
 
 ## 使用
@@ -132,10 +134,8 @@ import { client as createCodexApp, methods as codexMethods } from "@cypheria/cli
 const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
 const codex = createCodexApp().connect(cypheria)
 
-const server = await cypheria.server.info()
-const state = await cypheria.server.state()
+const status = await cypheria.server.status()
 const config = await cypheria.server.config()
-const runtimeInfo = await cypheria.runtime.request("runtime.info")
 await codex.codex.initialize({
   capabilities: null,
   clientInfo: { name: "example", title: "Example", version: "1.0.0" },
@@ -147,11 +147,11 @@ await cypheria.close()
 ```
 
 请求会懒连接。`close()` 会永久释放该 client。在 close 之前，transport 断开会拒绝进行中的
-请求，并默认安排有界指数退避重连。重连 hello 会携带上一次协商的 session ID，让 server
-可以在 grace period 内恢复同一个逻辑 session。如果 embedding host 自己负责 retry policy，
+请求，并默认安排有界指数退避重连。重连使用相同的稳定 client ID，让 server 可以在 grace
+period 内恢复 principal-scoped 逻辑 session，不暴露 session ID 或 resume token。如果 embedding host 自己负责 retry policy，
 可将 `reconnect.enabled` 设为 `false`。`server.config()`、`patchConfig()` 与 `reloadConfig()`
-暴露经过校验的 desired config 及需要 supervised worker restart 的路径；`server.state()`
-暴露 live operational state。两者都不会返回认证 token。
+暴露经过校验的 desired config 及需要 supervised worker restart 的路径。Status 与 config
+结果都不会返回认证 token。
 
 所有有关联的 facade method 都接受最后一个 `{ signal, timeoutMs }` request options 参数。
 timeout 或 abort 也会取消仍在等待懒连接的请求，避免它稍后变成 ghost request。
@@ -159,10 +159,9 @@ timeout 或 abort 也会取消仍在等待懒连接的请求，避免它稍后�
 可向前兼容的 feature flag。若调用所需的 server capability 未被声明，client 会在写 transport
 前失败。
 
-只要 transport 仍可用，Codex 反向 request 就一定会收到终态 response：handler 缺失、handler
-失败和 ClientApp 的逻辑取消都会生成 typed `client.error` message。Protocol 通过默认的
-`client.rpc-errors` client capability 声明该行为；server dispatch 支持按约定留到后续 server
-实现阶段。
+Codex 反向 request 只写回 Codex 自身定义的 typed response。Handler 缺失、handler 失败与
+ClientApp 逻辑取消会通过本地 handler-error hook 报告；基础 protocol 不定义通用 client error
+message。
 
 默认 adapter 使用当前 runtime 的全局 WebSocket。其他环境可以注入 `webSocketFactory`，或
 完整的 `transportFactory`。HTTP(S) 根 URL 会转换到版本化 `/api/v1/ws` WS(S) endpoint。
@@ -175,8 +174,9 @@ const cypheria = createCypheriaClient({ relayOffer: "cypheria://pair#offer=..." 
 ```
 
 `relayOffer` 不能与 `url`、`token` 或 `transportFactory` 同时使用；没有全局 WebSocket 的
-runtime 仍可提供自定义 `webSocketFactory`。E2EE 会先于 `session.hello` 完成，直连 Bearer
-token 绝不会发送给 relay。
+runtime 仍可提供自定义 `webSocketFactory`。E2EE 会先于顶层 `hello` 完成，直连 Bearer
+token 绝不会发送给 relay。Server operation、ACP 与 Codex traffic 都在顶层 `session`
+envelope 中传输。
 
 ## 借用已有连接
 
@@ -188,11 +188,11 @@ const connection = new ServerClient({ url: "http://127.0.0.1:6768" })
 await connection.connect()
 
 const api = createCypheriaApi(connection)
-await api.runtime.request("runtime.health")
+await api.server.status()
 
 // 创建连接的 host 仍负责管理连接生命周期。
 await connection.close()
 ```
 
-多个借用门面可以共享一条连接。当前 foundation server 会 dispatch 内置 server 与 runtime
-message；Codex 和 ACP contract 已进入 protocol，但其 server dispatch 仍是后续工作。
+多个借用门面可以共享一条连接。当前 foundation server 会 dispatch 内置 status、diagnostics
+与 configuration message；Codex 和 ACP contract 已进入 protocol，但其 server dispatch 仍是后续工作。

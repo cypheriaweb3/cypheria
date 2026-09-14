@@ -5,6 +5,7 @@ import {
   HttpRuntimeRequestSchema,
   PersistedServerConfigPatchSchema,
   type RelayPairingOfferResponse,
+  type ServerOperationalState,
 } from "@cypheria/protocol"
 import type { CypheriaRuntimeMethod } from "@cypheria/runtime"
 import { upgradeWebSocket } from "@hono/node-server"
@@ -26,10 +27,14 @@ import type { CypheriaServerConfig } from "./config.js"
 import type { ClientConnection } from "./session/client-connection.js"
 import type { SessionHost } from "./session/client-session.js"
 import type { ConnectionRegistry } from "./session/connection-registry.js"
+import { OWNER_SESSION_ADMISSION } from "./session/connection-registry.js"
 
 export type HttpAppHost = SessionHost & {
   getRelayPairingOffer(): RelayPairingOfferResponse | undefined
+  getState(): ServerOperationalState
   isReady(): boolean
+  requestLifecycle(action: "restart" | "shutdown", reason?: string): void
+  requestRuntime(method: string, params?: unknown): Promise<unknown>
 }
 
 export type CreateHttpAppOptions = {
@@ -84,7 +89,7 @@ export function createHttpApp(options: CreateHttpAppOptions): Hono {
     return next()
   })
 
-  app.get("/api/v1/status", (context) => context.json(host.getInfo()))
+  app.get("/api/v1/status", (context) => context.json(host.getStatus()))
   app.get("/api/v1/state", (context) => context.json(host.getState()))
   app.get("/api/v1/diagnostics", (context) => context.json(host.getDiagnostics()))
   app.get("/api/v1/config", (context) => context.json(host.getConfig()))
@@ -190,10 +195,13 @@ export function createHttpApp(options: CreateHttpAppOptions): Hono {
             void connection.receive(event.data)
           },
           onOpen: (_event, socket) => {
-            connection = registry.accept({
-              close: (code, reason) => socket.close(code, reason),
-              send: (data) => socket.send(data),
-            })
+            connection = registry.accept(
+              {
+                close: (code, reason) => socket.close(code, reason),
+                send: (data) => socket.send(data),
+              },
+              OWNER_SESSION_ADMISSION
+            )
           },
         }
       },

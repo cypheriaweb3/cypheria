@@ -1,5 +1,5 @@
 import { describe, expect, expectTypeOf, it } from "vitest"
-import type { z } from "zod"
+import { z } from "zod"
 
 import type * as CodexV2 from "../generated/codex/ts/v2/index.ts"
 import {
@@ -7,25 +7,31 @@ import {
   zMcpElicitationStringSchema,
 } from "../generated/codex/zod/zod.gen.ts"
 import {
-  AGENT_CODEX_CLIENT_NOTIFICATION_MESSAGE_SCHEMAS,
+  AGENT_CODEX_CLIENT_NOTIFICATION_SCHEMAS,
   AGENT_CODEX_CLIENT_NOTIFICATIONS,
-  AGENT_CODEX_CLIENT_REQUEST_MESSAGE_SCHEMAS,
+  AGENT_CODEX_CLIENT_REQUEST_SCHEMAS,
   AGENT_CODEX_CLIENT_REQUEST_TYPE_TO_METHOD,
   AGENT_CODEX_CLIENT_REQUEST_TYPES,
-  AGENT_CODEX_CLIENT_RESPONSE_MESSAGE_SCHEMAS,
+  AGENT_CODEX_CLIENT_RESPONSE_SCHEMAS,
   AGENT_CODEX_CLIENT_RESPONSE_TYPES,
   AGENT_CODEX_CLIENT_RPC,
-  AGENT_CODEX_SERVER_NOTIFICATION_MESSAGE_SCHEMAS,
+  AGENT_CODEX_SERVER_NOTIFICATION_SCHEMAS,
   AGENT_CODEX_SERVER_NOTIFICATION_TYPE_TO_METHOD,
   AGENT_CODEX_SERVER_NOTIFICATION_TYPES,
   AGENT_CODEX_SERVER_NOTIFICATIONS,
-  AGENT_CODEX_SERVER_REQUEST_MESSAGE_SCHEMAS,
+  AGENT_CODEX_SERVER_REQUEST_SCHEMAS,
   AGENT_CODEX_SERVER_REQUEST_TYPES,
-  AGENT_CODEX_SERVER_RESPONSE_MESSAGE_SCHEMAS,
+  AGENT_CODEX_SERVER_RESPONSE_SCHEMAS,
   AGENT_CODEX_SERVER_RESPONSE_TYPES,
   AGENT_CODEX_SERVER_RPC,
-  type AgentCodexClientRequestMessage,
-  type AgentCodexClientResponseMessage,
+  AgentCodexClientNotificationSchema,
+  type AgentCodexClientRequest,
+  AgentCodexClientRequestSchema,
+  type AgentCodexClientResponse,
+  AgentCodexClientResponseSchema,
+  AgentCodexServerNotificationSchema,
+  AgentCodexServerRequestSchema,
+  AgentCodexServerResponseSchema,
   ClientMessageSchema,
   codexGeneratedTypeSchema,
   ServerMessageSchema,
@@ -43,12 +49,21 @@ describe("agent.codex protocol", () => {
     expect(new Set(AGENT_CODEX_SERVER_REQUEST_TYPES).size).toBe(11)
     expect(new Set(AGENT_CODEX_SERVER_RESPONSE_TYPES).size).toBe(11)
     expect(new Set(AGENT_CODEX_SERVER_NOTIFICATION_TYPES).size).toBe(83)
-    expect(Object.keys(AGENT_CODEX_CLIENT_REQUEST_MESSAGE_SCHEMAS)).toHaveLength(158)
-    expect(Object.keys(AGENT_CODEX_CLIENT_RESPONSE_MESSAGE_SCHEMAS)).toHaveLength(158)
-    expect(Object.keys(AGENT_CODEX_SERVER_REQUEST_MESSAGE_SCHEMAS)).toHaveLength(11)
-    expect(Object.keys(AGENT_CODEX_SERVER_RESPONSE_MESSAGE_SCHEMAS)).toHaveLength(11)
-    expect(Object.keys(AGENT_CODEX_SERVER_NOTIFICATION_MESSAGE_SCHEMAS)).toHaveLength(83)
-    expect(Object.keys(AGENT_CODEX_CLIENT_NOTIFICATION_MESSAGE_SCHEMAS)).toHaveLength(1)
+    expect(Object.keys(AGENT_CODEX_CLIENT_REQUEST_SCHEMAS)).toHaveLength(158)
+    expect(Object.keys(AGENT_CODEX_CLIENT_RESPONSE_SCHEMAS)).toHaveLength(158)
+    expect(Object.keys(AGENT_CODEX_SERVER_REQUEST_SCHEMAS)).toHaveLength(11)
+    expect(Object.keys(AGENT_CODEX_SERVER_RESPONSE_SCHEMAS)).toHaveLength(11)
+    expect(Object.keys(AGENT_CODEX_SERVER_NOTIFICATION_SCHEMAS)).toHaveLength(83)
+    expect(Object.keys(AGENT_CODEX_CLIENT_NOTIFICATION_SCHEMAS)).toHaveLength(1)
+  })
+
+  it("uses concrete wire types as Codex family discriminators", () => {
+    expect(AgentCodexClientNotificationSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
+    expect(AgentCodexClientRequestSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
+    expect(AgentCodexClientResponseSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
+    expect(AgentCodexServerRequestSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
+    expect(AgentCodexServerResponseSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
+    expect(AgentCodexServerNotificationSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
   })
 
   it("normalizes upstream slash and camel-case methods into dotted names", () => {
@@ -69,19 +84,19 @@ describe("agent.codex protocol", () => {
 
   it("pairs every generated Zod branch with its generated Codex wire type", () => {
     type ThreadStartRequest = Extract<
-      AgentCodexClientRequestMessage,
+      AgentCodexClientRequest,
       { type: "agent.codex.thread.start.request" }
     >
     type ThreadStartResponse = Extract<
-      AgentCodexClientResponseMessage,
+      AgentCodexClientResponse,
       { type: "agent.codex.thread.start.response" }
     >
 
     expectTypeOf<
-      z.infer<(typeof AGENT_CODEX_CLIENT_REQUEST_MESSAGE_SCHEMAS)["thread/start"]>
+      z.infer<(typeof AGENT_CODEX_CLIENT_REQUEST_SCHEMAS)["thread/start"]>
     >().toEqualTypeOf<ThreadStartRequest>()
     expectTypeOf<
-      z.infer<(typeof AGENT_CODEX_CLIENT_RESPONSE_MESSAGE_SCHEMAS)["thread/start"]>
+      z.infer<(typeof AGENT_CODEX_CLIENT_RESPONSE_SCHEMAS)["thread/start"]>
     >().toEqualTypeOf<ThreadStartResponse>()
   })
 

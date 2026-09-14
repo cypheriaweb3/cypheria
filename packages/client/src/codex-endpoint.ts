@@ -6,10 +6,10 @@ import {
   type AGENT_CODEX_SERVER_NOTIFICATIONS,
   AGENT_CODEX_SERVER_REQUEST_TYPE_TO_METHOD,
   type AGENT_CODEX_SERVER_RPC,
-  type AgentCodexClientNotificationMessage,
-  type AgentCodexClientRequestMessage,
-  type AgentCodexServerNotificationMessage,
-  type AgentCodexServerRequestMessage,
+  type AgentCodexClientNotification,
+  type AgentCodexClientRequest,
+  type AgentCodexServerNotification,
+  type AgentCodexServerRequest,
   type RequestId as CypheriaRequestId,
 } from "@cypheria/protocol"
 import type { RequestOptions } from "./request-options.js"
@@ -20,32 +20,26 @@ export type CodexServerMethod = keyof typeof AGENT_CODEX_SERVER_RPC
 export type CodexServerNotificationMethod = keyof typeof AGENT_CODEX_SERVER_NOTIFICATIONS
 
 export type CodexRequestParams<Method extends CodexClientMethod> = Omit<
-  Extract<
-    AgentCodexClientRequestMessage,
-    { type: (typeof AGENT_CODEX_CLIENT_RPC)[Method]["request"] }
-  >,
+  Extract<AgentCodexClientRequest, { type: (typeof AGENT_CODEX_CLIENT_RPC)[Method]["request"] }>,
   "requestId" | "type"
 >
 
 export type CodexClientNotificationParams<Method extends CodexClientNotificationMethod> = Omit<
   Extract<
-    AgentCodexClientNotificationMessage,
+    AgentCodexClientNotification,
     { type: (typeof AGENT_CODEX_CLIENT_NOTIFICATIONS)[Method]["notification"] }
   >,
   "type"
 >
 
 export type CodexServerRequestParams<Method extends CodexServerMethod> = Omit<
-  Extract<
-    AgentCodexServerRequestMessage,
-    { type: (typeof AGENT_CODEX_SERVER_RPC)[Method]["request"] }
-  >,
+  Extract<AgentCodexServerRequest, { type: (typeof AGENT_CODEX_SERVER_RPC)[Method]["request"] }>,
   "requestId" | "type"
 >
 
 export type CodexServerNotificationParams<Method extends CodexServerNotificationMethod> =
   Extract<
-    AgentCodexServerNotificationMessage,
+    AgentCodexServerNotification,
     { type: (typeof AGENT_CODEX_SERVER_NOTIFICATIONS)[Method]["notification"] }
   > extends { payload: infer Params }
     ? Params
@@ -53,9 +47,7 @@ export type CodexServerNotificationParams<Method extends CodexServerNotification
 
 export type CodexRequestOptions = RequestOptions
 
-export type CodexServerMessage =
-  | AgentCodexServerRequestMessage
-  | AgentCodexServerNotificationMessage
+export type CodexServerMessage = AgentCodexServerRequest | AgentCodexServerNotification
 
 /** @internal Narrows the shared server stream to messages consumed by a Codex ClientApp. */
 export const isCodexServerMessage = (message: {
@@ -67,7 +59,7 @@ export const isCodexServerMessage = (message: {
 export type CodexConnectionState =
   | { readonly status: "idle" }
   | { readonly attempt: number; readonly status: "connecting" }
-  | { readonly sessionId: string; readonly status: "connected" }
+  | { readonly status: "connected" }
   | { readonly reason: string; readonly status: "disconnected" }
   | { readonly status: "disposed" }
 
@@ -94,14 +86,6 @@ export interface CodexEndpoint {
 }
 
 interface CodexEndpointTransport extends CodexEndpoint {
-  respondError(
-    requestId: CypheriaRequestId,
-    error: {
-      readonly code: "HANDLER_FAILED" | "REQUEST_CANCELLED" | "REQUEST_NOT_SUPPORTED"
-      readonly message: string
-      readonly requestType?: string
-    }
-  ): Promise<void>
   subscribeConnectionStatus?(handler: (state: CodexConnectionState) => void): () => void
 }
 
@@ -121,17 +105,6 @@ export const createCodexEndpoint = (transport: CodexEndpointTransport): CodexEnd
   } as CodexEndpoint
   endpointTransports.set(endpoint, transport)
   return endpoint
-}
-
-/** @internal Sends the terminal error for a server-initiated request. */
-export const respondCodexError = (
-  endpoint: CodexEndpoint,
-  requestId: CypheriaRequestId,
-  error: Parameters<CodexEndpointTransport["respondError"]>[1]
-): Promise<void> => {
-  const transport = endpointTransports.get(endpoint)
-  if (!transport) throw new Error("Codex endpoint transport is unavailable")
-  return transport.respondError(requestId, error)
 }
 
 /** @internal Reserves one endpoint for one ClientApp and observes transport termination. */

@@ -1,13 +1,12 @@
-import type {
-  AcpClientWirePayload,
-  AcpServerWirePayload,
-  ClientMessage,
-  PersistedServerConfigPatch,
-  ServerConfigSnapshot,
-  ServerDiagnostics,
-  ServerInfo,
-  ServerMessage,
-  ServerOperationalState,
+import {
+  type AgentAcpClientMessage,
+  type AgentAcpServerMessage,
+  isAgentAcpServerMessage,
+  type PersistedServerConfigPatch,
+  type ServerConfigSnapshot,
+  type ServerDiagnostics,
+  type ServerMessage,
+  type ServerStatus,
 } from "@cypheria/protocol"
 
 import { type AcpEndpoint, createAcpEndpoint } from "./acp-client.js"
@@ -20,24 +19,6 @@ import {
   type ServerSession,
 } from "./server-client.js"
 
-export type RuntimeMethod = Extract<ClientMessage, { type: "runtime.request" }>["payload"]["method"]
-export type RuntimeEvent = Extract<ServerMessage, { type: "runtime.event" }>["payload"]["event"]
-export type ServerPong = Extract<ServerMessage, { type: "server.pong" }>["payload"]
-export type ServerLifecycleAccepted = Extract<
-  ServerMessage,
-  { type: "server.lifecycle.accepted" }
->["payload"]
-
-/** The generic runtime request/event pair currently defined by @cypheria/protocol. */
-export interface RuntimeActions {
-  request<T = unknown>(
-    method: RuntimeMethod,
-    params?: unknown,
-    options?: RequestOptions
-  ): Promise<T>
-  subscribe(handler: (event: RuntimeEvent) => void): () => void
-}
-
 export interface AgentActions {
   readonly acp: AcpEndpoint
   readonly codex: CodexEndpoint
@@ -46,16 +27,13 @@ export interface AgentActions {
 export interface ServerActions {
   config(options?: RequestOptions): Promise<ServerConfigSnapshot>
   diagnostics(options?: RequestOptions): Promise<ServerDiagnostics>
-  info(options?: RequestOptions): Promise<ServerInfo>
   patchConfig(
     patch: PersistedServerConfigPatch,
     options?: RequestOptions
   ): Promise<ServerConfigSnapshot>
-  ping(sentAt?: string, options?: RequestOptions): Promise<ServerPong>
+  ping(options?: RequestOptions): Promise<void>
   reloadConfig(options?: RequestOptions): Promise<ServerConfigSnapshot>
-  restart(reason?: string, options?: RequestOptions): Promise<ServerLifecycleAccepted>
-  shutdown(reason?: string, options?: RequestOptions): Promise<ServerLifecycleAccepted>
-  state(options?: RequestOptions): Promise<ServerOperationalState>
+  status(options?: RequestOptions): Promise<ServerStatus>
   supports(capability: string): boolean
   supportsFeature(feature: string): boolean
 }
@@ -63,7 +41,6 @@ export interface ServerActions {
 /** Capability-only facade. Every operation maps directly to a current protocol message. */
 export interface CypheriaApi {
   readonly agent: AgentActions
-  readonly runtime: RuntimeActions
   readonly server: ServerActions
   on<T extends ServerMessage["type"]>(
     type: T,
@@ -93,9 +70,11 @@ const getAcpEndpoint = (serverClient: ServerClient): AcpEndpoint => {
   const existing = acpEndpointsByServerClient.get(serverClient)
   if (existing) return existing
   const endpoint = createAcpEndpoint({
-    send: (payload) => serverClient.sendAcp(payload),
+    send: (message) => serverClient.sendAcp(message),
     subscribe: (handler) =>
-      serverClient.on("agent.acp.server.message", (message) => handler(message.payload)),
+      serverClient.subscribe((message) => {
+        if (isAgentAcpServerMessage(message)) handler(message)
+      }),
     subscribeConnectionStatus: (handler) => serverClient.subscribeConnectionStatus(handler),
   })
   acpEndpointsByServerClient.set(serverClient, endpoint)
@@ -114,7 +93,6 @@ const getCodexEndpoint = (serverClient: ServerClient): CodexEndpoint => {
     request,
     respond: (method, requestId, response) =>
       serverClient.respondToCodex(method, requestId, response),
-    respondError: (requestId, error) => serverClient.respondToClientRequestError(requestId, error),
     subscribe: (handler) =>
       serverClient.subscribe((message) => {
         if (isCodexServerMessage(message)) handler(message)
@@ -157,23 +135,13 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
       codex: getCodexEndpoint(serverClient),
     },
     on,
-    runtime: {
-      request: async (method, params, options) =>
-        serverClient.requestRuntime(method, params, options),
-      subscribe: (handler) =>
-        serverClient.on("runtime.event", (message) => handler(message.payload.event)),
-    },
     server: {
       config: async (options) => serverClient.getServerConfig(options),
       diagnostics: async (options) => serverClient.getServerDiagnostics(options),
-      info: async (options) => serverClient.getServerInfo(options),
       patchConfig: async (patch, options) => serverClient.patchServerConfig(patch, options),
-      ping: async (sentAt, options) => serverClient.ping(sentAt, options),
+      ping: async (options) => serverClient.ping(options),
       reloadConfig: async (options) => serverClient.reloadServerConfig(options),
-      restart: async (reason, options) => serverClient.requestLifecycle("restart", reason, options),
-      shutdown: async (reason, options) =>
-        serverClient.requestLifecycle("shutdown", reason, options),
-      state: async (options) => serverClient.getServerState(options),
+      status: async (options) => serverClient.getServerStatus(options),
       supports: (capability) => serverClient.supports(capability),
       supportsFeature: (feature) => serverClient.supportsFeature(feature),
     },
@@ -186,9 +154,8 @@ export {
   CypheriaCapabilityError,
   CypheriaConnectionError,
   CypheriaProtocolError,
-  CypheriaServerError,
   CypheriaTimeoutError,
   type RequestOptions,
   type ServerSession,
 } from "./server-client.js"
-export type { AcpClientWirePayload, AcpEndpoint, AcpServerWirePayload, CodexEndpoint }
+export type { AcpEndpoint, AgentAcpClientMessage, AgentAcpServerMessage, CodexEndpoint }

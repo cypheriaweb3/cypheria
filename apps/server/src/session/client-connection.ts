@@ -1,27 +1,18 @@
 import {
-  type ClientMessage,
   CYPHERIA_PROTOCOL_VERSION,
-  parseClientMessageText,
-  type ServerErrorCode,
+  parseWSInboundMessageText,
   stringifyProtocolMessage,
+  type WSHelloMessage,
+  type WSInboundMessage,
 } from "@cypheria/protocol"
-import { ZodError } from "zod"
 
 import type { ClientSession, SessionTransport } from "./client-session.js"
 
-type SessionHello = Extract<ClientMessage, { type: "session.hello" }>
-
 export type ClientConnectionOptions = {
-  attach: (hello: SessionHello, transport: SessionTransport) => ClientSession
+  attach: (hello: WSHelloMessage, transport: SessionTransport) => ClientSession
   helloTimeoutMs: number
   transport: SessionTransport
 }
-
-const errorMessage = (error: unknown): string =>
-  error instanceof Error ? error.message : "Unknown server error"
-
-const correlatedRequestId = (message: object): string | undefined =>
-  "requestId" in message && typeof message.requestId === "string" ? message.requestId : undefined
 
 export class ClientConnection {
   #closed = false
@@ -32,31 +23,38 @@ export class ClientConnection {
   constructor(options: ClientConnectionOptions) {
     this.#options = options
     this.#helloTimer = setTimeout(() => {
-      this.#sendError("NOT_READY", "session.hello was not received in time")
-      this.close(1008, "Session hello timeout")
+      this.close(1008, "Hello timeout")
     }, options.helloTimeoutMs)
     this.#helloTimer.unref()
   }
 
   async receive(raw: string): Promise<void> {
     if (this.#closed) return
-    let message: ClientMessage
+    let message: WSInboundMessage
     try {
-      message = parseClientMessageText(raw)
-    } catch (error) {
-      const detail = error instanceof ZodError ? error.issues[0]?.message : errorMessage(error)
-      this.#sendError("INVALID_MESSAGE", detail || "Invalid message")
+      message = parseWSInboundMessageText(raw)
+    } catch {
+      if (!this.#session) {
+        this.close(1008, "Invalid hello")
+        return
+      }
+      this.close(1008, "Invalid message")
+      return
+    }
+
+    if (message.type === "ping") {
+      this.#options.transport.send(stringifyProtocolMessage({ type: "pong" }))
       return
     }
     if (!this.#session) {
       this.#acceptHello(message)
       return
     }
-    if (message.type === "session.hello") {
-      this.#sendError("INVALID_MESSAGE", "session.hello may only be sent once", message.requestId)
+    if (message.type === "hello") {
+      this.close(1008, "Unexpected hello")
       return
     }
-    await this.#session.receive(message)
+    await this.#session.receive(message.message, this.#options.transport)
   }
 
   close(code = 1000, reason = "Connection closed"): void {
@@ -74,32 +72,16 @@ export class ClientConnection {
     this.#session?.transportClosed(this.#options.transport)
   }
 
-  #acceptHello(message: ClientMessage): void {
-    if (message.type !== "session.hello") {
-      this.#sendError(
-        "NOT_READY",
-        "The first message must be session.hello",
-        correlatedRequestId(message)
-      )
-      this.close(1008, "Session hello required")
+  #acceptHello(message: WSInboundMessage): void {
+    if (message.type !== "hello") {
+      this.close(1008, "Hello required")
       return
     }
-    if (message.payload.protocolVersion !== CYPHERIA_PROTOCOL_VERSION) {
-      this.#sendError(
-        "PROTOCOL_MISMATCH",
-        `Expected protocol version ${CYPHERIA_PROTOCOL_VERSION}`,
-        message.requestId
-      )
+    if (message.protocolVersion !== CYPHERIA_PROTOCOL_VERSION) {
       this.close(1002, "Protocol version mismatch")
       return
     }
     clearTimeout(this.#helloTimer)
     this.#session = this.#options.attach(message, this.#options.transport)
-  }
-
-  #sendError(code: ServerErrorCode, message: string, requestId?: string): void {
-    this.#options.transport.send(
-      stringifyProtocolMessage({ payload: { code, message }, requestId, type: "server.error" })
-    )
   }
 }

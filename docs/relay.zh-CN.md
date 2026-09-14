@@ -48,9 +48,9 @@ sequenceDiagram
     S->>R: e2ee_ready
     R->>C: 转发不透明 ready
     Note over C,S: 建立 X25519 + 双向密钥隔离的加密 channel
-    C->>R: 加密的 session.hello
+    C->>R: 加密的顶层 hello
     R->>S: 转发密文
-    S->>R: 加密的 session.ready 及后续消息
+    S->>R: 加密的 session(server.status.notification) 与后续 envelope
     R->>C: 转发密文
 ```
 

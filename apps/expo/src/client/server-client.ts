@@ -1,11 +1,15 @@
 import {
+  type ClientMessage,
   CYPHERIA_PROTOCOL_VERSION,
   createWebSocketProtocols,
-  parseServerMessageText,
-  type ServerInfo,
+  parseWSOutboundMessageText,
   type ServerMessage,
+  type ServerStatus,
   stringifyProtocolMessage,
+  wrapClientSessionMessage,
 } from "@cypheria/protocol"
+import Constants from "expo-constants"
+import appPackage from "../../package.json"
 
 import { resolveServerWebSocketUrl } from "./server-url"
 
@@ -13,7 +17,7 @@ export type ServerConnectionState = "connected" | "connecting" | "disconnected"
 
 export type ServerClientSnapshot = {
   error?: string
-  info?: ServerInfo
+  status?: ServerStatus
   state: ServerConnectionState
 }
 
@@ -23,7 +27,21 @@ type PendingRequest = {
   timeout: ReturnType<typeof setTimeout>
 }
 
+type PendingReady = {
+  reject(error: Error): void
+  resolve(): void
+  timeout: ReturnType<typeof setTimeout>
+}
+
 const requestId = (): string => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`
+
+const versionOrNull = (value: unknown): string | null =>
+  typeof value === "string" && value.trim().length > 0 ? value.trim() : null
+
+const resolveAppVersion = (): string | null =>
+  versionOrNull(appPackage.version) ??
+  versionOrNull(Constants.expoConfig?.version) ??
+  versionOrNull((Constants as unknown as { manifest?: { version?: unknown } }).manifest?.version)
 
 const correlatedRequestId = (message: object): string | undefined => {
   if ("requestId" in message && typeof message.requestId === "string") return message.requestId
@@ -40,6 +58,7 @@ export class CypheriaServerClient {
   #clientId = `expo-${requestId()}`
   #listeners = new Set<() => void>()
   #pending = new Map<string, PendingRequest>()
+  #pendingReady: PendingReady | undefined
   #reconnectTimer: ReturnType<typeof setTimeout> | undefined
   #shouldReconnect = true
   #snapshot: ServerClientSnapshot = { state: "disconnected" }
@@ -96,27 +115,35 @@ export class CypheriaServerClient {
     this.#setSnapshot({ state: "disconnected" })
   }
 
-  async request(type: "server.info" | "server.diagnostics" | "server.ping") {
+  async request(type: "server.status.request" | "server.diagnostics.request") {
     return this.#sendRequest({ requestId: requestId(), type })
   }
 
   async #initialize(socket: WebSocket): Promise<void> {
     try {
-      const ready = await this.#sendRequest({
-        payload: {
-          capabilities: ["runtime.events"],
-          client: { id: this.#clientId, kind: "expo", name: "Cypheria Expo" },
-          protocolVersion: CYPHERIA_PROTOCOL_VERSION,
-        },
-        requestId: requestId(),
-        type: "session.hello",
+      const appVersion = resolveAppVersion()
+      const ready = new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          this.#pendingReady = undefined
+          reject(new Error("Server handshake timed out"))
+        }, 15_000)
+        this.#pendingReady = { reject, resolve, timeout }
       })
-      if (ready.type !== "session.ready") throw new Error("Server did not accept the session")
+      socket.send(
+        stringifyProtocolMessage({
+          ...(appVersion ? { appVersion } : {}),
+          clientId: this.#clientId,
+          clientType: "mobile",
+          protocolVersion: CYPHERIA_PROTOCOL_VERSION,
+          type: "hello",
+        })
+      )
+      await ready
       this.#attempt = 0
       this.#setSnapshot({ state: "connected" })
-      const response = await this.request("server.info")
-      if (response.type === "server.info.result") {
-        this.#setSnapshot({ info: response.payload, state: "connected" })
+      const response = await this.request("server.status.request")
+      if (response.type === "server.status.response") {
+        this.#setSnapshot({ state: "connected", status: response.payload })
       }
     } catch (error) {
       if (this.#socket !== socket) return
@@ -128,7 +155,7 @@ export class CypheriaServerClient {
     }
   }
 
-  #sendRequest(message: { [key: string]: unknown; requestId: string }): Promise<ServerMessage> {
+  #sendRequest(message: ClientMessage & { requestId: string }): Promise<ServerMessage> {
     if (!this.#socket || this.#socket.readyState !== WebSocket.OPEN) {
       return Promise.reject(new Error("Server connection is not open"))
     }
@@ -139,23 +166,32 @@ export class CypheriaServerClient {
         reject(new Error("Server request timed out"))
       }, 15_000)
       this.#pending.set(message.requestId, { reject, resolve, timeout })
-      this.#socket?.send(stringifyProtocolMessage(message))
+      this.#socket?.send(stringifyProtocolMessage(wrapClientSessionMessage(message)))
     })
   }
 
   #receive(data: unknown): void {
     if (typeof data !== "string") return
     try {
-      const message = parseServerMessageText(data)
-      if (message.type === "runtime.event") return
+      const envelope = parseWSOutboundMessageText(data)
+      if (envelope.type === "pong") return
+      const message = envelope.message
+      if (message.type === "server.status.notification") {
+        this.#setSnapshot({ state: "connecting", status: message.payload })
+        const ready = this.#pendingReady
+        if (!ready) return
+        this.#pendingReady = undefined
+        clearTimeout(ready.timeout)
+        ready.resolve()
+        return
+      }
       const responseRequestId = correlatedRequestId(message)
       if (!responseRequestId) return
       const pending = this.#pending.get(responseRequestId)
       if (!pending) return
       this.#pending.delete(responseRequestId)
       clearTimeout(pending.timeout)
-      if (message.type === "server.error") pending.reject(new Error(message.payload.message))
-      else pending.resolve(message)
+      pending.resolve(message)
     } catch {
       this.#setSnapshot({ error: "Server sent an invalid message", state: "disconnected" })
       this.#socket?.close(1002, "Invalid server message")
@@ -175,6 +211,11 @@ export class CypheriaServerClient {
   }
 
   #rejectPending(error: Error): void {
+    if (this.#pendingReady) {
+      clearTimeout(this.#pendingReady.timeout)
+      this.#pendingReady.reject(error)
+      this.#pendingReady = undefined
+    }
     for (const pending of this.#pending.values()) {
       clearTimeout(pending.timeout)
       pending.reject(error)
