@@ -88,9 +88,14 @@
 
 - [x] 向 `@cypheria/protocol` 添加 Claude Agent SDK 逻辑消息。
   - 验收：固定版本 `@anthropic-ai/claude-agent-sdk@0.3.270` 中适合网络传输的 surface，以可直接路由的 `agent.claude.*` request、response、input、lifecycle 和 SDK-output message 进入 live session union。
-  - 包括：`query()` 与 `startup()`、session/settings function、全部 `Query` control、文本与 streaming prompt、可序列化 option 与 MCP transport、40 种 SDK 输出、仅类型 SDK subpath、declaration-driven catalog、漂移检查、测试与配套双语文档。
-  - 排除：callback、hook、自定义函数 tool/SDK MCP server、process 与 abort handle、session store，以及 client/server adapter。
+  - 包括：`query()`、session/settings function、全部 `Query` control、文本与 streaming prompt、可序列化 option 与 MCP transport、40 种 SDK 输出、仅类型 SDK subpath、declaration-driven catalog、漂移检查、测试与配套双语文档。
+  - 排除：`startup()`、callback、hook、自定义函数 tool/SDK MCP server、process 与 abort handle、session store，以及 server dispatch。
   - 验证：protocol generation check、typecheck、test 与 build。
+
+- [x] 添加 Claude Agent SDK-shaped `@cypheria/client/claude` 门面。
+  - 验收：`query()` 返回与 SDK 兼容的 async iterator；所有网络安全 query control 与 session/settings function 保持上游调用形态；按 query 处理 streaming input、本地 abort、response correlation、远程错误、完成和 transport loss。
+  - 排除：`startup()`、`tool()`、`createSdkMcpServer()`、携带 callback 的 option，以及 server dispatch。
+  - 验证：client test、typecheck、build、全仓库 CI/build 与配套双语文档。
 
 - [ ] 在明确评审后将 desktop 迁移到 Cypheria server。
   - 验收：Electron main 确保本地 supervised server 正在运行，desktop 使用共享 protocol，并保持 Electron-only dApp/browser、secure-storage、approval、preload 与 OS-integration 边界。

@@ -37,7 +37,7 @@ The default safety model is human approval. Read-only mode and conditional auto-
 - **UI**: shadcn-style copied components, Base UI primitives, Cypheria CSS tokens, lucide-react
 - **Cypheria client protocol**: versioned Zod contracts with metadata-assisted `bigint` transport in `@cypheria/protocol`
 - **ACP client API**: Cypheria-owned SDK-shaped `client()` / `ClientApp` APIs, backed by `@agentclientprotocol/sdk@1.4.0`, over directly discriminable logical WebSocket messages
-- **Claude Code protocol**: complete network-safe `@anthropic-ai/claude-agent-sdk@0.3.270` query, session, control, and stream contracts under `agent.claude.*`; client/server adapters are intentionally deferred
+- **Claude Code API**: network-safe `@anthropic-ai/claude-agent-sdk@0.3.270` query, session, control, and stream contracts under `agent.claude.*`, plus an SDK-shaped `@cypheria/client/claude` facade; server dispatch remains deferred
 - **Desktop agent integration**: `codex app-server` over WebSocket JSON-RPC
 - **Codex protocol types and validation**: owned by `@cypheria/protocol` and generated with `pnpm --filter @cypheria/protocol generate:codex-all`
 - **Marketplace hosting**: Cloudflare Workers, D1, R2, Queues, and Workflows

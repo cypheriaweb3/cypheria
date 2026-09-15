@@ -32,7 +32,6 @@ import {
 import {
   ClaudeQueryIdSchema,
   ClaudeSdkErrorSchema,
-  ClaudeWarmQueryIdSchema,
   claudeDiscriminatedUnion,
   claudeJsonSchema,
   claudeRequestSchema,
@@ -44,7 +43,6 @@ export {
   ClaudeQueryIdSchema,
   type ClaudeSdkError,
   ClaudeSdkErrorSchema,
-  ClaudeWarmQueryIdSchema,
 } from "./claude-schema-registry.ts"
 
 /** SDK callback/process objects that cannot be represented by a network protocol. */
@@ -68,6 +66,7 @@ export const CLAUDE_AGENT_SDK_EXCLUDED_TOP_LEVEL_FUNCTIONS = [
   "filterEscalatingDefaultMode",
   "foldSessionSummary",
   "importSessionToStore",
+  "startup",
   "tool",
 ] as const satisfies readonly (typeof CLAUDE_AGENT_SDK_TOP_LEVEL_FUNCTIONS)[number][]
 
@@ -81,7 +80,6 @@ export type ClaudeMcpServerConfig = McpStdioServerConfig | McpSSEServerConfig | 
 export type ClaudeQueryOptions = Omit<SdkOptions, ExcludedOption | "mcpServers"> & {
   mcpServers?: Record<string, ClaudeMcpServerConfig>
 }
-export type ClaudeWarmQueryOptions = ClaudeQueryOptions
 export type ClaudeSessionMutationOptions = Omit<SessionMutationOptions, "sessionStore">
 export type ClaudeForkSessionOptions = Omit<ForkSessionOptions, "sessionStore">
 export type ClaudeGetSessionInfoOptions = Omit<GetSessionInfoOptions, "sessionStore">
@@ -247,9 +245,6 @@ const claudeQueryOptionShape = {
 const ClaudeQueryOptionsObjectSchema = z.strictObject(claudeQueryOptionShape).partial()
 export const ClaudeQueryOptionsSchema: z.ZodType<ClaudeQueryOptions> =
   ClaudeQueryOptionsObjectSchema as z.ZodType<ClaudeQueryOptions>
-export const ClaudeWarmQueryOptionsSchema: z.ZodType<ClaudeWarmQueryOptions> =
-  ClaudeQueryOptionsObjectSchema as z.ZodType<ClaudeWarmQueryOptions>
-
 export const ClaudeSessionMutationOptionsSchema: z.ZodType<ClaudeSessionMutationOptions> =
   z.strictObject({ dir: z.string().optional() })
 export const ClaudeForkSessionOptionsSchema: z.ZodType<ClaudeForkSessionOptions> = z.strictObject({
@@ -304,9 +299,9 @@ const ClaudeSdkUserInputSchema: z.ZodType<SDKUserMessage> =
   )
 
 const queryIdParams = { queryId: ClaudeQueryIdSchema } as const
-const emptyResultSchema = z.null()
+const emptyResultSchema = z.undefined()
 const rpc = <
-  const Scope extends "sdk" | "query" | "warmQuery",
+  const Scope extends "sdk" | "query",
   const Method extends string,
   const RequestType extends string,
   const ResponseType extends string,
@@ -340,38 +335,6 @@ export const AGENT_CLAUDE_RPC = {
       options: ClaudeQueryOptionsSchema.optional(),
     }),
     z.object({ queryId: ClaudeQueryIdSchema })
-  ),
-  startup: rpc(
-    "sdk",
-    "startup",
-    "agent.claude.warm_query.start.request",
-    "agent.claude.warm_query.start.response",
-    z.strictObject({
-      initializeTimeoutMs: z.number().int().positive().optional(),
-      options: ClaudeWarmQueryOptionsSchema.optional(),
-      warmQueryId: ClaudeWarmQueryIdSchema,
-    }),
-    z.object({ warmQueryId: ClaudeWarmQueryIdSchema })
-  ),
-  warmQuery: rpc(
-    "warmQuery",
-    "query",
-    "agent.claude.warm_query.query.request",
-    "agent.claude.warm_query.query.response",
-    z.strictObject({
-      prompt: ClaudeQueryPromptSchema,
-      queryId: ClaudeQueryIdSchema,
-      warmQueryId: ClaudeWarmQueryIdSchema,
-    }),
-    z.object({ queryId: ClaudeQueryIdSchema })
-  ),
-  warmQueryClose: rpc(
-    "warmQuery",
-    "close",
-    "agent.claude.warm_query.close.request",
-    "agent.claude.warm_query.close.response",
-    z.strictObject({ warmQueryId: ClaudeWarmQueryIdSchema }),
-    emptyResultSchema
   ),
   listSessions: rpc(
     "sdk",

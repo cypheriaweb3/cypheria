@@ -16,6 +16,11 @@ This package is the reusable TypeScript client for the versioned Cypheria server
   endpoint internally. Keep request/response correlation and wire lookup inside `ServerClient`;
   expose protocol method names through typed `request`, `notify`, `onRequest`, and `onNotification`
   APIs rather than a generated action tree.
+- The Claude entry point binds a borrowed `CypheriaApi` into an SDK-shaped facade. Preserve the
+  upstream `query()` iterator and network-safe query/session/settings method shapes, but do not
+  expose `startup()`, `tool()`, `createSdkMcpServer()`, callback-bearing options, process handles,
+  session stores, or in-process SDK MCP servers. Keep `AbortController` local and validate all wire
+  values through protocol-owned Claude messages.
 - Do not infer high-level wallet, policy, automation, browser, or other product APIs from generic
   runtime method strings. Add an action only after its request and response contract exists in the
   protocol package.
@@ -47,6 +52,8 @@ This package is the reusable TypeScript client for the versioned Cypheria server
 - ACP and Codex `ClientApp.connect()` / `connectWith()` accept a `CypheriaApi`, not a nested
   endpoint. Permit only one active connection per corresponding endpoint across borrowed API
   facades, and close it when the underlying Cypheria connection is lost.
+- Claude queries may share one endpoint because `queryId` provides explicit routing. A transport
+  loss must terminate every active iterator without closing the borrowed `CypheriaApi`.
 
 ## Verification
 

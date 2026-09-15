@@ -37,6 +37,17 @@ describe("agent.claude protocol", () => {
     expect(
       sortedUnique([...sdkRpcMethods, ...CLAUDE_AGENT_SDK_EXCLUDED_TOP_LEVEL_FUNCTIONS])
     ).toEqual([...CLAUDE_AGENT_SDK_TOP_LEVEL_FUNCTIONS])
+    expect(CLAUDE_AGENT_SDK_EXCLUDED_TOP_LEVEL_FUNCTIONS).toEqual(
+      expect.arrayContaining(["createSdkMcpServer", "startup", "tool"])
+    )
+    expect(sdkRpcMethods).not.toContain("startup")
+    expect(
+      AgentClaudeClientMessageSchema.safeParse({
+        requestId: "request-1",
+        type: "agent.claude.warm_query.start.request",
+        warmQueryId: "warm-query-1",
+      }).success
+    ).toBe(false)
 
     const queryRpcMethods = Object.values(AGENT_CLAUDE_RPC)
       .filter(({ scope }) => scope === "query")
@@ -129,6 +140,22 @@ describe("agent.claude protocol", () => {
           result: { queryId: "query-1" },
         },
         type: "agent.claude.query.start.response",
+      }).success
+    ).toBe(false)
+
+    expect(
+      AgentClaudeServerMessageSchema.parse({
+        payload: { requestId: "request-2" },
+        type: "agent.claude.query.model.set.response",
+      })
+    ).toEqual({
+      payload: { requestId: "request-2" },
+      type: "agent.claude.query.model.set.response",
+    })
+    expect(
+      AgentClaudeServerMessageSchema.safeParse({
+        payload: { requestId: "request-2", result: null },
+        type: "agent.claude.query.model.set.response",
       }).success
     ).toBe(false)
   })

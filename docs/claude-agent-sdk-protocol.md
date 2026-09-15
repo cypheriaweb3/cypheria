@@ -1,6 +1,6 @@
 # Claude Agent SDK Protocol
 
-`@cypheria/protocol` pins `@anthropic-ai/claude-agent-sdk@0.3.270` and translates its network-safe public API into `agent.claude.*` logical-session messages. This document describes the contract that a future `@cypheria/client` SDK-shaped facade and `apps/server` adapter must implement; neither adapter is implemented yet.
+`@cypheria/protocol` pins `@anthropic-ai/claude-agent-sdk@0.3.270` and translates its network-safe public API into `agent.claude.*` logical-session messages. `@cypheria/client/claude` implements the client-side SDK-shaped facade; the `apps/server` adapter remains future work.
 
 ## Wire Model
 
@@ -27,7 +27,7 @@ RPC requests flatten their arguments beside `type` and `requestId`. Responses ca
 }
 ```
 
-`queryId` is selected by the client and identifies one live SDK `Query` async iterator. `warmQueryId` identifies one reusable handle returned by SDK `startup()`. These are protocol routing identifiers, not Claude session IDs. Claude session IDs remain the SDK values returned in message payloads and session operations.
+`queryId` is selected by the client and identifies one live SDK `Query` async iterator. It is a protocol routing identifier, not a Claude session ID. Claude session IDs remain the SDK values returned in message payloads and session operations.
 
 The prompt is a discriminated union:
 
@@ -43,8 +43,6 @@ The registry exports the upstream target through `scope` and `method`, so a serv
 | SDK API | Cypheria operation |
 | --- | --- |
 | `query()` | `agent.claude.query.start` |
-| `startup()` | `agent.claude.warm_query.start` |
-| `WarmQuery.query()` / `.close()` | `agent.claude.warm_query.query` / `.close` |
 | `listSessions()` | `agent.claude.session.list` |
 | `getSessionInfo()` | `agent.claude.session.get` |
 | `getSessionMessages()` | `agent.claude.session.messages.list` |
@@ -67,11 +65,11 @@ All 29 `Query` methods are covered. `streamInput()` uses the input notifications
 | Files and reload | `readFile`, `rewindFiles`, `seedReadState`, `reloadPlugins`, `reloadSkills`, `reloadOutputStyles` |
 | Tasks | `stopTask`, `backgroundTasks` |
 
-Void results are represented by JSON `null`. `getSessionInfo()` also returns `null` when the SDK returns `undefined`, because `undefined` is not a JSON wire value.
+Void responses omit `result` and carry only `requestId`. `getSessionInfo()` returns `null` when the SDK returns `undefined`, because that absence is itself the method's meaningful result and `undefined` is not a JSON wire value.
 
 ## Options And MCP
 
-`ClaudeQueryOptionsSchema` models every serializable SDK `Options` key. `startup()` accepts the same serializable option schema as `query()`. Session and settings utility options have strict, per-field schemas.
+`ClaudeQueryOptionsSchema` models every serializable SDK `Options` key. Session and settings utility options have strict, per-field schemas.
 
 MCP server configuration supports serializable stdio, HTTP, and SSE SDK configs. An SDK-compatible stdio config without `type` is canonicalized to `type: "stdio"`. In-process `{ type: "sdk", instance }` servers are excluded because the `McpServer` instance contains executable functions and process-local state.
 
@@ -100,10 +98,11 @@ createSdkMcpServer
 filterEscalatingDefaultMode
 foldSessionSummary
 importSessionToStore
+startup
 tool
 ```
 
-The first, third, fourth, and fifth construct or consume function-bearing local objects. `filterEscalatingDefaultMode` is a pure local settings helper rather than a privileged agent operation. SDK types are re-exported type-only from `@cypheria/protocol/claude-types` so adapters can reuse the exact pinned declarations without creating a second DTO model.
+`tool()` and `createSdkMcpServer()` construct function-bearing, process-local objects. The session-store helpers likewise consume local objects, `filterEscalatingDefaultMode` is a pure settings helper, and pre-warming through `startup()` is intentionally outside the remote API. SDK types are re-exported type-only from `@cypheria/protocol/claude-types` so adapters can reuse the exact pinned declarations without creating a second DTO model.
 
 ## Output Messages And Drift Control
 
@@ -139,6 +138,6 @@ An SDK upgrade must update the exact dependency, regenerate the registry, classi
 
 ## Adapter Responsibilities
 
-A future client adapter should present the official SDK call shape, allocate request/query IDs, convert an async input iterable into notifications, reconstruct each query's async output stream, correlate responses, and propagate cancellation/transport failure locally.
+`@cypheria/client/claude` presents the network-safe SDK call shape through a facade bound to a borrowed `CypheriaApi`. It allocates request/query IDs, converts async input iterables into notifications, reconstructs each query's async output stream, correlates responses, keeps `AbortController` local, and propagates transport failure.
 
-A future server adapter should own SDK and warm-query objects, dispatch through `AGENT_CLAUDE_RPC`, convert named wire arguments to SDK calls, emit wrapped SDK messages in order, normalize non-JSON results, enforce authorization for filesystem/process/environment options, and dispose all active iterators and warm queries when the logical session ends.
+A future server adapter should own SDK query objects, dispatch through `AGENT_CLAUDE_RPC`, convert named wire arguments to SDK calls, emit wrapped SDK messages in order, normalize non-JSON results, enforce authorization for filesystem/process/environment options, and dispose all active iterators when the logical session ends.

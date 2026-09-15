@@ -31,8 +31,8 @@ CypheriaClient = CypheriaApi + connection lifecycle
 - `server`: ping, status, diagnostics, and configuration;
 - `agent.codex`: generated Codex requests, notifications, reverse requests, and responses;
 - `agent.acp`: directly discriminable ACP logical messages;
-- `agent.claude`: Claude Agent SDK query, control, session, and stream contracts. A dedicated
-  SDK-shaped Claude client is deferred; the low-level protocol driver already validates these messages.
+- `agent.claude`: Claude Agent SDK query, control, session, and stream contracts, with an
+  SDK-shaped facade at `@cypheria/client/claude`.
 
 It does not invent wallet, policy, automation, or runtime-info product methods from runtime method
 strings. Add a high-level API only after its contract exists in `@cypheria/protocol`.
@@ -129,6 +129,37 @@ connection after the Cypheria session recovers.
 
 `cypheria.agent.acp` itself remains the minimal `send(message)` / `subscribe(handler)` endpoint.
 Do not mix those low-level operations with an active `ClientApp` connection.
+
+## Claude Agent SDK API
+
+`@cypheria/client/claude` binds a borrowed `CypheriaApi` into an SDK-shaped facade. `query()` is
+synchronous like the upstream API and returns an `AsyncGenerator<SDKMessage>` with all network-safe
+`Query` control methods. Session listing, history, subagent, mutation, fork, and settings calls keep
+their upstream argument and result shapes. Async input iterables become ordered protocol input
+notifications; query output, completion, remote errors, local abort, and transport loss are isolated
+by `queryId`.
+
+```ts
+import { client as createClaudeClient } from "@cypheria/client/claude"
+import { createCypheriaClient } from "@cypheria/client"
+
+const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
+const claude = createClaudeClient(cypheria)
+
+for await (const message of claude.query({
+  prompt: "Explain this repository",
+  options: { cwd: "/absolute/workspace" },
+})) {
+  console.log(message)
+}
+
+await cypheria.close()
+```
+
+`AbortController` is honored locally but never serialized. `startup()`, `tool()`,
+`createSdkMcpServer()`, callback-bearing options, process handles, and in-process SDK MCP servers are
+not exposed because they cannot be represented faithfully across the network. Serializable stdio,
+SSE, and HTTP MCP configurations remain supported.
 
 ## Usage
 

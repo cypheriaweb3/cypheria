@@ -1,6 +1,6 @@
 # Claude Agent SDK Protocol
 
-`@cypheria/protocol` 精确固定 `@anthropic-ai/claude-agent-sdk@0.3.270`，并把其中适合网络传输的公共 API 转换成 `agent.claude.*` 逻辑 session 消息。本文定义未来 `@cypheria/client` SDK-shaped 门面和 `apps/server` adapter 必须实现的 contract；这两个 adapter 当前都尚未实现。
+`@cypheria/protocol` 精确固定 `@anthropic-ai/claude-agent-sdk@0.3.270`，并把其中适合网络传输的公共 API 转换成 `agent.claude.*` 逻辑 session 消息。`@cypheria/client/claude` 已实现 client 侧 SDK-shaped 门面；`apps/server` adapter 仍是后续工作。
 
 ## Wire 模型
 
@@ -27,7 +27,7 @@ RPC request 将参数与 `type`、`requestId` 平铺；response 在 `payload` �
 }
 ```
 
-`queryId` 由 client 选择，用来标识一条活跃 SDK `Query` async iterator；`warmQueryId` 标识 SDK `startup()` 返回的可复用 handle。它们是 protocol routing ID，不是 Claude session ID。Claude session ID 仍使用 SDK message payload 和 session operation 返回的值。
+`queryId` 由 client 选择，用来标识一条活跃 SDK `Query` async iterator。它是 protocol routing ID，不是 Claude session ID。Claude session ID 仍使用 SDK message payload 和 session operation 返回的值。
 
 Prompt 是 discriminated union：
 
@@ -43,8 +43,6 @@ Registry 通过 `scope` 与 `method` 导出上游调用目标，因此 server ad
 | SDK API | Cypheria operation |
 | --- | --- |
 | `query()` | `agent.claude.query.start` |
-| `startup()` | `agent.claude.warm_query.start` |
-| `WarmQuery.query()` / `.close()` | `agent.claude.warm_query.query` / `.close` |
 | `listSessions()` | `agent.claude.session.list` |
 | `getSessionInfo()` | `agent.claude.session.get` |
 | `getSessionMessages()` | `agent.claude.session.messages.list` |
@@ -67,11 +65,11 @@ Registry 通过 `scope` 与 `method` 导出上游调用目标，因此 server ad
 | File 与 reload | `readFile`、`rewindFiles`、`seedReadState`、`reloadPlugins`、`reloadSkills`、`reloadOutputStyles` |
 | Task | `stopTask`、`backgroundTasks` |
 
-Void result 使用 JSON `null`。`getSessionInfo()` 在 SDK 返回 `undefined` 时同样返回 `null`，因为 `undefined` 不是 JSON wire value。
+Void response 省略 `result`，只携带 `requestId`。`getSessionInfo()` 在 SDK 返回 `undefined` 时返回 `null`，因为该缺失值本身是 method 的有效结果，而 `undefined` 不是 JSON wire value。
 
 ## Option 与 MCP
 
-`ClaudeQueryOptionsSchema` 表示 SDK `Options` 中每个可序列化 key。`startup()` 与 `query()` 接受相同的可序列化 option schema。Session/settings utility option 使用严格的逐字段 schema。
+`ClaudeQueryOptionsSchema` 表示 SDK `Options` 中每个可序列化 key。Session/settings utility option 使用严格的逐字段 schema。
 
 MCP server configuration 支持可序列化的 stdio、HTTP 与 SSE SDK config。与 SDK 兼容、不带 `type` 的 stdio config 会规范化为 `type: "stdio"`。进程内 `{ type: "sdk", instance }` server 被排除，因为 `McpServer` instance 包含可执行函数与进程本地状态。
 
@@ -100,10 +98,11 @@ createSdkMcpServer
 filterEscalatingDefaultMode
 foldSessionSummary
 importSessionToStore
+startup
 tool
 ```
 
-其中第一、三、四、五项会创建或消费含函数的本地对象；`filterEscalatingDefaultMode` 是纯本地 settings helper，而不是特权 agent operation。SDK type 由 `@cypheria/protocol/claude-types` 仅按类型重新导出，使 adapter 可以复用精确固定版本的 declaration，无需再创建一套 DTO model。
+`tool()` 与 `createSdkMcpServer()` 会创建含函数、仅在进程内有效的对象；session-store helper 同样消费本地对象，`filterEscalatingDefaultMode` 是纯 settings helper，而通过 `startup()` 预热被明确排除在远程 API 之外。SDK type 由 `@cypheria/protocol/claude-types` 仅按类型重新导出，使 adapter 可以复用精确固定版本的 declaration，无需再创建一套 DTO model。
 
 ## 输出消息与漂移控制
 
@@ -139,6 +138,6 @@ System family 当前展开为 28 个具体 subtype message；与其他 family �
 
 ## Adapter 职责
 
-未来 client adapter 应提供官方 SDK 调用形态，分配 request/query ID，把 async input iterable 转成 notification，为每个 query 重建 async output stream，关联 response，并在本地传播 cancellation 与 transport failure。
+`@cypheria/client/claude` 通过绑定借用 `CypheriaApi` 的门面提供网络安全的 SDK 调用形态。它分配 request/query ID，把 async input iterable 转成 notification，为每个 query 重建 async output stream，关联 response，让 `AbortController` 只在本地生效，并传播 transport failure。
 
-未来 server adapter 应持有 SDK 和 warm-query object，通过 `AGENT_CLAUDE_RPC` dispatch，把具名 wire argument 转成 SDK call，按顺序发送已包装 SDK message，规范化非 JSON result，对 filesystem/process/environment option 做授权，并在逻辑 session 结束时释放全部活跃 iterator 与 warm query。
+未来 server adapter 应持有 SDK query object，通过 `AGENT_CLAUDE_RPC` dispatch，把具名 wire argument 转成 SDK call，按顺序发送已包装 SDK message，规范化非 JSON result，对 filesystem/process/environment option 做授权，并在逻辑 session 结束时释放全部活跃 iterator。

@@ -1,8 +1,13 @@
 import {
+  AGENT_CLAUDE_RPC,
   AGENT_CODEX_CLIENT_NOTIFICATIONS,
   AGENT_CODEX_CLIENT_RPC,
   AGENT_CODEX_SERVER_RPC,
   type AgentAcpClientMessage,
+  type AgentClaudeClientNotification,
+  type AgentClaudeClientRequest,
+  type AgentClaudeRpcName,
+  type AgentClaudeServerResponse,
   type AgentCodexClientNotification,
   type AgentCodexClientRequest,
   type AgentCodexServerNotification,
@@ -36,6 +41,8 @@ import {
   type WSInboundMessage,
   wrapClientSessionMessage,
 } from "@cypheria/protocol"
+import type { SDKUserMessage } from "@cypheria/protocol/claude-types"
+import type { ClaudeRpcParams, ClaudeRpcResult } from "./claude-endpoint.js"
 import type {
   CodexClientMethod,
   CodexClientNotificationMethod,
@@ -488,6 +495,55 @@ export class ServerClient {
 
   async sendAcp(message: AgentAcpClientMessage): Promise<void> {
     await this.#sendWhenConnected(message, undefined, SERVER_CAPABILITIES.acp)
+  }
+
+  async requestClaude<Method extends AgentClaudeRpcName>(
+    method: Method,
+    params: ClaudeRpcParams<Method>,
+    options?: RequestOptions
+  ): Promise<ClaudeRpcResult<Method>> {
+    const definition = AGENT_CLAUDE_RPC[method]
+    const message = await this.#request(
+      {
+        ...(params as object),
+        requestId: this.#nextRequestId("claude"),
+        type: definition.request,
+      } as AgentClaudeClientRequest,
+      definition.response,
+      options,
+      SERVER_CAPABILITIES.claude
+    )
+    const payload = (message as AgentClaudeServerResponse).payload
+    if ("error" in payload) {
+      const error = new Error(payload.error.message)
+      error.name = payload.error.code
+      if (payload.error.data !== undefined) Object.assign(error, { data: payload.error.data })
+      throw error
+    }
+    return ("result" in payload ? payload.result : undefined) as ClaudeRpcResult<Method>
+  }
+
+  async sendClaudeInput(queryId: string, payload: SDKUserMessage): Promise<void> {
+    await this.#sendWhenConnected(
+      {
+        payload,
+        queryId,
+        type: "agent.claude.query.input.notification",
+      } satisfies AgentClaudeClientNotification,
+      undefined,
+      SERVER_CAPABILITIES.claude
+    )
+  }
+
+  async completeClaudeInput(queryId: string): Promise<void> {
+    await this.#sendWhenConnected(
+      {
+        queryId,
+        type: "agent.claude.query.input.complete.notification",
+      } satisfies AgentClaudeClientNotification,
+      undefined,
+      SERVER_CAPABILITIES.claude
+    )
   }
 
   #bindTransport(transport: ServerTransport): void {

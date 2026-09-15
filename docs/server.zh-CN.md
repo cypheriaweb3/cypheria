@@ -108,7 +108,7 @@ SDK 1.4.0 发布了这些 generated Zod module，但没有通过 package exports
 
 ### Claude Code agent 消息
 
-Protocol 精确固定 `@anthropic-ai/claude-agent-sdk@0.3.270`，将所有适合网络传输的顶层函数、全部 `Query` control method、可序列化 query option 以及 40 种 `SDKMessage` 输出映射为 `agent.claude.*` 逻辑消息。Request 与 response 通过 `requestId` 配对；client 选择的 `queryId` 标识一条正在运行的 async iterator，`warmQueryId` 标识一个可复用的 `startup()` handle。文本 prompt 直接传输；`AsyncIterable<SDKUserMessage>` 则由 stream prompt 加上有序 input notification 和 input-complete notification 表示。
+Protocol 精确固定 `@anthropic-ai/claude-agent-sdk@0.3.270`，将选定的网络安全顶层函数、全部 `Query` control method、可序列化 query option 以及 40 种 `SDKMessage` 输出映射为 `agent.claude.*` 逻辑消息。Request 与 response 通过 `requestId` 配对，client 选择的 `queryId` 标识一条正在运行的 async iterator。文本 prompt 直接传输；`AsyncIterable<SDKUserMessage>` 则由 stream prompt 加上有序 input notification 和 input-complete notification 表示。`startup()`、`tool()` 与 `createSdkMcpServer()` 明确不属于该远程 surface。
 
 SDK 输出在 `payload` 中保持 provider-transparent，但每个上游 `type`/`subtype` 分支都有具体的 Cypheria notification type，例如 `agent.claude.assistant.notification`、`agent.claude.result.success.notification` 和 `agent.claude.system.status.notification`。Generated registry 与 lifecycle check 会检测 SDK message union、`Query` method、option key、exported function 和固定版本的漂移。携带 callback 的 hook、permission handler、自定义 SDK MCP server、process factory、abort controller 与 session-store object 刻意留在 server 本地。完整映射与排除项见 [Claude Agent SDK Protocol](claude-agent-sdk-protocol.zh-CN.md)。
 

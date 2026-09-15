@@ -6,9 +6,6 @@ import { RequestIdSchema } from "../request-id.ts"
 export const ClaudeQueryIdSchema = z.string().trim().min(1).max(128)
 export type ClaudeQueryId = z.infer<typeof ClaudeQueryIdSchema>
 
-export const ClaudeWarmQueryIdSchema = z.string().trim().min(1).max(128)
-export type ClaudeWarmQueryId = z.infer<typeof ClaudeWarmQueryIdSchema>
-
 export const ClaudeSdkErrorSchema = z.object({
   code: z.string().trim().min(1).max(128),
   data: z.json().optional(),
@@ -23,7 +20,9 @@ type ClaudeRequest<Type extends string, Params> = {
 
 export type ClaudeResponsePayload<Result> =
   | { readonly error: ClaudeSdkError; readonly requestId: z.infer<typeof RequestIdSchema> }
-  | { readonly requestId: z.infer<typeof RequestIdSchema>; readonly result: Result }
+  | ([Result] extends [undefined]
+      ? { readonly requestId: z.infer<typeof RequestIdSchema> }
+      : { readonly requestId: z.infer<typeof RequestIdSchema>; readonly result: Result })
 
 type ClaudeResponse<Type extends string, Result> = {
   readonly payload: ClaudeResponsePayload<Result>
@@ -74,6 +73,7 @@ export const claudeResponseSchema = <const Type extends string, ResultSchema ext
   type: Type,
   resultSchema: ResultSchema
 ): z.ZodType<ClaudeResponse<Type, z.output<ResultSchema>>> => {
+  const isVoidResult = resultSchema.safeParse(undefined).success
   const payloadSchema = z
     .object({
       error: ClaudeSdkErrorSchema.optional(),
@@ -83,14 +83,32 @@ export const claudeResponseSchema = <const Type extends string, ResultSchema ext
     .transform((payload, context) => {
       const hasError = Object.hasOwn(payload, "error")
       const hasResult = Object.hasOwn(payload, "result")
-      if (hasError === hasResult) {
+      if (hasError && hasResult) {
         context.addIssue({
           code: "custom",
-          message: "Claude Agent SDK response must contain exactly one of result and error",
+          message: "Claude Agent SDK response cannot contain both result and error",
         })
         return z.NEVER
       }
       if (hasError) return { error: payload.error as ClaudeSdkError, requestId: payload.requestId }
+      if (isVoidResult) {
+        if (hasResult) {
+          context.addIssue({
+            code: "custom",
+            message: "A void Claude Agent SDK response must omit result",
+            path: ["result"],
+          })
+          return z.NEVER
+        }
+        return { requestId: payload.requestId }
+      }
+      if (!hasResult) {
+        context.addIssue({
+          code: "custom",
+          message: "Claude Agent SDK response must contain result or error",
+        })
+        return z.NEVER
+      }
       const parsed = resultSchema.safeParse(payload.result)
       if (!parsed.success) {
         addIssues(context, parsed.error.issues, ["result"])

@@ -17,5 +17,4 @@ export type {
   ClaudeQueryOptions,
   ClaudeResolveSettingsOptions,
   ClaudeSessionMutationOptions,
-  ClaudeWarmQueryOptions,
 } from "./claude.ts"

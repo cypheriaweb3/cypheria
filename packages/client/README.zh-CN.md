@@ -29,8 +29,8 @@ CypheriaClient = CypheriaApi + connection lifecycle
 - `server`：ping、status、diagnostics 与 configuration；
 - `agent.codex`：generated Codex request、notification、反向 request 与 response；
 - `agent.acp`：可直接判别的 ACP 逻辑消息；
-- `agent.claude`：Claude Agent SDK query、control、session 与 stream contract。专用的
-  SDK-shaped Claude client 延后实现；底层 protocol driver 已可校验这些消息。
+- `agent.claude`：Claude Agent SDK query、control、session 与 stream contract，并由
+  `@cypheria/client/claude` 提供 SDK-shaped 门面。
 
 它不会根据 runtime method 字符串发明 wallet、policy、automation 或 runtime-info 产品方法。
 只有相应 contract 进入 `@cypheria/protocol` 后，才应增加高层 API。
@@ -126,6 +126,35 @@ Cypheria ACP endpoint 只允许一个活跃 ACP connection。底层 transport �
 
 `cypheria.agent.acp` 本身仍是最小的 `send(message)` / `subscribe(handler)` endpoint。不得将这些
 低层 operation 与活跃 `ClientApp` connection 混用。
+
+## Claude Agent SDK API
+
+`@cypheria/client/claude` 把借用的 `CypheriaApi` 绑定成 SDK-shaped 门面。`query()` 与上游一样
+同步返回带全部网络安全 `Query` control method 的 `AsyncGenerator<SDKMessage>`。Session list、
+history、subagent、mutation、fork 与 settings call 保持上游参数和结果形态。Async input iterable
+转换为有序 protocol input notification；query output、完成、远程错误、本地 abort 与 transport
+loss 均按 `queryId` 隔离。
+
+```ts
+import { client as createClaudeClient } from "@cypheria/client/claude"
+import { createCypheriaClient } from "@cypheria/client"
+
+const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
+const claude = createClaudeClient(cypheria)
+
+for await (const message of claude.query({
+  prompt: "Explain this repository",
+  options: { cwd: "/absolute/workspace" },
+})) {
+  console.log(message)
+}
+
+await cypheria.close()
+```
+
+`AbortController` 只在本地生效，不会被序列化。`startup()`、`tool()`、
+`createSdkMcpServer()`、携带 callback 的 option、process handle 与进程内 SDK MCP server
+不会暴露，因为它们无法忠实地跨网络表示；可序列化的 stdio、SSE 与 HTTP MCP config 仍受支持。
 
 ## 使用
 

@@ -8,6 +8,7 @@ import {
 import { afterEach, describe, expect, it } from "vitest"
 
 import { client as createAcpApp } from "./acp.js"
+import { client as createClaudeClient } from "./claude.js"
 import { client as createCodexApp } from "./codex.js"
 import { type CypheriaApi, createCypheriaApi, createCypheriaClient } from "./index.js"
 import { ServerClient } from "./server-client.js"
@@ -33,7 +34,7 @@ const acceptConnection = async (connectPromise: Promise<void>): Promise<TestWebS
   socket.message(
     stringifyProtocolMessage({
       payload: {
-        capabilities: ["agent.acp", "agent.codex", "server.status"],
+        capabilities: ["agent.acp", "agent.claude", "agent.codex", "server.status"],
         connections: 1,
         hostname: "test",
         id: "srv_test",
@@ -70,19 +71,136 @@ describe("Cypheria client facade", () => {
     await serverClient.close()
   })
 
-  it("accepts a borrowed CypheriaApi in both agent ClientApps", async () => {
+  it("accepts a borrowed CypheriaApi in the agent adapters", async () => {
     const serverClient = new ServerClient({
       clientId: "client-borrowed-agent-apps",
       webSocketFactory: testWebSocketFactory,
     })
     const cypheria: CypheriaApi = createCypheriaApi(serverClient)
+    const claude = createClaudeClient(cypheria)
 
     const codexConnection = createCodexApp().connect(cypheria)
     const acpConnection = createAcpApp().connect(cypheria)
 
+    expect(claude).toBeDefined()
+    expect("startup" in claude).toBe(false)
+    expect("tool" in claude).toBe(false)
+    expect("createSdkMcpServer" in claude).toBe(false)
     codexConnection.close()
     acpConnection.close()
     await serverClient.close()
+  })
+
+  it("exposes a Claude Agent SDK-shaped query iterator", async () => {
+    const cypheria = createCypheriaClient({
+      clientId: "client-claude",
+      webSocketFactory: testWebSocketFactory,
+    })
+    const socket = await acceptConnection(cypheria.connect())
+    const query = createClaudeClient(cypheria).query({
+      options: { cwd: "/workspace", model: "claude-sonnet-5" },
+      prompt: "Inspect this repository",
+    })
+    await tick()
+    await tick()
+
+    const request = parseClientMessageText(socket.sent.at(-1) ?? "")
+    if (request.type !== "agent.claude.query.start.request") {
+      throw new Error("Expected Claude query request")
+    }
+    socket.message(
+      stringifyProtocolMessage({
+        payload: { requestId: request.requestId, result: { queryId: request.queryId } },
+        type: "agent.claude.query.start.response",
+      })
+    )
+    socket.message(
+      stringifyProtocolMessage({
+        payload: { type: "assistant" },
+        queryId: request.queryId,
+        type: "agent.claude.assistant.notification",
+      })
+    )
+    socket.message(
+      stringifyProtocolMessage({
+        queryId: request.queryId,
+        type: "agent.claude.query.complete.notification",
+      })
+    )
+
+    const messages = []
+    for await (const message of query) messages.push(message)
+    expect(messages).toEqual([{ type: "assistant" }])
+    await cypheria.close()
+  })
+
+  it("streams Claude input and preserves void control semantics", async () => {
+    const cypheria = createCypheriaClient({
+      clientId: "client-claude-stream",
+      webSocketFactory: testWebSocketFactory,
+    })
+    const socket = await acceptConnection(cypheria.connect())
+    const query = createClaudeClient(cypheria).query({
+      prompt: (async function* () {
+        yield {
+          message: { content: "continue", role: "user" },
+          parent_tool_use_id: null,
+          type: "user" as const,
+        }
+      })(),
+    })
+    await tick()
+    await tick()
+
+    const request = parseClientMessageText(socket.sent.at(-1) ?? "")
+    if (request.type !== "agent.claude.query.start.request") {
+      throw new Error("Expected Claude streaming query request")
+    }
+    expect(request.prompt).toEqual({ type: "stream" })
+    const sentBeforeInput = socket.sent.length
+    socket.message(
+      stringifyProtocolMessage({
+        payload: { requestId: request.requestId, result: { queryId: request.queryId } },
+        type: "agent.claude.query.start.response",
+      })
+    )
+    for (let attempt = 0; attempt < 10 && socket.sent.length < sentBeforeInput + 2; attempt += 1) {
+      await tick()
+    }
+
+    const streamMessages = socket.sent.slice(sentBeforeInput).map(parseClientMessageText)
+    expect(streamMessages.map(({ type }) => type)).toEqual([
+      "agent.claude.query.input.notification",
+      "agent.claude.query.input.complete.notification",
+    ])
+
+    const sentBeforeSetModel = socket.sent.length
+    const setModelPromise = query.setModel()
+    for (let attempt = 0; attempt < 10 && socket.sent.length === sentBeforeSetModel; attempt += 1) {
+      await tick()
+    }
+    const setModelRequest = parseClientMessageText(socket.sent.at(-1) ?? "")
+    if (setModelRequest.type !== "agent.claude.query.model.set.request") {
+      throw new Error("Expected Claude set-model request")
+    }
+    expect(setModelRequest.model).toBeNull()
+    socket.message(
+      stringifyProtocolMessage({
+        payload: { requestId: setModelRequest.requestId },
+        type: "agent.claude.query.model.set.response",
+      })
+    )
+    await expect(setModelPromise).resolves.toBeUndefined()
+
+    const next = query.next()
+    socket.message(
+      stringifyProtocolMessage({
+        queryId: request.queryId,
+        type: "agent.claude.query.complete.notification",
+      })
+    )
+    await expect(next).resolves.toEqual({ done: true, value: undefined })
+    await cypheria.close()
   })
 
   it("owns lifecycle and lazily sends the server status request", async () => {

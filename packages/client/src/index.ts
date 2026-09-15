@@ -1,6 +1,7 @@
 import {
   type AgentAcpClientMessage,
   type AgentAcpServerMessage,
+  type AgentClaudeServerMessage,
   isAgentAcpServerMessage,
   type PersistedServerConfigPatch,
   type ServerConfigSnapshot,
@@ -10,6 +11,11 @@ import {
 } from "@cypheria/protocol"
 
 import { type AcpEndpoint, createAcpEndpoint } from "./acp-client.js"
+import {
+  type ClaudeEndpoint,
+  createClaudeEndpoint,
+  isClaudeServerMessage,
+} from "./claude-endpoint.js"
 import { type CodexEndpoint, createCodexEndpoint, isCodexServerMessage } from "./codex-endpoint.js"
 import {
   type ConnectionState,
@@ -21,6 +27,7 @@ import {
 
 export interface AgentActions {
   readonly acp: AcpEndpoint
+  readonly claude: ClaudeEndpoint
   readonly codex: CodexEndpoint
 }
 
@@ -65,6 +72,7 @@ export type CypheriaClientConfig = ServerClientConfig
 
 const acpEndpointsByServerClient = new WeakMap<ServerClient, AcpEndpoint>()
 const codexEndpointsByServerClient = new WeakMap<ServerClient, CodexEndpoint>()
+const claudeEndpointsByServerClient = new WeakMap<ServerClient, ClaudeEndpoint>()
 
 const getAcpEndpoint = (serverClient: ServerClient): AcpEndpoint => {
   const existing = acpEndpointsByServerClient.get(serverClient)
@@ -103,6 +111,23 @@ const getCodexEndpoint = (serverClient: ServerClient): CodexEndpoint => {
   return endpoint
 }
 
+const getClaudeEndpoint = (serverClient: ServerClient): ClaudeEndpoint => {
+  const existing = claudeEndpointsByServerClient.get(serverClient)
+  if (existing) return existing
+  const endpoint = createClaudeEndpoint({
+    completeInput: (queryId) => serverClient.completeClaudeInput(queryId),
+    request: (method, params, options) => serverClient.requestClaude(method, params, options),
+    sendInput: (queryId, message) => serverClient.sendClaudeInput(queryId, message),
+    subscribe: (handler) =>
+      serverClient.subscribe((message) => {
+        if (isClaudeServerMessage(message)) handler(message)
+      }),
+    subscribeConnectionStatus: (handler) => serverClient.subscribeConnectionStatus(handler),
+  })
+  claudeEndpointsByServerClient.set(serverClient, endpoint)
+  return endpoint
+}
+
 /** Creates a public client which owns exactly one Cypheria server connection. */
 export function createCypheriaClient(config: CypheriaClientConfig = {}): CypheriaClient {
   const serverClient = new ServerClient(config)
@@ -132,6 +157,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
   return {
     agent: {
       acp: getAcpEndpoint(serverClient),
+      claude: getClaudeEndpoint(serverClient),
       codex: getCodexEndpoint(serverClient),
     },
     on,
@@ -158,4 +184,11 @@ export {
   type RequestOptions,
   type ServerSession,
 } from "./server-client.js"
-export type { AcpEndpoint, AgentAcpClientMessage, AgentAcpServerMessage, CodexEndpoint }
+export type {
+  AcpEndpoint,
+  AgentAcpClientMessage,
+  AgentAcpServerMessage,
+  AgentClaudeServerMessage,
+  ClaudeEndpoint,
+  CodexEndpoint,
+}

@@ -37,7 +37,7 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 - **UI**：shadcn-style copied components、Base UI primitives、Cypheria CSS tokens、lucide-react
 - **Cypheria client protocol**：`@cypheria/protocol` 中版本化的 Zod contracts，并支持带元数据的 `bigint` 传输
 - **ACP client API**：以官方 `@agentclientprotocol/sdk@1.4.0` 为底层，在 Cypheria 可直接判别的逻辑 WebSocket 消息上提供自有的 SDK-shaped `client()` / `ClientApp` API
-- **Claude Code protocol**：在 `agent.claude.*` 下完整表示 `@anthropic-ai/claude-agent-sdk@0.3.270` 中适合网络传输的 query、session、control 与 stream contract；client/server adapter 明确延后实现
+- **Claude Code API**：在 `agent.claude.*` 下表示 `@anthropic-ai/claude-agent-sdk@0.3.270` 中适合网络传输的 query、session、control 与 stream contract，并由 `@cypheria/client/claude` 提供 SDK-shaped 门面；server dispatch 仍延后实现
 - **Desktop agent integration**：`codex app-server` over WebSocket JSON-RPC
 - **Codex protocol types 与 validation**：由 `@cypheria/protocol` 持有，并通过 `pnpm --filter @cypheria/protocol generate:codex-all` 生成
 - **Marketplace hosting**：Cloudflare Workers、D1、R2、Queues 与 Workflows
