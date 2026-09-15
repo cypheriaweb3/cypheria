@@ -99,6 +99,12 @@ Status legend:
   - Exclude: `startup()`, `tool()`, `createSdkMcpServer()`, callback-bearing options, and server dispatch.
   - Verification: client tests, typecheck, build, full repository CI/build, and paired documentation.
 
+- [x] Add complete Pi RPC protocol and client support.
+  - Acceptance: pinned `@earendil-works/pi-coding-agent@0.85.1` types cover every `pi --mode rpc` command, response, event, extension error, and extension UI operation through directly routable `agent.pi.*` messages; `@cypheria/client/pi` provides the process-independent `RpcClient` API over a borrowed `CypheriaApi`.
+  - Include: 33 paired command schemas, 23 session-event notifications, four extension UI reverse RPCs, five extension UI notifications, exact JSONL conversion helpers for the future server adapter, type-only upstream exports, command/event helpers, tests, and paired documentation.
+  - Exclude: server process launch/dispatch, child-process lifecycle, stderr, executable/environment configuration, and signals.
+  - Verification: protocol/client tests, typechecks, builds, full repository CI/build, and paired documentation.
+
 - [ ] Migrate desktop to the Cypheria server after explicit review.
   - Acceptance: Electron main ensures the local supervised server is running, desktop uses the shared protocol, and Electron-only dApp/browser, secure-storage, approval, preload, and OS-integration boundaries remain intact.
   - Prerequisite: explicit approval of the server foundation; do not begin as part of the foundation change.

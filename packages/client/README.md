@@ -2,7 +2,8 @@
 
 `@cypheria/client` is the reusable client for the versioned Cypheria server protocol. It depends
 on `@cypheria/protocol`, transport-only `@cypheria/relay`, and the exact official ACP SDK used by
-protocol; it does not import runtime, server, Codex bridge, or Electron code.
+protocol. Pi RPC types come through protocol's pinned `@earendil-works/pi-coding-agent`; client does
+not import runtime, server, Codex bridge, or Electron code.
 
 ## Layers
 
@@ -33,6 +34,8 @@ CypheriaClient = CypheriaApi + connection lifecycle
 - `agent.acp`: directly discriminable ACP logical messages;
 - `agent.claude`: Claude Agent SDK query, control, session, and stream contracts, with an
   SDK-shaped facade at `@cypheria/client/claude`.
+- `agent.pi`: the complete `pi --mode rpc` command, event, and extension UI surface, with a
+  process-free `RpcClient` facade at `@cypheria/client/pi`.
 
 It does not invent wallet, policy, automation, or runtime-info product methods from runtime method
 strings. Add a high-level API only after its contract exists in `@cypheria/protocol`.
@@ -161,6 +164,33 @@ await cypheria.close()
 not exposed because they cannot be represented faithfully across the network. Serializable stdio,
 SSE, and HTTP MCP configurations remain supported.
 
+## Pi RPC API
+
+`@cypheria/client/pi` implements Pi's RPC client methods over a borrowed `CypheriaApi`. It covers all
+33 commands from `@earendil-works/pi-coding-agent@0.85.1`, restores native Pi events through
+`onEvent()`, and provides `waitForIdle()`, `collectEvents()`, and `promptAndWait()`. It additionally
+exposes the documented `prompt.streamingBehavior` and `bash.excludeFromContext` inputs that the
+upstream process-spawning client does not currently surface as method parameters.
+
+```ts
+import { createCypheriaClient } from "@cypheria/client"
+import { client as createPiClient } from "@cypheria/client/pi"
+
+const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
+const pi = createPiClient(cypheria)
+
+pi.onEvent((event) => console.log(event.type))
+const events = await pi.promptAndWait("Explain this repository")
+
+await cypheria.close()
+```
+
+The facade deliberately has no `start()`, `stop()`, `getStderr()`, CLI-path, environment, or signal
+management. Those APIs belong to Pi's local child-process wrapper; the Cypheria server will own one
+`pi --mode rpc` process and its JSONL transport. Blocking extension UI `select`, `confirm`, `input`,
+and `editor` events are reverse RPCs answered with `respondToExtensionUI()`; fire-and-forget UI
+updates remain events. Server process launch and dispatch are still deferred.
+
 ## Usage
 
 ```ts
@@ -214,7 +244,7 @@ const cypheria = createCypheriaClient({ relayOffer: "cypheria://pair#offer=..." 
 `relayOffer` cannot be combined with `url`, `token`, or `transportFactory`; a custom
 `webSocketFactory` remains available for runtimes without a global WebSocket. E2EE completes before
 the top-level `hello`, and the direct Bearer token is never sent to the relay. Server operations,
-ACP, Codex, and Claude traffic all travel inside top-level `session` envelopes.
+ACP, Codex, Claude, and Pi traffic all travel inside top-level `session` envelopes.
 
 ## Borrowing an existing connection
 
@@ -233,5 +263,5 @@ await connection.close()
 ```
 
 Multiple borrowed facades may share one connection. The current foundation server dispatches its
-built-in status, diagnostics, and configuration messages; Codex, ACP, and Claude contracts exist in the
-protocol but their server dispatch is still planned.
+built-in status, diagnostics, and configuration messages; Codex, ACP, Claude, and Pi contracts exist
+in the protocol but their server dispatch is still planned.

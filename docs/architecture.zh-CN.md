@@ -60,6 +60,8 @@ Generated Codex schema 名称不再包含多余的 `Message` 片段，例如 `Ag
 
 Claude Agent SDK call 在 `agent.claude.*` 下使用同一 request/response envelope。Client 选择的 `queryId` 把 SDK 本地 `Query` async iterator 转换为可路由 stream；`AsyncIterable<SDKUserMessage>` 输入变成有序 input notification，每个具体 SDK 输出 `type`/`subtype` 则变成可直接判别的 notification，同时在 `payload` 中保留原始 typed value。Declaration-driven registry 固定 SDK 版本并清点 message variant、query method、option 与 export。携带 callback 的 option 和由函数定义的 SDK MCP tool 留在特权网络边界内；`startup()` 也被明确省略。`@cypheria/client/claude` 在借用的 `CypheriaApi` 上重建 SDK-shaped query iterator 与网络安全 utility call；server dispatch 仍延后实现。
 
+Pi 的完整 `pi --mode rpc` contract 在 `agent.pi.*` 下暴露，其 type 来自固定版本的 `@earendil-works/pi-coding-agent@0.85.1`。每个原生 command 都成为具体的 request/response 配对；每个原生 session event 都成为可直接判别的 notification，并在 `payload` 中保留完整 Pi value。阻塞式 extension UI interaction 变成反向 RPC，fire-and-forget UI change 仍是 notification。Protocol conversion helper 隔离后续严格 JSONL 子进程 adapter，`@cypheria/client/pi` 则在借用的 `CypheriaApi` 上重建 Pi 中不涉及进程的 `RpcClient` method。进程启动、stderr 与终止仍是延后的 server 职责。详见 [Pi RPC Protocol](pi-rpc-protocol.zh-CN.md)。
+
 Cypheria 自有 object schema 会剥离未知 key。可选的 `server.status.features` record 是例外：
 它会保留未知 boolean flag，以支持不同版本 peer。每个具名 compatibility gate 必须保持可选，
 并通过 `COMPAT(name)` comment 记录引入版本与移除日期。最终 protocol union 使用 Zod 显式

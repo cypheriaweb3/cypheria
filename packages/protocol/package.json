@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./claude-types": "./src/agent/claude-agent-sdk-types.ts",
-    "./codex-types": "./src/generated/codex/ts/index.ts"
+    "./codex-types": "./src/generated/codex/ts/index.ts",
+    "./pi-types": "./src/agent/pi-coding-agent-types.ts"
   },
   "scripts": {
     "check:agent-acp-messages": "node scripts/generate-agent-acp-messages.mjs --check",
@@ -32,6 +33,9 @@
   "dependencies": {
     "@agentclientprotocol/sdk": "1.4.0",
     "@anthropic-ai/claude-agent-sdk": "0.3.270",
+    "@earendil-works/pi-agent-core": "0.85.1",
+    "@earendil-works/pi-ai": "0.85.1",
+    "@earendil-works/pi-coding-agent": "0.85.1",
     "superjson": "^2.2.6",
     "zod": "^4.6.2"
   },

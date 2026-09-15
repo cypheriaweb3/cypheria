@@ -2,6 +2,7 @@ import {
   type AgentAcpClientMessage,
   type AgentAcpServerMessage,
   type AgentClaudeServerMessage,
+  type AgentPiServerMessage,
   isAgentAcpServerMessage,
   type PersistedServerConfigPatch,
   type ServerConfigSnapshot,
@@ -17,6 +18,7 @@ import {
   isClaudeServerMessage,
 } from "./claude-endpoint.js"
 import { type CodexEndpoint, createCodexEndpoint, isCodexServerMessage } from "./codex-endpoint.js"
+import { createPiEndpoint, isPiServerMessage, type PiEndpoint } from "./pi-endpoint.js"
 import {
   type ConnectionState,
   type RequestOptions,
@@ -29,6 +31,7 @@ export interface AgentActions {
   readonly acp: AcpEndpoint
   readonly claude: ClaudeEndpoint
   readonly codex: CodexEndpoint
+  readonly pi: PiEndpoint
 }
 
 export interface ServerActions {
@@ -73,6 +76,7 @@ export type CypheriaClientConfig = ServerClientConfig
 const acpEndpointsByServerClient = new WeakMap<ServerClient, AcpEndpoint>()
 const codexEndpointsByServerClient = new WeakMap<ServerClient, CodexEndpoint>()
 const claudeEndpointsByServerClient = new WeakMap<ServerClient, ClaudeEndpoint>()
+const piEndpointsByServerClient = new WeakMap<ServerClient, PiEndpoint>()
 
 const getAcpEndpoint = (serverClient: ServerClient): AcpEndpoint => {
   const existing = acpEndpointsByServerClient.get(serverClient)
@@ -128,6 +132,23 @@ const getClaudeEndpoint = (serverClient: ServerClient): ClaudeEndpoint => {
   return endpoint
 }
 
+const getPiEndpoint = (serverClient: ServerClient): PiEndpoint => {
+  const existing = piEndpointsByServerClient.get(serverClient)
+  if (existing) return existing
+  const endpoint = createPiEndpoint({
+    request: (command, params, options) => serverClient.requestPi(command, params, options),
+    respondToExtensionUI: (method, requestId, answer) =>
+      serverClient.respondToPiExtensionUI(method, requestId, answer),
+    subscribe: (handler) =>
+      serverClient.subscribe((message) => {
+        if (isPiServerMessage(message)) handler(message)
+      }),
+    subscribeConnectionStatus: (handler) => serverClient.subscribeConnectionStatus(handler),
+  })
+  piEndpointsByServerClient.set(serverClient, endpoint)
+  return endpoint
+}
+
 /** Creates a public client which owns exactly one Cypheria server connection. */
 export function createCypheriaClient(config: CypheriaClientConfig = {}): CypheriaClient {
   const serverClient = new ServerClient(config)
@@ -159,6 +180,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
       acp: getAcpEndpoint(serverClient),
       claude: getClaudeEndpoint(serverClient),
       codex: getCodexEndpoint(serverClient),
+      pi: getPiEndpoint(serverClient),
     },
     on,
     server: {
@@ -189,6 +211,8 @@ export type {
   AgentAcpClientMessage,
   AgentAcpServerMessage,
   AgentClaudeServerMessage,
+  AgentPiServerMessage,
   ClaudeEndpoint,
   CodexEndpoint,
+  PiEndpoint,
 }

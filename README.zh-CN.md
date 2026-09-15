@@ -13,7 +13,7 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 - **Expo client**：一套面向 iOS、Android 与静态 web output 的 Expo Router 应用；server 会内置其 web output。
 - **共享 client**：`@cypheria/client` 提供 WebSocket protocol driver、借用 API 门面、持有连接的
   client 门面、Cypheria 自有的 Codex `client()` / `ClientApp` API 与 ACP SDK-compatible
-  stable-v1/draft-v2 API，但不持有特权 runtime。
+  stable-v1/draft-v2 API，以及 Pi RPC client，但不持有特权 runtime。
 - **Relay**：Go `apps/relay` 服务和 TypeScript `@cypheria/relay` 包为同一 server protocol
   提供可选的 E2EE 远程通道。
 - **CLI 与 SDK clients**：规划中的 server protocol 产品 clients。
@@ -38,6 +38,7 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 - **Cypheria client protocol**：`@cypheria/protocol` 中版本化的 Zod contracts，并支持带元数据的 `bigint` 传输
 - **ACP client API**：以官方 `@agentclientprotocol/sdk@1.4.0` 为底层，在 Cypheria 可直接判别的逻辑 WebSocket 消息上提供自有的 SDK-shaped `client()` / `ClientApp` API
 - **Claude Code API**：在 `agent.claude.*` 下表示 `@anthropic-ai/claude-agent-sdk@0.3.270` 中适合网络传输的 query、session、control 与 stream contract，并由 `@cypheria/client/claude` 提供 SDK-shaped 门面；server dispatch 仍延后实现
+- **Pi RPC API**：在 `agent.pi.*` 下完整表示 `@earendil-works/pi-coding-agent@0.85.1` 的 `pi --mode rpc` command、event 与 extension UI contract，并由 `@cypheria/client/pi` 提供不持有进程的门面；server dispatch 仍延后实现
 - **Desktop agent integration**：`codex app-server` over WebSocket JSON-RPC
 - **Codex protocol types 与 validation**：由 `@cypheria/protocol` 持有，并通过 `pnpm --filter @cypheria/protocol generate:codex-all` 生成
 - **Marketplace hosting**：Cloudflare Workers、D1、R2、Queues 与 Workflows
@@ -47,6 +48,7 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 完整技术选型见 [docs/technical-stack.zh-CN.md](docs/technical-stack.zh-CN.md)。
 完整的 generated Codex App Server API 见 [docs/codex-app-server-api.zh-CN.md](docs/codex-app-server-api.zh-CN.md)。
 Claude Agent SDK wire mapping 见 [docs/claude-agent-sdk-protocol.zh-CN.md](docs/claude-agent-sdk-protocol.zh-CN.md)。
+Pi RPC wire mapping 见 [docs/pi-rpc-protocol.zh-CN.md](docs/pi-rpc-protocol.zh-CN.md)。
 
 ## 架构
 

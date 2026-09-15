@@ -2,7 +2,8 @@
 
 `@cypheria/client` 是版本化 Cypheria server protocol 的可复用 client。它依赖
 `@cypheria/protocol`、只处理传输的 `@cypheria/relay`，以及 protocol 所用的同一精确版本官方
-ACP SDK；不导入 runtime、server、Codex bridge 或 Electron 代码。
+ACP SDK。Pi RPC type 通过 protocol 固定的 `@earendil-works/pi-coding-agent` 提供；client 不导入
+runtime、server、Codex bridge 或 Electron 代码。
 
 ## 分层
 
@@ -31,6 +32,8 @@ CypheriaClient = CypheriaApi + connection lifecycle
 - `agent.acp`：可直接判别的 ACP 逻辑消息；
 - `agent.claude`：Claude Agent SDK query、control、session 与 stream contract，并由
   `@cypheria/client/claude` 提供 SDK-shaped 门面。
+- `agent.pi`：完整的 `pi --mode rpc` command、event 与 extension UI surface，并由
+  `@cypheria/client/pi` 提供不持有进程的 `RpcClient` 门面。
 
 它不会根据 runtime method 字符串发明 wallet、policy、automation 或 runtime-info 产品方法。
 只有相应 contract 进入 `@cypheria/protocol` 后，才应增加高层 API。
@@ -156,6 +159,33 @@ await cypheria.close()
 `createSdkMcpServer()`、携带 callback 的 option、process handle 与进程内 SDK MCP server
 不会暴露，因为它们无法忠实地跨网络表示；可序列化的 stdio、SSE 与 HTTP MCP config 仍受支持。
 
+## Pi RPC API
+
+`@cypheria/client/pi` 在借用的 `CypheriaApi` 上实现 Pi RPC client method。它覆盖
+`@earendil-works/pi-coding-agent@0.85.1` 的全部 33 个 command，通过 `onEvent()` 恢复原生 Pi
+event，并提供 `waitForIdle()`、`collectEvents()` 与 `promptAndWait()`。它还暴露 RPC 文档已经支持、
+但上游进程型 client method 当前尚未作为参数提供的 `prompt.streamingBehavior` 与
+`bash.excludeFromContext`。
+
+```ts
+import { createCypheriaClient } from "@cypheria/client"
+import { client as createPiClient } from "@cypheria/client/pi"
+
+const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
+const pi = createPiClient(cypheria)
+
+pi.onEvent((event) => console.log(event.type))
+const events = await pi.promptAndWait("Explain this repository")
+
+await cypheria.close()
+```
+
+该门面刻意不提供 `start()`、`stop()`、`getStderr()`、CLI path、environment 或 signal 管理。
+这些 API 属于 Pi 的本地子进程 wrapper；Cypheria server 后续会持有 `pi --mode rpc` 进程及其
+JSONL transport。会阻塞的 extension UI `select`、`confirm`、`input` 与 `editor` event 使用反向
+RPC，通过 `respondToExtensionUI()` 回答；fire-and-forget UI update 仍是 event。Server 进程启动与
+dispatch 仍延后实现。
+
 ## 使用
 
 ```ts
@@ -206,7 +236,7 @@ const cypheria = createCypheriaClient({ relayOffer: "cypheria://pair#offer=..." 
 
 `relayOffer` 不能与 `url`、`token` 或 `transportFactory` 同时使用；没有全局 WebSocket 的
 runtime 仍可提供自定义 `webSocketFactory`。E2EE 会先于顶层 `hello` 完成，直连 Bearer
-token 绝不会发送给 relay。Server operation、ACP、Codex 与 Claude traffic 都在顶层 `session`
+token 绝不会发送给 relay。Server operation、ACP、Codex、Claude 与 Pi traffic 都在顶层 `session`
 envelope 中传输。
 
 ## 借用已有连接
@@ -226,4 +256,5 @@ await connection.close()
 ```
 
 多个借用门面可以共享一条连接。当前 foundation server 会 dispatch 内置 status、diagnostics
-与 configuration message；Codex、ACP 和 Claude contract 已进入 protocol，但其 server dispatch 仍是后续工作。
+与 configuration message；Codex、ACP、Claude 和 Pi contract 已进入 protocol，但其 server
+dispatch 仍是后续工作。

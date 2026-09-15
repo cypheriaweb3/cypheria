@@ -9,6 +9,7 @@
     "./acp/v2": "./src/acp-v2.ts",
     "./claude": "./src/claude.ts",
     "./codex": "./src/codex.ts",
+    "./pi": "./src/pi.ts",
     "./internal/server-client": "./src/server-client.ts"
   },
   "scripts": {

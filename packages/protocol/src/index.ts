@@ -28,11 +28,19 @@ import {
   type AgentCodexServerResponse,
   AgentCodexServerResponseSchema,
 } from "./agent/codex-app-server.ts"
+import {
+  AGENT_PI_RPC,
+  type AgentPiClientMessage,
+  AgentPiClientMessageSchema,
+  type AgentPiServerMessage,
+  AgentPiServerMessageSchema,
+} from "./agent/pi.ts"
 import { RequestIdSchema } from "./request-id.ts"
 
 export * from "./agent/acp.ts"
 export * from "./agent/claude.ts"
 export * from "./agent/codex-app-server.ts"
+export * from "./agent/pi.ts"
 export * from "./relay.ts"
 export { type RequestId, RequestIdSchema } from "./request-id.ts"
 
@@ -46,6 +54,7 @@ export const SERVER_CAPABILITIES = {
   acp: "agent.acp",
   claude: "agent.claude",
   codex: "agent.codex",
+  pi: "agent.pi",
   config: "server.config",
   diagnostics: "diagnostics",
   status: "server.status",
@@ -352,6 +361,7 @@ export type SessionInboundMessage =
   | AgentCodexClientRequest
   | AgentCodexServerResponse
   | AgentCodexClientNotification
+  | AgentPiClientMessage
 
 // Nested family discriminators keep each concrete wire `type` visible while allowing ACP to use
 // `protocolVersion` as its second-level discriminator for types shared by v1 and v2.
@@ -366,6 +376,7 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   AgentCodexClientRequestSchema,
   AgentCodexServerResponseSchema,
   AgentCodexClientNotificationSchema,
+  AgentPiClientMessageSchema,
 ])
 
 export type ClientMessage = SessionInboundMessage
@@ -421,6 +432,7 @@ export type SessionOutboundMessage =
   | AgentCodexClientResponse
   | AgentCodexServerRequest
   | AgentCodexServerNotification
+  | AgentPiServerMessage
 
 export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutboundMessage>([
   ServerStatusNotificationSchema,
@@ -434,6 +446,7 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   AgentCodexClientResponseSchema,
   AgentCodexServerRequestSchema,
   AgentCodexServerNotificationSchema,
+  AgentPiServerMessageSchema,
 ])
 
 export type ServerMessage = SessionOutboundMessage
@@ -447,6 +460,7 @@ const clientResponseTypes = new Set<string>([
   "server.config.reload.response",
   ...Object.values(AGENT_CLAUDE_RPC).map(({ response }) => response),
   ...Object.values(AGENT_CODEX_CLIENT_RPC).map(({ response }) => response),
+  ...Object.values(AGENT_PI_RPC).map(({ response }) => response),
 ])
 
 /** Distinguishes responses to client requests from reverse RPCs that happen to share an id. */

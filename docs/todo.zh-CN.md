@@ -97,6 +97,12 @@
   - 排除：`startup()`、`tool()`、`createSdkMcpServer()`、携带 callback 的 option，以及 server dispatch。
   - 验证：client test、typecheck、build、全仓库 CI/build 与配套双语文档。
 
+- [x] 添加完整 Pi RPC protocol 与 client 支持。
+  - 验收：固定版本 `@earendil-works/pi-coding-agent@0.85.1` 的 type 通过可直接路由的 `agent.pi.*` message 覆盖全部 `pi --mode rpc` command、response、event、extension error 与 extension UI operation；`@cypheria/client/pi` 在借用的 `CypheriaApi` 上提供不涉及进程的 `RpcClient` API。
+  - 包括：33 组 command schema、23 种 session-event notification、4 组 extension UI 反向 RPC、5 种 extension UI notification、供后续 server adapter 使用的精确 JSONL conversion helper、type-only upstream export、command/event helper、测试与配套双语文档。
+  - 排除：server 进程启动/dispatch、子进程 lifecycle、stderr、executable/environment config 与 signal。
+  - 验证：protocol/client test、typecheck、build、全仓库 CI/build 与配套双语文档。
+
 - [ ] 在明确评审后将 desktop 迁移到 Cypheria server。
   - 验收：Electron main 确保本地 supervised server 正在运行，desktop 使用共享 protocol，并保持 Electron-only dApp/browser、secure-storage、approval、preload 与 OS-integration 边界。
   - 前置条件：明确批准 server 基础；不得作为 foundation change 的一部分开始。

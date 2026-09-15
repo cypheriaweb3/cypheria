@@ -13,7 +13,7 @@ Cypheria V1 is organized around one server and multiple clients:
 - **Expo client**: one Expo Router application for iOS, Android, and static web output. The server embeds the web output.
 - **Shared client**: `@cypheria/client` provides the WebSocket protocol driver, a borrowed API
   facade, a connection-owning facade, a Cypheria-owned Codex `client()` / `ClientApp` API, and ACP
-  SDK-compatible stable-v1/draft-v2 APIs without owning the privileged runtime.
+  SDK-compatible stable-v1/draft-v2 APIs plus a Pi RPC client without owning the privileged runtime.
 - **Relay**: the Go `apps/relay` service and TypeScript `@cypheria/relay` package provide an
   optional E2EE remote path to the same server protocol.
 - **CLI and SDK clients**: planned product clients built on the server protocol.
@@ -38,6 +38,7 @@ The default safety model is human approval. Read-only mode and conditional auto-
 - **Cypheria client protocol**: versioned Zod contracts with metadata-assisted `bigint` transport in `@cypheria/protocol`
 - **ACP client API**: Cypheria-owned SDK-shaped `client()` / `ClientApp` APIs, backed by `@agentclientprotocol/sdk@1.4.0`, over directly discriminable logical WebSocket messages
 - **Claude Code API**: network-safe `@anthropic-ai/claude-agent-sdk@0.3.270` query, session, control, and stream contracts under `agent.claude.*`, plus an SDK-shaped `@cypheria/client/claude` facade; server dispatch remains deferred
+- **Pi RPC API**: complete `@earendil-works/pi-coding-agent@0.85.1` `pi --mode rpc` command, event, and extension UI contracts under `agent.pi.*`, plus a process-free `@cypheria/client/pi` facade; server dispatch remains deferred
 - **Desktop agent integration**: `codex app-server` over WebSocket JSON-RPC
 - **Codex protocol types and validation**: owned by `@cypheria/protocol` and generated with `pnpm --filter @cypheria/protocol generate:codex-all`
 - **Marketplace hosting**: Cloudflare Workers, D1, R2, Queues, and Workflows
@@ -47,6 +48,7 @@ The default safety model is human approval. Read-only mode and conditional auto-
 See [docs/technical-stack.md](docs/technical-stack.md) for the full technical stack.
 See [docs/codex-app-server-api.md](docs/codex-app-server-api.md) for the complete generated Codex App Server API reference.
 See [docs/claude-agent-sdk-protocol.md](docs/claude-agent-sdk-protocol.md) for the Claude Agent SDK wire mapping.
+See [docs/pi-rpc-protocol.md](docs/pi-rpc-protocol.md) for the Pi RPC wire mapping.
 
 ## Architecture
 

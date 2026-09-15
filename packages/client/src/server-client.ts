@@ -3,6 +3,8 @@ import {
   AGENT_CODEX_CLIENT_NOTIFICATIONS,
   AGENT_CODEX_CLIENT_RPC,
   AGENT_CODEX_SERVER_RPC,
+  AGENT_PI_EXTENSION_UI,
+  AGENT_PI_RPC,
   type AgentAcpClientMessage,
   type AgentClaudeClientNotification,
   type AgentClaudeClientRequest,
@@ -13,6 +15,9 @@ import {
   type AgentCodexServerNotification,
   type AgentCodexServerRequest,
   type AgentCodexServerResponse,
+  type AgentPiClientRequest,
+  type AgentPiClientResponse,
+  type AgentPiServerResponse,
   type ClientCapabilities,
   type ClientDescriptor,
   ClientDescriptorSchema,
@@ -27,6 +32,11 @@ import {
   createWebSocketProtocols,
   isClientResponseMessage,
   type PersistedServerConfigPatch,
+  type PiBlockingExtensionUIMethod,
+  type PiExtensionUIResponse,
+  type PiRpcCommandName,
+  type PiRpcParams,
+  type PiRpcResult,
   parseClientMessage,
   parseConnectionOffer,
   parseWSInboundMessage,
@@ -50,6 +60,7 @@ import type {
   CodexRequestParams,
   CodexServerMethod,
 } from "./codex-endpoint.js"
+import type { PiExtensionUIAnswer } from "./pi-endpoint.js"
 import { assertRequestTimeout, type RequestOptions } from "./request-options.js"
 import { createRelayServerTransportFactory } from "./server-client-relay-e2ee-transport.js"
 import type {
@@ -543,6 +554,52 @@ export class ServerClient {
       } satisfies AgentClaudeClientNotification,
       undefined,
       SERVER_CAPABILITIES.claude
+    )
+  }
+
+  async requestPi<Command extends PiRpcCommandName>(
+    command: Command,
+    params: PiRpcParams<Command>,
+    options?: RequestOptions
+  ): Promise<PiRpcResult<Command>> {
+    const definition = AGENT_PI_RPC[command]
+    const message = await this.#request(
+      {
+        ...(params as object),
+        requestId: this.#nextRequestId("pi"),
+        type: definition.request,
+      } as AgentPiClientRequest,
+      definition.response,
+      options,
+      SERVER_CAPABILITIES.pi
+    )
+    const payload = (message as AgentPiServerResponse).payload
+    if ("error" in payload) {
+      const error = new Error(payload.error)
+      error.name = "PiRpcError"
+      throw error
+    }
+    return ("result" in payload ? payload.result : undefined) as PiRpcResult<Command>
+  }
+
+  async respondToPiExtensionUI<Method extends PiBlockingExtensionUIMethod>(
+    method: Method,
+    requestId: RequestId,
+    answer: PiExtensionUIAnswer<Method>
+  ): Promise<void> {
+    const payload = {
+      ...answer,
+      id: requestId,
+      type: "extension_ui_response",
+    } as PiExtensionUIResponse<Method>
+    await this.#sendWhenConnected(
+      {
+        payload,
+        requestId,
+        type: AGENT_PI_EXTENSION_UI[method].response,
+      } as AgentPiClientResponse,
+      undefined,
+      SERVER_CAPABILITIES.pi
     )
   }
 
