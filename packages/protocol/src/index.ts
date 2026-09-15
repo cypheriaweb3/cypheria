@@ -7,6 +7,13 @@ import {
   AgentAcpServerMessageSchema,
 } from "./agent/acp.ts"
 import {
+  AGENT_CLAUDE_RPC,
+  type AgentClaudeClientMessage,
+  AgentClaudeClientMessageSchema,
+  type AgentClaudeServerMessage,
+  AgentClaudeServerMessageSchema,
+} from "./agent/claude.ts"
+import {
   AGENT_CODEX_CLIENT_RPC,
   type AgentCodexClientNotification,
   AgentCodexClientNotificationSchema,
@@ -24,6 +31,7 @@ import {
 import { RequestIdSchema } from "./request-id.ts"
 
 export * from "./agent/acp.ts"
+export * from "./agent/claude.ts"
 export * from "./agent/codex-app-server.ts"
 export * from "./relay.ts"
 export { type RequestId, RequestIdSchema } from "./request-id.ts"
@@ -36,6 +44,7 @@ const CYPHERIA_SUPERJSON_MARKER = "cypheria.superjson.v1" as const
 /** Stable capabilities a server can advertise in the `server.status.notification` message. */
 export const SERVER_CAPABILITIES = {
   acp: "agent.acp",
+  claude: "agent.claude",
   codex: "agent.codex",
   config: "server.config",
   diagnostics: "diagnostics",
@@ -339,6 +348,7 @@ export type SessionInboundMessage =
   | z.infer<typeof ServerConfigPatchRequestSchema>
   | z.infer<typeof ServerConfigReloadRequestSchema>
   | AgentAcpClientMessage
+  | AgentClaudeClientMessage
   | AgentCodexClientRequest
   | AgentCodexServerResponse
   | AgentCodexClientNotification
@@ -352,6 +362,7 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   ServerConfigPatchRequestSchema,
   ServerConfigReloadRequestSchema,
   AgentAcpClientMessageSchema,
+  AgentClaudeClientMessageSchema,
   AgentCodexClientRequestSchema,
   AgentCodexServerResponseSchema,
   AgentCodexClientNotificationSchema,
@@ -406,6 +417,7 @@ export type SessionOutboundMessage =
   | z.infer<typeof ServerConfigPatchResponseSchema>
   | z.infer<typeof ServerConfigReloadResponseSchema>
   | AgentAcpServerMessage
+  | AgentClaudeServerMessage
   | AgentCodexClientResponse
   | AgentCodexServerRequest
   | AgentCodexServerNotification
@@ -418,6 +430,7 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   ServerConfigPatchResponseSchema,
   ServerConfigReloadResponseSchema,
   AgentAcpServerMessageSchema,
+  AgentClaudeServerMessageSchema,
   AgentCodexClientResponseSchema,
   AgentCodexServerRequestSchema,
   AgentCodexServerNotificationSchema,
@@ -432,6 +445,7 @@ const clientResponseTypes = new Set<string>([
   "server.config.get.response",
   "server.config.patch.response",
   "server.config.reload.response",
+  ...Object.values(AGENT_CLAUDE_RPC).map(({ response }) => response),
   ...Object.values(AGENT_CODEX_CLIENT_RPC).map(({ response }) => response),
 ])
 

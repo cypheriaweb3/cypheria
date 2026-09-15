@@ -5,10 +5,12 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./claude-types": "./src/agent/claude-agent-sdk-types.ts",
     "./codex-types": "./src/generated/codex/ts/index.ts"
   },
   "scripts": {
     "check:agent-acp-messages": "node scripts/generate-agent-acp-messages.mjs --check",
+    "check:agent-claude-code-messages": "node scripts/generate-agent-claude-code-messages.mjs --check",
     "check:agent-codex-app-server-messages": "node scripts/generate-agent-codex-app-server-messages.mjs --check",
     "check:codex-response-map": "node scripts/process-codex-app-server-generated.mjs --check",
     "check:codex-zod": "node scripts/generate-codex-app-server-zod.mjs --check",
@@ -17,17 +19,19 @@
     "generate:codex-types": "pnpm exec codex app-server generate-ts --experimental --out src/generated/codex/ts && pnpm exec codex app-server generate-json-schema --experimental --out src/generated/codex/schema && node scripts/process-codex-app-server-generated.mjs",
     "generate:codex-zod": "node scripts/generate-codex-app-server-zod.mjs",
     "generate:agent-acp-messages": "node scripts/generate-agent-acp-messages.mjs",
+    "generate:agent-claude-code-messages": "node scripts/generate-agent-claude-code-messages.mjs",
     "generate:agent-codex-app-server-messages": "node scripts/generate-agent-codex-app-server-messages.mjs",
     "generate:codex-app-server-api-docs": "node scripts/generate-codex-app-server-api-docs.mjs",
     "generate:codex-all": "pnpm generate:codex-types && pnpm generate:codex-zod && pnpm generate:agent-codex-app-server-messages && pnpm generate:codex-app-server-api-docs",
-    "prebuild": "pnpm check:codex-response-map && pnpm check:codex-zod && pnpm check:agent-codex-app-server-messages && pnpm check:agent-acp-messages",
-    "pretest": "pnpm check:codex-response-map && pnpm check:codex-zod && pnpm check:agent-codex-app-server-messages && pnpm check:agent-acp-messages",
-    "pretypecheck": "pnpm check:codex-response-map && pnpm check:codex-zod && pnpm check:agent-codex-app-server-messages && pnpm check:agent-acp-messages",
+    "prebuild": "pnpm check:codex-response-map && pnpm check:codex-zod && pnpm check:agent-codex-app-server-messages && pnpm check:agent-acp-messages && pnpm check:agent-claude-code-messages",
+    "pretest": "pnpm check:codex-response-map && pnpm check:codex-zod && pnpm check:agent-codex-app-server-messages && pnpm check:agent-acp-messages && pnpm check:agent-claude-code-messages",
+    "pretypecheck": "pnpm check:codex-response-map && pnpm check:codex-zod && pnpm check:agent-codex-app-server-messages && pnpm check:agent-acp-messages && pnpm check:agent-claude-code-messages",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.4.0",
+    "@anthropic-ai/claude-agent-sdk": "0.3.270",
     "superjson": "^2.2.6",
     "zod": "^4.6.2"
   },

@@ -30,7 +30,9 @@ CypheriaClient = CypheriaApi + connection lifecycle
 
 - `server`: ping, status, diagnostics, and configuration;
 - `agent.codex`: generated Codex requests, notifications, reverse requests, and responses;
-- `agent.acp`: directly discriminable ACP logical messages.
+- `agent.acp`: directly discriminable ACP logical messages;
+- `agent.claude`: Claude Agent SDK query, control, session, and stream contracts. A dedicated
+  SDK-shaped Claude client is deferred; the low-level protocol driver already validates these messages.
 
 It does not invent wallet, policy, automation, or runtime-info product methods from runtime method
 strings. Add a high-level API only after its contract exists in `@cypheria/protocol`.
@@ -181,7 +183,7 @@ const cypheria = createCypheriaClient({ relayOffer: "cypheria://pair#offer=..." 
 `relayOffer` cannot be combined with `url`, `token`, or `transportFactory`; a custom
 `webSocketFactory` remains available for runtimes without a global WebSocket. E2EE completes before
 the top-level `hello`, and the direct Bearer token is never sent to the relay. Server operations,
-ACP, and Codex traffic all travel inside top-level `session` envelopes.
+ACP, Codex, and Claude traffic all travel inside top-level `session` envelopes.
 
 ## Borrowing an existing connection
 
@@ -200,5 +202,5 @@ await connection.close()
 ```
 
 Multiple borrowed facades may share one connection. The current foundation server dispatches its
-built-in status, diagnostics, and configuration messages; Codex and ACP contracts exist in the
+built-in status, diagnostics, and configuration messages; Codex, ACP, and Claude contracts exist in the
 protocol but their server dispatch is still planned.

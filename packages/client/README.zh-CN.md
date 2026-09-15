@@ -28,7 +28,9 @@ CypheriaClient = CypheriaApi + connection lifecycle
 
 - `server`：ping、status、diagnostics 与 configuration；
 - `agent.codex`：generated Codex request、notification、反向 request 与 response；
-- `agent.acp`：可直接判别的 ACP 逻辑消息。
+- `agent.acp`：可直接判别的 ACP 逻辑消息；
+- `agent.claude`：Claude Agent SDK query、control、session 与 stream contract。专用的
+  SDK-shaped Claude client 延后实现；底层 protocol driver 已可校验这些消息。
 
 它不会根据 runtime method 字符串发明 wallet、policy、automation 或 runtime-info 产品方法。
 只有相应 contract 进入 `@cypheria/protocol` 后，才应增加高层 API。
@@ -175,7 +177,7 @@ const cypheria = createCypheriaClient({ relayOffer: "cypheria://pair#offer=..." 
 
 `relayOffer` 不能与 `url`、`token` 或 `transportFactory` 同时使用；没有全局 WebSocket 的
 runtime 仍可提供自定义 `webSocketFactory`。E2EE 会先于顶层 `hello` 完成，直连 Bearer
-token 绝不会发送给 relay。Server operation、ACP 与 Codex traffic 都在顶层 `session`
+token 绝不会发送给 relay。Server operation、ACP、Codex 与 Claude traffic 都在顶层 `session`
 envelope 中传输。
 
 ## 借用已有连接
@@ -195,4 +197,4 @@ await connection.close()
 ```
 
 多个借用门面可以共享一条连接。当前 foundation server 会 dispatch 内置 status、diagnostics
-与 configuration message；Codex 和 ACP contract 已进入 protocol，但其 server dispatch 仍是后续工作。
+与 configuration message；Codex、ACP 和 Claude contract 已进入 protocol，但其 server dispatch 仍是后续工作。

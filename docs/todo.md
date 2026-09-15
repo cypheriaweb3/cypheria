@@ -88,6 +88,12 @@ Status legend:
   - Include: official `@agentclientprotocol/sdk@1.4.0` protocol constants, directional types, generated Zod schemas, per-method parameter validation, JSON-RPC boundary validation, and paired protocol documentation; expose the SDK's shipped Zod modules with a minimal pinned package-export patch instead of copying them; do not connect server dispatch in this item.
   - Verification: protocol typecheck, tests, and build.
 
+- [x] Add Claude Agent SDK logical messages to `@cypheria/protocol`.
+  - Acceptance: the network-safe surface of pinned `@anthropic-ai/claude-agent-sdk@0.3.270` is available as directly routable `agent.claude.*` request, response, input, lifecycle, and SDK-output messages in the live session unions.
+  - Include: `query()` and `startup()`, session/settings functions, all `Query` controls, text and streaming prompts, serializable options and MCP transports, all 40 SDK output variants, a type-only SDK subpath, declaration-driven catalogs, drift checks, tests, and paired documentation.
+  - Exclude: callbacks, hooks, custom function-defined tools/SDK MCP servers, process and abort handles, session stores, and client/server adapters.
+  - Verification: protocol generation check, typecheck, tests, and build.
+
 - [ ] Migrate desktop to the Cypheria server after explicit review.
   - Acceptance: Electron main ensures the local supervised server is running, desktop uses the shared protocol, and Electron-only dApp/browser, secure-storage, approval, preload, and OS-integration boundaries remain intact.
   - Prerequisite: explicit approval of the server foundation; do not begin as part of the foundation change.

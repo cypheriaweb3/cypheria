@@ -59,6 +59,8 @@ Codex owns agent threads, turns, model execution, code edits, shell/tool executi
 
 Generated Codex schema names omit the redundant `Message` segment, for example `AgentCodexClientRequestSchema`. Inbound and outbound session schemas nest the Codex and ACP family discriminators inside the session `type` discriminator while keeping every concrete message type directly routable. ACP wire names contain the normalized method and request/response/notification suffix; a separate numeric `protocolVersion` discriminates stable v1 from draft v2. Underscore-prefixed extension methods use dedicated extension message types with `method` nested in `payload`; v2 uses a dedicated batch type whose `payload.messages` is another nested discriminated union. A generated ACP catalog derives the known method pairs and method-specific validators from the pinned SDK declarations, and known params/results use the canonical parsed SDK output.
 
+Claude Agent SDK calls use the same request/response envelope under `agent.claude.*`. A client-selected `queryId` turns the SDK's local `Query` async iterator into a routable stream; `AsyncIterable<SDKUserMessage>` input becomes ordered input notifications, and each concrete SDK output `type`/`subtype` becomes a directly discriminable notification while retaining the original typed value in `payload`. A declaration-driven registry pins the SDK version and inventories its message variants, query methods, options, and exports. Callback-bearing options and function-defined SDK MCP tools stay on the privileged side of the network boundary. Client and server adapters are intentionally not part of this protocol-only step.
+
 Cypheria-owned object schemas strip unknown keys. The optional `server.status.features` record is the
 exception: it preserves unknown boolean flags for mixed-version peers. Every named compatibility
 gate must stay optional and carry a `COMPAT(name)` comment with its introduction version and removal
@@ -68,7 +70,7 @@ connection owns an initialization state machine; `initialize()` performs the req
 notification, and `connection.initialized` exposes the negotiated snapshot. Reverse requests write
 only their Codex-defined typed response; missing or failed handlers are reported locally.
 
-The initial server deliberately registers only the runtime's built-in information, health, and service-list methods. The Codex wire contracts are defined, but their server dispatch is not yet connected. Wallet, policy, browser, automation, and the remaining product services stay outside the running foundation. See [Cypheria Server](server.md).
+The initial server deliberately registers only the runtime's built-in information, health, and service-list methods. The Codex, ACP, and Claude wire contracts are defined, but their server dispatch is not yet connected. Wallet, policy, browser, automation, and the remaining product services stay outside the running foundation. See [Cypheria Server](server.md).
 
 ## Relay Boundary
 

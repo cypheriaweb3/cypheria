@@ -86,6 +86,12 @@
   - 包括：官方 `@agentclientprotocol/sdk@1.4.0` protocol constant、directional type、generated Zod schema、per-method parameter validation、JSON-RPC boundary validation 和配套中英文 protocol 文档；通过最小且固定版本的 package-export patch 暴露 SDK 已发布的 Zod module，不复制它们；本项不连接 server dispatch。
   - 验证：protocol typecheck、test 与 build。
 
+- [x] 向 `@cypheria/protocol` 添加 Claude Agent SDK 逻辑消息。
+  - 验收：固定版本 `@anthropic-ai/claude-agent-sdk@0.3.270` 中适合网络传输的 surface，以可直接路由的 `agent.claude.*` request、response、input、lifecycle 和 SDK-output message 进入 live session union。
+  - 包括：`query()` 与 `startup()`、session/settings function、全部 `Query` control、文本与 streaming prompt、可序列化 option 与 MCP transport、40 种 SDK 输出、仅类型 SDK subpath、declaration-driven catalog、漂移检查、测试与配套双语文档。
+  - 排除：callback、hook、自定义函数 tool/SDK MCP server、process 与 abort handle、session store，以及 client/server adapter。
+  - 验证：protocol generation check、typecheck、test 与 build。
+
 - [ ] 在明确评审后将 desktop 迁移到 Cypheria server。
   - 验收：Electron main 确保本地 supervised server 正在运行，desktop 使用共享 protocol，并保持 Electron-only dApp/browser、secure-storage、approval、preload 与 OS-integration 边界。
   - 前置条件：明确批准 server 基础；不得作为 foundation change 的一部分开始。

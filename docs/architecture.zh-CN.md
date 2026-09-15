@@ -58,6 +58,8 @@ Codex 负责 agent threads、turns、model execution、code edits、shell/tool e
 
 Generated Codex schema 名称不再包含多余的 `Message` 片段，例如 `AgentCodexClientRequestSchema`。Inbound 与 outbound session schema 会在 session `type` discriminator 中嵌套 Codex 与 ACP family discriminator，同时让每个具体消息 type 都可直接路由。ACP wire name 包含规范化 method 与 request/response/notification 后缀；独立的数字 `protocolVersion` 用于判别稳定 v1 与 draft v2。以 underscore 开头的 extension method 使用专用 extension message type，并把 `method` 嵌套在 `payload`；v2 使用专用 batch type，其 `payload.messages` 是另一层嵌套 discriminated union。Generated ACP catalog 从固定版本 SDK declaration 派生已知 method 配对与 method-specific validator，已知 params/result 使用 SDK parser 的规范输出。
 
+Claude Agent SDK call 在 `agent.claude.*` 下使用同一 request/response envelope。Client 选择的 `queryId` 把 SDK 本地 `Query` async iterator 转换为可路由 stream；`AsyncIterable<SDKUserMessage>` 输入变成有序 input notification，每个具体 SDK 输出 `type`/`subtype` 则变成可直接判别的 notification，同时在 `payload` 中保留原始 typed value。Declaration-driven registry 固定 SDK 版本并清点 message variant、query method、option 与 export。携带 callback 的 option 和由函数定义的 SDK MCP tool 留在特权网络边界内。本轮只实现 protocol，明确不包含 client/server adapter。
+
 Cypheria 自有 object schema 会剥离未知 key。可选的 `server.status.features` record 是例外：
 它会保留未知 boolean flag，以支持不同版本 peer。每个具名 compatibility gate 必须保持可选，
 并通过 `COMPAT(name)` comment 记录引入版本与移除日期。最终 protocol union 使用 Zod 显式
@@ -66,7 +68,7 @@ method schema。每个 Codex client connection 都持有初始化状态机；`in
 initialized notification，`connection.initialized` 暴露协商 snapshot。反向 request 只写回
 Codex 自身定义的 typed response；缺失或失败的 handler 在本地报告。
 
-初始 server 刻意只注册 runtime 内置的 information、health 与 service-list method。Codex wire contract 已经定义，但 server dispatch 尚未连接；wallet、policy、browser、automation 与其余产品 service 仍不在当前运行中的 foundation 范围内。详见 [Cypheria Server](server.zh-CN.md)。
+初始 server 刻意只注册 runtime 内置的 information、health 与 service-list method。Codex、ACP 与 Claude wire contract 已经定义，但 server dispatch 尚未连接；wallet、policy、browser、automation 与其余产品 service 仍不在当前运行中的 foundation 范围内。详见 [Cypheria Server](server.zh-CN.md)。
 
 ## Relay 边界
 
