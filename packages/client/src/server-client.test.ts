@@ -25,7 +25,7 @@ import { TestWebSocket, testWebSocketFactory } from "./test-websocket.js"
 const identity: ServerIdentity = {
   hostname: "test",
   id: "srv_test",
-  protocolVersion: 1,
+  protocolVersion: 2,
   startedAt: "2026-09-11T00:00:00.000Z",
   version: "0.0.0",
 }
@@ -160,12 +160,12 @@ describe("ServerClient", () => {
     const hello = parseWSInboundMessageText(socket.sent[0] ?? "")
 
     expect(socket.url).toBe("wss://cypheria.test/api/v1/ws")
-    expect(socket.options?.protocols).toEqual(["cypheria.v1", "cypheria.bearer.secret"])
+    expect(socket.options?.protocols).toEqual(["cypheria.v2", "cypheria.bearer.secret"])
     expect(hello).toMatchObject({
       appVersion: "1.2.3",
       clientId: "client-test",
       clientType: "desktop",
-      protocolVersion: 1,
+      protocolVersion: 2,
       type: "hello",
     })
     expect(client.getSession()).toMatchObject({ id: "srv_test" })

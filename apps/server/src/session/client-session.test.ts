@@ -20,7 +20,7 @@ import {
 const identity: ServerIdentity = {
   hostname: "test",
   id: "srv_test",
-  protocolVersion: 1,
+  protocolVersion: 2,
   startedAt: "2026-01-01T00:00:00.000Z",
   version: "0.0.0",
 }
@@ -72,7 +72,7 @@ const hello = (clientId: string) =>
     capabilities: { voice: true },
     clientId,
     clientType: "web",
-    protocolVersion: 1,
+    protocolVersion: 2,
     type: "hello",
   })
 

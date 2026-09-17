@@ -81,6 +81,7 @@ describe("Cypheria relay end to end", () => {
       })
       const token = "relay-test-token-123456789"
       server = new CypheriaServer({
+        agentNetworkBootstrap: false,
         config: loadServerConfig(
           {},
           {

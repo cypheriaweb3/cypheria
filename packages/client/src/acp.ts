@@ -13,7 +13,7 @@ import {
   type ParamsParser,
   ClientApp as SdkClientApp,
 } from "@agentclientprotocol/sdk"
-
+import type { RegistryAgentId } from "@cypheria/protocol"
 import { openAcpV1Stream } from "./acp-client.js"
 import type { CypheriaApi } from "./index.js"
 
@@ -86,8 +86,8 @@ export type { AcpEndpoint } from "./acp-client.js"
 export type * from "./acp-schema-types.js"
 
 /** Creates a Cypheria-backed client-side ACP v1 app. */
-export function client(options?: AppOptions): ClientApp {
-  return new ClientApp(options)
+export function client(agent: RegistryAgentId, options?: AppOptions): ClientApp {
+  return new ClientApp(agent, options)
 }
 
 /**
@@ -95,13 +95,15 @@ export function client(options?: AppOptions): ClientApp {
  */
 export class ClientApp {
   readonly #app: SdkClientApp
+  readonly agent: RegistryAgentId
 
-  constructor(options: AppOptions = {}) {
+  constructor(agent: RegistryAgentId, options: AppOptions = {}) {
+    this.agent = agent
     this.#app = new SdkClientApp(options)
   }
 
   connect(cypheria: CypheriaApi): ClientConnection {
-    const stream = openAcpV1Stream(cypheria.agent.acp)
+    const stream = openAcpV1Stream(cypheria.agent.acp(this.agent))
     try {
       const connection = this.#app.connect(stream)
       void connection.closed.then(
@@ -119,7 +121,7 @@ export class ClientApp {
     cypheria: CypheriaApi,
     operation: (context: ClientContext) => MaybePromise<T>
   ): Promise<T> {
-    const stream = openAcpV1Stream(cypheria.agent.acp)
+    const stream = openAcpV1Stream(cypheria.agent.acp(this.agent))
     try {
       return await this.#app.connectWith(stream, operation)
     } finally {

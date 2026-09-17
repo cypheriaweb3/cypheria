@@ -10,6 +10,7 @@
     "./claude": "./src/claude.ts",
     "./codex": "./src/codex.ts",
     "./pi": "./src/pi.ts",
+    "./opencode": "./src/opencode.ts",
     "./internal/server-client": "./src/server-client.ts"
   },
   "scripts": {
@@ -21,9 +22,12 @@
   "dependencies": {
     "@agentclientprotocol/sdk": "1.4.0",
     "@cypheria/protocol": "workspace:*",
-    "@cypheria/relay": "workspace:*"
+    "@cypheria/relay": "workspace:*",
+    "@opencode-ai/sdk": "1.18.31",
+    "semver": "^7.8.5"
   },
   "devDependencies": {
+    "@types/semver": "^7.8.0",
     "vitest": "^4.1.7"
   }
 }

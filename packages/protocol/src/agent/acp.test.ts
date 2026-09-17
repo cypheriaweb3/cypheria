@@ -37,6 +37,7 @@ describe("agent.acp protocol", () => {
 
     expect(
       ClientMessageSchema.parse({
+        agent: "gemini",
         clientCapabilities: { fs: { readTextFile: true, writeTextFile: true } },
         protocolVersion: 1,
         requestId: "initialize-1",
@@ -47,6 +48,7 @@ describe("agent.acp protocol", () => {
 
   it("pairs method-specific responses by type", () => {
     const response = {
+      agent: "gemini",
       payload: {
         requestId: "initialize-1",
         result: { agentCapabilities: {}, protocolVersion: 1 },
@@ -69,6 +71,7 @@ describe("agent.acp protocol", () => {
 
   it("uses special extension message types with the open method nested in payload", () => {
     const request = {
+      agent: "gemini",
       payload: { method: "_cypheria/test", params: { value: 7 } },
       protocolVersion: 1,
       requestId: 0,
@@ -92,17 +95,20 @@ describe("agent.acp protocol", () => {
       payload: {
         messages: [
           {
+            agent: "gemini",
             payload: { method: "_cypheria/first", params: { value: 1 } },
             protocolVersion: 2,
             type: "agent.acp.extension.notification",
           },
           {
+            agent: "gemini",
             payload: { method: "_cypheria/second", params: { value: 2 } },
             protocolVersion: 2,
             type: "agent.acp.extension.notification",
           },
         ],
       },
+      agent: "gemini",
       protocolVersion: 2,
       type: "agent.acp.batch",
     } as const
@@ -112,6 +118,7 @@ describe("agent.acp protocol", () => {
   it("rejects empty, mixed, and multi-entry initialize batches", () => {
     expect(
       AgentAcpV2ClientBatchMessagesSchema.safeParse({
+        agent: "gemini",
         payload: { messages: [] },
         protocolVersion: 2,
         type: "agent.acp.batch",
@@ -122,18 +129,21 @@ describe("agent.acp protocol", () => {
         payload: {
           messages: [
             {
+              agent: "gemini",
               payload: { method: "_cypheria/call", params: {} },
               protocolVersion: 2,
               requestId: 1,
               type: "agent.acp.extension.request",
             },
             {
+              agent: "gemini",
               payload: { requestId: 2, result: {} },
               protocolVersion: 2,
               type: "agent.acp.extension.response",
             },
           ],
         },
+        agent: "gemini",
         protocolVersion: 2,
         type: "agent.acp.batch",
       }).success
@@ -143,18 +153,21 @@ describe("agent.acp protocol", () => {
         payload: {
           messages: [
             {
+              agent: "gemini",
               info: { name: "cypheria", version: "0.0.0" },
               protocolVersion: 2,
               requestId: 1,
               type: "agent.acp.initialize.request",
             },
             {
+              agent: "gemini",
               payload: { method: "_cypheria/event" },
               protocolVersion: 2,
               type: "agent.acp.extension.notification",
             },
           ],
         },
+        agent: "gemini",
         protocolVersion: 2,
         type: "agent.acp.batch",
       }).success
@@ -164,6 +177,7 @@ describe("agent.acp protocol", () => {
   it("enforces method-specific params and sender direction", () => {
     expect(
       ClientMessageSchema.safeParse({
+        agent: "gemini",
         protocolVersion: "1",
         requestId: 1,
         type: "agent.acp.initialize.request",
@@ -171,6 +185,7 @@ describe("agent.acp protocol", () => {
     ).toBe(false)
     expect(
       ServerMessageSchema.safeParse({
+        agent: "gemini",
         protocolVersion: 1,
         requestId: 1,
         type: "agent.acp.initialize.request",
@@ -178,6 +193,7 @@ describe("agent.acp protocol", () => {
     ).toBe(false)
     expect(
       ServerMessageSchema.safeParse({
+        agent: "gemini",
         path: "/workspace/README.md",
         requestId: 2,
         sessionId: "session-1",
@@ -189,6 +205,7 @@ describe("agent.acp protocol", () => {
 
   it("returns the normalized output of the official params and result schemas", () => {
     const request = ClientMessageSchema.parse({
+      agent: "gemini",
       clientCapabilities: {
         fs: { readTextFile: "invalid", writeTextFile: "invalid" },
       },
@@ -205,6 +222,7 @@ describe("agent.acp protocol", () => {
     })
 
     const response = ServerMessageSchema.parse({
+      agent: "gemini",
       payload: {
         requestId: "initialize-1",
         result: { agentCapabilities: {}, protocolVersion: 1 },
@@ -234,6 +252,7 @@ describe("agent.acp protocol", () => {
         payload: {
           messages: [
             {
+              agent: "gemini",
               payload: {
                 requestId: 1,
                 result: {
@@ -246,12 +265,14 @@ describe("agent.acp protocol", () => {
               type: "agent.acp.initialize.response",
             },
             {
+              agent: "gemini",
               payload: { requestId: 2, result: {} },
               protocolVersion: 2,
               type: "agent.acp.extension.response",
             },
           ],
         },
+        agent: "gemini",
         protocolVersion: 2,
         type: "agent.acp.batch",
       }).success
@@ -261,6 +282,7 @@ describe("agent.acp protocol", () => {
   it("requires underscore-prefixed extension methods without rewriting them", () => {
     expect(
       ClientMessageSchema.safeParse({
+        agent: "gemini",
         payload: { method: "vendor/test" },
         protocolVersion: 1,
         requestId: 1,
@@ -269,6 +291,7 @@ describe("agent.acp protocol", () => {
     ).toBe(false)
     expect(
       ClientMessageSchema.safeParse({
+        agent: "gemini",
         payload: { method: "  _vendor/test" },
         protocolVersion: 1,
         requestId: 1,
@@ -280,12 +303,14 @@ describe("agent.acp protocol", () => {
   it("requires cancellation to identify the request", () => {
     expect(
       ClientMessageSchema.safeParse({
+        agent: "gemini",
         protocolVersion: 1,
         type: "agent.acp.cancel_request.notification",
       }).success
     ).toBe(false)
     expect(
       ClientMessageSchema.safeParse({
+        agent: "gemini",
         payload: { requestId: "request-1" },
         protocolVersion: 1,
         type: "agent.acp.cancel_request.notification",
@@ -299,6 +324,7 @@ describe("agent.acp protocol", () => {
         payload: {
           messages: [
             {
+              agent: "gemini",
               capabilities: {},
               info: { name: "client", version: "1.0.0" },
               protocolVersion: 2,
@@ -307,6 +333,7 @@ describe("agent.acp protocol", () => {
             },
           ],
         },
+        agent: "gemini",
         protocolVersion: 2,
         type: "agent.acp.batch",
       })

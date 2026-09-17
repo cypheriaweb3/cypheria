@@ -36,7 +36,7 @@ const acceptConnection = async (connectPromise: Promise<void>): Promise<TestWebS
         connections: 1,
         hostname: "test",
         id: "srv_test",
-        protocolVersion: 1,
+        protocolVersion: 2,
         runtimeState: "ready",
         startedAt: "2026-09-12T00:00:00.000Z",
         version: "0.0.0",

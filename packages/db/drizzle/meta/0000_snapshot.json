@@ -1,12 +1,33 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "ffe41310-0738-4d70-9d5f-f6106df873a6",
+  "id": "11c0b4e1-103d-4e12-abbd-dc33ac635a93",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "active_wallet_context": {
       "name": "active_wallet_context",
       "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "wallet_id": {
+          "name": "wallet_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "wallet_account_id": {
+          "name": "wallet_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "chain_account_id": {
           "name": "chain_account_id",
           "type": "text",
@@ -14,10 +35,10 @@
           "notNull": true,
           "autoincrement": false
         },
-        "id": {
-          "name": "id",
+        "network_id": {
+          "name": "network_id",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
@@ -34,29 +55,15 @@
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
-        },
-        "wallet_account_id": {
-          "name": "wallet_account_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "wallet_id": {
-          "name": "wallet_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
         }
       },
       "indexes": {},
       "foreignKeys": {
-        "active_wallet_context_chain_account_id_chain_accounts_id_fk": {
-          "name": "active_wallet_context_chain_account_id_chain_accounts_id_fk",
+        "active_wallet_context_wallet_id_wallets_id_fk": {
+          "name": "active_wallet_context_wallet_id_wallets_id_fk",
           "tableFrom": "active_wallet_context",
-          "tableTo": "chain_accounts",
-          "columnsFrom": ["chain_account_id"],
+          "tableTo": "wallets",
+          "columnsFrom": ["wallet_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
@@ -70,13 +77,22 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "active_wallet_context_wallet_id_wallets_id_fk": {
-          "name": "active_wallet_context_wallet_id_wallets_id_fk",
+        "active_wallet_context_chain_account_id_chain_accounts_id_fk": {
+          "name": "active_wallet_context_chain_account_id_chain_accounts_id_fk",
           "tableFrom": "active_wallet_context",
-          "tableTo": "wallets",
-          "columnsFrom": ["wallet_id"],
+          "tableTo": "chain_accounts",
+          "columnsFrom": ["chain_account_id"],
           "columnsTo": ["id"],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "active_wallet_context_network_id_networks_id_fk": {
+          "name": "active_wallet_context_network_id_networks_id_fk",
+          "tableFrom": "active_wallet_context",
+          "tableTo": "networks",
+          "columnsFrom": ["network_id"],
+          "columnsTo": ["id"],
+          "onDelete": "restrict",
           "onUpdate": "no action"
         }
       },
@@ -89,16 +105,98 @@
         }
       }
     },
-    "approval_requests": {
-      "name": "approval_requests",
+    "agent_registry": {
+      "name": "agent_registry",
       "columns": {
-        "expires_at": {
-          "name": "expires_at",
+        "id": {
+          "name": "id",
           "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "version": {
+          "name": "version",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "repository": {
+          "name": "repository",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "website": {
+          "name": "website",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "icon": {
+          "name": "icon",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "native": {
+          "name": "native",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
+        "installed": {
+          "name": "installed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "approval_requests": {
+      "name": "approval_requests",
+      "columns": {
         "id": {
           "name": "id",
           "type": "text",
@@ -113,18 +211,11 @@
           "notNull": true,
           "autoincrement": false
         },
-        "requested_at": {
-          "name": "requested_at",
+        "status": {
+          "name": "status",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "resolved_at": {
-          "name": "resolved_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         },
         "reviewer": {
@@ -141,11 +232,25 @@
           "notNull": true,
           "autoincrement": false
         },
-        "status": {
-          "name": "status",
+        "requested_at": {
+          "name": "requested_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "resolved_at": {
+          "name": "resolved_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         }
       },
@@ -188,10 +293,10 @@
     "audit_logs": {
       "name": "audit_logs",
       "columns": {
-        "actor": {
-          "name": "actor",
+        "id": {
+          "name": "id",
           "type": "text",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true,
           "autoincrement": false
         },
@@ -202,8 +307,8 @@
           "notNull": false,
           "autoincrement": false
         },
-        "created_at": {
-          "name": "created_at",
+        "actor": {
+          "name": "actor",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -216,10 +321,10 @@
           "notNull": true,
           "autoincrement": false
         },
-        "id": {
-          "name": "id",
+        "source": {
+          "name": "source",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
@@ -237,8 +342,8 @@
           "notNull": false,
           "autoincrement": false
         },
-        "source": {
-          "name": "source",
+        "created_at": {
+          "name": "created_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -270,18 +375,25 @@
     "automation_runs": {
       "name": "automation_runs",
       "columns": {
-        "audit_correlation_id": {
-          "name": "audit_correlation_id",
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "task_id": {
+          "name": "task_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "completed_at": {
-          "name": "completed_at",
+        "logs": {
+          "name": "logs",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
         },
         "error": {
@@ -291,15 +403,23 @@
           "notNull": false,
           "autoincrement": false
         },
-        "id": {
-          "name": "id",
+        "status": {
+          "name": "status",
           "type": "text",
-          "primaryKey": true,
+          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "logs": {
-          "name": "logs",
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "audit_correlation_id": {
+          "name": "audit_correlation_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -313,14 +433,6 @@
           "autoincrement": false,
           "default": "'1970-01-01T00:00:00.000Z'"
         },
-        "revision": {
-          "name": "revision",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 1
-        },
         "started_at": {
           "name": "started_at",
           "type": "text",
@@ -328,18 +440,11 @@
           "notNull": false,
           "autoincrement": false
         },
-        "status": {
-          "name": "status",
+        "completed_at": {
+          "name": "completed_at",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "task_id": {
-          "name": "task_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         }
       },
@@ -393,6 +498,79 @@
     "automation_tasks": {
       "name": "automation_tasks",
       "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "workspace": {
+          "name": "workspace",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "trigger": {
+          "name": "trigger",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "definition": {
+          "name": "definition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'{\"handler\":\"noop\"}'"
+        },
+        "wallet_policy_scope": {
+          "name": "wallet_policy_scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "run_history": {
+          "name": "run_history",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'[]'"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
         "audit_correlation_id": {
           "name": "audit_correlation_id",
           "type": "text",
@@ -407,81 +585,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "definition": {
-          "name": "definition",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'{\"handler\":\"noop\"}'"
-        },
-        "description": {
-          "name": "description",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "run_history": {
-          "name": "run_history",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "'[]'"
-        },
-        "revision": {
-          "name": "revision",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 1
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "title": {
-          "name": "title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "trigger": {
-          "name": "trigger",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "updated_at": {
           "name": "updated_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "wallet_policy_scope": {
-          "name": "wallet_policy_scope",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "workspace": {
-          "name": "workspace",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -522,34 +627,6 @@
     "chain_accounts": {
       "name": "chain_accounts",
       "columns": {
-        "address": {
-          "name": "address",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "chain_id": {
-          "name": "chain_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "derivation_path": {
-          "name": "derivation_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "id": {
           "name": "id",
           "type": "text",
@@ -557,8 +634,29 @@
           "notNull": true,
           "autoincrement": false
         },
+        "wallet_account_id": {
+          "name": "wallet_account_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "namespace": {
           "name": "namespace",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reference": {
+          "name": "reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "address": {
+          "name": "address",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -571,15 +669,22 @@
           "notNull": false,
           "autoincrement": false
         },
-        "updated_at": {
-          "name": "updated_at",
+        "derivation_path": {
+          "name": "derivation_path",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "wallet_account_id": {
-          "name": "wallet_account_id",
+        "updated_at": {
+          "name": "updated_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -587,14 +692,14 @@
         }
       },
       "indexes": {
-        "chain_accounts_account_namespace_chain_unique": {
-          "name": "chain_accounts_account_namespace_chain_unique",
-          "columns": ["wallet_account_id", "namespace", "chain_id"],
+        "chain_accounts_account_namespace_reference_unique": {
+          "name": "chain_accounts_account_namespace_reference_unique",
+          "columns": ["wallet_account_id", "namespace", "reference"],
           "isUnique": true
         },
         "chain_accounts_address_idx": {
           "name": "chain_accounts_address_idx",
-          "columns": ["namespace", "chain_id", "address"],
+          "columns": ["namespace", "reference", "address"],
           "isUnique": false
         },
         "chain_accounts_wallet_account_id_idx": {
@@ -617,19 +722,113 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {
-        "chain_accounts_chain_id_check": {
-          "name": "chain_accounts_chain_id_check",
-          "value": "\"chain_accounts\".\"chain_id\" > 0"
+        "chain_accounts_reference_check": {
+          "name": "chain_accounts_reference_check",
+          "value": "length(\"chain_accounts\".\"reference\") > 0"
         },
         "chain_accounts_namespace_check": {
           "name": "chain_accounts_namespace_check",
-          "value": "\"chain_accounts\".\"namespace\" = 'eip155'"
+          "value": "\"chain_accounts\".\"namespace\" IN ('eip155', 'solana')"
+        }
+      }
+    },
+    "dapp_network_contexts": {
+      "name": "dapp_network_contexts",
+      "columns": {
+        "origin": {
+          "name": "origin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "protocol": {
+          "name": "protocol",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "network_id": {
+          "name": "network_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "dapp_network_contexts_origin_protocol_unique": {
+          "name": "dapp_network_contexts_origin_protocol_unique",
+          "columns": ["origin", "protocol"],
+          "isUnique": true
+        },
+        "dapp_network_contexts_network_idx": {
+          "name": "dapp_network_contexts_network_idx",
+          "columns": ["network_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "dapp_network_contexts_origin_dapp_origins_origin_fk": {
+          "name": "dapp_network_contexts_origin_dapp_origins_origin_fk",
+          "tableFrom": "dapp_network_contexts",
+          "tableTo": "dapp_origins",
+          "columnsFrom": ["origin"],
+          "columnsTo": ["origin"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "dapp_network_contexts_network_id_networks_id_fk": {
+          "name": "dapp_network_contexts_network_id_networks_id_fk",
+          "tableFrom": "dapp_network_contexts",
+          "tableTo": "networks",
+          "columnsFrom": ["network_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "dapp_network_contexts_protocol_check": {
+          "name": "dapp_network_contexts_protocol_check",
+          "value": "\"dapp_network_contexts\".\"protocol\" IN ('eip155', 'solana')"
         }
       }
     },
     "dapp_origins": {
       "name": "dapp_origins",
       "columns": {
+        "origin": {
+          "name": "origin",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "session_key": {
+          "name": "session_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "partition": {
+          "name": "partition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -642,27 +841,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": false,
-          "autoincrement": false
-        },
-        "origin": {
-          "name": "origin",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "partition": {
-          "name": "partition",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "session_key": {
-          "name": "session_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
           "autoincrement": false
         }
       },
@@ -681,45 +859,10 @@
     "dapp_permissions": {
       "name": "dapp_permissions",
       "columns": {
-        "account_addresses": {
-          "name": "account_addresses",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "chain_id": {
-          "name": "chain_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "id": {
           "name": "id",
           "type": "text",
           "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "methods": {
-          "name": "methods",
-          "type": "text",
-          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
@@ -737,6 +880,41 @@
           "notNull": true,
           "autoincrement": false
         },
+        "wallet_id": {
+          "name": "wallet_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "chain_key": {
+          "name": "chain_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "account_addresses": {
+          "name": "account_addresses",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "methods": {
+          "name": "methods",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "text",
@@ -744,18 +922,18 @@
           "notNull": true,
           "autoincrement": false
         },
-        "wallet_id": {
-          "name": "wallet_id",
+        "expires_at": {
+          "name": "expires_at",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         }
       },
       "indexes": {
         "dapp_permissions_origin_wallet_chain_unique": {
           "name": "dapp_permissions_origin_wallet_chain_unique",
-          "columns": ["origin", "wallet_id", "chain_id"],
+          "columns": ["origin", "wallet_id", "chain_key"],
           "isUnique": true
         },
         "dapp_permissions_origin_idx": {
@@ -793,6 +971,367 @@
       "uniqueConstraints": {},
       "checkConstraints": {}
     },
+    "network_rpc_endpoints": {
+      "name": "network_rpc_endpoints",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "network_id": {
+          "name": "network_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "transport": {
+          "name": "transport",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "connection_kind": {
+          "name": "connection_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "url": {
+          "name": "url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "display_url": {
+          "name": "display_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "credential_ref": {
+          "name": "credential_ref",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "local_development": {
+          "name": "local_development",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deprecated": {
+          "name": "deprecated",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "network_rpc_endpoints_network_position_unique": {
+          "name": "network_rpc_endpoints_network_position_unique",
+          "columns": ["network_id", "position"],
+          "isUnique": true
+        },
+        "network_rpc_endpoints_credential_ref_unique": {
+          "name": "network_rpc_endpoints_credential_ref_unique",
+          "columns": ["credential_ref"],
+          "isUnique": true
+        },
+        "network_rpc_endpoints_network_idx": {
+          "name": "network_rpc_endpoints_network_idx",
+          "columns": ["network_id"],
+          "isUnique": false
+        },
+        "network_rpc_endpoints_enabled_idx": {
+          "name": "network_rpc_endpoints_enabled_idx",
+          "columns": ["enabled"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "network_rpc_endpoints_network_id_networks_id_fk": {
+          "name": "network_rpc_endpoints_network_id_networks_id_fk",
+          "tableFrom": "network_rpc_endpoints",
+          "tableTo": "networks",
+          "columnsFrom": ["network_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "network_rpc_endpoints_position_check": {
+          "name": "network_rpc_endpoints_position_check",
+          "value": "\"network_rpc_endpoints\".\"position\" >= 0"
+        },
+        "network_rpc_endpoints_revision_check": {
+          "name": "network_rpc_endpoints_revision_check",
+          "value": "\"network_rpc_endpoints\".\"revision\" > 0"
+        },
+        "network_rpc_endpoints_enabled_check": {
+          "name": "network_rpc_endpoints_enabled_check",
+          "value": "\"network_rpc_endpoints\".\"enabled\" IN (0, 1)"
+        },
+        "network_rpc_endpoints_local_development_check": {
+          "name": "network_rpc_endpoints_local_development_check",
+          "value": "\"network_rpc_endpoints\".\"local_development\" IN (0, 1)"
+        },
+        "network_rpc_endpoints_deprecated_check": {
+          "name": "network_rpc_endpoints_deprecated_check",
+          "value": "\"network_rpc_endpoints\".\"deprecated\" IN (0, 1)"
+        },
+        "network_rpc_endpoints_transport_check": {
+          "name": "network_rpc_endpoints_transport_check",
+          "value": "\"network_rpc_endpoints\".\"transport\" IN ('http', 'websocket')"
+        },
+        "network_rpc_endpoints_source_check": {
+          "name": "network_rpc_endpoints_source_check",
+          "value": "\"network_rpc_endpoints\".\"source\" IN ('builtin', 'custom')"
+        },
+        "network_rpc_endpoints_connection_check": {
+          "name": "network_rpc_endpoints_connection_check",
+          "value": "(\n        (\"network_rpc_endpoints\".\"connection_kind\" = 'public' AND \"network_rpc_endpoints\".\"url\" IS NOT NULL AND \"network_rpc_endpoints\".\"display_url\" IS NULL AND \"network_rpc_endpoints\".\"credential_ref\" IS NULL)\n        OR\n        (\"network_rpc_endpoints\".\"connection_kind\" = 'protected' AND \"network_rpc_endpoints\".\"url\" IS NULL AND \"network_rpc_endpoints\".\"display_url\" IS NOT NULL AND \"network_rpc_endpoints\".\"credential_ref\" IS NOT NULL)\n      )"
+        }
+      }
+    },
+    "networks": {
+      "name": "networks",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "namespace": {
+          "name": "namespace",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "reference": {
+          "name": "reference",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "native_currency": {
+          "name": "native_currency",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "explorers": {
+          "name": "explorers",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "verification": {
+          "name": "verification",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "testnet": {
+          "name": "testnet",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "catalog_key": {
+          "name": "catalog_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deprecated": {
+          "name": "deprecated",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "networks_chain_unique": {
+          "name": "networks_chain_unique",
+          "columns": ["namespace", "reference"],
+          "isUnique": true
+        },
+        "networks_catalog_key_unique": {
+          "name": "networks_catalog_key_unique",
+          "columns": ["catalog_key"],
+          "isUnique": true
+        },
+        "networks_position_idx": {
+          "name": "networks_position_idx",
+          "columns": ["position"],
+          "isUnique": false
+        },
+        "networks_enabled_idx": {
+          "name": "networks_enabled_idx",
+          "columns": ["enabled"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "networks_position_check": {
+          "name": "networks_position_check",
+          "value": "\"networks\".\"position\" >= 0"
+        },
+        "networks_revision_check": {
+          "name": "networks_revision_check",
+          "value": "\"networks\".\"revision\" > 0"
+        },
+        "networks_enabled_check": {
+          "name": "networks_enabled_check",
+          "value": "\"networks\".\"enabled\" IN (0, 1)"
+        },
+        "networks_deprecated_check": {
+          "name": "networks_deprecated_check",
+          "value": "\"networks\".\"deprecated\" IN (0, 1)"
+        },
+        "networks_namespace_check": {
+          "name": "networks_namespace_check",
+          "value": "\"networks\".\"namespace\" IN ('eip155', 'solana')"
+        },
+        "networks_source_check": {
+          "name": "networks_source_check",
+          "value": "\"networks\".\"source\" IN ('builtin', 'custom')"
+        },
+        "networks_catalog_ownership_check": {
+          "name": "networks_catalog_ownership_check",
+          "value": "((\"networks\".\"source\" = 'builtin' AND \"networks\".\"catalog_key\" IS NOT NULL) OR (\"networks\".\"source\" = 'custom' AND \"networks\".\"catalog_key\" IS NULL))"
+        }
+      }
+    },
     "runtime_metadata": {
       "name": "runtime_metadata",
       "columns": {
@@ -803,15 +1342,15 @@
           "notNull": true,
           "autoincrement": false
         },
-        "updated_at": {
-          "name": "updated_at",
+        "value": {
+          "name": "value",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "value": {
-          "name": "value",
+        "updated_at": {
+          "name": "updated_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -834,15 +1373,15 @@
           "notNull": true,
           "autoincrement": false
         },
-        "updated_at": {
-          "name": "updated_at",
+        "value": {
+          "name": "value",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "value": {
-          "name": "value",
+        "updated_at": {
+          "name": "updated_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -858,13 +1397,6 @@
     "signing_intent_claims": {
       "name": "signing_intent_claims",
       "columns": {
-        "claimed_at": {
-          "name": "claimed_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "intent_id": {
           "name": "intent_id",
           "type": "text",
@@ -874,6 +1406,13 @@
         },
         "payload_hash": {
           "name": "payload_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "claimed_at": {
+          "name": "claimed_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -889,6 +1428,20 @@
     "signing_intents": {
       "name": "signing_intents",
       "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "wallet_id": {
+          "name": "wallet_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "approval_id": {
           "name": "approval_id",
           "type": "text",
@@ -896,8 +1449,36 @@
           "notNull": false,
           "autoincrement": false
         },
-        "created_at": {
-          "name": "created_at",
+        "matched_policy_id": {
+          "name": "matched_policy_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "payload": {
+          "name": "payload",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "payload_hash": {
+          "name": "payload_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "mode": {
+          "name": "mode",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -917,43 +1498,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "matched_policy_id": {
-          "name": "matched_policy_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "mode": {
-          "name": "mode",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "payload": {
-          "name": "payload",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "payload_hash": {
-          "name": "payload_hash",
+        "status": {
+          "name": "status",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -966,15 +1512,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "source": {
-          "name": "source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
+        "created_at": {
+          "name": "created_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -987,8 +1526,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "wallet_id": {
-          "name": "wallet_id",
+        "expires_at": {
+          "name": "expires_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -1019,6 +1558,14 @@
           "name": "signing_intents_source_check",
           "value": "\"signing_intents\".\"source\" IN ('agent', 'automation', 'dapp')"
         },
+        "signing_intents_mode_check": {
+          "name": "signing_intents_mode_check",
+          "value": "\"signing_intents\".\"mode\" IN ('conditional-auto-signing', 'human-approval', 'read-only')"
+        },
+        "signing_intents_decision_check": {
+          "name": "signing_intents_decision_check",
+          "value": "\"signing_intents\".\"decision\" IN ('allow', 'deny', 'require-human-approval')"
+        },
         "signing_intents_status_check": {
           "name": "signing_intents_status_check",
           "value": "\"signing_intents\".\"status\" IN ('approved', 'expired', 'pending-approval', 'rejected')"
@@ -1028,48 +1575,6 @@
     "signing_policies": {
       "name": "signing_policies",
       "columns": {
-        "chain_ids": {
-          "name": "chain_ids",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "contract_allowlist": {
-          "name": "contract_allowlist",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "effect": {
-          "name": "effect",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "enabled": {
-          "name": "enabled",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "id": {
           "name": "id",
           "type": "text",
@@ -1077,11 +1582,18 @@
           "notNull": true,
           "autoincrement": false
         },
-        "max_native_value": {
-          "name": "max_native_value",
+        "wallet_id": {
+          "name": "wallet_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "chain_keys": {
+          "name": "chain_keys",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
           "autoincrement": false
         },
         "methods": {
@@ -1098,8 +1610,36 @@
           "notNull": true,
           "autoincrement": false
         },
+        "contract_allowlist": {
+          "name": "contract_allowlist",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "max_native_value": {
+          "name": "max_native_value",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "effect": {
+          "name": "effect",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "require_human_approval": {
           "name": "require_human_approval",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "enabled": {
+          "name": "enabled",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
@@ -1112,6 +1652,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "text",
@@ -1119,11 +1666,11 @@
           "notNull": true,
           "autoincrement": false
         },
-        "wallet_id": {
-          "name": "wallet_id",
+        "expires_at": {
+          "name": "expires_at",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         }
       },
@@ -1157,15 +1704,58 @@
           "name": "signing_policies_effect_check",
           "value": "\"signing_policies\".\"effect\" IN ('allow', 'deny', 'require-human-approval')"
         },
+        "signing_policies_enabled_check": {
+          "name": "signing_policies_enabled_check",
+          "value": "\"signing_policies\".\"enabled\" IN (0, 1)"
+        },
+        "signing_policies_require_human_approval_check": {
+          "name": "signing_policies_require_human_approval_check",
+          "value": "\"signing_policies\".\"require_human_approval\" IN (0, 1)"
+        },
         "signing_policies_revision_check": {
           "name": "signing_policies_revision_check",
           "value": "\"signing_policies\".\"revision\" > 0"
         }
       }
     },
-    "wallet_accounts": {
-      "name": "wallet_accounts",
+    "solana_dapp_permissions": {
+      "name": "solana_dapp_permissions",
       "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "origin": {
+          "name": "origin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "session_key": {
+          "name": "session_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "wallet_id": {
+          "name": "wallet_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "bindings": {
+          "name": "bindings",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "text",
@@ -1173,17 +1763,76 @@
           "notNull": true,
           "autoincrement": false
         },
-        "fingerprint": {
-          "name": "fingerprint",
+        "updated_at": {
+          "name": "updated_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "solana_dapp_permissions_origin_wallet_unique": {
+          "name": "solana_dapp_permissions_origin_wallet_unique",
+          "columns": ["origin", "wallet_id"],
+          "isUnique": true
+        },
+        "solana_dapp_permissions_origin_idx": {
+          "name": "solana_dapp_permissions_origin_idx",
+          "columns": ["origin"],
+          "isUnique": false
+        },
+        "solana_dapp_permissions_wallet_id_idx": {
+          "name": "solana_dapp_permissions_wallet_id_idx",
+          "columns": ["wallet_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "solana_dapp_permissions_origin_dapp_origins_origin_fk": {
+          "name": "solana_dapp_permissions_origin_dapp_origins_origin_fk",
+          "tableFrom": "solana_dapp_permissions",
+          "tableTo": "dapp_origins",
+          "columnsFrom": ["origin"],
+          "columnsTo": ["origin"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "solana_dapp_permissions_wallet_id_wallets_id_fk": {
+          "name": "solana_dapp_permissions_wallet_id_wallets_id_fk",
+          "tableFrom": "solana_dapp_permissions",
+          "tableTo": "wallets",
+          "columnsFrom": ["wallet_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "wallet_accounts": {
+      "name": "wallet_accounts",
+      "columns": {
         "id": {
           "name": "id",
           "type": "text",
           "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "wallet_id": {
+          "name": "wallet_id",
+          "type": "text",
+          "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
@@ -1201,15 +1850,22 @@
           "notNull": true,
           "autoincrement": false
         },
-        "updated_at": {
-          "name": "updated_at",
+        "fingerprint": {
+          "name": "fingerprint",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
-        "wallet_id": {
-          "name": "wallet_id",
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -1261,22 +1917,22 @@
     "wallet_hd_schemes": {
       "name": "wallet_hd_schemes",
       "columns": {
-        "curve": {
-          "name": "curve",
+        "wallet_id": {
+          "name": "wallet_id",
           "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "derive_position": {
-          "name": "derive_position",
-          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
         },
         "namespace": {
           "name": "namespace",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "curve": {
+          "name": "curve",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -1296,9 +1952,9 @@
           "notNull": true,
           "autoincrement": false
         },
-        "wallet_id": {
-          "name": "wallet_id",
-          "type": "text",
+        "derive_position": {
+          "name": "derive_position",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "autoincrement": false
@@ -1341,8 +1997,22 @@
     "wallets": {
       "name": "wallets",
       "columns": {
-        "created_at": {
-          "name": "created_at",
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -1355,18 +2025,11 @@
           "notNull": true,
           "autoincrement": false
         },
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "kind": {
-          "name": "kind",
+        "vault_id": {
+          "name": "vault_id",
           "type": "text",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "autoincrement": false
         },
         "metadata": {
@@ -1376,22 +2039,23 @@
           "notNull": true,
           "autoincrement": false
         },
-        "name": {
-          "name": "name",
-          "type": "text",
+        "position": {
+          "name": "position",
+          "type": "integer",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "provider": {
-          "name": "provider",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
+          "autoincrement": false,
+          "default": 0
         },
         "status": {
           "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
@@ -1402,13 +2066,6 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
-          "autoincrement": false
-        },
-        "vault_id": {
-          "name": "vault_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         }
       },
@@ -1428,6 +2085,11 @@
           "columns": ["vault_id"],
           "isUnique": true
         },
+        "wallets_position_idx": {
+          "name": "wallets_position_idx",
+          "columns": ["position"],
+          "isUnique": false
+        },
         "wallets_status_idx": {
           "name": "wallets_status_idx",
           "columns": ["status"],
@@ -1438,9 +2100,9 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {
-        "wallets_kind_provider_check": {
-          "name": "wallets_kind_provider_check",
-          "value": "(\n        (\"wallets\".\"kind\" IN ('hd', 'private-key', 'private-key-group') AND \"wallets\".\"provider\" = 'local-vault' AND \"wallets\".\"vault_id\" IS NOT NULL)\n        OR\n        (\"wallets\".\"kind\" IN ('watch', 'watch-group') AND \"wallets\".\"provider\" = 'read-only' AND \"wallets\".\"vault_id\" IS NULL)\n      )"
+        "wallets_kind_vault_check": {
+          "name": "wallets_kind_vault_check",
+          "value": "(\n        (\"wallets\".\"kind\" IN ('hd', 'private-key', 'private-key-group') AND \"wallets\".\"vault_id\" IS NOT NULL)\n        OR\n        (\"wallets\".\"kind\" IN ('watch', 'watch-group') AND \"wallets\".\"vault_id\" IS NULL)\n      )"
         },
         "wallets_status_check": {
           "name": "wallets_status_check",
@@ -1451,25 +2113,11 @@
     "workspaces": {
       "name": "workspaces",
       "columns": {
-        "created_at": {
-          "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "id": {
           "name": "id",
           "type": "text",
           "primaryKey": true,
           "notNull": true,
-          "autoincrement": false
-        },
-        "last_opened_at": {
-          "name": "last_opened_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
           "autoincrement": false
         },
         "name": {
@@ -1486,11 +2134,25 @@
           "notNull": true,
           "autoincrement": false
         },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
         "updated_at": {
           "name": "updated_at",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "last_opened_at": {
+          "name": "last_opened_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         }
       },

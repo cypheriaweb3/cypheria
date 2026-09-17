@@ -15,6 +15,11 @@ import {
   type AgentCodexServerNotification,
   type AgentCodexServerRequest,
   type AgentCodexServerResponse,
+  type AgentManagementClientMessage,
+  type AgentManagementServerMessage,
+  type AgentOpenCodeCallRequest,
+  type AgentOpenCodeEventSubscribeRequest,
+  type AgentOpenCodeServerMessage,
   type AgentPiClientRequest,
   type AgentPiClientResponse,
   type AgentPiServerResponse,
@@ -506,6 +511,65 @@ export class ServerClient {
 
   async sendAcp(message: AgentAcpClientMessage): Promise<void> {
     await this.#sendWhenConnected(message, undefined, SERVER_CAPABILITIES.acp)
+  }
+
+  async requestAgentManagement(
+    type: AgentManagementClientMessage["type"],
+    payload?: unknown,
+    options?: RequestOptions
+  ): Promise<AgentManagementServerMessage> {
+    const expectedType = type.replace(/\.request$/, ".response")
+    const message = await this.#request(
+      {
+        ...(payload === undefined ? {} : { payload }),
+        requestId: this.#nextRequestId("agent-manager"),
+        type,
+      } as AgentManagementClientMessage,
+      expectedType,
+      options,
+      SERVER_CAPABILITIES.agentManager
+    )
+    return message as AgentManagementServerMessage
+  }
+
+  async requestOpenCodeCall(
+    payload: AgentOpenCodeCallRequest["payload"],
+    options?: RequestOptions
+  ): Promise<Extract<AgentOpenCodeServerMessage, { type: "agent.opencode.call.response" }>> {
+    return (await this.#request(
+      {
+        payload,
+        requestId: this.#nextRequestId("opencode"),
+        type: "agent.opencode.call.request",
+      },
+      "agent.opencode.call.response",
+      options,
+      SERVER_CAPABILITIES.opencode
+    )) as Extract<AgentOpenCodeServerMessage, { type: "agent.opencode.call.response" }>
+  }
+
+  async subscribeOpenCodeEvents(
+    payload: AgentOpenCodeEventSubscribeRequest["payload"],
+    options?: RequestOptions
+  ): Promise<void> {
+    await this.#request(
+      {
+        payload,
+        requestId: this.#nextRequestId("opencode-events"),
+        type: "agent.opencode.event.subscribe.request",
+      },
+      "agent.opencode.event.subscribe.response",
+      options,
+      SERVER_CAPABILITIES.opencode
+    )
+  }
+
+  async cancelOpenCodeEvents(subscriptionId: string): Promise<void> {
+    await this.#sendWhenConnected(
+      { payload: { subscriptionId }, type: "agent.opencode.event.cancel.request" },
+      undefined,
+      SERVER_CAPABILITIES.opencode
+    )
   }
 
   async requestClaude<Method extends AgentClaudeRpcName>(

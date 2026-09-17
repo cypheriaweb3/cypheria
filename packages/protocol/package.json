@@ -7,12 +7,14 @@
     ".": "./src/index.ts",
     "./claude-types": "./src/agent/claude-agent-sdk-types.ts",
     "./codex-types": "./src/generated/codex/ts/index.ts",
+    "./opencode-types": "./src/agent/opencode-sdk-types.ts",
     "./pi-types": "./src/agent/pi-coding-agent-types.ts"
   },
   "scripts": {
     "check:agent-acp-messages": "node scripts/generate-agent-acp-messages.mjs --check",
     "check:agent-claude-code-messages": "node scripts/generate-agent-claude-code-messages.mjs --check",
     "check:agent-codex-app-server-messages": "node scripts/generate-agent-codex-app-server-messages.mjs --check",
+    "check:agent-acp-registry": "node scripts/generate-agent-acp-registry.mjs --check",
     "check:codex-response-map": "node scripts/process-codex-app-server-generated.mjs --check",
     "check:codex-zod": "node scripts/generate-codex-app-server-zod.mjs --check",
     "build": "tsc -p tsconfig.json",
@@ -22,11 +24,12 @@
     "generate:agent-acp-messages": "node scripts/generate-agent-acp-messages.mjs",
     "generate:agent-claude-code-messages": "node scripts/generate-agent-claude-code-messages.mjs",
     "generate:agent-codex-app-server-messages": "node scripts/generate-agent-codex-app-server-messages.mjs",
+    "generate:agent-acp-registry": "node scripts/generate-agent-acp-registry.mjs",
     "generate:codex-app-server-api-docs": "node scripts/generate-codex-app-server-api-docs.mjs",
     "generate:codex-all": "pnpm generate:codex-types && pnpm generate:codex-zod && pnpm generate:agent-codex-app-server-messages && pnpm generate:codex-app-server-api-docs",
-    "prebuild": "pnpm check:codex-response-map && pnpm check:codex-zod && pnpm check:agent-codex-app-server-messages && pnpm check:agent-acp-messages && pnpm check:agent-claude-code-messages",
-    "pretest": "pnpm check:codex-response-map && pnpm check:codex-zod && pnpm check:agent-codex-app-server-messages && pnpm check:agent-acp-messages && pnpm check:agent-claude-code-messages",
-    "pretypecheck": "pnpm check:codex-response-map && pnpm check:codex-zod && pnpm check:agent-codex-app-server-messages && pnpm check:agent-acp-messages && pnpm check:agent-claude-code-messages",
+    "prebuild": "pnpm check:codex-response-map && pnpm check:codex-zod && pnpm check:agent-codex-app-server-messages && pnpm check:agent-acp-messages && pnpm check:agent-claude-code-messages && pnpm check:agent-acp-registry",
+    "pretest": "pnpm check:codex-response-map && pnpm check:codex-zod && pnpm check:agent-codex-app-server-messages && pnpm check:agent-acp-messages && pnpm check:agent-claude-code-messages && pnpm check:agent-acp-registry",
+    "pretypecheck": "pnpm check:codex-response-map && pnpm check:codex-zod && pnpm check:agent-codex-app-server-messages && pnpm check:agent-acp-messages && pnpm check:agent-claude-code-messages && pnpm check:agent-acp-registry",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json"
   },
@@ -36,6 +39,7 @@
     "@earendil-works/pi-agent-core": "0.85.1",
     "@earendil-works/pi-ai": "0.85.1",
     "@earendil-works/pi-coding-agent": "0.85.1",
+    "@opencode-ai/sdk": "1.18.31",
     "superjson": "^2.2.6",
     "zod": "^4.6.2"
   },

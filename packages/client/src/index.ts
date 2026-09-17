@@ -5,6 +5,7 @@ import {
   type AgentPiServerMessage,
   isAgentAcpServerMessage,
   type PersistedServerConfigPatch,
+  type RegistryAgentId,
   type ServerConfigSnapshot,
   type ServerDiagnostics,
   type ServerMessage,
@@ -13,11 +14,17 @@ import {
 
 import { type AcpEndpoint, createAcpEndpoint } from "./acp-client.js"
 import {
+  type AgentManagerActions,
+  createAgentManagerActions,
+  isAgentUpdateAvailable,
+} from "./agent-manager.js"
+import {
   type ClaudeEndpoint,
   createClaudeEndpoint,
   isClaudeServerMessage,
 } from "./claude-endpoint.js"
 import { type CodexEndpoint, createCodexEndpoint, isCodexServerMessage } from "./codex-endpoint.js"
+import { createOpenCodeEndpoint, type OpenCodeEndpoint } from "./opencode.js"
 import { createPiEndpoint, isPiServerMessage, type PiEndpoint } from "./pi-endpoint.js"
 import {
   type ConnectionState,
@@ -28,9 +35,11 @@ import {
 } from "./server-client.js"
 
 export interface AgentActions {
-  readonly acp: AcpEndpoint
+  readonly acp: (agent: RegistryAgentId) => AcpEndpoint
   readonly claude: ClaudeEndpoint
   readonly codex: CodexEndpoint
+  readonly manager: AgentManagerActions
+  readonly opencode: OpenCodeEndpoint
   readonly pi: PiEndpoint
 }
 
@@ -73,23 +82,29 @@ export interface CypheriaClient extends CypheriaApi {
 
 export type CypheriaClientConfig = ServerClientConfig
 
-const acpEndpointsByServerClient = new WeakMap<ServerClient, AcpEndpoint>()
+const acpEndpointsByServerClient = new WeakMap<ServerClient, Map<RegistryAgentId, AcpEndpoint>>()
 const codexEndpointsByServerClient = new WeakMap<ServerClient, CodexEndpoint>()
 const claudeEndpointsByServerClient = new WeakMap<ServerClient, ClaudeEndpoint>()
 const piEndpointsByServerClient = new WeakMap<ServerClient, PiEndpoint>()
+const openCodeEndpointsByServerClient = new WeakMap<ServerClient, OpenCodeEndpoint>()
 
-const getAcpEndpoint = (serverClient: ServerClient): AcpEndpoint => {
-  const existing = acpEndpointsByServerClient.get(serverClient)
+const getAcpEndpoint = (serverClient: ServerClient, agent: RegistryAgentId): AcpEndpoint => {
+  let endpoints = acpEndpointsByServerClient.get(serverClient)
+  if (!endpoints) {
+    endpoints = new Map()
+    acpEndpointsByServerClient.set(serverClient, endpoints)
+  }
+  const existing = endpoints.get(agent)
   if (existing) return existing
-  const endpoint = createAcpEndpoint({
+  const endpoint = createAcpEndpoint(agent, {
     send: (message) => serverClient.sendAcp(message),
     subscribe: (handler) =>
       serverClient.subscribe((message) => {
-        if (isAgentAcpServerMessage(message)) handler(message)
+        if (isAgentAcpServerMessage(message) && message.agent === agent) handler(message)
       }),
     subscribeConnectionStatus: (handler) => serverClient.subscribeConnectionStatus(handler),
   })
-  acpEndpointsByServerClient.set(serverClient, endpoint)
+  endpoints.set(agent, endpoint)
   return endpoint
 }
 
@@ -149,6 +164,14 @@ const getPiEndpoint = (serverClient: ServerClient): PiEndpoint => {
   return endpoint
 }
 
+const getOpenCodeEndpoint = (serverClient: ServerClient): OpenCodeEndpoint => {
+  const existing = openCodeEndpointsByServerClient.get(serverClient)
+  if (existing) return existing
+  const endpoint = createOpenCodeEndpoint(serverClient)
+  openCodeEndpointsByServerClient.set(serverClient, endpoint)
+  return endpoint
+}
+
 /** Creates a public client which owns exactly one Cypheria server connection. */
 export function createCypheriaClient(config: CypheriaClientConfig = {}): CypheriaClient {
   const serverClient = new ServerClient(config)
@@ -177,9 +200,11 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
 
   return {
     agent: {
-      acp: getAcpEndpoint(serverClient),
+      acp: (agent) => getAcpEndpoint(serverClient, agent),
       claude: getClaudeEndpoint(serverClient),
       codex: getCodexEndpoint(serverClient),
+      manager: createAgentManagerActions(serverClient),
+      opencode: getOpenCodeEndpoint(serverClient),
       pi: getPiEndpoint(serverClient),
     },
     on,
@@ -211,8 +236,11 @@ export type {
   AgentAcpClientMessage,
   AgentAcpServerMessage,
   AgentClaudeServerMessage,
+  AgentManagerActions,
   AgentPiServerMessage,
   ClaudeEndpoint,
   CodexEndpoint,
+  OpenCodeEndpoint,
   PiEndpoint,
 }
+export { isAgentUpdateAvailable }

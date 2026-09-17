@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs"
 import { fileURLToPath } from "node:url"
 
 import type { Client } from "@libsql/client"
@@ -7,6 +8,7 @@ import { migrate } from "drizzle-orm/libsql/migrator"
 import * as schema from "./schema/index.js"
 
 const defaultMigrationsFolder = fileURLToPath(new URL("../drizzle", import.meta.url))
+const bundledMigrationsFolder = fileURLToPath(new URL("./drizzle", import.meta.url))
 
 export type ApplyDatabaseMigrationsOptions = {
   readonly migrationsFolder?: string
@@ -19,6 +21,8 @@ export const applyDatabaseMigrations = async (
 ): Promise<void> => {
   await client.execute("PRAGMA foreign_keys = ON")
   await migrate(drizzle(client, { schema }), {
-    migrationsFolder: options.migrationsFolder ?? defaultMigrationsFolder,
+    migrationsFolder:
+      options.migrationsFolder ??
+      (existsSync(bundledMigrationsFolder) ? bundledMigrationsFolder : defaultMigrationsFolder),
   })
 }

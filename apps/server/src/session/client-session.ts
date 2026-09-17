@@ -20,11 +20,18 @@ export type SessionTransport = {
 }
 
 export type SessionHost = {
+  closeAgentSession?(sessionId: string): void
   getConfig(): ServerConfigSnapshot
   getDiagnostics(): ServerDiagnostics
   getStatus(): ServerStatus
   patchConfig(patch: PersistedServerConfigPatch): Promise<ServerConfigSnapshot>
   reloadConfig(): Promise<ServerConfigSnapshot>
+  handleAgentMessage?(
+    message: ClientMessage,
+    sessionId: string,
+    source: SessionTransport,
+    send: (message: ServerMessage) => void
+  ): Promise<boolean>
 }
 
 export type ClientSessionOptions = {
@@ -146,6 +153,7 @@ export class ClientSession {
     const transports = [...this.#sources.keys()]
     this.#sources.clear()
     for (const transport of transports) transport.close(code, reason)
+    this.#host.closeAgentSession?.(this.id)
     this.#onClose?.(this)
   }
 
@@ -192,7 +200,14 @@ export class ClientSession {
         })
         break
       default:
-        source.close(1003, `Message type is not handled by the server: ${message.type}`)
+        if (
+          !this.#host.handleAgentMessage ||
+          !(await this.#host.handleAgentMessage(message, this.id, source, (response) =>
+            this.sendTo(source, response)
+          ))
+        ) {
+          source.close(1003, `Message type is not handled by the server: ${message.type}`)
+        }
         break
     }
   }

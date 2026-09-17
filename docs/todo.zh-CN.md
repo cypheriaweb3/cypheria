@@ -103,6 +103,11 @@
   - 排除：server 进程启动/dispatch、子进程 lifecycle、stderr、executable/environment config 与 signal。
   - 验证：protocol/client test、typecheck、build、全仓库 CI/build 与配套双语文档。
 
+- [x] 添加统一 agent registry、受管工具链、安装、enable 与 server runtime。
+  - 验收：protocol v2 携带静态生成的 ACP agent ID；server 每小时条件刷新 registry；安装/更新/卸载是可观察 operation；enable 独立调用，disabled agent 不能启动或接收业务调用。
+  - 包括：含 `agent_registry` 的单一数据库 baseline；`$CYPHERIA_HOME` 下最新稳定的受管 Node/Python/uv；按完整带 hash 依赖 lock 共享的不可变 Python environment；native Codex/Claude/Pi/OpenCode installer 与 runtime；binary/npx/uvx registry installer；稳定 OpenCode SDK root 与两条 event stream；client manager 与 OpenCode facade。
+  - 验证：registry、database baseline、toolchain fingerprint/lease/GC、protocol、client 与 server test；全仓库 CI/build；配套双语文档。
+
 - [ ] 在明确评审后将 desktop 迁移到 Cypheria server。
   - 验收：Electron main 确保本地 supervised server 正在运行，desktop 使用共享 protocol，并保持 Electron-only dApp/browser、secure-storage、approval、preload 与 OS-integration 边界。
   - 前置条件：明确批准 server 基础；不得作为 foundation change 的一部分开始。

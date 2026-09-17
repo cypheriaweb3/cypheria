@@ -37,8 +37,10 @@ The default safety model is human approval. Read-only mode and conditional auto-
 - **UI**: shadcn-style copied components, Base UI primitives, Cypheria CSS tokens, lucide-react
 - **Cypheria client protocol**: versioned Zod contracts with metadata-assisted `bigint` transport in `@cypheria/protocol`
 - **ACP client API**: Cypheria-owned SDK-shaped `client()` / `ClientApp` APIs, backed by `@agentclientprotocol/sdk@1.4.0`, over directly discriminable logical WebSocket messages
-- **Claude Code API**: network-safe `@anthropic-ai/claude-agent-sdk@0.3.270` query, session, control, and stream contracts under `agent.claude.*`, plus an SDK-shaped `@cypheria/client/claude` facade; server dispatch remains deferred
-- **Pi RPC API**: complete `@earendil-works/pi-coding-agent@0.85.1` `pi --mode rpc` command, event, and extension UI contracts under `agent.pi.*`, plus a process-free `@cypheria/client/pi` facade; server dispatch remains deferred
+- **Agent manager**: ACP Registry sync, managed installation/toolchains, explicit enablement, lifecycle operations, and disabled-agent enforcement
+- **Claude Code API**: network-safe `@anthropic-ai/claude-agent-sdk@0.3.270` query, session, control, and stream contracts under `agent.claude.*`, plus an SDK-shaped client and per-session server runtime
+- **Pi RPC API**: complete `@earendil-works/pi-coding-agent@0.85.1` `pi --mode rpc` command, event, and extension UI contracts under `agent.pi.*`, plus per-session JSONL process ownership
+- **OpenCode API**: `@opencode-ai/sdk@1.18.31` stable root API and both event streams through a shared loopback OpenCode server
 - **Desktop agent integration**: `codex app-server` over WebSocket JSON-RPC
 - **Codex protocol types and validation**: owned by `@cypheria/protocol` and generated with `pnpm --filter @cypheria/protocol generate:codex-all`
 - **Marketplace hosting**: Cloudflare Workers, D1, R2, Queues, and Workflows
@@ -49,6 +51,7 @@ See [docs/technical-stack.md](docs/technical-stack.md) for the full technical st
 See [docs/codex-app-server-api.md](docs/codex-app-server-api.md) for the complete generated Codex App Server API reference.
 See [docs/codex-app-server-config.md](docs/codex-app-server-config.md) for how effective Codex configuration is consumed across process, thread, turn, reload, and tool-planning lifetimes.
 See [docs/claude-agent-sdk-protocol.md](docs/claude-agent-sdk-protocol.md) for the Claude Agent SDK wire mapping.
+See [docs/agent-management.md](docs/agent-management.md) for registry, installation, enablement, toolchains, and runtime ownership.
 See [docs/pi-rpc-protocol.md](docs/pi-rpc-protocol.md) for the Pi RPC wire mapping.
 
 ## Architecture
@@ -156,6 +159,8 @@ $CYPHERIA_HOME/
   vault/        encrypted wallet vault files and metadata
   logs/         app, automation, policy, and audit logs
   cache/        disposable app caches
+  toolchains/   managed Node, Python, uv, and immutable Python environments
+  agents/       runtime ACP registry plus managed agent versions, homes, staging data, and receipts
   browser/      dApp browser session partitions and metadata
   automation/   task definitions, run state, and worker metadata
   config/       Cypheria settings

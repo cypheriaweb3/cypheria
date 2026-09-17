@@ -2,8 +2,22 @@ import { access } from "node:fs/promises"
 import type { Server as HttpServer } from "node:http"
 import { hostname } from "node:os"
 import { resolve } from "node:path"
-
 import {
+  applyDatabaseMigrations,
+  createAgentRegistryPersistenceService,
+  type OpenDatabaseResult,
+  openCypheriaDatabase,
+} from "@cypheria/db"
+import {
+  type AgentAcpClientMessage,
+  type AgentClaudeClientMessage,
+  type AgentCodexClientNotification,
+  type AgentCodexClientRequest,
+  type AgentCodexServerResponse,
+  type AgentManagementClientMessage,
+  type AgentOpenCodeClientMessage,
+  type AgentPiClientMessage,
+  type ClientMessage,
   CYPHERIA_PROTOCOL_VERSION,
   CYPHERIA_WEBSOCKET_PROTOCOL,
   type PersistedServerConfigPatch,
@@ -12,6 +26,7 @@ import {
   type ServerConfigSnapshot,
   type ServerDiagnostics,
   type ServerIdentity,
+  type ServerMessage,
   type ServerOperationalState,
   type ServerStatus,
 } from "@cypheria/protocol"
@@ -23,7 +38,7 @@ import {
 import { serve } from "@hono/node-server"
 import pino, { type Logger } from "pino"
 import { type WebSocket, WebSocketServer } from "ws"
-
+import { AgentManager } from "./agent/agent-manager.js"
 import { type CypheriaServerConfig, loadServerConfig } from "./config.js"
 import { collectDiagnostics } from "./diagnostics.js"
 import { createHttpApp, type HttpAppHost } from "./http-app.js"
@@ -31,6 +46,7 @@ import { loadOrCreateServerId } from "./identity.js"
 import { RelayConnection } from "./relay-connection.js"
 import { loadOrCreateRelayKeyPair } from "./relay-key.js"
 import { ServerConfigStore } from "./server-config-store.js"
+import type { SessionTransport } from "./session/client-session.js"
 import { ConnectionRegistry } from "./session/connection-registry.js"
 import { CYPHERIA_SERVER_VERSION } from "./version.js"
 
@@ -47,6 +63,8 @@ export type CypheriaServerOptions = {
   logger?: Logger
   onLifecycleRequest?: (request: ServerLifecycleRequest) => void
   runtime?: CypheriaRuntime
+  database?: OpenDatabaseResult
+  agentNetworkBootstrap?: boolean
 }
 
 export type CypheriaServerAddress = {
@@ -61,6 +79,8 @@ export class CypheriaServer implements HttpAppHost {
   readonly logger: Logger
   readonly registry: ConnectionRegistry
   readonly runtime: CypheriaRuntime
+  readonly agentManager: AgentManager
+  readonly database: OpenDatabaseResult
 
   #address: CypheriaServerAddress | undefined
   #httpServer: HttpServer | undefined
@@ -82,10 +102,18 @@ export class CypheriaServer implements HttpAppHost {
         options.config ?? loadServerConfig()
       )
     this.config = this.configStore.effective
+    this.database = options.database ?? openCypheriaDatabase({ dbDir: this.runtime.paths.dbDir })
     this.registry = new ConnectionRegistry({
       helloTimeoutMs: this.config.sessionHelloTimeoutMs,
       host: this,
       reconnectGraceMs: this.config.sessionReconnectGraceMs,
+    })
+    this.agentManager = new AgentManager({
+      cacheDir: this.runtime.paths.cacheDir,
+      cypheriaHome: this.runtime.paths.cypheriaHome,
+      persistence: createAgentRegistryPersistenceService(this.database.db),
+      publish: (message) => this.registry.broadcast(message),
+      networkBootstrap: options.agentNetworkBootstrap,
     })
     this.#lifecycleHandler = options.onLifecycleRequest
   }
@@ -111,6 +139,8 @@ export class CypheriaServer implements HttpAppHost {
     }
     await this.runtime.start()
     try {
+      await applyDatabaseMigrations(this.database.client)
+      await this.agentManager.start()
       const startedAt = new Date().toISOString()
       const id = await loadOrCreateServerId(this.runtime.paths.configDir)
       this.#identity = {
@@ -182,7 +212,11 @@ export class CypheriaServer implements HttpAppHost {
     } catch (error) {
       if (this.#webSocketHeartbeat) clearInterval(this.#webSocketHeartbeat)
       this.#webSocketServer?.close()
-      await Promise.allSettled([this.#closeHttpListener(), this.runtime.stop()])
+      await Promise.allSettled([
+        this.#closeHttpListener(),
+        this.agentManager.stop(),
+        this.runtime.stop(),
+      ])
       this.#identity = undefined
       this.#webSocketServer = undefined
       this.#webSocketHeartbeat = undefined
@@ -228,7 +262,79 @@ export class CypheriaServer implements HttpAppHost {
   }
 
   getSessionCapabilities(): string[] {
-    return [SERVER_CAPABILITIES.config, SERVER_CAPABILITIES.diagnostics, SERVER_CAPABILITIES.status]
+    return [
+      SERVER_CAPABILITIES.acp,
+      SERVER_CAPABILITIES.agentManager,
+      SERVER_CAPABILITIES.claude,
+      SERVER_CAPABILITIES.codex,
+      SERVER_CAPABILITIES.config,
+      SERVER_CAPABILITIES.diagnostics,
+      SERVER_CAPABILITIES.opencode,
+      SERVER_CAPABILITIES.pi,
+      SERVER_CAPABILITIES.status,
+    ]
+  }
+
+  async handleAgentMessage(
+    message: ClientMessage,
+    sessionId: string,
+    source: SessionTransport,
+    send: (message: ServerMessage) => void
+  ): Promise<boolean> {
+    if (message.type.startsWith("agent.acp.")) {
+      await this.agentManager.handleAcp(message as AgentAcpClientMessage, { send, sessionId })
+      return true
+    }
+    if (message.type.startsWith("agent.opencode.")) {
+      await this.agentManager.handleOpenCode(message as AgentOpenCodeClientMessage, {
+        send,
+        sessionId,
+      })
+      return true
+    }
+    if (message.type.startsWith("agent.codex.")) {
+      await this.agentManager.handleCodex(
+        message as
+          | AgentCodexClientRequest
+          | AgentCodexServerResponse
+          | AgentCodexClientNotification,
+        { send, sessionId }
+      )
+      return true
+    }
+    if (message.type.startsWith("agent.claude.")) {
+      await this.agentManager.handleClaude(message as AgentClaudeClientMessage, { send, sessionId })
+      return true
+    }
+    if (message.type.startsWith("agent.pi.")) {
+      await this.agentManager.handlePi(message as AgentPiClientMessage, { send, sessionId })
+      return true
+    }
+    if (
+      message.type.startsWith("agent.registry.") ||
+      message.type.startsWith("agent.operation.") ||
+      message.type.startsWith("agent.toolchain.") ||
+      [
+        "agent.install.request",
+        "agent.update.request",
+        "agent.uninstall.request",
+        "agent.enabled.set.request",
+        "agent.start.request",
+        "agent.stop.request",
+      ].includes(message.type)
+    ) {
+      await this.agentManager.handleManagement(message as AgentManagementClientMessage, {
+        send,
+        sessionId,
+      })
+      return true
+    }
+    void source
+    return false
+  }
+
+  closeAgentSession(sessionId: string): void {
+    void this.agentManager.disposeSession(sessionId)
   }
 
   getState(): ServerOperationalState {
@@ -296,7 +402,12 @@ export class CypheriaServer implements HttpAppHost {
     this.#webSocketServer?.close()
     this.#webSocketServer = undefined
 
-    const results = await Promise.allSettled([this.#closeHttpListener(), this.runtime.stop()])
+    const results = await Promise.allSettled([
+      this.#closeHttpListener(),
+      this.agentManager.stop(),
+      this.runtime.stop(),
+    ])
+    this.database.close()
     this.#identity = undefined
     const failures = results.filter((result) => result.status === "rejected")
     if (failures.length > 0) {

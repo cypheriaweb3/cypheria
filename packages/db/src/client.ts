@@ -1,3 +1,5 @@
+import { mkdirSync } from "node:fs"
+
 import { type Client, createClient } from "@libsql/client/sqlite3"
 import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql"
 
@@ -17,6 +19,7 @@ export type OpenDatabaseResult = {
 
 export const openCypheriaDatabase = (options: OpenDatabaseOptions = {}): OpenDatabaseResult => {
   const paths = buildDatabasePaths(options)
+  mkdirSync(paths.dbDir, { recursive: true })
   const client = createClient({ url: `file:${paths.databaseFile}` })
 
   return {

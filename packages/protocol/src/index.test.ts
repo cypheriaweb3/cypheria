@@ -62,8 +62,8 @@ describe("Cypheria protocol", () => {
   it("dispatches every logical session wire type from a flat discriminator", () => {
     expect(SessionInboundMessageSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
     expect(SessionOutboundMessageSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
-    expect((SessionInboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(11)
-    expect((SessionOutboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(12)
+    expect((SessionInboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(28)
+    expect((SessionOutboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(36)
   })
 
   it("limits runtime requests to runtime-owned namespaces", () => {
@@ -141,9 +141,9 @@ describe("Cypheria protocol", () => {
   })
 
   it("builds the versioned WebSocket subprotocol list", () => {
-    expect(createWebSocketProtocols()).toEqual(["cypheria.v1"])
+    expect(createWebSocketProtocols()).toEqual(["cypheria.v2"])
     expect(createWebSocketProtocols("token_123")).toEqual([
-      "cypheria.v1",
+      "cypheria.v2",
       "cypheria.bearer.token_123",
     ])
   })

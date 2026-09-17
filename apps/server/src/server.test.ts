@@ -24,6 +24,7 @@ describe("CypheriaServer", () => {
     temporaryDirectories.push(cypheriaHome)
     const token = "test-token-123456789"
     const server = new CypheriaServer({
+      agentNetworkBootstrap: false,
       config: loadServerConfig({}, { authToken: token, port: 0, webAppEnabled: false }),
       logger: pino({ level: "silent" }),
       runtime: new CypheriaRuntime({ env: { CYPHERIA_HOME: cypheriaHome } }),
@@ -72,6 +73,7 @@ describe("CypheriaServer", () => {
     temporaryDirectories.push(cypheriaHome, webAppDir)
     await writeFile(join(webAppDir, "index.html"), "<!doctype html><title>Cypheria</title>")
     const server = new CypheriaServer({
+      agentNetworkBootstrap: false,
       config: loadServerConfig({}, { port: 0, webAppDir, webAppEnabled: true }),
       logger: pino({ level: "silent" }),
       runtime: new CypheriaRuntime({ env: { CYPHERIA_HOME: cypheriaHome } }),
@@ -92,6 +94,7 @@ describe("CypheriaServer", () => {
     const cypheriaHome = await mkdtemp(join(tmpdir(), "cypheria-server-test-"))
     temporaryDirectories.push(cypheriaHome)
     const server = new CypheriaServer({
+      agentNetworkBootstrap: false,
       config: loadServerConfig({}, { port: 0, webAppEnabled: false }),
       logger: pino({ level: "silent" }),
       runtime: new CypheriaRuntime({ env: { CYPHERIA_HOME: cypheriaHome } }),

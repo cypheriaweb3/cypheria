@@ -29,6 +29,18 @@ import {
   AgentCodexServerResponseSchema,
 } from "./agent/codex-app-server.ts"
 import {
+  AGENT_MANAGEMENT_CLIENT_SCHEMAS,
+  AGENT_MANAGEMENT_SERVER_SCHEMAS,
+  type AgentManagementClientMessage,
+  type AgentManagementServerMessage,
+} from "./agent/management.ts"
+import {
+  AGENT_OPENCODE_CLIENT_SCHEMAS,
+  AGENT_OPENCODE_SERVER_SCHEMAS,
+  type AgentOpenCodeClientMessage,
+  type AgentOpenCodeServerMessage,
+} from "./agent/opencode.ts"
+import {
   AGENT_PI_RPC,
   type AgentPiClientMessage,
   AgentPiClientMessageSchema,
@@ -40,11 +52,14 @@ import { RequestIdSchema } from "./request-id.ts"
 export * from "./agent/acp.ts"
 export * from "./agent/claude.ts"
 export * from "./agent/codex-app-server.ts"
+export * from "./agent/management.ts"
+export * from "./agent/opencode.ts"
 export * from "./agent/pi.ts"
+export * from "./agent/registry.ts"
 export * from "./relay.ts"
 export { type RequestId, RequestIdSchema } from "./request-id.ts"
 
-export const CYPHERIA_PROTOCOL_VERSION = 1 as const
+export const CYPHERIA_PROTOCOL_VERSION = 2 as const
 export const CYPHERIA_WEBSOCKET_PATH = "/api/v1/ws" as const
 export const CYPHERIA_WEBSOCKET_PROTOCOL = `cypheria.v${CYPHERIA_PROTOCOL_VERSION}` as const
 const CYPHERIA_SUPERJSON_MARKER = "cypheria.superjson.v1" as const
@@ -52,9 +67,11 @@ const CYPHERIA_SUPERJSON_MARKER = "cypheria.superjson.v1" as const
 /** Stable capabilities a server can advertise in the `server.status.notification` message. */
 export const SERVER_CAPABILITIES = {
   acp: "agent.acp",
+  agentManager: "agent.manager",
   claude: "agent.claude",
   codex: "agent.codex",
   pi: "agent.pi",
+  opencode: "agent.opencode",
   config: "server.config",
   diagnostics: "diagnostics",
   status: "server.status",
@@ -362,6 +379,8 @@ export type SessionInboundMessage =
   | AgentCodexServerResponse
   | AgentCodexClientNotification
   | AgentPiClientMessage
+  | AgentManagementClientMessage
+  | AgentOpenCodeClientMessage
 
 // Nested family discriminators keep each concrete wire `type` visible while allowing ACP to use
 // `protocolVersion` as its second-level discriminator for types shared by v1 and v2.
@@ -377,6 +396,8 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   AgentCodexServerResponseSchema,
   AgentCodexClientNotificationSchema,
   AgentPiClientMessageSchema,
+  ...AGENT_MANAGEMENT_CLIENT_SCHEMAS,
+  ...AGENT_OPENCODE_CLIENT_SCHEMAS,
 ])
 
 export type ClientMessage = SessionInboundMessage
@@ -433,6 +454,8 @@ export type SessionOutboundMessage =
   | AgentCodexServerRequest
   | AgentCodexServerNotification
   | AgentPiServerMessage
+  | AgentManagementServerMessage
+  | AgentOpenCodeServerMessage
 
 export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutboundMessage>([
   ServerStatusNotificationSchema,
@@ -447,6 +470,8 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   AgentCodexServerRequestSchema,
   AgentCodexServerNotificationSchema,
   AgentPiServerMessageSchema,
+  ...AGENT_MANAGEMENT_SERVER_SCHEMAS,
+  ...AGENT_OPENCODE_SERVER_SCHEMAS,
 ])
 
 export type ServerMessage = SessionOutboundMessage
@@ -461,6 +486,22 @@ const clientResponseTypes = new Set<string>([
   ...Object.values(AGENT_CLAUDE_RPC).map(({ response }) => response),
   ...Object.values(AGENT_CODEX_CLIENT_RPC).map(({ response }) => response),
   ...Object.values(AGENT_PI_RPC).map(({ response }) => response),
+  "agent.registry.list.response",
+  "agent.registry.get.response",
+  "agent.registry.refresh.response",
+  "agent.install.response",
+  "agent.update.response",
+  "agent.uninstall.response",
+  "agent.enabled.set.response",
+  "agent.start.response",
+  "agent.stop.response",
+  "agent.operation.get.response",
+  "agent.operation.list.response",
+  "agent.toolchain.list.response",
+  "agent.toolchain.check_updates.response",
+  "agent.toolchain.update.response",
+  "agent.opencode.call.response",
+  "agent.opencode.event.subscribe.response",
 ])
 
 /** Distinguishes responses to client requests from reverse RPCs that happen to share an id. */

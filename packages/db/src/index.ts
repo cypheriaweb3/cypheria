@@ -1,4 +1,10 @@
 export {
+  type AgentRegistryPersistenceService,
+  type AgentRegistryRecord,
+  type AgentVersionMetadata,
+  createAgentRegistryPersistenceService,
+} from "./agent.js"
+export {
   type ApprovalRequestRecord,
   type ApprovalRequestStatus,
   type ApprovalResolution,

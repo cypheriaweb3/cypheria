@@ -47,7 +47,7 @@ const acceptConnection = async (connectPromise: Promise<void>): Promise<TestWebS
         connections: 1,
         hostname: "test",
         id: "srv_test",
-        protocolVersion: 1,
+        protocolVersion: 2,
         runtimeState: "ready",
         startedAt: "2026-09-12T00:00:00.000Z",
         version: "0.0.0",
@@ -68,7 +68,7 @@ describe("Cypheria ACP SDK adapter", () => {
       clientId: "client-acp-v1",
       webSocketFactory: testWebSocketFactory,
     })
-    const connection = createAcpClient().connect(cypheria)
+    const connection = createAcpClient("gemini").connect(cypheria)
     const resultPromise = connection.agent.request<{ accepted: boolean }, { value: number }>(
       "_cypheria/test",
       { value: 7 }
@@ -78,6 +78,7 @@ describe("Cypheria ACP SDK adapter", () => {
 
     const request = parseClientMessageText(socket.sent.at(-1) ?? "")
     expect(request).toEqual({
+      agent: "gemini",
       payload: { method: "_cypheria/test", params: { value: 7 } },
       protocolVersion: 1,
       requestId: 0,
@@ -86,6 +87,7 @@ describe("Cypheria ACP SDK adapter", () => {
 
     socket.message(
       stringifyProtocolMessage({
+        agent: "gemini",
         payload: { requestId: 0, result: { accepted: true } },
         protocolVersion: 1,
         type: "agent.acp.extension.response",
@@ -102,7 +104,7 @@ describe("Cypheria ACP SDK adapter", () => {
       clientId: "client-acp-handler",
       webSocketFactory: testWebSocketFactory,
     })
-    const app = createAcpClient().onRequest(
+    const app = createAcpClient("gemini").onRequest(
       "_cypheria/uppercase",
       (params): { text: string } => {
         if (
@@ -122,6 +124,7 @@ describe("Cypheria ACP SDK adapter", () => {
 
     socket.message(
       stringifyProtocolMessage({
+        agent: "gemini",
         payload: { method: "_cypheria/uppercase", params: { text: "cypheria" } },
         protocolVersion: 1,
         requestId: "agent-request-1",
@@ -133,6 +136,7 @@ describe("Cypheria ACP SDK adapter", () => {
 
     const response = parseClientMessageText(socket.sent.at(-1) ?? "")
     expect(response).toEqual({
+      agent: "gemini",
       payload: { requestId: "agent-request-1", result: { text: "CYPHERIA" } },
       protocolVersion: 1,
       type: "agent.acp.extension.response",
@@ -148,7 +152,7 @@ describe("Cypheria ACP SDK adapter", () => {
       webSocketFactory: testWebSocketFactory,
     })
     let received: string | undefined
-    const app = createAcpClient().onNotification(
+    const app = createAcpClient("gemini").onNotification(
       "_cypheria/event",
       (params): { value: string } => {
         if (
@@ -170,6 +174,7 @@ describe("Cypheria ACP SDK adapter", () => {
 
     socket.message(
       stringifyProtocolMessage({
+        agent: "gemini",
         payload: { method: "_cypheria/event", params: { value: "ready" } },
         protocolVersion: 1,
         type: "agent.acp.extension.notification",
@@ -187,7 +192,7 @@ describe("Cypheria ACP SDK adapter", () => {
       clientId: "client-acp-connect-with",
       webSocketFactory: testWebSocketFactory,
     })
-    const resultPromise = createAcpClient().connectWith(cypheria, (agent) =>
+    const resultPromise = createAcpClient("gemini").connectWith(cypheria, (agent) =>
       agent.request<{ doubled: number }, { value: number }>("_cypheria/double", { value: 8 })
     )
     const socket = await acceptConnection(cypheria.connect())
@@ -196,6 +201,7 @@ describe("Cypheria ACP SDK adapter", () => {
     parseClientMessageText(socket.sent.at(-1) ?? "")
     socket.message(
       stringifyProtocolMessage({
+        agent: "gemini",
         payload: { requestId: 0, result: { doubled: 16 } },
         protocolVersion: 1,
         type: "agent.acp.extension.response",
@@ -211,7 +217,7 @@ describe("Cypheria ACP SDK adapter", () => {
       clientId: "client-acp-v2",
       webSocketFactory: testWebSocketFactory,
     })
-    const connection = createAcpV2Client().connect(cypheria)
+    const connection = createAcpV2Client("gemini").connect(cypheria)
     const initializePromise = connection.agent.request(acpV2Methods.agent.initialize, {
       info: { name: "cypheria-test", version: "1.0.0" },
       protocolVersion: ACP_V2_VERSION,
@@ -227,6 +233,7 @@ describe("Cypheria ACP SDK adapter", () => {
 
     socket.message(
       stringifyProtocolMessage({
+        agent: "gemini",
         payload: {
           requestId: initialize.requestId,
           result: {
@@ -249,11 +256,13 @@ describe("Cypheria ACP SDK adapter", () => {
     expect(batch.payload).toMatchObject({
       messages: [
         {
+          agent: "gemini",
           payload: { method: "_cypheria/first", params: { value: 1 } },
           protocolVersion: 2,
           type: "agent.acp.extension.notification",
         },
         {
+          agent: "gemini",
           payload: { method: "_cypheria/second", params: { value: 2 } },
           protocolVersion: 2,
           type: "agent.acp.extension.notification",
@@ -271,7 +280,7 @@ describe("Cypheria ACP SDK adapter", () => {
       reconnect: { enabled: false },
       webSocketFactory: testWebSocketFactory,
     })
-    const connection = createAcpClient().connect(cypheria)
+    const connection = createAcpClient("gemini").connect(cypheria)
     const resultPromise = connection.agent.request("_cypheria/pending", {})
     const socket = await acceptConnection(cypheria.connect())
     await tick()
@@ -288,13 +297,15 @@ describe("Cypheria ACP SDK adapter", () => {
       clientId: "client-acp-exclusive",
       webSocketFactory: testWebSocketFactory,
     })
-    const connection = createAcpClient().connect(cypheria)
+    const connection = createAcpClient("gemini").connect(cypheria)
 
-    expect(() => createAcpV2Client().connect(cypheria)).toThrow("already has an active connection")
+    expect(() => createAcpV2Client("gemini").connect(cypheria)).toThrow(
+      "already has an active connection"
+    )
 
     connection.close()
     await connection.closed
-    const nextConnection = createAcpClient().connect(cypheria)
+    const nextConnection = createAcpClient("gemini").connect(cypheria)
     nextConnection.close()
     await cypheria.close()
   })
@@ -304,12 +315,12 @@ describe("Cypheria ACP SDK adapter", () => {
       clientId: "client-acp-surface",
       webSocketFactory: testWebSocketFactory,
     })
-    const app = createAcpClient()
+    const app = createAcpClient("gemini")
 
     expect(app).toBeInstanceOf(ClientApp)
     expect(app).not.toBeInstanceOf(SdkClientApp)
     expect(app.onConnect(() => undefined)).toBe(app)
-    expect(Object.keys(cypheria.agent.acp).sort()).toEqual(["send", "subscribe"])
+    expect(Object.keys(cypheria.agent.acp("gemini")).sort()).toEqual(["agent", "send", "subscribe"])
     expect("ClientSideConnection" in acp).toBe(false)
     expect("AgentSideConnection" in acp).toBe(false)
     expect("TerminalHandle" in acp).toBe(false)

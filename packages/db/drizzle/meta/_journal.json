@@ -5,57 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1788271664894,
-      "tag": "0000_initial",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1788277461605,
-      "tag": "0001_moaning_agent_brand",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1788504061571,
-      "tag": "0002_pale_lord_tyger",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1788512182307,
-      "tag": "0003_typed_columns",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1788518744135,
-      "tag": "0004_nappy_shape",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1788529202526,
-      "tag": "0005_faithful_old_lace",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1788529649853,
-      "tag": "0006_clean_phantom_reporter",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "6",
-      "when": 1788531015449,
-      "tag": "0007_omniscient_magma",
+      "when": 1789639331961,
+      "tag": "0000_slimy_whistler",
       "breakpoints": true
     }
   ]

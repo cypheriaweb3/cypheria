@@ -38,7 +38,7 @@ const acceptConnection = async (connectPromise: Promise<void>): Promise<TestWebS
         connections: 1,
         hostname: "test",
         id: "srv_test",
-        protocolVersion: 1,
+        protocolVersion: 2,
         runtimeState: "ready",
         startedAt: "2026-09-11T00:00:00.000Z",
         version: "0.0.0",
@@ -80,7 +80,7 @@ describe("Cypheria client facade", () => {
     const claude = createClaudeClient(cypheria)
 
     const codexConnection = createCodexApp().connect(cypheria)
-    const acpConnection = createAcpApp().connect(cypheria)
+    const acpConnection = createAcpApp("gemini").connect(cypheria)
 
     expect(claude).toBeDefined()
     expect("startup" in claude).toBe(false)
@@ -221,7 +221,7 @@ describe("Cypheria client facade", () => {
           connections: 1,
           hostname: "test",
           id: "srv_test",
-          protocolVersion: 1,
+          protocolVersion: 2,
           runtimeState: "ready",
           startedAt: "2026-09-11T00:00:00.000Z",
           version: "0.0.0",
@@ -292,9 +292,12 @@ describe("Cypheria client facade", () => {
     })
     const socket = await acceptConnection(client.connect())
     const acpMessages: unknown[] = []
-    const unsubscribeAcp = client.agent.acp.subscribe((message) => acpMessages.push(message))
+    const unsubscribeAcp = client.agent
+      .acp("gemini")
+      .subscribe((message) => acpMessages.push(message))
     socket.message(
       stringifyProtocolMessage({
+        agent: "gemini",
         payload: { method: "_example/update", params: {} },
         protocolVersion: 1,
         type: "agent.acp.extension.notification",
@@ -303,6 +306,7 @@ describe("Cypheria client facade", () => {
 
     expect(acpMessages).toEqual([
       {
+        agent: "gemini",
         payload: { method: "_example/update", params: {} },
         protocolVersion: 1,
         type: "agent.acp.extension.notification",

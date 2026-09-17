@@ -37,8 +37,10 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 - **UI**：shadcn-style copied components、Base UI primitives、Cypheria CSS tokens、lucide-react
 - **Cypheria client protocol**：`@cypheria/protocol` 中版本化的 Zod contracts，并支持带元数据的 `bigint` 传输
 - **ACP client API**：以官方 `@agentclientprotocol/sdk@1.4.0` 为底层，在 Cypheria 可直接判别的逻辑 WebSocket 消息上提供自有的 SDK-shaped `client()` / `ClientApp` API
-- **Claude Code API**：在 `agent.claude.*` 下表示 `@anthropic-ai/claude-agent-sdk@0.3.270` 中适合网络传输的 query、session、control 与 stream contract，并由 `@cypheria/client/claude` 提供 SDK-shaped 门面；server dispatch 仍延后实现
-- **Pi RPC API**：在 `agent.pi.*` 下完整表示 `@earendil-works/pi-coding-agent@0.85.1` 的 `pi --mode rpc` command、event 与 extension UI contract，并由 `@cypheria/client/pi` 提供不持有进程的门面；server dispatch 仍延后实现
+- **Agent manager**：ACP Registry 同步、受管安装与工具链、显式 enable、生命周期 operation 和 disabled-agent 闸门
+- **Claude Code API**：在 `agent.claude.*` 下表示 `@anthropic-ai/claude-agent-sdk@0.3.270` 中适合网络传输的 query、session、control 与 stream contract，并提供 SDK-shaped client 与 per-session server runtime
+- **Pi RPC API**：在 `agent.pi.*` 下完整表示 `@earendil-works/pi-coding-agent@0.85.1` 的 `pi --mode rpc` command、event 与 extension UI contract，并由 server 按 session 持有 JSONL 进程
+- **OpenCode API**：通过共享的 loopback OpenCode server 暴露 `@opencode-ai/sdk@1.18.31` 稳定 root API 与两条 event stream
 - **Desktop agent integration**：`codex app-server` over WebSocket JSON-RPC
 - **Codex protocol types 与 validation**：由 `@cypheria/protocol` 持有，并通过 `pnpm --filter @cypheria/protocol generate:codex-all` 生成
 - **Marketplace hosting**：Cloudflare Workers、D1、R2、Queues 与 Workflows
@@ -49,6 +51,7 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 完整的 generated Codex App Server API 见 [docs/codex-app-server-api.zh-CN.md](docs/codex-app-server-api.zh-CN.md)。
 Codex 有效配置在 process、thread、turn、reload 与 tool planning 各生命周期中的使用方式见 [docs/codex-app-server-config.zh-CN.md](docs/codex-app-server-config.zh-CN.md)。
 Claude Agent SDK wire mapping 见 [docs/claude-agent-sdk-protocol.zh-CN.md](docs/claude-agent-sdk-protocol.zh-CN.md)。
+Registry、安装、enable、工具链与 runtime ownership 见 [docs/agent-management.zh-CN.md](docs/agent-management.zh-CN.md)。
 Pi RPC wire mapping 见 [docs/pi-rpc-protocol.zh-CN.md](docs/pi-rpc-protocol.zh-CN.md)。
 
 ## 架构
@@ -156,6 +159,8 @@ $CYPHERIA_HOME/
   vault/        加密钱包 vault 文件和 metadata
   logs/         app、automation、policy 和 audit logs
   cache/        可丢弃 app caches
+  toolchains/   受管 Node、Python、uv 与不可变 Python environments
+  agents/       运行时 ACP registry，以及受管 agent versions、home、staging data 与 receipts
   browser/      dApp browser session partitions 和 metadata
   automation/   task definitions、run state 和 worker metadata
   config/       Cypheria settings

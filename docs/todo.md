@@ -105,6 +105,11 @@ Status legend:
   - Exclude: server process launch/dispatch, child-process lifecycle, stderr, executable/environment configuration, and signals.
   - Verification: protocol/client tests, typechecks, builds, full repository CI/build, and paired documentation.
 
+- [x] Add unified agent registry, managed toolchains, installation, enablement, and server runtimes.
+  - Acceptance: protocol v2 carries static generated ACP agent IDs; the server conditionally refreshes the registry hourly; install/update/uninstall are observable operations; enable is separate and disabled agents cannot start or receive business calls.
+  - Include: one database baseline with `agent_registry`; latest stable managed Node/Python/uv below `$CYPHERIA_HOME`; immutable Python environments shared by complete hashed dependency lock; native Codex/Claude/Pi/OpenCode installers and runtimes; binary/npx/uvx registry installers; stable OpenCode SDK root and both event streams; client manager and OpenCode facades.
+  - Verification: registry, database baseline, toolchain fingerprint/lease/GC, protocol, client, and server tests; full repository CI/build; paired documentation.
+
 - [ ] Migrate desktop to the Cypheria server after explicit review.
   - Acceptance: Electron main ensures the local supervised server is running, desktop uses the shared protocol, and Electron-only dApp/browser, secure-storage, approval, preload, and OS-integration boundaries remain intact.
   - Prerequisite: explicit approval of the server foundation; do not begin as part of the foundation change.

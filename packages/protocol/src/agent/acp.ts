@@ -58,6 +58,7 @@ import {
   acpDiscriminatedUnion,
   acpResponseSchema,
 } from "./acp-schema-registry.ts"
+import { RegistryAgentIdSchema } from "./registry.ts"
 
 export * from "../generated/acp/messages.ts"
 export { AcpErrorResponseSchema, AcpJsonRpcIdSchema } from "./acp-schema-registry.ts"
@@ -139,6 +140,7 @@ const extensionRequestSchema = <const ProtocolVersion extends 1 | 2, const Type 
   type: Type
 ) =>
   z.object({
+    agent: RegistryAgentIdSchema,
     payload: extensionPayloadSchema,
     protocolVersion: z.literal(protocolVersion),
     requestId: AcpJsonRpcIdSchema,
@@ -153,6 +155,7 @@ const extensionNotificationSchema = <
   type: Type
 ) =>
   z.object({
+    agent: RegistryAgentIdSchema,
     payload: extensionPayloadSchema,
     protocolVersion: z.literal(protocolVersion),
     type: z.literal(type),
@@ -195,11 +198,13 @@ export type AgentAcpV2ExtensionResponse = z.infer<typeof AgentAcpV2ExtensionResp
 export type AgentAcpV2ExtensionNotification = z.infer<typeof AgentAcpV2ExtensionNotificationSchema>
 
 export const AgentAcpV1CancelRequestNotificationSchema = z.object({
+  agent: RegistryAgentIdSchema,
   payload: acpV1Zod.zCancelRequestNotification,
   protocolVersion: z.literal(1),
   type: z.literal("agent.acp.cancel_request.notification"),
 })
 export const AgentAcpV2CancelRequestNotificationSchema = z.object({
+  agent: RegistryAgentIdSchema,
   payload: acpV2Zod.zCancelRequestNotification,
   protocolVersion: z.literal(2),
   type: z.literal("agent.acp.cancel_request.notification"),
@@ -295,29 +300,43 @@ const acpBatchMessagesSchema = <const Type extends string, Message>(
   messageSchema: z.ZodType<Message>,
   initializeType: string
 ) =>
-  z.object({
-    payload: z
-      .object({ messages: z.array(messageSchema).nonempty() })
-      .superRefine(({ messages }, context) => {
-        const responseCount = messages.filter((message) =>
-          (message as { type: string }).type.endsWith(".response")
-        ).length
-        if (responseCount > 0 && responseCount !== messages.length) {
-          context.addIssue({ code: "custom", message: "ACP batch cannot mix calls and responses" })
-        }
-        if (
-          messages.some((message) => (message as { type: string }).type === initializeType) &&
-          messages.length !== 1
-        ) {
-          context.addIssue({
-            code: "custom",
-            message: "ACP initialize must be the only entry in its batch",
-          })
-        }
-      }),
-    protocolVersion: z.literal(2),
-    type: z.literal(type),
-  })
+  z
+    .object({
+      agent: RegistryAgentIdSchema,
+      payload: z
+        .object({ messages: z.array(messageSchema).nonempty() })
+        .superRefine(({ messages }, context) => {
+          const agents = new Set(messages.map((message) => (message as { agent: string }).agent))
+          if (agents.size !== 1) {
+            context.addIssue({ code: "custom", message: "ACP batch entries must use one agent" })
+          }
+          const responseCount = messages.filter((message) =>
+            (message as { type: string }).type.endsWith(".response")
+          ).length
+          if (responseCount > 0 && responseCount !== messages.length) {
+            context.addIssue({
+              code: "custom",
+              message: "ACP batch cannot mix calls and responses",
+            })
+          }
+          if (
+            messages.some((message) => (message as { type: string }).type === initializeType) &&
+            messages.length !== 1
+          ) {
+            context.addIssue({
+              code: "custom",
+              message: "ACP initialize must be the only entry in its batch",
+            })
+          }
+        }),
+      protocolVersion: z.literal(2),
+      type: z.literal(type),
+    })
+    .superRefine(({ agent, payload }, context) => {
+      if (payload.messages.some((message) => (message as { agent: string }).agent !== agent)) {
+        context.addIssue({ code: "custom", message: "ACP batch agent must match every entry" })
+      }
+    })
 
 export const AgentAcpV2ClientBatchMessagesSchema = acpBatchMessagesSchema(
   "agent.acp.batch",

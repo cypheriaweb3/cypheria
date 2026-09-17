@@ -244,6 +244,15 @@ importers:
 
   apps/server:
     dependencies:
+      '@agentclientprotocol/sdk':
+        specifier: 1.4.0
+        version: 1.4.0(patch_hash=a1d8a0a08bf8b0459cc70226380a92de11417af05f8f1dd34be0b447df17314d)(zod@4.6.2)
+      '@anthropic-ai/claude-agent-sdk':
+        specifier: 0.3.270
+        version: 0.3.270(@anthropic-ai/sdk@0.125.0(zod@4.6.2))(@modelcontextprotocol/sdk@1.29.0(zod@4.6.2))(zod@4.6.2)
+      '@cypheria/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@cypheria/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -253,18 +262,30 @@ importers:
       '@cypheria/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
+      '@earendil-works/pi-coding-agent':
+        specifier: 0.85.1
+        version: 0.85.1(@modelcontextprotocol/sdk@1.29.0(zod@4.6.2))(ws@8.21.3)(zod@4.6.2)
       '@hono/node-server':
         specifier: ^2.1.1
         version: 2.1.1(hono@4.13.7)
       '@hono/zod-validator':
         specifier: ^0.9.1
         version: 0.9.1(hono@4.13.7)(zod@4.6.2)
+      '@opencode-ai/sdk':
+        specifier: 1.18.31
+        version: 1.18.31
+      extract-zip:
+        specifier: ^2.0.1
+        version: 2.0.1
       hono:
         specifier: ^4.13.7
         version: 4.13.7
       pino:
         specifier: ^10.3.1
         version: 10.3.1
+      tar:
+        specifier: ^7.5.11
+        version: 7.5.22
       ws:
         specifier: ^8.21.3
         version: 8.21.3
@@ -343,7 +364,16 @@ importers:
       '@cypheria/relay':
         specifier: workspace:*
         version: link:../relay
+      '@opencode-ai/sdk':
+        specifier: 1.18.31
+        version: 1.18.31
+      semver:
+        specifier: ^7.8.5
+        version: 7.8.5
     devDependencies:
+      '@types/semver':
+        specifier: ^7.8.0
+        version: 7.8.0
       vitest:
         specifier: ^4.1.7
         version: 4.1.7(@types/node@25.9.1)(jsdom@30.0.1(@noble/hashes@1.8.0))(msw@2.14.6(@types/node@25.9.1)(typescript@6.0.3))(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.0))
@@ -438,6 +468,9 @@ importers:
       '@earendil-works/pi-coding-agent':
         specifier: 0.85.1
         version: 0.85.1(@modelcontextprotocol/sdk@1.29.0(zod@4.6.2))(ws@8.21.3)(zod@4.6.2)
+      '@opencode-ai/sdk':
+        specifier: 1.18.31
+        version: 1.18.31
       superjson:
         specifier: ^2.2.6
         version: 2.2.6
@@ -3056,6 +3089,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@opencode-ai/sdk@1.18.31':
+    resolution: {integrity: sha512-Raouthf8Lhe9edjvYeeSK7SgvdoU6bBjH9qV3f70dHoa6h+z0X2TMz/e22/wKp/StlFUZ4kIRpYYxFnY8/k01w==}
+
   '@oxc-project/types@0.132.0':
     resolution: {integrity: sha512-FESMOxil5Se014ui/Eq8fT5uHJo6nIRwH0PfJrZJXs6Gek3ZVFOrpUv3YIZT20m+extU98Hg1Ym72U58rlsxUQ==}
 
@@ -4307,6 +4343,9 @@ packages:
 
   '@types/retry@0.12.0':
     resolution: {integrity: sha512-wWKOClTTiizcZhXnPY4wikVAwmdYHp8q6DmC+EJUzAMsycb7HB32Kh9RN4+0gExjmPmZSAQjgURXIGATPegAvA==}
+
+  '@types/semver@7.8.0':
+    resolution: {integrity: sha512-1mAINjtQCXXeLkJ9ehXkwOcBpqtLxiVtKhpUf83DdRNdQKV0iXZpaHYqRr7nj+wvxuJzoAmAwXI+sCNMv1CzLQ==}
 
   '@types/set-cookie-parser@2.4.10':
     resolution: {integrity: sha512-GGmQVGpQWUe5qglJozEjZV/5dyxbOOZ0LHe/lqyWssB88Y4svNfst0uqBVscdDeIKl5Jy5+aPSvy7mI9tYRguw==}
@@ -8255,11 +8294,6 @@ packages:
     engines: {node: '>=10'}
     hasBin: true
 
-  semver@7.8.1:
-    resolution: {integrity: sha512-rkVq3IXh+4FDGch+KwzX3aV9W3kO54GyEgpvBzSyctDA6Xtd7RJQV1xmXbeQp5v7+VzLOfVqiutSE6GICgPFvg==}
-    engines: {node: '>=10'}
-    hasBin: true
-
   semver@7.8.4:
     resolution: {integrity: sha512-rUCObTnP32Q08R2uuIrt7r9PlEonuTmtuXYcW6s5kjdlj3xbnwe+21yXptAUYcMAABLkYYTtnmzb3w3EDZfueA==}
     engines: {node: '>=10'}
@@ -9757,7 +9791,7 @@ snapshots:
       import-meta-resolve: 4.2.0
       json5: 2.2.3
       obug: 2.1.1
-      semver: 7.8.1
+      semver: 7.8.5
 
   '@babel/generator@7.29.7':
     dependencies:
@@ -9803,7 +9837,7 @@ snapshots:
       '@babel/helper-validator-option': 8.0.0
       browserslist: 4.28.2
       lru-cache: 11.5.2
-      semver: 7.8.1
+      semver: 7.8.5
 
   '@babel/helper-create-class-features-plugin@7.29.7(@babel/core@7.29.7)':
     dependencies:
@@ -10571,7 +10605,7 @@ snapshots:
       env-paths: 3.0.0
       graceful-fs: 4.2.11
       progress: 2.0.3
-      semver: 7.8.1
+      semver: 7.8.5
       sumchecker: 3.0.1
     optionalDependencies:
       undici: 7.26.0
@@ -11973,6 +12007,10 @@ snapshots:
 
   '@openai/codex@0.153.4-win32-x64':
     optional: true
+
+  '@opencode-ai/sdk@1.18.31':
+    dependencies:
+      cross-spawn: 7.0.6
 
   '@oxc-project/types@0.132.0': {}
 
@@ -13399,6 +13437,8 @@ snapshots:
       csstype: 3.2.3
 
   '@types/retry@0.12.0': {}
+
+  '@types/semver@7.8.0': {}
 
   '@types/set-cookie-parser@2.4.10':
     dependencies:
@@ -17012,13 +17052,13 @@ snapshots:
 
   node-abi@4.35.0:
     dependencies:
-      semver: 7.8.1
+      semver: 7.8.5
 
   node-addon-api@7.1.1: {}
 
   node-api-version@0.2.1:
     dependencies:
-      semver: 7.8.1
+      semver: 7.8.5
 
   node-domexception@1.0.0: {}
 
@@ -17041,7 +17081,7 @@ snapshots:
       graceful-fs: 4.2.11
       nopt: 9.0.0
       proc-log: 6.1.0
-      semver: 7.8.1
+      semver: 7.8.5
       tar: 7.5.22
       tinyglobby: 0.2.16
       undici: 6.28.1
@@ -18051,8 +18091,6 @@ snapshots:
 
   semver@7.8.0: {}
 
-  semver@7.8.1: {}
-
   semver@7.8.4: {}
 
   semver@7.8.5: {}
@@ -18599,7 +18637,7 @@ snapshots:
       picomatch: 4.0.4
       rolldown: 1.0.2
       rolldown-plugin-dts: 0.25.1(rolldown@1.0.2)(typescript@6.0.3)
-      semver: 7.8.1
+      semver: 7.8.5
       tinyexec: 1.2.2
       tinyglobby: 0.2.16
       tree-kill: 1.2.2

@@ -17,7 +17,7 @@ import { TestWebSocket, testWebSocketFactory } from "./test-websocket.js"
 const identity: ServerIdentity = {
   hostname: "test",
   id: "srv_pi",
-  protocolVersion: 1,
+  protocolVersion: 2,
   startedAt: "2026-09-15T00:00:00.000Z",
   version: "0.0.0",
 }

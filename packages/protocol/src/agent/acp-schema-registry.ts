@@ -1,6 +1,7 @@
 import type { ErrorResponse, JsonRpcId } from "@agentclientprotocol/sdk"
 import { zError as AcpSdkErrorSchema } from "@agentclientprotocol/sdk/zod"
 import { z } from "zod"
+import { type RegistryAgentId, RegistryAgentIdSchema } from "./registry.ts"
 
 export const AcpJsonRpcIdSchema: z.ZodType<JsonRpcId> = z.union([
   z.string(),
@@ -14,6 +15,7 @@ export const AcpErrorResponseSchema: z.ZodType<ErrorResponse> = AcpSdkErrorSchem
 )
 
 type AcpRequest<ProtocolVersion extends number, Type extends string, Params> = {
+  readonly agent: RegistryAgentId
   readonly protocolVersion: ProtocolVersion
   readonly requestId: JsonRpcId
   readonly type: Type
@@ -24,12 +26,14 @@ export type AcpResponsePayload<Result> =
   | { readonly requestId: JsonRpcId; readonly result: Result }
 
 type AcpResponse<ProtocolVersion extends number, Type extends string, Result> = {
+  readonly agent: RegistryAgentId
   readonly payload: AcpResponsePayload<Result>
   readonly protocolVersion: ProtocolVersion
   readonly type: Type
 }
 
 type AcpNotification<ProtocolVersion extends number, Type extends string, Params> = {
+  readonly agent: RegistryAgentId
   readonly payload: Params
   readonly protocolVersion: ProtocolVersion
   readonly type: Type
@@ -63,12 +67,13 @@ export const acpRequestSchema = <
   jsonMessage(
     z
       .looseObject({
+        agent: RegistryAgentIdSchema,
         protocolVersion: z.literal(protocolVersion),
         requestId: AcpJsonRpcIdSchema,
         type: z.literal(type),
       })
       .transform((message, context) => {
-        const { requestId, type: messageType, ...params } = message
+        const { agent, requestId, type: messageType, ...params } = message
         const parsed = paramsSchema.safeParse(params)
         if (!parsed.success) {
           addIssues(context, parsed.error.issues)
@@ -76,6 +81,7 @@ export const acpRequestSchema = <
         }
         return {
           ...(parsed.data as Record<string, unknown>),
+          agent,
           protocolVersion,
           requestId,
           type: messageType,
@@ -135,6 +141,7 @@ export const acpResponseSchema = <
 
   return jsonMessage(
     z.object({
+      agent: RegistryAgentIdSchema,
       payload: payloadSchema,
       protocolVersion: z.literal(protocolVersion),
       type: z.literal(type),
@@ -159,6 +166,7 @@ export const acpNotificationSchema = <
 ): z.ZodType<AcpNotification<ProtocolVersion, Type, z.output<ParamsSchema>>> =>
   jsonMessage(
     z.object({
+      agent: RegistryAgentIdSchema,
       payload: paramsSchema,
       protocolVersion: z.literal(protocolVersion),
       type: z.literal(type),

@@ -22,6 +22,7 @@ import {
   type AgentAcpClientMessage,
   AgentAcpClientMessageSchema,
   type AgentAcpServerMessage,
+  type RegistryAgentId,
 } from "@cypheria/protocol"
 
 export type AcpTransportState =
@@ -33,11 +34,14 @@ export type AcpTransportState =
 
 /** Logical ACP messages sent over one Cypheria server connection. */
 export interface AcpEndpoint {
+  readonly agent: RegistryAgentId
   send(message: AgentAcpClientMessage): Promise<void>
   subscribe(handler: (message: AgentAcpServerMessage) => void): () => void
 }
 
-interface AcpEndpointTransport extends AcpEndpoint {
+interface AcpEndpointTransport {
+  send(message: AgentAcpClientMessage): Promise<void>
+  subscribe(handler: (message: AgentAcpServerMessage) => void): () => void
   subscribeConnectionStatus?(handler: (state: AcpTransportState) => void): () => void
 }
 
@@ -132,7 +136,7 @@ const rawResponse = (payload: unknown): RawMessage => {
   return { id: requestId as JsonRpcId, jsonrpc: "2.0", ...result }
 }
 
-const createLogicalCodec = (version: 1 | 2) => {
+const createLogicalCodec = (version: 1 | 2, agent: RegistryAgentId) => {
   const definition = codecDefinitions[version]
   const inboundResponseTypes = new Map<string, string>()
 
@@ -148,12 +152,14 @@ const createLogicalCodec = (version: 1 | 2) => {
               : version
           return AgentAcpClientMessageSchema.parse({
             ...params,
+            agent,
             protocolVersion: logicalProtocolVersion,
             requestId: message.id,
             type: rpc.request,
           })
         }
         return AgentAcpClientMessageSchema.parse({
+          agent,
           payload: {
             method: message.method,
             ...(message.params === undefined ? {} : { params: message.params }),
@@ -166,6 +172,7 @@ const createLogicalCodec = (version: 1 | 2) => {
 
       if (message.method === definition.cancelMethod) {
         return AgentAcpClientMessageSchema.parse({
+          agent,
           payload: message.params,
           protocolVersion: version,
           type: definition.cancelType,
@@ -174,12 +181,14 @@ const createLogicalCodec = (version: 1 | 2) => {
       const notification = definition.clientNotifications[message.method]
       if (notification) {
         return AgentAcpClientMessageSchema.parse({
+          agent,
           payload: message.params,
           protocolVersion: version,
           type: notification.notification,
         })
       }
       return AgentAcpClientMessageSchema.parse({
+        agent,
         payload: {
           method: message.method,
           ...(message.params === undefined ? {} : { params: message.params }),
@@ -196,6 +205,7 @@ const createLogicalCodec = (version: 1 | 2) => {
       throw new TypeError(`ACP response has no matching inbound request: ${String(responseId)}`)
     inboundResponseTypes.delete(requestIdKey(responseId))
     return AgentAcpClientMessageSchema.parse({
+      agent,
       payload: responsePayload(message),
       protocolVersion: version,
       type: responseType,
@@ -206,6 +216,7 @@ const createLogicalCodec = (version: 1 | 2) => {
     if (Array.isArray(wire)) {
       if (!definition.batchType) throw new TypeError("ACP v1 does not support JSON-RPC batches")
       return AgentAcpClientMessageSchema.parse({
+        agent,
         payload: { messages: wire.map((message) => encodeSingle(message as RawMessage)) },
         protocolVersion: version,
         type: definition.batchType,
@@ -253,7 +264,7 @@ const createLogicalCodec = (version: 1 | 2) => {
       const rpc = definition.serverRpc[requestMethod]
       if (!rpc) throw new TypeError(`Unknown ACP server request method: ${requestMethod}`)
       const request = message as { requestId: JsonRpcId; type: string } & Record<string, unknown>
-      const { protocolVersion, requestId, type: _type, ...params } = request
+      const { agent: _agent, protocolVersion, requestId, type: _type, ...params } = request
       const rawParams = requestMethod === "initialize" ? { ...params, protocolVersion } : params
       inboundResponseTypes.set(requestIdKey(requestId), rpc.response)
       return { id: requestId, jsonrpc: "2.0", method: requestMethod, params: rawParams }
@@ -285,8 +296,12 @@ const createLogicalCodec = (version: 1 | 2) => {
 }
 
 /** @internal Creates a stable public endpoint while retaining private lifecycle hooks. */
-export const createAcpEndpoint = (transport: AcpEndpointTransport): AcpEndpoint => {
+export const createAcpEndpoint = (
+  agent: RegistryAgentId,
+  transport: AcpEndpointTransport
+): AcpEndpoint => {
   const endpoint: AcpEndpoint = {
+    agent,
     send: (message) => transport.send(message),
     subscribe: (handler) => transport.subscribe(handler),
   }
@@ -300,7 +315,7 @@ const createBridgeStream = <OutgoingMessage, IncomingMessage>(
   onClose: () => void
 ): BridgeStream<OutgoingMessage, IncomingMessage> => {
   const transport: AcpEndpointTransport = endpointTransports.get(endpoint) ?? endpoint
-  const codec = createLogicalCodec(protocolVersion)
+  const codec = createLogicalCodec(protocolVersion, endpoint.agent)
   let active = true
   let controller: ReadableStreamDefaultController<IncomingMessage> | undefined
   let unsubscribeMessages: (() => void) | undefined
@@ -334,7 +349,12 @@ const createBridgeStream = <OutgoingMessage, IncomingMessage>(
     start(readableController) {
       controller = readableController
       const removeMessages = transport.subscribe((message) => {
-        if (!active || message.protocolVersion !== protocolVersion) return
+        if (
+          !active ||
+          message.protocolVersion !== protocolVersion ||
+          message.agent !== endpoint.agent
+        )
+          return
         try {
           readableController.enqueue(codec.decode(message) as IncomingMessage)
         } catch (error) {
