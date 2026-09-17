@@ -47,6 +47,7 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 
 完整技术选型见 [docs/technical-stack.zh-CN.md](docs/technical-stack.zh-CN.md)。
 完整的 generated Codex App Server API 见 [docs/codex-app-server-api.zh-CN.md](docs/codex-app-server-api.zh-CN.md)。
+Codex 有效配置在 process、thread、turn、reload 与 tool planning 各生命周期中的使用方式见 [docs/codex-app-server-config.zh-CN.md](docs/codex-app-server-config.zh-CN.md)。
 Claude Agent SDK wire mapping 见 [docs/claude-agent-sdk-protocol.zh-CN.md](docs/claude-agent-sdk-protocol.zh-CN.md)。
 Pi RPC wire mapping 见 [docs/pi-rpc-protocol.zh-CN.md](docs/pi-rpc-protocol.zh-CN.md)。
 

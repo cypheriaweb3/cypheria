@@ -47,6 +47,7 @@ The default safety model is human approval. Read-only mode and conditional auto-
 
 See [docs/technical-stack.md](docs/technical-stack.md) for the full technical stack.
 See [docs/codex-app-server-api.md](docs/codex-app-server-api.md) for the complete generated Codex App Server API reference.
+See [docs/codex-app-server-config.md](docs/codex-app-server-config.md) for how effective Codex configuration is consumed across process, thread, turn, reload, and tool-planning lifetimes.
 See [docs/claude-agent-sdk-protocol.md](docs/claude-agent-sdk-protocol.md) for the Claude Agent SDK wire mapping.
 See [docs/pi-rpc-protocol.md](docs/pi-rpc-protocol.md) for the Pi RPC wire mapping.
 

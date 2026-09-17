@@ -6,6 +6,8 @@ The Cypheria client protocol exposes this complete surface with mechanically gen
 
 The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method`, and method-specific `params`; server requests use the same shape in the reverse direction; notifications have no `id`; successful responses contain `id` and `result`; errors contain `id` and `error`. A trailing `?` below marks an optional top-level field. The generated type named before each field list is the source of truth for nested structures and enum values.
 
+For the runtime meaning of `config.toml`, request-level `config`, reload behavior, and the distinction between process, thread, turn, and tool-planning state, see [Codex App Server configuration runtime semantics](codex-app-server-config.md).
+
 ## Client requests (158)
 
 ### Initialization

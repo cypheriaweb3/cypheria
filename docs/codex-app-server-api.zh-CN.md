@@ -6,6 +6,8 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 
 协议采用 JSON-RPC 风格消息。客户端请求包含 `id`、`method` 和各方法专用的 `params`；服务端反向请求使用相同结构但方向相反；通知没有 `id`；成功响应包含 `id` 和 `result`；错误响应包含 `id` 和 `error`。下文顶层字段名后的 `?` 表示可选。字段列表前的生成类型名是嵌套结构和枚举值的最终依据。
 
+`config.toml`、request-level `config`、reload 行为，以及 process、thread、turn 与 tool-planning state 的运行时区别见 [Codex App Server 配置运行时语义](codex-app-server-config.zh-CN.md)。
+
 ## 客户端请求（158）
 
 ### 初始化
