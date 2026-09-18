@@ -7,7 +7,7 @@ import {
   createSigningPolicyPersistenceService,
   createWalletPublicStatePersistenceService,
 } from "@cypheria/db"
-import { hexAddressSchema, type SigningAccountRef } from "@cypheria/wallet-core"
+import { hexAddressSchema, type SigningAccountRef } from "@cypheria/web3/wallet"
 import { describe, expect, it } from "vitest"
 
 import { createSigningPolicyRuntimeService } from "../policy-service/index.js"

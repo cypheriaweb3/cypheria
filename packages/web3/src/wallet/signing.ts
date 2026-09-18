@@ -1,6 +1,6 @@
-import { type ChainKey, chainKeySchema } from "@cypheria/network-core"
 import type { Address, Hex, SignableMessage, TypedData, TypedDataDefinition } from "viem"
 import { z } from "zod"
+import { type ChainKey, chainKeySchema } from "../network/index.js"
 
 import {
   type ChainAccountId,

@@ -1,10 +1,10 @@
+import { z } from "zod"
 import {
   type ChainKey,
   type NetworkDefinition,
   type NetworkId,
   toChainKey,
-} from "@cypheria/network-core"
-import { z } from "zod"
+} from "../network/index.js"
 
 import {
   type ChainAccount,

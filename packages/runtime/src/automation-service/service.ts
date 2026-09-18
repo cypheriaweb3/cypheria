@@ -23,7 +23,7 @@ import type {
   AutomationPersistenceService,
   SigningIntentRecord,
 } from "@cypheria/db"
-import { chainKeySchema } from "@cypheria/network-core"
+import { chainKeySchema } from "@cypheria/web3/network"
 import { z } from "zod"
 
 import type { RuntimeService } from "../index.js"

@@ -1,6 +1,6 @@
 import { lookup } from "node:dns/promises"
 import { isIP } from "node:net"
-import { isLoopbackHostname } from "@cypheria/network-core"
+import { isLoopbackHostname } from "@cypheria/web3/network"
 
 export type ResolveRpcAddresses = (hostname: string) => Promise<readonly string[]>
 

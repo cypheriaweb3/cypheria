@@ -7,7 +7,7 @@ import {
   installSolanaWalletInMainWorld,
   updateSolanaWalletAccountsInMainWorld,
   walletProviderEventSchema,
-} from "@cypheria/wallet-provider"
+} from "@cypheria/web3/provider"
 import { SOLANA_CHAINS } from "@solana/wallet-standard-chains"
 import { contextBridge, ipcRenderer } from "electron"
 

@@ -8,8 +8,7 @@ import {
   type NetworkDefinition,
   parseChainKey,
   toChainKey,
-} from "@cypheria/network-core"
-import type { SigningAccountRef, WalletMode } from "@cypheria/wallet-core"
+} from "@cypheria/web3/network"
 import {
   DappSessionError,
   type DappSessionManager,
@@ -22,7 +21,8 @@ import {
   type ProviderRequest,
   type ProviderResponse,
   providerRequestSchema,
-} from "@cypheria/wallet-provider"
+} from "@cypheria/web3/provider"
+import type { SigningAccountRef, WalletMode } from "@cypheria/web3/wallet"
 import { z } from "zod"
 
 import type { RuntimeService } from "../index.js"

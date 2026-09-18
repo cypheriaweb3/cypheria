@@ -1,7 +1,7 @@
-import { type ChainKey, chainKeySchema } from "@cypheria/network-core"
-import type { HexAddress, WalletId } from "@cypheria/wallet-core"
-import { hexAddressSchema, walletIdSchema } from "@cypheria/wallet-core"
 import { z } from "zod"
+import { type ChainKey, chainKeySchema } from "../network/index.js"
+import type { HexAddress, WalletId } from "../wallet/index.js"
+import { hexAddressSchema, walletIdSchema } from "../wallet/index.js"
 
 import { jsonRpcParamsSchema, jsonRpcValueSchema } from "./json-rpc.js"
 import {

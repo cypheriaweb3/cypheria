@@ -15,8 +15,8 @@ import {
   SigningPolicyObjectSchema,
   SigningPolicySchema,
   signingPolicyIdSchema,
-} from "@cypheria/policy-engine"
-import { walletIdSchema } from "@cypheria/wallet-core"
+} from "@cypheria/web3/policy"
+import { walletIdSchema } from "@cypheria/web3/wallet"
 import { z } from "zod"
 
 const createPolicyInputSchema = SigningPolicyObjectSchema.omit({ id: true })

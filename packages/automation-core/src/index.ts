@@ -1,5 +1,5 @@
-import { chainKeySchema } from "@cypheria/network-core"
-import { walletAccountIdSchema, walletIdSchema } from "@cypheria/wallet-core"
+import { chainKeySchema } from "@cypheria/web3/network"
+import { walletAccountIdSchema, walletIdSchema } from "@cypheria/web3/wallet"
 import { z } from "zod"
 
 export type AutomationTaskId = `task_${string}`

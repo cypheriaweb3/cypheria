@@ -1,5 +1,5 @@
-import { policyDecisions, type SigningPolicy } from "@cypheria/policy-engine"
-import { type WalletId, walletModes } from "@cypheria/wallet-core"
+import { policyDecisions, type SigningPolicy } from "@cypheria/web3/policy"
+import { type WalletId, walletModes } from "@cypheria/web3/wallet"
 import { sql } from "drizzle-orm"
 import { check, index, integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
 

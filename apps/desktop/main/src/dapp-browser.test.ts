@@ -1,4 +1,4 @@
-import { createDappSession } from "@cypheria/wallet-provider"
+import { createDappSession } from "@cypheria/web3/provider"
 import { describe, expect, it, vi } from "vitest"
 
 import { createDappBrowserController, DAPP_WEB_PREFERENCES } from "./dapp-browser.js"

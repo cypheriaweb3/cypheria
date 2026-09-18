@@ -9,7 +9,7 @@ import {
   type WalletId,
   walletAccountIdSchema,
   walletIdSchema,
-} from "@cypheria/wallet-core"
+} from "@cypheria/web3/wallet"
 import { z } from "zod"
 
 import { deleteFileAtomically, writeFileAtomically } from "./atomic-file.js"

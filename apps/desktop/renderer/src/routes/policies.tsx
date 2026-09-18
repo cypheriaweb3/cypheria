@@ -1,4 +1,3 @@
-import { type ChainKey, chainKeySchema } from "@cypheria/network-core"
 import { Badge } from "@cypheria/ui/components/badge"
 import { Button } from "@cypheria/ui/components/button"
 import {
@@ -26,6 +25,7 @@ import {
   SelectValue,
 } from "@cypheria/ui/components/select"
 import { Switch } from "@cypheria/ui/components/switch"
+import { type ChainKey, chainKeySchema } from "@cypheria/web3/network"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Pencil, Plus, ShieldCheck, ShieldOff } from "lucide-react"

@@ -6,7 +6,7 @@ import type {
   SigningIntentPersistenceService,
   SigningIntentRecord,
 } from "@cypheria/db"
-import { signingPolicyIdSchema } from "@cypheria/policy-engine"
+import { signingPolicyIdSchema } from "@cypheria/web3/policy"
 import {
   parseSigningIntent,
   personalSignIntentSchema,
@@ -15,7 +15,7 @@ import {
   solanaSigningIntentDraftSchema,
   transactionIntentSchema,
   typedDataSignIntentSchema,
-} from "@cypheria/wallet-core"
+} from "@cypheria/web3/wallet"
 import { z } from "zod"
 import type { SigningPolicyRuntimeService } from "../policy-service/index.js"
 import type { SigningAuthorization, SigningIntentAuthorizer } from "../wallet-signing/index.js"

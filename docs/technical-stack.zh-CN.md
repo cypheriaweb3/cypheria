@@ -342,12 +342,12 @@ Cypheria-specific components：
 | Asset providers | Alchemy / Reservoir / SimpleHash / Moralis 的 adapter boundary |
 | Transaction simulation | Tenderly / Blocknative first; self-hosted simulation later |
 
-核心 packages：
+`@cypheria/web3` 是唯一的 Web3 领域包，并提供四个可独立导入的子路径：
 
-- `@cypheria/network-core`：canonical chain identity、严格 network/RPC schema、catalog record 与 protocol conversion helper。
-- `@cypheria/wallet-core`：wallet/account/chain/signing intent models。
-- `@cypheria/wallet-provider`：origin-scoped dApp sessions、Ethereum EIP-1193/EIP-6963 injection 与 discovery、有界 Ethereum JSON-RPC 和 permissions、Solana Wallet Standard discovery 与 byte envelopes、protocol-scoped events，以及 persistence contracts。
-- `@cypheria/policy-engine`：signing policy schemas 和 deterministic evaluation。
+- `@cypheria/web3/network`：canonical chain identity、严格 network/RPC schema、catalog record 与 protocol conversion helper。
+- `@cypheria/web3/wallet`：wallet/account/chain/signing intent models。
+- `@cypheria/web3/provider`：origin-scoped dApp sessions、Ethereum EIP-1193/EIP-6963 injection 与 discovery、有界 Ethereum JSON-RPC 和 permissions、Solana Wallet Standard discovery 与 byte envelopes、protocol-scoped events，以及 persistence contracts。
+- `@cypheria/web3/policy`：signing policy schemas 和 deterministic evaluation。
 
 私钥永远不进入 renderer、dApp pages、localStorage、IndexedDB 或普通 SQLite tables。
 

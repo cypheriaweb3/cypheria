@@ -28,7 +28,7 @@ import {
   rpcEndpointSchema,
   timestampSchema,
   toChainKey,
-} from "@cypheria/network-core"
+} from "@cypheria/web3/network"
 import { z } from "zod"
 import type { NetworkCredential, NetworkCredentialStore } from "../network-credentials/index.js"
 import {

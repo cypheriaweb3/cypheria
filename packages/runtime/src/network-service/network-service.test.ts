@@ -4,7 +4,7 @@ import {
   createInMemoryDatabase,
   createNetworkPersistenceService,
 } from "@cypheria/db"
-import type { NetworkDefinition, RpcEndpoint } from "@cypheria/network-core"
+import type { NetworkDefinition, RpcEndpoint } from "@cypheria/web3/network"
 import { describe, expect, it, vi } from "vitest"
 import { createMemoryNetworkCredentialStore } from "../network-credentials/index.js"
 import {

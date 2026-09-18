@@ -344,12 +344,12 @@ Row menus use shared shadcn-style dropdown, submenu, dialog, input, and button p
 | Asset providers | Adapter boundary for Alchemy / Reservoir / SimpleHash / Moralis |
 | Transaction simulation | Tenderly / Blocknative first; self-hosted simulation later |
 
-Core packages:
+`@cypheria/web3` is the single Web3 domain package. It exposes four independently importable subpaths:
 
-- `@cypheria/network-core`: canonical chain identities, strict network/RPC schemas, catalog records, and protocol conversion helpers.
-- `@cypheria/wallet-core`: wallet/account/chain/signing intent models.
-- `@cypheria/wallet-provider`: origin-scoped dApp sessions, Ethereum EIP-1193/EIP-6963 injection and discovery, bounded Ethereum JSON-RPC and permissions, Solana Wallet Standard discovery and byte envelopes, protocol-scoped events, and persistence contracts.
-- `@cypheria/policy-engine`: signing policy schemas and deterministic evaluation.
+- `@cypheria/web3/network`: canonical chain identities, strict network/RPC schemas, catalog records, and protocol conversion helpers.
+- `@cypheria/web3/wallet`: wallet/account/chain/signing intent models.
+- `@cypheria/web3/provider`: origin-scoped dApp sessions, Ethereum EIP-1193/EIP-6963 injection and discovery, bounded Ethereum JSON-RPC and permissions, Solana Wallet Standard discovery and byte envelopes, protocol-scoped events, and persistence contracts.
+- `@cypheria/web3/policy`: signing policy schemas and deterministic evaluation.
 
 Private keys never enter renderer, dApp pages, localStorage, IndexedDB, or normal SQLite tables.
 

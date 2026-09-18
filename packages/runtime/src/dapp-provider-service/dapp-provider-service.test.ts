@@ -7,8 +7,8 @@ import {
   type DappNetworkContext,
   type SigningIntentRecord,
 } from "@cypheria/db"
-import { parseSigningIntent, type SigningAccountRef } from "@cypheria/wallet-core"
-import { createDappSessionManager, createProviderBridge } from "@cypheria/wallet-provider"
+import { createDappSessionManager, createProviderBridge } from "@cypheria/web3/provider"
+import { parseSigningIntent, type SigningAccountRef } from "@cypheria/web3/wallet"
 import { describe, expect, it, vi } from "vitest"
 
 import { CypheriaRuntime } from "../index.js"

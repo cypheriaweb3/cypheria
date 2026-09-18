@@ -1,10 +1,10 @@
-import type { ChainKey } from "@cypheria/network-core"
-import type { WalletId } from "@cypheria/wallet-core"
+import type { ChainKey } from "@cypheria/web3/network"
 import type {
   DappSessionKey,
   EthereumProviderPermissionRecord,
   SolanaProviderPermissionRecord,
-} from "@cypheria/wallet-provider"
+} from "@cypheria/web3/provider"
+import type { WalletId } from "@cypheria/web3/wallet"
 import { index, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core"
 
 import { wallets } from "./wallet.js"

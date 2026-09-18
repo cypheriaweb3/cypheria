@@ -40,7 +40,7 @@ Cypheria should retain those behaviors, but not copy the underlying model. The A
 
 ## Package Boundaries
 
-### `@cypheria/network-core`
+### `@cypheria/web3/network`
 
 A new Electron-independent domain package owns:
 
@@ -55,10 +55,10 @@ It does not own databases, network requests, Electron, credentials, wallet state
 
 ### Other packages
 
-- `@cypheria/wallet-core` imports chain identity primitives from `@cypheria/network-core`. `ChainAccount` records identity, address, and derivation information; it does not own RPC configuration. The existing `ChainDefinition` and `RpcEndpoint` types move out of wallet-core.
+- `@cypheria/web3/wallet` imports chain identity primitives from `@cypheria/web3/network`. `ChainAccount` records identity, address, and derivation information; it does not own RPC configuration. `ChainDefinition` and `RpcEndpoint` remain network-domain types.
 - `@cypheria/db` persists networks, endpoints, ordering, revisions, and active contexts. It never stores protected connection material in ordinary columns.
 - `@cypheria/runtime` owns `NetworkManager`, endpoint probing, RPC routing, health state, credential resolution, audit, and coordination with wallets and dApps.
-- `@cypheria/wallet-provider` remains a protocol surface. It converts EIP-1193 hexadecimal chain IDs and Solana Wallet Standard identifiers at its boundary, but does not choose endpoints.
+- `@cypheria/web3/provider` remains a protocol surface. It converts EIP-1193 hexadecimal chain IDs and Solana Wallet Standard identifiers at its boundary, but does not choose endpoints.
 - Desktop main owns protected endpoint credentials and exposes only typed, redacted IPC projections to renderer.
 - CLI and SDK use the same runtime services directly and do not depend on desktop internals.
 
@@ -314,10 +314,10 @@ Errors never contain endpoint credentials or raw authorization headers.
 
 ## Implementation Sequence
 
-1. Add `@cypheria/network-core`, strict chain/network/endpoint schemas, conversion helpers, and a minimal bundled catalog.
+1. Add `@cypheria/web3/network`, strict chain/network/endpoint schemas, conversion helpers, and a minimal bundled catalog.
 2. Add database tables, catalog reconciliation, repositories, protected credential storage, and migration tests.
 3. Add runtime `NetworkManager`, endpoint probes, health tracking, and purpose-aware `RpcRouter`.
-4. Migrate wallet-core, policy, automation, permissions, and active contexts to canonical chain identities.
+4. Migrate wallet, policy, automation, permissions, and active contexts to canonical chain identities.
 5. Route Ethereum and Solana provider requests through origin-scoped network contexts and add/switch approval flows.
 6. Add typed desktop IPC and the network-management UI.
 

@@ -12,7 +12,7 @@ import {
   evmChainIdentitySchema,
   networkIdSchema,
   toChainKey,
-} from "@cypheria/network-core"
+} from "@cypheria/web3/network"
 import {
   type ActiveWalletContext,
   type ChainAccount,
@@ -39,7 +39,7 @@ import {
   walletAccountIdSchema,
   walletIdSchema,
   walletModes,
-} from "@cypheria/wallet-core"
+} from "@cypheria/web3/wallet"
 import { entropyToMnemonic, mnemonicToEntropy, validateMnemonic } from "@scure/bip39"
 import { wordlist as english } from "@scure/bip39/wordlists/english"
 import { getAddress, type Hex, hexToBytes, toHex } from "viem"

@@ -2,7 +2,7 @@ import {
   createDappSession,
   type SolanaProviderPermissionRecord,
   SolanaSignMessage,
-} from "@cypheria/wallet-provider"
+} from "@cypheria/web3/provider"
 import { describe, expect, it } from "vitest"
 
 import { createDappBrowserPersistenceService } from "./browser.js"

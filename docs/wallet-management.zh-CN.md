@@ -4,7 +4,7 @@
 
 Cypheria V1 支持 `hd`、`private-key`、`private-key-group`、`watch` 和 `watch-group`。
 
-- `@cypheria/wallet-core` 负责领域类型、验证、派生规则、fingerprint、renderer-safe projection 和 signer capability；不负责文件、数据库、Electron 或 OS credential。
+- `@cypheria/web3/wallet` 负责领域类型、验证、派生规则、fingerprint、renderer-safe projection 和 signer capability；不负责文件、数据库、Electron 或 OS credential。
 - `@cypheria/db` 通过 Drizzle + libSQL 保存非秘密钱包状态。
 - `@cypheria/runtime` 负责钱包编排、加密 vault、解锁内存、signer 构建、policy 路由和 audit 协调。
 - Renderer、dApp 页面、Codex、SDK 调用方和 automation worker 永远不会收到助记词、私钥、vault key、解密 keystore 或暴露秘密的 signer object。
@@ -39,7 +39,7 @@ active_wallet_context
 
 普通列和 JSON 不得包含助记词或 entropy、BIP-39 passphrase、私钥、vault encryption key、解密 keystore 或序列化 vault signer。`initializing`、`ready`、`error` 和 `deleting` 生命周期用于跨 SQLite 与文件系统边界恢复。
 
-`@cypheria/db` 先使用 wallet-core 的严格 schema 验证完整钱包图，再通过原子 libSQL batch 写入。外键级联删除钱包；unique 与 check constraint 约束 fingerprint、名称、账户 index、钱包/vault 组合和已支持的 EVM 派生方案。恢复代码可按生命周期状态查询钱包，且无需加载任何 vault 秘密。
+`@cypheria/db` 先使用 `@cypheria/web3/wallet` 的严格 schema 验证完整钱包图，再通过原子 libSQL batch 写入。外键级联删除钱包；unique 与 check constraint 约束 fingerprint、名称、账户 index、钱包/vault 组合和已支持的 EVM 派生方案。恢复代码可按生命周期状态查询钱包，且无需加载任何 vault 秘密。
 
 钱包展示顺序属于公开状态，以数值 position 保存在 wallet record 中。Runtime 只接受包含全部已持久化 wallet ID、且无重复项的完整排序，通过一次 database batch 更新位置；新建钱包会追加到现有顺序末尾。Desktop 管理页面将 `@tanstack/react-virtual` 与兼容 React 19 的 `@hello-pangea/dnd` 结合使用；后者延续了 Archmage 所用拖拽 API。
 

@@ -10,7 +10,7 @@ import {
   createSigningIntentReplayStore,
   createWalletPublicStatePersistenceService,
 } from "@cypheria/db"
-import { hexAddressSchema, type SigningAccountRef, type SigningIntent } from "@cypheria/wallet-core"
+import { hexAddressSchema, type SigningAccountRef, type SigningIntent } from "@cypheria/web3/wallet"
 import { afterEach, describe, expect, it } from "vitest"
 
 import { createWalletManager } from "../wallet-manager/index.js"

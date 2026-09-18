@@ -40,7 +40,7 @@ Cypheria 应保留这些行为，但不直接复制其底层模型。Archmage-X 
 
 ## Package 边界
 
-### `@cypheria/network-core`
+### `@cypheria/web3/network`
 
 新增一个与 Electron 无关的领域包，负责：
 
@@ -55,10 +55,10 @@ Cypheria 应保留这些行为，但不直接复制其底层模型。Archmage-X 
 
 ### 其他 packages
 
-- `@cypheria/wallet-core` 从 `@cypheria/network-core` 导入 chain identity primitive。`ChainAccount` 记录 identity、address 与 derivation 信息，但不拥有 RPC 配置。现有 `ChainDefinition` 与 `RpcEndpoint` 类型移出 wallet-core。
+- `@cypheria/web3/wallet` 从 `@cypheria/web3/network` 导入 chain identity primitive。`ChainAccount` 记录 identity、address 与 derivation 信息，但不拥有 RPC 配置。`ChainDefinition` 与 `RpcEndpoint` 继续属于 network 领域。
 - `@cypheria/db` 持久化 network、endpoint、排序、revision 和 active context，不在普通列中保存受保护的连接材料。
 - `@cypheria/runtime` 负责 `NetworkManager`、endpoint probe、RPC routing、health state、credential resolution、audit，以及与 wallet 和 dApp 的协调。
-- `@cypheria/wallet-provider` 继续作为 protocol surface，在边界转换 EIP-1193 hex chain ID 与 Solana Wallet Standard identifier，但不选择 endpoint。
+- `@cypheria/web3/provider` 继续作为 protocol surface，在边界转换 EIP-1193 hex chain ID 与 Solana Wallet Standard identifier，但不选择 endpoint。
 - Desktop main 管理受保护的 endpoint credential，只通过 typed IPC 向 renderer 暴露脱敏 projection。
 - CLI 与 SDK 直接使用相同 runtime services，不依赖 desktop internals。
 
@@ -314,10 +314,10 @@ Error 永远不包含 endpoint credential 或原始 authorization header。
 
 ## 实施顺序
 
-1. 添加 `@cypheria/network-core`、严格 chain/network/endpoint schema、conversion helper 与精简 bundled catalog。
+1. 添加 `@cypheria/web3/network`、严格 chain/network/endpoint schema、conversion helper 与精简 bundled catalog。
 2. 添加 database table、catalog reconciliation、repository、protected credential storage 与 migration test。
 3. 添加 runtime `NetworkManager`、endpoint probe、health tracking 与 purpose-aware `RpcRouter`。
-4. 将 wallet-core、policy、automation、permission 与 active context 迁移到 canonical chain identity。
+4. 将 wallet、policy、automation、permission 与 active context 迁移到 canonical chain identity。
 5. 通过 origin-scoped network context 路由 Ethereum 与 Solana provider request，并实现 add/switch approval flow。
 6. 添加 typed desktop IPC 与 network-management UI。
 

@@ -13,8 +13,8 @@ import {
   rpcEndpointSchema,
   timestampSchema,
   toChainKey,
-} from "@cypheria/network-core"
-import { normalizeDappOrigin } from "@cypheria/wallet-provider"
+} from "@cypheria/web3/network"
+import { normalizeDappOrigin } from "@cypheria/web3/provider"
 import { and, asc, eq, sql } from "drizzle-orm"
 import { z } from "zod"
 import type { CypheriaDatabase } from "./client.js"

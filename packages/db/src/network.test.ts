@@ -2,8 +2,8 @@ import {
   bundledNetworkCatalog,
   type NetworkDefinition,
   type RpcEndpoint,
-} from "@cypheria/network-core"
-import { createDappSession } from "@cypheria/wallet-provider"
+} from "@cypheria/web3/network"
+import { createDappSession } from "@cypheria/web3/provider"
 import { describe, expect, it } from "vitest"
 import { createDappBrowserPersistenceService } from "./browser.js"
 import { createInMemoryDatabase } from "./client.js"

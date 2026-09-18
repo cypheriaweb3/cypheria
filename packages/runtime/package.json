@@ -15,10 +15,7 @@
   "dependencies": {
     "@cypheria/automation-core": "workspace:*",
     "@cypheria/db": "workspace:*",
-    "@cypheria/network-core": "workspace:*",
-    "@cypheria/policy-engine": "workspace:*",
-    "@cypheria/wallet-core": "workspace:*",
-    "@cypheria/wallet-provider": "workspace:*",
+    "@cypheria/web3": "workspace:*",
     "@scure/bip39": "^1.6.0",
     "ethers": "^6.17.0",
     "viem": "^2.56.1",

@@ -1,5 +1,5 @@
-import { evmChainIdentitySchema, solanaChainIdentitySchema } from "@cypheria/network-core"
 import { z } from "zod"
+import { evmChainIdentitySchema, solanaChainIdentitySchema } from "../network/index.js"
 
 import {
   chainAccountIdSchema,
@@ -11,7 +11,7 @@ import {
   walletIdSchema,
 } from "./primitives.js"
 
-/** Key derivation namespaces currently understood by wallet-core. */
+/** Key derivation namespaces currently understood by the wallet domain. */
 export const chainNamespaces = ["eip155"] as const
 export type ChainNamespace = (typeof chainNamespaces)[number]
 

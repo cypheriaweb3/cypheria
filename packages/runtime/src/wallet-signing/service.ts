@@ -5,8 +5,8 @@ import type {
   WalletPublicState,
   WalletPublicStatePersistenceService,
 } from "@cypheria/db"
-import { evmChainIdentityToNumber, toChainKey } from "@cypheria/network-core"
-import type { PolicyDecision } from "@cypheria/policy-engine"
+import { evmChainIdentityToNumber, toChainKey } from "@cypheria/web3/network"
+import type { PolicyDecision } from "@cypheria/web3/policy"
 import {
   type ChainAccount,
   type PersonalSignIntent,
@@ -18,7 +18,7 @@ import {
   signingAccountRefSchema,
   type TransactionIntent,
   type TypedDataSignIntent,
-} from "@cypheria/wallet-core"
+} from "@cypheria/web3/wallet"
 import { entropyToMnemonic } from "@scure/bip39"
 import { wordlist as english } from "@scure/bip39/wordlists/english"
 import {

@@ -6,13 +6,13 @@ import {
   createWalletPublicStatePersistenceService,
   type SigningIntentRecord,
 } from "@cypheria/db"
-import { parseSigningIntent } from "@cypheria/wallet-core"
 import {
   createDappSessionManager,
   createSolanaWallet,
   SolanaSignMessage,
   StandardConnect,
-} from "@cypheria/wallet-provider"
+} from "@cypheria/web3/provider"
+import { parseSigningIntent } from "@cypheria/web3/wallet"
 import { describe, expect, it, vi } from "vitest"
 
 import { createSolanaProviderRuntimeService } from "./service.js"

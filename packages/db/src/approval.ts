@@ -1,10 +1,10 @@
-import type { PolicyDecision } from "@cypheria/policy-engine"
+import type { PolicyDecision } from "@cypheria/web3/policy"
 import {
   deserializeSigningIntent,
   type SigningIntent,
   serializeSigningIntent,
   type WalletMode,
-} from "@cypheria/wallet-core"
+} from "@cypheria/web3/wallet"
 import { and, asc, eq, exists, sql } from "drizzle-orm"
 import { z } from "zod"
 

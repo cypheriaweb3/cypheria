@@ -1,10 +1,10 @@
-import { toChainKey } from "@cypheria/network-core"
+import { toChainKey } from "@cypheria/web3/network"
 import {
   type ChainAccount,
   defaultEvmHdDerivationScheme,
   type Wallet,
   type WalletAccount,
-} from "@cypheria/wallet-core"
+} from "@cypheria/web3/wallet"
 import { describe, expect, it } from "vitest"
 
 import { createInMemoryDatabase } from "./client.js"

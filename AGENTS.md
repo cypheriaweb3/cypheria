@@ -96,10 +96,7 @@ packages/relay
 packages/runtime
 packages/codex-bridge
 packages/ui
-packages/network-core
-packages/wallet-core
-packages/wallet-provider
-packages/policy-engine
+packages/web3
 packages/automation-core
 packages/db
 ```

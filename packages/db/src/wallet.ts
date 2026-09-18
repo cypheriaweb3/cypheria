@@ -1,4 +1,4 @@
-import { chainKeySchema, type NetworkId, networkIdSchema, toChainKey } from "@cypheria/network-core"
+import { chainKeySchema, type NetworkId, networkIdSchema, toChainKey } from "@cypheria/web3/network"
 import {
   type ChainAccount,
   type ChainAccountId,
@@ -18,7 +18,7 @@ import {
   walletIdSchema,
   walletModes,
   walletSchema,
-} from "@cypheria/wallet-core"
+} from "@cypheria/web3/wallet"
 import { and, asc, eq, inArray, max } from "drizzle-orm"
 
 import type { CypheriaDatabase } from "./client.js"

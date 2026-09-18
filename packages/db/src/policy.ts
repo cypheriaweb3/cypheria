@@ -2,8 +2,8 @@ import {
   type SigningPolicy,
   SigningPolicySchema,
   signingPolicyIdSchema,
-} from "@cypheria/policy-engine"
-import type { WalletId } from "@cypheria/wallet-core"
+} from "@cypheria/web3/policy"
+import type { WalletId } from "@cypheria/web3/wallet"
 import { and, asc, eq } from "drizzle-orm"
 import { z } from "zod"
 

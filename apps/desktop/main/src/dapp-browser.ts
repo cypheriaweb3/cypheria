@@ -1,15 +1,15 @@
-import { evmChainIdentityFromHex, evmChainIdentityToHex } from "@cypheria/network-core"
+import { evmChainIdentityFromHex, evmChainIdentityToHex } from "@cypheria/web3/network"
 import type {
   DappSessionManager,
   WalletProviderEvent,
   WalletProviderRequest,
   WalletProviderResponse,
-} from "@cypheria/wallet-provider"
+} from "@cypheria/web3/provider"
 import {
   normalizeDappOrigin,
   walletProviderEventSchema,
   walletProviderRequestSchema,
-} from "@cypheria/wallet-provider"
+} from "@cypheria/web3/provider"
 import { type BrowserWindow, session, WebContentsView } from "electron"
 import { CYPHERIA_IPC_CHANNELS } from "../../ipc/src/index.js"
 

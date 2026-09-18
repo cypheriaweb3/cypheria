@@ -13,8 +13,7 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@cypheria/network-core": "workspace:*",
-    "@cypheria/wallet-core": "workspace:*",
+    "@cypheria/web3": "workspace:*",
     "zod": "^4.6.2"
   },
   "devDependencies": {

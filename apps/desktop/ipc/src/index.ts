@@ -6,13 +6,13 @@ import {
   automationTaskStatusSchema,
   createAutomationTaskInputSchema,
 } from "@cypheria/automation-core"
-import { networkDefinitionSchema, rpcEndpointViewSchema } from "@cypheria/network-core"
-import { signingIntentSchema } from "@cypheria/wallet-core"
+import { networkDefinitionSchema, rpcEndpointViewSchema } from "@cypheria/web3/network"
 import {
   dappSessionSchema,
   walletProviderRequestSchema,
   walletProviderResponseSchema,
-} from "@cypheria/wallet-provider"
+} from "@cypheria/web3/provider"
+import { signingIntentSchema } from "@cypheria/web3/wallet"
 import { z } from "zod"
 import {
   type CodexAccountView,

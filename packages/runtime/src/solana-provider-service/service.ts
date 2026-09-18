@@ -1,8 +1,7 @@
 import { createHash, randomUUID } from "node:crypto"
 
 import type { AuditLogService, SigningIntentRecord } from "@cypheria/db"
-import { type NetworkDefinition, toChainKey } from "@cypheria/network-core"
-import type { WalletId } from "@cypheria/wallet-core"
+import { type NetworkDefinition, toChainKey } from "@cypheria/web3/network"
 import {
   DappSessionError,
   type DappSessionManager,
@@ -13,7 +12,8 @@ import {
   type SolanaProviderResponse,
   solanaProviderPermissionRecordSchema,
   solanaProviderRequestSchema,
-} from "@cypheria/wallet-provider"
+} from "@cypheria/web3/provider"
+import type { WalletId } from "@cypheria/web3/wallet"
 
 import type { RuntimeService } from "../index.js"
 import type { NetworkManager } from "../network-service/index.js"

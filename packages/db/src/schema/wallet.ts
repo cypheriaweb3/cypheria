@@ -1,4 +1,4 @@
-import type { NetworkId } from "@cypheria/network-core"
+import type { NetworkId } from "@cypheria/web3/network"
 import {
   type ChainAccountId,
   chainNamespaces,
@@ -11,7 +11,7 @@ import {
   walletKinds,
   walletModes,
   walletStatuses,
-} from "@cypheria/wallet-core"
+} from "@cypheria/web3/wallet"
 import { sql } from "drizzle-orm"
 import {
   check,

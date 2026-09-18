@@ -5,7 +5,7 @@ import type {
   NetworkId,
   NetworkVerification,
   RpcEndpointId,
-} from "@cypheria/network-core"
+} from "@cypheria/web3/network"
 import { sql } from "drizzle-orm"
 import { check, index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core"
 import { dappOrigins } from "./browser.js"

@@ -1,4 +1,4 @@
-import { parseSigningPolicy } from "@cypheria/policy-engine"
+import { parseSigningPolicy } from "@cypheria/web3/policy"
 import { describe, expect, it } from "vitest"
 
 import { createInMemoryDatabase } from "./client.js"

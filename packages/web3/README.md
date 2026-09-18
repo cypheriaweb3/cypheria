@@ -1,8 +1,17 @@
-# `@cypheria/wallet-provider`
+# `@cypheria/web3`
 
-Shared, Electron-independent wallet-provider boundaries for Cypheria dApp sessions.
+Pure, Electron-independent Web3 domain capabilities shared by the Cypheria server and its privileged desktop boundaries. The package is split into four explicit entry points:
 
-The package implements:
+- `@cypheria/web3/network` owns canonical chain identities, network/RPC schemas, catalog records, and conversion helpers.
+- `@cypheria/web3/policy` owns signing-policy schemas and deterministic evaluation.
+- `@cypheria/web3/wallet` owns wallet, account, chain-account, capability, and signing-intent models.
+- `@cypheria/web3/provider` owns dApp session, provider bridge, permission, and bounded transport models.
+
+These modules contain domain logic and testable protocol implementations only. Database and filesystem access, secret custody, signing execution, endpoint lifecycle, and audit persistence belong to `apps/server` (or a temporary Electron privileged boundary until that service is moved).
+
+## Provider boundary
+
+The provider module implements:
 
 - origin normalization, persistent partition naming, and session-scope validation;
 - an [EIP-1193](https://eips.ethereum.org/EIPS/eip-1193) Ethereum provider with `request`, `on`, `removeListener`, standard events, and structured errors;
@@ -16,8 +25,8 @@ The package implements:
 
 `createSolanaWallet()` exposes `standard:connect`, `standard:disconnect`, `standard:events`, `solana:signMessage`, `solana:signTransaction`, and `solana:signAndSendTransaction`. It validates account address/public-key agreement, chain and feature scope, transaction versions, request scope, response IDs, and batched output cardinality before returning results to a dApp.
 
-`createEthereumProviderRuntimeService()` forwards public read-only RPC methods without wallet permission and gates account, wallet, and signing methods. `createSolanaProviderRuntimeService()` implements silent and interactive connection, persisted origin permissions, connection state, policy-backed Solana signing intents, injected execution, and redacted audit events. A runtime can provide an RPC dispatcher and chain-specific EVM or Ed25519 executor without coupling the protocol package to private keys.
+Privileged services can forward public read-only RPC methods without wallet permission and gate account, wallet, and signing methods. They can also implement silent or interactive connections, persisted origin permissions, connection state, policy-backed signing intents, injected execution, and redacted audit events without coupling this package to private keys.
 
 EIP-6963 and Wallet Standard icons are restricted to raster data URIs. JSON-RPC depth, node count, and string length are bounded; Solana messages, transactions, signatures, batches, account identifiers, and response cardinality are validated before crossing a privileged boundary.
 
-The package never handles private keys or signs directly. Its transports forward validated requests to trusted runtime services, which own permissions, policy evaluation, signing intents, execution, and audit records.
+The package never handles private keys or signs directly. Its transports forward validated requests to trusted server services, which own permissions, policy evaluation, signing execution, and audit records.

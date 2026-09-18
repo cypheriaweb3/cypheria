@@ -40,7 +40,7 @@ import {
   type WalletManager,
   type WalletVaultController,
 } from "@cypheria/runtime"
-import { createDappSessionManager, type DappSessionManager } from "@cypheria/wallet-provider"
+import { createDappSessionManager, type DappSessionManager } from "@cypheria/web3/provider"
 import type { ConnectionProxySettings } from "../../ipc/src/index.js"
 import {
   type CodexAppServerContext,

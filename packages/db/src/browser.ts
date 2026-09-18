@@ -1,4 +1,4 @@
-import { type ChainKey, chainKeySchema } from "@cypheria/network-core"
+import { type ChainKey, chainKeySchema } from "@cypheria/web3/network"
 import {
   type DappSession,
   dappPermissionRecordSchema,
@@ -9,7 +9,7 @@ import {
   type SolanaProviderPermissionRecord,
   type SolanaProviderPersistence,
   solanaProviderPermissionRecordSchema,
-} from "@cypheria/wallet-provider"
+} from "@cypheria/web3/provider"
 import { asc, eq, inArray } from "drizzle-orm"
 import { z } from "zod"
 

@@ -1,16 +1,16 @@
+import { createNetworkInputSchema, createRpcEndpointInputSchema } from "@cypheria/runtime"
 import {
   networkDefinitionSchema,
   networkIdSchema,
   rpcEndpointHealthSchema,
   rpcEndpointIdSchema,
   rpcEndpointViewSchema,
-} from "@cypheria/network-core"
+} from "@cypheria/web3/network"
 import {
   SigningPolicyObjectSchema,
   SigningPolicySchema,
   signingPolicyIdSchema,
-} from "@cypheria/policy-engine"
-import { createNetworkInputSchema, createRpcEndpointInputSchema } from "@cypheria/runtime"
+} from "@cypheria/web3/policy"
 import {
   chainAccountIdSchema,
   chainAccountSchema,
@@ -19,7 +19,7 @@ import {
   walletIdSchema,
   walletModes,
   walletViewSchema,
-} from "@cypheria/wallet-core"
+} from "@cypheria/web3/wallet"
 import { z } from "zod"
 
 const nameSchema = z.string().trim().min(1).max(128)

@@ -362,14 +362,18 @@
 
 ## Runtime Web3 能力
 
+- [x] 将四个 Web3 领域包合并为 `@cypheria/web3`。
+  - 验收：network、policy、wallet、provider 仍可通过明确的子路径独立导入；所有生产代码 import 与 workspace dependency 都使用合并后的包；不再保留旧 package manifest。
+  - 验证：`pnpm --filter @cypheria/web3 test`、`pnpm --filter @cypheria/web3 typecheck`、`pnpm run ci`、`pnpm build`。
+
 - [x] 明确 network 与 RPC 架构。
   - 验收：中英文设计文档分析 Archmage-X 先例，并定义 canonical chain identity、package boundaries、catalog reconciliation、persistence、受保护 RPC credentials、endpoint probing/routing、origin-scoped dApp selection、failure semantics 与 V1 exclusions。
   - 验证：成对文档审查、`pnpm run ci`。
 
-- [x] 添加 `@cypheria/network-core` 与 bundled network catalog。
+- [x] 添加 `@cypheria/web3/network` 与 bundled network catalog。
   - 验收：严格的 EVM/Solana chain identity、network、explorer、endpoint、public projection 与 protocol-conversion schema 取代无类型或混用的 chain identifier。
   - 包括：stable IDs、canonical chain keys、immutable identity、URL normalization、精简且经过审核的 built-ins 与 catalog fixtures。
-  - 验证：network-core tests、`pnpm run ci`、`pnpm build`。
+  - 验证：`@cypheria/web3` network tests、`pnpm run ci`、`pnpm build`。
 
 - [x] 持久化 network configuration 并保护 RPC credentials。
   - 验收：libSQL 保存 networks、ordered endpoints、revisions 与 origin-scoped contexts；受保护连接材料位于普通列之外的 `$CYPHERIA_HOME/config/network-credentials`。
@@ -384,7 +388,7 @@
 - [x] 将 wallet、policy、automation 与 dApp boundary 迁移到 canonical chain identity。
   - 验收：chain account、active wallet context、signing intent、policy、automation scope、permission 与 event 使用 `ChainIdentity`/`ChainKey`；active network identity 必须与所选 chain account 匹配。
   - 包括：data migration，以及 EIP-1193 hex ID 与 Solana Wallet Standard identifier 的 compatibility adapter。
-  - 验证：wallet-core、policy-engine、automation-core、wallet-provider、database、runtime 与 desktop IPC tests。
+  - 验证：`@cypheria/web3`、automation、database、runtime 与 desktop IPC tests。
 
 - [x] 添加 origin-scoped network add/switch flow 与 desktop management UI。
   - 验收：每个 dApp origin 独立选择 Ethereum/Solana network；EIP-3085 add 与 EIP-3326 switch request 必须经过 probe 和 approval；desktop 管理 network/endpoint 排序、enabled state、health 与脱敏 credential。
@@ -396,9 +400,9 @@
   - 验证：`pnpm run ci`、`pnpm build`、数据库与 desktop tests。
 
 - [x] 替换 wallet domain baseline。
-  - 验收：`@cypheria/wallet-core` 在与 storage 解耦的前提下建模 HD、private-key、private-key-group、watch 和 watch-group 钱包；钱包 kind 决定 vault 与 read-only 能力。
+  - 验收：`@cypheria/web3/wallet` 在与 storage 解耦的前提下建模 HD、private-key、private-key-group、watch 和 watch-group 钱包；钱包 kind 决定 vault 与 read-only 能力。
   - 包括：Zod boundary schemas、稳定标识、wallet/account/chain-account 层次、fingerprints、生命周期状态、派生方案和 renderer-safe projections。
-  - 验证：`pnpm --filter @cypheria/wallet-core test`、`pnpm run ci`、`pnpm build`。
+  - 验证：`pnpm --filter @cypheria/web3 test`、`pnpm run ci`、`pnpm build`。
 
 - [x] 添加钱包公开状态持久化。
   - 验收：`@cypheria/db` 通过 Drizzle + libSQL 持久化 wallets、wallet accounts、chain accounts 和 HD derivation schemes，且不包含秘密材料。
@@ -422,15 +426,15 @@
 
 - [x] 实现 policy runtime service。
   - 验收：runtime 可以 list、validate、create、update、disable 和 evaluate signing policies。
-  - 验证：runtime 和 policy-engine tests。
+  - 验证：runtime 和 `@cypheria/web3` policy tests。
 
 - [x] 实现 signing intent 与 approval runtime flow。
   - 验收：dApp、automation 和 agent contexts 可以创建 signing intents；每个 intent 都经过 policy evaluation 且可审计。
   - 验证：runtime、policy、db 和 desktop IPC tests。
 
-- [x] 实现 wallet-provider 与 dApp browser runtime service。
+- [x] 实现 provider 与 dApp browser runtime service。
   - 验收：desktop 可以创建 origin-isolated dApp sessions；暴露并发现 Ethereum 与 Solana providers；持久化 protocol-scoped permissions；转发常用 Ethereum read-only RPC；投递 scoped provider events；并让 EVM 或 Solana signing 经过 policy-backed intents 与 injected executors。
-  - 验证：wallet-provider、database、runtime、desktop controller 与真实 sandboxed Electron discovery tests。
+  - 验证：`@cypheria/web3` provider、database、runtime、desktop controller 与真实 sandboxed Electron discovery tests。
 
 - [x] 实现 automation runtime service。
   - 验收：runtime 可以 create、list、run、pause、resume 和 inspect automation tasks/runs。

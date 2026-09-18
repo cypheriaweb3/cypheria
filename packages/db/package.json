@@ -17,11 +17,8 @@
   },
   "dependencies": {
     "@cypheria/automation-core": "workspace:*",
-    "@cypheria/network-core": "workspace:*",
-    "@cypheria/policy-engine": "workspace:*",
     "@cypheria/protocol": "workspace:*",
-    "@cypheria/wallet-core": "workspace:*",
-    "@cypheria/wallet-provider": "workspace:*",
+    "@cypheria/web3": "workspace:*",
     "@libsql/client": "^0.17.4",
     "drizzle-orm": "^0.45.2",
     "zod": "^4.6.2"

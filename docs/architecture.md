@@ -292,7 +292,7 @@ Package tests connect official ACP 1.4 client and agent apps over in-memory stre
 
 Each dApp origin runs in its own isolated Electron session. dApp pages receive Ethereum and Solana wallet-provider surfaces, but requests are forwarded to Electron main and evaluated through origin-scoped permissions and signing policy.
 
-`@cypheria/wallet-provider` owns:
+`@cypheria/web3/provider` owns:
 
 - Origin-scoped session keys.
 - Persistent partition names.
@@ -420,7 +420,7 @@ Default rules:
 - Private keys only enter the encrypted vault.
 - Renderer and dApp pages never access private keys.
 - Codex and automation flows create signing intents, not direct signatures.
-- Every signing intent goes through `@cypheria/policy-engine`.
+- Every signing intent goes through `@cypheria/web3/policy`.
 - Auto-signing is disabled by default.
 - Every policy decision, signature, rejection, automation run, and transaction hash is auditable.
 
@@ -445,19 +445,19 @@ Default rules:
 @cypheria/acp-ai-provider
   Node-side ACP 1.4 agent bridge with AI SDK 7 LanguageModelV4 and ACP callback/control/event surfaces.
 
-@cypheria/network-core
+@cypheria/web3/network
   Canonical chain identities, strict network/RPC models, catalog entries, and protocol conversion helpers.
 
 apps/desktop/ipc
   Desktop-local typed Electron IPC contracts, schemas, channel names, and envelopes.
 
-@cypheria/wallet-core
+@cypheria/web3/wallet
   Wallet domain types, accounts, chain-account bindings, permissions, and signing intents.
 
-@cypheria/policy-engine
+@cypheria/web3/policy
   Signing policy schemas, evaluator, and policy decisions.
 
-@cypheria/wallet-provider
+@cypheria/web3/provider
   dApp session, provider bridge, and browser permission models.
 
 @cypheria/automation-core
@@ -472,7 +472,7 @@ apps/desktop/ipc
 
 ## Network And RPC Boundary
 
-Chain identity, network metadata, RPC connectivity, and active selection are separate concepts. Wallet accounts and historical records retain canonical chain identity independently from whether a network is currently configured. `@cypheria/network-core` owns strict EVM and Solana identity and configuration schemas; `@cypheria/runtime` owns catalog reconciliation, endpoint probes, credential resolution, health-aware routing, and workspace or origin-scoped selection.
+Chain identity, network metadata, RPC connectivity, and active selection are separate concepts. Wallet accounts and historical records retain canonical chain identity independently from whether a network is currently configured. `@cypheria/web3/network` owns strict EVM and Solana identity and configuration schemas; `@cypheria/runtime` owns catalog reconciliation, endpoint probes, credential resolution, health-aware routing, and workspace or origin-scoped selection.
 
 RPC connection secrets are protected outside normal SQLite columns and never cross renderer or dApp IPC. Read-only calls may fail over across verified endpoints, while broadcasts are never blindly retried after an ambiguous response. Custom destinations are subject to SSRF controls, and a dApp can switch only its own origin-scoped provider context after approval.
 

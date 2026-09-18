@@ -364,14 +364,18 @@ Status legend:
 
 ## Runtime Web3 Capabilities
 
+- [x] Consolidate the four Web3 domain packages into `@cypheria/web3`.
+  - Acceptance: network, policy, wallet, and provider remain independently importable through explicit subpath exports; all production imports and workspace dependencies use the consolidated package; no legacy package manifest remains.
+  - Verification: `pnpm --filter @cypheria/web3 test`, `pnpm --filter @cypheria/web3 typecheck`, `pnpm run ci`, `pnpm build`.
+
 - [x] Specify the network and RPC architecture.
   - Acceptance: English and Chinese design documents analyze the Archmage-X precedent and define canonical chain identity, package boundaries, catalog reconciliation, persistence, protected RPC credentials, endpoint probing/routing, origin-scoped dApp selection, failure semantics, and V1 exclusions.
   - Verification: paired-document review, `pnpm run ci`.
 
-- [x] Add `@cypheria/network-core` and the bundled network catalog.
+- [x] Add `@cypheria/web3/network` and the bundled network catalog.
   - Acceptance: strict EVM and Solana chain identity, network, explorer, endpoint, public projection, and protocol-conversion schemas replace untyped or mixed chain identifiers.
   - Include: stable IDs, canonical chain keys, immutable identity, URL normalization, minimal reviewed built-ins, and catalog fixtures.
-  - Verification: network-core tests, `pnpm run ci`, `pnpm build`.
+  - Verification: `@cypheria/web3` network tests, `pnpm run ci`, `pnpm build`.
 
 - [x] Persist network configuration and protect RPC credentials.
   - Acceptance: libSQL stores networks, ordered endpoints, revisions, and origin-scoped contexts while protected connection material remains outside ordinary columns under `$CYPHERIA_HOME/config/network-credentials`.
@@ -386,7 +390,7 @@ Status legend:
 - [x] Migrate wallet, policy, automation, and dApp boundaries to canonical chain identity.
   - Acceptance: chain accounts, active wallet context, signing intents, policies, automation scopes, permissions, and events use `ChainIdentity`/`ChainKey`; active network identity must match the selected chain account.
   - Include: data migrations and compatibility adapters for EIP-1193 hexadecimal IDs and Solana Wallet Standard identifiers.
-  - Verification: wallet-core, policy-engine, automation-core, wallet-provider, database, runtime, and desktop IPC tests.
+  - Verification: `@cypheria/web3`, automation, database, runtime, and desktop IPC tests.
 
 - [x] Add origin-scoped network add/switch flows and desktop management UI.
   - Acceptance: each dApp origin selects Ethereum and Solana networks independently; EIP-3085 add and EIP-3326 switch requests require validated probes and approval; desktop manages network and endpoint ordering, enabled state, health, and redacted credentials.
@@ -398,9 +402,9 @@ Status legend:
   - Verification: `pnpm run ci`, `pnpm build`, database and desktop tests.
 
 - [x] Replace the wallet domain baseline.
-  - Acceptance: `@cypheria/wallet-core` models HD, private-key, private-key-group, watch, and watch-group wallets independently from storage concerns; wallet kind determines vault and read-only capabilities.
+  - Acceptance: `@cypheria/web3/wallet` models HD, private-key, private-key-group, watch, and watch-group wallets independently from storage concerns; wallet kind determines vault and read-only capabilities.
   - Include: Zod boundary schemas, stable identifiers, wallet/account/chain-account hierarchy, fingerprints, lifecycle states, derivation schemes, and renderer-safe projections.
-  - Verification: `pnpm --filter @cypheria/wallet-core test`, `pnpm run ci`, `pnpm build`.
+  - Verification: `pnpm --filter @cypheria/web3 test`, `pnpm run ci`, `pnpm build`.
 
 - [x] Add wallet public-state persistence.
   - Acceptance: `@cypheria/db` persists wallets, wallet accounts, chain accounts, and HD derivation schemes through Drizzle and libSQL without secret material.
@@ -424,15 +428,15 @@ Status legend:
 
 - [x] Implement policy runtime service.
   - Acceptance: runtime can list, validate, create, update, disable, and evaluate signing policies.
-  - Verification: runtime and policy-engine tests.
+  - Verification: runtime and `@cypheria/web3` policy tests.
 
 - [x] Implement signing intent and approval runtime flow.
   - Acceptance: dApp, automation, and agent contexts can create signing intents; each intent is evaluated by policy and auditable.
   - Verification: runtime, policy, db, and desktop IPC tests.
 
-- [x] Implement wallet-provider and dApp browser runtime service.
+- [x] Implement provider and dApp browser runtime service.
   - Acceptance: desktop can create origin-isolated dApp sessions; expose and discover Ethereum and Solana providers; persist protocol-scoped permissions; forward common Ethereum read-only RPC; deliver scoped provider events; and route EVM or Solana signing through policy-backed intents and injected executors.
-  - Verification: wallet-provider, database, runtime, desktop controller, and real sandboxed Electron discovery tests.
+  - Verification: `@cypheria/web3` provider, database, runtime, desktop controller, and real sandboxed Electron discovery tests.
 
 - [x] Implement automation runtime service.
   - Acceptance: runtime can create, list, run, pause, resume, and inspect automation tasks and runs.

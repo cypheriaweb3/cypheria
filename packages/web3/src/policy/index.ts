@@ -1,6 +1,6 @@
-import { chainKeySchema } from "@cypheria/network-core"
-import { walletIdSchema, walletModes } from "@cypheria/wallet-core"
 import { z } from "zod"
+import { chainKeySchema } from "../network/index.js"
+import { walletIdSchema, walletModes } from "../wallet/index.js"
 
 export const policyDecisions = ["allow", "deny", "require-human-approval"] as const
 export type PolicyDecision = (typeof policyDecisions)[number]

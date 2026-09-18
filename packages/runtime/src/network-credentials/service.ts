@@ -4,7 +4,7 @@ import {
   type NetworkCredentialRef,
   networkCredentialRefSchema,
   normalizeRpcUrl,
-} from "@cypheria/network-core"
+} from "@cypheria/web3/network"
 import { z } from "zod"
 import { deleteFileAtomically, writeFileAtomically } from "../wallet-vault/atomic-file.js"
 import type { SafeStorageProtector } from "../wallet-vault/index.js"

@@ -1,12 +1,4 @@
 import {
-  type SolanaSigningAccountRef,
-  solanaSigningAccountRefSchema,
-  type WalletId,
-  type WalletMode,
-  walletIdSchema,
-  walletModes,
-} from "@cypheria/wallet-core"
-import {
   SolanaSignAndSendTransaction,
   type SolanaSignAndSendTransactionInput,
   SolanaSignMessage,
@@ -25,6 +17,14 @@ import {
 import { ReadonlyWalletAccount, registerWallet } from "@wallet-standard/wallet"
 import bs58 from "bs58"
 import { z } from "zod"
+import {
+  type SolanaSigningAccountRef,
+  solanaSigningAccountRefSchema,
+  type WalletId,
+  type WalletMode,
+  walletIdSchema,
+  walletModes,
+} from "../wallet/index.js"
 
 import { base64Schema, base64ToBytes, bytesToBase64, jsonRpcValueSchema } from "./json-rpc.js"
 import {

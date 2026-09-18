@@ -4,7 +4,7 @@
 
 Cypheria V1 supports `hd`, `private-key`, `private-key-group`, `watch`, and `watch-group`.
 
-- `@cypheria/wallet-core` owns domain types, validation, derivation rules, fingerprints, renderer-safe projections, and signer capabilities. It does not own files, databases, Electron, or OS credentials.
+- `@cypheria/web3/wallet` owns domain types, validation, derivation rules, fingerprints, renderer-safe projections, and signer capabilities. It does not own files, databases, Electron, or OS credentials.
 - `@cypheria/db` stores non-secret wallet state through Drizzle and libSQL.
 - `@cypheria/runtime` owns wallet orchestration, the encrypted vault, unlocked memory, signer construction, policy routing, and audit coordination.
 - Renderer, dApp pages, Codex, SDK callers, and automation workers never receive mnemonic phrases, private keys, vault keys, decrypted keystores, or signer objects that expose secrets.
@@ -39,7 +39,7 @@ active_wallet_context
 
 Normal columns and JSON must never contain mnemonic phrases or entropy, BIP-39 passphrases, private keys, vault encryption keys, decrypted keystores, or serialized vault signers. Lifecycle states `initializing`, `ready`, `error`, and `deleting` support recovery across the SQLite/filesystem boundary.
 
-`@cypheria/db` validates complete wallet graphs with the strict wallet-core schemas before using an atomic libSQL batch. Foreign keys cascade wallet deletion, while unique and check constraints enforce fingerprints, names, account indexes, wallet/vault combinations, and the supported EVM derivation scheme. Recovery code can query wallets by lifecycle status without loading any vault secret.
+`@cypheria/db` validates complete wallet graphs with the strict `@cypheria/web3/wallet` schemas before using an atomic libSQL batch. Foreign keys cascade wallet deletion, while unique and check constraints enforce fingerprints, names, account indexes, wallet/vault combinations, and the supported EVM derivation scheme. Recovery code can query wallets by lifecycle status without loading any vault secret.
 
 Wallet display order is public state stored as a numeric position on the wallet record. The runtime accepts only a complete, duplicate-free ordering of all persisted wallet IDs, updates positions in one database batch, and appends newly created wallets after the current order. The desktop management screen combines `@tanstack/react-virtual` with the React-19-compatible `@hello-pangea/dnd` continuation of the drag-and-drop API used by Archmage.
 
