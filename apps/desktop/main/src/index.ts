@@ -750,21 +750,21 @@ const registerIpcHandlers = (
   })
   registerIpcRoute(runtimeInfoReadContract, () => toRuntimeInfo(context))
   registerIpcRoute(settingsAppearanceReadContract, () =>
-    readAppearanceSettings(context.paths.codexHome)
+    readAppearanceSettings(app.getPath("userData"))
   )
   registerIpcRoute(settingsAppearanceFontsListContract, () => listSystemFonts())
   registerIpcRoute(settingsAppearanceWriteContract, async (settings) => {
-    const savedSettings = await writeAppearanceSettings(context.paths.codexHome, settings)
+    const savedSettings = await writeAppearanceSettings(app.getPath("userData"), settings)
     currentAppearanceSettings = savedSettings
     applyNativeAppearance(mainWindow, savedSettings)
     return savedSettings
   })
   registerIpcRoute(settingsLanguageReadContract, () =>
-    readLanguageSettings(context.paths.codexHome, app.getPreferredSystemLanguages())
+    readLanguageSettings(app.getPath("userData"), app.getPreferredSystemLanguages())
   )
   registerIpcRoute(settingsLanguageWriteContract, async (settings) => {
     const savedSettings = await writeLanguageSettings(
-      context.paths.codexHome,
+      app.getPath("userData"),
       settings,
       app.getPreferredSystemLanguages()
     )
@@ -774,10 +774,10 @@ const registerIpcHandlers = (
     return savedSettings
   })
   registerIpcRoute(settingsWorkspaceLayoutReadContract, () =>
-    readWorkspaceLayoutSettings(context.paths.configDir)
+    readWorkspaceLayoutSettings(app.getPath("userData"))
   )
   registerIpcRoute(settingsWorkspaceLayoutWriteContract, (settings) =>
-    writeWorkspaceLayoutSettings(context.paths.configDir, settings)
+    writeWorkspaceLayoutSettings(app.getPath("userData"), settings)
   )
   registerIpcRoute(settingsConnectionProxyReadContract, () => context.connectionProxySettings)
   registerIpcRoute(settingsConnectionProxyTestContract, async (settings) => {
@@ -909,9 +909,9 @@ const registerDeveloperContextMenu = (window: BrowserWindow): void => {
 }
 
 const createMainWindow = async (context: DesktopRuntimeContext): Promise<BrowserWindow> => {
-  const appearance = await readAppearanceSettings(context.paths.codexHome)
+  const appearance = await readAppearanceSettings(app.getPath("userData"))
   const language = await readLanguageSettings(
-    context.paths.codexHome,
+    app.getPath("userData"),
     app.getPreferredSystemLanguages()
   )
   currentAppearanceSettings = appearance
@@ -1086,8 +1086,13 @@ const registerLifecycleHandlers = (): void => {
 const startDesktopApp = async (): Promise<void> => {
   configureChromiumFeatures(app.commandLine)
   const runtimePaths = buildRuntimePaths()
-  await mkdir(runtimePaths.browserDir, { recursive: true })
-  app.setPath("userData", runtimePaths.browserDir)
+  const desktopUserDataDir = join(runtimePaths.cypheriaHome, "desktop")
+  await Promise.all([
+    mkdir(desktopUserDataDir, { recursive: true }),
+    mkdir(runtimePaths.browserDir, { recursive: true }),
+  ])
+  app.setPath("userData", desktopUserDataDir)
+  app.setPath("sessionData", runtimePaths.browserDir)
 
   if (!app.requestSingleInstanceLock()) {
     app.quit()

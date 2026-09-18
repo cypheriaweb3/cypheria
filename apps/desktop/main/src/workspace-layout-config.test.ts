@@ -3,8 +3,8 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
 
+import { getDesktopSettingsPath } from "./desktop-settings.js"
 import {
-  getWorkspaceLayoutConfigPath,
   readWorkspaceLayoutSettings,
   writeWorkspaceLayoutSettings,
 } from "./workspace-layout-config.js"
@@ -13,36 +13,35 @@ const temporaryDirectories: string[] = []
 
 afterEach(async () => {
   await Promise.all(
-    temporaryDirectories
-      .splice(0)
-      .map((directory) => rm(directory, { force: true, recursive: true }))
+    temporaryDirectories.splice(0).map((path) => rm(path, { force: true, recursive: true }))
   )
 })
 
 describe("workspace layout config", () => {
   it("uses ChatGPT-compatible defaults before a config file exists", async () => {
-    const configDir = await mkdtemp(join(tmpdir(), "cypheria-workspace-layout-test-"))
-    temporaryDirectories.push(configDir)
+    const userDataDir = await mkdtemp(join(tmpdir(), "cypheria-workspace-layout-test-"))
+    temporaryDirectories.push(userDataDir)
 
-    await expect(readWorkspaceLayoutSettings(configDir)).resolves.toEqual({
-      configPath: getWorkspaceLayoutConfigPath(configDir),
+    await expect(readWorkspaceLayoutSettings(userDataDir)).resolves.toEqual({
+      configPath: getDesktopSettingsPath(userDataDir),
       defaultTerminalLocation: "bottom",
       showBottomPanelControl: true,
     })
   })
 
-  it("persists renderer-safe layout preferences atomically", async () => {
-    const configDir = await mkdtemp(join(tmpdir(), "cypheria-workspace-layout-test-"))
-    temporaryDirectories.push(configDir)
-
-    const saved = await writeWorkspaceLayoutSettings(configDir, {
+  it("persists layout in the combined desktop settings document", async () => {
+    const userDataDir = await mkdtemp(join(tmpdir(), "cypheria-workspace-layout-test-"))
+    temporaryDirectories.push(userDataDir)
+    const saved = await writeWorkspaceLayoutSettings(userDataDir, {
       defaultTerminalLocation: "right",
       showBottomPanelControl: false,
     })
 
-    await expect(readWorkspaceLayoutSettings(configDir)).resolves.toEqual(saved)
-    await expect(readFile(getWorkspaceLayoutConfigPath(configDir), "utf8")).resolves.toContain(
-      '"defaultTerminalLocation": "right"'
-    )
+    await expect(readWorkspaceLayoutSettings(userDataDir)).resolves.toEqual(saved)
+    const document = JSON.parse(await readFile(getDesktopSettingsPath(userDataDir), "utf8"))
+    expect(document.workspaceLayout).toEqual({
+      defaultTerminalLocation: "right",
+      showBottomPanelControl: false,
+    })
   })
 })

@@ -3,10 +3,8 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
 
+import { getDesktopSettingsPath } from "./desktop-settings.js"
 import {
-  getLanguageConfigPath,
-  mergeLanguagePreferenceIntoToml,
-  parseLanguagePreferenceFromToml,
   readLanguageSettings,
   resolveSupportedLocale,
   writeLanguageSettings,
@@ -29,66 +27,22 @@ describe("desktop language settings", () => {
     expect(resolveSupportedLocale("ja", ["zh-CN"])).toBe("en")
   })
 
-  it("reads localeOverride only from the desktop section", () => {
-    expect(
-      parseLanguagePreferenceFromToml(`localeOverride = "ja"
+  it("persists an explicit choice without touching appearance", async () => {
+    const userDataDir = await mkdtemp(join(tmpdir(), "cypheria-language-test-"))
+    temporaryDirectories.push(userDataDir)
 
-[desktop]
-localeOverride = "zh-CN"
-`)
-    ).toBe("zh-CN")
-    expect(parseLanguagePreferenceFromToml("[desktop]\nlocaleOverride = 'fr-FR'\n")).toBe("fr-FR")
-    expect(parseLanguagePreferenceFromToml('[desktop]\nlocaleOverride = "unknown"\n')).toBe(
-      "system"
-    )
-  })
-
-  it("adds, replaces, and removes localeOverride without changing other settings", () => {
-    const initial = `model = "gpt-5"
-
-[desktop]
-appearanceTheme = "dark"
-localeOverride = "en" # managed language
-
-[mcp_servers.test]
-command = "node"
-`
-    const selected = mergeLanguagePreferenceIntoToml(initial, "ja")
-    expect(selected).toContain('[desktop]\nlocaleOverride = "ja"\nappearanceTheme = "dark"')
-    expect(selected).toContain('[mcp_servers.test]\ncommand = "node"')
-    expect(selected).not.toContain('localeOverride = "en"')
-
-    const automatic = mergeLanguagePreferenceIntoToml(selected, "system")
-    expect(automatic).not.toContain("localeOverride")
-    expect(automatic).toContain('appearanceTheme = "dark"')
-  })
-
-  it("defaults to automatic detection and persists an explicit choice", async () => {
-    const codexHome = await mkdtemp(join(tmpdir(), "cypheria-language-test-"))
-    temporaryDirectories.push(codexHome)
-
-    await expect(readLanguageSettings(codexHome, ["zh-CN"])).resolves.toMatchObject({
+    await expect(readLanguageSettings(userDataDir, ["zh-CN"])).resolves.toMatchObject({
       locale: "zh-CN",
       preference: "system",
     })
-
-    await expect(
-      writeLanguageSettings(codexHome, { preference: "ja" }, ["zh-CN"])
-    ).resolves.toMatchObject({
+    await writeLanguageSettings(userDataDir, { preference: "ja" }, ["zh-CN"])
+    await expect(readLanguageSettings(userDataDir, ["zh-CN"])).resolves.toMatchObject({
       locale: "en",
       preference: "ja",
     })
-    await expect(readLanguageSettings(codexHome, ["zh-CN"])).resolves.toMatchObject({
-      locale: "en",
-      preference: "ja",
-    })
-    await expect(readFile(getLanguageConfigPath(codexHome), "utf8")).resolves.toContain(
-      'localeOverride = "ja"'
-    )
 
-    await writeLanguageSettings(codexHome, { preference: "system" }, ["zh-CN"])
-    await expect(readFile(getLanguageConfigPath(codexHome), "utf8")).resolves.not.toContain(
-      "localeOverride"
-    )
+    const document = JSON.parse(await readFile(getDesktopSettingsPath(userDataDir), "utf8"))
+    expect(document.language).toEqual({ preference: "ja" })
+    expect(document.appearance.theme).toBe("system")
   })
 })

@@ -4,7 +4,7 @@ import type {
   CodexPermissionDefaultsWrite,
   CodexPermissionsCatalog,
 } from "../../ipc/src/index.js"
-import { getCodexConfigPath } from "./appearance-config.js"
+import { getCodexConfigPath } from "./codex-config-path.js"
 
 const builtInProfiles = new Set([":read-only", ":workspace", ":danger-full-access"])
 

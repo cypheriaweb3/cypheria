@@ -2,24 +2,22 @@
 
 Cypheria 以 Codex Desktop appearance model 作为用户可见配置的 source of truth，
 再在运行时把这个较小的配置面投影到 Tailwind v4 和 shadcn CSS variables。用户不
-直接编辑所有 shadcn tokens，而是在 Cypheria 管理的 Codex 配置
-`$CYPHERIA_HOME/codex/config.toml` 中编辑 Codex-compatible appearance fields；
-renderer 从这些字段派生更宽的 shadcn token set。
+直接编辑所有 shadcn tokens；Electron 把 renderer-safe appearance model 持久化到
+`$CYPHERIA_HOME/desktop/desktop-settings.json`，与 Agent 配置相互独立。
 
 ## Configuration Source
 
-`[desktop]` section 保存 appearance-level preferences：
+`appearance` object 保存 appearance-level preferences：
 
-- `appearanceTheme`：`system`、`light` 或 `dark`。
-- `appearanceLightCodeThemeId` 和 `appearanceDarkCodeThemeId`：light 和 dark
+- `theme`：`system`、`light` 或 `dark`。
+- `lightThemeId` 和 `darkThemeId`：light 和 dark
   下选中的 code theme preset ID。
-- `appearanceDiffMarkerStyle`：`color` 或 `symbols`。
-- `reduced-motion-preference`：`system`、`on` 或 `off`。
-- `sansFontSize` 和 `codeFontSize`。
+- `diffMarkerStyle`：`color` 或 `symbols`。
+- `reducedMotionPreference`：`system`、`on` 或 `off`。
+- `uiFontSize` 和 `codeFontSize`。
 - `useFontSmoothing` 和 `usePointerCursors`。
 
-`desktop.appearanceLightChromeTheme` 和 `desktop.appearanceDarkChromeTheme`
-sections 保存可编辑的 light/dark chrome themes：
+`lightTheme` 和 `darkTheme` objects 保存可编辑的 light/dark chrome themes：
 
 - `surface`：主要背景 surface。
 - `ink`：主要前景文字颜色。
@@ -31,20 +29,8 @@ sections 保存可编辑的 light/dark chrome themes：
   metadata。
 - `semanticColors`：`diffAdded`、`diffRemoved` 和 `skill`。
 
-Electron main 通过 typed IPC 负责读写这些 TOML keys。写入时会保留无关配置，只替换
-受管理的 `[desktop]` appearance keys 和受管理的 chrome theme sections。
-
-Cypheria 的 `AppearanceSettings` 使用简洁的应用层命名，同时 TOML adapter 保持 Codex
-原始名称不变：
-
-| `AppearanceSettings` | Codex config |
-| --- | --- |
-| `theme` | `appearanceTheme` |
-| `lightThemeId` | `appearanceLightCodeThemeId` |
-| `darkThemeId` | `appearanceDarkCodeThemeId` |
-| `lightTheme` | `desktop.appearanceLightChromeTheme` |
-| `darkTheme` | `desktop.appearanceDarkChromeTheme` |
-| `uiFontSize` | `sansFontSize` |
+Electron main 通过 typed IPC 负责读取、校验和串行化原子写入。Appearance、language 与
+workspace layout 共用一份带版本的文档，并发设置更新不会覆盖无关 section。
 
 ## Runtime Flow
 
@@ -55,14 +41,14 @@ Renderer 在 React hydration 前应用该 bootstrap value，并将其作为内�
 初始值，随后通过 IPC 刷新同一个 atom。Theme hooks 和 preferences hooks 都从这个
 单一 appearance state 派生；不再使用 localStorage。
 
-`appearanceTheme = "system"` 在 renderer 中通过 `prefers-color-scheme` 解析为实际
+`theme: "system"` 在 renderer 中通过 `prefers-color-scheme` 解析为实际
 mode，并在系统偏好变化时更新。Tailwind 和 shadcn 只接收解析后的 mode：root
 `.dark` class、`color-scheme`、CSS variables，以及少量 data attributes。
 
 Codex-compatible preset themes 是不可变的内置 `codex-theme-v1` payload。选择某个
-preset 时，会把 preset chrome theme 复制到可编辑的 light 或 dark TOML section，
-并在 `[desktop]` 中记录对应的 code theme ID。之后用户修改的是 TOML-backed editable
-theme，而不是 preset definition。
+preset 时，会把 preset chrome theme 复制到可编辑的 light 或 dark appearance slot，
+并记录对应的 code theme ID。之后用户修改的是 JSON-backed editable theme，而不是
+preset definition。
 
 ## shadcn Token Mapping
 
@@ -141,6 +127,6 @@ shadcn tokens 实现。
 继续使用标准 Tailwind `text-*` 和 `leading-*` utilities。显式 `leading-*`
 utilities 必须优先于默认 mono line-height。
 
-用户选择具体 font face 时，TOML 除了保存 family string，还应该以 Codex-compatible
+用户选择具体 font face 时，desktop settings document 除了保存 family string，还应该
 的结构在 `fonts.uiFace` 或 `fonts.codeFace` 中保存 face metadata。Code font 选择
 在 UI 中应限制为 monospace families；UI font 可以使用 proportional families。

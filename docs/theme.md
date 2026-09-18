@@ -3,24 +3,22 @@
 Cypheria follows the Codex Desktop appearance model as the user-facing source of
 truth, then projects that smaller configuration surface onto Tailwind v4 and
 shadcn CSS variables at runtime. Users do not edit every shadcn token directly.
-They edit Codex-compatible appearance fields in the Cypheria-managed Codex config
-at `$CYPHERIA_HOME/codex/config.toml`, and the renderer derives the wider shadcn
-token set from those fields.
+Electron persists the renderer-safe appearance model in
+`$CYPHERIA_HOME/desktop/desktop-settings.json`, independently of Agent settings.
 
 ## Configuration Source
 
-The `[desktop]` section stores appearance-level preferences:
+The `appearance` object stores appearance-level preferences:
 
-- `appearanceTheme`: `system`, `light`, or `dark`.
-- `appearanceLightCodeThemeId` and `appearanceDarkCodeThemeId`: the selected
+- `theme`: `system`, `light`, or `dark`.
+- `lightThemeId` and `darkThemeId`: the selected
   code theme preset IDs for light and dark.
-- `appearanceDiffMarkerStyle`: `color` or `symbols`.
-- `reduced-motion-preference`: `system`, `on`, or `off`.
-- `sansFontSize` and `codeFontSize`.
+- `diffMarkerStyle`: `color` or `symbols`.
+- `reducedMotionPreference`: `system`, `on`, or `off`.
+- `uiFontSize` and `codeFontSize`.
 - `useFontSmoothing` and `usePointerCursors`.
 
-The `desktop.appearanceLightChromeTheme` and
-`desktop.appearanceDarkChromeTheme` sections store the editable light and dark
+The `lightTheme` and `darkTheme` objects store the editable light and dark
 chrome themes:
 
 - `surface`: the main background surface.
@@ -34,21 +32,9 @@ chrome themes:
   `uiFace`/`codeFace` metadata.
 - `semanticColors`: `diffAdded`, `diffRemoved`, and `skill`.
 
-Electron main owns reading and writing these TOML keys through typed IPC. It
-preserves unrelated config and replaces only the managed `[desktop]` appearance
-keys and managed chrome theme sections.
-
-Cypheria's `AppearanceSettings` deliberately uses concise application-facing
-names while the TOML adapter preserves the original Codex names:
-
-| `AppearanceSettings` | Codex config |
-| --- | --- |
-| `theme` | `appearanceTheme` |
-| `lightThemeId` | `appearanceLightCodeThemeId` |
-| `darkThemeId` | `appearanceDarkCodeThemeId` |
-| `lightTheme` | `desktop.appearanceLightChromeTheme` |
-| `darkTheme` | `desktop.appearanceDarkChromeTheme` |
-| `uiFontSize` | `sansFontSize` |
+Electron main owns reading, validation, and serialized atomic writes through typed
+IPC. Appearance, language, and workspace layout share one versioned document, so
+concurrent settings updates preserve unrelated sections.
 
 ## Runtime Flow
 
@@ -61,15 +47,15 @@ hydration and uses it as the initial value of an in-memory Jotai atom. It then
 refreshes the same atom over IPC. Theme and preference hooks are derived from
 this single appearance state; localStorage is not used.
 
-`appearanceTheme = "system"` is resolved in the renderer with
+`theme: "system"` is resolved in the renderer with
 `prefers-color-scheme`; the active mode is updated when the system preference
 changes. Tailwind and shadcn only receive the resolved mode through the root
 `.dark` class, `color-scheme`, CSS variables, and a small set of data attributes.
 
 Codex-compatible preset themes are immutable built-in `codex-theme-v1` payloads.
 Choosing a preset copies the preset chrome theme into the editable light or dark
-TOML section and records the matching code theme ID in `[desktop]`. Later user
-edits mutate the TOML-backed editable theme, not the preset definition.
+appearance slot and records the matching code theme ID. Later user edits mutate
+the JSON-backed editable theme, not the preset definition.
 
 ## shadcn Token Mapping
 
@@ -155,7 +141,7 @@ component code continues to use normal Tailwind `text-*` and `leading-*`
 utilities. Explicit `leading-*` utilities must keep precedence over the default
 mono line-height.
 
-When a user selects a concrete font face, TOML should preserve Codex-compatible
+When a user selects a concrete font face, the desktop settings document preserves
 structured face metadata under `fonts.uiFace` or `fonts.codeFace` in addition to
 the family string. Code font choices should be limited to monospace families in
 the UI, while UI font choices may use proportional families.

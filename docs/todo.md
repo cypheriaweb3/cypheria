@@ -278,8 +278,8 @@ Status legend:
   - Verification note: experimental protocol generation, 26 bridge tests, 77 desktop tests, renderer production build, full repository CI, and full repository build pass.
 
 - [x] Add the desktop internationalization foundation with Lingui.
-  - Acceptance: Electron resolves automatic detection and persists explicit choices as `[desktop].localeOverride` in the managed Codex `config.toml`; the renderer hydrates the prerendered shell deterministically, then activates the matching Lingui catalog, switches reactively without a reload, and synchronizes `lang`/`dir`; the desktop shell and language setting are localized.
-  - Include: a searchable Codex-style picker in General settings containing every reference language, English fallback for selections without a bundled catalog, typed bootstrap and settings IPC, locale/TOML preservation tests, committed PO catalogs, extraction/compile scripts, and paired architecture/technical-stack documentation.
+  - Acceptance: Electron resolves automatic detection and persists explicit choices in Electron-local `desktop-settings.json`; the renderer hydrates the prerendered shell deterministically, then activates the matching Lingui catalog, switches reactively without a reload, and synchronizes `lang`/`dir`; the desktop shell and language setting are localized.
+  - Include: a searchable Codex-style picker in General settings containing every reference language, English fallback for selections without a bundled catalog, typed bootstrap and settings IPC, atomic desktop-settings tests, committed PO catalogs, extraction/compile scripts, and paired architecture/technical-stack documentation.
   - Verification: `pnpm run ci`, `pnpm build`, and `pnpm --filter @cypheria/desktop test`.
   - Verification note: `pnpm run ci`, build, desktop tests, strict catalog compilation, and all Turbo checks pass.
 
