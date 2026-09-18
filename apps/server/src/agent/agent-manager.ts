@@ -3,7 +3,7 @@ import { join } from "node:path"
 
 import type { AgentRegistryPersistenceService, AgentRegistryRecord } from "@cypheria/db"
 import {
-  AGENT_CODEX_CLIENT_RPC,
+  type AGENT_CODEX_CLIENT_RPC,
   type AgentAcpClientMessage,
   type AgentAcpServerMessage,
   type AgentClaudeClientMessage,
@@ -414,39 +414,8 @@ export class AgentManager {
     method: keyof typeof AGENT_CODEX_CLIENT_RPC,
     params?: Record<string, unknown>
   ): Promise<Record<string, unknown>> {
-    const requestId = `server_${randomUUID()}`
-    const sessionId = `server-integration:${requestId}`
-    const definition = AGENT_CODEX_CLIENT_RPC[method]
-    try {
-      return await new Promise<Record<string, unknown>>((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(this.#error("AGENT_TIMEOUT", `Codex ${method} request timed out`))
-        }, 30_000)
-        const send: RuntimeSend = (message) => {
-          if (!("payload" in message) || !message.payload || typeof message.payload !== "object") {
-            return
-          }
-          const payload = message.payload as Record<string, unknown>
-          if (payload.requestId !== requestId || message.type !== definition.response) return
-          clearTimeout(timeout)
-          const { requestId: _requestId, ...value } = payload
-          resolve(value)
-        }
-        void this.handleCodex(
-          {
-            ...(params ?? {}),
-            requestId,
-            type: definition.request,
-          } as AgentCodexClientRequest,
-          { send, sessionId }
-        ).catch((error) => {
-          clearTimeout(timeout)
-          reject(error)
-        })
-      })
-    } finally {
-      await this.disposeSession(sessionId)
-    }
+    await this.#assertCallable("codex")
+    return (await this.#ensureCodexRuntime()).request(method, params)
   }
 
   async handleClaude(
@@ -748,7 +717,7 @@ export class AgentManager {
   async #ensureCodexRuntime(): Promise<CodexRuntime> {
     if (!this.#codexRuntime) {
       this.#codexRuntime = new CodexRuntime({
-        codexHome: join(this.#agentHomes, "codex", "home"),
+        codexHome: join(this.#agentHomes, "..", "codex"),
         receipt: await this.#requiredReceipt("codex"),
         toolchains: this.toolchains,
       })

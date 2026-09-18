@@ -34,7 +34,20 @@ type RawRpc = {
   params?: unknown
   result?: unknown
 }
-type Pending = { requestId: RequestId; responseType: string; send: Send; sessionId: string }
+type ClientPending = {
+  kind: "client"
+  requestId: RequestId
+  responseType: string
+  send: Send
+  sessionId: string
+}
+type InternalPending = {
+  kind: "internal"
+  reject: (error: Error) => void
+  resolve: (value: Record<string, unknown>) => void
+  timeout: NodeJS.Timeout
+}
+type Pending = ClientPending | InternalPending
 type ReversePending = { rawId: RequestId; sessionId: string }
 
 const paramsOf = (message: { type: string } & Record<string, unknown>): unknown => {
@@ -111,6 +124,12 @@ export class CodexRuntime {
     })
     child.once("exit", () => {
       if (this.#process === child) this.#process = undefined
+      for (const pending of this.#pending.values()) {
+        if (pending.kind === "internal") {
+          clearTimeout(pending.timeout)
+          pending.reject(new Error("Codex App Server exited before responding"))
+        }
+      }
       this.#pending.clear()
       this.#reversePending.clear()
       lines.close()
@@ -139,6 +158,7 @@ export class CodexRuntime {
       const threadId = threadIdOf(params)
       if (threadId) this.#threadOwners.set(threadId, sessionId)
       this.#pending.set(internalId, {
+        kind: "client",
         requestId: (message as AgentCodexClientRequest).requestId,
         responseType: definition.response,
         send,
@@ -177,6 +197,26 @@ export class CodexRuntime {
     )
   }
 
+  async request(
+    method: keyof typeof AGENT_CODEX_CLIENT_RPC,
+    params?: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
+    await this.start()
+    const child = this.#process
+    if (!child) throw new Error("Codex App Server is not running")
+    const internalId = ++this.#sequence
+    return new Promise<Record<string, unknown>>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        if (!this.#pending.delete(internalId)) return
+        const error = new Error(`Codex ${method} request timed out`)
+        error.name = "AGENT_TIMEOUT"
+        reject(error)
+      }, 30_000).unref()
+      this.#pending.set(internalId, { kind: "internal", reject, resolve, timeout })
+      child.stdin.write(`${JSON.stringify({ id: internalId, jsonrpc: "2.0", method, params })}\n`)
+    })
+  }
+
   detachSession(sessionId: string): void {
     this.#sessions.delete(sessionId)
     for (const [threadId, owner] of this.#threadOwners) {
@@ -188,6 +228,12 @@ export class CodexRuntime {
   async stop(): Promise<void> {
     const child = this.#process
     this.#process = undefined
+    for (const pending of this.#pending.values()) {
+      if (pending.kind === "internal") {
+        clearTimeout(pending.timeout)
+        pending.reject(new Error("Codex App Server stopped before responding"))
+      }
+    }
     this.#pending.clear()
     this.#reversePending.clear()
     this.#threadOwners.clear()
@@ -247,8 +293,21 @@ export class CodexRuntime {
     if (!pending) return
     this.#pending.delete(raw.id)
     if (raw.error !== undefined) {
-      // Cypheria's generated Codex response contract mirrors successful App Server results.
-      // Surface failures through Codex's own error notification shape and leave no stale correlation.
+      if (pending.kind === "internal") {
+        clearTimeout(pending.timeout)
+        const error = new Error(
+          typeof raw.error === "object" && raw.error && "message" in raw.error
+            ? String((raw.error as { message: unknown }).message)
+            : `Codex request failed: ${JSON.stringify(raw.error)}`
+        )
+        error.name = "CODEX_REQUEST_FAILED"
+        pending.reject(error)
+      }
+      return
+    }
+    if (pending.kind === "internal") {
+      clearTimeout(pending.timeout)
+      pending.resolve((raw.result ?? {}) as Record<string, unknown>)
       return
     }
     const threadId = threadIdOf(raw.result)
