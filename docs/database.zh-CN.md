@@ -113,6 +113,10 @@ Thread 和 project 共享一个 position 域，因此可以精确混排。
 
 更高层的变更与排序行为在 [Project、Thread 与 Section 操作](project-thread.zh-CN.md) 中单独定义。
 
+## Canonical timeline 存储
+
+`thread_timeline_epochs` 保存每个 Thread 当前的 epoch、下一 sequence 与更新时间；`thread_timeline_rows` 以 `(thread_id, epoch, seq)` 为键保存不可变 canonical item，并记录 provider item ID、turn ID 与事件时间。两张表都随所属 Thread 级联删除。Append 会在一个事务中分配并写入连续 sequence；history hydration 会原子替换 epoch 及其 rows。持久化 item JSON 回到 Server timeline 领域边界时，由 `ThreadTimelineRowSchema` 校验。
+
 ## 迁移工作流
 
 Cypheria 统一采用 Drizzle 的 code-first `generate` → `migrate` 流程：
@@ -124,6 +128,8 @@ pnpm --filter @cypheria/db db:migrate
 ```
 
 pnpm 需要使用全局 store，因此这些命令应在受限沙盒外运行。应用或提交前必须审查生成 SQL，并将 schema 目录、生成 SQL、snapshot 和 journal 一起提交。
+
+产品尚未发布，因此当前迁移历史刻意保持为唯一的 `0000_initial.sql` 及其匹配 snapshot、journal。不会探测、导入或升级任何旧 Cypheria 数据目录。首次发布前的 schema 变更继续重新生成该 baseline；发布后才开始采用只追加迁移。
 
 `drizzle-kit migrate` 会读取生成的迁移目录，与数据库迁移日志比较，仅执行尚未应用的文件，并记录成功结果。Runtime 和测试可调用 `applyDatabaseMigrations`，它使用 Drizzle ORM migrator 执行同一个生成目录，并不是第二套模式定义。
 

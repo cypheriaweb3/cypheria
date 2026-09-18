@@ -82,7 +82,7 @@ packages/db
 
 The provider schemas retain exact upstream types and runtime validation without becoming public routing surfaces. `ThreadProviderAdapter` translates provider history and streaming events into canonical timeline rows, maps permission/question APIs into typed Thread interactions, and hides provider process/session ownership. Codex and OpenCode processes are shared; Claude, Pi, and ACP execution is isolated per Thread.
 
-Timeline continuity uses an in-memory canonical log for loaded Threads. Only committed rows receive contiguous sequence numbers within an epoch. Provider history replacement creates a new epoch; projected pages retain exact canonical source ranges. Thread notifications are broadcast server-wide, and permission arbitration accepts only the first valid client response.
+Timeline continuity uses a server-owned SQLite canonical log. Epoch metadata and canonical rows are committed transactionally before notifications are broadcast; only committed rows receive contiguous sequence numbers within an epoch. Provider history replacement creates a new epoch, projected pages retain exact canonical source ranges, and a server restart reopens the same timeline. Permission arbitration accepts only the first valid client response.
 
 Agent management uses transient ACP Registry input to generate committed static IDs, an hourly conditional Registry refresh persisted below `$CYPHERIA_HOME`, a version-and-metadata SQLite `agent_registry` table, asynchronous installation operations, and explicit enablement. Managed Node/Python/uv versions and immutable dependency-fingerprinted Python environments live entirely below `$CYPHERIA_HOME`. See [Agent Management](agent-management.md).
 

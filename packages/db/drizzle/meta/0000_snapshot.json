@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "6fd4e67c-9f80-4232-aeee-5ff455a305f7",
+  "id": "03cec47a-8cd6-4c89-babe-c3dad8b481bd",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "active_wallet_context": {
@@ -2350,21 +2350,180 @@
         }
       }
     },
-    "threads": {
-      "name": "threads",
+    "thread_timeline_epochs": {
+      "name": "thread_timeline_epochs",
       "columns": {
-        "id": {
-          "name": "id",
+        "thread_id": {
+          "name": "thread_id",
           "type": "text",
           "primaryKey": true,
           "notNull": true,
           "autoincrement": false
         },
+        "epoch": {
+          "name": "epoch",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "next_seq": {
+          "name": "next_seq",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "thread_timeline_epochs_thread_id_threads_id_fk": {
+          "name": "thread_timeline_epochs_thread_id_threads_id_fk",
+          "tableFrom": "thread_timeline_epochs",
+          "tableTo": "threads",
+          "columnsFrom": ["thread_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "thread_timeline_epochs_epoch_check": {
+          "name": "thread_timeline_epochs_epoch_check",
+          "value": "length(\"thread_timeline_epochs\".\"epoch\") > 0"
+        },
+        "thread_timeline_epochs_next_seq_check": {
+          "name": "thread_timeline_epochs_next_seq_check",
+          "value": "\"thread_timeline_epochs\".\"next_seq\" >= 1"
+        },
+        "thread_timeline_epochs_updated_at_check": {
+          "name": "thread_timeline_epochs_updated_at_check",
+          "value": "\"thread_timeline_epochs\".\"updated_at\" >= 0"
+        }
+      }
+    },
+    "thread_timeline_rows": {
+      "name": "thread_timeline_rows",
+      "columns": {
+        "thread_id": {
+          "name": "thread_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "epoch": {
+          "name": "epoch",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "seq": {
+          "name": "seq",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "turn_id": {
+          "name": "turn_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "provider_item_id": {
+          "name": "provider_item_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "timestamp": {
+          "name": "timestamp",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "item": {
+          "name": "item",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "thread_timeline_rows_thread_epoch_seq_idx": {
+          "name": "thread_timeline_rows_thread_epoch_seq_idx",
+          "columns": ["thread_id", "epoch", "seq"],
+          "isUnique": false
+        },
+        "thread_timeline_rows_turn_id_idx": {
+          "name": "thread_timeline_rows_turn_id_idx",
+          "columns": ["turn_id"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "thread_timeline_rows_thread_id_thread_timeline_epochs_thread_id_fk": {
+          "name": "thread_timeline_rows_thread_id_thread_timeline_epochs_thread_id_fk",
+          "tableFrom": "thread_timeline_rows",
+          "tableTo": "thread_timeline_epochs",
+          "columnsFrom": ["thread_id"],
+          "columnsTo": ["thread_id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "thread_timeline_rows_thread_id_epoch_seq_pk": {
+          "columns": ["thread_id", "epoch", "seq"],
+          "name": "thread_timeline_rows_thread_id_epoch_seq_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "thread_timeline_rows_epoch_check": {
+          "name": "thread_timeline_rows_epoch_check",
+          "value": "length(\"thread_timeline_rows\".\"epoch\") > 0"
+        },
+        "thread_timeline_rows_seq_check": {
+          "name": "thread_timeline_rows_seq_check",
+          "value": "\"thread_timeline_rows\".\"seq\" >= 1"
+        },
+        "thread_timeline_rows_timestamp_check": {
+          "name": "thread_timeline_rows_timestamp_check",
+          "value": "length(\"thread_timeline_rows\".\"timestamp\") > 0"
+        }
+      }
+    },
+    "threads": {
+      "name": "threads",
+      "columns": {
         "archived_at": {
           "name": "archived_at",
           "type": "integer",
           "primaryKey": false,
           "notNull": false,
+          "autoincrement": false
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
           "autoincrement": false
         },
         "agent_id": {

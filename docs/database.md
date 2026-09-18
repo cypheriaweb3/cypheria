@@ -113,6 +113,10 @@ The five position domains are independent:
 
 Higher-level mutation and ordering behavior is specified separately in [Project, Thread, and Section Operations](project-thread.md).
 
+## Canonical timeline storage
+
+`thread_timeline_epochs` stores the current epoch, next sequence number, and update time for each Thread. `thread_timeline_rows` stores immutable canonical items keyed by `(thread_id, epoch, seq)`, plus the provider item ID, turn ID, and event timestamp. Both tables cascade from the owning Thread. Appends allocate and insert a contiguous sequence in one transaction; history hydration atomically replaces the epoch and its rows. Persisted item JSON is validated with `ThreadTimelineRowSchema` when it crosses back into the Server timeline domain.
+
 ## Migration workflow
 
 Cypheria follows Drizzle's code-first `generate` then `migrate` workflow:
@@ -124,6 +128,8 @@ pnpm --filter @cypheria/db db:migrate
 ```
 
 Because pnpm needs its global store, run these commands outside restricted sandboxes. Review generated SQL before applying or committing it. Commit the schema directory, generated SQL, snapshots, and the journal together.
+
+The product has not shipped, so the current history is intentionally one clean `0000_initial.sql` plus its matching snapshot and journal. No old Cypheria data directory is detected, imported, or upgraded. Until the first release, schema changes regenerate this baseline; after release, migrations become append-only.
 
 `drizzle-kit migrate` reads the generated migration directory, compares it with the database migration log, applies only unapplied files, and records successful applications. Runtime and tests may call `applyDatabaseMigrations`, which uses Drizzle ORM's migrator against the same generated directory; it is not a second schema definition.
 

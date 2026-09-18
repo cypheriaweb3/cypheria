@@ -4,6 +4,7 @@ import type {
   ThreadLifecycleOperationRecord,
   ThreadLifecyclePersistenceService,
   ThreadRecord,
+  ThreadTimelinePersistenceService,
 } from "@cypheria/db"
 import { createThreadId } from "@cypheria/db"
 import {
@@ -51,6 +52,7 @@ export type ThreadManagerOptions = {
   readonly lifecycle: ThreadLifecyclePersistenceService
   readonly persistence: ProjectThreadPersistenceService
   readonly publish: Publish
+  readonly timelinePersistence: ThreadTimelinePersistenceService
 }
 
 const stoppedCapabilities: ThreadView["capabilities"] = {
@@ -70,7 +72,7 @@ export class ThreadManager {
   readonly #persistence: ProjectThreadPersistenceService
   readonly #publish: Publish
   readonly #runtime = new Map<string, RuntimeState>()
-  readonly #timeline = new ThreadTimelineStore()
+  readonly #timeline: ThreadTimelineStore
   readonly #turnRequests = new Map<string, Map<string, string>>()
 
   constructor(options: ThreadManagerOptions) {
@@ -79,6 +81,7 @@ export class ThreadManager {
     this.#lifecycle = options.lifecycle
     this.#persistence = options.persistence
     this.#publish = options.publish
+    this.#timeline = new ThreadTimelineStore(options.timelinePersistence)
   }
 
   async initialize(): Promise<void> {
@@ -158,7 +161,7 @@ export class ThreadManager {
           break
         case "thread.timeline.get.request":
           await this.#required(message.payload.threadId)
-          respond(this.#timeline.page(message.payload.threadId, message.payload))
+          respond(await this.#timeline.page(message.payload.threadId, message.payload))
           break
         case "thread.config.update.request": {
           const { threadId, ...patch } = message.payload
@@ -193,7 +196,7 @@ export class ThreadManager {
 
   async create(input: CreateThreadInput): Promise<{
     thread: ThreadView
-    timeline: ReturnType<ThreadTimelineStore["head"]>
+    timeline: Awaited<ReturnType<ThreadTimelineStore["head"]>>
   }> {
     const threadId = createThreadId()
     return this.#withLock(threadId, async () => {
@@ -234,17 +237,18 @@ export class ThreadManager {
           id: threadId,
         })
         databaseCommitted = true
-        await this.#lifecycle.complete(operation.id)
         this.#runtime.set(threadId, {
           activeTurn: null,
           capabilities: session.capabilities,
           pendingInteractions: new Map(),
           state: "idle",
         })
-        if (session.history) this.#timeline.replace(threadId, session.history)
+        if (session.history) await this.#timeline.replace(threadId, session.history)
+        const timeline = await this.#timeline.head(threadId)
+        await this.#lifecycle.complete(operation.id)
         const view = this.#view(thread)
         this.#publish({ payload: view, type: "thread.created.notification" })
-        return { thread: view, timeline: this.#timeline.head(threadId) }
+        return { thread: view, timeline }
       } catch (error) {
         if (databaseCommitted) {
           // Leave provider-created state for startup recovery to complete journal cleanup.
@@ -342,14 +346,15 @@ export class ThreadManager {
         runtime.state = "idle"
         runtime.activeTurn = null
         runtime.pendingInteractions.clear()
-        this.#timeline.replace(threadId, session.history ?? [])
+        await this.#timeline.replace(threadId, session.history ?? [])
+        const timeline = await this.#timeline.head(threadId)
         const view = this.#view(thread)
         this.#publish({
-          payload: { epoch: this.#timeline.head(threadId).epoch, reason: "hydrated", threadId },
+          payload: { epoch: timeline.epoch, reason: "hydrated", threadId },
           type: "thread.timeline.replaced.notification",
         })
         this.#publish({ payload: view, type: "thread.updated.notification" })
-        return { thread: view, timeline: this.#timeline.head(threadId) }
+        return { thread: view, timeline }
       } catch (error) {
         this.#setState(thread, "errored")
         throw error
@@ -420,7 +425,7 @@ export class ThreadManager {
         await this.#persistence.deleteThread(threadId)
         await this.#lifecycle.complete(operation.id)
         this.#runtime.delete(threadId)
-        this.#timeline.delete(threadId)
+        await this.#timeline.delete(threadId)
         this.#turnRequests.delete(threadId)
         this.#publish({ payload: { threadId }, type: "thread.deleted.notification" })
       } catch (error) {
@@ -468,7 +473,7 @@ export class ThreadManager {
       requests.set(input.clientMessageId, turnId)
       runtime.activeTurn = { id: turnId, startedAt: new Date().toISOString() }
       runtime.state = "running"
-      this.#appendUserInput(thread.id, turnId, input.clientMessageId, input.content)
+      await this.#appendUserInput(thread.id, turnId, input.clientMessageId, input.content)
       return { thread: this.#updateAndPublishSync(thread), turnId }
     })
   }
@@ -505,7 +510,7 @@ export class ThreadManager {
         this.#turnRequests.set(thread.id, requests)
       }
       requests.set(input.clientMessageId, turnId)
-      this.#appendUserInput(thread.id, turnId, input.clientMessageId, input.content)
+      await this.#appendUserInput(thread.id, turnId, input.clientMessageId, input.content)
       return { thread: this.#updateAndPublishSync(thread), turnId }
     })
   }
@@ -603,7 +608,7 @@ export class ThreadManager {
       const runtime = this.#state(threadId)
       switch (event.type) {
         case "timeline":
-          this.#appendTimeline(threadId, event.item)
+          await this.#appendTimeline(threadId, event.item)
           break
         case "interaction-requested":
           runtime.pendingInteractions.set(event.interaction.id, event.interaction)
@@ -641,7 +646,7 @@ export class ThreadManager {
         case "error":
           runtime.activeTurn = null
           runtime.state = "errored"
-          this.#appendTimeline(threadId, {
+          await this.#appendTimeline(threadId, {
             item: {
               code: "PROVIDER_ERROR",
               itemId: `error:${globalThis.crypto.randomUUID()}`,
@@ -671,20 +676,23 @@ export class ThreadManager {
     })
   }
 
-  #appendTimeline(threadId: string, item: Parameters<ThreadTimelineStore["append"]>[1]): void {
-    const appended = this.#timeline.append(threadId, item)
+  async #appendTimeline(
+    threadId: string,
+    item: Parameters<ThreadTimelineStore["append"]>[1]
+  ): Promise<void> {
+    const appended = await this.#timeline.append(threadId, item)
     this.#publish({
       payload: { ...appended, threadId },
       type: "thread.timeline.appended.notification",
     })
   }
 
-  #appendUserInput(
+  async #appendUserInput(
     threadId: string,
     turnId: string,
     clientMessageId: string,
     content: readonly ThreadInputBlock[]
-  ): void {
+  ): Promise<void> {
     const text = content
       .filter(
         (block): block is Extract<ThreadInputBlock, { type: "text" }> => block.type === "text"
@@ -695,7 +703,7 @@ export class ThreadManager {
       (block): block is Exclude<ThreadInputBlock, { type: "text" }> => block.type !== "text"
     )
     if (!text && attachments.length === 0) return
-    this.#appendTimeline(threadId, {
+    await this.#appendTimeline(threadId, {
       item: {
         ...(attachments.length > 0 ? { attachments } : {}),
         itemId: `user:${clientMessageId}`,

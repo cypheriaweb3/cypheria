@@ -1,12 +1,13 @@
-import { mkdtempSync, rmSync } from "node:fs"
+import { existsSync, mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { join, resolve } from "node:path"
 
 import {
   applyDatabaseMigrations,
   createAgentRegistryPersistenceService,
   createProjectThreadPersistenceService,
   createThreadLifecyclePersistenceService,
+  createThreadTimelinePersistenceService,
   openCypheriaDatabase,
 } from "@cypheria/db"
 import type { AgentId, ServerMessage } from "@cypheria/protocol"
@@ -90,6 +91,13 @@ class FakeAdapter implements ThreadProviderAdapter {
 }
 
 const databases: Array<{ close: () => void; home: string }> = []
+const migrationsFolder = [
+  resolve(process.cwd(), "packages/db/drizzle"),
+  resolve(process.cwd(), "../../packages/db/drizzle"),
+].find(existsSync)
+
+if (!migrationsFolder) throw new Error("Database migrations folder was not found")
+
 afterEach(() => {
   for (const database of databases.splice(0)) {
     database.close()
@@ -101,7 +109,9 @@ const setup = async () => {
   const home = mkdtempSync(join(tmpdir(), "cypheria-thread-manager-test-"))
   const database = openCypheriaDatabase({ cypheriaHome: home })
   databases.push({ close: database.close, home })
-  await applyDatabaseMigrations(database.client)
+  await applyDatabaseMigrations(database.client, {
+    migrationsFolder,
+  })
   const agents = createAgentRegistryPersistenceService(database.db)
   await agents.reconcile([{ id: "codex", native: true }])
   await agents.setVersion("codex", {
@@ -121,6 +131,7 @@ const setup = async () => {
     lifecycle: createThreadLifecyclePersistenceService(database.db),
     persistence: createProjectThreadPersistenceService(database.db),
     publish: (message) => messages.push(message),
+    timelinePersistence: createThreadTimelinePersistenceService(database.db),
   })
   await manager.initialize()
   return { adapter, database, manager, messages }

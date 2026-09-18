@@ -1,10 +1,10 @@
-import { randomUUID } from "node:crypto"
-
+import type { ThreadTimelinePersistenceService } from "@cypheria/db"
 import {
   projectThreadTimelineRows,
   type ThreadTimelinePage,
   type ThreadTimelineProjection,
   type ThreadTimelineRow,
+  ThreadTimelineRowSchema,
 } from "@cypheria/protocol"
 
 import type { ThreadProviderHistoryItem } from "./provider-adapter.js"
@@ -12,30 +12,33 @@ import type { ThreadProviderHistoryItem } from "./provider-adapter.js"
 type Timeline = { epoch: string; rows: ThreadTimelineRow[] }
 
 export class ThreadTimelineStore {
-  readonly #timelines = new Map<string, Timeline>()
+  readonly #persistence: ThreadTimelinePersistenceService
 
-  append(
+  constructor(persistence: ThreadTimelinePersistenceService) {
+    this.#persistence = persistence
+  }
+
+  async append(
     threadId: string,
     input: ThreadProviderHistoryItem
-  ): { epoch: string; row: ThreadTimelineRow } {
-    const timeline = this.#get(threadId)
-    const row: ThreadTimelineRow = {
+  ): Promise<{ epoch: string; row: ThreadTimelineRow }> {
+    const appended = await this.#persistence.append(threadId, {
       item: input.item,
       providerItemId: input.providerItemId ?? null,
-      seq: timeline.rows.length + 1,
       timestamp: input.timestamp ?? new Date().toISOString(),
       turnId: input.turnId ?? null,
-    }
-    timeline.rows.push(row)
-    return { epoch: timeline.epoch, row }
+    })
+    return { epoch: appended.epoch, row: ThreadTimelineRowSchema.parse(appended.row) }
   }
 
-  delete(threadId: string): void {
-    this.#timelines.delete(threadId)
+  async delete(threadId: string): Promise<void> {
+    await this.#persistence.delete(threadId)
   }
 
-  head(threadId: string): { endCursor: { epoch: string; seq: number } | null; epoch: string } {
-    const timeline = this.#get(threadId)
+  async head(
+    threadId: string
+  ): Promise<{ endCursor: { epoch: string; seq: number } | null; epoch: string }> {
+    const timeline = await this.#get(threadId)
     const last = timeline.rows.at(-1)
     return {
       endCursor: last ? { epoch: timeline.epoch, seq: last.seq } : null,
@@ -43,7 +46,7 @@ export class ThreadTimelineStore {
     }
   }
 
-  page(
+  async page(
     threadId: string,
     options: {
       cursor?: { epoch: string; seq: number }
@@ -51,8 +54,8 @@ export class ThreadTimelineStore {
       limit: number
       projection: ThreadTimelineProjection
     }
-  ): ThreadTimelinePage {
-    const timeline = this.#get(threadId)
+  ): Promise<ThreadTimelinePage> {
+    const timeline = await this.#get(threadId)
     const reset = options.cursor !== undefined && options.cursor.epoch !== timeline.epoch
     const cursor = reset ? undefined : options.cursor
     const direction = reset ? "tail" : options.direction
@@ -134,20 +137,27 @@ export class ThreadTimelineStore {
     }
   }
 
-  replace(threadId: string, history: readonly ThreadProviderHistoryItem[]): { epoch: string } {
-    const epoch = randomUUID()
-    const timeline: Timeline = { epoch, rows: [] }
-    this.#timelines.set(threadId, timeline)
-    for (const item of history) this.append(threadId, item)
-    return { epoch }
+  async replace(
+    threadId: string,
+    history: readonly ThreadProviderHistoryItem[]
+  ): Promise<{ epoch: string }> {
+    const timeline = await this.#persistence.replace(
+      threadId,
+      history.map((input) => ({
+        item: input.item,
+        providerItemId: input.providerItemId ?? null,
+        timestamp: input.timestamp ?? new Date().toISOString(),
+        turnId: input.turnId ?? null,
+      }))
+    )
+    return { epoch: timeline.epoch }
   }
 
-  #get(threadId: string): Timeline {
-    let timeline = this.#timelines.get(threadId)
-    if (!timeline) {
-      timeline = { epoch: randomUUID(), rows: [] }
-      this.#timelines.set(threadId, timeline)
+  async #get(threadId: string): Promise<Timeline> {
+    const timeline = await this.#persistence.get(threadId)
+    return {
+      epoch: timeline.epoch,
+      rows: timeline.rows.map((row) => ThreadTimelineRowSchema.parse(row)),
     }
-    return timeline
   }
 }

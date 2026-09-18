@@ -7,6 +7,7 @@ import {
   createAgentRegistryPersistenceService,
   createProjectThreadPersistenceService,
   createThreadLifecyclePersistenceService,
+  createThreadTimelinePersistenceService,
   type OpenDatabaseResult,
   openCypheriaDatabase,
 } from "@cypheria/db"
@@ -126,6 +127,7 @@ export class CypheriaServer implements HttpAppHost {
       lifecycle: createThreadLifecyclePersistenceService(this.database.db),
       persistence: projectThreadPersistence,
       publish: (message) => this.registry.broadcast(message),
+      timelinePersistence: createThreadTimelinePersistenceService(this.database.db),
     })
     this.agentManager.setThreadCoordinator(this.threadManager)
     this.#lifecycleHandler = options.onLifecycleRequest

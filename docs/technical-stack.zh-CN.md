@@ -82,7 +82,7 @@ packages/db
 
 Provider schema 保留精确上游 type 与 runtime validation，但不成为公开路由 surface。`ThreadProviderAdapter` 把 provider history 与 streaming event 转换为 canonical timeline row，把 permission/question API 映射为 typed Thread interaction，并隐藏 provider process/session ownership。Codex 与 OpenCode process 共享，Claude、Pi 与 ACP execution 按 Thread 隔离。
 
-Timeline 连续性由已加载 Thread 的内存 canonical log 实现。只有已提交 row 在 epoch 内获得连续 sequence；provider history replacement 会创建新 epoch；projected page 保留精确 canonical source range。Thread notification 在 server 范围广播，permission 仲裁只接受首个合法 client response。
+Timeline 连续性由 server-owned SQLite canonical log 实现。Epoch metadata 与 canonical row 会先以事务提交，再广播 notification；只有已提交 row 在 epoch 内获得连续 sequence。Provider history replacement 会创建新 epoch，projected page 保留精确 canonical source range，server 重启后会重新打开同一 timeline。Permission 仲裁只接受首个合法 client response。
 
 Agent management 使用临时 ACP Registry 输入生成并提交静态 ID、每小时条件刷新并把 Registry 保存到 `$CYPHERIA_HOME`、记录版本和元数据的 SQLite `agent_registry` 表、异步安装 operation 与显式 enable。受管 Node/Python/uv 版本和按依赖指纹共享的不可变 Python environment 全部位于 `$CYPHERIA_HOME` 下。详见 [Agent 管理](agent-management.zh-CN.md)。
 

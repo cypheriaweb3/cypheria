@@ -401,9 +401,37 @@ CREATE TABLE `thread_lifecycle_operations` (
 --> statement-breakpoint
 CREATE INDEX `thread_lifecycle_operations_thread_id_idx` ON `thread_lifecycle_operations` (`thread_id`);--> statement-breakpoint
 CREATE INDEX `thread_lifecycle_operations_status_idx` ON `thread_lifecycle_operations` (`status`);--> statement-breakpoint
+CREATE TABLE `thread_timeline_epochs` (
+	`thread_id` text PRIMARY KEY NOT NULL,
+	`epoch` text NOT NULL,
+	`next_seq` integer NOT NULL,
+	`updated_at` integer NOT NULL,
+	FOREIGN KEY (`thread_id`) REFERENCES `threads`(`id`) ON UPDATE no action ON DELETE cascade,
+	CONSTRAINT "thread_timeline_epochs_epoch_check" CHECK(length("thread_timeline_epochs"."epoch") > 0),
+	CONSTRAINT "thread_timeline_epochs_next_seq_check" CHECK("thread_timeline_epochs"."next_seq" >= 1),
+	CONSTRAINT "thread_timeline_epochs_updated_at_check" CHECK("thread_timeline_epochs"."updated_at" >= 0)
+);
+--> statement-breakpoint
+CREATE TABLE `thread_timeline_rows` (
+	`thread_id` text NOT NULL,
+	`epoch` text NOT NULL,
+	`seq` integer NOT NULL,
+	`turn_id` text,
+	`provider_item_id` text,
+	`timestamp` text NOT NULL,
+	`item` text NOT NULL,
+	PRIMARY KEY(`thread_id`, `epoch`, `seq`),
+	FOREIGN KEY (`thread_id`) REFERENCES `thread_timeline_epochs`(`thread_id`) ON UPDATE no action ON DELETE cascade,
+	CONSTRAINT "thread_timeline_rows_epoch_check" CHECK(length("thread_timeline_rows"."epoch") > 0),
+	CONSTRAINT "thread_timeline_rows_seq_check" CHECK("thread_timeline_rows"."seq" >= 1),
+	CONSTRAINT "thread_timeline_rows_timestamp_check" CHECK(length("thread_timeline_rows"."timestamp") > 0)
+);
+--> statement-breakpoint
+CREATE INDEX `thread_timeline_rows_thread_epoch_seq_idx` ON `thread_timeline_rows` (`thread_id`,`epoch`,`seq`);--> statement-breakpoint
+CREATE INDEX `thread_timeline_rows_turn_id_idx` ON `thread_timeline_rows` (`turn_id`);--> statement-breakpoint
 CREATE TABLE `threads` (
-	`id` text PRIMARY KEY NOT NULL,
 	`archived_at` integer,
+	`id` text PRIMARY KEY NOT NULL,
 	`agent_id` text NOT NULL,
 	`agent_session_id` text,
 	`forked_from_id` text,

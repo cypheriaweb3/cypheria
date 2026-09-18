@@ -119,6 +119,46 @@ export const threadLifecycleOperations = sqliteTable(
   ]
 )
 
+export const threadTimelineEpochs = sqliteTable(
+  "thread_timeline_epochs",
+  {
+    threadId: text("thread_id")
+      .primaryKey()
+      .references(() => threads.id, { onDelete: "cascade" }),
+    epoch: text("epoch").notNull(),
+    nextSeq: integer("next_seq").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    check("thread_timeline_epochs_epoch_check", sql`length(${table.epoch}) > 0`),
+    check("thread_timeline_epochs_next_seq_check", sql`${table.nextSeq} >= 1`),
+    check("thread_timeline_epochs_updated_at_check", sql`${table.updatedAt} >= 0`),
+  ]
+)
+
+export const threadTimelineRows = sqliteTable(
+  "thread_timeline_rows",
+  {
+    threadId: text("thread_id")
+      .notNull()
+      .references(() => threadTimelineEpochs.threadId, { onDelete: "cascade" }),
+    epoch: text("epoch").notNull(),
+    seq: integer("seq").notNull(),
+    turnId: text("turn_id"),
+    providerItemId: text("provider_item_id"),
+    timestamp: text("timestamp").notNull(),
+    item: text("item", { mode: "json" }).$type<unknown>().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.threadId, table.epoch, table.seq] }),
+    index("thread_timeline_rows_thread_epoch_seq_idx").on(table.threadId, table.epoch, table.seq),
+    index("thread_timeline_rows_turn_id_idx").on(table.turnId),
+    check("thread_timeline_rows_epoch_check", sql`length(${table.epoch}) > 0`),
+    check("thread_timeline_rows_seq_check", sql`${table.seq} >= 1`),
+    check("thread_timeline_rows_timestamp_check", sql`length(${table.timestamp}) > 0`),
+  ]
+)
+
 export const projectItems = sqliteTable(
   "project_items",
   {

@@ -108,6 +108,13 @@ export {
   threadLifecycleStatuses,
 } from "./thread-lifecycle.js"
 export {
+  createThreadTimelinePersistenceService,
+  type PersistedThreadTimeline,
+  type PersistedThreadTimelineRow,
+  type ThreadTimelineAppendInput,
+  type ThreadTimelinePersistenceService,
+} from "./thread-timeline.js"
+export {
   createWalletPublicStatePersistenceService,
   type ListWalletOptions,
   type PersistedActiveWalletContext,

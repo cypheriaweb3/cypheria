@@ -10,6 +10,8 @@ export {
   sections,
   threadLifecycleOperations,
   threads,
+  threadTimelineEpochs,
+  threadTimelineRows,
 } from "./project-thread.js"
 export {
   approvalRequestStatuses,

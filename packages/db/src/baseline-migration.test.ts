@@ -17,6 +17,8 @@ describe("database baseline migration", () => {
     expect(tables.rows.map(({ name }) => name)).toContain("projects")
     expect(tables.rows.map(({ name }) => name)).toContain("threads")
     expect(tables.rows.map(({ name }) => name)).toContain("thread_lifecycle_operations")
+    expect(tables.rows.map(({ name }) => name)).toContain("thread_timeline_epochs")
+    expect(tables.rows.map(({ name }) => name)).toContain("thread_timeline_rows")
     expect(tables.rows.map(({ name }) => name)).toContain("sections")
     expect(tables.rows.map(({ name }) => name)).toContain("wallets")
 

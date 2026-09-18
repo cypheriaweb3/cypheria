@@ -1,68 +1,117 @@
+import { existsSync, mkdtempSync, rmSync } from "node:fs"
+import { tmpdir } from "node:os"
+import { join, resolve } from "node:path"
+import {
+  applyDatabaseMigrations,
+  createAgentRegistryPersistenceService,
+  createProjectThreadPersistenceService,
+  createThreadTimelinePersistenceService,
+  openCypheriaDatabase,
+} from "@cypheria/db"
 import { describe, expect, it } from "vitest"
 
 import { ThreadTimelineStore } from "./timeline-store.js"
 
+const threadId = "01984de2-8f74-7c91-a3b2-5c5e937cf399"
+const migrationsFolder = [
+  resolve(process.cwd(), "packages/db/drizzle"),
+  resolve(process.cwd(), "../../packages/db/drizzle"),
+].find(existsSync)
+
+if (!migrationsFolder) throw new Error("Database migrations folder was not found")
+
+const setup = async () => {
+  const home = mkdtempSync(join(tmpdir(), "cypheria-timeline-store-test-"))
+  const database = openCypheriaDatabase({ cypheriaHome: home })
+  await applyDatabaseMigrations(database.client, {
+    migrationsFolder,
+  })
+  await createAgentRegistryPersistenceService(database.db).reconcile([
+    { id: "codex", native: true },
+  ])
+  await createProjectThreadPersistenceService(database.db).createThread({
+    agentId: "codex",
+    id: threadId,
+  })
+  return {
+    close: () => {
+      database.close()
+      rmSync(home, { force: true, recursive: true })
+    },
+    persistence: createThreadTimelinePersistenceService(database.db),
+  }
+}
+
 describe("ThreadTimelineStore", () => {
-  it("sequences canonical rows and folds projected deltas", () => {
-    const store = new ThreadTimelineStore()
-    const threadId = "01984de2-8f74-7c91-a3b2-5c5e937cf399"
-    store.append(threadId, {
+  it("sequences durable canonical rows and folds projected deltas", async () => {
+    const { close, persistence } = await setup()
+    const store = new ThreadTimelineStore(persistence)
+    await store.append(threadId, {
       item: { itemId: "a", operation: "append", role: "assistant", text: "hel", type: "message" },
     })
-    store.append(threadId, {
+    await store.append(threadId, {
       item: { itemId: "a", operation: "append", role: "assistant", text: "lo", type: "message" },
     })
 
-    const canonical = store.page(threadId, {
+    const canonical = await store.page(threadId, {
       direction: "tail",
       limit: 100,
       projection: "canonical",
     })
     expect(canonical.canonicalRows.map((row) => row.seq)).toEqual([1, 2])
-    const projected = store.page(threadId, {
+    const restartedStore = new ThreadTimelineStore(persistence)
+    const projected = await restartedStore.page(threadId, {
       direction: "tail",
       limit: 100,
       projection: "projected",
     })
     expect(projected.projectedItems).toHaveLength(1)
     expect(projected.projectedItems[0]?.item).toMatchObject({ text: "hello" })
+    close()
   })
 
-  it("changes epoch on hydration and marks stale cursors for reset", () => {
-    const store = new ThreadTimelineStore()
-    const threadId = "01984de2-8f74-7c91-a3b2-5c5e937cf399"
-    const previous = store.head(threadId)
-    const next = store.replace(threadId, [])
+  it("changes epoch on hydration and marks stale cursors for reset", async () => {
+    const { close, persistence } = await setup()
+    const store = new ThreadTimelineStore(persistence)
+    const previous = await store.head(threadId)
+    const next = await store.replace(threadId, [])
     expect(next.epoch).not.toBe(previous.epoch)
     expect(
-      store.page(threadId, {
-        cursor: { epoch: previous.epoch, seq: 0 },
-        direction: "after",
-        limit: 100,
-        projection: "canonical",
-      }).reset
+      (
+        await store.page(threadId, {
+          cursor: { epoch: previous.epoch, seq: 0 },
+          direction: "after",
+          limit: 100,
+          projection: "canonical",
+        })
+      ).reset
     ).toBe(true)
+    close()
   })
 
-  it("pages complete projected items without cutting through canonical deltas", () => {
-    const store = new ThreadTimelineStore()
-    const threadId = "01984de2-8f74-7c91-a3b2-5c5e937cf399"
-    store.append(threadId, {
+  it("pages complete projected items without cutting through canonical deltas", async () => {
+    const { close, persistence } = await setup()
+    const store = new ThreadTimelineStore(persistence)
+    await store.append(threadId, {
       item: { itemId: "a", operation: "append", role: "assistant", text: "hel", type: "message" },
     })
-    store.append(threadId, {
+    await store.append(threadId, {
       item: { itemId: "b", operation: "replace", role: "user", text: "next", type: "message" },
     })
-    store.append(threadId, {
+    await store.append(threadId, {
       item: { itemId: "a", operation: "append", role: "assistant", text: "lo", type: "message" },
     })
 
-    const page = store.page(threadId, { direction: "tail", limit: 1, projection: "projected" })
+    const page = await store.page(threadId, {
+      direction: "tail",
+      limit: 1,
+      projection: "projected",
+    })
     expect(page.projectedItems).toHaveLength(2)
     expect(page.projectedItems[0]?.item).toMatchObject({ itemId: "a", text: "hello" })
     expect(page.projectedItems[1]?.item).toMatchObject({ itemId: "b", text: "next" })
 
-    const after = store.page(threadId, {
+    const after = await store.page(threadId, {
       cursor: { epoch: page.epoch, seq: 2 },
       direction: "after",
       limit: 1,
@@ -74,5 +123,6 @@ describe("ThreadTimelineStore", () => {
       text: "lo",
     })
     expect(after.projectedItems[0]?.sourceSeqRanges).toEqual([{ end: 3, start: 3 }])
+    close()
   })
 })

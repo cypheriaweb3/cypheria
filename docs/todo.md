@@ -117,7 +117,8 @@ Status legend:
   - [x] Integrate the Thread protocol into the live message union, server dispatch, and top-level client facade.
   - [x] Normalize public Agent management as `agent.*` and expose it directly on `api.agent`.
   - [x] Retire connection-owned provider session APIs after their Thread adapters cover the classified surface.
-  - [x] Add the thread lifecycle journal, in-memory timeline store, AgentManager/ThreadManager coordination, and provider adapters.
+  - [x] Add the thread lifecycle journal, durable canonical timeline store, AgentManager/ThreadManager coordination, and provider adapters.
+  - [x] Persist timeline epochs and canonical rows transactionally, regenerate the unreleased database as a single `0000_initial.sql`, and verify history survives store reconstruction.
   - [x] Complete multi-client interaction arbitration, deletion recovery, process hardening, and documentation.
   - [x] Add shared archive, unarchive, archived-list, and native-session fork operations; archived Threads retain project/section placement while disappearing from active Sidebar collections.
   - [x] Complete full-repository verification.

@@ -115,7 +115,8 @@
   - [x] 将 Thread 协议接入 live message union、server dispatch 与顶层 client facade。
   - [x] 将公开 Agent 管理统一为 `agent.*`，并直接暴露在 `api.agent`。
   - [x] 在 Thread adapter 覆盖分类后的接口后，移除 connection-owned provider session API。
-  - [x] 添加 Thread lifecycle journal、内存 timeline store、AgentManager/ThreadManager 协作和 provider adapter。
+  - [x] 添加 Thread lifecycle journal、持久化 canonical timeline store、AgentManager/ThreadManager 协作和 provider adapter。
+  - [x] 以事务持久化 timeline epoch 与 canonical row，把尚未发布的数据库重新生成成唯一的 `0000_initial.sql`，并验证重建 store 后仍能恢复 history。
   - [x] 完成多客户端 interaction 仲裁、删除恢复、进程加固和文档。
   - [x] 添加共享的归档、取消归档、已归档列表和原生 session Fork 操作；归档 Thread 保留 project/section 归属，但不出现在活动 Sidebar 集合中。
   - [x] 完成全仓验证。

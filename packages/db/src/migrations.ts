@@ -23,6 +23,6 @@ export const applyDatabaseMigrations = async (
   await migrate(drizzle(client, { schema }), {
     migrationsFolder:
       options.migrationsFolder ??
-      (existsSync(bundledMigrationsFolder) ? bundledMigrationsFolder : defaultMigrationsFolder),
+      (existsSync(defaultMigrationsFolder) ? defaultMigrationsFolder : bundledMigrationsFolder),
   })
 }
