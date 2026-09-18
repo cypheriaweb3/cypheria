@@ -23,15 +23,15 @@ export const ProjectSchema = z.object({
 export type Project = z.infer<typeof ProjectSchema>
 
 export const ThreadSchema = z.object({
+  id: ProjectThreadIdSchema,
   agentId: AgentIdSchema,
   agentSessionId: z.string().nullable(),
-  createdAt: UnixTimestampSecondsSchema,
+  title: z.string().nullable(),
   cwd: z.string().nullable(),
   forkedFromId: ProjectThreadIdSchema.nullable(),
-  id: ProjectThreadIdSchema,
   position: z.int().nonnegative(),
   recencyAt: UnixTimestampSecondsSchema.nullable(),
-  title: z.string().nullable(),
+  createdAt: UnixTimestampSecondsSchema,
   updatedAt: UnixTimestampSecondsSchema,
 })
 export type Thread = z.infer<typeof ThreadSchema>

@@ -110,6 +110,13 @@ Status legend:
   - Include: one database baseline with `agent_registry`; latest stable managed Node/Python/uv below `$CYPHERIA_HOME`; immutable Python environments shared by complete hashed dependency lock; native Codex/Claude/Pi/OpenCode installers and runtimes; binary/npx/uvx registry installers; stable OpenCode SDK root and both event streams; client manager and OpenCode facades.
   - Verification: registry, database baseline, toolchain fingerprint/lease/GC, protocol, client, and server tests; full repository CI/build; paired documentation.
 
+- [ ] Replace provider-session wire APIs with the Agent/Thread protocol and server-owned thread execution.
+  - [x] Define Thread views, lifecycle RPCs, canonical timeline rows, epoch/sequence cursors, projected pages, and deterministic projection helpers.
+  - [ ] Integrate the Thread protocol into the live message union and client facade; retire connection-owned provider session APIs.
+  - [ ] Add the thread lifecycle journal, in-memory timeline store, AgentManager/ThreadManager coordination, and provider adapters.
+  - [ ] Complete multi-client interaction arbitration, deletion recovery, process hardening, documentation, and full-repository verification.
+  - Acceptance: the public protocol uses Agent and Thread terminology; `threadId` is the only operation handle; all clients receive the same Thread events; only canonical timeline rows use epoch/sequence; provider sessions remain server-internal.
+
 - [ ] Migrate desktop to the Cypheria server after explicit review.
   - Acceptance: Electron main ensures the local supervised server is running, desktop uses the shared protocol, and Electron-only dApp/browser, secure-storage, approval, preload, and OS-integration boundaries remain intact.
   - Prerequisite: explicit approval of the server foundation; do not begin as part of the foundation change.
