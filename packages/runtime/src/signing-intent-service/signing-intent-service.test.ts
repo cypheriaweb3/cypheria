@@ -107,7 +107,7 @@ const messageDraft = (account: SigningAccountRef, origin?: string) => ({
 })
 
 describe("signing intent runtime service", () => {
-  it("evaluates and persists dApp, automation, and agent intents", async () => {
+  it("evaluates and persists dApp, schedule, and agent intents", async () => {
     const { account, audit, database, policies, service } = await createHarness()
     await policies.create({
       chainKeys: ["eip155:1"],
@@ -125,7 +125,7 @@ describe("signing intent runtime service", () => {
     await expect(service.authorize(dapp.intent)).resolves.toMatchObject({ approved: true })
     await expect(service.get(dapp.intent.id)).resolves.toEqual(dapp)
 
-    for (const source of ["automation", "agent"] as const) {
+    for (const source of ["schedule", "agent"] as const) {
       const pending = await service.create({
         intent: messageDraft(account),
         mode: "human-approval",
@@ -190,7 +190,7 @@ describe("signing intent runtime service", () => {
       expiresAt: "2026-09-01T06:01:00.000Z",
       intent: messageDraft(account),
       mode: "human-approval",
-      source: "automation",
+      source: "schedule",
     })
     if (!pending.approvalId) throw new Error("Expected an approval fixture.")
     setTime("2026-09-01T06:02:00.000Z")

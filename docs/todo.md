@@ -50,7 +50,7 @@ Status legend:
   - Acceptance: desktop-local IPC contracts define initial app/runtime contracts and desktop main validates handler inputs/outputs.
   - Verification: `pnpm run ci`, `pnpm build`.
 
-- [x] Add database, audit, wallet, policy, Web3 browser, automation, Codex bridge, and UI baselines.
+- [x] Add database, audit, wallet, policy, Web3 browser, schedule, Codex bridge, and UI baselines.
   - Acceptance: domain packages contain initial types/services/tests for their V1 boundaries.
   - Verification: `pnpm run ci`, `pnpm build`, package-level tests where present.
 
@@ -79,7 +79,7 @@ Status legend:
 
 - [x] Add the Cypheria client/server foundation without migrating desktop.
   - Acceptance: `apps/server` provides a Hono HTTP/WebSocket control plane, Paseo-shaped top-level envelopes, principal-and-client-keyed multi-transport logical sessions with automatic grace-period resume, runtime lifecycle, persisted server configuration and live state, operations endpoints, supervised server lifecycle, relay ingress, and embedded Expo web hosting; `apps/expo` targets iOS, Android, and static web; `@cypheria/protocol` provides shared validated contracts.
-  - Exclude: agent, project, wallet, policy, browser, and automation product methods; any `apps/desktop` code change.
+  - Exclude: agent, project, wallet, policy, browser, and schedule product methods; any `apps/desktop` code change.
   - Verification: protocol/server/client/Expo tests and typechecks, relay tests, Expo compatibility check and static export, server build and embedded-web smoke test, server start/status/restart/stop smoke test, full repository CI/build.
 
 - [x] Define the complete Codex App Server adapter contract in `@cypheria/protocol`.
@@ -155,8 +155,8 @@ Status legend:
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/runtime test`.
 
 - [x] Move Cypheria-owned service orchestration behind runtime.
-  - Acceptance: runtime can wire database, audit, automation, policy, wallet domain, and browser domain service boundaries without importing desktop renderer code.
-  - Include: clear method namespaces for `runtime.*`, `wallet.*`, `chain.*`, `policy.*`, `browser.*`, `dapp.*`, `automation.*`, `audit.*`, and `settings.*`.
+  - Acceptance: runtime can wire database, audit, policy, wallet domain, and browser domain service boundaries without importing desktop renderer code.
+  - Include: clear method namespaces for `runtime.*`, `wallet.*`, `chain.*`, `policy.*`, `browser.*`, `dapp.*`, `audit.*`, and `settings.*`.
   - Verification: `pnpm run ci`, `pnpm build`, runtime and affected package tests.
 
 - [x] Adapt existing desktop bootstrap to the runtime host.
@@ -182,7 +182,7 @@ Status legend:
 
 - [ ] Add `packages/sdk`.
   - Acceptance: package exports a public `Cypheria` server client.
-  - Include: clients for runtime, wallet, policy, automation, and agent.
+  - Include: clients for runtime, wallet, policy, schedule, and agent.
   - Agent path: use versioned server operations and events.
   - Must not import: `apps/cli`, `apps/desktop`, Electron, `@cypheria/runtime`, or `@cypheria/codex-bridge`.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/sdk test`.
@@ -306,7 +306,7 @@ Status legend:
 
 - [x] Add the chat-centered desktop workspace, harness connections, and native model settings.
   - Acceptance: the sidebar lists projects and recent threads; the main workspace streams AI SDK UI messages through App Server; Connections is structured for multiple agent harnesses and implements Codex login with ChatGPT managed authentication and validated OpenAI API keys; model settings support OpenAI, Bedrock, Ollama, and LM Studio.
-  - Include: a global system/direct/manual proxy stored at `$CYPHERIA_HOME/config/proxy.json`, HTTP/HTTPS/SOCKS5 support, connection testing, harness restart on proxy changes, unauthenticated local-model use, chat interruption, model/reasoning/service-tier controls, automation supervision, isolated dApp launch, approval and plugin/skill workbench routes, and client-only route shells for Electron builds.
+  - Include: a global system/direct/manual proxy stored at `$CYPHERIA_HOME/config/proxy.json`, HTTP/HTTPS/SOCKS5 support, connection testing, harness restart on proxy changes, unauthenticated local-model use, chat interruption, model/reasoning/service-tier controls, schedule supervision, isolated dApp launch, approval and plugin/skill workbench routes, and client-only route shells for Electron builds.
   - Exclude: generic custom providers and OpenCodex integration until the provider strategy is decided.
   - Verification: `pnpm run ci`, `pnpm build`, and `pnpm --filter @cypheria/desktop test`.
 
@@ -387,10 +387,10 @@ Status legend:
   - Include: SSRF destination policy, DNS/redirect checks, timeouts, response and concurrency bounds, redacted audit, and stable network errors.
   - Verification: runtime unit and integration tests with local fake EVM and Solana RPC servers; `pnpm run ci`, `pnpm build`.
 
-- [x] Migrate wallet, policy, automation, and dApp boundaries to canonical chain identity.
-  - Acceptance: chain accounts, active wallet context, signing intents, policies, automation scopes, permissions, and events use `ChainIdentity`/`ChainKey`; active network identity must match the selected chain account.
+- [x] Migrate wallet, policy, schedule, and dApp boundaries to canonical chain identity.
+  - Acceptance: chain accounts, active wallet context, signing intents, policies, schedule scopes, permissions, and events use `ChainIdentity`/`ChainKey`; active network identity must match the selected chain account.
   - Include: data migrations and compatibility adapters for EIP-1193 hexadecimal IDs and Solana Wallet Standard identifiers.
-  - Verification: `@cypheria/web3`, automation, database, runtime, and desktop IPC tests.
+  - Verification: `@cypheria/web3`, schedule, database, runtime, and desktop IPC tests.
 
 - [x] Add origin-scoped network add/switch flows and desktop management UI.
   - Acceptance: each dApp origin selects Ethereum and Solana networks independently; EIP-3085 add and EIP-3326 switch requests require validated probes and approval; desktop manages network and endpoint ordering, enabled state, health, and redacted credentials.
@@ -423,7 +423,7 @@ Status legend:
 
 - [x] Connect wallet signers to the signing-intent pipeline.
   - Acceptance: callers receive signing capabilities rather than secret material; every message, typed-data, and transaction signature is bound to an approved intent and audited.
-  - Include: viem signing adapters, signer/address consistency checks, lock behavior, replay protection, and no private keys in renderer, dApp, agent, or automation contexts.
+  - Include: viem signing adapters, signer/address consistency checks, lock behavior, replay protection, and no private keys in renderer, dApp, agent, or schedule contexts.
   - Verification: runtime, policy, wallet, and desktop IPC tests.
 
 - [x] Implement policy runtime service.
@@ -431,17 +431,17 @@ Status legend:
   - Verification: runtime and `@cypheria/web3` policy tests.
 
 - [x] Implement signing intent and approval runtime flow.
-  - Acceptance: dApp, automation, and agent contexts can create signing intents; each intent is evaluated by policy and auditable.
+  - Acceptance: dApp, schedule, and agent contexts can create signing intents; each intent is evaluated by policy and auditable.
   - Verification: runtime, policy, db, and desktop IPC tests.
 
 - [x] Implement provider and dApp browser runtime service.
   - Acceptance: desktop can create origin-isolated dApp sessions; expose and discover Ethereum and Solana providers; persist protocol-scoped permissions; forward common Ethereum read-only RPC; deliver scoped provider events; and route EVM or Solana signing through policy-backed intents and injected executors.
   - Verification: `@cypheria/web3` provider, database, runtime, desktop controller, and real sandboxed Electron discovery tests.
 
-- [x] Implement automation runtime service.
-  - Acceptance: runtime can create, list, run, pause, resume, and inspect automation tasks and runs.
-  - Include: tasks may call Codex SDK or create signing intents but cannot bypass policy.
-  - Verification: automation-core, db, runtime, and desktop tests.
+- [x] Replace the local Automation stack with Server-owned Schedules.
+  - Acceptance: `apps/server` can create, list, update, pause, resume, delete, run, recover, and inspect schedules through the versioned protocol; Desktop uses `@cypheria/client` and has no Automation IPC.
+  - Include: once, interval, and cron cadence; new/existing Thread and bounded Web3 targets; durable leases and run history; no restart replay of in-flight Web3 operations; removal of `automation-core`, legacy tables, runtime service, and Desktop bridge.
+  - Verification: protocol/client/server schedule tests, database baseline tests, Desktop typecheck/build, `pnpm run ci`, `pnpm build`.
 
 ## Review Rule
 

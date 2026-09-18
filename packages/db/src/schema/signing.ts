@@ -5,7 +5,7 @@ import { check, index, integer, sqliteTable, text } from "drizzle-orm/sqlite-cor
 
 import { wallets } from "./wallet.js"
 
-export const signingIntentSources = ["agent", "automation", "dapp"] as const
+export const signingIntentSources = ["agent", "dapp", "schedule"] as const
 export const signingIntentStatuses = [
   "approved",
   "expired",
@@ -82,7 +82,7 @@ export const signingIntents = sqliteTable(
     index("signing_intents_status_idx").on(table.status),
     index("signing_intents_wallet_id_idx").on(table.walletId),
     check("signing_intents_revision_check", sql`${table.revision} > 0`),
-    check("signing_intents_source_check", sql`${table.source} IN ('agent', 'automation', 'dapp')`),
+    check("signing_intents_source_check", sql`${table.source} IN ('agent', 'dapp', 'schedule')`),
     check(
       "signing_intents_mode_check",
       sql`${table.mode} IN ('conditional-auto-signing', 'human-approval', 'read-only')`

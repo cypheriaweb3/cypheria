@@ -58,9 +58,6 @@ importers:
       '@cypheria/ai-sdk-provider':
         specifier: workspace:*
         version: link:../../packages/ai-sdk-provider
-      '@cypheria/automation-core':
-        specifier: workspace:*
-        version: link:../../packages/automation-core
       '@cypheria/client':
         specifier: workspace:*
         version: link:../../packages/client
@@ -378,19 +375,6 @@ importers:
         specifier: ^4.1.7
         version: 4.1.7(@types/node@25.9.1)(jsdom@30.0.1(@noble/hashes@1.8.0))(msw@2.14.6(@types/node@25.9.1)(typescript@6.0.3))(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.0))
 
-  packages/automation-core:
-    dependencies:
-      '@cypheria/web3':
-        specifier: workspace:*
-        version: link:../web3
-      zod:
-        specifier: ^4.6.2
-        version: 4.6.2
-    devDependencies:
-      vitest:
-        specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.1)(jsdom@30.0.1(@noble/hashes@1.8.0))(msw@2.14.6(@types/node@25.9.1)(typescript@6.0.3))(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.0))
-
   packages/client:
     dependencies:
       '@cypheria/protocol':
@@ -425,9 +409,6 @@ importers:
 
   packages/db:
     dependencies:
-      '@cypheria/automation-core':
-        specifier: workspace:*
-        version: link:../automation-core
       '@cypheria/protocol':
         specifier: workspace:*
         version: link:../protocol
@@ -503,9 +484,6 @@ importers:
 
   packages/runtime:
     dependencies:
-      '@cypheria/automation-core':
-        specifier: workspace:*
-        version: link:../automation-core
       '@cypheria/db':
         specifier: workspace:*
         version: link:../db

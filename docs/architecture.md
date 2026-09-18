@@ -1,8 +1,8 @@
 # Cypheria Architecture
 
-Cypheria is a TypeScript Web3 agent product that reuses Codex for software-engineering agent work and implements its own Web3 runtime for wallets, signing policy, dApp browsing, automation, local state, and auditability.
+Cypheria is a TypeScript Web3 agent product that reuses Codex for software-engineering agent work and implements its own Web3 runtime for wallets, signing policy, dApp browsing, schedule, local state, and auditability.
 
-The architecture has one central rule: agent work, Web3 signing, automation execution, local files, and dApp browsing must not collapse into one trust boundary.
+The architecture has one central rule: agent work, Web3 signing, schedule execution, local files, and dApp browsing must not collapse into one trust boundary.
 
 ## System Overview
 
@@ -50,7 +50,7 @@ Cypheria has one privileged server, multiple clients, a separate marketplace, an
 - `packages/relay`: transport-neutral TypeScript E2EE and relay URL helpers shared by server and
   clients.
 
-Codex owns agent threads, turns, model execution, code edits, shell/tool execution, MCP, and Codex approvals. Cypheria owns Web3 context, wallets, signing intents, policy evaluation, dApp browser permissions, automation state, local data, and audit logs.
+Codex owns agent threads, turns, model execution, code edits, shell/tool execution, MCP, and Codex approvals. Cypheria owns Web3 context, wallets, signing intents, policy evaluation, dApp browser permissions, schedule state, local data, and audit logs.
 
 ## Server And Protocol Boundary
 
@@ -72,7 +72,7 @@ gate must stay optional and carry a `COMPAT(name)` comment with its introduction
 date. Final protocol unions use explicit Zod AOT compilation. Provider-native requests are validated
 with their selected schema at the internal adapter boundary before dispatch.
 
-Wallet, policy, browser, automation, and the remaining product services stay outside the current Agent/Thread work. See [Cypheria Server](server.md).
+Wallet, policy, browser, schedule, and the remaining product services stay outside the current Agent/Thread work. See [Cypheria Server](server.md).
 
 ## Relay Boundary
 
@@ -106,7 +106,7 @@ The marketplace is a separate remote trust boundary. D1 is the review/publicatio
 - Wallet/account/chain/RPC service boundaries.
 - Signing intent creation and policy evaluation hooks.
 - dApp browser permission and session domain state.
-- Automation task and run orchestration.
+- Schedule task and run orchestration.
 - Audit log writes.
 - Database and vault service wiring.
 
@@ -132,7 +132,6 @@ chain.*
 policy.*
 browser.*
 dapp.*
-automation.*
 audit.*
 settings.*
 ```
@@ -215,7 +214,7 @@ The preserved Sidebar presentation model now receives direct `ProjectView`, `Thr
 
 The preserved conversation scope still owns drafts, attachments, cached `Chat` instances, virtualization, scroll restoration, and navigation continuity. Live Codex turns use `@cypheria/ai-sdk-provider/codex`; durable history is rehydrated from the server-owned canonical timeline. Common message, reasoning, tool, command, diff, plan, approval, artifact, status, and error items reuse the same renderer. Active-turn steering is a capability-gated common Thread operation: Codex maps it to App Server steering and Pi maps it to Pi RPC, while unsupported providers reject it explicitly.
 
-The desktop information architecture is chat-centered. New chat and search remain fixed at the top of the persistent sidebar. Pending approvals, wallets, automations, signing policies, audit logs, plugins, and skills share one virtualized scroll surface with collapsible Pinned, custom, Projects, and Recents sections. Sidebar menus persist independent pinned/chat sort choices and switch between project grouping and one combined Recents list. Custom sections use the experimental App Server `threadSection/*` lifecycle and `thread/section/move` methods through typed IPC; new chats launched from a section are moved into it as soon as App Server creates the durable thread. Chat row menus follow the packaged desktop grouping: Rename, Pin/Unpin, read state, and Archive come first, followed by Project, Section, Copy, and Fork groups. Project menus cover pinning, edit, section placement, folder reveal, conditional mark-all-read, bulk chat archive, and removal; each project row exposes its new-chat action as a separate hover/focus shortcut rather than a menu item. Project placement is stored as Cypheria-namespaced App Server project metadata, while Electron main resolves reveal requests from a project identifier instead of accepting renderer paths. Section menus support edit, confirmed bulk archive across direct chats and contained projects, and confirmed deletion. Projects come from App Server `project/list`, including projects without chats; renderer-safe IPC supports project creation, rename, deletion, and a main-process directory picker. A new chat can select a project, which supplies both `projectId` and its first root as `cwd` to `thread/start`. Pinned items and top-level projects reveal five more entries only after an explicit Show more action; each expanded project applies the same five-chat disclosure. Recents has no presentation cap and fetches the next App Server cursor when its terminal loading row reaches the viewport. The pending item shows the live number of unresolved signing approvals. The chat workspace combines an AI Elements conversation and composer with project, model, reasoning, sandbox, and wallet-context controls plus a right-hand context/files/review/terminal panel whose width is constrained relative to the available workbench rather than the full viewport. App Server `fileChange` and `commandExecution` tool parts drive that panel for both live and restored chats: Files keeps the latest state for every changed path, Review renders the recorded unified diff with copy actions, and Terminal renders ANSI output, streaming state, and exit status for every command. Entering Settings replaces the workbench sidebar with a grouped Personal, Integrations, Coding, and Archived navigation plus a route back to the workspace. The settings navigation is searchable and supports `Cmd/Ctrl+F` focus. General, Appearance, Connections, Plugins, Configuration, Models, and Archived chats are dedicated routes; Archived chats uses App Server thread listing, unarchive, and delete methods for search, restore, and permanent removal. Every settings page scrolls in the full right pane so its scrollbar remains at the window edge. ChatGPT account, personalization, notification delivery, voice, storage, and updater controls are intentionally deferred because they depend on ChatGPT service or app-owned capabilities not exposed by Codex App Server.
+The desktop information architecture is chat-centered. New chat and search remain fixed at the top of the persistent sidebar. Pending approvals, wallets, schedules, signing policies, audit logs, plugins, and skills share one virtualized scroll surface with collapsible Pinned, custom, Projects, and Recents sections. Sidebar menus persist independent pinned/chat sort choices and switch between project grouping and one combined Recents list. Custom sections use the experimental App Server `threadSection/*` lifecycle and `thread/section/move` methods through typed IPC; new chats launched from a section are moved into it as soon as App Server creates the durable thread. Chat row menus follow the packaged desktop grouping: Rename, Pin/Unpin, read state, and Archive come first, followed by Project, Section, Copy, and Fork groups. Project menus cover pinning, edit, section placement, folder reveal, conditional mark-all-read, bulk chat archive, and removal; each project row exposes its new-chat action as a separate hover/focus shortcut rather than a menu item. Project placement is stored as Cypheria-namespaced App Server project metadata, while Electron main resolves reveal requests from a project identifier instead of accepting renderer paths. Section menus support edit, confirmed bulk archive across direct chats and contained projects, and confirmed deletion. Projects come from App Server `project/list`, including projects without chats; renderer-safe IPC supports project creation, rename, deletion, and a main-process directory picker. A new chat can select a project, which supplies both `projectId` and its first root as `cwd` to `thread/start`. Pinned items and top-level projects reveal five more entries only after an explicit Show more action; each expanded project applies the same five-chat disclosure. Recents has no presentation cap and fetches the next App Server cursor when its terminal loading row reaches the viewport. The pending item shows the live number of unresolved signing approvals. The chat workspace combines an AI Elements conversation and composer with project, model, reasoning, sandbox, and wallet-context controls plus a right-hand context/files/review/terminal panel whose width is constrained relative to the available workbench rather than the full viewport. App Server `fileChange` and `commandExecution` tool parts drive that panel for both live and restored chats: Files keeps the latest state for every changed path, Review renders the recorded unified diff with copy actions, and Terminal renders ANSI output, streaming state, and exit status for every command. Entering Settings replaces the workbench sidebar with a grouped Personal, Integrations, Coding, and Archived navigation plus a route back to the workspace. The settings navigation is searchable and supports `Cmd/Ctrl+F` focus. General, Appearance, Connections, Plugins, Configuration, Models, and Archived chats are dedicated routes; Archived chats uses App Server thread listing, unarchive, and delete methods for search, restore, and permanent removal. Every settings page scrolls in the full right pane so its scrollbar remains at the window edge. ChatGPT account, personalization, notification delivery, voice, storage, and updater controls are intentionally deferred because they depend on ChatGPT service or app-owned capabilities not exposed by Codex App Server.
 
 The conversation surface uses TanStack Virtual with measured variable-height message rows, stable message IDs, end anchoring, append following, and overscan so long restored threads do not mount every turn at once. A renderer-owned, 20-entry thread scope snapshots measured rows plus a stable visible-message anchor, raw offset, bottom distance, viewport height, and bottom-follow state. Layout-effect restoration happens before paint and preserves the stable anchor across route changes and asynchronous row measurement; new or bottom-locked chats remain at the true bottom. AI Elements `Conversation` supplies structure and context only: the desktop injects its own instance, disables the upstream spring/resize scrolling, and disables browser scroll anchoring so it cannot compete with TanStack's correction. On macOS, closing the main window hides it and activation shows the same renderer, retaining the session scope; quitting still tears it down. See [AI Elements Integration And Upgrade Guide](ai-elements.md) for the ownership and upgrade constraints. The header supports inline App Server thread renaming. Its ChatGPT-aligned composer uses a borderless elevated surface, a content-growing editor capped at `25dvh`, explicit leading/trailing footer groups, validated attachment and screenshot capture, skill insertion, dictation, project and permission selection, one combined model/reasoning menu, and distinct submit, stop, mid-turn steer, and next-turn queue actions. The packaged editor's clipboard routing is preserved: image-only paste becomes an attachment, mixed image and independent text stays textual, and pastes of at least 5,000 characters become scope-owned `Pasted text.txt` cards that can be restored at the active selection up to 25,000 characters. Because App Server v2 has no generic file input, the initial, steering, and queued-message boundaries decode these inline text attachments into complete `text` user inputs. Shared scroll surfaces preserve native macOS overlay geometry while applying transparent tracks and quiet thumbs that strengthen on hover or active scrolling. Workspace chrome is a nested resizable layout: the side panel is constrained to 320 pixels through half the workbench, while the bottom panel defaults to 280 pixels and remains between 160 pixels and half the available height. The title-bar bottom-panel control and `Cmd/Ctrl+J` toggle that dock independently from the `Control+Backquote` terminal action. Hiding the bottom panel collapses it to zero without closing its tabs or PTYs; the mounted Xterm surface, output, and last pixel height are restored when it reopens. Closing the last tab leaves the empty dock visible and changes its panel action to `Close`; opening a hidden empty dock explicitly creates a new terminal. The tab strip scrolls independently while its add-tab control remains fixed beside it, matching the packaged desktop panel chrome. Panel state and the terminal controller live above the keyed chat session, so switching conversations retains the open dock, PTYs, active tab, and height; a bounded replay buffer restores Xterm output when the session subtree remounts. A project-scoped `node-pty` terminal can still move between the bottom dock and a side-panel tab without losing its session, while the terminal action consults the configured default bottom/right location when no terminal dock is visible. Renderer IPC passes only an optional App Server project ID; Electron main resolves the trusted project root before spawning the shell and owns terminal input, resize, output, exit, and cleanup.
 
@@ -312,7 +311,7 @@ Electron main registers each created WebContents ID with its normalized origin a
 ## Signing Flow
 
 ```txt
-dApp, automation, or agent context
+dApp, schedule, or agent context
   -> signing intent
   -> PolicyEngine
   -> persisted decision / approval request
@@ -324,32 +323,30 @@ dApp, automation, or agent context
   -> AuditLogService
 ```
 
-Codex does not directly sign transactions. Automation does not directly sign transactions. Both create signing intents routed through Cypheria policy.
+Agents and schedules do not sign transactions directly. They create signing intents routed through Cypheria policy.
 
 Wallet signing capabilities are account-bound and consume an intent exactly once. They require an injected policy/approval authorizer, access unlocked vault secrets only through a scoped callback, verify the derived signer and produced signature, and emit redacted audit records. Transaction broadcasting is a separate capability.
 
 Signing policies are wallet-scoped, persisted in libSQL, and managed through a runtime service with strict schemas and optimistic revision checks. Evaluation is deterministic and falls back to human approval when conditional auto-signing has no matching allow policy. Policy changes and every evaluation result are audited.
 
-The signing-intent runtime accepts only strict source contexts (`dapp`, `automation`, or `agent`), assigns the intent ID and creation time itself, evaluates policy before persistence, and stores the exact canonical payload plus its hash in libSQL. Human decisions update `approval_requests` and `signing_intents` together through a libSQL atomic batch guarded by an optimistic revision. Approval IPC exposes the exact intent needed for informed review but never vault material. Audit entries contain only the payload hash and a redacted summary.
+The signing-intent runtime accepts only strict source contexts (`dapp`, `schedule`, or `agent`), assigns the intent ID and creation time itself, evaluates policy before persistence, and stores the exact canonical payload plus its hash in libSQL. Human decisions update `approval_requests` and `signing_intents` together through a libSQL atomic batch guarded by an optimistic revision. Approval IPC exposes the exact intent needed for informed review but never vault material. Audit entries contain only the payload hash and a redacted summary.
 
-## Automation Flow
+## Schedule Flow
 
 ```txt
-manual trigger or scheduler
-  -> AutomationRunner
-  -> worker boundary
-  -> server-owned runtime / agent services as needed
+once, interval, or cron cadence / manual run
+  -> Server ScheduleService
+  -> atomic SQLite lease and next-run advance
+  -> ThreadManager or policy-controlled Web3 executor
   -> signing intent for write operations
   -> PolicyEngine
   -> approval or policy decision
-  -> AuditLogService
+  -> persisted run result and audit record
 ```
 
-V1 automation is local-first. Cloud agent execution and complex workflow engines are out of scope.
+`apps/server` owns schedules and exposes them only through the versioned Cypheria protocol. A schedule may start a new Agent thread, continue an existing Thread, or invoke a bounded Web3 method. Definitions support one-time, fixed-interval, and five-field cron cadence. Before execution, the Server atomically claims the due slot and advances the next-run state, preventing duplicate execution across timer overlap or restart recovery.
 
-The implemented automation runtime persists strictly validated task definitions and independent run records in local SQLite. Tasks move through `draft`, `enabled`, `paused`, and `archived` states with optimistic revisions; only enabled tasks run, and a partial unique index permits at most one queued or running execution per task. Runtime methods cover task creation, listing, inspection, pause/resume, run start, and run inspection. Desktop exposes the same boundary through typed IPC.
-
-Task handlers are trusted runtime extensions selected by a persisted handler name and JSON-only, secret-rejecting input. They receive an abort signal plus narrow capabilities for an injected Codex agent runner and signing-intent creation. They never receive a wallet signer or secret. The signing capability forces `source: automation`, replaces the correlation ID with the run audit ID, enforces the task's wallet/account/chain/origin/policy scope, and then delegates to the normal signing-intent and policy pipeline. Runtime shutdown aborts and waits for active executions before the database closes.
+Runs persist their target type, scheduled time, status, result, error, and created Thread ID. On restart, stale running records become `interrupted`; an in-flight Web3 signature or broadcast is never replayed. Desktop and CLI use `@cypheria/client` for list, create, update, pause, resume, delete, manual-run, and history operations. Cloud Agent execution and a general workflow engine remain out of scope.
 
 ## Data Model
 
@@ -364,8 +361,8 @@ settings
 audit_logs
 workspaces
 runtime_metadata
-automation_tasks
-automation_runs
+schedules
+schedule_runs
 wallets
 wallet_accounts
 chain_accounts
@@ -397,7 +394,6 @@ $CYPHERIA_HOME/
   logs/
   cache/
   browser/
-  automation/
   config/
 ```
 
@@ -419,10 +415,10 @@ Default rules:
 - dApp permissions are scoped by origin.
 - Private keys only enter the encrypted vault.
 - Renderer and dApp pages never access private keys.
-- Codex and automation flows create signing intents, not direct signatures.
+- Codex and schedule flows create signing intents, not direct signatures.
 - Every signing intent goes through `@cypheria/web3/policy`.
 - Auto-signing is disabled by default.
-- Every policy decision, signature, rejection, automation run, and transaction hash is auditable.
+- Every policy decision, signature, rejection, schedule run, and transaction hash is auditable.
 
 ## Package Boundaries
 
@@ -459,9 +455,6 @@ apps/desktop/ipc
 
 @cypheria/web3/provider
   dApp session, provider bridge, and browser permission models.
-
-@cypheria/automation-core
-  Automation task, trigger, run, log, and audit correlation models.
 
 @cypheria/db
   SQLite schema, migrations, and local persistence helpers.

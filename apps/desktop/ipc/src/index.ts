@@ -1,11 +1,3 @@
-import {
-  automationRunIdSchema,
-  automationTaskIdSchema,
-  automationTaskRunSchema,
-  automationTaskSchema,
-  automationTaskStatusSchema,
-  createAutomationTaskInputSchema,
-} from "@cypheria/automation-core"
 import { networkDefinitionSchema, rpcEndpointViewSchema } from "@cypheria/web3/network"
 import {
   dappSessionSchema,
@@ -188,7 +180,6 @@ export const ipcNamespaces = [
   "browser",
   "dapp",
   "policy",
-  "automation",
   "approval",
   "settings",
   "audit",
@@ -203,14 +194,6 @@ export const CYPHERIA_IPC_CHANNELS = {
   auditLogList: "audit.log.list",
   approvalRequestDecide: "approval.request.decide",
   approvalRequestsList: "approval.requests.list",
-  automationRunGet: "automation.run.get",
-  automationRunList: "automation.run.list",
-  automationRunStart: "automation.run.start",
-  automationTaskCreate: "automation.task.create",
-  automationTaskGet: "automation.task.get",
-  automationTaskList: "automation.task.list",
-  automationTaskPause: "automation.task.pause",
-  automationTaskResume: "automation.task.resume",
   browserSessionOpen: "browser.session.open",
   codexAccountLoginCancel: "codex.account.login.cancel",
   codexAccountLoginStart: "codex.account.login.start",
@@ -350,7 +333,6 @@ export const RuntimeInfoSchema = z
     cypheriaHome: z.string().min(1),
     directories: z
       .object({
-        automation: z.string().min(1),
         browser: z.string().min(1),
         cache: z.string().min(1),
         config: z.string().min(1),
@@ -617,7 +599,7 @@ export const SigningIntentRecordSchema = z
     mode: z.enum(["conditional-auto-signing", "human-approval", "read-only"]),
     payloadHash: z.string().regex(/^sha256:[a-f0-9]{64}$/u),
     revision: z.number().int().positive(),
-    source: z.enum(["agent", "automation", "dapp"]),
+    source: z.enum(["agent", "dapp", "schedule"]),
     status: z.enum(["approved", "expired", "pending-approval", "rejected"]),
     updatedAt: z.iso.datetime(),
   })
@@ -668,32 +650,6 @@ export const BrowserSessionOpenResultSchema = z
   .object({ session: dappSessionSchema, webContentsId: z.number().int().positive() })
   .strict()
 export type BrowserSessionOpenResult = z.infer<typeof BrowserSessionOpenResultSchema>
-
-export const AutomationTaskViewSchema = z
-  .object({ runs: z.array(automationTaskRunSchema), task: automationTaskSchema })
-  .strict()
-export type AutomationTaskView = z.infer<typeof AutomationTaskViewSchema>
-
-export const AutomationTaskListSchema = z
-  .object({ status: automationTaskStatusSchema.optional() })
-  .strict()
-export type AutomationTaskList = z.infer<typeof AutomationTaskListSchema>
-
-export const AutomationTaskIdInputSchema = z.object({ taskId: automationTaskIdSchema }).strict()
-export type AutomationTaskIdInput = z.infer<typeof AutomationTaskIdInputSchema>
-
-export const AutomationRunIdInputSchema = z.object({ runId: automationRunIdSchema }).strict()
-export type AutomationRunIdInput = z.infer<typeof AutomationRunIdInputSchema>
-
-export const AutomationTaskTransitionSchema = AutomationTaskIdInputSchema.extend({
-  expectedRevision: z.number().int().positive().optional(),
-}).strict()
-export type AutomationTaskTransition = z.infer<typeof AutomationTaskTransitionSchema>
-
-export const AutomationRunListSchema = z
-  .object({ taskId: automationTaskIdSchema.optional() })
-  .strict()
-export type AutomationRunList = z.infer<typeof AutomationRunListSchema>
 
 export const IpcRequestEnvelopeSchema = z
   .object({
@@ -1131,70 +1087,6 @@ export const dappProviderRequestContract = {
   z.input<typeof walletProviderRequestSchema>,
   z.output<typeof walletProviderResponseSchema>
 >
-
-export const automationTaskCreateContract = {
-  channel: CYPHERIA_IPC_CHANNELS.automationTaskCreate,
-  namespace: "automation",
-  request: createAutomationTaskInputSchema,
-  response: automationTaskSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  z.input<typeof createAutomationTaskInputSchema>,
-  z.output<typeof automationTaskSchema>
->
-
-export const automationTaskListContract = {
-  channel: CYPHERIA_IPC_CHANNELS.automationTaskList,
-  namespace: "automation",
-  request: AutomationTaskListSchema,
-  response: z.array(automationTaskSchema),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<AutomationTaskList, z.output<typeof automationTaskSchema>[]>
-
-export const automationTaskGetContract = {
-  channel: CYPHERIA_IPC_CHANNELS.automationTaskGet,
-  namespace: "automation",
-  request: AutomationTaskIdInputSchema,
-  response: AutomationTaskViewSchema.optional(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<AutomationTaskIdInput, AutomationTaskView | undefined>
-
-export const automationTaskPauseContract = {
-  channel: CYPHERIA_IPC_CHANNELS.automationTaskPause,
-  namespace: "automation",
-  request: AutomationTaskTransitionSchema,
-  response: automationTaskSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<AutomationTaskTransition, z.output<typeof automationTaskSchema>>
-
-export const automationTaskResumeContract = {
-  ...automationTaskPauseContract,
-  channel: CYPHERIA_IPC_CHANNELS.automationTaskResume,
-} satisfies IpcContract<AutomationTaskTransition, z.output<typeof automationTaskSchema>>
-
-export const automationRunStartContract = {
-  channel: CYPHERIA_IPC_CHANNELS.automationRunStart,
-  namespace: "automation",
-  request: AutomationTaskIdInputSchema,
-  response: automationTaskRunSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<AutomationTaskIdInput, z.output<typeof automationTaskRunSchema>>
-
-export const automationRunGetContract = {
-  channel: CYPHERIA_IPC_CHANNELS.automationRunGet,
-  namespace: "automation",
-  request: AutomationRunIdInputSchema,
-  response: automationTaskRunSchema.optional(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<AutomationRunIdInput, z.output<typeof automationTaskRunSchema> | undefined>
-
-export const automationRunListContract = {
-  channel: CYPHERIA_IPC_CHANNELS.automationRunList,
-  namespace: "automation",
-  request: AutomationRunListSchema,
-  response: z.array(automationTaskRunSchema),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<AutomationRunList, z.output<typeof automationTaskRunSchema>[]>
 
 export const runtimeInfoReadContract = {
   channel: CYPHERIA_IPC_CHANNELS.runtimeInfoRead,
@@ -1881,14 +1773,6 @@ export const ipcContracts = {
   auditLogList: auditLogListContract,
   approvalRequestDecide: approvalRequestDecideContract,
   approvalRequestsList: approvalRequestsListContract,
-  automationRunGet: automationRunGetContract,
-  automationRunList: automationRunListContract,
-  automationRunStart: automationRunStartContract,
-  automationTaskCreate: automationTaskCreateContract,
-  automationTaskGet: automationTaskGetContract,
-  automationTaskList: automationTaskListContract,
-  automationTaskPause: automationTaskPauseContract,
-  automationTaskResume: automationTaskResumeContract,
   browserSessionOpen: browserSessionOpenContract,
   codexAccountLoginCancel: codexAccountLoginCancelContract,
   codexAccountLoginStart: codexAccountLoginStartContract,
@@ -2169,28 +2053,6 @@ export type CypheriaPreloadApi = {
     readonly open: (projectId?: string) => Promise<WorkspaceTerminalSession>
     readonly resize: (terminalId: string, cols: number, rows: number) => Promise<{ resized: true }>
     readonly write: (terminalId: string, data: string) => Promise<{ written: true }>
-  }
-  readonly automation: {
-    readonly createTask: (
-      input: z.input<typeof createAutomationTaskInputSchema>
-    ) => Promise<z.output<typeof automationTaskSchema>>
-    readonly getRun: (
-      runId: string
-    ) => Promise<z.output<typeof automationTaskRunSchema> | undefined>
-    readonly getTask: (taskId: string) => Promise<AutomationTaskView | undefined>
-    readonly listRuns: (taskId?: string) => Promise<z.output<typeof automationTaskRunSchema>[]>
-    readonly listTasks: (
-      status?: z.output<typeof automationTaskStatusSchema>
-    ) => Promise<z.output<typeof automationTaskSchema>[]>
-    readonly pauseTask: (
-      taskId: string,
-      expectedRevision?: number
-    ) => Promise<z.output<typeof automationTaskSchema>>
-    readonly resumeTask: (
-      taskId: string,
-      expectedRevision?: number
-    ) => Promise<z.output<typeof automationTaskSchema>>
-    readonly runTask: (taskId: string) => Promise<z.output<typeof automationTaskRunSchema>>
   }
   readonly runtime: {
     readonly getInfo: () => Promise<RuntimeInfo>

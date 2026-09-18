@@ -33,7 +33,7 @@ const createInputSchema = z
     intent: intentDraftSchema,
     mode: z.enum(["conditional-auto-signing", "human-approval", "read-only"]),
     policyIds: z.array(signingPolicyIdSchema).min(1).optional(),
-    source: z.enum(["agent", "automation", "dapp"]),
+    source: z.enum(["agent", "dapp", "schedule"]),
   })
   .strict()
   .superRefine((input, context) => {

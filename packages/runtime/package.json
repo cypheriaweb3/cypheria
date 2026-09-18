@@ -13,7 +13,6 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@cypheria/automation-core": "workspace:*",
     "@cypheria/db": "workspace:*",
     "@cypheria/web3": "workspace:*",
     "@scure/bip39": "^1.6.0",

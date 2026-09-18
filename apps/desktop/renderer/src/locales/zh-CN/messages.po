@@ -144,11 +144,6 @@ msgid "settings.language.automatic"
 msgstr "自动检测"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.automations"
-msgstr "自动化"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.model.available"
 msgstr "可用模型"
@@ -1241,6 +1236,11 @@ msgstr "保存"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.saveSection"
 msgstr "保存分组"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.schedules"
+msgstr "计划任务"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx

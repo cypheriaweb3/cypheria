@@ -27,14 +27,6 @@ import {
   approvalRequestDecideContract,
   approvalRequestsListContract,
   auditLogListContract,
-  automationRunGetContract,
-  automationRunListContract,
-  automationRunStartContract,
-  automationTaskCreateContract,
-  automationTaskGetContract,
-  automationTaskListContract,
-  automationTaskPauseContract,
-  automationTaskResumeContract,
   browserSessionOpenContract,
   CYPHERIA_APPEARANCE_ARGUMENT_PREFIX,
   CYPHERIA_IPC_CHANNELS,
@@ -744,18 +736,6 @@ const registerIpcHandlers = (
     if (!server) throw new Error("Codex app-server is unavailable")
     return server.interactions.list()
   })
-  registerIpcRoute(automationTaskCreateContract, (input) => context.automation.createTask(input))
-  registerIpcRoute(automationTaskListContract, ({ status }) => context.automation.listTasks(status))
-  registerIpcRoute(automationTaskGetContract, ({ taskId }) => context.automation.getTask(taskId))
-  registerIpcRoute(automationTaskPauseContract, ({ expectedRevision, taskId }) =>
-    context.automation.pauseTask(taskId, expectedRevision)
-  )
-  registerIpcRoute(automationTaskResumeContract, ({ expectedRevision, taskId }) =>
-    context.automation.resumeTask(taskId, expectedRevision)
-  )
-  registerIpcRoute(automationRunStartContract, ({ taskId }) => context.automation.runTask(taskId))
-  registerIpcRoute(automationRunGetContract, ({ runId }) => context.automation.getRun(runId))
-  registerIpcRoute(automationRunListContract, ({ taskId }) => context.automation.listRuns(taskId))
   registerIpcRoute(browserSessionOpenContract, ({ url }) => {
     if (!dappBrowserController) throw new Error("The dApp browser is unavailable.")
     return dappBrowserController.open(url)

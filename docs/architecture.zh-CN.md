@@ -49,7 +49,7 @@ Cypheria 有一个特权 server、多个 client、一个独立 marketplace 与�
 - `apps/relay`：可选的 Go gateway/worker 数据面，负责不透明远程 WebSocket 转发。
 - `packages/relay`：server/client 共用、传输无关的 TypeScript E2EE 与 relay URL 工具。
 
-Codex 负责 agent threads、turns、model execution、code edits、shell/tool execution、MCP 和 Codex approvals。Cypheria 负责 Web3 context、wallets、signing intents、policy evaluation、dApp browser permissions、automation state、本地数据和 audit logs。
+Codex 负责 agent threads、turns、model execution、code edits、shell/tool execution、MCP 和 Codex approvals。Cypheria 负责 Web3 context、wallets、signing intents、policy evaluation、dApp browser permissions、schedule state、本地数据和 audit logs。
 
 ## Server 与 Protocol 边界
 
@@ -70,7 +70,7 @@ Cypheria 自有 object schema 会剥离未知 key。可选的 `server.status.fea
 并通过 `COMPAT(name)` comment 记录引入版本与移除日期。最终 protocol union 使用 Zod 显式
 AOT compile。Provider-native request 在内部 adapter boundary 使用选中的 schema 校验后再 dispatch。
 
-Wallet、policy、browser、automation 与其余产品 service 不属于当前 Agent/Thread 工作范围。详见 [Cypheria Server](server.zh-CN.md)。
+Wallet、policy、browser、schedule 与其余产品 service 不属于当前 Agent/Thread 工作范围。详见 [Cypheria Server](server.zh-CN.md)。
 
 ## Relay 边界
 
@@ -103,7 +103,7 @@ Marketplace 是独立的远程 trust boundary。D1 是 review/publication system
 - Wallet/account/chain/RPC service boundaries。
 - Signing intent 创建与 policy evaluation hooks。
 - dApp browser permission 和 session domain state。
-- Automation task 和 run orchestration。
+- Schedule task 和 run orchestration。
 - Audit log writes。
 - Database 与 vault service wiring。
 
@@ -129,7 +129,6 @@ chain.*
 policy.*
 browser.*
 dapp.*
-automation.*
 audit.*
 settings.*
 ```
@@ -309,7 +308,7 @@ Electron main 会把每个已创建的 WebContents ID 与其规范化 origin、s
 ## 签名流程
 
 ```txt
-dApp, automation, or agent context
+dApp, schedule, or agent context
   -> signing intent
   -> PolicyEngine
   -> persisted decision / approval request
@@ -321,32 +320,30 @@ dApp, automation, or agent context
   -> AuditLogService
 ```
 
-Codex 不直接签名交易。Automation 不直接签名交易。两者都只能创建 signing intents，并交给 Cypheria policy 处理。
+Agent 与 schedule 都不能直接签名交易，只能创建 signing intent 并交给 Cypheria policy 处理。
 
 钱包签名 capability 绑定具体账户，并且只消费 intent 一次。它们要求注入 policy/approval authorizer，只通过 scoped callback 访问已解锁 vault 秘密，验证派生 signer 与生成签名，并写入脱敏 audit record。交易广播由独立 capability 提供。
 
 Signing policy 按钱包划分 scope，持久化在 libSQL 中，并通过使用严格 schema 和乐观 revision 检查的 runtime service 管理。评估具有确定性；conditional auto-signing 没有匹配的 allow policy 时会退回 human approval。Policy 变更和每次评估结果均写入 audit。
 
-Signing-intent runtime 只接受严格的来源上下文（`dapp`、`automation` 或 `agent`），由自身分配 intent ID 与创建时间，在持久化前完成 policy evaluation，并把精确的 canonical payload 及其 hash 保存到 libSQL。人工决议通过受乐观 revision 保护的 libSQL atomic batch 同时更新 `approval_requests` 与 `signing_intents`。Approval IPC 会暴露知情审阅所需的精确 intent，但绝不暴露 vault 材料；audit entry 只包含 payload hash 与脱敏摘要。
+Signing-intent runtime 只接受严格的来源上下文（`dapp`、`schedule` 或 `agent`），由自身分配 intent ID 与创建时间，在持久化前完成 policy evaluation，并把精确的 canonical payload 及其 hash 保存到 libSQL。人工决议通过受乐观 revision 保护的 libSQL atomic batch 同时更新 `approval_requests` 与 `signing_intents`。Approval IPC 会暴露知情审阅所需的精确 intent，但绝不暴露 vault 材料；audit entry 只包含 payload hash 与脱敏摘要。
 
-## 自动化流程
+## Schedule 流程
 
 ```txt
-manual trigger or scheduler
-  -> AutomationRunner
-  -> worker boundary
-  -> 按需使用 server-owned runtime / agent services
+once、interval、cron cadence 或 manual run
+  -> Server ScheduleService
+  -> 原子 SQLite lease 与 next-run advance
+  -> ThreadManager 或受 policy 控制的 Web3 executor
   -> signing intent for write operations
   -> PolicyEngine
   -> approval or policy decision
-  -> AuditLogService
+  -> 持久化 run result 与 audit record
 ```
 
-V1 automation 是 local-first。Cloud agent execution 和复杂 workflow engine 不在范围内。
+`apps/server` 持有 schedules，并且只通过版本化 Cypheria protocol 对外提供。Schedule 可以启动新的 Agent thread、继续已有 Thread，或调用有界的 Web3 method；definition 支持 once、固定 interval 与五字段 cron cadence。执行前，Server 会原子 claim 到期 slot 并推进 next-run state，避免 timer 重叠或重启恢复造成重复执行。
 
-已实现的 automation runtime 会把经过严格验证的 task definition 与独立 run record 持久化到本地 SQLite。Task 通过乐观 revision 在 `draft`、`enabled`、`paused` 和 `archived` 状态间流转；只有 enabled task 可以运行，partial unique index 保证每个 task 最多只有一个 queued 或 running execution。Runtime methods 覆盖 task create、list、inspect、pause/resume、run start 与 run inspect；desktop 通过 typed IPC 暴露相同边界。
-
-Task handler 是由持久化 handler name 和仅 JSON、拒绝 secret field 的 input 选择的受信 runtime extension。它们只能获得 abort signal，以及注入式 Codex agent runner 和 signing-intent creation 两种窄能力，绝不会获得 wallet signer 或 secret。Signing capability 会强制设置 `source: automation`、把 correlation ID 替换为 run audit ID、检查 task 的 wallet/account/chain/origin/policy scope，再委托给正常 signing-intent 与 policy pipeline。Runtime shutdown 会先中止并等待 active execution，再关闭数据库。
+Run 会持久化 target type、scheduled time、status、result、error 与创建的 Thread ID。重启后，遗留的 running record 会被标记为 `interrupted`；进行中的 Web3 签名或广播绝不重放。Desktop 和 CLI 通过 `@cypheria/client` 执行 list、create、update、pause、resume、delete、manual-run 与 history 操作。Cloud Agent execution 与通用 workflow engine 仍不在范围内。
 
 ## 数据模型
 
@@ -361,8 +358,8 @@ settings
 audit_logs
 workspaces
 runtime_metadata
-automation_tasks
-automation_runs
+schedules
+schedule_runs
 wallets
 wallet_accounts
 chain_accounts
@@ -394,7 +391,6 @@ $CYPHERIA_HOME/
   logs/
   cache/
   browser/
-  automation/
   config/
 ```
 
@@ -416,10 +412,10 @@ CODEX_HOME="$CYPHERIA_HOME/codex"
 - dApp permissions 按 origin 隔离。
 - 私钥只进入 encrypted vault。
 - Renderer 和 dApp pages 永远不能访问私钥。
-- Codex 和 automation flows 创建 signing intents，而不是 direct signatures。
+- Codex 和 schedule flows 创建 signing intents，而不是 direct signatures。
 - 每个 signing intent 都经过 `@cypheria/web3/policy`。
 - Auto-signing 默认关闭。
-- 每个 policy decision、signature、rejection、automation run 和 transaction hash 都可审计。
+- 每个 policy decision、signature、rejection、schedule run 和 transaction hash 都可审计。
 
 ## Package 边界
 
@@ -456,9 +452,6 @@ apps/desktop/ipc
 
 @cypheria/web3/provider
   dApp session, provider bridge, and browser permission models.
-
-@cypheria/automation-core
-  Automation task, trigger, run, log, and audit correlation models.
 
 @cypheria/db
   SQLite schema, migrations, and local persistence helpers.

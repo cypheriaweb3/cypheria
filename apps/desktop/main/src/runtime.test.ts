@@ -68,18 +68,6 @@ describe("desktop runtime bootstrap", () => {
         cypheriaHome: context.paths.cypheriaHome,
         lifecycleState: "ready",
       })
-      const task = await context.automation.createTask({
-        definition: { handler: "noop" },
-        status: "enabled",
-        title: "Desktop smoke task",
-        trigger: { kind: "manual", requestedBy: "user" },
-        walletPolicyScope: { accountIds: [], chainKeys: ["eip155:1"], mode: "read-only" },
-        workspace: { id: "desktop", path: homeDir },
-      })
-      await expect(
-        context.runtime.request("automation.run.start", { taskId: task.id })
-      ).resolves.toMatchObject({ status: "succeeded", taskId: task.id })
-
       const ethereumNetwork = (await context.networks.list()).find(
         ({ network }) => toChainKey(network.chain) === "eip155:1"
       )
@@ -110,10 +98,6 @@ describe("desktop runtime bootstrap", () => {
       )
       await expect(context.wallets.getActiveContext()).resolves.toEqual({ mode: "read-only" })
       await expect(browserPersistence.listPermissions(dappSession.origin)).resolves.toEqual([])
-      await expect(context.automation.getTask(task.id)).resolves.toMatchObject({
-        task: { status: "paused" },
-      })
-
       await shutdownDesktopRuntime(context)
       expect(context.runtime.lifecycleState).toBe("stopped")
     } finally {

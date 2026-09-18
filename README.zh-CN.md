@@ -1,14 +1,14 @@
 # Cypheria
 
-Cypheria 是一款受 Codex 启发的跨平台 Web3 agent 产品。它使用 TypeScript 构建，将 Codex 驱动的软件工程工作流与 Cypheria 自己实现的 Web3 runtime 能力结合起来，包括钱包、隔离的 dApp 浏览器、签名策略、本地自动化和审计日志。
+Cypheria 是一款受 Codex 启发的跨平台 Web3 Agent 产品。它使用 TypeScript 构建，将多 Agent 软件工程工作流与 Cypheria 自有的 Web3 能力结合起来，包括钱包、隔离的 dApp 浏览器、签名策略、Server-owned schedules 和审计日志。
 
-Cypheria 不重新实现 Codex agent core。目标架构由一个常驻 Cypheria server 持有特权 runtime 与 Codex integration，desktop、Expo、web、mobile、CLI 和 SDK 都是 client。Web3 权限、钱包状态、签名、自动化、策略评估和审计能力仍位于 server 边界后的 Cypheria runtime 中。
+Cypheria 不重新实现各 Agent runtime。目标架构由一个常驻 Cypheria Server 持有特权 Agent integration、Web3 权限、钱包状态、签名、schedules、策略评估和审计能力，Desktop、Expo、web、mobile、CLI 与 SDK 都是 client。
 
 ## 产品方向
 
 Cypheria V1 围绕一个 server 与多个 client 组织：
 
-- **Runtime**：Cypheria 自己的 TypeScript 非 agent 核心，负责钱包、链、策略、自动化、浏览器权限、设置、本地状态和审计日志。
+- **Server runtime**：Server-owned services，负责钱包、链、策略、schedules、浏览器权限、设置、本地状态和审计日志。
 - **Server**：基于 Hono + Node.js 的 control plane，负责 runtime lifecycle、client session、diagnostics、静态 web hosting，并在后续承载 Codex 与产品 services。
 - **Expo client**：一套面向 iOS、Android 与静态 web output 的 Expo Router 应用；server 会内置其 web output。
 - **共享 client**：`@cypheria/client` 提供 WebSocket protocol driver、借用与持有连接的门面，以及
@@ -19,7 +19,7 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 - **Desktop client**：保留 Electron + TanStack Start 工作台，确保兼容的本地 server 正在运行，并通过 `@cypheria/client` 使用共享 Projects、Threads、Sections、canonical history 与实时 turn。Electron 专属 browser、secure storage、window、update 与 OS integration 仍留在本地。
 - **Marketplace**：部署在 Cloudflare Workers 上的 TanStack Start 应用，负责 ChatGPT/Codex 标准插件的提交、扫描、审核、发布、发现，并同步到 Cypheria 官方 GitHub repo marketplace。
 
-默认安全模型是人工审批。只读模式和条件自动签名都是显式策略模式。Codex 和 automation flow 可以创建 signing intent，但每个 signing intent 都必须先经过 Cypheria policy evaluation，之后才能签名或广播交易。
+默认安全模型是人工审批。只读模式和条件自动签名都是显式策略模式。Agent 与 schedule flow 可以创建 signing intent，但每个 signing intent 都必须先经过 Cypheria policy evaluation，之后才能签名或广播交易。
 
 ## 技术栈
 
@@ -152,12 +152,11 @@ $CYPHERIA_HOME/
   codex/        Cypheria 管理的 Codex home
   db/           SQLite databases
   vault/        加密钱包 vault 文件和 metadata
-  logs/         app、automation、policy 和 audit logs
+  logs/         app、schedule、policy 和 audit logs
   cache/        可丢弃 app caches
   toolchains/   受管 Node、Python、uv 与不可变 Python environments
   agents/       运行时 ACP registry，以及受管 agent versions、home、staging data 与 receipts
   browser/      dApp browser session partitions 和 metadata
-  automation/   task definitions、run state 和 worker metadata
   config/       Cypheria settings
 ```
 

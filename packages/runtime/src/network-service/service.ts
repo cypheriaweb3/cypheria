@@ -325,7 +325,7 @@ export type CreateNetworkInput = z.input<typeof createNetworkInputSchema>
 export type NetworkLifecycleCoordinator = {
   readonly clearWorkspaceContext?: (networkId: NetworkId) => Promise<void>
   readonly failPendingWork?: (chainKey: ChainKey) => Promise<void>
-  readonly pauseAutomations?: (chainKey: ChainKey) => Promise<void>
+  readonly pauseSchedules?: (chainKey: ChainKey) => Promise<void>
   readonly revokeDappGrants?: (networkId: NetworkId, chainKey: ChainKey) => Promise<void>
 }
 
@@ -582,7 +582,7 @@ export const createNetworkManager = (options: NetworkManagerOptions): NetworkMan
         await options.persistence.clearDappContexts(networkId)
         await options.lifecycle?.clearWorkspaceContext?.(networkId)
         await options.lifecycle?.revokeDappGrants?.(networkId, toChainKey(updated.chain))
-        await options.lifecycle?.pauseAutomations?.(toChainKey(updated.chain))
+        await options.lifecycle?.pauseSchedules?.(toChainKey(updated.chain))
         await options.lifecycle?.failPendingWork?.(toChainKey(updated.chain))
       }
       await audit(
@@ -711,7 +711,7 @@ export const createNetworkManager = (options: NetworkManagerOptions): NetworkMan
       const chainKey = toChainKey(current.network.chain)
       await options.lifecycle?.clearWorkspaceContext?.(networkId)
       await options.lifecycle?.revokeDappGrants?.(networkId, chainKey)
-      await options.lifecycle?.pauseAutomations?.(chainKey)
+      await options.lifecycle?.pauseSchedules?.(chainKey)
       await options.lifecycle?.failPendingWork?.(chainKey)
       const refs = await options.persistence.removeCustomNetwork(networkId)
       await Promise.all(refs.map((reference) => options.credentials.delete(reference)))

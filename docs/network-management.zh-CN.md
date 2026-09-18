@@ -2,7 +2,7 @@
 
 ## 目标
 
-Cypheria 需要一套独立于钱包、可安全处理 dApp 来源请求、可供 automation 与 agent tools 使用，并能在不暴露凭据的前提下从多个 RPC endpoint 中选择连接的 network 机制。
+Cypheria 需要一套独立于钱包、可安全处理 dApp 来源请求、可供 schedule 与 agent tools 使用，并能在不暴露凭据的前提下从多个 RPC endpoint 中选择连接的 network 机制。
 
 设计将四个经常被错误合并的概念分开：
 
@@ -84,7 +84,7 @@ type ChainKey = `${ChainIdentity["namespace"]}:${string}`
 
 EVM 的 `reference` 是正 safe-integer chain ID 的 canonical decimal 形式，不允许前导零。Protocol adapter 将其转换为或解析自 EIP-1193 hexadecimal quantity。Solana adapter 将其转换为或解析自 Wallet Standard `solana:<reference>` identifier。
 
-持久化使用独立的 `namespace` 和 `reference` 列并添加 unique constraint。`toChainKey()` 产生 policy、automation、permission 与 event envelope 使用的唯一字符串 key，取代当前 EVM number 与 protocol-prefixed string 混用的状态。
+持久化使用独立的 `namespace` 和 `reference` 列并添加 unique constraint。`toChainKey()` 产生 policy、schedule、permission 与 event envelope 使用的唯一字符串 key，取代当前 EVM number 与 protocol-prefixed string 混用的状态。
 
 ### Network definition
 
@@ -144,7 +144,7 @@ type RpcEndpoint = {
 }
 ```
 
-包含 API key、authorization header、userinfo、敏感 query parameter 或秘密 path component 的连接材料，通过 OS-backed protector 加密保存在 `$CYPHERIA_HOME/config/network-credentials/`。SQLite 只保存 `credentialRef` 与脱敏 `displayUrl`。Renderer、dApp 页面、Codex、automation definition、日志和 audit payload 永远不会收到解析后的秘密。
+包含 API key、authorization header、userinfo、敏感 query parameter 或秘密 path component 的连接材料，通过 OS-backed protector 加密保存在 `$CYPHERIA_HOME/config/network-credentials/`。SQLite 只保存 `credentialRef` 与脱敏 `displayUrl`。Renderer、dApp 页面、Codex、schedule definition、日志和 audit payload 永远不会收到解析后的秘密。
 
 Runtime-only health data 不是 authoritative configuration：
 
@@ -192,7 +192,7 @@ dapp_network_contexts
 
 Wallet chain account 保留 chain identity 列，不建立指向 `networks` 的 cascade foreign key。移除连接配置不得删除 account、policy、signing intent、transaction record 或 audit history。Active context reference 会被显式清除或拒绝，历史 record 保留其 chain key。
 
-Built-in network 只能禁用。Custom network 仅在用户明确操作且 identity probe 成功后启用，永久移除必须经过独立确认。永久移除会删除其 endpoint、受保护 credential 与可丢弃 health state；清除 workspace/dApp selection；撤销绑定到该配置的 origin grant；暂停受影响的 automation；并让待处理的 RPC-dependent work 以稳定的 unavailable error 失败。Policy 与历史 record 继续以 chain identity 为键，但在没有匹配的 enabled network 时不可执行。重新添加同一条链绝不会静默恢复 dApp grant 或 automation execution。
+Built-in network 只能禁用。Custom network 仅在用户明确操作且 identity probe 成功后启用，永久移除必须经过独立确认。永久移除会删除其 endpoint、受保护 credential 与可丢弃 health state；清除 workspace/dApp selection；撤销绑定到该配置的 origin grant；暂停受影响的 schedule；并让待处理的 RPC-dependent work 以稳定的 unavailable error 失败。Policy 与历史 record 继续以 chain identity 为键，但在没有匹配的 enabled network 时不可执行。重新添加同一条链绝不会静默恢复 dApp grant 或 schedule execution。
 
 ## Runtime Services
 
@@ -207,7 +207,7 @@ Built-in network 只能禁用。Custom network 仅在用户明确操作且 ident
 - 选择 workspace 与 origin-scoped network context；
 - 返回脱敏且 renderer-safe 的 projection。
 
-所有 mutation 使用 revision，防止过期 UI 或并发 automation 静默覆盖变更。Network/endpoint 变更、dApp add/switch decision 与 credential 变更都会写入脱敏 audit event。常规 health probe 不刷屏 audit log。
+所有 mutation 使用 revision，防止过期 UI 或并发 schedule 静默覆盖变更。Network/endpoint 变更、dApp add/switch decision 与 credential 变更都会写入脱敏 audit event。常规 health probe 不刷屏 audit log。
 
 ### RPC router
 
@@ -248,13 +248,13 @@ Custom RPC access 是 SSRF boundary，因为请求来自 privileged local proces
 
 dApp request 的 probe 失败不能被静默绕过。用户创建的 endpoint 可在明确警告后以 disabled 状态保存，但成功完成 identity probe 前不能路由流量。
 
-## Wallet、Policy 与 Automation 集成
+## Wallet、Policy 与 Schedule 集成
 
 - `ChainAccount` 绑定 address 与 `ChainIdentity`，不绑定 RPC endpoint。
 - Workspace active context 绑定 wallet、wallet account、chain account、network 与 policy mode，chain identity 必须一致。
 - Signing intent 与 policy 使用 `ChainKey`；network 或 endpoint ID 永远不作为 authorization identity。
 - Simulation 与 fee estimation 根据 intent chain key 通过 `RpcRouter` 解析。
-- Automation definition 可以选择允许的 chain key，但不能选择受保护 credential 或绕过 network policy。
+- Schedule definition 可以选择允许的 chain key，但不能选择受保护 credential 或绕过 network policy。
 - 禁用 network 后，新的 RPC-dependent work 返回稳定 `NETWORK_DISABLED` error，同时保留 signing intent 与 audit data。
 
 ## dApp Provider 集成
@@ -286,7 +286,7 @@ Network 页面提供：
 
 Approval 页面在 add/switch approval 前展示 requesting origin、requested chain identity、current chain、metadata difference、全部脱敏 RPC host 与 probe result。
 
-当前 desktop flow 对同步 EIP-3085/EIP-3326 request 使用带 origin 标识的原生 approval dialog。Network workbench 通过 typed IPC 展示相同的脱敏定义与 health state；原始 credential URL 和 header 永远不会进入 renderer state。禁用 network 会清除匹配的 workspace/origin selection、撤销该 chain key 的 EVM 与 Solana grant、暂停相关 automation，并使进行中的 routed work 失效。删除 custom network 还会移除 endpoint、受保护 credential 与可丢弃 health，同时保留 policy、signing record 和 audit history。
+当前 desktop flow 对同步 EIP-3085/EIP-3326 request 使用带 origin 标识的原生 approval dialog。Network workbench 通过 typed IPC 展示相同的脱敏定义与 health state；原始 credential URL 和 header 永远不会进入 renderer state。禁用 network 会清除匹配的 workspace/origin selection、撤销该 chain key 的 EVM 与 Solana grant、暂停相关 schedule，并使进行中的 routed work 失效。删除 custom network 还会移除 endpoint、受保护 credential 与可丢弃 health，同时保留 policy、signing record 和 audit history。
 
 ## Failure Semantics
 
@@ -317,7 +317,7 @@ Error 永远不包含 endpoint credential 或原始 authorization header。
 1. 添加 `@cypheria/web3/network`、严格 chain/network/endpoint schema、conversion helper 与精简 bundled catalog。
 2. 添加 database table、catalog reconciliation、repository、protected credential storage 与 migration test。
 3. 添加 runtime `NetworkManager`、endpoint probe、health tracking 与 purpose-aware `RpcRouter`。
-4. 将 wallet、policy、automation、permission 与 active context 迁移到 canonical chain identity。
+4. 将 wallet、policy、schedule、permission 与 active context 迁移到 canonical chain identity。
 5. 通过 origin-scoped network context 路由 Ethereum 与 Solana provider request，并实现 add/switch approval flow。
 6. 添加 typed desktop IPC 与 network-management UI。
 

@@ -26,7 +26,6 @@
   "dependencies": {
     "@agentclientprotocol/sdk": "^1.4.0",
     "@ai-sdk/react": "^4.0.90",
-    "@cypheria/automation-core": "workspace:*",
     "@cypheria/ai-sdk-provider": "workspace:*",
     "@cypheria/client": "workspace:*",
     "@cypheria/codex-bridge": "workspace:*",

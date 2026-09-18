@@ -2,7 +2,6 @@ import {
   type AuditLogService,
   applyDatabaseMigrations,
   createAuditLogService,
-  createAutomationPersistenceService,
   createNetworkPersistenceService,
   createSigningIntentPersistenceService,
   createSigningPolicyPersistenceService,
@@ -12,14 +11,11 @@ import {
   openCypheriaDatabase,
 } from "@cypheria/db"
 import {
-  type AutomationRuntimeService,
-  type AutomationRuntimeServiceOptions,
   buildCodexEnvironment,
   buildRuntimePaths,
   CypheriaRuntime,
   type CypheriaRuntimeOptions,
   type CypheriaRuntimePaths,
-  createAutomationRuntimeService,
   createEthereumProviderRuntimeService,
   createNetworkManager,
   createSigningIntentRuntimeService,
@@ -54,7 +50,6 @@ import { createDesktopVaultMasterKeyProvider } from "./vault-key-provider.js"
 
 export type DesktopRuntimeContext = {
   readonly audit: AuditLogService
-  readonly automation: AutomationRuntimeService
   codexAppServer?: CodexAppServerContext
   connectionProxySettings: ConnectionProxySettings
   readonly dappSessions: DappSessionManager
@@ -71,7 +66,6 @@ export type DesktopRuntimeContext = {
 }
 
 export type DesktopRuntimeOptions = CypheriaRuntimeOptions & {
-  readonly automation?: Omit<AutomationRuntimeServiceOptions, "audit" | "persistence">
   readonly codexAppServer?: Omit<StartCodexAppServerOptions, "clientVersion" | "codexEnv" | "paths">
   readonly clientVersion?: string
   readonly ethereumProvider?: Partial<
@@ -91,7 +85,6 @@ export const initializeDesktopRuntime = async (
   options: DesktopRuntimeOptions = {}
 ): Promise<DesktopRuntimeContext> => {
   const {
-    automation: automationOptions,
     clientVersion,
     codexAppServer: codexAppServerOptions,
     ethereumProvider: ethereumProviderOptions,
@@ -116,11 +109,6 @@ export const initializeDesktopRuntime = async (
     await networkPersistence.reconcileCatalog()
     const walletPersistence = createWalletPublicStatePersistenceService(database.db)
     const walletProviderPersistence = createWalletProviderPersistenceService(database.db)
-    const automation = createAutomationRuntimeService({
-      ...automationOptions,
-      audit,
-      persistence: createAutomationPersistenceService(database.db),
-    })
     const networkCredentials = createDesktopNetworkCredentialStore(paths.configDir)
     const networkRouter = new NetworkRpcRouter({
       credentials: networkCredentials,
@@ -135,14 +123,6 @@ export const initializeDesktopRuntime = async (
         },
         failPendingWork: async (chainKey) => {
           networkRouter.invalidateChain(chainKey)
-        },
-        pauseAutomations: async (chainKey) => {
-          const tasks = await automation.listTasks("enabled")
-          await Promise.all(
-            tasks
-              .filter((task) => task.walletPolicyScope.chainKeys.includes(chainKey))
-              .map((task) => automation.pauseTask(task.id, task.revision))
-          )
         },
         revokeDappGrants: async (_networkId, chainKey) => {
           await walletProviderPersistence.revokeChainPermissions(chainKey)
@@ -213,7 +193,7 @@ export const initializeDesktopRuntime = async (
     runtime = new CypheriaRuntime({
       ...runtimeOptions,
       ensureDirectories: false,
-      services: [...(runtimeOptions.services ?? []), automation, providerService],
+      services: [...(runtimeOptions.services ?? []), providerService],
     })
     await runtime.start()
     codexAppServer = shouldStartCodexAppServer
@@ -227,7 +207,6 @@ export const initializeDesktopRuntime = async (
       : undefined
     const context: DesktopRuntimeContext = {
       audit,
-      automation,
       codexAppServer,
       connectionProxySettings,
       database,

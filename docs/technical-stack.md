@@ -76,7 +76,7 @@ packages/ui
 packages/db
 ```
 
-`packages/sdk` remains planned. `apps/cli`, `apps/server`, `apps/desktop`, `apps/expo`, `apps/marketplace`, `packages/client`, `packages/protocol`, and `packages/ai-sdk-provider` implement the client/server foundation. The old runtime, bridge, ACP provider, automation, and top-level Web3 packages remain only while their services are moved behind the server and will not be part of the final layout.
+`packages/sdk` remains planned. `apps/cli`, `apps/server`, `apps/desktop`, `apps/expo`, `apps/marketplace`, `packages/client`, `packages/protocol`, and `packages/ai-sdk-provider` implement the client/server foundation. The old runtime, bridge, and ACP provider remain only while their services are moved behind the server and will not be part of the final layout.
 
 `@cypheria/protocol` authors the live public Agent/Thread, project/section, and server WebSocket contracts with Zod. It also owns generated Codex App Server artifacts and pinned ACP, Claude, and Pi schemas used by internal server adapters. Those provider catalogs are drift-checked but excluded from the public client/server message union. The live wire exposes provider-neutral `agent.*` management and `thread.*` execution; `threadId` is the only operation handle and `agentSessionId` is read-only metadata.
 
@@ -135,7 +135,7 @@ Runtime responsibilities:
 - Resolve `$CYPHERIA_HOME`, defaulting to `~/.cypheria`.
 - Derive `CODEX_HOME=$CYPHERIA_HOME/codex`.
 - Initialize runtime directories.
-- Wire database, audit, wallet, policy, browser, automation, and settings services.
+- Wire database, audit, wallet, policy, browser, schedule, and settings services.
 - Expose a typed request/event API to `apps/server`.
 
 Runtime does not implement Codex agent internals.
@@ -355,14 +355,14 @@ Private keys never enter renderer, dApp pages, localStorage, IndexedDB, or norma
 
 Network configuration, endpoint selection, credential protection, dApp-scoped chain selection, and failure behavior are specified in `docs/network-management.md`.
 
-## Policy And Automation Stack
+## Policy And Schedule Stack
 
 | Category | Choice |
 | --- | --- |
 | Policy schema | Zod-validated JSON policy |
 | Policy evaluator | Deterministic TypeScript evaluator |
-| Scheduler | cron-parser or equivalent local scheduler |
-| Runner | worker_threads or child_process |
+| Scheduler | Server `ScheduleService` with once, interval, and five-field cron cadence |
+| Runner | Server-owned Thread/Web3 target executor |
 | Logs | Structured logs persisted through runtime/db |
 
 Policy modes:
@@ -377,9 +377,7 @@ Evaluation first applies wallet mode, then matching enabled and unexpired wallet
 
 Signing intents and approval requests are stored in explicit libSQL tables. The exact canonical intent payload is retained so an approval and the eventual signature refer to identical bytes, while audit logs retain only its SHA-256 hash and a redacted summary. Approval decisions use revision-based compare-and-swap and an atomic libSQL batch to prevent two reviewers from resolving the same request differently. A pending attempt is authorized before the one-time replay claim, so it can be retried after approval; an approved attempt is claimed immediately before secret access and signing.
 
-Automation is local-first. Tasks may use Codex SDK, read chain state, create signing intents, and write audit logs. Tasks must not bypass the policy engine.
-
-`@cypheria/runtime` owns the automation service and exposes `automation.task.create`, `automation.task.list`, `automation.task.get`, `automation.task.pause`, `automation.task.resume`, `automation.run.start`, `automation.run.get`, and `automation.run.list`. `@cypheria/automation-core` owns strict task/run schemas and state transitions; `@cypheria/db` owns asynchronous SQLite persistence and optimistic updates. Executors are injected by handler name and receive only scoped agent and signing-intent capabilities. In the target architecture the server composes agent capability and exposes only bounded operations to clients; desktop retains its existing path until migration.
+Schedules are Server-owned. `apps/server` exposes versioned create, list, get, update, pause, resume, delete, manual-run, and run-history operations through `@cypheria/protocol` and `@cypheria/client`. Schedules may start a new Agent thread, continue an existing thread, or request a policy-controlled Web3 operation. SQLite stores cadence, next-run state, leases, results, and errors; startup recovery marks interrupted work without replaying an in-flight Web3 signature or broadcast. Desktop has no Schedule IPC or local scheduler and consumes the same Schedule API as CLI and future clients.
 
 ## Data Stack
 
@@ -402,8 +400,8 @@ settings
 audit_logs
 workspaces
 runtime_metadata
-automation_tasks
-automation_runs
+schedules
+schedule_runs
 wallets
 wallet_accounts
 chain_accounts
@@ -428,7 +426,7 @@ rpc_endpoints
 - Use pnpm, not npm/yarn/bun, unless explicitly requested.
 - pnpm-related commands should usually run outside the sandbox so pnpm can use its global store.
 - Keep TypeScript strict.
-- Use Zod at runtime boundaries: IPC, policy schemas, wallet inputs, automation definitions, and generated-protocol adapters.
+- Use Zod at runtime boundaries: IPC, policy schemas, wallet inputs, schedule definitions, and generated-protocol adapters.
 - Keep package boundaries explicit.
 - Keep domain/data packages independent from `@cypheria/runtime`; runtime composes them through explicit service injection instead of reverse imports.
 - Update English and Chinese docs together for architecture, behavior, command, package boundary, or runtime-path changes.

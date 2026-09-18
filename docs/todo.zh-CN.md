@@ -50,7 +50,7 @@
   - 验收：desktop-local IPC contracts 定义初始 app/runtime contracts，desktop main 会验证 handler inputs/outputs。
   - 验证：`pnpm run ci`、`pnpm build`。
 
-- [x] 添加 database、audit、wallet、policy、Web3 browser、automation、Codex bridge 和 UI baselines。
+- [x] 添加 database、audit、wallet、policy、Web3 browser、schedule、Codex bridge 和 UI baselines。
   - 验收：domain packages 包含 V1 边界所需的初始 types/services/tests。
   - 验证：`pnpm run ci`、`pnpm build`，以及已有 package-level tests。
 
@@ -77,7 +77,7 @@
 
 - [x] 添加 Cypheria client/server 基础，不迁移 desktop。
   - 验收：`apps/server` 提供 Hono HTTP/WebSocket control plane、Paseo 形态的顶层 envelope、以 principal 与 client 为 key 且支持多 transport 和 grace-period 自动恢复的逻辑 session、runtime lifecycle、持久化 server config 与 live state、运维 endpoint、supervised server lifecycle、relay ingress 与内置 Expo web hosting；`apps/expo` 面向 iOS、Android 与静态 web；`@cypheria/protocol` 提供共享 validated contracts。
-  - 排除：agent、project、wallet、policy、browser 与 automation 产品 method；任何 `apps/desktop` code change。
+  - 排除：agent、project、wallet、policy、browser 与 schedule 产品 method；任何 `apps/desktop` code change。
   - 验证：protocol/server/client/Expo tests 与 typechecks、relay tests、Expo compatibility check 与 static export、server build 与 embedded-web smoke test、server start/status/restart/stop smoke test、全仓库 CI/build。
 
 - [x] 在 `@cypheria/protocol` 中定义完整 Codex App Server adapter contract。
@@ -153,8 +153,8 @@
   - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/runtime test`。
 
 - [x] 将 Cypheria-owned service orchestration 放到 runtime 后面。
-  - 验收：runtime 可以连接 database、audit、automation、policy、wallet domain 和 browser domain service boundaries，且不导入 desktop renderer code。
-  - 包括：为 `runtime.*`、`wallet.*`、`chain.*`、`policy.*`、`browser.*`、`dapp.*`、`automation.*`、`audit.*` 和 `settings.*` 定义清晰 method namespaces。
+  - 验收：runtime 可以连接 database、audit、policy、wallet domain 和 browser domain service boundaries，且不导入 desktop renderer code。
+  - 包括：为 `runtime.*`、`wallet.*`、`chain.*`、`policy.*`、`browser.*`、`dapp.*`、`audit.*` 和 `settings.*` 定义清晰 method namespaces。
   - 验证：`pnpm run ci`、`pnpm build`、runtime 与受影响 package tests。
 
 - [x] 将现有 desktop bootstrap 适配到 runtime host。
@@ -180,7 +180,7 @@
 
 - [ ] 添加 `packages/sdk`。
   - 验收：package 导出公共 `Cypheria` server client。
-  - 包括：runtime、wallet、policy、automation 和 agent clients。
+  - 包括：runtime、wallet、policy、schedule 和 agent clients。
   - Agent path：使用版本化 server operation 与 event。
   - 不得导入：`apps/cli`、`apps/desktop`、Electron、`@cypheria/runtime` 或 `@cypheria/codex-bridge`。
   - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/sdk test`。
@@ -304,7 +304,7 @@
 
 - [x] 添加以对话为中心的 desktop workspace、agent harness connections 与原生模型设置。
   - 验收：左侧导航展示 projects 与最近 threads；主工作区通过 App Server 流式传输 AI SDK UI messages；Connections 按多种 agent harness 组织，并为 Codex 实现 ChatGPT managed 身份验证与经过校验的 OpenAI API key 登录；模型设置支持 OpenAI、Bedrock、Ollama 与 LM Studio。
-  - 包括：保存在 `$CYPHERIA_HOME/config/proxy.json` 的全局 system/direct/manual 代理、HTTP/HTTPS/SOCKS5 支持、连接测试、代理变更时重启 harness、无需登录的本地模型、对话中断、model/reasoning/service-tier 控件、automation 管理、隔离 dApp 启动、approval 与 plugin/skill 工作台路由，以及用于 Electron 构建的 client-only route shells。
+  - 包括：保存在 `$CYPHERIA_HOME/config/proxy.json` 的全局 system/direct/manual 代理、HTTP/HTTPS/SOCKS5 支持、连接测试、代理变更时重启 harness、无需登录的本地模型、对话中断、model/reasoning/service-tier 控件、schedule 管理、隔离 dApp 启动、approval 与 plugin/skill 工作台路由，以及用于 Electron 构建的 client-only route shells。
   - 不包括：在 provider 策略确定前，不实现通用 custom providers 与 OpenCodex 集成。
   - 验证：`pnpm run ci`、`pnpm build` 和 `pnpm --filter @cypheria/desktop test`。
 
@@ -385,10 +385,10 @@
   - 包括：SSRF destination policy、DNS/redirect 检查、timeout、response/concurrency bound、redacted audit 与稳定 network errors。
   - 验证：使用本地 fake EVM/Solana RPC server 的 runtime unit/integration tests；`pnpm run ci`、`pnpm build`。
 
-- [x] 将 wallet、policy、automation 与 dApp boundary 迁移到 canonical chain identity。
-  - 验收：chain account、active wallet context、signing intent、policy、automation scope、permission 与 event 使用 `ChainIdentity`/`ChainKey`；active network identity 必须与所选 chain account 匹配。
+- [x] 将 wallet、policy、schedule 与 dApp boundary 迁移到 canonical chain identity。
+  - 验收：chain account、active wallet context、signing intent、policy、schedule scope、permission 与 event 使用 `ChainIdentity`/`ChainKey`；active network identity 必须与所选 chain account 匹配。
   - 包括：data migration，以及 EIP-1193 hex ID 与 Solana Wallet Standard identifier 的 compatibility adapter。
-  - 验证：`@cypheria/web3`、automation、database、runtime 与 desktop IPC tests。
+  - 验证：`@cypheria/web3`、schedule、database、runtime 与 desktop IPC tests。
 
 - [x] 添加 origin-scoped network add/switch flow 与 desktop management UI。
   - 验收：每个 dApp origin 独立选择 Ethereum/Solana network；EIP-3085 add 与 EIP-3326 switch request 必须经过 probe 和 approval；desktop 管理 network/endpoint 排序、enabled state、health 与脱敏 credential。
@@ -421,7 +421,7 @@
 
 - [x] 将钱包 signer 接入 signing-intent pipeline。
   - 验收：调用方获得签名能力而不是秘密材料；每次 message、typed-data 和 transaction 签名都绑定已批准 intent 并写入 audit。
-  - 包括：viem signing adapters、signer/address 一致性检查、lock behavior、replay protection，并确保 renderer、dApp、agent 和 automation contexts 均不接触私钥。
+  - 包括：viem signing adapters、signer/address 一致性检查、lock behavior、replay protection，并确保 renderer、dApp、agent 和 schedule contexts 均不接触私钥。
   - 验证：runtime、policy、wallet 与 desktop IPC tests。
 
 - [x] 实现 policy runtime service。
@@ -429,17 +429,17 @@
   - 验证：runtime 和 `@cypheria/web3` policy tests。
 
 - [x] 实现 signing intent 与 approval runtime flow。
-  - 验收：dApp、automation 和 agent contexts 可以创建 signing intents；每个 intent 都经过 policy evaluation 且可审计。
+  - 验收：dApp、schedule 和 agent contexts 可以创建 signing intents；每个 intent 都经过 policy evaluation 且可审计。
   - 验证：runtime、policy、db 和 desktop IPC tests。
 
 - [x] 实现 provider 与 dApp browser runtime service。
   - 验收：desktop 可以创建 origin-isolated dApp sessions；暴露并发现 Ethereum 与 Solana providers；持久化 protocol-scoped permissions；转发常用 Ethereum read-only RPC；投递 scoped provider events；并让 EVM 或 Solana signing 经过 policy-backed intents 与 injected executors。
   - 验证：`@cypheria/web3` provider、database、runtime、desktop controller 与真实 sandboxed Electron discovery tests。
 
-- [x] 实现 automation runtime service。
-  - 验收：runtime 可以 create、list、run、pause、resume 和 inspect automation tasks/runs。
-  - 包括：tasks 可以调用 Codex SDK 或创建 signing intents，但不能绕过 policy。
-  - 验证：automation-core、db、runtime 和 desktop tests。
+- [x] 以 Server-owned Schedules 替换本地 Automation stack。
+  - 验收：`apps/server` 可以通过版本化 protocol create、list、update、pause、resume、delete、run、recover 和 inspect schedules；Desktop 使用 `@cypheria/client`，不再保留 Automation IPC。
+  - 包括：once、interval、cron cadence；新建/已有 Thread 与有界 Web3 target；持久 lease 和 run history；重启不重放进行中的 Web3 操作；删除 `automation-core`、旧数据表、runtime service 与 Desktop bridge。
+  - 验证：protocol/client/server schedule tests、database baseline tests、Desktop typecheck/build、`pnpm run ci`、`pnpm build`。
 
 ## Review Rule
 

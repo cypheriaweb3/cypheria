@@ -10,10 +10,10 @@
 
 import { Route as rootRouteImport } from "./routes/__root"
 import { Route as WalletsRouteImport } from "./routes/wallets"
+import { Route as SchedulesRouteImport } from "./routes/schedules"
 import { Route as PoliciesRouteImport } from "./routes/policies"
 import { Route as PluginsRouteImport } from "./routes/plugins"
 import { Route as NetworksRouteImport } from "./routes/networks"
-import { Route as AutomationsRouteImport } from "./routes/automations"
 import { Route as AuditRouteImport } from "./routes/audit"
 import { Route as ApprovalsRouteImport } from "./routes/approvals"
 import { Route as IndexRouteImport } from "./routes/index"
@@ -31,6 +31,11 @@ const WalletsRoute = WalletsRouteImport.update({
   path: "/wallets",
   getParentRoute: () => rootRouteImport,
 } as any)
+const SchedulesRoute = SchedulesRouteImport.update({
+  id: "/schedules",
+  path: "/schedules",
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PoliciesRoute = PoliciesRouteImport.update({
   id: "/policies",
   path: "/policies",
@@ -44,11 +49,6 @@ const PluginsRoute = PluginsRouteImport.update({
 const NetworksRoute = NetworksRouteImport.update({
   id: "/networks",
   path: "/networks",
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AutomationsRoute = AutomationsRouteImport.update({
-  id: "/automations",
-  path: "/automations",
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuditRoute = AuditRouteImport.update({
@@ -111,10 +111,10 @@ export interface FileRoutesByFullPath {
   "/": typeof IndexRoute
   "/approvals": typeof ApprovalsRoute
   "/audit": typeof AuditRoute
-  "/automations": typeof AutomationsRoute
   "/networks": typeof NetworksRoute
   "/plugins": typeof PluginsRoute
   "/policies": typeof PoliciesRoute
+  "/schedules": typeof SchedulesRoute
   "/wallets": typeof WalletsRoute
   "/settings/account": typeof SettingsAccountRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
@@ -129,10 +129,10 @@ export interface FileRoutesByTo {
   "/": typeof IndexRoute
   "/approvals": typeof ApprovalsRoute
   "/audit": typeof AuditRoute
-  "/automations": typeof AutomationsRoute
   "/networks": typeof NetworksRoute
   "/plugins": typeof PluginsRoute
   "/policies": typeof PoliciesRoute
+  "/schedules": typeof SchedulesRoute
   "/wallets": typeof WalletsRoute
   "/settings/account": typeof SettingsAccountRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
@@ -148,10 +148,10 @@ export interface FileRoutesById {
   "/": typeof IndexRoute
   "/approvals": typeof ApprovalsRoute
   "/audit": typeof AuditRoute
-  "/automations": typeof AutomationsRoute
   "/networks": typeof NetworksRoute
   "/plugins": typeof PluginsRoute
   "/policies": typeof PoliciesRoute
+  "/schedules": typeof SchedulesRoute
   "/wallets": typeof WalletsRoute
   "/settings/account": typeof SettingsAccountRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
@@ -168,10 +168,10 @@ export interface FileRouteTypes {
     | "/"
     | "/approvals"
     | "/audit"
-    | "/automations"
     | "/networks"
     | "/plugins"
     | "/policies"
+    | "/schedules"
     | "/wallets"
     | "/settings/account"
     | "/settings/appearance"
@@ -186,10 +186,10 @@ export interface FileRouteTypes {
     | "/"
     | "/approvals"
     | "/audit"
-    | "/automations"
     | "/networks"
     | "/plugins"
     | "/policies"
+    | "/schedules"
     | "/wallets"
     | "/settings/account"
     | "/settings/appearance"
@@ -204,10 +204,10 @@ export interface FileRouteTypes {
     | "/"
     | "/approvals"
     | "/audit"
-    | "/automations"
     | "/networks"
     | "/plugins"
     | "/policies"
+    | "/schedules"
     | "/wallets"
     | "/settings/account"
     | "/settings/appearance"
@@ -223,10 +223,10 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApprovalsRoute: typeof ApprovalsRoute
   AuditRoute: typeof AuditRoute
-  AutomationsRoute: typeof AutomationsRoute
   NetworksRoute: typeof NetworksRoute
   PluginsRoute: typeof PluginsRoute
   PoliciesRoute: typeof PoliciesRoute
+  SchedulesRoute: typeof SchedulesRoute
   WalletsRoute: typeof WalletsRoute
   SettingsAccountRoute: typeof SettingsAccountRoute
   SettingsAppearanceRoute: typeof SettingsAppearanceRoute
@@ -245,6 +245,13 @@ declare module "@tanstack/react-router" {
       path: "/wallets"
       fullPath: "/wallets"
       preLoaderRoute: typeof WalletsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/schedules": {
+      id: "/schedules"
+      path: "/schedules"
+      fullPath: "/schedules"
+      preLoaderRoute: typeof SchedulesRouteImport
       parentRoute: typeof rootRouteImport
     }
     "/policies": {
@@ -266,13 +273,6 @@ declare module "@tanstack/react-router" {
       path: "/networks"
       fullPath: "/networks"
       preLoaderRoute: typeof NetworksRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    "/automations": {
-      id: "/automations"
-      path: "/automations"
-      fullPath: "/automations"
-      preLoaderRoute: typeof AutomationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     "/audit": {
@@ -359,10 +359,10 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApprovalsRoute: ApprovalsRoute,
   AuditRoute: AuditRoute,
-  AutomationsRoute: AutomationsRoute,
   NetworksRoute: NetworksRoute,
   PluginsRoute: PluginsRoute,
   PoliciesRoute: PoliciesRoute,
+  SchedulesRoute: SchedulesRoute,
   WalletsRoute: WalletsRoute,
   SettingsAccountRoute: SettingsAccountRoute,
   SettingsAppearanceRoute: SettingsAppearanceRoute,

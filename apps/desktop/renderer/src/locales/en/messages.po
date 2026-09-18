@@ -144,11 +144,6 @@ msgid "settings.language.automatic"
 msgstr "Automatic detection"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.automations"
-msgstr "Automations"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
 msgid "chat.model.available"
 msgstr "Available models"
@@ -1241,6 +1236,11 @@ msgstr "Save"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.saveSection"
 msgstr "Save section"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.schedules"
+msgstr "Schedules"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx

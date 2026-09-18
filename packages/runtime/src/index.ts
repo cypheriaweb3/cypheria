@@ -2,7 +2,6 @@ import { mkdir } from "node:fs/promises"
 import { homedir } from "node:os"
 import { resolve } from "node:path"
 
-export * from "./automation-service/index.js"
 export * from "./dapp-provider-service/index.js"
 export * from "./network-credentials/index.js"
 export * from "./network-service/index.js"
@@ -38,7 +37,6 @@ export type CypheriaRuntimePaths = {
   readonly logsDir: string
   readonly cacheDir: string
   readonly browserDir: string
-  readonly automationDir: string
   readonly configDir: string
   readonly networkCredentialsDir: string
 }
@@ -51,7 +49,6 @@ export type RuntimeDirectoryName =
   | "logsDir"
   | "cacheDir"
   | "browserDir"
-  | "automationDir"
   | "configDir"
   | "networkCredentialsDir"
 
@@ -63,7 +60,6 @@ export const RUNTIME_DIRECTORY_NAMES = [
   "logsDir",
   "cacheDir",
   "browserDir",
-  "automationDir",
   "configDir",
   "networkCredentialsDir",
 ] as const satisfies readonly RuntimeDirectoryName[]
@@ -75,7 +71,6 @@ export const RUNTIME_METHOD_NAMESPACES = [
   "policy",
   "browser",
   "dapp",
-  "automation",
   "audit",
   "settings",
 ] as const
@@ -91,7 +86,6 @@ export type CypheriaRuntimeLifecycleState =
   | "stopping"
 
 export type CypheriaRuntimeDirectories = {
-  readonly automation: string
   readonly browser: string
   readonly cache: string
   readonly config: string
@@ -229,7 +223,6 @@ export const buildRuntimePaths = (options: RuntimeHomeOptions = {}): CypheriaRun
     logsDir: pathInHome("logs"),
     cacheDir: pathInHome("cache"),
     browserDir: pathInHome("browser"),
-    automationDir: pathInHome("automation"),
     configDir: pathInHome("config"),
     networkCredentialsDir: pathInHome("config/network-credentials"),
   }
@@ -278,7 +271,6 @@ const toRuntimeInfo = (
   codexHome: paths.codexHome,
   cypheriaHome: paths.cypheriaHome,
   directories: {
-    automation: paths.automationDir,
     browser: paths.browserDir,
     cache: paths.cacheDir,
     config: paths.configDir,

@@ -355,7 +355,7 @@ describe("NetworkManager", () => {
     const lifecycle = {
       clearWorkspaceContext: vi.fn(async () => undefined),
       failPendingWork: vi.fn(async () => undefined),
-      pauseAutomations: vi.fn(async () => undefined),
+      pauseSchedules: vi.fn(async () => undefined),
       revokeDappGrants: vi.fn(async () => undefined),
     }
     const transport = vi.fn().mockResolvedValueOnce("0x539").mockResolvedValueOnce("0x1")
@@ -398,7 +398,7 @@ describe("NetworkManager", () => {
 
     await manager.removeCustomNetwork(created.network.id, true)
     await expect(credentials.get("network_credential_local")).resolves.toBeUndefined()
-    expect(lifecycle.pauseAutomations).toHaveBeenCalledWith("eip155:1337")
+    expect(lifecycle.pauseSchedules).toHaveBeenCalledWith("eip155:1337")
     expect(lifecycle.revokeDappGrants).toHaveBeenCalledWith("network_local", "eip155:1337")
     database.close()
   })

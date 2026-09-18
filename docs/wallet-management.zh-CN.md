@@ -7,7 +7,7 @@ Cypheria V1 支持 `hd`、`private-key`、`private-key-group`、`watch` 和 `wat
 - `@cypheria/web3/wallet` 负责领域类型、验证、派生规则、fingerprint、renderer-safe projection 和 signer capability；不负责文件、数据库、Electron 或 OS credential。
 - `@cypheria/db` 通过 Drizzle + libSQL 保存非秘密钱包状态。
 - `@cypheria/runtime` 负责钱包编排、加密 vault、解锁内存、signer 构建、policy 路由和 audit 协调。
-- Renderer、dApp 页面、Codex、SDK 调用方和 automation worker 永远不会收到助记词、私钥、vault key、解密 keystore 或暴露秘密的 signer object。
+- Renderer、dApp 页面、Codex、SDK 调用方和 schedule worker 永远不会收到助记词、私钥、vault key、解密 keystore 或暴露秘密的 signer object。
 
 ## 领域模型
 

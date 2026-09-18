@@ -6,7 +6,7 @@ This file provides working instructions for agents contributing to Cypheria.
 
 Cypheria is a TypeScript Web3 agent product inspired by Codex. Its target architecture has one privileged server and multiple clients:
 
-- `@cypheria/runtime`: Cypheria-owned non-agent runtime for Web3, wallets, signing policy, dApp browser permissions, automation, local state, and audit logs.
+- `@cypheria/runtime`: Cypheria-owned non-agent runtime for Web3, wallets, signing policy, dApp browser permissions, schedule, local state, and audit logs.
 - `@cypheria/client`: the layered WebSocket client for the versioned Cypheria server protocol; `ServerClient` owns a connection, `CypheriaApi` borrows one, and `CypheriaClient` adds lifecycle control.
 - `apps/server`: the Hono/Node.js process boundary that owns runtime lifecycle, versioned client connections, operations, web hosting, and eventually Codex/product services.
 - `apps/relay`: the Go relay data plane with single-process mode and clustered gateway/worker roles; it forwards
@@ -97,7 +97,6 @@ packages/runtime
 packages/codex-bridge
 packages/ui
 packages/web3
-packages/automation-core
 packages/db
 ```
 
@@ -137,7 +136,7 @@ The protocol package script always enables experimental APIs, normalizes generat
 
 - Biome owns linting and formatting.
 - TypeScript should remain strict.
-- Prefer Zod for runtime validation at boundaries, especially IPC, policy schemas, wallet inputs, automation definitions, and generated-protocol adapters.
+- Prefer Zod for runtime validation at boundaries, especially IPC, policy schemas, wallet inputs, schedule definitions, and generated-protocol adapters.
 - Keep package boundaries explicit and avoid reaching into another package's private files.
 - Domain/data packages should not depend on `@cypheria/runtime`; runtime composes them through explicit service injection.
 
@@ -147,7 +146,7 @@ Cypheria should have its own local application home directory.
 
 - The app home directory is configured by `$CYPHERIA_HOME`.
 - If `$CYPHERIA_HOME` is not set, default to `~/.cypheria`.
-- Cypheria-owned local data, settings, logs, caches, databases, wallet vault metadata, automation state, and app-managed runtime files should live under `$CYPHERIA_HOME`.
+- Cypheria-owned local data, settings, logs, caches, databases, wallet vault metadata, schedule state, and app-managed runtime files should live under `$CYPHERIA_HOME`.
 
 Cypheria-managed Codex processes must use:
 
@@ -162,10 +161,9 @@ $CYPHERIA_HOME/
   codex/          Cypheria-managed Codex home
   db/             SQLite databases
   vault/          encrypted wallet vault files and metadata
-  logs/           app, automation, policy, and audit logs
+  logs/           app, schedule, policy, and audit logs
   cache/          disposable app caches
   browser/        dApp browser session partitions and related metadata
-  automation/     task definitions, run state, and worker metadata
   config/         Cypheria settings
 ```
 
@@ -178,13 +176,13 @@ Implementation notes:
 
 ## Security Boundaries
 
-- Private keys, signing, automation execution, local database access, and browser session management belong in the Cypheria server/runtime, Electron-only privileged services during the staged migration, or isolated child/worker processes.
+- Private keys, signing, schedule execution, local database access, and browser session management belong in the Cypheria server/runtime, Electron-only privileged services during the staged migration, or isolated child/worker processes.
 - Renderer code should use typed IPC only.
 - dApp pages should never receive Node.js access or private key material.
-- Codex and automation flows should create signing intents, not direct signatures.
+- Codex and schedule flows should create signing intents, not direct signatures.
 - Every signing intent must go through the policy engine.
 - Auto-signing must be disabled by default and enabled only through explicit user policy.
-- Every signature, rejection, policy decision, automation run, and transaction hash should be auditable.
+- Every signature, rejection, policy decision, schedule run, and transaction hash should be auditable.
 
 Electron browser defaults should remain conservative:
 

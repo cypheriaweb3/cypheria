@@ -76,7 +76,7 @@ packages/ui
 packages/db
 ```
 
-`packages/sdk` 仍是规划中的 package。`apps/cli`、`apps/server`、`apps/desktop`、`apps/expo`、`apps/marketplace`、`packages/client`、`packages/protocol` 与 `packages/ai-sdk-provider` 已实现 client/server 基础。旧 runtime、bridge、ACP provider、automation 与顶层 Web3 packages 只在其 service 搬入 server 期间暂留，不属于最终布局。
+`packages/sdk` 仍是规划中的 package。`apps/cli`、`apps/server`、`apps/desktop`、`apps/expo`、`apps/marketplace`、`packages/client`、`packages/protocol` 与 `packages/ai-sdk-provider` 已实现 client/server 基础。旧 runtime、bridge 与 ACP provider 只在其 service 搬入 server 期间暂留，不属于最终布局。
 
 `@cypheria/protocol` 使用 Zod 编写 live public Agent/Thread、project/section 与 server WebSocket contract，同时持有供内部 server adapter 使用的 generated Codex App Server 产物及固定版本 ACP、Claude、Pi schema。这些 provider catalog 接受 drift check，但不进入 public client/server message union。Live wire 暴露 provider-neutral 的 `agent.*` 管理与 `thread.*` execution；`threadId` 是唯一操作句柄，`agentSessionId` 只是只读元数据。
 
@@ -134,7 +134,7 @@ Runtime 职责：
 - 解析 `$CYPHERIA_HOME`，默认 `~/.cypheria`。
 - 派生 `CODEX_HOME=$CYPHERIA_HOME/codex`。
 - 初始化 runtime directories。
-- 连接 database、audit、wallet、policy、browser、automation 和 settings services。
+- 连接 database、audit、wallet、policy、browser、schedule 和 settings services。
 - 向 `apps/server` 暴露 typed request/event API。
 
 Runtime 不实现 Codex agent internals。
@@ -353,14 +353,14 @@ Cypheria-specific components：
 
 Network configuration、endpoint selection、credential protection、dApp-scoped chain selection 与 failure behavior 详见 `docs/network-management.zh-CN.md`。
 
-## Policy And Automation Stack
+## Policy And Schedule Stack
 
 | 分类 | 选型 |
 | --- | --- |
 | Policy schema | Zod-validated JSON policy |
 | Policy evaluator | Deterministic TypeScript evaluator |
-| Scheduler | cron-parser or equivalent local scheduler |
-| Runner | worker_threads or child_process |
+| Scheduler | Server `ScheduleService`，支持 once、interval 与五字段 cron cadence |
+| Runner | Server-owned Thread/Web3 target executor |
 | Logs | Structured logs persisted through runtime/db |
 
 Policy modes：
@@ -375,9 +375,7 @@ Signing policy 保存在显式的 `signing_policies` libSQL 表中。`@cypheria/
 
 Signing intents 与 approval requests 保存在显式的 libSQL tables 中。系统保留精确 canonical intent payload，以确保审批内容与最终签名的字节完全一致；audit log 只保留其 SHA-256 hash 和脱敏摘要。审批决议使用基于 revision 的 compare-and-swap 与原子 libSQL batch，防止两个 reviewer 对同一请求作出不同决议。待审批尝试会先授权、后执行一次性 replay claim，因此批准后可以重试；已批准尝试则在访问秘密并签名前立即 claim。
 
-Automation 是 local-first。Tasks 可以使用 Codex SDK、读取链上状态、创建 signing intents，并写入 audit logs。Tasks 不得绕过 policy engine。
-
-`@cypheria/runtime` 拥有 automation service，并暴露 `automation.task.create`、`automation.task.list`、`automation.task.get`、`automation.task.pause`、`automation.task.resume`、`automation.run.start`、`automation.run.get` 与 `automation.run.list`。`@cypheria/automation-core` 负责严格 task/run schema 和状态流转，`@cypheria/db` 负责异步 SQLite 持久化与乐观更新。Executor 按 handler name 注入，且只能获得受 scope 限制的 agent 与 signing-intent capabilities。目标架构由 server 组合 agent capability，只向 client 暴露有界 operation；desktop 在迁移前保留现有 path。
+Schedules 由 Server 负责。`apps/server` 通过 `@cypheria/protocol` 与 `@cypheria/client` 暴露版本化的 create、list、get、update、pause、resume、delete、manual-run 和 run-history 操作。Schedule 可以启动新的 Agent thread、继续已有 thread，或请求受 policy 控制的 Web3 操作。SQLite 保存 cadence、next-run state、lease、result 与 error；启动恢复只标记被中断的工作，不会重放进行中的 Web3 签名或广播。Desktop 不再拥有 Schedule IPC 或本地 scheduler，与 CLI 和未来客户端一样只调用 Schedule API。
 
 ## Data Stack
 
@@ -399,8 +397,8 @@ settings
 audit_logs
 workspaces
 runtime_metadata
-automation_tasks
-automation_runs
+schedules
+schedule_runs
 wallets
 wallet_accounts
 chain_accounts
@@ -425,7 +423,7 @@ rpc_endpoints
 - 使用 pnpm，不使用 npm/yarn/bun，除非用户明确要求。
 - pnpm 相关命令通常应在沙盒外执行，以便 pnpm 使用全局存储。
 - 保持 TypeScript strict。
-- 在 runtime boundaries 使用 Zod：IPC、policy schemas、wallet inputs、automation definitions 和 generated-protocol adapters。
+- 在 runtime boundaries 使用 Zod：IPC、policy schemas、wallet inputs、schedule definitions 和 generated-protocol adapters。
 - 保持 package boundaries 明确。
 - 保持 domain/data packages 不依赖 `@cypheria/runtime`；runtime 通过显式 service injection 组合它们，而不是让它们反向 import runtime。
 - 架构、行为、命令、package boundary 或 runtime path 变化时，英文和中文文档同步更新。

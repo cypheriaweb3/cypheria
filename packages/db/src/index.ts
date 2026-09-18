@@ -24,14 +24,6 @@ export {
   createAuditLogService,
 } from "./audit.js"
 export {
-  type AutomationPersistenceService,
-  type AutomationRunRecord,
-  type AutomationTaskRecord,
-  createAutomationPersistenceService,
-  type ListAutomationTaskOptions,
-  type UpdateAutomationTaskStatusInput,
-} from "./automation.js"
-export {
   createDappBrowserPersistenceService,
   createWalletProviderPersistenceService,
 } from "./browser.js"

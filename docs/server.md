@@ -2,7 +2,7 @@
 
 `apps/server` is the process boundary between Cypheria clients and privileged local capabilities. It adopts the useful Paseo process shape—a stable supervisor, a replaceable worker, explicit session handshake, health and diagnostics, PID ownership, crash recovery, and graceful lifecycle control—while consistently naming the Cypheria process and API a server and using Hono instead of Express.
 
-The server owns the SQLite-backed project, thread, project-membership, section, and section-membership service and advertises it as the `project-thread` capability. It initializes the fixed pinned section before accepting connections and dispatches the corresponding logical session messages. Agent-session association for Cypheria threads is deliberately deferred: the reserved field remains null and has no bind, update, or lookup operation. The server also hosts `CypheriaRuntime` and the agent surfaces described below; wallet, policy, and automation product services remain separate implementation steps.
+The server owns the SQLite-backed project, thread, section, timeline, and Schedule services. It initializes the fixed pinned section and recovers durable schedules before accepting connections, then dispatches their versioned logical-session messages. The server also hosts `CypheriaRuntime` and the Agent surfaces described below; wallet, policy, and browser services remain staged implementation work until they are moved out of Desktop.
 
 ## Process Model
 

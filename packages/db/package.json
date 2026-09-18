@@ -16,7 +16,6 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@cypheria/automation-core": "workspace:*",
     "@cypheria/protocol": "workspace:*",
     "@cypheria/web3": "workspace:*",
     "@libsql/client": "^0.17.4",

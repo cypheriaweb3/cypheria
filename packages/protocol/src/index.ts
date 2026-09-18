@@ -90,7 +90,7 @@ export const RuntimeMethodSchema = z
   .min(3)
   .max(160)
   .regex(
-    /^(runtime|wallet|chain|policy|browser|dapp|automation|audit|settings)\.[A-Za-z0-9._-]+$/,
+    /^(runtime|wallet|chain|policy|browser|dapp|audit|settings)\.[A-Za-z0-9._-]+$/,
     "Runtime method must use a supported namespace"
   )
 

@@ -1,14 +1,14 @@
 # Cypheria
 
-Cypheria is a cross-platform Web3 agent product inspired by Codex. It is built in TypeScript and combines Codex-powered software engineering workflows with Cypheria-owned Web3 runtime capabilities: wallets, an isolated dApp browser, signing policies, local automation, and audit logs.
+Cypheria is a cross-platform Web3 agent product inspired by Codex. It is built in TypeScript and combines multi-Agent software engineering workflows with Cypheria-owned Web3 capabilities: wallets, an isolated dApp browser, signing policies, Server-owned schedules, and audit logs.
 
-Cypheria does not reimplement the Codex agent core. The target architecture has one long-running Cypheria server that owns privileged runtime and Codex integration, while desktop, Expo, web, mobile, CLI, and SDK surfaces are clients. Web3 permissions, wallet state, signing, automation, policy evaluation, and auditability remain in the Cypheria runtime behind that server boundary.
+Cypheria does not reimplement Agent runtimes. The target architecture has one long-running Cypheria Server that owns privileged Agent integration, Web3 permissions, wallet state, signing, schedules, policy evaluation, and auditability, while Desktop, Expo, web, mobile, CLI, and SDK surfaces are clients.
 
 ## Product Direction
 
 Cypheria V1 is organized around one server and multiple clients:
 
-- **Runtime**: the TypeScript core for Cypheria-owned non-agent capabilities, including wallets, chains, policies, automation, browser permissions, settings, local state, and audit logs.
+- **Server runtime**: Server-owned services for wallets, chains, policies, schedules, browser permissions, settings, local state, and audit logs.
 - **Server**: a Hono + Node.js control plane that owns runtime lifecycle, client sessions, diagnostics, static web hosting, and later Codex/product services.
 - **Expo client**: one Expo Router application for iOS, Android, and static web output. The server embeds the web output.
 - **Shared client**: `@cypheria/client` provides the WebSocket protocol driver, borrowed and
@@ -20,7 +20,7 @@ Cypheria V1 is organized around one server and multiple clients:
 - **Desktop client**: keeps the Electron + TanStack Start workbench, ensures a compatible local server is running, and uses `@cypheria/client` for shared projects, threads, sections, canonical history, and live turns. Electron-only browser, secure-storage, window, update, and OS integrations remain local.
 - **Marketplace**: a TanStack Start app on Cloudflare Workers for submission, scanning, review, publication, discovery, and synchronization of reviewed ChatGPT/Codex plugins to the official Cypheria GitHub repo marketplace.
 
-The default safety model is human approval. Read-only mode and conditional auto-signing are explicit policy modes. Codex and automation flows may create signing intents, but every signing intent must go through Cypheria policy evaluation before a signature or transaction broadcast.
+The default safety model is human approval. Read-only mode and conditional auto-signing are explicit policy modes. Agents and schedules may create signing intents, but every signing intent must go through Cypheria policy evaluation before a signature or transaction broadcast.
 
 ## Tech Stack
 
@@ -153,12 +153,11 @@ $CYPHERIA_HOME/
   codex/        Cypheria-managed Codex home
   db/           SQLite databases
   vault/        encrypted wallet vault files and metadata
-  logs/         app, automation, policy, and audit logs
+  logs/         app, schedule, policy, and audit logs
   cache/        disposable app caches
   toolchains/   managed Node, Python, uv, and immutable Python environments
   agents/       runtime ACP registry plus managed agent versions, homes, staging data, and receipts
   browser/      dApp browser session partitions and metadata
-  automation/   task definitions, run state, and worker metadata
   config/       Cypheria settings
 ```
 

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Cypheria needs a network mechanism that is independent from wallets, safe for dApp-originated requests, usable by automation and agent tools, and capable of selecting among multiple RPC endpoints without exposing credentials.
+Cypheria needs a network mechanism that is independent from wallets, safe for dApp-originated requests, usable by schedule and agent tools, and capable of selecting among multiple RPC endpoints without exposing credentials.
 
 The design separates four concepts that are often incorrectly collapsed:
 
@@ -84,7 +84,7 @@ type ChainKey = `${ChainIdentity["namespace"]}:${string}`
 
 For EVM, `reference` is the canonical decimal form of a positive safe-integer chain ID, with no leading zero. Protocol adapters convert it to or from the EIP-1193 hexadecimal quantity. For Solana, adapters convert it to or from the Wallet Standard `solana:<reference>` identifier.
 
-Persistence uses separate `namespace` and `reference` columns with a unique constraint. `toChainKey()` produces the only string key used by policy, automation, permissions, and event envelopes. This replaces the current mixture of EVM numbers and protocol-prefixed strings.
+Persistence uses separate `namespace` and `reference` columns with a unique constraint. `toChainKey()` produces the only string key used by policy, schedule, permissions, and event envelopes. This replaces the current mixture of EVM numbers and protocol-prefixed strings.
 
 ### Network definition
 
@@ -144,7 +144,7 @@ type RpcEndpoint = {
 }
 ```
 
-Connection material containing API keys, authorization headers, user info, sensitive query parameters, or secret path components is encrypted under `$CYPHERIA_HOME/config/network-credentials/` through an OS-backed protector. SQLite stores only `credentialRef` and a redacted `displayUrl`. Renderer, dApp pages, Codex, automation definitions, logs, and audit payloads never receive the resolved secret.
+Connection material containing API keys, authorization headers, user info, sensitive query parameters, or secret path components is encrypted under `$CYPHERIA_HOME/config/network-credentials/` through an OS-backed protector. SQLite stores only `credentialRef` and a redacted `displayUrl`. Renderer, dApp pages, Codex, schedule definitions, logs, and audit payloads never receive the resolved secret.
 
 Runtime-only health data is not authoritative configuration:
 
@@ -192,7 +192,7 @@ dapp_network_contexts
 
 Wallet chain accounts retain chain identity columns and do not have a cascading foreign key to `networks`. Removing connectivity must never delete accounts, policies, signing intents, transaction records, or audit history. References from active contexts are cleared or rejected explicitly; historical records retain their chain key.
 
-Built-in networks can only be disabled. Custom networks become enabled only after an explicit user action and successful identity probe, and require a separate confirmed operation for permanent removal. Permanent removal deletes their endpoints, protected credentials, and disposable health state; clears workspace and dApp selections; revokes origin grants tied to that configuration; pauses affected automations; and makes pending RPC-dependent work fail with a stable unavailable error. Policies and historical records remain keyed by chain identity but become non-executable while no enabled matching network exists. Re-adding the same chain never silently restores dApp grants or automation execution.
+Built-in networks can only be disabled. Custom networks become enabled only after an explicit user action and successful identity probe, and require a separate confirmed operation for permanent removal. Permanent removal deletes their endpoints, protected credentials, and disposable health state; clears workspace and dApp selections; revokes origin grants tied to that configuration; pauses affected schedules; and makes pending RPC-dependent work fail with a stable unavailable error. Policies and historical records remain keyed by chain identity but become non-executable while no enabled matching network exists. Re-adding the same chain never silently restores dApp grants or schedule execution.
 
 ## Runtime Services
 
@@ -207,7 +207,7 @@ Built-in networks can only be disabled. Custom networks become enabled only afte
 - select workspace and origin-scoped network contexts;
 - return redacted renderer-safe projections.
 
-All mutations use revisions to prevent stale UI or concurrent automation from silently overwriting changes. Network and endpoint changes, dApp add/switch decisions, and credential changes produce redacted audit events. Routine health probes do not flood the audit log.
+All mutations use revisions to prevent stale UI or concurrent schedule from silently overwriting changes. Network and endpoint changes, dApp add/switch decisions, and credential changes produce redacted audit events. Routine health probes do not flood the audit log.
 
 ### RPC router
 
@@ -248,13 +248,13 @@ Custom RPC access is an SSRF boundary because requests originate from a privileg
 
 A failed probe cannot be silently overridden for a dApp request. A user-created endpoint may be saved disabled after an explicit warning, but it cannot route traffic until a successful identity probe.
 
-## Wallet, Policy, And Automation Integration
+## Wallet, Policy, And Schedule Integration
 
 - `ChainAccount` binds an address to `ChainIdentity`, not to an RPC endpoint.
 - Workspace active context binds wallet, wallet account, chain account, network, and policy mode. The chain identities must agree.
 - Signing intents and policies use `ChainKey`; network or endpoint IDs never become authorization identities.
 - Simulation and fee estimation resolve through `RpcRouter` using the intent's chain key.
-- Automation definitions may select an allowed chain key but cannot select protected credentials or bypass network policy.
+- Schedule definitions may select an allowed chain key but cannot select protected credentials or bypass network policy.
 - Disabling a network blocks new RPC-dependent work with a stable `NETWORK_DISABLED` error while preserving signing intents and audit data.
 
 ## dApp Provider Integration
@@ -286,7 +286,7 @@ The network screen provides:
 
 Approval screens show the requesting origin, requested chain identity, current chain, metadata differences, every redacted RPC host, and probe results before add or switch approval.
 
-The implemented desktop flow uses a native, origin-labelled approval dialog for synchronous EIP-3085/EIP-3326 requests. The network workbench exposes the same redacted definitions and health state through typed IPC; raw credential URLs and headers never cross into renderer state. Disabling a network clears matching workspace and origin selections, revokes EVM and Solana grants for its chain key, pauses scoped automations, and invalidates in-flight routed work. Custom deletion additionally removes endpoints, protected credentials, and disposable health while retaining policies, signing records, and audit history.
+The implemented desktop flow uses a native, origin-labelled approval dialog for synchronous EIP-3085/EIP-3326 requests. The network workbench exposes the same redacted definitions and health state through typed IPC; raw credential URLs and headers never cross into renderer state. Disabling a network clears matching workspace and origin selections, revokes EVM and Solana grants for its chain key, pauses scoped schedules, and invalidates in-flight routed work. Custom deletion additionally removes endpoints, protected credentials, and disposable health while retaining policies, signing records, and audit history.
 
 ## Failure Semantics
 
@@ -317,7 +317,7 @@ Errors never contain endpoint credentials or raw authorization headers.
 1. Add `@cypheria/web3/network`, strict chain/network/endpoint schemas, conversion helpers, and a minimal bundled catalog.
 2. Add database tables, catalog reconciliation, repositories, protected credential storage, and migration tests.
 3. Add runtime `NetworkManager`, endpoint probes, health tracking, and purpose-aware `RpcRouter`.
-4. Migrate wallet, policy, automation, permissions, and active contexts to canonical chain identities.
+4. Migrate wallet, policy, schedule, permissions, and active contexts to canonical chain identities.
 5. Route Ethereum and Solana provider requests through origin-scoped network contexts and add/switch approval flows.
 6. Add typed desktop IPC and the network-management UI.
 

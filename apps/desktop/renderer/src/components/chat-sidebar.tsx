@@ -125,10 +125,10 @@ const virtualNavigationItems = [
     label: msg({ id: "navigation.wallets", message: "Wallets & assets" }),
   },
   {
-    href: "/automations",
+    href: "/schedules",
     icon: Workflow,
-    id: "automations",
-    label: msg({ id: "navigation.automations", message: "Automations" }),
+    id: "schedules",
+    label: msg({ id: "navigation.schedules", message: "Schedules" }),
   },
   {
     href: "/policies",

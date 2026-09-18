@@ -2,7 +2,7 @@
 
 `apps/server` 是 Cypheria client 与本地特权能力之间的进程边界。它复用了 Paseo 中有价值的进程结构：稳定 supervisor、可替换 worker、显式 session handshake、health 与 diagnostics、PID ownership、crash recovery 和 graceful lifecycle control；Cypheria 对进程与 API 统一使用 server 命名，并以 Hono 替代 Express。
 
-Server 持有基于 SQLite 的 project、thread、project 成员关系、section 与 section 成员关系 service，并以 `project-thread` capability 对外声明。它在接收连接前初始化固定的 pinned section，并分派相应的逻辑 session message。Cypheria thread 与 agent session 的关联刻意推迟：预留字段保持为 null，当前没有绑定、更新或按该字段查询的操作。Server 同时托管 `CypheriaRuntime` 以及下文所述的 agent surface；wallet、policy 与 automation 产品 service 仍是独立的后续实现步骤。
+Server 持有基于 SQLite 的 project、thread、section、timeline 与 Schedule services。它在接收连接前初始化固定 pinned section 并恢复持久 schedules，随后分派相应的版本化 logical-session message。Server 同时托管 `CypheriaRuntime` 与下文所述的 Agent surface；wallet、policy 与 browser service 在从 Desktop 搬出前仍属于分阶段实施工作。
 
 ## 进程模型
 

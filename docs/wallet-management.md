@@ -7,7 +7,7 @@ Cypheria V1 supports `hd`, `private-key`, `private-key-group`, `watch`, and `wat
 - `@cypheria/web3/wallet` owns domain types, validation, derivation rules, fingerprints, renderer-safe projections, and signer capabilities. It does not own files, databases, Electron, or OS credentials.
 - `@cypheria/db` stores non-secret wallet state through Drizzle and libSQL.
 - `@cypheria/runtime` owns wallet orchestration, the encrypted vault, unlocked memory, signer construction, policy routing, and audit coordination.
-- Renderer, dApp pages, Codex, SDK callers, and automation workers never receive mnemonic phrases, private keys, vault keys, decrypted keystores, or signer objects that expose secrets.
+- Renderer, dApp pages, Codex, SDK callers, and schedule workers never receive mnemonic phrases, private keys, vault keys, decrypted keystores, or signer objects that expose secrets.
 
 ## Domain Model
 

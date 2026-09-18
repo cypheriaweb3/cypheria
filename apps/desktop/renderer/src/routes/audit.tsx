@@ -27,7 +27,7 @@ function AuditRoute() {
           Audit log
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Wallet changes, policy decisions, signatures, approvals, and automation runs are recorded
+          Wallet changes, policy decisions, signatures, approvals, and schedule runs are recorded
           locally.
         </p>
       </header>
@@ -65,7 +65,7 @@ function AuditRoute() {
           <CardHeader>
             <CardTitle>No audit events</CardTitle>
             <CardDescription>
-              Events will appear after wallet, policy, approval, signing, browser, or automation
+              Events will appear after wallet, policy, approval, signing, browser, or schedule
               activity.
             </CardDescription>
           </CardHeader>
