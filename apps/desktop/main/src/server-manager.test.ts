@@ -50,9 +50,16 @@ describe("DesktopServerManager", () => {
 
   it("starts a missing server and only stops the instance it owns", async () => {
     let ready = false
-    const runCli = vi.fn(async (_path, command: "start" | "stop") => {
-      ready = command === "start"
-    })
+    const runCli = vi.fn(
+      async (
+        _path: string,
+        command: "start" | "stop",
+        _env: NodeJS.ProcessEnv,
+        _options?: { ifIdle?: boolean }
+      ) => {
+        ready = command === "start"
+      }
+    )
     const manager = new DesktopServerManager({
       cliCandidates: [cli()],
       probe: async () => ready,
@@ -63,6 +70,7 @@ describe("DesktopServerManager", () => {
     await manager.stopOwned()
 
     expect(runCli.mock.calls.map(([, command]) => command)).toEqual(["start", "stop"])
+    expect(runCli.mock.calls[1]?.[3]).toEqual({ ifIdle: true })
   })
 
   it("reports every searched location when the server CLI is missing", async () => {

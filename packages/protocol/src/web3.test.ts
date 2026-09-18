@@ -35,4 +35,33 @@ describe("Web3 protocol", () => {
       })
     ).toThrow()
   })
+
+  it("validates server-owned dApp sessions and provider requests", () => {
+    expect(
+      parseSessionInboundMessage({
+        payload: { url: "https://app.example/path" },
+        requestId: "req_dapp_open",
+        type: "web3.dapp.session.open.request",
+      })
+    ).toMatchObject({ type: "web3.dapp.session.open.request" })
+    expect(
+      parseSessionInboundMessage({
+        payload: {
+          id: "provider_1",
+          method: "eth_accounts",
+          origin: "https://app.example",
+          sessionKey: "cypheria:dapp:https://app.example",
+        },
+        requestId: "req_dapp_provider",
+        type: "web3.dapp.provider.request",
+      })
+    ).toMatchObject({ type: "web3.dapp.provider.request" })
+    expect(() =>
+      parseSessionInboundMessage({
+        payload: { url: "http://app.example" },
+        requestId: "req_insecure_dapp",
+        type: "web3.dapp.session.open.request",
+      })
+    ).toThrow()
+  })
 })

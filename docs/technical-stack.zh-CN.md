@@ -172,11 +172,11 @@ SDK clients 应该是版本化 server operation 与 event stream 之上的轻量
 
 ## AI SDK Provider Stack
 
-`@cypheria/ai-sdk-provider` 通过 AI SDK 7 的 `LanguageModelV4` contract 暴露 browser-safe 的 Codex、Claude、Pi、OpenCode 与 ACP providers。每个 provider 只依赖 `@cypheria/client`、`@cypheria/protocol` 和 AI SDK 公共类型；不会启动进程、读取 provider 文件或导入原生 Agent SDK。持久模式绑定 Cypheria Thread，显式临时模式让 server 创建 Thread，streaming 消费 canonical timeline event，abort 则取消对应的 server turn。旧 Node-side ACP transport 实现只在 ACP execution ownership 完全迁入 `apps/server` 前过渡保留。
+`@cypheria/ai-sdk-provider` 通过 AI SDK 7 的 `LanguageModelV4` contract 暴露 browser-safe 的 Codex、Claude、Pi、OpenCode 与 ACP providers。每个 provider 只依赖 `@cypheria/client`、`@cypheria/protocol` 和 AI SDK 公共类型；不会启动进程、读取 provider 文件或导入原生 Agent SDK。持久模式绑定 Cypheria Thread，显式临时模式让 server 创建 Thread，streaming 消费 canonical timeline event，abort 则取消对应的 server turn。所有 provider execution 与 ACP transport ownership 均位于 `apps/server`。
 
 ## Desktop Stack
 
-Desktop 保留 Electron + TanStack Start，以及精细对齐 Codex Desktop 的交互模型。Electron main 现在会在打开 renderer 前发现、复用或启动 bundled 且 protocol-compatible 的 Cypheria server。共享 Sidebar、会话、provider notification 与 terminal 数据通过 `@cypheria/client` 获取；typed Electron IPC 继续承载 browser、secure storage、window、update 和 OS-only 能力，其余特权 service 在迁移期间逐步搬入 server。
+Desktop 保留 Electron + TanStack Start，以及精细对齐 Codex Desktop 的交互模型。Electron main 会在打开 renderer 前发现、复用或启动 bundled 且 protocol-compatible 的 Cypheria server。共享 Sidebar、会话、provider notification、Web3 与 terminal 数据通过 `@cypheria/client` 获取；typed Electron IPC 仅承载目录/路径对话框、desktop 本地设置、隔离 dApp WebContents、window、update 和 OS-only 能力。
 
 桌面内部导航使用 TanStack Router 链接，保留当前文档、全局样式和外观状态。全局 CSS 在客户端 hydration 之前由根文档链接加载。对话查询参数由首页路由校验；切换对话或点击 New chat 会重置对话会话，而不重新加载整个应用。
 
@@ -192,7 +192,7 @@ Search 在当前页面上打开 shadcn Command 对话框，支持防抖对话搜
 | Renderer state | Jotai + TanStack Query |
 | Renderer 国际化 | Lingui（`@lingui/core`、`@lingui/react`、CLI 与 Vite catalog compilation） |
 | UI primitives | `@cypheria/ui` |
-| Codex process | `codex app-server` |
+| Server-owned Codex process | `codex app-server` |
 | Codex transport | localhost WebSocket JSON-RPC |
 | Codex protocol types | generated into `packages/protocol/src/generated/codex/ts` |
 | Codex protocol schemas | generated into `packages/protocol/src/generated/codex/schema`，并适配为逐消息 Zod schema |
@@ -215,13 +215,13 @@ Renderer 使用 `@cypheria/client` 访问共享产品数据，只把 Electron �
 
 Desktop 提供 Codex 风格的可搜索语言选择器。偏好与 appearance、workspace layout 一起持久化到 Electron 本地的 `$CYPHERIA_HOME/desktop/desktop-settings.json`，不再属于 Codex 配置。Electron 根据 preferred-language list 解析自动检测，通过 preload bootstrap 传入偏好与最终 catalog locale，并通过 typed IPC 广播后续变更。由于打包后的 SPA shell 在构建时预渲染，服务端输出与首次客户端渲染统一使用英语 source catalog；hydration 完成后，renderer 立即激活 bootstrap catalog，同步 document 的 `lang` 与 `dir` 属性，并在不重载页面的情况下切换语言，从而避免 locale 导致的 hydration mismatch。英语与简体中文随包提供 catalog；其他选择当前保留原始选择，但界面回退英语。PO 文件提交到仓库；`pnpm --filter @cypheria/desktop i18n:extract` 用于更新 catalog，`i18n:compile` 用于严格校验翻译完整性。
 
-设置导航分为“个人”“集成”“编码”和“已归档”，并按本地化后的目标名称筛选；`Cmd/Ctrl+F` 可以在任意设置路由聚焦搜索。已归档聊天路由通过 `archived: true` 分页调用 `thread/list`，把查询作为 `searchTerm` 交给 App Server，并经由 main/preload 边界暴露 typed `thread/unarchive` 与需要确认的 `thread/delete` 操作。缺少 Codex App Server 或 Cypheria 自有后端的 ChatGPT 服务设置保持在范围之外，不显示成无法工作的空壳控件。
+设置导航分为“个人”“集成”“编码”和“已归档”，并按本地化后的目标名称筛选；`Cmd/Ctrl+F` 可以在任意设置路由聚焦搜索。已归档聊天路由通过 `archived: true` 分页调用 `thread/list`，把查询交给 Cypheria Server，并通过 `@cypheria/client` 调用 `thread/unarchive` 与需要确认的 `thread/delete`。缺少 Codex App Server 或 Cypheria 自有后端的 ChatGPT 服务设置保持在范围之外，不显示成无法工作的空壳控件。
 
-Desktop main bundle 将 `@libsql/client` 及其 platform packages 保持为 external，使 Electron 在运行时加载匹配的 native binary。`build:main` 会把已提交的 Drizzle migrations 复制到 `dist/drizzle`，因此 packaged startup 与 tests、development 使用同一 migration source。应用 ready 之前，Electron user/session data 会以 `$CYPHERIA_HOME/browser` 为根目录。
+Electron user data 位于 `$CYPHERIA_HOME/desktop`，Chromium session data 则隔离在 `$CYPHERIA_HOME/browser`。仅限 Desktop 的外观、语言、布局、Server Manager、窗口、声音与更新偏好共享带版本的 `desktop-settings.json`，并采用串行原子写入。Desktop 不加载数据库驱动，也不携带数据库迁移。
 
 ## Codex 集成
 
-Server 为每个 client 持有 Codex。Desktop 的实时 turn、持久 history、账户/登录、模型发现与默认值、权限默认值与 profiles、插件、技能、MCP、市场、Codex Apps、自动审查 notification 与项目 terminal 已通过统一的 Cypheria client API 进入。共享 Codex 模型与权限默认值存储在 `$CYPHERIA_HOME/config/config.json` 的 `agents.codex` 下，并投影到受管 Codex runtime。剩余 direct interaction bridge 只为反向请求中的完整审批细节过渡保留，直到 canonical interaction response 覆盖完整 Codex 响应结构：
+Server 为每个 client 持有 Codex。Desktop 的实时 turn、持久 history、账户/登录、模型发现与默认值、权限默认值与 profiles、插件、技能、MCP、市场、Codex Apps、自动审查 notification、反向请求 interaction 与项目 terminal 均通过统一的 Cypheria client API 进入。共享 Codex 模型与权限默认值存储在 `$CYPHERIA_HOME/config/config.json` 的 `agents.codex` 下，并投影到受管 Codex runtime：
 
 ```txt
 Desktop
@@ -229,7 +229,7 @@ Desktop
   -> codex app-server over WebSocket JSON-RPC
 ```
 
-the Server Codex adapter 只负责 desktop 集成。它应该：
+Server Codex adapter 负责 Cypheria 的 Codex 集成。它：
 
 - 从 `@cypheria/protocol/codex-types` 消费原始 generated Codex app-server type，并从 `@cypheria/protocol` 消费 Cypheria message contract。
 - 由 `@cypheria/protocol` 持有 protocol generation 与 schema；`pnpm --filter @cypheria/protocol generate:codex-all` 始终包含 experimental API，把从 Rust 64 位整数生成的声明规范化为 JSON wire type `number`，为 generated relative import 补齐 TypeScript extension 以兼容 NodeNext consumer，并刷新 dotted message schema 与 API 参考文档。
@@ -246,14 +246,14 @@ the Server Codex adapter 只负责 desktop 集成。它应该：
 - 顶层 `reasoning` 映射到 Codex turn effort；显式 Codex `reasoningEffort` 设置优先，`provider-default` 不指定 effort。各推理级别是否受模型支持由 Codex 决定。
 - Streaming output 保留有序 text/reasoning、provider-executed command/file/MCP/dynamic/collaboration/web tool、preliminary progress、作为 file 的 generated image、web source、token usage、metadata、不可重试的 App Server failure 与 transport failure。Reasoning start/end chunk 会成对且去重，包括内容为空的已完成 reasoning item，避免 AI SDK 因 unmatched end 主动取消 stream。兼容 part 会在 provider metadata 中携带完整 Codex item projection。并行的 `CodexTurnProjector` 为 turn envelope、每个完整 generated `ThreadItem`、生命周期、累计 progress、terminal interaction、turn plan/diff update、model reroute 与其他未映射的 turn-scoped notification 生成 typed persistent UI data parts。
 - Persistent thread resume 默认继承已存的 approval 与 sandbox policy，只有显式提供时才覆盖。Abort 使用 `turn/interrupt`；active session 可以使用 `turn/steer`，也可以直接开始后续 turn。
-- AI SDK tool definition 不会被当作 App Server dynamic-tool callback。Electron-main service 在 `CodexDynamicToolRegistry` 中注册 experimental dynamic-tool schema 与 handler；schema 随 `thread/start` 发送，`item/tool/call` 由 registry 分发到对应 handler。
+- AI SDK tool definition 不会被当作 App Server dynamic-tool callback。Server service 注册 experimental dynamic-tool schema 与 handler；schema 随 `thread/start` 发送，`item/tool/call` 由 registry 分发到对应 handler。
 - 无状态历史将 `LanguageModelV4` 工具结果内容转换为文本（文件 URL/标签仍是文本）。二进制/引用工具文件、自定义工具内容、助手自定义内容及推理文件无法原生重放，会返回警告。
 
 Server Codex adapter 是 Cypheria service 背后的原生 application capability plane。Generated stable/experimental method 保留给 Server adapter 使用，而不是强行塞进 `LanguageModelV4`；renderer 不会直接调用它们。共享产品能力通过版本化 protocol message 暴露，Electron main 只把 Electron-local operation 包装成收窄的 typed IPC service。Codex initialize 时设置 `experimentalApi: true`。Reverse request 使用 typed fail-closed interaction broker：handler 缺失、response 无效、timeout、disconnect 和 shutdown 都不会被解释为批准，用户 decision 会写入 audit。只有具备真实 attestation implementation 后才声明该能力；App Server-managed authentication 不需要外部 token-refresh callback。
 
 完整的 generated method 清单见 [Codex App Server API 参考](codex-app-server-api.zh-CN.md)。
 
-Electron main 拥有 `codex app-server` child process。它选择 localhost port，以 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动进程，等待 WebSocket handshake readiness，通过 `codex.event` 转发 renderer-safe Codex summaries，记录 stderr，并随 runtime 一起关闭进程。Workspace 与 desktop manifests 精确固定 `@openai/codex` 版本。Development 解析该 package，而不是用户的 `PATH`；packaged build 解析 `resources/codex/codex`（Windows 为 `codex.exe`）。`CYPHERIA_CODEX_PATH` 是显式 diagnostic override。Desktop 在启动 App Server 前检查 `codex --version` 是否与生成 committed protocol types 的版本一致。
+`apps/server` 拥有 `codex app-server` child process。它以 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动 Codex，校验 generated protocol version，等待 transport ready，把原生 event 与 reverse request 映射为 Cypheria protocol，记录 stderr，并随 Server lifecycle 关闭进程。Desktop 不导入 `@openai/codex`、不启动 Codex，也不会收到原始 Codex JSON-RPC。
 
 在 Electron ready 之前，desktop 会关闭 Chromium 的 `CompressionDictionaryTransport` 与 `CompressionDictionaryTransportBackend` features。Cypheria 不依赖共享 HTTP 压缩字典，关闭这项可选 transport 可以避免 `$CYPHERIA_HOME/browser` 下不兼容或因中断而残留的 Chromium disk-cache 状态反复产生启动警告；普通 HTTP 缓存和 browser profile 的其他部分仍保持启用。
 
@@ -291,7 +291,7 @@ Session 附件与 `Chat` 存在同一个 retained scope 中，可跨 route 导�
 会话滚动平面归 renderer 所有。AI Elements 提供已复制到本地的 `Conversation` 外壳，但 DOM ref 与即时回到底部操作由 Cypheria instance 管理；高度可变列表、row 测量、末端锚定与追加跟随由 TanStack Virtual 管理。有界内存 thread-state cache 会在工作区导航间恢复稳定可见 row 锚点与测量快照。Electron main 在 macOS 上通过关闭时隐藏主窗口、激活应用时展示同一窗口来保留该缓存；真正退出应用仍是销毁边界。
 
 工作区布局偏好属于 Cypheria，而不是 Codex。Electron main 会校验这些设置，并原子写入 `$CYPHERIA_HOME/desktop/desktop-settings.json`；renderer 通过 typed IPC 读取是否显示标题栏底部面板控件，以及终端操作采用的默认底部/右侧位置。底部面板控件和 `Cmd/Ctrl+J` 与 `Control+反引号` 终端操作彼此独立。可折叠的 resizable panel handle 会把底部 dock 收到零；renderer 只把终端标签和 Xterm DOM 隐藏，仍保持挂载，并用 ref 记住上次的像素高度，在重新打开时通过 layout effect 恢复。关闭最后一个底部标签不会满足 view 的 `openWhenEmpty` gate，因此空 dock 会一直保留，直到“关闭”操作隐藏它；从隐藏状态明确重开时才创建 fallback 终端。可滚动 tablist 与固定的新增标签按钮是独立 flex 子项，因此标签溢出不会把面板操作一并滚走。底部面板状态和 PTY controller 由带 `key` 的会话之上的稳定工作区持有；会话导航重新挂载可见终端 subtree 后，每个标签最多一兆字节的 replay buffer 会重建 Xterm 输出。设置页 shell 使用与 ChatGPT Desktop 一致的固定 232 像素导航栏和居中的 48-rem 内容列；普通工作台侧栏则仍可独立调节宽度。Electron 不设置 `defaultFontSize` 和 `defaultMonospaceFontSize`，由 Chromium 提供与本机 desktop 相同的 16 像素 rem 基线；像素值 Tailwind typography token 则独立保持设置中的视觉 UI 和代码字号。因此设置页、会话和 composer 的共享宽度直接与源码一致为 768 像素，不再让文字大小偏好连带缩放布局几何。
-Xterm FitAddon 的输出会先限制到 terminal IPC 的尺寸边界，并对相同尺寸去重后才发送 resize，以覆盖终端移入较高右侧面板时出现的瞬时超大测量值。工作区与 Connections 终端的背景、前景、光标、选区、代码字体和代码字号均来自实时 Tailwind/shadcn 外观 token，而不是嵌入另一套深色调色板；其原生 Xterm viewport 使用本机 ChatGPT Desktop 应用包 `terminal-panel` 样式表中的同款 10 像素 token 化轨道/滑块处理，并会在应用主题变化时刷新。
+Xterm FitAddon 的输出会先限制到 terminal protocol 的尺寸边界，并对相同尺寸去重后才发送 resize，以覆盖终端移入较高右侧面板时出现的瞬时超大测量值。工作区终端的背景、前景、光标、选区、代码字体和代码字号均来自实时 Tailwind/shadcn 外观 token，而不是嵌入另一套深色调色板；其原生 Xterm viewport 使用本机 ChatGPT Desktop 应用包 `terminal-panel` 样式表中的同款 10 像素 token 化轨道/滑块处理，并会在应用主题变化时刷新。
 
 | Category | Choice |
 | --- | --- |

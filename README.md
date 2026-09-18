@@ -9,7 +9,7 @@ Cypheria does not reimplement Agent runtimes. The target architecture has one lo
 Cypheria V1 is organized around one server and multiple clients:
 
 - **Server runtime**: Server-owned services for wallets, chains, policies, schedules, browser permissions, settings, local state, and audit logs.
-- **Server**: a Hono + Node.js control plane that owns runtime lifecycle, client sessions, diagnostics, static web hosting, and later Codex/product services.
+- **Server**: a Hono + Node.js control plane that owns runtime lifecycle, Agent processes and adapters, projects, threads, sections, timelines, integrations, schedules, Web3, database access, client sessions, diagnostics, and static web hosting.
 - **Expo client**: one Expo Router application for iOS, Android, and static web output. The server embeds the web output.
 - **Shared client**: `@cypheria/client` provides the WebSocket protocol driver, borrowed and
   connection-owning facades, and public Agent/Thread, project/section, and server actions without

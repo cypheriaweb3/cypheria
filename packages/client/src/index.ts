@@ -11,6 +11,7 @@ import {
   createAgentManagementActions,
   isAgentUpdateAvailable,
 } from "./agent-manager.js"
+import { type ArtifactActions, createArtifactActions } from "./artifact.js"
 import { createIntegrationActions, type IntegrationActions } from "./integration.js"
 import {
   createProjectThreadActions,
@@ -47,11 +48,18 @@ export interface ServerActions {
   supportsFeature(feature: string): boolean
 }
 
+export interface SettingsActions {
+  get(options?: RequestOptions): Promise<ServerConfigSnapshot>
+  reload(options?: RequestOptions): Promise<ServerConfigSnapshot>
+  update(patch: PersistedServerConfigPatch, options?: RequestOptions): Promise<ServerConfigSnapshot>
+}
+
 /** Capability-only facade. Every operation maps directly to a current protocol message. */
 export interface CypheriaApi {
   readonly agent: AgentActions
   /** Preferred plural Agent facade. `agent` remains as a compatibility alias. */
   readonly agents: AgentActions
+  readonly artifacts: ArtifactActions
   readonly integrations: IntegrationActions
   readonly projectThread: ProjectThreadActions
   readonly projects: ProjectActions
@@ -72,6 +80,7 @@ export interface CypheriaApi {
   readonly server: ServerActions
   readonly sections: SectionActions
   readonly schedules: ScheduleActions
+  readonly settings: SettingsActions
   readonly thread: ThreadActions
   /** Preferred plural Thread facade. `thread` remains as a compatibility alias. */
   readonly threads: ThreadActions
@@ -133,9 +142,16 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
   const schedules = createScheduleActions(serverClient)
   const terminals = createTerminalActions(serverClient)
   const web3 = createWeb3Actions(serverClient)
+  const artifacts = createArtifactActions(threads.timeline)
+  const settings: SettingsActions = {
+    get: async (options) => serverClient.getServerConfig(options),
+    reload: async (options) => serverClient.reloadServerConfig(options),
+    update: async (patch, options) => serverClient.patchServerConfig(patch, options),
+  }
   return {
     agent: agents,
     agents,
+    artifacts,
     integrations,
     projectThread,
     projects: projectThread.projects,
@@ -166,6 +182,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
     },
     sections: projectThread.sections,
     schedules,
+    settings,
     subscribe: (handler) => serverClient.subscribe(handler),
     thread: threads,
     threads,
@@ -186,6 +203,7 @@ export {
 } from "./server-client.js"
 export type {
   AgentManagementActions,
+  ArtifactActions,
   CodexProviderActions,
   IntegrationActions,
   ProjectActions,

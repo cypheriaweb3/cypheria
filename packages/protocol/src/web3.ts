@@ -15,6 +15,11 @@ import {
   signingPolicyIdSchema,
 } from "@cypheria/web3/policy"
 import {
+  dappSessionSchema,
+  walletProviderRequestSchema,
+  walletProviderResponseSchema,
+} from "@cypheria/web3/provider"
+import {
   chainAccountIdSchema,
   chainAccountSchema,
   hexAddressSchema,
@@ -32,6 +37,15 @@ const nameSchema = z.string().trim().min(1).max(128)
 const privateKeySchema = z.string().regex(/^0x[a-fA-F0-9]{64}$/u)
 const emptySchema = z.object({}).strict()
 const completedSchema = z.object({ completed: z.literal(true) }).strict()
+const dappUrlSchema = z.url().refine((value) => {
+  const url = new URL(value)
+  return (
+    !url.username &&
+    !url.password &&
+    (url.protocol === "https:" ||
+      (url.protocol === "http:" && ["127.0.0.1", "::1", "localhost"].includes(url.hostname)))
+  )
+}, "dApp URLs must use HTTPS, except for loopback development origins")
 
 export const Web3NetworkViewSchema = z
   .object({ network: networkDefinitionSchema, endpoints: z.array(rpcEndpointViewSchema) })
@@ -77,6 +91,7 @@ export const Web3WalletActiveContextSchema = z
       .optional(),
   })
   .loose()
+export type Web3WalletActiveContext = z.infer<typeof Web3WalletActiveContextSchema>
 
 export const Web3SigningPolicyRecordSchema = z
   .object({
@@ -328,6 +343,14 @@ export const Web3AuditListRequestSchema = request(
   "web3.audit.list.request",
   z.object({ limit: z.number().int().min(1).max(500).optional() }).strict()
 )
+export const Web3DappSessionOpenRequestSchema = request(
+  "web3.dapp.session.open.request",
+  z.object({ url: dappUrlSchema }).strict()
+)
+export const Web3DappProviderRequestSchema = request(
+  "web3.dapp.provider.request",
+  walletProviderRequestSchema
+)
 
 export const WEB3_CLIENT_SCHEMAS = [
   Web3NetworkListRequestSchema,
@@ -362,6 +385,8 @@ export const WEB3_CLIENT_SCHEMAS = [
   Web3ApprovalListRequestSchema,
   Web3ApprovalDecideRequestSchema,
   Web3AuditListRequestSchema,
+  Web3DappSessionOpenRequestSchema,
+  Web3DappProviderRequestSchema,
 ] as const
 
 export type Web3ClientMessage = z.infer<(typeof WEB3_CLIENT_SCHEMAS)[number]>
@@ -494,6 +519,14 @@ export const Web3AuditListResponseSchema = response(
   "web3.audit.list.response",
   z.array(Web3AuditRecordSchema)
 )
+export const Web3DappSessionOpenResponseSchema = response(
+  "web3.dapp.session.open.response",
+  dappSessionSchema
+)
+export const Web3DappProviderResponseSchema = response(
+  "web3.dapp.provider.response",
+  walletProviderResponseSchema
+)
 
 export const WEB3_SERVER_SCHEMAS = [
   Web3NetworkListResponseSchema,
@@ -528,6 +561,8 @@ export const WEB3_SERVER_SCHEMAS = [
   Web3ApprovalListResponseSchema,
   Web3ApprovalDecideResponseSchema,
   Web3AuditListResponseSchema,
+  Web3DappSessionOpenResponseSchema,
+  Web3DappProviderResponseSchema,
 ] as const
 
 export type Web3ServerMessage = z.infer<(typeof WEB3_SERVER_SCHEMAS)[number]>

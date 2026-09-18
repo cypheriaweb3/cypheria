@@ -45,7 +45,7 @@ export function ProjectCreateDialog({
   }, [open])
 
   const chooseRoot = async () => {
-    const result = await window.cypheria?.codex.pickProjectRoot()
+    const result = await window.cypheria?.app.pickDirectory()
     if (!result?.path) return
     setRoot(result.path)
     if (!name.trim()) setName(result.path.split(/[\\/]/u).filter(Boolean).at(-1) ?? "Project")

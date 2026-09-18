@@ -150,9 +150,21 @@ export interface Web3AuditActions {
   ): Promise<Value<"web3.audit.list.response">>
 }
 
+export interface Web3DappActions {
+  openSession(
+    url: Payload<"web3.dapp.session.open.request">["url"],
+    options?: RequestOptions
+  ): Promise<Value<"web3.dapp.session.open.response">>
+  request(
+    input: Payload<"web3.dapp.provider.request">,
+    options?: RequestOptions
+  ): Promise<Value<"web3.dapp.provider.response">>
+}
+
 export interface Web3Actions {
   readonly approvals: Web3ApprovalActions
   readonly audit: Web3AuditActions
+  readonly dapps: Web3DappActions
   readonly networks: Web3NetworkActions
   readonly policies: Web3PolicyActions
   readonly wallets: Web3WalletActions
@@ -170,6 +182,10 @@ export const createWeb3Actions = (client: ServerClient): Web3Actions => {
       list: (input = {}, options) => request("web3.approval.list.request", input, options),
     },
     audit: { list: (input = {}, options) => request("web3.audit.list.request", input, options) },
+    dapps: {
+      openSession: (url, options) => request("web3.dapp.session.open.request", { url }, options),
+      request: (input, options) => request("web3.dapp.provider.request", input, options),
+    },
     networks: {
       addEndpoint: (input, options) => request("web3.endpoint.add.request", input, options),
       create: (input, options) => request("web3.network.create.request", input, options),

@@ -1,4 +1,5 @@
 import { useChat } from "@ai-sdk/react"
+import type { Web3WalletActiveContext } from "@cypheria/protocol"
 import {
   type AgentId,
   type AgentView,
@@ -141,7 +142,6 @@ import type {
   CodexModelView,
   CodexSkillView,
   CodexUiMessage,
-  WalletActiveContext,
 } from "../../../ipc/src/index.js"
 import {
   type CypheriaThreadDetailView,
@@ -2737,7 +2737,7 @@ function WorkspacePanel({
   terminalController,
   terminalInSidePanel,
 }: Readonly<{
-  activeWallet?: WalletActiveContext
+  activeWallet?: Web3WalletActiveContext
   artifacts: ChatWorkspaceArtifacts
   onClose: () => void
   onMoveTerminalToBottom: () => void

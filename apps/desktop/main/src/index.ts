@@ -3,9 +3,7 @@ import { existsSync } from "node:fs"
 import { mkdir } from "node:fs/promises"
 import { dirname, join, relative, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
-import type { v2 } from "@cypheria/server/codex-bridge"
-import { buildRuntimePaths, type EthereumNetworkApproval } from "@cypheria/server/runtime"
-import { type WalletProviderResponse, walletProviderResponseSchema } from "@cypheria/web3/provider"
+import { type CypheriaClient, createCypheriaClient } from "@cypheria/client"
 import {
   app,
   BrowserWindow,
@@ -22,71 +20,18 @@ import {
   type AppearanceSettingsWrite,
   type AppHealthStatus,
   type AppMetadata,
+  appConfigOpenContract,
+  appDirectoryPickContract,
   appExternalOpenContract,
   appHealthCheckContract,
   appMetadataReadContract,
-  approvalRequestDecideContract,
-  approvalRequestsListContract,
-  auditLogListContract,
+  appProjectRevealContract,
   browserSessionOpenContract,
   CYPHERIA_APPEARANCE_ARGUMENT_PREFIX,
   CYPHERIA_IPC_CHANNELS,
   CYPHERIA_LANGUAGE_ARGUMENT_PREFIX,
-  codexAutoReviewRetryContract,
-  codexChatInterruptContract,
-  codexChatStartContract,
-  codexChatSteerContract,
-  codexInteractionListContract,
-  codexInteractionRespondContract,
-  codexPermissionsConfigOpenContract,
-  codexProjectCreateContract,
-  codexProjectDeleteContract,
-  codexProjectListContract,
-  codexProjectRevealContract,
-  codexProjectRootPickContract,
-  codexProjectUpdateContract,
-  codexThreadArchiveContract,
-  codexThreadDeleteContract,
-  codexThreadForkContract,
-  codexThreadListContract,
-  codexThreadProjectMoveContract,
-  codexThreadQueueAddContract,
-  codexThreadReadContract,
-  codexThreadRenameContract,
-  codexThreadSectionCreateContract,
-  codexThreadSectionDeleteContract,
-  codexThreadSectionListContract,
-  codexThreadSectionMoveContract,
-  codexThreadSectionUpdateContract,
-  codexThreadUnarchiveContract,
   dappProviderRequestContract,
-  harnessCheckUpdateContract,
-  harnessEnabledWriteContract,
-  harnessInstallContract,
-  harnessListContract,
-  harnessTerminalCloseAllContract,
-  harnessTerminalCloseContract,
-  harnessTerminalOpenContract,
-  harnessTerminalResizeContract,
-  harnessTerminalWriteContract,
-  harnessUpdateContract,
   IPC_PROTOCOL_VERSION,
-  networkCreateContract,
-  networkEndpointAddContract,
-  networkEndpointProbeContract,
-  networkEndpointRemoveContract,
-  networkEndpointReorderContract,
-  networkEndpointSetEnabledContract,
-  networkListContract,
-  networkRemoveContract,
-  networkReorderContract,
-  networkSetEnabledContract,
-  policyCreateContract,
-  policyDisableContract,
-  policyListContract,
-  policyUpdateContract,
-  type RuntimeInfo,
-  runtimeInfoReadContract,
   settingsAppearanceFontsListContract,
   settingsAppearanceReadContract,
   settingsAppearanceWriteContract,
@@ -97,53 +42,10 @@ import {
   settingsLanguageWriteContract,
   settingsWorkspaceLayoutReadContract,
   settingsWorkspaceLayoutWriteContract,
-  walletActiveClearContract,
-  walletActiveReadContract,
-  walletActiveWriteContract,
-  walletAddWatchContract,
-  walletDeleteContract,
-  walletDeriveHdAccountContract,
-  walletGenerateHdContract,
-  walletImportHdContract,
-  walletImportPrivateKeyContract,
-  walletListContract,
-  walletLockContract,
-  walletRenameContract,
-  walletReorderAccountsContract,
-  walletReorderContract,
-  walletUnlockContract,
-  workspaceTerminalCloseAllContract,
-  workspaceTerminalCloseContract,
-  workspaceTerminalOpenContract,
-  workspaceTerminalResizeContract,
-  workspaceTerminalWriteContract,
 } from "../../ipc/src/index.js"
+import { buildDesktopAppPaths, type DesktopAppPaths } from "./app-paths.js"
 import { readAppearanceSettings, writeAppearanceSettings } from "./appearance-config.js"
 import { configureChromiumFeatures } from "./chromium-features.js"
-import { resolveCodexCommand } from "./codex-command.js"
-import {
-  archiveCodexThread,
-  createCodexProject,
-  createCodexThreadSection,
-  deleteCodexProject,
-  deleteCodexThread,
-  deleteCodexThreadSection,
-  forkCodexThread,
-  interruptCodexChat,
-  listCodexProjects,
-  listCodexThreadSections,
-  listCodexThreads,
-  moveCodexThreadToProject,
-  moveCodexThreadToSection,
-  queueCodexThreadMessage,
-  readCodexThread,
-  renameCodexThread,
-  startCodexChat,
-  steerCodexChat,
-  unarchiveCodexThread,
-  updateCodexProject,
-  updateCodexThreadSection,
-} from "./codex-desktop.js"
 import {
   applyConnectionProxyToSession,
   readConnectionProxySettings,
@@ -155,25 +57,15 @@ import {
   createElectronDappWebContentsFactory,
   type DappBrowserController,
 } from "./dapp-browser.js"
-import { createHarnessManager, type HarnessManager } from "./harness-manager.js"
 import { registerIpcRoute } from "./ipc.js"
 import { readLanguageSettings, writeLanguageSettings } from "./language-config.js"
 import { resolveGeneratedImageProtocolPath } from "./renderer-protocol.js"
-import {
-  type DesktopRuntimeContext,
-  initializeDesktopRuntime,
-  shutdownDesktopRuntime,
-} from "./runtime.js"
 import { DesktopServerManager } from "./server-manager.js"
 import { listSystemFonts } from "./system-fonts.js"
 import {
   readWorkspaceLayoutSettings,
   writeWorkspaceLayoutSettings,
 } from "./workspace-layout-config.js"
-import {
-  createWorkspaceTerminalManager,
-  type WorkspaceTerminalManager,
-} from "./workspace-terminal-manager.js"
 
 app.setName("Cypheria")
 
@@ -182,18 +74,17 @@ const isPackagedRuntime = app.isPackaged && !isDevelopmentShell
 
 let mainWindow: BrowserWindow | null = null
 let isQuitting = false
-let desktopRuntimeContext: DesktopRuntimeContext | null = null
+let shutdownComplete = false
+let shutdownPromise: Promise<void> | null = null
+let desktopClient: CypheriaClient | null = null
+let desktopRuntimePaths: DesktopAppPaths | null = null
+let desktopServerManager: DesktopServerManager | null = null
 let currentAppearanceSettings: AppearanceSettings | null = null
+let currentConnectionProxySettings: import("../../ipc/src/index.js").ConnectionProxySettings = {
+  mode: "system",
+}
 let proxySettingsUnderTest: import("../../ipc/src/index.js").ConnectionProxySettings | null = null
-let harnessManager: HarnessManager | null = null
-let workspaceTerminalManager: WorkspaceTerminalManager | null = null
 
-const getCodexCommand = (): string =>
-  resolveCodexCommand({
-    isPackaged: isPackagedRuntime,
-    override: process.env.CYPHERIA_CODEX_PATH,
-    resourcesPath: process.resourcesPath,
-  })
 let dappBrowserController: DappBrowserController | null = null
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
@@ -221,46 +112,10 @@ const logFatalError = (error: unknown): void => {
   console.error("[cypheria:desktop] fatal error", error)
 }
 
-const authorizeEthereumNetwork = async (approval: EthereumNetworkApproval): Promise<boolean> => {
-  const current = approval.currentNetwork
-    ? `${approval.currentNetwork.name} (${approval.currentNetwork.chain.reference})`
-    : "No current network"
-  const target = approval.kind === "switch" ? approval.targetNetwork : approval.proposal.network
-  const endpointHosts =
-    approval.kind === "add"
-      ? approval.proposal.endpoints.map(({ connection }) => new URL(connection.displayUrl).host)
-      : []
-  const details = [
-    `Site: ${approval.origin}`,
-    `Current: ${current}`,
-    `Requested: ${target.name} (eip155:${target.chain.reference})`,
-    ...(approval.kind === "add"
-      ? [
-          `Changed fields: ${approval.metadataChanges.join(", ") || "none"}`,
-          `Verified RPC hosts: ${endpointHosts.join(", ") || "existing configuration"}`,
-        ]
-      : []),
-  ]
-  const result = await dialog.showMessageBox({
-    buttons: ["Reject", approval.kind === "switch" ? "Switch network" : "Add network"],
-    cancelId: 0,
-    defaultId: 0,
-    detail: details.join("\n"),
-    message:
-      approval.kind === "switch"
-        ? "A dApp wants to switch its Ethereum network"
-        : "A dApp wants to add an Ethereum network",
-    noLink: true,
-    title: "Cypheria network approval",
-    type: "question",
-  })
-  return result.response === 1
-}
-
 const escapeHtml = (value: string): string =>
   value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
 
-const buildPlaceholderHtml = (context: DesktopRuntimeContext): string => `<!doctype html>
+const buildPlaceholderHtml = (paths: DesktopAppPaths): string => `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
@@ -317,8 +172,8 @@ const buildPlaceholderHtml = (context: DesktopRuntimeContext): string => `<!doct
     <main>
       <h1>Cypheria</h1>
       <p>Desktop runtime initialized.</p>
-      <p>Cypheria home: <code>${escapeHtml(context.paths.cypheriaHome)}</code></p>
-      <p>Codex home: <code>${escapeHtml(context.paths.codexHome)}</code></p>
+      <p>Cypheria home: <code>${escapeHtml(paths.cypheriaHome)}</code></p>
+      <p>Codex home: <code>${escapeHtml(paths.codexHome)}</code></p>
     </main>
   </body>
 </html>`
@@ -349,28 +204,7 @@ const registerRendererProtocol = (codexHome: string): void => {
   })
 }
 
-const toRuntimeInfo = async (context: DesktopRuntimeContext): Promise<RuntimeInfo> => {
-  const info = await context.runtime.request("runtime.info")
-  const runtimeInfo = info as RuntimeInfo
-
-  return {
-    codex: context.codexAppServer
-      ? {
-          listenUrl: context.codexAppServer.listenUrl,
-          state: context.codexAppServer.state,
-        }
-      : undefined,
-    codexHome: runtimeInfo.codexHome,
-    cypheriaHome: runtimeInfo.cypheriaHome,
-    directories: runtimeInfo.directories,
-  }
-}
-
-const registerIpcHandlers = (
-  context: DesktopRuntimeContext,
-  harnesses: HarnessManager,
-  workspaceTerminals: WorkspaceTerminalManager
-): void => {
+const registerIpcHandlers = (paths: DesktopAppPaths, client: CypheriaClient): void => {
   const appMetadata: AppMetadata = {
     name: app.getName(),
     version: app.getVersion(),
@@ -388,216 +222,24 @@ const registerIpcHandlers = (
     await shell.openExternal(url)
     return { opened: true }
   })
-  registerIpcRoute(auditLogListContract, ({ limit }) => context.audit.list({ limit }))
-  registerIpcRoute(approvalRequestsListContract, ({ status }) =>
-    context.signingIntents.listApprovals(status)
-  )
-  registerIpcRoute(
-    approvalRequestDecideContract,
-    ({ approvalId, decision, expectedRevision, reviewer }) =>
-      context.signingIntents.decide(approvalId, { decision, expectedRevision, reviewer })
-  )
-  registerIpcRoute(walletListContract, () => context.wallets.listWallets())
-  registerIpcRoute(networkListContract, () => context.networks.list())
-  registerIpcRoute(networkCreateContract, (input) => context.networks.create(input))
-  registerIpcRoute(networkSetEnabledContract, ({ enabled, expectedRevision, networkId }) =>
-    context.networks.setEnabled(networkId, enabled, expectedRevision)
-  )
-  registerIpcRoute(networkRemoveContract, async ({ confirmed, networkId }) => {
-    await context.networks.removeCustomNetwork(networkId, confirmed)
-    return { completed: true }
-  })
-  registerIpcRoute(networkReorderContract, async ({ networkIds }) => {
-    await context.networks.reorderNetworks(networkIds)
-    return { completed: true }
-  })
-  registerIpcRoute(networkEndpointAddContract, ({ endpoint, networkId }) =>
-    context.networks.addEndpoint(networkId, endpoint)
-  )
-  registerIpcRoute(networkEndpointProbeContract, ({ endpointId }) =>
-    context.networks.probeEndpoint(endpointId)
-  )
-  registerIpcRoute(networkEndpointSetEnabledContract, ({ enabled, endpointId, expectedRevision }) =>
-    context.networks.setEndpointEnabled(endpointId, enabled, expectedRevision)
-  )
-  registerIpcRoute(networkEndpointRemoveContract, async ({ endpointId }) => {
-    await context.networks.removeEndpoint(endpointId)
-    return { completed: true }
-  })
-  registerIpcRoute(networkEndpointReorderContract, async ({ endpointIds, networkId }) => {
-    await context.networks.reorderEndpoints(networkId, endpointIds)
-    return { completed: true }
-  })
-  registerIpcRoute(walletActiveReadContract, () => context.wallets.getActiveContext())
-  registerIpcRoute(walletActiveWriteContract, (input) => context.wallets.setActiveContext(input))
-  registerIpcRoute(walletActiveClearContract, async () => {
-    await context.wallets.clearActiveContext()
-    return { cleared: true }
-  })
-  registerIpcRoute(walletGenerateHdContract, (input) => context.wallets.generateHdWallet(input))
-  registerIpcRoute(walletDeriveHdAccountContract, (input) => context.wallets.deriveHdAccount(input))
-  registerIpcRoute(walletImportHdContract, (input) => context.wallets.importHdWallet(input))
-  registerIpcRoute(walletImportPrivateKeyContract, (input) =>
-    context.wallets.importPrivateKeyWallet(input)
-  )
-  registerIpcRoute(walletAddWatchContract, (input) => context.wallets.addWatchWallet(input))
-  registerIpcRoute(walletRenameContract, ({ name, walletId }) =>
-    context.wallets.renameWallet(walletId, name)
-  )
-  registerIpcRoute(walletReorderContract, async ({ walletIds }) => {
-    await context.wallets.reorderWallets(walletIds)
-    return { reordered: true }
-  })
-  registerIpcRoute(walletReorderAccountsContract, async ({ walletAccountIds, walletId }) => {
-    await context.wallets.reorderWalletAccounts(walletId, walletAccountIds)
-    return { reordered: true }
-  })
-  registerIpcRoute(walletDeleteContract, async ({ walletId }) => {
-    await context.wallets.deleteWallet(walletId)
-    return { deleted: true }
-  })
-  registerIpcRoute(walletLockContract, async ({ walletId }) => {
-    const wallet = await context.wallets.getWallet(walletId)
-    if (!wallet || !("vaultId" in wallet.wallet))
-      throw new Error("The wallet does not have a local vault.")
-    context.vault.lock(wallet.wallet.vaultId)
-    return { unlocked: false, walletId }
-  })
-  registerIpcRoute(walletUnlockContract, async ({ walletId }) => {
-    const wallet = await context.wallets.getWallet(walletId)
-    if (!wallet || !("vaultId" in wallet.wallet))
-      throw new Error("The wallet does not have a local vault.")
-    await context.vault.unlock(wallet.wallet.vaultId)
-    return { unlocked: true, walletId }
-  })
-  registerIpcRoute(policyListContract, (input) => context.policies.list(input))
-  registerIpcRoute(policyCreateContract, (input) => context.policies.create(input))
-  registerIpcRoute(policyUpdateContract, ({ policyId, ...input }) =>
-    context.policies.update(policyId, input)
-  )
-  registerIpcRoute(policyDisableContract, ({ expectedRevision, policyId }) =>
-    context.policies.disable(policyId, expectedRevision)
-  )
-  const codexBridge = () => {
-    const bridge = context.codexAppServer?.bridge
-    if (!bridge) throw new Error("Codex App Server is unavailable.")
-    return bridge
-  }
-  registerIpcRoute(codexAutoReviewRetryContract, async ({ event, threadId }) => {
-    await codexBridge().request<
-      "thread/approveGuardianDeniedAction",
-      v2.ThreadApproveGuardianDeniedActionResponse
-    >("thread/approveGuardianDeniedAction", { event, threadId })
-    return { accepted: true }
-  })
-  registerIpcRoute(codexPermissionsConfigOpenContract, async () => {
-    const configPath = join(context.paths.configDir, "config.json")
-    const result = await shell.openPath(configPath)
-    if (result) throw new Error(result)
-    return { opened: true }
-  })
-  registerIpcRoute(codexThreadListContract, (options) => listCodexThreads(codexBridge(), options))
-  registerIpcRoute(codexThreadArchiveContract, ({ threadId }) =>
-    archiveCodexThread(codexBridge(), threadId)
-  )
-  registerIpcRoute(codexThreadUnarchiveContract, ({ threadId }) =>
-    unarchiveCodexThread(codexBridge(), threadId)
-  )
-  registerIpcRoute(codexThreadDeleteContract, ({ threadId }) =>
-    deleteCodexThread(codexBridge(), threadId)
-  )
-  registerIpcRoute(codexThreadForkContract, ({ lastTurnId, threadId }) =>
-    forkCodexThread(codexBridge(), threadId, lastTurnId)
-  )
-  registerIpcRoute(codexThreadReadContract, ({ threadId }) =>
-    readCodexThread(codexBridge(), threadId)
-  )
-  registerIpcRoute(codexThreadRenameContract, ({ name, threadId }) =>
-    renameCodexThread(codexBridge(), threadId, name)
-  )
-  registerIpcRoute(codexThreadProjectMoveContract, ({ projectId, threadId }) =>
-    moveCodexThreadToProject(codexBridge(), threadId, projectId)
-  )
-  registerIpcRoute(codexThreadSectionListContract, (options) =>
-    listCodexThreadSections(codexBridge(), options)
-  )
-  registerIpcRoute(codexThreadSectionCreateContract, ({ name }) =>
-    createCodexThreadSection(codexBridge(), name)
-  )
-  registerIpcRoute(codexThreadSectionUpdateContract, (input) =>
-    updateCodexThreadSection(codexBridge(), input)
-  )
-  registerIpcRoute(codexThreadSectionDeleteContract, ({ id }) =>
-    deleteCodexThreadSection(codexBridge(), id)
-  )
-  registerIpcRoute(codexThreadSectionMoveContract, (input) =>
-    moveCodexThreadToSection(codexBridge(), input)
-  )
-  registerIpcRoute(codexProjectListContract, (options) => listCodexProjects(codexBridge(), options))
-  registerIpcRoute(codexProjectCreateContract, (input) => createCodexProject(codexBridge(), input))
-  registerIpcRoute(codexProjectUpdateContract, (input) => updateCodexProject(codexBridge(), input))
-  registerIpcRoute(codexProjectDeleteContract, ({ id }) => deleteCodexProject(codexBridge(), id))
-  registerIpcRoute(codexProjectRevealContract, async ({ id }) => {
-    const page = await listCodexProjects(codexBridge(), { limit: 100 })
-    const project = page.data.find((candidate) => candidate.id === id)
-    const root = project?.roots[0]
-    if (!root) throw new Error("Project folder is unavailable.")
-    shell.showItemInFolder(root)
-    return { revealed: true }
-  })
-  registerIpcRoute(codexProjectRootPickContract, async () => {
+  registerIpcRoute(appDirectoryPickContract, async () => {
     const result = await dialog.showOpenDialog({
       properties: ["openDirectory", "createDirectory"],
       title: "Choose a project folder",
     })
     return { path: result.canceled ? null : (result.filePaths[0] ?? null) }
   })
-  registerIpcRoute(codexChatStartContract, (request, event) => {
-    const server = context.codexAppServer
-    if (!server) throw new Error("Codex app-server is unavailable")
-    return {
-      requestId: startCodexChat(
-        server.bridge,
-        event.sender,
-        request,
-        server.dynamicTools.getSpecs()
-      ),
-    }
+  registerIpcRoute(appConfigOpenContract, async () => {
+    const result = await shell.openPath(join(paths.configDir, "config.json"))
+    if (result) throw new Error(result)
+    return { opened: true }
   })
-  registerIpcRoute(codexChatInterruptContract, async ({ requestId }) => ({
-    interrupted: await interruptCodexChat(requestId),
-  }))
-  registerIpcRoute(codexChatSteerContract, async ({ files, requestId, text }) => ({
-    steered: await steerCodexChat(requestId, { files, text }),
-  }))
-  registerIpcRoute(
-    codexThreadQueueAddContract,
-    async ({ clientUserMessageId, files, text, threadId }) => ({
-      queuedSubmissionId: await queueCodexThreadMessage(
-        codexBridge(),
-        threadId,
-        clientUserMessageId,
-        { files, text }
-      ),
-    })
-  )
-  registerIpcRoute(codexInteractionRespondContract, async (response) => {
-    const server = context.codexAppServer
-    if (!server) throw new Error("Codex app-server is unavailable")
-    await server.interactions.respond(response)
-    await context.audit.append({
-      actor: "user",
-      correlationId: response.interactionId,
-      eventType: "codex.interaction.resolved",
-      payloadSummary: `Codex interaction resolved with ${response.action}.`,
-      source: "desktop",
-    })
-    return { resolved: true }
-  })
-  registerIpcRoute(codexInteractionListContract, () => {
-    const server = context.codexAppServer
-    if (!server) throw new Error("Codex app-server is unavailable")
-    return server.interactions.list()
+  registerIpcRoute(appProjectRevealContract, async ({ projectId }) => {
+    const project = await client.projects.get(projectId)
+    const root = project.roots[0]
+    if (!root) throw new Error("Project folder is unavailable.")
+    shell.showItemInFolder(root)
+    return { revealed: true }
   })
   registerIpcRoute(browserSessionOpenContract, ({ url }) => {
     if (!dappBrowserController) throw new Error("The dApp browser is unavailable.")
@@ -611,7 +253,6 @@ const registerIpcHandlers = (
       request
     )
   })
-  registerIpcRoute(runtimeInfoReadContract, () => toRuntimeInfo(context))
   registerIpcRoute(settingsAppearanceReadContract, () =>
     readAppearanceSettings(app.getPath("userData"))
   )
@@ -642,7 +283,7 @@ const registerIpcHandlers = (
   registerIpcRoute(settingsWorkspaceLayoutWriteContract, (settings) =>
     writeWorkspaceLayoutSettings(app.getPath("userData"), settings)
   )
-  registerIpcRoute(settingsConnectionProxyReadContract, () => context.connectionProxySettings)
+  registerIpcRoute(settingsConnectionProxyReadContract, () => currentConnectionProxySettings)
   registerIpcRoute(settingsConnectionProxyTestContract, async (settings) => {
     const testSession = session.fromPartition(`proxy-test-${randomUUID()}`, { cache: false })
     proxySettingsUnderTest = settings
@@ -654,49 +295,11 @@ const registerIpcHandlers = (
     }
   })
   registerIpcRoute(settingsConnectionProxyWriteContract, async (settings) => {
-    const saved = await writeConnectionProxySettings(context.paths.configDir, settings)
+    const saved = await writeConnectionProxySettings(paths.configDir, settings)
     await applyConnectionProxyToSession(session.defaultSession, saved)
-    await context.restartCodexAppServer(saved)
+    currentConnectionProxySettings = saved
     return saved
   })
-  registerIpcRoute(harnessListContract, () => harnesses.list())
-  registerIpcRoute(harnessCheckUpdateContract, ({ id }) => harnesses.checkUpdate(id))
-  registerIpcRoute(harnessInstallContract, ({ id }) => harnesses.install(id))
-  registerIpcRoute(harnessUpdateContract, ({ id }) => harnesses.install(id))
-  registerIpcRoute(harnessEnabledWriteContract, ({ enabled, id }) =>
-    harnesses.setEnabled(id, enabled)
-  )
-  registerIpcRoute(harnessTerminalOpenContract, ({ cwd, id }) => harnesses.openTerminal(id, cwd))
-  registerIpcRoute(harnessTerminalWriteContract, ({ data, terminalId }) =>
-    harnesses.writeTerminal(terminalId, data)
-  )
-  registerIpcRoute(harnessTerminalResizeContract, ({ cols, rows, terminalId }) =>
-    harnesses.resizeTerminal(terminalId, cols, rows)
-  )
-  registerIpcRoute(harnessTerminalCloseContract, ({ terminalId }) =>
-    harnesses.closeTerminal(terminalId)
-  )
-  registerIpcRoute(harnessTerminalCloseAllContract, () => harnesses.closeAllTerminals())
-  registerIpcRoute(workspaceTerminalOpenContract, async ({ projectId }) => {
-    let cwd: string | undefined
-    if (projectId) {
-      const projects = await listCodexProjects(codexBridge(), { limit: 100 })
-      const project = projects.data.find((candidate) => candidate.id === projectId)
-      if (!project?.roots[0]) throw new Error("The selected project is unavailable.")
-      cwd = project.roots[0]
-    }
-    return workspaceTerminals.openTerminal(cwd)
-  })
-  registerIpcRoute(workspaceTerminalWriteContract, ({ data, terminalId }) =>
-    workspaceTerminals.writeTerminal(terminalId, data)
-  )
-  registerIpcRoute(workspaceTerminalResizeContract, ({ cols, rows, terminalId }) =>
-    workspaceTerminals.resizeTerminal(terminalId, cols, rows)
-  )
-  registerIpcRoute(workspaceTerminalCloseContract, ({ terminalId }) =>
-    workspaceTerminals.closeTerminal(terminalId)
-  )
-  registerIpcRoute(workspaceTerminalCloseAllContract, () => workspaceTerminals.closeAllTerminals())
 }
 
 const toAppearanceBootstrap = (settings: AppearanceSettings): AppearanceSettingsWrite => {
@@ -771,7 +374,10 @@ const registerDeveloperContextMenu = (window: BrowserWindow): void => {
   })
 }
 
-const createMainWindow = async (context: DesktopRuntimeContext): Promise<BrowserWindow> => {
+const createMainWindow = async (
+  client: CypheriaClient,
+  paths: DesktopAppPaths
+): Promise<BrowserWindow> => {
   const appearance = await readAppearanceSettings(app.getPath("userData"))
   const language = await readLanguageSettings(
     app.getPath("userData"),
@@ -830,13 +436,7 @@ const createMainWindow = async (context: DesktopRuntimeContext): Promise<Browser
     preloadPath: dappPreloadPath,
     requestRuntime: async (request) => {
       try {
-        const runtimeMethod =
-          request.method.startsWith("solana:") || request.method.startsWith("standard:")
-            ? "dapp.solana-provider-request"
-            : "dapp.provider-request"
-        return walletProviderResponseSchema.parse(
-          await context.runtime.request(runtimeMethod, request)
-        ) as WalletProviderResponse
+        return await client.web3.dapps.request(request)
       } catch {
         return {
           error: { code: 4900, message: "The wallet provider runtime is unavailable." },
@@ -844,7 +444,7 @@ const createMainWindow = async (context: DesktopRuntimeContext): Promise<Browser
         }
       }
     },
-    sessions: context.dappSessions,
+    sessions: { open: (url) => client.web3.dapps.openSession(url) },
   })
 
   window.once("ready-to-show", () => {
@@ -871,7 +471,7 @@ const createMainWindow = async (context: DesktopRuntimeContext): Promise<Browser
     await window.loadURL("cypheria://app/")
   } else {
     await window.loadURL(
-      `data:text/html;charset=utf-8,${encodeURIComponent(buildPlaceholderHtml(context))}`
+      `data:text/html;charset=utf-8,${encodeURIComponent(buildPlaceholderHtml(paths))}`
     )
   }
 
@@ -887,7 +487,7 @@ const registerLifecycleHandlers = (): void => {
 
   app.on("login", (event, _webContents, _details, authInfo, callback) => {
     if (!authInfo.isProxy) return
-    const settings = proxySettingsUnderTest ?? desktopRuntimeContext?.connectionProxySettings
+    const settings = proxySettingsUnderTest ?? currentConnectionProxySettings
     if (settings?.mode !== "manual" || (!settings.username && !settings.password)) return
     event.preventDefault()
     callback(settings.username, settings.password)
@@ -916,15 +516,9 @@ const registerLifecycleHandlers = (): void => {
       return
     }
     if (BrowserWindow.getAllWindows().length === 0) {
-      desktopRuntimeContext ??= await initializeDesktopRuntime({
-        clientVersion: app.getVersion(),
-        codexAppServer: {
-          codexCommand: getCodexCommand(),
-          windows: () => BrowserWindow.getAllWindows(),
-        },
-        ethereumProvider: { networkAuthorizer: authorizeEthereumNetwork },
-      })
-      mainWindow = await createMainWindow(desktopRuntimeContext)
+      if (!desktopClient || !desktopRuntimePaths) throw new Error("Desktop client is unavailable")
+      await desktopClient.ensureConnected()
+      mainWindow = await createMainWindow(desktopClient, desktopRuntimePaths)
     }
   })
 
@@ -934,21 +528,27 @@ const registerLifecycleHandlers = (): void => {
     }
   })
 
-  app.on("before-quit", () => {
+  app.on("before-quit", (event) => {
     isQuitting = true
-    harnessManager?.closeAllTerminals()
-    workspaceTerminalManager?.closeAllTerminals()
-    if (!desktopRuntimeContext) {
-      return
-    }
-
-    void shutdownDesktopRuntime(desktopRuntimeContext).catch(logFatalError)
+    if (shutdownComplete) return
+    event.preventDefault()
+    if (shutdownPromise) return
+    shutdownPromise = (async () => {
+      await desktopClient?.close()
+      await desktopServerManager?.stopOwned()
+    })()
+      .catch(logFatalError)
+      .finally(() => {
+        shutdownComplete = true
+        app.quit()
+      })
   })
 }
 
 const startDesktopApp = async (): Promise<void> => {
   configureChromiumFeatures(app.commandLine)
-  const runtimePaths = buildRuntimePaths()
+  const runtimePaths = buildDesktopAppPaths()
+  desktopRuntimePaths = runtimePaths
   const desktopUserDataDir = join(runtimePaths.cypheriaHome, "desktop")
   await Promise.all([
     mkdir(desktopUserDataDir, { recursive: true }),
@@ -965,7 +565,7 @@ const startDesktopApp = async (): Promise<void> => {
   registerLifecycleHandlers()
 
   await app.whenReady()
-  const serverManager = new DesktopServerManager({
+  desktopServerManager = new DesktopServerManager({
     cliCandidates: [
       process.env.CYPHERIA_SERVER_CLI_PATH ?? "",
       join(app.getAppPath(), "..", "server", "dist", "cli.mjs"),
@@ -973,40 +573,22 @@ const startDesktopApp = async (): Promise<void> => {
       join(process.resourcesPath, "cypheria-server", "cli.mjs"),
     ],
   })
-  await serverManager.ensureRunning()
+  const server = await desktopServerManager.ensureRunning()
+  desktopClient = createCypheriaClient({
+    appVersion: app.getVersion(),
+    clientType: "desktop",
+    reconnect: { enabled: true },
+    url: server.url,
+  })
+  await desktopClient.ensureConnected()
   if (process.platform === "darwin") {
     app.dock?.setIcon(applicationIconPath)
   }
   registerRendererProtocol(runtimePaths.codexHome)
-  const proxySettings = await readConnectionProxySettings(runtimePaths.configDir)
-  await applyConnectionProxyToSession(session.defaultSession, proxySettings)
-  desktopRuntimeContext = await initializeDesktopRuntime({
-    clientVersion: app.getVersion(),
-    codexAppServer: {
-      codexCommand: getCodexCommand(),
-      windows: () => BrowserWindow.getAllWindows(),
-    },
-    ethereumProvider: { networkAuthorizer: authorizeEthereumNetwork },
-  })
-  harnessManager = createHarnessManager({
-    cypheriaHome: desktopRuntimeContext.paths.cypheriaHome,
-    getProxySettings: () => desktopRuntimeContext?.connectionProxySettings ?? { mode: "system" },
-    onEvent: (event) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send(CYPHERIA_IPC_CHANNELS.harnessEvent, event)
-      }
-    },
-  })
-  workspaceTerminalManager = createWorkspaceTerminalManager({
-    onEvent: (event) => {
-      if (mainWindow && !mainWindow.isDestroyed()) {
-        mainWindow.webContents.send(CYPHERIA_IPC_CHANNELS.workspaceTerminalEvent, event)
-      }
-    },
-  })
-  await harnessManager.readState()
-  registerIpcHandlers(desktopRuntimeContext, harnessManager, workspaceTerminalManager)
-  mainWindow = await createMainWindow(desktopRuntimeContext)
+  currentConnectionProxySettings = await readConnectionProxySettings(runtimePaths.configDir)
+  await applyConnectionProxyToSession(session.defaultSession, currentConnectionProxySettings)
+  registerIpcHandlers(runtimePaths, desktopClient)
+  mainWindow = await createMainWindow(desktopClient, runtimePaths)
 }
 
 process.on("uncaughtException", logFatalError)

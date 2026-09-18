@@ -168,7 +168,7 @@ function PolicyDialog({
   onSaved,
 }: Readonly<{
   record?: Web3SigningPolicyRecord
-  wallets: Awaited<ReturnType<NonNullable<typeof window.cypheria>["wallet"]["list"]>>
+  wallets: Awaited<ReturnType<typeof web3Api.wallet.list>>
   onSaved: () => void
 }>) {
   const [open, setOpen] = useState(false)

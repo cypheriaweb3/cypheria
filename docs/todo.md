@@ -130,20 +130,23 @@ Status legend:
   - Safety: a claimed run is advanced before execution; unfinished work is marked `interrupted` at restart, and in-flight Web3 signing or submission is never replayed automatically.
   - Verification: protocol, database, client, server cadence, and Web3 non-replay tests.
 
-- [~] Migrate desktop to the Cypheria server.
+- [x] Migrate desktop to the Cypheria server.
   - Acceptance: Electron main ensures the local supervised server is running, desktop uses the shared protocol, and Electron-only dApp/browser, secure-storage, approval, preload, and OS-integration boundaries remain intact.
   - [x] Add a Desktop Server Manager that reuses a compatible local server or starts the bundled server and waits for versioned readiness.
   - [x] Move Projects, Threads, Sections, search, archive, unread notifications, and Sidebar mutations to `@cypheria/client` while preserving the existing presentation model and direct membership/order semantics.
   - [x] Move live Codex turns to the unified AI SDK provider, restore durable history from the canonical timeline, and add capability-gated common steering for Codex and Pi.
   - [x] Select Codex, Claude, Pi, OpenCode, or ACP AI SDK providers from each Thread's `agentId`; expose enabled agents in the new-chat composer and retain queued follow-ups in the per-Thread scope.
   - [x] Move Agent catalog, installation, update, enablement, and runtime lifecycle controls from the old Desktop harness manager to `client.agents`.
-  - [~] Preserve complete Codex timeline rendering parity while generalizing the common conversation shell; canonical user messages now retain attachments across history reloads.
+  - [x] Preserve Codex timeline rendering parity while generalizing the common conversation shell; canonical user messages retain attachments and provider-specific interaction details across history reloads.
   - [x] Move networks, wallets, policies, signing approvals, and audit surfaces to the shared `client.web3` API; the renderer no longer consumes their old IPC path.
   - [x] Move Codex permission configuration to the server API and remove its old data IPC paths.
   - [x] Move project terminal lifecycle and Codex auto-review notifications/retry to server APIs; PTYs are client-session scoped and the renderer no longer uses terminal IPC.
   - [x] Preserve the complete typed response shape for reverse-request approval, user-input, permission, and MCP elicitation flows before removing their old IPC paths.
   - [x] Move Codex account/login, model discovery, and model defaults to `client.providers.codex`; persist shared defaults under `agents.codex` in Cypheria config and remove their old renderer IPC paths.
   - [x] Move skills, plugins, MCP, marketplaces, and Codex Apps to the versioned Integrations API and remove their old renderer IPC execution paths.
+  - [x] Move isolated dApp session and wallet-provider execution to `client.web3.dapps`; Electron keeps only origin-isolated WebContents creation and request forwarding.
+  - [x] Remove Desktop-owned runtime, database, Codex bridge, Agent harness, Web3, terminal, approval, audit, and provider-process implementations plus their preload/IPC surface.
+  - [x] Close the Desktop client before shutdown and stop only a Server started by this Desktop, using the Server's active-connection readiness count to avoid reclaiming an in-use process.
   - Status: explicitly approved; preserve the current Sidebar and Codex-derived conversation experience as hard acceptance gates while replacing their data source.
 
 - [x] Rewrite docs for the server and multi-client target architecture.
@@ -299,14 +302,14 @@ Status legend:
   - Include: WebSocket transport, initialize/initialized handshake, request/response correlation, notification stream, server request routing, disconnect handling, and overload retry handling.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter apps/server Codex adapter test`.
 
-- [x] Update desktop to use persistent Codex App Server over WebSocket.
-  - Acceptance: Electron main starts Codex App Server with `CODEX_HOME=$CYPHERIA_HOME/codex`, connects through the Server Codex adapter, and exposes Codex events to renderer through typed IPC.
-  - Include: localhost port selection, process lifecycle, readiness, shutdown, stderr logging, and renderer-safe event mapping.
+- [x] Route Desktop Codex usage through the persistent Server-owned Codex App Server connection.
+  - Acceptance: `apps/server` starts Codex App Server with `CODEX_HOME=$CYPHERIA_HOME/codex`; Desktop consumes canonical events through `@cypheria/client` and has no Codex process or event IPC.
+  - Include: Server-owned process lifecycle, readiness, shutdown, stderr logging, native-event projection, and reverse-request routing.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/desktop test`, local desktop smoke test when Codex is available.
 
-- [x] Pin the Codex App Server runtime and generated protocol version.
-  - Acceptance: the workspace and desktop use an exact `@openai/codex` version; protocol generation resolves that workspace binary; desktop rejects mismatched binaries before startup.
-  - Include: development package resolution, explicit `CYPHERIA_CODEX_PATH` override, and packaged sidecar resolution from Electron resources.
+- [x] Pin the Server Codex App Server runtime and generated protocol version.
+  - Acceptance: the workspace and Server use an exact `@openai/codex` version; protocol generation resolves that workspace binary; the Server rejects mismatched binaries before startup.
+  - Include: development package resolution, explicit `CYPHERIA_CODEX_PATH` override, and packaged Server-side binary resolution.
   - Verification: `pnpm codex:version`, `pnpm run ci`, `pnpm build`, and desktop tests.
 
 - [x] Add the chat-centered desktop workspace, harness connections, and native model settings.
@@ -317,17 +320,17 @@ Status legend:
 
 - [x] Align the chat workspace with the installed ChatGPT desktop workbench.
   - Acceptance: the conversation header and full-featured composer match the desktop interaction model; long conversations use TanStack Virtual without breaking live turn growth, history hydration, or follow-to-bottom behavior; the right panel is independently resizable; and a resizable bottom panel provides persistent multi-tab PTY terminals, a dedicated title-bar toggle, and `Cmd/Ctrl+J` independently from the terminal action.
-  - Include: rigorous comparison of user and assistant turn presentation, panel chrome and empty states, project-scoped terminal IPC that does not accept renderer-chosen filesystem paths, and reuse of shadcn/ui and AI Elements where they fit.
+  - Include: rigorous comparison of user and assistant turn presentation, panel chrome and empty states, project-scoped terminal protocol operations that do not accept renderer-chosen filesystem paths, and reuse of shadcn/ui and AI Elements where they fit.
   - Verification: 162 desktop tests, desktop typecheck/build, full repository CI/build, and clean Electron interaction smoke tests against ChatGPT Desktop 26.901.51231 covering the composer, scope-owned prompt drafts restored across navigation and renderer restart, scope-owned session attachments retained across navigation and released on removal/submission/LRU eviction, source-matched image-only/mixed clipboard routing and 5,000-character pasted-text cards whose complete UTF-8 contents reach initial, steering, and queued turns, the source-matched 768-pixel shared content column on Chromium's 16-pixel rem baseline with independently tokenized 14-pixel UI typography, including a persisted 14→16→14 Appearance smoke test that kept `48rem` at 768 pixels, model-gated media inputs including an image-only system-clipboard screenshot whose unique visual marker reached the selected model, single-interrupt transport cleanup, immediate stopped-state projection, inline rename, a dedicated bottom-panel control and `Cmd/Ctrl+J`, a separate `Control+Backquote` terminal action with default bottom/right placement, source-matched scrollable tabs with a fixed add-tab control, last-tab close retaining an empty dock until its `Close` action and explicit hidden-empty reopen creating the fallback terminal, bottom-panel hide/reopen retaining the same Xterm DOM, terminal output, and manually resized pixel height, conversation navigation retaining the open dock, PTYs, active tab, height, and replayed output, bounded and deduplicated PTY resizing in the tall right panel, token-backed terminal theming and packaged-source-matched Xterm scrollbars, cold-open bottom following, exact cross-thread anchor restoration in a media-heavy thread, instant return-to-bottom, macOS close/reopen renderer retention, background turn completion across route navigation, pending-question recovery after leaving and returning to a chat, restricted cold-restored generated-image loading without arbitrary local-file access, bounded persisted sidebar unread-state behavior, and source-matched sidebar width constraints. A fresh same-model, same-prompt item-coverage turn also completed through command failure, two file-change approvals, TypeScript validation, web search, cleanup, and final Markdown rendering; after a cold renderer restart its collapsed activity restored the plan, commentary, commands, file edits, and web-search items from the durable App Server turn.
 
 - [x] Match Codex Desktop sidebar organization and section controls.
   - Acceptance: Pinned and chat sorting, project and one-list organization, project creation, custom section lifecycle, section-scoped new chats, and Recents new-chat controls work through the compact Codex-style section headers and menus.
-  - Include: generated experimental App Server section methods behind typed IPC, persisted non-sensitive sidebar preferences, virtualized custom section rows, and workbench-relative right-panel sizing.
+  - Include: Cypheria Sections API operations through `@cypheria/client`, persisted non-sensitive sidebar preferences, virtualized custom section rows, and workbench-relative right-panel sizing.
   - Verification: desktop typecheck/tests/build plus a real Electron visual and interaction smoke test against the supplied Codex Desktop references.
 
 - [x] Complete ChatGPT Desktop sidebar menus for projects, sections, and chat rows.
   - Acceptance: project and chat rows expose the applicable pin, rename/edit, mark read/unread, move, copy, fork, archive, remove, and new-chat actions; active rows use archive instead of permanent deletion; custom sections archive their chats; destructive actions require confirmation; and every mutation refreshes the affected virtualized sidebar groups.
-  - Include: App Server-owned thread/project/section mutations behind typed IPC, bounded renderer-owned unread state for metadata App Server does not expose, priority/update/creation/manual sorting, Cypheria namespaced project sidebar metadata, and safe project-folder reveal resolved in Electron main from a project identifier.
+  - Include: Server-owned thread/project/section mutations through `@cypheria/client`, bounded renderer-owned unread state, priority/update/creation/manual sorting, explicit Server membership/order fields, and safe project-folder reveal through the narrow Electron path API.
   - Verification: desktop tests/typecheck/build, full repository CI/build, and a real Electron smoke test of reversible actions plus disposable archive/delete flows against ChatGPT Desktop 26.901.51231.
 
 - [x] Close the feasible ChatGPT Desktop settings gaps.
@@ -341,14 +344,14 @@ Status legend:
   - Verification: desktop typecheck/tests/build plus a real Electron Connections smoke check.
 
 - [x] Add the `@cypheria/ai-sdk-provider/acp` ACP-to-AI-SDK bridge.
-  - Acceptance: the package uses the official ACP 1.4 app API, launches or connects to ACP agents, and exposes native AI SDK 7 `LanguageModelV4` streaming/generation plus the ACP callback, lifecycle, configuration, control, transport, event, and draft-v2 surfaces.
+  - Acceptance: the browser-safe package uses the Cypheria client protocol and exposes AI SDK 7 `LanguageModelV4`; `apps/server` alone launches or connects to ACP agents and owns ACP callbacks, lifecycle, configuration, control, transport, events, and draft-v2 surfaces.
   - Include: capability-aware content conversion, safe default permission cancellation, filesystem/terminal/elicitation/ACP-MCP handlers, session and experimental controls, usage/provider metadata preservation, upstream provenance and commit pinning in paired package READMEs, the upstream MIT notice, and source plus protocol-level Vitest coverage.
   - Verification: package typecheck/tests, workspace CI, and workspace build.
   - Deferred: real Codex ACP, Gemini ACP, and Claude ACP process interoperability tests.
 
 - [x] Complete the desktop Web3 management loop and production renderer startup.
-  - Acceptance: wallet creation/import/watch management, active account context, vault lock state, signing policies, pending approval decisions, and audit records are usable through typed IPC-backed screens.
-  - Include: OS-backed desktop vault key storage, one-shot secret submission without renderer persistence, a two-level virtualized wallet/account manager with durable drag ordering and HD account derivation, pending counts in the sidebar, packaged SPA routing through the privileged `cypheria://` scheme, bundled libSQL native resolution, and copied database migrations.
+  - Acceptance: wallet creation/import/watch management, active account context, vault lock state, signing policies, pending approval decisions, and audit records are usable through `client.web3`-backed screens.
+  - Include: Server-backed vault key storage, one-shot secret submission without renderer persistence, a two-level virtualized wallet/account manager with durable drag ordering and HD account derivation, pending counts in the sidebar, and packaged SPA routing through the privileged `cypheria://` scheme. Desktop does not load libSQL or database migrations.
   - Verification: all workspace tests, `pnpm run ci`, `pnpm build`, and real Electron smoke checks of the chat workspace and wallet route.
 
 - [x] Implement the desktop plugin and skill management loop.

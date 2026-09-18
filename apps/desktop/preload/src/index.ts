@@ -6,17 +6,11 @@ import type {
   AppHealthStatus,
   AppMetadata,
   BrowserSessionOpenResult,
-  CodexChatEvent,
-  CodexEventEnvelope,
-  CodexInteractionEvent,
   ConnectionProxySettings,
   ConnectionProxyTestResult,
   CypheriaPreloadApi,
-  HarnessEvent,
   LanguageSettings,
-  RuntimeInfo,
   WorkspaceLayoutSettings,
-  WorkspaceTerminalEvent,
 } from "../../ipc/src/index.js"
 import {
   AppearanceSettingsWriteSchema,
@@ -60,199 +54,17 @@ const cypheriaApi: CypheriaPreloadApi = {
     platform: process.platform,
     getHealth: () => invoke<AppHealthStatus>(CYPHERIA_IPC_CHANNELS.appHealthCheck),
     getMetadata: () => invoke<AppMetadata>(CYPHERIA_IPC_CHANNELS.appMetadataRead),
+    pickDirectory: () => invoke(CYPHERIA_IPC_CHANNELS.appDirectoryPick),
     openExternal: (url) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.appExternalOpen, { url }),
-  },
-  approval: {
-    decide: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.approvalRequestDecide, input),
-    list: (status) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.approvalRequestsList, {
-        ...(status ? { status } : {}),
-      }),
-  },
-  audit: {
-    list: (limit) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.auditLogList, { ...(limit ? { limit } : {}) }),
+    openConfig: () => invoke(CYPHERIA_IPC_CHANNELS.appConfigOpen),
+    revealProject: (projectId) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.appProjectReveal, { projectId }),
   },
   browser: {
     openDapp: (url) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.browserSessionOpen, {
         url,
       }) as Promise<BrowserSessionOpenResult>,
-  },
-  codex: {
-    interruptChat: (requestId) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexChatInterrupt, { requestId }),
-    steerChat: (requestId, input) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexChatSteer, { ...input, requestId }),
-    listProjects: (options = {}) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectList, options),
-    createProject: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectCreate, input),
-    updateProject: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectUpdate, input),
-    deleteProject: (id) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectDelete, { id }),
-    revealProject: (id) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectReveal, { id }),
-    pickProjectRoot: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectRootPick, {}),
-    listThreads: (options = {}) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadList, options),
-    archiveThread: (threadId) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadArchive, { threadId }),
-    unarchiveThread: (threadId) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadUnarchive, { threadId }),
-    deleteThread: (threadId) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadDelete, { threadId }),
-    forkThread: (threadId, lastTurnId) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadFork, {
-        ...(lastTurnId ? { lastTurnId } : {}),
-        threadId,
-      }),
-    readThread: (threadId) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadRead, { threadId }),
-    renameThread: (threadId, name) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadRename, { name, threadId }),
-    moveThreadToProject: (threadId, projectId) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadProjectMove, {
-        projectId,
-        threadId,
-      }),
-    queueThreadMessage: (threadId, clientUserMessageId, input) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadQueueAdd, {
-        ...input,
-        clientUserMessageId,
-        threadId,
-      }),
-    listThreadSections: (options = {}) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadSectionList, options),
-    createThreadSection: (input) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadSectionCreate, input),
-    updateThreadSection: (input) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadSectionUpdate, input),
-    deleteThreadSection: (id) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadSectionDelete, { id }),
-    moveThreadToSection: (input) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadSectionMove, input),
-    retryAutoReviewDenial: (threadId, event) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAutoReviewRetry, { event, threadId }),
-    onChatEvent: (handler) => {
-      const listener = (_event: IpcRendererEvent, chatEvent: CodexChatEvent): void => {
-        handler(chatEvent)
-      }
-      ipcRenderer.on(CYPHERIA_IPC_CHANNELS.codexChatEvent, listener)
-      return () => {
-        ipcRenderer.off(CYPHERIA_IPC_CHANNELS.codexChatEvent, listener)
-      }
-    },
-    onEvent: (handler) => {
-      const listener = (_event: IpcRendererEvent, envelope: CodexEventEnvelope): void => {
-        handler(envelope)
-      }
-      ipcRenderer.on(CYPHERIA_IPC_CHANNELS.codexEvent, listener)
-      return () => {
-        ipcRenderer.off(CYPHERIA_IPC_CHANNELS.codexEvent, listener)
-      }
-    },
-    onInteraction: (handler) => {
-      const listener = (_event: IpcRendererEvent, interaction: CodexInteractionEvent): void => {
-        handler(interaction)
-      }
-      ipcRenderer.on(CYPHERIA_IPC_CHANNELS.codexInteractionEvent, listener)
-      return () => {
-        ipcRenderer.off(CYPHERIA_IPC_CHANNELS.codexInteractionEvent, listener)
-      }
-    },
-    listInteractions: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexInteractionList, {}),
-    respondToInteraction: (response) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexInteractionRespond, response),
-    openPermissionsConfig: () =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPermissionsConfigOpen),
-    startChat: (request) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexChatStart, request),
-  },
-  harnesses: {
-    checkUpdate: (id) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessCheckUpdate, { id }),
-    closeAllTerminals: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessTerminalCloseAll),
-    closeTerminal: (terminalId) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessTerminalClose, { terminalId }),
-    install: (id) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessInstall, { id }),
-    list: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessList),
-    onEvent: (handler) => {
-      const listener = (_event: IpcRendererEvent, harnessEvent: HarnessEvent): void =>
-        handler(harnessEvent)
-      ipcRenderer.on(CYPHERIA_IPC_CHANNELS.harnessEvent, listener)
-      return () => ipcRenderer.off(CYPHERIA_IPC_CHANNELS.harnessEvent, listener)
-    },
-    openTerminal: (id, cwd) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessTerminalOpen, {
-        ...(cwd ? { cwd } : {}),
-        id,
-      }),
-    resizeTerminal: (terminalId, cols, rows) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessTerminalResize, { cols, rows, terminalId }),
-    setEnabled: (id, enabled) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessEnabledWrite, { enabled, id }),
-    update: (id) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessUpdate, { id }),
-    writeTerminal: (terminalId, data) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessTerminalWrite, { data, terminalId }),
-  },
-  workspaceTerminal: {
-    closeAll: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.workspaceTerminalCloseAll),
-    close: (terminalId) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.workspaceTerminalClose, { terminalId }),
-    onEvent: (handler) => {
-      const listener = (_event: IpcRendererEvent, terminalEvent: WorkspaceTerminalEvent): void =>
-        handler(terminalEvent)
-      ipcRenderer.on(CYPHERIA_IPC_CHANNELS.workspaceTerminalEvent, listener)
-      return () => ipcRenderer.off(CYPHERIA_IPC_CHANNELS.workspaceTerminalEvent, listener)
-    },
-    open: (projectId) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.workspaceTerminalOpen, {
-        ...(projectId ? { projectId } : {}),
-      }),
-    resize: (terminalId, cols, rows) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.workspaceTerminalResize, {
-        cols,
-        rows,
-        terminalId,
-      }),
-    write: (terminalId, data) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.workspaceTerminalWrite, { data, terminalId }),
-  },
-  runtime: {
-    getInfo: () => invoke<RuntimeInfo>(CYPHERIA_IPC_CHANNELS.runtimeInfoRead),
-  },
-  network: {
-    addEndpoint: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkEndpointAdd, input),
-    create: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkCreate, input),
-    list: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkList),
-    probeEndpoint: (endpointId) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkEndpointProbe, { endpointId }),
-    remove: (networkId, confirmed) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkRemove, { confirmed, networkId }),
-    removeEndpoint: (endpointId) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkEndpointRemove, { endpointId }),
-    reorder: (networkIds) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkReorder, { networkIds }),
-    reorderEndpoints: (networkId, endpointIds) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkEndpointReorder, {
-        endpointIds,
-        networkId,
-      }),
-    setEnabled: (networkId, enabled, expectedRevision) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkSetEnabled, {
-        enabled,
-        expectedRevision,
-        networkId,
-      }),
-    setEndpointEnabled: (endpointId, enabled, expectedRevision) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.networkEndpointSetEnabled, {
-        enabled,
-        endpointId,
-        expectedRevision,
-      }),
-  },
-  policy: {
-    create: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.policyCreate, input),
-    disable: (policyId, expectedRevision) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.policyDisable, { expectedRevision, policyId }),
-    list: (input = {}) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.policyList, input),
-    update: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.policyUpdate, input),
   },
   settings: {
     getAppearance: () => invoke<AppearanceSettings>(CYPHERIA_IPC_CHANNELS.settingsAppearanceRead),
@@ -295,30 +107,6 @@ const cypheriaApi: CypheriaPreloadApi = {
         CYPHERIA_IPC_CHANNELS.settingsConnectionProxyTest,
         settings
       ) as Promise<ConnectionProxyTestResult>,
-  },
-  wallet: {
-    addWatch: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletAddWatch, input),
-    clearActive: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletActiveClear),
-    delete: (walletId) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletDelete, { walletId }),
-    deriveHdAccount: (input) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletDeriveHdAccount, input),
-    generateHd: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletGenerateHd, input),
-    getActive: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletActiveRead),
-    importHd: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletImportHd, input),
-    importPrivateKey: (input) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletImportPrivateKey, input),
-    list: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletList),
-    lock: (walletId) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletLock, { walletId }),
-    rename: (walletId, name) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletRename, { name, walletId }),
-    reorder: (walletIds) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletReorder, { walletIds }),
-    reorderAccounts: (walletId, walletAccountIds) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletReorderAccounts, {
-        walletAccountIds,
-        walletId,
-      }),
-    setActive: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletActiveWrite, input),
-    unlock: (walletId) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.walletUnlock, { walletId }),
   },
 }
 

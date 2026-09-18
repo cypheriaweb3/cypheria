@@ -75,6 +75,8 @@ type WalletAction =
     }
 
 type WalletView = Awaited<ReturnType<typeof web3Api.wallet.list>>[number]
+type ActiveWalletContext = Awaited<ReturnType<typeof web3Api.wallet.getActive>>
+type NetworkView = Awaited<ReturnType<typeof web3Api.network.list>>[number]
 type WalletMode = Extract<WalletAction, { kind: "active" }>["mode"]
 
 const walletKindLabels: Record<WalletView["wallet"]["kind"], string> = {
@@ -717,11 +719,9 @@ function WalletDetails({
   onAction,
   onRenamed,
 }: Readonly<{
-  active:
-    | Awaited<ReturnType<NonNullable<typeof window.cypheria>["wallet"]["getActive"]>>
-    | undefined
+  active: ActiveWalletContext | undefined
   actionPending: boolean
-  networks: Awaited<ReturnType<NonNullable<typeof window.cypheria>["network"]["list"]>>
+  networks: NetworkView[]
   selectedAccountId?: string
   unlocked: boolean
   view: WalletView

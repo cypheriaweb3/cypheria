@@ -532,7 +532,7 @@ export function ChatSidebar({
                     }
                     onRevealProject={(project) =>
                       void runSidebarMutation(async () => {
-                        await window.cypheria?.codex.revealProject(project.id)
+                        await window.cypheria?.app.revealProject(project.id)
                       })
                     }
                     onPinnedSortChange={updatePinnedSort}

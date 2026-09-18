@@ -56,11 +56,23 @@ async function start(foreground: boolean): Promise<number> {
   return 0
 }
 
-async function stop(): Promise<number> {
+async function stop(ifIdle = false): Promise<number> {
   const record = await readPidRecord(paths.configDir)
   if (!record || !isProcessAlive(record.supervisorPid)) {
     console.log("Cypheria server is not running")
     return 0
+  }
+  if (ifIdle && record.address) {
+    try {
+      const response = await fetch(`${record.address.url}/api/v1/ready`)
+      const ready = (await response.json()) as { connections?: unknown }
+      if (typeof ready.connections === "number" && ready.connections > 0) {
+        console.log(`Cypheria server remains running (${ready.connections} active connection(s))`)
+        return 0
+      }
+    } catch {
+      // A process that no longer answers readiness should still be stopped below.
+    }
   }
   process.kill(record.supervisorPid, "SIGTERM")
   const deadline = Date.now() + 10_000
@@ -98,7 +110,7 @@ switch (command) {
     exitCode = await start(args.includes("--foreground"))
     break
   case "stop":
-    exitCode = await stop()
+    exitCode = await stop(args.includes("--if-idle"))
     break
   case "restart":
     exitCode = await restart()
@@ -109,7 +121,7 @@ switch (command) {
   case "help":
   case "--help":
   case "-h":
-    console.log("Usage: cypheria-server <start [--foreground]|stop|restart|status>")
+    console.log("Usage: cypheria-server <start [--foreground]|stop [--if-idle]|restart|status>")
     break
   default:
     console.error(`Unknown command: ${command}`)

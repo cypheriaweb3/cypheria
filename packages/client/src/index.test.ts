@@ -15,6 +15,7 @@ describe("Cypheria client facade", () => {
     expect(Object.keys(api).sort()).toEqual([
       "agent",
       "agents",
+      "artifacts",
       "integrations",
       "on",
       "projectThread",
@@ -23,6 +24,7 @@ describe("Cypheria client facade", () => {
       "schedules",
       "sections",
       "server",
+      "settings",
       "subscribe",
       "terminals",
       "thread",

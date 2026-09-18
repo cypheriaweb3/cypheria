@@ -15,7 +15,12 @@ export type DesktopServerManagerOptions = {
   cliCandidates: readonly string[]
   env?: NodeJS.ProcessEnv
   probe?: (url: string) => Promise<boolean>
-  runCli?: (cliPath: string, command: "start" | "stop", env: NodeJS.ProcessEnv) => Promise<void>
+  runCli?: (
+    cliPath: string,
+    command: "start" | "stop",
+    env: NodeJS.ProcessEnv,
+    options?: { ifIdle?: boolean }
+  ) => Promise<void>
   serverUrl?: string
   timeoutMs?: number
 }
@@ -43,12 +48,17 @@ export const probeCompatibleServer = async (url: string): Promise<boolean> => {
 const defaultRunCli = async (
   cliPath: string,
   command: "start" | "stop",
-  env: NodeJS.ProcessEnv
+  env: NodeJS.ProcessEnv,
+  options?: { ifIdle?: boolean }
 ): Promise<void> => {
-  await execFileAsync(process.execPath, [cliPath, command], {
-    env: { ...env, ELECTRON_RUN_AS_NODE: "1" },
-    windowsHide: true,
-  })
+  await execFileAsync(
+    process.execPath,
+    [cliPath, command, ...(command === "stop" && options?.ifIdle ? ["--if-idle"] : [])],
+    {
+      env: { ...env, ELECTRON_RUN_AS_NODE: "1" },
+      windowsHide: true,
+    }
+  )
 }
 
 export class DesktopServerManager {
@@ -93,7 +103,7 @@ export class DesktopServerManager {
   async stopOwned(): Promise<void> {
     if (!this.#owned) return
     const cliPath = await this.#resolveCli()
-    await this.#runCli?.(cliPath, "stop", this.#env)
+    await this.#runCli?.(cliPath, "stop", this.#env, { ifIdle: true })
     this.#owned = false
   }
 

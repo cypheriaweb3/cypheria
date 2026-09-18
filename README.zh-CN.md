@@ -9,7 +9,7 @@ Cypheria 不重新实现各 Agent runtime。目标架构由一个常驻 Cypheria
 Cypheria V1 围绕一个 server 与多个 client 组织：
 
 - **Server runtime**：Server-owned services，负责钱包、链、策略、schedules、浏览器权限、设置、本地状态和审计日志。
-- **Server**：基于 Hono + Node.js 的 control plane，负责 runtime lifecycle、client session、diagnostics、静态 web hosting，并在后续承载 Codex 与产品 services。
+- **Server**：基于 Hono + Node.js 的 control plane，负责 runtime lifecycle、Agent process 与 adapter、projects、threads、sections、timeline、integrations、schedules、Web3、数据库访问、client session、diagnostics 与静态 web hosting。
 - **Expo client**：一套面向 iOS、Android 与静态 web output 的 Expo Router 应用；server 会内置其 web output。
 - **共享 client**：`@cypheria/client` 提供 WebSocket protocol driver、借用与持有连接的门面，以及
   公开 Agent/Thread、project/section 和 server action，但不持有 provider runtime。

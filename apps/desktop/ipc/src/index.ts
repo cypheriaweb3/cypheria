@@ -1,140 +1,23 @@
-import { networkDefinitionSchema, rpcEndpointViewSchema } from "@cypheria/web3/network"
 import {
   dappSessionSchema,
   walletProviderRequestSchema,
   walletProviderResponseSchema,
 } from "@cypheria/web3/provider"
-import { signingIntentSchema } from "@cypheria/web3/wallet"
 import { z } from "zod"
-import {
-  CodexAutoReviewRetrySchema,
-  type CodexChatEvent,
-  type CodexChatFollowUp,
-  CodexChatInterruptSchema,
-  type CodexChatStart,
-  type CodexChatStartResult,
-  CodexChatStartResultSchema,
-  CodexChatStartSchema,
-  CodexChatSteerSchema,
-  type CodexInteractionEvent,
-  CodexInteractionEventSchema,
-  type CodexInteractionResponse,
-  CodexInteractionResponseSchema,
-  CodexProjectCreateRequestSchema,
-  CodexProjectDeleteRequestSchema,
-  type CodexProjectListPage,
-  CodexProjectListPageSchema,
-  CodexProjectListRequestSchema,
-  CodexProjectRootPickResultSchema,
-  CodexProjectUpdateRequestSchema,
-  type CodexProjectView,
-  CodexProjectViewSchema,
-  type CodexThreadDetailView,
-  CodexThreadDetailViewSchema,
-  CodexThreadForkRequestSchema,
-  CodexThreadForkResultSchema,
-  type CodexThreadListPage,
-  CodexThreadListPageSchema,
-  CodexThreadListRequestSchema,
-  CodexThreadMutationRequestSchema,
-  CodexThreadProjectMoveRequestSchema,
-  CodexThreadQueueAddSchema,
-  CodexThreadReadRequestSchema,
-  CodexThreadRenameRequestSchema,
-  CodexThreadSectionCreateRequestSchema,
-  CodexThreadSectionDeleteRequestSchema,
-  type CodexThreadSectionListPage,
-  CodexThreadSectionListPageSchema,
-  CodexThreadSectionListRequestSchema,
-  CodexThreadSectionMoveRequestSchema,
-  CodexThreadSectionUpdateRequestSchema,
-  type CodexThreadSectionView,
-  CodexThreadSectionViewSchema,
-} from "./codex.js"
 import {
   type ConnectionProxySettings,
   ConnectionProxySettingsSchema,
   type ConnectionProxyTestResult,
   ConnectionProxyTestResultSchema,
-  HarnessEnabledRequestSchema,
-  type HarnessEvent,
-  HarnessIdRequestSchema,
-  HarnessTerminalIdSchema,
-  HarnessTerminalOpenRequestSchema,
-  HarnessTerminalResizeSchema,
-  type HarnessTerminalSession,
-  HarnessTerminalSessionSchema,
-  HarnessTerminalWriteSchema,
-  type HarnessView,
-  HarnessViewSchema,
 } from "./connections.js"
-import {
-  AuditLogListInputSchema,
-  AuditLogRecordSchema,
-  type AuditLogRecordView,
-  NetworkCreateInputSchema,
-  NetworkEndpointAddInputSchema,
-  NetworkEndpointHealthSchema,
-  NetworkEndpointIdInputSchema,
-  NetworkEndpointReorderInputSchema,
-  NetworkEndpointSetEnabledInputSchema,
-  NetworkListSchema,
-  NetworkMutationResultSchema,
-  NetworkRemoveInputSchema,
-  NetworkReorderInputSchema,
-  NetworkSetEnabledInputSchema,
-  NetworkViewSchema,
-  SigningPolicyCreateInputSchema,
-  SigningPolicyDisableInputSchema,
-  SigningPolicyListInputSchema,
-  SigningPolicyRecordSchema,
-  type SigningPolicyRecordView,
-  SigningPolicyUpdateInputSchema,
-  WalletActiveContextSchema,
-  WalletAddWatchInputSchema,
-  WalletDeriveHdAccountInputSchema,
-  WalletGenerateHdInputSchema,
-  WalletIdInputSchema,
-  WalletImportHdInputSchema,
-  WalletImportPrivateKeyInputSchema,
-  WalletListSchema,
-  WalletRenameInputSchema,
-  WalletReorderAccountsInputSchema,
-  WalletReorderInputSchema,
-  WalletSetActiveInputSchema,
-  WalletVaultStateSchema,
-} from "./web3.js"
-import {
-  type WorkspaceTerminalEvent,
-  WorkspaceTerminalIdSchema,
-  WorkspaceTerminalOpenRequestSchema,
-  WorkspaceTerminalResizeSchema,
-  type WorkspaceTerminalSession,
-  WorkspaceTerminalSessionSchema,
-  WorkspaceTerminalWriteSchema,
-} from "./workspace-terminal.js"
 
 export * from "./codex.js"
 export * from "./connections.js"
 export * from "./integrations.js"
-export * from "./web3.js"
-export * from "./workspace-terminal.js"
 
 export const IPC_PROTOCOL_VERSION = 1
 
-export const ipcNamespaces = [
-  "app",
-  "runtime",
-  "codex",
-  "wallet",
-  "chain",
-  "browser",
-  "dapp",
-  "policy",
-  "approval",
-  "settings",
-  "audit",
-] as const
+export const ipcNamespaces = ["app", "browser", "dapp", "settings"] as const
 
 export const IpcNamespaceSchema = z.enum(ipcNamespaces)
 export type IpcNamespace = z.infer<typeof IpcNamespaceSchema>
@@ -143,74 +26,12 @@ export const CYPHERIA_IPC_CHANNELS = {
   appHealthCheck: "app.health.check",
   appMetadataRead: "app.metadata.read",
   appExternalOpen: "app.external.open",
-  auditLogList: "audit.log.list",
-  approvalRequestDecide: "approval.request.decide",
-  approvalRequestsList: "approval.requests.list",
+  appDirectoryPick: "app.directory.pick",
+  appConfigOpen: "app.config.open",
+  appProjectReveal: "app.project.reveal",
   browserSessionOpen: "browser.session.open",
-  codexAutoReviewRetry: "codex.auto-review.retry",
-  codexChatEvent: "codex.chat.event",
-  codexChatInterrupt: "codex.chat.interrupt",
-  codexChatSteer: "codex.chat.steer",
-  codexChatStart: "codex.chat.start",
-  codexInteractionEvent: "codex.interaction.event",
-  codexInteractionList: "codex.interaction.list",
-  codexInteractionRespond: "codex.interaction.respond",
-  codexEvent: "codex.event",
-  codexPermissionsConfigOpen: "codex.permissions.config.open",
-  codexProjectCreate: "codex.project.create",
-  codexProjectDelete: "codex.project.delete",
-  codexProjectList: "codex.project.list",
-  codexProjectReveal: "codex.project.reveal",
-  codexProjectRootPick: "codex.project.root.pick",
-  codexProjectUpdate: "codex.project.update",
-  codexThreadList: "codex.thread.list",
-  codexThreadArchive: "codex.thread.archive",
-  codexThreadUnarchive: "codex.thread.unarchive",
-  codexThreadDelete: "codex.thread.delete",
-  codexThreadFork: "codex.thread.fork",
-  codexThreadProjectMove: "codex.thread.project.move",
-  codexThreadRead: "codex.thread.read",
-  codexThreadRename: "codex.thread.rename",
-  codexThreadQueueAdd: "codex.thread.queue.add",
-  codexThreadSectionCreate: "codex.thread-section.create",
-  codexThreadSectionDelete: "codex.thread-section.delete",
-  codexThreadSectionList: "codex.thread-section.list",
-  codexThreadSectionMove: "codex.thread-section.move",
-  codexThreadSectionUpdate: "codex.thread-section.update",
-  harnessCheckUpdate: "harness.check-update",
-  harnessEnabledWrite: "harness.enabled.write",
-  harnessEvent: "harness.event",
-  harnessInstall: "harness.install",
-  harnessList: "harness.list",
-  harnessTerminalClose: "harness.terminal.close",
-  harnessTerminalCloseAll: "harness.terminal.close-all",
-  harnessTerminalOpen: "harness.terminal.open",
-  harnessTerminalResize: "harness.terminal.resize",
-  harnessTerminalWrite: "harness.terminal.write",
-  harnessUpdate: "harness.update",
-  workspaceTerminalClose: "workspace.terminal.close",
-  workspaceTerminalCloseAll: "workspace.terminal.close-all",
-  workspaceTerminalEvent: "workspace.terminal.event",
-  workspaceTerminalOpen: "workspace.terminal.open",
-  workspaceTerminalResize: "workspace.terminal.resize",
-  workspaceTerminalWrite: "workspace.terminal.write",
   dappProviderRequest: "dapp.provider.request",
   dappProviderEvent: "dapp.provider.event",
-  networkList: "network.list",
-  networkCreate: "network.create",
-  networkSetEnabled: "network.set-enabled",
-  networkRemove: "network.remove",
-  networkReorder: "network.reorder",
-  networkEndpointAdd: "network.endpoint.add",
-  networkEndpointProbe: "network.endpoint.probe",
-  networkEndpointRemove: "network.endpoint.remove",
-  networkEndpointReorder: "network.endpoint.reorder",
-  networkEndpointSetEnabled: "network.endpoint.set-enabled",
-  policyCreate: "policy.create",
-  policyDisable: "policy.disable",
-  policyList: "policy.list",
-  policyUpdate: "policy.update",
-  runtimeInfoRead: "runtime.info.read",
   settingsAppearanceFontsList: "settings.appearance.fonts.list",
   settingsAppearanceRead: "settings.appearance.read",
   settingsAppearanceWrite: "settings.appearance.write",
@@ -222,52 +43,12 @@ export const CYPHERIA_IPC_CHANNELS = {
   settingsConnectionProxyRead: "settings.connection-proxy.read",
   settingsConnectionProxyTest: "settings.connection-proxy.test",
   settingsConnectionProxyWrite: "settings.connection-proxy.write",
-  walletActiveClear: "wallet.active.clear",
-  walletActiveRead: "wallet.active.read",
-  walletActiveWrite: "wallet.active.write",
-  walletAddWatch: "wallet.add-watch",
-  walletDelete: "wallet.delete",
-  walletDeriveHdAccount: "wallet.derive-hd-account",
-  walletGenerateHd: "wallet.generate-hd",
-  walletImportHd: "wallet.import-hd",
-  walletImportPrivateKey: "wallet.import-private-key",
-  walletList: "wallet.list",
-  walletLock: "wallet.lock",
-  walletRename: "wallet.rename",
-  walletReorder: "wallet.reorder",
-  walletReorderAccounts: "wallet.reorder-accounts",
-  walletUnlock: "wallet.unlock",
 } as const
 
 export type CypheriaIpcChannel = (typeof CYPHERIA_IPC_CHANNELS)[keyof typeof CYPHERIA_IPC_CHANNELS]
 
 export const EmptyPayloadSchema = z.object({}).strict()
 export type EmptyPayload = z.infer<typeof EmptyPayloadSchema>
-
-export const RuntimeInfoSchema = z
-  .object({
-    codex: z
-      .object({
-        listenUrl: z.string().url(),
-        state: z.enum(["ready", "starting", "stopped", "stopping"]),
-      })
-      .strict()
-      .optional(),
-    codexHome: z.string().min(1),
-    cypheriaHome: z.string().min(1),
-    directories: z
-      .object({
-        browser: z.string().min(1),
-        cache: z.string().min(1),
-        config: z.string().min(1),
-        db: z.string().min(1),
-        logs: z.string().min(1),
-        vault: z.string().min(1),
-      })
-      .strict(),
-  })
-  .strict()
-export type RuntimeInfo = z.infer<typeof RuntimeInfoSchema>
 
 export const AppMetadataSchema = z
   .object({
@@ -509,65 +290,19 @@ export const AppearanceFontOptionSchema = z
   .strict()
 export type AppearanceFontOption = z.infer<typeof AppearanceFontOptionSchema>
 
-export const ApprovalRequestStatusSchema = z.enum(["approved", "expired", "pending", "rejected"])
-export type ApprovalRequestStatus = z.infer<typeof ApprovalRequestStatusSchema>
-
-export const SigningIntentRecordSchema = z
+export const BrowserSessionOpenSchema = z
   .object({
-    approvalId: z.string().min(1).optional(),
-    decision: z.enum(["allow", "deny", "require-human-approval"]),
-    decisionId: z.string().min(1),
-    expiresAt: z.iso.datetime(),
-    intent: signingIntentSchema,
-    matchedPolicyId: z.string().min(1).optional(),
-    mode: z.enum(["conditional-auto-signing", "human-approval", "read-only"]),
-    payloadHash: z.string().regex(/^sha256:[a-f0-9]{64}$/u),
-    revision: z.number().int().positive(),
-    source: z.enum(["agent", "dapp", "schedule"]),
-    status: z.enum(["approved", "expired", "pending-approval", "rejected"]),
-    updatedAt: z.iso.datetime(),
+    url: z.url().refine((value) => {
+      const url = new URL(value)
+      return (
+        !url.username &&
+        !url.password &&
+        (url.protocol === "https:" ||
+          (url.protocol === "http:" && ["127.0.0.1", "::1", "localhost"].includes(url.hostname)))
+      )
+    }),
   })
   .strict()
-export type SigningIntentRecord = z.infer<typeof SigningIntentRecordSchema>
-
-export const ApprovalRequestRecordSchema = z
-  .object({
-    expiresAt: z.iso.datetime(),
-    id: z.string().regex(/^approval_[A-Za-z0-9][A-Za-z0-9_-]*$/u),
-    intentId: z.string().regex(/^signing_intent_[A-Za-z0-9][A-Za-z0-9_-]*$/u),
-    requestedAt: z.iso.datetime(),
-    resolvedAt: z.iso.datetime().optional(),
-    reviewer: z.string().min(1).optional(),
-    revision: z.number().int().positive(),
-    status: ApprovalRequestStatusSchema,
-  })
-  .strict()
-export type ApprovalRequestRecord = z.infer<typeof ApprovalRequestRecordSchema>
-
-export const ApprovalRequestViewSchema = z
-  .object({
-    approval: ApprovalRequestRecordSchema,
-    intent: SigningIntentRecordSchema,
-  })
-  .strict()
-export type ApprovalRequestView = z.infer<typeof ApprovalRequestViewSchema>
-
-export const ApprovalRequestsListSchema = z
-  .object({ status: ApprovalRequestStatusSchema.optional() })
-  .strict()
-export type ApprovalRequestsList = z.infer<typeof ApprovalRequestsListSchema>
-
-export const ApprovalRequestDecideSchema = z
-  .object({
-    approvalId: z.string().regex(/^approval_[A-Za-z0-9][A-Za-z0-9_-]*$/u),
-    decision: z.enum(["approved", "rejected"]),
-    expectedRevision: z.number().int().positive(),
-    reviewer: z.string().min(1).max(256),
-  })
-  .strict()
-export type ApprovalRequestDecide = z.infer<typeof ApprovalRequestDecideSchema>
-
-export const BrowserSessionOpenSchema = z.object({ url: z.url() }).strict()
 export type BrowserSessionOpen = z.infer<typeof BrowserSessionOpenSchema>
 
 export const BrowserSessionOpenResultSchema = z
@@ -644,60 +379,6 @@ export const IpcEventEnvelopeSchema = z
   .strict()
 export type IpcEventEnvelope = z.infer<typeof IpcEventEnvelopeSchema>
 
-export const CodexEventTypeSchema = z.enum([
-  "codex.error",
-  "codex.lifecycle",
-  "codex.notification",
-  "codex.serverRequest",
-  "codex.stderr",
-])
-export type CodexEventType = z.infer<typeof CodexEventTypeSchema>
-
-export const CodexLifecyclePayloadSchema = z
-  .object({
-    state: z.string().min(1),
-  })
-  .strict()
-export type CodexLifecyclePayload = z.infer<typeof CodexLifecyclePayloadSchema>
-
-export const CodexMessagePayloadSchema = z
-  .object({
-    method: z.string().min(1),
-    params: z.unknown().optional(),
-  })
-  .strict()
-export type CodexMessagePayload = z.infer<typeof CodexMessagePayloadSchema>
-
-export const CodexErrorPayloadSchema = z
-  .object({
-    code: z.string().min(1),
-    message: z.string().min(1),
-  })
-  .strict()
-export type CodexErrorPayload = z.infer<typeof CodexErrorPayloadSchema>
-
-export const CodexStderrPayloadSchema = z
-  .object({
-    line: z.string(),
-  })
-  .strict()
-export type CodexStderrPayload = z.infer<typeof CodexStderrPayloadSchema>
-
-export const CodexEventPayloadSchema = z.union([
-  CodexLifecyclePayloadSchema,
-  CodexMessagePayloadSchema,
-  CodexErrorPayloadSchema,
-  CodexStderrPayloadSchema,
-])
-export type CodexEventPayload = z.infer<typeof CodexEventPayloadSchema>
-
-export const CodexEventEnvelopeSchema = IpcEventEnvelopeSchema.extend({
-  event: CodexEventTypeSchema,
-  namespace: z.literal("codex"),
-  payload: CodexEventPayloadSchema,
-}).strict()
-export type CodexEventEnvelope = z.infer<typeof CodexEventEnvelopeSchema>
-
 export type IpcContract<TRequestPayload, TResponsePayload> = {
   readonly channel: CypheriaIpcChannel
   readonly namespace: IpcNamespace
@@ -737,276 +418,28 @@ export const appExternalOpenContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<{ url: string }, { opened: true }>
 
-export const auditLogListContract = {
-  channel: CYPHERIA_IPC_CHANNELS.auditLogList,
-  namespace: "audit",
-  request: AuditLogListInputSchema,
-  response: z.array(AuditLogRecordSchema),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof AuditLogListInputSchema>, AuditLogRecordView[]>
-
-export const approvalRequestsListContract = {
-  channel: CYPHERIA_IPC_CHANNELS.approvalRequestsList,
-  namespace: "approval",
-  request: ApprovalRequestsListSchema,
-  response: z.array(ApprovalRequestViewSchema),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<ApprovalRequestsList, ApprovalRequestView[]>
-
-export const approvalRequestDecideContract = {
-  channel: CYPHERIA_IPC_CHANNELS.approvalRequestDecide,
-  namespace: "approval",
-  request: ApprovalRequestDecideSchema,
-  response: ApprovalRequestViewSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<ApprovalRequestDecide, ApprovalRequestView>
-
-export const walletListContract = {
-  channel: CYPHERIA_IPC_CHANNELS.walletList,
-  namespace: "wallet",
+export const appDirectoryPickContract = {
+  channel: CYPHERIA_IPC_CHANNELS.appDirectoryPick,
+  namespace: "app",
   request: EmptyPayloadSchema,
-  response: WalletListSchema,
+  response: z.object({ path: z.string().min(1).nullable() }).strict(),
   version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, z.output<typeof WalletListSchema>>
-export const networkListContract = {
-  channel: CYPHERIA_IPC_CHANNELS.networkList,
-  namespace: "chain",
-  request: EmptyPayloadSchema,
-  response: NetworkListSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, z.output<typeof NetworkListSchema>>
-export const networkCreateContract = {
-  channel: CYPHERIA_IPC_CHANNELS.networkCreate,
-  namespace: "chain",
-  request: NetworkCreateInputSchema,
-  response: NetworkViewSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  z.input<typeof NetworkCreateInputSchema>,
-  z.output<typeof NetworkViewSchema>
->
-export const networkSetEnabledContract = {
-  channel: CYPHERIA_IPC_CHANNELS.networkSetEnabled,
-  namespace: "chain",
-  request: NetworkSetEnabledInputSchema,
-  response: networkDefinitionSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  z.input<typeof NetworkSetEnabledInputSchema>,
-  z.output<typeof networkDefinitionSchema>
->
-export const networkRemoveContract = {
-  channel: CYPHERIA_IPC_CHANNELS.networkRemove,
-  namespace: "chain",
-  request: NetworkRemoveInputSchema,
-  response: NetworkMutationResultSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof NetworkRemoveInputSchema>, { completed: boolean }>
-export const networkReorderContract = {
-  channel: CYPHERIA_IPC_CHANNELS.networkReorder,
-  namespace: "chain",
-  request: NetworkReorderInputSchema,
-  response: NetworkMutationResultSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof NetworkReorderInputSchema>, { completed: boolean }>
-export const networkEndpointAddContract = {
-  channel: CYPHERIA_IPC_CHANNELS.networkEndpointAdd,
-  namespace: "chain",
-  request: NetworkEndpointAddInputSchema,
-  response: rpcEndpointViewSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  z.input<typeof NetworkEndpointAddInputSchema>,
-  z.output<typeof rpcEndpointViewSchema>
->
-export const networkEndpointProbeContract = {
-  channel: CYPHERIA_IPC_CHANNELS.networkEndpointProbe,
-  namespace: "chain",
-  request: NetworkEndpointIdInputSchema,
-  response: NetworkEndpointHealthSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  z.input<typeof NetworkEndpointIdInputSchema>,
-  z.output<typeof NetworkEndpointHealthSchema>
->
-export const networkEndpointRemoveContract = {
-  channel: CYPHERIA_IPC_CHANNELS.networkEndpointRemove,
-  namespace: "chain",
-  request: NetworkEndpointIdInputSchema,
-  response: NetworkMutationResultSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof NetworkEndpointIdInputSchema>, { completed: boolean }>
-export const networkEndpointReorderContract = {
-  channel: CYPHERIA_IPC_CHANNELS.networkEndpointReorder,
-  namespace: "chain",
-  request: NetworkEndpointReorderInputSchema,
-  response: NetworkMutationResultSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof NetworkEndpointReorderInputSchema>, { completed: boolean }>
-export const networkEndpointSetEnabledContract = {
-  channel: CYPHERIA_IPC_CHANNELS.networkEndpointSetEnabled,
-  namespace: "chain",
-  request: NetworkEndpointSetEnabledInputSchema,
-  response: rpcEndpointViewSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  z.input<typeof NetworkEndpointSetEnabledInputSchema>,
-  z.output<typeof rpcEndpointViewSchema>
->
-export const walletActiveReadContract = {
-  channel: CYPHERIA_IPC_CHANNELS.walletActiveRead,
-  namespace: "wallet",
-  request: EmptyPayloadSchema,
-  response: WalletActiveContextSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, z.output<typeof WalletActiveContextSchema>>
-export const walletActiveWriteContract = {
-  channel: CYPHERIA_IPC_CHANNELS.walletActiveWrite,
-  namespace: "wallet",
-  request: WalletSetActiveInputSchema,
-  response: WalletActiveContextSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  z.input<typeof WalletSetActiveInputSchema>,
-  z.output<typeof WalletActiveContextSchema>
->
-export const walletActiveClearContract = {
-  channel: CYPHERIA_IPC_CHANNELS.walletActiveClear,
-  namespace: "wallet",
-  request: EmptyPayloadSchema,
-  response: z.object({ cleared: z.boolean() }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, { cleared: boolean }>
-export const walletGenerateHdContract = {
-  channel: CYPHERIA_IPC_CHANNELS.walletGenerateHd,
-  namespace: "wallet",
-  request: WalletGenerateHdInputSchema,
-  response: WalletListSchema.element,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  z.input<typeof WalletGenerateHdInputSchema>,
-  z.output<typeof WalletListSchema>[number]
->
-export const walletDeriveHdAccountContract = {
-  channel: CYPHERIA_IPC_CHANNELS.walletDeriveHdAccount,
-  namespace: "wallet",
-  request: WalletDeriveHdAccountInputSchema,
-  response: WalletListSchema.element,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  z.input<typeof WalletDeriveHdAccountInputSchema>,
-  z.output<typeof WalletListSchema>[number]
->
-export const walletImportHdContract = {
-  channel: CYPHERIA_IPC_CHANNELS.walletImportHd,
-  namespace: "wallet",
-  request: WalletImportHdInputSchema,
-  response: WalletListSchema.element,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  z.input<typeof WalletImportHdInputSchema>,
-  z.output<typeof WalletListSchema>[number]
->
-export const walletImportPrivateKeyContract = {
-  channel: CYPHERIA_IPC_CHANNELS.walletImportPrivateKey,
-  namespace: "wallet",
-  request: WalletImportPrivateKeyInputSchema,
-  response: WalletListSchema.element,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  z.input<typeof WalletImportPrivateKeyInputSchema>,
-  z.output<typeof WalletListSchema>[number]
->
-export const walletAddWatchContract = {
-  channel: CYPHERIA_IPC_CHANNELS.walletAddWatch,
-  namespace: "wallet",
-  request: WalletAddWatchInputSchema,
-  response: WalletListSchema.element,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  z.input<typeof WalletAddWatchInputSchema>,
-  z.output<typeof WalletListSchema>[number]
->
-export const walletRenameContract = {
-  channel: CYPHERIA_IPC_CHANNELS.walletRename,
-  namespace: "wallet",
-  request: WalletRenameInputSchema,
-  response: WalletListSchema.element,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  z.input<typeof WalletRenameInputSchema>,
-  z.output<typeof WalletListSchema>[number]
->
-export const walletReorderContract = {
-  channel: CYPHERIA_IPC_CHANNELS.walletReorder,
-  namespace: "wallet",
-  request: WalletReorderInputSchema,
-  response: z.object({ reordered: z.boolean() }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof WalletReorderInputSchema>, { reordered: boolean }>
-export const walletReorderAccountsContract = {
-  channel: CYPHERIA_IPC_CHANNELS.walletReorderAccounts,
-  namespace: "wallet",
-  request: WalletReorderAccountsInputSchema,
-  response: z.object({ reordered: z.boolean() }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof WalletReorderAccountsInputSchema>, { reordered: boolean }>
-export const walletDeleteContract = {
-  channel: CYPHERIA_IPC_CHANNELS.walletDelete,
-  namespace: "wallet",
-  request: WalletIdInputSchema,
-  response: z.object({ deleted: z.boolean() }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof WalletIdInputSchema>, { deleted: boolean }>
-export const walletLockContract = {
-  channel: CYPHERIA_IPC_CHANNELS.walletLock,
-  namespace: "wallet",
-  request: WalletIdInputSchema,
-  response: WalletVaultStateSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  z.input<typeof WalletIdInputSchema>,
-  z.output<typeof WalletVaultStateSchema>
->
-export const walletUnlockContract = {
-  channel: CYPHERIA_IPC_CHANNELS.walletUnlock,
-  namespace: "wallet",
-  request: WalletIdInputSchema,
-  response: WalletVaultStateSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  z.input<typeof WalletIdInputSchema>,
-  z.output<typeof WalletVaultStateSchema>
->
+} satisfies IpcContract<EmptyPayload, { path: string | null }>
 
-export const policyListContract = {
-  channel: CYPHERIA_IPC_CHANNELS.policyList,
-  namespace: "policy",
-  request: SigningPolicyListInputSchema,
-  response: z.array(SigningPolicyRecordSchema),
+export const appConfigOpenContract = {
+  channel: CYPHERIA_IPC_CHANNELS.appConfigOpen,
+  namespace: "app",
+  request: EmptyPayloadSchema,
+  response: z.object({ opened: z.literal(true) }).strict(),
   version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof SigningPolicyListInputSchema>, SigningPolicyRecordView[]>
-export const policyCreateContract = {
-  channel: CYPHERIA_IPC_CHANNELS.policyCreate,
-  namespace: "policy",
-  request: SigningPolicyCreateInputSchema,
-  response: SigningPolicyRecordSchema,
+} satisfies IpcContract<EmptyPayload, { opened: true }>
+export const appProjectRevealContract = {
+  channel: CYPHERIA_IPC_CHANNELS.appProjectReveal,
+  namespace: "app",
+  request: z.object({ projectId: z.string().min(1) }).strict(),
+  response: z.object({ revealed: z.literal(true) }).strict(),
   version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof SigningPolicyCreateInputSchema>, SigningPolicyRecordView>
-export const policyUpdateContract = {
-  channel: CYPHERIA_IPC_CHANNELS.policyUpdate,
-  namespace: "policy",
-  request: SigningPolicyUpdateInputSchema,
-  response: SigningPolicyRecordSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof SigningPolicyUpdateInputSchema>, SigningPolicyRecordView>
-export const policyDisableContract = {
-  channel: CYPHERIA_IPC_CHANNELS.policyDisable,
-  namespace: "policy",
-  request: SigningPolicyDisableInputSchema,
-  response: SigningPolicyRecordSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof SigningPolicyDisableInputSchema>, SigningPolicyRecordView>
+} satisfies IpcContract<{ projectId: string }, { revealed: true }>
 
 export const browserSessionOpenContract = {
   channel: CYPHERIA_IPC_CHANNELS.browserSessionOpen,
@@ -1026,14 +459,6 @@ export const dappProviderRequestContract = {
   z.input<typeof walletProviderRequestSchema>,
   z.output<typeof walletProviderResponseSchema>
 >
-
-export const runtimeInfoReadContract = {
-  channel: CYPHERIA_IPC_CHANNELS.runtimeInfoRead,
-  namespace: "runtime",
-  request: EmptyPayloadSchema,
-  response: RuntimeInfoSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, RuntimeInfo>
 
 export const settingsAppearanceReadContract = {
   channel: CYPHERIA_IPC_CHANNELS.settingsAppearanceRead,
@@ -1115,434 +540,15 @@ export const settingsConnectionProxyTestContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<ConnectionProxySettings, ConnectionProxyTestResult>
 
-export const harnessListContract = {
-  channel: CYPHERIA_IPC_CHANNELS.harnessList,
-  namespace: "settings",
-  request: EmptyPayloadSchema,
-  response: z.array(HarnessViewSchema),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, HarnessView[]>
-
-export const harnessInstallContract = {
-  channel: CYPHERIA_IPC_CHANNELS.harnessInstall,
-  namespace: "settings",
-  request: HarnessIdRequestSchema,
-  response: HarnessViewSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof HarnessIdRequestSchema>, HarnessView>
-
-export const harnessCheckUpdateContract = {
-  ...harnessInstallContract,
-  channel: CYPHERIA_IPC_CHANNELS.harnessCheckUpdate,
-} satisfies IpcContract<z.input<typeof HarnessIdRequestSchema>, HarnessView>
-
-export const harnessUpdateContract = {
-  ...harnessInstallContract,
-  channel: CYPHERIA_IPC_CHANNELS.harnessUpdate,
-} satisfies IpcContract<z.input<typeof HarnessIdRequestSchema>, HarnessView>
-
-export const harnessEnabledWriteContract = {
-  channel: CYPHERIA_IPC_CHANNELS.harnessEnabledWrite,
-  namespace: "settings",
-  request: HarnessEnabledRequestSchema,
-  response: HarnessViewSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof HarnessEnabledRequestSchema>, HarnessView>
-
-export const harnessTerminalOpenContract = {
-  channel: CYPHERIA_IPC_CHANNELS.harnessTerminalOpen,
-  namespace: "settings",
-  request: HarnessTerminalOpenRequestSchema,
-  response: HarnessTerminalSessionSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof HarnessTerminalOpenRequestSchema>, HarnessTerminalSession>
-
-export const harnessTerminalWriteContract = {
-  channel: CYPHERIA_IPC_CHANNELS.harnessTerminalWrite,
-  namespace: "settings",
-  request: HarnessTerminalWriteSchema,
-  response: z.object({ written: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof HarnessTerminalWriteSchema>, { written: true }>
-
-export const harnessTerminalResizeContract = {
-  channel: CYPHERIA_IPC_CHANNELS.harnessTerminalResize,
-  namespace: "settings",
-  request: HarnessTerminalResizeSchema,
-  response: z.object({ resized: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof HarnessTerminalResizeSchema>, { resized: true }>
-
-export const harnessTerminalCloseContract = {
-  channel: CYPHERIA_IPC_CHANNELS.harnessTerminalClose,
-  namespace: "settings",
-  request: HarnessTerminalIdSchema,
-  response: z.object({ closed: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof HarnessTerminalIdSchema>, { closed: true }>
-
-export const harnessTerminalCloseAllContract = {
-  channel: CYPHERIA_IPC_CHANNELS.harnessTerminalCloseAll,
-  namespace: "settings",
-  request: EmptyPayloadSchema,
-  response: z.object({ closed: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, { closed: true }>
-
-export const workspaceTerminalOpenContract = {
-  channel: CYPHERIA_IPC_CHANNELS.workspaceTerminalOpen,
-  namespace: "codex",
-  request: WorkspaceTerminalOpenRequestSchema,
-  response: WorkspaceTerminalSessionSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  z.input<typeof WorkspaceTerminalOpenRequestSchema>,
-  WorkspaceTerminalSession
->
-
-export const workspaceTerminalWriteContract = {
-  channel: CYPHERIA_IPC_CHANNELS.workspaceTerminalWrite,
-  namespace: "codex",
-  request: WorkspaceTerminalWriteSchema,
-  response: z.object({ written: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof WorkspaceTerminalWriteSchema>, { written: true }>
-
-export const workspaceTerminalResizeContract = {
-  channel: CYPHERIA_IPC_CHANNELS.workspaceTerminalResize,
-  namespace: "codex",
-  request: WorkspaceTerminalResizeSchema,
-  response: z.object({ resized: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof WorkspaceTerminalResizeSchema>, { resized: true }>
-
-export const workspaceTerminalCloseContract = {
-  channel: CYPHERIA_IPC_CHANNELS.workspaceTerminalClose,
-  namespace: "codex",
-  request: WorkspaceTerminalIdSchema,
-  response: z.object({ closed: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<z.input<typeof WorkspaceTerminalIdSchema>, { closed: true }>
-
-export const workspaceTerminalCloseAllContract = {
-  channel: CYPHERIA_IPC_CHANNELS.workspaceTerminalCloseAll,
-  namespace: "codex",
-  request: EmptyPayloadSchema,
-  response: z.object({ closed: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, { closed: true }>
-
-export const codexPermissionsConfigOpenContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexPermissionsConfigOpen,
-  namespace: "codex",
-  request: EmptyPayloadSchema,
-  response: z.object({ opened: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, { opened: true }>
-
-export const codexAutoReviewRetryContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexAutoReviewRetry,
-  namespace: "codex",
-  request: CodexAutoReviewRetrySchema,
-  response: z.object({ accepted: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  { event: z.infer<typeof CodexAutoReviewRetrySchema>["event"]; threadId: string },
-  { accepted: true }
->
-
-export const codexThreadListContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexThreadList,
-  namespace: "codex",
-  request: CodexThreadListRequestSchema,
-  response: CodexThreadListPageSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  {
-    archived?: boolean
-    cursor?: string | null
-    limit?: number
-    searchTerm?: string
-    sectionId?: string | null
-    sortDirection?: "asc" | "desc"
-    sortKey?: "created_at" | "updated_at" | "recency_at" | "section_position"
-  },
-  CodexThreadListPage
->
-
-export const codexThreadReadContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexThreadRead,
-  namespace: "codex",
-  request: CodexThreadReadRequestSchema,
-  response: CodexThreadDetailViewSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ threadId: string }, CodexThreadDetailView>
-
-export const codexThreadArchiveContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexThreadArchive,
-  namespace: "codex",
-  request: CodexThreadMutationRequestSchema,
-  response: z.object({ archived: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ threadId: string }, { archived: true }>
-
-export const codexThreadUnarchiveContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexThreadUnarchive,
-  namespace: "codex",
-  request: CodexThreadMutationRequestSchema,
-  response: z.object({ unarchived: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ threadId: string }, { unarchived: true }>
-
-export const codexThreadDeleteContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexThreadDelete,
-  namespace: "codex",
-  request: CodexThreadMutationRequestSchema,
-  response: z.object({ deleted: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ threadId: string }, { deleted: true }>
-
-export const codexThreadForkContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexThreadFork,
-  namespace: "codex",
-  request: CodexThreadForkRequestSchema,
-  response: CodexThreadForkResultSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ lastTurnId?: string; threadId: string }, { threadId: string }>
-
-export const codexThreadRenameContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexThreadRename,
-  namespace: "codex",
-  request: CodexThreadRenameRequestSchema,
-  response: z.object({ renamed: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ name: string; threadId: string }, { renamed: true }>
-
-export const codexThreadProjectMoveContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexThreadProjectMove,
-  namespace: "codex",
-  request: CodexThreadProjectMoveRequestSchema,
-  response: z.object({ moved: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ projectId: string | null; threadId: string }, { moved: true }>
-
-export const codexThreadSectionListContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexThreadSectionList,
-  namespace: "codex",
-  request: CodexThreadSectionListRequestSchema,
-  response: CodexThreadSectionListPageSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ cursor?: string | null; limit?: number }, CodexThreadSectionListPage>
-
-export const codexThreadSectionCreateContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexThreadSectionCreate,
-  namespace: "codex",
-  request: CodexThreadSectionCreateRequestSchema,
-  response: CodexThreadSectionViewSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ name: string }, CodexThreadSectionView>
-
-export const codexThreadSectionUpdateContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexThreadSectionUpdate,
-  namespace: "codex",
-  request: CodexThreadSectionUpdateRequestSchema,
-  response: CodexThreadSectionViewSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ id: string; name: string }, CodexThreadSectionView>
-
-export const codexThreadSectionDeleteContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexThreadSectionDelete,
-  namespace: "codex",
-  request: CodexThreadSectionDeleteRequestSchema,
-  response: z.object({ deleted: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ id: string }, { deleted: true }>
-
-export const codexThreadSectionMoveContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexThreadSectionMove,
-  namespace: "codex",
-  request: CodexThreadSectionMoveRequestSchema,
-  response: z.object({ moved: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  { beforeThreadId?: string | null; sectionId: string | null; threadId: string },
-  { moved: true }
->
-
-export const codexProjectListContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexProjectList,
-  namespace: "codex",
-  request: CodexProjectListRequestSchema,
-  response: CodexProjectListPageSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  {
-    cursor?: string | null
-    limit?: number
-    sortDirection?: "asc" | "desc"
-    sortKey?: "position" | "recencyAt"
-  },
-  CodexProjectListPage
->
-
-export const codexProjectCreateContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexProjectCreate,
-  namespace: "codex",
-  request: CodexProjectCreateRequestSchema,
-  response: CodexProjectViewSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ name: string; root: string }, CodexProjectView>
-
-export const codexProjectUpdateContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexProjectUpdate,
-  namespace: "codex",
-  request: CodexProjectUpdateRequestSchema,
-  response: CodexProjectViewSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  { id: string; metadata?: Record<string, string>; name: string },
-  CodexProjectView
->
-
-export const codexProjectRevealContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexProjectReveal,
-  namespace: "codex",
-  request: CodexProjectDeleteRequestSchema,
-  response: z.object({ revealed: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ id: string }, { revealed: true }>
-
-export const codexProjectDeleteContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexProjectDelete,
-  namespace: "codex",
-  request: CodexProjectDeleteRequestSchema,
-  response: z.object({ deleted: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ id: string }, { deleted: true }>
-
-export const codexProjectRootPickContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexProjectRootPick,
-  namespace: "codex",
-  request: EmptyPayloadSchema,
-  response: CodexProjectRootPickResultSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, { path: string | null }>
-
-export const codexChatStartContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexChatStart,
-  namespace: "codex",
-  request: CodexChatStartSchema,
-  response: CodexChatStartResultSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<CodexChatStart, CodexChatStartResult>
-
-export const codexChatInterruptContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexChatInterrupt,
-  namespace: "codex",
-  request: CodexChatInterruptSchema,
-  response: z.object({ interrupted: z.boolean() }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ requestId: string }, { interrupted: boolean }>
-
-export const codexChatSteerContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexChatSteer,
-  namespace: "codex",
-  request: CodexChatSteerSchema,
-  response: z.object({ steered: z.boolean() }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<CodexChatFollowUp & { requestId: string }, { steered: boolean }>
-
-export const codexThreadQueueAddContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexThreadQueueAdd,
-  namespace: "codex",
-  request: CodexThreadQueueAddSchema,
-  response: z.object({ queuedSubmissionId: z.string().min(1) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  CodexChatFollowUp & { clientUserMessageId: string; threadId: string },
-  { queuedSubmissionId: string }
->
-
-export const codexInteractionRespondContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexInteractionRespond,
-  namespace: "codex",
-  request: CodexInteractionResponseSchema,
-  response: z.object({ resolved: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<CodexInteractionResponse, { resolved: true }>
-
-export const codexInteractionListContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexInteractionList,
-  namespace: "codex",
-  request: EmptyPayloadSchema,
-  response: z.array(CodexInteractionEventSchema),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, CodexInteractionEvent[]>
-
 export const ipcContracts = {
+  appDirectoryPick: appDirectoryPickContract,
   appExternalOpen: appExternalOpenContract,
   appHealthCheck: appHealthCheckContract,
   appMetadataRead: appMetadataReadContract,
-  auditLogList: auditLogListContract,
-  approvalRequestDecide: approvalRequestDecideContract,
-  approvalRequestsList: approvalRequestsListContract,
+  appConfigOpen: appConfigOpenContract,
+  appProjectReveal: appProjectRevealContract,
   browserSessionOpen: browserSessionOpenContract,
-  codexChatInterrupt: codexChatInterruptContract,
-  codexChatSteer: codexChatSteerContract,
-  codexChatStart: codexChatStartContract,
-  codexAutoReviewRetry: codexAutoReviewRetryContract,
-  codexPermissionsConfigOpen: codexPermissionsConfigOpenContract,
-  codexProjectCreate: codexProjectCreateContract,
-  codexProjectDelete: codexProjectDeleteContract,
-  codexProjectList: codexProjectListContract,
-  codexProjectReveal: codexProjectRevealContract,
-  codexProjectRootPick: codexProjectRootPickContract,
-  codexProjectUpdate: codexProjectUpdateContract,
-  codexThreadList: codexThreadListContract,
-  codexThreadArchive: codexThreadArchiveContract,
-  codexThreadUnarchive: codexThreadUnarchiveContract,
-  codexThreadDelete: codexThreadDeleteContract,
-  codexThreadFork: codexThreadForkContract,
-  codexThreadProjectMove: codexThreadProjectMoveContract,
-  codexThreadRead: codexThreadReadContract,
-  codexThreadRename: codexThreadRenameContract,
-  codexThreadQueueAdd: codexThreadQueueAddContract,
-  codexThreadSectionCreate: codexThreadSectionCreateContract,
-  codexThreadSectionDelete: codexThreadSectionDeleteContract,
-  codexThreadSectionList: codexThreadSectionListContract,
-  codexThreadSectionMove: codexThreadSectionMoveContract,
-  codexThreadSectionUpdate: codexThreadSectionUpdateContract,
   dappProviderRequest: dappProviderRequestContract,
-  harnessCheckUpdate: harnessCheckUpdateContract,
-  harnessEnabledWrite: harnessEnabledWriteContract,
-  harnessInstall: harnessInstallContract,
-  harnessList: harnessListContract,
-  harnessTerminalClose: harnessTerminalCloseContract,
-  harnessTerminalCloseAll: harnessTerminalCloseAllContract,
-  harnessTerminalOpen: harnessTerminalOpenContract,
-  harnessTerminalResize: harnessTerminalResizeContract,
-  harnessTerminalWrite: harnessTerminalWriteContract,
-  harnessUpdate: harnessUpdateContract,
-  workspaceTerminalClose: workspaceTerminalCloseContract,
-  workspaceTerminalCloseAll: workspaceTerminalCloseAllContract,
-  workspaceTerminalOpen: workspaceTerminalOpenContract,
-  workspaceTerminalResize: workspaceTerminalResizeContract,
-  workspaceTerminalWrite: workspaceTerminalWriteContract,
-  networkCreate: networkCreateContract,
-  networkEndpointAdd: networkEndpointAddContract,
-  networkEndpointProbe: networkEndpointProbeContract,
-  networkEndpointRemove: networkEndpointRemoveContract,
-  networkEndpointReorder: networkEndpointReorderContract,
-  networkEndpointSetEnabled: networkEndpointSetEnabledContract,
-  networkList: networkListContract,
-  networkRemove: networkRemoveContract,
-  networkReorder: networkReorderContract,
-  networkSetEnabled: networkSetEnabledContract,
-  policyCreate: policyCreateContract,
-  policyDisable: policyDisableContract,
-  policyList: policyListContract,
-  policyUpdate: policyUpdateContract,
-  runtimeInfoRead: runtimeInfoReadContract,
   settingsAppearanceFontsList: settingsAppearanceFontsListContract,
   settingsAppearanceRead: settingsAppearanceReadContract,
   settingsAppearanceWrite: settingsAppearanceWriteContract,
@@ -1553,21 +559,6 @@ export const ipcContracts = {
   settingsConnectionProxyRead: settingsConnectionProxyReadContract,
   settingsConnectionProxyTest: settingsConnectionProxyTestContract,
   settingsConnectionProxyWrite: settingsConnectionProxyWriteContract,
-  walletActiveClear: walletActiveClearContract,
-  walletActiveRead: walletActiveReadContract,
-  walletActiveWrite: walletActiveWriteContract,
-  walletAddWatch: walletAddWatchContract,
-  walletDelete: walletDeleteContract,
-  walletDeriveHdAccount: walletDeriveHdAccountContract,
-  walletGenerateHd: walletGenerateHdContract,
-  walletImportHd: walletImportHdContract,
-  walletImportPrivateKey: walletImportPrivateKeyContract,
-  walletList: walletListContract,
-  walletLock: walletLockContract,
-  walletRename: walletRenameContract,
-  walletReorder: walletReorderContract,
-  walletReorderAccounts: walletReorderAccountsContract,
-  walletUnlock: walletUnlockContract,
 } as const
 
 export type CypheriaPreloadApi = {
@@ -1579,169 +570,13 @@ export type CypheriaPreloadApi = {
     readonly platform: NodeJS.Platform
     readonly getHealth: () => Promise<AppHealthStatus>
     readonly getMetadata: () => Promise<AppMetadata>
+    readonly pickDirectory: () => Promise<{ path: string | null }>
     readonly openExternal: (url: string) => Promise<{ opened: true }>
-  }
-  readonly audit: {
-    readonly list: (limit?: number) => Promise<AuditLogRecordView[]>
-  }
-  readonly approval: {
-    readonly decide: (input: ApprovalRequestDecide) => Promise<ApprovalRequestView>
-    readonly list: (status?: ApprovalRequestStatus) => Promise<ApprovalRequestView[]>
-  }
-  readonly codex: {
-    readonly interruptChat: (requestId: string) => Promise<{ interrupted: boolean }>
-    readonly steerChat: (
-      requestId: string,
-      input: CodexChatFollowUp
-    ) => Promise<{ steered: boolean }>
-    readonly listProjects: (options?: {
-      cursor?: string | null
-      limit?: number
-      sortDirection?: "asc" | "desc"
-      sortKey?: "position" | "recencyAt"
-    }) => Promise<CodexProjectListPage>
-    readonly createProject: (input: { name: string; root: string }) => Promise<CodexProjectView>
-    readonly updateProject: (input: {
-      id: string
-      metadata?: Record<string, string>
-      name: string
-    }) => Promise<CodexProjectView>
-    readonly deleteProject: (id: string) => Promise<{ deleted: true }>
-    readonly revealProject: (id: string) => Promise<{ revealed: true }>
-    readonly pickProjectRoot: () => Promise<{ path: string | null }>
-    readonly listThreads: (options?: {
-      archived?: boolean
-      cursor?: string | null
-      limit?: number
-      searchTerm?: string
-      sectionId?: string | null
-      sortDirection?: "asc" | "desc"
-      sortKey?: "created_at" | "updated_at" | "recency_at" | "section_position"
-    }) => Promise<CodexThreadListPage>
-    readonly archiveThread: (threadId: string) => Promise<{ archived: true }>
-    readonly unarchiveThread: (threadId: string) => Promise<{ unarchived: true }>
-    readonly deleteThread: (threadId: string) => Promise<{ deleted: true }>
-    readonly forkThread: (threadId: string, lastTurnId?: string) => Promise<{ threadId: string }>
-    readonly moveThreadToProject: (
-      threadId: string,
-      projectId: string | null
-    ) => Promise<{ moved: true }>
-    readonly readThread: (threadId: string) => Promise<CodexThreadDetailView>
-    readonly renameThread: (threadId: string, name: string) => Promise<{ renamed: true }>
-    readonly queueThreadMessage: (
-      threadId: string,
-      clientUserMessageId: string,
-      input: CodexChatFollowUp
-    ) => Promise<{ queuedSubmissionId: string }>
-    readonly listThreadSections: (options?: {
-      cursor?: string | null
-      limit?: number
-    }) => Promise<CodexThreadSectionListPage>
-    readonly createThreadSection: (input: { name: string }) => Promise<CodexThreadSectionView>
-    readonly updateThreadSection: (input: {
-      id: string
-      name: string
-    }) => Promise<CodexThreadSectionView>
-    readonly deleteThreadSection: (id: string) => Promise<{ deleted: true }>
-    readonly moveThreadToSection: (input: {
-      beforeThreadId?: string | null
-      sectionId: string | null
-      threadId: string
-    }) => Promise<{ moved: true }>
-    readonly retryAutoReviewDenial: (
-      threadId: string,
-      event: z.infer<typeof CodexAutoReviewRetrySchema>["event"]
-    ) => Promise<{ accepted: true }>
-    readonly onChatEvent: (handler: (event: CodexChatEvent) => void) => () => void
-    readonly onInteraction: (handler: (event: CodexInteractionEvent) => void) => () => void
-    readonly onEvent: (handler: (event: CodexEventEnvelope) => void) => () => void
-    readonly listInteractions: () => Promise<CodexInteractionEvent[]>
-    readonly openPermissionsConfig: () => Promise<{ opened: true }>
-    readonly startChat: (request: CodexChatStart) => Promise<CodexChatStartResult>
-    readonly respondToInteraction: (
-      response: CodexInteractionResponse
-    ) => Promise<{ resolved: true }>
+    readonly openConfig: () => Promise<{ opened: true }>
+    readonly revealProject: (projectId: string) => Promise<{ revealed: true }>
   }
   readonly browser: {
     readonly openDapp: (url: string) => Promise<BrowserSessionOpenResult>
-  }
-  readonly harnesses: {
-    readonly checkUpdate: (id: import("./connections.js").HarnessId) => Promise<HarnessView>
-    readonly closeAllTerminals: () => Promise<{ closed: true }>
-    readonly closeTerminal: (terminalId: string) => Promise<{ closed: true }>
-    readonly install: (id: import("./connections.js").HarnessId) => Promise<HarnessView>
-    readonly list: () => Promise<HarnessView[]>
-    readonly onEvent: (handler: (event: HarnessEvent) => void) => () => void
-    readonly openTerminal: (
-      id: import("./connections.js").HarnessId,
-      cwd?: string
-    ) => Promise<HarnessTerminalSession>
-    readonly resizeTerminal: (
-      terminalId: string,
-      cols: number,
-      rows: number
-    ) => Promise<{ resized: true }>
-    readonly setEnabled: (
-      id: import("./connections.js").HarnessId,
-      enabled: boolean
-    ) => Promise<HarnessView>
-    readonly update: (id: import("./connections.js").HarnessId) => Promise<HarnessView>
-    readonly writeTerminal: (terminalId: string, data: string) => Promise<{ written: true }>
-  }
-  readonly workspaceTerminal: {
-    readonly closeAll: () => Promise<{ closed: true }>
-    readonly close: (terminalId: string) => Promise<{ closed: true }>
-    readonly onEvent: (handler: (event: WorkspaceTerminalEvent) => void) => () => void
-    readonly open: (projectId?: string) => Promise<WorkspaceTerminalSession>
-    readonly resize: (terminalId: string, cols: number, rows: number) => Promise<{ resized: true }>
-    readonly write: (terminalId: string, data: string) => Promise<{ written: true }>
-  }
-  readonly runtime: {
-    readonly getInfo: () => Promise<RuntimeInfo>
-  }
-  readonly policy: {
-    readonly create: (
-      input: z.input<typeof SigningPolicyCreateInputSchema>
-    ) => Promise<SigningPolicyRecordView>
-    readonly disable: (
-      policyId: string,
-      expectedRevision: number
-    ) => Promise<SigningPolicyRecordView>
-    readonly list: (
-      input?: z.input<typeof SigningPolicyListInputSchema>
-    ) => Promise<SigningPolicyRecordView[]>
-    readonly update: (
-      input: z.input<typeof SigningPolicyUpdateInputSchema>
-    ) => Promise<SigningPolicyRecordView>
-  }
-  readonly network: {
-    readonly addEndpoint: (
-      input: z.input<typeof NetworkEndpointAddInputSchema>
-    ) => Promise<z.output<typeof rpcEndpointViewSchema>>
-    readonly create: (
-      input: z.input<typeof NetworkCreateInputSchema>
-    ) => Promise<z.output<typeof NetworkViewSchema>>
-    readonly list: () => Promise<z.output<typeof NetworkListSchema>>
-    readonly probeEndpoint: (
-      endpointId: string
-    ) => Promise<z.output<typeof NetworkEndpointHealthSchema>>
-    readonly remove: (networkId: string, confirmed: boolean) => Promise<{ completed: boolean }>
-    readonly removeEndpoint: (endpointId: string) => Promise<{ completed: boolean }>
-    readonly reorder: (networkIds: readonly string[]) => Promise<{ completed: boolean }>
-    readonly reorderEndpoints: (
-      networkId: string,
-      endpointIds: readonly string[]
-    ) => Promise<{ completed: boolean }>
-    readonly setEnabled: (
-      networkId: string,
-      enabled: boolean,
-      expectedRevision: number
-    ) => Promise<z.output<typeof networkDefinitionSchema>>
-    readonly setEndpointEnabled: (
-      endpointId: string,
-      enabled: boolean,
-      expectedRevision: number
-    ) => Promise<z.output<typeof rpcEndpointViewSchema>>
   }
   readonly settings: {
     readonly getAppearance: () => Promise<AppearanceSettings>
@@ -1761,40 +596,5 @@ export type CypheriaPreloadApi = {
     readonly testConnectionProxy: (
       settings: ConnectionProxySettings
     ) => Promise<ConnectionProxyTestResult>
-  }
-  readonly wallet: {
-    readonly addWatch: (
-      input: z.input<typeof WalletAddWatchInputSchema>
-    ) => Promise<z.output<typeof WalletListSchema>[number]>
-    readonly clearActive: () => Promise<{ cleared: boolean }>
-    readonly delete: (walletId: string) => Promise<{ deleted: boolean }>
-    readonly deriveHdAccount: (
-      input: z.input<typeof WalletDeriveHdAccountInputSchema>
-    ) => Promise<z.output<typeof WalletListSchema>[number]>
-    readonly generateHd: (
-      input: z.input<typeof WalletGenerateHdInputSchema>
-    ) => Promise<z.output<typeof WalletListSchema>[number]>
-    readonly getActive: () => Promise<z.output<typeof WalletActiveContextSchema>>
-    readonly importHd: (
-      input: z.input<typeof WalletImportHdInputSchema>
-    ) => Promise<z.output<typeof WalletListSchema>[number]>
-    readonly importPrivateKey: (
-      input: z.input<typeof WalletImportPrivateKeyInputSchema>
-    ) => Promise<z.output<typeof WalletListSchema>[number]>
-    readonly list: () => Promise<z.output<typeof WalletListSchema>>
-    readonly lock: (walletId: string) => Promise<z.output<typeof WalletVaultStateSchema>>
-    readonly rename: (
-      walletId: string,
-      name: string
-    ) => Promise<z.output<typeof WalletListSchema>[number]>
-    readonly reorder: (walletIds: string[]) => Promise<{ reordered: boolean }>
-    readonly reorderAccounts: (
-      walletId: string,
-      walletAccountIds: string[]
-    ) => Promise<{ reordered: boolean }>
-    readonly setActive: (
-      input: z.input<typeof WalletSetActiveInputSchema>
-    ) => Promise<z.output<typeof WalletActiveContextSchema>>
-    readonly unlock: (walletId: string) => Promise<z.output<typeof WalletVaultStateSchema>>
   }
 }

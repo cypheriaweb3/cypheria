@@ -49,9 +49,6 @@ importers:
 
   apps/desktop:
     dependencies:
-      '@agentclientprotocol/sdk':
-        specifier: ^1.4.0
-        version: 1.4.0(patch_hash=a1d8a0a08bf8b0459cc70226380a92de11417af05f8f1dd34be0b447df17314d)(zod@4.6.2)
       '@ai-sdk/react':
         specifier: ^4.0.90
         version: 4.0.90(react@19.2.6)(zod@4.6.2)
@@ -61,9 +58,6 @@ importers:
       '@cypheria/client':
         specifier: workspace:*
         version: link:../../packages/client
-      '@cypheria/db':
-        specifier: workspace:*
-        version: link:../../packages/db
       '@cypheria/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
@@ -79,18 +73,12 @@ importers:
       '@hello-pangea/dnd':
         specifier: ^18.0.1
         version: 18.0.1(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
-      '@libsql/client':
-        specifier: ^0.17.4
-        version: 0.17.4
       '@lingui/core':
         specifier: ^6.6.0
         version: 6.6.0(@babel/core@8.0.1)(@babel/types@7.29.7)
       '@lingui/react':
         specifier: ^6.6.0
         version: 6.6.0(@babel/core@8.0.1)(@babel/types@7.29.7)(react@19.2.6)
-      '@openai/codex':
-        specifier: 0.153.4
-        version: 0.153.4
       '@solana/wallet-standard-chains':
         specifier: ^1.1.2
         version: 1.1.2

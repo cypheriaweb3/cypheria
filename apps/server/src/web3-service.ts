@@ -9,14 +9,17 @@ import {
   type OpenDatabaseResult,
 } from "@cypheria/db"
 import type { Web3ClientMessage, Web3ServerMessage } from "@cypheria/protocol"
+import { createDappSessionManager, type DappSessionManager } from "@cypheria/web3/provider"
 
 import {
   type CypheriaRuntimePaths,
   createEncryptedFileNetworkCredentialStore,
+  createEthereumProviderRuntimeService,
   createNetworkManager,
   createPrivateFileVaultMasterKeyProvider,
   createSigningIntentRuntimeService,
   createSigningPolicyRuntimeService,
+  createSolanaProviderRuntimeService,
   createWalletKeystoreCodec,
   createWalletManager,
   createWalletVaultController,
@@ -44,8 +47,11 @@ export class ServerWeb3Service {
   readonly networks: NetworkManager
   readonly policies: SigningPolicyRuntimeService
   readonly signingIntents: SigningIntentRuntimeService
+  readonly dappSessions: DappSessionManager
   readonly vault: WalletVaultController
   readonly wallets: WalletManager
+  readonly #requestEthereumProvider: (request: unknown) => Promise<unknown>
+  readonly #requestSolanaProvider: (request: unknown) => Promise<unknown>
 
   constructor(database: OpenDatabaseResult, paths: CypheriaRuntimePaths) {
     this.audit = createAuditLogService(database.db)
@@ -97,6 +103,33 @@ export class ServerWeb3Service {
       persistence: createSigningIntentPersistenceService(database.db),
       policies: this.policies,
     })
+    this.dappSessions = createDappSessionManager({ persistence: providerPersistence })
+    const ethereumProvider = createEthereumProviderRuntimeService({
+      audit: this.audit,
+      executeSigningIntent: async () => {
+        throw new Error("Ethereum signing execution is not configured.")
+      },
+      getActiveSigningContext: async () => undefined,
+      networks: this.networks,
+      permissionAuthorizer: async () => undefined,
+      persistence: providerPersistence,
+      router,
+      sessions: this.dappSessions,
+      signingIntents: this.signingIntents,
+    })
+    const solanaProvider = createSolanaProviderRuntimeService({
+      audit: this.audit,
+      executeSigningIntent: async () => {
+        throw new Error("Solana signing execution is not configured.")
+      },
+      networks: this.networks,
+      permissionAuthorizer: async () => undefined,
+      persistence: providerPersistence,
+      sessions: this.dappSessions,
+      signingIntents: this.signingIntents,
+    })
+    this.#requestEthereumProvider = ethereumProvider.handle
+    this.#requestSolanaProvider = solanaProvider.handle
   }
 
   async initialize(): Promise<void> {
@@ -227,6 +260,13 @@ export class ServerWeb3Service {
         })
       case "web3.audit.list.request":
         return this.audit.list(message.payload)
+      case "web3.dapp.session.open.request":
+        return this.dappSessions.open(message.payload.url)
+      case "web3.dapp.provider.request":
+        return message.payload.method.startsWith("solana:") ||
+          message.payload.method.startsWith("standard:")
+          ? this.#requestSolanaProvider(message.payload)
+          : this.#requestEthereumProvider(message.payload)
     }
   }
 

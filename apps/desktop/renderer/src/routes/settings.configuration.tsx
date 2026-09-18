@@ -55,9 +55,10 @@ function ConfigurationSettingsRoute() {
     save.mutate(write)
   }
   const openConfiguration = async (): Promise<void> => {
+    if (!draft) return
     const client = await ensureCypheriaClient()
     await client.server.patchConfig({})
-    await window.cypheria?.codex.openPermissionsConfig()
+    await window.cypheria?.app.openConfig()
   }
 
   if (!draft)
