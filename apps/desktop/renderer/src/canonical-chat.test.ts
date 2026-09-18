@@ -150,6 +150,22 @@ describe("canonicalInteractionToView", () => {
       threadId: "thread-1",
     })
 
+    permission.provider = {
+      agentId: "codex",
+      metadata: {
+        permissions: { network: { enabled: true } },
+        reason: "Needs package access",
+      },
+      nativeType: "agent.codex.item.permissions.request_approval.request",
+    }
+    expect(canonicalInteractionToView(permission, "thread-1")).toMatchObject({
+      method: "item/permissions/requestApproval",
+      params: {
+        permissions: { network: { enabled: true } },
+        reason: "Needs package access",
+      },
+    })
+
     const question: ThreadInteraction = {
       createdAt: "2026-09-18T00:00:00.000Z",
       expiresAt: null,

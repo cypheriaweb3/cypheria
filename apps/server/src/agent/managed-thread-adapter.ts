@@ -70,6 +70,21 @@ const requestIdOf = (message: AgentRuntimeServerMessage): string | number | null
   return payloadOf(message).requestId as string | number | null | undefined
 }
 
+const codexPermissionDecision = (response: ThreadInteractionResponse): unknown => {
+  if (response.type === "permission" && response.decision !== undefined) return response.decision
+  if (response.type !== "permission" || response.outcome === "deny") return "decline"
+  return response.outcome === "allow_always" ? "acceptForSession" : "accept"
+}
+
+const grantedCodexPermissions = (value: unknown): Record<string, unknown> => {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {}
+  const permissions = value as Record<string, unknown>
+  return {
+    ...(permissions.fileSystem ? { fileSystem: permissions.fileSystem } : {}),
+    ...(permissions.network ? { network: permissions.network } : {}),
+  }
+}
+
 const resultOf = (message: AgentRuntimeServerMessage): Record<string, unknown> => {
   const payload = payloadOf(message)
   if (payload.error) {
@@ -702,17 +717,87 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
     if (!reverse) throw new Error("Provider interaction is no longer pending")
     if (this.agentId === "codex") {
       const request = reverse as unknown as Record<string, unknown>
+      const requestPayload = { ...request, ...payloadOf(reverse) }
+      const payload = (() => {
+        switch (reverse.type) {
+          case "agent.codex.apply_patch_approval.request":
+          case "agent.codex.exec_command_approval.request":
+            return {
+              decision:
+                response.type === "permission" && response.outcome !== "deny"
+                  ? response.outcome === "allow_always"
+                    ? "approved_for_session"
+                    : "approved"
+                  : response.type === "cancel"
+                    ? "abort"
+                    : { denied: { rejection: "Declined by the user." } },
+              requestId: request.requestId,
+            }
+          case "agent.codex.item.command_execution.request_approval.request":
+          case "agent.codex.item.file_change.request_approval.request":
+            return { decision: codexPermissionDecision(response), requestId: request.requestId }
+          case "agent.codex.item.permissions.request_approval.request": {
+            const accepted = response.type === "permission" && response.outcome !== "deny"
+            return {
+              permissions: accepted
+                ? grantedCodexPermissions(response.permissions ?? requestPayload.permissions)
+                : {},
+              requestId: request.requestId,
+              scope:
+                response.type === "permission" && response.scope
+                  ? response.scope
+                  : response.type === "permission" && response.outcome === "allow_always"
+                    ? "session"
+                    : "turn",
+              ...(response.type === "permission" && response.strictAutoReview !== undefined
+                ? { strictAutoReview: response.strictAutoReview }
+                : {}),
+            }
+          }
+          case "agent.codex.item.tool.request_user_input.request": {
+            const questions = Array.isArray(requestPayload.questions)
+              ? (requestPayload.questions as Array<Record<string, unknown>>)
+              : []
+            const answers =
+              response.type === "answers"
+                ? Array.isArray(response.answers)
+                  ? Object.fromEntries(
+                      response.answers.map((answer, index) => [
+                        String(questions[index]?.id ?? index),
+                        { answers: answer },
+                      ])
+                    )
+                  : Object.fromEntries(
+                      Object.entries(response.answers).map(([id, answer]) => [
+                        id,
+                        { answers: answer },
+                      ])
+                    )
+                : {}
+            return { answers, requestId: request.requestId }
+          }
+          case "agent.codex.mcp_server.elicitation.request.request":
+            return {
+              _meta: null,
+              action:
+                response.type === "elicitation"
+                  ? response.action
+                  : response.type === "cancel"
+                    ? "cancel"
+                    : "decline",
+              content:
+                response.type === "elicitation" && response.action === "accept"
+                  ? (response.content ?? null)
+                  : null,
+              requestId: request.requestId,
+            }
+          default:
+            throw new Error(`Unsupported Codex interaction: ${reverse.type}`)
+        }
+      })()
       await this.#manager.handleCodex(
         AgentCodexServerResponseSchema.parse({
-          payload: {
-            decision:
-              response.type === "permission" && response.outcome !== "deny"
-                ? response.outcome === "allow_always"
-                  ? "acceptForSession"
-                  : "accept"
-                : "decline",
-            requestId: request.requestId,
-          },
+          payload,
           type: String(request.type).replace(/\.request$/, ".response"),
         }),
         { send: this.#receive, sessionId: context.threadId }
@@ -747,8 +832,18 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
         } else {
           const answers =
             response.type === "answers"
-              ? response.answers
-              : [[response.type === "selection" ? response.optionId : response.value]]
+              ? Array.isArray(response.answers)
+                ? response.answers
+                : Object.values(response.answers)
+              : [
+                  [
+                    response.type === "selection"
+                      ? response.optionId
+                      : response.type === "text"
+                        ? response.value
+                        : "",
+                  ],
+                ]
           await this.#openCodeCall(context.threadId, {
             body: { answers },
             operation: `POST /question/${encodeURIComponent(requestId)}/reply`,
@@ -1125,6 +1220,71 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
         : Array.isArray(request.options)
           ? request.options
           : []
+      const rawQuestions = Array.isArray(payload.questions)
+        ? payload.questions
+        : Array.isArray(request.questions)
+          ? request.questions
+          : undefined
+      const questions = rawQuestions
+        ? rawQuestions.flatMap((question, questionIndex) => {
+            if (!question || typeof question !== "object") return []
+            const value = question as Record<string, unknown>
+            const options = Array.isArray(value.options) ? value.options : []
+            return [
+              {
+                custom: value.isOther === true,
+                header: String(value.header ?? value.title ?? `Question ${questionIndex + 1}`),
+                id: String(value.id ?? questionIndex),
+                multiple: value.multiple === true,
+                options: options.flatMap((option, optionIndex) => {
+                  if (!option || typeof option !== "object") return []
+                  const candidate = option as Record<string, unknown>
+                  const label = String(candidate.label ?? candidate.name ?? optionIndex)
+                  return [
+                    {
+                      description:
+                        typeof candidate.description === "string" ? candidate.description : null,
+                      id: String(candidate.id ?? candidate.value ?? label),
+                      label,
+                    },
+                  ]
+                }),
+                question: String(
+                  value.question ?? value.message ?? value.header ?? "Input required"
+                ),
+                secret: value.isSecret === true,
+              },
+            ]
+          })
+        : undefined
+      const interactionOptions = rawOptions.flatMap((option, index) => {
+        if (typeof option === "string") {
+          return [{ description: null, id: option, label: option }]
+        }
+        if (!option || typeof option !== "object") return []
+        const value = option as Record<string, unknown>
+        const id = String(value.optionId ?? value.id ?? value.value ?? index)
+        return [
+          {
+            description: typeof value.description === "string" ? value.description : null,
+            id,
+            label: String(value.name ?? value.label ?? value.title ?? id),
+          },
+        ]
+      })
+      if (
+        interactionOptions.length === 0 &&
+        (message.type.includes("permission") || message.type.includes("approval"))
+      ) {
+        interactionOptions.push(
+          { description: null, id: "allow_once", label: "Allow once" },
+          { description: null, id: "allow_always", label: "Always allow" },
+          { description: null, id: "deny", label: "Deny" }
+        )
+      }
+      const providerMetadata = { ...request, ...payload }
+      delete providerMetadata.requestId
+      delete providerMetadata.type
       onEvent({
         interaction: {
           createdAt: new Date().toISOString(),
@@ -1133,7 +1293,9 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
           kind:
             message.type.includes("permission") || message.type.includes("approval")
               ? "permission"
-              : "elicitation",
+              : message.type.includes("request_user_input")
+                ? "question"
+                : "elicitation",
           message: String(
             payload.message ??
               request.message ??
@@ -1144,21 +1306,17 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
               request.reason ??
               message.type
           ),
-          options: rawOptions.flatMap((option, index) => {
-            if (typeof option === "string") {
-              return [{ description: null, id: option, label: option }]
-            }
-            if (!option || typeof option !== "object") return []
-            const value = option as Record<string, unknown>
-            const id = String(value.optionId ?? value.id ?? value.value ?? index)
-            return [
-              {
-                description: typeof value.description === "string" ? value.description : null,
-                id,
-                label: String(value.name ?? value.label ?? value.title ?? id),
-              },
-            ]
-          }),
+          options: interactionOptions,
+          ...(this.agentId === "codex"
+            ? {
+                provider: {
+                  agentId: "codex" as const,
+                  metadata: providerMetadata as never,
+                  nativeType: message.type,
+                },
+              }
+            : {}),
+          ...(questions?.length ? { questions } : {}),
           title:
             typeof (
               payload.title ??

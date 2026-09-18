@@ -50,6 +50,155 @@ describe("ManagedThreadAdapter", () => {
     })
   })
 
+  it("preserves Codex permission, question, and elicitation response details", async () => {
+    const events: ThreadProviderEvent[] = []
+    const responses: Record<string, unknown>[] = []
+    let turnContext: AgentMessageContext | undefined
+    const handleCodex = vi.fn(
+      async (message: Record<string, unknown>, context: AgentMessageContext) => {
+        if (message.type === "agent.codex.thread.start.request") {
+          context.send({
+            payload: {
+              requestId: message.requestId,
+              thread: { id: "codex-thread-1", turns: [] },
+            },
+            type: "agent.codex.thread.start.response",
+          } as unknown as AgentRuntimeServerMessage)
+          return
+        }
+        if (message.type === "agent.codex.turn.start.request") {
+          turnContext = context
+          context.send({
+            payload: {
+              requestId: message.requestId,
+              turn: { id: "turn-1", items: [], status: "inProgress" },
+            },
+            type: "agent.codex.turn.start.response",
+          } as unknown as AgentRuntimeServerMessage)
+          return
+        }
+        responses.push(message)
+      }
+    )
+    const manager = { handleCodex } as unknown as AgentManager
+    const adapter = new ManagedThreadAdapter(manager, "codex")
+    const created = await adapter.create({
+      ...input("codex"),
+      onEvent: (event) => events.push(event),
+    })
+    const context = {
+      agentId: "codex" as const,
+      agentSessionId: created.sessionId,
+      cwd: "/repo",
+      threadId: input("codex").threadId,
+    }
+    await adapter.startTurn({
+      ...context,
+      clientMessageId: "message-1",
+      content: [{ text: "hello", type: "text" }],
+    })
+
+    turnContext?.send({
+      cwd: "/repo",
+      environmentId: null,
+      itemId: "item-1",
+      permissions: {
+        fileSystem: { read: ["/repo"], write: null },
+        network: { enabled: true },
+      },
+      reason: "Install dependencies",
+      requestId: "permission-1",
+      startedAtMs: 1,
+      threadId: "codex-thread-1",
+      turnId: "turn-1",
+      type: "agent.codex.item.permissions.request_approval.request",
+    } as unknown as AgentRuntimeServerMessage)
+    expect(events.at(-1)).toMatchObject({
+      interaction: {
+        kind: "permission",
+        provider: {
+          agentId: "codex",
+          nativeType: "agent.codex.item.permissions.request_approval.request",
+        },
+      },
+    })
+    await adapter.respondToInteraction(context, "provider:codex:permission-1", {
+      outcome: "allow_always",
+      permissions: { network: { enabled: true } },
+      scope: "session",
+      strictAutoReview: true,
+      type: "permission",
+    })
+    expect(responses.at(-1)).toMatchObject({
+      payload: {
+        permissions: { network: { enabled: true } },
+        requestId: "permission-1",
+        scope: "session",
+        strictAutoReview: true,
+      },
+      type: "agent.codex.item.permissions.request_approval.response",
+    })
+
+    turnContext?.send({
+      autoResolutionMs: null,
+      isBlocking: true,
+      itemId: "item-2",
+      questions: [
+        {
+          header: "Database",
+          id: "database",
+          isOther: true,
+          isSecret: false,
+          options: [{ description: "Local", label: "SQLite" }],
+          question: "Which database?",
+        },
+      ],
+      requestId: "question-1",
+      threadId: "codex-thread-1",
+      turnId: "turn-1",
+      type: "agent.codex.item.tool.request_user_input.request",
+    } as unknown as AgentRuntimeServerMessage)
+    expect(events.at(-1)).toMatchObject({
+      interaction: { kind: "question", questions: [{ id: "database" }] },
+    })
+    await adapter.respondToInteraction(context, "provider:codex:question-1", {
+      answers: { database: ["SQLite"] },
+      type: "answers",
+    })
+    expect(responses.at(-1)).toMatchObject({
+      payload: {
+        answers: { database: { answers: ["SQLite"] } },
+        requestId: "question-1",
+      },
+      type: "agent.codex.item.tool.request_user_input.response",
+    })
+
+    turnContext?.send({
+      _meta: null,
+      message: "Enter credentials",
+      mode: "form",
+      requestId: "elicitation-1",
+      requestedSchema: { properties: {}, type: "object" },
+      serverName: "example",
+      threadId: "codex-thread-1",
+      turnId: "turn-1",
+      type: "agent.codex.mcp_server.elicitation.request.request",
+    } as unknown as AgentRuntimeServerMessage)
+    await adapter.respondToInteraction(context, "provider:codex:elicitation-1", {
+      action: "accept",
+      content: { token: "provided" },
+      type: "elicitation",
+    })
+    expect(responses.at(-1)).toMatchObject({
+      payload: {
+        action: "accept",
+        content: { token: "provided" },
+        requestId: "elicitation-1",
+      },
+      type: "agent.codex.mcp_server.elicitation.request.response",
+    })
+  })
+
   it("rejects ACP agents that cannot delete their native sessions", async () => {
     const disposeSession = vi.fn(async () => undefined)
     const manager = {

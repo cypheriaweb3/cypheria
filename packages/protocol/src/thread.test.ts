@@ -87,11 +87,14 @@ describe("thread protocol", () => {
     ).toBe(true)
   })
 
-  test("models multi-question answers without provider-shaped escape hatches", () => {
+  test("models keyed multi-question answers and structured provider responses", () => {
     const request = ThreadInteractionRespondRequestSchema.parse({
       payload: {
         interactionId: "question-1",
-        response: { answers: [["TypeScript"], ["Vitest", "Playwright"]], type: "answers" },
+        response: {
+          answers: { language: ["TypeScript"], tests: ["Vitest", "Playwright"] },
+          type: "answers",
+        },
         threadId: "01996a3a-bcde-7000-8000-000000000001",
       },
       requestId: "request-1",
@@ -99,9 +102,27 @@ describe("thread protocol", () => {
     })
 
     expect(request.payload.response).toEqual({
-      answers: [["TypeScript"], ["Vitest", "Playwright"]],
+      answers: { language: ["TypeScript"], tests: ["Vitest", "Playwright"] },
       type: "answers",
     })
+
+    expect(
+      ThreadInteractionRespondRequestSchema.parse({
+        payload: {
+          interactionId: "permission-1",
+          response: {
+            outcome: "allow_always",
+            permissions: { network: { enabled: true } },
+            scope: "session",
+            strictAutoReview: true,
+            type: "permission",
+          },
+          threadId: "01996a3a-bcde-7000-8000-000000000001",
+        },
+        requestId: "request-2",
+        type: "thread.interaction.respond.request",
+      }).payload.response
+    ).toMatchObject({ scope: "session", strictAutoReview: true })
   })
 
   test("validates active-turn steering as a common thread request", () => {

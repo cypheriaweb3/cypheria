@@ -56,9 +56,11 @@ export const ThreadInteractionOptionSchema = z.object({
 export const ThreadQuestionSchema = z.object({
   custom: z.boolean(),
   header: z.string().min(1),
+  id: z.string().min(1).optional(),
   multiple: z.boolean(),
   options: z.array(ThreadInteractionOptionSchema),
   question: z.string().min(1),
+  secret: z.boolean().optional(),
 })
 
 export const ThreadInteractionSchema = z.object({
@@ -68,6 +70,13 @@ export const ThreadInteractionSchema = z.object({
   kind: z.enum(["permission", "question", "elicitation"]),
   message: z.string(),
   options: z.array(ThreadInteractionOptionSchema),
+  provider: z
+    .object({
+      agentId: AgentIdSchema,
+      metadata: z.json(),
+      nativeType: z.string().min(1),
+    })
+    .optional(),
   questions: z.array(ThreadQuestionSchema).optional(),
   title: z.string().nullable(),
 })
@@ -447,20 +456,38 @@ export const ThreadConfigUpdateRequestSchema = request(
     threadId: ProjectThreadIdSchema,
   })
 )
+export const ThreadInteractionResponseSchema = z.discriminatedUnion("type", [
+  z.object({
+    decision: z.json().optional(),
+    outcome: z.enum(["allow_once", "allow_always", "deny"]),
+    permissions: z.json().optional(),
+    scope: z.enum(["turn", "session"]).optional(),
+    strictAutoReview: z.boolean().optional(),
+    type: z.literal("permission"),
+  }),
+  z.object({ optionId: z.string().min(1), type: z.literal("selection") }),
+  z.object({ type: z.literal("text"), value: z.string() }),
+  z.object({
+    answers: z.union([
+      z.array(z.array(z.string())).min(1),
+      z.record(z.string(), z.array(z.string())),
+    ]),
+    type: z.literal("answers"),
+  }),
+  z.object({
+    action: z.enum(["accept", "decline", "cancel"]),
+    content: z.json().optional(),
+    type: z.literal("elicitation"),
+  }),
+  z.object({ type: z.literal("cancel") }),
+])
+export type ThreadInteractionResponse = z.infer<typeof ThreadInteractionResponseSchema>
+
 export const ThreadInteractionRespondRequestSchema = request(
   "thread.interaction.respond.request",
   z.object({
     interactionId: z.string().min(1),
-    response: z.discriminatedUnion("type", [
-      z.object({
-        outcome: z.enum(["allow_once", "allow_always", "deny"]),
-        type: z.literal("permission"),
-      }),
-      z.object({ optionId: z.string().min(1), type: z.literal("selection") }),
-      z.object({ type: z.literal("text"), value: z.string() }),
-      z.object({ answers: z.array(z.array(z.string())).min(1), type: z.literal("answers") }),
-      z.object({ type: z.literal("cancel") }),
-    ]),
+    response: ThreadInteractionResponseSchema,
     threadId: ProjectThreadIdSchema,
   })
 )

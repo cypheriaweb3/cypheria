@@ -18,6 +18,17 @@ export type CypheriaThreadDetailView = CodexThreadDetailView & {
   capabilities: ThreadCapabilities
 }
 
+const CODEX_INTERACTION_METHODS = {
+  "agent.codex.apply_patch_approval.request": "applyPatchApproval",
+  "agent.codex.exec_command_approval.request": "execCommandApproval",
+  "agent.codex.item.command_execution.request_approval.request":
+    "item/commandExecution/requestApproval",
+  "agent.codex.item.file_change.request_approval.request": "item/fileChange/requestApproval",
+  "agent.codex.item.permissions.request_approval.request": "item/permissions/requestApproval",
+  "agent.codex.item.tool.request_user_input.request": "item/tool/requestUserInput",
+  "agent.codex.mcp_server.elicitation.request.request": "mcpServer/elicitation/request",
+} as const
+
 const attachmentPart = (
   attachment: NonNullable<
     Extract<ThreadTimelineProjectedItem["item"], { type: "message" }>["attachments"]
@@ -57,9 +68,9 @@ export const canonicalInteractionToView = (
   const questions =
     interaction.questions?.map((question, index) => ({
       header: question.header,
-      id: String(index),
+      id: question.id ?? String(index),
       isOther: question.custom,
-      isSecret: false,
+      isSecret: question.secret ?? false,
       options: question.options.length
         ? question.options.map((option) => ({
             description: option.description ?? "",
@@ -85,6 +96,14 @@ export const canonicalInteractionToView = (
           },
         ]
       : undefined)
+  const provider = interaction.provider?.agentId === "codex" ? interaction.provider : undefined
+  const method = provider
+    ? CODEX_INTERACTION_METHODS[provider.nativeType as keyof typeof CODEX_INTERACTION_METHODS]
+    : undefined
+  const providerParams =
+    provider?.metadata && typeof provider.metadata === "object" && !Array.isArray(provider.metadata)
+      ? provider.metadata
+      : {}
   return {
     description: interaction.message,
     interactionId: interaction.id,
@@ -95,12 +114,14 @@ export const canonicalInteractionToView = (
           ? "user-input"
           : "elicitation",
     method:
-      interaction.kind === "permission"
+      method ??
+      (interaction.kind === "permission"
         ? "execCommandApproval"
         : interaction.kind === "question"
           ? "item/tool/requestUserInput"
-          : "mcpServer/elicitation/request",
+          : "mcpServer/elicitation/request"),
     params: {
+      ...providerParams,
       availableDecisions:
         interaction.kind === "permission"
           ? [

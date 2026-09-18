@@ -141,7 +141,7 @@ Status legend:
   - [x] Move networks, wallets, policies, signing approvals, and audit surfaces to the shared `client.web3` API; the renderer no longer consumes their old IPC path.
   - [x] Move Codex permission configuration to the server API and remove its old data IPC paths.
   - [x] Move project terminal lifecycle and Codex auto-review notifications/retry to server APIs; PTYs are client-session scoped and the renderer no longer uses terminal IPC.
-  - [~] Preserve the complete typed response shape for reverse-request approval, user-input, permission, and MCP elicitation flows before removing their old IPC paths.
+  - [x] Preserve the complete typed response shape for reverse-request approval, user-input, permission, and MCP elicitation flows before removing their old IPC paths.
   - [x] Move Codex account/login, model discovery, and model defaults to `client.providers.codex`; persist shared defaults under `agents.codex` in Cypheria config and remove their old renderer IPC paths.
   - [x] Move skills, plugins, MCP, marketplaces, and Codex Apps to the versioned Integrations API and remove their old renderer IPC execution paths.
   - Status: explicitly approved; preserve the current Sidebar and Codex-derived conversation experience as hard acceptance gates while replacing their data source.

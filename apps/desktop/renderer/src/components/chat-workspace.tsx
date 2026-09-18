@@ -821,20 +821,29 @@ function ChatSession({
       if (response.action === "cancel") return { type: "cancel" as const }
       if (interaction.kind === "permission") {
         return {
+          ...(response.decision !== undefined ? { decision: response.decision } : {}),
           outcome:
             response.action === "accept-for-session"
               ? ("allow_always" as const)
               : response.action === "accept"
                 ? ("allow_once" as const)
                 : ("deny" as const),
+          ...(response.permissions !== undefined ? { permissions: response.permissions } : {}),
+          ...(response.scope !== undefined ? { scope: response.scope } : {}),
+          ...(response.strictAutoReview !== undefined
+            ? { strictAutoReview: response.strictAutoReview }
+            : {}),
           type: "permission" as const,
         }
       }
       if (interaction.kind === "question") {
         if (interaction.questions?.length) {
           return {
-            answers: interaction.questions.map(
-              (_, index) => response.answers?.[String(index)] ?? []
+            answers: Object.fromEntries(
+              interaction.questions.map((question, index) => [
+                question.id ?? String(index),
+                response.answers?.[question.id ?? String(index)] ?? [],
+              ])
             ),
             type: "answers" as const,
           }
@@ -848,11 +857,14 @@ function ChatSession({
           : { type: "text" as const, value }
       }
       return {
-        type: "text" as const,
-        value:
-          typeof response.content === "string"
-            ? response.content
-            : JSON.stringify(response.content ?? null),
+        action:
+          response.action === "accept"
+            ? ("accept" as const)
+            : response.action === "decline"
+              ? ("decline" as const)
+              : ("cancel" as const),
+        ...(response.content !== undefined ? { content: response.content } : {}),
+        type: "elicitation" as const,
       }
     })()
     await client.threads.respondToInteraction({

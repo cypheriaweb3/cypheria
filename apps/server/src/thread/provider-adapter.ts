@@ -3,6 +3,7 @@ import type {
   ThreadCapabilities,
   ThreadInputBlock,
   ThreadInteraction,
+  ThreadInteractionResponse,
   ThreadServerMessage,
   ThreadTimelineItem,
 } from "@cypheria/protocol"
@@ -64,12 +65,7 @@ export type ThreadProviderSteerInput = ThreadProviderTurnInput & {
   readonly turnId: string
 }
 
-export type ThreadInteractionResponse =
-  | { readonly outcome: "allow_once" | "allow_always" | "deny"; readonly type: "permission" }
-  | { readonly optionId: string; readonly type: "selection" }
-  | { readonly type: "text"; readonly value: string }
-  | { readonly answers: readonly (readonly string[])[]; readonly type: "answers" }
-  | { readonly type: "cancel" }
+export type { ThreadInteractionResponse }
 
 /** Provider-native behavior hidden behind the public Agent/Thread protocol. */
 export interface ThreadProviderAdapter {
