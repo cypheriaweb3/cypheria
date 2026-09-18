@@ -15,6 +15,13 @@ import {
 } from "./project-thread.ts"
 import { RequestIdSchema } from "./request-id.ts"
 import {
+  SCHEDULE_CLIENT_SCHEMAS,
+  SCHEDULE_RESPONSE_TYPES,
+  SCHEDULE_SERVER_SCHEMAS,
+  type ScheduleClientMessage,
+  type ScheduleServerMessage,
+} from "./schedule.ts"
+import {
   THREAD_CLIENT_SCHEMAS,
   THREAD_RESPONSE_TYPES,
   THREAD_SERVER_SCHEMAS,
@@ -32,6 +39,7 @@ export * from "./agent/registry.ts"
 export * from "./project-thread.ts"
 export * from "./relay.ts"
 export { type RequestId, RequestIdSchema } from "./request-id.ts"
+export * from "./schedule.ts"
 export * from "./thread.ts"
 export * from "./thread-timeline.ts"
 
@@ -44,6 +52,7 @@ const CYPHERIA_SUPERJSON_MARKER = "cypheria.superjson.v1" as const
 export const SERVER_CAPABILITIES = {
   agentManager: "agent.manager",
   projectThread: "project-thread",
+  schedules: "schedules",
   thread: "thread",
   config: "server.config",
   diagnostics: "diagnostics",
@@ -348,6 +357,7 @@ export type SessionInboundMessage =
   | z.infer<typeof ServerConfigReloadRequestSchema>
   | AgentManagementClientMessage
   | ProjectThreadClientMessage
+  | ScheduleClientMessage
   | ThreadClientMessage
 
 // Nested family discriminators keep each concrete wire `type` visible while allowing ACP to use
@@ -360,6 +370,7 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   ServerConfigReloadRequestSchema,
   ...AGENT_MANAGEMENT_CLIENT_SCHEMAS,
   ...PROJECT_THREAD_CLIENT_SCHEMAS,
+  ...SCHEDULE_CLIENT_SCHEMAS,
   ...THREAD_CLIENT_SCHEMAS,
 ])
 
@@ -413,6 +424,7 @@ export type SessionOutboundMessage =
   | z.infer<typeof ServerConfigReloadResponseSchema>
   | AgentManagementServerMessage
   | ProjectThreadServerMessage
+  | ScheduleServerMessage
   | ThreadServerMessage
 
 export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutboundMessage>([
@@ -424,6 +436,7 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   ServerConfigReloadResponseSchema,
   ...AGENT_MANAGEMENT_SERVER_SCHEMAS,
   ...PROJECT_THREAD_SERVER_SCHEMAS,
+  ...SCHEDULE_SERVER_SCHEMAS,
   ...THREAD_SERVER_SCHEMAS,
 ])
 
@@ -452,6 +465,7 @@ const clientResponseTypes = new Set<string>([
   "agent.toolchain.check_updates.response",
   "agent.toolchain.update.response",
   ...PROJECT_THREAD_RESPONSE_TYPES,
+  ...SCHEDULE_RESPONSE_TYPES,
   ...THREAD_RESPONSE_TYPES,
 ])
 

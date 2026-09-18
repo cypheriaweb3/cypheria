@@ -5,6 +5,8 @@ import {
   type ClientDescriptor,
   type ClientMessage,
   type PersistedServerConfigPatch,
+  type ScheduleClientMessage,
+  type ScheduleServerMessage,
   type ServerConfigSnapshot,
   type ServerDiagnostics,
   type ServerMessage,
@@ -28,6 +30,10 @@ export type SessionHost = {
   handleProjectThreadMessage?(
     message: ClientMessage,
     send: (message: ServerMessage) => void
+  ): Promise<boolean>
+  handleScheduleMessage?(
+    message: ScheduleClientMessage,
+    send: (message: ScheduleServerMessage) => void
   ): Promise<boolean>
   handleAgentMessage?(
     message: ClientMessage,
@@ -202,6 +208,15 @@ export class ClientSession {
         })
         break
       default:
+        if (
+          message.type.startsWith("schedule.") &&
+          this.#host.handleScheduleMessage &&
+          (await this.#host.handleScheduleMessage(message as ScheduleClientMessage, (response) =>
+            this.sendTo(source, response)
+          ))
+        ) {
+          break
+        }
         if (
           this.#host.handleProjectThreadMessage &&
           (await this.#host.handleProjectThreadMessage(message, (response) =>

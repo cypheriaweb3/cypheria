@@ -19,6 +19,7 @@
     "@cypheria/automation-core": "workspace:*",
     "@cypheria/network-core": "workspace:*",
     "@cypheria/policy-engine": "workspace:*",
+    "@cypheria/protocol": "workspace:*",
     "@cypheria/wallet-core": "workspace:*",
     "@cypheria/wallet-provider": "workspace:*",
     "@libsql/client": "^0.17.4",

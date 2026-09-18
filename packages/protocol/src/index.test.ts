@@ -63,8 +63,8 @@ describe("Cypheria protocol", () => {
   it("dispatches every logical session wire type from a flat discriminator", () => {
     expect(SessionInboundMessageSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
     expect(SessionOutboundMessageSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
-    expect((SessionInboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(60)
-    expect((SessionOutboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(74)
+    expect((SessionInboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(69)
+    expect((SessionOutboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(86)
   })
 
   it("validates Thread UUIDv7 inputs without exposing agent-session binding", () => {

@@ -6,6 +6,7 @@ import {
   applyDatabaseMigrations,
   createAgentRegistryPersistenceService,
   createProjectThreadPersistenceService,
+  createSchedulePersistenceService,
   createThreadLifecyclePersistenceService,
   createThreadTimelinePersistenceService,
   type OpenDatabaseResult,
@@ -19,6 +20,8 @@ import {
   type PersistedServerConfigPatch,
   type ProjectThreadClientMessage,
   type RelayPairingOfferResponse,
+  type ScheduleClientMessage,
+  type ScheduleServerMessage,
   SERVER_CAPABILITIES,
   type ServerConfigSnapshot,
   type ServerDiagnostics,
@@ -44,6 +47,7 @@ import { loadOrCreateServerId } from "./identity.js"
 import { ProjectThreadService } from "./project-thread-service.js"
 import { RelayConnection } from "./relay-connection.js"
 import { loadOrCreateRelayKeyPair } from "./relay-key.js"
+import { ScheduleService } from "./schedule/schedule-service.js"
 import { ServerConfigStore } from "./server-config-store.js"
 import type { SessionTransport } from "./session/client-session.js"
 import { ConnectionRegistry } from "./session/connection-registry.js"
@@ -81,6 +85,7 @@ export class CypheriaServer implements HttpAppHost {
   readonly runtime: CypheriaRuntime
   readonly agentManager: AgentManager
   readonly projectThread: ProjectThreadService
+  readonly schedules: ScheduleService
   readonly threadManager: ThreadManager
   readonly database: OpenDatabaseResult
 
@@ -130,6 +135,13 @@ export class CypheriaServer implements HttpAppHost {
       timelinePersistence: createThreadTimelinePersistenceService(this.database.db),
     })
     this.agentManager.setThreadCoordinator(this.threadManager)
+    this.schedules = new ScheduleService({
+      logger: this.logger.child({ service: "schedules" }),
+      persistence: createSchedulePersistenceService(this.database.db),
+      publish: (message) => this.registry.broadcast(message),
+      requestRuntime: (method, params) => this.requestRuntime(method, params),
+      threadManager: this.threadManager,
+    })
     this.#lifecycleHandler = options.onLifecycleRequest
   }
 
@@ -158,6 +170,7 @@ export class CypheriaServer implements HttpAppHost {
       await this.projectThread.initialize()
       await this.agentManager.start()
       await this.threadManager.initialize()
+      await this.schedules.start()
       const startedAt = new Date().toISOString()
       const id = await loadOrCreateServerId(this.runtime.paths.configDir)
       this.#identity = {
@@ -234,6 +247,7 @@ export class CypheriaServer implements HttpAppHost {
         this.agentManager.stop(),
         this.runtime.stop(),
       ])
+      this.schedules.stop()
       this.#identity = undefined
       this.#webSocketServer = undefined
       this.#webSocketHeartbeat = undefined
@@ -284,6 +298,7 @@ export class CypheriaServer implements HttpAppHost {
       SERVER_CAPABILITIES.config,
       SERVER_CAPABILITIES.diagnostics,
       SERVER_CAPABILITIES.projectThread,
+      SERVER_CAPABILITIES.schedules,
       SERVER_CAPABILITIES.status,
       SERVER_CAPABILITIES.thread,
     ]
@@ -333,6 +348,14 @@ export class CypheriaServer implements HttpAppHost {
       return false
     }
     await this.projectThread.handle(message as ProjectThreadClientMessage, send)
+    return true
+  }
+
+  async handleScheduleMessage(
+    message: ScheduleClientMessage,
+    send: (message: ScheduleServerMessage) => void
+  ): Promise<boolean> {
+    await this.schedules.handle(message, send)
     return true
   }
 
@@ -400,6 +423,7 @@ export class CypheriaServer implements HttpAppHost {
     this.#webSocketHeartbeat = undefined
     this.#webSocketServer?.close()
     this.#webSocketServer = undefined
+    this.schedules.stop()
 
     const results = await Promise.allSettled([
       this.#closeHttpListener(),

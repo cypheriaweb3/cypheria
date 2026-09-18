@@ -124,6 +124,12 @@ Status legend:
   - [x] Complete full-repository verification.
   - Acceptance: the public protocol uses Agent and Thread terminology; `threadId` is the only operation handle; all clients receive the same Thread events; only canonical timeline rows use epoch/sequence; provider sessions remain server-internal.
 
+- [x] Add server-owned Schedules protocol, persistence, execution, and client facade.
+  - Acceptance: `once`, fixed-interval, and five-field cron schedules can start a new Thread, continue an existing Thread, or invoke a policy-routed Web3 runtime method through `client.schedules`.
+  - Include: atomic slot claim, durable next-run advancement, run history, pause/resume/manual run, restart recovery, timezone-aware cron, server notifications, and a single regenerated `0000_initial.sql` baseline.
+  - Safety: a claimed run is advanced before execution; unfinished work is marked `interrupted` at restart, and in-flight Web3 signing or submission is never replayed automatically.
+  - Verification: protocol, database, client, server cadence, and Web3 non-replay tests.
+
 - [~] Migrate desktop to the Cypheria server.
   - Acceptance: Electron main ensures the local supervised server is running, desktop uses the shared protocol, and Electron-only dApp/browser, secure-storage, approval, preload, and OS-integration boundaries remain intact.
   - [x] Add a Desktop Server Manager that reuses a compatible local server or starts the bundled server and waits for versioned readiness.

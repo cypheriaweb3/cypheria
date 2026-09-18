@@ -122,6 +122,12 @@
   - [x] 完成全仓验证。
   - 验收：公开协议只使用 Agent 与 Thread 术语；`threadId` 是唯一操作句柄；所有客户端收到一致的 Thread 事件；只有 canonical timeline row 使用 epoch/sequence；provider session 只存在于 server 内部。
 
+- [x] 添加 Server 持有的 Schedules 协议、持久化、执行与客户端门面。
+  - 验收：`once`、固定间隔与五字段 cron schedule 可以通过 `client.schedules` 新建 Thread、继续已有 Thread，或调用经过策略边界的 Web3 runtime method。
+  - 包括：原子领取执行时隙、持久化推进下次执行时间、run history、暂停/恢复/手动执行、重启恢复、时区感知 cron、Server notification，以及重新生成的唯一 `0000_initial.sql` 基线。
+  - 安全：领取后先推进 schedule 再执行；重启时未完成工作标记为 `interrupted`，不得自动重放执行中的 Web3 签名或发送操作。
+  - 验证：protocol、database、client、server cadence 与 Web3 非重放测试。
+
 - [~] 将 desktop 迁移到 Cypheria server。
   - 验收：Electron main 确保本地 supervised server 正在运行，desktop 使用共享 protocol，并保持 Electron-only dApp/browser、secure-storage、approval、preload 与 OS-integration 边界。
   - [x] 添加 Desktop Server Manager：复用兼容的本地 server，或启动 bundled server 并等待带版本的 readiness。

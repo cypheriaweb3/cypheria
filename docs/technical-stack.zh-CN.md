@@ -86,7 +86,9 @@ Timeline 连续性由 server-owned SQLite canonical log 实现。Epoch metadata 
 
 Agent management 使用临时 ACP Registry 输入生成并提交静态 ID、每小时条件刷新并把 Registry 保存到 `$CYPHERIA_HOME`、记录版本和元数据的 SQLite `agent_registry` 表、异步安装 operation 与显式 enable。受管 Node/Python/uv 版本和按依赖指纹共享的不可变 Python environment 全部位于 `$CYPHERIA_HOME` 下。详见 [Agent 管理](agent-management.zh-CN.md)。
 
-`@cypheria/client` 依赖 `@cypheria/protocol` 与只处理传输的 `@cypheria/relay`。它的 `ServerClient` 实现可注入 transport boundary、browser 与 Node WebSocket adapter、hello/authentication、请求关联、超时、protocol validation、typed error、事件投递与有界重连。`CypheriaApi` 是不带 lifecycle 的借用门面；`CypheriaClient` 持有一条连接。首选门面是 `agents`、`projects`、`sections`、`threads` 与 `timeline`；单数 `agent`/`thread` 和组合式 `projectThread` 在客户端迁移期间作为兼容别名保留。Provider-specific client subpath 仍不公开；所有 client 观察同一个 server-owned Thread 状态与 notification。
+`@cypheria/client` 依赖 `@cypheria/protocol` 与只处理传输的 `@cypheria/relay`。它的 `ServerClient` 实现可注入 transport boundary、browser 与 Node WebSocket adapter、hello/authentication、请求关联、超时、protocol validation、typed error、事件投递与有界重连。`CypheriaApi` 是不带 lifecycle 的借用门面；`CypheriaClient` 持有一条连接。首选门面是 `agents`、`projects`、`sections`、`threads`、`timeline` 与 `schedules`；单数 `agent`/`thread` 和组合式 `projectThread` 在客户端迁移期间作为兼容别名保留。Provider-specific client subpath 仍不公开；所有 client 观察同一个 server-owned Thread 状态与 notification。
+
+Schedules 是 Server service，而不是 Desktop timer。SQLite 保存 cadence、target、下一执行时隙、乐观 revision、lease 与独立 run record。Server 在 dispatch 新 Thread、已有 Thread turn 或受限 Web3 runtime method 之前，以一个事务推进已领取时隙并创建 run。启动时会把未完成 run 标记为 interrupted、清理 lease，但不回退 schedule，从而避免自动重放中断的签名或交易发送。Cron 实现使用五字段表达式和 IANA 时区；错过的 interval 与 cron 时隙会前进到下一个未来时间，而不会产生无界积压。
 
 带关联 ID 的 facade call 共享 `{ signal, timeoutMs }` 控制；deadline 先发生时，仍在等待懒连接
 的 send 会被取消。写入 transport 前会根据逻辑 `server.status.notification` 检查所需 server capability。

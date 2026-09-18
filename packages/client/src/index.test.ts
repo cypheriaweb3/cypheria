@@ -18,6 +18,7 @@ describe("Cypheria client facade", () => {
       "on",
       "projectThread",
       "projects",
+      "schedules",
       "sections",
       "server",
       "subscribe",

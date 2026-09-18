@@ -92,6 +92,15 @@ export {
   type SortDirection,
   type ThreadRecord,
 } from "./project-thread.js"
+export {
+  type ClaimedScheduleRun,
+  type CreateScheduleRecordInput,
+  createSchedulePersistenceService,
+  type SchedulePersistenceService,
+  type ScheduleRecord,
+  type ScheduleRunRecord,
+  type UpdateScheduleRecordInput,
+} from "./schedule.js"
 export * from "./schema/index.js"
 export {
   createSigningIntentReplayStore,

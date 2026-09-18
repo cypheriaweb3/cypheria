@@ -262,6 +262,50 @@ CREATE TABLE `runtime_metadata` (
 	`updated_at` text NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE `schedule_runs` (
+	`created_thread_id` text,
+	`error` text,
+	`finished_at` integer,
+	`id` text PRIMARY KEY NOT NULL,
+	`result` text,
+	`schedule_id` text NOT NULL,
+	`scheduled_for` integer NOT NULL,
+	`started_at` integer NOT NULL,
+	`status` text NOT NULL,
+	`target_type` text NOT NULL,
+	FOREIGN KEY (`created_thread_id`) REFERENCES `threads`(`id`) ON UPDATE no action ON DELETE set null,
+	FOREIGN KEY (`schedule_id`) REFERENCES `schedules`(`id`) ON UPDATE no action ON DELETE cascade,
+	CONSTRAINT "schedule_runs_status_check" CHECK("schedule_runs"."status" IN ('running', 'succeeded', 'failed', 'interrupted')),
+	CONSTRAINT "schedule_runs_target_type_check" CHECK("schedule_runs"."target_type" IN ('new-thread', 'thread', 'web3')),
+	CONSTRAINT "schedule_runs_scheduled_for_check" CHECK("schedule_runs"."scheduled_for" >= 0),
+	CONSTRAINT "schedule_runs_started_at_check" CHECK("schedule_runs"."started_at" >= 0),
+	CONSTRAINT "schedule_runs_finished_at_check" CHECK("schedule_runs"."finished_at" IS NULL OR "schedule_runs"."finished_at" >= "schedule_runs"."started_at")
+);
+--> statement-breakpoint
+CREATE INDEX `schedule_runs_schedule_started_idx` ON `schedule_runs` (`schedule_id`,`started_at`);--> statement-breakpoint
+CREATE INDEX `schedule_runs_status_idx` ON `schedule_runs` (`status`);--> statement-breakpoint
+CREATE TABLE `schedules` (
+	`cadence` text NOT NULL,
+	`created_at` integer NOT NULL,
+	`id` text PRIMARY KEY NOT NULL,
+	`last_run_at` integer,
+	`lock_expires_at` integer,
+	`locked_by` text,
+	`name` text,
+	`next_run_at` integer,
+	`revision` integer NOT NULL,
+	`status` text NOT NULL,
+	`target` text NOT NULL,
+	`updated_at` integer NOT NULL,
+	CONSTRAINT "schedules_revision_check" CHECK("schedules"."revision" >= 0),
+	CONSTRAINT "schedules_status_check" CHECK("schedules"."status" IN ('active', 'paused', 'completed')),
+	CONSTRAINT "schedules_created_at_check" CHECK("schedules"."created_at" >= 0),
+	CONSTRAINT "schedules_updated_at_check" CHECK("schedules"."updated_at" >= "schedules"."created_at"),
+	CONSTRAINT "schedules_lock_check" CHECK(("schedules"."locked_by" IS NULL AND "schedules"."lock_expires_at" IS NULL) OR ("schedules"."locked_by" IS NOT NULL AND "schedules"."lock_expires_at" IS NOT NULL))
+);
+--> statement-breakpoint
+CREATE INDEX `schedules_due_idx` ON `schedules` (`status`,`next_run_at`);--> statement-breakpoint
+CREATE INDEX `schedules_lock_expires_at_idx` ON `schedules` (`lock_expires_at`);--> statement-breakpoint
 CREATE TABLE `section_items` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`section_id` text NOT NULL,

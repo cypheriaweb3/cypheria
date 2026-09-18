@@ -20,6 +20,8 @@ describe("database baseline migration", () => {
     expect(tables.rows.map(({ name }) => name)).toContain("thread_timeline_epochs")
     expect(tables.rows.map(({ name }) => name)).toContain("thread_timeline_rows")
     expect(tables.rows.map(({ name }) => name)).toContain("sections")
+    expect(tables.rows.map(({ name }) => name)).toContain("schedules")
+    expect(tables.rows.map(({ name }) => name)).toContain("schedule_runs")
     expect(tables.rows.map(({ name }) => name)).toContain("wallets")
 
     const agents = createAgentRegistryPersistenceService(database.db)

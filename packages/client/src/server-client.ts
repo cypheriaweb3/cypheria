@@ -20,6 +20,8 @@ import {
   parseWSInboundMessage,
   parseWSOutboundMessageText,
   type RequestId,
+  type ScheduleClientMessage,
+  type ScheduleServerMessage,
   SERVER_CAPABILITIES,
   type ServerConfigSnapshot,
   type ServerDiagnostics,
@@ -463,6 +465,25 @@ export class ServerClient {
       SERVER_CAPABILITIES.projectThread
     )
     return message as ProjectThreadServerMessage
+  }
+
+  async requestSchedule(
+    type: ScheduleClientMessage["type"],
+    payload: unknown,
+    options?: RequestOptions
+  ): Promise<ScheduleServerMessage> {
+    const expectedType = type.replace(/\.request$/, ".response")
+    const message = await this.#request(
+      {
+        payload,
+        requestId: this.#nextRequestId("schedule"),
+        type,
+      } as ScheduleClientMessage,
+      expectedType,
+      options,
+      SERVER_CAPABILITIES.schedules
+    )
+    return message as ScheduleServerMessage
   }
 
   async requestThread(

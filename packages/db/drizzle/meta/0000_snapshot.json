@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "03cec47a-8cd6-4c89-babe-c3dad8b481bd",
+  "id": "ba3c03b5-d0b2-411b-b324-c8a55e288b3c",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "active_wallet_context": {
@@ -1555,6 +1555,263 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
+    },
+    "schedule_runs": {
+      "name": "schedule_runs",
+      "columns": {
+        "created_thread_id": {
+          "name": "created_thread_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "result": {
+          "name": "result",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "schedule_id": {
+          "name": "schedule_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "scheduled_for": {
+          "name": "scheduled_for",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "target_type": {
+          "name": "target_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "schedule_runs_schedule_started_idx": {
+          "name": "schedule_runs_schedule_started_idx",
+          "columns": ["schedule_id", "started_at"],
+          "isUnique": false
+        },
+        "schedule_runs_status_idx": {
+          "name": "schedule_runs_status_idx",
+          "columns": ["status"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "schedule_runs_created_thread_id_threads_id_fk": {
+          "name": "schedule_runs_created_thread_id_threads_id_fk",
+          "tableFrom": "schedule_runs",
+          "tableTo": "threads",
+          "columnsFrom": ["created_thread_id"],
+          "columnsTo": ["id"],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "schedule_runs_schedule_id_schedules_id_fk": {
+          "name": "schedule_runs_schedule_id_schedules_id_fk",
+          "tableFrom": "schedule_runs",
+          "tableTo": "schedules",
+          "columnsFrom": ["schedule_id"],
+          "columnsTo": ["id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "schedule_runs_status_check": {
+          "name": "schedule_runs_status_check",
+          "value": "\"schedule_runs\".\"status\" IN ('running', 'succeeded', 'failed', 'interrupted')"
+        },
+        "schedule_runs_target_type_check": {
+          "name": "schedule_runs_target_type_check",
+          "value": "\"schedule_runs\".\"target_type\" IN ('new-thread', 'thread', 'web3')"
+        },
+        "schedule_runs_scheduled_for_check": {
+          "name": "schedule_runs_scheduled_for_check",
+          "value": "\"schedule_runs\".\"scheduled_for\" >= 0"
+        },
+        "schedule_runs_started_at_check": {
+          "name": "schedule_runs_started_at_check",
+          "value": "\"schedule_runs\".\"started_at\" >= 0"
+        },
+        "schedule_runs_finished_at_check": {
+          "name": "schedule_runs_finished_at_check",
+          "value": "\"schedule_runs\".\"finished_at\" IS NULL OR \"schedule_runs\".\"finished_at\" >= \"schedule_runs\".\"started_at\""
+        }
+      }
+    },
+    "schedules": {
+      "name": "schedules",
+      "columns": {
+        "cadence": {
+          "name": "cadence",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_run_at": {
+          "name": "last_run_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "lock_expires_at": {
+          "name": "lock_expires_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "locked_by": {
+          "name": "locked_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "next_run_at": {
+          "name": "next_run_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "revision": {
+          "name": "revision",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "target": {
+          "name": "target",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "schedules_due_idx": {
+          "name": "schedules_due_idx",
+          "columns": ["status", "next_run_at"],
+          "isUnique": false
+        },
+        "schedules_lock_expires_at_idx": {
+          "name": "schedules_lock_expires_at_idx",
+          "columns": ["lock_expires_at"],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "schedules_revision_check": {
+          "name": "schedules_revision_check",
+          "value": "\"schedules\".\"revision\" >= 0"
+        },
+        "schedules_status_check": {
+          "name": "schedules_status_check",
+          "value": "\"schedules\".\"status\" IN ('active', 'paused', 'completed')"
+        },
+        "schedules_created_at_check": {
+          "name": "schedules_created_at_check",
+          "value": "\"schedules\".\"created_at\" >= 0"
+        },
+        "schedules_updated_at_check": {
+          "name": "schedules_updated_at_check",
+          "value": "\"schedules\".\"updated_at\" >= \"schedules\".\"created_at\""
+        },
+        "schedules_lock_check": {
+          "name": "schedules_lock_check",
+          "value": "(\"schedules\".\"locked_by\" IS NULL AND \"schedules\".\"lock_expires_at\" IS NULL) OR (\"schedules\".\"locked_by\" IS NOT NULL AND \"schedules\".\"lock_expires_at\" IS NOT NULL)"
+        }
+      }
     },
     "section_items": {
       "name": "section_items",

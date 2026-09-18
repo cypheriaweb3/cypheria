@@ -17,6 +17,7 @@ import {
   type ProjectThreadActions,
   type SectionActions,
 } from "./project-thread.js"
+import { createScheduleActions, type ScheduleActions } from "./schedule.js"
 import {
   type ConnectionState,
   type RequestOptions,
@@ -51,6 +52,7 @@ export interface CypheriaApi {
   readonly projects: ProjectActions
   readonly server: ServerActions
   readonly sections: SectionActions
+  readonly schedules: ScheduleActions
   readonly thread: ThreadActions
   /** Preferred plural Thread facade. `thread` remains as a compatibility alias. */
   readonly threads: ThreadActions
@@ -105,6 +107,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
   const agents = createAgentManagementActions(serverClient)
   const projectThread = createProjectThreadActions(serverClient)
   const threads = createThreadActions(serverClient)
+  const schedules = createScheduleActions(serverClient)
   return {
     agent: agents,
     agents,
@@ -122,6 +125,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
       supportsFeature: (feature) => serverClient.supportsFeature(feature),
     },
     sections: projectThread.sections,
+    schedules,
     subscribe: (handler) => serverClient.subscribe(handler),
     thread: threads,
     threads,
@@ -142,6 +146,7 @@ export type {
   AgentManagementActions,
   ProjectActions,
   ProjectThreadActions,
+  ScheduleActions,
   SectionActions,
   ThreadActions,
   TimelineActions,
