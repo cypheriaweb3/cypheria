@@ -24,6 +24,7 @@ describe("Cypheria client facade", () => {
       "sections",
       "server",
       "subscribe",
+      "terminals",
       "thread",
       "threads",
       "timeline",

@@ -667,46 +667,57 @@ function ChatSession({
   }, [activeThreadId])
 
   useEffect(() => {
-    const api = window.cypheria?.codex
-    if (!api) return
-    return api.onEvent((event) => {
-      if (event.event !== "codex.notification" || !("method" in event.payload)) return
-      if (event.payload.method === "autoApprovalReview/strictReviewRequired") {
-        const params = jsonObject(event.payload.params)
-        if (typeof params.turnId === "string") {
-          setStrictReviewTurns((current) => new Set(current).add(params.turnId as string))
+    let disposed = false
+    let unsubscribe: () => void = () => undefined
+    void ensureCypheriaClient().then((client) => {
+      if (disposed) return
+      unsubscribe = client.on("thread.event.notification", (message) => {
+        const event = message.payload.event
+        if (event.type !== "provider" || event.agentId !== "codex") return
+        if (
+          event.nativeType ===
+          "agent.codex.auto_approval_review.strict_review_required.notification"
+        ) {
+          const params = jsonObject(event.payload)
+          if (typeof params.turnId === "string") {
+            setStrictReviewTurns((current) => new Set(current).add(params.turnId as string))
+          }
+          return
         }
-        return
-      }
-      if (
-        event.payload.method !== "item/autoApprovalReview/started" &&
-        event.payload.method !== "item/autoApprovalReview/completed"
-      )
-        return
-      const params = jsonObject(event.payload.params)
-      const review = jsonObject(params.review)
-      if (
-        typeof params.reviewId !== "string" ||
-        typeof params.threadId !== "string" ||
-        typeof params.turnId !== "string"
-      )
-        return
-      const next: AutoReviewView = {
-        event: jsonValueOrNull(params.event),
-        rationale: typeof review.rationale === "string" ? review.rationale : null,
-        reviewId: params.reviewId,
-        riskLevel: typeof review.riskLevel === "string" ? review.riskLevel : null,
-        status: typeof review.status === "string" ? review.status : "inProgress",
-        threadId: params.threadId,
-        turnId: params.turnId,
-        userAuthorization:
-          typeof review.userAuthorization === "string" ? review.userAuthorization : null,
-      }
-      setAutoReviews((current) => [
-        ...current.filter((item) => item.reviewId !== next.reviewId),
-        next,
-      ])
+        if (
+          event.nativeType !== "agent.codex.item.auto_approval_review.started.notification" &&
+          event.nativeType !== "agent.codex.item.auto_approval_review.completed.notification"
+        )
+          return
+        const params = jsonObject(event.payload)
+        const review = jsonObject(params.review)
+        if (
+          typeof params.reviewId !== "string" ||
+          typeof params.threadId !== "string" ||
+          typeof params.turnId !== "string"
+        )
+          return
+        const next: AutoReviewView = {
+          event: jsonValueOrNull(params.action),
+          rationale: typeof review.rationale === "string" ? review.rationale : null,
+          reviewId: params.reviewId,
+          riskLevel: typeof review.riskLevel === "string" ? review.riskLevel : null,
+          status: typeof review.status === "string" ? review.status : "inProgress",
+          threadId: params.threadId,
+          turnId: params.turnId,
+          userAuthorization:
+            typeof review.userAuthorization === "string" ? review.userAuthorization : null,
+        }
+        setAutoReviews((current) => [
+          ...current.filter((item) => item.reviewId !== next.reviewId),
+          next,
+        ])
+      })
     })
+    return () => {
+      disposed = true
+      unsubscribe()
+    }
   }, [])
 
   useEffect(() => {
@@ -1579,7 +1590,10 @@ function AutoReviewCard({ review }: Readonly<{ review: AutoReviewView }>) {
             onClick={async () => {
               setRetrying(true)
               try {
-                await window.cypheria?.codex.retryAutoReviewDenial(review.threadId, retryEvent)
+                await (await ensureCypheriaClient()).providers.codex.guardian.retry({
+                  event: retryEvent,
+                  threadId: review.threadId,
+                })
                 setRetried(true)
               } finally {
                 setRetrying(false)

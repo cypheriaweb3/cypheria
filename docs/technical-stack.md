@@ -177,7 +177,7 @@ SDK clients should be small wrappers around versioned server operations and even
 
 ## Desktop Stack
 
-Desktop retains Electron + TanStack Start and its carefully matched Codex Desktop interaction model. Electron main now discovers, reuses, or starts a bundled protocol-compatible Cypheria server before opening the renderer. Shared Sidebar and conversation data use `@cypheria/client`; typed Electron IPC remains for browser, secure-storage, window, update, terminal, and OS-only capabilities while the remaining privileged services are moved to the server.
+Desktop retains Electron + TanStack Start and its carefully matched Codex Desktop interaction model. Electron main now discovers, reuses, or starts a bundled protocol-compatible Cypheria server before opening the renderer. Shared Sidebar, conversation, provider-notification, and terminal data use `@cypheria/client`; typed Electron IPC remains for browser, secure-storage, window, update, and OS-only capabilities while the remaining privileged services are moved to the server.
 
 Internal desktop navigation uses TanStack Router links to preserve the document, global styles, and appearance state. Global CSS is linked from the root document before client hydration. Chat search parameters are validated by the index route; switching threads or choosing New chat resets the chat session without reloading the application.
 
@@ -210,7 +210,7 @@ Electron browser defaults:
 }
 ```
 
-Renderer code uses `@cypheria/client` for shared product data and typed IPC only for Electron-specific browser, window, terminal, secure-storage, update, and OS integration. Agent and Web3 lifecycle belongs to the Server.
+Renderer code uses `@cypheria/client` for shared product data and typed IPC only for Electron-specific browser, window, secure-storage, update, and OS integration. Agent, Web3, and PTY lifecycle belongs to the Server. Terminal processes are scoped to a resumable client session and are reclaimed when that session expires.
 
 The language picker lives on the General settings page.
 
@@ -222,7 +222,7 @@ Electron user data is rooted under `$CYPHERIA_HOME/desktop`, while Chromium sess
 
 ## Codex Integration
 
-The server owns Codex for every client. Desktop live turns, durable history, account/login, model discovery and defaults, permission defaults and profiles, plugins, skills, MCP servers, marketplaces, and Codex Apps now enter through unified Cypheria client APIs. Shared Codex model and permission defaults are stored under `agents.codex` in `$CYPHERIA_HOME/config/config.json` and projected into the managed Codex runtime. The remaining direct bridge is transitional only for terminal and approval surfaces until each has a shared server API:
+The server owns Codex for every client. Desktop live turns, durable history, account/login, model discovery and defaults, permission defaults and profiles, plugins, skills, MCP servers, marketplaces, Codex Apps, auto-review notifications, and project terminals now enter through unified Cypheria client APIs. Shared Codex model and permission defaults are stored under `agents.codex` in `$CYPHERIA_HOME/config/config.json` and projected into the managed Codex runtime. The remaining direct interaction bridge is transitional only for reverse-request approval details until the canonical interaction response covers the complete Codex response shape:
 
 ```txt
 Desktop

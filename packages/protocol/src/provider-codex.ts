@@ -174,6 +174,10 @@ export const CodexPermissionsShowFullAccessSetRequestSchema = request(
   "provider.codex.permissions.show-full-access.set.request",
   z.object({ enabled: z.boolean() }).strict()
 )
+export const CodexGuardianRetryRequestSchema = request(
+  "provider.codex.guardian.retry.request",
+  z.object({ event: z.json(), threadId: z.string().min(1) }).strict()
+)
 
 export const CodexAccountGetResponseSchema = response(
   "provider.codex.account.get.response",
@@ -219,6 +223,10 @@ export const CodexPermissionsShowFullAccessSetResponseSchema = response(
   "provider.codex.permissions.show-full-access.set.response",
   CodexPermissionsCatalogSchema
 )
+export const CodexGuardianRetryResponseSchema = response(
+  "provider.codex.guardian.retry.response",
+  succeeded
+)
 
 export const CODEX_PROVIDER_CLIENT_SCHEMAS = [
   CodexAccountGetRequestSchema,
@@ -232,6 +240,7 @@ export const CODEX_PROVIDER_CLIENT_SCHEMAS = [
   CodexPermissionDefaultsSetRequestSchema,
   CodexPermissionsCatalogGetRequestSchema,
   CodexPermissionsShowFullAccessSetRequestSchema,
+  CodexGuardianRetryRequestSchema,
 ] as const
 
 export const CODEX_PROVIDER_SERVER_SCHEMAS = [
@@ -246,6 +255,7 @@ export const CODEX_PROVIDER_SERVER_SCHEMAS = [
   CodexPermissionDefaultsSetResponseSchema,
   CodexPermissionsCatalogGetResponseSchema,
   CodexPermissionsShowFullAccessSetResponseSchema,
+  CodexGuardianRetryResponseSchema,
 ] as const
 
 export const CODEX_PROVIDER_RESPONSE_TYPES = CODEX_PROVIDER_SERVER_SCHEMAS.map(

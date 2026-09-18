@@ -176,7 +176,7 @@ SDK clients 应该是版本化 server operation 与 event stream 之上的轻量
 
 ## Desktop Stack
 
-Desktop 保留 Electron + TanStack Start，以及精细对齐 Codex Desktop 的交互模型。Electron main 现在会在打开 renderer 前发现、复用或启动 bundled 且 protocol-compatible 的 Cypheria server。共享 Sidebar 与会话数据通过 `@cypheria/client` 获取；typed Electron IPC 继续承载 browser、secure storage、window、update、terminal 和 OS-only 能力，其余特权 service 在迁移期间逐步搬入 server。
+Desktop 保留 Electron + TanStack Start，以及精细对齐 Codex Desktop 的交互模型。Electron main 现在会在打开 renderer 前发现、复用或启动 bundled 且 protocol-compatible 的 Cypheria server。共享 Sidebar、会话、provider notification 与 terminal 数据通过 `@cypheria/client` 获取；typed Electron IPC 继续承载 browser、secure storage、window、update 和 OS-only 能力，其余特权 service 在迁移期间逐步搬入 server。
 
 桌面内部导航使用 TanStack Router 链接，保留当前文档、全局样式和外观状态。全局 CSS 在客户端 hydration 之前由根文档链接加载。对话查询参数由首页路由校验；切换对话或点击 New chat 会重置对话会话，而不重新加载整个应用。
 
@@ -209,7 +209,7 @@ Electron browser defaults：
 }
 ```
 
-Renderer 使用 `@cypheria/client` 访问共享产品数据，只把 Electron 专属 browser、window、terminal、secure-storage、update 与 OS integration 留在 typed IPC。Agent 与 Web3 lifecycle 属于 Server。
+Renderer 使用 `@cypheria/client` 访问共享产品数据，只把 Electron 专属 browser、window、secure-storage、update 与 OS integration 留在 typed IPC。Agent、Web3 与 PTY lifecycle 属于 Server；终端进程按可恢复 client session 隔离，并在 session 过期时回收。
 
 语言选择器位于常规设置页。
 
@@ -221,7 +221,7 @@ Desktop main bundle 将 `@libsql/client` 及其 platform packages 保持为 exte
 
 ## Codex 集成
 
-Server 为每个 client 持有 Codex。Desktop 的实时 turn、持久 history、账户/登录、模型发现与默认值、权限默认值与 profiles、插件、技能、MCP、市场与 Codex Apps 已通过统一的 Cypheria client API 进入。共享 Codex 模型与权限默认值存储在 `$CYPHERIA_HOME/config/config.json` 的 `agents.codex` 下，并投影到受管 Codex runtime。剩余 direct bridge 只为终端与审批 surface 过渡保留，直到它们获得共享 server API：
+Server 为每个 client 持有 Codex。Desktop 的实时 turn、持久 history、账户/登录、模型发现与默认值、权限默认值与 profiles、插件、技能、MCP、市场、Codex Apps、自动审查 notification 与项目 terminal 已通过统一的 Cypheria client API 进入。共享 Codex 模型与权限默认值存储在 `$CYPHERIA_HOME/config/config.json` 的 `agents.codex` 下，并投影到受管 Codex runtime。剩余 direct interaction bridge 只为反向请求中的完整审批细节过渡保留，直到 canonical interaction response 覆盖完整 Codex 响应结构：
 
 ```txt
 Desktop

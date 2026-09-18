@@ -17,16 +17,11 @@ import { Switch } from "@cypheria/ui/components/switch"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ChevronDown, ExternalLink, Plug, Settings } from "lucide-react"
 import { useEffect, useId, useState } from "react"
-import { z } from "zod"
 import type { CodexAppView, CodexMcpView } from "../../../ipc/src/index.js"
 import { McpAddRequestSchema } from "../../../ipc/src/integrations.js"
+import { ensureCypheriaClient } from "../cypheria-client.js"
 import { integrationApi } from "../integration-api.js"
 
-const completionSchema = z.object({
-  method: z.literal("mcpServer/oauthLogin/completed"),
-  params: z.object({ name: z.string(), success: z.boolean(), error: z.string().optional() }),
-})
-const notificationSchema = z.object({ method: z.string() })
 const errorText = (error: unknown) =>
   error instanceof Error ? error.message : "The request failed. Please retry."
 
@@ -55,23 +50,31 @@ export function usePluginIntegrations(active: boolean) {
     ])
   }
   useEffect(() => {
-    if (!active || !window.cypheria) return
-    const unsubscribe = window.cypheria.codex.onEvent((event) => {
-      if (event.event !== "codex.notification") return
-      const completion = completionSchema.safeParse(event.payload)
-      if (completion.success) {
-        const { name, success, error } = completion.data.params
-        setAuthorizing((current) => (current === name ? null : current))
-        setNotice(
-          success
-            ? `${name}: authorization completed. Refreshing availability…`
-            : `${name}: ${error ?? "Authorization was not completed. You can retry."}`
-        )
-        void cache.invalidateQueries({ queryKey: ["codex", "mcp"] })
-      }
-      const notification = notificationSchema.safeParse(event.payload)
-      if (notification.success && notification.data.method === "mcpServer/startupStatus/updated")
-        void cache.invalidateQueries({ queryKey: ["codex", "mcp"] })
+    if (!active) return
+    let disposed = false
+    let unsubscribe: () => void = () => undefined
+    void ensureCypheriaClient().then((client) => {
+      if (disposed) return
+      unsubscribe = client.on("thread.event.notification", (message) => {
+        const event = message.payload.event
+        if (event.type !== "provider" || event.agentId !== "codex") return
+        const payload = event.payload as Record<string, unknown>
+        if (event.nativeType === "agent.codex.mcp_server.oauth_login.completed.notification") {
+          const name = typeof payload.name === "string" ? payload.name : "MCP server"
+          const success = payload.success === true
+          const error = typeof payload.error === "string" ? payload.error : undefined
+          setAuthorizing((current) => (current === name ? null : current))
+          setNotice(
+            success
+              ? `${name}: authorization completed. Refreshing availability…`
+              : `${name}: ${error ?? "Authorization was not completed. You can retry."}`
+          )
+          void cache.invalidateQueries({ queryKey: ["codex", "mcp"] })
+        }
+        if (event.nativeType === "agent.codex.mcp_server.startup_status.updated.notification") {
+          void cache.invalidateQueries({ queryKey: ["codex", "mcp"] })
+        }
+      })
     })
     // An external connection page has no trusted local success callback: re-read on return.
     const onFocus = () => {
@@ -80,6 +83,7 @@ export function usePluginIntegrations(active: boolean) {
     }
     window.addEventListener("focus", onFocus)
     return () => {
+      disposed = true
       unsubscribe()
       window.removeEventListener("focus", onFocus)
     }

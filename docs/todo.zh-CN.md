@@ -138,7 +138,8 @@
   - [~] 在泛化共享会话 shell 的同时保持完整 Codex timeline 渲染等价；canonical user message 现在可在 history reload 后保留附件。
   - [x] 将 network、wallet、policy、signing approval 与 audit surface 搬到共享 `client.web3` API；Renderer 不再消费其旧 IPC path。
   - [x] 将 Codex 权限配置搬到 server API，并删除旧的数据 IPC path。
-  - [~] 在删除旧 IPC path 前，将共享 terminal 与审批 surface 搬到 server API。
+  - [x] 将项目 terminal lifecycle 与 Codex 自动审查 notification/retry 搬到 server API；PTY 按 client session 隔离，Renderer 不再使用 terminal IPC。
+  - [~] 在删除旧 IPC path 前，为反向请求的审批、用户输入、权限和 MCP elicitation flow 保留完整 typed response 结构。
   - [x] 将 Codex 账户/登录、模型发现与模型默认值迁到 `client.providers.codex`；把共享默认值存入 Cypheria config 的 `agents.codex`，并移除旧 renderer IPC path。
   - [x] 将 skills、plugins、MCP、marketplaces 与 Codex Apps 搬到版本化 Integrations API，并移除旧 renderer IPC 执行路径。
   - 状态：已明确批准；在替换数据源时，把现有 Sidebar 与源自 Codex 的会话体验作为硬性验收门槛。

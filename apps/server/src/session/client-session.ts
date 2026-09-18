@@ -16,6 +16,8 @@ import {
   type ServerMessage,
   type ServerStatus,
   stringifyProtocolMessage,
+  type TerminalClientMessage,
+  type TerminalServerMessage,
   type Web3ClientMessage,
   type Web3ServerMessage,
   type WSHelloMessage,
@@ -28,6 +30,7 @@ export type SessionTransport = {
 }
 
 export type SessionHost = {
+  clientSessionClosed?(sessionId: string): void
   getConfig(): ServerConfigSnapshot
   getDiagnostics(): ServerDiagnostics
   getStatus(): ServerStatus
@@ -54,6 +57,11 @@ export type SessionHost = {
     sessionId: string,
     source: SessionTransport,
     send: (message: ServerMessage) => void
+  ): Promise<boolean>
+  handleTerminalMessage?(
+    message: TerminalClientMessage,
+    sessionId: string,
+    send: (message: TerminalServerMessage) => void
   ): Promise<boolean>
   handleWeb3Message?(
     message: Web3ClientMessage,
@@ -180,6 +188,7 @@ export class ClientSession {
     const transports = [...this.#sources.keys()]
     this.#sources.clear()
     for (const transport of transports) transport.close(code, reason)
+    this.#host.clientSessionClosed?.(this.id)
     this.#onClose?.(this)
   }
 
@@ -260,6 +269,17 @@ export class ClientSession {
           this.#host.handleScheduleMessage &&
           (await this.#host.handleScheduleMessage(message as ScheduleClientMessage, (response) =>
             this.sendTo(source, response)
+          ))
+        ) {
+          break
+        }
+        if (
+          message.type.startsWith("terminal.") &&
+          this.#host.handleTerminalMessage &&
+          (await this.#host.handleTerminalMessage(
+            message as TerminalClientMessage,
+            this.id,
+            (response) => this.sendTo(source, response)
           ))
         ) {
           break

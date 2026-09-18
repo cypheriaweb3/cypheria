@@ -33,6 +33,8 @@ import {
   type ServerMessage,
   type ServerOperationalState,
   type ServerStatus,
+  type TerminalClientMessage,
+  type TerminalServerMessage,
   type ThreadClientMessage,
   type Web3ClientMessage,
   type Web3ServerMessage,
@@ -59,6 +61,7 @@ import { ScheduleService } from "./schedule/schedule-service.js"
 import { ServerConfigStore } from "./server-config-store.js"
 import type { SessionTransport } from "./session/client-session.js"
 import { ConnectionRegistry } from "./session/connection-registry.js"
+import { TerminalService } from "./terminal-service.js"
 import { ThreadManager } from "./thread/thread-manager.js"
 import { CYPHERIA_SERVER_VERSION } from "./version.js"
 import { ServerWeb3Service } from "./web3-service.js"
@@ -98,6 +101,7 @@ export class CypheriaServer implements HttpAppHost {
   readonly codexProvider: CodexProviderService
   readonly schedules: ScheduleService
   readonly threadManager: ThreadManager
+  readonly terminals: TerminalService
   readonly database: OpenDatabaseResult
   readonly web3: ServerWeb3Service
 
@@ -142,6 +146,7 @@ export class CypheriaServer implements HttpAppHost {
     this.projectThread = new ProjectThreadService({
       persistence: projectThreadPersistence,
     })
+    this.terminals = new TerminalService(projectThreadPersistence)
     this.threadManager = new ThreadManager({
       adapterFor: (agentId, threadId) => this.agentManager.adapterFor(agentId, threadId),
       assertAgentCallable: (agentId) => this.agentManager.assertCallable(agentId),
@@ -266,6 +271,7 @@ export class CypheriaServer implements HttpAppHost {
       ])
       this.web3.stop()
       this.schedules.stop()
+      this.terminals.stop()
       this.#identity = undefined
       this.#webSocketServer = undefined
       this.#webSocketHeartbeat = undefined
@@ -319,6 +325,7 @@ export class CypheriaServer implements HttpAppHost {
       SERVER_CAPABILITIES.codexProvider,
       SERVER_CAPABILITIES.projectThread,
       SERVER_CAPABILITIES.schedules,
+      SERVER_CAPABILITIES.terminals,
       SERVER_CAPABILITIES.status,
       SERVER_CAPABILITIES.thread,
       SERVER_CAPABILITIES.web3,
@@ -394,6 +401,18 @@ export class CypheriaServer implements HttpAppHost {
     return true
   }
 
+  async handleTerminalMessage(
+    message: TerminalClientMessage,
+    sessionId: string,
+    send: (message: TerminalServerMessage) => void
+  ): Promise<boolean> {
+    return this.terminals.handle(message, sessionId, send)
+  }
+
+  clientSessionClosed(sessionId: string): void {
+    this.terminals.closeSession(sessionId)
+  }
+
   async handleWeb3Message(
     message: Web3ClientMessage,
     send: (message: Web3ServerMessage) => void
@@ -466,6 +485,7 @@ export class CypheriaServer implements HttpAppHost {
     this.#webSocketServer?.close()
     this.#webSocketServer = undefined
     this.schedules.stop()
+    this.terminals.stop()
     this.web3.stop()
 
     const results = await Promise.allSettled([

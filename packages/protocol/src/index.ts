@@ -37,6 +37,13 @@ import {
   type ScheduleServerMessage,
 } from "./schedule.ts"
 import {
+  TERMINAL_CLIENT_SCHEMAS,
+  TERMINAL_RESPONSE_TYPES,
+  TERMINAL_SERVER_SCHEMAS,
+  type TerminalClientMessage,
+  type TerminalServerMessage,
+} from "./terminal.ts"
+import {
   THREAD_CLIENT_SCHEMAS,
   THREAD_RESPONSE_TYPES,
   THREAD_SERVER_SCHEMAS,
@@ -66,6 +73,7 @@ export * from "./provider-codex.ts"
 export * from "./relay.ts"
 export { type RequestId, RequestIdSchema } from "./request-id.ts"
 export * from "./schedule.ts"
+export * from "./terminal.ts"
 export * from "./thread.ts"
 export * from "./thread-timeline.ts"
 export * from "./web3.ts"
@@ -81,6 +89,7 @@ export const SERVER_CAPABILITIES = {
   codexProvider: "provider.codex",
   projectThread: "project-thread",
   schedules: "schedules",
+  terminals: "terminals",
   thread: "thread",
   web3: "web3",
   integrations: "integrations",
@@ -401,6 +410,7 @@ export type SessionInboundMessage =
   | CodexProviderClientMessage
   | ProjectThreadClientMessage
   | ScheduleClientMessage
+  | TerminalClientMessage
   | ThreadClientMessage
   | Web3ClientMessage
 
@@ -417,6 +427,7 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   ...CODEX_PROVIDER_CLIENT_SCHEMAS,
   ...PROJECT_THREAD_CLIENT_SCHEMAS,
   ...SCHEDULE_CLIENT_SCHEMAS,
+  ...TERMINAL_CLIENT_SCHEMAS,
   ...THREAD_CLIENT_SCHEMAS,
   ...WEB3_CLIENT_SCHEMAS,
 ])
@@ -474,6 +485,7 @@ export type SessionOutboundMessage =
   | CodexProviderServerMessage
   | ProjectThreadServerMessage
   | ScheduleServerMessage
+  | TerminalServerMessage
   | ThreadServerMessage
   | Web3ServerMessage
 
@@ -489,6 +501,7 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   ...CODEX_PROVIDER_SERVER_SCHEMAS,
   ...PROJECT_THREAD_SERVER_SCHEMAS,
   ...SCHEDULE_SERVER_SCHEMAS,
+  ...TERMINAL_SERVER_SCHEMAS,
   ...THREAD_SERVER_SCHEMAS,
   ...WEB3_SERVER_SCHEMAS,
 ])
@@ -521,6 +534,7 @@ const clientResponseTypes = new Set<string>([
   ...INTEGRATION_RESPONSE_TYPES,
   ...CODEX_PROVIDER_RESPONSE_TYPES,
   ...SCHEDULE_RESPONSE_TYPES,
+  ...TERMINAL_RESPONSE_TYPES,
   ...THREAD_RESPONSE_TYPES,
   ...WEB3_RESPONSE_TYPES,
 ])

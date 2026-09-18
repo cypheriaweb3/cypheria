@@ -73,6 +73,10 @@ export class CodexProviderService {
         case "provider.codex.permissions.show-full-access.set.request":
           respond(await this.#setShowFullAccess(message.payload.enabled))
           break
+        case "provider.codex.guardian.retry.request":
+          await this.#call("thread/approveGuardianDeniedAction", message.payload)
+          respond({ succeeded: true })
+          break
       }
     } catch (error) {
       const failure = error instanceof Error ? error : new Error(String(error))

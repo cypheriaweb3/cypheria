@@ -1,3 +1,4 @@
+import type { TerminalServerMessage, TerminalSession } from "@cypheria/protocol"
 import { cn } from "@cypheria/ui"
 import { Button } from "@cypheria/ui/components/button"
 import { FitAddon } from "@xterm/addon-fit"
@@ -7,30 +8,38 @@ import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
 import { PanelBottomOpen, PanelRightOpen, Plus, TerminalSquare, X } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
-import type { WorkspaceTerminalEvent, WorkspaceTerminalSession } from "../../../ipc/src/index.js"
+import { ensureCypheriaClient } from "../cypheria-client.js"
 import { terminalAppearanceFromElement } from "./terminal-appearance.js"
 import { normalizeWorkspaceTerminalSize } from "./workspace-terminal-size.js"
 import "./workspace-terminal.css"
 
 const terminalReplayLimit = 1_000_000
 
-const terminalEventText = (event: WorkspaceTerminalEvent): string =>
-  event.type === "terminal.output" ? event.data : `\r\n[process exited: ${event.exitCode}]\r\n`
+type TerminalEvent =
+  | (Extract<TerminalServerMessage, { type: "terminal.output.notification" }>["payload"] & {
+      type: "output"
+    })
+  | (Extract<TerminalServerMessage, { type: "terminal.exited.notification" }>["payload"] & {
+      type: "exited"
+    })
+
+const terminalEventText = (event: TerminalEvent): string =>
+  event.type === "output" ? event.data : `\r\n[process exited: ${event.exitCode}]\r\n`
 
 export function useWorkspaceTerminals(projectId?: string) {
-  const [sessions, setSessions] = useState<WorkspaceTerminalSession[]>([])
+  const [sessions, setSessions] = useState<TerminalSession[]>([])
   const [activeTerminalId, setActiveTerminalId] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const replayByTerminal = useRef(new Map<string, string>())
 
   const openTerminal = useCallback(async () => {
-    const api = window.cypheria?.workspaceTerminal
-    if (!api || opening) return
+    if (opening) return
     setOpening(true)
     setError(null)
     try {
-      const session = await api.open(projectId)
+      const client = await ensureCypheriaClient()
+      const session = await client.terminals.open(projectId ? { projectId } : {})
       replayByTerminal.current.set(session.terminalId, "")
       setSessions((current) => {
         const number = current.filter((item) => item.title.startsWith(session.title)).length + 1
@@ -48,7 +57,7 @@ export function useWorkspaceTerminals(projectId?: string) {
   }, [opening, projectId])
 
   const closeTerminal = useCallback(async (terminalId: string) => {
-    await window.cypheria?.workspaceTerminal.close(terminalId)
+    await (await ensureCypheriaClient()).terminals.close(terminalId)
     replayByTerminal.current.delete(terminalId)
     setSessions((current) => {
       const index = current.findIndex((session) => session.terminalId === terminalId)
@@ -67,9 +76,13 @@ export function useWorkspaceTerminals(projectId?: string) {
     []
   )
 
-  useEffect(
-    () =>
-      window.cypheria?.workspaceTerminal.onEvent((event) => {
+  useEffect(() => {
+    let disposed = false
+    let unsubscribeOutput: () => void = () => undefined
+    let unsubscribeExited: () => void = () => undefined
+    void ensureCypheriaClient().then((client) => {
+      if (disposed) return
+      const capture = (event: TerminalEvent) => {
         const current = replayByTerminal.current.get(event.terminalId)
         if (current === undefined) return
         const next = `${current}${terminalEventText(event)}`
@@ -77,14 +90,25 @@ export function useWorkspaceTerminals(projectId?: string) {
           event.terminalId,
           next.length > terminalReplayLimit ? next.slice(-terminalReplayLimit) : next
         )
-      }),
-    []
-  )
+      }
+      unsubscribeOutput = client.on("terminal.output.notification", (message) =>
+        capture({ ...message.payload, type: "output" })
+      )
+      unsubscribeExited = client.on("terminal.exited.notification", (message) =>
+        capture({ ...message.payload, type: "exited" })
+      )
+    })
+    return () => {
+      disposed = true
+      unsubscribeOutput()
+      unsubscribeExited()
+    }
+  }, [])
 
   useEffect(
     () => () => {
       replayByTerminal.current.clear()
-      void window.cypheria?.workspaceTerminal.closeAll()
+      void ensureCypheriaClient().then((client) => client.terminals.closeAll())
     },
     []
   )
@@ -278,7 +302,7 @@ function WorkspaceTerminalSurface({
 }: Readonly<{
   active: boolean
   getReplay: (terminalId: string) => string
-  session: WorkspaceTerminalSession
+  session: TerminalSession
 }>) {
   const container = useRef<HTMLDivElement>(null)
   const terminal = useRef<Terminal | null>(null)
@@ -306,14 +330,24 @@ function WorkspaceTerminalSurface({
     fit.current = fitAddon
 
     const data = instance.onData((value) => {
-      void window.cypheria?.workspaceTerminal.write(session.terminalId, value)
+      void ensureCypheriaClient().then((client) =>
+        client.terminals.write(session.terminalId, value)
+      )
     })
-    const unsubscribe = window.cypheria?.workspaceTerminal.onEvent(
-      (event: WorkspaceTerminalEvent) => {
-        if (event.terminalId !== session.terminalId) return
-        instance.write(terminalEventText(event))
-      }
-    )
+    let disposed = false
+    let unsubscribeOutput: () => void = () => undefined
+    let unsubscribeExited: () => void = () => undefined
+    void ensureCypheriaClient().then((client) => {
+      if (disposed) return
+      unsubscribeOutput = client.on("terminal.output.notification", (message) => {
+        if (message.payload.terminalId !== session.terminalId) return
+        instance.write(terminalEventText({ ...message.payload, type: "output" }))
+      })
+      unsubscribeExited = client.on("terminal.exited.notification", (message) => {
+        if (message.payload.terminalId !== session.terminalId) return
+        instance.write(terminalEventText({ ...message.payload, type: "exited" }))
+      })
+    })
     let lastSize: { cols: number; rows: number } | undefined
     const fitAndResize = () => {
       if (!activeRef.current) return
@@ -321,8 +355,8 @@ function WorkspaceTerminalSurface({
       const size = normalizeWorkspaceTerminalSize(instance.cols, instance.rows)
       if (lastSize?.cols === size.cols && lastSize.rows === size.rows) return
       lastSize = size
-      void window.cypheria?.workspaceTerminal
-        .resize(session.terminalId, size.cols, size.rows)
+      void ensureCypheriaClient()
+        .then((client) => client.terminals.resize(session.terminalId, size.cols, size.rows))
         .catch(() => undefined)
     }
     const resize = new ResizeObserver(fitAndResize)
@@ -341,7 +375,9 @@ function WorkspaceTerminalSurface({
     return () => {
       theme.disconnect()
       resize.disconnect()
-      unsubscribe?.()
+      disposed = true
+      unsubscribeOutput()
+      unsubscribeExited()
       data.dispose()
       instance.dispose()
       terminal.current = null

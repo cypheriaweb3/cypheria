@@ -672,6 +672,9 @@ export class ThreadManager {
             type: "thread.event.notification",
           })
           break
+        case "provider":
+          this.#publish({ payload: { event, threadId }, type: "thread.event.notification" })
+          break
       }
     })
   }

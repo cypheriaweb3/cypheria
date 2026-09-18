@@ -27,6 +27,7 @@ import {
   type ServerClientConfig,
   type ServerSession,
 } from "./server-client.js"
+import { createTerminalActions, type TerminalActions } from "./terminal.js"
 import { createThreadActions, type ThreadActions, type TimelineActions } from "./thread.js"
 import { createWeb3Actions, type Web3Actions } from "./web3.js"
 
@@ -61,6 +62,7 @@ export interface CypheriaApi {
       readonly apps: IntegrationActions["apps"]
       readonly integrations: IntegrationActions
       readonly account: CodexProviderActions["account"]
+      readonly guardian: CodexProviderActions["guardian"]
       readonly models: CodexProviderActions["models"]
       readonly permissions: CodexProviderActions["permissions"]
     }
@@ -74,6 +76,7 @@ export interface CypheriaApi {
   /** Preferred plural Thread facade. `thread` remains as a compatibility alias. */
   readonly threads: ThreadActions
   readonly timeline: TimelineActions
+  readonly terminals: TerminalActions
   readonly web3: Web3Actions
   on<T extends ServerMessage["type"]>(
     type: T,
@@ -128,6 +131,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
   const projectThread = createProjectThreadActions(serverClient)
   const threads = createThreadActions(serverClient)
   const schedules = createScheduleActions(serverClient)
+  const terminals = createTerminalActions(serverClient)
   const web3 = createWeb3Actions(serverClient)
   return {
     agent: agents,
@@ -142,6 +146,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
         account: codexProvider.account,
         apps: integrations.apps,
         integrations,
+        guardian: codexProvider.guardian,
         models: codexProvider.models,
         permissions: codexProvider.permissions,
       },
@@ -165,6 +170,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
     thread: threads,
     threads,
     timeline: threads.timeline,
+    terminals,
     web3,
   }
 }

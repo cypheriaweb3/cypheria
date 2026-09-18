@@ -32,6 +32,8 @@ import {
   type ServerMessage,
   type ServerStatus,
   stringifyProtocolMessage,
+  type TerminalClientMessage,
+  type TerminalServerMessage,
   type ThreadClientMessage,
   type ThreadServerMessage,
   type Web3ClientMessage,
@@ -547,6 +549,25 @@ export class ServerClient {
       SERVER_CAPABILITIES.projectThread
     )
     return message as ThreadServerMessage
+  }
+
+  async requestTerminal(
+    type: TerminalClientMessage["type"],
+    payload: unknown,
+    options?: RequestOptions
+  ): Promise<TerminalServerMessage> {
+    const expectedType = type.replace(/\.request$/u, ".response")
+    const message = await this.#request(
+      {
+        payload,
+        requestId: this.#nextRequestId("terminal"),
+        type,
+      } as TerminalClientMessage,
+      expectedType,
+      options,
+      SERVER_CAPABILITIES.terminals
+    )
+    return message as TerminalServerMessage
   }
 
   async requestWeb3(

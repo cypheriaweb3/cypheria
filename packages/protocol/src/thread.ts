@@ -546,6 +546,12 @@ export const ThreadEventNotificationSchema = z.object({
     event: z.discriminatedUnion("type", [
       z.object({ message: z.string(), type: z.literal("progress") }),
       z.object({ code: z.string().min(1), message: z.string(), type: z.literal("warning") }),
+      z.object({
+        agentId: AgentIdSchema,
+        nativeType: z.string().min(1),
+        payload: z.json(),
+        type: z.literal("provider"),
+      }),
     ]),
     threadId: ProjectThreadIdSchema,
   }),

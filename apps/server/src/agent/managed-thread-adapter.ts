@@ -1091,6 +1091,22 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
     const onEvent = this.#onEvent
     if (!onEvent) return
     const payload = payloadOf(message)
+    if (
+      this.agentId === "codex" &&
+      (message.type === "agent.codex.item.auto_approval_review.started.notification" ||
+        message.type === "agent.codex.item.auto_approval_review.completed.notification" ||
+        message.type === "agent.codex.auto_approval_review.strict_review_required.notification" ||
+        message.type === "agent.codex.mcp_server.oauth_login.completed.notification" ||
+        message.type === "agent.codex.mcp_server.startup_status.updated.notification")
+    ) {
+      onEvent({
+        agentId: "codex",
+        nativeType: message.type,
+        payload: payload as never,
+        type: "provider",
+      })
+      return
+    }
     const nativeSessionId = stringId(
       payload.sessionId ??
         payload.session_id ??

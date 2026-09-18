@@ -23,6 +23,12 @@ const unwrap = <T>(message: CodexProviderServerMessage): T => {
 }
 
 export interface CodexProviderActions {
+  readonly guardian: {
+    retry(
+      input: Payload<"provider.codex.guardian.retry.request">,
+      options?: RequestOptions
+    ): Promise<void>
+  }
   readonly account: {
     cancelLogin(loginId: string, options?: RequestOptions): Promise<boolean>
     get(
@@ -72,6 +78,11 @@ export const createCodexProviderActions = (client: ServerClient): CodexProviderA
     options?: RequestOptions
   ): Promise<T> => unwrap<T>(await client.requestCodexProvider(type, payload, options))
   return {
+    guardian: {
+      retry: async (input, options) => {
+        await request("provider.codex.guardian.retry.request", input, options)
+      },
+    },
     account: {
       cancelLogin: async (loginId, options) =>
         (
