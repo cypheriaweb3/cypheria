@@ -7,9 +7,17 @@ import {
   PersistedServerConfigSchema,
 } from "@cypheria/protocol"
 
-export const CYPHERIA_SERVER_CONFIG_FILENAME = "server.json" as const
+export const CYPHERIA_SERVER_CONFIG_FILENAME = "config.json" as const
 
 export const DEFAULT_PERSISTED_SERVER_CONFIG: PersistedServerConfig = {
+  agents: {
+    codex: {
+      model: null,
+      provider: "openai",
+      reasoningEffort: null,
+      serviceTier: null,
+    },
+  },
   server: {
     cors: { allowedOrigins: [] },
     limits: { maxMessageBytes: 1024 * 1024 },

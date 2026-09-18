@@ -1,3 +1,4 @@
+import type { CodexAccountView, CodexLoginInput, CodexLoginResult } from "@cypheria/protocol"
 import { Alert, AlertDescription, AlertTitle } from "@cypheria/ui/components/alert"
 import { Badge } from "@cypheria/ui/components/badge"
 import { Button } from "@cypheria/ui/components/button"
@@ -39,9 +40,6 @@ import {
 import { type FormEvent, useEffect, useState } from "react"
 import { z } from "zod"
 import type {
-  CodexAccountView,
-  CodexLoginRequest,
-  CodexLoginResult,
   ConnectionProxyProtocol,
   ConnectionProxySettings,
   ConnectionProxyTestResult,
@@ -76,13 +74,6 @@ function ThemeLogo({
       <img alt="" className={`${className} hidden dark:block`} src={sources.darkTheme} />
     </>
   )
-}
-
-const disconnectedCodexAccount: CodexAccountView = {
-  email: null,
-  planType: null,
-  requiresOpenaiAuth: true,
-  type: null,
 }
 
 type CodexAuthenticationMethod = "apiKey" | "chatgpt"
@@ -154,24 +145,26 @@ function ConnectionsSettingsRoute() {
   const search = Route.useSearch()
   const queryClient = useQueryClient()
   const [selectedAgentId, setSelectedAgentId] = useState<AgentId>("codex")
+  const [flow, setFlow] = useState<CodexLoginResult | null>(null)
   const agents = useQuery({
     queryFn: async () => (await ensureCypheriaClient()).agents.list(),
     queryKey: ["cypheria", "agents"],
   })
   const account = useQuery({
-    queryFn: () => window.cypheria?.codex.getAccount() ?? Promise.resolve(disconnectedCodexAccount),
+    queryFn: async () => (await ensureCypheriaClient()).providers.codex.account.get(),
     queryKey: ["codex", "account"],
+    refetchInterval: flow ? 2_000 : false,
   })
   const [apiKey, setApiKey] = useState("")
   const [authenticationMethod, setAuthenticationMethod] =
     useState<CodexAuthenticationMethod>("chatgpt")
-  const [flow, setFlow] = useState<CodexLoginResult | null>(null)
   const [notificationError, setNotificationError] = useState<string | null>(null)
 
   const login = useMutation({
-    mutationFn: async (request: CodexLoginRequest) => {
-      if (!window.cypheria) throw new Error("Connections are only available in the desktop app.")
-      return window.cypheria.codex.login(request)
+    mutationFn: async (request: CodexLoginInput) => {
+      const result = await (await ensureCypheriaClient()).providers.codex.account.login(request)
+      if (result.authUrl && window.cypheria) await window.cypheria.app.openExternal(result.authUrl)
+      return result
     },
     onMutate: () => setNotificationError(null),
     onSuccess: (result) => {
@@ -185,8 +178,7 @@ function ConnectionsSettingsRoute() {
 
   const logout = useMutation({
     mutationFn: async () => {
-      if (!window.cypheria) throw new Error("Connections are only available in the desktop app.")
-      return window.cypheria.codex.logout()
+      return (await ensureCypheriaClient()).providers.codex.account.logout()
     },
     onSuccess: async () => {
       setFlow(null)
@@ -196,33 +188,15 @@ function ConnectionsSettingsRoute() {
 
   const cancelLogin = useMutation({
     mutationFn: async (loginId: string) => {
-      if (!window.cypheria) throw new Error("Connections are only available in the desktop app.")
-      return window.cypheria.codex.cancelLogin(loginId)
+      return (await ensureCypheriaClient()).providers.codex.account.cancelLogin(loginId)
     },
     onSuccess: () => setFlow(null),
   })
 
-  useEffect(
-    () =>
-      window.cypheria?.codex.onEvent((envelope) => {
-        if (envelope.event !== "codex.notification") return
-        const payload = envelope.payload as {
-          method?: string
-          params?: { error?: string | null; success?: boolean }
-        }
-        if (payload.method === "account/login/completed") {
-          setFlow(null)
-          if (payload.params?.success === false) {
-            setNotificationError(payload.params.error ?? "ChatGPT sign-in did not complete.")
-          }
-          void queryClient.invalidateQueries({ queryKey: ["codex", "account"] })
-        }
-        if (payload.method === "account/updated") {
-          void queryClient.invalidateQueries({ queryKey: ["codex", "account"] })
-        }
-      }),
-    [queryClient]
-  )
+  useEffect(() => {
+    if (!flow || !account.data?.type) return
+    setFlow(null)
+  }, [account.data?.type, flow])
 
   useEffect(() => {
     if (search.focus === "codex") {

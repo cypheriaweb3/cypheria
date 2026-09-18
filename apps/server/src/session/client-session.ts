@@ -4,6 +4,8 @@ import {
   type ClientCapabilities,
   type ClientDescriptor,
   type ClientMessage,
+  type CodexProviderClientMessage,
+  type CodexProviderServerMessage,
   type IntegrationClientMessage,
   type IntegrationServerMessage,
   type PersistedServerConfigPatch,
@@ -38,6 +40,10 @@ export type SessionHost = {
   handleIntegrationMessage?(
     message: IntegrationClientMessage,
     send: (message: IntegrationServerMessage) => void
+  ): Promise<boolean>
+  handleCodexProviderMessage?(
+    message: CodexProviderClientMessage,
+    send: (message: CodexProviderServerMessage) => void
   ): Promise<boolean>
   handleScheduleMessage?(
     message: ScheduleClientMessage,
@@ -220,6 +226,16 @@ export class ClientSession {
         })
         break
       default:
+        if (
+          message.type.startsWith("provider.codex.") &&
+          this.#host.handleCodexProviderMessage &&
+          (await this.#host.handleCodexProviderMessage(
+            message as CodexProviderClientMessage,
+            (response) => this.sendTo(source, response)
+          ))
+        ) {
+          break
+        }
         if (
           message.type.startsWith("integration.") &&
           this.#host.handleIntegrationMessage &&

@@ -15,6 +15,8 @@ import {
 import {
   type AgentManagementClientMessage,
   type ClientMessage,
+  type CodexProviderClientMessage,
+  type CodexProviderServerMessage,
   CYPHERIA_PROTOCOL_VERSION,
   CYPHERIA_WEBSOCKET_PROTOCOL,
   type IntegrationClientMessage,
@@ -39,6 +41,7 @@ import { serve } from "@hono/node-server"
 import pino, { type Logger } from "pino"
 import { type WebSocket, WebSocketServer } from "ws"
 import { AgentManager } from "./agent/agent-manager.js"
+import { CodexProviderService } from "./codex-provider-service.js"
 import { type CypheriaServerConfig, loadServerConfig } from "./config.js"
 import { collectDiagnostics } from "./diagnostics.js"
 import { createHttpApp, type HttpAppHost } from "./http-app.js"
@@ -92,6 +95,7 @@ export class CypheriaServer implements HttpAppHost {
   readonly agentManager: AgentManager
   readonly projectThread: ProjectThreadService
   readonly integrations: IntegrationService
+  readonly codexProvider: CodexProviderService
   readonly schedules: ScheduleService
   readonly threadManager: ThreadManager
   readonly database: OpenDatabaseResult
@@ -130,8 +134,10 @@ export class CypheriaServer implements HttpAppHost {
       persistence: createAgentRegistryPersistenceService(this.database.db),
       publish: (message) => this.registry.broadcast(message),
       networkBootstrap: options.agentNetworkBootstrap,
+      codexSettings: () => this.configStore.getSnapshot().config.agents.codex,
     })
     this.integrations = new IntegrationService(this.agentManager)
+    this.codexProvider = new CodexProviderService(this.agentManager, this.configStore)
     const projectThreadPersistence = createProjectThreadPersistenceService(this.database.db)
     this.projectThread = new ProjectThreadService({
       persistence: projectThreadPersistence,
@@ -310,6 +316,7 @@ export class CypheriaServer implements HttpAppHost {
       SERVER_CAPABILITIES.config,
       SERVER_CAPABILITIES.diagnostics,
       SERVER_CAPABILITIES.integrations,
+      SERVER_CAPABILITIES.codexProvider,
       SERVER_CAPABILITIES.projectThread,
       SERVER_CAPABILITIES.schedules,
       SERVER_CAPABILITIES.status,
@@ -370,6 +377,13 @@ export class CypheriaServer implements HttpAppHost {
     send: (message: IntegrationServerMessage) => void
   ): Promise<boolean> {
     return this.integrations.handle(message, send)
+  }
+
+  async handleCodexProviderMessage(
+    message: CodexProviderClientMessage,
+    send: (message: CodexProviderServerMessage) => void
+  ): Promise<boolean> {
+    return this.codexProvider.handle(message, send)
   }
 
   async handleScheduleMessage(

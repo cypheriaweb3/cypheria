@@ -7,8 +7,6 @@ import {
 import { signingIntentSchema } from "@cypheria/web3/wallet"
 import { z } from "zod"
 import {
-  type CodexAccountView,
-  CodexAccountViewSchema,
   CodexAutoReviewRetrySchema,
   type CodexChatEvent,
   type CodexChatFollowUp,
@@ -22,16 +20,6 @@ import {
   CodexInteractionEventSchema,
   type CodexInteractionResponse,
   CodexInteractionResponseSchema,
-  CodexLoginCancelSchema,
-  type CodexLoginRequest,
-  CodexLoginRequestSchema,
-  type CodexLoginResult,
-  CodexLoginResultSchema,
-  CodexModelListRequestSchema,
-  type CodexModelSettings,
-  CodexModelSettingsSchema,
-  type CodexModelView,
-  CodexModelViewSchema,
   type CodexPermissionDefaults,
   CodexPermissionDefaultsSchema,
   type CodexPermissionDefaultsWrite,
@@ -167,10 +155,6 @@ export const CYPHERIA_IPC_CHANNELS = {
   approvalRequestDecide: "approval.request.decide",
   approvalRequestsList: "approval.requests.list",
   browserSessionOpen: "browser.session.open",
-  codexAccountLoginCancel: "codex.account.login.cancel",
-  codexAccountLoginStart: "codex.account.login.start",
-  codexAccountLogout: "codex.account.logout",
-  codexAccountRead: "codex.account.read",
   codexAutoReviewRetry: "codex.auto-review.retry",
   codexChatEvent: "codex.chat.event",
   codexChatInterrupt: "codex.chat.interrupt",
@@ -180,9 +164,6 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexInteractionList: "codex.interaction.list",
   codexInteractionRespond: "codex.interaction.respond",
   codexEvent: "codex.event",
-  codexModelList: "codex.model.list",
-  codexModelSettingsRead: "codex.model.settings.read",
-  codexModelSettingsWrite: "codex.model.settings.write",
   codexPermissionDefaultsRead: "codex.permission-defaults.read",
   codexPermissionDefaultsWrite: "codex.permission-defaults.write",
   codexPermissionsCatalogRead: "codex.permissions.catalog.read",
@@ -1263,62 +1244,6 @@ export const workspaceTerminalCloseAllContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<EmptyPayload, { closed: true }>
 
-export const codexAccountReadContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexAccountRead,
-  namespace: "codex",
-  request: EmptyPayloadSchema,
-  response: CodexAccountViewSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, CodexAccountView>
-
-export const codexAccountLoginStartContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexAccountLoginStart,
-  namespace: "codex",
-  request: CodexLoginRequestSchema,
-  response: CodexLoginResultSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<CodexLoginRequest, CodexLoginResult>
-
-export const codexAccountLoginCancelContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexAccountLoginCancel,
-  namespace: "codex",
-  request: CodexLoginCancelSchema,
-  response: z.object({ cancelled: z.boolean() }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ loginId: string }, { cancelled: boolean }>
-
-export const codexAccountLogoutContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexAccountLogout,
-  namespace: "codex",
-  request: EmptyPayloadSchema,
-  response: z.object({ loggedOut: z.boolean() }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, { loggedOut: boolean }>
-
-export const codexModelListContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexModelList,
-  namespace: "codex",
-  request: CodexModelListRequestSchema,
-  response: z.array(CodexModelViewSchema),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ includeHidden?: boolean }, CodexModelView[]>
-
-export const codexModelSettingsReadContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexModelSettingsRead,
-  namespace: "codex",
-  request: EmptyPayloadSchema,
-  response: CodexModelSettingsSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, CodexModelSettings>
-
-export const codexModelSettingsWriteContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexModelSettingsWrite,
-  namespace: "codex",
-  request: CodexModelSettingsSchema,
-  response: CodexModelSettingsSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<CodexModelSettings, CodexModelSettings>
-
 export const codexPermissionDefaultsReadContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexPermissionDefaultsRead,
   namespace: "codex",
@@ -1606,17 +1531,10 @@ export const ipcContracts = {
   approvalRequestDecide: approvalRequestDecideContract,
   approvalRequestsList: approvalRequestsListContract,
   browserSessionOpen: browserSessionOpenContract,
-  codexAccountLoginCancel: codexAccountLoginCancelContract,
-  codexAccountLoginStart: codexAccountLoginStartContract,
-  codexAccountLogout: codexAccountLogoutContract,
-  codexAccountRead: codexAccountReadContract,
   codexChatInterrupt: codexChatInterruptContract,
   codexChatSteer: codexChatSteerContract,
   codexChatStart: codexChatStartContract,
   codexAutoReviewRetry: codexAutoReviewRetryContract,
-  codexModelList: codexModelListContract,
-  codexModelSettingsRead: codexModelSettingsReadContract,
-  codexModelSettingsWrite: codexModelSettingsWriteContract,
   codexPermissionDefaultsRead: codexPermissionDefaultsReadContract,
   codexPermissionDefaultsWrite: codexPermissionDefaultsWriteContract,
   codexPermissionsCatalogRead: codexPermissionsCatalogReadContract,
@@ -1719,9 +1637,6 @@ export type CypheriaPreloadApi = {
     readonly list: (status?: ApprovalRequestStatus) => Promise<ApprovalRequestView[]>
   }
   readonly codex: {
-    readonly cancelLogin: (loginId: string) => Promise<{ cancelled: boolean }>
-    readonly getAccount: () => Promise<CodexAccountView>
-    readonly getModelSettings: () => Promise<CodexModelSettings>
     readonly getPermissionDefaults: () => Promise<CodexPermissionDefaults>
     readonly getPermissionsCatalog: (cwd?: string) => Promise<CodexPermissionsCatalog>
     readonly interruptChat: (requestId: string) => Promise<{ interrupted: boolean }>
@@ -1729,7 +1644,6 @@ export type CypheriaPreloadApi = {
       requestId: string,
       input: CodexChatFollowUp
     ) => Promise<{ steered: boolean }>
-    readonly listModels: (includeHidden?: boolean) => Promise<CodexModelView[]>
     readonly listProjects: (options?: {
       cursor?: string | null
       limit?: number
@@ -1784,17 +1698,14 @@ export type CypheriaPreloadApi = {
       sectionId: string | null
       threadId: string
     }) => Promise<{ moved: true }>
-    readonly login: (request: CodexLoginRequest) => Promise<CodexLoginResult>
     readonly retryAutoReviewDenial: (
       threadId: string,
       event: z.infer<typeof CodexAutoReviewRetrySchema>["event"]
     ) => Promise<{ accepted: true }>
-    readonly logout: () => Promise<{ loggedOut: boolean }>
     readonly onChatEvent: (handler: (event: CodexChatEvent) => void) => () => void
     readonly onInteraction: (handler: (event: CodexInteractionEvent) => void) => () => void
     readonly onEvent: (handler: (event: CodexEventEnvelope) => void) => () => void
     readonly listInteractions: () => Promise<CodexInteractionEvent[]>
-    readonly setModelSettings: (settings: CodexModelSettings) => Promise<CodexModelSettings>
     readonly setPermissionDefaults: (
       settings: CodexPermissionDefaultsWrite
     ) => Promise<CodexPermissionDefaults>

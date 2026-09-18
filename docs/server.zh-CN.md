@@ -139,7 +139,7 @@ API route 不会落入 SPA fallback。Request body 与 runtime method namespace 
 
 ## 配置与状态
 
-Desired config 存储在 `$CYPHERIA_HOME/config/server.json`，schema version 为 `1`。文件不存在时使用安全默认值，但不会仅因读取而写入用户状态。Patch 会先作为完整配置进行校验，再以仅 owner 可访问的权限原子写入。运行中的 worker 保持 resolved startup snapshot 不变：变化字段通过 `restartRequiredPaths` 返回；由启动环境变量控制的值通过 `overrideControlledPaths` 返回，不会被错误标记为由配置文件控制。
+Desired config 存储在 `$CYPHERIA_HOME/config/config.json`，schema version 为 `1`。文件不存在时使用安全默认值，但不会仅因读取而写入用户状态。Patch 会先作为完整配置进行校验，再以仅 owner 可访问的权限原子写入。运行中的 worker 保持 resolved startup snapshot 不变：变化字段通过 `restartRequiredPaths` 返回；由启动环境变量控制的值通过 `overrideControlledPaths` 返回，不会被错误标记为由配置文件控制。共享 Agent 配置位于同一文档的 `agents` 下；Codex 模型设置在 `agents.codex` 下沿用 Codex 词汇，但 Cypheria 始终是唯一事实来源。
 
 持久化文档负责 listener、CORS、message limit、relay、session deadline、shutdown 与 embedded web 设置。`CYPHERIA_SERVER_TOKEN` 只从环境读取，config/state API 永远不会返回它。Live state 与配置分离，报告 active/retained session、relay 连接状态、runtime lifecycle、worker/supervisor PID，以及 desired config 是否要求 restart。PID ownership 仍在 `$CYPHERIA_HOME/config/server.pid`；identity 与 relay key 继续使用独立的 owner-only 文件。
 

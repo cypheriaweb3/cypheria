@@ -76,6 +76,14 @@ export class ServerConfigStore {
     env: NodeJS.ProcessEnv = {}
   ): ServerConfigStore {
     const persisted: PersistedServerConfig = {
+      agents: {
+        codex: {
+          model: null,
+          provider: "openai",
+          reasoningEffort: null,
+          serviceTier: null,
+        },
+      },
       server: {
         cors: { allowedOrigins: runningConfig.allowedOrigins },
         limits: { maxMessageBytes: runningConfig.maxMessageBytes },

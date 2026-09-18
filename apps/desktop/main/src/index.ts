@@ -32,19 +32,12 @@ import {
   CYPHERIA_APPEARANCE_ARGUMENT_PREFIX,
   CYPHERIA_IPC_CHANNELS,
   CYPHERIA_LANGUAGE_ARGUMENT_PREFIX,
-  codexAccountLoginCancelContract,
-  codexAccountLoginStartContract,
-  codexAccountLogoutContract,
-  codexAccountReadContract,
   codexAutoReviewRetryContract,
   codexChatInterruptContract,
   codexChatStartContract,
   codexChatSteerContract,
   codexInteractionListContract,
   codexInteractionRespondContract,
-  codexModelListContract,
-  codexModelSettingsReadContract,
-  codexModelSettingsWriteContract,
   codexPermissionDefaultsReadContract,
   codexPermissionDefaultsWriteContract,
   codexPermissionsCatalogReadContract,
@@ -134,7 +127,6 @@ import { configureChromiumFeatures } from "./chromium-features.js"
 import { resolveCodexCommand } from "./codex-command.js"
 import {
   archiveCodexThread,
-  cancelCodexLogin,
   createCodexProject,
   createCodexThreadSection,
   deleteCodexProject,
@@ -142,26 +134,19 @@ import {
   deleteCodexThreadSection,
   forkCodexThread,
   interruptCodexChat,
-  listCodexModels,
   listCodexProjects,
   listCodexThreadSections,
   listCodexThreads,
-  logoutCodexAccount,
   moveCodexThreadToProject,
   moveCodexThreadToSection,
   queueCodexThreadMessage,
-  readCodexAccount,
-  readCodexModelSettings,
   readCodexThread,
   renameCodexThread,
   startCodexChat,
-  startCodexLogin,
   steerCodexChat,
   unarchiveCodexThread,
   updateCodexProject,
   updateCodexThreadSection,
-  validateOpenAiApiKey,
-  writeCodexModelSettings,
 } from "./codex-desktop.js"
 import {
   listCodexPermissions,
@@ -508,7 +493,6 @@ const registerIpcHandlers = (
     if (!bridge) throw new Error("Codex App Server is unavailable.")
     return bridge
   }
-  registerIpcRoute(codexAccountReadContract, () => readCodexAccount(codexBridge()))
   registerIpcRoute(codexAutoReviewRetryContract, async ({ event, threadId }) => {
     await codexBridge().request<
       "thread/approveGuardianDeniedAction",
@@ -516,28 +500,6 @@ const registerIpcHandlers = (
     >("thread/approveGuardianDeniedAction", { event, threadId })
     return { accepted: true }
   })
-  registerIpcRoute(codexAccountLoginStartContract, async (request) => {
-    const result = await startCodexLogin(codexBridge(), request, (apiKey) =>
-      validateOpenAiApiKey(apiKey, session.defaultSession.fetch.bind(session.defaultSession))
-    )
-    const loginUrl = result.type === "chatgpt" ? result.authUrl : undefined
-    if (loginUrl) await shell.openExternal(loginUrl)
-    return result
-  })
-  registerIpcRoute(codexAccountLoginCancelContract, async ({ loginId }) => ({
-    cancelled: await cancelCodexLogin(codexBridge(), loginId),
-  }))
-  registerIpcRoute(codexAccountLogoutContract, async () => {
-    await logoutCodexAccount(codexBridge())
-    return { loggedOut: true }
-  })
-  registerIpcRoute(codexModelListContract, ({ includeHidden }) =>
-    listCodexModels(codexBridge(), includeHidden)
-  )
-  registerIpcRoute(codexModelSettingsReadContract, () => readCodexModelSettings(codexBridge()))
-  registerIpcRoute(codexModelSettingsWriteContract, (settings) =>
-    writeCodexModelSettings(codexBridge(), settings)
-  )
   registerIpcRoute(codexPermissionDefaultsReadContract, () =>
     readCodexPermissionDefaults(codexBridge(), context.paths.codexHome)
   )

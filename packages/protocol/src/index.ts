@@ -20,6 +20,14 @@ import {
   type ProjectThreadClientMessage,
   type ProjectThreadServerMessage,
 } from "./project-thread.ts"
+import {
+  CODEX_PROVIDER_CLIENT_SCHEMAS,
+  CODEX_PROVIDER_RESPONSE_TYPES,
+  CODEX_PROVIDER_SERVER_SCHEMAS,
+  CodexModelSettingsSchema,
+  type CodexProviderClientMessage,
+  type CodexProviderServerMessage,
+} from "./provider-codex.ts"
 import { RequestIdSchema } from "./request-id.ts"
 import {
   SCHEDULE_CLIENT_SCHEMAS,
@@ -54,6 +62,7 @@ export * from "./codex-ui/image-generation.ts"
 export * from "./codex-ui/turn-projection.ts"
 export * from "./integration.ts"
 export * from "./project-thread.ts"
+export * from "./provider-codex.ts"
 export * from "./relay.ts"
 export { type RequestId, RequestIdSchema } from "./request-id.ts"
 export * from "./schedule.ts"
@@ -69,6 +78,7 @@ const CYPHERIA_SUPERJSON_MARKER = "cypheria.superjson.v1" as const
 /** Stable capabilities a server can advertise in the `server.status.notification` message. */
 export const SERVER_CAPABILITIES = {
   agentManager: "agent.manager",
+  codexProvider: "provider.codex",
   projectThread: "project-thread",
   schedules: "schedules",
   thread: "thread",
@@ -213,6 +223,11 @@ const OptionalRelayEndpointSchema = z.string().trim().min(1).max(2048).optional(
 
 export const PersistedServerConfigSchema = z
   .object({
+    agents: z
+      .object({
+        codex: CodexModelSettingsSchema,
+      })
+      .strict(),
     version: z.literal(1),
     server: z
       .object({
@@ -268,6 +283,12 @@ export type PersistedServerConfig = z.infer<typeof PersistedServerConfigSchema>
 
 export const PersistedServerConfigPatchSchema = z
   .object({
+    agents: z
+      .object({
+        codex: CodexModelSettingsSchema.partial().strict().optional(),
+      })
+      .strict()
+      .optional(),
     server: z
       .object({
         cors: z
@@ -377,6 +398,7 @@ export type SessionInboundMessage =
   | z.infer<typeof ServerConfigReloadRequestSchema>
   | AgentManagementClientMessage
   | IntegrationClientMessage
+  | CodexProviderClientMessage
   | ProjectThreadClientMessage
   | ScheduleClientMessage
   | ThreadClientMessage
@@ -392,6 +414,7 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   ServerConfigReloadRequestSchema,
   ...AGENT_MANAGEMENT_CLIENT_SCHEMAS,
   ...INTEGRATION_CLIENT_SCHEMAS,
+  ...CODEX_PROVIDER_CLIENT_SCHEMAS,
   ...PROJECT_THREAD_CLIENT_SCHEMAS,
   ...SCHEDULE_CLIENT_SCHEMAS,
   ...THREAD_CLIENT_SCHEMAS,
@@ -448,6 +471,7 @@ export type SessionOutboundMessage =
   | z.infer<typeof ServerConfigReloadResponseSchema>
   | AgentManagementServerMessage
   | IntegrationServerMessage
+  | CodexProviderServerMessage
   | ProjectThreadServerMessage
   | ScheduleServerMessage
   | ThreadServerMessage
@@ -462,6 +486,7 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   ServerConfigReloadResponseSchema,
   ...AGENT_MANAGEMENT_SERVER_SCHEMAS,
   ...INTEGRATION_SERVER_SCHEMAS,
+  ...CODEX_PROVIDER_SERVER_SCHEMAS,
   ...PROJECT_THREAD_SERVER_SCHEMAS,
   ...SCHEDULE_SERVER_SCHEMAS,
   ...THREAD_SERVER_SCHEMAS,
@@ -494,6 +519,7 @@ const clientResponseTypes = new Set<string>([
   "agent.toolchain.update.response",
   ...PROJECT_THREAD_RESPONSE_TYPES,
   ...INTEGRATION_RESPONSE_TYPES,
+  ...CODEX_PROVIDER_RESPONSE_TYPES,
   ...SCHEDULE_RESPONSE_TYPES,
   ...THREAD_RESPONSE_TYPES,
   ...WEB3_RESPONSE_TYPES,

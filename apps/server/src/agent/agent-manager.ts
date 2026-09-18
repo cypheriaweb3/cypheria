@@ -22,6 +22,7 @@ import {
   type AgentPiClientMessage,
   type AgentPiServerMessage,
   type AgentView,
+  type CodexModelSettings,
   isNativeAgentId,
   isRegistryAgentId,
   NATIVE_AGENT_IDS,
@@ -69,6 +70,7 @@ export type AgentManagerOptions = {
   cypheriaHome: string
   persistence: AgentRegistryPersistenceService
   publish: Send
+  codexSettings?: () => CodexModelSettings
   networkBootstrap?: boolean
 }
 
@@ -135,6 +137,7 @@ export class AgentManager {
   readonly #acpRuntimes = new Map<string, AcpSessionRuntime>()
   readonly #agentHomes: string
   readonly #claudeRuntimes = new Map<string, ClaudeSessionRuntime>()
+  readonly #codexSettings: () => CodexModelSettings
   readonly #installer: AgentInstaller
   readonly #openCode: OpenCodeRuntime
   readonly #piRuntimes = new Map<string, PiSessionRuntime>()
@@ -154,6 +157,9 @@ export class AgentManager {
     this.#persistence = options.persistence
     this.#publish = options.publish
     this.#networkBootstrap = options.networkBootstrap ?? true
+    this.#codexSettings =
+      options.codexSettings ??
+      (() => ({ model: null, provider: "openai", reasoningEffort: null, serviceTier: null }))
     this.#agentHomes = join(options.cypheriaHome, "agents")
     this.registry = new AgentRegistryService({
       cypheriaHome: options.cypheriaHome,
@@ -720,6 +726,20 @@ export class AgentManager {
         codexHome: join(this.#agentHomes, "..", "codex"),
         receipt: await this.#requiredReceipt("codex"),
         toolchains: this.toolchains,
+      })
+      const settings = this.#codexSettings()
+      await this.#codexRuntime.request("config/batchWrite", {
+        edits: [
+          { keyPath: "model_provider", mergeStrategy: "replace", value: settings.provider },
+          { keyPath: "model", mergeStrategy: "replace", value: settings.model },
+          {
+            keyPath: "model_reasoning_effort",
+            mergeStrategy: "replace",
+            value: settings.reasoningEffort,
+          },
+          { keyPath: "service_tier", mergeStrategy: "replace", value: settings.serviceTier },
+        ],
+        reloadUserConfig: true,
       })
     }
     return this.#codexRuntime

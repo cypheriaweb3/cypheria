@@ -80,10 +80,6 @@ const cypheriaApi: CypheriaPreloadApi = {
       }) as Promise<BrowserSessionOpenResult>,
   },
   codex: {
-    cancelLogin: (loginId) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAccountLoginCancel, { loginId }),
-    getAccount: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAccountRead),
-    getModelSettings: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexModelSettingsRead),
     getPermissionDefaults: () =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPermissionDefaultsRead),
     getPermissionsCatalog: (cwd) =>
@@ -94,10 +90,6 @@ const cypheriaApi: CypheriaPreloadApi = {
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexChatInterrupt, { requestId }),
     steerChat: (requestId, input) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexChatSteer, { ...input, requestId }),
-    listModels: (includeHidden) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexModelList, {
-        ...(includeHidden === undefined ? {} : { includeHidden }),
-      }),
     listProjects: (options = {}) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectList, options),
     createProject: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectCreate, input),
@@ -143,10 +135,8 @@ const cypheriaApi: CypheriaPreloadApi = {
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadSectionDelete, { id }),
     moveThreadToSection: (input) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadSectionMove, input),
-    login: (request) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAccountLoginStart, request),
     retryAutoReviewDenial: (threadId, event) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAutoReviewRetry, { event, threadId }),
-    logout: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAccountLogout),
     onChatEvent: (handler) => {
       const listener = (_event: IpcRendererEvent, chatEvent: CodexChatEvent): void => {
         handler(chatEvent)
@@ -177,8 +167,6 @@ const cypheriaApi: CypheriaPreloadApi = {
     listInteractions: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexInteractionList, {}),
     respondToInteraction: (response) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexInteractionRespond, response),
-    setModelSettings: (settings) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexModelSettingsWrite, settings),
     setPermissionDefaults: (settings) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPermissionDefaultsWrite, settings),
     setShowFullAccess: (enabled) =>

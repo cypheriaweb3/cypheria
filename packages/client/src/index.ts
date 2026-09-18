@@ -18,6 +18,7 @@ import {
   type ProjectThreadActions,
   type SectionActions,
 } from "./project-thread.js"
+import { type CodexProviderActions, createCodexProviderActions } from "./provider-codex.js"
 import { createScheduleActions, type ScheduleActions } from "./schedule.js"
 import {
   type ConnectionState,
@@ -59,6 +60,8 @@ export interface CypheriaApi {
     readonly codex: {
       readonly apps: IntegrationActions["apps"]
       readonly integrations: IntegrationActions
+      readonly account: CodexProviderActions["account"]
+      readonly models: CodexProviderActions["models"]
     }
     readonly opencode: { readonly integrations: IntegrationActions }
     readonly pi: { readonly integrations: IntegrationActions }
@@ -120,6 +123,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
 
   const agents = createAgentManagementActions(serverClient)
   const integrations = createIntegrationActions(serverClient)
+  const codexProvider = createCodexProviderActions(serverClient)
   const projectThread = createProjectThreadActions(serverClient)
   const threads = createThreadActions(serverClient)
   const schedules = createScheduleActions(serverClient)
@@ -133,7 +137,12 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
     providers: {
       acp: { integrations },
       claude: { integrations },
-      codex: { apps: integrations.apps, integrations },
+      codex: {
+        account: codexProvider.account,
+        apps: integrations.apps,
+        integrations,
+        models: codexProvider.models,
+      },
       opencode: { integrations },
       pi: { integrations },
     },
@@ -169,6 +178,7 @@ export {
 } from "./server-client.js"
 export type {
   AgentManagementActions,
+  CodexProviderActions,
   IntegrationActions,
   ProjectActions,
   ProjectThreadActions,

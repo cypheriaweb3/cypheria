@@ -52,6 +52,7 @@ import type {
 } from "../../../ipc/src/index.js"
 import cypheriaMark from "../assets/brand/cypheria-mark.svg"
 import promptWallpaper from "../assets/plugins/prompt-wallpaper.webp"
+import { ensureCypheriaClient } from "../cypheria-client.js"
 import { integrationApi } from "../integration-api.js"
 import {
   openAiPluginCategories,
@@ -188,16 +189,14 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
   const [copied, setCopied] = useState(false)
   const pluginsQuery = useQuery({
     queryKey: ["codex", "plugins"],
-    queryFn: () => {
+    queryFn: async () => {
       return integrationApi.plugins.list()
     },
   })
   const accountQuery = useQuery({
     queryKey: ["codex", "account"],
-    queryFn: (): Promise<CodexAccountView> => {
-      if (!window.cypheria)
-        throw new Error("Codex account status is available in Cypheria Desktop.")
-      return window.cypheria.codex.getAccount()
+    queryFn: async (): Promise<CodexAccountView> => {
+      return (await ensureCypheriaClient()).providers.codex.account.get()
     },
   })
   const skillsQuery = useQuery({

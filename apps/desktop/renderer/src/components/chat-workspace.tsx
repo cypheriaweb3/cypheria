@@ -347,11 +347,11 @@ function ChatSession({
     queryKey: ["cypheria", "thread", resumeThreadId],
   })
   const modelSettingsQuery = useQuery({
-    queryFn: () => window.cypheria?.codex.getModelSettings(),
+    queryFn: async () => (await ensureCypheriaClient()).providers.codex.models.settings(),
     queryKey: ["codex", "model-settings"],
   })
   const modelsQuery = useQuery({
-    queryFn: () => window.cypheria?.codex.listModels() ?? [],
+    queryFn: async () => (await ensureCypheriaClient()).providers.codex.models.list(),
     queryKey: ["codex", "models"],
   })
   const workspaceLayoutQuery = useQuery({

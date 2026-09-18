@@ -1,3 +1,4 @@
+import type { CodexModelSettings, CodexNativeProvider } from "@cypheria/protocol"
 import { Badge } from "@cypheria/ui/components/badge"
 import { Button } from "@cypheria/ui/components/button"
 import {
@@ -20,8 +21,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Check } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
-import type { CodexModelSettings, CodexNativeProvider } from "../../../ipc/src/index.js"
 import { SettingsFrame } from "../components/settings-frame"
+import { ensureCypheriaClient } from "../cypheria-client.js"
 
 export const Route = createFileRoute("/settings/models")({ component: ModelSettingsRoute })
 
@@ -35,11 +36,11 @@ const providerOptions: Array<{ description: string; label: string; value: CodexN
 function ModelSettingsRoute() {
   const queryClient = useQueryClient()
   const settingsQuery = useQuery({
-    queryFn: () => window.cypheria?.codex.getModelSettings(),
+    queryFn: async () => (await ensureCypheriaClient()).providers.codex.models.settings(),
     queryKey: ["codex", "model-settings"],
   })
   const modelsQuery = useQuery({
-    queryFn: () => window.cypheria?.codex.listModels() ?? [],
+    queryFn: async () => (await ensureCypheriaClient()).providers.codex.models.list(),
     queryKey: ["codex", "models"],
   })
   const [draft, setDraft] = useState<CodexModelSettings | null>(null)
@@ -56,8 +57,7 @@ function ModelSettingsRoute() {
   )
   const save = useMutation({
     mutationFn: async (settings: CodexModelSettings) => {
-      if (!window.cypheria) throw new Error("Model settings are only available in the desktop app.")
-      return window.cypheria.codex.setModelSettings(settings)
+      return (await ensureCypheriaClient()).providers.codex.models.setSettings(settings)
     },
     onSuccess: async (settings) => {
       setDraft(settings)

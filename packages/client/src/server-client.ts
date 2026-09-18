@@ -6,6 +6,8 @@ import {
   ClientDescriptorSchema,
   type ClientKind,
   type ClientMessage,
+  type CodexProviderClientMessage,
+  type CodexProviderServerMessage,
   type ConnectionOfferV2,
   ConnectionOfferV2Schema,
   CYPHERIA_PROTOCOL_VERSION,
@@ -488,6 +490,25 @@ export class ServerClient {
       SERVER_CAPABILITIES.integrations
     )
     return message as IntegrationServerMessage
+  }
+
+  async requestCodexProvider(
+    type: CodexProviderClientMessage["type"],
+    payload: unknown,
+    options?: RequestOptions
+  ): Promise<CodexProviderServerMessage> {
+    const expectedType = type.replace(/\.request$/, ".response")
+    const message = await this.#request(
+      {
+        payload,
+        requestId: this.#nextRequestId("provider-codex"),
+        type,
+      } as CodexProviderClientMessage,
+      expectedType,
+      options,
+      SERVER_CAPABILITIES.codexProvider
+    )
+    return message as CodexProviderServerMessage
   }
 
   async requestSchedule(
