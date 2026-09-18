@@ -26,6 +26,10 @@ export type SessionHost = {
   getStatus(): ServerStatus
   patchConfig(patch: PersistedServerConfigPatch): Promise<ServerConfigSnapshot>
   reloadConfig(): Promise<ServerConfigSnapshot>
+  handleProjectThreadMessage?(
+    message: ClientMessage,
+    send: (message: ServerMessage) => void
+  ): Promise<boolean>
   handleAgentMessage?(
     message: ClientMessage,
     sessionId: string,
@@ -200,6 +204,14 @@ export class ClientSession {
         })
         break
       default:
+        if (
+          this.#host.handleProjectThreadMessage &&
+          (await this.#host.handleProjectThreadMessage(message, (response) =>
+            this.sendTo(source, response)
+          ))
+        ) {
+          break
+        }
         if (
           !this.#host.handleAgentMessage ||
           !(await this.#host.handleAgentMessage(message, this.id, source, (response) =>

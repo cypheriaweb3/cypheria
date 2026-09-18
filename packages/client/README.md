@@ -36,9 +36,33 @@ CypheriaClient = CypheriaApi + connection lifecycle
   SDK-shaped facade at `@cypheria/client/claude`.
 - `agent.pi`: the complete `pi --mode rpc` command, event, and extension UI surface, with a
   process-free `RpcClient` facade at `@cypheria/client/pi`.
+- `projectThread`: typed project, thread, project-membership, section, and section-membership
+  operations through `projects`, `threads`, and `sections` action groups.
 
 It does not invent wallet, policy, automation, or runtime-info product methods from runtime method
 strings. Add a high-level API only after its contract exists in `@cypheria/protocol`.
+
+## Project/thread API
+
+Project/thread calls are available directly on `CypheriaApi` and `CypheriaClient`:
+
+```ts
+const project = await cypheria.projectThread.projects.create({
+  name: "Cypheria",
+  roots: ["/absolute/workspace"],
+})
+const thread = await cypheria.projectThread.threads.create({
+  agentId: "codex",
+  projectPlacement: { projectId: project.id },
+})
+await cypheria.projectThread.sections.pinItem({
+  item: { id: thread.id, type: "thread" },
+})
+```
+
+The returned thread includes the reserved nullable `agentSessionId` field. Creating with an agent
+session, looking up by agent session, and binding or updating that field are intentionally not part
+of the current client API.
 
 ## Codex client API
 

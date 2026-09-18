@@ -2,7 +2,7 @@
 
 `apps/server` 是 Cypheria client 与本地特权能力之间的进程边界。它复用了 Paseo 中有价值的进程结构：稳定 supervisor、可替换 worker、显式 session handshake、health 与 diagnostics、PID ownership、crash recovery 和 graceful lifecycle control；Cypheria 对进程与 API 统一使用 server 命名，并以 Hono 替代 Express。
 
-当前运行中的基础 server 仍不分发 agent、project、wallet、policy 或 automation 产品 service。它只托管一个裸 `CypheriaRuntime`；runtime 内置的 `runtime.info`、`runtime.health` 与 `runtime.services` 足以验证 transport。`@cypheria/protocol` 已在 `agent.codex.*` 下预留完整 Codex App Server API、在 `agent.acp.*` 下承载 ACP，并在 `agent.claude.*` 下表示 Claude Agent SDK 中适合网络传输的接口；server 侧 agent dispatch 仍是独立的后续实现步骤。
+Server 持有基于 SQLite 的 project、thread、project 成员关系、section 与 section 成员关系 service，并以 `project-thread` capability 对外声明。它在接收连接前初始化固定的 pinned section，并分派相应的逻辑 session message。Cypheria thread 与 agent session 的关联刻意推迟：预留字段保持为 null，当前没有绑定、更新或按该字段查询的操作。Server 同时托管 `CypheriaRuntime` 以及下文所述的 agent surface；wallet、policy 与 automation 产品 service 仍是独立的后续实现步骤。
 
 ## 进程模型
 
@@ -36,7 +36,7 @@ cypheria-server stop
 
 `@cypheria/client` 是该 contract 的可复用 consumer。其内部 `ServerClient` 持有 transport、WebSocket session、请求关联、订阅、超时处理与重连策略；`createCypheriaApi()` 暴露不带连接控制权的借用能力门面；`createCypheriaClient()` 创建持有 connection lifecycle 的门面。该 API 只映射当前 protocol message family，不会从通用 runtime method name 推断 wallet、policy、automation 或其他产品 API。该 package 依赖 `@cypheria/protocol`、只处理传输的 `@cypheria/relay` 与 protocol 所用的同一精确版本官方 ACP SDK，不会启动 server、runtime 或 Codex。其 stable 与 draft-v2 入口在最小 `agent.acp` endpoint 上提供 Cypheria 自有的 SDK-shaped `client()` 与 `ClientApp` API，并选择性重新导出受支持的 upstream helper 与 type。
 
-WebSocket client 继续使用现有的 `cypheria.v1` subprotocol 连接 `/api/v1/ws`。Wire format 采用 Paseo 的两层结构：WebSocket 顶层消息只有 `hello`、`ping`、`pong` 与 `session`；server operation 以及 Codex、ACP 和 Claude message 都是逻辑 session 消息，通过 `{ type: "session", message }` 承载。除 `ping` 外，client 的第一条消息必须是顶层 `hello`，其中包含 protocol version、client identity、client type、可选 app version 和可选的 transport capabilities。支持的 client type 是 `desktop`、`mobile`、`web`、`cli`、`mcp` 与 `hub`。不再有 `session.ready`；server 通过逻辑 `server.status.notification` 消息确认挂接。
+WebSocket client 继续使用现有的 `cypheria.v2` subprotocol 连接 `/api/v1/ws`。Wire format 采用 Paseo 的两层结构：WebSocket 顶层消息只有 `hello`、`ping`、`pong` 与 `session`；server operation 以及 Codex、ACP 和 Claude message 都是逻辑 session 消息，通过 `{ type: "session", message }` 承载。除 `ping` 外，client 的第一条消息必须是顶层 `hello`，其中包含 protocol version、client identity、client type、可选 app version 和可选的 transport capabilities。支持的 client type 是 `desktop`、`mobile`、`web`、`cli`、`mcp` 与 `hub`。不再有 `session.ready`；server 通过逻辑 `server.status.notification` 消息确认挂接。
 
 内存 registry 以 authenticated principal 和 `clientId` 作为逻辑 session key。当前直连 token 与 relay pairing 的 admission 都解析为单一本地 owner principal。同一个逻辑 session 可以同时挂接多条物理 WebSocket 或解密后的 relay channel。有关联的 response 只返回来源 transport，status broadcast则发给全部已挂接 transport。只有最后一条 transport 离开后才开始 reconnect grace period；同一 authenticated principal 与 `clientId` 重连时会自动恢复逻辑 session，不存在公开 session ID、resume token 或 `session.goodbye` 消息。Client close 只关闭自身物理 transport。Worker 重启后不会保留逻辑 session。
 

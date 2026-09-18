@@ -42,6 +42,8 @@ import {
   type PiRpcCommandName,
   type PiRpcParams,
   type PiRpcResult,
+  type ProjectThreadClientMessage,
+  type ProjectThreadServerMessage,
   parseClientMessage,
   parseConnectionOffer,
   parseWSInboundMessage,
@@ -530,6 +532,25 @@ export class ServerClient {
       SERVER_CAPABILITIES.agentManager
     )
     return message as AgentManagementServerMessage
+  }
+
+  async requestProjectThread(
+    type: ProjectThreadClientMessage["type"],
+    payload: unknown,
+    options?: RequestOptions
+  ): Promise<ProjectThreadServerMessage> {
+    const expectedType = type.replace(/\.request$/, ".response")
+    const message = await this.#request(
+      {
+        payload,
+        requestId: this.#nextRequestId("project-thread"),
+        type,
+      } as ProjectThreadClientMessage,
+      expectedType,
+      options,
+      SERVER_CAPABILITIES.projectThread
+    )
+    return message as ProjectThreadServerMessage
   }
 
   async requestOpenCodeCall(

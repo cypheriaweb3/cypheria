@@ -26,6 +26,7 @@ import {
 import { type CodexEndpoint, createCodexEndpoint, isCodexServerMessage } from "./codex-endpoint.js"
 import { createOpenCodeEndpoint, type OpenCodeEndpoint } from "./opencode.js"
 import { createPiEndpoint, isPiServerMessage, type PiEndpoint } from "./pi-endpoint.js"
+import { createProjectThreadActions, type ProjectThreadActions } from "./project-thread.js"
 import {
   type ConnectionState,
   type RequestOptions,
@@ -60,6 +61,7 @@ export interface ServerActions {
 /** Capability-only facade. Every operation maps directly to a current protocol message. */
 export interface CypheriaApi {
   readonly agent: AgentActions
+  readonly projectThread: ProjectThreadActions
   readonly server: ServerActions
   on<T extends ServerMessage["type"]>(
     type: T,
@@ -207,6 +209,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
       opencode: getOpenCodeEndpoint(serverClient),
       pi: getPiEndpoint(serverClient),
     },
+    projectThread: createProjectThreadActions(serverClient),
     on,
     server: {
       config: async (options) => serverClient.getServerConfig(options),
@@ -242,5 +245,6 @@ export type {
   CodexEndpoint,
   OpenCodeEndpoint,
   PiEndpoint,
+  ProjectThreadActions,
 }
 export { isAgentUpdateAvailable }

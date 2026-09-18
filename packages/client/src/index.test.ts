@@ -61,7 +61,7 @@ describe("Cypheria client facade", () => {
     })
     const api = createCypheriaApi(serverClient)
 
-    expect(Object.keys(api).sort()).toEqual(["agent", "on", "server", "subscribe"])
+    expect(Object.keys(api).sort()).toEqual(["agent", "on", "projectThread", "server", "subscribe"])
     expect("wallet" in api).toBe(false)
     expect("policy" in api).toBe(false)
     expect("automation" in api).toBe(false)

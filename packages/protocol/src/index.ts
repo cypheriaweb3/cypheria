@@ -47,6 +47,13 @@ import {
   type AgentPiServerMessage,
   AgentPiServerMessageSchema,
 } from "./agent/pi.ts"
+import {
+  PROJECT_THREAD_CLIENT_SCHEMAS,
+  PROJECT_THREAD_RESPONSE_TYPES,
+  PROJECT_THREAD_SERVER_SCHEMAS,
+  type ProjectThreadClientMessage,
+  type ProjectThreadServerMessage,
+} from "./project-thread.ts"
 import { RequestIdSchema } from "./request-id.ts"
 
 export * from "./agent/acp.ts"
@@ -56,6 +63,7 @@ export * from "./agent/management.ts"
 export * from "./agent/opencode.ts"
 export * from "./agent/pi.ts"
 export * from "./agent/registry.ts"
+export * from "./project-thread.ts"
 export * from "./relay.ts"
 export { type RequestId, RequestIdSchema } from "./request-id.ts"
 
@@ -72,6 +80,7 @@ export const SERVER_CAPABILITIES = {
   codex: "agent.codex",
   pi: "agent.pi",
   opencode: "agent.opencode",
+  projectThread: "project-thread",
   config: "server.config",
   diagnostics: "diagnostics",
   status: "server.status",
@@ -381,6 +390,7 @@ export type SessionInboundMessage =
   | AgentPiClientMessage
   | AgentManagementClientMessage
   | AgentOpenCodeClientMessage
+  | ProjectThreadClientMessage
 
 // Nested family discriminators keep each concrete wire `type` visible while allowing ACP to use
 // `protocolVersion` as its second-level discriminator for types shared by v1 and v2.
@@ -398,6 +408,7 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   AgentPiClientMessageSchema,
   ...AGENT_MANAGEMENT_CLIENT_SCHEMAS,
   ...AGENT_OPENCODE_CLIENT_SCHEMAS,
+  ...PROJECT_THREAD_CLIENT_SCHEMAS,
 ])
 
 export type ClientMessage = SessionInboundMessage
@@ -456,6 +467,7 @@ export type SessionOutboundMessage =
   | AgentPiServerMessage
   | AgentManagementServerMessage
   | AgentOpenCodeServerMessage
+  | ProjectThreadServerMessage
 
 export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutboundMessage>([
   ServerStatusNotificationSchema,
@@ -472,6 +484,7 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   AgentPiServerMessageSchema,
   ...AGENT_MANAGEMENT_SERVER_SCHEMAS,
   ...AGENT_OPENCODE_SERVER_SCHEMAS,
+  ...PROJECT_THREAD_SERVER_SCHEMAS,
 ])
 
 export type ServerMessage = SessionOutboundMessage
@@ -502,6 +515,7 @@ const clientResponseTypes = new Set<string>([
   "agent.toolchain.update.response",
   "agent.opencode.call.response",
   "agent.opencode.event.subscribe.response",
+  ...PROJECT_THREAD_RESPONSE_TYPES,
 ])
 
 /** Distinguishes responses to client requests from reverse RPCs that happen to share an id. */

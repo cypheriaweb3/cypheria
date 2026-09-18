@@ -66,6 +66,31 @@ export {
   type SigningPolicyPersistenceService,
   type SigningPolicyRecord,
 } from "./policy.js"
+export {
+  type CreateProjectInput,
+  type CreateThreadInput,
+  createProjectThreadPersistenceService,
+  type ListOptions,
+  type ListProjectsOptions,
+  type ListThreadsOptions,
+  type Page,
+  PINNED_SECTION_ID,
+  type ProjectItemRecord,
+  type ProjectItemView,
+  type ProjectMembershipView,
+  type ProjectPlacement,
+  type ProjectRecord,
+  ProjectThreadPersistenceError,
+  type ProjectThreadPersistenceService,
+  type SectionItemRecord,
+  type SectionItemRef,
+  type SectionItemView,
+  type SectionMembershipView,
+  type SectionPlacement,
+  type SectionRecord,
+  type SortDirection,
+  type ThreadRecord,
+} from "./project-thread.js"
 export * from "./schema/index.js"
 export {
   createSigningIntentReplayStore,

@@ -34,9 +34,32 @@ CypheriaClient = CypheriaApi + connection lifecycle
   `@cypheria/client/claude` 提供 SDK-shaped 门面。
 - `agent.pi`：完整的 `pi --mode rpc` command、event 与 extension UI surface，并由
   `@cypheria/client/pi` 提供不持有进程的 `RpcClient` 门面。
+- `projectThread`：通过 `projects`、`threads` 和 `sections` action group 提供类型化的 project、
+  thread、project 成员关系、section 与 section 成员关系操作。
 
 它不会根据 runtime method 字符串发明 wallet、policy、automation 或 runtime-info 产品方法。
 只有相应 contract 进入 `@cypheria/protocol` 后，才应增加高层 API。
+
+## Project/thread API
+
+`CypheriaApi` 与 `CypheriaClient` 直接提供 project/thread 调用：
+
+```ts
+const project = await cypheria.projectThread.projects.create({
+  name: "Cypheria",
+  roots: ["/absolute/workspace"],
+})
+const thread = await cypheria.projectThread.threads.create({
+  agentId: "codex",
+  projectPlacement: { projectId: project.id },
+})
+await cypheria.projectThread.sections.pinItem({
+  item: { id: thread.id, type: "thread" },
+})
+```
+
+返回的 thread 包含预留的可空 `agentSessionId` 字段。创建时传入 agent session、按 agent
+session 查询，以及绑定或更新该字段，均刻意不属于当前 client API。
 
 ## Codex client API
 

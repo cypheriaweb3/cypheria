@@ -8,6 +8,13 @@
       "when": 1789639331961,
       "tag": "0000_slimy_whistler",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789661182293,
+      "tag": "0001_project-thread",
+      "breakpoints": true
     }
   ]
 }

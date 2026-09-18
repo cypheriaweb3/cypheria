@@ -15,6 +15,7 @@ import {
   SessionInboundMessageSchema,
   SessionOutboundMessageSchema,
   stringifyProtocolMessage,
+  ThreadCreateRequestSchema,
   WSInboundMessageSchema,
   WSOutboundMessageSchema,
   wrapClientSessionMessage,
@@ -62,8 +63,30 @@ describe("Cypheria protocol", () => {
   it("dispatches every logical session wire type from a flat discriminator", () => {
     expect(SessionInboundMessageSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
     expect(SessionOutboundMessageSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
-    expect((SessionInboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(28)
-    expect((SessionOutboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(36)
+    expect((SessionInboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(57)
+    expect((SessionOutboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(65)
+  })
+
+  it("validates projectThread UUIDv7 inputs without exposing agent-session binding", () => {
+    const message = ThreadCreateRequestSchema.parse({
+      payload: {
+        agentId: "codex",
+        agentSessionId: "reserved-for-later",
+        forkedFromId: "01984de2-8f74-7c91-a3b2-5c5e937cf319",
+        recencyAt: 1_800_000_000,
+      },
+      requestId: "projectThread-1",
+      type: "thread.create.request",
+    })
+
+    expect(message.payload).not.toHaveProperty("agentSessionId")
+    expect(
+      ThreadCreateRequestSchema.safeParse({
+        payload: { agentId: "codex", forkedFromId: "not-a-uuid" },
+        requestId: "projectThread-2",
+        type: "thread.create.request",
+      }).success
+    ).toBe(false)
   })
 
   it("limits runtime requests to runtime-owned namespaces", () => {
