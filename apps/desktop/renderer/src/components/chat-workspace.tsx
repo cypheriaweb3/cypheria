@@ -156,6 +156,7 @@ import {
 import { type CodexChatOptions, interruptActiveCodexTurns } from "../codex-chat.js"
 import { ensureCypheriaClient } from "../cypheria-client.js"
 import { codexMarkdownUrlTransform } from "../generated-image-url.js"
+import { integrationApi } from "../integration-api.js"
 import { Route } from "../routes/index"
 import { sidebarData, sidebarQueryKeys } from "../sidebar-data.js"
 import { web3Api } from "../web3-api.js"
@@ -430,7 +431,7 @@ function ChatSession({
   const defaultTerminalLocation = workspaceLayoutQuery.data?.defaultTerminalLocation ?? "bottom"
   const showBottomPanelControl = workspaceLayoutQuery.data?.showBottomPanelControl ?? true
   const skillsQuery = useQuery({
-    queryFn: () => window.cypheria?.codex.listSkills({ cwd: selectedProject?.roots[0] }),
+    queryFn: () => integrationApi.skills.list({ cwd: selectedProject?.roots[0] }),
     queryKey: ["codex", "skills", selectedProject?.roots[0] ?? null],
   })
   const effectivePermissionSelection = permissionSelection ??

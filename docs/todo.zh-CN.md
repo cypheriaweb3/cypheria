@@ -137,7 +137,8 @@
   - [x] 将 Agent catalog、安装、更新、启用与 runtime lifecycle control 从旧 Desktop harness manager 切换到 `client.agents`。
   - [~] 在泛化共享会话 shell 的同时保持完整 Codex timeline 渲染等价；canonical user message 现在可在 history reload 后保留附件。
   - [x] 将 network、wallet、policy、signing approval 与 audit surface 搬到共享 `client.web3` API；Renderer 不再消费其旧 IPC path。
-  - [ ] 在删除旧 IPC path 前，将其余 Codex authentication/configuration、skills、plugins、MCP 与共享 terminal surface 搬到 server API。
+  - [~] 在删除旧 IPC path 前，将其余 Codex authentication/configuration 与共享 terminal surface 搬到 server API。
+  - [x] 将 skills、plugins、MCP、marketplaces 与 Codex Apps 搬到版本化 Integrations API，并移除旧 renderer IPC 执行路径。
   - 状态：已明确批准；在替换数据源时，把现有 Sidebar 与源自 Codex 的会话体验作为硬性验收门槛。
 
 - [x] 按 server 与 multi-client 目标架构重写文档。
@@ -346,7 +347,7 @@
   - 验证：全部 workspace tests、`pnpm run ci`、`pnpm build`，以及 chat workspace 与 wallet route 的真实 Electron smoke checks。
 
 - [x] 实现 desktop 插件与技能管理闭环。
-  - 验收：工作台通过 App Server 列出和搜索 marketplace 与 skill；安装、卸载、启用和禁用 plugin；启用和禁用 skill；并经 typed IPC 添加或更新 marketplace source。
+  - 验收：工作台通过 Server projection 列出和搜索 marketplace 与 skill；安装、卸载、启用和禁用 plugin；启用和禁用 skill；并经 `@cypheria/client` 添加或更新 marketplace source。
   - 包括：renderer-safe Zod projection、source/installed filter、partial-load error、loading/empty state、隔离 Codex home ownership，以及成对的 evidence-based design note。
   - 验证：desktop IPC 与 service tests、`pnpm run ci`、`pnpm build`，以及与官方 desktop reference 的视觉对比。
 

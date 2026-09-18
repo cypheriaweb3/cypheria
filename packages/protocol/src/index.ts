@@ -7,6 +7,13 @@ import {
   type AgentManagementServerMessage,
 } from "./agent/management.ts"
 import {
+  INTEGRATION_CLIENT_SCHEMAS,
+  INTEGRATION_RESPONSE_TYPES,
+  INTEGRATION_SERVER_SCHEMAS,
+  type IntegrationClientMessage,
+  type IntegrationServerMessage,
+} from "./integration.ts"
+import {
   PROJECT_THREAD_CLIENT_SCHEMAS,
   PROJECT_THREAD_RESPONSE_TYPES,
   PROJECT_THREAD_SERVER_SCHEMAS,
@@ -45,6 +52,7 @@ export * from "./agent/pi.ts"
 export * from "./agent/registry.ts"
 export * from "./codex-ui/image-generation.ts"
 export * from "./codex-ui/turn-projection.ts"
+export * from "./integration.ts"
 export * from "./project-thread.ts"
 export * from "./relay.ts"
 export { type RequestId, RequestIdSchema } from "./request-id.ts"
@@ -65,6 +73,7 @@ export const SERVER_CAPABILITIES = {
   schedules: "schedules",
   thread: "thread",
   web3: "web3",
+  integrations: "integrations",
   config: "server.config",
   diagnostics: "diagnostics",
   status: "server.status",
@@ -367,6 +376,7 @@ export type SessionInboundMessage =
   | z.infer<typeof ServerConfigPatchRequestSchema>
   | z.infer<typeof ServerConfigReloadRequestSchema>
   | AgentManagementClientMessage
+  | IntegrationClientMessage
   | ProjectThreadClientMessage
   | ScheduleClientMessage
   | ThreadClientMessage
@@ -381,6 +391,7 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   ServerConfigPatchRequestSchema,
   ServerConfigReloadRequestSchema,
   ...AGENT_MANAGEMENT_CLIENT_SCHEMAS,
+  ...INTEGRATION_CLIENT_SCHEMAS,
   ...PROJECT_THREAD_CLIENT_SCHEMAS,
   ...SCHEDULE_CLIENT_SCHEMAS,
   ...THREAD_CLIENT_SCHEMAS,
@@ -436,6 +447,7 @@ export type SessionOutboundMessage =
   | z.infer<typeof ServerConfigPatchResponseSchema>
   | z.infer<typeof ServerConfigReloadResponseSchema>
   | AgentManagementServerMessage
+  | IntegrationServerMessage
   | ProjectThreadServerMessage
   | ScheduleServerMessage
   | ThreadServerMessage
@@ -449,6 +461,7 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   ServerConfigPatchResponseSchema,
   ServerConfigReloadResponseSchema,
   ...AGENT_MANAGEMENT_SERVER_SCHEMAS,
+  ...INTEGRATION_SERVER_SCHEMAS,
   ...PROJECT_THREAD_SERVER_SCHEMAS,
   ...SCHEDULE_SERVER_SCHEMAS,
   ...THREAD_SERVER_SCHEMAS,
@@ -480,6 +493,7 @@ const clientResponseTypes = new Set<string>([
   "agent.toolchain.check_updates.response",
   "agent.toolchain.update.response",
   ...PROJECT_THREAD_RESPONSE_TYPES,
+  ...INTEGRATION_RESPONSE_TYPES,
   ...SCHEDULE_RESPONSE_TYPES,
   ...THREAD_RESPONSE_TYPES,
   ...WEB3_RESPONSE_TYPES,

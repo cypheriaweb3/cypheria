@@ -139,7 +139,8 @@ Status legend:
   - [x] Move Agent catalog, installation, update, enablement, and runtime lifecycle controls from the old Desktop harness manager to `client.agents`.
   - [~] Preserve complete Codex timeline rendering parity while generalizing the common conversation shell; canonical user messages now retain attachments across history reloads.
   - [x] Move networks, wallets, policies, signing approvals, and audit surfaces to the shared `client.web3` API; the renderer no longer consumes their old IPC path.
-  - [ ] Move remaining Codex authentication/configuration, skills, plugins, MCP, and shared terminal surfaces to server APIs before removing their old IPC paths.
+  - [~] Move remaining Codex authentication/configuration and shared terminal surfaces to server APIs before removing their old IPC paths.
+  - [x] Move skills, plugins, MCP, marketplaces, and Codex Apps to the versioned Integrations API and remove their old renderer IPC execution paths.
   - Status: explicitly approved; preserve the current Sidebar and Codex-derived conversation experience as hard acceptance gates while replacing their data source.
 
 - [x] Rewrite docs for the server and multi-client target architecture.
@@ -348,7 +349,7 @@ Status legend:
   - Verification: all workspace tests, `pnpm run ci`, `pnpm build`, and real Electron smoke checks of the chat workspace and wallet route.
 
 - [x] Implement the desktop plugin and skill management loop.
-  - Acceptance: the workbench lists and searches App Server marketplaces and skills; installs, uninstalls, enables, and disables plugins; enables and disables skills; and adds or upgrades marketplace sources through typed IPC.
+  - Acceptance: the workbench lists and searches Server-projected marketplaces and skills; installs, uninstalls, enables, and disables plugins; enables and disables skills; and adds or upgrades marketplace sources through `@cypheria/client`.
   - Include: renderer-safe Zod projections, source and installed filters, partial-load errors, loading and empty states, isolated Codex home ownership, and a paired evidence-based design note.
   - Verification: desktop IPC and service tests, `pnpm run ci`, `pnpm build`, and visual comparison against the official desktop reference.
 

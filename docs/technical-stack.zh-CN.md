@@ -221,7 +221,7 @@ Desktop main bundle 将 `@libsql/client` 及其 platform packages 保持为 exte
 
 ## Codex 集成
 
-Server 为每个 client 持有 Codex。Desktop 的实时 turn 与持久 history 已通过统一 provider 与 canonical Thread 接口进入。以下 direct bridge 只在 desktop-only 的 Codex 配置、插件、技能、MCP、终端与审批 surface 获得共享 server API 前过渡保留：
+Server 为每个 client 持有 Codex。Desktop 的实时 turn、持久 history、插件、技能、MCP、市场与 Codex Apps 已通过统一的 Cypheria client API 进入。剩余 direct bridge 只为 desktop 的 Codex 账户/登录、配置/模型发现、终端与审批 surface 过渡保留，直到它们获得共享 server API：
 
 ```txt
 Desktop
@@ -249,7 +249,7 @@ the Server Codex adapter 只负责 desktop 集成。它应该：
 - AI SDK tool definition 不会被当作 App Server dynamic-tool callback。Electron-main service 在 `CodexDynamicToolRegistry` 中注册 experimental dynamic-tool schema 与 handler；schema 随 `thread/start` 发送，`item/tool/call` 由 registry 分发到对应 handler。
 - 无状态历史将 `LanguageModelV4` 工具结果内容转换为文本（文件 URL/标签仍是文本）。二进制/引用工具文件、自定义工具内容、助手自定义内容及推理文件无法原生重放，会返回警告。
 
-Direct bridge 是 application capability plane。Thread、project、review、account、login、plugin、skill、MCP、terminal、configuration 和未来 App Server capability 的 generated stable/experimental method，均继续保留在 typed request API 中，而不是强行塞进 `LanguageModelV4`。Electron main 只把需要暴露给 renderer 的 operation 包装成收窄的 typed IPC service。Desktop initialize 时设置 `experimentalApi: true`。Reverse request 使用 typed fail-closed interaction broker：handler 缺失、response 无效、timeout、disconnect 和 shutdown 都不会被解释为批准，用户 decision 会写入 audit。只有具备真实 attestation implementation 后才声明该能力；App Server-managed authentication 不需要外部 token-refresh callback。
+Server Codex adapter 是 Cypheria service 背后的原生 application capability plane。Generated stable/experimental method 保留给 Server adapter 使用，而不是强行塞进 `LanguageModelV4`；renderer 不会直接调用它们。共享产品能力通过版本化 protocol message 暴露，Electron main 只把 Electron-local operation 包装成收窄的 typed IPC service。Codex initialize 时设置 `experimentalApi: true`。Reverse request 使用 typed fail-closed interaction broker：handler 缺失、response 无效、timeout、disconnect 和 shutdown 都不会被解释为批准，用户 decision 会写入 audit。只有具备真实 attestation implementation 后才声明该能力；App Server-managed authentication 不需要外部 token-refresh callback。
 
 完整的 generated method 清单见 [Codex App Server API 参考](codex-app-server-api.zh-CN.md)。
 

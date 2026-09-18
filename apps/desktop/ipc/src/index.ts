@@ -27,8 +27,6 @@ import {
   CodexLoginRequestSchema,
   type CodexLoginResult,
   CodexLoginResultSchema,
-  CodexMarketplaceAddRequestSchema,
-  CodexMarketplaceMutationResultSchema,
   CodexModelListRequestSchema,
   type CodexModelSettings,
   CodexModelSettingsSchema,
@@ -41,17 +39,6 @@ import {
   type CodexPermissionsCatalog,
   CodexPermissionsCatalogRequestSchema,
   CodexPermissionsCatalogSchema,
-  type CodexPluginDetailView,
-  CodexPluginDetailViewSchema,
-  CodexPluginEnabledRequestSchema,
-  type CodexPluginInstallResult,
-  CodexPluginInstallResultSchema,
-  CodexPluginListRequestSchema,
-  type CodexPluginListResult,
-  CodexPluginListResultSchema,
-  type CodexPluginLocator,
-  CodexPluginLocatorSchema,
-  CodexPluginUninstallRequestSchema,
   CodexProjectCreateRequestSchema,
   CodexProjectDeleteRequestSchema,
   type CodexProjectListPage,
@@ -62,10 +49,6 @@ import {
   type CodexProjectView,
   CodexProjectViewSchema,
   CodexShowFullAccessWriteSchema,
-  CodexSkillEnabledRequestSchema,
-  CodexSkillListRequestSchema,
-  type CodexSkillListResult,
-  CodexSkillListResultSchema,
   type CodexThreadDetailView,
   CodexThreadDetailViewSchema,
   CodexThreadForkRequestSchema,
@@ -105,18 +88,6 @@ import {
   type HarnessView,
   HarnessViewSchema,
 } from "./connections.js"
-import {
-  AppEnabledRequestSchema,
-  AppIdRequestSchema,
-  type CodexAppListResult,
-  CodexAppListResultSchema,
-  type CodexMcpListResult,
-  CodexMcpListResultSchema,
-  IntegrationListRequestSchema,
-  McpAddRequestSchema,
-  McpEnabledRequestSchema,
-  McpNameRequestSchema,
-} from "./integrations.js"
 import {
   AuditLogListInputSchema,
   AuditLogRecordSchema,
@@ -191,6 +162,7 @@ export type IpcNamespace = z.infer<typeof IpcNamespaceSchema>
 export const CYPHERIA_IPC_CHANNELS = {
   appHealthCheck: "app.health.check",
   appMetadataRead: "app.metadata.read",
+  appExternalOpen: "app.external.open",
   auditLogList: "audit.log.list",
   approvalRequestDecide: "approval.request.decide",
   approvalRequestsList: "approval.requests.list",
@@ -216,29 +188,12 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexPermissionsCatalogRead: "codex.permissions.catalog.read",
   codexPermissionsConfigOpen: "codex.permissions.config.open",
   codexPermissionsShowFullAccessWrite: "codex.permissions.show-full-access.write",
-  codexMarketplaceAdd: "codex.marketplace.add",
-  codexMarketplaceUpgrade: "codex.marketplace.upgrade",
-  codexMarketplaceRemove: "codex.marketplace.remove",
-  codexPluginEnabledWrite: "codex.plugin.enabled.write",
-  codexPluginInstall: "codex.plugin.install",
-  codexPluginList: "codex.plugin.list",
-  codexPluginRead: "codex.plugin.read",
-  codexAppList: "codex.app.list",
-  codexAppEnabled: "codex.app.enabled",
-  codexAppConnect: "codex.app.connect",
-  codexMcpList: "codex.mcp.list",
-  codexMcpEnabled: "codex.mcp.enabled",
-  codexMcpLogin: "codex.mcp.login",
-  codexMcpAdd: "codex.mcp.add",
-  codexPluginUninstall: "codex.plugin.uninstall",
   codexProjectCreate: "codex.project.create",
   codexProjectDelete: "codex.project.delete",
   codexProjectList: "codex.project.list",
   codexProjectReveal: "codex.project.reveal",
   codexProjectRootPick: "codex.project.root.pick",
   codexProjectUpdate: "codex.project.update",
-  codexSkillEnabledWrite: "codex.skill.enabled.write",
-  codexSkillList: "codex.skill.list",
   codexThreadList: "codex.thread.list",
   codexThreadArchive: "codex.thread.archive",
   codexThreadUnarchive: "codex.thread.unarchive",
@@ -797,6 +752,21 @@ export const appHealthCheckContract = {
   response: AppHealthStatusSchema,
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<EmptyPayload, AppHealthStatus>
+
+export const appExternalOpenContract = {
+  channel: CYPHERIA_IPC_CHANNELS.appExternalOpen,
+  namespace: "app",
+  request: z
+    .object({
+      url: z
+        .string()
+        .url()
+        .refine((value) => ["http:", "https:"].includes(new URL(value).protocol)),
+    })
+    .strict(),
+  response: z.object({ opened: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ url: string }, { opened: true }>
 
 export const auditLogListContract = {
   channel: CYPHERIA_IPC_CHANNELS.auditLogList,
@@ -1628,146 +1598,8 @@ export const codexInteractionListContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<EmptyPayload, CodexInteractionEvent[]>
 
-export const codexPluginListContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexPluginList,
-  namespace: "codex",
-  request: CodexPluginListRequestSchema,
-  response: CodexPluginListResultSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ cwd?: string; forceRefetch?: boolean }, CodexPluginListResult>
-
-export const codexAppListContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexAppList,
-  namespace: "codex",
-  request: IntegrationListRequestSchema,
-  response: CodexAppListResultSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ forceRefetch?: boolean }, CodexAppListResult>
-export const codexAppEnabledContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexAppEnabled,
-  namespace: "codex",
-  request: AppEnabledRequestSchema,
-  response: z.object({ enabled: z.boolean() }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ appId: string; enabled: boolean }, { enabled: boolean }>
-export const codexAppConnectContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexAppConnect,
-  namespace: "codex",
-  request: AppIdRequestSchema,
-  response: z.object({ opened: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ appId: string }, { opened: true }>
-export const codexMcpListContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexMcpList,
-  namespace: "codex",
-  request: z.object({}).strict(),
-  response: CodexMcpListResultSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<Record<string, never>, CodexMcpListResult>
-export const codexMcpEnabledContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexMcpEnabled,
-  namespace: "codex",
-  request: McpEnabledRequestSchema,
-  response: z.object({ enabled: z.boolean() }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ name: string; enabled: boolean }, { enabled: boolean }>
-export const codexMcpLoginContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexMcpLogin,
-  namespace: "codex",
-  request: McpNameRequestSchema,
-  response: z.object({ opened: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ name: string }, { opened: true }>
-export const codexMcpAddContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexMcpAdd,
-  namespace: "codex",
-  request: McpAddRequestSchema,
-  response: z.object({ added: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ name: string; url: string }, { added: true }>
-
-export const codexPluginReadContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexPluginRead,
-  namespace: "codex",
-  request: CodexPluginLocatorSchema,
-  response: CodexPluginDetailViewSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<CodexPluginLocator, CodexPluginDetailView>
-
-export const codexPluginInstallContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexPluginInstall,
-  namespace: "codex",
-  request: CodexPluginLocatorSchema,
-  response: CodexPluginInstallResultSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<CodexPluginLocator, CodexPluginInstallResult>
-
-export const codexPluginUninstallContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexPluginUninstall,
-  namespace: "codex",
-  request: CodexPluginUninstallRequestSchema,
-  response: z.object({ uninstalled: z.literal(true) }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ pluginId: string }, { uninstalled: true }>
-
-export const codexPluginEnabledWriteContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexPluginEnabledWrite,
-  namespace: "codex",
-  request: CodexPluginEnabledRequestSchema,
-  response: z.object({ enabled: z.boolean() }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ enabled: boolean; pluginId: string }, { enabled: boolean }>
-
-export const codexSkillListContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexSkillList,
-  namespace: "codex",
-  request: CodexSkillListRequestSchema,
-  response: CodexSkillListResultSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ cwd?: string; forceReload?: boolean }, CodexSkillListResult>
-
-export const codexSkillEnabledWriteContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexSkillEnabledWrite,
-  namespace: "codex",
-  request: CodexSkillEnabledRequestSchema,
-  response: z.object({ enabled: z.boolean() }).strict(),
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ enabled: boolean; path: string }, { enabled: boolean }>
-
-export const codexMarketplaceAddContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexMarketplaceAdd,
-  namespace: "codex",
-  request: CodexMarketplaceAddRequestSchema,
-  response: CodexMarketplaceMutationResultSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  { refName?: string; source: string; sparsePaths?: string[] },
-  { marketplaceName: string | null; succeeded: true }
->
-
-export const codexMarketplaceUpgradeContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexMarketplaceUpgrade,
-  namespace: "codex",
-  request: z.object({ marketplaceName: z.string().min(1).optional() }).strict(),
-  response: CodexMarketplaceMutationResultSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  { marketplaceName?: string },
-  { marketplaceName: string | null; succeeded: true }
->
-
-export const codexMarketplaceRemoveContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexMarketplaceRemove,
-  namespace: "codex",
-  request: z.object({ marketplaceName: z.string().min(1) }).strict(),
-  response: CodexMarketplaceMutationResultSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<
-  { marketplaceName: string },
-  { marketplaceName: string | null; succeeded: true }
->
-
 export const ipcContracts = {
+  appExternalOpen: appExternalOpenContract,
   appHealthCheck: appHealthCheckContract,
   appMetadataRead: appMetadataReadContract,
   auditLogList: auditLogListContract,
@@ -1790,29 +1622,12 @@ export const ipcContracts = {
   codexPermissionsCatalogRead: codexPermissionsCatalogReadContract,
   codexPermissionsConfigOpen: codexPermissionsConfigOpenContract,
   codexPermissionsShowFullAccessWrite: codexPermissionsShowFullAccessWriteContract,
-  codexMarketplaceAdd: codexMarketplaceAddContract,
-  codexMarketplaceUpgrade: codexMarketplaceUpgradeContract,
-  codexMarketplaceRemove: codexMarketplaceRemoveContract,
-  codexPluginEnabledWrite: codexPluginEnabledWriteContract,
-  codexPluginInstall: codexPluginInstallContract,
-  codexPluginList: codexPluginListContract,
-  codexAppList: codexAppListContract,
-  codexAppEnabled: codexAppEnabledContract,
-  codexAppConnect: codexAppConnectContract,
-  codexMcpList: codexMcpListContract,
-  codexMcpEnabled: codexMcpEnabledContract,
-  codexMcpLogin: codexMcpLoginContract,
-  codexMcpAdd: codexMcpAddContract,
-  codexPluginRead: codexPluginReadContract,
-  codexPluginUninstall: codexPluginUninstallContract,
   codexProjectCreate: codexProjectCreateContract,
   codexProjectDelete: codexProjectDeleteContract,
   codexProjectList: codexProjectListContract,
   codexProjectReveal: codexProjectRevealContract,
   codexProjectRootPick: codexProjectRootPickContract,
   codexProjectUpdate: codexProjectUpdateContract,
-  codexSkillEnabledWrite: codexSkillEnabledWriteContract,
-  codexSkillList: codexSkillListContract,
   codexThreadList: codexThreadListContract,
   codexThreadArchive: codexThreadArchiveContract,
   codexThreadUnarchive: codexThreadUnarchiveContract,
@@ -1894,6 +1709,7 @@ export type CypheriaPreloadApi = {
     readonly platform: NodeJS.Platform
     readonly getHealth: () => Promise<AppHealthStatus>
     readonly getMetadata: () => Promise<AppMetadata>
+    readonly openExternal: (url: string) => Promise<{ opened: true }>
   }
   readonly audit: {
     readonly list: (limit?: number) => Promise<AuditLogRecordView[]>
@@ -1903,13 +1719,6 @@ export type CypheriaPreloadApi = {
     readonly list: (status?: ApprovalRequestStatus) => Promise<ApprovalRequestView[]>
   }
   readonly codex: {
-    readonly listApps: (forceRefetch?: boolean) => Promise<CodexAppListResult>
-    readonly setAppEnabled: (appId: string, enabled: boolean) => Promise<{ enabled: boolean }>
-    readonly connectApp: (appId: string) => Promise<{ opened: true }>
-    readonly listMcp: () => Promise<CodexMcpListResult>
-    readonly setMcpEnabled: (name: string, enabled: boolean) => Promise<{ enabled: boolean }>
-    readonly loginMcp: (name: string) => Promise<{ opened: true }>
-    readonly addMcp: (input: { name: string; url: string }) => Promise<{ added: true }>
     readonly cancelLogin: (loginId: string) => Promise<{ cancelled: boolean }>
     readonly getAccount: () => Promise<CodexAccountView>
     readonly getModelSettings: () => Promise<CodexModelSettings>
@@ -1921,10 +1730,6 @@ export type CypheriaPreloadApi = {
       input: CodexChatFollowUp
     ) => Promise<{ steered: boolean }>
     readonly listModels: (includeHidden?: boolean) => Promise<CodexModelView[]>
-    readonly listPlugins: (options?: {
-      cwd?: string
-      forceRefetch?: boolean
-    }) => Promise<CodexPluginListResult>
     readonly listProjects: (options?: {
       cursor?: string | null
       limit?: number
@@ -1940,26 +1745,6 @@ export type CypheriaPreloadApi = {
     readonly deleteProject: (id: string) => Promise<{ deleted: true }>
     readonly revealProject: (id: string) => Promise<{ revealed: true }>
     readonly pickProjectRoot: () => Promise<{ path: string | null }>
-    readonly installPlugin: (plugin: CodexPluginLocator) => Promise<CodexPluginInstallResult>
-    readonly readPlugin: (plugin: CodexPluginLocator) => Promise<CodexPluginDetailView>
-    readonly uninstallPlugin: (pluginId: string) => Promise<{ uninstalled: true }>
-    readonly setPluginEnabled: (pluginId: string, enabled: boolean) => Promise<{ enabled: boolean }>
-    readonly listSkills: (options?: {
-      cwd?: string
-      forceReload?: boolean
-    }) => Promise<CodexSkillListResult>
-    readonly setSkillEnabled: (path: string, enabled: boolean) => Promise<{ enabled: boolean }>
-    readonly addMarketplace: (input: {
-      refName?: string
-      source: string
-      sparsePaths?: string[]
-    }) => Promise<{ marketplaceName: string | null; succeeded: true }>
-    readonly removeMarketplace: (
-      marketplaceName: string
-    ) => Promise<{ marketplaceName: string | null; succeeded: true }>
-    readonly upgradeMarketplaces: (
-      marketplaceName?: string
-    ) => Promise<{ marketplaceName: string | null; succeeded: true }>
     readonly listThreads: (options?: {
       archived?: boolean
       cursor?: string | null

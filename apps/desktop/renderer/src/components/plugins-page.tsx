@@ -52,6 +52,7 @@ import type {
 } from "../../../ipc/src/index.js"
 import cypheriaMark from "../assets/brand/cypheria-mark.svg"
 import promptWallpaper from "../assets/plugins/prompt-wallpaper.webp"
+import { integrationApi } from "../integration-api.js"
 import {
   openAiPluginCategories,
   openAiPopularPlugins,
@@ -188,8 +189,7 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
   const pluginsQuery = useQuery({
     queryKey: ["codex", "plugins"],
     queryFn: () => {
-      if (!window.cypheria) throw new Error("Plugin data is available in Cypheria Desktop.")
-      return window.cypheria.codex.listPlugins()
+      return integrationApi.plugins.list()
     },
   })
   const accountQuery = useQuery({
@@ -203,8 +203,7 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
   const skillsQuery = useQuery({
     queryKey: ["codex", "skills"],
     queryFn: () => {
-      if (!window.cypheria) throw new Error("Skill data is available in Cypheria Desktop.")
-      return window.cypheria.codex.listSkills()
+      return integrationApi.skills.list()
     },
   })
   const data = pluginsQuery.data
@@ -232,8 +231,7 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
     enabled: !!selected,
     queryFn: async (): Promise<CodexPluginDetailView> => {
       if (!selected) throw new Error("Plugin not found")
-      if (!window.cypheria) throw new Error("Plugin details are available in Cypheria Desktop.")
-      return window.cypheria.codex.readPlugin(locator(selected))
+      return integrationApi.plugins.read(locator(selected))
     },
   })
   const detail = detailQuery.data
@@ -253,15 +251,14 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
       plugin: CodexPluginView
     }) => {
       const p = action.plugin
-      if (!window.cypheria) throw new Error("Plugin management requires Cypheria Desktop.")
       if (action.type === "install") {
-        const result = await window.cypheria.codex.installPlugin(locator(p))
+        const result = await integrationApi.plugins.install(locator(p))
         if (result.appsNeedingAuth.length)
           setNotice(
             `Installed. Connect ${result.appsNeedingAuth.join(", ")} to use all capabilities.`
           )
-      } else if (action.type === "uninstall") await window.cypheria.codex.uninstallPlugin(p.id)
-      else await window.cypheria.codex.setPluginEnabled(p.id, !p.enabled)
+      } else if (action.type === "uninstall") await integrationApi.plugins.uninstall(p.id)
+      else await integrationApi.plugins.setEnabled(p.id, !p.enabled)
     },
     onSuccess: async () => {
       await Promise.all([
@@ -273,17 +270,15 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
   })
   const skillMutation = useMutation({
     mutationFn: async (skill: CodexSkillView) => {
-      if (!window.cypheria) throw new Error("Skill management requires Cypheria Desktop.")
-      await window.cypheria.codex.setSkillEnabled(skill.path, !skill.enabled)
+      await integrationApi.skills.setEnabled(skill.path, !skill.enabled)
     },
     onSuccess: () => cache.invalidateQueries({ queryKey: ["codex", "skills"] }),
   })
   const refresh = useMutation({
     mutationFn: async () => {
-      if (!window.cypheria) throw new Error("Refreshing plugins requires Cypheria Desktop.")
       const [p, s] = await Promise.all([
-        window.cypheria.codex.listPlugins({ forceRefetch: true }),
-        window.cypheria.codex.listSkills({ forceReload: true }),
+        integrationApi.plugins.list({ forceRefetch: true }),
+        integrationApi.skills.list({ forceReload: true }),
       ])
       cache.setQueryData(["codex", "plugins"], p)
       cache.setQueryData(["codex", "skills"], s)
@@ -292,8 +287,7 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
   })
   const addMarket = useMutation({
     mutationFn: async () => {
-      if (!window.cypheria) throw new Error("Open Cypheria Desktop to add a marketplace.")
-      await window.cypheria.codex.addMarketplace({
+      await integrationApi.marketplaces.add({
         source: marketplaceSource.trim(),
         ...(marketplaceRef.trim() ? { refName: marketplaceRef.trim() } : {}),
       })
@@ -307,8 +301,7 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
   })
   const updateMarket = useMutation({
     mutationFn: async (name: string) => {
-      if (!window.cypheria) throw new Error("Open Cypheria Desktop to update marketplace sources.")
-      await window.cypheria.codex.upgradeMarketplaces(name)
+      await integrationApi.marketplaces.upgrade(name)
     },
     onSuccess: () => cache.invalidateQueries({ queryKey: ["codex", "plugins"] }),
   })
@@ -317,8 +310,7 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
     mutationFn: async (name: string) => {
       if (removalBlocked)
         throw new Error("Uninstall this marketplace’s plugins before removing its source.")
-      if (!window.cypheria) throw new Error("Marketplace removal requires Cypheria Desktop.")
-      await window.cypheria.codex.removeMarketplace(name)
+      await integrationApi.marketplaces.remove(name)
     },
     onSuccess: async () => {
       await cache.invalidateQueries({ queryKey: ["codex", "plugins"] })

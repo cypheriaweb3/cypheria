@@ -222,7 +222,7 @@ Electron user data is rooted under `$CYPHERIA_HOME/desktop`, while Chromium sess
 
 ## Codex Integration
 
-The server owns Codex for every client. Desktop live turns and durable history now enter through the unified provider and canonical Thread interfaces. The following direct bridge remains transitional for desktop-only Codex configuration, plugin, skill, MCP, terminal, and approval surfaces until each surface has a shared server API:
+The server owns Codex for every client. Desktop live turns, durable history, plugins, skills, MCP servers, marketplaces, and Codex Apps now enter through unified Cypheria client APIs. The remaining direct bridge is transitional only for desktop Codex account/login, configuration/model discovery, terminal, and approval surfaces until each has a shared server API:
 
 ```txt
 Desktop
@@ -250,7 +250,7 @@ the Server Codex adapter owns desktop integration only. It should:
 - AI SDK tool definitions are not treated as App Server dynamic-tool callbacks. Electron-main services register experimental dynamic-tool schemas and handlers in `CodexDynamicToolRegistry`; schemas are sent in `thread/start` and `item/tool/call` is dispatched to the registered handler.
 - Stateless history converts `LanguageModelV4` tool-result content into text (file URLs/labels remain textual). Binary/reference tool files, custom tool content, assistant custom content, and reasoning files cannot be replayed natively and produce warnings.
 
-The direct bridge is the application capability plane. Generated stable and experimental methods for threads, projects, reviews, accounts, login, plugins, skills, MCP, terminals, configuration, and future App Server capabilities remain available on its typed request API instead of being forced through `LanguageModelV4`. Electron main wraps only the operations exposed to the renderer in narrow typed IPC services. Desktop initializes with `experimentalApi: true`. Reverse requests use a typed fail-closed interaction broker: missing handlers, invalid responses, timeout, disconnect, and shutdown never imply approval. User decisions are audited. Attestation is advertised only after a real attestation implementation exists, and App Server-managed authentication does not require the external token-refresh callback.
+The Server Codex adapter is the native application-capability plane behind Cypheria services. Generated stable and experimental methods remain available to Server adapters instead of being forced through `LanguageModelV4`; renderer code does not call them directly. Shared product capabilities are exposed through versioned protocol messages, while Electron main wraps only Electron-local operations in narrow typed IPC services. Codex initializes with `experimentalApi: true`. Reverse requests use a typed fail-closed interaction broker: missing handlers, invalid responses, timeout, disconnect, and shutdown never imply approval. User decisions are audited. Attestation is advertised only after a real attestation implementation exists, and App Server-managed authentication does not require the external token-refresh callback.
 
 The complete generated method inventory is documented in [Codex App Server API reference](codex-app-server-api.md).
 

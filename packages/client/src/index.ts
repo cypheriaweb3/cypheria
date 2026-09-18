@@ -11,6 +11,7 @@ import {
   createAgentManagementActions,
   isAgentUpdateAvailable,
 } from "./agent-manager.js"
+import { createIntegrationActions, type IntegrationActions } from "./integration.js"
 import {
   createProjectThreadActions,
   type ProjectActions,
@@ -49,8 +50,19 @@ export interface CypheriaApi {
   readonly agent: AgentActions
   /** Preferred plural Agent facade. `agent` remains as a compatibility alias. */
   readonly agents: AgentActions
+  readonly integrations: IntegrationActions
   readonly projectThread: ProjectThreadActions
   readonly projects: ProjectActions
+  readonly providers: {
+    readonly acp: { readonly integrations: IntegrationActions }
+    readonly claude: { readonly integrations: IntegrationActions }
+    readonly codex: {
+      readonly apps: IntegrationActions["apps"]
+      readonly integrations: IntegrationActions
+    }
+    readonly opencode: { readonly integrations: IntegrationActions }
+    readonly pi: { readonly integrations: IntegrationActions }
+  }
   readonly server: ServerActions
   readonly sections: SectionActions
   readonly schedules: ScheduleActions
@@ -107,6 +119,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
   }) as CypheriaApi["on"]
 
   const agents = createAgentManagementActions(serverClient)
+  const integrations = createIntegrationActions(serverClient)
   const projectThread = createProjectThreadActions(serverClient)
   const threads = createThreadActions(serverClient)
   const schedules = createScheduleActions(serverClient)
@@ -114,8 +127,16 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
   return {
     agent: agents,
     agents,
+    integrations,
     projectThread,
     projects: projectThread.projects,
+    providers: {
+      acp: { integrations },
+      claude: { integrations },
+      codex: { apps: integrations.apps, integrations },
+      opencode: { integrations },
+      pi: { integrations },
+    },
     on,
     server: {
       config: async (options) => serverClient.getServerConfig(options),
@@ -148,6 +169,7 @@ export {
 } from "./server-client.js"
 export type {
   AgentManagementActions,
+  IntegrationActions,
   ProjectActions,
   ProjectThreadActions,
   ScheduleActions,

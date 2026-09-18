@@ -5,7 +5,7 @@ import { ServerClient } from "./server-client.js"
 import { testWebSocketFactory } from "./test-websocket.js"
 
 describe("Cypheria client facade", () => {
-  it("exposes Agent management and Thread APIs without provider-native transports", async () => {
+  it("exposes Agent, integration, and Thread APIs without raw provider transports", async () => {
     const serverClient = new ServerClient({
       clientId: "client-borrowed",
       webSocketFactory: testWebSocketFactory,
@@ -15,9 +15,11 @@ describe("Cypheria client facade", () => {
     expect(Object.keys(api).sort()).toEqual([
       "agent",
       "agents",
+      "integrations",
       "on",
       "projectThread",
       "projects",
+      "providers",
       "schedules",
       "sections",
       "server",

@@ -20,6 +20,7 @@ import { useEffect, useId, useState } from "react"
 import { z } from "zod"
 import type { CodexAppView, CodexMcpView } from "../../../ipc/src/index.js"
 import { McpAddRequestSchema } from "../../../ipc/src/integrations.js"
+import { integrationApi } from "../integration-api.js"
 
 const completionSchema = z.object({
   method: z.literal("mcpServer/oauthLogin/completed"),
@@ -37,16 +38,14 @@ export function usePluginIntegrations(active: boolean) {
     queryKey: ["codex", "apps"],
     enabled: active,
     queryFn: () => {
-      if (!window.cypheria) throw new Error("App data is available in Cypheria Desktop.")
-      return window.cypheria.codex.listApps(true)
+      return integrationApi.apps.list(true)
     },
   })
   const mcpQuery = useQuery({
     queryKey: ["codex", "mcp"],
     enabled: active,
     queryFn: () => {
-      if (!window.cypheria) throw new Error("MCP data is available in Cypheria Desktop.")
-      return window.cypheria.codex.listMcp()
+      return integrationApi.mcp.list()
     },
   })
   const refresh = async () => {
@@ -95,22 +94,19 @@ export function usePluginIntegrations(active: boolean) {
   }, [authorizing])
   const appMutation = useMutation({
     mutationFn: async ({ app, enabled }: { app: CodexAppView; enabled: boolean }) => {
-      if (!window.cypheria) throw new Error("App management requires Cypheria Desktop.")
-      await window.cypheria.codex.setAppEnabled(app.id, enabled)
+      await integrationApi.apps.setEnabled(app.id, enabled)
     },
     onSettled: refresh,
   })
   const mcpMutation = useMutation({
     mutationFn: async ({ server, enabled }: { server: CodexMcpView; enabled: boolean }) => {
-      if (!window.cypheria) throw new Error("MCP management requires Cypheria Desktop.")
-      await window.cypheria.codex.setMcpEnabled(server.name, enabled)
+      await integrationApi.mcp.setEnabled(server.name, enabled)
     },
     onSettled: refresh,
   })
   const connect = useMutation({
     mutationFn: async (app: CodexAppView) => {
-      if (!window.cypheria) throw new Error("App connections require Cypheria Desktop.")
-      await window.cypheria.codex.connectApp(app.id)
+      await integrationApi.apps.connect(app.id)
       setNotice(
         "Complete connection in your browser, then return here. Availability will be refreshed."
       )
@@ -122,16 +118,14 @@ export function usePluginIntegrations(active: boolean) {
       if (window.cypheria) setAuthorizing(server.name)
     },
     mutationFn: async (server: CodexMcpView) => {
-      if (!window.cypheria) throw new Error("MCP authorization requires Cypheria Desktop.")
-      await window.cypheria.codex.loginMcp(server.name)
+      await integrationApi.mcp.login(server.name)
     },
     onError: () => setAuthorizing(null),
   })
   const addMcp = useMutation({
     mutationFn: async (input: { name: string; url: string }) => {
       McpAddRequestSchema.parse(input)
-      if (!window.cypheria) throw new Error("Adding MCP servers requires Cypheria Desktop.")
-      await window.cypheria.codex.addMcp(input)
+      await integrationApi.mcp.add(input)
     },
     onSettled: refresh,
   })

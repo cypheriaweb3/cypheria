@@ -17,6 +17,8 @@ import {
   type ClientMessage,
   CYPHERIA_PROTOCOL_VERSION,
   CYPHERIA_WEBSOCKET_PROTOCOL,
+  type IntegrationClientMessage,
+  type IntegrationServerMessage,
   type PersistedServerConfigPatch,
   type ProjectThreadClientMessage,
   type RelayPairingOfferResponse,
@@ -41,6 +43,7 @@ import { type CypheriaServerConfig, loadServerConfig } from "./config.js"
 import { collectDiagnostics } from "./diagnostics.js"
 import { createHttpApp, type HttpAppHost } from "./http-app.js"
 import { loadOrCreateServerId } from "./identity.js"
+import { IntegrationService } from "./integration-service.js"
 import { ProjectThreadService } from "./project-thread-service.js"
 import { RelayConnection } from "./relay-connection.js"
 import { loadOrCreateRelayKeyPair } from "./relay-key.js"
@@ -88,6 +91,7 @@ export class CypheriaServer implements HttpAppHost {
   readonly runtime: CypheriaRuntime
   readonly agentManager: AgentManager
   readonly projectThread: ProjectThreadService
+  readonly integrations: IntegrationService
   readonly schedules: ScheduleService
   readonly threadManager: ThreadManager
   readonly database: OpenDatabaseResult
@@ -127,6 +131,7 @@ export class CypheriaServer implements HttpAppHost {
       publish: (message) => this.registry.broadcast(message),
       networkBootstrap: options.agentNetworkBootstrap,
     })
+    this.integrations = new IntegrationService(this.agentManager)
     const projectThreadPersistence = createProjectThreadPersistenceService(this.database.db)
     this.projectThread = new ProjectThreadService({
       persistence: projectThreadPersistence,
@@ -304,6 +309,7 @@ export class CypheriaServer implements HttpAppHost {
       SERVER_CAPABILITIES.agentManager,
       SERVER_CAPABILITIES.config,
       SERVER_CAPABILITIES.diagnostics,
+      SERVER_CAPABILITIES.integrations,
       SERVER_CAPABILITIES.projectThread,
       SERVER_CAPABILITIES.schedules,
       SERVER_CAPABILITIES.status,
@@ -357,6 +363,13 @@ export class CypheriaServer implements HttpAppHost {
     }
     await this.projectThread.handle(message as ProjectThreadClientMessage, send)
     return true
+  }
+
+  async handleIntegrationMessage(
+    message: IntegrationClientMessage,
+    send: (message: IntegrationServerMessage) => void
+  ): Promise<boolean> {
+    return this.integrations.handle(message, send)
   }
 
   async handleScheduleMessage(

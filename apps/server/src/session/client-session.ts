@@ -4,6 +4,8 @@ import {
   type ClientCapabilities,
   type ClientDescriptor,
   type ClientMessage,
+  type IntegrationClientMessage,
+  type IntegrationServerMessage,
   type PersistedServerConfigPatch,
   type ScheduleClientMessage,
   type ScheduleServerMessage,
@@ -32,6 +34,10 @@ export type SessionHost = {
   handleProjectThreadMessage?(
     message: ClientMessage,
     send: (message: ServerMessage) => void
+  ): Promise<boolean>
+  handleIntegrationMessage?(
+    message: IntegrationClientMessage,
+    send: (message: IntegrationServerMessage) => void
   ): Promise<boolean>
   handleScheduleMessage?(
     message: ScheduleClientMessage,
@@ -214,6 +220,16 @@ export class ClientSession {
         })
         break
       default:
+        if (
+          message.type.startsWith("integration.") &&
+          this.#host.handleIntegrationMessage &&
+          (await this.#host.handleIntegrationMessage(
+            message as IntegrationClientMessage,
+            (response) => this.sendTo(source, response)
+          ))
+        ) {
+          break
+        }
         if (
           message.type.startsWith("web3.") &&
           this.#host.handleWeb3Message &&

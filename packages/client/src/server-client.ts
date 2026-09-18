@@ -11,6 +11,8 @@ import {
   CYPHERIA_PROTOCOL_VERSION,
   CYPHERIA_WEBSOCKET_PATH,
   createWebSocketProtocols,
+  type IntegrationClientMessage,
+  type IntegrationServerMessage,
   isClientResponseMessage,
   type PersistedServerConfigPatch,
   type ProjectThreadClientMessage,
@@ -467,6 +469,25 @@ export class ServerClient {
       SERVER_CAPABILITIES.projectThread
     )
     return message as ProjectThreadServerMessage
+  }
+
+  async requestIntegration(
+    type: IntegrationClientMessage["type"],
+    payload: unknown,
+    options?: RequestOptions
+  ): Promise<IntegrationServerMessage> {
+    const expectedType = type.replace(/\.request$/, ".response")
+    const message = await this.#request(
+      {
+        payload,
+        requestId: this.#nextRequestId("integration"),
+        type,
+      } as IntegrationClientMessage,
+      expectedType,
+      options,
+      SERVER_CAPABILITIES.integrations
+    )
+    return message as IntegrationServerMessage
   }
 
   async requestSchedule(

@@ -60,6 +60,7 @@ const cypheriaApi: CypheriaPreloadApi = {
     platform: process.platform,
     getHealth: () => invoke<AppHealthStatus>(CYPHERIA_IPC_CHANNELS.appHealthCheck),
     getMetadata: () => invoke<AppMetadata>(CYPHERIA_IPC_CHANNELS.appMetadataRead),
+    openExternal: (url) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.appExternalOpen, { url }),
   },
   approval: {
     decide: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.approvalRequestDecide, input),
@@ -79,7 +80,6 @@ const cypheriaApi: CypheriaPreloadApi = {
       }) as Promise<BrowserSessionOpenResult>,
   },
   codex: {
-    addMarketplace: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexMarketplaceAdd, input),
     cancelLogin: (loginId) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAccountLoginCancel, { loginId }),
     getAccount: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAccountRead),
@@ -98,8 +98,6 @@ const cypheriaApi: CypheriaPreloadApi = {
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexModelList, {
         ...(includeHidden === undefined ? {} : { includeHidden }),
       }),
-    listPlugins: (options = {}) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPluginList, options),
     listProjects: (options = {}) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectList, options),
     createProject: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectCreate, input),
@@ -107,18 +105,6 @@ const cypheriaApi: CypheriaPreloadApi = {
     deleteProject: (id) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectDelete, { id }),
     revealProject: (id) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectReveal, { id }),
     pickProjectRoot: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexProjectRootPick, {}),
-    listApps: (forceRefetch = false) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAppList, { forceRefetch }),
-    setAppEnabled: (appId, enabled) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAppEnabled, { appId, enabled }),
-    connectApp: (appId) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexAppConnect, { appId }),
-    listMcp: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexMcpList, {}),
-    addMcp: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexMcpAdd, input),
-    setMcpEnabled: (name, enabled) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexMcpEnabled, { name, enabled }),
-    loginMcp: (name) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexMcpLogin, { name }),
-    readPlugin: (plugin) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPluginRead, plugin),
-    listSkills: (options = {}) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexSkillList, options),
     listThreads: (options = {}) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexThreadList, options),
     archiveThread: (threadId) =>
@@ -199,20 +185,7 @@ const cypheriaApi: CypheriaPreloadApi = {
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPermissionsShowFullAccessWrite, { enabled }),
     openPermissionsConfig: () =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPermissionsConfigOpen),
-    setPluginEnabled: (pluginId, enabled) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPluginEnabledWrite, { enabled, pluginId }),
-    setSkillEnabled: (path, enabled) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexSkillEnabledWrite, { enabled, path }),
-    installPlugin: (plugin) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPluginInstall, plugin),
     startChat: (request) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexChatStart, request),
-    uninstallPlugin: (pluginId) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPluginUninstall, { pluginId }),
-    removeMarketplace: (marketplaceName) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexMarketplaceRemove, { marketplaceName }),
-    upgradeMarketplaces: (marketplaceName) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexMarketplaceUpgrade, {
-        ...(marketplaceName ? { marketplaceName } : {}),
-      }),
   },
   harnesses: {
     checkUpdate: (id) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.harnessCheckUpdate, { id }),
