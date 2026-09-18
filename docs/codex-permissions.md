@@ -10,7 +10,7 @@ References: [profiles](https://learn.chatgpt.com/docs/permissions), [sandboxing]
 
 Codex App Server is the source of truth for permission capabilities, effective organization requirements, profiles, sandbox enforcement, and approval execution. Cypheria owns only the desktop presentation, typed IPC projection, user-choice persistence, and response routing.
 
-Implementation status: Cypheria Desktop now exposes the General permission-visibility controls, user-level `config.toml` defaults without a user/administrator scope selector, cwd-sensitive permission profiles in the composer, method-specific approvals with partial permission grants, and Auto-review lifecycle status.
+Implementation status: the Cypheria Server exposes the General permission-visibility controls, Cypheria-owned defaults without a user/administrator scope selector, cwd-sensitive permission profiles in the composer, method-specific approvals with partial permission grants, and Auto-review lifecycle status. The shared defaults live under `agents.codex` in `$CYPHERIA_HOME/config/config.json` and are projected into the managed Codex runtime.
 
 The composer should expose the same concepts as Codex Desktop:
 
@@ -191,7 +191,7 @@ The Codex settings surface edits Codex configuration rather than creating a para
 - Sandbox mode.
 - Legacy workspace-write network access.
 - Web search, output detail, and reasoning summary defaults shown beside the permission defaults in Codex Desktop.
-- Named-profile discovery in the composer and an Open `config.toml` action for settings that Codex represents as TOML rather than a basic control.
+- Named-profile discovery in the composer and an Open `config.json` action for the Cypheria-owned shared defaults.
 
 Write through `config/value/write` or `config/batchWrite`, then reload config, requirements, and profiles. Never attempt to mutate managed requirements.
 
@@ -199,6 +199,6 @@ Write through `config/value/write` or `config/batchWrite`, then reload config, r
 
 Cypheria Desktop now reads the user-level Codex configuration and managed requirements through App Server, discovers cwd-sensitive named profiles, resolves the Codex Desktop modes, and preserves resumed-task inheritance when the user does not change the composer selection. Profile-backed execution uses `permissions`; the provider omits legacy `sandbox`/`sandboxPolicy` in the same request.
 
-The General page controls whether Full access is visible and requires explicit confirmation. The Configuration page writes the corresponding user `config.toml` fields and deliberately has no user/administrator scope selector. The approval broker fails closed, honors decision constraints, supports permission subsets and scopes, reconciles resolved requests, and displays Auto-review state with the exact-denial retry API.
+The General page controls whether Full access is visible and requires explicit confirmation. The Configuration page writes the corresponding shared `agents.codex` fields through the Cypheria Server and deliberately has no user/administrator scope selector. The server projects those values into the managed Codex runtime. The approval broker fails closed, honors decision constraints, supports permission subsets and scopes, reconciles resolved requests, and displays Auto-review state with the exact-denial retry API.
 
 Protocol mapping, config/profile pagination and restrictions, resume inheritance, field mutual exclusion, partial permission grants, broker timeout/close behavior, the live stream, localization, and production builds are covered by automated verification. No Cypheria Web3 permission semantics are added.

@@ -16,7 +16,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { type ReactNode, useState } from "react"
 import type {
-  CodexPermissionsCatalog,
   LanguagePreference,
   LanguageSettings,
   WorkspaceLayoutSettings,
@@ -24,6 +23,7 @@ import type {
 } from "../../../ipc/src/index.js"
 import { LanguageSelector } from "../components/language-selector.js"
 import { SettingsFrame } from "../components/settings-frame"
+import { ensureCypheriaClient } from "../cypheria-client.js"
 import { activateLanguage } from "../i18n.js"
 
 export const Route = createFileRoute("/settings/general")({ component: GeneralSettingsRoute })
@@ -32,16 +32,6 @@ const fallbackLanguageSettings: LanguageSettings = {
   configPath: "Browser preview",
   locale: "en",
   preference: "system",
-}
-const fallbackPermissionsCatalog: CodexPermissionsCatalog = {
-  autoReviewAvailable: true,
-  availableAgentModes: ["read-only", "auto", "guardian-approvals", "full-access"],
-  configPath: "Browser preview",
-  fullAccessCanBeShown: true,
-  profiles: [],
-  selected: { agentMode: "auto", kind: "agent-mode" },
-  showFullAccess: false,
-  source: "server-default",
 }
 const fallbackWorkspaceLayoutSettings: WorkspaceLayoutSettings = {
   configPath: "Browser preview",
@@ -59,7 +49,7 @@ function GeneralSettingsRoute() {
     staleTime: Number.POSITIVE_INFINITY,
   })
   const permissionsQuery = useQuery({
-    queryFn: () => window.cypheria?.codex.getPermissionsCatalog() ?? fallbackPermissionsCatalog,
+    queryFn: async () => (await ensureCypheriaClient()).providers.codex.permissions.catalog(),
     queryKey: ["codex", "permissions", null],
   })
   const workspaceLayoutQuery = useQuery({
@@ -82,9 +72,8 @@ function GeneralSettingsRoute() {
     },
   })
   const fullAccessMutation = useMutation({
-    mutationFn: (enabled: boolean) => {
-      if (!window.cypheria) throw new Error("Permissions are only available in the desktop app.")
-      return window.cypheria.codex.setShowFullAccess(enabled)
+    mutationFn: async (enabled: boolean) => {
+      return (await ensureCypheriaClient()).providers.codex.permissions.setShowFullAccess(enabled)
     },
     onSuccess: (catalog) => {
       if (catalog) queryClient.setQueryData(["codex", "permissions", null], catalog)

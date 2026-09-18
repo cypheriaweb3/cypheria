@@ -1,3 +1,4 @@
+import type { CodexPermissionDefaults, CodexPermissionDefaultsWrite } from "@cypheria/protocol"
 import { Button } from "@cypheria/ui/components/button"
 import {
   Select,
@@ -15,35 +16,18 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { ExternalLink } from "lucide-react"
 import { type ReactNode, useEffect, useState } from "react"
-import type {
-  CodexPermissionDefaults,
-  CodexPermissionDefaultsWrite,
-} from "../../../ipc/src/index.js"
 import { SettingsFrame } from "../components/settings-frame"
+import { ensureCypheriaClient } from "../cypheria-client.js"
 
 export const Route = createFileRoute("/settings/configuration")({
   component: ConfigurationSettingsRoute,
 })
 
-const fallbackPermissionDefaults: CodexPermissionDefaults = {
-  allowedApprovalPolicies: null,
-  allowedSandboxModes: null,
-  allowedWebSearchModes: null,
-  approvalPolicy: "on-request",
-  approvalsReviewer: "user",
-  configPath: "Browser preview",
-  modelReasoningSummary: "auto",
-  modelVerbosity: null,
-  networkAccess: true,
-  sandboxMode: "workspace-write",
-  webSearch: "cached",
-}
-
 function ConfigurationSettingsRoute() {
   const { i18n } = useLingui()
   const queryClient = useQueryClient()
   const settingsQuery = useQuery({
-    queryFn: () => window.cypheria?.codex.getPermissionDefaults() ?? fallbackPermissionDefaults,
+    queryFn: async () => (await ensureCypheriaClient()).providers.codex.permissions.defaults(),
     queryKey: ["codex", "permission-defaults"],
   })
   const [draft, setDraft] = useState<CodexPermissionDefaults | null>(null)
@@ -52,9 +36,7 @@ function ConfigurationSettingsRoute() {
   }, [settingsQuery.data])
   const save = useMutation({
     mutationFn: async (settings: CodexPermissionDefaultsWrite) => {
-      if (!window.cypheria)
-        throw new Error("Codex configuration is only available in the desktop app.")
-      return window.cypheria.codex.setPermissionDefaults(settings)
+      return (await ensureCypheriaClient()).providers.codex.permissions.setDefaults(settings)
     },
     onSuccess: (settings) => {
       setDraft(settings)
@@ -71,6 +53,11 @@ function ConfigurationSettingsRoute() {
     setDraft(next)
     const { configPath: _configPath, ...write } = next
     save.mutate(write)
+  }
+  const openConfiguration = async (): Promise<void> => {
+    const client = await ensureCypheriaClient()
+    await client.server.patchConfig({})
+    await window.cypheria?.codex.openPermissionsConfig()
   }
 
   if (!draft)
@@ -98,12 +85,8 @@ function ConfigurationSettingsRoute() {
             <h2 className="text-base font-semibold">
               <Trans id="settings.configuration.defaults">Agent defaults</Trans>
             </h2>
-            <Button
-              onClick={() => void window.cypheria?.codex.openPermissionsConfig()}
-              size="sm"
-              variant="ghost"
-            >
-              <Trans id="settings.configuration.openConfig">Open config.toml</Trans>
+            <Button onClick={() => void openConfiguration()} size="sm" variant="ghost">
+              <Trans id="settings.configuration.openConfig">Open config.json</Trans>
               <ExternalLink className="size-3.5" />
             </Button>
           </div>

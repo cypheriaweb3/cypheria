@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 
-import { ClientMessageSchema, CodexModelSettingsSchema, ServerMessageSchema } from "./index.js"
+import {
+  ClientMessageSchema,
+  CodexAgentSettingsSchema,
+  CodexModelSettingsSchema,
+  ServerMessageSchema,
+} from "./index.js"
 
 describe("Codex provider protocol", () => {
   it("validates shared model settings and account requests", () => {
@@ -19,6 +24,32 @@ describe("Codex provider protocol", () => {
         type: "provider.codex.account.login.request",
       }).type
     ).toBe("provider.codex.account.login.request")
+  })
+
+  it("validates Cypheria-owned Codex permissions", () => {
+    expect(
+      CodexAgentSettingsSchema.parse({
+        approvalPolicy: "on-request",
+        approvalsReviewer: "user",
+        model: null,
+        modelReasoningSummary: "auto",
+        modelVerbosity: null,
+        networkAccess: true,
+        provider: "openai",
+        reasoningEffort: null,
+        sandboxMode: "workspace-write",
+        serviceTier: null,
+        showFullAccessInComposer: false,
+        webSearch: "cached",
+      })
+    ).toMatchObject({ sandboxMode: "workspace-write", showFullAccessInComposer: false })
+    expect(
+      ClientMessageSchema.parse({
+        payload: {},
+        requestId: "permissions-1",
+        type: "provider.codex.permissions.defaults.get.request",
+      }).type
+    ).toBe("provider.codex.permissions.defaults.get.request")
   })
 
   it("keeps provider failures on the correlated response", () => {

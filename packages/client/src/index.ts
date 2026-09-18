@@ -62,6 +62,7 @@ export interface CypheriaApi {
       readonly integrations: IntegrationActions
       readonly account: CodexProviderActions["account"]
       readonly models: CodexProviderActions["models"]
+      readonly permissions: CodexProviderActions["permissions"]
     }
     readonly opencode: { readonly integrations: IntegrationActions }
     readonly pi: { readonly integrations: IntegrationActions }
@@ -142,6 +143,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
         apps: integrations.apps,
         integrations,
         models: codexProvider.models,
+        permissions: codexProvider.permissions,
       },
       opencode: { integrations },
       pi: { integrations },

@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { existsSync } from "node:fs"
-import { mkdir, writeFile } from "node:fs/promises"
+import { mkdir } from "node:fs/promises"
 import { dirname, join, relative, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import type { v2 } from "@cypheria/server/codex-bridge"
@@ -38,11 +38,7 @@ import {
   codexChatSteerContract,
   codexInteractionListContract,
   codexInteractionRespondContract,
-  codexPermissionDefaultsReadContract,
-  codexPermissionDefaultsWriteContract,
-  codexPermissionsCatalogReadContract,
   codexPermissionsConfigOpenContract,
-  codexPermissionsShowFullAccessWriteContract,
   codexProjectCreateContract,
   codexProjectDeleteContract,
   codexProjectListContract,
@@ -148,12 +144,6 @@ import {
   updateCodexProject,
   updateCodexThreadSection,
 } from "./codex-desktop.js"
-import {
-  listCodexPermissions,
-  readCodexPermissionDefaults,
-  writeCodexPermissionDefaults,
-  writeShowFullAccess,
-} from "./codex-permissions.js"
 import {
   applyConnectionProxyToSession,
   readConnectionProxySettings,
@@ -500,26 +490,11 @@ const registerIpcHandlers = (
     >("thread/approveGuardianDeniedAction", { event, threadId })
     return { accepted: true }
   })
-  registerIpcRoute(codexPermissionDefaultsReadContract, () =>
-    readCodexPermissionDefaults(codexBridge(), context.paths.codexHome)
-  )
-  registerIpcRoute(codexPermissionDefaultsWriteContract, (settings) =>
-    writeCodexPermissionDefaults(codexBridge(), context.paths.codexHome, settings)
-  )
-  registerIpcRoute(codexPermissionsCatalogReadContract, ({ cwd }) =>
-    listCodexPermissions(codexBridge(), context.paths.codexHome, cwd)
-  )
   registerIpcRoute(codexPermissionsConfigOpenContract, async () => {
-    const configPath = join(context.paths.codexHome, "config.toml")
-    await mkdir(context.paths.codexHome, { recursive: true })
-    await writeFile(configPath, "", { flag: "a" })
+    const configPath = join(context.paths.configDir, "config.json")
     const result = await shell.openPath(configPath)
     if (result) throw new Error(result)
     return { opened: true }
-  })
-  registerIpcRoute(codexPermissionsShowFullAccessWriteContract, async ({ enabled }) => {
-    await writeShowFullAccess(codexBridge(), enabled)
-    return listCodexPermissions(codexBridge(), context.paths.codexHome)
   })
   registerIpcRoute(codexThreadListContract, (options) => listCodexThreads(codexBridge(), options))
   registerIpcRoute(codexThreadArchiveContract, ({ threadId }) =>

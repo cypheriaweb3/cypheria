@@ -46,6 +46,23 @@ export interface CodexProviderActions {
       options?: RequestOptions
     ): Promise<Value<"provider.codex.model-settings.set.response">>
   }
+  readonly permissions: {
+    catalog(
+      cwd?: string,
+      options?: RequestOptions
+    ): Promise<Value<"provider.codex.permissions.catalog.get.response">>
+    defaults(
+      options?: RequestOptions
+    ): Promise<Value<"provider.codex.permissions.defaults.get.response">>
+    setDefaults(
+      input: Payload<"provider.codex.permissions.defaults.set.request">,
+      options?: RequestOptions
+    ): Promise<Value<"provider.codex.permissions.defaults.set.response">>
+    setShowFullAccess(
+      enabled: boolean,
+      options?: RequestOptions
+    ): Promise<Value<"provider.codex.permissions.show-full-access.set.response">>
+  }
 }
 
 export const createCodexProviderActions = (client: ServerClient): CodexProviderActions => {
@@ -83,6 +100,20 @@ export const createCodexProviderActions = (client: ServerClient): CodexProviderA
       settings: (options) => request("provider.codex.model-settings.get.request", {}, options),
       setSettings: (input, options) =>
         request("provider.codex.model-settings.set.request", input, options),
+    },
+    permissions: {
+      catalog: (cwd, options) =>
+        request(
+          "provider.codex.permissions.catalog.get.request",
+          { ...(cwd ? { cwd } : {}) },
+          options
+        ),
+      defaults: (options) =>
+        request("provider.codex.permissions.defaults.get.request", {}, options),
+      setDefaults: (input, options) =>
+        request("provider.codex.permissions.defaults.set.request", input, options),
+      setShowFullAccess: (enabled, options) =>
+        request("provider.codex.permissions.show-full-access.set.request", { enabled }, options),
     },
   }
 }

@@ -221,7 +221,7 @@ Desktop main bundle 将 `@libsql/client` 及其 platform packages 保持为 exte
 
 ## Codex 集成
 
-Server 为每个 client 持有 Codex。Desktop 的实时 turn、持久 history、账户/登录、模型发现与默认值、插件、技能、MCP、市场与 Codex Apps 已通过统一的 Cypheria client API 进入。共享 Codex 模型默认值存储在 `$CYPHERIA_HOME/config/config.json` 的 `agents.codex` 下，并投影到受管 Codex runtime。剩余 direct bridge 只为详细权限配置、终端与审批 surface 过渡保留，直到它们获得共享 server API：
+Server 为每个 client 持有 Codex。Desktop 的实时 turn、持久 history、账户/登录、模型发现与默认值、权限默认值与 profiles、插件、技能、MCP、市场与 Codex Apps 已通过统一的 Cypheria client API 进入。共享 Codex 模型与权限默认值存储在 `$CYPHERIA_HOME/config/config.json` 的 `agents.codex` 下，并投影到受管 Codex runtime。剩余 direct bridge 只为终端与审批 surface 过渡保留，直到它们获得共享 server API：
 
 ```txt
 Desktop

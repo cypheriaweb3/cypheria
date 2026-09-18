@@ -2,6 +2,7 @@ import { useChat } from "@ai-sdk/react"
 import {
   type AgentId,
   type AgentView,
+  type CodexPermissionSelection,
   type ThreadInteraction,
   ThreadTimelineItemSchema,
 } from "@cypheria/protocol"
@@ -138,7 +139,6 @@ import type {
   CodexInteractionEvent,
   CodexInteractionResponse,
   CodexModelView,
-  CodexPermissionSelection,
   CodexSkillView,
   CodexUiMessage,
   WalletActiveContext,
@@ -425,7 +425,8 @@ function ChatSession({
   const projects = projectsQuery.data?.data ?? []
   const selectedProject = projects.find((project) => project.id === selectedProjectId)
   const permissionsQuery = useQuery({
-    queryFn: () => window.cypheria?.codex.getPermissionsCatalog(selectedProject?.roots[0]),
+    queryFn: async () =>
+      (await ensureCypheriaClient()).providers.codex.permissions.catalog(selectedProject?.roots[0]),
     queryKey: ["codex", "permissions", selectedProject?.roots[0] ?? null],
   })
   const defaultTerminalLocation = workspaceLayoutQuery.data?.defaultTerminalLocation ?? "bottom"

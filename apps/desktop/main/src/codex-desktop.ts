@@ -81,6 +81,7 @@ const permissionSettings = (
         permissionProfile: ":danger-full-access",
       }
   }
+  return {}
 }
 
 const activeChats = new Map<string, ActiveChat>()

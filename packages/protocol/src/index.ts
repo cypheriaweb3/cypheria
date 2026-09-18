@@ -24,7 +24,7 @@ import {
   CODEX_PROVIDER_CLIENT_SCHEMAS,
   CODEX_PROVIDER_RESPONSE_TYPES,
   CODEX_PROVIDER_SERVER_SCHEMAS,
-  CodexModelSettingsSchema,
+  CodexAgentSettingsSchema,
   type CodexProviderClientMessage,
   type CodexProviderServerMessage,
 } from "./provider-codex.ts"
@@ -225,7 +225,7 @@ export const PersistedServerConfigSchema = z
   .object({
     agents: z
       .object({
-        codex: CodexModelSettingsSchema,
+        codex: CodexAgentSettingsSchema,
       })
       .strict(),
     version: z.literal(1),
@@ -285,7 +285,7 @@ export const PersistedServerConfigPatchSchema = z
   .object({
     agents: z
       .object({
-        codex: CodexModelSettingsSchema.partial().strict().optional(),
+        codex: CodexAgentSettingsSchema.partial().strict().optional(),
       })
       .strict()
       .optional(),

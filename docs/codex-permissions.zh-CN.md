@@ -10,7 +10,7 @@
 
 Codex App Server 是 permission capabilities、有效组织要求、profiles、sandbox enforcement 与 approval execution 的事实来源。Cypheria 只负责 Desktop 展示、typed IPC projection、用户选择持久化与 response routing。
 
-实现状态：Cypheria Desktop 现已提供“常规”页 permission 可见性开关、没有用户/管理员范围选择器的用户级 `config.toml` 默认设置、Composer 中按 cwd 发现的 permission profiles、支持部分权限授予的方法特定 approvals，以及 Auto-review 生命周期状态。
+实现状态：Cypheria Server 现已提供“常规”页 permission 可见性开关、没有用户/管理员范围选择器的 Cypheria 共享默认设置、Composer 中按 cwd 发现的 permission profiles、支持部分权限授予的方法特定 approvals，以及 Auto-review 生命周期状态。共享默认值位于 `$CYPHERIA_HOME/config/config.json` 的 `agents.codex` 下，并投影到受管 Codex runtime。
 
 Composer 应暴露与 Codex Desktop 相同的概念：
 
@@ -191,7 +191,7 @@ Codex settings surface 修改 Codex configuration，而不是创造平行格式�
 - Sandbox mode。
 - Legacy workspace-write network access。
 - Codex Desktop 在 permission defaults 旁展示的 Web search、output detail 与 reasoning summary defaults。
-- Composer 中的 named-profile discovery，以及供 Codex 以 TOML 表示、而非基础控件表示的设置使用的 Open `config.toml` action。
+- Composer 中的 named-profile discovery，以及用于 Cypheria 共享默认值的 Open `config.json` action。
 
 通过 `config/value/write` 或 `config/batchWrite` 写入，然后重新加载 config、requirements 与 profiles。绝不能尝试修改 managed requirements。
 
@@ -199,6 +199,6 @@ Codex settings surface 修改 Codex configuration，而不是创造平行格式�
 
 Cypheria Desktop 现在通过 App Server 读取用户级 Codex configuration 与 managed requirements，发现对 cwd 敏感的 named profiles，解析 Codex Desktop modes，并在用户未改变 composer selection 时保留 resumed-task inheritance。Profile-backed execution 使用 `permissions`；provider 不会在同一 request 中再发送 legacy `sandbox`/`sandboxPolicy`。
 
-General 页面控制 Full access 是否可见，并要求显式确认。Configuration 页面写入对应的用户 `config.toml` 字段，并且按产品要求不提供 user/administrator scope selector。Approval broker fail closed、遵守 decision constraints、支持 permission subsets 与 scopes、协调 resolved requests，并展示 Auto-review state 与 exact-denial retry API。
+General 页面控制 Full access 是否可见，并要求显式确认。Configuration 页面通过 Cypheria Server 写入对应的共享 `agents.codex` 字段，并且按产品要求不提供 user/administrator scope selector；Server 再把这些值投影到受管 Codex runtime。Approval broker fail closed、遵守 decision constraints、支持 permission subsets 与 scopes、协调 resolved requests，并展示 Auto-review state 与 exact-denial retry API。
 
 Protocol mapping、config/profile pagination 与 restrictions、resume inheritance、field mutual exclusion、partial permission grants、broker timeout/close behavior、live stream、localization 与 production builds 均有自动化验证。没有加入任何 Cypheria Web3 permission 语义。

@@ -222,7 +222,7 @@ Electron user data is rooted under `$CYPHERIA_HOME/desktop`, while Chromium sess
 
 ## Codex Integration
 
-The server owns Codex for every client. Desktop live turns, durable history, account/login, model discovery and defaults, plugins, skills, MCP servers, marketplaces, and Codex Apps now enter through unified Cypheria client APIs. Shared Codex model defaults are stored under `agents.codex` in `$CYPHERIA_HOME/config/config.json` and projected into the managed Codex runtime. The remaining direct bridge is transitional only for detailed permission configuration, terminal, and approval surfaces until each has a shared server API:
+The server owns Codex for every client. Desktop live turns, durable history, account/login, model discovery and defaults, permission defaults and profiles, plugins, skills, MCP servers, marketplaces, and Codex Apps now enter through unified Cypheria client APIs. Shared Codex model and permission defaults are stored under `agents.codex` in `$CYPHERIA_HOME/config/config.json` and projected into the managed Codex runtime. The remaining direct bridge is transitional only for terminal and approval surfaces until each has a shared server API:
 
 ```txt
 Desktop

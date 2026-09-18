@@ -139,7 +139,8 @@ Status legend:
   - [x] Move Agent catalog, installation, update, enablement, and runtime lifecycle controls from the old Desktop harness manager to `client.agents`.
   - [~] Preserve complete Codex timeline rendering parity while generalizing the common conversation shell; canonical user messages now retain attachments across history reloads.
   - [x] Move networks, wallets, policies, signing approvals, and audit surfaces to the shared `client.web3` API; the renderer no longer consumes their old IPC path.
-  - [~] Move remaining Codex permission configuration and shared terminal surfaces to server APIs before removing their old IPC paths.
+  - [x] Move Codex permission configuration to the server API and remove its old data IPC paths.
+  - [~] Move shared terminal and approval surfaces to server APIs before removing their old IPC paths.
   - [x] Move Codex account/login, model discovery, and model defaults to `client.providers.codex`; persist shared defaults under `agents.codex` in Cypheria config and remove their old renderer IPC paths.
   - [x] Move skills, plugins, MCP, marketplaces, and Codex Apps to the versioned Integrations API and remove their old renderer IPC execution paths.
   - Status: explicitly approved; preserve the current Sidebar and Codex-derived conversation experience as hard acceptance gates while replacing their data source.

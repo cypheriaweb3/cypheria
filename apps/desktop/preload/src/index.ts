@@ -80,12 +80,6 @@ const cypheriaApi: CypheriaPreloadApi = {
       }) as Promise<BrowserSessionOpenResult>,
   },
   codex: {
-    getPermissionDefaults: () =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPermissionDefaultsRead),
-    getPermissionsCatalog: (cwd) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPermissionsCatalogRead, {
-        ...(cwd ? { cwd } : {}),
-      }),
     interruptChat: (requestId) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexChatInterrupt, { requestId }),
     steerChat: (requestId, input) =>
@@ -167,10 +161,6 @@ const cypheriaApi: CypheriaPreloadApi = {
     listInteractions: () => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexInteractionList, {}),
     respondToInteraction: (response) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexInteractionRespond, response),
-    setPermissionDefaults: (settings) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPermissionDefaultsWrite, settings),
-    setShowFullAccess: (enabled) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPermissionsShowFullAccessWrite, { enabled }),
     openPermissionsConfig: () =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexPermissionsConfigOpen),
     startChat: (request) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.codexChatStart, request),

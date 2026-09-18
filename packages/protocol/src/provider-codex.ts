@@ -59,6 +59,65 @@ export const CodexModelSettingsSchema = z
   .strict()
 export type CodexModelSettings = z.infer<typeof CodexModelSettingsSchema>
 
+export const CodexApprovalPolicySchema = z.enum(["untrusted", "on-request", "never"])
+export const CodexApprovalsReviewerSchema = z.enum(["user", "auto_review", "guardian_subagent"])
+export const CodexSandboxModeSchema = z.enum(["read-only", "workspace-write", "danger-full-access"])
+export const CodexPermissionDefaultsWriteSchema = z
+  .object({
+    approvalPolicy: CodexApprovalPolicySchema,
+    approvalsReviewer: CodexApprovalsReviewerSchema,
+    modelReasoningSummary: z.enum(["auto", "concise", "detailed", "none"]).nullable(),
+    modelVerbosity: z.enum(["low", "medium", "high"]).nullable(),
+    networkAccess: z.boolean(),
+    sandboxMode: CodexSandboxModeSchema,
+    webSearch: z.enum(["disabled", "cached", "indexed", "live"]).nullable(),
+  })
+  .strict()
+export type CodexPermissionDefaultsWrite = z.infer<typeof CodexPermissionDefaultsWriteSchema>
+export const CodexAgentSettingsSchema = CodexModelSettingsSchema.extend({
+  ...CodexPermissionDefaultsWriteSchema.shape,
+  showFullAccessInComposer: z.boolean(),
+}).strict()
+export type CodexAgentSettings = z.infer<typeof CodexAgentSettingsSchema>
+export const CodexPermissionDefaultsSchema = CodexPermissionDefaultsWriteSchema.extend({
+  allowedApprovalPolicies: z.array(CodexApprovalPolicySchema).nullable(),
+  allowedSandboxModes: z.array(CodexSandboxModeSchema).nullable(),
+  allowedWebSearchModes: z.array(z.enum(["disabled", "cached", "indexed", "live"])).nullable(),
+  configPath: z.string().min(1),
+}).strict()
+export type CodexPermissionDefaults = z.infer<typeof CodexPermissionDefaultsSchema>
+export const CodexPermissionSelectionSchema = z.discriminatedUnion("kind", [
+  z
+    .object({
+      agentMode: z.enum(["read-only", "auto", "granular", "guardian-approvals", "full-access"]),
+      kind: z.literal("agent-mode"),
+    })
+    .strict(),
+  z.object({ kind: z.literal("profile"), profileId: z.string().min(1) }).strict(),
+  z.object({ kind: z.literal("custom") }).strict(),
+  z.object({ kind: z.literal("server-default") }).strict(),
+])
+export type CodexPermissionSelection = z.infer<typeof CodexPermissionSelectionSchema>
+export const CodexPermissionsCatalogSchema = z
+  .object({
+    autoReviewAvailable: z.boolean(),
+    availableAgentModes: z.array(
+      z.enum(["read-only", "auto", "granular", "guardian-approvals", "full-access"])
+    ),
+    configPath: z.string().min(1),
+    fullAccessCanBeShown: z.boolean(),
+    profiles: z.array(
+      z
+        .object({ allowed: z.boolean(), description: z.string().nullable(), id: z.string().min(1) })
+        .strict()
+    ),
+    selected: CodexPermissionSelectionSchema,
+    showFullAccess: z.boolean(),
+    source: z.enum(["config", "managed", "selection", "server-default"]),
+  })
+  .strict()
+export type CodexPermissionsCatalog = z.infer<typeof CodexPermissionsCatalogSchema>
+
 const request = <const T extends string, S extends z.ZodType>(type: T, payload: S) =>
   z.object({ payload, requestId: RequestIdSchema, type: z.literal(type) })
 const error = z.object({ code: z.string(), message: z.string() }).strict()
@@ -99,6 +158,22 @@ export const CodexModelSettingsSetRequestSchema = request(
   "provider.codex.model-settings.set.request",
   CodexModelSettingsSchema
 )
+export const CodexPermissionDefaultsGetRequestSchema = request(
+  "provider.codex.permissions.defaults.get.request",
+  z.object({}).strict()
+)
+export const CodexPermissionDefaultsSetRequestSchema = request(
+  "provider.codex.permissions.defaults.set.request",
+  CodexPermissionDefaultsWriteSchema
+)
+export const CodexPermissionsCatalogGetRequestSchema = request(
+  "provider.codex.permissions.catalog.get.request",
+  z.object({ cwd: z.string().min(1).optional() }).strict()
+)
+export const CodexPermissionsShowFullAccessSetRequestSchema = request(
+  "provider.codex.permissions.show-full-access.set.request",
+  z.object({ enabled: z.boolean() }).strict()
+)
 
 export const CodexAccountGetResponseSchema = response(
   "provider.codex.account.get.response",
@@ -128,6 +203,22 @@ export const CodexModelSettingsSetResponseSchema = response(
   "provider.codex.model-settings.set.response",
   CodexModelSettingsSchema
 )
+export const CodexPermissionDefaultsGetResponseSchema = response(
+  "provider.codex.permissions.defaults.get.response",
+  CodexPermissionDefaultsSchema
+)
+export const CodexPermissionDefaultsSetResponseSchema = response(
+  "provider.codex.permissions.defaults.set.response",
+  CodexPermissionDefaultsSchema
+)
+export const CodexPermissionsCatalogGetResponseSchema = response(
+  "provider.codex.permissions.catalog.get.response",
+  CodexPermissionsCatalogSchema
+)
+export const CodexPermissionsShowFullAccessSetResponseSchema = response(
+  "provider.codex.permissions.show-full-access.set.response",
+  CodexPermissionsCatalogSchema
+)
 
 export const CODEX_PROVIDER_CLIENT_SCHEMAS = [
   CodexAccountGetRequestSchema,
@@ -137,6 +228,10 @@ export const CODEX_PROVIDER_CLIENT_SCHEMAS = [
   CodexModelListRequestSchema,
   CodexModelSettingsGetRequestSchema,
   CodexModelSettingsSetRequestSchema,
+  CodexPermissionDefaultsGetRequestSchema,
+  CodexPermissionDefaultsSetRequestSchema,
+  CodexPermissionsCatalogGetRequestSchema,
+  CodexPermissionsShowFullAccessSetRequestSchema,
 ] as const
 
 export const CODEX_PROVIDER_SERVER_SCHEMAS = [
@@ -147,6 +242,10 @@ export const CODEX_PROVIDER_SERVER_SCHEMAS = [
   CodexModelListResponseSchema,
   CodexModelSettingsGetResponseSchema,
   CodexModelSettingsSetResponseSchema,
+  CodexPermissionDefaultsGetResponseSchema,
+  CodexPermissionDefaultsSetResponseSchema,
+  CodexPermissionsCatalogGetResponseSchema,
+  CodexPermissionsShowFullAccessSetResponseSchema,
 ] as const
 
 export const CODEX_PROVIDER_RESPONSE_TYPES = CODEX_PROVIDER_SERVER_SCHEMAS.map(

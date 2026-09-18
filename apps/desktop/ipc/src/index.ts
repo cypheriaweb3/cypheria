@@ -20,13 +20,6 @@ import {
   CodexInteractionEventSchema,
   type CodexInteractionResponse,
   CodexInteractionResponseSchema,
-  type CodexPermissionDefaults,
-  CodexPermissionDefaultsSchema,
-  type CodexPermissionDefaultsWrite,
-  CodexPermissionDefaultsWriteSchema,
-  type CodexPermissionsCatalog,
-  CodexPermissionsCatalogRequestSchema,
-  CodexPermissionsCatalogSchema,
   CodexProjectCreateRequestSchema,
   CodexProjectDeleteRequestSchema,
   type CodexProjectListPage,
@@ -36,7 +29,6 @@ import {
   CodexProjectUpdateRequestSchema,
   type CodexProjectView,
   CodexProjectViewSchema,
-  CodexShowFullAccessWriteSchema,
   type CodexThreadDetailView,
   CodexThreadDetailViewSchema,
   CodexThreadForkRequestSchema,
@@ -164,11 +156,7 @@ export const CYPHERIA_IPC_CHANNELS = {
   codexInteractionList: "codex.interaction.list",
   codexInteractionRespond: "codex.interaction.respond",
   codexEvent: "codex.event",
-  codexPermissionDefaultsRead: "codex.permission-defaults.read",
-  codexPermissionDefaultsWrite: "codex.permission-defaults.write",
-  codexPermissionsCatalogRead: "codex.permissions.catalog.read",
   codexPermissionsConfigOpen: "codex.permissions.config.open",
-  codexPermissionsShowFullAccessWrite: "codex.permissions.show-full-access.write",
   codexProjectCreate: "codex.project.create",
   codexProjectDelete: "codex.project.delete",
   codexProjectList: "codex.project.list",
@@ -1244,30 +1232,6 @@ export const workspaceTerminalCloseAllContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<EmptyPayload, { closed: true }>
 
-export const codexPermissionDefaultsReadContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexPermissionDefaultsRead,
-  namespace: "codex",
-  request: EmptyPayloadSchema,
-  response: CodexPermissionDefaultsSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, CodexPermissionDefaults>
-
-export const codexPermissionDefaultsWriteContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexPermissionDefaultsWrite,
-  namespace: "codex",
-  request: CodexPermissionDefaultsWriteSchema,
-  response: CodexPermissionDefaultsSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<CodexPermissionDefaultsWrite, CodexPermissionDefaults>
-
-export const codexPermissionsCatalogReadContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexPermissionsCatalogRead,
-  namespace: "codex",
-  request: CodexPermissionsCatalogRequestSchema,
-  response: CodexPermissionsCatalogSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ cwd?: string }, CodexPermissionsCatalog>
-
 export const codexPermissionsConfigOpenContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexPermissionsConfigOpen,
   namespace: "codex",
@@ -1275,14 +1239,6 @@ export const codexPermissionsConfigOpenContract = {
   response: z.object({ opened: z.literal(true) }).strict(),
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<EmptyPayload, { opened: true }>
-
-export const codexPermissionsShowFullAccessWriteContract = {
-  channel: CYPHERIA_IPC_CHANNELS.codexPermissionsShowFullAccessWrite,
-  namespace: "codex",
-  request: CodexShowFullAccessWriteSchema,
-  response: CodexPermissionsCatalogSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<{ enabled: boolean }, CodexPermissionsCatalog>
 
 export const codexAutoReviewRetryContract = {
   channel: CYPHERIA_IPC_CHANNELS.codexAutoReviewRetry,
@@ -1535,11 +1491,7 @@ export const ipcContracts = {
   codexChatSteer: codexChatSteerContract,
   codexChatStart: codexChatStartContract,
   codexAutoReviewRetry: codexAutoReviewRetryContract,
-  codexPermissionDefaultsRead: codexPermissionDefaultsReadContract,
-  codexPermissionDefaultsWrite: codexPermissionDefaultsWriteContract,
-  codexPermissionsCatalogRead: codexPermissionsCatalogReadContract,
   codexPermissionsConfigOpen: codexPermissionsConfigOpenContract,
-  codexPermissionsShowFullAccessWrite: codexPermissionsShowFullAccessWriteContract,
   codexProjectCreate: codexProjectCreateContract,
   codexProjectDelete: codexProjectDeleteContract,
   codexProjectList: codexProjectListContract,
@@ -1637,8 +1589,6 @@ export type CypheriaPreloadApi = {
     readonly list: (status?: ApprovalRequestStatus) => Promise<ApprovalRequestView[]>
   }
   readonly codex: {
-    readonly getPermissionDefaults: () => Promise<CodexPermissionDefaults>
-    readonly getPermissionsCatalog: (cwd?: string) => Promise<CodexPermissionsCatalog>
     readonly interruptChat: (requestId: string) => Promise<{ interrupted: boolean }>
     readonly steerChat: (
       requestId: string,
@@ -1706,10 +1656,6 @@ export type CypheriaPreloadApi = {
     readonly onInteraction: (handler: (event: CodexInteractionEvent) => void) => () => void
     readonly onEvent: (handler: (event: CodexEventEnvelope) => void) => () => void
     readonly listInteractions: () => Promise<CodexInteractionEvent[]>
-    readonly setPermissionDefaults: (
-      settings: CodexPermissionDefaultsWrite
-    ) => Promise<CodexPermissionDefaults>
-    readonly setShowFullAccess: (enabled: boolean) => Promise<CodexPermissionsCatalog>
     readonly openPermissionsConfig: () => Promise<{ opened: true }>
     readonly startChat: (request: CodexChatStart) => Promise<CodexChatStartResult>
     readonly respondToInteraction: (

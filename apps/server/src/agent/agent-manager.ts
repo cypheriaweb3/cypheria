@@ -22,7 +22,7 @@ import {
   type AgentPiClientMessage,
   type AgentPiServerMessage,
   type AgentView,
-  type CodexModelSettings,
+  type CodexAgentSettings,
   isNativeAgentId,
   isRegistryAgentId,
   NATIVE_AGENT_IDS,
@@ -70,7 +70,7 @@ export type AgentManagerOptions = {
   cypheriaHome: string
   persistence: AgentRegistryPersistenceService
   publish: Send
-  codexSettings?: () => CodexModelSettings
+  codexSettings?: () => CodexAgentSettings
   networkBootstrap?: boolean
 }
 
@@ -137,7 +137,7 @@ export class AgentManager {
   readonly #acpRuntimes = new Map<string, AcpSessionRuntime>()
   readonly #agentHomes: string
   readonly #claudeRuntimes = new Map<string, ClaudeSessionRuntime>()
-  readonly #codexSettings: () => CodexModelSettings
+  readonly #codexSettings: () => CodexAgentSettings
   readonly #installer: AgentInstaller
   readonly #openCode: OpenCodeRuntime
   readonly #piRuntimes = new Map<string, PiSessionRuntime>()
@@ -159,7 +159,20 @@ export class AgentManager {
     this.#networkBootstrap = options.networkBootstrap ?? true
     this.#codexSettings =
       options.codexSettings ??
-      (() => ({ model: null, provider: "openai", reasoningEffort: null, serviceTier: null }))
+      (() => ({
+        approvalPolicy: "on-request",
+        approvalsReviewer: "user",
+        model: null,
+        modelReasoningSummary: null,
+        modelVerbosity: null,
+        networkAccess: true,
+        provider: "openai",
+        reasoningEffort: null,
+        sandboxMode: "workspace-write",
+        serviceTier: null,
+        showFullAccessInComposer: false,
+        webSearch: null,
+      }))
     this.#agentHomes = join(options.cypheriaHome, "agents")
     this.registry = new AgentRegistryService({
       cypheriaHome: options.cypheriaHome,
@@ -738,6 +751,42 @@ export class AgentManager {
             value: settings.reasoningEffort,
           },
           { keyPath: "service_tier", mergeStrategy: "replace", value: settings.serviceTier },
+          {
+            keyPath: "approval_policy",
+            mergeStrategy: "replace",
+            value: settings.approvalPolicy,
+          },
+          {
+            keyPath: "approvals_reviewer",
+            mergeStrategy: "replace",
+            value: settings.approvalsReviewer,
+          },
+          {
+            keyPath: "sandbox_mode",
+            mergeStrategy: "replace",
+            value: settings.sandboxMode,
+          },
+          {
+            keyPath: "sandbox_workspace_write.network_access",
+            mergeStrategy: "replace",
+            value: settings.networkAccess,
+          },
+          { keyPath: "web_search", mergeStrategy: "replace", value: settings.webSearch },
+          {
+            keyPath: "model_verbosity",
+            mergeStrategy: "replace",
+            value: settings.modelVerbosity,
+          },
+          {
+            keyPath: "model_reasoning_summary",
+            mergeStrategy: "replace",
+            value: settings.modelReasoningSummary,
+          },
+          {
+            keyPath: "desktop.showFullAccessInComposer",
+            mergeStrategy: "replace",
+            value: settings.showFullAccessInComposer,
+          },
         ],
         reloadUserConfig: true,
       })

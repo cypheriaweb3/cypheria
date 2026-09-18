@@ -78,10 +78,18 @@ export class ServerConfigStore {
     const persisted: PersistedServerConfig = {
       agents: {
         codex: {
+          approvalPolicy: "on-request",
+          approvalsReviewer: "user",
           model: null,
+          modelReasoningSummary: null,
+          modelVerbosity: null,
+          networkAccess: true,
           provider: "openai",
           reasoningEffort: null,
+          sandboxMode: "workspace-write",
           serviceTier: null,
+          showFullAccessInComposer: false,
+          webSearch: null,
         },
       },
       server: {

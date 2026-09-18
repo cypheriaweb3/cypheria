@@ -23,10 +23,12 @@ describe("Codex provider actions", () => {
 
     await actions.models.list(true)
     await actions.account.cancelLogin("login-1")
+    await actions.permissions.catalog("/workspace")
 
     expect(requestCodexProvider.mock.calls).toEqual([
       ["provider.codex.model.list.request", { includeHidden: true }, undefined],
       ["provider.codex.account.login.cancel.request", { loginId: "login-1" }, undefined],
+      ["provider.codex.permissions.catalog.get.request", { cwd: "/workspace" }, undefined],
     ])
   })
 

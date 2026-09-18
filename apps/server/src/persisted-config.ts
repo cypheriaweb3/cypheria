@@ -12,10 +12,18 @@ export const CYPHERIA_SERVER_CONFIG_FILENAME = "config.json" as const
 export const DEFAULT_PERSISTED_SERVER_CONFIG: PersistedServerConfig = {
   agents: {
     codex: {
+      approvalPolicy: "on-request",
+      approvalsReviewer: "user",
       model: null,
+      modelReasoningSummary: null,
+      modelVerbosity: null,
+      networkAccess: true,
       provider: "openai",
       reasoningEffort: null,
+      sandboxMode: "workspace-write",
       serviceTier: null,
+      showFullAccessInComposer: false,
+      webSearch: null,
     },
   },
   server: {

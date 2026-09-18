@@ -1,5 +1,8 @@
 import type {
   CodexModelSettings,
+  CodexPermissionDefaults,
+  CodexPermissionDefaultsWrite,
+  CodexPermissionsCatalog,
   CodexProviderClientMessage,
   CodexProviderServerMessage,
 } from "@cypheria/protocol"
@@ -7,6 +10,8 @@ import type {
 import type { AgentManager } from "./agent/agent-manager.js"
 import type { v2 } from "./codex-bridge/index.js"
 import type { ServerConfigStore } from "./server-config-store.js"
+
+const builtInProfiles = new Set([":read-only", ":workspace", ":danger-full-access"])
 
 export class CodexProviderService {
   readonly #agents: AgentManager
@@ -55,6 +60,18 @@ export class CodexProviderService {
           break
         case "provider.codex.model-settings.set.request":
           respond(await this.#setSettings(message.payload))
+          break
+        case "provider.codex.permissions.defaults.get.request":
+          respond(await this.#permissionDefaults())
+          break
+        case "provider.codex.permissions.defaults.set.request":
+          respond(await this.#setPermissionDefaults(message.payload))
+          break
+        case "provider.codex.permissions.catalog.get.request":
+          respond(await this.#permissionsCatalog(message.payload.cwd))
+          break
+        case "provider.codex.permissions.show-full-access.set.request":
+          respond(await this.#setShowFullAccess(message.payload.enabled))
           break
       }
     } catch (error) {
@@ -138,7 +155,9 @@ export class CodexProviderService {
   }
 
   #settings(): CodexModelSettings {
-    return this.#config.getSnapshot().config.agents.codex
+    const { model, provider, reasoningEffort, serviceTier } =
+      this.#config.getSnapshot().config.agents.codex
+    return { model, provider, reasoningEffort, serviceTier }
   }
 
   async #setSettings(settings: CodexModelSettings): Promise<CodexModelSettings> {
@@ -157,5 +176,148 @@ export class CodexProviderService {
       reloadUserConfig: true,
     })
     return this.#settings()
+  }
+
+  async #requirements(): Promise<v2.ConfigRequirements | null> {
+    const response = await this.#call<v2.ConfigRequirementsReadResponse>("configRequirements/read")
+    return response.requirements
+  }
+
+  async #permissionDefaults(): Promise<CodexPermissionDefaults> {
+    const requirements = await this.#requirements()
+    const snapshot = this.#config.getSnapshot()
+    const settings = snapshot.config.agents.codex
+    const allowedApprovalPolicies =
+      requirements?.allowedApprovalPolicies?.filter(
+        (policy): policy is CodexPermissionDefaults["approvalPolicy"] => typeof policy === "string"
+      ) ?? null
+    return {
+      allowedApprovalPolicies,
+      allowedSandboxModes: requirements?.allowedSandboxModes ?? null,
+      allowedWebSearchModes: requirements?.allowedWebSearchModes ?? null,
+      approvalPolicy: settings.approvalPolicy,
+      approvalsReviewer: settings.approvalsReviewer,
+      configPath: snapshot.path,
+      modelReasoningSummary: settings.modelReasoningSummary,
+      modelVerbosity: settings.modelVerbosity,
+      networkAccess: settings.networkAccess,
+      sandboxMode: settings.sandboxMode,
+      webSearch: settings.webSearch,
+    }
+  }
+
+  async #setPermissionDefaults(
+    settings: CodexPermissionDefaultsWrite
+  ): Promise<CodexPermissionDefaults> {
+    await this.#config.patch({ agents: { codex: settings } })
+    await this.#call("config/batchWrite", {
+      edits: [
+        { keyPath: "approval_policy", mergeStrategy: "replace", value: settings.approvalPolicy },
+        {
+          keyPath: "approvals_reviewer",
+          mergeStrategy: "replace",
+          value: settings.approvalsReviewer,
+        },
+        { keyPath: "sandbox_mode", mergeStrategy: "replace", value: settings.sandboxMode },
+        {
+          keyPath: "sandbox_workspace_write.network_access",
+          mergeStrategy: "replace",
+          value: settings.networkAccess,
+        },
+        { keyPath: "web_search", mergeStrategy: "replace", value: settings.webSearch },
+        {
+          keyPath: "model_verbosity",
+          mergeStrategy: "replace",
+          value: settings.modelVerbosity,
+        },
+        {
+          keyPath: "model_reasoning_summary",
+          mergeStrategy: "replace",
+          value: settings.modelReasoningSummary,
+        },
+      ],
+      reloadUserConfig: true,
+    })
+    return this.#permissionDefaults()
+  }
+
+  async #permissionsCatalog(cwd?: string): Promise<CodexPermissionsCatalog> {
+    const requirements = await this.#requirements()
+    const profiles: v2.PermissionProfileSummary[] = []
+    let cursor: string | null = null
+    do {
+      const page: v2.PermissionProfileListResponse =
+        await this.#call<v2.PermissionProfileListResponse>("permissionProfile/list", {
+          cursor,
+          ...(cwd ? { cwd } : {}),
+          limit: 100,
+        })
+      profiles.push(...page.data)
+      cursor = page.nextCursor
+    } while (cursor)
+
+    const snapshot = this.#config.getSnapshot()
+    const settings = snapshot.config.agents.codex
+    const allowedProfile = (id: string): boolean =>
+      profiles.find((profile) => profile.id === id)?.allowed ??
+      requirements?.allowedPermissionProfiles?.[id] ??
+      true
+    const defaultProfile = requirements?.defaultPermissions ?? null
+    const selected: CodexPermissionsCatalog["selected"] = defaultProfile
+      ? { kind: "profile", profileId: defaultProfile }
+      : settings.sandboxMode === "read-only"
+        ? { agentMode: "read-only", kind: "agent-mode" }
+        : settings.sandboxMode === "danger-full-access"
+          ? { agentMode: "full-access", kind: "agent-mode" }
+          : settings.approvalsReviewer === "auto_review" ||
+              settings.approvalsReviewer === "guardian_subagent"
+            ? { agentMode: "guardian-approvals", kind: "agent-mode" }
+            : { agentMode: "auto", kind: "agent-mode" }
+    const allowedReviewers = requirements?.allowedApprovalsReviewers
+    const autoReviewAvailable =
+      allowedReviewers === null ||
+      allowedReviewers === undefined ||
+      allowedReviewers.includes("auto_review") ||
+      allowedReviewers.includes("guardian_subagent")
+    const allowedApproval = (policy: v2.AskForApproval): boolean =>
+      requirements?.allowedApprovalPolicies?.some(
+        (allowed) => JSON.stringify(allowed) === JSON.stringify(policy)
+      ) ?? true
+    const userReviewAllowed = requirements?.allowedApprovalsReviewers?.includes("user") ?? true
+    const fullAccessAllowed =
+      allowedProfile(":danger-full-access") &&
+      (requirements?.allowedSandboxModes?.includes("danger-full-access") ?? true) &&
+      (requirements?.allowedApprovalPolicies?.includes("never") ?? true)
+    const availableAgentModes: CodexPermissionsCatalog["availableAgentModes"] = []
+    if (allowedProfile(":read-only") && allowedApproval("on-request") && userReviewAllowed) {
+      availableAgentModes.push("read-only")
+    }
+    if (allowedProfile(":workspace") && allowedApproval("on-request") && userReviewAllowed) {
+      availableAgentModes.push("auto")
+    }
+    if (allowedProfile(":workspace") && allowedApproval("on-request") && autoReviewAvailable) {
+      availableAgentModes.push("guardian-approvals")
+    }
+    if (fullAccessAllowed) availableAgentModes.push("full-access")
+    return {
+      autoReviewAvailable,
+      availableAgentModes,
+      configPath: snapshot.path,
+      fullAccessCanBeShown: fullAccessAllowed,
+      profiles: profiles.filter((profile) => !builtInProfiles.has(profile.id)),
+      selected,
+      showFullAccess: settings.showFullAccessInComposer,
+      source: requirements?.defaultPermissions ? "managed" : "config",
+    }
+  }
+
+  async #setShowFullAccess(enabled: boolean): Promise<CodexPermissionsCatalog> {
+    await this.#config.patch({ agents: { codex: { showFullAccessInComposer: enabled } } })
+    await this.#call("config/value/write", {
+      keyPath: "desktop.showFullAccessInComposer",
+      mergeStrategy: "replace",
+      value: enabled,
+    })
+    return this.#permissionsCatalog()
   }
 }
