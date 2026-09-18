@@ -1,9 +1,8 @@
 # `@cypheria/client`
 
-`@cypheria/client` 是版本化 Cypheria server protocol 的可复用 client。它依赖
-`@cypheria/protocol`、只处理传输的 `@cypheria/relay`，以及 protocol 所用的同一精确版本官方
-ACP SDK。Pi RPC type 通过 protocol 固定的 `@earendil-works/pi-coding-agent` 提供；client 不导入
-runtime、server、Codex bridge 或 Electron 代码。
+`@cypheria/client` 是版本化 Cypheria server 协议的可复用客户端。它只依赖
+`@cypheria/protocol` 与仅负责传输的 `@cypheria/relay`，不导入 provider runtime、server
+内部实现、Electron 代码或 Codex bridge。
 
 ## 分层
 
@@ -17,267 +16,56 @@ CypheriaClient = CypheriaApi + connection lifecycle
                   ServerTransport / WebSocket
 ```
 
-- `ServerClient` 是底层 protocol driver，负责 hello negotiation、鉴权、请求关联、超时、校验、
-  订阅、连接状态和有界指数退避重连。Transport adapter 同时支持 browser WebSocket、Node
-  event-emitter WebSocket 与自定义 transport。
-- `CypheriaApi` 借用 `ServerClient`，不包含 lifecycle control。
-- `CypheriaClient` 持有 `ServerClient`，并增加连接 lifecycle 与 session 查询。
+- `ServerClient` 持有 hello 协商、认证、请求关联、超时、校验、事件投递、连接状态和有界重连。
+- `CypheriaApi` 借用 `ServerClient`，不能关闭它。
+- `CypheriaClient` 持有一个 `ServerClient` 并增加连接生命周期。
 
-## Protocol 能力面
+## 公开 API
 
-`CypheriaApi` 刻意只暴露当前 `@cypheria/protocol` message 已表示的操作：
+`CypheriaApi` 只暴露产品级协议族：
 
-- `server`：ping、status、diagnostics 与 configuration；
-- `agent.codex`：generated Codex request、notification、反向 request 与 response；
-- `agent.acp`：可直接判别的 ACP 逻辑消息；
-- `agent.claude`：Claude Agent SDK query、control、session 与 stream contract，并由
-  `@cypheria/client/claude` 提供 SDK-shaped 门面。
-- `agent.pi`：完整的 `pi --mode rpc` command、event 与 extension UI surface，并由
-  `@cypheria/client/pi` 提供不持有进程的 `RpcClient` 门面。
-- `projectThread`：通过 `projects`、`threads` 和 `sections` action group 提供类型化的 project、
-  thread、project 成员关系、section 与 section 成员关系操作。
+- `agent`：registry、安装、enable、runtime readiness、operation 和受管工具链；
+- `thread`：对话生命周期、turn、timeline 分页、配置和交互；
+- `projectThread`：project 与 section 组织；
+- `server`：ping、状态、诊断和配置。
 
-它不会根据 runtime method 字符串发明 wallet、policy、automation 或 runtime-info 产品方法。
-只有相应 contract 进入 `@cypheria/protocol` 后，才应增加高层 API。
-
-## Project/thread API
-
-`CypheriaApi` 与 `CypheriaClient` 直接提供 project/thread 调用：
-
-```ts
-const project = await cypheria.projectThread.projects.create({
-  name: "Cypheria",
-  roots: ["/absolute/workspace"],
-})
-const thread = await cypheria.projectThread.threads.create({
-  agentId: "codex",
-  projectPlacement: { projectId: project.id },
-})
-await cypheria.projectThread.sections.pinItem({
-  item: { id: thread.id, type: "thread" },
-})
-```
-
-返回的 thread 包含预留的可空 `agentSessionId` 字段。创建时传入 agent session、按 agent
-session 查询，以及绑定或更新该字段，均刻意不属于当前 client API。
-
-## Codex client API
-
-`@cypheria/client/codex` 实现 Cypheria 自有的 SDK-shaped `client()` 与 `ClientApp`。它的
-`connect()` 和 `connectWith()` 接收 `CypheriaApi`，并在内部选择最小的 `agent.codex`
-endpoint。`ClientContext.request()` 把每个 protocol request 与 response 组合成一个 typed async
-call。`ClientApp.onRequest()` 会等待反向 request handler，并写回 typed response；
-`onNotification()` 负责分派 server notification。向 server 发送 client notification 则使用
-`ClientContext.notify()`。
-
-```ts
-import { client as createCodexApp, methods } from "@cypheria/client/codex"
-import { createCypheriaClient } from "@cypheria/client"
-
-const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
-const app = createCodexApp()
-  .onRequest(methods.client.request["currentTime/read"], ({ params }) => ({
-    currentTimeAt: Math.floor(Date.now() / 1_000),
-  }))
-  .onNotification(methods.client.notification["thread/started"], ({ params }) => {
-    console.log(params.thread)
-  })
-
-const connection = app.connect(cypheria)
-await connection.codex.initialize({
-  capabilities: null,
-  clientInfo: { name: "example", title: "Example", version: "1.0.0" },
-})
-const threads = await connection.codex.request(methods.server.request["thread/list"], {})
-
-connection.close()
-await cypheria.close()
-```
-
-`initialize()` 负责必需的 Codex initialize request/initialized notification 握手。
-`connection.initialized` 会解析为该握手的 request/response snapshot；重复初始化是幂等的，
-其他 context 调用则会在初始化成功前给出清晰错误。`@cypheria/client/codex` 会导出 method
-constant 与全部 generated Codex type。
-`connectWith(cypheria, operation)` 提供 scoped connection，并且一定在 operation 结束后释放。
-每个 endpoint 同时只允许一个 Codex app 消费；transport loss 会中止 connection 与 pending
-request。低层 consumer 仍可直接调用 endpoint method，但不得把手动反向 response 处理与活跃
-`ClientApp` 混用。
-
-## ACP SDK API
-
-稳定入口 `@cypheria/client/acp` 自行实现了 SDK-shaped `client()` 与 `ClientApp`。Handler
-registration、context、session、cancellation、error、method constant 与 generated protocol
-type 保持官方 SDK API；`connect()` 和 `connectWith()` 则改为接收 `CypheriaApi`，而非 Web
-Stream。其他可用 SDK export 使用白名单重新导出；我们重新实现的名字及已废弃 connection
-API 不会导出，尤其不包含旧的 `ClientSideConnection`、`AgentSideConnection` 或
-`TerminalHandle` API。
-
-```ts
-import { client as createAcpApp, methods, PROTOCOL_VERSION } from "@cypheria/client/acp"
-import { createCypheriaClient } from "@cypheria/client"
-
-const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
-const app = createAcpApp().onNotification(methods.client.session.update, ({ params }) => {
-  console.log(params.update)
-})
-
-const connection = app.connect(cypheria)
-await connection.agent.request(methods.agent.initialize, {
-  protocolVersion: PROTOCOL_VERSION,
-})
-
-const session = await connection.agent.buildSession("/absolute/workspace").start()
-await session.prompt("Explain this project")
-
-session.dispose()
-connection.close()
-await cypheria.close()
-```
-
-`app.connectWith(cypheria, operation)` 提供 SDK 的 scoped connection 风格。Draft ACP
-v2 使用显式隔离入口：
-
-```ts
-import { client as createAcpV2App } from "@cypheria/client/acp/v2"
-
-const connection = createAcpV2App().connect(cypheria)
-```
-
-Adapter 会把 SDK 原始 JSON-RPC stream 转换成 `agent.acp.<operation>.<direction>` 逻辑消息，
-由数字 `protocolVersion` 选择稳定 v1 或 draft v2。以 underscore 开头的 extension method 使用专用
-extension type；v2 batch 使用 `agent.acp.batch`，并在
-`payload.messages` 中使用嵌套 discriminated union。由于逻辑消息刻意不携带第二个 connection ID，每个
-Cypheria ACP endpoint 只允许一个活跃 ACP connection。底层 transport 断开时，ACP connection
-会关闭并拒绝 pending request；Cypheria session 恢复后应创建新的 ACP connection。
-
-`cypheria.agent.acp` 本身仍是最小的 `send(message)` / `subscribe(handler)` endpoint。不得将这些
-低层 operation 与活跃 `ClientApp` connection 混用。
-
-## Claude Agent SDK API
-
-`@cypheria/client/claude` 把借用的 `CypheriaApi` 绑定成 SDK-shaped 门面。`query()` 与上游一样
-同步返回带全部网络安全 `Query` control method 的 `AsyncGenerator<SDKMessage>`。Session list、
-history、subagent、mutation、fork 与 settings call 保持上游参数和结果形态。Async input iterable
-转换为有序 protocol input notification；query output、完成、远程错误、本地 abort 与 transport
-loss 均按 `queryId` 隔离。
-
-```ts
-import { client as createClaudeClient } from "@cypheria/client/claude"
-import { createCypheriaClient } from "@cypheria/client"
-
-const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
-const claude = createClaudeClient(cypheria)
-
-for await (const message of claude.query({
-  prompt: "Explain this repository",
-  options: { cwd: "/absolute/workspace" },
-})) {
-  console.log(message)
-}
-
-await cypheria.close()
-```
-
-`AbortController` 只在本地生效，不会被序列化。`startup()`、`tool()`、
-`createSdkMcpServer()`、携带 callback 的 option、process handle 与进程内 SDK MCP server
-不会暴露，因为它们无法忠实地跨网络表示；可序列化的 stdio、SSE 与 HTTP MCP config 仍受支持。
-
-## Pi RPC API
-
-`@cypheria/client/pi` 在借用的 `CypheriaApi` 上实现 Pi RPC client method。它覆盖
-`@earendil-works/pi-coding-agent@0.85.1` 的全部 33 个 command，通过 `onEvent()` 恢复原生 Pi
-event，并提供 `waitForIdle()`、`collectEvents()` 与 `promptAndWait()`。它还暴露 RPC 文档已经支持、
-但上游进程型 client method 当前尚未作为参数提供的 `prompt.streamingBehavior` 与
-`bash.excludeFromContext`。
+Codex、Claude、Pi、OpenCode 与 ACP 的 provider-native 消息仍由 protocol 持有，供 server
+adapter 内部使用；它们不进入公开 client wire union，也不再提供 client subpath facade。
 
 ```ts
 import { createCypheriaClient } from "@cypheria/client"
-import { client as createPiClient } from "@cypheria/client/pi"
 
 const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
-const pi = createPiClient(cypheria)
+await cypheria.connect()
 
-pi.onEvent((event) => console.log(event.type))
-const events = await pi.promptAndWait("Explain this repository")
-
-await cypheria.close()
-```
-
-该门面刻意不提供 `start()`、`stop()`、`getStderr()`、CLI path、environment 或 signal 管理。
-这些 API 属于 Pi 的本地子进程 wrapper；Cypheria server 后续会持有 `pi --mode rpc` 进程及其
-JSONL transport。会阻塞的 extension UI `select`、`confirm`、`input` 与 `editor` event 使用反向
-RPC，通过 `respondToExtensionUI()` 回答；fire-and-forget UI update 仍是 event。Server 进程启动与
-dispatch 仍延后实现。
-
-## 使用
-
-```ts
-import { createCypheriaClient } from "@cypheria/client"
-import { client as createCodexApp, methods as codexMethods } from "@cypheria/client/codex"
-
-const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
-const codex = createCodexApp().connect(cypheria)
-
-const status = await cypheria.server.status()
-const config = await cypheria.server.config()
-await codex.codex.initialize({
-  capabilities: null,
-  clientInfo: { name: "example", title: "Example", version: "1.0.0" },
+const agents = await cypheria.agent.list()
+const ready = await cypheria.thread.create({ agentId: "codex", cwd: "/absolute/workspace" })
+const turn = await cypheria.thread.startTurn({
+  clientMessageId: crypto.randomUUID(),
+  content: [{ text: "解释这个项目", type: "text" }],
+  threadId: ready.thread.id,
 })
-const threads = await codex.codex.request(codexMethods.server.request["thread/list"], {})
 
-codex.close()
+console.log(agents, turn.turnId)
 await cypheria.close()
 ```
 
-请求会懒连接。`close()` 会永久释放该 client。在 close 之前，transport 断开会拒绝进行中的
-请求，并默认安排有界指数退避重连。重连使用相同的稳定 client ID，让 server 可以在 grace
-period 内恢复 principal-scoped 逻辑 session，不暴露 session ID 或 resume token。如果 embedding host 自己负责 retry policy，
-可将 `reconnect.enabled` 设为 `false`。`server.config()`、`patchConfig()` 与 `reloadConfig()`
-暴露经过校验的 desired config 及需要 supervised worker restart 的路径。Status 与 config
-结果都不会返回认证 token。
+## 身份与事件
 
-所有有关联的 facade method 都接受最后一个 `{ signal, timeoutMs }` request options 参数。
-timeout 或 abort 也会取消仍在等待懒连接的请求，避免它稍后变成 ghost request。
-`cypheria.server.supports(name)` 查询协商后的 capability；`supportsFeature(name)` 查询可选且
-可向前兼容的 feature flag。若调用所需的 server capability 未被声明，client 会在写 transport
-前失败。
+`threadId` 是 Thread 操作唯一的公开句柄。Thread 上可空的 `agentSessionId` 只是只读诊断
+元数据，绝不作为路由键。Server 持有 provider 进程和 session，在创建或恢复 Thread 时自动启动
+所选 agent，并把 Thread notification 广播给所有已连接客户端。
 
-Codex 反向 request 只写回 Codex 自身定义的 typed response。Handler 缺失、handler 失败与
-ClientApp 逻辑取消会通过本地 handler-error hook 报告；基础 protocol 不定义通用 client error
-message。
+使用 `api.on(type, handler)` 监听一种 notification，或用 `api.subscribe(handler)` 监听全部 server
+消息。Thread 不需要订阅调用。权限或问题通过 `thread.interaction.requested.notification` 投递；
+所有客户端中第一个合法的 `thread.interaction.respond` 生效。
 
-默认 adapter 使用当前 runtime 的全局 WebSocket。其他环境可以注入 `webSocketFactory`，或
-完整的 `transportFactory`。HTTP(S) 根 URL 会转换到版本化 `/api/v1/ws` WS(S) endpoint。
-鉴权 token 使用 WebSocket subprotocol，不会放入 URL。
+Timeline page 暴露 `epoch` 与 canonical sequence cursor。`reset` 为 true 时应丢弃本地 timeline
+状态并从返回页面重建。Projected item 携带对应 canonical source coverage，因此客户端可合并分页
+或流式更新，而无需把 projection 当作第二套排序系统。
 
-端到端加密的远程连接可传入解码后的 offer 或 pairing URL：
+## Agent enable
 
-```ts
-const cypheria = createCypheriaClient({ relayOffer: "cypheria://pair#offer=..." })
-```
-
-`relayOffer` 不能与 `url`、`token` 或 `transportFactory` 同时使用；没有全局 WebSocket 的
-runtime 仍可提供自定义 `webSocketFactory`。E2EE 会先于顶层 `hello` 完成，直连 Bearer
-token 绝不会发送给 relay。Server operation、ACP、Codex、Claude 与 Pi traffic 都在顶层 `session`
-envelope 中传输。
-
-## 借用已有连接
-
-```ts
-import { createCypheriaApi } from "@cypheria/client"
-import { ServerClient } from "@cypheria/client/internal/server-client"
-
-const connection = new ServerClient({ url: "http://127.0.0.1:6768" })
-await connection.connect()
-
-const api = createCypheriaApi(connection)
-await api.server.status()
-
-// 创建连接的 host 仍负责管理连接生命周期。
-await connection.close()
-```
-
-多个借用门面可以共享一条连接。当前 foundation server 会 dispatch 内置 status、diagnostics
-与 configuration message；Codex、ACP、Claude 和 Pi contract 已进入 protocol，但其 server
-dispatch 仍是后续工作。
+安装不会自动 enable agent。调用 `agent.start()` 或执行 Thread 工作之前，必须显式调用
+`agent.enable()`。Disable agent 会停止其活跃 Thread；存在活跃 Thread 时，
+`agent.stop(agentId, false)` 会拒绝，只有显式传入 `true` 才会强制停止。

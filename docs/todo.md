@@ -78,45 +78,44 @@ Status legend:
   - Exclude: agent, project, wallet, policy, browser, and automation product methods; any `apps/desktop` code change.
   - Verification: protocol/server/client/Expo tests and typechecks, relay tests, Expo compatibility check and static export, server build and embedded-web smoke test, server start/status/restart/stop smoke test, full repository CI/build.
 
-- [x] Define the complete Codex App Server API in `@cypheria/protocol`.
-  - Acceptance: all generated client RPCs, reverse server RPCs, server notifications, and client notifications have collision-free `agent.codex.*` dotted wire names in the live Zod message unions, with request/response correlation and upstream method/schema metadata.
+- [x] Define the complete Codex App Server adapter contract in `@cypheria/protocol`.
+  - Acceptance: all generated client RPCs, reverse server RPCs, server notifications, and client notifications have collision-free `agent.codex.*` names, request/response correlation, and upstream metadata for internal server adapters; they are excluded from the public message union.
   - Include: keep Codex-generated TypeScript as the type source; generate committed static Zod 4 definition validators from the Codex JSON Schemas with pinned Hey API; preserve wire fields named `default`; normalize 64-bit integers to JSON numbers; retain protocol-owned generated Codex DTOs and JSON Schemas, mechanically generated catalogs, reverse lookups, drift checks, provider-transparent JSON payloads, paired protocol documentation, and Cypheria-owned dotted envelope and response mapping generation; do not connect server dispatch in this item.
   - Verification: protocol generation check, typecheck, tests, build, and full repository CI.
 
-- [x] Add ACP logical messages to `@cypheria/protocol`.
-  - Acceptance: concrete `agent.acp.<operation>.request|response|notification` messages are directly routable through nested client/server discriminated unions; numeric `protocolVersion` selects stable v1 or draft v2, underscore-prefixed extension methods and v2 batches use dedicated types, and batch entries use another nested discriminated union.
+- [x] Add ACP adapter messages to `@cypheria/protocol`.
+  - Acceptance: concrete `agent.acp.<operation>.request|response|notification` messages validate the internal adapter boundary; numeric `protocolVersion` selects stable v1 or draft v2, and every message carries its generated ACP agent ID.
   - Include: official `@agentclientprotocol/sdk@1.4.0` protocol constants, directional types, generated Zod schemas, per-method parameter validation, JSON-RPC boundary validation, and paired protocol documentation; expose the SDK's shipped Zod modules with a minimal pinned package-export patch instead of copying them; do not connect server dispatch in this item.
   - Verification: protocol typecheck, tests, and build.
 
-- [x] Add Claude Agent SDK logical messages to `@cypheria/protocol`.
-  - Acceptance: the network-safe surface of pinned `@anthropic-ai/claude-agent-sdk@0.3.270` is available as directly routable `agent.claude.*` request, response, input, lifecycle, and SDK-output messages in the live session unions.
+- [x] Add Claude Agent SDK adapter messages to `@cypheria/protocol`.
+  - Acceptance: the selected surface of pinned `@anthropic-ai/claude-agent-sdk@0.3.270` is validated for internal server adapters and excluded from the public message union.
   - Include: `query()`, session/settings functions, all `Query` controls, text and streaming prompts, serializable options and MCP transports, all 40 SDK output variants, a type-only SDK subpath, declaration-driven catalogs, drift checks, tests, and paired documentation.
   - Exclude: `startup()`, callbacks, hooks, custom function-defined tools/SDK MCP servers, process and abort handles, session stores, and server dispatch.
   - Verification: protocol generation check, typecheck, tests, and build.
 
-- [x] Add the Claude Agent SDK-shaped `@cypheria/client/claude` facade.
-  - Acceptance: `query()` returns an SDK-compatible async iterator; all network-safe query controls and session/settings functions retain their upstream call shape; streaming input, local abort, response correlation, remote errors, completion, and transport loss are handled per query.
-  - Exclude: `startup()`, `tool()`, `createSdkMcpServer()`, callback-bearing options, and server dispatch.
-  - Verification: client tests, typecheck, build, full repository CI/build, and paired documentation.
+- [x] Retire the provider-shaped Claude client facade after adding the Thread adapter.
+  - Acceptance: Claude execution, `canUseTool`, cancellation, and provider session binding are server-owned and exposed only through `thread.*`.
 
-- [x] Add complete Pi RPC protocol and client support.
-  - Acceptance: pinned `@earendil-works/pi-coding-agent@0.85.1` types cover every `pi --mode rpc` command, response, event, extension error, and extension UI operation through directly routable `agent.pi.*` messages; `@cypheria/client/pi` provides the process-independent `RpcClient` API over a borrowed `CypheriaApi`.
+- [x] Add complete Pi RPC adapter support.
+  - Acceptance: pinned `@earendil-works/pi-coding-agent@0.85.1` types cover every `pi --mode rpc` command, response, event, extension error, and extension UI operation for the internal Thread adapter.
   - Include: 33 paired command schemas, 23 session-event notifications, four extension UI reverse RPCs, five extension UI notifications, exact JSONL conversion helpers for the future server adapter, type-only upstream exports, command/event helpers, tests, and paired documentation.
   - Exclude: server process launch/dispatch, child-process lifecycle, stderr, executable/environment configuration, and signals.
   - Verification: protocol/client tests, typechecks, builds, full repository CI/build, and paired documentation.
 
 - [x] Add unified agent registry, managed toolchains, installation, enablement, and server runtimes.
   - Acceptance: protocol v2 carries static generated ACP agent IDs; the server conditionally refreshes the registry hourly; install/update/uninstall are observable operations; enable is separate and disabled agents cannot start or receive business calls.
-  - Include: one database baseline with `agent_registry`; latest stable managed Node/Python/uv below `$CYPHERIA_HOME`; immutable Python environments shared by complete hashed dependency lock; native Codex/Claude/Pi/OpenCode installers and runtimes; binary/npx/uvx registry installers; stable OpenCode SDK root and both event streams; client manager and OpenCode facades.
+  - Include: one database baseline with `agent_registry`; latest stable managed Node/Python/uv below `$CYPHERIA_HOME`; immutable Python environments shared by complete hashed dependency lock; native Codex/Claude/Pi/OpenCode installers and runtimes; binary/npx/uvx registry installers; stable OpenCode SDK root and both event streams; public client agent manager and internal OpenCode adapter.
   - Verification: registry, database baseline, toolchain fingerprint/lease/GC, protocol, client, and server tests; full repository CI/build; paired documentation.
 
-- [ ] Replace provider-session wire APIs with the Agent/Thread protocol and server-owned thread execution.
+- [x] Replace provider-session wire APIs with the Agent/Thread protocol and server-owned thread execution.
   - [x] Define Thread views, lifecycle RPCs, canonical timeline rows, epoch/sequence cursors, projected pages, and deterministic projection helpers.
   - [x] Integrate the Thread protocol into the live message union, server dispatch, and top-level client facade.
   - [x] Normalize public Agent management as `agent.*` and expose it directly on `api.agent`.
-  - [ ] Retire connection-owned provider session APIs after their Thread adapters cover the classified surface.
-  - [ ] Add the thread lifecycle journal, in-memory timeline store, AgentManager/ThreadManager coordination, and provider adapters.
-  - [ ] Complete multi-client interaction arbitration, deletion recovery, process hardening, documentation, and full-repository verification.
+  - [x] Retire connection-owned provider session APIs after their Thread adapters cover the classified surface.
+  - [x] Add the thread lifecycle journal, in-memory timeline store, AgentManager/ThreadManager coordination, and provider adapters.
+  - [x] Complete multi-client interaction arbitration, deletion recovery, process hardening, and documentation.
+  - [x] Complete full-repository verification.
   - Acceptance: the public protocol uses Agent and Thread terminology; `threadId` is the only operation handle; all clients receive the same Thread events; only canonical timeline rows use epoch/sequence; provider sessions remain server-internal.
 
 - [ ] Migrate desktop to the Cypheria server after explicit review.
@@ -150,19 +149,13 @@ Status legend:
 
 - [x] Add the layered `packages/client` protocol client.
   - Acceptance: `ServerClient` owns transport and WebSocket session lifecycle, correlation, subscriptions, and reconnect policy; `CypheriaApi` borrows an existing connection and exposes only current protocol-defined operations; `CypheriaClient` combines the API with lifecycle controls.
-  - Include: lazy connection, versioned hello/authentication, browser/Node/custom transport support, request timeout handling, bounded exponential reconnects, server status/diagnostics/configuration RPCs, typed Codex endpoint traffic, typed message notifications, ACP traffic, paired package documentation, and no privileged implementation dependencies.
+  - Include: lazy connection, versioned hello/authentication, browser/Node/custom transport support, request timeout handling, bounded exponential reconnects, Agent/Thread/project/section/server actions, typed notifications, paired package documentation, and no privileged implementation dependencies.
   - Verification: `pnpm --filter @cypheria/client test`, package typecheck/build, `pnpm run ci`, and `pnpm build`.
   - Verification record: client unit tests, a live client/server status smoke test, full repository CI, and full repository build pass.
 
-- [x] Add an ACP SDK-style API to `@cypheria/client`.
-  - Acceptance: stable-v1 and explicit draft-v2 ACP app APIs work over the logical messages defined by `@cypheria/protocol`, while callers retain the official SDK's typed contexts, handlers, sessions, cancellation, errors, and v2 batches.
-  - Include: Cypheria-owned `client()` and `ClientApp` at `@cypheria/client/acp` and `@cypheria/client/acp/v2`; `CypheriaApi`-based `connect` and `connectWith`; selective pinned-SDK re-exports without reimplemented or deprecated APIs; protocol-owned outbound validation; JSON-RPC/logical-message translation with connection-local response correlation; inbound version filtering; one active ACP connection per endpoint across borrowed facades; teardown on transport loss; retained low-level logical-message access; and paired package/architecture/stack documentation. Do not add server-side ACP dispatch in this item.
-  - Verification: 32 client unit tests, client typecheck/build, full repository CI, and full repository build.
-
-- [x] Replace Codex actions with a Codex SDK-style API in `@cypheria/client`.
-  - Acceptance: callers use a Cypheria-owned `client()` / `ClientApp` API for all Codex wire methods already defined by `@cypheria/protocol`; each outbound request and correlated response is one typed async call, while notifications and reverse requests use fluent typed handlers.
-  - Include: the `@cypheria/client/codex` entry; `CypheriaApi`-based `connect` and `connectWith`; typed `ClientContext.request` and `notify`; typed `onRequest` and `onNotification`; automatic reverse responses; cancellation and teardown on close or transport loss; one active app per endpoint; generated Codex type re-exports; method constants; removal of `CodexActions`; and paired package/architecture/stack documentation. Do not add protocol methods or server-side Codex dispatch in this item.
-  - Verification: 40 client unit tests, client typecheck/build, full repository CI, and full repository build.
+- [x] Remove provider-shaped client APIs after server-owned Thread execution landed.
+  - Acceptance: no ACP, Codex, Claude, Pi, or OpenCode endpoint/subpath is exported by `@cypheria/client`; provider schemas remain available only to internal server adapters.
+  - Verification: client public API tests, typecheck/build, full repository CI, and full repository build.
 
 - [ ] Add `packages/sdk`.
   - Acceptance: package exports a public `Cypheria` server client.

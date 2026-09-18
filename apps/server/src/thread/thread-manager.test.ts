@@ -22,9 +22,14 @@ import { ThreadManager } from "./thread-manager.js"
 class FakeAdapter implements ThreadProviderAdapter {
   readonly agentId: AgentId = "codex"
   readonly events = new Map<string, (event: ThreadProviderEvent) => void>()
+  closeError: Error | undefined
   deleteError: Error | undefined
+  interactionError: Error | undefined
+  createSessionId: string | null | undefined
 
-  async close(): Promise<void> {}
+  async close(): Promise<void> {
+    if (this.closeError) throw this.closeError
+  }
   async create(input: ThreadProviderCreateInput) {
     this.events.set(input.threadId, input.onEvent)
     return {
@@ -35,7 +40,8 @@ class FakeAdapter implements ThreadProviderAdapter {
         promptContent: ["text" as const],
         providerExtensions: false,
       },
-      sessionId: `provider-${input.threadId}`,
+      sessionId:
+        this.createSessionId === undefined ? `provider-${input.threadId}` : this.createSessionId,
     }
   }
   async delete(): Promise<void> {
@@ -70,7 +76,9 @@ class FakeAdapter implements ThreadProviderAdapter {
   }
   async cancelTurn(): Promise<void> {}
   async updateConfig(): Promise<void> {}
-  async respondToInteraction(): Promise<void> {}
+  async respondToInteraction(): Promise<void> {
+    if (this.interactionError) throw this.interactionError
+  }
 }
 
 const databases: Array<{ close: () => void; home: string }> = []
@@ -134,6 +142,18 @@ describe("ThreadManager", () => {
     expect(await manager.get(created.thread.id)).toMatchObject({ state: "idle" })
   })
 
+  it("persists a provider session id discovered while resuming", async () => {
+    const { adapter, manager } = await setup()
+    adapter.createSessionId = null
+    const created = await manager.create({ agentId: "codex" })
+    expect(created.thread.agentSessionId).toBeNull()
+
+    const resumed = await manager.resume(created.thread.id)
+
+    expect(resumed.thread.agentSessionId).toBe("missing")
+    expect((await manager.get(created.thread.id)).agentSessionId).toBe("missing")
+  })
+
   it("keeps the Cypheria thread when provider deletion fails", async () => {
     const { adapter, manager } = await setup()
     const created = await manager.create({ agentId: "codex" })
@@ -172,5 +192,41 @@ describe("ThreadManager", () => {
       })
     ).rejects.toMatchObject({ code: "INTERACTION_ALREADY_RESOLVED" })
     expect(respond).toHaveBeenCalledTimes(1)
+  })
+
+  it("keeps a pending interaction retryable when the provider response fails", async () => {
+    const { adapter, manager } = await setup()
+    const created = await manager.create({ agentId: "codex" })
+    adapter.events.get(created.thread.id)?.({
+      interaction: {
+        createdAt: new Date().toISOString(),
+        expiresAt: null,
+        id: "permission-1",
+        kind: "permission",
+        message: "Run command?",
+        options: [],
+        title: null,
+      },
+      type: "interaction-requested",
+    })
+    await expect.poll(async () => (await manager.get(created.thread.id)).attention).toBe(true)
+    adapter.interactionError = new Error("provider unavailable")
+
+    await expect(
+      manager.respondToInteraction(created.thread.id, "permission-1", {
+        outcome: "allow_once",
+        type: "permission",
+      })
+    ).rejects.toThrow("provider unavailable")
+    expect((await manager.get(created.thread.id)).pendingInteractions).toHaveLength(1)
+  })
+
+  it("moves a thread to errored when provider close fails", async () => {
+    const { adapter, manager } = await setup()
+    const created = await manager.create({ agentId: "codex" })
+    adapter.closeError = new Error("close failed")
+
+    await expect(manager.close(created.thread.id)).rejects.toThrow("close failed")
+    expect(await manager.get(created.thread.id)).toMatchObject({ state: "errored" })
   })
 })

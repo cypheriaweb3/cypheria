@@ -39,7 +39,7 @@ Every ordered mutation runs in one database transaction and compacts each affect
 
 ## Thread operations
 
-- `createThread({ agentId, forkedFromId?, title?, cwd?, recencyAt?, beforeThreadId?, projectPlacement?, sectionPlacement? })` generates a UUIDv7 and creates the thread plus optional project and section memberships atomically. Its reserved `agentSessionId` field is null.
+- `createThread({ agentId, forkedFromId?, title?, cwd?, recencyAt?, beforeThreadId?, projectPlacement?, sectionPlacement? })` generates a UUIDv7 and creates the thread plus optional project and section memberships atomically. The Thread manager subsequently binds the provider-owned session ID.
 - `getThread(threadId)` reads a thread by its Cypheria identity.
 - `listThreads({ agentId?, projectId?, sectionId?, forkedFromId?, cursor?, limit?, sortKey?, sortDirection? })` supports global `position` and `recencyAt` ordering.
 - `updateThread(threadId, { title?, cwd? })` changes user-authored metadata only. Agent identity, fork source, recency, positions, and memberships have dedicated semantics.
@@ -47,7 +47,7 @@ Every ordered mutation runs in one database transaction and compacts each affect
 - `moveThread({ threadId, beforeThreadId? })` changes only the global thread order.
 - `deleteThread(threadId)` removes its project and section memberships, lets the self-reference foreign key clear child `forkedFromId` values, compacts affected lists, recomputes its former project's recency, and deletes the thread atomically.
 
-`agentId` and `forkedFromId` are immutable after thread creation. Association with an agent session is deliberately outside the current operation surface: no create-time binding, lookup by agent session, or bind/update operation is implemented yet.
+`agentId` and `forkedFromId` are immutable after thread creation. `agentSessionId` is nullable, read-only provider metadata maintained by the server. It is never accepted as a public operation handle; all operations route by the Cypheria-owned `threadId`.
 
 ## Project membership operations
 

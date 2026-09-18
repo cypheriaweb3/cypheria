@@ -1,6 +1,6 @@
 # Claude Agent SDK Protocol
 
-`@cypheria/protocol` pins `@anthropic-ai/claude-agent-sdk@0.3.270` and translates its network-safe public API into `agent.claude.*` logical-session messages. `@cypheria/client/claude` implements the client-side SDK-shaped facade; the `apps/server` adapter remains future work.
+`@cypheria/protocol` pins `@anthropic-ai/claude-agent-sdk@0.3.270` and retains its validated `agent.claude.*` catalog for the internal server adapter. These messages are not part of the public client/server union; clients use `thread.*`.
 
 ## Wire Model
 
@@ -138,6 +138,4 @@ An SDK upgrade must update the exact dependency, regenerate the registry, classi
 
 ## Adapter Responsibilities
 
-`@cypheria/client/claude` presents the network-safe SDK call shape through a facade bound to a borrowed `CypheriaApi`. It allocates request/query IDs, converts async input iterables into notifications, reconstructs each query's async output stream, correlates responses, keeps `AbortController` local, and propagates transport failure.
-
-A future server adapter should own SDK query objects, dispatch through `AGENT_CLAUDE_RPC`, convert named wire arguments to SDK calls, emit wrapped SDK messages in order, normalize non-JSON results, enforce authorization for filesystem/process/environment options, and dispose all active iterators when the logical session ends.
+The server owns SDK query objects per Thread, converts Thread prompts into SDK calls, maps streamed SDK messages into canonical timeline rows, binds the provider session ID when it appears, and disposes the query on Thread close. `canUseTool` is converted into a global Thread permission interaction; the first provider-accepted client response wins. Process, filesystem, environment, abort, and callback-bearing values remain server-local.

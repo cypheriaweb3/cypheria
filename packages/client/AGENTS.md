@@ -6,21 +6,10 @@ This package is the reusable TypeScript client for the versioned Cypheria server
 
 - Depend on `@cypheria/protocol`, never on runtime, server, Codex bridge, Electron, desktop, or SDK
   internals.
-- The ACP adapter may depend on the exact official `@agentclientprotocol/sdk` version already owned
-  by protocol. Implement Cypheria-owned `client()` and `ClientApp` entry points, reuse the SDK's
-  JSON-RPC engine, selectively re-export supported names, and omit reimplemented or deprecated
-  exports. Validate adapted wire with protocol-owned directional envelope schemas.
 - Treat `ClientMessage` and `ServerMessage` as the capability source of truth.
-- The Codex entry point must expose a Cypheria-owned SDK-shaped `client()` / `ClientApp` API.
-  `connect()` and `connectWith()` accept a `CypheriaApi` and select its minimal `agent.codex`
-  endpoint internally. Keep request/response correlation and wire lookup inside `ServerClient`;
-  expose protocol method names through typed `request`, `notify`, `onRequest`, and `onNotification`
-  APIs rather than a generated action tree.
-- The Claude entry point binds a borrowed `CypheriaApi` into an SDK-shaped facade. Preserve the
-  upstream `query()` iterator and network-safe query/session/settings method shapes, but do not
-  expose `startup()`, `tool()`, `createSdkMcpServer()`, callback-bearing options, process handles,
-  session stores, or in-process SDK MCP servers. Keep `AbortController` local and validate all wire
-  values through protocol-owned Claude messages.
+- Expose provider-neutral `agent`, `thread`, `projectThread`, and `server` actions only. Do not add
+  provider-specific Codex, Claude, Pi, OpenCode, or ACP client endpoints or subpath facades.
+- Route every Thread operation by `threadId`. Treat `agentSessionId` as read-only metadata.
 - Do not infer high-level wallet, policy, automation, browser, or other product APIs from generic
   runtime method strings. Add an action only after its request and response contract exists in the
   protocol package.
@@ -43,17 +32,12 @@ This package is the reusable TypeScript client for the versioned Cypheria server
 - The WebSocket adapter must support browser event targets, Node event emitters, and injectable
   implementations.
 - Validate every outbound and inbound wire message with `@cypheria/protocol`.
-- Deliver incoming Codex notifications and reverse requests through `ClientApp` handlers. Retain
-  the raw `CypheriaApi.on(...)` and `subscribe(...)` forms for consumers that need the complete
-  server message stream.
+- Deliver global Thread notifications through `CypheriaApi.on(...)` and `subscribe(...)`; clients do
+  not explicitly subscribe to individual Threads.
 - Reject in-flight requests on disconnect, isolate consumer listener failures, and prevent stale
   transport events from mutating the current connection.
 - Reconnects must be bounded and cancellable by `close()`.
-- ACP and Codex `ClientApp.connect()` / `connectWith()` accept a `CypheriaApi`, not a nested
-  endpoint. Permit only one active connection per corresponding endpoint across borrowed API
-  facades, and close it when the underlying Cypheria connection is lost.
-- Claude queries may share one endpoint because `queryId` provides explicit routing. A transport
-  loss must terminate every active iterator without closing the borrowed `CypheriaApi`.
+- A transport loss rejects in-flight requests but does not stop server-owned Agents or Threads.
 
 ## Verification
 

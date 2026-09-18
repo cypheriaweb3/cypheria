@@ -46,17 +46,9 @@ Protocol 为后续 server adapter 导出转换 helper：
 - `wrapPiServerEvent()` 包装原生 event 与 extension UI output；
 - `unwrapPiExtensionUIResponse()` 恢复写入 Pi stdin 的原始 response。
 
-## Client
+## Thread Adapter
 
-`@cypheria/client/pi` 导出不持有进程的 `RpcClient`，通过 `client(cypheria)` 绑定。其 command
-method 与 Pi RPC client 对齐，也可以通过 `request()` 完整访问原始 command surface。
-`onEvent()` 恢复原生 Pi event；`waitForIdle()`、`collectEvents()` 与 `promptAndWait()` 使用
-`agent_settled` 判定结束，并会在 Cypheria transport 丢失时终止。阻塞式 extension UI 通过
-`respondToExtensionUI()` 回答。
-
-该门面不暴露上游 client 的 `start()`、`stop()`、`getStderr()`、executable path、environment 或
-process signal。这些操作控制本地子进程，因此属于后续持有 `pi --mode rpc` 的 server adapter，
-而不属于远程 protocol client。
-
-官方 Pi type 可通过 type-only 入口 `@cypheria/protocol/pi-types` 使用。Pi runtime import 仍是
-server 职责。
+Server 按 Thread 持有一个 `pi --mode rpc` 进程，将 Thread prompt 与 cancellation 转成 Pi
+command，把原生 event 映射为 canonical timeline row，并把阻塞式 extension UI 转成 typed
+Thread interaction。Pi command 仍是内部 validated catalog；公开 client 使用 `thread.*`。
+官方 Pi type 继续通过 type-only 入口 `@cypheria/protocol/pi-types` 提供。

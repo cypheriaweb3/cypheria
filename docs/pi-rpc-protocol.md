@@ -48,17 +48,10 @@ The protocol exports conversion helpers for the future server adapter:
 - `wrapPiServerEvent()` envelopes native events and extension UI output;
 - `unwrapPiExtensionUIResponse()` restores the exact response written to Pi stdin.
 
-## Client
+## Thread Adapter
 
-`@cypheria/client/pi` exports a process-free `RpcClient` bound with `client(cypheria)`. Its command
-methods match Pi's RPC client, with complete raw access through `request()`. `onEvent()` restores
-native Pi events; `waitForIdle()`, `collectEvents()`, and `promptAndWait()` use `agent_settled` and
-also terminate on Cypheria transport loss. Blocking extension UI is answered with
-`respondToExtensionUI()`.
-
-The facade does not expose the upstream client's `start()`, `stop()`, `getStderr()`, executable path,
-environment, or process signals. Those control a local child process and therefore belong to the
-future server adapter that owns `pi --mode rpc`, not to a remote protocol client.
-
-Official Pi types are available through the type-only `@cypheria/protocol/pi-types` entry. Runtime
-Pi imports remain a server concern.
+The server owns one `pi --mode rpc` process per Thread. It converts Thread prompts and cancellation
+to Pi commands, maps native events to canonical timeline rows, and turns blocking extension UI into
+typed Thread interactions. Pi commands remain an internal validated catalog; the public client uses
+`thread.*`. Official Pi types remain available through the type-only
+`@cypheria/protocol/pi-types` entry.

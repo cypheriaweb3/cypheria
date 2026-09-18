@@ -11,9 +11,9 @@ Cypheria V1 is organized around one server and multiple clients:
 - **Runtime**: the TypeScript core for Cypheria-owned non-agent capabilities, including wallets, chains, policies, automation, browser permissions, settings, local state, and audit logs.
 - **Server**: a Hono + Node.js control plane that owns runtime lifecycle, client sessions, diagnostics, static web hosting, and later Codex/product services.
 - **Expo client**: one Expo Router application for iOS, Android, and static web output. The server embeds the web output.
-- **Shared client**: `@cypheria/client` provides the WebSocket protocol driver, a borrowed API
-  facade, a connection-owning facade, a Cypheria-owned Codex `client()` / `ClientApp` API, and ACP
-  SDK-compatible stable-v1/draft-v2 APIs plus a Pi RPC client without owning the privileged runtime.
+- **Shared client**: `@cypheria/client` provides the WebSocket protocol driver, borrowed and
+  connection-owning facades, and public Agent/Thread, project/section, and server actions without
+  owning provider runtimes.
 - **Relay**: the Go `apps/relay` service and TypeScript `@cypheria/relay` package provide an
   optional E2EE remote path to the same server protocol.
 - **CLI and SDK clients**: planned product clients built on the server protocol.
@@ -36,11 +36,10 @@ The default safety model is human approval. Read-only mode and conditional auto-
 - **Lint/format**: Biome
 - **UI**: shadcn-style copied components, Base UI primitives, Cypheria CSS tokens, lucide-react
 - **Cypheria client protocol**: versioned Zod contracts with metadata-assisted `bigint` transport in `@cypheria/protocol`
-- **ACP client API**: Cypheria-owned SDK-shaped `client()` / `ClientApp` APIs, backed by `@agentclientprotocol/sdk@1.4.0`, over directly discriminable logical WebSocket messages
+- **Agent/Thread API**: provider-neutral agent lifecycle and durable Thread execution; `threadId` is the only public conversation handle
 - **Agent manager**: ACP Registry sync, managed installation/toolchains, explicit enablement, lifecycle operations, and disabled-agent enforcement
-- **Claude Code API**: network-safe `@anthropic-ai/claude-agent-sdk@0.3.270` query, session, control, and stream contracts under `agent.claude.*`, plus an SDK-shaped client and per-session server runtime
-- **Pi RPC API**: complete `@earendil-works/pi-coding-agent@0.85.1` `pi --mode rpc` command, event, and extension UI contracts under `agent.pi.*`, plus per-session JSONL process ownership
-- **OpenCode API**: `@opencode-ai/sdk@1.18.31` stable root API and both event streams through a shared loopback OpenCode server
+- **Provider adapters**: internal Codex, Claude Agent SDK, Pi RPC, OpenCode SDK, and ACP adapters normalize provider sessions, events, interactions, and history into Threads
+- **OpenCode runtime**: `@opencode-ai/sdk@1.18.31` stable root API and both event streams through a shared loopback OpenCode server
 - **Desktop agent integration**: `codex app-server` over WebSocket JSON-RPC
 - **Codex protocol types and validation**: owned by `@cypheria/protocol` and generated with `pnpm --filter @cypheria/protocol generate:codex-all`
 - **Marketplace hosting**: Cloudflare Workers, D1, R2, Queues, and Workflows
@@ -52,6 +51,7 @@ See [docs/codex-app-server-api.md](docs/codex-app-server-api.md) for the complet
 See [docs/codex-app-server-config.md](docs/codex-app-server-config.md) for how effective Codex configuration is consumed across process, thread, turn, reload, and tool-planning lifetimes.
 See [docs/claude-agent-sdk-protocol.md](docs/claude-agent-sdk-protocol.md) for the Claude Agent SDK wire mapping.
 See [docs/agent-management.md](docs/agent-management.md) for registry, installation, enablement, toolchains, and runtime ownership.
+See [docs/thread-protocol.md](docs/thread-protocol.md) for Thread lifecycle, provider-session ownership, and timeline continuity.
 See [docs/pi-rpc-protocol.md](docs/pi-rpc-protocol.md) for the Pi RPC wire mapping.
 
 ## Architecture

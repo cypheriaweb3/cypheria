@@ -76,45 +76,44 @@
   - 排除：agent、project、wallet、policy、browser 与 automation 产品 method；任何 `apps/desktop` code change。
   - 验证：protocol/server/client/Expo tests 与 typechecks、relay tests、Expo compatibility check 与 static export、server build 与 embedded-web smoke test、server start/status/restart/stop smoke test、全仓库 CI/build。
 
-- [x] 在 `@cypheria/protocol` 中定义完整 Codex App Server API。
-  - 验收：所有 generated client RPC、反向 server RPC、server notification 与 client notification 都以无冲突的 `agent.codex.*` dotted wire name 进入 live Zod message union，并提供 request/response correlation 与上游 method/schema metadata。
+- [x] 在 `@cypheria/protocol` 中定义完整 Codex App Server adapter contract。
+  - 验收：所有 generated client RPC、反向 server RPC、server notification 与 client notification 都以无冲突的 `agent.codex.*` 名称为内部 server adapter 提供 request/response correlation 与上游 metadata，并从 public message union 排除。
   - 包括：以 Codex-generated TypeScript 作为类型来源；使用固定版本 Hey API 从 Codex JSON Schema 生成并提交静态 Zod 4 definition validator；保留名为 `default` 的 wire field；把 64-bit integer 归一化为 JSON number；继续保留 protocol 持有的 generated Codex DTO 与 JSON Schema、机械生成的 catalog、反向 lookup、漂移检查、provider-transparent JSON payload、配套中英文 protocol 文档，以及 Cypheria-owned dotted envelope 与 response mapping generation；本项不连接 server dispatch。
   - 验证：protocol generation check、typecheck、test、build 与全仓库 CI。
 
-- [x] 向 `@cypheria/protocol` 添加 ACP 逻辑消息。
-  - 验收：具体 `agent.acp.<operation>.request|response|notification` 消息可由嵌套 client/server discriminated union 直接路由；数字 `protocolVersion` 选择稳定 v1 或 draft v2，以 underscore 开头的 extension method 与 v2 batch 使用专用 type，batch entry 使用另一层嵌套 discriminated union。
+- [x] 向 `@cypheria/protocol` 添加 ACP adapter 消息。
+  - 验收：具体 `agent.acp.<operation>.request|response|notification` 消息校验内部 adapter boundary；数字 `protocolVersion` 选择稳定 v1 或 draft v2，且每条消息携带 generated ACP agent ID。
   - 包括：官方 `@agentclientprotocol/sdk@1.4.0` protocol constant、directional type、generated Zod schema、per-method parameter validation、JSON-RPC boundary validation 和配套中英文 protocol 文档；通过最小且固定版本的 package-export patch 暴露 SDK 已发布的 Zod module，不复制它们；本项不连接 server dispatch。
   - 验证：protocol typecheck、test 与 build。
 
-- [x] 向 `@cypheria/protocol` 添加 Claude Agent SDK 逻辑消息。
-  - 验收：固定版本 `@anthropic-ai/claude-agent-sdk@0.3.270` 中适合网络传输的 surface，以可直接路由的 `agent.claude.*` request、response、input、lifecycle 和 SDK-output message 进入 live session union。
+- [x] 向 `@cypheria/protocol` 添加 Claude Agent SDK adapter 消息。
+  - 验收：固定版本 `@anthropic-ai/claude-agent-sdk@0.3.270` 的选定 surface 为内部 server adapter 提供校验，并从 public message union 排除。
   - 包括：`query()`、session/settings function、全部 `Query` control、文本与 streaming prompt、可序列化 option 与 MCP transport、40 种 SDK 输出、仅类型 SDK subpath、declaration-driven catalog、漂移检查、测试与配套双语文档。
   - 排除：`startup()`、callback、hook、自定义函数 tool/SDK MCP server、process 与 abort handle、session store，以及 server dispatch。
   - 验证：protocol generation check、typecheck、test 与 build。
 
-- [x] 添加 Claude Agent SDK-shaped `@cypheria/client/claude` 门面。
-  - 验收：`query()` 返回与 SDK 兼容的 async iterator；所有网络安全 query control 与 session/settings function 保持上游调用形态；按 query 处理 streaming input、本地 abort、response correlation、远程错误、完成和 transport loss。
-  - 排除：`startup()`、`tool()`、`createSdkMcpServer()`、携带 callback 的 option，以及 server dispatch。
-  - 验证：client test、typecheck、build、全仓库 CI/build 与配套双语文档。
+- [x] 添加 Thread adapter 后移除 provider-shaped Claude client facade。
+  - 验收：Claude execution、`canUseTool`、cancellation 与 provider session binding 由 server 持有，只通过 `thread.*` 暴露。
 
-- [x] 添加完整 Pi RPC protocol 与 client 支持。
-  - 验收：固定版本 `@earendil-works/pi-coding-agent@0.85.1` 的 type 通过可直接路由的 `agent.pi.*` message 覆盖全部 `pi --mode rpc` command、response、event、extension error 与 extension UI operation；`@cypheria/client/pi` 在借用的 `CypheriaApi` 上提供不涉及进程的 `RpcClient` API。
+- [x] 添加完整 Pi RPC adapter 支持。
+  - 验收：固定版本 `@earendil-works/pi-coding-agent@0.85.1` 的 type 为内部 Thread adapter 覆盖全部 `pi --mode rpc` command、response、event、extension error 与 extension UI operation。
   - 包括：33 组 command schema、23 种 session-event notification、4 组 extension UI 反向 RPC、5 种 extension UI notification、供后续 server adapter 使用的精确 JSONL conversion helper、type-only upstream export、command/event helper、测试与配套双语文档。
   - 排除：server 进程启动/dispatch、子进程 lifecycle、stderr、executable/environment config 与 signal。
   - 验证：protocol/client test、typecheck、build、全仓库 CI/build 与配套双语文档。
 
 - [x] 添加统一 agent registry、受管工具链、安装、enable 与 server runtime。
   - 验收：protocol v2 携带静态生成的 ACP agent ID；server 每小时条件刷新 registry；安装/更新/卸载是可观察 operation；enable 独立调用，disabled agent 不能启动或接收业务调用。
-  - 包括：含 `agent_registry` 的单一数据库 baseline；`$CYPHERIA_HOME` 下最新稳定的受管 Node/Python/uv；按完整带 hash 依赖 lock 共享的不可变 Python environment；native Codex/Claude/Pi/OpenCode installer 与 runtime；binary/npx/uvx registry installer；稳定 OpenCode SDK root 与两条 event stream；client manager 与 OpenCode facade。
+  - 包括：含 `agent_registry` 的单一数据库 baseline；`$CYPHERIA_HOME` 下最新稳定的受管 Node/Python/uv；按完整带 hash 依赖 lock 共享的不可变 Python environment；native Codex/Claude/Pi/OpenCode installer 与 runtime；binary/npx/uvx registry installer；稳定 OpenCode SDK root 与两条 event stream；公开 client agent manager 与内部 OpenCode adapter。
   - 验证：registry、database baseline、toolchain fingerprint/lease/GC、protocol、client 与 server test；全仓库 CI/build；配套双语文档。
 
-- [ ] 使用 Agent/Thread 协议和 server-owned Thread execution 替换 provider-session wire API。
+- [x] 使用 Agent/Thread 协议和 server-owned Thread execution 替换 provider-session wire API。
   - [x] 定义 Thread view、生命周期 RPC、canonical timeline row、epoch/sequence cursor、projected page 和确定性 projection helper。
   - [x] 将 Thread 协议接入 live message union、server dispatch 与顶层 client facade。
   - [x] 将公开 Agent 管理统一为 `agent.*`，并直接暴露在 `api.agent`。
-  - [ ] 在 Thread adapter 覆盖分类后的接口后，移除 connection-owned provider session API。
-  - [ ] 添加 Thread lifecycle journal、内存 timeline store、AgentManager/ThreadManager 协作和 provider adapter。
-  - [ ] 完成多客户端 interaction 仲裁、删除恢复、进程加固、文档和全仓验证。
+  - [x] 在 Thread adapter 覆盖分类后的接口后，移除 connection-owned provider session API。
+  - [x] 添加 Thread lifecycle journal、内存 timeline store、AgentManager/ThreadManager 协作和 provider adapter。
+  - [x] 完成多客户端 interaction 仲裁、删除恢复、进程加固和文档。
+  - [x] 完成全仓验证。
   - 验收：公开协议只使用 Agent 与 Thread 术语；`threadId` 是唯一操作句柄；所有客户端收到一致的 Thread 事件；只有 canonical timeline row 使用 epoch/sequence；provider session 只存在于 server 内部。
 
 - [ ] 在明确评审后将 desktop 迁移到 Cypheria server。
@@ -148,19 +147,13 @@
 
 - [x] 添加分层的 `packages/client` protocol client。
   - 验收：`ServerClient` 持有 transport 与 WebSocket session lifecycle、请求关联、订阅与重连策略；`CypheriaApi` 借用已有连接且只暴露当前 protocol 已定义的 operation；`CypheriaClient` 将 API 与 lifecycle control 组合起来。
-  - 包括：懒连接、版本化 hello/authentication、browser/Node/custom transport 支持、请求超时处理、有界指数退避重连、server status/diagnostics/configuration RPC、typed Codex endpoint traffic、typed message notification、ACP traffic、配套双语 package 文档，并且不依赖特权 implementation。
+  - 包括：懒连接、版本化 hello/authentication、browser/Node/custom transport 支持、请求超时处理、有界指数退避重连、Agent/Thread/project/section/server action、typed notification、配套双语 package 文档，并且不依赖特权 implementation。
   - 验证：`pnpm --filter @cypheria/client test`、package typecheck/build、`pnpm run ci` 与 `pnpm build`。
   - 验证记录：client unit tests、真实 client/server status smoke test、全仓 CI 与全仓 build 均通过。
 
-- [x] 为 `@cypheria/client` 添加 ACP SDK 风格 API。
-  - 验收：stable-v1 与显式 draft-v2 ACP app API 可通过 `@cypheria/protocol` 已定义的逻辑消息工作，同时 caller 保留官方 SDK 的 typed context、handler、session、cancellation、error 与 v2 batch。
-  - 包括：在 `@cypheria/client/acp` 与 `@cypheria/client/acp/v2` 提供 Cypheria 自有的 `client()` 与 `ClientApp`；基于 `CypheriaApi` 的 `connect` 与 `connectWith`；精确固定 SDK 并选择性重新导出，不包含重新实现或已废弃 API；使用 protocol-owned schema 校验 outbound；使用 connection-local response correlation 转换 JSON-RPC/逻辑消息；按版本过滤 inbound；所有借用门面在每个 endpoint 上只允许一个活跃 ACP connection；transport loss 时 teardown；保留低层逻辑消息 access；以及配套中英文 package/architecture/stack 文档。本项不增加 server-side ACP dispatch。
-  - 验证：32 个 client unit tests、client typecheck/build、全仓 CI 与全仓 build。
-
-- [x] 在 `@cypheria/client` 中以 Codex SDK 风格 API 替换 Codex actions。
-  - 验收：caller 使用 Cypheria 自有的 `client()` / `ClientApp` API 调用 `@cypheria/protocol` 已定义的全部 Codex wire method；每个 outbound request 与 correlated response 是一个 typed async call，notification 与反向 request 则使用 fluent typed handler。
-  - 包括：`@cypheria/client/codex` 入口；基于 `CypheriaApi` 的 `connect` 与 `connectWith`；typed `ClientContext.request` 和 `notify`；typed `onRequest` 和 `onNotification`；自动写回反向 response；close 或 transport loss 时 cancellation 与 teardown；每个 endpoint 只允许一个活跃 app；重新导出 generated Codex type；method constant；移除 `CodexActions`；以及配套 package/architecture/stack 中英文文档。本项不添加 protocol method 或 server-side Codex dispatch。
-  - 验证：40 个 client unit tests、client typecheck/build、全仓 CI 与全仓 build。
+- [x] 在 server-owned Thread execution 落地后移除 provider-shaped client API。
+  - 验收：`@cypheria/client` 不导出 ACP、Codex、Claude、Pi 或 OpenCode endpoint/subpath；provider schema 只供内部 server adapter 使用。
+  - 验证：client public API test、typecheck/build、全仓 CI 与全仓 build。
 
 - [ ] 添加 `packages/sdk`。
   - 验收：package 导出公共 `Cypheria` server client。

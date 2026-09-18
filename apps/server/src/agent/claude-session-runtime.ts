@@ -1,5 +1,11 @@
 import { mkdir } from "node:fs/promises"
-import type { Query, SDKUserMessage } from "@anthropic-ai/claude-agent-sdk"
+import type {
+  CanUseTool,
+  PermissionResult,
+  PermissionUpdate,
+  Query,
+  SDKUserMessage,
+} from "@anthropic-ai/claude-agent-sdk"
 import * as ClaudeSdk from "@anthropic-ai/claude-agent-sdk"
 import {
   type AgentClaudeClientMessage,
@@ -49,6 +55,25 @@ class InputStream implements AsyncIterable<SDKUserMessage> {
 
 type QueryState = { input?: InputStream; query: Query }
 
+export type ClaudePermissionRequest = {
+  readonly blockedPath?: string
+  readonly decisionReason?: string
+  readonly description?: string
+  readonly displayName?: string
+  readonly input: Record<string, unknown>
+  readonly requestId: string
+  readonly signal: AbortSignal
+  readonly suggestions?: PermissionUpdate[]
+  readonly suppressAlwaysAllowRule?: boolean
+  readonly title?: string
+  readonly toolName: string
+  readonly toolUseID: string
+}
+
+export type ClaudePermissionHandler = (
+  request: ClaudePermissionRequest
+) => Promise<PermissionResult | null>
+
 const errorPayload = (error: unknown) => ({
   code: error instanceof Error && error.name ? error.name : "CLAUDE_SDK_ERROR",
   message: error instanceof Error ? error.message : String(error),
@@ -58,17 +83,20 @@ export class ClaudeSessionRuntime {
   readonly #home: string
   readonly #queries = new Map<string, QueryState>()
   readonly #receipt: AgentInstallReceipt
+  readonly #requestPermission: ClaudePermissionHandler | undefined
   readonly #send: (message: AgentClaudeServerMessage) => void
   readonly #toolchains: ToolchainManager
 
   constructor(options: {
     home: string
     receipt: AgentInstallReceipt
+    requestPermission?: ClaudePermissionHandler
     send: (message: AgentClaudeServerMessage) => void
     toolchains: ToolchainManager
   }) {
     this.#home = options.home
     this.#receipt = options.receipt
+    this.#requestPermission = options.requestPermission
     this.#send = options.send
     this.#toolchains = options.toolchains
   }
@@ -153,9 +181,18 @@ export class ClaudeSessionRuntime {
     const executable = this.#receipt.args[0]
     if (!executable) throw new Error("Managed Claude CLI entry point is unavailable")
     const suppliedOptions = (params.options ?? {}) as Record<string, unknown>
+    const canUseTool: CanUseTool | undefined = this.#requestPermission
+      ? (toolName, toolInput, options) =>
+          this.#requestPermission?.({
+            ...options,
+            input: toolInput,
+            toolName,
+          }) ?? Promise.resolve(null)
+      : undefined
     const query = ClaudeSdk.query({
       options: {
         ...suppliedOptions,
+        ...(canUseTool ? { canUseTool } : {}),
         env: {
           ...this.#toolchains.environment(),
           CLAUDE_CONFIG_DIR: this.#home,

@@ -54,7 +54,7 @@ All timestamps in these five tables are Unix timestamps in seconds stored as SQL
 
 `agent_id` references `agent_registry.id` with `ON DELETE RESTRICT`. `forked_from_id` references `threads.id` with `ON DELETE SET NULL`. `position` is non-negative and unique. A partial unique index on `(agent_id, agent_session_id)` where `agent_session_id IS NOT NULL` prevents two Cypheria threads from claiming the same agent session. Index `forked_from_id` for fork lookup.
 
-`agent_session_id` is reserved for later agent-session association work and may be null. `recency_at` may also be null.
+`agent_session_id` may be null and stores read-only provider metadata bound by `ThreadManager`; public operations never route by it. `recency_at` may also be null.
 
 ### `project_items`
 

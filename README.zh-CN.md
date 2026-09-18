@@ -11,9 +11,8 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 - **Runtime**：Cypheria 自己的 TypeScript 非 agent 核心，负责钱包、链、策略、自动化、浏览器权限、设置、本地状态和审计日志。
 - **Server**：基于 Hono + Node.js 的 control plane，负责 runtime lifecycle、client session、diagnostics、静态 web hosting，并在后续承载 Codex 与产品 services。
 - **Expo client**：一套面向 iOS、Android 与静态 web output 的 Expo Router 应用；server 会内置其 web output。
-- **共享 client**：`@cypheria/client` 提供 WebSocket protocol driver、借用 API 门面、持有连接的
-  client 门面、Cypheria 自有的 Codex `client()` / `ClientApp` API 与 ACP SDK-compatible
-  stable-v1/draft-v2 API，以及 Pi RPC client，但不持有特权 runtime。
+- **共享 client**：`@cypheria/client` 提供 WebSocket protocol driver、借用与持有连接的门面，以及
+  公开 Agent/Thread、project/section 和 server action，但不持有 provider runtime。
 - **Relay**：Go `apps/relay` 服务和 TypeScript `@cypheria/relay` 包为同一 server protocol
   提供可选的 E2EE 远程通道。
 - **CLI 与 SDK clients**：规划中的 server protocol 产品 clients。
@@ -36,11 +35,10 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 - **Lint/format**：Biome
 - **UI**：shadcn-style copied components、Base UI primitives、Cypheria CSS tokens、lucide-react
 - **Cypheria client protocol**：`@cypheria/protocol` 中版本化的 Zod contracts，并支持带元数据的 `bigint` 传输
-- **ACP client API**：以官方 `@agentclientprotocol/sdk@1.4.0` 为底层，在 Cypheria 可直接判别的逻辑 WebSocket 消息上提供自有的 SDK-shaped `client()` / `ClientApp` API
+- **Agent/Thread API**：provider-neutral 的 agent 生命周期和持久 Thread execution；`threadId` 是唯一公开的对话句柄
 - **Agent manager**：ACP Registry 同步、受管安装与工具链、显式 enable、生命周期 operation 和 disabled-agent 闸门
-- **Claude Code API**：在 `agent.claude.*` 下表示 `@anthropic-ai/claude-agent-sdk@0.3.270` 中适合网络传输的 query、session、control 与 stream contract，并提供 SDK-shaped client 与 per-session server runtime
-- **Pi RPC API**：在 `agent.pi.*` 下完整表示 `@earendil-works/pi-coding-agent@0.85.1` 的 `pi --mode rpc` command、event 与 extension UI contract，并由 server 按 session 持有 JSONL 进程
-- **OpenCode API**：通过共享的 loopback OpenCode server 暴露 `@opencode-ai/sdk@1.18.31` 稳定 root API 与两条 event stream
+- **Provider adapter**：内部 Codex、Claude Agent SDK、Pi RPC、OpenCode SDK 与 ACP adapter 把 provider session、event、interaction 和 history 归一为 Thread
+- **OpenCode runtime**：通过共享的 loopback OpenCode server 使用 `@opencode-ai/sdk@1.18.31` 稳定 root API 与两条 event stream
 - **Desktop agent integration**：`codex app-server` over WebSocket JSON-RPC
 - **Codex protocol types 与 validation**：由 `@cypheria/protocol` 持有，并通过 `pnpm --filter @cypheria/protocol generate:codex-all` 生成
 - **Marketplace hosting**：Cloudflare Workers、D1、R2、Queues 与 Workflows
@@ -52,6 +50,7 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 Codex 有效配置在 process、thread、turn、reload 与 tool planning 各生命周期中的使用方式见 [docs/codex-app-server-config.zh-CN.md](docs/codex-app-server-config.zh-CN.md)。
 Claude Agent SDK wire mapping 见 [docs/claude-agent-sdk-protocol.zh-CN.md](docs/claude-agent-sdk-protocol.zh-CN.md)。
 Registry、安装、enable、工具链与 runtime ownership 见 [docs/agent-management.zh-CN.md](docs/agent-management.zh-CN.md)。
+Thread 生命周期、provider-session ownership 与 timeline 连续性见 [docs/thread-protocol.zh-CN.md](docs/thread-protocol.zh-CN.md)。
 Pi RPC wire mapping 见 [docs/pi-rpc-protocol.zh-CN.md](docs/pi-rpc-protocol.zh-CN.md)。
 
 ## 架构

@@ -57,6 +57,7 @@ export type ThreadInteractionResponse =
   | { readonly outcome: "allow_once" | "allow_always" | "deny"; readonly type: "permission" }
   | { readonly optionId: string; readonly type: "selection" }
   | { readonly type: "text"; readonly value: string }
+  | { readonly answers: readonly (readonly string[])[]; readonly type: "answers" }
   | { readonly type: "cancel" }
 
 /** Provider-native behavior hidden behind the public Agent/Thread protocol. */
@@ -73,7 +74,6 @@ export interface ThreadProviderAdapter {
     patch: {
       readonly mode?: string | null
       readonly model?: string | null
-      readonly providerOptions?: Readonly<Record<string, unknown>>
       readonly thinking?: string | null
     }
   ): Promise<void>

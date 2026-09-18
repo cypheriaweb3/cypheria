@@ -12,6 +12,22 @@ interactions, and deletion. Provider-specific methods are classified as server-i
 provider-neutral thread operations, typed agent extensions, typed thread extensions, or unsupported.
 Raw provider lifecycle and subscription calls are not part of the target wire API.
 
+Creating or resuming a Thread automatically makes the selected Agent ready. `thread.get` and
+`thread.list` never start a process. After a server restart a stopped Thread must be resumed
+explicitly (or implicitly by starting its next turn); network reconnection alone does not resume
+provider work. `cwd` can change only while stopped. A normal `agent.stop` rejects while the Agent
+has active Threads, while force-stop and disable close all affected Threads first.
+
+The server broadcasts Thread state, timeline, and interaction notifications to every client. There
+is no Thread subscription API. Any authorized client may answer a pending interaction, and the
+first valid provider-accepted response wins. OpenCode multi-question prompts use structured
+`questions` and `answers`; untyped provider option bags are not exposed.
+
+Provider-native deletion happens before the Cypheria Thread row is removed. If provider deletion
+fails, the Thread remains and enters an error state so deletion can be retried. Registry ACP agents
+must advertise session deletion support. Forking is available only when the provider has a native
+fork operation; Cypheria does not synthesize a fork by copying transcript text.
+
 ## Timeline continuity
 
 Only committed canonical timeline rows carry an epoch and sequence number. Agent state, thread
@@ -29,3 +45,6 @@ then fetch a bounded tail page and use before/after cursors for history and gap 
 
 Provider history remains the durable transcript authority in V1. The server keeps canonical rows in
 memory for loaded threads and hydrates them from the provider after restart or cache eviction.
+Projected pagination expands entries whose source ranges overlap the selected canonical page, so
+interleaved deltas cannot be skipped by advancing a projected cursor. A stale epoch cursor returns a
+bounded tail with `reset: true`.

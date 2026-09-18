@@ -39,7 +39,7 @@ type SectionItemRef =
 
 ## Thread 操作
 
-- `createThread({ agentId, forkedFromId?, title?, cwd?, recencyAt?, beforeThreadId?, projectPlacement?, sectionPlacement? })` 生成 UUIDv7，并原子创建 thread 及可选的 project/section 成员关系；预留的 `agentSessionId` 字段为 null。
+- `createThread({ agentId, forkedFromId?, title?, cwd?, recencyAt?, beforeThreadId?, projectPlacement?, sectionPlacement? })` 生成 UUIDv7，并原子创建 thread 及可选的 project/section 成员关系；随后由 Thread manager 绑定 provider-owned session ID。
 - `getThread(threadId)` 按 Cypheria 身份读取 thread。
 - `listThreads({ agentId?, projectId?, sectionId?, forkedFromId?, cursor?, limit?, sortKey?, sortDirection? })` 支持按全局 `position` 和 `recencyAt` 排序。
 - `updateThread(threadId, { title?, cwd? })` 只修改用户可写元数据。Agent 身份、fork 来源、recency、位置和成员关系都有专用语义。
@@ -47,7 +47,7 @@ type SectionItemRef =
 - `moveThread({ threadId, beforeThreadId? })` 只改变全局 thread 顺序。
 - `deleteThread(threadId)` 删除其 project/section 成员关系，由自引用外键清空子 thread 的 `forkedFromId`，压缩受影响列表、重算原 project recency，并原子删除 thread。
 
-`agentId` 和 `forkedFromId` 在 thread 创建后不可修改。Thread 与 agent session 的关联暂不进入当前操作面：尚不实现创建时绑定、按 agent session 查询以及绑定或更新操作。
+`agentId` 和 `forkedFromId` 在 thread 创建后不可修改。`agentSessionId` 是由 server 维护的可空、只读 provider 元数据，绝不作为公开操作句柄；所有操作都使用 Cypheria 自有的 `threadId` 路由。
 
 ## Project 成员关系操作
 

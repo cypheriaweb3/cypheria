@@ -63,8 +63,7 @@ export const createAgentManagementActions = (client: ServerClient): AgentManagem
     ).toolchains,
   get: async (agentId, options) =>
     unwrap<AgentView>(
-      (await client.requestAgentManagement("agent.get.request", { agentId }, options))
-        .payload
+      (await client.requestAgentManagement("agent.get.request", { agentId }, options)).payload
     ),
   getOperation: async (operationId, options) =>
     unwrap<AgentOperation>(
@@ -77,8 +76,7 @@ export const createAgentManagementActions = (client: ServerClient): AgentManagem
     ),
   list: async (options) =>
     unwrap<{ agents: AgentView[]; registry: AgentRegistrySyncState }>(
-      (await client.requestAgentManagement("agent.list.request", undefined, options))
-        .payload
+      (await client.requestAgentManagement("agent.list.request", undefined, options)).payload
     ),
   listOperations: async (options) =>
     unwrap<{ operations: AgentOperation[] }>(
@@ -109,7 +107,8 @@ export const createAgentManagementActions = (client: ServerClient): AgentManagem
     ),
   stop: async (agentId, force = false, options) =>
     unwrap<AgentView>(
-      (await client.requestAgentManagement("agent.stop.request", { agentId, force }, options)).payload
+      (await client.requestAgentManagement("agent.stop.request", { agentId, force }, options))
+        .payload
     ),
   uninstall: async (agentId, options) =>
     unwrap<AgentOperation>(

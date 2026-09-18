@@ -31,7 +31,7 @@ import {
 import type { ThreadProviderAdapter } from "../thread/provider-adapter.js"
 import { AcpSessionRuntime } from "./acp-session-runtime.js"
 import { AgentInstaller } from "./agent-installer.js"
-import { ClaudeSessionRuntime } from "./claude-session-runtime.js"
+import { type ClaudePermissionHandler, ClaudeSessionRuntime } from "./claude-session-runtime.js"
 import { CodexRuntime } from "./codex-runtime.js"
 import { ManagedThreadAdapter } from "./managed-thread-adapter.js"
 import { OpenCodeRuntime } from "./opencode-runtime.js"
@@ -53,6 +53,7 @@ export type AgentRuntimeServerMessage =
 type RuntimeSend = (message: AgentRuntimeServerMessage) => void
 
 export type AgentMessageContext = {
+  requestClaudePermission?: ClaudePermissionHandler
   send: RuntimeSend
   sessionId: string
 }
@@ -419,6 +420,7 @@ export class AgentManager {
       runtime = new ClaudeSessionRuntime({
         home: join(this.#agentHomes, "claude", "home"),
         receipt,
+        requestPermission: context.requestClaudePermission,
         send: context.send,
         toolchains: this.toolchains,
       })

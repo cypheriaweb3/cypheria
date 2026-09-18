@@ -100,10 +100,7 @@ export const threadLifecycleOperations = sqliteTable(
   (table) => [
     index("thread_lifecycle_operations_thread_id_idx").on(table.threadId),
     index("thread_lifecycle_operations_status_idx").on(table.status),
-    check(
-      "thread_lifecycle_operations_kind_check",
-      sql`${table.kind} IN ('create', 'delete')`
-    ),
+    check("thread_lifecycle_operations_kind_check", sql`${table.kind} IN ('create', 'delete')`),
     check(
       "thread_lifecycle_operations_status_check",
       sql`${table.status} IN ('pending', 'provider-created', 'provider-deleted', 'failed')`

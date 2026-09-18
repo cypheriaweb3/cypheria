@@ -7,6 +7,15 @@ import type {
   ThreadInputBlock,
   ThreadTimelineItem,
 } from "@cypheria/protocol"
+import {
+  AgentAcpClientMessageSchema,
+  AgentClaudeClientMessageSchema,
+  AgentCodexClientRequestSchema,
+  AgentCodexServerResponseSchema,
+  AgentOpenCodeCallRequestSchema,
+  AgentOpenCodeEventSubscribeRequestSchema,
+  AgentPiClientMessageSchema,
+} from "@cypheria/protocol"
 
 import type {
   ThreadInteractionResponse,
@@ -20,6 +29,7 @@ import type {
   ThreadProviderTurnInput,
 } from "../thread/provider-adapter.js"
 import type { AgentManager, AgentRuntimeServerMessage } from "./agent-manager.js"
+import type { ClaudePermissionHandler, ClaudePermissionRequest } from "./claude-session-runtime.js"
 
 type Pending = {
   readonly expectedType: string
@@ -201,6 +211,13 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
   readonly agentId: AgentId
   readonly #manager: AgentManager
   readonly #pending = new Map<string, Pending>()
+  readonly #claudeInteractions = new Map<
+    string,
+    {
+      readonly request: ClaudePermissionRequest
+      readonly resolve: (result: Awaited<ReturnType<ClaudePermissionHandler>>) => void
+    }
+  >()
   readonly #reverse = new Map<string, AgentRuntimeServerMessage>()
   #acpCapabilities: Record<string, unknown> | undefined
   #onEvent: ((event: ThreadProviderEvent) => void) | undefined
@@ -334,6 +351,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       })
     }
     await this.#manager.disposeSession(context.threadId)
+    this.#cancelPendingInteractions()
     this.#onEvent = undefined
   }
 
@@ -359,8 +377,14 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
         type: "agent.acp.session.delete.request",
       })
     }
-    if (this.agentId !== "codex" && this.agentId !== "opencode" && this.agentId !== "claude" && this.agentId !== "pi") {
+    if (
+      this.agentId !== "codex" &&
+      this.agentId !== "opencode" &&
+      this.agentId !== "claude" &&
+      this.agentId !== "pi"
+    ) {
       await this.#manager.disposeSession(context.threadId)
+      this.#cancelPendingInteractions()
       this.#onEvent = undefined
     } else {
       await this.close(context)
@@ -391,15 +415,16 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       return { turnId: input.clientMessageId }
     }
     if (this.agentId === "claude") {
+      const text = input.content
+        .filter((block) => block.type === "text")
+        .map((block) => block.text)
+        .join("\n")
       await this.#request(input.threadId, {
         options: {
           ...(input.cwd ? { cwd: input.cwd } : {}),
           ...(input.agentSessionId ? { resume: input.agentSessionId } : {}),
         },
-        prompt: input.content
-          .filter((block) => block.type === "text")
-          .map((block) => block.text)
-          .join("\n"),
+        prompt: { text, type: "text" },
         queryId: input.threadId,
         requestId: randomUUID(),
         type: "agent.claude.query.start.request",
@@ -408,15 +433,13 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
     }
     if (this.agentId === "pi") {
       await this.#request(input.threadId, {
-        payload: {
-          images: input.content
-            .filter((block) => block.type === "image")
-            .map((block) => ({ data: block.data, mimeType: block.mimeType, type: "image" })),
-          message: input.content
-            .filter((block) => block.type === "text")
-            .map((block) => block.text)
-            .join("\n"),
-        },
+        images: input.content
+          .filter((block) => block.type === "image")
+          .map((block) => ({ data: block.data, mimeType: block.mimeType, type: "image" })),
+        message: input.content
+          .filter((block) => block.type === "text")
+          .map((block) => block.text)
+          .join("\n"),
         requestId: randomUUID(),
         type: "agent.pi.prompt.request",
       })
@@ -428,6 +451,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       prompt: mapAcpInput(input.content),
       protocolVersion: 1,
       requestId: randomUUID(),
+      sessionId: input.agentSessionId,
       type: "agent.acp.session.prompt.request",
     })
     return { turnId: input.clientMessageId }
@@ -454,18 +478,17 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       })
     } else if (this.agentId === "pi") {
       await this.#request(context.threadId, {
-        payload: {},
         requestId: randomUUID(),
         type: "agent.pi.abort.request",
       })
     } else if (context.agentSessionId) {
       await this.#manager.handleAcp(
-        {
+        AgentAcpClientMessageSchema.parse({
           agent: this.agentId as RegistryAgentId,
           sessionId: context.agentSessionId,
           protocolVersion: 1,
           type: "agent.acp.session.cancel.notification",
-        } as never,
+        }),
         { send: this.#receive, sessionId: context.threadId }
       )
     }
@@ -476,7 +499,6 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
     patch: {
       mode?: string | null
       model?: string | null
-      providerOptions?: Readonly<Record<string, unknown>>
       thinking?: string | null
     }
   ): Promise<void> {
@@ -485,14 +507,15 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
         const [provider, modelId] = patch.model.split("/", 2)
         if (!provider || !modelId) throw new Error("Pi model must use provider/model format")
         await this.#request(context.threadId, {
-          payload: { modelId, provider },
+          modelId,
+          provider,
           requestId: randomUUID(),
           type: "agent.pi.model.set.request",
         })
       }
       if (patch.thinking) {
         await this.#request(context.threadId, {
-          payload: { level: patch.thinking },
+          level: patch.thinking,
           requestId: randomUUID(),
           type: "agent.pi.thinking_level.set.request",
         })
@@ -519,13 +542,34 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
     interactionId: string,
     response: ThreadInteractionResponse
   ): Promise<void> {
+    if (this.agentId === "claude") {
+      const pending = this.#claudeInteractions.get(interactionId)
+      if (!pending) throw new Error("Claude permission is no longer pending")
+      pending.resolve(
+        response.type === "permission" && response.outcome !== "deny"
+          ? {
+              behavior: "allow",
+              toolUseID: pending.request.toolUseID,
+              updatedInput: pending.request.input,
+              ...(response.outcome === "allow_always" && pending.request.suggestions
+                ? { updatedPermissions: pending.request.suggestions }
+                : {}),
+            }
+          : {
+              behavior: "deny",
+              message: "Denied by user",
+              toolUseID: pending.request.toolUseID,
+            }
+      )
+      this.#claudeInteractions.delete(interactionId)
+      return
+    }
     const reverse = this.#reverse.get(interactionId)
     if (!reverse) throw new Error("Provider interaction is no longer pending")
-    this.#reverse.delete(interactionId)
     if (this.agentId === "codex") {
       const request = reverse as unknown as Record<string, unknown>
       await this.#manager.handleCodex(
-        {
+        AgentCodexServerResponseSchema.parse({
           payload: {
             decision:
               response.type === "permission" && response.outcome !== "deny"
@@ -536,36 +580,125 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
             requestId: request.requestId,
           },
           type: String(request.type).replace(/\.request$/, ".response"),
-        } as never,
+        }),
         { send: this.#receive, sessionId: context.threadId }
       )
+      this.#reverse.delete(interactionId)
       return
     }
-    if (this.agentId !== "opencode" && this.agentId !== "claude" && this.agentId !== "pi") {
-      const request = reverse as unknown as Record<string, unknown>
-      await this.#manager.handleAcp(
-        {
-          agent: this.agentId,
-          payload: {
-            requestId: requestIdOf(reverse),
-            result:
-              response.type === "permission"
-                ? {
-                    outcome:
-                      response.outcome === "deny"
-                        ? { outcome: "cancelled" }
-                        : { optionId: response.outcome },
-                  }
-                : { action: "cancel" },
+    if (this.agentId === "opencode") {
+      const event = payloadOf(reverse).event as Record<string, unknown>
+      const properties = (event?.properties ?? {}) as Record<string, unknown>
+      const requestId = stringId(properties.id)
+      if (!requestId) throw new Error("OpenCode interaction has no request id")
+      if (event?.type === "permission.asked") {
+        await this.#openCodeCall(context.threadId, {
+          body: {
+            reply:
+              response.type === "permission" && response.outcome !== "deny"
+                ? response.outcome === "allow_always"
+                  ? "always"
+                  : "once"
+                : "reject",
           },
-          protocolVersion: 1,
-          type: String(request.type).replace(/\.request$/, ".response"),
-        } as never,
-        { send: this.#receive, sessionId: context.threadId }
-      )
+          operation: `POST /permission/${encodeURIComponent(requestId)}/reply`,
+          query: context.cwd ? { directory: context.cwd } : undefined,
+        })
+      } else if (event?.type === "question.asked") {
+        if (response.type === "cancel" || response.type === "permission") {
+          await this.#openCodeCall(context.threadId, {
+            operation: `POST /question/${encodeURIComponent(requestId)}/reject`,
+            query: context.cwd ? { directory: context.cwd } : undefined,
+          })
+        } else {
+          const answers =
+            response.type === "answers"
+              ? response.answers
+              : [[response.type === "selection" ? response.optionId : response.value]]
+          await this.#openCodeCall(context.threadId, {
+            body: { answers },
+            operation: `POST /question/${encodeURIComponent(requestId)}/reply`,
+            query: context.cwd ? { directory: context.cwd } : undefined,
+          })
+        }
+      } else {
+        throw new Error("Unsupported OpenCode interaction")
+      }
+      this.#reverse.delete(interactionId)
       return
     }
-    throw new Error(`${this.agentId} interaction response is not supported yet`)
+    if (this.agentId === "pi") {
+      const request = reverse as unknown as Record<string, unknown>
+      const payload = payloadOf(reverse)
+      const requestId = String(requestIdOf(reverse))
+      const method = String(payload.method)
+      const answer =
+        response.type === "cancel"
+          ? { cancelled: true }
+          : method === "confirm"
+            ? {
+                confirmed: response.type === "permission" && response.outcome !== "deny",
+              }
+            : {
+                value:
+                  response.type === "selection"
+                    ? response.optionId
+                    : response.type === "text"
+                      ? response.value
+                      : "",
+              }
+      await this.#manager.handlePi(
+        AgentPiClientMessageSchema.parse({
+          payload: { ...answer, id: requestId, type: "extension_ui_response" },
+          requestId,
+          type: String(request.type).replace(/\.request$/, ".response"),
+        }),
+        { send: this.#receive, sessionId: context.threadId }
+      )
+      this.#reverse.delete(interactionId)
+      return
+    }
+    const request = reverse as unknown as Record<string, unknown>
+    const payload = payloadOf(reverse)
+    const options = (
+      Array.isArray(payload.options)
+        ? payload.options
+        : Array.isArray(request.options)
+          ? request.options
+          : []
+    ) as Array<Record<string, unknown>>
+    const selectedOptionId = (() => {
+      if (response.type === "selection") return response.optionId
+      if (response.type !== "permission") return null
+      const desiredKind =
+        response.outcome === "allow_always"
+          ? "allow_always"
+          : response.outcome === "allow_once"
+            ? "allow_once"
+            : "reject_once"
+      const option = options.find((candidate) => candidate.kind === desiredKind)
+      return option ? String(option.optionId) : null
+    })()
+    if (response.type === "permission" && response.outcome !== "deny" && !selectedOptionId) {
+      throw new Error(`ACP permission request has no ${response.outcome} option`)
+    }
+    await this.#manager.handleAcp(
+      AgentAcpClientMessageSchema.parse({
+        agent: this.agentId,
+        payload: {
+          requestId: requestIdOf(reverse),
+          result: {
+            outcome: selectedOptionId
+              ? { optionId: selectedOptionId, outcome: "selected" }
+              : { outcome: "cancelled" },
+          },
+        },
+        protocolVersion: 1,
+        type: String(request.type).replace(/\.request$/, ".response"),
+      }),
+      { send: this.#receive, sessionId: context.threadId }
+    )
+    this.#reverse.delete(interactionId)
   }
 
   async #createAcp(input: ThreadProviderCreateInput): Promise<ThreadProviderSession> {
@@ -649,6 +782,18 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
     this.#onEvent = onEvent
   }
 
+  #cancelPendingInteractions(): void {
+    for (const pending of this.#claudeInteractions.values()) {
+      pending.resolve({
+        behavior: "deny",
+        message: "Thread was closed",
+        toolUseID: pending.request.toolUseID,
+      })
+    }
+    this.#claudeInteractions.clear()
+    this.#reverse.clear()
+  }
+
   async #request(
     threadId: string,
     message: Record<string, unknown>
@@ -665,12 +810,20 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       this.#pending.set(requestId, { expectedType, reject, resolve, timeout })
     })
     try {
-      const context = { send: this.#receive, sessionId: threadId }
-      if (this.agentId === "codex") await this.#manager.handleCodex(message as never, context)
-      else if (this.agentId === "claude")
-        await this.#manager.handleClaude(message as never, context)
-      else if (this.agentId === "pi") await this.#manager.handlePi(message as never, context)
-      else await this.#manager.handleAcp(message as never, context)
+      const context = {
+        requestClaudePermission: this.#requestClaudePermission,
+        send: this.#receive,
+        sessionId: threadId,
+      }
+      if (this.agentId === "codex") {
+        await this.#manager.handleCodex(AgentCodexClientRequestSchema.parse(message), context)
+      } else if (this.agentId === "claude") {
+        await this.#manager.handleClaude(AgentClaudeClientMessageSchema.parse(message), context)
+      } else if (this.agentId === "pi") {
+        await this.#manager.handlePi(AgentPiClientMessageSchema.parse(message), context)
+      } else {
+        await this.#manager.handleAcp(AgentAcpClientMessageSchema.parse(message), context)
+      }
       return await response
     } catch (error) {
       const pending = this.#pending.get(requestId)
@@ -701,7 +854,11 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       })
     })
     await this.#manager.handleOpenCode(
-      { payload, requestId, type: "agent.opencode.call.request" } as never,
+      AgentOpenCodeCallRequestSchema.parse({
+        payload,
+        requestId,
+        type: "agent.opencode.call.request",
+      }),
       { send: this.#receive, sessionId: threadId }
     )
     return response
@@ -724,11 +881,11 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       })
     })
     await this.#manager.handleOpenCode(
-      {
+      AgentOpenCodeEventSubscribeRequestSchema.parse({
         payload: { stream: "global.event", subscriptionId },
         requestId,
         type: "agent.opencode.event.subscribe.request",
-      } as never,
+      }),
       { send: this.#receive, sessionId: threadId }
     )
     await response
@@ -752,6 +909,50 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
     this.#mapMessage(message)
   }
 
+  readonly #requestClaudePermission: ClaudePermissionHandler = async (request) => {
+    const interactionId = `provider:claude:${request.requestId}`
+    return new Promise((resolve) => {
+      const abort = (): void => {
+        this.#claudeInteractions.delete(interactionId)
+        resolve({
+          behavior: "deny",
+          message: "Permission request was cancelled",
+          toolUseID: request.toolUseID,
+        })
+      }
+      request.signal.addEventListener("abort", abort, { once: true })
+      this.#claudeInteractions.set(interactionId, {
+        request,
+        resolve: (result) => {
+          request.signal.removeEventListener("abort", abort)
+          resolve(result)
+        },
+      })
+      this.#onEvent?.({
+        interaction: {
+          createdAt: new Date().toISOString(),
+          expiresAt: null,
+          id: interactionId,
+          kind: "permission",
+          message:
+            request.title ??
+            request.description ??
+            request.decisionReason ??
+            `Allow ${request.toolName}?`,
+          options: [
+            { description: null, id: "allow_once", label: "Allow once" },
+            ...(request.suppressAlwaysAllowRule
+              ? []
+              : [{ description: null, id: "allow_always", label: "Always allow" }]),
+            { description: null, id: "deny", label: "Deny" },
+          ],
+          title: request.displayName ?? request.toolName,
+        },
+        type: "interaction-requested",
+      })
+    })
+  }
+
   #mapMessage(message: AgentRuntimeServerMessage): void {
     const onEvent = this.#onEvent
     if (!onEvent) return
@@ -768,6 +969,12 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
     if (message.type.endsWith(".request")) {
       const interactionId = `provider:${this.agentId}:${String(requestIdOf(message))}`
       this.#reverse.set(interactionId, message)
+      const request = message as unknown as Record<string, unknown>
+      const rawOptions = Array.isArray(payload.options)
+        ? payload.options
+        : Array.isArray(request.options)
+          ? request.options
+          : []
       onEvent({
         interaction: {
           createdAt: new Date().toISOString(),
@@ -777,9 +984,45 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
             message.type.includes("permission") || message.type.includes("approval")
               ? "permission"
               : "elicitation",
-          message: String(payload.message ?? payload.reason ?? message.type),
-          options: [],
-          title: null,
+          message: String(
+            payload.message ??
+              request.message ??
+              payload.description ??
+              (payload.toolCall as Record<string, unknown> | undefined)?.title ??
+              (request.toolCall as Record<string, unknown> | undefined)?.title ??
+              payload.reason ??
+              request.reason ??
+              message.type
+          ),
+          options: rawOptions.flatMap((option, index) => {
+            if (typeof option === "string") {
+              return [{ description: null, id: option, label: option }]
+            }
+            if (!option || typeof option !== "object") return []
+            const value = option as Record<string, unknown>
+            const id = String(value.optionId ?? value.id ?? value.value ?? index)
+            return [
+              {
+                description: typeof value.description === "string" ? value.description : null,
+                id,
+                label: String(value.name ?? value.label ?? value.title ?? id),
+              },
+            ]
+          }),
+          title:
+            typeof (
+              payload.title ??
+              request.title ??
+              (payload.toolCall as Record<string, unknown> | undefined)?.title ??
+              (request.toolCall as Record<string, unknown> | undefined)?.title
+            ) === "string"
+              ? String(
+                  payload.title ??
+                    request.title ??
+                    (payload.toolCall as Record<string, unknown> | undefined)?.title ??
+                    (request.toolCall as Record<string, unknown> | undefined)?.title
+                )
+              : null,
         },
         type: "interaction-requested",
       })
@@ -790,6 +1033,86 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       const properties = (event?.properties ?? {}) as Record<string, unknown>
       const eventSessionId = stringId(properties.sessionID ?? properties.sessionId)
       if (!eventSessionId || eventSessionId !== this.#providerSessionId) return
+      if (event?.type === "permission.asked" || event?.type === "question.asked") {
+        const requestId = stringId(properties.id)
+        if (!requestId) return
+        const interactionId = `provider:opencode:${requestId}`
+        this.#reverse.set(interactionId, message)
+        const questions = Array.isArray(properties.questions)
+          ? properties.questions.flatMap((question) => {
+              if (!question || typeof question !== "object") return []
+              const value = question as Record<string, unknown>
+              if (typeof value.question !== "string" || typeof value.header !== "string") return []
+              const rawOptions = Array.isArray(value.options) ? value.options : []
+              return [
+                {
+                  custom: value.custom === true,
+                  header: value.header,
+                  multiple: value.multiple === true,
+                  options: rawOptions.flatMap((option, index) => {
+                    if (!option || typeof option !== "object") return []
+                    const optionValue = option as Record<string, unknown>
+                    if (typeof optionValue.label !== "string") return []
+                    return [
+                      {
+                        description:
+                          typeof optionValue.description === "string"
+                            ? optionValue.description
+                            : null,
+                        id: optionValue.label || String(index),
+                        label: optionValue.label,
+                      },
+                    ]
+                  }),
+                  question: value.question,
+                },
+              ]
+            })
+          : []
+        const firstQuestion = questions[0]
+        onEvent({
+          interaction: {
+            createdAt: new Date().toISOString(),
+            expiresAt: null,
+            id: interactionId,
+            kind: event.type === "permission.asked" ? "permission" : "question",
+            message:
+              event.type === "permission.asked"
+                ? `Allow ${String(properties.permission ?? "requested operation")}?`
+                : String(firstQuestion?.question ?? firstQuestion?.header ?? "Answer question"),
+            options:
+              event.type === "permission.asked"
+                ? [
+                    { description: null, id: "allow_once", label: "Allow once" },
+                    { description: null, id: "allow_always", label: "Always allow" },
+                    { description: null, id: "deny", label: "Deny" },
+                  ]
+                : (firstQuestion?.options ?? []),
+            ...(event.type === "question.asked" ? { questions } : {}),
+            title:
+              event.type === "permission.asked"
+                ? String(properties.permission ?? "Permission")
+                : typeof firstQuestion?.header === "string"
+                  ? firstQuestion.header
+                  : null,
+          },
+          type: "interaction-requested",
+        })
+        return
+      }
+      if (
+        event?.type === "permission.replied" ||
+        event?.type === "question.replied" ||
+        event?.type === "question.rejected"
+      ) {
+        const requestId = stringId(properties.requestID)
+        if (requestId) {
+          const interactionId = `provider:opencode:${requestId}`
+          this.#reverse.delete(interactionId)
+          onEvent({ interactionId, type: "interaction-resolved" })
+        }
+        return
+      }
       if (event?.type === "session.idle") {
         onEvent({ turnId: stringId(properties.messageID) ?? "active", type: "turn-completed" })
         return

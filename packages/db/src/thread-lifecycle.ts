@@ -120,9 +120,7 @@ export const createThreadLifecyclePersistenceService = (
     const [record] = await db
       .update(threadLifecycleOperations)
       .set({
-        ...(patch.agentSessionId === undefined
-          ? {}
-          : { agentSessionId: patch.agentSessionId }),
+        ...(patch.agentSessionId === undefined ? {} : { agentSessionId: patch.agentSessionId }),
         error: null,
         status: patch.status,
         updatedAt: now,

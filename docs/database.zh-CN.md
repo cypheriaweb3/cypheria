@@ -54,7 +54,7 @@ Cypheria 自己拥有跨 agent 的 project、thread、project 成员关系、sec
 
 `agent_id` 指向 `agent_registry.id`，使用 `ON DELETE RESTRICT`。`forked_from_id` 指向 `threads.id`，使用 `ON DELETE SET NULL`。`position` 非负且唯一。在 `agent_session_id IS NOT NULL` 条件下，`(agent_id, agent_session_id)` 使用部分唯一索引，防止两个 Cypheria thread 声明同一个 agent session。为 `forked_from_id` 建立查询索引。
 
-`agent_session_id` 为后续的 agent session 关联工作预留，可以为空；`recency_at` 也可以为空。
+`agent_session_id` 可以为空，由 `ThreadManager` 绑定并作为只读 provider 元数据保存；公开操作绝不使用它路由。`recency_at` 也可以为空。
 
 ### `project_items`
 

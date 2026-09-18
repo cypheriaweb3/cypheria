@@ -283,7 +283,7 @@ export class ThreadManager {
 
   async resume(threadId: string) {
     return this.#withLock(threadId, async () => {
-      const thread = await this.#required(threadId)
+      let thread = await this.#required(threadId)
       const agentId = thread.agentId as AgentId
       await this.#assertAgentCallable(agentId)
       this.#setState(thread, "starting")
@@ -297,6 +297,9 @@ export class ThreadManager {
             "THREAD_BINDING_MISMATCH",
             "Provider resumed a different session"
           )
+        }
+        if (!thread.agentSessionId && session.sessionId) {
+          thread = await this.#persistence.bindThreadAgentSession(threadId, session.sessionId)
         }
         const runtime = this.#state(threadId)
         runtime.capabilities = session.capabilities
@@ -325,11 +328,17 @@ export class ThreadManager {
       if (runtime.state === "stopped") return this.#view(thread)
       runtime.state = "stopping"
       this.#publish({ payload: this.#view(thread), type: "thread.updated.notification" })
-      await this.#adapterFor(thread.agentId as AgentId, thread.id).close(this.#context(thread))
-      runtime.state = "stopped"
-      runtime.activeTurn = null
-      runtime.pendingInteractions.clear()
-      return this.#updateAndPublish(thread)
+      try {
+        await this.#adapterFor(thread.agentId as AgentId, thread.id).close(this.#context(thread))
+        runtime.state = "stopped"
+        runtime.activeTurn = null
+        runtime.pendingInteractions.clear()
+        return this.#updateAndPublish(thread)
+      } catch (error) {
+        runtime.state = "errored"
+        this.#updateAndPublishSync(thread)
+        throw error
+      }
     })
   }
 
@@ -381,6 +390,9 @@ export class ThreadManager {
       if (previous) return { thread: this.#view(thread), turnId: previous }
       if (runtime.activeTurn) {
         throw new ThreadManagerError("THREAD_BUSY", "Thread already has an active turn")
+      }
+      if (runtime.state !== "idle") {
+        throw new ThreadManagerError("THREAD_NOT_READY", `Thread is ${runtime.state}`)
       }
       const { turnId } = await this.#adapterFor(thread.agentId as AgentId, thread.id).startTurn({
         ...this.#context(thread),
@@ -442,7 +454,6 @@ export class ThreadManager {
     patch: {
       mode?: string | null
       model?: string | null
-      providerOptions?: Readonly<Record<string, unknown>>
       thinking?: string | null
     }
   ): Promise<ThreadView> {
@@ -464,7 +475,7 @@ export class ThreadManager {
     return this.#withLock(threadId, async () => {
       const thread = await this.#required(threadId)
       const runtime = this.#state(threadId)
-      if (!runtime.pendingInteractions.delete(interactionId)) {
+      if (!runtime.pendingInteractions.has(interactionId)) {
         throw new ThreadManagerError(
           "INTERACTION_ALREADY_RESOLVED",
           "Interaction was already resolved or does not exist"
@@ -475,6 +486,7 @@ export class ThreadManager {
         interactionId,
         response
       )
+      runtime.pendingInteractions.delete(interactionId)
       this.#publish({
         payload: { interactionId, threadId },
         type: "thread.interaction.resolved.notification",
@@ -484,15 +496,24 @@ export class ThreadManager {
   }
 
   async closeAgentThreads(agentId: AgentId): Promise<void> {
-    const page = await this.#persistence.listThreads({ agentId, limit: 200 })
-    for (const thread of page.data) {
-      if (this.#state(thread.id).state !== "stopped") await this.close(thread.id)
-    }
+    let cursor: string | null = null
+    do {
+      const page = await this.#persistence.listThreads({ agentId, cursor, limit: 200 })
+      for (const thread of page.data) {
+        if (this.#state(thread.id).state !== "stopped") await this.close(thread.id)
+      }
+      cursor = page.nextCursor
+    } while (cursor)
   }
 
   async hasActiveThreads(agentId: AgentId): Promise<boolean> {
-    const page = await this.#persistence.listThreads({ agentId, limit: 200 })
-    return page.data.some((thread) => this.#state(thread.id).state !== "stopped")
+    let cursor: string | null = null
+    do {
+      const page = await this.#persistence.listThreads({ agentId, cursor, limit: 200 })
+      if (page.data.some((thread) => this.#state(thread.id).state !== "stopped")) return true
+      cursor = page.nextCursor
+    } while (cursor)
+    return false
   }
 
   #acceptEvent(threadId: string, event: ThreadProviderEvent): void {
@@ -521,9 +542,15 @@ export class ThreadManager {
           this.#updateAndPublishSync(thread)
           break
         case "turn-completed":
-          if (runtime.activeTurn?.id === event.turnId) runtime.activeTurn = null
-          runtime.state = "idle"
-          this.#updateAndPublishSync(thread)
+          if (
+            !runtime.activeTurn ||
+            event.turnId === "active" ||
+            runtime.activeTurn.id === event.turnId
+          ) {
+            runtime.activeTurn = null
+            runtime.state = "idle"
+            this.#updateAndPublishSync(thread)
+          }
           break
         case "session-bound":
           if (thread.agentSessionId !== event.sessionId) {

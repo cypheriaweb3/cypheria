@@ -1,6 +1,6 @@
 # Claude Agent SDK Protocol
 
-`@cypheria/protocol` 精确固定 `@anthropic-ai/claude-agent-sdk@0.3.270`，并把其中适合网络传输的公共 API 转换成 `agent.claude.*` 逻辑 session 消息。`@cypheria/client/claude` 已实现 client 侧 SDK-shaped 门面；`apps/server` adapter 仍是后续工作。
+`@cypheria/protocol` 精确固定 `@anthropic-ai/claude-agent-sdk@0.3.270`，并为内部 server adapter 保留经过校验的 `agent.claude.*` catalog。这些消息不进入 public client/server union；client 使用 `thread.*`。
 
 ## Wire 模型
 
@@ -138,6 +138,4 @@ System family 当前展开为 28 个具体 subtype message；与其他 family �
 
 ## Adapter 职责
 
-`@cypheria/client/claude` 通过绑定借用 `CypheriaApi` 的门面提供网络安全的 SDK 调用形态。它分配 request/query ID，把 async input iterable 转成 notification，为每个 query 重建 async output stream，关联 response，让 `AbortController` 只在本地生效，并传播 transport failure。
-
-未来 server adapter 应持有 SDK query object，通过 `AGENT_CLAUDE_RPC` dispatch，把具名 wire argument 转成 SDK call，按顺序发送已包装 SDK message，规范化非 JSON result，对 filesystem/process/environment option 做授权，并在逻辑 session 结束时释放全部活跃 iterator。
+Server 按 Thread 持有 SDK query object，把 Thread prompt 转成 SDK call，将流式 SDK message 映射为 canonical timeline row，在 provider session ID 出现时完成绑定，并在 Thread close 时释放 query。`canUseTool` 转换为全局 Thread permission interaction；首个被 provider 接受的 client response 生效。Process、filesystem、environment、abort 和携带 callback 的值都保留在 server 本地。

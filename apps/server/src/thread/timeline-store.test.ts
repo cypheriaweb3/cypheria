@@ -43,4 +43,36 @@ describe("ThreadTimelineStore", () => {
       }).reset
     ).toBe(true)
   })
+
+  it("pages complete projected items without cutting through canonical deltas", () => {
+    const store = new ThreadTimelineStore()
+    const threadId = "01984de2-8f74-7c91-a3b2-5c5e937cf399"
+    store.append(threadId, {
+      item: { itemId: "a", operation: "append", role: "assistant", text: "hel", type: "message" },
+    })
+    store.append(threadId, {
+      item: { itemId: "b", operation: "replace", role: "user", text: "next", type: "message" },
+    })
+    store.append(threadId, {
+      item: { itemId: "a", operation: "append", role: "assistant", text: "lo", type: "message" },
+    })
+
+    const page = store.page(threadId, { direction: "tail", limit: 1, projection: "projected" })
+    expect(page.projectedItems).toHaveLength(2)
+    expect(page.projectedItems[0]?.item).toMatchObject({ itemId: "a", text: "hello" })
+    expect(page.projectedItems[1]?.item).toMatchObject({ itemId: "b", text: "next" })
+
+    const after = store.page(threadId, {
+      cursor: { epoch: page.epoch, seq: 2 },
+      direction: "after",
+      limit: 1,
+      projection: "projected",
+    })
+    expect(after.projectedItems[0]?.item).toMatchObject({
+      itemId: "a",
+      operation: "append",
+      text: "lo",
+    })
+    expect(after.projectedItems[0]?.sourceSeqRanges).toEqual([{ end: 3, start: 3 }])
+  })
 })

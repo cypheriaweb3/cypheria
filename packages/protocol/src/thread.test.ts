@@ -2,6 +2,7 @@ import { describe, expect, test } from "vitest"
 
 import {
   projectThreadTimelineRows,
+  ThreadInteractionRespondRequestSchema,
   ThreadTimelineGetRequestSchema,
   ThreadTimelinePageSchema,
   ThreadViewSchema,
@@ -60,6 +61,23 @@ describe("thread protocol", () => {
         threadId: "01996a3a-bcde-7000-8000-000000000001",
       }).success
     ).toBe(true)
+  })
+
+  test("models multi-question answers without provider-shaped escape hatches", () => {
+    const request = ThreadInteractionRespondRequestSchema.parse({
+      payload: {
+        interactionId: "question-1",
+        response: { answers: [["TypeScript"], ["Vitest", "Playwright"]], type: "answers" },
+        threadId: "01996a3a-bcde-7000-8000-000000000001",
+      },
+      requestId: "request-1",
+      type: "thread.interaction.respond.request",
+    })
+
+    expect(request.payload.response).toEqual({
+      answers: [["TypeScript"], ["Vitest", "Playwright"]],
+      type: "answers",
+    })
   })
 
   test("projects canonical updates and retains their exact source coverage", () => {

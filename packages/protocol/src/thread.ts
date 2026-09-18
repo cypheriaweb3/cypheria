@@ -52,6 +52,14 @@ export const ThreadInteractionOptionSchema = z.object({
   label: z.string().min(1),
 })
 
+export const ThreadQuestionSchema = z.object({
+  custom: z.boolean(),
+  header: z.string().min(1),
+  multiple: z.boolean(),
+  options: z.array(ThreadInteractionOptionSchema),
+  question: z.string().min(1),
+})
+
 export const ThreadInteractionSchema = z.object({
   createdAt: z.string().datetime(),
   expiresAt: z.string().datetime().nullable(),
@@ -59,6 +67,7 @@ export const ThreadInteractionSchema = z.object({
   kind: z.enum(["permission", "question", "elicitation"]),
   message: z.string(),
   options: z.array(ThreadInteractionOptionSchema),
+  questions: z.array(ThreadQuestionSchema).optional(),
   title: z.string().nullable(),
 })
 export type ThreadInteraction = z.infer<typeof ThreadInteractionSchema>
@@ -299,7 +308,6 @@ export const ThreadConfigUpdateRequestSchema = request(
   z.object({
     mode: z.string().nullable().optional(),
     model: z.string().nullable().optional(),
-    providerOptions: z.record(z.string(), z.unknown()).optional(),
     thinking: z.string().nullable().optional(),
     threadId: ProjectThreadIdSchema,
   })
@@ -315,6 +323,7 @@ export const ThreadInteractionRespondRequestSchema = request(
       }),
       z.object({ optionId: z.string().min(1), type: z.literal("selection") }),
       z.object({ type: z.literal("text"), value: z.string() }),
+      z.object({ answers: z.array(z.array(z.string())).min(1), type: z.literal("answers") }),
       z.object({ type: z.literal("cancel") }),
     ]),
     threadId: ProjectThreadIdSchema,
