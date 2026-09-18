@@ -32,6 +32,7 @@
     "@opencode-ai/sdk": "1.18.31",
     "@hono/node-server": "^2.1.1",
     "@hono/zod-validator": "^0.9.1",
+    "@libsql/client": "^0.17.4",
     "extract-zip": "^2.0.1",
     "hono": "^4.13.7",
     "pino": "^10.3.1",

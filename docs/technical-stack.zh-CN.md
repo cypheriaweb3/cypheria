@@ -76,7 +76,7 @@ packages/ui
 packages/db
 ```
 
-`apps/cli` 与 `packages/sdk` 仍是规划中的 packages。`apps/server`、`apps/desktop`、`apps/expo`、`apps/marketplace`、`packages/client`、`packages/protocol` 与 `packages/ai-sdk-provider` 已实现 client/server 基础。旧 runtime、bridge、ACP provider、automation 与顶层 Web3 packages 只在其 service 搬入 server 期间暂留，不属于最终布局。
+`packages/sdk` 仍是规划中的 package。`apps/cli`、`apps/server`、`apps/desktop`、`apps/expo`、`apps/marketplace`、`packages/client`、`packages/protocol` 与 `packages/ai-sdk-provider` 已实现 client/server 基础。旧 runtime、bridge、ACP provider、automation 与顶层 Web3 packages 只在其 service 搬入 server 期间暂留，不属于最终布局。
 
 `@cypheria/protocol` 使用 Zod 编写 live public Agent/Thread、project/section 与 server WebSocket contract，同时持有供内部 server adapter 使用的 generated Codex App Server 产物及固定版本 ACP、Claude、Pi schema。这些 provider catalog 接受 drift check，但不进入 public client/server message union。Live wire 暴露 provider-neutral 的 `agent.*` 管理与 `thread.*` execution；`threadId` 是唯一操作句柄，`agentSessionId` 只是只读元数据。
 
@@ -141,7 +141,7 @@ Runtime 不实现 Codex agent internals。
 
 ## CLI Stack
 
-`apps/cli` 是规划中的无 TUI Node CLI。它依赖共享 Cypheria protocol，并连接 `apps/server`。
+`apps/cli` 是无 TUI Node CLI。它依赖 `@cypheria/client` 与共享 Cypheria protocol，并连接 `apps/server`。
 
 它不得依赖：
 
@@ -150,12 +150,12 @@ Runtime 不实现 Codex agent internals。
 - `@cypheria/codex-bridge`
 - Electron 或 desktop packages
 
-初始命令行为：
+已实现命令行为：
 
-- `cypheria run <prompt>` 请求 server 执行 agent workflow。
-- `cypheria run --jsonl <prompt>` 输出机器可读的 event/result。
-- `cypheria runtime info` 读取 Cypheria runtime metadata。
-- Web3 命令使用版本化 server operations。
+- `cypheria server start|stop` 委托给已安装的 Server supervisor CLI。
+- `cypheria server status` 使用版本化 client handshake 与 status API。
+- `cypheria server logs` 读取 `$CYPHERIA_HOME` 下的 Server log 尾部。
+- Agent、Project、Thread 与 Schedule 列表使用公开的 `@cypheria/client` facade。
 
 ## SDK Stack
 

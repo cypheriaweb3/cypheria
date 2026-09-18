@@ -16,7 +16,7 @@ Cypheria V1 is organized around one server and multiple clients:
   owning provider runtimes.
 - **Relay**: the Go `apps/relay` service and TypeScript `@cypheria/relay` package provide an
   optional E2EE remote path to the same server protocol.
-- **CLI and SDK clients**: planned product clients built on the server protocol.
+- **CLI and SDK clients**: the implemented Node CLI and planned public SDK use the server protocol.
 - **Desktop client**: keeps the Electron + TanStack Start workbench, ensures a compatible local server is running, and uses `@cypheria/client` for shared projects, threads, sections, canonical history, and live turns. Electron-only browser, secure-storage, window, update, and OS integrations remain local.
 - **Marketplace**: a TanStack Start app on Cloudflare Workers for submission, scanning, review, publication, discovery, and synchronization of reviewed ChatGPT/Codex plugins to the official Cypheria GitHub repo marketplace.
 
@@ -57,7 +57,7 @@ See [docs/pi-rpc-protocol.md](docs/pi-rpc-protocol.md) for the Pi RPC wire mappi
 ## Architecture
 
 ```txt
-apps/expo / @cypheria/client / future apps/cli / packages/sdk
+apps/expo / apps/cli / @cypheria/client / future packages/sdk
   -> @cypheria/protocol over HTTP or WebSocket
   -> apps/server
   -> @cypheria/runtime
@@ -130,7 +130,7 @@ packages/ui
 packages/db
 ```
 
-`apps/cli` and `packages/sdk` remain planned. `apps/server`, `apps/desktop`, `apps/expo`,
+`packages/sdk` remains planned. `apps/cli`, `apps/server`, `apps/desktop`, `apps/expo`,
 `apps/marketplace`, `packages/client`, `packages/protocol`, `packages/ai-sdk-provider`, and
 `packages/relay` provide the implemented client/server foundation. See
 [docs/server.md](docs/server.md) for its protocol, operations, security, and packaging contract.

@@ -192,16 +192,19 @@
 
 ## CLI
 
-- [ ] 添加 `apps/cli`。
+- [x] 添加 `apps/cli`。
   - 验收：package 构建无 TUI 的 `cypheria` Node CLI。
-  - 包括：argument parsing、server connection/configuration、readable output、JSONL output mode 和 non-zero failure exits。
-  - 依赖：`@cypheria/protocol` 与 Node transport。
+  - 包括：argument parsing、server connection/configuration、JSON output、log tailing 与 non-zero failure exits。
+  - 依赖：`@cypheria/client` 与 `@cypheria/protocol`。
   - 不得导入：`@cypheria/sdk`、`@cypheria/runtime`、Electron、desktop packages 或 `@cypheria/codex-bridge`。
   - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/cli test`。
 
-- [ ] 实现初始 CLI commands。
-  - 验收：`cypheria run`、`cypheria run --jsonl`、`cypheria runtime info`、`cypheria wallet list`、`cypheria policy list`、`cypheria automation run <task-id>` 和 `cypheria doctor` 接入 server operations。
-  - 验证：CLI unit tests 和 command smoke tests。
+- [x] 实现 Server 与共享资源 CLI commands。
+  - 验收：`cypheria server start|stop|status|logs`、`agents list`、`projects list`、`threads list` 与 `schedules list` 使用 supervisor 或共享 client API，且不导入 server、database、runtime、Desktop、SDK 或 Agent SDK internals。
+  - 验证：CLI unit tests、production bundle，以及使用临时 Cypheria home 的真实 start/status/stop smoke test。
+
+- [ ] 添加交互式 run 与 Web3 管理 commands。
+  - 验收：streaming Thread execution、JSONL event、wallet/policy 管理与 diagnostics 只在对应共享 Server API 就绪后公开。
 
 ## Marketplace
 

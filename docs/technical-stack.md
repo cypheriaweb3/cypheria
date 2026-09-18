@@ -76,7 +76,7 @@ packages/ui
 packages/db
 ```
 
-`apps/cli` and `packages/sdk` remain planned packages. `apps/server`, `apps/desktop`, `apps/expo`, `apps/marketplace`, `packages/client`, `packages/protocol`, and `packages/ai-sdk-provider` implement the client/server foundation. The old runtime, bridge, ACP provider, automation, and top-level Web3 packages remain only while their services are moved behind the server and will not be part of the final layout.
+`packages/sdk` remains planned. `apps/cli`, `apps/server`, `apps/desktop`, `apps/expo`, `apps/marketplace`, `packages/client`, `packages/protocol`, and `packages/ai-sdk-provider` implement the client/server foundation. The old runtime, bridge, ACP provider, automation, and top-level Web3 packages remain only while their services are moved behind the server and will not be part of the final layout.
 
 `@cypheria/protocol` authors the live public Agent/Thread, project/section, and server WebSocket contracts with Zod. It also owns generated Codex App Server artifacts and pinned ACP, Claude, and Pi schemas used by internal server adapters. Those provider catalogs are drift-checked but excluded from the public client/server message union. The live wire exposes provider-neutral `agent.*` management and `thread.*` execution; `threadId` is the only operation handle and `agentSessionId` is read-only metadata.
 
@@ -142,7 +142,7 @@ Runtime does not implement Codex agent internals.
 
 ## CLI Stack
 
-`apps/cli` is a planned Node CLI without TUI. It depends on the shared Cypheria protocol and connects to `apps/server`.
+`apps/cli` is a Node CLI without TUI. It depends on `@cypheria/client` and the shared Cypheria protocol, and connects to `apps/server`.
 
 It must not depend on:
 
@@ -151,12 +151,12 @@ It must not depend on:
 - `@cypheria/codex-bridge`
 - Electron or desktop packages
 
-Initial command behavior:
+Implemented command behavior:
 
-- `cypheria run <prompt>` asks the server to execute the agent workflow.
-- `cypheria run --jsonl <prompt>` emits machine-readable event/result output.
-- `cypheria runtime info` reads Cypheria runtime metadata.
-- Web3 commands use versioned server operations.
+- `cypheria server start|stop` delegates to the installed Server supervisor CLI.
+- `cypheria server status` uses the versioned client handshake and status API.
+- `cypheria server logs` tails the Server log under `$CYPHERIA_HOME`.
+- Agent, Project, Thread, and Schedule listing uses public `@cypheria/client` facades.
 
 ## SDK Stack
 

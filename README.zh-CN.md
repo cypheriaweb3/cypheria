@@ -15,7 +15,7 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
   公开 Agent/Thread、project/section 和 server action，但不持有 provider runtime。
 - **Relay**：Go `apps/relay` 服务和 TypeScript `@cypheria/relay` 包为同一 server protocol
   提供可选的 E2EE 远程通道。
-- **CLI 与 SDK clients**：规划中的 server protocol 产品 clients。
+- **CLI 与 SDK clients**：已实现的 Node CLI 与规划中的公共 SDK 都使用 server protocol。
 - **Desktop client**：保留 Electron + TanStack Start 工作台，确保兼容的本地 server 正在运行，并通过 `@cypheria/client` 使用共享 Projects、Threads、Sections、canonical history 与实时 turn。Electron 专属 browser、secure storage、window、update 与 OS integration 仍留在本地。
 - **Marketplace**：部署在 Cloudflare Workers 上的 TanStack Start 应用，负责 ChatGPT/Codex 标准插件的提交、扫描、审核、发布、发现，并同步到 Cypheria 官方 GitHub repo marketplace。
 
@@ -56,7 +56,7 @@ Pi RPC wire mapping 见 [docs/pi-rpc-protocol.zh-CN.md](docs/pi-rpc-protocol.zh-
 ## 架构
 
 ```txt
-apps/expo / @cypheria/client / 未来的 apps/cli / packages/sdk
+apps/expo / apps/cli / @cypheria/client / 未来的 packages/sdk
   -> 通过 HTTP 或 WebSocket 使用 @cypheria/protocol
   -> apps/server
   -> @cypheria/runtime
@@ -129,7 +129,7 @@ packages/ui
 packages/db
 ```
 
-`apps/cli` 和 `packages/sdk` 仍是规划中的 packages。`apps/server`、`apps/desktop`、
+`packages/sdk` 仍是规划中的 package。`apps/cli`、`apps/server`、`apps/desktop`、
 `apps/expo`、`apps/marketplace`、`packages/client`、`packages/protocol`、
 `packages/ai-sdk-provider` 和 `packages/relay` 已提供 client/server 基础。协议、运维、安全与
 打包约定见 [docs/server.zh-CN.md](docs/server.zh-CN.md)。

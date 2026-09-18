@@ -7,7 +7,7 @@ Cypheria 是一个 TypeScript Web3 agent 产品：它复用 Codex 承载软件�
 ## 系统概览
 
 ```txt
-apps/expo / @cypheria/client / 未来的 apps/cli / packages/sdk
+apps/expo / apps/cli / @cypheria/client / 未来的 packages/sdk
   -> @cypheria/protocol
   -> 通过 HTTP 或 WebSocket 连接 apps/server
 
@@ -42,7 +42,7 @@ Cypheria 有一个特权 server、多个 client、一个独立 marketplace 与�
 - `apps/server`：Node.js/Hono control plane，负责 runtime ownership、版本化 client session、运维、进程监督与 web hosting。
 - `apps/expo`：第一个 Cypheria protocol client，一套代码构建 iOS、Android 与静态 web。
 - `packages/client`：Cypheria clients 共用的 WebSocket protocol driver 与能力门面；它既不持有特权 runtime，也不持有 Codex process。
-- `apps/cli` 与 `packages/sdk`：规划中的 Cypheria protocol clients。
+- `apps/cli`：用于 Server lifecycle 与共享资源 API 的 Node CLI；`packages/sdk` 仍在规划中。
 - `apps/desktop`：自托管 server 的 Electron + TanStack Start client；Electron main 管理兼容的本地 server，renderer 使用共享 project、section、Thread 与 timeline API。
 - `apps/marketplace`：部署在 Cloudflare Workers 上的 TanStack Start 应用，负责 ChatGPT/Codex-compatible 插件的提交、扫描、审核、发布与发现，再把 approved entry 同步到 Cypheria 官方 GitHub repo marketplace。
 - `packages/runtime`：Cypheria 自有非 agent 能力的 TypeScript runtime。
@@ -136,21 +136,19 @@ settings.*
 
 ## CLI
 
-`apps/cli` 是规划中的 Node-based CLI，V1 不做 TUI。它是 `apps/server` 的 Cypheria protocol client，不依赖 `@cypheria/sdk`，也不导入特权 runtime 或 desktop internals。
+`apps/cli` 是 Node-based CLI，V1 不做 TUI。它是 `apps/server` 的 Cypheria protocol client，不依赖 `@cypheria/sdk`，也不导入特权 runtime、database、Agent SDK 或 desktop internals。
 
 初始命令组：
 
 ```txt
-cypheria run <prompt>
-cypheria run --jsonl <prompt>
-cypheria runtime info
-cypheria wallet list
-cypheria policy list
-cypheria automation run <task-id>
-cypheria doctor
+cypheria server start|stop|status|logs
+cypheria agents list
+cypheria projects list
+cypheria threads list
+cypheria schedules list
 ```
 
-CLI 应支持 human-readable 输出和面向自动化的 JSONL 输出。CLI 不应导入 desktop internals。
+Lifecycle command 调用已安装的 Server supervisor；资源 command 使用 `@cypheria/client`。`CYPHERIA_SERVER_BIN`、`CYPHERIA_SERVER_URL` 与 `CYPHERIA_TOKEN` 提供显式部署覆盖。交互式 Thread streaming 与 Web3 管理等待相应共享 Server API 就绪后再开放。
 
 ## SDK
 

@@ -1,0 +1,23 @@
+{
+  "name": "@cypheria/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "cypheria": "./dist/cli.mjs"
+  },
+  "scripts": {
+    "build": "tsdown --config tsdown.config.mjs",
+    "check": "pnpm typecheck",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@cypheria/client": "workspace:*",
+    "@cypheria/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "tsdown": "^0.23.0",
+    "vitest": "^4.1.7"
+  }
+}

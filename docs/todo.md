@@ -194,16 +194,19 @@ Status legend:
 
 ## CLI
 
-- [ ] Add `apps/cli`.
+- [x] Add `apps/cli`.
   - Acceptance: package builds a `cypheria` Node CLI with no TUI.
-  - Include: argument parsing, server connection/configuration, readable output, JSONL output mode, and non-zero failure exits.
-  - Dependencies: `@cypheria/protocol` plus a Node transport.
+  - Include: argument parsing, server connection/configuration, JSON output, log tailing, and non-zero failure exits.
+  - Dependencies: `@cypheria/client` and `@cypheria/protocol`.
   - Must not import: `@cypheria/sdk`, `@cypheria/runtime`, Electron, desktop packages, or `@cypheria/codex-bridge`.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/cli test`.
 
-- [ ] Implement initial CLI commands.
-  - Acceptance: `cypheria run`, `cypheria run --jsonl`, `cypheria runtime info`, `cypheria wallet list`, `cypheria policy list`, `cypheria automation run <task-id>`, and `cypheria doctor` are wired to server operations.
-  - Verification: CLI unit tests and command smoke tests.
+- [x] Implement server and shared-resource CLI commands.
+  - Acceptance: `cypheria server start|stop|status|logs`, `agents list`, `projects list`, `threads list`, and `schedules list` use the supervisor or shared client API without importing server, database, runtime, Desktop, SDK, or Agent SDK internals.
+  - Verification: CLI unit tests, production bundle, and a real start/status/stop smoke test against a temporary Cypheria home.
+
+- [ ] Add interactive run and Web3 administration commands.
+  - Acceptance: streaming Thread execution, JSONL events, wallet and policy administration, and diagnostics are exposed only after their shared server APIs exist.
 
 ## Marketplace
 

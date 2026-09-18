@@ -7,7 +7,7 @@ The architecture has one central rule: agent work, Web3 signing, automation exec
 ## System Overview
 
 ```txt
-apps/expo / @cypheria/client / future apps/cli / packages/sdk
+apps/expo / apps/cli / @cypheria/client / future packages/sdk
   -> @cypheria/protocol
   -> apps/server over HTTP or WebSocket
 
@@ -42,7 +42,7 @@ Cypheria has one privileged server, multiple clients, a separate marketplace, an
 - `apps/server`: the Node.js/Hono control plane for runtime ownership, versioned client sessions, operations, process supervision, and web hosting.
 - `apps/expo`: the first Cypheria protocol client, built once for iOS, Android, and static web.
 - `packages/client`: the shared WebSocket protocol driver and capability facade for Cypheria clients. It owns neither the privileged runtime nor a Codex process.
-- `apps/cli` and `packages/sdk`: planned Cypheria protocol clients.
+- `apps/cli`: the Node CLI for Server lifecycle and shared resource APIs; `packages/sdk` remains planned.
 - `apps/desktop`: the self-hosting Electron + TanStack Start client. Electron main manages a compatible local server, while the renderer uses shared project, section, Thread, and timeline APIs.
 - `apps/marketplace`: a TanStack Start application on Cloudflare Workers for submitting, scanning, reviewing, publishing, and discovering ChatGPT/Codex-compatible plugins, then synchronizing approved entries to the official Cypheria GitHub repo marketplace.
 - `packages/runtime`: the TypeScript runtime for Cypheria-owned non-agent capabilities.
@@ -139,21 +139,19 @@ settings.*
 
 ## CLI
 
-`apps/cli` is a planned Node-based CLI with no TUI in V1. It is a Cypheria protocol client of `apps/server`, does not depend on `@cypheria/sdk`, and does not import the privileged runtime or desktop internals.
+`apps/cli` is a Node-based CLI with no TUI in V1. It is a Cypheria protocol client of `apps/server`, does not depend on `@cypheria/sdk`, and does not import the privileged runtime, database, Agent SDKs, or desktop internals.
 
 Initial command groups:
 
 ```txt
-cypheria run <prompt>
-cypheria run --jsonl <prompt>
-cypheria runtime info
-cypheria wallet list
-cypheria policy list
-cypheria automation run <task-id>
-cypheria doctor
+cypheria server start|stop|status|logs
+cypheria agents list
+cypheria projects list
+cypheria threads list
+cypheria schedules list
 ```
 
-The CLI should support human-readable output and JSONL output for automation. It should never import desktop internals.
+Lifecycle commands invoke the installed Server supervisor; resource commands use `@cypheria/client`. `CYPHERIA_SERVER_BIN`, `CYPHERIA_SERVER_URL`, and `CYPHERIA_TOKEN` provide explicit deployment overrides. Interactive Thread streaming and Web3 administration remain gated on their shared Server APIs.
 
 ## SDK
 
