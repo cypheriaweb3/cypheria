@@ -75,6 +75,47 @@ export const threads = sqliteTable(
   ]
 )
 
+/**
+ * Durable intent log for the provider/SQLite boundary. Timeline content remains provider-owned;
+ * this table only lets the server finish or compensate interrupted create/delete operations.
+ */
+export const threadLifecycleOperations = sqliteTable(
+  "thread_lifecycle_operations",
+  {
+    id: text("id").primaryKey(),
+    threadId: text("thread_id").notNull(),
+    agentId: text("agent_id")
+      .notNull()
+      .references(() => agentRegistry.id, { onDelete: "restrict" }),
+    agentSessionId: text("agent_session_id"),
+    kind: text("kind", { enum: ["create", "delete"] }).notNull(),
+    status: text("status", {
+      enum: ["pending", "provider-created", "provider-deleted", "failed"],
+    }).notNull(),
+    input: text("input", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
+    error: text("error"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    index("thread_lifecycle_operations_thread_id_idx").on(table.threadId),
+    index("thread_lifecycle_operations_status_idx").on(table.status),
+    check(
+      "thread_lifecycle_operations_kind_check",
+      sql`${table.kind} IN ('create', 'delete')`
+    ),
+    check(
+      "thread_lifecycle_operations_status_check",
+      sql`${table.status} IN ('pending', 'provider-created', 'provider-deleted', 'failed')`
+    ),
+    check("thread_lifecycle_operations_created_at_check", sql`${table.createdAt} >= 0`),
+    check(
+      "thread_lifecycle_operations_updated_at_check",
+      sql`${table.updatedAt} >= ${table.createdAt}`
+    ),
+  ]
+)
+
 export const projectItems = sqliteTable(
   "project_items",
   {

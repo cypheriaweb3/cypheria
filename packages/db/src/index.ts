@@ -69,6 +69,7 @@ export {
 export {
   type CreateProjectInput,
   type CreateThreadInput,
+  createThreadId,
   createProjectThreadPersistenceService,
   type ListOptions,
   type ListProjectsOptions,
@@ -91,6 +92,16 @@ export {
   type SortDirection,
   type ThreadRecord,
 } from "./project-thread.js"
+export {
+  type BeginThreadLifecycleOperationInput,
+  createThreadLifecyclePersistenceService,
+  type ThreadLifecycleKind,
+  type ThreadLifecycleOperationRecord,
+  type ThreadLifecyclePersistenceService,
+  type ThreadLifecycleStatus,
+  threadLifecycleKinds,
+  threadLifecycleStatuses,
+} from "./thread-lifecycle.js"
 export * from "./schema/index.js"
 export {
   createSigningIntentReplayStore,

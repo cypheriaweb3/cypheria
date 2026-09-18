@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "11c0b4e1-103d-4e12-abbd-dc33ac635a93",
+  "id": "6fd4e67c-9f80-4232-aeee-5ff455a305f7",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "active_wallet_context": {
@@ -63,8 +63,12 @@
           "name": "active_wallet_context_wallet_id_wallets_id_fk",
           "tableFrom": "active_wallet_context",
           "tableTo": "wallets",
-          "columnsFrom": ["wallet_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "wallet_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -72,8 +76,12 @@
           "name": "active_wallet_context_wallet_account_id_wallet_accounts_id_fk",
           "tableFrom": "active_wallet_context",
           "tableTo": "wallet_accounts",
-          "columnsFrom": ["wallet_account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "wallet_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -81,8 +89,12 @@
           "name": "active_wallet_context_chain_account_id_chain_accounts_id_fk",
           "tableFrom": "active_wallet_context",
           "tableTo": "chain_accounts",
-          "columnsFrom": ["chain_account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "chain_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -90,8 +102,12 @@
           "name": "active_wallet_context_network_id_networks_id_fk",
           "tableFrom": "active_wallet_context",
           "tableTo": "networks",
-          "columnsFrom": ["network_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "network_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "restrict",
           "onUpdate": "no action"
         }
@@ -257,12 +273,16 @@
       "indexes": {
         "approval_requests_intent_id_unique": {
           "name": "approval_requests_intent_id_unique",
-          "columns": ["intent_id"],
+          "columns": [
+            "intent_id"
+          ],
           "isUnique": true
         },
         "approval_requests_status_idx": {
           "name": "approval_requests_status_idx",
-          "columns": ["status"],
+          "columns": [
+            "status"
+          ],
           "isUnique": false
         }
       },
@@ -271,8 +291,12 @@
           "name": "approval_requests_intent_id_signing_intents_id_fk",
           "tableFrom": "approval_requests",
           "tableTo": "signing_intents",
-          "columnsFrom": ["intent_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "intent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -353,17 +377,23 @@
       "indexes": {
         "audit_logs_correlation_id_idx": {
           "name": "audit_logs_correlation_id_idx",
-          "columns": ["correlation_id"],
+          "columns": [
+            "correlation_id"
+          ],
           "isUnique": false
         },
         "audit_logs_created_at_idx": {
           "name": "audit_logs_created_at_idx",
-          "columns": ["created_at"],
+          "columns": [
+            "created_at"
+          ],
           "isUnique": false
         },
         "audit_logs_event_type_idx": {
           "name": "audit_logs_event_type_idx",
-          "columns": ["event_type"],
+          "columns": [
+            "event_type"
+          ],
           "isUnique": false
         }
       },
@@ -451,22 +481,30 @@
       "indexes": {
         "automation_runs_audit_correlation_id_idx": {
           "name": "automation_runs_audit_correlation_id_idx",
-          "columns": ["audit_correlation_id"],
+          "columns": [
+            "audit_correlation_id"
+          ],
           "isUnique": false
         },
         "automation_runs_status_idx": {
           "name": "automation_runs_status_idx",
-          "columns": ["status"],
+          "columns": [
+            "status"
+          ],
           "isUnique": false
         },
         "automation_runs_task_id_idx": {
           "name": "automation_runs_task_id_idx",
-          "columns": ["task_id"],
+          "columns": [
+            "task_id"
+          ],
           "isUnique": false
         },
         "automation_runs_active_task_unique": {
           "name": "automation_runs_active_task_unique",
-          "columns": ["task_id"],
+          "columns": [
+            "task_id"
+          ],
           "isUnique": true,
           "where": "\"automation_runs\".\"status\" IN ('queued', 'running')"
         }
@@ -476,8 +514,12 @@
           "name": "automation_runs_task_id_automation_tasks_id_fk",
           "tableFrom": "automation_runs",
           "tableTo": "automation_tasks",
-          "columnsFrom": ["task_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "task_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -596,17 +638,23 @@
       "indexes": {
         "automation_tasks_audit_correlation_id_idx": {
           "name": "automation_tasks_audit_correlation_id_idx",
-          "columns": ["audit_correlation_id"],
+          "columns": [
+            "audit_correlation_id"
+          ],
           "isUnique": false
         },
         "automation_tasks_status_idx": {
           "name": "automation_tasks_status_idx",
-          "columns": ["status"],
+          "columns": [
+            "status"
+          ],
           "isUnique": false
         },
         "automation_tasks_workspace_idx": {
           "name": "automation_tasks_workspace_idx",
-          "columns": ["workspace"],
+          "columns": [
+            "workspace"
+          ],
           "isUnique": false
         }
       },
@@ -694,17 +742,27 @@
       "indexes": {
         "chain_accounts_account_namespace_reference_unique": {
           "name": "chain_accounts_account_namespace_reference_unique",
-          "columns": ["wallet_account_id", "namespace", "reference"],
+          "columns": [
+            "wallet_account_id",
+            "namespace",
+            "reference"
+          ],
           "isUnique": true
         },
         "chain_accounts_address_idx": {
           "name": "chain_accounts_address_idx",
-          "columns": ["namespace", "reference", "address"],
+          "columns": [
+            "namespace",
+            "reference",
+            "address"
+          ],
           "isUnique": false
         },
         "chain_accounts_wallet_account_id_idx": {
           "name": "chain_accounts_wallet_account_id_idx",
-          "columns": ["wallet_account_id"],
+          "columns": [
+            "wallet_account_id"
+          ],
           "isUnique": false
         }
       },
@@ -713,8 +771,12 @@
           "name": "chain_accounts_wallet_account_id_wallet_accounts_id_fk",
           "tableFrom": "chain_accounts",
           "tableTo": "wallet_accounts",
-          "columnsFrom": ["wallet_account_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "wallet_account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -767,12 +829,17 @@
       "indexes": {
         "dapp_network_contexts_origin_protocol_unique": {
           "name": "dapp_network_contexts_origin_protocol_unique",
-          "columns": ["origin", "protocol"],
+          "columns": [
+            "origin",
+            "protocol"
+          ],
           "isUnique": true
         },
         "dapp_network_contexts_network_idx": {
           "name": "dapp_network_contexts_network_idx",
-          "columns": ["network_id"],
+          "columns": [
+            "network_id"
+          ],
           "isUnique": false
         }
       },
@@ -781,8 +848,12 @@
           "name": "dapp_network_contexts_origin_dapp_origins_origin_fk",
           "tableFrom": "dapp_network_contexts",
           "tableTo": "dapp_origins",
-          "columnsFrom": ["origin"],
-          "columnsTo": ["origin"],
+          "columnsFrom": [
+            "origin"
+          ],
+          "columnsTo": [
+            "origin"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -790,8 +861,12 @@
           "name": "dapp_network_contexts_network_id_networks_id_fk",
           "tableFrom": "dapp_network_contexts",
           "tableTo": "networks",
-          "columnsFrom": ["network_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "network_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -847,7 +922,9 @@
       "indexes": {
         "dapp_origins_session_key_unique": {
           "name": "dapp_origins_session_key_unique",
-          "columns": ["session_key"],
+          "columns": [
+            "session_key"
+          ],
           "isUnique": true
         }
       },
@@ -933,17 +1010,25 @@
       "indexes": {
         "dapp_permissions_origin_wallet_chain_unique": {
           "name": "dapp_permissions_origin_wallet_chain_unique",
-          "columns": ["origin", "wallet_id", "chain_key"],
+          "columns": [
+            "origin",
+            "wallet_id",
+            "chain_key"
+          ],
           "isUnique": true
         },
         "dapp_permissions_origin_idx": {
           "name": "dapp_permissions_origin_idx",
-          "columns": ["origin"],
+          "columns": [
+            "origin"
+          ],
           "isUnique": false
         },
         "dapp_permissions_wallet_id_idx": {
           "name": "dapp_permissions_wallet_id_idx",
-          "columns": ["wallet_id"],
+          "columns": [
+            "wallet_id"
+          ],
           "isUnique": false
         }
       },
@@ -952,8 +1037,12 @@
           "name": "dapp_permissions_origin_dapp_origins_origin_fk",
           "tableFrom": "dapp_permissions",
           "tableTo": "dapp_origins",
-          "columnsFrom": ["origin"],
-          "columnsTo": ["origin"],
+          "columnsFrom": [
+            "origin"
+          ],
+          "columnsTo": [
+            "origin"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -961,8 +1050,12 @@
           "name": "dapp_permissions_wallet_id_wallets_id_fk",
           "tableFrom": "dapp_permissions",
           "tableTo": "wallets",
-          "columnsFrom": ["wallet_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "wallet_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1092,22 +1185,31 @@
       "indexes": {
         "network_rpc_endpoints_network_position_unique": {
           "name": "network_rpc_endpoints_network_position_unique",
-          "columns": ["network_id", "position"],
+          "columns": [
+            "network_id",
+            "position"
+          ],
           "isUnique": true
         },
         "network_rpc_endpoints_credential_ref_unique": {
           "name": "network_rpc_endpoints_credential_ref_unique",
-          "columns": ["credential_ref"],
+          "columns": [
+            "credential_ref"
+          ],
           "isUnique": true
         },
         "network_rpc_endpoints_network_idx": {
           "name": "network_rpc_endpoints_network_idx",
-          "columns": ["network_id"],
+          "columns": [
+            "network_id"
+          ],
           "isUnique": false
         },
         "network_rpc_endpoints_enabled_idx": {
           "name": "network_rpc_endpoints_enabled_idx",
-          "columns": ["enabled"],
+          "columns": [
+            "enabled"
+          ],
           "isUnique": false
         }
       },
@@ -1116,8 +1218,12 @@
           "name": "network_rpc_endpoints_network_id_networks_id_fk",
           "tableFrom": "network_rpc_endpoints",
           "tableTo": "networks",
-          "columnsFrom": ["network_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "network_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1279,22 +1385,31 @@
       "indexes": {
         "networks_chain_unique": {
           "name": "networks_chain_unique",
-          "columns": ["namespace", "reference"],
+          "columns": [
+            "namespace",
+            "reference"
+          ],
           "isUnique": true
         },
         "networks_catalog_key_unique": {
           "name": "networks_catalog_key_unique",
-          "columns": ["catalog_key"],
+          "columns": [
+            "catalog_key"
+          ],
           "isUnique": true
         },
         "networks_position_idx": {
           "name": "networks_position_idx",
-          "columns": ["position"],
+          "columns": [
+            "position"
+          ],
           "isUnique": false
         },
         "networks_enabled_idx": {
           "name": "networks_enabled_idx",
-          "columns": ["enabled"],
+          "columns": [
+            "enabled"
+          ],
           "isUnique": false
         }
       },
@@ -1332,6 +1447,221 @@
         }
       }
     },
+    "project_items": {
+      "name": "project_items",
+      "columns": {
+        "project_id": {
+          "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "thread_id": {
+          "name": "thread_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "project_items_thread_id_unique": {
+          "name": "project_items_thread_id_unique",
+          "columns": [
+            "thread_id"
+          ],
+          "isUnique": true
+        },
+        "project_items_project_position_unique": {
+          "name": "project_items_project_position_unique",
+          "columns": [
+            "project_id",
+            "position"
+          ],
+          "isUnique": true
+        },
+        "project_items_project_id_idx": {
+          "name": "project_items_project_id_idx",
+          "columns": [
+            "project_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "project_items_project_id_projects_id_fk": {
+          "name": "project_items_project_id_projects_id_fk",
+          "tableFrom": "project_items",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "project_items_thread_id_threads_id_fk": {
+          "name": "project_items_thread_id_threads_id_fk",
+          "tableFrom": "project_items",
+          "tableTo": "threads",
+          "columnsFrom": [
+            "thread_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "project_items_project_id_thread_id_pk": {
+          "columns": [
+            "project_id",
+            "thread_id"
+          ],
+          "name": "project_items_project_id_thread_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "project_items_position_check": {
+          "name": "project_items_position_check",
+          "value": "\"project_items\".\"position\" >= 0"
+        },
+        "project_items_created_at_check": {
+          "name": "project_items_created_at_check",
+          "value": "\"project_items\".\"created_at\" >= 0"
+        },
+        "project_items_updated_at_check": {
+          "name": "project_items_updated_at_check",
+          "value": "\"project_items\".\"updated_at\" >= \"project_items\".\"created_at\""
+        }
+      }
+    },
+    "projects": {
+      "name": "projects",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "roots": {
+          "name": "roots",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "recency_at": {
+          "name": "recency_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "projects_position_unique": {
+          "name": "projects_position_unique",
+          "columns": [
+            "position"
+          ],
+          "isUnique": true
+        },
+        "projects_recency_at_idx": {
+          "name": "projects_recency_at_idx",
+          "columns": [
+            "recency_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "projects_id_uuidv7_check": {
+          "name": "projects_id_uuidv7_check",
+          "value": "length(\"projects\".\"id\") = 36 AND substr(\"projects\".\"id\", 15, 1) = '7'"
+        },
+        "projects_name_check": {
+          "name": "projects_name_check",
+          "value": "length(trim(\"projects\".\"name\")) > 0"
+        },
+        "projects_position_check": {
+          "name": "projects_position_check",
+          "value": "\"projects\".\"position\" >= 0"
+        },
+        "projects_recency_at_check": {
+          "name": "projects_recency_at_check",
+          "value": "\"projects\".\"recency_at\" IS NULL OR \"projects\".\"recency_at\" >= 0"
+        },
+        "projects_created_at_check": {
+          "name": "projects_created_at_check",
+          "value": "\"projects\".\"created_at\" >= 0"
+        },
+        "projects_updated_at_check": {
+          "name": "projects_updated_at_check",
+          "value": "\"projects\".\"updated_at\" >= \"projects\".\"created_at\""
+        }
+      }
+    },
     "runtime_metadata": {
       "name": "runtime_metadata",
       "columns": {
@@ -1362,6 +1692,249 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
+    },
+    "section_items": {
+      "name": "section_items",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "section_id": {
+          "name": "section_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "item_type": {
+          "name": "item_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "thread_id": {
+          "name": "thread_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "project_id": {
+          "name": "project_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "section_items_thread_id_unique": {
+          "name": "section_items_thread_id_unique",
+          "columns": [
+            "thread_id"
+          ],
+          "isUnique": true,
+          "where": "\"section_items\".\"thread_id\" IS NOT NULL"
+        },
+        "section_items_project_id_unique": {
+          "name": "section_items_project_id_unique",
+          "columns": [
+            "project_id"
+          ],
+          "isUnique": true,
+          "where": "\"section_items\".\"project_id\" IS NOT NULL"
+        },
+        "section_items_section_position_unique": {
+          "name": "section_items_section_position_unique",
+          "columns": [
+            "section_id",
+            "position"
+          ],
+          "isUnique": true
+        },
+        "section_items_section_id_idx": {
+          "name": "section_items_section_id_idx",
+          "columns": [
+            "section_id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "section_items_section_id_sections_id_fk": {
+          "name": "section_items_section_id_sections_id_fk",
+          "tableFrom": "section_items",
+          "tableTo": "sections",
+          "columnsFrom": [
+            "section_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "section_items_thread_id_threads_id_fk": {
+          "name": "section_items_thread_id_threads_id_fk",
+          "tableFrom": "section_items",
+          "tableTo": "threads",
+          "columnsFrom": [
+            "thread_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "section_items_project_id_projects_id_fk": {
+          "name": "section_items_project_id_projects_id_fk",
+          "tableFrom": "section_items",
+          "tableTo": "projects",
+          "columnsFrom": [
+            "project_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "section_items_target_check": {
+          "name": "section_items_target_check",
+          "value": "(\n        (\"section_items\".\"item_type\" = 'thread' AND \"section_items\".\"thread_id\" IS NOT NULL AND \"section_items\".\"project_id\" IS NULL)\n        OR\n        (\"section_items\".\"item_type\" = 'project' AND \"section_items\".\"project_id\" IS NOT NULL AND \"section_items\".\"thread_id\" IS NULL)\n      )"
+        },
+        "section_items_position_check": {
+          "name": "section_items_position_check",
+          "value": "\"section_items\".\"position\" >= 0"
+        },
+        "section_items_created_at_check": {
+          "name": "section_items_created_at_check",
+          "value": "\"section_items\".\"created_at\" >= 0"
+        },
+        "section_items_updated_at_check": {
+          "name": "section_items_updated_at_check",
+          "value": "\"section_items\".\"updated_at\" >= \"section_items\".\"created_at\""
+        }
+      }
+    },
+    "sections": {
+      "name": "sections",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "icon": {
+          "name": "icon",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "sections_position_unique": {
+          "name": "sections_position_unique",
+          "columns": [
+            "position"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "sections_id_uuidv7_check": {
+          "name": "sections_id_uuidv7_check",
+          "value": "length(\"sections\".\"id\") = 36 AND substr(\"sections\".\"id\", 15, 1) = '7'"
+        },
+        "sections_name_check": {
+          "name": "sections_name_check",
+          "value": "length(trim(\"sections\".\"name\")) > 0"
+        },
+        "sections_position_check": {
+          "name": "sections_position_check",
+          "value": "\"sections\".\"position\" >= 0"
+        },
+        "sections_created_at_check": {
+          "name": "sections_created_at_check",
+          "value": "\"sections\".\"created_at\" >= 0"
+        },
+        "sections_updated_at_check": {
+          "name": "sections_updated_at_check",
+          "value": "\"sections\".\"updated_at\" >= \"sections\".\"created_at\""
+        }
+      }
     },
     "settings": {
       "name": "settings",
@@ -1537,12 +2110,16 @@
       "indexes": {
         "signing_intents_status_idx": {
           "name": "signing_intents_status_idx",
-          "columns": ["status"],
+          "columns": [
+            "status"
+          ],
           "isUnique": false
         },
         "signing_intents_wallet_id_idx": {
           "name": "signing_intents_wallet_id_idx",
-          "columns": ["wallet_id"],
+          "columns": [
+            "wallet_id"
+          ],
           "isUnique": false
         }
       },
@@ -1677,12 +2254,16 @@
       "indexes": {
         "signing_policies_wallet_id_idx": {
           "name": "signing_policies_wallet_id_idx",
-          "columns": ["wallet_id"],
+          "columns": [
+            "wallet_id"
+          ],
           "isUnique": false
         },
         "signing_policies_enabled_idx": {
           "name": "signing_policies_enabled_idx",
-          "columns": ["enabled"],
+          "columns": [
+            "enabled"
+          ],
           "isUnique": false
         }
       },
@@ -1691,8 +2272,12 @@
           "name": "signing_policies_wallet_id_wallets_id_fk",
           "tableFrom": "signing_policies",
           "tableTo": "wallets",
-          "columnsFrom": ["wallet_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "wallet_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1781,17 +2366,24 @@
       "indexes": {
         "solana_dapp_permissions_origin_wallet_unique": {
           "name": "solana_dapp_permissions_origin_wallet_unique",
-          "columns": ["origin", "wallet_id"],
+          "columns": [
+            "origin",
+            "wallet_id"
+          ],
           "isUnique": true
         },
         "solana_dapp_permissions_origin_idx": {
           "name": "solana_dapp_permissions_origin_idx",
-          "columns": ["origin"],
+          "columns": [
+            "origin"
+          ],
           "isUnique": false
         },
         "solana_dapp_permissions_wallet_id_idx": {
           "name": "solana_dapp_permissions_wallet_id_idx",
-          "columns": ["wallet_id"],
+          "columns": [
+            "wallet_id"
+          ],
           "isUnique": false
         }
       },
@@ -1800,8 +2392,12 @@
           "name": "solana_dapp_permissions_origin_dapp_origins_origin_fk",
           "tableFrom": "solana_dapp_permissions",
           "tableTo": "dapp_origins",
-          "columnsFrom": ["origin"],
-          "columnsTo": ["origin"],
+          "columnsFrom": [
+            "origin"
+          ],
+          "columnsTo": [
+            "origin"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1809,8 +2405,12 @@
           "name": "solana_dapp_permissions_wallet_id_wallets_id_fk",
           "tableFrom": "solana_dapp_permissions",
           "tableTo": "wallets",
-          "columnsFrom": ["wallet_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "wallet_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1818,6 +2418,298 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
+    },
+    "thread_lifecycle_operations": {
+      "name": "thread_lifecycle_operations",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "thread_id": {
+          "name": "thread_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "agent_id": {
+          "name": "agent_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "agent_session_id": {
+          "name": "agent_session_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "input": {
+          "name": "input",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "thread_lifecycle_operations_thread_id_idx": {
+          "name": "thread_lifecycle_operations_thread_id_idx",
+          "columns": [
+            "thread_id"
+          ],
+          "isUnique": false
+        },
+        "thread_lifecycle_operations_status_idx": {
+          "name": "thread_lifecycle_operations_status_idx",
+          "columns": [
+            "status"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "thread_lifecycle_operations_agent_id_agent_registry_id_fk": {
+          "name": "thread_lifecycle_operations_agent_id_agent_registry_id_fk",
+          "tableFrom": "thread_lifecycle_operations",
+          "tableTo": "agent_registry",
+          "columnsFrom": [
+            "agent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "thread_lifecycle_operations_kind_check": {
+          "name": "thread_lifecycle_operations_kind_check",
+          "value": "\"thread_lifecycle_operations\".\"kind\" IN ('create', 'delete')"
+        },
+        "thread_lifecycle_operations_status_check": {
+          "name": "thread_lifecycle_operations_status_check",
+          "value": "\"thread_lifecycle_operations\".\"status\" IN ('pending', 'provider-created', 'provider-deleted', 'failed')"
+        },
+        "thread_lifecycle_operations_created_at_check": {
+          "name": "thread_lifecycle_operations_created_at_check",
+          "value": "\"thread_lifecycle_operations\".\"created_at\" >= 0"
+        },
+        "thread_lifecycle_operations_updated_at_check": {
+          "name": "thread_lifecycle_operations_updated_at_check",
+          "value": "\"thread_lifecycle_operations\".\"updated_at\" >= \"thread_lifecycle_operations\".\"created_at\""
+        }
+      }
+    },
+    "threads": {
+      "name": "threads",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "agent_id": {
+          "name": "agent_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "agent_session_id": {
+          "name": "agent_session_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "forked_from_id": {
+          "name": "forked_from_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "cwd": {
+          "name": "cwd",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "recency_at": {
+          "name": "recency_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "threads_position_unique": {
+          "name": "threads_position_unique",
+          "columns": [
+            "position"
+          ],
+          "isUnique": true
+        },
+        "threads_agent_session_unique": {
+          "name": "threads_agent_session_unique",
+          "columns": [
+            "agent_id",
+            "agent_session_id"
+          ],
+          "isUnique": true,
+          "where": "\"threads\".\"agent_session_id\" IS NOT NULL"
+        },
+        "threads_agent_id_idx": {
+          "name": "threads_agent_id_idx",
+          "columns": [
+            "agent_id"
+          ],
+          "isUnique": false
+        },
+        "threads_forked_from_id_idx": {
+          "name": "threads_forked_from_id_idx",
+          "columns": [
+            "forked_from_id"
+          ],
+          "isUnique": false
+        },
+        "threads_recency_at_idx": {
+          "name": "threads_recency_at_idx",
+          "columns": [
+            "recency_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "threads_agent_id_agent_registry_id_fk": {
+          "name": "threads_agent_id_agent_registry_id_fk",
+          "tableFrom": "threads",
+          "tableTo": "agent_registry",
+          "columnsFrom": [
+            "agent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "threads_forked_from_id_threads_id_fk": {
+          "name": "threads_forked_from_id_threads_id_fk",
+          "tableFrom": "threads",
+          "tableTo": "threads",
+          "columnsFrom": [
+            "forked_from_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "threads_id_uuidv7_check": {
+          "name": "threads_id_uuidv7_check",
+          "value": "length(\"threads\".\"id\") = 36 AND substr(\"threads\".\"id\", 15, 1) = '7'"
+        },
+        "threads_position_check": {
+          "name": "threads_position_check",
+          "value": "\"threads\".\"position\" >= 0"
+        },
+        "threads_recency_at_check": {
+          "name": "threads_recency_at_check",
+          "value": "\"threads\".\"recency_at\" IS NULL OR \"threads\".\"recency_at\" >= 0"
+        },
+        "threads_created_at_check": {
+          "name": "threads_created_at_check",
+          "value": "\"threads\".\"created_at\" >= 0"
+        },
+        "threads_updated_at_check": {
+          "name": "threads_updated_at_check",
+          "value": "\"threads\".\"updated_at\" >= \"threads\".\"created_at\""
+        }
+      }
     },
     "wallet_accounts": {
       "name": "wallet_accounts",
@@ -1875,22 +2767,33 @@
       "indexes": {
         "wallet_accounts_wallet_index_unique": {
           "name": "wallet_accounts_wallet_index_unique",
-          "columns": ["wallet_id", "account_index"],
+          "columns": [
+            "wallet_id",
+            "account_index"
+          ],
           "isUnique": true
         },
         "wallet_accounts_wallet_name_unique": {
           "name": "wallet_accounts_wallet_name_unique",
-          "columns": ["wallet_id", "name"],
+          "columns": [
+            "wallet_id",
+            "name"
+          ],
           "isUnique": true
         },
         "wallet_accounts_wallet_fingerprint_unique": {
           "name": "wallet_accounts_wallet_fingerprint_unique",
-          "columns": ["wallet_id", "fingerprint"],
+          "columns": [
+            "wallet_id",
+            "fingerprint"
+          ],
           "isUnique": true
         },
         "wallet_accounts_wallet_id_idx": {
           "name": "wallet_accounts_wallet_id_idx",
-          "columns": ["wallet_id"],
+          "columns": [
+            "wallet_id"
+          ],
           "isUnique": false
         }
       },
@@ -1899,8 +2802,12 @@
           "name": "wallet_accounts_wallet_id_wallets_id_fk",
           "tableFrom": "wallet_accounts",
           "tableTo": "wallets",
-          "columnsFrom": ["wallet_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "wallet_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1966,15 +2873,22 @@
           "name": "wallet_hd_schemes_wallet_id_wallets_id_fk",
           "tableFrom": "wallet_hd_schemes",
           "tableTo": "wallets",
-          "columnsFrom": ["wallet_id"],
-          "columnsTo": ["id"],
+          "columnsFrom": [
+            "wallet_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "wallet_hd_schemes_wallet_id_namespace_pk": {
-          "columns": ["wallet_id", "namespace"],
+          "columns": [
+            "wallet_id",
+            "namespace"
+          ],
           "name": "wallet_hd_schemes_wallet_id_namespace_pk"
         }
       },
@@ -2072,27 +2986,37 @@
       "indexes": {
         "wallets_fingerprint_unique": {
           "name": "wallets_fingerprint_unique",
-          "columns": ["fingerprint"],
+          "columns": [
+            "fingerprint"
+          ],
           "isUnique": true
         },
         "wallets_name_unique": {
           "name": "wallets_name_unique",
-          "columns": ["name"],
+          "columns": [
+            "name"
+          ],
           "isUnique": true
         },
         "wallets_vault_id_unique": {
           "name": "wallets_vault_id_unique",
-          "columns": ["vault_id"],
+          "columns": [
+            "vault_id"
+          ],
           "isUnique": true
         },
         "wallets_position_idx": {
           "name": "wallets_position_idx",
-          "columns": ["position"],
+          "columns": [
+            "position"
+          ],
           "isUnique": false
         },
         "wallets_status_idx": {
           "name": "wallets_status_idx",
-          "columns": ["status"],
+          "columns": [
+            "status"
+          ],
           "isUnique": false
         }
       },
@@ -2159,7 +3083,9 @@
       "indexes": {
         "workspaces_path_idx": {
           "name": "workspaces_path_idx",
-          "columns": ["path"],
+          "columns": [
+            "path"
+          ],
           "isUnique": false
         }
       },

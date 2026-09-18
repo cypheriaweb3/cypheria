@@ -82,9 +82,11 @@ export type CreateProjectInput = {
 
 export type CreateThreadInput = {
   readonly agentId: string
+  readonly agentSessionId?: string | null
   readonly beforeThreadId?: string | null
   readonly cwd?: string | null
   readonly forkedFromId?: string | null
+  readonly id?: string
   readonly projectPlacement?: ProjectPlacement
   readonly recencyAt?: number | null
   readonly sectionPlacement?: SectionPlacement
@@ -125,6 +127,11 @@ export class ProjectThreadPersistenceError extends Error {
 }
 
 export type ProjectThreadPersistenceService = {
+  bindThreadAgentSession(
+    threadId: string,
+    agentSessionId: string | null,
+    now?: number
+  ): Promise<ThreadRecord>
   createProject(input: CreateProjectInput, now?: number): Promise<ProjectRecord>
   createSection(
     input: {
@@ -207,7 +214,7 @@ const POSITION_OFFSET = 1_000_000_000
 
 const nowSeconds = (): number => Math.floor(Date.now() / 1000)
 
-const createUuidV7 = (now = Date.now()): string => {
+export const createThreadId = (now = Date.now()): string => {
   const bytes = randomBytes(16)
   let timestamp = BigInt(now)
   for (let index = 5; index >= 0; index -= 1) {
@@ -748,10 +755,22 @@ const moveThreadToProjectInTransaction = async (
 export const createProjectThreadPersistenceService = (
   db: CypheriaDatabase
 ): ProjectThreadPersistenceService => ({
+  bindThreadAgentSession: async (threadId, agentSessionId, nowValue = nowSeconds()) => {
+    const now = parseNow(nowValue)
+    const thread = await requireThread(db, threadId)
+    const [record] = await db
+      .update(threads)
+      .set({ agentSessionId, updatedAt: now })
+      .where(eq(threads.id, thread.id))
+      .returning()
+    if (!record)
+      throw new ProjectThreadPersistenceError("WRITE_FAILED", "Thread binding was not updated")
+    return record
+  },
   createProject: async (input, nowValue = nowSeconds()) => {
     const now = parseNow(nowValue)
     return db.transaction(async (tx) => {
-      const id = createUuidV7(now * 1000)
+      const id = createThreadId(now * 1000)
       const ids = await projectIdsByPosition(tx)
       await tx.insert(projects).values({
         createdAt: now,
@@ -787,7 +806,7 @@ export const createProjectThreadPersistenceService = (
           "A section cannot move before Pinned"
         )
       }
-      const id = createUuidV7(now * 1000)
+      const id = createThreadId(now * 1000)
       const ids = await sectionIdsByPosition(tx)
       await tx.insert(sections).values({
         color: input.color ?? null,
@@ -810,11 +829,11 @@ export const createProjectThreadPersistenceService = (
     const now = parseNow(nowValue)
     return db.transaction(async (tx) => {
       if (input.forkedFromId) await requireThread(tx, input.forkedFromId)
-      const id = createUuidV7(now * 1000)
+      const id = input.id === undefined ? createThreadId(now * 1000) : uuidV7Schema.parse(input.id)
       const ids = await threadIdsByPosition(tx)
       await tx.insert(threads).values({
         agentId: input.agentId,
-        agentSessionId: null,
+        agentSessionId: input.agentSessionId ?? null,
         createdAt: now,
         cwd: input.cwd ?? null,
         forkedFromId: input.forkedFromId ?? null,
