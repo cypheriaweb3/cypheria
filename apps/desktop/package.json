@@ -31,7 +31,6 @@
     "@cypheria/codex-bridge": "workspace:*",
     "@cypheria/db": "workspace:*",
     "@cypheria/protocol": "workspace:*",
-    "@cypheria/runtime": "workspace:*",
     "@cypheria/server": "workspace:*",
     "@cypheria/ui": "workspace:*",
     "@cypheria/web3": "workspace:*",

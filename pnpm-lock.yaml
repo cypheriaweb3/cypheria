@@ -70,9 +70,6 @@ importers:
       '@cypheria/protocol':
         specifier: workspace:*
         version: link:../../packages/protocol
-      '@cypheria/runtime':
-        specifier: workspace:*
-        version: link:../../packages/runtime
       '@cypheria/server':
         specifier: workspace:*
         version: link:../server
@@ -278,9 +275,9 @@ importers:
       '@cypheria/relay':
         specifier: workspace:*
         version: link:../../packages/relay
-      '@cypheria/runtime':
+      '@cypheria/web3':
         specifier: workspace:*
-        version: link:../../packages/runtime
+        version: link:../../packages/web3
       '@earendil-works/pi-coding-agent':
         specifier: 0.85.1
         version: 0.85.1(@modelcontextprotocol/sdk@1.29.0(zod@4.6.2))(ws@8.21.3)(zod@4.6.2)
@@ -296,6 +293,12 @@ importers:
       '@opencode-ai/sdk':
         specifier: 1.18.31
         version: 1.18.31
+      '@scure/bip39':
+        specifier: ^1.6.0
+        version: 1.6.0
+      ethers:
+        specifier: ^6.17.0
+        version: 6.17.0
       extract-zip:
         specifier: ^2.0.1
         version: 2.0.1
@@ -308,6 +311,9 @@ importers:
       tar:
         specifier: ^7.5.11
         version: 7.5.22
+      viem:
+        specifier: ^2.56.1
+        version: 2.56.1(typescript@6.0.3)(zod@4.6.2)
       ws:
         specifier: ^8.21.3
         version: 8.21.3
@@ -477,31 +483,6 @@ importers:
       tweetnacl:
         specifier: ^1.0.3
         version: 1.0.3
-    devDependencies:
-      vitest:
-        specifier: ^4.1.7
-        version: 4.1.7(@types/node@25.9.1)(jsdom@30.0.1(@noble/hashes@1.8.0))(msw@2.14.6(@types/node@25.9.1)(typescript@6.0.3))(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.0))
-
-  packages/runtime:
-    dependencies:
-      '@cypheria/db':
-        specifier: workspace:*
-        version: link:../db
-      '@cypheria/web3':
-        specifier: workspace:*
-        version: link:../web3
-      '@scure/bip39':
-        specifier: ^1.6.0
-        version: 1.6.0
-      ethers:
-        specifier: ^6.17.0
-        version: 6.17.0
-      viem:
-        specifier: ^2.56.1
-        version: 2.56.1(typescript@6.0.3)(zod@4.6.2)
-      zod:
-        specifier: ^4.6.2
-        version: 4.6.2
     devDependencies:
       vitest:
         specifier: ^4.1.7

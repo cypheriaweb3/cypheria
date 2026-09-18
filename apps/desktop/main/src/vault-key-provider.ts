@@ -3,7 +3,7 @@ import { join } from "node:path"
 import {
   createSafeStorageVaultMasterKeyProvider,
   type VaultMasterKeyProvider,
-} from "@cypheria/runtime"
+} from "@cypheria/server/runtime"
 import { safeStorage } from "electron"
 
 export const createDesktopVaultMasterKeyProvider = (configDir: string): VaultMasterKeyProvider =>

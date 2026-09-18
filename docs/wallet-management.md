@@ -6,7 +6,7 @@ Cypheria V1 supports `hd`, `private-key`, `private-key-group`, `watch`, and `wat
 
 - `@cypheria/web3/wallet` owns domain types, validation, derivation rules, fingerprints, renderer-safe projections, and signer capabilities. It does not own files, databases, Electron, or OS credentials.
 - `@cypheria/db` stores non-secret wallet state through Drizzle and libSQL.
-- `@cypheria/runtime` owns wallet orchestration, the encrypted vault, unlocked memory, signer construction, policy routing, and audit coordination.
+- the `apps/server` runtime owns wallet orchestration, the encrypted vault, unlocked memory, signer construction, policy routing, and audit coordination.
 - Renderer, dApp pages, Codex, SDK callers, and schedule workers never receive mnemonic phrases, private keys, vault keys, decrypted keystores, or signer objects that expose secrets.
 
 ## Domain Model
@@ -78,7 +78,7 @@ A newly generated HD wallet may appear as `initializing` while expensive encrypt
 
 Imported wallets may already control funds, so HD and private-key imports persist the vault before creating their public state or reporting success. If the public-state write fails, the newly created vault is removed as compensation. Watch imports have no vault phase. All secret imports may accept an expected address; the runtime derives with viem and rejects a mismatch before persistence.
 
-`@cypheria/runtime` exposes a wallet manager for generating and importing HD wallets, importing single and grouped private keys, adding single and grouped watch wallets, listing renderer-safe views, renaming, deletion, and active-context selection. Duplicate detection compares wallet and account fingerprints across persisted wallets and within a new group. Configured EVM chain IDs share the same EVM address while retaining distinct chain-account records.
+the `apps/server` runtime exposes a wallet manager for generating and importing HD wallets, importing single and grouped private keys, adding single and grouped watch wallets, listing renderer-safe views, renaming, deletion, and active-context selection. Duplicate detection compares wallet and account fingerprints across persisted wallets and within a new group. Configured EVM chain IDs share the same EVM address while retaining distinct chain-account records.
 
 The active context stores one selected wallet, wallet account, chain account, network, and mode. Persistence verifies that the account belongs to the wallet graph and that the enabled network has exactly the same canonical `ChainIdentity` as the chain account. Only `ready` wallets can be selected, and watch wallets are restricted to `read-only`; wallet deletion clears a selected context through foreign-key cascading. Network removal clears it explicitly. Mutations append redacted audit events without secret material.
 
@@ -86,7 +86,7 @@ Recovery reconciles lifecycle state and vault files; a missing vault marks an ex
 
 ## Signing
 
-`@cypheria/runtime` issues an opaque capability bound to one persisted wallet/account/chain reference. Its methods accept complete, strictly validated signing intents rather than arbitrary signing payloads. Every execution re-resolves ready vault-wallet state, checks the bound address and chain, requires an unlocked vault, calls the required policy/approval authorizer, and atomically claims an approved intent ID before signing. The signing service has no bypass path and does not accept `send-transaction`; signing and broadcasting remain distinct permissions.
+the `apps/server` runtime issues an opaque capability bound to one persisted wallet/account/chain reference. Its methods accept complete, strictly validated signing intents rather than arbitrary signing payloads. Every execution re-resolves ready vault-wallet state, checks the bound address and chain, requires an unlocked vault, calls the required policy/approval authorizer, and atomically claims an approved intent ID before signing. The signing service has no bypass path and does not accept `send-transaction`; signing and broadcasting remain distinct permissions.
 
 Production replay protection uses `signing_intent_claims` in libSQL. Authorization occurs before the claim so an intent awaiting human approval is not consumed and can be retried after its decision. Once approved, the intent ID is claimed with its canonical SHA-256 payload hash before secret access, so concurrent or later reuse is rejected across process restarts. A locked vault is also detected before the claim, allowing the same intent to be retried after an explicit unlock. A process-local replay guard exists only as an explicit test or isolated-runtime adapter.
 

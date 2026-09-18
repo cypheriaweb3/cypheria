@@ -128,7 +128,7 @@ D1 is the system of record for identities, GitHub sources, drafts, scans, review
 
 ## Runtime Stack
 
-`@cypheria/runtime` is the TypeScript host for Cypheria-owned non-agent services. It should compose domain packages instead of duplicating their models.
+the `apps/server` runtime is the TypeScript host for Cypheria-owned non-agent services. It should compose domain packages instead of duplicating their models.
 
 Runtime responsibilities:
 
@@ -147,7 +147,7 @@ Runtime does not implement Codex agent internals.
 It must not depend on:
 
 - `@cypheria/sdk`
-- `@cypheria/runtime`
+- the `apps/server` runtime
 - `@cypheria/codex-bridge`
 - Electron or desktop packages
 
@@ -165,7 +165,7 @@ Implemented command behavior:
 It must not depend on:
 
 - `apps/cli`
-- `@cypheria/runtime`
+- the `apps/server` runtime
 - Electron or desktop packages
 - `@cypheria/codex-bridge`
 
@@ -371,7 +371,7 @@ Policy modes:
 - Human approval.
 - Conditional auto-signing.
 
-Signing policies are stored in the explicit `signing_policies` libSQL table. `@cypheria/runtime` provides strict create, get, list, update, disable, and evaluate operations. Records carry timestamps and a monotonically increasing revision; updates and disables use compare-and-swap semantics so concurrent editors cannot silently overwrite each other.
+Signing policies are stored in the explicit `signing_policies` libSQL table. the `apps/server` runtime provides strict create, get, list, update, disable, and evaluate operations. Records carry timestamps and a monotonically increasing revision; updates and disables use compare-and-swap semantics so concurrent editors cannot silently overwrite each other.
 
 Evaluation first applies wallet mode, then matching enabled and unexpired wallet policies. Explicit deny takes precedence over human approval, which takes precedence over allow; policy ID is the deterministic tie breaker. An unmatched conditional auto-signing request requires human approval. Every mutation and evaluation result receives a stable decision or policy identifier and a redacted audit record.
 
@@ -428,7 +428,7 @@ rpc_endpoints
 - Keep TypeScript strict.
 - Use Zod at runtime boundaries: IPC, policy schemas, wallet inputs, schedule definitions, and generated-protocol adapters.
 - Keep package boundaries explicit.
-- Keep domain/data packages independent from `@cypheria/runtime`; runtime composes them through explicit service injection instead of reverse imports.
+- Keep domain/data packages independent from the `apps/server` runtime; runtime composes them through explicit service injection instead of reverse imports.
 - Update English and Chinese docs together for architecture, behavior, command, package boundary, or runtime-path changes.
 
 ## Not In V1

@@ -7,7 +7,6 @@ import {
   type RelayPairingOfferResponse,
   type ServerOperationalState,
 } from "@cypheria/protocol"
-import type { CypheriaRuntimeMethod } from "@cypheria/runtime"
 import { upgradeWebSocket } from "@hono/node-server"
 import { serveStatic } from "@hono/node-server/serve-static"
 import { zValidator } from "@hono/zod-validator"
@@ -15,7 +14,6 @@ import { type Context, Hono } from "hono"
 import { bodyLimit } from "hono/body-limit"
 import { cors } from "hono/cors"
 import type { Logger } from "pino"
-
 import {
   hasCypheriaProtocol,
   isAuthorized,
@@ -24,6 +22,7 @@ import {
   readWebSocketToken,
 } from "./auth.js"
 import type { CypheriaServerConfig } from "./config.js"
+import type { CypheriaRuntimeMethod } from "./runtime/index.js"
 import type { ClientConnection } from "./session/client-connection.js"
 import type { SessionHost } from "./session/client-session.js"
 import type { ConnectionRegistry } from "./session/connection-registry.js"

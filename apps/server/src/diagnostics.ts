@@ -1,5 +1,5 @@
 import type { ServerDiagnostics } from "@cypheria/protocol"
-import type { CypheriaRuntimeLifecycleState } from "@cypheria/runtime"
+import type { CypheriaRuntimeLifecycleState } from "./runtime/index.js"
 
 export type ConnectionDiagnostics = ServerDiagnostics["connections"]
 

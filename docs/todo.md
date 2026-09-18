@@ -27,7 +27,7 @@ Status legend:
   - Verification: `pnpm run ci`.
 
 - [x] Add runtime home resolution.
-  - Acceptance: `@cypheria/runtime` resolves `$CYPHERIA_HOME`, defaults to `~/.cypheria`, and derives `CODEX_HOME=$CYPHERIA_HOME/codex`.
+  - Acceptance: the `apps/server` runtime resolves `$CYPHERIA_HOME`, defaults to `~/.cypheria`, and derives `CODEX_HOME=$CYPHERIA_HOME/codex`.
   - Verification: `pnpm run ci`, `pnpm build`.
 
 - [x] Add runtime directory initialization.
@@ -148,11 +148,11 @@ Status legend:
 
 ## Runtime
 
-- [x] Expand `@cypheria/runtime` into the Cypheria runtime host.
+- [x] Expand the `apps/server` runtime into the Cypheria runtime host.
   - Acceptance: package exports `CypheriaRuntime` with `start()`, `stop()`, `request()`, and `events()` methods.
   - Include: service registry, lifecycle state, runtime info handler, runtime event envelope, and clean shutdown.
   - Keep: existing home/path resolution exports.
-  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/runtime test`.
+  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/server test`.
 
 - [x] Move Cypheria-owned service orchestration behind runtime.
   - Acceptance: runtime can wire database, audit, policy, wallet domain, and browser domain service boundaries without importing desktop renderer code.
@@ -184,7 +184,7 @@ Status legend:
   - Acceptance: package exports a public `Cypheria` server client.
   - Include: clients for runtime, wallet, policy, schedule, and agent.
   - Agent path: use versioned server operations and events.
-  - Must not import: `apps/cli`, `apps/desktop`, Electron, `@cypheria/runtime`, or `@cypheria/codex-bridge`.
+  - Must not import: `apps/cli`, `apps/desktop`, Electron, the `apps/server` runtime, or `@cypheria/codex-bridge`.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/sdk test`.
 
 - [ ] Add SDK test doubles for runtime and Codex SDK.
@@ -198,7 +198,7 @@ Status legend:
   - Acceptance: package builds a `cypheria` Node CLI with no TUI.
   - Include: argument parsing, server connection/configuration, JSON output, log tailing, and non-zero failure exits.
   - Dependencies: `@cypheria/client` and `@cypheria/protocol`.
-  - Must not import: `@cypheria/sdk`, `@cypheria/runtime`, Electron, desktop packages, or `@cypheria/codex-bridge`.
+  - Must not import: `@cypheria/sdk`, the `apps/server` runtime, Electron, desktop packages, or `@cypheria/codex-bridge`.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/cli test`.
 
 - [x] Implement server and shared-resource CLI commands.
@@ -216,7 +216,7 @@ Status legend:
 
 - [ ] Scaffold the TanStack Start marketplace Worker.
   - Acceptance: `@cypheria/marketplace` builds and previews with the official Cloudflare Vite integration, a custom Worker entrypoint, locale-prefixed SSR routes, shared UI primitives, D1 migrations, typed bindings, and local tests.
-  - Must not import: Electron, desktop IPC, `@cypheria/runtime`, `@cypheria/codex-bridge`, or `@cypheria/db`.
+  - Must not import: Electron, desktop IPC, the `apps/server` runtime, `@cypheria/codex-bridge`, or `@cypheria/db`.
   - Verification: marketplace tests/typecheck/build/type generation, `pnpm run ci`, and `pnpm build`.
 
 - [ ] Implement marketplace identity, organizations, authorization, and publisher verification.

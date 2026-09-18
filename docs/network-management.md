@@ -57,7 +57,7 @@ It does not own databases, network requests, Electron, credentials, wallet state
 
 - `@cypheria/web3/wallet` imports chain identity primitives from `@cypheria/web3/network`. `ChainAccount` records identity, address, and derivation information; it does not own RPC configuration. `ChainDefinition` and `RpcEndpoint` remain network-domain types.
 - `@cypheria/db` persists networks, endpoints, ordering, revisions, and active contexts. It never stores protected connection material in ordinary columns.
-- `@cypheria/runtime` owns `NetworkManager`, endpoint probing, RPC routing, health state, credential resolution, audit, and coordination with wallets and dApps.
+- the `apps/server` runtime owns `NetworkManager`, endpoint probing, RPC routing, health state, credential resolution, audit, and coordination with wallets and dApps.
 - `@cypheria/web3/provider` remains a protocol surface. It converts EIP-1193 hexadecimal chain IDs and Solana Wallet Standard identifiers at its boundary, but does not choose endpoints.
 - Desktop main owns protected endpoint credentials and exposes only typed, redacted IPC projections to renderer.
 - CLI and SDK use the same runtime services directly and do not depend on desktop internals.

@@ -2,7 +2,7 @@ import { join } from "node:path"
 import {
   createSafeStorageNetworkCredentialStore,
   type NetworkCredentialStore,
-} from "@cypheria/runtime"
+} from "@cypheria/server/runtime"
 import { safeStorage } from "electron"
 
 /** Creates the main-process-only store used to resolve protected RPC connections. */

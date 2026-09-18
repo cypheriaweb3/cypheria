@@ -10,7 +10,8 @@
     "cypheria-server": "./dist/cli.mjs"
   },
   "exports": {
-    ".": "./src/index.ts"
+    ".": "./src/index.ts",
+    "./runtime": "./src/runtime/index.ts"
   },
   "scripts": {
     "build": "tsdown --config tsdown.config.mjs && node scripts/embed-web.mjs",
@@ -27,7 +28,7 @@
     "@cypheria/db": "workspace:*",
     "@cypheria/protocol": "workspace:*",
     "@cypheria/relay": "workspace:*",
-    "@cypheria/runtime": "workspace:*",
+    "@cypheria/web3": "workspace:*",
     "@earendil-works/pi-coding-agent": "0.85.1",
     "@opencode-ai/sdk": "1.18.31",
     "@hono/node-server": "^2.1.1",
@@ -36,7 +37,10 @@
     "extract-zip": "^2.0.1",
     "hono": "^4.13.7",
     "pino": "^10.3.1",
+    "@scure/bip39": "^1.6.0",
     "tar": "^7.5.11",
+    "ethers": "^6.17.0",
+    "viem": "^2.56.1",
     "ws": "^8.21.3",
     "zod": "^4.6.2"
   },

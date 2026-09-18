@@ -4,7 +4,7 @@ import { mkdir, writeFile } from "node:fs/promises"
 import { dirname, join, relative, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import type { v2 } from "@cypheria/codex-bridge"
-import { buildRuntimePaths, type EthereumNetworkApproval } from "@cypheria/runtime"
+import { buildRuntimePaths, type EthereumNetworkApproval } from "@cypheria/server/runtime"
 import { type WalletProviderResponse, walletProviderResponseSchema } from "@cypheria/web3/provider"
 import {
   app,

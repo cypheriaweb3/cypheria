@@ -127,7 +127,7 @@ D1 是 identity、GitHub source、draft、scan、review、release、publication�
 
 ## Runtime Stack
 
-`@cypheria/runtime` 是 Cypheria 自有非 agent services 的 TypeScript host。它应该组合 domain packages，而不是重复定义它们的模型。
+the `apps/server` runtime 是 Cypheria 自有非 agent services 的 TypeScript host。它应该组合 domain packages，而不是重复定义它们的模型。
 
 Runtime 职责：
 
@@ -146,7 +146,7 @@ Runtime 不实现 Codex agent internals。
 它不得依赖：
 
 - `@cypheria/sdk`
-- `@cypheria/runtime`
+- the `apps/server` runtime
 - `@cypheria/codex-bridge`
 - Electron 或 desktop packages
 
@@ -164,7 +164,7 @@ Runtime 不实现 Codex agent internals。
 它不得依赖：
 
 - `apps/cli`
-- `@cypheria/runtime`
+- the `apps/server` runtime
 - Electron 或 desktop packages
 - `@cypheria/codex-bridge`
 
@@ -369,7 +369,7 @@ Policy modes：
 - Human approval。
 - Conditional auto-signing。
 
-Signing policy 保存在显式的 `signing_policies` libSQL 表中。`@cypheria/runtime` 提供严格的 create、get、list、update、disable 和 evaluate 操作。记录包含 timestamp 与单调递增 revision；update 和 disable 使用 compare-and-swap 语义，避免并发编辑静默覆盖。
+Signing policy 保存在显式的 `signing_policies` libSQL 表中。the `apps/server` runtime 提供严格的 create、get、list、update、disable 和 evaluate 操作。记录包含 timestamp 与单调递增 revision；update 和 disable 使用 compare-and-swap 语义，避免并发编辑静默覆盖。
 
 评估时先应用 wallet mode，再匹配已启用且未过期的钱包 policy。显式 deny 优先于 human approval，human approval 优先于 allow；policy ID 作为确定性 tie breaker。未匹配的 conditional auto-signing 请求必须进入 human approval。每次变更和评估结果都有稳定的 decision 或 policy 标识以及脱敏 audit record。
 
@@ -425,7 +425,7 @@ rpc_endpoints
 - 保持 TypeScript strict。
 - 在 runtime boundaries 使用 Zod：IPC、policy schemas、wallet inputs、schedule definitions 和 generated-protocol adapters。
 - 保持 package boundaries 明确。
-- 保持 domain/data packages 不依赖 `@cypheria/runtime`；runtime 通过显式 service injection 组合它们，而不是让它们反向 import runtime。
+- 保持 domain/data packages 不依赖 the `apps/server` runtime；runtime 通过显式 service injection 组合它们，而不是让它们反向 import runtime。
 - 架构、行为、命令、package boundary 或 runtime path 变化时，英文和中文文档同步更新。
 
 ## V1 暂不采用

@@ -8,12 +8,11 @@ import { promisify } from "node:util"
 
 import { createCypheriaClient } from "@cypheria/client"
 import { RelayPairingOfferResponseSchema } from "@cypheria/protocol"
-import { CypheriaRuntime } from "@cypheria/runtime"
 import pino from "pino"
 import { describe, expect, it } from "vitest"
 import WebSocket from "ws"
-
 import { loadServerConfig } from "./config.js"
+import { CypheriaRuntime } from "./runtime/index.js"
 import { CypheriaServer } from "./server.js"
 
 const execFileAsync = promisify(execFile)

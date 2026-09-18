@@ -6,7 +6,7 @@ Cypheria V1 支持 `hd`、`private-key`、`private-key-group`、`watch` 和 `wat
 
 - `@cypheria/web3/wallet` 负责领域类型、验证、派生规则、fingerprint、renderer-safe projection 和 signer capability；不负责文件、数据库、Electron 或 OS credential。
 - `@cypheria/db` 通过 Drizzle + libSQL 保存非秘密钱包状态。
-- `@cypheria/runtime` 负责钱包编排、加密 vault、解锁内存、signer 构建、policy 路由和 audit 协调。
+- the `apps/server` runtime 负责钱包编排、加密 vault、解锁内存、signer 构建、policy 路由和 audit 协调。
 - Renderer、dApp 页面、Codex、SDK 调用方和 schedule worker 永远不会收到助记词、私钥、vault key、解密 keystore 或暴露秘密的 signer object。
 
 ## 领域模型
@@ -78,7 +78,7 @@ Unlock 只返回标识与 entry kind。解密值保留在 internal controller �
 
 导入钱包可能已经控制资金，因此 HD 和私钥导入先持久化 vault，再创建公开状态并报告成功；若公开状态写入失败，会补偿删除新建 vault。Watch 导入没有 vault 阶段。秘密导入均可提供 expected address；runtime 使用 viem 派生地址，并在持久化前拒绝不一致输入。
 
-`@cypheria/runtime` 提供 wallet manager，用于生成和导入 HD 钱包、导入单个或分组私钥、添加单个或分组观察钱包、列出 renderer-safe view、重命名、删除以及选择 active context。查重会比较已持久化钱包和新分组内部的 wallet/account fingerprint。配置的多个 EVM `ChainIdentity` 共享同一 EVM 地址，但各自保留独立 chain-account 记录。
+the `apps/server` runtime 提供 wallet manager，用于生成和导入 HD 钱包、导入单个或分组私钥、添加单个或分组观察钱包、列出 renderer-safe view、重命名、删除以及选择 active context。查重会比较已持久化钱包和新分组内部的 wallet/account fingerprint。配置的多个 EVM `ChainIdentity` 共享同一 EVM 地址，但各自保留独立 chain-account 记录。
 
 Active context 保存唯一一组已选择的 wallet、wallet account、chain account、network 和 mode。持久化层会验证 account 属于同一钱包图，并验证已启用 network 的 canonical `ChainIdentity` 与 chain account 完全一致。只有 `ready` 钱包可被选择，观察钱包只允许 `read-only`；删除已选钱包时通过外键级联清除 context，删除 network 时则显式清除。变更操作写入不含秘密材料的脱敏 audit event。
 
@@ -86,7 +86,7 @@ Active context 保存唯一一组已选择的 wallet、wallet account、chain ac
 
 ## 签名
 
-`@cypheria/runtime` 签发绑定到一个已持久化 wallet/account/chain reference 的不透明 capability。其方法接收完整且经过严格验证的 signing intent，而不是任意签名 payload。每次执行都会重新解析 ready vault 钱包状态，检查绑定的地址和链，要求 vault 已解锁，调用强制注入的 policy/approval authorizer，并在签名前原子 claim 已批准的 intent ID。签名服务不存在绕过路径，也不接受 `send-transaction`；签名与广播仍是不同权限。
+the `apps/server` runtime 签发绑定到一个已持久化 wallet/account/chain reference 的不透明 capability。其方法接收完整且经过严格验证的 signing intent，而不是任意签名 payload。每次执行都会重新解析 ready vault 钱包状态，检查绑定的地址和链，要求 vault 已解锁，调用强制注入的 policy/approval authorizer，并在签名前原子 claim 已批准的 intent ID。签名服务不存在绕过路径，也不接受 `send-transaction`；签名与广播仍是不同权限。
 
 生产环境的重放保护使用 libSQL 中的 `signing_intent_claims`。系统先授权、后 claim，因此等待人工审批的 intent 不会被提前消费，并可在作出决议后重试。批准后，系统会在访问秘密前使用 canonical SHA-256 payload hash claim intent ID，因此并发或后续复用在进程重启后仍会被拒绝。Vault 锁定同样在 claim 前检查，使同一 intent 可在用户明确解锁后重试。进程内 replay guard 仅作为显式 test 或隔离 runtime adapter 提供。
 

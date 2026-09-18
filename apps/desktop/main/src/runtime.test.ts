@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { createDappBrowserPersistenceService } from "@cypheria/db"
-import { createMemoryVaultMasterKeyProvider } from "@cypheria/runtime"
+import { createMemoryVaultMasterKeyProvider } from "@cypheria/server/runtime"
 import { toChainKey } from "@cypheria/web3/network"
 import { describe, expect, it } from "vitest"
 

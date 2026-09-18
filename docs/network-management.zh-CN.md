@@ -57,7 +57,7 @@ Cypheria 应保留这些行为，但不直接复制其底层模型。Archmage-X 
 
 - `@cypheria/web3/wallet` 从 `@cypheria/web3/network` 导入 chain identity primitive。`ChainAccount` 记录 identity、address 与 derivation 信息，但不拥有 RPC 配置。`ChainDefinition` 与 `RpcEndpoint` 继续属于 network 领域。
 - `@cypheria/db` 持久化 network、endpoint、排序、revision 和 active context，不在普通列中保存受保护的连接材料。
-- `@cypheria/runtime` 负责 `NetworkManager`、endpoint probe、RPC routing、health state、credential resolution、audit，以及与 wallet 和 dApp 的协调。
+- the `apps/server` runtime 负责 `NetworkManager`、endpoint probe、RPC routing、health state、credential resolution、audit，以及与 wallet 和 dApp 的协调。
 - `@cypheria/web3/provider` 继续作为 protocol surface，在边界转换 EIP-1193 hex chain ID 与 Solana Wallet Standard identifier，但不选择 endpoint。
 - Desktop main 管理受保护的 endpoint credential，只通过 typed IPC 向 renderer 暴露脱敏 projection。
 - CLI 与 SDK 直接使用相同 runtime services，不依赖 desktop internals。

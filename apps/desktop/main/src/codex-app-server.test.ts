@@ -11,7 +11,7 @@ import type {
   InitializeResponse,
   ServerRequest,
 } from "@cypheria/codex-bridge"
-import { buildRuntimePaths } from "@cypheria/runtime"
+import { buildRuntimePaths } from "@cypheria/server/runtime"
 import type { BrowserWindow } from "electron"
 import { describe, expect, it } from "vitest"
 

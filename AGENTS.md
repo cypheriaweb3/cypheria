@@ -6,7 +6,7 @@ This file provides working instructions for agents contributing to Cypheria.
 
 Cypheria is a TypeScript Web3 agent product inspired by Codex. Its target architecture has one privileged server and multiple clients:
 
-- `@cypheria/runtime`: Cypheria-owned non-agent runtime for Web3, wallets, signing policy, dApp browser permissions, schedule, local state, and audit logs.
+- `apps/server/src/runtime`: Server-internal Web3, wallet, signing-policy, dApp-provider, local-state, and audit service orchestration. It is not a public workspace package.
 - `@cypheria/client`: the layered WebSocket client for the versioned Cypheria server protocol; `ServerClient` owns a connection, `CypheriaApi` borrows one, and `CypheriaClient` adds lifecycle control.
 - `apps/server`: the Hono/Node.js process boundary that owns runtime lifecycle, versioned client connections, operations, web hosting, and eventually Codex/product services.
 - `apps/relay`: the Go relay data plane with single-process mode and clustered gateway/worker roles; it forwards
@@ -16,7 +16,7 @@ Cypheria is a TypeScript Web3 agent product inspired by Codex. Its target archit
 - `apps/expo`: the Expo Router client for iOS, Android, and static web; its web export is embedded by the server.
 - `apps/cli`: a planned non-TUI client of the Cypheria server protocol.
 - `@cypheria/sdk`: a planned public TypeScript client of the Cypheria server protocol.
-- `apps/desktop`: an Electron + TanStack Start client that will ensure a local server is running. Until its migration is explicitly approved, its current direct runtime/Codex ownership remains unchanged.
+- `apps/desktop`: an Electron + TanStack Start client that ensures a compatible local server is running and preserves Electron-only window, browser, secure-storage, update, and OS integration boundaries.
 - `apps/marketplace`: a TanStack Start application on Cloudflare Workers that owns Cypheria plugin submission, scanning, review, publication, public discovery, and deterministic synchronization to the official Cypheria GitHub repo marketplace.
 
 Cypheria does not reimplement or fork the Codex agent runtime. Web3-specific capabilities belong to Cypheria runtime. Codex is used for agent threads, turns, model execution, code edits, shell/tool execution, MCP, and Codex approvals.
@@ -93,8 +93,7 @@ packages/sdk
 packages/client
 packages/protocol
 packages/relay
-packages/runtime
-packages/codex-bridge
+packages/ai-sdk-provider
 packages/ui
 packages/web3
 packages/db
@@ -106,14 +105,13 @@ Every Cypheria Marketplace plugin must follow the ChatGPT/Codex plugin specifica
 
 ## Codex Integration Rules
 
-- The target server owns `@cypheria/runtime` and Codex process/SDK integration for all clients.
-- CLI and SDK use the versioned Cypheria server protocol and must not import `@cypheria/runtime` or `@openai/codex-sdk` directly.
+- The target server owns the `apps/server` runtime and Codex process/SDK integration for all clients.
+- CLI and SDK use the versioned Cypheria server protocol and must not import Server runtime internals or Agent SDKs directly.
 - CLI must not depend on `@cypheria/sdk`.
-- CLI and SDK must not depend on Electron, desktop packages, or `@cypheria/codex-bridge`.
-- Desktop currently uses a persistent `codex app-server` process and runtime inside Electron main. Keep that implementation unchanged until the server is reviewed and desktop migration is explicitly requested.
-- After migration, Electron main has the special client responsibility of ensuring a local Cypheria server is running while retaining Electron-only browser, secure-storage, preload, approval, and OS integration boundaries.
+- CLI and SDK must not depend on Electron or desktop packages.
+- Electron main has the special client responsibility of ensuring a local Cypheria server is running while retaining Electron-only browser, secure-storage, preload, approval, and OS integration boundaries.
 - `@cypheria/protocol` owns the Cypheria client/server protocol plus the generated Codex App Server types, JSON Schemas, response mappings, and per-message Zod validators.
-- `@cypheria/codex-bridge` is the desktop-side Codex App Server bridge. It consumes raw Codex types from `@cypheria/protocol/codex-types` and Cypheria message contracts from `@cypheria/protocol`; it must not own a generated copy. Until the bridge is refactored around the Cypheria messages, its raw Codex JSON-RPC validation remains bridge-owned.
+- Codex process integration and native protocol adaptation belong to `apps/server`; browser-safe AI SDK integration belongs to `@cypheria/ai-sdk-provider/codex`.
 - Do not create `@cypheria/codex-protocol`.
 - Do not hand-write Codex App Server protocol types.
 - Codex App Server generated artifacts must live in:
@@ -138,7 +136,7 @@ The protocol package script always enables experimental APIs, normalizes generat
 - TypeScript should remain strict.
 - Prefer Zod for runtime validation at boundaries, especially IPC, policy schemas, wallet inputs, schedule definitions, and generated-protocol adapters.
 - Keep package boundaries explicit and avoid reaching into another package's private files.
-- Domain/data packages should not depend on `@cypheria/runtime`; runtime composes them through explicit service injection.
+- Domain/data packages should not depend on the `apps/server` runtime; runtime composes them through explicit service injection.
 
 ## Runtime Home Directories
 

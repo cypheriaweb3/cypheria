@@ -59,7 +59,7 @@ Pi RPC wire mapping 见 [docs/pi-rpc-protocol.zh-CN.md](docs/pi-rpc-protocol.zh-
 apps/expo / apps/cli / @cypheria/client / 未来的 packages/sdk
   -> 通过 HTTP 或 WebSocket 使用 @cypheria/protocol
   -> apps/server
-  -> @cypheria/runtime
+  -> Server-internal Agent and Web3 services
 
 apps/server
   -> Hono HTTP + WebSocket control plane

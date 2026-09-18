@@ -31,11 +31,6 @@ import {
   type ServerStatus,
   type ThreadClientMessage,
 } from "@cypheria/protocol"
-import {
-  CypheriaRuntime,
-  type CypheriaRuntimeEvent,
-  type CypheriaRuntimeMethod,
-} from "@cypheria/runtime"
 import { serve } from "@hono/node-server"
 import pino, { type Logger } from "pino"
 import { type WebSocket, WebSocketServer } from "ws"
@@ -47,6 +42,11 @@ import { loadOrCreateServerId } from "./identity.js"
 import { ProjectThreadService } from "./project-thread-service.js"
 import { RelayConnection } from "./relay-connection.js"
 import { loadOrCreateRelayKeyPair } from "./relay-key.js"
+import {
+  CypheriaRuntime,
+  type CypheriaRuntimeEvent,
+  type CypheriaRuntimeMethod,
+} from "./runtime/index.js"
 import { ScheduleService } from "./schedule/schedule-service.js"
 import { ServerConfigStore } from "./server-config-store.js"
 import type { SessionTransport } from "./session/client-session.js"

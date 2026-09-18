@@ -13,7 +13,7 @@ apps/expo / apps/cli / @cypheria/client / 未来的 packages/sdk
 
 apps/server
   -> Hono control plane + supervised worker
-  -> @cypheria/runtime
+  -> Server-internal Agent and Web3 services
   -> 内置 apps/expo web export
 
 remote clients
@@ -45,7 +45,7 @@ Cypheria 有一个特权 server、多个 client、一个独立 marketplace 与�
 - `apps/cli`：用于 Server lifecycle 与共享资源 API 的 Node CLI；`packages/sdk` 仍在规划中。
 - `apps/desktop`：自托管 server 的 Electron + TanStack Start client；Electron main 管理兼容的本地 server，renderer 使用共享 project、section、Thread 与 timeline API。
 - `apps/marketplace`：部署在 Cloudflare Workers 上的 TanStack Start 应用，负责 ChatGPT/Codex-compatible 插件的提交、扫描、审核、发布与发现，再把 approved entry 同步到 Cypheria 官方 GitHub repo marketplace。
-- `packages/runtime`：Cypheria 自有非 agent 能力的 TypeScript runtime。
+- `apps/server/src/runtime`：Cypheria 自有非 agent 能力的 TypeScript runtime。
 - `apps/relay`：可选的 Go gateway/worker 数据面，负责不透明远程 WebSocket 转发。
 - `packages/relay`：server/client 共用、传输无关的 TypeScript E2EE 与 relay URL 工具。
 
@@ -53,7 +53,7 @@ Codex 负责 agent threads、turns、model execution、code edits、shell/tool e
 
 ## Server 与 Protocol 边界
 
-`apps/server` 是目标架构中唯一持有 `@cypheria/runtime` 的进程。它提供小型 Hono HTTP 运维 API，以及由 `@cypheria/protocol` 定义的版本化 WebSocket session protocol。Supervisor 持有 PID lock、双向 liveness supervision、有界 crash restart、process-group termination 与 graceful shutdown；可替换 worker 持有 Hono、逻辑 session、runtime lifecycle。直连 socket 和解密后的 relay channel 进入同一个物理连接边界。逻辑 session 以 authenticated principal 加 `clientId` 为 key，可以同时持有多条物理 transport，并且只在最后一条 transport 断开后进入有界 grace period；同一身份重连会自动恢复，不使用公开 session ID 或 resume token。Desired server config 位于 `$CYPHERIA_HOME/config/server.json`；worker 在启动时一次性解析环境变量覆盖，并暴露 desired-versus-running restart state，但不会返回只存在于环境中的认证 token。
+`apps/server` 是目标架构中唯一持有 the `apps/server` runtime 的进程。它提供小型 Hono HTTP 运维 API，以及由 `@cypheria/protocol` 定义的版本化 WebSocket session protocol。Supervisor 持有 PID lock、双向 liveness supervision、有界 crash restart、process-group termination 与 graceful shutdown；可替换 worker 持有 Hono、逻辑 session、runtime lifecycle。直连 socket 和解密后的 relay channel 进入同一个物理连接边界。逻辑 session 以 authenticated principal 加 `clientId` 为 key，可以同时持有多条物理 transport，并且只在最后一条 transport 断开后进入有界 grace period；同一身份重连会自动恢复，不使用公开 session ID 或 resume token。Desired server config 位于 `$CYPHERIA_HOME/config/server.json`；worker 在启动时一次性解析环境变量覆盖，并暴露 desired-versus-running restart state，但不会返回只存在于环境中的认证 token。
 
 `@cypheria/protocol` 定义公开的 Agent/Thread、project/section 与 server 消息族。WebSocket 层沿用 Paseo：顶层 `hello`、`ping` 与 `pong` 处理物理连接，`{ type: "session", message }` 承载逻辑 traffic。逻辑 `server.status.notification` 表示挂接完成，不存在公开 session handle。`@cypheria/client` 把该边界分成 `ServerClient`、借用连接的 `CypheriaApi` 和持有生命周期的 `CypheriaClient` 三层。公开 API 只暴露 `agent`、`thread`、`projectThread` 与 `server`；provider-native endpoint 和 client subpath facade 不公开。
 
@@ -96,7 +96,7 @@ Marketplace 是独立的远程 trust boundary。D1 是 review/publication system
 
 ## Runtime 边界
 
-`@cypheria/runtime` 是 Cypheria 非 agent runtime。它负责：
+the `apps/server` runtime 是 Cypheria 非 agent runtime。它负责：
 
 - Runtime home 解析与目录初始化。
 - Settings 和本地 metadata。
@@ -165,7 +165,7 @@ const thread = cypheria.agent().startThread({ workingDirectory: process.cwd() })
 const result = await thread.run("Analyze this repo")
 ```
 
-SDK 不应依赖 Electron、desktop IPC、`@cypheria/runtime` 或 `@cypheria/codex-bridge`。
+SDK 不应依赖 Electron、desktop IPC、the `apps/server` runtime 或 `@cypheria/codex-bridge`。
 
 ## Desktop
 
@@ -303,7 +303,7 @@ dApp browser 不与 Codex preview/browser capabilities 共享钱包权限模型�
 
 已实现的 browser boundary 会把远程 origin 规范化为 HTTPS（仅 loopback 开发环境允许 HTTP），通过 Drizzle/libSQL 持久化 `dapp_origins`、Ethereum `dapp_permissions` 与 `solana_dapp_permissions`，并且只在同一 origin 内复用一个持久化 Electron partition。Electron 的 session-data root 设置为 `$CYPHERIA_HOME/browser`。Desktop 创建 dApp `WebContentsView` 时禁用 Node integration，并启用 context isolation、sandbox 与 web security，同时拒绝跨 origin 导航、popup window 和环境 Electron permission request。独立的 dApp preload 把 EIP-1193 provider 暴露为 `window.ethereum`，通过 EIP-6963 announcement 发布它，并通过 Wallet Standard events 注册 Solana provider。Sandbox preload 会打包除 Electron 外的所有 runtime dependencies，使用 plain-data facade 让 Wallet Standard accounts 跨越 `contextBridge`，并把 provider icons 限制为 raster data URI。真实 Electron smoke test 会在这些 production isolation settings 下验证两种 discovery 机制。
 
-Electron main 会把每个已创建的 WebContents ID 与其规范化 origin、session key 绑定。每个 Ethereum 或 Solana provider IPC request 必须同时匹配这一可信注册信息和 sender 当前 URL，之后才能进入 `@cypheria/runtime` 的 `dapp.provider-request` 或 `dapp.solana-provider-request`。Ethereum runtime 无需钱包权限即可转发有界 allowlist 中常用的公共只读 RPC methods，对 privileged methods 检查未过期的 origin/account/method permission，审计脱敏结果，并在 injected executor 完成前把 signing methods 转换为 dApp 来源的 signing intents。Solana runtime 实现 silent/interactive connection、持久化 origin permissions、内存连接状态、account/feature/chain authorization，以及 message signing、transaction signing 和 sign-and-send 的 policy-backed signing intents。Main 只会向已注册的 dApp WebContents 发送成功的 account 与 chain changes；preload 再把它们转换为 EIP-1193 或 Wallet Standard events。Renderer 或 dApp 自报的 origin 字段绝不作为权限依据。Desktop runtime options 只会在提供相应 authorizer、dispatcher 或 executor 后安装 provider service；否则 bridge 会 fail closed。
+Electron main 会把每个已创建的 WebContents ID 与其规范化 origin、session key 绑定。每个 Ethereum 或 Solana provider IPC request 必须同时匹配这一可信注册信息和 sender 当前 URL，之后才能进入 the `apps/server` runtime 的 `dapp.provider-request` 或 `dapp.solana-provider-request`。Ethereum runtime 无需钱包权限即可转发有界 allowlist 中常用的公共只读 RPC methods，对 privileged methods 检查未过期的 origin/account/method permission，审计脱敏结果，并在 injected executor 完成前把 signing methods 转换为 dApp 来源的 signing intents。Solana runtime 实现 silent/interactive connection、持久化 origin permissions、内存连接状态、account/feature/chain authorization，以及 message signing、transaction signing 和 sign-and-send 的 policy-backed signing intents。Main 只会向已注册的 dApp WebContents 发送成功的 account 与 chain changes；preload 再把它们转换为 EIP-1193 或 Wallet Standard events。Renderer 或 dApp 自报的 origin 字段绝不作为权限依据。Desktop runtime options 只会在提供相应 authorizer、dispatcher 或 executor 后安装 provider service；否则 bridge 会 fail closed。
 
 ## 签名流程
 
@@ -420,8 +420,8 @@ CODEX_HOME="$CYPHERIA_HOME/codex"
 ## Package 边界
 
 ```txt
-@cypheria/runtime
-  Cypheria non-agent runtime host and service orchestration.
+apps/server/src/runtime
+  Server 私有 runtime host 与 Web3 service orchestration；client 不得依赖。
 
 @cypheria/protocol
   版本化、transport-neutral 的 Cypheria client/server contract 与 Zod validation。
@@ -462,7 +462,7 @@ apps/desktop/ipc
 
 ## Network 与 RPC 边界
 
-Chain identity、network metadata、RPC connectivity 与 active selection 是相互独立的概念。无论 network 当前是否已配置，wallet account 与历史 record 都会保留 canonical chain identity。`@cypheria/web3/network` 负责严格的 EVM/Solana identity 与 configuration schema；`@cypheria/runtime` 负责 catalog reconciliation、endpoint probe、credential resolution、health-aware routing，以及 workspace/origin-scoped selection。
+Chain identity、network metadata、RPC connectivity 与 active selection 是相互独立的概念。无论 network 当前是否已配置，wallet account 与历史 record 都会保留 canonical chain identity。`@cypheria/web3/network` 负责严格的 EVM/Solana identity 与 configuration schema；the `apps/server` runtime 负责 catalog reconciliation、endpoint probe、credential resolution、health-aware routing，以及 workspace/origin-scoped selection。
 
 RPC connection secret 在普通 SQLite 列之外受保护，永远不会跨越 renderer 或 dApp IPC。Read-only call 可以在经过验证的 endpoints 间 failover；broadcast 收到模糊响应后绝不盲目重试。Custom destination 必须经过 SSRF control，dApp 只有在批准后才能切换自身 origin-scoped provider context。
 

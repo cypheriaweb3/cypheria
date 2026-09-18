@@ -35,7 +35,7 @@ import {
   type VaultMasterKeyProvider,
   type WalletManager,
   type WalletVaultController,
-} from "@cypheria/runtime"
+} from "@cypheria/server/runtime"
 import { createDappSessionManager, type DappSessionManager } from "@cypheria/web3/provider"
 import type { ConnectionProxySettings } from "../../ipc/src/index.js"
 import {

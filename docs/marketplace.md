@@ -130,7 +130,7 @@ Other Desktop marketplaces
   -> Codex App Server plugin/list marketplace records
 ```
 
-`apps/marketplace` is a separate remote trust boundary. It must not import Electron, desktop IPC, `@cypheria/runtime`, `@cypheria/codex-bridge`, or the local SQLite adapter in `@cypheria/db`. Framework-neutral schemas, API contracts, and UI primitives may move to dedicated packages once stable.
+`apps/marketplace` is a separate remote trust boundary. It must not import Electron, desktop IPC, the `apps/server` runtime, `@cypheria/codex-bridge`, or the local SQLite adapter in `@cypheria/db`. Framework-neutral schemas, API contracts, and UI primitives may move to dedicated packages once stable.
 
 ## Cloudflare Design
 

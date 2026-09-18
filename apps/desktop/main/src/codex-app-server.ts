@@ -14,7 +14,7 @@ import {
   type ServerNotification,
   type ServerRequest,
 } from "@cypheria/codex-bridge"
-import type { CypheriaRuntimePaths, RuntimeHomeEnv } from "@cypheria/runtime"
+import type { CypheriaRuntimePaths, RuntimeHomeEnv } from "@cypheria/server/runtime"
 import type { BrowserWindow } from "electron"
 import {
   type CodexEventEnvelope,

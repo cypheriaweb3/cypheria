@@ -3,12 +3,11 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 import { CYPHERIA_PROTOCOL_VERSION, createWebSocketProtocols } from "@cypheria/protocol"
-import { CypheriaRuntime } from "@cypheria/runtime"
 import pino from "pino"
 import { afterEach, describe, expect, it } from "vitest"
 import WebSocket from "ws"
-
 import { loadServerConfig } from "./config.js"
+import { CypheriaRuntime } from "./runtime/index.js"
 import { CypheriaServer } from "./server.js"
 
 const temporaryDirectories: string[] = []

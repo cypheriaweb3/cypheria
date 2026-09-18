@@ -1,10 +1,8 @@
 #!/usr/bin/env node
 import { spawn } from "node:child_process"
 import { fileURLToPath } from "node:url"
-
-import { buildRuntimePaths } from "@cypheria/runtime"
-
 import { isProcessAlive, readPidRecord } from "./pid-lock.js"
+import { buildRuntimePaths } from "./runtime/index.js"
 
 const paths = buildRuntimePaths()
 const supervisorPath = fileURLToPath(new URL("./supervisor.mjs", import.meta.url))

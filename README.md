@@ -60,7 +60,7 @@ See [docs/pi-rpc-protocol.md](docs/pi-rpc-protocol.md) for the Pi RPC wire mappi
 apps/expo / apps/cli / @cypheria/client / future packages/sdk
   -> @cypheria/protocol over HTTP or WebSocket
   -> apps/server
-  -> @cypheria/runtime
+  -> Server-internal Agent and Web3 services
 
 apps/server
   -> Hono HTTP + WebSocket control plane

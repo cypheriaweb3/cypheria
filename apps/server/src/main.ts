@@ -1,7 +1,6 @@
-import { buildRuntimePaths } from "@cypheria/runtime"
-
 import { createServerProcessLogger } from "./logger.js"
 import { isSupervisorMessage, type WorkerToSupervisorMessage } from "./process-messages.js"
+import { buildRuntimePaths } from "./runtime/index.js"
 import { CypheriaServer, type ServerLifecycleAction } from "./server.js"
 import { ServerConfigStore } from "./server-config-store.js"
 

@@ -27,7 +27,7 @@
   - 验证：`pnpm run ci`。
 
 - [x] 添加 runtime home 解析。
-  - 验收：`@cypheria/runtime` 可解析 `$CYPHERIA_HOME`，默认值为 `~/.cypheria`，并派生 `CODEX_HOME=$CYPHERIA_HOME/codex`。
+  - 验收：the `apps/server` runtime 可解析 `$CYPHERIA_HOME`，默认值为 `~/.cypheria`，并派生 `CODEX_HOME=$CYPHERIA_HOME/codex`。
   - 验证：`pnpm run ci`、`pnpm build`。
 
 - [x] 添加 runtime directory 初始化。
@@ -146,11 +146,11 @@
 
 ## Runtime
 
-- [x] 将 `@cypheria/runtime` 扩展为 Cypheria runtime host。
+- [x] 将 the `apps/server` runtime 扩展为 Cypheria runtime host。
   - 验收：package 导出带 `start()`、`stop()`、`request()` 和 `events()` 方法的 `CypheriaRuntime`。
   - 包括：service registry、lifecycle state、runtime info handler、runtime event envelope 和 clean shutdown。
   - 保留：现有 home/path resolution exports。
-  - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/runtime test`。
+  - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/server test`。
 
 - [x] 将 Cypheria-owned service orchestration 放到 runtime 后面。
   - 验收：runtime 可以连接 database、audit、policy、wallet domain 和 browser domain service boundaries，且不导入 desktop renderer code。
@@ -182,7 +182,7 @@
   - 验收：package 导出公共 `Cypheria` server client。
   - 包括：runtime、wallet、policy、schedule 和 agent clients。
   - Agent path：使用版本化 server operation 与 event。
-  - 不得导入：`apps/cli`、`apps/desktop`、Electron、`@cypheria/runtime` 或 `@cypheria/codex-bridge`。
+  - 不得导入：`apps/cli`、`apps/desktop`、Electron、the `apps/server` runtime 或 `@cypheria/codex-bridge`。
   - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/sdk test`。
 
 - [ ] 为 SDK 添加 runtime 和 Codex SDK test doubles。
@@ -196,7 +196,7 @@
   - 验收：package 构建无 TUI 的 `cypheria` Node CLI。
   - 包括：argument parsing、server connection/configuration、JSON output、log tailing 与 non-zero failure exits。
   - 依赖：`@cypheria/client` 与 `@cypheria/protocol`。
-  - 不得导入：`@cypheria/sdk`、`@cypheria/runtime`、Electron、desktop packages 或 `@cypheria/codex-bridge`。
+  - 不得导入：`@cypheria/sdk`、the `apps/server` runtime、Electron、desktop packages 或 `@cypheria/codex-bridge`。
   - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/cli test`。
 
 - [x] 实现 Server 与共享资源 CLI commands。
@@ -214,7 +214,7 @@
 
 - [ ] 搭建 TanStack Start marketplace Worker。
   - 验收：`@cypheria/marketplace` 使用官方 Cloudflare Vite 集成、自定义 Worker entrypoint、locale-prefixed SSR route、共享 UI primitive、D1 migration、typed binding 和本地测试完成构建与预览。
-  - 不得导入：Electron、desktop IPC、`@cypheria/runtime`、`@cypheria/codex-bridge` 或 `@cypheria/db`。
+  - 不得导入：Electron、desktop IPC、the `apps/server` runtime、`@cypheria/codex-bridge` 或 `@cypheria/db`。
   - 验证：marketplace test/typecheck/build/type generation、`pnpm run ci` 与 `pnpm build`。
 
 - [ ] 实现 marketplace identity、organization、authorization 和 publisher verification。

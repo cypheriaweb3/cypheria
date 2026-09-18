@@ -13,7 +13,7 @@ apps/expo / apps/cli / @cypheria/client / future packages/sdk
 
 apps/server
   -> Hono control plane + supervised worker
-  -> @cypheria/runtime
+  -> Server-internal Agent and Web3 services
   -> embedded apps/expo web export
 
 remote clients
@@ -45,7 +45,7 @@ Cypheria has one privileged server, multiple clients, a separate marketplace, an
 - `apps/cli`: the Node CLI for Server lifecycle and shared resource APIs; `packages/sdk` remains planned.
 - `apps/desktop`: the self-hosting Electron + TanStack Start client. Electron main manages a compatible local server, while the renderer uses shared project, section, Thread, and timeline APIs.
 - `apps/marketplace`: a TanStack Start application on Cloudflare Workers for submitting, scanning, reviewing, publishing, and discovering ChatGPT/Codex-compatible plugins, then synchronizing approved entries to the official Cypheria GitHub repo marketplace.
-- `packages/runtime`: the TypeScript runtime for Cypheria-owned non-agent capabilities.
+- `apps/server/src/runtime`: the TypeScript runtime for Cypheria-owned non-agent capabilities.
 - `apps/relay`: the optional Go gateway/worker data plane for opaque remote WebSocket forwarding.
 - `packages/relay`: transport-neutral TypeScript E2EE and relay URL helpers shared by server and
   clients.
@@ -54,7 +54,7 @@ Codex owns agent threads, turns, model execution, code edits, shell/tool executi
 
 ## Server And Protocol Boundary
 
-`apps/server` is the only target-architecture process that owns `@cypheria/runtime`. It exposes a small Hono HTTP operations API and a versioned WebSocket session protocol from `@cypheria/protocol`. A supervisor owns the PID lock, bidirectional liveness supervision, bounded crash restart, process-group termination, and graceful shutdown; the replaceable worker owns Hono, logical sessions, runtime lifecycle. Direct sockets and decrypted relay channels enter the same physical-connection boundary. A logical session is keyed by authenticated principal plus `clientId`, can own multiple physical transports simultaneously, and is retained for a bounded grace period only after its final transport drops. Reconnection with the same identity resumes it automatically without a public session ID or resume token. Desired server configuration lives at `$CYPHERIA_HOME/config/server.json`; the worker resolves environment overrides once at startup and exposes desired-versus-running restart state without returning its environment-only authentication token.
+`apps/server` is the only target-architecture process that owns the `apps/server` runtime. It exposes a small Hono HTTP operations API and a versioned WebSocket session protocol from `@cypheria/protocol`. A supervisor owns the PID lock, bidirectional liveness supervision, bounded crash restart, process-group termination, and graceful shutdown; the replaceable worker owns Hono, logical sessions, runtime lifecycle. Direct sockets and decrypted relay channels enter the same physical-connection boundary. A logical session is keyed by authenticated principal plus `clientId`, can own multiple physical transports simultaneously, and is retained for a bounded grace period only after its final transport drops. Reconnection with the same identity resumes it automatically without a public session ID or resume token. Desired server configuration lives at `$CYPHERIA_HOME/config/server.json`; the worker resolves environment overrides once at startup and exposes desired-versus-running restart state without returning its environment-only authentication token.
 
 `@cypheria/protocol` defines the public Agent/Thread, project/section, and server message families. Its WebSocket layer follows Paseo: top-level `hello`, `ping`, and `pong` handle physical connections, while `{ type: "session", message }` carries logical traffic. A logical `server.status.notification` completes attachment; there is no public session handle. `@cypheria/client` packages this boundary into `ServerClient`, borrowed `CypheriaApi`, and lifecycle-owning `CypheriaClient` layers. Its public API exposes `agent`, `thread`, `projectThread`, and `server`; provider-native endpoints and client subpath facades are not public.
 
@@ -99,7 +99,7 @@ The marketplace is a separate remote trust boundary. D1 is the review/publicatio
 
 ## Runtime Boundary
 
-`@cypheria/runtime` is the Cypheria non-agent runtime. It owns:
+the `apps/server` runtime is the Cypheria non-agent runtime. It owns:
 
 - Runtime home resolution and directory initialization.
 - Settings and local metadata.
@@ -168,7 +168,7 @@ const thread = cypheria.agent().startThread({ workingDirectory: process.cwd() })
 const result = await thread.run("Analyze this repo")
 ```
 
-The SDK should not depend on Electron, desktop IPC, `@cypheria/runtime`, or `@cypheria/codex-bridge`.
+The SDK should not depend on Electron, desktop IPC, the `apps/server` runtime, or `@cypheria/codex-bridge`.
 
 ## Desktop
 
@@ -306,7 +306,7 @@ The dApp browser does not share its wallet permission model with Codex preview/b
 
 The implemented browser boundary normalizes remote origins to HTTPS (with HTTP allowed only for loopback development), persists `dapp_origins`, Ethereum `dapp_permissions`, and `solana_dapp_permissions` through Drizzle/libSQL, and reuses one persistent Electron partition only within the same origin. Electron's session-data root is set to `$CYPHERIA_HOME/browser`. Desktop creates dApp `WebContentsView` instances with Node integration disabled, context isolation, sandboxing, and web security enabled. Cross-origin navigation, popup windows, and ambient Electron permission requests are denied. A dedicated dApp preload exposes the EIP-1193 provider as `window.ethereum`, announces it through EIP-6963, and registers the Solana provider through Wallet Standard events. The sandbox preload bundles all non-Electron runtime dependencies, uses a plain-data facade for Wallet Standard accounts crossing `contextBridge`, and restricts provider icons to raster data URIs. A real Electron smoke test verifies both discovery mechanisms under these production isolation settings.
 
-Electron main registers each created WebContents ID with its normalized origin and session key. Every Ethereum or Solana provider IPC request must match that trusted registration and the sender's current URL before it reaches `dapp.provider-request` or `dapp.solana-provider-request` in `@cypheria/runtime`. The Ethereum runtime forwards a bounded allowlist of common public read-only RPC methods without wallet permission, checks unexpired origin/account/method permissions for privileged methods, audits redacted outcomes, and converts signing methods into dApp-sourced signing intents before an injected executor can complete them. The Solana runtime implements silent and interactive connection, persistent origin permissions, in-memory connection state, account/feature/chain authorization, and policy-backed signing intents for message signing, transaction signing, and sign-and-send. Main sends successful account and chain changes only to the registered dApp WebContents; preload turns them into EIP-1193 or Wallet Standard events. Renderer and dApp-supplied origin fields are never treated as authority. Desktop runtime options install either provider service only when its authorizer, dispatcher or executor is supplied; otherwise the bridge fails closed.
+Electron main registers each created WebContents ID with its normalized origin and session key. Every Ethereum or Solana provider IPC request must match that trusted registration and the sender's current URL before it reaches `dapp.provider-request` or `dapp.solana-provider-request` in the `apps/server` runtime. The Ethereum runtime forwards a bounded allowlist of common public read-only RPC methods without wallet permission, checks unexpired origin/account/method permissions for privileged methods, audits redacted outcomes, and converts signing methods into dApp-sourced signing intents before an injected executor can complete them. The Solana runtime implements silent and interactive connection, persistent origin permissions, in-memory connection state, account/feature/chain authorization, and policy-backed signing intents for message signing, transaction signing, and sign-and-send. Main sends successful account and chain changes only to the registered dApp WebContents; preload turns them into EIP-1193 or Wallet Standard events. Renderer and dApp-supplied origin fields are never treated as authority. Desktop runtime options install either provider service only when its authorizer, dispatcher or executor is supplied; otherwise the bridge fails closed.
 
 ## Signing Flow
 
@@ -423,8 +423,8 @@ Default rules:
 ## Package Boundaries
 
 ```txt
-@cypheria/runtime
-  Cypheria non-agent runtime host and service orchestration.
+apps/server/src/runtime
+  Private Server runtime host and Web3 service orchestration; not a client dependency.
 
 @cypheria/protocol
   Versioned, transport-neutral Cypheria client/server contracts and Zod validation.
@@ -465,7 +465,7 @@ apps/desktop/ipc
 
 ## Network And RPC Boundary
 
-Chain identity, network metadata, RPC connectivity, and active selection are separate concepts. Wallet accounts and historical records retain canonical chain identity independently from whether a network is currently configured. `@cypheria/web3/network` owns strict EVM and Solana identity and configuration schemas; `@cypheria/runtime` owns catalog reconciliation, endpoint probes, credential resolution, health-aware routing, and workspace or origin-scoped selection.
+Chain identity, network metadata, RPC connectivity, and active selection are separate concepts. Wallet accounts and historical records retain canonical chain identity independently from whether a network is currently configured. `@cypheria/web3/network` owns strict EVM and Solana identity and configuration schemas; the `apps/server` runtime owns catalog reconciliation, endpoint probes, credential resolution, health-aware routing, and workspace or origin-scoped selection.
 
 RPC connection secrets are protected outside normal SQLite columns and never cross renderer or dApp IPC. Read-only calls may fail over across verified endpoints, while broadcasts are never blindly retried after an ambiguous response. Custom destinations are subject to SSRF controls, and a dApp can switch only its own origin-scoped provider context after approval.
 

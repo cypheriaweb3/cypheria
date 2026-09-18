@@ -1,4 +1,4 @@
-import { createNetworkInputSchema, createRpcEndpointInputSchema } from "@cypheria/runtime"
+import { createNetworkInputSchema, createRpcEndpointInputSchema } from "@cypheria/server/runtime"
 import {
   networkDefinitionSchema,
   networkIdSchema,

@@ -1,9 +1,7 @@
 import { fileURLToPath } from "node:url"
-
-import { buildRuntimePaths } from "@cypheria/runtime"
-
 import { createServerProcessLogger } from "./logger.js"
 import { ServerPidLock } from "./pid-lock.js"
+import { buildRuntimePaths } from "./runtime/index.js"
 import { ServerSupervisor } from "./supervisor.js"
 
 const logger = createServerProcessLogger("cypheria-server-supervisor")
