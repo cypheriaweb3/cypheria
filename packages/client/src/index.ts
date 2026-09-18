@@ -14,8 +14,8 @@ import {
 
 import { type AcpEndpoint, createAcpEndpoint } from "./acp-client.js"
 import {
-  type AgentManagerActions,
-  createAgentManagerActions,
+  type AgentManagementActions,
+  createAgentManagementActions,
   isAgentUpdateAvailable,
 } from "./agent-manager.js"
 import {
@@ -36,11 +36,10 @@ import {
 } from "./server-client.js"
 import { createThreadActions, type ThreadActions } from "./thread.js"
 
-export interface AgentActions {
+export interface AgentActions extends AgentManagementActions {
   readonly acp: (agent: RegistryAgentId) => AcpEndpoint
   readonly claude: ClaudeEndpoint
   readonly codex: CodexEndpoint
-  readonly manager: AgentManagerActions
   readonly opencode: OpenCodeEndpoint
   readonly pi: PiEndpoint
 }
@@ -204,10 +203,10 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
 
   return {
     agent: {
+      ...createAgentManagementActions(serverClient),
       acp: (agent) => getAcpEndpoint(serverClient, agent),
       claude: getClaudeEndpoint(serverClient),
       codex: getCodexEndpoint(serverClient),
-      manager: createAgentManagerActions(serverClient),
       opencode: getOpenCodeEndpoint(serverClient),
       pi: getPiEndpoint(serverClient),
     },
@@ -242,7 +241,7 @@ export type {
   AgentAcpClientMessage,
   AgentAcpServerMessage,
   AgentClaudeServerMessage,
-  AgentManagerActions,
+  AgentManagementActions,
   AgentPiServerMessage,
   ClaudeEndpoint,
   CodexEndpoint,

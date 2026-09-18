@@ -32,7 +32,7 @@ const unwrap = <T>(payload: unknown): T => {
   throw error
 }
 
-export interface AgentManagerActions {
+export interface AgentManagementActions {
   checkToolchainUpdates(options?: RequestOptions): Promise<ToolchainView[]>
   get(agentId: AgentId, options?: RequestOptions): Promise<AgentView>
   getOperation(operationId: string, options?: RequestOptions): Promise<AgentOperation>
@@ -41,15 +41,16 @@ export interface AgentManagerActions {
   listOperations(options?: RequestOptions): Promise<AgentOperation[]>
   listToolchains(options?: RequestOptions): Promise<ToolchainView[]>
   refreshRegistry(options?: RequestOptions): Promise<AgentRegistrySyncState>
-  setEnabled(agentId: AgentId, enabled: boolean, options?: RequestOptions): Promise<AgentView>
+  enable(agentId: AgentId, options?: RequestOptions): Promise<AgentView>
+  disable(agentId: AgentId, options?: RequestOptions): Promise<AgentView>
   start(agentId: AgentId, options?: RequestOptions): Promise<AgentView>
-  stop(agentId: AgentId, options?: RequestOptions): Promise<AgentView>
+  stop(agentId: AgentId, force?: boolean, options?: RequestOptions): Promise<AgentView>
   uninstall(agentId: AgentId, options?: RequestOptions): Promise<AgentOperation>
   update(agentId: AgentId, options?: RequestOptions): Promise<AgentOperation>
   updateToolchain(toolchain: ToolchainId, options?: RequestOptions): Promise<AgentOperation>
 }
 
-export const createAgentManagerActions = (client: ServerClient): AgentManagerActions => ({
+export const createAgentManagementActions = (client: ServerClient): AgentManagementActions => ({
   checkToolchainUpdates: async (options) =>
     unwrap<{ toolchains: ToolchainView[] }>(
       (
@@ -62,7 +63,7 @@ export const createAgentManagerActions = (client: ServerClient): AgentManagerAct
     ).toolchains,
   get: async (agentId, options) =>
     unwrap<AgentView>(
-      (await client.requestAgentManagement("agent.registry.get.request", { agentId }, options))
+      (await client.requestAgentManagement("agent.get.request", { agentId }, options))
         .payload
     ),
   getOperation: async (operationId, options) =>
@@ -76,7 +77,7 @@ export const createAgentManagerActions = (client: ServerClient): AgentManagerAct
     ),
   list: async (options) =>
     unwrap<{ agents: AgentView[]; registry: AgentRegistrySyncState }>(
-      (await client.requestAgentManagement("agent.registry.list.request", undefined, options))
+      (await client.requestAgentManagement("agent.list.request", undefined, options))
         .payload
     ),
   listOperations: async (options) =>
@@ -94,23 +95,21 @@ export const createAgentManagerActions = (client: ServerClient): AgentManagerAct
       (await client.requestAgentManagement("agent.registry.refresh.request", undefined, options))
         .payload
     ),
-  setEnabled: async (agentId, enabled, options) =>
+  enable: async (agentId, options) =>
     unwrap<AgentView>(
-      (
-        await client.requestAgentManagement(
-          "agent.enabled.set.request",
-          { agentId, enabled },
-          options
-        )
-      ).payload
+      (await client.requestAgentManagement("agent.enable.request", { agentId }, options)).payload
+    ),
+  disable: async (agentId, options) =>
+    unwrap<AgentView>(
+      (await client.requestAgentManagement("agent.disable.request", { agentId }, options)).payload
     ),
   start: async (agentId, options) =>
     unwrap<AgentView>(
       (await client.requestAgentManagement("agent.start.request", { agentId }, options)).payload
     ),
-  stop: async (agentId, options) =>
+  stop: async (agentId, force = false, options) =>
     unwrap<AgentView>(
-      (await client.requestAgentManagement("agent.stop.request", { agentId }, options)).payload
+      (await client.requestAgentManagement("agent.stop.request", { agentId, force }, options)).payload
     ),
   uninstall: async (agentId, options) =>
     unwrap<AgentOperation>(

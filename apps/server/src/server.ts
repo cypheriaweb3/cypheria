@@ -323,13 +323,16 @@ export class CypheriaServer implements HttpAppHost {
     }
     if (
       message.type.startsWith("agent.registry.") ||
+      message.type === "agent.list.request" ||
+      message.type === "agent.get.request" ||
       message.type.startsWith("agent.operation.") ||
       message.type.startsWith("agent.toolchain.") ||
       [
         "agent.install.request",
         "agent.update.request",
         "agent.uninstall.request",
-        "agent.enabled.set.request",
+        "agent.enable.request",
+        "agent.disable.request",
         "agent.start.request",
         "agent.stop.request",
       ].includes(message.type)

@@ -2,7 +2,7 @@ import { z } from "zod"
 import { RequestIdSchema } from "../request-id.ts"
 import { AgentIdSchema, AgentRegistryEntrySchema } from "./registry.ts"
 
-export const AgentRunScopeSchema = z.enum(["shared", "session"])
+export const AgentRuntimeScopeSchema = z.enum(["shared", "thread"])
 export const AgentRuntimeStateSchema = z.enum([
   "stopped",
   "starting",
@@ -25,7 +25,7 @@ export const AgentViewSchema = z.object({
   enabled: z.boolean(),
   available: z.boolean(),
   availableVersion: z.string().nullable(),
-  runScope: AgentRunScopeSchema,
+  runtimeScope: AgentRuntimeScopeSchema,
   runtimeState: AgentRuntimeStateSchema,
   integrity: AgentIntegritySchema,
 })
@@ -86,17 +86,18 @@ const agentRequest = <T extends string>(type: T) =>
 const agentIdRequest = <T extends string>(type: T) =>
   agentRequest(type).extend({ payload: z.object({ agentId: AgentIdSchema }) })
 
-export const AgentRegistryListRequestSchema = agentRequest("agent.registry.list.request")
-export const AgentRegistryGetRequestSchema = agentIdRequest("agent.registry.get.request")
+export const AgentListRequestSchema = agentRequest("agent.list.request")
+export const AgentGetRequestSchema = agentIdRequest("agent.get.request")
 export const AgentRegistryRefreshRequestSchema = agentRequest("agent.registry.refresh.request")
 export const AgentInstallRequestSchema = agentIdRequest("agent.install.request")
 export const AgentUpdateRequestSchema = agentIdRequest("agent.update.request")
 export const AgentUninstallRequestSchema = agentIdRequest("agent.uninstall.request")
 export const AgentStartRequestSchema = agentIdRequest("agent.start.request")
-export const AgentStopRequestSchema = agentIdRequest("agent.stop.request")
-export const AgentEnabledSetRequestSchema = agentRequest("agent.enabled.set.request").extend({
-  payload: z.object({ agentId: AgentIdSchema, enabled: z.boolean() }),
+export const AgentStopRequestSchema = agentRequest("agent.stop.request").extend({
+  payload: z.object({ agentId: AgentIdSchema, force: z.boolean().default(false) }),
 })
+export const AgentEnableRequestSchema = agentIdRequest("agent.enable.request")
+export const AgentDisableRequestSchema = agentIdRequest("agent.disable.request")
 export const AgentOperationGetRequestSchema = agentRequest("agent.operation.get.request").extend({
   payload: z.object({ operationId: z.string().min(1) }),
 })
@@ -118,14 +119,11 @@ const resultPayload = <S extends z.ZodType>(schema: S) =>
 const response = <T extends string, S extends z.ZodType>(type: T, schema: S) =>
   z.object({ payload: resultPayload(schema), requestId: RequestIdSchema, type: z.literal(type) })
 
-export const AgentRegistryListResponseSchema = response(
-  "agent.registry.list.response",
+export const AgentListResponseSchema = response(
+  "agent.list.response",
   z.object({ agents: z.array(AgentViewSchema), registry: AgentRegistrySyncStateSchema })
 )
-export const AgentRegistryGetResponseSchema = response(
-  "agent.registry.get.response",
-  AgentViewSchema
-)
+export const AgentGetResponseSchema = response("agent.get.response", AgentViewSchema)
 export const AgentRegistryRefreshResponseSchema = response(
   "agent.registry.refresh.response",
   AgentRegistrySyncStateSchema
@@ -138,7 +136,8 @@ export const AgentUninstallResponseSchema = response(
 )
 export const AgentStartResponseSchema = response("agent.start.response", AgentViewSchema)
 export const AgentStopResponseSchema = response("agent.stop.response", AgentViewSchema)
-export const AgentEnabledSetResponseSchema = response("agent.enabled.set.response", AgentViewSchema)
+export const AgentEnableResponseSchema = response("agent.enable.response", AgentViewSchema)
+export const AgentDisableResponseSchema = response("agent.disable.response", AgentViewSchema)
 export const AgentOperationGetResponseSchema = response(
   "agent.operation.get.response",
   AgentOperationSchema
@@ -164,9 +163,9 @@ export const AgentRegistryUpdatedNotificationSchema = z.object({
   payload: AgentRegistrySyncStateSchema,
   type: z.literal("agent.registry.updated.notification"),
 })
-export const AgentStateNotificationSchema = z.object({
+export const AgentUpdatedNotificationSchema = z.object({
   payload: AgentViewSchema,
-  type: z.literal("agent.state.notification"),
+  type: z.literal("agent.updated.notification"),
 })
 export const AgentOperationProgressNotificationSchema = z.object({
   payload: AgentOperationSchema,
@@ -182,15 +181,16 @@ export const AgentOperationFailedNotificationSchema = z.object({
 })
 
 export const AGENT_MANAGEMENT_CLIENT_SCHEMAS = [
-  AgentRegistryListRequestSchema,
-  AgentRegistryGetRequestSchema,
+  AgentListRequestSchema,
+  AgentGetRequestSchema,
   AgentRegistryRefreshRequestSchema,
   AgentInstallRequestSchema,
   AgentUpdateRequestSchema,
   AgentUninstallRequestSchema,
   AgentStartRequestSchema,
   AgentStopRequestSchema,
-  AgentEnabledSetRequestSchema,
+  AgentEnableRequestSchema,
+  AgentDisableRequestSchema,
   AgentOperationGetRequestSchema,
   AgentOperationListRequestSchema,
   AgentToolchainListRequestSchema,
@@ -199,22 +199,23 @@ export const AGENT_MANAGEMENT_CLIENT_SCHEMAS = [
 ] as const
 
 export const AGENT_MANAGEMENT_SERVER_SCHEMAS = [
-  AgentRegistryListResponseSchema,
-  AgentRegistryGetResponseSchema,
+  AgentListResponseSchema,
+  AgentGetResponseSchema,
   AgentRegistryRefreshResponseSchema,
   AgentInstallResponseSchema,
   AgentUpdateResponseSchema,
   AgentUninstallResponseSchema,
   AgentStartResponseSchema,
   AgentStopResponseSchema,
-  AgentEnabledSetResponseSchema,
+  AgentEnableResponseSchema,
+  AgentDisableResponseSchema,
   AgentOperationGetResponseSchema,
   AgentOperationListResponseSchema,
   AgentToolchainListResponseSchema,
   AgentToolchainCheckUpdatesResponseSchema,
   AgentToolchainUpdateResponseSchema,
   AgentRegistryUpdatedNotificationSchema,
-  AgentStateNotificationSchema,
+  AgentUpdatedNotificationSchema,
   AgentOperationProgressNotificationSchema,
   AgentOperationCompletedNotificationSchema,
   AgentOperationFailedNotificationSchema,

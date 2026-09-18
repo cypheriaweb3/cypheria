@@ -17,7 +17,7 @@ describe("agent management protocol", () => {
       "enabled",
       "available",
       "availableVersion",
-      "runScope",
+      "runtimeScope",
       "runtimeState",
       "integrity",
     ])

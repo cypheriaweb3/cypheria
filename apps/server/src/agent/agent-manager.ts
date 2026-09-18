@@ -53,7 +53,7 @@ const nativeCatalog: Record<
     icon: string | null
     name: string
     repository: string
-    runScope: "session" | "shared"
+    runtimeScope: "thread" | "shared"
     version: string
     website: string
   }
@@ -64,7 +64,7 @@ const nativeCatalog: Record<
     icon: null,
     name: "Claude Code",
     repository: "https://github.com/anthropics/claude-code",
-    runScope: "session",
+    runtimeScope: "thread",
     version: "2.1.274",
     website: "https://code.claude.com/docs/en/overview",
   },
@@ -73,7 +73,7 @@ const nativeCatalog: Record<
     icon: null,
     name: "Codex",
     repository: "https://github.com/openai/codex",
-    runScope: "shared",
+    runtimeScope: "shared",
     version: "0.153.4",
     website: "https://developers.openai.com/codex/",
   },
@@ -83,7 +83,7 @@ const nativeCatalog: Record<
     icon: null,
     name: "OpenCode",
     repository: "https://github.com/anomalyco/opencode",
-    runScope: "shared",
+    runtimeScope: "shared",
     version: "1.18.30",
     website: "https://opencode.ai",
   },
@@ -92,7 +92,7 @@ const nativeCatalog: Record<
     icon: null,
     name: "Pi",
     repository: "https://github.com/earendil-works/pi",
-    runScope: "session",
+    runtimeScope: "thread",
     version: "0.85.1",
     website: "https://pi.dev",
   },
@@ -211,10 +211,10 @@ export class AgentManager {
       } as ServerMessage)
     try {
       switch (message.type) {
-        case "agent.registry.list.request":
+        case "agent.list.request":
           respond({ agents: await this.list(context.sessionId), registry: this.registry.state })
           break
-        case "agent.registry.get.request":
+        case "agent.get.request":
           respond(await this.get(message.payload.agentId, context.sessionId))
           break
         case "agent.registry.refresh.request":
@@ -231,14 +231,11 @@ export class AgentManager {
             this.#submitAgentOperation("uninstall", message.payload.agentId, context.sessionId)
           )
           break
-        case "agent.enabled.set.request":
-          respond(
-            await this.setEnabled(
-              message.payload.agentId,
-              message.payload.enabled,
-              context.sessionId
-            )
-          )
+        case "agent.enable.request":
+          respond(await this.setEnabled(message.payload.agentId, true, context.sessionId))
+          break
+        case "agent.disable.request":
+          respond(await this.setEnabled(message.payload.agentId, false, context.sessionId))
           break
         case "agent.start.request":
           respond(await this.startAgent(message.payload.agentId, context.sessionId, context.send))
@@ -434,7 +431,7 @@ export class AgentManager {
       enabled: record.enabled,
       available: Boolean(native || entry),
       availableVersion: latestVersion,
-      runScope: native?.runScope ?? "session",
+      runtimeScope: native?.runtimeScope ?? "thread",
       runtimeState: running ? "running" : "stopped",
       integrity: (await this.#installer.readCurrent(agentId))?.integrity ?? "not-applicable",
     }
@@ -452,7 +449,7 @@ export class AgentManager {
     if (!updated) throw this.#error("AGENT_NOT_FOUND", `Unknown agent: ${agentId}`)
     this.#records.set(agentId, updated)
     const view = await this.get(agentId, sessionId)
-    this.#publish({ payload: view, type: "agent.state.notification" })
+    this.#publish({ payload: view, type: "agent.updated.notification" })
     return view
   }
 
@@ -495,7 +492,7 @@ export class AgentManager {
       this.#markSessionRunning(sessionId, agentId)
     }
     const view = await this.get(agentId, sessionId)
-    this.#publish({ payload: view, type: "agent.state.notification" })
+    this.#publish({ payload: view, type: "agent.updated.notification" })
     return view
   }
 
@@ -523,7 +520,7 @@ export class AgentManager {
       this.#sessionStates.get(sessionId)?.delete(agentId)
     }
     const view = await this.get(agentId, sessionId)
-    this.#publish({ payload: view, type: "agent.state.notification" })
+    this.#publish({ payload: view, type: "agent.updated.notification" })
     return view
   }
 
@@ -561,7 +558,7 @@ export class AgentManager {
       })
       if (updated) this.#records.set(agentId, updated)
       const view = await this.get(agentId, sessionId)
-      this.#publish({ payload: view, type: "agent.state.notification" })
+      this.#publish({ payload: view, type: "agent.updated.notification" })
     })
   }
 

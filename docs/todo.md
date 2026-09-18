@@ -113,6 +113,7 @@ Status legend:
 - [ ] Replace provider-session wire APIs with the Agent/Thread protocol and server-owned thread execution.
   - [x] Define Thread views, lifecycle RPCs, canonical timeline rows, epoch/sequence cursors, projected pages, and deterministic projection helpers.
   - [x] Integrate the Thread protocol into the live message union, server dispatch, and top-level client facade.
+  - [x] Normalize public Agent management as `agent.*` and expose it directly on `api.agent`.
   - [ ] Retire connection-owned provider session APIs after their Thread adapters cover the classified surface.
   - [ ] Add the thread lifecycle journal, in-memory timeline store, AgentManager/ThreadManager coordination, and provider adapters.
   - [ ] Complete multi-client interaction arbitration, deletion recovery, process hardening, documentation, and full-repository verification.

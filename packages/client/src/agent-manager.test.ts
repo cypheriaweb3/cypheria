@@ -16,7 +16,7 @@ const agent = (overrides: Partial<AgentView> = {}): AgentView => ({
   enabled: false,
   available: true,
   availableVersion: "1.10.0",
-  runScope: "shared",
+  runtimeScope: "shared",
   runtimeState: "stopped",
   integrity: "not-applicable",
   ...overrides,

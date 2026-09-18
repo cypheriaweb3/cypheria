@@ -111,6 +111,7 @@
 - [ ] 使用 Agent/Thread 协议和 server-owned Thread execution 替换 provider-session wire API。
   - [x] 定义 Thread view、生命周期 RPC、canonical timeline row、epoch/sequence cursor、projected page 和确定性 projection helper。
   - [x] 将 Thread 协议接入 live message union、server dispatch 与顶层 client facade。
+  - [x] 将公开 Agent 管理统一为 `agent.*`，并直接暴露在 `api.agent`。
   - [ ] 在 Thread adapter 覆盖分类后的接口后，移除 connection-owned provider session API。
   - [ ] 添加 Thread lifecycle journal、内存 timeline store、AgentManager/ThreadManager 协作和 provider adapter。
   - [ ] 完成多客户端 interaction 仲裁、删除恢复、进程加固、文档和全仓验证。
