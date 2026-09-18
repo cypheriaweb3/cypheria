@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto"
 import { isAbsolute, normalize } from "node:path"
 
-import { and, asc, eq, sql } from "drizzle-orm"
+import { and, asc, eq, isNull, sql } from "drizzle-orm"
 import { z } from "zod"
 
 import type { CypheriaDatabase } from "./client.js"
@@ -102,6 +102,7 @@ export type ListProjectsOptions = {
 
 export type ListThreadsOptions = {
   readonly agentId?: string
+  readonly archived?: boolean
   readonly cursor?: string | null
   readonly forkedFromId?: string
   readonly limit?: number
@@ -183,6 +184,11 @@ export type ProjectThreadPersistenceService = {
   ): Promise<SectionMembershipView>
   removeItemFromSection(item: SectionItemRef, now?: number): Promise<void>
   removeThreadFromProject(threadId: string, now?: number): Promise<void>
+  setThreadArchived(
+    threadId: string,
+    archivedAt: number | null,
+    now?: number
+  ): Promise<ThreadRecord>
   touchThreadRecency(threadId: string, recencyAt: number, now?: number): Promise<ThreadRecord>
   unpinItem(item: SectionItemRef, now?: number): Promise<void>
   updateProject(
@@ -563,7 +569,7 @@ const recomputeProjectRecency = async (
     .select({ recencyAt: threads.recencyAt })
     .from(projectItems)
     .innerJoin(threads, eq(projectItems.threadId, threads.id))
-    .where(eq(projectItems.projectId, projectId))
+    .where(and(eq(projectItems.projectId, projectId), isNull(threads.archivedAt)))
   const recencies = values.flatMap(({ recencyAt }) => (recencyAt === null ? [] : [recencyAt]))
   const recencyAt = recencies.length === 0 ? null : Math.max(...recencies)
   const project = await requireProject(db, projectId)
@@ -834,6 +840,7 @@ export const createProjectThreadPersistenceService = (
       await tx.insert(threads).values({
         agentId: input.agentId,
         agentSessionId: input.agentSessionId ?? null,
+        archivedAt: null,
         createdAt: now,
         cwd: input.cwd ?? null,
         forkedFromId: input.forkedFromId ?? null,
@@ -984,7 +991,7 @@ export const createProjectThreadPersistenceService = (
       .select({ item: projectItems, thread: threads })
       .from(projectItems)
       .innerJoin(threads, eq(projectItems.threadId, threads.id))
-      .where(eq(projectItems.projectId, project.id))
+      .where(and(eq(projectItems.projectId, project.id), isNull(threads.archivedAt)))
       .orderBy(asc(projectItems.position), asc(projectItems.threadId))
     return paginate(
       rows.map(({ item, thread }) => ({
@@ -1022,10 +1029,12 @@ export const createProjectThreadPersistenceService = (
     const values: SectionItemView[] = []
     for (const row of rows) {
       if (row.itemType === "thread" && row.threadId) {
+        const thread = await requireThread(db, row.threadId)
+        if (thread.archivedAt !== null) continue
         values.push({
           createdAt: row.createdAt,
           position: row.position,
-          thread: await requireThread(db, row.threadId),
+          thread,
           type: "thread",
           updatedAt: row.updatedAt,
         })
@@ -1052,6 +1061,8 @@ export const createProjectThreadPersistenceService = (
   },
   listThreads: async (options = {}) => {
     let values = await db.select().from(threads)
+    const archived = options.archived ?? false
+    values = values.filter((thread) => (thread.archivedAt !== null) === archived)
     if (options.agentId !== undefined)
       values = values.filter(({ agentId }) => agentId === options.agentId)
     if (options.forkedFromId !== undefined) {
@@ -1164,6 +1175,23 @@ export const createProjectThreadPersistenceService = (
         now
       )
       await recomputeProjectRecency(tx, item.projectId, now)
+    })
+  },
+  setThreadArchived: async (threadId, archivedAtValue, nowValue = nowSeconds()) => {
+    const now = parseNow(nowValue)
+    const archivedAt = archivedAtValue === null ? null : parseTimestamp(archivedAtValue)
+    return db.transaction(async (tx) => {
+      const thread = await requireThread(tx, threadId)
+      if (thread.archivedAt === archivedAt) return thread
+      const [record] = await tx
+        .update(threads)
+        .set({ archivedAt, updatedAt: now })
+        .where(eq(threads.id, thread.id))
+        .returning()
+      if (!record) throw new ProjectThreadPersistenceError("WRITE_FAILED", "Thread was not updated")
+      const item = await findProjectItem(tx, thread.id)
+      if (item) await recomputeProjectRecency(tx, item.projectId, now)
+      return record
     })
   },
   touchThreadRecency: async (threadId, recencyValue, nowValue = nowSeconds()) => {

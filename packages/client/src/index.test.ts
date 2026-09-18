@@ -43,10 +43,12 @@ describe("Cypheria client facade", () => {
       "updateToolchain",
     ])
     expect(Object.keys(api.thread).sort()).toEqual([
+      "archive",
       "cancelTurn",
       "close",
       "create",
       "delete",
+      "fork",
       "get",
       "getTimeline",
       "list",
@@ -56,6 +58,7 @@ describe("Cypheria client facade", () => {
       "startTurn",
       "timeline",
       "touchRecency",
+      "unarchive",
       "update",
       "updateConfig",
     ])

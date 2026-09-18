@@ -130,8 +130,17 @@ export class ThreadManager {
         case "thread.resume.request":
           respond(await this.resume(message.payload.threadId))
           break
+        case "thread.fork.request":
+          respond(await this.fork(message.payload))
+          break
         case "thread.close.request":
           respond(await this.close(message.payload.threadId))
+          break
+        case "thread.archive.request":
+          respond(await this.archive(message.payload.threadId))
+          break
+        case "thread.unarchive.request":
+          respond(await this.unarchive(message.payload.threadId))
           break
         case "thread.delete.request":
           await this.delete(message.payload.threadId)
@@ -281,9 +290,32 @@ export class ThreadManager {
     })
   }
 
+  async fork(input: {
+    beforeThreadId?: string | null
+    cwd?: string | null
+    projectPlacement?: CreateThreadInput["projectPlacement"]
+    sectionPlacement?: CreateThreadInput["sectionPlacement"]
+    threadId: string
+    title?: string | null
+  }) {
+    const source = await this.#required(input.threadId)
+    return this.create({
+      agentId: source.agentId,
+      beforeThreadId: input.beforeThreadId,
+      cwd: input.cwd === undefined ? source.cwd : input.cwd,
+      forkedFromId: source.id,
+      projectPlacement: input.projectPlacement,
+      sectionPlacement: input.sectionPlacement,
+      title: input.title === undefined ? source.title : input.title,
+    })
+  }
+
   async resume(threadId: string) {
     return this.#withLock(threadId, async () => {
       let thread = await this.#required(threadId)
+      if (thread.archivedAt !== null) {
+        throw new ThreadManagerError("THREAD_ARCHIVED", "Archived threads must be unarchived first")
+      }
       const agentId = thread.agentId as AgentId
       await this.#assertAgentCallable(agentId)
       this.#setState(thread, "starting")
@@ -342,6 +374,27 @@ export class ThreadManager {
     })
   }
 
+  async archive(threadId: string): Promise<ThreadView> {
+    const thread = await this.#required(threadId)
+    if (thread.archivedAt !== null) return this.#view(thread)
+    if (this.#state(threadId).state !== "stopped") await this.close(threadId)
+    return this.#withLock(threadId, async () => {
+      const current = await this.#required(threadId)
+      if (current.archivedAt !== null) return this.#view(current)
+      return this.#updateAndPublish(
+        await this.#persistence.setThreadArchived(threadId, Math.floor(Date.now() / 1000))
+      )
+    })
+  }
+
+  async unarchive(threadId: string): Promise<ThreadView> {
+    return this.#withLock(threadId, async () => {
+      const thread = await this.#required(threadId)
+      if (thread.archivedAt === null) return this.#view(thread)
+      return this.#updateAndPublish(await this.#persistence.setThreadArchived(threadId, null))
+    })
+  }
+
   async delete(threadId: string): Promise<void> {
     await this.#withLock(threadId, async () => {
       const thread = await this.#required(threadId)
@@ -382,6 +435,10 @@ export class ThreadManager {
     content: readonly ThreadInputBlock[]
     threadId: string
   }): Promise<{ thread: ThreadView; turnId: string }> {
+    const stored = await this.#required(input.threadId)
+    if (stored.archivedAt !== null) {
+      throw new ThreadManagerError("THREAD_ARCHIVED", "Archived threads must be unarchived first")
+    }
     if (this.#state(input.threadId).state === "stopped") await this.resume(input.threadId)
     return this.#withLock(input.threadId, async () => {
       const thread = await this.#required(input.threadId)

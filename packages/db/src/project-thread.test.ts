@@ -193,4 +193,38 @@ describe("project/thread persistence", () => {
     expect(await projectThread.getThreadProject(child.id)).toBeUndefined()
     close()
   })
+
+  it("archives threads without losing project or section placement", async () => {
+    const { close, projectThread } = await setup()
+    const project = await projectThread.createProject({ name: "Project", roots: ["/work"] }, 101)
+    const section = await projectThread.createSection({ name: "Section" }, 102)
+    const thread = await projectThread.createThread(
+      {
+        agentId: "codex",
+        projectPlacement: { projectId: project.id },
+        recencyAt: 200,
+        sectionPlacement: { sectionId: section.id },
+      },
+      103
+    )
+
+    const archived = await projectThread.setThreadArchived(thread.id, 300, 104)
+    expect(archived).toMatchObject({ archivedAt: 300, updatedAt: 104 })
+    expect((await projectThread.listThreads()).data).toHaveLength(0)
+    expect((await projectThread.listThreads({ archived: true })).data).toEqual([archived])
+    expect((await projectThread.listProjectThreads(project.id)).data).toHaveLength(0)
+    expect((await projectThread.listSectionItems(section.id)).data).toHaveLength(0)
+    expect((await projectThread.getProject(project.id))?.recencyAt).toBeNull()
+
+    const restored = await projectThread.setThreadArchived(thread.id, null, 105)
+    expect(restored.archivedAt).toBeNull()
+    expect((await projectThread.listProjectThreads(project.id)).data).toMatchObject([
+      { thread: { id: thread.id } },
+    ])
+    expect((await projectThread.listSectionItems(section.id)).data).toMatchObject([
+      { thread: { id: thread.id }, type: "thread" },
+    ])
+    expect((await projectThread.getProject(project.id))?.recencyAt).toBe(200)
+    close()
+  })
 })

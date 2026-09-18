@@ -41,6 +41,7 @@ export const projects = sqliteTable(
 export const threads = sqliteTable(
   "threads",
   {
+    archivedAt: integer("archived_at"),
     id: text("id").primaryKey(),
     agentId: text("agent_id")
       .notNull()
@@ -62,6 +63,7 @@ export const threads = sqliteTable(
       .on(table.agentId, table.agentSessionId)
       .where(sql`${table.agentSessionId} IS NOT NULL`),
     index("threads_agent_id_idx").on(table.agentId),
+    index("threads_archived_at_idx").on(table.archivedAt),
     index("threads_forked_from_id_idx").on(table.forkedFromId),
     index("threads_recency_at_idx").on(table.recencyAt),
     check(
@@ -69,6 +71,10 @@ export const threads = sqliteTable(
       sql`length(${table.id}) = 36 AND substr(${table.id}, 15, 1) = '7'`
     ),
     check("threads_position_check", sql`${table.position} >= 0`),
+    check(
+      "threads_archived_at_check",
+      sql`${table.archivedAt} IS NULL OR ${table.archivedAt} >= 0`
+    ),
     check("threads_recency_at_check", sql`${table.recencyAt} IS NULL OR ${table.recencyAt} >= 0`),
     check("threads_created_at_check", sql`${table.createdAt} >= 0`),
     check("threads_updated_at_check", sql`${table.updatedAt} >= ${table.createdAt}`),

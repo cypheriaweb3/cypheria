@@ -2,6 +2,8 @@ import { describe, expect, test } from "vitest"
 
 import {
   projectThreadTimelineRows,
+  ThreadArchiveRequestSchema,
+  ThreadForkRequestSchema,
   ThreadInteractionRespondRequestSchema,
   ThreadTimelineGetRequestSchema,
   ThreadTimelineItemSchema,
@@ -15,6 +17,7 @@ describe("thread protocol", () => {
       activeTurn: null,
       agentId: "codex",
       agentSessionId: "provider-thread-1",
+      archivedAt: null,
       attention: false,
       capabilities: {
         changeCwd: true,
@@ -37,6 +40,24 @@ describe("thread protocol", () => {
 
     expect(thread.id).toBe("01996a3a-bcde-7000-8000-000000000001")
     expect(thread.agentSessionId).toBe("provider-thread-1")
+  })
+
+  test("models shared archive and fork operations using Cypheria thread ids", () => {
+    const threadId = "01996a3a-bcde-7000-8000-000000000001"
+    expect(
+      ThreadArchiveRequestSchema.parse({
+        payload: { threadId },
+        requestId: "request-1",
+        type: "thread.archive.request",
+      }).payload.threadId
+    ).toBe(threadId)
+    expect(
+      ThreadForkRequestSchema.parse({
+        payload: { cwd: "/tmp/fork", threadId, title: "Fork" },
+        requestId: "request-2",
+        type: "thread.fork.request",
+      }).payload
+    ).toMatchObject({ cwd: "/tmp/fork", threadId, title: "Fork" })
   })
 
   test("keeps epoch and sequence in the timeline contract", () => {

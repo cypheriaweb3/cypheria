@@ -12,6 +12,7 @@ const thread = (agentId: ThreadView["agentId"], state: ThreadView["state"]): Thr
   activeTurn: state === "running" ? { id: "turn-1", startedAt: "2026-09-18T00:00:00.000Z" } : null,
   agentId,
   agentSessionId: `${agentId}-session`,
+  archivedAt: null,
   attention: false,
   capabilities: {
     changeCwd: true,

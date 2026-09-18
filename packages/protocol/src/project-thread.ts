@@ -23,6 +23,7 @@ export const ProjectSchema = z.object({
 export type Project = z.infer<typeof ProjectSchema>
 
 export const ThreadSchema = z.object({
+  archivedAt: UnixTimestampSecondsSchema.nullable(),
   id: ProjectThreadIdSchema,
   agentId: AgentIdSchema,
   agentSessionId: z.string().nullable(),

@@ -327,6 +327,7 @@ export const ThreadListRequestSchema = request(
   "thread.list.request",
   z.object({
     agentId: AgentIdSchema.optional(),
+    archived: z.boolean().optional(),
     cursor: ProjectThreadCursorSchema.nullish(),
     forkedFromId: ProjectThreadIdSchema.optional(),
     limit: ProjectThreadLimitSchema.optional(),
@@ -356,8 +357,27 @@ export const ThreadResumeRequestSchema = request(
   "thread.resume.request",
   z.object({ threadId: ProjectThreadIdSchema })
 )
+export const ThreadForkRequestSchema = request(
+  "thread.fork.request",
+  z.object({
+    ...beforeThreadSchema.shape,
+    cwd: z.string().nullable().optional(),
+    projectPlacement: projectPlacementSchema.optional(),
+    sectionPlacement: sectionPlacementSchema.optional(),
+    threadId: ProjectThreadIdSchema,
+    title: z.string().nullable().optional(),
+  })
+)
 export const ThreadCloseRequestSchema = request(
   "thread.close.request",
+  z.object({ threadId: ProjectThreadIdSchema })
+)
+export const ThreadArchiveRequestSchema = request(
+  "thread.archive.request",
+  z.object({ threadId: ProjectThreadIdSchema })
+)
+export const ThreadUnarchiveRequestSchema = request(
+  "thread.unarchive.request",
   z.object({ threadId: ProjectThreadIdSchema })
 )
 export const ThreadDeleteRequestSchema = request(
@@ -423,7 +443,10 @@ export const ThreadTouchRecencyResponseSchema = response(
 )
 export const ThreadMoveResponseSchema = response("thread.move.response", emptySchema)
 export const ThreadResumeResponseSchema = response("thread.resume.response", threadReadySchema)
+export const ThreadForkResponseSchema = response("thread.fork.response", threadReadySchema)
 export const ThreadCloseResponseSchema = response("thread.close.response", ThreadViewSchema)
+export const ThreadArchiveResponseSchema = response("thread.archive.response", ThreadViewSchema)
+export const ThreadUnarchiveResponseSchema = response("thread.unarchive.response", ThreadViewSchema)
 export const ThreadDeleteResponseSchema = response("thread.delete.response", emptySchema)
 export const ThreadTurnStartResponseSchema = response(
   "thread.turn.start.response",
@@ -501,7 +524,10 @@ export const THREAD_CLIENT_SCHEMAS = [
   ThreadTouchRecencyRequestSchema,
   ThreadMoveRequestSchema,
   ThreadResumeRequestSchema,
+  ThreadForkRequestSchema,
   ThreadCloseRequestSchema,
+  ThreadArchiveRequestSchema,
+  ThreadUnarchiveRequestSchema,
   ThreadDeleteRequestSchema,
   ThreadTurnStartRequestSchema,
   ThreadTurnCancelRequestSchema,
@@ -518,7 +544,10 @@ export const THREAD_SERVER_SCHEMAS = [
   ThreadTouchRecencyResponseSchema,
   ThreadMoveResponseSchema,
   ThreadResumeResponseSchema,
+  ThreadForkResponseSchema,
   ThreadCloseResponseSchema,
+  ThreadArchiveResponseSchema,
+  ThreadUnarchiveResponseSchema,
   ThreadDeleteResponseSchema,
   ThreadTurnStartResponseSchema,
   ThreadTurnCancelResponseSchema,

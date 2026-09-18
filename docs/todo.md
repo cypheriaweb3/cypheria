@@ -119,12 +119,13 @@ Status legend:
   - [x] Retire connection-owned provider session APIs after their Thread adapters cover the classified surface.
   - [x] Add the thread lifecycle journal, in-memory timeline store, AgentManager/ThreadManager coordination, and provider adapters.
   - [x] Complete multi-client interaction arbitration, deletion recovery, process hardening, and documentation.
+  - [x] Add shared archive, unarchive, archived-list, and native-session fork operations; archived Threads retain project/section placement while disappearing from active Sidebar collections.
   - [x] Complete full-repository verification.
   - Acceptance: the public protocol uses Agent and Thread terminology; `threadId` is the only operation handle; all clients receive the same Thread events; only canonical timeline rows use epoch/sequence; provider sessions remain server-internal.
 
-- [ ] Migrate desktop to the Cypheria server after explicit review.
+- [~] Migrate desktop to the Cypheria server.
   - Acceptance: Electron main ensures the local supervised server is running, desktop uses the shared protocol, and Electron-only dApp/browser, secure-storage, approval, preload, and OS-integration boundaries remain intact.
-  - Prerequisite: explicit approval of the server foundation; do not begin as part of the foundation change.
+  - Status: explicitly approved; preserve the current Sidebar and Codex-derived conversation experience as hard acceptance gates while replacing their data source.
 
 - [x] Rewrite docs for the server and multi-client target architecture.
   - Acceptance: README, architecture, technical stack, todo docs, and `AGENTS.md` describe the current target architecture only.

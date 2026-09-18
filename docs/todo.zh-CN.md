@@ -117,12 +117,13 @@
   - [x] 在 Thread adapter 覆盖分类后的接口后，移除 connection-owned provider session API。
   - [x] 添加 Thread lifecycle journal、内存 timeline store、AgentManager/ThreadManager 协作和 provider adapter。
   - [x] 完成多客户端 interaction 仲裁、删除恢复、进程加固和文档。
+  - [x] 添加共享的归档、取消归档、已归档列表和原生 session Fork 操作；归档 Thread 保留 project/section 归属，但不出现在活动 Sidebar 集合中。
   - [x] 完成全仓验证。
   - 验收：公开协议只使用 Agent 与 Thread 术语；`threadId` 是唯一操作句柄；所有客户端收到一致的 Thread 事件；只有 canonical timeline row 使用 epoch/sequence；provider session 只存在于 server 内部。
 
-- [ ] 在明确评审后将 desktop 迁移到 Cypheria server。
+- [~] 将 desktop 迁移到 Cypheria server。
   - 验收：Electron main 确保本地 supervised server 正在运行，desktop 使用共享 protocol，并保持 Electron-only dApp/browser、secure-storage、approval、preload 与 OS-integration 边界。
-  - 前置条件：明确批准 server 基础；不得作为 foundation change 的一部分开始。
+  - 状态：已明确批准；在替换数据源时，把现有 Sidebar 与源自 Codex 的会话体验作为硬性验收门槛。
 
 - [x] 按 server 与 multi-client 目标架构重写文档。
   - 验收：README、architecture、technical stack、todo docs 和 `AGENTS.md` 只描述当前目标架构。

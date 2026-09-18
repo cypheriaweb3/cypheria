@@ -403,6 +403,7 @@ CREATE INDEX `thread_lifecycle_operations_thread_id_idx` ON `thread_lifecycle_op
 CREATE INDEX `thread_lifecycle_operations_status_idx` ON `thread_lifecycle_operations` (`status`);--> statement-breakpoint
 CREATE TABLE `threads` (
 	`id` text PRIMARY KEY NOT NULL,
+	`archived_at` integer,
 	`agent_id` text NOT NULL,
 	`agent_session_id` text,
 	`forked_from_id` text,
@@ -416,6 +417,7 @@ CREATE TABLE `threads` (
 	FOREIGN KEY (`forked_from_id`) REFERENCES `threads`(`id`) ON UPDATE no action ON DELETE set null,
 	CONSTRAINT "threads_id_uuidv7_check" CHECK(length("threads"."id") = 36 AND substr("threads"."id", 15, 1) = '7'),
 	CONSTRAINT "threads_position_check" CHECK("threads"."position" >= 0),
+	CONSTRAINT "threads_archived_at_check" CHECK("threads"."archived_at" IS NULL OR "threads"."archived_at" >= 0),
 	CONSTRAINT "threads_recency_at_check" CHECK("threads"."recency_at" IS NULL OR "threads"."recency_at" >= 0),
 	CONSTRAINT "threads_created_at_check" CHECK("threads"."created_at" >= 0),
 	CONSTRAINT "threads_updated_at_check" CHECK("threads"."updated_at" >= "threads"."created_at")
@@ -424,6 +426,7 @@ CREATE TABLE `threads` (
 CREATE UNIQUE INDEX `threads_position_unique` ON `threads` (`position`);--> statement-breakpoint
 CREATE UNIQUE INDEX `threads_agent_session_unique` ON `threads` (`agent_id`,`agent_session_id`) WHERE "threads"."agent_session_id" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX `threads_agent_id_idx` ON `threads` (`agent_id`);--> statement-breakpoint
+CREATE INDEX `threads_archived_at_idx` ON `threads` (`archived_at`);--> statement-breakpoint
 CREATE INDEX `threads_forked_from_id_idx` ON `threads` (`forked_from_id`);--> statement-breakpoint
 CREATE INDEX `threads_recency_at_idx` ON `threads` (`recency_at`);--> statement-breakpoint
 CREATE TABLE `wallet_accounts` (

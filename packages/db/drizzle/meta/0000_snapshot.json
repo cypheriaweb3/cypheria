@@ -2360,6 +2360,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "archived_at": {
+          "name": "archived_at",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "agent_id": {
           "name": "agent_id",
           "type": "text",
@@ -2441,6 +2448,11 @@
           "columns": ["agent_id"],
           "isUnique": false
         },
+        "threads_archived_at_idx": {
+          "name": "threads_archived_at_idx",
+          "columns": ["archived_at"],
+          "isUnique": false
+        },
         "threads_forked_from_id_idx": {
           "name": "threads_forked_from_id_idx",
           "columns": ["forked_from_id"],
@@ -2482,6 +2494,10 @@
         "threads_position_check": {
           "name": "threads_position_check",
           "value": "\"threads\".\"position\" >= 0"
+        },
+        "threads_archived_at_check": {
+          "name": "threads_archived_at_check",
+          "value": "\"threads\".\"archived_at\" IS NULL OR \"threads\".\"archived_at\" >= 0"
         },
         "threads_recency_at_check": {
           "name": "threads_recency_at_check",

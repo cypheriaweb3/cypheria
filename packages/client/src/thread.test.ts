@@ -7,6 +7,7 @@ const thread = {
   activeTurn: null,
   agentId: "codex" as const,
   agentSessionId: null,
+  archivedAt: null,
   attention: false,
   capabilities: {
     changeCwd: true,
@@ -60,5 +61,30 @@ describe("thread actions", () => {
       message: "Thread was not found",
       name: "THREAD_NOT_FOUND",
     })
+  })
+
+  it("exposes archive, unarchive, and fork through shared thread requests", async () => {
+    const requestThread = vi.fn(async (type: string, _payload: unknown) => ({
+      payload: {
+        ok: true as const,
+        value:
+          type === "thread.fork.request"
+            ? { thread, timeline: { endCursor: null, epoch: crypto.randomUUID() } }
+            : thread,
+      },
+      requestId: "test",
+      type: type.replace(/\.request$/, ".response"),
+    }))
+    const actions = createThreadActions({ requestThread } as unknown as ServerClient)
+
+    await actions.archive(thread.id)
+    await actions.unarchive(thread.id)
+    await actions.fork({ threadId: thread.id })
+
+    expect(requestThread.mock.calls.map(([type]) => type)).toEqual([
+      "thread.archive.request",
+      "thread.unarchive.request",
+      "thread.fork.request",
+    ])
   })
 })

@@ -26,11 +26,13 @@ class FakeAdapter implements ThreadProviderAdapter {
   deleteError: Error | undefined
   interactionError: Error | undefined
   createSessionId: string | null | undefined
+  readonly creates: ThreadProviderCreateInput[] = []
 
   async close(): Promise<void> {
     if (this.closeError) throw this.closeError
   }
   async create(input: ThreadProviderCreateInput) {
+    this.creates.push(input)
     this.events.set(input.threadId, input.onEvent)
     return {
       capabilities: {
@@ -228,5 +230,39 @@ describe("ThreadManager", () => {
 
     await expect(manager.close(created.thread.id)).rejects.toThrow("close failed")
     expect(await manager.get(created.thread.id)).toMatchObject({ state: "errored" })
+  })
+
+  it("archives a stopped thread and requires unarchive before resume", async () => {
+    const { manager } = await setup()
+    const created = await manager.create({ agentId: "codex" })
+
+    const archived = await manager.archive(created.thread.id)
+    expect(archived).toMatchObject({ archivedAt: expect.any(Number), state: "stopped" })
+    expect((await manager.list({})).data).toHaveLength(0)
+    expect((await manager.list({ archived: true })).data).toMatchObject([{ id: created.thread.id }])
+    await expect(manager.resume(created.thread.id)).rejects.toMatchObject({
+      code: "THREAD_ARCHIVED",
+    })
+
+    expect(await manager.unarchive(created.thread.id)).toMatchObject({ archivedAt: null })
+    await expect(manager.resume(created.thread.id)).resolves.toMatchObject({
+      thread: { id: created.thread.id, state: "idle" },
+    })
+  })
+
+  it("forks through the source agent session while keeping Cypheria identity", async () => {
+    const { adapter, manager } = await setup()
+    const source = await manager.create({ agentId: "codex", cwd: "/repo", title: "Source" })
+
+    const fork = await manager.fork({ threadId: source.thread.id })
+
+    expect(fork.thread).toMatchObject({
+      agentId: "codex",
+      cwd: "/repo",
+      forkedFromId: source.thread.id,
+      title: "Source",
+    })
+    expect(fork.thread.id).not.toBe(source.thread.id)
+    expect(adapter.creates.at(-1)?.forkedFromAgentSessionId).toBe(source.thread.agentSessionId)
   })
 })

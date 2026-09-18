@@ -32,6 +32,7 @@ const unwrap = <T>(message: ThreadServerMessage): T => {
 }
 
 export interface ThreadActions {
+  archive(threadId: string, options?: RequestOptions): Promise<ThreadView>
   cancelTurn(threadId: string, turnId?: string, options?: RequestOptions): Promise<ThreadView>
   close(threadId: string, options?: RequestOptions): Promise<ThreadView>
   create(input: Payload<"thread.create.request">, options?: RequestOptions): Promise<ReadyThread>
@@ -41,6 +42,7 @@ export interface ThreadActions {
     input: Payload<"thread.timeline.get.request">,
     options?: RequestOptions
   ): Promise<ThreadTimelinePage>
+  fork(input: Payload<"thread.fork.request">, options?: RequestOptions): Promise<ReadyThread>
   list(
     input?: Payload<"thread.list.request">,
     options?: RequestOptions
@@ -56,6 +58,7 @@ export interface ThreadActions {
     options?: RequestOptions
   ): Promise<{ thread: ThreadView; turnId: string }>
   touchRecency(threadId: string, recencyAt: number, options?: RequestOptions): Promise<ThreadView>
+  unarchive(threadId: string, options?: RequestOptions): Promise<ThreadView>
   update(input: Payload<"thread.update.request">, options?: RequestOptions): Promise<ThreadView>
   updateConfig(
     input: Payload<"thread.config.update.request">,
@@ -83,6 +86,7 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
   }
 
   return {
+    archive: (threadId, options) => request("thread.archive.request", { threadId }, options),
     cancelTurn: (threadId, turnId, options) =>
       request(
         "thread.turn.cancel.request",
@@ -96,6 +100,7 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
     },
     get: (threadId, options) => request("thread.get.request", { threadId }, options),
     getTimeline: (input, options) => request("thread.timeline.get.request", input, options),
+    fork: (input, options) => request("thread.fork.request", input, options),
     list: (input = {}, options) => request("thread.list.request", input, options),
     move: async (input, options) => {
       await request("thread.move.request", input, options)
@@ -106,6 +111,7 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
     startTurn: (input, options) => request("thread.turn.start.request", input, options),
     touchRecency: (threadId, recencyAt, options) =>
       request("thread.recency.touch.request", { recencyAt, threadId }, options),
+    unarchive: (threadId, options) => request("thread.unarchive.request", { threadId }, options),
     timeline,
     update: (input, options) => request("thread.update.request", input, options),
     updateConfig: (input, options) => request("thread.config.update.request", input, options),
