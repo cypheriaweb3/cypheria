@@ -1,4 +1,9 @@
-import type { ThreadInteraction, ThreadTimelineProjectedItem } from "@cypheria/protocol"
+import type {
+  AgentId,
+  ThreadCapabilities,
+  ThreadInteraction,
+  ThreadTimelineProjectedItem,
+} from "@cypheria/protocol"
 import type {
   CodexInteractionEvent,
   CodexThreadDetailView,
@@ -7,6 +12,43 @@ import type {
 import { ensureCypheriaClient } from "./cypheria-client.js"
 
 type MutableMessage = { id: string; parts: unknown[]; role: "assistant" | "user" }
+
+export type CypheriaThreadDetailView = CodexThreadDetailView & {
+  agentId: AgentId
+  capabilities: ThreadCapabilities
+}
+
+const attachmentPart = (
+  attachment: NonNullable<
+    Extract<ThreadTimelineProjectedItem["item"], { type: "message" }>["attachments"]
+  >[number]
+) => {
+  switch (attachment.type) {
+    case "image":
+    case "audio":
+      return {
+        mediaType: attachment.mimeType,
+        type: "file" as const,
+        url: `data:${attachment.mimeType};base64,${attachment.data}`,
+      }
+    case "resource-link":
+      return {
+        ...(attachment.name ? { filename: attachment.name } : {}),
+        mediaType: "application/octet-stream",
+        type: "file" as const,
+        url: attachment.uri,
+      }
+    case "embedded-resource":
+      return {
+        ...(attachment.name ? { filename: attachment.name } : {}),
+        mediaType: attachment.mimeType,
+        type: "file" as const,
+        url: attachment.uri.startsWith("inline-base64:")
+          ? `data:${attachment.mimeType};base64,${attachment.data}`
+          : `data:${attachment.mimeType},${encodeURIComponent(attachment.data)}`,
+      }
+  }
+}
 
 export const canonicalInteractionToView = (
   interaction: ThreadInteraction,
@@ -99,7 +141,10 @@ export const canonicalTimelineToUiMessages = (
     if (item.type === "message" && item.role === "user") {
       messages.push({
         id: `user:${item.itemId}`,
-        parts: [{ text: item.text, type: "text" }],
+        parts: [
+          ...(item.text ? [{ text: item.text, type: "text" as const }] : []),
+          ...(item.attachments ?? []).map(attachmentPart),
+        ],
         role: "user",
       })
       continue
@@ -141,7 +186,7 @@ export const canonicalTimelineToUiMessages = (
 
 export const readCypheriaThreadDetail = async (
   threadId: string
-): Promise<CodexThreadDetailView> => {
+): Promise<CypheriaThreadDetailView> => {
   const client = await ensureCypheriaClient()
   const [thread, project, timeline] = await Promise.all([
     client.threads.get(threadId),
@@ -154,6 +199,8 @@ export const readCypheriaThreadDetail = async (
     }),
   ])
   return {
+    agentId: thread.agentId,
+    capabilities: thread.capabilities,
     cwd: thread.cwd ?? "",
     id: thread.id,
     messages: canonicalTimelineToUiMessages(

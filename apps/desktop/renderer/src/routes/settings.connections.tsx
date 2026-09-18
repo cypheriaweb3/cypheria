@@ -25,14 +25,8 @@ import {
 } from "@cypheria/ui/components/select"
 import { Skeleton } from "@cypheria/ui/components/skeleton"
 import { Switch } from "@cypheria/ui/components/switch"
-import { Tabs, TabsList, TabsTrigger } from "@cypheria/ui/components/tabs"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { FitAddon } from "@xterm/addon-fit"
-import { Terminal } from "@xterm/xterm"
-import "@xterm/xterm/css/xterm.css"
-import { terminalAppearanceFromElement } from "../components/terminal-appearance.js"
-import "../components/workspace-terminal.css"
 import {
   CheckCircle2,
   ChevronDown,
@@ -41,11 +35,8 @@ import {
   LoaderCircle,
   LogOut,
   Network,
-  RefreshCw,
-  SquareTerminal,
-  X,
 } from "lucide-react"
-import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react"
+import { type FormEvent, useEffect, useState } from "react"
 import { z } from "zod"
 import type {
   CodexAccountView,
@@ -54,21 +45,11 @@ import type {
   ConnectionProxyProtocol,
   ConnectionProxySettings,
   ConnectionProxyTestResult,
-  HarnessEvent,
-  HarnessId,
-  HarnessTerminalSession,
-  HarnessView,
 } from "../../../ipc/src/index.js"
 import codexOnDarkLogo from "../assets/harnesses/codex-on-dark.svg"
 import codexOnLightLogo from "../assets/harnesses/codex-on-light.svg"
-import cursorLogo from "../assets/harnesses/cursor.svg"
-import geminiCliLogo from "../assets/harnesses/gemini-cli.svg"
-import grokOnDarkLogo from "../assets/harnesses/grok-on-dark.svg"
-import grokOnLightLogo from "../assets/harnesses/grok-on-light.svg"
-import hermesLogo from "../assets/harnesses/hermes.svg"
-import openCodeOnDarkLogo from "../assets/harnesses/opencode-on-dark.svg"
-import openCodeOnLightLogo from "../assets/harnesses/opencode-on-light.svg"
 import { SettingsFrame } from "../components/settings-frame"
+import { ensureCypheriaClient } from "../cypheria-client.js"
 
 export const Route = createFileRoute("/settings/connections")({
   component: ConnectionsSettingsRoute,
@@ -95,68 +76,6 @@ function ThemeLogo({
       <img alt="" className={`${className} hidden dark:block`} src={sources.darkTheme} />
     </>
   )
-}
-
-const harnesses: ReadonlyArray<{
-  description: string
-  id: "codex" | HarnessId
-  icon: ReactNode
-  name: string
-}> = [
-  {
-    description: "OpenAI coding agent",
-    id: "codex",
-    icon: <ThemeLogo className="size-8" sources={codexLogoSources} />,
-    name: "Codex",
-  },
-  {
-    description: "xAI coding agent",
-    id: "grok-build",
-    icon: (
-      <ThemeLogo
-        className="size-5 rounded-sm"
-        sources={{ darkTheme: grokOnDarkLogo, lightTheme: grokOnLightLogo }}
-      />
-    ),
-    name: "Grok Build",
-  },
-  {
-    description: "Cursor coding agent",
-    id: "cursor",
-    icon: <img alt="" className="size-5 rounded-sm" src={cursorLogo} />,
-    name: "Cursor",
-  },
-  {
-    description: "Google Gemini CLI",
-    id: "gemini",
-    icon: <img alt="" className="size-5 rounded-sm" src={geminiCliLogo} />,
-    name: "Gemini CLI",
-  },
-  {
-    description: "Nous Research agent",
-    id: "hermes",
-    icon: <img alt="" className="size-5" src={hermesLogo} />,
-    name: "Hermes",
-  },
-  {
-    description: "Open source coding agent",
-    id: "opencode",
-    icon: (
-      <ThemeLogo
-        className="size-5 rounded-sm"
-        sources={{ darkTheme: openCodeOnDarkLogo, lightTheme: openCodeOnLightLogo }}
-      />
-    ),
-    name: "OpenCode",
-  },
-]
-
-const harnessLogos: Record<HarnessId, ThemeLogoSources> = {
-  "grok-build": { darkTheme: grokOnDarkLogo, lightTheme: grokOnLightLogo },
-  cursor: { darkTheme: cursorLogo, lightTheme: cursorLogo },
-  gemini: { darkTheme: geminiCliLogo, lightTheme: geminiCliLogo },
-  hermes: { darkTheme: hermesLogo, lightTheme: hermesLogo },
-  opencode: { darkTheme: openCodeOnDarkLogo, lightTheme: openCodeOnLightLogo },
 }
 
 const disconnectedCodexAccount: CodexAccountView = {
@@ -205,15 +124,39 @@ const proxyDraftToSettings = (draft: ProxyDraft): ConnectionProxySettings => {
   }
 }
 
+const waitForAgentOperation = async (operation: AgentOperation): Promise<AgentOperation> => {
+  if (operation.status === "succeeded") return operation
+  if (operation.status === "failed") throw new Error(operation.error ?? "Agent operation failed")
+  const client = await ensureCypheriaClient()
+  for (;;) {
+    await new Promise<void>((resolve) => setTimeout(resolve, 250))
+    const current = await client.agents.getOperation(operation.id)
+    if (current.status === "succeeded") return current
+    if (current.status === "failed") throw new Error(current.error ?? "Agent operation failed")
+  }
+}
+
+function AgentIcon({ agent, large = false }: Readonly<{ agent: AgentView; large?: boolean }>) {
+  if (agent.id === "codex") {
+    return <ThemeLogo className={large ? "size-10" : "size-8"} sources={codexLogoSources} />
+  }
+  return (
+    <span
+      aria-hidden="true"
+      className={large ? "text-base font-semibold uppercase" : "text-sm font-semibold uppercase"}
+    >
+      {agent.name.slice(0, 2)}
+    </span>
+  )
+}
+
 function ConnectionsSettingsRoute() {
   const search = Route.useSearch()
   const queryClient = useQueryClient()
-  const [selectedHarness, setSelectedHarness] = useState<"codex" | HarnessId>("codex")
-  const [terminals, setTerminals] = useState<HarnessTerminalSession[]>([])
-  const [activeTerminal, setActiveTerminal] = useState<string | null>(null)
-  const harnessList = useQuery({
-    queryFn: () => window.cypheria?.harnesses.list() ?? Promise.resolve([]),
-    queryKey: ["harnesses"],
+  const [selectedAgentId, setSelectedAgentId] = useState<AgentId>("codex")
+  const agents = useQuery({
+    queryFn: async () => (await ensureCypheriaClient()).agents.list(),
+    queryKey: ["cypheria", "agents"],
   })
   const account = useQuery({
     queryFn: () => window.cypheria?.codex.getAccount() ?? Promise.resolve(disconnectedCodexAccount),
@@ -288,43 +231,29 @@ function ConnectionsSettingsRoute() {
   }, [search.focus])
 
   useEffect(() => {
-    return () => {
-      void window.cypheria?.harnesses.closeAllTerminals()
-    }
-  }, [])
-
-  const openTerminal = async (id: HarnessId) => {
-    const existing = terminals.find((terminal) => terminal.harnessId === id)
-    if (existing) {
-      setActiveTerminal(existing.terminalId)
-      return
-    }
-    if (!window.cypheria) return
-    const terminal = await window.cypheria.harnesses.openTerminal(id)
-    setTerminals((current) => [...current, terminal])
-    setActiveTerminal(terminal.terminalId)
-  }
-
-  const closeTerminal = async (terminalId: string) => {
-    await window.cypheria?.harnesses.closeTerminal(terminalId)
-    setTerminals((current) => {
-      const remaining = current.filter((terminal) => terminal.terminalId !== terminalId)
-      setActiveTerminal((active) =>
-        active === terminalId ? (remaining.at(-1)?.terminalId ?? null) : active
-      )
-      return remaining
+    let unsubscribeUpdated: () => void = () => undefined
+    let unsubscribeCompleted: () => void = () => undefined
+    void ensureCypheriaClient().then((client) => {
+      const refresh = () => void queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
+      unsubscribeUpdated = client.on("agent.updated.notification", refresh)
+      unsubscribeCompleted = client.on("agent.operation.completed.notification", refresh)
     })
-  }
+    return () => {
+      unsubscribeUpdated()
+      unsubscribeCompleted()
+    }
+  }, [queryClient])
 
   const connected = Boolean(account.data?.type)
   const error = login.error?.message ?? logout.error?.message ?? notificationError
+  const selectedAgent = agents.data?.agents.find((agent) => agent.id === selectedAgentId)
 
   return (
     <SettingsFrame wide>
       <div>
         <h1 className="text-2xl font-semibold">Connections</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Sign in to the agent harnesses in Cypheria.
+          Install, enable, and connect server-managed agents in Cypheria.
         </p>
       </div>
 
@@ -333,35 +262,38 @@ function ConnectionsSettingsRoute() {
       <div className="grid gap-6 md:grid-cols-[220px_minmax(0,1fr)]">
         <Card className="h-fit">
           <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Agent harnesses</CardTitle>
+            <CardTitle className="text-sm">Agents</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-1 px-2 pb-2">
-            {harnesses.map((harness) => (
+          <CardContent className="cypheria-scrollbar grid max-h-[70vh] gap-1 overflow-y-auto px-2 pb-2">
+            {agents.data?.agents.map((agent) => (
               <button
                 className={
-                  selectedHarness === harness.id
+                  selectedAgentId === agent.id
                     ? "flex items-center gap-3 rounded-md bg-muted px-3 py-2.5 text-left"
                     : "flex items-center gap-3 rounded-md px-3 py-2.5 text-left text-muted-foreground hover:bg-muted/50"
                 }
-                key={harness.name}
+                key={agent.id}
                 type="button"
-                onClick={() => setSelectedHarness(harness.id)}
+                onClick={() => setSelectedAgentId(agent.id)}
               >
                 <span className="flex size-8 shrink-0 items-center justify-center rounded-md border bg-background">
-                  {harness.icon}
+                  <AgentIcon agent={agent} />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-foreground">
-                    {harness.name}
+                    {agent.name}
                   </span>
-                  <span className="block truncate text-xs">{harness.description}</span>
+                  <span className="block truncate text-xs">
+                    {agent.native ? "First-party" : "ACP"} · {agent.version}
+                  </span>
                 </span>
               </button>
             ))}
+            {agents.isLoading ? <Skeleton className="h-48 w-full" /> : null}
           </CardContent>
         </Card>
 
-        {selectedHarness === "codex" ? (
+        {selectedAgentId === "codex" ? (
           <Card className="scroll-mt-6" id="codex-connection">
             <CardHeader>
               <div className="flex items-start justify-between gap-4">
@@ -380,6 +312,7 @@ function ConnectionsSettingsRoute() {
               </div>
             </CardHeader>
             <CardContent className="grid gap-5">
+              {selectedAgent ? <AgentLifecycleControls agent={selectedAgent} /> : null}
               {account.isLoading ? <Skeleton className="h-24 w-full" /> : null}
 
               {account.isError ? (
@@ -485,92 +418,18 @@ function ConnectionsSettingsRoute() {
             </CardContent>
           </Card>
         ) : (
-          <HarnessConnectionCard
-            harness={harnessList.data?.find((item) => item.id === selectedHarness)}
-            loading={harnessList.isLoading}
-            onOpenTerminal={() => void openTerminal(selectedHarness)}
-            onUpdated={() => void queryClient.invalidateQueries({ queryKey: ["harnesses"] })}
-          />
+          <AgentConnectionCard agent={selectedAgent} loading={agents.isLoading} />
         )}
       </div>
-      {terminals.length > 0 ? (
-        <ConnectionTerminalDock
-          activeTerminal={activeTerminal}
-          terminals={terminals}
-          onActiveTerminalChange={setActiveTerminal}
-          onCloseTerminal={(terminalId) => void closeTerminal(terminalId)}
-        />
-      ) : null}
     </SettingsFrame>
   )
 }
 
-function HarnessConnectionCard({
-  harness,
+function AgentConnectionCard({
+  agent,
   loading,
-  onOpenTerminal,
-  onUpdated,
-}: Readonly<{
-  harness?: HarnessView
-  loading: boolean
-  onOpenTerminal: () => void
-  onUpdated: () => void
-}>) {
-  const [progress, setProgress] = useState<string[]>([])
-  useEffect(
-    () =>
-      window.cypheria?.harnesses.onEvent((event) => {
-        if (!("harnessId" in event) || event.harnessId !== harness?.id) return
-        setProgress((current) => [...current.slice(-9), event.message.trim()].filter(Boolean))
-      }),
-    [harness?.id]
-  )
-  const install = useMutation({
-    mutationFn: async () => {
-      if (!harness || !window.cypheria) throw new Error("Harness management is unavailable.")
-      setProgress([])
-      return harness.installState === "installed"
-        ? window.cypheria.harnesses.update(harness.id)
-        : window.cypheria.harnesses.install(harness.id)
-    },
-    onSuccess: onUpdated,
-  })
-  const toggle = useMutation({
-    mutationFn: async (enabled: boolean) => {
-      if (!harness || !window.cypheria) throw new Error("Harness management is unavailable.")
-      return window.cypheria.harnesses.setEnabled(harness.id, enabled)
-    },
-    onSuccess: onUpdated,
-  })
-  const checkUpdate = useMutation({
-    mutationFn: async () => {
-      if (!harness || !window.cypheria) throw new Error("Harness management is unavailable.")
-      return window.cypheria.harnesses.checkUpdate(harness.id)
-    },
-    onSuccess: onUpdated,
-  })
-  const checkForUpdate = checkUpdate.mutate
-  const harnessId = harness?.id
-
-  useEffect(() => {
-    if (
-      harnessId &&
-      harness?.installState === "installed" &&
-      harness.updateCheck === "supported" &&
-      (!harness.lastUpdateCheckAt ||
-        Date.now() - new Date(harness.lastUpdateCheckAt).getTime() > 24 * 60 * 60 * 1_000)
-    ) {
-      checkForUpdate()
-    }
-  }, [
-    checkForUpdate,
-    harnessId,
-    harness?.installState,
-    harness?.lastUpdateCheckAt,
-    harness?.updateCheck,
-  ])
-
-  if (loading || !harness)
+}: Readonly<{ agent?: AgentView; loading: boolean }>) {
+  if (loading || !agent) {
     return (
       <Card>
         <CardContent className="p-6">
@@ -578,258 +437,127 @@ function HarnessConnectionCard({
         </CardContent>
       </Card>
     )
-  const installed = harness.installState === "installed"
-  const error = install.error?.message ?? toggle.error?.message ?? checkUpdate.error?.message
+  }
   return (
     <Card>
       <CardHeader>
         <div className="flex items-start justify-between gap-4">
           <div className="grid gap-1.5">
-            <CardTitle className="flex items-center gap-2">
-              {harness.displayName}
-              <Badge
-                variant={harness.updateAvailable ? "default" : installed ? "secondary" : "outline"}
-              >
-                {installed ? (harness.installedVersion ?? "Installed") : "Not installed"}
+            <CardTitle className="flex flex-wrap items-center gap-2">
+              {agent.name}
+              <Badge variant={agent.native ? "secondary" : "outline"}>
+                {agent.native ? "First-party" : "ACP"}
               </Badge>
-              {harness.updateAvailable ? (
-                <Badge variant="outline">Update {harness.availableVersion}</Badge>
-              ) : null}
             </CardTitle>
-            <CardDescription>
-              {harness.description}. Managed by Cypheria and launched through ACP.
-            </CardDescription>
+            <CardDescription>{agent.description}</CardDescription>
           </div>
           <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border bg-muted">
-            <ThemeLogo className="size-6 rounded-sm" sources={harnessLogos[harness.id]} />
+            <AgentIcon agent={agent} large />
           </span>
         </div>
       </CardHeader>
-      <CardContent className="grid gap-5">
-        <div className="flex flex-wrap items-center gap-3">
-          <Button disabled={install.isPending} onClick={() => install.mutate()}>
-            {install.isPending ? <LoaderCircle className="size-4 animate-spin" /> : null}
-            {harness.updateAvailable
-              ? `Install ${harness.availableVersion}`
-              : installed
-                ? "Install latest"
-                : "Install latest version"}
-          </Button>
-          {installed && harness.updateCheck === "supported" ? (
-            <Button
-              disabled={checkUpdate.isPending}
-              variant="outline"
-              onClick={() => checkUpdate.mutate()}
-            >
-              <RefreshCw className={checkUpdate.isPending ? "size-4 animate-spin" : "size-4"} />
-              Check updates
-            </Button>
-          ) : null}
-          <Button disabled={!installed} variant="outline" onClick={onOpenTerminal}>
-            <SquareTerminal className="size-4" /> Open terminal
-          </Button>
-        </div>
-
-        <div className="flex items-center justify-between rounded-md border p-4">
-          <div>
-            <p className="text-sm font-medium">Enable in Cypheria</p>
-            <p className="text-xs text-muted-foreground">
-              The ACP process still starts only when this agent is used.
-            </p>
-          </div>
-          <Switch
-            checked={harness.enabled}
-            disabled={!installed || toggle.isPending}
-            onCheckedChange={(checked) => toggle.mutate(checked)}
-          />
-        </div>
-
-        <div className="grid gap-2 rounded-md bg-muted/40 p-3 text-xs">
-          <div>
-            <span className="text-muted-foreground">Managed home: </span>
-            <span className="font-mono break-all">{harness.managedHome}</span>
-          </div>
-          <div>
-            <span className="text-muted-foreground">Executable: </span>
-            <span className="font-mono break-all">{harness.executablePath}</span>
-          </div>
-          {harness.receiptPath ? (
-            <div>
-              <span className="text-muted-foreground">Latest install receipt: </span>
-              <span className="font-mono break-all">{harness.receiptPath}</span>
-            </div>
-          ) : null}
-          {installed ? (
-            <div>
-              <span className="text-muted-foreground">Updates: </span>
-              <span>
-                {harness.updateCheck === "nativeAuto"
-                  ? "Cursor manages update checks; Install latest remains available."
-                  : harness.updateCheck === "unsupported"
-                    ? "No reliable upstream check is available."
-                    : harness.updateAvailable
-                      ? `${harness.availableVersion} is available.`
-                      : harness.lastUpdateCheckAt
-                        ? "No newer version reported."
-                        : "Not checked yet."}
-              </span>
-            </div>
-          ) : null}
-        </div>
-
-        {progress.length > 0 ? (
-          <pre className="max-h-44 overflow-auto whitespace-pre-wrap rounded-md border bg-muted p-3 text-xs text-muted-foreground">
-            {progress.join("\n")}
-          </pre>
-        ) : null}
-        {error ? (
-          <Alert variant="destructive">
-            <CircleAlert className="size-4" />
-            <AlertTitle>Harness operation failed</AlertTitle>
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
+      <CardContent>
+        <AgentLifecycleControls agent={agent} />
       </CardContent>
     </Card>
   )
 }
 
-function ConnectionTerminalDock({
-  activeTerminal,
-  terminals,
-  onActiveTerminalChange,
-  onCloseTerminal,
-}: Readonly<{
-  activeTerminal: string | null
-  terminals: HarnessTerminalSession[]
-  onActiveTerminalChange: (terminalId: string) => void
-  onCloseTerminal: (terminalId: string) => void
-}>) {
-  return (
-    <section className="sticky bottom-0 overflow-hidden rounded-lg border bg-background shadow-2xl">
-      <div className="flex items-center justify-between border-b border-border px-2">
-        <Tabs
-          value={activeTerminal ?? terminals[0]?.terminalId}
-          onValueChange={onActiveTerminalChange}
-        >
-          <TabsList className="h-10 bg-transparent">
-            {terminals.map((terminal) => (
-              <span className="relative" key={terminal.terminalId}>
-                <TabsTrigger
-                  className="pr-7 data-active:bg-muted data-active:text-foreground"
-                  value={terminal.terminalId}
-                >
-                  {terminal.title}
-                </TabsTrigger>
-                <button
-                  aria-label={`Close ${terminal.title} terminal`}
-                  className="absolute top-1/2 right-1.5 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-                  type="button"
-                  onClick={() => onCloseTerminal(terminal.terminalId)}
-                >
-                  <X className="size-3" />
-                </button>
-              </span>
-            ))}
-          </TabsList>
-        </Tabs>
-        <span className="pr-3 text-xs text-muted-foreground">
-          Terminals close when leaving Connections
-        </span>
-      </div>
-      <div className="h-72">
-        {terminals.map((terminal) => (
-          <ConnectionTerminal
-            key={terminal.terminalId}
-            active={terminal.terminalId === activeTerminal}
-            session={terminal}
-          />
-        ))}
-      </div>
-    </section>
-  )
-}
+function AgentLifecycleControls({ agent }: Readonly<{ agent: AgentView }>) {
+  const queryClient = useQueryClient()
+  const refresh = () => queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
+  const install = useMutation({
+    mutationFn: async () => {
+      const client = await ensureCypheriaClient()
+      const operation = isAgentUpdateAvailable(agent)
+        ? await client.agents.update(agent.id)
+        : await client.agents.install(agent.id)
+      return waitForAgentOperation(operation)
+    },
+    onSuccess: refresh,
+  })
+  const toggle = useMutation({
+    mutationFn: async (enabled: boolean) => {
+      const client = await ensureCypheriaClient()
+      return enabled ? client.agents.enable(agent.id) : client.agents.disable(agent.id)
+    },
+    onSuccess: refresh,
+  })
+  const runtime = useMutation({
+    mutationFn: async (running: boolean) => {
+      const client = await ensureCypheriaClient()
+      return running ? client.agents.start(agent.id) : client.agents.stop(agent.id)
+    },
+    onSuccess: refresh,
+  })
+  const error = install.error?.message ?? toggle.error?.message ?? runtime.error?.message
+  const updateAvailable = isAgentUpdateAvailable(agent)
 
-function ConnectionTerminal({
-  active,
-  session,
-}: Readonly<{ active: boolean; session: HarnessTerminalSession }>) {
-  const container = useRef<HTMLDivElement>(null)
-  const terminal = useRef<Terminal | null>(null)
-  const fit = useRef<FitAddon | null>(null)
-  const activeRef = useRef(active)
-  activeRef.current = active
-  useEffect(() => {
-    if (!container.current) return
-    const appearance = terminalAppearanceFromElement(container.current)
-    const instance = new Terminal({
-      convertEol: true,
-      cursorBlink: true,
-      fontFamily: appearance.fontFamily,
-      fontSize: appearance.fontSize,
-      theme: appearance.theme,
-    })
-    const fitAddon = new FitAddon()
-    instance.loadAddon(fitAddon)
-    instance.open(container.current)
-    terminal.current = instance
-    fit.current = fitAddon
-    const data = instance.onData((value) => {
-      void window.cypheria?.harnesses.writeTerminal(session.terminalId, value)
-    })
-    const unsubscribe = window.cypheria?.harnesses.onEvent((event: HarnessEvent) => {
-      if (!("terminalId" in event) || event.terminalId !== session.terminalId) return
-      if (event.type === "terminal.output") instance.write(event.data)
-      else if (event.type === "terminal.exited")
-        instance.write(`\r\n[process exited: ${event.exitCode}]\r\n`)
-    })
-    const resize = new ResizeObserver(() => {
-      if (!activeRef.current) return
-      fitAddon.fit()
-      void window.cypheria?.harnesses.resizeTerminal(
-        session.terminalId,
-        instance.cols,
-        instance.rows
-      )
-    })
-    resize.observe(container.current)
-    const theme = new MutationObserver(() => {
-      if (!container.current) return
-      const appearance = terminalAppearanceFromElement(container.current)
-      instance.options.fontFamily = appearance.fontFamily
-      instance.options.fontSize = appearance.fontSize
-      instance.options.theme = appearance.theme
-      if (instance.rows > 0) instance.refresh(0, instance.rows - 1)
-      requestAnimationFrame(() => fitAddon.fit())
-    })
-    theme.observe(document.documentElement, { attributes: true })
-    requestAnimationFrame(() => fitAddon.fit())
-    return () => {
-      theme.disconnect()
-      resize.disconnect()
-      unsubscribe?.()
-      data.dispose()
-      instance.dispose()
-      terminal.current = null
-      fit.current = null
-    }
-  }, [session.terminalId])
-  useEffect(() => {
-    if (active)
-      requestAnimationFrame(() => {
-        fit.current?.fit()
-        terminal.current?.focus()
-      })
-  }, [active])
   return (
-    <div
-      className={
-        active
-          ? "cypheria-terminal h-full p-2 font-mono text-[length:var(--font-mono-size)]"
-          : "cypheria-terminal hidden font-mono text-[length:var(--font-mono-size)]"
-      }
-      ref={container}
-    />
+    <div className="grid gap-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant={agent.installed ? "secondary" : "outline"}>
+          {agent.installed ? `Installed ${agent.version}` : "Not installed"}
+        </Badge>
+        <Badge variant="outline">{agent.runtimeState}</Badge>
+        {updateAvailable ? <Badge>Update {agent.availableVersion}</Badge> : null}
+        <Badge variant="outline">{agent.integrity}</Badge>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <Button disabled={install.isPending || !agent.available} onClick={() => install.mutate()}>
+          {install.isPending ? <LoaderCircle className="size-4 animate-spin" /> : null}
+          {updateAvailable ? "Update" : agent.installed ? "Reinstall" : "Install"}
+        </Button>
+        <Button
+          disabled={!agent.installed || !agent.enabled || runtime.isPending}
+          variant="outline"
+          onClick={() => runtime.mutate(agent.runtimeState !== "running")}
+        >
+          {runtime.isPending ? <LoaderCircle className="size-4 animate-spin" /> : null}
+          {agent.runtimeState === "running" ? "Stop" : "Start"}
+        </Button>
+      </div>
+
+      <div className="flex items-center justify-between rounded-md border p-4">
+        <div>
+          <p className="text-sm font-medium">Enable in Cypheria</p>
+          <p className="text-xs text-muted-foreground">
+            Enabled agents can create Threads and are started by the Server when needed.
+          </p>
+        </div>
+        <Switch
+          checked={agent.enabled}
+          disabled={!agent.installed || toggle.isPending}
+          onCheckedChange={(checked) => toggle.mutate(checked)}
+        />
+      </div>
+
+      <div className="grid gap-2 rounded-md bg-muted/40 p-3 text-xs">
+        <div>
+          <span className="text-muted-foreground">Runtime scope: </span>
+          <span>{agent.runtimeScope}</span>
+        </div>
+        <div>
+          <span className="text-muted-foreground">Source: </span>
+          <span>{agent.native ? "Cypheria first-party adapter" : "ACP Registry"}</span>
+        </div>
+        {agent.repository ? (
+          <div>
+            <span className="text-muted-foreground">Repository: </span>
+            <span className="break-all">{agent.repository}</span>
+          </div>
+        ) : null}
+      </div>
+
+      {error ? (
+        <Alert variant="destructive">
+          <CircleAlert className="size-4" />
+          <AlertTitle>Agent operation failed</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
+    </div>
   )
 }
 
@@ -1180,3 +908,6 @@ function ApiKeyForm({
     </form>
   )
 }
+
+import { isAgentUpdateAvailable } from "@cypheria/client"
+import type { AgentId, AgentOperation, AgentView } from "@cypheria/protocol"

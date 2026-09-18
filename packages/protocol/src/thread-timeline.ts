@@ -24,6 +24,7 @@ const mergeTimelineItem = (
   if (previous.type === "message" && next.type === "message" && previous.role === next.role) {
     return {
       ...next,
+      attachments: next.attachments ?? previous.attachments,
       text: next.operation === "append" ? previous.text + next.text : next.text,
       operation: "replace",
     }

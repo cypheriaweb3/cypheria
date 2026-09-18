@@ -128,8 +128,10 @@ Status legend:
   - [x] Add a Desktop Server Manager that reuses a compatible local server or starts the bundled server and waits for versioned readiness.
   - [x] Move Projects, Threads, Sections, search, archive, unread notifications, and Sidebar mutations to `@cypheria/client` while preserving the existing presentation model and direct membership/order semantics.
   - [x] Move live Codex turns to the unified AI SDK provider, restore durable history from the canonical timeline, and add capability-gated common steering for Codex and Pi.
-  - [~] Preserve complete Codex timeline rendering parity while generalizing the common conversation shell and selecting providers from each Thread's agent.
-  - [ ] Move Agent installation/settings, remaining Codex configuration, approval, skills, plugins, MCP, terminal, and Web3 surfaces to shared server APIs before removing their old IPC paths.
+  - [x] Select Codex, Claude, Pi, OpenCode, or ACP AI SDK providers from each Thread's `agentId`; expose enabled agents in the new-chat composer and retain queued follow-ups in the per-Thread scope.
+  - [x] Move Agent catalog, installation, update, enablement, and runtime lifecycle controls from the old Desktop harness manager to `client.agents`.
+  - [~] Preserve complete Codex timeline rendering parity while generalizing the common conversation shell; canonical user messages now retain attachments across history reloads.
+  - [ ] Move remaining Codex authentication/configuration, approval, skills, plugins, MCP, terminal, and Web3 surfaces to shared server APIs before removing their old IPC paths.
   - Status: explicitly approved; preserve the current Sidebar and Codex-derived conversation experience as hard acceptance gates while replacing their data source.
 
 - [x] Rewrite docs for the server and multi-client target architecture.

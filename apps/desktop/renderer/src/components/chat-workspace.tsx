@@ -1,5 +1,10 @@
 import { useChat } from "@ai-sdk/react"
-import { type ThreadInteraction, ThreadTimelineItemSchema } from "@cypheria/protocol"
+import {
+  type AgentId,
+  type AgentView,
+  type ThreadInteraction,
+  ThreadTimelineItemSchema,
+} from "@cypheria/protocol"
 import {
   Attachment,
   AttachmentInfo,
@@ -135,11 +140,14 @@ import type {
   CodexModelView,
   CodexPermissionSelection,
   CodexSkillView,
-  CodexThreadDetailView,
   CodexUiMessage,
   WalletActiveContext,
 } from "../../../ipc/src/index.js"
-import { canonicalInteractionToView, readCypheriaThreadDetail } from "../canonical-chat.js"
+import {
+  type CypheriaThreadDetailView,
+  canonicalInteractionToView,
+  readCypheriaThreadDetail,
+} from "../canonical-chat.js"
 import {
   acquireCodexChatThreadScope,
   type CodexChatThreadScopeBindings,
@@ -358,6 +366,10 @@ function ChatSession({
     queryFn: () => sidebarData.listProjects(),
     queryKey: sidebarQueryKeys.projects(),
   })
+  const agentsQuery = useQuery({
+    queryFn: async () => (await ensureCypheriaClient()).agents.list(),
+    queryKey: ["cypheria", "agents"],
+  })
   const activeWalletQuery = useQuery({
     queryFn: () => window.cypheria?.wallet.getActive(),
     queryKey: ["wallet", "active"],
@@ -370,15 +382,14 @@ function ChatSession({
     models[0] ??
     fallbackModel
   const [selectedModelId, setSelectedModelId] = useState<string | null>(null)
+  const [selectedAgentId, setSelectedAgentId] = useState<AgentId>("codex")
   const [reasoningEffort, setReasoningEffort] = useState<string | null>(null)
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
     initialProjectId ?? null
   )
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [attachmentError, setAttachmentError] = useState<string | null>(null)
-  const [queuedFollowUps, setQueuedFollowUps] = useState<
-    Array<{ files: PromptInputFile[]; text: string }>
-  >([])
+  const [queueRevision, setQueueRevision] = useState(0)
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleOverride, setTitleOverride] = useState<string | null>(null)
   const [titleDraft, setTitleDraft] = useState("")
@@ -397,6 +408,14 @@ function ChatSession({
   const [createdThreadId, setCreatedThreadId] = useState<string | null>(null)
   const chatScopeMounted = useRef(false)
   const selectedModel = models.find((model) => model.model === selectedModelId) ?? initialModel
+  const activeAgentId = threadQuery.data?.agentId ?? selectedAgentId
+  const availableAgents = (agentsQuery.data?.agents ?? []).filter(
+    (agent) => agent.available && agent.enabled && agent.installed
+  )
+  const selectedAgent =
+    (agentsQuery.data?.agents ?? []).find((agent) => agent.id === activeAgentId) ?? null
+  const canSteer =
+    threadQuery.data?.capabilities.steer ?? (activeAgentId === "codex" || activeAgentId === "pi")
   const composerMedia = composerMediaCapabilities(selectedModel.inputModalities)
   const selectedReasoning =
     reasoningEffort ?? settings?.reasoningEffort ?? selectedModel.defaultReasoningEffort
@@ -425,8 +444,9 @@ function ChatSession({
     onTerminalProjectChange(selectedProjectId ?? undefined)
   }, [onTerminalProjectChange, selectedProjectId])
   const transportOptions: CodexChatOptions = {
+    agentId: activeAgentId,
     cwd: selectedProject?.roots[0],
-    model: selectedModel.model,
+    model: activeAgentId === "codex" ? selectedModel.model : "default",
     projectId: selectedProject?.id,
     provider,
     reasoningEffort: selectedReasoning,
@@ -441,13 +461,13 @@ function ChatSession({
     onFinish: ({ message, messages: finishedMessages }) => {
       const threadId = threadIdFromMessage(message) ?? resumeThreadId
       if (!threadId) return
-      queryClient.setQueryData<CodexThreadDetailView>(
+      queryClient.setQueryData<CypheriaThreadDetailView>(
         ["cypheria", "thread", threadId],
         (detail) => {
           if (!detail) return detail
           return {
             ...detail,
-            messages: finishedMessages as unknown as CodexThreadDetailView["messages"],
+            messages: finishedMessages as unknown as CypheriaThreadDetailView["messages"],
           }
         }
       )
@@ -466,14 +486,15 @@ function ChatSession({
     chat: chatScope.chat,
   })
   useEffect(() => {
-    if (status !== "ready") return
-    const next = queuedFollowUps[0]
+    if (status !== "ready" || (queueRevision === 0 && chatScope.queuedFollowUps.length === 0))
+      return
+    const next = chatScope.dequeueFollowUp()
     if (!next) return
-    setQueuedFollowUps((current) => current.slice(1))
     void sendMessage(next).catch((reason: unknown) => {
+      chatScope.enqueueFollowUp(next)
       setAttachmentError(reason instanceof Error ? reason.message : String(reason))
     })
-  }, [queuedFollowUps, sendMessage, status])
+  }, [chatScope, queueRevision, sendMessage, status])
   const workspaceArtifacts = useMemo(() => deriveChatWorkspaceArtifacts(messages), [messages])
   const activeTurnProgress = useMemo(() => {
     const activeMessage = messages.findLast((message) =>
@@ -542,6 +563,7 @@ function ChatSession({
     hydratedThreadId.current = resumeThreadId
     if (messages.length === 0) setMessages(threadQuery.data.messages as CodexUiMessage[])
     setSelectedProjectId(threadQuery.data.projectId)
+    setSelectedAgentId(threadQuery.data.agentId)
   }, [messages.length, resumeThreadId, setMessages, threadQuery.data])
 
   useEffect(() => {
@@ -584,13 +606,15 @@ function ChatSession({
         null
       )
     if (!threadId) return
-    queryClient.setQueryData<CodexThreadDetailView>(["cypheria", "thread", threadId], (detail) =>
-      detail
-        ? {
-            ...detail,
-            messages: interruptedMessages as unknown as CodexThreadDetailView["messages"],
-          }
-        : detail
+    queryClient.setQueryData<CypheriaThreadDetailView>(
+      ["cypheria", "thread", threadId],
+      (detail) =>
+        detail
+          ? {
+              ...detail,
+              messages: interruptedMessages as unknown as CypheriaThreadDetailView["messages"],
+            }
+          : detail
     )
     void queryClient.invalidateQueries({ queryKey: ["cypheria", "thread", threadId] })
     void queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all })
@@ -864,12 +888,13 @@ function ChatSession({
       text: value,
     }
     if (status === "submitted" || status === "streaming") {
-      const mode = submitMode.current ?? "steer"
+      const mode = submitMode.current ?? (canSteer ? "steer" : "queue")
       submitMode.current = null
       void (async () => {
         try {
           if (mode === "queue") {
-            setQueuedFollowUps((current) => [...current, { files, text: value }])
+            chatScope.enqueueFollowUp({ files, text: value })
+            setQueueRevision((current) => current + 1)
           } else {
             await transport.steer(followUp)
           }
@@ -888,8 +913,13 @@ function ChatSession({
     setAttachmentError(null)
     const followUp: CodexChatFollowUp = { files: [], text }
     try {
-      if (status === "submitted" || status === "streaming") await transport.steer(followUp)
-      else await sendMessage({ text })
+      if (status === "submitted" || status === "streaming") {
+        if (canSteer) await transport.steer(followUp)
+        else {
+          chatScope.enqueueFollowUp({ files: [], text })
+          setQueueRevision((current) => current + 1)
+        }
+      } else await sendMessage({ text })
     } catch (reason) {
       const message = reason instanceof Error ? reason.message : String(reason)
       setAttachmentError(message)
@@ -1347,32 +1377,43 @@ function ChatSession({
                           </PromptInputSelect>
                         </PromptInputTools>
                         <div className="cypheria-composer-trailing-controls">
-                          <ModelPicker
-                            models={models.length ? models : [fallbackModel]}
-                            onReasoningEffortChange={setReasoningEffort}
-                            onSelect={(model) => {
-                              setSelectedModelId(model.model)
-                              setReasoningEffort(model.defaultReasoningEffort)
-                            }}
-                            reasoningEffort={selectedReasoning}
-                            selected={selectedModel}
+                          <AgentPicker
+                            agents={availableAgents}
+                            disabled={Boolean(resumeThreadId)}
+                            onSelect={setSelectedAgentId}
+                            selectedId={activeAgentId}
+                            selectedName={selectedAgent?.name ?? activeAgentId}
                           />
+                          {activeAgentId === "codex" ? (
+                            <ModelPicker
+                              models={models.length ? models : [fallbackModel]}
+                              onReasoningEffortChange={setReasoningEffort}
+                              onSelect={(model) => {
+                                setSelectedModelId(model.model)
+                                setReasoningEffort(model.defaultReasoningEffort)
+                              }}
+                              reasoningEffort={selectedReasoning}
+                              selected={selectedModel}
+                            />
+                          ) : null}
                           <ComposerSpeechInput />
                           {status === "submitted" || status === "streaming" ? (
                             <>
-                              <Button
-                                aria-label={i18n._(
-                                  msg({ id: "chat.prompt.steer", message: "Steer active turn" })
-                                )}
-                                size="icon-sm"
-                                title={i18n._(
-                                  msg({ id: "chat.prompt.steer", message: "Steer active turn" })
-                                )}
-                                type="submit"
-                                variant="ghost"
-                              >
-                                <CornerDownLeft aria-hidden="true" />
-                              </Button>
+                              {canSteer ? (
+                                <Button
+                                  aria-label={i18n._(
+                                    msg({ id: "chat.prompt.steer", message: "Steer active turn" })
+                                  )}
+                                  size="icon-sm"
+                                  title={i18n._(
+                                    msg({ id: "chat.prompt.steer", message: "Steer active turn" })
+                                  )}
+                                  type="submit"
+                                  variant="ghost"
+                                >
+                                  <CornerDownLeft aria-hidden="true" />
+                                </Button>
+                              ) : null}
                               <DropdownMenu>
                                 <DropdownMenuTrigger
                                   render={
@@ -1393,7 +1434,7 @@ function ChatSession({
                                 />
                                 <DropdownMenuContent align="end" className="w-48">
                                   <DropdownMenuItem
-                                    disabled={!resumeThreadId}
+                                    disabled={!activeThreadId}
                                     onClick={() => {
                                       submitMode.current = "queue"
                                       const form = document.getElementById(composerFormId)
@@ -2449,6 +2490,61 @@ function ComposerSkillPicker({ skills }: Readonly<{ skills: CodexSkillView[] }>)
         )}
       </PromptInputActionMenuContent>
     </PromptInputActionMenu>
+  )
+}
+
+function AgentPicker({
+  agents,
+  disabled,
+  onSelect,
+  selectedId,
+  selectedName,
+}: Readonly<{
+  agents: AgentView[]
+  disabled: boolean
+  onSelect: (agentId: AgentId) => void
+  selectedId: AgentId
+  selectedName: string
+}>) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        disabled={disabled}
+        render={
+          <Button
+            aria-label={`Agent: ${selectedName}`}
+            className="cypheria-composer-model-button"
+            size="sm"
+            variant="ghost"
+          >
+            <Sparkles aria-hidden="true" className="size-3.5" />
+            <span className="min-w-0 truncate">{selectedName}</span>
+            {!disabled ? <ChevronDown aria-hidden="true" className="size-3.5 shrink-0" /> : null}
+          </Button>
+        }
+      />
+      <DropdownMenuContent align="end" className="max-h-80 w-72" side="top" sideOffset={8}>
+        <DropdownMenuLabel>Available agents</DropdownMenuLabel>
+        <DropdownMenuRadioGroup
+          onValueChange={(value) => onSelect(value as AgentId)}
+          value={selectedId}
+        >
+          {agents.map((agent) => (
+            <DropdownMenuRadioItem className="items-start py-2" key={agent.id} value={agent.id}>
+              <span className="min-w-0">
+                <span className="block truncate font-medium">{agent.name}</span>
+                <span className="block line-clamp-2 text-xs text-muted-foreground">
+                  {agent.description}
+                </span>
+              </span>
+            </DropdownMenuRadioItem>
+          ))}
+          {agents.length === 0 ? (
+            <DropdownMenuItem disabled>No enabled agents</DropdownMenuItem>
+          ) : null}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 

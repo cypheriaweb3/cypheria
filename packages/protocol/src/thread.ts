@@ -83,22 +83,44 @@ export const ThreadViewSchema = z.object({
 })
 export type ThreadView = z.infer<typeof ThreadViewSchema>
 
+const ThreadTextInputBlockSchema = z.object({ text: z.string(), type: z.literal("text") })
+const ThreadImageInputBlockSchema = z.object({
+  data: z.string(),
+  mimeType: z.string().min(1),
+  type: z.literal("image"),
+})
+const ThreadAudioInputBlockSchema = z.object({
+  data: z.string(),
+  mimeType: z.string().min(1),
+  type: z.literal("audio"),
+})
+const ThreadResourceLinkInputBlockSchema = z.object({
+  name: z.string().nullable(),
+  type: z.literal("resource-link"),
+  uri: z.string().min(1),
+})
+const ThreadEmbeddedResourceInputBlockSchema = z.object({
+  data: z.string(),
+  mimeType: z.string().min(1),
+  name: z.string().nullable(),
+  type: z.literal("embedded-resource"),
+  uri: z.string().min(1),
+})
+
+export const ThreadAttachmentSchema = z.discriminatedUnion("type", [
+  ThreadImageInputBlockSchema,
+  ThreadAudioInputBlockSchema,
+  ThreadResourceLinkInputBlockSchema,
+  ThreadEmbeddedResourceInputBlockSchema,
+])
+export type ThreadAttachment = z.infer<typeof ThreadAttachmentSchema>
+
 export const ThreadInputBlockSchema = z.discriminatedUnion("type", [
-  z.object({ text: z.string(), type: z.literal("text") }),
-  z.object({ data: z.string(), mimeType: z.string().min(1), type: z.literal("image") }),
-  z.object({ data: z.string(), mimeType: z.string().min(1), type: z.literal("audio") }),
-  z.object({
-    name: z.string().nullable(),
-    type: z.literal("resource-link"),
-    uri: z.string().min(1),
-  }),
-  z.object({
-    data: z.string(),
-    mimeType: z.string().min(1),
-    name: z.string().nullable(),
-    type: z.literal("embedded-resource"),
-    uri: z.string().min(1),
-  }),
+  ThreadTextInputBlockSchema,
+  ThreadImageInputBlockSchema,
+  ThreadAudioInputBlockSchema,
+  ThreadResourceLinkInputBlockSchema,
+  ThreadEmbeddedResourceInputBlockSchema,
 ])
 export type ThreadInputBlock = z.infer<typeof ThreadInputBlockSchema>
 
@@ -128,6 +150,7 @@ const TimelineTextItemSchema = TimelineBaseItemSchema.extend({
 
 export const ThreadTimelineItemSchema = z.discriminatedUnion("type", [
   TimelineTextItemSchema.extend({
+    attachments: z.array(ThreadAttachmentSchema).optional(),
     role: z.enum(["user", "assistant"]),
     type: z.literal("message"),
   }),

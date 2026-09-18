@@ -1,5 +1,5 @@
 import { Chat } from "@ai-sdk/react"
-import type { PromptInputAttachment } from "@cypheria/ui/ai-elements/prompt-input"
+import type { PromptInputAttachment, PromptInputFile } from "@cypheria/ui/ai-elements/prompt-input"
 import type { ChatInit, ChatStatus } from "ai"
 
 import type { CodexUiMessage } from "../../ipc/src/index.js"
@@ -135,10 +135,18 @@ export type CodexChatThreadScope = RetainableThreadScope & {
   bindings: CodexChatThreadScopeBindings
   composerAttachments: PromptInputAttachment[]
   composerText: string
+  readonly dequeueFollowUp: () => QueuedChatFollowUp | undefined
   readonly dispose: () => void
+  readonly enqueueFollowUp: (followUp: QueuedChatFollowUp) => void
+  readonly queuedFollowUps: readonly QueuedChatFollowUp[]
   readonly setComposerAttachments: (attachments: PromptInputAttachment[]) => void
   readonly setComposerText: (text: string) => void
   readonly transport: CypheriaChatTransport
+}
+
+export type QueuedChatFollowUp = {
+  readonly files: PromptInputFile[]
+  readonly text: string
 }
 
 const retainedCodexChatScopes = new RetainedThreadScopeCache<CodexChatThreadScope>()
@@ -150,6 +158,7 @@ export const acquireCodexChatThreadScope = (
   const scope = retainedCodexChatScopes.acquire(alias, () => {
     let createdScope: CodexChatThreadScope
     const composerAliases = new Set([alias])
+    const queuedFollowUps: QueuedChatFollowUp[] = []
     const transport = new CypheriaChatTransport(
       () => createdScope.bindings.options,
       (threadId) => {
@@ -181,12 +190,15 @@ export const acquireCodexChatThreadScope = (
       chat,
       composerAttachments: [],
       composerText: initialComposerText,
+      dequeueFollowUp: () => queuedFollowUps.shift(),
       dispose: () => {
         for (const attachment of createdScope.composerAttachments) {
           if (attachment.url.startsWith("blob:")) URL.revokeObjectURL(attachment.url)
         }
         createdScope.composerAttachments = []
+        queuedFollowUps.length = 0
       },
+      enqueueFollowUp: (followUp) => queuedFollowUps.push(followUp),
       get status() {
         return chat.status
       },
@@ -196,6 +208,9 @@ export const acquireCodexChatThreadScope = (
       setComposerText: (text) => {
         createdScope.composerText = text
         composerPromptDraftStore.set(composerAliases, text)
+      },
+      get queuedFollowUps() {
+        return queuedFollowUps
       },
       transport,
     }

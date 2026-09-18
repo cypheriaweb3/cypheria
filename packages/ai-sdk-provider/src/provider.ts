@@ -108,13 +108,30 @@ const bytesToBase64 = (bytes: Uint8Array): string => {
   return globalThis.btoa(binary)
 }
 
-const fileToBlock = (
+const fileToBlock = async (
   part: Extract<LanguageModelV4Message, { role: "user" }>["content"][number]
-): ThreadInputBlock => {
+): Promise<ThreadInputBlock> => {
   if (part.type === "text") return { text: part.text, type: "text" }
   const name = part.filename ?? null
   if (part.data.type === "url") {
-    return { name, type: "resource-link", uri: part.data.url.toString() }
+    const url = part.data.url.toString()
+    if (!url.startsWith("blob:") && !url.startsWith("data:")) {
+      return { name, type: "resource-link", uri: url }
+    }
+    const data = bytesToBase64(new Uint8Array(await (await fetch(url)).arrayBuffer()))
+    if (part.mediaType.startsWith("image/")) {
+      return { data, mimeType: part.mediaType, type: "image" }
+    }
+    if (part.mediaType.startsWith("audio/")) {
+      return { data, mimeType: part.mediaType, type: "audio" }
+    }
+    return {
+      data,
+      mimeType: part.mediaType,
+      name,
+      type: "embedded-resource",
+      uri: `inline-base64:${part.filename ?? "attachment"}`,
+    }
   }
   if (part.data.type === "text") {
     return {
@@ -122,7 +139,7 @@ const fileToBlock = (
       mimeType: part.mediaType,
       name,
       type: "embedded-resource",
-      uri: `inline:${part.filename ?? "attachment"}`,
+      uri: `inline-text:${part.filename ?? "attachment"}`,
     }
   }
   if (part.data.type === "reference") {
@@ -139,7 +156,7 @@ const fileToBlock = (
     mimeType: part.mediaType,
     name,
     type: "embedded-resource",
-    uri: `inline:${part.filename ?? "attachment"}`,
+    uri: `inline-base64:${part.filename ?? "attachment"}`,
   }
 }
 
@@ -164,10 +181,10 @@ const messageText = (message: LanguageModelV4Message): string => {
     .join("\n")
 }
 
-const promptToBlocks = (
+const promptToBlocks = async (
   prompt: LanguageModelV4CallOptions["prompt"],
   includeHistory: boolean
-): ThreadInputBlock[] => {
+): Promise<ThreadInputBlock[]> => {
   const selected = includeHistory
     ? prompt
     : (() => {
@@ -177,7 +194,7 @@ const promptToBlocks = (
   const blocks: ThreadInputBlock[] = []
   for (const message of selected) {
     if (message.role === "user") {
-      for (const part of message.content) blocks.push(fileToBlock(part))
+      blocks.push(...(await Promise.all(message.content.map(fileToBlock))))
       continue
     }
     const text = messageText(message)
@@ -395,7 +412,7 @@ export class CypheriaAgentLanguageModel implements LanguageModelV4 {
       typeof globalThis.crypto?.randomUUID === "function"
         ? globalThis.crypto.randomUUID()
         : `message-${Date.now()}-${Math.random().toString(36).slice(2)}`
-    const content = promptToBlocks(options.prompt, includeHistory)
+    const content = await promptToBlocks(options.prompt, includeHistory)
     const state: StreamState = {
       emittedToolCalls: new Set(),
       emittedToolResults: new Set(),

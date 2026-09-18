@@ -1,5 +1,9 @@
+import { createAcp } from "@cypheria/ai-sdk-provider/acp"
+import { createClaude } from "@cypheria/ai-sdk-provider/claude"
 import { createCodex } from "@cypheria/ai-sdk-provider/codex"
-import type { ThreadInputBlock } from "@cypheria/protocol"
+import { createOpenCode } from "@cypheria/ai-sdk-provider/opencode"
+import { createPi } from "@cypheria/ai-sdk-provider/pi"
+import { type AgentId, isRegistryAgentId, type ThreadInputBlock } from "@cypheria/protocol"
 import {
   type ChatTransport,
   convertToModelMessages,
@@ -11,7 +15,27 @@ import type { CodexChatFollowUp, CodexChatStart, CodexUiMessage } from "../../ip
 import { ensureCypheriaClient } from "./cypheria-client.js"
 
 export type CodexChatOptions = Omit<CodexChatStart, "chatId" | "messages" | "requestId"> & {
+  agentId?: AgentId
   sectionId?: string
+}
+
+const createProvider = (
+  agentId: AgentId,
+  client: Awaited<ReturnType<typeof ensureCypheriaClient>>
+) => {
+  switch (agentId) {
+    case "codex":
+      return createCodex({ client })
+    case "claude":
+      return createClaude({ client })
+    case "pi":
+      return createPi({ client })
+    case "opencode":
+      return createOpenCode({ client })
+    default:
+      if (!isRegistryAgentId(agentId)) throw new Error(`Unsupported Cypheria agent: ${agentId}`)
+      return createAcp({ agentId, client })
+  }
 }
 
 export const interruptActiveCodexTurns = (
@@ -93,7 +117,7 @@ const followUpContent = async (input: CodexChatFollowUp): Promise<ThreadInputBlo
         mimeType: file.mediaType,
         name: file.filename ?? null,
         type: "embedded-resource",
-        uri: `inline:${file.filename ?? "attachment"}`,
+        uri: `inline-base64:${file.filename ?? "attachment"}`,
       })
     }
   }
@@ -117,13 +141,14 @@ export class CypheriaChatTransport implements ChatTransport<CodexUiMessage> {
   > {
     const client = await ensureCypheriaClient()
     const options = this.getOptions()
+    const agentId = options.agentId ?? "codex"
     this.#threadId = options.resumeThreadId ?? this.#threadId
     const controller = new AbortController()
     this.#abortController = controller
     const abort = () => controller.abort(abortSignal?.reason)
     abortSignal?.addEventListener("abort", abort, { once: true })
     if (abortSignal?.aborted) abort()
-    const provider = createCodex({ client })
+    const provider = createProvider(agentId, client)
     const result = streamText({
       abortSignal: controller.signal,
       messages: await convertToModelMessages(messages),
@@ -135,7 +160,7 @@ export class CypheriaChatTransport implements ChatTransport<CodexUiMessage> {
         },
         projectId: options.projectId,
         sectionId: options.sectionId,
-        threadId: options.resumeThreadId,
+        threadId: this.#threadId ?? undefined,
         threadMode: "persistent",
       }),
     })

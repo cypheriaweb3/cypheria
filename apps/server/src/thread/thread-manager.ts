@@ -468,25 +468,7 @@ export class ThreadManager {
       requests.set(input.clientMessageId, turnId)
       runtime.activeTurn = { id: turnId, startedAt: new Date().toISOString() }
       runtime.state = "running"
-      const text = input.content
-        .filter(
-          (block): block is Extract<(typeof input.content)[number], { type: "text" }> =>
-            block.type === "text"
-        )
-        .map((block) => block.text)
-        .join("\n")
-      if (text) {
-        this.#appendTimeline(thread.id, {
-          item: {
-            itemId: `user:${input.clientMessageId}`,
-            operation: "replace",
-            role: "user",
-            text,
-            type: "message",
-          },
-          turnId,
-        })
-      }
+      this.#appendUserInput(thread.id, turnId, input.clientMessageId, input.content)
       return { thread: this.#updateAndPublishSync(thread), turnId }
     })
   }
@@ -523,25 +505,7 @@ export class ThreadManager {
         this.#turnRequests.set(thread.id, requests)
       }
       requests.set(input.clientMessageId, turnId)
-      const text = input.content
-        .filter(
-          (block): block is Extract<(typeof input.content)[number], { type: "text" }> =>
-            block.type === "text"
-        )
-        .map((block) => block.text)
-        .join("\n")
-      if (text) {
-        this.#appendTimeline(thread.id, {
-          item: {
-            itemId: `user:${input.clientMessageId}`,
-            operation: "replace",
-            role: "user",
-            text,
-            type: "message",
-          },
-          turnId,
-        })
-      }
+      this.#appendUserInput(thread.id, turnId, input.clientMessageId, input.content)
       return { thread: this.#updateAndPublishSync(thread), turnId }
     })
   }
@@ -712,6 +676,35 @@ export class ThreadManager {
     this.#publish({
       payload: { ...appended, threadId },
       type: "thread.timeline.appended.notification",
+    })
+  }
+
+  #appendUserInput(
+    threadId: string,
+    turnId: string,
+    clientMessageId: string,
+    content: readonly ThreadInputBlock[]
+  ): void {
+    const text = content
+      .filter(
+        (block): block is Extract<ThreadInputBlock, { type: "text" }> => block.type === "text"
+      )
+      .map((block) => block.text)
+      .join("\n")
+    const attachments = content.filter(
+      (block): block is Exclude<ThreadInputBlock, { type: "text" }> => block.type !== "text"
+    )
+    if (!text && attachments.length === 0) return
+    this.#appendTimeline(threadId, {
+      item: {
+        ...(attachments.length > 0 ? { attachments } : {}),
+        itemId: `user:${clientMessageId}`,
+        operation: "replace",
+        role: "user",
+        text,
+        type: "message",
+      },
+      turnId,
     })
   }
 

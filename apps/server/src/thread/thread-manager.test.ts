@@ -181,6 +181,34 @@ describe("ThreadManager", () => {
     )
   })
 
+  it("records user attachments in the canonical timeline", async () => {
+    const { manager, messages } = await setup()
+    const created = await manager.create({ agentId: "codex" })
+    await manager.startTurn({
+      clientMessageId: "message-with-image",
+      content: [
+        { text: "inspect", type: "text" },
+        { data: "AA==", mimeType: "image/png", type: "image" },
+      ],
+      threadId: created.thread.id,
+    })
+
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          row: expect.objectContaining({
+            item: expect.objectContaining({
+              attachments: [{ data: "AA==", mimeType: "image/png", type: "image" }],
+              role: "user",
+              text: "inspect",
+            }),
+          }),
+        }),
+        type: "thread.timeline.appended.notification",
+      })
+    )
+  })
+
   it("persists a provider session id discovered while resuming", async () => {
     const { adapter, manager } = await setup()
     adapter.createSessionId = null

@@ -110,6 +110,22 @@ describe("retained thread scope cache", () => {
     ])
   })
 
+  it("keeps queued follow-ups when a retained thread is remounted", () => {
+    const retained = acquireCodexChatThreadScope("queue-scope-client", {
+      options: { model: "gpt-5.4", provider: "openai" },
+    })
+    retained.enqueueFollowUp({ files: [], text: "Continue after this turn" })
+    retained.addComposerAlias("queue-scope-thread")
+
+    const restored = acquireCodexChatThreadScope("queue-scope-thread", {
+      options: { model: "gpt-5.4", provider: "openai" },
+    })
+
+    expect(restored).toBe(retained)
+    expect(restored.dequeueFollowUp()).toEqual({ files: [], text: "Continue after this turn" })
+    expect(restored.queuedFollowUps).toEqual([])
+  })
+
   it("revokes blob-backed attachments when its chat scope is disposed", () => {
     const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined)
     const retained = acquireCodexChatThreadScope("attachment-disposal-scope", {

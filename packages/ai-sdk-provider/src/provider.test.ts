@@ -195,4 +195,32 @@ describe("Cypheria AI SDK providers", () => {
       expect.objectContaining({ content: [{ text: "Continue", type: "text" }] })
     )
   })
+
+  it("embeds browser-local attachment URLs before sending them to the server", async () => {
+    const { client, threads } = createFakeClient("codex")
+    const model = createCodex({ client })("default")
+    const result = await model.doStream({
+      prompt: [
+        {
+          content: [
+            {
+              data: { type: "url", url: new URL("data:image/png;base64,AA==") },
+              mediaType: "image/png",
+              type: "file",
+            },
+          ],
+          role: "user",
+        },
+      ],
+    })
+    for await (const _part of result.stream) {
+      // Drain the stream.
+    }
+
+    expect(threads.startTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: [{ data: "AA==", mimeType: "image/png", type: "image" }],
+      })
+    )
+  })
 })

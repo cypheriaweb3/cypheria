@@ -273,6 +273,8 @@ UI 策略是复用成熟 primitives，只为 Cypheria-specific workflows 构建�
 
 Desktop renderer 使用 `@ai-sdk/react` 管理 chat state，并通过 `@cypheria/ai-sdk-provider` 支持的自定义 `ChatTransport` 通信。Renderer-owned LRU 对齐本机 ChatGPT Desktop renderer 的 `ThreadScope` `retain: { max: 20 }`，为最近且已结束的会话保留外部 `Chat` 与 transport；已挂载或运行中的会话会固定并可暂时超过上限。新会话 client key 与持久 Cypheria Thread ID 指向同一 scope。页面导航只让 view 脱离，不会 abort stream；稳定 transport 从可变 scope bindings 读取当前选项与回调。Transport 报告新建 Thread ID，让 renderer 用持久 route 替换 new-chat route。重新打开会话时读取 server-owned canonical timeline；同一共享 shell 渲染通用 message、reasoning、tool、command、diff、plan、approval、artifact、status 与 error item，provider extension 保留 agent 专有细节。Abort 取消 active server turn，按 capability 开启的 steer 使用 `thread.turn.steer`。较重的交互式 route shell 仍只在 client 加载，因为 Electron 通过 `cypheria://` 发布 SPA output，运行时不执行 TanStack Start server bundle。
 
+Transport 根据 Thread 的 canonical `agentId` 选择 Codex、Claude、Pi、OpenCode 或 ACP；新会话可以选择任一已安装并启用的 server-managed Agent。排队 follow-up 由 retained Thread scope 而不是已挂载 workspace 持有，因此导航不会丢失。Browser-local attachment URL 在跨越 protocol boundary 前转成 embedded data，canonical user-message item 则保留 attachment block，以便 history restoration。
+
 Composer prompt 文本遵循应用包中由 scope 持有的草稿模型，而不是 AI Elements 的挂载生命周期。
 编辑会立即更新当前 client/durable thread aliases，并在 250 毫秒后持久化。Renderer 能在 route
 切换与自身重启后恢复草稿，成功提交后删除草稿，并把持久条目限制为 100 个 aliases。这个 store

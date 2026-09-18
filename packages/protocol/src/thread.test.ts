@@ -121,6 +121,17 @@ describe("thread protocol", () => {
   test("validates the shared rich timeline surface and provider extensions", () => {
     const items = [
       {
+        attachments: [
+          { data: "AA==", mimeType: "image/png", type: "image" },
+          { name: "spec.md", type: "resource-link", uri: "https://example.com/spec.md" },
+        ],
+        itemId: "user-1",
+        operation: "replace",
+        role: "user",
+        text: "Review these",
+        type: "message",
+      },
+      {
         command: "pnpm test",
         cwd: "/work/cypheria",
         durationMs: 250,
@@ -169,6 +180,7 @@ describe("thread protocol", () => {
     ]
 
     expect(items.map((item) => ThreadTimelineItemSchema.safeParse(item).success)).toEqual([
+      true,
       true,
       true,
       true,

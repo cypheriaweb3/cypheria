@@ -3,14 +3,22 @@ import type { CodexUiMessage } from "../../ipc/src/index.js"
 
 const mocks = vi.hoisted(() => ({
   convertToModelMessages: vi.fn(async (messages: unknown) => messages),
+  createAcp: vi.fn(),
+  createClaude: vi.fn(),
   createCodex: vi.fn(),
+  createOpenCode: vi.fn(),
+  createPi: vi.fn(),
   ensureCypheriaClient: vi.fn(),
   steerTurn: vi.fn(),
   streamText: vi.fn(),
   toUIMessageStream: vi.fn(({ stream }: { stream: ReadableStream<unknown> }) => stream),
 }))
 
+vi.mock("@cypheria/ai-sdk-provider/acp", () => ({ createAcp: mocks.createAcp }))
+vi.mock("@cypheria/ai-sdk-provider/claude", () => ({ createClaude: mocks.createClaude }))
 vi.mock("@cypheria/ai-sdk-provider/codex", () => ({ createCodex: mocks.createCodex }))
+vi.mock("@cypheria/ai-sdk-provider/opencode", () => ({ createOpenCode: mocks.createOpenCode }))
+vi.mock("@cypheria/ai-sdk-provider/pi", () => ({ createPi: mocks.createPi }))
 vi.mock("./cypheria-client.js", () => ({
   ensureCypheriaClient: mocks.ensureCypheriaClient,
 }))
@@ -42,7 +50,15 @@ beforeEach(() => {
   const client = { id: "client", threads: { steerTurn: mocks.steerTurn } }
   const provider = vi.fn((model: string, settings: unknown) => ({ model, settings }))
   mocks.ensureCypheriaClient.mockResolvedValue(client)
-  mocks.createCodex.mockReturnValue(provider)
+  for (const factory of [
+    mocks.createAcp,
+    mocks.createClaude,
+    mocks.createCodex,
+    mocks.createOpenCode,
+    mocks.createPi,
+  ]) {
+    factory.mockReturnValue(provider)
+  }
   mocks.streamText.mockReturnValue({
     fullStream: new ReadableStream({ start: (controller) => controller.close() }),
   })
@@ -94,6 +110,28 @@ describe("CypheriaChatTransport", () => {
     const options = mocks.streamText.mock.calls[0]?.[0]
     expect(options.abortSignal.aborted).toBe(true)
     await stream.cancel()
+  })
+
+  it.each([
+    ["claude", mocks.createClaude],
+    ["pi", mocks.createPi],
+    ["opencode", mocks.createOpenCode],
+    ["gemini", mocks.createAcp],
+  ] as const)("selects the %s provider from the Cypheria Thread agent", async (agentId, factory) => {
+    const transport = new CypheriaChatTransport(() => ({
+      agentId,
+      model: "default",
+      provider: "openai",
+      resumeThreadId: "thread-1",
+    }))
+    const stream = await startStream(transport)
+    await stream.cancel()
+
+    expect(factory).toHaveBeenCalledWith(
+      agentId === "gemini"
+        ? { agentId: "gemini", client: expect.objectContaining({ id: "client" }) }
+        : { client: expect.objectContaining({ id: "client" }) }
+    )
   })
 
   it("steers the active thread through the shared Thread protocol", async () => {

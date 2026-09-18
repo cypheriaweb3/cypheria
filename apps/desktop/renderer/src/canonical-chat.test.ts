@@ -90,6 +90,42 @@ describe("canonicalTimelineToUiMessages", () => {
       role: "assistant",
     })
   })
+
+  it("restores user attachments from canonical history", () => {
+    const messages = canonicalTimelineToUiMessages([
+      projected({
+        attachments: [
+          { data: "AA==", mimeType: "image/png", type: "image" },
+          {
+            data: "notes",
+            mimeType: "text/plain",
+            name: "notes.txt",
+            type: "embedded-resource",
+            uri: "inline-text:notes.txt",
+          },
+        ],
+        itemId: "user-with-files",
+        operation: "replace",
+        role: "user",
+        text: "Review",
+        type: "message",
+      }),
+    ])
+
+    expect(messages[0]).toMatchObject({
+      parts: [
+        { text: "Review", type: "text" },
+        { mediaType: "image/png", type: "file", url: "data:image/png;base64,AA==" },
+        {
+          filename: "notes.txt",
+          mediaType: "text/plain",
+          type: "file",
+          url: "data:text/plain,notes",
+        },
+      ],
+      role: "user",
+    })
+  })
 })
 
 describe("canonicalInteractionToView", () => {
