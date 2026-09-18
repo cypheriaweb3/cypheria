@@ -34,6 +34,7 @@ import {
   type ServerClientConfig,
   type ServerSession,
 } from "./server-client.js"
+import { createThreadActions, type ThreadActions } from "./thread.js"
 
 export interface AgentActions {
   readonly acp: (agent: RegistryAgentId) => AcpEndpoint
@@ -63,6 +64,7 @@ export interface CypheriaApi {
   readonly agent: AgentActions
   readonly projectThread: ProjectThreadActions
   readonly server: ServerActions
+  readonly thread: ThreadActions
   on<T extends ServerMessage["type"]>(
     type: T,
     handler: (message: Extract<ServerMessage, { type: T }>) => void
@@ -222,6 +224,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
       supportsFeature: (feature) => serverClient.supportsFeature(feature),
     },
     subscribe: (handler) => serverClient.subscribe(handler),
+    thread: createThreadActions(serverClient),
   }
 }
 
@@ -246,5 +249,6 @@ export type {
   OpenCodeEndpoint,
   PiEndpoint,
   ProjectThreadActions,
+  ThreadActions,
 }
 export { isAgentUpdateAvailable }

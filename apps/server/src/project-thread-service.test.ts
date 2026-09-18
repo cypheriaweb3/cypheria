@@ -13,6 +13,8 @@ import type {
   ProjectThreadClientMessage,
   ProjectThreadServerMessage,
   ServerMessage,
+  ThreadClientMessage,
+  ThreadServerMessage,
 } from "@cypheria/protocol"
 import { describe, expect, it } from "vitest"
 
@@ -32,12 +34,12 @@ describe("ProjectThreadService", () => {
       await service.initialize()
 
       const dispatch = async (
-        message: ProjectThreadClientMessage
-      ): Promise<ProjectThreadServerMessage> => {
+        message: ProjectThreadClientMessage | ThreadClientMessage
+      ): Promise<ProjectThreadServerMessage | ThreadServerMessage> => {
         const sent: ServerMessage[] = []
         await service.handle(message, (response) => sent.push(response))
         expect(sent).toHaveLength(1)
-        return sent[0] as ProjectThreadServerMessage
+        return sent[0] as ProjectThreadServerMessage | ThreadServerMessage
       }
 
       const sections = await dispatch({
@@ -55,7 +57,7 @@ describe("ProjectThreadService", () => {
         requestId: "project",
         type: "project.create.request",
       })
-      if (!projectResponse.payload.ok || projectResponse.type !== "project.create.response") {
+      if (projectResponse.type !== "project.create.response" || !projectResponse.payload.ok) {
         throw new Error("Expected project creation to succeed")
       }
       const project = projectResponse.payload.value
@@ -69,15 +71,15 @@ describe("ProjectThreadService", () => {
         requestId: "thread",
         type: "thread.create.request",
       })
-      if (!threadResponse.payload.ok || threadResponse.type !== "thread.create.response") {
+      if (threadResponse.type !== "thread.create.response" || !threadResponse.payload.ok) {
         throw new Error("Expected thread creation to succeed")
       }
-      expect(threadResponse.payload.value).toMatchObject({
+      expect(threadResponse.payload.value.thread).toMatchObject({
         agentId: "codex",
         agentSessionId: null,
       })
       await expect(
-        persistence.getThreadProject(threadResponse.payload.value.id)
+        persistence.getThreadProject(threadResponse.payload.value.thread.id)
       ).resolves.toMatchObject({ project: { id: project.id } })
     } finally {
       database.close()

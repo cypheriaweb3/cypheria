@@ -8,7 +8,6 @@ import type {
   SectionItem,
   SectionItemRef,
   SectionMembership,
-  Thread,
 } from "@cypheria/protocol"
 
 import type { RequestOptions } from "./request-options.js"
@@ -58,19 +57,6 @@ export interface ProjectActions {
   update(input: Payload<"project.update.request">, options?: RequestOptions): Promise<Project>
 }
 
-export interface ThreadActions {
-  create(input: Payload<"thread.create.request">, options?: RequestOptions): Promise<Thread>
-  delete(threadId: string, options?: RequestOptions): Promise<void>
-  get(threadId: string, options?: RequestOptions): Promise<Thread>
-  list(
-    input?: Payload<"thread.list.request">,
-    options?: RequestOptions
-  ): Promise<ProjectThreadPage<Thread>>
-  move(input: Payload<"thread.move.request">, options?: RequestOptions): Promise<void>
-  touchRecency(threadId: string, recencyAt: number, options?: RequestOptions): Promise<Thread>
-  update(input: Payload<"thread.update.request">, options?: RequestOptions): Promise<Thread>
-}
-
 export interface SectionActions {
   create(input: Payload<"section.create.request">, options?: RequestOptions): Promise<Section>
   delete(sectionId: string, options?: RequestOptions): Promise<void>
@@ -101,7 +87,6 @@ export interface SectionActions {
 export interface ProjectThreadActions {
   readonly projects: ProjectActions
   readonly sections: SectionActions
-  readonly threads: ThreadActions
 }
 
 export const createProjectThreadActions = (client: ServerClient): ProjectThreadActions => {
@@ -152,20 +137,6 @@ export const createProjectThreadActions = (client: ServerClient): ProjectThreadA
         await request("section.item.unpin.request", { item }, options)
       },
       update: (input, options) => request("section.update.request", input, options),
-    },
-    threads: {
-      create: (input, options) => request("thread.create.request", input, options),
-      delete: async (threadId, options) => {
-        await request("thread.delete.request", { threadId }, options)
-      },
-      get: (threadId, options) => request("thread.read.request", { threadId }, options),
-      list: (input = {}, options) => request("thread.list.request", input, options),
-      move: async (input, options) => {
-        await request("thread.move.request", input, options)
-      },
-      touchRecency: (threadId, recencyAt, options) =>
-        request("thread.recency.touch.request", { recencyAt, threadId }, options),
-      update: (input, options) => request("thread.update.request", input, options),
     },
   }
 }

@@ -1,19 +1,30 @@
+import { randomUUID } from "node:crypto"
 import { ProjectThreadPersistenceError, type ProjectThreadPersistenceService } from "@cypheria/db"
-import type {
-  ProjectThreadClientMessage,
-  ProjectThreadServerMessage,
-  ServerMessage,
+import {
+  type ProjectThreadClientMessage,
+  type ProjectThreadServerMessage,
+  type ServerMessage,
+  type ThreadClientMessage,
+  ThreadSchema,
+  type ThreadServerMessage,
+  type ThreadState,
+  type ThreadView,
 } from "@cypheria/protocol"
 
 export type ProjectThreadServiceOptions = {
   readonly persistence: ProjectThreadPersistenceService
+  readonly publish?: (message: ServerMessage) => void
 }
 
 export class ProjectThreadService {
+  readonly #epochs = new Map<string, string>()
   readonly #persistence: ProjectThreadPersistenceService
+  readonly #publish: (message: ServerMessage) => void
+  readonly #states = new Map<string, ThreadState>()
 
   constructor(options: ProjectThreadServiceOptions) {
     this.#persistence = options.persistence
+    this.#publish = options.publish ?? (() => undefined)
   }
 
   async initialize(): Promise<void> {
@@ -21,7 +32,7 @@ export class ProjectThreadService {
   }
 
   async handle(
-    message: ProjectThreadClientMessage,
+    message: ProjectThreadClientMessage | ThreadClientMessage,
     send: (message: ServerMessage) => void
   ): Promise<void> {
     const respond = (value: unknown): void => {
@@ -29,7 +40,7 @@ export class ProjectThreadService {
         payload: { ok: true, value },
         requestId: message.requestId,
         type: message.type.replace(/\.request$/, ".response"),
-      } as ProjectThreadServerMessage)
+      } as ProjectThreadServerMessage | ThreadServerMessage)
     }
 
     try {
@@ -63,39 +74,121 @@ export class ProjectThreadService {
           respond({})
           break
         case "thread.create.request":
-          respond(await this.#persistence.createThread(message.payload))
+          {
+            const thread = await this.#persistence.createThread(message.payload)
+            const view = this.#view(thread)
+            const timeline = this.#timelineHead(thread.id)
+            this.#publish({ payload: view, type: "thread.created.notification" })
+            respond({ thread: view, timeline })
+          }
           break
-        case "thread.read.request":
+        case "thread.get.request":
           respond(
-            await this.#required(
-              this.#persistence.getThread(message.payload.threadId),
-              "THREAD_NOT_FOUND",
-              "Thread was not found"
+            this.#view(
+              await this.#required(
+                this.#persistence.getThread(message.payload.threadId),
+                "THREAD_NOT_FOUND",
+                "Thread was not found"
+              )
             )
           )
           break
-        case "thread.list.request":
-          respond(await this.#persistence.listThreads(message.payload))
+        case "thread.list.request": {
+          const page = await this.#persistence.listThreads(message.payload)
+          respond({ ...page, data: page.data.map((thread) => this.#view(thread)) })
           break
+        }
         case "thread.update.request": {
           const { threadId, ...patch } = message.payload
-          respond(await this.#persistence.updateThread(threadId, patch))
+          if (patch.cwd !== undefined && this.#state(threadId) !== "stopped") {
+            throw new ProjectThreadPersistenceError(
+              "THREAD_ACTIVE",
+              "Thread cwd can only be changed while the thread is stopped"
+            )
+          }
+          const view = this.#view(await this.#persistence.updateThread(threadId, patch))
+          this.#publish({ payload: view, type: "thread.updated.notification" })
+          respond(view)
           break
         }
         case "thread.recency.touch.request":
-          respond(
-            await this.#persistence.touchThreadRecency(
-              message.payload.threadId,
-              message.payload.recencyAt
+          {
+            const view = this.#view(
+              await this.#persistence.touchThreadRecency(
+                message.payload.threadId,
+                message.payload.recencyAt
+              )
             )
-          )
+            this.#publish({ payload: view, type: "thread.updated.notification" })
+            respond(view)
+          }
           break
+        case "thread.resume.request": {
+          const thread = await this.#required(
+            this.#persistence.getThread(message.payload.threadId),
+            "THREAD_NOT_FOUND",
+            "Thread was not found"
+          )
+          this.#states.set(thread.id, "idle")
+          const view = this.#view(thread)
+          this.#publish({ payload: view, type: "thread.updated.notification" })
+          respond({ thread: view, timeline: this.#timelineHead(thread.id) })
+          break
+        }
+        case "thread.close.request": {
+          const thread = await this.#required(
+            this.#persistence.getThread(message.payload.threadId),
+            "THREAD_NOT_FOUND",
+            "Thread was not found"
+          )
+          this.#states.set(thread.id, "stopped")
+          const view = this.#view(thread)
+          this.#publish({ payload: view, type: "thread.updated.notification" })
+          respond(view)
+          break
+        }
+        case "thread.timeline.get.request": {
+          const thread = await this.#required(
+            this.#persistence.getThread(message.payload.threadId),
+            "THREAD_NOT_FOUND",
+            "Thread was not found"
+          )
+          const epoch = this.#timelineHead(thread.id).epoch
+          respond({
+            canonicalRows: [],
+            endCursor: null,
+            epoch,
+            hasNewer: false,
+            hasOlder: false,
+            projectedItems: [],
+            projection: message.payload.projection,
+            reset:
+              message.payload.cursor?.epoch !== undefined && message.payload.cursor.epoch !== epoch,
+            startCursor: null,
+            threadId: thread.id,
+          })
+          break
+        }
+        case "thread.turn.start.request":
+        case "thread.turn.cancel.request":
+        case "thread.config.update.request":
+        case "thread.interaction.respond.request":
+          throw new ProjectThreadPersistenceError(
+            "THREAD_NOT_READY",
+            "Thread execution is not available until its provider adapter is attached"
+          )
         case "thread.move.request":
           await this.#persistence.moveThread(message.payload)
           respond({})
           break
         case "thread.delete.request":
           await this.#persistence.deleteThread(message.payload.threadId)
+          this.#states.delete(message.payload.threadId)
+          this.#epochs.delete(message.payload.threadId)
+          this.#publish({
+            payload: { threadId: message.payload.threadId },
+            type: "thread.deleted.notification",
+          })
           respond({})
           break
         case "project.item.get.request":
@@ -179,7 +272,38 @@ export class ProjectThreadService {
         },
         requestId: message.requestId,
         type: message.type.replace(/\.request$/, ".response"),
-      } as ProjectThreadServerMessage)
+      } as ProjectThreadServerMessage | ThreadServerMessage)
+    }
+  }
+
+  #state(threadId: string): ThreadState {
+    return this.#states.get(threadId) ?? "stopped"
+  }
+
+  #timelineHead(threadId: string): { endCursor: null; epoch: string } {
+    let epoch = this.#epochs.get(threadId)
+    if (!epoch) {
+      epoch = randomUUID()
+      this.#epochs.set(threadId, epoch)
+    }
+    return { endCursor: null, epoch }
+  }
+
+  #view(value: unknown): ThreadView {
+    const thread = ThreadSchema.parse(value)
+    return {
+      ...thread,
+      activeTurn: null,
+      attention: false,
+      capabilities: {
+        changeCwd: true,
+        configure: false,
+        fork: false,
+        promptContent: ["text"],
+        providerExtensions: false,
+      },
+      pendingInteractions: [],
+      state: this.#state(thread.id),
     }
   }
 

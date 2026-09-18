@@ -55,6 +55,8 @@ import {
   type ServerMessage,
   type ServerStatus,
   stringifyProtocolMessage,
+  type ThreadClientMessage,
+  type ThreadServerMessage,
   type WSInboundMessage,
   wrapClientSessionMessage,
 } from "@cypheria/protocol"
@@ -551,6 +553,25 @@ export class ServerClient {
       SERVER_CAPABILITIES.projectThread
     )
     return message as ProjectThreadServerMessage
+  }
+
+  async requestThread(
+    type: ThreadClientMessage["type"],
+    payload: unknown,
+    options?: RequestOptions
+  ): Promise<ThreadServerMessage> {
+    const expectedType = type.replace(/\.request$/, ".response")
+    const message = await this.#request(
+      {
+        payload,
+        requestId: this.#nextRequestId("thread"),
+        type,
+      } as ThreadClientMessage,
+      expectedType,
+      options,
+      SERVER_CAPABILITIES.projectThread
+    )
+    return message as ThreadServerMessage
   }
 
   async requestOpenCodeCall(

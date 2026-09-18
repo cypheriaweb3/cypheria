@@ -108,11 +108,6 @@ const sectionPlacementSchema = z.object({
   beforeItem: SectionItemRefSchema.nullish(),
   sectionId: ProjectThreadIdSchema,
 })
-const projectPlacementSchema = z.object({
-  beforeThreadId: ProjectThreadIdSchema.nullish(),
-  projectId: ProjectThreadIdSchema,
-})
-
 const request = <T extends string, S extends z.ZodType>(type: T, payload: S) =>
   z.object({ payload, requestId: RequestIdSchema, type: z.literal(type) })
 const errorSchema = z.object({ code: z.string().min(1), message: z.string().min(1) })
@@ -160,55 +155,6 @@ export const ProjectMoveRequestSchema = request(
 export const ProjectDeleteRequestSchema = request(
   "project.delete.request",
   z.object({ projectId: ProjectThreadIdSchema })
-)
-
-export const ThreadCreateRequestSchema = request(
-  "thread.create.request",
-  z.object({
-    agentId: AgentIdSchema,
-    ...beforeThreadSchema.shape,
-    cwd: z.string().nullable().optional(),
-    forkedFromId: ProjectThreadIdSchema.nullish(),
-    projectPlacement: projectPlacementSchema.optional(),
-    recencyAt: UnixTimestampSecondsSchema.nullish(),
-    sectionPlacement: sectionPlacementSchema.optional(),
-    title: z.string().nullable().optional(),
-  })
-)
-export const ThreadReadRequestSchema = request(
-  "thread.read.request",
-  z.object({ threadId: ProjectThreadIdSchema })
-)
-export const ThreadListRequestSchema = request(
-  "thread.list.request",
-  listPayloadSchema.extend({
-    agentId: AgentIdSchema.optional(),
-    forkedFromId: ProjectThreadIdSchema.optional(),
-    projectId: ProjectThreadIdSchema.optional(),
-    sectionId: ProjectThreadIdSchema.optional(),
-    sortDirection: ProjectThreadSortDirectionSchema.optional(),
-    sortKey: z.enum(["position", "recencyAt"]).optional(),
-  })
-)
-export const ThreadUpdateRequestSchema = request(
-  "thread.update.request",
-  z.object({
-    cwd: z.string().nullable().optional(),
-    threadId: ProjectThreadIdSchema,
-    title: z.string().nullable().optional(),
-  })
-)
-export const ThreadTouchRecencyRequestSchema = request(
-  "thread.recency.touch.request",
-  z.object({ recencyAt: UnixTimestampSecondsSchema, threadId: ProjectThreadIdSchema })
-)
-export const ThreadMoveRequestSchema = request(
-  "thread.move.request",
-  z.object({ ...beforeThreadSchema.shape, threadId: ProjectThreadIdSchema })
-)
-export const ThreadDeleteRequestSchema = request(
-  "thread.delete.request",
-  z.object({ threadId: ProjectThreadIdSchema })
 )
 
 export const ProjectItemGetRequestSchema = request(
@@ -302,16 +248,6 @@ export const ProjectListResponseSchema = response(
 export const ProjectUpdateResponseSchema = response("project.update.response", ProjectSchema)
 export const ProjectMoveResponseSchema = response("project.move.response", emptySchema)
 export const ProjectDeleteResponseSchema = response("project.delete.response", emptySchema)
-export const ThreadCreateResponseSchema = response("thread.create.response", ThreadSchema)
-export const ThreadReadResponseSchema = response("thread.read.response", ThreadSchema)
-export const ThreadListResponseSchema = response("thread.list.response", pageSchema(ThreadSchema))
-export const ThreadUpdateResponseSchema = response("thread.update.response", ThreadSchema)
-export const ThreadTouchRecencyResponseSchema = response(
-  "thread.recency.touch.response",
-  ThreadSchema
-)
-export const ThreadMoveResponseSchema = response("thread.move.response", emptySchema)
-export const ThreadDeleteResponseSchema = response("thread.delete.response", emptySchema)
 export const ProjectItemGetResponseSchema = response(
   "project.item.get.response",
   ProjectMembershipSchema.nullable()
@@ -360,13 +296,6 @@ export const PROJECT_THREAD_CLIENT_SCHEMAS = [
   ProjectUpdateRequestSchema,
   ProjectMoveRequestSchema,
   ProjectDeleteRequestSchema,
-  ThreadCreateRequestSchema,
-  ThreadReadRequestSchema,
-  ThreadListRequestSchema,
-  ThreadUpdateRequestSchema,
-  ThreadTouchRecencyRequestSchema,
-  ThreadMoveRequestSchema,
-  ThreadDeleteRequestSchema,
   ProjectItemGetRequestSchema,
   ProjectItemListRequestSchema,
   ProjectItemMoveRequestSchema,
@@ -392,13 +321,6 @@ export const PROJECT_THREAD_SERVER_SCHEMAS = [
   ProjectUpdateResponseSchema,
   ProjectMoveResponseSchema,
   ProjectDeleteResponseSchema,
-  ThreadCreateResponseSchema,
-  ThreadReadResponseSchema,
-  ThreadListResponseSchema,
-  ThreadUpdateResponseSchema,
-  ThreadTouchRecencyResponseSchema,
-  ThreadMoveResponseSchema,
-  ThreadDeleteResponseSchema,
   ProjectItemGetResponseSchema,
   ProjectItemListResponseSchema,
   ProjectItemMoveResponseSchema,

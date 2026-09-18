@@ -55,6 +55,13 @@ import {
   type ProjectThreadServerMessage,
 } from "./project-thread.ts"
 import { RequestIdSchema } from "./request-id.ts"
+import {
+  THREAD_CLIENT_SCHEMAS,
+  THREAD_RESPONSE_TYPES,
+  THREAD_SERVER_SCHEMAS,
+  type ThreadClientMessage,
+  type ThreadServerMessage,
+} from "./thread.ts"
 
 export * from "./agent/acp.ts"
 export * from "./agent/claude.ts"
@@ -66,67 +73,7 @@ export * from "./agent/registry.ts"
 export * from "./project-thread.ts"
 export * from "./relay.ts"
 export { type RequestId, RequestIdSchema } from "./request-id.ts"
-export {
-  THREAD_CLIENT_SCHEMAS,
-  THREAD_RESPONSE_TYPES,
-  THREAD_SERVER_SCHEMAS,
-  type ThreadActiveTurn,
-  ThreadActiveTurnSchema,
-  type ThreadCapabilities,
-  ThreadCapabilitiesSchema,
-  type ThreadClientMessage,
-  ThreadCloseRequestSchema,
-  ThreadCloseResponseSchema,
-  ThreadConfigUpdateRequestSchema,
-  ThreadConfigUpdateResponseSchema,
-  ThreadCreatedNotificationSchema,
-  ThreadDeletedNotificationSchema,
-  ThreadEventNotificationSchema,
-  ThreadGetRequestSchema,
-  ThreadGetResponseSchema,
-  type ThreadInputBlock,
-  ThreadInputBlockSchema,
-  type ThreadInteraction,
-  ThreadInteractionOptionSchema,
-  ThreadInteractionRequestedNotificationSchema,
-  ThreadInteractionResolvedNotificationSchema,
-  ThreadInteractionRespondRequestSchema,
-  ThreadInteractionRespondResponseSchema,
-  ThreadInteractionSchema,
-  type ThreadPromptContentType,
-  ThreadPromptContentTypeSchema,
-  ThreadResumeRequestSchema,
-  ThreadResumeResponseSchema,
-  type ThreadServerMessage,
-  type ThreadState,
-  ThreadStateSchema,
-  ThreadTimelineAppendedNotificationSchema,
-  type ThreadTimelineCursor,
-  ThreadTimelineCursorSchema,
-  type ThreadTimelineDirection,
-  ThreadTimelineDirectionSchema,
-  ThreadTimelineGetRequestSchema,
-  ThreadTimelineGetResponseSchema,
-  type ThreadTimelineItem,
-  ThreadTimelineItemSchema,
-  type ThreadTimelinePage,
-  ThreadTimelinePageSchema,
-  type ThreadTimelineProjectedItem,
-  ThreadTimelineProjectedItemSchema,
-  type ThreadTimelineProjection,
-  ThreadTimelineProjectionSchema,
-  ThreadTimelineReplacedNotificationSchema,
-  type ThreadTimelineRow,
-  ThreadTimelineRowSchema,
-  ThreadTimelineSourceRangeSchema,
-  ThreadTurnCancelRequestSchema,
-  ThreadTurnCancelResponseSchema,
-  ThreadTurnStartRequestSchema,
-  ThreadTurnStartResponseSchema,
-  ThreadUpdatedNotificationSchema,
-  type ThreadView,
-  ThreadViewSchema,
-} from "./thread.ts"
+export * from "./thread.ts"
 export * from "./thread-timeline.ts"
 
 export const CYPHERIA_PROTOCOL_VERSION = 2 as const
@@ -453,6 +400,7 @@ export type SessionInboundMessage =
   | AgentManagementClientMessage
   | AgentOpenCodeClientMessage
   | ProjectThreadClientMessage
+  | ThreadClientMessage
 
 // Nested family discriminators keep each concrete wire `type` visible while allowing ACP to use
 // `protocolVersion` as its second-level discriminator for types shared by v1 and v2.
@@ -471,6 +419,7 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   ...AGENT_MANAGEMENT_CLIENT_SCHEMAS,
   ...AGENT_OPENCODE_CLIENT_SCHEMAS,
   ...PROJECT_THREAD_CLIENT_SCHEMAS,
+  ...THREAD_CLIENT_SCHEMAS,
 ])
 
 export type ClientMessage = SessionInboundMessage
@@ -530,6 +479,7 @@ export type SessionOutboundMessage =
   | AgentManagementServerMessage
   | AgentOpenCodeServerMessage
   | ProjectThreadServerMessage
+  | ThreadServerMessage
 
 export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutboundMessage>([
   ServerStatusNotificationSchema,
@@ -547,6 +497,7 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   ...AGENT_MANAGEMENT_SERVER_SCHEMAS,
   ...AGENT_OPENCODE_SERVER_SCHEMAS,
   ...PROJECT_THREAD_SERVER_SCHEMAS,
+  ...THREAD_SERVER_SCHEMAS,
 ])
 
 export type ServerMessage = SessionOutboundMessage
@@ -578,6 +529,7 @@ const clientResponseTypes = new Set<string>([
   "agent.opencode.call.response",
   "agent.opencode.event.subscribe.response",
   ...PROJECT_THREAD_RESPONSE_TYPES,
+  ...THREAD_RESPONSE_TYPES,
 ])
 
 /** Distinguishes responses to client requests from reverse RPCs that happen to share an id. */

@@ -31,6 +31,7 @@ import {
   type ServerMessage,
   type ServerOperationalState,
   type ServerStatus,
+  type ThreadClientMessage,
 } from "@cypheria/protocol"
 import {
   CypheriaRuntime,
@@ -121,6 +122,7 @@ export class CypheriaServer implements HttpAppHost {
     })
     this.projectThread = new ProjectThreadService({
       persistence: createProjectThreadPersistenceService(this.database.db),
+      publish: (message) => this.registry.broadcast(message),
     })
     this.#lifecycleHandler = options.onLifecycleRequest
   }
@@ -353,7 +355,10 @@ export class CypheriaServer implements HttpAppHost {
     ) {
       return false
     }
-    await this.projectThread.handle(message as ProjectThreadClientMessage, send)
+    await this.projectThread.handle(
+      message as ProjectThreadClientMessage | ThreadClientMessage,
+      send
+    )
     return true
   }
 
