@@ -151,6 +151,10 @@ Status legend:
 
 ## Client And SDK
 
+- [x] Add the unified `@cypheria/ai-sdk-provider` package.
+  - Acceptance: Codex, Claude, Pi, OpenCode, and ACP subpaths use only the shared client/protocol boundary; persistent and ephemeral Threads, canonical Timeline streaming, provider metadata, and abort cancellation share one browser-safe implementation.
+  - Verification: one provider contract suite runs against all five entrypoints; package typecheck/build and dependency-boundary checks pass.
+
 - [x] Add the layered `packages/client` protocol client.
   - Acceptance: `ServerClient` owns transport and WebSocket session lifecycle, correlation, subscriptions, and reconnect policy; `CypheriaApi` borrows an existing connection and exposes only current protocol-defined operations; `CypheriaClient` combines the API with lifecycle controls.
   - Include: lazy connection, versioned hello/authentication, browser/Node/custom transport support, request timeout handling, bounded exponential reconnects, Agent/Thread/project/section/server actions, typed notifications, paired package documentation, and no privileged implementation dependencies.

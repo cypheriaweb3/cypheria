@@ -109,6 +109,13 @@ an explicit weighted ingress budget, and container-aware Go memory limits. The p
 metrics and short routing spans over OTLP/gRPC only and exposes no Prometheus endpoint. See
 [Cypheria Relay](relay.md).
 
+`@cypheria/ai-sdk-provider` is a browser-safe AI SDK v4 facade over `@cypheria/client`. Its Codex,
+Claude, Pi, OpenCode, and ACP entrypoints share one Thread-backed implementation: calls create or
+resume a Cypheria Thread, turns consume canonical Timeline notifications, abort signals cancel the
+server turn, and agent/type/thread provenance is retained in provider metadata. Persistent Threads
+are the default; ephemeral mode explicitly deletes the call-owned Thread at completion. The package
+does not import provider SDKs, spawn processes, read files, or maintain a second conversation store.
+
 ## Server And Expo Stack
 
 `apps/server` uses Hono rather than Express. Hono owns JSON routes, validation middleware, strict API fallthrough, static files, and the WebSocket upgrade route. The Node adapter shares one HTTP listener with a `ws` no-server instance. A transport-neutral session state machine accepts Paseo-shaped top-level `hello`, `ping`, `pong`, and `session` envelopes; keys logical sessions by principal plus client ID; supports multiple simultaneous transports; correlates source-specific replies; bounds frames; broadcasts runtime events; and exposes server information, diagnostics, runtime forwarding, and lifecycle requests.

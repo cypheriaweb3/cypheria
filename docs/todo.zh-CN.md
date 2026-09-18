@@ -149,6 +149,10 @@
 
 ## Client 与 SDK
 
+- [x] 新增统一的 `@cypheria/ai-sdk-provider` package。
+  - 验收：Codex、Claude、Pi、OpenCode 与 ACP subpath 只使用共享 client/protocol 边界；持久化与 ephemeral Thread、canonical Timeline streaming、provider metadata 和 abort cancellation 共用一个 browser-safe 实现。
+  - 验证：同一套 provider contract test 覆盖五个入口；package typecheck/build 与依赖边界检查通过。
+
 - [x] 添加分层的 `packages/client` protocol client。
   - 验收：`ServerClient` 持有 transport 与 WebSocket session lifecycle、请求关联、订阅与重连策略；`CypheriaApi` 借用已有连接且只暴露当前 protocol 已定义的 operation；`CypheriaClient` 将 API 与 lifecycle control 组合起来。
   - 包括：懒连接、版本化 hello/authentication、browser/Node/custom transport 支持、请求超时处理、有界指数退避重连、Agent/Thread/project/section/server action、typed notification、配套双语 package 文档，并且不依赖特权 implementation。

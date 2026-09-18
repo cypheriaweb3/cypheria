@@ -108,6 +108,13 @@ Cypheria 顶层 `hello` 之前完成 E2EE。`apps/relay` 使用 Go 1.25；`--mod
 进程只通过 OTLP/gRPC 导出 metrics 和短生命周期 routing span，不提供 Prometheus endpoint。
 详见 [Cypheria Relay](relay.zh-CN.md)。
 
+`@cypheria/ai-sdk-provider` 是建立在 `@cypheria/client` 之上的 browser-safe AI SDK v4 门面。
+Codex、Claude、Pi、OpenCode 与 ACP 入口共用同一个 Thread-backed 实现：调用会创建或恢复
+Cypheria Thread，turn 消费 canonical Timeline notification，abort signal 会取消 server turn，
+agent/type/thread provenance 则保存在 provider metadata 中。默认使用持久化 Thread；ephemeral
+模式会在调用完成后显式删除由本次调用创建的 Thread。该包不导入 provider SDK、不启动进程、
+不读取文件，也不维护第二份会话存储。
+
 ## Server 与 Expo 技术栈
 
 `apps/server` 使用 Hono 而不是 Express。Hono 负责 JSON route、validation middleware、严格 API fallthrough、static file 与 WebSocket upgrade route。Node adapter 让一个 HTTP listener 与 `ws` no-server instance 共用端口。Transport-neutral session state machine 接受 Paseo 形态的顶层 `hello`、`ping`、`pong` 与 `session` envelope，以 principal 加 client ID 作为逻辑 session key，支持同时挂接多条 transport、按来源关联 response、限制 frame、广播 runtime event，并暴露 server information、diagnostics、runtime forwarding 与 lifecycle request。

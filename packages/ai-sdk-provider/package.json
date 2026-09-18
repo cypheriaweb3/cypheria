@@ -1,0 +1,28 @@
+{
+  "name": "@cypheria/ai-sdk-provider",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./acp": "./src/acp/index.ts",
+    "./claude": "./src/claude/index.ts",
+    "./codex": "./src/codex/index.ts",
+    "./opencode": "./src/opencode/index.ts",
+    "./pi": "./src/pi/index.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "pnpm typecheck",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@ai-sdk/provider": "4.0.9",
+    "@cypheria/client": "workspace:*",
+    "@cypheria/protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.7"
+  }
+}
