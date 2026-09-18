@@ -4,17 +4,17 @@ import {
   type NetworkDefinition,
   type NetworkId,
   toChainKey,
-} from "../network/index.js"
+} from "../network/index.ts"
 
 import {
   type ChainAccount,
   chainAccountSchema,
   type WalletAccount,
   walletAccountSchema,
-} from "./account.js"
-import type { WalletAccountId, WalletId } from "./primitives.js"
-import type { WalletMode } from "./signing.js"
-import { type Wallet, walletSchema } from "./wallet.js"
+} from "./account.ts"
+import type { WalletAccountId, WalletId } from "./primitives.ts"
+import type { WalletMode } from "./signing.ts"
+import { type Wallet, walletSchema } from "./wallet.ts"
 
 /** Renderer-safe logical account together with its chain-specific identities. */
 export const walletAccountViewSchema = z

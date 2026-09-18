@@ -12,6 +12,8 @@ import {
   type ServerMessage,
   type ServerStatus,
   stringifyProtocolMessage,
+  type Web3ClientMessage,
+  type Web3ServerMessage,
   type WSHelloMessage,
   wrapServerSessionMessage,
 } from "@cypheria/protocol"
@@ -40,6 +42,10 @@ export type SessionHost = {
     sessionId: string,
     source: SessionTransport,
     send: (message: ServerMessage) => void
+  ): Promise<boolean>
+  handleWeb3Message?(
+    message: Web3ClientMessage,
+    send: (message: Web3ServerMessage) => void
   ): Promise<boolean>
 }
 
@@ -208,6 +214,15 @@ export class ClientSession {
         })
         break
       default:
+        if (
+          message.type.startsWith("web3.") &&
+          this.#host.handleWeb3Message &&
+          (await this.#host.handleWeb3Message(message as Web3ClientMessage, (response) =>
+            this.sendTo(source, response)
+          ))
+        ) {
+          break
+        }
         if (
           message.type.startsWith("schedule.") &&
           this.#host.handleScheduleMessage &&

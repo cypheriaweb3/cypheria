@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { evaluateSigningPolicies, parseSigningPolicy } from "./index.js"
+import { evaluateSigningPolicies, parseSigningPolicy } from "./index.ts"
 
 const basePolicy = parseSigningPolicy({
   chainKeys: ["eip155:1"],

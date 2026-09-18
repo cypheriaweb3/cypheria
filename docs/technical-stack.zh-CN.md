@@ -76,7 +76,7 @@ packages/ui
 packages/db
 ```
 
-`packages/sdk` 仍是规划中的 package。`apps/cli`、`apps/server`、`apps/desktop`、`apps/expo`、`apps/marketplace`、`packages/client`、`packages/protocol` 与 `packages/ai-sdk-provider` 已实现 client/server 基础。旧 runtime、bridge 与 ACP provider 只在其 service 搬入 server 期间暂留，不属于最终布局。
+`packages/sdk` 仍是规划中的 package。`apps/cli`、`apps/server`、`apps/desktop`、`apps/expo`、`apps/marketplace`、`packages/client`、`packages/protocol`、`packages/web3` 与 `packages/ai-sdk-provider` 已实现 client/server 基础。原 runtime、Codex bridge、ACP provider、automation 与拆分的 Web3 package 已并入目标边界并删除。
 
 `@cypheria/protocol` 使用 Zod 编写 live public Agent/Thread、project/section 与 server WebSocket contract，同时持有供内部 server adapter 使用的 generated Codex App Server 产物及固定版本 ACP、Claude、Pi schema。这些 provider catalog 接受 drift check，但不进入 public client/server message union。Live wire 暴露 provider-neutral 的 `agent.*` 管理与 `thread.*` execution；`threadId` 是唯一操作句柄，`agentSessionId` 只是只读元数据。
 
@@ -209,7 +209,7 @@ Electron browser defaults：
 }
 ```
 
-Renderer code 只使用 typed IPC。Electron main 拥有 privileged services 和 Codex App Server lifecycle。
+Renderer 使用 `@cypheria/client` 访问共享产品数据，只把 Electron 专属 browser、window、terminal、secure-storage、update 与 OS integration 留在 typed IPC。Agent 与 Web3 lifecycle 属于 Server。
 
 语言选择器位于常规设置页。
 

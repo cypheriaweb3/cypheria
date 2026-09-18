@@ -28,6 +28,13 @@ import {
   type ThreadClientMessage,
   type ThreadServerMessage,
 } from "./thread.ts"
+import {
+  WEB3_CLIENT_SCHEMAS,
+  WEB3_RESPONSE_TYPES,
+  WEB3_SERVER_SCHEMAS,
+  type Web3ClientMessage,
+  type Web3ServerMessage,
+} from "./web3.ts"
 
 export * from "./agent/acp.ts"
 export * from "./agent/claude.ts"
@@ -44,6 +51,7 @@ export { type RequestId, RequestIdSchema } from "./request-id.ts"
 export * from "./schedule.ts"
 export * from "./thread.ts"
 export * from "./thread-timeline.ts"
+export * from "./web3.ts"
 
 export const CYPHERIA_PROTOCOL_VERSION = 2 as const
 export const CYPHERIA_WEBSOCKET_PATH = "/api/v1/ws" as const
@@ -56,6 +64,7 @@ export const SERVER_CAPABILITIES = {
   projectThread: "project-thread",
   schedules: "schedules",
   thread: "thread",
+  web3: "web3",
   config: "server.config",
   diagnostics: "diagnostics",
   status: "server.status",
@@ -361,6 +370,7 @@ export type SessionInboundMessage =
   | ProjectThreadClientMessage
   | ScheduleClientMessage
   | ThreadClientMessage
+  | Web3ClientMessage
 
 // Nested family discriminators keep each concrete wire `type` visible while allowing ACP to use
 // `protocolVersion` as its second-level discriminator for types shared by v1 and v2.
@@ -374,6 +384,7 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   ...PROJECT_THREAD_CLIENT_SCHEMAS,
   ...SCHEDULE_CLIENT_SCHEMAS,
   ...THREAD_CLIENT_SCHEMAS,
+  ...WEB3_CLIENT_SCHEMAS,
 ])
 
 export type ClientMessage = SessionInboundMessage
@@ -428,6 +439,7 @@ export type SessionOutboundMessage =
   | ProjectThreadServerMessage
   | ScheduleServerMessage
   | ThreadServerMessage
+  | Web3ServerMessage
 
 export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutboundMessage>([
   ServerStatusNotificationSchema,
@@ -440,6 +452,7 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   ...PROJECT_THREAD_SERVER_SCHEMAS,
   ...SCHEDULE_SERVER_SCHEMAS,
   ...THREAD_SERVER_SCHEMAS,
+  ...WEB3_SERVER_SCHEMAS,
 ])
 
 export type ServerMessage = SessionOutboundMessage
@@ -469,6 +482,7 @@ const clientResponseTypes = new Set<string>([
   ...PROJECT_THREAD_RESPONSE_TYPES,
   ...SCHEDULE_RESPONSE_TYPES,
   ...THREAD_RESPONSE_TYPES,
+  ...WEB3_RESPONSE_TYPES,
 ])
 
 /** Distinguishes responses to client requests from reverse RPCs that happen to share an id. */

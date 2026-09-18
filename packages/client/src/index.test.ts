@@ -25,6 +25,7 @@ describe("Cypheria client facade", () => {
       "thread",
       "threads",
       "timeline",
+      "web3",
     ])
     expect(Object.keys(api.agent).sort()).toEqual([
       "checkToolchainUpdates",

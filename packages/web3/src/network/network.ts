@@ -1,12 +1,12 @@
 import { z } from "zod"
-import { chainIdentitySchema, chainKeySchema, toChainKey } from "./chain.js"
+import { chainIdentitySchema, chainKeySchema, toChainKey } from "./chain.ts"
 import {
   networkCredentialRefSchema,
   networkIdSchema,
   rpcEndpointIdSchema,
   timestampSchema,
-} from "./primitives.js"
-import { isLoopbackHostname } from "./url.js"
+} from "./primitives.ts"
+import { isLoopbackHostname } from "./url.ts"
 
 export const networkExplorerSchema = z
   .object({

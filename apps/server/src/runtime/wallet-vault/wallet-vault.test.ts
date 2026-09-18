@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from "vitest"
 
 import {
   createMemoryVaultMasterKeyProvider,
+  createPrivateFileVaultMasterKeyProvider,
   createSafeStorageVaultMasterKeyProvider,
   VaultKeyProviderError,
 } from "./key-provider.js"
@@ -272,6 +273,19 @@ describe("wallet vault", () => {
 })
 
 describe("vault master-key providers", () => {
+  it("persists a headless server key in an owner-only file", async () => {
+    const directory = await makeVaultDir()
+    const keyFile = join(directory, "server-master-key.bin")
+    const first = createPrivateFileVaultMasterKeyProvider(keyFile)
+    const firstKey = await first.getOrCreateMasterKey()
+    first.clearCachedMasterKey?.()
+    const second = createPrivateFileVaultMasterKeyProvider(keyFile)
+
+    await expect(second.getOrCreateMasterKey()).resolves.toEqual(firstKey)
+    expect(await readFile(keyFile)).toHaveLength(32)
+    if (process.platform !== "win32") expect((await stat(keyFile)).mode & 0o777).toBe(0o600)
+  })
+
   it("creates one master key for concurrent first access", async () => {
     const directory = await makeVaultDir()
     let encryptions = 0

@@ -1,13 +1,13 @@
-export * from "./eip6963.js"
-export * from "./ethereum.js"
-export * from "./events.js"
-export * from "./json-rpc.js"
-export * from "./session.js"
-export * from "./solana.js"
+export * from "./eip6963.ts"
+export * from "./ethereum.ts"
+export * from "./events.ts"
+export * from "./json-rpc.ts"
+export * from "./session.ts"
+export * from "./solana.ts"
 
 import { z } from "zod"
-import { providerRequestSchema, providerResponseSchema } from "./ethereum.js"
-import { solanaProviderRequestSchema, solanaProviderResponseSchema } from "./solana.js"
+import { providerRequestSchema, providerResponseSchema } from "./ethereum.ts"
+import { solanaProviderRequestSchema, solanaProviderResponseSchema } from "./solana.ts"
 
 export const walletProviderRequestSchema = z.union([
   providerRequestSchema,

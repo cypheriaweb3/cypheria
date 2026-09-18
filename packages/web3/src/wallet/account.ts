@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { evmChainIdentitySchema, solanaChainIdentitySchema } from "../network/index.js"
+import { evmChainIdentitySchema, solanaChainIdentitySchema } from "../network/index.ts"
 
 import {
   chainAccountIdSchema,
@@ -9,7 +9,7 @@ import {
   walletAccountIdSchema,
   walletFingerprintSchema,
   walletIdSchema,
-} from "./primitives.js"
+} from "./primitives.ts"
 
 /** Key derivation namespaces currently understood by the wallet domain. */
 export const chainNamespaces = ["eip155"] as const

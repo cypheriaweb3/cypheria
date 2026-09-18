@@ -1,15 +1,15 @@
 import { z } from "zod"
-import { type ChainKey, chainKeySchema } from "../network/index.js"
-import type { HexAddress, WalletId } from "../wallet/index.js"
-import { hexAddressSchema, walletIdSchema } from "../wallet/index.js"
+import { type ChainKey, chainKeySchema } from "../network/index.ts"
+import type { HexAddress, WalletId } from "../wallet/index.ts"
+import { hexAddressSchema, walletIdSchema } from "../wallet/index.ts"
 
-import { jsonRpcParamsSchema, jsonRpcValueSchema } from "./json-rpc.js"
+import { jsonRpcParamsSchema, jsonRpcValueSchema } from "./json-rpc.ts"
 import {
   createDappSessionKey,
   type DappSessionKey,
   dappSessionKeySchema,
   normalizeDappOrigin,
-} from "./session.js"
+} from "./session.ts"
 
 export const ethereumProviderMethods = [
   "web3_clientVersion",

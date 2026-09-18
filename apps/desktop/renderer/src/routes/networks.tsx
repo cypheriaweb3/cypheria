@@ -1,3 +1,4 @@
+import type { Web3NetworkView } from "@cypheria/protocol"
 import { Badge } from "@cypheria/ui/components/badge"
 import { Button } from "@cypheria/ui/components/button"
 import {
@@ -22,12 +23,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Activity, ArrowDown, ArrowUp, Globe2, Plus, RotateCw, Trash2 } from "lucide-react"
 import { type FormEvent, useState } from "react"
-import type { NetworkList } from "../../../ipc/src/web3.js"
 import { WorkbenchFrame } from "../components/workbench-frame"
+import { web3Api } from "../web3-api.js"
 
 export const Route = createFileRoute("/networks")({ component: NetworksRoute })
 
-type NetworkView = NetworkList[number]
+type NetworkView = Web3NetworkView
 type EndpointView = NetworkView["endpoints"][number]
 
 const move = <T,>(items: readonly T[], from: number, to: number): T[] => {
@@ -41,14 +42,13 @@ const move = <T,>(items: readonly T[], from: number, to: number): T[] => {
 function NetworksRoute() {
   const queryClient = useQueryClient()
   const networks = useQuery({
-    queryFn: () => window.cypheria?.network.list() ?? [],
+    queryFn: () => web3Api.network.list() ?? [],
     queryKey: ["network", "list"],
   })
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["network"] })
   const setEnabled = useMutation({
     mutationFn: (view: NetworkView) => {
-      if (!window.cypheria) throw new Error("Networks are only available in the desktop app.")
-      return window.cypheria.network.setEnabled(
+      return web3Api.network.setEnabled(
         view.network.id,
         !view.network.enabled,
         view.network.revision
@@ -58,15 +58,13 @@ function NetworksRoute() {
   })
   const removeNetwork = useMutation({
     mutationFn: (view: NetworkView) => {
-      if (!window.cypheria) throw new Error("Networks are only available in the desktop app.")
-      return window.cypheria.network.remove(view.network.id, true)
+      return web3Api.network.remove(view.network.id, true)
     },
     onSuccess: refresh,
   })
   const reorder = useMutation({
     mutationFn: (ids: readonly string[]) => {
-      if (!window.cypheria) throw new Error("Networks are only available in the desktop app.")
-      return window.cypheria.network.reorder(ids)
+      return web3Api.network.reorder(ids)
     },
     onSuccess: refresh,
   })
@@ -188,17 +186,12 @@ function EndpointRow({
 }>) {
   const action = useMutation({
     mutationFn: async (kind: "probe" | "remove" | "toggle" | "up" | "down") => {
-      if (!window.cypheria) throw new Error("Networks are only available in the desktop app.")
-      if (kind === "probe") return window.cypheria.network.probeEndpoint(endpoint.id)
-      if (kind === "remove") return window.cypheria.network.removeEndpoint(endpoint.id)
+      if (kind === "probe") return web3Api.network.probeEndpoint(endpoint.id)
+      if (kind === "remove") return web3Api.network.removeEndpoint(endpoint.id)
       if (kind === "toggle")
-        return window.cypheria.network.setEndpointEnabled(
-          endpoint.id,
-          !endpoint.enabled,
-          endpoint.revision
-        )
+        return web3Api.network.setEndpointEnabled(endpoint.id, !endpoint.enabled, endpoint.revision)
       const target = kind === "up" ? index - 1 : index + 1
-      return window.cypheria.network.reorderEndpoints(
+      return web3Api.network.reorderEndpoints(
         network.network.id,
         move(network.endpoints, index, target).map(({ id }) => id)
       )
@@ -274,10 +267,9 @@ function CreateNetworkDialog({ onSaved }: Readonly<{ onSaved: () => void }>) {
   const create = useMutation({
     mutationFn: async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault()
-      if (!window.cypheria) throw new Error("Networks are only available in the desktop app.")
       const data = new FormData(event.currentTarget)
       const reference = String(data.get("reference"))
-      return window.cypheria.network.create({
+      return web3Api.network.create({
         chain: { namespace, reference },
         enabled: true,
         endpoints: [
@@ -400,10 +392,9 @@ function AddEndpointDialog({
   const add = useMutation({
     mutationFn: async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault()
-      if (!window.cypheria) throw new Error("Networks are only available in the desktop app.")
       const data = new FormData(event.currentTarget)
       const transport = data.get("transport") === "websocket" ? "websocket" : "http"
-      return window.cypheria.network.addEndpoint({
+      return web3Api.network.addEndpoint({
         endpoint: {
           enabled: true,
           label: String(data.get("label")),

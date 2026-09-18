@@ -76,7 +76,7 @@ packages/ui
 packages/db
 ```
 
-`packages/sdk` remains planned. `apps/cli`, `apps/server`, `apps/desktop`, `apps/expo`, `apps/marketplace`, `packages/client`, `packages/protocol`, and `packages/ai-sdk-provider` implement the client/server foundation. The old runtime, bridge, and ACP provider remain only while their services are moved behind the server and will not be part of the final layout.
+`packages/sdk` remains planned. `apps/cli`, `apps/server`, `apps/desktop`, `apps/expo`, `apps/marketplace`, `packages/client`, `packages/protocol`, `packages/web3`, and `packages/ai-sdk-provider` implement the client/server foundation. The former runtime, Codex bridge, ACP provider, automation, and split Web3 packages have been absorbed into these target boundaries and deleted.
 
 `@cypheria/protocol` authors the live public Agent/Thread, project/section, and server WebSocket contracts with Zod. It also owns generated Codex App Server artifacts and pinned ACP, Claude, and Pi schemas used by internal server adapters. Those provider catalogs are drift-checked but excluded from the public client/server message union. The live wire exposes provider-neutral `agent.*` management and `thread.*` execution; `threadId` is the only operation handle and `agentSessionId` is read-only metadata.
 
@@ -210,7 +210,7 @@ Electron browser defaults:
 }
 ```
 
-Renderer code uses typed IPC only. Electron main owns privileged services and Codex App Server lifecycle.
+Renderer code uses `@cypheria/client` for shared product data and typed IPC only for Electron-specific browser, window, terminal, secure-storage, update, and OS integration. Agent and Web3 lifecycle belongs to the Server.
 
 The language picker lives on the General settings page.
 

@@ -1,3 +1,4 @@
+import type { Web3ApprovalView } from "@cypheria/protocol"
 import { Alert, AlertDescription, AlertTitle } from "@cypheria/ui/components/alert"
 import { Badge } from "@cypheria/ui/components/badge"
 import { Button } from "@cypheria/ui/components/button"
@@ -11,8 +12,8 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { BellDot, Check, Clock3, ShieldCheck, X } from "lucide-react"
-import type { ApprovalRequestView } from "../../../ipc/src/index.js"
 import { WorkbenchFrame } from "../components/workbench-frame"
+import { web3Api } from "../web3-api.js"
 
 export const Route = createFileRoute("/approvals")({ component: ApprovalsRoute })
 
@@ -22,7 +23,7 @@ const stringify = (value: unknown) =>
 function ApprovalsRoute() {
   const queryClient = useQueryClient()
   const approvals = useQuery({
-    queryFn: () => window.cypheria?.approval.list("pending") ?? [],
+    queryFn: () => web3Api.approval.list("pending") ?? [],
     queryKey: ["approval", "pending"],
     refetchInterval: 5_000,
   })
@@ -32,10 +33,9 @@ function ApprovalsRoute() {
       view,
     }: {
       decision: "approved" | "rejected"
-      view: ApprovalRequestView
+      view: Web3ApprovalView
     }) => {
-      if (!window.cypheria) throw new Error("Approvals are only available in the desktop app.")
-      return window.cypheria.approval.decide({
+      return web3Api.approval.decide({
         approvalId: view.approval.id,
         decision,
         expectedRevision: view.approval.revision,

@@ -1,5 +1,6 @@
 export {
   createMemoryVaultMasterKeyProvider,
+  createPrivateFileVaultMasterKeyProvider,
   createSafeStorageVaultMasterKeyProvider,
   type SafeStorageProtector,
   type SafeStorageVaultMasterKeyProviderOptions,

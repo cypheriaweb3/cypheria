@@ -20,7 +20,7 @@ import {
   ProviderRpcError,
   type SolanaProviderRequest,
   solanaProviderRequestSchema,
-} from "./index.js"
+} from "./index.ts"
 
 describe("Wallet provider session model", () => {
   it("creates stable origin-scoped session keys", () => {

@@ -48,6 +48,7 @@ import {
 } from "react"
 import { resolveThemeMode, useAppearanceController, useTheme } from "../appearance.js"
 import { activateLanguage, getBootstrapLanguage, i18n } from "../i18n.js"
+import { web3Api } from "../web3-api.js"
 import { NewChatLink } from "./chat-navigation"
 import { ChatSearch } from "./chat-search"
 import { ChatSidebar } from "./chat-sidebar"
@@ -213,7 +214,7 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       : undefined
   const isSettings = pathname.startsWith("/settings")
   const approvalsQuery = useQuery({
-    queryFn: () => window.cypheria?.approval.list("pending") ?? [],
+    queryFn: () => web3Api.approval.list("pending") ?? [],
     queryKey: ["approval", "pending"],
     refetchInterval: 5_000,
   })

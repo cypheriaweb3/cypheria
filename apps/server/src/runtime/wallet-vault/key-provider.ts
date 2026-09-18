@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto"
-import { readFile } from "node:fs/promises"
+import { chmod, readFile } from "node:fs/promises"
 
 import { writeFileAtomically } from "./atomic-file.js"
 
@@ -40,6 +40,44 @@ export const createMemoryVaultMasterKeyProvider = (
   return {
     clearCachedMasterKey: () => undefined,
     getOrCreateMasterKey: async () => new Uint8Array(key),
+  }
+}
+
+/**
+ * Headless-server fallback when no OS credential broker is attached. The key is kept outside the
+ * database in a private 0600 file. Desktop deployments may replace this with an OS-backed provider.
+ */
+export const createPrivateFileVaultMasterKeyProvider = (
+  keyFile: string
+): VaultMasterKeyProvider => {
+  let cachedKey: Uint8Array | undefined
+  let pendingKey: Promise<Uint8Array> | undefined
+  const loadOrCreate = async (): Promise<Uint8Array> => {
+    try {
+      const stored = await readFile(keyFile)
+      if (process.platform !== "win32") await chmod(keyFile, 0o600)
+      cachedKey = assertMasterKey(stored)
+      return new Uint8Array(cachedKey)
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error
+    }
+    const created = randomBytes(MASTER_KEY_BYTES)
+    await writeFileAtomically(keyFile, created)
+    cachedKey = new Uint8Array(created)
+    return new Uint8Array(cachedKey)
+  }
+  return {
+    clearCachedMasterKey: () => {
+      cachedKey?.fill(0)
+      cachedKey = undefined
+    },
+    getOrCreateMasterKey: async () => {
+      if (cachedKey) return new Uint8Array(cachedKey)
+      pendingKey ??= loadOrCreate().finally(() => {
+        pendingKey = undefined
+      })
+      return new Uint8Array(await pendingKey)
+    },
   }
 }
 

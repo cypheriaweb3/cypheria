@@ -136,7 +136,8 @@
   - [x] 根据每个 Thread 的 `agentId` 选择 Codex、Claude、Pi、OpenCode 或 ACP AI SDK provider；在新会话 composer 中展示 enabled agents，并把排队 follow-up 保留在 per-Thread scope。
   - [x] 将 Agent catalog、安装、更新、启用与 runtime lifecycle control 从旧 Desktop harness manager 切换到 `client.agents`。
   - [~] 在泛化共享会话 shell 的同时保持完整 Codex timeline 渲染等价；canonical user message 现在可在 history reload 后保留附件。
-  - [ ] 在删除旧 IPC path 前，将其余 Codex authentication/configuration、审批、skills、plugins、MCP、terminal 与 Web3 surface 搬到共享 server API。
+  - [x] 将 network、wallet、policy、signing approval 与 audit surface 搬到共享 `client.web3` API；Renderer 不再消费其旧 IPC path。
+  - [ ] 在删除旧 IPC path 前，将其余 Codex authentication/configuration、skills、plugins、MCP 与共享 terminal surface 搬到 server API。
   - 状态：已明确批准；在替换数据源时，把现有 Sidebar 与源自 Codex 的会话体验作为硬性验收门槛。
 
 - [x] 按 server 与 multi-client 目标架构重写文档。

@@ -222,7 +222,7 @@ The plugin and skill workbench has two discovery providers and one App Server in
 
 Settings includes Plugins/Apps/MCP/Skills/Markets tabs. Main owns application availability and MCP inventory projections, scoped enablement writes, HTTP MCP addition, and validated external authorization URLs. The renderer observes authorization completion notifications and refreshes status; opening a login page does not imply authorization success. It receives renderer-safe schemas and never reads `$CYPHERIA_HOME` directly or receives MCP credentials. See [Plugin and Skill Management](plugin-skill-management.md) and [Cypheria Marketplace Design](marketplace.md).
 
-The Web3 workbench completes the local management loop. Wallet screens create or import encrypted vault wallets, add watch-only accounts, select the active account and chain, lock or unlock the vault, and launch an isolated dApp session. Policy screens create, edit, and disable signing rules. Approval screens show the canonical intent and payload hash before accepting or rejecting it, while the audit screen exposes the resulting local security history. Wallet secret form values are submitted directly from uncontrolled forms to preload and are never copied into React state, localStorage, or IndexedDB.
+The Web3 workbench completes the local management loop. Wallet screens create or import encrypted vault wallets, add watch-only accounts, select the active account and chain, lock or unlock the vault, and launch an isolated dApp session. Policy screens create, edit, and disable signing rules. Approval screens show the canonical intent and payload hash before accepting or rejecting it, while the audit screen exposes the resulting local security history. Networks, wallets, policies, approvals, and audit records use the versioned `client.web3` API; their old Electron IPC data path is no longer used by the renderer. Wallet secret form values are submitted directly from uncontrolled forms over the authenticated Cypheria connection and are never copied into React state, localStorage, IndexedDB, or normal SQLite tables.
 
 Production renderer assets are served by Electron main through the privileged standard `cypheria://` scheme. Missing application paths fall back to the SPA shell, while resolved assets remain confined to the built renderer directory. This allows direct navigation to workbench and settings routes without running the TanStack Start server bundle in production.
 
@@ -325,7 +325,7 @@ Runs persist their target type, scheduled time, status, result, error, and creat
 
 ## Data Model
 
-SQLite is the local source of truth for non-secret data. Drizzle accesses a local `file:` database through the libSQL SQLite entry point; this does not require or imply a remote Turso/libSQL service. Sensitive wallet material belongs in an encrypted vault protected by OS-backed key storage.
+SQLite is the local source of truth for non-secret data. Drizzle accesses a local `file:` database through the libSQL SQLite entry point; this does not require or imply a remote Turso/libSQL service. Sensitive wallet material belongs in an encrypted vault. Desktop may attach OS-backed key protection; the headless Server fallback keeps the vault master key outside SQLite in an owner-only file and uses it to encrypt both vault entries and protected RPC credentials.
 
 The wallet domain and vault design are specified in `docs/wallet-management.md`.
 

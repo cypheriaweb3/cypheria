@@ -13,7 +13,7 @@ import {
   rpcEndpointSchema,
   solanaChainIdentityFromWalletStandard,
   toChainKey,
-} from "./index.js"
+} from "./index.ts"
 
 describe("chain identity", () => {
   it("canonicalizes EIP-1193 chain IDs", () => {

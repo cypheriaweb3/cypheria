@@ -219,7 +219,7 @@ Desktop 的信息架构以对话为中心。新对话和搜索固定在常驻左
 
 Settings 仍提供含插件/应用/MCP/技能/市场五个页签的 Plugins 页面。Main 负责应用可用性与 MCP 清单投影、限定启用配置写入、HTTP MCP 添加和经过校验的外部授权地址。Renderer 监听授权完成通知并刷新状态，不把打开登录页当作授权成功。Renderer 只接收安全 schema，不直接读取 `$CYPHERIA_HOME`，也不会获得 MCP 凭据。详见[插件与技能管理](plugin-skill-management.zh-CN.md)和 [Cypheria Marketplace 设计](marketplace.zh-CN.md)。
 
-Web3 工作台完成本地管理闭环。钱包页面可以创建或导入加密 vault 钱包、添加 watch-only accounts、选择 active account 与 chain、锁定或解锁 vault，并启动隔离 dApp session。Policy 页面可以创建、编辑和停用 signing rules。Approval 页面会在接受或拒绝之前展示 canonical intent 与 payload hash，audit 页面则展示由此产生的本地安全历史。钱包秘密表单值会从 uncontrolled forms 直接提交到 preload，不会复制到 React state、localStorage 或 IndexedDB。
+Web3 工作台完成本地管理闭环。钱包页面可以创建或导入加密 vault 钱包、添加 watch-only accounts、选择 active account 与 chain、锁定或解锁 vault，并启动隔离 dApp session。Policy 页面可以创建、编辑和停用 signing rules。Approval 页面会在接受或拒绝之前展示 canonical intent 与 payload hash，audit 页面则展示由此产生的本地安全历史。Network、wallet、policy、approval 与 audit record 都通过版本化 `client.web3` API 访问；Renderer 不再使用旧 Electron IPC 数据路径。钱包秘密表单值从 uncontrolled form 经认证的 Cypheria connection 直接提交，不会复制到 React state、localStorage、IndexedDB 或普通 SQLite table。
 
 生产 renderer assets 由 Electron main 通过 privileged standard `cypheria://` scheme 提供。缺失的应用路径回退到 SPA shell，已解析的 assets 则被限制在构建后的 renderer directory 内。这样无需在生产环境运行 TanStack Start server bundle，也能直接导航到 workbench 与 settings routes。
 
@@ -322,7 +322,7 @@ Run 会持久化 target type、scheduled time、status、result、error 与创�
 
 ## 数据模型
 
-SQLite 是非敏感本地数据的 source of truth。Drizzle 通过 libSQL 的 SQLite 入口访问本地 `file:` 数据库；这不需要、也不代表使用远程 Turso/libSQL 服务。敏感钱包材料保存在受 OS-backed key storage 保护的 encrypted vault 中。
+SQLite 是非敏感本地数据的 source of truth。Drizzle 通过 libSQL 的 SQLite 入口访问本地 `file:` 数据库；这不需要、也不代表使用远程 Turso/libSQL 服务。敏感钱包材料保存在 encrypted vault 中。Desktop 可以接入 OS-backed key protection；headless Server fallback 把 vault master key 放在 SQLite 之外的 owner-only 文件中，并用它加密 vault entry 与受保护的 RPC credential。
 
 钱包领域与 vault 的详细设计见 `docs/wallet-management.zh-CN.md`。
 

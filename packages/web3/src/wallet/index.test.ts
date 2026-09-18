@@ -16,7 +16,7 @@ import {
   serializeSigningIntent,
   toWalletView,
   type WalletSigner,
-} from "./index.js"
+} from "./index.ts"
 
 const address = "0x00000000000000000000000000000000000000AA" as HexAddress
 const now = "2026-09-01T00:00:00.000Z"

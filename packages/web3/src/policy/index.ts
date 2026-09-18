@@ -1,6 +1,6 @@
 import { z } from "zod"
-import { chainKeySchema } from "../network/index.js"
-import { walletIdSchema, walletModes } from "../wallet/index.js"
+import { chainKeySchema } from "../network/index.ts"
+import { walletIdSchema, walletModes } from "../wallet/index.ts"
 
 export const policyDecisions = ["allow", "deny", "require-human-approval"] as const
 export type PolicyDecision = (typeof policyDecisions)[number]

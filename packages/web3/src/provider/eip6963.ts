@@ -1,4 +1,4 @@
-import type { Eip1193Provider } from "./ethereum.js"
+import type { Eip1193Provider } from "./ethereum.ts"
 
 export const EIP6963_ANNOUNCE_PROVIDER_EVENT = "eip6963:announceProvider" as const
 export const EIP6963_REQUEST_PROVIDER_EVENT = "eip6963:requestProvider" as const

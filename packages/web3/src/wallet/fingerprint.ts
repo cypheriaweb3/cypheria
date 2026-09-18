@@ -1,7 +1,7 @@
 import { sha256, stringToHex } from "viem"
 
-import type { ChainNamespace } from "./account.js"
-import type { HexAddress, WalletFingerprint, WalletId } from "./primitives.js"
+import type { ChainNamespace } from "./account.ts"
+import type { HexAddress, WalletFingerprint, WalletId } from "./primitives.ts"
 
 const fingerprint = (identity: string): WalletFingerprint =>
   `sha256:${sha256(stringToHex(identity)).slice(2)}`

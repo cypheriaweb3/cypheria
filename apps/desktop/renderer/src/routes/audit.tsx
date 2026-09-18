@@ -10,12 +10,13 @@ import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { ScrollText } from "lucide-react"
 import { WorkbenchFrame } from "../components/workbench-frame"
+import { web3Api } from "../web3-api.js"
 
 export const Route = createFileRoute("/audit")({ component: AuditRoute })
 
 function AuditRoute() {
   const logs = useQuery({
-    queryFn: () => window.cypheria?.audit.list(200) ?? [],
+    queryFn: () => web3Api.audit.list(200) ?? [],
     queryKey: ["audit", "logs"],
     refetchInterval: 10_000,
   })

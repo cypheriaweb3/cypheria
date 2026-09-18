@@ -5,7 +5,7 @@ import {
   vaultIdSchema,
   walletFingerprintSchema,
   walletIdSchema,
-} from "./primitives.js"
+} from "./primitives.ts"
 
 /**
  * Wallet kind is the capability discriminator. Secret-bearing kinds require a

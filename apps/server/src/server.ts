@@ -30,6 +30,8 @@ import {
   type ServerOperationalState,
   type ServerStatus,
   type ThreadClientMessage,
+  type Web3ClientMessage,
+  type Web3ServerMessage,
 } from "@cypheria/protocol"
 import { serve } from "@hono/node-server"
 import pino, { type Logger } from "pino"
@@ -53,6 +55,7 @@ import type { SessionTransport } from "./session/client-session.js"
 import { ConnectionRegistry } from "./session/connection-registry.js"
 import { ThreadManager } from "./thread/thread-manager.js"
 import { CYPHERIA_SERVER_VERSION } from "./version.js"
+import { ServerWeb3Service } from "./web3-service.js"
 
 export type ServerLifecycleAction = "restart" | "shutdown"
 
@@ -88,6 +91,7 @@ export class CypheriaServer implements HttpAppHost {
   readonly schedules: ScheduleService
   readonly threadManager: ThreadManager
   readonly database: OpenDatabaseResult
+  readonly web3: ServerWeb3Service
 
   #address: CypheriaServerAddress | undefined
   #httpServer: HttpServer | undefined
@@ -110,6 +114,7 @@ export class CypheriaServer implements HttpAppHost {
       )
     this.config = this.configStore.effective
     this.database = options.database ?? openCypheriaDatabase({ dbDir: this.runtime.paths.dbDir })
+    this.web3 = new ServerWeb3Service(this.database, this.runtime.paths)
     this.registry = new ConnectionRegistry({
       helloTimeoutMs: this.config.sessionHelloTimeoutMs,
       host: this,
@@ -168,6 +173,7 @@ export class CypheriaServer implements HttpAppHost {
     try {
       await applyDatabaseMigrations(this.database.client)
       await this.projectThread.initialize()
+      await this.web3.initialize()
       await this.agentManager.start()
       await this.threadManager.initialize()
       await this.schedules.start()
@@ -247,6 +253,7 @@ export class CypheriaServer implements HttpAppHost {
         this.agentManager.stop(),
         this.runtime.stop(),
       ])
+      this.web3.stop()
       this.schedules.stop()
       this.#identity = undefined
       this.#webSocketServer = undefined
@@ -301,6 +308,7 @@ export class CypheriaServer implements HttpAppHost {
       SERVER_CAPABILITIES.schedules,
       SERVER_CAPABILITIES.status,
       SERVER_CAPABILITIES.thread,
+      SERVER_CAPABILITIES.web3,
     ]
   }
 
@@ -357,6 +365,13 @@ export class CypheriaServer implements HttpAppHost {
   ): Promise<boolean> {
     await this.schedules.handle(message, send)
     return true
+  }
+
+  async handleWeb3Message(
+    message: Web3ClientMessage,
+    send: (message: Web3ServerMessage) => void
+  ): Promise<boolean> {
+    return this.web3.handle(message, send)
   }
 
   getState(): ServerOperationalState {
@@ -424,6 +439,7 @@ export class CypheriaServer implements HttpAppHost {
     this.#webSocketServer?.close()
     this.#webSocketServer = undefined
     this.schedules.stop()
+    this.web3.stop()
 
     const results = await Promise.allSettled([
       this.#closeHttpListener(),

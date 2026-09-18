@@ -1,6 +1,6 @@
 import type { Address, Hex, SignableMessage, TypedData, TypedDataDefinition } from "viem"
 import { z } from "zod"
-import { type ChainKey, chainKeySchema } from "../network/index.js"
+import { type ChainKey, chainKeySchema } from "../network/index.ts"
 
 import {
   type ChainAccountId,
@@ -12,7 +12,7 @@ import {
   type WalletId,
   walletAccountIdSchema,
   walletIdSchema,
-} from "./primitives.js"
+} from "./primitives.ts"
 
 /** User-selected policy posture for an active wallet context. */
 export const walletModes = ["conditional-auto-signing", "human-approval", "read-only"] as const

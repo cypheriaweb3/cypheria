@@ -1,9 +1,9 @@
 import { z } from "zod"
 
-import { providerErrorSchema } from "./ethereum.js"
-import { jsonRpcValueSchema } from "./json-rpc.js"
-import { dappSessionKeySchema } from "./session.js"
-import { solanaWalletAccountDescriptorSchema } from "./solana.js"
+import { providerErrorSchema } from "./ethereum.ts"
+import { jsonRpcValueSchema } from "./json-rpc.ts"
+import { dappSessionKeySchema } from "./session.ts"
+import { solanaWalletAccountDescriptorSchema } from "./solana.ts"
 
 const eventScope = {
   origin: z.string().url(),

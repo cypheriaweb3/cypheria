@@ -1,4 +1,5 @@
 export {
+  createEncryptedFileNetworkCredentialStore,
   createMemoryNetworkCredentialStore,
   createSafeStorageNetworkCredentialStore,
   type NetworkCredential,

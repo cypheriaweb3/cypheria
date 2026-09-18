@@ -57,6 +57,7 @@ import {
 } from "lucide-react"
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react"
 import { WorkbenchFrame } from "../components/workbench-frame"
+import { web3Api } from "../web3-api.js"
 
 export const Route = createFileRoute("/wallets")({ component: WalletsRoute })
 
@@ -73,7 +74,7 @@ type WalletAction =
       mode: "read-only" | "human-approval" | "conditional-auto-signing"
     }
 
-type WalletView = Awaited<ReturnType<NonNullable<typeof window.cypheria>["wallet"]["list"]>>[number]
+type WalletView = Awaited<ReturnType<typeof web3Api.wallet.list>>[number]
 type WalletMode = Extract<WalletAction, { kind: "active" }>["mode"]
 
 const walletKindLabels: Record<WalletView["wallet"]["kind"], string> = {
@@ -94,15 +95,15 @@ const moveItem = <T,>(items: readonly T[], from: number, to: number): T[] => {
 function WalletsRoute() {
   const queryClient = useQueryClient()
   const wallets = useQuery({
-    queryFn: () => window.cypheria?.wallet.list() ?? [],
+    queryFn: () => web3Api.wallet.list() ?? [],
     queryKey: ["wallet", "list"],
   })
   const networks = useQuery({
-    queryFn: () => window.cypheria?.network.list() ?? [],
+    queryFn: () => web3Api.network.list() ?? [],
     queryKey: ["network", "list"],
   })
   const active = useQuery({
-    queryFn: () => window.cypheria?.wallet.getActive(),
+    queryFn: () => web3Api.wallet.getActive(),
     queryKey: ["wallet", "active"],
   })
   const [unlocked, setUnlocked] = useState(() => new Set<string>())
@@ -126,27 +127,21 @@ function WalletsRoute() {
 
   const reorder = useMutation({
     mutationFn: async (walletIds: string[]) => {
-      if (!window.cypheria)
-        throw new Error("Wallet management is only available in the desktop app.")
-      return window.cypheria.wallet.reorder(walletIds)
+      return web3Api.wallet.reorder(walletIds)
     },
     onError: () => setOrderedWallets(wallets.data ?? []),
     onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["wallet", "list"] }),
   })
   const reorderAccounts = useMutation({
     mutationFn: async ({ accountIds, walletId }: { accountIds: string[]; walletId: string }) => {
-      if (!window.cypheria)
-        throw new Error("Wallet management is only available in the desktop app.")
-      return window.cypheria.wallet.reorderAccounts(walletId, accountIds)
+      return web3Api.wallet.reorderAccounts(walletId, accountIds)
     },
     onError: () => setOrderedWallets(wallets.data ?? []),
     onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["wallet", "list"] }),
   })
   const deriveAccount = useMutation({
     mutationFn: async (walletId: string) => {
-      if (!window.cypheria)
-        throw new Error("Wallet management is only available in the desktop app.")
-      return window.cypheria.wallet.deriveHdAccount({ walletId })
+      return web3Api.wallet.deriveHdAccount({ walletId })
     },
     onSuccess: async (view) => {
       setExpandedWalletIds((current) => new Set(current).add(view.wallet.id))
@@ -156,13 +151,11 @@ function WalletsRoute() {
   })
   const action = useMutation({
     mutationFn: async (input: WalletAction) => {
-      if (!window.cypheria)
-        throw new Error("Wallet management is only available in the desktop app.")
-      if (input.kind === "delete") return window.cypheria.wallet.delete(input.walletId)
-      if (input.kind === "lock") return window.cypheria.wallet.lock(input.walletId)
-      if (input.kind === "unlock") return window.cypheria.wallet.unlock(input.walletId)
+      if (input.kind === "delete") return web3Api.wallet.delete(input.walletId)
+      if (input.kind === "lock") return web3Api.wallet.lock(input.walletId)
+      if (input.kind === "unlock") return web3Api.wallet.unlock(input.walletId)
       const { kind: _, ...context } = input
-      return window.cypheria.wallet.setActive(context)
+      return web3Api.wallet.setActive(context)
     },
     onSuccess: async (_, input) => {
       if (input.kind === "unlock" || input.kind === "lock")
@@ -898,9 +891,7 @@ function RenameWalletDialog({
   const [open, setOpen] = useState(false)
   const rename = useMutation({
     mutationFn: async (name: string) => {
-      if (!window.cypheria)
-        throw new Error("Wallet management is only available in the desktop app.")
-      return window.cypheria.wallet.rename(view.wallet.id, name)
+      return web3Api.wallet.rename(view.wallet.id, name)
     },
     onSuccess: () => {
       setOpen(false)
@@ -948,22 +939,20 @@ function AddWalletDialog({ onCreated }: Readonly<{ onCreated: () => void }>) {
   const [open, setOpen] = useState(false)
   const create = useMutation({
     mutationFn: async ({ kind, values }: { kind: string; values: FormData }) => {
-      if (!window.cypheria)
-        throw new Error("Wallet management is only available in the desktop app.")
       const name = String(values.get("name") ?? "")
-      if (kind === "generate") return window.cypheria.wallet.generateHd({ name })
+      if (kind === "generate") return web3Api.wallet.generateHd({ name })
       if (kind === "watch")
-        return window.cypheria.wallet.addWatch({
+        return web3Api.wallet.addWatch({
           address: String(values.get("address") ?? "") as `0x${string}`,
           name,
         })
       if (kind === "mnemonic")
-        return window.cypheria.wallet.importHd({
+        return web3Api.wallet.importHd({
           mnemonic: String(values.get("mnemonic") ?? ""),
           name,
           ...(values.get("passphrase") ? { passphrase: String(values.get("passphrase")) } : {}),
         })
-      return window.cypheria.wallet.importPrivateKey({
+      return web3Api.wallet.importPrivateKey({
         name,
         privateKey: String(values.get("privateKey") ?? "") as `0x${string}`,
       })
@@ -1088,8 +1077,7 @@ function DappLauncher() {
   const [url, setUrl] = useState("")
   const open = useMutation({
     mutationFn: async () => {
-      if (!window.cypheria)
-        throw new Error("The dApp browser is only available in the desktop app.")
+      if (!window.cypheria) throw new Error("The dApp browser is only available in Desktop.")
       return window.cypheria.browser.openDapp(new URL(url).toString())
     },
   })

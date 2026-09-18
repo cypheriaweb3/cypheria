@@ -26,6 +26,7 @@ import {
   type ServerSession,
 } from "./server-client.js"
 import { createThreadActions, type ThreadActions, type TimelineActions } from "./thread.js"
+import { createWeb3Actions, type Web3Actions } from "./web3.js"
 
 export type AgentActions = AgentManagementActions
 
@@ -57,6 +58,7 @@ export interface CypheriaApi {
   /** Preferred plural Thread facade. `thread` remains as a compatibility alias. */
   readonly threads: ThreadActions
   readonly timeline: TimelineActions
+  readonly web3: Web3Actions
   on<T extends ServerMessage["type"]>(
     type: T,
     handler: (message: Extract<ServerMessage, { type: T }>) => void
@@ -108,6 +110,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
   const projectThread = createProjectThreadActions(serverClient)
   const threads = createThreadActions(serverClient)
   const schedules = createScheduleActions(serverClient)
+  const web3 = createWeb3Actions(serverClient)
   return {
     agent: agents,
     agents,
@@ -130,6 +133,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
     thread: threads,
     threads,
     timeline: threads.timeline,
+    web3,
   }
 }
 
@@ -150,5 +154,6 @@ export type {
   SectionActions,
   ThreadActions,
   TimelineActions,
+  Web3Actions,
 }
 export { isAgentUpdateAvailable }

@@ -24,15 +24,15 @@ import {
   type WalletMode,
   walletIdSchema,
   walletModes,
-} from "../wallet/index.js"
+} from "../wallet/index.ts"
 
-import { base64Schema, base64ToBytes, bytesToBase64, jsonRpcValueSchema } from "./json-rpc.js"
+import { base64Schema, base64ToBytes, bytesToBase64, jsonRpcValueSchema } from "./json-rpc.ts"
 import {
   createDappSessionKey,
   type DappSessionKey,
   dappSessionKeySchema,
   normalizeDappOrigin,
-} from "./session.js"
+} from "./session.ts"
 
 export {
   SolanaSignAndSendTransaction,

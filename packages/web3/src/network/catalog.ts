@@ -1,10 +1,10 @@
 import { z } from "zod"
-import { chainIdentitySchema } from "./chain.js"
+import { chainIdentitySchema } from "./chain.ts"
 import {
   nativeCurrencySchema,
   networkExplorerSchema,
   networkVerificationSchema,
-} from "./network.js"
+} from "./network.ts"
 
 export const catalogRpcEndpointSchema = z
   .object({

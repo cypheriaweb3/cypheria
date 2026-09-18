@@ -1,5 +1,5 @@
 import { z } from "zod"
-import type { ChainKey } from "./primitives.js"
+import type { ChainKey } from "./primitives.ts"
 
 const evmReferencePattern = /^[1-9][0-9]*$/u
 const solanaReferencePattern = /^[A-Za-z0-9][A-Za-z0-9._-]*$/u

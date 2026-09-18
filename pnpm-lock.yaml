@@ -408,6 +408,9 @@ importers:
       '@anthropic-ai/claude-agent-sdk':
         specifier: 0.3.270
         version: 0.3.270(@anthropic-ai/sdk@0.125.0(zod@4.6.2))(@modelcontextprotocol/sdk@1.29.0(zod@4.6.2))(zod@4.6.2)
+      '@cypheria/web3':
+        specifier: workspace:*
+        version: link:../web3
       '@earendil-works/pi-agent-core':
         specifier: 0.85.1
         version: 0.85.1(@modelcontextprotocol/sdk@1.29.0(zod@4.6.2))(ws@8.21.3)(zod@4.6.2)

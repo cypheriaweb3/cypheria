@@ -158,6 +158,7 @@ import { ensureCypheriaClient } from "../cypheria-client.js"
 import { codexMarkdownUrlTransform } from "../generated-image-url.js"
 import { Route } from "../routes/index"
 import { sidebarData, sidebarQueryKeys } from "../sidebar-data.js"
+import { web3Api } from "../web3-api.js"
 import { composerMediaCapabilities } from "./chat-composer"
 import { newChatRevisionAtom } from "./chat-navigation"
 import {
@@ -371,7 +372,7 @@ function ChatSession({
     queryKey: ["cypheria", "agents"],
   })
   const activeWalletQuery = useQuery({
-    queryFn: () => window.cypheria?.wallet.getActive(),
+    queryFn: () => web3Api.wallet.getActive(),
     queryKey: ["wallet", "active"],
   })
   const settings = modelSettingsQuery.data

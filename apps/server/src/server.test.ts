@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-
+import { createCypheriaClient } from "@cypheria/client"
 import { CYPHERIA_PROTOCOL_VERSION, createWebSocketProtocols } from "@cypheria/protocol"
 import pino from "pino"
 import { afterEach, describe, expect, it } from "vitest"
@@ -18,6 +18,36 @@ afterEach(async () => {
 })
 
 describe("CypheriaServer", () => {
+  it("owns Web3 state behind the versioned client protocol", async () => {
+    const cypheriaHome = await mkdtemp(join(tmpdir(), "cypheria-server-web3-test-"))
+    temporaryDirectories.push(cypheriaHome)
+    const server = new CypheriaServer({
+      agentNetworkBootstrap: false,
+      config: loadServerConfig({}, { port: 0, webAppEnabled: false }),
+      logger: pino({ level: "silent" }),
+      runtime: new CypheriaRuntime({ env: { CYPHERIA_HOME: cypheriaHome } }),
+    })
+    const address = await server.start()
+    const client = createCypheriaClient({ clientId: "web3-test", url: address.url })
+    try {
+      const networks = await client.web3.networks.list()
+      expect(networks.length).toBeGreaterThan(0)
+      expect(await client.web3.wallets.list()).toEqual([])
+      const wallet = await client.web3.wallets.addWatch({
+        address: "0x0000000000000000000000000000000000000001",
+        name: "Watch",
+      })
+      expect(wallet.wallet).toMatchObject({ kind: "watch", name: "Watch" })
+      expect(await client.web3.wallets.list()).toHaveLength(1)
+      expect(await client.web3.audit.list()).toEqual(
+        expect.arrayContaining([expect.objectContaining({ eventType: "wallet.created" })])
+      )
+    } finally {
+      await client.close()
+      await server.stop("Test complete")
+    }
+  })
+
   it("enforces configured HTTP and WebSocket authentication", async () => {
     const cypheriaHome = await mkdtemp(join(tmpdir(), "cypheria-server-auth-test-"))
     temporaryDirectories.push(cypheriaHome)

@@ -1,3 +1,4 @@
+import type { Web3SigningPolicyRecord } from "@cypheria/protocol"
 import { Badge } from "@cypheria/ui/components/badge"
 import { Button } from "@cypheria/ui/components/button"
 import {
@@ -30,8 +31,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Pencil, Plus, ShieldCheck, ShieldOff } from "lucide-react"
 import { type FormEvent, useState } from "react"
-import type { SigningPolicyRecordView } from "../../../ipc/src/index.js"
 import { WorkbenchFrame } from "../components/workbench-frame"
+import { web3Api } from "../web3-api.js"
 
 export const Route = createFileRoute("/policies")({ component: PoliciesRoute })
 
@@ -49,17 +50,16 @@ function parseChainKeys(value: FormDataEntryValue | null): ChainKey[] {
 function PoliciesRoute() {
   const queryClient = useQueryClient()
   const policies = useQuery({
-    queryFn: () => window.cypheria?.policy.list() ?? [],
+    queryFn: () => web3Api.policy.list() ?? [],
     queryKey: ["policy", "list"],
   })
   const wallets = useQuery({
-    queryFn: () => window.cypheria?.wallet.list() ?? [],
+    queryFn: () => web3Api.wallet.list() ?? [],
     queryKey: ["wallet", "list"],
   })
   const disable = useMutation({
-    mutationFn: async (record: SigningPolicyRecordView) => {
-      if (!window.cypheria) throw new Error("Policies are only available in the desktop app.")
-      return window.cypheria.policy.disable(record.policy.id, record.revision)
+    mutationFn: async (record: Web3SigningPolicyRecord) => {
+      return web3Api.policy.disable(record.policy.id, record.revision)
     },
     onSuccess: async () => queryClient.invalidateQueries({ queryKey: ["policy"] }),
   })
@@ -167,14 +167,13 @@ function PolicyDialog({
   wallets,
   onSaved,
 }: Readonly<{
-  record?: SigningPolicyRecordView
+  record?: Web3SigningPolicyRecord
   wallets: Awaited<ReturnType<NonNullable<typeof window.cypheria>["wallet"]["list"]>>
   onSaved: () => void
 }>) {
   const [open, setOpen] = useState(false)
   const save = useMutation({
     mutationFn: async (form: FormData) => {
-      if (!window.cypheria) throw new Error("Policies are only available in the desktop app.")
       const values = {
         chainKeys: parseChainKeys(form.get("chainKeys")),
         effect: String(form.get("effect")) as "allow" | "deny" | "require-human-approval",
@@ -185,12 +184,12 @@ function PolicyDialog({
         requireHumanApproval: form.get("requireHumanApproval") === "on",
       }
       if (record)
-        return window.cypheria.policy.update({
+        return web3Api.policy.update({
           ...values,
           expectedRevision: record.revision,
           policyId: record.policy.id,
         })
-      return window.cypheria.policy.create({
+      return web3Api.policy.create({
         ...values,
         walletId: String(form.get("walletId")) as `wallet_${string}`,
       })

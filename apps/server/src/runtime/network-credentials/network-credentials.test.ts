@@ -2,7 +2,12 @@ import { mkdtemp, readFile, stat } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { describe, expect, it } from "vitest"
-import { createSafeStorageNetworkCredentialStore, NetworkCredentialStoreError } from "./index.js"
+import { createMemoryVaultMasterKeyProvider } from "../wallet-vault/index.js"
+import {
+  createEncryptedFileNetworkCredentialStore,
+  createSafeStorageNetworkCredentialStore,
+  NetworkCredentialStoreError,
+} from "./index.js"
 
 const createProtector = (available = true) => ({
   decryptString: (encrypted: Uint8Array) =>
@@ -13,6 +18,25 @@ const createProtector = (available = true) => ({
 })
 
 describe("network credential store", () => {
+  it("encrypts headless server credentials with the vault master key", async () => {
+    const directory = await mkdtemp(join(tmpdir(), "cypheria-server-network-credentials-"))
+    const keyProvider = createMemoryVaultMasterKeyProvider(new Uint8Array(32).fill(9))
+    const store = createEncryptedFileNetworkCredentialStore({ directory, keyProvider })
+    await store.put(
+      "network_credential_server",
+      { headers: { Authorization: "Bearer server-secret" }, url: "https://rpc.example/key" },
+      "http"
+    )
+
+    await expect(store.get("network_credential_server")).resolves.toEqual({
+      headers: { Authorization: "Bearer server-secret" },
+      url: "https://rpc.example/key",
+    })
+    const file = join(directory, "network_credential_server.bin")
+    expect(await readFile(file, "utf8")).not.toContain("server-secret")
+    if (process.platform !== "win32") expect((await stat(file)).mode & 0o777).toBe(0o600)
+  })
+
   it("stores only protected connection material in owner-only files", async () => {
     const directory = await mkdtemp(join(tmpdir(), "cypheria-network-credentials-"))
     const store = createSafeStorageNetworkCredentialStore({

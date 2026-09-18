@@ -138,7 +138,8 @@ Status legend:
   - [x] Select Codex, Claude, Pi, OpenCode, or ACP AI SDK providers from each Thread's `agentId`; expose enabled agents in the new-chat composer and retain queued follow-ups in the per-Thread scope.
   - [x] Move Agent catalog, installation, update, enablement, and runtime lifecycle controls from the old Desktop harness manager to `client.agents`.
   - [~] Preserve complete Codex timeline rendering parity while generalizing the common conversation shell; canonical user messages now retain attachments across history reloads.
-  - [ ] Move remaining Codex authentication/configuration, approval, skills, plugins, MCP, terminal, and Web3 surfaces to shared server APIs before removing their old IPC paths.
+  - [x] Move networks, wallets, policies, signing approvals, and audit surfaces to the shared `client.web3` API; the renderer no longer consumes their old IPC path.
+  - [ ] Move remaining Codex authentication/configuration, skills, plugins, MCP, and shared terminal surfaces to server APIs before removing their old IPC paths.
   - Status: explicitly approved; preserve the current Sidebar and Codex-derived conversation experience as hard acceptance gates while replacing their data source.
 
 - [x] Rewrite docs for the server and multi-client target architecture.

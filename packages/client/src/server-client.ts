@@ -30,6 +30,8 @@ import {
   stringifyProtocolMessage,
   type ThreadClientMessage,
   type ThreadServerMessage,
+  type Web3ClientMessage,
+  type Web3ServerMessage,
   type WSInboundMessage,
   wrapClientSessionMessage,
 } from "@cypheria/protocol"
@@ -503,6 +505,25 @@ export class ServerClient {
       SERVER_CAPABILITIES.projectThread
     )
     return message as ThreadServerMessage
+  }
+
+  async requestWeb3(
+    type: Web3ClientMessage["type"],
+    payload: unknown,
+    options?: RequestOptions
+  ): Promise<Web3ServerMessage> {
+    const expectedType = type.replace(/\.request$/, ".response")
+    const message = await this.#request(
+      {
+        payload,
+        requestId: this.#nextRequestId("web3"),
+        type,
+      } as Web3ClientMessage,
+      expectedType,
+      options,
+      SERVER_CAPABILITIES.web3
+    )
+    return message as Web3ServerMessage
   }
 
   #bindTransport(transport: ServerTransport): void {
