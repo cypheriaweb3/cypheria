@@ -92,7 +92,7 @@ Timeline 连续性由已加载 Thread 的内存 canonical log 实现。只有已
 
 Agent management 使用临时 ACP Registry 输入生成并提交静态 ID、每小时条件刷新并把 Registry 保存到 `$CYPHERIA_HOME`、记录版本和元数据的 SQLite `agent_registry` 表、异步安装 operation 与显式 enable。受管 Node/Python/uv 版本和按依赖指纹共享的不可变 Python environment 全部位于 `$CYPHERIA_HOME` 下。详见 [Agent 管理](agent-management.zh-CN.md)。
 
-`@cypheria/client` 依赖 `@cypheria/protocol` 与只处理传输的 `@cypheria/relay`。它的 `ServerClient` 实现可注入 transport boundary、browser 与 Node WebSocket adapter、hello/authentication、请求关联、超时、protocol validation、typed error、事件投递与有界重连。`CypheriaApi` 是不带 lifecycle 的借用门面；`CypheriaClient` 持有一条连接。门面暴露 `agent`、`thread`、`projectThread` 与 `server`。Provider-specific client subpath 已移除；所有 client 观察同一个 server-owned Thread 状态与 notification。
+`@cypheria/client` 依赖 `@cypheria/protocol` 与只处理传输的 `@cypheria/relay`。它的 `ServerClient` 实现可注入 transport boundary、browser 与 Node WebSocket adapter、hello/authentication、请求关联、超时、protocol validation、typed error、事件投递与有界重连。`CypheriaApi` 是不带 lifecycle 的借用门面；`CypheriaClient` 持有一条连接。首选门面是 `agents`、`projects`、`sections`、`threads` 与 `timeline`；单数 `agent`/`thread` 和组合式 `projectThread` 在客户端迁移期间作为兼容别名保留。Provider-specific client subpath 仍不公开；所有 client 观察同一个 server-owned Thread 状态与 notification。
 
 带关联 ID 的 facade call 共享 `{ signal, timeoutMs }` 控制；deadline 先发生时，仍在等待懒连接
 的 send 会被取消。写入 transport 前会根据逻辑 `server.status.notification` 检查所需 server capability。

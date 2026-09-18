@@ -56,6 +56,10 @@
 
 ## 架构对齐
 
+- [x] 为多 Agent Desktop 迁移扩充 canonical timeline 与客户端领域门面。
+  - 验收：共用的命令、diff、审批、artifact、状态和 provider 扩展项保留 provider provenance；集成可以区分原生与 ACP 兼容标签；客户端直接暴露复数形式的 Agent、Project、Section、Thread 与 Timeline 门面，同时暂时保留兼容别名。
+  - 验证：protocol、client 与 server 测试和 typecheck。
+
 - [x] 添加 Cypheria E2EE relay 应用与共享 relay package。
   - 验收：`apps/relay` 是支持 `--mode=single|cluster` 与 cluster-only
     `--role=gateway|worker` 的 Go 1.25 服务；v2 control 与

@@ -11,7 +11,12 @@ import {
   createAgentManagementActions,
   isAgentUpdateAvailable,
 } from "./agent-manager.js"
-import { createProjectThreadActions, type ProjectThreadActions } from "./project-thread.js"
+import {
+  createProjectThreadActions,
+  type ProjectActions,
+  type ProjectThreadActions,
+  type SectionActions,
+} from "./project-thread.js"
 import {
   type ConnectionState,
   type RequestOptions,
@@ -19,7 +24,7 @@ import {
   type ServerClientConfig,
   type ServerSession,
 } from "./server-client.js"
-import { createThreadActions, type ThreadActions } from "./thread.js"
+import { createThreadActions, type ThreadActions, type TimelineActions } from "./thread.js"
 
 export type AgentActions = AgentManagementActions
 
@@ -40,9 +45,16 @@ export interface ServerActions {
 /** Capability-only facade. Every operation maps directly to a current protocol message. */
 export interface CypheriaApi {
   readonly agent: AgentActions
+  /** Preferred plural Agent facade. `agent` remains as a compatibility alias. */
+  readonly agents: AgentActions
   readonly projectThread: ProjectThreadActions
+  readonly projects: ProjectActions
   readonly server: ServerActions
+  readonly sections: SectionActions
   readonly thread: ThreadActions
+  /** Preferred plural Thread facade. `thread` remains as a compatibility alias. */
+  readonly threads: ThreadActions
+  readonly timeline: TimelineActions
   on<T extends ServerMessage["type"]>(
     type: T,
     handler: (message: Extract<ServerMessage, { type: T }>) => void
@@ -90,11 +102,14 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
     return serverClient.on(typeOrHandler, handler)
   }) as CypheriaApi["on"]
 
+  const agents = createAgentManagementActions(serverClient)
+  const projectThread = createProjectThreadActions(serverClient)
+  const threads = createThreadActions(serverClient)
   return {
-    agent: {
-      ...createAgentManagementActions(serverClient),
-    },
-    projectThread: createProjectThreadActions(serverClient),
+    agent: agents,
+    agents,
+    projectThread,
+    projects: projectThread.projects,
     on,
     server: {
       config: async (options) => serverClient.getServerConfig(options),
@@ -106,8 +121,11 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
       supports: (capability) => serverClient.supports(capability),
       supportsFeature: (feature) => serverClient.supportsFeature(feature),
     },
+    sections: projectThread.sections,
     subscribe: (handler) => serverClient.subscribe(handler),
-    thread: createThreadActions(serverClient),
+    thread: threads,
+    threads,
+    timeline: threads.timeline,
   }
 }
 
@@ -120,5 +138,12 @@ export {
   type RequestOptions,
   type ServerSession,
 } from "./server-client.js"
-export type { AgentManagementActions, ProjectThreadActions, ThreadActions }
+export type {
+  AgentManagementActions,
+  ProjectActions,
+  ProjectThreadActions,
+  SectionActions,
+  ThreadActions,
+  TimelineActions,
+}
 export { isAgentUpdateAvailable }

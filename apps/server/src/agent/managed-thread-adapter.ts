@@ -154,7 +154,7 @@ const mapCodexHistory = (thread: Record<string, unknown>): ThreadProviderHistory
     if (!turn || typeof turn !== "object") continue
     const turnRecord = turn as Record<string, unknown>
     for (const item of Array.isArray(turnRecord.items) ? turnRecord.items : []) {
-      const mapped = mapProviderItem(item)
+      const mapped = mapProviderItem(item, "codex")
       if (mapped)
         history.push({
           item: mapped,
@@ -166,11 +166,35 @@ const mapCodexHistory = (thread: Record<string, unknown>): ThreadProviderHistory
   return history
 }
 
-const mapProviderItem = (value: unknown): ThreadTimelineItem | undefined => {
+const mapTimelineStatus = (
+  value: unknown
+): "pending" | "running" | "completed" | "failed" | "cancelled" => {
+  switch (value) {
+    case "pending":
+    case "queued":
+      return "pending"
+    case "completed":
+    case "complete":
+    case "success":
+    case "succeeded":
+      return "completed"
+    case "failed":
+    case "error":
+      return "failed"
+    case "cancelled":
+    case "canceled":
+      return "cancelled"
+    default:
+      return "running"
+  }
+}
+
+const mapProviderItem = (value: unknown, agentId: AgentId): ThreadTimelineItem | undefined => {
   if (!value || typeof value !== "object") return undefined
   const item = value as Record<string, unknown>
   const itemId = stringId(item.id ?? item.itemId ?? item.callID ?? item.callId) ?? randomUUID()
-  const type = String(item.type ?? "")
+  const type = String(item.type ?? "unknown")
+  const providerData = { agentId, nativeType: type, payload: value }
   const text =
     typeof item.text === "string"
       ? item.text
@@ -178,32 +202,110 @@ const mapProviderItem = (value: unknown): ThreadTimelineItem | undefined => {
         ? item.content
         : undefined
   if (type.includes("reasoning") && text !== undefined) {
-    return { itemId, operation: "replace", text, type: "reasoning" }
+    return { itemId, operation: "replace", providerData, text, type: "reasoning" }
   }
   if ((type.includes("message") || type === "text") && text !== undefined) {
     return {
       itemId,
       operation: "replace",
+      providerData,
       role: type.includes("user") || item.role === "user" ? "user" : "assistant",
       text,
       type: "message",
     }
   }
-  if (type.includes("tool") || type.includes("command") || type.includes("file")) {
+  if (type.includes("command")) {
+    return {
+      command: String(item.command ?? item.input ?? ""),
+      cwd: typeof item.cwd === "string" ? item.cwd : null,
+      durationMs: typeof item.durationMs === "number" ? item.durationMs : null,
+      exitCode: typeof item.exitCode === "number" ? item.exitCode : null,
+      itemId,
+      output: String(item.aggregatedOutput ?? item.output ?? ""),
+      providerData,
+      status: mapTimelineStatus(item.status),
+      type: "command",
+    }
+  }
+  if (type.includes("file") && Array.isArray(item.changes) && item.changes.length > 0) {
+    const changes = item.changes.flatMap((change) => {
+      if (!change || typeof change !== "object") return []
+      const record = change as Record<string, unknown>
+      if (typeof record.path !== "string") return []
+      const rawKind =
+        typeof record.kind === "string"
+          ? record.kind
+          : String((record.kind as Record<string, unknown> | undefined)?.type ?? "update")
+      const kind: "add" | "delete" | "move" | "update" =
+        rawKind === "add" || rawKind === "delete" || rawKind === "move" ? rawKind : "update"
+      return [
+        {
+          diff: typeof record.diff === "string" ? record.diff : "",
+          kind,
+          path: record.path,
+          previousPath:
+            typeof record.previousPath === "string"
+              ? record.previousPath
+              : typeof (record.kind as Record<string, unknown> | undefined)?.move_path === "string"
+                ? String((record.kind as Record<string, unknown>).move_path)
+                : null,
+        },
+      ]
+    })
+    if (changes.length > 0) {
+      return {
+        changes,
+        itemId,
+        providerData,
+        status: mapTimelineStatus(item.status),
+        type: "diff",
+      }
+    }
+  }
+  if (type.includes("plan") && Array.isArray(item.entries)) {
+    return {
+      entries: item.entries.flatMap((entry) => {
+        if (!entry || typeof entry !== "object") return []
+        const record = entry as Record<string, unknown>
+        if (typeof record.text !== "string") return []
+        const rawStatus = String(record.status ?? "pending")
+        return [
+          {
+            status:
+              rawStatus === "completed"
+                ? ("completed" as const)
+                : rawStatus === "in_progress"
+                  ? ("in_progress" as const)
+                  : ("pending" as const),
+            text: record.text,
+          },
+        ]
+      }),
+      itemId,
+      providerData,
+      type: "plan",
+    }
+  }
+  if (type.includes("tool") || type.includes("file")) {
     return {
       error: typeof item.error === "string" ? item.error : null,
       input: item.input ?? item.command ?? null,
       itemId,
       name: String(item.name ?? item.tool ?? (type || "tool")),
       output: item.output ?? null,
-      status:
-        item.status === "failed" || item.status === "cancelled" || item.status === "completed"
-          ? item.status
-          : "running",
+      providerData,
+      status: mapTimelineStatus(item.status),
       type: "tool",
     }
   }
-  return undefined
+  return {
+    agentId,
+    itemId,
+    nativeType: type,
+    payload: value,
+    status: mapTimelineStatus(item.status),
+    type: "provider",
+  }
 }
 
 /** Bridges existing native/raw runtimes into server-owned Thread semantics. */
@@ -1117,7 +1219,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
         onEvent({ turnId: stringId(properties.messageID) ?? "active", type: "turn-completed" })
         return
       }
-      const item = mapProviderItem(properties.part ?? properties.message)
+      const item = mapProviderItem(properties.part ?? properties.message, this.agentId)
       if (item) onEvent({ item: { item, providerItemId: item.itemId }, type: "timeline" })
       return
     }
@@ -1128,7 +1230,10 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       })
       return
     }
-    const item = mapProviderItem(payload.item ?? payload.message ?? payload.event ?? payload.update)
+    const item = mapProviderItem(
+      payload.item ?? payload.message ?? payload.event ?? payload.update,
+      this.agentId
+    )
     if (item) onEvent({ item: { item, providerItemId: item.itemId }, type: "timeline" })
   }
 
@@ -1139,7 +1244,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       const record = message as Record<string, unknown>
       const parts = Array.isArray(record.parts) ? record.parts : []
       return parts.flatMap((part) => {
-        const item = mapProviderItem(part)
+        const item = mapProviderItem(part, this.agentId)
         return item ? [{ item, providerItemId: item.itemId }] : []
       })
     })

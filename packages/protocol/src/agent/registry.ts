@@ -13,6 +13,13 @@ export type RegistryAgentId = z.infer<typeof RegistryAgentIdSchema>
 export const AgentIdSchema = z.union([NativeAgentIdSchema, RegistryAgentIdSchema])
 export type AgentId = z.infer<typeof AgentIdSchema>
 
+/** Stable compatibility buckets used by integrations exposed to more than one agent runtime. */
+export const AgentCompatibilityTagSchema = z.enum(["codex", "claude", "pi", "opencode", "acp"])
+export type AgentCompatibilityTag = z.infer<typeof AgentCompatibilityTagSchema>
+
+export const compatibilityTagForAgent = (agentId: AgentId): AgentCompatibilityTag =>
+  NativeAgentIdSchema.safeParse(agentId).success ? (agentId as NativeAgentId) : "acp"
+
 export const AgentRegistryPlatformSchema = z.enum([
   "darwin-aarch64",
   "darwin-x86_64",

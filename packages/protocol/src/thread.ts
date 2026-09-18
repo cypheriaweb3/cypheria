@@ -101,15 +101,35 @@ export const ThreadInputBlockSchema = z.discriminatedUnion("type", [
 ])
 export type ThreadInputBlock = z.infer<typeof ThreadInputBlockSchema>
 
-const TimelineTextItemSchema = z.object({
+export const ThreadTimelineItemStatusSchema = z.enum([
+  "pending",
+  "running",
+  "completed",
+  "failed",
+  "cancelled",
+])
+
+const TimelineBaseItemSchema = z.object({
   itemId: z.string().min(1),
+  providerData: z
+    .object({
+      agentId: AgentIdSchema,
+      nativeType: z.string().min(1),
+      payload: z.unknown().optional(),
+    })
+    .optional(),
+})
+
+const TimelineTextItemSchema = TimelineBaseItemSchema.extend({
   operation: z.enum(["append", "replace"]),
   text: z.string(),
 })
 
 export const ThreadTimelineItemSchema = z.discriminatedUnion("type", [
-  TimelineTextItemSchema.extend({ role: z.literal("user"), type: z.literal("message") }),
-  TimelineTextItemSchema.extend({ role: z.literal("assistant"), type: z.literal("message") }),
+  TimelineTextItemSchema.extend({
+    role: z.enum(["user", "assistant"]),
+    type: z.literal("message"),
+  }),
   TimelineTextItemSchema.extend({ type: z.literal("reasoning") }),
   z.object({
     error: z.string().nullable(),
@@ -117,7 +137,8 @@ export const ThreadTimelineItemSchema = z.discriminatedUnion("type", [
     itemId: z.string().min(1),
     name: z.string().min(1),
     output: z.unknown().nullable(),
-    status: z.enum(["pending", "running", "completed", "failed", "cancelled"]),
+    providerData: TimelineBaseItemSchema.shape.providerData,
+    status: ThreadTimelineItemStatusSchema,
     type: z.literal("tool"),
   }),
   z.object({
@@ -128,12 +149,74 @@ export const ThreadTimelineItemSchema = z.discriminatedUnion("type", [
       })
     ),
     itemId: z.string().min(1),
+    providerData: TimelineBaseItemSchema.shape.providerData,
     type: z.literal("plan"),
+  }),
+  z.object({
+    command: z.string(),
+    cwd: z.string().nullable(),
+    durationMs: z.number().nonnegative().nullable(),
+    exitCode: z.int().nullable(),
+    itemId: z.string().min(1),
+    output: z.string(),
+    providerData: TimelineBaseItemSchema.shape.providerData,
+    status: ThreadTimelineItemStatusSchema,
+    type: z.literal("command"),
+  }),
+  z.object({
+    changes: z
+      .array(
+        z.object({
+          diff: z.string(),
+          kind: z.enum(["add", "delete", "update", "move"]),
+          path: z.string().min(1),
+          previousPath: z.string().nullable(),
+        })
+      )
+      .min(1),
+    itemId: z.string().min(1),
+    providerData: TimelineBaseItemSchema.shape.providerData,
+    status: ThreadTimelineItemStatusSchema,
+    type: z.literal("diff"),
+  }),
+  z.object({
+    decision: z.enum(["pending", "allowed", "denied", "cancelled"]),
+    interactionId: z.string().nullable(),
+    itemId: z.string().min(1),
+    message: z.string(),
+    providerData: TimelineBaseItemSchema.shape.providerData,
+    title: z.string().nullable(),
+    type: z.literal("approval"),
+  }),
+  z.object({
+    itemId: z.string().min(1),
+    kind: z.enum(["file", "image", "audio", "terminal", "url", "other"]),
+    mimeType: z.string().nullable(),
+    name: z.string(),
+    providerData: TimelineBaseItemSchema.shape.providerData,
+    uri: z.string().min(1),
+    type: z.literal("artifact"),
+  }),
+  z.object({
+    itemId: z.string().min(1),
+    message: z.string(),
+    providerData: TimelineBaseItemSchema.shape.providerData,
+    status: ThreadTimelineItemStatusSchema,
+    type: z.literal("status"),
+  }),
+  z.object({
+    agentId: AgentIdSchema,
+    itemId: z.string().min(1),
+    nativeType: z.string().min(1),
+    payload: z.unknown(),
+    status: ThreadTimelineItemStatusSchema.optional(),
+    type: z.literal("provider"),
   }),
   z.object({
     code: z.string().min(1),
     itemId: z.string().min(1),
     message: z.string(),
+    providerData: TimelineBaseItemSchema.shape.providerData,
     type: z.literal("error"),
   }),
 ])

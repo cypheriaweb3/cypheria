@@ -12,6 +12,29 @@ export const AgentRuntimeStateSchema = z.enum([
 ])
 export const AgentIntegritySchema = z.enum(["verified", "unverified", "not-applicable"])
 
+export const AgentCapabilitiesSchema = z
+  .object({
+    apps: z.boolean(),
+    mcp: z.boolean(),
+    plugins: z.boolean(),
+    skills: z.boolean(),
+    threads: z.boolean(),
+  })
+  .strict()
+export type AgentCapabilities = z.infer<typeof AgentCapabilitiesSchema>
+
+export const AgentDescriptorSchema = z
+  .object({
+    capabilities: AgentCapabilitiesSchema,
+    description: z.string(),
+    icon: z.string().nullable(),
+    id: AgentIdSchema,
+    name: z.string(),
+    native: z.boolean(),
+  })
+  .strict()
+export type AgentDescriptor = z.infer<typeof AgentDescriptorSchema>
+
 export const AgentViewSchema = z.object({
   id: AgentIdSchema,
   name: z.string(),

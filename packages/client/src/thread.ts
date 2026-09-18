@@ -61,6 +61,14 @@ export interface ThreadActions {
     input: Payload<"thread.config.update.request">,
     options?: RequestOptions
   ): Promise<ThreadView>
+  readonly timeline: TimelineActions
+}
+
+export interface TimelineActions {
+  get(
+    input: Payload<"thread.timeline.get.request">,
+    options?: RequestOptions
+  ): Promise<ThreadTimelinePage>
 }
 
 export const createThreadActions = (client: ServerClient): ThreadActions => {
@@ -69,6 +77,10 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
     payload: unknown,
     options?: RequestOptions
   ): Promise<T> => unwrap<T>(await client.requestThread(type, payload, options))
+
+  const timeline: TimelineActions = {
+    get: (input, options) => request("thread.timeline.get.request", input, options),
+  }
 
   return {
     cancelTurn: (threadId, turnId, options) =>
@@ -94,6 +106,7 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
     startTurn: (input, options) => request("thread.turn.start.request", input, options),
     touchRecency: (threadId, recencyAt, options) =>
       request("thread.recency.touch.request", { recencyAt, threadId }, options),
+    timeline,
     update: (input, options) => request("thread.update.request", input, options),
     updateConfig: (input, options) => request("thread.config.update.request", input, options),
   }

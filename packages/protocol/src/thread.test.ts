@@ -4,6 +4,7 @@ import {
   projectThreadTimelineRows,
   ThreadInteractionRespondRequestSchema,
   ThreadTimelineGetRequestSchema,
+  ThreadTimelineItemSchema,
   ThreadTimelinePageSchema,
   ThreadViewSchema,
 } from "./index.ts"
@@ -78,6 +79,65 @@ describe("thread protocol", () => {
       answers: [["TypeScript"], ["Vitest", "Playwright"]],
       type: "answers",
     })
+  })
+
+  test("validates the shared rich timeline surface and provider extensions", () => {
+    const items = [
+      {
+        command: "pnpm test",
+        cwd: "/work/cypheria",
+        durationMs: 250,
+        exitCode: 0,
+        itemId: "command-1",
+        output: "ok",
+        status: "completed",
+        type: "command",
+      },
+      {
+        changes: [
+          {
+            diff: "+export const value = 1",
+            kind: "update",
+            path: "src/index.ts",
+            previousPath: null,
+          },
+        ],
+        itemId: "diff-1",
+        status: "completed",
+        type: "diff",
+      },
+      {
+        decision: "pending",
+        interactionId: "permission-1",
+        itemId: "approval-1",
+        message: "Allow pnpm test?",
+        title: "Command approval",
+        type: "approval",
+      },
+      {
+        itemId: "artifact-1",
+        kind: "file",
+        mimeType: "text/plain",
+        name: "report.txt",
+        type: "artifact",
+        uri: "file:///work/report.txt",
+      },
+      {
+        agentId: "claude",
+        itemId: "provider-1",
+        nativeType: "sdk_message",
+        payload: { subtype: "compact_boundary" },
+        type: "provider",
+      },
+    ]
+
+    expect(items.map((item) => ThreadTimelineItemSchema.safeParse(item).success)).toEqual([
+      true,
+      true,
+      true,
+      true,
+      true,
+    ])
   })
 
   test("projects canonical updates and retains their exact source coverage", () => {

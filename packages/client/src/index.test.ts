@@ -14,11 +14,16 @@ describe("Cypheria client facade", () => {
 
     expect(Object.keys(api).sort()).toEqual([
       "agent",
+      "agents",
       "on",
       "projectThread",
+      "projects",
+      "sections",
       "server",
       "subscribe",
       "thread",
+      "threads",
+      "timeline",
     ])
     expect(Object.keys(api.agent).sort()).toEqual([
       "checkToolchainUpdates",
@@ -49,6 +54,7 @@ describe("Cypheria client facade", () => {
       "respondToInteraction",
       "resume",
       "startTurn",
+      "timeline",
       "touchRecency",
       "update",
       "updateConfig",
@@ -58,6 +64,11 @@ describe("Cypheria client facade", () => {
     expect(api.agent).not.toHaveProperty("claude")
     expect(api.agent).not.toHaveProperty("opencode")
     expect(api.agent).not.toHaveProperty("pi")
+    expect(api.agents).toBe(api.agent)
+    expect(api.projects).toBe(api.projectThread.projects)
+    expect(api.sections).toBe(api.projectThread.sections)
+    expect(api.threads).toBe(api.thread)
+    expect(api.timeline).toBe(api.thread.timeline)
 
     await serverClient.close()
   })

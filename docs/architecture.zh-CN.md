@@ -58,7 +58,7 @@ Codex 负责 agent threads、turns、model execution、code edits、shell/tool e
 
 Protocol package 仍持有 generated 且固定版本的 Codex、ACP、Claude 与 Pi schema/type。它们是经过 drift check 的 server adapter contract，不属于 live public client/server message union。Server 通过 `ThreadProviderAdapter` 把它们转换为 provider-neutral 的 Thread 生命周期、timeline、turn、配置和 interaction 消息，从而保留精确上游校验，而不把 provider 生命周期或订阅概念泄漏给 client。
 
-`threadId` 是唯一公开的 Thread 操作句柄；`agentSessionId` 是可空、只读的 provider 元数据。创建或显式恢复 Thread 会确保 agent runtime 已就绪，启动或加载 provider session，并在内部绑定新发现的 provider ID；`thread.get` 和 `thread.list` 不产生副作用。Provider history 在重启或替换后 hydration 到新 timeline epoch；只有 canonical timeline row 获得 sequence。Server 向所有客户端广播 Thread 状态、timeline 与 interaction notification，首个合法 interaction response 生效。
+`threadId` 是唯一公开的 Thread 操作句柄；`agentSessionId` 是可空、只读的 provider 元数据。创建或显式恢复 Thread 会确保 agent runtime 已就绪，启动或加载 provider session，并在内部绑定新发现的 provider ID；`thread.get` 和 `thread.list` 不产生副作用。Provider history 在重启或替换后 hydration 到新 timeline epoch；只有 canonical timeline row 获得 sequence。Canonical item model 保留消息、推理、工具、计划、命令、diff、审批、artifact、状态与错误这些共性体验，并通过 typed provider item 和 `providerData` 保存 agent 个性化 payload，而不暴露 provider transport。Server 向所有客户端广播 Thread 状态、timeline 与 interaction notification，首个合法 interaction response 生效。
 
 Codex 与 OpenCode 使用 server 共享进程，Claude、Pi 与 ACP runtime 按 Thread 隔离。OpenCode 在 loopback server 上运行，并在内部使用稳定 SDK root API 与两条 event stream。Claude `canUseTool`、Pi extension UI、OpenCode permission/question event、Codex reverse request 与 ACP permission request 都归一为 typed Thread interaction。ACP agent 必须支持原生 session 删除才能创建 Cypheria Thread，使 provider-first 删除在失败时可保留 Cypheria 记录。详见 [Thread 协议](thread-protocol.zh-CN.md)。
 

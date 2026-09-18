@@ -56,6 +56,10 @@ Status legend:
 
 ## Architecture Alignment
 
+- [x] Expand the canonical timeline and client domain facades for multi-agent Desktop migration.
+  - Acceptance: shared command, diff, approval, artifact, status, and provider-extension items retain provider provenance; integrations can classify native versus ACP compatibility; client exposes direct plural Agent, Project, Section, Thread, and Timeline facades while retaining temporary compatibility aliases.
+  - Verification: protocol, client, and server tests and typechecks.
+
 - [x] Add the Cypheria E2EE relay application and shared relay package.
   - Acceptance: `apps/relay` is a Go 1.25 service with `--mode=single|cluster` and cluster-only
     `--role=gateway|worker`; v2 control and
