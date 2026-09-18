@@ -1,14 +1,14 @@
-import type { CodexProjectView, CodexThreadView } from "../../../ipc/src/index.js"
+import type { SidebarProjectView, SidebarThreadView } from "../sidebar-data.js"
 
 export const SIDEBAR_BATCH_SIZE = 5
 
 export type SidebarSectionId = "pinned" | "projects" | "recents"
 
 export type SidebarProjectGroup = {
-  project: CodexProjectView
+  project: SidebarProjectView
   projectId: string
   projectName: string
-  threads: CodexThreadView[]
+  threads: SidebarThreadView[]
   updatedAt: number
 }
 
@@ -16,7 +16,7 @@ export type SidebarCustomSection = {
   id: string
   name: string
   projects: SidebarProjectGroup[]
-  threads: CodexThreadView[]
+  threads: SidebarThreadView[]
 }
 
 export type ChatSidebarRow =
@@ -32,15 +32,15 @@ export type ChatSidebarRow =
   | {
       key: string
       kind: "project"
-      project: CodexProjectView
-      threads: readonly CodexThreadView[]
+      project: SidebarProjectView
+      threads: readonly SidebarThreadView[]
     }
   | {
       key: string
       kind: "thread"
       parentProjectId?: string
       source: "pinned" | "project" | "recent"
-      thread: CodexThreadView
+      thread: SidebarThreadView
     }
   | {
       key: string
@@ -53,10 +53,10 @@ export type ChatSidebarRow =
   | { key: string; kind: "customEmpty"; sectionId: string }
 
 export function groupProjectThreads(
-  threads: readonly CodexThreadView[],
-  projects: readonly CodexProjectView[] = []
+  threads: readonly SidebarThreadView[],
+  projects: readonly SidebarProjectView[] = []
 ): SidebarProjectGroup[] {
-  const groups = new Map<string, CodexThreadView[]>()
+  const groups = new Map<string, SidebarThreadView[]>()
   for (const thread of threads) {
     if (!thread.projectId) continue
     groups.set(thread.projectId, [...(groups.get(thread.projectId) ?? []), thread])
@@ -73,11 +73,11 @@ export function groupProjectThreads(
       const project = projectById.get(projectId) ?? {
         createdAt: 0,
         id: projectId,
-        metadata: {},
         name: projectId,
         position: 0,
         recencyAt: sortedThreads[0]?.updatedAt ?? null,
         roots: [],
+        sectionId: null,
         updatedAt: sortedThreads[0]?.updatedAt ?? 0,
       }
       return {
@@ -119,13 +119,13 @@ export function buildChatSidebarRows({
   navigationIds: readonly string[]
   pinnedHasMore: boolean
   pinnedProjects?: readonly SidebarProjectGroup[]
-  pinnedThreads: readonly CodexThreadView[]
+  pinnedThreads: readonly SidebarThreadView[]
   projectGroups: readonly SidebarProjectGroup[]
   projectChatLimits: Readonly<Record<string, number>>
   projectsHasMore: boolean
   recentHasMore: boolean
   recentLoading: boolean
-  recentThreads: readonly CodexThreadView[]
+  recentThreads: readonly SidebarThreadView[]
   showProjects?: boolean
   visibleProjectCount: number
 }): ChatSidebarRow[] {

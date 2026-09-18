@@ -59,6 +59,7 @@ const stoppedCapabilities: ThreadView["capabilities"] = {
   fork: false,
   promptContent: ["text"],
   providerExtensions: false,
+  steer: false,
 }
 
 export class ThreadManager {
@@ -148,6 +149,9 @@ export class ThreadManager {
           break
         case "thread.turn.start.request":
           respond(await this.startTurn(message.payload))
+          break
+        case "thread.turn.steer.request":
+          respond(await this.steerTurn(message.payload))
           break
         case "thread.turn.cancel.request":
           respond(await this.cancelTurn(message.payload.threadId, message.payload.turnId))
@@ -464,6 +468,61 @@ export class ThreadManager {
       requests.set(input.clientMessageId, turnId)
       runtime.activeTurn = { id: turnId, startedAt: new Date().toISOString() }
       runtime.state = "running"
+      const text = input.content
+        .filter(
+          (block): block is Extract<(typeof input.content)[number], { type: "text" }> =>
+            block.type === "text"
+        )
+        .map((block) => block.text)
+        .join("\n")
+      if (text) {
+        this.#appendTimeline(thread.id, {
+          item: {
+            itemId: `user:${input.clientMessageId}`,
+            operation: "replace",
+            role: "user",
+            text,
+            type: "message",
+          },
+          turnId,
+        })
+      }
+      return { thread: this.#updateAndPublishSync(thread), turnId }
+    })
+  }
+
+  async steerTurn(input: {
+    clientMessageId: string
+    content: readonly ThreadInputBlock[]
+    threadId: string
+  }): Promise<{ thread: ThreadView; turnId: string }> {
+    return this.#withLock(input.threadId, async () => {
+      const thread = await this.#required(input.threadId)
+      const runtime = this.#state(thread.id)
+      const previous = this.#turnRequests.get(thread.id)?.get(input.clientMessageId)
+      if (previous) return { thread: this.#view(thread), turnId: previous }
+      if (!runtime.activeTurn || runtime.state !== "running") {
+        throw new ThreadManagerError("TURN_NOT_ACTIVE", "Thread has no active turn to steer")
+      }
+      if (!runtime.capabilities.steer) {
+        throw new ThreadManagerError(
+          "THREAD_STEER_UNSUPPORTED",
+          `${thread.agentId} does not support steering active turns`
+        )
+      }
+      const turnId = runtime.activeTurn.id
+      await this.#adapterFor(thread.agentId as AgentId, thread.id).steerTurn({
+        ...this.#context(thread),
+        clientMessageId: input.clientMessageId,
+        content: input.content,
+        turnId,
+      })
+      let requests = this.#turnRequests.get(thread.id)
+      if (!requests) {
+        requests = new Map()
+        this.#turnRequests.set(thread.id, requests)
+      }
+      requests.set(input.clientMessageId, turnId)
       const text = input.content
         .filter(
           (block): block is Extract<(typeof input.content)[number], { type: "text" }> =>

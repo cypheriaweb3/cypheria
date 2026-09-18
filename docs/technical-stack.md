@@ -30,7 +30,7 @@ Cypheria V1 is a TypeScript Web3 agent product with one privileged server and de
 | Desktop build | Vite for renderer, tsdown for Electron main/preload |
 | Desktop packaging | electron-builder |
 | CLI/SDK target integration | Cypheria server protocol |
-| Desktop Codex integration | `codex app-server` over WebSocket JSON-RPC |
+| Desktop agent integration | AI SDK 7 through `@cypheria/ai-sdk-provider` and `@cypheria/client` |
 | Codex protocol types and validation | `pnpm --filter @cypheria/protocol generate:codex-all` |
 | ACP bridge | `@agentclientprotocol/sdk@1.4.0` app API to AI SDK 7.x through `@ai-sdk/provider` 4.x `LanguageModelV4` |
 | Public agent protocol | Provider-neutral `agent.*` management and `thread.*` execution |
@@ -70,19 +70,13 @@ packages/sdk
 packages/client
 packages/protocol
 packages/relay
-packages/runtime
-packages/codex-bridge
-packages/acp-ai-provider
+packages/ai-sdk-provider
+packages/web3
 packages/ui
-packages/network-core
-packages/wallet-core
-packages/wallet-provider
-packages/policy-engine
-packages/automation-core
 packages/db
 ```
 
-`apps/cli`, `apps/marketplace`, and `packages/sdk` are planned packages. `apps/server`, `apps/expo`, `packages/client`, and `packages/protocol` are implemented as the client/server foundation. Desktop remains unchanged until the foundation is reviewed.
+`apps/cli` and `packages/sdk` remain planned packages. `apps/server`, `apps/desktop`, `apps/expo`, `apps/marketplace`, `packages/client`, `packages/protocol`, and `packages/ai-sdk-provider` implement the client/server foundation. The old runtime, bridge, ACP provider, automation, and top-level Web3 packages remain only while their services are moved behind the server and will not be part of the final layout.
 
 `@cypheria/protocol` authors the live public Agent/Thread, project/section, and server WebSocket contracts with Zod. It also owns generated Codex App Server artifacts and pinned ACP, Claude, and Pi schemas used by internal server adapters. Those provider catalogs are drift-checked but excluded from the public client/server message union. The live wire exposes provider-neutral `agent.*` management and `thread.*` execution; `threadId` is the only operation handle and `agentSessionId` is read-only metadata.
 
@@ -175,13 +169,13 @@ It must not depend on:
 
 SDK clients should be small wrappers around versioned server operations and event streams.
 
-## ACP AI Provider Stack
+## AI SDK Provider Stack
 
-`@cypheria/acp-ai-provider` is the Node-side ACP bridge. Its stable entry point uses ACP v1 from the exact `@agentclientprotocol/sdk@1.4.0` dependency and implements AI SDK 7 through the `LanguageModelV4` interface supplied by `@ai-sdk/provider` 4.x. It supports stdio, injectable streams, experimental SDK HTTP/WebSocket transports, capability-derived client callbacks, independent model/session lifecycles, typed session configuration, negotiated NES controls, native resource links, control/event access, lossless raw ACP updates, and safe permission cancellation by default. Host tools use `@modelcontextprotocol/sdk` 1.x semantics through an authenticated loopback proxy and negotiate handshake versions through `2025-11-25`. The separate `experimental/v2` export exposes the official draft-v2 client context behind an explicit opt-in; it is not a `LanguageModelV4` adapter.
+`@cypheria/ai-sdk-provider` exposes browser-safe Codex, Claude, Pi, OpenCode, and ACP providers through AI SDK 7's `LanguageModelV4` contract. Every provider depends only on `@cypheria/client`, `@cypheria/protocol`, and public AI SDK types; it never starts a process, reads provider files, or imports a native Agent SDK. Persistent mode binds a Cypheria Thread, explicit ephemeral mode asks the server to create one, streaming consumes canonical timeline events, and abort cancels the corresponding server turn. The former Node-side ACP transport implementation remains transitional until all ACP execution ownership has moved into `apps/server`.
 
 ## Desktop Stack
 
-Desktop keeps its current Electron + TanStack Start implementation during server review. A later change will make it a self-starting Cypheria server client.
+Desktop retains Electron + TanStack Start and its carefully matched Codex Desktop interaction model. Electron main now discovers, reuses, or starts a bundled protocol-compatible Cypheria server before opening the renderer. Shared Sidebar and conversation data use `@cypheria/client`; typed Electron IPC remains for browser, secure-storage, window, update, terminal, and OS-only capabilities while the remaining privileged services are moved to the server.
 
 Internal desktop navigation uses TanStack Router links to preserve the document, global styles, and appearance state. Global CSS is linked from the root document before client hydration. Chat search parameters are validated by the index route; switching threads or choosing New chat resets the chat session without reloading the application.
 
@@ -226,7 +220,7 @@ The desktop main bundle leaves `@libsql/client` and its platform packages extern
 
 ## Codex Integration
 
-The target server will own Codex for every client. The following direct path describes the temporary, unchanged desktop implementation:
+The server owns Codex for every client. Desktop live turns and durable history now enter through the unified provider and canonical Thread interfaces. The following direct bridge remains transitional for desktop-only Codex configuration, plugin, skill, MCP, terminal, and approval surfaces until each surface has a shared server API:
 
 ```txt
 Desktop
@@ -278,7 +272,7 @@ The complete shadcn component set for the `base-nova` preset is installed in `pa
 
 The complete AI Elements registry is vendored in `packages/ui/src/components/ai-elements` and exported through `@cypheria/ui/ai-elements/<name>`. See [AI Elements Integration And Upgrade Guide](./ai-elements.md) for the regeneration procedure and the compatibility adaptations required by Base UI, NodeNext, strict TypeScript, React 19, and AI SDK 7.
 
-The desktop renderer uses `@ai-sdk/react` for chat state and a custom `ChatTransport` backed by typed Electron IPC. A renderer-owned LRU, matching the installed ChatGPT Desktop renderer's `ThreadScope` `retain: { max: 20 }`, retains one external `Chat` and transport per recent terminal chat; mounted or running chats are pinned and can temporarily exceed that bound. New-chat client keys and durable App Server thread IDs alias the same scope. Route navigation detaches the view without aborting its stream, while the stable transport reads current options and callbacks from mutable scope bindings. Electron main uses the `@cypheria/codex-bridge` `ProviderV4` adapter and converts App Server output into AI SDK UI-message chunks. The transport reports the created thread ID so the renderer can replace the new-chat route with the durable chat route. Live turns retain turn status and timing, full item snapshots and ordering, agent-message phases, progress, plans, diffs, reroutes, and raw turn-scoped events. Reopened chats read metadata plus ascending, paginated `thread/turns/list` pages with `itemsView: "full"` and pass those durable turn/item snapshots through the same `CodexTurnProjector`; notification-only state is necessarily live-only unless App Server includes it in the stored turn. Explicit cancellation optimistically completes live item lifecycles and marks the turn interrupted in both AI SDK state and the thread query cache while App Server state refreshes, avoiding a stale running card after Stop. The renderer separates the final answer from grouped activity, automatically collapses completed work, and keeps activity open for a matching pending reverse request. Standard AI SDK parts remain available for generic rendering and drive the workspace Files, Review, and Terminal panels, preserving their latest diff, ANSI output, streaming state, and completion metadata across live and restored conversations. App Server reverse requests travel on a separate typed interaction IPC channel, so approvals and elicitation are not encoded as model messages; Electron main retains unresolved interaction events and exposes a typed list operation so a remounted chat can recover pending cards. Heavy interactive route shells are client-only because Electron ships the SPA output through `cypheria://` and does not execute the TanStack Start server bundle at runtime.
+The desktop renderer uses `@ai-sdk/react` for chat state and a custom `ChatTransport` backed by `@cypheria/ai-sdk-provider`. A renderer-owned LRU, matching the installed ChatGPT Desktop renderer's `ThreadScope` `retain: { max: 20 }`, retains one external `Chat` and transport per recent terminal chat; mounted or running chats are pinned and can temporarily exceed that bound. New-chat client keys and durable Cypheria Thread IDs alias the same scope. Route navigation detaches the view without aborting its stream, while the stable transport reads current options and callbacks from mutable scope bindings. The transport reports the created Thread ID so the renderer can replace the new-chat route with the durable route. Reopened chats read the server-owned canonical timeline; the same shared shell renders common message, reasoning, tool, command, diff, plan, approval, artifact, status, and error items, while provider extensions retain agent-specific details. Abort cancels the active server turn, and capability-gated steering uses `thread.turn.steer`. Heavy interactive route shells remain client-only because Electron ships the SPA output through `cypheria://` and does not execute the TanStack Start server bundle at runtime.
 
 Composer prompt text follows the packaged desktop's scope-owned draft model rather than the mount
 lifetime of AI Elements. Edits update the active client/durable thread aliases immediately and
@@ -327,9 +321,9 @@ Visual direction: quiet, work-focused, low saturation, panel-oriented, dense eno
 
 Desktop sidebar motion and hover previews live in `apps/desktop/renderer/src/components/desktop-sidebar.tsx` and its CSS, reusing the shared UI sidebar primitives. Pinned navigation animates its layout width while the panel slides offscreen; hover previews overlay content without reserving width. The chat titlebar synchronizes its leading space with the collapsed toolbar. Native window controls stay fixed, and reduced-motion preferences disable transitions. Window chrome uses fixed pixel geometry: a 44px titlebar, 28px hit targets, 15px icons, and 6px gaps. These dimensions do not scale with the UI font setting; the toolbar center aligns with the native macOS traffic lights at y=22px. Sidebar toolbar icons remain stationary and are clipped by the retracting panel; the collapsed toolbar is revealed underneath without crossfading. The titlebar divider stays behind the sidebar, with no line below the sidebar toolbar. Clicking collapse suppresses hover previews until the pointer leaves the toggle and enters again. Matching ChatGPT Desktop's `--spacing-token-sidebar`, dragging the right edge adjusts sidebar width from 240–520px while preserving at least 320px for the workbench; double-click resets to 275px, and the focused separator supports arrow keys and Home/End. Dragging more than 120px (half the minimum width) past the 240px minimum collapses the sidebar and closes any preview; reopening retains the minimum width. Width is retained across navigation for the current app session.
 
-The workspace navigation below New chat and Search is flattened into stable keyed rows and rendered by one `@tanstack/react-virtual` virtualizer. Section and project expansion rebuild only the visible row model. Pinned pagination is filtered through the App Server's built-in pinned section; unsectioned thread pages supply Projects and Recents, while custom sections are listed and mutated with generated experimental `threadSection/*` and `thread/section/move` calls exposed through renderer-safe IPC. Non-sensitive organization and sort preferences are retained in renderer storage. Show more actions control five-entry disclosure for Pinned, Projects, and project chats, while only the terminal Recents loader automatically requests another cursor page.
+The workspace navigation below New chat and Search is flattened into stable keyed rows and rendered by one `@tanstack/react-virtual` virtualizer. Section and Project expansion rebuild only the visible row model. Pinned, custom Section, Project, and Recents pages come from the shared Cypheria Projects/Threads/Sections API through one Sidebar data adapter. The server returns direct section membership, project nesting, and ordering data; the renderer no longer derives organization from provider metadata. Non-sensitive presentation and sort preferences remain renderer-local. Show more actions control five-entry disclosure for Pinned, Projects, and Project chats, while only the terminal Recents loader automatically requests another cursor page.
 
-Row menus use shared shadcn-style dropdown, submenu, dialog, input, and button primitives. Active thread rows match ChatGPT Desktop's reversible menu model: pin, rename, mark read/unread, move, copy, fork, and archive; permanent deletion remains in Archived chats. Thread archive/fork/project-move and project update/delete calls stay behind narrow typed IPC. The manual read state is renderer-owned because App Server thread metadata has no unread field. It is persisted across renderer/window recreation as a deduplicated list capped at 1,000 thread IDs, synchronized between same-origin windows, cleared when a thread is archived or deleted, and updated from `turn/completed` notifications for background chats. Opening a chat marks it read. Project pinning and custom-section placement use `cypheria.sidebar.*` metadata keys. Project folder reveal accepts only an App Server project ID at the renderer boundary and resolves the first registered root in Electron main before calling the operating-system shell. Bulk archive enumerates App Server cursors before mutating each matching thread so collapsed and not-yet-rendered rows are included. Sidebar ordering exposes App Server priority/recency, update-time, creation-time, and manual section-position sorts.
+Row menus use shared shadcn-style dropdown, submenu, dialog, input, and button primitives. Active Thread rows preserve the reversible menu model: pin, rename, mark read/unread, move, copy, fork, and archive; permanent deletion remains in Archived chats. Thread archive/fork/move and Project/Section mutations call `@cypheria/client` with optimistic cache updates and rollback. Manual read state stays renderer-owned, is bounded and synchronized across same-origin windows, and is updated from canonical Thread notifications. Project folder reveal remains an Electron-only capability: the renderer passes a Project ID and main resolves the trusted root before calling the operating-system shell.
 
 ## Web3 Stack
 

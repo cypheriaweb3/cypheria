@@ -104,6 +104,12 @@ describe("CypheriaServer", () => {
     try {
       const health = await fetch(`${address.url}/api/v1/health`)
       expect(health.status).toBe(200)
+      const ready = await fetch(`${address.url}/api/v1/ready`)
+      expect(await ready.json()).toMatchObject({
+        protocolVersion: 2,
+        status: "ready",
+        version: "0.0.0",
+      })
       const initialConfig = await fetch(`${address.url}/api/v1/config`)
       expect(await initialConfig.json()).toMatchObject({
         config: { server: { sessions: { reconnectGraceMs: 30_000 } }, version: 1 },

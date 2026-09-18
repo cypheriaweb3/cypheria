@@ -53,6 +53,10 @@ export type ThreadProviderTurnInput = ThreadProviderContext & {
   readonly content: readonly ThreadInputBlock[]
 }
 
+export type ThreadProviderSteerInput = ThreadProviderTurnInput & {
+  readonly turnId: string
+}
+
 export type ThreadInteractionResponse =
   | { readonly outcome: "allow_once" | "allow_always" | "deny"; readonly type: "permission" }
   | { readonly optionId: string; readonly type: "selection" }
@@ -68,6 +72,7 @@ export interface ThreadProviderAdapter {
   delete(context: ThreadProviderContext): Promise<void>
   resume(input: ThreadProviderResumeInput): Promise<ThreadProviderSession>
   startTurn(input: ThreadProviderTurnInput): Promise<{ turnId: string }>
+  steerTurn(input: ThreadProviderSteerInput): Promise<void>
   cancelTurn(context: ThreadProviderContext & { turnId?: string }): Promise<void>
   updateConfig(
     context: ThreadProviderContext,

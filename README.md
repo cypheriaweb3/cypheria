@@ -17,7 +17,7 @@ Cypheria V1 is organized around one server and multiple clients:
 - **Relay**: the Go `apps/relay` service and TypeScript `@cypheria/relay` package provide an
   optional E2EE remote path to the same server protocol.
 - **CLI and SDK clients**: planned product clients built on the server protocol.
-- **Desktop client**: eventually starts a local server when necessary and connects to it. The current desktop implementation remains unchanged until the new server is reviewed and migration is approved.
+- **Desktop client**: keeps the Electron + TanStack Start workbench, ensures a compatible local server is running, and uses `@cypheria/client` for shared projects, threads, sections, canonical history, and live turns. Electron-only browser, secure-storage, window, update, and OS integrations remain local.
 - **Marketplace**: a TanStack Start app on Cloudflare Workers for submission, scanning, review, publication, discovery, and synchronization of reviewed ChatGPT/Codex plugins to the official Cypheria GitHub repo marketplace.
 
 The default safety model is human approval. Read-only mode and conditional auto-signing are explicit policy modes. Codex and automation flows may create signing intents, but every signing intent must go through Cypheria policy evaluation before a signature or transaction broadcast.
@@ -40,7 +40,7 @@ The default safety model is human approval. Read-only mode and conditional auto-
 - **Agent manager**: ACP Registry sync, managed installation/toolchains, explicit enablement, lifecycle operations, and disabled-agent enforcement
 - **Provider adapters**: internal Codex, Claude Agent SDK, Pi RPC, OpenCode SDK, and ACP adapters normalize provider sessions, events, interactions, and history into Threads
 - **OpenCode runtime**: `@opencode-ai/sdk@1.18.31` stable root API and both event streams through a shared loopback OpenCode server
-- **Desktop agent integration**: `codex app-server` over WebSocket JSON-RPC
+- **Desktop agent integration**: unified AI SDK providers over `@cypheria/client`; provider processes remain server-owned
 - **Codex protocol types and validation**: owned by `@cypheria/protocol` and generated with `pnpm --filter @cypheria/protocol generate:codex-all`
 - **Marketplace hosting**: Cloudflare Workers, D1, R2, Queues, and Workflows
 - **Web3**: viem, Privy, WalletConnect / Reown
@@ -73,12 +73,13 @@ remote @cypheria/client
   -> apps/server relay data socket
 
 apps/desktop renderer
-  -> Electron typed IPC
-  -> Electron main
-  -> @cypheria/runtime
-  -> @cypheria/codex-bridge
-  -> persistent codex app-server over WS
-  (temporary pre-migration implementation; unchanged)
+  -> @cypheria/client
+  -> apps/server
+  -> canonical Agent/Thread timeline
+
+apps/desktop Electron main
+  -> discover/reuse/start a protocol-compatible local apps/server
+  -> Electron-only browser, secure storage, windows, updates, and OS integration
 
 apps/marketplace
   -> TanStack Start on Cloudflare Workers
@@ -91,7 +92,7 @@ apps/desktop plugins
   -> Codex App Server marketplace/add + plugin/install
 ```
 
-The desktop renderer is a product UI, not a privileged runtime. It uses typed IPC to request capabilities from Electron main. Private keys, signing operations, dApp browser sessions, local database access, automation execution, and Codex App Server lifecycle management stay outside the renderer.
+The desktop renderer is a product UI, not a privileged runtime. Shared product data and agent work use the Cypheria server protocol; typed Electron IPC is reserved for desktop-local capabilities. Private keys, signing operations, dApp browser sessions, local database access, schedules, and provider processes stay outside the renderer.
 
 See [docs/architecture.md](docs/architecture.md) for the architecture baseline, [docs/codex-permissions.md](docs/codex-permissions.md) for the Codex Desktop permissions design, and [docs/network-management.md](docs/network-management.md) for the network and RPC design.
 
@@ -123,20 +124,15 @@ packages/sdk
 packages/client
 packages/protocol
 packages/relay
-packages/runtime
-packages/codex-bridge
-packages/acp-ai-provider
+packages/ai-sdk-provider
+packages/web3
 packages/ui
-packages/network-core
-packages/wallet-core
-packages/automation-core
-packages/wallet-provider
-packages/policy-engine
 packages/db
 ```
 
-`apps/cli`, `apps/marketplace`, and `packages/sdk` remain planned. `apps/server`, `apps/expo`,
-`packages/client`, `packages/protocol`, and `packages/relay` provide the client/server foundation. See
+`apps/cli` and `packages/sdk` remain planned. `apps/server`, `apps/desktop`, `apps/expo`,
+`apps/marketplace`, `packages/client`, `packages/protocol`, `packages/ai-sdk-provider`, and
+`packages/relay` provide the implemented client/server foundation. See
 [docs/server.md](docs/server.md) for its protocol, operations, security, and packaging contract.
 See [docs/relay.md](docs/relay.md) for relay protocol, security, scaling, observability, and the
 future multi-region design.

@@ -4,7 +4,7 @@ import {
   MAX_UNREAD_THREAD_IDS,
   UNREAD_THREAD_STORAGE_KEY,
   UnreadThreadStore,
-  unreadThreadMutationFromCodexEvent,
+  unreadThreadMutationFromServerMessage,
 } from "./chat-unread-state.js"
 
 class MemoryStorage {
@@ -57,23 +57,36 @@ describe("unread thread state", () => {
   })
 
   it("maps completion and lifecycle notifications to read-state mutations", () => {
-    const notification = (method: string, threadId = "thread-1") => ({
-      event: "codex.notification",
-      payload: { method, params: { threadId } },
-    })
+    const notification = {
+      payload: {
+        epoch: crypto.randomUUID(),
+        row: {
+          item: {
+            itemId: "assistant-1",
+            operation: "append" as const,
+            role: "assistant" as const,
+            text: "Done",
+            type: "message" as const,
+          },
+          providerItemId: null,
+          seq: 1,
+          timestamp: new Date().toISOString(),
+          turnId: "turn-1",
+        },
+        threadId: "01996a3a-bcde-7000-8000-000000000001",
+      },
+      type: "thread.timeline.appended.notification" as const,
+    }
 
-    expect(unreadThreadMutationFromCodexEvent(notification("turn/completed"), "thread-2")).toEqual({
+    expect(unreadThreadMutationFromServerMessage(notification, "thread-2")).toMatchObject({
       action: "unread",
-      threadId: "thread-1",
+      threadId: notification.payload.threadId,
     })
-    expect(unreadThreadMutationFromCodexEvent(notification("turn/completed"), "thread-1")).toEqual({
+    expect(
+      unreadThreadMutationFromServerMessage(notification, notification.payload.threadId)
+    ).toMatchObject({
       action: "read",
-      threadId: "thread-1",
+      threadId: notification.payload.threadId,
     })
-    expect(unreadThreadMutationFromCodexEvent(notification("thread/archived"))).toEqual({
-      action: "read",
-      threadId: "thread-1",
-    })
-    expect(unreadThreadMutationFromCodexEvent(notification("item/completed"))).toBeNull()
   })
 })

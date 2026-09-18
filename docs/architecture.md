@@ -22,12 +22,13 @@ remote clients
   -> apps/server relay data socket
 
 apps/desktop renderer
-  -> Electron typed IPC
-  -> Electron main
-  -> @cypheria/runtime
-  -> @cypheria/codex-bridge
-  -> persistent codex app-server over WebSocket JSON-RPC
-  (temporary implementation until the reviewed server migration)
+  -> @cypheria/client
+  -> apps/server
+  -> canonical Agent/Thread timeline
+
+apps/desktop Electron main
+  -> discover/reuse/start a protocol-compatible local server
+  -> Electron-only browser, secure storage, windows, updates, and OS integration
 
 apps/marketplace
   -> TanStack Start on Cloudflare Workers
@@ -42,7 +43,7 @@ Cypheria has one privileged server, multiple clients, a separate marketplace, an
 - `apps/expo`: the first Cypheria protocol client, built once for iOS, Android, and static web.
 - `packages/client`: the shared WebSocket protocol driver and capability facade for Cypheria clients. It owns neither the privileged runtime nor a Codex process.
 - `apps/cli` and `packages/sdk`: planned Cypheria protocol clients.
-- `apps/desktop`: the future self-hosting client. Its current Electron-main runtime and Codex ownership is intentionally unchanged until server review.
+- `apps/desktop`: the self-hosting Electron + TanStack Start client. Electron main manages a compatible local server, while the renderer uses shared project, section, Thread, and timeline APIs.
 - `apps/marketplace`: a TanStack Start application on Cloudflare Workers for submitting, scanning, reviewing, publishing, and discovering ChatGPT/Codex-compatible plugins, then synchronizing approved entries to the official Cypheria GitHub repo marketplace.
 - `packages/runtime`: the TypeScript runtime for Cypheria-owned non-agent capabilities.
 - `apps/relay`: the optional Go gateway/worker data plane for opaque remote WebSocket forwarding.
@@ -174,7 +175,7 @@ The SDK should not depend on Electron, desktop IPC, `@cypheria/runtime`, or `@cy
 
 ## Desktop
 
-Desktop remains on the existing Electron + TanStack Start implementation during this review stage. No desktop code is changed. The target is for Electron main to ensure a local Cypheria server is running and for desktop to become a protocol client, but that migration is a separate, explicitly reviewed change.
+Desktop keeps the existing Electron + TanStack Start implementation and its Codex-derived visual and interaction model. Its shared data plane is being migrated in place: Electron main ensures a protocol-compatible local Cypheria server is running, while the renderer uses `@cypheria/client` instead of provider-native project, section, Thread, and history APIs.
 
 ```txt
 TanStack Start Renderer
@@ -182,14 +183,13 @@ TanStack Start Renderer
   - route state
   - Jotai UI state
   - TanStack Query cache
-  - typed IPC client only
+  - @cypheria/client for shared server state
+  - typed IPC for Electron-only capabilities
 
 Electron Main Process
-  - CypheriaRuntime lifecycle
-  - Codex App Server lifecycle
-  - Codex WebSocket bridge
-  - wallet/signing/policy/database/automation services
+  - local Cypheria server discovery/start/readiness
   - dApp WebContents/session management
+  - secure storage, windows, updates, and OS integration
 ```
 
 Desktop startup:
@@ -198,20 +198,24 @@ Desktop startup:
 Electron main starts
   -> resolve CYPHERIA_HOME
   -> ensure runtime directories
-  -> start CypheriaRuntime
-  -> set CODEX_HOME=$CYPHERIA_HOME/codex
-  -> start codex app-server --listen ws://127.0.0.1:<port>
-  -> connect @cypheria/codex-bridge with initialize/initialized
+  -> probe the configured local server
+  -> reuse it when its protocol version is compatible
+  -> otherwise start the bundled server and wait for /api/v1/ready
   -> create renderer window
 ```
 
 Renderer rules:
 
-- Renderer uses typed IPC only.
+- Renderer uses `@cypheria/client` for shared product and Agent/Thread state.
+- Renderer uses typed IPC only for Electron-local capabilities.
 - Renderer does not access Node.js APIs.
 - Renderer does not access private keys, raw filesystem services, Codex WebSocket, or dApp internals.
 - Renderer treats preload capabilities as the only privileged bridge.
-- Renderer receives Codex lifecycle, stderr, notification, and server-request summaries through the typed `codex.event` IPC channel.
+- Renderer consumes persisted history from the canonical timeline and live turns through the unified AI SDK providers.
+
+The preserved Sidebar presentation model now receives direct `ProjectView`, `ThreadView`, and `SectionView` data from the Cypheria API. Section placement, project nesting, pinned state, ordering, pagination, archive, fork, rename, and move operations no longer infer organization from Codex metadata. The existing Pinned, custom sections, Projects, and Recents hierarchy, virtualization, disclosure controls, menus, keyboard behavior, unread state, and optimistic rollback behavior remain the UI baseline.
+
+The preserved conversation scope still owns drafts, attachments, cached `Chat` instances, virtualization, scroll restoration, and navigation continuity. Live Codex turns use `@cypheria/ai-sdk-provider/codex`; durable history is rehydrated from the server-owned canonical timeline. Common message, reasoning, tool, command, diff, plan, approval, artifact, status, and error items reuse the same renderer. Active-turn steering is a capability-gated common Thread operation: Codex maps it to App Server steering and Pi maps it to Pi RPC, while unsupported providers reject it explicitly.
 
 The desktop information architecture is chat-centered. New chat and search remain fixed at the top of the persistent sidebar. Pending approvals, wallets, automations, signing policies, audit logs, plugins, and skills share one virtualized scroll surface with collapsible Pinned, custom, Projects, and Recents sections. Sidebar menus persist independent pinned/chat sort choices and switch between project grouping and one combined Recents list. Custom sections use the experimental App Server `threadSection/*` lifecycle and `thread/section/move` methods through typed IPC; new chats launched from a section are moved into it as soon as App Server creates the durable thread. Chat row menus follow the packaged desktop grouping: Rename, Pin/Unpin, read state, and Archive come first, followed by Project, Section, Copy, and Fork groups. Project menus cover pinning, edit, section placement, folder reveal, conditional mark-all-read, bulk chat archive, and removal; each project row exposes its new-chat action as a separate hover/focus shortcut rather than a menu item. Project placement is stored as Cypheria-namespaced App Server project metadata, while Electron main resolves reveal requests from a project identifier instead of accepting renderer paths. Section menus support edit, confirmed bulk archive across direct chats and contained projects, and confirmed deletion. Projects come from App Server `project/list`, including projects without chats; renderer-safe IPC supports project creation, rename, deletion, and a main-process directory picker. A new chat can select a project, which supplies both `projectId` and its first root as `cwd` to `thread/start`. Pinned items and top-level projects reveal five more entries only after an explicit Show more action; each expanded project applies the same five-chat disclosure. Recents has no presentation cap and fetches the next App Server cursor when its terminal loading row reaches the viewport. The pending item shows the live number of unresolved signing approvals. The chat workspace combines an AI Elements conversation and composer with project, model, reasoning, sandbox, and wallet-context controls plus a right-hand context/files/review/terminal panel whose width is constrained relative to the available workbench rather than the full viewport. App Server `fileChange` and `commandExecution` tool parts drive that panel for both live and restored chats: Files keeps the latest state for every changed path, Review renders the recorded unified diff with copy actions, and Terminal renders ANSI output, streaming state, and exit status for every command. Entering Settings replaces the workbench sidebar with a grouped Personal, Integrations, Coding, and Archived navigation plus a route back to the workspace. The settings navigation is searchable and supports `Cmd/Ctrl+F` focus. General, Appearance, Connections, Plugins, Configuration, Models, and Archived chats are dedicated routes; Archived chats uses App Server thread listing, unarchive, and delete methods for search, restore, and permanent removal. Every settings page scrolls in the full right pane so its scrollbar remains at the window edge. ChatGPT account, personalization, notification delivery, voice, storage, and updater controls are intentionally deferred because they depend on ChatGPT service or app-owned capabilities not exposed by Codex App Server.
 

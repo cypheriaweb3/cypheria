@@ -237,6 +237,7 @@ import {
   initializeDesktopRuntime,
   shutdownDesktopRuntime,
 } from "./runtime.js"
+import { DesktopServerManager } from "./server-manager.js"
 import { listSystemFonts } from "./system-fonts.js"
 import {
   readWorkspaceLayoutSettings,
@@ -1119,6 +1120,15 @@ const startDesktopApp = async (): Promise<void> => {
   registerLifecycleHandlers()
 
   await app.whenReady()
+  const serverManager = new DesktopServerManager({
+    cliCandidates: [
+      process.env.CYPHERIA_SERVER_CLI_PATH ?? "",
+      join(app.getAppPath(), "..", "server", "dist", "cli.mjs"),
+      join(app.getAppPath(), "dist", "cypheria-server", "cli.mjs"),
+      join(process.resourcesPath, "cypheria-server", "cli.mjs"),
+    ],
+  })
+  await serverManager.ensureRunning()
   if (process.platform === "darwin") {
     app.dock?.setIcon(applicationIconPath)
   }

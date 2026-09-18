@@ -20,6 +20,7 @@ const thread = (agentId: ThreadView["agentId"], state: ThreadView["state"]): Thr
     fork: true,
     promptContent: ["text", "image"],
     providerExtensions: true,
+    steer: true,
   },
   createdAt: 1,
   cwd: "/repo",
@@ -170,5 +171,28 @@ describe("Cypheria AI SDK providers", () => {
       // Drain the stream.
     }
     expect(threads.delete).toHaveBeenCalledWith("01996a3a-bcde-7000-8000-000000000001")
+  })
+
+  it("sends only the latest message when continuing a persistent server thread", async () => {
+    const { client, threads } = createFakeClient("codex")
+    const model = createCodex({
+      client,
+      threadId: "01996a3a-bcde-7000-8000-000000000001",
+    })("default")
+    const result = await model.doStream({
+      prompt: [
+        { content: [{ text: "Earlier", type: "text" }], role: "user" },
+        { content: [{ text: "Previous answer", type: "text" }], role: "assistant" },
+        { content: [{ text: "Continue", type: "text" }], role: "user" },
+      ],
+    })
+    for await (const _part of result.stream) {
+      // Drain the stream.
+    }
+
+    expect(threads.create).not.toHaveBeenCalled()
+    expect(threads.startTurn).toHaveBeenCalledWith(
+      expect.objectContaining({ content: [{ text: "Continue", type: "text" }] })
+    )
   })
 })

@@ -27,6 +27,7 @@ class FakeAdapter implements ThreadProviderAdapter {
   interactionError: Error | undefined
   createSessionId: string | null | undefined
   readonly creates: ThreadProviderCreateInput[] = []
+  readonly steers: Array<Parameters<ThreadProviderAdapter["steerTurn"]>[0]> = []
 
   async close(): Promise<void> {
     if (this.closeError) throw this.closeError
@@ -41,6 +42,7 @@ class FakeAdapter implements ThreadProviderAdapter {
         fork: true,
         promptContent: ["text" as const],
         providerExtensions: false,
+        steer: true,
       },
       sessionId:
         this.createSessionId === undefined ? `provider-${input.threadId}` : this.createSessionId,
@@ -58,6 +60,7 @@ class FakeAdapter implements ThreadProviderAdapter {
         fork: true,
         promptContent: ["text" as const],
         providerExtensions: false,
+        steer: true,
       },
       history: [
         {
@@ -75,6 +78,9 @@ class FakeAdapter implements ThreadProviderAdapter {
   }
   async startTurn() {
     return { turnId: "turn-1" }
+  }
+  async steerTurn(input: Parameters<ThreadProviderAdapter["steerTurn"]>[0]): Promise<void> {
+    this.steers.push(input)
   }
   async cancelTurn(): Promise<void> {}
   async updateConfig(): Promise<void> {}
@@ -142,6 +148,37 @@ describe("ThreadManager", () => {
 
     expect(resumed.timeline.epoch).not.toBe(previousEpoch)
     expect(await manager.get(created.thread.id)).toMatchObject({ state: "idle" })
+  })
+
+  it("steers a supported active turn and records the user message in its timeline", async () => {
+    const { adapter, manager, messages } = await setup()
+    const created = await manager.create({ agentId: "codex" })
+    await manager.startTurn({
+      clientMessageId: "message-1",
+      content: [{ text: "start", type: "text" }],
+      threadId: created.thread.id,
+    })
+
+    const steered = await manager.steerTurn({
+      clientMessageId: "message-2",
+      content: [{ text: "adjust", type: "text" }],
+      threadId: created.thread.id,
+    })
+
+    expect(steered.turnId).toBe("turn-1")
+    expect(adapter.steers).toMatchObject([
+      { clientMessageId: "message-2", content: [{ text: "adjust", type: "text" }] },
+    ])
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        payload: expect.objectContaining({
+          row: expect.objectContaining({
+            item: expect.objectContaining({ role: "user", text: "adjust" }),
+          }),
+        }),
+        type: "thread.timeline.appended.notification",
+      })
+    )
   })
 
   it("persists a provider session id discovered while resuming", async () => {

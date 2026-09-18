@@ -15,6 +15,7 @@ const thread = {
     fork: false,
     promptContent: ["text" as const],
     providerExtensions: false,
+    steer: false,
   },
   createdAt: 100,
   cwd: null,
@@ -86,5 +87,30 @@ describe("thread actions", () => {
       "thread.unarchive.request",
       "thread.fork.request",
     ])
+  })
+
+  it("steers an active turn through the shared thread request", async () => {
+    const requestThread = vi.fn(async (type: string) => ({
+      payload: { ok: true as const, value: { thread, turnId: "turn-1" } },
+      requestId: "test",
+      type: type.replace(/\.request$/, ".response"),
+    }))
+    const actions = createThreadActions({ requestThread } as unknown as ServerClient)
+
+    await actions.steerTurn({
+      clientMessageId: "message-2",
+      content: [{ text: "adjust", type: "text" }],
+      threadId: thread.id,
+    })
+
+    expect(requestThread).toHaveBeenCalledWith(
+      "thread.turn.steer.request",
+      {
+        clientMessageId: "message-2",
+        content: [{ text: "adjust", type: "text" }],
+        threadId: thread.id,
+      },
+      undefined
+    )
   })
 })

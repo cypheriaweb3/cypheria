@@ -4,7 +4,7 @@ import type { ChatInit, ChatStatus } from "ai"
 
 import type { CodexUiMessage } from "../../ipc/src/index.js"
 import { composerPromptDraftStore } from "./chat-composer-drafts.js"
-import { type CodexChatOptions, CodexIpcChatTransport } from "./codex-chat.js"
+import { type CodexChatOptions, CypheriaChatTransport } from "./codex-chat.js"
 
 export const MAX_RETAINED_CHAT_THREAD_SCOPES = 20
 
@@ -138,7 +138,7 @@ export type CodexChatThreadScope = RetainableThreadScope & {
   readonly dispose: () => void
   readonly setComposerAttachments: (attachments: PromptInputAttachment[]) => void
   readonly setComposerText: (text: string) => void
-  readonly transport: CodexIpcChatTransport
+  readonly transport: CypheriaChatTransport
 }
 
 const retainedCodexChatScopes = new RetainedThreadScopeCache<CodexChatThreadScope>()
@@ -150,7 +150,7 @@ export const acquireCodexChatThreadScope = (
   const scope = retainedCodexChatScopes.acquire(alias, () => {
     let createdScope: CodexChatThreadScope
     const composerAliases = new Set([alias])
-    const transport = new CodexIpcChatTransport(
+    const transport = new CypheriaChatTransport(
       () => createdScope.bindings.options,
       (threadId) => {
         createdScope.addComposerAlias(threadId)

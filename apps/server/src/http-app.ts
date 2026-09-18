@@ -70,7 +70,13 @@ export function createHttpApp(options: CreateHttpAppOptions): Hono {
     context.json({ checkedAt: new Date().toISOString(), status: "ok" })
   )
   app.get("/api/v1/ready", (context) =>
-    host.isReady() ? context.json({ status: "ready" }) : context.json({ status: "not-ready" }, 503)
+    host.isReady()
+      ? context.json({
+          protocolVersion: host.getStatus().protocolVersion,
+          status: "ready",
+          version: host.getStatus().version,
+        })
+      : context.json({ status: "not-ready" }, 503)
   )
 
   app.use("/api/v1/*", async (context, next) => {

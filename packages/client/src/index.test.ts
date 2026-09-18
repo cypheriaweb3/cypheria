@@ -56,6 +56,7 @@ describe("Cypheria client facade", () => {
       "respondToInteraction",
       "resume",
       "startTurn",
+      "steerTurn",
       "timeline",
       "touchRecency",
       "unarchive",

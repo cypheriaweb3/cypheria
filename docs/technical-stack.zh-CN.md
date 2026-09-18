@@ -30,7 +30,7 @@ Cypheria V1 是一个 TypeScript Web3 agent 产品，由一个特权 server 与 
 | Desktop build | Renderer 使用 Vite，Electron main/preload 使用 tsdown |
 | Desktop packaging | electron-builder |
 | CLI/SDK 目标 integration | Cypheria server protocol |
-| Desktop Codex integration | `codex app-server` over WebSocket JSON-RPC |
+| Desktop agent integration | 通过 `@cypheria/ai-sdk-provider` 与 `@cypheria/client` 使用 AI SDK 7 |
 | Codex protocol types 与 validation | `pnpm --filter @cypheria/protocol generate:codex-all` |
 | ACP bridge | `@agentclientprotocol/sdk@1.4.0` app API，通过 `@ai-sdk/provider` 4.x 的 `LanguageModelV4` 接口接入 AI SDK 7.x |
 | 公开 agent protocol | Provider-neutral 的 `agent.*` 管理与 `thread.*` execution |
@@ -70,19 +70,13 @@ packages/sdk
 packages/client
 packages/protocol
 packages/relay
-packages/runtime
-packages/codex-bridge
-packages/acp-ai-provider
+packages/ai-sdk-provider
+packages/web3
 packages/ui
-packages/network-core
-packages/wallet-core
-packages/wallet-provider
-packages/policy-engine
-packages/automation-core
 packages/db
 ```
 
-`apps/cli`、`apps/marketplace` 和 `packages/sdk` 是规划中的 packages。`apps/server`、`apps/expo`、`packages/client` 与 `packages/protocol` 已实现 client/server 基础。Desktop 在该基础通过评审前保持不变。
+`apps/cli` 与 `packages/sdk` 仍是规划中的 packages。`apps/server`、`apps/desktop`、`apps/expo`、`apps/marketplace`、`packages/client`、`packages/protocol` 与 `packages/ai-sdk-provider` 已实现 client/server 基础。旧 runtime、bridge、ACP provider、automation 与顶层 Web3 packages 只在其 service 搬入 server 期间暂留，不属于最终布局。
 
 `@cypheria/protocol` 使用 Zod 编写 live public Agent/Thread、project/section 与 server WebSocket contract，同时持有供内部 server adapter 使用的 generated Codex App Server 产物及固定版本 ACP、Claude、Pi schema。这些 provider catalog 接受 drift check，但不进入 public client/server message union。Live wire 暴露 provider-neutral 的 `agent.*` 管理与 `thread.*` execution；`threadId` 是唯一操作句柄，`agentSessionId` 只是只读元数据。
 
@@ -174,13 +168,13 @@ Runtime 不实现 Codex agent internals。
 
 SDK clients 应该是版本化 server operation 与 event stream 之上的轻量 wrapper。
 
-## ACP AI Provider Stack
+## AI SDK Provider Stack
 
-`@cypheria/acp-ai-provider` 是 Node 侧 ACP bridge。其稳定入口使用精确固定的 `@agentclientprotocol/sdk@1.4.0` 所提供的 ACP v1，并通过 `@ai-sdk/provider` 4.x 提供的 `LanguageModelV4` 接口实现 AI SDK 7。它支持 stdio、可注入 stream、实验性 SDK HTTP/WebSocket transport、由能力派生的 client callback、彼此独立的 model/session lifecycle、typed session configuration、经过协商的 NES 控制、原生 resource link、控制与事件访问、无损 raw ACP update，以及默认安全取消的权限请求。宿主工具通过带认证的 loopback proxy 使用 `@modelcontextprotocol/sdk` 1.x 语义，并协商至 `2025-11-25` 的 handshake 版本。独立的 `experimental/v2` export 在显式 opt-in 后暴露官方 draft-v2 client context；它不是 `LanguageModelV4` adapter。
+`@cypheria/ai-sdk-provider` 通过 AI SDK 7 的 `LanguageModelV4` contract 暴露 browser-safe 的 Codex、Claude、Pi、OpenCode 与 ACP providers。每个 provider 只依赖 `@cypheria/client`、`@cypheria/protocol` 和 AI SDK 公共类型；不会启动进程、读取 provider 文件或导入原生 Agent SDK。持久模式绑定 Cypheria Thread，显式临时模式让 server 创建 Thread，streaming 消费 canonical timeline event，abort 则取消对应的 server turn。旧 Node-side ACP transport 实现只在 ACP execution ownership 完全迁入 `apps/server` 前过渡保留。
 
 ## Desktop Stack
 
-在 server 评审期间，Desktop 保留当前 Electron + TanStack Start 实现。后续变更会让它成为可自启动 Cypheria server 的 client。
+Desktop 保留 Electron + TanStack Start，以及精细对齐 Codex Desktop 的交互模型。Electron main 现在会在打开 renderer 前发现、复用或启动 bundled 且 protocol-compatible 的 Cypheria server。共享 Sidebar 与会话数据通过 `@cypheria/client` 获取；typed Electron IPC 继续承载 browser、secure storage、window、update、terminal 和 OS-only 能力，其余特权 service 在迁移期间逐步搬入 server。
 
 桌面内部导航使用 TanStack Router 链接，保留当前文档、全局样式和外观状态。全局 CSS 在客户端 hydration 之前由根文档链接加载。对话查询参数由首页路由校验；切换对话或点击 New chat 会重置对话会话，而不重新加载整个应用。
 
@@ -225,7 +219,7 @@ Desktop main bundle 将 `@libsql/client` 及其 platform packages 保持为 exte
 
 ## Codex 集成
 
-目标架构由 server 为每个 client 持有 Codex。以下 direct path 描述临时保留且未修改的 desktop 实现：
+Server 为每个 client 持有 Codex。Desktop 的实时 turn 与持久 history 已通过统一 provider 与 canonical Thread 接口进入。以下 direct bridge 只在 desktop-only 的 Codex 配置、插件、技能、MCP、终端与审批 surface 获得共享 server API 前过渡保留：
 
 ```txt
 Desktop
@@ -277,7 +271,7 @@ UI 策略是复用成熟 primitives，只为 Cypheria-specific workflows 构建�
 
 完整的 AI Elements registry 源码位于 `packages/ui/src/components/ai-elements`，并通过 `@cypheria/ui/ai-elements/<name>` 导出。重新生成步骤以及 Base UI、NodeNext、严格 TypeScript、React 19 和 AI SDK 7 所需的兼容性修改，参见 [AI Elements 集成与升级指南](./ai-elements.zh-CN.md)。
 
-Desktop renderer 使用 `@ai-sdk/react` 管理 chat state，并通过基于 typed Electron IPC 的自定义 `ChatTransport` 通信。Renderer-owned LRU 对齐本机 ChatGPT Desktop renderer 的 `ThreadScope` `retain: { max: 20 }`，为每个最近且已结束的会话保留一个外部 `Chat` 与 transport；已挂载或运行中的会话会被固定并可暂时超过该上限。新会话的 client key 与持久 App Server thread ID 指向同一 scope。页面导航只让 view 脱离，不会 abort stream；稳定 transport 从可变 scope bindings 中读取当前选项与回调。Electron main 使用 `@cypheria/codex-bridge` 的 `ProviderV4` adapter，将 App Server 输出转换为 AI SDK UI-message chunks。Transport 会报告新建的 thread ID，让 renderer 用持久对话 route 替换 new-chat route。实时 turn 会保留 turn status/timing、完整 item snapshot/order、agent-message phase、progress、plan、diff、reroute 与 raw turn-scoped event。重新打开对话时会读取 metadata 与设置了 `itemsView: "full"`、按升序分页的 `thread/turns/list`，并让这些持久 turn/item snapshot 经过同一个 `CodexTurnProjector`；除非 App Server 把 notification-only state 写入 stored turn，否则它必然只能在实时流中存在。显式取消会在刷新 App Server 状态的同时，把 live item 生命周期乐观完成，并在 AI SDK state 与 thread query cache 中将 turn 标记为 interrupted，避免点击 Stop 后残留运行中卡片。Renderer 将 final answer 与分组后的 activity 分开，完成后自动折叠工作记录，并在匹配的 reverse request 待处理时保持 activity 展开。标准 AI SDK parts 继续用于通用渲染，并驱动工作区的 Files、Review 和 Terminal 面板，让最新 diff、ANSI output、streaming state 与 completion metadata 在实时和已恢复对话中保持一致。App Server reverse request 使用独立的 typed interaction IPC channel，因此 approval 与 elicitation 不会编码为 model message；Electron main 会保留尚未解决的 interaction event，并暴露 typed list operation，使重新挂载的 chat 可以恢复待处理卡片。较重的交互式 route shells 仅在客户端加载，因为 Electron 通过 `cypheria://` 发布 SPA output，运行时不会执行 TanStack Start server bundle。
+Desktop renderer 使用 `@ai-sdk/react` 管理 chat state，并通过 `@cypheria/ai-sdk-provider` 支持的自定义 `ChatTransport` 通信。Renderer-owned LRU 对齐本机 ChatGPT Desktop renderer 的 `ThreadScope` `retain: { max: 20 }`，为最近且已结束的会话保留外部 `Chat` 与 transport；已挂载或运行中的会话会固定并可暂时超过上限。新会话 client key 与持久 Cypheria Thread ID 指向同一 scope。页面导航只让 view 脱离，不会 abort stream；稳定 transport 从可变 scope bindings 读取当前选项与回调。Transport 报告新建 Thread ID，让 renderer 用持久 route 替换 new-chat route。重新打开会话时读取 server-owned canonical timeline；同一共享 shell 渲染通用 message、reasoning、tool、command、diff、plan、approval、artifact、status 与 error item，provider extension 保留 agent 专有细节。Abort 取消 active server turn，按 capability 开启的 steer 使用 `thread.turn.steer`。较重的交互式 route shell 仍只在 client 加载，因为 Electron 通过 `cypheria://` 发布 SPA output，运行时不执行 TanStack Start server bundle。
 
 Composer prompt 文本遵循应用包中由 scope 持有的草稿模型，而不是 AI Elements 的挂载生命周期。
 编辑会立即更新当前 client/durable thread aliases，并在 250 毫秒后持久化。Renderer 能在 route
@@ -325,9 +319,9 @@ Cypheria-specific components：
 
 桌面侧栏动画与悬停预览由 `apps/desktop/renderer/src/components/desktop-sidebar.tsx` 及其 CSS 实现，复用共享 UI 侧栏基础组件。固定侧栏收起时同步改变布局占位宽度并将面板滑出；悬停预览覆盖内容，不占布局宽度。对话标题栏的左侧预留空间与收起后的工具栏同步变化。原生窗口控制按钮保持固定，并在用户偏好减少动态效果时禁用过渡。 窗口工具栏使用固定像素尺寸：标题栏 44px、点击区域 28px、图标 15px、间距 6px；这些尺寸不随 UI 字体设置缩放，工具栏中心与 macOS 原生红黄绿按钮的 y=22px 中心对齐。 侧栏工具栏图标保持固定，由收起中的面板裁切，并露出下方收起工具栏，不交叉淡化。标题栏底部分隔线位于侧栏下方，侧栏工具栏底部不显示分隔线。点击收起后，只有光标移出切换按钮再进入才触发预览。对齐 ChatGPT Desktop 的 `--spacing-token-sidebar`，拖拽右边线可在 240–520px 范围内调宽，同时为工作台至少保留 320px；双击恢复 275px，聚焦边线后支持方向键与 Home/End。拖到 240px 最小宽度后继续向左超过 120px（最小宽度的一半）会收起侧栏并关闭预览；再次展开时保留最小宽度。宽度在当前应用会话的页面切换间保留。
 
-工作区中位于 New chat 与 Search 下方的导航会被展平为带稳定 key 的行，并由单个 `@tanstack/react-virtual` virtualizer 渲染；分区和项目展开只重建可见行模型。Pinned 分页通过 App Server 内置 pinned section 过滤；未分区的 thread 页面提供 Projects 与 Recents，自定义分区则通过 renderer-safe IPC 暴露的 generated experimental `threadSection/*` 与 `thread/section/move` 调用进行列举和变更。非敏感的组织及排序偏好保存在 renderer storage 中。Show more 控制 Pinned、Projects 与项目会话每次展示五项，只有 Recents 末尾的加载行会自动请求下一个 cursor 页面。
+工作区中位于 New chat 与 Search 下方的导航会被展平为带稳定 key 的行，并由单个 `@tanstack/react-virtual` virtualizer 渲染；Section 与 Project 展开只重建可见行模型。Pinned、自定义 Section、Project 与 Recents 页面统一通过 Sidebar data adapter 调用 Cypheria Projects/Threads/Sections API。Server 直接返回 Section membership、Project nesting 与 ordering，renderer 不再从 provider metadata 推断组织关系。非敏感的展示与排序偏好仍保留在 renderer-local storage。Show more 控制 Pinned、Projects 与 Project chat 每次展示五项，只有 Recents 末尾加载行会自动请求下一个 cursor 页面。
 
-条目菜单复用共享的 shadcn 风格 dropdown、submenu、dialog、input 与 button 基础组件。活跃会话条目对齐 ChatGPT Desktop 的可逆菜单模型：置顶、重命名、标记已读/未读、移动、复制、Fork 和归档；永久删除保留在“已归档会话”中。Thread 归档/Fork/项目移动和 project 更新/删除始终位于收窄的 typed IPC 后方。由于 App Server 的 thread metadata 没有未读字段，手动已读状态由 renderer 所有：用去重且最多 1,000 个 thread ID 的列表跨 renderer/窗口重建持久化，在同源窗口间同步，在 thread 归档或删除时清除，并由后台会话的 `turn/completed` notification 更新；打开会话会标记为已读。项目置顶和自定义分区归属使用 `cypheria.sidebar.*` metadata key。Renderer 请求在访达中显示项目时只传 App Server project ID，Electron main 解析第一个注册 root 后再调用操作系统 shell。批量归档会先遍历 App Server cursor，再逐个变更匹配 thread，因而会覆盖折叠或尚未渲染的行。侧栏排序暴露 App Server 的 priority/recency、更新时间、创建时间与手动 section-position 排序。
+条目菜单复用共享的 shadcn 风格 dropdown、submenu、dialog、input 与 button 基础组件。活跃 Thread 条目保留可逆菜单模型：置顶、重命名、标记已读/未读、移动、复制、Fork 与归档；永久删除仍位于“已归档会话”。Thread 归档/Fork/移动与 Project/Section 变更通过 `@cypheria/client` 执行，并带乐观 cache update 与回滚。手动已读状态继续由 renderer 持有，采用有界列表并在同源窗口间同步，同时从 canonical Thread notification 更新。Project folder reveal 仍是 Electron-only capability：renderer 只传 Project ID，由 main 解析可信 root 后调用操作系统 shell。
 
 ## Web3 Stack
 

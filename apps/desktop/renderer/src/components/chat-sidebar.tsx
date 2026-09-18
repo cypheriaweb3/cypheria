@@ -78,12 +78,16 @@ import {
   useState,
   useSyncExternalStore,
 } from "react"
-import type {
-  CodexProjectView,
-  CodexThreadSectionView,
-  CodexThreadView,
-} from "../../../ipc/src/index.js"
-import { unreadThreadMutationFromCodexEvent, unreadThreadStore } from "../chat-unread-state.js"
+import { unreadThreadMutationFromServerMessage, unreadThreadStore } from "../chat-unread-state.js"
+import { cypheriaClient } from "../cypheria-client.js"
+import {
+  PINNED_SIDEBAR_SECTION_ID,
+  type SidebarProjectView,
+  type SidebarSectionView,
+  type SidebarThreadView,
+  sidebarData,
+  sidebarQueryKeys,
+} from "../sidebar-data.js"
 import {
   buildChatSidebarRows,
   type ChatSidebarRow,
@@ -95,14 +99,11 @@ import {
 } from "./chat-sidebar-model.js"
 import { ProjectCreateDialog } from "./project-create-dialog"
 
-const PINNED_THREAD_SECTION_ID = "01984de2-8f74-7c91-a3b2-5c5e937cf318"
-const PROJECT_PIN_METADATA_KEY = "cypheria.sidebar.pinned"
-const PROJECT_SECTION_METADATA_KEY = "cypheria.sidebar.sectionId"
 const THREAD_PAGE_SIZE = 30
 type SidebarSort = "priority" | "updated" | "created" | "manual"
 type SectionDialogState =
   | { mode: "create"; target?: { id: string; kind: "project" | "thread" } }
-  | { mode: "edit"; section: CodexThreadSectionView }
+  | { mode: "edit"; section: SidebarSectionView }
 
 const virtualNavigationItems = [
   {
@@ -199,16 +200,16 @@ export function ChatSidebar({
   )
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [sectionDialog, setSectionDialog] = useState<SectionDialogState | null>(null)
-  const [deletingSection, setDeletingSection] = useState<CodexThreadSectionView | null>(null)
+  const [deletingSection, setDeletingSection] = useState<SidebarSectionView | null>(null)
   const [threadDialog, setThreadDialog] = useState<{
     kind: "archive" | "rename"
-    thread: CodexThreadView
+    thread: SidebarThreadView
   } | null>(null)
   const [projectDialog, setProjectDialog] = useState<{
     kind: "archive" | "edit" | "remove"
-    project: CodexProjectView
+    project: SidebarProjectView
   } | null>(null)
-  const [archivingSection, setArchivingSection] = useState<CodexThreadSectionView | null>(null)
+  const [archivingSection, setArchivingSection] = useState<SidebarSectionView | null>(null)
   const [mutationError, setMutationError] = useState<string | null>(null)
   const unreadThreadIds = useSyncExternalStore(
     unreadThreadStore.subscribe,
@@ -221,10 +222,8 @@ export function ChatSidebar({
   }, [activeThreadId])
 
   useEffect(() => {
-    const api = window.cypheria?.codex
-    if (!api) return
-    return api.onEvent((event) => {
-      const mutation = unreadThreadMutationFromCodexEvent(event, activeThreadId)
+    return cypheriaClient.subscribe((event) => {
+      const mutation = unreadThreadMutationFromServerMessage(event, activeThreadId)
       if (!mutation) return
       if (mutation.action === "unread") unreadThreadStore.markUnread(mutation.threadId)
       else unreadThreadStore.markRead(mutation.threadId)
@@ -233,60 +232,54 @@ export function ChatSidebar({
 
   const pinnedQuery = useInfiniteQuery({
     initialPageParam: null as string | null,
-    queryKey: ["codex", "threads", "pinned", pinnedSort],
-    queryFn: async ({ pageParam }) =>
-      window.cypheria?.codex.listThreads({
+    queryKey: sidebarQueryKeys.threads("pinned", pinnedSort),
+    queryFn: ({ pageParam }) =>
+      sidebarData.listThreads({
         cursor: pageParam,
         limit: SIDEBAR_BATCH_SIZE,
-        sectionId: PINNED_THREAD_SECTION_ID,
+        sectionId: PINNED_SIDEBAR_SECTION_ID,
         ...sortRequest(pinnedSort),
-      }) ?? { data: [], nextCursor: null },
+      }),
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     refetchInterval: 15_000,
   })
   const catalogQuery = useInfiniteQuery({
     initialPageParam: null as string | null,
-    queryKey: ["codex", "threads", "unsectioned", chatSort],
-    queryFn: async ({ pageParam }) =>
-      window.cypheria?.codex.listThreads({
+    queryKey: sidebarQueryKeys.threads("unsectioned", chatSort),
+    queryFn: ({ pageParam }) =>
+      sidebarData.listThreads({
         cursor: pageParam,
         limit: THREAD_PAGE_SIZE,
         sectionId: null,
         ...sortRequest(chatSort),
-      }) ?? { data: [], nextCursor: null },
+      }),
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     refetchInterval: 15_000,
   })
   const projectsQuery = useQuery({
-    queryFn: () =>
-      window.cypheria?.codex.listProjects({
-        limit: 100,
-        sortDirection: "asc",
-        sortKey: "position",
-      }) ?? { data: [], nextCursor: null },
-    queryKey: ["codex", "projects"],
+    queryFn: () => sidebarData.listProjects(),
+    queryKey: sidebarQueryKeys.projects(),
     refetchInterval: 15_000,
   })
   const sectionsQuery = useQuery({
-    queryFn: () =>
-      window.cypheria?.codex.listThreadSections({ limit: 100 }) ?? { data: [], nextCursor: null },
-    queryKey: ["codex", "thread-sections"],
+    queryFn: () => sidebarData.listSections(),
+    queryKey: sidebarQueryKeys.sections(),
     refetchInterval: 15_000,
   })
   const sections = useMemo(
-    () => (sectionsQuery.data?.data ?? []).filter(({ id }) => id !== PINNED_THREAD_SECTION_ID),
+    () => (sectionsQuery.data?.data ?? []).filter(({ id }) => id !== PINNED_SIDEBAR_SECTION_ID),
     [sectionsQuery.data?.data]
   )
   const customThreadQueries = useQueries({
     queries: sections.map((section) => ({
       queryFn: () =>
-        window.cypheria?.codex.listThreads({
+        sidebarData.listThreads({
           limit: 100,
           sectionId: section.id,
           sortDirection: "asc",
           sortKey: "section_position",
-        }) ?? { data: [], nextCursor: null },
-      queryKey: ["codex", "threads", "section", section.id],
+        }),
+      queryKey: sidebarQueryKeys.threads("section", section.id),
       refetchInterval: 15_000,
     })),
   })
@@ -302,19 +295,11 @@ export function ChatSidebar({
     [catalogThreads, projectsQuery.data?.data]
   )
   const pinnedProjectGroups = useMemo(
-    () =>
-      allProjectGroups.filter(
-        ({ project }) => project.metadata[PROJECT_PIN_METADATA_KEY] === "true"
-      ),
+    () => allProjectGroups.filter(({ project }) => project.sectionId === PINNED_SIDEBAR_SECTION_ID),
     [allProjectGroups]
   )
   const projectGroups = useMemo(
-    () =>
-      allProjectGroups.filter(
-        ({ project }) =>
-          project.metadata[PROJECT_PIN_METADATA_KEY] !== "true" &&
-          !project.metadata[PROJECT_SECTION_METADATA_KEY]
-      ),
+    () => allProjectGroups.filter(({ project }) => project.sectionId === null),
     [allProjectGroups]
   )
   const recentThreads = useMemo(
@@ -328,11 +313,7 @@ export function ChatSidebar({
     () =>
       sections.map((section, index) => ({
         ...section,
-        projects: allProjectGroups.filter(
-          ({ project }) =>
-            project.metadata[PROJECT_PIN_METADATA_KEY] !== "true" &&
-            project.metadata[PROJECT_SECTION_METADATA_KEY] === section.id
-        ),
+        projects: allProjectGroups.filter(({ project }) => project.sectionId === section.id),
         threads: customThreadQueries[index]?.data?.data ?? [],
       })),
     [allProjectGroups, customThreadQueries, sections]
@@ -434,11 +415,8 @@ export function ChatSidebar({
     globalThis.localStorage?.setItem("cypheria.sidebar.chat-sort", sort)
   }
   const invalidateSidebar = async () => {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["codex", "projects"] }),
-      queryClient.invalidateQueries({ queryKey: ["codex", "thread-sections"] }),
-      queryClient.invalidateQueries({ queryKey: ["codex", "threads"] }),
-    ])
+    sidebarData.invalidate()
+    await queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all })
   }
   const runSidebarMutation = async (mutation: () => Promise<unknown>) => {
     setMutationError(null)
@@ -451,34 +429,22 @@ export function ChatSidebar({
       return false
     }
   }
-  const moveThreadToSection = (thread: CodexThreadView, sectionId: string | null) =>
+  const moveThreadToSection = (thread: SidebarThreadView, sectionId: string | null) =>
+    runSidebarMutation(() =>
+      sidebarData.moveItemToSection({ id: thread.id, type: "thread" }, sectionId)
+    )
+  const moveThreadToProject = (thread: SidebarThreadView, projectId: string | null) =>
+    runSidebarMutation(() => sidebarData.moveThreadToProject(thread.id, projectId))
+  const forkThread = (thread: SidebarThreadView) =>
     runSidebarMutation(async () => {
-      await window.cypheria?.codex.moveThreadToSection({ sectionId, threadId: thread.id })
+      const fork = await sidebarData.forkThread(thread.id)
+      unreadThreadStore.markRead(fork.id)
+      await navigate({ search: { thread: fork.id }, to: "/" })
     })
-  const moveThreadToProject = (thread: CodexThreadView, projectId: string | null) =>
-    runSidebarMutation(async () => {
-      await window.cypheria?.codex.moveThreadToProject(thread.id, projectId)
-    })
-  const forkThread = (thread: CodexThreadView) =>
-    runSidebarMutation(async () => {
-      const fork = await window.cypheria?.codex.forkThread(thread.id)
-      if (!fork) throw new Error("Codex is only available in the Cypheria desktop app.")
-      unreadThreadStore.markRead(fork.threadId)
-      await navigate({ search: { thread: fork.threadId }, to: "/" })
-    })
-  const updateProjectSidebarMetadata = (
-    project: CodexProjectView,
-    update: (metadata: Record<string, string>) => void
-  ) =>
-    runSidebarMutation(async () => {
-      const metadata = { ...project.metadata }
-      update(metadata)
-      await window.cypheria?.codex.updateProject({
-        id: project.id,
-        metadata,
-        name: project.name,
-      })
-    })
+  const moveProjectToSection = (project: SidebarProjectView, sectionId: string | null) =>
+    runSidebarMutation(() =>
+      sidebarData.moveItemToSection({ id: project.id, type: "project" }, sectionId)
+    )
   const copyText = async (value: string) => {
     try {
       await navigator.clipboard.writeText(value)
@@ -486,34 +452,23 @@ export function ChatSidebar({
       setMutationError(reason instanceof Error ? reason.message : String(reason))
     }
   }
-  const copyThreadMarkdown = async (thread: CodexThreadView) => {
+  const copyThreadMarkdown = async (thread: SidebarThreadView) => {
     try {
-      const detail = await window.cypheria?.codex.readThread(thread.id)
-      if (!detail) return
-      const markdown = detail.messages
-        .map((message) => {
-          const text = message.parts
-            .flatMap((part) => (part.type === "text" ? [part.text] : []))
-            .join("\n")
-          return `## ${message.role === "user" ? "User" : "Assistant"}\n\n${text}`
-        })
+      const timeline = await sidebarData.readThread(thread.id)
+      const markdown = timeline
+        .flatMap(({ item }) =>
+          item.type === "message" && (item.role === "user" || item.role === "assistant")
+            ? [`## ${item.role === "user" ? "User" : "Assistant"}\n\n${item.text}`]
+            : []
+        )
         .join("\n\n")
-      await copyText(`# ${detail.title}\n\n${markdown}`)
+      await copyText(`# ${thread.title}\n\n${markdown}`)
     } catch (reason) {
       setMutationError(reason instanceof Error ? reason.message : String(reason))
     }
   }
-  const archiveMatchingThreads = async (matches: (thread: CodexThreadView) => boolean) => {
-    const api = window.cypheria?.codex
-    if (!api) throw new Error("Codex is only available in the Cypheria desktop app.")
-    let cursor: string | null = null
-    const threadIds: string[] = []
-    do {
-      const page = await api.listThreads({ cursor, limit: 100 })
-      threadIds.push(...page.data.filter(matches).map(({ id }) => id))
-      cursor = page.nextCursor
-    } while (cursor)
-    for (const threadId of threadIds) await api.archiveThread(threadId)
+  const archiveMatchingThreads = async (matches: (thread: SidebarThreadView) => boolean) => {
+    await sidebarData.archiveMatchingThreads(matches)
   }
 
   return (
@@ -570,18 +525,10 @@ export function ChatSidebar({
                     }
                     onProjectDialog={(kind, project) => setProjectDialog({ kind, project })}
                     onProjectMoveSection={(project, sectionId) =>
-                      void updateProjectSidebarMetadata(project, (metadata) => {
-                        delete metadata[PROJECT_PIN_METADATA_KEY]
-                        if (sectionId) metadata[PROJECT_SECTION_METADATA_KEY] = sectionId
-                        else delete metadata[PROJECT_SECTION_METADATA_KEY]
-                      })
+                      void moveProjectToSection(project, sectionId)
                     }
                     onProjectPin={(project, pinned) =>
-                      void updateProjectSidebarMetadata(project, (metadata) => {
-                        delete metadata[PROJECT_SECTION_METADATA_KEY]
-                        if (pinned) metadata[PROJECT_PIN_METADATA_KEY] = "true"
-                        else delete metadata[PROJECT_PIN_METADATA_KEY]
-                      })
+                      void moveProjectToSection(project, pinned ? PINNED_SIDEBAR_SECTION_ID : null)
                     }
                     onRevealProject={(project) =>
                       void runSidebarMutation(async () => {
@@ -636,25 +583,7 @@ export function ChatSidebar({
         dialog={sectionDialog}
         onCreated={async (section, target) => {
           if (!target) return
-          if (target.kind === "thread") {
-            await window.cypheria?.codex.moveThreadToSection({
-              sectionId: section.id,
-              threadId: target.id,
-            })
-            return
-          }
-          const project = projectsQuery.data?.data.find(({ id }) => id === target.id)
-          if (!project) throw new Error("Project is no longer available.")
-          const metadata: Record<string, string> = {
-            ...project.metadata,
-            [PROJECT_SECTION_METADATA_KEY]: section.id,
-          }
-          delete metadata[PROJECT_PIN_METADATA_KEY]
-          await window.cypheria?.codex.updateProject({
-            id: project.id,
-            metadata,
-            name: project.name,
-          })
+          await sidebarData.moveItemToSection({ id: target.id, type: target.kind }, section.id)
         }}
         onOpenChange={(open) => !open && setSectionDialog(null)}
       />
@@ -699,9 +628,8 @@ export function ChatSidebar({
           if (!threadDialog) return false
           const { kind, thread } = threadDialog
           const succeeded = await runSidebarMutation(async () => {
-            if (kind === "rename")
-              await window.cypheria?.codex.renameThread(thread.id, value.trim())
-            if (kind === "archive") await window.cypheria?.codex.archiveThread(thread.id)
+            if (kind === "rename") await sidebarData.renameThread(thread.id, value.trim())
+            if (kind === "archive") await sidebarData.archiveThread(thread.id)
           })
           if (succeeded && kind !== "rename") {
             const activeThread = new URL(globalThis.location.href).searchParams.get("thread")
@@ -762,15 +690,10 @@ export function ChatSidebar({
           if (!projectDialog) return false
           const { kind, project } = projectDialog
           const succeeded = await runSidebarMutation(async () => {
-            if (kind === "edit")
-              await window.cypheria?.codex.updateProject({
-                id: project.id,
-                metadata: project.metadata,
-                name: value.trim(),
-              })
+            if (kind === "edit") await sidebarData.updateProject(project.id, value.trim())
             if (kind === "archive")
               await archiveMatchingThreads((thread) => thread.projectId === project.id)
-            if (kind === "remove") await window.cypheria?.codex.deleteProject(project.id)
+            if (kind === "remove") await sidebarData.deleteProject(project.id)
           })
           if (succeeded) setProjectDialog(null)
           return succeeded
@@ -793,10 +716,7 @@ export function ChatSidebar({
           if (!archivingSection) return false
           const projectIds = new Set(
             allProjectGroups
-              .filter(
-                ({ project }) =>
-                  project.metadata[PROJECT_SECTION_METADATA_KEY] === archivingSection.id
-              )
+              .filter(({ project }) => project.sectionId === archivingSection.id)
               .map(({ projectId }) => projectId)
           )
           const succeeded = await runSidebarMutation(() =>
@@ -825,35 +745,35 @@ type RowViewProps = Readonly<{
   expandedSections: ReadonlySet<SidebarSectionId>
   organizeByProject: boolean
   pendingCount: number
-  projects: readonly CodexProjectView[]
+  projects: readonly SidebarProjectView[]
   pinnedLoading: boolean
   pinnedSort: SidebarSort
   row: ChatSidebarRow
-  sections: readonly CodexThreadSectionView[]
+  sections: readonly SidebarSectionView[]
   unreadThreadIds: ReadonlySet<string>
-  onArchiveSection: (section: CodexThreadSectionView) => void
-  onCopyThread: (kind: "cwd" | "link" | "markdown", thread: CodexThreadView) => void
+  onArchiveSection: (section: SidebarSectionView) => void
+  onCopyThread: (kind: "cwd" | "link" | "markdown", thread: SidebarThreadView) => void
   onCreateProject: () => void
   onCreateSection: () => void
   onCreateSectionFor: (target: { id: string; kind: "project" | "thread" }) => void
-  onDeleteSection: (section: CodexThreadSectionView) => void
-  onEditSection: (section: CodexThreadSectionView) => void
+  onDeleteSection: (section: SidebarSectionView) => void
+  onEditSection: (section: SidebarSectionView) => void
   onOrganizationChange: (value: boolean) => void
-  onNewChatProject: (project: CodexProjectView) => void
-  onProjectDialog: (kind: "archive" | "edit" | "remove", project: CodexProjectView) => void
-  onProjectMoveSection: (project: CodexProjectView, sectionId: string | null) => void
-  onProjectPin: (project: CodexProjectView, pinned: boolean) => void
-  onRevealProject: (project: CodexProjectView) => void
+  onNewChatProject: (project: SidebarProjectView) => void
+  onProjectDialog: (kind: "archive" | "edit" | "remove", project: SidebarProjectView) => void
+  onProjectMoveSection: (project: SidebarProjectView, sectionId: string | null) => void
+  onProjectPin: (project: SidebarProjectView, pinned: boolean) => void
+  onRevealProject: (project: SidebarProjectView) => void
   onPinnedSortChange: (sort: SidebarSort) => void
   onShowMorePinned: () => void
   onShowMoreProjectChats: (id: string) => void
   onShowMoreProjects: () => void
   onSortChange: (sort: SidebarSort) => void
-  onThreadDialog: (kind: "archive" | "rename", thread: CodexThreadView) => void
-  onThreadFork: (thread: CodexThreadView) => void
-  onThreadMoveProject: (thread: CodexThreadView, projectId: string | null) => void
-  onThreadMoveSection: (thread: CodexThreadView, sectionId: string | null) => void
-  onThreadReadState: (thread: CodexThreadView, unread: boolean) => void
+  onThreadDialog: (kind: "archive" | "rename", thread: SidebarThreadView) => void
+  onThreadFork: (thread: SidebarThreadView) => void
+  onThreadMoveProject: (thread: SidebarThreadView, projectId: string | null) => void
+  onThreadMoveSection: (thread: SidebarThreadView, sectionId: string | null) => void
+  onThreadReadState: (thread: SidebarThreadView, unread: boolean) => void
   onToggleCustomSection: (id: string) => void
   onToggleProject: (id: string) => void
   onToggleSection: (id: SidebarSectionId) => void
@@ -1320,10 +1240,10 @@ function ThreadMenu({
   onRename,
   unread,
 }: Readonly<{
-  projects: readonly CodexProjectView[]
-  sections: readonly CodexThreadSectionView[]
+  projects: readonly SidebarProjectView[]
+  sections: readonly SidebarSectionView[]
   source: "pinned" | "project" | "recent"
-  thread: CodexThreadView
+  thread: SidebarThreadView
   onArchive: () => void
   onCopy: (kind: "cwd" | "link" | "markdown") => void
   onCreateSection: () => void
@@ -1344,7 +1264,7 @@ function ThreadMenu({
         </DropdownMenuItem>
         <DropdownMenuItem
           className="py-1.5"
-          onClick={() => onMoveSection(source === "pinned" ? null : PINNED_THREAD_SECTION_ID)}
+          onClick={() => onMoveSection(source === "pinned" ? null : PINNED_SIDEBAR_SECTION_ID)}
         >
           {source === "pinned" ? <PinOff /> : <Pin />}
           {source === "pinned" ? (
@@ -1407,7 +1327,7 @@ function ThreadMenu({
                 <span className="truncate">{section.name}</span>
               </DropdownMenuItem>
             ))}
-            {thread.sectionId && thread.sectionId !== PINNED_THREAD_SECTION_ID ? (
+            {thread.sectionId && thread.sectionId !== PINNED_SIDEBAR_SECTION_ID ? (
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem className="py-1.5" onClick={() => onMoveSection(null)}>
@@ -1468,8 +1388,8 @@ function ProjectMenu({
   onReveal,
 }: Readonly<{
   archiveEnabled: boolean
-  project: CodexProjectView
-  sections: readonly CodexThreadSectionView[]
+  project: SidebarProjectView
+  sections: readonly SidebarSectionView[]
   onArchive: () => void
   onCreateSection: () => void
   onEdit: () => void
@@ -1479,8 +1399,8 @@ function ProjectMenu({
   onRemove: () => void
   onReveal: () => void
 }>) {
-  const pinned = project.metadata[PROJECT_PIN_METADATA_KEY] === "true"
-  const sectionId = project.metadata[PROJECT_SECTION_METADATA_KEY] ?? null
+  const pinned = project.sectionId === PINNED_SIDEBAR_SECTION_ID
+  const sectionId = project.sectionId
   return (
     <DropdownMenu>
       <RowMenuButton label={`Options for ${project.name}`} />
@@ -1565,10 +1485,10 @@ function CustomSectionMenu({
   onEdit,
 }: Readonly<{
   archiveEnabled: boolean
-  section: CodexThreadSectionView
-  onArchive: (section: CodexThreadSectionView) => void
-  onDelete: (section: CodexThreadSectionView) => void
-  onEdit: (section: CodexThreadSectionView) => void
+  section: SidebarSectionView
+  onArchive: (section: SidebarSectionView) => void
+  onDelete: (section: SidebarSectionView) => void
+  onEdit: (section: SidebarSectionView) => void
 }>) {
   return (
     <DropdownMenu>
@@ -1607,7 +1527,7 @@ function SectionDialog({
 }: Readonly<{
   dialog: SectionDialogState | null
   onCreated: (
-    section: CodexThreadSectionView,
+    section: SidebarSectionView,
     target?: { id: string; kind: "project" | "thread" }
   ) => Promise<void>
   onOpenChange: (open: boolean) => void
@@ -1621,17 +1541,14 @@ function SectionDialog({
   }, [dialog])
   const mutation = useMutation({
     mutationFn: async () => {
-      const api = window.cypheria?.codex
-      if (!api) throw new Error("Codex is only available in the Cypheria desktop app.")
       return dialog?.mode === "edit"
-        ? api.updateThreadSection({ id: dialog.section.id, name: name.trim() })
-        : api.createThreadSection({ name: name.trim() })
+        ? sidebarData.updateSection(dialog.section.id, name.trim())
+        : sidebarData.createSection(name.trim())
     },
     onSuccess: async (section) => {
       if (dialog?.mode === "create") await onCreated(section, dialog.target)
-      await queryClient.invalidateQueries({ queryKey: ["codex", "thread-sections"] })
-      await queryClient.invalidateQueries({ queryKey: ["codex", "projects"] })
-      await queryClient.invalidateQueries({ queryKey: ["codex", "threads"] })
+      sidebarData.invalidate()
+      await queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all })
       onOpenChange(false)
     },
   })
@@ -1703,15 +1620,15 @@ function SectionDialog({
 function DeleteSectionDialog({
   section,
   onOpenChange,
-}: Readonly<{ section: CodexThreadSectionView | null; onOpenChange: (open: boolean) => void }>) {
+}: Readonly<{ section: SidebarSectionView | null; onOpenChange: (open: boolean) => void }>) {
   const queryClient = useQueryClient()
   const mutation = useMutation({
     mutationFn: async () => {
-      if (section) await window.cypheria?.codex.deleteThreadSection(section.id)
+      if (section) await sidebarData.deleteSection(section.id)
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["codex", "thread-sections"] })
-      await queryClient.invalidateQueries({ queryKey: ["codex", "threads"] })
+      sidebarData.invalidate()
+      await queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all })
       onOpenChange(false)
     },
   })

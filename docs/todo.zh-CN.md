@@ -123,6 +123,11 @@
 
 - [~] 将 desktop 迁移到 Cypheria server。
   - 验收：Electron main 确保本地 supervised server 正在运行，desktop 使用共享 protocol，并保持 Electron-only dApp/browser、secure-storage、approval、preload 与 OS-integration 边界。
+  - [x] 添加 Desktop Server Manager：复用兼容的本地 server，或启动 bundled server 并等待带版本的 readiness。
+  - [x] 将 Projects、Threads、Sections、搜索、归档、未读 notification 与 Sidebar mutation 切换到 `@cypheria/client`，同时保留现有展示模型以及直接 membership/order 语义。
+  - [x] 将 Codex 实时 turn 切换到统一 AI SDK provider，从 canonical timeline 恢复持久 history，并为 Codex 与 Pi 添加按 capability 开启的通用 steer。
+  - [~] 在泛化共享会话 shell、按 Thread agent 选择 provider 的同时，保持完整 Codex timeline 渲染等价。
+  - [ ] 在删除旧 IPC path 前，将 Agent 安装/设置、其余 Codex 配置、审批、skills、plugins、MCP、terminal 与 Web3 surface 搬到共享 server API。
   - 状态：已明确批准；在替换数据源时，把现有 Sidebar 与源自 Codex 的会话体验作为硬性验收门槛。
 
 - [x] 按 server 与 multi-client 目标架构重写文档。

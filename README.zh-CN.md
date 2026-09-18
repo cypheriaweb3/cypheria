@@ -16,7 +16,7 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 - **Relay**：Go `apps/relay` 服务和 TypeScript `@cypheria/relay` 包为同一 server protocol
   提供可选的 E2EE 远程通道。
 - **CLI 与 SDK clients**：规划中的 server protocol 产品 clients。
-- **Desktop client**：最终会在需要时自启动本地 server 并连接它。当前 desktop 实现保持不变，等新 server 通过评审后再迁移。
+- **Desktop client**：保留 Electron + TanStack Start 工作台，确保兼容的本地 server 正在运行，并通过 `@cypheria/client` 使用共享 Projects、Threads、Sections、canonical history 与实时 turn。Electron 专属 browser、secure storage、window、update 与 OS integration 仍留在本地。
 - **Marketplace**：部署在 Cloudflare Workers 上的 TanStack Start 应用，负责 ChatGPT/Codex 标准插件的提交、扫描、审核、发布、发现，并同步到 Cypheria 官方 GitHub repo marketplace。
 
 默认安全模型是人工审批。只读模式和条件自动签名都是显式策略模式。Codex 和 automation flow 可以创建 signing intent，但每个 signing intent 都必须先经过 Cypheria policy evaluation，之后才能签名或广播交易。
@@ -39,7 +39,7 @@ Cypheria V1 围绕一个 server 与多个 client 组织：
 - **Agent manager**：ACP Registry 同步、受管安装与工具链、显式 enable、生命周期 operation 和 disabled-agent 闸门
 - **Provider adapter**：内部 Codex、Claude Agent SDK、Pi RPC、OpenCode SDK 与 ACP adapter 把 provider session、event、interaction 和 history 归一为 Thread
 - **OpenCode runtime**：通过共享的 loopback OpenCode server 使用 `@opencode-ai/sdk@1.18.31` 稳定 root API 与两条 event stream
-- **Desktop agent integration**：`codex app-server` over WebSocket JSON-RPC
+- **Desktop agent integration**：通过 `@cypheria/client` 使用统一 AI SDK providers；provider process 由 server 持有
 - **Codex protocol types 与 validation**：由 `@cypheria/protocol` 持有，并通过 `pnpm --filter @cypheria/protocol generate:codex-all` 生成
 - **Marketplace hosting**：Cloudflare Workers、D1、R2、Queues 与 Workflows
 - **Web3**：viem、Privy、WalletConnect / Reown
@@ -72,12 +72,13 @@ remote @cypheria/client
   -> apps/server relay data socket
 
 apps/desktop renderer
-  -> Electron typed IPC
-  -> Electron main
-  -> @cypheria/runtime
-  -> @cypheria/codex-bridge
-  -> persistent codex app-server over WS
-  （迁移前的临时实现；本次不改动）
+  -> @cypheria/client
+  -> apps/server
+  -> canonical Agent/Thread timeline
+
+apps/desktop Electron main
+  -> 发现、复用或启动 protocol-compatible 的本地 apps/server
+  -> Electron 专属 browser、secure storage、window、update 与 OS integration
 
 apps/marketplace
   -> TanStack Start on Cloudflare Workers
@@ -90,7 +91,7 @@ apps/desktop plugins
   -> Codex App Server marketplace/add + plugin/install
 ```
 
-Desktop renderer 是产品 UI，不是特权 runtime。它通过 typed IPC 向 Electron main 请求能力。私钥、签名操作、dApp browser sessions、本地数据库访问、自动化执行和 Codex App Server 生命周期管理都留在 renderer 之外。
+Desktop renderer 是产品 UI，不是特权 runtime。共享产品数据和 agent 工作通过 Cypheria server protocol 完成；typed Electron IPC 只承载 desktop-local 能力。私钥、签名操作、dApp browser sessions、本地数据库访问、Schedules 与 provider process 都留在 renderer 之外。
 
 架构基线见 [docs/architecture.zh-CN.md](docs/architecture.zh-CN.md)，Codex Desktop permissions 设计见 [docs/codex-permissions.zh-CN.md](docs/codex-permissions.zh-CN.md)，network 与 RPC 设计见 [docs/network-management.zh-CN.md](docs/network-management.zh-CN.md)。
 
@@ -122,20 +123,15 @@ packages/sdk
 packages/client
 packages/protocol
 packages/relay
-packages/runtime
-packages/codex-bridge
-packages/acp-ai-provider
+packages/ai-sdk-provider
+packages/web3
 packages/ui
-packages/network-core
-packages/wallet-core
-packages/automation-core
-packages/wallet-provider
-packages/policy-engine
 packages/db
 ```
 
-`apps/cli`、`apps/marketplace` 和 `packages/sdk` 仍是规划中的 packages。`apps/server`、
-`apps/expo`、`packages/client`、`packages/protocol` 和 `packages/relay` 已提供 client/server 基础。协议、运维、安全与
+`apps/cli` 和 `packages/sdk` 仍是规划中的 packages。`apps/server`、`apps/desktop`、
+`apps/expo`、`apps/marketplace`、`packages/client`、`packages/protocol`、
+`packages/ai-sdk-provider` 和 `packages/relay` 已提供 client/server 基础。协议、运维、安全与
 打包约定见 [docs/server.zh-CN.md](docs/server.zh-CN.md)。
 relay 协议、安全、扩缩容、可观测性与未来多地域设计见
 [docs/relay.zh-CN.md](docs/relay.zh-CN.md)。

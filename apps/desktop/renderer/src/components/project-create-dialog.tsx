@@ -13,6 +13,7 @@ import { Trans } from "@lingui/react/macro"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Folder, FolderPlus, LoaderCircle } from "lucide-react"
 import { useEffect, useState } from "react"
+import { sidebarData, sidebarQueryKeys } from "../sidebar-data.js"
 
 export function ProjectCreateDialog({
   onCreated,
@@ -29,13 +30,9 @@ export function ProjectCreateDialog({
   const [root, setRoot] = useState("")
   const [error, setError] = useState<string | null>(null)
   const createProject = useMutation({
-    mutationFn: () => {
-      const api = window.cypheria?.codex
-      if (!api) throw new Error("Codex is only available in the Cypheria desktop app.")
-      return api.createProject({ name: name.trim(), root })
-    },
+    mutationFn: () => sidebarData.createProject(name.trim(), root),
     onSuccess: async (project) => {
-      await queryClient.invalidateQueries({ queryKey: ["codex", "projects"] })
+      await queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all })
       setName("")
       setRoot("")
       onCreated?.(project.id)

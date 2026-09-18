@@ -22,12 +22,13 @@ remote clients
   -> apps/server relay data socket
 
 apps/desktop renderer
-  -> Electron typed IPC
-  -> Electron main
-  -> @cypheria/runtime
-  -> @cypheria/codex-bridge
-  -> persistent codex app-server over WebSocket JSON-RPC
-  （等待 server 评审与迁移期间的临时实现）
+  -> @cypheria/client
+  -> apps/server
+  -> canonical Agent/Thread timeline
+
+apps/desktop Electron main
+  -> 发现、复用或启动 protocol-compatible 的本地 server
+  -> Electron 专属 browser、secure storage、window、update 与 OS integration
 
 apps/marketplace
   -> TanStack Start on Cloudflare Workers
@@ -42,7 +43,7 @@ Cypheria 有一个特权 server、多个 client、一个独立 marketplace 与�
 - `apps/expo`：第一个 Cypheria protocol client，一套代码构建 iOS、Android 与静态 web。
 - `packages/client`：Cypheria clients 共用的 WebSocket protocol driver 与能力门面；它既不持有特权 runtime，也不持有 Codex process。
 - `apps/cli` 与 `packages/sdk`：规划中的 Cypheria protocol clients。
-- `apps/desktop`：未来负责自托管 server 的 client；在 server 评审前，当前 Electron-main runtime 与 Codex ownership 刻意保持不变。
+- `apps/desktop`：自托管 server 的 Electron + TanStack Start client；Electron main 管理兼容的本地 server，renderer 使用共享 project、section、Thread 与 timeline API。
 - `apps/marketplace`：部署在 Cloudflare Workers 上的 TanStack Start 应用，负责 ChatGPT/Codex-compatible 插件的提交、扫描、审核、发布与发现，再把 approved entry 同步到 Cypheria 官方 GitHub repo marketplace。
 - `packages/runtime`：Cypheria 自有非 agent 能力的 TypeScript runtime。
 - `apps/relay`：可选的 Go gateway/worker 数据面，负责不透明远程 WebSocket 转发。
@@ -171,7 +172,7 @@ SDK 不应依赖 Electron、desktop IPC、`@cypheria/runtime` 或 `@cypheria/cod
 
 ## Desktop
 
-在当前评审阶段，Desktop 保留现有 Electron + TanStack Start 实现，本次不修改任何 desktop code。目标是由 Electron main 确保本地 Cypheria server 正在运行，再让 desktop 成为 protocol client；该迁移必须作为独立、明确评审的变更进行。
+Desktop 保留现有 Electron + TanStack Start 实现，以及源自 Codex Desktop 的视觉和交互模型。共享数据面原地迁移：Electron main 确保 protocol-compatible 的本地 Cypheria server 正在运行，renderer 通过 `@cypheria/client` 取代 provider-native 的 project、section、Thread 与 history API。
 
 ```txt
 TanStack Start Renderer
@@ -179,14 +180,13 @@ TanStack Start Renderer
   - route state
   - Jotai UI state
   - TanStack Query cache
-  - typed IPC client only
+  - @cypheria/client 访问共享 server state
+  - typed IPC 访问 Electron-only capability
 
 Electron Main Process
-  - CypheriaRuntime lifecycle
-  - Codex App Server lifecycle
-  - Codex WebSocket bridge
-  - wallet/signing/policy/database/automation services
+  - 本地 Cypheria server 发现、启动与 readiness
   - dApp WebContents/session management
+  - secure storage、window、update 与 OS integration
 ```
 
 Desktop startup：
@@ -195,20 +195,24 @@ Desktop startup：
 Electron main starts
   -> resolve CYPHERIA_HOME
   -> ensure runtime directories
-  -> start CypheriaRuntime
-  -> set CODEX_HOME=$CYPHERIA_HOME/codex
-  -> start codex app-server --listen ws://127.0.0.1:<port>
-  -> connect @cypheria/codex-bridge with initialize/initialized
+  -> probe configured local server
+  -> protocol version 兼容时复用
+  -> 否则启动 bundled server 并等待 /api/v1/ready
   -> create renderer window
 ```
 
 Renderer 规则：
 
-- Renderer 只使用 typed IPC。
+- Renderer 使用 `@cypheria/client` 访问共享产品与 Agent/Thread state。
+- Renderer 只通过 typed IPC 访问 Electron-local capability。
 - Renderer 不访问 Node.js APIs。
 - Renderer 不访问私钥、raw filesystem services、Codex WebSocket 或 dApp internals。
 - Renderer 将 preload capabilities 视为唯一 privileged bridge。
-- Renderer 通过 typed `codex.event` IPC channel 接收 Codex lifecycle、stderr、notification 和 server-request summaries。
+- Renderer 从 canonical timeline 读取持久 history，并通过统一 AI SDK providers 消费实时 turn。
+
+保留的 Sidebar 展示模型现在直接接收 Cypheria API 的 `ProjectView`、`ThreadView` 与 `SectionView`。Section 归属、Project 嵌套、Pinned state、排序、分页、归档、Fork、重命名与移动不再从 Codex metadata 推断。现有 Pinned、自定义 Sections、Projects、Recents 层级，以及 virtualization、渐进展示、菜单、键盘行为、未读状态和带回滚的乐观更新继续作为 UI 基线。
+
+保留的会话 scope 继续持有草稿、附件、缓存的 `Chat`、虚拟列表、滚动恢复与导航连续性。Codex 实时 turn 使用 `@cypheria/ai-sdk-provider/codex`；持久 history 从 server-owned canonical timeline 恢复。通用 message、reasoning、tool、command、diff、plan、approval、artifact、status 与 error item 复用同一 renderer。运行中 steer 是按 capability 开启的通用 Thread operation：Codex 映射到 App Server steer，Pi 映射到 Pi RPC，不支持的 provider 明确拒绝。
 
 Desktop 的信息架构以对话为中心。新对话和搜索固定在常驻左侧导航顶部；待审批、钱包、自动化、signing policies、audit logs、plugins 与 skills 则和可折叠的 Pinned、自定义分组、Projects、Recents 共用同一个虚拟滚动区域。侧栏菜单会持久化 Pinned 与普通对话各自的排序选择，并可在按项目组织和把全部对话合并到 Recents 的单列表模式之间切换。自定义分组通过 typed IPC 使用 experimental App Server 的 `threadSection/*` 生命周期与 `thread/section/move` 方法；从分组入口启动的新对话在 App Server 创建持久 thread 后立即移入该分组。会话条目菜单遵循应用包的分组顺序：重命名、置顶/取消置顶、已读状态与归档位于首组，之后依次是项目、分区、复制与 Fork。项目菜单支持置顶、编辑、分区归属、在访达中显示、按需出现的全部标为已读、批量归档会话与移除；每个项目行把新建会话作为独立的 hover/focus 快捷操作，而不是菜单项。项目位置通过 Cypheria 命名空间的 App Server project metadata 持久化；在访达中显示时，由 Electron main 根据 project ID 解析目录，不接受 renderer 传入的路径。分区菜单支持编辑、确认归档直接会话及所含项目中的全部会话，以及确认删除。Projects 直接来自 App Server `project/list`，因此没有对话的项目也可见；renderer-safe IPC 支持项目创建、重命名、删除，以及由 main process 承载的目录选择器。新对话可以选择项目，并把项目的 `projectId` 和第一个 root 作为 `cwd` 传给 `thread/start`。Pinned 与一级项目仅在用户明确点击 Show more 后再展示 5 条；展开后的每个项目也以每次 5 个对话的方式渐进展示。Recents 不设置展示数量上限，其末尾加载行进入视口时会获取下一页 App Server cursor。待审批入口会显示尚未决议的 signing approvals 实时数量。对话工作区将 AI Elements conversation 与 composer 放在主区域，提供 project、model、reasoning、sandbox 和 wallet-context 控件，右侧是 context/files/review/terminal 面板；该面板宽度以工作台实际可用空间为基准约束，而不是以整个 viewport 为基准。App Server 的 `fileChange` 与 `commandExecution` tool parts 会同时驱动实时对话和已恢复对话的右侧面板：Files 为每个变化路径保留最新状态，Review 渲染已记录的 unified diff 并提供复制操作，Terminal 则渲染每条命令的 ANSI 输出、流式状态和退出状态。进入 Settings 后，工作台左侧导航会替换为“个人”“集成”“编码”和“已归档”分组，并保留返回工作台入口。设置导航支持搜索和 `Cmd/Ctrl+F` 聚焦；通用、外观、连接、插件、配置、模型与已归档聊天都是独立路由。已归档聊天使用 App Server 的会话列表、取消归档和删除方法来完成搜索、恢复和永久删除。所有设置页都由完整的右侧内容面板承载滚动，因此滚动条保持在窗口最右侧。ChatGPT 的账户、个性化、通知投递、语音、存储和更新器控制目前明确暂缓，因为它们依赖 Codex App Server 未暴露的 ChatGPT 服务或应用自有能力。
 

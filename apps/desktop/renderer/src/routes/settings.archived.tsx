@@ -17,8 +17,8 @@ import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tansta
 import { createFileRoute } from "@tanstack/react-router"
 import { Folder, LoaderCircle, RotateCcw, Search, Trash2 } from "lucide-react"
 import { useDeferredValue, useMemo, useState } from "react"
-import type { CodexThreadView } from "../../../ipc/src/index.js"
 import { SettingsFrame } from "../components/settings-frame"
+import { type SidebarThreadView, sidebarData, sidebarQueryKeys } from "../sidebar-data.js"
 
 export const Route = createFileRoute("/settings/archived")({ component: ArchivedSettingsRoute })
 
@@ -29,25 +29,24 @@ function ArchivedSettingsRoute() {
   const queryClient = useQueryClient()
   const [query, setQuery] = useState("")
   const searchTerm = useDeferredValue(query.trim())
-  const [deletingThread, setDeletingThread] = useState<CodexThreadView | null>(null)
+  const [deletingThread, setDeletingThread] = useState<SidebarThreadView | null>(null)
   const archivedQuery = useInfiniteQuery({
     initialPageParam: null as string | null,
-    queryKey: ["codex", "threads", "archived", searchTerm],
-    queryFn: async ({ pageParam }) =>
-      window.cypheria?.codex.listThreads({
+    queryKey: sidebarQueryKeys.threads("archived", searchTerm),
+    queryFn: ({ pageParam }) =>
+      sidebarData.listThreads({
         archived: true,
         cursor: pageParam,
         limit: PAGE_SIZE,
         searchTerm: searchTerm || undefined,
         sortDirection: "desc",
         sortKey: "updated_at",
-      }) ?? { data: [], nextCursor: null },
+      }),
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
   })
   const projectsQuery = useQuery({
-    queryFn: () =>
-      window.cypheria?.codex.listProjects({ limit: 100 }) ?? { data: [], nextCursor: null },
-    queryKey: ["codex", "projects"],
+    queryFn: () => sidebarData.listProjects(),
+    queryKey: sidebarQueryKeys.projects(),
   })
   const projectNames = useMemo(
     () => new Map(projectsQuery.data?.data.map((project) => [project.id, project.name]) ?? []),
@@ -55,24 +54,22 @@ function ArchivedSettingsRoute() {
   )
   const threads = archivedQuery.data?.pages.flatMap((page) => page.data) ?? []
   const restore = useMutation({
-    mutationFn: async (thread: CodexThreadView) => {
-      if (!window.cypheria) throw new Error("Archived chats are only available in the desktop app.")
-      await window.cypheria.codex.unarchiveThread(thread.id)
+    mutationFn: async (thread: SidebarThreadView) => {
+      await sidebarData.unarchiveThread(thread.id)
       return thread
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["codex", "threads"] })
+      await queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all })
     },
   })
   const remove = useMutation({
-    mutationFn: async (thread: CodexThreadView) => {
-      if (!window.cypheria) throw new Error("Archived chats are only available in the desktop app.")
-      await window.cypheria.codex.deleteThread(thread.id)
+    mutationFn: async (thread: SidebarThreadView) => {
+      await sidebarData.deleteThread(thread.id)
       return thread
     },
     onSuccess: async () => {
       setDeletingThread(null)
-      await queryClient.invalidateQueries({ queryKey: ["codex", "threads"] })
+      await queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all })
     },
   })
   const error = archivedQuery.error ?? restore.error ?? remove.error

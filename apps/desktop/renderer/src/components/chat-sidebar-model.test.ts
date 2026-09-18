@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import type { CodexProjectView, CodexThreadView } from "../../../ipc/src/index.js"
+import type { SidebarProjectView, SidebarThreadView } from "../sidebar-data.js"
 import {
   buildChatSidebarRows,
   groupProjectThreads,
@@ -11,10 +11,10 @@ const thread = (
   id: string,
   projectId: string | null = null,
   updatedAt = Number(id.replace(/\D/g, "")) || 0
-): CodexThreadView => ({
+): SidebarThreadView => ({
+  agentId: "codex",
   cwd: "/work",
   id,
-  modelProvider: "openai",
   projectId,
   sectionId: null,
   sectionName: null,
@@ -110,11 +110,11 @@ describe("chat sidebar row model", () => {
         {
           createdAt: 1,
           id: "project-a",
-          metadata: {},
           name: "Cypheria",
           position: 0,
           recencyAt: null,
           roots: ["/work/cypheria"],
+          sectionId: null,
           updatedAt: 1,
         },
       ]
@@ -163,25 +163,25 @@ describe("chat sidebar row model", () => {
   })
 
   it("renders pinned and sectioned projects with their nested chats", () => {
-    const projects: CodexProjectView[] = [
+    const projects: SidebarProjectView[] = [
       {
         createdAt: 1,
         id: "pinned-project",
-        metadata: { "cypheria.sidebar.pinned": "true" },
         name: "Pinned project",
         position: 0,
         recencyAt: 2,
         roots: ["/work/pinned"],
+        sectionId: "01984de2-8f74-7c91-a3b2-5c5e937cf318",
         updatedAt: 2,
       },
       {
         createdAt: 1,
         id: "section-project",
-        metadata: { "cypheria.sidebar.sectionId": "section-1" },
         name: "Section project",
         position: 1,
         recencyAt: 1,
         roots: ["/work/section"],
+        sectionId: "section-1",
         updatedAt: 1,
       },
     ]

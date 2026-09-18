@@ -3,7 +3,20 @@ import { defineConfig } from "tsdown"
 export default defineConfig({
   clean: true,
   deps: {
-    alwaysBundle: [/^@cypheria\//],
+    alwaysBundle: [
+      /^@agentclientprotocol\//,
+      /^@anthropic-ai\//,
+      /^@cypheria\//,
+      /^@earendil-works\//,
+      /^@hono\//,
+      /^@opencode-ai\//,
+      "extract-zip",
+      "hono",
+      "pino",
+      "tar",
+      "ws",
+      "zod",
+    ],
     neverBundle: ["@libsql/client", /^@libsql\//, "libsql"],
     onlyBundle: false,
   },

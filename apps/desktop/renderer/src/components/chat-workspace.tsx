@@ -1,4 +1,5 @@
 import { useChat } from "@ai-sdk/react"
+import { type ThreadInteraction, ThreadTimelineItemSchema } from "@cypheria/protocol"
 import {
   Attachment,
   AttachmentInfo,
@@ -138,14 +139,17 @@ import type {
   CodexUiMessage,
   WalletActiveContext,
 } from "../../../ipc/src/index.js"
+import { canonicalInteractionToView, readCypheriaThreadDetail } from "../canonical-chat.js"
 import {
   acquireCodexChatThreadScope,
   type CodexChatThreadScopeBindings,
   mountCodexChatThreadScope,
 } from "../chat-thread-scope.js"
 import { type CodexChatOptions, interruptActiveCodexTurns } from "../codex-chat.js"
+import { ensureCypheriaClient } from "../cypheria-client.js"
 import { codexMarkdownUrlTransform } from "../generated-image-url.js"
 import { Route } from "../routes/index"
+import { sidebarData, sidebarQueryKeys } from "../sidebar-data.js"
 import { composerMediaCapabilities } from "./chat-composer"
 import { newChatRevisionAtom } from "./chat-navigation"
 import {
@@ -329,12 +333,8 @@ function ChatSession({
   const threadScroll = useThreadScrollController(scrollStateKey)
   const threadQuery = useQuery({
     enabled: Boolean(resumeThreadId),
-    queryFn: () => {
-      const api = window.cypheria?.codex
-      if (!api || !resumeThreadId) throw new Error("Codex thread is unavailable.")
-      return api.readThread(resumeThreadId)
-    },
-    queryKey: ["codex", "thread", resumeThreadId],
+    queryFn: () => readCypheriaThreadDetail(resumeThreadId as string),
+    queryKey: ["cypheria", "thread", resumeThreadId],
   })
   const modelSettingsQuery = useQuery({
     queryFn: () => window.cypheria?.codex.getModelSettings(),
@@ -355,9 +355,8 @@ function ChatSession({
     staleTime: Number.POSITIVE_INFINITY,
   })
   const projectsQuery = useQuery({
-    queryFn: () =>
-      window.cypheria?.codex.listProjects({ limit: 100 }) ?? { data: [], nextCursor: null },
-    queryKey: ["codex", "projects"],
+    queryFn: () => sidebarData.listProjects(),
+    queryKey: sidebarQueryKeys.projects(),
   })
   const activeWalletQuery = useQuery({
     queryFn: () => window.cypheria?.wallet.getActive(),
@@ -377,6 +376,9 @@ function ChatSession({
   )
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [attachmentError, setAttachmentError] = useState<string | null>(null)
+  const [queuedFollowUps, setQueuedFollowUps] = useState<
+    Array<{ files: PromptInputFile[]; text: string }>
+  >([])
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleOverride, setTitleOverride] = useState<string | null>(null)
   const [titleDraft, setTitleDraft] = useState("")
@@ -387,7 +389,9 @@ function ChatSession({
   const [permissionSelection, setPermissionSelection] = useState<CodexPermissionSelection | null>(
     null
   )
-  const [interactions, setInteractions] = useState<CodexInteractionEvent[]>([])
+  const [pendingInteractions, setPendingInteractions] = useState<
+    Array<{ interaction: ThreadInteraction; threadId: string }>
+  >([])
   const [autoReviews, setAutoReviews] = useState<AutoReviewView[]>([])
   const [strictReviewTurns, setStrictReviewTurns] = useState<Set<string>>(() => new Set())
   const [createdThreadId, setCreatedThreadId] = useState<string | null>(null)
@@ -427,6 +431,7 @@ function ChatSession({
     provider,
     reasoningEffort: selectedReasoning,
     resumeThreadId,
+    sectionId: initialSectionId,
     permissionSelection:
       resumeThreadId && !permissionSelection ? undefined : effectivePermissionSelection,
     serviceTier: settings?.serviceTier ?? undefined,
@@ -436,14 +441,17 @@ function ChatSession({
     onFinish: ({ message, messages: finishedMessages }) => {
       const threadId = threadIdFromMessage(message) ?? resumeThreadId
       if (!threadId) return
-      queryClient.setQueryData<CodexThreadDetailView>(["codex", "thread", threadId], (detail) => {
-        if (!detail) return detail
-        return {
-          ...detail,
-          messages: finishedMessages as unknown as CodexThreadDetailView["messages"],
+      queryClient.setQueryData<CodexThreadDetailView>(
+        ["cypheria", "thread", threadId],
+        (detail) => {
+          if (!detail) return detail
+          return {
+            ...detail,
+            messages: finishedMessages as unknown as CodexThreadDetailView["messages"],
+          }
         }
-      })
-      void queryClient.invalidateQueries({ queryKey: ["codex", "threads"] })
+      )
+      void queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all })
     },
     onThreadCreated: (threadId) => {
       if (!chatScopeMounted.current || resumeThreadId) return
@@ -457,6 +465,15 @@ function ChatSession({
   const { error, messages, sendMessage, setMessages, status, stop } = useChat<CodexUiMessage>({
     chat: chatScope.chat,
   })
+  useEffect(() => {
+    if (status !== "ready") return
+    const next = queuedFollowUps[0]
+    if (!next) return
+    setQueuedFollowUps((current) => current.slice(1))
+    void sendMessage(next).catch((reason: unknown) => {
+      setAttachmentError(reason instanceof Error ? reason.message : String(reason))
+    })
+  }, [queuedFollowUps, sendMessage, status])
   const workspaceArtifacts = useMemo(() => deriveChatWorkspaceArtifacts(messages), [messages])
   const activeTurnProgress = useMemo(() => {
     const activeMessage = messages.findLast((message) =>
@@ -492,8 +509,13 @@ function ChatSession({
       (current, message) => threadIdFromMessage(message) ?? current,
       null
     )
-  const activeThreadIdRef = useRef(activeThreadId)
-  activeThreadIdRef.current = activeThreadId
+  const interactions = useMemo(
+    () =>
+      pendingInteractions.map(({ interaction, threadId }) =>
+        canonicalInteractionToView(interaction, threadId)
+      ),
+    [pendingInteractions]
+  )
   const unboundInteractions = interactions.filter(
     (interaction) => !interaction.turnId || !visibleTurnIds.has(interaction.turnId)
   )
@@ -538,20 +560,12 @@ function ChatSession({
     threadScroll.adoptStateKey(threadId)
     onThreadAdopted(threadId)
     void (async () => {
-      if (initialSectionId) {
-        await window.cypheria?.codex.moveThreadToSection({
-          sectionId: initialSectionId,
-          threadId,
-        })
-        void queryClient.invalidateQueries({ queryKey: ["codex", "thread-sections"] })
-      }
-      void queryClient.invalidateQueries({ queryKey: ["codex", "threads"] })
-      void queryClient.invalidateQueries({ queryKey: ["codex", "projects"] })
+      sidebarData.invalidate()
+      void queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all })
       await navigate({ replace: true, search: { thread: threadId } })
     })()
   }, [
     createdThreadId,
-    initialSectionId,
     navigate,
     onThreadAdopted,
     queryClient,
@@ -570,7 +584,7 @@ function ChatSession({
         null
       )
     if (!threadId) return
-    queryClient.setQueryData<CodexThreadDetailView>(["codex", "thread", threadId], (detail) =>
+    queryClient.setQueryData<CodexThreadDetailView>(["cypheria", "thread", threadId], (detail) =>
       detail
         ? {
             ...detail,
@@ -578,56 +592,58 @@ function ChatSession({
           }
         : detail
     )
-    void queryClient.invalidateQueries({ queryKey: ["codex", "thread", threadId] })
-    void queryClient.invalidateQueries({ queryKey: ["codex", "threads"] })
+    void queryClient.invalidateQueries({ queryKey: ["cypheria", "thread", threadId] })
+    void queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all })
   }, [messages, queryClient, resumeThreadId, setMessages, stop])
 
   useEffect(() => {
-    const api = window.cypheria?.codex
-    if (!api) return
+    if (!activeThreadId) {
+      setPendingInteractions([])
+      return
+    }
     let disposed = false
-    const belongsToCurrentThread = (interaction: CodexInteractionEvent) =>
-      interaction.threadId === null || interaction.threadId === activeThreadIdRef.current
-    const mergeInteractions = (incoming: readonly CodexInteractionEvent[]) => {
-      setInteractions((current) => {
-        const next = [...current]
+    const merge = (threadId: string, incoming: readonly ThreadInteraction[]) => {
+      if (disposed || threadId !== activeThreadId) return
+      setPendingInteractions((current) => {
+        const next = current.filter((item) => item.threadId === threadId)
         for (const interaction of incoming) {
-          if (!next.some((item) => item.interactionId === interaction.interactionId)) {
-            next.push(interaction)
+          if (!next.some((item) => item.interaction.id === interaction.id)) {
+            next.push({ interaction, threadId })
           }
         }
         return next
       })
     }
-    const unsubscribe = api.onInteraction((interaction) => {
-      if (belongsToCurrentThread(interaction)) mergeInteractions([interaction])
-    })
-    void api
-      .listInteractions()
-      .then((pending) => {
-        if (!disposed) mergeInteractions(pending.filter(belongsToCurrentThread))
+    let unsubscribeRequested: () => void = () => undefined
+    let unsubscribeResolved: () => void = () => undefined
+    void ensureCypheriaClient()
+      .then(async (client) => {
+        if (disposed) return
+        unsubscribeRequested = client.on("thread.interaction.requested.notification", (message) =>
+          merge(message.payload.threadId, [message.payload.interaction])
+        )
+        unsubscribeResolved = client.on("thread.interaction.resolved.notification", (message) => {
+          if (message.payload.threadId !== activeThreadId) return
+          setPendingInteractions((current) =>
+            current.filter((item) => item.interaction.id !== message.payload.interactionId)
+          )
+        })
+        const thread = await client.threads.get(activeThreadId)
+        merge(activeThreadId, thread.pendingInteractions)
       })
       .catch(() => undefined)
     return () => {
       disposed = true
-      unsubscribe()
+      unsubscribeRequested()
+      unsubscribeResolved()
     }
-  }, [])
+  }, [activeThreadId])
 
   useEffect(() => {
     const api = window.cypheria?.codex
     if (!api) return
     return api.onEvent((event) => {
       if (event.event !== "codex.notification" || !("method" in event.payload)) return
-      if (event.payload.method === "serverRequest/resolved") {
-        const params = jsonObject(event.payload.params)
-        if (typeof params.requestId === "string" || typeof params.requestId === "number") {
-          setInteractions((current) =>
-            current.filter((interaction) => interaction.serverRequestId !== params.requestId)
-          )
-        }
-        return
-      }
       if (event.payload.method === "autoApprovalReview/strictReviewRequired") {
         const params = jsonObject(event.payload.params)
         if (typeof params.turnId === "string") {
@@ -757,18 +773,68 @@ function ChatSession({
   }, [toggleBottomPanel, toggleTerminalPanel])
 
   const resolveInteraction = async (response: CodexInteractionResponse) => {
-    await window.cypheria?.codex.respondToInteraction(response)
-    setInteractions((current) =>
-      current.filter((item) => item.interactionId !== response.interactionId)
+    const pending = pendingInteractions.find(
+      ({ interaction }) => interaction.id === response.interactionId
+    )
+    if (!pending) return
+    const { interaction, threadId } = pending
+    const client = await ensureCypheriaClient()
+    const canonicalResponse = (() => {
+      if (response.action === "cancel") return { type: "cancel" as const }
+      if (interaction.kind === "permission") {
+        return {
+          outcome:
+            response.action === "accept-for-session"
+              ? ("allow_always" as const)
+              : response.action === "accept"
+                ? ("allow_once" as const)
+                : ("deny" as const),
+          type: "permission" as const,
+        }
+      }
+      if (interaction.kind === "question") {
+        if (interaction.questions?.length) {
+          return {
+            answers: interaction.questions.map(
+              (_, index) => response.answers?.[String(index)] ?? []
+            ),
+            type: "answers" as const,
+          }
+        }
+        const value = response.answers?.["0"]?.[0] ?? ""
+        const option = interaction.options.find(
+          (candidate) => candidate.id === value || candidate.label === value
+        )
+        return option
+          ? { optionId: option.id, type: "selection" as const }
+          : { type: "text" as const, value }
+      }
+      return {
+        type: "text" as const,
+        value:
+          typeof response.content === "string"
+            ? response.content
+            : JSON.stringify(response.content ?? null),
+      }
+    })()
+    await client.threads.respondToInteraction({
+      interactionId: interaction.id,
+      response: canonicalResponse,
+      threadId,
+    })
+    setPendingInteractions((current) =>
+      current.filter((item) => item.interaction.id !== response.interactionId)
     )
   }
 
   const forkFromTurn = async (turnId: string) => {
+    void turnId
     if (!resumeThreadId) return
-    const fork = await window.cypheria?.codex.forkThread(resumeThreadId, turnId)
-    if (!fork) return
-    void queryClient.invalidateQueries({ queryKey: ["codex", "threads"] })
-    await navigate({ search: { thread: fork.threadId } })
+    const client = await ensureCypheriaClient()
+    const fork = await client.threads.fork({ threadId: resumeThreadId })
+    sidebarData.invalidate()
+    void queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all })
+    await navigate({ search: { thread: fork.thread.id } })
   }
 
   const commitTitle = async () => {
@@ -776,11 +842,10 @@ function ChatSession({
     setEditingTitle(false)
     if (!resumeThreadId || !name || name === displayedTitle) return
     try {
-      const result = await window.cypheria?.codex.renameThread(resumeThreadId, name)
-      if (!result?.renamed) return
+      await sidebarData.renameThread(resumeThreadId, name)
       setTitleOverride(name)
-      void queryClient.invalidateQueries({ queryKey: ["codex", "threads"] })
-      void queryClient.invalidateQueries({ queryKey: ["codex", "thread", resumeThreadId] })
+      void queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all })
+      void queryClient.invalidateQueries({ queryKey: ["cypheria", "thread", resumeThreadId] })
     } catch {
       setTitleDraft(displayedTitle)
     }
@@ -804,13 +869,7 @@ function ChatSession({
       void (async () => {
         try {
           if (mode === "queue") {
-            if (!resumeThreadId)
-              throw new Error("Wait for this new chat to finish before queueing.")
-            await window.cypheria?.codex.queueThreadMessage(
-              resumeThreadId,
-              crypto.randomUUID(),
-              followUp
-            )
+            setQueuedFollowUps((current) => [...current, { files, text: value }])
           } else {
             await transport.steer(followUp)
           }
@@ -2080,12 +2139,14 @@ function ChatMessage({
             )
           }
           if (part.type === "custom") {
-            const item = part.providerMetadata?.["cypheria.codex"]?.item
+            const item =
+              part.providerMetadata?.cypheria?.item ??
+              part.providerMetadata?.["cypheria.codex"]?.item
             const itemId =
               typeof item === "object" && item !== null && "id" in item
                 ? String(item.id)
                 : part.kind
-            return <CodexCustomPart key={`${message.id}-custom-${itemId}`} part={part} />
+            return <CanonicalTimelinePart key={`${message.id}-custom-${itemId}`} part={part} />
           }
           return null
         })}
@@ -2143,11 +2204,103 @@ function codexFilePartId(messageId: string, part: FileUIPart | ReasoningFileUIPa
   return `${messageId}-file-${typeof itemId === "string" ? itemId : part.url}`
 }
 
-function CodexCustomPart({ part }: Readonly<{ part: CustomContentUIPart }>) {
-  const item = part.providerMetadata?.["cypheria.codex"]?.item
+function CanonicalTimelinePart({ part }: Readonly<{ part: CustomContentUIPart }>) {
+  const item =
+    part.providerMetadata?.cypheria?.item ?? part.providerMetadata?.["cypheria.codex"]?.item
+  const canonical = ThreadTimelineItemSchema.safeParse(item)
+  if (canonical.success) {
+    const timelineItem = canonical.data
+    if (timelineItem.type === "command") {
+      return (
+        <Task defaultOpen={timelineItem.status === "running"}>
+          <TaskTrigger title={`$ ${timelineItem.command}`} />
+          <TaskContent>
+            {timelineItem.cwd ? <TaskItem>{timelineItem.cwd}</TaskItem> : null}
+            <CodeBlock code={timelineItem.output} language="shellscript">
+              <CodeBlockHeader>
+                <CodeBlockTitle>
+                  <TerminalSquare size={14} />
+                  <CodeBlockFilename>{timelineItem.command}</CodeBlockFilename>
+                </CodeBlockTitle>
+                <CodeBlockActions>
+                  <Badge variant="outline">{timelineItem.status}</Badge>
+                  <CodeBlockCopyButton aria-label="Copy output" title="Copy output" />
+                </CodeBlockActions>
+              </CodeBlockHeader>
+            </CodeBlock>
+          </TaskContent>
+        </Task>
+      )
+    }
+    if (timelineItem.type === "diff") {
+      return (
+        <Task defaultOpen={false}>
+          <TaskTrigger
+            title={`${timelineItem.changes.length} changed ${timelineItem.changes.length === 1 ? "file" : "files"}`}
+          />
+          <TaskContent>
+            {timelineItem.changes.map((change) => (
+              <CodeBlock code={change.diff} key={change.path} language="diff">
+                <CodeBlockHeader>
+                  <CodeBlockTitle>
+                    <FileDiff size={14} />
+                    <CodeBlockFilename>{change.path}</CodeBlockFilename>
+                  </CodeBlockTitle>
+                  <CodeBlockActions>
+                    <Badge variant="outline">{change.kind}</Badge>
+                    <CodeBlockCopyButton aria-label="Copy diff" title="Copy diff" />
+                  </CodeBlockActions>
+                </CodeBlockHeader>
+              </CodeBlock>
+            ))}
+          </TaskContent>
+        </Task>
+      )
+    }
+    if (timelineItem.type === "plan") {
+      return (
+        <Task defaultOpen={timelineItem.entries.some((entry) => entry.status !== "completed")}>
+          <TaskTrigger title="Plan" />
+          <TaskContent>
+            {timelineItem.entries.map((entry) => (
+              <TaskItem key={`${timelineItem.itemId}-${entry.status}-${entry.text}`}>
+                <Badge variant="outline">{entry.status.replace("_", " ")}</Badge>
+                <span>{entry.text}</span>
+              </TaskItem>
+            ))}
+          </TaskContent>
+        </Task>
+      )
+    }
+    if (timelineItem.type === "approval") {
+      return (
+        <Task defaultOpen={timelineItem.decision === "pending"}>
+          <TaskTrigger title={timelineItem.title ?? "Approval"} />
+          <TaskContent>
+            <TaskItem>
+              <Badge variant="outline">{timelineItem.decision}</Badge>
+              <span>{timelineItem.message}</span>
+            </TaskItem>
+          </TaskContent>
+        </Task>
+      )
+    }
+    if (timelineItem.type === "status" || timelineItem.type === "error") {
+      return (
+        <Task defaultOpen={timelineItem.type === "error"}>
+          <TaskTrigger title={timelineItem.type === "error" ? timelineItem.code : "Status"} />
+          <TaskContent>
+            <TaskItem>{timelineItem.message}</TaskItem>
+          </TaskContent>
+        </Task>
+      )
+    }
+  }
   return (
     <Task defaultOpen={false}>
-      <TaskTrigger title={part.kind.replace("cypheria.codex-", "Codex: ")} />
+      <TaskTrigger
+        title={part.kind.replace("cypheria.codex-", "Codex: ").replace("cypheria.", "Cypheria: ")}
+      />
       <TaskContent>
         <TaskItem className="whitespace-pre-wrap break-all font-mono text-xs">
           {item === undefined ? part.kind : JSON.stringify(item, null, 2)}

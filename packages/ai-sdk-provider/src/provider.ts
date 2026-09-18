@@ -388,12 +388,14 @@ export class CypheriaAgentLanguageModel implements LanguageModelV4 {
   async doStream(options: LanguageModelV4CallOptions): Promise<LanguageModelV4StreamResult> {
     const settings = this.#settings
     const mode = settings.threadMode ?? "persistent"
+    const includeHistory =
+      mode === "ephemeral" || (!this.#persistentThreadId && this.#turnCount === 0)
     const thread = await this.#ensureThread(mode)
     const clientMessageId =
       typeof globalThis.crypto?.randomUUID === "function"
         ? globalThis.crypto.randomUUID()
         : `message-${Date.now()}-${Math.random().toString(36).slice(2)}`
-    const content = promptToBlocks(options.prompt, mode === "ephemeral" || this.#turnCount === 0)
+    const content = promptToBlocks(options.prompt, includeHistory)
     const state: StreamState = {
       emittedToolCalls: new Set(),
       emittedToolResults: new Set(),

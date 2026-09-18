@@ -8,6 +8,7 @@ import {
   ThreadTimelineGetRequestSchema,
   ThreadTimelineItemSchema,
   ThreadTimelinePageSchema,
+  ThreadTurnSteerRequestSchema,
   ThreadViewSchema,
 } from "./index.ts"
 
@@ -25,6 +26,7 @@ describe("thread protocol", () => {
         fork: true,
         promptContent: ["text"],
         providerExtensions: true,
+        steer: true,
       },
       createdAt: 1,
       cwd: "/tmp/project",
@@ -100,6 +102,20 @@ describe("thread protocol", () => {
       answers: [["TypeScript"], ["Vitest", "Playwright"]],
       type: "answers",
     })
+  })
+
+  test("validates active-turn steering as a common thread request", () => {
+    expect(
+      ThreadTurnSteerRequestSchema.parse({
+        payload: {
+          clientMessageId: "message-2",
+          content: [{ text: "adjust", type: "text" }],
+          threadId: "01996a3a-bcde-7000-8000-000000000001",
+        },
+        requestId: "request-1",
+        type: "thread.turn.steer.request",
+      })
+    ).toMatchObject({ payload: { clientMessageId: "message-2" } })
   })
 
   test("validates the shared rich timeline surface and provider extensions", () => {

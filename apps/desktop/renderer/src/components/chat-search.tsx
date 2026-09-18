@@ -23,6 +23,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { MessageSquare, Search } from "lucide-react"
 import { useEffect, useState } from "react"
+import { sidebarData, sidebarQueryKeys } from "../sidebar-data.js"
 
 export function ChatSearch() {
   const { i18n } = useLingui()
@@ -75,12 +76,8 @@ function ChatSearchCommands({ onSelect }: Readonly<{ onSelect: (thread: string) 
   }, [input])
 
   const results = useQuery({
-    queryKey: ["codex", "threads", "search", searchTerm],
-    queryFn: () =>
-      window.cypheria?.codex.listThreads({
-        limit: 100,
-        ...(searchTerm ? { searchTerm } : {}),
-      }) ?? { data: [], nextCursor: null },
+    queryKey: sidebarQueryKeys.threads("search", searchTerm),
+    queryFn: () => sidebarData.listThreads({ limit: 100, searchTerm }),
   })
   const waiting = input.trim() !== searchTerm || results.isPending
   const threads = results.data?.data ?? []

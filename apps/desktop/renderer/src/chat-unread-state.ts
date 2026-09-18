@@ -1,3 +1,5 @@
+import type { ServerMessage } from "@cypheria/protocol"
+
 const UNREAD_THREAD_STORAGE_KEY = "cypheria.unread-thread-ids-v1"
 const MAX_UNREAD_THREAD_IDS = 1_000
 
@@ -104,26 +106,23 @@ type UnreadThreadMutation = Readonly<{
   threadId: string
 }>
 
-const objectValue = (value: unknown): Record<string, unknown> | null =>
-  typeof value === "object" && value !== null ? (value as Record<string, unknown>) : null
-
-export const unreadThreadMutationFromCodexEvent = (
-  event: unknown,
+export const unreadThreadMutationFromServerMessage = (
+  event: ServerMessage,
   activeThreadId?: string
 ): UnreadThreadMutation | null => {
-  const envelope = objectValue(event)
-  const payload = objectValue(envelope?.payload)
-  if (envelope?.event !== "codex.notification" || typeof payload?.method !== "string") return null
-  const params = objectValue(payload.params)
-  if (typeof params?.threadId !== "string") return null
-
-  if (payload.method === "turn/completed")
+  if (
+    event.type === "thread.timeline.appended.notification" &&
+    event.payload.row.item.type === "message" &&
+    event.payload.row.item.role === "assistant"
+  )
     return {
-      action: params.threadId === activeThreadId ? "read" : "unread",
-      threadId: params.threadId,
+      action: event.payload.threadId === activeThreadId ? "read" : "unread",
+      threadId: event.payload.threadId,
     }
-  if (payload.method === "thread/archived" || payload.method === "thread/deleted")
-    return { action: "read", threadId: params.threadId }
+  if (event.type === "thread.deleted.notification")
+    return { action: "read", threadId: event.payload.threadId }
+  if (event.type === "thread.updated.notification" && event.payload.archivedAt !== null)
+    return { action: "read", threadId: event.payload.id }
   return null
 }
 

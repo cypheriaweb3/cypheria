@@ -37,6 +37,7 @@ export const ThreadCapabilitiesSchema = z.object({
   fork: z.boolean(),
   promptContent: z.array(ThreadPromptContentTypeSchema),
   providerExtensions: z.boolean(),
+  steer: z.boolean(),
 })
 export type ThreadCapabilities = z.infer<typeof ThreadCapabilitiesSchema>
 
@@ -392,6 +393,14 @@ export const ThreadTurnStartRequestSchema = request(
     threadId: ProjectThreadIdSchema,
   })
 )
+export const ThreadTurnSteerRequestSchema = request(
+  "thread.turn.steer.request",
+  z.object({
+    clientMessageId: z.string().min(1),
+    content: z.array(ThreadInputBlockSchema).min(1),
+    threadId: ProjectThreadIdSchema,
+  })
+)
 export const ThreadTurnCancelRequestSchema = request(
   "thread.turn.cancel.request",
   z.object({ threadId: ProjectThreadIdSchema, turnId: z.string().min(1).optional() })
@@ -450,6 +459,10 @@ export const ThreadUnarchiveResponseSchema = response("thread.unarchive.response
 export const ThreadDeleteResponseSchema = response("thread.delete.response", emptySchema)
 export const ThreadTurnStartResponseSchema = response(
   "thread.turn.start.response",
+  z.object({ thread: ThreadViewSchema, turnId: z.string().min(1) })
+)
+export const ThreadTurnSteerResponseSchema = response(
+  "thread.turn.steer.response",
   z.object({ thread: ThreadViewSchema, turnId: z.string().min(1) })
 )
 export const ThreadTurnCancelResponseSchema = response(
@@ -530,6 +543,7 @@ export const THREAD_CLIENT_SCHEMAS = [
   ThreadUnarchiveRequestSchema,
   ThreadDeleteRequestSchema,
   ThreadTurnStartRequestSchema,
+  ThreadTurnSteerRequestSchema,
   ThreadTurnCancelRequestSchema,
   ThreadTimelineGetRequestSchema,
   ThreadConfigUpdateRequestSchema,
@@ -550,6 +564,7 @@ export const THREAD_SERVER_SCHEMAS = [
   ThreadUnarchiveResponseSchema,
   ThreadDeleteResponseSchema,
   ThreadTurnStartResponseSchema,
+  ThreadTurnSteerResponseSchema,
   ThreadTurnCancelResponseSchema,
   ThreadTimelineGetResponseSchema,
   ThreadConfigUpdateResponseSchema,

@@ -57,6 +57,10 @@ export interface ThreadActions {
     input: Payload<"thread.turn.start.request">,
     options?: RequestOptions
   ): Promise<{ thread: ThreadView; turnId: string }>
+  steerTurn(
+    input: Payload<"thread.turn.steer.request">,
+    options?: RequestOptions
+  ): Promise<{ thread: ThreadView; turnId: string }>
   touchRecency(threadId: string, recencyAt: number, options?: RequestOptions): Promise<ThreadView>
   unarchive(threadId: string, options?: RequestOptions): Promise<ThreadView>
   update(input: Payload<"thread.update.request">, options?: RequestOptions): Promise<ThreadView>
@@ -109,6 +113,7 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
       request("thread.interaction.respond.request", input, options),
     resume: (threadId, options) => request("thread.resume.request", { threadId }, options),
     startTurn: (input, options) => request("thread.turn.start.request", input, options),
+    steerTurn: (input, options) => request("thread.turn.steer.request", input, options),
     touchRecency: (threadId, recencyAt, options) =>
       request("thread.recency.touch.request", { recencyAt, threadId }, options),
     unarchive: (threadId, options) => request("thread.unarchive.request", { threadId }, options),

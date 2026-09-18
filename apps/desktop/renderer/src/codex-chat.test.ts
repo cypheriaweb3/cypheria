@@ -1,31 +1,28 @@
-import { afterEach, describe, expect, it, vi } from "vitest"
-import type { CodexChatEvent, CodexChatStart, CodexUiMessage } from "../../ipc/src/index.js"
-import { CodexIpcChatTransport, interruptActiveCodexTurns } from "./codex-chat.js"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import type { CodexUiMessage } from "../../ipc/src/index.js"
 
-const installCodexApi = () => {
-  let listener: ((event: CodexChatEvent) => void) | null = null
-  const unsubscribe = vi.fn()
-  const interruptChat = vi.fn(async () => ({ interrupted: true }))
-  const startChat = vi.fn(async (_request: CodexChatStart) => undefined)
-  const steerChat = vi.fn(async () => ({ steered: true }))
-  const onChatEvent = vi.fn((next: (event: CodexChatEvent) => void) => {
-    listener = next
-    return unsubscribe
-  })
-  vi.stubGlobal("window", {
-    cypheria: {
-      codex: { interruptChat, onChatEvent, startChat, steerChat },
-    },
-  })
-  return {
-    emit: (event: CodexChatEvent) => listener?.(event),
-    interruptChat,
-    startChat,
-    unsubscribe,
-  }
-}
+const mocks = vi.hoisted(() => ({
+  convertToModelMessages: vi.fn(async (messages: unknown) => messages),
+  createCodex: vi.fn(),
+  ensureCypheriaClient: vi.fn(),
+  steerTurn: vi.fn(),
+  streamText: vi.fn(),
+  toUIMessageStream: vi.fn(({ stream }: { stream: ReadableStream<unknown> }) => stream),
+}))
 
-const startStream = async (transport: CodexIpcChatTransport, abortSignal?: AbortSignal) => {
+vi.mock("@cypheria/ai-sdk-provider/codex", () => ({ createCodex: mocks.createCodex }))
+vi.mock("./cypheria-client.js", () => ({
+  ensureCypheriaClient: mocks.ensureCypheriaClient,
+}))
+vi.mock("ai", () => ({
+  convertToModelMessages: mocks.convertToModelMessages,
+  streamText: mocks.streamText,
+  toUIMessageStream: mocks.toUIMessageStream,
+}))
+
+import { CypheriaChatTransport, interruptActiveCodexTurns } from "./codex-chat.js"
+
+const startStream = async (transport: CypheriaChatTransport, abortSignal?: AbortSignal) => {
   const stream = await transport.sendMessages({
     abortSignal,
     chatId: "chat-1",
@@ -38,99 +35,79 @@ const startStream = async (transport: CodexIpcChatTransport, abortSignal?: Abort
 
 afterEach(() => {
   vi.restoreAllMocks()
-  vi.unstubAllGlobals()
 })
 
-describe("CodexIpcChatTransport", () => {
-  it("releases the event and abort listeners when a request completes", async () => {
-    const api = installCodexApi()
+beforeEach(() => {
+  vi.clearAllMocks()
+  const client = { id: "client", threads: { steerTurn: mocks.steerTurn } }
+  const provider = vi.fn((model: string, settings: unknown) => ({ model, settings }))
+  mocks.ensureCypheriaClient.mockResolvedValue(client)
+  mocks.createCodex.mockReturnValue(provider)
+  mocks.streamText.mockReturnValue({
+    fullStream: new ReadableStream({ start: (controller) => controller.close() }),
+  })
+})
+
+describe("CypheriaChatTransport", () => {
+  it("uses the shared client provider with the latest persistent thread options", async () => {
     const onThreadCreated = vi.fn()
-    const abortController = new AbortController()
-    const removeAbortListener = vi.spyOn(abortController.signal, "removeEventListener")
-    const transport = new CodexIpcChatTransport(
-      () => ({ model: "gpt-test", provider: "openai" }),
+    let model = "gpt-before-send"
+    const transport = new CypheriaChatTransport(
+      () => ({
+        cwd: "/repo",
+        model,
+        projectId: "project-1",
+        provider: "openai",
+        resumeThreadId: "thread-1",
+        sectionId: "section-1",
+      }),
       onThreadCreated
     )
-    const stream = await startStream(transport, abortController.signal)
-    await vi.waitFor(() => expect(api.startChat).toHaveBeenCalledOnce())
-    const requestId = api.startChat.mock.calls[0]?.[0].requestId
-
-    api.emit({ requestId, threadId: "thread-1", type: "done" } as CodexChatEvent)
-
-    await expect(stream.getReader().read()).resolves.toEqual({ done: true, value: undefined })
-    expect(api.unsubscribe).toHaveBeenCalledOnce()
-    expect(removeAbortListener).toHaveBeenCalledWith("abort", expect.any(Function))
-    expect(onThreadCreated).toHaveBeenCalledWith("thread-1")
-    await expect(transport.steer({ files: [], text: "late" })).rejects.toThrow(
-      "There is no active turn to steer."
-    )
-  })
-
-  it("cleans up and interrupts exactly once when the stream is cancelled", async () => {
-    const api = installCodexApi()
-    const transport = new CodexIpcChatTransport(() => ({
-      model: "gpt-test",
-      provider: "openai",
-    }))
+    model = "gpt-after-send"
     const stream = await startStream(transport)
-    await vi.waitFor(() => expect(api.startChat).toHaveBeenCalledOnce())
-    const requestId = api.startChat.mock.calls[0]?.[0].requestId
-
-    await stream.cancel()
-    await stream.cancel()
-
-    expect(api.unsubscribe).toHaveBeenCalledOnce()
-    expect(api.interruptChat).toHaveBeenCalledOnce()
-    expect(api.interruptChat).toHaveBeenCalledWith(requestId)
+    await expect(stream.getReader().read()).resolves.toEqual({ done: true, value: undefined })
+    const provider = mocks.createCodex.mock.results[0]?.value
+    expect(mocks.createCodex).toHaveBeenCalledWith({
+      client: expect.objectContaining({ id: "client" }),
+    })
+    expect(provider).toHaveBeenCalledWith("gpt-after-send", {
+      cwd: "/repo",
+      onThreadCreated: expect.any(Function),
+      projectId: "project-1",
+      sectionId: "section-1",
+      threadId: "thread-1",
+      threadMode: "persistent",
+    })
   })
 
-  it("cleans up an already-aborted request without starting the chat", async () => {
-    const api = installCodexApi()
+  it("forwards caller aborts to the AI SDK provider stream", async () => {
     const abortController = new AbortController()
-    abortController.abort()
-    const transport = new CodexIpcChatTransport(() => ({
+    mocks.streamText.mockReturnValue({
+      fullStream: new ReadableStream({ start: () => undefined }),
+    })
+    const transport = new CypheriaChatTransport(() => ({
       model: "gpt-test",
       provider: "openai",
     }))
     const stream = await startStream(transport, abortController.signal)
-
-    await expect(stream.getReader().read()).resolves.toEqual({ done: true, value: undefined })
-    expect(api.startChat).not.toHaveBeenCalled()
-    expect(api.unsubscribe).toHaveBeenCalledOnce()
-    expect(api.interruptChat).toHaveBeenCalledOnce()
+    abortController.abort("stop")
+    const options = mocks.streamText.mock.calls[0]?.[0]
+    expect(options.abortSignal.aborted).toBe(true)
+    await stream.cancel()
   })
 
-  it("reuses one transport while reading the latest options for each request", async () => {
-    const api = installCodexApi()
-    let model = "gpt-before-send"
-    const transport = new CodexIpcChatTransport(() => ({ model, provider: "openai" }))
-    model = "gpt-first-request"
-
-    const firstStream = await startStream(transport)
-    await vi.waitFor(() => expect(api.startChat).toHaveBeenCalledOnce())
-    const firstRequest = api.startChat.mock.calls[0]?.[0]
-    expect(firstRequest?.model).toBe("gpt-first-request")
-    api.emit({
-      requestId: firstRequest?.requestId,
+  it("steers the active thread through the shared Thread protocol", async () => {
+    const transport = new CypheriaChatTransport(() => ({
+      model: "gpt-test",
+      provider: "openai",
+      resumeThreadId: "thread-1",
+    }))
+    await transport.steer({ files: [], text: "late" })
+    expect(mocks.steerTurn).toHaveBeenCalledWith({
+      clientMessageId: expect.any(String),
+      content: [{ text: "late", type: "text" }],
       threadId: "thread-1",
-      type: "done",
-    } as CodexChatEvent)
-    await expect(firstStream.getReader().read()).resolves.toEqual({ done: true, value: undefined })
-
-    model = "gpt-second-request"
-    const secondStream = await startStream(transport)
-    await vi.waitFor(() => expect(api.startChat).toHaveBeenCalledTimes(2))
-    const secondRequest = api.startChat.mock.calls[1]?.[0]
-    expect(secondRequest?.model).toBe("gpt-second-request")
-    expect(secondRequest?.requestId).not.toBe(firstRequest?.requestId)
-    api.emit({
-      requestId: secondRequest?.requestId,
-      threadId: "thread-1",
-      type: "done",
-    } as CodexChatEvent)
-    await expect(secondStream.getReader().read()).resolves.toEqual({ done: true, value: undefined })
-
-    expect(api.unsubscribe).toHaveBeenCalledTimes(2)
+    })
   })
 })
 

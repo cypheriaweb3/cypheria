@@ -26,6 +26,7 @@ import type {
   ThreadProviderHistoryItem,
   ThreadProviderResumeInput,
   ThreadProviderSession,
+  ThreadProviderSteerInput,
   ThreadProviderTurnInput,
 } from "../thread/provider-adapter.js"
 import type { AgentManager, AgentRuntimeServerMessage } from "./agent-manager.js"
@@ -55,6 +56,7 @@ const capabilities = (agentId: AgentId, acp?: Record<string, unknown>): ThreadCa
       ...(prompt.embeddedContext === true ? (["embedded-resource"] as const) : []),
     ],
     providerExtensions: false,
+    steer: agentId === "codex" || agentId === "pi",
   }
 }
 
@@ -557,6 +559,36 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       type: "agent.acp.session.prompt.request",
     })
     return { turnId: input.clientMessageId }
+  }
+
+  async steerTurn(input: ThreadProviderSteerInput): Promise<void> {
+    if (this.agentId === "codex") {
+      if (!input.agentSessionId) throw new Error("Codex thread is not bound")
+      await this.#request(input.threadId, {
+        clientUserMessageId: input.clientMessageId,
+        expectedTurnId: input.turnId,
+        input: mapInput(input.content),
+        requestId: randomUUID(),
+        threadId: input.agentSessionId,
+        type: "agent.codex.turn.steer.request",
+      })
+      return
+    }
+    if (this.agentId === "pi") {
+      await this.#request(input.threadId, {
+        images: input.content
+          .filter((block) => block.type === "image")
+          .map((block) => ({ data: block.data, mimeType: block.mimeType, type: "image" })),
+        message: input.content
+          .filter((block) => block.type === "text")
+          .map((block) => block.text)
+          .join("\n"),
+        requestId: randomUUID(),
+        type: "agent.pi.steer.request",
+      })
+      return
+    }
+    throw new Error(`${this.agentId} does not support steering active turns`)
   }
 
   async cancelTurn(context: ThreadProviderContext & { turnId?: string }): Promise<void> {
