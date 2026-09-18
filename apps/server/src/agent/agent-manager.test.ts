@@ -71,13 +71,13 @@ describe("AgentManager enable gate", () => {
     })
     await manager.start()
     try {
-      await expect(manager.startAgent("codex", "session", () => undefined)).rejects.toMatchObject({
+      await expect(manager.startAgent("codex", "session")).rejects.toMatchObject({
         name: "AGENT_DISABLED",
       })
 
       const enabled = await manager.setEnabled("codex", true, "session")
       expect(enabled.enabled).toBe(true)
-      await expect(manager.startAgent("codex", "session", () => undefined)).rejects.toMatchObject({
+      await expect(manager.startAgent("codex", "session")).rejects.toMatchObject({
         name: "AGENT_NOT_INSTALLED",
       })
 

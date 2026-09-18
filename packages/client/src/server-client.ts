@@ -1,35 +1,11 @@
 import {
-  AGENT_CLAUDE_RPC,
-  AGENT_CODEX_CLIENT_NOTIFICATIONS,
-  AGENT_CODEX_CLIENT_RPC,
-  AGENT_CODEX_SERVER_RPC,
-  AGENT_PI_EXTENSION_UI,
-  AGENT_PI_RPC,
-  type AgentAcpClientMessage,
-  type AgentClaudeClientNotification,
-  type AgentClaudeClientRequest,
-  type AgentClaudeRpcName,
-  type AgentClaudeServerResponse,
-  type AgentCodexClientNotification,
-  type AgentCodexClientRequest,
-  type AgentCodexServerNotification,
-  type AgentCodexServerRequest,
-  type AgentCodexServerResponse,
   type AgentManagementClientMessage,
   type AgentManagementServerMessage,
-  type AgentOpenCodeCallRequest,
-  type AgentOpenCodeEventSubscribeRequest,
-  type AgentOpenCodeServerMessage,
-  type AgentPiClientRequest,
-  type AgentPiClientResponse,
-  type AgentPiServerResponse,
   type ClientCapabilities,
   type ClientDescriptor,
   ClientDescriptorSchema,
   type ClientKind,
   type ClientMessage,
-  type CodexClientResponseMap,
-  type CodexServerRequestResponseMap,
   type ConnectionOfferV2,
   ConnectionOfferV2Schema,
   CYPHERIA_PROTOCOL_VERSION,
@@ -37,11 +13,6 @@ import {
   createWebSocketProtocols,
   isClientResponseMessage,
   type PersistedServerConfigPatch,
-  type PiBlockingExtensionUIMethod,
-  type PiExtensionUIResponse,
-  type PiRpcCommandName,
-  type PiRpcParams,
-  type PiRpcResult,
   type ProjectThreadClientMessage,
   type ProjectThreadServerMessage,
   parseClientMessage,
@@ -60,16 +31,6 @@ import {
   type WSInboundMessage,
   wrapClientSessionMessage,
 } from "@cypheria/protocol"
-import type { SDKUserMessage } from "@cypheria/protocol/claude-types"
-import type { ClaudeRpcParams, ClaudeRpcResult } from "./claude-endpoint.js"
-import type {
-  CodexClientMethod,
-  CodexClientNotificationMethod,
-  CodexClientNotificationParams,
-  CodexRequestParams,
-  CodexServerMethod,
-} from "./codex-endpoint.js"
-import type { PiExtensionUIAnswer } from "./pi-endpoint.js"
 import { assertRequestTimeout, type RequestOptions } from "./request-options.js"
 import { createRelayServerTransportFactory } from "./server-client-relay-e2ee-transport.js"
 import type {
@@ -466,57 +427,6 @@ export class ServerClient {
     return (message as Extract<ServerMessage, { type: "server.config.reload.response" }>).payload
   }
 
-  async requestCodex<Method extends CodexClientMethod>(
-    method: Method,
-    params?: CodexRequestParams<Method>,
-    options?: RequestOptions
-  ): Promise<CodexClientResponseMap[Method]> {
-    const definition = AGENT_CODEX_CLIENT_RPC[method]
-    const message = await this.#request(
-      {
-        ...((params ?? {}) as object),
-        requestId: this.#nextRequestId("codex"),
-        type: definition.request,
-      } as AgentCodexClientRequest,
-      definition.response,
-      options,
-      SERVER_CAPABILITIES.codex
-    )
-    const { requestId: _requestId, ...result } = (
-      message as Extract<ServerMessage, { payload: { requestId: RequestId } }>
-    ).payload
-    return result as CodexClientResponseMap[Method]
-  }
-
-  async notifyCodex<Method extends CodexClientNotificationMethod>(
-    method: Method,
-    params?: CodexClientNotificationParams<Method>
-  ): Promise<void> {
-    await this.#sendWhenConnected(
-      {
-        ...((params ?? {}) as object),
-        type: AGENT_CODEX_CLIENT_NOTIFICATIONS[method].notification,
-      } as AgentCodexClientNotification,
-      undefined,
-      SERVER_CAPABILITIES.codex
-    )
-  }
-
-  async respondToCodex<Method extends CodexServerMethod>(
-    method: Method,
-    requestId: RequestId,
-    response: CodexServerRequestResponseMap[Method]
-  ): Promise<void> {
-    await this.#sendWhenConnected({
-      payload: { requestId, ...(response as object) },
-      type: AGENT_CODEX_SERVER_RPC[method].response,
-    } as AgentCodexServerResponse)
-  }
-
-  async sendAcp(message: AgentAcpClientMessage): Promise<void> {
-    await this.#sendWhenConnected(message, undefined, SERVER_CAPABILITIES.acp)
-  }
-
   async requestAgentManagement(
     type: AgentManagementClientMessage["type"],
     payload?: unknown,
@@ -572,141 +482,6 @@ export class ServerClient {
       SERVER_CAPABILITIES.projectThread
     )
     return message as ThreadServerMessage
-  }
-
-  async requestOpenCodeCall(
-    payload: AgentOpenCodeCallRequest["payload"],
-    options?: RequestOptions
-  ): Promise<Extract<AgentOpenCodeServerMessage, { type: "agent.opencode.call.response" }>> {
-    return (await this.#request(
-      {
-        payload,
-        requestId: this.#nextRequestId("opencode"),
-        type: "agent.opencode.call.request",
-      },
-      "agent.opencode.call.response",
-      options,
-      SERVER_CAPABILITIES.opencode
-    )) as Extract<AgentOpenCodeServerMessage, { type: "agent.opencode.call.response" }>
-  }
-
-  async subscribeOpenCodeEvents(
-    payload: AgentOpenCodeEventSubscribeRequest["payload"],
-    options?: RequestOptions
-  ): Promise<void> {
-    await this.#request(
-      {
-        payload,
-        requestId: this.#nextRequestId("opencode-events"),
-        type: "agent.opencode.event.subscribe.request",
-      },
-      "agent.opencode.event.subscribe.response",
-      options,
-      SERVER_CAPABILITIES.opencode
-    )
-  }
-
-  async cancelOpenCodeEvents(subscriptionId: string): Promise<void> {
-    await this.#sendWhenConnected(
-      { payload: { subscriptionId }, type: "agent.opencode.event.cancel.request" },
-      undefined,
-      SERVER_CAPABILITIES.opencode
-    )
-  }
-
-  async requestClaude<Method extends AgentClaudeRpcName>(
-    method: Method,
-    params: ClaudeRpcParams<Method>,
-    options?: RequestOptions
-  ): Promise<ClaudeRpcResult<Method>> {
-    const definition = AGENT_CLAUDE_RPC[method]
-    const message = await this.#request(
-      {
-        ...(params as object),
-        requestId: this.#nextRequestId("claude"),
-        type: definition.request,
-      } as AgentClaudeClientRequest,
-      definition.response,
-      options,
-      SERVER_CAPABILITIES.claude
-    )
-    const payload = (message as AgentClaudeServerResponse).payload
-    if ("error" in payload) {
-      const error = new Error(payload.error.message)
-      error.name = payload.error.code
-      if (payload.error.data !== undefined) Object.assign(error, { data: payload.error.data })
-      throw error
-    }
-    return ("result" in payload ? payload.result : undefined) as ClaudeRpcResult<Method>
-  }
-
-  async sendClaudeInput(queryId: string, payload: SDKUserMessage): Promise<void> {
-    await this.#sendWhenConnected(
-      {
-        payload,
-        queryId,
-        type: "agent.claude.query.input.notification",
-      } satisfies AgentClaudeClientNotification,
-      undefined,
-      SERVER_CAPABILITIES.claude
-    )
-  }
-
-  async completeClaudeInput(queryId: string): Promise<void> {
-    await this.#sendWhenConnected(
-      {
-        queryId,
-        type: "agent.claude.query.input.complete.notification",
-      } satisfies AgentClaudeClientNotification,
-      undefined,
-      SERVER_CAPABILITIES.claude
-    )
-  }
-
-  async requestPi<Command extends PiRpcCommandName>(
-    command: Command,
-    params: PiRpcParams<Command>,
-    options?: RequestOptions
-  ): Promise<PiRpcResult<Command>> {
-    const definition = AGENT_PI_RPC[command]
-    const message = await this.#request(
-      {
-        ...(params as object),
-        requestId: this.#nextRequestId("pi"),
-        type: definition.request,
-      } as AgentPiClientRequest,
-      definition.response,
-      options,
-      SERVER_CAPABILITIES.pi
-    )
-    const payload = (message as AgentPiServerResponse).payload
-    if ("error" in payload) {
-      const error = new Error(payload.error)
-      error.name = "PiRpcError"
-      throw error
-    }
-    return ("result" in payload ? payload.result : undefined) as PiRpcResult<Command>
-  }
-
-  async respondToPiExtensionUI<Method extends PiBlockingExtensionUIMethod>(
-    method: Method,
-    requestId: RequestId,
-    answer: PiExtensionUIAnswer<Method>
-  ): Promise<void> {
-    const payload = {
-      ...answer,
-      id: requestId,
-      type: "extension_ui_response",
-    } as PiExtensionUIResponse<Method>
-    await this.#sendWhenConnected(
-      {
-        payload,
-        requestId,
-        type: AGENT_PI_EXTENSION_UI[method].response,
-      } as AgentPiClientResponse,
-      undefined,
-      SERVER_CAPABILITIES.pi
-    )
   }
 
   #bindTransport(transport: ServerTransport): void {
@@ -854,15 +629,6 @@ export class ServerClient {
         pending.reject(asError(error, "Failed to send Cypheria request"))
       })
     })
-  }
-
-  async #sendWhenConnected(
-    message: ClientMessage,
-    signal?: AbortSignal,
-    requiredCapability?: string
-  ): Promise<void> {
-    const parsed = parseClientMessage(message)
-    return this.#sendParsedWhenConnected(parsed, signal, requiredCapability)
   }
 
   async #sendParsedWhenConnected(
@@ -1055,4 +821,3 @@ export {
   createWebSocketTransportFactory,
   WebSocketServerTransport,
 } from "./server-client-websocket-transport.js"
-export type { AgentCodexServerNotification, AgentCodexServerRequest }

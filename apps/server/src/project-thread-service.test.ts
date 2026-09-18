@@ -13,15 +13,13 @@ import type {
   ProjectThreadClientMessage,
   ProjectThreadServerMessage,
   ServerMessage,
-  ThreadClientMessage,
-  ThreadServerMessage,
 } from "@cypheria/protocol"
 import { describe, expect, it } from "vitest"
 
 import { ProjectThreadService } from "./project-thread-service.js"
 
 describe("ProjectThreadService", () => {
-  it("initializes pinned state and dispatches project and thread operations", async () => {
+  it("initializes pinned state and dispatches project and section operations", async () => {
     const temporaryDirectory = mkdtempSync(join(tmpdir(), "cypheria-server-project-thread-test-"))
     const database = openCypheriaDatabase({ cypheriaHome: temporaryDirectory })
     try {
@@ -34,12 +32,12 @@ describe("ProjectThreadService", () => {
       await service.initialize()
 
       const dispatch = async (
-        message: ProjectThreadClientMessage | ThreadClientMessage
-      ): Promise<ProjectThreadServerMessage | ThreadServerMessage> => {
+        message: ProjectThreadClientMessage
+      ): Promise<ProjectThreadServerMessage> => {
         const sent: ServerMessage[] = []
         await service.handle(message, (response) => sent.push(response))
         expect(sent).toHaveLength(1)
-        return sent[0] as ProjectThreadServerMessage | ThreadServerMessage
+        return sent[0] as ProjectThreadServerMessage
       }
 
       const sections = await dispatch({
@@ -62,32 +60,23 @@ describe("ProjectThreadService", () => {
       }
       const project = projectResponse.payload.value
 
-      const threadResponse = await dispatch({
-        payload: {
-          agentId: "codex",
-          projectPlacement: { projectId: project.id },
-          title: "Implement project/thread state",
-        },
-        requestId: "thread",
-        type: "thread.create.request",
+      const thread = await persistence.createThread({ agentId: "codex" })
+      const membership = await dispatch({
+        payload: { projectId: project.id, threadId: thread.id },
+        requestId: "membership",
+        type: "project.item.move.request",
       })
-      if (threadResponse.type !== "thread.create.response" || !threadResponse.payload.ok) {
-        throw new Error("Expected thread creation to succeed")
+      if (membership.type !== "project.item.move.response" || !membership.payload.ok) {
+        throw new Error("Expected project membership move to succeed")
       }
-      expect(threadResponse.payload.value.thread).toMatchObject({
-        agentId: "codex",
-        agentSessionId: null,
-      })
-      await expect(
-        persistence.getThreadProject(threadResponse.payload.value.thread.id)
-      ).resolves.toMatchObject({ project: { id: project.id } })
+      expect(membership.payload.value).toMatchObject({ project: { id: project.id } })
     } finally {
       database.close()
       rmSync(temporaryDirectory, { force: true, recursive: true })
     }
   })
 
-  it("returns stable project/thread errors", async () => {
+  it("returns stable project and section errors", async () => {
     const temporaryDirectory = mkdtempSync(join(tmpdir(), "cypheria-server-project-thread-test-"))
     const database = openCypheriaDatabase({ cypheriaHome: temporaryDirectory })
     try {

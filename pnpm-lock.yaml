@@ -355,18 +355,12 @@ importers:
 
   packages/client:
     dependencies:
-      '@agentclientprotocol/sdk':
-        specifier: 1.4.0
-        version: 1.4.0(patch_hash=a1d8a0a08bf8b0459cc70226380a92de11417af05f8f1dd34be0b447df17314d)(zod@4.6.2)
       '@cypheria/protocol':
         specifier: workspace:*
         version: link:../protocol
       '@cypheria/relay':
         specifier: workspace:*
         version: link:../relay
-      '@opencode-ai/sdk':
-        specifier: 1.18.31
-        version: 1.18.31
       semver:
         specifier: ^7.8.5
         version: 7.8.5

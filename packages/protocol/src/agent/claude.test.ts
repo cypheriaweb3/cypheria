@@ -18,9 +18,6 @@ import {
   ClaudeQueryOptionsSchema,
   ClaudeResolveSettingsOptionsSchema,
   getAgentClaudeRpcDefinition,
-  isClientResponseMessage,
-  SessionInboundMessageSchema,
-  SessionOutboundMessageSchema,
   unwrapClaudeSdkMessage,
   wrapClaudeSdkMessage,
 } from "../index.ts"
@@ -130,7 +127,7 @@ describe("agent.claude protocol", () => {
       payload: { requestId: "request-1", result: { queryId: "query-1" } },
       type: "agent.claude.query.start.response",
     })
-    expect(isClientResponseMessage(response)).toBe(true)
+    expect(response.type).toBe("agent.claude.query.start.response")
 
     expect(
       AgentClaudeServerMessageSchema.safeParse({
@@ -162,7 +159,7 @@ describe("agent.claude protocol", () => {
 
   it("represents streaming input without sending an AsyncIterable over the wire", () => {
     expect(
-      SessionInboundMessageSchema.parse({
+      AgentClaudeClientMessageSchema.parse({
         payload: {
           message: { content: "continue", role: "user" },
           parent_tool_use_id: null,
@@ -174,7 +171,7 @@ describe("agent.claude protocol", () => {
     ).toMatchObject({ queryId: "query-1" })
 
     expect(
-      SessionInboundMessageSchema.parse({
+      AgentClaudeClientMessageSchema.parse({
         queryId: "query-1",
         type: "agent.claude.query.input.complete.notification",
       })
@@ -197,7 +194,7 @@ describe("agent.claude protocol", () => {
     const status = { subtype: "status", type: "system" } as SDKMessage
     const statusNotification = wrapClaudeSdkMessage("query-1", status)
     expect(statusNotification.type).toBe("agent.claude.system.status.notification")
-    expect(SessionOutboundMessageSchema.parse(statusNotification)).toEqual(statusNotification)
+    expect(AgentClaudeServerMessageSchema.parse(statusNotification)).toEqual(statusNotification)
   })
 
   it("rejects mismatched and unknown SDK output discriminators", () => {

@@ -9,9 +9,6 @@ import {
   AgentPiClientMessageSchema,
   AgentPiEventNotificationSchema,
   AgentPiServerMessageSchema,
-  isClientResponseMessage,
-  SessionInboundMessageSchema,
-  SessionOutboundMessageSchema,
   unwrapPiExtensionUIResponse,
   unwrapPiRpcCommand,
   unwrapPiServerEvent,
@@ -87,7 +84,7 @@ describe("agent.pi protocol", () => {
       streamingBehavior: "followUp",
       type: "prompt",
     })
-    expect(SessionInboundMessageSchema.parse(request)).toEqual(request)
+    expect(AgentPiClientMessageSchema.parse(request)).toEqual(request)
   })
 
   it("converts success, void, and error responses into their concrete pairs", () => {
@@ -112,7 +109,7 @@ describe("agent.pi protocol", () => {
       payload: { requestId: "pi-2", result: { sessionId: "session-1" } },
       type: "agent.pi.state.get.response",
     })
-    expect(isClientResponseMessage(state)).toBe(true)
+    expect(AgentPiServerMessageSchema.parse(state)).toEqual(state)
 
     expect(
       wrapPiRpcResponse({
@@ -154,7 +151,7 @@ describe("agent.pi protocol", () => {
       type: "agent.pi.agent.settled.notification",
     })
     expect(unwrapPiServerEvent(wrapped)).toEqual({ type: "agent_settled" })
-    expect(SessionOutboundMessageSchema.parse(wrapped)).toEqual(wrapped)
+    expect(AgentPiServerMessageSchema.parse(wrapped)).toEqual(wrapped)
 
     expect(
       AgentPiEventNotificationSchema.safeParse({

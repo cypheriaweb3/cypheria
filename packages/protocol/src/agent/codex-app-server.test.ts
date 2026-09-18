@@ -32,9 +32,7 @@ import {
   AgentCodexServerNotificationSchema,
   AgentCodexServerRequestSchema,
   AgentCodexServerResponseSchema,
-  ClientMessageSchema,
   codexGeneratedTypeSchema,
-  ServerMessageSchema,
 } from "../index.js"
 
 describe("agent.codex protocol", () => {
@@ -148,7 +146,7 @@ describe("agent.codex protocol", () => {
 
   it("accepts client RPC requests with top-level params", () => {
     expect(
-      ClientMessageSchema.parse({
+      AgentCodexClientRequestSchema.parse({
         type: "agent.codex.command.exec.resize.request",
         requestId: "codex-command-resize-1",
         processId: "process-1",
@@ -170,13 +168,15 @@ describe("agent.codex protocol", () => {
       turnId: "turn-1",
     } as const
 
-    expect(ClientMessageSchema.parse(request)).toEqual(request)
-    expect(ClientMessageSchema.safeParse({ ...request, unexpected: true }).success).toBe(false)
+    expect(AgentCodexClientRequestSchema.parse(request)).toEqual(request)
+    expect(AgentCodexClientRequestSchema.safeParse({ ...request, unexpected: true }).success).toBe(
+      false
+    )
   })
 
   it("accepts correlated server RPC responses inside payload", () => {
     expect(
-      ServerMessageSchema.parse({
+      AgentCodexClientResponseSchema.parse({
         type: "agent.codex.account.logout.response",
         payload: { requestId: "codex-account-logout-1" },
       })
@@ -187,7 +187,7 @@ describe("agent.codex protocol", () => {
 
   it("supports reverse RPCs from the server to a capable client", () => {
     expect(
-      ServerMessageSchema.safeParse({
+      AgentCodexServerRequestSchema.safeParse({
         type: "agent.codex.current_time.read.request",
         requestId: "current-time-1",
         threadId: "thread-1",
@@ -195,7 +195,7 @@ describe("agent.codex protocol", () => {
     ).toBe(true)
 
     expect(
-      ClientMessageSchema.safeParse({
+      AgentCodexServerResponseSchema.safeParse({
         type: "agent.codex.current_time.read.response",
         payload: { currentTimeAt: 1_789_000_000, requestId: "current-time-1" },
       }).success
@@ -204,14 +204,14 @@ describe("agent.codex protocol", () => {
 
   it("supports notifications in both directions", () => {
     expect(
-      ServerMessageSchema.safeParse({
+      AgentCodexServerNotificationSchema.safeParse({
         type: "agent.codex.skills.changed.notification",
         payload: {},
       }).success
     ).toBe(true)
 
     expect(
-      ClientMessageSchema.safeParse({
+      AgentCodexClientNotificationSchema.safeParse({
         type: "agent.codex.initialized.notification",
       }).success
     ).toBe(true)
@@ -219,7 +219,7 @@ describe("agent.codex protocol", () => {
 
   it("rejects upstream slash names, invalid fields, and non-JSON provider payloads", () => {
     expect(
-      ClientMessageSchema.safeParse({
+      AgentCodexClientRequestSchema.safeParse({
         type: "thread/start",
         requestId: "request-1",
         cwd: "/workspace",
@@ -227,7 +227,7 @@ describe("agent.codex protocol", () => {
     ).toBe(false)
 
     expect(
-      ClientMessageSchema.safeParse({
+      AgentCodexClientRequestSchema.safeParse({
         type: "agent.codex.command.exec.resize.request",
         requestId: "request-1",
         processId: "process-1",
@@ -235,7 +235,7 @@ describe("agent.codex protocol", () => {
       }).success
     ).toBe(false)
     expect(
-      ClientMessageSchema.safeParse({
+      AgentCodexServerResponseSchema.safeParse({
         type: "agent.codex.current_time.read.response",
         payload: { currentTimeAt: 1n, requestId: "request-1" },
       }).success

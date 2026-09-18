@@ -16,7 +16,7 @@ export type ThreadProviderHistoryItem = {
 export type ThreadProviderSession = {
   readonly capabilities: ThreadCapabilities
   readonly history?: readonly ThreadProviderHistoryItem[]
-  readonly sessionId: string
+  readonly sessionId: string | null
 }
 
 export type ThreadProviderContext = {
@@ -32,6 +32,7 @@ export type ThreadProviderEvent =
   | { readonly interactionId: string; readonly type: "interaction-resolved" }
   | { readonly message: string; readonly type: "progress" }
   | { readonly code: string; readonly message: string; readonly type: "warning" }
+  | { readonly sessionId: string; readonly type: "session-bound" }
   | { readonly turnId: string; readonly type: "turn-completed" }
   | { readonly error: string; readonly turnId: string | null; readonly type: "error" }
 

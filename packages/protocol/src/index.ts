@@ -1,52 +1,11 @@
 import superjson, { type SuperJSONResult, type SuperJSONValue } from "superjson"
 import { z } from "zod"
 import {
-  type AgentAcpClientMessage,
-  AgentAcpClientMessageSchema,
-  type AgentAcpServerMessage,
-  AgentAcpServerMessageSchema,
-} from "./agent/acp.ts"
-import {
-  AGENT_CLAUDE_RPC,
-  type AgentClaudeClientMessage,
-  AgentClaudeClientMessageSchema,
-  type AgentClaudeServerMessage,
-  AgentClaudeServerMessageSchema,
-} from "./agent/claude.ts"
-import {
-  AGENT_CODEX_CLIENT_RPC,
-  type AgentCodexClientNotification,
-  AgentCodexClientNotificationSchema,
-  type AgentCodexClientRequest,
-  AgentCodexClientRequestSchema,
-  type AgentCodexClientResponse,
-  AgentCodexClientResponseSchema,
-  type AgentCodexServerNotification,
-  AgentCodexServerNotificationSchema,
-  type AgentCodexServerRequest,
-  AgentCodexServerRequestSchema,
-  type AgentCodexServerResponse,
-  AgentCodexServerResponseSchema,
-} from "./agent/codex-app-server.ts"
-import {
   AGENT_MANAGEMENT_CLIENT_SCHEMAS,
   AGENT_MANAGEMENT_SERVER_SCHEMAS,
   type AgentManagementClientMessage,
   type AgentManagementServerMessage,
 } from "./agent/management.ts"
-import {
-  AGENT_OPENCODE_CLIENT_SCHEMAS,
-  AGENT_OPENCODE_SERVER_SCHEMAS,
-  type AgentOpenCodeClientMessage,
-  type AgentOpenCodeServerMessage,
-} from "./agent/opencode.ts"
-import {
-  AGENT_PI_RPC,
-  type AgentPiClientMessage,
-  AgentPiClientMessageSchema,
-  type AgentPiServerMessage,
-  AgentPiServerMessageSchema,
-} from "./agent/pi.ts"
 import {
   PROJECT_THREAD_CLIENT_SCHEMAS,
   PROJECT_THREAD_RESPONSE_TYPES,
@@ -83,13 +42,9 @@ const CYPHERIA_SUPERJSON_MARKER = "cypheria.superjson.v1" as const
 
 /** Stable capabilities a server can advertise in the `server.status.notification` message. */
 export const SERVER_CAPABILITIES = {
-  acp: "agent.acp",
   agentManager: "agent.manager",
-  claude: "agent.claude",
-  codex: "agent.codex",
-  pi: "agent.pi",
-  opencode: "agent.opencode",
   projectThread: "project-thread",
+  thread: "thread",
   config: "server.config",
   diagnostics: "diagnostics",
   status: "server.status",
@@ -391,14 +346,7 @@ export type SessionInboundMessage =
   | z.infer<typeof ServerConfigGetRequestSchema>
   | z.infer<typeof ServerConfigPatchRequestSchema>
   | z.infer<typeof ServerConfigReloadRequestSchema>
-  | AgentAcpClientMessage
-  | AgentClaudeClientMessage
-  | AgentCodexClientRequest
-  | AgentCodexServerResponse
-  | AgentCodexClientNotification
-  | AgentPiClientMessage
   | AgentManagementClientMessage
-  | AgentOpenCodeClientMessage
   | ProjectThreadClientMessage
   | ThreadClientMessage
 
@@ -410,14 +358,7 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   ServerConfigGetRequestSchema,
   ServerConfigPatchRequestSchema,
   ServerConfigReloadRequestSchema,
-  AgentAcpClientMessageSchema,
-  AgentClaudeClientMessageSchema,
-  AgentCodexClientRequestSchema,
-  AgentCodexServerResponseSchema,
-  AgentCodexClientNotificationSchema,
-  AgentPiClientMessageSchema,
   ...AGENT_MANAGEMENT_CLIENT_SCHEMAS,
-  ...AGENT_OPENCODE_CLIENT_SCHEMAS,
   ...PROJECT_THREAD_CLIENT_SCHEMAS,
   ...THREAD_CLIENT_SCHEMAS,
 ])
@@ -470,14 +411,7 @@ export type SessionOutboundMessage =
   | z.infer<typeof ServerConfigGetResponseSchema>
   | z.infer<typeof ServerConfigPatchResponseSchema>
   | z.infer<typeof ServerConfigReloadResponseSchema>
-  | AgentAcpServerMessage
-  | AgentClaudeServerMessage
-  | AgentCodexClientResponse
-  | AgentCodexServerRequest
-  | AgentCodexServerNotification
-  | AgentPiServerMessage
   | AgentManagementServerMessage
-  | AgentOpenCodeServerMessage
   | ProjectThreadServerMessage
   | ThreadServerMessage
 
@@ -488,14 +422,7 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   ServerConfigGetResponseSchema,
   ServerConfigPatchResponseSchema,
   ServerConfigReloadResponseSchema,
-  AgentAcpServerMessageSchema,
-  AgentClaudeServerMessageSchema,
-  AgentCodexClientResponseSchema,
-  AgentCodexServerRequestSchema,
-  AgentCodexServerNotificationSchema,
-  AgentPiServerMessageSchema,
   ...AGENT_MANAGEMENT_SERVER_SCHEMAS,
-  ...AGENT_OPENCODE_SERVER_SCHEMAS,
   ...PROJECT_THREAD_SERVER_SCHEMAS,
   ...THREAD_SERVER_SCHEMAS,
 ])
@@ -509,9 +436,6 @@ const clientResponseTypes = new Set<string>([
   "server.config.get.response",
   "server.config.patch.response",
   "server.config.reload.response",
-  ...Object.values(AGENT_CLAUDE_RPC).map(({ response }) => response),
-  ...Object.values(AGENT_CODEX_CLIENT_RPC).map(({ response }) => response),
-  ...Object.values(AGENT_PI_RPC).map(({ response }) => response),
   "agent.list.response",
   "agent.get.response",
   "agent.registry.refresh.response",
@@ -527,8 +451,6 @@ const clientResponseTypes = new Set<string>([
   "agent.toolchain.list.response",
   "agent.toolchain.check_updates.response",
   "agent.toolchain.update.response",
-  "agent.opencode.call.response",
-  "agent.opencode.event.subscribe.response",
   ...PROJECT_THREAD_RESPONSE_TYPES,
   ...THREAD_RESPONSE_TYPES,
 ])

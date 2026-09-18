@@ -63,8 +63,8 @@ describe("Cypheria protocol", () => {
   it("dispatches every logical session wire type from a flat discriminator", () => {
     expect(SessionInboundMessageSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
     expect(SessionOutboundMessageSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
-    expect((SessionInboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(65)
-    expect((SessionOutboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(81)
+    expect((SessionInboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(56)
+    expect((SessionOutboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(70)
   })
 
   it("validates Thread UUIDv7 inputs without exposing agent-session binding", () => {
@@ -138,12 +138,7 @@ describe("Cypheria protocol", () => {
     expect(status.payload.features).toEqual({ futureFeature: true })
   })
 
-  it("distinguishes correlated responses from reverse RPCs", () => {
-    const reverse = ServerMessageSchema.parse({
-      requestId: "same-id",
-      threadId: "thread-1",
-      type: "agent.codex.current_time.read.request",
-    })
+  it("distinguishes responses and excludes provider-native RPCs from the public wire", () => {
     const response = ServerMessageSchema.parse({
       payload: {
         capabilities: [],
@@ -159,8 +154,20 @@ describe("Cypheria protocol", () => {
       requestId: "same-id",
       type: "server.status.response",
     })
-    expect(isClientResponseMessage(reverse)).toBe(false)
     expect(isClientResponseMessage(response)).toBe(true)
+    expect(
+      ServerMessageSchema.safeParse({
+        requestId: "same-id",
+        threadId: "thread-1",
+        type: "agent.codex.current_time.read.request",
+      }).success
+    ).toBe(false)
+    expect(
+      ClientMessageSchema.safeParse({
+        requestId: "same-id",
+        type: "agent.acp.initialize.request",
+      }).success
+    ).toBe(false)
   })
 
   it("builds the versioned WebSocket subprotocol list", () => {

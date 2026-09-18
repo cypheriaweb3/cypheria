@@ -15,7 +15,6 @@ import {
   AgentAcpV2ServerBatchMessagesSchema,
   ClientMessageSchema,
   isAgentAcpServerMessage,
-  ServerMessageSchema,
   SessionInboundMessageSchema,
   SessionOutboundMessageSchema,
 } from "../index.js"
@@ -28,7 +27,7 @@ describe("agent.acp protocol", () => {
     expectTypeOf<AcpV2WireMessage>().toEqualTypeOf<SdkV2WireMessage>()
   })
 
-  it("exposes concrete ACP types directly in the session discriminators", () => {
+  it("keeps concrete ACP schemas internal to the server adapters", () => {
     expect(SessionInboundMessageSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
     expect(SessionOutboundMessageSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
     expect(AgentAcpClientMessageSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
@@ -36,7 +35,7 @@ describe("agent.acp protocol", () => {
     expect(AgentAcpV2ClientSingleMessageSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
 
     expect(
-      ClientMessageSchema.parse({
+      AgentAcpClientMessageSchema.parse({
         agent: "gemini",
         clientCapabilities: { fs: { readTextFile: true, writeTextFile: true } },
         protocolVersion: 1,
@@ -44,6 +43,15 @@ describe("agent.acp protocol", () => {
         type: "agent.acp.initialize.request",
       })
     ).toMatchObject({ protocolVersion: 1, type: "agent.acp.initialize.request" })
+    expect(
+      ClientMessageSchema.safeParse({
+        agent: "gemini",
+        clientCapabilities: {},
+        protocolVersion: 1,
+        requestId: "initialize-1",
+        type: "agent.acp.initialize.request",
+      }).success
+    ).toBe(false)
   })
 
   it("pairs method-specific responses by type", () => {
@@ -57,9 +65,9 @@ describe("agent.acp protocol", () => {
       type: "agent.acp.initialize.response",
     } as const
 
-    expect(ServerMessageSchema.parse(response)).toMatchObject(response)
+    expect(AgentAcpServerMessageSchema.parse(response)).toMatchObject(response)
     expect(
-      ServerMessageSchema.safeParse({
+      AgentAcpServerMessageSchema.safeParse({
         ...response,
         payload: {
           ...response.payload,
@@ -77,10 +85,10 @@ describe("agent.acp protocol", () => {
       requestId: 0,
       type: "agent.acp.extension.request",
     } as const
-    expect(ClientMessageSchema.parse(request)).toEqual(request)
+    expect(AgentAcpClientMessageSchema.parse(request)).toEqual(request)
 
     expect(
-      ClientMessageSchema.safeParse({
+      AgentAcpClientMessageSchema.safeParse({
         ...request,
         payload: { method: "initialize", params: {} },
       }).success
@@ -112,7 +120,7 @@ describe("agent.acp protocol", () => {
       protocolVersion: 2,
       type: "agent.acp.batch",
     } as const
-    expect(ClientMessageSchema.parse(batch)).toEqual(batch)
+    expect(AgentAcpClientMessageSchema.parse(batch)).toEqual(batch)
   })
 
   it("rejects empty, mixed, and multi-entry initialize batches", () => {
@@ -176,7 +184,7 @@ describe("agent.acp protocol", () => {
 
   it("enforces method-specific params and sender direction", () => {
     expect(
-      ClientMessageSchema.safeParse({
+      AgentAcpClientMessageSchema.safeParse({
         agent: "gemini",
         protocolVersion: "1",
         requestId: 1,
@@ -184,7 +192,7 @@ describe("agent.acp protocol", () => {
       }).success
     ).toBe(false)
     expect(
-      ServerMessageSchema.safeParse({
+      AgentAcpServerMessageSchema.safeParse({
         agent: "gemini",
         protocolVersion: 1,
         requestId: 1,
@@ -192,7 +200,7 @@ describe("agent.acp protocol", () => {
       }).success
     ).toBe(false)
     expect(
-      ServerMessageSchema.safeParse({
+      AgentAcpServerMessageSchema.safeParse({
         agent: "gemini",
         path: "/workspace/README.md",
         requestId: 2,
@@ -204,7 +212,7 @@ describe("agent.acp protocol", () => {
   })
 
   it("returns the normalized output of the official params and result schemas", () => {
-    const request = ClientMessageSchema.parse({
+    const request = AgentAcpClientMessageSchema.parse({
       agent: "gemini",
       clientCapabilities: {
         fs: { readTextFile: "invalid", writeTextFile: "invalid" },
@@ -221,7 +229,7 @@ describe("agent.acp protocol", () => {
       },
     })
 
-    const response = ServerMessageSchema.parse({
+    const response = AgentAcpServerMessageSchema.parse({
       agent: "gemini",
       payload: {
         requestId: "initialize-1",
@@ -281,7 +289,7 @@ describe("agent.acp protocol", () => {
 
   it("requires underscore-prefixed extension methods without rewriting them", () => {
     expect(
-      ClientMessageSchema.safeParse({
+      AgentAcpClientMessageSchema.safeParse({
         agent: "gemini",
         payload: { method: "vendor/test" },
         protocolVersion: 1,
@@ -290,7 +298,7 @@ describe("agent.acp protocol", () => {
       }).success
     ).toBe(false)
     expect(
-      ClientMessageSchema.safeParse({
+      AgentAcpClientMessageSchema.safeParse({
         agent: "gemini",
         payload: { method: "  _vendor/test" },
         protocolVersion: 1,
@@ -302,14 +310,14 @@ describe("agent.acp protocol", () => {
 
   it("requires cancellation to identify the request", () => {
     expect(
-      ClientMessageSchema.safeParse({
+      AgentAcpClientMessageSchema.safeParse({
         agent: "gemini",
         protocolVersion: 1,
         type: "agent.acp.cancel_request.notification",
       }).success
     ).toBe(false)
     expect(
-      ClientMessageSchema.safeParse({
+      AgentAcpClientMessageSchema.safeParse({
         agent: "gemini",
         payload: { requestId: "request-1" },
         protocolVersion: 1,

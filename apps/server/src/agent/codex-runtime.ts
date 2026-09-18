@@ -11,17 +11,21 @@ import {
   AGENT_CODEX_SERVER_RPC,
   type AgentCodexClientNotification,
   type AgentCodexClientRequest,
+  type AgentCodexClientResponse,
   type AgentCodexServerNotification,
   type AgentCodexServerRequest,
   type AgentCodexServerResponse,
   type RequestId,
-  type ServerMessage,
 } from "@cypheria/protocol"
 
 import type { AgentInstallReceipt } from "./agent-installer.js"
 import type { ToolchainManager } from "./toolchain-manager.js"
 
-type Send = (message: ServerMessage) => void
+type CodexServerMessage =
+  | AgentCodexClientResponse
+  | AgentCodexServerNotification
+  | AgentCodexServerRequest
+type Send = (message: CodexServerMessage) => void
 type RawRpc = {
   error?: unknown
   id?: RequestId
@@ -252,6 +256,6 @@ export class CodexRuntime {
     pending.send({
       payload: { requestId: pending.requestId, ...((raw.result ?? {}) as object) },
       type: pending.responseType,
-    } as ServerMessage)
+    } as AgentCodexClientResponse)
   }
 }

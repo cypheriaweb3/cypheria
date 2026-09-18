@@ -4,15 +4,22 @@ import { join } from "node:path"
 import type { AgentRegistryPersistenceService, AgentRegistryRecord } from "@cypheria/db"
 import {
   type AgentAcpClientMessage,
+  type AgentAcpServerMessage,
   type AgentClaudeClientMessage,
+  type AgentClaudeServerMessage,
   type AgentCodexClientNotification,
   type AgentCodexClientRequest,
+  type AgentCodexClientResponse,
+  type AgentCodexServerNotification,
+  type AgentCodexServerRequest,
   type AgentCodexServerResponse,
   type AgentId,
   type AgentManagementClientMessage,
   type AgentOpenCodeClientMessage,
+  type AgentOpenCodeServerMessage,
   type AgentOperation,
   type AgentPiClientMessage,
+  type AgentPiServerMessage,
   type AgentView,
   isNativeAgentId,
   isRegistryAgentId,
@@ -21,11 +28,12 @@ import {
   type ServerMessage,
   type ToolchainId,
 } from "@cypheria/protocol"
-
+import type { ThreadProviderAdapter } from "../thread/provider-adapter.js"
 import { AcpSessionRuntime } from "./acp-session-runtime.js"
 import { AgentInstaller } from "./agent-installer.js"
 import { ClaudeSessionRuntime } from "./claude-session-runtime.js"
 import { CodexRuntime } from "./codex-runtime.js"
+import { ManagedThreadAdapter } from "./managed-thread-adapter.js"
 import { OpenCodeRuntime } from "./opencode-runtime.js"
 import { PiSessionRuntime } from "./pi-session-runtime.js"
 import { AgentRegistryService } from "./registry-service.js"
@@ -33,7 +41,23 @@ import { ToolchainManager } from "./toolchain-manager.js"
 
 type Send = (message: ServerMessage) => void
 
+export type AgentRuntimeServerMessage =
+  | AgentAcpServerMessage
+  | AgentClaudeServerMessage
+  | AgentCodexClientResponse
+  | AgentCodexServerNotification
+  | AgentCodexServerRequest
+  | AgentOpenCodeServerMessage
+  | AgentPiServerMessage
+
+type RuntimeSend = (message: AgentRuntimeServerMessage) => void
+
 export type AgentMessageContext = {
+  send: RuntimeSend
+  sessionId: string
+}
+
+type AgentManagementContext = {
   send: Send
   sessionId: string
 }
@@ -44,6 +68,11 @@ export type AgentManagerOptions = {
   persistence: AgentRegistryPersistenceService
   publish: Send
   networkBootstrap?: boolean
+}
+
+export type AgentThreadCoordinator = {
+  closeAgentThreads(agentId: AgentId): Promise<void>
+  hasActiveThreads(agentId: AgentId): Promise<boolean>
 }
 
 const nativeCatalog: Record<
@@ -114,8 +143,10 @@ export class AgentManager {
   readonly #records = new Map<AgentId, AgentRegistryRecord>()
   readonly #sessionStates = new Map<string, Set<AgentId>>()
   readonly #subscriptions = new Map<string, AbortController>()
+  readonly #threadAdapters = new Map<string, ManagedThreadAdapter>()
   readonly #networkBootstrap: boolean
   #codexRuntime: CodexRuntime | undefined
+  #threadCoordinator: AgentThreadCoordinator | undefined
 
   constructor(options: AgentManagerOptions) {
     this.#persistence = options.persistence
@@ -172,6 +203,7 @@ export class AgentManager {
     this.#acpRuntimes.clear()
     this.#claudeRuntimes.clear()
     this.#piRuntimes.clear()
+    this.#threadAdapters.clear()
     this.#codexRuntime = undefined
     this.#sessionStates.clear()
   }
@@ -199,9 +231,31 @@ export class AgentManager {
     this.#sessionStates.delete(sessionId)
   }
 
+  adapterFor(agentId: AgentId, threadId: string): ThreadProviderAdapter {
+    const key = `${agentId}:${threadId}`
+    let adapter = this.#threadAdapters.get(key)
+    if (!adapter) {
+      adapter = new ManagedThreadAdapter(this, agentId)
+      this.#threadAdapters.set(key, adapter)
+    }
+    return adapter
+  }
+
+  releaseThreadAdapter(agentId: AgentId, threadId: string): void {
+    this.#threadAdapters.delete(`${agentId}:${threadId}`)
+  }
+
+  async assertCallable(agentId: AgentId): Promise<void> {
+    await this.#assertCallable(agentId)
+  }
+
+  setThreadCoordinator(coordinator: AgentThreadCoordinator): void {
+    this.#threadCoordinator = coordinator
+  }
+
   async handleManagement(
     message: AgentManagementClientMessage,
-    context: AgentMessageContext
+    context: AgentManagementContext
   ): Promise<void> {
     const respond = (payload: unknown): void =>
       context.send({
@@ -238,10 +292,12 @@ export class AgentManager {
           respond(await this.setEnabled(message.payload.agentId, false, context.sessionId))
           break
         case "agent.start.request":
-          respond(await this.startAgent(message.payload.agentId, context.sessionId, context.send))
+          respond(await this.startAgent(message.payload.agentId, context.sessionId))
           break
         case "agent.stop.request":
-          respond(await this.stopAgent(message.payload.agentId, context.sessionId))
+          respond(
+            await this.stopAgent(message.payload.agentId, context.sessionId, message.payload.force)
+          )
           break
         case "agent.operation.get.request": {
           const operation = this.#operations.get(message.payload.operationId)
@@ -300,7 +356,7 @@ export class AgentManager {
     context: AgentMessageContext
   ): Promise<void> {
     await this.#assertCallable("opencode")
-    if (!this.#openCode.running) await this.startAgent("opencode", context.sessionId, context.send)
+    if (!this.#openCode.running) await this.startAgent("opencode", context.sessionId)
     if (message.type === "agent.opencode.call.request") {
       const result = await this.#openCode.call(message.payload)
       context.send({
@@ -396,7 +452,7 @@ export class AgentManager {
     return Promise.all(ids.map((id) => this.get(id, sessionId)))
   }
 
-  async get(agentId: AgentId, sessionId: string): Promise<AgentView> {
+  async get(agentId: AgentId, _sessionId: string): Promise<AgentView> {
     const record = this.#records.get(agentId)
     if (!record) throw this.#error("AGENT_NOT_FOUND", `Unknown agent: ${agentId}`)
     const native = isNativeAgentId(agentId) ? nativeCatalog[agentId] : undefined
@@ -413,7 +469,7 @@ export class AgentManager {
         ? this.#openCode.running
         : agentId === "codex"
           ? (this.#codexRuntime?.running ?? false)
-          : (this.#sessionStates.get(sessionId)?.has(agentId) ?? false)
+          : [...this.#sessionStates.values()].some((agents) => agents.has(agentId))
     return {
       id: agentId,
       name: record.name ?? native?.name ?? entry?.name ?? agentId,
@@ -443,6 +499,7 @@ export class AgentManager {
       if (!record?.installed)
         throw this.#error("AGENT_NOT_INSTALLED", `${agentId} is not installed`)
     } else {
+      await this.#threadCoordinator?.closeAgentThreads(agentId)
       await this.#stopEverywhere(agentId)
     }
     const updated = await this.#persistence.setEnabled(agentId, enabled)
@@ -453,72 +510,26 @@ export class AgentManager {
     return view
   }
 
-  async startAgent(agentId: AgentId, sessionId: string, send: Send): Promise<AgentView> {
+  async startAgent(agentId: AgentId, sessionId: string): Promise<AgentView> {
     await this.#assertCallable(agentId)
     const receipt = await this.#installer.readCurrent(agentId)
     if (!receipt) throw this.#error("AGENT_NOT_INSTALLED", `${agentId} is not installed`)
     if (agentId === "opencode") await this.#openCode.start(receipt)
     else if (agentId === "codex") await (await this.#ensureCodexRuntime()).start()
-    else if (agentId === "claude") {
-      const runtime = new ClaudeSessionRuntime({
-        home: join(this.#agentHomes, "claude", "home"),
-        receipt,
-        send,
-        toolchains: this.toolchains,
-      })
-      this.#claudeRuntimes.set(sessionId, runtime)
-      await runtime.start()
-      this.#markSessionRunning(sessionId, agentId)
-    } else if (agentId === "pi") {
-      const runtime = new PiSessionRuntime({
-        home: join(this.#agentHomes, "pi", "home"),
-        receipt,
-        send,
-        toolchains: this.toolchains,
-      })
-      this.#piRuntimes.set(sessionId, runtime)
-      await runtime.start()
-      this.#markSessionRunning(sessionId, agentId)
-    } else if (isRegistryAgentId(agentId)) {
-      const key = `${sessionId}:${agentId}`
-      if (!this.#acpRuntimes.has(key))
-        this.#acpRuntimes.set(
-          key,
-          new AcpSessionRuntime({ agent: agentId, receipt, send, toolchains: this.toolchains })
-        )
-      this.#acpRuntimes.get(key)?.start()
-      this.#markSessionRunning(sessionId, agentId)
-    } else {
-      this.#markSessionRunning(sessionId, agentId)
-    }
+    else this.#markSessionRunning(sessionId, agentId)
     const view = await this.get(agentId, sessionId)
     this.#publish({ payload: view, type: "agent.updated.notification" })
     return view
   }
 
-  async stopAgent(agentId: AgentId, sessionId: string): Promise<AgentView> {
-    if (agentId === "opencode") await this.#openCode.stop()
-    else if (agentId === "codex") {
-      await this.#codexRuntime?.stop()
-      this.#codexRuntime = undefined
-      for (const agents of this.#sessionStates.values()) agents.delete(agentId)
-    } else if (agentId === "claude") {
-      const runtime = this.#claudeRuntimes.get(sessionId)
-      this.#claudeRuntimes.delete(sessionId)
-      await runtime?.stop()
-      this.#sessionStates.get(sessionId)?.delete(agentId)
-    } else if (agentId === "pi") {
-      const runtime = this.#piRuntimes.get(sessionId)
-      this.#piRuntimes.delete(sessionId)
-      await runtime?.stop()
-      this.#sessionStates.get(sessionId)?.delete(agentId)
-    } else {
-      const key = `${sessionId}:${agentId}`
-      const runtime = this.#acpRuntimes.get(key)
-      this.#acpRuntimes.delete(key)
-      await runtime?.stop()
-      this.#sessionStates.get(sessionId)?.delete(agentId)
+  async stopAgent(agentId: AgentId, sessionId: string, force = false): Promise<AgentView> {
+    if (this.#threadCoordinator && (await this.#threadCoordinator.hasActiveThreads(agentId))) {
+      if (!force) {
+        throw this.#error("AGENT_HAS_ACTIVE_THREADS", `${agentId} has active threads`)
+      }
+      await this.#threadCoordinator.closeAgentThreads(agentId)
     }
+    await this.#stopEverywhere(agentId)
     const view = await this.get(agentId, sessionId)
     this.#publish({ payload: view, type: "agent.updated.notification" })
     return view
@@ -532,6 +543,7 @@ export class AgentManager {
     return this.#submit(kind, { agentId, kind: "agent" }, `agent:${agentId}`, async (progress) => {
       if (kind === "uninstall") {
         progress("Stopping agent", 0.2)
+        await this.#threadCoordinator?.closeAgentThreads(agentId)
         await this.#stopEverywhere(agentId)
         progress("Removing managed runtime", 0.6)
         await this.#installer.uninstall(agentId)
@@ -659,7 +671,7 @@ export class AgentManager {
     subscriptionId: string,
     key: string,
     controller: AbortController,
-    send: Send
+    send: RuntimeSend
   ): Promise<void> {
     try {
       for await (const event of this.#openCode.events(stream)) {

@@ -1,31 +1,16 @@
-import {
-  type AgentAcpClientMessage,
-  type AgentAcpServerMessage,
-  type AgentClaudeServerMessage,
-  type AgentPiServerMessage,
-  isAgentAcpServerMessage,
-  type PersistedServerConfigPatch,
-  type RegistryAgentId,
-  type ServerConfigSnapshot,
-  type ServerDiagnostics,
-  type ServerMessage,
-  type ServerStatus,
+import type {
+  PersistedServerConfigPatch,
+  ServerConfigSnapshot,
+  ServerDiagnostics,
+  ServerMessage,
+  ServerStatus,
 } from "@cypheria/protocol"
 
-import { type AcpEndpoint, createAcpEndpoint } from "./acp-client.js"
 import {
   type AgentManagementActions,
   createAgentManagementActions,
   isAgentUpdateAvailable,
 } from "./agent-manager.js"
-import {
-  type ClaudeEndpoint,
-  createClaudeEndpoint,
-  isClaudeServerMessage,
-} from "./claude-endpoint.js"
-import { type CodexEndpoint, createCodexEndpoint, isCodexServerMessage } from "./codex-endpoint.js"
-import { createOpenCodeEndpoint, type OpenCodeEndpoint } from "./opencode.js"
-import { createPiEndpoint, isPiServerMessage, type PiEndpoint } from "./pi-endpoint.js"
 import { createProjectThreadActions, type ProjectThreadActions } from "./project-thread.js"
 import {
   type ConnectionState,
@@ -36,13 +21,7 @@ import {
 } from "./server-client.js"
 import { createThreadActions, type ThreadActions } from "./thread.js"
 
-export interface AgentActions extends AgentManagementActions {
-  readonly acp: (agent: RegistryAgentId) => AcpEndpoint
-  readonly claude: ClaudeEndpoint
-  readonly codex: CodexEndpoint
-  readonly opencode: OpenCodeEndpoint
-  readonly pi: PiEndpoint
-}
+export type AgentActions = AgentManagementActions
 
 export interface ServerActions {
   config(options?: RequestOptions): Promise<ServerConfigSnapshot>
@@ -85,96 +64,6 @@ export interface CypheriaClient extends CypheriaApi {
 
 export type CypheriaClientConfig = ServerClientConfig
 
-const acpEndpointsByServerClient = new WeakMap<ServerClient, Map<RegistryAgentId, AcpEndpoint>>()
-const codexEndpointsByServerClient = new WeakMap<ServerClient, CodexEndpoint>()
-const claudeEndpointsByServerClient = new WeakMap<ServerClient, ClaudeEndpoint>()
-const piEndpointsByServerClient = new WeakMap<ServerClient, PiEndpoint>()
-const openCodeEndpointsByServerClient = new WeakMap<ServerClient, OpenCodeEndpoint>()
-
-const getAcpEndpoint = (serverClient: ServerClient, agent: RegistryAgentId): AcpEndpoint => {
-  let endpoints = acpEndpointsByServerClient.get(serverClient)
-  if (!endpoints) {
-    endpoints = new Map()
-    acpEndpointsByServerClient.set(serverClient, endpoints)
-  }
-  const existing = endpoints.get(agent)
-  if (existing) return existing
-  const endpoint = createAcpEndpoint(agent, {
-    send: (message) => serverClient.sendAcp(message),
-    subscribe: (handler) =>
-      serverClient.subscribe((message) => {
-        if (isAgentAcpServerMessage(message) && message.agent === agent) handler(message)
-      }),
-    subscribeConnectionStatus: (handler) => serverClient.subscribeConnectionStatus(handler),
-  })
-  endpoints.set(agent, endpoint)
-  return endpoint
-}
-
-const getCodexEndpoint = (serverClient: ServerClient): CodexEndpoint => {
-  const existing = codexEndpointsByServerClient.get(serverClient)
-  if (existing) return existing
-  const notify: CodexEndpoint["notify"] = (method, ...args) =>
-    serverClient.notifyCodex(method, args[0])
-  const request: CodexEndpoint["request"] = (method, ...args) =>
-    serverClient.requestCodex(method, args[0], args[1])
-  const endpoint = createCodexEndpoint({
-    notify,
-    request,
-    respond: (method, requestId, response) =>
-      serverClient.respondToCodex(method, requestId, response),
-    subscribe: (handler) =>
-      serverClient.subscribe((message) => {
-        if (isCodexServerMessage(message)) handler(message)
-      }),
-    subscribeConnectionStatus: (handler) => serverClient.subscribeConnectionStatus(handler),
-  })
-  codexEndpointsByServerClient.set(serverClient, endpoint)
-  return endpoint
-}
-
-const getClaudeEndpoint = (serverClient: ServerClient): ClaudeEndpoint => {
-  const existing = claudeEndpointsByServerClient.get(serverClient)
-  if (existing) return existing
-  const endpoint = createClaudeEndpoint({
-    completeInput: (queryId) => serverClient.completeClaudeInput(queryId),
-    request: (method, params, options) => serverClient.requestClaude(method, params, options),
-    sendInput: (queryId, message) => serverClient.sendClaudeInput(queryId, message),
-    subscribe: (handler) =>
-      serverClient.subscribe((message) => {
-        if (isClaudeServerMessage(message)) handler(message)
-      }),
-    subscribeConnectionStatus: (handler) => serverClient.subscribeConnectionStatus(handler),
-  })
-  claudeEndpointsByServerClient.set(serverClient, endpoint)
-  return endpoint
-}
-
-const getPiEndpoint = (serverClient: ServerClient): PiEndpoint => {
-  const existing = piEndpointsByServerClient.get(serverClient)
-  if (existing) return existing
-  const endpoint = createPiEndpoint({
-    request: (command, params, options) => serverClient.requestPi(command, params, options),
-    respondToExtensionUI: (method, requestId, answer) =>
-      serverClient.respondToPiExtensionUI(method, requestId, answer),
-    subscribe: (handler) =>
-      serverClient.subscribe((message) => {
-        if (isPiServerMessage(message)) handler(message)
-      }),
-    subscribeConnectionStatus: (handler) => serverClient.subscribeConnectionStatus(handler),
-  })
-  piEndpointsByServerClient.set(serverClient, endpoint)
-  return endpoint
-}
-
-const getOpenCodeEndpoint = (serverClient: ServerClient): OpenCodeEndpoint => {
-  const existing = openCodeEndpointsByServerClient.get(serverClient)
-  if (existing) return existing
-  const endpoint = createOpenCodeEndpoint(serverClient)
-  openCodeEndpointsByServerClient.set(serverClient, endpoint)
-  return endpoint
-}
-
 /** Creates a public client which owns exactly one Cypheria server connection. */
 export function createCypheriaClient(config: CypheriaClientConfig = {}): CypheriaClient {
   const serverClient = new ServerClient(config)
@@ -204,11 +93,6 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
   return {
     agent: {
       ...createAgentManagementActions(serverClient),
-      acp: (agent) => getAcpEndpoint(serverClient, agent),
-      claude: getClaudeEndpoint(serverClient),
-      codex: getCodexEndpoint(serverClient),
-      opencode: getOpenCodeEndpoint(serverClient),
-      pi: getPiEndpoint(serverClient),
     },
     projectThread: createProjectThreadActions(serverClient),
     on,
@@ -236,18 +120,5 @@ export {
   type RequestOptions,
   type ServerSession,
 } from "./server-client.js"
-export type {
-  AcpEndpoint,
-  AgentAcpClientMessage,
-  AgentAcpServerMessage,
-  AgentClaudeServerMessage,
-  AgentManagementActions,
-  AgentPiServerMessage,
-  ClaudeEndpoint,
-  CodexEndpoint,
-  OpenCodeEndpoint,
-  PiEndpoint,
-  ProjectThreadActions,
-  ThreadActions,
-}
+export type { AgentManagementActions, ProjectThreadActions, ThreadActions }
 export { isAgentUpdateAvailable }

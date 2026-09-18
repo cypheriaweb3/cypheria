@@ -6,18 +6,12 @@ import {
   applyDatabaseMigrations,
   createAgentRegistryPersistenceService,
   createProjectThreadPersistenceService,
+  createThreadLifecyclePersistenceService,
   type OpenDatabaseResult,
   openCypheriaDatabase,
 } from "@cypheria/db"
 import {
-  type AgentAcpClientMessage,
-  type AgentClaudeClientMessage,
-  type AgentCodexClientNotification,
-  type AgentCodexClientRequest,
-  type AgentCodexServerResponse,
   type AgentManagementClientMessage,
-  type AgentOpenCodeClientMessage,
-  type AgentPiClientMessage,
   type ClientMessage,
   CYPHERIA_PROTOCOL_VERSION,
   CYPHERIA_WEBSOCKET_PROTOCOL,
@@ -52,6 +46,7 @@ import { loadOrCreateRelayKeyPair } from "./relay-key.js"
 import { ServerConfigStore } from "./server-config-store.js"
 import type { SessionTransport } from "./session/client-session.js"
 import { ConnectionRegistry } from "./session/connection-registry.js"
+import { ThreadManager } from "./thread/thread-manager.js"
 import { CYPHERIA_SERVER_VERSION } from "./version.js"
 
 export type ServerLifecycleAction = "restart" | "shutdown"
@@ -85,6 +80,7 @@ export class CypheriaServer implements HttpAppHost {
   readonly runtime: CypheriaRuntime
   readonly agentManager: AgentManager
   readonly projectThread: ProjectThreadService
+  readonly threadManager: ThreadManager
   readonly database: OpenDatabaseResult
 
   #address: CypheriaServerAddress | undefined
@@ -120,10 +116,18 @@ export class CypheriaServer implements HttpAppHost {
       publish: (message) => this.registry.broadcast(message),
       networkBootstrap: options.agentNetworkBootstrap,
     })
+    const projectThreadPersistence = createProjectThreadPersistenceService(this.database.db)
     this.projectThread = new ProjectThreadService({
-      persistence: createProjectThreadPersistenceService(this.database.db),
+      persistence: projectThreadPersistence,
+    })
+    this.threadManager = new ThreadManager({
+      adapterFor: (agentId, threadId) => this.agentManager.adapterFor(agentId, threadId),
+      assertAgentCallable: (agentId) => this.agentManager.assertCallable(agentId),
+      lifecycle: createThreadLifecyclePersistenceService(this.database.db),
+      persistence: projectThreadPersistence,
       publish: (message) => this.registry.broadcast(message),
     })
+    this.agentManager.setThreadCoordinator(this.threadManager)
     this.#lifecycleHandler = options.onLifecycleRequest
   }
 
@@ -151,6 +155,7 @@ export class CypheriaServer implements HttpAppHost {
       await applyDatabaseMigrations(this.database.client)
       await this.projectThread.initialize()
       await this.agentManager.start()
+      await this.threadManager.initialize()
       const startedAt = new Date().toISOString()
       const id = await loadOrCreateServerId(this.runtime.paths.configDir)
       this.#identity = {
@@ -273,16 +278,12 @@ export class CypheriaServer implements HttpAppHost {
 
   getSessionCapabilities(): string[] {
     return [
-      SERVER_CAPABILITIES.acp,
       SERVER_CAPABILITIES.agentManager,
-      SERVER_CAPABILITIES.claude,
-      SERVER_CAPABILITIES.codex,
       SERVER_CAPABILITIES.config,
       SERVER_CAPABILITIES.diagnostics,
-      SERVER_CAPABILITIES.opencode,
       SERVER_CAPABILITIES.projectThread,
-      SERVER_CAPABILITIES.pi,
       SERVER_CAPABILITIES.status,
+      SERVER_CAPABILITIES.thread,
     ]
   }
 
@@ -292,35 +293,6 @@ export class CypheriaServer implements HttpAppHost {
     source: SessionTransport,
     send: (message: ServerMessage) => void
   ): Promise<boolean> {
-    if (message.type.startsWith("agent.acp.")) {
-      await this.agentManager.handleAcp(message as AgentAcpClientMessage, { send, sessionId })
-      return true
-    }
-    if (message.type.startsWith("agent.opencode.")) {
-      await this.agentManager.handleOpenCode(message as AgentOpenCodeClientMessage, {
-        send,
-        sessionId,
-      })
-      return true
-    }
-    if (message.type.startsWith("agent.codex.")) {
-      await this.agentManager.handleCodex(
-        message as
-          | AgentCodexClientRequest
-          | AgentCodexServerResponse
-          | AgentCodexClientNotification,
-        { send, sessionId }
-      )
-      return true
-    }
-    if (message.type.startsWith("agent.claude.")) {
-      await this.agentManager.handleClaude(message as AgentClaudeClientMessage, { send, sessionId })
-      return true
-    }
-    if (message.type.startsWith("agent.pi.")) {
-      await this.agentManager.handlePi(message as AgentPiClientMessage, { send, sessionId })
-      return true
-    }
     if (
       message.type.startsWith("agent.registry.") ||
       message.type === "agent.list.request" ||
@@ -351,22 +323,15 @@ export class CypheriaServer implements HttpAppHost {
     message: ClientMessage,
     send: (message: ServerMessage) => void
   ): Promise<boolean> {
-    if (
-      !message.type.startsWith("project.") &&
-      !message.type.startsWith("thread.") &&
-      !message.type.startsWith("section.")
-    ) {
+    if (message.type.startsWith("thread.")) {
+      await this.threadManager.handle(message as ThreadClientMessage, send)
+      return true
+    }
+    if (!message.type.startsWith("project.") && !message.type.startsWith("section.")) {
       return false
     }
-    await this.projectThread.handle(
-      message as ProjectThreadClientMessage | ThreadClientMessage,
-      send
-    )
+    await this.projectThread.handle(message as ProjectThreadClientMessage, send)
     return true
-  }
-
-  closeAgentSession(sessionId: string): void {
-    void this.agentManager.disposeSession(sessionId)
   }
 
   getState(): ServerOperationalState {

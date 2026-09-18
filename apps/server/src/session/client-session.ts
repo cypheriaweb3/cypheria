@@ -20,7 +20,6 @@ export type SessionTransport = {
 }
 
 export type SessionHost = {
-  closeAgentSession?(sessionId: string): void
   getConfig(): ServerConfigSnapshot
   getDiagnostics(): ServerDiagnostics
   getStatus(): ServerStatus
@@ -157,7 +156,6 @@ export class ClientSession {
     const transports = [...this.#sources.keys()]
     this.#sources.clear()
     for (const transport of transports) transport.close(code, reason)
-    this.#host.closeAgentSession?.(this.id)
     this.#onClose?.(this)
   }
 

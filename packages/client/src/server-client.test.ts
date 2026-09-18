@@ -220,30 +220,6 @@ describe("ServerClient", () => {
     await client.close()
   })
 
-  it("does not settle a client request from a reverse RPC with the same id", async () => {
-    const client = new ServerClient({
-      clientId: "client-test",
-      webSocketFactory: testWebSocketFactory,
-    })
-    const socket = await connect(client)
-    const resultPromise = client.getServerStatus()
-    await tick()
-    const request = parseSent(socket.sent.at(-1) ?? "")
-    if (request.type !== "server.status.request") throw new Error("Expected server status request")
-    sendSession(socket, {
-      requestId: request.requestId,
-      threadId: "thread-1",
-      type: "agent.codex.current_time.read.request",
-    })
-    sendSession(socket, {
-      payload: { ...serverStatus, webApp: { enabled: true } },
-      requestId: request.requestId,
-      type: "server.status.response",
-    })
-    await expect(resultPromise).resolves.toMatchObject({ runtimeState: "ready" })
-    await client.close()
-  })
-
   it("uses top-level ping/pong", async () => {
     const client = new ServerClient({
       clientId: "client-test",
@@ -267,35 +243,6 @@ describe("ServerClient", () => {
     await expect(client.getServerStatus({ timeoutMs: 0 })).rejects.toThrow(
       "timeoutMs must be a positive integer"
     )
-    await client.close()
-  })
-
-  it("wraps Codex requests, notifications, and reverse responses in session envelopes", async () => {
-    const client = new ServerClient({
-      clientId: "client-test",
-      webSocketFactory: testWebSocketFactory,
-    })
-    const socket = await connect(client)
-    const resultPromise = client.requestCodex("memory/reset")
-    await tick()
-    const request = parseSent(socket.sent.at(-1) ?? "")
-    if (!("requestId" in request)) throw new Error("Expected request id")
-    expect(request.type).toBe("agent.codex.memory.reset.request")
-    sendSession(socket, {
-      payload: { requestId: request.requestId },
-      type: "agent.codex.memory.reset.response",
-    })
-    await expect(resultPromise).resolves.toEqual({})
-
-    await client.notifyCodex("initialized")
-    expect(parseSent(socket.sent.at(-1) ?? "")).toEqual({
-      type: "agent.codex.initialized.notification",
-    })
-    await client.respondToCodex("currentTime/read", "time-1", { currentTimeAt: 1_789_000_000 })
-    expect(parseSent(socket.sent.at(-1) ?? "")).toEqual({
-      payload: { currentTimeAt: 1_789_000_000, requestId: "time-1" },
-      type: "agent.codex.current_time.read.response",
-    })
     await client.close()
   })
 

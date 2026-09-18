@@ -46,7 +46,7 @@ export class ThreadManagerError extends Error {
 }
 
 export type ThreadManagerOptions = {
-  readonly adapterFor: (agentId: AgentId) => ThreadProviderAdapter
+  readonly adapterFor: (agentId: AgentId, threadId: string) => ThreadProviderAdapter
   readonly assertAgentCallable: (agentId: AgentId) => Promise<void>
   readonly lifecycle: ThreadLifecyclePersistenceService
   readonly persistence: ProjectThreadPersistenceService
@@ -199,7 +199,9 @@ export class ThreadManager {
         kind: "create",
         threadId,
       })
-      const adapter = this.#adapterFor(agentId)
+      const adapter = this.#adapterFor(agentId, threadId)
+      let databaseCommitted = false
+      let providerSessionId: string | null | undefined
       try {
         const session = await adapter.create({
           agentId,
@@ -208,6 +210,7 @@ export class ThreadManager {
           onEvent: (event) => this.#acceptEvent(threadId, event),
           threadId,
         })
+        providerSessionId = session.sessionId
         await this.#lifecycle.transition(operation.id, {
           agentSessionId: session.sessionId,
           status: "provider-created",
@@ -217,6 +220,7 @@ export class ThreadManager {
           agentSessionId: session.sessionId,
           id: threadId,
         })
+        databaseCommitted = true
         await this.#lifecycle.complete(operation.id)
         this.#runtime.set(threadId, {
           activeTurn: null,
@@ -229,7 +233,25 @@ export class ThreadManager {
         this.#publish({ payload: view, type: "thread.created.notification" })
         return { thread: view, timeline: this.#timeline.head(threadId) }
       } catch (error) {
-        await this.#lifecycle.fail(operation.id, this.#message(error)).catch(() => undefined)
+        if (databaseCommitted) {
+          // Leave provider-created state for startup recovery to complete journal cleanup.
+        } else if (providerSessionId !== undefined) {
+          try {
+            await adapter.delete({
+              agentId,
+              agentSessionId: providerSessionId,
+              cwd: input.cwd ?? null,
+              threadId,
+            })
+            await this.#lifecycle
+              .fail(operation.id, `Provider create was compensated: ${this.#message(error)}`)
+              .catch(() => undefined)
+          } catch {
+            // Keep provider-created durable state so startup recovery can finish the DB commit.
+          }
+        } else {
+          await this.#lifecycle.fail(operation.id, this.#message(error)).catch(() => undefined)
+        }
         throw error
       }
     })
@@ -264,16 +286,13 @@ export class ThreadManager {
       const thread = await this.#required(threadId)
       const agentId = thread.agentId as AgentId
       await this.#assertAgentCallable(agentId)
-      if (!thread.agentSessionId) {
-        throw new ThreadManagerError("THREAD_NOT_BOUND", "Thread has no provider session")
-      }
       this.#setState(thread, "starting")
       try {
-        const session = await this.#adapterFor(agentId).resume({
+        const session = await this.#adapterFor(agentId, threadId).resume({
           ...this.#context(thread),
           onEvent: (event) => this.#acceptEvent(threadId, event),
         })
-        if (session.sessionId !== thread.agentSessionId) {
+        if (thread.agentSessionId && session.sessionId !== thread.agentSessionId) {
           throw new ThreadManagerError(
             "THREAD_BINDING_MISMATCH",
             "Provider resumed a different session"
@@ -306,7 +325,7 @@ export class ThreadManager {
       if (runtime.state === "stopped") return this.#view(thread)
       runtime.state = "stopping"
       this.#publish({ payload: this.#view(thread), type: "thread.updated.notification" })
-      await this.#adapterFor(thread.agentId as AgentId).close(this.#context(thread))
+      await this.#adapterFor(thread.agentId as AgentId, thread.id).close(this.#context(thread))
       runtime.state = "stopped"
       runtime.activeTurn = null
       runtime.pendingInteractions.clear()
@@ -327,8 +346,10 @@ export class ThreadManager {
         kind: "delete",
         threadId,
       })
+      let providerDeleted = false
       try {
-        await this.#adapterFor(thread.agentId as AgentId).delete(this.#context(thread))
+        await this.#adapterFor(thread.agentId as AgentId, thread.id).delete(this.#context(thread))
+        providerDeleted = true
         await this.#lifecycle.transition(operation.id, { status: "provider-deleted" })
         await this.#persistence.deleteThread(threadId)
         await this.#lifecycle.complete(operation.id)
@@ -338,7 +359,9 @@ export class ThreadManager {
         this.#publish({ payload: { threadId }, type: "thread.deleted.notification" })
       } catch (error) {
         runtime.state = "errored"
-        await this.#lifecycle.fail(operation.id, this.#message(error)).catch(() => undefined)
+        if (!providerDeleted) {
+          await this.#lifecycle.fail(operation.id, this.#message(error)).catch(() => undefined)
+        }
         this.#publish({ payload: this.#view(thread), type: "thread.updated.notification" })
         throw error
       }
@@ -359,7 +382,7 @@ export class ThreadManager {
       if (runtime.activeTurn) {
         throw new ThreadManagerError("THREAD_BUSY", "Thread already has an active turn")
       }
-      const { turnId } = await this.#adapterFor(thread.agentId as AgentId).startTurn({
+      const { turnId } = await this.#adapterFor(thread.agentId as AgentId, thread.id).startTurn({
         ...this.#context(thread),
         clientMessageId: input.clientMessageId,
         content: input.content,
@@ -404,7 +427,7 @@ export class ThreadManager {
       if (runtime.activeTurn && runtime.activeTurn.id !== target) {
         throw new ThreadManagerError("TURN_NOT_ACTIVE", "The requested turn is not active")
       }
-      await this.#adapterFor(thread.agentId as AgentId).cancelTurn({
+      await this.#adapterFor(thread.agentId as AgentId, thread.id).cancelTurn({
         ...this.#context(thread),
         turnId: target,
       })
@@ -425,7 +448,10 @@ export class ThreadManager {
   ): Promise<ThreadView> {
     return this.#withLock(threadId, async () => {
       const thread = await this.#required(threadId)
-      await this.#adapterFor(thread.agentId as AgentId).updateConfig(this.#context(thread), patch)
+      await this.#adapterFor(thread.agentId as AgentId, thread.id).updateConfig(
+        this.#context(thread),
+        patch
+      )
       return this.#updateAndPublishSync(thread)
     })
   }
@@ -444,7 +470,7 @@ export class ThreadManager {
           "Interaction was already resolved or does not exist"
         )
       }
-      await this.#adapterFor(thread.agentId as AgentId).respondToInteraction(
+      await this.#adapterFor(thread.agentId as AgentId, thread.id).respondToInteraction(
         this.#context(thread),
         interactionId,
         response
@@ -498,6 +524,12 @@ export class ThreadManager {
           if (runtime.activeTurn?.id === event.turnId) runtime.activeTurn = null
           runtime.state = "idle"
           this.#updateAndPublishSync(thread)
+          break
+        case "session-bound":
+          if (thread.agentSessionId !== event.sessionId) {
+            const bound = await this.#persistence.bindThreadAgentSession(threadId, event.sessionId)
+            this.#updateAndPublishSync(bound)
+          }
           break
         case "error":
           runtime.activeTurn = null
@@ -556,7 +588,7 @@ export class ThreadManager {
   async #recover(operation: ThreadLifecycleOperationRecord): Promise<void> {
     try {
       if (operation.kind === "create") {
-        if (operation.status === "provider-created" && operation.agentSessionId) {
+        if (operation.status === "provider-created") {
           const existing = await this.#persistence.getThread(operation.threadId)
           if (!existing) {
             await this.#persistence.createThread({
@@ -585,7 +617,7 @@ export class ThreadManager {
         await this.#lifecycle.complete(operation.id)
         return
       }
-      await this.#adapterFor(thread.agentId as AgentId).delete(this.#context(thread))
+      await this.#adapterFor(thread.agentId as AgentId, thread.id).delete(this.#context(thread))
       await this.#lifecycle.transition(operation.id, { status: "provider-deleted" })
       await this.#persistence.deleteThread(thread.id)
       await this.#lifecycle.complete(operation.id)
