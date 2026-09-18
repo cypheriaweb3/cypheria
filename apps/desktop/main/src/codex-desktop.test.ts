@@ -1,4 +1,4 @@
-import type { CodexAppServerBridge } from "@cypheria/codex-bridge"
+import type { CodexAppServerBridge } from "@cypheria/server/codex-bridge"
 import type { WebContents } from "electron"
 import { describe, expect, it, vi } from "vitest"
 import type { CodexChatEvent } from "../../ipc/src/index.js"

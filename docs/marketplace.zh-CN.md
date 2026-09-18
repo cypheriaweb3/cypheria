@@ -130,7 +130,7 @@ Desktop 其他 marketplace
   -> Codex App Server plugin/list 返回的 marketplace record
 ```
 
-`apps/marketplace` 是独立远程信任边界，不得导入 Electron、desktop IPC、the `apps/server` runtime、`@cypheria/codex-bridge` 或 `@cypheria/db` 的本地 SQLite adapter。边界稳定后，可通过专用 package 共享与运行环境无关的 schema、API contract 和 UI primitive。
+`apps/marketplace` 是独立远程信任边界，不得导入 Electron、desktop IPC、the `apps/server` runtime、the Server Codex adapter 或 `@cypheria/db` 的本地 SQLite adapter。边界稳定后，可通过专用 package 共享与运行环境无关的 schema、API contract 和 UI primitive。
 
 ## Cloudflare 设计
 

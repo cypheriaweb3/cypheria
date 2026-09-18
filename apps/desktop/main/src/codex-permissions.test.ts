@@ -1,4 +1,4 @@
-import type { CodexAppServerBridge } from "@cypheria/codex-bridge"
+import type { CodexAppServerBridge } from "@cypheria/server/codex-bridge"
 import { describe, expect, it } from "vitest"
 import {
   listCodexPermissions,

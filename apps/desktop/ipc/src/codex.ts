@@ -5,7 +5,7 @@ import type {
   CodexTurnModelRerouteSnapshot,
   CodexTurnPlanSnapshot,
   CodexTurnSnapshot,
-} from "@cypheria/codex-bridge"
+} from "@cypheria/protocol"
 import type { UIMessage } from "ai"
 import { z } from "zod"
 

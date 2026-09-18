@@ -4,8 +4,8 @@ import type {
   CodexServerRequestResponse,
   ServerRequest,
   v2,
-} from "@cypheria/codex-bridge"
-import { assertCodexServerRequestResponse } from "@cypheria/codex-bridge"
+} from "@cypheria/server/codex-bridge"
+import { assertCodexServerRequestResponse } from "@cypheria/server/codex-bridge"
 import type {
   CodexInteractionEvent,
   CodexInteractionMethod,

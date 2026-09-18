@@ -16,7 +16,12 @@ import type {
   SharedV4ProviderOptions,
   SharedV4Warning,
 } from "@ai-sdk/provider"
-import { codexGeneratedImageData } from "./image-generation.js"
+import {
+  type CodexTurnItemSnapshot,
+  CodexTurnProjector,
+  type CodexTurnUpdate,
+  codexGeneratedImageData,
+} from "@cypheria/protocol"
 import type {
   ClientRequest,
   CodexClientRequestParams,
@@ -28,11 +33,6 @@ import type {
   v2,
 } from "./index.js"
 import { inlineTextFromBytes } from "./inline-file.js"
-import {
-  type CodexTurnItemSnapshot,
-  CodexTurnProjector,
-  type CodexTurnUpdate,
-} from "./turn-projection.js"
 
 export type CodexAppServerProviderBridge = {
   request<

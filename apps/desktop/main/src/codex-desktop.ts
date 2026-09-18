@@ -9,7 +9,7 @@ import {
   createCodexAppServerProvider,
   inlineTextFromDataUrl,
   type v2,
-} from "@cypheria/codex-bridge"
+} from "@cypheria/server/codex-bridge"
 import { convertToModelMessages, streamText, toUIMessageStream, type UIMessageChunk } from "ai"
 import type { WebContents } from "electron"
 import type {

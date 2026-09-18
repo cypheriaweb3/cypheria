@@ -182,7 +182,7 @@
   - 验收：package 导出公共 `Cypheria` server client。
   - 包括：runtime、wallet、policy、schedule 和 agent clients。
   - Agent path：使用版本化 server operation 与 event。
-  - 不得导入：`apps/cli`、`apps/desktop`、Electron、the `apps/server` runtime 或 `@cypheria/codex-bridge`。
+  - 不得导入：`apps/cli`、`apps/desktop`、Electron、the `apps/server` runtime 或 the Server Codex adapter。
   - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/sdk test`。
 
 - [ ] 为 SDK 添加 runtime 和 Codex SDK test doubles。
@@ -196,7 +196,7 @@
   - 验收：package 构建无 TUI 的 `cypheria` Node CLI。
   - 包括：argument parsing、server connection/configuration、JSON output、log tailing 与 non-zero failure exits。
   - 依赖：`@cypheria/client` 与 `@cypheria/protocol`。
-  - 不得导入：`@cypheria/sdk`、the `apps/server` runtime、Electron、desktop packages 或 `@cypheria/codex-bridge`。
+  - 不得导入：`@cypheria/sdk`、the `apps/server` runtime、Electron、desktop packages 或 the Server Codex adapter。
   - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/cli test`。
 
 - [x] 实现 Server 与共享资源 CLI commands。
@@ -214,7 +214,7 @@
 
 - [ ] 搭建 TanStack Start marketplace Worker。
   - 验收：`@cypheria/marketplace` 使用官方 Cloudflare Vite 集成、自定义 Worker entrypoint、locale-prefixed SSR route、共享 UI primitive、D1 migration、typed binding 和本地测试完成构建与预览。
-  - 不得导入：Electron、desktop IPC、the `apps/server` runtime、`@cypheria/codex-bridge` 或 `@cypheria/db`。
+  - 不得导入：Electron、desktop IPC、the `apps/server` runtime、the Server Codex adapter 或 `@cypheria/db`。
   - 验证：marketplace test/typecheck/build/type generation、`pnpm run ci` 与 `pnpm build`。
 
 - [ ] 实现 marketplace identity、organization、authorization 和 publisher verification。
@@ -287,13 +287,13 @@
   - 不得创建：`@cypheria/codex-protocol`。
   - 验证：`pnpm --filter @cypheria/protocol check`。
 
-- [x] 重构 `@cypheria/codex-bridge` 使用 generated app-server types。
+- [x] 重构 the Server Codex adapter 使用 generated app-server types。
   - 验收：bridge 使用 generated request、response、notification 和 server request types，不再手写 Codex app-server protocol types。
   - 包括：WebSocket transport、initialize/initialized handshake、request/response correlation、notification stream、server request routing、disconnect handling 和 overload retry handling。
-  - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/codex-bridge test`。
+  - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter apps/server Codex adapter test`。
 
 - [x] 更新 desktop 使用 persistent Codex App Server over WebSocket。
-  - 验收：Electron main 以 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动 Codex App Server，通过 `@cypheria/codex-bridge` 连接，并经 typed IPC 向 renderer 暴露 Codex events。
+  - 验收：Electron main 以 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动 Codex App Server，通过 the Server Codex adapter 连接，并经 typed IPC 向 renderer 暴露 Codex events。
   - 包括：localhost port selection、process lifecycle、readiness、shutdown、stderr logging 和 renderer-safe event mapping。
   - 验证：`pnpm run ci`、`pnpm build`、`pnpm --filter @cypheria/desktop test`，如果 Codex 可用则做本地 desktop smoke test。
 
@@ -333,7 +333,7 @@
   - 包括：typed IPC、harness 专用 home、全局代理传递、通过 `HERMES_HOME`/`HERMES_INSTALL_DIR` 约束 Hermes 且不安装 desktop 包，以及包含变化文件与可执行文件哈希的可审计安装收据。
   - 验证：desktop typecheck/tests/build，加真实 Electron Connections smoke check。
 
-- [x] 添加 `@cypheria/acp-ai-provider` ACP 到 AI SDK bridge。
+- [x] 添加 `@cypheria/ai-sdk-provider/acp` ACP 到 AI SDK bridge。
   - 验收：package 使用官方 ACP 1.4 app API，启动或连接 ACP agent，并暴露原生 AI SDK 7 `LanguageModelV4` streaming/generation，以及 ACP callback、lifecycle、configuration、control、transport、event 与 draft-v2 surfaces。
   - 包括：能力感知的 content conversion、安全的默认权限取消、filesystem/terminal/elicitation/ACP-MCP handlers、session 与实验性 controls、usage/provider metadata 保留、在成对 package README 中记录上游来源与 commit、保留上游 MIT 声明，以及来源与协议级 Vitest 覆盖。
   - 验证：package typecheck/tests、workspace CI 与 workspace build。

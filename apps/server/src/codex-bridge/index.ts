@@ -16,6 +16,19 @@ import {
 } from "./protocol-validation.js"
 import type { CodexClientResponse, CodexServerRequestResponse } from "./response-map.js"
 
+export {
+  type CodexGeneratedImageData,
+  type CodexTerminalInteraction,
+  type CodexTurnDiffSnapshot,
+  type CodexTurnEventSnapshot,
+  type CodexTurnItemSnapshot,
+  type CodexTurnModelRerouteSnapshot,
+  type CodexTurnPlanSnapshot,
+  CodexTurnProjector,
+  type CodexTurnSnapshot,
+  type CodexTurnUpdate,
+  codexGeneratedImageData,
+} from "@cypheria/protocol"
 export type * from "@cypheria/protocol/codex-types"
 export type {
   CodexAppServerProvider,
@@ -35,7 +48,6 @@ export {
   type CodexDynamicToolRegistry,
   createCodexDynamicToolRegistry,
 } from "./dynamic-tools.js"
-export { type CodexGeneratedImageData, codexGeneratedImageData } from "./image-generation.js"
 export { inlineTextFromBytes, inlineTextFromDataUrl } from "./inline-file.js"
 export { assertCodexServerRequestResponse } from "./protocol-validation.js"
 export type {
@@ -44,17 +56,6 @@ export type {
   CodexServerRequestResponse,
   CodexServerRequestResponseMap,
 } from "./response-map.js"
-export {
-  type CodexTerminalInteraction,
-  type CodexTurnDiffSnapshot,
-  type CodexTurnEventSnapshot,
-  type CodexTurnItemSnapshot,
-  type CodexTurnModelRerouteSnapshot,
-  type CodexTurnPlanSnapshot,
-  CodexTurnProjector,
-  type CodexTurnSnapshot,
-  type CodexTurnUpdate,
-} from "./turn-projection.js"
 export { CODEX_APP_SERVER_VERSION } from "./version.js"
 
 export type CodexJsonValue =

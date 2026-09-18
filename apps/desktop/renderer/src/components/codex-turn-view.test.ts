@@ -1,4 +1,4 @@
-import type { CodexTurnItemSnapshot, CodexTurnSnapshot } from "@cypheria/codex-bridge"
+import type { CodexTurnItemSnapshot, CodexTurnSnapshot } from "@cypheria/protocol"
 import { describe, expect, it } from "vitest"
 
 import type { CodexUiMessage } from "../../../ipc/src/index.js"

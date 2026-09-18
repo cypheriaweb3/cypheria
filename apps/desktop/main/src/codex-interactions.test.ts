@@ -3,7 +3,7 @@ import type {
   CodexJsonValue,
   CodexServerRequestByMethod,
   ServerRequest,
-} from "@cypheria/codex-bridge"
+} from "@cypheria/server/codex-bridge"
 import { describe, expect, it } from "vitest"
 
 import type { CodexInteractionEvent } from "../../ipc/src/index.js"

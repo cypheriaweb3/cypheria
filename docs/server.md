@@ -32,7 +32,7 @@ cypheria-server stop
 
 ## Client Protocol
 
-`@cypheria/protocol` owns the Cypheria wire protocol and the generated Codex App Server artifacts. It does not hand-write Codex DTOs: TypeScript, JSON Schemas, response mappings, validators, and the checked-in dotted API registry are generated or derived together in this package. Codex-generated TypeScript remains the compile-time source of truth; pinned Hey API generation converts the Codex JSON Schema definitions into committed static Zod 4 validators. `@cypheria/codex-bridge` consumes the dedicated protocol subpath. All HTTP and WebSocket boundary values are validated with Zod.
+`@cypheria/protocol` owns the Cypheria wire protocol and the generated Codex App Server artifacts. It does not hand-write Codex DTOs: TypeScript, JSON Schemas, response mappings, validators, and the checked-in dotted API registry are generated or derived together in this package. Codex-generated TypeScript remains the compile-time source of truth; pinned Hey API generation converts the Codex JSON Schema definitions into committed static Zod 4 validators. the Server Codex adapter consumes the dedicated protocol subpath. All HTTP and WebSocket boundary values are validated with Zod.
 
 `@cypheria/client` is the reusable consumer of this contract. Its internal `ServerClient` owns the transport, WebSocket session, request correlation, subscriptions, timeout handling, and reconnect policy. `createCypheriaApi()` exposes a borrowed capability facade without connection controls, while `createCypheriaClient()` creates a facade that owns its connection lifecycle. The public API exposes provider-neutral `agent`, `thread`, `projectThread`, and `server` actions. Provider runtimes and sessions are owned by the server.
 

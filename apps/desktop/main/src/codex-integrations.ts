@@ -1,4 +1,4 @@
-import type { CodexAppServerBridge, v2 } from "@cypheria/codex-bridge"
+import type { CodexAppServerBridge, v2 } from "@cypheria/server/codex-bridge"
 import { z } from "zod"
 import {
   type CodexAppListResult,

@@ -1,4 +1,4 @@
-import { type CodexTurnItemSnapshot, codexGeneratedImageData } from "@cypheria/codex-bridge"
+import { type CodexTurnItemSnapshot, codexGeneratedImageData } from "@cypheria/protocol"
 import { cn } from "@cypheria/ui"
 import { CodeBlock } from "@cypheria/ui/ai-elements/code-block"
 import {

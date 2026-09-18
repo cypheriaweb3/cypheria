@@ -147,7 +147,7 @@ Runtime 不实现 Codex agent internals。
 
 - `@cypheria/sdk`
 - the `apps/server` runtime
-- `@cypheria/codex-bridge`
+- the Server Codex adapter
 - Electron 或 desktop packages
 
 已实现命令行为：
@@ -166,7 +166,7 @@ Runtime 不实现 Codex agent internals。
 - `apps/cli`
 - the `apps/server` runtime
 - Electron 或 desktop packages
-- `@cypheria/codex-bridge`
+- the Server Codex adapter
 
 SDK clients 应该是版本化 server operation 与 event stream 之上的轻量 wrapper。
 
@@ -225,11 +225,11 @@ Server 为每个 client 持有 Codex。Desktop 的实时 turn 与持久 history 
 
 ```txt
 Desktop
-  -> @cypheria/codex-bridge
+  -> apps/server Codex adapter
   -> codex app-server over WebSocket JSON-RPC
 ```
 
-`@cypheria/codex-bridge` 只负责 desktop 集成。它应该：
+the Server Codex adapter 只负责 desktop 集成。它应该：
 
 - 从 `@cypheria/protocol/codex-types` 消费原始 generated Codex app-server type，并从 `@cypheria/protocol` 消费 Cypheria message contract。
 - 由 `@cypheria/protocol` 持有 protocol generation 与 schema；`pnpm --filter @cypheria/protocol generate:codex-all` 始终包含 experimental API，把从 Rust 64 位整数生成的声明规范化为 JSON wire type `number`，为 generated relative import 补齐 TypeScript extension 以兼容 NodeNext consumer，并刷新 dotted message schema 与 API 参考文档。

@@ -1,6 +1,6 @@
 import { readFile, stat } from "node:fs/promises"
 import { extname } from "node:path"
-import type { CodexAppServerBridge, v2 } from "@cypheria/codex-bridge"
+import type { CodexAppServerBridge, v2 } from "@cypheria/server/codex-bridge"
 import type {
   CodexMarketplaceView,
   CodexPluginInstallResult,

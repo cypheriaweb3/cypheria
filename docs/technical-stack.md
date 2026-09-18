@@ -148,7 +148,7 @@ It must not depend on:
 
 - `@cypheria/sdk`
 - the `apps/server` runtime
-- `@cypheria/codex-bridge`
+- the Server Codex adapter
 - Electron or desktop packages
 
 Implemented command behavior:
@@ -167,7 +167,7 @@ It must not depend on:
 - `apps/cli`
 - the `apps/server` runtime
 - Electron or desktop packages
-- `@cypheria/codex-bridge`
+- the Server Codex adapter
 
 SDK clients should be small wrappers around versioned server operations and event streams.
 
@@ -226,11 +226,11 @@ The server owns Codex for every client. Desktop live turns and durable history n
 
 ```txt
 Desktop
-  -> @cypheria/codex-bridge
+  -> apps/server Codex adapter
   -> codex app-server over WebSocket JSON-RPC
 ```
 
-`@cypheria/codex-bridge` owns desktop integration only. It should:
+the Server Codex adapter owns desktop integration only. It should:
 
 - Consume raw generated Codex app-server types from `@cypheria/protocol/codex-types` and Cypheria message contracts from `@cypheria/protocol`.
 - Leave protocol generation and schema ownership to `@cypheria/protocol`; `pnpm --filter @cypheria/protocol generate:codex-all` always includes experimental APIs, normalizes generated Rust 64-bit integer declarations to the JSON wire type `number`, adds explicit TypeScript extensions to relative generated imports for NodeNext consumers, and refreshes the dotted message schemas and API reference.

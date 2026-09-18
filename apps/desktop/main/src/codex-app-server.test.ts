@@ -10,7 +10,7 @@ import type {
   CodexServerRequestByMethod,
   InitializeResponse,
   ServerRequest,
-} from "@cypheria/codex-bridge"
+} from "@cypheria/server/codex-bridge"
 import { buildRuntimePaths } from "@cypheria/server/runtime"
 import type { BrowserWindow } from "electron"
 import { describe, expect, it } from "vitest"

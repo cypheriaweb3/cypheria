@@ -28,7 +28,6 @@
     "@ai-sdk/react": "^4.0.90",
     "@cypheria/ai-sdk-provider": "workspace:*",
     "@cypheria/client": "workspace:*",
-    "@cypheria/codex-bridge": "workspace:*",
     "@cypheria/db": "workspace:*",
     "@cypheria/protocol": "workspace:*",
     "@cypheria/server": "workspace:*",

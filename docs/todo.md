@@ -184,7 +184,7 @@ Status legend:
   - Acceptance: package exports a public `Cypheria` server client.
   - Include: clients for runtime, wallet, policy, schedule, and agent.
   - Agent path: use versioned server operations and events.
-  - Must not import: `apps/cli`, `apps/desktop`, Electron, the `apps/server` runtime, or `@cypheria/codex-bridge`.
+  - Must not import: `apps/cli`, `apps/desktop`, Electron, the `apps/server` runtime, or the Server Codex adapter.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/sdk test`.
 
 - [ ] Add SDK test doubles for runtime and Codex SDK.
@@ -198,7 +198,7 @@ Status legend:
   - Acceptance: package builds a `cypheria` Node CLI with no TUI.
   - Include: argument parsing, server connection/configuration, JSON output, log tailing, and non-zero failure exits.
   - Dependencies: `@cypheria/client` and `@cypheria/protocol`.
-  - Must not import: `@cypheria/sdk`, the `apps/server` runtime, Electron, desktop packages, or `@cypheria/codex-bridge`.
+  - Must not import: `@cypheria/sdk`, the `apps/server` runtime, Electron, desktop packages, or the Server Codex adapter.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/cli test`.
 
 - [x] Implement server and shared-resource CLI commands.
@@ -216,7 +216,7 @@ Status legend:
 
 - [ ] Scaffold the TanStack Start marketplace Worker.
   - Acceptance: `@cypheria/marketplace` builds and previews with the official Cloudflare Vite integration, a custom Worker entrypoint, locale-prefixed SSR routes, shared UI primitives, D1 migrations, typed bindings, and local tests.
-  - Must not import: Electron, desktop IPC, the `apps/server` runtime, `@cypheria/codex-bridge`, or `@cypheria/db`.
+  - Must not import: Electron, desktop IPC, the `apps/server` runtime, the Server Codex adapter, or `@cypheria/db`.
   - Verification: marketplace tests/typecheck/build/type generation, `pnpm run ci`, and `pnpm build`.
 
 - [ ] Implement marketplace identity, organizations, authorization, and publisher verification.
@@ -289,13 +289,13 @@ Status legend:
   - Must not create: `@cypheria/codex-protocol`.
   - Verification: `pnpm --filter @cypheria/protocol check`.
 
-- [x] Refactor `@cypheria/codex-bridge` to use generated app-server types.
+- [x] Refactor the Server Codex adapter to use generated app-server types.
   - Acceptance: bridge uses generated request, response, notification, and server request types instead of hand-written Codex app-server protocol types.
   - Include: WebSocket transport, initialize/initialized handshake, request/response correlation, notification stream, server request routing, disconnect handling, and overload retry handling.
-  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/codex-bridge test`.
+  - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter apps/server Codex adapter test`.
 
 - [x] Update desktop to use persistent Codex App Server over WebSocket.
-  - Acceptance: Electron main starts Codex App Server with `CODEX_HOME=$CYPHERIA_HOME/codex`, connects through `@cypheria/codex-bridge`, and exposes Codex events to renderer through typed IPC.
+  - Acceptance: Electron main starts Codex App Server with `CODEX_HOME=$CYPHERIA_HOME/codex`, connects through the Server Codex adapter, and exposes Codex events to renderer through typed IPC.
   - Include: localhost port selection, process lifecycle, readiness, shutdown, stderr logging, and renderer-safe event mapping.
   - Verification: `pnpm run ci`, `pnpm build`, `pnpm --filter @cypheria/desktop test`, local desktop smoke test when Codex is available.
 
@@ -335,7 +335,7 @@ Status legend:
   - Include: typed IPC, harness-specific homes, global proxy propagation, Hermes `HERMES_HOME`/`HERMES_INSTALL_DIR` containment without its desktop package, and auditable install receipts containing changed files and executable hashes.
   - Verification: desktop typecheck/tests/build plus a real Electron Connections smoke check.
 
-- [x] Add the `@cypheria/acp-ai-provider` ACP-to-AI-SDK bridge.
+- [x] Add the `@cypheria/ai-sdk-provider/acp` ACP-to-AI-SDK bridge.
   - Acceptance: the package uses the official ACP 1.4 app API, launches or connects to ACP agents, and exposes native AI SDK 7 `LanguageModelV4` streaming/generation plus the ACP callback, lifecycle, configuration, control, transport, event, and draft-v2 surfaces.
   - Include: capability-aware content conversion, safe default permission cancellation, filesystem/terminal/elicitation/ACP-MCP handlers, session and experimental controls, usage/provider metadata preservation, upstream provenance and commit pinning in paired package READMEs, the upstream MIT notice, and source plus protocol-level Vitest coverage.
   - Verification: package typecheck/tests, workspace CI, and workspace build.

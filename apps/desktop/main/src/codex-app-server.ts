@@ -13,7 +13,7 @@ import {
   createCodexDynamicToolRegistry,
   type ServerNotification,
   type ServerRequest,
-} from "@cypheria/codex-bridge"
+} from "@cypheria/server/codex-bridge"
 import type { CypheriaRuntimePaths, RuntimeHomeEnv } from "@cypheria/server/runtime"
 import type { BrowserWindow } from "electron"
 import {

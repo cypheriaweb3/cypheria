@@ -168,7 +168,7 @@ const thread = cypheria.agent().startThread({ workingDirectory: process.cwd() })
 const result = await thread.run("Analyze this repo")
 ```
 
-The SDK should not depend on Electron, desktop IPC, the `apps/server` runtime, or `@cypheria/codex-bridge`.
+The SDK should not depend on Electron, desktop IPC, Server runtime internals, or the Server Codex adapter.
 
 ## Desktop
 
@@ -236,32 +236,11 @@ Connections also owns one global proxy configuration for every agent harness. It
 
 ## Codex Integration
 
-The target Cypheria server will own Codex integration for all protocol clients. During the deliberate desktop transition, the current repository still uses two direct Codex integration paths:
+`apps/server` owns the Codex process, native JSON-RPC transport, generated-schema validation, reverse requests, and projection into Cypheria Threads and the Canonical Timeline. Every client—including Desktop—uses the versioned Cypheria protocol instead of connecting to Codex App Server directly. The browser-safe `@cypheria/ai-sdk-provider/codex` consumes `@cypheria/client` Thread operations and Timeline events; it never launches Codex or reads Codex files.
 
-- Future CLI and SDK work must use the Cypheria server protocol.
-- Desktop uses `codex app-server` over WebSocket JSON-RPC.
+Codex-specific full-fidelity display data remains part of `@cypheria/protocol`: `CodexTurnProjector` snapshots, generated-image metadata, native IDs, plans, diffs, reroutes, and otherwise-unmapped events can coexist with common Timeline items. Desktop preserves its established Codex turn UI while the shared conversation shell handles drafts, attachments, streaming, cancellation, virtualization, scroll restoration, unread state, and navigation for every Agent.
 
-`@cypheria/codex-bridge` is the desktop-side app-server client. It owns:
-
-- WebSocket transport.
-- JSON-RPC request/response correlation.
-- `initialize` request and `initialized` notification handshake.
-- Server notification stream.
-- Server-initiated approval, user-input, and MCP-elicitation request routing.
-- Disconnect and lifecycle handling.
-- Overload retry handling for app-server overload errors.
-- AI SDK `ProviderV4` adaptation for chat surfaces that use AI SDK / AI Elements.
-- Experimental dynamic-tool registration and dispatch to Electron-main handlers.
-
-Desktop main owns the Codex App Server process lifecycle. It selects a localhost port, starts `codex app-server` with `CODEX_HOME=$CYPHERIA_HOME/codex`, waits for bridge readiness, logs stderr, and shuts the child process down with the desktop runtime. The App Server binary and generated protocol are an atomic compatibility unit: development resolves the exact workspace `@openai/codex` dependency, packaged builds resolve the bundled Electron resource, and startup rejects a binary whose reported version differs from `CODEX_APP_SERVER_VERSION`. `CYPHERIA_CODEX_PATH` is reserved for explicit diagnostics and remains subject to the same version check.
-
-The integration deliberately has two capability planes. The AI SDK adapter is the message plane used by `@ai-sdk/react` and AI Elements. It maps compatible Codex input and output into `LanguageModelV4`: text, reasoning, images, audio, structured output, provider-executed tools and progress, generated files, web sources, token usage, response metadata, model listing, turn interruption, and mid-turn steering. Provider metadata on compatible parts retains the full projected Codex item. Electron main additionally carries each `CodexTurnProjector` update as a typed, persistent AI SDK data part, so the renderer receives the complete App Server turn without forcing Codex-only semantics into the portable `LanguageModelV4` vocabulary. AI SDK ignores these data parts when converting restored UI messages back into model input; the canonical App Server thread remains the source of model history. Unsupported AI SDK call settings and media are reported as warnings rather than silently changing semantics. Persistent resumes inherit App Server approval and sandbox settings unless the caller explicitly overrides them.
-
-The renderer recognizes this enriched turn shape and presents the final answer separately from collapsible activity. It preserves commentary versus `final_answer` phases, derives Codex-style reasoning/tool groups, shows live and completed duration labels, and renders commands, file changes, MCP and collaboration work, web results, generated images, plans, diffs, and reroutes from their full item snapshots. Reverse-request cards still travel on their dedicated interaction channel, but are associated with the matching turn ID and keep that turn's activity expanded while user action is required. Generic AI SDK message rendering remains as a compatibility fallback for messages without a Codex turn part.
-
-Capabilities that are application operations rather than language-model generation do not pass through AI SDK. Thread and project lifecycle, review and diff state, account and login, plugins, skills, MCP servers, terminals, configuration, and other stable or experimental App Server methods use generated request/response types over the direct bridge and are exposed to the renderer only through narrow typed IPC services. Experimental protocol types are generated with `--experimental`, and desktop advertises `experimentalApi: true` during initialization, so new experimental methods can be adopted without widening the AI SDK abstraction. Client attestation remains unadvertised until Cypheria has a real platform attestation provider; App Server-managed authentication does not install the external ChatGPT token-refresh callback.
-
-Reverse JSON-RPC requests are not AI SDK stream parts. A fail-closed Electron-main broker handles command, file-change, and permission approvals, tool user-input questions, and MCP elicitation. It forwards validated renderer-safe prompts over typed IPC, validates the response shape for the exact request method, records the decision in the audit log, and cancels or rejects on timeout, disconnect, shutdown, or missing handlers. Experimental dynamic tools use a separate registry: their definitions are included in `thread/start`, while `item/tool/call` executes the registered Electron-main handler. This keeps wallet, policy, signing, and other privileged implementations outside the renderer and outside an AI SDK client-tool callback.
+Application operations such as account/login, configuration, approvals, Skills, MCP, Plugins, Marketplaces, and OpenAI Apps are Provider extensions under `client.providers.codex`; they do not pass through AI SDK. Reverse requests remain fail-closed and auditable at the Server boundary.
 
 Codex app-server generated artifacts live inside:
 
@@ -281,11 +260,7 @@ Generated protocol files are committed. Do not hand-write Codex app-server proto
 
 ## ACP AI Provider
 
-`@cypheria/acp-ai-provider` is independent from the desktop-only Codex bridge. It adapts stable ACP v1 agents to AI SDK 7 `LanguageModelV4` through the official ACP 1.4 app-style client. The language-model plane maps text, reasoning, media, native resource links, embedded resources, sources, tools, stop reasons, warnings, and raw cumulative usage. The ACP control plane retains negotiated capabilities, client callbacks, session lifecycle/configuration, provider and next-edit controls, document synchronization, extension methods, and lossless protocol events. Language-model instances do not share session state. Executable AI SDK tools run through a loopback-only, per-instance authenticated MCP proxy; client-side tools without `execute` are rejected because ACP cannot suspend and resume their calls as a separate AI SDK step.
-
-Client capabilities are derived from explicitly installed handlers. Permission requests cancel by default, and filesystem, terminal, elicitation, and ACP-transport MCP capabilities remain disabled until the host installs their handlers. Stable stdio and custom streams are supported; HTTP/WebSocket helpers and advanced controls are explicit experimental opt-ins. Draft ACP v2 is isolated in a separate import that exposes the official v2 client context and does not masquerade as a stable `LanguageModelV4` implementation.
-
-Package tests connect official ACP 1.4 client and agent apps over in-memory streams. Real Codex ACP, Gemini ACP, and Claude ACP process interoperability remains a deferred integration-test layer.
+`apps/server` owns ACP process and protocol execution. `@cypheria/ai-sdk-provider/acp` is the browser-safe AI SDK facade over `@cypheria/client`; it selects an ACP registry Agent, starts or resumes a Cypheria Thread, streams Canonical Timeline events, and cancels through the Thread API. ACP capabilities and native metadata remain available through discriminated protocol extensions without exposing the ACP SDK to clients.
 
 ## Wallet Provider And dApp Browser Boundary
 
@@ -435,11 +410,11 @@ apps/server/src/runtime
 @cypheria/sdk
   Planned public TS client for the Cypheria server protocol.
 
-@cypheria/codex-bridge
-  Desktop-side Codex App Server bridge, generated protocol types, transport, and event normalization.
+apps/server Codex adapter
+  Server-owned Codex App Server transport, validation, reverse requests, and event normalization.
 
-@cypheria/acp-ai-provider
-  Node-side ACP 1.4 agent bridge with AI SDK 7 LanguageModelV4 and ACP callback/control/event surfaces.
+@cypheria/ai-sdk-provider/acp
+  Browser-safe AI SDK provider backed by the Cypheria client and Canonical Timeline.
 
 @cypheria/web3/network
   Canonical chain identities, strict network/RPC models, catalog entries, and protocol conversion helpers.

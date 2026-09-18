@@ -165,7 +165,7 @@ const thread = cypheria.agent().startThread({ workingDirectory: process.cwd() })
 const result = await thread.run("Analyze this repo")
 ```
 
-SDK 不应依赖 Electron、desktop IPC、the `apps/server` runtime 或 `@cypheria/codex-bridge`。
+SDK 不应依赖 Electron、desktop IPC、Server runtime 内部实现或 Server Codex adapter。
 
 ## Desktop
 
@@ -233,32 +233,11 @@ Connections 还维护一份供所有 agent harness 共用的全局代理配置�
 
 ## Codex 集成
 
-目标架构由 Cypheria server 为所有 protocol client 持有 Codex integration。在刻意保留的 desktop 过渡期内，当前仓库仍存在两条 direct Codex integration path：
+`apps/server` 持有 Codex process、原生 JSON-RPC transport、generated-schema validation、reverse request，以及向 Cypheria Thread 与 Canonical Timeline 的投影。包括 Desktop 在内的所有 client 都通过版本化 Cypheria protocol 调用，不直接连接 Codex App Server。浏览器安全的 `@cypheria/ai-sdk-provider/codex` 只消费 `@cypheria/client` 的 Thread operation 与 Timeline event，不启动 Codex，也不读取 Codex 文件。
 
-- 未来的 CLI 与 SDK 必须使用 Cypheria server protocol。
-- Desktop 使用 `codex app-server` over WebSocket JSON-RPC。
+Codex 特有的高保真展示数据继续属于 `@cypheria/protocol`：`CodexTurnProjector` snapshot、generated-image metadata、native ID、plan、diff、reroute 与其他无法映射的事件可以和通用 Timeline item 共存。Desktop 保留已经打磨的 Codex turn UI；共享会话 shell 则为所有 Agent 统一处理草稿、附件、streaming、取消、虚拟列表、滚动恢复、未读与导航。
 
-`@cypheria/codex-bridge` 是 desktop-side app-server client。它负责：
-
-- WebSocket transport。
-- JSON-RPC request/response correlation。
-- `initialize` request 和 `initialized` notification handshake。
-- Server notification stream。
-- Server-initiated approval、user-input 与 MCP-elicitation request routing。
-- Disconnect 和 lifecycle handling。
-- app-server overload errors 的重试处理。
-- 为使用 AI SDK / AI Elements 的聊天界面提供 AI SDK `ProviderV4` adapter。
-- Experimental dynamic-tool registration，以及向 Electron-main handler 的 dispatch。
-
-Desktop main 拥有 Codex App Server process lifecycle。它选择 localhost port，以 `CODEX_HOME=$CYPHERIA_HOME/codex` 启动 `codex app-server`，等待 bridge readiness，记录 stderr，并随 desktop runtime 一起关闭 child process。App Server binary 与 generated protocol 是原子 compatibility unit：development 解析精确固定的 workspace `@openai/codex` dependency，packaged build 解析 Electron 内置 resource，启动时拒绝 reported version 与 `CODEX_APP_SERVER_VERSION` 不一致的 binary。`CYPHERIA_CODEX_PATH` 仅用于显式 diagnostics，并继续接受相同的版本检查。
-
-这套集成明确分为两个 capability plane。AI SDK adapter 是 `@ai-sdk/react` 与 AI Elements 使用的消息平面。它把可兼容的 Codex 输入和输出映射为 `LanguageModelV4`：text、reasoning、image、audio、structured output、provider-executed tool 及 progress、generated file、web source、token usage、response metadata、model listing、turn interrupt 与 mid-turn steer。兼容 part 的 provider metadata 会保留完整的 Codex item projection。Electron main 还会把每个 `CodexTurnProjector` update 作为 typed、persistent AI SDK data part 传输，使 renderer 获得完整 App Server turn，而无需把 Codex-specific 语义硬塞进可移植的 `LanguageModelV4` vocabulary。把已恢复 UI message 转回 model input 时，AI SDK 会忽略这些 data parts；canonical App Server thread 仍是模型历史的 source of truth。不支持的 AI SDK call setting 和 media 会形成 warning，不会静默改变语义。持久 thread resume 默认继承 App Server 已存的 approval 与 sandbox setting，只有调用方显式提供时才覆盖。
-
-Renderer 会识别增强后的 turn shape，并把 final answer 与可折叠 activity 分开展示。它保留 commentary 和 `final_answer` phase 的差异，推导 Codex-style reasoning/tool group，展示实时与完成后的 duration label，并通过完整 item snapshot 渲染 command、file change、MCP/collaboration work、web result、generated image、plan、diff 与 reroute。Reverse-request card 仍通过独立 interaction channel 传输，但会按 turn ID 关联到对应 turn，并在等待用户操作时保持该 turn 的 activity 展开。对于没有 Codex turn part 的 message，通用 AI SDK message renderer 仍作为 compatibility fallback。
-
-不属于 language-model generation 的 application operation 不经过 AI SDK。Thread/project lifecycle、review/diff state、account/login、plugin、skill、MCP server、terminal、configuration，以及其他 stable 或 experimental App Server method，均通过 direct bridge 使用 generated request/response type，并且只通过收窄的 typed IPC service 暴露给 renderer。Protocol type 使用 `--experimental` 生成，desktop 在 initialize 时声明 `experimentalApi: true`，因此可以接入新的 experimental method，而无需扩大 AI SDK abstraction。Cypheria 拥有真实的 platform attestation provider 之前，不声明 client attestation；使用 App Server-managed authentication 时也不安装外部 ChatGPT token-refresh callback。
-
-反向 JSON-RPC request 不是 AI SDK stream part。Electron-main 中的 fail-closed broker 处理 command、file-change、permission approval、tool user-input question 与 MCP elicitation。它通过 typed IPC 转发经过验证、适合 renderer 的 prompt，按具体 request method 校验 response shape，将 decision 写入 audit log，并在 timeout、disconnect、shutdown 或 handler 缺失时取消或拒绝。Experimental dynamic tool 使用独立 registry：定义随 `thread/start` 发送，`item/tool/call` 则执行已注册的 Electron-main handler。这样 wallet、policy、signing 及其他 privileged implementation 都不会进入 renderer，也不会落入 AI SDK client-tool callback。
+Account/login、configuration、approval、Skills、MCP、Plugins、Marketplaces 与 OpenAI Apps 等 application operation 通过 `client.providers.codex` 暴露，不经过 AI SDK。Reverse request 在 Server 边界保持 fail-closed 且可审计。
 
 Codex app-server generated artifacts 放在：
 
@@ -278,11 +257,7 @@ Generated protocol files 需要提交。不要手写 Codex app-server protocol r
 
 ## ACP AI Provider
 
-`@cypheria/acp-ai-provider` 独立于 desktop-only Codex bridge。它通过官方 ACP 1.4 app-style client，把稳定 ACP v1 agent 适配为 AI SDK 7 `LanguageModelV4`。Language-model plane 映射文本、推理、媒体、原生 resource link、嵌入资源、来源、工具、停止原因、warning 与 raw 累计 usage；ACP control plane 则保留协商能力、client callback、session lifecycle/configuration、provider 与 next-edit control、document synchronization、extension method 和无损协议事件。不同 language-model 实例不共享 session 状态。可执行 AI SDK tool 通过仅监听 loopback、每实例认证的 MCP proxy 运行；由于 ACP 无法把调用挂起并作为独立 AI SDK step 恢复，不带 `execute` 的 client-side tool 会被拒绝。
-
-Client capability 由显式安装的 handler 派生。权限请求默认取消；host 安装对应 handler 前，filesystem、terminal、elicitation 与 ACP-transport MCP 能力均保持禁用。系统支持稳定 stdio 和自定义 stream；HTTP/WebSocket helper 与高级控制均需显式实验性 opt-in。Draft ACP v2 被隔离在独立 import 中，只暴露官方 v2 client context，不伪装成稳定 `LanguageModelV4` 实现。
-
-Package 测试通过内存 stream 连接官方 ACP 1.4 client 与 agent app。真实 Codex ACP、Gemini ACP 和 Claude ACP 进程互操作仍作为后续 integration-test 层。
+`apps/server` 持有 ACP process 与 protocol execution。`@cypheria/ai-sdk-provider/acp` 是基于 `@cypheria/client` 的浏览器安全 AI SDK facade：选择 ACP registry Agent，创建或恢复 Cypheria Thread，流式消费 Canonical Timeline，并通过 Thread API 取消。ACP capabilities 与 native metadata 通过带判别字段的 protocol extension 保留，不向 client 暴露 ACP SDK。
 
 ## Wallet Provider 与 dApp Browser 边界
 
@@ -432,11 +407,11 @@ apps/server/src/runtime
 @cypheria/sdk
   规划中的 Cypheria server protocol 公共 TS client。
 
-@cypheria/codex-bridge
-  Desktop-side Codex App Server bridge, generated protocol types, transport, and event normalization.
+apps/server Codex adapter
+  Server 持有的 Codex App Server transport、validation、reverse request 与 event normalization。
 
-@cypheria/acp-ai-provider
-  Node 侧 ACP 1.4 agent bridge，提供 AI SDK 7 LanguageModelV4 与 ACP callback/control/event surfaces。
+@cypheria/ai-sdk-provider/acp
+  基于 Cypheria client 与 Canonical Timeline 的浏览器安全 AI SDK provider。
 
 @cypheria/web3/network
   Canonical chain identity、严格 network/RPC model、catalog entry 与 protocol conversion helper。
