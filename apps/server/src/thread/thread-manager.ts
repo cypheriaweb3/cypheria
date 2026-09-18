@@ -1,0 +1,655 @@
+import type {
+  CreateThreadInput,
+  ProjectThreadPersistenceService,
+  ThreadLifecycleOperationRecord,
+  ThreadLifecyclePersistenceService,
+  ThreadRecord,
+} from "@cypheria/db"
+import { createThreadId } from "@cypheria/db"
+import {
+  type AgentId,
+  type ServerMessage,
+  type ThreadClientMessage,
+  type ThreadInputBlock,
+  type ThreadInteraction,
+  ThreadSchema,
+  type ThreadServerMessage,
+  type ThreadState,
+  type ThreadView,
+} from "@cypheria/protocol"
+
+import type {
+  ThreadInteractionResponse,
+  ThreadProviderAdapter,
+  ThreadProviderContext,
+  ThreadProviderEvent,
+} from "./provider-adapter.js"
+import { ThreadTimelineStore } from "./timeline-store.js"
+
+type Publish = (message: ServerMessage) => void
+
+type RuntimeState = {
+  activeTurn: { id: string; startedAt: string } | null
+  capabilities: ThreadView["capabilities"]
+  pendingInteractions: Map<string, ThreadInteraction>
+  state: ThreadState
+}
+
+export class ThreadManagerError extends Error {
+  readonly code: string
+
+  constructor(code: string, message: string) {
+    super(message)
+    this.name = code
+    this.code = code
+  }
+}
+
+export type ThreadManagerOptions = {
+  readonly adapterFor: (agentId: AgentId) => ThreadProviderAdapter
+  readonly assertAgentCallable: (agentId: AgentId) => Promise<void>
+  readonly lifecycle: ThreadLifecyclePersistenceService
+  readonly persistence: ProjectThreadPersistenceService
+  readonly publish: Publish
+}
+
+const stoppedCapabilities: ThreadView["capabilities"] = {
+  changeCwd: true,
+  configure: false,
+  fork: false,
+  promptContent: ["text"],
+  providerExtensions: false,
+}
+
+export class ThreadManager {
+  readonly #adapterFor: ThreadManagerOptions["adapterFor"]
+  readonly #assertAgentCallable: ThreadManagerOptions["assertAgentCallable"]
+  readonly #lifecycle: ThreadLifecyclePersistenceService
+  readonly #locks = new Map<string, Promise<unknown>>()
+  readonly #persistence: ProjectThreadPersistenceService
+  readonly #publish: Publish
+  readonly #runtime = new Map<string, RuntimeState>()
+  readonly #timeline = new ThreadTimelineStore()
+  readonly #turnRequests = new Map<string, Map<string, string>>()
+
+  constructor(options: ThreadManagerOptions) {
+    this.#adapterFor = options.adapterFor
+    this.#assertAgentCallable = options.assertAgentCallable
+    this.#lifecycle = options.lifecycle
+    this.#persistence = options.persistence
+    this.#publish = options.publish
+  }
+
+  async initialize(): Promise<void> {
+    for (const operation of await this.#lifecycle.listRecoverable()) {
+      await this.#recover(operation)
+    }
+  }
+
+  async handle(
+    message: ThreadClientMessage,
+    send: (message: ServerMessage) => void
+  ): Promise<void> {
+    const respond = (value: unknown): void => {
+      send({
+        payload: { ok: true, value },
+        requestId: message.requestId,
+        type: message.type.replace(/\.request$/, ".response"),
+      } as ThreadServerMessage)
+    }
+    try {
+      switch (message.type) {
+        case "thread.create.request":
+          respond(await this.create(message.payload))
+          break
+        case "thread.get.request":
+          respond(await this.get(message.payload.threadId))
+          break
+        case "thread.list.request":
+          respond(await this.list(message.payload))
+          break
+        case "thread.update.request": {
+          const { threadId, ...patch } = message.payload
+          respond(await this.update(threadId, patch))
+          break
+        }
+        case "thread.recency.touch.request":
+          respond(
+            await this.#updateAndPublish(
+              await this.#persistence.touchThreadRecency(
+                message.payload.threadId,
+                message.payload.recencyAt
+              )
+            )
+          )
+          break
+        case "thread.move.request":
+          await this.#persistence.moveThread(message.payload)
+          respond({})
+          break
+        case "thread.resume.request":
+          respond(await this.resume(message.payload.threadId))
+          break
+        case "thread.close.request":
+          respond(await this.close(message.payload.threadId))
+          break
+        case "thread.delete.request":
+          await this.delete(message.payload.threadId)
+          respond({})
+          break
+        case "thread.turn.start.request":
+          respond(await this.startTurn(message.payload))
+          break
+        case "thread.turn.cancel.request":
+          respond(await this.cancelTurn(message.payload.threadId, message.payload.turnId))
+          break
+        case "thread.timeline.get.request":
+          await this.#required(message.payload.threadId)
+          respond(this.#timeline.page(message.payload.threadId, message.payload))
+          break
+        case "thread.config.update.request": {
+          const { threadId, ...patch } = message.payload
+          respond(await this.updateConfig(threadId, patch))
+          break
+        }
+        case "thread.interaction.respond.request":
+          respond(
+            await this.respondToInteraction(
+              message.payload.threadId,
+              message.payload.interactionId,
+              message.payload.response
+            )
+          )
+          break
+      }
+    } catch (error) {
+      const failure = error instanceof Error ? error : new Error(String(error))
+      send({
+        payload: {
+          error: {
+            code: error instanceof ThreadManagerError ? error.code : failure.name || "THREAD_ERROR",
+            message: failure.message,
+          },
+          ok: false,
+        },
+        requestId: message.requestId,
+        type: message.type.replace(/\.request$/, ".response"),
+      } as ThreadServerMessage)
+    }
+  }
+
+  async create(input: CreateThreadInput): Promise<{
+    thread: ThreadView
+    timeline: ReturnType<ThreadTimelineStore["head"]>
+  }> {
+    const threadId = createThreadId()
+    return this.#withLock(threadId, async () => {
+      const agentId = input.agentId as AgentId
+      await this.#assertAgentCallable(agentId)
+      const source = input.forkedFromId ? await this.#required(input.forkedFromId) : undefined
+      if (source && source.agentId !== agentId) {
+        throw new ThreadManagerError("THREAD_AGENT_MISMATCH", "A fork must use the source agent")
+      }
+      if (source && !source.agentSessionId) {
+        throw new ThreadManagerError("THREAD_FORK_UNAVAILABLE", "The source thread is not bound")
+      }
+      const operation = await this.#lifecycle.begin({
+        agentId,
+        input: input as Record<string, unknown>,
+        kind: "create",
+        threadId,
+      })
+      const adapter = this.#adapterFor(agentId)
+      try {
+        const session = await adapter.create({
+          agentId,
+          cwd: input.cwd ?? null,
+          forkedFromAgentSessionId: source?.agentSessionId ?? null,
+          onEvent: (event) => this.#acceptEvent(threadId, event),
+          threadId,
+        })
+        await this.#lifecycle.transition(operation.id, {
+          agentSessionId: session.sessionId,
+          status: "provider-created",
+        })
+        const thread = await this.#persistence.createThread({
+          ...input,
+          agentSessionId: session.sessionId,
+          id: threadId,
+        })
+        await this.#lifecycle.complete(operation.id)
+        this.#runtime.set(threadId, {
+          activeTurn: null,
+          capabilities: session.capabilities,
+          pendingInteractions: new Map(),
+          state: "idle",
+        })
+        if (session.history) this.#timeline.replace(threadId, session.history)
+        const view = this.#view(thread)
+        this.#publish({ payload: view, type: "thread.created.notification" })
+        return { thread: view, timeline: this.#timeline.head(threadId) }
+      } catch (error) {
+        await this.#lifecycle.fail(operation.id, this.#message(error)).catch(() => undefined)
+        throw error
+      }
+    })
+  }
+
+  async get(threadId: string): Promise<ThreadView> {
+    return this.#view(await this.#required(threadId))
+  }
+
+  async list(options: Parameters<ProjectThreadPersistenceService["listThreads"]>[0]) {
+    const page = await this.#persistence.listThreads(options)
+    return { ...page, data: page.data.map((thread) => this.#view(thread)) }
+  }
+
+  async update(
+    threadId: string,
+    patch: { cwd?: string | null; title?: string | null }
+  ): Promise<ThreadView> {
+    return this.#withLock(threadId, async () => {
+      if (patch.cwd !== undefined && this.#state(threadId).state !== "stopped") {
+        throw new ThreadManagerError(
+          "THREAD_ACTIVE",
+          "Thread cwd can only be changed while the thread is stopped"
+        )
+      }
+      return this.#updateAndPublish(await this.#persistence.updateThread(threadId, patch))
+    })
+  }
+
+  async resume(threadId: string) {
+    return this.#withLock(threadId, async () => {
+      const thread = await this.#required(threadId)
+      const agentId = thread.agentId as AgentId
+      await this.#assertAgentCallable(agentId)
+      if (!thread.agentSessionId) {
+        throw new ThreadManagerError("THREAD_NOT_BOUND", "Thread has no provider session")
+      }
+      this.#setState(thread, "starting")
+      try {
+        const session = await this.#adapterFor(agentId).resume({
+          ...this.#context(thread),
+          onEvent: (event) => this.#acceptEvent(threadId, event),
+        })
+        if (session.sessionId !== thread.agentSessionId) {
+          throw new ThreadManagerError(
+            "THREAD_BINDING_MISMATCH",
+            "Provider resumed a different session"
+          )
+        }
+        const runtime = this.#state(threadId)
+        runtime.capabilities = session.capabilities
+        runtime.state = "idle"
+        runtime.activeTurn = null
+        runtime.pendingInteractions.clear()
+        this.#timeline.replace(threadId, session.history ?? [])
+        const view = this.#view(thread)
+        this.#publish({
+          payload: { epoch: this.#timeline.head(threadId).epoch, reason: "hydrated", threadId },
+          type: "thread.timeline.replaced.notification",
+        })
+        this.#publish({ payload: view, type: "thread.updated.notification" })
+        return { thread: view, timeline: this.#timeline.head(threadId) }
+      } catch (error) {
+        this.#setState(thread, "errored")
+        throw error
+      }
+    })
+  }
+
+  async close(threadId: string): Promise<ThreadView> {
+    return this.#withLock(threadId, async () => {
+      const thread = await this.#required(threadId)
+      const runtime = this.#state(threadId)
+      if (runtime.state === "stopped") return this.#view(thread)
+      runtime.state = "stopping"
+      this.#publish({ payload: this.#view(thread), type: "thread.updated.notification" })
+      await this.#adapterFor(thread.agentId as AgentId).close(this.#context(thread))
+      runtime.state = "stopped"
+      runtime.activeTurn = null
+      runtime.pendingInteractions.clear()
+      return this.#updateAndPublish(thread)
+    })
+  }
+
+  async delete(threadId: string): Promise<void> {
+    await this.#withLock(threadId, async () => {
+      const thread = await this.#required(threadId)
+      const runtime = this.#state(threadId)
+      runtime.state = "deleting"
+      this.#publish({ payload: this.#view(thread), type: "thread.updated.notification" })
+      const operation = await this.#lifecycle.begin({
+        agentId: thread.agentId,
+        agentSessionId: thread.agentSessionId,
+        input: { thread },
+        kind: "delete",
+        threadId,
+      })
+      try {
+        await this.#adapterFor(thread.agentId as AgentId).delete(this.#context(thread))
+        await this.#lifecycle.transition(operation.id, { status: "provider-deleted" })
+        await this.#persistence.deleteThread(threadId)
+        await this.#lifecycle.complete(operation.id)
+        this.#runtime.delete(threadId)
+        this.#timeline.delete(threadId)
+        this.#turnRequests.delete(threadId)
+        this.#publish({ payload: { threadId }, type: "thread.deleted.notification" })
+      } catch (error) {
+        runtime.state = "errored"
+        await this.#lifecycle.fail(operation.id, this.#message(error)).catch(() => undefined)
+        this.#publish({ payload: this.#view(thread), type: "thread.updated.notification" })
+        throw error
+      }
+    })
+  }
+
+  async startTurn(input: {
+    clientMessageId: string
+    content: readonly ThreadInputBlock[]
+    threadId: string
+  }): Promise<{ thread: ThreadView; turnId: string }> {
+    if (this.#state(input.threadId).state === "stopped") await this.resume(input.threadId)
+    return this.#withLock(input.threadId, async () => {
+      const thread = await this.#required(input.threadId)
+      const runtime = this.#state(thread.id)
+      const previous = this.#turnRequests.get(thread.id)?.get(input.clientMessageId)
+      if (previous) return { thread: this.#view(thread), turnId: previous }
+      if (runtime.activeTurn) {
+        throw new ThreadManagerError("THREAD_BUSY", "Thread already has an active turn")
+      }
+      const { turnId } = await this.#adapterFor(thread.agentId as AgentId).startTurn({
+        ...this.#context(thread),
+        clientMessageId: input.clientMessageId,
+        content: input.content,
+      })
+      let requests = this.#turnRequests.get(thread.id)
+      if (!requests) {
+        requests = new Map()
+        this.#turnRequests.set(thread.id, requests)
+      }
+      requests.set(input.clientMessageId, turnId)
+      runtime.activeTurn = { id: turnId, startedAt: new Date().toISOString() }
+      runtime.state = "running"
+      const text = input.content
+        .filter(
+          (block): block is Extract<(typeof input.content)[number], { type: "text" }> =>
+            block.type === "text"
+        )
+        .map((block) => block.text)
+        .join("\n")
+      if (text) {
+        this.#appendTimeline(thread.id, {
+          item: {
+            itemId: `user:${input.clientMessageId}`,
+            operation: "replace",
+            role: "user",
+            text,
+            type: "message",
+          },
+          turnId,
+        })
+      }
+      return { thread: this.#updateAndPublishSync(thread), turnId }
+    })
+  }
+
+  async cancelTurn(threadId: string, turnId?: string): Promise<ThreadView> {
+    return this.#withLock(threadId, async () => {
+      const thread = await this.#required(threadId)
+      const runtime = this.#state(threadId)
+      const target = turnId ?? runtime.activeTurn?.id
+      if (!target) return this.#view(thread)
+      if (runtime.activeTurn && runtime.activeTurn.id !== target) {
+        throw new ThreadManagerError("TURN_NOT_ACTIVE", "The requested turn is not active")
+      }
+      await this.#adapterFor(thread.agentId as AgentId).cancelTurn({
+        ...this.#context(thread),
+        turnId: target,
+      })
+      runtime.activeTurn = null
+      runtime.state = "idle"
+      return this.#updateAndPublishSync(thread)
+    })
+  }
+
+  async updateConfig(
+    threadId: string,
+    patch: {
+      mode?: string | null
+      model?: string | null
+      providerOptions?: Readonly<Record<string, unknown>>
+      thinking?: string | null
+    }
+  ): Promise<ThreadView> {
+    return this.#withLock(threadId, async () => {
+      const thread = await this.#required(threadId)
+      await this.#adapterFor(thread.agentId as AgentId).updateConfig(this.#context(thread), patch)
+      return this.#updateAndPublishSync(thread)
+    })
+  }
+
+  async respondToInteraction(
+    threadId: string,
+    interactionId: string,
+    response: ThreadInteractionResponse
+  ): Promise<ThreadView> {
+    return this.#withLock(threadId, async () => {
+      const thread = await this.#required(threadId)
+      const runtime = this.#state(threadId)
+      if (!runtime.pendingInteractions.delete(interactionId)) {
+        throw new ThreadManagerError(
+          "INTERACTION_ALREADY_RESOLVED",
+          "Interaction was already resolved or does not exist"
+        )
+      }
+      await this.#adapterFor(thread.agentId as AgentId).respondToInteraction(
+        this.#context(thread),
+        interactionId,
+        response
+      )
+      this.#publish({
+        payload: { interactionId, threadId },
+        type: "thread.interaction.resolved.notification",
+      })
+      return this.#updateAndPublishSync(thread)
+    })
+  }
+
+  async closeAgentThreads(agentId: AgentId): Promise<void> {
+    const page = await this.#persistence.listThreads({ agentId, limit: 200 })
+    for (const thread of page.data) {
+      if (this.#state(thread.id).state !== "stopped") await this.close(thread.id)
+    }
+  }
+
+  async hasActiveThreads(agentId: AgentId): Promise<boolean> {
+    const page = await this.#persistence.listThreads({ agentId, limit: 200 })
+    return page.data.some((thread) => this.#state(thread.id).state !== "stopped")
+  }
+
+  #acceptEvent(threadId: string, event: ThreadProviderEvent): void {
+    void this.#withLock(threadId, async () => {
+      const thread = await this.#persistence.getThread(threadId)
+      if (!thread) return
+      const runtime = this.#state(threadId)
+      switch (event.type) {
+        case "timeline":
+          this.#appendTimeline(threadId, event.item)
+          break
+        case "interaction-requested":
+          runtime.pendingInteractions.set(event.interaction.id, event.interaction)
+          this.#publish({
+            payload: { interaction: event.interaction, threadId },
+            type: "thread.interaction.requested.notification",
+          })
+          this.#updateAndPublishSync(thread)
+          break
+        case "interaction-resolved":
+          runtime.pendingInteractions.delete(event.interactionId)
+          this.#publish({
+            payload: { interactionId: event.interactionId, threadId },
+            type: "thread.interaction.resolved.notification",
+          })
+          this.#updateAndPublishSync(thread)
+          break
+        case "turn-completed":
+          if (runtime.activeTurn?.id === event.turnId) runtime.activeTurn = null
+          runtime.state = "idle"
+          this.#updateAndPublishSync(thread)
+          break
+        case "error":
+          runtime.activeTurn = null
+          runtime.state = "errored"
+          this.#appendTimeline(threadId, {
+            item: {
+              code: "PROVIDER_ERROR",
+              itemId: `error:${globalThis.crypto.randomUUID()}`,
+              message: event.error,
+              type: "error",
+            },
+            turnId: event.turnId,
+          })
+          this.#updateAndPublishSync(thread)
+          break
+        case "progress":
+          this.#publish({
+            payload: { event: { message: event.message, type: "progress" }, threadId },
+            type: "thread.event.notification",
+          })
+          break
+        case "warning":
+          this.#publish({
+            payload: {
+              event: { code: event.code, message: event.message, type: "warning" },
+              threadId,
+            },
+            type: "thread.event.notification",
+          })
+          break
+      }
+    })
+  }
+
+  #appendTimeline(threadId: string, item: Parameters<ThreadTimelineStore["append"]>[1]): void {
+    const appended = this.#timeline.append(threadId, item)
+    this.#publish({
+      payload: { ...appended, threadId },
+      type: "thread.timeline.appended.notification",
+    })
+  }
+
+  #context(thread: ThreadRecord): ThreadProviderContext {
+    return {
+      agentId: thread.agentId as AgentId,
+      agentSessionId: thread.agentSessionId,
+      cwd: thread.cwd,
+      threadId: thread.id,
+    }
+  }
+
+  #message(error: unknown): string {
+    return error instanceof Error ? error.message : String(error)
+  }
+
+  async #recover(operation: ThreadLifecycleOperationRecord): Promise<void> {
+    try {
+      if (operation.kind === "create") {
+        if (operation.status === "provider-created" && operation.agentSessionId) {
+          const existing = await this.#persistence.getThread(operation.threadId)
+          if (!existing) {
+            await this.#persistence.createThread({
+              ...(operation.input as CreateThreadInput),
+              agentId: operation.agentId,
+              agentSessionId: operation.agentSessionId,
+              id: operation.threadId,
+            })
+          }
+          await this.#lifecycle.complete(operation.id)
+          return
+        }
+        await this.#lifecycle.fail(
+          operation.id,
+          "Interrupted before the provider session identity was committed"
+        )
+        return
+      }
+      const thread = await this.#persistence.getThread(operation.threadId)
+      if (operation.status === "provider-deleted") {
+        if (thread) await this.#persistence.deleteThread(thread.id)
+        await this.#lifecycle.complete(operation.id)
+        return
+      }
+      if (!thread) {
+        await this.#lifecycle.complete(operation.id)
+        return
+      }
+      await this.#adapterFor(thread.agentId as AgentId).delete(this.#context(thread))
+      await this.#lifecycle.transition(operation.id, { status: "provider-deleted" })
+      await this.#persistence.deleteThread(thread.id)
+      await this.#lifecycle.complete(operation.id)
+    } catch (error) {
+      await this.#lifecycle.fail(operation.id, this.#message(error))
+    }
+  }
+
+  async #required(threadId: string): Promise<ThreadRecord> {
+    const thread = await this.#persistence.getThread(threadId)
+    if (!thread) throw new ThreadManagerError("THREAD_NOT_FOUND", "Thread was not found")
+    return thread
+  }
+
+  #setState(thread: ThreadRecord, state: ThreadState): void {
+    this.#state(thread.id).state = state
+    this.#publish({ payload: this.#view(thread), type: "thread.updated.notification" })
+  }
+
+  #state(threadId: string): RuntimeState {
+    let state = this.#runtime.get(threadId)
+    if (!state) {
+      state = {
+        activeTurn: null,
+        capabilities: stoppedCapabilities,
+        pendingInteractions: new Map(),
+        state: "stopped",
+      }
+      this.#runtime.set(threadId, state)
+    }
+    return state
+  }
+
+  async #updateAndPublish(thread: ThreadRecord): Promise<ThreadView> {
+    return this.#updateAndPublishSync(thread)
+  }
+
+  #updateAndPublishSync(thread: ThreadRecord): ThreadView {
+    const view = this.#view(thread)
+    this.#publish({ payload: view, type: "thread.updated.notification" })
+    return view
+  }
+
+  #view(value: ThreadRecord): ThreadView {
+    const thread = ThreadSchema.parse(value)
+    const runtime = this.#state(thread.id)
+    return {
+      ...thread,
+      activeTurn: runtime.activeTurn,
+      attention: runtime.pendingInteractions.size > 0 || runtime.state === "errored",
+      capabilities: runtime.capabilities,
+      pendingInteractions: [...runtime.pendingInteractions.values()],
+      state: runtime.state,
+    }
+  }
+
+  async #withLock<T>(threadId: string, task: () => Promise<T>): Promise<T> {
+    const previous = this.#locks.get(threadId) ?? Promise.resolve()
+    const current = previous.catch(() => undefined).then(task)
+    this.#locks.set(threadId, current)
+    try {
+      return await current
+    } finally {
+      if (this.#locks.get(threadId) === current) this.#locks.delete(threadId)
+    }
+  }
+}
