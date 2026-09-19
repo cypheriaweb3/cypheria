@@ -24,7 +24,7 @@ Relay 校验 handshake shape 和 frame limit，但不解析明文。一个远程
 
 端点使用 X25519 key agreement 与 XSalsa20-Poly1305 authenticated encryption。区分域的 client-to-Server 和 Server-to-client subkeys 防止反射。每个加密 bundle 包含 24-byte nonce、ciphertext 和 16-byte authenticator。
 
-Channel 会拒绝全零 shared secret、不同 key 的重复 hello、无效认证、重放 nonce 和无界握手前缓冲。文本 frame 使用 base64 包装 ciphertext；peer 可协商二进制 ciphertext。
+Channel 会拒绝全零 shared secret、不同 key 的重复 hello、无效认证、重放 nonce、明文应用 frame 和无界握手前缓冲。`e2ee_hello` 与 `e2ee_ready` 仍是小型 JSON 文本握手 frame；所有加密 Cypheria 应用 frame 都使用二进制，并承载 CBOR 明文。不再协商 ciphertext 格式。
 
 ## 单进程模式
 

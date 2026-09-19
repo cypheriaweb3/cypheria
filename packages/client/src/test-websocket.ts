@@ -11,7 +11,7 @@ export class TestWebSocket implements WebSocketLike {
   static instances: TestWebSocket[] = []
 
   readonly listeners = new Map<string, Set<WebSocketListener>>()
-  readonly sent: string[] = []
+  readonly sent: ServerTransportFrame[] = []
   binaryType = ""
   closedWith: { code: number; reason: string } | undefined
   readyState = 0
@@ -35,7 +35,9 @@ export class TestWebSocket implements WebSocketLike {
 
   send(data: ServerTransportFrame): void {
     if (this.readyState !== 1) throw new Error("socket is not open")
-    this.sent.push(typeof data === "string" ? data : new TextDecoder().decode(data))
+    if (typeof data === "string") this.sent.push(data)
+    else if (data instanceof Uint8Array) this.sent.push(data.slice())
+    else this.sent.push(data.slice(0))
   }
 
   close(code = 1000, reason = ""): void {

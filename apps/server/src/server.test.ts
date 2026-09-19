@@ -2,7 +2,12 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { createCypheriaClient } from "@cypheria/client"
-import { CYPHERIA_PROTOCOL_VERSION, createWebSocketProtocols } from "@cypheria/protocol"
+import {
+  CYPHERIA_PROTOCOL_VERSION,
+  createWebSocketProtocols,
+  decodeWSOutboundMessage,
+  encodeProtocolMessage,
+} from "@cypheria/protocol"
 import pino from "pino"
 import { afterEach, describe, expect, it } from "vitest"
 import WebSocket from "ws"
@@ -135,7 +140,7 @@ describe("CypheriaServer", () => {
       expect(health.status).toBe(200)
       const ready = await fetch(`${address.url}/api/v1/ready`)
       expect(await ready.json()).toMatchObject({
-        protocolVersion: 2,
+        protocolVersion: CYPHERIA_PROTOCOL_VERSION,
         status: "ready",
         version: "0.0.0",
       })
@@ -180,10 +185,17 @@ describe("CypheriaServer", () => {
         socket.once("error", reject)
       })
       const response = new Promise<unknown>((resolve) =>
-        socket.once("message", (data) => resolve(JSON.parse(data.toString())))
+        socket.once("message", (data) => {
+          const frame = Array.isArray(data) ? Buffer.concat(data) : data
+          const bytes =
+            frame instanceof ArrayBuffer
+              ? new Uint8Array(frame)
+              : new Uint8Array(frame.buffer, frame.byteOffset, frame.byteLength)
+          resolve(decodeWSOutboundMessage(bytes))
+        })
       )
       socket.send(
-        JSON.stringify({
+        encodeProtocolMessage({
           capabilities: {},
           clientId: "test-client",
           clientType: "cli",

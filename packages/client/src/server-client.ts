@@ -13,6 +13,8 @@ import {
   CYPHERIA_PROTOCOL_VERSION,
   CYPHERIA_WEBSOCKET_PATH,
   createWebSocketProtocols,
+  decodeWSOutboundMessage,
+  encodeProtocolMessage,
   type IntegrationClientMessage,
   type IntegrationServerMessage,
   isClientResponseMessage,
@@ -22,7 +24,6 @@ import {
   parseClientMessage,
   parseConnectionOffer,
   parseWSInboundMessage,
-  parseWSOutboundMessageText,
   type RequestId,
   type ScheduleClientMessage,
   type ScheduleServerMessage,
@@ -31,7 +32,6 @@ import {
   type ServerDiagnostics,
   type ServerMessage,
   type ServerStatus,
-  stringifyProtocolMessage,
   type TerminalClientMessage,
   type TerminalServerMessage,
   type ThreadClientMessage,
@@ -184,13 +184,13 @@ const messageRequestId = (message: ServerMessage): RequestId | undefined => {
     : undefined
 }
 
-const decodeTextFrame = (data: unknown): string => {
-  if (typeof data === "string") return data
-  if (data instanceof ArrayBuffer) return new TextDecoder().decode(data)
+const decodeBinaryFrame = (data: unknown): Uint8Array => {
+  if (data instanceof Uint8Array) return data
+  if (data instanceof ArrayBuffer) return new Uint8Array(data)
   if (ArrayBuffer.isView(data)) {
-    return new TextDecoder().decode(new Uint8Array(data.buffer, data.byteOffset, data.byteLength))
+    return new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
   }
-  throw new CypheriaProtocolError("Cypheria server sent an unsupported WebSocket text frame")
+  throw new CypheriaProtocolError("Cypheria server sent an unsupported WebSocket binary frame")
 }
 
 /** Owns one versioned Cypheria server connection and executes only protocol-defined messages. */
@@ -604,15 +604,15 @@ export class ServerClient {
       }),
       transport.onMessage((data, isBinary) => {
         if (!isCurrent()) return
-        if (isBinary) {
+        if (!isBinary) {
           this.#handleDisconnect(
-            new CypheriaProtocolError("Cypheria server sent an unsupported binary frame"),
+            new CypheriaProtocolError("Cypheria server sent an unsupported text frame"),
             1003
           )
           return
         }
         try {
-          this.#receive(decodeTextFrame(data))
+          this.#receive(decodeBinaryFrame(data))
         } catch (error) {
           this.#handleDisconnect(
             new CypheriaProtocolError("Invalid Cypheria server message", {
@@ -644,8 +644,8 @@ export class ServerClient {
     }, this.#config.connectTimeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS)
   }
 
-  #receive(raw: string): void {
-    const envelope = parseWSOutboundMessageText(raw)
+  #receive(raw: Uint8Array): void {
+    const envelope = decodeWSOutboundMessage(raw)
     if (envelope.type === "pong") {
       const pending = this.#pendingPings.values().next().value
       if (pending) {
@@ -764,7 +764,7 @@ export class ServerClient {
   async #sendEnvelopeValidated(message: WSInboundMessage): Promise<void> {
     const transport = this.#transport
     if (!transport) throw new CypheriaConnectionError("Cypheria client is not connected")
-    await transport.send(stringifyProtocolMessage(parseWSInboundMessage(message)))
+    await transport.send(encodeProtocolMessage(parseWSInboundMessage(message)))
   }
 
   #settleResponse(requestId: RequestId, message: ServerMessage): void {

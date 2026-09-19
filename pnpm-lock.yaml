@@ -414,9 +414,9 @@ importers:
       '@opencode-ai/sdk':
         specifier: 1.18.31
         version: 1.18.31
-      superjson:
-        specifier: ^2.2.6
-        version: 2.2.6
+      cbor2:
+        specifier: ^2.3.0
+        version: 2.3.0
       zod:
         specifier: ^4.6.2
         version: 4.6.2
@@ -1442,6 +1442,10 @@ packages:
   '@csstools/css-tokenizer@4.0.0':
     resolution: {integrity: sha512-QxULHAm7cNu72w97JUNCBFODFaXpbDg+dP8b/oWFAZ2MTRppA3U00Y2L1HqaS4J6yBqxwa/Y3nMBaxVKbB/NsA==}
     engines: {node: '>=20.19.0'}
+
+  '@cto.af/wtf8@0.0.5':
+    resolution: {integrity: sha512-LfUFi+Vv4eDzj+XAtR89e3wwjXA/NZjUSwU5NhwbBrLecxPaBYFy3exCuc1j+D4UZeOVdqlsl8G7LmOt18V0tg==}
+    engines: {node: '>=20'}
 
   '@date-fns/tz@1.5.0':
     resolution: {integrity: sha512-lwYN/vDPeNRULcepoE/LO2Pgx+7/RV+S9ARfbc9lr2DtGkOD7pAiruHvbR1RX3Qyf6ja47EWJDMsNK5vK08DJg==}
@@ -4826,6 +4830,10 @@ packages:
   caniuse-lite@1.0.30001810:
     resolution: {integrity: sha512-TITQPUkaz+aVk5GL6NhOdwk1aEaNTSDPsGFWrTuhKGtjTF70jL/Oht2W4c6rXUe5fu7Ie19VIahAXHIIiWWNeg==}
 
+  cbor2@2.3.0:
+    resolution: {integrity: sha512-76WB3hq8BoaGkMkBVJ27fW5LJU+qqDLEpgRNCG/SYKhODWXpVPOTD4UcUto3IEzYLA52nsvbhb0wabhHDn3qXg==}
+    engines: {node: '>=20'}
+
   ccount@2.0.1:
     resolution: {integrity: sha512-eyrF0jiFpY+3drT6383f1qhkbGsLSifNAjA61IUjZjmLCWjItY6LB9ft9YhoDgwfmclB2zhu51Lc7+95b8NRAg==}
 
@@ -5043,10 +5051,6 @@ packages:
 
   cookie@1.1.1:
     resolution: {integrity: sha512-ei8Aos7ja0weRpFzJnEA9UHJ/7XQmqglbRwnf2ATjcB9Wq874VKH9kfjjirM6UhU2/E5fFYadylyhFldcqSidQ==}
-    engines: {node: '>=18'}
-
-  copy-anything@4.1.0:
-    resolution: {integrity: sha512-ufbM3smX/Jbnpk5wcQjzd1MgBpzmqfNETUAyZNrGwU9foRlyHoGzMMBBCRzEhQLBjZfFDE1W2ufPXX2vdWkV8Q==}
     engines: {node: '>=18'}
 
   core-js-compat@3.50.0:
@@ -8476,10 +8480,6 @@ packages:
     resolution: {integrity: sha512-MvjXzkz/BOfyVDkG0oFOtBxHX2u3gKbMHIF/dXblZsgD3BWOFLmHovIpZY7BykJdAjcqRCBi1WYBNdEC9yI7vg==}
     engines: {node: '>= 8.0'}
 
-  superjson@2.2.6:
-    resolution: {integrity: sha512-H+ue8Zo4vJmV2nRjpx86P35lzwDT3nItnIsocgumgr0hHMQ+ZGq5vrERg9kJBo5AWGmxZDhzDo+WVIJqkB0cGA==}
-    engines: {node: '>=16'}
-
   supports-color@5.5.0:
     resolution: {integrity: sha512-QjVjwdXIt408MIiAqCX4oUKsgU2EqAGzs2Ppkm4aQYbjm+ZEWEcW4SfFNTr4uMNZma0ey4f5lgLrkB0aX0QMow==}
     engines: {node: '>=4'}
@@ -10377,6 +10377,8 @@ snapshots:
       css-tree: 3.2.1
 
   '@csstools/css-tokenizer@4.0.0': {}
+
+  '@cto.af/wtf8@0.0.5': {}
 
   '@date-fns/tz@1.5.0': {}
 
@@ -13881,6 +13883,10 @@ snapshots:
 
   caniuse-lite@1.0.30001810: {}
 
+  cbor2@2.3.0:
+    dependencies:
+      '@cto.af/wtf8': 0.0.5
+
   ccount@2.0.1: {}
 
   ce-la-react@0.3.2(react@19.2.6):
@@ -14077,8 +14083,6 @@ snapshots:
   cookie@0.7.2: {}
 
   cookie@1.1.1: {}
-
-  copy-anything@4.1.0: {}
 
   core-js-compat@3.50.0:
     dependencies:
@@ -18359,10 +18363,6 @@ snapshots:
       debug: 4.4.3
     transitivePeerDependencies:
       - supports-color
-
-  superjson@2.2.6:
-    dependencies:
-      copy-anything: 4.1.0
 
   supports-color@5.5.0:
     dependencies:

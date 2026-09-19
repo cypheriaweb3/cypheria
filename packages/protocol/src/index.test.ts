@@ -5,16 +5,17 @@ import {
   ClientMessageSchema,
   CYPHERIA_PROTOCOL_VERSION,
   createWebSocketProtocols,
+  decodeProtocolMessage,
+  decodeWSInboundMessage,
+  decodeWSOutboundMessage,
+  encodeProtocolMessage,
   isClientResponseMessage,
   PersistedServerConfigPatchSchema,
-  parseWSInboundMessageText,
-  parseWSOutboundMessageText,
   RuntimeMethodSchema,
   SERVER_CAPABILITIES,
   ServerMessageSchema,
   SessionInboundMessageSchema,
   SessionOutboundMessageSchema,
-  stringifyProtocolMessage,
   ThreadCreateRequestSchema,
   WSInboundMessageSchema,
   WSOutboundMessageSchema,
@@ -171,15 +172,15 @@ describe("Cypheria protocol", () => {
   })
 
   it("builds the versioned WebSocket subprotocol list", () => {
-    expect(createWebSocketProtocols()).toEqual(["cypheria.v2"])
+    expect(createWebSocketProtocols()).toEqual(["cypheria.v1"])
     expect(createWebSocketProtocols("token_123")).toEqual([
-      "cypheria.v2",
+      "cypheria.v1",
       "cypheria.bearer.token_123",
     ])
   })
 
-  it("round-trips top-level ping and session envelopes", () => {
-    expect(parseWSInboundMessageText(stringifyProtocolMessage({ type: "ping" }))).toEqual({
+  it("round-trips top-level ping and session envelopes through CBOR", () => {
+    expect(decodeWSInboundMessage(encodeProtocolMessage({ type: "ping" }))).toEqual({
       type: "ping",
     })
     const envelope = wrapServerSessionMessage({
@@ -197,6 +198,24 @@ describe("Cypheria protocol", () => {
       type: "server.status.notification",
     })
     expect(WSOutboundMessageSchema.parse(envelope)).toEqual(envelope)
-    expect(parseWSOutboundMessageText(stringifyProtocolMessage(envelope))).toEqual(envelope)
+    expect(decodeWSOutboundMessage(encodeProtocolMessage(envelope))).toEqual(envelope)
+  })
+
+  it("round-trips binary data and CBOR integer values without a codec", () => {
+    const bytes = new Uint8Array([0, 1, 255])
+    expect(
+      decodeProtocolMessage(
+        encodeProtocolMessage({ bytes, large: 9_007_199_254_740_993n, small: 1n })
+      )
+    ).toEqual({ bytes, large: 9_007_199_254_740_993n, small: 1 })
+  })
+
+  it("rejects values outside the Cypheria CBOR profile", () => {
+    expect(() => encodeProtocolMessage({ createdAt: new Date() })).toThrow(
+      "only supports plain objects"
+    )
+    expect(decodeProtocolMessage(encodeProtocolMessage({ value: undefined }))).toEqual({})
+    expect(() => encodeProtocolMessage([undefined])).toThrow("Unsupported")
+    expect(() => encodeProtocolMessage({ value: Number.POSITIVE_INFINITY })).toThrow("finite")
   })
 })

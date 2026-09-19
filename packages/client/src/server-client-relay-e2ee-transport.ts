@@ -63,9 +63,7 @@ export class RelayServerTransport implements ServerTransport {
             for (const handler of this.#errorHandlers) handler(error)
           },
           onmessage: (data) => {
-            for (const handler of this.#messageHandlers) {
-              handler(data, data instanceof ArrayBuffer)
-            }
+            for (const handler of this.#messageHandlers) handler(data, true)
           },
           onopen: () => {
             for (const handler of this.#openHandlers) handler()
@@ -85,6 +83,9 @@ export class RelayServerTransport implements ServerTransport {
   send(data: string | Uint8Array | ArrayBuffer): Promise<void> {
     const channel = this.#channel
     if (!channel) throw new Error("Relay E2EE channel is not ready")
+    if (typeof data === "string") {
+      throw new TypeError("Cypheria relay application messages must use binary frames")
+    }
     const normalized = data instanceof Uint8Array ? data.slice().buffer : data
     return channel.send(normalized)
   }

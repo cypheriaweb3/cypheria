@@ -237,11 +237,7 @@ export class RelayConnection {
             this.#options.logger.warn({ connectionId, err: error }, "Relay E2EE channel failed"),
           onmessage: (message) => {
             if (!clientConnection) return
-            if (typeof message !== "string") {
-              clientConnection.close(1003, "Only JSON text messages are supported")
-              return
-            }
-            void clientConnection.receive(message)
+            void clientConnection.receive(new Uint8Array(message))
           },
         },
         { handshakeTimeoutMs: this.#options.helloTimeoutMs }
@@ -256,7 +252,8 @@ export class RelayConnection {
             {
               close: (code, reason) => channel.close(code, reason),
               send: (data) => {
-                void channel.send(data).catch((error) => {
+                const bytes = data.slice().buffer
+                void channel.send(bytes).catch((error) => {
                   this.#options.logger.warn(
                     { connectionId, err: error },
                     "Failed to send encrypted relay frame"

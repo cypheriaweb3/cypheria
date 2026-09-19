@@ -10,7 +10,7 @@ Generated Codex App Server files live under `packages/protocol/src/generated/cod
 
 ## Transport
 
-Clients connect to `/api/v1/ws` with WebSocket subprotocol `cypheria.v2`. Text frames contain JSON, with a versioned SuperJSON envelope only when a value such as `bigint` requires metadata. Binary frames are rejected.
+Clients connect to `/api/v1/ws` with WebSocket subprotocol `cypheria.v1`. Every application frame is binary and contains a deterministic CBOR message encoded by `cbor2`; text frames are rejected. The public profile permits null, booleans, strings, finite numbers, integers represented as either `number` or `bigint`, byte strings as `Uint8Array`, arrays, and maps with string keys. Optional object properties whose value is `undefined` are omitted before encoding; `undefined` is otherwise rejected and never appears on the wire. The profile also rejects custom tagged types, non-string map keys, duplicate keys, and structures deeper than the protocol limit. Every decoded value is still validated by the direction-specific Zod schema.
 
 Top-level messages are:
 

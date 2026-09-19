@@ -2,10 +2,10 @@ import {
   type ClientMessage,
   CYPHERIA_PROTOCOL_VERSION,
   createWebSocketProtocols,
-  parseWSOutboundMessageText,
+  decodeWSOutboundMessage,
+  encodeProtocolMessage,
   type ServerMessage,
   type ServerStatus,
-  stringifyProtocolMessage,
   wrapClientSessionMessage,
 } from "@cypheria/protocol"
 import Constants from "expo-constants"
@@ -86,6 +86,7 @@ export class CypheriaServerClient {
     this.#setSnapshot({ state: "connecting" })
 
     const socket = new WebSocket(this.#url, createWebSocketProtocols(this.#token))
+    socket.binaryType = "arraybuffer"
     this.#socket = socket
     socket.onopen = () => {
       if (this.#socket !== socket) {
@@ -130,7 +131,7 @@ export class CypheriaServerClient {
         this.#pendingReady = { reject, resolve, timeout }
       })
       socket.send(
-        stringifyProtocolMessage({
+        encodeProtocolMessage({
           ...(appVersion ? { appVersion } : {}),
           clientId: this.#clientId,
           clientType: "mobile",
@@ -166,14 +167,22 @@ export class CypheriaServerClient {
         reject(new Error("Server request timed out"))
       }, 15_000)
       this.#pending.set(message.requestId, { reject, resolve, timeout })
-      this.#socket?.send(stringifyProtocolMessage(wrapClientSessionMessage(message)))
+      this.#socket?.send(encodeProtocolMessage(wrapClientSessionMessage(message)))
     })
   }
 
   #receive(data: unknown): void {
-    if (typeof data !== "string") return
     try {
-      const envelope = parseWSOutboundMessageText(data)
+      const bytes =
+        data instanceof Uint8Array
+          ? data
+          : data instanceof ArrayBuffer
+            ? new Uint8Array(data)
+            : ArrayBuffer.isView(data)
+              ? new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+              : undefined
+      if (!bytes) throw new TypeError("Server sent a non-binary WebSocket frame")
+      const envelope = decodeWSOutboundMessage(bytes)
       if (envelope.type === "pong") return
       const message = envelope.message
       if (message.type === "server.status.notification") {

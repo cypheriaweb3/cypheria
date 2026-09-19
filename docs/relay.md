@@ -24,7 +24,7 @@ The relay validates handshake shape and frame limits without parsing plaintext. 
 
 Endpoints use X25519 key agreement and XSalsa20-Poly1305 authenticated encryption. Domain-separated client-to-Server and Server-to-client subkeys prevent reflection. Each encrypted bundle carries a 24-byte nonce, ciphertext, and 16-byte authenticator.
 
-The channel rejects all-zero shared secrets, repeated hellos with different keys, invalid authentication, replayed nonces, and unbounded pre-handshake buffering. Text frames use base64-wrapped ciphertext; peers may negotiate binary ciphertext.
+The channel rejects all-zero shared secrets, repeated hellos with different keys, invalid authentication, replayed nonces, plaintext application frames, and unbounded pre-handshake buffering. `e2ee_hello` and `e2ee_ready` remain small JSON text handshake frames; all encrypted Cypheria application frames are binary and carry CBOR plaintext. There is no ciphertext-format negotiation.
 
 ## Single-process mode
 

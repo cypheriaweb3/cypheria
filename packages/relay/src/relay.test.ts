@@ -44,6 +44,8 @@ const createTransportPair = (): [MemoryTransport, MemoryTransport] => {
   return [left, right]
 }
 
+const textBytes = (value: string): ArrayBuffer => new TextEncoder().encode(value).slice().buffer
+
 describe("relay crypto", () => {
   it("derives identical keys and authenticates ciphertext", () => {
     const alice = generateKeyPair()
@@ -72,11 +74,11 @@ describe("relay crypto", () => {
 })
 
 describe("encrypted channel", () => {
-  it("handshakes and exchanges encrypted text", async () => {
+  it("handshakes in JSON and exchanges encrypted binary application data", async () => {
     const [clientTransport, serverTransport] = createTransportPair()
     const serverKeyPair = generateKeyPair()
-    let serverMessage: string | ArrayBuffer | undefined
-    let clientMessage: string | ArrayBuffer | undefined
+    let serverMessage: ArrayBuffer | undefined
+    let clientMessage: ArrayBuffer | undefined
     const serverPromise = createServerChannel(serverTransport, serverKeyPair, {
       onmessage: (message) => {
         serverMessage = message
@@ -93,11 +95,11 @@ describe("encrypted channel", () => {
     )
     const server = await serverPromise
     await new Promise((resolve) => setTimeout(resolve, 0))
-    await client.send("hello server")
-    await server.send("hello client")
+    await client.send(textBytes("hello server"))
+    await server.send(textBytes("hello client"))
     await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(serverMessage).toBe("hello server")
-    expect(clientMessage).toBe("hello client")
+    expect(new TextDecoder().decode(serverMessage)).toBe("hello server")
+    expect(new TextDecoder().decode(clientMessage)).toBe("hello client")
   })
 
   it("closes a server-side handshake that never receives a hello", async () => {

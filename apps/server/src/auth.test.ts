@@ -11,8 +11,8 @@ import {
 describe("server authentication", () => {
   it("reads HTTP and WebSocket credentials", () => {
     expect(readBearerToken("Bearer secret-token")).toBe("secret-token")
-    expect(readWebSocketToken("cypheria.v2, cypheria.bearer.secret-token")).toBe("secret-token")
-    expect(hasCypheriaProtocol("cypheria.v2, cypheria.bearer.secret-token")).toBe(true)
+    expect(readWebSocketToken("cypheria.v1, cypheria.bearer.secret-token")).toBe("secret-token")
+    expect(hasCypheriaProtocol("cypheria.v1, cypheria.bearer.secret-token")).toBe(true)
   })
 
   it("enforces configured credentials and origins", () => {

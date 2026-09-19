@@ -327,7 +327,18 @@ export const createWalletSigningService = (
             return signature
           }
 
-          const serializedTransaction = await localAccount.signTransaction(intent.transaction)
+          const { gas, maxFeePerGas, maxPriorityFeePerGas, value, ...transactionFields } =
+            intent.transaction
+          const transaction = {
+            ...transactionFields,
+            ...(gas === undefined ? {} : { gas: BigInt(gas) }),
+            ...(maxFeePerGas === undefined ? {} : { maxFeePerGas: BigInt(maxFeePerGas) }),
+            ...(maxPriorityFeePerGas === undefined
+              ? {}
+              : { maxPriorityFeePerGas: BigInt(maxPriorityFeePerGas) }),
+            ...(value === undefined ? {} : { value: BigInt(value) }),
+          }
+          const serializedTransaction = await localAccount.signTransaction(transaction)
           const recoveredAddress = await recoverTransactionAddress({
             serializedTransaction: serializedTransaction as TransactionSerialized,
           })

@@ -47,6 +47,15 @@ const jsonError = (message: string, code = "REQUEST_FAILED") => ({
   error: { code, message },
 })
 
+const binaryFrame = (value: unknown): Uint8Array | undefined => {
+  if (value instanceof Uint8Array) return value
+  if (value instanceof ArrayBuffer) return new Uint8Array(value)
+  if (ArrayBuffer.isView(value)) {
+    return new Uint8Array(value.buffer, value.byteOffset, value.byteLength)
+  }
+  return undefined
+}
+
 export function createHttpApp(options: CreateHttpAppOptions): Hono {
   const { config, host, logger, registry } = options
   const app = new Hono()
@@ -190,21 +199,22 @@ export function createHttpApp(options: CreateHttpAppOptions): Hono {
           onClose: () => connection?.transportClosed(),
           onMessage: (event) => {
             if (!connection) return
-            if (typeof event.data !== "string") {
-              connection.close(1003, "Only JSON text messages are supported")
+            const data = binaryFrame(event.data)
+            if (!data) {
+              connection.close(1003, "Only CBOR binary messages are supported")
               return
             }
-            if (Buffer.byteLength(event.data) > config.maxMessageBytes) {
+            if (data.byteLength > config.maxMessageBytes) {
               connection.close(1009, "Message is too large")
               return
             }
-            void connection.receive(event.data)
+            void connection.receive(data)
           },
           onOpen: (_event, socket) => {
             connection = registry.accept(
               {
                 close: (code, reason) => socket.close(code, reason),
-                send: (data) => socket.send(data),
+                send: (data) => socket.send(new Uint8Array(data)),
               },
               OWNER_SESSION_ADMISSION
             )

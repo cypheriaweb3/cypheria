@@ -69,25 +69,27 @@ export const solanaSigningAccountRefSchema = z
 export type SignTransactionParameters = {
   readonly chainId: number
   readonly to?: Address
-  readonly value?: bigint
+  readonly value?: number | bigint
   readonly data?: Hex
   readonly nonce?: number
-  readonly gas?: bigint
-  readonly maxFeePerGas?: bigint
-  readonly maxPriorityFeePerGas?: bigint
+  readonly gas?: number | bigint
+  readonly maxFeePerGas?: number | bigint
+  readonly maxPriorityFeePerGas?: number | bigint
 }
+
+const nonnegativeIntegerSchema = z.union([z.number().int().nonnegative(), z.bigint().nonnegative()])
 
 /** Rejects unknown or negative transaction fields before policy evaluation. */
 export const signTransactionParametersSchema = z
   .object({
     chainId: z.number().int().positive(),
     to: hexAddressSchema.optional(),
-    value: z.bigint().nonnegative().optional(),
+    value: nonnegativeIntegerSchema.optional(),
     data: hexDataSchema.optional(),
     nonce: z.number().int().nonnegative().optional(),
-    gas: z.bigint().nonnegative().optional(),
-    maxFeePerGas: z.bigint().nonnegative().optional(),
-    maxPriorityFeePerGas: z.bigint().nonnegative().optional(),
+    gas: nonnegativeIntegerSchema.optional(),
+    maxFeePerGas: nonnegativeIntegerSchema.optional(),
+    maxPriorityFeePerGas: nonnegativeIntegerSchema.optional(),
   })
   .strict()
 

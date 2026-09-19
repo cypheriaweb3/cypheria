@@ -17,10 +17,8 @@ export type {
   TransportMessage,
 } from "./encrypted-channel.js"
 export {
-  base64EncryptedWireByteLength,
   createClientChannel,
   createServerChannel,
   EncryptedChannel,
   isE2EEHelloMessage,
-  maxBase64EncryptedPlaintextByteLength,
 } from "./encrypted-channel.js"

@@ -1,10 +1,11 @@
 import {
-  parseWSOutboundMessageText,
+  CYPHERIA_PROTOCOL_VERSION,
+  decodeWSOutboundMessage,
+  encodeProtocolMessage,
   type ServerDiagnostics,
   type ServerIdentity,
   type ServerMessage,
   type ServerStatus,
-  stringifyProtocolMessage,
   wrapClientSessionMessage,
 } from "@cypheria/protocol"
 import { afterEach, describe, expect, it, vi } from "vitest"
@@ -20,7 +21,7 @@ import {
 const identity: ServerIdentity = {
   hostname: "test",
   id: "srv_test",
-  protocolVersion: 2,
+  protocolVersion: CYPHERIA_PROTOCOL_VERSION,
   startedAt: "2026-01-01T00:00:00.000Z",
   version: "0.0.0",
 }
@@ -58,7 +59,7 @@ const createFixture = () => {
     const transport: SessionTransport = {
       close: vi.fn(),
       send: (data) => {
-        const envelope = parseWSOutboundMessageText(data)
+        const envelope = decodeWSOutboundMessage(data)
         sent.push(envelope.type === "session" ? envelope.message : envelope)
       },
     }
@@ -68,16 +69,16 @@ const createFixture = () => {
 }
 
 const hello = (clientId: string) =>
-  stringifyProtocolMessage({
+  encodeProtocolMessage({
     capabilities: { voice: true },
     clientId,
     clientType: "web",
-    protocolVersion: 2,
+    protocolVersion: CYPHERIA_PROTOCOL_VERSION,
     type: "hello",
   })
 
 const sessionMessage = (message: Parameters<typeof wrapClientSessionMessage>[0]) =>
-  stringifyProtocolMessage(wrapClientSessionMessage(message))
+  encodeProtocolMessage(wrapClientSessionMessage(message))
 
 afterEach(() => vi.useRealTimers())
 
@@ -85,7 +86,7 @@ describe("ClientSession", () => {
   it("requires hello, answers top-level ping, and handles logical messages", async () => {
     const fixture = createFixture()
     const client = fixture.createConnection()
-    await client.connection.receive(stringifyProtocolMessage({ type: "ping" }))
+    await client.connection.receive(encodeProtocolMessage({ type: "ping" }))
     await client.connection.receive(hello("web-1"))
     await client.connection.receive(
       sessionMessage({

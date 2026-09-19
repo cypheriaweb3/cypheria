@@ -162,7 +162,13 @@ describe("wallet domain", () => {
       createdAt: now,
       id: "signing_intent_one",
       kind: "sign-transaction",
-      transaction: { chainId: 1, value: 1n },
+      transaction: {
+        chainId: 1,
+        gas: 21_000,
+        maxFeePerGas: 2n,
+        maxPriorityFeePerGas: 1,
+        value: 1n,
+      },
     } as const
     expect(parseSigningIntent(intent)).toEqual(intent)
     expect(() => parseSigningIntent({ ...intent, privateKey: "secret" })).toThrow()

@@ -122,12 +122,12 @@ describe("wallet signing service", () => {
         kind: "sign-transaction",
         transaction: {
           chainId: 1,
-          gas: 21_000n,
+          gas: 21_000,
           maxFeePerGas: 2n,
-          maxPriorityFeePerGas: 1n,
+          maxPriorityFeePerGas: 1,
           nonce: 0,
           to: "0x0000000000000000000000000000000000000001",
-          value: 1n,
+          value: 1,
         },
       })
     ).resolves.toMatch(/^0x02[0-9a-f]+$/u)

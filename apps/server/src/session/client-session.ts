@@ -6,6 +6,7 @@ import {
   type ClientMessage,
   type CodexHarnessClientMessage,
   type CodexHarnessServerMessage,
+  encodeProtocolMessage,
   type IntegrationClientMessage,
   type IntegrationServerMessage,
   type PersistedServerConfigPatch,
@@ -15,7 +16,6 @@ import {
   type ServerDiagnostics,
   type ServerMessage,
   type ServerStatus,
-  stringifyProtocolMessage,
   type TerminalClientMessage,
   type TerminalServerMessage,
   type Web3ClientMessage,
@@ -26,7 +26,7 @@ import {
 
 export type SessionTransport = {
   close(code: number, reason: string): void
-  send(data: string): void
+  send(data: Uint8Array): void
 }
 
 export type SessionHost = {
@@ -159,7 +159,7 @@ export class ClientSession {
 
   sendTo(transport: SessionTransport, message: ServerMessage): void {
     if (!this.#closed && this.#sources.has(transport)) {
-      transport.send(stringifyProtocolMessage(wrapServerSessionMessage(message)))
+      transport.send(encodeProtocolMessage(wrapServerSessionMessage(message)))
     }
   }
 

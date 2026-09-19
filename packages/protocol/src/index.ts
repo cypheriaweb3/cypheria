@@ -1,4 +1,4 @@
-import superjson, { type SuperJSONResult, type SuperJSONValue } from "superjson"
+import { type DecodeOptions, decode, encode } from "cbor2"
 import { z } from "zod"
 import {
   AGENT_MANAGEMENT_CLIENT_SCHEMAS,
@@ -78,10 +78,10 @@ export * from "./thread.ts"
 export * from "./thread-timeline.ts"
 export * from "./web3.ts"
 
-export const CYPHERIA_PROTOCOL_VERSION = 2 as const
+export const CYPHERIA_PROTOCOL_VERSION = 1 as const
 export const CYPHERIA_WEBSOCKET_PATH = "/api/v1/ws" as const
 export const CYPHERIA_WEBSOCKET_PROTOCOL = `cypheria.v${CYPHERIA_PROTOCOL_VERSION}` as const
-const CYPHERIA_SUPERJSON_MARKER = "cypheria.superjson.v1" as const
+const CYPHERIA_CBOR_MAX_DEPTH = 64
 
 /** Stable capabilities a server can advertise in the `server.status.notification` message. */
 export const SERVER_CAPABILITIES = {
@@ -107,19 +107,105 @@ export type ServerCapability = (typeof SERVER_CAPABILITIES)[keyof typeof SERVER_
 export const ServerFeatureFlagsSchema = z.record(z.string().trim().min(1).max(128), z.boolean())
 export type ServerFeatureFlags = z.infer<typeof ServerFeatureFlagsSchema>
 
-type CypheriaSuperJsonEnvelope = SuperJSONResult & {
-  $cypheria: typeof CYPHERIA_SUPERJSON_MARKER
-  meta: NonNullable<SuperJSONResult["meta"]>
+const createProtocolObject: NonNullable<DecodeOptions["createObject"]> = (entries) => {
+  if (entries.some(([key]) => typeof key !== "string")) {
+    throw new TypeError("Cypheria CBOR maps must use string keys")
+  }
+  return Object.fromEntries(entries.map(([key, value]) => [key as string, value]))
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value)
+const assertProtocolValue = (
+  value: unknown,
+  depth = 0,
+  ancestors: Set<object> = new Set()
+): void => {
+  if (depth > CYPHERIA_CBOR_MAX_DEPTH) {
+    throw new TypeError(`Cypheria CBOR exceeds maximum depth ${CYPHERIA_CBOR_MAX_DEPTH}`)
+  }
+  if (
+    value === null ||
+    typeof value === "boolean" ||
+    typeof value === "string" ||
+    typeof value === "bigint"
+  ) {
+    return
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new TypeError("Cypheria CBOR numbers must be finite")
+    return
+  }
+  if (value instanceof Uint8Array) return
+  if (typeof value !== "object") {
+    throw new TypeError(`Unsupported Cypheria CBOR value: ${typeof value}`)
+  }
+  if (ancestors.has(value)) throw new TypeError("Cypheria CBOR values must not be circular")
+  ancestors.add(value)
+  try {
+    if (Array.isArray(value)) {
+      for (const item of value) assertProtocolValue(item, depth + 1, ancestors)
+      return
+    }
+    const prototype = Object.getPrototypeOf(value) as object | null
+    if (prototype !== Object.prototype && prototype !== null) {
+      throw new TypeError("Cypheria CBOR only supports plain objects")
+    }
+    if (Object.getOwnPropertySymbols(value).length > 0) {
+      throw new TypeError("Cypheria CBOR object keys must be strings")
+    }
+    for (const nested of Object.values(value)) {
+      assertProtocolValue(nested, depth + 1, ancestors)
+    }
+  } finally {
+    ancestors.delete(value)
+  }
+}
 
-const isCypheriaSuperJsonEnvelope = (value: unknown): value is CypheriaSuperJsonEnvelope =>
-  isRecord(value) &&
-  value.$cypheria === CYPHERIA_SUPERJSON_MARKER &&
-  "json" in value &&
-  isRecord(value.meta)
+const prepareProtocolValue = (
+  value: unknown,
+  depth = 0,
+  ancestors: Set<object> = new Set()
+): unknown => {
+  if (depth > CYPHERIA_CBOR_MAX_DEPTH) {
+    throw new TypeError(`Cypheria CBOR exceeds maximum depth ${CYPHERIA_CBOR_MAX_DEPTH}`)
+  }
+  if (
+    value === null ||
+    typeof value === "boolean" ||
+    typeof value === "string" ||
+    typeof value === "bigint"
+  ) {
+    return value
+  }
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new TypeError("Cypheria CBOR numbers must be finite")
+    return value
+  }
+  if (value instanceof Uint8Array) return value
+  if (typeof value !== "object") {
+    throw new TypeError(`Unsupported Cypheria CBOR value: ${typeof value}`)
+  }
+  if (ancestors.has(value)) throw new TypeError("Cypheria CBOR values must not be circular")
+  ancestors.add(value)
+  try {
+    if (Array.isArray(value)) {
+      return value.map((item) => prepareProtocolValue(item, depth + 1, ancestors))
+    }
+    const prototype = Object.getPrototypeOf(value) as object | null
+    if (prototype !== Object.prototype && prototype !== null) {
+      throw new TypeError("Cypheria CBOR only supports plain objects")
+    }
+    if (Object.getOwnPropertySymbols(value).length > 0) {
+      throw new TypeError("Cypheria CBOR object keys must be strings")
+    }
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([, nested]) => nested !== undefined)
+        .map(([key, nested]) => [key, prepareProtocolValue(nested, depth + 1, ancestors)])
+    )
+  } finally {
+    ancestors.delete(value)
+  }
+}
 
 export const ClientKindSchema = z.enum(["desktop", "mobile", "web", "cli", "mcp", "hub"])
 export type ClientKind = z.infer<typeof ClientKindSchema>
@@ -614,49 +700,49 @@ export function parseWSOutboundMessage(value: unknown): WSOutboundMessage {
   return WSOutboundMessageSchema.parse(value)
 }
 
-/**
- * Encodes Cypheria protocol values as plain JSON whenever possible and adds a
- * versioned SuperJSON envelope only when values such as bigint need metadata.
- */
-export function stringifyProtocolMessage(value: unknown): string {
-  const serialized = superjson.serialize(value as SuperJSONValue)
-  if (!serialized.meta) return JSON.stringify(serialized.json)
-
-  return JSON.stringify({
-    $cypheria: CYPHERIA_SUPERJSON_MARKER,
-    ...serialized,
-    meta: serialized.meta,
-  } satisfies CypheriaSuperJsonEnvelope)
+/** Encodes one validated Cypheria application value as deterministic CBOR bytes. */
+export function encodeProtocolMessage(value: unknown): Uint8Array {
+  return encode(prepareProtocolValue(value), {
+    cde: true,
+    rejectDuplicateKeys: true,
+    rejectUndefined: true,
+  })
 }
 
-export function parseProtocolMessageText(raw: string): unknown {
-  const value: unknown = JSON.parse(raw)
-  if (!isCypheriaSuperJsonEnvelope(value)) return value
-  return superjson.deserialize({ json: value.json, meta: value.meta })
+/** Decodes one preferred, deterministic CBOR item and enforces the Cypheria value profile. */
+export function decodeProtocolMessage(raw: Uint8Array): unknown {
+  const value = decode<unknown>(raw, {
+    cde: true,
+    createObject: createProtocolObject,
+    maxDepth: CYPHERIA_CBOR_MAX_DEPTH,
+    rejectDuplicateKeys: true,
+  })
+  assertProtocolValue(value)
+  return value
 }
 
-export function parseClientMessageText(raw: string): ClientMessage {
-  return parseSessionInboundMessageText(raw)
+export function decodeClientMessage(raw: Uint8Array): ClientMessage {
+  return decodeSessionInboundMessage(raw)
 }
 
-export function parseServerMessageText(raw: string): ServerMessage {
-  return parseSessionOutboundMessageText(raw)
+export function decodeServerMessage(raw: Uint8Array): ServerMessage {
+  return decodeSessionOutboundMessage(raw)
 }
 
-export function parseSessionInboundMessageText(raw: string): SessionInboundMessage {
-  return parseSessionInboundMessage(parseProtocolMessageText(raw))
+export function decodeSessionInboundMessage(raw: Uint8Array): SessionInboundMessage {
+  return parseSessionInboundMessage(decodeProtocolMessage(raw))
 }
 
-export function parseSessionOutboundMessageText(raw: string): SessionOutboundMessage {
-  return parseSessionOutboundMessage(parseProtocolMessageText(raw))
+export function decodeSessionOutboundMessage(raw: Uint8Array): SessionOutboundMessage {
+  return parseSessionOutboundMessage(decodeProtocolMessage(raw))
 }
 
-export function parseWSInboundMessageText(raw: string): WSInboundMessage {
-  return parseWSInboundMessage(parseProtocolMessageText(raw))
+export function decodeWSInboundMessage(raw: Uint8Array): WSInboundMessage {
+  return parseWSInboundMessage(decodeProtocolMessage(raw))
 }
 
-export function parseWSOutboundMessageText(raw: string): WSOutboundMessage {
-  return parseWSOutboundMessage(parseProtocolMessageText(raw))
+export function decodeWSOutboundMessage(raw: Uint8Array): WSOutboundMessage {
+  return parseWSOutboundMessage(decodeProtocolMessage(raw))
 }
 
 export function createWebSocketProtocols(token?: string): string[] {

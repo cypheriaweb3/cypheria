@@ -10,7 +10,7 @@
 
 ## 传输
 
-客户端通过 WebSocket subprotocol `cypheria.v2` 连接 `/api/v1/ws`。文本 frame 使用 JSON；只有 `bigint` 等值需要元数据时才套用版本化 SuperJSON envelope。二进制 frame 会被拒绝。
+客户端通过 WebSocket subprotocol `cypheria.v1` 连接 `/api/v1/ws`。所有应用 frame 都是二进制，并包含由 `cbor2` 编码的确定性 CBOR 消息；文本 frame 会被拒绝。公开 profile 允许 null、boolean、string、有限 number、以 `number` 或 `bigint` 表示的整数、以 `Uint8Array` 表示的 byte string、array，以及仅使用 string key 的 map。值为 `undefined` 的可选对象属性会在编码前被省略；其他位置的 `undefined` 会被拒绝，且永远不会出现在 wire 上。该 profile 还拒绝自定义 tagged type、非 string map key、重复 key 和超过协议限制深度的结构。每个解码值仍会经过对应方向的 Zod Schema 校验。
 
 顶层消息为：
 

@@ -1,4 +1,3 @@
-import { arrayBufferToBase64, base64ToArrayBuffer } from "./base64.js"
 import {
   decrypt,
   deriveDirectionalKeys,
@@ -24,15 +23,14 @@ export interface Transport {
 export type EncryptedChannelEvents = {
   onclose?: (code: number, reason: string) => void
   onerror?: (error: Error) => void
-  onmessage?: (data: string | ArrayBuffer) => void
+  onmessage?: (data: ArrayBuffer) => void
   onopen?: () => void
 }
 
 type ChannelState = "closed" | "handshaking" | "open"
 type ChannelRole = "client" | "server"
-type E2EECapabilities = { binaryCiphertext?: boolean }
-type E2EEHelloMessage = { capabilities?: E2EECapabilities; key: string; type: "e2ee_hello" }
-type E2EEReadyMessage = { capabilities?: E2EECapabilities; type: "e2ee_ready" }
+type E2EEHelloMessage = { key: string; type: "e2ee_hello" }
+type E2EEReadyMessage = { type: "e2ee_ready" }
 
 const HANDSHAKE_RETRY_MS = 1_000
 const SERVER_HANDSHAKE_TIMEOUT_MS = 15_000
@@ -44,23 +42,14 @@ const REHANDSHAKE_KEY_MISMATCH_CLOSE_REASON = "E2EE re-handshake key mismatch"
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
 
-const isCapabilities = (value: unknown): value is E2EECapabilities =>
-  value === undefined ||
-  (isRecord(value) &&
-    (value.binaryCiphertext === undefined || typeof value.binaryCiphertext === "boolean"))
-
 export const isE2EEHelloMessage = (value: unknown): value is E2EEHelloMessage =>
   isRecord(value) &&
   value.type === "e2ee_hello" &&
   typeof value.key === "string" &&
-  value.key.trim().length > 0 &&
-  isCapabilities(value.capabilities)
+  value.key.trim().length > 0
 
 const isE2EEReadyMessage = (value: unknown): value is E2EEReadyMessage =>
-  isRecord(value) && value.type === "e2ee_ready" && isCapabilities(value.capabilities)
-
-const supportsBinary = (message: E2EEHelloMessage | E2EEReadyMessage): boolean =>
-  message.capabilities?.binaryCiphertext === true
+  isRecord(value) && value.type === "e2ee_ready"
 
 const decodeText = (data: string | ArrayBuffer): string =>
   typeof data === "string" ? data : new TextDecoder().decode(data)
@@ -79,22 +68,6 @@ const constantTimeEqual = (left: Uint8Array, right: Uint8Array): boolean => {
   return difference === 0
 }
 
-const decodePlaintext = (data: ArrayBuffer, isBinary: boolean | null): string | ArrayBuffer => {
-  if (isBinary === true) return data
-  if (isBinary === false) return new TextDecoder("utf-8", { fatal: true }).decode(data)
-  try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(data)
-  } catch {
-    return data
-  }
-}
-
-export const base64EncryptedWireByteLength = (plaintextBytes: number): number =>
-  4 * Math.ceil((plaintextBytes + ENCRYPTED_PAYLOAD_OVERHEAD_BYTES) / 3)
-
-export const maxBase64EncryptedPlaintextByteLength = (wireBytes: number): number =>
-  Math.floor(wireBytes / 4) * 3 - ENCRYPTED_PAYLOAD_OVERHEAD_BYTES
-
 export class EncryptedChannel {
   readonly #events: EncryptedChannelEvents
   readonly #decryptKey: SharedKey
@@ -104,15 +77,14 @@ export class EncryptedChannel {
   readonly #serverKeyPair: KeyPair | undefined
   readonly #onOpenCallbacks: Array<() => void> = []
   readonly #onCloseCallbacks: Array<() => void> = []
-  #binaryCiphertext: boolean
-  #pendingSends: Array<string | ArrayBuffer> = []
+  #pendingSends: Array<ArrayBuffer> = []
   #state: ChannelState = "handshaking"
 
   constructor(
     transport: Transport,
     sharedKey: SharedKey,
     events: EncryptedChannelEvents = {},
-    options: { binaryCiphertext?: boolean; role: ChannelRole; serverKeyPair?: KeyPair }
+    options: { role: ChannelRole; serverKeyPair?: KeyPair }
   ) {
     this.#transport = transport
     this.#sharedKey = sharedKey
@@ -123,7 +95,6 @@ export class EncryptedChannel {
       options.role === "client" ? directionalKeys.serverToClient : directionalKeys.clientToServer
     this.#events = events
     this.#serverKeyPair = options.serverKeyPair
-    this.#binaryCiphertext = options.binaryCiphertext ?? false
     transport.onmessage = (message) => void this.#handleMessage(message)
     transport.onclose = (code, reason) => {
       this.#state = "closed"
@@ -137,27 +108,18 @@ export class EncryptedChannel {
     this.#state = state
   }
 
-  async send(data: string | ArrayBuffer): Promise<void> {
+  async send(data: ArrayBuffer): Promise<void> {
     if (this.#state === "handshaking") {
       if (this.#pendingSends.length >= MAX_PENDING_SENDS) this.#pendingSends.shift()
       this.#pendingSends.push(data)
       return
     }
     if (this.#state !== "open") throw new Error("Channel not open")
-    const ciphertext = encrypt(this.#encryptKey, data)
-    if (this.#binaryCiphertext && data instanceof ArrayBuffer) {
-      await this.#transport.send(ciphertext)
-    } else {
-      await this.#transport.send(arrayBufferToBase64(ciphertext))
-    }
+    await this.#transport.send(encrypt(this.#encryptKey, data))
   }
 
-  outboundWireByteLength(data: string | ArrayBuffer): number {
-    const plaintextBytes =
-      typeof data === "string" ? new TextEncoder().encode(data).byteLength : data.byteLength
-    return this.#binaryCiphertext && data instanceof ArrayBuffer
-      ? plaintextBytes + ENCRYPTED_PAYLOAD_OVERHEAD_BYTES
-      : base64EncryptedWireByteLength(plaintextBytes)
+  outboundWireByteLength(data: ArrayBuffer): number {
+    return data.byteLength + ENCRYPTED_PAYLOAD_OVERHEAD_BYTES
   }
 
   close(code = 1000, reason = "Normal closure"): void {
@@ -183,7 +145,6 @@ export class EncryptedChannel {
         if (message.isBinary) return
         const parsed: unknown = JSON.parse(decodeText(message.data))
         if (!isE2EEReadyMessage(parsed)) return
-        this.#binaryCiphertext = supportsBinary(parsed)
         this.#state = "open"
         this.#events.onopen?.()
         for (const callback of this.#onOpenCallbacks) callback()
@@ -209,27 +170,9 @@ export class EncryptedChannel {
           if (isE2EEReadyMessage(parsed)) return
           throw new Error("Received plaintext frame on encrypted channel")
         }
+        throw new Error("Encrypted application messages must use binary frames")
       }
-
-      let ciphertext: ArrayBuffer
-      let binaryKind: boolean | null
-      if (this.#binaryCiphertext) {
-        ciphertext = message.isBinary
-          ? requireArrayBuffer(message.data)
-          : base64ToArrayBuffer(decodeText(message.data))
-        binaryKind = message.isBinary
-      } else if (!message.isBinary) {
-        ciphertext = base64ToArrayBuffer(decodeText(message.data))
-        binaryKind = null
-      } else {
-        try {
-          ciphertext = base64ToArrayBuffer(decodeText(message.data))
-        } catch {
-          ciphertext = requireArrayBuffer(message.data)
-        }
-        binaryKind = null
-      }
-      this.#events.onmessage?.(decodePlaintext(decrypt(this.#decryptKey, ciphertext), binaryKind))
+      this.#events.onmessage?.(decrypt(this.#decryptKey, requireArrayBuffer(message.data)))
     } catch (error) {
       this.#fail(error)
     }
@@ -243,12 +186,7 @@ export class EncryptedChannel {
       this.#transport.close(REHANDSHAKE_REJECTION_CODE, REHANDSHAKE_KEY_MISMATCH_CLOSE_REASON)
       return
     }
-    await this.#transport.send(
-      JSON.stringify({
-        ...(this.#binaryCiphertext ? { capabilities: { binaryCiphertext: true } } : {}),
-        type: "e2ee_ready",
-      } satisfies E2EEReadyMessage)
-    )
+    await this.#transport.send(JSON.stringify({ type: "e2ee_ready" } satisfies E2EEReadyMessage))
   }
 
   #fail(value: unknown): void {
@@ -272,7 +210,6 @@ export const createClientChannel = async (
   const sharedKey = deriveSharedKey(keyPair.secretKey, importPublicKey(serverPublicKeyB64))
   const channel = new EncryptedChannel(transport, sharedKey, events, { role: "client" })
   const hello = JSON.stringify({
-    capabilities: { binaryCiphertext: true },
     key: exportPublicKey(keyPair.publicKey),
     type: "e2ee_hello",
   } satisfies E2EEHelloMessage)
@@ -354,16 +291,9 @@ export const createServerChannel = async (
           if (!isE2EEHelloMessage(parsed)) throw new Error("Invalid E2EE hello message")
           transport.onmessage = (next) => buffered.push(next)
           const sharedKey = deriveSharedKey(serverKeyPair.secretKey, importPublicKey(parsed.key))
-          const binaryCiphertext = supportsBinary(parsed)
-          await transport.send(
-            JSON.stringify({
-              ...(binaryCiphertext ? { capabilities: { binaryCiphertext: true } } : {}),
-              type: "e2ee_ready",
-            } satisfies E2EEReadyMessage)
-          )
+          await transport.send(JSON.stringify({ type: "e2ee_ready" } satisfies E2EEReadyMessage))
           if (settled) return
           const channel = new EncryptedChannel(transport, sharedKey, events, {
-            binaryCiphertext,
             serverKeyPair,
             role: "server",
           })

@@ -1,7 +1,7 @@
 import {
   CYPHERIA_PROTOCOL_VERSION,
-  parseWSInboundMessageText,
-  stringifyProtocolMessage,
+  decodeWSInboundMessage,
+  encodeProtocolMessage,
   type WSHelloMessage,
   type WSInboundMessage,
 } from "@cypheria/protocol"
@@ -28,11 +28,11 @@ export class ClientConnection {
     this.#helloTimer.unref()
   }
 
-  async receive(raw: string): Promise<void> {
+  async receive(raw: Uint8Array): Promise<void> {
     if (this.#closed) return
     let message: WSInboundMessage
     try {
-      message = parseWSInboundMessageText(raw)
+      message = decodeWSInboundMessage(raw)
     } catch {
       if (!this.#session) {
         this.close(1008, "Invalid hello")
@@ -43,7 +43,7 @@ export class ClientConnection {
     }
 
     if (message.type === "ping") {
-      this.#options.transport.send(stringifyProtocolMessage({ type: "pong" }))
+      this.#options.transport.send(encodeProtocolMessage({ type: "pong" }))
       return
     }
     if (!this.#session) {
