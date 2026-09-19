@@ -1,12 +1,31 @@
-# Cypheria AI SDK Provider
+# `@cypheria/ai-sdk-provider`
 
-`@cypheria/ai-sdk-provider` 为 Codex、Claude、Pi、OpenCode 与 ACP agent 提供 AI SDK v4 language model。所有 provider 都是 browser-safe 的，只会把执行委托给已连接的 `@cypheria/client`，不会启动 agent 进程或读取本地 agent 配置。
+> 状态：当前实现
+
+基于 Cypheria Threads 和 `@cypheria/client` 的浏览器安全 AI SDK language-model providers。
+
+## 公开入口
 
 ```ts
 import { createCodex } from "@cypheria/ai-sdk-provider/codex"
+import { createClaude } from "@cypheria/ai-sdk-provider/claude"
+import { createPi } from "@cypheria/ai-sdk-provider/pi"
+import { createOpenCode } from "@cypheria/ai-sdk-provider/opencode"
+import { createAcp } from "@cypheria/ai-sdk-provider/acp"
 
-const codex = createCodex({ client })
-const model = codex("default")
+const model = createCodex({ client })("default")
 ```
 
-Provider 默认创建持久化 Cypheria Thread。设置 `threadMode: "ephemeral"` 会在调用结束后删除新建 Thread，也可以传入 `threadId` 绑定已有持久化 Thread。Canonical Timeline notification 会转换为 AI SDK 的 text、reasoning、tool、file、custom、error 与 finish stream part；provider provenance 保留在 `providerMetadata.cypheria` 中。
+每个 provider 默认绑定持久 Cypheria Thread。传入 `threadId` 可复用已有 Thread；选择 ephemeral mode 可在调用结束后删除新建 Thread。
+
+## 行为
+
+Provider 将 Canonical Timeline updates 转换为 AI SDK text、reasoning、tool、file、custom、error 和 finish stream parts。Abort 会取消对应 Server turn。Cypheria provider metadata 保留 Agent、model、原生 identifier、Thread identity 和受支持扩展数据。
+
+持久 Server Timeline 仍是权威历史。Stream 是实时消费机制，不是第二套存储。
+
+## 依赖边界
+
+该包只依赖 `@cypheria/client`、`@cypheria/protocol` 和 AI SDK 公开类型，不能启动 Agent process、读取 provider 文件、打开数据库或导入 Server 内部实现。
+
+参见 [Agents](../../docs/agents.zh-CN.md) 和[协议](../../docs/protocol.zh-CN.md)。

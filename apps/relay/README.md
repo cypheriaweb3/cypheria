@@ -1,20 +1,25 @@
-# @cypheria/cypheria-relay
+# `@cypheria/cypheria-relay`
 
-The Go implementation of the Cypheria relay. Run locally with:
+> Status: Current implementation
+
+The Go relay data plane for optional remote Cypheria connections. It forwards opaque end-to-end encrypted WebSocket frames and stores no product payloads.
+
+## Run locally
 
 ```sh
-pnpm --filter @cypheria/cypheria-relay dev -- --mode=single --public-addr=0.0.0.0:6770
+pnpm --filter @cypheria/cypheria-relay dev -- --mode=single --public-addr=127.0.0.1:6770
 ```
 
-In `single` mode, gateway and worker share one process and an in-memory coordinator; etcd and the
-internal listener are not used. Run exactly one replica. Cluster deployments use
-`--mode=cluster --role=gateway|worker` and require etcd and internal mTLS.
+Single mode combines gateway and worker in one process, uses in-memory coordination, and must run as exactly one replica. Cluster mode uses `--mode=cluster --role=gateway|worker`, external etcd for ownership metadata, and internal mTLS.
 
-TOML examples are in [config](config). Kubernetes Kustomize resources are in
-[deploy/kustomize/base](deploy/kustomize/base); they intentionally do not deploy etcd or an
-OpenTelemetry Collector.
+## Verify
 
-Run checks with `pnpm --filter @cypheria/cypheria-relay check` and the race detector with
-`pnpm --filter @cypheria/cypheria-relay test:race`. See
-[../../docs/relay.md](../../docs/relay.md) for protocol, configuration, topology, capacity,
-observability, and regional design.
+```sh
+pnpm --filter @cypheria/cypheria-relay check
+pnpm --filter @cypheria/cypheria-relay test
+pnpm --filter @cypheria/cypheria-relay test:race
+```
+
+TOML examples are in [config](config). Kubernetes resources are in [deploy/kustomize/base](deploy/kustomize/base); they intentionally omit etcd, public ingress, certificate issuance, and the OpenTelemetry Collector.
+
+See the complete [Relay guide](../../docs/relay.md).

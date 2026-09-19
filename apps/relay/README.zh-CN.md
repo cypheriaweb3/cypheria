@@ -1,19 +1,25 @@
-# @cypheria/cypheria-relay
+# `@cypheria/cypheria-relay`
 
-Cypheria relay 的 Go 实现。本地运行：
+> 状态：当前实现
+
+用于可选远程 Cypheria 连接的 Go relay 数据平面，只转发不透明的端到端加密 WebSocket frame，不保存产品 payload。
+
+## 本地运行
 
 ```sh
-pnpm --filter @cypheria/cypheria-relay dev -- --mode=single --public-addr=0.0.0.0:6770
+pnpm --filter @cypheria/cypheria-relay dev -- --mode=single --public-addr=127.0.0.1:6770
 ```
 
-`single` 模式让 gateway、worker 和内存 coordinator 共存于一个进程，不使用 etcd 和内部
-listener，但必须只运行一个副本。集群部署使用 `--mode=cluster --role=gateway|worker`，并要求
-etcd 和内部 mTLS。
+Single mode 在一个进程中组合 gateway 与 worker，使用内存 coordination，且只能运行一个 replica。Cluster mode 使用 `--mode=cluster --role=gateway|worker`、外部 etcd ownership metadata 与 internal mTLS。
 
-TOML 示例位于 [config](config)，Kubernetes Kustomize 资源位于
-[deploy/kustomize/base](deploy/kustomize/base)；这些清单刻意不部署 etcd 或 OpenTelemetry
-Collector。
+## 验证
 
-使用 `pnpm --filter @cypheria/cypheria-relay check` 检查，使用
-`pnpm --filter @cypheria/cypheria-relay test:race` 运行竞态检测。协议、配置、部署拓扑、容量、可观测性与地域设计参见
-[../../docs/relay.zh-CN.md](../../docs/relay.zh-CN.md)。
+```sh
+pnpm --filter @cypheria/cypheria-relay check
+pnpm --filter @cypheria/cypheria-relay test
+pnpm --filter @cypheria/cypheria-relay test:race
+```
+
+TOML 示例位于 [config](config)。Kubernetes 资源位于 [deploy/kustomize/base](deploy/kustomize/base)；其中有意不包含 etcd、public ingress、certificate issuance 或 OpenTelemetry Collector。
+
+完整说明见 [Relay 指南](../../docs/relay.zh-CN.md)。

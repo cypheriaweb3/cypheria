@@ -1,77 +1,47 @@
 # `@cypheria/client`
 
-`@cypheria/client` is the reusable client for the versioned Cypheria server protocol. It depends on
-`@cypheria/protocol` and the transport-only `@cypheria/relay`; it does not import provider runtimes,
-server internals, Electron code, or the Codex bridge.
+> Status: Current implementation
 
-## Layers
+The shared TypeScript client for the versioned Cypheria Server protocol. It owns connection lifecycle, request correlation, validation, subscriptions, reconnects, and product-level domain facades.
 
-```text
-CypheriaClient = CypheriaApi + connection lifecycle
-                              |
-                              v
-                         ServerClient
-                              |
-                              v
-                  ServerTransport / WebSocket
-```
-
-- `ServerClient` owns hello negotiation, authentication, request correlation, timeouts, validation,
-  event delivery, connection state, and bounded reconnects.
-- `CypheriaApi` borrows a `ServerClient` and cannot close it.
-- `CypheriaClient` owns one `ServerClient` and adds connection lifecycle.
-
-## Public API
-
-`CypheriaApi` exposes only product-level protocol families:
-
-- `agent`: registry, installation, enablement, runtime readiness, operations, and managed
-  toolchains;
-- `thread`: conversation lifecycle, turns, timeline paging, configuration, and interactions;
-- `projectThread`: project and section organization;
-- `server`: ping, status, diagnostics, and configuration.
-
-Provider-native Codex, Claude, Pi, OpenCode, and ACP messages remain protocol-owned implementation
-contracts for server adapters. They are not part of the public client wire union and do not have
-client subpath facades.
+## Public entry point
 
 ```ts
 import { createCypheriaClient } from "@cypheria/client"
 
-const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
-await cypheria.connect()
+const client = createCypheriaClient({ url: "http://127.0.0.1:6768" })
+await client.connect()
 
-const agents = await cypheria.agent.list()
-const ready = await cypheria.thread.create({ agentId: "codex", cwd: "/absolute/workspace" })
-const turn = await cypheria.thread.startTurn({
-  clientMessageId: crypto.randomUUID(),
-  content: [{ text: "Explain this project", type: "text" }],
-  threadId: ready.thread.id,
+const { thread } = await client.threads.create({
+  agentId: "codex",
+  cwd: "/absolute/workspace",
 })
 
-console.log(agents, turn.turnId)
-await cypheria.close()
+await client.threads.startTurn({
+  clientMessageId: crypto.randomUUID(),
+  content: [{ text: "Explain this project", type: "text" }],
+  threadId: thread.id,
+})
+
+await client.close()
 ```
 
-## Identity and events
+`createCypheriaClient()` owns one connection. `createCypheriaApi()` creates a capability facade that borrows an internal `ServerClient` and never closes it.
 
-`threadId` is the only public handle for Thread operations. The nullable `agentSessionId` on a
-Thread is read-only diagnostic metadata and is never accepted as a routing key. The server owns
-provider processes and sessions, automatically starts the selected agent when creating or resuming
-a Thread, and broadcasts Thread notifications to every connected client.
+## Facades
 
-Use `api.on(type, handler)` for one notification type or `api.subscribe(handler)` for all server
-messages. No Thread subscription call is required. Interactive permission or question requests are
-delivered as `thread.interaction.requested.notification`; the first valid
-`thread.interaction.respond` wins across all clients.
+The public API exposes Agents, Projects, Threads, Sections, Timeline, schedules, Web3, integrations, terminals, artifacts, settings, Server operations, and provider extensions.
 
-Timeline pages expose an `epoch` and canonical sequence cursors. If `reset` is true, discard local
-timeline state and rebuild from the returned page. Projected items include their canonical source
-coverage so clients can merge paginated or streamed updates without treating projections as a
-second ordering system.
+`providers.codex` contains Codex account, model, permission, guardian, integration, and Apps operations. Claude, Pi, OpenCode, and ACP provider facades expose their current integration context. Provider-native wire protocols remain internal Server adapter contracts.
 
-## Agent enablement
+## Reliability
 
-Installation does not enable an agent. Call `agent.enable()` explicitly before `agent.start()` or
-Thread work. Disabling an agent stops its active Threads. `agent.stop(agentId, false)` rejects while
-Threads remain active; pass `true` only for an explicit forced stop.
+The client supports browser, Node, injected, and relay E2EE transports. It validates both directions, rejects in-flight requests on disconnect, uses bounded reconnects, and exposes typed connection and protocol errors.
+
+`threadId` is the only operation key. Timeline pages use epoch and sequence cursors; clients rebuild when a response requests reset or a replacement notification invalidates local projection.
+
+## Dependency boundary
+
+This package depends on `@cypheria/protocol` and `@cypheria/relay`. It does not import Electron, Desktop, Server runtime internals, databases, or Agent SDKs.
+
+See [Client/Server Protocol](../../docs/protocol.md) and [Architecture](../../docs/architecture.md).

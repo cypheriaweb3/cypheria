@@ -8,10 +8,11 @@
   "scripts": {
     "build": "turbo build",
     "check": "turbo check",
-    "ci": "biome ci . && turbo check",
+    "ci": "pnpm docs:check && biome ci . && turbo check",
     "codex:generate": "pnpm --filter @cypheria/protocol generate:codex-all",
     "codex:version": "codex --version",
     "dev": "turbo dev",
+    "docs:check": "node scripts/check-docs.mjs",
     "format": "biome format --write .",
     "lint": "biome lint .",
     "typecheck": "turbo typecheck"

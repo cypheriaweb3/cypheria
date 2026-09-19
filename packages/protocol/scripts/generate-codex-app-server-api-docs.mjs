@@ -420,9 +420,9 @@ const requestRow = (responses, language) => (item) => {
 const notificationRow = (language) => (item) =>
   `- \`${item.method}\` — ${notificationPurpose(item.method, language)} ${language === "en" ? "Payload" : "载荷"}: ${shape(item.paramType, false, language)}.`
 
-const english = `# Codex App Server API reference\n\nThis document analyzes the generated protocol currently committed under \`packages/protocol/src/generated/codex\`. It covers the complete API surface generated with experimental definitions enabled: ${clientRequests.length} client requests, ${serverRequests.length} server-initiated requests, ${serverNotifications.length} server notifications, and one client notification.\n\nThe protocol uses JSON-RPC-style messages. Client requests contain \`id\`, \`method\`, and method-specific \`params\`; server requests use the same shape in the reverse direction; notifications have no \`id\`; successful responses contain \`id\` and \`result\`; errors contain \`id\` and \`error\`. A trailing \`?\` below marks an optional top-level field. The generated type named before each field list is the source of truth for nested structures and enum values.\n\n## Client requests (${clientRequests.length})\n\n${renderGroups(clientRequests, "en", requestRow(clientResponses, "en"))}\n\n## Server-initiated requests (${serverRequests.length})\n\nThese are reverse RPC calls. The client must return the listed response rather than treating them as notifications.\n\n${renderGroups(serverRequests, "en", requestRow(serverResponses, "en"))}\n\n## Server notifications (${serverNotifications.length})\n\n${renderGroups(serverNotifications, "en", notificationRow("en"))}\n\n## Client notification (1)\n\n- \`initialized\` — Sent after a successful \`initialize\` response to indicate that the client is ready. It has no \`id\`, \`params\`, or response.\n`
+const english = `# Codex App Server API reference\n\n> Status: Generated internal adapter reference; do not edit manually\n\nThis document analyzes the generated protocol currently committed under \`packages/protocol/src/generated/codex\`. It is an internal Server-adapter reference, not the public Cypheria client API. It covers the complete API surface generated with experimental definitions enabled: ${clientRequests.length} client requests, ${serverRequests.length} server-initiated requests, ${serverNotifications.length} server notifications, and one client notification.\n\nThe protocol uses JSON-RPC-style messages. Client requests contain \`id\`, \`method\`, and method-specific \`params\`; server requests use the same shape in the reverse direction; notifications have no \`id\`; successful responses contain \`id\` and \`result\`; errors contain \`id\` and \`error\`. A trailing \`?\` below marks an optional top-level field. The generated type named before each field list is the source of truth for nested structures and enum values.\n\n## Client requests (${clientRequests.length})\n\n${renderGroups(clientRequests, "en", requestRow(clientResponses, "en"))}\n\n## Server-initiated requests (${serverRequests.length})\n\nThese are reverse RPC calls. The client must return the listed response rather than treating them as notifications.\n\n${renderGroups(serverRequests, "en", requestRow(serverResponses, "en"))}\n\n## Server notifications (${serverNotifications.length})\n\n${renderGroups(serverNotifications, "en", notificationRow("en"))}\n\n## Client notification (1)\n\n- \`initialized\` — Sent after a successful \`initialize\` response to indicate that the client is ready. It has no \`id\`, \`params\`, or response.\n`
 
-const chinese = `# Codex App Server API 参考\n\n本文分析当前提交在 \`packages/protocol/src/generated/codex\` 下的自动生成协议，覆盖启用实验定义后生成的完整 API：${clientRequests.length} 个客户端请求、${serverRequests.length} 个服务端反向请求、${serverNotifications.length} 个服务端通知，以及 1 个客户端通知。\n\n协议采用 JSON-RPC 风格消息。客户端请求包含 \`id\`、\`method\` 和各方法专用的 \`params\`；服务端反向请求使用相同结构但方向相反；通知没有 \`id\`；成功响应包含 \`id\` 和 \`result\`；错误响应包含 \`id\` 和 \`error\`。下文顶层字段名后的 \`?\` 表示可选。字段列表前的生成类型名是嵌套结构和枚举值的最终依据。\n\n## 客户端请求（${clientRequests.length}）\n\n${renderGroups(clientRequests, "zh", requestRow(clientResponses, "zh"))}\n\n## 服务端反向请求（${serverRequests.length}）\n\n这些是反向 RPC；客户端必须返回列出的响应，不能把它们当作普通通知。\n\n${renderGroups(serverRequests, "zh", requestRow(serverResponses, "zh"))}\n\n## 服务端通知（${serverNotifications.length}）\n\n${renderGroups(serverNotifications, "zh", notificationRow("zh"))}\n\n## 客户端通知（1）\n\n- \`initialized\` — 成功收到 \`initialize\` 响应后发送，表示客户端已准备就绪；没有 \`id\`、\`params\` 或响应。\n`
+const chinese = `# Codex App Server API 参考\n\n> 状态：生成的内部 adapter 参考；请勿手工编辑\n\n本文分析当前提交在 \`packages/protocol/src/generated/codex\` 下的自动生成协议。它是 Server adapter 的内部参考，不是公开 Cypheria client API。它覆盖启用实验定义后生成的完整 API：${clientRequests.length} 个客户端请求、${serverRequests.length} 个服务端反向请求、${serverNotifications.length} 个服务端通知，以及 1 个客户端通知。\n\n协议采用 JSON-RPC 风格消息。客户端请求包含 \`id\`、\`method\` 和各方法专用的 \`params\`；服务端反向请求使用相同结构但方向相反；通知没有 \`id\`；成功响应包含 \`id\` 和 \`result\`；错误响应包含 \`id\` 和 \`error\`。下文顶层字段名后的 \`?\` 表示可选。字段列表前的生成类型名是嵌套结构和枚举值的最终依据。\n\n## 客户端请求（${clientRequests.length}）\n\n${renderGroups(clientRequests, "zh", requestRow(clientResponses, "zh"))}\n\n## 服务端反向请求（${serverRequests.length}）\n\n这些是反向 RPC；客户端必须返回列出的响应，不能把它们当作普通通知。\n\n${renderGroups(serverRequests, "zh", requestRow(serverResponses, "zh"))}\n\n## 服务端通知（${serverNotifications.length}）\n\n${renderGroups(serverNotifications, "zh", notificationRow("zh"))}\n\n## 客户端通知（1）\n\n- \`initialized\` — 成功收到 \`initialize\` 响应后发送，表示客户端已准备就绪；没有 \`id\`、\`params\` 或响应。\n`
 
 const englishDocument = english.replace(
   "The protocol uses JSON-RPC-style messages.",
@@ -433,8 +433,32 @@ const chineseDocument = chinese.replace(
   "Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴露这套完整 API。Slash separator 转为 dot，camel-case segment 转为 snake case，并以 `.request`、`.response` 或 `.notification` 明确消息方向。每种 dotted message 都有从 generated JSON Schema 派生的专用 Zod schema，并在静态类型上与对应 generated Codex TypeScript type 配对。这些 message contract 从 `@cypheria/protocol` 导出，原始 generated Codex type 则隔离在 `@cypheria/protocol/codex-types`。\n\n协议采用 JSON-RPC 风格消息。"
 )
 
-await writeFile(resolve(repositoryRoot, "docs/codex-app-server-api.md"), englishDocument)
-await writeFile(resolve(repositoryRoot, "docs/codex-app-server-api.zh-CN.md"), chineseDocument)
-console.log(
-  `Generated English and Chinese API references for ${clientRequests.length + serverRequests.length + serverNotifications.length + 1} protocol methods.`
-)
+const documents = [
+  [resolve(repositoryRoot, "docs/codex-app-server-api.md"), englishDocument],
+  [resolve(repositoryRoot, "docs/codex-app-server-api.zh-CN.md"), chineseDocument],
+]
+
+if (process.argv.includes("--check")) {
+  const stale = []
+  for (const [path, expected] of documents) {
+    let actual
+    try {
+      actual = await readFile(path, "utf8")
+    } catch {
+      stale.push(path)
+      continue
+    }
+    if (actual !== expected) stale.push(path)
+  }
+  if (stale.length > 0) {
+    console.error(`Generated Codex API reference is stale:\n${stale.join("\n")}`)
+    process.exitCode = 1
+  } else {
+    console.log("Generated Codex API references are current.")
+  }
+} else {
+  for (const [path, content] of documents) await writeFile(path, content)
+  console.log(
+    `Generated English and Chinese API references for ${clientRequests.length + serverRequests.length + serverNotifications.length + 1} protocol methods.`
+  )
+}

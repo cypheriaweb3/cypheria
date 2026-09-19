@@ -1,146 +1,76 @@
-# Database Guide
+# Database
 
-Cypheria uses SQLite through Drizzle ORM and the local libSQL SQLite driver. Domain files under `packages/db/src/schema/`, re-exported by `schema/index.ts`, are the only editable schema source. Generated SQL in `packages/db/drizzle` is the only migration source; do not maintain hand-written `CREATE TABLE` statements in TypeScript.
+> Status: Current implementation
 
-## SQLite column conventions
+Cypheria uses SQLite through Drizzle ORM and the local libSQL driver. `packages/db/src/schema/` is the editable schema source; `packages/db/drizzle/0000_initial.sql` and its snapshot are the current generated migration baseline.
 
-SQLite stores values as `NULL`, `INTEGER`, `REAL`, `TEXT`, or `BLOB`. Drizzle modes map those storage classes to strict TypeScript values, but compile-time inference does not replace database constraints or runtime validation.
+## Location and ownership
 
-- IDs: use `text("id").primaryKey().$defaultFn(() => crypto.randomUUID())` when the persistence layer owns UUID creation. Use `integer("id", { mode: "number" }).primaryKey({ autoIncrement: true })` only when row-order numeric identity is intentional. Domain-owned IDs should be supplied explicitly.
-- Booleans: use `integer("enabled", { mode: "boolean" })`; SQLite stores `0` and `1` while Drizzle exposes `boolean`.
-- Time: use non-null ISO-8601 UTC `text` consistently for Cypheria records unless a domain documents a numeric-time exception. ISO text is readable and sorts chronologically when normalized. The project/thread/section tables below are one such exception: all of their timestamps are Unix timestamps in seconds stored as `INTEGER` so recency values and ordered-list records can be compared directly. `$defaultFn()` is an application-side default and is not emitted into Drizzle Kit migrations; use a SQL default when every writer needs a database-enforced default.
-- JSON: prefer `text("metadata", { mode: "json" }).$type<Metadata>()`. SQLite JSON functions operate on text JSON; Drizzle explicitly recommends text over JSON-mode BLOB. `.$type()` adds compile-time typing only, so validate untrusted and persisted values with the owning package's Zod schema. Use BLOB for actual binary data.
-- Enum-like values: use `text("status", { enum: statuses })` for TypeScript inference and add a named `CHECK` constraint for database enforcement. Drizzle's `enum` option does not validate runtime values.
-- Money and Web3 quantities: never use `REAL`. Fiat amounts may use integer minor units only when the currency scale is explicit and values remain in JavaScript's safe integer range. Native/token quantities should use canonical base-unit decimal `TEXT` (or an explicitly documented bigint encoding) because 256-bit values exceed SQLite and JavaScript safe integers.
-- Text: use `text`; SQLite does not enforce `varchar(n)` length. Add application validation or a `CHECK` when a real limit matters.
-- Constraints: add `NOT NULL`, foreign keys, unique indexes, and named `CHECK` constraints for invariants the database can enforce. Keep Zod validation at package and IPC boundaries for structural and cross-row invariants.
+The default database is `$CYPHERIA_HOME/db/cypheria.sqlite`. Only the Server opens it. Desktop, CLI, Expo, AI SDK providers, Agents, and plugins use the Cypheria protocol and never import database repositories.
 
-Use JSON columns for bounded aggregates that are normally read and written together. Promote frequently filtered, joined, independently updated, or uniqueness-constrained properties into relational columns or child tables.
+Every connection enables foreign keys. Server services define transaction boundaries and validate persisted JSON when it re-enters a domain.
 
-## Project, thread, and section storage
+## Table groups
 
-Cypheria owns its cross-agent projects, threads, project membership, sections, and section membership. The model uses five tables: `projects`, `threads`, `project_items`, `sections`, and `section_items`. Project membership and section membership are independent: a thread may belong to one project and also appear directly in one section, including the pinned section.
+| Domain | Tables | Responsibility |
+| --- | --- | --- |
+| Runtime | `runtime_metadata`, `settings`, `audit_logs`, `workspaces` | Runtime metadata, key/value settings, append-oriented audit, workspace records |
+| Agents | `agent_registry` | Native and registry Agent installation, enablement, versions, and state |
+| Projects and Threads | `projects`, `threads`, `project_items`, `sections`, `section_items` | Durable organization, ordering, membership, archive and provider linkage |
+| Thread execution | `thread_lifecycle_operations`, `thread_timeline_epochs`, `thread_timeline_rows` | Recovery journal and append-only Canonical Timeline |
+| Schedules | `schedules`, `schedule_runs` | Definitions, next occurrence, leases, and run history |
+| Networks | `networks`, `network_rpc_endpoints`, `dapp_network_contexts` | Chain definitions, ordered endpoints, health, and origin context |
+| Wallets | `wallets`, `wallet_accounts`, `chain_accounts`, `wallet_hd_schemes`, `active_wallet_context` | Public wallet metadata and active selection |
+| Signing | `signing_policies`, `signing_intents`, `signing_intent_claims`, `approval_requests` | Policy, intent, lease, approval, and replay protection |
+| Browser | `dapp_origins`, `dapp_permissions`, `solana_dapp_permissions` | Origin isolation and scoped provider permission |
 
-All timestamps in these five tables are Unix timestamps in seconds stored as SQLite `INTEGER`. Project, thread, and section IDs are Cypheria-owned UUIDv7 values validated at the package boundary. The pinned section has the fixed UUIDv7 `01984de2-8f74-7c91-a3b2-5c5e937cf318`. Drizzle and service properties use camel case (`recencyAt`, `forkedFromId`, `agentSessionId`, `createdAt`, and `updatedAt`) while physical SQLite columns follow the existing snake-case convention shown below.
+Private keys, mnemonics, vault encryption keys, decrypted signers, and secret endpoint headers are not ordinary table data.
 
-### `projects`
+## Project and Thread constraints
 
-| Column | Storage | Nullability | Meaning |
-| --- | --- | --- | --- |
-| `id` | `TEXT` | not null, primary key | Cypheria UUIDv7 project identity. |
-| `name` | `TEXT` | not null | User-visible project name. |
-| `roots` | `TEXT` JSON | not null | Ordered, non-empty array of normalized absolute paths; the first root is the default. |
-| `position` | `INTEGER` | not null | Position in the global projects list. |
-| `recency_at` | `INTEGER` | nullable | Newest member thread's recency; null when none exist. |
-| `created_at` | `INTEGER` | not null | Creation time in Unix seconds. |
-| `updated_at` | `INTEGER` | not null | Last persisted project-row change in Unix seconds. |
+Cypheria UUIDv7 values identify Projects, Threads, and Sections. A Thread has one immutable Agent, at most one provider session linkage per Agent, optional fork origin, and independent Project and Section membership.
 
-`position` is non-negative and unique. `recency_at` is a materialized value equivalent to `MAX(threads.recency_at)` across this project's `project_items`; if that set has no non-null recency, it is null.
+`project_items` places a Thread in at most one Project. `section_items` interleaves Project and Thread entries in one ordered domain and places each entry in at most one Section. The fixed Pinned Section has stable ID `01984de2-8f74-7c91-a3b2-5c5e937cf318`.
 
-### `threads`
+Ordering columns are non-negative and unique in their scope. Membership moves and compaction execute transactionally so clients never observe duplicate positions.
 
-| Column | Storage | Nullability | Meaning |
-| --- | --- | --- | --- |
-| `id` | `TEXT` | not null, primary key | Cypheria UUIDv7 thread identity. |
-| `agent_id` | `TEXT` | not null | Immutable foreign key to `agent_registry.id`. |
-| `agent_session_id` | `TEXT` | nullable | The bound agent's own session/thread identity. |
-| `forked_from_id` | `TEXT` | nullable | Source Cypheria thread when this thread was forked. |
-| `title` | `TEXT` | nullable | User-visible or generated title. |
-| `cwd` | `TEXT` | nullable | Working directory captured for the thread. |
-| `position` | `INTEGER` | not null | Position in the global threads list. |
-| `recency_at` | `INTEGER` | nullable | Latest meaningful thread activity in Unix seconds. |
-| `created_at` | `INTEGER` | not null | Creation time in Unix seconds. |
-| `updated_at` | `INTEGER` | not null | Last persisted thread-row change in Unix seconds. |
+## Canonical Timeline
 
-`agent_id` references `agent_registry.id` with `ON DELETE RESTRICT`. `forked_from_id` references `threads.id` with `ON DELETE SET NULL`. `position` is non-negative and unique. A partial unique index on `(agent_id, agent_session_id)` where `agent_session_id IS NOT NULL` prevents two Cypheria threads from claiming the same agent session. Index `forked_from_id` for fork lookup.
+`thread_timeline_epochs` stores the active epoch and next sequence for each Thread. `thread_timeline_rows` stores immutable canonical rows keyed by Thread, epoch, and sequence. Appending allocates contiguous sequence numbers in one transaction. Rehydration or history replacement creates a new epoch and atomically replaces its rows.
 
-`agent_session_id` may be null and stores read-only provider metadata bound by `ThreadManager`; public operations never route by it. `recency_at` may also be null.
+The Server validates stored Timeline JSON against `ThreadTimelineRowSchema` when reading it back. Provider-native history is input to adaptation, not an alternative client-facing history table.
 
-### `project_items`
+## Schedules and recovery
 
-| Column | Storage | Nullability | Meaning |
-| --- | --- | --- | --- |
-| `project_id` | `TEXT` | not null | Foreign key to `projects.id`. |
-| `thread_id` | `TEXT` | not null | Foreign key to `threads.id`. |
-| `position` | `INTEGER` | not null | Thread position inside this project. |
-| `created_at` | `INTEGER` | not null | Time the thread entered this project, in Unix seconds. |
-| `updated_at` | `INTEGER` | not null | Last membership or position change in Unix seconds. |
+Schedule definition, next-run advancement, occurrence claim, and run creation are coordinated transactionally. Claims prevent concurrent execution. On restart, abandoned running rows become interrupted before active definitions are recovered. Web3 side effects are not replayed automatically.
 
-The primary key is `(project_id, thread_id)`. Both foreign keys use `ON DELETE CASCADE`. `thread_id` is unique, so a thread belongs to at most one project. `(project_id, position)` is unique and `position` is non-negative.
+Thread lifecycle operations similarly journal non-atomic provider work so deletion and session transitions can be reconciled after failure.
 
-### `sections`
+## SQLite conventions
 
-| Column | Storage | Nullability | Meaning |
-| --- | --- | --- | --- |
-| `id` | `TEXT` | not null, primary key | Cypheria UUIDv7 section identity. |
-| `name` | `TEXT` | not null | User-visible section name. |
-| `icon` | `TEXT` | nullable | Optional synchronized icon. |
-| `color` | `TEXT` | nullable | Optional synchronized color. |
-| `position` | `INTEGER` | not null | Position in the global sections list. |
-| `created_at` | `INTEGER` | not null | Creation time in Unix seconds. |
-| `updated_at` | `INTEGER` | not null | Last persisted section-row change in Unix seconds. |
+- Use `TEXT` UUIDs unless numeric row identity is intentional.
+- Use integer-backed booleans and named `CHECK` constraints for enum-like values.
+- Use normalized ISO UTC text for time unless a domain explicitly uses Unix seconds; Project, Thread, Section, and membership timestamps use Unix seconds.
+- Store high-precision Web3 quantities as canonical decimal text, never `REAL`.
+- Use JSON text only for bounded aggregates that are validated at domain boundaries.
+- Promote filtered, joined, unique, or independently updated properties to columns or child tables.
+- Use revision columns for compare-and-swap on concurrently mutable records.
 
-`position` is non-negative and unique. The pinned section row has ID `01984de2-8f74-7c91-a3b2-5c5e937cf318` and position zero.
+## Transactions
 
-### `section_items`
+Transactions protect ordering changes, memberships, Timeline sequence allocation, schedule claims, signing-intent claims, policy revisions, and approval decisions. External Agent, RPC, or wallet operations must not be held inside a long SQLite transaction. Persist intent or claim first, perform the external operation, then record its terminal result.
 
-| Column | Storage | Nullability | Meaning |
-| --- | --- | --- | --- |
-| `id` | `INTEGER` | not null, autoincrement primary key | Internal association-row identity. |
-| `section_id` | `TEXT` | not null | Foreign key to `sections.id`. |
-| `item_type` | `TEXT` | not null | Either `thread` or `project`. |
-| `thread_id` | `TEXT` | nullable | Foreign key to `threads.id` for a thread item. |
-| `project_id` | `TEXT` | nullable | Foreign key to `projects.id` for a project item. |
-| `position` | `INTEGER` | not null | Unified thread/project position inside this section. |
-| `created_at` | `INTEGER` | not null | Time the item entered this section, in Unix seconds. |
-| `updated_at` | `INTEGER` | not null | Last membership or position change in Unix seconds. |
+## Migration policy
 
-A named check constraint requires exactly one target and requires it to match `item_type`: `thread` requires non-null `thread_id` and null `project_id`; `project` requires non-null `project_id` and null `thread_id`. All three foreign keys use `ON DELETE CASCADE`. Partial unique indexes on non-null `thread_id` and non-null `project_id` place each entity in at most one section. `(section_id, position)` is unique and `position` is non-negative.
+The product has not shipped. There is deliberately one baseline migration, `0000_initial.sql`, with one matching snapshot and journal entry. No old application data is detected, imported, or upgraded. Before the first release, schema changes replace this baseline.
 
-Threads and projects share one position domain, so they can be interleaved exactly.
-
-### Position domains
-
-The five position domains are independent:
-
-| Position | Scope |
-| --- | --- |
-| `projects.position` | All projects. |
-| `threads.position` | All threads. |
-| `project_items.position` | Threads within one project. |
-| `sections.position` | All sections. |
-| `section_items.position` | Threads and projects within one section. |
-
-Higher-level mutation and ordering behavior is specified separately in [Project, Thread, and Section Operations](project-thread.md).
-
-## Canonical timeline storage
-
-`thread_timeline_epochs` stores the current epoch, next sequence number, and update time for each Thread. `thread_timeline_rows` stores immutable canonical items keyed by `(thread_id, epoch, seq)`, plus the provider item ID, turn ID, and event timestamp. Both tables cascade from the owning Thread. Appends allocate and insert a contiguous sequence in one transaction; history hydration atomically replaces the epoch and its rows. Persisted item JSON is validated with `ThreadTimelineRowSchema` when it crosses back into the Server timeline domain.
-
-## Migration workflow
-
-Cypheria follows Drizzle's code-first `generate` then `migrate` workflow:
+After the first public release, migrations become append-only: never edit or delete an applied migration. Generate from the schema, review SQL, and test both empty-database creation and upgrade from the previous released schema.
 
 ```sh
 pnpm --filter @cypheria/db db:generate --name=<migration-name>
 pnpm --filter @cypheria/db db:check
 pnpm --filter @cypheria/db db:migrate
+pnpm --filter @cypheria/db test
 ```
 
-Because pnpm needs its global store, run these commands outside restricted sandboxes. Review generated SQL before applying or committing it. Commit the schema directory, generated SQL, snapshots, and the journal together.
-
-The product has not shipped, so the current history is intentionally one clean `0000_initial.sql` plus its matching snapshot and journal. No old Cypheria data directory is detected, imported, or upgraded. Until the first release, schema changes regenerate this baseline; after release, migrations become append-only.
-
-`drizzle-kit migrate` reads the generated migration directory, compares it with the database migration log, applies only unapplied files, and records successful applications. Runtime and tests may call `applyDatabaseMigrations`, which uses Drizzle ORM's migrator against the same generated directory; it is not a second schema definition.
-
-Never edit an applied migration. Change the relevant domain schema file, generate a new migration, review it, and test migration from both an empty database and the latest committed schema. Migration squashing or deletion is allowed only before any environment has applied the history, or through an explicit coordinated baseline reset.
-
-## Current storage rules
-
-- The default file is `$CYPHERIA_HOME/db/cypheria.sqlite`, falling back to `~/.cypheria/db/cypheria.sqlite`.
-- Enable SQLite foreign keys on every connection before normal operations.
-- Store timestamps as normalized ISO UTC text unless the owning domain documents another representation. The five project/thread/section tables above use Unix seconds. Store high-precision Web3 quantities as decimal text.
-- Keep private keys, mnemonic material, vault encryption keys, and decrypted signers out of SQLite, JSON fields, logs, and audit payloads.
-- Use monotonically increasing `revision` columns for compare-and-swap updates on concurrently mutable records.
-
-References: [SQLite column types](https://orm.drizzle.team/docs/sqlite/column-types), [`drizzle-kit generate`](https://orm.drizzle.team/docs/drizzle-kit-generate), and [`drizzle-kit migrate`](https://orm.drizzle.team/docs/sqlite/drizzle-kit-migrate).
+Commit schema files, SQL, snapshot, and journal together.

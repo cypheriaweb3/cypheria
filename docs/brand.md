@@ -1,5 +1,7 @@
 # Cypheria Brand
 
+> Status: Current implementation
+
 Cypheria uses one geometric mark across the desktop product, browser surfaces, and project communication. The mark combines an open circular **C** with a four-point spark: the ring represents a continuous agent workflow, while the spark represents a user-authorized action at its center.
 
 ## Core Assets

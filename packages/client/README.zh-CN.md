@@ -1,71 +1,47 @@
 # `@cypheria/client`
 
-`@cypheria/client` 是版本化 Cypheria server 协议的可复用客户端。它只依赖
-`@cypheria/protocol` 与仅负责传输的 `@cypheria/relay`，不导入 provider runtime、server
-内部实现、Electron 代码或 Codex bridge。
+> 状态：当前实现
 
-## 分层
+用于版本化 Cypheria Server 协议的共享 TypeScript client，负责连接生命周期、request correlation、validation、subscriptions、reconnect 和产品级领域 facades。
 
-```text
-CypheriaClient = CypheriaApi + connection lifecycle
-                              |
-                              v
-                         ServerClient
-                              |
-                              v
-                  ServerTransport / WebSocket
-```
-
-- `ServerClient` 持有 hello 协商、认证、请求关联、超时、校验、事件投递、连接状态和有界重连。
-- `CypheriaApi` 借用 `ServerClient`，不能关闭它。
-- `CypheriaClient` 持有一个 `ServerClient` 并增加连接生命周期。
-
-## 公开 API
-
-`CypheriaApi` 只暴露产品级协议族：
-
-- `agent`：registry、安装、enable、runtime readiness、operation 和受管工具链；
-- `thread`：对话生命周期、turn、timeline 分页、配置和交互；
-- `projectThread`：project 与 section 组织；
-- `server`：ping、状态、诊断和配置。
-
-Codex、Claude、Pi、OpenCode 与 ACP 的 provider-native 消息仍由 protocol 持有，供 server
-adapter 内部使用；它们不进入公开 client wire union，也不再提供 client subpath facade。
+## 公开入口
 
 ```ts
 import { createCypheriaClient } from "@cypheria/client"
 
-const cypheria = createCypheriaClient({ url: "http://127.0.0.1:6768" })
-await cypheria.connect()
+const client = createCypheriaClient({ url: "http://127.0.0.1:6768" })
+await client.connect()
 
-const agents = await cypheria.agent.list()
-const ready = await cypheria.thread.create({ agentId: "codex", cwd: "/absolute/workspace" })
-const turn = await cypheria.thread.startTurn({
-  clientMessageId: crypto.randomUUID(),
-  content: [{ text: "解释这个项目", type: "text" }],
-  threadId: ready.thread.id,
+const { thread } = await client.threads.create({
+  agentId: "codex",
+  cwd: "/absolute/workspace",
 })
 
-console.log(agents, turn.turnId)
-await cypheria.close()
+await client.threads.startTurn({
+  clientMessageId: crypto.randomUUID(),
+  content: [{ text: "Explain this project", type: "text" }],
+  threadId: thread.id,
+})
+
+await client.close()
 ```
 
-## 身份与事件
+`createCypheriaClient()` 拥有一个连接。`createCypheriaApi()` 创建借用内部 `ServerClient` 的 capability facade，并且绝不关闭它。
 
-`threadId` 是 Thread 操作唯一的公开句柄。Thread 上可空的 `agentSessionId` 只是只读诊断
-元数据，绝不作为路由键。Server 持有 provider 进程和 session，在创建或恢复 Thread 时自动启动
-所选 agent，并把 Thread notification 广播给所有已连接客户端。
+## Facades
 
-使用 `api.on(type, handler)` 监听一种 notification，或用 `api.subscribe(handler)` 监听全部 server
-消息。Thread 不需要订阅调用。权限或问题通过 `thread.interaction.requested.notification` 投递；
-所有客户端中第一个合法的 `thread.interaction.respond` 生效。
+公开 API 暴露 Agents、Projects、Threads、Sections、Timeline、Schedules、Web3、Integrations、Terminals、Artifacts、Settings、Server operations 和 provider extensions。
 
-Timeline page 暴露 `epoch` 与 canonical sequence cursor。`reset` 为 true 时应丢弃本地 timeline
-状态并从返回页面重建。Projected item 携带对应 canonical source coverage，因此客户端可合并分页
-或流式更新，而无需把 projection 当作第二套排序系统。
+`providers.codex` 包含 Codex account、model、permission、guardian、integration 和 Apps 操作。Claude、Pi、OpenCode 和 ACP provider facade 暴露当前 integration context。Provider-native wire protocol 仍是 Server adapter 内部契约。
 
-## Agent enable
+## 可靠性
 
-安装不会自动 enable agent。调用 `agent.start()` 或执行 Thread 工作之前，必须显式调用
-`agent.enable()`。Disable agent 会停止其活跃 Thread；存在活跃 Thread 时，
-`agent.stop(agentId, false)` 会拒绝，只有显式传入 `true` 才会强制停止。
+Client 支持 browser、Node、injected 和 relay E2EE transports，校验两个方向的消息，在断开时拒绝 in-flight requests，使用有界 reconnect，并暴露类型化 connection 与 protocol errors。
+
+`threadId` 是唯一操作 key。Timeline page 使用 epoch 与 sequence cursor；response 要求 reset 或 replacement notification 使本地 projection 失效时，客户端会重建。
+
+## 依赖边界
+
+该包依赖 `@cypheria/protocol` 和 `@cypheria/relay`，不导入 Electron、Desktop、Server runtime 内部实现、数据库或 Agent SDK。
+
+参见[客户端与 Server 协议](../../docs/protocol.zh-CN.md)和[架构](../../docs/architecture.zh-CN.md)。

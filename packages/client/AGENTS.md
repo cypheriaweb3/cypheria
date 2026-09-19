@@ -1,47 +1,35 @@
-# Client Package Guide
+# Client Package Instructions
 
-This package is the reusable TypeScript client for the versioned Cypheria server protocol.
+Read the package [README](README.md), public [Protocol](../../docs/protocol.md), and repository [Contributor Instructions](../../AGENTS.md).
 
 ## Boundaries
 
-- Depend on `@cypheria/protocol`, never on runtime, server, Codex bridge, Electron, desktop, or SDK
-  internals.
-- Treat `ClientMessage` and `ServerMessage` as the capability source of truth.
-- Expose provider-neutral `agent`, `thread`, `projectThread`, and `server` actions only. Do not add
-  provider-specific Codex, Claude, Pi, OpenCode, or ACP client endpoints or subpath facades.
-- Route every Thread operation by `threadId`. Treat `agentSessionId` as read-only metadata.
-- Do not infer high-level wallet, policy, automation, browser, or other product APIs from generic
-  runtime method strings. Add an action only after its request and response contract exists in the
-  protocol package.
-- Keep generated Codex types and validators owned by `@cypheria/protocol`.
+- Depend on `@cypheria/protocol` and transport helpers, never on Server runtime internals, databases, Electron, Desktop, Agent SDKs, or the planned public SDK.
+- Treat exported protocol messages and capability flags as the source of truth.
+- Route every Thread operation by Cypheria `threadId`; `agentSessionId` is read-only metadata.
+- Add a facade only after its request, response, notification, and validation contracts exist in `@cypheria/protocol`.
+- Keep generated native protocol types and validators in `@cypheria/protocol`.
+
+Current public facades include Agents, Projects, Threads, Sections, Timeline, schedules, Web3, integrations, terminals, artifacts, settings, Server operations, and genuine provider extensions. `providers.codex` owns account, model, permission, guardian, and Apps extensions; other provider facades currently expose integration context. Do not expose raw provider-native messages.
 
 ## Layers
 
-- `ServerClient` is the low-level protocol driver. It owns transport creation and cleanup, hello
-  negotiation, connection state, reconnect policy, request correlation, timeouts, validation, and
-  message subscriptions.
-- `CypheriaApi` is a capability-only facade over an existing `ServerClient`. It must not expose
-  `connect`, `ensureConnected`, `close`, or connection-state methods.
-- `CypheriaClient` combines `CypheriaApi` with lifecycle control for callers that want an owned
-  connection.
-- `createCypheriaApi()` borrows its supplied `ServerClient`; it never disposes that connection.
+- `ServerClient` owns transport creation, hello and authentication, request correlation, timeouts, validation, connection state, subscriptions, and bounded reconnects.
+- `CypheriaApi` borrows a `ServerClient` and exposes capabilities without connection lifecycle methods.
+- `CypheriaClient` owns one connection and combines the API with lifecycle control.
+- `createCypheriaApi()` never closes the supplied connection.
 
-## Transport And Reliability
+## Reliability
 
-- Keep `ServerClient` transport-neutral through `ServerTransport` and `ServerTransportFactory`.
-- The WebSocket adapter must support browser event targets, Node event emitters, and injectable
-  implementations.
-- Validate every outbound and inbound wire message with `@cypheria/protocol`.
-- Deliver global Thread notifications through `CypheriaApi.on(...)` and `subscribe(...)`; clients do
-  not explicitly subscribe to individual Threads.
-- Reject in-flight requests on disconnect, isolate consumer listener failures, and prevent stale
-  transport events from mutating the current connection.
+- Keep transports interchangeable across browser, Node, relay E2EE, and injected implementations.
+- Validate every outbound and inbound message.
+- Deliver notifications through `on(...)` and `subscribe(...)`; clients do not create provider-native subscriptions.
+- Reject in-flight requests on disconnect, isolate listener failures, and ignore stale transport events.
 - Reconnects must be bounded and cancellable by `close()`.
-- A transport loss rejects in-flight requests but does not stop server-owned Agents or Threads.
+- A transport loss does not stop Server-owned Agents, Threads, or schedules.
+- Reconcile Timeline epoch and cursors after reconnect or replacement notifications.
 
 ## Verification
-
-Run at least:
 
 ```sh
 pnpm --filter @cypheria/client test
@@ -49,5 +37,4 @@ pnpm --filter @cypheria/client typecheck
 pnpm --filter @cypheria/client build
 ```
 
-For package-boundary or public API changes, also run `pnpm run ci` and `pnpm build`, and update the
-paired English and Chinese architecture/package documentation.
+For public API or package-boundary changes, also run `pnpm docs:check`, `pnpm run ci`, and `pnpm build`, and update the paired English and Chinese documentation.

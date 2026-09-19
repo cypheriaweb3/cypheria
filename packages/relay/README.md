@@ -1,8 +1,17 @@
-# @cypheria/relay
+# `@cypheria/relay`
 
-Transport-neutral relay helpers and end-to-end encryption for Cypheria clients and servers.
-The relay only forwards opaque WebSocket frames. X25519 establishes shared key material;
-direction-separated XSalsa20-Poly1305 keys authenticate every application frame. Pairing offers are defined by
-`@cypheria/protocol`; bearer tokens are never sent to a relay.
+> Status: Current implementation
 
-This package intentionally contains no Cloudflare adapter or deployment code.
+Transport-neutral pairing, end-to-end encryption, and relay URL helpers for Cypheria clients and Servers.
+
+## Responsibility
+
+The package performs X25519 key agreement and uses direction-separated XSalsa20-Poly1305 keys for application frames. It validates pairing offers and handshake state, bounds pre-handshake queues, and adapts encrypted channels to the shared client transport.
+
+Pairing offer types are owned by `@cypheria/protocol`. Server Bearer tokens are never sent to a relay.
+
+## Boundary
+
+This package contains no deployment, coordination, database, Agent, Electron, or product-state code. The Go data plane lives in `apps/relay` and forwards opaque frames only.
+
+See [Relay](../../docs/relay.md).

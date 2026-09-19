@@ -1,237 +1,110 @@
 # Cypheria
 
-Cypheria is a cross-platform Web3 agent product inspired by Codex. It is built in TypeScript and combines multi-Agent software engineering workflows with Cypheria-owned Web3 capabilities: wallets, an isolated dApp browser, signing policies, Server-owned schedules, and audit logs.
+Cypheria is a local-first, cross-platform Web3 agent workspace. A privileged Cypheria Server owns Agent runtimes, projects, threads, canonical conversation history, schedules, wallets, policy evaluation, and audit data. Desktop, Expo, CLI, and future clients use the same versioned protocol.
 
-Cypheria does not reimplement Agent runtimes. The target architecture has one long-running Cypheria Server that owns privileged Agent integration, Web3 permissions, wallet state, signing, schedules, policy evaluation, and auditability, while Desktop, Expo, web, mobile, CLI, and SDK surfaces are clients.
+> Status: Current implementation
 
-## Product Direction
+## What is implemented
 
-Cypheria V1 is organized around one server and multiple clients:
+- A supervised Hono/Node.js server with HTTP, WebSocket, configuration, diagnostics, and embedded web hosting.
+- First-party Codex, Claude, Pi, and OpenCode adapters, plus registry-backed ACP agents.
+- Durable Projects, Threads, Sections, Canonical Timeline, interactions, terminals, and artifacts.
+- A shared `@cypheria/client` and browser-safe AI SDK providers for all supported Agent kinds.
+- An Electron + TanStack Start desktop client with the established Sidebar and conversation workspace.
+- Server-owned schedules, Web3 networks, wallets, signing policies, dApp sessions, approvals, and audit records.
+- A non-TUI CLI and an optional end-to-end encrypted relay.
+- An Expo Router foundation that builds for iOS, Android, and static web; product work on these surfaces is intentionally limited for now.
 
-- **Server runtime**: Server-owned services for wallets, chains, policies, schedules, browser permissions, settings, local state, and audit logs.
-- **Server**: a Hono + Node.js control plane that owns runtime lifecycle, Agent processes and adapters, projects, threads, sections, timelines, integrations, schedules, Web3, database access, client sessions, diagnostics, and static web hosting.
-- **Expo client**: one Expo Router application for iOS, Android, and static web output. The server embeds the web output.
-- **Shared client**: `@cypheria/client` provides the WebSocket protocol driver, borrowed and
-  connection-owning facades, and public Agent/Thread, project/section, and server actions without
-  owning provider runtimes.
-- **Relay**: the Go `apps/relay` service and TypeScript `@cypheria/relay` package provide an
-  optional E2EE remote path to the same server protocol.
-- **CLI and SDK clients**: the implemented Node CLI and planned public SDK use the server protocol.
-- **Desktop client**: keeps the Electron + TanStack Start workbench, ensures a compatible local server is running, and uses `@cypheria/client` for shared projects, threads, sections, canonical history, and live turns. Electron-only browser, secure-storage, window, update, and OS integrations remain local.
-- **Marketplace**: a TanStack Start app on Cloudflare Workers for submission, scanning, review, publication, discovery, and synchronization of reviewed ChatGPT/Codex plugins to the official Cypheria GitHub repo marketplace.
+Cypheria does not fork Agent runtimes. Provider-specific processes and protocols stay behind Server adapters. Clients operate on Cypheria Agent, Thread, Timeline, Integration, Schedule, and Web3 contracts.
 
-The default safety model is human approval. Read-only mode and conditional auto-signing are explicit policy modes. Agents and schedules may create signing intents, but every signing intent must go through Cypheria policy evaluation before a signature or transaction broadcast.
+## Architecture at a glance
 
-## Tech Stack
+```text
+Desktop / Expo / CLI / other clients
+              |
+       @cypheria/client
+              |
+     @cypheria/protocol
+              |
+        apps/server
+       /           \
+Agent adapters   Cypheria runtime
+                 Web3 / schedules / DB
 
-- **Languages**: TypeScript, plus Go for the relay data plane
-- **Monorepo**: Turborepo + pnpm workspace
-- **Desktop**: Electron
-- **Cross-platform client**: Expo SDK 57 + Expo Router
-- **Server**: Hono on Node.js with HTTP and WebSocket transports
-- **Relay**: Go, v2 control/data WebSockets, etcd regional ownership, internal mTLS, OTLP
-- **Frontend**: TanStack Start, TanStack Router, TanStack Query
-- **State**: Jotai
-- **Forms and validation**: TanStack Form + Zod
-- **Lint/format**: Biome
-- **UI**: shadcn-style copied components, Base UI primitives, Cypheria CSS tokens, lucide-react
-- **Cypheria client protocol**: versioned Zod contracts with metadata-assisted `bigint` transport in `@cypheria/protocol`
-- **Agent/Thread API**: provider-neutral agent lifecycle and durable Thread execution; `threadId` is the only public conversation handle
-- **Agent manager**: ACP Registry sync, managed installation/toolchains, explicit enablement, lifecycle operations, and disabled-agent enforcement
-- **Provider adapters**: internal Codex, Claude Agent SDK, Pi RPC, OpenCode SDK, and ACP adapters normalize provider sessions, events, interactions, and history into Threads
-- **OpenCode runtime**: `@opencode-ai/sdk@1.18.31` stable root API and both event streams through a shared loopback OpenCode server
-- **Desktop agent integration**: unified AI SDK providers over `@cypheria/client`; provider processes remain server-owned
-- **Codex protocol types and validation**: owned by `@cypheria/protocol` and generated with `pnpm --filter @cypheria/protocol generate:codex-all`
-- **Marketplace hosting**: Cloudflare Workers, D1, R2, Queues, and Workflows
-- **Web3**: viem, Privy, WalletConnect / Reown
-- **Data**: SQLite + Drizzle ORM
-
-See [docs/technical-stack.md](docs/technical-stack.md) for the full technical stack.
-See [docs/codex-app-server-api.md](docs/codex-app-server-api.md) for the complete generated Codex App Server API reference.
-See [docs/codex-app-server-config.md](docs/codex-app-server-config.md) for how effective Codex configuration is consumed across process, thread, turn, reload, and tool-planning lifetimes.
-See [docs/claude-agent-sdk-protocol.md](docs/claude-agent-sdk-protocol.md) for the Claude Agent SDK wire mapping.
-See [docs/agent-management.md](docs/agent-management.md) for registry, installation, enablement, toolchains, and runtime ownership.
-See [docs/thread-protocol.md](docs/thread-protocol.md) for Thread lifecycle, provider-session ownership, and timeline continuity.
-See [docs/pi-rpc-protocol.md](docs/pi-rpc-protocol.md) for the Pi RPC wire mapping.
-
-## Architecture
-
-```txt
-apps/expo / apps/cli / @cypheria/client / future packages/sdk
-  -> @cypheria/protocol over HTTP or WebSocket
-  -> apps/server
-  -> Server-internal Agent and Web3 services
-
-apps/server
-  -> Hono HTTP + WebSocket control plane
-  -> supervisor + worker lifecycle
-  -> embedded apps/expo static web export
-
-remote @cypheria/client
-  -> @cypheria/relay E2EE
-  -> apps/relay gateway/worker
-  -> apps/server relay data socket
-
-apps/desktop renderer
-  -> @cypheria/client
-  -> apps/server
-  -> canonical Agent/Thread timeline
-
-apps/desktop Electron main
-  -> discover/reuse/start a protocol-compatible local apps/server
-  -> Electron-only browser, secure storage, windows, updates, and OS integration
-
-apps/marketplace
-  -> TanStack Start on Cloudflare Workers
-  -> D1 publication system of record + R2 immutable artifacts
-  -> Queues + Workflows for scan/review/publication
-  -> generated .agents/plugins/marketplace.json in the official GitHub repo
-
-apps/desktop plugins
-  -> Cypheria Marketplace API for discovery/trust (planned)
-  -> Codex App Server marketplace/add + plugin/install
+Remote clients may use @cypheria/relay -> apps/relay -> apps/server.
 ```
 
-The desktop renderer is a product UI, not a privileged runtime. Shared product data and agent work use the Cypheria server protocol; typed Electron IPC is reserved for desktop-local capabilities. Private keys, signing operations, dApp browser sessions, local database access, schedules, and provider processes stay outside the renderer.
+Electron owns windows, isolated dApp WebContents, preload bridges, desktop-local settings, updates, and operating-system integration. Shared product state and privileged operations belong to the Server.
 
-See [docs/architecture.md](docs/architecture.md) for the architecture baseline, [docs/codex-permissions.md](docs/codex-permissions.md) for the Codex Desktop permissions design, and [docs/network-management.md](docs/network-management.md) for the network and RPC design.
+See the [architecture guide](docs/architecture.md) and [documentation index](docs/README.md).
 
-## Repository Layout
+## Repository layout
 
-```txt
-apps/cli
-  Non-TUI command-line app.
+Implemented applications:
 
-apps/expo
-  Expo Router client for iOS, Android, and static web.
-
-apps/server
-  Hono server, client-session protocol, runtime host, web host, and supervised server process.
-
-apps/relay
-  Go relay with single-process and clustered gateway/worker operation for opaque E2EE WebSocket forwarding.
-
-apps/desktop
-  ipc/        Desktop-local typed IPC contracts and schemas
-  main/       Electron main process
-  preload/   Secure bridges for app and browser surfaces
-  renderer/  TanStack Start renderer app
-
-apps/marketplace
-  Plugin submission, review, publication, discovery, and GitHub marketplace synchronization
-
-packages/sdk
-packages/client
-packages/protocol
-packages/relay
-packages/ai-sdk-provider
-packages/web3
-packages/ui
-packages/db
+```text
+apps/cli       Command-line client and Server lifecycle commands
+apps/desktop   Electron main/preload plus TanStack Start renderer
+apps/expo      Expo Router client foundation and static web export
+apps/relay     Go relay data plane
+apps/server    Privileged local Server and Agent adapters
 ```
 
-`packages/sdk` remains planned. `apps/cli`, `apps/server`, `apps/desktop`, `apps/expo`,
-`apps/marketplace`, `packages/client`, `packages/protocol`, `packages/ai-sdk-provider`, and
-`packages/relay` provide the implemented client/server foundation. See
-[docs/server.md](docs/server.md) for its protocol, operations, security, and packaging contract.
-See [docs/relay.md](docs/relay.md) for relay protocol, security, scaling, observability, and the
-future multi-region design.
+Implemented packages:
 
-## Runtime Home
-
-Cypheria owns its local application home:
-
-```sh
-CYPHERIA_HOME="${CYPHERIA_HOME:-~/.cypheria}"
-CODEX_HOME="$CYPHERIA_HOME/codex"
+```text
+packages/ai-sdk-provider  AI SDK providers backed by Cypheria Threads
+packages/client           Shared Server client and domain facades
+packages/db               SQLite schema, repositories, and baseline migration
+packages/protocol         Public protocol and generated provider contracts
+packages/relay            E2EE channel, pairing, and relay helpers
+packages/ui               Shared UI primitives and AI Elements
+packages/web3             Pure Web3 domain modules
 ```
 
-Recommended layout:
-
-```txt
-$CYPHERIA_HOME/
-  codex/        Cypheria-managed Codex home
-  db/           SQLite databases
-  vault/        encrypted wallet vault files and metadata
-  logs/         app, schedule, policy, and audit logs
-  cache/        disposable app caches
-  toolchains/   managed Node, Python, uv, and immutable Python environments
-  agents/       runtime ACP registry plus managed agent versions, homes, staging data, and receipts
-  browser/      dApp browser session partitions and metadata
-  config/       Cypheria settings
-```
+`apps/marketplace` and `packages/sdk` are planned and do not exist yet. Their intended boundaries are documented in the [marketplace design](docs/marketplace.md) and [active roadmap](docs/todo.md).
 
 ## Development
 
-Install dependencies:
+Requirements:
+
+- Node.js 24 or newer
+- pnpm 11
+- Go 1.25 for relay development
 
 ```sh
 pnpm install
-```
-
-Run all checks:
-
-```sh
 pnpm run ci
-```
-
-Run TypeScript checks through Turborepo:
-
-```sh
-pnpm check
-```
-
-Run the build pipeline:
-
-```sh
 pnpm build
 ```
 
-Run the server or Expo client during development:
+Useful entry points:
 
 ```sh
 pnpm --filter @cypheria/server build
 pnpm --filter @cypheria/server server start
+pnpm --filter @cypheria/desktop dev
 pnpm --filter @cypheria/expo dev
-```
-
-Run the single-process relay, which needs no etcd:
-
-```sh
 pnpm --filter @cypheria/cypheria-relay dev -- --mode=single
 ```
 
-Run the renderer dev server:
+Cypheria stores local application data below `$CYPHERIA_HOME`, defaulting to `~/.cypheria`. Cypheria-managed Codex processes use `$CYPHERIA_HOME/codex` as `CODEX_HOME` and do not mutate the user's default Codex home.
 
-```sh
-pnpm --filter @cypheria/desktop dev:renderer
-```
+Development commands, generated-code workflows, and verification rules are in the [development guide](docs/development.md).
 
-Load the renderer in Electron during local development:
+## Safety model
 
-```sh
-CYPHERIA_RENDERER_URL=http://127.0.0.1:5173 pnpm --filter @cypheria/desktop dev
-```
+- Renderer and dApp pages never receive private keys or direct database access.
+- Agents and schedules submit signing intents; the Server evaluates every intent through policy.
+- Auto-signing is off by default and requires an explicit policy.
+- dApp browser sessions are isolated by origin.
+- Signatures, policy decisions, schedule runs, and transaction results are auditable.
 
-Format files:
+See the [Web3 guide](docs/web3.md) and [security boundaries](docs/architecture.md#trust-boundaries).
 
-```sh
-pnpm format
-```
+## Documentation
 
-In this repository, pnpm-related commands should usually run outside the sandbox so pnpm can use its global store.
-
-## Current Status
-
-The repository now includes the versioned Cypheria protocol, the layered `@cypheria/client`, a
-supervised Hono server with HTTP/WebSocket operations and embedded web hosting, and an Expo SDK 57
-client that exports iOS, Android, and static web surfaces. It also includes an E2EE relay client,
-server integration, and a Go relay with `single` mode plus `cluster` gateway/worker roles. The existing desktop
-implementation is deliberately untouched and remains on its current direct-runtime path until
-server review and a separate migration change.
-
-The next implementation sequence is tracked in [docs/todo.md](docs/todo.md).
-The canonical logo, application-icon assets, and usage rules are documented in [docs/brand.md](docs/brand.md).
+Start with the [documentation index](docs/README.md). English is authoritative; each maintained product document has a complete Simplified Chinese companion.
 
 ## License
 
