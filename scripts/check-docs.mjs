@@ -61,6 +61,10 @@ for (const path of documentationFiles) {
   const source = read(path)
   const withoutCode = stripFencedCode(source)
 
+  if (/^> (?:Status: Current implementation|状态：当前实现)/mu.test(source)) {
+    report(path, "current implementation status markers are redundant")
+  }
+
   for (const forbidden of ["arch" + "mage", "pa" + "seo"]) {
     if (source.toLowerCase().includes(forbidden))
       report(path, `contains forbidden historical name: ${forbidden}`)
@@ -121,12 +125,6 @@ for (const englishPath of companionCandidates) {
   if (JSON.stringify(englishLevels) !== JSON.stringify(chineseLevels)) {
     report(englishPath, `heading topology differs from ${chinesePath}`)
   }
-}
-
-for (const path of documentationFiles.filter((value) => /^docs\/[^/]+\.mdx?$/u.test(value))) {
-  const firstLines = read(path).split("\n").slice(0, 10).join("\n")
-  if (!/(?:Status|状态)：?/u.test(firstLines))
-    report(path, "missing document status near the title")
 }
 
 for (const path of ["docs/todo.md", "docs/todo.zh-CN.md"]) {

@@ -14,26 +14,26 @@ import type { AgentId, ServerMessage } from "@cypheria/protocol"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type {
-  ThreadProviderAdapter,
-  ThreadProviderCreateInput,
-  ThreadProviderEvent,
-} from "./provider-adapter.js"
+  ThreadHarnessAdapter,
+  ThreadHarnessCreateInput,
+  ThreadHarnessEvent,
+} from "./harness-adapter.js"
 import { ThreadManager } from "./thread-manager.js"
 
-class FakeAdapter implements ThreadProviderAdapter {
+class FakeAdapter implements ThreadHarnessAdapter {
   readonly agentId: AgentId = "codex"
-  readonly events = new Map<string, (event: ThreadProviderEvent) => void>()
+  readonly events = new Map<string, (event: ThreadHarnessEvent) => void>()
   closeError: Error | undefined
   deleteError: Error | undefined
   interactionError: Error | undefined
   createSessionId: string | null | undefined
-  readonly creates: ThreadProviderCreateInput[] = []
-  readonly steers: Array<Parameters<ThreadProviderAdapter["steerTurn"]>[0]> = []
+  readonly creates: ThreadHarnessCreateInput[] = []
+  readonly steers: Array<Parameters<ThreadHarnessAdapter["steerTurn"]>[0]> = []
 
   async close(): Promise<void> {
     if (this.closeError) throw this.closeError
   }
-  async create(input: ThreadProviderCreateInput) {
+  async create(input: ThreadHarnessCreateInput) {
     this.creates.push(input)
     this.events.set(input.threadId, input.onEvent)
     return {
@@ -42,17 +42,17 @@ class FakeAdapter implements ThreadProviderAdapter {
         configure: true,
         fork: true,
         promptContent: ["text" as const],
-        providerExtensions: false,
+        harnessExtensions: false,
         steer: true,
       },
       sessionId:
-        this.createSessionId === undefined ? `provider-${input.threadId}` : this.createSessionId,
+        this.createSessionId === undefined ? `harness-${input.threadId}` : this.createSessionId,
     }
   }
   async delete(): Promise<void> {
     if (this.deleteError) throw this.deleteError
   }
-  async resume(input: Parameters<ThreadProviderAdapter["resume"]>[0]) {
+  async resume(input: Parameters<ThreadHarnessAdapter["resume"]>[0]) {
     this.events.set(input.threadId, input.onEvent)
     return {
       capabilities: {
@@ -60,7 +60,7 @@ class FakeAdapter implements ThreadProviderAdapter {
         configure: true,
         fork: true,
         promptContent: ["text" as const],
-        providerExtensions: false,
+        harnessExtensions: false,
         steer: true,
       },
       history: [
@@ -80,7 +80,7 @@ class FakeAdapter implements ThreadProviderAdapter {
   async startTurn() {
     return { turnId: "turn-1" }
   }
-  async steerTurn(input: Parameters<ThreadProviderAdapter["steerTurn"]>[0]): Promise<void> {
+  async steerTurn(input: Parameters<ThreadHarnessAdapter["steerTurn"]>[0]): Promise<void> {
     this.steers.push(input)
   }
   async cancelTurn(): Promise<void> {}
@@ -138,20 +138,20 @@ const setup = async () => {
 }
 
 describe("ThreadManager", () => {
-  it("creates a provider session first and binds it to the public thread", async () => {
+  it("creates a harness session first and binds it to the public thread", async () => {
     const { manager, messages } = await setup()
     const created = await manager.create({ agentId: "codex", cwd: "/repo" })
 
     expect(created.thread).toMatchObject({
       agentId: "codex",
-      agentSessionId: `provider-${created.thread.id}`,
+      agentSessionId: `harness-${created.thread.id}`,
       cwd: "/repo",
       state: "idle",
     })
     expect(messages.at(-1)?.type).toBe("thread.created.notification")
   })
 
-  it("rehydrates provider history into a new timeline epoch", async () => {
+  it("rehydrates harness history into a new timeline epoch", async () => {
     const { manager } = await setup()
     const created = await manager.create({ agentId: "codex" })
     const previousEpoch = created.timeline.epoch
@@ -220,7 +220,7 @@ describe("ThreadManager", () => {
     )
   })
 
-  it("persists a provider session id discovered while resuming", async () => {
+  it("persists a harness session id discovered while resuming", async () => {
     const { adapter, manager } = await setup()
     adapter.createSessionId = null
     const created = await manager.create({ agentId: "codex" })
@@ -232,12 +232,12 @@ describe("ThreadManager", () => {
     expect((await manager.get(created.thread.id)).agentSessionId).toBe("missing")
   })
 
-  it("keeps the Cypheria thread when provider deletion fails", async () => {
+  it("keeps the Cypheria thread when harness deletion fails", async () => {
     const { adapter, manager } = await setup()
     const created = await manager.create({ agentId: "codex" })
-    adapter.deleteError = new Error("provider refused")
+    adapter.deleteError = new Error("harness refused")
 
-    await expect(manager.delete(created.thread.id)).rejects.toThrow("provider refused")
+    await expect(manager.delete(created.thread.id)).rejects.toThrow("harness refused")
     expect(await manager.get(created.thread.id)).toMatchObject({ state: "errored" })
   })
 
@@ -272,7 +272,7 @@ describe("ThreadManager", () => {
     expect(respond).toHaveBeenCalledTimes(1)
   })
 
-  it("keeps a pending interaction retryable when the provider response fails", async () => {
+  it("keeps a pending interaction retryable when the harness response fails", async () => {
     const { adapter, manager } = await setup()
     const created = await manager.create({ agentId: "codex" })
     adapter.events.get(created.thread.id)?.({
@@ -288,18 +288,18 @@ describe("ThreadManager", () => {
       type: "interaction-requested",
     })
     await expect.poll(async () => (await manager.get(created.thread.id)).attention).toBe(true)
-    adapter.interactionError = new Error("provider unavailable")
+    adapter.interactionError = new Error("harness unavailable")
 
     await expect(
       manager.respondToInteraction(created.thread.id, "permission-1", {
         outcome: "allow_once",
         type: "permission",
       })
-    ).rejects.toThrow("provider unavailable")
+    ).rejects.toThrow("harness unavailable")
     expect((await manager.get(created.thread.id)).pendingInteractions).toHaveLength(1)
   })
 
-  it("moves a thread to errored when provider close fails", async () => {
+  it("moves a thread to errored when harness close fails", async () => {
     const { adapter, manager } = await setup()
     const created = await manager.create({ agentId: "codex" })
     adapter.closeError = new Error("close failed")

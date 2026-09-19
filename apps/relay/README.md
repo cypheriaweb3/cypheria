@@ -1,7 +1,5 @@
 # `@cypheria/cypheria-relay`
 
-> Status: Current implementation
-
 The Go relay data plane for optional remote Cypheria connections. It forwards opaque end-to-end encrypted WebSocket frames and stores no product payloads.
 
 ## Run locally

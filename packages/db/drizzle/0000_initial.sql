@@ -397,7 +397,7 @@ CREATE TABLE `thread_lifecycle_operations` (
 	`updated_at` integer NOT NULL,
 	FOREIGN KEY (`agent_id`) REFERENCES `agent_registry`(`id`) ON UPDATE no action ON DELETE restrict,
 	CONSTRAINT "thread_lifecycle_operations_kind_check" CHECK("thread_lifecycle_operations"."kind" IN ('create', 'delete')),
-	CONSTRAINT "thread_lifecycle_operations_status_check" CHECK("thread_lifecycle_operations"."status" IN ('pending', 'provider-created', 'provider-deleted', 'failed')),
+	CONSTRAINT "thread_lifecycle_operations_status_check" CHECK("thread_lifecycle_operations"."status" IN ('pending', 'harness-created', 'harness-deleted', 'failed')),
 	CONSTRAINT "thread_lifecycle_operations_created_at_check" CHECK("thread_lifecycle_operations"."created_at" >= 0),
 	CONSTRAINT "thread_lifecycle_operations_updated_at_check" CHECK("thread_lifecycle_operations"."updated_at" >= "thread_lifecycle_operations"."created_at")
 );
@@ -420,7 +420,7 @@ CREATE TABLE `thread_timeline_rows` (
 	`epoch` text NOT NULL,
 	`seq` integer NOT NULL,
 	`turn_id` text,
-	`provider_item_id` text,
+	`harness_item_id` text,
 	`timestamp` text NOT NULL,
 	`item` text NOT NULL,
 	PRIMARY KEY(`thread_id`, `epoch`, `seq`),

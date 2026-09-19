@@ -1,7 +1,5 @@
 # `@cypheria/relay`
 
-> 状态：当前实现
-
 用于 Cypheria 客户端和 Server 的传输无关配对、端到端加密与 relay URL helpers。
 
 ## 职责

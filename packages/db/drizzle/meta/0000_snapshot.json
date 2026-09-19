@@ -2343,7 +2343,7 @@
         },
         "thread_lifecycle_operations_status_check": {
           "name": "thread_lifecycle_operations_status_check",
-          "value": "\"thread_lifecycle_operations\".\"status\" IN ('pending', 'provider-created', 'provider-deleted', 'failed')"
+          "value": "\"thread_lifecycle_operations\".\"status\" IN ('pending', 'harness-created', 'harness-deleted', 'failed')"
         },
         "thread_lifecycle_operations_created_at_check": {
           "name": "thread_lifecycle_operations_created_at_check",
@@ -2447,8 +2447,8 @@
           "notNull": false,
           "autoincrement": false
         },
-        "provider_item_id": {
-          "name": "provider_item_id",
+        "harness_item_id": {
+          "name": "harness_item_id",
           "type": "text",
           "primaryKey": false,
           "notNull": false,

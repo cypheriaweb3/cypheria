@@ -1,7 +1,7 @@
 import type { AgentId } from "@cypheria/protocol"
 import { describe, expect, it, vi } from "vitest"
 
-import type { ThreadProviderCreateInput, ThreadProviderEvent } from "../thread/provider-adapter.js"
+import type { ThreadHarnessCreateInput, ThreadHarnessEvent } from "../thread/harness-adapter.js"
 import type {
   AgentManager,
   AgentMessageContext,
@@ -9,7 +9,7 @@ import type {
 } from "./agent-manager.js"
 import { ManagedThreadAdapter } from "./managed-thread-adapter.js"
 
-const input = (agentId: AgentId): ThreadProviderCreateInput => ({
+const input = (agentId: AgentId): ThreadHarnessCreateInput => ({
   agentId,
   cwd: "/repo",
   forkedFromAgentSessionId: null,
@@ -51,7 +51,7 @@ describe("ManagedThreadAdapter", () => {
   })
 
   it("preserves Codex permission, question, and elicitation response details", async () => {
-    const events: ThreadProviderEvent[] = []
+    const events: ThreadHarnessEvent[] = []
     const responses: Record<string, unknown>[] = []
     let turnContext: AgentMessageContext | undefined
     const handleCodex = vi.fn(
@@ -116,13 +116,13 @@ describe("ManagedThreadAdapter", () => {
     expect(events.at(-1)).toMatchObject({
       interaction: {
         kind: "permission",
-        provider: {
+        harness: {
           agentId: "codex",
           nativeType: "agent.codex.item.permissions.request_approval.request",
         },
       },
     })
-    await adapter.respondToInteraction(context, "provider:codex:permission-1", {
+    await adapter.respondToInteraction(context, "harness:codex:permission-1", {
       outcome: "allow_always",
       permissions: { network: { enabled: true } },
       scope: "session",
@@ -161,7 +161,7 @@ describe("ManagedThreadAdapter", () => {
     expect(events.at(-1)).toMatchObject({
       interaction: { kind: "question", questions: [{ id: "database" }] },
     })
-    await adapter.respondToInteraction(context, "provider:codex:question-1", {
+    await adapter.respondToInteraction(context, "harness:codex:question-1", {
       answers: { database: ["SQLite"] },
       type: "answers",
     })
@@ -184,7 +184,7 @@ describe("ManagedThreadAdapter", () => {
       turnId: "turn-1",
       type: "agent.codex.mcp_server.elicitation.request.request",
     } as unknown as AgentRuntimeServerMessage)
-    await adapter.respondToInteraction(context, "provider:codex:elicitation-1", {
+    await adapter.respondToInteraction(context, "harness:codex:elicitation-1", {
       action: "accept",
       content: { token: "provided" },
       type: "elicitation",
@@ -226,8 +226,8 @@ describe("ManagedThreadAdapter", () => {
     expect(disposeSession).toHaveBeenCalledWith(input("gemini").threadId)
   })
 
-  it("bridges ACP permission options with their provider option IDs", async () => {
-    const events: ThreadProviderEvent[] = []
+  it("bridges ACP permission options with their harness option IDs", async () => {
+    const events: ThreadHarnessEvent[] = []
     const messages: Record<string, unknown>[] = []
     const handleAcp = vi.fn(
       async (message: Record<string, unknown>, context: AgentMessageContext) => {
@@ -274,8 +274,8 @@ describe("ManagedThreadAdapter", () => {
           context.send({
             agent: "gemini",
             options: [
-              { kind: "allow_once", name: "Allow once", optionId: "provider-allow" },
-              { kind: "reject_once", name: "Deny", optionId: "provider-deny" },
+              { kind: "allow_once", name: "Allow once", optionId: "native-allow" },
+              { kind: "reject_once", name: "Deny", optionId: "native-deny" },
             ],
             protocolVersion: 1,
             requestId: "permission-1",
@@ -312,9 +312,9 @@ describe("ManagedThreadAdapter", () => {
     })
     expect(events.find((event) => event.type === "interaction-requested")).toMatchObject({
       interaction: {
-        id: "provider:gemini:permission-1",
+        id: "harness:gemini:permission-1",
         options: expect.arrayContaining([
-          expect.objectContaining({ id: "provider-allow", label: "Allow once" }),
+          expect.objectContaining({ id: "native-allow", label: "Allow once" }),
         ]),
         title: "Run command",
       },
@@ -328,13 +328,13 @@ describe("ManagedThreadAdapter", () => {
         cwd: "/repo",
         threadId: input("gemini").threadId,
       },
-      "provider:gemini:permission-1",
+      "harness:gemini:permission-1",
       { outcome: "allow_once", type: "permission" }
     )
     expect(messages.at(-1)).toMatchObject({
       payload: {
         requestId: "permission-1",
-        result: { outcome: { optionId: "provider-allow", outcome: "selected" } },
+        result: { outcome: { optionId: "native-allow", outcome: "selected" } },
       },
       type: "agent.acp.session.request_permission.response",
     })
@@ -371,7 +371,7 @@ describe("ManagedThreadAdapter", () => {
   })
 
   it("bridges Claude canUseTool through a Thread interaction", async () => {
-    const events: ThreadProviderEvent[] = []
+    const events: ThreadHarnessEvent[] = []
     let context: AgentMessageContext | undefined
     const handleClaude = vi.fn(
       async (message: Record<string, unknown>, nextContext: AgentMessageContext) => {
@@ -406,7 +406,7 @@ describe("ManagedThreadAdapter", () => {
       toolUseID: "tool-1",
     })
     expect(events.at(-1)).toMatchObject({
-      interaction: { id: "provider:claude:permission-1", kind: "permission" },
+      interaction: { id: "harness:claude:permission-1", kind: "permission" },
       type: "interaction-requested",
     })
     await adapter.respondToInteraction(
@@ -416,14 +416,14 @@ describe("ManagedThreadAdapter", () => {
         cwd: "/repo",
         threadId: input("claude").threadId,
       },
-      "provider:claude:permission-1",
+      "harness:claude:permission-1",
       { outcome: "allow_once", type: "permission" }
     )
     await expect(permission).resolves.toMatchObject({ behavior: "allow", toolUseID: "tool-1" })
   })
 
   it("bridges all OpenCode questions and answers", async () => {
-    const events: ThreadProviderEvent[] = []
+    const events: ThreadHarnessEvent[] = []
     const calls: Record<string, unknown>[] = []
     let send: AgentMessageContext["send"] | undefined
     const handleOpenCode = vi.fn(
@@ -486,7 +486,7 @@ describe("ManagedThreadAdapter", () => {
       type: "agent.opencode.event.notification",
     })
     expect(events.at(-1)).toMatchObject({
-      interaction: { id: "provider:opencode:question-1", questions: [{}, {}] },
+      interaction: { id: "harness:opencode:question-1", questions: [{}, {}] },
       type: "interaction-requested",
     })
 
@@ -497,7 +497,7 @@ describe("ManagedThreadAdapter", () => {
         cwd: "/repo",
         threadId: input("opencode").threadId,
       },
-      "provider:opencode:question-1",
+      "harness:opencode:question-1",
       { answers: [["TypeScript"], ["Vitest", "Playwright"]], type: "answers" }
     )
     expect(calls.at(-1)).toMatchObject({

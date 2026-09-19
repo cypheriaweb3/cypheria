@@ -1,7 +1,5 @@
 # `@cypheria/client`
 
-> Status: Current implementation
-
 The shared TypeScript client for the versioned Cypheria Server protocol. It owns connection lifecycle, request correlation, validation, subscriptions, reconnects, and product-level domain facades.
 
 ## Public entry point
@@ -30,9 +28,9 @@ await client.close()
 
 ## Facades
 
-The public API exposes Agents, Projects, Threads, Sections, Timeline, schedules, Web3, integrations, terminals, artifacts, settings, Server operations, and provider extensions.
+The public API exposes Agents, Projects, Threads, Sections, Timeline, schedules, Web3, integrations, terminals, artifacts, settings, Server operations, and harness extensions.
 
-`providers.codex` contains Codex account, model, permission, guardian, integration, and Apps operations. Claude, Pi, OpenCode, and ACP provider facades expose their current integration context. Provider-native wire protocols remain internal Server adapter contracts.
+`harnesses.codex` contains Codex account, model, permission, guardian, integration, and Apps operations. Claude, Pi, OpenCode, and ACP harness facades expose their current integration context. Harness-native wire protocols remain internal Server adapter contracts.
 
 ## Reliability
 

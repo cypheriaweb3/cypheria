@@ -1,7 +1,5 @@
 # 开发指南
 
-> 状态：当前实现
-
 本文是工作区、工具链、生成产物和验证流程的权威参考。产品所有权见[架构](architecture.zh-CN.md)。
 
 ## 环境要求
@@ -29,7 +27,7 @@ JavaScript 和 TypeScript 工作区命令统一使用 pnpm。仓库使用 Turbor
 
 | 工作区 | 职责 |
 | --- | --- |
-| `packages/protocol` | 公开协议、Zod 校验、生成的 provider 产物 |
+| `packages/protocol` | 公开协议、Zod 校验、生成的 Codex 产物 |
 | `packages/client` | 连接生命周期和领域 facade |
 | `packages/ai-sdk-provider` | 基于 client 的浏览器安全 AI SDK providers |
 | `packages/db` | SQLite Schema、迁移和 repositories |
@@ -108,7 +106,7 @@ pnpm codex:generate
 
 ## 测试策略
 
-- Protocol 测试校验 Schema、版本协商、provider adapter 和 Timeline 投影。
+- Protocol 测试校验 Schema、版本协商、harness adapter 和 Timeline 投影。
 - Client 测试校验传输、请求生命周期、领域 facade、relay 传输和错误归一化。
 - Server 测试覆盖 Agent runtime、Projects 与 Threads、Schedules、Integrations、Web3 服务、配置和运维。
 - Desktop 测试覆盖 Server 管理、preload 契约、Sidebar 数据适配和会话行为。
@@ -128,12 +126,12 @@ pnpm codex:generate
 
 英文是内容源，每份维护中的产品页面都有完整的 `.zh-CN.md` companion，并保持相同标题拓扑。一个主题只由一份文档负责，其他文档通过链接引用。
 
-修改文档后运行 `pnpm docs:check`。生成页面通过生成器更新。当前实现、计划工作和生成参考必须明确标注。历史变更记录属于 Git，不属于产品文档。
+修改文档后运行 `pnpm docs:check`。生成页面通过生成器更新。当前行为不添加状态标记；计划工作和生成参考必须明确标注。历史变更记录属于 Git，不属于产品文档。
 
 ## 贡献流程
 
 1. 从 [Todo](todo.zh-CN.md) 或已确认 issue 中选择一个可评审、可测试的事项。
-2. 修改公开行为或边界前先检查当前实现。
+2. 修改公开行为或边界前先检查仓库中的实际实现。
 3. 行为、架构、命令或接口变化时，在同一变更中更新中英文文档。
 4. 先运行最小相关检查；跨工作区变更再运行根 CI。
 5. 保持提交聚焦并签名。

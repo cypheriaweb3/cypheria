@@ -7,7 +7,7 @@ import {
   ThreadTimelineRowSchema,
 } from "@cypheria/protocol"
 
-import type { ThreadProviderHistoryItem } from "./provider-adapter.js"
+import type { ThreadHarnessHistoryItem } from "./harness-adapter.js"
 
 type Timeline = { epoch: string; rows: ThreadTimelineRow[] }
 
@@ -20,11 +20,11 @@ export class ThreadTimelineStore {
 
   async append(
     threadId: string,
-    input: ThreadProviderHistoryItem
+    input: ThreadHarnessHistoryItem
   ): Promise<{ epoch: string; row: ThreadTimelineRow }> {
     const appended = await this.#persistence.append(threadId, {
       item: input.item,
-      providerItemId: input.providerItemId ?? null,
+      harnessItemId: input.harnessItemId ?? null,
       timestamp: input.timestamp ?? new Date().toISOString(),
       turnId: input.turnId ?? null,
     })
@@ -139,13 +139,13 @@ export class ThreadTimelineStore {
 
   async replace(
     threadId: string,
-    history: readonly ThreadProviderHistoryItem[]
+    history: readonly ThreadHarnessHistoryItem[]
   ): Promise<{ epoch: string }> {
     const timeline = await this.#persistence.replace(
       threadId,
       history.map((input) => ({
         item: input.item,
-        providerItemId: input.providerItemId ?? null,
+        harnessItemId: input.harnessItemId ?? null,
         timestamp: input.timestamp ?? new Date().toISOString(),
         turnId: input.turnId ?? null,
       }))

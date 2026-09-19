@@ -1,7 +1,5 @@
 # Web3
 
-> 状态：当前实现
-
 Cypheria 将纯 Web3 领域类型与特权执行分离。`@cypheria/web3` 提供 `network`、`wallet`、`policy`、`provider` 模块。`apps/server/src/runtime` 负责持久化、凭证、vault 访问、策略评估、签名、dApp sessions 和审计。
 
 ## 所有权

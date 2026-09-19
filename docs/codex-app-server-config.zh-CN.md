@@ -1,14 +1,12 @@
 # Cypheria 中的 Codex 配置
 
-> 状态：当前实现
-
 本文只描述 Cypheria 当前实际依赖的 Codex 配置语义，不是完整 Codex 配置百科。准确 App Server 字段仍以生成协议和固定版本的 `@openai/codex` 为准。
 
 ## 事实来源
 
 共享 Cypheria 默认值保存在 `$CYPHERIA_HOME/config/config.json` 的 `agents.codex` 下。Cypheria 管理的 Codex 使用 `CODEX_HOME=$CYPHERIA_HOME/codex`，与用户默认 Codex home 隔离。
 
-用户通过 `client.providers.codex` 修改受支持设置时，Server 会：
+用户通过 `client.harnesses.codex` 修改受支持设置时，Server 会：
 
 1. 校验并原子更新 Cypheria 配置；
 2. 通过 App Server configuration operation 写入对应原生 Codex keys；
@@ -44,7 +42,7 @@ Server 在展示 permission choice 前读取 App Server configuration requiremen
 
 ## Thread 与 turn scope
 
-共享设置是新 Thread 的默认值。Thread 会捕获 provider session 状态，并可接收支持的 model、reasoning、service-tier、working-directory 和 permission selection。启动普通 turn 不会重建 Codex 进程，也不会重新加载所有原生配置字段。
+共享设置是新 Thread 的默认值。Thread 会捕获 harness session 状态，并可接收支持的 model、reasoning、service-tier、working-directory 和 permission selection。启动普通 turn 不会重建 Codex 进程，也不会重新加载所有原生配置字段。
 
 更换 provider 是新建 Thread 的事项。每 turn response format 与临时 context 不会保存为全局默认。存在类型化 App Server request field 时，Server 会优先使用它，而不是依赖无类型 config map。
 
@@ -61,9 +59,9 @@ App Server 包含多种生命周期：
 
 ## 原生扩展
 
-Custom provider、permission profile、MCP transport、plugin policy、Apps、Skills、hooks、project trust、shell environment、telemetry 和 experimental features 等高级原生配置继续由 Server 所有，可通过 provider 支持的流程编辑。除非产品明确依赖，否则不会复制进精简的 Cypheria 共享设置 Schema。
+Custom provider、permission profile、MCP transport、plugin policy、Apps、Skills、hooks、project trust、shell environment、telemetry 和 experimental features 等高级原生配置继续由 Server 所有，可通过 harness 支持的流程编辑。除非产品明确依赖，否则不会复制进精简的 Cypheria 共享设置 Schema。
 
-Provider-native Skills、MCP、plugins、marketplaces 和 Apps 通过 Cypheria [Integrations](integrations.zh-CN.md) facade 暴露。Codex permission 展示见 [Codex Permissions](codex-permissions.zh-CN.md)。
+Harness-native Skills、MCP、plugins、marketplaces 和 Apps 通过 Cypheria [Integrations](integrations.zh-CN.md) facade 暴露。Codex permission 展示见 [Codex Permissions](codex-permissions.zh-CN.md)。
 
 ## 客户端本地排除项
 

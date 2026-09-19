@@ -347,11 +347,11 @@ function ChatSession({
     queryKey: ["cypheria", "thread", resumeThreadId],
   })
   const modelSettingsQuery = useQuery({
-    queryFn: async () => (await ensureCypheriaClient()).providers.codex.models.settings(),
+    queryFn: async () => (await ensureCypheriaClient()).harnesses.codex.models.settings(),
     queryKey: ["codex", "model-settings"],
   })
   const modelsQuery = useQuery({
-    queryFn: async () => (await ensureCypheriaClient()).providers.codex.models.list(),
+    queryFn: async () => (await ensureCypheriaClient()).harnesses.codex.models.list(),
     queryKey: ["codex", "models"],
   })
   const workspaceLayoutQuery = useQuery({
@@ -426,7 +426,7 @@ function ChatSession({
   const selectedProject = projects.find((project) => project.id === selectedProjectId)
   const permissionsQuery = useQuery({
     queryFn: async () =>
-      (await ensureCypheriaClient()).providers.codex.permissions.catalog(selectedProject?.roots[0]),
+      (await ensureCypheriaClient()).harnesses.codex.permissions.catalog(selectedProject?.roots[0]),
     queryKey: ["codex", "permissions", selectedProject?.roots[0] ?? null],
   })
   const defaultTerminalLocation = workspaceLayoutQuery.data?.defaultTerminalLocation ?? "bottom"
@@ -673,7 +673,7 @@ function ChatSession({
       if (disposed) return
       unsubscribe = client.on("thread.event.notification", (message) => {
         const event = message.payload.event
-        if (event.type !== "provider" || event.agentId !== "codex") return
+        if (event.type !== "harness" || event.agentId !== "codex") return
         if (
           event.nativeType ===
           "agent.codex.auto_approval_review.strict_review_required.notification"
@@ -1602,7 +1602,7 @@ function AutoReviewCard({ review }: Readonly<{ review: AutoReviewView }>) {
             onClick={async () => {
               setRetrying(true)
               try {
-                await (await ensureCypheriaClient()).providers.codex.guardian.retry({
+                await (await ensureCypheriaClient()).harnesses.codex.guardian.retry({
                   event: retryEvent,
                   threadId: review.threadId,
                 })

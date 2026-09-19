@@ -13,11 +13,11 @@ import {
 } from "./index.ts"
 
 describe("thread protocol", () => {
-  test("uses thread identity while keeping the provider session id observational", () => {
+  test("uses thread identity while keeping the harness session id observational", () => {
     const thread = ThreadViewSchema.parse({
       activeTurn: null,
       agentId: "codex",
-      agentSessionId: "provider-thread-1",
+      agentSessionId: "harness-thread-1",
       archivedAt: null,
       attention: false,
       capabilities: {
@@ -25,7 +25,7 @@ describe("thread protocol", () => {
         configure: true,
         fork: true,
         promptContent: ["text"],
-        providerExtensions: true,
+        harnessExtensions: true,
         steer: true,
       },
       createdAt: 1,
@@ -41,7 +41,7 @@ describe("thread protocol", () => {
     })
 
     expect(thread.id).toBe("01996a3a-bcde-7000-8000-000000000001")
-    expect(thread.agentSessionId).toBe("provider-thread-1")
+    expect(thread.agentSessionId).toBe("harness-thread-1")
   })
 
   test("models shared archive and fork operations using Cypheria thread ids", () => {
@@ -87,7 +87,7 @@ describe("thread protocol", () => {
     ).toBe(true)
   })
 
-  test("models keyed multi-question answers and structured provider responses", () => {
+  test("models keyed multi-question answers and structured harness responses", () => {
     const request = ThreadInteractionRespondRequestSchema.parse({
       payload: {
         interactionId: "question-1",
@@ -139,7 +139,7 @@ describe("thread protocol", () => {
     ).toMatchObject({ payload: { clientMessageId: "message-2" } })
   })
 
-  test("validates the shared rich timeline surface and provider extensions", () => {
+  test("validates the shared rich timeline surface and harness extensions", () => {
     const items = [
       {
         attachments: [
@@ -193,10 +193,10 @@ describe("thread protocol", () => {
       },
       {
         agentId: "claude",
-        itemId: "provider-1",
+        itemId: "harness-1",
         nativeType: "sdk_message",
         payload: { subtype: "compact_boundary" },
-        type: "provider",
+        type: "harness",
       },
     ]
 
@@ -220,7 +220,7 @@ describe("thread protocol", () => {
           text: "hello",
           type: "message" as const,
         },
-        providerItemId: null,
+        harnessItemId: null,
         seq: 1,
         timestamp: "2026-09-18T00:00:00.000Z",
         turnId: "turn-1",
@@ -235,7 +235,7 @@ describe("thread protocol", () => {
           error: null,
           type: "tool" as const,
         },
-        providerItemId: null,
+        harnessItemId: null,
         seq: 2,
         timestamp: "2026-09-18T00:00:01.000Z",
         turnId: "turn-1",
@@ -248,7 +248,7 @@ describe("thread protocol", () => {
           text: " world",
           type: "message" as const,
         },
-        providerItemId: null,
+        harnessItemId: null,
         seq: 3,
         timestamp: "2026-09-18T00:00:02.000Z",
         turnId: "turn-1",

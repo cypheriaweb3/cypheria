@@ -1,7 +1,5 @@
 # `@cypheria/web3`
 
-> Status: Current implementation
-
 Pure, testable Web3 domain modules shared by the Cypheria Server and privileged Desktop boundaries.
 
 ## Public entry points

@@ -2,7 +2,7 @@
 
 > Status: Planned; `apps/marketplace` does not exist
 
-The planned Cypheria Marketplace is a separate public service for plugin submission, scanning, review, publication, discovery, and trust metadata. It is not the Server integration service and is not required for provider-native or custom marketplaces described in [Integrations](integrations.md).
+The planned Cypheria Marketplace is a separate public service for plugin submission, scanning, review, publication, discovery, and trust metadata. It is not the Server integration service and is not required for harness-native or custom marketplaces described in [Integrations](integrations.md).
 
 ## Product boundary
 
@@ -16,7 +16,7 @@ It must not import Electron, Desktop IPC, `apps/server` internals, `@cypheria/db
 
 ## Plugin contract
 
-Initial publication targets the public ChatGPT/Codex plugin specification. A plugin root contains `.codex-plugin/plugin.json` and may contain Skills, hooks, app declarations, MCP declarations, and assets. This makes published releases installable through the existing Codex provider integration while preserving `ecosystem: openai` provenance.
+Initial publication targets the public ChatGPT/Codex plugin specification. A plugin root contains `.codex-plugin/plugin.json` and may contain Skills, hooks, app declarations, MCP declarations, and assets. This makes published releases installable through the existing Codex harness integration while preserving `ecosystem: openai` provenance.
 
 Cypheria-native, Claude, Pi, and OpenCode ecosystem publication can be added only when their manifest, scanning, installation, and trust contracts are implemented explicitly. The marketplace source remains `cypheria`; ecosystem is a separate field.
 
@@ -54,13 +54,13 @@ Plugin code is never executed inside the web Worker. MCP scanning uses isolated,
 
 Publication deterministically aggregates active releases into the official Cypheria GitHub marketplace catalog. Entries use stable ordering and SHA-pinned `url` or `git-subdir` sources. Publication verifies the resulting commit before exposing the release through `/api/v1` and localized catalog pages.
 
-Desktop's planned Cypheria Marketplace provider will:
+Desktop's planned Cypheria Marketplace integration will:
 
 1. fetch catalog and trust metadata from the Marketplace API;
 2. pin the official repository identity and expected catalog commit;
 3. register or upgrade the catalog through Codex App Server marketplace operations;
 4. verify plugin source URL, path, SHA, capabilities, and approvals;
-5. install through the Codex provider's plugin operation.
+5. install through the Codex harness's plugin operation.
 
 Discovery trust and installation execution remain distinct. OpenAI and user-added marketplaces retain their own provenance and are not relabeled as Cypheria-reviewed.
 
@@ -81,6 +81,6 @@ Discovery trust and installation execution remain distinct. OpenAI and user-adde
 3. Add source verification, drafts, validation, and submission.
 4. Add isolated scanning and reviewer workflow.
 5. Add publication, public catalog API, and deterministic GitHub synchronization.
-6. Add the Desktop discovery and trust provider.
+6. Add the Desktop discovery and trust integration.
 
 Only incomplete work is tracked in [Todo](todo.md).

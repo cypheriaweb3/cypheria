@@ -6,8 +6,8 @@ import {
   ClientDescriptorSchema,
   type ClientKind,
   type ClientMessage,
-  type CodexProviderClientMessage,
-  type CodexProviderServerMessage,
+  type CodexHarnessClientMessage,
+  type CodexHarnessServerMessage,
   type ConnectionOfferV2,
   ConnectionOfferV2Schema,
   CYPHERIA_PROTOCOL_VERSION,
@@ -494,23 +494,23 @@ export class ServerClient {
     return message as IntegrationServerMessage
   }
 
-  async requestCodexProvider(
-    type: CodexProviderClientMessage["type"],
+  async requestCodexHarness(
+    type: CodexHarnessClientMessage["type"],
     payload: unknown,
     options?: RequestOptions
-  ): Promise<CodexProviderServerMessage> {
+  ): Promise<CodexHarnessServerMessage> {
     const expectedType = type.replace(/\.request$/, ".response")
     const message = await this.#request(
       {
         payload,
-        requestId: this.#nextRequestId("provider-codex"),
+        requestId: this.#nextRequestId("harness-codex"),
         type,
-      } as CodexProviderClientMessage,
+      } as CodexHarnessClientMessage,
       expectedType,
       options,
-      SERVER_CAPABILITIES.codexProvider
+      SERVER_CAPABILITIES.codexHarness
     )
-    return message as CodexProviderServerMessage
+    return message as CodexHarnessServerMessage
   }
 
   async requestSchedule(

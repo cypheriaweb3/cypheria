@@ -7,6 +7,14 @@ import {
   type AgentManagementServerMessage,
 } from "./agent/management.ts"
 import {
+  CODEX_HARNESS_CLIENT_SCHEMAS,
+  CODEX_HARNESS_RESPONSE_TYPES,
+  CODEX_HARNESS_SERVER_SCHEMAS,
+  CodexAgentSettingsSchema,
+  type CodexHarnessClientMessage,
+  type CodexHarnessServerMessage,
+} from "./harness-codex.ts"
+import {
   INTEGRATION_CLIENT_SCHEMAS,
   INTEGRATION_RESPONSE_TYPES,
   INTEGRATION_SERVER_SCHEMAS,
@@ -20,14 +28,6 @@ import {
   type ProjectThreadClientMessage,
   type ProjectThreadServerMessage,
 } from "./project-thread.ts"
-import {
-  CODEX_PROVIDER_CLIENT_SCHEMAS,
-  CODEX_PROVIDER_RESPONSE_TYPES,
-  CODEX_PROVIDER_SERVER_SCHEMAS,
-  CodexAgentSettingsSchema,
-  type CodexProviderClientMessage,
-  type CodexProviderServerMessage,
-} from "./provider-codex.ts"
 import { RequestIdSchema } from "./request-id.ts"
 import {
   SCHEDULE_CLIENT_SCHEMAS,
@@ -67,9 +67,9 @@ export * from "./agent/pi.ts"
 export * from "./agent/registry.ts"
 export * from "./codex-ui/image-generation.ts"
 export * from "./codex-ui/turn-projection.ts"
+export * from "./harness-codex.ts"
 export * from "./integration.ts"
 export * from "./project-thread.ts"
-export * from "./provider-codex.ts"
 export * from "./relay.ts"
 export { type RequestId, RequestIdSchema } from "./request-id.ts"
 export * from "./schedule.ts"
@@ -86,7 +86,7 @@ const CYPHERIA_SUPERJSON_MARKER = "cypheria.superjson.v1" as const
 /** Stable capabilities a server can advertise in the `server.status.notification` message. */
 export const SERVER_CAPABILITIES = {
   agentManager: "agent.manager",
-  codexProvider: "provider.codex",
+  codexHarness: "harness.codex",
   projectThread: "project-thread",
   schedules: "schedules",
   terminals: "terminals",
@@ -407,7 +407,7 @@ export type SessionInboundMessage =
   | z.infer<typeof ServerConfigReloadRequestSchema>
   | AgentManagementClientMessage
   | IntegrationClientMessage
-  | CodexProviderClientMessage
+  | CodexHarnessClientMessage
   | ProjectThreadClientMessage
   | ScheduleClientMessage
   | TerminalClientMessage
@@ -424,7 +424,7 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   ServerConfigReloadRequestSchema,
   ...AGENT_MANAGEMENT_CLIENT_SCHEMAS,
   ...INTEGRATION_CLIENT_SCHEMAS,
-  ...CODEX_PROVIDER_CLIENT_SCHEMAS,
+  ...CODEX_HARNESS_CLIENT_SCHEMAS,
   ...PROJECT_THREAD_CLIENT_SCHEMAS,
   ...SCHEDULE_CLIENT_SCHEMAS,
   ...TERMINAL_CLIENT_SCHEMAS,
@@ -482,7 +482,7 @@ export type SessionOutboundMessage =
   | z.infer<typeof ServerConfigReloadResponseSchema>
   | AgentManagementServerMessage
   | IntegrationServerMessage
-  | CodexProviderServerMessage
+  | CodexHarnessServerMessage
   | ProjectThreadServerMessage
   | ScheduleServerMessage
   | TerminalServerMessage
@@ -498,7 +498,7 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   ServerConfigReloadResponseSchema,
   ...AGENT_MANAGEMENT_SERVER_SCHEMAS,
   ...INTEGRATION_SERVER_SCHEMAS,
-  ...CODEX_PROVIDER_SERVER_SCHEMAS,
+  ...CODEX_HARNESS_SERVER_SCHEMAS,
   ...PROJECT_THREAD_SERVER_SCHEMAS,
   ...SCHEDULE_SERVER_SCHEMAS,
   ...TERMINAL_SERVER_SCHEMAS,
@@ -532,7 +532,7 @@ const clientResponseTypes = new Set<string>([
   "agent.toolchain.update.response",
   ...PROJECT_THREAD_RESPONSE_TYPES,
   ...INTEGRATION_RESPONSE_TYPES,
-  ...CODEX_PROVIDER_RESPONSE_TYPES,
+  ...CODEX_HARNESS_RESPONSE_TYPES,
   ...SCHEDULE_RESPONSE_TYPES,
   ...TERMINAL_RESPONSE_TYPES,
   ...THREAD_RESPONSE_TYPES,

@@ -150,7 +150,7 @@ describe("canonicalInteractionToView", () => {
       threadId: "thread-1",
     })
 
-    permission.provider = {
+    permission.harness = {
       agentId: "codex",
       metadata: {
         permissions: { network: { enabled: true } },

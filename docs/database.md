@@ -1,7 +1,5 @@
 # Database
 
-> Status: Current implementation
-
 Cypheria uses SQLite through Drizzle ORM and the local libSQL driver. `packages/db/src/schema/` is the editable schema source; `packages/db/drizzle/0000_initial.sql` and its snapshot are the current generated migration baseline.
 
 ## Location and ownership
@@ -16,7 +14,7 @@ Every connection enables foreign keys. Server services define transaction bounda
 | --- | --- | --- |
 | Runtime | `runtime_metadata`, `settings`, `audit_logs`, `workspaces` | Runtime metadata, key/value settings, append-oriented audit, workspace records |
 | Agents | `agent_registry` | Native and registry Agent installation, enablement, versions, and state |
-| Projects and Threads | `projects`, `threads`, `project_items`, `sections`, `section_items` | Durable organization, ordering, membership, archive and provider linkage |
+| Projects and Threads | `projects`, `threads`, `project_items`, `sections`, `section_items` | Durable organization, ordering, membership, archive and harness linkage |
 | Thread execution | `thread_lifecycle_operations`, `thread_timeline_epochs`, `thread_timeline_rows` | Recovery journal and append-only Canonical Timeline |
 | Schedules | `schedules`, `schedule_runs` | Definitions, next occurrence, leases, and run history |
 | Networks | `networks`, `network_rpc_endpoints`, `dapp_network_contexts` | Chain definitions, ordered endpoints, health, and origin context |
@@ -28,7 +26,7 @@ Private keys, mnemonics, vault encryption keys, decrypted signers, and secret en
 
 ## Project and Thread constraints
 
-Cypheria UUIDv7 values identify Projects, Threads, and Sections. A Thread has one immutable Agent, at most one provider session linkage per Agent, optional fork origin, and independent Project and Section membership.
+Cypheria UUIDv7 values identify Projects, Threads, and Sections. A Thread has one immutable Agent, at most one harness session linkage per Agent, optional fork origin, and independent Project and Section membership.
 
 `project_items` places a Thread in at most one Project. `section_items` interleaves Project and Thread entries in one ordered domain and places each entry in at most one Section. The fixed Pinned Section has stable ID `01984de2-8f74-7c91-a3b2-5c5e937cf318`.
 
@@ -38,13 +36,13 @@ Ordering columns are non-negative and unique in their scope. Membership moves an
 
 `thread_timeline_epochs` stores the active epoch and next sequence for each Thread. `thread_timeline_rows` stores immutable canonical rows keyed by Thread, epoch, and sequence. Appending allocates contiguous sequence numbers in one transaction. Rehydration or history replacement creates a new epoch and atomically replaces its rows.
 
-The Server validates stored Timeline JSON against `ThreadTimelineRowSchema` when reading it back. Provider-native history is input to adaptation, not an alternative client-facing history table.
+The Server validates stored Timeline JSON against `ThreadTimelineRowSchema` when reading it back. Harness-native history is input to adaptation, not an alternative client-facing history table.
 
 ## Schedules and recovery
 
 Schedule definition, next-run advancement, occurrence claim, and run creation are coordinated transactionally. Claims prevent concurrent execution. On restart, abandoned running rows become interrupted before active definitions are recovered. Web3 side effects are not replayed automatically.
 
-Thread lifecycle operations similarly journal non-atomic provider work so deletion and session transitions can be reconciled after failure.
+Thread lifecycle operations similarly journal non-atomic harness work so deletion and session transitions can be reconciled after failure.
 
 ## SQLite conventions
 

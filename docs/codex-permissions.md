@@ -1,12 +1,10 @@
 # Codex Permissions in Cypheria
 
-> Status: Current implementation
-
 Cypheria presents Codex permissions through the common Thread interaction lifecycle while preserving Codex's native sandbox and approval semantics. These permissions govern Codex code and tool execution; they do not replace Web3 signing policy.
 
 ## Configuration surface
 
-`client.providers.codex.permissions` exposes:
+`client.harnesses.codex.permissions` exposes:
 
 - shared defaults for approval policy, reviewer, sandbox, network, web search, verbosity, and reasoning summary;
 - the effective permission catalog for an optional working directory;
@@ -29,7 +27,7 @@ Cypheria maps the effective catalog into concise modes:
 | Managed | An administrator-selected Server default |
 | Custom | A valid native combination without a simpler Cypheria label |
 
-For an existing Thread, leaving the selection unchanged preserves its provider-owned state. A deliberate selection is sent through the typed Thread/provider options supported by the adapter.
+For an existing Thread, leaving the selection unchanged preserves its harness-owned state. A deliberate selection is sent through the typed Thread/harness options supported by the adapter.
 
 ## Approval lifecycle
 
@@ -41,7 +39,7 @@ Only one response wins. Clients send a typed outcome such as allow once, allow f
 
 When App Server and managed requirements allow it, `auto_review` or `guardian_subagent` can review escalated requests. The reviewer may allow or deny but cannot grant authority outside the active sandbox or managed permission catalog.
 
-Reviewer progress and decisions appear in the conversation. A supported Guardian denial can be retried through `client.providers.codex.guardian` with its original Thread context. User-visible status must distinguish an automatic review from explicit user authorization.
+Reviewer progress and decisions appear in the conversation. A supported Guardian denial can be retried through `client.harnesses.codex.guardian` with its original Thread context. User-visible status must distinguish an automatic review from explicit user authorization.
 
 ## Full access
 
@@ -67,4 +65,4 @@ Likewise, a Web3 approval does not expand Codex sandbox authority.
 - Attribute the requester, reviewer, selected scope, decision, and resulting action.
 - Keep native request IDs and callbacks in the Server.
 - Preserve pending interactions across client navigation and resolve them exactly once.
-- Render provider detail without requiring the client to consume raw Codex messages.
+- Render harness detail without requiring the client to consume raw Codex messages.

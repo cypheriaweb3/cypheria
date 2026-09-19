@@ -27,7 +27,7 @@ export const MarketplaceSourceKindSchema = z.enum([
 export type MarketplaceSourceKind = z.infer<typeof MarketplaceSourceKindSchema>
 
 const compatibility = z.array(AgentCompatibilityTagSchema).min(1)
-const provider = z.object({ agentId: AgentIdSchema, nativeId: z.string().nullable() }).strict()
+const harness = z.object({ agentId: AgentIdSchema, nativeId: z.string().nullable() }).strict()
 
 export const SkillViewSchema = z
   .object({
@@ -42,7 +42,7 @@ export const SkillViewSchema = z
     name: z.string().min(1),
     path: z.string().min(1),
     pluginId: z.string().nullable(),
-    provider,
+    harness,
     scope: z.enum(["user", "repo", "system", "admin"]),
   })
   .strict()
@@ -56,7 +56,7 @@ export const McpServerViewSchema = z
     enabled: z.boolean().nullable(),
     name: z.string().min(1),
     pluginId: z.string().nullable(),
-    provider,
+    harness,
     resourceCount: z.number().int().nonnegative(),
     runtimeStatus: z
       .enum([
@@ -94,7 +94,7 @@ export const PluginViewSchema = z
     marketplaceName: z.string().min(1),
     marketplacePath: z.string().nullable(),
     name: z.string().min(1),
-    provider,
+    harness,
     sourceType: z.enum(["local", "git", "npm", "remote"]),
     version: z.string().nullable(),
   })
@@ -176,8 +176,8 @@ const response = <const T extends string, S extends z.ZodType>(type: T, value: S
 const agentListInput = z
   .object({ agentId: AgentIdSchema, forceRefresh: z.boolean().optional() })
   .strict()
-const providerItem = z.object({ agentId: AgentIdSchema, id: z.string().min(1) }).strict()
-const setEnabled = providerItem.extend({ enabled: z.boolean() }).strict()
+const harnessItem = z.object({ agentId: AgentIdSchema, id: z.string().min(1) }).strict()
+const setEnabled = harnessItem.extend({ enabled: z.boolean() }).strict()
 const pluginLocator = z
   .object({
     agentId: AgentIdSchema,
@@ -201,7 +201,7 @@ export const McpAddRequestSchema = request(
   z.object({ agentId: AgentIdSchema, name: IntegrationIdSchema, url: z.string().url() }).strict()
 )
 export const McpSetEnabledRequestSchema = request("integration.mcp.set-enabled.request", setEnabled)
-export const McpLoginRequestSchema = request("integration.mcp.login.request", providerItem)
+export const McpLoginRequestSchema = request("integration.mcp.login.request", harnessItem)
 export const PluginListRequestSchema = request(
   "integration.plugin.list.request",
   agentListInput.extend({ cwd: z.string().min(1).optional() }).strict()
@@ -213,7 +213,7 @@ export const PluginInstallRequestSchema = request(
 )
 export const PluginUninstallRequestSchema = request(
   "integration.plugin.uninstall.request",
-  providerItem
+  harnessItem
 )
 export const PluginSetEnabledRequestSchema = request(
   "integration.plugin.set-enabled.request",

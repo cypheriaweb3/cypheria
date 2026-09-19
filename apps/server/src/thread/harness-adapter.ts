@@ -8,77 +8,77 @@ import type {
   ThreadTimelineItem,
 } from "@cypheria/protocol"
 
-type ThreadProviderExtensionEvent = Extract<
+type ThreadHarnessExtensionEvent = Extract<
   Extract<ThreadServerMessage, { type: "thread.event.notification" }>["payload"]["event"],
-  { type: "provider" }
+  { type: "harness" }
 >
 
-export type ThreadProviderHistoryItem = {
+export type ThreadHarnessHistoryItem = {
   readonly item: ThreadTimelineItem
-  readonly providerItemId?: string | null
+  readonly harnessItemId?: string | null
   readonly timestamp?: string
   readonly turnId?: string | null
 }
 
-export type ThreadProviderSession = {
+export type ThreadHarnessSession = {
   readonly capabilities: ThreadCapabilities
-  readonly history?: readonly ThreadProviderHistoryItem[]
+  readonly history?: readonly ThreadHarnessHistoryItem[]
   readonly sessionId: string | null
 }
 
-export type ThreadProviderContext = {
+export type ThreadHarnessContext = {
   readonly agentId: AgentId
   readonly agentSessionId: string | null
   readonly cwd: string | null
   readonly threadId: string
 }
 
-export type ThreadProviderEvent =
-  | { readonly item: ThreadProviderHistoryItem; readonly type: "timeline" }
+export type ThreadHarnessEvent =
+  | { readonly item: ThreadHarnessHistoryItem; readonly type: "timeline" }
   | { readonly interaction: ThreadInteraction; readonly type: "interaction-requested" }
   | { readonly interactionId: string; readonly type: "interaction-resolved" }
   | { readonly message: string; readonly type: "progress" }
   | { readonly code: string; readonly message: string; readonly type: "warning" }
-  | ThreadProviderExtensionEvent
+  | ThreadHarnessExtensionEvent
   | { readonly sessionId: string; readonly type: "session-bound" }
   | { readonly turnId: string; readonly type: "turn-completed" }
   | { readonly error: string; readonly turnId: string | null; readonly type: "error" }
 
-export type ThreadProviderCreateInput = {
+export type ThreadHarnessCreateInput = {
   readonly agentId: AgentId
   readonly cwd: string | null
   readonly forkedFromAgentSessionId: string | null
-  readonly onEvent: (event: ThreadProviderEvent) => void
+  readonly onEvent: (event: ThreadHarnessEvent) => void
   readonly threadId: string
 }
 
-export type ThreadProviderResumeInput = ThreadProviderContext & {
-  readonly onEvent: (event: ThreadProviderEvent) => void
+export type ThreadHarnessResumeInput = ThreadHarnessContext & {
+  readonly onEvent: (event: ThreadHarnessEvent) => void
 }
 
-export type ThreadProviderTurnInput = ThreadProviderContext & {
+export type ThreadHarnessTurnInput = ThreadHarnessContext & {
   readonly clientMessageId: string
   readonly content: readonly ThreadInputBlock[]
 }
 
-export type ThreadProviderSteerInput = ThreadProviderTurnInput & {
+export type ThreadHarnessSteerInput = ThreadHarnessTurnInput & {
   readonly turnId: string
 }
 
 export type { ThreadInteractionResponse }
 
-/** Provider-native behavior hidden behind the public Agent/Thread protocol. */
-export interface ThreadProviderAdapter {
+/** Harness-native behavior hidden behind the public Agent/Thread protocol. */
+export interface ThreadHarnessAdapter {
   readonly agentId: AgentId
-  close(context: ThreadProviderContext): Promise<void>
-  create(input: ThreadProviderCreateInput): Promise<ThreadProviderSession>
-  delete(context: ThreadProviderContext): Promise<void>
-  resume(input: ThreadProviderResumeInput): Promise<ThreadProviderSession>
-  startTurn(input: ThreadProviderTurnInput): Promise<{ turnId: string }>
-  steerTurn(input: ThreadProviderSteerInput): Promise<void>
-  cancelTurn(context: ThreadProviderContext & { turnId?: string }): Promise<void>
+  close(context: ThreadHarnessContext): Promise<void>
+  create(input: ThreadHarnessCreateInput): Promise<ThreadHarnessSession>
+  delete(context: ThreadHarnessContext): Promise<void>
+  resume(input: ThreadHarnessResumeInput): Promise<ThreadHarnessSession>
+  startTurn(input: ThreadHarnessTurnInput): Promise<{ turnId: string }>
+  steerTurn(input: ThreadHarnessSteerInput): Promise<void>
+  cancelTurn(context: ThreadHarnessContext & { turnId?: string }): Promise<void>
   updateConfig(
-    context: ThreadProviderContext,
+    context: ThreadHarnessContext,
     patch: {
       readonly mode?: string | null
       readonly model?: string | null
@@ -86,7 +86,7 @@ export interface ThreadProviderAdapter {
     }
   ): Promise<void>
   respondToInteraction(
-    context: ThreadProviderContext,
+    context: ThreadHarnessContext,
     interactionId: string,
     response: ThreadInteractionResponse
   ): Promise<void>

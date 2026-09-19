@@ -1,7 +1,5 @@
 # Cypheria Documentation
 
-> Status: Current implementation index
-
 This index assigns one owner to each subject. Follow links instead of copying details between documents.
 
 ## Start here
@@ -14,7 +12,7 @@ This index assigns one owner to each subject. Follow links instead of copying de
 
 - [Server](server.md): process supervision, configuration, runtime directories, and operations.
 - [Client/server protocol](protocol.md): transport, messages, domain operations, timelines, and errors.
-- [Agents](agents.md): registry, installation, runtime models, first-party adapters, and ACP.
+- [Agent harnesses](agent-harnesses.md): registry, installation, runtime models, first-party harnesses, and ACP.
 - [Database](database.md): current SQLite baseline and migration policy.
 - [Schedules](schedules.md): cadence, leases, execution, recovery, and non-replay guarantees.
 - [Relay](relay.md): encrypted remote transport, deployment, capacity, and observability.
@@ -27,7 +25,7 @@ This index assigns one owner to each subject. Follow links instead of copying de
 - [UI system](ui.md): visual principles, theme implementation, AI Elements, and regression invariants.
 - [Brand](brand.md): product marks, colors, icons, and asset generation.
 
-## Provider references
+## Codex integration references
 
 - [Generated Codex App Server API](codex-app-server-api.md)
 - [Codex configuration semantics](codex-app-server-config.md)

@@ -1,7 +1,5 @@
 # Cypheria 文档
 
-> 状态：当前实现文档索引
-
 本索引为每个主题指定唯一文档。其他文档应链接到权威说明，而不是复制内容。
 
 ## 从这里开始
@@ -14,7 +12,7 @@
 
 - [Server](server.zh-CN.md)：进程监管、配置、运行目录与运维。
 - [Client/Server 协议](protocol.zh-CN.md)：transport、消息、领域操作、Timeline 与错误。
-- [Agents](agents.zh-CN.md)：registry、安装、runtime 模型、第一方 adapter 与 ACP。
+- [Agent harnesses](agent-harnesses.zh-CN.md)：registry、安装、runtime 模型、第一方 harness 与 ACP。
 - [数据库](database.zh-CN.md)：当前 SQLite 基线与迁移策略。
 - [Schedules](schedules.zh-CN.md)：cadence、lease、执行、恢复与非重放保证。
 - [Relay](relay.zh-CN.md)：加密远程 transport、部署、容量与可观测性。
@@ -27,7 +25,7 @@
 - [UI 系统](ui.zh-CN.md)：视觉原则、主题实现、AI Elements 与回归不变量。
 - [品牌](brand.zh-CN.md)：产品标志、颜色、图标与资产生成。
 
-## Provider 参考
+## Codex 集成参考
 
 - [生成的 Codex App Server API](codex-app-server-api.zh-CN.md)
 - [Codex 配置语义](codex-app-server-config.zh-CN.md)

@@ -20,11 +20,11 @@ import {
 } from "@cypheria/protocol"
 
 import type {
+  ThreadHarnessAdapter,
+  ThreadHarnessContext,
+  ThreadHarnessEvent,
   ThreadInteractionResponse,
-  ThreadProviderAdapter,
-  ThreadProviderContext,
-  ThreadProviderEvent,
-} from "./provider-adapter.js"
+} from "./harness-adapter.js"
 import { ThreadTimelineStore } from "./timeline-store.js"
 
 type Publish = (message: ServerMessage) => void
@@ -47,7 +47,7 @@ export class ThreadManagerError extends Error {
 }
 
 export type ThreadManagerOptions = {
-  readonly adapterFor: (agentId: AgentId, threadId: string) => ThreadProviderAdapter
+  readonly adapterFor: (agentId: AgentId, threadId: string) => ThreadHarnessAdapter
   readonly assertAgentCallable: (agentId: AgentId) => Promise<void>
   readonly lifecycle: ThreadLifecyclePersistenceService
   readonly persistence: ProjectThreadPersistenceService
@@ -60,7 +60,7 @@ const stoppedCapabilities: ThreadView["capabilities"] = {
   configure: false,
   fork: false,
   promptContent: ["text"],
-  providerExtensions: false,
+  harnessExtensions: false,
   steer: false,
 }
 
@@ -217,7 +217,7 @@ export class ThreadManager {
       })
       const adapter = this.#adapterFor(agentId, threadId)
       let databaseCommitted = false
-      let providerSessionId: string | null | undefined
+      let harnessSessionId: string | null | undefined
       try {
         const session = await adapter.create({
           agentId,
@@ -226,10 +226,10 @@ export class ThreadManager {
           onEvent: (event) => this.#acceptEvent(threadId, event),
           threadId,
         })
-        providerSessionId = session.sessionId
+        harnessSessionId = session.sessionId
         await this.#lifecycle.transition(operation.id, {
           agentSessionId: session.sessionId,
-          status: "provider-created",
+          status: "harness-created",
         })
         const thread = await this.#persistence.createThread({
           ...input,
@@ -251,20 +251,20 @@ export class ThreadManager {
         return { thread: view, timeline }
       } catch (error) {
         if (databaseCommitted) {
-          // Leave provider-created state for startup recovery to complete journal cleanup.
-        } else if (providerSessionId !== undefined) {
+          // Leave harness-created state for startup recovery to complete journal cleanup.
+        } else if (harnessSessionId !== undefined) {
           try {
             await adapter.delete({
               agentId,
-              agentSessionId: providerSessionId,
+              agentSessionId: harnessSessionId,
               cwd: input.cwd ?? null,
               threadId,
             })
             await this.#lifecycle
-              .fail(operation.id, `Provider create was compensated: ${this.#message(error)}`)
+              .fail(operation.id, `Harness create was compensated: ${this.#message(error)}`)
               .catch(() => undefined)
           } catch {
-            // Keep provider-created durable state so startup recovery can finish the DB commit.
+            // Keep harness-created durable state so startup recovery can finish the DB commit.
           }
         } else {
           await this.#lifecycle.fail(operation.id, this.#message(error)).catch(() => undefined)
@@ -335,7 +335,7 @@ export class ThreadManager {
         if (thread.agentSessionId && session.sessionId !== thread.agentSessionId) {
           throw new ThreadManagerError(
             "THREAD_BINDING_MISMATCH",
-            "Provider resumed a different session"
+            "Harness resumed a different session"
           )
         }
         if (!thread.agentSessionId && session.sessionId) {
@@ -417,11 +417,11 @@ export class ThreadManager {
         kind: "delete",
         threadId,
       })
-      let providerDeleted = false
+      let harnessDeleted = false
       try {
         await this.#adapterFor(thread.agentId as AgentId, thread.id).delete(this.#context(thread))
-        providerDeleted = true
-        await this.#lifecycle.transition(operation.id, { status: "provider-deleted" })
+        harnessDeleted = true
+        await this.#lifecycle.transition(operation.id, { status: "harness-deleted" })
         await this.#persistence.deleteThread(threadId)
         await this.#lifecycle.complete(operation.id)
         this.#runtime.delete(threadId)
@@ -430,7 +430,7 @@ export class ThreadManager {
         this.#publish({ payload: { threadId }, type: "thread.deleted.notification" })
       } catch (error) {
         runtime.state = "errored"
-        if (!providerDeleted) {
+        if (!harnessDeleted) {
           await this.#lifecycle.fail(operation.id, this.#message(error)).catch(() => undefined)
         }
         this.#publish({ payload: this.#view(thread), type: "thread.updated.notification" })
@@ -601,7 +601,7 @@ export class ThreadManager {
     return false
   }
 
-  #acceptEvent(threadId: string, event: ThreadProviderEvent): void {
+  #acceptEvent(threadId: string, event: ThreadHarnessEvent): void {
     void this.#withLock(threadId, async () => {
       const thread = await this.#persistence.getThread(threadId)
       if (!thread) return
@@ -648,7 +648,7 @@ export class ThreadManager {
           runtime.state = "errored"
           await this.#appendTimeline(threadId, {
             item: {
-              code: "PROVIDER_ERROR",
+              code: "HARNESS_ERROR",
               itemId: `error:${globalThis.crypto.randomUUID()}`,
               message: event.error,
               type: "error",
@@ -672,7 +672,7 @@ export class ThreadManager {
             type: "thread.event.notification",
           })
           break
-        case "provider":
+        case "harness":
           this.#publish({ payload: { event, threadId }, type: "thread.event.notification" })
           break
       }
@@ -719,7 +719,7 @@ export class ThreadManager {
     })
   }
 
-  #context(thread: ThreadRecord): ThreadProviderContext {
+  #context(thread: ThreadRecord): ThreadHarnessContext {
     return {
       agentId: thread.agentId as AgentId,
       agentSessionId: thread.agentSessionId,
@@ -735,7 +735,7 @@ export class ThreadManager {
   async #recover(operation: ThreadLifecycleOperationRecord): Promise<void> {
     try {
       if (operation.kind === "create") {
-        if (operation.status === "provider-created") {
+        if (operation.status === "harness-created") {
           const existing = await this.#persistence.getThread(operation.threadId)
           if (!existing) {
             await this.#persistence.createThread({
@@ -750,12 +750,12 @@ export class ThreadManager {
         }
         await this.#lifecycle.fail(
           operation.id,
-          "Interrupted before the provider session identity was committed"
+          "Interrupted before the harness session identity was committed"
         )
         return
       }
       const thread = await this.#persistence.getThread(operation.threadId)
-      if (operation.status === "provider-deleted") {
+      if (operation.status === "harness-deleted") {
         if (thread) await this.#persistence.deleteThread(thread.id)
         await this.#lifecycle.complete(operation.id)
         return
@@ -765,7 +765,7 @@ export class ThreadManager {
         return
       }
       await this.#adapterFor(thread.agentId as AgentId, thread.id).delete(this.#context(thread))
-      await this.#lifecycle.transition(operation.id, { status: "provider-deleted" })
+      await this.#lifecycle.transition(operation.id, { status: "harness-deleted" })
       await this.#persistence.deleteThread(thread.id)
       await this.#lifecycle.complete(operation.id)
     } catch (error) {

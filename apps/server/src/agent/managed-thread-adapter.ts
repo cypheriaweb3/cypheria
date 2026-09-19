@@ -18,17 +18,17 @@ import {
 } from "@cypheria/protocol"
 
 import type {
+  ThreadHarnessAdapter,
+  ThreadHarnessContext,
+  ThreadHarnessCreateInput,
+  ThreadHarnessEvent,
+  ThreadHarnessHistoryItem,
+  ThreadHarnessResumeInput,
+  ThreadHarnessSession,
+  ThreadHarnessSteerInput,
+  ThreadHarnessTurnInput,
   ThreadInteractionResponse,
-  ThreadProviderAdapter,
-  ThreadProviderContext,
-  ThreadProviderCreateInput,
-  ThreadProviderEvent,
-  ThreadProviderHistoryItem,
-  ThreadProviderResumeInput,
-  ThreadProviderSession,
-  ThreadProviderSteerInput,
-  ThreadProviderTurnInput,
-} from "../thread/provider-adapter.js"
+} from "../thread/harness-adapter.js"
 import type { AgentManager, AgentRuntimeServerMessage } from "./agent-manager.js"
 import type { ClaudePermissionHandler, ClaudePermissionRequest } from "./claude-session-runtime.js"
 
@@ -55,7 +55,7 @@ const capabilities = (agentId: AgentId, acp?: Record<string, unknown>): ThreadCa
       ...(agentId !== "codex" ? (["resource-link"] as const) : []),
       ...(prompt.embeddedContext === true ? (["embedded-resource"] as const) : []),
     ],
-    providerExtensions: false,
+    harnessExtensions: false,
     steer: agentId === "codex" || agentId === "pi",
   }
 }
@@ -89,8 +89,8 @@ const resultOf = (message: AgentRuntimeServerMessage): Record<string, unknown> =
   const payload = payloadOf(message)
   if (payload.error) {
     const error = payload.error as { code?: string; message?: string }
-    const failure = new Error(error.message ?? "Provider request failed")
-    failure.name = error.code ?? "PROVIDER_ERROR"
+    const failure = new Error(error.message ?? "Harness request failed")
+    failure.name = error.code ?? "HARNESS_ERROR"
     throw failure
   }
   return (payload.result as Record<string, unknown> | undefined) ?? payload
@@ -165,17 +165,17 @@ const extractThread = (result: Record<string, unknown>): Record<string, unknown>
     ? (result.thread as Record<string, unknown>)
     : result
 
-const mapCodexHistory = (thread: Record<string, unknown>): ThreadProviderHistoryItem[] => {
-  const history: ThreadProviderHistoryItem[] = []
+const mapCodexHistory = (thread: Record<string, unknown>): ThreadHarnessHistoryItem[] => {
+  const history: ThreadHarnessHistoryItem[] = []
   for (const turn of Array.isArray(thread.turns) ? thread.turns : []) {
     if (!turn || typeof turn !== "object") continue
     const turnRecord = turn as Record<string, unknown>
     for (const item of Array.isArray(turnRecord.items) ? turnRecord.items : []) {
-      const mapped = mapProviderItem(item, "codex")
+      const mapped = mapHarnessItem(item, "codex")
       if (mapped)
         history.push({
           item: mapped,
-          providerItemId: mapped.itemId,
+          harnessItemId: mapped.itemId,
           turnId: stringId(turnRecord.id),
         })
     }
@@ -206,12 +206,12 @@ const mapTimelineStatus = (
   }
 }
 
-const mapProviderItem = (value: unknown, agentId: AgentId): ThreadTimelineItem | undefined => {
+const mapHarnessItem = (value: unknown, agentId: AgentId): ThreadTimelineItem | undefined => {
   if (!value || typeof value !== "object") return undefined
   const item = value as Record<string, unknown>
   const itemId = stringId(item.id ?? item.itemId ?? item.callID ?? item.callId) ?? randomUUID()
   const type = String(item.type ?? "unknown")
-  const providerData = { agentId, nativeType: type, payload: value }
+  const harnessData = { agentId, nativeType: type, payload: value }
   const text =
     typeof item.text === "string"
       ? item.text
@@ -219,13 +219,13 @@ const mapProviderItem = (value: unknown, agentId: AgentId): ThreadTimelineItem |
         ? item.content
         : undefined
   if (type.includes("reasoning") && text !== undefined) {
-    return { itemId, operation: "replace", providerData, text, type: "reasoning" }
+    return { itemId, operation: "replace", harnessData, text, type: "reasoning" }
   }
   if ((type.includes("message") || type === "text") && text !== undefined) {
     return {
       itemId,
       operation: "replace",
-      providerData,
+      harnessData,
       role: type.includes("user") || item.role === "user" ? "user" : "assistant",
       text,
       type: "message",
@@ -239,7 +239,7 @@ const mapProviderItem = (value: unknown, agentId: AgentId): ThreadTimelineItem |
       exitCode: typeof item.exitCode === "number" ? item.exitCode : null,
       itemId,
       output: String(item.aggregatedOutput ?? item.output ?? ""),
-      providerData,
+      harnessData,
       status: mapTimelineStatus(item.status),
       type: "command",
     }
@@ -273,7 +273,7 @@ const mapProviderItem = (value: unknown, agentId: AgentId): ThreadTimelineItem |
       return {
         changes,
         itemId,
-        providerData,
+        harnessData,
         status: mapTimelineStatus(item.status),
         type: "diff",
       }
@@ -299,7 +299,7 @@ const mapProviderItem = (value: unknown, agentId: AgentId): ThreadTimelineItem |
         ]
       }),
       itemId,
-      providerData,
+      harnessData,
       type: "plan",
     }
   }
@@ -310,7 +310,7 @@ const mapProviderItem = (value: unknown, agentId: AgentId): ThreadTimelineItem |
       itemId,
       name: String(item.name ?? item.tool ?? (type || "tool")),
       output: item.output ?? null,
-      providerData,
+      harnessData,
       status: mapTimelineStatus(item.status),
       type: "tool",
     }
@@ -321,12 +321,12 @@ const mapProviderItem = (value: unknown, agentId: AgentId): ThreadTimelineItem |
     nativeType: type,
     payload: value,
     status: mapTimelineStatus(item.status),
-    type: "provider",
+    type: "harness",
   }
 }
 
 /** Bridges existing native/raw runtimes into server-owned Thread semantics. */
-export class ManagedThreadAdapter implements ThreadProviderAdapter {
+export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   readonly agentId: AgentId
   readonly #manager: AgentManager
   readonly #pending = new Map<string, Pending>()
@@ -339,15 +339,15 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
   >()
   readonly #reverse = new Map<string, AgentRuntimeServerMessage>()
   #acpCapabilities: Record<string, unknown> | undefined
-  #onEvent: ((event: ThreadProviderEvent) => void) | undefined
-  #providerSessionId: string | null = null
+  #onEvent: ((event: ThreadHarnessEvent) => void) | undefined
+  #harnessSessionId: string | null = null
 
   constructor(manager: AgentManager, agentId: AgentId) {
     this.#manager = manager
     this.agentId = agentId
   }
 
-  async create(input: ThreadProviderCreateInput): Promise<ThreadProviderSession> {
+  async create(input: ThreadHarnessCreateInput): Promise<ThreadHarnessSession> {
     this.#attach(input.onEvent)
     if (this.agentId === "codex") {
       const response = await this.#request(
@@ -368,7 +368,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       )
       const thread = extractThread(resultOf(response))
       const sessionId = stringId(thread.id)
-      this.#providerSessionId = sessionId
+      this.#harnessSessionId = sessionId
       return {
         capabilities: capabilities(this.agentId),
         history: mapCodexHistory(thread),
@@ -393,20 +393,20 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       const session = resultOf(response).data as Record<string, unknown>
       await this.#subscribeOpenCode(input.threadId)
       const sessionId = stringId(session.id)
-      this.#providerSessionId = sessionId
+      this.#harnessSessionId = sessionId
       return { capabilities: capabilities(this.agentId), sessionId }
     }
     if (this.agentId === "claude" || this.agentId === "pi") {
       if (input.forkedFromAgentSessionId) {
         throw new Error(`${this.agentId} does not expose a native empty-session fork`)
       }
-      this.#providerSessionId = null
+      this.#harnessSessionId = null
       return { capabilities: capabilities(this.agentId), sessionId: null }
     }
     return this.#createAcp(input)
   }
 
-  async resume(input: ThreadProviderResumeInput): Promise<ThreadProviderSession> {
+  async resume(input: ThreadHarnessResumeInput): Promise<ThreadHarnessSession> {
     this.#attach(input.onEvent)
     if (this.agentId === "codex") {
       if (!input.agentSessionId) return this.create({ ...input, forkedFromAgentSessionId: null })
@@ -419,7 +419,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       })
       const thread = extractThread(resultOf(response))
       const sessionId = stringId(thread.id)
-      this.#providerSessionId = sessionId
+      this.#harnessSessionId = sessionId
       return {
         capabilities: capabilities(this.agentId),
         history: mapCodexHistory(thread),
@@ -433,7 +433,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
         query: input.cwd ? { directory: input.cwd } : undefined,
       })
       await this.#subscribeOpenCode(input.threadId)
-      this.#providerSessionId = input.agentSessionId
+      this.#harnessSessionId = input.agentSessionId
       return {
         capabilities: capabilities(this.agentId),
         history: this.#mapOpenCodeHistory(resultOf(response).data),
@@ -441,13 +441,13 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       }
     }
     if (this.agentId === "claude" || this.agentId === "pi") {
-      this.#providerSessionId = input.agentSessionId
+      this.#harnessSessionId = input.agentSessionId
       return { capabilities: capabilities(this.agentId), sessionId: input.agentSessionId }
     }
     return this.#resumeAcp(input)
   }
 
-  async close(context: ThreadProviderContext): Promise<void> {
+  async close(context: ThreadHarnessContext): Promise<void> {
     if (
       this.agentId !== "codex" &&
       this.agentId !== "opencode" &&
@@ -462,7 +462,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
         sessionId: context.agentSessionId,
         type: "agent.acp.session.close.request",
       })
-    } else if (this.agentId === "claude" && this.#providerSessionId) {
+    } else if (this.agentId === "claude" && this.#harnessSessionId) {
       await this.#request(context.threadId, {
         queryId: context.threadId,
         requestId: randomUUID(),
@@ -474,7 +474,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
     this.#onEvent = undefined
   }
 
-  async delete(context: ThreadProviderContext): Promise<void> {
+  async delete(context: ThreadHarnessContext): Promise<void> {
     if (this.agentId === "codex" && context.agentSessionId) {
       await this.#request(context.threadId, {
         requestId: randomUUID(),
@@ -511,7 +511,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
     this.#manager.releaseThreadAdapter(this.agentId, context.threadId)
   }
 
-  async startTurn(input: ThreadProviderTurnInput): Promise<{ turnId: string }> {
+  async startTurn(input: ThreadHarnessTurnInput): Promise<{ turnId: string }> {
     if (this.agentId === "codex") {
       if (!input.agentSessionId) throw new Error("Codex thread is not bound")
       const response = await this.#request(input.threadId, {
@@ -576,7 +576,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
     return { turnId: input.clientMessageId }
   }
 
-  async steerTurn(input: ThreadProviderSteerInput): Promise<void> {
+  async steerTurn(input: ThreadHarnessSteerInput): Promise<void> {
     if (this.agentId === "codex") {
       if (!input.agentSessionId) throw new Error("Codex thread is not bound")
       await this.#request(input.threadId, {
@@ -606,7 +606,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
     throw new Error(`${this.agentId} does not support steering active turns`)
   }
 
-  async cancelTurn(context: ThreadProviderContext & { turnId?: string }): Promise<void> {
+  async cancelTurn(context: ThreadHarnessContext & { turnId?: string }): Promise<void> {
     if (this.agentId === "codex" && context.agentSessionId && context.turnId) {
       await this.#request(context.threadId, {
         requestId: randomUUID(),
@@ -644,7 +644,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
   }
 
   async updateConfig(
-    context: ThreadProviderContext,
+    context: ThreadHarnessContext,
     patch: {
       mode?: string | null
       model?: string | null
@@ -687,7 +687,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
   }
 
   async respondToInteraction(
-    context: ThreadProviderContext,
+    context: ThreadHarnessContext,
     interactionId: string,
     response: ThreadInteractionResponse
   ): Promise<void> {
@@ -714,7 +714,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       return
     }
     const reverse = this.#reverse.get(interactionId)
-    if (!reverse) throw new Error("Provider interaction is no longer pending")
+    if (!reverse) throw new Error("Harness interaction is no longer pending")
     if (this.agentId === "codex") {
       const request = reverse as unknown as Record<string, unknown>
       const requestPayload = { ...request, ...payloadOf(reverse) }
@@ -930,7 +930,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
     this.#reverse.delete(interactionId)
   }
 
-  async #createAcp(input: ThreadProviderCreateInput): Promise<ThreadProviderSession> {
+  async #createAcp(input: ThreadHarnessCreateInput): Promise<ThreadHarnessSession> {
     const initialized = resultOf(
       await this.#request(input.threadId, {
         agent: this.agentId,
@@ -962,14 +962,14 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
         : "agent.acp.session.new.request",
     })
     const sessionId = stringId(resultOf(response).sessionId)
-    this.#providerSessionId = sessionId
+    this.#harnessSessionId = sessionId
     return {
       capabilities: capabilities(this.agentId, this.#acpCapabilities),
       sessionId,
     }
   }
 
-  async #resumeAcp(input: ThreadProviderResumeInput): Promise<ThreadProviderSession> {
+  async #resumeAcp(input: ThreadHarnessResumeInput): Promise<ThreadHarnessSession> {
     if (!input.agentSessionId) return this.#createAcp({ ...input, forkedFromAgentSessionId: null })
     const initialized = resultOf(
       await this.#request(input.threadId, {
@@ -995,7 +995,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       type: "agent.acp.session.load.request",
     })
     resultOf(response)
-    this.#providerSessionId = input.agentSessionId
+    this.#harnessSessionId = input.agentSessionId
     return {
       capabilities: capabilities(this.agentId, this.#acpCapabilities),
       sessionId: input.agentSessionId,
@@ -1007,7 +1007,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
     return session[capability] != null
   }
 
-  #attach(onEvent: (event: ThreadProviderEvent) => void): void {
+  #attach(onEvent: (event: ThreadHarnessEvent) => void): void {
     this.#onEvent = onEvent
   }
 
@@ -1028,12 +1028,12 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
     message: Record<string, unknown>
   ): Promise<AgentRuntimeServerMessage> {
     const requestId = message.requestId
-    if (typeof requestId !== "string") throw new Error("Internal provider requests use string ids")
+    if (typeof requestId !== "string") throw new Error("Internal harness requests use string ids")
     const expectedType = String(message.type).replace(/\.request$/, ".response")
     const response = new Promise<AgentRuntimeServerMessage>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.#pending.delete(requestId)
-        reject(new Error(`Provider request timed out: ${String(message.type)}`))
+        reject(new Error(`Harness request timed out: ${String(message.type)}`))
       }, 30_000)
       timeout.unref()
       this.#pending.set(requestId, { expectedType, reject, resolve, timeout })
@@ -1139,7 +1139,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
   }
 
   readonly #requestClaudePermission: ClaudePermissionHandler = async (request) => {
-    const interactionId = `provider:claude:${request.requestId}`
+    const interactionId = `harness:claude:${request.requestId}`
     return new Promise((resolve) => {
       const abort = (): void => {
         this.#claudeInteractions.delete(interactionId)
@@ -1198,7 +1198,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
         agentId: "codex",
         nativeType: message.type,
         payload: payload as never,
-        type: "provider",
+        type: "harness",
       })
       return
     }
@@ -1207,12 +1207,12 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
         payload.session_id ??
         (payload.message as Record<string, unknown> | undefined)?.session_id
     )
-    if (nativeSessionId && nativeSessionId !== this.#providerSessionId) {
-      this.#providerSessionId = nativeSessionId
+    if (nativeSessionId && nativeSessionId !== this.#harnessSessionId) {
+      this.#harnessSessionId = nativeSessionId
       onEvent({ sessionId: nativeSessionId, type: "session-bound" })
     }
     if (message.type.endsWith(".request")) {
-      const interactionId = `provider:${this.agentId}:${String(requestIdOf(message))}`
+      const interactionId = `harness:${this.agentId}:${String(requestIdOf(message))}`
       this.#reverse.set(interactionId, message)
       const request = message as unknown as Record<string, unknown>
       const rawOptions = Array.isArray(payload.options)
@@ -1282,9 +1282,9 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
           { description: null, id: "deny", label: "Deny" }
         )
       }
-      const providerMetadata = { ...request, ...payload }
-      delete providerMetadata.requestId
-      delete providerMetadata.type
+      const harnessMetadata = { ...request, ...payload }
+      delete harnessMetadata.requestId
+      delete harnessMetadata.type
       onEvent({
         interaction: {
           createdAt: new Date().toISOString(),
@@ -1309,9 +1309,9 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
           options: interactionOptions,
           ...(this.agentId === "codex"
             ? {
-                provider: {
+                harness: {
                   agentId: "codex" as const,
-                  metadata: providerMetadata as never,
+                  metadata: harnessMetadata as never,
                   nativeType: message.type,
                 },
               }
@@ -1340,11 +1340,11 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       const event = payload.event as Record<string, unknown>
       const properties = (event?.properties ?? {}) as Record<string, unknown>
       const eventSessionId = stringId(properties.sessionID ?? properties.sessionId)
-      if (!eventSessionId || eventSessionId !== this.#providerSessionId) return
+      if (!eventSessionId || eventSessionId !== this.#harnessSessionId) return
       if (event?.type === "permission.asked" || event?.type === "question.asked") {
         const requestId = stringId(properties.id)
         if (!requestId) return
-        const interactionId = `provider:opencode:${requestId}`
+        const interactionId = `harness:opencode:${requestId}`
         this.#reverse.set(interactionId, message)
         const questions = Array.isArray(properties.questions)
           ? properties.questions.flatMap((question) => {
@@ -1415,7 +1415,7 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       ) {
         const requestId = stringId(properties.requestID)
         if (requestId) {
-          const interactionId = `provider:opencode:${requestId}`
+          const interactionId = `harness:opencode:${requestId}`
           this.#reverse.delete(interactionId)
           onEvent({ interactionId, type: "interaction-resolved" })
         }
@@ -1425,8 +1425,8 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
         onEvent({ turnId: stringId(properties.messageID) ?? "active", type: "turn-completed" })
         return
       }
-      const item = mapProviderItem(properties.part ?? properties.message, this.agentId)
-      if (item) onEvent({ item: { item, providerItemId: item.itemId }, type: "timeline" })
+      const item = mapHarnessItem(properties.part ?? properties.message, this.agentId)
+      if (item) onEvent({ item: { item, harnessItemId: item.itemId }, type: "timeline" })
       return
     }
     if (message.type.includes("turn.completed") || message.type.includes("agent_end")) {
@@ -1436,22 +1436,22 @@ export class ManagedThreadAdapter implements ThreadProviderAdapter {
       })
       return
     }
-    const item = mapProviderItem(
+    const item = mapHarnessItem(
       payload.item ?? payload.message ?? payload.event ?? payload.update,
       this.agentId
     )
-    if (item) onEvent({ item: { item, providerItemId: item.itemId }, type: "timeline" })
+    if (item) onEvent({ item: { item, harnessItemId: item.itemId }, type: "timeline" })
   }
 
-  #mapOpenCodeHistory(value: unknown): ThreadProviderHistoryItem[] {
+  #mapOpenCodeHistory(value: unknown): ThreadHarnessHistoryItem[] {
     if (!Array.isArray(value)) return []
     return value.flatMap((message) => {
       if (!message || typeof message !== "object") return []
       const record = message as Record<string, unknown>
       const parts = Array.isArray(record.parts) ? record.parts : []
       return parts.flatMap((part) => {
-        const item = mapProviderItem(part, this.agentId)
-        return item ? [{ item, providerItemId: item.itemId }] : []
+        const item = mapHarnessItem(part, this.agentId)
+        return item ? [{ item, harnessItemId: item.itemId }] : []
       })
     })
   }

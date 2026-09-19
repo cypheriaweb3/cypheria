@@ -1,7 +1,5 @@
 # `@cypheria/ai-sdk-provider`
 
-> Status: Current implementation
-
 Browser-safe AI SDK language-model providers backed by Cypheria Threads and `@cypheria/client`.
 
 ## Public entry points
@@ -26,6 +24,6 @@ The persisted Server Timeline remains authoritative history. Streams are a live 
 
 ## Dependency boundary
 
-The package depends only on `@cypheria/client`, `@cypheria/protocol`, and public AI SDK types. It cannot launch Agent processes, read provider files, open the database, or import Server internals.
+The package depends only on `@cypheria/client`, `@cypheria/protocol`, and public AI SDK types. It cannot launch Agent processes, read harness files, open the database, or import Server internals.
 
-See [Agents](../../docs/agents.md) and [Protocol](../../docs/protocol.md).
+See [Agent harnesses](../../docs/agent-harnesses.md) and [Protocol](../../docs/protocol.md).

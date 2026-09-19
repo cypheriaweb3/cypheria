@@ -1,7 +1,5 @@
 # `@cypheria/ai-sdk-provider`
 
-> 状态：当前实现
-
 基于 Cypheria Threads 和 `@cypheria/client` 的浏览器安全 AI SDK language-model providers。
 
 ## 公开入口
@@ -26,6 +24,6 @@ Provider 将 Canonical Timeline updates 转换为 AI SDK text、reasoning、tool
 
 ## 依赖边界
 
-该包只依赖 `@cypheria/client`、`@cypheria/protocol` 和 AI SDK 公开类型，不能启动 Agent process、读取 provider 文件、打开数据库或导入 Server 内部实现。
+该包只依赖 `@cypheria/client`、`@cypheria/protocol` 和 AI SDK 公开类型，不能启动 Agent process、读取 harness 文件、打开数据库或导入 Server 内部实现。
 
-参见 [Agents](../../docs/agents.zh-CN.md) 和[协议](../../docs/protocol.zh-CN.md)。
+参见 [Agent harnesses](../../docs/agent-harnesses.zh-CN.md) 和[协议](../../docs/protocol.zh-CN.md)。

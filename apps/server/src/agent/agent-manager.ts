@@ -30,7 +30,7 @@ import {
   type ServerMessage,
   type ToolchainId,
 } from "@cypheria/protocol"
-import type { ThreadProviderAdapter } from "../thread/provider-adapter.js"
+import type { ThreadHarnessAdapter } from "../thread/harness-adapter.js"
 import { AcpSessionRuntime } from "./acp-session-runtime.js"
 import { AgentInstaller } from "./agent-installer.js"
 import { type ClaudePermissionHandler, ClaudeSessionRuntime } from "./claude-session-runtime.js"
@@ -252,7 +252,7 @@ export class AgentManager {
     this.#sessionStates.delete(sessionId)
   }
 
-  adapterFor(agentId: AgentId, threadId: string): ThreadProviderAdapter {
+  adapterFor(agentId: AgentId, threadId: string): ThreadHarnessAdapter {
     const key = `${agentId}:${threadId}`
     let adapter = this.#threadAdapters.get(key)
     if (!adapter) {

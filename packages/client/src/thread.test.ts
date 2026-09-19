@@ -14,7 +14,7 @@ const thread = {
     configure: false,
     fork: false,
     promptContent: ["text" as const],
-    providerExtensions: false,
+    harnessExtensions: false,
     steer: false,
   },
   createdAt: 100,
@@ -30,7 +30,7 @@ const thread = {
 }
 
 describe("thread actions", () => {
-  it("uses thread.get and never exposes the provider session id as a handle", async () => {
+  it("uses thread.get and never exposes the harness session id as a handle", async () => {
     const requestThread = vi.fn(async (type: string, _payload: unknown) => ({
       payload: { ok: true as const, value: thread },
       requestId: "test",

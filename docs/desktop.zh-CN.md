@@ -1,7 +1,5 @@
 # Desktop
 
-> 状态：当前实现
-
 `apps/desktop` 是 Cypheria 的主客户端，由 Electron main、preload 与 TanStack Start renderer 组成，保留紧凑、面向工作区的 Sidebar 和会话体验。它不与 Expo 共享应用 shell。
 
 ## 进程边界
@@ -38,7 +36,7 @@ Sidebar 使用 Cypheria Projects、Threads、Sections facades。Server 直接返
 - 上下文菜单、键盘导航、未读状态和运行状态保持可见。
 - 加载、空、错误和乐观状态保持布局，失败 mutation 会回滚。
 
-Query key 和乐观更新基于 Cypheria ID。Provider session ID 不会替代 Thread ID 成为导航或缓存身份。
+Query key 和乐观更新基于 Cypheria ID。Harness session ID 不会替代 Thread ID 成为导航或缓存身份。
 
 ## 会话工作区
 
@@ -56,7 +54,7 @@ AgentChatWorkspace
 
 共同体验包括草稿、附件、临时到持久 Thread 转换、每 Thread scope、流式输出、取消、重试、虚拟 Timeline、滚动锚点、位置恢复、未读、搜索、导航、reasoning、plans、tools、commands、diffs、terminals、approvals、artifacts 和故障恢复。
 
-Provider 专属 UI 仅限判别 Timeline 扩展、header actions、model settings、permission details 和真实 provider capabilities。Codex 仍是保真参考，但 Claude、Pi、OpenCode 和 ACP 复用同一 shell，而不是复制整套 UI。
+Harness 专属 UI 仅限判别 Timeline 扩展、header actions、model settings、permission details 和真实 harness capabilities。Codex 仍是保真参考，但 Claude、Pi、OpenCode 和 ACP 复用同一 shell，而不是复制整套 UI。
 
 Canonical Timeline 历史通过 `@cypheria/client` 加载。AI SDK stream 提供响应迅速的实时更新，但不会成为第二个持久历史存储。
 

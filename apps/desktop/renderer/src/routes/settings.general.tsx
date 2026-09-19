@@ -49,7 +49,7 @@ function GeneralSettingsRoute() {
     staleTime: Number.POSITIVE_INFINITY,
   })
   const permissionsQuery = useQuery({
-    queryFn: async () => (await ensureCypheriaClient()).providers.codex.permissions.catalog(),
+    queryFn: async () => (await ensureCypheriaClient()).harnesses.codex.permissions.catalog(),
     queryKey: ["codex", "permissions", null],
   })
   const workspaceLayoutQuery = useQuery({
@@ -73,7 +73,7 @@ function GeneralSettingsRoute() {
   })
   const fullAccessMutation = useMutation({
     mutationFn: async (enabled: boolean) => {
-      return (await ensureCypheriaClient()).providers.codex.permissions.setShowFullAccess(enabled)
+      return (await ensureCypheriaClient()).harnesses.codex.permissions.setShowFullAccess(enabled)
     },
     onSuccess: (catalog) => {
       if (catalog) queryClient.setQueryData(["codex", "permissions", null], catalog)

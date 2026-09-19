@@ -8,8 +8,8 @@ import { threadLifecycleOperations } from "./schema/index.js"
 export const threadLifecycleKinds = ["create", "delete"] as const
 export const threadLifecycleStatuses = [
   "pending",
-  "provider-created",
-  "provider-deleted",
+  "harness-created",
+  "harness-deleted",
   "failed",
 ] as const
 
@@ -108,11 +108,7 @@ export const createThreadLifecyclePersistenceService = (
       .select()
       .from(threadLifecycleOperations)
       .where(
-        inArray(threadLifecycleOperations.status, [
-          "pending",
-          "provider-created",
-          "provider-deleted",
-        ])
+        inArray(threadLifecycleOperations.status, ["pending", "harness-created", "harness-deleted"])
       )
       .orderBy(asc(threadLifecycleOperations.createdAt), asc(threadLifecycleOperations.id)),
   transition: async (id, patch, now = nowSeconds()) => {

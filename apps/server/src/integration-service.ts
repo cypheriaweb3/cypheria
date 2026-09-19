@@ -213,11 +213,11 @@ export class IntegrationService {
       const response = await fetch(cursor)
       items.push(...response.data)
       if (!response.nextCursor) return items
-      if (seen.has(response.nextCursor)) throw new Error("Provider returned a repeated cursor")
+      if (seen.has(response.nextCursor)) throw new Error("Harness returned a repeated cursor")
       seen.add(response.nextCursor)
       cursor = response.nextCursor
     }
-    throw new Error("Provider catalog exceeded the page limit")
+    throw new Error("Harness catalog exceeded the page limit")
   }
 
   async #listApps(forceRefresh = false) {
@@ -294,7 +294,7 @@ export class IntegrationService {
         enabled: Object.hasOwn(config, server.name) ? config[server.name]?.enabled !== false : null,
         name: server.name,
         pluginId: server.pluginId,
-        provider: { agentId: "codex" as const, nativeId: server.name },
+        harness: { agentId: "codex" as const, nativeId: server.name },
         resourceCount: server.resources.length + server.resourceTemplates.length,
         runtimeStatus: server.runtimeStatus,
         tools: Object.entries(server.tools).flatMap(([name, tool]) =>
@@ -311,7 +311,7 @@ export class IntegrationService {
         enabled: entry.enabled !== false,
         name,
         pluginId: null,
-        provider: { agentId: "codex", nativeId: name },
+        harness: { agentId: "codex", nativeId: name },
         resourceCount: 0,
         runtimeStatus: entry.enabled === false ? "disabled" : null,
         tools: [],
@@ -350,7 +350,7 @@ export class IntegrationService {
       name,
     })
     const authorizationUrl = webUrl(result.authorizationUrl)
-    if (!authorizationUrl) throw new Error("Provider returned an invalid authorization URL")
+    if (!authorizationUrl) throw new Error("Harness returned an invalid authorization URL")
     return { authorizationUrl }
   }
 
@@ -377,7 +377,7 @@ export class IntegrationService {
           name: skill.name,
           path: skill.path,
           pluginId: skill.pluginId,
-          provider: { agentId: "codex" as const, nativeId: skill.path },
+          harness: { agentId: "codex" as const, nativeId: skill.path },
           scope: skill.scope,
         }))
       ),
@@ -420,7 +420,7 @@ export class IntegrationService {
               marketplaceName: marketplace.name,
               marketplacePath: marketplace.path,
               name: plugin.name,
-              provider: { agentId: "codex" as const, nativeId: plugin.id },
+              harness: { agentId: "codex" as const, nativeId: plugin.id },
               sourceType: plugin.source.type,
               version: plugin.localVersion ?? plugin.version,
             }))

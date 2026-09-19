@@ -36,7 +36,7 @@ export const ThreadCapabilitiesSchema = z.object({
   configure: z.boolean(),
   fork: z.boolean(),
   promptContent: z.array(ThreadPromptContentTypeSchema),
-  providerExtensions: z.boolean(),
+  harnessExtensions: z.boolean(),
   steer: z.boolean(),
 })
 export type ThreadCapabilities = z.infer<typeof ThreadCapabilitiesSchema>
@@ -70,7 +70,7 @@ export const ThreadInteractionSchema = z.object({
   kind: z.enum(["permission", "question", "elicitation"]),
   message: z.string(),
   options: z.array(ThreadInteractionOptionSchema),
-  provider: z
+  harness: z
     .object({
       agentId: AgentIdSchema,
       metadata: z.json(),
@@ -143,7 +143,7 @@ export const ThreadTimelineItemStatusSchema = z.enum([
 
 const TimelineBaseItemSchema = z.object({
   itemId: z.string().min(1),
-  providerData: z
+  harnessData: z
     .object({
       agentId: AgentIdSchema,
       nativeType: z.string().min(1),
@@ -170,7 +170,7 @@ export const ThreadTimelineItemSchema = z.discriminatedUnion("type", [
     itemId: z.string().min(1),
     name: z.string().min(1),
     output: z.unknown().nullable(),
-    providerData: TimelineBaseItemSchema.shape.providerData,
+    harnessData: TimelineBaseItemSchema.shape.harnessData,
     status: ThreadTimelineItemStatusSchema,
     type: z.literal("tool"),
   }),
@@ -182,7 +182,7 @@ export const ThreadTimelineItemSchema = z.discriminatedUnion("type", [
       })
     ),
     itemId: z.string().min(1),
-    providerData: TimelineBaseItemSchema.shape.providerData,
+    harnessData: TimelineBaseItemSchema.shape.harnessData,
     type: z.literal("plan"),
   }),
   z.object({
@@ -192,7 +192,7 @@ export const ThreadTimelineItemSchema = z.discriminatedUnion("type", [
     exitCode: z.int().nullable(),
     itemId: z.string().min(1),
     output: z.string(),
-    providerData: TimelineBaseItemSchema.shape.providerData,
+    harnessData: TimelineBaseItemSchema.shape.harnessData,
     status: ThreadTimelineItemStatusSchema,
     type: z.literal("command"),
   }),
@@ -208,7 +208,7 @@ export const ThreadTimelineItemSchema = z.discriminatedUnion("type", [
       )
       .min(1),
     itemId: z.string().min(1),
-    providerData: TimelineBaseItemSchema.shape.providerData,
+    harnessData: TimelineBaseItemSchema.shape.harnessData,
     status: ThreadTimelineItemStatusSchema,
     type: z.literal("diff"),
   }),
@@ -217,7 +217,7 @@ export const ThreadTimelineItemSchema = z.discriminatedUnion("type", [
     interactionId: z.string().nullable(),
     itemId: z.string().min(1),
     message: z.string(),
-    providerData: TimelineBaseItemSchema.shape.providerData,
+    harnessData: TimelineBaseItemSchema.shape.harnessData,
     title: z.string().nullable(),
     type: z.literal("approval"),
   }),
@@ -226,14 +226,14 @@ export const ThreadTimelineItemSchema = z.discriminatedUnion("type", [
     kind: z.enum(["file", "image", "audio", "terminal", "url", "other"]),
     mimeType: z.string().nullable(),
     name: z.string(),
-    providerData: TimelineBaseItemSchema.shape.providerData,
+    harnessData: TimelineBaseItemSchema.shape.harnessData,
     uri: z.string().min(1),
     type: z.literal("artifact"),
   }),
   z.object({
     itemId: z.string().min(1),
     message: z.string(),
-    providerData: TimelineBaseItemSchema.shape.providerData,
+    harnessData: TimelineBaseItemSchema.shape.harnessData,
     status: ThreadTimelineItemStatusSchema,
     type: z.literal("status"),
   }),
@@ -243,13 +243,13 @@ export const ThreadTimelineItemSchema = z.discriminatedUnion("type", [
     nativeType: z.string().min(1),
     payload: z.unknown(),
     status: ThreadTimelineItemStatusSchema.optional(),
-    type: z.literal("provider"),
+    type: z.literal("harness"),
   }),
   z.object({
     code: z.string().min(1),
     itemId: z.string().min(1),
     message: z.string(),
-    providerData: TimelineBaseItemSchema.shape.providerData,
+    harnessData: TimelineBaseItemSchema.shape.harnessData,
     type: z.literal("error"),
   }),
 ])
@@ -257,7 +257,7 @@ export type ThreadTimelineItem = z.infer<typeof ThreadTimelineItemSchema>
 
 export const ThreadTimelineRowSchema = z.object({
   item: ThreadTimelineItemSchema,
-  providerItemId: z.string().nullable(),
+  harnessItemId: z.string().nullable(),
   seq: z.int().positive(),
   timestamp: z.string().datetime(),
   turnId: z.string().nullable(),
@@ -577,7 +577,7 @@ export const ThreadEventNotificationSchema = z.object({
         agentId: AgentIdSchema,
         nativeType: z.string().min(1),
         payload: z.json(),
-        type: z.literal("provider"),
+        type: z.literal("harness"),
       }),
     ]),
     threadId: ProjectThreadIdSchema,

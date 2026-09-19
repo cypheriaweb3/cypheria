@@ -82,7 +82,7 @@ export const threads = sqliteTable(
 )
 
 /**
- * Durable intent log for the provider/SQLite boundary. Timeline content remains provider-owned;
+ * Durable intent log for the harness/SQLite boundary. Timeline content remains harness-owned;
  * this table only lets the server finish or compensate interrupted create/delete operations.
  */
 export const threadLifecycleOperations = sqliteTable(
@@ -96,7 +96,7 @@ export const threadLifecycleOperations = sqliteTable(
     agentSessionId: text("agent_session_id"),
     kind: text("kind", { enum: ["create", "delete"] }).notNull(),
     status: text("status", {
-      enum: ["pending", "provider-created", "provider-deleted", "failed"],
+      enum: ["pending", "harness-created", "harness-deleted", "failed"],
     }).notNull(),
     input: text("input", { mode: "json" }).$type<Record<string, unknown>>().notNull(),
     error: text("error"),
@@ -109,7 +109,7 @@ export const threadLifecycleOperations = sqliteTable(
     check("thread_lifecycle_operations_kind_check", sql`${table.kind} IN ('create', 'delete')`),
     check(
       "thread_lifecycle_operations_status_check",
-      sql`${table.status} IN ('pending', 'provider-created', 'provider-deleted', 'failed')`
+      sql`${table.status} IN ('pending', 'harness-created', 'harness-deleted', 'failed')`
     ),
     check("thread_lifecycle_operations_created_at_check", sql`${table.createdAt} >= 0`),
     check(
@@ -145,7 +145,7 @@ export const threadTimelineRows = sqliteTable(
     epoch: text("epoch").notNull(),
     seq: integer("seq").notNull(),
     turnId: text("turn_id"),
-    providerItemId: text("provider_item_id"),
+    harnessItemId: text("harness_item_id"),
     timestamp: text("timestamp").notNull(),
     item: text("item", { mode: "json" }).$type<unknown>().notNull(),
   },

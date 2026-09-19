@@ -1,7 +1,5 @@
 # `@cypheria/relay`
 
-> Status: Current implementation
-
 Transport-neutral pairing, end-to-end encryption, and relay URL helpers for Cypheria clients and Servers.
 
 ## Responsibility

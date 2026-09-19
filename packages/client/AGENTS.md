@@ -10,7 +10,7 @@ Read the package [README](README.md), public [Protocol](../../docs/protocol.md),
 - Add a facade only after its request, response, notification, and validation contracts exist in `@cypheria/protocol`.
 - Keep generated native protocol types and validators in `@cypheria/protocol`.
 
-Current public facades include Agents, Projects, Threads, Sections, Timeline, schedules, Web3, integrations, terminals, artifacts, settings, Server operations, and genuine provider extensions. `providers.codex` owns account, model, permission, guardian, and Apps extensions; other provider facades currently expose integration context. Do not expose raw provider-native messages.
+Current public facades include Agents, Projects, Threads, Sections, Timeline, schedules, Web3, integrations, terminals, artifacts, settings, Server operations, and genuine harness extensions. `harnesses.codex` owns account, model, permission, guardian, and Apps extensions; other harness facades currently expose integration context. Do not expose raw harness-native messages.
 
 ## Layers
 
@@ -23,7 +23,7 @@ Current public facades include Agents, Projects, Threads, Sections, Timeline, sc
 
 - Keep transports interchangeable across browser, Node, relay E2EE, and injected implementations.
 - Validate every outbound and inbound message.
-- Deliver notifications through `on(...)` and `subscribe(...)`; clients do not create provider-native subscriptions.
+- Deliver notifications through `on(...)` and `subscribe(...)`; clients do not create harness-native subscriptions.
 - Reject in-flight requests on disconnect, isolate listener failures, and ignore stale transport events.
 - Reconnects must be bounded and cancellable by `close()`.
 - A transport loss does not stop Server-owned Agents, Threads, or schedules.

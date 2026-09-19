@@ -1,7 +1,5 @@
 # Schedules
 
-> 状态：当前实现
-
 Schedule 是 Server 所有的持久任务。Desktop 和 CLI 只通过 `client.schedules` 管理；任何客户端 timer 都不是权威来源。
 
 ## Cadence

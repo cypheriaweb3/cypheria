@@ -1,7 +1,5 @@
 # Desktop
 
-> Status: Current implementation
-
 `apps/desktop` is Cypheria's primary client. It combines Electron main and preload processes with a TanStack Start renderer and preserves the dense, workspace-oriented Sidebar and conversation experience. It does not share its application shell with Expo.
 
 ## Process boundary
@@ -38,7 +36,7 @@ The established interaction model is a product invariant:
 - Context menus, keyboard navigation, unread state, and running state remain visible.
 - Loading, empty, error, and optimistic states preserve layout and roll back failed mutations.
 
-Query keys and optimistic updates are based on Cypheria IDs. Provider session IDs never replace Thread IDs in navigation or cache identity.
+Query keys and optimistic updates are based on Cypheria IDs. Harness session IDs never replace Thread IDs in navigation or cache identity.
 
 ## Conversation workspace
 
@@ -56,7 +54,7 @@ AgentChatWorkspace
 
 The common experience includes drafts, attachments, temporary-to-persistent Thread transitions, per-Thread scope, streaming, cancellation, retry, virtualized Timeline, scroll anchoring, position restoration, unread state, search, navigation, reasoning, plans, tools, commands, diffs, terminals, approvals, artifacts, and failure recovery.
 
-Provider-specific UI is limited to discriminated Timeline extensions, header actions, model settings, permission details, and genuine provider capabilities. Codex remains the fidelity reference, but Claude, Pi, OpenCode, and ACP reuse the same shell rather than cloning it.
+Harness-specific UI is limited to discriminated Timeline extensions, header actions, model settings, permission details, and genuine harness capabilities. Codex remains the fidelity reference, but Claude, Pi, OpenCode, and ACP reuse the same shell rather than cloning it.
 
 Canonical Timeline history is loaded through `@cypheria/client`. AI SDK streams provide responsive live updates, but do not become a second durable history store.
 

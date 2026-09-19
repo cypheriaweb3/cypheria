@@ -1,8 +1,8 @@
-import type { CodexProviderServerMessage, PersistedServerConfig } from "@cypheria/protocol"
+import type { CodexHarnessServerMessage, PersistedServerConfig } from "@cypheria/protocol"
 import { describe, expect, it, vi } from "vitest"
 
 import type { AgentManager } from "./agent/agent-manager.js"
-import { CodexProviderService } from "./codex-provider-service.js"
+import { CodexHarnessService } from "./codex-harness-service.js"
 import type { ServerConfigStore } from "./server-config-store.js"
 
 const config: PersistedServerConfig = {
@@ -34,7 +34,7 @@ const config: PersistedServerConfig = {
   version: 1,
 }
 
-describe("CodexProviderService", () => {
+describe("CodexHarnessService", () => {
   it("projects account state and persists model settings in Cypheria config", async () => {
     const callCodex = vi.fn(async (method: string) => {
       if (method === "account/read") {
@@ -55,13 +55,13 @@ describe("CodexProviderService", () => {
       getSnapshot: () => ({ config }),
       patch,
     } as unknown as ServerConfigStore
-    const service = new CodexProviderService({ callCodex } as unknown as AgentManager, store)
-    const messages: CodexProviderServerMessage[] = []
+    const service = new CodexHarnessService({ callCodex } as unknown as AgentManager, store)
+    const messages: CodexHarnessServerMessage[] = []
     await service.handle(
       {
         payload: { refresh: true },
         requestId: "account-1",
-        type: "provider.codex.account.get.request",
+        type: "harness.codex.account.get.request",
       },
       (message) => messages.push(message)
     )
@@ -78,7 +78,7 @@ describe("CodexProviderService", () => {
           serviceTier: null,
         },
         requestId: "settings-1",
-        type: "provider.codex.model-settings.set.request",
+        type: "harness.codex.model-settings.set.request",
       },
       (message) => messages.push(message)
     )
@@ -130,8 +130,8 @@ describe("CodexProviderService", () => {
       getSnapshot: () => ({ config, path: "/tmp/cypheria/config/config.json" }),
       patch,
     } as unknown as ServerConfigStore
-    const service = new CodexProviderService({ callCodex } as unknown as AgentManager, store)
-    const messages: CodexProviderServerMessage[] = []
+    const service = new CodexHarnessService({ callCodex } as unknown as AgentManager, store)
+    const messages: CodexHarnessServerMessage[] = []
     await service.handle(
       {
         payload: {
@@ -144,7 +144,7 @@ describe("CodexProviderService", () => {
           webSearch: "live",
         },
         requestId: "permissions-1",
-        type: "provider.codex.permissions.defaults.set.request",
+        type: "harness.codex.permissions.defaults.set.request",
       },
       (message) => messages.push(message)
     )
@@ -152,7 +152,7 @@ describe("CodexProviderService", () => {
       {
         payload: {},
         requestId: "catalog-1",
-        type: "provider.codex.permissions.catalog.get.request",
+        type: "harness.codex.permissions.catalog.get.request",
       },
       (message) => messages.push(message)
     )

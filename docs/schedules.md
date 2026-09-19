@@ -1,7 +1,5 @@
 # Schedules
 
-> Status: Current implementation
-
 Schedules are durable Server-owned jobs. Desktop and CLI manage them only through `client.schedules`; no client timer is authoritative.
 
 ## Cadence

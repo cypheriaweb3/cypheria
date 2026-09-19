@@ -1,14 +1,12 @@
 # Codex Configuration in Cypheria
 
-> Status: Current implementation
-
 This document describes only the Codex configuration semantics Cypheria currently depends on. It is not a complete Codex configuration reference. Exact App Server fields remain governed by the generated protocol and the pinned `@openai/codex` version.
 
 ## Sources of truth
 
 Shared Cypheria defaults are stored in `$CYPHERIA_HOME/config/config.json` under `agents.codex`. Cypheria-managed Codex runs with `CODEX_HOME=$CYPHERIA_HOME/codex`, isolating its native files from the user's default Codex home.
 
-When a user changes supported Codex settings through `client.providers.codex`, the Server:
+When a user changes supported Codex settings through `client.harnesses.codex`, the Server:
 
 1. validates and atomically updates Cypheria configuration;
 2. writes the corresponding native Codex keys through App Server configuration operations;
@@ -44,7 +42,7 @@ Clients must render the returned catalog. They must not expose a disallowed choi
 
 ## Thread and turn scope
 
-Shared settings are defaults for new Threads. A Thread captures provider session state and may receive supported model, reasoning, service-tier, working-directory, and permission selections. Starting a normal turn does not recreate the Codex process or reload every native configuration field.
+Shared settings are defaults for new Threads. A Thread captures harness session state and may receive supported model, reasoning, service-tier, working-directory, and permission selections. Starting a normal turn does not recreate the Codex process or reload every native configuration field.
 
 Provider replacement is a new-Thread concern. Per-turn response format and transient context are not persisted as global defaults. The Server passes typed App Server request fields when available rather than relying on an untyped configuration map.
 
@@ -61,9 +59,9 @@ A configuration reload is therefore not equivalent to replacing all state in an 
 
 ## Native extensions
 
-Advanced native configuration—custom providers, permission profiles, MCP transports, plugin policy, Apps, Skills, hooks, project trust, shell environment, telemetry, and experimental features—remains Server-owned and may be edited through provider-supported flows. It is not copied into Cypheria's small shared settings schema unless the product depends on it.
+Advanced native configuration—custom providers, permission profiles, MCP transports, plugin policy, Apps, Skills, hooks, project trust, shell environment, telemetry, and experimental features—remains Server-owned and may be edited through harness-supported flows. It is not copied into Cypheria's small shared settings schema unless the product depends on it.
 
-Provider-native Skills, MCP, plugins, marketplaces, and Apps are exposed through the Cypheria [Integrations](integrations.md) facade. Codex permission presentation is specified in [Codex Permissions](codex-permissions.md).
+Harness-native Skills, MCP, plugins, marketplaces, and Apps are exposed through the Cypheria [Integrations](integrations.md) facade. Codex permission presentation is specified in [Codex Permissions](codex-permissions.md).
 
 ## Client-local exclusions
 

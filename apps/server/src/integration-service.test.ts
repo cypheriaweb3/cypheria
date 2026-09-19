@@ -4,7 +4,7 @@ import type { AgentManager } from "./agent/agent-manager.js"
 import { IntegrationService } from "./integration-service.js"
 
 describe("IntegrationService", () => {
-  it("projects Codex skills with compatibility and provider provenance", async () => {
+  it("projects Codex skills with compatibility and harness provenance", async () => {
     const callCodex = vi.fn(async () => ({
       data: [
         {
@@ -46,7 +46,7 @@ describe("IntegrationService", () => {
             skills: [
               expect.objectContaining({
                 compatibility: ["codex"],
-                provider: { agentId: "codex", nativeId: "/skills/review/SKILL.md" },
+                harness: { agentId: "codex", nativeId: "/skills/review/SKILL.md" },
               }),
             ],
           }),
@@ -57,7 +57,7 @@ describe("IntegrationService", () => {
     )
   })
 
-  it("rejects unsupported provider adapters without falling back to Codex", async () => {
+  it("rejects unsupported harness adapters without falling back to Codex", async () => {
     const callCodex = vi.fn()
     const service = new IntegrationService({ callCodex } as unknown as AgentManager)
     const send = vi.fn()

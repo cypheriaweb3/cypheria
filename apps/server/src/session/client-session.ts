@@ -4,8 +4,8 @@ import {
   type ClientCapabilities,
   type ClientDescriptor,
   type ClientMessage,
-  type CodexProviderClientMessage,
-  type CodexProviderServerMessage,
+  type CodexHarnessClientMessage,
+  type CodexHarnessServerMessage,
   type IntegrationClientMessage,
   type IntegrationServerMessage,
   type PersistedServerConfigPatch,
@@ -44,9 +44,9 @@ export type SessionHost = {
     message: IntegrationClientMessage,
     send: (message: IntegrationServerMessage) => void
   ): Promise<boolean>
-  handleCodexProviderMessage?(
-    message: CodexProviderClientMessage,
-    send: (message: CodexProviderServerMessage) => void
+  handleCodexHarnessMessage?(
+    message: CodexHarnessClientMessage,
+    send: (message: CodexHarnessServerMessage) => void
   ): Promise<boolean>
   handleScheduleMessage?(
     message: ScheduleClientMessage,
@@ -236,10 +236,10 @@ export class ClientSession {
         break
       default:
         if (
-          message.type.startsWith("provider.codex.") &&
-          this.#host.handleCodexProviderMessage &&
-          (await this.#host.handleCodexProviderMessage(
-            message as CodexProviderClientMessage,
+          message.type.startsWith("harness.codex.") &&
+          this.#host.handleCodexHarnessMessage &&
+          (await this.#host.handleCodexHarnessMessage(
+            message as CodexHarnessClientMessage,
             (response) => this.sendTo(source, response)
           ))
         ) {

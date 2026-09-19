@@ -1,7 +1,5 @@
 # UI 系统
 
-> 状态：当前实现与发布不变量
-
 Cypheria Desktop 使用安静、紧凑、面向 panel 的视觉系统，适合长时间技术工作。既有 Sidebar 和会话工作区是保真要求最高的产品界面。本文负责视觉与交互规则；实现边界仍见 [Desktop](desktop.zh-CN.md)。
 
 ## 原则
@@ -38,15 +36,15 @@ Typography 使用清晰的 UI 字体栈，并为 code、command、path、address
 
 ## AI Elements
 
-AI Elements 提供可组合的 message、reasoning、tool、code、plan、attachment、prompt 和 streaming state 会话原语。Desktop 在既有会话 shell 内组合它们，不会替换已有导航、Thread scope、virtualization、scroll restoration 或 provider extensions。
+AI Elements 提供可组合的 message、reasoning、tool、code、plan、attachment、prompt 和 streaming state 会话原语。Desktop 在既有会话 shell 内组合它们，不会替换已有导航、Thread scope、virtualization、scroll restoration 或 harness extensions。
 
-Timeline renderer 接收 Canonical Timeline item。Provider renderer 只为判别 provider item 或确有额外行为的 metadata 注册。
+Timeline renderer 接收 Canonical Timeline item。Harness renderer 只为判别 harness item 或确有额外行为的 metadata 注册。
 
 ## Sidebar 不变量
 
 - 保持 Pinned、自定义 Sections、Projects 和 recents 的既有顺序与密度。
 - 保持 nesting、expansion、pagination、selection、context menu、drag and drop、keyboard navigation、unread 和 running state。
-- 不从视觉状态或 provider metadata 推断 membership。
+- 不从视觉状态或 harness metadata 推断 membership。
 - 乐观移动必须稳定；回滚同时恢复顺序和 membership。
 - Loading 和 error placeholder 不应导致无关 row 跳动。
 
@@ -58,7 +56,7 @@ Timeline renderer 接收 Canonical Timeline item。Provider renderer 只为判�
 - 用户离开实时边缘后不得强制滚动。
 - 在操作发生位置展示 cancel、retry、pending interaction 和 failure recovery。
 - 对所有 Agent 一致渲染通用 item type。
-- Provider 专属控件保持局部作用域和清晰来源标识。
+- Harness 专属控件保持局部作用域和清晰来源标识。
 
 Virtualization 必须支持可变高度内容、增量历史加载、terminal output、展开的 reasoning 和大型 diff，且不能破坏恢复后的滚动位置。
 

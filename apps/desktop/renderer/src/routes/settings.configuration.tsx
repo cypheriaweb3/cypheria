@@ -27,7 +27,7 @@ function ConfigurationSettingsRoute() {
   const { i18n } = useLingui()
   const queryClient = useQueryClient()
   const settingsQuery = useQuery({
-    queryFn: async () => (await ensureCypheriaClient()).providers.codex.permissions.defaults(),
+    queryFn: async () => (await ensureCypheriaClient()).harnesses.codex.permissions.defaults(),
     queryKey: ["codex", "permission-defaults"],
   })
   const [draft, setDraft] = useState<CodexPermissionDefaults | null>(null)
@@ -36,7 +36,7 @@ function ConfigurationSettingsRoute() {
   }, [settingsQuery.data])
   const save = useMutation({
     mutationFn: async (settings: CodexPermissionDefaultsWrite) => {
-      return (await ensureCypheriaClient()).providers.codex.permissions.setDefaults(settings)
+      return (await ensureCypheriaClient()).harnesses.codex.permissions.setDefaults(settings)
     },
     onSuccess: (settings) => {
       setDraft(settings)

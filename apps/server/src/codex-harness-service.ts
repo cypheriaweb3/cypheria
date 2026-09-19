@@ -1,10 +1,10 @@
 import type {
+  CodexHarnessClientMessage,
+  CodexHarnessServerMessage,
   CodexModelSettings,
   CodexPermissionDefaults,
   CodexPermissionDefaultsWrite,
   CodexPermissionsCatalog,
-  CodexProviderClientMessage,
-  CodexProviderServerMessage,
 } from "@cypheria/protocol"
 
 import type { AgentManager } from "./agent/agent-manager.js"
@@ -13,7 +13,7 @@ import type { ServerConfigStore } from "./server-config-store.js"
 
 const builtInProfiles = new Set([":read-only", ":workspace", ":danger-full-access"])
 
-export class CodexProviderService {
+export class CodexHarnessService {
   readonly #agents: AgentManager
   readonly #config: ServerConfigStore
 
@@ -23,57 +23,57 @@ export class CodexProviderService {
   }
 
   async handle(
-    message: CodexProviderClientMessage,
-    send: (message: CodexProviderServerMessage) => void
+    message: CodexHarnessClientMessage,
+    send: (message: CodexHarnessServerMessage) => void
   ): Promise<boolean> {
     const respond = (value: unknown): void => {
       send({
         payload: { ok: true, value },
         requestId: message.requestId,
         type: message.type.replace(/\.request$/u, ".response"),
-      } as CodexProviderServerMessage)
+      } as CodexHarnessServerMessage)
     }
     try {
       switch (message.type) {
-        case "provider.codex.account.get.request":
+        case "harness.codex.account.get.request":
           respond(await this.#account(message.payload.refresh ?? false))
           break
-        case "provider.codex.account.login.request":
+        case "harness.codex.account.login.request":
           respond(await this.#login(message.payload))
           break
-        case "provider.codex.account.login.cancel.request": {
+        case "harness.codex.account.login.cancel.request": {
           const result = await this.#call<v2.CancelLoginAccountResponse>("account/login/cancel", {
             loginId: message.payload.loginId,
           })
           respond({ cancelled: result.status === "canceled" })
           break
         }
-        case "provider.codex.account.logout.request":
+        case "harness.codex.account.logout.request":
           await this.#call("account/logout")
           respond({ succeeded: true })
           break
-        case "provider.codex.model.list.request":
+        case "harness.codex.model.list.request":
           respond({ models: await this.#models(message.payload.includeHidden ?? false) })
           break
-        case "provider.codex.model-settings.get.request":
+        case "harness.codex.model-settings.get.request":
           respond(this.#settings())
           break
-        case "provider.codex.model-settings.set.request":
+        case "harness.codex.model-settings.set.request":
           respond(await this.#setSettings(message.payload))
           break
-        case "provider.codex.permissions.defaults.get.request":
+        case "harness.codex.permissions.defaults.get.request":
           respond(await this.#permissionDefaults())
           break
-        case "provider.codex.permissions.defaults.set.request":
+        case "harness.codex.permissions.defaults.set.request":
           respond(await this.#setPermissionDefaults(message.payload))
           break
-        case "provider.codex.permissions.catalog.get.request":
+        case "harness.codex.permissions.catalog.get.request":
           respond(await this.#permissionsCatalog(message.payload.cwd))
           break
-        case "provider.codex.permissions.show-full-access.set.request":
+        case "harness.codex.permissions.show-full-access.set.request":
           respond(await this.#setShowFullAccess(message.payload.enabled))
           break
-        case "provider.codex.guardian.retry.request":
+        case "harness.codex.guardian.retry.request":
           await this.#call("thread/approveGuardianDeniedAction", message.payload)
           respond({ succeeded: true })
           break
@@ -82,12 +82,12 @@ export class CodexProviderService {
       const failure = error instanceof Error ? error : new Error(String(error))
       send({
         payload: {
-          error: { code: failure.name || "CODEX_PROVIDER_ERROR", message: failure.message },
+          error: { code: failure.name || "CODEX_HARNESS_ERROR", message: failure.message },
           ok: false,
         },
         requestId: message.requestId,
         type: message.type.replace(/\.request$/u, ".response"),
-      } as CodexProviderServerMessage)
+      } as CodexHarnessServerMessage)
     }
     return true
   }

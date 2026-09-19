@@ -14,14 +14,14 @@ const codex = "codex" as const
 export const integrationApi = {
   apps: {
     connect: async (appId: string) => {
-      const { url } = await (await ensureCypheriaClient()).providers.codex.apps.connect(appId)
+      const { url } = await (await ensureCypheriaClient()).harnesses.codex.apps.connect(appId)
       if (!window.cypheria) throw new Error("Opening external links requires Cypheria Desktop.")
       await window.cypheria.app.openExternal(url)
     },
     list: async (forceRefresh = false): Promise<CodexAppListResult> =>
-      (await ensureCypheriaClient()).providers.codex.apps.list(forceRefresh),
+      (await ensureCypheriaClient()).harnesses.codex.apps.list(forceRefresh),
     setEnabled: async (appId: string, enabled: boolean) =>
-      (await ensureCypheriaClient()).providers.codex.apps.setEnabled(appId, enabled),
+      (await ensureCypheriaClient()).harnesses.codex.apps.setEnabled(appId, enabled),
   },
   marketplaces: {
     add: async (input: { refName?: string; source: string; sparsePaths?: string[] }) =>
@@ -81,7 +81,7 @@ export const integrationApi = {
             ({
               compatibility: _compatibility,
               ecosystem: _ecosystem,
-              provider: _provider,
+              harness: _harness,
               ...plugin
             }) => plugin
           ),
@@ -111,7 +111,7 @@ export const integrationApi = {
       return {
         errors: result.errors,
         skills: result.skills.map(
-          ({ compatibility: _compatibility, provider: _provider, ...skill }) => skill
+          ({ compatibility: _compatibility, harness: _harness, ...skill }) => skill
         ),
       }
     },

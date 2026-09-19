@@ -1,7 +1,5 @@
 # Architecture
 
-> Status: Current implementation, with planned work called out explicitly
-
 Cypheria is a local-first system with one privileged Server and multiple unprivileged clients. This document defines process ownership, data flow, and trust boundaries. Wire fields belong in [Protocol](protocol.md), persistence details in [Database](database.md), and commands in [Development](development.md) or [Server](server.md).
 
 ## System model
@@ -63,7 +61,7 @@ Agent-native events are normalized at this boundary. Native payloads may be reta
 2. The Server resolves the Thread's Agent, starts or reuses the adapter runtime, and records the turn.
 3. The adapter converts native events into Canonical Timeline events.
 4. The Server persists events and publishes ordered updates with cursors.
-5. Clients project the same durable Timeline and render provider extensions only when a discriminated item requires them.
+5. Clients project the same durable Timeline and render harness extensions only when a discriminated item requires them.
 
 ### Desktop startup
 
@@ -97,7 +95,7 @@ Pairing establishes end-to-end keys between client and Server. The relay routes 
 
 The current product is local-first: one user-controlled Server owns the authoritative store. Desktop commonly supervises that Server, while CLI and Expo can connect to it. Remote access uses the optional relay without moving execution or state to the relay.
 
-Cloud Agent execution, multi-Agent orchestration, and a stronger multi-user authorization system are outside the current implementation. They require explicit future protocol and security designs.
+Cloud Agent execution, multi-Agent orchestration, and a stronger multi-user authorization system are not implemented. They require explicit future protocol and security designs.
 
 ## Planned boundaries
 

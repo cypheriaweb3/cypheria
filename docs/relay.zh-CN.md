@@ -1,7 +1,5 @@
 # Relay
 
-> 状态：当前实现
-
 `apps/relay` 是用于远程 Cypheria 连接的可选 Go 数据平面，在客户端和用户控制的 Server 之间转发不透明的端到端加密 WebSocket frame。`@cypheria/relay` 负责两端使用的配对、channel encryption 和 transport helpers。
 
 ## 信任模型

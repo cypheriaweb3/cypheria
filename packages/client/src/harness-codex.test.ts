@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from "vitest"
 
-import { createCodexProviderActions } from "./provider-codex.js"
+import { createCodexHarnessActions } from "./harness-codex.js"
 import type { ServerClient } from "./server-client.js"
 
-describe("Codex provider actions", () => {
-  it("maps account and model operations to provider protocol messages", async () => {
-    const requestCodexProvider = vi.fn(async (type: string) => ({
+describe("Codex harness actions", () => {
+  it("maps account and model operations to harness protocol messages", async () => {
+    const requestCodexHarness = vi.fn(async (type: string) => ({
       payload: {
         ok: true as const,
         value: type.includes("model.list")
@@ -17,32 +17,32 @@ describe("Codex provider actions", () => {
       requestId: "test",
       type: type.replace(/\.request$/u, ".response"),
     }))
-    const actions = createCodexProviderActions({
-      requestCodexProvider,
+    const actions = createCodexHarnessActions({
+      requestCodexHarness,
     } as unknown as ServerClient)
 
     await actions.models.list(true)
     await actions.account.cancelLogin("login-1")
     await actions.permissions.catalog("/workspace")
 
-    expect(requestCodexProvider.mock.calls).toEqual([
-      ["provider.codex.model.list.request", { includeHidden: true }, undefined],
-      ["provider.codex.account.login.cancel.request", { loginId: "login-1" }, undefined],
-      ["provider.codex.permissions.catalog.get.request", { cwd: "/workspace" }, undefined],
+    expect(requestCodexHarness.mock.calls).toEqual([
+      ["harness.codex.model.list.request", { includeHidden: true }, undefined],
+      ["harness.codex.account.login.cancel.request", { loginId: "login-1" }, undefined],
+      ["harness.codex.permissions.catalog.get.request", { cwd: "/workspace" }, undefined],
     ])
   })
 
-  it("normalizes provider errors", async () => {
-    const requestCodexProvider = vi.fn(async () => ({
+  it("normalizes harness errors", async () => {
+    const requestCodexHarness = vi.fn(async () => ({
       payload: {
         error: { code: "AUTH_FAILED", message: "Sign in again" },
         ok: false as const,
       },
       requestId: "test",
-      type: "provider.codex.account.get.response" as const,
+      type: "harness.codex.account.get.response" as const,
     }))
-    const actions = createCodexProviderActions({
-      requestCodexProvider,
+    const actions = createCodexHarnessActions({
+      requestCodexHarness,
     } as unknown as ServerClient)
     await expect(actions.account.get()).rejects.toMatchObject({
       message: "Sign in again",

@@ -1,7 +1,5 @@
 # Development
 
-> Status: Current implementation
-
 This guide is the canonical reference for the workspace, toolchain, generated artifacts, and verification workflow. Product ownership belongs in [Architecture](architecture.md).
 
 ## Requirements
@@ -29,7 +27,7 @@ Implemented packages:
 
 | Workspace | Responsibility |
 | --- | --- |
-| `packages/protocol` | Public protocol, Zod validation, generated provider artifacts |
+| `packages/protocol` | Public protocol, Zod validation, generated Codex artifacts |
 | `packages/client` | Connection lifecycle and domain facades |
 | `packages/ai-sdk-provider` | Browser-safe AI SDK providers backed by the client |
 | `packages/db` | SQLite schema, migrations, and repositories |
@@ -108,7 +106,7 @@ The generator normalizes Rust 64-bit integers to JSON `number`, adds explicit Ty
 
 ## Testing strategy
 
-- Protocol tests validate schemas, version negotiation, provider adapters, and Timeline projection.
+- Protocol tests validate schemas, version negotiation, harness adapters, and Timeline projection.
 - Client tests validate transports, request lifecycle, domain facades, relay transport, and error normalization.
 - Server tests cover Agent runtimes, projects and threads, schedules, integrations, Web3 services, configuration, and operations.
 - Desktop tests cover Server management, preload contracts, Sidebar data adaptation, and conversation behavior.
@@ -128,12 +126,12 @@ Tests should exercise public boundaries rather than import private files from an
 
 English is the source document and each maintained product page has a complete `.zh-CN.md` companion with the same heading topology. One page owns each subject; other pages link to it.
 
-Run `pnpm docs:check` after documentation changes. Generated pages are updated through their generator. Current implementation, planned work, and generated references must be labeled explicitly. Historical change logs belong in Git, not the product documentation.
+Run `pnpm docs:check` after documentation changes. Generated pages are updated through their generator. Current behavior is left unmarked; planned work and generated references must be labeled explicitly. Historical change logs belong in Git, not the product documentation.
 
 ## Contribution workflow
 
 1. Choose one reviewable, testable item from [Todo](todo.md) or an agreed issue.
-2. Inspect the current implementation before changing public behavior or boundaries.
+2. Inspect the repository implementation before changing public behavior or boundaries.
 3. Update English and Chinese documentation in the same change when behavior, architecture, commands, or interfaces change.
 4. Run the narrowest relevant checks, then root CI for cross-workspace changes.
 5. Keep commits focused and signed.

@@ -138,7 +138,7 @@ describe("Cypheria protocol", () => {
     expect(status.payload.features).toEqual({ futureFeature: true })
   })
 
-  it("distinguishes responses and excludes provider-native RPCs from the public wire", () => {
+  it("distinguishes responses and excludes harness-native RPCs from the public wire", () => {
     const response = ServerMessageSchema.parse({
       payload: {
         capabilities: [],

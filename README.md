@@ -2,8 +2,6 @@
 
 Cypheria is a local-first, cross-platform Web3 agent workspace. A privileged Cypheria Server owns Agent runtimes, projects, threads, canonical conversation history, schedules, wallets, policy evaluation, and audit data. Desktop, Expo, CLI, and future clients use the same versioned protocol.
 
-> Status: Current implementation
-
 ## What is implemented
 
 - A supervised Hono/Node.js server with HTTP, WebSocket, configuration, diagnostics, and embedded web hosting.
@@ -15,7 +13,7 @@ Cypheria is a local-first, cross-platform Web3 agent workspace. A privileged Cyp
 - A non-TUI CLI and an optional end-to-end encrypted relay.
 - An Expo Router foundation that builds for iOS, Android, and static web; product work on these surfaces is intentionally limited for now.
 
-Cypheria does not fork Agent runtimes. Provider-specific processes and protocols stay behind Server adapters. Clients operate on Cypheria Agent, Thread, Timeline, Integration, Schedule, and Web3 contracts.
+Cypheria does not fork Agent runtimes. Harness-specific processes and protocols stay behind Server adapters. Clients operate on Cypheria Agent, Thread, Timeline, Integration, Schedule, and Web3 contracts.
 
 ## Architecture at a glance
 
@@ -56,7 +54,7 @@ Implemented packages:
 packages/ai-sdk-provider  AI SDK providers backed by Cypheria Threads
 packages/client           Shared Server client and domain facades
 packages/db               SQLite schema, repositories, and baseline migration
-packages/protocol         Public protocol and generated provider contracts
+packages/protocol         Public protocol and generated Codex contracts
 packages/relay            E2EE channel, pairing, and relay helpers
 packages/ui               Shared UI primitives and AI Elements
 packages/web3             Pure Web3 domain modules

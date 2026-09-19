@@ -28,17 +28,17 @@
 - [ ] 实现公开 GitHub source verification、固定 SHA 的 plugin drafts、license coverage checks、validation 和 submission。
 - [ ] 实现受限 scanning 与 reviewer workflow，包括 durable jobs、不可变 evidence、change request、rejection、approval、suspension 和 withdrawal。
 - [ ] 实现显式 publication、本地化 discovery、公开 `/api/v1`、advisories、确定性官方 catalog synchronization、reconciliation 和 rollback。
-- [ ] 在 Desktop 中添加 Cypheria Marketplace discovery 与 trust provider。
+- [ ] 在 Desktop 中添加 Cypheria Marketplace discovery 与 trust integration。
   - 固定官方 repository identity 和 catalog commit。
   - 保留 source 与 ecosystem provenance。
-  - 获取 capability approval，并通过 Codex provider 操作安装。
+  - 获取 capability approval，并通过 Codex harness 操作安装。
 
 详细的未来服务边界与威胁模型见 [Marketplace](marketplace.zh-CN.md)。
 
 ## 插件体验
 
 - [ ] 完成其余 Desktop plugin 体验。
-  - 在 provider 支持时添加 Skill recording。
+  - 在 harness 支持时添加 Skill recording。
   - 完成 loading、empty、error、disabled、update、advisory 和 permission states。
   - 在打包 Electron build 中验证 authenticated connector authorization。
   - 完成 [Integrations](integrations.zh-CN.md) 所述 Cypheria 原生 plugin process、permission 和 Desktop contribution 契约。

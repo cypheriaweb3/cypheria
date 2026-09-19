@@ -12,6 +12,7 @@ import {
   isAgentUpdateAvailable,
 } from "./agent-manager.js"
 import { type ArtifactActions, createArtifactActions } from "./artifact.js"
+import { type CodexHarnessActions, createCodexHarnessActions } from "./harness-codex.js"
 import { createIntegrationActions, type IntegrationActions } from "./integration.js"
 import {
   createProjectThreadActions,
@@ -19,7 +20,6 @@ import {
   type ProjectThreadActions,
   type SectionActions,
 } from "./project-thread.js"
-import { type CodexProviderActions, createCodexProviderActions } from "./provider-codex.js"
 import { createScheduleActions, type ScheduleActions } from "./schedule.js"
 import {
   type ConnectionState,
@@ -63,16 +63,16 @@ export interface CypheriaApi {
   readonly integrations: IntegrationActions
   readonly projectThread: ProjectThreadActions
   readonly projects: ProjectActions
-  readonly providers: {
+  readonly harnesses: {
     readonly acp: { readonly integrations: IntegrationActions }
     readonly claude: { readonly integrations: IntegrationActions }
     readonly codex: {
       readonly apps: IntegrationActions["apps"]
       readonly integrations: IntegrationActions
-      readonly account: CodexProviderActions["account"]
-      readonly guardian: CodexProviderActions["guardian"]
-      readonly models: CodexProviderActions["models"]
-      readonly permissions: CodexProviderActions["permissions"]
+      readonly account: CodexHarnessActions["account"]
+      readonly guardian: CodexHarnessActions["guardian"]
+      readonly models: CodexHarnessActions["models"]
+      readonly permissions: CodexHarnessActions["permissions"]
     }
     readonly opencode: { readonly integrations: IntegrationActions }
     readonly pi: { readonly integrations: IntegrationActions }
@@ -136,7 +136,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
 
   const agents = createAgentManagementActions(serverClient)
   const integrations = createIntegrationActions(serverClient)
-  const codexProvider = createCodexProviderActions(serverClient)
+  const codexHarness = createCodexHarnessActions(serverClient)
   const projectThread = createProjectThreadActions(serverClient)
   const threads = createThreadActions(serverClient)
   const schedules = createScheduleActions(serverClient)
@@ -155,16 +155,16 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
     integrations,
     projectThread,
     projects: projectThread.projects,
-    providers: {
+    harnesses: {
       acp: { integrations },
       claude: { integrations },
       codex: {
-        account: codexProvider.account,
+        account: codexHarness.account,
         apps: integrations.apps,
         integrations,
-        guardian: codexProvider.guardian,
-        models: codexProvider.models,
-        permissions: codexProvider.permissions,
+        guardian: codexHarness.guardian,
+        models: codexHarness.models,
+        permissions: codexHarness.permissions,
       },
       opencode: { integrations },
       pi: { integrations },
@@ -204,7 +204,7 @@ export {
 export type {
   AgentManagementActions,
   ArtifactActions,
-  CodexProviderActions,
+  CodexHarnessActions,
   IntegrationActions,
   ProjectActions,
   ProjectThreadActions,

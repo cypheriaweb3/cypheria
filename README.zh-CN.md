@@ -2,8 +2,6 @@
 
 Cypheria 是一款 local-first、跨平台的 Web3 Agent 工作台。特权 Cypheria Server 统一持有 Agent runtime、Project、Thread、Canonical Timeline、Schedule、钱包、策略执行与审计数据；Desktop、Expo、CLI 与未来客户端使用同一套版本化协议。
 
-> 状态：当前实现
-
 ## 已实现能力
 
 - 基于 Hono/Node.js 的受监管 Server，提供 HTTP、WebSocket、配置、诊断与内置 Web hosting。
@@ -15,7 +13,7 @@ Cypheria 是一款 local-first、跨平台的 Web3 Agent 工作台。特权 Cyph
 - 非 TUI CLI，以及可选的端到端加密 Relay。
 - 可构建 iOS、Android 与静态 Web 的 Expo Router 基础；这些端的产品功能目前有意保持精简。
 
-Cypheria 不 fork Agent runtime。Provider 专属进程和协议只存在于 Server adapter 后方；Client 面向 Cypheria Agent、Thread、Timeline、Integration、Schedule 与 Web3 contract 工作。
+Cypheria 不 fork Agent runtime。Harness 专属进程和协议只存在于 Server adapter 后方；Client 面向 Cypheria Agent、Thread、Timeline、Integration、Schedule 与 Web3 contract 工作。
 
 ## 架构概览
 
@@ -56,7 +54,7 @@ apps/server    特权本地 Server 与 Agent adapters
 packages/ai-sdk-provider  基于 Cypheria Thread 的 AI SDK providers
 packages/client           共享 Server client 与领域 facade
 packages/db               SQLite schema、repository 与基线迁移
-packages/protocol         公开协议与生成的 provider contract
+packages/protocol         公开协议与生成的 Codex contract
 packages/relay            E2EE channel、pairing 与 Relay helpers
 packages/ui               共享 UI primitive 与 AI Elements
 packages/web3             纯 Web3 领域模块

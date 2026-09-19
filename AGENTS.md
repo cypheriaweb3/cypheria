@@ -40,7 +40,7 @@ The relay additionally requires Go. Package-specific commands are documented in 
 ## Documentation
 
 - English is the content source; maintained product pages have complete `.zh-CN.md` companions with matching heading topology.
-- Describe current implementation and approved plans explicitly; do not preserve migration diaries, completed checklists, or obsolete designs.
+- Leave implemented behavior unmarked; label planned and generated material explicitly. Do not preserve migration diaries, completed checklists, or obsolete designs.
 - One document owns each fact. Link to it instead of copying details.
 - Update relevant English and Chinese docs in the same change when behavior, architecture, commands, public interfaces, or package boundaries change.
 - Generated Codex API pages are updated by their generator, never manually.
@@ -66,8 +66,8 @@ The relay additionally requires Go. Package-specific commands are documented in 
 pnpm --filter @cypheria/protocol generate:codex-all
 ```
 
-- Provider-native messages stay behind Server adapters. Public conversation history is the Canonical Timeline.
-- Thread operations use Cypheria Thread IDs; provider session IDs are diagnostic linkage only.
+- Harness-native messages stay behind Server adapters. Public conversation history is the Canonical Timeline.
+- Thread operations use Cypheria Thread IDs; harness session IDs are diagnostic linkage only.
 
 ## Runtime data
 
@@ -92,7 +92,7 @@ Electron browser views keep conservative defaults: no Node integration, context 
 - Use shared shadcn-style and Base UI primitives before creating generic controls.
 - Keep the visual system quiet, low-saturation, compact, accessible, and panel-oriented.
 - Build custom controls only for genuine Cypheria domains such as Timeline items, wallets, signing, policy, dApp permissions, and browser context.
-- Codex, Claude, Pi, OpenCode, and ACP share the common conversation shell; provider UI is an extension, not a cloned application.
+- Codex, Claude, Pi, OpenCode, and ACP share the common conversation shell; harness UI is an extension, not a cloned application.
 
 ## Out of scope unless explicitly approved
 

@@ -68,7 +68,7 @@ describe("unread thread state", () => {
             text: "Done",
             type: "message" as const,
           },
-          providerItemId: null,
+          harnessItemId: null,
           seq: 1,
           timestamp: new Date().toISOString(),
           turnId: "turn-1",

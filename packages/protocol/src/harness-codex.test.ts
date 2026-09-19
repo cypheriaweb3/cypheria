@@ -7,7 +7,7 @@ import {
   ServerMessageSchema,
 } from "./index.js"
 
-describe("Codex provider protocol", () => {
+describe("Codex harness protocol", () => {
   it("validates shared model settings and account requests", () => {
     expect(
       CodexModelSettingsSchema.parse({
@@ -21,9 +21,9 @@ describe("Codex provider protocol", () => {
       ClientMessageSchema.parse({
         payload: { type: "chatgpt" },
         requestId: "login-1",
-        type: "provider.codex.account.login.request",
+        type: "harness.codex.account.login.request",
       }).type
-    ).toBe("provider.codex.account.login.request")
+    ).toBe("harness.codex.account.login.request")
   })
 
   it("validates Cypheria-owned Codex permissions", () => {
@@ -47,17 +47,17 @@ describe("Codex provider protocol", () => {
       ClientMessageSchema.parse({
         payload: {},
         requestId: "permissions-1",
-        type: "provider.codex.permissions.defaults.get.request",
+        type: "harness.codex.permissions.defaults.get.request",
       }).type
-    ).toBe("provider.codex.permissions.defaults.get.request")
+    ).toBe("harness.codex.permissions.defaults.get.request")
   })
 
-  it("keeps provider failures on the correlated response", () => {
+  it("keeps harness failures on the correlated response", () => {
     expect(
       ServerMessageSchema.parse({
         payload: { error: { code: "AUTH_FAILED", message: "No account" }, ok: false },
         requestId: "account-1",
-        type: "provider.codex.account.get.response",
+        type: "harness.codex.account.get.response",
       })
     ).toMatchObject({ requestId: "account-1" })
   })

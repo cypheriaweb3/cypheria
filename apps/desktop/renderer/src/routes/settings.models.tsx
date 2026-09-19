@@ -36,11 +36,11 @@ const providerOptions: Array<{ description: string; label: string; value: CodexN
 function ModelSettingsRoute() {
   const queryClient = useQueryClient()
   const settingsQuery = useQuery({
-    queryFn: async () => (await ensureCypheriaClient()).providers.codex.models.settings(),
+    queryFn: async () => (await ensureCypheriaClient()).harnesses.codex.models.settings(),
     queryKey: ["codex", "model-settings"],
   })
   const modelsQuery = useQuery({
-    queryFn: async () => (await ensureCypheriaClient()).providers.codex.models.list(),
+    queryFn: async () => (await ensureCypheriaClient()).harnesses.codex.models.list(),
     queryKey: ["codex", "models"],
   })
   const [draft, setDraft] = useState<CodexModelSettings | null>(null)
@@ -57,7 +57,7 @@ function ModelSettingsRoute() {
   )
   const save = useMutation({
     mutationFn: async (settings: CodexModelSettings) => {
-      return (await ensureCypheriaClient()).providers.codex.models.setSettings(settings)
+      return (await ensureCypheriaClient()).harnesses.codex.models.setSettings(settings)
     },
     onSuccess: async (settings) => {
       setDraft(settings)

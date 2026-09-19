@@ -7,7 +7,7 @@ import { threadTimelineEpochs, threadTimelineRows } from "./schema/index.js"
 
 export type PersistedThreadTimelineRow = {
   readonly item: unknown
-  readonly providerItemId: string | null
+  readonly harnessItemId: string | null
   readonly seq: number
   readonly timestamp: string
   readonly turnId: string | null
@@ -41,7 +41,7 @@ const readRows = async (
   db
     .select({
       item: threadTimelineRows.item,
-      providerItemId: threadTimelineRows.providerItemId,
+      harnessItemId: threadTimelineRows.harnessItemId,
       seq: threadTimelineRows.seq,
       timestamp: threadTimelineRows.timestamp,
       turnId: threadTimelineRows.turnId,

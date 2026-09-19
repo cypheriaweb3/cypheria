@@ -1,7 +1,5 @@
 # UI System
 
-> Status: Current implementation and release invariants
-
 Cypheria Desktop uses a quiet, dense, panel-oriented visual system designed for long-running technical work. The established Sidebar and conversation workspace are fidelity-critical product surfaces. This document owns visual and interaction rules; implementation boundaries remain in [Desktop](desktop.md).
 
 ## Principles
@@ -38,15 +36,15 @@ Shared components remain presentation-oriented. Data fetching and Electron acces
 
 ## AI Elements
 
-AI Elements provide composable conversation primitives for messages, reasoning, tools, code, plans, attachments, prompts, and streaming state. Desktop composes them inside the existing conversation shell; it does not replace established navigation, Thread scope, virtualization, scroll restoration, or provider extensions.
+AI Elements provide composable conversation primitives for messages, reasoning, tools, code, plans, attachments, prompts, and streaming state. Desktop composes them inside the existing conversation shell; it does not replace established navigation, Thread scope, virtualization, scroll restoration, or harness extensions.
 
-Timeline renderers accept Canonical Timeline items. Provider renderers are registered only for discriminated provider items or metadata with genuine additional behavior.
+Timeline renderers accept Canonical Timeline items. Harness renderers are registered only for discriminated harness items or metadata with genuine additional behavior.
 
 ## Sidebar invariants
 
 - Preserve Pinned, custom Sections, Projects, and recents in their established order and density.
 - Preserve nesting, expansion, pagination, selection, context menus, drag and drop, keyboard navigation, unread state, and running state.
-- Do not derive membership from visual state or provider metadata.
+- Do not derive membership from visual state or harness metadata.
 - Keep optimistic movement stable; rollback must restore both order and membership.
 - Loading and error placeholders must not cause unrelated rows to jump.
 
@@ -58,7 +56,7 @@ Timeline renderers accept Canonical Timeline items. Provider renderers are regis
 - Never force-scroll a reader who moved away from the live edge.
 - Show cancel, retry, pending interaction, and failure recovery states at the point of action.
 - Render common item types consistently for every Agent.
-- Keep provider-specific controls scoped and clearly attributed.
+- Keep harness-specific controls scoped and clearly attributed.
 
 Virtualization must support variable-height content, incremental history loading, terminal output, expanded reasoning, and large diffs without corrupting restored positions.
 

@@ -1,7 +1,5 @@
 # `@cypheria/cypheria-relay`
 
-> 状态：当前实现
-
 用于可选远程 Cypheria 连接的 Go relay 数据平面，只转发不透明的端到端加密 WebSocket frame，不保存产品 payload。
 
 ## 本地运行

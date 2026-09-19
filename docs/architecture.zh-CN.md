@@ -1,7 +1,5 @@
 # 架构
 
-> 状态：当前实现；计划内容均明确标注
-
 Cypheria 是一个本地优先系统，由一个特权 Server 和多个非特权客户端组成。本文只定义进程所有权、数据流和信任边界。Wire 字段见[协议](protocol.zh-CN.md)，持久化细节见[数据库](database.zh-CN.md)，命令见[开发指南](development.zh-CN.md)或 [Server](server.zh-CN.md)。
 
 ## 系统模型
@@ -63,7 +61,7 @@ Agent 原生事件在此边界归一化。原生载荷可以为诊断保留，�
 2. Server 解析 Thread 对应的 Agent，启动或复用 adapter runtime，并记录 turn。
 3. Adapter 将原生事件转换为 Canonical Timeline 事件。
 4. Server 持久化事件并通过游标发布有序更新。
-5. 客户端投影同一条持久 Timeline，仅在判别项需要时渲染 provider 扩展。
+5. 客户端投影同一条持久 Timeline，仅在判别项需要时渲染 harness 扩展。
 
 ### Desktop 启动
 
@@ -97,7 +95,7 @@ Agent 原生事件在此边界归一化。原生载荷可以为诊断保留，�
 
 当前产品是本地优先的：单个用户控制的 Server 拥有权威存储。Desktop 通常监管该 Server，CLI 和 Expo 也可以连接。远程访问使用可选 relay，但不会把执行和状态转移到 relay。
 
-云端 Agent 执行、多 Agent 编排以及更强的多用户授权系统不属于当前实现，需要未来单独设计协议和安全模型。
+云端 Agent 执行、多 Agent 编排以及更强的多用户授权系统尚未实现，需要未来单独设计协议和安全模型。
 
 ## 计划边界
 

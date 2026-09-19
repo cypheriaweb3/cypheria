@@ -2,7 +2,7 @@
 
 > 状态：计划中；`apps/marketplace` 尚不存在
 
-计划中的 Cypheria Marketplace 是独立公开服务，负责插件提交、扫描、审核、发布、发现和信任 metadata。它不是 Server integration service，也不是使用 [Integrations](integrations.zh-CN.md) 所述 provider-native 或 custom marketplace 的前提。
+计划中的 Cypheria Marketplace 是独立公开服务，负责插件提交、扫描、审核、发布、发现和信任 metadata。它不是 Server integration service，也不是使用 [Integrations](integrations.zh-CN.md) 所述 harness-native 或 custom marketplace 的前提。
 
 ## 产品边界
 
@@ -16,7 +16,7 @@
 
 ## 插件契约
 
-初始发布目标是公开 ChatGPT/Codex plugin specification。Plugin root 包含 `.codex-plugin/plugin.json`，并可包含 Skills、hooks、app declaration、MCP declaration 和 assets。这使发布版本可以通过现有 Codex provider integration 安装，同时保留 `ecosystem: openai` provenance。
+初始发布目标是公开 ChatGPT/Codex plugin specification。Plugin root 包含 `.codex-plugin/plugin.json`，并可包含 Skills、hooks、app declaration、MCP declaration 和 assets。这使发布版本可以通过现有 Codex harness integration 安装，同时保留 `ecosystem: openai` provenance。
 
 只有明确实现对应 manifest、scanning、installation 和 trust contract 后，才会增加 Cypheria-native、Claude、Pi 和 OpenCode 生态发布。Marketplace source 仍为 `cypheria`；ecosystem 是独立字段。
 
@@ -54,13 +54,13 @@ Plugin code 绝不在 web Worker 内执行。MCP scanning 使用隔离、限制 
 
 Publication 会把 active releases 确定性聚合到官方 Cypheria GitHub marketplace catalog。Entry 使用稳定排序和固定 SHA 的 `url` 或 `git-subdir` source。发布流程在通过 `/api/v1` 和本地化 catalog 页面暴露 release 前验证结果 commit。
 
-Desktop 计划中的 Cypheria Marketplace provider 将：
+Desktop 计划中的 Cypheria Marketplace integration 将：
 
 1. 从 Marketplace API 获取 catalog 与 trust metadata；
 2. 固定官方 repository identity 和预期 catalog commit；
 3. 通过 Codex App Server marketplace 操作注册或升级 catalog；
 4. 校验 plugin source URL、path、SHA、capabilities 和 approvals；
-5. 通过 Codex provider 的 plugin 操作安装。
+5. 通过 Codex harness 的 plugin 操作安装。
 
 Discovery trust 与 installation execution 保持分离。OpenAI 和用户添加的 marketplace 保留各自 provenance，不会被重新标记为 Cypheria 已审核。
 
@@ -81,6 +81,6 @@ Discovery trust 与 installation execution 保持分离。OpenAI 和用户添加
 3. 实现 source verification、drafts、validation 和 submission。
 4. 实现隔离 scanning 与 reviewer workflow。
 5. 实现 publication、public catalog API 和确定性 GitHub synchronization。
-6. 实现 Desktop discovery 与 trust provider。
+6. 实现 Desktop discovery 与 trust integration。
 
 未完成事项只在 [Todo](todo.zh-CN.md) 跟踪。

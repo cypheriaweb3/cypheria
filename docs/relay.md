@@ -1,7 +1,5 @@
 # Relay
 
-> Status: Current implementation
-
 `apps/relay` is an optional Go data plane for remote Cypheria connections. It forwards opaque end-to-end encrypted WebSocket frames between a client and a user-controlled Server. `@cypheria/relay` owns pairing, channel encryption, and transport helpers used by the endpoints.
 
 ## Trust model

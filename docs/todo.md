@@ -28,10 +28,10 @@ This page contains incomplete, still-approved work. Completed work and architect
 - [ ] Implement public GitHub source verification, immutable-SHA plugin drafts, license coverage checks, validation, and submission.
 - [ ] Implement bounded scanning and reviewer workflow with durable jobs, immutable evidence, change requests, rejection, approval, suspension, and withdrawal.
 - [ ] Implement explicit publication, localized discovery, the public `/api/v1`, advisories, deterministic official catalog synchronization, reconciliation, and rollback.
-- [ ] Add the Cypheria Marketplace discovery and trust provider to Desktop.
+- [ ] Add the Cypheria Marketplace discovery and trust integration to Desktop.
   - Pin official repository identity and catalog commit.
   - Preserve source and ecosystem provenance.
-  - Obtain capability approval and install through the Codex provider operations.
+  - Obtain capability approval and install through the Codex harness operations.
 
 The detailed future service boundary and threat model are in [Marketplace](marketplace.md).
 

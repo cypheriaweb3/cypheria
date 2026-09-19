@@ -96,13 +96,13 @@ export const canonicalInteractionToView = (
           },
         ]
       : undefined)
-  const provider = interaction.provider?.agentId === "codex" ? interaction.provider : undefined
-  const method = provider
-    ? CODEX_INTERACTION_METHODS[provider.nativeType as keyof typeof CODEX_INTERACTION_METHODS]
+  const harness = interaction.harness?.agentId === "codex" ? interaction.harness : undefined
+  const method = harness
+    ? CODEX_INTERACTION_METHODS[harness.nativeType as keyof typeof CODEX_INTERACTION_METHODS]
     : undefined
-  const providerParams =
-    provider?.metadata && typeof provider.metadata === "object" && !Array.isArray(provider.metadata)
-      ? provider.metadata
+  const harnessParams =
+    harness?.metadata && typeof harness.metadata === "object" && !Array.isArray(harness.metadata)
+      ? harness.metadata
       : {}
   return {
     description: interaction.message,
@@ -121,7 +121,7 @@ export const canonicalInteractionToView = (
           ? "item/tool/requestUserInput"
           : "mcpServer/elicitation/request"),
     params: {
-      ...providerParams,
+      ...harnessParams,
       availableDecisions:
         interaction.kind === "permission"
           ? [

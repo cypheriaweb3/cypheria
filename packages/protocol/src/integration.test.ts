@@ -34,7 +34,7 @@ describe("integration protocol", () => {
                   marketplaceName: "team",
                   marketplacePath: "/catalog",
                   name: "review",
-                  provider: { agentId: "codex", nativeId: "review@team" },
+                  harness: { agentId: "codex", nativeId: "review@team" },
                   sourceType: "git",
                   version: null,
                 },
@@ -52,7 +52,7 @@ describe("integration protocol", () => {
     })
   })
 
-  it("rejects Apps operations outside the Codex provider namespace", () => {
+  it("rejects Apps operations outside the Codex harness namespace", () => {
     expect(() =>
       parseSessionInboundMessage({
         payload: { agentId: "claude" },

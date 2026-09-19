@@ -5,7 +5,7 @@ import { applyDatabaseMigrations } from "./migrations.js"
 import { createThreadLifecyclePersistenceService } from "./thread-lifecycle.js"
 
 describe("thread lifecycle persistence", () => {
-  it("tracks recoverable provider/SQLite boundary operations", async () => {
+  it("tracks recoverable harness/SQLite boundary operations", async () => {
     const database = createInMemoryDatabase()
     await applyDatabaseMigrations(database.client)
     await database.client.execute({
@@ -28,12 +28,12 @@ describe("thread lifecycle persistence", () => {
     expect(await service.listRecoverable()).toEqual([operation])
     const transitioned = await service.transition(
       operation.id,
-      { agentSessionId: "provider-1", status: "provider-created" },
+      { agentSessionId: "harness-1", status: "harness-created" },
       11
     )
     expect(transitioned).toMatchObject({
-      agentSessionId: "provider-1",
-      status: "provider-created",
+      agentSessionId: "harness-1",
+      status: "harness-created",
       updatedAt: 11,
     })
     await service.complete(operation.id)
@@ -58,8 +58,8 @@ describe("thread lifecycle persistence", () => {
       threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf399",
     })
 
-    expect(await service.fail(operation.id, "provider unavailable")).toMatchObject({
-      error: "provider unavailable",
+    expect(await service.fail(operation.id, "harness unavailable")).toMatchObject({
+      error: "harness unavailable",
       status: "failed",
     })
     expect(await service.listRecoverable()).toEqual([])

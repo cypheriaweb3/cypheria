@@ -196,7 +196,7 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
   const accountQuery = useQuery({
     queryKey: ["codex", "account"],
     queryFn: async (): Promise<CodexAccountView> => {
-      return (await ensureCypheriaClient()).providers.codex.account.get()
+      return (await ensureCypheriaClient()).harnesses.codex.account.get()
     },
   })
   const skillsQuery = useQuery({

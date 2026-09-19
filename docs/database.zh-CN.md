@@ -1,7 +1,5 @@
 # 数据库
 
-> 状态：当前实现
-
 Cypheria 通过 Drizzle ORM 和本地 libSQL driver 使用 SQLite。`packages/db/src/schema/` 是可编辑 Schema 来源；`packages/db/drizzle/0000_initial.sql` 及其 snapshot 是当前生成迁移基线。
 
 ## 位置与所有权
@@ -16,7 +14,7 @@ Cypheria 通过 Drizzle ORM 和本地 libSQL driver 使用 SQLite。`packages/db
 | --- | --- | --- |
 | Runtime | `runtime_metadata`, `settings`, `audit_logs`, `workspaces` | Runtime metadata、key/value settings、追加型 audit、workspace records |
 | Agents | `agent_registry` | 原生与 registry Agent 的安装、启用、版本和状态 |
-| Projects 与 Threads | `projects`, `threads`, `project_items`, `sections`, `section_items` | 持久组织、排序、membership、archive 和 provider linkage |
+| Projects 与 Threads | `projects`, `threads`, `project_items`, `sections`, `section_items` | 持久组织、排序、membership、archive 和 harness linkage |
 | Thread 执行 | `thread_lifecycle_operations`, `thread_timeline_epochs`, `thread_timeline_rows` | 恢复 journal 和只追加 Canonical Timeline |
 | Schedules | `schedules`, `schedule_runs` | Definitions、next occurrence、leases 和 run history |
 | Networks | `networks`, `network_rpc_endpoints`, `dapp_network_contexts` | Chain definitions、有序 endpoints、health 和 origin context |
@@ -28,7 +26,7 @@ Cypheria 通过 Drizzle ORM 和本地 libSQL driver 使用 SQLite。`packages/db
 
 ## Project 与 Thread 约束
 
-Cypheria UUIDv7 标识 Projects、Threads 和 Sections。Thread 拥有一个不可变 Agent；每个 Agent 至多对应一个 provider session linkage；可选 fork origin；Project 和 Section membership 相互独立。
+Cypheria UUIDv7 标识 Projects、Threads 和 Sections。Thread 拥有一个不可变 Agent；每个 Agent 至多对应一个 harness session linkage；可选 fork origin；Project 和 Section membership 相互独立。
 
 `project_items` 让一个 Thread 最多属于一个 Project。`section_items` 在同一有序域中交错 Project 和 Thread，并让每个条目最多属于一个 Section。固定 Pinned Section 的稳定 ID 为 `01984de2-8f74-7c91-a3b2-5c5e937cf318`。
 
@@ -38,13 +36,13 @@ Cypheria UUIDv7 标识 Projects、Threads 和 Sections。Thread 拥有一个不�
 
 `thread_timeline_epochs` 保存每个 Thread 的 active epoch 和 next sequence。`thread_timeline_rows` 保存以 Thread、epoch、sequence 为键的不可变 canonical rows。Append 在一个事务中分配连续 sequence。Rehydration 或 history replacement 创建新 epoch 并原子替换 rows。
 
-Server 读取 Timeline JSON 时使用 `ThreadTimelineRowSchema` 校验。Provider 原生 history 是适配输入，不是另一套客户端历史表。
+Server 读取 Timeline JSON 时使用 `ThreadTimelineRowSchema` 校验。Harness 原生 history 是适配输入，不是另一套客户端历史表。
 
 ## Schedules 与恢复
 
 Schedule definition、next-run advancement、occurrence claim 和 run creation 通过事务协调。Claim 防止并发执行。重启时，遗留 running row 会先变为 interrupted，再恢复 active definitions。Web3 外部副作用不会自动重放。
 
-Thread lifecycle operation 同样记录非原子的 provider 工作，使删除和 session transition 可在故障后校正。
+Thread lifecycle operation 同样记录非原子的 harness 工作，使删除和 session transition 可在故障后校正。
 
 ## SQLite 约定
 

@@ -1,12 +1,10 @@
 # Cypheria 中的 Codex Permissions
 
-> 状态：当前实现
-
 Cypheria 通过通用 Thread interaction 生命周期展示 Codex permissions，同时保留 Codex 原生 sandbox 与 approval 语义。这些权限控制 Codex 代码和 tool 执行；不会替代 Web3 signing policy。
 
 ## 配置界面
 
-`client.providers.codex.permissions` 暴露：
+`client.harnesses.codex.permissions` 暴露：
 
 - approval policy、reviewer、sandbox、network、web search、verbosity 和 reasoning summary 的共享默认值；
 - 可针对 working directory 查询的有效 permission catalog；
@@ -29,7 +27,7 @@ Cypheria 把有效 catalog 映射为简洁模式：
 | Managed | 管理员选择的 Server default |
 | Custom | 无法用更简洁 Cypheria 标签表示的有效原生组合 |
 
-对于已有 Thread，不改变 selection 会保留 provider-owned state。显式 selection 通过 adapter 支持的类型化 Thread/provider options 发送。
+对于已有 Thread，不改变 selection 会保留 harness-owned state。显式 selection 通过 adapter 支持的类型化 Thread/harness options 发送。
 
 ## Approval 生命周期
 
@@ -41,7 +39,7 @@ Codex 对 command execution、file changes、additional permissions、structured
 
 App Server 和 managed requirements 允许时，`auto_review` 或 `guardian_subagent` 可以审核提权 request。Reviewer 可以 allow 或 deny，但不能授予 active sandbox 或 managed permission catalog 之外的权限。
 
-Reviewer progress 与 decision 会显示在会话中。受支持的 Guardian denial 可以通过 `client.providers.codex.guardian` 在原 Thread context 中重试。用户可见状态必须区分自动审核与明确用户授权。
+Reviewer progress 与 decision 会显示在会话中。受支持的 Guardian denial 可以通过 `client.harnesses.codex.guardian` 在原 Thread context 中重试。用户可见状态必须区分自动审核与明确用户授权。
 
 ## Full access
 
@@ -67,4 +65,4 @@ Codex filesystem、command、network、web-search 和 tool permission 不授权 
 - 记录 requester、reviewer、selected scope、decision 和 resulting action 的来源。
 - 原生 request ID 与 callback 留在 Server。
 - Pending interaction 跨客户端导航保留，且只解决一次。
-- 展示 provider detail 时不要求客户端消费原始 Codex message。
+- 展示 harness detail 时不要求客户端消费原始 Codex message。

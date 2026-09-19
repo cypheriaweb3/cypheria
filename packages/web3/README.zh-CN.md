@@ -1,7 +1,5 @@
 # `@cypheria/web3`
 
-> 状态：当前实现
-
 由 Cypheria Server 与特权 Desktop 边界共享的纯净、可测试 Web3 领域模块。
 
 ## 公开入口

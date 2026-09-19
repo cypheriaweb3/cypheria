@@ -4,7 +4,7 @@ import { createIntegrationActions } from "./integration.js"
 import type { ServerClient } from "./server-client.js"
 
 describe("integration actions", () => {
-  it("maps provider-aware operations to the shared protocol", async () => {
+  it("maps harness-aware operations to the shared protocol", async () => {
     const requestIntegration = vi.fn(async (type: string) => ({
       payload: {
         ok: true as const,
@@ -28,7 +28,7 @@ describe("integration actions", () => {
     ])
   })
 
-  it("normalizes provider errors", async () => {
+  it("normalizes harness errors", async () => {
     const requestIntegration = vi.fn(async () => ({
       payload: {
         error: { code: "INTEGRATION_UNSUPPORTED", message: "Pi adapter is unavailable" },

@@ -15,7 +15,7 @@ const thread = (id: string, title: string): ThreadView => ({
     configure: true,
     fork: true,
     promptContent: ["text"],
-    providerExtensions: true,
+    harnessExtensions: true,
     steer: true,
   },
   createdAt: 1,

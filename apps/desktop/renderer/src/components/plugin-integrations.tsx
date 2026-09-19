@@ -57,7 +57,7 @@ export function usePluginIntegrations(active: boolean) {
       if (disposed) return
       unsubscribe = client.on("thread.event.notification", (message) => {
         const event = message.payload.event
-        if (event.type !== "provider" || event.agentId !== "codex") return
+        if (event.type !== "harness" || event.agentId !== "codex") return
         const payload = event.payload as Record<string, unknown>
         if (event.nativeType === "agent.codex.mcp_server.oauth_login.completed.notification") {
           const name = typeof payload.name === "string" ? payload.name : "MCP server"

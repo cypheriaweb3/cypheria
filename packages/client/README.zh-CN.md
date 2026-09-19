@@ -1,7 +1,5 @@
 # `@cypheria/client`
 
-> 状态：当前实现
-
 用于版本化 Cypheria Server 协议的共享 TypeScript client，负责连接生命周期、request correlation、validation、subscriptions、reconnect 和产品级领域 facades。
 
 ## 公开入口
@@ -30,9 +28,9 @@ await client.close()
 
 ## Facades
 
-公开 API 暴露 Agents、Projects、Threads、Sections、Timeline、Schedules、Web3、Integrations、Terminals、Artifacts、Settings、Server operations 和 provider extensions。
+公开 API 暴露 Agents、Projects、Threads、Sections、Timeline、Schedules、Web3、Integrations、Terminals、Artifacts、Settings、Server operations 和 harness extensions。
 
-`providers.codex` 包含 Codex account、model、permission、guardian、integration 和 Apps 操作。Claude、Pi、OpenCode 和 ACP provider facade 暴露当前 integration context。Provider-native wire protocol 仍是 Server adapter 内部契约。
+`harnesses.codex` 包含 Codex account、model、permission、guardian、integration 和 Apps 操作。Claude、Pi、OpenCode 和 ACP harness facade 暴露当前 integration context。Harness-native wire protocol 仍是 Server adapter 内部契约。
 
 ## 可靠性
 

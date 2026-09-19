@@ -151,7 +151,7 @@ function ConnectionsSettingsRoute() {
     queryKey: ["cypheria", "agents"],
   })
   const account = useQuery({
-    queryFn: async () => (await ensureCypheriaClient()).providers.codex.account.get(),
+    queryFn: async () => (await ensureCypheriaClient()).harnesses.codex.account.get(),
     queryKey: ["codex", "account"],
     refetchInterval: flow ? 2_000 : false,
   })
@@ -162,7 +162,7 @@ function ConnectionsSettingsRoute() {
 
   const login = useMutation({
     mutationFn: async (request: CodexLoginInput) => {
-      const result = await (await ensureCypheriaClient()).providers.codex.account.login(request)
+      const result = await (await ensureCypheriaClient()).harnesses.codex.account.login(request)
       if (result.authUrl && window.cypheria) await window.cypheria.app.openExternal(result.authUrl)
       return result
     },
@@ -178,7 +178,7 @@ function ConnectionsSettingsRoute() {
 
   const logout = useMutation({
     mutationFn: async () => {
-      return (await ensureCypheriaClient()).providers.codex.account.logout()
+      return (await ensureCypheriaClient()).harnesses.codex.account.logout()
     },
     onSuccess: async () => {
       setFlow(null)
@@ -188,7 +188,7 @@ function ConnectionsSettingsRoute() {
 
   const cancelLogin = useMutation({
     mutationFn: async (loginId: string) => {
-      return (await ensureCypheriaClient()).providers.codex.account.cancelLogin(loginId)
+      return (await ensureCypheriaClient()).harnesses.codex.account.cancelLogin(loginId)
     },
     onSuccess: () => setFlow(null),
   })

@@ -131,104 +131,104 @@ const response = <const T extends string, S extends z.ZodType>(type: T, value: S
 const succeeded = z.object({ succeeded: z.literal(true) }).strict()
 
 export const CodexAccountGetRequestSchema = request(
-  "provider.codex.account.get.request",
+  "harness.codex.account.get.request",
   z.object({ refresh: z.boolean().optional() }).strict()
 )
 export const CodexAccountLoginRequestSchema = request(
-  "provider.codex.account.login.request",
+  "harness.codex.account.login.request",
   CodexLoginInputSchema
 )
 export const CodexAccountLoginCancelRequestSchema = request(
-  "provider.codex.account.login.cancel.request",
+  "harness.codex.account.login.cancel.request",
   z.object({ loginId: z.string().min(1) }).strict()
 )
 export const CodexAccountLogoutRequestSchema = request(
-  "provider.codex.account.logout.request",
+  "harness.codex.account.logout.request",
   z.object({}).strict()
 )
 export const CodexModelListRequestSchema = request(
-  "provider.codex.model.list.request",
+  "harness.codex.model.list.request",
   z.object({ includeHidden: z.boolean().optional() }).strict()
 )
 export const CodexModelSettingsGetRequestSchema = request(
-  "provider.codex.model-settings.get.request",
+  "harness.codex.model-settings.get.request",
   z.object({}).strict()
 )
 export const CodexModelSettingsSetRequestSchema = request(
-  "provider.codex.model-settings.set.request",
+  "harness.codex.model-settings.set.request",
   CodexModelSettingsSchema
 )
 export const CodexPermissionDefaultsGetRequestSchema = request(
-  "provider.codex.permissions.defaults.get.request",
+  "harness.codex.permissions.defaults.get.request",
   z.object({}).strict()
 )
 export const CodexPermissionDefaultsSetRequestSchema = request(
-  "provider.codex.permissions.defaults.set.request",
+  "harness.codex.permissions.defaults.set.request",
   CodexPermissionDefaultsWriteSchema
 )
 export const CodexPermissionsCatalogGetRequestSchema = request(
-  "provider.codex.permissions.catalog.get.request",
+  "harness.codex.permissions.catalog.get.request",
   z.object({ cwd: z.string().min(1).optional() }).strict()
 )
 export const CodexPermissionsShowFullAccessSetRequestSchema = request(
-  "provider.codex.permissions.show-full-access.set.request",
+  "harness.codex.permissions.show-full-access.set.request",
   z.object({ enabled: z.boolean() }).strict()
 )
 export const CodexGuardianRetryRequestSchema = request(
-  "provider.codex.guardian.retry.request",
+  "harness.codex.guardian.retry.request",
   z.object({ event: z.json(), threadId: z.string().min(1) }).strict()
 )
 
 export const CodexAccountGetResponseSchema = response(
-  "provider.codex.account.get.response",
+  "harness.codex.account.get.response",
   CodexAccountViewSchema
 )
 export const CodexAccountLoginResponseSchema = response(
-  "provider.codex.account.login.response",
+  "harness.codex.account.login.response",
   CodexLoginResultSchema
 )
 export const CodexAccountLoginCancelResponseSchema = response(
-  "provider.codex.account.login.cancel.response",
+  "harness.codex.account.login.cancel.response",
   z.object({ cancelled: z.boolean() }).strict()
 )
 export const CodexAccountLogoutResponseSchema = response(
-  "provider.codex.account.logout.response",
+  "harness.codex.account.logout.response",
   succeeded
 )
 export const CodexModelListResponseSchema = response(
-  "provider.codex.model.list.response",
+  "harness.codex.model.list.response",
   z.object({ models: z.array(CodexModelViewSchema) }).strict()
 )
 export const CodexModelSettingsGetResponseSchema = response(
-  "provider.codex.model-settings.get.response",
+  "harness.codex.model-settings.get.response",
   CodexModelSettingsSchema
 )
 export const CodexModelSettingsSetResponseSchema = response(
-  "provider.codex.model-settings.set.response",
+  "harness.codex.model-settings.set.response",
   CodexModelSettingsSchema
 )
 export const CodexPermissionDefaultsGetResponseSchema = response(
-  "provider.codex.permissions.defaults.get.response",
+  "harness.codex.permissions.defaults.get.response",
   CodexPermissionDefaultsSchema
 )
 export const CodexPermissionDefaultsSetResponseSchema = response(
-  "provider.codex.permissions.defaults.set.response",
+  "harness.codex.permissions.defaults.set.response",
   CodexPermissionDefaultsSchema
 )
 export const CodexPermissionsCatalogGetResponseSchema = response(
-  "provider.codex.permissions.catalog.get.response",
+  "harness.codex.permissions.catalog.get.response",
   CodexPermissionsCatalogSchema
 )
 export const CodexPermissionsShowFullAccessSetResponseSchema = response(
-  "provider.codex.permissions.show-full-access.set.response",
+  "harness.codex.permissions.show-full-access.set.response",
   CodexPermissionsCatalogSchema
 )
 export const CodexGuardianRetryResponseSchema = response(
-  "provider.codex.guardian.retry.response",
+  "harness.codex.guardian.retry.response",
   succeeded
 )
 
-export const CODEX_PROVIDER_CLIENT_SCHEMAS = [
+export const CODEX_HARNESS_CLIENT_SCHEMAS = [
   CodexAccountGetRequestSchema,
   CodexAccountLoginRequestSchema,
   CodexAccountLoginCancelRequestSchema,
@@ -243,7 +243,7 @@ export const CODEX_PROVIDER_CLIENT_SCHEMAS = [
   CodexGuardianRetryRequestSchema,
 ] as const
 
-export const CODEX_PROVIDER_SERVER_SCHEMAS = [
+export const CODEX_HARNESS_SERVER_SCHEMAS = [
   CodexAccountGetResponseSchema,
   CodexAccountLoginResponseSchema,
   CodexAccountLoginCancelResponseSchema,
@@ -258,9 +258,9 @@ export const CODEX_PROVIDER_SERVER_SCHEMAS = [
   CodexGuardianRetryResponseSchema,
 ] as const
 
-export const CODEX_PROVIDER_RESPONSE_TYPES = CODEX_PROVIDER_SERVER_SCHEMAS.map(
+export const CODEX_HARNESS_RESPONSE_TYPES = CODEX_HARNESS_SERVER_SCHEMAS.map(
   (schema) => schema.shape.type.value
 )
 
-export type CodexProviderClientMessage = z.infer<(typeof CODEX_PROVIDER_CLIENT_SCHEMAS)[number]>
-export type CodexProviderServerMessage = z.infer<(typeof CODEX_PROVIDER_SERVER_SCHEMAS)[number]>
+export type CodexHarnessClientMessage = z.infer<(typeof CODEX_HARNESS_CLIENT_SCHEMAS)[number]>
+export type CodexHarnessServerMessage = z.infer<(typeof CODEX_HARNESS_SERVER_SCHEMAS)[number]>

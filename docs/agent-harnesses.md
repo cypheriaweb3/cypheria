@@ -1,14 +1,12 @@
-# Agents
+# Agent Harnesses
 
-> Status: Current implementation
-
-Cypheria supports four first-party Agent kinds—Codex, Claude, Pi, and OpenCode—and registry-backed ACP Agents. The Server owns every process and native protocol. Clients use the common Agent, Thread, Timeline, and integration APIs.
+Cypheria supports four first-party Agent harnesses—Codex, Claude, Pi, and OpenCode—and registry-backed ACP Agent harnesses. The Server owns every process and native protocol. Clients use the common Agent, Thread, Timeline, and integration APIs.
 
 ## Identity and compatibility
 
 `@cypheria/protocol` defines stable Agent IDs. `codex`, `claude`, `pi`, and `opencode` are native IDs; generated registry IDs identify ACP Agents. Integrations use the broader compatibility tags `codex`, `claude`, `pi`, `opencode`, and `acp` so one declaration can cover registry Agents.
 
-An Agent descriptor reports source, distribution, installed and available versions, enablement, runtime state, capabilities, compatibility, and diagnostics. Thread identity always uses a Cypheria Thread ID plus an Agent ID; a provider session ID is optional linkage, not the client cache key.
+An Agent descriptor reports source, distribution, installed and available versions, enablement, runtime state, capabilities, compatibility, and diagnostics. Thread identity always uses a Cypheria Thread ID plus an Agent ID; a harness session ID is optional linkage, not the client cache key.
 
 ## Registry and installation
 
@@ -20,32 +18,32 @@ Installation and updates are Server operations with durable operation records an
 
 The Agent manager serializes lifecycle transitions, reports health, and separates installed, enabled, and running state. A disabled Agent cannot start. A stopped Agent can still own durable Threads; resuming a Thread starts or reuses the appropriate runtime.
 
-Each runtime implements the common provider adapter used by the Thread manager:
+Each runtime implements the common harness adapter used by the Thread manager:
 
 - create, resume, fork, configure, and close a session where supported;
 - start, steer, and cancel a turn according to advertised capabilities;
 - emit Canonical Timeline rows and normalized interactions;
-- retain provider metadata needed for diagnostics or provider UI extensions.
+- retain harness metadata needed for diagnostics or harness UI extensions.
 
 Capabilities are discovered per Agent and Thread. Clients must not expose unsupported prompt content, steering, configuration, or fork actions.
 
-## First-party adapters
+## First-party harnesses
 
 ### Codex
 
-The Codex adapter owns a Cypheria-managed Codex App Server process and validates messages with generated artifacts in `@cypheria/protocol`. It maps Codex turns, reasoning, plans, commands, file changes, approvals, artifacts, account state, models, and permissions into Cypheria contracts. Codex Apps remain a Codex/OpenAI provider extension.
+The Codex harness owns a Cypheria-managed Codex App Server process and validates messages with generated artifacts in `@cypheria/protocol`. It maps Codex turns, reasoning, plans, commands, file changes, approvals, artifacts, account state, models, and permissions into Cypheria contracts. Codex Apps remain a Codex/OpenAI harness extension.
 
 ### Claude
 
-The Claude adapter uses the pinned Claude Agent SDK. The Server owns callback-bearing hooks, permissions, abort control, MCP server objects, session storage, and process factories. Serializable prompts and SDK output are normalized into Thread input, Timeline items, interactions, and provider events.
+The Claude harness uses the pinned Claude Agent SDK. The Server owns callback-bearing hooks, permissions, abort control, MCP server objects, session storage, and process factories. Serializable prompts and SDK output are normalized into Thread input, Timeline items, interactions, and harness events.
 
 ### Pi
 
-The Pi adapter uses the pinned Pi coding-agent package and its RPC session model. It maps message streaming, tool activity, configuration, session lifecycle, and extension metadata into the common Thread contract. Pi extensions are represented as Pi-ecosystem plugins, not as Cypheria-native plugins.
+The Pi harness uses the pinned Pi coding-agent package and its RPC session model. It maps message streaming, tool activity, configuration, session lifecycle, and extension metadata into the common Thread contract. Pi extensions are represented as Pi-ecosystem plugins, not as Cypheria-native plugins.
 
 ### OpenCode
 
-The OpenCode adapter uses the pinned OpenCode SDK, supervises its server connection, and maps sessions, messages, parts, permissions, and provider configuration into the same Thread and Timeline model.
+The OpenCode harness uses the pinned OpenCode SDK, supervises its server connection, and maps sessions, messages, parts, permissions, and provider configuration into the same Thread and Timeline model.
 
 ### ACP
 
@@ -53,9 +51,9 @@ ACP runtimes use the official ACP SDK and the protocol version declared by the s
 
 ## Canonical adaptation
 
-Adapters prefer a common Timeline item whenever semantics match. Agent-specific data belongs in `providerData`; only events without a faithful common representation use a `provider` item. Permissions, questions, and MCP elicitation become common Thread interactions.
+Harnesses prefer a common Timeline item whenever semantics match. Agent-specific data belongs in `harnessData`; only events without a faithful common representation use a `harness` item. Permissions, questions, and MCP elicitation become common Thread interactions.
 
-The persisted Canonical Timeline is authoritative. Native events may be retained or logged for debugging, but Desktop, Expo, CLI, and AI SDK providers do not rebuild history from a provider process.
+The persisted Canonical Timeline is authoritative. Native events may be retained or logged for debugging, but Desktop, Expo, CLI, and AI SDK providers do not rebuild history from a harness process.
 
 ## AI SDK providers
 
@@ -71,4 +69,4 @@ Provider metadata preserves Agent kind, model, native identifiers, and supported
 - Terminate child processes on Server shutdown and surface crash state without losing durable history.
 - Validate registry documents, platform selection, archives, checksums, and native messages before use.
 
-Multi-Agent orchestration is not part of the current implementation. Threads currently select one Agent runtime.
+Multi-Agent orchestration is not implemented. Each Thread selects one Agent runtime.
