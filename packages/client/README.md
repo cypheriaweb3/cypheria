@@ -1,6 +1,6 @@
 # `@cypheria/client`
 
-The shared TypeScript client for the versioned Cypheria Server protocol. It owns connection lifecycle, request correlation, validation, subscriptions, reconnects, and product-level domain facades.
+The public TypeScript SDK for the versioned Cypheria Server protocol. It owns connection lifecycle, request correlation, validation, subscriptions, reconnects, and product-level domain facades.
 
 ## Public entry point
 

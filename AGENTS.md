@@ -9,7 +9,7 @@ Use these documents instead of repeating architecture in task notes:
 - [Development](docs/development.md)
 - [Active roadmap](docs/todo.md)
 
-`apps/marketplace` and `packages/sdk` are planned and do not exist. The implemented workspace is listed in [Development](docs/development.md#workspace).
+`apps/marketplace` is planned and does not exist. The implemented workspace is listed in [Development](docs/development.md#workspace).
 
 ## Workflow
 
@@ -49,11 +49,11 @@ The relay additionally requires Go. Package-specific commands are documented in 
 ## Code boundaries
 
 - `apps/server` owns shared state, database access, Agent runtimes and adapters, schedules, integrations, privileged terminals, Web3 execution, and audit.
-- Clients use `@cypheria/client` and `@cypheria/protocol`; they do not import Server internals, repositories, or Agent SDKs.
+- `@cypheria/client` is the public TypeScript SDK. Clients use it with `@cypheria/protocol`; they do not import Server internals, repositories, or Agent SDKs.
 - Electron main may manage a local Server and owns only Desktop-local windows, isolated dApp views, preload, settings, updates, secure storage, and OS integration.
 - AI SDK providers are browser-safe and depend on the shared client, protocol, and public AI SDK types.
 - Domain packages do not depend on `apps/server`; Server composition uses explicit services.
-- CLI does not depend on Desktop, Electron, Server internals, or the planned public SDK.
+- CLI uses `@cypheria/client` directly and does not depend on Desktop, Electron, or Server internals.
 
 ## Protocol and generated code
 

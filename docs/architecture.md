@@ -45,13 +45,11 @@ Agent-native events are normalized at this boundary. Native payloads may be reta
 ## Package boundaries
 
 - `@cypheria/protocol` owns versioned public contracts, runtime validation, and generated upstream protocol artifacts.
-- `@cypheria/client` owns connections and domain facades without Electron or database dependencies.
+- `@cypheria/client` is the public TypeScript SDK. It owns connections and domain facades without Electron or database dependencies.
 - `@cypheria/ai-sdk-provider` maps Cypheria Threads and Timeline events to AI SDK provider contracts.
 - `@cypheria/db` owns the SQLite schema, migration baseline, and repositories used by the Server.
 - `@cypheria/web3` contains pure network, policy, wallet, and provider domain logic; privileged orchestration stays in the Server.
 - `@cypheria/ui` contains reusable presentation primitives and AI Elements.
-
-`packages/sdk` is planned as a public TypeScript SDK. It does not exist today and must not be simulated by exposing Server internals.
 
 ## Primary data flows
 
@@ -100,7 +98,6 @@ Cloud Agent execution, multi-Agent orchestration, and a stronger multi-user auth
 ## Planned boundaries
 
 - `apps/marketplace`: a separate public submission, review, publication, and discovery service.
-- `packages/sdk`: a stable public TypeScript API above the Cypheria protocol.
 - Expanded Expo product surfaces after the Desktop experience is mature.
 
 The active, incomplete work is tracked only in [Todo](todo.md).

@@ -4,14 +4,6 @@
 
 本文只包含尚未完成且仍获批准的工作。已完成事项和架构历史属于 Git。事项按依赖关系排序，应作为可评审、可测试的变更实施。
 
-## 公开 SDK
-
-- [ ] 新增 `packages/sdk`，提供稳定的公开 `Cypheria` TypeScript client，覆盖 Agent、Thread、runtime、wallet、policy 和 schedule API。
-  - 构建于版本化 Cypheria 协议与 `@cypheria/client` 行为之上。
-  - 不得导入 CLI、Desktop、Electron、Server runtime 内部实现、数据库或原生 Agent SDK。
-  - 发布前定义公开兼容性与 release policy。
-- [ ] 为 SDK 添加 connection、runtime operation、Agent Thread、Timeline stream 和 approval test doubles，使测试无需 Electron 或原生 Agent 进程即可运行。
-
 ## CLI
 
 - [ ] 添加交互式 Thread 执行和 Web3 管理命令。

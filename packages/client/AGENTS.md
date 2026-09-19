@@ -4,7 +4,7 @@ Read the package [README](README.md), public [Protocol](../../docs/protocol.md),
 
 ## Boundaries
 
-- Depend on `@cypheria/protocol` and transport helpers, never on Server runtime internals, databases, Electron, Desktop, Agent SDKs, or the planned public SDK.
+- This package is the public TypeScript SDK. Depend on `@cypheria/protocol` and transport helpers, never on Server runtime internals, databases, Electron, Desktop, or Agent SDKs.
 - Treat exported protocol messages and capability flags as the source of truth.
 - Route every Thread operation by Cypheria `threadId`; `agentSessionId` is read-only metadata.
 - Add a facade only after its request, response, notification, and validation contracts exist in `@cypheria/protocol`.

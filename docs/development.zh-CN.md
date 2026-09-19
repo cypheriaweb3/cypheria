@@ -28,14 +28,14 @@ JavaScript 和 TypeScript 工作区命令统一使用 pnpm。仓库使用 Turbor
 | 工作区 | 职责 |
 | --- | --- |
 | `packages/protocol` | 公开协议、Zod 校验、生成的 Codex 产物 |
-| `packages/client` | 连接生命周期和领域 facade |
+| `packages/client` | 公开 TypeScript SDK、连接生命周期和领域 facade |
 | `packages/ai-sdk-provider` | 基于 client 的浏览器安全 AI SDK providers |
 | `packages/db` | SQLite Schema、迁移和 repositories |
 | `packages/web3` | 纯 Web3 领域模块 |
 | `packages/relay` | 配对、E2EE 和 relay 传输工具 |
 | `packages/ui` | 共享 UI 原语和 AI Elements |
 
-`apps/marketplace` 和 `packages/sdk` 是计划中的工作区，不属于当前依赖图。
+`apps/marketplace` 是计划中的工作区，不属于当前依赖图。
 
 ## 安装与验证
 
@@ -120,7 +120,7 @@ pnpm codex:generate
 - AI SDK providers 只依赖 client、protocol 和 AI SDK 公开类型。
 - Renderer 不导入 Agent SDK、生成的原生协议、数据库代码或特权 Web3 服务。
 - 领域包不依赖 `apps/server`；Server 通过显式注入组合它们。
-- CLI 不依赖 Electron、Desktop 或计划中的公开 SDK。
+- CLI 直接使用 `@cypheria/client`，不依赖 Electron 或 Desktop。
 
 ## 文档流程
 

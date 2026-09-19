@@ -7,7 +7,7 @@ Cypheria 是一款 local-first、跨平台的 Web3 Agent 工作台。特权 Cyph
 - 基于 Hono/Node.js 的受监管 Server，提供 HTTP、WebSocket、配置、诊断与内置 Web hosting。
 - Codex、Claude、Pi、OpenCode 第一方 adapter，以及基于 registry 的 ACP Agent。
 - 持久化 Projects、Threads、Sections、Canonical Timeline、interaction、terminal 与 artifact。
-- 共享 `@cypheria/client`，以及面向全部受支持 Agent 类型的 browser-safe AI SDK provider。
+- 作为公开 TypeScript SDK 的 `@cypheria/client`，以及面向全部受支持 Agent 类型的 browser-safe AI SDK provider。
 - Electron + TanStack Start Desktop，保留既有 Sidebar 与会话工作台体验。
 - Server 所有的 Schedule、Web3 network、wallet、signing policy、dApp session、approval 与 audit record。
 - 非 TUI CLI，以及可选的端到端加密 Relay。
@@ -60,7 +60,7 @@ packages/ui               共享 UI primitive 与 AI Elements
 packages/web3             纯 Web3 领域模块
 ```
 
-`apps/marketplace` 与 `packages/sdk` 尚未创建，属于明确计划。边界见 [Marketplace 设计](docs/marketplace.zh-CN.md)与[当前路线图](docs/todo.zh-CN.md)。
+`apps/marketplace` 尚未创建，属于明确计划。边界见 [Marketplace 设计](docs/marketplace.zh-CN.md)与[当前路线图](docs/todo.zh-CN.md)。
 
 ## 开发
 

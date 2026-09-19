@@ -45,13 +45,11 @@ Agent 原生事件在此边界归一化。原生载荷可以为诊断保留，�
 ## 包边界
 
 - `@cypheria/protocol` 负责版本化公开契约、运行时校验和生成的上游协议产物。
-- `@cypheria/client` 负责连接和领域 facade，不依赖 Electron 或数据库。
+- `@cypheria/client` 是公开 TypeScript SDK，负责连接和领域 facade，不依赖 Electron 或数据库。
 - `@cypheria/ai-sdk-provider` 将 Cypheria Threads 与 Timeline 事件映射到 AI SDK provider 契约。
 - `@cypheria/db` 负责 Server 使用的 SQLite Schema、迁移基线和 repositories。
 - `@cypheria/web3` 包含纯 Network、Policy、Wallet、Provider 领域逻辑；特权编排仍在 Server。
 - `@cypheria/ui` 包含可复用展示组件和 AI Elements。
-
-`packages/sdk` 计划作为公开 TypeScript SDK。它目前不存在，不能通过暴露 Server 内部实现来伪装替代。
 
 ## 主要数据流
 
@@ -100,7 +98,6 @@ Agent 原生事件在此边界归一化。原生载荷可以为诊断保留，�
 ## 计划边界
 
 - `apps/marketplace`：独立的公开提交、审核、发布和发现服务。
-- `packages/sdk`：位于 Cypheria 协议之上的稳定公开 TypeScript API。
 - 在 Desktop 体验成熟后扩展 Expo 产品能力。
 
 仍未完成的工作只在 [Todo](todo.zh-CN.md) 中跟踪。

@@ -7,7 +7,7 @@ Cypheria is a local-first, cross-platform Web3 agent workspace. A privileged Cyp
 - A supervised Hono/Node.js server with HTTP, WebSocket, configuration, diagnostics, and embedded web hosting.
 - First-party Codex, Claude, Pi, and OpenCode adapters, plus registry-backed ACP agents.
 - Durable Projects, Threads, Sections, Canonical Timeline, interactions, terminals, and artifacts.
-- A shared `@cypheria/client` and browser-safe AI SDK providers for all supported Agent kinds.
+- A public `@cypheria/client` TypeScript SDK and browser-safe AI SDK providers for all supported Agent kinds.
 - An Electron + TanStack Start desktop client with the established Sidebar and conversation workspace.
 - Server-owned schedules, Web3 networks, wallets, signing policies, dApp sessions, approvals, and audit records.
 - A non-TUI CLI and an optional end-to-end encrypted relay.
@@ -60,7 +60,7 @@ packages/ui               Shared UI primitives and AI Elements
 packages/web3             Pure Web3 domain modules
 ```
 
-`apps/marketplace` and `packages/sdk` are planned and do not exist yet. Their intended boundaries are documented in the [marketplace design](docs/marketplace.md) and [active roadmap](docs/todo.md).
+`apps/marketplace` is planned and does not exist yet. Its intended boundary is documented in the [marketplace design](docs/marketplace.md) and [active roadmap](docs/todo.md).
 
 ## Development
 

@@ -1,6 +1,6 @@
 # `@cypheria/client`
 
-用于版本化 Cypheria Server 协议的共享 TypeScript client，负责连接生命周期、request correlation、validation、subscriptions、reconnect 和产品级领域 facades。
+用于版本化 Cypheria Server 协议的公开 TypeScript SDK，负责连接生命周期、request correlation、validation、subscriptions、reconnect 和产品级领域 facades。
 
 ## 公开入口
 

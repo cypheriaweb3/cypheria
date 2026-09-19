@@ -4,14 +4,6 @@
 
 This page contains incomplete, still-approved work. Completed work and architecture history belong in Git. Items are ordered by dependency and should be implemented as reviewable, testable changes.
 
-## Public SDK
-
-- [ ] Add `packages/sdk` with a stable public `Cypheria` TypeScript client for Agent, Thread, runtime, wallet, policy, and schedule APIs.
-  - Build above the versioned Cypheria protocol and `@cypheria/client` behavior.
-  - Do not import CLI, Desktop, Electron, Server runtime internals, databases, or native Agent SDKs.
-  - Define public compatibility and release policy before publishing.
-- [ ] Add SDK test doubles for connections, runtime operations, Agent Threads, Timeline streams, and approvals so tests run without Electron or native Agent processes.
-
 ## CLI
 
 - [ ] Add interactive Thread execution and Web3 administration commands.
