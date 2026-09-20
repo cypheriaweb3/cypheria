@@ -1,9 +1,25 @@
 /// <reference types="vite/client" />
 
-import type { AgentView } from "@cypheria/protocol"
+import type { AgentId, AgentOperation, AgentView } from "@cypheria/protocol"
 import { cn } from "@cypheria/ui"
 import { Button } from "@cypheria/ui/components/button"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@cypheria/ui/components/dialog"
 import { Input } from "@cypheria/ui/components/input"
+import { Progress, ProgressLabel, ProgressValue } from "@cypheria/ui/components/progress"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@cypheria/ui/components/select"
 import {
   SidebarContent,
   SidebarFooter,
@@ -13,6 +29,7 @@ import {
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
+  SidebarMenuAction,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@cypheria/ui/components/sidebar"
@@ -20,8 +37,21 @@ import { TooltipProvider } from "@cypheria/ui/components/tooltip"
 import { msg } from "@lingui/core/macro"
 import { I18nProvider, useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
-import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query"
-import { HeadContent, Link, Outlet, Scripts, useLocation } from "@tanstack/react-router"
+import {
+  QueryClient,
+  QueryClientProvider,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
+import {
+  HeadContent,
+  Link,
+  Outlet,
+  Scripts,
+  useLocation,
+  useNavigate,
+} from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Provider as JotaiProvider } from "jotai"
 import {
@@ -34,6 +64,7 @@ import {
   ChevronRight,
   CircleUserRound,
   Palette,
+  Plus,
   Search,
   Settings,
   SquarePen,
@@ -51,6 +82,7 @@ import { resolveThemeMode, useAppearanceController, useTheme } from "../appearan
 import { ensureCypheriaClient } from "../cypheria-client.js"
 import { activateLanguage, getBootstrapLanguage, i18n } from "../i18n.js"
 import { web3Api } from "../web3-api.js"
+import { waitForAgentOperation } from "./agent-operation"
 import { NewChatLink } from "./chat-navigation"
 import { ChatSearch } from "./chat-search"
 import { ChatSidebar } from "./chat-sidebar"
@@ -121,14 +153,17 @@ const settingsGroups = [
   },
 ] as const
 
-type HarnessNavigationAgent = Pick<AgentView, "icon" | "id" | "name">
+type HarnessNavigationAgent = Pick<AgentView, "icon" | "id" | "installed" | "name">
 
 const nativeHarnessNavigationAgents: HarnessNavigationAgent[] = [
-  { icon: null, id: "codex", name: "Codex" },
-  { icon: null, id: "claude", name: "Claude" },
-  { icon: null, id: "pi", name: "Pi" },
-  { icon: null, id: "opencode", name: "OpenCode" },
+  { icon: null, id: "codex", installed: false, name: "Codex" },
+  { icon: null, id: "claude", installed: false, name: "Claude" },
+  { icon: null, id: "pi", installed: false, name: "Pi" },
+  { icon: null, id: "opencode", installed: false, name: "OpenCode" },
 ]
+const nativeHarnessOrder = new Map(
+  nativeHarnessNavigationAgents.map((agent, index) => [agent.id, index])
+)
 
 export default function AppRoot() {
   return (
@@ -365,6 +400,7 @@ function SettingsNavigation({
   const { i18n: activeI18n } = useLingui()
   const [searchQuery, setSearchQuery] = useState("")
   const [harnessesExpanded, setHarnessesExpanded] = useState(true)
+  const [installDialogOpen, setInstallDialogOpen] = useState(false)
   const searchRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const agents = useQuery({
@@ -530,7 +566,7 @@ function SettingsNavigation({
                     <SidebarMenu>
                       <SidebarMenuItem>
                         <SidebarMenuButton
-                          isActive={pathname.startsWith("/settings/agent-harnesses/")}
+                          className="pr-8"
                           onClick={() => setHarnessesExpanded((value) => !value)}
                           tooltip={row.label}
                         >
@@ -541,6 +577,15 @@ function SettingsNavigation({
                           )}
                           <span>{row.label}</span>
                         </SidebarMenuButton>
+                        <SidebarMenuAction
+                          aria-label="Add agent harness"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            setInstallDialogOpen(true)
+                          }}
+                        >
+                          <Plus aria-hidden="true" />
+                        </SidebarMenuAction>
                       </SidebarMenuItem>
                     </SidebarMenu>
                   ) : null}
@@ -554,7 +599,7 @@ function SettingsNavigation({
                           )}
                           render={
                             <Link
-                              params={{ agentId: row.agent.id, sectionId: "installation" }}
+                              params={{ agentId: row.agent.id, sectionId: "authentication" }}
                               to="/settings/agent-harnesses/$agentId/$sectionId"
                             >
                               <span className="flex size-5 items-center justify-center">
@@ -588,7 +633,140 @@ function SettingsNavigation({
       <SidebarFooter className="flex min-h-[58px] items-end px-3 pb-3 pt-2.5">
         <ThemeModeButton />
       </SidebarFooter>
+      <HarnessInstallDialog
+        agents={agents.data?.agents ?? []}
+        onOpenChange={setInstallDialogOpen}
+        open={installDialogOpen}
+      />
     </Sidebar>
+  )
+}
+
+function HarnessInstallDialog({
+  agents,
+  onOpenChange,
+  open,
+}: Readonly<{
+  agents: AgentView[]
+  onOpenChange: (open: boolean) => void
+  open: boolean
+}>) {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const uninstalled = useMemo(
+    () =>
+      agents
+        .filter((agent) => !agent.installed)
+        .sort((a, b) => {
+          const left = nativeHarnessOrder.get(a.id)
+          const right = nativeHarnessOrder.get(b.id)
+          if (left !== undefined || right !== undefined) {
+            return (left ?? Number.MAX_SAFE_INTEGER) - (right ?? Number.MAX_SAFE_INTEGER)
+          }
+          return a.name.localeCompare(b.name)
+        }),
+    [agents]
+  )
+  const [selectedId, setSelectedId] = useState<AgentId>()
+  const [operation, setOperation] = useState<AgentOperation>()
+  const install = useMutation({
+    mutationFn: async (agentId: AgentId) => {
+      const client = await ensureCypheriaClient()
+      return waitForAgentOperation(await client.agents.install(agentId), setOperation)
+    },
+    onSuccess: async (_, agentId) => {
+      await queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
+      setOperation(undefined)
+      onOpenChange(false)
+      await navigate({
+        params: { agentId, sectionId: "authentication" },
+        to: "/settings/agent-harnesses/$agentId/$sectionId",
+      })
+    },
+  })
+
+  useEffect(() => {
+    if (!open) return
+    if (!uninstalled.some((agent) => agent.id === selectedId)) {
+      setSelectedId(uninstalled[0]?.id)
+    }
+  }, [open, selectedId, uninstalled])
+
+  const selected = uninstalled.find((agent) => agent.id === selectedId)
+  const progress = Math.round((operation?.progress ?? 0) * 100)
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (install.isPending) return
+        if (!nextOpen) {
+          install.reset()
+          setOperation(undefined)
+        }
+        onOpenChange(nextOpen)
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add agent harness</DialogTitle>
+          <DialogDescription>
+            Choose an available harness to install. Installation continues in this dialog.
+          </DialogDescription>
+        </DialogHeader>
+        {uninstalled.length ? (
+          <Select
+            disabled={install.isPending}
+            value={selectedId}
+            onValueChange={(value) => setSelectedId(value as AgentId)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select a harness">{selected?.name}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {uninstalled.map((agent) => (
+                <SelectItem key={agent.id} value={agent.id}>
+                  <HarnessIcon
+                    agentId={agent.id}
+                    className="size-4"
+                    icon={agent.icon}
+                    name={agent.name}
+                  />
+                  {agent.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : (
+          <p className="text-sm text-muted-foreground">All available harnesses are installed.</p>
+        )}
+        {operation ? (
+          <Progress value={progress}>
+            <ProgressLabel>{operation.message ?? "Preparing installation…"}</ProgressLabel>
+            <ProgressValue />
+          </Progress>
+        ) : null}
+        {install.error ? <p className="text-sm text-destructive">{install.error.message}</p> : null}
+        <DialogFooter>
+          <Button
+            disabled={install.isPending}
+            variant="outline"
+            onClick={() => {
+              install.reset()
+              setOperation(undefined)
+              onOpenChange(false)
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            disabled={!selected || install.isPending}
+            onClick={() => selected && install.mutate(selected.id)}
+          >
+            {install.isPending ? "Installing…" : "Install"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 

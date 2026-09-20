@@ -1,5 +1,6 @@
 export type SettingsNavigationAgent = {
   id: string
+  installed: boolean
   name: string
 }
 
@@ -36,6 +37,7 @@ export function buildSettingsNavigationRows<TAgent extends SettingsNavigationAge
   const harnessMatches =
     !needle || input.harnessLabel.toLocaleLowerCase(input.locale).includes(needle)
   const agents = input.agents
+    .filter((agent) => nativeOrder.has(agent.id) || agent.installed)
     .filter(
       (agent) =>
         !needle || harnessMatches || agent.name.toLocaleLowerCase(input.locale).includes(needle)
