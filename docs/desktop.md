@@ -1,3 +1,7 @@
+---
+title: Desktop
+---
+
 # Desktop
 
 `apps/desktop` is Cypheria's primary client. It combines Electron main and preload processes with a TanStack Start renderer and preserves the dense, workspace-oriented Sidebar and conversation experience. It does not share its application shell with Expo.

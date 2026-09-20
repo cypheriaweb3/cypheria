@@ -1,3 +1,4 @@
+import cypheriaMark from "@cypheria/ui/assets/brand/cypheria-mark.svg"
 import { Alert, AlertDescription, AlertTitle } from "@cypheria/ui/components/alert"
 import { Button } from "@cypheria/ui/components/button"
 import {
@@ -50,7 +51,6 @@ import type {
   CodexPluginView,
   CodexSkillView,
 } from "../../../ipc/src/index.js"
-import cypheriaMark from "../assets/brand/cypheria-mark.svg"
 import promptWallpaper from "../assets/plugins/prompt-wallpaper.webp"
 import { ensureCypheriaClient } from "../cypheria-client.js"
 import { integrationApi } from "../integration-api.js"

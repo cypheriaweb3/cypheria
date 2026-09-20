@@ -1,3 +1,7 @@
+---
+title: Database
+---
+
 # Database
 
 Cypheria uses SQLite through Drizzle ORM and the local libSQL driver. `packages/db/src/schema/` is the editable schema source; `packages/db/drizzle/0000_initial.sql` and its snapshot are the current generated migration baseline.

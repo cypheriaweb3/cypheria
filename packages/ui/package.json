@@ -6,6 +6,8 @@
   "exports": {
     ".": "./src/index.tsx",
     "./ai-elements/*": "./src/components/ai-elements/*.tsx",
+    "./assets/agents/*": "./src/assets/agents/*",
+    "./assets/brand/*": "./src/assets/brand/*",
     "./components/*": "./src/components/*.tsx",
     "./lib/*": "./src/lib/*.ts",
     "./styles.css": "./src/styles.css"

@@ -1,3 +1,7 @@
+---
+title: Server
+---
+
 # Server
 
 `apps/server` is the privileged process boundary for Cypheria. It owns shared state, Agent runtimes, persistence, schedules, Web3 execution, and versioned client connections. See [Architecture](architecture.md) for ownership and [Protocol](protocol.md) for wire contracts.

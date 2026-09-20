@@ -1,0 +1,324 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-09-20 18:19+0800\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: zh-CN\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.architecture.eyebrow"
+msgstr "本地、开放的架构"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.intro"
+msgstr "用一个工作区承载会话、工具、终端、项目、计划任务、集成，以及受到严格控制的 Web3 操作。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.agents.title"
+msgstr "Agent 运行时"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.audit.text"
+msgstr "审批、拒绝、策略、计划任务、签名和交易结果均可审计。中断的签名或发送绝不会自动重放。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "nav.architecture"
+msgstr "架构"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.docs.text"
+msgstr "架构和包契约以仓库文档为唯一来源；本页仅提供入口，不重复维护内容。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "feature.audit"
+msgstr "审计"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.audit.title"
+msgstr "可审计，不自动重放"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.agents.title"
+msgstr "带上你已经在用的 Agent。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.title"
+msgstr "基于 Cypheria 的公开边界构建。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "architecture.cli"
+msgstr "CLI"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.agents.text"
+msgstr "Codex、Claude、Pi、OpenCode 和 ACP 共用同一套会话外壳，同时保留各自运行时能力。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.workspace.title"
+msgstr "会话工作区"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.subtitle"
+msgstr "Cypheria 将代码、钱包与网页汇集到一个本地工作区，并提供 Web3 安全控制。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.intro"
+msgstr "Cypheria 将权限留在本地 Server，让敏感操作清晰可见，并记录关键决策。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.isolation.text"
+msgstr "dApp 会话使用隔离的浏览器分区，既无法访问 Node.js，也无法获得原始签名器。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "common.theme.dark"
+msgstr "深色"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.title"
+msgstr "围绕清晰可见的信任边界设计。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.architecture.text"
+msgstr "Desktop、CLI 和 Expo 连接到本地 Server，并通过明确审批与审计日志保障控制。加密 Relay 是可选能力。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "nav.developers"
+msgstr "开发者"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.eyebrow"
+msgstr "开发者"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "nav.docs"
+msgstr "文档"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "architecture.relay"
+msgstr "加密 Relay（可选）"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.approval.text"
+msgstr "每个签名意图都必须经过策略。除非已启用的明确策略允许该项操作，否则自动签名始终关闭。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.intro"
+msgstr "探索架构、公共协议、客户端 SDK、Agent adapter、Web3 领域包以及本地开发流程。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "architecture.expo"
+msgstr "Expo"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "feature.browser"
+msgstr "隔离浏览器"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.isolation.title"
+msgstr "按来源隔离"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.agents.text"
+msgstr "保留你的工具与工作流，由 Cypheria 提供一致的工作空间。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "common.language"
+msgstr "语言"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "common.theme.light"
+msgstr "浅色"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.title"
+msgstr "本地 Agent，一个可信工作区。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "architecture.localServer"
+msgstr "本地 Server"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "architecture.marketplace"
+msgstr "Marketplace"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.web3.text"
+msgstr "网络、钱包、签名策略、审批、隔离的 dApp 会话和审计记录始终位于受保护的 Server 边界之后。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.docs.title"
+msgstr "唯一文档来源"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.architecture.title"
+msgstr "一个系统，尽在掌控。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.title"
+msgstr "贯穿 Agent 生命周期的统一工作区。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.footnote"
+msgstr "开源。本地优先。控制权始终属于你。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "common.comingSoon"
+msgstr "规划中"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.approval.title"
+msgstr "策略与审批"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.eyebrow"
+msgstr "预发布 · Cypheria 正在积极开发中。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.boundary.text"
+msgstr "私钥、数据库访问、签名、计划任务、Agent 进程和策略评估均不进入 renderer 或 dApp 页面。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.boundary.title"
+msgstr "受保护的 Server 边界"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "nav.product"
+msgstr "产品"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.eyebrow"
+msgstr "产品"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.workspace.text"
+msgstr "项目、Thread、Section、产物、终端与工具都保存在持久的 Canonical Timeline 中。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.protocol.title"
+msgstr "协议与客户端"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.cta.docs"
+msgstr "阅读文档"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.remote.title"
+msgstr "计划任务与远程访问"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.remote.text"
+msgstr "计划任务具备恢复与防重放保证。可选的端到端加密 Relay 让应用负载在传输中保持不透明。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "nav.security"
+msgstr "安全"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.eyebrow"
+msgstr "安全"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.server.title"
+msgstr "Server 组合"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.commands.title"
+msgstr "本地启动"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "common.theme.system"
+msgstr "跟随系统"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.server.text"
+msgstr "Server 通过明确的服务组合运行时、存储、计划任务、集成、终端、Web3 执行与审计。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "common.theme"
+msgstr "主题"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.protocol.text"
+msgstr "配合使用 @cypheria/client 与 @cypheria/protocol。客户端不会导入 Server 内部实现、仓库层或 Agent SDK。"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "common.github"
+msgstr "在 GitHub 查看"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.web3.title"
+msgstr "明确受控的 Web3"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.agents.eyebrow"
+msgstr "支持你正在使用的 Agent"

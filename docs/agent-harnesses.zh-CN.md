@@ -1,3 +1,7 @@
+---
+title: Agent Harnesses
+---
+
 # Agent Harnesses
 
 Cypheria 支持 Codex、Claude、Pi、OpenCode 四种第一方 Agent harness，以及 registry 驱动的 ACP Agent harness。Server 负责所有进程和原生协议，客户端使用通用 Agent、Thread、Timeline 和 integration API。

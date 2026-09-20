@@ -1,3 +1,7 @@
+---
+title: Development
+---
+
 # Development
 
 This guide is the canonical reference for the workspace, toolchain, generated artifacts, and verification workflow. Product ownership belongs in [Architecture](architecture.md).
@@ -22,6 +26,7 @@ Implemented applications:
 | `apps/expo` | Expo Router foundation and static web export |
 | `apps/cli` | Non-TUI protocol client and local Server lifecycle commands |
 | `apps/relay` | Go encrypted relay data plane |
+| `apps/website` | TanStack Start marketing and Fumadocs site on Cloudflare Workers |
 
 Implemented packages:
 
@@ -35,7 +40,7 @@ Implemented packages:
 | `packages/relay` | Pairing, E2EE, and relay transport helpers |
 | `packages/ui` | Shared UI primitives and AI Elements |
 
-`apps/marketplace` is a planned workspace and is not part of the dependency graph.
+Future Marketplace routes belong to `apps/website`; the current application has no Marketplace route, account system, API, schema, or Cloudflare storage binding.
 
 ## Install and verify
 
@@ -62,6 +67,7 @@ pnpm --filter @cypheria/server test
 pnpm --filter @cypheria/protocol check
 pnpm --filter @cypheria/client test
 pnpm --filter @cypheria/desktop typecheck
+pnpm --filter @cypheria/website check
 pnpm --filter @cypheria/cypheria-relay test
 ```
 
@@ -80,6 +86,7 @@ Common development processes:
 pnpm --filter @cypheria/server dev
 pnpm --filter @cypheria/desktop dev
 pnpm --filter @cypheria/expo dev
+pnpm --filter @cypheria/website dev
 pnpm --filter @cypheria/cypheria-relay dev -- --mode=single
 ```
 
@@ -91,6 +98,8 @@ pnpm --filter @cypheria/cli exec cypheria --help
 ```
 
 See [Server](server.md) for lifecycle commands and runtime paths.
+
+The website uses English at root paths and Simplified Chinese under `/zh-CN`. Lingui owns marketing copy; Fumadocs consumes `docs/*.md` and their `.zh-CN.md` companions directly. `pnpm --filter @cypheria/website build` compiles strict catalogs, prerenders every marketing and documentation route, emits the static ZBSearch index, and builds the Worker fallback. Use `pnpm --filter @cypheria/website exec wrangler dev` for the production-shaped local runtime.
 
 ## Generated artifacts
 

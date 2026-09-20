@@ -24,6 +24,11 @@
       "!coverage",
       "!pnpm-lock.yaml",
       "!apps/desktop/renderer/src/routeTree.gen.ts",
+      "!apps/website/src/routeTree.gen.ts",
+      "!**/.source",
+      "!**/.wrangler",
+      "!**/playwright-report",
+      "!**/test-results",
       "!packages/db/drizzle/meta",
       "!packages/protocol/src/generated/codex/messages.ts",
       "!packages/protocol/src/generated"

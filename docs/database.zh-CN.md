@@ -1,3 +1,7 @@
+---
+title: 数据库
+---
+
 # 数据库
 
 Cypheria 通过 Drizzle ORM 和本地 libSQL driver 使用 SQLite。`packages/db/src/schema/` 是可编辑 Schema 来源；`packages/db/drizzle/0000_initial.sql` 及其 snapshot 是当前生成迁移基线。

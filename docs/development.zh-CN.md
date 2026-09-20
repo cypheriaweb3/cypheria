@@ -1,3 +1,7 @@
+---
+title: 开发指南
+---
+
 # 开发指南
 
 本文是工作区、工具链、生成产物和验证流程的权威参考。产品所有权见[架构](architecture.zh-CN.md)。
@@ -22,6 +26,7 @@ JavaScript 和 TypeScript 工作区命令统一使用 pnpm。仓库使用 Turbor
 | `apps/expo` | Expo Router 基础和静态 web 导出 |
 | `apps/cli` | 非 TUI 协议客户端和本地 Server 生命周期命令 |
 | `apps/relay` | Go 加密 relay 数据平面 |
+| `apps/website` | 部署于 Cloudflare Workers 的 TanStack Start 官网与 Fumadocs 文档站 |
 
 已实现包：
 
@@ -35,7 +40,7 @@ JavaScript 和 TypeScript 工作区命令统一使用 pnpm。仓库使用 Turbor
 | `packages/relay` | 配对、E2EE 和 relay 传输工具 |
 | `packages/ui` | 共享 UI 原语和 AI Elements |
 
-`apps/marketplace` 是计划中的工作区，不属于当前依赖图。
+未来 Marketplace 路由属于 `apps/website`；当前应用没有 Marketplace 路由、账户系统、API、schema 或 Cloudflare 存储 binding。
 
 ## 安装与验证
 
@@ -62,6 +67,7 @@ pnpm --filter @cypheria/server test
 pnpm --filter @cypheria/protocol check
 pnpm --filter @cypheria/client test
 pnpm --filter @cypheria/desktop typecheck
+pnpm --filter @cypheria/website check
 pnpm --filter @cypheria/cypheria-relay test
 ```
 
@@ -80,6 +86,7 @@ pnpm --filter @cypheria/server server start
 pnpm --filter @cypheria/server dev
 pnpm --filter @cypheria/desktop dev
 pnpm --filter @cypheria/expo dev
+pnpm --filter @cypheria/website dev
 pnpm --filter @cypheria/cypheria-relay dev -- --mode=single
 ```
 
@@ -91,6 +98,8 @@ pnpm --filter @cypheria/cli exec cypheria --help
 ```
 
 生命周期命令和运行目录见 [Server](server.zh-CN.md)。
+
+Website 的英文内容位于根路径，简体中文位于 `/zh-CN`。Lingui 管理营销文案；Fumadocs 直接消费 `docs/*.md` 及其 `.zh-CN.md` companion。`pnpm --filter @cypheria/website build` 会严格编译 catalog、预渲染所有营销与文档路由、输出静态 ZBSearch 索引，并构建 Worker fallback。可用 `pnpm --filter @cypheria/website exec wrangler dev` 启动与生产形态一致的本地运行时。
 
 ## 生成产物
 

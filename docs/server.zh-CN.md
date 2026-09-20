@@ -1,3 +1,7 @@
+---
+title: Server
+---
+
 # Server
 
 `apps/server` 是 Cypheria 的特权进程边界，负责共享状态、Agent runtime、持久化、Schedules、Web3 执行和版本化客户端连接。所有权见[架构](architecture.zh-CN.md)，wire 契约见[协议](protocol.zh-CN.md)。

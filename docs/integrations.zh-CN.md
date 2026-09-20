@@ -1,3 +1,7 @@
+---
+title: Integrations
+---
+
 # Integrations
 
 > 计划中：Cypheria 原生插件执行尚未完成。

@@ -1,11 +1,15 @@
+---
+title: Cypheria 品牌规范
+---
+
 # Cypheria 品牌规范
 
 Cypheria 在桌面产品、浏览器界面与项目传播中统一使用一个几何标志。标志由开放的环形 **C** 与四角星核组成：环形代表持续运转的 agent workflow，星核代表处于中心位置、由用户授权的动作。
 
 ## 核心资产
 
-- `apps/desktop/renderer/src/assets/brand/cypheria-mark.svg` 是透明、单色标志的唯一母版。用于产品 UI、加载状态，以及周围表面已经提供对比度的布局。
-- `apps/desktop/renderer/src/assets/brand/cypheria-app-icon.svg` 是生成后供产品消费的 SVG 应用图标与 favicon 母版，在规定的圆角方形底板上承载标志。
+- `packages/ui/src/assets/brand/cypheria-mark.svg` 是透明、单色标志的唯一母版。用于产品 UI、加载状态，以及周围表面已经提供对比度的布局。
+- `packages/ui/src/assets/brand/cypheria-app-icon.svg` 是 Desktop 与 Website 共同消费的 SVG 应用图标与 favicon 母版，在规定的圆角方形底板上承载标志。
 - `apps/desktop/resources/icons/` 保存生成的平台资产。PNG、ICO 与 ICNS 只用于平台兼容，不是可编辑母版。
 
 SVG 是 source format。应修改单色标志，或修改 `generate-brand-icons.mjs` 中的应用图标规则，再重新生成；不得描摹生成后的 PNG，也不得通过修改平台衍生文件来制作新的品牌资产。
@@ -44,5 +48,7 @@ pnpm --filter @cypheria/desktop brand:generate
 ```
 
 生成器会组合应用图标 SVG，并派生带视觉缩进的 1024px PNG、常用 Linux PNG 尺寸、Windows ICO 和 macOS ICNS。Electron main 在开发环境使用 PNG 作为窗口与 Dock 图标；TanStack Start 将不需要操作系统额外边距的满画布 SVG 作为页面 favicon。启用 desktop packaging 后，`apps/desktop/resources/icons/` 中对应的 ICNS、ICO 与 PNG 就是打包输入。
+
+Agent 标志统一从 `packages/ui/src/assets/agents/` 共享。Desktop 与 Website 按明暗表面选择对应 variant，不复制 upstream 资产。Website 只提供独立的明暗两态主题，并使用自己的浏览器存储 key；它不复用 Desktop 的动态主题选择模型。
 
 在 macOS 上，请通过 `pnpm --filter @cypheria/desktop dev` 启动开发应用（构建完成后也可使用 `dev:launch`）。启动器会创建一个被 Git 忽略并可复用的 `Cypheria.app` 开发壳，Bundle ID 为 `dev.cypheria.desktop.dev`，并写入 Cypheria 的 bundle 名称、可执行文件名和批准的 ICNS；正式版使用 `dev.cypheria.desktop`。直接运行 `electron .` 会绕过该开发壳，因此 macOS 会把进程识别为通用的 **Electron** 宿主。

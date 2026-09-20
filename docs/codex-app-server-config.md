@@ -1,3 +1,7 @@
+---
+title: Codex Configuration in Cypheria
+---
+
 # Codex Configuration in Cypheria
 
 This document describes only the Codex configuration semantics Cypheria currently depends on. It is not a complete Codex configuration reference. Exact App Server fields remain governed by the generated protocol and the pinned `@openai/codex` version.

@@ -11,6 +11,7 @@ allowBuilds:
   msw: true
   node-pty: true
   protobufjs: false
+  workerd: true
 onlyBuiltDependencies:
   - electron
   - esbuild
@@ -26,3 +27,6 @@ minimumReleaseAgeExclude:
   - '@opencode/client@2.0.11'
   - '@opencode/protocol@2.0.11'
   - '@opencode/schema@2.0.11'
+  - '@fumadocs/base-ui@16.15.12'
+  - fumadocs-core@16.15.12
+  - fumadocs-mdx@15.4.2

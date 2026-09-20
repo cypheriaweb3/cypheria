@@ -1,8 +1,8 @@
 /// <reference types="vite/client" />
 
+import appIcon from "@cypheria/ui/assets/brand/cypheria-app-icon.svg?url"
 import appStyles from "@cypheria/ui/styles.css?url"
 import { createRootRoute, lazyRouteComponent } from "@tanstack/react-router"
-import appIcon from "../assets/brand/cypheria-app-icon.svg?url"
 
 export const Route = createRootRoute({
   component: lazyRouteComponent(() => import("../components/app-shell")),

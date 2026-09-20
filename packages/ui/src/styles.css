@@ -5,7 +5,7 @@
 @import "@fontsource-variable/inter";
 
 @custom-variant dark (&:is(.dark *));
-@source "../../../apps/{desktop}/*.{ts,tsx}";
+@source "../../../apps/{desktop,website}/**/*.{ts,tsx}";
 @source "./**/*.{ts,tsx}";
 
 @theme inline {

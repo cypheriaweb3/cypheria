@@ -1,11 +1,15 @@
+---
+title: Cypheria Brand
+---
+
 # Cypheria Brand
 
 Cypheria uses one geometric mark across the desktop product, browser surfaces, and project communication. The mark combines an open circular **C** with a four-point spark: the ring represents a continuous agent workflow, while the spark represents a user-authorized action at its center.
 
 ## Core Assets
 
-- `apps/desktop/renderer/src/assets/brand/cypheria-mark.svg` is the canonical transparent, monochrome mark. Use it in product UI, loading states, and layouts where the surrounding surface already supplies contrast.
-- `apps/desktop/renderer/src/assets/brand/cypheria-app-icon.svg` is the generated SVG application-icon and favicon master consumed by the product. It places the mark on the approved rounded-square background.
+- `packages/ui/src/assets/brand/cypheria-mark.svg` is the canonical transparent, monochrome mark. Use it in product UI, loading states, and layouts where the surrounding surface already supplies contrast.
+- `packages/ui/src/assets/brand/cypheria-app-icon.svg` is the generated SVG application-icon and favicon master consumed by Desktop and Website. It places the mark on the approved rounded-square background.
 - `apps/desktop/resources/icons/` contains generated platform assets. PNG, ICO, and ICNS files are compatibility derivatives only; they are not editable masters.
 
 SVG is the source format. Edit the monochrome mark or the application-icon rules in `generate-brand-icons.mjs`, then regenerate; never trace a generated PNG or edit a platform derivative to create a new brand asset.
@@ -44,5 +48,7 @@ pnpm --filter @cypheria/desktop brand:generate
 ```
 
 The generator assembles the application-icon SVG and derives an optically inset 1024px PNG, common Linux PNG sizes, Windows ICO, and macOS ICNS. Electron main uses the PNG during development and for the window/Dock icon. TanStack Start publishes the full-canvas SVG as the document favicon, where the extra operating-system perimeter is not needed. When desktop packaging is enabled, the matching ICNS, ICO, and PNG files in `apps/desktop/resources/icons/` are the packaging inputs.
+
+Agent marks are shared from `packages/ui/src/assets/agents/`. Desktop and Website select their light or dark variants without duplicating the upstream assets. Website exposes only a separate two-state light/dark theme stored under its own browser key; it does not reuse Desktop's dynamic theme selection model.
 
 On macOS, start the development application through `pnpm --filter @cypheria/desktop dev` (or `dev:launch` after building). The launcher creates a cached, ignored `Cypheria.app` development shell with bundle identifier `dev.cypheria.desktop.dev`, the Cypheria bundle and executable names, and the approved ICNS. Production packages use `dev.cypheria.desktop`. Running `electron .` directly bypasses that shell and macOS will correctly identify the process as the generic **Electron** host.

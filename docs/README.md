@@ -1,3 +1,7 @@
+---
+title: Cypheria Documentation
+---
+
 # Cypheria Documentation
 
 This index assigns one owner to each subject. Follow links instead of copying details between documents.
@@ -33,6 +37,6 @@ This index assigns one owner to each subject. Follow links instead of copying de
 
 ## Planned service
 
-- [Cypheria Marketplace](marketplace.md): planned remote submission, review, publication, and discovery service. This is not an implemented application yet.
+- [Cypheria Marketplace](marketplace.md): planned dynamic submission, review, publication, and discovery capability inside Website. No Marketplace routes are implemented yet.
 
 Every maintained English product document has a `.zh-CN.md` companion. Generated references must be updated through their generator rather than edited directly.

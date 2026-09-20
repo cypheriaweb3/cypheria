@@ -1,3 +1,7 @@
+---
+title: Web3
+---
+
 # Web3
 
 Cypheria separates pure Web3 domain types from privileged execution. `@cypheria/web3` provides the `network`, `wallet`, `policy`, and `provider` modules. `apps/server/src/runtime` owns persistence, credentials, vault access, policy evaluation, signing, dApp sessions, and audit.

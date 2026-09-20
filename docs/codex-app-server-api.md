@@ -1,3 +1,7 @@
+---
+title: Codex App Server API reference
+---
+
 # Codex App Server API reference
 
 > Status: Generated internal adapter reference; do not edit manually

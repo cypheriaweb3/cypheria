@@ -1,0 +1,324 @@
+msgid ""
+msgstr ""
+"POT-Creation-Date: 2026-09-20 18:19+0800\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: @lingui/cli\n"
+"Language: en\n"
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: \n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Plural-Forms: \n"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.architecture.eyebrow"
+msgstr "A local, open architecture"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.intro"
+msgstr "A single workspace for conversations, tools, terminals, projects, schedules, integrations, and carefully controlled Web3 actions."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.agents.title"
+msgstr "Agent runtimes"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.audit.text"
+msgstr "Approvals, rejections, policies, schedules, signatures, and transaction outcomes are auditable. Interrupted signing or sending is never replayed automatically."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "nav.architecture"
+msgstr "Architecture"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.docs.text"
+msgstr "Architecture and package contracts live in the repository documentation; this page links to them instead of duplicating them."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "feature.audit"
+msgstr "Audit"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.audit.title"
+msgstr "Audit without automatic replay"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.agents.title"
+msgstr "Bring the agents you already use."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.title"
+msgstr "Build with Cypheria's public boundaries."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "architecture.cli"
+msgstr "CLI"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.agents.text"
+msgstr "Codex, Claude, Pi, OpenCode, and ACP share one conversation shell while retaining runtime-specific capabilities."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.workspace.title"
+msgstr "Conversation workspace"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.subtitle"
+msgstr "Cypheria brings code, wallets, and the web together in a single local workspace with Web3 security controls."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.intro"
+msgstr "Cypheria keeps authority in the local Server, makes sensitive actions explicit, and records the decisions that matter."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.isolation.text"
+msgstr "dApp sessions use isolated browser partitions and receive neither Node.js access nor raw signers."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "common.theme.dark"
+msgstr "Dark"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.title"
+msgstr "Designed around visible trust boundaries."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.architecture.text"
+msgstr "Desktop, CLI, and Expo connect to a local Server with explicit approvals and audit logging. The encrypted Relay is optional."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "nav.developers"
+msgstr "Developers"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.eyebrow"
+msgstr "Developers"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "nav.docs"
+msgstr "Docs"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "architecture.relay"
+msgstr "Encrypted Relay (optional)"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.approval.text"
+msgstr "Every signing intent passes policy. Auto-signing remains off unless an explicit enabled policy permits the exact action."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.intro"
+msgstr "Explore the architecture, public protocol, client SDK, Agent adapters, Web3 domain packages, and local development workflow."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "architecture.expo"
+msgstr "Expo"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "feature.browser"
+msgstr "Isolated browser"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.isolation.title"
+msgstr "Isolation by origin"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.agents.text"
+msgstr "Keep your tools and workflow while Cypheria provides one consistent workspace."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "common.language"
+msgstr "Language"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "common.theme.light"
+msgstr "Light"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.title"
+msgstr "Local agents. One trusted workspace."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "architecture.localServer"
+msgstr "Local Server"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "architecture.marketplace"
+msgstr "Marketplace"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.web3.text"
+msgstr "Networks, wallets, signing policies, approvals, isolated dApp sessions, and audit records remain behind the privileged Server boundary."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.docs.title"
+msgstr "One documentation source"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.architecture.title"
+msgstr "One system. Under your control."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.title"
+msgstr "One workspace across the agent lifecycle."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.footnote"
+msgstr "Open source. Local first. You stay in control."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "common.comingSoon"
+msgstr "Planned"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.approval.title"
+msgstr "Policy and approval"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.eyebrow"
+msgstr "Pre-release · Cypheria is in active development."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.boundary.text"
+msgstr "Private keys, database access, signing, schedules, Agent processes, and policy evaluation stay outside renderers and dApp pages."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.boundary.title"
+msgstr "Privileged Server boundary"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "nav.product"
+msgstr "Product"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.eyebrow"
+msgstr "Product"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.workspace.text"
+msgstr "Projects, Threads, Sections, artifacts, terminals, and tools stay together in a durable Canonical Timeline."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.protocol.title"
+msgstr "Protocol and client"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.cta.docs"
+msgstr "Read the docs"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.remote.title"
+msgstr "Schedules and remote access"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.remote.text"
+msgstr "Schedules execute with recovery and non-replay guarantees. Optional E2EE Relay access keeps application payloads opaque in transit."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "nav.security"
+msgstr "Security"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "security.eyebrow"
+msgstr "Security"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.server.title"
+msgstr "Server composition"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.commands.title"
+msgstr "Start locally"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "common.theme.system"
+msgstr "System"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.server.text"
+msgstr "The Server composes explicit services for runtimes, storage, schedules, integrations, terminals, Web3 execution, and audit."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "common.theme"
+msgstr "Theme"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "developers.protocol.text"
+msgstr "Use @cypheria/client with @cypheria/protocol. Clients never import Server internals, repositories, or Agent SDKs."
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "common.github"
+msgstr "View on GitHub"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "product.web3.title"
+msgstr "Web3 with explicit control"
+
+#. js-lingui-explicit-id
+#: src/lib/copy.ts
+msgid "home.agents.eyebrow"
+msgstr "Works with your agents"

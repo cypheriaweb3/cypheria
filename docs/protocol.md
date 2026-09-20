@@ -1,3 +1,7 @@
+---
+title: Client/Server Protocol
+---
+
 # Client/Server Protocol
 
 `@cypheria/protocol` is the source of truth for the public Cypheria client/server contract. It exports strict TypeScript types, compiled Zod validators, serializers, capability constants, and generated upstream artifacts used inside Server adapters.

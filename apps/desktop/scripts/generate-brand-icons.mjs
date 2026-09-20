@@ -5,8 +5,9 @@ import { BICUBIC, createICNS, createICO } from "png2icons"
 import sharp from "sharp"
 
 const desktopRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..")
-const markPath = join(desktopRoot, "renderer/src/assets/brand/cypheria-mark.svg")
-const appIconSvgPath = join(desktopRoot, "renderer/src/assets/brand/cypheria-app-icon.svg")
+const repositoryRoot = resolve(desktopRoot, "../..")
+const markPath = join(repositoryRoot, "packages/ui/src/assets/brand/cypheria-mark.svg")
+const appIconSvgPath = join(repositoryRoot, "packages/ui/src/assets/brand/cypheria-app-icon.svg")
 const outputDir = join(desktopRoot, "resources/icons")
 
 const mark = await readFile(markPath, "utf8")

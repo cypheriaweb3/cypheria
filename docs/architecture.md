@@ -1,3 +1,7 @@
+---
+title: Architecture
+---
+
 # Architecture
 
 Cypheria is a local-first system with one privileged Server and multiple unprivileged clients. This document defines process ownership, data flow, and trust boundaries. Wire fields belong in [Protocol](protocol.md), persistence details in [Database](database.md), and commands in [Development](development.md) or [Server](server.md).
@@ -41,6 +45,10 @@ Agent-native events are normalized at this boundary. Native payloads may be reta
 ### Relay
 
 `apps/relay` forwards opaque encrypted WebSocket frames. `@cypheria/relay` provides transport-neutral pairing, encryption, and relay URL helpers. The relay cannot inspect application payloads and never becomes a source of product state.
+
+### Website
+
+`apps/website` is the TanStack Start marketing and documentation application deployed as one Cloudflare Worker. Marketing and Fumadocs pages are prerendered and served asset-first; the Worker remains the server-rendering boundary for future Marketplace pages and APIs. It does not connect to the local Cypheria Server or import its internals.
 
 ## Package boundaries
 
@@ -93,11 +101,13 @@ Pairing establishes end-to-end keys between client and Server. The relay routes 
 
 The current product is local-first: one user-controlled Server owns the authoritative store. Desktop commonly supervises that Server, while CLI and Expo can connect to it. Remote access uses the optional relay without moving execution or state to the relay.
 
+The public website uses Cloudflare static assets with Worker fallback. Its English pages use root paths and Simplified Chinese pages use `/zh-CN`; static documentation search is generated from the same repository Markdown sources.
+
 Cloud Agent execution, multi-Agent orchestration, and a stronger multi-user authorization system are not implemented. They require explicit future protocol and security designs.
 
 ## Planned boundaries
 
-- `apps/marketplace`: a separate public submission, review, publication, and discovery service.
+- Marketplace routes inside `apps/website`: public discovery plus authenticated publisher and reviewer surfaces. Their data and authorization remain independent of the local Server, and plugin scanning runs in a separate restricted Worker.
 - Expanded Expo product surfaces after the Desktop experience is mature.
 
 The active, incomplete work is tracked only in [Todo](todo.md).

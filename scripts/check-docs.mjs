@@ -61,6 +61,16 @@ for (const path of documentationFiles) {
   const source = read(path)
   const withoutCode = stripFencedCode(source)
 
+  if (/^docs\/[^/]+\.mdx?$/u.test(path)) {
+    const frontmatter = source.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/u)
+    const title = frontmatter?.[1].match(/^title:\s*(.+?)\s*$/mu)?.[1]
+    const firstHeading = source.match(/^#\s+(.+?)\s*#*$/mu)?.[1]
+    if (!frontmatter) report(path, "missing YAML frontmatter")
+    else if (!title) report(path, "frontmatter is missing title")
+    else if (title !== firstHeading)
+      report(path, `frontmatter title does not match first H1: ${title} !== ${firstHeading}`)
+  }
+
   if (/^> (?:Status: Current implementation|状态：当前实现)/mu.test(source)) {
     report(path, "current implementation status markers are redundant")
   }

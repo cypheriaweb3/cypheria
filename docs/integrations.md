@@ -1,3 +1,7 @@
+---
+title: Integrations
+---
+
 # Integrations
 
 > Planned: Cypheria-native plugin execution is not yet complete.

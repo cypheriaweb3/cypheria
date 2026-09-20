@@ -434,8 +434,14 @@ const chineseDocument = chinese.replace(
 )
 
 const documents = [
-  [resolve(repositoryRoot, "docs/codex-app-server-api.md"), englishDocument],
-  [resolve(repositoryRoot, "docs/codex-app-server-api.zh-CN.md"), chineseDocument],
+  [
+    resolve(repositoryRoot, "docs/codex-app-server-api.md"),
+    `---\ntitle: Codex App Server API reference\n---\n\n${englishDocument}`,
+  ],
+  [
+    resolve(repositoryRoot, "docs/codex-app-server-api.zh-CN.md"),
+    `---\ntitle: Codex App Server API 参考\n---\n\n${chineseDocument}`,
+  ],
 ]
 
 if (process.argv.includes("--check")) {

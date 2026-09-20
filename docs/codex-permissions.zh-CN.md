@@ -1,3 +1,7 @@
+---
+title: Cypheria 中的 Codex Permissions
+---
+
 # Cypheria 中的 Codex Permissions
 
 Cypheria 通过通用 Thread interaction 生命周期展示 Codex permissions，同时保留 Codex 原生 sandbox 与 approval 语义。这些权限控制 Codex 代码和 tool 执行；不会替代 Web3 signing policy。

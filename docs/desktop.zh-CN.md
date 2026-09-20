@@ -1,3 +1,7 @@
+---
+title: Desktop
+---
+
 # Desktop
 
 `apps/desktop` 是 Cypheria 的主客户端，由 Electron main、preload 与 TanStack Start renderer 组成，保留紧凑、面向工作区的 Sidebar 和会话体验。它不与 Expo 共享应用 shell。

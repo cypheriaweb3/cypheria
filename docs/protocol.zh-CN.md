@@ -1,3 +1,7 @@
+---
+title: 客户端与 Server 协议
+---
+
 # 客户端与 Server 协议
 
 `@cypheria/protocol` 是公开 Cypheria 客户端/Server 契约的事实来源，导出严格 TypeScript 类型、编译后的 Zod 校验器、序列化器、能力常量，以及 Server adapter 内部使用的生成型上游产物。

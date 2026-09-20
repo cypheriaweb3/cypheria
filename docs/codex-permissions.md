@@ -1,3 +1,7 @@
+---
+title: Codex Permissions in Cypheria
+---
+
 # Codex Permissions in Cypheria
 
 Cypheria presents Codex permissions through the common Thread interaction lifecycle while preserving Codex's native sandbox and approval semantics. These permissions govern Codex code and tool execution; they do not replace Web3 signing policy.

@@ -1,3 +1,7 @@
+---
+title: Cypheria 文档
+---
+
 # Cypheria 文档
 
 本索引为每个主题指定唯一文档。其他文档应链接到权威说明，而不是复制内容。
@@ -33,6 +37,6 @@
 
 ## 计划中的服务
 
-- [Cypheria Marketplace](marketplace.zh-CN.md)：计划中的远程提交、审核、发布与发现服务；当前尚无对应应用。
+- [Cypheria Marketplace](marketplace.zh-CN.md)：计划在 Website 内实现的动态提交、审核、发布与发现能力；当前尚无 Marketplace 路由。
 
 每份维护中的英文产品文档都有 `.zh-CN.md` companion。生成参考必须通过 generator 更新，不能直接编辑。

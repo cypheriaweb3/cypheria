@@ -12,6 +12,7 @@ Cypheria is a local-first, cross-platform Web3 agent workspace. A privileged Cyp
 - Server-owned schedules, Web3 networks, wallets, signing policies, dApp sessions, approvals, and audit records.
 - A non-TUI CLI and an optional end-to-end encrypted relay.
 - An Expo Router foundation that builds for iOS, Android, and static web; product work on these surfaces is intentionally limited for now.
+- A bilingual TanStack Start website and Fumadocs documentation site, prerendered behind a Cloudflare Worker.
 
 Cypheria does not fork Agent runtimes. Harness-specific processes and protocols stay behind Server adapters. Clients operate on Cypheria Agent, Thread, Timeline, Integration, Schedule, and Web3 contracts.
 
@@ -46,6 +47,7 @@ apps/desktop   Electron main/preload plus TanStack Start renderer
 apps/expo      Expo Router client foundation and static web export
 apps/relay     Go relay data plane
 apps/server    Privileged local Server and Agent adapters
+apps/website   Marketing, documentation, and future Marketplace web application
 ```
 
 Implemented packages:
@@ -60,7 +62,7 @@ packages/ui               Shared UI primitives and AI Elements
 packages/web3             Pure Web3 domain modules
 ```
 
-`apps/marketplace` is planned and does not exist yet. Its intended boundary is documented in the [marketplace design](docs/marketplace.md) and [active roadmap](docs/todo.md).
+Marketplace is planned as a dynamic capability inside `apps/website`; no Marketplace routes, accounts, APIs, or storage bindings exist yet. Its intended boundary is documented in the [marketplace design](docs/marketplace.md) and [active roadmap](docs/todo.md).
 
 ## Development
 
@@ -83,6 +85,7 @@ pnpm --filter @cypheria/server build
 pnpm --filter @cypheria/server server start
 pnpm --filter @cypheria/desktop dev
 pnpm --filter @cypheria/expo dev
+pnpm --filter @cypheria/website dev
 pnpm --filter @cypheria/cypheria-relay dev -- --mode=single
 ```
 

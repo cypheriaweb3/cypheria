@@ -1,3 +1,7 @@
+---
+title: UI 系统
+---
+
 # UI 系统
 
 Cypheria Desktop 使用安静、紧凑、面向 panel 的视觉系统，适合长时间技术工作。既有 Sidebar 和会话工作区是保真要求最高的产品界面。本文负责视觉与交互规则；实现边界仍见 [Desktop](desktop.zh-CN.md)。

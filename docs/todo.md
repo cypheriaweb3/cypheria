@@ -1,3 +1,7 @@
+---
+title: Active Roadmap
+---
+
 # Active Roadmap
 
 > Status: Planned work only
@@ -13,9 +17,9 @@ This page contains incomplete, still-approved work. Completed work and architect
 
 ## Cypheria Marketplace
 
-- [ ] Scaffold `apps/marketplace` as a TanStack Start application on Cloudflare Workers.
-  - Add locale-prefixed SSR routes, Cloudflare bindings, D1 migrations, shared UI primitives, tests, and local preview.
-  - Keep the application independent of Electron, Desktop IPC, Server runtime internals, Agent SDKs, and `@cypheria/db`.
+- [ ] Add Marketplace dynamic routes to `apps/website` without changing the static-first marketing and documentation delivery model.
+  - Add localized public SSR plus authenticated publisher and reviewer surfaces, Cloudflare bindings, D1 migrations, tests, and local preview.
+  - Keep Marketplace services independent of Electron, Desktop IPC, Server runtime internals, Agent SDKs, and `@cypheria/db`; run scanners in a separate restricted Worker.
 - [ ] Implement identity, organizations, authorization, publisher verification, CSRF protection, rate limits, step-up operations, and append-only audit.
 - [ ] Implement public GitHub source verification, immutable-SHA plugin drafts, license coverage checks, validation, and submission.
 - [ ] Implement bounded scanning and reviewer workflow with durable jobs, immutable evidence, change requests, rejection, approval, suspension, and withdrawal.

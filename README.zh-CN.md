@@ -12,6 +12,7 @@ Cypheria 是一款 local-first、跨平台的 Web3 Agent 工作台。特权 Cyph
 - Server 所有的 Schedule、Web3 network、wallet、signing policy、dApp session、approval 与 audit record。
 - 非 TUI CLI，以及可选的端到端加密 Relay。
 - 可构建 iOS、Android 与静态 Web 的 Expo Router 基础；这些端的产品功能目前有意保持精简。
+- 双语 TanStack Start 官网与 Fumadocs 文档站，由 Cloudflare Worker 承载预渲染页面。
 
 Cypheria 不 fork Agent runtime。Harness 专属进程和协议只存在于 Server adapter 后方；Client 面向 Cypheria Agent、Thread、Timeline、Integration、Schedule 与 Web3 contract 工作。
 
@@ -46,6 +47,7 @@ apps/desktop   Electron main/preload 与 TanStack Start renderer
 apps/expo      Expo Router 客户端基础和静态 Web 导出
 apps/relay     Go Relay 数据平面
 apps/server    特权本地 Server 与 Agent adapters
+apps/website   官网、文档与未来 Marketplace Web 应用
 ```
 
 已实现 packages：
@@ -60,7 +62,7 @@ packages/ui               共享 UI primitive 与 AI Elements
 packages/web3             纯 Web3 领域模块
 ```
 
-`apps/marketplace` 尚未创建，属于明确计划。边界见 [Marketplace 设计](docs/marketplace.zh-CN.md)与[当前路线图](docs/todo.zh-CN.md)。
+Marketplace 计划作为 `apps/website` 内的动态功能实现；当前尚无 Marketplace 路由、账户、API 或存储 binding。边界见 [Marketplace 设计](docs/marketplace.zh-CN.md)与[当前路线图](docs/todo.zh-CN.md)。
 
 ## 开发
 
@@ -83,6 +85,7 @@ pnpm --filter @cypheria/server build
 pnpm --filter @cypheria/server server start
 pnpm --filter @cypheria/desktop dev
 pnpm --filter @cypheria/expo dev
+pnpm --filter @cypheria/website dev
 pnpm --filter @cypheria/cypheria-relay dev -- --mode=single
 ```
 

@@ -1,12 +1,11 @@
 import type { AgentId } from "@cypheria/protocol"
+import claudeLogo from "@cypheria/ui/assets/agents/claude.svg"
+import codexOnDarkLogo from "@cypheria/ui/assets/agents/codex-on-dark.svg"
+import codexOnLightLogo from "@cypheria/ui/assets/agents/codex-on-light.svg"
+import openCodeOnDarkLogo from "@cypheria/ui/assets/agents/opencode-on-dark.svg"
+import openCodeOnLightLogo from "@cypheria/ui/assets/agents/opencode-on-light.svg"
+import piLogo from "@cypheria/ui/assets/agents/pi.svg"
 import { useState } from "react"
-
-import claudeLogo from "../assets/harnesses/claude.svg"
-import codexOnDarkLogo from "../assets/harnesses/codex-on-dark.svg"
-import codexOnLightLogo from "../assets/harnesses/codex-on-light.svg"
-import openCodeOnDarkLogo from "../assets/harnesses/opencode-on-dark.svg"
-import openCodeOnLightLogo from "../assets/harnesses/opencode-on-light.svg"
-import piLogo from "../assets/harnesses/pi.svg"
 
 type HarnessIconProps = {
   agentId: AgentId

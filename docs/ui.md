@@ -1,3 +1,7 @@
+---
+title: UI System
+---
+
 # UI System
 
 Cypheria Desktop uses a quiet, dense, panel-oriented visual system designed for long-running technical work. The established Sidebar and conversation workspace are fidelity-critical product surfaces. This document owns visual and interaction rules; implementation boundaries remain in [Desktop](desktop.md).

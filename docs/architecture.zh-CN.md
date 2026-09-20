@@ -1,3 +1,7 @@
+---
+title: 架构
+---
+
 # 架构
 
 Cypheria 是一个本地优先系统，由一个特权 Server 和多个非特权客户端组成。本文只定义进程所有权、数据流和信任边界。Wire 字段见[协议](protocol.zh-CN.md)，持久化细节见[数据库](database.zh-CN.md)，命令见[开发指南](development.zh-CN.md)或 [Server](server.zh-CN.md)。
@@ -41,6 +45,10 @@ Agent 原生事件在此边界归一化。原生载荷可以为诊断保留，�
 ### Relay
 
 `apps/relay` 转发不透明的加密 WebSocket 帧。`@cypheria/relay` 提供传输无关的配对、加密和 relay URL 工具。Relay 无法查看应用载荷，也不是产品状态来源。
+
+### Website
+
+`apps/website` 是作为单个 Cloudflare Worker 部署的 TanStack Start 官网与文档应用。营销页与 Fumadocs 页面经过预渲染并由静态资源层优先返回；Worker 保留为未来 Marketplace 页面与 API 的服务端渲染边界。它不连接本地 Cypheria Server，也不导入其内部实现。
 
 ## 包边界
 
@@ -93,11 +101,13 @@ Agent 原生事件在此边界归一化。原生载荷可以为诊断保留，�
 
 当前产品是本地优先的：单个用户控制的 Server 拥有权威存储。Desktop 通常监管该 Server，CLI 和 Expo 也可以连接。远程访问使用可选 relay，但不会把执行和状态转移到 relay。
 
+公共 Website 使用 Cloudflare 静态资源与 Worker fallback。英文页面位于根路径，简体中文页面位于 `/zh-CN`；静态文档搜索从同一组仓库 Markdown 源生成。
+
 云端 Agent 执行、多 Agent 编排以及更强的多用户授权系统尚未实现，需要未来单独设计协议和安全模型。
 
 ## 计划边界
 
-- `apps/marketplace`：独立的公开提交、审核、发布和发现服务。
+- `apps/website` 内的 Marketplace 路由：公开发现以及需要认证的 publisher、reviewer 界面。其数据与授权独立于本地 Server，插件扫描由另一个受限 Worker 执行。
 - 在 Desktop 体验成熟后扩展 Expo 产品能力。
 
 仍未完成的工作只在 [Todo](todo.zh-CN.md) 中跟踪。

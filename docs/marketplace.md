@@ -1,18 +1,24 @@
+---
+title: Cypheria Marketplace
+---
+
 # Cypheria Marketplace
 
-> Status: Planned; `apps/marketplace` does not exist
+> Status: Planned inside `apps/website`; no Marketplace routes are implemented
 
-The planned Cypheria Marketplace is a separate public service for plugin submission, scanning, review, publication, discovery, and trust metadata. It is not the Server integration service and is not required for harness-native or custom marketplaces described in [Integrations](integrations.md).
+The planned Cypheria Marketplace is the dynamic service area of `apps/website` for plugin submission, scanning, review, publication, discovery, and trust metadata. It shares the Website project and Worker deployment boundary, but it is not the local Server integration service and is not required for harness-native or custom marketplaces described in [Integrations](integrations.md).
 
 ## Product boundary
 
-The service is planned as a TanStack Start application on Cloudflare Workers with three surfaces:
+The service is planned as dynamic TanStack Start routes within the existing Cloudflare Worker, with three surfaces:
 
 - a public, localized catalog;
 - a publisher console for drafts, validation, submission, releases, and advisories;
 - a reviewer console for evidence, findings, decisions, suspension, and audit history.
 
 It must not import Electron, Desktop IPC, `apps/server` internals, `@cypheria/db`, Agent SDKs, wallet keys, or local Cypheria application data.
+
+Reserved route families are `/marketplace/*`, `/publisher/*`, `/review/*`, `/auth/*`, and `/api/v1/*`. The current Website creates none of them and configures no Marketplace binding or secret.
 
 ## Plugin contract
 
@@ -50,6 +56,8 @@ Every transition is authorized on the Server side and recorded in an append-only
 
 Plugin code is never executed inside the web Worker. MCP scanning uses isolated, egress-restricted execution with strict time and size limits.
 
+Documentation search remains a build-time ZBSearch index over repository Markdown. Marketplace discovery will use a separate server-derived index populated from approved releases so unpublished or unauthorized records never reach the browser index.
+
 ## Official catalog delivery
 
 Publication deterministically aggregates active releases into the official Cypheria GitHub marketplace catalog. Entries use stable ordering and SHA-pinned `url` or `git-subdir` sources. Publication verifies the resulting commit before exposing the release through `/api/v1` and localized catalog pages.
@@ -76,11 +84,10 @@ Discovery trust and installation execution remain distinct. OpenAI and user-adde
 
 ## Delivery stages
 
-1. Scaffold the Worker, localized SSR, bindings, migrations, and tests.
-2. Add identity, organizations, roles, publisher verification, and audit.
-3. Add source verification, drafts, validation, and submission.
-4. Add isolated scanning and reviewer workflow.
-5. Add publication, public catalog API, and deterministic GitHub synchronization.
-6. Add the Desktop discovery and trust integration.
+1. Add identity, organizations, roles, publisher verification, and audit to the existing Website Worker.
+2. Add source verification, drafts, validation, and submission.
+3. Add isolated scanning and reviewer workflow.
+4. Add publication, public catalog API, server-derived search, and deterministic GitHub synchronization.
+5. Add the Desktop discovery and trust integration.
 
 Only incomplete work is tracked in [Todo](todo.md).

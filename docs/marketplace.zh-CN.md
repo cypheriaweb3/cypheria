@@ -1,18 +1,24 @@
+---
+title: Cypheria Marketplace
+---
+
 # Cypheria Marketplace
 
-> 状态：计划中；`apps/marketplace` 尚不存在
+> 状态：计划在 `apps/website` 内实现；当前尚无 Marketplace 路由
 
-计划中的 Cypheria Marketplace 是独立公开服务，负责插件提交、扫描、审核、发布、发现和信任 metadata。它不是 Server integration service，也不是使用 [Integrations](integrations.zh-CN.md) 所述 harness-native 或 custom marketplace 的前提。
+计划中的 Cypheria Marketplace 是 `apps/website` 的动态服务区域，负责插件提交、扫描、审核、发布、发现和信任 metadata。它与 Website 共用项目和 Worker 部署边界，但不是本地 Server integration service，也不是使用 [Integrations](integrations.zh-CN.md) 所述 harness-native 或 custom marketplace 的前提。
 
 ## 产品边界
 
-服务计划作为运行于 Cloudflare Workers 的 TanStack Start 应用，包含三个界面：
+服务计划作为现有 Cloudflare Worker 内的 TanStack Start 动态路由，包含三个界面：
 
 - 公开、本地化 catalog；
 - 面向 publisher 的 draft、validation、submission、release 和 advisory console；
 - 面向 reviewer 的 evidence、finding、decision、suspension 和 audit history console。
 
 它不得导入 Electron、Desktop IPC、`apps/server` 内部实现、`@cypheria/db`、Agent SDK、wallet key 或本地 Cypheria 应用数据。
+
+预留的路由族为 `/marketplace/*`、`/publisher/*`、`/review/*`、`/auth/*` 与 `/api/v1/*`。当前 Website 不创建这些路由，也不配置任何 Marketplace binding 或 secret。
 
 ## 插件契约
 
@@ -50,6 +56,8 @@ Approval 与 publication 是不同操作。Reviewer 可以请求修改、拒绝�
 
 Plugin code 绝不在 web Worker 内执行。MCP scanning 使用隔离、限制 egress 的执行环境，并有严格时间和大小限制。
 
+文档搜索继续使用构建期生成、覆盖仓库 Markdown 的 ZBSearch 索引。Marketplace discovery 将使用由已批准 release 填充的独立服务端派生索引，避免未发布或未授权记录进入浏览器索引。
+
 ## 官方 Catalog 交付
 
 Publication 会把 active releases 确定性聚合到官方 Cypheria GitHub marketplace catalog。Entry 使用稳定排序和固定 SHA 的 `url` 或 `git-subdir` source。发布流程在通过 `/api/v1` 和本地化 catalog 页面暴露 release 前验证结果 commit。
@@ -76,11 +84,10 @@ Discovery trust 与 installation execution 保持分离。OpenAI 和用户添加
 
 ## 交付阶段
 
-1. 搭建 Worker、本地化 SSR、bindings、migrations 和 tests。
-2. 实现 identity、organizations、roles、publisher verification 和 audit。
-3. 实现 source verification、drafts、validation 和 submission。
-4. 实现隔离 scanning 与 reviewer workflow。
-5. 实现 publication、public catalog API 和确定性 GitHub synchronization。
-6. 实现 Desktop discovery 与 trust integration。
+1. 在现有 Website Worker 中实现 identity、organizations、roles、publisher verification 和 audit。
+2. 实现 source verification、drafts、validation 和 submission。
+3. 实现隔离 scanning 与 reviewer workflow。
+4. 实现 publication、public catalog API、服务端派生搜索和确定性 GitHub synchronization。
+5. 实现 Desktop discovery 与 trust integration。
 
 未完成事项只在 [Todo](todo.zh-CN.md) 跟踪。

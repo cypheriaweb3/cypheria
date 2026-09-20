@@ -1,3 +1,7 @@
+---
+title: 当前路线图
+---
+
 # 当前路线图
 
 > 状态：仅包含计划工作
@@ -13,9 +17,9 @@
 
 ## Cypheria Marketplace
 
-- [ ] 将 `apps/marketplace` 搭建为运行于 Cloudflare Workers 的 TanStack Start 应用。
-  - 添加 locale-prefixed SSR routes、Cloudflare bindings、D1 migrations、共享 UI primitives、tests 和本地 preview。
-  - 保持应用独立于 Electron、Desktop IPC、Server runtime 内部实现、Agent SDK 和 `@cypheria/db`。
+- [ ] 在 `apps/website` 中添加 Marketplace 动态路由，同时保持营销页与文档的 static-first 交付模型。
+  - 添加双语 public SSR、需认证的 publisher 与 reviewer surface、Cloudflare bindings、D1 migrations、共享 UI primitives、tests 和本地 preview。
+  - 保持 Marketplace service 独立于 Electron、Desktop IPC、Server runtime 内部实现、Agent SDK 和 `@cypheria/db`；scanner 运行在独立的受限 Worker 中。
 - [ ] 实现 identity、organizations、authorization、publisher verification、CSRF protection、rate limits、step-up operations 和只追加 audit。
 - [ ] 实现公开 GitHub source verification、固定 SHA 的 plugin drafts、license coverage checks、validation 和 submission。
 - [ ] 实现受限 scanning 与 reviewer workflow，包括 durable jobs、不可变 evidence、change request、rejection、approval、suspension 和 withdrawal。

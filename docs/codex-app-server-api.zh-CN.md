@@ -1,3 +1,7 @@
+---
+title: Codex App Server API 参考
+---
+
 # Codex App Server API 参考
 
 > 状态：生成的内部 adapter 参考；请勿手工编辑

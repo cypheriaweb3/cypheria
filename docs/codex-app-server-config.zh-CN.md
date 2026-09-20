@@ -1,3 +1,7 @@
+---
+title: Cypheria 中的 Codex 配置
+---
+
 # Cypheria 中的 Codex 配置
 
 本文只描述 Cypheria 当前实际依赖的 Codex 配置语义，不是完整 Codex 配置百科。准确 App Server 字段仍以生成协议和固定版本的 `@openai/codex` 为准。

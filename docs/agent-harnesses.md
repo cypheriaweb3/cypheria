@@ -1,3 +1,7 @@
+---
+title: Agent Harnesses
+---
+
 # Agent Harnesses
 
 Cypheria supports four first-party Agent harnesses—Codex, Claude, Pi, and OpenCode—and registry-backed ACP Agent harnesses. The Server owns every process and native protocol. Clients use the common Agent, Thread, Timeline, and integration APIs.
