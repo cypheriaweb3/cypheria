@@ -685,6 +685,11 @@ msgid "settings.group.integrations"
 msgstr "集成"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.agentHarnesses"
+msgstr "Agent harnesses"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/codex-turn.tsx
 msgid "chat.artifact.interactive"
 msgstr "交互式生成物"

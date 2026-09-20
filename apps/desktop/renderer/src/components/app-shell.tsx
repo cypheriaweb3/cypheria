@@ -121,6 +121,15 @@ const settingsGroups = [
   },
 ] as const
 
+type HarnessNavigationAgent = Pick<AgentView, "icon" | "id" | "name">
+
+const nativeHarnessNavigationAgents: HarnessNavigationAgent[] = [
+  { icon: null, id: "codex", name: "Codex" },
+  { icon: null, id: "claude", name: "Claude" },
+  { icon: null, id: "pi", name: "Pi" },
+  { icon: null, id: "opencode", name: "OpenCode" },
+]
+
 export default function AppRoot() {
   return (
     <RootLayout>
@@ -355,9 +364,7 @@ function SettingsNavigation({
 }>) {
   const { i18n: activeI18n } = useLingui()
   const [searchQuery, setSearchQuery] = useState("")
-  const [harnessesExpanded, setHarnessesExpanded] = useState(() =>
-    pathname.startsWith("/settings/agent-harnesses/")
-  )
+  const [harnessesExpanded, setHarnessesExpanded] = useState(true)
   const searchRef = useRef<HTMLInputElement>(null)
   const scrollRef = useRef<HTMLDivElement>(null)
   const agents = useQuery({
@@ -371,8 +378,8 @@ function SettingsNavigation({
     const harnessLabel = activeI18n._(
       msg({ id: "settings.agentHarnesses", message: "Agent harnesses" })
     )
-    return buildSettingsNavigationRows<AgentView, ReactNode>({
-      agents: agents.data?.agents ?? [],
+    return buildSettingsNavigationRows<HarnessNavigationAgent, ReactNode>({
+      agents: agents.data?.agents ?? nativeHarnessNavigationAgents,
       emptyLabel: activeI18n._(msg({ id: "settings.search.empty", message: "No results found" })),
       groups: settingsGroups.map((group) => ({
         id: group.id,
@@ -406,6 +413,10 @@ function SettingsNavigation({
     if (!navigationLayoutKey) return
     virtualizer.measure()
   }, [navigationLayoutKey, virtualizer])
+
+  useEffect(() => {
+    if (pathname.startsWith("/settings/agent-harnesses/")) setHarnessesExpanded(true)
+  }, [pathname])
 
   useEffect(() => {
     const activeIndex = rows.findIndex((row) =>
@@ -471,6 +482,7 @@ function SettingsNavigation({
               return (
                 <div
                   className="absolute left-0 top-0 w-full px-2"
+                  data-index={virtualRow.index}
                   data-settings-navigation-row={row.kind}
                   key={row.id}
                   ref={virtualizer.measureElement}

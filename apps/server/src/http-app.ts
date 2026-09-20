@@ -20,6 +20,7 @@ import {
   isOriginAllowed,
   readBearerToken,
   readWebSocketToken,
+  resolveWebSocketAllowedOrigins,
 } from "./auth.js"
 import type { CypheriaServerConfig } from "./config.js"
 import type { CypheriaRuntimeMethod } from "./runtime/index.js"
@@ -172,8 +173,7 @@ export function createHttpApp(options: CreateHttpAppOptions): Hono {
     const protocols = context.req.header("sec-websocket-protocol")
     const token = readWebSocketToken(protocols)
     const origin = context.req.header("origin")
-    const allowedOrigins =
-      config.allowedOrigins.length > 0 ? config.allowedOrigins : [new URL(context.req.url).origin]
+    const allowedOrigins = resolveWebSocketAllowedOrigins(context.req.url, config.allowedOrigins)
 
     if (!hasCypheriaProtocol(protocols)) {
       registry.reject()

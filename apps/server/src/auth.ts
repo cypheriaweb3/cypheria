@@ -4,6 +4,8 @@ import { CYPHERIA_WEBSOCKET_PROTOCOL } from "@cypheria/protocol"
 
 const TOKEN_PROTOCOL_PREFIX = "cypheria.bearer."
 
+export const CYPHERIA_DESKTOP_ORIGIN = "cypheria://app"
+
 const safeEqual = (left: string, right: string): boolean => {
   const leftBuffer = Buffer.from(left)
   const rightBuffer = Buffer.from(right)
@@ -33,3 +35,8 @@ export const isAuthorized = (provided: string | undefined, expected: string | un
 
 export const isOriginAllowed = (origin: string | undefined, allowedOrigins: readonly string[]) =>
   origin === undefined || allowedOrigins.includes(origin)
+
+export const resolveWebSocketAllowedOrigins = (
+  requestUrl: string,
+  configuredOrigins: readonly string[]
+): string[] => [new URL(requestUrl).origin, CYPHERIA_DESKTOP_ORIGIN, ...configuredOrigins]

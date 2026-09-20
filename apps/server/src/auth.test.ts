@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  CYPHERIA_DESKTOP_ORIGIN,
   hasCypheriaProtocol,
   isAuthorized,
   isOriginAllowed,
   readBearerToken,
   readWebSocketToken,
+  resolveWebSocketAllowedOrigins,
 } from "./auth.js"
 
 describe("server authentication", () => {
@@ -23,5 +25,15 @@ describe("server authentication", () => {
     expect(isOriginAllowed("https://app.example", [])).toBe(false)
     expect(isOriginAllowed("https://app.example", ["https://app.example"])).toBe(true)
     expect(isOriginAllowed("https://other.example", ["https://app.example"])).toBe(false)
+  })
+
+  it("always allows the server itself and the trusted desktop renderer origin", () => {
+    expect(resolveWebSocketAllowedOrigins("http://127.0.0.1:6768/api/v1/ws", [])).toEqual([
+      "http://127.0.0.1:6768",
+      CYPHERIA_DESKTOP_ORIGIN,
+    ])
+    expect(
+      resolveWebSocketAllowedOrigins("http://127.0.0.1:6768/api/v1/ws", ["https://app.example"])
+    ).toContain("https://app.example")
   })
 })
