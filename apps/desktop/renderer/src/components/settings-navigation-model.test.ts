@@ -15,14 +15,13 @@ const groups = [
   },
 ]
 const agents = [
-  { id: "zeta", installed: false, name: "Zeta" },
-  { id: "opencode", installed: false, name: "OpenCode" },
-  { id: "pi", installed: false, name: "Pi" },
-  { id: "codex", installed: false, name: "Codex" },
-  { id: "claude", installed: false, name: "Claude" },
+  { id: "zeta", name: "Zeta" },
+  { id: "opencode", name: "OpenCode" },
+  { id: "pi", name: "Pi" },
+  { id: "codex", name: "Codex" },
+  { id: "claude", name: "Claude" },
   ...Array.from({ length: 500 }, (_, index) => ({
     id: `registry-${index}`,
-    installed: true,
     name: `Registry ${index.toString().padStart(3, "0")}`,
   })),
 ]
@@ -49,7 +48,7 @@ describe("settings navigation row model", () => {
         .slice(0, 5)
         .map((row) => (row.kind === "agent" ? row.agent.id : ""))
     ).toEqual(["codex", "claude", "pi", "opencode", "registry-0"])
-    expect(rows.filter((row) => row.kind === "agent")).toHaveLength(504)
+    expect(rows.filter((row) => row.kind === "agent")).toHaveLength(505)
   })
 
   it("collapses agent rows without creating a separate row container", () => {
@@ -58,12 +57,12 @@ describe("settings navigation row model", () => {
     expect(rows.some((row) => row.kind === "agent")).toBe(false)
   })
 
-  it("hides uninstalled registry agents but always keeps native harnesses", () => {
+  it("shows every harness supplied by the persisted registry", () => {
     const ids = build()
       .filter((row) => row.kind === "agent")
       .map((row) => (row.kind === "agent" ? row.agent.id : ""))
     expect(ids).toEqual(expect.arrayContaining(["codex", "claude", "pi", "opencode"]))
-    expect(ids).not.toContain("zeta")
+    expect(ids).toContain("zeta")
   })
 
   it("searches regular settings and agent names", () => {

@@ -13,7 +13,7 @@ Cypheria 通过 Drizzle ORM 和本地 libSQL driver 使用 SQLite。`packages/db
 | 领域 | 表 | 职责 |
 | --- | --- | --- |
 | Runtime | `runtime_metadata`, `settings`, `audit_logs`, `workspaces` | Runtime metadata、key/value settings、追加型 audit、workspace records |
-| Agents | `agent_registry` | 原生与 registry Agent 的安装、启用、版本和状态 |
+| Agents | `agent_registry` | 用户选择的 Agent 成员关系、创建时间、安装、启用、版本和状态；原生 harness 会预置 |
 | Projects 与 Threads | `projects`, `threads`, `project_items`, `sections`, `section_items` | 持久组织、排序、membership、archive 和 harness linkage |
 | Thread 执行 | `thread_lifecycle_operations`, `thread_timeline_epochs`, `thread_timeline_rows` | 恢复 journal 和只追加 Canonical Timeline |
 | Schedules | `schedules`, `schedule_runs` | Definitions、next occurrence、leases 和 run history |

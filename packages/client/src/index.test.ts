@@ -33,6 +33,7 @@ describe("Cypheria client facade", () => {
       "web3",
     ])
     expect(Object.keys(api.agent).sort()).toEqual([
+      "add",
       "checkToolchainUpdates",
       "disable",
       "enable",

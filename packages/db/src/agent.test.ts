@@ -21,6 +21,8 @@ describe("agent registry persistence", () => {
         native integer NOT NULL,
         installed integer DEFAULT false NOT NULL,
         enabled integer DEFAULT false NOT NULL,
+        created_at text NOT NULL,
+        removed_at text,
         updated_at text NOT NULL
       )
     `)
@@ -42,6 +44,7 @@ describe("agent registry persistence", () => {
 
     expect(await service.get("codex")).toMatchObject({
       enabled: true,
+      createdAt: "2026-09-17T00:00:00.000Z",
       description: "OpenAI Codex",
       installed: true,
       name: "Codex",
@@ -64,5 +67,30 @@ describe("agent registry persistence", () => {
       expect.objectContaining({ enabled: false, installed: false, version: null }),
     ])
     database.close()
+  })
+
+  it("registers user-selected agents with metadata and removes them", async () => {
+    const service = createAgentRegistryPersistenceService(database.db)
+    const record = await service.register(
+      "gemini",
+      false,
+      {
+        description: "Gemini CLI",
+        icon: "https://example.com/gemini.svg",
+        name: "Gemini CLI",
+        repository: "https://example.com/repository",
+        website: "https://example.com",
+      },
+      "2026-09-20T00:00:00.000Z"
+    )
+
+    expect(record).toMatchObject({
+      createdAt: "2026-09-20T00:00:00.000Z",
+      description: "Gemini CLI",
+      installed: false,
+      native: false,
+    })
+    await expect(service.remove("gemini")).resolves.toBe(true)
+    await expect(service.get("gemini")).resolves.toBeUndefined()
   })
 })

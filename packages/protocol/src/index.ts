@@ -618,6 +618,7 @@ const clientResponseTypes = new Set<string>([
   "server.config.patch.response",
   "server.config.reload.response",
   "agent.list.response",
+  "agent.add.response",
   "agent.get.response",
   "agent.registry.refresh.response",
   "agent.install.response",

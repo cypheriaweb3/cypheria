@@ -7,6 +7,7 @@ import {
   type AGENT_CODEX_CLIENT_RPC,
   type AgentAcpClientMessage,
   type AgentAcpServerMessage,
+  type AgentCatalogEntry,
   type AgentClaudeClientMessage,
   type AgentClaudeServerMessage,
   type AgentCodexClientNotification,
@@ -232,10 +233,7 @@ export class AgentManager {
   async start(): Promise<void> {
     await this.toolchains.start()
     await this.registry.start({ refresh: this.#networkBootstrap })
-    await this.#persistence.reconcile([
-      ...NATIVE_AGENT_IDS.map((id) => ({ id, native: true })),
-      ...REGISTRY_AGENT_IDS.map((id) => ({ id, native: false })),
-    ])
+    await this.#persistence.reconcile(NATIVE_AGENT_IDS.map((id) => ({ id, native: true })))
     await this.#reloadRecords()
     await this.#collectPythonEnvironments()
     if (this.#networkBootstrap) {
@@ -341,7 +339,14 @@ export class AgentManager {
     try {
       switch (message.type) {
         case "agent.list.request":
-          respond({ agents: await this.list(context.sessionId), registry: this.registry.state })
+          respond({
+            agents: await this.list(context.sessionId),
+            availableAgents: this.availableAgents(),
+            registry: this.registry.state,
+          })
+          break
+        case "agent.add.request":
+          respond(await this.add(message.payload.agentId, context.sessionId))
           break
         case "agent.get.request":
           respond(await this.get(message.payload.agentId, context.sessionId))
@@ -683,10 +688,59 @@ export class AgentManager {
   }
 
   async list(sessionId: string): Promise<AgentView[]> {
-    const ids = [...NATIVE_AGENT_IDS, ...REGISTRY_AGENT_IDS].filter(
-      (id) => isNativeAgentId(id) || this.registry.get(id) || this.#records.get(id)?.version
-    )
+    const ids = [...this.#records.keys()]
     return Promise.all(ids.map((id) => this.get(id, sessionId)))
+  }
+
+  availableAgents(): AgentCatalogEntry[] {
+    const entries: AgentCatalogEntry[] = []
+    for (const agentId of NATIVE_AGENT_IDS) {
+      if (this.#records.has(agentId)) continue
+      const agent = nativeCatalog[agentId]
+      entries.push({
+        description: agent.description,
+        icon: agent.icon,
+        id: agentId,
+        name: agent.name,
+        native: true,
+      })
+    }
+    for (const agentId of REGISTRY_AGENT_IDS) {
+      if (this.#records.has(agentId)) continue
+      const agent = this.registry.get(agentId)
+      if (!agent) continue
+      entries.push({
+        description: agent.description,
+        icon: agent.icon ?? null,
+        id: agentId,
+        name: agent.name,
+        native: false,
+      })
+    }
+    return entries
+  }
+
+  async add(agentId: AgentId, sessionId: string): Promise<AgentView> {
+    if (this.#records.has(agentId)) return this.get(agentId, sessionId)
+    const native = isNativeAgentId(agentId) ? nativeCatalog[agentId] : undefined
+    const entry = isRegistryAgentId(agentId) ? this.registry.get(agentId) : undefined
+    const catalog = native ?? entry
+    if (!catalog) throw this.#error("AGENT_NOT_FOUND", `Unknown agent: ${agentId}`)
+    const record = await this.#persistence.register(
+      agentId,
+      Boolean(native),
+      {
+        description: catalog.description,
+        icon: catalog.icon ?? null,
+        name: catalog.name,
+        repository: catalog.repository ?? null,
+        website: catalog.website ?? null,
+      }
+    )
+    this.#records.set(agentId, record)
+    const view = await this.get(agentId, sessionId)
+    this.#publish({ payload: view, type: "agent.updated.notification" })
+    return view
   }
 
   async get(agentId: AgentId, _sessionId: string): Promise<AgentView> {
@@ -777,6 +831,8 @@ export class AgentManager {
     agentId: AgentId,
     sessionId: string
   ): AgentOperation {
+    if (!this.#records.has(agentId))
+      throw this.#error("AGENT_NOT_FOUND", `Unknown agent: ${agentId}`)
     return this.#submit(kind, { agentId, kind: "agent" }, `agent:${agentId}`, async (progress) => {
       if (kind === "uninstall") {
         progress("Stopping agent", 0.2)
@@ -784,8 +840,13 @@ export class AgentManager {
         await this.#stopEverywhere(agentId)
         progress("Removing managed runtime", 0.6)
         await this.#installer.uninstall(agentId)
-        const updated = await this.#persistence.setInstalled(agentId, false)
-        if (updated) this.#records.set(agentId, updated)
+        if (isNativeAgentId(agentId)) {
+          const updated = await this.#persistence.setInstalled(agentId, false)
+          if (updated) this.#records.set(agentId, updated)
+        } else {
+          await this.#persistence.remove(agentId)
+          this.#records.delete(agentId)
+        }
         await this.#reloadRecords()
         await this.#collectPythonEnvironments()
         this.#catalogInvalidator?.(agentId)

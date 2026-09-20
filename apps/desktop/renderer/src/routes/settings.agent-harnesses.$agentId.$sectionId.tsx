@@ -41,7 +41,7 @@ import { Switch } from "@cypheria/ui/components/switch"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { ExternalLink, LogOut, RefreshCw, Trash2 } from "lucide-react"
+import { Download, ExternalLink, LogOut, RefreshCw, Trash2 } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { waitForAgentOperation } from "../components/agent-operation"
 import { HarnessIcon } from "../components/harness-icon"
@@ -83,7 +83,7 @@ function AgentHarnessSettingsRoute() {
 
   useEffect(() => {
     if (!agentsQuery.data) return
-    if (!agent || (!agent.native && !agent.installed)) {
+    if (!agent) {
       void navigate({
         params: { agentId: "codex", sectionId: "authentication" },
         replace: true,
@@ -168,11 +168,14 @@ function AgentHarnessSettingsRoute() {
               ))}
             </nav>
             <section className="min-w-0">
-              {sectionId === "authentication" ? <AuthenticationSection agent={agent} /> : null}
-              {sectionId === "models" ? (
+              {!agent.installed ? <InstallRequired agent={agent} /> : null}
+              {agent.installed && sectionId === "authentication" ? (
+                <AuthenticationSection agent={agent} />
+              ) : null}
+              {agent.installed && sectionId === "models" ? (
                 <ModelsSection agentId={agentId} snapshot={catalogQuery.data} />
               ) : null}
-              {!baseSections.some((item) => item.id === sectionId) ? (
+              {agent.installed && !baseSections.some((item) => item.id === sectionId) ? (
                 <SettingsSection
                   agentId={agentId}
                   section={catalogQuery.data?.settingSections.find((item) => item.id === sectionId)}
@@ -192,6 +195,16 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
   const navigate = useNavigate()
   const [uninstallOpen, setUninstallOpen] = useState(false)
   const [operation, setOperation] = useState<AgentOperation>()
+  const install = useMutation({
+    mutationFn: async () => {
+      const client = await ensureCypheriaClient()
+      return waitForAgentOperation(await client.agents.install(agent.id), setOperation)
+    },
+    onSuccess: async () => {
+      setOperation(undefined)
+      await queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
+    },
+  })
   const update = useMutation({
     mutationFn: async () => {
       const client = await ensureCypheriaClient()
@@ -229,8 +242,25 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
     }
     setUninstallOpen(open)
   }
-  if (!agent.installed) return null
   const progress = Math.round((operation?.progress ?? 0) * 100)
+  if (!agent.installed) {
+    return (
+      <div className="grid justify-items-end gap-2">
+        <Button disabled={install.isPending} onClick={() => install.mutate()}>
+          <Download className="size-4" />
+          {install.isPending ? "Installing…" : "Install"}
+        </Button>
+        {install.isPending && operation ? (
+          <span className="max-w-64 text-right text-xs text-muted-foreground">
+            {operation.message ?? `Installing… ${progress}%`}
+          </span>
+        ) : null}
+        {install.error ? (
+          <span className="text-xs text-destructive">{install.error.message}</span>
+        ) : null}
+      </div>
+    )
+  }
   return (
     <div className="grid justify-items-end gap-2">
       <div className="flex gap-2">
@@ -296,6 +326,19 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+function InstallRequired({ agent }: { agent: AgentView }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Install {agent.name}</CardTitle>
+        <CardDescription>
+          Install this harness before configuring authentication, models, and defaults.
+        </CardDescription>
+      </CardHeader>
+    </Card>
   )
 }
 

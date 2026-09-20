@@ -359,6 +359,7 @@ export class CypheriaServer implements HttpAppHost {
     if (
       message.type.startsWith("agent.registry.") ||
       message.type === "agent.list.request" ||
+      message.type === "agent.add.request" ||
       message.type === "agent.get.request" ||
       message.type.startsWith("agent.operation.") ||
       message.type.startsWith("agent.toolchain.") ||

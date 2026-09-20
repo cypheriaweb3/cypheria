@@ -42,6 +42,8 @@ web3.signing_intent.create.request -> web3.signing_intent.create.response
 
 准确字段以导出的 Zod Schema 为准，而不是本文示例。
 
+Agent management 会区分持久化 registry 与可用 harness catalog。`agent.list` 返回已注册 Agents 和当前可添加的 catalog entries；`agent.add` 只持久化一个 catalog entry，不执行安装。安装仍由显式 `agent.install` operation 完成。
+
 ## 版本与能力
 
 `CYPHERIA_PROTOCOL_VERSION` 控制传输兼容性。客户端必须拒绝无法安全消费的 Server 协议版本。`server.status.notification` 会发布稳定 capabilities 和可选 feature flags。客户端应据此控制可选 UI，而不是假设应用版本必然对应某个功能。

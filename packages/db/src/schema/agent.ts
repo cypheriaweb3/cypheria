@@ -11,5 +11,7 @@ export const agentRegistry = sqliteTable("agent_registry", {
   native: integer("native", { mode: "boolean" }).notNull(),
   installed: integer("installed", { mode: "boolean" }).notNull().default(false),
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(false),
+  createdAt: text("created_at").notNull(),
+  removedAt: text("removed_at"),
   updatedAt: text("updated_at").notNull(),
 })

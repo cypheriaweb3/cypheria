@@ -1,18 +1,16 @@
 /// <reference types="vite/client" />
 
-import type { AgentId, AgentOperation, AgentView } from "@cypheria/protocol"
+import type { AgentCatalogEntry, AgentId, AgentView } from "@cypheria/protocol"
 import { cn } from "@cypheria/ui"
 import { Button } from "@cypheria/ui/components/button"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@cypheria/ui/components/dialog"
 import { Input } from "@cypheria/ui/components/input"
-import { Progress, ProgressLabel, ProgressValue } from "@cypheria/ui/components/progress"
 import {
   Select,
   SelectContent,
@@ -82,7 +80,6 @@ import { resolveThemeMode, useAppearanceController, useTheme } from "../appearan
 import { ensureCypheriaClient } from "../cypheria-client.js"
 import { activateLanguage, getBootstrapLanguage, i18n } from "../i18n.js"
 import { web3Api } from "../web3-api.js"
-import { waitForAgentOperation } from "./agent-operation"
 import { NewChatLink } from "./chat-navigation"
 import { ChatSearch } from "./chat-search"
 import { ChatSidebar } from "./chat-sidebar"
@@ -153,18 +150,14 @@ const settingsGroups = [
   },
 ] as const
 
-type HarnessNavigationAgent = Pick<AgentView, "icon" | "id" | "installed" | "name">
+type HarnessNavigationAgent = Pick<AgentView, "icon" | "id" | "name">
 
 const nativeHarnessNavigationAgents: HarnessNavigationAgent[] = [
-  { icon: null, id: "codex", installed: false, name: "Codex" },
-  { icon: null, id: "claude", installed: false, name: "Claude" },
-  { icon: null, id: "pi", installed: false, name: "Pi" },
-  { icon: null, id: "opencode", installed: false, name: "OpenCode" },
+  { icon: null, id: "codex", name: "Codex" },
+  { icon: null, id: "claude", name: "Claude" },
+  { icon: null, id: "pi", name: "Pi" },
+  { icon: null, id: "opencode", name: "OpenCode" },
 ]
-const nativeHarnessOrder = new Map(
-  nativeHarnessNavigationAgents.map((agent, index) => [agent.id, index])
-)
-
 export default function AppRoot() {
   return (
     <RootLayout>
@@ -579,6 +572,7 @@ function SettingsNavigation({
                         </SidebarMenuButton>
                         <SidebarMenuAction
                           aria-label="Add agent harness"
+                          disabled={!agents.data?.availableAgents.length}
                           onClick={(event) => {
                             event.stopPropagation()
                             setInstallDialogOpen(true)
@@ -633,8 +627,8 @@ function SettingsNavigation({
       <SidebarFooter className="flex min-h-[58px] items-end px-3 pb-3 pt-2.5">
         <ThemeModeButton />
       </SidebarFooter>
-      <HarnessInstallDialog
-        agents={agents.data?.agents ?? []}
+      <HarnessAddDialog
+        agents={agents.data?.availableAgents ?? []}
         onOpenChange={setInstallDialogOpen}
         open={installDialogOpen}
       />
@@ -642,41 +636,29 @@ function SettingsNavigation({
   )
 }
 
-function HarnessInstallDialog({
+function HarnessAddDialog({
   agents,
   onOpenChange,
   open,
 }: Readonly<{
-  agents: AgentView[]
+  agents: AgentCatalogEntry[]
   onOpenChange: (open: boolean) => void
   open: boolean
 }>) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const uninstalled = useMemo(
-    () =>
-      agents
-        .filter((agent) => !agent.installed)
-        .sort((a, b) => {
-          const left = nativeHarnessOrder.get(a.id)
-          const right = nativeHarnessOrder.get(b.id)
-          if (left !== undefined || right !== undefined) {
-            return (left ?? Number.MAX_SAFE_INTEGER) - (right ?? Number.MAX_SAFE_INTEGER)
-          }
-          return a.name.localeCompare(b.name)
-        }),
+  const available = useMemo(
+    () => [...agents].sort((a, b) => a.name.localeCompare(b.name)),
     [agents]
   )
   const [selectedId, setSelectedId] = useState<AgentId>()
-  const [operation, setOperation] = useState<AgentOperation>()
-  const install = useMutation({
+  const add = useMutation({
     mutationFn: async (agentId: AgentId) => {
       const client = await ensureCypheriaClient()
-      return waitForAgentOperation(await client.agents.install(agentId), setOperation)
+      return client.agents.add(agentId)
     },
     onSuccess: async (_, agentId) => {
       await queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
-      setOperation(undefined)
       onOpenChange(false)
       await navigate({
         params: { agentId, sectionId: "authentication" },
@@ -687,21 +669,18 @@ function HarnessInstallDialog({
 
   useEffect(() => {
     if (!open) return
-    if (!uninstalled.some((agent) => agent.id === selectedId)) {
-      setSelectedId(uninstalled[0]?.id)
-    }
-  }, [open, selectedId, uninstalled])
+    setSelectedId(undefined)
+  }, [open])
 
-  const selected = uninstalled.find((agent) => agent.id === selectedId)
-  const progress = Math.round((operation?.progress ?? 0) * 100)
+  const selected = available.find((agent) => agent.id === selectedId)
   return (
     <Dialog
       open={open}
       onOpenChange={(nextOpen) => {
-        if (install.isPending) return
+        if (add.isPending) return
         if (!nextOpen) {
-          install.reset()
-          setOperation(undefined)
+          add.reset()
+          setSelectedId(undefined)
         }
         onOpenChange(nextOpen)
       }}
@@ -710,61 +689,47 @@ function HarnessInstallDialog({
         <DialogHeader>
           <DialogTitle>Add agent harness</DialogTitle>
           <DialogDescription>
-            Choose an available harness to install. Installation continues in this dialog.
+            Choose a harness to add. You can install it from its settings page.
           </DialogDescription>
         </DialogHeader>
-        {uninstalled.length ? (
+        {available.length ? (
           <Select
-            disabled={install.isPending}
-            value={selectedId}
-            onValueChange={(value) => setSelectedId(value as AgentId)}
+            disabled={add.isPending}
+            value={selectedId ?? null}
+            onValueChange={(value) => {
+              const agentId = value as AgentId
+              setSelectedId(agentId)
+              add.mutate(agentId)
+            }}
           >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select a harness">{selected?.name}</SelectValue>
+              <SelectValue placeholder="Select a harness">
+                {add.isPending ? `Adding ${selected?.name ?? "harness"}…` : selected?.name}
+              </SelectValue>
             </SelectTrigger>
-            <SelectContent>
-              {uninstalled.map((agent) => (
-                <SelectItem key={agent.id} value={agent.id}>
+            <SelectContent align="start" alignItemWithTrigger={false} className="max-h-80">
+              {available.map((agent) => (
+                <SelectItem className="items-start py-2" key={agent.id} value={agent.id}>
                   <HarnessIcon
                     agentId={agent.id}
-                    className="size-4"
+                    className="mt-0.5 size-4"
                     icon={agent.icon}
                     name={agent.name}
                   />
-                  {agent.name}
+                  <span className="!grid min-w-0 flex-1 gap-0.5 whitespace-normal">
+                    <span className="font-medium leading-5">{agent.name}</span>
+                    <span className="line-clamp-2 text-xs leading-4 text-muted-foreground">
+                      {agent.description}
+                    </span>
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         ) : (
-          <p className="text-sm text-muted-foreground">All available harnesses are installed.</p>
+          <p className="text-sm text-muted-foreground">All available harnesses have been added.</p>
         )}
-        {operation ? (
-          <Progress value={progress}>
-            <ProgressLabel>{operation.message ?? "Preparing installation…"}</ProgressLabel>
-            <ProgressValue />
-          </Progress>
-        ) : null}
-        {install.error ? <p className="text-sm text-destructive">{install.error.message}</p> : null}
-        <DialogFooter>
-          <Button
-            disabled={install.isPending}
-            variant="outline"
-            onClick={() => {
-              install.reset()
-              setOperation(undefined)
-              onOpenChange(false)
-            }}
-          >
-            Cancel
-          </Button>
-          <Button
-            disabled={!selected || install.isPending}
-            onClick={() => selected && install.mutate(selected.id)}
-          >
-            {install.isPending ? "Installing…" : "Install"}
-          </Button>
-        </DialogFooter>
+        {add.error ? <p className="text-sm text-destructive">{add.error.message}</p> : null}
       </DialogContent>
     </Dialog>
   )

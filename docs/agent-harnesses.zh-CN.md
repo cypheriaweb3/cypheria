@@ -10,9 +10,9 @@ Agent descriptor 报告来源、distribution、已安装和可用版本、启用
 
 ## Registry 与安装
 
-Server 加载并校验固定版本的 ACP registry 文档，提供刷新和检查操作。Distribution metadata 可以选择平台 binary、`npx` 或 `uvx`；preview release 始终显式标记。平台 archive 可以携带 SHA-256 完整性信息。
+Server 把固定版本的 ACP registry 文档作为可用 catalog 加载并校验，同时提供刷新和检查操作。持久化的 `agent_registry` 并不是 catalog 的全量副本：它初始包含四个原生 harness，只有用户执行添加后才写入相应 registry Agent；每条记录都保存 `createdAt`。Distribution metadata 可以选择平台 binary、`npx` 或 `uvx`；preview release 始终显式标记。平台 archive 可以携带 SHA-256 完整性信息。
 
-安装和更新是 Server 操作，拥有持久 operation records 与进度 notifications。Toolchain manager 在 Cypheria cache 下发现或安装托管的 Node 和 Python 工具。客户端可以列出、安装、更新、卸载、启用、禁用、启动和停止 Agents，但不会获得文件系统或进程权限。
+添加与安装是两个独立操作。添加会持久化所选 Agent 并开放其设置页；安装和更新是 Server 操作，拥有持久 operation records 与进度 notifications。Toolchain manager 在 Cypheria cache 下发现或安装托管的 Node 和 Python 工具。客户端可以列出、添加、安装、更新、卸载、启用、禁用、启动和停止 Agents，但不会获得文件系统或进程权限。
 
 ## Catalog 与默认值
 

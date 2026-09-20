@@ -31,6 +31,7 @@ describe("database baseline migration", () => {
     ])
     expect(await agents.get("codex")).toMatchObject({
       enabled: false,
+      createdAt: expect.any(String),
       id: "codex",
       installed: false,
       native: true,

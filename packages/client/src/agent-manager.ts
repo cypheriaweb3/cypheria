@@ -1,5 +1,6 @@
 import type {
   AgentId,
+  AgentCatalogEntry,
   AgentOperation,
   AgentRegistrySyncState,
   AgentView,
@@ -33,11 +34,16 @@ const unwrap = <T>(payload: unknown): T => {
 }
 
 export interface AgentManagementActions {
+  add(agentId: AgentId, options?: RequestOptions): Promise<AgentView>
   checkToolchainUpdates(options?: RequestOptions): Promise<ToolchainView[]>
   get(agentId: AgentId, options?: RequestOptions): Promise<AgentView>
   getOperation(operationId: string, options?: RequestOptions): Promise<AgentOperation>
   install(agentId: AgentId, options?: RequestOptions): Promise<AgentOperation>
-  list(options?: RequestOptions): Promise<{ agents: AgentView[]; registry: AgentRegistrySyncState }>
+  list(options?: RequestOptions): Promise<{
+    agents: AgentView[]
+    availableAgents: AgentCatalogEntry[]
+    registry: AgentRegistrySyncState
+  }>
   listOperations(options?: RequestOptions): Promise<AgentOperation[]>
   listToolchains(options?: RequestOptions): Promise<ToolchainView[]>
   refreshRegistry(options?: RequestOptions): Promise<AgentRegistrySyncState>
@@ -51,6 +57,10 @@ export interface AgentManagementActions {
 }
 
 export const createAgentManagementActions = (client: ServerClient): AgentManagementActions => ({
+  add: async (agentId, options) =>
+    unwrap<AgentView>(
+      (await client.requestAgentManagement("agent.add.request", { agentId }, options)).payload
+    ),
   checkToolchainUpdates: async (options) =>
     unwrap<{ toolchains: ToolchainView[] }>(
       (
@@ -75,7 +85,11 @@ export const createAgentManagementActions = (client: ServerClient): AgentManagem
       (await client.requestAgentManagement("agent.install.request", { agentId }, options)).payload
     ),
   list: async (options) =>
-    unwrap<{ agents: AgentView[]; registry: AgentRegistrySyncState }>(
+    unwrap<{
+      agents: AgentView[]
+      availableAgents: AgentCatalogEntry[]
+      registry: AgentRegistrySyncState
+    }>(
       (await client.requestAgentManagement("agent.list.request", undefined, options)).payload
     ),
   listOperations: async (options) =>

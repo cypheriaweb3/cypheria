@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from "node:fs/promises"
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -18,6 +18,63 @@ afterEach(async () => {
 })
 
 describe("AgentManager enable gate", () => {
+  it("seeds only native records and persists a catalog agent when the user adds it", async () => {
+    const home = await mkdtemp(join(tmpdir(), "cypheria-agent-manager-registry-"))
+    homes.push(home)
+    const database = createInMemoryDatabase()
+    await applyDatabaseMigrations(database.client)
+    await mkdir(join(home, "agents"), { recursive: true })
+    await writeFile(
+      join(home, "agents", "registry.json"),
+      JSON.stringify({
+        agents: [
+          {
+            description: "Gemini CLI",
+            distribution: { npx: { package: "@google/gemini-cli@1.0.0" } },
+            id: "gemini",
+            license_url: "https://github.com/google-gemini/gemini-cli/blob/main/LICENSE",
+            name: "Gemini CLI",
+            version: "1.0.0",
+          },
+        ],
+        extensions: [],
+        version: "1.0.0",
+      })
+    )
+    const persistence = createAgentRegistryPersistenceService(database.db)
+    const manager = new AgentManager({
+      cacheDir: join(home, "cache"),
+      cypheriaHome: home,
+      networkBootstrap: false,
+      persistence,
+      publish: () => undefined,
+    })
+    await manager.start()
+    try {
+      expect((await persistence.list()).map(({ id }) => id)).toEqual([
+        "claude",
+        "codex",
+        "opencode",
+        "pi",
+      ])
+      const available = manager.availableAgents().find(({ native }) => !native)
+      expect(available?.description).toBeTruthy()
+      if (!available) throw new Error("Expected a registry catalog entry")
+
+      const added = await manager.add(available.id, "session")
+      expect(added).toMatchObject({ id: available.id, installed: false, native: false })
+      expect(await persistence.get(available.id)).toMatchObject({
+        createdAt: expect.any(String),
+        description: available.description,
+        name: available.name,
+      })
+      expect(manager.availableAgents().some(({ id }) => id === available.id)).toBe(false)
+    } finally {
+      await manager.stop()
+      database.close()
+    }
+  })
+
   it("returns a non-null native version before installation", async () => {
     const home = await mkdtemp(join(tmpdir(), "cypheria-agent-manager-version-"))
     homes.push(home)

@@ -40,9 +40,9 @@ Query key 和乐观更新基于 Cypheria ID。Harness session ID 不会替代 Th
 
 ## Settings 导航
 
-Settings 使用一个扁平化、虚拟化的导航列表。返回行、分组标题、普通设置项、可展开的 Agent harnesses 行，以及所有可见 Agent 子项共享一个滚动容器与一个 TanStack Virtual virtualizer。搜索框与主题 footer 留在容器外。展开、搜索、安装状态变化和 registry 更新会重建扁平 row model；路由变化时会把 active item 滚动到可见区域。Agent 子项绝不创建嵌套滚动容器或第二个导航 virtualizer。Agent harnesses 父项只是展开控件，不对应页面，因此不会进入 active 状态。其子项始终包含四个原生 harness，而 registry harness 仅在已安装时显示。
+Settings 使用一个扁平化、虚拟化的导航列表。返回行、分组标题、普通设置项、可展开的 Agent harnesses 行，以及所有可见 Agent 子项共享一个滚动容器与一个 TanStack Virtual virtualizer。搜索框与主题 footer 留在容器外。展开、搜索、registry 成员变化和 registry 刷新会重建扁平 row model；路由变化时会把 active item 滚动到可见区域。Agent 子项绝不创建嵌套滚动容器或第二个导航 virtualizer。Agent harnesses 父项只是展开控件，不对应页面，因此不会进入 active 状态。其子项来自用户的 Agent registry；Server 初始化时会注册四个原生 harness。
 
-Agent harnesses 行上的添加操作会打开未安装 harness 选择器。安装期间会显示 Server operation 进度，完成后自动打开新 harness 的设置页。Agent harness 路由使用 `/settings/agent-harnesses/$agentId/$sectionId`。所选 Agent 拥有用于 authentication、models 和发现型设置分类的第二级 section 菜单；窄屏时转换为选择器。更新和卸载操作位于 Agent header，不再使用独立 installation section；卸载 registry harness 后，它会从导航中消失。右侧 panel 显示具体 section。Network proxy 位于 Agent header 上方，默认折叠，并在切换 Agent 或 section 时保留展开状态。Models 使用另一个固定高度虚拟列表，支持 provider 过滤和显式 Server 刷新。
+当 catalog 中所有 harness 都已加入 registry 时，Agent harnesses 行上的添加操作会禁用；否则会打开与 trigger 边缘对齐的选择器，并在各选项中显示 harness 描述。选中后只创建 Agent registry 记录并立即打开其设置页，安装由 Agent header 中的独立操作完成。Agent harness 路由使用 `/settings/agent-harnesses/$agentId/$sectionId`。所选 Agent 拥有用于 authentication、models 和发现型设置分类的第二级 section 菜单；窄屏时转换为选择器。安装、更新和卸载操作位于 Agent header，不再使用独立 installation section；卸载 registry harness 后，它会从导航中消失。右侧 panel 显示具体 section。Network proxy 位于 Agent header 上方，默认折叠，并在切换 Agent 或 section 时保留展开状态。Models 使用另一个固定高度虚拟列表，支持 provider 过滤和显式 Server 刷新。
 
 ## 会话工作区
 

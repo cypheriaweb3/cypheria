@@ -10,9 +10,9 @@ An Agent descriptor reports source, distribution, installed and available versio
 
 ## Registry and installation
 
-The Server loads the pinned ACP registry document, validates it, and exposes refresh and inspection operations. Distribution metadata may select a platform binary, `npx`, or `uvx`; preview releases remain explicit. Platform archives can carry SHA-256 integrity metadata.
+The Server loads the pinned ACP registry document as the available catalog, validates it, and exposes refresh and inspection operations. The persisted `agent_registry` is intentionally not a copy of that catalog: it begins with the four native harnesses and gains a registry Agent only after the user adds it. Each persisted row records `createdAt`. Distribution metadata may select a platform binary, `npx`, or `uvx`; preview releases remain explicit. Platform archives can carry SHA-256 integrity metadata.
 
-Installation and updates are Server operations with durable operation records and progress notifications. The toolchain manager discovers or installs managed Node and Python tooling beneath the Cypheria cache. Clients can list, install, update, uninstall, enable, disable, start, and stop Agents without receiving filesystem or process access.
+Adding and installing are separate operations. Adding persists the selected Agent and makes its settings page available; installation and updates are Server operations with durable operation records and progress notifications. The toolchain manager discovers or installs managed Node and Python tooling beneath the Cypheria cache. Clients can list, add, install, update, uninstall, enable, disable, start, and stop Agents without receiving filesystem or process access.
 
 ## Catalogs and defaults
 

@@ -54,6 +54,15 @@ export const AgentViewSchema = z.object({
 })
 export type AgentView = z.infer<typeof AgentViewSchema>
 
+export const AgentCatalogEntrySchema = z.object({
+  description: z.string(),
+  icon: z.string().nullable(),
+  id: AgentIdSchema,
+  name: z.string(),
+  native: z.boolean(),
+})
+export type AgentCatalogEntry = z.infer<typeof AgentCatalogEntrySchema>
+
 export const AgentOperationKindSchema = z.enum([
   "install",
   "update",
@@ -110,6 +119,7 @@ const agentIdRequest = <T extends string>(type: T) =>
   agentRequest(type).extend({ payload: z.object({ agentId: AgentIdSchema }) })
 
 export const AgentListRequestSchema = agentRequest("agent.list.request")
+export const AgentAddRequestSchema = agentIdRequest("agent.add.request")
 export const AgentGetRequestSchema = agentIdRequest("agent.get.request")
 export const AgentRegistryRefreshRequestSchema = agentRequest("agent.registry.refresh.request")
 export const AgentInstallRequestSchema = agentIdRequest("agent.install.request")
@@ -144,8 +154,13 @@ const response = <T extends string, S extends z.ZodType>(type: T, schema: S) =>
 
 export const AgentListResponseSchema = response(
   "agent.list.response",
-  z.object({ agents: z.array(AgentViewSchema), registry: AgentRegistrySyncStateSchema })
+  z.object({
+    agents: z.array(AgentViewSchema),
+    availableAgents: z.array(AgentCatalogEntrySchema),
+    registry: AgentRegistrySyncStateSchema,
+  })
 )
+export const AgentAddResponseSchema = response("agent.add.response", AgentViewSchema)
 export const AgentGetResponseSchema = response("agent.get.response", AgentViewSchema)
 export const AgentRegistryRefreshResponseSchema = response(
   "agent.registry.refresh.response",
@@ -205,6 +220,7 @@ export const AgentOperationFailedNotificationSchema = z.object({
 
 export const AGENT_MANAGEMENT_CLIENT_SCHEMAS = [
   AgentListRequestSchema,
+  AgentAddRequestSchema,
   AgentGetRequestSchema,
   AgentRegistryRefreshRequestSchema,
   AgentInstallRequestSchema,
@@ -223,6 +239,7 @@ export const AGENT_MANAGEMENT_CLIENT_SCHEMAS = [
 
 export const AGENT_MANAGEMENT_SERVER_SCHEMAS = [
   AgentListResponseSchema,
+  AgentAddResponseSchema,
   AgentGetResponseSchema,
   AgentRegistryRefreshResponseSchema,
   AgentInstallResponseSchema,

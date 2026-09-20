@@ -13,7 +13,7 @@ Every connection enables foreign keys. Server services define transaction bounda
 | Domain | Tables | Responsibility |
 | --- | --- | --- |
 | Runtime | `runtime_metadata`, `settings`, `audit_logs`, `workspaces` | Runtime metadata, key/value settings, append-oriented audit, workspace records |
-| Agents | `agent_registry` | Native and registry Agent installation, enablement, versions, and state |
+| Agents | `agent_registry` | User-selected Agent membership, creation time, installation, enablement, versions, and state; native harnesses are seeded |
 | Projects and Threads | `projects`, `threads`, `project_items`, `sections`, `section_items` | Durable organization, ordering, membership, archive and harness linkage |
 | Thread execution | `thread_lifecycle_operations`, `thread_timeline_epochs`, `thread_timeline_rows` | Recovery journal and append-only Canonical Timeline |
 | Schedules | `schedules`, `schedule_runs` | Definitions, next occurrence, leases, and run history |
