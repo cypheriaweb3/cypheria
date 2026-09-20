@@ -1,5 +1,7 @@
-import { execFile } from "node:child_process"
+import { execFile, spawn } from "node:child_process"
+import { existsSync } from "node:fs"
 import { access } from "node:fs/promises"
+import { basename, dirname, join } from "node:path"
 import { promisify } from "node:util"
 import { CYPHERIA_PROTOCOL_VERSION } from "@cypheria/protocol"
 
@@ -21,12 +23,38 @@ export type DesktopServerManagerOptions = {
     env: NodeJS.ProcessEnv,
     options?: { ifIdle?: boolean }
   ) => Promise<void>
+  runSupervisor?: (supervisorPath: string, env: NodeJS.ProcessEnv) => Promise<void>
   serverUrl?: string
+  supervisorCandidates?: readonly string[]
   timeoutMs?: number
 }
 
 const delay = (milliseconds: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, milliseconds))
+
+export const resolveDesktopNodeExecutable = (
+  executablePath = process.execPath,
+  platform = process.platform
+): string => {
+  if (platform !== "darwin") return executablePath
+  const macosDirectory = dirname(executablePath)
+  if (basename(macosDirectory) !== "MacOS") return executablePath
+  const contentsDirectory = dirname(macosDirectory)
+  if (basename(contentsDirectory) !== "Contents") return executablePath
+  const bundleName = basename(executablePath)
+  const frameworksDirectory = join(contentsDirectory, "Frameworks")
+  for (const helperName of [`${bundleName} Helper`, "Electron Helper"]) {
+    const helperPath = join(
+      frameworksDirectory,
+      `${helperName}.app`,
+      "Contents",
+      "MacOS",
+      helperName
+    )
+    if (existsSync(helperPath)) return helperPath
+  }
+  return executablePath
+}
 
 export const probeCompatibleServer = async (url: string): Promise<boolean> => {
   try {
@@ -52,7 +80,7 @@ const defaultRunCli = async (
   options?: { ifIdle?: boolean }
 ): Promise<void> => {
   await execFileAsync(
-    process.execPath,
+    resolveDesktopNodeExecutable(),
     [cliPath, command, ...(command === "stop" && options?.ifIdle ? ["--if-idle"] : [])],
     {
       env: { ...env, ELECTRON_RUN_AS_NODE: "1" },
@@ -61,11 +89,32 @@ const defaultRunCli = async (
   )
 }
 
+const defaultRunSupervisor = async (
+  supervisorPath: string,
+  env: NodeJS.ProcessEnv
+): Promise<void> => {
+  await new Promise<void>((resolve, reject) => {
+    const child = spawn(resolveDesktopNodeExecutable(), [supervisorPath], {
+      detached: true,
+      env: { ...env, ELECTRON_RUN_AS_NODE: "1" },
+      stdio: "ignore",
+      windowsHide: true,
+    })
+    child.once("error", reject)
+    child.once("spawn", () => {
+      child.unref()
+      resolve()
+    })
+  })
+}
+
 export class DesktopServerManager {
   readonly #candidates: readonly string[]
   readonly #env: NodeJS.ProcessEnv
   readonly #probe: (url: string) => Promise<boolean>
   readonly #runCli: DesktopServerManagerOptions["runCli"]
+  readonly #runSupervisor: DesktopServerManagerOptions["runSupervisor"]
+  readonly #supervisorCandidates: readonly string[]
   readonly #timeoutMs: number
   readonly #url: string
   #owned = false
@@ -75,14 +124,20 @@ export class DesktopServerManager {
     this.#env = options.env ?? process.env
     this.#probe = options.probe ?? probeCompatibleServer
     this.#runCli = options.runCli ?? defaultRunCli
+    this.#runSupervisor = options.runSupervisor ?? defaultRunSupervisor
+    this.#supervisorCandidates =
+      options.supervisorCandidates ??
+      options.cliCandidates
+        .filter(Boolean)
+        .map((candidate) => join(dirname(candidate), "supervisor.mjs"))
     this.#timeoutMs = options.timeoutMs ?? 15_000
     this.#url = options.serverUrl ?? "http://127.0.0.1:6768"
   }
 
   async ensureRunning(): Promise<DesktopServerState> {
     if (await this.#probe(this.#url)) return { owned: this.#owned, state: "ready", url: this.#url }
-    const cliPath = await this.#resolveCli()
-    await this.#runCli?.(cliPath, "start", this.#env)
+    const supervisorPath = await this.#resolveSupervisor()
+    await this.#runSupervisor?.(supervisorPath, this.#env)
     this.#owned = true
     const deadline = Date.now() + this.#timeoutMs
     while (Date.now() < deadline) {
@@ -108,7 +163,15 @@ export class DesktopServerManager {
   }
 
   async #resolveCli(): Promise<string> {
-    for (const candidate of this.#candidates) {
+    return this.#resolveCandidate(this.#candidates, "server CLI")
+  }
+
+  async #resolveSupervisor(): Promise<string> {
+    return this.#resolveCandidate(this.#supervisorCandidates, "server supervisor")
+  }
+
+  async #resolveCandidate(candidates: readonly string[], label: string): Promise<string> {
+    for (const candidate of candidates) {
       if (!candidate) continue
       try {
         await access(candidate)
@@ -118,7 +181,7 @@ export class DesktopServerManager {
       }
     }
     throw new Error(
-      `Cypheria server CLI was not found. Checked: ${this.#candidates.filter(Boolean).join(", ")}`
+      `Cypheria ${label} was not found. Checked: ${candidates.filter(Boolean).join(", ")}`
     )
   }
 }

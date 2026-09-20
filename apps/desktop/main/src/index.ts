@@ -572,6 +572,12 @@ const startDesktopApp = async (): Promise<void> => {
       join(app.getAppPath(), "dist", "cypheria-server", "cli.mjs"),
       join(process.resourcesPath, "cypheria-server", "cli.mjs"),
     ],
+    supervisorCandidates: [
+      process.env.CYPHERIA_SERVER_SUPERVISOR_PATH ?? "",
+      join(app.getAppPath(), "..", "server", "dist", "supervisor.mjs"),
+      join(app.getAppPath(), "dist", "cypheria-server", "supervisor.mjs"),
+      join(process.resourcesPath, "cypheria-server", "supervisor.mjs"),
+    ],
   })
   const server = await desktopServerManager.ensureRunning()
   desktopClient = createCypheriaClient({
