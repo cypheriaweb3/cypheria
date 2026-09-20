@@ -18,13 +18,10 @@ import { Route as AuditRouteImport } from "./routes/audit"
 import { Route as ApprovalsRouteImport } from "./routes/approvals"
 import { Route as IndexRouteImport } from "./routes/index"
 import { Route as SettingsPluginsRouteImport } from "./routes/settings.plugins"
-import { Route as SettingsModelsRouteImport } from "./routes/settings.models"
 import { Route as SettingsGeneralRouteImport } from "./routes/settings.general"
-import { Route as SettingsConnectionsRouteImport } from "./routes/settings.connections"
-import { Route as SettingsConfigurationRouteImport } from "./routes/settings.configuration"
 import { Route as SettingsArchivedRouteImport } from "./routes/settings.archived"
 import { Route as SettingsAppearanceRouteImport } from "./routes/settings.appearance"
-import { Route as SettingsAccountRouteImport } from "./routes/settings.account"
+import { Route as SettingsAgentHarnessesAgentIdSectionIdRouteImport } from "./routes/settings.agent-harnesses.$agentId.$sectionId"
 
 const WalletsRoute = WalletsRouteImport.update({
   id: "/wallets",
@@ -71,24 +68,9 @@ const SettingsPluginsRoute = SettingsPluginsRouteImport.update({
   path: "/settings/plugins",
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsModelsRoute = SettingsModelsRouteImport.update({
-  id: "/settings/models",
-  path: "/settings/models",
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SettingsGeneralRoute = SettingsGeneralRouteImport.update({
   id: "/settings/general",
   path: "/settings/general",
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsConnectionsRoute = SettingsConnectionsRouteImport.update({
-  id: "/settings/connections",
-  path: "/settings/connections",
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsConfigurationRoute = SettingsConfigurationRouteImport.update({
-  id: "/settings/configuration",
-  path: "/settings/configuration",
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsArchivedRoute = SettingsArchivedRouteImport.update({
@@ -101,11 +83,12 @@ const SettingsAppearanceRoute = SettingsAppearanceRouteImport.update({
   path: "/settings/appearance",
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsAccountRoute = SettingsAccountRouteImport.update({
-  id: "/settings/account",
-  path: "/settings/account",
-  getParentRoute: () => rootRouteImport,
-} as any)
+const SettingsAgentHarnessesAgentIdSectionIdRoute =
+  SettingsAgentHarnessesAgentIdSectionIdRouteImport.update({
+    id: "/settings/agent-harnesses/$agentId/$sectionId",
+    path: "/settings/agent-harnesses/$agentId/$sectionId",
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   "/": typeof IndexRoute
@@ -116,14 +99,11 @@ export interface FileRoutesByFullPath {
   "/policies": typeof PoliciesRoute
   "/schedules": typeof SchedulesRoute
   "/wallets": typeof WalletsRoute
-  "/settings/account": typeof SettingsAccountRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
   "/settings/archived": typeof SettingsArchivedRoute
-  "/settings/configuration": typeof SettingsConfigurationRoute
-  "/settings/connections": typeof SettingsConnectionsRoute
   "/settings/general": typeof SettingsGeneralRoute
-  "/settings/models": typeof SettingsModelsRoute
   "/settings/plugins": typeof SettingsPluginsRoute
+  "/settings/agent-harnesses/$agentId/$sectionId": typeof SettingsAgentHarnessesAgentIdSectionIdRoute
 }
 export interface FileRoutesByTo {
   "/": typeof IndexRoute
@@ -134,14 +114,11 @@ export interface FileRoutesByTo {
   "/policies": typeof PoliciesRoute
   "/schedules": typeof SchedulesRoute
   "/wallets": typeof WalletsRoute
-  "/settings/account": typeof SettingsAccountRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
   "/settings/archived": typeof SettingsArchivedRoute
-  "/settings/configuration": typeof SettingsConfigurationRoute
-  "/settings/connections": typeof SettingsConnectionsRoute
   "/settings/general": typeof SettingsGeneralRoute
-  "/settings/models": typeof SettingsModelsRoute
   "/settings/plugins": typeof SettingsPluginsRoute
+  "/settings/agent-harnesses/$agentId/$sectionId": typeof SettingsAgentHarnessesAgentIdSectionIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -153,14 +130,11 @@ export interface FileRoutesById {
   "/policies": typeof PoliciesRoute
   "/schedules": typeof SchedulesRoute
   "/wallets": typeof WalletsRoute
-  "/settings/account": typeof SettingsAccountRoute
   "/settings/appearance": typeof SettingsAppearanceRoute
   "/settings/archived": typeof SettingsArchivedRoute
-  "/settings/configuration": typeof SettingsConfigurationRoute
-  "/settings/connections": typeof SettingsConnectionsRoute
   "/settings/general": typeof SettingsGeneralRoute
-  "/settings/models": typeof SettingsModelsRoute
   "/settings/plugins": typeof SettingsPluginsRoute
+  "/settings/agent-harnesses/$agentId/$sectionId": typeof SettingsAgentHarnessesAgentIdSectionIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -173,14 +147,11 @@ export interface FileRouteTypes {
     | "/policies"
     | "/schedules"
     | "/wallets"
-    | "/settings/account"
     | "/settings/appearance"
     | "/settings/archived"
-    | "/settings/configuration"
-    | "/settings/connections"
     | "/settings/general"
-    | "/settings/models"
     | "/settings/plugins"
+    | "/settings/agent-harnesses/$agentId/$sectionId"
   fileRoutesByTo: FileRoutesByTo
   to:
     | "/"
@@ -191,14 +162,11 @@ export interface FileRouteTypes {
     | "/policies"
     | "/schedules"
     | "/wallets"
-    | "/settings/account"
     | "/settings/appearance"
     | "/settings/archived"
-    | "/settings/configuration"
-    | "/settings/connections"
     | "/settings/general"
-    | "/settings/models"
     | "/settings/plugins"
+    | "/settings/agent-harnesses/$agentId/$sectionId"
   id:
     | "__root__"
     | "/"
@@ -209,14 +177,11 @@ export interface FileRouteTypes {
     | "/policies"
     | "/schedules"
     | "/wallets"
-    | "/settings/account"
     | "/settings/appearance"
     | "/settings/archived"
-    | "/settings/configuration"
-    | "/settings/connections"
     | "/settings/general"
-    | "/settings/models"
     | "/settings/plugins"
+    | "/settings/agent-harnesses/$agentId/$sectionId"
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -228,14 +193,11 @@ export interface RootRouteChildren {
   PoliciesRoute: typeof PoliciesRoute
   SchedulesRoute: typeof SchedulesRoute
   WalletsRoute: typeof WalletsRoute
-  SettingsAccountRoute: typeof SettingsAccountRoute
   SettingsAppearanceRoute: typeof SettingsAppearanceRoute
   SettingsArchivedRoute: typeof SettingsArchivedRoute
-  SettingsConfigurationRoute: typeof SettingsConfigurationRoute
-  SettingsConnectionsRoute: typeof SettingsConnectionsRoute
   SettingsGeneralRoute: typeof SettingsGeneralRoute
-  SettingsModelsRoute: typeof SettingsModelsRoute
   SettingsPluginsRoute: typeof SettingsPluginsRoute
+  SettingsAgentHarnessesAgentIdSectionIdRoute: typeof SettingsAgentHarnessesAgentIdSectionIdRoute
 }
 
 declare module "@tanstack/react-router" {
@@ -303,32 +265,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof SettingsPluginsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/settings/models": {
-      id: "/settings/models"
-      path: "/settings/models"
-      fullPath: "/settings/models"
-      preLoaderRoute: typeof SettingsModelsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     "/settings/general": {
       id: "/settings/general"
       path: "/settings/general"
       fullPath: "/settings/general"
       preLoaderRoute: typeof SettingsGeneralRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    "/settings/connections": {
-      id: "/settings/connections"
-      path: "/settings/connections"
-      fullPath: "/settings/connections"
-      preLoaderRoute: typeof SettingsConnectionsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    "/settings/configuration": {
-      id: "/settings/configuration"
-      path: "/settings/configuration"
-      fullPath: "/settings/configuration"
-      preLoaderRoute: typeof SettingsConfigurationRouteImport
       parentRoute: typeof rootRouteImport
     }
     "/settings/archived": {
@@ -345,11 +286,11 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof SettingsAppearanceRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/settings/account": {
-      id: "/settings/account"
-      path: "/settings/account"
-      fullPath: "/settings/account"
-      preLoaderRoute: typeof SettingsAccountRouteImport
+    "/settings/agent-harnesses/$agentId/$sectionId": {
+      id: "/settings/agent-harnesses/$agentId/$sectionId"
+      path: "/settings/agent-harnesses/$agentId/$sectionId"
+      fullPath: "/settings/agent-harnesses/$agentId/$sectionId"
+      preLoaderRoute: typeof SettingsAgentHarnessesAgentIdSectionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -364,14 +305,12 @@ const rootRouteChildren: RootRouteChildren = {
   PoliciesRoute: PoliciesRoute,
   SchedulesRoute: SchedulesRoute,
   WalletsRoute: WalletsRoute,
-  SettingsAccountRoute: SettingsAccountRoute,
   SettingsAppearanceRoute: SettingsAppearanceRoute,
   SettingsArchivedRoute: SettingsArchivedRoute,
-  SettingsConfigurationRoute: SettingsConfigurationRoute,
-  SettingsConnectionsRoute: SettingsConnectionsRoute,
   SettingsGeneralRoute: SettingsGeneralRoute,
-  SettingsModelsRoute: SettingsModelsRoute,
   SettingsPluginsRoute: SettingsPluginsRoute,
+  SettingsAgentHarnessesAgentIdSectionIdRoute:
+    SettingsAgentHarnessesAgentIdSectionIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

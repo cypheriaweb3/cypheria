@@ -13,6 +13,14 @@ type TerminalRecord = {
   readonly process: pty.IPty
 }
 
+type CommandTerminalInput = {
+  args: string[]
+  command: string
+  cwd: string
+  env: Record<string, string>
+  title: string
+}
+
 const environment = (): Record<string, string> =>
   Object.fromEntries(
     Object.entries(process.env).filter(
@@ -90,6 +98,32 @@ export class TerminalService {
     }
   }
 
+  openCommand(
+    input: CommandTerminalInput,
+    sessionId: string,
+    send: Send,
+    onExit?: (exitCode: number) => void
+  ) {
+    return this.#spawnSession(
+      {
+        args: input.args,
+        command: input.command,
+        cols: 100,
+        cwd: input.cwd,
+        env: input.env,
+        rows: 28,
+        title: input.title,
+      },
+      sessionId,
+      send,
+      onExit
+    )
+  }
+
+  close(terminalId: string, sessionId: string): void {
+    this.#close(terminalId, sessionId)
+  }
+
   async #open(
     input: { cols: number; cwd?: string; projectId?: string; rows: number },
     sessionId: string,
@@ -102,11 +136,32 @@ export class TerminalService {
       process.platform === "win32"
         ? (process.env.COMSPEC ?? "powershell.exe")
         : (process.env.SHELL ?? "/bin/sh")
+    return this.#spawnSession(
+      {
+        args: process.platform === "win32" ? [] : ["-l"],
+        command: shell,
+        cols: input.cols,
+        cwd,
+        env: environment(),
+        rows: input.rows,
+        title: basename(shell),
+      },
+      sessionId,
+      send
+    )
+  }
+
+  #spawnSession(
+    input: CommandTerminalInput & { cols: number; rows: number },
+    sessionId: string,
+    send: Send,
+    onExit?: (exitCode: number) => void
+  ) {
     const terminalId = randomUUID()
-    const child = this.#spawn(shell, process.platform === "win32" ? [] : ["-l"], {
+    const child = this.#spawn(input.command, input.args, {
       cols: input.cols,
-      cwd,
-      env: environment(),
+      cwd: input.cwd,
+      env: input.env,
       name: "xterm-256color",
       rows: input.rows,
     })
@@ -117,8 +172,9 @@ export class TerminalService {
     child.onExit(({ exitCode }) => {
       this.#terminals.delete(terminalId)
       send({ payload: { exitCode, terminalId }, type: "terminal.exited.notification" })
+      onExit?.(exitCode)
     })
-    return { cwd, terminalId, title: basename(shell) }
+    return { cwd: input.cwd, terminalId, title: input.title }
   }
 
   async #resolveCwd(cwd?: string, projectId?: string): Promise<string> {

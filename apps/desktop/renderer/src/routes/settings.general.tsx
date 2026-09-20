@@ -1,20 +1,11 @@
 import { Button } from "@cypheria/ui/components/button"
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@cypheria/ui/components/dialog"
 import { Switch } from "@cypheria/ui/components/switch"
 import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { type ReactNode, useState } from "react"
+import type { ReactNode } from "react"
 import type {
   LanguagePreference,
   LanguageSettings,
@@ -23,7 +14,6 @@ import type {
 } from "../../../ipc/src/index.js"
 import { LanguageSelector } from "../components/language-selector.js"
 import { SettingsFrame } from "../components/settings-frame"
-import { ensureCypheriaClient } from "../cypheria-client.js"
 import { activateLanguage } from "../i18n.js"
 
 export const Route = createFileRoute("/settings/general")({ component: GeneralSettingsRoute })
@@ -42,15 +32,10 @@ const fallbackWorkspaceLayoutSettings: WorkspaceLayoutSettings = {
 function GeneralSettingsRoute() {
   const { i18n } = useLingui()
   const queryClient = useQueryClient()
-  const [confirmFullAccess, setConfirmFullAccess] = useState(false)
   const languageQuery = useQuery({
     queryFn: () => window.cypheria?.settings.getLanguage() ?? fallbackLanguageSettings,
     queryKey: ["settings", "language"],
     staleTime: Number.POSITIVE_INFINITY,
-  })
-  const permissionsQuery = useQuery({
-    queryFn: async () => (await ensureCypheriaClient()).harnesses.codex.permissions.catalog(),
-    queryKey: ["codex", "permissions", null],
   })
   const workspaceLayoutQuery = useQuery({
     queryFn: () =>
@@ -69,15 +54,6 @@ function GeneralSettingsRoute() {
     onSuccess: (settings) => {
       queryClient.setQueryData(["settings", "language"], settings)
       activateLanguage(settings)
-    },
-  })
-  const fullAccessMutation = useMutation({
-    mutationFn: async (enabled: boolean) => {
-      return (await ensureCypheriaClient()).harnesses.codex.permissions.setShowFullAccess(enabled)
-    },
-    onSuccess: (catalog) => {
-      if (catalog) queryClient.setQueryData(["codex", "permissions", null], catalog)
-      setConfirmFullAccess(false)
     },
   })
   const workspaceLayoutMutation = useMutation({
@@ -107,59 +83,6 @@ function GeneralSettingsRoute() {
             <Trans id="settings.general.title">General</Trans>
           </h1>
         </header>
-        <section className="grid gap-4">
-          <h2 className="text-base font-semibold">
-            <Trans id="settings.permissions.title">Permissions</Trans>
-          </h2>
-          <div className="rounded-2xl border border-border bg-card px-5 shadow-xs">
-            <SettingRow
-              description={
-                <Trans id="settings.permissions.default.description">
-                  By default, ChatGPT can read and edit files in its workspace. It can ask for
-                  additional access when needed.
-                </Trans>
-              }
-              title={<Trans id="settings.permissions.default.title">Default permissions</Trans>}
-            >
-              <Switch
-                checked
-                disabled
-                aria-label={i18n._(
-                  msg({
-                    id: "settings.permissions.default.toggle",
-                    message: "Default permissions are always shown",
-                  })
-                )}
-              />
-            </SettingRow>
-            <SettingRow
-              description={
-                <Trans id="settings.permissions.full.description">
-                  When ChatGPT runs with full access, it can edit any file on your computer and run
-                  commands with network access, without your approval. This significantly increases
-                  the risk of data loss, leaks, or unexpected behavior.
-                </Trans>
-              }
-              title={<Trans id="settings.permissions.full.title">Full access</Trans>}
-            >
-              <Switch
-                aria-label={i18n._(
-                  msg({
-                    id: "settings.permissions.full.toggle",
-                    message: "Show Full access in the composer",
-                  })
-                )}
-                checked={permissionsQuery.data?.showFullAccess ?? false}
-                disabled={
-                  !permissionsQuery.data?.fullAccessCanBeShown || fullAccessMutation.isPending
-                }
-                onCheckedChange={(enabled) =>
-                  enabled ? setConfirmFullAccess(true) : fullAccessMutation.mutate(false)
-                }
-              />
-            </SettingRow>
-          </div>
-        </section>
         <section className="grid gap-4">
           <h2 className="text-base font-semibold">
             <Trans id="settings.general.section">General</Trans>
@@ -248,46 +171,12 @@ function GeneralSettingsRoute() {
             </SettingRow>
           </div>
         </section>
-        {languageMutation.isError ||
-        fullAccessMutation.isError ||
-        workspaceLayoutMutation.isError ? (
+        {languageMutation.isError || workspaceLayoutMutation.isError ? (
           <p className="text-[13px] text-destructive">
-            {String(
-              languageMutation.error?.message ??
-                fullAccessMutation.error?.message ??
-                workspaceLayoutMutation.error?.message
-            )}
+            {String(languageMutation.error?.message ?? workspaceLayoutMutation.error?.message)}
           </p>
         ) : null}
       </div>
-      <Dialog onOpenChange={setConfirmFullAccess} open={confirmFullAccess}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
-              <Trans id="settings.permissions.full.confirm.title">
-                Make Full Access available?
-              </Trans>
-            </DialogTitle>
-            <DialogDescription>
-              <Trans id="settings.permissions.full.confirm.body">
-                When selected, ChatGPT can access the internet and read and edit files without
-                asking for approval — including potentially destructive commands.
-              </Trans>
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>
-              <Trans id="common.cancel">Cancel</Trans>
-            </DialogClose>
-            <Button
-              disabled={fullAccessMutation.isPending}
-              onClick={() => fullAccessMutation.mutate(true)}
-            >
-              <Trans id="common.confirm">Confirm</Trans>
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </SettingsFrame>
   )
 }

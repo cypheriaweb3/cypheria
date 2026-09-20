@@ -91,6 +91,7 @@ export class ServerConfigStore {
           showFullAccessInComposer: false,
           webSearch: null,
         },
+        defaults: {},
       },
       server: {
         cors: { allowedOrigins: runningConfig.allowedOrigins },

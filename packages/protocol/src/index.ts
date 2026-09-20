@@ -7,6 +7,14 @@ import {
   type AgentManagementServerMessage,
 } from "./agent/management.ts"
 import {
+  HARNESS_CLIENT_SCHEMAS,
+  HARNESS_RESPONSE_TYPES,
+  HARNESS_SERVER_SCHEMAS,
+  type HarnessClientMessage,
+  type HarnessServerMessage,
+  HarnessSettingValueSchema,
+} from "./harness.ts"
+import {
   CODEX_HARNESS_CLIENT_SCHEMAS,
   CODEX_HARNESS_RESPONSE_TYPES,
   CODEX_HARNESS_SERVER_SCHEMAS,
@@ -67,6 +75,7 @@ export * from "./agent/pi.ts"
 export * from "./agent/registry.ts"
 export * from "./codex-ui/image-generation.ts"
 export * from "./codex-ui/turn-projection.ts"
+export * from "./harness.ts"
 export * from "./harness-codex.ts"
 export * from "./integration.ts"
 export * from "./project-thread.ts"
@@ -87,6 +96,7 @@ const CYPHERIA_CBOR_MAX_DEPTH = 64
 export const SERVER_CAPABILITIES = {
   agentManager: "agent.manager",
   codexHarness: "harness.codex",
+  harnessManagement: "harness.management",
   projectThread: "project-thread",
   schedules: "schedules",
   terminals: "terminals",
@@ -321,6 +331,7 @@ export const PersistedServerConfigSchema = z
     agents: z
       .object({
         codex: CodexAgentSettingsSchema,
+        defaults: z.record(z.string(), z.record(z.string(), HarnessSettingValueSchema)),
       })
       .strict(),
     version: z.literal(1),
@@ -381,6 +392,7 @@ export const PersistedServerConfigPatchSchema = z
     agents: z
       .object({
         codex: CodexAgentSettingsSchema.partial().strict().optional(),
+        defaults: z.record(z.string(), z.record(z.string(), HarnessSettingValueSchema)).optional(),
       })
       .strict()
       .optional(),
@@ -494,6 +506,7 @@ export type SessionInboundMessage =
   | AgentManagementClientMessage
   | IntegrationClientMessage
   | CodexHarnessClientMessage
+  | HarnessClientMessage
   | ProjectThreadClientMessage
   | ScheduleClientMessage
   | TerminalClientMessage
@@ -511,6 +524,7 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   ...AGENT_MANAGEMENT_CLIENT_SCHEMAS,
   ...INTEGRATION_CLIENT_SCHEMAS,
   ...CODEX_HARNESS_CLIENT_SCHEMAS,
+  ...HARNESS_CLIENT_SCHEMAS,
   ...PROJECT_THREAD_CLIENT_SCHEMAS,
   ...SCHEDULE_CLIENT_SCHEMAS,
   ...TERMINAL_CLIENT_SCHEMAS,
@@ -569,6 +583,7 @@ export type SessionOutboundMessage =
   | AgentManagementServerMessage
   | IntegrationServerMessage
   | CodexHarnessServerMessage
+  | HarnessServerMessage
   | ProjectThreadServerMessage
   | ScheduleServerMessage
   | TerminalServerMessage
@@ -585,6 +600,7 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   ...AGENT_MANAGEMENT_SERVER_SCHEMAS,
   ...INTEGRATION_SERVER_SCHEMAS,
   ...CODEX_HARNESS_SERVER_SCHEMAS,
+  ...HARNESS_SERVER_SCHEMAS,
   ...PROJECT_THREAD_SERVER_SCHEMAS,
   ...SCHEDULE_SERVER_SCHEMAS,
   ...TERMINAL_SERVER_SCHEMAS,
@@ -618,6 +634,7 @@ const clientResponseTypes = new Set<string>([
   "agent.toolchain.update.response",
   ...PROJECT_THREAD_RESPONSE_TYPES,
   ...INTEGRATION_RESPONSE_TYPES,
+  ...HARNESS_RESPONSE_TYPES,
   ...CODEX_HARNESS_RESPONSE_TYPES,
   ...SCHEDULE_RESPONSE_TYPES,
   ...TERMINAL_RESPONSE_TYPES,

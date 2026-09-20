@@ -295,7 +295,7 @@ export function WorkspaceTerminalView({
   )
 }
 
-function WorkspaceTerminalSurface({
+export function WorkspaceTerminalSurface({
   active,
   getReplay,
   session,

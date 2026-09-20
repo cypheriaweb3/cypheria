@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 
+import type { AgentView } from "@cypheria/protocol"
 import { cn } from "@cypheria/ui"
 import { Button } from "@cypheria/ui/components/button"
 import { Input } from "@cypheria/ui/components/input"
@@ -21,20 +22,20 @@ import { I18nProvider, useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
 import { QueryClient, QueryClientProvider, useQuery, useQueryClient } from "@tanstack/react-query"
 import { HeadContent, Link, Outlet, Scripts, useLocation } from "@tanstack/react-router"
+import { useVirtualizer } from "@tanstack/react-virtual"
 import { Provider as JotaiProvider } from "jotai"
 import {
   Archive,
   ArrowLeft,
   ArrowRight,
-  Bot,
   Boxes,
-  Cable,
+  ChevronDown,
   ChevronLeft,
+  ChevronRight,
   CircleUserRound,
   Palette,
   Search,
   Settings,
-  SlidersHorizontal,
   SquarePen,
 } from "lucide-react"
 import {
@@ -47,6 +48,7 @@ import {
   useState,
 } from "react"
 import { resolveThemeMode, useAppearanceController, useTheme } from "../appearance.js"
+import { ensureCypheriaClient } from "../cypheria-client.js"
 import { activateLanguage, getBootstrapLanguage, i18n } from "../i18n.js"
 import { web3Api } from "../web3-api.js"
 import { NewChatLink } from "./chat-navigation"
@@ -59,6 +61,8 @@ import {
   DesktopSidebarProvider as SidebarProvider,
   DesktopSidebarTrigger as SidebarTrigger,
 } from "./desktop-sidebar"
+import { HarnessIcon } from "./harness-icon"
+import { buildSettingsNavigationRows } from "./settings-navigation-model"
 
 const navigationItems = [
   {
@@ -89,24 +93,6 @@ const settingsItems = [
     label: msg({ id: "settings.appearance", message: "Appearance" }),
   },
   {
-    group: "coding",
-    href: "/settings/configuration",
-    icon: <SlidersHorizontal className="size-4" strokeWidth={1.9} />,
-    label: msg({ id: "settings.configuration", message: "Configuration" }),
-  },
-  {
-    group: "coding",
-    href: "/settings/models",
-    icon: <Bot className="size-4" strokeWidth={1.9} />,
-    label: msg({ id: "settings.models", message: "Models" }),
-  },
-  {
-    group: "integrations",
-    href: "/settings/connections",
-    icon: <Cable className="size-4" strokeWidth={1.9} />,
-    label: msg({ id: "settings.connections", message: "Connections" }),
-  },
-  {
     group: "integrations",
     href: "/settings/plugins",
     icon: <Boxes className="size-4" strokeWidth={1.9} />,
@@ -128,10 +114,6 @@ const settingsGroups = [
   {
     id: "integrations",
     label: msg({ id: "settings.group.integrations", message: "Integrations" }),
-  },
-  {
-    id: "coding",
-    label: msg({ id: "settings.group.coding", message: "Coding" }),
   },
   {
     id: "archived",
@@ -373,24 +355,66 @@ function SettingsNavigation({
 }>) {
   const { i18n: activeI18n } = useLingui()
   const [searchQuery, setSearchQuery] = useState("")
+  const [harnessesExpanded, setHarnessesExpanded] = useState(() =>
+    pathname.startsWith("/settings/agent-harnesses/")
+  )
   const searchRef = useRef<HTMLInputElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const agents = useQuery({
+    queryFn: async () => (await ensureCypheriaClient()).agents.list(),
+    queryKey: ["cypheria", "agents"],
+  })
   const backToWorkspace = activeI18n._(
     msg({ id: "settings.backToWorkspace", message: "Back to workspace" })
   )
-  const visibleGroups = useMemo(() => {
-    const needle = searchQuery.trim().toLocaleLowerCase(activeI18n.locale)
-    return settingsGroups
-      .map((group) => ({
-        ...group,
-        items: settingsItems.filter(
-          (item) =>
-            item.group === group.id &&
-            (!needle ||
-              activeI18n._(item.label).toLocaleLowerCase(activeI18n.locale).includes(needle))
-        ),
-      }))
-      .filter(({ items }) => items.length > 0)
-  }, [activeI18n, searchQuery])
+  const rows = useMemo(() => {
+    const harnessLabel = activeI18n._(
+      msg({ id: "settings.agentHarnesses", message: "Agent harnesses" })
+    )
+    return buildSettingsNavigationRows<AgentView, ReactNode>({
+      agents: agents.data?.agents ?? [],
+      emptyLabel: activeI18n._(msg({ id: "settings.search.empty", message: "No results found" })),
+      groups: settingsGroups.map((group) => ({
+        id: group.id,
+        items: settingsItems
+          .filter((item) => item.group === group.id)
+          .map((item) => ({
+            href: item.href,
+            icon: item.icon,
+            label: activeI18n._(item.label),
+          })),
+        label: activeI18n._(group.label),
+      })),
+      harnessGroupId: "integrations",
+      harnessLabel,
+      harnessesExpanded,
+      locale: activeI18n.locale,
+      query: searchQuery,
+    })
+  }, [activeI18n, agents.data?.agents, harnessesExpanded, searchQuery])
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    estimateSize: (index) =>
+      rows[index]?.kind === "group" ? 28 : rows[index]?.kind === "empty" ? 48 : 36,
+    getItemKey: (index) => rows[index]?.id ?? index,
+    getScrollElement: () => scrollRef.current,
+    overscan: 8,
+  })
+
+  const navigationLayoutKey = `${harnessesExpanded}:${rows.length}`
+  useEffect(() => {
+    if (!navigationLayoutKey) return
+    virtualizer.measure()
+  }, [navigationLayoutKey, virtualizer])
+
+  useEffect(() => {
+    const activeIndex = rows.findIndex((row) =>
+      row.kind === "agent"
+        ? pathname.startsWith(`/settings/agent-harnesses/${row.agent.id}/`)
+        : row.kind === "item" && pathname === row.href
+    )
+    if (activeIndex >= 0) virtualizer.scrollToIndex(activeIndex, { align: "auto" })
+  }, [pathname, rows, virtualizer])
 
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
@@ -418,26 +442,8 @@ function SettingsNavigation({
         </span>
       </SidebarHeader>
 
-      <SidebarContent className="grid min-h-0 content-start gap-3 overflow-auto px-3 pb-3 pt-0.5">
-        <SidebarGroup>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  render={
-                    <Link to="/">
-                      <ChevronLeft aria-hidden="true" className="size-4" strokeWidth={1.9} />
-                      <span>{backToWorkspace}</span>
-                    </Link>
-                  }
-                  tooltip={backToWorkspace}
-                />
-              </SidebarMenuItem>
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        <div className="relative px-2 group-data-[collapsible=icon]:hidden">
+      <SidebarContent className="min-h-0 overflow-hidden px-3 pb-3 pt-0.5">
+        <div className="relative mb-3 px-2 group-data-[collapsible=icon]:hidden">
           <Search
             aria-hidden="true"
             className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -457,38 +463,114 @@ function SettingsNavigation({
           />
         </div>
 
-        {visibleGroups.length > 0 ? (
-          visibleGroups.map((group) => (
-            <SidebarGroup className="py-0" key={group.id}>
-              <SidebarGroupLabel>{activeI18n._(group.label)}</SidebarGroupLabel>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  {group.items.map((item) => {
-                    const label = activeI18n._(item.label)
-                    return (
-                      <SidebarMenuItem key={item.href}>
+        <div className="cypheria-scrollbar min-h-0 flex-1 overflow-y-auto" ref={scrollRef}>
+          <div className="relative w-full" style={{ height: `${virtualizer.getTotalSize()}px` }}>
+            {virtualizer.getVirtualItems().map((virtualRow) => {
+              const row = rows[virtualRow.index]
+              if (!row) return null
+              return (
+                <div
+                  className="absolute left-0 top-0 w-full px-2"
+                  data-settings-navigation-row={row.kind}
+                  key={row.id}
+                  ref={virtualizer.measureElement}
+                  style={{ transform: `translateY(${virtualRow.start}px)` }}
+                >
+                  {row.kind === "back" ? (
+                    <SidebarMenu>
+                      <SidebarMenuItem>
                         <SidebarMenuButton
-                          isActive={pathname === item.href}
                           render={
-                            <Link to={item.href}>
-                              {item.icon}
-                              <span>{label}</span>
+                            <Link to="/">
+                              <ChevronLeft
+                                aria-hidden="true"
+                                className="size-4"
+                                strokeWidth={1.9}
+                              />
+                              <span>{backToWorkspace}</span>
                             </Link>
                           }
-                          tooltip={label}
+                          tooltip={backToWorkspace}
                         />
                       </SidebarMenuItem>
-                    )
-                  })}
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </SidebarGroup>
-          ))
-        ) : (
-          <p className="px-4 py-2 text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">
-            <Trans id="settings.search.empty">No results found</Trans>
-          </p>
-        )}
+                    </SidebarMenu>
+                  ) : null}
+                  {row.kind === "group" ? (
+                    <SidebarGroupLabel className="px-2">{row.label}</SidebarGroupLabel>
+                  ) : null}
+                  {row.kind === "item" ? (
+                    <SidebarMenu>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          isActive={pathname === row.href}
+                          render={
+                            <Link to={row.href as (typeof settingsItems)[number]["href"]}>
+                              {row.icon}
+                              <span>{row.label}</span>
+                            </Link>
+                          }
+                          tooltip={row.label}
+                        />
+                      </SidebarMenuItem>
+                    </SidebarMenu>
+                  ) : null}
+                  {row.kind === "harness" ? (
+                    <SidebarMenu>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          isActive={pathname.startsWith("/settings/agent-harnesses/")}
+                          onClick={() => setHarnessesExpanded((value) => !value)}
+                          tooltip={row.label}
+                        >
+                          {harnessesExpanded ? (
+                            <ChevronDown className="size-4" />
+                          ) : (
+                            <ChevronRight className="size-4" />
+                          )}
+                          <span>{row.label}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    </SidebarMenu>
+                  ) : null}
+                  {row.kind === "agent" ? (
+                    <SidebarMenu>
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          className="pl-7"
+                          isActive={pathname.startsWith(
+                            `/settings/agent-harnesses/${row.agent.id}/`
+                          )}
+                          render={
+                            <Link
+                              params={{ agentId: row.agent.id, sectionId: "installation" }}
+                              to="/settings/agent-harnesses/$agentId/$sectionId"
+                            >
+                              <span className="flex size-5 items-center justify-center">
+                                <HarnessIcon
+                                  agentId={row.agent.id}
+                                  className="size-4"
+                                  icon={row.agent.icon}
+                                  name={row.agent.name}
+                                />
+                              </span>
+                              <span>{row.agent.name}</span>
+                            </Link>
+                          }
+                          tooltip={row.agent.name}
+                        />
+                      </SidebarMenuItem>
+                    </SidebarMenu>
+                  ) : null}
+                  {row.kind === "empty" ? (
+                    <p className="px-2 py-2 text-sm text-muted-foreground group-data-[collapsible=icon]:hidden">
+                      {row.label}
+                    </p>
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
+        </div>
       </SidebarContent>
 
       <SidebarFooter className="flex min-h-[58px] items-end px-3 pb-3 pt-2.5">

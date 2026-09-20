@@ -270,6 +270,15 @@ describe("ManagedThreadAdapter", () => {
           })
           return
         }
+        if (message.type === "agent.acp.session.set_config_option.request") {
+          context.send({
+            agent: "gemini",
+            payload: { requestId: String(message.requestId), result: { configOptions: [] } },
+            protocolVersion: 1,
+            type: "agent.acp.session.set_config_option.response",
+          })
+          return
+        }
         if (message.type === "agent.acp.session.prompt.request") {
           context.send({
             agent: "gemini",
@@ -295,12 +304,23 @@ describe("ManagedThreadAdapter", () => {
         }
       }
     )
-    const manager = { handleAcp } as unknown as AgentManager
+    const manager = {
+      defaultsFor: () => ({ showThoughts: true }),
+      handleAcp,
+    } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "gemini")
     const created = await adapter.create({
       ...input("gemini"),
       onEvent: (event) => events.push(event),
     })
+    expect(messages).toContainEqual(
+      expect.objectContaining({
+        configId: "showThoughts",
+        configValueType: "boolean",
+        value: true,
+        type: "agent.acp.session.set_config_option.request",
+      })
+    )
 
     await adapter.startTurn({
       agentId: "gemini",
@@ -345,11 +365,14 @@ describe("ManagedThreadAdapter", () => {
       async (message: Record<string, unknown>, context: AgentMessageContext) => {
         context.send({
           payload: { requestId: String(message.requestId) },
-          type: "agent.pi.prompt.response",
-        })
+          type: String(message.type).replace(/\.request$/u, ".response"),
+        } as AgentRuntimeServerMessage)
       }
     )
-    const manager = { handlePi } as unknown as AgentManager
+    const manager = {
+      defaultsFor: () => ({ model: "anthropic/claude-test", thinkingLevel: "high" }),
+      handlePi,
+    } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "pi")
     await adapter.create(input("pi"))
 
@@ -363,11 +386,16 @@ describe("ManagedThreadAdapter", () => {
         threadId: input("pi").threadId,
       })
     ).resolves.toEqual({ turnId: "message-1" })
-    expect(handlePi.mock.calls[0]?.[0]).toMatchObject({
+    expect(handlePi.mock.calls.map(([message]) => message.type)).toEqual([
+      "agent.pi.model.set.request",
+      "agent.pi.thinking_level.set.request",
+      "agent.pi.prompt.request",
+    ])
+    expect(handlePi.mock.calls[2]?.[0]).toMatchObject({
       message: "hello",
       type: "agent.pi.prompt.request",
     })
-    expect(handlePi.mock.calls[0]?.[0]).not.toHaveProperty("payload")
+    expect(handlePi.mock.calls[2]?.[0]).not.toHaveProperty("payload")
   })
 
   it("bridges Claude canUseTool through a Thread interaction", async () => {
@@ -385,7 +413,16 @@ describe("ManagedThreadAdapter", () => {
         })
       }
     )
-    const manager = { handleClaude } as unknown as AgentManager
+    const manager = {
+      defaultsFor: () => ({
+        effort: "high",
+        maxThinkingTokens: 8192,
+        model: "claude-test",
+        permissionMode: "plan",
+        thinkingMode: "enabled",
+      }),
+      handleClaude,
+    } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "claude")
     await adapter.create({ ...input("claude"), onEvent: (event) => events.push(event) })
     await adapter.startTurn({
@@ -395,6 +432,14 @@ describe("ManagedThreadAdapter", () => {
       content: [{ text: "hello", type: "text" }],
       cwd: "/repo",
       threadId: input("claude").threadId,
+    })
+    expect(handleClaude.mock.calls[0]?.[0]).toMatchObject({
+      options: {
+        effort: "high",
+        model: "claude-test",
+        permissionMode: "plan",
+        thinking: { budgetTokens: 8192, type: "enabled" },
+      },
     })
 
     const controller = new AbortController()

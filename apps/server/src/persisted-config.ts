@@ -25,6 +25,7 @@ export const DEFAULT_PERSISTED_SERVER_CONFIG: PersistedServerConfig = {
       showFullAccessInComposer: false,
       webSearch: null,
     },
+    defaults: {},
   },
   server: {
     cors: { allowedOrigins: [] },

@@ -353,8 +353,11 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
     updateMarket.error ??
     (view === "skills" ? skillsQuery.error : pluginsQuery.error)
 
-  const openCodexConnections = () => {
-    void navigate({ to: "/settings/connections", search: { focus: "codex" } })
+  const openCodexAuthentication = () => {
+    void navigate({
+      params: { agentId: "codex", sectionId: "authentication" },
+      to: "/settings/agent-harnesses/$agentId/$sectionId",
+    })
   }
 
   function PluginMenu({ plugin: p }: { plugin: CodexPluginView }) {
@@ -946,14 +949,14 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
                         {accountQuery.data?.type === "apiKey"
                           ? "Codex is currently connected with an OpenAI API key. The key can still be used for model requests, but this App Server rejected the remote plugin catalog because it requires a ChatGPT session."
                           : accountQuery.data?.type === "chatgpt"
-                            ? "Codex reports a ChatGPT connection, but the remote plugin catalog rejected it. Open Connections to reconnect, then refresh this page."
+                            ? "Codex reports a ChatGPT connection, but the remote plugin catalog rejected it. Open Authentication to reconnect, then refresh this page."
                             : "The remote plugin catalog requires a ChatGPT session. Connect Codex with ChatGPT, then return and refresh this page."}
                       </p>
                       <Button
                         className="w-fit"
                         size="sm"
                         variant="outline"
-                        onClick={openCodexConnections}
+                        onClick={openCodexAuthentication}
                       >
                         Open Codex sign-in settings
                         <ArrowRight className="size-3.5" />

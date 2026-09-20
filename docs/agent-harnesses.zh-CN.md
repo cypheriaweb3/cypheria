@@ -14,6 +14,12 @@ Server 加载并校验固定版本的 ACP registry 文档，提供刷新和检�
 
 安装和更新是 Server 操作，拥有持久 operation records 与进度 notifications。Toolchain manager 在 Cypheria cache 下发现或安装托管的 Node 和 Python 工具。客户端可以列出、安装、更新、卸载、启用、禁用、启动和停止 Agents，但不会获得文件系统或进程权限。
 
+## Catalog 与默认值
+
+公开 harness catalog 会统一 models、providers、认证方式以及可配置的新 session 默认值，不暴露原生 Agent 协议。`HarnessCatalogManager` 按 Agent 与配置代次在内存中保留一份 snapshot。Catalog 按需加载，并发读取共享一次发现；普通渲染或导航不会再次启动 runtime。显式刷新、安装变化、认证变化、registry 变化或影响 catalog 的设置会使 snapshot 失效。刷新失败时保留上一份 snapshot，并标记为 stale。
+
+设置以带稳定 section 的类型化 `select`、`boolean` 或 `number` definition 描述。Server 按最新 definitions 校验每次更新。非密钥默认值按 Agent ID 持久化，并应用于新 session；凭证留在 harness 自己的 credential store 中，绝不进入配置、协议响应或日志。已经失效的保存值会保持可见并标记无效，直到用户替换。
+
 ## Runtime 生命周期
 
 Agent manager 串行化生命周期转换、报告健康状态，并区分 installed、enabled 和 running。禁用的 Agent 不能启动。停止的 Agent 仍可拥有持久 Threads；恢复 Thread 时会启动或复用相应 runtime。
@@ -31,23 +37,23 @@ Agent manager 串行化生命周期转换、报告健康状态，并区分 insta
 
 ### Codex
 
-Codex harness 负责 Cypheria 管理的 Codex App Server 进程，并使用 `@cypheria/protocol` 的生成产物校验消息。它把 Codex turns、reasoning、plans、commands、文件变更、approvals、artifacts、account、models 和 permissions 映射为 Cypheria 契约。Codex Apps 仍是 Codex/OpenAI harness 扩展。
+Codex harness 负责 Cypheria 管理的 Codex App Server 进程，并使用 `@cypheria/protocol` 的生成产物校验消息。它把 Codex turns、reasoning、plans、commands、文件变更、approvals、artifacts、account、models 和 permissions 映射为 Cypheria 契约。公共 harness facade 支持 API key、ChatGPT browser 和 ChatGPT device-code 认证。Codex Apps 仍是 Codex/OpenAI harness 扩展。
 
 ### Claude
 
-Claude harness 使用固定版本的 Claude Agent SDK。Server 负责带 callback 的 hooks、permissions、abort control、MCP server objects、session storage 和 process factories。可序列化 prompt 与 SDK 输出会归一化为 Thread input、Timeline items、interactions 和 harness events。
+Claude harness 使用固定版本的 Claude Agent SDK。Server 负责带 callback 的 hooks、permissions、abort control、MCP server objects、session storage、process factories、subscription 与 Console account 认证，以及登出。可序列化 prompt 与 SDK 输出会归一化为 Thread input、Timeline items、interactions 和 harness events。
 
 ### Pi
 
-Pi harness 使用固定版本的 Pi coding-agent 包及其 RPC session model，把消息流、tool activity、配置、session 生命周期和 extension metadata 映射到通用 Thread 契约。Pi extensions 表示为 Pi 生态插件，不等同于 Cypheria 原生插件。
+Pi harness 使用固定版本的 Pi coding-agent 包及其 RPC session model。它会发现 provider models 与各 provider 的 account、OAuth、device-code 或 API-key 认证方式，并把消息流、tool activity、配置、session 生命周期和 extension metadata 映射到通用 Thread 契约。Pi extensions 表示为 Pi 生态插件，不等同于 Cypheria 原生插件。
 
 ### OpenCode
 
-OpenCode harness 使用固定版本的 OpenCode SDK，监管其 server 连接，并把 sessions、messages、parts、permissions 和 provider 配置映射到同一 Thread 与 Timeline 模型。
+OpenCode harness 使用固定版本的 OpenCode SDK，监管其 server 连接，并动态发现 provider 的 API-key 与 OAuth 方法。它把 sessions、messages、parts、permissions 和 provider 配置映射到同一 Thread 与 Timeline 模型。
 
 ### ACP
 
-ACP harness 使用官方 ACP SDK 和所选 Agent 声明的协议版本。Cypheria 在 Server 内归一化稳定 v1 与 draft v2 calls、notifications、responses、cancellation 和 v2 batches。ACP connection header 与传输细节不会成为公开 Cypheria 消息字段。
+ACP harness 使用官方 ACP SDK 和所选 Agent 声明的协议版本。Cypheria 在 Server 内归一化稳定 v1 与 draft v2 calls、notifications、responses、cancellation、agent 与 terminal 认证，以及 v2 batches。Catalog 发现使用临时 session，读取 model 和 configuration options，删除 session，并在 `finally` 路径关闭 runtime。ACP connection header 与传输细节不会成为公开 Cypheria 消息字段。
 
 ## Canonical 适配
 

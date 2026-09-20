@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process"
 import { randomUUID } from "node:crypto"
 import { join } from "node:path"
 
@@ -23,6 +24,7 @@ import {
   type AgentPiServerMessage,
   type AgentView,
   type CodexAgentSettings,
+  type HarnessSettingValue,
   isNativeAgentId,
   isRegistryAgentId,
   NATIVE_AGENT_IDS,
@@ -30,7 +32,9 @@ import {
   type ServerMessage,
   type ToolchainId,
 } from "@cypheria/protocol"
+import { ModelRuntime, type ModelRuntimeAuthOverrides } from "@earendil-works/pi-coding-agent"
 import type { ThreadHarnessAdapter } from "../thread/harness-adapter.js"
+import { probeAcpCatalog } from "./acp-catalog-probe.js"
 import { AcpSessionRuntime } from "./acp-session-runtime.js"
 import { AgentInstaller } from "./agent-installer.js"
 import { type ClaudePermissionHandler, ClaudeSessionRuntime } from "./claude-session-runtime.js"
@@ -42,6 +46,27 @@ import { AgentRegistryService } from "./registry-service.js"
 import { ToolchainManager } from "./toolchain-manager.js"
 
 type Send = (message: ServerMessage) => void
+type PiAuthType = Parameters<ModelRuntime["login"]>[1]
+type PiAuthInteraction = Parameters<ModelRuntime["login"]>[2]
+type PiCatalog = {
+  credentials: Array<{ providerId: string; type: "api_key" | "oauth" }>
+  models: Array<{
+    api: string
+    contextWindow: number
+    id: string
+    input: Array<"image" | "text">
+    maxTokens: number
+    name: string
+    provider: string
+    reasoning: boolean
+    thinkingLevels: string[]
+  }>
+  providers: Array<{
+    auth: { apiKey: string | null; oauth: string | null }
+    id: string
+    name: string
+  }>
+}
 
 export type AgentRuntimeServerMessage =
   | AgentAcpServerMessage
@@ -71,6 +96,7 @@ export type AgentManagerOptions = {
   persistence: AgentRegistryPersistenceService
   publish: Send
   codexSettings?: () => CodexAgentSettings
+  agentDefaults?: (agentId: AgentId) => Record<string, HarnessSettingValue>
   networkBootstrap?: boolean
 }
 
@@ -135,6 +161,7 @@ export class AgentManager {
   readonly registry: AgentRegistryService
   readonly toolchains: ToolchainManager
   readonly #acpRuntimes = new Map<string, AcpSessionRuntime>()
+  readonly #agentDefaults: (agentId: AgentId) => Record<string, HarnessSettingValue>
   readonly #agentHomes: string
   readonly #claudeRuntimes = new Map<string, ClaudeSessionRuntime>()
   readonly #codexSettings: () => CodexAgentSettings
@@ -150,13 +177,19 @@ export class AgentManager {
   readonly #subscriptions = new Map<string, AbortController>()
   readonly #threadAdapters = new Map<string, ManagedThreadAdapter>()
   readonly #networkBootstrap: boolean
+  #catalogInvalidator: ((agentId?: AgentId) => void) | undefined
+  #defaultsResolver:
+    | ((agentId: AgentId) => Promise<Record<string, HarnessSettingValue>>)
+    | undefined
   #codexRuntime: CodexRuntime | undefined
+  #piModelRuntime: Promise<ModelRuntime> | undefined
   #threadCoordinator: AgentThreadCoordinator | undefined
 
   constructor(options: AgentManagerOptions) {
     this.#persistence = options.persistence
     this.#publish = options.publish
     this.#networkBootstrap = options.networkBootstrap ?? true
+    this.#agentDefaults = options.agentDefaults ?? (() => ({}))
     this.#codexSettings =
       options.codexSettings ??
       (() => ({
@@ -176,8 +209,10 @@ export class AgentManager {
     this.#agentHomes = join(options.cypheriaHome, "agents")
     this.registry = new AgentRegistryService({
       cypheriaHome: options.cypheriaHome,
-      onUpdate: (state) =>
-        this.#publish({ payload: state, type: "agent.registry.updated.notification" }),
+      onUpdate: (state) => {
+        this.#publish({ payload: state, type: "agent.registry.updated.notification" })
+        this.#catalogInvalidator?.()
+      },
     })
     this.toolchains = new ToolchainManager({
       cacheDir: options.cacheDir,
@@ -224,6 +259,7 @@ export class AgentManager {
     this.#acpRuntimes.clear()
     this.#claudeRuntimes.clear()
     this.#piRuntimes.clear()
+    this.#piModelRuntime = undefined
     this.#threadAdapters.clear()
     this.#codexRuntime = undefined
     this.#sessionStates.clear()
@@ -262,6 +298,14 @@ export class AgentManager {
     return adapter
   }
 
+  defaultsFor(agentId: AgentId): Record<string, HarnessSettingValue> {
+    return this.#agentDefaults(agentId)
+  }
+
+  async validatedDefaultsFor(agentId: AgentId): Promise<Record<string, HarnessSettingValue>> {
+    return this.#defaultsResolver?.(agentId) ?? this.defaultsFor(agentId)
+  }
+
   releaseThreadAdapter(agentId: AgentId, threadId: string): void {
     this.#threadAdapters.delete(`${agentId}:${threadId}`)
   }
@@ -272,6 +316,16 @@ export class AgentManager {
 
   setThreadCoordinator(coordinator: AgentThreadCoordinator): void {
     this.#threadCoordinator = coordinator
+  }
+
+  setCatalogInvalidator(invalidator: (agentId?: AgentId) => void): void {
+    this.#catalogInvalidator = invalidator
+  }
+
+  setDefaultsResolver(
+    resolver: (agentId: AgentId) => Promise<Record<string, HarnessSettingValue>>
+  ): void {
+    this.#defaultsResolver = resolver
   }
 
   async handleManagement(
@@ -437,6 +491,159 @@ export class AgentManager {
     return (await this.#ensureCodexRuntime()).request(method, params)
   }
 
+  async callOpenCode(
+    operation: string,
+    options: { body?: unknown; query?: Record<string, boolean | number | string | null> } = {}
+  ): Promise<{ data?: unknown; error?: unknown; ok: boolean; status: number }> {
+    await this.#assertCallable("opencode")
+    if (!this.#openCode.running) await this.startAgent("opencode", "harness-settings")
+    return this.#openCode.call({
+      body: options.body as never,
+      operation,
+      query: options.query,
+    })
+  }
+
+  async getPiCatalog(): Promise<PiCatalog> {
+    await this.#assertCallable("pi")
+    const runtime = await this.#ensurePiModelRuntime()
+    const credentials = await runtime.listCredentials()
+    return {
+      credentials: credentials.map((credential) => ({ ...credential })),
+      models: runtime.getModels().map((model) => ({
+        api: model.api,
+        contextWindow: model.contextWindow,
+        id: model.id,
+        input: [...model.input],
+        maxTokens: model.maxTokens,
+        name: model.name,
+        provider: model.provider,
+        reasoning: model.reasoning,
+        thinkingLevels: model.thinkingLevelMap
+          ? Object.entries(model.thinkingLevelMap)
+              .filter(([, value]) => value !== null)
+              .map(([id]) => id)
+          : [],
+      })),
+      providers: runtime.getProviders().map((provider) => ({
+        auth: {
+          apiKey: provider.auth.apiKey?.login ? provider.auth.apiKey.name : null,
+          oauth: provider.auth.oauth
+            ? (provider.auth.oauth.loginLabel ?? provider.auth.oauth.name)
+            : null,
+        },
+        id: provider.id,
+        name: provider.name,
+      })),
+    }
+  }
+
+  async getClaudeCatalog() {
+    await this.#assertCallable("claude")
+    const runtime = new ClaudeSessionRuntime({
+      home: join(this.#agentHomes, "claude", "home"),
+      receipt: await this.#requiredReceipt("claude"),
+      send: () => undefined,
+      toolchains: this.toolchains,
+    })
+    return runtime.discover()
+  }
+
+  async probeAcpCatalog(agentId: AgentId, signal: AbortSignal) {
+    if (!isRegistryAgentId(agentId))
+      throw this.#error("AGENT_NOT_FOUND", `${agentId} is not an ACP agent`)
+    await this.#assertCallable(agentId)
+    return probeAcpCatalog({
+      receipt: await this.#requiredReceipt(agentId),
+      signal,
+      toolchains: this.toolchains,
+    })
+  }
+
+  async authenticateAcp(agentId: AgentId, methodId: string, signal: AbortSignal): Promise<void> {
+    if (!isRegistryAgentId(agentId)) {
+      throw this.#error("AGENT_NOT_FOUND", `${agentId} is not an ACP agent`)
+    }
+    await this.#assertCallable(agentId)
+    await probeAcpCatalog({
+      authenticateMethodId: methodId,
+      receipt: await this.#requiredReceipt(agentId),
+      signal,
+      toolchains: this.toolchains,
+    })
+  }
+
+  async logoutAcp(agentId: AgentId, signal: AbortSignal): Promise<void> {
+    const receipt = await this.#requiredReceipt(agentId)
+    await probeAcpCatalog({
+      logout: true,
+      receipt,
+      signal,
+      toolchains: this.toolchains,
+    })
+  }
+
+  async authTerminalSpec(
+    agentId: AgentId,
+    args: string[],
+    extraEnvironment: Record<string, string> = {}
+  ): Promise<{ args: string[]; command: string; cwd: string; env: Record<string, string> }> {
+    const receipt = await this.#requiredReceipt(agentId)
+    const rawEnvironment = this.toolchains.environment({
+      ...receipt.environment,
+      ...extraEnvironment,
+      ...(agentId === "claude"
+        ? { CLAUDE_CONFIG_DIR: join(this.#agentHomes, "claude", "home") }
+        : {}),
+    })
+    return {
+      args: [...receipt.args, ...args],
+      command: receipt.command,
+      cwd: process.cwd(),
+      env: Object.fromEntries(
+        Object.entries(rawEnvironment).filter(
+          (entry): entry is [string, string] => typeof entry[1] === "string"
+        )
+      ),
+    }
+  }
+
+  async logoutClaude(): Promise<void> {
+    const spec = await this.authTerminalSpec("claude", ["auth", "logout"])
+    await new Promise<void>((resolve, reject) => {
+      const child = spawn(spec.command, spec.args, {
+        cwd: spec.cwd,
+        env: spec.env,
+        shell: false,
+        stdio: ["ignore", "ignore", "pipe"],
+        windowsHide: true,
+      })
+      const errors: Buffer[] = []
+      child.stderr.on("data", (chunk: Buffer) => errors.push(chunk))
+      child.once("error", reject)
+      child.once("exit", (code) => {
+        if (code === 0) resolve()
+        else reject(new Error(Buffer.concat(errors).toString("utf8") || `Claude exited ${code}`))
+      })
+    })
+  }
+
+  async setPiApiKey(providerId: string, apiKey: string): Promise<void> {
+    await (await this.#ensurePiModelRuntime()).setRuntimeApiKey(providerId, apiKey)
+  }
+
+  async loginPi(
+    providerId: string,
+    type: PiAuthType,
+    interaction: PiAuthInteraction
+  ): Promise<void> {
+    await (await this.#ensurePiModelRuntime()).login(providerId, type, interaction)
+  }
+
+  async logoutPi(providerId: string, options?: ModelRuntimeAuthOverrides): Promise<void> {
+    await (await this.#ensurePiModelRuntime()).logout(providerId, options)
+  }
+
   async handleClaude(
     message: AgentClaudeClientMessage,
     context: AgentMessageContext
@@ -581,6 +788,7 @@ export class AgentManager {
         if (updated) this.#records.set(agentId, updated)
         await this.#reloadRecords()
         await this.#collectPythonEnvironments()
+        this.#catalogInvalidator?.(agentId)
         return
       }
       progress("Preparing toolchains", 0.1)
@@ -600,6 +808,7 @@ export class AgentManager {
       })
       if (updated) this.#records.set(agentId, updated)
       const view = await this.get(agentId, sessionId)
+      this.#catalogInvalidator?.(agentId)
       this.#publish({ payload: view, type: "agent.updated.notification" })
     })
   }
@@ -792,6 +1001,16 @@ export class AgentManager {
       })
     }
     return this.#codexRuntime
+  }
+
+  #ensurePiModelRuntime(): Promise<ModelRuntime> {
+    this.#piModelRuntime ??= ModelRuntime.create({
+      allowModelNetwork: false,
+      authPath: join(this.#agentHomes, "pi", "home", "auth.json"),
+      modelsPath: join(this.#agentHomes, "pi", "home", "models.json"),
+      refreshOnCreate: false,
+    })
+    return this.#piModelRuntime
   }
 
   async #requiredReceipt(agentId: AgentId) {

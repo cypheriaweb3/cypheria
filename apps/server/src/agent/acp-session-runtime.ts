@@ -198,6 +198,7 @@ export class AcpSessionRuntime {
     }
     const method = definition.clientRequestByType[message.type]
     if (method) {
+      const configValueType = (message as unknown as { configValueType?: unknown }).configValueType
       const {
         agent: _agent,
         protocolVersion,
@@ -205,6 +206,7 @@ export class AcpSessionRuntime {
         type: _type,
         ...params
       } = message as typeof message & { requestId: string | number | null }
+      delete (params as Record<string, unknown>).configValueType
       const responseType =
         definition.clientRpc[method as keyof typeof definition.clientRpc].response
       if (method === "initialize") this.#version = version
@@ -213,7 +215,12 @@ export class AcpSessionRuntime {
         id: requestId,
         jsonrpc: "2.0",
         method,
-        params: method === "initialize" ? { ...params, protocolVersion } : params,
+        params:
+          method === "initialize"
+            ? { ...params, protocolVersion }
+            : method === "session/set_config_option" && configValueType === "boolean"
+              ? { ...params, type: "boolean" }
+              : params,
       }
     }
     const notificationMethod = definition.clientNotificationByType[message.type]

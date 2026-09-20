@@ -21,6 +21,7 @@ const config: PersistedServerConfig = {
       showFullAccessInComposer: false,
       webSearch: null,
     },
+    defaults: {},
   },
   server: {
     cors: { allowedOrigins: [] },

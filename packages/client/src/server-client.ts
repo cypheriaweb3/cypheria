@@ -15,6 +15,8 @@ import {
   createWebSocketProtocols,
   decodeWSOutboundMessage,
   encodeProtocolMessage,
+  type HarnessClientMessage,
+  type HarnessServerMessage,
   type IntegrationClientMessage,
   type IntegrationServerMessage,
   isClientResponseMessage,
@@ -511,6 +513,25 @@ export class ServerClient {
       SERVER_CAPABILITIES.codexHarness
     )
     return message as CodexHarnessServerMessage
+  }
+
+  async requestHarness(
+    type: HarnessClientMessage["type"],
+    payload: unknown,
+    options?: RequestOptions
+  ): Promise<HarnessServerMessage> {
+    const expectedType = type.replace(/\.request$/, ".response")
+    const message = await this.#request(
+      {
+        payload,
+        requestId: this.#nextRequestId("harness"),
+        type,
+      } as HarnessClientMessage,
+      expectedType,
+      options,
+      SERVER_CAPABILITIES.harnessManagement
+    )
+    return message as HarnessServerMessage
   }
 
   async requestSchedule(

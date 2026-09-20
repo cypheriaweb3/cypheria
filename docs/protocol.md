@@ -84,6 +84,12 @@ Thread input is an ordered list of text, image, audio, resource-link, or embedde
 
 Permission requests, questions, and MCP elicitation are normalized as pending Thread interactions. Responses use discriminated outcomes such as allow, deny, selection, text, answers, elicitation action, or cancellation. Harness metadata preserves native context while the common lifecycle stays uniform.
 
+## Harness catalogs and settings
+
+The `harness.management` capability exposes a common catalog without changing the `cypheria.v1` transport version. `AgentModelDefinition` describes a model, provider, thinking choices, and validated metadata. `HarnessSettingDefinition` describes a `select`, `boolean`, or `number` value, and `HarnessSettingSection` groups definitions under a stable route ID. `HarnessCatalogSnapshot` carries models, setting sections, load state, generation time, stale state, and any refresh error.
+
+The request families are `harness.get`, `harness.auth.start/respond/cancel/logout`, `harness.models.list`, and `harness.settings.get/update`. `refresh: true` is the only client-driven catalog refresh signal. Authentication responses contain presentation state such as an external URL or prompt; credentials are request-only secrets and never appear in snapshots. The Server validates setting updates against the current catalog before persistence or native application.
+
 ## Errors and reconnects
 
 Transport and protocol violations close the affected connection. Correlated domain operations return stable error codes and human-readable messages. `@cypheria/client` converts connection, capability, protocol, and timeout failures into dedicated error classes.
@@ -100,6 +106,7 @@ client.projects
 client.threads
 client.sections
 client.timeline
+client.harnesses
 client.harnesses.codex
 client.harnesses.claude
 client.harnesses.pi
@@ -114,7 +121,7 @@ client.settings
 client.server
 ```
 
-Harness facades expose only genuine harness extensions. Codex Apps, account, guardian, models, and permission settings live under `harnesses.codex`; common integration operations remain available through `integrations`.
+The common operations on `client.harnesses` cover installation-adjacent state, authentication, models, and typed settings for every Agent. Named child facades expose only genuine harness extensions. Codex Apps, guardian, and lower-level compatibility operations remain under `harnesses.codex`; common integration operations remain available through `integrations`.
 
 ## Validation rules
 

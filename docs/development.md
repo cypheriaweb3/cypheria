@@ -108,8 +108,8 @@ The generator normalizes Rust 64-bit integers to JSON `number`, adds explicit Ty
 
 - Protocol tests validate schemas, version negotiation, harness adapters, and Timeline projection.
 - Client tests validate transports, request lifecycle, domain facades, relay transport, and error normalization.
-- Server tests cover Agent runtimes, projects and threads, schedules, integrations, Web3 services, configuration, and operations.
-- Desktop tests cover Server management, preload contracts, Sidebar data adaptation, and conversation behavior.
+- Server tests cover Agent runtimes, lazy harness catalog caching and invalidation, configuration, projects and threads, schedules, integrations, Web3 services, and operations.
+- Desktop tests cover Server management, preload contracts, the flattened Settings navigation model, Sidebar data adaptation, and conversation behavior. Settings navigation and model catalogs have independent virtualizers; Agent child rows must not introduce a nested navigation virtualizer.
 - Relay tests cover cryptography and data-plane behavior.
 
 Tests should exercise public boundaries rather than import private files from another workspace. Fixture replay is preferred for native Agent event adaptation.

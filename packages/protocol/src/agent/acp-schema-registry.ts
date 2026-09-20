@@ -74,13 +74,22 @@ export const acpRequestSchema = <
       })
       .transform((message, context) => {
         const { agent, requestId, type: messageType, ...params } = message
-        const parsed = paramsSchema.safeParse(params)
+        const configValueType =
+          messageType === "agent.acp.session.set_config_option.request" &&
+          params.configValueType === "boolean"
+            ? "boolean"
+            : undefined
+        const nativeParams = { ...params }
+        delete nativeParams.configValueType
+        if (configValueType) nativeParams.type = configValueType
+        const parsed = paramsSchema.safeParse(nativeParams)
         if (!parsed.success) {
           addIssues(context, parsed.error.issues)
           return z.NEVER
         }
         return {
           ...(parsed.data as Record<string, unknown>),
+          ...(configValueType ? { configValueType } : {}),
           agent,
           protocolVersion,
           requestId,

@@ -7,6 +7,7 @@ import {
   type CodexHarnessClientMessage,
   type CodexHarnessServerMessage,
   encodeProtocolMessage,
+  type HarnessClientMessage,
   type IntegrationClientMessage,
   type IntegrationServerMessage,
   type PersistedServerConfigPatch,
@@ -47,6 +48,11 @@ export type SessionHost = {
   handleCodexHarnessMessage?(
     message: CodexHarnessClientMessage,
     send: (message: CodexHarnessServerMessage) => void
+  ): Promise<boolean>
+  handleHarnessMessage?(
+    message: HarnessClientMessage,
+    sessionId: string,
+    send: (message: ServerMessage) => void
   ): Promise<boolean>
   handleScheduleMessage?(
     message: ScheduleClientMessage,
@@ -240,6 +246,17 @@ export class ClientSession {
           this.#host.handleCodexHarnessMessage &&
           (await this.#host.handleCodexHarnessMessage(
             message as CodexHarnessClientMessage,
+            (response) => this.sendTo(source, response)
+          ))
+        ) {
+          break
+        }
+        if (
+          message.type.startsWith("harness.") &&
+          this.#host.handleHarnessMessage &&
+          (await this.#host.handleHarnessMessage(
+            message as HarnessClientMessage,
+            this.id,
             (response) => this.sendTo(source, response)
           ))
         ) {

@@ -339,6 +339,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   >()
   readonly #reverse = new Map<string, AgentRuntimeServerMessage>()
   #acpCapabilities: Record<string, unknown> | undefined
+  #defaultsApplied = false
   #onEvent: ((event: ThreadHarnessEvent) => void) | undefined
   #harnessSessionId: string | null = null
 
@@ -526,14 +527,27 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     }
     if (this.agentId === "opencode") {
       if (!input.agentSessionId) throw new Error("OpenCode thread is not bound")
+      const defaults = await this.#defaultsFor("opencode")
+      const model = typeof defaults.model === "string" ? defaults.model.split("/", 2) : []
       await this.#openCodeCall(input.threadId, {
-        body: { messageID: input.clientMessageId, parts: mapOpenCodeInput(input.content) },
+        body: {
+          messageID: input.clientMessageId,
+          parts: mapOpenCodeInput(input.content),
+          ...(typeof defaults.agent === "string" && defaults.agent
+            ? { agent: defaults.agent }
+            : {}),
+          ...(model[0] && model[1] ? { model: { modelID: model[1], providerID: model[0] } } : {}),
+          ...(typeof defaults.variant === "string" && defaults.variant
+            ? { variant: defaults.variant }
+            : {}),
+        },
         operation: `POST /session/${encodeURIComponent(input.agentSessionId)}/prompt_async`,
         query: input.cwd ? { directory: input.cwd } : undefined,
       })
       return { turnId: input.clientMessageId }
     }
     if (this.agentId === "claude") {
+      const defaults = await this.#defaultsFor("claude")
       const text = input.content
         .filter((block) => block.type === "text")
         .map((block) => block.text)
@@ -542,6 +556,33 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         options: {
           ...(input.cwd ? { cwd: input.cwd } : {}),
           ...(input.agentSessionId ? { resume: input.agentSessionId } : {}),
+          ...(typeof defaults.model === "string" && defaults.model
+            ? { model: defaults.model }
+            : {}),
+          ...(typeof defaults.permissionMode === "string" && defaults.permissionMode
+            ? { permissionMode: defaults.permissionMode }
+            : {}),
+          ...(typeof defaults.effort === "string" && defaults.effort
+            ? { effort: defaults.effort }
+            : {}),
+          ...(typeof defaults.maxThinkingTokens === "number"
+            ? { maxThinkingTokens: defaults.maxThinkingTokens }
+            : {}),
+          ...(defaults.thinkingMode === "adaptive"
+            ? { thinking: { type: "adaptive" } }
+            : defaults.thinkingMode === "disabled"
+              ? { thinking: { type: "disabled" } }
+              : defaults.thinkingMode === "enabled"
+                ? {
+                    thinking: {
+                      budgetTokens:
+                        typeof defaults.maxThinkingTokens === "number"
+                          ? defaults.maxThinkingTokens
+                          : 10_000,
+                      type: "enabled",
+                    },
+                  }
+                : {}),
         },
         prompt: { text, type: "text" },
         queryId: input.threadId,
@@ -551,6 +592,28 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       return { turnId: input.clientMessageId }
     }
     if (this.agentId === "pi") {
+      if (!this.#defaultsApplied) {
+        const defaults = await this.#defaultsFor("pi")
+        if (typeof defaults.model === "string" && defaults.model) {
+          const [provider, modelId] = defaults.model.split("/", 2)
+          if (provider && modelId) {
+            await this.#request(input.threadId, {
+              modelId,
+              provider,
+              requestId: randomUUID(),
+              type: "agent.pi.model.set.request",
+            })
+          }
+        }
+        if (typeof defaults.thinkingLevel === "string" && defaults.thinkingLevel) {
+          await this.#request(input.threadId, {
+            level: defaults.thinkingLevel,
+            requestId: randomUUID(),
+            type: "agent.pi.thinking_level.set.request",
+          })
+        }
+        this.#defaultsApplied = true
+      }
       await this.#request(input.threadId, {
         images: input.content
           .filter((block) => block.type === "image")
@@ -962,7 +1025,9 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         : "agent.acp.session.new.request",
     })
     const sessionId = stringId(resultOf(response).sessionId)
+    if (!sessionId) throw new Error("ACP agent did not return a session ID")
     this.#harnessSessionId = sessionId
+    await this.#applyAcpDefaults(input.threadId, sessionId)
     return {
       capabilities: capabilities(this.agentId, this.#acpCapabilities),
       sessionId,
@@ -1000,6 +1065,42 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       capabilities: capabilities(this.agentId, this.#acpCapabilities),
       sessionId: input.agentSessionId,
     }
+  }
+
+  async #applyAcpDefaults(threadId: string, sessionId: string): Promise<void> {
+    for (const [configId, value] of Object.entries(await this.#defaultsFor(this.agentId))) {
+      if (value === null) continue
+      if (configId === "mode" && typeof value === "string") {
+        await this.#request(threadId, {
+          agent: this.agentId,
+          modeId: value,
+          protocolVersion: 1,
+          requestId: randomUUID(),
+          sessionId,
+          type: "agent.acp.session.set_mode.request",
+        })
+        continue
+      }
+      if (typeof value !== "boolean" && typeof value !== "string") continue
+      await this.#request(threadId, {
+        agent: this.agentId,
+        configId,
+        protocolVersion: 1,
+        requestId: randomUUID(),
+        sessionId,
+        ...(typeof value === "boolean" ? { configValueType: "boolean", value } : { value }),
+        type: "agent.acp.session.set_config_option.request",
+      })
+    }
+  }
+
+  async #defaultsFor(agentId: AgentId): Promise<ReturnType<AgentManager["defaultsFor"]>> {
+    const manager = this.#manager as AgentManager & {
+      defaultsFor?: AgentManager["defaultsFor"]
+      validatedDefaultsFor?: AgentManager["validatedDefaultsFor"]
+    }
+    if (manager.validatedDefaultsFor) return manager.validatedDefaultsFor(agentId)
+    return manager.defaultsFor?.(agentId) ?? {}
   }
 
   #supportsAcp(capability: "delete" | "fork"): boolean {

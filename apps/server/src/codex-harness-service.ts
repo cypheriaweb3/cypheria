@@ -36,45 +36,45 @@ export class CodexHarnessService {
     try {
       switch (message.type) {
         case "harness.codex.account.get.request":
-          respond(await this.#account(message.payload.refresh ?? false))
+          respond(await this.account(message.payload.refresh ?? false))
           break
         case "harness.codex.account.login.request":
-          respond(await this.#login(message.payload))
+          respond(await this.login(message.payload))
           break
         case "harness.codex.account.login.cancel.request": {
-          const result = await this.#call<v2.CancelLoginAccountResponse>("account/login/cancel", {
+          const result = await this.call<v2.CancelLoginAccountResponse>("account/login/cancel", {
             loginId: message.payload.loginId,
           })
           respond({ cancelled: result.status === "canceled" })
           break
         }
         case "harness.codex.account.logout.request":
-          await this.#call("account/logout")
+          await this.call("account/logout")
           respond({ succeeded: true })
           break
         case "harness.codex.model.list.request":
-          respond({ models: await this.#models(message.payload.includeHidden ?? false) })
+          respond({ models: await this.models(message.payload.includeHidden ?? false) })
           break
         case "harness.codex.model-settings.get.request":
-          respond(this.#settings())
+          respond(this.settings())
           break
         case "harness.codex.model-settings.set.request":
-          respond(await this.#setSettings(message.payload))
+          respond(await this.setSettings(message.payload))
           break
         case "harness.codex.permissions.defaults.get.request":
-          respond(await this.#permissionDefaults())
+          respond(await this.permissionDefaults())
           break
         case "harness.codex.permissions.defaults.set.request":
-          respond(await this.#setPermissionDefaults(message.payload))
+          respond(await this.setPermissionDefaults(message.payload))
           break
         case "harness.codex.permissions.catalog.get.request":
-          respond(await this.#permissionsCatalog(message.payload.cwd))
+          respond(await this.permissionsCatalog(message.payload.cwd))
           break
         case "harness.codex.permissions.show-full-access.set.request":
-          respond(await this.#setShowFullAccess(message.payload.enabled))
+          respond(await this.setShowFullAccess(message.payload.enabled))
           break
         case "harness.codex.guardian.retry.request":
-          await this.#call("thread/approveGuardianDeniedAction", message.payload)
+          await this.call("thread/approveGuardianDeniedAction", message.payload)
           respond({ succeeded: true })
           break
       }
@@ -92,15 +92,15 @@ export class CodexHarnessService {
     return true
   }
 
-  async #call<Result>(
+  async call<Result>(
     method: Parameters<AgentManager["callCodex"]>[0],
     params?: Record<string, unknown>
   ): Promise<Result> {
     return (await this.#agents.callCodex(method, params)) as Result
   }
 
-  async #account(refresh: boolean) {
-    const response = await this.#call<v2.GetAccountResponse>("account/read", {
+  async account(refresh: boolean) {
+    const response = await this.call<v2.GetAccountResponse>("account/read", {
       refreshToken: refresh,
     })
     return {
@@ -111,28 +111,34 @@ export class CodexHarnessService {
     }
   }
 
-  async #login(input: { apiKey?: string; type: "apiKey" | "chatgpt" }) {
+  async login(input: { apiKey?: string; type: "apiKey" | "chatgpt" | "chatgptDeviceCode" }) {
     const params: v2.LoginAccountParams =
-      input.type === "chatgpt"
-        ? {
-            appBrand: "codex",
-            codexStreamlinedLogin: true,
-            type: "chatgpt",
-            useHostedLoginSuccessPage: true,
-          }
-        : { apiKey: input.apiKey as string, type: "apiKey" }
-    const response = await this.#call<v2.LoginAccountResponse>("account/login/start", params)
-    if (response.type !== "apiKey" && response.type !== "chatgpt") {
+      input.type === "chatgptDeviceCode"
+        ? { type: "chatgptDeviceCode" }
+        : input.type === "chatgpt"
+          ? {
+              appBrand: "codex",
+              codexStreamlinedLogin: true,
+              type: "chatgpt",
+              useHostedLoginSuccessPage: true,
+            }
+          : { apiKey: input.apiKey as string, type: "apiKey" }
+    const response = await this.call<v2.LoginAccountResponse>("account/login/start", params)
+    if (
+      response.type !== "apiKey" &&
+      response.type !== "chatgpt" &&
+      response.type !== "chatgptDeviceCode"
+    ) {
       throw new Error(`Unsupported Codex login response: ${response.type}`)
     }
     return response
   }
 
-  async #models(includeHidden: boolean) {
+  async models(includeHidden: boolean) {
     const models: v2.Model[] = []
     let cursor: string | null = null
     do {
-      const response: v2.ModelListResponse = await this.#call<v2.ModelListResponse>("model/list", {
+      const response: v2.ModelListResponse = await this.call<v2.ModelListResponse>("model/list", {
         cursor,
         includeHidden,
         limit: 100,
@@ -158,15 +164,15 @@ export class CodexHarnessService {
     }))
   }
 
-  #settings(): CodexModelSettings {
+  settings(): CodexModelSettings {
     const { model, provider, reasoningEffort, serviceTier } =
       this.#config.getSnapshot().config.agents.codex
     return { model, provider, reasoningEffort, serviceTier }
   }
 
-  async #setSettings(settings: CodexModelSettings): Promise<CodexModelSettings> {
+  async setSettings(settings: CodexModelSettings): Promise<CodexModelSettings> {
     await this.#config.patch({ agents: { codex: settings } })
-    await this.#call("config/batchWrite", {
+    await this.call("config/batchWrite", {
       edits: [
         { keyPath: "model_provider", mergeStrategy: "replace", value: settings.provider },
         { keyPath: "model", mergeStrategy: "replace", value: settings.model },
@@ -179,16 +185,16 @@ export class CodexHarnessService {
       ],
       reloadUserConfig: true,
     })
-    return this.#settings()
+    return this.settings()
   }
 
-  async #requirements(): Promise<v2.ConfigRequirements | null> {
-    const response = await this.#call<v2.ConfigRequirementsReadResponse>("configRequirements/read")
+  async requirements(): Promise<v2.ConfigRequirements | null> {
+    const response = await this.call<v2.ConfigRequirementsReadResponse>("configRequirements/read")
     return response.requirements
   }
 
-  async #permissionDefaults(): Promise<CodexPermissionDefaults> {
-    const requirements = await this.#requirements()
+  async permissionDefaults(): Promise<CodexPermissionDefaults> {
+    const requirements = await this.requirements()
     const snapshot = this.#config.getSnapshot()
     const settings = snapshot.config.agents.codex
     const allowedApprovalPolicies =
@@ -210,11 +216,11 @@ export class CodexHarnessService {
     }
   }
 
-  async #setPermissionDefaults(
+  async setPermissionDefaults(
     settings: CodexPermissionDefaultsWrite
   ): Promise<CodexPermissionDefaults> {
     await this.#config.patch({ agents: { codex: settings } })
-    await this.#call("config/batchWrite", {
+    await this.call("config/batchWrite", {
       edits: [
         { keyPath: "approval_policy", mergeStrategy: "replace", value: settings.approvalPolicy },
         {
@@ -242,16 +248,16 @@ export class CodexHarnessService {
       ],
       reloadUserConfig: true,
     })
-    return this.#permissionDefaults()
+    return this.permissionDefaults()
   }
 
-  async #permissionsCatalog(cwd?: string): Promise<CodexPermissionsCatalog> {
-    const requirements = await this.#requirements()
+  async permissionsCatalog(cwd?: string): Promise<CodexPermissionsCatalog> {
+    const requirements = await this.requirements()
     const profiles: v2.PermissionProfileSummary[] = []
     let cursor: string | null = null
     do {
       const page: v2.PermissionProfileListResponse =
-        await this.#call<v2.PermissionProfileListResponse>("permissionProfile/list", {
+        await this.call<v2.PermissionProfileListResponse>("permissionProfile/list", {
           cursor,
           ...(cwd ? { cwd } : {}),
           limit: 100,
@@ -315,13 +321,13 @@ export class CodexHarnessService {
     }
   }
 
-  async #setShowFullAccess(enabled: boolean): Promise<CodexPermissionsCatalog> {
+  async setShowFullAccess(enabled: boolean): Promise<CodexPermissionsCatalog> {
     await this.#config.patch({ agents: { codex: { showFullAccessInComposer: enabled } } })
-    await this.#call("config/value/write", {
+    await this.call("config/value/write", {
       keyPath: "desktop.showFullAccessInComposer",
       mergeStrategy: "replace",
       value: enabled,
     })
-    return this.#permissionsCatalog()
+    return this.permissionsCatalog()
   }
 }

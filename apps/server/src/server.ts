@@ -19,6 +19,7 @@ import {
   type CodexHarnessServerMessage,
   CYPHERIA_PROTOCOL_VERSION,
   CYPHERIA_WEBSOCKET_PROTOCOL,
+  type HarnessClientMessage,
   type IntegrationClientMessage,
   type IntegrationServerMessage,
   type PersistedServerConfigPatch,
@@ -46,6 +47,7 @@ import { AgentManager } from "./agent/agent-manager.js"
 import { CodexHarnessService } from "./codex-harness-service.js"
 import { type CypheriaServerConfig, loadServerConfig } from "./config.js"
 import { collectDiagnostics } from "./diagnostics.js"
+import { HarnessService } from "./harness-service.js"
 import { createHttpApp, type HttpAppHost } from "./http-app.js"
 import { loadOrCreateServerId } from "./identity.js"
 import { IntegrationService } from "./integration-service.js"
@@ -99,6 +101,7 @@ export class CypheriaServer implements HttpAppHost {
   readonly projectThread: ProjectThreadService
   readonly integrations: IntegrationService
   readonly codexHarness: CodexHarnessService
+  readonly harnesses: HarnessService
   readonly schedules: ScheduleService
   readonly threadManager: ThreadManager
   readonly terminals: TerminalService
@@ -139,14 +142,24 @@ export class CypheriaServer implements HttpAppHost {
       publish: (message) => this.registry.broadcast(message),
       networkBootstrap: options.agentNetworkBootstrap,
       codexSettings: () => this.configStore.getSnapshot().config.agents.codex,
+      agentDefaults: (agentId) =>
+        this.configStore.getSnapshot().config.agents.defaults[agentId] ?? {},
     })
     this.integrations = new IntegrationService(this.agentManager)
     this.codexHarness = new CodexHarnessService(this.agentManager, this.configStore)
     const projectThreadPersistence = createProjectThreadPersistenceService(this.database.db)
+    this.terminals = new TerminalService(projectThreadPersistence)
+    this.harnesses = new HarnessService(
+      this.agentManager,
+      this.codexHarness,
+      this.configStore,
+      this.terminals
+    )
+    this.agentManager.setCatalogInvalidator((agentId) => this.harnesses.invalidate(agentId))
+    this.agentManager.setDefaultsResolver((agentId) => this.harnesses.validatedDefaults(agentId))
     this.projectThread = new ProjectThreadService({
       persistence: projectThreadPersistence,
     })
-    this.terminals = new TerminalService(projectThreadPersistence)
     this.threadManager = new ThreadManager({
       adapterFor: (agentId, threadId) => this.agentManager.adapterFor(agentId, threadId),
       assertAgentCallable: (agentId) => this.agentManager.assertCallable(agentId),
@@ -309,11 +322,15 @@ export class CypheriaServer implements HttpAppHost {
   }
 
   async patchConfig(patch: PersistedServerConfigPatch): Promise<ServerConfigSnapshot> {
-    return this.configStore.patch(patch)
+    const snapshot = await this.configStore.patch(patch)
+    this.harnesses.invalidate()
+    return snapshot
   }
 
   async reloadConfig(): Promise<ServerConfigSnapshot> {
-    return this.configStore.reload()
+    const snapshot = await this.configStore.reload()
+    this.harnesses.invalidate()
+    return snapshot
   }
 
   getSessionCapabilities(): string[] {
@@ -323,6 +340,7 @@ export class CypheriaServer implements HttpAppHost {
       SERVER_CAPABILITIES.diagnostics,
       SERVER_CAPABILITIES.integrations,
       SERVER_CAPABILITIES.codexHarness,
+      SERVER_CAPABILITIES.harnessManagement,
       SERVER_CAPABILITIES.projectThread,
       SERVER_CAPABILITIES.schedules,
       SERVER_CAPABILITIES.terminals,
@@ -391,6 +409,14 @@ export class CypheriaServer implements HttpAppHost {
     send: (message: CodexHarnessServerMessage) => void
   ): Promise<boolean> {
     return this.codexHarness.handle(message, send)
+  }
+
+  async handleHarnessMessage(
+    message: HarnessClientMessage,
+    sessionId: string,
+    send: (message: ServerMessage) => void
+  ): Promise<boolean> {
+    return this.harnesses.handle(message, sessionId, send)
   }
 
   async handleScheduleMessage(
@@ -487,6 +513,7 @@ export class CypheriaServer implements HttpAppHost {
     this.schedules.stop()
     this.terminals.stop()
     this.web3.stop()
+    this.harnesses.stop()
 
     const results = await Promise.allSettled([
       this.#closeHttpListener(),

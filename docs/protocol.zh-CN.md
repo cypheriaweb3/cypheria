@@ -84,6 +84,12 @@ Thread 输入是由文本、图片、音频、resource link 或 embedded resourc
 
 权限请求、问题和 MCP elicitation 会归一化为待处理 Thread interactions。Response 使用 allow、deny、selection、text、answers、elicitation action 或 cancellation 等判别结果。Harness metadata 保留原生上下文，共同生命周期保持统一。
 
+## Harness catalog 与设置
+
+`harness.management` capability 在不改变 `cypheria.v1` 传输版本的前提下暴露公共 catalog。`AgentModelDefinition` 描述 model、provider、thinking choices 和已校验 metadata。`HarnessSettingDefinition` 描述 `select`、`boolean` 或 `number` 值，`HarnessSettingSection` 以稳定 route ID 组织 definitions。`HarnessCatalogSnapshot` 携带 models、setting sections、加载状态、生成时间、stale 状态和刷新错误。
+
+请求族包括 `harness.get`、`harness.auth.start/respond/cancel/logout`、`harness.models.list` 和 `harness.settings.get/update`。`refresh: true` 是唯一由客户端触发的 catalog 刷新信号。认证 response 只包含 external URL 或 prompt 等展示状态；凭证只是 request 中的 secret，绝不出现在 snapshot 中。Server 会在持久化或应用到原生 runtime 前，按当前 catalog 校验设置更新。
+
 ## 错误与重连
 
 传输和协议违规会关闭受影响连接。有关联的领域操作返回稳定错误码和可读消息。`@cypheria/client` 会把连接、能力、协议和 timeout 失败转换为专用错误类。
@@ -100,6 +106,7 @@ client.projects
 client.threads
 client.sections
 client.timeline
+client.harnesses
 client.harnesses.codex
 client.harnesses.claude
 client.harnesses.pi
@@ -114,7 +121,7 @@ client.settings
 client.server
 ```
 
-Harness facade 只暴露真实 harness 扩展。Codex Apps、account、guardian、models 和 permission settings 位于 `harnesses.codex`；通用集成操作仍通过 `integrations` 提供。
+`client.harnesses` 上的公共操作覆盖所有 Agent 的 installation-adjacent state、认证、models 和类型化设置。具名 child facade 只暴露真实 harness 扩展。Codex Apps、guardian 和较底层的兼容操作仍位于 `harnesses.codex`；通用 integration 操作仍通过 `integrations` 提供。
 
 ## 校验规则
 

@@ -38,6 +38,12 @@ The established interaction model is a product invariant:
 
 Query keys and optimistic updates are based on Cypheria IDs. Harness session IDs never replace Thread IDs in navigation or cache identity.
 
+## Settings navigation
+
+Settings uses one flattened, virtualized navigation list. The back row, group labels, ordinary settings items, the expandable Agent harnesses row, and all visible Agent child rows share one scroll container and one TanStack Virtual virtualizer. Search and the theme footer stay outside that container. Expansion, search, and registry updates rebuild the flat row model; route changes scroll the active item into view. Agent child rows never introduce a nested scroller or second navigation virtualizer.
+
+Agent harness routes use `/settings/agent-harnesses/$agentId/$sectionId`. The selected Agent owns a second-level section menu for installation, authentication, models, and discovered settings categories; on narrow screens it becomes a selector. The right panel contains the actual section. Network proxy remains above the Agent header, starts collapsed, and retains its expanded state while the Agent or section changes. Models use a separate fixed-height virtualized list with provider filtering and an explicit Server refresh.
+
 ## Conversation workspace
 
 One shared conversation shell serves every Agent:

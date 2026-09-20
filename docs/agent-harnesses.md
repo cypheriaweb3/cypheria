@@ -14,6 +14,12 @@ The Server loads the pinned ACP registry document, validates it, and exposes ref
 
 Installation and updates are Server operations with durable operation records and progress notifications. The toolchain manager discovers or installs managed Node and Python tooling beneath the Cypheria cache. Clients can list, install, update, uninstall, enable, disable, start, and stop Agents without receiving filesystem or process access.
 
+## Catalogs and defaults
+
+The public harness catalog normalizes models, providers, authentication methods, and configurable new-session defaults without exposing a native Agent protocol. `HarnessCatalogManager` keeps one in-memory snapshot per Agent and configuration generation. Catalogs load lazily, concurrent reads share one discovery, and ordinary rendering or navigation does not start another runtime. Explicit refresh, installation changes, authentication changes, registry changes, or a catalog-affecting setting invalidate the snapshot. A failed refresh retains the previous snapshot and marks it stale.
+
+Settings are described as typed `select`, `boolean`, or `number` definitions grouped into stable sections. The Server validates every update against the latest definitions. Non-secret defaults are persisted under the Agent ID and are applied to new sessions; credentials remain in harness-owned credential stores and never enter configuration, protocol responses, or logs. Expired saved values remain visible as invalid until the user replaces them.
+
 ## Runtime lifecycle
 
 The Agent manager serializes lifecycle transitions, reports health, and separates installed, enabled, and running state. A disabled Agent cannot start. A stopped Agent can still own durable Threads; resuming a Thread starts or reuses the appropriate runtime.
@@ -31,23 +37,23 @@ Capabilities are discovered per Agent and Thread. Clients must not expose unsupp
 
 ### Codex
 
-The Codex harness owns a Cypheria-managed Codex App Server process and validates messages with generated artifacts in `@cypheria/protocol`. It maps Codex turns, reasoning, plans, commands, file changes, approvals, artifacts, account state, models, and permissions into Cypheria contracts. Codex Apps remain a Codex/OpenAI harness extension.
+The Codex harness owns a Cypheria-managed Codex App Server process and validates messages with generated artifacts in `@cypheria/protocol`. It maps Codex turns, reasoning, plans, commands, file changes, approvals, artifacts, account state, models, and permissions into Cypheria contracts. API key, ChatGPT browser, and ChatGPT device-code authentication are available through the common harness facade. Codex Apps remain a Codex/OpenAI harness extension.
 
 ### Claude
 
-The Claude harness uses the pinned Claude Agent SDK. The Server owns callback-bearing hooks, permissions, abort control, MCP server objects, session storage, and process factories. Serializable prompts and SDK output are normalized into Thread input, Timeline items, interactions, and harness events.
+The Claude harness uses the pinned Claude Agent SDK. The Server owns callback-bearing hooks, permissions, abort control, MCP server objects, session storage, process factories, subscription and Console-account authentication, and logout. Serializable prompts and SDK output are normalized into Thread input, Timeline items, interactions, and harness events.
 
 ### Pi
 
-The Pi harness uses the pinned Pi coding-agent package and its RPC session model. It maps message streaming, tool activity, configuration, session lifecycle, and extension metadata into the common Thread contract. Pi extensions are represented as Pi-ecosystem plugins, not as Cypheria-native plugins.
+The Pi harness uses the pinned Pi coding-agent package and its RPC session model. It discovers provider models and each provider's account, OAuth, device-code, or API-key authentication methods, and maps message streaming, tool activity, configuration, session lifecycle, and extension metadata into the common Thread contract. Pi extensions are represented as Pi-ecosystem plugins, not as Cypheria-native plugins.
 
 ### OpenCode
 
-The OpenCode harness uses the pinned OpenCode SDK, supervises its server connection, and maps sessions, messages, parts, permissions, and provider configuration into the same Thread and Timeline model.
+The OpenCode harness uses the pinned OpenCode SDK, supervises its server connection, and dynamically discovers provider API-key and OAuth methods. It maps sessions, messages, parts, permissions, and provider configuration into the same Thread and Timeline model.
 
 ### ACP
 
-ACP runtimes use the official ACP SDK and the protocol version declared by the selected Agent. Cypheria normalizes stable v1 and draft v2 calls, notifications, responses, cancellation, and v2 batches inside the Server. ACP connection headers and transport details never become public Cypheria message fields.
+ACP runtimes use the official ACP SDK and the protocol version declared by the selected Agent. Cypheria normalizes stable v1 and draft v2 calls, notifications, responses, cancellation, agent and terminal authentication, and v2 batches inside the Server. Catalog discovery uses a temporary session, reads model and configuration options, deletes the session, and closes the runtime in a `finally` path. ACP connection headers and transport details never become public Cypheria message fields.
 
 ## Canonical adaptation
 

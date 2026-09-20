@@ -8,6 +8,49 @@ import { TerminalService } from "./terminal-service.js"
 const projectId = "01995bc5-c4ee-7e9c-8d7f-5f112db567e9"
 
 describe("TerminalService", () => {
+  it("starts a private command terminal with the supplied receipt environment", () => {
+    let onExit: ((event: { exitCode: number }) => void) | undefined
+    const child = {
+      kill: vi.fn(),
+      onData: vi.fn(() => ({ dispose: vi.fn() })),
+      onExit: vi.fn((listener: (event: { exitCode: number }) => void) => {
+        onExit = listener
+        return { dispose: vi.fn() }
+      }),
+      resize: vi.fn(),
+      write: vi.fn(),
+    } as unknown as IPty
+    const spawn = vi.fn(() => child)
+    const service = new TerminalService({} as ProjectThreadPersistenceService, spawn as never)
+    const messages: TerminalServerMessage[] = []
+    const exited = vi.fn()
+
+    const session = service.openCommand(
+      {
+        args: ["agent.js", "auth", "login"],
+        command: "/managed/node",
+        cwd: "/workspace",
+        env: { TOKEN_STORE: "/private" },
+        title: "Agent authentication",
+      },
+      "session-1",
+      (message) => messages.push(message),
+      exited
+    )
+    expect(session).toMatchObject({ cwd: "/workspace", title: "Agent authentication" })
+    expect(spawn).toHaveBeenCalledWith(
+      "/managed/node",
+      ["agent.js", "auth", "login"],
+      expect.objectContaining({ cwd: "/workspace", env: { TOKEN_STORE: "/private" } })
+    )
+    onExit?.({ exitCode: 0 })
+    expect(exited).toHaveBeenCalledWith(0)
+    expect(messages.at(-1)).toMatchObject({
+      payload: { exitCode: 0, terminalId: session.terminalId },
+      type: "terminal.exited.notification",
+    })
+  })
+
   it("opens a project terminal, streams output, and enforces session ownership", async () => {
     let onData: ((data: string) => void) | undefined
     let onExit: ((event: { exitCode: number; signal?: number }) => void) | undefined

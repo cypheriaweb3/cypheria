@@ -38,6 +38,12 @@ Sidebar 使用 Cypheria Projects、Threads、Sections facades。Server 直接返
 
 Query key 和乐观更新基于 Cypheria ID。Harness session ID 不会替代 Thread ID 成为导航或缓存身份。
 
+## Settings 导航
+
+Settings 使用一个扁平化、虚拟化的导航列表。返回行、分组标题、普通设置项、可展开的 Agent harnesses 行，以及所有可见 Agent 子项共享一个滚动容器与一个 TanStack Virtual virtualizer。搜索框与主题 footer 留在容器外。展开、搜索和 registry 更新会重建扁平 row model；路由变化时会把 active item 滚动到可见区域。Agent 子项绝不创建嵌套滚动容器或第二个导航 virtualizer。
+
+Agent harness 路由使用 `/settings/agent-harnesses/$agentId/$sectionId`。所选 Agent 拥有用于 installation、authentication、models 和发现型设置分类的第二级 section 菜单；窄屏时转换为选择器。右侧 panel 显示具体 section。Network proxy 位于 Agent header 上方，默认折叠，并在切换 Agent 或 section 时保留展开状态。Models 使用另一个固定高度虚拟列表，支持 provider 过滤和显式 Server 刷新。
+
 ## 会话工作区
 
 所有 Agent 共享同一个会话 shell：

@@ -108,8 +108,8 @@ pnpm codex:generate
 
 - Protocol 测试校验 Schema、版本协商、harness adapter 和 Timeline 投影。
 - Client 测试校验传输、请求生命周期、领域 facade、relay 传输和错误归一化。
-- Server 测试覆盖 Agent runtime、Projects 与 Threads、Schedules、Integrations、Web3 服务、配置和运维。
-- Desktop 测试覆盖 Server 管理、preload 契约、Sidebar 数据适配和会话行为。
+- Server 测试覆盖 Agent runtime、按需 harness catalog 缓存与失效、配置、Projects 与 Threads、Schedules、Integrations、Web3 服务和运维。
+- Desktop 测试覆盖 Server 管理、preload 契约、扁平 Settings 导航模型、Sidebar 数据适配和会话行为。Settings 导航与 model catalog 使用彼此独立的 virtualizer；Agent 子项不得引入嵌套导航 virtualizer。
 - Relay 测试覆盖密码学和数据平面行为。
 
 测试应通过公开边界进行，不得导入其他工作区的私有文件。原生 Agent 事件适配优先使用 fixture replay。

@@ -109,6 +109,32 @@ export class ClaudeSessionRuntime {
     await mkdir(this.#home, { recursive: true })
   }
 
+  async discover(): Promise<{
+    account: Awaited<ReturnType<Query["accountInfo"]>>
+    models: Awaited<ReturnType<Query["supportedModels"]>>
+  }> {
+    await this.start()
+    const executable = this.#receipt.args[0]
+    if (!executable) throw new Error("Managed Claude CLI entry point is unavailable")
+    const query = ClaudeSdk.query({
+      options: {
+        env: {
+          ...this.#toolchains.environment(),
+          CLAUDE_CONFIG_DIR: this.#home,
+        },
+        executable: "node",
+        pathToClaudeCodeExecutable: executable,
+      },
+      prompt: "",
+    })
+    try {
+      const [account, models] = await Promise.all([query.accountInfo(), query.supportedModels()])
+      return { account, models }
+    } finally {
+      query.close()
+    }
+  }
+
   async send(message: AgentClaudeClientMessage): Promise<void> {
     await this.start()
     if (message.type === "agent.claude.query.input.notification") {

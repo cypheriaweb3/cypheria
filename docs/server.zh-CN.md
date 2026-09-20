@@ -51,9 +51,9 @@ Server 只解析一次根目录，再把派生路径传给各服务。Cypheria �
 
 ## 配置
 
-期望的共享配置存储在 `$CYPHERIA_HOME/config/config.json`，当前 Schema 版本为 1。文件不存在时使用安全默认值且不主动写文件。Patch 会先作为完整文档校验，再以仅所有者可读写权限原子写入。
+期望的共享配置存储在 `$CYPHERIA_HOME/config/config.json`，当前 Schema 版本为 1。产品尚未发布，因此它就是当前 baseline，不执行旧配置迁移。文件不存在时使用安全默认值且不主动写文件。Patch 会先作为完整文档校验，再以仅所有者可读写权限原子写入。
 
-该文档包含 listener、CORS、消息限制、session timeout、shutdown、relay、内嵌 web 和共享 Agent 设置。Codex 词汇保留在 `agents.codex` 下。`CYPHERIA_SERVER_TOKEN` 等密钥只存在于环境变量中，设置 API 不会返回它们。
+该文档包含 listener、CORS、消息限制、session timeout、shutdown、relay、内嵌 web 和共享 Agent 设置。强类型 Codex 词汇保留在 `agents.codex` 下；所有 harness 发现出的新 session 默认值按 Agent ID 存在 `agents.defaults`。`CYPHERIA_SERVER_TOKEN` 等密钥只存在于环境变量中，设置 API 不会返回它们。
 
 配置响应区分：
 

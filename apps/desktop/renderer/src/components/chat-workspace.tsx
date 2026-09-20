@@ -1097,7 +1097,14 @@ function ChatSession({
                           <Pencil aria-hidden="true" />
                           <Trans id="chat.header.rename">Rename chat</Trans>
                         </DropdownMenuItem>
-                        <DropdownMenuItem render={<Link to="/settings/models" />}>
+                        <DropdownMenuItem
+                          render={
+                            <Link
+                              params={{ agentId: "codex", sectionId: "model-defaults" }}
+                              to="/settings/agent-harnesses/$agentId/$sectionId"
+                            />
+                          }
+                        >
                           <Settings aria-hidden="true" />
                           <Trans id="settings.models">Models</Trans>
                         </DropdownMenuItem>

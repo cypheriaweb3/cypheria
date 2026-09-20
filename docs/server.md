@@ -51,9 +51,9 @@ The Server resolves this root once and passes derived paths to services. Cypheri
 
 ## Configuration
 
-Desired shared configuration is stored at `$CYPHERIA_HOME/config/config.json`, currently schema version 1. Missing configuration uses secure defaults without writing a file. Patches are validated as a complete document and written atomically with owner-only permissions.
+Desired shared configuration is stored at `$CYPHERIA_HOME/config/config.json`, currently schema version 1. The product has not shipped, so this is the current baseline and no legacy configuration migration is performed. Missing configuration uses secure defaults without writing a file. Patches are validated as a complete document and written atomically with owner-only permissions.
 
-The document contains listener, CORS, message limits, session timeouts, shutdown, relay, embedded-web, and shared Agent settings. Codex vocabulary remains nested under `agents.codex`. Secrets such as `CYPHERIA_SERVER_TOKEN` are environment-only and never returned through settings APIs.
+The document contains listener, CORS, message limits, session timeouts, shutdown, relay, embedded-web, and shared Agent settings. Strongly typed Codex vocabulary remains nested under `agents.codex`; discovered new-session defaults for all harnesses are keyed by Agent ID under `agents.defaults`. Secrets such as `CYPHERIA_SERVER_TOKEN` are environment-only and never returned through settings APIs.
 
 Configuration responses distinguish:
 
