@@ -220,6 +220,7 @@ const claudeQueryOptionShape = {
   planModeInstructions: z.string(),
   pluginDelivery: z.enum(["argv", "initialize"]),
   plugins: claudeJsonSchema<NonNullable<SdkOptions["plugins"]>>(),
+  projectConfigRoot: z.string(),
   promptSuggestions: z.boolean(),
   resume: z.string(),
   resumeDropsTurn: z.string(),

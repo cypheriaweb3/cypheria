@@ -403,6 +403,12 @@ export const zMcpServerElicitationAction = z.enum([
 
 export const zMcpServerElicitationRequestParams = z.intersection(z.union([
     z.looseObject({
+        challenge: z.string(),
+        description: z.string(),
+        mode: z.enum(['openai/userVerification']),
+        title: z.string()
+    }),
+    z.looseObject({
         message: z.string(),
         mode: z.enum(['form']),
         requestedSchema: zMcpElicitationSchema
@@ -1039,6 +1045,7 @@ export const zBrowserUseConfig = z.looseObject({
 export const zBrowserUseRequirements = z.looseObject({
     allowGlobalPersistentApproval: z.boolean().nullish(),
     allowHistoryAccess: z.boolean().nullish(),
+    allowWebmcp: z.boolean().nullish(),
     defaultOriginPolicy: zBrowserUseOriginPolicy.nullish(),
     disableAutoReview: z.boolean().nullish(),
     origins: z.object({}).catchall(zBrowserUseOriginPolicy).nullish()
@@ -1805,6 +1812,7 @@ export const zFeedbackUploadParams = z.looseObject({
  * FeedbackUploadResponse
  */
 export const zFeedbackUploadResponse = z.looseObject({
+    promptHash: z.string().nullish(),
     threadId: z.string()
 });
 
@@ -2025,6 +2033,14 @@ export const zFsWriteFileResponse = z.looseObject({});
  */
 export const zGetAccountParams = z.looseObject({
     refreshToken: z.boolean().optional()
+});
+
+/**
+ * Usage-read capabilities of the requesting client, never inferred from its experiment arm.
+ */
+export const zGetAccountRateLimitsParams = z.looseObject({
+    excludeResetCreditDetails: z.boolean().optional(),
+    supportsLunaReserve: z.boolean().optional()
 });
 
 export const zGetAccountTokenUsageParams = z.looseObject({
@@ -2850,6 +2866,21 @@ export const zMemoryCitation = z.looseObject({
  */
 export const zMemoryResetResponse = z.looseObject({});
 
+/**
+ * MemoryStatusParams
+ */
+export const zMemoryStatusParams = z.looseObject({
+    minConsolidatedThreads: z.int().gte(0).max(4294967295, { error: 'Invalid value: Expected uint32 to be <= 4294967295' }).nullish()
+});
+
+/**
+ * MemoryStatusResponse
+ */
+export const zMemoryStatusResponse = z.looseObject({
+    v2ConsolidatedThreads: z.int().gte(0).max(4294967295, { error: 'Invalid value: Expected uint32 to be <= 4294967295' }),
+    v2Ready: z.boolean()
+});
+
 export const zMergeStrategy = z.enum(['replace', 'upsert']);
 
 export const zConfigEdit = z.looseObject({
@@ -3052,6 +3083,15 @@ export const zCommandExecutionRequestApprovalParams = z.looseObject({
 
 export const zNetworkDomainPermission = z.enum(['allow', 'deny']);
 
+export const zApplicationNetworkRequirements = z.looseObject({
+    domains: z.object({}).catchall(zNetworkDomainPermission),
+    enabled: z.boolean()
+});
+
+export const zApplicationRequirements = z.looseObject({
+    network: zApplicationNetworkRequirements.nullish()
+});
+
 export const zNetworkUnixSocketPermission = z.enum(['allow', 'deny']);
 
 export const zNetworkRequirements = z.looseObject({
@@ -3117,6 +3157,11 @@ export const zCodexErrorInfo = z.union([
         })
     })
 ]);
+
+/**
+ * Nullable_GetAccountRateLimitsParams
+ */
+export const zNullableGetAccountRateLimitsParams = zGetAccountRateLimitsParams.nullable();
 
 /**
  * Nullable_GetAccountTokenUsageParams
@@ -4013,6 +4058,13 @@ export const zCollaborationModeListResponse = z.looseObject({
     data: z.array(zCollaborationModeMask)
 });
 
+/**
+ * Reasoning settings interpreted by the backend for the routed model.
+ */
+export const zConfigurationReasoning = z.looseObject({
+    effort: zReasoningEffort
+});
+
 export const zNewThreadModelDefaults = z.looseObject({
     model: z.string().nullish(),
     modelReasoningEffort: zReasoningEffort.nullish(),
@@ -4270,7 +4322,7 @@ export const zRequestPermissionProfile = z.strictObject({
  * PermissionsRequestApprovalParams
  */
 export const zPermissionsRequestApprovalParams = z.looseObject({
-    cwd: zAbsolutePathBuf,
+    cwd: zLegacyAppPathString,
     environmentId: z.string().nullish(),
     itemId: z.string(),
     permissions: zRequestPermissionProfile,
@@ -4283,7 +4335,7 @@ export const zPermissionsRequestApprovalParams = z.looseObject({
 export const zGuardianApprovalReviewAction = z.union([
     z.looseObject({
         command: z.string(),
-        cwd: zAbsolutePathBuf,
+        cwd: zLegacyAppPathString,
         source: zGuardianCommandSource,
         type: z.enum(['command'])
     }),
@@ -4302,8 +4354,8 @@ export const zGuardianApprovalReviewAction = z.union([
         type: z.enum(['writeStdin'])
     }),
     z.looseObject({
-        cwd: zAbsolutePathBuf,
-        files: z.array(zAbsolutePathBuf),
+        cwd: zLegacyAppPathString,
+        files: z.array(zLegacyAppPathString),
         type: z.enum(['applyPatch'])
     }),
     z.looseObject({
@@ -4544,6 +4596,10 @@ export const zResponseItem = z.union([
         id: z.string().nullish(),
         internal_chat_message_metadata_passthrough: zInternalChatMessageMetadataPassthrough.nullish(),
         type: z.enum(['compaction'])
+    }),
+    z.looseObject({
+        reasoning: zConfigurationReasoning,
+        type: z.enum(['configuration_update'])
     }),
     z.looseObject({
         type: z.enum(['compaction_trigger'])
@@ -4935,6 +4991,7 @@ export const zRateLimitSnapshot = z.looseObject({
     individualLimit: zSpendControlLimitSnapshot.nullish(),
     limitId: z.string().nullish(),
     limitName: z.string().nullish(),
+    normalModelSlug: z.string().nullish(),
     planType: zPlanType.nullish(),
     primary: zRateLimitWindow.nullish(),
     rateLimitReachedType: zRateLimitReachedType.nullish(),
@@ -4958,6 +5015,7 @@ export const zAccountRateLimitsUpdatedNotification = z.looseObject({
  */
 export const zGetAccountRateLimitsResponse = z.looseObject({
     accountId: z.string().nullish(),
+    ordinaryUsageAllowed: z.boolean().nullish(),
     rateLimitResetCredits: zRateLimitResetCreditsSummary.nullish(),
     rateLimitUpsell: z.unknown().optional(),
     rateLimits: zRateLimitSnapshot,
@@ -5090,6 +5148,99 @@ export const zThreadArchivedNotification = z.looseObject({
     threadId: z.string()
 });
 
+/**
+ * An independently persisted attachment associated with a thread.
+ */
+export const zThreadAttachment = z.looseObject({
+    attachmentType: z.string(),
+    createdAt: z.int(),
+    id: z.string(),
+    identityKey: z.string()
+});
+
+/**
+ * Result of attempting to associate an attachment with a thread.
+ */
+export const zThreadAttachmentAddOutcome = z.enum(['created', 'existing']);
+
+/**
+ * ThreadAttachmentAddParams
+ *
+ * Parameters for creating or locating an attachment on its owning thread.
+ */
+export const zThreadAttachmentAddParams = z.looseObject({
+    attachmentType: z.string(),
+    identityKey: z.string(),
+    threadId: z.string()
+});
+
+/**
+ * ThreadAttachmentAddResponse
+ *
+ * The created or existing attachment.
+ */
+export const zThreadAttachmentAddResponse = z.looseObject({
+    attachment: zThreadAttachment,
+    outcome: zThreadAttachmentAddOutcome
+});
+
+/**
+ * ThreadAttachmentListParams
+ *
+ * Parameters for listing attachments from one thread.
+ */
+export const zThreadAttachmentListParams = z.looseObject({
+    cursor: z.string().nullish(),
+    limit: z.int().gte(0).max(4294967295, { error: 'Invalid value: Expected uint32 to be <= 4294967295' }).nullish(),
+    threadId: z.string()
+});
+
+/**
+ * ThreadAttachmentListResponse
+ *
+ * One page of attachments associated with the requested thread.
+ */
+export const zThreadAttachmentListResponse = z.looseObject({
+    data: z.array(zThreadAttachment),
+    nextCursor: z.string().nullish()
+});
+
+/**
+ * The persisted attachment change represented by a notification.
+ */
+export const zThreadAttachmentOperation = z.enum(['created', 'deleted']);
+
+/**
+ * ThreadAttachmentRemoveParams
+ *
+ * Parameters for deleting an attachment by its stable thread-local identity.
+ */
+export const zThreadAttachmentRemoveParams = z.looseObject({
+    attachmentType: z.string(),
+    identityKey: z.string(),
+    threadId: z.string()
+});
+
+/**
+ * ThreadAttachmentRemoveResponse
+ *
+ * Successful deletion does not return additional attachment data.
+ */
+export const zThreadAttachmentRemoveResponse = z.looseObject({});
+
+/**
+ * ThreadAttachmentUpdatedNotification
+ *
+ * Notification published after a thread attachment is created or deleted.
+ */
+export const zThreadAttachmentUpdatedNotification = z.looseObject({
+    attachmentId: z.string(),
+    attachmentType: z.string(),
+    identityKey: z.string(),
+    operation: zThreadAttachmentOperation,
+    threadId: z.string()
+});
+
 export const zThreadBackgroundTerminal = z.looseObject({
     command: z.string(),
     cpuPercent: z.number().nullish(),
@@ -5199,6 +5350,15 @@ export const zThreadDeleteResponse = z.looseObject({});
  */
 export const zThreadDeletedNotification = z.looseObject({
     threadId: z.string()
+});
+
+/**
+ * An environment selected by a loaded thread, independent of connection status.
+ */
+export const zThreadEnvironment = z.looseObject({
+    cwd: zLegacyAppPathString,
+    environmentId: z.string(),
+    runtimeWorkspaceRoots: z.array(zLegacyAppPathString)
 });
 
 /**
@@ -5499,6 +5659,7 @@ export const zThreadMetadataGitInfoUpdateParams = z.looseObject({
  * ThreadMetadataUpdateParams
  */
 export const zThreadMetadataUpdateParams = z.looseObject({
+    daybreakEnabled: z.boolean().nullish(),
     gitInfo: zThreadMetadataGitInfoUpdateParams.nullish(),
     projectId: z.string().nullish(),
     threadId: z.string()
@@ -6212,6 +6373,7 @@ export const zThreadListParams = z.looseObject({
     cwd: zThreadListCwdFilter.nullish(),
     limit: z.int().gte(0).max(4294967295, { error: 'Invalid value: Expected uint32 to be <= 4294967295' }).nullish(),
     modelProviders: z.array(z.string()).nullish(),
+    originators: z.array(z.string()).nullish(),
     parentThreadId: z.string().nullish(),
     projectId: z.string().nullish(),
     searchTerm: z.string().nullish(),
@@ -6389,7 +6551,8 @@ export const zMcpServerStatus = z.looseObject({
     resources: z.array(zResource),
     runtimeStatus: zMcpServerConnectionStatus.nullish(),
     serverInfo: zMcpServerInfo.nullish(),
-    tools: z.object({}).catchall(zTool)
+    tools: z.object({}).catchall(zTool),
+    toolsError: z.string().nullish()
 });
 
 /**
@@ -6735,6 +6898,136 @@ export const zTurnSteerParams = z.looseObject({
 });
 
 /**
+ * UserVerificationCancelParams
+ *
+ * Cancels a native verification RPC issued on this connection, not an elicitation. Use a fresh request ID for each operation and a distinct ID for this cancellation RPC.
+ */
+export const zUserVerificationCancelParams = z.strictObject({
+    requestId: zRequestId
+});
+
+/**
+ * UserVerificationCancelResponse
+ *
+ * Acknowledges the cancellation signal; native work may still be finishing. Unknown or finished requests are a no-op, and completed effects are not rolled back.
+ */
+export const zUserVerificationCancelResponse = z.looseObject({});
+
+export const zUserVerificationCancellationReason = z.enum(['userCancelled', 'interrupted']);
+
+/**
+ * UserVerificationDeleteParams
+ */
+export const zUserVerificationDeleteParams = z.strictObject({});
+
+/**
+ * UserVerificationDeleteResponse
+ */
+export const zUserVerificationDeleteResponse = z.looseObject({});
+
+/**
+ * UserVerificationEnrollParams
+ */
+export const zUserVerificationEnrollParams = z.strictObject({});
+
+/**
+ * UserVerificationEnrollResponse
+ */
+export const zUserVerificationEnrollResponse = z.looseObject({
+    credentialId: z.string()
+});
+
+export const zUserVerificationFailureReason = z.enum([
+    'authenticationFailed',
+    'timeout',
+    'providerError',
+    'serviceError'
+]);
+
+export const zUserVerificationInvalidRequestReason = z.enum(['invalidParams']);
+
+/**
+ * A signature over the exact decoded challenge. The verifier validates and consumes it.
+ */
+export const zUserVerificationProof = z.strictObject({
+    credentialId: z.string(),
+    signature: z.string()
+});
+
+/**
+ * UserVerificationStatusParams
+ */
+export const zUserVerificationStatusParams = z.strictObject({});
+
+export const zUserVerificationUnavailableReason = z.enum([
+    'credentialMissing',
+    'biometricsUnavailable',
+    'providerUnavailable'
+]);
+
+/**
+ * Closed error categories; native diagnostic payloads must not cross this boundary.
+ */
+export const zUserVerificationErrorDetails = z.union([
+    z.strictObject({
+        reason: zUserVerificationInvalidRequestReason,
+        type: z.enum(['invalidRequest'])
+    }),
+    z.strictObject({
+        reason: zUserVerificationUnavailableReason,
+        type: z.enum(['unavailable'])
+    }),
+    z.strictObject({
+        reason: zUserVerificationCancellationReason,
+        type: z.enum(['cancelled'])
+    }),
+    z.strictObject({
+        reason: zUserVerificationFailureReason,
+        type: z.enum(['failed'])
+    })
+]);
+
+/**
+ * UserVerificationRpcError
+ *
+ * The error object inside the normal JSON-RPC envelope.
+ */
+export const zUserVerificationRpcError = z.strictObject({
+    code: z.int(),
+    data: zUserVerificationErrorDetails,
+    message: z.string()
+});
+
+/**
+ * UserVerificationStatusResponse
+ *
+ * Local readiness only; this neither prompts nor queries server registration.
+ */
+export const zUserVerificationStatusResponse = z.looseObject({
+    credentialId: z.string().nullish(),
+    unavailableMessage: z.string().nullish(),
+    unavailableReason: zUserVerificationUnavailableReason.nullish()
+});
+
+/**
+ * UserVerificationVerifyParams
+ *
+ * Local signing primitive, independent of any pending elicitation.
+ */
+export const zUserVerificationVerifyParams = z.strictObject({
+    challenge: z.string(),
+    description: z.string(),
+    title: z.string()
+});
+
+/**
+ * UserVerificationVerifyResponse
+ */
+export const zUserVerificationVerifyResponse = z.looseObject({
+    proof: zUserVerificationProof
+});
+
+/**
  * Controls output length/detail on GPT-5 models via the Responses API. Serialized with lowercase values to match the OpenAI API.
  */
 export const zVerbosity = z.enum([
@@ -7021,6 +7314,8 @@ export const zThread = z.looseObject({
     cliVersion: z.string(),
     createdAt: z.int(),
     cwd: zAbsolutePathBuf,
+    daybreakEnabled: z.boolean().nullish(),
+    environments: z.array(zThreadEnvironment).nullish(),
     ephemeral: z.boolean(),
     extra: zThreadExtra.nullish(),
     forkedFromId: z.string().nullish(),
@@ -7030,6 +7325,7 @@ export const zThread = z.looseObject({
     model: z.string().nullish(),
     modelProvider: z.string(),
     name: z.string().nullish(),
+    originator: z.string().nullish(),
     parentThreadId: z.string().nullish(),
     path: z.string().nullish(),
     preview: z.string(),
@@ -7314,6 +7610,7 @@ export const zConfigRequirements = z.looseObject({
     allowedSandboxModes: z.array(zSandboxMode).nullish(),
     allowedWebSearchModes: z.array(zWebSearchMode).nullish(),
     allowedWindowsSandboxImplementations: z.array(zWindowsSandboxSetupMode).nullish(),
+    application: zApplicationRequirements.nullish(),
     autoReview: zAutoReviewRequirements.nullish(),
     browserUse: zBrowserUseRequirements.nullish(),
     chatgptBaseUrl: z.string().nullish(),
@@ -7373,6 +7670,31 @@ export const zClientRequest = z.union([
         id: zRequestId,
         method: z.enum(['server/diagnostics']),
         params: zServerDiagnosticsParams
+    }),
+    z.looseObject({
+        id: zRequestId,
+        method: z.enum(['userVerification/status']),
+        params: zUserVerificationStatusParams
+    }),
+    z.looseObject({
+        id: zRequestId,
+        method: z.enum(['userVerification/enroll']),
+        params: zUserVerificationEnrollParams
+    }),
+    z.looseObject({
+        id: zRequestId,
+        method: z.enum(['userVerification/delete']),
+        params: zUserVerificationDeleteParams
+    }),
+    z.looseObject({
+        id: zRequestId,
+        method: z.enum(['userVerification/verify']),
+        params: zUserVerificationVerifyParams
+    }),
+    z.looseObject({
+        id: zRequestId,
+        method: z.enum(['userVerification/cancel']),
+        params: zUserVerificationCancelParams
     }),
     z.looseObject({
         id: zRequestId,
@@ -7471,6 +7793,21 @@ export const zClientRequest = z.union([
     }),
     z.looseObject({
         id: zRequestId,
+        method: z.enum(['thread/attachment/add']),
+        params: zThreadAttachmentAddParams
+    }),
+    z.looseObject({
+        id: zRequestId,
+        method: z.enum(['thread/attachment/list']),
+        params: zThreadAttachmentListParams
+    }),
+    z.looseObject({
+        id: zRequestId,
+        method: z.enum(['thread/attachment/remove']),
+        params: zThreadAttachmentRemoveParams
+    }),
+    z.looseObject({
+        id: zRequestId,
         method: z.enum(['thread/section/move']),
         params: zThreadSectionMoveParams
     }),
@@ -7483,6 +7820,11 @@ export const zClientRequest = z.union([
         id: zRequestId,
         method: z.enum(['thread/memoryMode/set']),
         params: zThreadMemoryModeSetParams
+    }),
+    z.looseObject({
+        id: zRequestId,
+        method: z.enum(['memory/status']),
+        params: zMemoryStatusParams
     }),
     z.looseObject({
         id: zRequestId,
@@ -8007,7 +8349,7 @@ export const zClientRequest = z.union([
     z.looseObject({
         id: zRequestId,
         method: z.enum(['account/rateLimits/read']),
-        params: z.null().optional()
+        params: zGetAccountRateLimitsParams.nullish()
     }),
     z.looseObject({
         id: zRequestId,
@@ -8197,6 +8539,10 @@ export const zServerNotification = z.intersection(z.union([
     z.looseObject({
         method: z.enum(['thread/name/updated']),
         params: zThreadNameUpdatedNotification
+    }),
+    z.looseObject({
+        method: z.enum(['thread/attachment/updated']),
+        params: zThreadAttachmentUpdatedNotification
     }),
     z.looseObject({
         method: z.enum(['thread/goal/updated']),

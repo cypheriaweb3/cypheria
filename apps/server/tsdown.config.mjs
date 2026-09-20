@@ -9,7 +9,7 @@ export default defineConfig({
       /^@cypheria\//,
       /^@earendil-works\//,
       /^@hono\//,
-      /^@opencode-ai\//,
+      /^@opencode\//,
       "extract-zip",
       "hono",
       "pino",

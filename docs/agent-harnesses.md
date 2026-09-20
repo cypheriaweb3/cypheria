@@ -10,9 +10,9 @@ An Agent descriptor reports source, distribution, installed and available versio
 
 ## Registry and installation
 
-The Server loads the pinned ACP registry document as the available catalog, validates it, and exposes refresh and inspection operations. The persisted `agent_registry` is intentionally not a copy of that catalog: it begins with the four native harnesses and gains a registry Agent only after the user adds it. Each persisted row records `createdAt`. Distribution metadata may select a platform binary, `npx`, or `uvx`; preview releases remain explicit. Platform archives can carry SHA-256 integrity metadata.
+The Server loads the pinned ACP registry document as the available ACP catalog, validates it, and exposes refresh and inspection operations. Native harnesses do not obtain releases from that registry: each Cypheria release declares one tested CLI package and exact version for Codex, Claude, Pi, and OpenCode. The persisted `agent_registry` is intentionally not a copy of the ACP catalog: it begins with the four native harnesses and gains a registry Agent only after the user adds it. Each persisted row records `createdAt`. ACP distribution metadata may select a platform binary, `npx`, or `uvx`; preview releases remain explicit. Platform archives can carry SHA-256 integrity metadata.
 
-Adding and installing are separate operations. Adding persists the selected Agent and makes its settings page available; installation and updates are Server operations with durable operation records and progress notifications. The toolchain manager discovers or installs managed Node and Python tooling beneath the Cypheria cache. Clients can list, add, install, update, uninstall, enable, disable, start, and stop Agents without receiving filesystem or process access.
+Adding and installing are separate operations. Adding persists the selected Agent and makes its settings page available; installation and updates are Server operations with durable operation records and progress notifications. A native install or update always installs the exact version integrated by the running Cypheria release; it never resolves or upgrades to a newer upstream version dynamically. The toolchain manager discovers or installs managed Node and Python tooling beneath the Cypheria cache. Clients can list, add, install, update, uninstall, enable, disable, start, and stop Agents without receiving filesystem or process access.
 
 ## Catalogs and defaults
 
@@ -49,7 +49,7 @@ The Pi harness uses the pinned Pi coding-agent package and its RPC session model
 
 ### OpenCode
 
-The OpenCode harness uses the pinned OpenCode SDK, supervises its server connection, and dynamically discovers provider API-key and OAuth methods. It maps sessions, messages, parts, permissions, and provider configuration into the same Thread and Timeline model.
+The OpenCode harness supports OpenCode v2 only. Dynamic installation uses the pinned `@opencode/cli` package rather than an ACP registry distribution, and Server integration uses the matching `@opencode/client` v2 API. Cypheria disables OpenCode self-updates, supervises its local service, consumes the v2 event stream, and maps sessions, messages, forms, permissions, models, integrations, and credentials into the common Thread, Timeline, catalog, and authentication contracts. No OpenCode v1 compatibility path is retained.
 
 ### ACP
 

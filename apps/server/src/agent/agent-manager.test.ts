@@ -10,6 +10,7 @@ import {
 import { afterEach, describe, expect, it } from "vitest"
 
 import { AgentManager } from "./agent-manager.js"
+import { NATIVE_AGENT_MANIFEST } from "./native-agent-manifest.js"
 
 const homes: string[] = []
 
@@ -90,12 +91,63 @@ describe("AgentManager enable gate", () => {
     await manager.start()
     try {
       expect(await manager.get("codex", "session")).toMatchObject({
-        availableVersion: "0.153.4",
+        availableVersion: "0.155.1",
         installed: false,
         name: "Codex",
         repository: "https://github.com/openai/codex",
-        version: "0.153.4",
+        version: "0.155.1",
         website: "https://developers.openai.com/codex/",
+      })
+    } finally {
+      await manager.stop()
+      database.close()
+    }
+  })
+
+  it("uses the integrated OpenCode v2 release instead of an ACP registry entry", async () => {
+    expect(NATIVE_AGENT_MANIFEST.opencode).toMatchObject({
+      cliPackage: "@opencode/cli",
+      cliVersion: "2.0.11",
+      launcher: "executable",
+    })
+    const home = await mkdtemp(join(tmpdir(), "cypheria-agent-manager-opencode-"))
+    homes.push(home)
+    const database = createInMemoryDatabase()
+    await applyDatabaseMigrations(database.client)
+    await mkdir(join(home, "agents"), { recursive: true })
+    await writeFile(
+      join(home, "agents", "registry.json"),
+      JSON.stringify({
+        agents: [
+          {
+            description: "Registry OpenCode entry",
+            distribution: { npx: { package: "@registry/opencode@9.9.9" } },
+            id: "opencode",
+            license_url: "https://github.com/anomalyco/opencode/blob/dev/LICENSE",
+            name: "Registry OpenCode",
+            version: "9.9.9",
+          },
+        ],
+        extensions: [],
+        version: "1.0.0",
+      })
+    )
+    const manager = new AgentManager({
+      cacheDir: join(home, "cache"),
+      cypheriaHome: home,
+      networkBootstrap: false,
+      persistence: createAgentRegistryPersistenceService(database.db),
+      publish: () => undefined,
+    })
+    await manager.start()
+    try {
+      expect(await manager.get("opencode", "session")).toMatchObject({
+        availableVersion: "2.0.11",
+        description: expect.not.stringContaining("Registry"),
+        name: "OpenCode",
+        native: true,
+        version: "2.0.11",
+        website: "https://opencode.ai/v2/docs/",
       })
     } finally {
       await manager.stop()
@@ -153,6 +205,7 @@ describe("AgentManager enable gate", () => {
         version: "0.153.4",
       })
       expect(await manager.get("codex", "session")).toMatchObject({
+        availableVersion: "0.155.1",
         enabled: false,
         installed: false,
         version: "0.153.4",

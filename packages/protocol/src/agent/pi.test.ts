@@ -53,7 +53,7 @@ const rpcCommands = [
 ] as const
 
 describe("agent.pi protocol", () => {
-  it("covers every command in Pi 0.85.1 with unique paired wire types", () => {
+  it("covers every command in Pi 0.86.0 with unique paired wire types", () => {
     expect(Object.keys(AGENT_PI_RPC)).toEqual(rpcCommands)
     expect(new Set(Object.values(AGENT_PI_RPC).map(({ request }) => request)).size).toBe(
       rpcCommands.length

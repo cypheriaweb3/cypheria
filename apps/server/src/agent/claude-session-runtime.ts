@@ -114,7 +114,7 @@ export class ClaudeSessionRuntime {
     models: Awaited<ReturnType<Query["supportedModels"]>>
   }> {
     await this.start()
-    const executable = this.#receipt.args[0]
+    const executable = this.#receipt.args[0] ?? this.#receipt.command
     if (!executable) throw new Error("Managed Claude CLI entry point is unavailable")
     const query = ClaudeSdk.query({
       options: {
@@ -122,7 +122,6 @@ export class ClaudeSessionRuntime {
           ...this.#toolchains.environment(),
           CLAUDE_CONFIG_DIR: this.#home,
         },
-        executable: "node",
         pathToClaudeCodeExecutable: executable,
       },
       prompt: "",
@@ -204,7 +203,7 @@ export class ClaudeSessionRuntime {
     if (this.#queries.has(queryId)) throw new Error(`Claude query ${queryId} already exists`)
     const prompt = params.prompt as { text?: string; type: "stream" | "text" }
     const input = prompt.type === "stream" ? new InputStream() : undefined
-    const executable = this.#receipt.args[0]
+    const executable = this.#receipt.args[0] ?? this.#receipt.command
     if (!executable) throw new Error("Managed Claude CLI entry point is unavailable")
     const suppliedOptions = (params.options ?? {}) as Record<string, unknown>
     const canUseTool: CanUseTool | undefined = this.#requestPermission
@@ -224,7 +223,6 @@ export class ClaudeSessionRuntime {
           CLAUDE_CONFIG_DIR: this.#home,
           ...((suppliedOptions.env ?? {}) as Record<string, string>),
         },
-        executable: "node",
         pathToClaudeCodeExecutable: executable,
       },
       prompt: input ?? prompt.text ?? "",

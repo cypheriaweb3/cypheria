@@ -2,13 +2,36 @@ import { z } from "zod"
 
 import { RequestIdSchema } from "../request-id.ts"
 
+export const AGENT_OPENCODE_V2_OPERATIONS = [
+  "server.info",
+  "session.create",
+  "session.fork",
+  "session.remove",
+  "session.switch_agent",
+  "session.switch_model",
+  "session.prompt",
+  "session.interrupt",
+  "message.list",
+  "model.list",
+  "model.default",
+  "provider.list",
+  "agent.list",
+  "integration.list",
+  "integration.connect.key",
+  "integration.oauth.connect",
+  "integration.oauth.complete",
+  "integration.oauth.cancel",
+  "credential.remove",
+  "permission.reply",
+  "session.form.reply",
+  "session.form.cancel",
+] as const
+export type AgentOpenCodeV2Operation = (typeof AGENT_OPENCODE_V2_OPERATIONS)[number]
+
 export const AgentOpenCodeCallRequestSchema = z.object({
   payload: z.object({
     body: z.json().optional(),
-    headers: z.record(z.string(), z.string()).optional(),
-    operation: z.string().trim().min(1).max(160),
-    path: z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])).optional(),
-    query: z.record(z.string(), z.json()).optional(),
+    operation: z.enum(AGENT_OPENCODE_V2_OPERATIONS),
   }),
   requestId: RequestIdSchema,
   type: z.literal("agent.opencode.call.request"),
@@ -33,7 +56,7 @@ export const AgentOpenCodeCallResponseSchema = z.object({
 })
 export const AgentOpenCodeEventSubscribeRequestSchema = z.object({
   payload: z.object({
-    stream: z.enum(["event", "global.event"]),
+    stream: z.literal("event"),
     subscriptionId: z.string().min(1),
   }),
   requestId: RequestIdSchema,

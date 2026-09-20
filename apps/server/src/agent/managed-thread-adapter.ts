@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto"
 
 import type {
   AgentId,
+  AgentOpenCodeV2Operation,
   RegistryAgentId,
   ThreadCapabilities,
   ThreadInputBlock,
@@ -144,21 +145,98 @@ const mapAcpInput = (content: readonly ThreadInputBlock[]): unknown[] =>
     throw new Error("Unsupported ACP input block")
   })
 
-const mapOpenCodeInput = (content: readonly ThreadInputBlock[]): unknown[] =>
-  content.map((block) => {
-    if (block.type === "text") return { text: block.text, type: "text" }
-    if (block.type === "image" || block.type === "audio") {
-      return {
-        mime: block.mimeType,
-        type: "file",
-        url: `data:${block.mimeType};base64,${block.data}`,
-      }
+const mapOpenCodeInput = (
+  content: readonly ThreadInputBlock[]
+): { files: Array<{ name?: string; uri: string }>; text: string } => {
+  const text: string[] = []
+  const files: Array<{ name?: string; uri: string }> = []
+  for (const block of content) {
+    if (block.type === "text") text.push(block.text)
+    else if (block.type === "image" || block.type === "audio") {
+      files.push({ uri: `data:${block.mimeType};base64,${block.data}` })
+    } else if (block.type === "resource-link") {
+      files.push({ ...(block.name ? { name: block.name } : {}), uri: block.uri })
+    } else {
+      text.push(`Embedded resource ${block.uri} (${block.mimeType}):\n${block.data}`)
     }
-    return {
-      text: block.type === "resource-link" ? block.uri : `${block.uri}\n${block.data}`,
-      type: "text",
-    }
+  }
+  return { files, text: text.join("\n") }
+}
+
+const openCodeFormQuestions = (form: Record<string, unknown>) =>
+  (Array.isArray(form.fields) ? form.fields : []).flatMap((field, index) => {
+    if (!field || typeof field !== "object") return []
+    const value = field as Record<string, unknown>
+    if (value.hidden === true || value.type === "external") return []
+    const key = stringId(value.key) ?? String(index)
+    const rawOptions = Array.isArray(value.options) ? value.options : []
+    const options =
+      value.type === "boolean"
+        ? [
+            { description: null, id: "true", label: "Yes" },
+            { description: null, id: "false", label: "No" },
+          ]
+        : rawOptions.flatMap((option) => {
+            if (!option || typeof option !== "object") return []
+            const item = option as Record<string, unknown>
+            if (typeof item.value !== "string" || typeof item.label !== "string") return []
+            return [
+              {
+                description: typeof item.description === "string" ? item.description : null,
+                id: item.value,
+                label: item.label,
+              },
+            ]
+          })
+    return [
+      {
+        custom: value.custom === true || options.length === 0,
+        header: typeof value.title === "string" ? value.title : key,
+        multiple: value.type === "multiselect",
+        options,
+        question:
+          typeof value.description === "string"
+            ? value.description
+            : typeof value.title === "string"
+              ? value.title
+              : key,
+      },
+    ]
   })
+
+const openCodeFormAnswer = (
+  form: Record<string, unknown>,
+  response: ThreadInteractionResponse
+): Record<string, string | number | boolean | readonly string[]> => {
+  const fields = (Array.isArray(form.fields) ? form.fields : []).filter(
+    (field): field is Record<string, unknown> => Boolean(field && typeof field === "object")
+  )
+  const keyed =
+    response.type === "answers" && !Array.isArray(response.answers) ? response.answers : undefined
+  const positional =
+    response.type === "answers" && Array.isArray(response.answers) ? response.answers : undefined
+  const answer: Record<string, string | number | boolean | readonly string[]> = {}
+  fields.forEach((field, index) => {
+    if (field.hidden === true || field.type === "external") return
+    const key = stringId(field.key) ?? String(index)
+    const values =
+      keyed?.[key] ??
+      positional?.[index] ??
+      (response.type === "selection"
+        ? [response.optionId]
+        : response.type === "text"
+          ? [response.value]
+          : [])
+    if (values.length === 0) return
+    if (field.type === "multiselect") answer[key] = values
+    else if (field.type === "boolean") answer[key] = values[0] === "true"
+    else if (field.type === "number" || field.type === "integer") {
+      const value = Number(values[0])
+      if (Number.isFinite(value)) answer[key] = value
+    } else answer[key] = values[0] ?? ""
+  })
+  return answer
+}
 
 const extractThread = (result: Record<string, unknown>): Record<string, unknown> =>
   result.thread && typeof result.thread === "object"
@@ -221,7 +299,10 @@ const mapHarnessItem = (value: unknown, agentId: AgentId): ThreadTimelineItem | 
   if (type.includes("reasoning") && text !== undefined) {
     return { itemId, operation: "replace", harnessData, text, type: "reasoning" }
   }
-  if ((type.includes("message") || type === "text") && text !== undefined) {
+  if (
+    (type.includes("message") || type === "text" || type === "user" || type === "assistant") &&
+    text !== undefined
+  ) {
     return {
       itemId,
       operation: "replace",
@@ -377,18 +458,34 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       }
     }
     if (this.agentId === "opencode") {
+      const defaults = await this.#defaultsFor("opencode")
+      const model = typeof defaults.model === "string" ? defaults.model.split("/", 2) : []
       const response = await this.#openCodeCall(
         input.threadId,
         input.forkedFromAgentSessionId
           ? {
-              body: {},
-              operation: `POST /session/${encodeURIComponent(input.forkedFromAgentSessionId)}/fork`,
-              query: input.cwd ? { directory: input.cwd } : undefined,
+              body: { sessionID: input.forkedFromAgentSessionId },
+              operation: "session.fork",
             }
           : {
-              body: {},
-              operation: "POST /session",
-              query: input.cwd ? { directory: input.cwd } : undefined,
+              body: {
+                ...(typeof defaults.agent === "string" && defaults.agent
+                  ? { agent: defaults.agent }
+                  : {}),
+                ...(input.cwd ? { location: { directory: input.cwd } } : {}),
+                ...(model[0] && model[1]
+                  ? {
+                      model: {
+                        id: model[1],
+                        providerID: model[0],
+                        ...(typeof defaults.variant === "string" && defaults.variant
+                          ? { variant: defaults.variant }
+                          : {}),
+                      },
+                    }
+                  : {}),
+              },
+              operation: "session.create",
             }
       )
       const session = resultOf(response).data as Record<string, unknown>
@@ -430,14 +527,16 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     if (this.agentId === "opencode") {
       if (!input.agentSessionId) return this.create({ ...input, forkedFromAgentSessionId: null })
       const response = await this.#openCodeCall(input.threadId, {
-        operation: `GET /session/${encodeURIComponent(input.agentSessionId)}/message`,
-        query: input.cwd ? { directory: input.cwd } : undefined,
+        body: { order: "asc", sessionID: input.agentSessionId },
+        operation: "message.list",
       })
       await this.#subscribeOpenCode(input.threadId)
       this.#harnessSessionId = input.agentSessionId
       return {
         capabilities: capabilities(this.agentId),
-        history: this.#mapOpenCodeHistory(resultOf(response).data),
+        history: this.#mapOpenCodeHistory(
+          (resultOf(response).data as Record<string, unknown> | undefined)?.data
+        ),
         sessionId: input.agentSessionId,
       }
     }
@@ -484,8 +583,8 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       })
     } else if (this.agentId === "opencode" && context.agentSessionId) {
       await this.#openCodeCall(context.threadId, {
-        operation: `DELETE /session/${encodeURIComponent(context.agentSessionId)}`,
-        query: context.cwd ? { directory: context.cwd } : undefined,
+        body: { sessionID: context.agentSessionId },
+        operation: "session.remove",
       })
     } else if (this.agentId !== "claude" && this.agentId !== "pi" && context.agentSessionId) {
       if (!this.#supportsAcp("delete")) throw new Error("ACP agent lacks session.delete capability")
@@ -529,22 +628,39 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       if (!input.agentSessionId) throw new Error("OpenCode thread is not bound")
       const defaults = await this.#defaultsFor("opencode")
       const model = typeof defaults.model === "string" ? defaults.model.split("/", 2) : []
-      await this.#openCodeCall(input.threadId, {
+      if (typeof defaults.agent === "string" && defaults.agent) {
+        await this.#openCodeCall(input.threadId, {
+          body: { agent: defaults.agent, sessionID: input.agentSessionId },
+          operation: "session.switch_agent",
+        })
+      }
+      if (model[0] && model[1]) {
+        await this.#openCodeCall(input.threadId, {
+          body: {
+            model: {
+              id: model[1],
+              providerID: model[0],
+              ...(typeof defaults.variant === "string" && defaults.variant
+                ? { variant: defaults.variant }
+                : {}),
+            },
+            sessionID: input.agentSessionId,
+          },
+          operation: "session.switch_model",
+        })
+      }
+      const prompt = mapOpenCodeInput(input.content)
+      const response = await this.#openCodeCall(input.threadId, {
         body: {
-          messageID: input.clientMessageId,
-          parts: mapOpenCodeInput(input.content),
-          ...(typeof defaults.agent === "string" && defaults.agent
-            ? { agent: defaults.agent }
-            : {}),
-          ...(model[0] && model[1] ? { model: { modelID: model[1], providerID: model[0] } } : {}),
-          ...(typeof defaults.variant === "string" && defaults.variant
-            ? { variant: defaults.variant }
-            : {}),
+          id: input.clientMessageId,
+          ...(prompt.files.length > 0 ? { files: prompt.files } : {}),
+          sessionID: input.agentSessionId,
+          text: prompt.text,
         },
-        operation: `POST /session/${encodeURIComponent(input.agentSessionId)}/prompt_async`,
-        query: input.cwd ? { directory: input.cwd } : undefined,
+        operation: "session.prompt",
       })
-      return { turnId: input.clientMessageId }
+      const inbox = resultOf(response).data as Record<string, unknown>
+      return { turnId: stringId(inbox.id) ?? input.clientMessageId }
     }
     if (this.agentId === "claude") {
       const defaults = await this.#defaultsFor("claude")
@@ -679,8 +795,8 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       })
     } else if (this.agentId === "opencode" && context.agentSessionId) {
       await this.#openCodeCall(context.threadId, {
-        operation: `POST /session/${encodeURIComponent(context.agentSessionId)}/abort`,
-        query: context.cwd ? { directory: context.cwd } : undefined,
+        body: { sessionID: context.agentSessionId },
+        operation: "session.interrupt",
       })
     } else if (this.agentId === "claude") {
       await this.#request(context.threadId, {
@@ -870,47 +986,42 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     }
     if (this.agentId === "opencode") {
       const event = payloadOf(reverse).event as Record<string, unknown>
-      const properties = (event?.properties ?? {}) as Record<string, unknown>
-      const requestId = stringId(properties.id)
-      if (!requestId) throw new Error("OpenCode interaction has no request id")
+      const data = (event?.data ?? {}) as Record<string, unknown>
       if (event?.type === "permission.asked") {
+        const requestId = stringId(data.id)
+        const sessionId = stringId(data.sessionID)
+        if (!requestId || !sessionId) throw new Error("OpenCode permission is missing identity")
         await this.#openCodeCall(context.threadId, {
           body: {
-            reply:
+            decision:
               response.type === "permission" && response.outcome !== "deny"
                 ? response.outcome === "allow_always"
                   ? "always"
                   : "once"
                 : "reject",
+            requestID: requestId,
+            sessionID: sessionId,
           },
-          operation: `POST /permission/${encodeURIComponent(requestId)}/reply`,
-          query: context.cwd ? { directory: context.cwd } : undefined,
+          operation: "permission.reply",
         })
-      } else if (event?.type === "question.asked") {
+      } else if (event?.type === "form.created") {
+        const form = (data.form ?? {}) as Record<string, unknown>
+        const formId = stringId(form.id)
+        const sessionId = stringId(form.sessionID)
+        if (!formId || !sessionId) throw new Error("OpenCode form is missing identity")
         if (response.type === "cancel" || response.type === "permission") {
           await this.#openCodeCall(context.threadId, {
-            operation: `POST /question/${encodeURIComponent(requestId)}/reject`,
-            query: context.cwd ? { directory: context.cwd } : undefined,
+            body: { formID: formId, sessionID: sessionId },
+            operation: "session.form.cancel",
           })
         } else {
-          const answers =
-            response.type === "answers"
-              ? Array.isArray(response.answers)
-                ? response.answers
-                : Object.values(response.answers)
-              : [
-                  [
-                    response.type === "selection"
-                      ? response.optionId
-                      : response.type === "text"
-                        ? response.value
-                        : "",
-                  ],
-                ]
           await this.#openCodeCall(context.threadId, {
-            body: { answers },
-            operation: `POST /question/${encodeURIComponent(requestId)}/reply`,
-            query: context.cwd ? { directory: context.cwd } : undefined,
+            body: {
+              answer: openCodeFormAnswer(form, response),
+              formID: formId,
+              sessionID: sessionId,
+            },
+            operation: "session.form.reply",
           })
         }
       } else {
@@ -1167,7 +1278,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
 
   async #openCodeCall(
     threadId: string,
-    payload: { body?: unknown; operation: string; query?: Record<string, unknown> }
+    payload: { body?: unknown; operation: AgentOpenCodeV2Operation }
   ): Promise<AgentRuntimeServerMessage> {
     const requestId = randomUUID()
     const response = new Promise<AgentRuntimeServerMessage>((resolve, reject) => {
@@ -1212,7 +1323,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     })
     await this.#manager.handleOpenCode(
       AgentOpenCodeEventSubscribeRequestSchema.parse({
-        payload: { stream: "global.event", subscriptionId },
+        payload: { stream: "event", subscriptionId },
         requestId,
         type: "agent.opencode.event.subscribe.request",
       }),
@@ -1439,45 +1550,16 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     }
     if (message.type === "agent.opencode.event.notification") {
       const event = payload.event as Record<string, unknown>
-      const properties = (event?.properties ?? {}) as Record<string, unknown>
-      const eventSessionId = stringId(properties.sessionID ?? properties.sessionId)
+      const data = (event?.data ?? {}) as Record<string, unknown>
+      const form = (data.form ?? {}) as Record<string, unknown>
+      const eventSessionId = stringId(data.sessionID ?? form.sessionID)
       if (!eventSessionId || eventSessionId !== this.#harnessSessionId) return
-      if (event?.type === "permission.asked" || event?.type === "question.asked") {
-        const requestId = stringId(properties.id)
+      if (event?.type === "permission.asked" || event?.type === "form.created") {
+        const requestId = stringId(event?.type === "permission.asked" ? data.id : form.id)
         if (!requestId) return
         const interactionId = `harness:opencode:${requestId}`
         this.#reverse.set(interactionId, message)
-        const questions = Array.isArray(properties.questions)
-          ? properties.questions.flatMap((question) => {
-              if (!question || typeof question !== "object") return []
-              const value = question as Record<string, unknown>
-              if (typeof value.question !== "string" || typeof value.header !== "string") return []
-              const rawOptions = Array.isArray(value.options) ? value.options : []
-              return [
-                {
-                  custom: value.custom === true,
-                  header: value.header,
-                  multiple: value.multiple === true,
-                  options: rawOptions.flatMap((option, index) => {
-                    if (!option || typeof option !== "object") return []
-                    const optionValue = option as Record<string, unknown>
-                    if (typeof optionValue.label !== "string") return []
-                    return [
-                      {
-                        description:
-                          typeof optionValue.description === "string"
-                            ? optionValue.description
-                            : null,
-                        id: optionValue.label || String(index),
-                        label: optionValue.label,
-                      },
-                    ]
-                  }),
-                  question: value.question,
-                },
-              ]
-            })
-          : []
+        const questions = event?.type === "form.created" ? openCodeFormQuestions(form) : []
         const firstQuestion = questions[0]
         onEvent({
           interaction: {
@@ -1487,8 +1569,10 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
             kind: event.type === "permission.asked" ? "permission" : "question",
             message:
               event.type === "permission.asked"
-                ? `Allow ${String(properties.permission ?? "requested operation")}?`
-                : String(firstQuestion?.question ?? firstQuestion?.header ?? "Answer question"),
+                ? String(data.message ?? `Allow ${String(data.action ?? "requested operation")}?`)
+                : String(
+                    firstQuestion?.question ?? firstQuestion?.header ?? form.title ?? "Answer form"
+                  ),
             options:
               event.type === "permission.asked"
                 ? [
@@ -1497,13 +1581,15 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
                     { description: null, id: "deny", label: "Deny" },
                   ]
                 : (firstQuestion?.options ?? []),
-            ...(event.type === "question.asked" ? { questions } : {}),
+            ...(event.type === "form.created" ? { questions } : {}),
             title:
               event.type === "permission.asked"
-                ? String(properties.permission ?? "Permission")
+                ? String(data.action ?? "Permission")
                 : typeof firstQuestion?.header === "string"
                   ? firstQuestion.header
-                  : null,
+                  : typeof form.title === "string"
+                    ? form.title
+                    : null,
           },
           type: "interaction-requested",
         })
@@ -1511,10 +1597,10 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       }
       if (
         event?.type === "permission.replied" ||
-        event?.type === "question.replied" ||
-        event?.type === "question.rejected"
+        event?.type === "form.replied" ||
+        event?.type === "form.cancelled"
       ) {
-        const requestId = stringId(properties.requestID)
+        const requestId = stringId(data.requestID ?? data.id)
         if (requestId) {
           const interactionId = `harness:opencode:${requestId}`
           this.#reverse.delete(interactionId)
@@ -1522,11 +1608,16 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         }
         return
       }
-      if (event?.type === "session.idle") {
-        onEvent({ turnId: stringId(properties.messageID) ?? "active", type: "turn-completed" })
+      if (
+        event?.type === "session.idle" ||
+        event?.type === "session.execution.succeeded" ||
+        event?.type === "session.execution.failed" ||
+        event?.type === "session.execution.interrupted"
+      ) {
+        onEvent({ turnId: "active", type: "turn-completed" })
         return
       }
-      const item = mapHarnessItem(properties.part ?? properties.message, this.agentId)
+      const item = this.#mapOpenCodeEventItem(event, data)
       if (item) onEvent({ item: { item, harnessItemId: item.itemId }, type: "timeline" })
       return
     }
@@ -1549,11 +1640,64 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     return value.flatMap((message) => {
       if (!message || typeof message !== "object") return []
       const record = message as Record<string, unknown>
-      const parts = Array.isArray(record.parts) ? record.parts : []
-      return parts.flatMap((part) => {
-        const item = mapHarnessItem(part, this.agentId)
+      const parts = Array.isArray(record.content) ? record.content : [record]
+      return parts.flatMap((part, index) => {
+        const item = mapHarnessItem(
+          part && typeof part === "object"
+            ? { id: `${String(record.id ?? "message")}:${index}`, ...part }
+            : part,
+          this.agentId
+        )
         return item ? [{ item, harnessItemId: item.itemId }] : []
       })
     })
+  }
+
+  #mapOpenCodeEventItem(
+    event: Record<string, unknown>,
+    data: Record<string, unknown>
+  ): ThreadTimelineItem | undefined {
+    const type = String(event.type ?? "unknown")
+    const assistantMessageId =
+      stringId(data.assistantMessageID) ?? stringId(event.id) ?? randomUUID()
+    const ordinal = typeof data.ordinal === "number" ? data.ordinal : 0
+    if (type === "session.text.delta" || type === "session.text.ended") {
+      return {
+        harnessData: { agentId: this.agentId, nativeType: type, payload: event },
+        itemId: `${assistantMessageId}:text:${ordinal}`,
+        operation: type.endsWith(".delta") ? "append" : "replace",
+        role: "assistant",
+        text: String(type.endsWith(".delta") ? (data.delta ?? "") : (data.text ?? "")),
+        type: "message",
+      }
+    }
+    if (type === "session.reasoning.delta" || type === "session.reasoning.ended") {
+      return {
+        harnessData: { agentId: this.agentId, nativeType: type, payload: event },
+        itemId: `${assistantMessageId}:reasoning:${ordinal}`,
+        operation: type.endsWith(".delta") ? "append" : "replace",
+        text: String(type.endsWith(".delta") ? (data.delta ?? "") : (data.text ?? "")),
+        type: "reasoning",
+      }
+    }
+    if (type.startsWith("session.tool.")) {
+      return mapHarnessItem(
+        {
+          error: data.error,
+          id: data.id,
+          input: data.input ?? data.text,
+          name: data.name ?? "tool",
+          output: data.content,
+          status: type.endsWith(".failed")
+            ? "failed"
+            : type.endsWith(".success")
+              ? "completed"
+              : "running",
+          type: "tool",
+        },
+        this.agentId
+      )
+    }
+    return undefined
   }
 }

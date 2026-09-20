@@ -12,6 +12,7 @@ export type { ClientNotification } from "./ClientNotification.ts";
 export type { ClientRequest } from "./ClientRequest.ts";
 export type { CodexResponseHandoffMode } from "./CodexResponseHandoffMode.ts";
 export type { CollaborationMode } from "./CollaborationMode.ts";
+export type { ConfigurationReasoning } from "./ConfigurationReasoning.ts";
 export type { ContentItem } from "./ContentItem.ts";
 export type { ConversationGitInfo } from "./ConversationGitInfo.ts";
 export type { ConversationSummary } from "./ConversationSummary.ts";

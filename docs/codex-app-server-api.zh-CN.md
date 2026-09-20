@@ -2,13 +2,13 @@
 
 > 状态：生成的内部 adapter 参考；请勿手工编辑
 
-本文分析当前提交在 `packages/protocol/src/generated/codex` 下的自动生成协议。它是 Server adapter 的内部参考，不是公开 Cypheria client API。它覆盖启用实验定义后生成的完整 API：158 个客户端请求、11 个服务端反向请求、83 个服务端通知，以及 1 个客户端通知。
+本文分析当前提交在 `packages/protocol/src/generated/codex` 下的自动生成协议。它是 Server adapter 的内部参考，不是公开 Cypheria client API。它覆盖启用实验定义后生成的完整 API：167 个客户端请求、11 个服务端反向请求、84 个服务端通知，以及 1 个客户端通知。
 
 Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴露这套完整 API。Slash separator 转为 dot，camel-case segment 转为 snake case，并以 `.request`、`.response` 或 `.notification` 明确消息方向。每种 dotted message 都有从 generated JSON Schema 派生的专用 Zod schema，并在静态类型上与对应 generated Codex TypeScript type 配对。这些 message contract 从 `@cypheria/protocol` 导出，原始 generated Codex type 则隔离在 `@cypheria/protocol/codex-types`。
 
 协议采用 JSON-RPC 风格消息。客户端请求包含 `id`、`method` 和各方法专用的 `params`；服务端反向请求使用相同结构但方向相反；通知没有 `id`；成功响应包含 `id` 和 `result`；错误响应包含 `id` 和 `error`。下文顶层字段名后的 `?` 表示可选。字段列表前的生成类型名是嵌套结构和枚举值的最终依据。
 
-## 客户端请求（158）
+## 客户端请求（167）
 
 ### 初始化
 
@@ -17,6 +17,14 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 ### 服务器
 
 - `server/diagnostics` — 读取不含内容数据的进程级诊断信息。 入参: `ServerDiagnosticsParams`: `{}`. 出参: `ServerDiagnosticsResponse`: `gauges`, `process`.
+
+### userVerification
+
+- `userVerification/status` — 读取状态userVerification。 入参: `UserVerificationStatusParams`: `{}`. 出参: `UserVerificationStatusResponse`: `credentialId?`, `unavailableMessage?`, `unavailableReason?`.
+- `userVerification/enroll` — 执行 userVerification/enroll。 入参: `UserVerificationEnrollParams`: `{}`. 出参: `UserVerificationEnrollResponse`: `credentialId`.
+- `userVerification/delete` — 删除userVerification。 入参: `UserVerificationDeleteParams`: `{}`. 出参: `UserVerificationDeleteResponse`: `{}`.
+- `userVerification/verify` — 执行 userVerification/verify。 入参: `UserVerificationVerifyParams`: `challenge`, `description`, `title`. 出参: `UserVerificationVerifyResponse`: `proof`.
+- `userVerification/cancel` — 取消userVerification。 入参: `UserVerificationCancelParams`: `requestId`. 出参: `UserVerificationCancelResponse`: `{}`.
 
 ### 任务线程
 
@@ -38,7 +46,10 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 - `thread/queue/delete` — 删除任务线程的 queue。 入参: `ThreadQueueDeleteParams`: `queuedSubmissionId`, `threadId`. 出参: `ThreadQueueDeleteResponse`: `deleted`.
 - `thread/queue/reorder` — 重排任务线程的 queue。 入参: `ThreadQueueReorderParams`: `queuedSubmissionIds`, `threadId`. 出参: `ThreadQueueReorderResponse`: `{}`.
 - `thread/queue/start` — 启动任务线程的 queue。 入参: `ThreadQueueStartParams`: `queuedSubmissionId?`, `threadId`. 出参: `ThreadQueueStartResponse`: `turn`.
-- `thread/metadata/update` — 更新任务线程的 metadata。 入参: `ThreadMetadataUpdateParams`: `gitInfo?`, `projectId?`, `threadId`. 出参: `ThreadMetadataUpdateResponse`: `thread`.
+- `thread/metadata/update` — 更新任务线程的 metadata。 入参: `ThreadMetadataUpdateParams`: `daybreakEnabled?`, `gitInfo?`, `projectId?`, `threadId`. 出参: `ThreadMetadataUpdateResponse`: `thread`.
+- `thread/attachment/add` — 添加任务线程的 attachment。 入参: `ThreadAttachmentAddParams`: `attachmentType`, `identityKey`, `payload`, `threadId`. 出参: `ThreadAttachmentAddResponse`: `attachment`, `outcome`.
+- `thread/attachment/list` — 列出任务线程的 attachment。 入参: `ThreadAttachmentListParams`: `cursor?`, `limit?`, `threadId`. 出参: `ThreadAttachmentListResponse`: `data`, `nextCursor?`.
+- `thread/attachment/remove` — 移除任务线程的 attachment。 入参: `ThreadAttachmentRemoveParams`: `attachmentType`, `identityKey`, `threadId`. 出参: `ThreadAttachmentRemoveResponse`: `{}`.
 - `thread/section/move` — 移动任务线程的 section。 入参: `ThreadSectionMoveParams`: `beforeThreadId?`, `sectionId`, `threadId`. 出参: `ThreadSectionMoveResponse`: `{}`.
 - `thread/settings/update` — 更新任务线程的 settings。 入参: `ThreadSettingsUpdateParams`: `approvalPolicy?`, `approvalsReviewer?`, `collaborationMode?`, `cwd?`, `effort?`, `model?`, `multiAgentMode?`, `permissions?`, `personality?`, `sandboxPolicy?`, `serviceTier?`, `summary?`, `threadId`. 出参: `ThreadSettingsUpdateResponse`: `{}`.
 - `thread/memoryMode/set` — 设置任务线程的 memoryMode。 入参: `ThreadMemoryModeSetParams`: `mode`, `threadId`. 出参: `ThreadMemoryModeSetResponse`: `{}`.
@@ -51,7 +62,7 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 - `thread/backgroundTerminals/terminate` — 终止任务线程的 backgroundTerminals。 入参: `ThreadBackgroundTerminalsTerminateParams`: `processId`, `threadId`. 出参: `ThreadBackgroundTerminalsTerminateResponse`: `terminated`.
 - `thread/rollback` — 回滚任务线程。 入参: `ThreadRollbackParams`: `numTurns`, `threadId`. 出参: `ThreadRollbackResponse`: `thread`.
 - `thread/revert` — 还原任务线程。 入参: `ThreadRevertParams`: `beforeTurnId`, `threadId`. 出参: `ThreadRevertResponse`: `itemsBackwardsCursor?`, `thread`, `turnsBackwardsCursor?`.
-- `thread/list` — 列出任务线程。 入参: `ThreadListParams`: `ancestorThreadId?`, `archived?`, `cursor?`, `cwd?`, `limit?`, `modelProviders?`, `parentThreadId?`, `projectId?`, `searchTerm?`, `sectionId?`, `sortDirection?`, `sortKey?`, `sourceKinds?`, `useStateDbOnly?`. 出参: `ThreadListResponse`: `backwardsCursor?`, `data`, `nextCursor?`.
+- `thread/list` — 列出任务线程。 入参: `ThreadListParams`: `ancestorThreadId?`, `archived?`, `cursor?`, `cwd?`, `limit?`, `modelProviders?`, `originators?`, `parentThreadId?`, `projectId?`, `searchTerm?`, `sectionId?`, `sortDirection?`, `sortKey?`, `sourceKinds?`, `useStateDbOnly?`. 出参: `ThreadListResponse`: `backwardsCursor?`, `data`, `nextCursor?`.
 - `thread/search` — 搜索任务线程。 入参: `ThreadSearchParams`: `archived?`, `cursor?`, `limit?`, `searchTerm`, `sortDirection?`, `sortKey?`, `sourceKinds?`. 出参: `ThreadSearchResponse`: `backwardsCursor?`, `data`, `nextCursor?`.
 - `thread/searchOccurrences` — 搜索出现位置任务线程。 入参: `ThreadSearchOccurrencesParams`: `cursor?`, `limit?`, `searchTerm`, `threadId`. 出参: `ThreadSearchOccurrencesResponse`: `data`, `nextCursor?`.
 - `thread/loaded/list` — 列出任务线程的 loaded。 入参: `ThreadLoadedListParams`: `cursor?`, `limit?`. 出参: `ThreadLoadedListResponse`: `data`, `nextCursor?`.
@@ -69,6 +80,7 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 
 ### 记忆
 
+- `memory/status` — 读取状态记忆。 入参: `MemoryStatusParams`: `minConsolidatedThreads?`. 出参: `MemoryStatusResponse`: `v2ConsolidatedThreads`, `v2Ready`.
 - `memory/reset` — 重置记忆。 入参: `undefined`（省略 `params`）. 出参: `MemoryResetResponse`: `{}`.
 
 ### 项目
@@ -221,7 +233,7 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 - `account/bedrock/setup` — 配置账户的 bedrock。 入参: `BedrockSetupParams`: `profile`, `region`, `type`. 出参: `BedrockSetupResponse`: `{}`.
 - `account/login/cancel` — 取消账户的 login。 入参: `CancelLoginAccountParams`: `loginId`. 出参: `CancelLoginAccountResponse`: `status`.
 - `account/logout` — 执行 account/logout。 入参: `undefined`（省略 `params`）. 出参: `LogoutAccountResponse`: `{}`.
-- `account/rateLimits/read` — 读取账户的 rateLimits。 入参: `undefined`（省略 `params`）. 出参: `GetAccountRateLimitsResponse`: `accountId?`, `rateLimitResetCredits?`, `rateLimitUpsell?`, `rateLimits`, `rateLimitsByLimitId?`.
+- `account/rateLimits/read` — 读取账户的 rateLimits。 入参: `GetAccountRateLimitsParams`: `excludeResetCreditDetails?`, `supportsLunaReserve?`；`params` 本身可省略. 出参: `GetAccountRateLimitsResponse`: `accountId?`, `ordinaryUsageAllowed?`, `rateLimitResetCredits?`, `rateLimitUpsell?`, `rateLimits`, `rateLimitsByLimitId?`.
 - `account/rateLimitResetCredit/consume` — 消费账户的 rateLimitResetCredit。 入参: `ConsumeAccountRateLimitResetCreditParams`: `creditId?`, `idempotencyKey`. 出参: `ConsumeAccountRateLimitResetCreditResponse`: `outcome`.
 - `account/usage/read` — 读取账户的 usage。 入参: `GetAccountTokenUsageParams`: `threadId?`；`params` 本身可省略. 出参: `GetAccountTokenUsageResponse`: `dailyUsageBuckets?`, `summary`, `threadUsage?`.
 - `account/workspaceMessages/read` — 读取账户的 workspaceMessages。 入参: `undefined`（省略 `params`）. 出参: `GetWorkspaceMessagesResponse`: `featureEnabled`, `messages`.
@@ -230,7 +242,7 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 
 ### 反馈
 
-- `feedback/upload` — 执行 feedback/upload。 入参: `FeedbackUploadParams`: `classification`, `extraLogFiles?`, `includeLogs?`, `reason?`, `tags?`, `threadId?`. 出参: `FeedbackUploadResponse`: `threadId`.
+- `feedback/upload` — 执行 feedback/upload。 入参: `FeedbackUploadParams`: `classification`, `extraLogFiles?`, `includeLogs?`, `reason?`, `tags?`, `threadId?`. 出参: `FeedbackUploadResponse`: `promptHash?`, `threadId`.
 
 ### 沙箱命令
 
@@ -306,7 +318,7 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 
 - `execCommandApproval` — 旧版命令执行审批请求。 入参: `ExecCommandApprovalParams`: `approvalId?`, `callId`, `command`, `conversationId`, `cwd`, `parsedCmd`, `reason?`. 出参: `ExecCommandApprovalResponse`: `decision`.
 
-## 服务端通知（83）
+## 服务端通知（84）
 
 ### error
 
@@ -322,6 +334,7 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 - `thread/closed` — 推送 `thread/closed` 事件。 载荷: `ThreadClosedNotification`: `threadId`.
 - `thread/reverted` — 推送 `thread/reverted` 事件。 载荷: `ThreadRevertedNotification`: `threadId`.
 - `thread/name/updated` — 推送 `thread/name/updated` 事件。 载荷: `ThreadNameUpdatedNotification`: `threadId`, `threadName?`.
+- `thread/attachment/updated` — 推送 `thread/attachment/updated` 事件。 载荷: `ThreadAttachmentUpdatedNotification`: `attachmentId`, `attachmentType`, `identityKey`, `operation`, `threadId`.
 - `thread/goal/updated` — 推送 `thread/goal/updated` 事件。 载荷: `ThreadGoalUpdatedNotification`: `goal`, `threadId`, `turnId?`.
 - `thread/goal/cleared` — 推送 `thread/goal/cleared` 事件。 载荷: `ThreadGoalClearedNotification`: `threadId`.
 - `thread/queue/changed` — 推送 `thread/queue/changed` 事件。 载荷: `ThreadQueueChangedNotification`: `threadId`.

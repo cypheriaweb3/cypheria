@@ -20,6 +20,7 @@ import {
   type AgentManagementClientMessage,
   type AgentOpenCodeClientMessage,
   type AgentOpenCodeServerMessage,
+  type AgentOpenCodeV2Operation,
   type AgentOperation,
   type AgentPiClientMessage,
   type AgentPiServerMessage,
@@ -41,6 +42,7 @@ import { AgentInstaller } from "./agent-installer.js"
 import { type ClaudePermissionHandler, ClaudeSessionRuntime } from "./claude-session-runtime.js"
 import { CodexRuntime } from "./codex-runtime.js"
 import { ManagedThreadAdapter } from "./managed-thread-adapter.js"
+import { NATIVE_AGENT_MANIFEST } from "./native-agent-manifest.js"
 import { OpenCodeRuntime } from "./opencode-runtime.js"
 import { PiSessionRuntime } from "./pi-session-runtime.js"
 import { AgentRegistryService } from "./registry-service.js"
@@ -106,57 +108,7 @@ export type AgentThreadCoordinator = {
   hasActiveThreads(agentId: AgentId): Promise<boolean>
 }
 
-const nativeCatalog: Record<
-  (typeof NATIVE_AGENT_IDS)[number],
-  {
-    description: string
-    icon: string | null
-    name: string
-    repository: string
-    runtimeScope: "thread" | "shared"
-    version: string
-    website: string
-  }
-> = {
-  claude: {
-    description:
-      "Claude Code is an agentic coding tool that reads codebases, edits files, runs commands, and integrates with development tools.",
-    icon: null,
-    name: "Claude Code",
-    repository: "https://github.com/anthropics/claude-code",
-    runtimeScope: "thread",
-    version: "2.1.274",
-    website: "https://code.claude.com/docs/en/overview",
-  },
-  codex: {
-    description: "Codex is a coding agent from OpenAI that runs locally on your computer.",
-    icon: null,
-    name: "Codex",
-    repository: "https://github.com/openai/codex",
-    runtimeScope: "shared",
-    version: "0.153.4",
-    website: "https://developers.openai.com/codex/",
-  },
-  opencode: {
-    description:
-      "OpenCode is an open source agent that helps you write code in your terminal, IDE, or desktop.",
-    icon: null,
-    name: "OpenCode",
-    repository: "https://github.com/anomalyco/opencode",
-    runtimeScope: "shared",
-    version: "1.18.30",
-    website: "https://opencode.ai",
-  },
-  pi: {
-    description: "Pi is a minimal agent harness that adapts to your workflows.",
-    icon: null,
-    name: "Pi",
-    repository: "https://github.com/earendil-works/pi",
-    runtimeScope: "thread",
-    version: "0.85.1",
-    website: "https://pi.dev",
-  },
-}
+const nativeCatalog = NATIVE_AGENT_MANIFEST
 
 export class AgentManager {
   readonly registry: AgentRegistryService
@@ -497,15 +449,14 @@ export class AgentManager {
   }
 
   async callOpenCode(
-    operation: string,
-    options: { body?: unknown; query?: Record<string, boolean | number | string | null> } = {}
+    operation: AgentOpenCodeV2Operation,
+    options: { body?: unknown } = {}
   ): Promise<{ data?: unknown; error?: unknown; ok: boolean; status: number }> {
     await this.#assertCallable("opencode")
     if (!this.#openCode.running) await this.startAgent("opencode", "harness-settings")
     return this.#openCode.call({
       body: options.body as never,
       operation,
-      query: options.query,
     })
   }
 
@@ -726,17 +677,13 @@ export class AgentManager {
     const entry = isRegistryAgentId(agentId) ? this.registry.get(agentId) : undefined
     const catalog = native ?? entry
     if (!catalog) throw this.#error("AGENT_NOT_FOUND", `Unknown agent: ${agentId}`)
-    const record = await this.#persistence.register(
-      agentId,
-      Boolean(native),
-      {
-        description: catalog.description,
-        icon: catalog.icon ?? null,
-        name: catalog.name,
-        repository: catalog.repository ?? null,
-        website: catalog.website ?? null,
-      }
-    )
+    const record = await this.#persistence.register(agentId, Boolean(native), {
+      description: catalog.description,
+      icon: catalog.icon ?? null,
+      name: catalog.name,
+      repository: catalog.repository ?? null,
+      website: catalog.website ?? null,
+    })
     this.#records.set(agentId, record)
     const view = await this.get(agentId, sessionId)
     this.#publish({ payload: view, type: "agent.updated.notification" })
@@ -748,11 +695,7 @@ export class AgentManager {
     if (!record) throw this.#error("AGENT_NOT_FOUND", `Unknown agent: ${agentId}`)
     const native = isNativeAgentId(agentId) ? nativeCatalog[agentId] : undefined
     const entry = isRegistryAgentId(agentId) ? this.registry.get(agentId) : undefined
-    const openCodeRelease = agentId === "opencode" ? this.registry.get("opencode") : undefined
-    const latestVersion =
-      agentId === "opencode"
-        ? (openCodeRelease?.version ?? native?.version ?? null)
-        : (native?.version ?? entry?.version ?? null)
+    const latestVersion = native?.cliVersion ?? entry?.version ?? null
     const version = record.version ?? latestVersion
     if (!version) throw this.#error("AGENT_VERSION_UNAVAILABLE", `${agentId} has no known version`)
     const running =
@@ -854,9 +797,8 @@ export class AgentManager {
       }
       progress("Preparing toolchains", 0.1)
       const entry = isRegistryAgentId(agentId) ? this.registry.get(agentId) : undefined
-      const installationEntry = agentId === "opencode" ? this.registry.get("opencode") : entry
       progress("Installing agent", 0.35)
-      const receipt = await this.#installer.install(agentId, installationEntry)
+      const receipt = await this.#installer.install(agentId, entry)
       progress("Committing installation", 0.85)
       const native = isNativeAgentId(agentId) ? nativeCatalog[agentId] : undefined
       const updated = await this.#persistence.setVersion(agentId, {
@@ -967,7 +909,7 @@ export class AgentManager {
   }
 
   async #pumpOpenCodeEvents(
-    stream: "event" | "global.event",
+    stream: "event",
     subscriptionId: string,
     key: string,
     controller: AbortController,

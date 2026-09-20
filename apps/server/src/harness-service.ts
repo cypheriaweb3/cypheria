@@ -387,31 +387,37 @@ export class HarnessService {
       }
     }
     if (agentId === "opencode") {
-      const [authResult, providersResult] = await Promise.all([
-        this.#agents.callOpenCode("GET /provider/auth"),
-        this.#agents.callOpenCode("GET /provider"),
-      ])
+      const authResult = await this.#agents.callOpenCode("integration.list")
       if (!authResult.ok) throw new Error(`OpenCode auth discovery failed (${authResult.status})`)
-      if (!providersResult.ok) {
-        throw new Error(`OpenCode provider discovery failed (${providersResult.status})`)
-      }
-      const methods = authResult.data as Record<
-        string,
-        Array<{ label: string; type: "api" | "oauth" }>
-      >
-      const providerData = providersResult.data as { connected?: string[] }
+      const integrations = ((authResult.data as { data?: unknown[] })?.data ?? []) as Array<{
+        connections: Array<{ id?: string; type: "credential" | "env" }>
+        id: string
+        methods: Array<{
+          id?: string
+          label?: string
+          type: "command" | "env" | "key" | "oauth"
+        }>
+        name: string
+      }>
+      const connected = integrations.filter((integration) => integration.connections.length > 0)
       return {
         agentId,
-        authMethods: Object.entries(methods).flatMap(([providerId, providerMethods]) =>
-          providerMethods.map((method, index) => ({
-            description: null,
-            id: `provider:${providerId}:${index}:${method.type}`,
-            input: method.type === "api" ? ("secret" as const) : ("none" as const),
-            label: `${providerId} — ${method.label}`,
-          }))
+        authMethods: integrations.flatMap((integration) =>
+          integration.methods.flatMap((method) =>
+            method.type === "key" || (method.type === "oauth" && method.id)
+              ? [
+                  {
+                    description: null,
+                    id: `integration:${encodeURIComponent(integration.id)}:${method.type}:${encodeURIComponent(method.id ?? "key")}`,
+                    input: method.type === "key" ? ("secret" as const) : ("none" as const),
+                    label: `${integration.name} — ${method.label ?? (method.type === "key" ? "API key" : "OAuth")}`,
+                  },
+                ]
+              : []
+          )
         ),
-        connected: Boolean(providerData.connected?.length),
-        detail: providerData.connected?.join(", ") ?? null,
+        connected: connected.length > 0,
+        detail: connected.map((integration) => integration.name).join(", ") || null,
         logoutSupported: true,
       }
     }
@@ -477,37 +483,38 @@ export class HarnessService {
       return this.#startPiOAuth(match[1])
     }
     if (agentId === "opencode") {
-      const match = /^provider:([^:]+):(\d+):(api|oauth)$/u.exec(methodId)
+      const match = /^integration:([^:]+):(key|oauth):([^:]+)$/u.exec(methodId)
       if (!match) throw new Error(`Invalid OpenCode authentication method: ${methodId}`)
-      const [, providerId, methodIndex, type] = match
-      if (!providerId || methodIndex === undefined || !type) {
+      const [, encodedIntegrationId, type, encodedMethodId] = match
+      if (!encodedIntegrationId || !type || !encodedMethodId) {
         throw new Error(`Invalid OpenCode authentication method: ${methodId}`)
       }
-      if (type === "api") {
+      const integrationId = decodeURIComponent(encodedIntegrationId)
+      const method = decodeURIComponent(encodedMethodId)
+      if (type === "key") {
         if (!secret) throw new Error("An API key is required")
-        const result = await this.#agents.callOpenCode(
-          `PUT /auth/${encodeURIComponent(providerId)}`,
-          { body: { key: secret, type: "api" } }
-        )
+        const result = await this.#agents.callOpenCode("integration.connect.key", {
+          body: { integrationID: integrationId, key: secret },
+        })
         if (!result.ok) throw new Error(`OpenCode authentication failed (${result.status})`)
         this.catalog.invalidate(agentId)
         return { state: "completed" as const }
       }
-      const result = await this.#agents.callOpenCode(
-        `POST /provider/${encodeURIComponent(providerId)}/oauth/authorize`,
-        { body: { method: Number(methodIndex) } }
-      )
+      const result = await this.#agents.callOpenCode("integration.oauth.connect", {
+        body: { integrationID: integrationId, methodID: method },
+      })
       if (!result.ok) throw new Error(`OpenCode OAuth failed (${result.status})`)
-      const authorization = result.data as {
+      const authorization = (result.data as { data?: unknown })?.data as {
+        attemptID: string
         instructions?: string
-        method?: "auto" | "code"
+        mode?: "auto" | "code"
         url?: string
       } | null
       if (!authorization) return { state: "completed" as const }
       return {
         externalUrl: authorization.url ?? null,
-        flowId: `opencode:${providerId}:${methodIndex}`,
-        input: authorization.method === "code" ? ("text" as const) : ("none" as const),
+        flowId: `opencode:${encodeURIComponent(integrationId)}:${encodeURIComponent(authorization.attemptID)}`,
+        input: authorization.mode === "code" ? ("text" as const) : ("none" as const),
         message: authorization.instructions ?? "Complete provider sign in.",
         state: "pending" as const,
       }
@@ -570,6 +577,17 @@ export class HarnessService {
       this.#piAuthFlows.delete(flowId)
       return { cancelled: true }
     }
+    if (agentId === "opencode") {
+      const match = /^opencode:([^:]+):([^:]+)$/u.exec(flowId)
+      if (!match?.[1] || !match[2]) return { cancelled: false }
+      const result = await this.#agents.callOpenCode("integration.oauth.cancel", {
+        body: {
+          attemptID: decodeURIComponent(match[2]),
+          integrationID: decodeURIComponent(match[1]),
+        },
+      })
+      return { cancelled: result.ok }
+    }
     if (agentId !== "codex") return { cancelled: false }
     const result = await this.#codex.call<{ status: string }>("account/login/cancel", {
       loginId: flowId,
@@ -587,12 +605,15 @@ export class HarnessService {
       return this.#nextPiEvent(flowId, flow)
     }
     if (agentId !== "opencode") throw new Error(`${agentId} does not accept this response`)
-    const match = /^opencode:([^:]+):(\d+)$/u.exec(flowId)
-    if (!match?.[1] || match[2] === undefined) throw new Error("Invalid OpenCode OAuth flow")
-    const result = await this.#agents.callOpenCode(
-      `POST /provider/${encodeURIComponent(match[1])}/oauth/callback`,
-      { body: { code: response, method: Number(match[2]) } }
-    )
+    const match = /^opencode:([^:]+):([^:]+)$/u.exec(flowId)
+    if (!match?.[1] || !match[2]) throw new Error("Invalid OpenCode OAuth flow")
+    const result = await this.#agents.callOpenCode("integration.oauth.complete", {
+      body: {
+        attemptID: decodeURIComponent(match[2]),
+        code: response,
+        integrationID: decodeURIComponent(match[1]),
+      },
+    })
     if (!result.ok) throw new Error(`OpenCode OAuth callback failed (${result.status})`)
     this.catalog.invalidate(agentId)
     return { state: "completed" as const }
@@ -600,15 +621,22 @@ export class HarnessService {
 
   async #logout(agentId: AgentId): Promise<void> {
     if (agentId === "opencode") {
-      const providers = await this.#agents.callOpenCode("GET /provider")
-      if (!providers.ok) throw new Error(`OpenCode provider discovery failed (${providers.status})`)
-      const connected = (providers.data as { connected?: string[] }).connected ?? []
+      const result = await this.#agents.callOpenCode("integration.list")
+      if (!result.ok) throw new Error(`OpenCode integration discovery failed (${result.status})`)
+      const integrations = ((result.data as { data?: unknown[] })?.data ?? []) as Array<{
+        connections: Array<{ id?: string; type: "credential" | "env" }>
+      }>
+      const credentialIds = integrations.flatMap((integration) =>
+        integration.connections.flatMap((connection) =>
+          connection.type === "credential" && connection.id ? [connection.id] : []
+        )
+      )
       await Promise.all(
-        connected.map(async (providerId) => {
-          const result = await this.#agents.callOpenCode(
-            `DELETE /auth/${encodeURIComponent(providerId)}`
-          )
-          if (!result.ok) throw new Error(`OpenCode logout failed (${result.status})`)
+        credentialIds.map(async (credentialID) => {
+          const removed = await this.#agents.callOpenCode("credential.remove", {
+            body: { credentialID },
+          })
+          if (!removed.ok) throw new Error(`OpenCode logout failed (${removed.status})`)
         })
       )
     } else if (agentId === "pi") {
@@ -754,69 +782,67 @@ export class HarnessService {
       }
     }
     if (agentId === "opencode") {
-      const [result, agentResult] = await Promise.all([
-        this.#agents.callOpenCode("GET /provider"),
-        this.#agents.callOpenCode("GET /agent"),
+      const [modelResult, defaultResult, providerResult, agentResult] = await Promise.all([
+        this.#agents.callOpenCode("model.list"),
+        this.#agents.callOpenCode("model.default"),
+        this.#agents.callOpenCode("provider.list"),
+        this.#agents.callOpenCode("agent.list"),
       ])
-      if (!result.ok) throw new Error(`OpenCode provider discovery failed (${result.status})`)
+      if (!modelResult.ok)
+        throw new Error(`OpenCode model discovery failed (${modelResult.status})`)
+      if (!defaultResult.ok)
+        throw new Error(`OpenCode default model discovery failed (${defaultResult.status})`)
+      if (!providerResult.ok)
+        throw new Error(`OpenCode provider discovery failed (${providerResult.status})`)
       if (!agentResult.ok)
         throw new Error(`OpenCode agent discovery failed (${agentResult.status})`)
-      const providers = result.data as {
-        all?: Array<{
-          id: string
-          models: Record<
-            string,
-            {
-              id: string
-              limit?: { context?: number }
-              name: string
-              reasoning?: boolean
-              status?: string
-              variants?: Record<string, { disabled?: boolean }>
-            }
-          >
-          name: string
-        }>
-        default?: Record<string, string>
-      }
-      const agents = agentResult.data as Array<{
+      const models = ((modelResult.data as { data?: unknown[] })?.data ?? []) as Array<{
+        capabilities: { output?: string[] }
+        enabled: boolean
+        id: string
+        limit: { context: number }
+        modelID: string
+        name: string
+        providerID: string
+        status: "active" | "alpha" | "beta" | "deprecated"
+        variants: Array<{ id: string }>
+      }>
+      const defaultModel = (defaultResult.data as { data?: { id?: string } | null })?.data
+      const providers = ((providerResult.data as { data?: unknown[] })?.data ?? []) as Array<{
+        id: string
+        name: string
+      }>
+      const agents = ((agentResult.data as { data?: unknown[] })?.data ?? []) as Array<{
         description?: string
         hidden?: boolean
+        id: string
         mode: "all" | "primary" | "subagent"
         name: string
       }>
-      const modelOptions = (providers.all ?? []).flatMap((provider) =>
-        Object.values(provider.models).map((model) =>
-          option(`${provider.id}/${model.id}`, model.name)
-        )
+      const modelOptions = models.map((model) =>
+        option(`${model.providerID}/${model.modelID}`, model.name)
       )
       const variantOptions = [
-        ...new Set(
-          (providers.all ?? []).flatMap((provider) =>
-            Object.values(provider.models).flatMap((model) =>
-              Object.entries(model.variants ?? {}).flatMap(([id, variant]) =>
-                variant.disabled ? [] : [id]
-              )
-            )
-          )
-        ),
+        ...new Set(models.flatMap((model) => model.variants.map((variant) => variant.id))),
       ].map((id) => option(id))
       return {
-        models: (providers.all ?? []).flatMap((provider) =>
-          Object.values(provider.models).map((model) => ({
+        models: models.map((model) => {
+          const provider = providers.find((candidate) => candidate.id === model.providerID)
+          const reasoning = model.capabilities.output?.includes("reasoning") ?? false
+          return {
             agentId,
             aliases: [],
-            contextWindowMaxTokens: model.limit?.context ?? null,
+            contextWindowMaxTokens: model.limit.context,
             defaultThinkingOptionId: null,
             description: null,
-            id: `${provider.id}/${model.id}`,
-            isDefault: providers.default?.[provider.id] === model.id,
-            isSelectable: model.status !== "deprecated",
+            id: `${model.providerID}/${model.modelID}`,
+            isDefault: defaultModel?.id === model.id,
+            isSelectable: model.enabled && model.status !== "deprecated",
             label: model.name,
-            metadata: { status: model.status ?? "active" },
-            providerId: provider.id,
-            providerLabel: provider.name,
-            thinkingOptions: model.reasoning
+            metadata: { status: model.status },
+            providerId: model.providerID,
+            providerLabel: provider?.name ?? model.providerID,
+            thinkingOptions: reasoning
               ? [
                   {
                     description: null,
@@ -826,8 +852,8 @@ export class HarnessService {
                   },
                 ]
               : [],
-          }))
-        ),
+          }
+        }),
         settingSections: genericSections(agentId, defaults).map((entry) => ({
           ...entry,
           settings: entry.settings.map((setting) => {
@@ -839,7 +865,7 @@ export class HarnessService {
                 ...setting,
                 options: agents
                   .filter((agent) => !agent.hidden)
-                  .map((agent) => option(agent.name, agent.name, agent.description ?? null)),
+                  .map((agent) => option(agent.id, agent.name, agent.description ?? null)),
               }
             }
             if (setting.id === "mode") {

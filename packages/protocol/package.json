@@ -36,12 +36,12 @@
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "1.4.0",
-    "@anthropic-ai/claude-agent-sdk": "0.3.270",
+    "@anthropic-ai/claude-agent-sdk": "0.3.278",
     "@cypheria/web3": "workspace:*",
-    "@earendil-works/pi-agent-core": "0.85.1",
-    "@earendil-works/pi-ai": "0.85.1",
-    "@earendil-works/pi-coding-agent": "0.85.1",
-    "@opencode-ai/sdk": "1.18.31",
+    "@earendil-works/pi-agent-core": "0.86.0",
+    "@earendil-works/pi-ai": "0.86.0",
+    "@earendil-works/pi-coding-agent": "0.86.0",
+    "@opencode/client": "2.0.11",
     "cbor2": "^2.3.0",
     "zod": "^4.6.2"
   },

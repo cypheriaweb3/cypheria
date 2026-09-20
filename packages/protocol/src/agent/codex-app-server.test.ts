@@ -37,21 +37,21 @@ import {
 
 describe("agent.codex protocol", () => {
   it("covers the complete generated Codex App Server API surface", () => {
-    expect(Object.keys(AGENT_CODEX_CLIENT_RPC)).toHaveLength(158)
+    expect(Object.keys(AGENT_CODEX_CLIENT_RPC)).toHaveLength(167)
     expect(Object.keys(AGENT_CODEX_SERVER_RPC)).toHaveLength(11)
-    expect(Object.keys(AGENT_CODEX_SERVER_NOTIFICATIONS)).toHaveLength(83)
+    expect(Object.keys(AGENT_CODEX_SERVER_NOTIFICATIONS)).toHaveLength(84)
     expect(Object.keys(AGENT_CODEX_CLIENT_NOTIFICATIONS)).toHaveLength(1)
 
-    expect(new Set(AGENT_CODEX_CLIENT_REQUEST_TYPES).size).toBe(158)
-    expect(new Set(AGENT_CODEX_CLIENT_RESPONSE_TYPES).size).toBe(158)
+    expect(new Set(AGENT_CODEX_CLIENT_REQUEST_TYPES).size).toBe(167)
+    expect(new Set(AGENT_CODEX_CLIENT_RESPONSE_TYPES).size).toBe(167)
     expect(new Set(AGENT_CODEX_SERVER_REQUEST_TYPES).size).toBe(11)
     expect(new Set(AGENT_CODEX_SERVER_RESPONSE_TYPES).size).toBe(11)
-    expect(new Set(AGENT_CODEX_SERVER_NOTIFICATION_TYPES).size).toBe(83)
-    expect(Object.keys(AGENT_CODEX_CLIENT_REQUEST_SCHEMAS)).toHaveLength(158)
-    expect(Object.keys(AGENT_CODEX_CLIENT_RESPONSE_SCHEMAS)).toHaveLength(158)
+    expect(new Set(AGENT_CODEX_SERVER_NOTIFICATION_TYPES).size).toBe(84)
+    expect(Object.keys(AGENT_CODEX_CLIENT_REQUEST_SCHEMAS)).toHaveLength(167)
+    expect(Object.keys(AGENT_CODEX_CLIENT_RESPONSE_SCHEMAS)).toHaveLength(167)
     expect(Object.keys(AGENT_CODEX_SERVER_REQUEST_SCHEMAS)).toHaveLength(11)
     expect(Object.keys(AGENT_CODEX_SERVER_RESPONSE_SCHEMAS)).toHaveLength(11)
-    expect(Object.keys(AGENT_CODEX_SERVER_NOTIFICATION_SCHEMAS)).toHaveLength(83)
+    expect(Object.keys(AGENT_CODEX_SERVER_NOTIFICATION_SCHEMAS)).toHaveLength(84)
     expect(Object.keys(AGENT_CODEX_CLIENT_NOTIFICATION_SCHEMAS)).toHaveLength(1)
   })
 

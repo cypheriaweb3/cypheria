@@ -7,6 +7,11 @@ import type { ApplyPatchApprovalResponse, ExecCommandApprovalResponse, FuzzyFile
 export type CodexClientResponseMap = {
   readonly "initialize": InitializeResponse
   readonly "server/diagnostics": v2.ServerDiagnosticsResponse
+  readonly "userVerification/status": v2.UserVerificationStatusResponse
+  readonly "userVerification/enroll": v2.UserVerificationEnrollResponse
+  readonly "userVerification/delete": v2.UserVerificationDeleteResponse
+  readonly "userVerification/verify": v2.UserVerificationVerifyResponse
+  readonly "userVerification/cancel": v2.UserVerificationCancelResponse
   readonly "thread/start": v2.ThreadStartResponse
   readonly "thread/resume": v2.ThreadResumeResponse
   readonly "thread/fork": v2.ThreadForkResponse
@@ -26,9 +31,13 @@ export type CodexClientResponseMap = {
   readonly "thread/queue/reorder": v2.ThreadQueueReorderResponse
   readonly "thread/queue/start": v2.ThreadQueueStartResponse
   readonly "thread/metadata/update": v2.ThreadMetadataUpdateResponse
+  readonly "thread/attachment/add": v2.ThreadAttachmentAddResponse
+  readonly "thread/attachment/list": v2.ThreadAttachmentListResponse
+  readonly "thread/attachment/remove": v2.ThreadAttachmentRemoveResponse
   readonly "thread/section/move": v2.ThreadSectionMoveResponse
   readonly "thread/settings/update": v2.ThreadSettingsUpdateResponse
   readonly "thread/memoryMode/set": v2.ThreadMemoryModeSetResponse
+  readonly "memory/status": v2.MemoryStatusResponse
   readonly "memory/reset": v2.MemoryResetResponse
   readonly "thread/unarchive": v2.ThreadUnarchiveResponse
   readonly "thread/compact/start": v2.ThreadCompactStartResponse

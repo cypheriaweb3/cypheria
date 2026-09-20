@@ -1,6 +1,6 @@
 import type {
-  AgentId,
   AgentCatalogEntry,
+  AgentId,
   AgentOperation,
   AgentRegistrySyncState,
   AgentView,
@@ -89,9 +89,7 @@ export const createAgentManagementActions = (client: ServerClient): AgentManagem
       agents: AgentView[]
       availableAgents: AgentCatalogEntry[]
       registry: AgentRegistrySyncState
-    }>(
-      (await client.requestAgentManagement("agent.list.request", undefined, options)).payload
-    ),
+    }>((await client.requestAgentManagement("agent.list.request", undefined, options)).payload),
   listOperations: async (options) =>
     unwrap<{ operations: AgentOperation[] }>(
       (await client.requestAgentManagement("agent.operation.list.request", undefined, options))

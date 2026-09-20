@@ -2,13 +2,13 @@
 
 > Status: Generated internal adapter reference; do not edit manually
 
-This document analyzes the generated protocol currently committed under `packages/protocol/src/generated/codex`. It is an internal Server-adapter reference, not the public Cypheria client API. It covers the complete API surface generated with experimental definitions enabled: 158 client requests, 11 server-initiated requests, 83 server notifications, and one client notification.
+This document analyzes the generated protocol currently committed under `packages/protocol/src/generated/codex`. It is an internal Server-adapter reference, not the public Cypheria client API. It covers the complete API surface generated with experimental definitions enabled: 167 client requests, 11 server-initiated requests, 84 server notifications, and one client notification.
 
 The Cypheria client protocol exposes this complete surface with mechanically generated dotted names under `agent.codex`. Slash separators become dots, camel-case segments become snake case, and the message direction is explicit: `.request`, `.response`, or `.notification`. Every dotted message has a method-specific Zod schema derived from the generated JSON Schema and statically paired with the matching generated Codex TypeScript type. These message contracts are exported from `@cypheria/protocol`, while raw generated Codex types are isolated behind `@cypheria/protocol/codex-types`.
 
 The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method`, and method-specific `params`; server requests use the same shape in the reverse direction; notifications have no `id`; successful responses contain `id` and `result`; errors contain `id` and `error`. A trailing `?` below marks an optional top-level field. The generated type named before each field list is the source of truth for nested structures and enum values.
 
-## Client requests (158)
+## Client requests (167)
 
 ### Initialization
 
@@ -17,6 +17,14 @@ The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method
 ### Server
 
 - `server/diagnostics` — Read process-local diagnostics without content data. Input: `ServerDiagnosticsParams`: `{}`. Output: `ServerDiagnosticsResponse`: `gauges`, `process`.
+
+### userVerification
+
+- `userVerification/status` — Read status for userVerification. Input: `UserVerificationStatusParams`: `{}`. Output: `UserVerificationStatusResponse`: `credentialId?`, `unavailableMessage?`, `unavailableReason?`.
+- `userVerification/enroll` — Perform userVerification/enroll. Input: `UserVerificationEnrollParams`: `{}`. Output: `UserVerificationEnrollResponse`: `credentialId`.
+- `userVerification/delete` — Delete userVerification. Input: `UserVerificationDeleteParams`: `{}`. Output: `UserVerificationDeleteResponse`: `{}`.
+- `userVerification/verify` — Perform userVerification/verify. Input: `UserVerificationVerifyParams`: `challenge`, `description`, `title`. Output: `UserVerificationVerifyResponse`: `proof`.
+- `userVerification/cancel` — Cancel userVerification. Input: `UserVerificationCancelParams`: `requestId`. Output: `UserVerificationCancelResponse`: `{}`.
 
 ### Thread
 
@@ -38,7 +46,10 @@ The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method
 - `thread/queue/delete` — Delete thread queue. Input: `ThreadQueueDeleteParams`: `queuedSubmissionId`, `threadId`. Output: `ThreadQueueDeleteResponse`: `deleted`.
 - `thread/queue/reorder` — Reorder thread queue. Input: `ThreadQueueReorderParams`: `queuedSubmissionIds`, `threadId`. Output: `ThreadQueueReorderResponse`: `{}`.
 - `thread/queue/start` — Start thread queue. Input: `ThreadQueueStartParams`: `queuedSubmissionId?`, `threadId`. Output: `ThreadQueueStartResponse`: `turn`.
-- `thread/metadata/update` — Update thread metadata. Input: `ThreadMetadataUpdateParams`: `gitInfo?`, `projectId?`, `threadId`. Output: `ThreadMetadataUpdateResponse`: `thread`.
+- `thread/metadata/update` — Update thread metadata. Input: `ThreadMetadataUpdateParams`: `daybreakEnabled?`, `gitInfo?`, `projectId?`, `threadId`. Output: `ThreadMetadataUpdateResponse`: `thread`.
+- `thread/attachment/add` — Add thread attachment. Input: `ThreadAttachmentAddParams`: `attachmentType`, `identityKey`, `payload`, `threadId`. Output: `ThreadAttachmentAddResponse`: `attachment`, `outcome`.
+- `thread/attachment/list` — List thread attachment. Input: `ThreadAttachmentListParams`: `cursor?`, `limit?`, `threadId`. Output: `ThreadAttachmentListResponse`: `data`, `nextCursor?`.
+- `thread/attachment/remove` — Remove thread attachment. Input: `ThreadAttachmentRemoveParams`: `attachmentType`, `identityKey`, `threadId`. Output: `ThreadAttachmentRemoveResponse`: `{}`.
 - `thread/section/move` — Move thread section. Input: `ThreadSectionMoveParams`: `beforeThreadId?`, `sectionId`, `threadId`. Output: `ThreadSectionMoveResponse`: `{}`.
 - `thread/settings/update` — Update thread settings. Input: `ThreadSettingsUpdateParams`: `approvalPolicy?`, `approvalsReviewer?`, `collaborationMode?`, `cwd?`, `effort?`, `model?`, `multiAgentMode?`, `permissions?`, `personality?`, `sandboxPolicy?`, `serviceTier?`, `summary?`, `threadId`. Output: `ThreadSettingsUpdateResponse`: `{}`.
 - `thread/memoryMode/set` — Set thread memoryMode. Input: `ThreadMemoryModeSetParams`: `mode`, `threadId`. Output: `ThreadMemoryModeSetResponse`: `{}`.
@@ -51,7 +62,7 @@ The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method
 - `thread/backgroundTerminals/terminate` — Terminate thread backgroundTerminals. Input: `ThreadBackgroundTerminalsTerminateParams`: `processId`, `threadId`. Output: `ThreadBackgroundTerminalsTerminateResponse`: `terminated`.
 - `thread/rollback` — Roll back thread. Input: `ThreadRollbackParams`: `numTurns`, `threadId`. Output: `ThreadRollbackResponse`: `thread`.
 - `thread/revert` — Revert thread. Input: `ThreadRevertParams`: `beforeTurnId`, `threadId`. Output: `ThreadRevertResponse`: `itemsBackwardsCursor?`, `thread`, `turnsBackwardsCursor?`.
-- `thread/list` — List thread. Input: `ThreadListParams`: `ancestorThreadId?`, `archived?`, `cursor?`, `cwd?`, `limit?`, `modelProviders?`, `parentThreadId?`, `projectId?`, `searchTerm?`, `sectionId?`, `sortDirection?`, `sortKey?`, `sourceKinds?`, `useStateDbOnly?`. Output: `ThreadListResponse`: `backwardsCursor?`, `data`, `nextCursor?`.
+- `thread/list` — List thread. Input: `ThreadListParams`: `ancestorThreadId?`, `archived?`, `cursor?`, `cwd?`, `limit?`, `modelProviders?`, `originators?`, `parentThreadId?`, `projectId?`, `searchTerm?`, `sectionId?`, `sortDirection?`, `sortKey?`, `sourceKinds?`, `useStateDbOnly?`. Output: `ThreadListResponse`: `backwardsCursor?`, `data`, `nextCursor?`.
 - `thread/search` — Search thread. Input: `ThreadSearchParams`: `archived?`, `cursor?`, `limit?`, `searchTerm`, `sortDirection?`, `sortKey?`, `sourceKinds?`. Output: `ThreadSearchResponse`: `backwardsCursor?`, `data`, `nextCursor?`.
 - `thread/searchOccurrences` — Search occurrences in thread. Input: `ThreadSearchOccurrencesParams`: `cursor?`, `limit?`, `searchTerm`, `threadId`. Output: `ThreadSearchOccurrencesResponse`: `data`, `nextCursor?`.
 - `thread/loaded/list` — List thread loaded. Input: `ThreadLoadedListParams`: `cursor?`, `limit?`. Output: `ThreadLoadedListResponse`: `data`, `nextCursor?`.
@@ -69,6 +80,7 @@ The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method
 
 ### Memory
 
+- `memory/status` — Read status for memory. Input: `MemoryStatusParams`: `minConsolidatedThreads?`. Output: `MemoryStatusResponse`: `v2ConsolidatedThreads`, `v2Ready`.
 - `memory/reset` — Reset memory. Input: `undefined` (omit `params`). Output: `MemoryResetResponse`: `{}`.
 
 ### Project
@@ -221,7 +233,7 @@ The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method
 - `account/bedrock/setup` — Set up account bedrock. Input: `BedrockSetupParams`: `profile`, `region`, `type`. Output: `BedrockSetupResponse`: `{}`.
 - `account/login/cancel` — Cancel account login. Input: `CancelLoginAccountParams`: `loginId`. Output: `CancelLoginAccountResponse`: `status`.
 - `account/logout` — Perform account/logout. Input: `undefined` (omit `params`). Output: `LogoutAccountResponse`: `{}`.
-- `account/rateLimits/read` — Read account rateLimits. Input: `undefined` (omit `params`). Output: `GetAccountRateLimitsResponse`: `accountId?`, `rateLimitResetCredits?`, `rateLimitUpsell?`, `rateLimits`, `rateLimitsByLimitId?`.
+- `account/rateLimits/read` — Read account rateLimits. Input: `GetAccountRateLimitsParams`: `excludeResetCreditDetails?`, `supportsLunaReserve?`; `params` itself is optional. Output: `GetAccountRateLimitsResponse`: `accountId?`, `ordinaryUsageAllowed?`, `rateLimitResetCredits?`, `rateLimitUpsell?`, `rateLimits`, `rateLimitsByLimitId?`.
 - `account/rateLimitResetCredit/consume` — Consume account rateLimitResetCredit. Input: `ConsumeAccountRateLimitResetCreditParams`: `creditId?`, `idempotencyKey`. Output: `ConsumeAccountRateLimitResetCreditResponse`: `outcome`.
 - `account/usage/read` — Read account usage. Input: `GetAccountTokenUsageParams`: `threadId?`; `params` itself is optional. Output: `GetAccountTokenUsageResponse`: `dailyUsageBuckets?`, `summary`, `threadUsage?`.
 - `account/workspaceMessages/read` — Read account workspaceMessages. Input: `undefined` (omit `params`). Output: `GetWorkspaceMessagesResponse`: `featureEnabled`, `messages`.
@@ -230,7 +242,7 @@ The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method
 
 ### Feedback
 
-- `feedback/upload` — Perform feedback/upload. Input: `FeedbackUploadParams`: `classification`, `extraLogFiles?`, `includeLogs?`, `reason?`, `tags?`, `threadId?`. Output: `FeedbackUploadResponse`: `threadId`.
+- `feedback/upload` — Perform feedback/upload. Input: `FeedbackUploadParams`: `classification`, `extraLogFiles?`, `includeLogs?`, `reason?`, `tags?`, `threadId?`. Output: `FeedbackUploadResponse`: `promptHash?`, `threadId`.
 
 ### Sandboxed command
 
@@ -306,7 +318,7 @@ These are reverse RPC calls. The client must return the listed response rather t
 
 - `execCommandApproval` — Legacy request for command execution approval. Input: `ExecCommandApprovalParams`: `approvalId?`, `callId`, `command`, `conversationId`, `cwd`, `parsedCmd`, `reason?`. Output: `ExecCommandApprovalResponse`: `decision`.
 
-## Server notifications (83)
+## Server notifications (84)
 
 ### error
 
@@ -322,6 +334,7 @@ These are reverse RPC calls. The client must return the listed response rather t
 - `thread/closed` — Reports the `thread/closed` event. Payload: `ThreadClosedNotification`: `threadId`.
 - `thread/reverted` — Reports the `thread/reverted` event. Payload: `ThreadRevertedNotification`: `threadId`.
 - `thread/name/updated` — Reports the `thread/name/updated` event. Payload: `ThreadNameUpdatedNotification`: `threadId`, `threadName?`.
+- `thread/attachment/updated` — Reports the `thread/attachment/updated` event. Payload: `ThreadAttachmentUpdatedNotification`: `attachmentId`, `attachmentType`, `identityKey`, `operation`, `threadId`.
 - `thread/goal/updated` — Reports the `thread/goal/updated` event. Payload: `ThreadGoalUpdatedNotification`: `goal`, `threadId`, `turnId?`.
 - `thread/goal/cleared` — Reports the `thread/goal/cleared` event. Payload: `ThreadGoalClearedNotification`: `threadId`.
 - `thread/queue/changed` — Reports the `thread/queue/changed` event. Payload: `ThreadQueueChangedNotification`: `threadId`.

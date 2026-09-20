@@ -12,12 +12,12 @@ const removeTemporaryDirectory = (path: string) => rm(path, { force: true, recur
 const registry = {
   agents: [
     {
-      description: "The open source coding agent",
-      distribution: { npx: { package: "opencode-ai@1.18.30" } },
-      id: "opencode",
-      license_url: "https://github.com/anomalyco/opencode/blob/dev/LICENSE",
-      name: "OpenCode",
-      version: "1.18.30",
+      description: "Gemini CLI",
+      distribution: { npx: { package: "@google/gemini-cli@1.0.0" } },
+      id: "gemini",
+      license_url: "https://github.com/google-gemini/gemini-cli/blob/main/LICENSE",
+      name: "Gemini CLI",
+      version: "1.0.0",
     },
   ],
   extensions: [],
@@ -69,7 +69,7 @@ describe("AgentRegistryService", () => {
     })
     await service.start()
     expect(service.state).toMatchObject({ error: "offline", stale: true })
-    expect(service.get("opencode")?.version).toBe("1.18.30")
+    expect(service.get("gemini")?.version).toBe("1.0.0")
     service.stop()
   })
 })

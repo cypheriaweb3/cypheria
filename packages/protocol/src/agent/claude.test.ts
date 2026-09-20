@@ -26,7 +26,7 @@ const sortedUnique = (values: readonly string[]): string[] => [...new Set(values
 
 describe("agent.claude protocol", () => {
   it("pins and exhaustively classifies the installed SDK surface", () => {
-    expect(CLAUDE_AGENT_SDK_VERSION).toBe("0.3.270")
+    expect(CLAUDE_AGENT_SDK_VERSION).toBe("0.3.278")
 
     const sdkRpcMethods = Object.values(AGENT_CLAUDE_RPC)
       .filter(({ scope }) => scope === "sdk")

@@ -13,6 +13,7 @@ import extractZip from "extract-zip"
 import { extract as extractTar } from "tar"
 
 import { downloadBytes, sha256, writeJsonAtomic } from "./fs-utils.js"
+import { NATIVE_AGENT_MANIFEST } from "./native-agent-manifest.js"
 import type { ToolchainManager } from "./toolchain-manager.js"
 
 export type AgentInstallReceipt = {
@@ -26,12 +27,6 @@ export type AgentInstallReceipt = {
   kind: "binary" | "npx" | "uvx"
   source: string
   version: string
-}
-
-const NATIVE_NPM_PACKAGES: Partial<Record<AgentId, { package: string; version: string }>> = {
-  claude: { package: "@anthropic-ai/claude-code", version: "2.1.274" },
-  codex: { package: "@openai/codex", version: "0.153.4" },
-  pi: { package: "@earendil-works/pi-coding-agent", version: "0.85.1" },
 }
 
 const registryPlatform = (): AgentRegistryPlatform => {
@@ -111,9 +106,18 @@ export class AgentInstaller {
 
   async install(agentId: AgentId, entry?: AgentRegistryEntry): Promise<AgentInstallReceipt> {
     await mkdir(this.#agentsHome, { recursive: true })
-    const native = NATIVE_NPM_PACKAGES[agentId]
+    const native = Object.hasOwn(NATIVE_AGENT_MANIFEST, agentId)
+      ? NATIVE_AGENT_MANIFEST[agentId as keyof typeof NATIVE_AGENT_MANIFEST]
+      : undefined
     if (native)
-      return this.#installNpx(agentId, native.version, `${native.package}@${native.version}`)
+      return this.#installNpx(
+        agentId,
+        native.cliVersion,
+        `${native.cliPackage}@${native.cliVersion}`,
+        [],
+        undefined,
+        native.launcher
+      )
     if (!entry) throw new Error(`No installation descriptor is available for ${agentId}`)
     const binary = entry.distribution.binary?.[registryPlatform()]
     if (binary) return this.#installBinary(agentId, entry.version, binary)
@@ -178,7 +182,8 @@ export class AgentInstaller {
     version: string,
     packageSpec: string,
     args: readonly string[] = [],
-    environment?: Record<string, string>
+    environment?: Record<string, string>,
+    launcher: "executable" | "node" = "node"
   ): Promise<AgentInstallReceipt> {
     let node = this.#toolchains.executable("node")
     if (!node) {
@@ -225,10 +230,13 @@ export class AgentInstaller {
         source: packageSpec,
         version,
       }
-      receipt.args = [
-        join(destination, "node_modules", ...parsed.name.split("/"), bin),
-        ...receipt.args,
-      ]
+      const executable = join(destination, "node_modules", ...parsed.name.split("/"), bin)
+      if (launcher === "executable") {
+        if (platform() !== "win32") await chmod(executable, 0o755)
+        receipt.command = executable
+      } else {
+        receipt.args = [executable, ...receipt.args]
+      }
       await this.#activate(receipt)
       return receipt
     } catch (error) {

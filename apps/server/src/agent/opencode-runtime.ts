@@ -1,10 +1,11 @@
-import { type ChildProcess, spawn } from "node:child_process"
 import { createServer } from "node:net"
 import { join } from "node:path"
 import type { AgentOpenCodeCallRequest } from "@cypheria/protocol"
-import { createOpencodeClient, type OpencodeClient } from "@opencode-ai/sdk/client"
+import { OpenCode, type OpenCodeClient } from "@opencode/client"
+import { Service } from "@opencode/client/service"
 
 import type { AgentInstallReceipt } from "./agent-installer.js"
+import { readJsonFile, writeJsonAtomic } from "./fs-utils.js"
 import type { ToolchainManager } from "./toolchain-manager.js"
 
 const reservePort = async (): Promise<number> =>
@@ -26,8 +27,8 @@ export class OpenCodeRuntime {
   readonly #cypheriaHome: string
   readonly #toolchains: ToolchainManager
   #baseUrl: string | undefined
-  #client: OpencodeClient | undefined
-  #process: ChildProcess | undefined
+  #client: OpenCodeClient | undefined
+  #serviceFile: string | undefined
 
   constructor(options: { cypheriaHome: string; toolchains: ToolchainManager }) {
     this.#cypheriaHome = options.cypheriaHome
@@ -35,78 +36,66 @@ export class OpenCodeRuntime {
   }
 
   get running(): boolean {
-    return Boolean(this.#process && this.#baseUrl)
+    return Boolean(this.#serviceFile && this.#baseUrl)
   }
 
   async start(receipt: AgentInstallReceipt): Promise<void> {
     if (this.running) return
     const port = await reservePort()
-    const baseUrl = `http://127.0.0.1:${port}`
     const home = join(this.#cypheriaHome, "agents", "opencode", "home")
+    const serviceFile = join(home, "state", "opencode", "service.json")
+    const configPath = join(home, "config", "opencode", "opencode.json")
+    const existingConfig = await readJsonFile<Record<string, unknown>>(configPath)
+    await writeJsonAtomic(configPath, { ...existingConfig, update: "disable" })
     const env = this.#toolchains.environment({
       ...receipt.environment,
-      OPENCODE_DISABLE_AUTOUPDATE: "true",
-      OPENCODE_CONFIG_DIR: join(home, "config"),
       XDG_CACHE_HOME: join(home, "cache"),
       XDG_CONFIG_HOME: join(home, "config"),
       XDG_DATA_HOME: join(home, "data"),
+      XDG_STATE_HOME: join(home, "state"),
     })
-    const child = spawn(
-      receipt.command,
-      [
-        ...receipt.args.slice(0, receipt.kind === "npx" ? 1 : 0),
-        "serve",
-        "--hostname",
-        "127.0.0.1",
-        "--port",
-        String(port),
-      ],
-      { env, shell: false, stdio: ["ignore", "pipe", "pipe"], windowsHide: true }
-    )
-    this.#process = child
-    let stderr = ""
-    child.stderr?.on("data", (chunk: Buffer) => {
-      stderr = `${stderr}${chunk.toString("utf8")}`.slice(-16_384)
-    })
-    child.once("exit", () => {
-      if (this.#process === child) {
-        this.#process = undefined
-        this.#baseUrl = undefined
-        this.#client = undefined
-      }
-    })
-    this.#baseUrl = baseUrl
-    this.#client = createOpencodeClient({ baseUrl })
     try {
-      await this.#waitUntilReady(child)
+      const endpoint = await Service.ensure({
+        command: [
+          receipt.command,
+          ...receipt.args,
+          "serve",
+          "--service",
+          "--hostname",
+          "127.0.0.1",
+          "--port",
+          String(port),
+        ],
+        env: Object.fromEntries(
+          Object.entries(env).filter(
+            (entry): entry is [string, string] => typeof entry[1] === "string"
+          )
+        ),
+        file: serviceFile,
+        version: receipt.version,
+      })
+      this.#serviceFile = serviceFile
+      this.#baseUrl = endpoint.url
+      this.#client = OpenCode.make({
+        baseUrl: endpoint.url,
+        headers: Service.headers(endpoint),
+      })
+      await this.#client.server.info()
     } catch (error) {
-      child.kill("SIGTERM")
-      this.#process = undefined
+      await Service.stop({ file: serviceFile }).catch(() => undefined)
+      this.#serviceFile = undefined
       this.#baseUrl = undefined
       this.#client = undefined
-      throw new Error(
-        `${error instanceof Error ? error.message : String(error)}${stderr ? `: ${stderr}` : ""}`
-      )
+      throw error
     }
   }
 
   async stop(): Promise<void> {
-    const child = this.#process
-    this.#process = undefined
+    const serviceFile = this.#serviceFile
+    this.#serviceFile = undefined
     this.#baseUrl = undefined
     this.#client = undefined
-    if (!child || child.exitCode !== null) return
-    await new Promise<void>((resolve) => {
-      const timeout = setTimeout(() => {
-        child.kill("SIGKILL")
-        resolve()
-      }, 5_000).unref()
-      child.once("exit", () => {
-        clearTimeout(timeout)
-        resolve()
-      })
-      child.kill("SIGTERM")
-    })
+    if (serviceFile) await Service.stop({ file: serviceFile })
   }
 
   async call(payload: AgentOpenCodeCallRequest["payload"]): Promise<{
@@ -116,58 +105,75 @@ export class OpenCodeRuntime {
     ok: boolean
     status: number
   }> {
-    if (!this.#baseUrl) throw new Error("OpenCode is not running")
-    const [method, path] = payload.operation.split(" ", 2)
-    if (!method || !path?.startsWith("/")) throw new Error("Invalid OpenCode operation")
-    if (path === "/v2" || path.startsWith("/v2/")) {
-      throw new Error("Experimental OpenCode /v2 endpoints are not supported")
-    }
-    const url = new URL(path, this.#baseUrl)
-    for (const [key, value] of Object.entries(payload.query ?? {})) {
-      if (Array.isArray(value)) for (const item of value) url.searchParams.append(key, String(item))
-      else if (value !== undefined && value !== null) url.searchParams.set(key, String(value))
-    }
-    const response = await fetch(url, {
-      body: payload.body === undefined ? undefined : JSON.stringify(payload.body),
-      headers: payload.headers,
-      method,
-    })
-    const text = await response.text()
-    let value: unknown = null
-    if (text) {
-      try {
-        value = JSON.parse(text)
-      } catch {
-        value = text
+    const client = this.#client
+    if (!client || !this.#baseUrl) throw new Error("OpenCode is not running")
+    const input = (payload.body ?? {}) as Record<string, unknown>
+    try {
+      const data = await (() => {
+        switch (payload.operation) {
+          case "server.info":
+            return client.server.info()
+          case "session.create":
+            return client.session.create(input as never)
+          case "session.fork":
+            return client.session.fork(input as never)
+          case "session.remove":
+            return client.session.remove(input as never)
+          case "session.switch_agent":
+            return client.session.switchAgent(input as never)
+          case "session.switch_model":
+            return client.session.switchModel(input as never)
+          case "session.prompt":
+            return client.session.prompt(input as never)
+          case "session.interrupt":
+            return client.session.interrupt(input as never)
+          case "message.list":
+            return client.message.list(input as never)
+          case "model.list":
+            return client.model.list(input as never)
+          case "model.default":
+            return client.model.default(input as never)
+          case "provider.list":
+            return client.provider.list(input as never)
+          case "agent.list":
+            return client.agent.list(input as never)
+          case "integration.list":
+            return client.integration.list(input as never)
+          case "integration.connect.key":
+            return client.integration.connect.key(input as never)
+          case "integration.oauth.connect":
+            return client.integration.oauth.connect(input as never)
+          case "integration.oauth.complete":
+            return client.integration.oauth.complete(input as never)
+          case "integration.oauth.cancel":
+            return client.integration.oauth.cancel(input as never)
+          case "credential.remove":
+            return client.credential.remove(input as never)
+          case "permission.reply":
+            return client.permission.reply(input as never)
+          case "session.form.reply":
+            return client.session.form.reply(input as never)
+          case "session.form.cancel":
+            return client.session.form.cancel(input as never)
+          default:
+            throw new Error(`Unsupported OpenCode v2 operation: ${payload.operation}`)
+        }
+      })()
+      return { data: await data, headers: {}, ok: true, status: data === undefined ? 204 : 200 }
+    } catch (error) {
+      return {
+        error:
+          error instanceof Error ? { message: error.message, name: error.name } : String(error),
+        headers: {},
+        ok: false,
+        status: 500,
       }
-    }
-    return {
-      [response.ok ? "data" : "error"]: value,
-      headers: Object.fromEntries(response.headers.entries()),
-      ok: response.ok,
-      status: response.status,
     }
   }
 
-  async *events(stream: "event" | "global.event"): AsyncGenerator<unknown> {
+  async *events(stream: "event"): AsyncGenerator<unknown> {
     if (!this.#client) throw new Error("OpenCode is not running")
-    const result =
-      stream === "event" ? await this.#client.event.subscribe() : await this.#client.global.event()
-    for await (const event of result.stream) yield event
-  }
-
-  async #waitUntilReady(child: ChildProcess): Promise<void> {
-    const deadline = Date.now() + 15_000
-    while (Date.now() < deadline) {
-      if (child.exitCode !== null) throw new Error(`OpenCode exited with ${child.exitCode}`)
-      try {
-        const result = await this.#client?.path.get()
-        if (result) return
-      } catch {
-        // The process is still binding its local HTTP listener.
-      }
-      await new Promise((resolve) => setTimeout(resolve, 100))
-    }
-    throw new Error("Timed out waiting for OpenCode")
+    if (stream !== "event") throw new Error(`Unsupported OpenCode v2 event stream: ${stream}`)
+    for await (const event of this.#client.event.subscribe()) yield event
   }
 }

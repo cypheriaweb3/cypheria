@@ -10,9 +10,9 @@ Agent descriptor 报告来源、distribution、已安装和可用版本、启用
 
 ## Registry 与安装
 
-Server 把固定版本的 ACP registry 文档作为可用 catalog 加载并校验，同时提供刷新和检查操作。持久化的 `agent_registry` 并不是 catalog 的全量副本：它初始包含四个原生 harness，只有用户执行添加后才写入相应 registry Agent；每条记录都保存 `createdAt`。Distribution metadata 可以选择平台 binary、`npx` 或 `uvx`；preview release 始终显式标记。平台 archive 可以携带 SHA-256 完整性信息。
+Server 把固定版本的 ACP registry 文档作为可用 ACP catalog 加载并校验，同时提供刷新和检查操作。原生 harness 不从该 registry 获取版本：每个 Cypheria release 都为 Codex、Claude、Pi 和 OpenCode 声明一个经过测试的 CLI package 与精确版本。持久化的 `agent_registry` 并不是 ACP catalog 的全量副本：它初始包含四个原生 harness，只有用户执行添加后才写入相应 registry Agent；每条记录都保存 `createdAt`。ACP distribution metadata 可以选择平台 binary、`npx` 或 `uvx`；preview release 始终显式标记。平台 archive 可以携带 SHA-256 完整性信息。
 
-添加与安装是两个独立操作。添加会持久化所选 Agent 并开放其设置页；安装和更新是 Server 操作，拥有持久 operation records 与进度 notifications。Toolchain manager 在 Cypheria cache 下发现或安装托管的 Node 和 Python 工具。客户端可以列出、添加、安装、更新、卸载、启用、禁用、启动和停止 Agents，但不会获得文件系统或进程权限。
+添加与安装是两个独立操作。添加会持久化所选 Agent 并开放其设置页；安装和更新是 Server 操作，拥有持久 operation records 与进度 notifications。原生 Agent 的安装或更新始终安装当前 Cypheria release 已对接的精确版本，绝不会动态解析或升级到更新的上游版本。Toolchain manager 在 Cypheria cache 下发现或安装托管的 Node 和 Python 工具。客户端可以列出、添加、安装、更新、卸载、启用、禁用、启动和停止 Agents，但不会获得文件系统或进程权限。
 
 ## Catalog 与默认值
 
@@ -49,7 +49,7 @@ Pi harness 使用固定版本的 Pi coding-agent 包及其 RPC session model。�
 
 ### OpenCode
 
-OpenCode harness 使用固定版本的 OpenCode SDK，监管其 server 连接，并动态发现 provider 的 API-key 与 OAuth 方法。它把 sessions、messages、parts、permissions 和 provider 配置映射到同一 Thread 与 Timeline 模型。
+OpenCode harness 仅支持 OpenCode v2。动态安装使用固定版本的 `@opencode/cli`，不再使用 ACP registry distribution；Server 对接使用配套的 `@opencode/client` v2 API。Cypheria 会禁用 OpenCode 自更新、监管其本地 service、消费 v2 event stream，并把 sessions、messages、forms、permissions、models、integrations 和 credentials 映射到通用 Thread、Timeline、catalog 与认证契约。不保留任何 OpenCode v1 兼容路径。
 
 ### ACP
 

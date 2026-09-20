@@ -467,7 +467,7 @@ describe("ManagedThreadAdapter", () => {
     await expect(permission).resolves.toMatchObject({ behavior: "allow", toolUseID: "tool-1" })
   })
 
-  it("bridges all OpenCode questions and answers", async () => {
+  it("bridges OpenCode v2 forms and answers", async () => {
     const events: ThreadHarnessEvent[] = []
     const calls: Record<string, unknown>[] = []
     let send: AgentMessageContext["send"] | undefined
@@ -479,7 +479,7 @@ describe("ManagedThreadAdapter", () => {
           const operation = String(payload.operation)
           context.send({
             payload: {
-              data: operation === "POST /session" ? { id: "opencode-session-1" } : true,
+              data: operation === "session.create" ? { id: "opencode-session-1" } : true,
               headers: {},
               ok: true,
               status: 200,
@@ -504,34 +504,47 @@ describe("ManagedThreadAdapter", () => {
     send?.({
       payload: {
         event: {
-          properties: {
-            id: "question-1",
-            questions: [
-              {
-                custom: false,
-                header: "Language",
-                multiple: false,
-                options: [{ description: "Typed JavaScript", label: "TypeScript" }],
-                question: "Which language?",
-              },
-              {
-                custom: true,
-                header: "Tests",
-                multiple: true,
-                options: [{ description: "Unit tests", label: "Vitest" }],
-                question: "Which test tools?",
-              },
-            ],
-            sessionID: "opencode-session-1",
+          created: Date.now(),
+          data: {
+            form: {
+              fields: [
+                {
+                  custom: false,
+                  description: "Which language?",
+                  key: "language",
+                  options: [
+                    {
+                      description: "Typed JavaScript",
+                      label: "TypeScript",
+                      value: "typescript",
+                    },
+                  ],
+                  title: "Language",
+                  type: "string",
+                },
+                {
+                  custom: true,
+                  description: "Which test tools?",
+                  key: "tests",
+                  options: [{ description: "Unit tests", label: "Vitest", value: "vitest" }],
+                  title: "Tests",
+                  type: "multiselect",
+                },
+              ],
+              id: "form-1",
+              sessionID: "opencode-session-1",
+              title: "Project setup",
+            },
           },
-          type: "question.asked",
+          id: "event-1",
+          type: "form.created",
         },
         subscriptionId: "thread:01984de2-8f74-7c91-a3b2-5c5e937cf399",
       },
       type: "agent.opencode.event.notification",
     })
     expect(events.at(-1)).toMatchObject({
-      interaction: { id: "harness:opencode:question-1", questions: [{}, {}] },
+      interaction: { id: "harness:opencode:form-1", questions: [{}, {}] },
       type: "interaction-requested",
     })
 
@@ -542,13 +555,17 @@ describe("ManagedThreadAdapter", () => {
         cwd: "/repo",
         threadId: input("opencode").threadId,
       },
-      "harness:opencode:question-1",
-      { answers: [["TypeScript"], ["Vitest", "Playwright"]], type: "answers" }
+      "harness:opencode:form-1",
+      { answers: [["typescript"], ["vitest", "playwright"]], type: "answers" }
     )
     expect(calls.at(-1)).toMatchObject({
       payload: {
-        body: { answers: [["TypeScript"], ["Vitest", "Playwright"]] },
-        operation: "POST /question/question-1/reply",
+        body: {
+          answer: { language: "typescript", tests: ["vitest", "playwright"] },
+          formID: "form-1",
+          sessionID: "opencode-session-1",
+        },
+        operation: "session.form.reply",
       },
     })
   })

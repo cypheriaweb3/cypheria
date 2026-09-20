@@ -7,6 +7,7 @@ overrides:
 allowBuilds:
   '@google/genai': false
   esbuild: true
+  msgpackr-extract: false
   msw: true
   node-pty: true
   protobufjs: false
@@ -15,3 +16,13 @@ onlyBuiltDependencies:
   - esbuild
 patchedDependencies:
   '@agentclientprotocol/sdk@1.4.0': patches/@agentclientprotocol__sdk@1.4.0.patch
+minimumReleaseAgeExclude:
+  - '@earendil-works/chord@0.86.0'
+  - '@earendil-works/pi-agent-core@0.86.0'
+  - '@earendil-works/pi-ai@0.86.0'
+  - '@earendil-works/pi-coding-agent@0.86.0'
+  - '@earendil-works/pi-telemetry@0.86.0'
+  - '@earendil-works/pi-tui@0.86.0'
+  - '@opencode/client@2.0.11'
+  - '@opencode/protocol@2.0.11'
+  - '@opencode/schema@2.0.11'
