@@ -707,15 +707,17 @@ function HarnessAddDialog({
                 {add.isPending ? `Adding ${selected?.name ?? "harness"}…` : selected?.name}
               </SelectValue>
             </SelectTrigger>
-            <SelectContent align="start" alignItemWithTrigger={false} className="max-h-80">
+            <SelectContent alignItemWithTrigger={false} className="max-h-80">
               {available.map((agent) => (
-                <SelectItem className="items-start py-2" key={agent.id} value={agent.id}>
-                  <HarnessIcon
-                    agentId={agent.id}
-                    className="mt-0.5 size-4"
-                    icon={agent.icon}
-                    name={agent.name}
-                  />
+                <SelectItem className="py-2" key={agent.id} value={agent.id}>
+                  <span className="flex size-8 shrink-0 self-center items-center justify-center rounded-md border border-border bg-background">
+                    <HarnessIcon
+                      agentId={agent.id}
+                      className="size-4"
+                      icon={agent.icon}
+                      name={agent.name}
+                    />
+                  </span>
                   <span className="!grid min-w-0 flex-1 gap-0.5 whitespace-normal">
                     <span className="font-medium leading-5">{agent.name}</span>
                     <span className="line-clamp-2 text-xs leading-4 text-muted-foreground">
