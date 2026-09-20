@@ -485,7 +485,7 @@ export function ChatSidebar({
               if (!row) return null
               return (
                 <li
-                  className="absolute left-0 top-0 w-full px-2"
+                  className="absolute left-0 top-0 w-full px-1"
                   data-index={virtualRow.index}
                   key={row.key}
                   style={{

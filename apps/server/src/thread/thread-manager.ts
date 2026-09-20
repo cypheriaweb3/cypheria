@@ -445,6 +445,7 @@ export class ThreadManager {
     threadId: string
   }): Promise<{ thread: ThreadView; turnId: string }> {
     const stored = await this.#required(input.threadId)
+    await this.#assertAgentCallable(stored.agentId as AgentId)
     if (stored.archivedAt !== null) {
       throw new ThreadManagerError("THREAD_ARCHIVED", "Archived threads must be unarchived first")
     }
@@ -601,6 +602,50 @@ export class ThreadManager {
     return false
   }
 
+  async resumeAgentThreads(threadIds: readonly string[]): Promise<void> {
+    for (const threadId of threadIds) await this.resume(threadId)
+  }
+
+  async suspendAgentThreads(agentId: AgentId): Promise<string[]> {
+    const threadIds: string[] = []
+    let cursor: string | null = null
+    do {
+      const page = await this.#persistence.listThreads({ agentId, cursor, limit: 200 })
+      for (const thread of page.data) {
+        if (this.#state(thread.id).state === "stopped") continue
+        threadIds.push(thread.id)
+        await this.close(thread.id)
+      }
+      cursor = page.nextCursor
+    } while (cursor)
+    return threadIds
+  }
+
+  async waitForAgentTurns(agentId: AgentId, signal: AbortSignal): Promise<void> {
+    while (await this.#hasActiveTurn(agentId)) {
+      await new Promise<void>((resolvePromise, reject) => {
+        let timeout: NodeJS.Timeout | undefined
+        const cleanup = () => {
+          if (timeout) clearTimeout(timeout)
+          signal.removeEventListener("abort", onAbort)
+        }
+        const onAbort = () => {
+          cleanup()
+          reject(new Error("Agent update was interrupted"))
+        }
+        if (signal.aborted) onAbort()
+        else {
+          signal.addEventListener("abort", onAbort, { once: true })
+          timeout = setTimeout(() => {
+            cleanup()
+            resolvePromise()
+          }, 100)
+          timeout.unref()
+        }
+      })
+    }
+  }
+
   #acceptEvent(threadId: string, event: ThreadHarnessEvent): void {
     void this.#withLock(threadId, async () => {
       const thread = await this.#persistence.getThread(threadId)
@@ -677,6 +722,16 @@ export class ThreadManager {
           break
       }
     })
+  }
+
+  async #hasActiveTurn(agentId: AgentId): Promise<boolean> {
+    let cursor: string | null = null
+    do {
+      const page = await this.#persistence.listThreads({ agentId, cursor, limit: 200 })
+      if (page.data.some((thread) => this.#state(thread.id).activeTurn !== null)) return true
+      cursor = page.nextCursor
+    } while (cursor)
+    return false
   }
 
   async #appendTimeline(

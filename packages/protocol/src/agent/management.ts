@@ -60,6 +60,7 @@ export const AgentCatalogEntrySchema = z.object({
   id: AgentIdSchema,
   name: z.string(),
   native: z.boolean(),
+  version: z.string().min(1),
 })
 export type AgentCatalogEntry = z.infer<typeof AgentCatalogEntrySchema>
 
@@ -120,6 +121,7 @@ const agentIdRequest = <T extends string>(type: T) =>
 
 export const AgentListRequestSchema = agentRequest("agent.list.request")
 export const AgentAddRequestSchema = agentIdRequest("agent.add.request")
+export const AgentRemoveRequestSchema = agentIdRequest("agent.remove.request")
 export const AgentGetRequestSchema = agentIdRequest("agent.get.request")
 export const AgentRegistryRefreshRequestSchema = agentRequest("agent.registry.refresh.request")
 export const AgentInstallRequestSchema = agentIdRequest("agent.install.request")
@@ -161,6 +163,10 @@ export const AgentListResponseSchema = response(
   })
 )
 export const AgentAddResponseSchema = response("agent.add.response", AgentViewSchema)
+export const AgentRemoveResponseSchema = response(
+  "agent.remove.response",
+  z.object({ agentId: AgentIdSchema })
+)
 export const AgentGetResponseSchema = response("agent.get.response", AgentViewSchema)
 export const AgentRegistryRefreshResponseSchema = response(
   "agent.registry.refresh.response",
@@ -221,6 +227,7 @@ export const AgentOperationFailedNotificationSchema = z.object({
 export const AGENT_MANAGEMENT_CLIENT_SCHEMAS = [
   AgentListRequestSchema,
   AgentAddRequestSchema,
+  AgentRemoveRequestSchema,
   AgentGetRequestSchema,
   AgentRegistryRefreshRequestSchema,
   AgentInstallRequestSchema,
@@ -240,6 +247,7 @@ export const AGENT_MANAGEMENT_CLIENT_SCHEMAS = [
 export const AGENT_MANAGEMENT_SERVER_SCHEMAS = [
   AgentListResponseSchema,
   AgentAddResponseSchema,
+  AgentRemoveResponseSchema,
   AgentGetResponseSchema,
   AgentRegistryRefreshResponseSchema,
   AgentInstallResponseSchema,

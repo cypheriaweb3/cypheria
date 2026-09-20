@@ -39,20 +39,16 @@ const PreviewContext = createContext({
 
 export function DesktopSidebarProvider({
   children,
-  fixedWidth,
   ...props
-}: ComponentProps<typeof SidebarProvider> & { fixedWidth?: number }) {
+}: ComponentProps<typeof SidebarProvider>) {
   return (
     <SidebarProvider {...props}>
-      <DesktopSidebarLayout fixedWidth={fixedWidth}>{children}</DesktopSidebarLayout>
+      <DesktopSidebarLayout>{children}</DesktopSidebarLayout>
     </SidebarProvider>
   )
 }
 
-function DesktopSidebarLayout({
-  children,
-  fixedWidth,
-}: ComponentProps<"div"> & { fixedWidth?: number }) {
+function DesktopSidebarLayout({ children }: ComponentProps<"div">) {
   const { open, isMobile, setOpen } = useSidebar()
   const [preview, setPreview] = useState(false)
   const [width, setWidth] = useState(DESKTOP_SIDEBAR_DEFAULT_WIDTH)
@@ -61,7 +57,6 @@ function DesktopSidebarLayout({
   const blockedTrigger = useRef<DOMRect | null>(null)
   const clampWidth = (value: number) => clampDesktopSidebarWidth(value, window.innerWidth)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const effectiveWidth = fixedWidth ?? width
   const clear = () => clearTimeout(timer.current)
   const dismiss = () => {
     clear()
@@ -129,10 +124,10 @@ function DesktopSidebarLayout({
         data-open={open}
         data-preview={preview && !open}
         data-resizing={resizing}
-        style={{ "--sidebar-width": `${effectiveWidth}px` } as CSSProperties}
+        style={{ "--sidebar-width": `${width}px` } as CSSProperties}
       >
         {children}
-        {!isMobile && fixedWidth === undefined && (open || preview) ? (
+        {!isMobile && (open || preview) ? (
           // biome-ignore lint/a11y/useSemanticElements: This focusable separator is an interactive window splitter, not a thematic break.
           <div
             className="desktop-sidebar-resizer"

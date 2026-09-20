@@ -192,6 +192,31 @@ describe("ThreadManager", () => {
     )
   })
 
+  it("waits for active turns before suspending and resuming an agent's sessions", async () => {
+    const { adapter, manager } = await setup()
+    const created = await manager.create({ agentId: "codex" })
+    await manager.startTurn({
+      clientMessageId: "message-1",
+      content: [{ text: "start", type: "text" }],
+      threadId: created.thread.id,
+    })
+
+    let finished = false
+    const waiting = manager.waitForAgentTurns("codex", new AbortController().signal).then(() => {
+      finished = true
+    })
+    await new Promise<void>((resolvePromise) => setImmediate(resolvePromise))
+    expect(finished).toBe(false)
+
+    adapter.events.get(created.thread.id)?.({ turnId: "turn-1", type: "turn-completed" })
+    await waiting
+    expect(await manager.suspendAgentThreads("codex")).toEqual([created.thread.id])
+    expect(await manager.get(created.thread.id)).toMatchObject({ state: "stopped" })
+
+    await manager.resumeAgentThreads([created.thread.id])
+    expect(await manager.get(created.thread.id)).toMatchObject({ state: "idle" })
+  })
+
   it("records user attachments in the canonical timeline", async () => {
     const { manager, messages } = await setup()
     const created = await manager.create({ agentId: "codex" })

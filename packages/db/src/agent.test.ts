@@ -66,6 +66,8 @@ describe("agent registry persistence", () => {
     expect(await database.db.select().from(agentRegistry)).toEqual([
       expect.objectContaining({ enabled: false, installed: false, version: null }),
     ])
+    await expect(service.setEnabled("qwen-code", true)).resolves.toBeUndefined()
+    await expect(service.setEnabled("qwen-code", false)).resolves.toBeUndefined()
     database.close()
   })
 

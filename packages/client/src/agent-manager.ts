@@ -35,6 +35,7 @@ const unwrap = <T>(payload: unknown): T => {
 
 export interface AgentManagementActions {
   add(agentId: AgentId, options?: RequestOptions): Promise<AgentView>
+  remove(agentId: AgentId, options?: RequestOptions): Promise<void>
   checkToolchainUpdates(options?: RequestOptions): Promise<ToolchainView[]>
   get(agentId: AgentId, options?: RequestOptions): Promise<AgentView>
   getOperation(operationId: string, options?: RequestOptions): Promise<AgentOperation>
@@ -61,6 +62,11 @@ export const createAgentManagementActions = (client: ServerClient): AgentManagem
     unwrap<AgentView>(
       (await client.requestAgentManagement("agent.add.request", { agentId }, options)).payload
     ),
+  remove: async (agentId, options) => {
+    unwrap<{ agentId: AgentId }>(
+      (await client.requestAgentManagement("agent.remove.request", { agentId }, options)).payload
+    )
+  },
   checkToolchainUpdates: async (options) =>
     unwrap<{ toolchains: ToolchainView[] }>(
       (

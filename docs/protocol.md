@@ -42,7 +42,7 @@ web3.signing_intent.create.request -> web3.signing_intent.create.response
 
 The exported Zod schemas, not prose examples, are authoritative for exact fields.
 
-Agent management separates the persisted registry from the available harness catalog. `agent.list` returns registered Agents plus currently addable catalog entries; `agent.add` persists one catalog entry without installing it. Installation remains an explicit `agent.install` operation.
+Agent management separates the persisted registry from the available harness catalog. `agent.list` returns registered Agents plus currently addable catalog entries, including each entry's installable version; `agent.add` persists one catalog entry without installing it. Installation remains an explicit `agent.install` operation, uninstall retains and disables the registry record, and `agent.remove` removes an uninstalled record. Install and update operations report normalized progress from `0` to `1`, are serialized per Agent rather than globally, and preserve active turns during version changes.
 
 ## Versioning and capabilities
 

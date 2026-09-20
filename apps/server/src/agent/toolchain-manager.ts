@@ -165,8 +165,13 @@ export class ToolchainManager {
   }
 
   async start(): Promise<void> {
+    await mkdir(this.#home, { recursive: true })
     await Promise.all([
-      mkdir(this.#home, { recursive: true }),
+      rm(join(this.#home, "staging"), { force: true, recursive: true }),
+      rm(this.#cacheDir, { force: true, recursive: true }),
+    ])
+    await Promise.all([
+      mkdir(join(this.#home, "staging"), { recursive: true }),
       mkdir(this.#cacheDir, { recursive: true }),
     ])
     this.#manifest = (await readJsonFile<ToolchainManifest>(this.#manifestPath)) ?? emptyManifest()

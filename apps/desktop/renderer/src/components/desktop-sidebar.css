@@ -27,6 +27,9 @@
     background: var(--border);
     pointer-events: none;
   }
+  [data-settings="true"] .desktop-shell::after {
+    display: none;
+  }
   /* Cancel the panel translation so its controls stay in window coordinates.
      The moving panel's overflow clips/reveals them without moving the icons. */
   .desktop-shell [data-slot="sidebar-header"] {
@@ -59,7 +62,7 @@
     border-radius: 0 14px 14px 0;
     box-shadow: 3px 4px 16px #00000012;
   }
-  .desktop-shell[data-preview="true"] [data-slot="sidebar-header"] > * {
+  .desktop-shell[data-preview="true"] [data-slot="sidebar-header"] > :first-child {
     visibility: hidden;
   }
   .desktop-shell [data-slot="sidebar-header"],

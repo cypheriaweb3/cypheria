@@ -102,7 +102,13 @@ export const createAgentRegistryPersistenceService = (
     const [record] = await db
       .update(agentRegistry)
       .set({ enabled, updatedAt: now })
-      .where(eq(agentRegistry.id, id))
+      .where(
+        and(
+          eq(agentRegistry.id, id),
+          eq(agentRegistry.installed, true),
+          isNull(agentRegistry.removedAt)
+        )
+      )
       .returning()
     return record
   },
@@ -112,7 +118,7 @@ export const createAgentRegistryPersistenceService = (
       .set(
         installed ? { installed, updatedAt: now } : { enabled: false, installed, updatedAt: now }
       )
-      .where(eq(agentRegistry.id, id))
+      .where(and(eq(agentRegistry.id, id), isNull(agentRegistry.removedAt)))
       .returning()
     return record
   },
@@ -120,7 +126,7 @@ export const createAgentRegistryPersistenceService = (
     const [record] = await db
       .update(agentRegistry)
       .set({ ...metadata, installed: true, updatedAt: now })
-      .where(eq(agentRegistry.id, id))
+      .where(and(eq(agentRegistry.id, id), isNull(agentRegistry.removedAt)))
       .returning()
     return record
   },

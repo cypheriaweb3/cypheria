@@ -40,9 +40,9 @@ Query key 和乐观更新基于 Cypheria ID。Harness session ID 不会替代 Th
 
 ## Settings 导航
 
-Settings 使用一个扁平化、虚拟化的导航列表。返回行、分组标题、普通设置项、可展开的 Agent harnesses 行，以及所有可见 Agent 子项共享一个滚动容器与一个 TanStack Virtual virtualizer。搜索框与主题 footer 留在容器外。展开、搜索、registry 成员变化和 registry 刷新会重建扁平 row model；路由变化时会把 active item 滚动到可见区域。Agent 子项绝不创建嵌套滚动容器或第二个导航 virtualizer。Agent harnesses 父项只是展开控件，不对应页面，因此不会进入 active 状态。其子项来自用户的 Agent registry；Server 初始化时会注册四个原生 harness。
+Settings 与工作区使用同一个可调整宽度的 Desktop sidebar shell，并共享 titlebar 几何、紧凑横向留白、折叠行为和宽度状态；两者只有导航内容不同。Settings 使用一个扁平化、虚拟化的导航列表。返回行、分组标题、普通设置项、可展开的 Agent harnesses 行，以及所有可见 Agent 子项共享一个滚动容器与一个 TanStack Virtual virtualizer。搜索框与主题 footer 留在容器外。展开、搜索、registry 成员变化和 registry 刷新会重建扁平 row model；路由变化时会把 active item 滚动到可见区域。Agent 子项绝不创建嵌套滚动容器或第二个导航 virtualizer。Agent harnesses 父项只是展开控件，不对应页面，因此不会进入 active 状态。其子项来自用户的 Agent registry；Server 初始化时会注册四个原生 harness。
 
-当 catalog 中所有 harness 都已加入 registry 时，Agent harnesses 行上的添加操作会禁用；否则会打开与 trigger 边缘对齐的选择器，并在各选项中显示 harness 描述。选中后只创建 Agent registry 记录并立即打开其设置页，安装由 Agent header 中的独立操作完成。Agent harness 路由使用 `/settings/agent-harnesses/$agentId/$sectionId`。所选 Agent 拥有用于 authentication、models 和发现型设置分类的第二级 section 菜单；窄屏时转换为选择器。安装、更新和卸载操作位于 Agent header，不再使用独立 installation section；卸载 registry harness 后，它会从导航中消失。右侧 panel 显示具体 section。Network proxy 位于 Agent header 上方，默认折叠，并在切换 Agent 或 section 时保留展开状态。Models 使用另一个固定高度虚拟列表，支持 provider 过滤和显式 Server 刷新。
+当 catalog 中所有 harness 都已加入 registry 时，Agent harnesses 行上的添加操作会禁用；否则会打开与 trigger 边缘对齐的选择器，并在各选项中显示 harness 描述和可安装版本。选中后只创建 Agent registry 记录并立即打开其设置页。子项使用灰色、黄色或绿色圆点分别表示未安装、已安装但禁用和已启用，并提供从 registry 删除未安装 Agent 的菜单。Agent harness 路由使用 `/settings/agent-harnesses/$agentId/$sectionId`。Header 显示当前版本；未安装 harness 的 Install 操作及百分比进度位于安装提示框内。已安装但禁用的 harness 会以 Enable 提示框替换 section 内容，并禁用 section 导航。已安装 harness 在 header 中提供 Uninstall；卸载会保留导航项并让页面回到 Install 提示框。原生 harness 的版本随 Cypheria 分发，因此不显示 Update；registry harness 仅在共享语义化版本比较确认存在更新时显示 Update，并在执行时显示百分比进度。Operation 状态按 Agent 隔离，所以安装或更新一个 harness 不会禁用另一个。所选 Agent 拥有用于 authentication、models 和发现型设置分类的第二级 section 菜单；窄屏时转换为选择器。右侧 panel 显示具体 section。Network proxy 位于 Agent header 上方，默认折叠，并在切换 Agent 或 section 时保留展开状态。Models 使用另一个固定高度虚拟列表，支持 provider 过滤和显式 Server 刷新。
 
 ## 会话工作区
 

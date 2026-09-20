@@ -101,11 +101,18 @@ export type AgentManagerOptions = {
   codexSettings?: () => CodexAgentSettings
   agentDefaults?: (agentId: AgentId) => Record<string, HarnessSettingValue>
   networkBootstrap?: boolean
+  installer?: Pick<
+    AgentInstaller,
+    "cleanupInterrupted" | "install" | "readCurrent" | "readReceipts" | "uninstall"
+  >
 }
 
 export type AgentThreadCoordinator = {
   closeAgentThreads(agentId: AgentId): Promise<void>
   hasActiveThreads(agentId: AgentId): Promise<boolean>
+  resumeAgentThreads(threadIds: readonly string[]): Promise<void>
+  suspendAgentThreads(agentId: AgentId): Promise<string[]>
+  waitForAgentTurns(agentId: AgentId, signal: AbortSignal): Promise<void>
 }
 
 const nativeCatalog = NATIVE_AGENT_MANIFEST
@@ -118,10 +125,14 @@ export class AgentManager {
   readonly #agentHomes: string
   readonly #claudeRuntimes = new Map<string, ClaudeSessionRuntime>()
   readonly #codexSettings: () => CodexAgentSettings
-  readonly #installer: AgentInstaller
+  readonly #installer: Pick<
+    AgentInstaller,
+    "cleanupInterrupted" | "install" | "readCurrent" | "readReceipts" | "uninstall"
+  >
   readonly #openCode: OpenCodeRuntime
   readonly #piRuntimes = new Map<string, PiSessionRuntime>()
   readonly #operations = new Map<string, AgentOperation>()
+  readonly #operationControllers = new Map<string, AbortController>()
   readonly #operationQueues = new Map<string, Promise<void>>()
   readonly #persistence: AgentRegistryPersistenceService
   readonly #publish: Send
@@ -130,6 +141,7 @@ export class AgentManager {
   readonly #subscriptions = new Map<string, AbortController>()
   readonly #threadAdapters = new Map<string, ManagedThreadAdapter>()
   readonly #networkBootstrap: boolean
+  readonly #maintenanceAgents = new Set<AgentId>()
   #catalogInvalidator: ((agentId?: AgentId) => void) | undefined
   #defaultsResolver:
     | ((agentId: AgentId) => Promise<Record<string, HarnessSettingValue>>)
@@ -137,6 +149,7 @@ export class AgentManager {
   #codexRuntime: CodexRuntime | undefined
   #piModelRuntime: Promise<ModelRuntime> | undefined
   #threadCoordinator: AgentThreadCoordinator | undefined
+  #stopping = false
 
   constructor(options: AgentManagerOptions) {
     this.#persistence = options.persistence
@@ -171,11 +184,13 @@ export class AgentManager {
       cacheDir: options.cacheDir,
       cypheriaHome: options.cypheriaHome,
     })
-    this.#installer = new AgentInstaller({
-      cacheDir: options.cacheDir,
-      cypheriaHome: options.cypheriaHome,
-      toolchains: this.toolchains,
-    })
+    this.#installer =
+      options.installer ??
+      new AgentInstaller({
+        cacheDir: options.cacheDir,
+        cypheriaHome: options.cypheriaHome,
+        toolchains: this.toolchains,
+      })
     this.#openCode = new OpenCodeRuntime({
       cypheriaHome: options.cypheriaHome,
       toolchains: this.toolchains,
@@ -183,7 +198,9 @@ export class AgentManager {
   }
 
   async start(): Promise<void> {
+    this.#stopping = false
     await this.toolchains.start()
+    await this.#installer.cleanupInterrupted()
     await this.registry.start({ refresh: this.#networkBootstrap })
     await this.#persistence.reconcile(NATIVE_AGENT_IDS.map((id) => ({ id, native: true })))
     await this.#reloadRecords()
@@ -195,6 +212,11 @@ export class AgentManager {
   }
 
   async stop(): Promise<void> {
+    this.#stopping = true
+    for (const controller of this.#operationControllers.values()) controller.abort()
+    await Promise.allSettled(this.#operationQueues.values())
+    this.#operationControllers.clear()
+    this.#maintenanceAgents.clear()
     this.registry.stop()
     this.toolchains.stop()
     for (const controller of this.#subscriptions.values()) controller.abort()
@@ -299,6 +321,9 @@ export class AgentManager {
           break
         case "agent.add.request":
           respond(await this.add(message.payload.agentId, context.sessionId))
+          break
+        case "agent.remove.request":
+          respond(await this.remove(message.payload.agentId))
           break
         case "agent.get.request":
           respond(await this.get(message.payload.agentId, context.sessionId))
@@ -654,6 +679,7 @@ export class AgentManager {
         id: agentId,
         name: agent.name,
         native: true,
+        version: agent.cliVersion,
       })
     }
     for (const agentId of REGISTRY_AGENT_IDS) {
@@ -666,6 +692,7 @@ export class AgentManager {
         id: agentId,
         name: agent.name,
         native: false,
+        version: agent.version,
       })
     }
     return entries
@@ -688,6 +715,21 @@ export class AgentManager {
     const view = await this.get(agentId, sessionId)
     this.#publish({ payload: view, type: "agent.updated.notification" })
     return view
+  }
+
+  async remove(agentId: AgentId): Promise<{ agentId: AgentId }> {
+    this.#assertNoAgentOperation(agentId)
+    const record = this.#records.get(agentId)
+    if (!record) throw this.#error("AGENT_NOT_FOUND", `Unknown agent: ${agentId}`)
+    if (record.installed) {
+      throw this.#error("AGENT_INSTALLED", `Uninstall ${agentId} before removing it`)
+    }
+    if (!(await this.#persistence.remove(agentId))) {
+      throw this.#error("AGENT_NOT_FOUND", `Unknown agent: ${agentId}`)
+    }
+    this.#records.delete(agentId)
+    this.#catalogInvalidator?.(agentId)
+    return { agentId }
   }
 
   async get(agentId: AgentId, _sessionId: string): Promise<AgentView> {
@@ -728,11 +770,10 @@ export class AgentManager {
   }
 
   async setEnabled(agentId: AgentId, enabled: boolean, sessionId: string): Promise<AgentView> {
-    if (enabled) {
-      const record = this.#records.get(agentId)
-      if (!record?.installed)
-        throw this.#error("AGENT_NOT_INSTALLED", `${agentId} is not installed`)
-    } else {
+    this.#assertNoAgentOperation(agentId)
+    const record = this.#records.get(agentId)
+    if (!record?.installed) throw this.#error("AGENT_NOT_INSTALLED", `${agentId} is not installed`)
+    if (!enabled) {
       await this.#threadCoordinator?.closeAgentThreads(agentId)
       await this.#stopEverywhere(agentId)
     }
@@ -776,44 +817,85 @@ export class AgentManager {
   ): AgentOperation {
     if (!this.#records.has(agentId))
       throw this.#error("AGENT_NOT_FOUND", `Unknown agent: ${agentId}`)
-    return this.#submit(kind, { agentId, kind: "agent" }, `agent:${agentId}`, async (progress) => {
-      if (kind === "uninstall") {
-        progress("Stopping agent", 0.2)
-        await this.#threadCoordinator?.closeAgentThreads(agentId)
-        await this.#stopEverywhere(agentId)
-        progress("Removing managed runtime", 0.6)
-        await this.#installer.uninstall(agentId)
-        if (isNativeAgentId(agentId)) {
+    return this.#submit(
+      kind,
+      { agentId, kind: "agent" },
+      `agent:${agentId}`,
+      async (progress, signal) => {
+        if (kind === "uninstall") {
+          progress("Stopping agent", 0.2)
+          await this.#threadCoordinator?.closeAgentThreads(agentId)
+          await this.#stopEverywhere(agentId)
+          progress("Removing managed runtime", 0.6)
+          await this.#installer.uninstall(agentId)
           const updated = await this.#persistence.setInstalled(agentId, false)
           if (updated) this.#records.set(agentId, updated)
-        } else {
-          await this.#persistence.remove(agentId)
-          this.#records.delete(agentId)
+          await this.#reloadRecords()
+          await this.#collectPythonEnvironments()
+          this.#catalogInvalidator?.(agentId)
+          return
         }
-        await this.#reloadRecords()
-        await this.#collectPythonEnvironments()
-        this.#catalogInvalidator?.(agentId)
-        return
+        const record = this.#records.get(agentId)
+        if (kind === "install" && record?.installed) {
+          throw this.#error("AGENT_ALREADY_INSTALLED", `${agentId} is already installed`)
+        }
+        if (kind === "update" && !record?.installed) {
+          throw this.#error("AGENT_NOT_INSTALLED", `${agentId} is not installed`)
+        }
+        const wasRunning =
+          kind === "update" && (await this.get(agentId, sessionId)).runtimeState === "running"
+        let suspendedThreadIds: string[] = []
+        let updatePrepared = false
+        try {
+          if (kind === "update") {
+            this.#maintenanceAgents.add(agentId)
+            progress("Waiting for active turns", 0.05)
+            await this.#threadCoordinator?.waitForAgentTurns(agentId, signal)
+            if (signal.aborted) throw new Error("Agent update was interrupted")
+            suspendedThreadIds = (await this.#threadCoordinator?.suspendAgentThreads(agentId)) ?? []
+            updatePrepared = true
+            await this.#stopEverywhere(agentId)
+          }
+          progress(null, 0.1)
+          const entry = isRegistryAgentId(agentId) ? this.registry.get(agentId) : undefined
+          const receipt = await this.#installer.install(agentId, entry, {
+            onProgress: (value) => progress(null, 0.1 + value * 0.75),
+            signal,
+          })
+          progress(null, 0.9)
+          const native = isNativeAgentId(agentId) ? nativeCatalog[agentId] : undefined
+          const updated = await this.#persistence.setVersion(agentId, {
+            description: native?.description ?? entry?.description ?? agentId,
+            icon: native?.icon ?? entry?.icon ?? null,
+            name: native?.name ?? entry?.name ?? agentId,
+            repository: native?.repository ?? entry?.repository ?? null,
+            version: receipt.version,
+            website: native?.website ?? entry?.website ?? null,
+          })
+          if (!updated) throw this.#error("AGENT_NOT_FOUND", `Unknown agent: ${agentId}`)
+          this.#records.set(agentId, updated)
+          if (kind === "install") {
+            const enabled = await this.#persistence.setEnabled(agentId, true)
+            if (!enabled) throw this.#error("AGENT_NOT_INSTALLED", `${agentId} is not installed`)
+            this.#records.set(agentId, enabled)
+          }
+          const view = await this.get(agentId, sessionId)
+          this.#catalogInvalidator?.(agentId)
+          this.#publish({ payload: view, type: "agent.updated.notification" })
+        } finally {
+          if (kind === "update") {
+            this.#maintenanceAgents.delete(agentId)
+            if (!this.#stopping && updatePrepared) {
+              if (suspendedThreadIds.length > 0) {
+                await this.#threadCoordinator?.resumeAgentThreads(suspendedThreadIds)
+              } else if (wasRunning && this.#records.get(agentId)?.enabled) {
+                await this.startAgent(agentId, sessionId)
+              }
+            }
+          }
+        }
       }
-      progress("Preparing toolchains", 0.1)
-      const entry = isRegistryAgentId(agentId) ? this.registry.get(agentId) : undefined
-      progress("Installing agent", 0.35)
-      const receipt = await this.#installer.install(agentId, entry)
-      progress("Committing installation", 0.85)
-      const native = isNativeAgentId(agentId) ? nativeCatalog[agentId] : undefined
-      const updated = await this.#persistence.setVersion(agentId, {
-        description: native?.description ?? entry?.description ?? agentId,
-        icon: native?.icon ?? entry?.icon ?? null,
-        name: native?.name ?? entry?.name ?? agentId,
-        repository: native?.repository ?? entry?.repository ?? null,
-        version: receipt.version,
-        website: native?.website ?? entry?.website ?? null,
-      })
-      if (updated) this.#records.set(agentId, updated)
-      const view = await this.get(agentId, sessionId)
-      this.#catalogInvalidator?.(agentId)
-      this.#publish({ payload: view, type: "agent.updated.notification" })
-    })
+    )
   }
 
   #submitToolchainOperation(toolchain: ToolchainId): AgentOperation {
@@ -833,7 +915,10 @@ export class AgentManager {
     kind: AgentOperation["kind"],
     target: AgentOperation["target"],
     queueKey: string,
-    task: (progress: (message: string, value: number) => void) => Promise<void>
+    task: (
+      progress: (message: string | null, value: number) => void,
+      signal: AbortSignal
+    ) => Promise<void>
   ): AgentOperation {
     const operation: AgentOperation = {
       completedAt: null,
@@ -848,6 +933,8 @@ export class AgentManager {
       target,
     }
     this.#operations.set(operation.id, operation)
+    const controller = new AbortController()
+    this.#operationControllers.set(operation.id, controller)
     const previous = this.#operationQueues.get(queueKey) ?? Promise.resolve()
     const current = previous
       .catch(() => undefined)
@@ -856,11 +943,12 @@ export class AgentManager {
         operation.startedAt = new Date().toISOString()
         this.#notifyOperation(operation, "agent.operation.progress.notification")
         try {
+          controller.signal.throwIfAborted()
           await task((message, value) => {
             operation.message = message
             operation.progress = value
             this.#notifyOperation(operation, "agent.operation.progress.notification")
-          })
+          }, controller.signal)
           operation.status = "succeeded"
           operation.progress = 1
           operation.completedAt = new Date().toISOString()
@@ -874,6 +962,7 @@ export class AgentManager {
       })
     this.#operationQueues.set(queueKey, current)
     void current.finally(() => {
+      this.#operationControllers.delete(operation.id)
       if (this.#operationQueues.get(queueKey) === current) this.#operationQueues.delete(queueKey)
       this.#pruneOperations()
     })
@@ -881,6 +970,9 @@ export class AgentManager {
   }
 
   async #assertCallable(agentId: AgentId): Promise<void> {
+    if (this.#maintenanceAgents.has(agentId)) {
+      throw this.#error("AGENT_MAINTENANCE", `${agentId} is being updated`)
+    }
     const record = this.#records.get(agentId)
     if (!record?.installed) throw this.#error("AGENT_NOT_INSTALLED", `${agentId} is not installed`)
     if (!record.enabled) throw this.#error("AGENT_DISABLED", `${agentId} is disabled`)
@@ -1056,6 +1148,15 @@ export class AgentManager {
     completed.sort((a, b) => (a.completedAt ?? "").localeCompare(b.completedAt ?? ""))
     for (const operation of completed.slice(0, completed.length - 200))
       this.#operations.delete(operation.id)
+  }
+
+  #assertNoAgentOperation(agentId: AgentId): void {
+    if (this.#operationQueues.has(`agent:${agentId}`)) {
+      throw this.#error(
+        "AGENT_OPERATION_IN_PROGRESS",
+        `${agentId} has a lifecycle operation in progress`
+      )
+    }
   }
 
   #error(code: string, message: string): Error {

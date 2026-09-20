@@ -54,27 +54,67 @@ const packageCommand = (spec: string): string =>
 const run = async (
   command: string,
   args: readonly string[],
-  env: NodeJS.ProcessEnv
+  env: NodeJS.ProcessEnv,
+  signal?: AbortSignal
 ): Promise<void> =>
   new Promise((resolvePromise, reject) => {
+    if (signal?.aborted) {
+      reject(new Error("Agent installation was interrupted"))
+      return
+    }
     const child = spawn(command, [...args], {
+      detached: platform() !== "win32",
       env,
       shell: false,
       stdio: ["ignore", "pipe", "pipe"],
       windowsHide: true,
     })
     const stderr: Buffer[] = []
+    let aborted = false
+    let forceKill: NodeJS.Timeout | undefined
+    let settled = false
+    const finish = (error?: Error): void => {
+      if (settled) return
+      settled = true
+      if (forceKill) clearTimeout(forceKill)
+      signal?.removeEventListener("abort", abort)
+      if (error) reject(error)
+      else resolvePromise()
+    }
+    const abort = (): void => {
+      aborted = true
+      if (child.pid && platform() !== "win32") {
+        try {
+          process.kill(-child.pid, "SIGTERM")
+        } catch {
+          child.kill("SIGTERM")
+        }
+      } else child.kill("SIGTERM")
+      forceKill = setTimeout(() => {
+        if (child.pid && platform() !== "win32") {
+          try {
+            process.kill(-child.pid, "SIGKILL")
+          } catch {
+            child.kill("SIGKILL")
+          }
+        } else child.kill("SIGKILL")
+      }, 2_000)
+      forceKill.unref()
+    }
+    signal?.addEventListener("abort", abort, { once: true })
     child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk))
-    child.once("error", reject)
+    child.once("error", (error) => finish(error))
     child.once("exit", (code) =>
-      code === 0
-        ? resolvePromise()
-        : reject(
-            new Error(
-              Buffer.concat(stderr).toString("utf8").slice(-8_192) ||
-                `${command} exited with ${code}`
+      aborted
+        ? finish(new Error("Agent installation was interrupted"))
+        : code === 0
+          ? finish()
+          : finish(
+              new Error(
+                Buffer.concat(stderr).toString("utf8").slice(-8_192) ||
+                  `${command} exited with ${code}`
+              )
             )
-          )
     )
   })
 
@@ -104,7 +144,23 @@ export class AgentInstaller {
     this.#toolchains = options.toolchains
   }
 
-  async install(agentId: AgentId, entry?: AgentRegistryEntry): Promise<AgentInstallReceipt> {
+  async cleanupInterrupted(): Promise<void> {
+    await mkdir(this.#agentsHome, { recursive: true })
+    await rm(this.#cacheDir, { force: true, recursive: true })
+    await mkdir(this.#cacheDir, { recursive: true })
+    const agents = await readdir(this.#agentsHome, { withFileTypes: true })
+    await Promise.all(
+      agents
+        .filter((entry) => entry.isDirectory())
+        .map((entry) => this.#cleanupAgentRoot(join(this.#agentsHome, entry.name)))
+    )
+  }
+
+  async install(
+    agentId: AgentId,
+    entry?: AgentRegistryEntry,
+    options: { onProgress?: (value: number) => void; signal?: AbortSignal } = {}
+  ): Promise<AgentInstallReceipt> {
     await mkdir(this.#agentsHome, { recursive: true })
     const native = Object.hasOwn(NATIVE_AGENT_MANIFEST, agentId)
       ? NATIVE_AGENT_MANIFEST[agentId as keyof typeof NATIVE_AGENT_MANIFEST]
@@ -116,18 +172,21 @@ export class AgentInstaller {
         `${native.cliPackage}@${native.cliVersion}`,
         [],
         undefined,
-        native.launcher
+        native.launcher,
+        options
       )
     if (!entry) throw new Error(`No installation descriptor is available for ${agentId}`)
     const binary = entry.distribution.binary?.[registryPlatform()]
-    if (binary) return this.#installBinary(agentId, entry.version, binary)
+    if (binary) return this.#installBinary(agentId, entry.version, binary, options)
     if (entry.distribution.npx)
       return this.#installNpx(
         agentId,
         entry.version,
         entry.distribution.npx.package,
         entry.distribution.npx.args,
-        entry.distribution.npx.env
+        entry.distribution.npx.env,
+        "node",
+        options
       )
     if (entry.distribution.uvx)
       return this.#installUvx(
@@ -135,7 +194,8 @@ export class AgentInstaller {
         entry.version,
         entry.distribution.uvx.package,
         entry.distribution.uvx.args,
-        entry.distribution.uvx.env
+        entry.distribution.uvx.env,
+        options
       )
     throw new Error(`Agent ${agentId} has no distribution for ${registryPlatform()}`)
   }
@@ -183,14 +243,19 @@ export class AgentInstaller {
     packageSpec: string,
     args: readonly string[] = [],
     environment?: Record<string, string>,
-    launcher: "executable" | "node" = "node"
+    launcher: "executable" | "node" = "node",
+    options: { onProgress?: (value: number) => void; signal?: AbortSignal } = {}
   ): Promise<AgentInstallReceipt> {
+    options.signal?.throwIfAborted()
+    options.onProgress?.(0.05)
     let node = this.#toolchains.executable("node")
     if (!node) {
       await this.#toolchains.update("node")
       node = this.#toolchains.executable("node")
     }
     if (!node) throw new Error("Managed Node.js is unavailable")
+    options.signal?.throwIfAborted()
+    options.onProgress?.(0.2)
     const npm = join(dirname(node), platform() === "win32" ? "npm.cmd" : "npm")
     const staging = join(this.#agentsHome, agentId, "staging", randomUUID())
     await mkdir(staging, { recursive: true })
@@ -198,8 +263,10 @@ export class AgentInstaller {
       await run(
         npm,
         ["install", "--prefix", staging, "--no-audit", "--no-fund", "--no-save", packageSpec],
-        this.#toolchains.environment()
+        this.#toolchains.environment(),
+        options.signal
       )
+      options.onProgress?.(0.72)
       const parsed = splitNpmSpec(packageSpec)
       const packageJsonPath = join(
         staging,
@@ -238,9 +305,11 @@ export class AgentInstaller {
         receipt.args = [executable, ...receipt.args]
       }
       await this.#activate(receipt)
+      options.onProgress?.(1)
       return receipt
     } catch (error) {
       await rm(staging, { force: true, recursive: true })
+      await this.#cleanupAgentRoot(join(this.#agentsHome, agentId))
       throw error
     }
   }
@@ -250,8 +319,11 @@ export class AgentInstaller {
     version: string,
     packageSpec: string,
     args: readonly string[] = [],
-    environment?: Record<string, string>
+    environment?: Record<string, string>,
+    options: { onProgress?: (value: number) => void; signal?: AbortSignal } = {}
   ): Promise<AgentInstallReceipt> {
+    options.signal?.throwIfAborted()
+    options.onProgress?.(0.05)
     for (const toolchain of ["uv", "python"] as const) {
       if (!this.#toolchains.executable(toolchain)) await this.#toolchains.update(toolchain)
     }
@@ -265,6 +337,8 @@ export class AgentInstaller {
       requirements: [toPythonRequirement(packageSpec)],
       uvVersion,
     })
+    options.signal?.throwIfAborted()
+    options.onProgress?.(0.85)
     const executable = join(
       pythonEnvironment.path,
       "venv",
@@ -283,17 +357,27 @@ export class AgentInstaller {
       source: packageSpec,
       version,
     }
-    await this.#activate(receipt)
-    return receipt
+    try {
+      await this.#activate(receipt)
+      options.onProgress?.(1)
+      return receipt
+    } catch (error) {
+      await this.#cleanupAgentRoot(join(this.#agentsHome, agentId))
+      throw error
+    }
   }
 
   async #installBinary(
     agentId: AgentId,
     version: string,
-    distribution: NonNullable<AgentDistribution["binary"]>[AgentRegistryPlatform]
+    distribution: NonNullable<AgentDistribution["binary"]>[AgentRegistryPlatform],
+    options: { onProgress?: (value: number) => void; signal?: AbortSignal } = {}
   ): Promise<AgentInstallReceipt> {
     if (!distribution) throw new Error("Binary distribution is missing")
-    const bytes = await downloadBytes(distribution.archive)
+    options.signal?.throwIfAborted()
+    options.onProgress?.(0.05)
+    const bytes = await downloadBytes(distribution.archive, { signal: options.signal })
+    options.onProgress?.(0.5)
     if (distribution.sha256 && sha256(bytes).toLowerCase() !== distribution.sha256.toLowerCase()) {
       throw new Error("Agent archive checksum mismatch")
     }
@@ -313,6 +397,8 @@ export class AgentInstaller {
         await mkdir(dirname(target), { recursive: true })
         await writeFile(target, bytes, { mode: 0o755 })
       }
+      options.signal?.throwIfAborted()
+      options.onProgress?.(0.75)
       const relativeCommand = distribution.cmd.replace(/^\.\//, "")
       if (relativeCommand.split(/[\\/]/).includes(".."))
         throw new Error("Binary command escapes install directory")
@@ -334,9 +420,11 @@ export class AgentInstaller {
         version,
       }
       await this.#activate(receipt)
+      options.onProgress?.(1)
       return receipt
     } catch (error) {
       await rm(staging, { force: true, recursive: true })
+      await this.#cleanupAgentRoot(join(this.#agentsHome, agentId))
       throw error
     } finally {
       await rm(archivePath, { force: true })
@@ -347,6 +435,70 @@ export class AgentInstaller {
     const root = join(this.#agentsHome, receipt.agentId)
     await writeJsonAtomic(join(root, "receipts", `${receipt.version}.json`), receipt)
     await writeJsonAtomic(join(root, "current.json"), receipt)
+  }
+
+  async #cleanupAgentRoot(root: string): Promise<void> {
+    await rm(join(root, "staging"), { force: true, recursive: true })
+    await this.#cleanupAtomicFiles(root)
+    await this.#cleanupIncompleteVersions(root)
+  }
+
+  async #cleanupAtomicFiles(root: string): Promise<void> {
+    const directories = [root, join(root, "receipts")]
+    for (const directory of directories) {
+      const entries = await readdir(directory, { withFileTypes: true }).catch(
+        (error: NodeJS.ErrnoException) => {
+          if (error.code === "ENOENT") return []
+          throw error
+        }
+      )
+      await Promise.all(
+        entries
+          .filter((entry) => entry.isFile() && entry.name.endsWith(".tmp"))
+          .map((entry) => rm(join(directory, entry.name), { force: true }))
+      )
+    }
+  }
+
+  async #cleanupIncompleteVersions(root: string): Promise<void> {
+    const current = await readFile(join(root, "current.json"), "utf8")
+      .then((value) => JSON.parse(value) as AgentInstallReceipt)
+      .catch((error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return undefined
+        throw error
+      })
+    const receiptsRoot = join(root, "receipts")
+    const receiptFiles = await readdir(receiptsRoot, { withFileTypes: true }).catch(
+      (error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return []
+        throw error
+      }
+    )
+    const validVersions = new Set<string>()
+    for (const entry of receiptFiles) {
+      if (!entry.isFile() || !entry.name.endsWith(".json")) continue
+      const path = join(receiptsRoot, entry.name)
+      const receipt = JSON.parse(await readFile(path, "utf8")) as AgentInstallReceipt
+      const incomplete =
+        !current ||
+        (receipt.version !== current.version &&
+          Date.parse(receipt.installedAt) > Date.parse(current.installedAt))
+      if (incomplete) await rm(path, { force: true })
+      else validVersions.add(receipt.version)
+    }
+    if (current) validVersions.add(current.version)
+    const versionsRoot = join(root, "versions")
+    const versions = await readdir(versionsRoot, { withFileTypes: true }).catch(
+      (error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return []
+        throw error
+      }
+    )
+    await Promise.all(
+      versions
+        .filter((entry) => entry.isDirectory() && !validVersions.has(entry.name))
+        .map((entry) => rm(join(versionsRoot, entry.name), { force: true, recursive: true }))
+    )
   }
 }
 

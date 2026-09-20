@@ -32,9 +32,11 @@ export const sha256 = (value: Uint8Array | string): string =>
 
 export const downloadBytes = async (
   url: string,
-  options: { maxBytes?: number; timeoutMs?: number } = {}
+  options: { maxBytes?: number; signal?: AbortSignal; timeoutMs?: number } = {}
 ): Promise<Uint8Array> => {
-  const response = await fetch(url, { signal: AbortSignal.timeout(options.timeoutMs ?? 60_000) })
+  const timeout = AbortSignal.timeout(options.timeoutMs ?? 60_000)
+  const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout
+  const response = await fetch(url, { signal })
   if (!response.ok) throw new Error(`Download failed with HTTP ${response.status}`)
   const declared = Number(response.headers.get("content-length") ?? 0)
   const maxBytes = options.maxBytes ?? 512 * 1024 * 1024

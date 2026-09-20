@@ -1,3 +1,4 @@
+import { isAgentUpdateAvailable } from "@cypheria/client"
 import type {
   AgentId,
   AgentOperation,
@@ -12,6 +13,7 @@ import { Badge } from "@cypheria/ui/components/badge"
 import { Button } from "@cypheria/ui/components/button"
 import {
   Card,
+  CardAction,
   CardContent,
   CardDescription,
   CardHeader,
@@ -69,7 +71,7 @@ function AgentHarnessSettingsRoute() {
   const agent = agentsQuery.data?.agents.find((item) => item.id === routeAgentId)
   const agentId = (agent?.id ?? "codex") as AgentId
   const catalogQuery = useQuery({
-    enabled: Boolean(agent?.installed) && sectionId !== "authentication",
+    enabled: Boolean(agent?.installed && agent.enabled) && sectionId !== "authentication",
     queryFn: async () => (await ensureCypheriaClient()).harnesses.settings.get({ agentId }),
     queryKey: ["harness", agentId, "catalog"],
   })
@@ -104,9 +106,9 @@ function AgentHarnessSettingsRoute() {
     <SettingsFrame wide>
       <NetworkProxyCard />
       {agentsQuery.isLoading || !agent ? (
-        <Skeleton className="h-96 w-full" />
+        <Skeleton className="mt-4 h-96 w-full" />
       ) : (
-        <div className="grid gap-6">
+        <div className="mt-4 grid gap-6">
           <header className="flex items-start gap-4">
             <span className="flex size-12 shrink-0 items-center justify-center rounded-xl border bg-card">
               <HarnessIcon
@@ -117,13 +119,19 @@ function AgentHarnessSettingsRoute() {
               />
             </span>
             <div className="min-w-0 flex-1">
-              <h1 className="text-2xl font-semibold">{agent.name}</h1>
+              <div className="flex flex-wrap items-center gap-2">
+                <h1 className="text-2xl font-semibold">{agent.name}</h1>
+                <Badge className="tabular-nums" variant="secondary">
+                  v{agent.version}
+                </Badge>
+              </div>
               <p className="mt-1 text-sm text-muted-foreground">{agent.description}</p>
             </div>
-            <HarnessMaintenanceActions agent={agent} />
+            <HarnessMaintenanceActions agent={agent} key={agent.id} />
           </header>
           <div className="grid min-h-[520px] gap-6 md:grid-cols-[190px_minmax(0,1fr)]">
             <Select
+              disabled={!agent.enabled}
               value={sectionId}
               onValueChange={(value) =>
                 void navigate({
@@ -151,10 +159,11 @@ function AgentHarnessSettingsRoute() {
                 <button
                   className={
                     item.id === sectionId
-                      ? "rounded-md bg-muted px-3 py-2 text-left text-sm font-medium"
-                      : "rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                      ? "rounded-md bg-muted px-3 py-2 text-left text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+                      : "rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
                   }
                   key={item.id}
+                  disabled={!agent.enabled}
                   type="button"
                   onClick={() =>
                     void navigate({
@@ -168,14 +177,19 @@ function AgentHarnessSettingsRoute() {
               ))}
             </nav>
             <section className="min-w-0">
-              {!agent.installed ? <InstallRequired agent={agent} /> : null}
-              {agent.installed && sectionId === "authentication" ? (
+              {!agent.installed ? <InstallRequired agent={agent} key={agent.id} /> : null}
+              {agent.installed && !agent.enabled ? (
+                <EnableRequired agent={agent} key={agent.id} />
+              ) : null}
+              {agent.installed && agent.enabled && sectionId === "authentication" ? (
                 <AuthenticationSection agent={agent} />
               ) : null}
-              {agent.installed && sectionId === "models" ? (
+              {agent.installed && agent.enabled && sectionId === "models" ? (
                 <ModelsSection agentId={agentId} snapshot={catalogQuery.data} />
               ) : null}
-              {agent.installed && !baseSections.some((item) => item.id === sectionId) ? (
+              {agent.installed &&
+              agent.enabled &&
+              !baseSections.some((item) => item.id === sectionId) ? (
                 <SettingsSection
                   agentId={agentId}
                   section={catalogQuery.data?.settingSections.find((item) => item.id === sectionId)}
@@ -192,19 +206,8 @@ function AgentHarnessSettingsRoute() {
 
 function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
   const queryClient = useQueryClient()
-  const navigate = useNavigate()
   const [uninstallOpen, setUninstallOpen] = useState(false)
   const [operation, setOperation] = useState<AgentOperation>()
-  const install = useMutation({
-    mutationFn: async () => {
-      const client = await ensureCypheriaClient()
-      return waitForAgentOperation(await client.agents.install(agent.id), setOperation)
-    },
-    onSuccess: async () => {
-      setOperation(undefined)
-      await queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
-    },
-  })
   const update = useMutation({
     mutationFn: async () => {
       const client = await ensureCypheriaClient()
@@ -226,12 +229,13 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
       setUninstallOpen(false)
       queryClient.removeQueries({ queryKey: ["harness", agent.id] })
       await queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
-      if (!agent.native) {
-        await navigate({
-          params: { agentId: "codex", sectionId: "authentication" },
-          to: "/settings/agent-harnesses/$agentId/$sectionId",
-        })
-      }
+    },
+  })
+  const disable = useMutation({
+    mutationFn: async () => (await ensureCypheriaClient()).agents.disable(agent.id),
+    onSuccess: async () => {
+      queryClient.removeQueries({ queryKey: ["harness", agent.id] })
+      await queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
     },
   })
   const setUninstallDialogOpen = (open: boolean) => {
@@ -243,35 +247,34 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
     setUninstallOpen(open)
   }
   const progress = Math.round((operation?.progress ?? 0) * 100)
-  if (!agent.installed) {
-    return (
-      <div className="grid justify-items-end gap-2">
-        <Button disabled={install.isPending} onClick={() => install.mutate()}>
-          <Download className="size-4" />
-          {install.isPending ? "Installing…" : "Install"}
-        </Button>
-        {install.isPending && operation ? (
-          <span className="max-w-64 text-right text-xs text-muted-foreground">
-            {operation.message ?? `Installing… ${progress}%`}
-          </span>
-        ) : null}
-        {install.error ? (
-          <span className="text-xs text-destructive">{install.error.message}</span>
-        ) : null}
-      </div>
-    )
-  }
+  if (!agent.installed) return null
+  const updateAvailable = !agent.native && isAgentUpdateAvailable(agent)
   return (
     <div className="grid justify-items-end gap-2">
       <div className="flex gap-2">
-        <Button
-          disabled={update.isPending || uninstall.isPending}
-          variant="outline"
-          onClick={() => update.mutate()}
-        >
-          <RefreshCw className={update.isPending ? "size-4 animate-spin" : "size-4"} />
-          {update.isPending ? "Updating…" : "Update"}
-        </Button>
+        {agent.enabled ? (
+          <div className="flex items-center gap-2 rounded-md border px-3 text-sm">
+            Enabled
+            <Switch
+              aria-label={`Disable ${agent.name}`}
+              checked
+              disabled={disable.isPending || update.isPending || uninstall.isPending}
+              onCheckedChange={(checked) => {
+                if (!checked) disable.mutate()
+              }}
+            />
+          </div>
+        ) : null}
+        {updateAvailable ? (
+          <Button
+            disabled={update.isPending || uninstall.isPending}
+            variant="outline"
+            onClick={() => update.mutate()}
+          >
+            <RefreshCw className={update.isPending ? "size-4 animate-spin" : "size-4"} />
+            Update
+          </Button>
+        ) : null}
         <Button
           disabled={update.isPending || uninstall.isPending}
           variant="destructive"
@@ -282,20 +285,24 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
         </Button>
       </div>
       {update.isPending && operation ? (
-        <span className="max-w-64 text-right text-xs text-muted-foreground">
-          {operation.message ?? `Updating… ${progress}%`}
-        </span>
+        <Progress className="w-64" value={progress}>
+          <ProgressLabel>Update</ProgressLabel>
+          <ProgressValue />
+        </Progress>
       ) : null}
       {update.error ? (
         <span className="text-xs text-destructive">{update.error.message}</span>
+      ) : null}
+      {disable.error ? (
+        <span className="text-xs text-destructive">{disable.error.message}</span>
       ) : null}
       <Dialog open={uninstallOpen} onOpenChange={setUninstallDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Uninstall {agent.name}?</DialogTitle>
             <DialogDescription>
-              This removes the managed harness runtime. You can install it again from the Agent
-              harnesses add menu.
+              This removes the managed harness runtime but keeps {agent.name} in Agent harnesses.
+              You can install it again from this settings page.
             </DialogDescription>
           </DialogHeader>
           {uninstall.isPending && operation ? (
@@ -330,6 +337,19 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
 }
 
 function InstallRequired({ agent }: { agent: AgentView }) {
+  const queryClient = useQueryClient()
+  const [operation, setOperation] = useState<AgentOperation>()
+  const install = useMutation({
+    mutationFn: async () => {
+      const client = await ensureCypheriaClient()
+      return waitForAgentOperation(await client.agents.install(agent.id), setOperation)
+    },
+    onSuccess: async () => {
+      setOperation(undefined)
+      await queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
+    },
+  })
+  const progress = Math.round((operation?.progress ?? 0) * 100)
   return (
     <Card>
       <CardHeader>
@@ -337,7 +357,61 @@ function InstallRequired({ agent }: { agent: AgentView }) {
         <CardDescription>
           Install this harness before configuring authentication, models, and defaults.
         </CardDescription>
+        <CardAction className="self-center">
+          <Button disabled={install.isPending} onClick={() => install.mutate()}>
+            <Download className="size-4" />
+            Install
+          </Button>
+        </CardAction>
       </CardHeader>
+      {install.isPending || install.error ? (
+        <CardContent className="grid gap-4">
+          {install.isPending && operation ? (
+            <Progress value={progress}>
+              <ProgressLabel>Install</ProgressLabel>
+              <ProgressValue />
+            </Progress>
+          ) : null}
+          {install.error ? (
+            <p className="text-sm text-destructive">{install.error.message}</p>
+          ) : null}
+        </CardContent>
+      ) : null}
+    </Card>
+  )
+}
+
+function EnableRequired({ agent }: { agent: AgentView }) {
+  const queryClient = useQueryClient()
+  const enable = useMutation({
+    mutationFn: async () => (await ensureCypheriaClient()).agents.enable(agent.id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
+    },
+  })
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Enable {agent.name}</CardTitle>
+        <CardDescription>
+          Allow Cypheria to start this harness for new and existing sessions.
+        </CardDescription>
+        <CardAction className="self-center">
+          <Switch
+            aria-label={`Enable ${agent.name}`}
+            checked={false}
+            disabled={enable.isPending}
+            onCheckedChange={(checked) => {
+              if (checked) enable.mutate()
+            }}
+          />
+        </CardAction>
+      </CardHeader>
+      {enable.error ? (
+        <CardContent>
+          <p className="text-sm text-destructive">{enable.error.message}</p>
+        </CardContent>
+      ) : null}
     </Card>
   )
 }

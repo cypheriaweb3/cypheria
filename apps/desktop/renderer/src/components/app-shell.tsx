@@ -10,6 +10,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@cypheria/ui/components/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@cypheria/ui/components/dropdown-menu"
 import { Input } from "@cypheria/ui/components/input"
 import {
   Select,
@@ -60,12 +66,13 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CircleUserRound,
+  MoreHorizontal,
   Palette,
   Plus,
   Search,
   Settings,
   SquarePen,
+  Trash2,
 } from "lucide-react"
 import {
   type ComponentProps,
@@ -76,7 +83,7 @@ import {
   useRef,
   useState,
 } from "react"
-import { resolveThemeMode, useAppearanceController, useTheme } from "../appearance.js"
+import { useAppearanceController } from "../appearance.js"
 import { ensureCypheriaClient } from "../cypheria-client.js"
 import { activateLanguage, getBootstrapLanguage, i18n } from "../i18n.js"
 import { web3Api } from "../web3-api.js"
@@ -150,14 +157,16 @@ const settingsGroups = [
   },
 ] as const
 
-type HarnessNavigationAgent = Pick<AgentView, "icon" | "id" | "name">
+type HarnessNavigationAgent = Pick<AgentView, "enabled" | "icon" | "id" | "installed" | "name">
 
 const nativeHarnessNavigationAgents: HarnessNavigationAgent[] = [
-  { icon: null, id: "codex", name: "Codex" },
-  { icon: null, id: "claude", name: "Claude" },
-  { icon: null, id: "pi", name: "Pi" },
-  { icon: null, id: "opencode", name: "OpenCode" },
+  { enabled: false, icon: null, id: "codex", installed: false, name: "Codex" },
+  { enabled: false, icon: null, id: "claude", installed: false, name: "Claude" },
+  { enabled: false, icon: null, id: "pi", installed: false, name: "Pi" },
+  { enabled: false, icon: null, id: "opencode", installed: false, name: "OpenCode" },
 ]
+
+const desktopSidebarContentClassName = "min-h-0 overflow-hidden px-1.5 pb-3 pt-0.5"
 export default function AppRoot() {
   return (
     <RootLayout>
@@ -250,8 +259,8 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
     <TooltipProvider>
       <SidebarProvider
         className="h-screen w-screen overflow-hidden bg-background"
+        data-settings={isSettings ? "true" : undefined}
         data-platform={platform}
-        fixedWidth={isSettings ? 232 : undefined}
         style={
           {
             "--sidebar-width": `${DESKTOP_SIDEBAR_DEFAULT_WIDTH}px`,
@@ -262,37 +271,21 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       >
         {isSettings ? (
           <SettingsNavigation
+            headerClassName={windowControlRowClassName}
+            isWindows={isWindows}
             pathname={pathname}
-            platform={platform}
             triggerClassName={chromeIconButtonClassName}
           />
         ) : (
           <Sidebar className="border-r border-sidebar-border" collapsible="icon">
-            <SidebarHeader className={windowControlRowClassName}>
-              <SidebarTrigger aria-label="Collapse sidebar" className={chromeIconButtonClassName} />
-              <Button
-                aria-label="Go back"
-                className={chromeIconButtonClassName}
-                disabled
-                size="icon"
-                variant="ghost"
-              >
-                <ArrowLeft aria-hidden="true" size={15} strokeWidth={1.8} />
-              </Button>
-              <Button
-                aria-label="Go forward"
-                className={chromeIconButtonClassName}
-                disabled
-                size="icon"
-                variant="ghost"
-              >
-                <ArrowRight aria-hidden="true" size={15} strokeWidth={1.8} />
-              </Button>
-              {isWindows ? <WindowsMenuBar /> : null}
-            </SidebarHeader>
+            <DesktopSidebarHeader
+              className={windowControlRowClassName}
+              isWindows={isWindows}
+              triggerClassName={chromeIconButtonClassName}
+            />
 
-            <SidebarContent className="min-h-0 overflow-hidden px-3 pb-3 pt-0.5">
-              <SidebarGroup className="shrink-0 px-2 py-0">
+            <SidebarContent className={desktopSidebarContentClassName}>
+              <SidebarGroup className="shrink-0 px-1 py-0">
                 <SidebarGroupContent>
                   <SidebarMenu>
                     {navigationItems.map((item) => {
@@ -324,7 +317,7 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
               />
             </SidebarContent>
 
-            <SidebarFooter className="grid min-h-[58px] grid-cols-[minmax(0,1fr)_34px] items-center gap-2 px-3 pb-3 pt-2.5">
+            <SidebarFooter className="min-h-[58px] px-1.5 pb-3 pt-2.5">
               <SidebarMenu>
                 <SidebarMenuItem>
                   <SidebarMenuButton
@@ -340,7 +333,6 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                   />
                 </SidebarMenuItem>
               </SidebarMenu>
-              <ThemeModeButton />
             </SidebarFooter>
           </Sidebar>
         )}
@@ -348,22 +340,31 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         <SidebarInset className="main-panel min-h-0 min-w-0 bg-background">
           <DesktopCollapsedToolbar>
             <SidebarTrigger aria-label="Toggle sidebar" className={chromeIconButtonClassName} />
-            <Button
-              aria-label="New chat"
-              className={cn(chromeIconButtonClassName, "collapsed-secondary")}
-              nativeButton={false}
-              render={<NewChatLink />}
-              size="icon"
-              variant="ghost"
-            >
-              <SquarePen aria-hidden="true" size={16} strokeWidth={1.8} />
-            </Button>
-            <span
-              aria-hidden="true"
-              className="collapsed-secondary desktop-chrome-separator bg-border"
-            />
+            {!isSettings ? (
+              <>
+                <Button
+                  aria-label="New chat"
+                  className={cn(chromeIconButtonClassName, "collapsed-secondary")}
+                  nativeButton={false}
+                  render={<NewChatLink />}
+                  size="icon"
+                  variant="ghost"
+                >
+                  <SquarePen aria-hidden="true" size={16} strokeWidth={1.8} />
+                </Button>
+                <span
+                  aria-hidden="true"
+                  className="collapsed-secondary desktop-chrome-separator bg-border"
+                />
+              </>
+            ) : null}
           </DesktopCollapsedToolbar>
-          <div className="hidden min-h-12 items-center justify-between border-b border-border bg-sidebar px-2.5 text-sm font-semibold text-sidebar-foreground max-[767px]:flex [&_button]:[-webkit-app-region:no-drag]">
+          <div
+            className={cn(
+              "hidden min-h-12 items-center justify-between bg-sidebar px-2.5 text-sm font-semibold text-sidebar-foreground max-[767px]:flex [&_button]:[-webkit-app-region:no-drag]",
+              !isSettings && "border-b border-border"
+            )}
+          >
             <SidebarTrigger aria-label="Open sidebar" />
             <span>{isSettings ? <Trans id="settings.title">Settings</Trans> : "Cypheria"}</span>
             {isSettings ? (
@@ -381,13 +382,46 @@ function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   )
 }
 
+function DesktopSidebarHeader({
+  className,
+  isWindows,
+  triggerClassName,
+}: Readonly<{ className: string; isWindows: boolean; triggerClassName: string }>) {
+  return (
+    <SidebarHeader className={className}>
+      <SidebarTrigger aria-label="Collapse sidebar" className={triggerClassName} />
+      <Button
+        aria-label="Go back"
+        className={triggerClassName}
+        disabled
+        size="icon"
+        variant="ghost"
+      >
+        <ArrowLeft aria-hidden="true" size={15} strokeWidth={1.8} />
+      </Button>
+      <Button
+        aria-label="Go forward"
+        className={triggerClassName}
+        disabled
+        size="icon"
+        variant="ghost"
+      >
+        <ArrowRight aria-hidden="true" size={15} strokeWidth={1.8} />
+      </Button>
+      {isWindows ? <WindowsMenuBar /> : null}
+    </SidebarHeader>
+  )
+}
+
 function SettingsNavigation({
+  headerClassName,
+  isWindows,
   pathname,
-  platform,
   triggerClassName,
 }: Readonly<{
+  headerClassName: string
+  isWindows: boolean
   pathname: string
-  platform: "darwin" | "win32" | "unknown"
   triggerClassName: string
 }>) {
   const { i18n: activeI18n } = useLingui()
@@ -470,20 +504,14 @@ function SettingsNavigation({
 
   return (
     <Sidebar className="border-r border-sidebar-border" collapsible="icon">
-      <SidebarHeader
-        className={cn(
-          "flex min-h-[44px] flex-row items-center gap-2.5 px-3 py-2 pl-[88px] [-webkit-app-region:drag] [&_a]:[-webkit-app-region:no-drag] [&_button]:[-webkit-app-region:no-drag]",
-          platform === "win32" && "px-3 pb-2 pt-3 pl-3.5"
-        )}
-      >
-        <SidebarTrigger aria-label="Collapse settings sidebar" className={triggerClassName} />
-        <span className="truncate text-sm font-semibold group-data-[collapsible=icon]:hidden">
-          <Trans id="settings.title">Settings</Trans>
-        </span>
-      </SidebarHeader>
+      <DesktopSidebarHeader
+        className={headerClassName}
+        isWindows={isWindows}
+        triggerClassName={triggerClassName}
+      />
 
-      <SidebarContent className="min-h-0 overflow-hidden px-3 pb-3 pt-0.5">
-        <div className="relative mb-3 px-2 group-data-[collapsible=icon]:hidden">
+      <SidebarContent className={desktopSidebarContentClassName}>
+        <div className="relative mb-3 px-1 group-data-[collapsible=icon]:hidden">
           <Search
             aria-hidden="true"
             className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -510,7 +538,7 @@ function SettingsNavigation({
               if (!row) return null
               return (
                 <div
-                  className="absolute left-0 top-0 w-full px-2"
+                  className="absolute left-0 top-0 w-full px-1"
                   data-index={virtualRow.index}
                   data-settings-navigation-row={row.kind}
                   key={row.id}
@@ -587,7 +615,7 @@ function SettingsNavigation({
                     <SidebarMenu>
                       <SidebarMenuItem>
                         <SidebarMenuButton
-                          className="pl-7"
+                          className="pl-7 pr-9"
                           isActive={pathname.startsWith(
                             `/settings/agent-harnesses/${row.agent.id}/`
                           )}
@@ -604,10 +632,17 @@ function SettingsNavigation({
                                   name={row.agent.name}
                                 />
                               </span>
-                              <span>{row.agent.name}</span>
+                              <span className="flex min-w-0 items-center gap-1.5">
+                                <span className="truncate">{row.agent.name}</span>
+                                <HarnessStatusDot agent={row.agent} />
+                              </span>
                             </Link>
                           }
                           tooltip={row.agent.name}
+                        />
+                        <HarnessNavigationMenu
+                          active={pathname.startsWith(`/settings/agent-harnesses/${row.agent.id}/`)}
+                          agent={row.agent}
                         />
                       </SidebarMenuItem>
                     </SidebarMenu>
@@ -624,15 +659,72 @@ function SettingsNavigation({
         </div>
       </SidebarContent>
 
-      <SidebarFooter className="flex min-h-[58px] items-end px-3 pb-3 pt-2.5">
-        <ThemeModeButton />
-      </SidebarFooter>
       <HarnessAddDialog
         agents={agents.data?.availableAgents ?? []}
         onOpenChange={setInstallDialogOpen}
         open={installDialogOpen}
       />
     </Sidebar>
+  )
+}
+
+function HarnessStatusDot({ agent }: { agent: HarnessNavigationAgent }) {
+  const state = !agent.installed ? "Not installed" : agent.enabled ? "Enabled" : "Disabled"
+  return (
+    <span
+      aria-label={state}
+      className={cn(
+        "size-1 shrink-0 rounded-full",
+        !agent.installed && "bg-muted-foreground/45",
+        agent.installed && !agent.enabled && "bg-amber-500",
+        agent.installed && agent.enabled && "bg-emerald-500"
+      )}
+      role="status"
+      title={state}
+    />
+  )
+}
+
+function HarnessNavigationMenu({
+  active,
+  agent,
+}: Readonly<{ active: boolean; agent: HarnessNavigationAgent }>) {
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const remove = useMutation({
+    mutationFn: async () => (await ensureCypheriaClient()).agents.remove(agent.id),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
+      if (active) await navigate({ to: "/settings/general" })
+    },
+  })
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        render={
+          <SidebarMenuAction
+            aria-label={`More options for ${agent.name}`}
+            disabled={remove.isPending}
+            showOnHover
+          />
+        }
+      >
+        <MoreHorizontal aria-hidden="true" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-56 rounded-xl p-1.5" side="right">
+        <DropdownMenuItem
+          className="py-1.5 text-destructive focus:text-destructive"
+          disabled={agent.installed || remove.isPending}
+          onClick={() => remove.mutate()}
+        >
+          <Trash2 aria-hidden="true" />
+          {agent.installed ? "Uninstall before removing" : "Remove from Agent harnesses"}
+        </DropdownMenuItem>
+        {remove.error ? (
+          <p className="px-2 py-1 text-xs text-destructive">{remove.error.message}</p>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }
 
@@ -719,7 +811,12 @@ function HarnessAddDialog({
                     />
                   </span>
                   <span className="!grid min-w-0 flex-1 gap-0.5 whitespace-normal">
-                    <span className="font-medium leading-5">{agent.name}</span>
+                    <span className="flex min-w-0 items-baseline gap-2 leading-5">
+                      <span className="truncate font-medium">{agent.name}</span>
+                      <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                        v{agent.version}
+                      </span>
+                    </span>
                     <span className="line-clamp-2 text-xs leading-4 text-muted-foreground">
                       {agent.description}
                     </span>
@@ -784,33 +881,6 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         <Scripts />
       </body>
     </html>
-  )
-}
-
-function ThemeModeButton() {
-  const queryClient = useQueryClient()
-  const { theme, updateTheme } = useTheme()
-  const nextMode = resolveThemeMode(theme.theme) === "dark" ? "light" : "dark"
-
-  const handleThemeModeChange = async () => {
-    const settings = await updateTheme({ ...theme, theme: nextMode })
-    if (settings) {
-      queryClient.setQueryData(["settings", "appearance"], settings)
-    }
-  }
-
-  return (
-    <Button
-      aria-label={`Switch to ${nextMode} theme`}
-      className="relative flex size-4 items-center justify-center justify-self-center rounded p-0 after:absolute after:-inset-1 hover:bg-sidebar-accent"
-      onClick={() => void handleThemeModeChange()}
-      size="icon"
-      suppressHydrationWarning
-      type="button"
-      variant="ghost"
-    >
-      <CircleUserRound aria-hidden="true" className="size-4" strokeWidth={1.9} />
-    </Button>
   )
 }
 

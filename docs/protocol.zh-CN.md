@@ -42,7 +42,7 @@ web3.signing_intent.create.request -> web3.signing_intent.create.response
 
 准确字段以导出的 Zod Schema 为准，而不是本文示例。
 
-Agent management 会区分持久化 registry 与可用 harness catalog。`agent.list` 返回已注册 Agents 和当前可添加的 catalog entries；`agent.add` 只持久化一个 catalog entry，不执行安装。安装仍由显式 `agent.install` operation 完成。
+Agent management 会区分持久化 registry 与可用 harness catalog。`agent.list` 返回已注册 Agents 和当前可添加的 catalog entries，并包含各 entry 的可安装版本；`agent.add` 只持久化一个 catalog entry，不执行安装。安装仍由显式 `agent.install` operation 完成，卸载会保留并禁用 registry 记录，`agent.remove` 用于删除未安装记录。Install 与 update operation 会报告从 `0` 到 `1` 的归一化进度，按 Agent 而非全局串行执行，并在版本切换时保留 active turn。
 
 ## 版本与能力
 

@@ -12,7 +12,7 @@ Agent descriptor 报告来源、distribution、已安装和可用版本、启用
 
 Server 把固定版本的 ACP registry 文档作为可用 ACP catalog 加载并校验，同时提供刷新和检查操作。原生 harness 不从该 registry 获取版本：每个 Cypheria release 都为 Codex、Claude、Pi 和 OpenCode 声明一个经过测试的 CLI package 与精确版本。持久化的 `agent_registry` 并不是 ACP catalog 的全量副本：它初始包含四个原生 harness，只有用户执行添加后才写入相应 registry Agent；每条记录都保存 `createdAt`。ACP distribution metadata 可以选择平台 binary、`npx` 或 `uvx`；preview release 始终显式标记。平台 archive 可以携带 SHA-256 完整性信息。
 
-添加与安装是两个独立操作。添加会持久化所选 Agent 并开放其设置页；安装和更新是 Server 操作，拥有持久 operation records 与进度 notifications。原生 Agent 的安装或更新始终安装当前 Cypheria release 已对接的精确版本，绝不会动态解析或升级到更新的上游版本。Toolchain manager 在 Cypheria cache 下发现或安装托管的 Node 和 Python 工具。客户端可以列出、添加、安装、更新、卸载、启用、禁用、启动和停止 Agents，但不会获得文件系统或进程权限。
+添加、安装和删除 registry 记录是三个独立操作。添加会持久化所选 Agent 并开放其设置页；安装和更新是带 operation record 与进度 notification 的 Server 操作。安装成功后会自动启用 Agent。卸载只删除托管 runtime、保留 registry 记录，并始终禁用 Agent；删除该未安装记录是另一个独立操作。原生 harness 版本属于 Cypheria release，因此其设置页不提供独立更新操作。只有当前版本和 registry 版本都是有效语义化版本且 registry 版本更高时，才会提供 registry harness 更新。不同 Agent 的 operation 可以并发运行，同一 Agent 的 operation 仍会串行执行。Toolchain manager 在 Cypheria cache 下发现或安装托管的 Node 和 Python 工具。客户端可以列出、添加、删除、安装、更新、卸载、启用、禁用、启动和停止 Agents，但不会获得文件系统或进程权限。
 
 ## Catalog 与默认值
 
@@ -22,7 +22,7 @@ Server 把固定版本的 ACP registry 文档作为可用 ACP catalog 加载并�
 
 ## Runtime 生命周期
 
-Agent manager 串行化生命周期转换、报告健康状态，并区分 installed、enabled 和 running。禁用的 Agent 不能启动。停止的 Agent 仍可拥有持久 Threads；恢复 Thread 时会启动或复用相应 runtime。
+Agent manager 按 Agent 串行化生命周期转换、报告健康状态，并区分 installed、enabled 和 running。未安装 Agent 必定处于禁用状态，且只有已安装 Agent 才能切换 enabled。禁用的 Agent 不能启动。停止的 Agent 仍可拥有持久 Threads；恢复 Thread 时会启动或复用相应 runtime。更新正在运行的 harness 前，Server 会阻止新 turn、等待 active turn 完成、挂起其 sessions、停止旧 runtime、激活新版本并恢复 sessions。Server 关闭时会终止安装子进程；下次启动会清理被中断的 staging 目录、临时下载、原子写入残留和未完成的版本激活。
 
 每个 runtime 实现 Thread manager 使用的公共 harness adapter：
 
