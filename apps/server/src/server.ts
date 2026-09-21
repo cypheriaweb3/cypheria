@@ -438,6 +438,7 @@ export class CypheriaServer implements HttpAppHost {
   }
 
   clientSessionClosed(sessionId: string): void {
+    this.harnesses.closeSession(sessionId)
     this.terminals.closeSession(sessionId)
   }
 

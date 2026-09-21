@@ -32,10 +32,11 @@ export interface HarnessActions {
       input: Payload<"harness.auth.cancel.request">,
       options?: RequestOptions
     ): Promise<boolean>
-    logout(
-      agentId: Payload<"harness.auth.logout.request">["agentId"],
+    logout(input: Payload<"harness.auth.logout.request">, options?: RequestOptions): Promise<void>
+    poll(
+      input: Payload<"harness.auth.poll.request">,
       options?: RequestOptions
-    ): Promise<void>
+    ): Promise<Value<"harness.auth.poll.response">>
     respond(
       input: Payload<"harness.auth.respond.request">,
       options?: RequestOptions
@@ -44,6 +45,10 @@ export interface HarnessActions {
       input: Payload<"harness.auth.start.request">,
       options?: RequestOptions
     ): Promise<Value<"harness.auth.start.response">>
+    test(
+      input: Payload<"harness.auth.test.request">,
+      options?: RequestOptions
+    ): Promise<Value<"harness.auth.test.response">>
   }
   readonly models: {
     list(
@@ -79,11 +84,13 @@ export const createHarnessActions = (client: ServerClient): HarnessActions => {
             options
           )
         ).cancelled,
-      logout: async (agentId, options) => {
-        await request("harness.auth.logout.request", { agentId }, options)
+      logout: async (input, options) => {
+        await request("harness.auth.logout.request", input, options)
       },
+      poll: (input, options) => request("harness.auth.poll.request", input, options),
       respond: (input, options) => request("harness.auth.respond.request", input, options),
       start: (input, options) => request("harness.auth.start.request", input, options),
+      test: (input, options) => request("harness.auth.test.request", input, options),
     },
     get: (agentId, options) => request("harness.get.request", { agentId }, options),
     models: {

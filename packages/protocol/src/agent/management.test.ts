@@ -27,6 +27,7 @@ describe("agent management protocol", () => {
       "runtimeScope",
       "runtimeState",
       "integrity",
+      "installation",
     ])
     expect(AgentViewSchema.shape.version.safeParse(null).success).toBe(false)
     expect(AgentViewSchema.shape.version.safeParse("").success).toBe(false)

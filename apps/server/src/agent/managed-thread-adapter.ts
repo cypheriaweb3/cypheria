@@ -9,7 +9,6 @@ import type {
   ThreadTimelineItem,
 } from "@cypheria/protocol"
 import {
-  AgentAcpClientMessageSchema,
   AgentClaudeClientMessageSchema,
   AgentCodexClientRequestSchema,
   AgentCodexServerResponseSchema,
@@ -17,6 +16,11 @@ import {
   AgentOpenCodeEventSubscribeRequestSchema,
   AgentPiClientMessageSchema,
 } from "@cypheria/protocol"
+import {
+  ACP_PREFERRED_PROTOCOL_VERSION,
+  AgentAcpClientMessageSchema,
+  parseAcpNegotiatedInitializeResult,
+} from "@cypheria/protocol/acp-adapter"
 
 import type {
   ThreadHarnessAdapter,
@@ -30,6 +34,7 @@ import type {
   ThreadHarnessTurnInput,
   ThreadInteractionResponse,
 } from "../thread/harness-adapter.js"
+import { ACP_V1_FALLBACK_REQUIRED_CODE, acpInitializeParams } from "./acp-negotiation.js"
 import type { AgentManager, AgentRuntimeServerMessage } from "./agent-manager.js"
 import type { ClaudePermissionHandler, ClaudePermissionRequest } from "./claude-session-runtime.js"
 
@@ -40,21 +45,31 @@ type Pending = {
   readonly timeout: NodeJS.Timeout
 }
 
-const capabilities = (agentId: AgentId, acp?: Record<string, unknown>): ThreadCapabilities => {
-  const prompt = (acp?.promptCapabilities ?? {}) as Record<string, unknown>
-  const session = (acp?.sessionCapabilities ?? {}) as Record<string, unknown>
+const capabilities = (
+  agentId: AgentId,
+  acp?: Record<string, unknown>,
+  acpVersion?: 1 | 2
+): ThreadCapabilities => {
+  const session = (
+    acpVersion === 2 ? (acp?.session ?? {}) : (acp?.sessionCapabilities ?? {})
+  ) as Record<string, unknown>
+  const prompt = (
+    acpVersion === 2 ? (session.prompt ?? {}) : (acp?.promptCapabilities ?? {})
+  ) as Record<string, unknown>
+  const supportsPrompt = (value: unknown): boolean =>
+    acpVersion === 2 ? value != null : value === true
   return {
     changeCwd: true,
     configure: true,
     fork: agentId === "codex" || agentId === "opencode" || session.fork != null,
     promptContent: [
       "text",
-      ...(agentId === "codex" || agentId === "opencode" || prompt.image === true
+      ...(agentId === "codex" || agentId === "opencode" || supportsPrompt(prompt.image)
         ? (["image"] as const)
         : []),
-      ...(agentId === "codex" || prompt.audio === true ? (["audio"] as const) : []),
+      ...(agentId === "codex" || supportsPrompt(prompt.audio) ? (["audio"] as const) : []),
       ...(agentId !== "codex" ? (["resource-link"] as const) : []),
-      ...(prompt.embeddedContext === true ? (["embedded-resource"] as const) : []),
+      ...(supportsPrompt(prompt.embeddedContext) ? (["embedded-resource"] as const) : []),
     ],
     harnessExtensions: false,
     steer: agentId === "codex" || agentId === "pi",
@@ -89,9 +104,9 @@ const grantedCodexPermissions = (value: unknown): Record<string, unknown> => {
 const resultOf = (message: AgentRuntimeServerMessage): Record<string, unknown> => {
   const payload = payloadOf(message)
   if (payload.error) {
-    const error = payload.error as { code?: string; message?: string }
+    const error = payload.error as { code?: number | string; message?: string }
     const failure = new Error(error.message ?? "Harness request failed")
-    failure.name = error.code ?? "HARNESS_ERROR"
+    failure.name = error.code === undefined ? "HARNESS_ERROR" : String(error.code)
     throw failure
   }
   return (payload.result as Record<string, unknown> | undefined) ?? payload
@@ -420,6 +435,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   >()
   readonly #reverse = new Map<string, AgentRuntimeServerMessage>()
   #acpCapabilities: Record<string, unknown> | undefined
+  #acpProtocolVersion: 1 | 2 | undefined
   #defaultsApplied = false
   #onEvent: ((event: ThreadHarnessEvent) => void) | undefined
   #harnessSessionId: string | null = null
@@ -555,13 +571,16 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       this.agentId !== "pi" &&
       context.agentSessionId
     ) {
-      await this.#request(context.threadId, {
-        agent: this.agentId,
-        protocolVersion: 1,
-        requestId: randomUUID(),
-        sessionId: context.agentSessionId,
-        type: "agent.acp.session.close.request",
-      })
+      const protocolVersion = this.#requireAcpVersion()
+      if (protocolVersion === 2 || this.#supportsAcp("close")) {
+        await this.#request(context.threadId, {
+          agent: this.agentId,
+          payload: { sessionId: context.agentSessionId },
+          protocolVersion,
+          requestId: randomUUID(),
+          type: "agent.acp.session.close.request",
+        })
+      }
     } else if (this.agentId === "claude" && this.#harnessSessionId) {
       await this.#request(context.threadId, {
         queryId: context.threadId,
@@ -590,8 +609,8 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       if (!this.#supportsAcp("delete")) throw new Error("ACP agent lacks session.delete capability")
       await this.#request(context.threadId, {
         agent: this.agentId,
-        sessionId: context.agentSessionId,
-        protocolVersion: 1,
+        payload: { sessionId: context.agentSessionId },
+        protocolVersion: this.#requireAcpVersion(),
         requestId: randomUUID(),
         type: "agent.acp.session.delete.request",
       })
@@ -744,14 +763,20 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       return { turnId: input.clientMessageId }
     }
     if (!input.agentSessionId) throw new Error("ACP thread is not bound")
+    const protocolVersion = this.#requireAcpVersion()
     await this.#request(input.threadId, {
       agent: this.agentId,
-      prompt: mapAcpInput(input.content),
-      protocolVersion: 1,
+      payload: {
+        prompt: mapAcpInput(input.content),
+        sessionId: input.agentSessionId,
+      },
+      protocolVersion,
       requestId: randomUUID(),
-      sessionId: input.agentSessionId,
       type: "agent.acp.session.prompt.request",
     })
+    if (protocolVersion === 1) {
+      this.#onEvent?.({ turnId: input.clientMessageId, type: "turn-completed" })
+    }
     return { turnId: input.clientMessageId }
   }
 
@@ -813,8 +838,8 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       await this.#manager.handleAcp(
         AgentAcpClientMessageSchema.parse({
           agent: this.agentId as RegistryAgentId,
-          sessionId: context.agentSessionId,
-          protocolVersion: 1,
+          payload: { sessionId: context.agentSessionId },
+          protocolVersion: this.#requireAcpVersion(),
           type: "agent.acp.session.cancel.notification",
         }),
         { send: this.#receive, sessionId: context.threadId }
@@ -1096,7 +1121,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
               : { outcome: "cancelled" },
           },
         },
-        protocolVersion: 1,
+        protocolVersion: this.#requireAcpVersion(),
         type: String(request.type).replace(/\.request$/, ".response"),
       }),
       { send: this.#receive, sessionId: context.threadId }
@@ -1105,31 +1130,22 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   }
 
   async #createAcp(input: ThreadHarnessCreateInput): Promise<ThreadHarnessSession> {
-    const initialized = resultOf(
-      await this.#request(input.threadId, {
-        agent: this.agentId,
-        clientCapabilities: {},
-        clientInfo: { name: "Cypheria", version: "0.0.0" },
-        protocolVersion: 1,
-        requestId: randomUUID(),
-        type: "agent.acp.initialize.request",
-      })
-    )
-    this.#acpCapabilities = (initialized.agentCapabilities as Record<string, unknown>) ?? {}
-    if (!this.#supportsAcp("delete")) {
+    await this.#initializeAcp(input.threadId)
+    const protocolVersion = this.#requireAcpVersion()
+    if (input.forkedFromAgentSessionId && !this.#supportsAcp("fork")) {
       await this.#manager.disposeSession(input.threadId)
-      throw new Error("ACP agent must advertise sessionCapabilities.delete")
+      throw new Error("ACP agent lacks session.fork capability")
     }
     const response = await this.#request(input.threadId, {
       agent: this.agentId,
-      ...(input.forkedFromAgentSessionId
+      payload: input.forkedFromAgentSessionId
         ? {
             cwd: input.cwd ?? process.cwd(),
             mcpServers: [],
             sessionId: input.forkedFromAgentSessionId,
           }
-        : { cwd: input.cwd ?? process.cwd(), mcpServers: [] }),
-      protocolVersion: 1,
+        : { cwd: input.cwd ?? process.cwd(), mcpServers: [] },
+      protocolVersion,
       requestId: randomUUID(),
       type: input.forkedFromAgentSessionId
         ? "agent.acp.session.fork.request"
@@ -1140,54 +1156,50 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     this.#harnessSessionId = sessionId
     await this.#applyAcpDefaults(input.threadId, sessionId)
     return {
-      capabilities: capabilities(this.agentId, this.#acpCapabilities),
+      capabilities: capabilities(this.agentId, this.#acpCapabilities, protocolVersion),
       sessionId,
     }
   }
 
   async #resumeAcp(input: ThreadHarnessResumeInput): Promise<ThreadHarnessSession> {
     if (!input.agentSessionId) return this.#createAcp({ ...input, forkedFromAgentSessionId: null })
-    const initialized = resultOf(
-      await this.#request(input.threadId, {
-        agent: this.agentId,
-        clientCapabilities: {},
-        clientInfo: { name: "Cypheria", version: "0.0.0" },
-        protocolVersion: 1,
-        requestId: randomUUID(),
-        type: "agent.acp.initialize.request",
-      })
-    )
-    this.#acpCapabilities = (initialized.agentCapabilities as Record<string, unknown>) ?? {}
-    if (!this.#supportsAcp("delete")) throw new Error("ACP agent lacks session.delete capability")
+    await this.#initializeAcp(input.threadId)
+    const protocolVersion = this.#requireAcpVersion()
+    if (protocolVersion === 1 && this.#acpCapabilities?.loadSession !== true) {
+      throw new Error("ACP v1 agent lacks session/load capability")
+    }
     const response = await this.#request(input.threadId, {
       agent: this.agentId,
-      ...{
+      payload: {
         cwd: input.cwd ?? process.cwd(),
         mcpServers: [],
         sessionId: input.agentSessionId,
       },
-      protocolVersion: 1,
+      protocolVersion,
       requestId: randomUUID(),
-      type: "agent.acp.session.load.request",
+      type:
+        protocolVersion === 2
+          ? "agent.acp.session.resume.request"
+          : "agent.acp.session.load.request",
     })
     resultOf(response)
     this.#harnessSessionId = input.agentSessionId
     return {
-      capabilities: capabilities(this.agentId, this.#acpCapabilities),
+      capabilities: capabilities(this.agentId, this.#acpCapabilities, protocolVersion),
       sessionId: input.agentSessionId,
     }
   }
 
   async #applyAcpDefaults(threadId: string, sessionId: string): Promise<void> {
+    const protocolVersion = this.#requireAcpVersion()
     for (const [configId, value] of Object.entries(await this.#defaultsFor(this.agentId))) {
       if (value === null) continue
-      if (configId === "mode" && typeof value === "string") {
+      if (protocolVersion === 1 && configId === "mode" && typeof value === "string") {
         await this.#request(threadId, {
           agent: this.agentId,
-          modeId: value,
-          protocolVersion: 1,
+          payload: { modeId: value, sessionId },
+          protocolVersion,
           requestId: randomUUID(),
-          sessionId,
           type: "agent.acp.session.set_mode.request",
         })
         continue
@@ -1195,11 +1207,18 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       if (typeof value !== "boolean" && typeof value !== "string") continue
       await this.#request(threadId, {
         agent: this.agentId,
-        configId,
-        protocolVersion: 1,
+        payload: {
+          configId,
+          sessionId,
+          ...(typeof value === "boolean"
+            ? { type: "boolean" }
+            : protocolVersion === 2
+              ? { type: "id" }
+              : {}),
+          value,
+        },
+        protocolVersion,
         requestId: randomUUID(),
-        sessionId,
-        ...(typeof value === "boolean" ? { configValueType: "boolean", value } : { value }),
         type: "agent.acp.session.set_config_option.request",
       })
     }
@@ -1214,9 +1233,72 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     return manager.defaultsFor?.(agentId) ?? {}
   }
 
-  #supportsAcp(capability: "delete" | "fork"): boolean {
-    const session = (this.#acpCapabilities?.sessionCapabilities ?? {}) as Record<string, unknown>
+  #supportsAcp(capability: "close" | "delete" | "fork"): boolean {
+    const session = (
+      this.#acpProtocolVersion === 2
+        ? (this.#acpCapabilities?.session ?? {})
+        : (this.#acpCapabilities?.sessionCapabilities ?? {})
+    ) as Record<string, unknown>
     return session[capability] != null
+  }
+
+  async #initializeAcp(threadId: string): Promise<void> {
+    let negotiated: ReturnType<typeof parseAcpNegotiatedInitializeResult>
+    try {
+      try {
+        const v2Params = acpInitializeParams(ACP_PREFERRED_PROTOCOL_VERSION)
+        const { protocolVersion: _protocolVersion, ...v2Payload } = v2Params
+        negotiated = parseAcpNegotiatedInitializeResult(
+          resultOf(
+            await this.#request(threadId, {
+              agent: this.agentId,
+              payload: v2Payload,
+              protocolVersion: ACP_PREFERRED_PROTOCOL_VERSION,
+              requestId: randomUUID(),
+              type: "agent.acp.initialize.request",
+            })
+          )
+        )
+      } catch (error) {
+        if (!(error instanceof Error) || error.name !== String(ACP_V1_FALLBACK_REQUIRED_CODE)) {
+          throw error
+        }
+        // Google Antigravity 1.1.1 claims v2 while returning the v1 initialize
+        // shape. Dispose that connection before explicitly negotiating v1.
+        await this.#manager.disposeSession(threadId)
+        const v1Params = acpInitializeParams(1)
+        const { protocolVersion: _protocolVersion, ...payload } = v1Params
+        negotiated = parseAcpNegotiatedInitializeResult(
+          resultOf(
+            await this.#request(threadId, {
+              agent: this.agentId,
+              payload,
+              protocolVersion: 1,
+              requestId: randomUUID(),
+              type: "agent.acp.initialize.request",
+            })
+          )
+        )
+      }
+    } catch (error) {
+      await this.#manager.disposeSession(threadId)
+      throw error
+    }
+    const { protocolVersion } = negotiated
+    this.#acpProtocolVersion = protocolVersion
+    this.#acpCapabilities =
+      (protocolVersion === 2
+        ? negotiated.result.capabilities
+        : negotiated.result.agentCapabilities) ?? {}
+    if (protocolVersion === 2 && this.#acpCapabilities.session == null) {
+      await this.#manager.disposeSession(threadId)
+      throw new Error("ACP v2 agent does not advertise session support")
+    }
+  }
+
+  #requireAcpVersion(): 1 | 2 {
+    if (!this.#acpProtocolVersion) throw new Error("ACP connection is not initialized")
+    return this.#acpProtocolVersion
   }
 
   #attach(onEvent: (event: ThreadHarnessEvent) => void): void {
@@ -1620,6 +1702,13 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       const item = this.#mapOpenCodeEventItem(event, data)
       if (item) onEvent({ item: { item, harnessItemId: item.itemId }, type: "timeline" })
       return
+    }
+    if (message.type === "agent.acp.session.update.notification" && message.protocolVersion === 2) {
+      const update = payload.update as Record<string, unknown> | undefined
+      if (update?.sessionUpdate === "state_update" && update.state === "idle") {
+        onEvent({ turnId: "active", type: "turn-completed" })
+        return
+      }
     }
     if (message.type.includes("turn.completed") || message.type.includes("agent_end")) {
       onEvent({

@@ -30,6 +30,27 @@ afterEach(async () => {
 })
 
 describe("AgentRegistryService", () => {
+  it("accepts newly published ids without a Cypheria release", async () => {
+    const home = await createTemporaryDirectory("cypheria-registry-dynamic-")
+    homes.push(home)
+    const dynamicRegistry = {
+      ...registry,
+      agents: [{ ...registry.agents[0], id: "future-agent", name: "Future Agent" }],
+    }
+    const service = new AgentRegistryService({
+      cypheriaHome: home,
+      fetchImpl: vi
+        .fn<typeof fetch>()
+        .mockResolvedValue(new Response(JSON.stringify(dynamicRegistry))),
+    })
+
+    await service.start()
+
+    expect(service.entries.map(({ id }) => id)).toEqual(["future-agent"])
+    expect(service.get("future-agent")?.name).toBe("Future Agent")
+    service.stop()
+  })
+
   it("persists validators and performs conditional refreshes", async () => {
     const home = await createTemporaryDirectory("cypheria-registry-")
     homes.push(home)

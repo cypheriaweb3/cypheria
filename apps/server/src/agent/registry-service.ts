@@ -5,14 +5,11 @@ import {
   AgentRegistryDocumentSchema,
   type AgentRegistryEntry,
   type AgentRegistrySyncState,
-  NATIVE_AGENT_IDS,
-  REGISTRY_AGENT_IDS,
 } from "@cypheria/protocol"
 
 const DEFAULT_REGISTRY_URL = "https://cdn.agentclientprotocol.com/registry/v1/latest/registry.json"
 const MAX_REGISTRY_BYTES = 4 * 1024 * 1024
 const REFRESH_INTERVAL_MS = 60 * 60 * 1000
-const knownIds = new Set<string>([...NATIVE_AGENT_IDS, ...REGISTRY_AGENT_IDS])
 const nativeRegistryIds = new Set(["codex-acp", "claude-acp", "pi-acp", "opencode"])
 
 type CacheEnvelope = {
@@ -44,7 +41,6 @@ export class AgentRegistryService {
     lastSuccessAt: null,
     registryVersion: null,
     stale: true,
-    unsupportedIds: [],
   }
 
   constructor(options: AgentRegistryServiceOptions) {
@@ -56,14 +52,15 @@ export class AgentRegistryService {
   }
 
   get state(): AgentRegistrySyncState {
-    return { ...this.#state, unsupportedIds: [...this.#state.unsupportedIds] }
+    return { ...this.#state }
   }
 
   get entries(): readonly AgentRegistryEntry[] {
-    return this.#document?.agents.filter(({ id }) => knownIds.has(id)) ?? []
+    return this.#document?.agents.filter(({ id }) => !nativeRegistryIds.has(id)) ?? []
   }
 
   get(id: string): AgentRegistryEntry | undefined {
+    if (nativeRegistryIds.has(id)) return undefined
     return this.#document?.agents.find((agent) => agent.id === id)
   }
 
@@ -77,9 +74,6 @@ export class AgentRegistryService {
         ...this.#state,
         lastSuccessAt: stored.metadata?.savedAt ?? null,
         registryVersion: stored.document.version,
-        unsupportedIds: stored.document.agents
-          .filter(({ id }) => !knownIds.has(id) && !nativeRegistryIds.has(id))
-          .map(({ id }) => id),
       }
     }
     if (options.refresh !== false) {
@@ -131,9 +125,6 @@ export class AgentRegistryService {
         lastSuccessAt: attemptedAt,
         registryVersion: incoming.version,
         stale: false,
-        unsupportedIds: incoming.agents
-          .filter(({ id }) => !knownIds.has(id) && !nativeRegistryIds.has(id))
-          .map(({ id }) => id),
       }
       await this.#writeStoredRegistry(incoming, {
         ...(this.#etag ? { etag: this.#etag } : {}),

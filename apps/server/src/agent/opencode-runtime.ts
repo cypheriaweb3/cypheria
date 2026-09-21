@@ -143,10 +143,18 @@ export class OpenCodeRuntime {
             return client.integration.connect.key(input as never)
           case "integration.oauth.connect":
             return client.integration.oauth.connect(input as never)
+          case "integration.oauth.status":
+            return client.integration.oauth.status(input as never)
           case "integration.oauth.complete":
             return client.integration.oauth.complete(input as never)
           case "integration.oauth.cancel":
             return client.integration.oauth.cancel(input as never)
+          case "integration.command.connect":
+            return client.integration.command.connect(input as never)
+          case "integration.command.status":
+            return client.integration.command.status(input as never)
+          case "integration.command.cancel":
+            return client.integration.command.cancel(input as never)
           case "credential.remove":
             return client.credential.remove(input as never)
           case "permission.reply":
@@ -175,5 +183,25 @@ export class OpenCodeRuntime {
     if (!this.#client) throw new Error("OpenCode is not running")
     if (stream !== "event") throw new Error(`Unsupported OpenCode v2 event stream: ${stream}`)
     for await (const event of this.#client.event.subscribe()) yield event
+  }
+
+  async verifyProvider(providerId: string): Promise<void> {
+    const client = this.#client
+    if (!client) throw new Error("OpenCode is not running")
+    const models = await client.model.list(undefined, { signal: AbortSignal.timeout(30_000) })
+    const model = models.data.find(
+      (candidate) =>
+        candidate.providerID === providerId &&
+        candidate.enabled &&
+        candidate.status !== "deprecated"
+    )
+    if (!model) throw new Error("This provider does not expose a model for credential testing")
+    await client.generate.text(
+      {
+        model: { id: model.modelID, providerID: model.providerID },
+        prompt: "Reply with OK.",
+      },
+      { signal: AbortSignal.timeout(30_000) }
+    )
   }
 }

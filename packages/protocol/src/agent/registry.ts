@@ -1,5 +1,4 @@
 import { z } from "zod"
-import { REGISTRY_AGENT_IDS } from "../generated/acp/agent-ids.ts"
 
 export { REGISTRY_AGENT_IDS } from "../generated/acp/agent-ids.ts"
 
@@ -7,7 +6,14 @@ export const NATIVE_AGENT_IDS = ["codex", "claude", "pi", "opencode"] as const
 export const NativeAgentIdSchema = z.enum(NATIVE_AGENT_IDS)
 export type NativeAgentId = z.infer<typeof NativeAgentIdSchema>
 
-export const RegistryAgentIdSchema = z.enum(REGISTRY_AGENT_IDS)
+// Registry ids are intentionally validated by shape instead of a generated
+// allowlist. The public ACP registry changes independently of Cypheria releases.
+export const RegistryAgentIdSchema = z
+  .string()
+  .regex(/^[a-z][a-z0-9-]*$/)
+  .refine((value) => !NATIVE_AGENT_IDS.includes(value as NativeAgentId), {
+    message: "Native harness ids are not registry agent ids",
+  })
 export type RegistryAgentId = z.infer<typeof RegistryAgentIdSchema>
 
 export const AgentIdSchema = z.union([NativeAgentIdSchema, RegistryAgentIdSchema])
@@ -69,23 +75,6 @@ export const AgentDistributionSchema = z
     message: "Agent distribution must define binary, npx, or uvx",
   })
 
-const AgentPreviewDistributionSchema = z
-  .object({
-    npx: PackageDistributionSchema.optional(),
-    uvx: PackageDistributionSchema.optional(),
-  })
-  .strict()
-  .refine((value) => value.npx || value.uvx, {
-    message: "Preview distribution must define npx or uvx",
-  })
-
-const AgentPreviewSchema = z
-  .object({
-    distribution: AgentPreviewDistributionSchema,
-    version: z.string().regex(/^[0-9]+\.[0-9]+\.[0-9]+(?:-preview\.[0-9]+)?$/),
-  })
-  .strict()
-
 export const AgentRegistryEntrySchema = z
   .object({
     authors: z.array(z.string()).optional(),
@@ -96,7 +85,9 @@ export const AgentRegistryEntrySchema = z
     license: z.string().optional(),
     license_url: z.string().url().optional(),
     name: z.string().min(1),
-    preview: AgentPreviewSchema.optional(),
+    // Cypheria consumes only the published stable registry. A source manifest
+    // containing a preview channel must never be accepted accidentally.
+    preview: z.never().optional(),
     repository: z.string().url().optional(),
     version: z.string().regex(/^[0-9]+\.[0-9]+\.[0-9]+$/),
     website: z.string().url().optional(),
@@ -118,7 +109,7 @@ export const AgentRegistryDocumentSchema = z
     // The published ACP registry currently reserves this top-level collection
     // and emits it as an empty array even though FORMAT.md only documents agents.
     extensions: z.array(z.never()).optional(),
-    version: z.string().regex(/^[0-9]+\.[0-9]+\.[0-9]+/),
+    version: z.string().regex(/^[0-9]+\.[0-9]+\.[0-9]+$/),
   })
   .strict()
   .superRefine(({ agents }, context) => {

@@ -83,12 +83,18 @@ pnpm --filter @cypheria/server server start
 Common development processes:
 
 ```sh
+pnpm dev:desktop
+pnpm dev:desktop:stop
 pnpm --filter @cypheria/server dev
 pnpm --filter @cypheria/desktop dev
 pnpm --filter @cypheria/expo dev
 pnpm --filter @cypheria/website dev
 pnpm --filter @cypheria/cypheria-relay dev -- --mode=single
 ```
+
+`pnpm dev:desktop` is the integrated Desktop development command. It builds the Electron main and preload entry points, starts the watched Server and Vite renderer, waits for both to become ready, and then opens the development application. Renderer changes use Vite HMR and Server changes use the Server watcher; Electron main or preload changes require restarting the command. The command grants `http://127.0.0.1:5173` WebSocket access only to the Server process it starts and preserves any explicitly configured allowed origins. Stop it from the same terminal or run `pnpm dev:desktop:stop` from another terminal; either path terminates the complete Server, Vite, and Electron process trees. Packaged Desktop builds continue to load `cypheria://app` and do not trust the Vite origin.
+
+Use `pnpm --filter @cypheria/desktop dev` only when testing the one-time built renderer instead of the HMR workflow.
 
 The product CLI is built separately:
 

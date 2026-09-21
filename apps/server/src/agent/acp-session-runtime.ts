@@ -1,21 +1,17 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process"
 import { createInterface } from "node:readline"
-
+import type { RegistryAgentId } from "@cypheria/protocol"
 import {
-  AGENT_ACP_V1_CLIENT_NOTIFICATIONS,
-  AGENT_ACP_V1_CLIENT_RPC,
-  AGENT_ACP_V1_SERVER_NOTIFICATIONS,
-  AGENT_ACP_V1_SERVER_RPC,
-  AGENT_ACP_V2_CLIENT_NOTIFICATIONS,
-  AGENT_ACP_V2_CLIENT_RPC,
-  AGENT_ACP_V2_SERVER_NOTIFICATIONS,
-  AGENT_ACP_V2_SERVER_RPC,
   type AgentAcpClientMessage,
   type AgentAcpServerMessage,
   AgentAcpServerMessageSchema,
-  type RegistryAgentId,
-} from "@cypheria/protocol"
-
+  getAcpLogicalCodec,
+  parseAcpNegotiatedInitializeResult,
+} from "@cypheria/protocol/acp-adapter"
+import {
+  ACP_V1_FALLBACK_REQUIRED_CODE,
+  isMisreportedAcpV1InitializeResult,
+} from "./acp-negotiation.js"
 import type { AgentInstallReceipt } from "./agent-installer.js"
 import type { ToolchainManager } from "./toolchain-manager.js"
 
@@ -28,43 +24,6 @@ type RawMessage = {
   result?: unknown
 }
 
-const invert = (record: Readonly<Record<string, unknown>>, key: string): Record<string, string> =>
-  Object.fromEntries(
-    Object.entries(record).flatMap(([method, raw]) => {
-      const value = (raw as Record<string, unknown>)[key]
-      return typeof value === "string" ? [[value, method]] : []
-    })
-  )
-
-const definitions = {
-  1: {
-    clientNotificationByType: invert(AGENT_ACP_V1_CLIENT_NOTIFICATIONS, "notification"),
-    clientRequestByType: invert(AGENT_ACP_V1_CLIENT_RPC, "request"),
-    clientRpc: AGENT_ACP_V1_CLIENT_RPC,
-    serverNotificationByMethod: Object.fromEntries(
-      Object.entries(AGENT_ACP_V1_SERVER_NOTIFICATIONS).map(([method, value]) => [
-        method,
-        value.notification,
-      ])
-    ),
-    serverResponseByType: invert(AGENT_ACP_V1_SERVER_RPC, "response"),
-    serverRpc: AGENT_ACP_V1_SERVER_RPC,
-  },
-  2: {
-    clientNotificationByType: invert(AGENT_ACP_V2_CLIENT_NOTIFICATIONS, "notification"),
-    clientRequestByType: invert(AGENT_ACP_V2_CLIENT_RPC, "request"),
-    clientRpc: AGENT_ACP_V2_CLIENT_RPC,
-    serverNotificationByMethod: Object.fromEntries(
-      Object.entries(AGENT_ACP_V2_SERVER_NOTIFICATIONS).map(([method, value]) => [
-        method,
-        value.notification,
-      ])
-    ),
-    serverResponseByType: invert(AGENT_ACP_V2_SERVER_RPC, "response"),
-    serverRpc: AGENT_ACP_V2_SERVER_RPC,
-  },
-} as const
-
 const responsePayload = (message: RawMessage) =>
   Object.hasOwn(message, "error")
     ? { error: message.error, requestId: message.id }
@@ -75,10 +34,10 @@ export class AcpSessionRuntime {
   readonly #receipt: AgentInstallReceipt
   readonly #send: (message: AgentAcpServerMessage) => void
   readonly #toolchains: ToolchainManager
-  readonly #pending = new Map<string, { responseType: string; version: 1 | 2 }>()
+  readonly #pending = new Map<string, { method: string; responseType: string; version: 1 | 2 }>()
   #process: ChildProcessWithoutNullStreams | undefined
-  #releaseEnvironment: (() => void) | undefined
-  #version: 1 | 2 = 1
+  #initialized = false
+  #version: 1 | 2 = 2
 
   constructor(options: {
     agent: RegistryAgentId
@@ -98,12 +57,10 @@ export class AcpSessionRuntime {
 
   start(): void {
     if (this.#process) return
-    if (this.#receipt.environmentFingerprint) {
-      this.#releaseEnvironment = this.#toolchains.acquireEnvironment(
-        this.#receipt.environmentFingerprint
-      )
-    }
+    this.#initialized = false
+    this.#version = 2
     const child = spawn(this.#receipt.command, this.#receipt.args, {
+      cwd: this.#receipt.workingDirectory,
       env: this.#toolchains.environment(this.#receipt.environment),
       shell: false,
       stdio: ["pipe", "pipe", "pipe"],
@@ -122,9 +79,8 @@ export class AcpSessionRuntime {
     })
     child.once("exit", () => {
       if (this.#process === child) this.#process = undefined
-      this.#releaseEnvironment?.()
-      this.#releaseEnvironment = undefined
       this.#pending.clear()
+      this.#initialized = false
       lines.close()
     })
   }
@@ -133,6 +89,10 @@ export class AcpSessionRuntime {
     this.start()
     const child = this.#process
     if (!child) throw new Error("ACP agent is not running")
+    const isInitialize = message.type === "agent.acp.initialize.request"
+    if (!this.#initialized && !isInitialize) {
+      throw new Error("ACP connection must complete initialize before other messages")
+    }
     child.stdin.write(`${JSON.stringify(this.#encode(message))}\n`)
   }
 
@@ -140,9 +100,8 @@ export class AcpSessionRuntime {
     const child = this.#process
     this.#process = undefined
     this.#pending.clear()
+    this.#initialized = false
     if (!child || child.exitCode !== null) {
-      this.#releaseEnvironment?.()
-      this.#releaseEnvironment = undefined
       return
     }
     await new Promise<void>((resolve) => {
@@ -156,8 +115,6 @@ export class AcpSessionRuntime {
       })
       child.kill("SIGTERM")
     })
-    this.#releaseEnvironment?.()
-    this.#releaseEnvironment = undefined
   }
 
   #encode(message: AgentAcpClientMessage): RawMessage | RawMessage[] {
@@ -168,7 +125,7 @@ export class AcpSessionRuntime {
 
   #encodeSingle(message: Exclude<AgentAcpClientMessage, { type: "agent.acp.batch" }>): RawMessage {
     const version = message.protocolVersion
-    const definition = definitions[version]
+    const definition = getAcpLogicalCodec(version)
     if (message.type === "agent.acp.cancel_request.notification")
       return { jsonrpc: "2.0", method: "$/cancel_request", params: message.payload }
     if (
@@ -198,29 +155,32 @@ export class AcpSessionRuntime {
     }
     const method = definition.clientRequestByType[message.type]
     if (method) {
-      const configValueType = (message as unknown as { configValueType?: unknown }).configValueType
       const {
-        agent: _agent,
+        payload: params,
         protocolVersion,
         requestId,
-        type: _type,
-        ...params
-      } = message as typeof message & { requestId: string | number | null }
-      delete (params as Record<string, unknown>).configValueType
-      const responseType =
-        definition.clientRpc[method as keyof typeof definition.clientRpc].response
-      if (method === "initialize") this.#version = version
-      this.#pending.set(`${typeof requestId}:${String(requestId)}`, { responseType, version })
+      } = message as typeof message & {
+        payload: Record<string, unknown>
+        requestId: string | number | null
+      }
+      const rpc = definition.clientRpc[method]
+      if (!rpc) throw new Error(`Missing ACP codec for client method: ${method}`)
+      const responseType = rpc.response
+      if (method !== "initialize" && version !== this.#version) {
+        throw new Error(
+          `ACP connection negotiated v${this.#version}; cannot send a v${version} message`
+        )
+      }
+      this.#pending.set(`${typeof requestId}:${String(requestId)}`, {
+        method,
+        responseType,
+        version,
+      })
       return {
         id: requestId,
         jsonrpc: "2.0",
         method,
-        params:
-          method === "initialize"
-            ? { ...params, protocolVersion }
-            : method === "session/set_config_option" && configValueType === "boolean"
-              ? { ...params, type: "boolean" }
-              : params,
+        params: method === "initialize" ? { ...params, protocolVersion } : params,
       }
     }
     const notificationMethod = definition.clientNotificationByType[message.type]
@@ -251,7 +211,7 @@ export class AcpSessionRuntime {
   #decodeSingle(raw: RawMessage): Exclude<AgentAcpServerMessage, { type: "agent.acp.batch" }> {
     if (raw.method) {
       const version = this.#detectVersion(raw)
-      const definition = definitions[version]
+      const definition = getAcpLogicalCodec(version)
       if (raw.method === "$/cancel_request")
         return AgentAcpServerMessageSchema.parse({
           agent: this.#agent,
@@ -262,8 +222,8 @@ export class AcpSessionRuntime {
       const rpc = definition.serverRpc[raw.method as keyof typeof definition.serverRpc]
       if (rpc && Object.hasOwn(raw, "id")) {
         return AgentAcpServerMessageSchema.parse({
-          ...(raw.params as object),
           agent: this.#agent,
+          payload: raw.params,
           protocolVersion: version,
           requestId: raw.id,
           type: rpc.request,
@@ -293,12 +253,38 @@ export class AcpSessionRuntime {
     const pending = this.#pending.get(key)
     if (!pending) throw new Error(`Unexpected ACP response id: ${String(raw.id)}`)
     this.#pending.delete(key)
-    return AgentAcpServerMessageSchema.parse({
+    let responseVersion = pending.version
+    let normalizedRaw = raw
+    if (pending.method === "initialize" && !Object.hasOwn(raw, "error")) {
+      try {
+        const negotiated = parseAcpNegotiatedInitializeResult(raw.result)
+        responseVersion = negotiated.protocolVersion
+        normalizedRaw = { ...raw, result: negotiated.result }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        const code = isMisreportedAcpV1InitializeResult(raw.result)
+          ? ACP_V1_FALLBACK_REQUIRED_CODE
+          : -32_600
+        this.#process?.kill("SIGTERM")
+        return AgentAcpServerMessageSchema.parse({
+          agent: this.#agent,
+          payload: { error: { code, message }, requestId: raw.id },
+          protocolVersion: pending.version,
+          type: pending.responseType,
+        }) as Exclude<AgentAcpServerMessage, { type: "agent.acp.batch" }>
+      }
+    }
+    const message = AgentAcpServerMessageSchema.parse({
       agent: this.#agent,
-      payload: responsePayload(raw),
-      protocolVersion: pending.version,
+      payload: responsePayload(normalizedRaw),
+      protocolVersion: responseVersion,
       type: pending.responseType,
     }) as Exclude<AgentAcpServerMessage, { type: "agent.acp.batch" }>
+    if (pending.method === "initialize" && !Object.hasOwn(raw, "error")) {
+      this.#version = responseVersion
+      this.#initialized = true
+    }
+    return message
   }
 
   #detectVersion(raw: RawMessage): 1 | 2 {

@@ -77,7 +77,6 @@ describe("AgentManager enable gate", () => {
           return installed
         },
         readCurrent: async (agentId) => installedReceipts.get(agentId),
-        readReceipts: async () => [],
         uninstall: async (agentId) => {
           installedReceipts.delete(agentId)
         },
@@ -166,7 +165,6 @@ describe("AgentManager enable gate", () => {
         return installed
       },
       readCurrent: async (agentId: string) => receipts.get(agentId),
-      readReceipts: async () => [],
       uninstall: async () => undefined,
     }
     const manager = new AgentManager({
@@ -191,6 +189,21 @@ describe("AgentManager enable gate", () => {
       }
 
       await expect.poll(() => started).toEqual(["codex", "claude"])
+      const duplicateResponses: unknown[] = []
+      await manager.handleManagement(
+        {
+          payload: { agentId: "codex" },
+          requestId: "install-codex-again",
+          type: "agent.install.request",
+        },
+        { send: (message) => duplicateResponses.push(message), sessionId: "session" }
+      )
+      expect(duplicateResponses.at(-1)).toMatchObject({
+        payload: {
+          error: { code: "AGENT_OPERATION_IN_PROGRESS" },
+          ok: false,
+        },
+      })
       await expect(manager.remove("codex")).rejects.toMatchObject({
         name: "AGENT_OPERATION_IN_PROGRESS",
       })
@@ -242,7 +255,6 @@ describe("AgentManager enable gate", () => {
           return current
         },
         readCurrent: async () => current,
-        readReceipts: async () => [current],
         uninstall: async () => undefined,
       },
       networkBootstrap: false,
@@ -416,9 +428,16 @@ describe("AgentManager enable gate", () => {
         installed: false,
         version: "0.153.4",
       })
-      await expect(manager.setEnabled("codex", true, "session")).rejects.toMatchObject({
-        name: "AGENT_NOT_INSTALLED",
-      })
+      await expect
+        .poll(async () => {
+          try {
+            await manager.setEnabled("codex", true, "session")
+            return "enabled"
+          } catch (error) {
+            return error instanceof Error ? error.name : String(error)
+          }
+        })
+        .toBe("AGENT_NOT_INSTALLED")
       await expect(manager.setEnabled("codex", false, "session")).rejects.toMatchObject({
         name: "AGENT_NOT_INSTALLED",
       })

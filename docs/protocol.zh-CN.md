@@ -46,7 +46,7 @@ web3.signing_intent.create.request -> web3.signing_intent.create.response
 
 准确字段以导出的 Zod Schema 为准，而不是本文示例。
 
-Agent management 会区分持久化 registry 与可用 harness catalog。`agent.list` 返回已注册 Agents 和当前可添加的 catalog entries，并包含各 entry 的可安装版本；`agent.add` 只持久化一个 catalog entry，不执行安装。安装仍由显式 `agent.install` operation 完成，卸载会保留并禁用 registry 记录，`agent.remove` 用于删除未安装记录。Install 与 update operation 会报告从 `0` 到 `1` 的归一化进度，按 Agent 而非全局串行执行，并在版本切换时保留 active turn。
+Agent management 会区分持久化 registry 与可用 harness catalog。`agent.list` 返回已注册 Agents 和当前可添加的 catalog entries，并包含各 entry 的可安装版本；已安装 Agent view 还会报告最终选择的 distribution 类型与来源。Registry ID 按格式动态校验，不受发布时生成 enum 的限制。`agent.add` 只持久化一个 catalog entry，不执行安装。安装仍由显式 `agent.install` operation 完成，卸载会保留并禁用 registry 记录，`agent.remove` 用于删除未安装记录。Install 与 update operation 会报告从 `0` 到 `1` 的归一化进度，按 Agent 而非全局串行执行，并在版本切换时保留 active turn。
 
 ## 版本与能力
 
@@ -92,9 +92,11 @@ Thread 输入是由文本、图片、音频、resource link 或 embedded resourc
 
 ## Harness catalog 与设置
 
-`harness.management` capability 在不改变 `cypheria.v1` 传输版本的前提下暴露公共 catalog。`AgentModelDefinition` 描述 model、provider、thinking choices 和已校验 metadata。`HarnessSettingDefinition` 描述 `select`、`boolean` 或 `number` 值，`HarnessSettingSection` 以稳定 route ID 组织 definitions。`HarnessCatalogSnapshot` 携带 models、setting sections、加载状态、生成时间、stale 状态和刷新错误。
+`harness.management` capability 在不改变 `cypheria.v1` 传输版本的前提下暴露公共 catalog。`AgentModelDefinition` 描述 model、provider、thinking choices 和已校验 metadata。`HarnessSettingDefinition` 描述 `select`、`boolean` 或 `number` 值，`HarnessSettingSection` 以稳定 route ID 组织 definitions。`HarnessCatalogSnapshot` 携带 models、setting sections、加载状态、生成时间、stale 状态和刷新错误。其中 `authentication-required` 是没有刷新错误的正常协议结果，表示 harness 必须先完成认证，Server 才能发现 session-scoped catalog entries。
 
-请求族包括 `harness.get`、`harness.auth.start/respond/cancel/logout`、`harness.models.list` 和 `harness.settings.get/update`。`refresh: true` 是唯一由客户端触发的 catalog 刷新信号。认证 response 只包含 external URL 或 prompt 等展示状态；凭证只是 request 中的 secret，绝不出现在 snapshot 中。Server 会在持久化或应用到原生 runtime 前，按当前 catalog 校验设置更新。
+公开 Cypheria 协议版本与 ACP harness 连接版本彼此独立。Server 在 `initialize` 中优先提供 ACP v2，接受仅支持 v1 的 Agent 降级到 v1，并在该连接整个生命周期内绑定到协商出的消息 Schema。包括版本特定的 capability 布局、认证方法名称、prompt 完成语义和 v2 batch 在内的 ACP 原生细节，都保留在 Server adapter 后方。Adapter 代码从 `@cypheria/protocol/acp-adapter` 导入生成的逻辑 Schema、codec registry 和握手解析器；这些内容有意不从包根导出，也不进入公开 WebSocket union。ACP 逻辑 request 将原生方法参数统一放在 `payload` 下，只有 adapter 会把该 envelope 转换为 JSON-RPC `params`。
+
+请求族包括 `harness.get`、`harness.auth.start/respond/poll/cancel/logout/test`、`harness.models.list` 和 `harness.settings.get/update`。`HarnessView` 声明 single 或 multiple provider cardinality，把互斥 method 嵌套在各 provider 下，并返回可单独寻址的 connection。Method 可以携带带类型、支持条件的表单字段 definition；login request 同时指定 provider 与 method，并且只提交该 method 已校验的 values。Logout 与连接测试则指定单个 connection。这些后端 operation 保留 login/logout 语义，而 Desktop 对用户呈现 Configure 与 Disconnect。`refresh: true` 是唯一由客户端触发的 catalog 刷新信号。认证 response 只包含 external URL 或 prompt 等展示状态；凭证只是 request 中的 secret，绝不出现在 snapshot 中。Server 会在持久化或应用到原生 runtime 前，按当前 catalog 校验设置更新。
 
 ## 错误与重连
 

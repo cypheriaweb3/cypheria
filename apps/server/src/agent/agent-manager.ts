@@ -5,8 +5,6 @@ import { join } from "node:path"
 import type { AgentRegistryPersistenceService, AgentRegistryRecord } from "@cypheria/db"
 import {
   type AGENT_CODEX_CLIENT_RPC,
-  type AgentAcpClientMessage,
-  type AgentAcpServerMessage,
   type AgentCatalogEntry,
   type AgentClaudeClientMessage,
   type AgentClaudeServerMessage,
@@ -30,13 +28,18 @@ import {
   isNativeAgentId,
   isRegistryAgentId,
   NATIVE_AGENT_IDS,
-  REGISTRY_AGENT_IDS,
   type ServerMessage,
   type ToolchainId,
 } from "@cypheria/protocol"
+import type { AgentAcpClientMessage, AgentAcpServerMessage } from "@cypheria/protocol/acp-adapter"
 import { ModelRuntime, type ModelRuntimeAuthOverrides } from "@earendil-works/pi-coding-agent"
 import type { ThreadHarnessAdapter } from "../thread/harness-adapter.js"
-import { probeAcpCatalog } from "./acp-catalog-probe.js"
+import {
+  authenticateAcp,
+  discoverAcpAuth,
+  logoutAcp,
+  probeAcpCatalog,
+} from "./acp-catalog-probe.js"
 import { AcpSessionRuntime } from "./acp-session-runtime.js"
 import { AgentInstaller } from "./agent-installer.js"
 import { type ClaudePermissionHandler, ClaudeSessionRuntime } from "./claude-session-runtime.js"
@@ -101,10 +104,7 @@ export type AgentManagerOptions = {
   codexSettings?: () => CodexAgentSettings
   agentDefaults?: (agentId: AgentId) => Record<string, HarnessSettingValue>
   networkBootstrap?: boolean
-  installer?: Pick<
-    AgentInstaller,
-    "cleanupInterrupted" | "install" | "readCurrent" | "readReceipts" | "uninstall"
-  >
+  installer?: Pick<AgentInstaller, "cleanupInterrupted" | "install" | "readCurrent" | "uninstall">
 }
 
 export type AgentThreadCoordinator = {
@@ -127,7 +127,7 @@ export class AgentManager {
   readonly #codexSettings: () => CodexAgentSettings
   readonly #installer: Pick<
     AgentInstaller,
-    "cleanupInterrupted" | "install" | "readCurrent" | "readReceipts" | "uninstall"
+    "cleanupInterrupted" | "install" | "readCurrent" | "uninstall"
   >
   readonly #openCode: OpenCodeRuntime
   readonly #piRuntimes = new Map<string, PiSessionRuntime>()
@@ -204,7 +204,6 @@ export class AgentManager {
     await this.registry.start({ refresh: this.#networkBootstrap })
     await this.#persistence.reconcile(NATIVE_AGENT_IDS.map((id) => ({ id, native: true })))
     await this.#reloadRecords()
-    await this.#collectPythonEnvironments()
     if (this.#networkBootstrap) {
       this.toolchains.startAutomaticUpdateChecks()
       void this.toolchains.bootstrapMissing().catch(() => undefined)
@@ -473,6 +472,10 @@ export class AgentManager {
     return (await this.#ensureCodexRuntime()).request(method, params)
   }
 
+  async waitForCodexLogin(loginId: string, signal: AbortSignal) {
+    return (await this.#ensureCodexRuntime()).waitForLogin(loginId, signal)
+  }
+
   async callOpenCode(
     operation: AgentOpenCodeV2Operation,
     options: { body?: unknown } = {}
@@ -483,6 +486,12 @@ export class AgentManager {
       body: options.body as never,
       operation,
     })
+  }
+
+  async verifyOpenCodeConnection(providerId: string): Promise<void> {
+    await this.#assertCallable("opencode")
+    if (!this.#openCode.running) await this.startAgent("opencode", "harness-settings")
+    await this.#openCode.verifyProvider(providerId)
   }
 
   async getPiCatalog(): Promise<PiCatalog> {
@@ -530,6 +539,17 @@ export class AgentManager {
     return runtime.discover()
   }
 
+  async discoverAcpAuth(agentId: AgentId, signal: AbortSignal) {
+    if (!isRegistryAgentId(agentId))
+      throw this.#error("AGENT_NOT_FOUND", `${agentId} is not an ACP agent`)
+    await this.#assertCallable(agentId)
+    return discoverAcpAuth({
+      receipt: await this.#requiredReceipt(agentId),
+      signal,
+      toolchains: this.toolchains,
+    })
+  }
+
   async probeAcpCatalog(agentId: AgentId, signal: AbortSignal) {
     if (!isRegistryAgentId(agentId))
       throw this.#error("AGENT_NOT_FOUND", `${agentId} is not an ACP agent`)
@@ -546,8 +566,8 @@ export class AgentManager {
       throw this.#error("AGENT_NOT_FOUND", `${agentId} is not an ACP agent`)
     }
     await this.#assertCallable(agentId)
-    await probeAcpCatalog({
-      authenticateMethodId: methodId,
+    await authenticateAcp({
+      methodId,
       receipt: await this.#requiredReceipt(agentId),
       signal,
       toolchains: this.toolchains,
@@ -556,8 +576,7 @@ export class AgentManager {
 
   async logoutAcp(agentId: AgentId, signal: AbortSignal): Promise<void> {
     const receipt = await this.#requiredReceipt(agentId)
-    await probeAcpCatalog({
-      logout: true,
+    await logoutAcp({
       receipt,
       signal,
       toolchains: this.toolchains,
@@ -580,7 +599,7 @@ export class AgentManager {
     return {
       args: [...receipt.args, ...args],
       command: receipt.command,
-      cwd: process.cwd(),
+      cwd: receipt.workingDirectory ?? process.cwd(),
       env: Object.fromEntries(
         Object.entries(rawEnvironment).filter(
           (entry): entry is [string, string] => typeof entry[1] === "string"
@@ -609,8 +628,24 @@ export class AgentManager {
     })
   }
 
-  async setPiApiKey(providerId: string, apiKey: string): Promise<void> {
-    await (await this.#ensurePiModelRuntime()).setRuntimeApiKey(providerId, apiKey)
+  async verifyPiConnection(providerId: string): Promise<void> {
+    const runtime = await this.#ensurePiModelRuntime()
+    const model = runtime.getModels(providerId)[0]
+    if (!model) throw new Error("This provider does not expose a model for credential testing")
+    const result = await runtime.completeSimple(
+      model,
+      {
+        messages: [{ content: "Reply with OK.", role: "user", timestamp: Date.now() }],
+      },
+      {
+        maxRetries: 0,
+        maxTokens: 1,
+        signal: AbortSignal.timeout(30_000),
+      }
+    )
+    if (result.stopReason === "error" || result.errorMessage) {
+      throw new Error(result.errorMessage ?? "The provider rejected the credential")
+    }
   }
 
   async loginPi(
@@ -682,10 +717,9 @@ export class AgentManager {
         version: agent.cliVersion,
       })
     }
-    for (const agentId of REGISTRY_AGENT_IDS) {
+    for (const agent of this.registry.entries) {
+      const agentId = agent.id
       if (this.#records.has(agentId)) continue
-      const agent = this.registry.get(agentId)
-      if (!agent) continue
       entries.push({
         description: agent.description,
         icon: agent.icon ?? null,
@@ -746,6 +780,7 @@ export class AgentManager {
         : agentId === "codex"
           ? (this.#codexRuntime?.running ?? false)
           : [...this.#sessionStates.values()].some((agents) => agents.has(agentId))
+    const receipt = await this.#installer.readCurrent(agentId)
     return {
       id: agentId,
       name: record.name ?? native?.name ?? entry?.name ?? agentId,
@@ -765,7 +800,8 @@ export class AgentManager {
       availableVersion: latestVersion,
       runtimeScope: native?.runtimeScope ?? "thread",
       runtimeState: running ? "running" : "stopped",
-      integrity: (await this.#installer.readCurrent(agentId))?.integrity ?? "not-applicable",
+      integrity: receipt?.integrity ?? "not-applicable",
+      installation: receipt ? { kind: receipt.kind, source: receipt.source } : null,
     }
   }
 
@@ -817,6 +853,7 @@ export class AgentManager {
   ): AgentOperation {
     if (!this.#records.has(agentId))
       throw this.#error("AGENT_NOT_FOUND", `Unknown agent: ${agentId}`)
+    this.#assertNoAgentOperation(agentId)
     return this.#submit(
       kind,
       { agentId, kind: "agent" },
@@ -831,7 +868,6 @@ export class AgentManager {
           const updated = await this.#persistence.setInstalled(agentId, false)
           if (updated) this.#records.set(agentId, updated)
           await this.#reloadRecords()
-          await this.#collectPythonEnvironments()
           this.#catalogInvalidator?.(agentId)
           return
         }
@@ -1112,16 +1148,6 @@ export class AgentManager {
     const receipt = await this.#installer.readCurrent(agentId)
     if (!receipt) throw this.#error("AGENT_NOT_INSTALLED", `${agentId} is not installed`)
     return receipt
-  }
-
-  async #collectPythonEnvironments(): Promise<void> {
-    const fingerprints = new Set<string>()
-    for (const agentId of [...NATIVE_AGENT_IDS, ...REGISTRY_AGENT_IDS]) {
-      for (const receipt of await this.#installer.readReceipts(agentId)) {
-        if (receipt.environmentFingerprint) fingerprints.add(receipt.environmentFingerprint)
-      }
-    }
-    await this.toolchains.garbageCollectPythonEnvironments(fingerprints)
   }
 
   #notifyOperation(

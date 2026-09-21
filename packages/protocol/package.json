@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     ".": "./src/index.ts",
+    "./acp-adapter": "./src/agent/acp.ts",
     "./claude-types": "./src/agent/claude-agent-sdk-types.ts",
     "./codex-types": "./src/generated/codex/ts/index.ts",
     "./opencode-types": "./src/agent/opencode-sdk-types.ts",

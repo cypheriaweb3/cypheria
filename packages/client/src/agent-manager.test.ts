@@ -19,6 +19,7 @@ const agent = (overrides: Partial<AgentView> = {}): AgentView => ({
   runtimeScope: "shared",
   runtimeState: "stopped",
   integrity: "not-applicable",
+  installation: { kind: "npx", source: "@openai/codex@1.9.0" },
   ...overrides,
 })
 

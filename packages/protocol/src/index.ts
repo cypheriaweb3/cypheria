@@ -66,7 +66,6 @@ import {
   type Web3ServerMessage,
 } from "./web3.ts"
 
-export * from "./agent/acp.ts"
 export * from "./agent/claude.ts"
 export * from "./agent/codex-app-server.ts"
 export * from "./agent/management.ts"
@@ -513,8 +512,6 @@ export type SessionInboundMessage =
   | ThreadClientMessage
   | Web3ClientMessage
 
-// Nested family discriminators keep each concrete wire `type` visible while allowing ACP to use
-// `protocolVersion` as its second-level discriminator for types shared by v1 and v2.
 export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInboundMessage>([
   ServerStatusGetRequestSchema,
   ServerDiagnosticsRequestSchema,

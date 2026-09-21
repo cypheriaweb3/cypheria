@@ -83,12 +83,18 @@ pnpm --filter @cypheria/server server start
 常用开发进程：
 
 ```sh
+pnpm dev:desktop
+pnpm dev:desktop:stop
 pnpm --filter @cypheria/server dev
 pnpm --filter @cypheria/desktop dev
 pnpm --filter @cypheria/expo dev
 pnpm --filter @cypheria/website dev
 pnpm --filter @cypheria/cypheria-relay dev -- --mode=single
 ```
+
+`pnpm dev:desktop` 是集成的 Desktop 开发命令。它会构建 Electron main 和 preload 入口，启动受监视的 Server 与 Vite renderer，等待二者就绪后再打开开发应用。Renderer 变更使用 Vite HMR，Server 变更由 Server watcher 处理；修改 Electron main 或 preload 后需要重新启动该命令。该命令只为它启动的 Server 进程授予 `http://127.0.0.1:5173` WebSocket 访问权，同时保留显式配置的其他 allowed origins。既可以在原终端中停止，也可以在另一个终端运行 `pnpm dev:desktop:stop`；两种方式都会终止完整的 Server、Vite 和 Electron 进程树。打包后的 Desktop 仍加载 `cypheria://app`，不会信任 Vite origin。
+
+仅在测试一次性构建的 renderer、而不是 HMR 工作流时，才使用 `pnpm --filter @cypheria/desktop dev`。
 
 产品 CLI 单独构建：
 

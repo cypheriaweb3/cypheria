@@ -87,6 +87,12 @@ const launch = async () => {
     stdio: "inherit",
   })
 
+  for (const signal of ["SIGINT", "SIGTERM"]) {
+    process.once(signal, () => {
+      if (child.exitCode === null && child.signalCode === null) child.kill(signal)
+    })
+  }
+
   child.once("error", (error) => {
     throw error
   })

@@ -48,6 +48,8 @@ Settings 与工作区使用同一个可调整宽度的 Desktop sidebar shell，�
 
 当 catalog 中所有 harness 都已加入 registry 时，Agent harnesses 行上的添加操作会禁用；否则会打开与 trigger 边缘对齐的选择器，并在各选项中显示 harness 描述和可安装版本。选中后只创建 Agent registry 记录并立即打开其设置页。子项使用灰色、黄色或绿色圆点分别表示未安装、已安装但禁用和已启用，并提供从 registry 删除未安装 Agent 的菜单。Agent harness 路由使用 `/settings/agent-harnesses/$agentId/$sectionId`。Header 显示当前版本；未安装 harness 的 Install 操作及百分比进度位于安装提示框内。已安装但禁用的 harness 会以 Enable 提示框替换 section 内容，并禁用 section 导航。已安装 harness 在 header 中提供 Uninstall；卸载会保留导航项并让页面回到 Install 提示框。原生 harness 的版本随 Cypheria 分发，因此不显示 Update；registry harness 仅在共享语义化版本比较确认存在更新时显示 Update，并在执行时显示百分比进度。Operation 状态按 Agent 隔离，所以安装或更新一个 harness 不会禁用另一个。所选 Agent 拥有用于 authentication、models 和发现型设置分类的第二级 section 菜单；窄屏时转换为选择器。右侧 panel 显示具体 section。Network proxy 位于 Agent header 上方，默认折叠，并在切换 Agent 或 section 时保留展开状态。Models 使用另一个固定高度虚拟列表，支持 provider 过滤和显式 Server 刷新。
 
+Authentication 页面使用面向用户的 Configure 与 Disconnect 操作。单账户 harness 在配置前显示互斥认证方式，认证后改为显示账户详情、连接测试和 Disconnect。Pi 与 OpenCode 为每个已连接 provider 显示一行，并提供 Add provider 对话框。该对话框第一步只搜索尚未连接的 provider，第二步把所选 provider 的认证方式显示为互斥单选列表。API key 表单通过 OK 完成；浏览器和 command flow 成功后自动关闭；失败会保留错误信息和可执行清理的 Cancel 操作。
+
 ## 会话工作区
 
 所有 Agent 共享同一个会话 shell：

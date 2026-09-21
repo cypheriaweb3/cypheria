@@ -11,6 +11,7 @@ export const AgentRuntimeStateSchema = z.enum([
   "errored",
 ])
 export const AgentIntegritySchema = z.enum(["verified", "unverified", "not-applicable"])
+export const AgentDistributionKindSchema = z.enum(["binary", "npx", "uvx"])
 
 export const AgentCapabilitiesSchema = z
   .object({
@@ -51,6 +52,12 @@ export const AgentViewSchema = z.object({
   runtimeScope: AgentRuntimeScopeSchema,
   runtimeState: AgentRuntimeStateSchema,
   integrity: AgentIntegritySchema,
+  installation: z
+    .object({
+      kind: AgentDistributionKindSchema,
+      source: z.string().min(1),
+    })
+    .nullable(),
 })
 export type AgentView = z.infer<typeof AgentViewSchema>
 
@@ -110,7 +117,6 @@ export const AgentRegistrySyncStateSchema = z.object({
   lastSuccessAt: z.string().datetime().nullable(),
   registryVersion: z.string().nullable(),
   stale: z.boolean(),
-  unsupportedIds: z.array(z.string()),
 })
 export type AgentRegistrySyncState = z.infer<typeof AgentRegistrySyncStateSchema>
 

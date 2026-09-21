@@ -16,10 +16,11 @@ export const AcpErrorResponseSchema: z.ZodType<ErrorResponse> = AcpSdkErrorSchem
 
 type AcpRequest<ProtocolVersion extends number, Type extends string, Params> = {
   readonly agent: RegistryAgentId
+  readonly payload: Omit<Params, "protocolVersion">
   readonly protocolVersion: ProtocolVersion
   readonly requestId: JsonRpcId
   readonly type: Type
-} & Params
+}
 
 export type AcpResponsePayload<Result> =
   | { readonly error: ErrorResponse; readonly requestId: JsonRpcId }
@@ -66,31 +67,27 @@ export const acpRequestSchema = <
 ): z.ZodType<AcpRequest<ProtocolVersion, Type, z.output<ParamsSchema>>> =>
   jsonMessage(
     z
-      .looseObject({
+      .object({
         agent: RegistryAgentIdSchema,
+        payload: z.looseObject({}),
         protocolVersion: z.literal(protocolVersion),
         requestId: AcpJsonRpcIdSchema,
         type: z.literal(type),
       })
       .transform((message, context) => {
-        const { agent, requestId, type: messageType, ...params } = message
-        const configValueType =
-          messageType === "agent.acp.session.set_config_option.request" &&
-          params.configValueType === "boolean"
-            ? "boolean"
-            : undefined
-        const nativeParams = { ...params }
-        delete nativeParams.configValueType
-        if (configValueType) nativeParams.type = configValueType
+        const { agent, payload, requestId, type: messageType } = message
+        const nativeParams =
+          messageType === "agent.acp.initialize.request" ? { ...payload, protocolVersion } : payload
         const parsed = paramsSchema.safeParse(nativeParams)
         if (!parsed.success) {
-          addIssues(context, parsed.error.issues)
+          addIssues(context, parsed.error.issues, ["payload"])
           return z.NEVER
         }
+        const normalizedPayload = { ...(parsed.data as Record<string, unknown>) }
+        delete normalizedPayload.protocolVersion
         return {
-          ...(parsed.data as Record<string, unknown>),
-          ...(configValueType ? { configValueType } : {}),
           agent,
+          payload: normalizedPayload,
           protocolVersion,
           requestId,
           type: messageType,

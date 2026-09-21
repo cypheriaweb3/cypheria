@@ -8,21 +8,23 @@ Cypheria 支持 Codex、Claude、Pi、OpenCode 四种第一方 Agent harness，�
 
 ## 身份与兼容性
 
-`@cypheria/protocol` 定义稳定 Agent ID。`codex`、`claude`、`pi`、`opencode` 是原生 ID；生成的 registry ID 标识 ACP Agent。Integration 使用更宽泛的 `codex`、`claude`、`pi`、`opencode`、`acp` compatibility tags，使一条声明可以覆盖 registry Agents。
+`@cypheria/protocol` 保留 `codex`、`claude`、`pi`、`opencode` 作为原生 ID，其他 ACP registry ID 则按发布格式动态校验。因此 registry 刷新后即可使用新增 entry，不需要发布新版 Cypheria。生成的 registry ID 列表只用于审计快照，不是运行时 allowlist。Integration 使用更宽泛的 `codex`、`claude`、`pi`、`opencode`、`acp` compatibility tags，使一条声明可以覆盖 registry Agents。
 
 Agent descriptor 报告来源、distribution、已安装和可用版本、启用状态、runtime 状态、能力、兼容性和诊断。Thread 身份始终使用 Cypheria Thread ID 与 Agent ID；harness session ID 只是可选关联，不是客户端缓存主键。
 
 ## Registry 与安装
 
-Server 把固定版本的 ACP registry 文档作为可用 ACP catalog 加载并校验，同时提供刷新和检查操作。原生 harness 不从该 registry 获取版本：每个 Cypheria release 都为 Codex、Claude、Pi 和 OpenCode 声明一个经过测试的 CLI package 与精确版本。持久化的 `agent_registry` 并不是 ACP catalog 的全量副本：它初始包含四个原生 harness，只有用户执行添加后才写入相应 registry Agent；每条记录都保存 `createdAt`。ACP distribution metadata 可以选择平台 binary、`npx` 或 `uvx`；preview release 始终显式标记。平台 archive 可以携带 SHA-256 完整性信息。
+Server 会刷新并校验已发布的稳定 ACP registry，将其作为可用 ACP catalog。Cypheria 不接受包含 `preview` 数据的源 manifest，也不消费 preview registry。原生 harness 不从稳定 registry 获取版本：每个 Cypheria release 都为 Codex、Claude、Pi 和 OpenCode 声明一个经过测试的 CLI package 与精确版本。持久化的 `agent_registry` 并不是 ACP catalog 的全量副本：它初始包含四个原生 harness，只有用户执行添加后才写入相应 registry Agent；每条记录都保存 `createdAt`。ACP distribution metadata 可以同时提供平台 binary、`npx` 和 `uvx`；当前平台按这个顺序确定性选择。平台 archive 可以携带 SHA-256 完整性信息。
 
-添加、安装和删除 registry 记录是三个独立操作。添加会持久化所选 Agent 并开放其设置页；安装和更新是带 operation record 与进度 notification 的 Server 操作。安装成功后会自动启用 Agent。卸载只删除托管 runtime、保留 registry 记录，并始终禁用 Agent；删除该未安装记录是另一个独立操作。原生 harness 版本属于 Cypheria release，因此其设置页不提供独立更新操作。只有当前版本和 registry 版本都是有效语义化版本且 registry 版本更高时，才会提供 registry harness 更新。不同 Agent 的 operation 可以并发运行，同一 Agent 的 operation 仍会串行执行。Toolchain manager 在 Cypheria cache 下发现或安装托管的 Node 和 Python 工具。客户端可以列出、添加、删除、安装、更新、卸载、启用、禁用、启动和停止 Agents，但不会获得文件系统或进程权限。
+添加、安装和删除 registry 记录是三个独立操作。添加会持久化所选 Agent 并开放其设置页；安装和更新是带 operation record 与进度 notification 的 Server 操作。Binary archive 会流式写入磁盘，并按字节进度解压，而不是整体缓存在内存中；支持 registry 格式声明的 ZIP、gzip tar 和 bzip2 tar distribution。Archive 会拒绝路径穿越、符号链接、硬链接、设备与 FIFO，声明的命令也必须解析到解压根目录内。安装成功后会自动启用 Agent。卸载只删除托管 runtime、保留 registry 记录，并始终禁用 Agent；删除该未安装记录是另一个独立操作。原生 harness 版本属于 Cypheria release，因此其设置页不提供独立更新操作。只有当前版本和 registry 版本都是有效语义化版本且 registry 版本更高时，才会提供 registry harness 更新。不同 Agent 的 operation 可以并发运行，同一 Agent 的 operation 仍会串行执行。Toolchain manager 在 Cypheria cache 下发现或安装托管的 Node 和 Python 工具。Registry package 遵循 FORMAT.md 语义：npm 自行执行 `npx` 的 executable 选择，uv 则物化与 `uvx` 相同的隔离工具与命令。每次安装的 uv tool 和命令目录会覆盖共享 toolchain 默认值，确保激活的 receipt 自包含。已安装 Agent 状态会报告最终选择的 distribution 类型和来源。只有确认的上游特定版本缺陷才进入显式、精确版本的 compatibility manifest；普通 entry 不使用覆盖。客户端可以列出、添加、删除、安装、更新、卸载、启用、禁用、启动和停止 Agents，但不会获得文件系统或进程权限。
 
 ## Catalog 与默认值
 
 公开 harness catalog 会统一 models、providers、认证方式以及可配置的新 session 默认值，不暴露原生 Agent 协议。`HarnessCatalogManager` 按 Agent 与配置代次在内存中保留一份 snapshot。Catalog 按需加载，并发读取共享一次发现；普通渲染或导航不会再次启动 runtime。显式刷新、安装变化、认证变化、registry 变化或影响 catalog 的设置会使 snapshot 失效。刷新失败时保留上一份 snapshot，并标记为 stale。
 
 设置以带稳定 section 的类型化 `select`、`boolean` 或 `number` definition 描述。Server 按最新 definitions 校验每次更新。非密钥默认值按 Agent ID 持久化，并应用于新 session；凭证留在 harness 自己的 credential store 中，绝不进入配置、协议响应或日志。已经失效的保存值会保持可见并标记无效，直到用户替换。
+
+认证以包含互斥 method 的 provider 建模，而不是扁平 method 列表。Codex、Claude 和 ACP Agent 暴露一个逻辑 provider；Pi 与 OpenCode 暴露多个 provider，且每个 provider 只允许一个 active connection。OpenCode method form 会被归一化为带类型、支持条件的字段，并按最近一次发现的 definition 校验。已有连接或正在认证的 provider 必须先断开连接或取消 flow，才能启动另一种 method。Login、交互响应、轮询、取消、定向 logout 和连接测试均在 Server 中执行；Desktop 把对应用户操作显示为 Configure 与 Disconnect。浏览器、设备码、command 和 terminal flow 保留由发起请求的 client session 所有的可取消资源；关闭该 session 或停止 Server 会中止 flow，并释放其进程、终端和 reservation。连接测试会使用侵入性最低的 adapter 专属认证操作：Codex 与 Claude 刷新账户发现，Pi 与 OpenCode 发起最小 provider 请求，registry Agent 则执行 ACP 握手和临时 session probe。Pi 和 OpenCode 的 API key 配置也会在接受凭证前执行该 provider 请求；若校验失败，会再次移除该凭证。
 
 ## Runtime 生命周期
 
@@ -57,7 +59,9 @@ OpenCode harness 仅支持 OpenCode v2。动态安装使用固定版本的 `@ope
 
 ### ACP
 
-ACP harness 使用官方 ACP SDK 和所选 Agent 声明的协议版本。Cypheria 在 Server 内归一化稳定 v1 与 draft v2 calls、notifications、responses、cancellation、agent 与 terminal 认证，以及 v2 batches。Catalog 发现使用临时 session，读取 model 和 configuration options，删除 session，并在 `finally` 路径关闭 runtime。ACP connection header 与传输细节不会成为公开 Cypheria 消息字段。
+ACP harness 使用官方 ACP SDK，并在 Server 内把稳定 v1 与 v2 协议表面严格分开。每条连接都先发送包含 v2 `info` 与 `capabilities` 的 v2 `initialize` 请求；Agent 支持 v2 时返回 v2，否则返回它支持的最新版本 v1。此后 Cypheria 在这条连接上只使用协商出的版本；若返回不支持的版本则断开，且不会在同一连接上重新初始化或混用 v1/v2 消息。Initialize 和 discovery request 会为回复前需要准备本地状态的 Agent 保留有界的冷启动时间。Google Antigravity 1.1.1 会报告版本 2，却返回其余字段均符合 v1 的 initialize 结构；Cypheria 只识别这一精确的混合结构，关闭无效连接，再建立一条明确协商 v1 的新连接。认证发现只执行初始化：Server 会记录 Agent 广告的认证方式与 logout 支持情况，但不会创建 session。协议驱动认证在 v2 使用 `auth/login` 与 `auth/logout`，在 v1 使用 `authenticate` 与 capability-gated `logout`；terminal 认证会运行 Agent 广告的交互式 invocation，并在后续使用时通过新初始化的 runtime 延迟重连。Catalog 发现是独立操作，会创建临时 session 并读取 model 与 configuration options。ACP 的 authentication-required error 会成为正常的 `authentication-required` catalog 状态，而不是刷新失败。Server 只在协商后的协议表面广告相应 capability 时调用 `session/delete`，并始终在 `finally` 路径关闭临时 runtime。
+
+正式 Thread session 同样遵循协商后的生命周期。在 v2 中，出现 `capabilities.session` 即表示支持基础 session 方法；恢复使用 `session/resume`，`session/prompt` 的接受响应不代表 turn 已结束，只有 idle `state_update` 才结束 turn。在 v1 中，Cypheria 继续使用 v1 capability 布局、`session/load`、prompt response 语义与 mode 方法。V2 的 mode/model 默认值通过带类型的 configuration options 应用。ACP connection header 与传输细节不会成为公开 Cypheria 消息字段。
 
 ## Canonical 适配
 

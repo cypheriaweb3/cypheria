@@ -84,11 +84,20 @@ export class CodexRuntime {
   readonly #receipt: AgentInstallReceipt
   readonly #reversePending = new Map<string, ReversePending>()
   readonly #sessions = new Map<string, Send>()
+  readonly #loginResults = new Map<string, { error: string | null; success: boolean }>()
+  readonly #loginWaiters = new Map<
+    string,
+    Array<{
+      reject: (error: Error) => void
+      resolve: (result: { error: string | null; success: boolean }) => void
+    }>
+  >()
   readonly #threadOwners = new Map<string, string>()
   readonly #toolchains: ToolchainManager
   #activeSession: string | undefined
   #process: ChildProcessWithoutNullStreams | undefined
   #sequence = 0
+  #startPromise: Promise<void> | undefined
 
   constructor(options: {
     codexHome: string
@@ -105,7 +114,18 @@ export class CodexRuntime {
   }
 
   async start(): Promise<void> {
+    if (this.#startPromise) return this.#startPromise
     if (this.#process) return
+    const startPromise = this.#start()
+    this.#startPromise = startPromise
+    try {
+      await startPromise
+    } finally {
+      if (this.#startPromise === startPromise) this.#startPromise = undefined
+    }
+  }
+
+  async #start(): Promise<void> {
     await mkdir(this.#codexHome, { recursive: true })
     const child = spawn(this.#receipt.command, [...this.#receipt.args, "app-server"], {
       env: { ...this.#toolchains.environment(), CODEX_HOME: this.#codexHome },
@@ -132,8 +152,24 @@ export class CodexRuntime {
       }
       this.#pending.clear()
       this.#reversePending.clear()
+      for (const waiters of this.#loginWaiters.values()) {
+        for (const waiter of waiters) {
+          waiter.reject(new Error("Codex App Server exited before authentication completed"))
+        }
+      }
+      this.#loginWaiters.clear()
       lines.close()
     })
+    try {
+      await this.#requestStarted("initialize", {
+        capabilities: { experimentalApi: true, requestAttestation: false },
+        clientInfo: { name: "cypheria", title: "Cypheria", version: "1" },
+      })
+      child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", method: "initialized" })}\n`)
+    } catch (error) {
+      await this.stop()
+      throw error
+    }
   }
 
   async send(
@@ -202,6 +238,50 @@ export class CodexRuntime {
     params?: Record<string, unknown>
   ): Promise<Record<string, unknown>> {
     await this.start()
+    return this.#requestStarted(method, params)
+  }
+
+  waitForLogin(
+    loginId: string,
+    signal: AbortSignal
+  ): Promise<{ error: string | null; success: boolean }> {
+    const existing = this.#loginResults.get(loginId)
+    if (existing) {
+      this.#loginResults.delete(loginId)
+      return Promise.resolve(existing)
+    }
+    return new Promise((resolve, reject) => {
+      const waiters = this.#loginWaiters.get(loginId) ?? []
+      const finish = (result: { error: string | null; success: boolean }) => {
+        signal.removeEventListener("abort", onAbort)
+        resolve(result)
+      }
+      const fail = (error: Error) => {
+        signal.removeEventListener("abort", onAbort)
+        reject(error)
+      }
+      const waiter = { reject: fail, resolve: finish }
+      const onAbort = () => {
+        const current = this.#loginWaiters.get(loginId)
+        if (current)
+          this.#loginWaiters.set(
+            loginId,
+            current.filter((candidate) => candidate !== waiter)
+          )
+        reject(
+          signal.reason instanceof Error ? signal.reason : new Error("Authentication cancelled")
+        )
+      }
+      signal.addEventListener("abort", onAbort, { once: true })
+      waiters.push(waiter)
+      this.#loginWaiters.set(loginId, waiters)
+    })
+  }
+
+  #requestStarted(
+    method: keyof typeof AGENT_CODEX_CLIENT_RPC,
+    params?: Record<string, unknown>
+  ): Promise<Record<string, unknown>> {
     const child = this.#process
     if (!child) throw new Error("Codex App Server is not running")
     const internalId = ++this.#sequence
@@ -237,6 +317,12 @@ export class CodexRuntime {
     this.#pending.clear()
     this.#reversePending.clear()
     this.#threadOwners.clear()
+    for (const waiters of this.#loginWaiters.values()) {
+      for (const waiter of waiters) {
+        waiter.reject(new Error("Codex App Server stopped before authentication completed"))
+      }
+    }
+    this.#loginWaiters.clear()
     if (!child || child.exitCode !== null) return
     await new Promise<void>((resolve) => {
       const timeout = setTimeout(() => {
@@ -262,6 +348,19 @@ export class CodexRuntime {
           ...(raw.params === undefined ? {} : { payload: raw.params }),
           type: notificationDefinition.notification,
         } as AgentCodexServerNotification
+        if (message.type === "agent.codex.account.login.completed.notification") {
+          const payload = message.payload
+          if (payload.loginId) {
+            const result = { error: payload.error, success: payload.success }
+            const waiters = this.#loginWaiters.get(payload.loginId) ?? []
+            if (waiters.length > 0) {
+              for (const waiter of waiters) waiter.resolve(result)
+              this.#loginWaiters.delete(payload.loginId)
+            } else {
+              this.#loginResults.set(payload.loginId, result)
+            }
+          }
+        }
         const owner = threadIdOf(raw.params)
         const ownedSend = owner
           ? this.#sessions.get(this.#threadOwners.get(owner) ?? "")

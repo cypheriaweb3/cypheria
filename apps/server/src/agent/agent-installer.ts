@@ -1,18 +1,23 @@
 import { spawn } from "node:child_process"
 import { randomUUID } from "node:crypto"
-import { chmod, mkdir, readdir, readFile, rename, rm, writeFile } from "node:fs/promises"
+import { createReadStream, createWriteStream, openAsBlob } from "node:fs"
+import { chmod, mkdir, open, readdir, readFile, realpath, rename, rm } from "node:fs/promises"
 import { arch, platform } from "node:os"
-import { dirname, join, resolve, sep } from "node:path"
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
+import { Writable } from "node:stream"
+import { pipeline } from "node:stream/promises"
 import type {
   AgentDistribution,
   AgentId,
   AgentRegistryEntry,
   AgentRegistryPlatform,
 } from "@cypheria/protocol"
-import extractZip from "extract-zip"
-import { extract as extractTar } from "tar"
+import { BlobReader, ZipReader } from "@zip.js/zip.js"
+import { extract as extractTar, type TarOptionsWithAliasesAsyncNoFile } from "tar"
+import unbzip2Stream from "unbzip2-stream"
 
-import { downloadBytes, sha256, writeJsonAtomic } from "./fs-utils.js"
+import { agentCompatibilityRule } from "./agent-compatibility-manifest.js"
+import { downloadFile, writeJsonAtomic } from "./fs-utils.js"
 import { NATIVE_AGENT_MANIFEST } from "./native-agent-manifest.js"
 import type { ToolchainManager } from "./toolchain-manager.js"
 
@@ -21,13 +26,30 @@ export type AgentInstallReceipt = {
   args: string[]
   command: string
   environment?: Record<string, string>
-  environmentFingerprint?: string
   installedAt: string
   integrity: "verified" | "unverified" | "not-applicable"
   kind: "binary" | "npx" | "uvx"
   source: string
   version: string
+  workingDirectory?: string
 }
+
+export type SelectedAgentDistribution =
+  | {
+      definition: NonNullable<AgentDistribution["binary"]>[AgentRegistryPlatform]
+      kind: "binary"
+      source: string
+    }
+  | {
+      definition: NonNullable<AgentDistribution["npx"]>
+      kind: "npx"
+      source: string
+    }
+  | {
+      definition: NonNullable<AgentDistribution["uvx"]>
+      kind: "uvx"
+      source: string
+    }
 
 const registryPlatform = (): AgentRegistryPlatform => {
   const os = platform() === "win32" ? "windows" : platform()
@@ -41,6 +63,20 @@ const splitNpmSpec = (spec: string): { name: string; version: string | undefined
   return { name: spec, version: undefined }
 }
 
+export const selectNpxBin = (
+  packageName: string,
+  bin: string | Record<string, string> | undefined
+): string => {
+  if (typeof bin === "string") return bin
+  const entries = Object.entries(bin ?? {})
+  const targets = new Set(entries.map(([, target]) => target))
+  if (targets.size === 1 && entries[0]) return entries[0][1]
+  const unscopedName = packageName.replace(/^@[^/]+\//, "")
+  const named = bin?.[unscopedName]
+  if (named) return named
+  throw new Error(`${packageName} does not expose one unambiguous npx executable`)
+}
+
 const toPythonRequirement = (spec: string): string => {
   const match = /^(.*)@([^@]+)$/.exec(spec)
   return match ? `${match[1]}==${match[2]}` : spec
@@ -50,6 +86,75 @@ const packageCommand = (spec: string): string =>
   toPythonRequirement(spec)
     .split(/[=[<>=!~]/, 1)[0]
     ?.replace(/^.*\//, "") ?? spec
+
+export const uvxInstallPlan = (
+  agentId: AgentId,
+  version: string,
+  packageSpec: string,
+  args: readonly string[]
+): {
+  additionalPackages: string[]
+  args: string[]
+  command: string
+  requirement: string
+} => {
+  const compatibility = agentCompatibilityRule(agentId, version)
+  return {
+    additionalPackages: [...(compatibility?.additionalPythonPackages ?? [])],
+    args: [...args],
+    command: packageCommand(packageSpec),
+    requirement: toPythonRequirement(packageSpec),
+  }
+}
+
+/**
+ * Registry entries may publish more than one distribution. Cypheria prefers a
+ * native binary for the current platform, then npx, then uvx. Keeping this in a
+ * pure function makes the policy explicit and independently testable.
+ */
+export const selectAgentDistribution = (
+  distribution: AgentDistribution,
+  target: AgentRegistryPlatform = registryPlatform()
+): SelectedAgentDistribution | undefined => {
+  const binary = distribution.binary?.[target]
+  if (binary) return { definition: binary, kind: "binary", source: binary.archive }
+  if (distribution.npx)
+    return {
+      definition: distribution.npx,
+      kind: "npx",
+      source: distribution.npx.package,
+    }
+  if (distribution.uvx)
+    return {
+      definition: distribution.uvx,
+      kind: "uvx",
+      source: distribution.uvx.package,
+    }
+  return undefined
+}
+
+export const isNativeExecutable = async (path: string): Promise<boolean> => {
+  const file = await open(path, "r")
+  try {
+    const header = Buffer.alloc(4)
+    const { bytesRead } = await file.read(header, 0, header.length, 0)
+    if (bytesRead < 2) return false
+    if (header[0] === 0x4d && header[1] === 0x5a) return true
+    if (bytesRead < 4) return false
+    const magic = header.readUInt32BE(0)
+    return (
+      magic === 0x7f454c46 ||
+      magic === 0xfeedface ||
+      magic === 0xcefaedfe ||
+      magic === 0xfeedfacf ||
+      magic === 0xcffaedfe ||
+      magic === 0xcafebabe ||
+      magic === 0xbebafeca
+    )
+  } finally {
+    await file.close()
+  }
+}
 
 const run = async (
   command: string,
@@ -118,16 +223,119 @@ const run = async (
     )
   })
 
-const extract = async (archive: string, destination: string): Promise<void> => {
+export const extractAgentArchive = async (
+  archive: string,
+  destination: string,
+  options: { onProgress?: (value: number) => void; signal?: AbortSignal } = {}
+): Promise<void> => {
   await mkdir(destination, { recursive: true })
-  if (archive.endsWith(".zip")) await extractZip(archive, { dir: destination })
-  else if (/\.(?:tar\.gz|tgz|tar\.bz2|tbz2)$/.test(archive)) {
-    await extractTar({
-      cwd: destination,
-      file: archive,
-      filter: (path) => !path.replaceAll("\\", "/").split("/").includes(".."),
-      preservePaths: false,
+  if (archive.endsWith(".zip")) {
+    const reader = new ZipReader(new BlobReader(await openAsBlob(archive)), {
+      checkCrc32: true,
+      strictness: "strict",
     })
+    try {
+      const entries = await reader.getEntries({
+        checkAmbiguity: true,
+        filenameValidation: "strict",
+      })
+      if (entries.some((entry) => entry.symlink)) {
+        throw new Error("Agent archive contains an unsupported symbolic link")
+      }
+      const totalBytes = entries.reduce(
+        (total, entry) => total + (entry.directory ? 0 : entry.uncompressedSize),
+        0
+      )
+      let completedBytes = 0
+      options.onProgress?.(0)
+      for (const entry of entries) {
+        options.signal?.throwIfAborted()
+        const target = resolve(destination, entry.filename)
+        if (
+          target !== resolve(destination) &&
+          !target.startsWith(`${resolve(destination)}${sep}`)
+        ) {
+          throw new Error(`Agent archive entry escapes install directory: ${entry.filename}`)
+        }
+        if (entry.directory) {
+          await mkdir(target, { recursive: true })
+          continue
+        }
+        await mkdir(dirname(target), { recursive: true })
+        const file = createWriteStream(target, { mode: entry.executable ? 0o755 : 0o644 })
+        try {
+          await entry.getData(Writable.toWeb(file), {
+            checkCrc32: true,
+            onprogress: (value) => {
+              const extracted = completedBytes + value
+              options.onProgress?.(totalBytes > 0 ? Math.min(extracted / totalBytes, 1) : 1)
+            },
+            signal: options.signal,
+          })
+        } catch (error) {
+          file.destroy()
+          throw error
+        }
+        completedBytes += entry.uncompressedSize
+      }
+      options.onProgress?.(1)
+    } finally {
+      await reader.close()
+    }
+  } else if (/\.(?:tar\.gz|tgz|tar\.bz2|tbz2)$/.test(archive)) {
+    options.signal?.throwIfAborted()
+    options.onProgress?.(0)
+    let unsafeEntry: Error | undefined
+    const tarOptions: TarOptionsWithAliasesAsyncNoFile = {
+      cwd: destination,
+      filter: (path, entry) => {
+        const normalized = path.replaceAll("\\", "/")
+        if (normalized.startsWith("/") || normalized.split("/").includes("..")) {
+          unsafeEntry ??= new Error(`Agent archive entry escapes install directory: ${path}`)
+          return false
+        }
+        const unsupportedType =
+          "type" in entry
+            ? ["Link", "SymbolicLink", "CharacterDevice", "BlockDevice", "FIFO"].includes(
+                entry.type
+              )
+              ? entry.type
+              : undefined
+            : entry.isSymbolicLink()
+              ? "SymbolicLink"
+              : entry.isCharacterDevice()
+                ? "CharacterDevice"
+                : entry.isBlockDevice()
+                  ? "BlockDevice"
+                  : entry.isFIFO()
+                    ? "FIFO"
+                    : undefined
+        if (unsupportedType) {
+          unsafeEntry ??= new Error(
+            `Agent archive contains unsupported ${unsupportedType}: ${path}`
+          )
+          return false
+        }
+        return true
+      },
+      preservePaths: false,
+    }
+    if (/\.(?:tar\.bz2|tbz2)$/.test(archive)) {
+      // ACP registry FORMAT.md allows bzip2-compressed tar archives (Goose
+      // currently publishes this format). node-tar only decompresses gzip, so
+      // feed it a streaming bzip2 decoder instead of treating the file as tar.
+      await pipeline(
+        createReadStream(archive),
+        unbzip2Stream(),
+        extractTar(tarOptions),
+        ...(options.signal ? [{ signal: options.signal }] : [])
+      )
+    } else {
+      await extractTar({ ...tarOptions, file: archive })
+    }
+    if (unsafeEntry) throw unsafeEntry
+    options.signal?.throwIfAborted()
+    options.onProgress?.(1)
   } else {
     throw new Error(`Unsupported archive format: ${archive}`)
   }
@@ -176,25 +384,26 @@ export class AgentInstaller {
         options
       )
     if (!entry) throw new Error(`No installation descriptor is available for ${agentId}`)
-    const binary = entry.distribution.binary?.[registryPlatform()]
-    if (binary) return this.#installBinary(agentId, entry.version, binary, options)
-    if (entry.distribution.npx)
+    const selected = selectAgentDistribution(entry.distribution)
+    if (selected?.kind === "binary")
+      return this.#installBinary(agentId, entry.version, selected.definition, options)
+    if (selected?.kind === "npx")
       return this.#installNpx(
         agentId,
         entry.version,
-        entry.distribution.npx.package,
-        entry.distribution.npx.args,
-        entry.distribution.npx.env,
-        "node",
+        selected.definition.package,
+        selected.definition.args,
+        selected.definition.env,
+        "npx",
         options
       )
-    if (entry.distribution.uvx)
+    if (selected?.kind === "uvx")
       return this.#installUvx(
         agentId,
         entry.version,
-        entry.distribution.uvx.package,
-        entry.distribution.uvx.args,
-        entry.distribution.uvx.env,
+        selected.definition.package,
+        selected.definition.args,
+        selected.definition.env,
         options
       )
     throw new Error(`Agent ${agentId} has no distribution for ${registryPlatform()}`)
@@ -221,29 +430,13 @@ export class AgentInstaller {
     }
   }
 
-  async readReceipts(agentId: AgentId): Promise<AgentInstallReceipt[]> {
-    const root = join(this.#agentsHome, agentId, "receipts")
-    const files = await readdir(root).catch((error: NodeJS.ErrnoException) => {
-      if (error.code === "ENOENT") return []
-      throw error
-    })
-    return Promise.all(
-      files
-        .filter((file) => file.endsWith(".json"))
-        .map(
-          async (file) =>
-            JSON.parse(await readFile(join(root, file), "utf8")) as AgentInstallReceipt
-        )
-    )
-  }
-
   async #installNpx(
     agentId: AgentId,
     version: string,
     packageSpec: string,
     args: readonly string[] = [],
     environment?: Record<string, string>,
-    launcher: "executable" | "node" = "node",
+    launcher: "executable" | "node" | "npx" = "node",
     options: { onProgress?: (value: number) => void; signal?: AbortSignal } = {}
   ): Promise<AgentInstallReceipt> {
     options.signal?.throwIfAborted()
@@ -277,11 +470,7 @@ export class AgentInstaller {
       const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8")) as {
         bin?: string | Record<string, string>
       }
-      const bin =
-        typeof packageJson.bin === "string"
-          ? packageJson.bin
-          : Object.values(packageJson.bin ?? {})[0]
-      if (!bin) throw new Error(`${packageSpec} does not expose an executable`)
+      const bin = selectNpxBin(parsed.name, packageJson.bin)
       const destination = join(this.#agentsHome, agentId, "versions", version)
       await mkdir(dirname(destination), { recursive: true })
       await rm(destination, { force: true, recursive: true })
@@ -301,8 +490,18 @@ export class AgentInstaller {
       if (launcher === "executable") {
         if (platform() !== "win32") await chmod(executable, 0o755)
         receipt.command = executable
-      } else {
+      } else if (launcher === "node") {
         receipt.args = [executable, ...receipt.args]
+      } else {
+        // FORMAT.md defines npx distributions as `npx <package> [args]`.
+        // Invoke npm's own npx implementation so multi-bin packages use npm's
+        // documented executable-selection rules instead of choosing a bin here.
+        const npxCli =
+          platform() === "win32"
+            ? join(dirname(node), "node_modules", "npm", "bin", "npx-cli.js")
+            : resolve(dirname(node), "../lib/node_modules/npm/bin/npx-cli.js")
+        receipt.args = [npxCli, "--yes", "--offline", packageSpec, ...receipt.args]
+        receipt.workingDirectory = destination
       }
       await this.#activate(receipt)
       options.onProgress?.(1)
@@ -327,41 +526,73 @@ export class AgentInstaller {
     for (const toolchain of ["uv", "python"] as const) {
       if (!this.#toolchains.executable(toolchain)) await this.#toolchains.update(toolchain)
     }
-    const pythonVersion =
-      this.#toolchains.list().find(({ id }) => id === "python")?.activeVersion ?? "unknown"
-    const uvVersion =
-      this.#toolchains.list().find(({ id }) => id === "uv")?.activeVersion ?? "unknown"
-    const pythonEnvironment = await this.#toolchains.createPythonEnvironment({
-      package: packageSpec,
-      pythonVersion,
-      requirements: [toPythonRequirement(packageSpec)],
-      uvVersion,
-    })
-    options.signal?.throwIfAborted()
-    options.onProgress?.(0.85)
-    const executable = join(
-      pythonEnvironment.path,
-      "venv",
-      platform() === "win32" ? "Scripts" : "bin",
-      executableName(packageCommand(packageSpec))
-    )
-    const receipt: AgentInstallReceipt = {
-      agentId,
-      args: [...args],
-      command: executable,
-      ...(environment ? { environment } : {}),
-      environmentFingerprint: pythonEnvironment.fingerprint,
-      installedAt: new Date().toISOString(),
-      integrity: "not-applicable",
-      kind: "uvx",
-      source: packageSpec,
-      version,
-    }
+    const uv = this.#toolchains.executable("uv")
+    const python = this.#toolchains.executable("python")
+    if (!uv || !python) throw new Error("Managed uv and Python are unavailable")
+    const launch = uvxInstallPlan(agentId, version, packageSpec, args)
+    const staging = join(this.#agentsHome, agentId, "staging", randomUUID())
+    const stagingTools = join(staging, "tools")
+    const stagingBin = join(staging, "bin")
+    await mkdir(staging, { recursive: true })
     try {
+      // `uv tool install` materializes the same isolated environment and
+      // command selection used by `uvx`, without launching the ACP server
+      // during installation. The selected command is then run from this fixed
+      // environment, so starting a session never resolves newer dependencies.
+      await run(
+        uv,
+        [
+          "tool",
+          "install",
+          "--force",
+          "--python",
+          python,
+          ...launch.additionalPackages.flatMap((requirement) => ["--with", requirement]),
+          launch.requirement,
+        ],
+        this.#toolchains.environment({
+          UV_TOOL_BIN_DIR: stagingBin,
+          UV_TOOL_DIR: stagingTools,
+        }),
+        options.signal
+      )
+      options.signal?.throwIfAborted()
+      options.onProgress?.(0.85)
+      const stagingExecutable = join(stagingBin, executableName(launch.command))
+      const resolvedStaging = await realpath(staging)
+      const resolvedStagingExecutable = await realpath(stagingExecutable)
+      const relativeExecutable = relative(resolvedStaging, resolvedStagingExecutable)
+      if (
+        isAbsolute(relativeExecutable) ||
+        relativeExecutable === ".." ||
+        relativeExecutable.startsWith(`..${sep}`)
+      ) {
+        throw new Error("uvx command resolves outside install directory")
+      }
+      const destination = join(this.#agentsHome, agentId, "versions", version)
+      await mkdir(dirname(destination), { recursive: true })
+      await rm(destination, { force: true, recursive: true })
+      await rename(staging, destination)
+      const executable = join(destination, relativeExecutable)
+      const nativeExecutable = await isNativeExecutable(executable).catch(() => false)
+      const receipt: AgentInstallReceipt = {
+        agentId,
+        args: nativeExecutable ? launch.args : [executable, ...launch.args],
+        command: nativeExecutable
+          ? executable
+          : join(dirname(executable), platform() === "win32" ? "python.exe" : "python"),
+        ...(environment ? { environment } : {}),
+        installedAt: new Date().toISOString(),
+        integrity: "not-applicable",
+        kind: "uvx",
+        source: packageSpec,
+        version,
+      }
       await this.#activate(receipt)
       options.onProgress?.(1)
       return receipt
     } catch (error) {
+      await rm(staging, { force: true, recursive: true })
       await this.#cleanupAgentRoot(join(this.#agentsHome, agentId))
       throw error
     }
@@ -375,33 +606,63 @@ export class AgentInstaller {
   ): Promise<AgentInstallReceipt> {
     if (!distribution) throw new Error("Binary distribution is missing")
     options.signal?.throwIfAborted()
-    options.onProgress?.(0.05)
-    const bytes = await downloadBytes(distribution.archive, { signal: options.signal })
-    options.onProgress?.(0.5)
-    if (distribution.sha256 && sha256(bytes).toLowerCase() !== distribution.sha256.toLowerCase()) {
-      throw new Error("Agent archive checksum mismatch")
+    let lastReportedProgress = 0
+    const reportProgress = (value: number): void => {
+      const progress = Math.max(lastReportedProgress, Math.min(value, 1))
+      if (progress < 1 && progress - lastReportedProgress < 0.005) return
+      lastReportedProgress = progress
+      options.onProgress?.(progress)
     }
+    reportProgress(0.05)
     const staging = join(this.#agentsHome, agentId, "staging", randomUUID())
-    const extension = distribution.archive.match(/(\.tar\.gz|\.tar\.bz2|\.tgz|\.tbz2|\.zip)$/)?.[1]
+    const extension = new URL(distribution.archive).pathname.match(
+      /(\.tar\.gz|\.tar\.bz2|\.tgz|\.tbz2|\.zip)$/
+    )?.[1]
     const archivePath = join(this.#cacheDir, `${randomUUID()}${extension ?? ".raw"}`)
     await mkdir(dirname(archivePath), { recursive: true })
     await mkdir(staging, { recursive: true })
-    await writeFile(archivePath, bytes)
     try {
-      if (extension) await extract(archivePath, staging)
-      else {
+      const downloaded = await downloadFile(distribution.archive, archivePath, {
+        onProgress: (value) => reportProgress(0.05 + value * 0.4),
+        signal: options.signal,
+        timeoutMs: 10 * 60_000,
+      })
+      if (
+        distribution.sha256 &&
+        downloaded.sha256.toLowerCase() !== distribution.sha256.toLowerCase()
+      ) {
+        throw new Error("Agent archive checksum mismatch")
+      }
+      if (extension) {
+        await extractAgentArchive(archivePath, staging, {
+          onProgress: (value) => reportProgress(0.45 + value * 0.45),
+          signal: options.signal,
+        })
+      } else {
         const commandName = distribution.cmd.replace(/^\.\//, "")
         const target = resolve(staging, commandName)
         if (!target.startsWith(`${resolve(staging)}${sep}`))
           throw new Error("Binary command escapes install directory")
         await mkdir(dirname(target), { recursive: true })
-        await writeFile(target, bytes, { mode: 0o755 })
+        await rename(archivePath, target)
+        if (platform() !== "win32") await chmod(target, 0o755)
       }
       options.signal?.throwIfAborted()
-      options.onProgress?.(0.75)
+      reportProgress(0.9)
       const relativeCommand = distribution.cmd.replace(/^\.\//, "")
       if (relativeCommand.split(/[\\/]/).includes(".."))
         throw new Error("Binary command escapes install directory")
+      const stagingCommand = resolve(staging, relativeCommand)
+      const resolvedStaging = await realpath(staging)
+      const resolvedStagingCommand = await realpath(stagingCommand)
+      const relativeResolvedCommand = relative(resolvedStaging, resolvedStagingCommand)
+      if (
+        isAbsolute(relativeResolvedCommand) ||
+        relativeResolvedCommand === ".." ||
+        relativeResolvedCommand.startsWith(`..${sep}`)
+      ) {
+        throw new Error("Binary command resolves outside install directory")
+      }
       const destination = join(this.#agentsHome, agentId, "versions", version)
       await mkdir(dirname(destination), { recursive: true })
       await rm(destination, { force: true, recursive: true })
@@ -420,7 +681,7 @@ export class AgentInstaller {
         version,
       }
       await this.#activate(receipt)
-      options.onProgress?.(1)
+      reportProgress(1)
       return receipt
     } catch (error) {
       await rm(staging, { force: true, recursive: true })

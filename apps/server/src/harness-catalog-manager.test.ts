@@ -58,6 +58,20 @@ describe("HarnessCatalogManager", () => {
     expect(failed).toMatchObject({ error: "offline", stale: true, status: "ready" })
   })
 
+  it("preserves authentication-required as a non-error catalog state", async () => {
+    const manager = new HarnessCatalogManager(async () => ({
+      models: [],
+      settingSections: [],
+      status: "authentication-required",
+    }))
+
+    await expect(manager.get("cline")).resolves.toMatchObject({
+      error: null,
+      stale: false,
+      status: "authentication-required",
+    })
+  })
+
   it("reloads after invalidation and aborts active discovery on stop", async () => {
     const signals: AbortSignal[] = []
     const discover = vi.fn(async (_agentId, signal: AbortSignal) => {

@@ -1,12 +1,15 @@
 import { randomUUID } from "node:crypto"
 import {
   type AgentId,
+  type HarnessAuthField,
   type HarnessAuthFlow,
+  type HarnessAuthTestResult,
   type HarnessCatalogSnapshot,
   type HarnessClientMessage,
   type HarnessServerMessage,
   type HarnessSettingDefinition,
   type HarnessSettingSection,
+  type HarnessView,
   isNativeAgentId,
   type ServerMessage,
 } from "@cypheria/protocol"
@@ -20,10 +23,180 @@ import type { TerminalService } from "./terminal-service.js"
 type Send = (message: ServerMessage) => void
 
 type PiAuthFlow = {
+  agentId: AgentId
   controller: AbortController
   events: HarnessAuthFlow[]
+  providerId: string
+  sessionId: string
   prompt?: { reject: (error: Error) => void; resolve: (value: string) => void }
   waiters: Array<(event: HarnessAuthFlow) => void>
+}
+
+type AuthValues = Record<string, string | number | boolean | string[]>
+
+type OpenCodeFormField = {
+  default?: string | number | boolean | string[]
+  description?: string
+  hidden?: boolean
+  key: string
+  maximum?: number | string
+  maxItems?: number
+  minimum?: number | string
+  minItems?: number
+  options?: Array<{ description?: string; label: string; value: string }>
+  placeholder?: string
+  required?: boolean
+  title?: string
+  type: "boolean" | "external" | "integer" | "multiselect" | "number" | "string"
+  url?: string
+  when?: Array<{
+    key: string
+    op: "eq" | "neq"
+    value: string | number | boolean
+  }>
+}
+
+const apiKeyField = (): HarnessAuthField => ({
+  defaultValue: null,
+  description: null,
+  hidden: false,
+  id: "key",
+  label: "API key",
+  max: null,
+  min: null,
+  options: [],
+  placeholder: null,
+  required: true,
+  type: "secret",
+  url: null,
+  when: [],
+})
+
+const openCodeAuthField = (field: OpenCodeFormField, keyMethod: boolean): HarnessAuthField => {
+  const looksSecret =
+    keyMethod &&
+    /(?:api[-_ ]?key|token|secret|password|credential)/iu.test(`${field.key} ${field.title ?? ""}`)
+  const defaultValue = (() => {
+    if (field.type === "string" && typeof field.default === "string") return field.default
+    if (
+      (field.type === "number" || field.type === "integer") &&
+      typeof field.default === "number" &&
+      Number.isFinite(field.default)
+    ) {
+      return field.default
+    }
+    if (field.type === "boolean" && typeof field.default === "boolean") return field.default
+    if (field.type === "multiselect" && Array.isArray(field.default)) return field.default
+    return null
+  })()
+  return {
+    defaultValue,
+    description: field.description ?? null,
+    hidden: field.hidden ?? false,
+    id: field.key,
+    label: field.title ?? field.key,
+    max:
+      typeof (field.type === "multiselect" ? field.maxItems : field.maximum) === "number"
+        ? ((field.type === "multiselect" ? field.maxItems : field.maximum) as number)
+        : null,
+    min:
+      typeof (field.type === "multiselect" ? field.minItems : field.minimum) === "number"
+        ? ((field.type === "multiselect" ? field.minItems : field.minimum) as number)
+        : null,
+    options: (field.options ?? []).map((item) => ({
+      description: item.description ?? null,
+      label: item.label,
+      value: item.value,
+    })),
+    placeholder: field.placeholder ?? null,
+    required: field.required ?? false,
+    type: field.type === "string" ? (looksSecret ? "secret" : "text") : field.type,
+    url: field.type === "external" ? (field.url ?? null) : null,
+    when: (field.when ?? []).map((condition) => ({
+      fieldId: condition.key,
+      operator: condition.op === "eq" ? ("equals" as const) : ("not-equals" as const),
+      value: condition.value,
+    })),
+  }
+}
+
+const authFieldVisible = (field: HarnessAuthField, values: AuthValues): boolean =>
+  !field.hidden &&
+  field.when.every((condition) => {
+    const matches = values[condition.fieldId] === condition.value
+    return condition.operator === "equals" ? matches : !matches
+  })
+
+const validateAuthValues = (
+  fields: HarnessAuthField[],
+  supplied: AuthValues | undefined
+): AuthValues => {
+  const values: AuthValues = {}
+  const allowed = new Set(fields.map((field) => field.id))
+  for (const [id, value] of Object.entries(supplied ?? {})) {
+    if (!allowed.has(id)) throw new Error(`Unknown authentication field: ${id}`)
+    values[id] = value
+  }
+  for (const field of fields) {
+    if (values[field.id] === undefined && field.defaultValue !== null) {
+      values[field.id] = field.defaultValue
+    }
+  }
+  for (const field of fields) {
+    if (!authFieldVisible(field, values) || field.type === "external") continue
+    const value = values[field.id]
+    if (
+      field.required &&
+      (value === undefined || value === "" || (Array.isArray(value) && value.length === 0))
+    ) {
+      throw new Error(`${field.label} is required`)
+    }
+    if (value === undefined) continue
+    if (field.type === "boolean" && typeof value !== "boolean") {
+      throw new Error(`${field.label} must be a boolean`)
+    }
+    if (
+      (field.type === "number" || field.type === "integer") &&
+      (typeof value !== "number" || !Number.isFinite(value))
+    ) {
+      throw new Error(`${field.label} must be a number`)
+    }
+    if (field.type === "integer" && typeof value === "number" && !Number.isInteger(value)) {
+      throw new Error(`${field.label} must be an integer`)
+    }
+    if (field.type === "multiselect" && !Array.isArray(value)) {
+      throw new Error(`${field.label} must be a list`)
+    }
+    if ((field.type === "text" || field.type === "secret") && typeof value !== "string") {
+      throw new Error(`${field.label} must be text`)
+    }
+    if (typeof value === "number" && field.min !== null && value < field.min) {
+      throw new Error(`${field.label} must be at least ${field.min}`)
+    }
+    if (typeof value === "number" && field.max !== null && value > field.max) {
+      throw new Error(`${field.label} must be at most ${field.max}`)
+    }
+    if (Array.isArray(value) && field.min !== null && value.length < field.min) {
+      throw new Error(`${field.label} requires at least ${field.min} selections`)
+    }
+    if (Array.isArray(value) && field.max !== null && value.length > field.max) {
+      throw new Error(`${field.label} allows at most ${field.max} selections`)
+    }
+    if (
+      typeof value === "string" &&
+      field.options.length > 0 &&
+      !field.options.some((option) => option.value === value)
+    ) {
+      throw new Error(`${field.label} has an invalid option`)
+    }
+    if (
+      Array.isArray(value) &&
+      value.some((item) => !field.options.some((option) => option.value === item))
+    ) {
+      throw new Error(`${field.label} has an invalid option`)
+    }
+  }
+  return values
 }
 
 const option = (value: string, label = value, description: string | null = null) => ({
@@ -179,10 +352,14 @@ export class HarnessService {
   >()
   readonly #acpLogoutSupported = new Map<AgentId, boolean>()
   readonly #acpConnected = new Set<AgentId>()
+  readonly #codexAuthFlows = new Map<string, AbortController>()
   readonly #piAuthFlows = new Map<string, PiAuthFlow>()
+  readonly #authReservations = new Map<string, string>()
+  readonly #flowReservations = new Map<string, string>()
+  readonly #flowSessions = new Map<string, { agentId: AgentId; sessionId: string }>()
   readonly #terminalAuthFlows = new Map<
     string,
-    { agentId: AgentId; sessionId: string; terminalId: string }
+    { agentId: AgentId; providerId: string; sessionId: string; terminalId: string }
   >()
 
   constructor(
@@ -199,17 +376,96 @@ export class HarnessService {
   }
 
   stop(): void {
+    for (const controller of this.#codexAuthFlows.values()) controller.abort()
+    this.#codexAuthFlows.clear()
     for (const flow of this.#piAuthFlows.values()) flow.controller.abort()
     this.#piAuthFlows.clear()
     for (const flow of this.#terminalAuthFlows.values()) {
       this.#terminals.close(flow.terminalId, flow.sessionId)
     }
     this.#terminalAuthFlows.clear()
+    for (const [flowId, owner] of this.#flowSessions) {
+      void this.#cancelAuth(owner.agentId, flowId, owner.sessionId).catch(() => undefined)
+    }
+    this.#authReservations.clear()
+    this.#flowReservations.clear()
+    this.#flowSessions.clear()
     this.catalog.stop()
+  }
+
+  closeSession(sessionId: string): void {
+    for (const [flowId, owner] of this.#flowSessions) {
+      if (owner.sessionId !== sessionId) continue
+      const pi = this.#piAuthFlows.get(flowId)
+      if (pi) {
+        pi.controller.abort()
+        pi.prompt?.reject(new Error("Authentication cancelled"))
+        this.#piAuthFlows.delete(flowId)
+      }
+      if (!pi) void this.#cancelAuth(owner.agentId, flowId, sessionId).catch(() => undefined)
+      this.#releaseFlow(flowId)
+    }
+    for (const [flowId, flow] of this.#terminalAuthFlows) {
+      if (flow.sessionId !== sessionId) continue
+      this.#terminals.close(flow.terminalId, sessionId)
+      this.#terminalAuthFlows.delete(flowId)
+      this.#releaseFlow(flowId)
+    }
   }
 
   invalidate(agentId?: AgentId): void {
     this.catalog.invalidate(agentId)
+    if (agentId) {
+      this.#acpAuthMethods.delete(agentId)
+      this.#acpConnected.delete(agentId)
+      this.#acpLogoutSupported.delete(agentId)
+      return
+    }
+    this.#acpAuthMethods.clear()
+    this.#acpConnected.clear()
+    this.#acpLogoutSupported.clear()
+  }
+
+  #connectionKey(agentId: AgentId, providerId: string): string {
+    return `${agentId}\u0000${providerId}`
+  }
+
+  #isAuthBusy(agentId: AgentId, providerId: string): boolean {
+    return this.#authReservations.has(this.#connectionKey(agentId, providerId))
+  }
+
+  #reserveAuth(agentId: AgentId, providerId: string): string {
+    const key = this.#connectionKey(agentId, providerId)
+    if (this.#authReservations.has(key)) {
+      throw new Error("Authentication is already in progress for this provider")
+    }
+    const reservation = randomUUID()
+    this.#authReservations.set(key, reservation)
+    return key
+  }
+
+  #trackFlow(flowId: string, key: string, agentId: AgentId, sessionId: string): void {
+    this.#authReservations.set(key, flowId)
+    this.#flowReservations.set(flowId, key)
+    this.#flowSessions.set(flowId, { agentId, sessionId })
+  }
+
+  #releaseFlow(flowId: string): void {
+    const key = this.#flowReservations.get(flowId)
+    if (!key) return
+    if (this.#authReservations.get(key) === flowId) this.#authReservations.delete(key)
+    this.#flowReservations.delete(flowId)
+    this.#flowSessions.delete(flowId)
+  }
+
+  #releaseProvider(agentId: AgentId, providerId: string): void {
+    const key = this.#connectionKey(agentId, providerId)
+    const flowId = this.#authReservations.get(key)
+    this.#authReservations.delete(key)
+    if (flowId) {
+      this.#flowReservations.delete(flowId)
+      this.#flowSessions.delete(flowId)
+    }
   }
 
   async validatedDefaults(
@@ -253,8 +509,9 @@ export class HarnessService {
           respond(
             await this.#startAuth(
               message.payload.agentId,
+              message.payload.providerId,
               message.payload.methodId,
-              message.payload.secret,
+              message.payload.values,
               sessionId,
               send
             )
@@ -274,9 +531,15 @@ export class HarnessService {
             )
           )
           break
+        case "harness.auth.poll.request":
+          respond(await this.#pollAuth(message.payload.agentId, message.payload.flowId, sessionId))
+          break
         case "harness.auth.logout.request":
-          await this.#logout(message.payload.agentId)
+          await this.#logout(message.payload.agentId, message.payload.connectionId)
           respond({ succeeded: true })
+          break
+        case "harness.auth.test.request":
+          respond(await this.#testAuth(message.payload.agentId, message.payload.connectionId))
           break
         case "harness.models.list.request":
         case "harness.settings.get.request":
@@ -300,99 +563,202 @@ export class HarnessService {
     return true
   }
 
-  async #view(agentId: AgentId) {
-    await this.#agents.get(agentId, "harness-settings")
+  #connectionId(agentId: AgentId, providerId: string): string {
+    return `${agentId}:${encodeURIComponent(providerId)}`
+  }
+
+  async #view(agentId: AgentId): Promise<HarnessView> {
+    const agent = await this.#agents.get(agentId, "harness-settings")
     if (agentId === "codex") {
       const account = await this.#codex.account(false)
+      const providerId = "openai"
+      const authMethods = [
+        {
+          description: "Use an OpenAI API key.",
+          fields: [apiKeyField()],
+          id: "apiKey",
+          label: "API key",
+        },
+        {
+          description: "Sign in with your ChatGPT account.",
+          fields: [],
+          id: "chatgpt",
+          label: "ChatGPT",
+        },
+        {
+          description: "Sign in on another device with a one-time code.",
+          fields: [],
+          id: "chatgptDeviceCode",
+          label: "ChatGPT device code",
+        },
+      ]
+      if (account.type !== null) this.#releaseProvider(agentId, providerId)
       return {
         agentId,
-        authMethods: [
-          { description: null, id: "apiKey", input: "secret" as const, label: "API key" },
-          { description: null, id: "chatgpt", input: "none" as const, label: "ChatGPT" },
+        connections:
+          account.type === null
+            ? []
+            : [
+                {
+                  detail: account.email ?? account.planType ?? account.type,
+                  disconnectSupported: true,
+                  id: this.#connectionId(agentId, providerId),
+                  methodId: account.type,
+                  methodLabel: account.type === "apiKey" ? "API key" : "ChatGPT",
+                  providerId,
+                  providerLabel: "OpenAI",
+                  source: "managed",
+                  testSupported: true,
+                },
+              ],
+        mode: "single",
+        providers: [
           {
-            description: null,
-            id: "chatgptDeviceCode",
-            input: "none" as const,
-            label: "ChatGPT device code",
+            authMethods,
+            busy: this.#isAuthBusy(agentId, providerId),
+            description: "Authenticate Codex with OpenAI.",
+            id: providerId,
+            label: "OpenAI",
           },
         ],
-        connected: account.type !== null,
-        detail: account.email ?? account.type,
-        logoutSupported: account.type !== null,
       }
     }
     if (agentId === "claude") {
       const catalog = await this.#agents.getClaudeCatalog()
+      const providerId = "anthropic"
+      const connected = Boolean(catalog.account.email || catalog.account.organization)
+      if (connected) this.#releaseProvider(agentId, providerId)
       return {
         agentId,
-        authMethods: [
+        connections: connected
+          ? [
+              {
+                detail:
+                  catalog.account.email ??
+                  catalog.account.organization ??
+                  catalog.account.apiProvider ??
+                  null,
+                disconnectSupported: true,
+                id: this.#connectionId(agentId, providerId),
+                methodId: null,
+                methodLabel: catalog.account.apiProvider ?? null,
+                providerId,
+                providerLabel: "Anthropic",
+                source: "managed",
+                testSupported: true,
+              },
+            ]
+          : [],
+        mode: "single",
+        providers: [
           {
-            description: "Sign in with a Claude subscription.",
-            id: "subscription",
-            input: "terminal" as const,
-            label: "Claude account with subscription",
-          },
-          {
-            description: "Sign in with your Console account.",
-            id: "console",
-            input: "terminal" as const,
-            label: "Anthropic Console account",
+            authMethods: [
+              {
+                description: "Sign in with a Claude subscription.",
+                fields: [],
+                id: "subscription",
+                label: "Claude account with subscription",
+              },
+              {
+                description: "Sign in with your Console account.",
+                fields: [],
+                id: "console",
+                label: "Anthropic Console account",
+              },
+            ],
+            busy: this.#isAuthBusy(agentId, providerId),
+            description: "Authenticate with a Claude subscription or Anthropic Console account.",
+            id: providerId,
+            label: "Anthropic",
           },
         ],
-        connected: Boolean(catalog.account.email || catalog.account.organization),
-        detail:
-          catalog.account.email ??
-          catalog.account.organization ??
-          catalog.account.apiProvider ??
-          null,
-        logoutSupported: true,
       }
     }
     if (agentId === "pi") {
       const catalog = await this.#agents.getPiCatalog()
-      const connected = new Set(catalog.credentials.map((credential) => credential.providerId))
+      const credentials = new Map(
+        catalog.credentials.map((credential) => [credential.providerId, credential])
+      )
+      for (const providerId of credentials.keys()) this.#releaseProvider(agentId, providerId)
       return {
         agentId,
-        authMethods: catalog.providers.flatMap((provider) => [
-          ...(provider.auth.oauth
+        connections: catalog.providers.flatMap((provider) => {
+          const credential = credentials.get(provider.id)
+          return credential
             ? [
                 {
-                  description: null,
-                  id: `pi:${provider.id}:oauth`,
-                  input: "none" as const,
-                  label: `${provider.name} — ${provider.auth.oauth}`,
+                  detail: credential.type === "api_key" ? "API key" : "Account",
+                  disconnectSupported: true,
+                  id: this.#connectionId(agentId, provider.id),
+                  methodId: credential.type,
+                  methodLabel: credential.type === "api_key" ? "API key" : "Account",
+                  providerId: provider.id,
+                  providerLabel: provider.name,
+                  source: "managed" as const,
+                  testSupported: true,
                 },
               ]
-            : []),
-          ...(provider.auth.apiKey
-            ? [
-                {
-                  description: null,
-                  id: `pi:${provider.id}:api_key`,
-                  input: "secret" as const,
-                  label: `${provider.name} — ${provider.auth.apiKey}`,
-                },
-              ]
-            : []),
-        ]),
-        connected: connected.size > 0,
-        detail:
-          connected.size > 0
-            ? catalog.providers
-                .filter((provider) => connected.has(provider.id))
-                .map((provider) => provider.name)
-                .join(", ")
-            : null,
-        logoutSupported: true,
+            : []
+        }),
+        mode: "multiple",
+        providers: catalog.providers.map((provider) => ({
+          authMethods: [
+            ...(provider.auth.oauth
+              ? provider.id === "openai-codex"
+                ? [
+                    {
+                      description: "Sign in through a browser callback on this device.",
+                      fields: [],
+                      id: "oauth:browser",
+                      label: "Browser login",
+                    },
+                    {
+                      description: "Use a device code when a browser callback is unavailable.",
+                      fields: [],
+                      id: "oauth:device_code",
+                      label: "Device code login",
+                    },
+                  ]
+                : [
+                    {
+                      description: null,
+                      fields: [],
+                      id: "oauth",
+                      label: provider.auth.oauth,
+                    },
+                  ]
+              : []),
+            ...(provider.auth.apiKey
+              ? [
+                  {
+                    description: null,
+                    fields: [],
+                    id: "api_key",
+                    label: provider.auth.apiKey,
+                  },
+                ]
+              : []),
+          ],
+          busy: this.#isAuthBusy(agentId, provider.id),
+          description: `Configure ${provider.name} credentials for Pi.`,
+          id: provider.id,
+          label: provider.name,
+        })),
       }
     }
     if (agentId === "opencode") {
       const authResult = await this.#agents.callOpenCode("integration.list")
       if (!authResult.ok) throw new Error(`OpenCode auth discovery failed (${authResult.status})`)
       const integrations = ((authResult.data as { data?: unknown[] })?.data ?? []) as Array<{
-        connections: Array<{ id?: string; type: "credential" | "env" }>
+        connections: Array<{
+          id?: string
+          label?: string
+          name?: string
+          type: "credential" | "env"
+        }>
         id: string
         methods: Array<{
+          form?: OpenCodeFormField[]
           id?: string
           label?: string
           type: "command" | "env" | "key" | "oauth"
@@ -400,69 +766,223 @@ export class HarnessService {
         name: string
       }>
       const connected = integrations.filter((integration) => integration.connections.length > 0)
+      for (const integration of connected) this.#releaseProvider(agentId, integration.id)
       return {
         agentId,
-        authMethods: integrations.flatMap((integration) =>
-          integration.methods.flatMap((method) =>
-            method.type === "key" || (method.type === "oauth" && method.id)
+        connections: connected.map((integration) => {
+          const hasEnvironment = integration.connections.some(
+            (connection) => connection.type === "env"
+          )
+          const hasManaged = integration.connections.some(
+            (connection) => connection.type === "credential"
+          )
+          const connectionDetails = integration.connections.flatMap((connection) => {
+            const label = connection.label ?? connection.name
+            return label ? [label] : []
+          })
+          return {
+            detail:
+              connectionDetails.length > 0
+                ? connectionDetails.join(", ")
+                : hasEnvironment
+                  ? hasManaged
+                    ? "Managed credential and environment"
+                    : "Environment credential"
+                  : "Managed credential",
+            disconnectSupported: hasManaged && !hasEnvironment,
+            id: this.#connectionId(agentId, integration.id),
+            methodId: null,
+            methodLabel: null,
+            providerId: integration.id,
+            providerLabel: integration.name,
+            source: hasEnvironment ? (hasManaged ? "mixed" : "environment") : "managed",
+            testSupported: true,
+          }
+        }),
+        mode: "multiple",
+        providers: integrations.map((integration) => ({
+          authMethods: integration.methods.flatMap((method) =>
+            method.type === "key" ||
+            method.type === "command" ||
+            (method.type === "oauth" && method.id)
               ? [
                   {
                     description: null,
-                    id: `integration:${encodeURIComponent(integration.id)}:${method.type}:${encodeURIComponent(method.id ?? "key")}`,
-                    input: method.type === "key" ? ("secret" as const) : ("none" as const),
-                    label: `${integration.name} — ${method.label ?? (method.type === "key" ? "API key" : "OAuth")}`,
+                    fields: [
+                      ...(method.type === "key" &&
+                      !method.form?.some((field) => field.key === "key")
+                        ? [apiKeyField()]
+                        : []),
+                      ...(method.form ?? []).map((field) =>
+                        openCodeAuthField(field, method.type === "key")
+                      ),
+                    ],
+                    id: `${method.type}:${encodeURIComponent(method.id ?? "key")}`,
+                    label:
+                      method.label ??
+                      (method.type === "key"
+                        ? "API key"
+                        : method.type === "command"
+                          ? "Command"
+                          : "OAuth"),
                   },
                 ]
               : []
-          )
-        ),
-        connected: connected.length > 0,
-        detail: connected.map((integration) => integration.name).join(", ") || null,
-        logoutSupported: true,
+          ),
+          busy: this.#isAuthBusy(agentId, integration.id),
+          description: `Configure ${integration.name} credentials for OpenCode.`,
+          id: integration.id,
+          label: integration.name,
+        })),
       }
     }
     if (!isNativeAgentId(agentId)) {
-      await this.catalog.get(agentId)
+      const discovery = await this.#agents.probeAcpCatalog(agentId, new AbortController().signal)
+      this.#rememberAcpAuth(agentId, discovery)
+      if (discovery.status === "ready") this.#acpConnected.add(agentId)
+      else this.#acpConnected.delete(agentId)
+      const providerId = agentId
+      if (discovery.status === "ready") this.#releaseProvider(agentId, providerId)
       return {
         agentId,
-        authMethods: (this.#acpAuthMethods.get(agentId) ?? []).map(
-          ({ description, id, input, label }) => ({ description, id, input, label })
-        ),
-        connected: this.#acpConnected.has(agentId),
-        detail: null,
-        logoutSupported: this.#acpLogoutSupported.get(agentId) ?? false,
+        connections:
+          discovery.status === "ready"
+            ? [
+                {
+                  detail: `ACP v${discovery.protocolVersion}`,
+                  disconnectSupported: discovery.logoutSupported,
+                  id: this.#connectionId(agentId, providerId),
+                  methodId: null,
+                  methodLabel: null,
+                  providerId,
+                  providerLabel:
+                    discovery.authMethods.length === 0
+                      ? "No authentication required"
+                      : "Agent account",
+                  source: "agent",
+                  testSupported: true,
+                },
+              ]
+            : [],
+        mode: "single",
+        providers: [
+          {
+            authMethods: discovery.authMethods.map(({ description, id, name }) => ({
+              description,
+              fields: [],
+              id,
+              label: name,
+            })),
+            busy: this.#isAuthBusy(agentId, providerId),
+            description:
+              discovery.authMethods.length === 0
+                ? discovery.status === "ready"
+                  ? `${agent.name} is ready without an authentication step.`
+                  : `${agent.name} requires authentication but did not advertise a method.`
+                : "Authenticate with this agent harness.",
+            id: providerId,
+            label: "Agent account",
+          },
+        ],
       }
     }
     return {
       agentId,
-      authMethods: [
-        { description: null, id: "agent", input: "none" as const, label: "Agent authentication" },
-        {
-          description: null,
-          id: "terminal",
-          input: "terminal" as const,
-          label: "Terminal authentication",
-        },
-      ],
-      connected: false,
-      detail: null,
-      logoutSupported: true,
+      connections: [],
+      mode: "single",
+      providers: [],
     }
+  }
+
+  #rememberAcpAuth(
+    agentId: AgentId,
+    discovery: {
+      authMethods: Array<{
+        args: string[]
+        description: string | null
+        env: Record<string, string>
+        id: string
+        name: string
+        type: "agent" | "terminal"
+      }>
+      logoutSupported: boolean
+    }
+  ): void {
+    this.#acpAuthMethods.set(
+      agentId,
+      discovery.authMethods.map((method) => ({
+        description: method.description,
+        args: method.args,
+        env: method.env,
+        id: method.id,
+        input: method.type === "terminal" ? ("terminal" as const) : ("none" as const),
+        label: method.name,
+      }))
+    )
+    this.#acpLogoutSupported.set(agentId, discovery.logoutSupported)
   }
 
   async #startAuth(
     agentId: AgentId,
+    providerId: string,
     methodId: string,
-    secret: string | undefined,
+    suppliedValues: AuthValues | undefined,
     sessionId: string,
     send: Send
   ) {
+    const view = await this.#view(agentId)
+    const provider = view.providers.find((candidate) => candidate.id === providerId)
+    if (!provider) throw new Error("Authentication provider is no longer available")
+    const method = provider.authMethods.find((candidate) => candidate.id === methodId)
+    if (!method) {
+      throw new Error("Authentication method does not belong to the selected provider")
+    }
+    if (view.connections.some((connection) => connection.providerId === providerId)) {
+      throw new Error("This provider is already configured; disconnect it before changing methods")
+    }
+    const key = this.#reserveAuth(agentId, providerId)
+    try {
+      const values = validateAuthValues(method.fields, suppliedValues)
+      const flow = await this.#startAuthFlow(agentId, providerId, methodId, values, sessionId, send)
+      if (flow.state === "pending" && flow.flowId) {
+        this.#trackFlow(flow.flowId, key, agentId, sessionId)
+      } else {
+        this.#releaseProvider(agentId, providerId)
+      }
+      return flow
+    } catch (error) {
+      this.#releaseProvider(agentId, providerId)
+      throw error
+    }
+  }
+
+  async #startAuthFlow(
+    agentId: AgentId,
+    providerId: string,
+    methodId: string,
+    values: AuthValues,
+    sessionId: string,
+    send: Send
+  ): Promise<HarnessAuthFlow> {
     if (!isNativeAgentId(agentId)) {
-      await this.catalog.get(agentId)
-      const method = this.#acpAuthMethods.get(agentId)?.find((item) => item.id === methodId)
+      if (providerId !== agentId) throw new Error("Invalid ACP authentication provider")
+      let method = this.#acpAuthMethods.get(agentId)?.find((item) => item.id === methodId)
+      if (!method) {
+        const discovery = await this.#agents.discoverAcpAuth(agentId, new AbortController().signal)
+        this.#rememberAcpAuth(agentId, discovery)
+        method = this.#acpAuthMethods.get(agentId)?.find((item) => item.id === methodId)
+      }
       if (!method) throw new Error("Authentication method is no longer available")
       if (method.input === "terminal") {
-        return this.#startTerminalAuth(agentId, methodId, method.args, method.env, sessionId, send)
+        return this.#startTerminalAuth(
+          agentId,
+          providerId,
+          methodId,
+          method.args,
+          method.env,
+          sessionId,
+          send
+        )
       }
       await this.#agents.authenticateAcp(agentId, methodId, new AbortController().signal)
       this.#acpConnected.add(agentId)
@@ -470,38 +990,71 @@ export class HarnessService {
       return { state: "completed" as const }
     }
     if (agentId === "pi") {
-      const match = /^pi:([^:]+):(api_key|oauth)$/u.exec(methodId)
-      if (!match?.[1] || !match[2]) {
+      if (
+        methodId !== "api_key" &&
+        methodId !== "oauth" &&
+        methodId !== "oauth:browser" &&
+        methodId !== "oauth:device_code"
+      ) {
         throw new Error(`Invalid Pi authentication method: ${methodId}`)
       }
-      if (match[2] === "api_key") {
-        if (!secret) throw new Error("An API key is required")
-        await this.#agents.setPiApiKey(match[1], secret)
-        this.catalog.invalidate(agentId)
-        return { state: "completed" as const }
-      }
-      return this.#startPiOAuth(match[1])
+      return this.#startPiAuth(
+        providerId,
+        methodId === "api_key" ? "api_key" : "oauth",
+        sessionId,
+        methodId === "oauth:browser"
+          ? ["browser"]
+          : methodId === "oauth:device_code"
+            ? ["device_code"]
+            : []
+      )
     }
     if (agentId === "opencode") {
-      const match = /^integration:([^:]+):(key|oauth):([^:]+)$/u.exec(methodId)
+      const match = /^(command|key|oauth):([^:]+)$/u.exec(methodId)
       if (!match) throw new Error(`Invalid OpenCode authentication method: ${methodId}`)
-      const [, encodedIntegrationId, type, encodedMethodId] = match
-      if (!encodedIntegrationId || !type || !encodedMethodId) {
+      const [, type, encodedMethodId] = match
+      if (!type || !encodedMethodId) {
         throw new Error(`Invalid OpenCode authentication method: ${methodId}`)
       }
-      const integrationId = decodeURIComponent(encodedIntegrationId)
       const method = decodeURIComponent(encodedMethodId)
       if (type === "key") {
-        if (!secret) throw new Error("An API key is required")
+        const key = values.key
+        if (typeof key !== "string" || !key) throw new Error("An API key is required")
         const result = await this.#agents.callOpenCode("integration.connect.key", {
-          body: { integrationID: integrationId, key: secret },
+          body: { answer: values, integrationID: providerId, key },
         })
         if (!result.ok) throw new Error(`OpenCode authentication failed (${result.status})`)
+        try {
+          await this.#agents.verifyOpenCodeConnection(providerId)
+        } catch (error) {
+          await this.#removeOpenCodeCredentials(providerId).catch(() => undefined)
+          const message = error instanceof Error ? error.message : String(error)
+          throw new Error(`API key validation failed: ${message}`, { cause: error })
+        }
         this.catalog.invalidate(agentId)
         return { state: "completed" as const }
       }
+      if (type === "command") {
+        const result = await this.#agents.callOpenCode("integration.command.connect", {
+          body: { integrationID: providerId, methodID: method },
+        })
+        if (!result.ok) throw new Error(`OpenCode command authentication failed (${result.status})`)
+        const attempt = (result.data as { data?: unknown })?.data as { attemptID: string } | null
+        if (!attempt) throw new Error("OpenCode did not start command authentication")
+        return {
+          deviceCode: null,
+          externalUrl: null,
+          flowId: `opencode:command:${encodeURIComponent(providerId)}:${encodeURIComponent(attempt.attemptID)}`,
+          input: "none" as const,
+          inputOptions: [],
+          message: "Complete authentication in the provider command.",
+          placeholder: null,
+          state: "pending" as const,
+          terminalId: null,
+        }
+      }
       const result = await this.#agents.callOpenCode("integration.oauth.connect", {
-        body: { integrationID: integrationId, methodID: method },
+        body: { answer: values, integrationID: providerId, methodID: method },
       })
       if (!result.ok) throw new Error(`OpenCode OAuth failed (${result.status})`)
       const authorization = (result.data as { data?: unknown })?.data as {
@@ -512,17 +1065,22 @@ export class HarnessService {
       } | null
       if (!authorization) return { state: "completed" as const }
       return {
+        deviceCode: null,
         externalUrl: authorization.url ?? null,
-        flowId: `opencode:${encodeURIComponent(integrationId)}:${encodeURIComponent(authorization.attemptID)}`,
+        flowId: `opencode:oauth:${encodeURIComponent(providerId)}:${encodeURIComponent(authorization.attemptID)}`,
         input: authorization.mode === "code" ? ("text" as const) : ("none" as const),
+        inputOptions: [],
         message: authorization.instructions ?? "Complete provider sign in.",
+        placeholder: authorization.mode === "code" ? "Authorization code" : null,
         state: "pending" as const,
+        terminalId: null,
       }
     }
     if (agentId !== "codex") {
       if (agentId === "claude" && (methodId === "subscription" || methodId === "console")) {
         return this.#startTerminalAuth(
           agentId,
+          providerId,
           methodId,
           ["auth", "login", methodId === "console" ? "--console" : "--claudeai"],
           {},
@@ -532,41 +1090,65 @@ export class HarnessService {
       }
       throw new Error(`${agentId} authentication requires its installed provider flow`)
     }
+    if (providerId !== "openai") throw new Error("Invalid Codex authentication provider")
     if (methodId !== "apiKey" && methodId !== "chatgpt" && methodId !== "chatgptDeviceCode") {
       throw new Error(`Unsupported Codex authentication method: ${methodId}`)
     }
-    if (methodId === "apiKey" && !secret) throw new Error("An API key is required")
+    const apiKey = values.key
+    if (methodId === "apiKey" && (typeof apiKey !== "string" || !apiKey)) {
+      throw new Error("An API key is required")
+    }
     const result = await this.#codex.login(
-      methodId === "apiKey" ? { apiKey: secret, type: methodId } : { type: methodId }
+      methodId === "apiKey" ? { apiKey: apiKey as string, type: methodId } : { type: methodId }
     )
     this.catalog.invalidate(agentId)
     if (result.type === "apiKey") return { state: "completed" as const }
     if (result.type === "chatgpt") {
+      this.#codexAuthFlows.set(result.loginId, new AbortController())
       return {
+        deviceCode: null,
         externalUrl: result.authUrl,
         flowId: result.loginId,
         input: "none" as const,
+        inputOptions: [],
         message: "Complete sign in in your browser.",
+        placeholder: null,
         state: "pending" as const,
+        terminalId: null,
       }
     }
     if (result.type === "chatgptDeviceCode") {
+      this.#codexAuthFlows.set(result.loginId, new AbortController())
       return {
+        deviceCode: {
+          expiresInSeconds: null,
+          intervalSeconds: null,
+          userCode: result.userCode,
+          verificationUri: result.verificationUrl,
+        },
         externalUrl: result.verificationUrl,
         flowId: result.loginId,
         input: "none" as const,
-        message: `Enter code ${result.userCode}`,
+        inputOptions: [],
+        message: "Enter this code on the authentication page.",
+        placeholder: null,
         state: "pending" as const,
+        terminalId: null,
       }
     }
     return { state: "completed" as const }
   }
 
   async #cancelAuth(agentId: AgentId, flowId: string, sessionId: string) {
+    const owner = this.#flowSessions.get(flowId)
+    if (owner && (owner.agentId !== agentId || owner.sessionId !== sessionId)) {
+      return { cancelled: false }
+    }
     const terminal = this.#terminalAuthFlows.get(flowId)
     if (terminal?.agentId === agentId && terminal.sessionId === sessionId) {
       this.#terminals.close(terminal.terminalId, sessionId)
       this.#terminalAuthFlows.delete(flowId)
+      this.#releaseFlow(flowId)
       return { cancelled: true }
     }
     if (agentId === "pi") {
@@ -575,24 +1157,33 @@ export class HarnessService {
       flow.controller.abort()
       flow.prompt?.reject(new Error("Authentication cancelled"))
       this.#piAuthFlows.delete(flowId)
+      this.#releaseFlow(flowId)
       return { cancelled: true }
     }
     if (agentId === "opencode") {
-      const match = /^opencode:([^:]+):([^:]+)$/u.exec(flowId)
-      if (!match?.[1] || !match[2]) return { cancelled: false }
-      const result = await this.#agents.callOpenCode("integration.oauth.cancel", {
-        body: {
-          attemptID: decodeURIComponent(match[2]),
-          integrationID: decodeURIComponent(match[1]),
-        },
-      })
+      const match = /^opencode:(command|oauth):([^:]+):([^:]+)$/u.exec(flowId)
+      if (!match?.[1] || !match[2] || !match[3]) return { cancelled: false }
+      const result = await this.#agents.callOpenCode(
+        match[1] === "command" ? "integration.command.cancel" : "integration.oauth.cancel",
+        {
+          body: {
+            attemptID: decodeURIComponent(match[3]),
+            integrationID: decodeURIComponent(match[2]),
+          },
+        }
+      )
+      if (result.ok) this.#releaseFlow(flowId)
       return { cancelled: result.ok }
     }
     if (agentId !== "codex") return { cancelled: false }
+    this.#codexAuthFlows.get(flowId)?.abort()
+    this.#codexAuthFlows.delete(flowId)
     const result = await this.#codex.call<{ status: string }>("account/login/cancel", {
       loginId: flowId,
     })
-    return { cancelled: result.status === "canceled" }
+    const cancelled = result.status === "canceled"
+    if (cancelled) this.#releaseFlow(flowId)
+    return { cancelled }
   }
 
   async #respondAuth(agentId: AgentId, flowId: string, response: string) {
@@ -602,10 +1193,12 @@ export class HarnessService {
       const prompt = flow.prompt
       flow.prompt = undefined
       prompt.resolve(response)
-      return this.#nextPiEvent(flowId, flow)
+      const next = await this.#nextPiEvent(flowId, flow)
+      if (next.state !== "pending") this.#releaseFlow(flowId)
+      return next
     }
     if (agentId !== "opencode") throw new Error(`${agentId} does not accept this response`)
-    const match = /^opencode:([^:]+):([^:]+)$/u.exec(flowId)
+    const match = /^opencode:oauth:([^:]+):([^:]+)$/u.exec(flowId)
     if (!match?.[1] || !match[2]) throw new Error("Invalid OpenCode OAuth flow")
     const result = await this.#agents.callOpenCode("integration.oauth.complete", {
       body: {
@@ -616,34 +1209,86 @@ export class HarnessService {
     })
     if (!result.ok) throw new Error(`OpenCode OAuth callback failed (${result.status})`)
     this.catalog.invalidate(agentId)
+    this.#releaseFlow(flowId)
     return { state: "completed" as const }
   }
 
-  async #logout(agentId: AgentId): Promise<void> {
+  async #pollAuth(agentId: AgentId, flowId: string, sessionId: string): Promise<HarnessAuthFlow> {
+    const owner = this.#flowSessions.get(flowId)
+    if (!owner || owner.agentId !== agentId || owner.sessionId !== sessionId) {
+      throw new Error("Authentication flow was not found")
+    }
+    if (agentId === "pi") {
+      const flow = this.#piAuthFlows.get(flowId)
+      if (!flow) throw new Error("Authentication flow was not found")
+      return this.#nextPiEvent(flowId, flow)
+    }
     if (agentId === "opencode") {
-      const result = await this.#agents.callOpenCode("integration.list")
-      if (!result.ok) throw new Error(`OpenCode integration discovery failed (${result.status})`)
-      const integrations = ((result.data as { data?: unknown[] })?.data ?? []) as Array<{
-        connections: Array<{ id?: string; type: "credential" | "env" }>
-      }>
-      const credentialIds = integrations.flatMap((integration) =>
-        integration.connections.flatMap((connection) =>
-          connection.type === "credential" && connection.id ? [connection.id] : []
-        )
+      const match = /^opencode:(command|oauth):([^:]+):([^:]+)$/u.exec(flowId)
+      if (!match?.[1] || !match[2] || !match[3]) throw new Error("Invalid OpenCode auth flow")
+      const kind = match[1]
+      const integrationID = decodeURIComponent(match[2])
+      const attemptID = decodeURIComponent(match[3])
+      const result = await this.#agents.callOpenCode(
+        kind === "command" ? "integration.command.status" : "integration.oauth.status",
+        { body: { attemptID, integrationID } }
       )
-      await Promise.all(
-        credentialIds.map(async (credentialID) => {
-          const removed = await this.#agents.callOpenCode("credential.remove", {
-            body: { credentialID },
-          })
-          if (!removed.ok) throw new Error(`OpenCode logout failed (${removed.status})`)
-        })
-      )
+      if (!result.ok) throw new Error(`OpenCode authentication status failed (${result.status})`)
+      const status = (result.data as { data?: { message?: string; status?: string } })?.data
+      if (status?.status === "complete") {
+        this.catalog.invalidate(agentId)
+        this.#releaseFlow(flowId)
+        return { state: "completed" }
+      }
+      if (status?.status === "failed" || status?.status === "expired") {
+        this.#releaseFlow(flowId)
+        return {
+          message:
+            status.message ??
+            (status.status === "expired"
+              ? "The authentication attempt expired."
+              : "Authentication failed."),
+          state: "failed",
+        }
+      }
+      return {
+        deviceCode: null,
+        externalUrl: null,
+        flowId,
+        input: "none",
+        inputOptions: [],
+        message: status?.message ?? "Waiting for authentication to complete.",
+        placeholder: null,
+        state: "pending",
+        terminalId: null,
+      }
+    }
+    if (agentId === "codex") {
+      const controller = this.#codexAuthFlows.get(flowId)
+      if (!controller) throw new Error("Authentication flow was not found")
+      const result = await this.#agents.waitForCodexLogin(flowId, controller.signal)
+      this.#codexAuthFlows.delete(flowId)
+      this.#releaseFlow(flowId)
+      if (!result.success) {
+        return { message: result.error ?? "Codex authentication failed.", state: "failed" }
+      }
+      this.catalog.invalidate(agentId)
+      return { state: "completed" }
+    }
+    throw new Error("This authentication flow does not support polling")
+  }
+
+  async #logout(agentId: AgentId, connectionId: string): Promise<void> {
+    const view = await this.#view(agentId)
+    const connection = view.connections.find((candidate) => candidate.id === connectionId)
+    if (!connection) throw new Error("Authentication connection was not found")
+    if (!connection.disconnectSupported) {
+      throw new Error("This authentication connection is managed outside Cypheria")
+    }
+    if (agentId === "opencode") {
+      await this.#removeOpenCodeCredentials(connection.providerId)
     } else if (agentId === "pi") {
-      const catalog = await this.#agents.getPiCatalog()
-      await Promise.all(
-        catalog.credentials.map((credential) => this.#agents.logoutPi(credential.providerId))
-      )
+      await this.#agents.logoutPi(connection.providerId)
     } else if (agentId === "codex") {
       await this.#codex.call("account/logout")
     } else if (agentId === "claude") {
@@ -660,8 +1305,80 @@ export class HarnessService {
     this.catalog.invalidate(agentId)
   }
 
+  async #testAuth(agentId: AgentId, connectionId: string): Promise<HarnessAuthTestResult> {
+    const startedAt = Date.now()
+    const testedAt = new Date().toISOString()
+    try {
+      const view = await this.#view(agentId)
+      const connection = view.connections.find((candidate) => candidate.id === connectionId)
+      if (!connection) throw new Error("Authentication connection was not found")
+      if (!connection.testSupported) {
+        return {
+          latencyMs: Date.now() - startedAt,
+          message: "Connection test unavailable.",
+          status: "unsupported",
+          testedAt,
+        }
+      }
+      if (agentId === "codex") {
+        const account = await this.#codex.account(true)
+        if (!account.type) throw new Error("Codex did not return an authenticated account")
+      } else if (agentId === "claude") {
+        const catalog = await this.#agents.getClaudeCatalog()
+        if (!catalog.account.email && !catalog.account.organization) {
+          throw new Error("Claude did not return an authenticated account")
+        }
+      } else if (agentId === "pi") {
+        await this.#agents.verifyPiConnection(connection.providerId)
+      } else if (agentId === "opencode") {
+        await this.#agents.verifyOpenCodeConnection(connection.providerId)
+      } else {
+        const probe = await this.#agents.probeAcpCatalog(agentId, new AbortController().signal)
+        if (probe.status !== "ready") throw new Error("The agent still requires authentication")
+      }
+      return {
+        latencyMs: Date.now() - startedAt,
+        message: "Connection test succeeded.",
+        status: "succeeded",
+        testedAt,
+      }
+    } catch {
+      return {
+        latencyMs: Date.now() - startedAt,
+        message: "Connection test failed.",
+        status: "failed",
+        testedAt,
+      }
+    }
+  }
+
+  async #removeOpenCodeCredentials(providerId: string): Promise<void> {
+    const result = await this.#agents.callOpenCode("integration.list")
+    if (!result.ok) throw new Error(`OpenCode integration discovery failed (${result.status})`)
+    const integrations = ((result.data as { data?: unknown[] })?.data ?? []) as Array<{
+      connections: Array<{ id?: string; type: "credential" | "env" }>
+      id: string
+    }>
+    const credentialIds = integrations
+      .filter((integration) => integration.id === providerId)
+      .flatMap((integration) =>
+        integration.connections.flatMap((connection) =>
+          connection.type === "credential" && connection.id ? [connection.id] : []
+        )
+      )
+    await Promise.all(
+      credentialIds.map(async (credentialID) => {
+        const removed = await this.#agents.callOpenCode("credential.remove", {
+          body: { credentialID },
+        })
+        if (!removed.ok) throw new Error(`OpenCode logout failed (${removed.status})`)
+      })
+    )
+  }
+
   async #startTerminalAuth(
     agentId: AgentId,
+    providerId: string,
     methodId: string,
     args: string[],
     environment: Record<string, string>,
@@ -678,14 +1395,23 @@ export class HarnessService {
         this.#terminalAuthFlows.delete(flowId)
         if (exitCode === 0 && !isNativeAgentId(agentId)) this.#acpConnected.add(agentId)
         this.catalog.invalidate(agentId)
+        this.#releaseFlow(flowId)
       }
     )
-    this.#terminalAuthFlows.set(flowId, { agentId, sessionId, terminalId: terminal.terminalId })
+    this.#terminalAuthFlows.set(flowId, {
+      agentId,
+      providerId,
+      sessionId,
+      terminalId: terminal.terminalId,
+    })
     return {
+      deviceCode: null,
       externalUrl: null,
       flowId,
       input: "none",
+      inputOptions: [],
       message: `Complete ${methodId} authentication in the terminal.`,
+      placeholder: null,
       state: "pending",
       terminalId: terminal.terminalId,
     }
@@ -881,18 +1607,12 @@ export class HarnessService {
     }
     if (!isNativeAgentId(agentId)) {
       const probe = await this.#agents.probeAcpCatalog(agentId, signal)
-      this.#acpAuthMethods.set(
-        agentId,
-        probe.authMethods.map((method) => ({
-          description: method.description,
-          args: method.args,
-          env: method.env,
-          id: method.id,
-          input: method.type === "terminal" ? ("terminal" as const) : ("none" as const),
-          label: method.name,
-        }))
-      )
-      this.#acpLogoutSupported.set(agentId, probe.logoutSupported)
+      this.#rememberAcpAuth(agentId, probe)
+      if (probe.status === "authentication-required") {
+        this.#acpConnected.delete(agentId)
+        return { models: [], settingSections: [], status: probe.status }
+      }
+      this.#acpConnected.add(agentId)
       const sectionMap = new Map<string, HarnessSettingSection>()
       const sectionFor = (
         category: string | null
@@ -1158,57 +1878,113 @@ export class HarnessService {
     return this.catalog.get(agentId, true)
   }
 
-  async #startPiOAuth(providerId: string): Promise<HarnessAuthFlow> {
+  async #startPiAuth(
+    providerId: string,
+    type: "api_key" | "oauth",
+    sessionId: string,
+    presetSelectResponses: string[] = []
+  ): Promise<HarnessAuthFlow> {
     const flowId = `pi:${randomUUID()}`
     const flow: PiAuthFlow = {
+      agentId: "pi",
       controller: new AbortController(),
       events: [],
+      providerId,
+      sessionId,
       waiters: [],
     }
     this.#piAuthFlows.set(flowId, flow)
     void this.#agents
-      .loginPi(providerId, "oauth", {
+      .loginPi(providerId, type, {
         notify: (event) => {
           if (event.type === "auth_url") {
             this.#emitPiEvent(flow, {
+              deviceCode: null,
               externalUrl: event.url,
               flowId,
               input: "none",
+              inputOptions: [],
               message: event.instructions ?? "Complete sign in in your browser.",
+              placeholder: null,
               state: "pending",
+              terminalId: null,
             })
           } else if (event.type === "device_code") {
             this.#emitPiEvent(flow, {
+              deviceCode: {
+                expiresInSeconds: event.expiresInSeconds ?? null,
+                intervalSeconds: event.intervalSeconds ?? null,
+                userCode: event.userCode,
+                verificationUri: event.verificationUri,
+              },
               externalUrl: event.verificationUri,
               flowId,
               input: "none",
-              message: `Enter code ${event.userCode}`,
+              inputOptions: [],
+              message: "Enter this code on the authentication page.",
+              placeholder: null,
               state: "pending",
+              terminalId: null,
             })
           } else if (event.type === "info" || event.type === "progress") {
             this.#emitPiEvent(flow, {
+              deviceCode: null,
               externalUrl: event.type === "info" ? (event.links?.[0]?.url ?? null) : null,
               flowId,
               input: "none",
+              inputOptions: [],
               message: event.message,
+              placeholder: null,
               state: "pending",
+              terminalId: null,
             })
           }
         },
-        prompt: (prompt) =>
-          new Promise<string>((resolve, reject) => {
+        prompt: (prompt) => {
+          if (prompt.type === "select") {
+            const preset = presetSelectResponses.shift()
+            if (preset && prompt.options.some((option) => option.id === preset)) {
+              return Promise.resolve(preset)
+            }
+          }
+          return new Promise<string>((resolve, reject) => {
             flow.prompt = { reject, resolve }
             this.#emitPiEvent(flow, {
+              deviceCode: null,
               externalUrl: null,
               flowId,
-              input: prompt.type === "secret" ? "secret" : "text",
+              input:
+                prompt.type === "select" ? "select" : prompt.type === "secret" ? "secret" : "text",
+              inputOptions:
+                prompt.type === "select"
+                  ? prompt.options.map((option) => ({
+                      description: option.description ?? null,
+                      label: option.label,
+                      value: option.id,
+                    }))
+                  : [],
               message: prompt.message,
+              placeholder:
+                prompt.type === "text" || prompt.type === "secret" || prompt.type === "manual_code"
+                  ? (prompt.placeholder ?? null)
+                  : null,
               state: "pending",
+              terminalId: null,
             })
-          }),
+          })
+        },
         signal: flow.controller.signal,
       })
-      .then(() => {
+      .then(async () => {
+        if (type === "api_key") {
+          try {
+            await this.#agents.verifyPiConnection(providerId)
+          } catch (error) {
+            await this.#agents.logoutPi(providerId).catch(() => undefined)
+            const message = error instanceof Error ? error.message : String(error)
+            throw new Error(`API key validation failed: ${message}`, { cause: error })
+          }
+        }
         this.catalog.invalidate("pi")
         this.#emitPiEvent(flow, { state: "completed" })
       })
@@ -1233,7 +2009,10 @@ export class HarnessService {
     const event = flow.events.shift()
     const next =
       event ?? (await new Promise<HarnessAuthFlow>((resolve) => flow.waiters.push(resolve)))
-    if (next.state === "completed" || next.state === "failed") this.#piAuthFlows.delete(flowId)
+    if (next.state === "completed" || next.state === "failed") {
+      this.#piAuthFlows.delete(flowId)
+      this.#releaseFlow(flowId)
+    }
     return next
   }
 }

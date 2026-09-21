@@ -23,6 +23,7 @@ import * as acpV1Zod from "@agentclientprotocol/sdk/zod"
 import { z } from "zod"
 import {
   AGENT_ACP_V1_CLIENT_NOTIFICATION_SCHEMAS,
+  AGENT_ACP_V1_CLIENT_NOTIFICATIONS,
   AGENT_ACP_V1_CLIENT_REQUEST_SCHEMAS,
   AGENT_ACP_V1_CLIENT_RESPONSE_SCHEMAS,
   AGENT_ACP_V1_CLIENT_RPC,
@@ -32,6 +33,7 @@ import {
   AGENT_ACP_V1_SERVER_RESPONSE_SCHEMAS,
   AGENT_ACP_V1_SERVER_RPC,
   AGENT_ACP_V2_CLIENT_NOTIFICATION_SCHEMAS,
+  AGENT_ACP_V2_CLIENT_NOTIFICATIONS,
   AGENT_ACP_V2_CLIENT_REQUEST_SCHEMAS,
   AGENT_ACP_V2_CLIENT_RESPONSE_SCHEMAS,
   AGENT_ACP_V2_CLIENT_RPC,
@@ -65,12 +67,39 @@ export { AcpErrorResponseSchema, AcpJsonRpcIdSchema } from "./acp-schema-registr
 
 export const ACP_V1_PROTOCOL_VERSION = ACP_V1_SDK_PROTOCOL_VERSION
 export const ACP_V2_PROTOCOL_VERSION = ACP_V2_SDK_PROTOCOL_VERSION
+export const ACP_PREFERRED_PROTOCOL_VERSION = ACP_V2_PROTOCOL_VERSION
 
 export const AcpProtocolVersionSchema = z.literal([
   ACP_V1_PROTOCOL_VERSION,
   ACP_V2_PROTOCOL_VERSION,
 ])
 export type AcpProtocolVersion = z.infer<typeof AcpProtocolVersionSchema>
+
+export type AcpNegotiatedInitializeResult =
+  | {
+      protocolVersion: typeof ACP_V1_PROTOCOL_VERSION
+      result: z.output<typeof acpV1Zod.zInitializeResponse>
+    }
+  | {
+      protocolVersion: typeof ACP_V2_PROTOCOL_VERSION
+      result: z.output<typeof acpV2Zod.zInitializeResponse>
+    }
+
+export const parseAcpNegotiatedInitializeResult = (
+  value: unknown
+): AcpNegotiatedInitializeResult => {
+  const protocolVersion =
+    value && typeof value === "object" && "protocolVersion" in value
+      ? (value as { protocolVersion?: unknown }).protocolVersion
+      : undefined
+  if (protocolVersion === ACP_V1_PROTOCOL_VERSION) {
+    return { protocolVersion, result: acpV1Zod.zInitializeResponse.parse(value) }
+  }
+  if (protocolVersion === ACP_V2_PROTOCOL_VERSION) {
+    return { protocolVersion, result: acpV2Zod.zInitializeResponse.parse(value) }
+  }
+  throw new Error(`Unsupported ACP protocol version negotiated: ${String(protocolVersion)}`)
+}
 
 type WithJsonRpc<T> = T extends unknown ? T & { jsonrpc: "2.0" } : never
 
@@ -104,6 +133,44 @@ const methodByType = <T extends Record<string, Record<K, string>>, K extends str
   Object.fromEntries(
     Object.entries(record).map(([method, definition]) => [definition[key], method])
   ) as Record<T[keyof T][K], keyof T & string>
+
+const notificationTypeByMethod = <T extends Record<string, { notification: string }>>(
+  record: T
+): { readonly [Method in keyof T]: T[Method]["notification"] } =>
+  Object.fromEntries(
+    Object.entries(record).map(([method, definition]) => [method, definition.notification])
+  ) as { readonly [Method in keyof T]: T[Method]["notification"] }
+
+export const AGENT_ACP_LOGICAL_CODECS = {
+  1: {
+    clientNotificationByType: methodByType(AGENT_ACP_V1_CLIENT_NOTIFICATIONS, "notification"),
+    clientRequestByType: methodByType(AGENT_ACP_V1_CLIENT_RPC, "request"),
+    clientRpc: AGENT_ACP_V1_CLIENT_RPC,
+    serverNotificationByMethod: notificationTypeByMethod(AGENT_ACP_V1_SERVER_NOTIFICATIONS),
+    serverResponseByType: methodByType(AGENT_ACP_V1_SERVER_RPC, "response"),
+    serverRpc: AGENT_ACP_V1_SERVER_RPC,
+  },
+  2: {
+    clientNotificationByType: methodByType(AGENT_ACP_V2_CLIENT_NOTIFICATIONS, "notification"),
+    clientRequestByType: methodByType(AGENT_ACP_V2_CLIENT_RPC, "request"),
+    clientRpc: AGENT_ACP_V2_CLIENT_RPC,
+    serverNotificationByMethod: notificationTypeByMethod(AGENT_ACP_V2_SERVER_NOTIFICATIONS),
+    serverResponseByType: methodByType(AGENT_ACP_V2_SERVER_RPC, "response"),
+    serverRpc: AGENT_ACP_V2_SERVER_RPC,
+  },
+} as const
+
+export type AcpLogicalCodec = {
+  readonly clientNotificationByType: Readonly<Record<string, string>>
+  readonly clientRequestByType: Readonly<Record<string, string>>
+  readonly clientRpc: Readonly<Record<string, { readonly response: string }>>
+  readonly serverNotificationByMethod: Readonly<Record<string, string>>
+  readonly serverResponseByType: Readonly<Record<string, string>>
+  readonly serverRpc: Readonly<Record<string, { readonly request: string }>>
+}
+
+export const getAcpLogicalCodec = (protocolVersion: AcpProtocolVersion): AcpLogicalCodec =>
+  AGENT_ACP_LOGICAL_CODECS[protocolVersion] as unknown as AcpLogicalCodec
 
 export const AGENT_ACP_V1_CLIENT_RESPONSE_TYPE_TO_METHOD = methodByType(
   AGENT_ACP_V1_CLIENT_RPC,
@@ -381,6 +448,6 @@ export const AgentAcpServerMessageSchema = acpDiscriminatedUnion<AgentAcpServerM
   [AgentAcpV1ServerSingleMessageSchema, AgentAcpV2ServerMessageSchema]
 )
 
-/** Narrows a parsed session message to one of the direct ACP server messages. */
+/** Narrows an adapter message to one of the direct ACP server messages. */
 export const isAgentAcpServerMessage = (message: unknown): message is AgentAcpServerMessage =>
   AgentAcpServerMessageSchema.safeParse(message).success

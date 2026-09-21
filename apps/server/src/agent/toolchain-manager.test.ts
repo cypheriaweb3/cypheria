@@ -81,6 +81,19 @@ afterEach(async () => {
 })
 
 describe("ToolchainManager Python environments", () => {
+  it("lets an isolated operation override managed environment defaults", async () => {
+    const { manager } = await createManager()
+    const isolatedTools = "/isolated/tools"
+    const isolatedBin = "/isolated/bin"
+
+    expect(
+      manager.environment({ UV_TOOL_BIN_DIR: isolatedBin, UV_TOOL_DIR: isolatedTools })
+    ).toMatchObject({
+      UV_TOOL_BIN_DIR: isolatedBin,
+      UV_TOOL_DIR: isolatedTools,
+    })
+  })
+
   it("reuses an immutable environment by resolved dependency fingerprint", async () => {
     const { manager } = await createManager()
     const manifest = {

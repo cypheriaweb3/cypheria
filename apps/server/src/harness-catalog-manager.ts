@@ -6,6 +6,7 @@ export type HarnessCatalogDiscovery = (
 ) => Promise<{
   models: HarnessCatalogSnapshot["models"]
   settingSections: HarnessCatalogSnapshot["settingSections"]
+  status?: "authentication-required" | "ready"
 }>
 
 type Entry = {
@@ -95,7 +96,7 @@ export class HarnessCatalogManager {
         models: discovered.models,
         settingSections: discovered.settingSections,
         stale: false,
-        status: "ready",
+        status: discovered.status ?? "ready",
       }
       if (entry.generation === generation) {
         entry.dirty = false

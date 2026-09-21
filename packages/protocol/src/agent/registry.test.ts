@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest"
 
-import { AgentRegistryDocumentSchema, AgentRegistryEntrySchema } from "./registry.js"
+import {
+  AgentIdSchema,
+  AgentRegistryDocumentSchema,
+  AgentRegistryEntrySchema,
+  isRegistryAgentId,
+} from "./registry.js"
 
 const agent = {
   description: "An ACP agent",
@@ -60,6 +65,31 @@ describe("ACP Registry schemas", () => {
         agents: [agent, agent],
         extensions: [],
         version: "1.0.0",
+      }).success
+    ).toBe(false)
+    expect(
+      AgentRegistryDocumentSchema.safeParse({
+        agents: [agent],
+        extensions: [],
+        version: "1.0.0-trailing",
+      }).success
+    ).toBe(false)
+  })
+
+  it("accepts new registry ids dynamically without treating native ids as registry agents", () => {
+    expect(AgentIdSchema.safeParse("future-agent").success).toBe(true)
+    expect(isRegistryAgentId("future-agent")).toBe(true)
+    expect(isRegistryAgentId("codex")).toBe(false)
+  })
+
+  it("rejects source manifests containing a preview channel", () => {
+    expect(
+      AgentRegistryEntrySchema.safeParse({
+        ...agent,
+        preview: {
+          distribution: { npx: { package: "example-agent@1.3.0-preview.1" } },
+          version: "1.3.0-preview.1",
+        },
       }).success
     ).toBe(false)
   })

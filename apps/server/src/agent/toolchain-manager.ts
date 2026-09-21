@@ -273,7 +273,6 @@ export class ToolchainManager {
     )
     return {
       ...process.env,
-      ...extra,
       COREPACK_HOME: join(this.#cacheRoot, "corepack"),
       PATH: [...(paths as string[]), process.env.PATH ?? ""].join(sep),
       UV_CACHE_DIR: join(this.#cacheRoot, "uv"),
@@ -284,6 +283,10 @@ export class ToolchainManager {
       UV_TOOL_DIR: join(this.#home, "python", "tools"),
       npm_config_cache: join(this.#cacheRoot, "npm"),
       npm_config_prefix: join(this.#home, "node", "prefix"),
+      // Callers use this to isolate an install or runtime. Keep their explicit
+      // values last so the managed defaults do not silently redirect uv/npm
+      // output back into the shared toolchain directories.
+      ...extra,
     }
   }
 

@@ -3,7 +3,6 @@ import type {
   AgentId,
   AgentOperation,
   AgentView,
-  HarnessAuthFlow,
   HarnessCatalogSnapshot,
   HarnessSettingSection,
   HarnessSettingValue,
@@ -27,10 +26,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@cypheria/ui/components/dialog"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@cypheria/ui/components/dropdown-menu"
 import { Field, FieldDescription, FieldLabel } from "@cypheria/ui/components/field"
 import { Input } from "@cypheria/ui/components/input"
 import { Progress, ProgressLabel, ProgressValue } from "@cypheria/ui/components/progress"
-import { RadioGroup, RadioGroupItem } from "@cypheria/ui/components/radio-group"
 import {
   Select,
   SelectContent,
@@ -43,13 +47,20 @@ import { Switch } from "@cypheria/ui/components/switch"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { Download, ExternalLink, LogOut, RefreshCw, Trash2 } from "lucide-react"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  Download,
+  ExternalLink,
+  LoaderCircle,
+  MoreHorizontal,
+  RefreshCw,
+  Trash2,
+} from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { waitForAgentOperation } from "../components/agent-operation"
+import { AuthenticationSection } from "../components/harness-authentication-section"
 import { HarnessIcon } from "../components/harness-icon"
 import { NetworkProxyCard } from "../components/network-proxy-card"
 import { SettingsFrame } from "../components/settings-frame"
-import { WorkspaceTerminalSurface } from "../components/workspace-terminal"
 import { ensureCypheriaClient } from "../cypheria-client.js"
 
 export const Route = createFileRoute("/settings/agent-harnesses/$agentId/$sectionId")({
@@ -59,6 +70,18 @@ export const Route = createFileRoute("/settings/agent-harnesses/$agentId/$sectio
 const baseSections = [
   { id: "authentication", label: "Authentication" },
   { id: "models", label: "Models" },
+]
+
+const agentOperationsQueryKey = ["cypheria", "agent-operations"] as const
+const operationInProgress = ({ status }: AgentOperation) =>
+  status === "queued" || status === "running"
+
+const upsertAgentOperation = (
+  operations: AgentOperation[] | undefined,
+  operation: AgentOperation
+): AgentOperation[] => [
+  ...(operations ?? []).filter((candidate) => candidate.id !== operation.id),
+  operation,
 ]
 
 function AgentHarnessSettingsRoute() {
@@ -129,75 +152,76 @@ function AgentHarnessSettingsRoute() {
             </div>
             <HarnessMaintenanceActions agent={agent} key={agent.id} />
           </header>
-          <div className="grid min-h-[520px] gap-6 md:grid-cols-[190px_minmax(0,1fr)]">
-            <Select
-              disabled={!agent.enabled}
-              value={sectionId}
-              onValueChange={(value) =>
-                void navigate({
-                  params: { agentId, sectionId: String(value) },
-                  to: "/settings/agent-harnesses/$agentId/$sectionId",
-                })
-              }
-            >
-              <SelectTrigger className="md:hidden">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {sections.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <nav
-              aria-label={`${agent.name} settings`}
-              className="cypheria-scrollbar hidden max-h-[70vh] content-start gap-1 overflow-y-auto md:grid"
-            >
-              {sections.map((item) => (
-                <button
-                  className={
-                    item.id === sectionId
-                      ? "rounded-md bg-muted px-3 py-2 text-left text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
-                      : "rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                  }
-                  key={item.id}
-                  disabled={!agent.enabled}
-                  type="button"
-                  onClick={() =>
-                    void navigate({
-                      params: { agentId, sectionId: item.id },
-                      to: "/settings/agent-harnesses/$agentId/$sectionId",
-                    })
-                  }
-                >
-                  {item.label}
-                </button>
-              ))}
-            </nav>
+          {!agent.installed || !agent.enabled ? (
             <section className="min-w-0">
               {!agent.installed ? <InstallRequired agent={agent} key={agent.id} /> : null}
               {agent.installed && !agent.enabled ? (
                 <EnableRequired agent={agent} key={agent.id} />
               ) : null}
-              {agent.installed && agent.enabled && sectionId === "authentication" ? (
-                <AuthenticationSection agent={agent} />
-              ) : null}
-              {agent.installed && agent.enabled && sectionId === "models" ? (
-                <ModelsSection agentId={agentId} snapshot={catalogQuery.data} />
-              ) : null}
-              {agent.installed &&
-              agent.enabled &&
-              !baseSections.some((item) => item.id === sectionId) ? (
-                <SettingsSection
-                  agentId={agentId}
-                  section={catalogQuery.data?.settingSections.find((item) => item.id === sectionId)}
-                  loading={catalogQuery.isLoading}
-                />
-              ) : null}
             </section>
-          </div>
+          ) : (
+            <div className="grid min-h-[520px] gap-6 md:grid-cols-[190px_minmax(0,1fr)]">
+              <Select
+                value={sectionId}
+                onValueChange={(value) =>
+                  void navigate({
+                    params: { agentId, sectionId: String(value) },
+                    to: "/settings/agent-harnesses/$agentId/$sectionId",
+                  })
+                }
+              >
+                <SelectTrigger className="md:hidden">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {sections.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <nav
+                aria-label={`${agent.name} settings`}
+                className="cypheria-scrollbar hidden max-h-[70vh] content-start gap-1 overflow-y-auto md:grid"
+              >
+                {sections.map((item) => (
+                  <button
+                    className={
+                      item.id === sectionId
+                        ? "rounded-md bg-muted px-3 py-2 text-left text-sm font-medium"
+                        : "rounded-md px-3 py-2 text-left text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                    }
+                    key={item.id}
+                    type="button"
+                    onClick={() =>
+                      void navigate({
+                        params: { agentId, sectionId: item.id },
+                        to: "/settings/agent-harnesses/$agentId/$sectionId",
+                      })
+                    }
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </nav>
+              <section className="min-w-0">
+                {sectionId === "authentication" ? <AuthenticationSection agent={agent} /> : null}
+                {sectionId === "models" ? (
+                  <ModelsSection agentId={agentId} snapshot={catalogQuery.data} />
+                ) : null}
+                {!baseSections.some((item) => item.id === sectionId) ? (
+                  <SettingsSection
+                    agentId={agentId}
+                    section={catalogQuery.data?.settingSections.find(
+                      (item) => item.id === sectionId
+                    )}
+                    loading={catalogQuery.isLoading}
+                  />
+                ) : null}
+              </section>
+            </div>
+          )}
         </div>
       )}
     </SettingsFrame>
@@ -253,17 +277,15 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
     <div className="grid justify-items-end gap-2">
       <div className="flex gap-2">
         {agent.enabled ? (
-          <div className="flex items-center gap-2 rounded-md border px-3 text-sm">
-            Enabled
-            <Switch
-              aria-label={`Disable ${agent.name}`}
-              checked
-              disabled={disable.isPending || update.isPending || uninstall.isPending}
-              onCheckedChange={(checked) => {
-                if (!checked) disable.mutate()
-              }}
-            />
-          </div>
+          <Switch
+            aria-label={`Disable ${agent.name}`}
+            checked
+            className="self-center"
+            disabled={disable.isPending || update.isPending || uninstall.isPending}
+            onCheckedChange={(checked) => {
+              if (!checked) disable.mutate()
+            }}
+          />
         ) : null}
         {updateAvailable ? (
           <Button
@@ -275,14 +297,29 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
             Update
           </Button>
         ) : null}
-        <Button
-          disabled={update.isPending || uninstall.isPending}
-          variant="destructive"
-          onClick={() => setUninstallDialogOpen(true)}
-        >
-          <Trash2 className="size-4" />
-          Uninstall
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                aria-label={`More maintenance options for ${agent.name}`}
+                disabled={update.isPending || uninstall.isPending}
+                size="icon"
+                variant="ghost"
+              />
+            }
+          >
+            <MoreHorizontal aria-hidden="true" />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onClick={() => setUninstallDialogOpen(true)}
+            >
+              <Trash2 aria-hidden="true" />
+              Uninstall
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
       {update.isPending && operation ? (
         <Progress className="w-64" value={progress}>
@@ -301,8 +338,8 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
           <DialogHeader>
             <DialogTitle>Uninstall {agent.name}?</DialogTitle>
             <DialogDescription>
-              This removes the managed harness runtime but keeps {agent.name} in Agent harnesses.
-              You can install it again from this settings page.
+              This removes the managed harness runtime. You can install it again from this settings
+              page.
             </DialogDescription>
           </DialogHeader>
           {uninstall.isPending && operation ? (
@@ -338,18 +375,40 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
 
 function InstallRequired({ agent }: { agent: AgentView }) {
   const queryClient = useQueryClient()
-  const [operation, setOperation] = useState<AgentOperation>()
+  const operations = useQuery({
+    queryFn: async () => (await ensureCypheriaClient()).agents.listOperations(),
+    queryKey: agentOperationsQueryKey,
+    refetchInterval: (query) => (query.state.data?.some(operationInProgress) ? 250 : false),
+    refetchOnMount: "always",
+    staleTime: 0,
+  })
+  const operation = useMemo(
+    () =>
+      [...(operations.data ?? [])]
+        .reverse()
+        .find(
+          (candidate) =>
+            candidate.kind === "install" &&
+            candidate.target.kind === "agent" &&
+            candidate.target.agentId === agent.id
+        ),
+    [agent.id, operations.data]
+  )
+  const installing = operation ? operationInProgress(operation) : false
   const install = useMutation({
-    mutationFn: async () => {
-      const client = await ensureCypheriaClient()
-      return waitForAgentOperation(await client.agents.install(agent.id), setOperation)
-    },
-    onSuccess: async () => {
-      setOperation(undefined)
-      await queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
+    mutationFn: async () => (await ensureCypheriaClient()).agents.install(agent.id),
+    onSuccess: (nextOperation) => {
+      queryClient.setQueryData<AgentOperation[]>(agentOperationsQueryKey, (current) =>
+        upsertAgentOperation(current, nextOperation)
+      )
     },
   })
+  useEffect(() => {
+    if (operation?.status !== "succeeded") return
+    void queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
+  }, [operation?.status, queryClient])
   const progress = Math.round((operation?.progress ?? 0) * 100)
+  const error = install.error?.message ?? (operation?.status === "failed" ? operation.error : null)
   return (
     <Card>
       <CardHeader>
@@ -358,23 +417,19 @@ function InstallRequired({ agent }: { agent: AgentView }) {
           Install this harness before configuring authentication, models, and defaults.
         </CardDescription>
         <CardAction className="self-center">
-          <Button disabled={install.isPending} onClick={() => install.mutate()}>
-            <Download className="size-4" />
-            Install
+          <Button disabled={install.isPending || installing} onClick={() => install.mutate()}>
+            {install.isPending || installing ? (
+              <LoaderCircle className="size-4 animate-spin" />
+            ) : (
+              <Download className="size-4" />
+            )}
+            {install.isPending || installing ? `${progress}%` : "Install"}
           </Button>
         </CardAction>
       </CardHeader>
-      {install.isPending || install.error ? (
-        <CardContent className="grid gap-4">
-          {install.isPending && operation ? (
-            <Progress value={progress}>
-              <ProgressLabel>Install</ProgressLabel>
-              <ProgressValue />
-            </Progress>
-          ) : null}
-          {install.error ? (
-            <p className="text-sm text-destructive">{install.error.message}</p>
-          ) : null}
+      {error ? (
+        <CardContent>
+          <p className="text-sm text-destructive">{error}</p>
         </CardContent>
       ) : null}
     </Card>
@@ -412,258 +467,6 @@ function EnableRequired({ agent }: { agent: AgentView }) {
           <p className="text-sm text-destructive">{enable.error.message}</p>
         </CardContent>
       ) : null}
-    </Card>
-  )
-}
-
-function AuthenticationSection({ agent }: { agent: AgentView }) {
-  const queryClient = useQueryClient()
-  const [flow, setFlow] = useState<HarnessAuthFlow>()
-  const view = useQuery({
-    queryFn: async () => (await ensureCypheriaClient()).harnesses.get(agent.id),
-    queryKey: ["harness", agent.id, "auth"],
-    refetchInterval: flow?.state === "pending" && !flow.terminalId ? 1_000 : false,
-  })
-  const [methodId, setMethodId] = useState("")
-  const [secret, setSecret] = useState("")
-  const [flowResponse, setFlowResponse] = useState("")
-  const [terminalError, setTerminalError] = useState<string | null>(null)
-  const terminalReplay = useRef(new Map<string, string>())
-  const activeFlow = useRef<{ flowId: string; terminalId: string } | null>(null)
-  const pendingFlow = useRef<string | null>(null)
-  const auth = useMutation({
-    mutationFn: async () =>
-      (await ensureCypheriaClient()).harnesses.auth.start({
-        agentId: agent.id,
-        methodId: methodId || view.data?.authMethods[0]?.id || "",
-        ...(secret ? { secret } : {}),
-      }),
-    onSuccess: async (flow) => {
-      setFlow(flow)
-      setTerminalError(null)
-      if (flow.state === "pending" && flow.externalUrl)
-        await window.cypheria?.app.openExternal(flow.externalUrl)
-      if (flow.state === "completed") {
-        setSecret("")
-        await queryClient.invalidateQueries({ queryKey: ["harness", agent.id] })
-      }
-    },
-  })
-  const logout = useMutation({
-    mutationFn: async () => (await ensureCypheriaClient()).harnesses.auth.logout(agent.id),
-    onSuccess: async () => {
-      setFlow(undefined)
-      await queryClient.invalidateQueries({ queryKey: ["harness", agent.id] })
-    },
-  })
-  const cancel = useMutation({
-    mutationFn: async () => {
-      if (flow?.state !== "pending" || !flow.flowId) return
-      await (await ensureCypheriaClient()).harnesses.auth.cancel({
-        agentId: agent.id,
-        flowId: flow.flowId,
-      })
-    },
-    onSuccess: () => {
-      activeFlow.current = null
-      pendingFlow.current = null
-      setFlow(undefined)
-    },
-  })
-  const respond = useMutation({
-    mutationFn: async () => {
-      if (flow?.state !== "pending" || !flow.flowId) {
-        throw new Error("No authentication flow is waiting for a response")
-      }
-      return (await ensureCypheriaClient()).harnesses.auth.respond({
-        agentId: agent.id,
-        flowId: flow.flowId,
-        response: flowResponse,
-      })
-    },
-    onSuccess: async (nextFlow) => {
-      setFlow(nextFlow)
-      setFlowResponse("")
-      await queryClient.invalidateQueries({ queryKey: ["harness", agent.id] })
-    },
-  })
-  const selected =
-    view.data?.authMethods.find((item) => item.id === methodId) ?? view.data?.authMethods[0]
-  useEffect(() => {
-    if (flow?.state === "pending" && flow.flowId) {
-      pendingFlow.current = flow.flowId
-      if (flow.terminalId) {
-        activeFlow.current = { flowId: flow.flowId, terminalId: flow.terminalId }
-      }
-    } else {
-      pendingFlow.current = null
-    }
-  }, [flow])
-  useEffect(() => {
-    if (view.data?.connected && flow?.state === "pending" && !flow.terminalId) {
-      setFlow(undefined)
-    }
-  }, [flow, view.data?.connected])
-  const getTerminalReplay = useCallback(
-    (terminalId: string) => terminalReplay.current.get(terminalId) ?? "",
-    []
-  )
-  useEffect(() => {
-    let disposed = false
-    let unsubscribeOutput: () => void = () => undefined
-    let unsubscribeExited: () => void = () => undefined
-    void ensureCypheriaClient().then((client) => {
-      if (disposed) return
-      unsubscribeOutput = client.on("terminal.output.notification", (message) => {
-        const current = terminalReplay.current.get(message.payload.terminalId) ?? ""
-        terminalReplay.current.set(message.payload.terminalId, `${current}${message.payload.data}`)
-      })
-      unsubscribeExited = client.on("terminal.exited.notification", (message) => {
-        if (message.payload.terminalId !== activeFlow.current?.terminalId) return
-        activeFlow.current = null
-        pendingFlow.current = null
-        setFlow(undefined)
-        setTerminalError(
-          message.payload.exitCode === 0
-            ? null
-            : `Authentication process exited with code ${message.payload.exitCode}.`
-        )
-        void queryClient.invalidateQueries({ queryKey: ["harness", agent.id] })
-      })
-    })
-    return () => {
-      disposed = true
-      unsubscribeOutput()
-      unsubscribeExited()
-      const flowId = pendingFlow.current
-      activeFlow.current = null
-      pendingFlow.current = null
-      if (flowId) {
-        void ensureCypheriaClient().then((client) =>
-          client.harnesses.auth.cancel({ agentId: agent.id, flowId })
-        )
-      }
-    }
-  }, [agent.id, queryClient])
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Authentication</CardTitle>
-        <CardDescription>
-          Credentials stay in the harness credential store and are never written to Cypheria
-          settings.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-5">
-        {view.isLoading ? <Skeleton className="h-40" /> : null}
-        {view.data?.connected ? (
-          <Alert>
-            <AlertTitle>Connected</AlertTitle>
-            <AlertDescription>
-              {view.data.detail ?? "This harness is authenticated."}
-            </AlertDescription>
-          </Alert>
-        ) : null}
-        <RadioGroup
-          value={selected?.id ?? ""}
-          onValueChange={(value) => setMethodId(String(value))}
-        >
-          {view.data?.authMethods.map((method) => (
-            <Field className="rounded-md border p-3" key={method.id} orientation="horizontal">
-              <RadioGroupItem id={`auth-${method.id}`} value={method.id} />
-              <FieldLabel htmlFor={`auth-${method.id}`}>
-                <span>{method.label}</span>
-                {method.description ? (
-                  <FieldDescription>{method.description}</FieldDescription>
-                ) : null}
-              </FieldLabel>
-            </Field>
-          ))}
-        </RadioGroup>
-        {selected?.input === "secret" ? (
-          <Field>
-            <FieldLabel htmlFor="harness-secret">Secret</FieldLabel>
-            <Input
-              autoComplete="off"
-              id="harness-secret"
-              type="password"
-              value={secret}
-              onChange={(event) => setSecret(event.currentTarget.value)}
-            />
-          </Field>
-        ) : null}
-        {flow?.state === "pending" ? (
-          <Alert>
-            <AlertTitle>Complete sign in</AlertTitle>
-            <AlertDescription>{flow.message}</AlertDescription>
-          </Alert>
-        ) : null}
-        {flow?.state === "pending" && flow.terminalId ? (
-          <div className="h-72 overflow-hidden rounded-md border bg-black">
-            <WorkspaceTerminalSurface
-              active
-              getReplay={getTerminalReplay}
-              session={{
-                cwd: "Authentication",
-                terminalId: flow.terminalId,
-                title: `${agent.name} authentication`,
-              }}
-            />
-          </div>
-        ) : null}
-        {flow?.state === "pending" && flow.flowId && flow.input !== "none" ? (
-          <Field>
-            <FieldLabel htmlFor="harness-flow-response">Authentication response</FieldLabel>
-            <Input
-              id="harness-flow-response"
-              type={flow.input === "secret" ? "password" : "text"}
-              value={flowResponse}
-              onChange={(event) => setFlowResponse(event.currentTarget.value)}
-            />
-            <Button
-              className="mt-2 justify-self-start"
-              disabled={!flowResponse || respond.isPending}
-              onClick={() => respond.mutate()}
-            >
-              Submit code
-            </Button>
-          </Field>
-        ) : null}
-        <div className="flex gap-2">
-          <Button
-            disabled={!selected || auth.isPending || (selected.input === "secret" && !secret)}
-            onClick={() => auth.mutate()}
-          >
-            {auth.isPending ? "Connecting…" : "Connect"}
-          </Button>
-          {flow?.state === "pending" && flow.flowId ? (
-            <Button disabled={cancel.isPending} variant="outline" onClick={() => cancel.mutate()}>
-              Cancel
-            </Button>
-          ) : null}
-          {view.data?.logoutSupported && view.data.connected ? (
-            <Button disabled={logout.isPending} variant="outline" onClick={() => logout.mutate()}>
-              <LogOut className="size-4" />
-              Sign out
-            </Button>
-          ) : null}
-        </div>
-        {auth.error ||
-        cancel.error ||
-        logout.error ||
-        respond.error ||
-        view.error ||
-        terminalError ? (
-          <p className="text-sm text-destructive">
-            {auth.error?.message ??
-              logout.error?.message ??
-              cancel.error?.message ??
-              respond.error?.message ??
-              view.error?.message ??
-              terminalError}
-          </p>
-        ) : null}
-      </CardContent>
     </Card>
   )
 }
@@ -730,6 +533,14 @@ function ModelsSection({
         </div>
       </CardHeader>
       <CardContent className="grid gap-4">
+        {snapshot?.status === "authentication-required" ? (
+          <Alert>
+            <AlertTitle>Authentication required</AlertTitle>
+            <AlertDescription>
+              Configure this harness from Authentication before refreshing its model catalog.
+            </AlertDescription>
+          </Alert>
+        ) : null}
         {providers.length > 1 ? (
           <Select value={provider} onValueChange={(value) => setProvider(String(value))}>
             <SelectTrigger className="w-56">
@@ -784,7 +595,7 @@ function ModelsSection({
             })}
           </div>
         </div>
-        {!models.length ? (
+        {!models.length && snapshot?.status !== "authentication-required" ? (
           <p className="text-sm text-muted-foreground">
             No models reported. Authenticate this harness, then refresh.
           </p>

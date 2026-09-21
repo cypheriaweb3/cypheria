@@ -4,6 +4,13 @@ import type { AgentCatalogEntry, AgentId, AgentView } from "@cypheria/protocol"
 import { cn } from "@cypheria/ui"
 import { Button } from "@cypheria/ui/components/button"
 import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@cypheria/ui/components/command"
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -17,13 +24,6 @@ import {
   DropdownMenuTrigger,
 } from "@cypheria/ui/components/dropdown-menu"
 import { Input } from "@cypheria/ui/components/input"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@cypheria/ui/components/select"
 import {
   SidebarContent,
   SidebarFooter,
@@ -66,6 +66,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  LoaderCircle,
   MoreHorizontal,
   Palette,
   Plus,
@@ -98,6 +99,7 @@ import {
   DesktopSidebarTrigger as SidebarTrigger,
 } from "./desktop-sidebar"
 import { HarnessIcon } from "./harness-icon"
+import { createInMemorySearch, resolveAvailableHarnessId } from "./harness-selection"
 import { buildSettingsNavigationRows } from "./settings-navigation-model"
 
 const navigationItems = [
@@ -510,8 +512,8 @@ function SettingsNavigation({
         triggerClassName={triggerClassName}
       />
 
-      <SidebarContent className={desktopSidebarContentClassName}>
-        <div className="relative mb-3 px-1 group-data-[collapsible=icon]:hidden">
+      <SidebarContent className="min-h-0 overflow-hidden pb-3 pt-0.5">
+        <div className="relative mx-1.5 mb-3 px-1 group-data-[collapsible=icon]:hidden">
           <Search
             aria-hidden="true"
             className="pointer-events-none absolute left-4 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -532,7 +534,7 @@ function SettingsNavigation({
         </div>
 
         <div className="cypheria-scrollbar min-h-0 flex-1 overflow-y-auto" ref={scrollRef}>
-          <div className="relative w-full" style={{ height: `${virtualizer.getTotalSize()}px` }}>
+          <div className="relative mx-1.5" style={{ height: `${virtualizer.getTotalSize()}px` }}>
             {virtualizer.getVirtualItems().map((virtualRow) => {
               const row = rows[virtualRow.index]
               if (!row) return null
@@ -600,9 +602,12 @@ function SettingsNavigation({
                         </SidebarMenuButton>
                         <SidebarMenuAction
                           aria-label="Add agent harness"
-                          disabled={!agents.data?.availableAgents.length}
+                          disabled={
+                            agents.isLoading || (agents.data?.availableAgents.length ?? 0) === 0
+                          }
                           onClick={(event) => {
                             event.stopPropagation()
+                            if ((agents.data?.availableAgents.length ?? 0) === 0) return
                             setInstallDialogOpen(true)
                           }}
                         >
@@ -718,7 +723,7 @@ function HarnessNavigationMenu({
           onClick={() => remove.mutate()}
         >
           <Trash2 aria-hidden="true" />
-          {agent.installed ? "Uninstall before removing" : "Remove from Agent harnesses"}
+          Remove
         </DropdownMenuItem>
         {remove.error ? (
           <p className="px-2 py-1 text-xs text-destructive">{remove.error.message}</p>
@@ -744,14 +749,25 @@ function HarnessAddDialog({
     [agents]
   )
   const [selectedId, setSelectedId] = useState<AgentId>()
+  const [searchQuery, setSearchQuery] = useState("")
+  const search = useMemo(
+    () =>
+      createInMemorySearch(
+        available,
+        (agent) => `${agent.name} ${agent.id} ${agent.version} ${agent.description}`
+      ),
+    [available]
+  )
+  const visibleAgents = useMemo(() => search.search(searchQuery), [search, searchQuery])
   const add = useMutation({
     mutationFn: async (agentId: AgentId) => {
       const client = await ensureCypheriaClient()
       return client.agents.add(agentId)
     },
     onSuccess: async (_, agentId) => {
-      await queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
+      setSelectedId(undefined)
       onOpenChange(false)
+      await queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
       await navigate({
         params: { agentId, sectionId: "authentication" },
         to: "/settings/agent-harnesses/$agentId/$sectionId",
@@ -762,9 +778,9 @@ function HarnessAddDialog({
   useEffect(() => {
     if (!open) return
     setSelectedId(undefined)
+    setSearchQuery("")
   }, [open])
 
-  const selected = available.find((agent) => agent.id === selectedId)
   return (
     <Dialog
       open={open}
@@ -773,6 +789,7 @@ function HarnessAddDialog({
         if (!nextOpen) {
           add.reset()
           setSelectedId(undefined)
+          setSearchQuery("")
         }
         onOpenChange(nextOpen)
       }}
@@ -785,23 +802,31 @@ function HarnessAddDialog({
           </DialogDescription>
         </DialogHeader>
         {available.length ? (
-          <Select
-            disabled={add.isPending}
-            value={selectedId ?? null}
-            onValueChange={(value) => {
-              const agentId = value as AgentId
-              setSelectedId(agentId)
-              add.mutate(agentId)
-            }}
-          >
-            <SelectTrigger className="w-full">
-              <SelectValue placeholder="Select a harness">
-                {add.isPending ? `Adding ${selected?.name ?? "harness"}…` : selected?.name}
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent alignItemWithTrigger={false} className="max-h-80">
-              {available.map((agent) => (
-                <SelectItem className="py-2" key={agent.id} value={agent.id}>
+          <Command className="rounded-lg border" shouldFilter={false}>
+            <CommandInput
+              disabled={add.isPending}
+              placeholder="Search harnesses…"
+              value={searchQuery}
+              onValueChange={setSearchQuery}
+            />
+            <CommandList className="cypheria-scrollbar max-h-80 p-1 pt-2">
+              <CommandEmpty>No matching harnesses.</CommandEmpty>
+              {visibleAgents.map((agent) => (
+                <CommandItem
+                  className="py-2"
+                  disabled={add.isPending}
+                  key={agent.id}
+                  value={agent.id}
+                  onSelect={(value) => {
+                    const agentId = resolveAvailableHarnessId(value, available)
+                    if (!agentId) {
+                      setSelectedId(undefined)
+                      return
+                    }
+                    setSelectedId(agentId)
+                    add.mutate(agentId)
+                  }}
+                >
                   <span className="flex size-8 shrink-0 self-center items-center justify-center rounded-md border border-border bg-background">
                     <HarnessIcon
                       agentId={agent.id}
@@ -821,10 +846,13 @@ function HarnessAddDialog({
                       {agent.description}
                     </span>
                   </span>
-                </SelectItem>
+                  {add.isPending && selectedId === agent.id ? (
+                    <LoaderCircle className="ml-auto size-4 animate-spin" />
+                  ) : null}
+                </CommandItem>
               ))}
-            </SelectContent>
-          </Select>
+            </CommandList>
+          </Command>
         ) : (
           <p className="text-sm text-muted-foreground">All available harnesses have been added.</p>
         )}

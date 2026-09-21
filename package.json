@@ -12,6 +12,8 @@
     "codex:generate": "pnpm --filter @cypheria/protocol generate:codex-all",
     "codex:version": "codex --version",
     "dev": "turbo dev",
+    "dev:desktop": "pnpm --filter @cypheria/desktop dev:hot",
+    "dev:desktop:stop": "pnpm --filter @cypheria/desktop dev:hot:stop",
     "docs:check": "node scripts/check-docs.mjs",
     "format": "biome format --write .",
     "lint": "biome lint .",

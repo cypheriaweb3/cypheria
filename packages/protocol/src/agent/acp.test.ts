@@ -4,6 +4,12 @@ import { describe, expect, expectTypeOf, it } from "vitest"
 import { z } from "zod"
 
 import {
+  ClientMessageSchema,
+  SessionInboundMessageSchema,
+  SessionOutboundMessageSchema,
+} from "../index.js"
+import {
+  ACP_PREFERRED_PROTOCOL_VERSION,
   ACP_V1_PROTOCOL_VERSION,
   ACP_V2_PROTOCOL_VERSION,
   type AcpV1WireMessage,
@@ -13,16 +19,15 @@ import {
   AgentAcpV2ClientBatchMessagesSchema,
   AgentAcpV2ClientSingleMessageSchema,
   AgentAcpV2ServerBatchMessagesSchema,
-  ClientMessageSchema,
   isAgentAcpServerMessage,
-  SessionInboundMessageSchema,
-  SessionOutboundMessageSchema,
-} from "../index.js"
+  parseAcpNegotiatedInitializeResult,
+} from "./acp.js"
 
 describe("agent.acp protocol", () => {
   it("uses the official SDK versions and raw stream types", () => {
     expect(ACP_V1_PROTOCOL_VERSION).toBe(1)
     expect(ACP_V2_PROTOCOL_VERSION).toBe(2)
+    expect(ACP_PREFERRED_PROTOCOL_VERSION).toBe(2)
     expectTypeOf<AcpV1WireMessage>().toEqualTypeOf<SdkV1Message>()
     expectTypeOf<AcpV2WireMessage>().toEqualTypeOf<SdkV2WireMessage>()
   })
@@ -37,7 +42,7 @@ describe("agent.acp protocol", () => {
     expect(
       AgentAcpClientMessageSchema.parse({
         agent: "gemini",
-        clientCapabilities: { fs: { readTextFile: true, writeTextFile: true } },
+        payload: { clientCapabilities: { fs: { readTextFile: true, writeTextFile: true } } },
         protocolVersion: 1,
         requestId: "initialize-1",
         type: "agent.acp.initialize.request",
@@ -46,7 +51,7 @@ describe("agent.acp protocol", () => {
     expect(
       ClientMessageSchema.safeParse({
         agent: "gemini",
-        clientCapabilities: {},
+        payload: { clientCapabilities: {} },
         protocolVersion: 1,
         requestId: "initialize-1",
         type: "agent.acp.initialize.request",
@@ -162,7 +167,7 @@ describe("agent.acp protocol", () => {
           messages: [
             {
               agent: "gemini",
-              info: { name: "cypheria", version: "0.0.0" },
+              payload: { info: { name: "cypheria", version: "0.0.0" } },
               protocolVersion: 2,
               requestId: 1,
               type: "agent.acp.initialize.request",
@@ -186,6 +191,7 @@ describe("agent.acp protocol", () => {
     expect(
       AgentAcpClientMessageSchema.safeParse({
         agent: "gemini",
+        payload: {},
         protocolVersion: "1",
         requestId: 1,
         type: "agent.acp.initialize.request",
@@ -194,6 +200,7 @@ describe("agent.acp protocol", () => {
     expect(
       AgentAcpServerMessageSchema.safeParse({
         agent: "gemini",
+        payload: {},
         protocolVersion: 1,
         requestId: 1,
         type: "agent.acp.initialize.request",
@@ -202,9 +209,8 @@ describe("agent.acp protocol", () => {
     expect(
       AgentAcpServerMessageSchema.safeParse({
         agent: "gemini",
-        path: "/workspace/README.md",
+        payload: { path: "/workspace/README.md", sessionId: "session-1" },
         requestId: 2,
-        sessionId: "session-1",
         protocolVersion: 1,
         type: "agent.acp.fs.read_text_file.request",
       }).success
@@ -214,18 +220,22 @@ describe("agent.acp protocol", () => {
   it("returns the normalized output of the official params and result schemas", () => {
     const request = AgentAcpClientMessageSchema.parse({
       agent: "gemini",
-      clientCapabilities: {
-        fs: { readTextFile: "invalid", writeTextFile: "invalid" },
+      payload: {
+        clientCapabilities: {
+          fs: { readTextFile: "invalid", writeTextFile: "invalid" },
+        },
       },
       protocolVersion: 1,
       requestId: "initialize-1",
       type: "agent.acp.initialize.request",
     })
     expect(request).toMatchObject({
-      clientCapabilities: {
-        auth: { terminal: false },
-        fs: { readTextFile: false, writeTextFile: false },
-        terminal: false,
+      payload: {
+        clientCapabilities: {
+          auth: { terminal: false },
+          fs: { readTextFile: false, writeTextFile: false },
+          terminal: false,
+        },
       },
     })
 
@@ -252,6 +262,37 @@ describe("agent.acp protocol", () => {
         },
       },
     })
+  })
+
+  it("preserves the v2 configuration value discriminator in the request payload", () => {
+    expect(
+      AgentAcpClientMessageSchema.parse({
+        agent: "gemini",
+        payload: {
+          configId: "model",
+          sessionId: "session-1",
+          type: "id",
+          value: "provider/model",
+        },
+        protocolVersion: 2,
+        requestId: "config-1",
+        type: "agent.acp.session.set_config_option.request",
+      })
+    ).toMatchObject({
+      payload: { configId: "model", type: "id", value: "provider/model" },
+      type: "agent.acp.session.set_config_option.request",
+    })
+    expect(
+      AgentAcpClientMessageSchema.safeParse({
+        agent: "gemini",
+        configId: "model",
+        protocolVersion: 2,
+        requestId: "config-1",
+        sessionId: "session-1",
+        type: "agent.acp.session.set_config_option.request",
+        value: "provider/model",
+      }).success
+    ).toBe(false)
   })
 
   it("requires an initialize response to be the only server batch entry", () => {
@@ -333,8 +374,7 @@ describe("agent.acp protocol", () => {
           messages: [
             {
               agent: "gemini",
-              capabilities: {},
-              info: { name: "client", version: "1.0.0" },
+              payload: { capabilities: {}, info: { name: "client", version: "1.0.0" } },
               protocolVersion: 2,
               requestId: 1,
               type: "agent.acp.initialize.request",
@@ -346,5 +386,21 @@ describe("agent.acp protocol", () => {
         type: "agent.acp.batch",
       })
     ).toBe(false)
+  })
+
+  it("negotiates initialize responses from the returned ACP protocol version", () => {
+    expect(
+      parseAcpNegotiatedInitializeResult({
+        capabilities: {},
+        info: { name: "agent", version: "1.0.0" },
+        protocolVersion: 2,
+      })
+    ).toMatchObject({ protocolVersion: 2, result: { protocolVersion: 2 } })
+    expect(
+      parseAcpNegotiatedInitializeResult({ agentCapabilities: {}, protocolVersion: 1 })
+    ).toMatchObject({ protocolVersion: 1, result: { protocolVersion: 1 } })
+    expect(() =>
+      parseAcpNegotiatedInitializeResult({ capabilities: {}, protocolVersion: 3 })
+    ).toThrow(/Unsupported ACP protocol version/)
   })
 })
