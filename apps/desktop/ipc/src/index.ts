@@ -173,6 +173,7 @@ export type AppearanceSettings = z.infer<typeof AppearanceSettingsSchema>
 export const AppearanceSettingsWriteSchema = AppearanceSettingsSchema.omit({ configPath: true })
 export type AppearanceSettingsWrite = z.infer<typeof AppearanceSettingsWriteSchema>
 export const CYPHERIA_APPEARANCE_ARGUMENT_PREFIX = "--cypheria-appearance="
+export const CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX = "--cypheria-development="
 
 export const SupportedLocaleSchema = z.enum(["en", "zh-CN"])
 export type SupportedLocale = z.infer<typeof SupportedLocaleSchema>
@@ -564,6 +565,7 @@ export const ipcContracts = {
 export type CypheriaPreloadApi = {
   readonly bootstrap: {
     readonly appearance: AppearanceSettingsWrite
+    readonly development: boolean
     readonly language: LanguageBootstrap
   }
   readonly app: {

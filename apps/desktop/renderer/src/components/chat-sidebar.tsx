@@ -55,6 +55,7 @@ import {
   LoaderCircle,
   Mail,
   MailOpen,
+  MessageSquare,
   MoreHorizontal,
   Pencil,
   Pin,
@@ -80,6 +81,7 @@ import {
 } from "react"
 import { unreadThreadMutationFromServerMessage, unreadThreadStore } from "../chat-unread-state.js"
 import { cypheriaClient } from "../cypheria-client.js"
+import { filterDevelopmentItems, isDesktopDevelopment } from "../development-mode.js"
 import {
   PINNED_SIDEBAR_SECTION_ID,
   type SidebarProjectView,
@@ -107,46 +109,60 @@ type SectionDialogState =
 
 const virtualNavigationItems = [
   {
+    developmentOnly: false,
     href: "/approvals",
     icon: BellDot,
     id: "pending",
     label: msg({ id: "navigation.pending", message: "Pending" }),
   },
   {
+    developmentOnly: false,
     href: "/networks",
     icon: Globe2,
     id: "networks",
     label: msg({ id: "navigation.networks", message: "Networks" }),
   },
   {
+    developmentOnly: false,
     href: "/wallets",
     icon: WalletCards,
     id: "wallets",
     label: msg({ id: "navigation.wallets", message: "Wallets & assets" }),
   },
   {
+    developmentOnly: false,
     href: "/schedules",
     icon: Workflow,
     id: "schedules",
     label: msg({ id: "navigation.schedules", message: "Schedules" }),
   },
   {
+    developmentOnly: false,
     href: "/policies",
     icon: ShieldCheck,
     id: "policies",
     label: msg({ id: "navigation.signingPolicies", message: "Signing policies" }),
   },
   {
+    developmentOnly: false,
     href: "/audit",
     icon: ScrollText,
     id: "audit",
     label: msg({ id: "navigation.auditLog", message: "Audit log" }),
   },
   {
+    developmentOnly: false,
     href: "/plugins",
     icon: Boxes,
     id: "plugins",
     label: msg({ id: "navigation.pluginsAndSkills", message: "Plugins & skills" }),
+  },
+  {
+    developmentOnly: true,
+    href: "/chat-demo",
+    icon: MessageSquare,
+    id: "chat-demo",
+    label: "Chat Demo",
   },
 ] as const
 
@@ -327,6 +343,10 @@ export function ChatSidebar({
       ),
     [allProjectGroups, collapsedProjects]
   )
+  const visibleNavigationItems = useMemo(
+    () => filterDevelopmentItems(virtualNavigationItems, isDesktopDevelopment()),
+    []
+  )
   const rows = useMemo(
     () =>
       buildChatSidebarRows({
@@ -334,7 +354,7 @@ export function ChatSidebar({
         expandedCustomSections,
         expandedProjects,
         expandedSections,
-        navigationIds: virtualNavigationItems.map(({ id }) => id),
+        navigationIds: visibleNavigationItems.map(({ id }) => id),
         pinnedHasMore: pinnedQuery.hasNextPage,
         pinnedProjects: pinnedProjectGroups,
         pinnedThreads,
@@ -362,6 +382,7 @@ export function ChatSidebar({
       projectGroups,
       projectChatLimits,
       recentThreads,
+      visibleNavigationItems,
       visibleProjectCount,
     ]
   )
@@ -786,7 +807,7 @@ function ChatSidebarRowView(props: RowViewProps) {
     const item = virtualNavigationItems.find(({ id }) => id === row.navigationId)
     if (!item) return null
     const Icon = item.icon
-    const label = i18n._(item.label)
+    const label = typeof item.label === "string" ? item.label : i18n._(item.label)
     return (
       <SidebarMenuButton render={<Link to={item.href} />} tooltip={label}>
         <Icon aria-hidden="true" className="size-4" strokeWidth={1.9} />

@@ -28,6 +28,7 @@ import {
   appProjectRevealContract,
   browserSessionOpenContract,
   CYPHERIA_APPEARANCE_ARGUMENT_PREFIX,
+  CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX,
   CYPHERIA_IPC_CHANNELS,
   CYPHERIA_LANGUAGE_ARGUMENT_PREFIX,
   dappProviderRequestContract,
@@ -392,6 +393,7 @@ const createMainWindow = async (
   const languageArgument = `${CYPHERIA_LANGUAGE_ARGUMENT_PREFIX}${encodeURIComponent(
     JSON.stringify({ locale: language.locale, preference: language.preference })
   )}`
+  const developmentArgument = `${CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX}${isDevelopmentShell ? "1" : "0"}`
   const window = new BrowserWindow({
     backgroundColor: activeTheme.surface,
     ...(process.platform === "linux"
@@ -419,7 +421,7 @@ const createMainWindow = async (
     title: "Cypheria",
     webPreferences: {
       // Keep Chromium's 16px rem baseline; renderer typography is controlled by CSS tokens.
-      additionalArguments: [appearanceArgument, languageArgument],
+      additionalArguments: [appearanceArgument, developmentArgument, languageArgument],
       contextIsolation: true,
       nodeIntegration: false,
       preload: preloadPath,

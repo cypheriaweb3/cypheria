@@ -8,6 +8,10 @@
     "./ai-elements/*": "./src/components/ai-elements/*.tsx",
     "./assets/agents/*": "./src/assets/agents/*",
     "./assets/brand/*": "./src/assets/brand/*",
+    "./components/chat": "./src/components/chat/index.ts",
+    "./components/chat/types": "./src/components/chat/types.ts",
+    "./components/chat/*": "./src/components/chat/*.tsx",
+    "./components/icons": "./src/components/icons/index.ts",
     "./components/*": "./src/components/*.tsx",
     "./lib/*": "./src/lib/*.ts",
     "./styles.css": "./src/styles.css"

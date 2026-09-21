@@ -15,6 +15,7 @@ import type {
 import {
   AppearanceSettingsWriteSchema,
   CYPHERIA_APPEARANCE_ARGUMENT_PREFIX,
+  CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX,
   CYPHERIA_IPC_CHANNELS,
   CYPHERIA_LANGUAGE_ARGUMENT_PREFIX,
   LanguageBootstrapSchema,
@@ -43,11 +44,15 @@ const readBootstrapLanguage = () => {
   return LanguageBootstrapSchema.parse(JSON.parse(decodeURIComponent(encodedLanguage)))
 }
 
+const readBootstrapDevelopment = () =>
+  process.argv.some((value) => value === `${CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX}1`)
+
 const invoke = <T>(channel: string): Promise<T> => ipcRenderer.invoke(channel) as Promise<T>
 
 const cypheriaApi: CypheriaPreloadApi = {
   bootstrap: {
     appearance: readBootstrapAppearance(),
+    development: readBootstrapDevelopment(),
     language: readBootstrapLanguage(),
   },
   app: {

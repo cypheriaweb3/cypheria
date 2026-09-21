@@ -96,6 +96,31 @@ pnpm --filter @cypheria/cypheria-relay dev -- --mode=single
 
 Use `pnpm --filter @cypheria/desktop dev` only when testing the one-time built renderer instead of the HMR workflow.
 
+The Desktop development shell exposes a fixed **Chat Demo** navigation item at `/chat-demo`. It is
+a local interactive showcase for the shared chat components and does not contact an Agent runtime.
+The preload bootstrap flag hides the item and redirects the route in packaged production builds.
+
+### Removing Chat Demo
+
+Chat Demo is temporary development scaffolding. When the production conversation workspace has
+adopted the shared chat components, remove the demo with this checklist:
+
+1. Delete `apps/desktop/renderer/src/components/chat-demo.tsx`, its test, and
+   `apps/desktop/renderer/src/routes/chat-demo.tsx`.
+2. Remove the `Chat Demo` item, `MessageSquare` import, and development-item filtering from
+   `chat-sidebar.tsx`.
+3. If no other development-only renderer feature uses it, delete `development-mode.ts` and its
+   test, then remove `bootstrap.development`, `CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX`, and the
+   corresponding main/preload argument wiring.
+4. Regenerate `routeTree.gen.ts` with `pnpm --filter @cypheria/desktop build:renderer`; never edit
+   the generated route tree by hand.
+5. Remove this cleanup section and the preceding Chat Demo paragraph, then run the Desktop tests,
+   Desktop typecheck, strict Lingui compile, `pnpm docs:check`, and root `pnpm check`.
+
+Do not delete `packages/ui/src/components/chat`, `packages/ui/src/components/icons`, or the Codex
+conversation UI reference documents when removing the demo. They are reusable production assets,
+not demo scaffolding. Chat Demo deliberately has no Lingui catalog entries to clean up.
+
 The product CLI is built separately:
 
 ```sh

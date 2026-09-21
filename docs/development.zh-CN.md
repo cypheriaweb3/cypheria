@@ -96,6 +96,25 @@ pnpm --filter @cypheria/cypheria-relay dev -- --mode=single
 
 仅在测试一次性构建的 renderer、而不是 HMR 工作流时，才使用 `pnpm --filter @cypheria/desktop dev`。
 
+Desktop 开发壳会显示一个固定的 **Chat Demo** 导航项，对应 `/chat-demo`。它是共享 Chat
+组件的本地交互展示，不会连接 Agent runtime。preload bootstrap 标志会在正式打包版本中隐藏该入口并重定向该路由。
+
+### 删除 Chat Demo
+
+Chat Demo 是临时开发脚手架。当正式会话工作区已经采用共享 Chat 组件后，按以下清单删除 Demo：
+
+1. 删除 `apps/desktop/renderer/src/components/chat-demo.tsx`、对应测试，以及
+   `apps/desktop/renderer/src/routes/chat-demo.tsx`。
+2. 从 `chat-sidebar.tsx` 删除 `Chat Demo` 菜单项、`MessageSquare` import 和开发项过滤逻辑。
+3. 如果没有其他仅开发版 renderer 功能继续使用，删除 `development-mode.ts` 及其测试，并移除
+   `bootstrap.development`、`CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX` 和 main/preload 中对应的参数接线。
+4. 运行 `pnpm --filter @cypheria/desktop build:renderer` 重新生成 `routeTree.gen.ts`；不得手工编辑生成的路由树。
+5. 删除本清理章节及其前面的 Chat Demo 说明，然后运行 Desktop 测试、Desktop typecheck、Lingui
+   strict compile、`pnpm docs:check` 和根级 `pnpm check`。
+
+删除 Demo 时不要删除 `packages/ui/src/components/chat`、`packages/ui/src/components/icons` 或 Codex
+会话 UI 参考文档；它们是可复用的正式资产，不属于 Demo 脚手架。Chat Demo 刻意没有 Lingui catalog 条目，因此无需清理翻译。
+
 产品 CLI 单独构建：
 
 ```sh

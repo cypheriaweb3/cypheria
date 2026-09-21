@@ -27,6 +27,7 @@ title: Cypheria 文档
 - [Integrations](integrations.zh-CN.md)：Skills、MCP、plugins、marketplace 来源与 Codex Apps。
 - [Web3](web3.zh-CN.md)：network、wallet、policy、签名、dApp 与审计。
 - [UI 系统](ui.zh-CN.md)：视觉原则、主题实现、AI Elements 与回归不变量。
+- [Codex 会话 UI 参考](codex-conversation-ui-reference.zh-CN.md)：用于共享实现的任务 chrome、Timeline、composer 与 panel 行为证据。
 - [品牌](brand.zh-CN.md)：产品标志、颜色、图标与资产生成。
 
 ## Codex 集成参考

@@ -14,6 +14,7 @@ import { Route as SchedulesRouteImport } from "./routes/schedules"
 import { Route as PoliciesRouteImport } from "./routes/policies"
 import { Route as PluginsRouteImport } from "./routes/plugins"
 import { Route as NetworksRouteImport } from "./routes/networks"
+import { Route as ChatDemoRouteImport } from "./routes/chat-demo"
 import { Route as AuditRouteImport } from "./routes/audit"
 import { Route as ApprovalsRouteImport } from "./routes/approvals"
 import { Route as IndexRouteImport } from "./routes/index"
@@ -46,6 +47,11 @@ const PluginsRoute = PluginsRouteImport.update({
 const NetworksRoute = NetworksRouteImport.update({
   id: "/networks",
   path: "/networks",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChatDemoRoute = ChatDemoRouteImport.update({
+  id: "/chat-demo",
+  path: "/chat-demo",
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuditRoute = AuditRouteImport.update({
@@ -94,6 +100,7 @@ export interface FileRoutesByFullPath {
   "/": typeof IndexRoute
   "/approvals": typeof ApprovalsRoute
   "/audit": typeof AuditRoute
+  "/chat-demo": typeof ChatDemoRoute
   "/networks": typeof NetworksRoute
   "/plugins": typeof PluginsRoute
   "/policies": typeof PoliciesRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   "/": typeof IndexRoute
   "/approvals": typeof ApprovalsRoute
   "/audit": typeof AuditRoute
+  "/chat-demo": typeof ChatDemoRoute
   "/networks": typeof NetworksRoute
   "/plugins": typeof PluginsRoute
   "/policies": typeof PoliciesRoute
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   "/": typeof IndexRoute
   "/approvals": typeof ApprovalsRoute
   "/audit": typeof AuditRoute
+  "/chat-demo": typeof ChatDemoRoute
   "/networks": typeof NetworksRoute
   "/plugins": typeof PluginsRoute
   "/policies": typeof PoliciesRoute
@@ -142,6 +151,7 @@ export interface FileRouteTypes {
     | "/"
     | "/approvals"
     | "/audit"
+    | "/chat-demo"
     | "/networks"
     | "/plugins"
     | "/policies"
@@ -157,6 +167,7 @@ export interface FileRouteTypes {
     | "/"
     | "/approvals"
     | "/audit"
+    | "/chat-demo"
     | "/networks"
     | "/plugins"
     | "/policies"
@@ -172,6 +183,7 @@ export interface FileRouteTypes {
     | "/"
     | "/approvals"
     | "/audit"
+    | "/chat-demo"
     | "/networks"
     | "/plugins"
     | "/policies"
@@ -188,6 +200,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ApprovalsRoute: typeof ApprovalsRoute
   AuditRoute: typeof AuditRoute
+  ChatDemoRoute: typeof ChatDemoRoute
   NetworksRoute: typeof NetworksRoute
   PluginsRoute: typeof PluginsRoute
   PoliciesRoute: typeof PoliciesRoute
@@ -235,6 +248,13 @@ declare module "@tanstack/react-router" {
       path: "/networks"
       fullPath: "/networks"
       preLoaderRoute: typeof NetworksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/chat-demo": {
+      id: "/chat-demo"
+      path: "/chat-demo"
+      fullPath: "/chat-demo"
+      preLoaderRoute: typeof ChatDemoRouteImport
       parentRoute: typeof rootRouteImport
     }
     "/audit": {
@@ -300,6 +320,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ApprovalsRoute: ApprovalsRoute,
   AuditRoute: AuditRoute,
+  ChatDemoRoute: ChatDemoRoute,
   NetworksRoute: NetworksRoute,
   PluginsRoute: PluginsRoute,
   PoliciesRoute: PoliciesRoute,
