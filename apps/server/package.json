@@ -31,7 +31,7 @@
     "@cypheria/protocol": "workspace:*",
     "@cypheria/relay": "workspace:*",
     "@cypheria/web3": "workspace:*",
-    "@earendil-works/pi-coding-agent": "0.86.0",
+    "@earendil-works/pi-coding-agent": "0.86.1",
     "@hono/node-server": "^2.1.1",
     "@hono/zod-validator": "^0.9.1",
     "@libsql/client": "^0.17.4",

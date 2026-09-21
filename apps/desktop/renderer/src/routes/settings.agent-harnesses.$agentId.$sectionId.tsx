@@ -272,7 +272,7 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
   }
   const progress = Math.round((operation?.progress ?? 0) * 100)
   if (!agent.installed) return null
-  const updateAvailable = !agent.native && isAgentUpdateAvailable(agent)
+  const updateAvailable = isAgentUpdateAvailable(agent)
   return (
     <div className="grid justify-items-end gap-2">
       <div className="flex gap-2">
@@ -289,12 +289,25 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
         ) : null}
         {updateAvailable ? (
           <Button
+            aria-label={
+              update.error
+                ? `Update ${agent.name} failed: ${update.error.message}`
+                : `Update ${agent.name} to v${agent.availableVersion}`
+            }
             disabled={update.isPending || uninstall.isPending}
+            size={update.isPending ? "default" : "icon"}
+            title={update.error?.message ?? `Update to v${agent.availableVersion}`}
             variant="outline"
             onClick={() => update.mutate()}
           >
-            <RefreshCw className={update.isPending ? "size-4 animate-spin" : "size-4"} />
-            Update
+            {update.isPending ? (
+              <>
+                <LoaderCircle className="size-4 animate-spin" />
+                <span className="tabular-nums">{progress}%</span>
+              </>
+            ) : (
+              <Download className="size-4" />
+            )}
           </Button>
         ) : null}
         <DropdownMenu>
@@ -321,15 +334,6 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      {update.isPending && operation ? (
-        <Progress className="w-64" value={progress}>
-          <ProgressLabel>Update</ProgressLabel>
-          <ProgressValue />
-        </Progress>
-      ) : null}
-      {update.error ? (
-        <span className="text-xs text-destructive">{update.error.message}</span>
-      ) : null}
       {disable.error ? (
         <span className="text-xs text-destructive">{disable.error.message}</span>
       ) : null}
