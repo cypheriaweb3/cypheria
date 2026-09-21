@@ -121,7 +121,10 @@ export class DesktopServerManager {
 
   constructor(options: DesktopServerManagerOptions) {
     this.#candidates = options.cliCandidates
-    this.#env = options.env ?? process.env
+    this.#env = {
+      ...(options.env ?? process.env),
+      CYPHERIA_SERVER_WEB_ENABLED: "false",
+    }
     this.#probe = options.probe ?? probeCompatibleServer
     this.#runCli = options.runCli ?? defaultRunCli
     this.#runSupervisor = options.runSupervisor ?? defaultRunSupervisor

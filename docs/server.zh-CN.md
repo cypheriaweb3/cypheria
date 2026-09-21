@@ -16,7 +16,7 @@ cypheria-server CLI
           ├─ Hono HTTP 与 WebSocket Server
           ├─ session registry 和 Cypheria 服务
           ├─ Agent runtimes 与 adapters
-          └─ 内嵌 Expo web 导出
+          └─ 内嵌 Expo web 导出（仅独立 Server）
 ```
 
 Supervisor PID 稳定，worker 可替换。它使用有界重启退避、检测 worker 心跳丢失、防止孤儿 worker，并在优雅关闭超时后升级终止。Worker 在报告就绪前初始化 runtime、repositories、固定 Pinned Section、integrations 和可恢复 schedules。
@@ -34,7 +34,7 @@ pnpm --filter @cypheria/server server stop
 pnpm --filter @cypheria/server server stop --if-idle
 ```
 
-存在活动客户端时，`--if-idle` 会保留 Server。Desktop 遵循同一所有权原则：复用兼容进程，且只在安全时停止自己启动的实例。
+存在活动客户端时，`--if-idle` 会保留 Server。Desktop 遵循同一所有权原则：复用兼容进程，且只在安全时停止自己启动的实例。Desktop 启动的 Server 进程会禁用内嵌 web 托管；Desktop 复用的兼容独立 Server 则保留其独立选择的配置。
 
 ## 运行目录
 
@@ -121,7 +121,7 @@ Desktop 外观、布局、快捷键、窗口状态、更新偏好和操作系统
 
 ## 内嵌 Web 应用
 
-Server build 会把 Expo 静态导出复制到 `apps/server/dist/web`。Hono 先服务真实资产，再对客户端路由返回 `index.html`。HTML 不缓存；带指纹的资产使用 immutable cache。`/api/*` 始终是严格 API namespace。
+独立 Server build 会把 Expo 静态导出复制到 `apps/server/dist/web`。启用独立 web 托管时，Hono 先服务真实资产，再对客户端路由返回 `index.html`。HTML 不缓存；带指纹的资产使用 immutable cache。`/api/*` 始终是严格 API namespace。Desktop 会显式禁用由它启动的 Server 的 web 托管，因为 renderer 由 Electron（开发时由 Vite）提供，而不是由 Server 提供。
 
 ## 运维保证
 

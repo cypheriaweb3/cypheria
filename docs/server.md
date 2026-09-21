@@ -16,7 +16,7 @@ cypheria-server CLI
           ├─ Hono HTTP and WebSocket server
           ├─ session registry and Cypheria services
           ├─ Agent runtimes and adapters
-          └─ embedded Expo web export
+          └─ embedded Expo web export (standalone Server only)
 ```
 
 The supervisor has a stable PID while workers are replaceable. It applies bounded restart backoff, detects worker heartbeat loss, prevents orphan workers, and escalates termination when graceful shutdown expires. The worker initializes the runtime, repositories, fixed pinned Section, integrations, and recoverable schedules before reporting readiness.
@@ -34,7 +34,7 @@ pnpm --filter @cypheria/server server stop
 pnpm --filter @cypheria/server server stop --if-idle
 ```
 
-`--if-idle` leaves a Server running when active clients are present. Desktop uses the same ownership principle: it reuses a compatible process and only stops an instance it started when that instance is safe to reclaim.
+`--if-idle` leaves a Server running when active clients are present. Desktop uses the same ownership principle: it reuses a compatible process and only stops an instance it started when that instance is safe to reclaim. A Server process started by Desktop has embedded web hosting disabled; a compatible standalone Server that Desktop reuses keeps its independently selected configuration.
 
 ## Runtime home
 
@@ -121,7 +121,7 @@ Persistent services recover from SQLite. Recoverable schedules are leased and re
 
 ## Embedded web application
 
-The Server build copies the Expo static export into `apps/server/dist/web`. Hono serves real assets first and `index.html` for client routes. HTML is not cached; fingerprinted assets use immutable caching. `/api/*` remains a strict API namespace.
+The standalone Server build copies the Expo static export into `apps/server/dist/web`. When standalone web hosting is enabled, Hono serves real assets first and `index.html` for client routes. HTML is not cached; fingerprinted assets use immutable caching. `/api/*` remains a strict API namespace. Desktop explicitly disables web hosting for a Server process it starts because the renderer is delivered by Electron (or Vite during development), not by the Server.
 
 ## Operational guarantees
 

@@ -58,6 +58,7 @@ describe("DesktopServerManager", () => {
 
   it("starts a missing server and only stops the instance it owns", async () => {
     let ready = false
+    const env = { CYPHERIA_SERVER_WEB_ENABLED: "true", DESKTOP_TEST: "enabled" }
     const paths = runtime()
     const runCli = vi.fn(
       async (
@@ -74,6 +75,7 @@ describe("DesktopServerManager", () => {
     })
     const manager = new DesktopServerManager({
       cliCandidates: [paths.cliPath],
+      env,
       probe: async () => ready,
       runCli,
       runSupervisor,
@@ -83,9 +85,17 @@ describe("DesktopServerManager", () => {
     await expect(manager.ensureRunning()).resolves.toMatchObject({ owned: true, state: "ready" })
     await manager.stopOwned()
 
-    expect(runSupervisor).toHaveBeenCalledWith(paths.supervisorPath, process.env)
+    expect(runSupervisor).toHaveBeenCalledWith(paths.supervisorPath, {
+      CYPHERIA_SERVER_WEB_ENABLED: "false",
+      DESKTOP_TEST: "enabled",
+    })
     expect(runCli.mock.calls.map(([, command]) => command)).toEqual(["stop"])
+    expect(runCli.mock.calls[0]?.[2]).toEqual({
+      CYPHERIA_SERVER_WEB_ENABLED: "false",
+      DESKTOP_TEST: "enabled",
+    })
     expect(runCli.mock.calls[0]?.[3]).toEqual({ ifIdle: true })
+    expect(env.CYPHERIA_SERVER_WEB_ENABLED).toBe("true")
   })
 
   it("reports every searched location when the server CLI is missing", async () => {

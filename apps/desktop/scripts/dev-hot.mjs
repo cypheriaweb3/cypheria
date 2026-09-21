@@ -360,6 +360,7 @@ if (command === "stop") {
         process.env.CYPHERIA_SERVER_ALLOWED_ORIGINS,
         rendererOrigin
       ),
+      CYPHERIA_SERVER_WEB_ENABLED: "false",
     })
     const renderer = start("Vite renderer", [
       "--filter",
