@@ -8,6 +8,17 @@ import type {
   HarnessSettingValue,
 } from "@cypheria/protocol"
 import { Alert, AlertDescription, AlertTitle } from "@cypheria/ui/components/alert"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogMedia,
+  AlertDialogTitle,
+} from "@cypheria/ui/components/alert-dialog"
 import { Badge } from "@cypheria/ui/components/badge"
 import { Button } from "@cypheria/ui/components/button"
 import {
@@ -30,6 +41,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@cypheria/ui/components/dropdown-menu"
 import { Field, FieldDescription, FieldLabel } from "@cypheria/ui/components/field"
@@ -53,7 +65,9 @@ import {
   LoaderCircle,
   MoreHorizontal,
   RefreshCw,
+  RotateCw,
   Trash2,
+  TriangleAlert,
 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { waitForAgentOperation } from "../components/agent-operation"
@@ -230,6 +244,7 @@ function AgentHarnessSettingsRoute() {
 
 function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
   const queryClient = useQueryClient()
+  const [restartOpen, setRestartOpen] = useState(false)
   const [uninstallOpen, setUninstallOpen] = useState(false)
   const [operation, setOperation] = useState<AgentOperation>()
   const update = useMutation({
@@ -239,6 +254,19 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
     },
     onSuccess: async () => {
       setOperation(undefined)
+      await queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
+      await queryClient.invalidateQueries({ queryKey: ["harness", agent.id] })
+    },
+  })
+  const restart = useMutation({
+    mutationFn: async () => {
+      const client = await ensureCypheriaClient()
+      await client.agents.stop(agent.id, true)
+      return client.agents.start(agent.id)
+    },
+    onSuccess: async () => {
+      setRestartOpen(false)
+      queryClient.removeQueries({ queryKey: ["harness", agent.id] })
       await queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
       await queryClient.invalidateQueries({ queryKey: ["harness", agent.id] })
     },
@@ -262,6 +290,11 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
       await queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
     },
   })
+  const setRestartDialogOpen = (open: boolean) => {
+    if (restart.isPending) return
+    if (!open) restart.reset()
+    setRestartOpen(open)
+  }
   const setUninstallDialogOpen = (open: boolean) => {
     if (uninstall.isPending) return
     if (!open) {
@@ -270,6 +303,8 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
     }
     setUninstallOpen(open)
   }
+  const maintenancePending =
+    disable.isPending || restart.isPending || update.isPending || uninstall.isPending
   const progress = Math.round((operation?.progress ?? 0) * 100)
   if (!agent.installed) return null
   const updateAvailable = isAgentUpdateAvailable(agent)
@@ -281,7 +316,7 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
             aria-label={`Disable ${agent.name}`}
             checked
             className="self-center"
-            disabled={disable.isPending || update.isPending || uninstall.isPending}
+            disabled={maintenancePending}
             onCheckedChange={(checked) => {
               if (!checked) disable.mutate()
             }}
@@ -294,7 +329,7 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
                 ? `Update ${agent.name} failed: ${update.error.message}`
                 : `Update ${agent.name} to v${agent.availableVersion}`
             }
-            disabled={update.isPending || uninstall.isPending}
+            disabled={maintenancePending}
             size={update.isPending ? "default" : "icon"}
             title={update.error?.message ?? `Update to v${agent.availableVersion}`}
             variant="outline"
@@ -315,7 +350,7 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
             render={
               <Button
                 aria-label={`More maintenance options for ${agent.name}`}
-                disabled={update.isPending || uninstall.isPending}
+                disabled={maintenancePending}
                 size="icon"
                 variant="ghost"
               />
@@ -324,10 +359,12 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
             <MoreHorizontal aria-hidden="true" />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem
-              className="text-destructive focus:text-destructive"
-              onClick={() => setUninstallDialogOpen(true)}
-            >
+            <DropdownMenuItem disabled={!agent.enabled} onClick={() => setRestartDialogOpen(true)}>
+              <RotateCw aria-hidden="true" />
+              Restart
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onClick={() => setUninstallDialogOpen(true)}>
               <Trash2 aria-hidden="true" />
               Uninstall
             </DropdownMenuItem>
@@ -337,6 +374,40 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
       {disable.error ? (
         <span className="text-xs text-destructive">{disable.error.message}</span>
       ) : null}
+      <AlertDialog open={restartOpen} onOpenChange={setRestartDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogMedia className="bg-destructive/10 text-destructive">
+              <TriangleAlert aria-hidden="true" />
+            </AlertDialogMedia>
+            <AlertDialogTitle>Restart {agent.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This stops the harness, closes its active threads, and starts it again. Any
+              in-progress work will be interrupted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {restart.error ? (
+            <p className="text-sm text-destructive">{restart.error.message}</p>
+          ) : null}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={restart.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={restart.isPending}
+              variant="destructive"
+              onClick={() => restart.mutate()}
+            >
+              {restart.isPending ? (
+                <>
+                  <LoaderCircle className="size-4 animate-spin" />
+                  Restarting…
+                </>
+              ) : (
+                "Restart"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Dialog open={uninstallOpen} onOpenChange={setUninstallDialogOpen}>
         <DialogContent>
           <DialogHeader>
