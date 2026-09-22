@@ -415,8 +415,78 @@ export function ChatTerminalOutputHost({ className, ...props }: HTMLAttributes<H
   )
 }
 
+type ChatPreviewPanelProps = HTMLAttributes<HTMLDivElement> & {
+  toolbar?: ReactNode
+  statusBar?: ReactNode
+}
+
+export function ChatPreviewPanel({
+  className,
+  toolbar,
+  statusBar,
+  children,
+  ...props
+}: ChatPreviewPanelProps) {
+  return (
+    <div
+      data-slot="chat-preview-panel"
+      className={cn("flex size-full min-h-0 min-w-0 flex-col bg-background", className)}
+      {...props}
+    >
+      {toolbar}
+      <div data-slot="chat-preview-panel-body" className="min-h-0 min-w-0 flex-1 overflow-auto">
+        {children}
+      </div>
+      {statusBar}
+    </div>
+  )
+}
+
+export function ChatPreviewToolbar({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      data-slot="chat-preview-toolbar"
+      className={cn(
+        "flex min-h-10 shrink-0 items-center gap-1 border-b bg-background px-2 text-xs",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
+type ChatPreviewHostProps = HTMLAttributes<HTMLDivElement> & {
+  kind?: string
+}
+
+export function ChatPreviewHost({ className, kind = "generic", ...props }: ChatPreviewHostProps) {
+  return (
+    <div
+      data-slot="chat-preview-host"
+      data-kind={kind}
+      className={cn("min-h-full min-w-0 bg-muted/15 p-3", className)}
+      {...props}
+    />
+  )
+}
+
+export function ChatPreviewStatusBar({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      data-slot="chat-preview-status-bar"
+      className={cn(
+        "flex min-h-8 shrink-0 items-center gap-2 border-t bg-background px-3 text-xs text-muted-foreground",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
 export type {
   ChatPlanStepProps,
+  ChatPreviewHostProps,
+  ChatPreviewPanelProps,
   ChatPullRequestCardProps,
   ChatReviewFileListProps,
   ChatSourceGroupProps,

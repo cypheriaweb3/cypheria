@@ -44,7 +44,7 @@ export function ChatPanelResizeHandle({
   return (
     <ResizableHandle
       data-slot="chat-panel-resize-handle"
-      className={cn("bg-transparent hover:bg-border focus-visible:bg-border", className)}
+      className={cn("z-20 hover:bg-ring/45", className)}
       {...props}
     />
   )
@@ -54,7 +54,11 @@ export function ChatPanelHeader({ className, ...props }: HTMLAttributes<HTMLDivE
   return (
     <div
       data-slot="chat-panel-header"
-      className={cn("flex h-11 min-h-11 min-w-0 items-center gap-1 border-b px-2", className)}
+      className={cn(
+        "flex h-9 min-h-9 min-w-0 items-center gap-1.5 border-b border-border/80 bg-background ps-2 pe-1.5",
+        "data-[placement=bottom]:bg-muted/25",
+        className
+      )}
       {...props}
     />
   )
@@ -65,9 +69,8 @@ type ChatPanelTabsProps = HTMLAttributes<HTMLDivElement> & {
   activeTabId?: string
   placement: ChatPanelPlacement
   onCloseTab?: (tabId: string) => void
-  onMoveTab?: (tabId: string, placement: ChatPanelPlacement) => void
   closeTabLabel?: (tab: ChatPanelTabDescriptor) => string
-  moveTabLabel?: (tab: ChatPanelTabDescriptor, placement: ChatPanelPlacement) => string
+  label?: string
 }
 
 export function ChatPanelTabs({
@@ -76,65 +79,99 @@ export function ChatPanelTabs({
   activeTabId,
   placement,
   onCloseTab,
-  onMoveTab,
   closeTabLabel,
-  moveTabLabel,
+  label,
+  onKeyDown,
   ...props
 }: ChatPanelTabsProps) {
-  const destination: ChatPanelPlacement = placement === "right" ? "bottom" : "right"
   return (
     <div
       data-slot="chat-panel-tabs"
-      className={cn("min-w-0 flex-1 overflow-x-auto", className)}
+      data-placement={placement}
+      className={cn(
+        "relative isolate flex h-full min-w-0 flex-1 items-center overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+        className
+      )}
       {...props}
     >
-      <TabsList className="h-10 max-w-full justify-start gap-0 bg-transparent p-0" variant="line">
+      <TabsList
+        aria-label={label}
+        className="h-full min-w-max justify-start gap-[3px] bg-transparent p-0"
+        onKeyDown={(event) => {
+          onKeyDown?.(event)
+          if (event.defaultPrevented || event.key !== "Delete" || !onCloseTab) return
+          const trigger = (event.target as HTMLElement).closest<HTMLElement>(
+            '[role="tab"][data-tab-id]'
+          )
+          const tab = tabs.find((item) => item.id === trigger?.dataset.tabId)
+          if (!tab?.closable) return
+          event.preventDefault()
+          onCloseTab(tab.id)
+        }}
+        variant="line"
+      >
         {tabs.map((tab) => (
           <div
             data-slot="chat-panel-tab"
             data-active={tab.id === activeTabId || undefined}
-            className="group/chat-panel-tab flex min-w-0 shrink-0 items-center"
+            className={cn(
+              "group/chat-panel-tab relative my-auto flex h-7 min-w-20 basis-36 items-center overflow-hidden rounded-lg",
+              "max-w-52 flex-1 shrink-0 bg-background/80",
+              "after:absolute after:top-1/2 after:-right-0.5 after:h-3 after:w-px after:-translate-y-1/2 after:bg-border/80 after:content-['']",
+              "last:after:hidden data-[active=true]:bg-muted data-[active=true]:after:hidden",
+              "hover:bg-muted/70 has-focus-visible:ring-2 has-focus-visible:ring-ring/50"
+            )}
             key={tab.id}
           >
             <TabsTrigger
-              className="h-10 min-w-0 max-w-48 gap-1 rounded-none px-2 text-xs"
+              aria-keyshortcuts={tab.closable && onCloseTab ? "Delete" : undefined}
+              className={cn(
+                "h-7 min-w-0 flex-1 justify-start gap-1.5 rounded-lg border-0 px-2 py-1 text-xs font-normal",
+                "after:hidden hover:text-foreground focus-visible:ring-0 focus-visible:outline-none",
+                "data-active:bg-transparent data-active:font-medium data-active:shadow-none",
+                tab.closable && "pe-5"
+              )}
+              data-tab-id={tab.id}
               disabled={tab.disabled}
               value={tab.id}
             >
-              {tab.icon}
-              <span className="truncate">{tab.title}</span>
+              {tab.icon ? (
+                <span className="flex size-3.5 shrink-0 items-center justify-center [&_svg]:size-3.5">
+                  {tab.icon}
+                </span>
+              ) : null}
+              <span
+                className="min-w-0 truncate"
+                style={
+                  tab.closable
+                    ? {
+                        maskImage:
+                          "linear-gradient(to right, black calc(100% - 0.75rem), transparent)",
+                      }
+                    : undefined
+                }
+              >
+                {tab.title}
+              </span>
               {tab.badge}
             </TabsTrigger>
-            {tab.movable && onMoveTab && moveTabLabel && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        aria-label={moveTabLabel(tab, destination)}
-                        className="size-6 opacity-0 group-focus-within/chat-panel-tab:opacity-100 group-hover/chat-panel-tab:opacity-100"
-                        onClick={() => onMoveTab(tab.id, destination)}
-                        size="icon-xs"
-                        type="button"
-                        variant="ghost"
-                      >
-                        {destination === "bottom" ? <DockIcon /> : <SidebarRightIcon />}
-                      </Button>
-                    }
-                  />
-                  <TooltipContent>{moveTabLabel(tab, destination)}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            )}
-            {tab.closable && onCloseTab && closeTabLabel && (
+            {tab.closable && onCloseTab && closeTabLabel ? (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger
                     render={
                       <Button
                         aria-label={closeTabLabel(tab)}
-                        className="size-6 opacity-0 group-focus-within/chat-panel-tab:opacity-100 group-hover/chat-panel-tab:opacity-100"
-                        onClick={() => onCloseTab(tab.id)}
+                        className={cn(
+                          "absolute top-1/2 right-0.5 z-10 size-5 -translate-y-1/2 rounded-md",
+                          tab.id === activeTabId
+                            ? "opacity-100"
+                            : "pointer-events-none opacity-0 group-focus-within/chat-panel-tab:pointer-events-auto group-focus-within/chat-panel-tab:opacity-100 group-hover/chat-panel-tab:pointer-events-auto group-hover/chat-panel-tab:opacity-100"
+                        )}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          onCloseTab(tab.id)
+                        }}
                         size="icon-xs"
                         type="button"
                         variant="ghost"
@@ -146,7 +183,7 @@ export function ChatPanelTabs({
                   <TooltipContent>{closeTabLabel(tab)}</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
-            )}
+            ) : null}
           </div>
         ))}
       </TabsList>
@@ -222,6 +259,10 @@ type ChatPanelProps = HTMLAttributes<HTMLDivElement> & {
   hideLabel?: string
   closeTabLabel?: (tab: ChatPanelTabDescriptor) => string
   moveTabLabel?: (tab: ChatPanelTabDescriptor, placement: ChatPanelPlacement) => string
+  tabsLabel?: string
+  headerVisible?: boolean
+  headerClassName?: string
+  workspaceHeader?: boolean
 }
 
 export function ChatPanel({
@@ -240,9 +281,17 @@ export function ChatPanel({
   hideLabel,
   closeTabLabel,
   moveTabLabel,
+  tabsLabel,
+  headerVisible = true,
+  headerClassName,
+  workspaceHeader = false,
   ...props
 }: ChatPanelProps) {
   if (visibility === "closed") return null
+
+  const selectedTabId = activeTabId ?? tabs[0]?.id
+  const selectedTab = tabs.find((tab) => tab.id === selectedTabId)
+  const destination: ChatPanelPlacement = placement === "right" ? "bottom" : "right"
 
   return (
     <div
@@ -255,54 +304,96 @@ export function ChatPanel({
       className={cn("flex size-full min-h-0 min-w-0 flex-col bg-background", className)}
       {...props}
     >
-      {tabs.length === 0 ? (
-        emptyState
-      ) : (
-        <Tabs
-          className="size-full min-h-0 gap-0"
-          onValueChange={onActiveTabChange}
-          value={activeTabId ?? tabs[0]?.id}
-        >
-          <ChatPanelHeader>
-            <ChatPanelTabs
-              activeTabId={activeTabId ?? tabs[0]?.id}
-              closeTabLabel={closeTabLabel}
-              moveTabLabel={moveTabLabel}
-              onCloseTab={onCloseTab}
-              onMoveTab={onMoveTab}
-              placement={placement}
-              tabs={tabs}
-            />
-            {actions}
-            {onVisibilityChange && hideLabel && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        aria-label={hideLabel}
-                        onClick={() => onVisibilityChange("hidden")}
-                        size="icon-sm"
-                        type="button"
-                        variant="ghost"
-                      >
-                        {placement === "right" ? <SidebarRightIcon /> : <DockIcon />}
-                      </Button>
-                    }
-                  />
-                  <TooltipContent>{hideLabel}</TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+      <Tabs
+        className="size-full min-h-0 gap-0"
+        onValueChange={onActiveTabChange}
+        value={selectedTabId}
+      >
+        {headerVisible ? (
+          <ChatPanelHeader
+            className={cn(
+              workspaceHeader &&
+                placement === "right" &&
+                "relative z-30 h-(--chat-header-height) min-h-(--chat-header-height) border-b-0 pe-[calc(var(--chat-fixed-header-actions-width,4.625rem)+0.25rem)]",
+              headerClassName
             )}
-            {launcher}
+            data-placement={placement}
+            data-workspace-header={workspaceHeader || undefined}
+          >
+            <div className="flex min-w-0 flex-1 items-center gap-0.5">
+              {tabs.length ? (
+                <ChatPanelTabs
+                  activeTabId={selectedTabId}
+                  className="flex-[0_1_auto]"
+                  closeTabLabel={closeTabLabel}
+                  label={tabsLabel}
+                  onCloseTab={onCloseTab}
+                  placement={placement}
+                  tabs={tabs}
+                />
+              ) : (
+                <div className="min-w-0 flex-1" />
+              )}
+              {launcher}
+            </div>
+            <div
+              data-slot="chat-panel-header-actions"
+              className="ml-auto flex shrink-0 items-center gap-1"
+            >
+              {actions}
+              {selectedTab?.movable && onMoveTab && moveTabLabel ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          aria-label={moveTabLabel(selectedTab, destination)}
+                          onClick={() => onMoveTab(selectedTab.id, destination)}
+                          size="icon-sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          {destination === "bottom" ? <DockIcon /> : <SidebarRightIcon />}
+                        </Button>
+                      }
+                    />
+                    <TooltipContent>{moveTabLabel(selectedTab, destination)}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : null}
+              {onVisibilityChange && hideLabel ? (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <Button
+                          aria-label={hideLabel}
+                          onClick={() => onVisibilityChange("hidden")}
+                          size="icon-sm"
+                          type="button"
+                          variant="ghost"
+                        >
+                          <CloseBoldIcon />
+                        </Button>
+                      }
+                    />
+                    <TooltipContent>{hideLabel}</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : null}
+            </div>
           </ChatPanelHeader>
-          {tabs.map((tab) => (
+        ) : null}
+        {tabs.length ? (
+          tabs.map((tab) => (
             <TabsContent className="m-0 min-h-0 overflow-hidden" key={tab.id} value={tab.id}>
               {tab.content}
             </TabsContent>
-          ))}
-        </Tabs>
-      )}
+          ))
+        ) : (
+          <div className="min-h-0 flex-1">{emptyState}</div>
+        )}
+      </Tabs>
     </div>
   )
 }

@@ -1,13 +1,14 @@
 # OpenAI Apps SDK UI icons
 
-The SVG React components in this directory are selected, unmodified copies from the OpenAI Apps SDK UI repository:
+The SVG React components in this directory are a complete, pinned mirror of the OpenAI Apps SDK UI icon source directory:
 
 - Repository: `https://github.com/openai/apps-sdk-ui`
 - Source revision: `0f00143c7a639906f1621fe58e1b6be7b5bea46d`
 - Source directory: `src/components/Icon/svg`
-- Imported on: 2026-09-20
+- Imported on: 2026-09-22
+- Mirrored files: all 755 `*.tsx` icon components present at the pinned revision
 
-Only icons used by Cypheria's shared chat components are included: `AddSources`, `Agent`, `ArrowDown`, `ArrowUp`, `Branch`, `CloseBold`, `Dock`, `Error`, `File`, `Globe`, `PlusComposer`, `PullRequestOpen`, `SidebarRight`, `Stop`, and `Terminal`. SVG path data is unchanged. Cypheria formatting, a non-shadowing local name for `Error`, and `aria-hidden="true"` were added because these icons are decorative inside controls that provide their own accessible names. `index.ts` adds Cypheria's `Icon`-suffixed named exports.
+SVG path data is unchanged. Cypheria formatting, non-shadowing local component names for the upstream `Array`, `Boolean`, `Error`, `Function`, `Number`, and `String` files, and `aria-hidden="true"` were added because these icons are decorative inside controls that provide their own accessible names. `index.ts` exposes every upstream component as an `Icon`-suffixed named export. The filename inventory is therefore the directory listing itself and can be compared mechanically with the pinned upstream directory; it is intentionally not duplicated as a 755-entry prose list here.
 
 ## License
 

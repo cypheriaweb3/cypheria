@@ -98,7 +98,15 @@ Use `pnpm --filter @cypheria/desktop dev` only when testing the one-time built r
 
 The Desktop development shell exposes a fixed **Chat Demo** navigation item at `/chat-demo`. It is
 a local interactive showcase for the shared chat components and does not contact an Agent runtime.
-The preload bootstrap flag hides the item and redirects the route in packaged production builds.
+Its transcript uses `@tanstack/react-virtual` with 128 variable-height messages, measured rows,
+overscan, sampled turn navigation, and live message appends so long-conversation behavior can be
+inspected without production data. The preload bootstrap flag hides the item and redirects the
+route in packaged production builds. Its right and bottom surfaces are simultaneously resizable and
+offer all 25 audited content hosts as tabs: sources, subagents, plan, summary, goal, review,
+pull request, terminal, file, image, browser, MCP App, automation, artifact, PDF, document, notebook,
+presentation, workbook, entity details, side chat, MCP thread/file extensions, sandbox, and a
+secondary timeline. A floating display controller switches nine Timeline families and individual
+panel tabs between a compact curated view and the exhaustive catalog.
 
 ### Removing Chat Demo
 
@@ -114,10 +122,13 @@ adopted the shared chat components, remove the demo with this checklist:
    corresponding main/preload argument wiring.
 4. Regenerate `routeTree.gen.ts` with `pnpm --filter @cypheria/desktop build:renderer`; never edit
    the generated route tree by hand.
-5. Remove this cleanup section and the preceding Chat Demo paragraph, then run the Desktop tests,
+5. Keep the complete, pinned `packages/ui/src/components/icons` mirror. It is a shared UI asset and
+   is intentionally not pruned according to Demo imports; only change it as a separately reviewed
+   upstream-mirror update, including its README revision and license record.
+6. Remove this cleanup section and the preceding Chat Demo paragraph, then run the Desktop tests,
    Desktop typecheck, strict Lingui compile, `pnpm docs:check`, and root `pnpm check`.
 
-Do not delete `packages/ui/src/components/chat`, `packages/ui/src/components/icons`, or the Codex
+Do not delete `packages/ui/src/components/chat`, the icons directory itself, or the Codex
 conversation UI reference documents when removing the demo. They are reusable production assets,
 not demo scaffolding. Chat Demo deliberately has no Lingui catalog entries to clean up.
 

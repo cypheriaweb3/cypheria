@@ -85,8 +85,9 @@
   --scrollbar-thumb: color-mix(in srgb, var(--foreground) 10%, transparent);
   --scrollbar-thumb-strong: color-mix(in srgb, var(--foreground) 18%, transparent);
   --chat-header-height: 2.75rem;
-  --chat-content-max-width: 40rem;
-  --chat-composer-max-width: 48rem;
+  --chat-thread-max-width: 48rem;
+  --chat-content-max-width: var(--chat-thread-max-width);
+  --chat-composer-max-width: var(--chat-thread-max-width);
   --chat-composer-safe-area: 8rem;
   --chat-composer-panel-offset: 0px;
   --chat-main-min-width: 30rem;

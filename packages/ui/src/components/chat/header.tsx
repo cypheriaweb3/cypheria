@@ -6,12 +6,18 @@ import { cn } from "#lib/utils"
 
 import type { ChatActivityState, ChatPanelPlacement } from "./types.js"
 
-export function ChatHeader({ className, ...props }: HTMLAttributes<HTMLElement>) {
+type ChatHeaderProps = HTMLAttributes<HTMLElement> & {
+  reserveFixedActions?: boolean
+}
+
+export function ChatHeader({ className, reserveFixedActions = false, ...props }: ChatHeaderProps) {
   return (
     <header
       data-slot="chat-header"
+      data-fixed-actions-inset={reserveFixedActions || undefined}
       className={cn(
-        "z-20 flex h-(--chat-header-height) min-h-(--chat-header-height) items-center gap-2 border-b bg-background px-3 text-sm",
+        "flex h-(--chat-header-height) min-h-(--chat-header-height) items-center gap-2 border-b bg-background px-4 text-sm",
+        reserveFixedActions && "pe-[calc(var(--chat-fixed-header-actions-width,4.625rem)+0.25rem)]",
         className
       )}
       {...props}
@@ -23,7 +29,7 @@ export function ChatHeaderBreadcrumb({ className, ...props }: HTMLAttributes<HTM
   return (
     <div
       data-slot="chat-header-breadcrumb"
-      className={cn("flex min-w-0 shrink-0 items-center gap-1 text-muted-foreground", className)}
+      className={cn("flex min-w-0 shrink items-center gap-2 text-muted-foreground", className)}
       {...props}
     />
   )
@@ -33,7 +39,7 @@ export function ChatHeaderTitle({ className, ...props }: HTMLAttributes<HTMLHead
   return (
     <h1
       data-slot="chat-header-title"
-      className={cn("min-w-0 max-w-80 truncate font-medium text-sm", className)}
+      className={cn("min-w-[2ch] max-w-105 truncate font-medium text-sm", className)}
       {...props}
     />
   )
@@ -116,7 +122,7 @@ export function ChatPinnedSummary({ className, ...props }: HTMLAttributes<HTMLEl
     <aside
       data-slot="chat-pinned-summary"
       className={cn(
-        "mx-auto w-full max-w-(--chat-content-max-width) border-b bg-background/95 px-4 py-3 text-sm backdrop-blur",
+        "mx-auto w-full max-w-(--chat-content-max-width) border-b bg-background/95 px-3 py-3 text-sm backdrop-blur",
         className
       )}
       {...props}
@@ -124,4 +130,4 @@ export function ChatPinnedSummary({ className, ...props }: HTMLAttributes<HTMLEl
   )
 }
 
-export type { ChatHeaderStatusProps, ChatPanelToggleProps }
+export type { ChatHeaderProps, ChatHeaderStatusProps, ChatPanelToggleProps }

@@ -97,7 +97,8 @@ pnpm --filter @cypheria/cypheria-relay dev -- --mode=single
 仅在测试一次性构建的 renderer、而不是 HMR 工作流时，才使用 `pnpm --filter @cypheria/desktop dev`。
 
 Desktop 开发壳会显示一个固定的 **Chat Demo** 导航项，对应 `/chat-demo`。它是共享 Chat
-组件的本地交互展示，不会连接 Agent runtime。preload bootstrap 标志会在正式打包版本中隐藏该入口并重定向该路由。
+组件的本地交互展示，不会连接 Agent runtime。其 transcript 使用 `@tanstack/react-virtual`
+展示 128 条可变高度消息，并包含行测量、overscan、采样 turn 导航和实时消息追加，从而无需生产数据即可检查长会话行为。右侧与底部界面可同时调整尺寸，并提供审计得到的全部 25 类内容 host：sources、subagents、plan、summary、goal、review、pull request、terminal、file、image、browser、MCP App、automation、artifact、PDF、document、notebook、presentation、workbook、entity detail、side chat、MCP thread/file extension、sandbox 与 secondary timeline。悬浮展示控制器可以逐组切换 9 类 Timeline item 和各个 panel tab，也可以在精选视图与完整目录之间切换。preload bootstrap 标志会在正式打包版本中隐藏该入口并重定向该路由。
 
 ### 删除 Chat Demo
 
@@ -109,10 +110,11 @@ Chat Demo 是临时开发脚手架。当正式会话工作区已经采用共享 
 3. 如果没有其他仅开发版 renderer 功能继续使用，删除 `development-mode.ts` 及其测试，并移除
    `bootstrap.development`、`CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX` 和 main/preload 中对应的参数接线。
 4. 运行 `pnpm --filter @cypheria/desktop build:renderer` 重新生成 `routeTree.gen.ts`；不得手工编辑生成的路由树。
-5. 删除本清理章节及其前面的 Chat Demo 说明，然后运行 Desktop 测试、Desktop typecheck、Lingui
+5. 保留完整且固定版本的 `packages/ui/src/components/icons` 镜像。它属于共享 UI 资产，不能根据 Demo import 情况裁剪；只有在单独审查上游镜像更新时才修改，并同步记录 README 中的 revision 与许可证。
+6. 删除本清理章节及其前面的 Chat Demo 说明，然后运行 Desktop 测试、Desktop typecheck、Lingui
    strict compile、`pnpm docs:check` 和根级 `pnpm check`。
 
-删除 Demo 时不要删除 `packages/ui/src/components/chat`、`packages/ui/src/components/icons` 或 Codex
+删除 Demo 时不要删除 `packages/ui/src/components/chat`、icons 目录本身或 Codex
 会话 UI 参考文档；它们是可复用的正式资产，不属于 Demo 脚手架。Chat Demo 刻意没有 Lingui catalog 条目，因此无需清理翻译。
 
 产品 CLI 单独构建：

@@ -6,6 +6,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import ChatDemo from "./chat-demo.js"
 
+class ResizeObserverStub implements ResizeObserver {
+  disconnect() {}
+  observe() {}
+  unobserve() {}
+}
+
 const required = <T extends Element>(container: ParentNode, selector: string): T => {
   const element = container.querySelector<T>(selector)
   if (!element) throw new Error(`Missing demo element: ${selector}`)
@@ -34,6 +40,7 @@ describe("ChatDemo", () => {
     ).IS_REACT_ACT_ENVIRONMENT = true
     HTMLElement.prototype.scrollTo = vi.fn()
     Element.prototype.scrollIntoView = vi.fn()
+    vi.stubGlobal("ResizeObserver", ResizeObserverStub)
     container = document.createElement("div")
     document.body.append(container)
     root = createRoot(container)
@@ -44,22 +51,130 @@ describe("ChatDemo", () => {
     act(() => root.unmount())
     container.remove()
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
   })
 
-  it("composes the complete chat shell and controlled panels", () => {
-    expect(required(container, '[data-slot="chat-header-title"]').textContent).toBe("Chat Demo")
-    expect(container.textContent).toContain(
-      "Building a reusable Codex-style conversation shell for Cypheria Desktop."
+  it("composes the complete chat shell and controlled panels", async () => {
+    expect(required(container, '[data-slot="chat-header-title"]').textContent).toBe(
+      "Chat UI component audit"
     )
+    const virtualizer = required(container, '[data-chat-demo-virtualizer="true"]')
+    expect(virtualizer.getAttribute("data-total-count")).toBe("128")
+    expect(container.textContent).toContain("128 messages · virtualized")
+    expect(container.querySelectorAll("[data-demo-message]").length).toBeLessThan(128)
+    expect(container.querySelectorAll('[data-slot="chat-turn-marker"]')).toHaveLength(18)
     expect(requiredText(container, '[role="tab"]', "Sources")).toBeTruthy()
     expect(requiredText(container, '[role="tab"]', "Terminal")).toBeTruthy()
+    expect(container.querySelectorAll('[data-slot="chat-panel-tab"]')).toHaveLength(5)
 
-    act(() => required<HTMLButtonElement>(container, '[aria-label="Toggle right panel"]').click())
+    await act(async () => {
+      required<HTMLButtonElement>(container, '[aria-label="Choose visible demo elements"]').click()
+      await Promise.resolve()
+    })
+    await act(async () => {
+      requiredText<HTMLButtonElement>(document, "button", "Show all").click()
+      await Promise.resolve()
+    })
+
+    for (const title of [
+      "Artifact",
+      "Automation",
+      "Browser",
+      "Document",
+      "Entity",
+      "File",
+      "Goal",
+      "Image",
+      "MCP App",
+      "Notebook",
+      "PDF",
+      "Plan",
+      "Presentation",
+      "Pull request",
+      "Review",
+      "Sources",
+      "Subagents",
+      "Summary",
+      "Terminal",
+      "Workbook",
+      "Side chat",
+      "MCP thread",
+      "MCP file",
+      "Sandbox",
+      "Timeline",
+    ]) {
+      expect(requiredText(container, '[role="tab"]', title)).toBeTruthy()
+    }
+    expect(container.querySelectorAll('[data-slot="chat-panel-resize-handle"]')).toHaveLength(2)
+
+    expect(
+      required(container, '[data-slot="chat-workspace-main-stack"]').contains(
+        required(container, '[data-slot="chat-header"]')
+      )
+    ).toBe(true)
+    expect(
+      required(container, '[data-slot="chat-header"]').classList.contains("desktop-titlebar")
+    ).toBe(true)
+    expect(required(container, '[data-slot="chat-header"]').classList.contains("z-20")).toBe(false)
+    expect(required(container, '[aria-label="Open side panel tab"]')).toBeTruthy()
+    expect(required(container, '[aria-label="Open bottom panel tab"]')).toBeTruthy()
+    const sideHeader = required(
+      required(container, '[data-slot="chat-right-panel-surface"]'),
+      '[data-slot="chat-panel-header"]'
+    )
+    expect(sideHeader.classList.contains("border-b-0")).toBe(true)
+    expect(sideHeader.getAttribute("data-workspace-header")).toBe("true")
+    const sideActionLabels = [
+      ...required(
+        sideHeader,
+        '[data-slot="chat-panel-header-actions"]'
+      ).querySelectorAll<HTMLButtonElement>("button"),
+    ]
+      .map((button) => button.getAttribute("aria-label"))
+      .filter((label): label is string => label !== null)
+    expect(sideActionLabels).toEqual(["Enter full screen"])
+    const fixedHeaderActions = required(
+      container,
+      '[data-slot="chat-workspace-fixed-header-actions"]'
+    )
+    expect(
+      [...fixedHeaderActions.querySelectorAll<HTMLButtonElement>("button")].map((button) =>
+        button.getAttribute("aria-label")
+      )
+    ).toEqual(["Toggle bottom panel", "Toggle side panel"])
+    expect(fixedHeaderActions.classList.contains("gap-1")).toBe(true)
+    expect(fixedHeaderActions.classList.contains("border-b")).toBe(false)
+    const bottomHeaderActions = required(
+      required(container, '[data-slot="chat-bottom-panel-surface"]'),
+      '[data-slot="chat-panel-header-actions"]'
+    )
+    expect(
+      [...bottomHeaderActions.querySelectorAll<HTMLButtonElement>("button")].map((button) =>
+        button.getAttribute("aria-label")
+      )
+    ).toEqual(["Close bottom panel"])
+
+    act(() => required<HTMLButtonElement>(container, '[aria-label="Enter full screen"]').click())
+    expect(
+      required(container, '[data-slot="chat-workspace-shell"]').getAttribute(
+        "data-right-panel-fullscreen"
+      )
+    ).toBe("true")
+
+    act(() => required<HTMLButtonElement>(container, '[aria-label="Toggle side panel"]').click())
     expect(
       required(container, '[data-slot="chat-right-panel-surface"]').hasAttribute("hidden")
     ).toBe(true)
+    expect(
+      required(container, '[data-slot="chat-workspace-fixed-header-actions"]').classList.contains(
+        "border-b"
+      )
+    ).toBe(true)
+    expect(
+      required(container, '[data-slot="chat-header"]').getAttribute("data-fixed-actions-inset")
+    ).toBe("true")
 
-    act(() => required<HTMLButtonElement>(container, '[aria-label="Toggle right panel"]').click())
+    act(() => required<HTMLButtonElement>(container, '[aria-label="Toggle side panel"]').click())
     expect(
       required(container, '[data-slot="chat-right-panel-surface"]').hasAttribute("hidden")
     ).toBe(false)
@@ -82,7 +197,9 @@ describe("ChatDemo", () => {
       await Promise.resolve()
     })
 
-    expect(container.textContent).toContain("Show the streaming state")
+    expect(
+      required(container, '[data-chat-demo-virtualizer="true"]').getAttribute("data-total-count")
+    ).toBe("129")
     expect(required(container, '[aria-label="Stop generating"]')).toBeTruthy()
     expect(container.textContent).toContain("Preparing a response…")
 

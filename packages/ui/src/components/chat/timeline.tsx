@@ -1,4 +1,5 @@
 import type { ComponentProps, CSSProperties, HTMLAttributes, ReactNode } from "react"
+import { forwardRef } from "react"
 
 import { Button } from "#components/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "#components/tooltip"
@@ -7,9 +8,10 @@ import { ArrowDownIcon } from "../icons/index.js"
 
 import type { ChatActivityState } from "./types.js"
 
-export function ChatTimeline({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return (
+export const ChatTimeline = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivElement>>(
+  ({ className, ...props }, ref) => (
     <div
+      ref={ref}
       aria-live="polite"
       data-slot="chat-timeline"
       role="log"
@@ -20,14 +22,16 @@ export function ChatTimeline({ className, ...props }: HTMLAttributes<HTMLDivElem
       {...props}
     />
   )
-}
+)
+
+ChatTimeline.displayName = "ChatTimeline"
 
 export function ChatTimelineContent({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return (
     <div
       data-slot="chat-timeline-content"
       className={cn(
-        "mx-auto flex min-h-full w-full max-w-(--chat-content-max-width) flex-col justify-end gap-6 px-4 pt-6 pb-(--chat-composer-safe-area)",
+        "mx-auto flex min-h-full w-full max-w-(--chat-content-max-width) flex-col justify-end gap-8 px-2 pt-8 pb-(--chat-composer-safe-area) sm:px-3",
         className
       )}
       {...props}
@@ -51,7 +55,7 @@ export function ChatTimelineItem({
       data-slot="chat-timeline-item"
       data-kind={kind}
       data-state={state}
-      className={cn("group/chat-item relative flex w-full min-w-0 flex-col gap-2", className)}
+      className={cn("group/chat-item relative flex w-full min-w-0 flex-col gap-3", className)}
       {...props}
     />
   )
@@ -80,7 +84,7 @@ export function ChatAssistantMessage({ className, ...props }: HTMLAttributes<HTM
   return (
     <div
       data-slot="chat-assistant-message"
-      className={cn("min-w-0 max-w-full text-sm text-foreground", className)}
+      className={cn("min-w-0 max-w-full space-y-3 text-sm text-foreground", className)}
       {...props}
     />
   )
@@ -122,6 +126,7 @@ export function ChatMessageActions({ className, ...props }: HTMLAttributes<HTMLD
       data-slot="chat-message-actions"
       className={cn(
         "flex min-h-7 items-center gap-0.5 opacity-0 transition-opacity group-focus-within/chat-item:opacity-100 group-hover/chat-item:opacity-100",
+        "group-data-[kind=user]/chat-item:justify-end",
         className
       )}
       {...props}
