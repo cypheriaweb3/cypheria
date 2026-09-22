@@ -5,6 +5,7 @@ import { join } from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
 
 import { ToolchainManager } from "./toolchain-manager.js"
+import { TOOLCHAIN_RELEASES } from "./toolchain-manifest.js"
 
 const homes: string[] = []
 const createTemporaryDirectory = (prefix: string) => mkdtemp(join(tmpdir(), prefix))
@@ -81,6 +82,31 @@ afterEach(async () => {
 })
 
 describe("ToolchainManager Python environments", () => {
+  it("compares installed tools with the repository-pinned releases", async () => {
+    const { manager } = await createManager()
+
+    expect(manager.list()).toEqual([
+      expect.objectContaining({
+        activeVersion: null,
+        availableVersion: TOOLCHAIN_RELEASES.node.version,
+        id: "node",
+        updateAvailable: true,
+      }),
+      expect.objectContaining({
+        activeVersion: "3.14.0",
+        availableVersion: TOOLCHAIN_RELEASES.python.version,
+        id: "python",
+        updateAvailable: true,
+      }),
+      expect.objectContaining({
+        activeVersion: "0.9.0",
+        availableVersion: TOOLCHAIN_RELEASES.uv.version,
+        id: "uv",
+        updateAvailable: true,
+      }),
+    ])
+  })
+
   it("lets an isolated operation override managed environment defaults", async () => {
     const { manager } = await createManager()
     const isolatedTools = "/isolated/tools"

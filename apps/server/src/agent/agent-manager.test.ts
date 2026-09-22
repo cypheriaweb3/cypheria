@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdtemp, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -37,24 +37,6 @@ describe("AgentManager enable gate", () => {
     homes.push(home)
     const database = createInMemoryDatabase()
     await applyDatabaseMigrations(database.client)
-    await mkdir(join(home, "agents"), { recursive: true })
-    await writeFile(
-      join(home, "agents", "registry.json"),
-      JSON.stringify({
-        agents: [
-          {
-            description: "Gemini CLI",
-            distribution: { npx: { package: "@google/gemini-cli@1.0.0" } },
-            id: "gemini",
-            license_url: "https://github.com/google-gemini/gemini-cli/blob/main/LICENSE",
-            name: "Gemini CLI",
-            version: "1.0.0",
-          },
-        ],
-        extensions: [],
-        version: "1.0.0",
-      })
-    )
     const persistence = createAgentRegistryPersistenceService(database.db)
     const installedReceipts = new Map<AgentId, AgentInstallReceipt>()
     const manager = new AgentManager({
@@ -293,6 +275,60 @@ describe("AgentManager enable gate", () => {
     }
   })
 
+  it("rejects an update when the release manifest has no newer approved version", async () => {
+    const home = await mkdtemp(join(tmpdir(), "cypheria-agent-manager-update-gate-"))
+    homes.push(home)
+    const database = createInMemoryDatabase()
+    await applyDatabaseMigrations(database.client)
+    const persistence = createAgentRegistryPersistenceService(database.db)
+    await persistence.reconcile([{ id: "codex", native: true }])
+    await persistence.setVersion("codex", {
+      description: "Codex",
+      icon: null,
+      name: "Codex",
+      repository: null,
+      version: NATIVE_AGENT_MANIFEST.codex.cliVersion,
+      website: null,
+    })
+    let installCalls = 0
+    const manager = new AgentManager({
+      cacheDir: join(home, "cache"),
+      cypheriaHome: home,
+      installer: {
+        cleanupInterrupted: async () => undefined,
+        install: async () => {
+          installCalls += 1
+          return receipt("codex")
+        },
+        readCurrent: async () => receipt("codex"),
+        uninstall: async () => undefined,
+      },
+      networkBootstrap: false,
+      persistence,
+      publish: () => undefined,
+    })
+    await manager.start()
+    try {
+      const responses: unknown[] = []
+      await manager.handleManagement(
+        {
+          payload: { agentId: "codex" },
+          requestId: "update-codex-current",
+          type: "agent.update.request",
+        },
+        { send: (message) => responses.push(message), sessionId: "session" }
+      )
+
+      expect(responses.at(-1)).toMatchObject({
+        payload: { error: { code: "AGENT_UPDATE_UNAVAILABLE" }, ok: false },
+      })
+      expect(installCalls).toBe(0)
+    } finally {
+      await manager.stop()
+      database.close()
+    }
+  })
+
   it("returns a non-null native version before installation", async () => {
     const home = await mkdtemp(join(tmpdir(), "cypheria-agent-manager-version-"))
     homes.push(home)
@@ -331,24 +367,6 @@ describe("AgentManager enable gate", () => {
     homes.push(home)
     const database = createInMemoryDatabase()
     await applyDatabaseMigrations(database.client)
-    await mkdir(join(home, "agents"), { recursive: true })
-    await writeFile(
-      join(home, "agents", "registry.json"),
-      JSON.stringify({
-        agents: [
-          {
-            description: "Registry OpenCode entry",
-            distribution: { npx: { package: "@registry/opencode@9.9.9" } },
-            id: "opencode",
-            license_url: "https://github.com/anomalyco/opencode/blob/dev/LICENSE",
-            name: "Registry OpenCode",
-            version: "9.9.9",
-          },
-        ],
-        extensions: [],
-        version: "1.0.0",
-      })
-    )
     const manager = new AgentManager({
       cacheDir: join(home, "cache"),
       cypheriaHome: home,

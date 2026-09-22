@@ -357,7 +357,6 @@ export class CypheriaServer implements HttpAppHost {
     send: (message: ServerMessage) => void
   ): Promise<boolean> {
     if (
-      message.type.startsWith("agent.registry.") ||
       message.type === "agent.list.request" ||
       message.type === "agent.add.request" ||
       message.type === "agent.remove.request" ||

@@ -117,6 +117,25 @@ export type AgentThreadCoordinator = {
 
 const nativeCatalog = NATIVE_AGENT_MANIFEST
 
+const isNewerReleaseVersion = (
+  available: string | undefined,
+  installed: string | null
+): boolean => {
+  if (!available || !installed) return false
+  const parse = (value: string): readonly number[] | undefined => {
+    const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(value)
+    return match ? match.slice(1).map(Number) : undefined
+  }
+  const availableParts = parse(available)
+  const installedParts = parse(installed)
+  if (!availableParts || !installedParts) return false
+  return availableParts.some(
+    (part, index) =>
+      part > (installedParts[index] ?? 0) &&
+      availableParts.slice(0, index).every((value, prefix) => value === installedParts[prefix])
+  )
+}
+
 export class AgentManager {
   readonly registry: AgentRegistryService
   readonly toolchains: ToolchainManager
@@ -173,13 +192,7 @@ export class AgentManager {
         webSearch: null,
       }))
     this.#agentHomes = join(options.cypheriaHome, "agents")
-    this.registry = new AgentRegistryService({
-      cypheriaHome: options.cypheriaHome,
-      onUpdate: (state) => {
-        this.#publish({ payload: state, type: "agent.registry.updated.notification" })
-        this.#catalogInvalidator?.()
-      },
-    })
+    this.registry = new AgentRegistryService()
     this.toolchains = new ToolchainManager({
       cacheDir: options.cacheDir,
       cypheriaHome: options.cypheriaHome,
@@ -201,11 +214,9 @@ export class AgentManager {
     this.#stopping = false
     await this.toolchains.start()
     await this.#installer.cleanupInterrupted()
-    await this.registry.start({ refresh: this.#networkBootstrap })
     await this.#persistence.reconcile(NATIVE_AGENT_IDS.map((id) => ({ id, native: true })))
     await this.#reloadRecords()
     if (this.#networkBootstrap) {
-      this.toolchains.startAutomaticUpdateChecks()
       void this.toolchains.bootstrapMissing().catch(() => undefined)
     }
   }
@@ -216,8 +227,6 @@ export class AgentManager {
     await Promise.allSettled(this.#operationQueues.values())
     this.#operationControllers.clear()
     this.#maintenanceAgents.clear()
-    this.registry.stop()
-    this.toolchains.stop()
     for (const controller of this.#subscriptions.values()) controller.abort()
     this.#subscriptions.clear()
     await Promise.allSettled([
@@ -315,7 +324,6 @@ export class AgentManager {
           respond({
             agents: await this.list(context.sessionId),
             availableAgents: this.availableAgents(),
-            registry: this.registry.state,
           })
           break
         case "agent.add.request":
@@ -326,9 +334,6 @@ export class AgentManager {
           break
         case "agent.get.request":
           respond(await this.get(message.payload.agentId, context.sessionId))
-          break
-        case "agent.registry.refresh.request":
-          respond(await this.registry.refresh())
           break
         case "agent.install.request":
           respond(this.#submitAgentOperation("install", message.payload.agentId, context.sessionId))
@@ -851,9 +856,29 @@ export class AgentManager {
     agentId: AgentId,
     sessionId: string
   ): AgentOperation {
-    if (!this.#records.has(agentId))
-      throw this.#error("AGENT_NOT_FOUND", `Unknown agent: ${agentId}`)
+    const registered = this.#records.get(agentId)
+    if (!registered) throw this.#error("AGENT_NOT_FOUND", `Unknown agent: ${agentId}`)
     this.#assertNoAgentOperation(agentId)
+    const native = isNativeAgentId(agentId) ? nativeCatalog[agentId] : undefined
+    const registryEntry = isRegistryAgentId(agentId) ? this.registry.get(agentId) : undefined
+    if (kind !== "uninstall" && !native && !registryEntry) {
+      throw this.#error(
+        "AGENT_RELEASE_UNAVAILABLE",
+        `${agentId} is not available in this Cypheria release`
+      )
+    }
+    if (kind === "update") {
+      if (!registered.installed) {
+        throw this.#error("AGENT_NOT_INSTALLED", `${agentId} is not installed`)
+      }
+      const availableVersion = native?.cliVersion ?? registryEntry?.version
+      if (!isNewerReleaseVersion(availableVersion, registered.version)) {
+        throw this.#error(
+          "AGENT_UPDATE_UNAVAILABLE",
+          `No approved update is available for ${agentId}`
+        )
+      }
+    }
     return this.#submit(
       kind,
       { agentId, kind: "agent" },
@@ -935,6 +960,13 @@ export class AgentManager {
   }
 
   #submitToolchainOperation(toolchain: ToolchainId): AgentOperation {
+    const release = this.toolchains.list().find(({ id }) => id === toolchain)
+    if (!release?.updateAvailable) {
+      throw this.#error(
+        "TOOLCHAIN_UPDATE_UNAVAILABLE",
+        `${toolchain} already matches the approved release`
+      )
+    }
     return this.#submit(
       "toolchain-update",
       { kind: "toolchain", toolchain },

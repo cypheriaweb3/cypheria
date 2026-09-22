@@ -43,7 +43,6 @@ describe("Cypheria client facade", () => {
       "list",
       "listOperations",
       "listToolchains",
-      "refreshRegistry",
       "remove",
       "start",
       "stop",

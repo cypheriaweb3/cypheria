@@ -1,19 +1,16 @@
 import { z } from "zod"
+import { REGISTRY_AGENT_IDS } from "../generated/acp/agent-ids.ts"
+import registrySnapshot from "../generated/acp/registry.json" with { type: "json" }
 
-export { REGISTRY_AGENT_IDS } from "../generated/acp/agent-ids.ts"
+export { REGISTRY_AGENT_IDS }
 
 export const NATIVE_AGENT_IDS = ["codex", "claude", "pi", "opencode"] as const
 export const NativeAgentIdSchema = z.enum(NATIVE_AGENT_IDS)
 export type NativeAgentId = z.infer<typeof NativeAgentIdSchema>
 
-// Registry ids are intentionally validated by shape instead of a generated
-// allowlist. The public ACP registry changes independently of Cypheria releases.
-export const RegistryAgentIdSchema = z
-  .string()
-  .regex(/^[a-z][a-z0-9-]*$/)
-  .refine((value) => !NATIVE_AGENT_IDS.includes(value as NativeAgentId), {
-    message: "Native harness ids are not registry agent ids",
-  })
+// Registry ids are release-time input. Runtime callers cannot opt an arbitrary
+// executable into the ACP installation path by presenting a well-shaped id.
+export const RegistryAgentIdSchema = z.enum(REGISTRY_AGENT_IDS)
 export type RegistryAgentId = z.infer<typeof RegistryAgentIdSchema>
 
 export const AgentIdSchema = z.union([NativeAgentIdSchema, RegistryAgentIdSchema])
@@ -129,6 +126,9 @@ export const AgentRegistryDocumentSchema = z
 export type AgentRegistryDocument = z.infer<typeof AgentRegistryDocumentSchema>
 export type AgentRegistryEntry = z.infer<typeof AgentRegistryEntrySchema>
 export type AgentDistribution = z.infer<typeof AgentDistributionSchema>
+
+/** The reviewed stable ACP registry snapshot shipped with this Cypheria release. */
+export const ACP_AGENT_REGISTRY = AgentRegistryDocumentSchema.parse(registrySnapshot)
 
 export const isNativeAgentId = (value: string): value is NativeAgentId =>
   NativeAgentIdSchema.safeParse(value).success

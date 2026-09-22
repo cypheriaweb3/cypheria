@@ -41,12 +41,10 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@cypheria/ui/components/dropdown-menu"
 import { Field, FieldDescription, FieldLabel } from "@cypheria/ui/components/field"
 import { Input } from "@cypheria/ui/components/input"
-import { Progress, ProgressLabel, ProgressValue } from "@cypheria/ui/components/progress"
 import {
   Select,
   SelectContent,
@@ -75,6 +73,7 @@ import { AuthenticationSection } from "../components/harness-authentication-sect
 import { HarnessIcon } from "../components/harness-icon"
 import { NetworkProxyCard } from "../components/network-proxy-card"
 import { SettingsFrame } from "../components/settings-frame"
+import { ToolchainCard } from "../components/toolchain-card"
 import { ensureCypheriaClient } from "../cypheria-client.js"
 
 export const Route = createFileRoute("/settings/agent-harnesses/$agentId/$sectionId")({
@@ -142,6 +141,7 @@ function AgentHarnessSettingsRoute() {
   return (
     <SettingsFrame wide>
       <NetworkProxyCard />
+      <ToolchainCard />
       {agentsQuery.isLoading || !agent ? (
         <Skeleton className="mt-4 h-96 w-full" />
       ) : (
@@ -345,6 +345,30 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
             )}
           </Button>
         ) : null}
+        <Button
+          aria-label={
+            uninstall.error
+              ? `Uninstall ${agent.name} failed: ${uninstall.error.message}`
+              : uninstall.isPending
+                ? `Uninstall ${agent.name}: ${progress}%`
+                : `Uninstall ${agent.name}`
+          }
+          disabled={maintenancePending}
+          size={uninstall.isPending ? "default" : "icon"}
+          title={uninstall.error?.message ?? `Uninstall ${agent.name}`}
+          type="button"
+          variant="destructive"
+          onClick={() => setUninstallDialogOpen(true)}
+        >
+          {uninstall.isPending ? (
+            <>
+              <LoaderCircle className="size-4 animate-spin" />
+              <span className="tabular-nums">{progress}%</span>
+            </>
+          ) : (
+            <Trash2 className="size-4" aria-hidden="true" />
+          )}
+        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
@@ -362,11 +386,6 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
             <DropdownMenuItem disabled={!agent.enabled} onClick={() => setRestartDialogOpen(true)}>
               <RotateCw aria-hidden="true" />
               Restart
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem variant="destructive" onClick={() => setUninstallDialogOpen(true)}>
-              <Trash2 aria-hidden="true" />
-              Uninstall
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -417,12 +436,6 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
               page.
             </DialogDescription>
           </DialogHeader>
-          {uninstall.isPending && operation ? (
-            <Progress value={progress}>
-              <ProgressLabel>{operation.message ?? "Removing harness…"}</ProgressLabel>
-              <ProgressValue />
-            </Progress>
-          ) : null}
           {uninstall.error ? (
             <p className="text-sm text-destructive">{uninstall.error.message}</p>
           ) : null}
@@ -435,11 +448,25 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
               Cancel
             </Button>
             <Button
+              aria-label={
+                uninstall.isPending
+                  ? `Uninstall ${agent.name}: ${progress}%`
+                  : `Uninstall ${agent.name}`
+              }
               disabled={uninstall.isPending}
+              size={uninstall.isPending ? "default" : "icon"}
+              title={`Uninstall ${agent.name}`}
               variant="destructive"
               onClick={() => uninstall.mutate()}
             >
-              {uninstall.isPending ? "Uninstalling…" : "Uninstall"}
+              {uninstall.isPending ? (
+                <>
+                  <LoaderCircle className="size-4 animate-spin" />
+                  <span className="tabular-nums">{progress}%</span>
+                </>
+              ) : (
+                <Trash2 className="size-4" aria-hidden="true" />
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

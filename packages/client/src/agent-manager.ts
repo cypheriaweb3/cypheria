@@ -2,7 +2,6 @@ import type {
   AgentCatalogEntry,
   AgentId,
   AgentOperation,
-  AgentRegistrySyncState,
   AgentView,
   ToolchainId,
   ToolchainView,
@@ -43,11 +42,9 @@ export interface AgentManagementActions {
   list(options?: RequestOptions): Promise<{
     agents: AgentView[]
     availableAgents: AgentCatalogEntry[]
-    registry: AgentRegistrySyncState
   }>
   listOperations(options?: RequestOptions): Promise<AgentOperation[]>
   listToolchains(options?: RequestOptions): Promise<ToolchainView[]>
-  refreshRegistry(options?: RequestOptions): Promise<AgentRegistrySyncState>
   enable(agentId: AgentId, options?: RequestOptions): Promise<AgentView>
   disable(agentId: AgentId, options?: RequestOptions): Promise<AgentView>
   start(agentId: AgentId, options?: RequestOptions): Promise<AgentView>
@@ -94,7 +91,6 @@ export const createAgentManagementActions = (client: ServerClient): AgentManagem
     unwrap<{
       agents: AgentView[]
       availableAgents: AgentCatalogEntry[]
-      registry: AgentRegistrySyncState
     }>((await client.requestAgentManagement("agent.list.request", undefined, options)).payload),
   listOperations: async (options) =>
     unwrap<{ operations: AgentOperation[] }>(
@@ -106,11 +102,6 @@ export const createAgentManagementActions = (client: ServerClient): AgentManagem
       (await client.requestAgentManagement("agent.toolchain.list.request", undefined, options))
         .payload
     ).toolchains,
-  refreshRegistry: async (options) =>
-    unwrap<AgentRegistrySyncState>(
-      (await client.requestAgentManagement("agent.registry.refresh.request", undefined, options))
-        .payload
-    ),
   enable: async (agentId, options) =>
     unwrap<AgentView>(
       (await client.requestAgentManagement("agent.enable.request", { agentId }, options)).payload

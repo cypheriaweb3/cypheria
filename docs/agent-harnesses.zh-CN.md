@@ -8,15 +8,15 @@ Cypheria 支持 Codex、Claude、Pi、OpenCode 四种第一方 Agent harness，�
 
 ## 身份与兼容性
 
-`@cypheria/protocol` 保留 `codex`、`claude`、`pi`、`opencode` 作为原生 ID，其他 ACP registry ID 则按发布格式动态校验。因此 registry 刷新后即可使用新增 entry，不需要发布新版 Cypheria。生成的 registry ID 列表只用于审计快照，不是运行时 allowlist。Integration 使用更宽泛的 `codex`、`claude`、`pi`、`opencode`、`acp` compatibility tags，使一条声明可以覆盖 registry Agents。
+`@cypheria/protocol` 保留 `codex`、`claude`、`pi`、`opencode` 作为原生 ID。ACP registry ID 从每个 Cypheria release 提交并审核的稳定 registry 快照生成，并构成运行时 allowlist；上游新增 entry 必须等 Cypheria 更新该快照后才可用。Integration 使用更宽泛的 `codex`、`claude`、`pi`、`opencode`、`acp` compatibility tags，使一条声明可以覆盖 registry Agents。
 
 Agent descriptor 报告来源、distribution、已安装和可用版本、启用状态、runtime 状态、能力、兼容性和诊断。Thread 身份始终使用 Cypheria Thread ID 与 Agent ID；harness session ID 只是可选关联，不是客户端缓存主键。
 
 ## Registry 与安装
 
-Server 会刷新并校验已发布的稳定 ACP registry，将其作为可用 ACP catalog。Cypheria 不接受包含 `preview` 数据的源 manifest，也不消费 preview registry。原生 harness 不从稳定 registry 获取版本：每个 Cypheria release 都为 Codex、Claude、Pi 和 OpenCode 声明一个经过测试的 CLI package 与精确版本。持久化的 `agent_registry` 并不是 ACP catalog 的全量副本：它初始包含四个原生 harness，只有用户执行添加后才写入相应 registry Agent；每条记录都保存 `createdAt`。ACP distribution metadata 可以同时提供平台 binary、`npx` 和 `uvx`；当前平台按这个顺序确定性选择。平台 archive 可以携带 SHA-256 完整性信息。
+提交到仓库且通过 schema 校验的稳定 ACP `registry.json` 是可用 ACP catalog。运行时进程不会下载或合并 registry 数据；更新它必须由维护者显式运行生成命令、完成审查，并保证生成的 ID allowlist 与快照一致。Cypheria 不接受包含 `preview` 数据的源 manifest，也不消费 preview registry。原生 harness 不从稳定 registry 获取版本：每个 Cypheria release 都为 Codex、Claude、Pi 和 OpenCode 声明一个经过测试的 CLI package 与精确版本。持久化的 `agent_registry` 并不是 ACP catalog 的全量副本：它初始包含四个原生 harness，只有用户执行添加后才写入相应 registry Agent；每条记录都保存 `createdAt`。ACP distribution metadata 可以同时提供平台 binary、`npx` 和 `uvx`；当前平台按这个顺序确定性选择。平台 archive 可以携带 SHA-256 完整性信息。
 
-添加、安装和删除 registry 记录是三个独立操作。添加会持久化所选 Agent 并开放其设置页；安装和更新是带 operation record 与进度 notification 的 Server 操作。Binary archive 会流式写入磁盘，并按字节进度解压，而不是整体缓存在内存中；支持 registry 格式声明的 ZIP、gzip tar 和 bzip2 tar distribution。Archive 会拒绝路径穿越、符号链接、硬链接、设备与 FIFO，声明的命令也必须解析到解压根目录内。安装成功后会自动启用 Agent。卸载只删除托管 runtime、保留 registry 记录，并始终禁用 Agent；删除该未安装记录是另一个独立操作。原生 harness 版本属于 Cypheria release，因此其设置页不提供独立更新操作。只有当前版本和 registry 版本都是有效语义化版本且 registry 版本更高时，才会提供 registry harness 更新。不同 Agent 的 operation 可以并发运行，同一 Agent 的 operation 仍会串行执行。Toolchain manager 在 Cypheria cache 下发现或安装托管的 Node 和 Python 工具。Registry package 遵循 FORMAT.md 语义：npm 自行执行 `npx` 的 executable 选择，uv 则物化与 `uvx` 相同的隔离工具与命令。每次安装的 uv tool 和命令目录会覆盖共享 toolchain 默认值，确保激活的 receipt 自包含。已安装 Agent 状态会报告最终选择的 distribution 类型和来源。只有确认的上游特定版本缺陷才进入显式、精确版本的 compatibility manifest；普通 entry 不使用覆盖。客户端可以列出、添加、删除、安装、更新、卸载、启用、禁用、启动和停止 Agents，但不会获得文件系统或进程权限。
+添加、安装和删除 registry 记录是三个独立操作。添加会持久化所选 Agent 并开放其设置页；安装和更新是带 operation record 与进度 notification 的 Server 操作。Binary archive 会流式写入磁盘，并按字节进度解压，而不是整体缓存在内存中；支持 registry 格式声明的 ZIP、gzip tar 和 bzip2 tar distribution。Archive 会拒绝路径穿越、符号链接、硬链接、设备与 FIFO，声明的命令也必须解析到解压根目录内。安装成功后会自动启用 Agent。卸载只删除托管 runtime、保留 registry 记录，并始终禁用 Agent；删除该未安装记录是另一个独立操作。仅当精确的原生 manifest 或已提交 ACP 快照中存在比已安装版本更高的有效语义化版本时，Server 才接受 Agent 更新。不同 Agent 的 operation 可以并发运行，同一 Agent 的 operation 仍会串行执行。Toolchain manager 会在 Cypheria home 下安装仓库中固定版本的 Node.js、Python 和 uv，并直接用该 manifest 比较已安装版本，不会在运行时解析 latest release。Node.js 与 uv archive 必须匹配仓库中为当前平台固定的 SHA-256。Registry package 遵循 FORMAT.md 语义：npm 自行执行 `npx` 的 executable 选择，uv 则物化与 `uvx` 相同的隔离工具与命令。每次安装的 uv tool 和命令目录会覆盖共享 toolchain 默认值，确保激活的 receipt 自包含。已安装 Agent 状态会报告最终选择的 distribution 类型和来源。只有确认的上游特定版本缺陷才进入显式、精确版本的 compatibility manifest；普通 entry 不使用覆盖。客户端可以列出、添加、删除、安装、更新、卸载、启用、禁用、启动和停止 Agents，但不会获得文件系统或进程权限。
 
 ## Catalog 与默认值
 

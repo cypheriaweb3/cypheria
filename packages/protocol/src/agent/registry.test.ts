@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest"
 
 import {
+  ACP_AGENT_REGISTRY,
   AgentIdSchema,
   AgentRegistryDocumentSchema,
   AgentRegistryEntrySchema,
@@ -76,10 +77,20 @@ describe("ACP Registry schemas", () => {
     ).toBe(false)
   })
 
-  it("accepts new registry ids dynamically without treating native ids as registry agents", () => {
-    expect(AgentIdSchema.safeParse("future-agent").success).toBe(true)
-    expect(isRegistryAgentId("future-agent")).toBe(true)
+  it("accepts only ids in the committed registry snapshot", () => {
+    expect(AgentIdSchema.safeParse("gemini").success).toBe(true)
+    expect(isRegistryAgentId("gemini")).toBe(true)
+    expect(AgentIdSchema.safeParse("future-agent").success).toBe(false)
+    expect(isRegistryAgentId("future-agent")).toBe(false)
     expect(isRegistryAgentId("codex")).toBe(false)
+  })
+
+  it("keeps every usable snapshot entry in the generated id allowlist", () => {
+    const usableIds = ACP_AGENT_REGISTRY.agents
+      .map(({ id }) => id)
+      .filter((id) => !["codex-acp", "claude-acp", "pi-acp", "opencode"].includes(id))
+
+    expect(usableIds.every((id) => isRegistryAgentId(id))).toBe(true)
   })
 
   it("rejects source manifests containing a preview channel", () => {

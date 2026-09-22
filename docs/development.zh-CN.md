@@ -140,6 +140,14 @@ pnpm codex:generate
 
 生成器会把 Rust 64 位整数归一化为 JSON `number`，为 NodeNext 消费者补充显式 TypeScript 扩展名，并启用 Cypheria 使用的实验 API。
 
+稳定 ACP registry 快照及其运行时 Agent ID allowlist 同样属于生成产物：
+
+```sh
+pnpm --filter @cypheria/protocol generate:agent-acp-registry
+```
+
+该维护者命令会下载、校验并规范化 registry，然后写入 `packages/protocol/src/generated/acp/registry.json` 和 `agent-ids.ts`。两个文件必须一起提交和审查。普通构建与检查只校验本地快照，绝不会获取 registry 网络数据。
+
 ## 测试策略
 
 - Protocol 测试校验 Schema、版本协商、harness adapter 和 Timeline 投影。

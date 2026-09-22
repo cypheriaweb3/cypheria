@@ -155,6 +155,14 @@ Generated output is committed under `packages/protocol/src/generated/codex/` and
 
 The generator normalizes Rust 64-bit integers to JSON `number`, adds explicit TypeScript extensions for NodeNext consumers, and enables the experimental API surface used by Cypheria.
 
+The stable ACP registry snapshot and its runtime Agent ID allowlist are also generated artifacts:
+
+```sh
+pnpm --filter @cypheria/protocol generate:agent-acp-registry
+```
+
+This maintainer command downloads, validates, normalizes, and writes `packages/protocol/src/generated/acp/registry.json` plus `agent-ids.ts`. Both files are committed and reviewed together. Normal builds and checks validate only the local snapshot and never fetch registry data.
+
 ## Testing strategy
 
 - Protocol tests validate schemas, version negotiation, harness adapters, and Timeline projection.

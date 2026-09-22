@@ -8,6 +8,7 @@ import extractZip from "extract-zip"
 import { extract as extractTar } from "tar"
 
 import { downloadBytes, readJsonFile, sha256, writeJsonAtomic } from "./fs-utils.js"
+import { TOOLCHAIN_RELEASES, type ToolchainPlatform } from "./toolchain-manifest.js"
 
 type ToolchainRecord = {
   activeVersion: string | null
@@ -47,6 +48,21 @@ const emptyManifest = (): ToolchainManifest => ({
 })
 
 const executableName = (name: string): string => (platform() === "win32" ? `${name}.exe` : name)
+
+const toolchainPlatform = (): ToolchainPlatform => {
+  const key = `${platform()}-${arch()}`
+  if (
+    key === "darwin-arm64" ||
+    key === "darwin-x64" ||
+    key === "linux-arm64" ||
+    key === "linux-x64" ||
+    key === "win32-arm64" ||
+    key === "win32-x64"
+  ) {
+    return key
+  }
+  throw new Error(`Unsupported toolchain platform: ${key}`)
+}
 
 const run = async (
   executable: string,
@@ -140,25 +156,21 @@ const findExecutable = async (root: string, name: string): Promise<string> => {
 export type ToolchainManagerOptions = {
   cacheDir: string
   cypheriaHome: string
-  fetchImpl?: typeof fetch
 }
 
 export class ToolchainManager {
   readonly #cacheDir: string
   readonly #cacheRoot: string
   readonly #currentPath: string
-  readonly #fetch: typeof fetch
   readonly #home: string
   readonly #manifestPath: string
   readonly #locks = new Map<string, Promise<unknown>>()
   readonly #leases = new Map<string, number>()
   #manifest = emptyManifest()
-  #updateCheckTimer: NodeJS.Timeout | undefined
 
   constructor(options: ToolchainManagerOptions) {
     this.#cacheRoot = options.cacheDir
     this.#cacheDir = join(options.cacheDir, "toolchains")
-    this.#fetch = options.fetchImpl ?? fetch
     this.#home = join(options.cypheriaHome, "toolchains")
     this.#currentPath = join(this.#home, "current.json")
     this.#manifestPath = join(this.#home, "manifest.json")
@@ -175,22 +187,7 @@ export class ToolchainManager {
       mkdir(this.#cacheDir, { recursive: true }),
     ])
     this.#manifest = (await readJsonFile<ToolchainManifest>(this.#manifestPath)) ?? emptyManifest()
-  }
-
-  startAutomaticUpdateChecks(intervalMs = 60 * 60 * 1_000): void {
-    if (this.#updateCheckTimer) return
-    this.#updateCheckTimer = setInterval(() => {
-      void this.checkUpdates().catch(() => {
-        // A failed background check must not disturb installed toolchains. The next
-        // interval, or an explicit protocol request, will retry it.
-      })
-    }, intervalMs)
-    this.#updateCheckTimer.unref()
-  }
-
-  stop(): void {
-    if (this.#updateCheckTimer) clearInterval(this.#updateCheckTimer)
-    this.#updateCheckTimer = undefined
+    await this.checkUpdates()
   }
 
   list(): ToolchainView[] {
@@ -221,22 +218,8 @@ export class ToolchainManager {
   }
 
   async checkUpdates(): Promise<ToolchainView[]> {
-    const [nodeVersion, uvVersion] = await Promise.all([
-      this.#latestNodeVersion(),
-      this.#latestUvVersion(),
-    ])
-    this.#manifest.toolchains.node.availableVersion = nodeVersion
-    this.#manifest.toolchains.uv.availableVersion = uvVersion
-    const uv = this.executable("uv")
-    if (uv) {
-      const output = await run(
-        uv,
-        ["python", "list", "--managed-python", "--all-versions", "--output-format", "json"],
-        { env: this.environment() }
-      )
-      const versions = JSON.parse(output) as { version?: string }[]
-      this.#manifest.toolchains.python.availableVersion =
-        versions.find(({ version }) => version && !version.includes("-"))?.version ?? null
+    for (const id of ["node", "python", "uv"] as const) {
+      this.#manifest.toolchains[id].availableVersion = TOOLCHAIN_RELEASES[id].version
     }
     await this.#save()
     return this.list()
@@ -433,20 +416,13 @@ export class ToolchainManager {
   }
 
   async #installNode(): Promise<void> {
-    const version = await this.#latestNodeVersion()
+    const version = TOOLCHAIN_RELEASES.node.version
     const target = nodeTarget()
     const extension = target.archive.endsWith(".zip") ? ".zip" : ".tar.gz"
     const archiveName = `node-v${version}-${target.archive}`
     const baseUrl = `https://nodejs.org/dist/v${version}`
-    const [archive, sumsResponse] = await Promise.all([
-      downloadBytes(`${baseUrl}/${archiveName}`),
-      this.#fetch(`${baseUrl}/SHASUMS256.txt`, { signal: AbortSignal.timeout(20_000) }),
-    ])
-    if (!sumsResponse.ok) throw new Error("Unable to download Node checksums")
-    const expected = (await sumsResponse.text())
-      .split("\n")
-      .find((line) => line.endsWith(`  ${archiveName}`))
-      ?.split(/\s+/)[0]
+    const archive = await downloadBytes(`${baseUrl}/${archiveName}`)
+    const expected = TOOLCHAIN_RELEASES.node.sha256[toolchainPlatform()]
     if (!expected || sha256(archive) !== expected) throw new Error("Node archive checksum mismatch")
     const staging = join(this.#home, "staging", `node-${randomUUID()}`)
     const archivePath = join(this.#cacheDir, `${randomUUID()}${extension}`)
@@ -468,35 +444,14 @@ export class ToolchainManager {
   }
 
   async #installUv(): Promise<void> {
-    const response = await this.#fetch(
-      "https://api.github.com/repos/astral-sh/uv/releases/latest",
-      {
-        headers: { accept: "application/vnd.github+json", "user-agent": "cypheria" },
-        signal: AbortSignal.timeout(20_000),
-      }
-    )
-    if (!response.ok) throw new Error(`Unable to resolve uv release: HTTP ${response.status}`)
-    const release = (await response.json()) as {
-      assets: { browser_download_url: string; name: string }[]
-      tag_name: string
-    }
-    const version = release.tag_name.replace(/^v/, "")
+    const version = TOOLCHAIN_RELEASES.uv.version
     const target = uvTarget()
     const suffix = platform() === "win32" ? ".zip" : ".tar.gz"
-    const asset = release.assets.find(({ name }) => name === `uv-${target}${suffix}`)
-    if (!asset) throw new Error(`uv release does not support ${target}`)
-    const checksumAsset = release.assets.find(({ name }) => name === `${asset.name}.sha256`)
-    if (!checksumAsset) throw new Error(`uv release does not publish a checksum for ${asset.name}`)
-    const [archive, checksumBytes] = await Promise.all([
-      downloadBytes(asset.browser_download_url),
-      downloadBytes(checksumAsset.browser_download_url),
-    ])
-    const expected = Buffer.from(checksumBytes).toString("utf8").trim().split(/\s+/, 1)[0]
-    if (
-      !expected ||
-      !/^[a-fA-F0-9]{64}$/.test(expected) ||
-      sha256(archive) !== expected.toLowerCase()
-    ) {
+    const assetName = `uv-${target}${suffix}`
+    const releaseRoot = `https://github.com/astral-sh/uv/releases/download/${version}`
+    const archive = await downloadBytes(`${releaseRoot}/${assetName}`)
+    const expected = TOOLCHAIN_RELEASES.uv.sha256[toolchainPlatform()]
+    if (sha256(archive) !== expected) {
       throw new Error("uv archive checksum mismatch")
     }
     const archivePath = join(this.#cacheDir, `${randomUUID()}${suffix}`)
@@ -525,39 +480,24 @@ export class ToolchainManager {
     if (!uv) throw new Error("Managed uv must be installed before Python")
     const installDir = join(this.#home, "python", "versions")
     const env = this.environment({ UV_PYTHON_DOWNLOADS: "automatic" })
-    await run(uv, ["python", "install", "--managed-python", "--install-dir", installDir], {
-      cwd: this.#home,
-      env,
-    })
-    const executable = await run(uv, ["python", "find", "--managed-python"], {
+    const requestedVersion = TOOLCHAIN_RELEASES.python.version
+    await run(
+      uv,
+      ["python", "install", requestedVersion, "--managed-python", "--install-dir", installDir],
+      {
+        cwd: this.#home,
+        env,
+      }
+    )
+    const executable = await run(uv, ["python", "find", requestedVersion, "--managed-python"], {
       cwd: this.#home,
       env,
     })
     const version = (await run(executable, ["--version"], { env })).replace(/^Python\s+/, "")
+    if (version !== requestedVersion) {
+      throw new Error(`Expected Python ${requestedVersion}, received ${version}`)
+    }
     this.#activate("python", version, executable)
-  }
-
-  async #latestNodeVersion(): Promise<string> {
-    const response = await this.#fetch("https://nodejs.org/dist/index.json", {
-      signal: AbortSignal.timeout(20_000),
-    })
-    if (!response.ok) throw new Error(`Unable to resolve Node releases: HTTP ${response.status}`)
-    const releases = (await response.json()) as { lts: boolean | string; version: string }[]
-    const release = releases.find(({ lts, version }) => Boolean(lts) && !version.includes("-"))
-    if (!release) throw new Error("No stable Node LTS release is available")
-    return release.version.replace(/^v/, "")
-  }
-
-  async #latestUvVersion(): Promise<string> {
-    const response = await this.#fetch(
-      "https://api.github.com/repos/astral-sh/uv/releases/latest",
-      {
-        headers: { accept: "application/vnd.github+json", "user-agent": "cypheria" },
-        signal: AbortSignal.timeout(20_000),
-      }
-    )
-    if (!response.ok) throw new Error(`Unable to resolve uv release: HTTP ${response.status}`)
-    return ((await response.json()) as { tag_name: string }).tag_name.replace(/^v/, "")
   }
 
   #activate(id: ToolchainId, version: string, executable: string): void {

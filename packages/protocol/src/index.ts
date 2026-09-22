@@ -618,7 +618,6 @@ const clientResponseTypes = new Set<string>([
   "agent.add.response",
   "agent.remove.response",
   "agent.get.response",
-  "agent.registry.refresh.response",
   "agent.install.response",
   "agent.update.response",
   "agent.uninstall.response",
