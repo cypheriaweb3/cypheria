@@ -4,6 +4,9 @@ import { describe, expect, it, vi } from "vitest"
 import type { AgentManager } from "./agent/agent-manager.js"
 import { CodexHarnessService } from "./codex-harness-service.js"
 import type { ServerConfigStore } from "./server-config-store.js"
+import type { ThreadManager } from "./thread/thread-manager.js"
+
+const threads = {} as ThreadManager
 
 const config: PersistedServerConfig = {
   agents: {
@@ -36,6 +39,34 @@ const config: PersistedServerConfig = {
 }
 
 describe("CodexHarnessService", () => {
+  it("translates Cypheria thread ids before calling native Codex thread methods", async () => {
+    const callCodex = vi.fn(async () => ({ goal: null }))
+    const get = vi.fn(async () => ({
+      agentId: "codex",
+      agentSessionId: "native-codex-thread",
+    }))
+    const store = { getSnapshot: () => ({ config }) } as unknown as ServerConfigStore
+    const service = new CodexHarnessService({ callCodex } as unknown as AgentManager, store, {
+      get,
+    } as unknown as ThreadManager)
+    const messages: CodexHarnessServerMessage[] = []
+
+    await service.handle(
+      {
+        payload: { threadId: "cypheria-thread" },
+        requestId: "goal-1",
+        type: "harness.codex.thread.goal.get.request",
+      },
+      (message) => messages.push(message)
+    )
+
+    expect(get).toHaveBeenCalledWith("cypheria-thread")
+    expect(callCodex).toHaveBeenCalledWith("thread/goal/get", {
+      threadId: "native-codex-thread",
+    })
+    expect(messages[0]).toMatchObject({ payload: { ok: true, value: { goal: null } } })
+  })
+
   it("projects account state and persists model settings in Cypheria config", async () => {
     const callCodex = vi.fn(async (method: string) => {
       if (method === "account/read") {
@@ -56,7 +87,11 @@ describe("CodexHarnessService", () => {
       getSnapshot: () => ({ config }),
       patch,
     } as unknown as ServerConfigStore
-    const service = new CodexHarnessService({ callCodex } as unknown as AgentManager, store)
+    const service = new CodexHarnessService(
+      { callCodex } as unknown as AgentManager,
+      store,
+      threads
+    )
     const messages: CodexHarnessServerMessage[] = []
     await service.handle(
       {
@@ -131,7 +166,11 @@ describe("CodexHarnessService", () => {
       getSnapshot: () => ({ config, path: "/tmp/cypheria/config/config.json" }),
       patch,
     } as unknown as ServerConfigStore
-    const service = new CodexHarnessService({ callCodex } as unknown as AgentManager, store)
+    const service = new CodexHarnessService(
+      { callCodex } as unknown as AgentManager,
+      store,
+      threads
+    )
     const messages: CodexHarnessServerMessage[] = []
     await service.handle(
       {

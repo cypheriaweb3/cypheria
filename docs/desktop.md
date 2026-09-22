@@ -10,7 +10,7 @@ title: Desktop
 
 - Electron main owns windows, application lifecycle, Server management, desktop settings, secure storage, updates, native menus, OS integration, and isolated dApp browser views.
 - Preload exposes a narrow typed IPC surface for Electron-only capabilities.
-- The TanStack renderer uses `@cypheria/client` for shared product state and the AI SDK providers for live Agent turns.
+- The TanStack renderer uses `@cypheria/client` directly for shared product state and live Agent turns.
 - dApp preload exposes a scoped provider bridge to an isolated origin; it never exposes Node.js or key material.
 
 Default browser views keep `nodeIntegration` off, `contextIsolation`, sandbox, and web security on.
@@ -68,7 +68,7 @@ The common experience includes drafts, attachments, temporary-to-persistent Thre
 
 Harness-specific UI is limited to discriminated Timeline extensions, header actions, model settings, permission details, and genuine harness capabilities. Codex remains the fidelity reference, but Claude, Pi, OpenCode, and ACP reuse the same shell rather than cloning it.
 
-Canonical Timeline history is loaded through `@cypheria/client`. AI SDK streams provide responsive live updates, but do not become a second durable history store.
+Canonical Timeline history and ordered live updates are consumed directly through `@cypheria/client`. A framework-independent controller handles pagination, reconnection, gap recovery, send, steer, native Codex queueing, cancellation, and interactions; React subscribes through `useSyncExternalStore`. Codex uses a dedicated workspace, while other Agents use the common Thread workspace until they receive specialized extensions.
 
 ## Desktop-local settings
 

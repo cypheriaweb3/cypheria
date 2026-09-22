@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto"
+import { fileURLToPath } from "node:url"
 
 import type {
   AgentId,
@@ -9,18 +10,21 @@ import type {
   ThreadTimelineItem,
 } from "@cypheria/protocol"
 import {
+  AGENT_CODEX_SERVER_NOTIFICATION_TYPE_TO_METHOD,
   AgentClaudeClientMessageSchema,
   AgentCodexClientRequestSchema,
   AgentCodexServerResponseSchema,
   AgentOpenCodeCallRequestSchema,
   AgentOpenCodeEventSubscribeRequestSchema,
   AgentPiClientMessageSchema,
+  CodexTurnProjector,
 } from "@cypheria/protocol"
 import {
   ACP_PREFERRED_PROTOCOL_VERSION,
   AgentAcpClientMessageSchema,
   parseAcpNegotiatedInitializeResult,
 } from "@cypheria/protocol/acp-adapter"
+import type { ServerNotification, v2 } from "@cypheria/protocol/codex-types"
 
 import type {
   ThreadHarnessAdapter,
@@ -37,6 +41,7 @@ import type {
 import { ACP_V1_FALLBACK_REQUIRED_CODE, acpInitializeParams } from "./acp-negotiation.js"
 import type { AgentManager, AgentRuntimeServerMessage } from "./agent-manager.js"
 import type { ClaudePermissionHandler, ClaudePermissionRequest } from "./claude-session-runtime.js"
+import { codexThreadItemToTimeline, codexTurnUpdateToTimeline } from "./codex-timeline.js"
 
 type Pending = {
   readonly expectedType: string
@@ -71,7 +76,7 @@ const capabilities = (
       ...(agentId !== "codex" ? (["resource-link"] as const) : []),
       ...(supportsPrompt(prompt.embeddedContext) ? (["embedded-resource"] as const) : []),
     ],
-    harnessExtensions: false,
+    harnessExtensions: agentId === "codex",
     steer: agentId === "codex" || agentId === "pi",
   }
 }
@@ -115,7 +120,16 @@ const resultOf = (message: AgentRuntimeServerMessage): Record<string, unknown> =
 const stringId = (value: unknown): string | null =>
   typeof value === "string" && value.length > 0 ? value : null
 
-const mapInput = (content: readonly ThreadInputBlock[]): unknown[] =>
+const localInput = (uri: string, name?: string | null): v2.UserInput | null => {
+  if (!uri.startsWith("file:")) return null
+  const path = fileURLToPath(uri)
+  const label = (name ?? path).toLowerCase()
+  if (/\.(?:avif|gif|jpe?g|png|webp)$/u.test(label)) return { path, type: "localImage" }
+  if (/\.(?:aac|flac|m4a|mp3|ogg|wav)$/u.test(label)) return { path, type: "localAudio" }
+  return { name: name ?? path.split(/[\\/]/u).at(-1) ?? path, path, type: "mention" }
+}
+
+const mapInput = (content: readonly ThreadInputBlock[]): v2.UserInput[] =>
   content.map((block) => {
     switch (block.type) {
       case "text":
@@ -125,10 +139,22 @@ const mapInput = (content: readonly ThreadInputBlock[]): unknown[] =>
       case "audio":
         return { type: "audio", url: `data:${block.mimeType};base64,${block.data}` }
       case "resource-link":
-        return { text: block.uri, type: "text", text_elements: [] }
+        return (
+          localInput(block.uri, block.name) ?? {
+            text: block.uri,
+            type: "text",
+            text_elements: [],
+          }
+        )
       case "embedded-resource":
+        if (block.mimeType.startsWith("image/")) {
+          return { type: "image", url: `data:${block.mimeType};base64,${block.data}` }
+        }
+        if (block.mimeType.startsWith("audio/")) {
+          return { type: "audio", url: `data:${block.mimeType};base64,${block.data}` }
+        }
         return {
-          text: `Embedded resource ${block.uri} (${block.mimeType}):\n${block.data}`,
+          text: `Embedded resource ${block.uri} (${block.mimeType}):\n${Buffer.from(block.data, "base64").toString("utf8")}`,
           type: "text",
           text_elements: [],
         }
@@ -264,7 +290,7 @@ const mapCodexHistory = (thread: Record<string, unknown>): ThreadHarnessHistoryI
     if (!turn || typeof turn !== "object") continue
     const turnRecord = turn as Record<string, unknown>
     for (const item of Array.isArray(turnRecord.items) ? turnRecord.items : []) {
-      const mapped = mapHarnessItem(item, "codex")
+      const mapped = codexThreadItemToTimeline(item as v2.ThreadItem)
       if (mapped)
         history.push({
           item: mapped,
@@ -434,11 +460,13 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     }
   >()
   readonly #reverse = new Map<string, AgentRuntimeServerMessage>()
+  readonly #codexProjectors = new Map<string, CodexTurnProjector>()
   #acpCapabilities: Record<string, unknown> | undefined
   #acpProtocolVersion: 1 | 2 | undefined
   #defaultsApplied = false
   #onEvent: ((event: ThreadHarnessEvent) => void) | undefined
   #harnessSessionId: string | null = null
+  #ownerThreadId: string | null = null
 
   constructor(manager: AgentManager, agentId: AgentId) {
     this.#manager = manager
@@ -447,6 +475,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
 
   async create(input: ThreadHarnessCreateInput): Promise<ThreadHarnessSession> {
     this.#attach(input.onEvent)
+    this.#ownerThreadId = input.threadId
     if (this.agentId === "codex") {
       const response = await this.#request(
         input.threadId,
@@ -460,6 +489,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
             }
           : {
               cwd: input.cwd,
+              dynamicTools: this.#manager.codexDynamicTools.getSpecs(),
               requestId: randomUUID(),
               type: "agent.codex.thread.start.request",
             }
@@ -522,6 +552,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
 
   async resume(input: ThreadHarnessResumeInput): Promise<ThreadHarnessSession> {
     this.#attach(input.onEvent)
+    this.#ownerThreadId = input.threadId
     if (this.agentId === "codex") {
       if (!input.agentSessionId) return this.create({ ...input, forkedFromAgentSessionId: null })
       const response = await this.#request(input.threadId, {
@@ -590,6 +621,8 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     }
     await this.#manager.disposeSession(context.threadId)
     this.#cancelPendingInteractions()
+    this.#codexProjectors.clear()
+    this.#ownerThreadId = null
     this.#onEvent = undefined
   }
 
@@ -641,7 +674,13 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         type: "agent.codex.turn.start.request",
       })
       const turn = resultOf(response).turn as Record<string, unknown>
-      return { turnId: stringId(turn?.id) ?? input.clientMessageId }
+      const turnId = stringId(turn?.id) ?? input.clientMessageId
+      if (turn?.id && !this.#codexProjectors.has(turnId)) {
+        const projector = new CodexTurnProjector(input.agentSessionId, turn as v2.Turn)
+        this.#codexProjectors.set(turnId, projector)
+        this.#emitCodexUpdates(projector.initialUpdates())
+      }
+      return { turnId }
     }
     if (this.agentId === "opencode") {
       if (!input.agentSessionId) throw new Error("OpenCode thread is not bound")
@@ -855,6 +894,24 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       thinking?: string | null
     }
   ): Promise<void> {
+    if (this.agentId === "codex") {
+      const turnId = [...this.#codexProjectors.keys()].at(-1)
+      if (!context.agentSessionId || !turnId) return
+      if (patch.mode !== undefined) {
+        throw new Error("Codex permission mode changes apply to the next turn")
+      }
+      if (patch.model || patch.thinking) {
+        await this.#request(context.threadId, {
+          ...(patch.thinking ? { effort: patch.thinking } : {}),
+          ...(patch.model ? { model: patch.model } : {}),
+          requestId: randomUUID(),
+          threadId: context.agentSessionId,
+          turnId,
+          type: "agent.codex.turn.settings.update.request",
+        })
+      }
+      return
+    }
     if (this.agentId === "pi") {
       if (patch.model) {
         const [provider, modelId] = patch.model.split("/", 2)
@@ -922,7 +979,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     if (this.agentId === "codex") {
       const request = reverse as unknown as Record<string, unknown>
       const requestPayload = { ...request, ...payloadOf(reverse) }
-      const payload = (() => {
+      const payload = await (async () => {
         switch (reverse.type) {
           case "agent.codex.apply_patch_approval.request":
           case "agent.codex.exec_command_approval.request":
@@ -996,9 +1053,16 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
               requestId: request.requestId,
             }
           default:
-            throw new Error(`Unsupported Codex interaction: ${reverse.type}`)
+            await this.#manager.rejectCodexReverse(
+              context.threadId,
+              String(request.requestId),
+              `Cypheria does not support this Codex interaction: ${reverse.type}`
+            )
+            this.#reverse.delete(interactionId)
+            return
         }
       })()
+      if (!payload) return
       await this.#manager.handleCodex(
         AgentCodexServerResponseSchema.parse({
           payload,
@@ -1476,10 +1540,98 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     })
   }
 
+  #emitCodexUpdates(updates: ReturnType<CodexTurnProjector["apply"]>): void {
+    for (const update of updates) {
+      const item = codexTurnUpdateToTimeline(update)
+      if (!item) continue
+      const turnId = update.type === "turn" ? update.data.id : update.data.turnId
+      this.#onEvent?.({
+        item: { harnessItemId: item.itemId, item, turnId },
+        type: "timeline",
+      })
+    }
+  }
+
+  #mapCodexNotification(message: AgentRuntimeServerMessage): boolean {
+    if (this.agentId !== "codex") return false
+    const method =
+      AGENT_CODEX_SERVER_NOTIFICATION_TYPE_TO_METHOD[
+        message.type as keyof typeof AGENT_CODEX_SERVER_NOTIFICATION_TYPE_TO_METHOD
+      ]
+    if (!method) return false
+    const params = payloadOf(message)
+    const notification = { method, params } as ServerNotification
+    const turn = params.turn as v2.Turn | undefined
+    const turnId = stringId(params.turnId) ?? stringId(turn?.id)
+
+    if (method === "turn/started" && turn) {
+      let projector = this.#codexProjectors.get(turn.id)
+      if (!projector) {
+        projector = new CodexTurnProjector(String(params.threadId), turn)
+        this.#codexProjectors.set(turn.id, projector)
+        this.#emitCodexUpdates(projector.initialUpdates())
+      } else {
+        this.#emitCodexUpdates(projector.apply(notification))
+      }
+    } else if (turnId) {
+      const projector = this.#codexProjectors.get(turnId)
+      if (projector) this.#emitCodexUpdates(projector.apply(notification))
+      else if ((method === "item/started" || method === "item/completed") && params.item) {
+        const item = codexThreadItemToTimeline(params.item as v2.ThreadItem)
+        if (item) {
+          this.#onEvent?.({
+            item: { harnessItemId: item.itemId, item, turnId },
+            type: "timeline",
+          })
+        }
+      }
+    }
+
+    if (method === "turn/completed" && turnId) {
+      this.#codexProjectors.delete(turnId)
+      this.#onEvent?.({ turnId, type: "turn-completed" })
+    }
+
+    const highFrequency =
+      method.endsWith("Delta") ||
+      method === "item/started" ||
+      method === "item/completed" ||
+      method === "turn/started" ||
+      method === "turn/completed" ||
+      method === "turn/diff/updated" ||
+      method === "turn/plan/updated"
+    if (!highFrequency) {
+      this.#onEvent?.({
+        agentId: "codex",
+        nativeType: message.type,
+        payload: params as never,
+        type: "harness",
+      })
+    }
+    return true
+  }
+
   #mapMessage(message: AgentRuntimeServerMessage): void {
     const onEvent = this.#onEvent
     if (!onEvent) return
     const payload = payloadOf(message)
+    if (this.#mapCodexNotification(message)) return
+    if (this.agentId === "codex" && message.type === "agent.codex.item.tool.call.request") {
+      const requestId = requestIdOf(message)
+      if (requestId === undefined || requestId === null) return
+      void this.#manager.codexDynamicTools
+        .call(payload as unknown as v2.DynamicToolCallParams)
+        .then((result) =>
+          this.#manager.handleCodex(
+            {
+              payload: { requestId: String(requestId), ...result },
+              type: "agent.codex.item.tool.call.response",
+            },
+            { send: this.#receive, sessionId: this.#ownerThreadId ?? String(payload.threadId) }
+          )
+        )
+      return
+    }
     if (
       this.agentId === "codex" &&
       (message.type === "agent.codex.item.auto_approval_review.started.notification" ||
@@ -1584,6 +1736,9 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
           createdAt: new Date().toISOString(),
           expiresAt: null,
           id: interactionId,
+          ...(stringId(payload.itemId ?? request.itemId)
+            ? { itemId: String(payload.itemId ?? request.itemId) }
+            : {}),
           kind:
             message.type.includes("permission") || message.type.includes("approval")
               ? "permission"
@@ -1625,6 +1780,9 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
                     (request.toolCall as Record<string, unknown> | undefined)?.title
                 )
               : null,
+          ...(stringId(payload.turnId ?? request.turnId)
+            ? { turnId: String(payload.turnId ?? request.turnId) }
+            : {}),
         },
         type: "interaction-requested",
       })

@@ -129,6 +129,7 @@ const result = <S extends z.ZodType>(value: S) =>
 const response = <const T extends string, S extends z.ZodType>(type: T, value: S) =>
   z.object({ payload: result(value), requestId: RequestIdSchema, type: z.literal(type) })
 const succeeded = z.object({ succeeded: z.literal(true) }).strict()
+const jsonObject = z.record(z.string(), z.json())
 
 export const CodexAccountGetRequestSchema = request(
   "harness.codex.account.get.request",
@@ -179,6 +180,62 @@ export const CodexGuardianRetryRequestSchema = request(
   z.object({ event: z.json(), threadId: z.string().min(1) }).strict()
 )
 
+const codexThreadRequest = <const T extends string>(type: T) => request(type, jsonObject)
+const codexThreadResponse = <const T extends string>(type: T) => response(type, z.json())
+
+export const CodexThreadGoalGetRequestSchema = codexThreadRequest(
+  "harness.codex.thread.goal.get.request"
+)
+export const CodexThreadGoalSetRequestSchema = codexThreadRequest(
+  "harness.codex.thread.goal.set.request"
+)
+export const CodexThreadGoalClearRequestSchema = codexThreadRequest(
+  "harness.codex.thread.goal.clear.request"
+)
+export const CodexThreadQueueListRequestSchema = codexThreadRequest(
+  "harness.codex.thread.queue.list.request"
+)
+export const CodexThreadQueueAddRequestSchema = codexThreadRequest(
+  "harness.codex.thread.queue.add.request"
+)
+export const CodexThreadQueueUpdateRequestSchema = codexThreadRequest(
+  "harness.codex.thread.queue.update.request"
+)
+export const CodexThreadQueueDeleteRequestSchema = codexThreadRequest(
+  "harness.codex.thread.queue.delete.request"
+)
+export const CodexThreadQueueReorderRequestSchema = codexThreadRequest(
+  "harness.codex.thread.queue.reorder.request"
+)
+export const CodexThreadQueueStartRequestSchema = codexThreadRequest(
+  "harness.codex.thread.queue.start.request"
+)
+export const CodexThreadUsageGetRequestSchema = codexThreadRequest(
+  "harness.codex.thread.usage.get.request"
+)
+export const CodexThreadBackgroundTerminalsListRequestSchema = codexThreadRequest(
+  "harness.codex.thread.background-terminals.list.request"
+)
+export const CodexThreadBackgroundTerminalsTerminateRequestSchema = codexThreadRequest(
+  "harness.codex.thread.background-terminals.terminate.request"
+)
+export const CodexThreadBackgroundTerminalsCleanRequestSchema = codexThreadRequest(
+  "harness.codex.thread.background-terminals.clean.request"
+)
+export const CodexThreadCompactRequestSchema = codexThreadRequest(
+  "harness.codex.thread.compact.request"
+)
+export const CodexThreadRevertRequestSchema = codexThreadRequest(
+  "harness.codex.thread.revert.request"
+)
+export const CodexThreadReviewStartRequestSchema = codexThreadRequest(
+  "harness.codex.thread.review.start.request"
+)
+export const CodexAccountRateLimitsGetRequestSchema = request(
+  "harness.codex.account.rate-limits.get.request",
+  jsonObject
+)
+
 export const CodexAccountGetResponseSchema = response(
   "harness.codex.account.get.response",
   CodexAccountViewSchema
@@ -227,6 +284,57 @@ export const CodexGuardianRetryResponseSchema = response(
   "harness.codex.guardian.retry.response",
   succeeded
 )
+export const CodexThreadGoalGetResponseSchema = codexThreadResponse(
+  "harness.codex.thread.goal.get.response"
+)
+export const CodexThreadGoalSetResponseSchema = codexThreadResponse(
+  "harness.codex.thread.goal.set.response"
+)
+export const CodexThreadGoalClearResponseSchema = codexThreadResponse(
+  "harness.codex.thread.goal.clear.response"
+)
+export const CodexThreadQueueListResponseSchema = codexThreadResponse(
+  "harness.codex.thread.queue.list.response"
+)
+export const CodexThreadQueueAddResponseSchema = codexThreadResponse(
+  "harness.codex.thread.queue.add.response"
+)
+export const CodexThreadQueueUpdateResponseSchema = codexThreadResponse(
+  "harness.codex.thread.queue.update.response"
+)
+export const CodexThreadQueueDeleteResponseSchema = codexThreadResponse(
+  "harness.codex.thread.queue.delete.response"
+)
+export const CodexThreadQueueReorderResponseSchema = codexThreadResponse(
+  "harness.codex.thread.queue.reorder.response"
+)
+export const CodexThreadQueueStartResponseSchema = codexThreadResponse(
+  "harness.codex.thread.queue.start.response"
+)
+export const CodexThreadUsageGetResponseSchema = codexThreadResponse(
+  "harness.codex.thread.usage.get.response"
+)
+export const CodexThreadBackgroundTerminalsListResponseSchema = codexThreadResponse(
+  "harness.codex.thread.background-terminals.list.response"
+)
+export const CodexThreadBackgroundTerminalsTerminateResponseSchema = codexThreadResponse(
+  "harness.codex.thread.background-terminals.terminate.response"
+)
+export const CodexThreadBackgroundTerminalsCleanResponseSchema = codexThreadResponse(
+  "harness.codex.thread.background-terminals.clean.response"
+)
+export const CodexThreadCompactResponseSchema = codexThreadResponse(
+  "harness.codex.thread.compact.response"
+)
+export const CodexThreadRevertResponseSchema = codexThreadResponse(
+  "harness.codex.thread.revert.response"
+)
+export const CodexThreadReviewStartResponseSchema = codexThreadResponse(
+  "harness.codex.thread.review.start.response"
+)
+export const CodexAccountRateLimitsGetResponseSchema = codexThreadResponse(
+  "harness.codex.account.rate-limits.get.response"
+)
 
 export const CODEX_HARNESS_CLIENT_SCHEMAS = [
   CodexAccountGetRequestSchema,
@@ -241,6 +349,23 @@ export const CODEX_HARNESS_CLIENT_SCHEMAS = [
   CodexPermissionsCatalogGetRequestSchema,
   CodexPermissionsShowFullAccessSetRequestSchema,
   CodexGuardianRetryRequestSchema,
+  CodexThreadGoalGetRequestSchema,
+  CodexThreadGoalSetRequestSchema,
+  CodexThreadGoalClearRequestSchema,
+  CodexThreadQueueListRequestSchema,
+  CodexThreadQueueAddRequestSchema,
+  CodexThreadQueueUpdateRequestSchema,
+  CodexThreadQueueDeleteRequestSchema,
+  CodexThreadQueueReorderRequestSchema,
+  CodexThreadQueueStartRequestSchema,
+  CodexThreadUsageGetRequestSchema,
+  CodexThreadBackgroundTerminalsListRequestSchema,
+  CodexThreadBackgroundTerminalsTerminateRequestSchema,
+  CodexThreadBackgroundTerminalsCleanRequestSchema,
+  CodexThreadCompactRequestSchema,
+  CodexThreadRevertRequestSchema,
+  CodexThreadReviewStartRequestSchema,
+  CodexAccountRateLimitsGetRequestSchema,
 ] as const
 
 export const CODEX_HARNESS_SERVER_SCHEMAS = [
@@ -256,6 +381,23 @@ export const CODEX_HARNESS_SERVER_SCHEMAS = [
   CodexPermissionsCatalogGetResponseSchema,
   CodexPermissionsShowFullAccessSetResponseSchema,
   CodexGuardianRetryResponseSchema,
+  CodexThreadGoalGetResponseSchema,
+  CodexThreadGoalSetResponseSchema,
+  CodexThreadGoalClearResponseSchema,
+  CodexThreadQueueListResponseSchema,
+  CodexThreadQueueAddResponseSchema,
+  CodexThreadQueueUpdateResponseSchema,
+  CodexThreadQueueDeleteResponseSchema,
+  CodexThreadQueueReorderResponseSchema,
+  CodexThreadQueueStartResponseSchema,
+  CodexThreadUsageGetResponseSchema,
+  CodexThreadBackgroundTerminalsListResponseSchema,
+  CodexThreadBackgroundTerminalsTerminateResponseSchema,
+  CodexThreadBackgroundTerminalsCleanResponseSchema,
+  CodexThreadCompactResponseSchema,
+  CodexThreadRevertResponseSchema,
+  CodexThreadReviewStartResponseSchema,
+  CodexAccountRateLimitsGetResponseSchema,
 ] as const
 
 export const CODEX_HARNESS_RESPONSE_TYPES = CODEX_HARNESS_SERVER_SCHEMAS.map(

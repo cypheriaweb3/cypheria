@@ -146,17 +146,8 @@ export class CypheriaServer implements HttpAppHost {
         this.configStore.getSnapshot().config.agents.defaults[agentId] ?? {},
     })
     this.integrations = new IntegrationService(this.agentManager)
-    this.codexHarness = new CodexHarnessService(this.agentManager, this.configStore)
     const projectThreadPersistence = createProjectThreadPersistenceService(this.database.db)
     this.terminals = new TerminalService(projectThreadPersistence)
-    this.harnesses = new HarnessService(
-      this.agentManager,
-      this.codexHarness,
-      this.configStore,
-      this.terminals
-    )
-    this.agentManager.setCatalogInvalidator((agentId) => this.harnesses.invalidate(agentId))
-    this.agentManager.setDefaultsResolver((agentId) => this.harnesses.validatedDefaults(agentId))
     this.projectThread = new ProjectThreadService({
       persistence: projectThreadPersistence,
     })
@@ -168,6 +159,19 @@ export class CypheriaServer implements HttpAppHost {
       publish: (message) => this.registry.broadcast(message),
       timelinePersistence: createThreadTimelinePersistenceService(this.database.db),
     })
+    this.codexHarness = new CodexHarnessService(
+      this.agentManager,
+      this.configStore,
+      this.threadManager
+    )
+    this.harnesses = new HarnessService(
+      this.agentManager,
+      this.codexHarness,
+      this.configStore,
+      this.terminals
+    )
+    this.agentManager.setCatalogInvalidator((agentId) => this.harnesses.invalidate(agentId))
+    this.agentManager.setDefaultsResolver((agentId) => this.harnesses.validatedDefaults(agentId))
     this.agentManager.setThreadCoordinator(this.threadManager)
     this.schedules = new ScheduleService({
       logger: this.logger.child({ service: "schedules" }),

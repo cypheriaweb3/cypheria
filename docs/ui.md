@@ -25,7 +25,7 @@ Persisted theme, locale, font, and layout preferences are Desktop-local settings
 
 ## Components
 
-`@cypheria/ui` is the shared source for reusable primitives and AI Elements. Use shadcn-style copied components and Base UI primitives for common dialogs, menus, popovers, selects, tabs, switches, sliders, tooltips, and focus management.
+`@cypheria/ui` is the shared source for reusable primitives and protocol-independent conversation surfaces. Use shadcn-style copied components and Base UI primitives for common dialogs, menus, popovers, selects, tabs, switches, sliders, tooltips, and focus management.
 
 Custom components are appropriate for domain-specific interactions such as:
 
@@ -38,9 +38,9 @@ Custom components are appropriate for domain-specific interactions such as:
 
 Shared components remain presentation-oriented. Data fetching and Electron access stay in the application layer.
 
-## AI Elements
+## Conversation components
 
-AI Elements provide composable conversation primitives for messages, reasoning, tools, code, plans, attachments, prompts, and streaming state. Desktop composes them inside the existing conversation shell; it does not replace established navigation, Thread scope, virtualization, scroll restoration, or harness extensions.
+The `components/chat` surface provides composable messages, reasoning, tools, commands, plans, attachments, composer states, pending interactions, panels, previews, and streaming states. These components contain presentation and accessibility behavior only. Desktop owns the Thread controller, TanStack Virtual integration, scroll restoration, panel registry, xterm process view, and harness extensions.
 
 Timeline renderers accept Canonical Timeline items. Harness renderers are registered only for discriminated harness items or metadata with genuine additional behavior.
 

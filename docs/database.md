@@ -8,7 +8,7 @@ Cypheria uses SQLite through Drizzle ORM and the local libSQL driver. `packages/
 
 ## Location and ownership
 
-The default database is `$CYPHERIA_HOME/db/cypheria.sqlite`. Only the Server opens it. Desktop, CLI, Expo, AI SDK providers, Agents, and plugins use the Cypheria protocol and never import database repositories.
+The default database is `$CYPHERIA_HOME/db/cypheria.sqlite`. Only the Server opens it. Desktop, CLI, Expo, Agents, and plugins use the Cypheria protocol and never import database repositories.
 
 Every connection enables foreign keys. Server services define transaction boundaries and validate persisted JSON when it re-enters a domain.
 

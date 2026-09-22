@@ -43,6 +43,7 @@ import {
 import { AcpSessionRuntime } from "./acp-session-runtime.js"
 import { AgentInstaller } from "./agent-installer.js"
 import { type ClaudePermissionHandler, ClaudeSessionRuntime } from "./claude-session-runtime.js"
+import { type CodexDynamicToolHandler, CodexDynamicToolRegistry } from "./codex-dynamic-tools.js"
 import { CodexRuntime } from "./codex-runtime.js"
 import { ManagedThreadAdapter } from "./managed-thread-adapter.js"
 import { NATIVE_AGENT_MANIFEST } from "./native-agent-manifest.js"
@@ -139,6 +140,7 @@ const isNewerReleaseVersion = (
 export class AgentManager {
   readonly registry: AgentRegistryService
   readonly toolchains: ToolchainManager
+  readonly codexDynamicTools = new CodexDynamicToolRegistry()
   readonly #acpRuntimes = new Map<string, AcpSessionRuntime>()
   readonly #agentDefaults: (agentId: AgentId) => Record<string, HarnessSettingValue>
   readonly #agentHomes: string
@@ -243,6 +245,14 @@ export class AgentManager {
     this.#threadAdapters.clear()
     this.#codexRuntime = undefined
     this.#sessionStates.clear()
+    this.codexDynamicTools.clear()
+  }
+
+  registerCodexDynamicTools(
+    specs: readonly import("@cypheria/protocol/codex-types").v2.DynamicToolSpec[],
+    handler: CodexDynamicToolHandler
+  ): () => void {
+    return this.codexDynamicTools.register(specs, handler)
   }
 
   async disposeSession(sessionId: string): Promise<void> {
@@ -475,6 +485,12 @@ export class AgentManager {
   ): Promise<Record<string, unknown>> {
     await this.#assertCallable("codex")
     return (await this.#ensureCodexRuntime()).request(method, params)
+  }
+
+  async rejectCodexReverse(sessionId: string, requestId: string, message: string): Promise<void> {
+    await this.#assertCallable("codex")
+    const runtime = await this.#ensureCodexRuntime()
+    runtime.rejectReverse(sessionId, requestId, message)
   }
 
   async waitForCodexLogin(loginId: string, signal: AbortSignal) {

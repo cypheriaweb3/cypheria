@@ -36,6 +36,72 @@ export function ChatComposerTopTray({ className, ...props }: HTMLAttributes<HTML
   )
 }
 
+export function ChatComposerAttachmentTray({
+  className,
+  ...props
+}: HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      data-slot="chat-composer-attachment-tray"
+      className={cn("flex min-w-0 gap-2 overflow-x-auto pb-0.5", className)}
+      {...props}
+    />
+  )
+}
+
+type ChatComposerAttachmentProps = HTMLAttributes<HTMLDivElement> & {
+  name: ReactNode
+  metadata?: ReactNode
+  icon?: ReactNode
+  preview?: ReactNode
+  removeLabel?: string
+  onRemove?: () => void
+}
+
+export function ChatComposerAttachment({
+  className,
+  name,
+  metadata,
+  icon,
+  preview,
+  removeLabel,
+  onRemove,
+  ...props
+}: ChatComposerAttachmentProps) {
+  return (
+    <div
+      data-slot="chat-composer-attachment"
+      className={cn(
+        "group relative flex h-14 min-w-0 max-w-64 shrink-0 items-center gap-2 rounded-xl border bg-muted/25 p-1.5 pe-8 text-xs",
+        className
+      )}
+      {...props}
+    >
+      <span className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-muted text-muted-foreground [&_img]:size-full [&_img]:object-cover [&_svg]:size-4">
+        {preview ?? icon ?? <FileIcon />}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate font-medium">{name}</span>
+        {metadata ? (
+          <span className="mt-0.5 block truncate text-muted-foreground">{metadata}</span>
+        ) : null}
+      </span>
+      {onRemove && removeLabel ? (
+        <Button
+          aria-label={removeLabel}
+          className="absolute top-1.5 end-1.5 size-5 rounded-full opacity-70 group-hover:opacity-100"
+          onClick={onRemove}
+          size="icon-xs"
+          type="button"
+          variant="ghost"
+        >
+          <CloseBoldIcon />
+        </Button>
+      ) : null}
+    </div>
+  )
+}
+
 type ChatComposerPanelProps = HTMLAttributes<HTMLElement> & {
   title?: ReactNode
   description?: ReactNode
@@ -399,6 +465,7 @@ export function ChatComposerMeter({
 }
 
 export type {
+  ChatComposerAttachmentProps,
   ChatComposerBannerProps,
   ChatComposerMeterProps,
   ChatComposerPanelProps,

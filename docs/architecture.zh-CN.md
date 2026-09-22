@@ -54,20 +54,19 @@ Agent 原生事件在此边界归一化。原生载荷可以为诊断保留，�
 
 - `@cypheria/protocol` 负责版本化公开契约、运行时校验和生成的上游协议产物。
 - `@cypheria/client` 是公开 TypeScript SDK，负责连接和领域 facade，不依赖 Electron 或数据库。
-- `@cypheria/ai-sdk-provider` 将 Cypheria Threads 与 Timeline 事件映射到 AI SDK provider 契约。
 - `@cypheria/db` 负责 Server 使用的 SQLite Schema、迁移基线和 repositories。
 - `@cypheria/web3` 包含纯 Network、Policy、Wallet、Provider 领域逻辑；特权编排仍在 Server。
-- `@cypheria/ui` 包含可复用展示组件和 AI Elements。
+- `@cypheria/ui` 包含可复用展示组件，包括不依赖协议的会话、面板、通知和 artifact surface。
 
 ## 主要数据流
 
 ### 会话
 
-1. 客户端创建或选择 Cypheria Thread，通过 `@cypheria/client` 或 AI SDK provider 提交输入。
+1. 客户端创建或选择 Cypheria Thread，通过 `@cypheria/client` 提交输入。
 2. Server 解析 Thread 对应的 Agent，启动或复用 adapter runtime，并记录 turn。
-3. Adapter 将原生事件转换为 Canonical Timeline 事件。
-4. Server 持久化事件并通过游标发布有序更新。
-5. 客户端投影同一条持久 Timeline，仅在判别项需要时渲染 harness 扩展。
+3. Adapter 校验原生边界，并把 item 生命周期更新转换为稳定的 Canonical Timeline identity。阻塞式反向请求成为带目标的 interaction；goal、queue、usage、rate limit、环境和安全状态保留为可查询 runtime state，不伪装成消息。
+4. Server 持久化 Timeline 事件，并通过 epoch 与 cursor 发布有序更新。
+5. Desktop 直接消费 Thread API。其无框架 controller 会恢复 epoch 变化或序列缺口，React 通过 `useSyncExternalStore` 渲染同一条持久 Timeline；Codex 专属控制使用带类型的 `client.harnesses.codex` facade。
 
 ### Desktop 启动
 

@@ -19,14 +19,19 @@ msgid "search.keyboardHelp"
 msgstr "↑↓ Navigate · Enter Open · Esc Close"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.prompt.addFiles"
-msgstr "Add files"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.interaction.actionRequired"
+msgstr "Action required"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.prompt.addContext"
-msgstr "Add files or screen context"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.activity"
+msgstr "Activity"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.addFiles"
+msgstr "Add files"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
@@ -34,34 +39,19 @@ msgid "chat.project.addFolders"
 msgstr "Add folders Codex can read and edit"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.artifact.added"
-msgstr "Added"
+#: renderer/src/components/app-shell.tsx
+msgid "settings.agentHarnesses"
+msgstr "Agent harnesses"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.agentActivity"
-msgstr "Agent {tool}"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.interaction.allowOnce"
+msgstr "Allow once"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.defaults"
-msgstr "Agent defaults"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.network.title"
-msgstr "Allow network access"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.network.description"
-msgstr "Allow network access when the sandbox is set to Workspace write"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.artifact.app"
-msgstr "App"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.interaction.alwaysAllow"
+msgstr "Always allow"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
@@ -74,14 +64,9 @@ msgid "settings.appearance"
 msgstr "Appearance"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.approval.title"
-msgstr "Approval policy"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.permissions.autoReview"
-msgstr "Approve for me"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.approval"
+msgstr "Approval"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -119,14 +104,14 @@ msgid "settings.archived"
 msgstr "Archived chats"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.prompt.placeholder"
-msgstr "Ask Cypheria to inspect, edit, run, research, or review…"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.artifacts"
+msgstr "Artifacts"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.permissions.ask"
-msgstr "Ask for approval"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.placeholderShort"
+msgstr "Ask anything…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -134,19 +119,9 @@ msgid "navigation.auditLog"
 msgstr "Audit log"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.auto"
-msgstr "Auto"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
 msgid "settings.language.automatic"
 msgstr "Automatic detection"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.model.available"
-msgstr "Available models"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -159,24 +134,14 @@ msgid "settings.workspace.terminalLocation.bottom"
 msgstr "Bottom"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.bottomPanelShortcut"
-msgstr "Bottom panel (⌘J)"
-
-#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.workspace.bottomPanelControl.title"
 msgstr "Bottom panel control"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.browser"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.browser"
 msgstr "Browser"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.permissions.default.description"
-msgstr "By default, ChatGPT can read and edit files in its workspace. It can ask for additional access when needed."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -184,13 +149,8 @@ msgid "navigation.byProject"
 msgstr "By project"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.cached"
-msgstr "Cached"
-
-#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
 #: renderer/src/routes/settings.archived.tsx
-#: renderer/src/routes/settings.general.tsx
 msgid "common.cancel"
 msgstr "Cancel"
 
@@ -201,14 +161,9 @@ msgid "chat.cancel"
 msgstr "Cancel"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.turn.changedFiles"
-msgstr "changed files"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.title.chat"
-msgstr "Chat"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.state.cancelled"
+msgstr "Cancelled"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -231,34 +186,14 @@ msgid "chat.project.validation"
 msgstr "Choose a folder and enter a project name."
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.webSearch.description"
-msgstr "Choose how ChatGPT accesses the web"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.summary.description"
-msgstr "Choose how ChatGPT summarizes its reasoning"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.verbosity.description"
-msgstr "Choose the level of detail in ChatGPT responses"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.sandbox.description"
-msgstr "Choose the permission scope when ChatGPT runs commands"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.approval.description"
-msgstr "Choose when ChatGPT asks for approval"
-
-#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.workspace.terminalLocation.description"
 msgstr "Choose where the terminal opens when using the panel control or shortcut"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "common.close"
+msgstr "Close"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
@@ -271,59 +206,34 @@ msgid "chat.workspace.closeTerminal"
 msgstr "Close terminal"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.close"
-msgstr "Close workspace panel"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.subagent.codexCollaboration"
+msgstr "Codex collaboration"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-msgid "settings.group.coding"
-msgstr "Coding"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.command"
+msgstr "Command"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.compacted"
-msgstr "Compacted conversation context"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.state.completed"
+msgstr "Completed"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.concise"
-msgstr "Concise"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "common.continue"
+msgstr "Continue"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.title"
-msgstr "Configuration"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.conversation"
+msgstr "Conversation"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-msgid "settings.configuration"
-msgstr "Configuration"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.description"
-msgstr "Configure permissions, web access, and agent responses for new chats."
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "common.confirm"
-msgstr "Confirm"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-msgid "settings.connections"
-msgstr "Connections"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.context"
-msgstr "Context"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.coordinatedAgents"
-msgstr "Coordinated agents"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.error.conversation"
+msgstr "Conversation error"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -341,21 +251,6 @@ msgid "navigation.copyMarkdown"
 msgstr "Copy chat as Markdown"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.copyDiff"
-msgstr "Copy diff"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.turn.copyMessage"
-msgstr "Copy message"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.copyResponse"
-msgstr "Copy response"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.copyWorkingDirectory"
 msgstr "Copy working directory"
@@ -371,7 +266,6 @@ msgid "navigation.sidebarActionFailed"
 msgstr "Couldn’t update the sidebar"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
 #: renderer/src/components/project-create-dialog.tsx
 msgid "chat.project.create"
 msgstr "Create project"
@@ -387,29 +281,14 @@ msgid "navigation.sort.created"
 msgstr "Date created"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.permissions.custom"
-msgstr "Custom"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.usage.credits"
+msgstr "credits"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.dangerFullAccess"
-msgstr "Danger full access"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.artifact.declined"
-msgstr "Declined"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.permissions.default.title"
-msgstr "Default permissions"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.permissions.default.toggle"
-msgstr "Default permissions are always shown"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.interaction.decline"
+msgstr "Decline"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -442,24 +321,9 @@ msgid "navigation.deleteSection"
 msgstr "Delete section"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.artifact.deleted"
-msgstr "Deleted"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.detailed"
-msgstr "Detailed"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.prompt.dictation"
-msgstr "Dictation"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.disabled"
-msgstr "Disabled"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.interaction.deny"
+msgstr "Deny"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
@@ -472,16 +336,6 @@ msgstr "Display language"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "chat.done"
 msgstr "Done"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.artifact.done"
-msgstr "Done"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.header.renameHint"
-msgstr "Double-click to rename"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -499,11 +353,6 @@ msgid "navigation.edit"
 msgstr "Edit"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.generatedImage.edit"
-msgstr "Edit"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.editProject"
 msgstr "Edit project"
@@ -514,19 +363,19 @@ msgid "navigation.editSection"
 msgstr "Edit section"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.editedFiles"
-msgstr "Edited files"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.workspace.enterFullscreen"
+msgstr "Enter full screen"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.editingFiles"
-msgstr "Editing files"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.tool.error"
+msgstr "Error"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.enteredReview"
-msgstr "Entered review mode"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.usage.estimated"
+msgstr "Estimated usage"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -539,24 +388,14 @@ msgid "navigation.archiveSectionDescription"
 msgstr "Every chat in this section and its projects will move to Archived chats."
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.exitedReview"
-msgstr "Exited review mode"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.workspace.exitFullscreen"
+msgstr "Exit full screen"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.reasoning.xhigh"
-msgstr "Extra high"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.artifact.failed"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.state.failed"
 msgstr "Failed"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.failedAfter"
-msgstr "Failed after {time}"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -564,44 +403,24 @@ msgid "menu.file"
 msgstr "File"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.artifact.file"
-msgstr "File"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.fileChanges"
+msgstr "File changes"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.files"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.files"
+msgstr "files"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.files"
 msgstr "Files"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.filesSummary"
-msgstr "Files changed by this chat, with their latest recorded state."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.prompt.followUpOptions"
-msgstr "Follow-up options"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.forkChat"
 msgstr "Fork chat"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.forkFromHere"
-msgstr "Fork from here"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.permissions.full.title"
-msgstr "Full access"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.sandbox.fullAccess"
-msgstr "Full computer access"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -619,24 +438,9 @@ msgid "settings.general"
 msgstr "General"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.generatedImage"
-msgstr "Generated image"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.generatedImages"
-msgstr "Generated images"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.artifact.outputs"
-msgstr "Generated outputs"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.generatingImage"
-msgstr "Generating image"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.goal"
+msgstr "Goal"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -649,10 +453,14 @@ msgid "menu.help"
 msgstr "Help"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
 #: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.hideBottomPanel"
 msgstr "Hide bottom panel"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.workspace.hideSidePanel"
+msgstr "Hide side panel"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
@@ -660,14 +468,9 @@ msgid "chat.workspace.hideTerminalPanel"
 msgstr "Hide terminal panel"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.high"
-msgstr "High"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.reasoning.high"
-msgstr "High"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.images"
+msgstr "Images"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -675,24 +478,14 @@ msgid "navigation.inOneList"
 msgstr "In one list"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.indexed"
-msgstr "Indexed"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.tool.input"
+msgstr "Input"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.group.integrations"
 msgstr "Integrations"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-msgid "settings.agentHarnesses"
-msgstr "Agent harnesses"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.artifact.interactive"
-msgstr "Interactive artifact"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -710,11 +503,6 @@ msgid "navigation.sort.updated"
 msgstr "Last updated"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.live"
-msgstr "Live"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/plugins-page.tsx
 #: renderer/src/i18n.test.ts
 msgid "plugins.detail.loading"
@@ -722,33 +510,14 @@ msgstr "Loading {pluginName} plugin details"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
+#: renderer/src/components/conversation-workspace.tsx
 msgid "chat.loadingConversation"
 msgstr "Loading conversation…"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.status.local"
-msgstr "Local"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.low"
-msgstr "Low"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.reasoning.low"
-msgstr "Low"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.permissions.full.confirm.title"
-msgstr "Make Full Access available?"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.permissions.managed"
-msgstr "Managed"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.loadingEarlier"
+msgstr "Loading earlier messages…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -771,50 +540,19 @@ msgid "navigation.markAsUnread"
 msgstr "Mark as unread"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.reasoning.max"
-msgstr "Max"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.mcp"
+msgstr "MCP App"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.medium"
-msgstr "Medium"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.reasoning.medium"
-msgstr "Medium"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
+#: renderer/src/components/conversation-workspace.tsx
 msgid "chat.prompt.label"
 msgstr "Message Cypheria"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.reasoning.minimal"
-msgstr "Minimal"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.modelRerouted"
-msgstr "Model changed from {fromModel} to {toModel}"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.modelDefault"
-msgstr "Model default"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-#: renderer/src/components/chat-workspace.tsx
-msgid "settings.models"
-msgstr "Models"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.header.moreActions"
-msgstr "More chat actions"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.model"
+msgstr "Model"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
@@ -827,23 +565,12 @@ msgid "chat.workspace.moveTerminalBottom"
 msgstr "Move terminal to bottom"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.status.attention"
-msgstr "Needs attention"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.networks"
 msgstr "Networks"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.never"
-msgstr "Never"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
-#: renderer/src/components/chat-workspace.tsx
 #: renderer/src/i18n.test.ts
 msgid "navigation.newChat"
 msgstr "New chat"
@@ -859,14 +586,14 @@ msgid "navigation.newSection"
 msgstr "New section"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.newTask"
+msgstr "New task"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.newTerminal"
 msgstr "New terminal"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.question.next"
-msgstr "Next"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
@@ -874,24 +601,39 @@ msgid "settings.archived.empty"
 msgstr "No archived chats"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.browser.empty"
+msgstr "No browser session is open"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.noChats"
 msgstr "No chats yet"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.reviewEmpty"
-msgstr "Code changes open here for review."
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.review.empty"
+msgstr "No file changes to review"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.prompt.noSkills"
-msgstr "No enabled skills"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.files.empty"
+msgstr "No files were produced"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.filesEmpty"
-msgstr "Workspace files open here."
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.goal.empty"
+msgstr "No goal is set for this task"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.images.empty"
+msgstr "No images in this conversation"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.artifacts.empty"
+msgstr "No interactive artifact is open"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
@@ -909,18 +651,23 @@ msgid "search.noMatches"
 msgstr "No matching chats."
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.mcp.empty"
+msgstr "No MCP App is open"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.noPinnedChats"
 msgstr "No pinned chats"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.archived.tsx
-msgid "settings.archived.noProject"
-msgstr "No project"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.plan.empty"
+msgstr "No plan is available"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.project.none"
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.noProject"
 msgstr "No project"
 
 #. js-lingui-explicit-id
@@ -939,29 +686,14 @@ msgid "settings.search.empty"
 msgstr "No results found"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.noWallet"
-msgstr "No wallet selected. On-chain actions remain read only."
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.sources.empty"
+msgstr "No sources in this conversation"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.none"
-msgstr "None"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.reasoning.none"
-msgstr "None"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.onRequest"
-msgstr "On request"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.browserDescription"
-msgstr "Open an isolated dApp session from a chat result or browser action."
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.subagents.empty"
+msgstr "No subagents have been used"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
@@ -969,19 +701,9 @@ msgid "chat.workspace.openBottomPanelTab"
 msgstr "Open bottom panel tab"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.openConfig"
-msgstr "Open config.toml"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.open"
-msgstr "Open workspace panel"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.question.customResponsePlaceholder"
-msgstr "Or write your own response"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.workspace.openSidePanelTab"
+msgstr "Open side panel tab"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -989,18 +711,14 @@ msgid "navigation.organizeSidebar"
 msgstr "Organize sidebar"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.verbosity.title"
-msgstr "Output detail"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.tool.output"
+msgstr "Output"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.prompt.pastedText"
-msgstr "Pasted text"
-
-#: renderer/src/components/chat-workspace.tsx
-msgid "Pasted text"
-msgstr "Pasted text"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.state.pending"
+msgstr "Pending"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1008,8 +726,8 @@ msgid "navigation.pending"
 msgstr "Pending"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.permissions.title"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions"
 msgstr "Permissions"
 
 #. js-lingui-explicit-id
@@ -1028,14 +746,9 @@ msgid "navigation.pinned"
 msgstr "Pinned"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.plan"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.plan"
 msgstr "Plan"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.turn.planSteps"
-msgstr "plan steps"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -1083,59 +796,29 @@ msgid "navigation.projects"
 msgstr "Projects"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.proposedPlan"
-msgstr "Proposed plan"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.queue.queuedCount"
+msgstr "queued"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.question.header"
-msgstr "Question"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.queue.queued"
+msgstr "Queued"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.prompt.queue"
-msgstr "Queue for next turn"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.state.ready"
+msgstr "Ready"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.ranCommand"
-msgstr "Ran {command}"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.ranCommands"
-msgstr "Ran commands"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.readFile"
-msgstr "Read {name}"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.readFiles"
-msgstr "Read files"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.readOnly"
-msgstr "Read only"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.sandbox.readOnly"
-msgstr "Read only"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.model.reasoning"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.reasoning"
 msgstr "Reasoning"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.summary.title"
-msgstr "Reasoning summary"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.reasoningEffort"
+msgstr "Reasoning effort"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -1148,9 +831,9 @@ msgid "navigation.recents"
 msgstr "Recents"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.prompt.removeAttachment"
-msgstr "Remove attachment"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "common.remove"
+msgstr "Remove"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1161,11 +844,6 @@ msgstr "Remove from project"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.removeFromSection"
 msgstr "Remove from section"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.prompt.removePastedText"
-msgstr "Remove pasted text attachment"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1183,9 +861,14 @@ msgid "navigation.renameChat"
 msgstr "Rename chat"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.header.rename"
-msgstr "Rename chat"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.workspace.resizeBottomPanel"
+msgstr "Resize bottom panel"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.workspace.resizeSidePanel"
+msgstr "Resize side panel"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
@@ -1208,8 +891,8 @@ msgid "navigation.revealProject"
 msgstr "Reveal in Finder"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.review"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.review"
 msgstr "Review"
 
 #. js-lingui-explicit-id
@@ -1218,19 +901,9 @@ msgid "settings.workspace.terminalLocation.right"
 msgstr "Right"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.artifact.running"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.state.running"
 msgstr "Running"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.runningCommand"
-msgstr "Running {command}"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.sandbox.title"
-msgstr "Sandbox settings"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1248,9 +921,9 @@ msgid "navigation.schedules"
 msgstr "Schedules"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.scrollToBottom"
-msgstr "Scroll to bottom"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.scrollToLatest"
+msgstr "Scroll to latest"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -1294,26 +967,6 @@ msgid "search.description"
 msgstr "Search your chats and select one to open it."
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.searchedCode"
-msgstr "Searched code"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.searched"
-msgstr "Searched for {query}"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.searchedWebShort"
-msgstr "Searched the web"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.searchedWeb"
-msgstr "Searched the web for {query}"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.searching"
 msgstr "Searching…"
@@ -1324,14 +977,9 @@ msgid "navigation.section"
 msgstr "Section"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.question.send"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.send"
 msgstr "Send"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.question.sent"
-msgstr "Sent"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -1344,23 +992,9 @@ msgid "settings.workspace.bottomPanelControl.description"
 msgstr "Show a quick terminal panel control in the chat title bar"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.showBottomPanel"
-msgstr "Show bottom panel"
-
-#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.workspace.bottomPanelControl.toggle"
 msgstr "Show bottom panel control in the app title bar"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.permissions.full.toggle"
-msgstr "Show Full access in the composer"
-
-#: renderer/src/components/chat-workspace.tsx
-msgid "Show in text field"
-msgstr "Show in text field"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1369,14 +1003,14 @@ msgid "navigation.showMore"
 msgstr "Show more"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.workspace.sidePanelTabs"
+msgstr "Side panel tabs"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.signingPolicies"
 msgstr "Signing policies"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.prompt.skills"
-msgstr "Skills"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1389,34 +1023,39 @@ msgid "chat.project.sourceFolders"
 msgstr "Source folders"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.status.starting"
-msgstr "Starting…"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.sources"
+msgstr "Sources"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.prompt.steer"
-msgstr "Steer active turn"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.empty.start"
+msgstr "Start a conversation"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.steerPlaceholder"
+msgstr "Steer the current task…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
 msgid "chat.prompt.stop"
 msgstr "Stop"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.prompt.submit"
-msgstr "Submit"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.subagent"
+msgstr "Subagent"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.prompt.addScreenshot"
-msgstr "Take screenshot"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.subagents"
+msgstr "Subagents"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.terminal"
-msgstr "Terminal"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.summary"
+msgstr "Summary"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
@@ -1434,11 +1073,6 @@ msgid "settings.theme.title"
 msgstr "Theme"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.thinking"
-msgstr "Thinking"
-
-#. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.deleteConfirm.description"
 msgstr "This permanently deletes the chat and cannot be undone."
@@ -1449,24 +1083,14 @@ msgid "navigation.removeProjectDescription"
 msgstr "This removes the project from Cypheria without deleting its files or chats."
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.thought"
-msgstr "Thought"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
+#: renderer/src/components/conversation-workspace.tsx
 msgid "chat.workspace.toggleBottomPanel"
 msgstr "Toggle bottom panel"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
+#: renderer/src/components/conversation-workspace.tsx
 msgid "chat.workspace.toggleSidePanel"
 msgstr "Toggle side panel"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.toggleTerminal"
-msgstr "Toggle terminal"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -1474,9 +1098,9 @@ msgid "search.tryAgain"
 msgstr "Try again"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.diff"
-msgstr "Turn changes"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.unknownItem"
+msgstr "Unknown item"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1499,34 +1123,9 @@ msgid "search.untitled"
 msgstr "Untitled chat"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.untrusted"
-msgstr "Untrusted commands"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.update"
-msgstr "Update"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.editProjectDescription"
 msgstr "Update the project name shown in the sidebar."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.artifact.updated"
-msgstr "Updated"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.updatedPlan"
-msgstr "Updated plan"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.usedTools"
-msgstr "Used tools"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -1534,54 +1133,9 @@ msgid "menu.view"
 msgstr "View"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.viewedImage"
-msgstr "Viewed {path}"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.viewedImages"
-msgstr "Viewed images"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.waited"
-msgstr "Waited {time}"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.wallets"
 msgstr "Wallets & assets"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.webSearch.title"
-msgstr "Web search"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.web3Context"
-msgstr "Web3 context"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.artifact.website"
-msgstr "Website"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.empty.title"
-msgstr "What should Cypheria work on?"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.permissions.full.description"
-msgstr "When ChatGPT runs with full access, it can edit any file on your computer and run commands with network access, without your approval. This significantly increases the risk of data loss, leaks, or unexpected behavior."
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.permissions.full.confirm.body"
-msgstr "When selected, ChatGPT can access the internet and read and edit files without asking for approval — including potentially destructive commands."
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -1589,51 +1143,11 @@ msgid "menu.window"
 msgstr "Window"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.empty.description"
-msgstr "Work across code, wallets, and the web while you stay in control of permissions."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.workedFor"
-msgstr "Worked for {time}"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.working"
-msgstr "Working"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.workingFor"
-msgstr "Working for {time}"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.status.working"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.state.working"
 msgstr "Working…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.workspace"
 msgstr "Workspace navigation"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-workspace.tsx
-msgid "chat.workspace.label"
-msgstr "Workspace panel"
-
-#. js-lingui-explicit-id
-#: renderer/src/routes/settings.configuration.tsx
-msgid "settings.configuration.option.workspaceWrite"
-msgstr "Workspace write"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.question.customResponse"
-msgstr "Write your own response"
-
-#. js-lingui-explicit-id
-#: renderer/src/components/codex-turn.tsx
-msgid "chat.turn.stoppedAfter"
-msgstr "You stopped after {time}"

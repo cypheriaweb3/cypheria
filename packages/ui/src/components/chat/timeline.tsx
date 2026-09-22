@@ -16,7 +16,7 @@ export const ChatTimeline = forwardRef<HTMLDivElement, HTMLAttributes<HTMLDivEle
       data-slot="chat-timeline"
       role="log"
       className={cn(
-        "cypheria-scrollbar relative min-h-0 flex-1 overflow-y-auto overscroll-contain scroll-smooth",
+        "cypheria-scrollbar relative min-h-0 flex-1 overflow-y-auto overscroll-contain",
         className
       )}
       {...props}

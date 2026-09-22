@@ -67,6 +67,7 @@ export const ThreadInteractionSchema = z.object({
   createdAt: z.string().datetime(),
   expiresAt: z.string().datetime().nullable(),
   id: z.string().min(1),
+  itemId: z.string().min(1).optional(),
   kind: z.enum(["permission", "question", "elicitation"]),
   message: z.string(),
   options: z.array(ThreadInteractionOptionSchema),
@@ -79,6 +80,7 @@ export const ThreadInteractionSchema = z.object({
     .optional(),
   questions: z.array(ThreadQuestionSchema).optional(),
   title: z.string().nullable(),
+  turnId: z.string().min(1).optional(),
 })
 export type ThreadInteraction = z.infer<typeof ThreadInteractionSchema>
 

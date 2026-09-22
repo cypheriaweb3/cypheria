@@ -82,7 +82,7 @@ Project 组织 workspace roots 和有序 Thread membership。Thread 是持久 Ag
 
 Timeline cursor 包含 epoch 和 sequence。Epoch 用于检测历史替换或重建。读取支持 `tail`、`before` 和 `after`，并可请求 canonical rows 或 projected display items。Projection 会把同一 item 的后续 rows 折叠为稳定展示项，同时保留精确的源 sequence ranges。
 
-客户端订阅 append notification，并在 replacement notification、cursor gap、重连或 epoch 不匹配后重新读取。即使实时消费使用 AI SDK stream，持久化的 Server Timeline 仍是唯一权威。
+客户端订阅 append notification，并在 replacement notification、cursor gap、重连或 epoch 不匹配后重新读取。持久化 Server Timeline 是历史与实时投影的唯一权威。
 
 ## Turns 与 interactions
 

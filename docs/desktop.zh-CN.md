@@ -10,7 +10,7 @@ title: Desktop
 
 - Electron main 负责窗口、应用生命周期、Server 管理、桌面设置、安全存储、更新、原生菜单、操作系统集成和隔离的 dApp browser views。
 - Preload 为 Electron 专属能力暴露狭窄的类型化 IPC。
-- TanStack renderer 通过 `@cypheria/client` 使用共享产品状态，通过 AI SDK providers 消费实时 Agent turns。
+- TanStack renderer 直接通过 `@cypheria/client` 使用共享产品状态并消费实时 Agent turns。
 - dApp preload 向隔离 origin 暴露受限 provider bridge；绝不暴露 Node.js 或密钥材料。
 
 Browser view 默认关闭 `nodeIntegration`，开启 `contextIsolation`、sandbox 和 web security。
@@ -68,7 +68,7 @@ AgentChatWorkspace
 
 Harness 专属 UI 仅限判别 Timeline 扩展、header actions、model settings、permission details 和真实 harness capabilities。Codex 仍是保真参考，但 Claude、Pi、OpenCode 和 ACP 复用同一 shell，而不是复制整套 UI。
 
-Canonical Timeline 历史通过 `@cypheria/client` 加载。AI SDK stream 提供响应迅速的实时更新，但不会成为第二个持久历史存储。
+Canonical Timeline 历史与有序实时更新都直接通过 `@cypheria/client` 消费。无框架 controller 负责分页、重连、缺口恢复、send、steer、Codex 原生 queue、cancel 和 interaction；React 通过 `useSyncExternalStore` 订阅。Codex 使用专用 workspace，其他 Agent 在获得专属扩展前使用公共 Thread workspace。
 
 ## Desktop 本地设置
 

@@ -54,20 +54,19 @@ Agent-native events are normalized at this boundary. Native payloads may be reta
 
 - `@cypheria/protocol` owns versioned public contracts, runtime validation, and generated upstream protocol artifacts.
 - `@cypheria/client` is the public TypeScript SDK. It owns connections and domain facades without Electron or database dependencies.
-- `@cypheria/ai-sdk-provider` maps Cypheria Threads and Timeline events to AI SDK provider contracts.
 - `@cypheria/db` owns the SQLite schema, migration baseline, and repositories used by the Server.
 - `@cypheria/web3` contains pure network, policy, wallet, and provider domain logic; privileged orchestration stays in the Server.
-- `@cypheria/ui` contains reusable presentation primitives and AI Elements.
+- `@cypheria/ui` contains reusable presentation primitives, including protocol-independent conversation, panel, notification, and artifact surfaces.
 
 ## Primary data flows
 
 ### Conversation
 
-1. A client creates or selects a Cypheria Thread and submits input through `@cypheria/client` or an AI SDK provider.
+1. A client creates or selects a Cypheria Thread and submits input through `@cypheria/client`.
 2. The Server resolves the Thread's Agent, starts or reuses the adapter runtime, and records the turn.
-3. The adapter converts native events into Canonical Timeline events.
-4. The Server persists events and publishes ordered updates with cursors.
-5. Clients project the same durable Timeline and render harness extensions only when a discriminated item requires them.
+3. The adapter validates the native boundary and converts item lifecycle updates into stable Canonical Timeline identities. Blocking reverse requests become targeted interactions; goal, queue, usage, rate-limit, environment, and safety state remain queryable runtime state instead of fake messages.
+4. The Server persists Timeline events and publishes ordered updates with epochs and cursors.
+5. Desktop consumes the Thread API directly. Its framework-independent controller recovers epoch changes or sequence gaps, and React renders the same durable Timeline through `useSyncExternalStore`; Codex-specific controls use the typed `client.harnesses.codex` facade.
 
 ### Desktop startup
 

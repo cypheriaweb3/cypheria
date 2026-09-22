@@ -1,6 +1,5 @@
 import { randomUUID } from "node:crypto"
-import { existsSync } from "node:fs"
-import { mkdir } from "node:fs/promises"
+import { existsSync, mkdirSync } from "node:fs"
 import { dirname, join, relative, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
 import { type CypheriaClient, createCypheriaClient } from "@cypheria/client"
@@ -548,16 +547,18 @@ const registerLifecycleHandlers = (): void => {
 }
 
 const startDesktopApp = async (): Promise<void> => {
-  configureChromiumFeatures(app.commandLine)
   const runtimePaths = buildDesktopAppPaths()
   desktopRuntimePaths = runtimePaths
   const desktopUserDataDir = join(runtimePaths.cypheriaHome, "desktop")
-  await Promise.all([
-    mkdir(desktopUserDataDir, { recursive: true }),
-    mkdir(runtimePaths.browserDir, { recursive: true }),
-  ])
+
+  // Electron can initialize Chromium services before the first awaited operation completes.
+  // Create and assign its storage paths synchronously so every subprocess observes the same
+  // locations from the start of application initialization.
+  mkdirSync(desktopUserDataDir, { recursive: true })
+  mkdirSync(runtimePaths.browserDir, { recursive: true })
   app.setPath("userData", desktopUserDataDir)
   app.setPath("sessionData", runtimePaths.browserDir)
+  configureChromiumFeatures(app.commandLine)
 
   if (!app.requestSingleInstanceLock()) {
     app.quit()

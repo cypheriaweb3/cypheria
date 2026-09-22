@@ -5,7 +5,6 @@
   "type": "module",
   "exports": {
     ".": "./src/index.tsx",
-    "./ai-elements/*": "./src/components/ai-elements/*.tsx",
     "./assets/agents/*": "./src/assets/agents/*",
     "./assets/brand/*": "./src/assets/brand/*",
     "./components/chat": "./src/components/chat/index.ts",
@@ -39,7 +38,6 @@
     "@streamdown/math": "^1.0.2",
     "@streamdown/mermaid": "^1.0.2",
     "@xyflow/react": "^12.11.6",
-    "ai": "^7.0.87",
     "ansi-to-react": "^6.2.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

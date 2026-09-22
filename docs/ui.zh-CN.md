@@ -25,7 +25,7 @@ Typography 使用清晰的 UI 字体栈，并为 code、command、path、address
 
 ## 组件
 
-`@cypheria/ui` 是可复用 primitives 和 AI Elements 的共享来源。常见 dialog、menu、popover、select、tabs、switch、slider、tooltip 和 focus management 优先使用 shadcn 风格复制组件与 Base UI primitives。
+`@cypheria/ui` 是可复用 primitives 与协议无关会话 surface 的共享来源。常见 dialog、menu、popover、select、tabs、switch、slider、tooltip 和 focus management 优先使用 shadcn 风格复制组件与 Base UI primitives。
 
 以下领域交互适合自定义组件：
 
@@ -38,9 +38,9 @@ Typography 使用清晰的 UI 字体栈，并为 code、command、path、address
 
 共享组件保持展示导向。数据获取和 Electron 访问留在应用层。
 
-## AI Elements
+## 会话组件
 
-AI Elements 提供可组合的 message、reasoning、tool、code、plan、attachment、prompt 和 streaming state 会话原语。Desktop 在既有会话 shell 内组合它们，不会替换已有导航、Thread scope、virtualization、scroll restoration 或 harness extensions。
+`components/chat` surface 提供可组合的 message、reasoning、tool、command、plan、attachment、composer state、pending interaction、panel、preview 和 streaming state。这些组件只包含展示与无障碍行为。Desktop 负责 Thread controller、TanStack Virtual 集成、scroll restoration、panel registry、xterm process view 和 harness extensions。
 
 Timeline renderer 接收 Canonical Timeline item。Harness renderer 只为判别 harness item 或确有额外行为的 metadata 注册。
 

@@ -148,7 +148,7 @@ Sources 对 attached、read、created、updated、web、tool-input 与 tool-resu
 
 ### Desktop 接入
 
-正式会话页接入 chrome 时不需要复制 Demo 的 utility class。把现有 Timeline 与 composer 组合进 `ChatWorkspaceShell`；只在右侧面板缺席时为会话 `ChatHeader` 传入 `reserveFixedActions`；为右侧 `ChatPanel` 传入 `workspaceHeader`；再把 bottom/side toggle 放进 `fixedHeaderActions`。只有 Desktop 添加 `desktop-titlebar` class，因为动态左侧留白及其层叠关系属于应用 Sidebar。现有应用状态继续拥有 visibility、active tab、尺寸、fullscreen、resize 持久化与 panel content。
+正式会话路由现在把虚拟化 Timeline 与 composer 组合进 `ChatWorkspaceShell`，通过 `ChatHeader` 传入会话标题，使用 workspace-header `ChatPanel`，并把 fullscreen 与 bottom/side toggle 放进 `fixedHeaderActions`。只有 Desktop 拥有 `desktop-titlebar` 关系，因为动态左侧留白及层叠契约属于应用 Sidebar。应用继续拥有 visibility、active tab、尺寸、fullscreen、resize 持久化与 panel content。
 
 ## 已实现共享组件清单
 
@@ -161,7 +161,7 @@ Sources 对 attached、read、created、updated、web、tool-input 与 tool-resu
 | 消息与 activity 内容 | `ChatMessageContent`、`ChatReasoning`、`ChatReasoningTrigger`、`ChatReasoningContent`、`ChatTool`、`ChatToolTrigger`、`ChatToolContent`、`ChatToolSection`、`ChatToolCode`、`ChatActivityList`、`ChatActivityItem`、`ChatCommandBlock`、`ChatFileChanges`、`ChatFileChange`、`ChatTurnNotice` |
 | 专用 Timeline item | `ChatTimelineEvent`、`ChatTimestampSeparator`、`ChatThinkingPlaceholder`、`ChatActivitySummary`、`ChatActivitySummaryPart`、`ChatPlanCard`、`ChatTodoList`、`ChatTodoItem`、`ChatApprovalCard`、`ChatUserInputCard`、`ChatAgentCard`、`ChatGeneratedImageGrid`、`ChatGeneratedImage`、`ChatDiffCard`、`ChatResourceGroup`、`ChatResourceCard`、`ChatThreadHandoff`、`ChatTranscriptLine`、`ChatInlineNotice` |
 | Composer 核心 | `ChatComposerDock`、`ChatComposerFrame`、`ChatComposerForm`、`ChatComposerHeader`、`ChatComposerBody`、`ChatComposerTextarea`、`ChatComposerFooter`、`ChatComposerUtilityBar`、`ChatComposerControl`、`ChatComposerContextTray`、`ChatComposerSubmit`、`ChatComposerRevealControl` |
-| Desktop 派生的 composer surface | `ChatComposerTopTray`、`ChatComposerPanel`、`ChatComposerBanner`、`ChatComposerStatusMessage`、`ChatQueuedInputList`、`ChatQueuedInputItem`、`ChatFixedTurnSummary`、`ChatFixedTurnSummaryItem`、`ChatContextChip`、`ChatComposerMeter` |
+| Desktop 派生的 composer surface | `ChatComposerTopTray`、`ChatComposerPanel`、`ChatComposerBanner`、`ChatComposerStatusMessage`、`ChatComposerAttachmentTray`、`ChatComposerAttachment`、`ChatQueuedInputList`、`ChatQueuedInputItem`、`ChatFixedTurnSummary`、`ChatFixedTurnSummaryItem`、`ChatContextChip`、`ChatComposerMeter` |
 | 阻塞式 pending interaction | `ChatPendingInteraction`、`ChatPendingInteractionHeader`、`ChatPendingInteractionBody`、`ChatPendingInteractionFooter`、`ChatPendingQuestion`、`ChatPendingOption`、`ChatPendingTextInput`、`ChatPendingCode`、`ChatApprovalRequest`、`ChatPermissionRequest`、`ChatUserInputRequest`、`ChatMcpElicitationRequest`、`ChatPlanImplementationRequest`、`ChatOptionPickerRequest`、`ChatSetupStepRequest` |
 | 面板 shell 与状态 | `ChatPanelLayout`、`ChatPanelResizeHandle`、`ChatPanel`、`ChatPanelHeader`、`ChatPanelTabs`、`ChatPanelLauncher`、`ChatPanelContent`、`ChatPanelSection`、`ChatPanelList`、`ChatPanelListItem`、`ChatPanelEmptyState`、`ChatPanelLoadingState`、`ChatPanelErrorState` |
 | Sources、agents、plan、review 与 terminal | `ChatSourcesPanel`、`ChatSourceGroup`、`ChatSourceItem`、`ChatSubagentsPanel`、`ChatSubagentGroup`、`ChatSubagentItem`、`ChatPlanPanel`、`ChatPlanStep`、`ChatSummaryPanel`、`ChatSummarySection`、`ChatReviewPanel`、`ChatReviewToolbar`、`ChatReviewFileList`、`ChatReviewDiffHost`、`ChatPullRequestCard`、`ChatTerminalPanel`、`ChatTerminalTabs`、`ChatTerminalStatusBar`、`ChatTerminalOutputHost` |
@@ -173,6 +173,18 @@ Active request 组件有意与 `ChatApprovalCard`、`ChatUserInputCard` 分开�
 公共 descriptor 与状态类型包括 panel placement/visibility/tab/launcher 模型；timeline event、tone、resource 与 activity 模型；composer status/layout/notice 模型；pending-request kind；queued-input state；fixed-summary kind；source、subagent、review、terminal 与 desktop-notification descriptor。
 
 仅开发版 Chat Demo 在没有 runtime 的情况下组合这些组件。其悬浮展示控制器可以独立选择 active pending-interaction surface，并开关 fixed turn summary、queued follow-up、thread goal、background agent、安全/用量 banner、live status、desktop-notification preview、timeline family 和所有 panel tab。Demo 文案继续使用本地 literal，不进入产品翻译，因此删除 Demo 时不会移除生产本地化。
+
+## 正式 Codex 工作区
+
+Desktop 的 `/` 路由现在按已有 Thread 的 `agentId` 分派：Codex 使用专用会话工作区，Claude、Pi、OpenCode 与 ACP 使用同一个直接 Thread controller 和公共 item/interaction surface。新任务当前默认创建为 Codex 任务。两条路径都不导入 AI SDK、`UIMessage`、AI Elements、Electron IPC chat transport、Server 内部模块或原生协议类型。
+
+`ThreadConversationController` 直接连接 `@cypheria/client`，加载 Canonical Timeline 尾部、分页读取更早的 canonical rows、按序列号合并，并在 epoch 替换或检测到序列缺口时刷新。它通过 `useSyncExternalStore` 暴露不可变 snapshot。稳定 `itemId` 让 delta 只替换对应 projected record。重连会重新读取 Thread head 与 Timeline；首次/latest 主动定位采用立即定位。TanStack Virtual 测量动态高度 row，只在用户位于 live edge 时跟随新输出，并保留手动阅读位置。
+
+Server 端 Codex adapter 为原生 started、delta、progress、completed 与 failed 事件运行 `CodexTurnProjector`。它把 assistant message、reasoning、command、patch、tool 与 MCP call、web search、image、collaboration、plan、review、reroute、compaction、warning、error 和未知诊断项转换为公共 Timeline record 或带归属的 `harnessData`。Approval、question 与 MCP elicitation 反向请求成为可选绑定 `turnId`、`itemId` 的 interaction。Goal、queue、usage、rate limit、环境、安全及其他瞬态状态不写入历史。
+
+带类型的 Codex client facade 提供 goal get/set/clear；queue list/add/update/delete/reorder/start；usage 读取与订阅；后台 terminal list/terminate/clean；compact、revert、review start；以及账户 rate-limit 读取与订阅。所有 thread-scoped call 接收 Cypheria Thread ID，由 Server 解析私有 native session ID。受信任的 Server integration 可以注册原生 dynamic-tool spec 与 handler；Renderer 不能注册可执行函数。
+
+生产工作区当前呈现 message、reasoning、command、diff、tool/MCP/web、plan、subagent、artifact、notice、error、retry、pending interaction、原生 queue、goal、usage、attachment、model、reasoning、permission、review、source 与 xterm terminal surface。没有真实数据源的 tab 显示明确 empty state，不使用 Demo 数据。生产工作区不会导入 Chat Demo。
 
 ## 所有权边界
 

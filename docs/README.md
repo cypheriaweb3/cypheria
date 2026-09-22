@@ -26,7 +26,7 @@ This index assigns one owner to each subject. Follow links instead of copying de
 - [Desktop](desktop.md): Electron boundary, Server Manager, Sidebar, conversation workspace, and local settings.
 - [Integrations](integrations.md): Skills, MCP, plugins, marketplace sources, and Codex Apps.
 - [Web3](web3.md): networks, wallets, policies, signing, dApps, and audit.
-- [UI system](ui.md): visual principles, theme implementation, AI Elements, and regression invariants.
+- [UI system](ui.md): visual principles, theme implementation, conversation components, and regression invariants.
 - [Codex conversation UI reference](codex-conversation-ui-reference.md): evidence-backed task chrome, Timeline, composer, and panel behavior for shared implementation.
 - [Brand](brand.md): product marks, colors, icons, and asset generation.
 

@@ -1,12 +1,18 @@
 import type { TerminalServerMessage, TerminalSession } from "@cypheria/protocol"
 import { cn } from "@cypheria/ui"
 import { Button } from "@cypheria/ui/components/button"
+import {
+  CloseBoldIcon,
+  DockIcon,
+  PlusIcon,
+  SidebarRightIcon,
+  TerminalIcon,
+} from "@cypheria/ui/components/icons"
 import { FitAddon } from "@xterm/addon-fit"
 import { Terminal } from "@xterm/xterm"
 import "@xterm/xterm/css/xterm.css"
 import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
-import { PanelBottomOpen, PanelRightOpen, Plus, TerminalSquare, X } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
 import { ensureCypheriaClient } from "../cypheria-client.js"
 import { terminalAppearanceFromElement } from "./terminal-appearance.js"
@@ -192,7 +198,7 @@ export function WorkspaceTerminalView({
                   role="tab"
                   type="button"
                 >
-                  <TerminalSquare className="size-3.5 shrink-0" />
+                  <TerminalIcon className="size-3.5 shrink-0" />
                   <span className="truncate">{session.title}</span>
                 </button>
                 <button
@@ -203,7 +209,7 @@ export function WorkspaceTerminalView({
                   onClick={() => void closeTerminal(session.terminalId)}
                   type="button"
                 >
-                  <X className="size-3" />
+                  <CloseBoldIcon className="size-3" />
                 </button>
               </div>
             ))}
@@ -223,7 +229,7 @@ export function WorkspaceTerminalView({
             size="icon-sm"
             variant="ghost"
           >
-            <Plus className="size-3.5" />
+            <PlusIcon className="size-3.5" />
           </Button>
         </div>
         <div className="flex shrink-0 items-center">
@@ -249,9 +255,9 @@ export function WorkspaceTerminalView({
               variant="ghost"
             >
               {placement === "bottom" ? (
-                <PanelRightOpen className="size-3.5" />
+                <SidebarRightIcon className="size-3.5" />
               ) : (
-                <PanelBottomOpen className="size-3.5" />
+                <DockIcon className="size-3.5" />
               )}
             </Button>
           ) : null}
@@ -267,7 +273,7 @@ export function WorkspaceTerminalView({
             size="icon-sm"
             variant="ghost"
           >
-            <X className="size-3.5" />
+            <CloseBoldIcon className="size-3.5" />
           </Button>
         </div>
       </div>

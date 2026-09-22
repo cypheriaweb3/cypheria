@@ -34,11 +34,10 @@ Implemented packages:
 | --- | --- |
 | `packages/protocol` | Public protocol, Zod validation, generated Codex artifacts |
 | `packages/client` | Public TypeScript SDK, connection lifecycle, and domain facades |
-| `packages/ai-sdk-provider` | Browser-safe AI SDK providers backed by the client |
 | `packages/db` | SQLite schema, migrations, and repositories |
 | `packages/web3` | Pure Web3 domain modules |
 | `packages/relay` | Pairing, E2EE, and relay transport helpers |
-| `packages/ui` | Shared UI primitives and AI Elements |
+| `packages/ui` | Shared UI and conversation presentation primitives |
 
 Future Marketplace routes belong to `apps/website`; the current application has no Marketplace route, account system, API, schema, or Cloudflare storage binding.
 
@@ -176,7 +175,7 @@ Tests should exercise public boundaries rather than import private files from an
 ## Dependency rules
 
 - Clients depend on `@cypheria/client` and `@cypheria/protocol`, not Server internals or databases.
-- AI SDK providers depend only on the client, protocol, and public AI SDK types.
+- Conversation consumers use `@cypheria/client` directly; no AI SDK compatibility layer is maintained.
 - Renderer code does not import Agent SDKs, generated native protocols, database code, or privileged Web3 services.
 - Domain packages do not depend on `apps/server`; the Server composes them through explicit injection.
 - CLI uses `@cypheria/client` directly and does not depend on Electron or Desktop.

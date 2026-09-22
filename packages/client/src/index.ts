@@ -74,6 +74,7 @@ export interface CypheriaApi {
       readonly guardian: CodexHarnessActions["guardian"]
       readonly models: CodexHarnessActions["models"]
       readonly permissions: CodexHarnessActions["permissions"]
+      readonly threads: CodexHarnessActions["threads"]
     }
     readonly opencode: { readonly integrations: IntegrationActions }
     readonly pi: { readonly integrations: IntegrationActions }
@@ -171,6 +172,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
         guardian: codexHarness.guardian,
         models: codexHarness.models,
         permissions: codexHarness.permissions,
+        threads: codexHarness.threads,
       },
       opencode: { integrations },
       pi: { integrations },

@@ -6,20 +6,23 @@ import type {
   CodexPermissionDefaultsWrite,
   CodexPermissionsCatalog,
 } from "@cypheria/protocol"
+import type { v2 } from "@cypheria/protocol/codex-types"
 
 import type { AgentManager } from "./agent/agent-manager.js"
-import type { v2 } from "./codex-bridge/index.js"
 import type { ServerConfigStore } from "./server-config-store.js"
+import type { ThreadManager } from "./thread/thread-manager.js"
 
 const builtInProfiles = new Set([":read-only", ":workspace", ":danger-full-access"])
 
 export class CodexHarnessService {
   readonly #agents: AgentManager
   readonly #config: ServerConfigStore
+  readonly #threads: ThreadManager
 
-  constructor(agents: AgentManager, config: ServerConfigStore) {
+  constructor(agents: AgentManager, config: ServerConfigStore, threads: ThreadManager) {
     this.#agents = agents
     this.#config = config
+    this.#threads = threads
   }
 
   async handle(
@@ -74,8 +77,62 @@ export class CodexHarnessService {
           respond(await this.setShowFullAccess(message.payload.enabled))
           break
         case "harness.codex.guardian.retry.request":
-          await this.call("thread/approveGuardianDeniedAction", message.payload)
+          await this.callThread("thread/approveGuardianDeniedAction", message.payload)
           respond({ succeeded: true })
+          break
+        case "harness.codex.account.rate-limits.get.request":
+          respond(await this.call("account/rateLimits/read", message.payload))
+          break
+        case "harness.codex.thread.goal.get.request":
+          respond(await this.callThread("thread/goal/get", message.payload))
+          break
+        case "harness.codex.thread.goal.set.request":
+          respond(await this.callThread("thread/goal/set", message.payload))
+          break
+        case "harness.codex.thread.goal.clear.request":
+          respond(await this.callThread("thread/goal/clear", message.payload))
+          break
+        case "harness.codex.thread.queue.list.request":
+          respond(await this.callThread("thread/queue/list", message.payload))
+          break
+        case "harness.codex.thread.queue.add.request":
+          respond(await this.callThread("thread/queue/add", message.payload))
+          break
+        case "harness.codex.thread.queue.update.request":
+          respond(await this.callThread("thread/queue/update", message.payload))
+          break
+        case "harness.codex.thread.queue.delete.request":
+          respond(await this.callThread("thread/queue/delete", message.payload))
+          break
+        case "harness.codex.thread.queue.reorder.request":
+          respond(await this.callThread("thread/queue/reorder", message.payload))
+          break
+        case "harness.codex.thread.queue.start.request":
+          respond(await this.callThread("thread/queue/start", message.payload))
+          break
+        case "harness.codex.thread.usage.get.request":
+          respond(await this.callThread("account/usage/read", message.payload))
+          break
+        case "harness.codex.thread.background-terminals.list.request":
+          respond(await this.callThread("thread/backgroundTerminals/list", message.payload))
+          break
+        case "harness.codex.thread.background-terminals.terminate.request":
+          respond(await this.callThread("thread/backgroundTerminals/terminate", message.payload))
+          break
+        case "harness.codex.thread.background-terminals.clean.request":
+          respond(await this.callThread("thread/backgroundTerminals/clean", message.payload))
+          break
+        case "harness.codex.thread.compact.request":
+          respond(await this.callThread("thread/compact/start", message.payload))
+          break
+        case "harness.codex.thread.revert.request": {
+          const value = await this.callThread("thread/revert", message.payload)
+          await this.#threads.resume(String(message.payload.threadId))
+          respond(value)
+          break
+        }
+        case "harness.codex.thread.review.start.request":
+          respond(await this.callThread("review/start", message.payload))
           break
       }
     } catch (error) {
@@ -97,6 +154,18 @@ export class CodexHarnessService {
     params?: Record<string, unknown>
   ): Promise<Result> {
     return (await this.#agents.callCodex(method, params)) as Result
+  }
+
+  async callThread<Result>(
+    method: Parameters<AgentManager["callCodex"]>[0],
+    input: Record<string, unknown>
+  ): Promise<Result> {
+    const cypheriaThreadId = String(input.threadId ?? "")
+    const thread = await this.#threads.get(cypheriaThreadId)
+    if (thread.agentId !== "codex") throw new Error("The requested thread is not a Codex thread")
+    if (!thread.agentSessionId) throw new Error("The Codex thread is not bound to App Server")
+    const { threadId: _threadId, ...params } = input
+    return this.call<Result>(method, { ...params, threadId: thread.agentSessionId })
   }
 
   async account(refresh: boolean) {

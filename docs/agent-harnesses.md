@@ -67,13 +67,11 @@ Formal Thread sessions follow the negotiated lifecycle as well. On v2, the prese
 
 Harnesses prefer a common Timeline item whenever semantics match. Agent-specific data belongs in `harnessData`; only events without a faithful common representation use a `harness` item. Permissions, questions, and MCP elicitation become common Thread interactions.
 
-The persisted Canonical Timeline is authoritative. Native events may be retained or logged for debugging, but Desktop, Expo, CLI, and AI SDK providers do not rebuild history from a harness process.
+The persisted Canonical Timeline is authoritative. Native events may be retained or logged for debugging, but Desktop, Expo, and CLI do not rebuild history from a harness process.
 
-## AI SDK providers
+## Client conversation consumers
 
-`@cypheria/ai-sdk-provider` exports `acp`, `codex`, `claude`, `pi`, and `opencode` subpaths. Each provider depends on `@cypheria/client` rather than an Agent SDK, binds to a persistent Cypheria Thread by default, streams Timeline changes, maps tool and reasoning parts, and cancels the Server turn on abort.
-
-Provider metadata preserves Agent kind, model, native identifiers, and supported extension data. The package is browser-safe: it cannot spawn processes, read files, or access the database.
+Conversation clients use `@cypheria/client` directly. Desktop's common controller owns pagination, subscriptions, epoch and gap recovery, send, steer, queue, cancel, and interaction responses without converting the data into a second message format. The Codex controller surface additionally reads goal, native queue, usage, permissions, model settings, review, and background-terminal state through `client.harnesses.codex`. Other Agents use the common Thread surface until they receive a dedicated workspace.
 
 ## Security and failure handling
 

@@ -8,10 +8,9 @@ import type {
   MarketplaceSourceKind,
 } from "@cypheria/protocol"
 import { IntegrationIdSchema } from "@cypheria/protocol"
+import type { v2 } from "@cypheria/protocol/codex-types"
 import { z } from "zod"
-
 import type { AgentManager } from "./agent/agent-manager.js"
-import type { v2 } from "./codex-bridge/index.js"
 
 const openAiMarketplaces = new Set([
   "openai-api-curated",

@@ -67,13 +67,11 @@ ACP harness 使用官方 ACP SDK，并在 Server 内把稳定 v1 与 v2 协议�
 
 语义匹配时，harness 优先生成通用 Timeline item。Agent 专属数据放入 `harnessData`；只有无法忠实表达的事件才使用 `harness` item。Permissions、questions 和 MCP elicitation 转换为通用 Thread interactions。
 
-持久化 Canonical Timeline 是唯一权威。原生事件可以保留或记录用于调试，但 Desktop、Expo、CLI 和 AI SDK providers 不从 harness 进程重建历史。
+持久化 Canonical Timeline 是唯一权威。原生事件可以保留或记录用于调试，但 Desktop、Expo 和 CLI 不从 harness 进程重建历史。
 
-## AI SDK Providers
+## 客户端会话消费者
 
-`@cypheria/ai-sdk-provider` 导出 `acp`、`codex`、`claude`、`pi` 和 `opencode` 子路径。各 provider 依赖 `@cypheria/client` 而非 Agent SDK，默认绑定持久 Cypheria Thread，流式消费 Timeline 变化，映射 tool 和 reasoning parts，并在 abort 时取消 Server turn。
-
-Provider metadata 保留 Agent kind、model、原生 ID 和受支持扩展数据。该包对浏览器安全：不能启动进程、读取文件或访问数据库。
+会话客户端直接使用 `@cypheria/client`。Desktop 的公共 controller 负责分页、订阅、epoch 与缺口恢复、send、steer、queue、cancel 和 interaction response，不再把数据转换成第二套消息格式。Codex controller surface 还通过 `client.harnesses.codex` 读取 goal、原生 queue、usage、权限、模型设置、review 与后台 terminal 状态。其他 Agent 在拥有专用 workspace 之前使用公共 Thread surface。
 
 ## 安全与故障处理
 

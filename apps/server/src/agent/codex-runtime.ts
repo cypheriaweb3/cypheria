@@ -12,8 +12,11 @@ import {
   type AgentCodexClientNotification,
   type AgentCodexClientRequest,
   type AgentCodexClientResponse,
+  AgentCodexClientResponseSchema,
   type AgentCodexServerNotification,
+  AgentCodexServerNotificationSchema,
   type AgentCodexServerRequest,
+  AgentCodexServerRequestSchema,
   type AgentCodexServerResponse,
   type RequestId,
 } from "@cypheria/protocol"
@@ -238,7 +241,32 @@ export class CodexRuntime {
     params?: Record<string, unknown>
   ): Promise<Record<string, unknown>> {
     await this.start()
-    return this.#requestStarted(method, params)
+    let lastError: unknown
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await this.#requestStarted(method, params)
+      } catch (error) {
+        lastError = error
+        const message = error instanceof Error ? `${error.name} ${error.message}` : String(error)
+        if (!/(?:overload|temporar(?:y|ily)|server busy|try again|rate.?limit)/iu.test(message)) {
+          throw error
+        }
+        if (attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 100 * 3 ** attempt))
+        }
+      }
+    }
+    throw lastError
+  }
+
+  rejectReverse(sessionId: string, requestId: RequestId, message: string): void {
+    const key = `${sessionId}:${typeof requestId}:${String(requestId)}`
+    const pending = this.#reversePending.get(key)
+    if (!pending) throw new Error(`Unknown Codex reverse request: ${String(requestId)}`)
+    this.#reversePending.delete(key)
+    this.#process?.stdin.write(
+      `${JSON.stringify({ error: { code: -32601, message }, id: pending.rawId, jsonrpc: "2.0" })}\n`
+    )
   }
 
   waitForLogin(
@@ -344,10 +372,10 @@ export class CodexRuntime {
           raw.method as keyof typeof AGENT_CODEX_SERVER_NOTIFICATIONS
         ]
       if (notificationDefinition) {
-        const message = {
+        const message = AgentCodexServerNotificationSchema.parse({
           ...(raw.params === undefined ? {} : { payload: raw.params }),
           type: notificationDefinition.notification,
-        } as AgentCodexServerNotification
+        })
         if (message.type === "agent.codex.account.login.completed.notification") {
           const payload = message.payload
           if (payload.loginId) {
@@ -374,17 +402,25 @@ export class CodexRuntime {
       const threadId = threadIdOf(raw.params)
       const sessionId = (threadId && this.#threadOwners.get(threadId)) || this.#activeSession
       const send = sessionId ? this.#sessions.get(sessionId) : undefined
-      if (!requestDefinition || !send || raw.id === undefined) return
+      if (!requestDefinition || !send || raw.id === undefined) {
+        if (raw.id !== undefined) {
+          this.#process?.stdin.write(
+            `${JSON.stringify({ error: { code: -32601, message: `Unsupported Codex request: ${raw.method}` }, id: raw.id, jsonrpc: "2.0" })}\n`
+          )
+        }
+        return
+      }
       const clientRequestId = `codex_reverse_${++this.#sequence}`
       this.#reversePending.set(`${sessionId}:string:${clientRequestId}`, {
         rawId: raw.id,
         sessionId: sessionId as string,
       })
-      send({
+      const message = AgentCodexServerRequestSchema.parse({
         ...(raw.params as object),
         requestId: clientRequestId,
         type: requestDefinition.request,
-      } as AgentCodexServerRequest)
+      })
+      send(message)
       return
     }
     if (typeof raw.id !== "number") return
@@ -399,7 +435,10 @@ export class CodexRuntime {
             ? String((raw.error as { message: unknown }).message)
             : `Codex request failed: ${JSON.stringify(raw.error)}`
         )
-        error.name = "CODEX_REQUEST_FAILED"
+        error.name =
+          typeof raw.error === "object" && raw.error && "code" in raw.error
+            ? String((raw.error as { code: unknown }).code)
+            : "CODEX_REQUEST_FAILED"
         pending.reject(error)
       }
       return
@@ -411,9 +450,11 @@ export class CodexRuntime {
     }
     const threadId = threadIdOf(raw.result)
     if (threadId) this.#threadOwners.set(threadId, pending.sessionId)
-    pending.send({
-      payload: { requestId: pending.requestId, ...((raw.result ?? {}) as object) },
-      type: pending.responseType,
-    } as AgentCodexClientResponse)
+    pending.send(
+      AgentCodexClientResponseSchema.parse({
+        payload: { requestId: pending.requestId, ...((raw.result ?? {}) as object) },
+        type: pending.responseType,
+      })
+    )
   }
 }

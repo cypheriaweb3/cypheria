@@ -8,7 +8,7 @@ Cypheria 通过 Drizzle ORM 和本地 libSQL driver 使用 SQLite。`packages/db
 
 ## 位置与所有权
 
-默认数据库是 `$CYPHERIA_HOME/db/cypheria.sqlite`。只有 Server 会打开它。Desktop、CLI、Expo、AI SDK providers、Agents 和 plugins 使用 Cypheria 协议，绝不导入数据库 repositories。
+默认数据库是 `$CYPHERIA_HOME/db/cypheria.sqlite`。只有 Server 会打开它。Desktop、CLI、Expo、Agents 和 plugins 使用 Cypheria 协议，绝不导入数据库 repositories。
 
 每个连接都会启用 foreign keys。Server service 定义 transaction 边界，并在持久化 JSON 重新进入领域时进行校验。
 
