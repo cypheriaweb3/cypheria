@@ -76,6 +76,12 @@ describe("ChatDemo", () => {
       await Promise.resolve()
     })
 
+    expect(required(container, '[data-slot="chat-fixed-turn-summary"]')).toBeTruthy()
+    expect(required(container, '[data-slot="chat-composer-top-tray"]')).toBeTruthy()
+    expect(required(container, '[data-slot="chat-queued-input-list"]')).toBeTruthy()
+    expect(required(container, '[data-slot="chat-composer-banner"]')).toBeTruthy()
+    expect(required(container, '[data-slot="chat-desktop-notification-preview"]')).toBeTruthy()
+
     for (const title of [
       "Artifact",
       "Automation",

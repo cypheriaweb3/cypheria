@@ -34,6 +34,7 @@ This index assigns one owner to each subject. Follow links instead of copying de
 
 - [Generated Codex App Server API](codex-app-server-api.md)
 - [Codex configuration semantics](codex-app-server-config.md)
+- [Codex feature defaults and Desktop overrides](codex-app-server-features.md)
 - [Codex permissions in Cypheria](codex-permissions.md)
 
 ## Planned service

@@ -7,8 +7,10 @@ import {
   ChatActivitySummaryPart,
   ChatAgentCard,
   ChatApprovalCard,
+  ChatApprovalRequest,
   ChatAssistantMessage,
   ChatCommandBlock,
+  ChatComposerBanner,
   ChatComposerBody,
   ChatComposerContextTray,
   ChatComposerControl,
@@ -17,13 +19,21 @@ import {
   ChatComposerForm,
   ChatComposerFrame,
   ChatComposerHeader,
+  ChatComposerMeter,
+  ChatComposerPanel,
   ChatComposerRevealControl,
   type ChatComposerStatus,
+  ChatComposerStatusMessage,
   ChatComposerSubmit,
   ChatComposerTextarea,
+  ChatComposerTopTray,
   ChatComposerUtilityBar,
+  ChatContextChip,
+  ChatDesktopNotificationPreview,
   ChatFileChange,
   ChatFileChanges,
+  ChatFixedTurnSummary,
+  ChatFixedTurnSummaryItem,
   ChatGeneratedImage,
   ChatGeneratedImageGrid,
   ChatHeader,
@@ -32,10 +42,12 @@ import {
   ChatHeaderStatus,
   ChatHeaderTitle,
   ChatMainColumn,
+  ChatMcpElicitationRequest,
   ChatMcpFilePanel,
   ChatMcpThreadPanel,
   ChatMessageActions,
   ChatMessageContent,
+  ChatOptionPickerRequest,
   ChatPanel,
   ChatPanelContent,
   ChatPanelEmptyState,
@@ -47,8 +59,16 @@ import {
   type ChatPanelTabDescriptor,
   ChatPanelToggle,
   type ChatPanelVisibility,
+  ChatPendingCode,
+  ChatPendingInteractionBody,
+  ChatPendingInteractionFooter,
+  ChatPendingOption,
+  ChatPendingQuestion,
+  ChatPendingTextInput,
+  ChatPermissionRequest,
   ChatPinnedSummary,
   ChatPlanCard,
+  ChatPlanImplementationRequest,
   ChatPlanPanel,
   ChatPlanStep,
   ChatPreviewHost,
@@ -56,6 +76,8 @@ import {
   ChatPreviewStatusBar,
   ChatPreviewToolbar,
   ChatPullRequestCard,
+  ChatQueuedInputItem,
+  ChatQueuedInputList,
   ChatReasoning,
   ChatReasoningContent,
   ChatReasoningTrigger,
@@ -69,6 +91,7 @@ import {
   ChatSandboxPanel,
   ChatScrollToLatest,
   ChatSecondaryTimelinePanel,
+  ChatSetupStepRequest,
   ChatSideChatPanel,
   ChatSourceGroup,
   ChatSourceItem,
@@ -103,6 +126,7 @@ import {
   ChatTurnNavigator,
   ChatTurnNotice,
   ChatUserInputCard,
+  ChatUserInputRequest,
   ChatUserMessage,
   ChatWorkspaceShell,
 } from "@cypheria/ui/components/chat"
@@ -120,6 +144,7 @@ import {
   CertificateIcon,
   CheckCircleIcon,
   CheckIcon,
+  ClockIcon,
   CloseBoldIcon,
   CollapseIcon,
   CompareIcon,
@@ -211,6 +236,25 @@ type DemoTimelineGroup =
   | "system"
   | "errors"
   | "voice"
+
+type DemoComposerExtra =
+  | "fixed-summary"
+  | "queue"
+  | "goal"
+  | "subagents"
+  | "warning"
+  | "status"
+  | "notification"
+
+type DemoPendingSurface =
+  | "none"
+  | "approval"
+  | "permission"
+  | "question"
+  | "elicitation"
+  | "plan"
+  | "options"
+  | "setup"
 
 type DemoMessage = {
   id: string
@@ -430,6 +474,27 @@ const timelineGroups: ReadonlyArray<{ id: DemoTimelineGroup; label: string }> = 
   { id: "voice", label: "Voice & steering" },
 ]
 
+const composerExtras: ReadonlyArray<{ id: DemoComposerExtra; label: string }> = [
+  { id: "fixed-summary", label: "Fixed turn summary" },
+  { id: "queue", label: "Queued follow-ups" },
+  { id: "goal", label: "Thread goal" },
+  { id: "subagents", label: "Background agents" },
+  { id: "warning", label: "Safety and usage banner" },
+  { id: "status", label: "Live status message" },
+  { id: "notification", label: "Desktop notification preview" },
+]
+
+const pendingSurfaceOptions: ReadonlyArray<{ id: DemoPendingSurface; label: string }> = [
+  { id: "none", label: "Normal composer" },
+  { id: "approval", label: "Command approval" },
+  { id: "permission", label: "Permission request" },
+  { id: "question", label: "User input" },
+  { id: "elicitation", label: "MCP elicitation" },
+  { id: "plan", label: "Implement plan" },
+  { id: "options", label: "Option picker" },
+  { id: "setup", label: "Setup step" },
+]
+
 const initialTimelineGroups = new Set<DemoTimelineGroup>([
   "reasoning",
   "planning",
@@ -444,6 +509,13 @@ const initialEnabledPanels = new Set<DemoPanelId>([
   "plan",
   "terminal",
   "browser",
+])
+
+const initialComposerExtras = new Set<DemoComposerExtra>([
+  "fixed-summary",
+  "goal",
+  "subagents",
+  "status",
 ])
 
 const assistantReply =
@@ -473,6 +545,9 @@ export default function ChatDemo() {
   const [placements, setPlacements] = useState(initialPlacements)
   const [enabledPanels, setEnabledPanels] = useState(initialEnabledPanels)
   const [visibleTimelineGroups, setVisibleTimelineGroups] = useState(initialTimelineGroups)
+  const [visibleComposerExtras, setVisibleComposerExtras] = useState(initialComposerExtras)
+  const [pendingSurface, setPendingSurface] = useState<DemoPendingSurface>("none")
+  const [pendingOption, setPendingOption] = useState("changed-files")
   const [rightActive, setRightActive] = useState<DemoPanelId>("review")
   const [bottomActive, setBottomActive] = useState<DemoPanelId>("terminal")
   const [selectedReviewFile, setSelectedReviewFile] = useState("chat-demo.tsx")
@@ -1493,6 +1568,15 @@ export default function ChatDemo() {
     })
   }
 
+  const toggleComposerExtra = (extra: DemoComposerExtra, checked: boolean) => {
+    setVisibleComposerExtras((current) => {
+      const next = new Set(current)
+      if (checked) next.add(extra)
+      else next.delete(extra)
+      return next
+    })
+  }
+
   const displayController = (
     <Popover>
       <PopoverTrigger
@@ -1524,6 +1608,7 @@ export default function ChatDemo() {
             onClick={() => {
               setVisibleTimelineGroups(new Set(timelineGroups.map(({ id }) => id)))
               setEnabledPanels(new Set(panelIds))
+              setVisibleComposerExtras(new Set(composerExtras.map(({ id }) => id)))
             }}
           >
             Show all
@@ -1535,12 +1620,18 @@ export default function ChatDemo() {
             onClick={() => {
               setVisibleTimelineGroups(new Set(initialTimelineGroups))
               setEnabledPanels(new Set(initialEnabledPanels))
+              setVisibleComposerExtras(new Set(initialComposerExtras))
+              setPendingSurface("none")
             }}
           >
             Curated
           </Button>
           <span className="ml-auto text-[11px] text-muted-foreground">
-            {visibleTimelineGroups.size + enabledPanels.size} visible
+            {visibleTimelineGroups.size +
+              enabledPanels.size +
+              visibleComposerExtras.size +
+              (pendingSurface === "none" ? 0 : 1)}{" "}
+            visible
           </span>
         </div>
         <div className="min-h-0 overflow-y-auto p-2">
@@ -1559,6 +1650,45 @@ export default function ChatDemo() {
                   checked={visibleTimelineGroups.has(group.id)}
                   size="sm"
                   onCheckedChange={(checked) => toggleTimelineGroup(group.id, checked)}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="mt-3 px-1 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Composer surface
+          </div>
+          <Select
+            value={pendingSurface}
+            onValueChange={(value) => setPendingSurface(value as DemoPendingSurface)}
+          >
+            <SelectTrigger aria-label="Choose composer surface" className="h-8 w-full text-xs">
+              <SelectValue>
+                {pendingSurfaceOptions.find(({ id }) => id === pendingSurface)?.label}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {pendingSurfaceOptions.map((option) => (
+                <SelectItem key={option.id} value={option.id}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <div className="mt-3 px-1 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Composer-adjacent UI
+          </div>
+          <div className="space-y-0.5">
+            {composerExtras.map((extra) => (
+              <div
+                className="flex min-h-8 items-center gap-2 rounded-md px-2 text-xs hover:bg-muted"
+                key={extra.id}
+              >
+                <span className="min-w-0 flex-1 truncate">{extra.label}</span>
+                <Switch
+                  aria-label={`Show ${extra.label}`}
+                  checked={visibleComposerExtras.has(extra.id)}
+                  size="sm"
+                  onCheckedChange={(checked) => toggleComposerExtra(extra.id, checked)}
                 />
               </div>
             ))}
@@ -1591,6 +1721,220 @@ export default function ChatDemo() {
   )
 
   const generating = status === "submitted" || status === "streaming"
+
+  const renderPendingComposer = () => {
+    if (pendingSurface === "approval") {
+      return (
+        <ChatApprovalRequest
+          badge="Waiting"
+          description="The active turn is paused until this command is reviewed."
+          title="Run command?"
+        >
+          <ChatPendingInteractionBody>
+            <ChatPendingCode>pnpm --filter @cypheria/ui test</ChatPendingCode>
+          </ChatPendingInteractionBody>
+          <ChatPendingInteractionFooter>
+            <Button
+              onClick={() => setPendingSurface("none")}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              Deny
+            </Button>
+            <Button
+              onClick={() => setPendingSurface("none")}
+              size="sm"
+              type="button"
+              variant="secondary"
+            >
+              Allow once
+            </Button>
+            <Button onClick={() => setPendingSurface("none")} size="sm" type="button">
+              Allow for session
+            </Button>
+          </ChatPendingInteractionFooter>
+        </ChatApprovalRequest>
+      )
+    }
+
+    if (pendingSurface === "permission") {
+      return (
+        <ChatPermissionRequest
+          badge="Permission"
+          description="This request is broader than the current workspace policy."
+          title="Allow filesystem access?"
+        >
+          <ChatPendingInteractionBody>
+            <ChatPendingQuestion
+              description="The agent wants to read a reference implementation outside the workspace."
+              legend="Requested scope"
+            >
+              <ChatPendingOption label="Read one folder" selected />
+              <ChatPendingOption label="Allow for this session" />
+            </ChatPendingQuestion>
+          </ChatPendingInteractionBody>
+          <ChatPendingInteractionFooter>
+            <Button
+              onClick={() => setPendingSurface("none")}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              Decline
+            </Button>
+            <Button onClick={() => setPendingSurface("none")} size="sm" type="button">
+              Continue
+            </Button>
+          </ChatPendingInteractionFooter>
+        </ChatPermissionRequest>
+      )
+    }
+
+    if (pendingSurface === "question") {
+      return (
+        <ChatUserInputRequest
+          badge="1 question"
+          description="Answering resumes the current turn immediately."
+          title="Choose a review scope"
+        >
+          <ChatPendingInteractionBody>
+            <ChatPendingQuestion legend="What should the review include?">
+              <ChatPendingOption
+                description="Focus on files changed in the current task."
+                label="Changed files"
+                selected={pendingOption === "changed-files"}
+                onClick={() => setPendingOption("changed-files")}
+              />
+              <ChatPendingOption
+                description="Include surrounding code and public contracts."
+                label="Entire workspace"
+                selected={pendingOption === "workspace"}
+                onClick={() => setPendingOption("workspace")}
+              />
+            </ChatPendingQuestion>
+            <ChatPendingTextInput aria-label="Other review scope" placeholder="Something else…" />
+          </ChatPendingInteractionBody>
+          <ChatPendingInteractionFooter>
+            <Button onClick={() => setPendingSurface("none")} size="sm" type="button">
+              Submit answer
+            </Button>
+          </ChatPendingInteractionFooter>
+        </ChatUserInputRequest>
+      )
+    }
+
+    if (pendingSurface === "elicitation") {
+      return (
+        <ChatMcpElicitationRequest
+          badge="MCP server"
+          description="The design source needs one value before the tool call can continue."
+          title="Select an export format"
+        >
+          <ChatPendingInteractionBody>
+            <ChatPendingQuestion legend="Format">
+              <ChatPendingOption label="React components" selected />
+              <ChatPendingOption label="Design tokens" />
+              <ChatPendingOption label="Static assets" />
+            </ChatPendingQuestion>
+          </ChatPendingInteractionBody>
+          <ChatPendingInteractionFooter>
+            <Button
+              onClick={() => setPendingSurface("none")}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              Cancel
+            </Button>
+            <Button onClick={() => setPendingSurface("none")} size="sm" type="button">
+              Continue
+            </Button>
+          </ChatPendingInteractionFooter>
+        </ChatMcpElicitationRequest>
+      )
+    }
+
+    if (pendingSurface === "plan") {
+      return (
+        <ChatPlanImplementationRequest
+          badge="Plan complete"
+          description="Start a new execution turn or send feedback to revise the plan."
+          title="Implement this plan?"
+        >
+          <ChatPendingInteractionBody>
+            <ChatPendingOption
+              description="Switch back to execution mode and begin with step one."
+              label="Yes, implement this plan"
+              selected
+            />
+            <ChatPendingTextInput aria-label="Plan feedback" placeholder="Or describe a change…" />
+          </ChatPendingInteractionBody>
+          <ChatPendingInteractionFooter>
+            <Button
+              onClick={() => setPendingSurface("none")}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              Dismiss
+            </Button>
+            <Button onClick={() => setPendingSurface("none")} size="sm" type="button">
+              Continue
+            </Button>
+          </ChatPendingInteractionFooter>
+        </ChatPlanImplementationRequest>
+      )
+    }
+
+    if (pendingSurface === "options") {
+      return (
+        <ChatOptionPickerRequest
+          badge="Multiple choice"
+          description="This native picker is selected from an active server request."
+          title="Choose the surfaces to compare"
+        >
+          <ChatPendingInteractionBody>
+            <ChatPendingQuestion legend="Surfaces">
+              <ChatPendingOption label="Timeline" selected />
+              <ChatPendingOption label="Composer" selected />
+              <ChatPendingOption label="Panels" />
+            </ChatPendingQuestion>
+          </ChatPendingInteractionBody>
+          <ChatPendingInteractionFooter>
+            <Button onClick={() => setPendingSurface("none")} size="sm" type="button">
+              Apply selection
+            </Button>
+          </ChatPendingInteractionFooter>
+        </ChatOptionPickerRequest>
+      )
+    }
+
+    if (pendingSurface === "setup") {
+      return (
+        <ChatSetupStepRequest
+          badge="Desktop-owned"
+          description="An example of native onboarding UI that is not a generic timeline event."
+          title="Choose a starting role"
+        >
+          <ChatPendingInteractionBody>
+            <ChatPendingQuestion legend="Role">
+              <ChatPendingOption label="Build a feature" selected />
+              <ChatPendingOption label="Review code" />
+              <ChatPendingOption label="Investigate an issue" />
+            </ChatPendingQuestion>
+          </ChatPendingInteractionBody>
+          <ChatPendingInteractionFooter>
+            <Button onClick={() => setPendingSurface("none")} size="sm" type="button">
+              Continue setup
+            </Button>
+          </ChatPendingInteractionFooter>
+        </ChatSetupStepRequest>
+      )
+    }
+
+    return null
+  }
 
   const renderShowcase = (showcase: DemoMessage["showcase"]) => {
     if (showcase === "audit") {
@@ -2232,6 +2576,22 @@ export default function ChatDemo() {
         <div className="absolute top-3 right-3 z-30" data-demo-display-controller>
           {displayController}
         </div>
+        {visibleComposerExtras.has("notification") ? (
+          <div className="absolute top-14 right-3 z-30 w-80 max-w-[calc(100%-1.5rem)]">
+            <ChatDesktopNotificationPreview
+              actions={
+                <Button size="xs" type="button" variant="secondary">
+                  Open task
+                </Button>
+              }
+              appName="Cypheria"
+              body="The conversation UI audit is ready for review."
+              kind="turn-complete"
+              timestamp="now"
+              title="Turn complete"
+            />
+          </div>
+        ) : null}
         <ChatTurnNavigator label="Conversation turns">
           {navigatorTargets.map((target, markerIndex) => (
             <ChatTurnMarker
@@ -2357,131 +2717,218 @@ export default function ChatDemo() {
         ) : null}
         <ChatComposerDock visible={composerVisible}>
           <div className="flex w-full max-w-(--chat-composer-max-width) flex-col items-center gap-2">
-            <Badge className="gap-1.5 rounded-full px-3 py-1 font-normal" variant="secondary">
-              <StatusIcon className="size-3.5" />4 files changed
-              <span className="font-mono text-emerald-600">+286</span>
-              <span className="font-mono text-destructive">-4</span>
-            </Badge>
-            <ChatComposerFrame className="max-w-none">
-              <ChatComposerForm onSubmit={submitMessage}>
-                <input
-                  ref={attachmentInputRef}
-                  accept="image/*,.md,.txt"
-                  aria-label="Attach photos or files"
-                  className="sr-only"
-                  multiple
-                  tabIndex={-1}
-                  type="file"
-                  onChange={(event) => {
-                    setPendingAttachments(
-                      Array.from(event.currentTarget.files ?? []).map((file) => file.name)
-                    )
-                    event.currentTarget.value = ""
-                  }}
-                />
-                {pendingAttachments.length ? (
-                  <ChatComposerHeader>
-                    <ChatComposerContextTray>
-                      {pendingAttachments.map((attachment) => (
-                        <Badge className="max-w-52 gap-1 font-normal" key={attachment}>
-                          <FileIcon />
-                          <span className="truncate">{attachment}</span>
-                        </Badge>
-                      ))}
-                    </ChatComposerContextTray>
-                  </ChatComposerHeader>
+            {visibleComposerExtras.has("fixed-summary") ? (
+              <ChatFixedTurnSummary>
+                <ChatFixedTurnSummaryItem kind="goal" label="Align Codex conversation UI" />
+                <ChatFixedTurnSummaryItem kind="todo" label="Plan" progress={67} value="2/3" />
+                <ChatFixedTurnSummaryItem kind="diff" label="4 files" value="+286 −4" />
+              </ChatFixedTurnSummary>
+            ) : null}
+            {visibleComposerExtras.has("queue") ||
+            visibleComposerExtras.has("goal") ||
+            visibleComposerExtras.has("subagents") ||
+            visibleComposerExtras.has("warning") ||
+            visibleComposerExtras.has("status") ? (
+              <ChatComposerTopTray>
+                {visibleComposerExtras.has("warning") ? (
+                  <div className="grid gap-1.5">
+                    <ChatComposerBanner
+                      actions={
+                        <Button size="xs" type="button" variant="ghost">
+                          Review limits
+                        </Button>
+                      }
+                      description="The next tool call will ask before accessing paths outside this workspace."
+                      title="Approval policy is active"
+                      tone="warning"
+                    />
+                    <ChatComposerMeter
+                      className="px-2.5"
+                      detail="68%"
+                      label="Context window"
+                      value={68}
+                    />
+                  </div>
                 ) : null}
-                <ChatComposerBody>
-                  <ChatComposerTextarea
-                    aria-label="Message Chat Demo"
-                    disabled={status === "submitted"}
-                    onChange={(event) => setDraft(event.currentTarget.value)}
-                    placeholder="Ask Cypheria to build, explain, or review…"
-                    value={draft}
-                  />
-                </ChatComposerBody>
-                <ChatComposerFooter>
-                  <ChatComposerUtilityBar>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger
-                        render={
-                          <ChatComposerControl
-                            label="Add context"
-                            size="icon-sm"
-                            tooltip="Add context"
-                          >
-                            <PlusComposerIcon className="size-4" />
-                          </ChatComposerControl>
-                        }
-                      />
-                      <DropdownMenuContent align="start">
-                        <DropdownMenuItem onClick={() => attachmentInputRef.current?.click()}>
-                          <FileIcon />
-                          Add photos or files
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                    <ChatComposerControl
-                      className={autoApprove ? "text-amber-600" : undefined}
-                      label="Toggle approval mode"
-                      onClick={() => setAutoApprove((current) => !current)}
-                      tooltip="Approval mode"
-                    >
-                      <CertificateIcon className="size-3.5" />
-                      {autoApprove ? "Full access" : "Ask to approve"}
-                    </ChatComposerControl>
-                    <span className="ml-auto" />
-                    <Select value={model} onValueChange={(value) => setModel(String(value))}>
-                      <SelectTrigger aria-label="Model" className="h-7 w-auto border-0 px-2">
-                        <SelectValue>
-                          {model === "gpt-6" ? "GPT-6 Astra" : "GPT-5.6 Sol"}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="gpt-5.6">GPT-5.6 Sol</SelectItem>
-                        <SelectItem value="gpt-6">GPT-6 Astra</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    <Select
-                      value={reasoning}
-                      onValueChange={(value) => setReasoning(String(value))}
-                    >
-                      <SelectTrigger
-                        aria-label="Reasoning effort"
-                        className="h-7 w-auto border-0 px-2"
-                      >
-                        <SelectValue>
-                          {reasoning === "xhigh"
-                            ? "XHigh"
-                            : reasoning === "high"
-                              ? "High"
-                              : "Medium"}
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                        <SelectItem value="xhigh">XHigh</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </ChatComposerUtilityBar>
-                  <ChatComposerControl
-                    label="Hide composer"
-                    size="icon-sm"
-                    tooltip="Hide composer"
-                    onClick={() => setComposerVisible(false)}
+                {visibleComposerExtras.has("queue") ? (
+                  <ChatComposerPanel
+                    description="These messages have not entered the transcript yet."
+                    icon={<ClockIcon />}
+                    title="Queued follow-ups"
                   >
-                    <CloseBoldIcon className="size-4" />
-                  </ChatComposerControl>
-                  <ChatComposerSubmit
-                    disabled={!draft.trim() && !generating}
-                    status={status}
-                    stopLabel="Stop generating"
-                    submitLabel="Send message"
-                    onStop={stopGeneration}
+                    <ChatQueuedInputList>
+                      <ChatQueuedInputItem position="1" state="queued" stateLabel="Queued">
+                        Keep the side panel open while validating the diff.
+                      </ChatQueuedInputItem>
+                      <ChatQueuedInputItem position="2" state="paused" stateLabel="Paused">
+                        Summarize the remaining production integration work.
+                      </ChatQueuedInputItem>
+                    </ChatQueuedInputList>
+                  </ChatComposerPanel>
+                ) : null}
+                {visibleComposerExtras.has("goal") ? (
+                  <ChatComposerPanel
+                    actions={
+                      <Button size="xs" type="button" variant="ghost">
+                        Edit
+                      </Button>
+                    }
+                    description="Match the audited hierarchy while keeping transport and persistence application-owned."
+                    icon={<PinIcon />}
+                    title="Thread goal"
                   />
-                </ChatComposerFooter>
-              </ChatComposerForm>
+                ) : null}
+                {visibleComposerExtras.has("subagents") ? (
+                  <ChatComposerPanel
+                    actions={
+                      <Button size="xs" type="button" variant="ghost">
+                        Open
+                      </Button>
+                    }
+                    description="UI audit is running · accessibility review completed"
+                    icon={<AgentIcon />}
+                    title="2 background agents"
+                  />
+                ) : null}
+                {visibleComposerExtras.has("status") ? (
+                  <ChatComposerStatusMessage state={generating ? "running" : "completed"}>
+                    {generating
+                      ? "Updating the active response…"
+                      : "Ready for a new message or a pending-request preview."}
+                  </ChatComposerStatusMessage>
+                ) : null}
+              </ChatComposerTopTray>
+            ) : null}
+            <ChatComposerFrame className="max-w-none">
+              {pendingSurface !== "none" ? (
+                renderPendingComposer()
+              ) : (
+                <ChatComposerForm onSubmit={submitMessage}>
+                  <input
+                    ref={attachmentInputRef}
+                    accept="image/*,.md,.txt"
+                    aria-label="Attach photos or files"
+                    className="sr-only"
+                    multiple
+                    tabIndex={-1}
+                    type="file"
+                    onChange={(event) => {
+                      setPendingAttachments(
+                        Array.from(event.currentTarget.files ?? []).map((file) => file.name)
+                      )
+                      event.currentTarget.value = ""
+                    }}
+                  />
+                  {pendingAttachments.length ? (
+                    <ChatComposerHeader>
+                      <ChatComposerContextTray>
+                        {pendingAttachments.map((attachment) => (
+                          <ChatContextChip
+                            key={attachment}
+                            label={attachment}
+                            removeLabel={`Remove ${attachment}`}
+                            onRemove={() =>
+                              setPendingAttachments((current) =>
+                                current.filter((item) => item !== attachment)
+                              )
+                            }
+                          />
+                        ))}
+                      </ChatComposerContextTray>
+                    </ChatComposerHeader>
+                  ) : null}
+                  <ChatComposerBody>
+                    <ChatComposerTextarea
+                      aria-label="Message Chat Demo"
+                      disabled={status === "submitted"}
+                      onChange={(event) => setDraft(event.currentTarget.value)}
+                      placeholder="Ask Cypheria to build, explain, or review…"
+                      value={draft}
+                    />
+                  </ChatComposerBody>
+                  <ChatComposerFooter>
+                    <ChatComposerUtilityBar>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <ChatComposerControl
+                              label="Add context"
+                              size="icon-sm"
+                              tooltip="Add context"
+                            >
+                              <PlusComposerIcon className="size-4" />
+                            </ChatComposerControl>
+                          }
+                        />
+                        <DropdownMenuContent align="start">
+                          <DropdownMenuItem onClick={() => attachmentInputRef.current?.click()}>
+                            <FileIcon />
+                            Add photos or files
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                      <ChatComposerControl
+                        className={autoApprove ? "text-amber-600" : undefined}
+                        label="Toggle approval mode"
+                        onClick={() => setAutoApprove((current) => !current)}
+                        tooltip="Approval mode"
+                      >
+                        <CertificateIcon className="size-3.5" />
+                        {autoApprove ? "Full access" : "Ask to approve"}
+                      </ChatComposerControl>
+                      <span className="ml-auto" />
+                      <Select value={model} onValueChange={(value) => setModel(String(value))}>
+                        <SelectTrigger aria-label="Model" className="h-7 w-auto border-0 px-2">
+                          <SelectValue>
+                            {model === "gpt-6" ? "GPT-6 Astra" : "GPT-5.6 Sol"}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="gpt-5.6">GPT-5.6 Sol</SelectItem>
+                          <SelectItem value="gpt-6">GPT-6 Astra</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Select
+                        value={reasoning}
+                        onValueChange={(value) => setReasoning(String(value))}
+                      >
+                        <SelectTrigger
+                          aria-label="Reasoning effort"
+                          className="h-7 w-auto border-0 px-2"
+                        >
+                          <SelectValue>
+                            {reasoning === "xhigh"
+                              ? "XHigh"
+                              : reasoning === "high"
+                                ? "High"
+                                : "Medium"}
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="high">High</SelectItem>
+                          <SelectItem value="xhigh">XHigh</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </ChatComposerUtilityBar>
+                    <ChatComposerControl
+                      label="Hide composer"
+                      size="icon-sm"
+                      tooltip="Hide composer"
+                      onClick={() => setComposerVisible(false)}
+                    >
+                      <CloseBoldIcon className="size-4" />
+                    </ChatComposerControl>
+                    <ChatComposerSubmit
+                      disabled={!draft.trim() && !generating}
+                      status={status}
+                      stopLabel="Stop generating"
+                      submitLabel="Send message"
+                      onStop={stopGeneration}
+                    />
+                  </ChatComposerFooter>
+                </ChatComposerForm>
+              )}
             </ChatComposerFrame>
           </div>
         </ChatComposerDock>

@@ -67,6 +67,8 @@ Custom provider、permission profile、MCP transport、plugin policy、Apps、Sk
 
 Harness-native Skills、MCP、plugins、marketplaces 和 Apps 通过 Cypheria [Integrations](integrations.zh-CN.md) facade 暴露。Codex permission 展示见 [Codex Permissions](codex-permissions.zh-CN.md)。
 
+带版本的 feature registry、有效状态 API，以及官方 Desktop 客户端实际发送的 feature overrides，见 [Codex feature 默认值与 Desktop overrides](codex-app-server-features.zh-CN.md)。
+
 ## 客户端本地排除项
 
 以下内容绝不属于 Codex 配置：

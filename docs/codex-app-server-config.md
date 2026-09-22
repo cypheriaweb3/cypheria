@@ -67,6 +67,8 @@ Advanced native configuration—custom providers, permission profiles, MCP trans
 
 Harness-native Skills, MCP, plugins, marketplaces, and Apps are exposed through the Cypheria [Integrations](integrations.md) facade. Codex permission presentation is specified in [Codex Permissions](codex-permissions.md).
 
+The versioned feature registry, effective-state APIs, and the feature overrides observed in the official Desktop client are documented in [Codex feature defaults and Desktop overrides](codex-app-server-features.md).
+
 ## Client-local exclusions
 
 The following never belong in Codex configuration:

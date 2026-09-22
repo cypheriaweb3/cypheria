@@ -12,15 +12,23 @@ import {
   ChatActivityList,
   ChatApprovalCard,
   ChatCommandBlock,
+  ChatComposerBanner,
   ChatComposerBody,
   ChatComposerDock,
   ChatComposerFooter,
   ChatComposerForm,
   ChatComposerFrame,
+  ChatComposerPanel,
+  ChatComposerStatusMessage,
   ChatComposerSubmit,
   ChatComposerTextarea,
+  ChatComposerTopTray,
+  ChatContextChip,
+  ChatDesktopNotificationPreview,
   ChatFileChange,
   ChatFileChanges,
+  ChatFixedTurnSummary,
+  ChatFixedTurnSummaryItem,
   ChatHeader,
   ChatMessageContent,
   ChatPanel,
@@ -30,6 +38,13 @@ import {
   ChatPanelLoadingState,
   ChatPanelSurface,
   type ChatPanelTabDescriptor,
+  ChatPendingInteractionBody,
+  ChatPendingInteractionFooter,
+  ChatPendingOption,
+  ChatPendingQuestion,
+  ChatPermissionRequest,
+  ChatQueuedInputItem,
+  ChatQueuedInputList,
   ChatReasoning,
   ChatReasoningContent,
   ChatReasoningTrigger,
@@ -315,6 +330,76 @@ describe("chat presentation components", () => {
 
     await user.type(prompt, "{enter}")
     expect(onSubmit).toHaveBeenCalledOnce()
+  })
+
+  it("renders Desktop-derived composer surfaces without making them timeline items", () => {
+    const { container } = render(
+      <div>
+        <ChatFixedTurnSummary>
+          <ChatFixedTurnSummaryItem kind="todo" label="Plan" progress={50} value="1/2" />
+        </ChatFixedTurnSummary>
+        <ChatComposerTopTray>
+          <ChatComposerBanner
+            description="Review the request"
+            title="Approval policy"
+            tone="warning"
+          />
+          <ChatComposerPanel title="Queued follow-ups">
+            <ChatQueuedInputList>
+              <ChatQueuedInputItem state="queued" stateLabel="Queued">
+                Keep the panel open
+              </ChatQueuedInputItem>
+            </ChatQueuedInputList>
+          </ChatComposerPanel>
+          <ChatComposerStatusMessage state="running">
+            Waiting for approval
+          </ChatComposerStatusMessage>
+        </ChatComposerTopTray>
+        <ChatPermissionRequest title="Allow filesystem access?">
+          <ChatPendingInteractionBody>
+            <ChatPendingQuestion legend="Requested scope">
+              <ChatPendingOption label="Read one folder" selected />
+            </ChatPendingQuestion>
+          </ChatPendingInteractionBody>
+          <ChatPendingInteractionFooter>
+            <button type="button">Continue</button>
+          </ChatPendingInteractionFooter>
+        </ChatPermissionRequest>
+        <ChatContextChip
+          label="reference.md"
+          removeLabel="Remove reference"
+          onRemove={() => undefined}
+        />
+        <ChatDesktopNotificationPreview
+          appName="Cypheria"
+          body="The task needs attention"
+          kind="question"
+          title="Input required"
+        />
+      </div>
+    )
+
+    expect(container.querySelector('[data-slot="chat-fixed-turn-summary"]')).toBeInTheDocument()
+    expect(container.querySelector('[data-slot="chat-composer-banner"]')).toHaveAttribute(
+      "data-tone",
+      "warning"
+    )
+    expect(
+      screen.getByText("Waiting for approval").closest('[data-slot="chat-composer-status-message"]')
+    ).toHaveAttribute("aria-live", "polite")
+    expect(container.querySelector('[data-slot="chat-permission-request"]')).toHaveAttribute(
+      "data-kind",
+      "permission"
+    )
+    expect(screen.getByRole("button", { name: "Read one folder" })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    )
+    expect(screen.getByRole("button", { name: "Remove reference" })).toBeInTheDocument()
+    expect(
+      container.querySelector('[data-slot="chat-desktop-notification-preview"]')
+    ).toHaveAttribute("data-kind", "question")
+    expect(container.querySelector('[data-slot="chat-timeline-item"]')).toBeNull()
   })
 
   it("renders chat-owned message, reasoning, and tool disclosure primitives", () => {

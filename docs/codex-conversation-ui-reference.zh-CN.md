@@ -150,6 +150,30 @@ Sources 对 attached、read、created、updated、web、tool-input 与 tool-resu
 
 正式会话页接入 chrome 时不需要复制 Demo 的 utility class。把现有 Timeline 与 composer 组合进 `ChatWorkspaceShell`；只在右侧面板缺席时为会话 `ChatHeader` 传入 `reserveFixedActions`；为右侧 `ChatPanel` 传入 `workspaceHeader`；再把 bottom/side toggle 放进 `fixedHeaderActions`。只有 Desktop 添加 `desktop-titlebar` class，因为动态左侧留白及其层叠关系属于应用 Sidebar。现有应用状态继续拥有 visibility、active tab、尺寸、fullscreen、resize 持久化与 panel content。
 
+## 已实现共享组件清单
+
+以下展示组件已经实现，并从 `@cypheria/ui/components/chat` 导出。它们接收应用层传入的内容和标签，不导入 Desktop、Electron、Server 或协议模块。
+
+| Surface | 可用组件 |
+| --- | --- |
+| 工作区与标题栏 | `ChatWorkspaceShell`、`ChatMainColumn`、`ChatHeader`、`ChatHeaderBreadcrumb`、`ChatHeaderTitle`、`ChatHeaderStatus`、`ChatHeaderActions`、`ChatPanelToggle`、`ChatPinnedSummary` |
+| Timeline 结构 | `ChatTimeline`、`ChatTimelineContent`、`ChatTimelineItem`、`ChatUserMessage`、`ChatAssistantMessage`、`ChatTurnActivity`、`ChatMessageActions`、`ChatTurnNavigator`、`ChatTurnMarker`、`ChatTimelineState`、`ChatResponseSpacer`、`ChatScrollToLatest` |
+| 消息与 activity 内容 | `ChatMessageContent`、`ChatReasoning`、`ChatReasoningTrigger`、`ChatReasoningContent`、`ChatTool`、`ChatToolTrigger`、`ChatToolContent`、`ChatToolSection`、`ChatToolCode`、`ChatActivityList`、`ChatActivityItem`、`ChatCommandBlock`、`ChatFileChanges`、`ChatFileChange`、`ChatTurnNotice` |
+| 专用 Timeline item | `ChatTimelineEvent`、`ChatTimestampSeparator`、`ChatThinkingPlaceholder`、`ChatActivitySummary`、`ChatActivitySummaryPart`、`ChatPlanCard`、`ChatTodoList`、`ChatTodoItem`、`ChatApprovalCard`、`ChatUserInputCard`、`ChatAgentCard`、`ChatGeneratedImageGrid`、`ChatGeneratedImage`、`ChatDiffCard`、`ChatResourceGroup`、`ChatResourceCard`、`ChatThreadHandoff`、`ChatTranscriptLine`、`ChatInlineNotice` |
+| Composer 核心 | `ChatComposerDock`、`ChatComposerFrame`、`ChatComposerForm`、`ChatComposerHeader`、`ChatComposerBody`、`ChatComposerTextarea`、`ChatComposerFooter`、`ChatComposerUtilityBar`、`ChatComposerControl`、`ChatComposerContextTray`、`ChatComposerSubmit`、`ChatComposerRevealControl` |
+| Desktop 派生的 composer surface | `ChatComposerTopTray`、`ChatComposerPanel`、`ChatComposerBanner`、`ChatComposerStatusMessage`、`ChatQueuedInputList`、`ChatQueuedInputItem`、`ChatFixedTurnSummary`、`ChatFixedTurnSummaryItem`、`ChatContextChip`、`ChatComposerMeter` |
+| 阻塞式 pending interaction | `ChatPendingInteraction`、`ChatPendingInteractionHeader`、`ChatPendingInteractionBody`、`ChatPendingInteractionFooter`、`ChatPendingQuestion`、`ChatPendingOption`、`ChatPendingTextInput`、`ChatPendingCode`、`ChatApprovalRequest`、`ChatPermissionRequest`、`ChatUserInputRequest`、`ChatMcpElicitationRequest`、`ChatPlanImplementationRequest`、`ChatOptionPickerRequest`、`ChatSetupStepRequest` |
+| 面板 shell 与状态 | `ChatPanelLayout`、`ChatPanelResizeHandle`、`ChatPanel`、`ChatPanelHeader`、`ChatPanelTabs`、`ChatPanelLauncher`、`ChatPanelContent`、`ChatPanelSection`、`ChatPanelList`、`ChatPanelListItem`、`ChatPanelEmptyState`、`ChatPanelLoadingState`、`ChatPanelErrorState` |
+| Sources、agents、plan、review 与 terminal | `ChatSourcesPanel`、`ChatSourceGroup`、`ChatSourceItem`、`ChatSubagentsPanel`、`ChatSubagentGroup`、`ChatSubagentItem`、`ChatPlanPanel`、`ChatPlanStep`、`ChatSummaryPanel`、`ChatSummarySection`、`ChatReviewPanel`、`ChatReviewToolbar`、`ChatReviewFileList`、`ChatReviewDiffHost`、`ChatPullRequestCard`、`ChatTerminalPanel`、`ChatTerminalTabs`、`ChatTerminalStatusBar`、`ChatTerminalOutputHost` |
+| Preview host | `ChatPreviewPanel`、`ChatPreviewToolbar`、`ChatPreviewHost`、`ChatPreviewStatusBar`、`ChatPanelSurface`、`ChatGoalPanel`、`ChatPullRequestPanel`、`ChatFilePreviewPanel`、`ChatImagePreviewPanel`、`ChatBrowserPanel`、`ChatMcpAppPanel`、`ChatAutomationPanel`、`ChatArtifactPanel`、`ChatPdfPanel`、`ChatDocumentPanel`、`ChatNotebookPanel`、`ChatPresentationPanel`、`ChatWorkbookPanel`、`ChatEntityPanel`、`ChatSideChatPanel`、`ChatMcpThreadPanel`、`ChatMcpFilePanel`、`ChatSandboxPanel`、`ChatSecondaryTimelinePanel` |
+| Desktop 通知表示 | `ChatDesktopNotificationPreview` |
+
+Active request 组件有意与 `ChatApprovalCard`、`ChatUserInputCard` 分开：前者在 turn 被阻塞时替换普通 composer，后者用于 transcript 中紧凑的已解决/历史内容。`ChatDesktopNotificationPreview` 只是供 Demo、设置或预览使用的可复用视觉表示；真正的 macOS/Windows 通知发送和 action 仍由 Desktop 拥有。
+
+公共 descriptor 与状态类型包括 panel placement/visibility/tab/launcher 模型；timeline event、tone、resource 与 activity 模型；composer status/layout/notice 模型；pending-request kind；queued-input state；fixed-summary kind；source、subagent、review、terminal 与 desktop-notification descriptor。
+
+仅开发版 Chat Demo 在没有 runtime 的情况下组合这些组件。其悬浮展示控制器可以独立选择 active pending-interaction surface，并开关 fixed turn summary、queued follow-up、thread goal、background agent、安全/用量 banner、live status、desktop-notification preview、timeline family 和所有 panel tab。Demo 文案继续使用本地 literal，不进入产品翻译，因此删除 Demo 时不会移除生产本地化。
+
 ## 所有权边界
 
 `@cypheria/ui` 包含 React 展示、semantic styling、chat 自有的 message/composer/tool primitive、Base UI 交互 primitive、直接 Streamdown 渲染和 renderer slot。Chat component surface 不依赖 AI Elements，因此其间距与交互层级可以独立贴近审计后的 Codex 体验。它不导入 `@cypheria/protocol`，也不导入 Desktop、Electron、Server、router、query 或 IPC module。

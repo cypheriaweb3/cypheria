@@ -34,6 +34,7 @@ title: Cypheria 文档
 
 - [生成的 Codex App Server API](codex-app-server-api.zh-CN.md)
 - [Codex 配置语义](codex-app-server-config.zh-CN.md)
+- [Codex feature 默认值与 Desktop overrides](codex-app-server-features.zh-CN.md)
 - [Cypheria 中的 Codex 权限](codex-permissions.zh-CN.md)
 
 ## 计划中的服务

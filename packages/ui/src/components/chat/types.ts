@@ -82,6 +82,23 @@ export type ChatComposerLayout = "floating" | "panel-overlay"
 
 export type ChatComposerStatus = "ready" | "submitted" | "streaming" | "error"
 
+export type ChatPendingRequestKind =
+  | "approval"
+  | "permission"
+  | "user-input"
+  | "mcp-elicitation"
+  | "implement-plan"
+  | "option-picker"
+  | "setup-step"
+
+export type ChatComposerNoticeTone = "neutral" | "info" | "success" | "warning" | "error"
+
+export type ChatQueuedInputState = "queued" | "sending" | "paused" | "error"
+
+export type ChatFixedTurnSummaryKind = "goal" | "todo" | "diff" | "subagents" | "status"
+
+export type ChatDesktopNotificationKind = "turn-complete" | "approval" | "question" | "remote-task"
+
 export interface ChatPanelTabDescriptor {
   readonly id: string
   readonly title: ReactNode
