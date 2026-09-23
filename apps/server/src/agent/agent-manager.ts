@@ -50,6 +50,7 @@ import { NATIVE_AGENT_MANIFEST } from "./native-agent-manifest.js"
 import { OpenCodeRuntime } from "./opencode-runtime.js"
 import { PiSessionRuntime } from "./pi-session-runtime.js"
 import { AgentRegistryService } from "./registry-service.js"
+import { getOrInitialize } from "./single-flight.js"
 import { ToolchainManager } from "./toolchain-manager.js"
 
 type Send = (message: ServerMessage) => void
@@ -142,17 +143,17 @@ export class AgentManager {
   readonly registry: AgentRegistryService
   readonly toolchains: ToolchainManager
   readonly codexDynamicTools = new CodexDynamicToolRegistry()
-  readonly #acpRuntimes = new Map<string, AcpSessionRuntime>()
+  readonly #acpRuntimes = new Map<string, Promise<AcpSessionRuntime>>()
   readonly #agentDefaults: (agentId: AgentId) => Record<string, HarnessSettingValue>
   readonly #agentHomes: string
-  readonly #claudeRuntimes = new Map<string, ClaudeSessionRuntime>()
+  readonly #claudeRuntimes = new Map<string, Promise<ClaudeSessionRuntime>>()
   readonly #codexSettings: () => CodexAgentSettings
   readonly #installer: Pick<
     AgentInstaller,
     "cleanupInterrupted" | "install" | "readCurrent" | "uninstall"
   >
   readonly #openCode: OpenCodeRuntime
-  readonly #piRuntimes = new Map<string, PiSessionRuntime>()
+  readonly #piRuntimes = new Map<string, Promise<PiSessionRuntime>>()
   readonly #operations = new Map<string, AgentOperation>()
   readonly #operationControllers = new Map<string, AbortController>()
   readonly #operationQueues = new Map<string, Promise<void>>()
@@ -235,19 +236,21 @@ export class AgentManager {
     this.#maintenanceAgents.clear()
     for (const controller of this.#subscriptions.values()) controller.abort()
     this.#subscriptions.clear()
-    await Promise.allSettled([
-      this.#openCode.stop(),
-      this.#codexRuntime?.stop(),
-      ...[...this.#acpRuntimes.values()].map((runtime) => runtime.stop()),
-      ...[...this.#claudeRuntimes.values()].map((runtime) => runtime.stop()),
-      ...[...this.#piRuntimes.values()].map((runtime) => runtime.stop()),
-    ])
+    const acpRuntimes = [...this.#acpRuntimes.values()]
+    const claudeRuntimes = [...this.#claudeRuntimes.values()]
+    const piRuntimes = [...this.#piRuntimes.values()]
     this.#acpRuntimes.clear()
     this.#claudeRuntimes.clear()
     this.#piRuntimes.clear()
+    await Promise.allSettled([
+      this.#openCode.stop(),
+      this.#stopCodexRuntime(),
+      ...acpRuntimes.map(async (runtime) => (await runtime).stop()),
+      ...claudeRuntimes.map(async (runtime) => (await runtime).stop()),
+      ...piRuntimes.map(async (runtime) => (await runtime).stop()),
+    ])
     this.#piModelRuntime = undefined
     this.#threadAdapters.clear()
-    this.#codexRuntime = undefined
     this.#sessionStates.clear()
     this.codexDynamicTools.clear()
   }
@@ -262,16 +265,16 @@ export class AgentManager {
   async disposeSession(sessionId: string): Promise<void> {
     const prefix = `${sessionId}:`
     const runtimes = [...this.#acpRuntimes.entries()].filter(([key]) => key.startsWith(prefix))
-    for (const [key, runtime] of runtimes) {
-      this.#acpRuntimes.delete(key)
-      await runtime.stop()
+    for (const [key] of runtimes) this.#acpRuntimes.delete(key)
+    for (const [, runtime] of runtimes) {
+      await (await runtime.catch(() => undefined))?.stop()
     }
     const claude = this.#claudeRuntimes.get(sessionId)
     this.#claudeRuntimes.delete(sessionId)
-    await claude?.stop()
+    if (claude) await (await claude.catch(() => undefined))?.stop()
     const pi = this.#piRuntimes.get(sessionId)
     this.#piRuntimes.delete(sessionId)
-    await pi?.stop()
+    if (pi) await (await pi.catch(() => undefined))?.stop()
     this.#codexRuntime?.detachSession(sessionId)
     for (const [key, controller] of this.#subscriptions) {
       if (key.startsWith(prefix)) {
@@ -410,20 +413,20 @@ export class AgentManager {
   async handleAcp(message: AgentAcpClientMessage, context: AgentMessageContext): Promise<void> {
     await this.#assertCallable(message.agent)
     const key = `${context.sessionId}:${message.agent}`
-    let runtime = this.#acpRuntimes.get(key)
-    if (!runtime) {
+    const pending = getOrInitialize(this.#acpRuntimes, key, async () => {
       const receipt = await this.#installer.readCurrent(message.agent)
       if (!receipt) throw this.#error("AGENT_NOT_INSTALLED", `${message.agent} is not installed`)
-      runtime = new AcpSessionRuntime({
+      return new AcpSessionRuntime({
         agent: message.agent,
         receipt,
         send: context.send,
         toolchains: this.toolchains,
         logger: this.#logger?.child({ agentId: message.agent, sessionId: context.sessionId }),
       })
-      this.#acpRuntimes.set(key, runtime)
-      this.#markSessionRunning(context.sessionId, message.agent)
-    }
+    })
+    const runtime = await pending
+    if (this.#acpRuntimes.get(key) !== pending) return
+    this.#markSessionRunning(context.sessionId, message.agent)
     runtime.send(message)
   }
 
@@ -691,36 +694,36 @@ export class AgentManager {
     context: AgentMessageContext
   ): Promise<void> {
     await this.#assertCallable("claude")
-    let runtime = this.#claudeRuntimes.get(context.sessionId)
-    if (!runtime) {
+    const pending = getOrInitialize(this.#claudeRuntimes, context.sessionId, async () => {
       const receipt = await this.#requiredReceipt("claude")
-      runtime = new ClaudeSessionRuntime({
+      return new ClaudeSessionRuntime({
         home: join(this.#agentHomes, "claude", "home"),
         receipt,
         requestPermission: context.requestClaudePermission,
         send: context.send,
         toolchains: this.toolchains,
       })
-      this.#claudeRuntimes.set(context.sessionId, runtime)
-    }
+    })
+    const runtime = await pending
+    if (this.#claudeRuntimes.get(context.sessionId) !== pending) return
     await runtime.send(message)
     this.#markSessionRunning(context.sessionId, "claude")
   }
 
   async handlePi(message: AgentPiClientMessage, context: AgentMessageContext): Promise<void> {
     await this.#assertCallable("pi")
-    let runtime = this.#piRuntimes.get(context.sessionId)
-    if (!runtime) {
+    const pending = getOrInitialize(this.#piRuntimes, context.sessionId, async () => {
       const receipt = await this.#requiredReceipt("pi")
-      runtime = new PiSessionRuntime({
+      return new PiSessionRuntime({
         home: join(this.#agentHomes, "pi", "home"),
         receipt,
         send: context.send,
         toolchains: this.toolchains,
         logger: this.#logger?.child({ agentId: "pi", sessionId: context.sessionId }),
       })
-      this.#piRuntimes.set(context.sessionId, runtime)
-    }
+    })
+    const runtime = await pending
+    if (this.#piRuntimes.get(context.sessionId) !== pending) return
     await runtime.send(message)
     this.#markSessionRunning(context.sessionId, "pi")
   }
@@ -1060,7 +1063,7 @@ export class AgentManager {
   }
 
   async #assertCallable(agentId: AgentId): Promise<void> {
-    if (this.#maintenanceAgents.has(agentId)) {
+    if (this.#stopping || this.#maintenanceAgents.has(agentId)) {
       throw this.#error("AGENT_MAINTENANCE", `${agentId} is being updated`)
     }
     const record = this.#records.get(agentId)
@@ -1070,22 +1073,25 @@ export class AgentManager {
 
   async #stopEverywhere(agentId: AgentId): Promise<void> {
     if (agentId === "opencode") await this.#openCode.stop()
-    if (agentId === "codex") {
-      await this.#codexRuntime?.stop()
-      this.#codexRuntime = undefined
-    }
+    if (agentId === "codex") await this.#stopCodexRuntime()
     if (agentId === "claude") {
-      for (const runtime of this.#claudeRuntimes.values()) await runtime.stop()
+      const runtimes = [...this.#claudeRuntimes.values()]
       this.#claudeRuntimes.clear()
+      for (const runtime of runtimes) {
+        await (await runtime.catch(() => undefined))?.stop()
+      }
     }
     if (agentId === "pi") {
-      for (const runtime of this.#piRuntimes.values()) await runtime.stop()
+      const runtimes = [...this.#piRuntimes.values()]
       this.#piRuntimes.clear()
+      for (const runtime of runtimes) {
+        await (await runtime.catch(() => undefined))?.stop()
+      }
     }
     const matches = [...this.#acpRuntimes.entries()].filter(([key]) => key.endsWith(`:${agentId}`))
-    for (const [key, runtime] of matches) {
-      this.#acpRuntimes.delete(key)
-      await runtime.stop()
+    for (const [key] of matches) this.#acpRuntimes.delete(key)
+    for (const [, runtime] of matches) {
+      await (await runtime.catch(() => undefined))?.stop()
     }
     for (const agents of this.#sessionStates.values()) agents.delete(agentId)
   }
@@ -1125,6 +1131,13 @@ export class AgentManager {
     const agents = this.#sessionStates.get(sessionId) ?? new Set<AgentId>()
     agents.add(agentId)
     this.#sessionStates.set(sessionId, agents)
+  }
+
+  async #stopCodexRuntime(): Promise<void> {
+    const runtime =
+      (await this.#codexRuntimeInitialization?.catch(() => undefined)) ?? this.#codexRuntime
+    this.#codexRuntime = undefined
+    await runtime?.stop()
   }
 
   async #ensureCodexRuntime(): Promise<CodexRuntime> {
@@ -1206,11 +1219,16 @@ export class AgentManager {
   }
 
   #ensurePiModelRuntime(): Promise<ModelRuntime> {
-    this.#piModelRuntime ??= ModelRuntime.create({
+    if (this.#piModelRuntime) return this.#piModelRuntime
+    const pending = ModelRuntime.create({
       allowModelNetwork: false,
       authPath: join(this.#agentHomes, "pi", "home", "auth.json"),
       modelsPath: join(this.#agentHomes, "pi", "home", "models.json"),
       refreshOnCreate: false,
+    })
+    this.#piModelRuntime = pending
+    void pending.catch(() => {
+      if (this.#piModelRuntime === pending) this.#piModelRuntime = undefined
     })
     return this.#piModelRuntime
   }

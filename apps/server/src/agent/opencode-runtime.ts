@@ -29,6 +29,7 @@ export class OpenCodeRuntime {
   #baseUrl: string | undefined
   #client: OpenCodeClient | undefined
   #serviceFile: string | undefined
+  #startPromise: Promise<void> | undefined
 
   constructor(options: { cypheriaHome: string; toolchains: ToolchainManager }) {
     this.#cypheriaHome = options.cypheriaHome
@@ -40,7 +41,18 @@ export class OpenCodeRuntime {
   }
 
   async start(receipt: AgentInstallReceipt): Promise<void> {
+    if (this.#startPromise) return this.#startPromise
     if (this.running) return
+    const pending = this.#start(receipt)
+    this.#startPromise = pending
+    try {
+      await pending
+    } finally {
+      if (this.#startPromise === pending) this.#startPromise = undefined
+    }
+  }
+
+  async #start(receipt: AgentInstallReceipt): Promise<void> {
     const port = await reservePort()
     const home = join(this.#cypheriaHome, "agents", "opencode", "home")
     const serviceFile = join(home, "state", "opencode", "service.json")
@@ -74,13 +86,14 @@ export class OpenCodeRuntime {
         file: serviceFile,
         version: receipt.version,
       })
-      this.#serviceFile = serviceFile
-      this.#baseUrl = endpoint.url
-      this.#client = OpenCode.make({
+      const client = OpenCode.make({
         baseUrl: endpoint.url,
         headers: Service.headers(endpoint),
       })
-      await this.#client.server.info()
+      await client.server.info()
+      this.#serviceFile = serviceFile
+      this.#baseUrl = endpoint.url
+      this.#client = client
     } catch (error) {
       await Service.stop({ file: serviceFile }).catch(() => undefined)
       this.#serviceFile = undefined
@@ -91,6 +104,7 @@ export class OpenCodeRuntime {
   }
 
   async stop(): Promise<void> {
+    await this.#startPromise?.catch(() => undefined)
     const serviceFile = this.#serviceFile
     this.#serviceFile = undefined
     this.#baseUrl = undefined

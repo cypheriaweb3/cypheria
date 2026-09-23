@@ -27,6 +27,7 @@ export class PiSessionRuntime {
   readonly #toolchains: ToolchainManager
   readonly #logger: Logger | undefined
   #process: ChildProcessWithoutNullStreams | undefined
+  #startPromise: Promise<void> | undefined
 
   constructor(options: {
     home: string
@@ -47,7 +48,18 @@ export class PiSessionRuntime {
   }
 
   async start(): Promise<void> {
+    if (this.#startPromise) return this.#startPromise
     if (this.#process) return
+    const pending = this.#start()
+    this.#startPromise = pending
+    try {
+      await pending
+    } finally {
+      if (this.#startPromise === pending) this.#startPromise = undefined
+    }
+  }
+
+  async #start(): Promise<void> {
     await mkdir(this.#home, { recursive: true })
     const child = spawn(this.#receipt.command, [...this.#receipt.args, "--mode", "rpc"], {
       env: { ...this.#toolchains.environment(), PI_CODING_AGENT_DIR: this.#home },
@@ -87,6 +99,7 @@ export class PiSessionRuntime {
   }
 
   async stop(): Promise<void> {
+    await this.#startPromise?.catch(() => undefined)
     const child = this.#process
     this.#process = undefined
     if (!child || child.exitCode !== null) return

@@ -28,7 +28,7 @@ Agent descriptor 报告来源、distribution、已安装和可用版本、启用
 
 ## Runtime 生命周期
 
-Agent manager 按 Agent 串行化生命周期转换、报告健康状态，并区分 installed、enabled 和 running。未安装 Agent 必定处于禁用状态，且只有已安装 Agent 才能切换 enabled。禁用的 Agent 不能启动。停止的 Agent 仍可拥有持久 Threads；恢复 Thread 时会启动或复用相应 runtime。更新正在运行的 harness 前，Server 会阻止新 turn、等待 active turn 完成、挂起其 sessions、停止旧 runtime、激活新版本并恢复 sessions。Server 关闭时会终止安装子进程；下次启动会清理被中断的 staging 目录、临时下载、原子写入残留和未完成的版本激活。
+Agent manager 按 Agent 串行化生命周期转换、报告健康状态，并区分 installed、enabled 和 running。未安装 Agent 必定处于禁用状态，且只有已安装 Agent 才能切换 enabled。禁用的 Agent 不能启动。停止的 Agent 仍可拥有持久 Threads；恢复 Thread 时会启动或复用相应 runtime。Codex、Claude、Pi、OpenCode 和 ACP 的并发请求按 Agent 或 session 共享一次待完成的 runtime 初始化；初始化失败后会移除该记录，允许后续请求重试。更新正在运行的 harness 前，Server 会阻止新 turn、等待 active turn 完成、挂起其 sessions、停止旧 runtime、激活新版本并恢复 sessions。Server 关闭时会终止安装子进程；下次启动会清理被中断的 staging 目录、临时下载、原子写入残留和未完成的版本激活。
 
 每个 runtime 实现 Thread manager 使用的公共 harness adapter：
 
