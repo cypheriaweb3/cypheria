@@ -89,6 +89,11 @@ msgid "chat.approval"
 msgstr "审批"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.approve"
+msgstr "批准"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.archive"
 msgstr "归档"
@@ -464,6 +469,11 @@ msgstr "删除分组"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.interaction.deny"
 msgstr "拒绝"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.activity"
+msgstr "讨论与审查"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
@@ -1105,6 +1115,11 @@ msgid "settings.general.popoutHotkey"
 msgstr "弹出窗口快捷键"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.postComment"
+msgstr "发表评论"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/gitlab-mr-panel.tsx
 msgid "git.gitlab.postComment"
 msgstr "发表评论"
@@ -1163,6 +1178,16 @@ msgstr "项目"
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.body"
 msgstr "拉取请求正文"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.commentBody"
+msgstr "拉取请求评论"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.reviewBody"
+msgstr "拉取请求审查"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/github-pr-panel.tsx
@@ -1260,6 +1285,11 @@ msgid "navigation.renameChat"
 msgstr "重命名会话"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.requestChanges"
+msgstr "请求修改"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.workspace.resizeBottomPanel"
 msgstr "调整底部面板大小"
@@ -1293,6 +1323,11 @@ msgstr "将会话恢复到侧栏，或永久删除不再需要的会话。"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.review"
 msgstr "审查"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.reviewComment"
+msgstr "审查评论"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx

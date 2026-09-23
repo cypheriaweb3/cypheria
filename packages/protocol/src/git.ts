@@ -126,6 +126,31 @@ export const GitHubPullRequestChecksSchema = z.array(
     })
     .strict()
 )
+export const GitHubPullRequestActivitySchema = z
+  .object({
+    comments: z.array(
+      z
+        .object({
+          id: z.string(),
+          body: z.string(),
+          author: z.string().nullable(),
+          createdAt: z.string(),
+        })
+        .strict()
+    ),
+    reviews: z.array(
+      z
+        .object({
+          id: z.string(),
+          body: z.string(),
+          author: z.string().nullable(),
+          state: z.string(),
+          submittedAt: z.string(),
+        })
+        .strict()
+    ),
+  })
+  .strict()
 export const GitLabMergeRequestSchema = z
   .object({
     iid: z.number().int().positive(),
@@ -304,6 +329,33 @@ export const GitHubPrReadRequestSchema = input(
 export const GitHubPrChecksRequestSchema = input(
   "git.github-pr-checks.request",
   z.object({ cwd: path, number: z.number().int().positive() }).strict()
+)
+export const GitHubPrActivityRequestSchema = input(
+  "git.github-pr-activity.request",
+  z.object({ cwd: path, number: z.number().int().positive() }).strict()
+)
+export const GitHubPrCommentRequestSchema = input(
+  "git.github-pr-comment.request",
+  z
+    .object({
+      cwd: path,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      body: z.string().min(1).max(100_000),
+    })
+    .strict()
+)
+export const GitHubPrReviewRequestSchema = input(
+  "git.github-pr-review.request",
+  z
+    .object({
+      cwd: path,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      decision: z.enum(["approve", "comment", "request_changes"]),
+      body: z.string().max(100_000),
+    })
+    .strict()
 )
 export const GitHubPrCreateRequestSchema = input(
   "git.github-pr-create.request",
@@ -486,6 +538,12 @@ export const GitHubPrChecksResponseSchema = output(
   "git.github-pr-checks.response",
   GitHubPullRequestChecksSchema
 )
+export const GitHubPrActivityResponseSchema = output(
+  "git.github-pr-activity.response",
+  GitHubPullRequestActivitySchema
+)
+export const GitHubPrCommentResponseSchema = output("git.github-pr-comment.response", success)
+export const GitHubPrReviewResponseSchema = output("git.github-pr-review.response", success)
 export const GitHubPrCreateResponseSchema = output(
   "git.github-pr-create.response",
   GitHubPullRequestSchema
@@ -552,6 +610,9 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubPrListRequestSchema,
   GitHubPrReadRequestSchema,
   GitHubPrChecksRequestSchema,
+  GitHubPrActivityRequestSchema,
+  GitHubPrCommentRequestSchema,
+  GitHubPrReviewRequestSchema,
   GitHubPrCreateRequestSchema,
   GitHubPrUpdateRequestSchema,
   GitHubPrMergeRequestSchema,
@@ -591,6 +652,9 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubPrListResponseSchema,
   GitHubPrReadResponseSchema,
   GitHubPrChecksResponseSchema,
+  GitHubPrActivityResponseSchema,
+  GitHubPrCommentResponseSchema,
+  GitHubPrReviewResponseSchema,
   GitHubPrCreateResponseSchema,
   GitHubPrUpdateResponseSchema,
   GitHubPrMergeResponseSchema,
@@ -620,6 +684,7 @@ export type GitHubAppPullRequestSummary = z.infer<typeof GitHubAppPullRequestSum
 export type GitHubAppPullRequest = z.infer<typeof GitHubAppPullRequestSchema>
 export type GitHubPullRequest = z.infer<typeof GitHubPullRequestSchema>
 export type GitHubPullRequestChecks = z.infer<typeof GitHubPullRequestChecksSchema>
+export type GitHubPullRequestActivity = z.infer<typeof GitHubPullRequestActivitySchema>
 export type GitLabMergeRequest = z.infer<typeof GitLabMergeRequestSchema>
 export type GitLabMergeRequestNote = z.infer<typeof GitLabMergeRequestNoteSchema>
 export type GitLabMergeRequestChecks = z.infer<typeof GitLabMergeRequestChecksSchema>

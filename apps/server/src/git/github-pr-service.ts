@@ -6,14 +6,41 @@ import { promisify } from "node:util"
 import {
   type GitHubAvailability,
   type GitHubPullRequest,
+  type GitHubPullRequestActivity,
   type GitHubPullRequestChecks,
   GitHubPullRequestChecksSchema,
   GitHubPullRequestSchema,
 } from "@cypheria/protocol"
+import { z } from "zod"
 
 const execFileAsync = promisify(execFile)
 const fields =
   "number,title,body,url,state,isDraft,headRefName,headRefOid,baseRefName,updatedAt,author"
+const activityResponse = z
+  .object({
+    comments: z.array(
+      z
+        .object({
+          id: z.string().optional(),
+          body: z.string(),
+          createdAt: z.string().optional(),
+          author: z.object({ login: z.string() }).nullable().optional(),
+        })
+        .passthrough()
+    ),
+    reviews: z.array(
+      z
+        .object({
+          id: z.string().optional(),
+          body: z.string(),
+          state: z.string(),
+          submittedAt: z.string().nullable().optional(),
+          author: z.object({ login: z.string() }).nullable().optional(),
+        })
+        .passthrough()
+    ),
+  })
+  .passthrough()
 const operand = (value: string, name: string): string => {
   if (!value || value.startsWith("-") || /[\0\r\n]/u.test(value))
     throw new Error(`Invalid GitHub ${name}`)
@@ -122,6 +149,66 @@ export class GitHubPrService {
         }
       })
     )
+  }
+
+  async activity(cwd: string, number: number): Promise<GitHubPullRequestActivity> {
+    const result = activityResponse.parse(
+      JSON.parse(await this.#run(cwd, ["pr", "view", String(number), "--json", "comments,reviews"]))
+    )
+    return {
+      comments: result.comments.map((comment, index) => ({
+        id: comment.id ?? `comment-${index}`,
+        body: comment.body,
+        author: comment.author?.login ?? null,
+        createdAt: comment.createdAt ?? "",
+      })),
+      reviews: result.reviews.map((review, index) => ({
+        id: review.id ?? `review-${index}`,
+        body: review.body,
+        author: review.author?.login ?? null,
+        state: review.state,
+        submittedAt: review.submittedAt ?? "",
+      })),
+    }
+  }
+
+  async comment(cwd: string, number: number, expectedHead: string, body: string): Promise<void> {
+    if (!body.trim()) throw new Error("GitHub PR comment is required")
+    await this.#assertCurrentHead(cwd, number, expectedHead)
+    await this.#withBodyFile(body, async (bodyFile) => {
+      await this.#run(cwd, ["pr", "comment", String(number), "--body-file", bodyFile])
+    })
+  }
+
+  async review(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    decision: "approve" | "comment" | "request_changes",
+    body: string
+  ): Promise<void> {
+    if (decision !== "approve" && decision !== "comment" && decision !== "request_changes") {
+      throw new Error("Invalid GitHub PR review decision")
+    }
+    if (decision !== "approve" && !body.trim()) throw new Error("GitHub PR review body is required")
+    await this.#assertCurrentHead(cwd, number, expectedHead)
+    const flag =
+      decision === "approve"
+        ? "--approve"
+        : decision === "comment"
+          ? "--comment"
+          : "--request-changes"
+    await this.#withBodyFile(body, async (bodyFile) => {
+      await this.#run(cwd, ["pr", "review", String(number), flag, "--body-file", bodyFile])
+    })
+  }
+
+  async #assertCurrentHead(cwd: string, number: number, expectedHead: string): Promise<void> {
+    if (!/^[a-f0-9]{40,64}$/iu.test(expectedHead))
+      throw new Error("Invalid expected GitHub PR head")
+    const current = await this.read(cwd, number)
+    if (current.state !== "OPEN") throw new Error("The GitHub pull request is no longer open")
+    if (current.headRefOid !== expectedHead) throw new Error("The GitHub pull request head changed")
   }
 
   async create(

@@ -9,6 +9,7 @@ import type {
   GitHubAppPullRequestSummary,
   GitHubAvailability,
   GitHubPullRequest,
+  GitHubPullRequestActivity,
   GitHubPullRequestChecks,
   GitLabMergeRequest,
   GitLabMergeRequestChecks,
@@ -111,6 +112,26 @@ export interface GitActions {
     number: number,
     options?: RequestOptions
   ): Promise<GitHubPullRequestChecks>
+  githubPrActivity(
+    cwd: string,
+    number: number,
+    options?: RequestOptions
+  ): Promise<GitHubPullRequestActivity>
+  githubPrComment(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    body: string,
+    options?: RequestOptions
+  ): Promise<void>
+  githubPrReview(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    decision: "approve" | "comment" | "request_changes",
+    body: string,
+    options?: RequestOptions
+  ): Promise<void>
   githubPrCreate(
     cwd: string,
     input: { head: string; base: string; title: string; body: string; draft?: boolean },
@@ -254,6 +275,26 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(await client.requestGit("git.github-pr-read.request", { cwd, number }, options)),
   githubPrChecks: async (cwd, number, options) =>
     unwrap(await client.requestGit("git.github-pr-checks.request", { cwd, number }, options)),
+  githubPrActivity: async (cwd, number, options) =>
+    unwrap(await client.requestGit("git.github-pr-activity.request", { cwd, number }, options)),
+  githubPrComment: async (cwd, number, expectedHead, body, options) => {
+    unwrap(
+      await client.requestGit(
+        "git.github-pr-comment.request",
+        { cwd, number, expectedHead, body },
+        options
+      )
+    )
+  },
+  githubPrReview: async (cwd, number, expectedHead, decision, body, options) => {
+    unwrap(
+      await client.requestGit(
+        "git.github-pr-review.request",
+        { cwd, number, expectedHead, decision, body },
+        options
+      )
+    )
+  },
   githubPrCreate: async (cwd, input, options) =>
     unwrap(await client.requestGit("git.github-pr-create.request", { cwd, ...input }, options)),
   githubPrUpdate: async (cwd, number, input, options) =>

@@ -89,6 +89,11 @@ msgid "chat.approval"
 msgstr "Approval"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.approve"
+msgstr "Approve"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.archive"
 msgstr "Archive"
@@ -464,6 +469,11 @@ msgstr "Delete section"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.interaction.deny"
 msgstr "Deny"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.activity"
+msgstr "Discussion and reviews"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
@@ -1105,6 +1115,11 @@ msgid "settings.general.popoutHotkey"
 msgstr "Popout Window hotkey"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.postComment"
+msgstr "Post comment"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/gitlab-mr-panel.tsx
 msgid "git.gitlab.postComment"
 msgstr "Post comment"
@@ -1163,6 +1178,16 @@ msgstr "Projects"
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.body"
 msgstr "Pull request body"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.commentBody"
+msgstr "Pull request comment"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.reviewBody"
+msgstr "Pull request review"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/github-pr-panel.tsx
@@ -1260,6 +1285,11 @@ msgid "navigation.renameChat"
 msgstr "Rename chat"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.requestChanges"
+msgstr "Request changes"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.workspace.resizeBottomPanel"
 msgstr "Resize bottom panel"
@@ -1293,6 +1323,11 @@ msgstr "Restore chats to the sidebar or permanently delete ones you no longer ne
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.review"
 msgstr "Review"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.reviewComment"
+msgstr "Review comment"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx

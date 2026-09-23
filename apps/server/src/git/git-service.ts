@@ -10,6 +10,7 @@ import type {
   GitHubAppPullRequestSummary,
   GitHubAvailability,
   GitHubPullRequest,
+  GitHubPullRequestActivity,
   GitHubPullRequestChecks,
   GitLabMergeRequest,
   GitLabMergeRequestChecks,
@@ -189,6 +190,28 @@ export class GitService {
           break
         case "git.github-pr-checks.request":
           value = await this.githubPrChecks(message.payload.cwd, message.payload.number)
+          break
+        case "git.github-pr-activity.request":
+          value = await this.githubPrActivity(message.payload.cwd, message.payload.number)
+          break
+        case "git.github-pr-comment.request":
+          await this.githubPrComment(
+            message.payload.cwd,
+            message.payload.number,
+            message.payload.expectedHead,
+            message.payload.body
+          )
+          value = { succeeded: true }
+          break
+        case "git.github-pr-review.request":
+          await this.githubPrReview(
+            message.payload.cwd,
+            message.payload.number,
+            message.payload.expectedHead,
+            message.payload.decision,
+            message.payload.body
+          )
+          value = { succeeded: true }
           break
         case "git.github-pr-create.request":
           value = await this.githubPrCreate(message.payload.cwd, message.payload)
@@ -393,6 +416,29 @@ export class GitService {
 
   async githubPrChecks(cwd: string, number: number): Promise<GitHubPullRequestChecks> {
     return this.#github.checks((await this.discover(cwd)).root, number)
+  }
+
+  async githubPrActivity(cwd: string, number: number): Promise<GitHubPullRequestActivity> {
+    return this.#github.activity((await this.discover(cwd)).root, number)
+  }
+
+  async githubPrComment(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    body: string
+  ): Promise<void> {
+    await this.#github.comment((await this.discover(cwd)).root, number, expectedHead, body)
+  }
+
+  async githubPrReview(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    decision: "approve" | "comment" | "request_changes",
+    body: string
+  ): Promise<void> {
+    await this.#github.review((await this.discover(cwd)).root, number, expectedHead, decision, body)
   }
 
   async githubPrCreate(

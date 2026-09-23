@@ -43,6 +43,7 @@ else if (args[0] === "repo") process.stdout.write("org/repo\\n")
 else if (args[1] === "list") process.stdout.write(args.includes("--head") && !args.includes("existing") ? "[]" : ${JSON.stringify(JSON.stringify([pr]))})
 else if (args[1] === "create") process.stdout.write("https://github.com/org/repo/pull/42\\n")
 else if (args[1] === "checks") { process.stdout.write(JSON.stringify([{ bucket: "pending", completedAt: null, link: "https://github.com/org/repo/actions/runs/1", name: "build", startedAt: "2026-09-23T00:00:00Z", state: "IN_PROGRESS", workflow: "CI" }])); process.exit(8) }
+else if (args[1] === "view" && args.includes("comments,reviews")) process.stdout.write(JSON.stringify({ comments: [{ id: "C1", body: "Looks good", createdAt: "2026-09-23T00:00:00Z", author: { login: "tester" } }], reviews: [{ id: "R1", body: "Approved", state: "APPROVED", submittedAt: "2026-09-23T00:00:00Z", author: { login: "reviewer" } }] }))
 else if (args[1] === "edit" || args[1] === "merge") process.stdout.write("")
 else process.stdout.write(${JSON.stringify(JSON.stringify(pr))})
 `
@@ -69,6 +70,22 @@ else process.stdout.write(${JSON.stringify(JSON.stringify(pr))})
         workflow: "CI",
       },
     ])
+    expect(await service.activity(cwd, 42)).toEqual({
+      comments: [
+        { id: "C1", body: "Looks good", author: "tester", createdAt: "2026-09-23T00:00:00Z" },
+      ],
+      reviews: [
+        {
+          id: "R1",
+          body: "Approved",
+          author: "reviewer",
+          state: "APPROVED",
+          submittedAt: "2026-09-23T00:00:00Z",
+        },
+      ],
+    })
+    await service.comment(cwd, 42, pr.headRefOid, "Please check this")
+    await service.review(cwd, 42, pr.headRefOid, "approve", "Approved")
     expect(
       await service.create(cwd, {
         head: "feature",
@@ -96,6 +113,11 @@ else process.stdout.write(${JSON.stringify(JSON.stringify(pr))})
     ])
     expect(calls).toContainEqual(["pr", "view", "42", "--json", expect.any(String)])
     expect(calls).toContainEqual(["pr", "checks", "42", "--json", expect.any(String)])
+    expect(calls).toContainEqual(["pr", "view", "42", "--json", "comments,reviews"])
+    expect(calls).toContainEqual(expect.arrayContaining(["pr", "comment", "42", "--body-file"]))
+    expect(calls).toContainEqual(
+      expect.arrayContaining(["pr", "review", "42", "--approve", "--body-file"])
+    )
     expect(calls).toContainEqual(
       expect.arrayContaining(["pr", "create", "--head", "feature", "--base", "main", "--draft"])
     )
@@ -117,6 +139,10 @@ else process.stdout.write(${JSON.stringify(JSON.stringify(pr))})
     ).rejects.toThrow("already exists")
     await expect(service.update(cwd, 42, {})).rejects.toThrow("No GitHub PR changes")
     await expect(service.merge(cwd, 42, "stale", "merge")).rejects.toThrow("Invalid expected")
+    await expect(service.comment(cwd, 42, "b".repeat(40), "Stale")).rejects.toThrow("head changed")
+    await expect(service.review(cwd, 42, pr.headRefOid, "request_changes", " ")).rejects.toThrow(
+      "body is required"
+    )
   })
 
   it("reports an unavailable CLI without treating it as an authenticated account", async () => {

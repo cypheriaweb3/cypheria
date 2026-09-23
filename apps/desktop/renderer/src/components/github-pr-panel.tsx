@@ -40,9 +40,18 @@ export function GitHubPrPanel({
   const [draft, setDraft] = useState(true)
   const [editTitle, setEditTitle] = useState("")
   const [editBody, setEditBody] = useState<string | null>(null)
+  const [commentBody, setCommentBody] = useState("")
+  const [reviewBody, setReviewBody] = useState("")
   const [mergeOpen, setMergeOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const selectPullRequest = (number: number) => {
+    setEditTitle("")
+    setEditBody(null)
+    setCommentBody("")
+    setReviewBody("")
+    setSelectedNumber(number)
+  }
   const availability = useQuery({
     queryKey: ["github-pr", cwd, "availability"],
     queryFn: async () => (await ensureCypheriaClient()).git.githubAvailability(cwd),
@@ -93,6 +102,15 @@ export function GitHubPrPanel({
       return (await ensureCypheriaClient()).git.githubPrChecks(cwd, selected.data.number)
     },
     refetchInterval: 30_000,
+    retry: false,
+  })
+  const activity = useQuery({
+    enabled: cliAvailable && Boolean(selected.data),
+    queryKey: ["github-pr", cwd, "activity", selected.data?.number],
+    queryFn: async () => {
+      if (!selected.data) throw new Error("A pull request is required")
+      return (await ensureCypheriaClient()).git.githubPrActivity(cwd, selected.data.number)
+    },
     retry: false,
   })
   const mutate = async (action: () => Promise<void>) => {
@@ -156,7 +174,7 @@ export function GitHubPrPanel({
         <Button
           className="flex h-auto w-full justify-start whitespace-normal text-left"
           key={pr.number}
-          onClick={() => setSelectedNumber(pr.number)}
+          onClick={() => selectPullRequest(pr.number)}
           size="sm"
           type="button"
           variant={selectedNumber === pr.number ? "secondary" : "ghost"}
@@ -223,6 +241,104 @@ export function GitHubPrPanel({
                   <AlertDescription>{checks.error.message}</AlertDescription>
                 </Alert>
               ) : null}
+            </div>
+          ) : null}
+          {cliAvailable ? (
+            <div className="space-y-2 border-t pt-2">
+              <p className="text-xs font-medium">
+                <Trans id="git.github.activity">Discussion and reviews</Trans>
+              </p>
+              {activity.data?.comments.map((comment) => (
+                <div className="rounded border p-2 text-xs" key={comment.id}>
+                  <span className="font-medium">{comment.author ?? "GitHub"}</span>
+                  <p className="whitespace-pre-wrap">{comment.body}</p>
+                </div>
+              ))}
+              {activity.data?.reviews.map((review) => (
+                <div className="rounded border p-2 text-xs" key={review.id}>
+                  <span className="font-medium">{review.author ?? "GitHub"}</span> · {review.state}
+                  {review.body ? <p className="whitespace-pre-wrap">{review.body}</p> : null}
+                </div>
+              ))}
+              {activity.isError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>{activity.error.message}</AlertDescription>
+                </Alert>
+              ) : null}
+            </div>
+          ) : null}
+          {cliAvailable && selected.data.state === "OPEN" && selected.data.headRefOid ? (
+            <div className="space-y-2 border-t pt-2">
+              <Textarea
+                aria-label={i18n._(
+                  msg({ id: "git.github.commentBody", message: "Pull request comment" })
+                )}
+                onChange={(event) => setCommentBody(event.target.value)}
+                rows={3}
+                value={commentBody}
+              />
+              <Button
+                disabled={busy || !commentBody.trim()}
+                onClick={() => {
+                  const head = selected.data.headRefOid
+                  if (!head) return
+                  void mutate(async () => {
+                    await (await ensureCypheriaClient()).git.githubPrComment(
+                      cwd,
+                      selected.data.number,
+                      head,
+                      commentBody
+                    )
+                    setCommentBody("")
+                  })
+                }}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Trans id="git.github.postComment">Post comment</Trans>
+              </Button>
+              <Textarea
+                aria-label={i18n._(
+                  msg({ id: "git.github.reviewBody", message: "Pull request review" })
+                )}
+                onChange={(event) => setReviewBody(event.target.value)}
+                rows={3}
+                value={reviewBody}
+              />
+              <div className="flex flex-wrap gap-2">
+                {(["approve", "comment", "request_changes"] as const).map((decision) => (
+                  <Button
+                    disabled={busy || (decision !== "approve" && !reviewBody.trim())}
+                    key={decision}
+                    onClick={() => {
+                      const head = selected.data.headRefOid
+                      if (!head) return
+                      void mutate(async () => {
+                        await (await ensureCypheriaClient()).git.githubPrReview(
+                          cwd,
+                          selected.data.number,
+                          head,
+                          decision,
+                          reviewBody
+                        )
+                        setReviewBody("")
+                      })
+                    }}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    {decision === "approve" ? (
+                      <Trans id="git.github.approve">Approve</Trans>
+                    ) : decision === "comment" ? (
+                      <Trans id="git.github.reviewComment">Review comment</Trans>
+                    ) : (
+                      <Trans id="git.github.requestChanges">Request changes</Trans>
+                    )}
+                  </Button>
+                ))}
+              </div>
             </div>
           ) : null}
           <div className="flex flex-wrap gap-2">
@@ -367,11 +483,11 @@ export function GitHubPrPanel({
                   }
                   if (cliAvailable) {
                     const created = await git.githubPrCreate(cwd, input)
-                    setSelectedNumber(created.number)
+                    selectPullRequest(created.number)
                   } else {
                     if (!threadId) throw new Error("A local Codex thread is required")
                     const created = await git.githubAppPrCreate(cwd, threadId, input)
-                    setSelectedNumber(created.number)
+                    selectPullRequest(created.number)
                     await openExternal(created.url)
                   }
                   setTitle("")
