@@ -1,0 +1,256 @@
+import { Alert, AlertDescription } from "@cypheria/ui/components/alert"
+import { Button } from "@cypheria/ui/components/button"
+import { Input } from "@cypheria/ui/components/input"
+import { Textarea } from "@cypheria/ui/components/textarea"
+import { msg } from "@lingui/core/macro"
+import { useLingui } from "@lingui/react"
+import { Trans } from "@lingui/react/macro"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useState } from "react"
+
+import { ensureCypheriaClient } from "../cypheria-client.js"
+
+const openExternal = async (url: string): Promise<void> => {
+  if (!window.cypheria) throw new Error("The system browser is unavailable")
+  await window.cypheria.app.openExternal(url)
+}
+
+export function GitLabMrPanel({
+  cwd,
+  branch,
+  threadId,
+}: Readonly<{ cwd: string; branch: string | null; threadId: string | null }>) {
+  const { i18n } = useLingui()
+  const queryClient = useQueryClient()
+  const [iidInput, setIidInput] = useState("")
+  const [iid, setIid] = useState<number | null>(null)
+  const [title, setTitle] = useState("")
+  const [description, setDescription] = useState("")
+  const [newTitle, setNewTitle] = useState("")
+  const [comment, setComment] = useState("")
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const mr = useQuery({
+    enabled: Boolean(threadId && iid),
+    queryKey: ["gitlab-mr", cwd, threadId, iid],
+    queryFn: async () => {
+      if (!threadId || !iid) throw new Error("A local Codex thread and MR number are required")
+      return (await ensureCypheriaClient()).git.gitlabMrRead(cwd, threadId, iid)
+    },
+    retry: false,
+  })
+  const mutate = async (action: () => Promise<void>) => {
+    setBusy(true)
+    setError(null)
+    try {
+      await action()
+      await queryClient.invalidateQueries({ queryKey: ["gitlab-mr", cwd] })
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
+    } finally {
+      setBusy(false)
+    }
+  }
+  const selectedIid = Number(iidInput)
+
+  return (
+    <section
+      aria-label={i18n._(msg({ id: "git.gitlab.heading", message: "GitLab merge requests" }))}
+      className="space-y-2 border-t p-2"
+    >
+      <p className="text-xs font-medium">
+        <Trans id="git.gitlab.heading">GitLab merge requests</Trans>
+      </p>
+      <div className="flex gap-2">
+        <Input
+          aria-label={i18n._(msg({ id: "git.gitlab.number", message: "Merge request number" }))}
+          min={1}
+          onChange={(event) => setIidInput(event.target.value)}
+          placeholder={i18n._(msg({ id: "git.gitlab.number", message: "Merge request number" }))}
+          type="number"
+          value={iidInput}
+        />
+        <Button
+          disabled={!threadId || !Number.isSafeInteger(selectedIid) || selectedIid < 1}
+          onClick={() => setIid(selectedIid)}
+          size="sm"
+          type="button"
+          variant="outline"
+        >
+          <Trans id="git.gitlab.open">View</Trans>
+        </Button>
+      </div>
+      {mr.isPending && iid ? (
+        <p className="text-xs text-muted-foreground">
+          <Trans id="git.gitlab.loading">Loading merge request…</Trans>
+        </p>
+      ) : null}
+      {mr.data ? (
+        <div className="space-y-2 rounded-md border p-2">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">
+                !{mr.data.iid} {mr.data.title}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {mr.data.sourceBranch} → {mr.data.targetBranch} · {mr.data.state}
+              </p>
+            </div>
+            <Button
+              onClick={() => void mutate(async () => openExternal(mr.data.webUrl))}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <Trans id="git.gitlab.browser">Browser</Trans>
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              aria-label={i18n._(
+                msg({ id: "git.gitlab.newTitle", message: "New merge request title" })
+              )}
+              onChange={(event) => setNewTitle(event.target.value)}
+              placeholder={mr.data.title}
+              value={newTitle}
+            />
+            <Button
+              disabled={busy || !newTitle.trim() || newTitle === mr.data.title || !threadId}
+              onClick={() =>
+                void mutate(async () => {
+                  if (!threadId) throw new Error("A local Codex thread is required")
+                  await (await ensureCypheriaClient()).git.gitlabMrUpdateTitle(
+                    cwd,
+                    threadId,
+                    mr.data.iid,
+                    newTitle
+                  )
+                  setNewTitle("")
+                })
+              }
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <Trans id="git.gitlab.saveTitle">Save title</Trans>
+            </Button>
+          </div>
+          <Textarea
+            aria-label={i18n._(msg({ id: "git.gitlab.comment", message: "Merge request comment" }))}
+            onChange={(event) => setComment(event.target.value)}
+            placeholder={i18n._(
+              msg({ id: "git.gitlab.comment", message: "Merge request comment" })
+            )}
+            rows={3}
+            value={comment}
+          />
+          <Button
+            disabled={busy || !comment.trim() || !threadId}
+            onClick={() =>
+              void mutate(async () => {
+                if (!threadId) throw new Error("A local Codex thread is required")
+                await (await ensureCypheriaClient()).git.gitlabMrPostComment(
+                  cwd,
+                  threadId,
+                  mr.data.iid,
+                  comment
+                )
+                setComment("")
+              })
+            }
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <Trans id="git.gitlab.postComment">Post comment</Trans>
+          </Button>
+        </div>
+      ) : null}
+      <div className="space-y-2 border-t pt-2">
+        <p className="text-xs text-muted-foreground">
+          <Trans id="git.gitlab.createHint">Create from the pushed current branch</Trans>
+        </p>
+        <Input
+          aria-label={i18n._(msg({ id: "git.gitlab.title", message: "Merge request title" }))}
+          onChange={(event) => setTitle(event.target.value)}
+          placeholder={i18n._(msg({ id: "git.gitlab.title", message: "Merge request title" }))}
+          value={title}
+        />
+        <Textarea
+          aria-label={i18n._(
+            msg({ id: "git.gitlab.description", message: "Merge request description" })
+          )}
+          onChange={(event) => setDescription(event.target.value)}
+          placeholder={i18n._(
+            msg({ id: "git.gitlab.description", message: "Merge request description" })
+          )}
+          rows={3}
+          value={description}
+        />
+        <div className="flex flex-wrap gap-2">
+          {([false, true] as const).map((draft) => (
+            <Button
+              disabled={busy || !branch || !threadId || !title.trim()}
+              key={String(draft)}
+              onClick={() =>
+                void mutate(async () => {
+                  if (!threadId || !branch) throw new Error("A local Codex branch is required")
+                  const created = await (await ensureCypheriaClient()).git.gitlabMrCreate(
+                    cwd,
+                    threadId,
+                    {
+                      sourceBranch: branch,
+                      title,
+                      description,
+                      draft,
+                    }
+                  )
+                  setIid(created.iid)
+                  setIidInput(String(created.iid))
+                })
+              }
+              size="sm"
+              type="button"
+              variant={draft ? "outline" : "default"}
+            >
+              {draft ? (
+                <Trans id="git.gitlab.createDraft">Create draft</Trans>
+              ) : (
+                <Trans id="git.gitlab.create">Create MR</Trans>
+              )}
+            </Button>
+          ))}
+          <Button
+            disabled={busy || !branch || !title.trim()}
+            onClick={() =>
+              void mutate(async () => {
+                if (!branch) throw new Error("A local Git branch is required")
+                const url = await (await ensureCypheriaClient()).git.gitlabMrBrowserForm(cwd, {
+                  sourceBranch: branch,
+                  title,
+                  description,
+                })
+                await openExternal(url)
+              })
+            }
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <Trans id="git.gitlab.openForm">Open form in browser</Trans>
+          </Button>
+        </div>
+      </div>
+      {mr.isError ? (
+        <Alert variant="destructive">
+          <AlertDescription>{mr.error.message}</AlertDescription>
+        </Alert>
+      ) : null}
+      {error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      ) : null}
+    </section>
+  )
+}

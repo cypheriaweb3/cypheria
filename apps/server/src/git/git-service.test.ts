@@ -117,6 +117,23 @@ describe("GitService", () => {
     await expect(service.push(root, { remote: "--mirror" })).rejects.toThrow("Invalid Git remote")
   })
 
+  it("classifies the origin without exposing its credentials or URL", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    expect(await service.origin(root)).toEqual({ provider: "none" })
+    await run("git", ["-C", root, "remote", "add", "origin", "git@gitlab.com:team/project.git"])
+    expect(await service.origin(root)).toEqual({ provider: "gitlab" })
+    await run("git", [
+      "-C",
+      root,
+      "remote",
+      "set-url",
+      "origin",
+      "https://token@github.com/team/project.git",
+    ])
+    expect(await service.origin(root)).toEqual({ provider: "github" })
+  })
+
   it("creates, snapshots, deletes, and restores only clean managed worktrees", async () => {
     const root = await repository()
     await writeFile(join(root, "file.txt"), "first\n")

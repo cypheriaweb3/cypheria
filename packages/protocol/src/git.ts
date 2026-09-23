@@ -25,6 +25,9 @@ const output = <T extends string, S extends z.ZodType>(type: T, value: S) =>
     .strict()
 
 export const GitRepositorySchema = z.object({ root: path, commonGitDir: path }).strict()
+export const GitOriginSchema = z
+  .object({ provider: z.enum(["github", "gitlab", "other", "none"]) })
+  .strict()
 export const GitStatusSchema = z
   .object({
     branch: z.string().nullable(),
@@ -99,6 +102,7 @@ export const GitDiscoverRequestSchema = input(
   "git.discover.request",
   z.object({ cwd: path }).strict()
 )
+export const GitOriginRequestSchema = input("git.origin.request", z.object({ cwd: path }).strict())
 export const GitStatusRequestSchema = input("git.status.request", z.object({ cwd: path }).strict())
 export const GitBranchesRequestSchema = input(
   "git.branches.request",
@@ -277,6 +281,7 @@ export const GitLabMrBrowserFormRequestSchema = input(
 
 const success = z.object({ succeeded: z.literal(true) }).strict()
 export const GitDiscoverResponseSchema = output("git.discover.response", GitRepositorySchema)
+export const GitOriginResponseSchema = output("git.origin.response", GitOriginSchema)
 export const GitStatusResponseSchema = output("git.status.response", GitStatusSchema)
 export const GitBranchesResponseSchema = output("git.branches.response", z.array(GitBranchSchema))
 export const GitBranchContextResponseSchema = output(
@@ -363,6 +368,7 @@ export const GitLabMrBrowserFormResponseSchema = output(
 
 export const GIT_CLIENT_SCHEMAS = [
   GitDiscoverRequestSchema,
+  GitOriginRequestSchema,
   GitStatusRequestSchema,
   GitBranchesRequestSchema,
   GitBranchContextRequestSchema,
@@ -392,6 +398,7 @@ export const GIT_CLIENT_SCHEMAS = [
 ] as const
 export const GIT_SERVER_SCHEMAS = [
   GitDiscoverResponseSchema,
+  GitOriginResponseSchema,
   GitStatusResponseSchema,
   GitBranchesResponseSchema,
   GitBranchContextResponseSchema,
@@ -424,6 +431,7 @@ export const GitClientMessageSchema = z.discriminatedUnion("type", GIT_CLIENT_SC
 export type GitClientMessage = z.infer<(typeof GIT_CLIENT_SCHEMAS)[number]>
 export type GitServerMessage = z.infer<(typeof GIT_SERVER_SCHEMAS)[number]>
 export type GitRepository = z.infer<typeof GitRepositorySchema>
+export type GitOrigin = z.infer<typeof GitOriginSchema>
 export type GitStatus = z.infer<typeof GitStatusSchema>
 export type GitBranch = z.infer<typeof GitBranchSchema>
 export type GitBranchContext = z.infer<typeof GitBranchContextSchema>

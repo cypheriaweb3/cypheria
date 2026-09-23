@@ -16,6 +16,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { type ReactNode, useId, useState } from "react"
 
 import { ensureCypheriaClient } from "../cypheria-client.js"
+import { GitLabMrPanel } from "./gitlab-mr-panel.js"
 
 type ReviewSource = "unstaged" | "staged"
 
@@ -27,7 +28,11 @@ const statusKind = (code: string): ChatReviewFileDescriptor["status"] => {
   return "modified"
 }
 
-export function GitReviewPanel({ cwd, fallback }: Readonly<{ cwd: string; fallback: ReactNode }>) {
+export function GitReviewPanel({
+  cwd,
+  fallback,
+  threadId,
+}: Readonly<{ cwd: string; fallback: ReactNode; threadId: string | null }>) {
   const stashId = useId()
   const { i18n } = useLingui()
   const queryClient = useQueryClient()
@@ -50,6 +55,13 @@ export function GitReviewPanel({ cwd, fallback }: Readonly<{ cwd: string; fallba
     queryKey: ["git", cwd, "branches"],
     queryFn: async () => (await ensureCypheriaClient()).git.branches(cwd),
     refetchInterval: 3_000,
+    retry: false,
+  })
+  const origin = useQuery({
+    enabled: Boolean(status.data),
+    queryKey: ["git", cwd, "origin"],
+    queryFn: async () => (await ensureCypheriaClient()).git.origin(cwd),
+    staleTime: 30_000,
     retry: false,
   })
   const worktrees = useQuery({
@@ -355,6 +367,14 @@ export function GitReviewPanel({ cwd, fallback }: Readonly<{ cwd: string; fallba
               </div>
             ))}
         </div>
+      ) : null}
+      {origin.data?.provider === "gitlab" ? (
+        <GitLabMrPanel
+          branch={status.data?.branch ?? null}
+          cwd={cwd}
+          key={cwd}
+          threadId={threadId}
+        />
       ) : null}
       {actionError ? <p className="p-2 text-sm text-destructive">{actionError}</p> : null}
     </ChatReviewPanel>

@@ -164,6 +164,11 @@ msgid "git.review.branch"
 msgstr "Branch"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.browser"
+msgstr "Browser"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.browser"
 msgstr "Browser"
@@ -324,6 +329,21 @@ msgstr "Couldn’t update the sidebar"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.createBranch"
 msgstr "Create"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.createDraft"
+msgstr "Create draft"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.createHint"
+msgstr "Create from the pushed current branch"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.create"
+msgstr "Create MR"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
@@ -537,6 +557,11 @@ msgid "settings.general"
 msgstr "General"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.heading"
+msgstr "GitLab merge requests"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.goal"
 msgstr "Goal"
@@ -644,6 +669,11 @@ msgid "chat.loadingEarlier"
 msgstr "Loading earlier messages…"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.loading"
+msgstr "Loading merge request…"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.loading"
 msgstr "Loading repository changes…"
@@ -672,6 +702,26 @@ msgstr "Mark as unread"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.mcp"
 msgstr "MCP App"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.comment"
+msgstr "Merge request comment"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.description"
+msgstr "Merge request description"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.number"
+msgstr "Merge request number"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.title"
+msgstr "Merge request title"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -713,6 +763,11 @@ msgstr "New chat"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.newChatInNamedProject"
 msgstr "New chat in {projectName}"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.newTitle"
+msgstr "New merge request title"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -865,6 +920,11 @@ msgid "chat.workspace.openBottomPanelTab"
 msgstr "Open bottom panel tab"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.openForm"
+msgstr "Open form in browser"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.openProjectFolder"
 msgstr "Open project folder"
@@ -948,6 +1008,11 @@ msgstr "Popout Window"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.popoutHotkey"
 msgstr "Popout Window hotkey"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.postComment"
+msgstr "Post comment"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
@@ -1090,13 +1155,13 @@ msgid "chat.workspace.resizeSidePanel"
 msgstr "Resize side panel"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.restoreWorktree"
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.restore"
 msgstr "Restore"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.archived.tsx
-msgid "settings.archived.restore"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.restoreWorktree"
 msgstr "Restore"
 
 #. js-lingui-explicit-id
@@ -1133,6 +1198,11 @@ msgstr "Save"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.saveSection"
 msgstr "Save section"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.saveTitle"
+msgstr "Save title"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1450,6 +1520,11 @@ msgstr "Untitled chat"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.editProjectDescription"
 msgstr "Update the project name shown in the sidebar."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.open"
+msgstr "View"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx

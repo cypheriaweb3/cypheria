@@ -7,6 +7,7 @@ import type {
   GitHubPullRequest,
   GitLabMergeRequest,
   GitLabMergeRequestNote,
+  GitOrigin,
   GitServerMessage,
   GitWorktree,
 } from "@cypheria/protocol"
@@ -68,6 +69,9 @@ export class GitService {
       switch (message.type) {
         case "git.discover.request":
           value = await this.discover(message.payload.cwd)
+          break
+        case "git.origin.request":
+          value = await this.origin(message.payload.cwd)
           break
         case "git.status.request":
           value = await this.status(message.payload.cwd)
@@ -225,6 +229,35 @@ export class GitService {
       ).stdout
     )
     return { commonGitDir: await realpath(commonGitDir), root: await realpath(root) }
+  }
+
+  async origin(cwd: string): Promise<GitOrigin> {
+    const { root } = await this.discover(cwd)
+    let remote: string
+    try {
+      remote = (
+        await this.#executor.run(root, ["remote", "get-url", "origin"], { readOnly: true })
+      ).stdout.trim()
+    } catch (error) {
+      if (error instanceof GitCommandError) return { provider: "none" }
+      throw error
+    }
+    const scp = /^git@([^:]+):/u.exec(remote)
+    let hostname = scp?.[1] ?? null
+    if (!hostname) {
+      try {
+        hostname = new URL(remote).hostname
+      } catch {
+        return { provider: "other" }
+      }
+    }
+    const provider =
+      hostname.toLowerCase() === "gitlab.com"
+        ? "gitlab"
+        : hostname.toLowerCase() === "github.com"
+          ? "github"
+          : "other"
+    return { provider }
   }
 
   async worktrees(cwd: string): Promise<GitWorktree[]> {

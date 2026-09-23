@@ -5,6 +5,7 @@ import type {
   GitHubPullRequest,
   GitLabMergeRequest,
   GitLabMergeRequestNote,
+  GitOrigin,
   GitRepository,
   GitServerMessage,
   GitStatus,
@@ -22,6 +23,7 @@ const unwrap = <T>(message: GitServerMessage): T => {
 
 export interface GitActions {
   discover(cwd: string, options?: RequestOptions): Promise<GitRepository>
+  origin(cwd: string, options?: RequestOptions): Promise<GitOrigin>
   status(cwd: string, options?: RequestOptions): Promise<GitStatus>
   branches(cwd: string, options?: RequestOptions): Promise<GitBranch[]>
   branchContext(cwd: string, options?: RequestOptions): Promise<GitBranchContext>
@@ -122,6 +124,8 @@ export interface GitActions {
 export const createGitActions = (client: ServerClient): GitActions => ({
   discover: async (cwd, options) =>
     unwrap(await client.requestGit("git.discover.request", { cwd }, options)),
+  origin: async (cwd, options) =>
+    unwrap(await client.requestGit("git.origin.request", { cwd }, options)),
   status: async (cwd, options) =>
     unwrap(await client.requestGit("git.status.request", { cwd }, options)),
   branches: async (cwd, options) =>

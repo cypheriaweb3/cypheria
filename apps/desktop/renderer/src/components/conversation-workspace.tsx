@@ -1069,7 +1069,11 @@ export function ConversationWorkspace({
       },
       {
         content: gitCwd ? (
-          <GitReviewPanel cwd={gitCwd} fallback={timelineReview} />
+          <GitReviewPanel
+            cwd={gitCwd}
+            fallback={timelineReview}
+            threadId={snapshot.thread?.id ?? null}
+          />
         ) : (
           timelineReview
         ),
@@ -1177,6 +1181,7 @@ export function ConversationWorkspace({
     diffs,
     goalQuery.data,
     gitCwd,
+    snapshot.thread?.id,
     i18n,
     plans,
     reviewFiles,

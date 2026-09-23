@@ -164,6 +164,11 @@ msgid "git.review.branch"
 msgstr "分支"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.browser"
+msgstr "浏览器"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.browser"
 msgstr "浏览器"
@@ -324,6 +329,21 @@ msgstr "侧栏操作失败"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.createBranch"
 msgstr "创建"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.createDraft"
+msgstr "创建草稿 MR"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.createHint"
+msgstr "从已推送的当前分支创建"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.create"
+msgstr "创建 MR"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
@@ -537,6 +557,11 @@ msgid "settings.general"
 msgstr "常规"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.heading"
+msgstr "GitLab 合并请求"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.goal"
 msgstr "目标"
@@ -644,6 +669,11 @@ msgid "chat.loadingEarlier"
 msgstr "正在加载更早的消息…"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.loading"
+msgstr "正在加载合并请求…"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.loading"
 msgstr "正在加载仓库变更…"
@@ -672,6 +702,26 @@ msgstr "标记为未读"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.mcp"
 msgstr "MCP 应用"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.comment"
+msgstr "合并请求评论"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.description"
+msgstr "合并请求描述"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.number"
+msgstr "合并请求编号"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.title"
+msgstr "合并请求标题"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -713,6 +763,11 @@ msgstr "新建对话"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.newChatInNamedProject"
 msgstr "在 {projectName} 中新建会话"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.newTitle"
+msgstr "新的合并请求标题"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -865,6 +920,11 @@ msgid "chat.workspace.openBottomPanelTab"
 msgstr "打开底部面板标签"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.openForm"
+msgstr "在浏览器中打开表单"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.openProjectFolder"
 msgstr "打开项目文件夹"
@@ -948,6 +1008,11 @@ msgstr "弹出窗口"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.popoutHotkey"
 msgstr "弹出窗口快捷键"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.postComment"
+msgstr "发表评论"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
@@ -1090,13 +1155,13 @@ msgid "chat.workspace.resizeSidePanel"
 msgstr "调整侧边面板大小"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.restoreWorktree"
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.restore"
 msgstr "恢复"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.archived.tsx
-msgid "settings.archived.restore"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.restoreWorktree"
 msgstr "恢复"
 
 #. js-lingui-explicit-id
@@ -1133,6 +1198,11 @@ msgstr "保存"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.saveSection"
 msgstr "保存分组"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.saveTitle"
+msgstr "保存标题"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1450,6 +1520,11 @@ msgstr "未命名对话"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.editProjectDescription"
 msgstr "更新此项目在侧栏中显示的名称。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.open"
+msgstr "查看"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
