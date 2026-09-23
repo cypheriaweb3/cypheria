@@ -7,6 +7,13 @@ import {
   type AgentManagementServerMessage,
 } from "./agent/management.ts"
 import {
+  GIT_CLIENT_SCHEMAS,
+  GIT_RESPONSE_TYPES,
+  GIT_SERVER_SCHEMAS,
+  type GitClientMessage,
+  type GitServerMessage,
+} from "./git.ts"
+import {
   HARNESS_CLIENT_SCHEMAS,
   HARNESS_RESPONSE_TYPES,
   HARNESS_SERVER_SCHEMAS,
@@ -74,6 +81,7 @@ export * from "./agent/pi.ts"
 export * from "./agent/registry.ts"
 export * from "./codex-ui/image-generation.ts"
 export * from "./codex-ui/turn-projection.ts"
+export * from "./git.ts"
 export * from "./harness.ts"
 export * from "./harness-codex.ts"
 export * from "./integration.ts"
@@ -104,6 +112,7 @@ export const SERVER_CAPABILITIES = {
   integrations: "integrations",
   config: "server.config",
   diagnostics: "diagnostics",
+  git: "git",
   status: "server.status",
 } as const
 export type ServerCapability = (typeof SERVER_CAPABILITIES)[keyof typeof SERVER_CAPABILITIES]
@@ -504,6 +513,7 @@ export type SessionInboundMessage =
   | z.infer<typeof ServerConfigReloadRequestSchema>
   | AgentManagementClientMessage
   | IntegrationClientMessage
+  | GitClientMessage
   | CodexHarnessClientMessage
   | HarnessClientMessage
   | ProjectThreadClientMessage
@@ -520,6 +530,7 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   ServerConfigReloadRequestSchema,
   ...AGENT_MANAGEMENT_CLIENT_SCHEMAS,
   ...INTEGRATION_CLIENT_SCHEMAS,
+  ...GIT_CLIENT_SCHEMAS,
   ...CODEX_HARNESS_CLIENT_SCHEMAS,
   ...HARNESS_CLIENT_SCHEMAS,
   ...PROJECT_THREAD_CLIENT_SCHEMAS,
@@ -579,6 +590,7 @@ export type SessionOutboundMessage =
   | z.infer<typeof ServerConfigReloadResponseSchema>
   | AgentManagementServerMessage
   | IntegrationServerMessage
+  | GitServerMessage
   | CodexHarnessServerMessage
   | HarnessServerMessage
   | ProjectThreadServerMessage
@@ -596,6 +608,7 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   ServerConfigReloadResponseSchema,
   ...AGENT_MANAGEMENT_SERVER_SCHEMAS,
   ...INTEGRATION_SERVER_SCHEMAS,
+  ...GIT_SERVER_SCHEMAS,
   ...CODEX_HARNESS_SERVER_SCHEMAS,
   ...HARNESS_SERVER_SCHEMAS,
   ...PROJECT_THREAD_SERVER_SCHEMAS,
@@ -632,6 +645,7 @@ const clientResponseTypes = new Set<string>([
   "agent.toolchain.update.response",
   ...PROJECT_THREAD_RESPONSE_TYPES,
   ...INTEGRATION_RESPONSE_TYPES,
+  ...GIT_RESPONSE_TYPES,
   ...HARNESS_RESPONSE_TYPES,
   ...CODEX_HARNESS_RESPONSE_TYPES,
   ...SCHEDULE_RESPONSE_TYPES,

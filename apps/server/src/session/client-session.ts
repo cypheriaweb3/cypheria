@@ -7,6 +7,8 @@ import {
   type CodexHarnessClientMessage,
   type CodexHarnessServerMessage,
   encodeProtocolMessage,
+  type GitClientMessage,
+  type GitServerMessage,
   type HarnessClientMessage,
   type IntegrationClientMessage,
   type IntegrationServerMessage,
@@ -68,6 +70,10 @@ export type SessionHost = {
     message: TerminalClientMessage,
     sessionId: string,
     send: (message: TerminalServerMessage) => void
+  ): Promise<boolean>
+  handleGitMessage?(
+    message: GitClientMessage,
+    send: (message: GitServerMessage) => void
   ): Promise<boolean>
   handleWeb3Message?(
     message: Web3ClientMessage,
@@ -297,6 +303,15 @@ export class ClientSession {
             message as TerminalClientMessage,
             this.id,
             (response) => this.sendTo(source, response)
+          ))
+        ) {
+          break
+        }
+        if (
+          message.type.startsWith("git.") &&
+          this.#host.handleGitMessage &&
+          (await this.#host.handleGitMessage(message as GitClientMessage, (response) =>
+            this.sendTo(source, response)
           ))
         ) {
           break

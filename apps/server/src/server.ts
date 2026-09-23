@@ -20,6 +20,8 @@ import {
   type CodexHarnessServerMessage,
   CYPHERIA_PROTOCOL_VERSION,
   CYPHERIA_WEBSOCKET_PROTOCOL,
+  type GitClientMessage,
+  type GitServerMessage,
   type HarnessClientMessage,
   type IntegrationClientMessage,
   type IntegrationServerMessage,
@@ -48,6 +50,7 @@ import { AgentManager } from "./agent/agent-manager.js"
 import { CodexHarnessService } from "./codex-harness-service.js"
 import { type CypheriaServerConfig, loadServerConfig } from "./config.js"
 import { collectDiagnostics } from "./diagnostics.js"
+import { GitService } from "./git/git-service.js"
 import { HarnessService } from "./harness-service.js"
 import { createHttpApp, type HttpAppHost } from "./http-app.js"
 import { loadOrCreateServerId } from "./identity.js"
@@ -106,6 +109,7 @@ export class CypheriaServer implements HttpAppHost {
   readonly schedules: ScheduleService
   readonly threadManager: ThreadManager
   readonly terminals: TerminalService
+  readonly git: GitService
   readonly database: OpenDatabaseResult
   readonly web3: ServerWeb3Service
 
@@ -149,6 +153,7 @@ export class CypheriaServer implements HttpAppHost {
     this.integrations = new IntegrationService(this.agentManager)
     const projectThreadPersistence = createProjectThreadPersistenceService(this.database.db)
     this.terminals = new TerminalService(projectThreadPersistence)
+    this.git = new GitService(this.runtime.paths.cacheDir)
     this.projectThread = new ProjectThreadService({
       persistence: projectThreadPersistence,
     })
@@ -350,6 +355,7 @@ export class CypheriaServer implements HttpAppHost {
       SERVER_CAPABILITIES.projectThread,
       SERVER_CAPABILITIES.schedules,
       SERVER_CAPABILITIES.terminals,
+      SERVER_CAPABILITIES.git,
       SERVER_CAPABILITIES.status,
       SERVER_CAPABILITIES.thread,
       SERVER_CAPABILITIES.web3,
@@ -440,6 +446,13 @@ export class CypheriaServer implements HttpAppHost {
     send: (message: TerminalServerMessage) => void
   ): Promise<boolean> {
     return this.terminals.handle(message, sessionId, send)
+  }
+
+  async handleGitMessage(
+    message: GitClientMessage,
+    send: (message: GitServerMessage) => void
+  ): Promise<boolean> {
+    return this.git.handle(message, send)
   }
 
   clientSessionClosed(sessionId: string): void {

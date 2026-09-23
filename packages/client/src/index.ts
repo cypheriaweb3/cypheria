@@ -12,6 +12,7 @@ import {
   isAgentUpdateAvailable,
 } from "./agent-manager.js"
 import { type ArtifactActions, createArtifactActions } from "./artifact.js"
+import { createGitActions, type GitActions } from "./git.js"
 import { createHarnessActions, type HarnessActions } from "./harness.js"
 import { type CodexHarnessActions, createCodexHarnessActions } from "./harness-codex.js"
 import { createIntegrationActions, type IntegrationActions } from "./integration.js"
@@ -62,6 +63,7 @@ export interface CypheriaApi {
   readonly agents: AgentActions
   readonly artifacts: ArtifactActions
   readonly integrations: IntegrationActions
+  readonly git: GitActions
   readonly projectThread: ProjectThreadActions
   readonly projects: ProjectActions
   readonly harnesses: {
@@ -142,6 +144,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
 
   const agents = createAgentManagementActions(serverClient)
   const integrations = createIntegrationActions(serverClient)
+  const git = createGitActions(serverClient)
   const codexHarness = createCodexHarnessActions(serverClient)
   const harnesses = createHarnessActions(serverClient)
   const projectThread = createProjectThreadActions(serverClient)
@@ -160,6 +163,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
     agents,
     artifacts,
     integrations,
+    git,
     projectThread,
     projects: projectThread.projects,
     harnesses: {

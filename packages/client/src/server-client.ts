@@ -15,6 +15,8 @@ import {
   createWebSocketProtocols,
   decodeWSOutboundMessage,
   encodeProtocolMessage,
+  type GitClientMessage,
+  type GitServerMessage,
   type HarnessClientMessage,
   type HarnessServerMessage,
   type IntegrationClientMessage,
@@ -589,6 +591,20 @@ export class ServerClient {
       SERVER_CAPABILITIES.terminals
     )
     return message as TerminalServerMessage
+  }
+
+  async requestGit(
+    type: GitClientMessage["type"],
+    payload: unknown,
+    options?: RequestOptions
+  ): Promise<GitServerMessage> {
+    const message = await this.#request(
+      { payload, requestId: this.#nextRequestId("git"), type } as GitClientMessage,
+      type.replace(/\.request$/u, ".response"),
+      options,
+      SERVER_CAPABILITIES.git
+    )
+    return message as GitServerMessage
   }
 
   async requestWeb3(

@@ -8,7 +8,7 @@ title: Client/Server Protocol
 
 ## Scope
 
-The public protocol covers Server operations, Agents, Projects, Threads, Sections, Canonical Timeline, integrations, schedules, terminals, and Web3. Agent-native protocols are not public client APIs. They are validated adapter inputs behind `apps/server`.
+The public protocol covers Server operations, Agents, Projects, Threads, Sections, Canonical Timeline, integrations, schedules, terminals, Git, and Web3. Agent-native protocols are not public client APIs. They are validated adapter inputs behind `apps/server`.
 
 Generated Codex App Server files live under `packages/protocol/src/generated/codex/`. Their [generated reference](codex-app-server-api.md) is for adapter development, not direct client use.
 
@@ -130,12 +130,15 @@ client.schedules
 client.web3
 client.integrations
 client.terminals
+client.git
 client.artifacts
 client.settings
 client.server
 ```
 
 The common operations on `client.harnesses` cover installation-adjacent state, authentication, models, and typed settings for every Agent. Named child facades expose only genuine harness extensions. Codex Apps, guardian, and lower-level compatibility operations remain under `harnesses.codex`; common integration operations remain available through `integrations`.
+
+The `git` capability provides local repository discovery, status, branch listing, diff, stage, unstage, commit, and push through the Server Git executor. Each `git.*.request` returns a correlated typed response with a success value or error. Git operations use the Server host's filesystem and Git installation.
 
 ## Validation rules
 

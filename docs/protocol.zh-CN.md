@@ -8,7 +8,7 @@ title: 客户端与 Server 协议
 
 ## 范围
 
-公开协议覆盖 Server 运维、Agents、Projects、Threads、Sections、Canonical Timeline、Integrations、Schedules、Terminals 和 Web3。Agent 原生协议不是公开客户端 API，而是 `apps/server` 背后经过校验的 adapter 输入。
+公开协议覆盖 Server 运维、Agents、Projects、Threads、Sections、Canonical Timeline、Integrations、Schedules、Terminals、Git 和 Web3。Agent 原生协议不是公开客户端 API，而是 `apps/server` 背后经过校验的 adapter 输入。
 
 生成的 Codex App Server 文件位于 `packages/protocol/src/generated/codex/`。其[生成参考](codex-app-server-api.zh-CN.md)服务于 adapter 开发，不用于客户端直接调用。
 
@@ -130,12 +130,15 @@ client.schedules
 client.web3
 client.integrations
 client.terminals
+client.git
 client.artifacts
 client.settings
 client.server
 ```
 
 `client.harnesses` 上的公共操作覆盖所有 Agent 的 installation-adjacent state、认证、models 和类型化设置。具名 child facade 只暴露真实 harness 扩展。Codex Apps、guardian 和较底层的兼容操作仍位于 `harnesses.codex`；通用 integration 操作仍通过 `integrations` 提供。
+
+`git` capability 通过 Server Git 执行器提供本地仓库发现、状态、分支列表、差异、暂存、取消暂存、提交和推送。每个 `git.*.request` 都返回带关联 ID 的类型化成功值或错误。Git 操作使用 Server 所在主机的文件系统和 Git 安装。
 
 ## 校验规则
 

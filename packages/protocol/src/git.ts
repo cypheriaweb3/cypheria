@@ -1,0 +1,128 @@
+import { z } from "zod"
+
+import { RequestIdSchema } from "./request-id.ts"
+
+const path = z.string().min(1)
+const paths = z.array(path).min(1).max(1000)
+const input = <T extends string, S extends z.ZodType>(type: T, payload: S) =>
+  z.object({ type: z.literal(type), requestId: RequestIdSchema, payload }).strict()
+const output = <T extends string, S extends z.ZodType>(type: T, value: S) =>
+  z
+    .object({
+      type: z.literal(type),
+      requestId: RequestIdSchema,
+      payload: z.discriminatedUnion("ok", [
+        z.object({ ok: z.literal(true), value }).strict(),
+        z
+          .object({
+            ok: z.literal(false),
+            error: z.object({ code: z.string(), message: z.string() }).strict(),
+          })
+          .strict(),
+      ]),
+    })
+    .strict()
+
+export const GitRepositorySchema = z.object({ root: path, commonGitDir: path }).strict()
+export const GitStatusSchema = z
+  .object({
+    branch: z.string().nullable(),
+    entries: z.array(z.object({ code: z.string().length(2), path }).strict()),
+    head: z.string().nullable(),
+    repository: GitRepositorySchema,
+  })
+  .strict()
+export const GitBranchSchema = z
+  .object({ name: z.string(), current: z.boolean(), commit: z.string() })
+  .strict()
+
+export const GitDiscoverRequestSchema = input(
+  "git.discover.request",
+  z.object({ cwd: path }).strict()
+)
+export const GitStatusRequestSchema = input("git.status.request", z.object({ cwd: path }).strict())
+export const GitBranchesRequestSchema = input(
+  "git.branches.request",
+  z.object({ cwd: path }).strict()
+)
+export const GitDiffRequestSchema = input(
+  "git.diff.request",
+  z
+    .object({
+      cwd: path,
+      staged: z.boolean().optional(),
+      base: z.string().optional(),
+      paths: paths.optional(),
+    })
+    .strict()
+)
+export const GitStageRequestSchema = input(
+  "git.stage.request",
+  z.object({ cwd: path, paths }).strict()
+)
+export const GitUnstageRequestSchema = input(
+  "git.unstage.request",
+  z.object({ cwd: path, paths }).strict()
+)
+export const GitCommitRequestSchema = input(
+  "git.commit.request",
+  z.object({ cwd: path, message: z.string().min(1).max(100_000) }).strict()
+)
+export const GitPushRequestSchema = input(
+  "git.push.request",
+  z
+    .object({
+      cwd: path,
+      remote: z.string().optional(),
+      branch: z.string().optional(),
+      setUpstream: z.boolean().optional(),
+      forceWithLease: z.boolean().optional(),
+    })
+    .strict()
+)
+
+const success = z.object({ succeeded: z.literal(true) }).strict()
+export const GitDiscoverResponseSchema = output("git.discover.response", GitRepositorySchema)
+export const GitStatusResponseSchema = output("git.status.response", GitStatusSchema)
+export const GitBranchesResponseSchema = output("git.branches.response", z.array(GitBranchSchema))
+export const GitDiffResponseSchema = output(
+  "git.diff.response",
+  z.object({ diff: z.string() }).strict()
+)
+export const GitStageResponseSchema = output("git.stage.response", success)
+export const GitUnstageResponseSchema = output("git.unstage.response", success)
+export const GitCommitResponseSchema = output(
+  "git.commit.response",
+  z.object({ commit: z.string() }).strict()
+)
+export const GitPushResponseSchema = output(
+  "git.push.response",
+  z.object({ output: z.string() }).strict()
+)
+
+export const GIT_CLIENT_SCHEMAS = [
+  GitDiscoverRequestSchema,
+  GitStatusRequestSchema,
+  GitBranchesRequestSchema,
+  GitDiffRequestSchema,
+  GitStageRequestSchema,
+  GitUnstageRequestSchema,
+  GitCommitRequestSchema,
+  GitPushRequestSchema,
+] as const
+export const GIT_SERVER_SCHEMAS = [
+  GitDiscoverResponseSchema,
+  GitStatusResponseSchema,
+  GitBranchesResponseSchema,
+  GitDiffResponseSchema,
+  GitStageResponseSchema,
+  GitUnstageResponseSchema,
+  GitCommitResponseSchema,
+  GitPushResponseSchema,
+] as const
+export const GIT_RESPONSE_TYPES = GIT_SERVER_SCHEMAS.map((schema) => schema.shape.type.value)
+export type GitClientMessage = z.infer<(typeof GIT_CLIENT_SCHEMAS)[number]>
+export type GitServerMessage = z.infer<(typeof GIT_SERVER_SCHEMAS)[number]>
+export type GitRepository = z.infer<typeof GitRepositorySchema>
+export type GitStatus = z.infer<typeof GitStatusSchema>
+export type GitBranch = z.infer<typeof GitBranchSchema>

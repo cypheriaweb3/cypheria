@@ -1,0 +1,72 @@
+import { execFile } from "node:child_process"
+import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { join } from "node:path"
+import { promisify } from "node:util"
+import { afterEach, describe, expect, it } from "vitest"
+
+import { GitService } from "./git-service.js"
+
+const run = promisify(execFile)
+const created: string[] = []
+
+afterEach(async () => {
+  await Promise.all(created.splice(0).map((path) => rm(path, { recursive: true, force: true })))
+})
+
+const repository = async () => {
+  const root = await mkdtemp(join(tmpdir(), "cypheria-git-test-"))
+  created.push(root)
+  await run("git", ["init", "-q", root])
+  await run("git", ["-C", root, "config", "user.name", "Git Test"])
+  await run("git", ["-C", root, "config", "user.email", "git-test@example.invalid"])
+  await run("git", ["-C", root, "config", "commit.gpgsign", "false"])
+  return root
+}
+
+describe("GitService", () => {
+  it("discovers nested workspaces and performs status, stage, diff, commit, and branches", async () => {
+    const root = await repository()
+    const nested = join(root, "src")
+    await mkdir(nested)
+    await writeFile(join(nested, "file.txt"), "first\n")
+    const service = new GitService(join(root, "cache"))
+    expect((await service.discover(nested)).root).toBe(await realpath(root))
+    expect((await service.status(root)).entries).toContainEqual({
+      code: "??",
+      path: "src/file.txt",
+    })
+    await service.stage(root, ["src/file.txt"])
+    expect(await service.diff(root, { staged: true })).toContain("+first")
+    const head = await service.commit(root, "First commit")
+    expect(head).toMatch(/^[a-f0-9]{40,64}$/u)
+    expect((await service.status(root)).entries).toEqual([])
+    expect(await service.branches(root)).toContainEqual({
+      name: expect.any(String),
+      current: true,
+      commit: head,
+    })
+    await writeFile(join(nested, "file.txt"), "second\n")
+    await service.stage(root, ["src/file.txt"])
+    await service.unstage(root, ["src/file.txt"])
+    expect((await service.status(root)).entries).toContainEqual({
+      code: " M",
+      path: "src/file.txt",
+    })
+  })
+
+  it("rejects paths outside the repository, symlink parent escapes, and option-like refs", async () => {
+    const root = await repository()
+    const external = await mkdtemp(join(tmpdir(), "cypheria-git-external-"))
+    created.push(external)
+    const { symlink } = await import("node:fs/promises")
+    await symlink(external, join(root, "outside"))
+    const service = new GitService(join(root, "cache"))
+    await expect(service.stage(root, ["../outside.txt"])).rejects.toThrow("outside the repository")
+    await expect(service.stage(root, ["outside/file.txt"])).rejects.toThrow("resolves outside")
+    await expect(service.diff(root, { base: "--output=/tmp/unsafe" })).rejects.toThrow(
+      "Invalid Git base"
+    )
+    await expect(service.push(root, { remote: "--mirror" })).rejects.toThrow("Invalid Git remote")
+  })
+})
