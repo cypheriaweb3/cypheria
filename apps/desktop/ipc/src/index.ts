@@ -27,8 +27,10 @@ export const CYPHERIA_IPC_CHANNELS = {
   appMetadataRead: "app.metadata.read",
   appExternalOpen: "app.external.open",
   appDirectoryPick: "app.directory.pick",
+  appSoundPick: "app.sound.pick",
   appConfigOpen: "app.config.open",
   appProjectReveal: "app.project.reveal",
+  appProjectOpen: "app.project.open",
   browserSessionOpen: "browser.session.open",
   dappProviderRequest: "dapp.provider.request",
   dappProviderEvent: "dapp.provider.event",
@@ -40,6 +42,12 @@ export const CYPHERIA_IPC_CHANNELS = {
   settingsLanguageWrite: "settings.language.write",
   settingsWorkspaceLayoutRead: "settings.workspace-layout.read",
   settingsWorkspaceLayoutWrite: "settings.workspace-layout.write",
+  settingsPreferencesRead: "settings.preferences.read",
+  settingsOpenTargetsList: "settings.open-targets.list",
+  settingsNotificationSoundsList: "settings.notification-sounds.list",
+  settingsNotificationSoundPreview: "settings.notification-sound.preview",
+  settingsPreferencesWrite: "settings.preferences.write",
+  settingsPreferencesChanged: "settings.preferences.changed",
   settingsConnectionProxyRead: "settings.connection-proxy.read",
   settingsConnectionProxyTest: "settings.connection-proxy.test",
   settingsConnectionProxyWrite: "settings.connection-proxy.write",
@@ -272,6 +280,37 @@ export const WorkspaceLayoutSettingsSchema = WorkspaceLayoutSettingsWriteSchema.
 }).strict()
 export type WorkspaceLayoutSettings = z.infer<typeof WorkspaceLayoutSettingsSchema>
 
+export const DesktopPreferencesWriteSchema = z
+  .object({
+    projectlessWorkspaceRoot: z.string().min(1).nullable(),
+    openInTargetPreference: z.string().min(1),
+    macMenuBarEnabled: z.boolean(),
+    preventSleepWhileRunning: z.boolean(),
+    pluginsEnabled: z.boolean(),
+    composerPlainTextMode: z.boolean(),
+    showContextWindowUsage: z.boolean(),
+    composerEnterBehavior: z.enum(["enter", "cmdIfMultiline", "cmdAlways"]),
+    followUpQueueMode: z.enum(["queue", "steer"]),
+    hotkeyWindowHotkey: z.string().nullable(),
+    hotkeyWindowProjectlessDefaultEnabled: z.boolean(),
+    notificationsTurnMode: z.enum(["off", "unfocused", "always"]),
+    notificationsPermissionsEnabled: z.boolean(),
+    notificationsQuestionsEnabled: z.boolean(),
+    notificationSound: z.string().min(1),
+    notificationCustomSoundPath: z.string().min(1).nullable(),
+  })
+  .strict()
+export type DesktopPreferencesWrite = z.infer<typeof DesktopPreferencesWriteSchema>
+export const DesktopPreferencesSchema = DesktopPreferencesWriteSchema.extend({
+  configPath: z.string().min(1),
+}).strict()
+export type DesktopPreferences = z.infer<typeof DesktopPreferencesSchema>
+
+export const OpenTargetSchema = z
+  .object({ id: z.string().min(1), label: z.string().min(1) })
+  .strict()
+export type OpenTarget = z.infer<typeof OpenTargetSchema>
+
 export const AppearanceFontFaceSchema = z
   .object({
     family: z.string().min(1),
@@ -427,6 +466,14 @@ export const appDirectoryPickContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<EmptyPayload, { path: string | null }>
 
+export const appSoundPickContract = {
+  channel: CYPHERIA_IPC_CHANNELS.appSoundPick,
+  namespace: "app",
+  request: EmptyPayloadSchema,
+  response: z.object({ path: z.string().min(1).nullable() }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, { path: string | null }>
+
 export const appConfigOpenContract = {
   channel: CYPHERIA_IPC_CHANNELS.appConfigOpen,
   namespace: "app",
@@ -441,6 +488,13 @@ export const appProjectRevealContract = {
   response: z.object({ revealed: z.literal(true) }).strict(),
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<{ projectId: string }, { revealed: true }>
+export const appProjectOpenContract = {
+  channel: CYPHERIA_IPC_CHANNELS.appProjectOpen,
+  namespace: "app",
+  request: z.object({ projectId: z.string().min(1) }).strict(),
+  response: z.object({ opened: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ projectId: string }, { opened: true }>
 
 export const browserSessionOpenContract = {
   channel: CYPHERIA_IPC_CHANNELS.browserSessionOpen,
@@ -517,6 +571,46 @@ export const settingsWorkspaceLayoutWriteContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<WorkspaceLayoutSettingsWrite, WorkspaceLayoutSettings>
 
+export const settingsPreferencesReadContract = {
+  channel: CYPHERIA_IPC_CHANNELS.settingsPreferencesRead,
+  namespace: "settings",
+  request: EmptyPayloadSchema,
+  response: DesktopPreferencesSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, DesktopPreferences>
+
+export const settingsOpenTargetsListContract = {
+  channel: CYPHERIA_IPC_CHANNELS.settingsOpenTargetsList,
+  namespace: "settings",
+  request: EmptyPayloadSchema,
+  response: z.array(OpenTargetSchema),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, OpenTarget[]>
+
+export const settingsNotificationSoundsListContract = {
+  channel: CYPHERIA_IPC_CHANNELS.settingsNotificationSoundsList,
+  namespace: "settings",
+  request: EmptyPayloadSchema,
+  response: z.array(z.string().min(1)),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, string[]>
+
+export const settingsNotificationSoundPreviewContract = {
+  channel: CYPHERIA_IPC_CHANNELS.settingsNotificationSoundPreview,
+  namespace: "settings",
+  request: EmptyPayloadSchema,
+  response: z.object({ played: z.boolean() }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, { played: boolean }>
+
+export const settingsPreferencesWriteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.settingsPreferencesWrite,
+  namespace: "settings",
+  request: DesktopPreferencesWriteSchema,
+  response: DesktopPreferencesSchema,
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<DesktopPreferencesWrite, DesktopPreferences>
+
 export const settingsConnectionProxyReadContract = {
   channel: CYPHERIA_IPC_CHANNELS.settingsConnectionProxyRead,
   namespace: "settings",
@@ -543,11 +637,13 @@ export const settingsConnectionProxyTestContract = {
 
 export const ipcContracts = {
   appDirectoryPick: appDirectoryPickContract,
+  appSoundPick: appSoundPickContract,
   appExternalOpen: appExternalOpenContract,
   appHealthCheck: appHealthCheckContract,
   appMetadataRead: appMetadataReadContract,
   appConfigOpen: appConfigOpenContract,
   appProjectReveal: appProjectRevealContract,
+  appProjectOpen: appProjectOpenContract,
   browserSessionOpen: browserSessionOpenContract,
   dappProviderRequest: dappProviderRequestContract,
   settingsAppearanceFontsList: settingsAppearanceFontsListContract,
@@ -557,6 +653,11 @@ export const ipcContracts = {
   settingsLanguageWrite: settingsLanguageWriteContract,
   settingsWorkspaceLayoutRead: settingsWorkspaceLayoutReadContract,
   settingsWorkspaceLayoutWrite: settingsWorkspaceLayoutWriteContract,
+  settingsPreferencesRead: settingsPreferencesReadContract,
+  settingsOpenTargetsList: settingsOpenTargetsListContract,
+  settingsNotificationSoundsList: settingsNotificationSoundsListContract,
+  settingsNotificationSoundPreview: settingsNotificationSoundPreviewContract,
+  settingsPreferencesWrite: settingsPreferencesWriteContract,
   settingsConnectionProxyRead: settingsConnectionProxyReadContract,
   settingsConnectionProxyTest: settingsConnectionProxyTestContract,
   settingsConnectionProxyWrite: settingsConnectionProxyWriteContract,
@@ -573,9 +674,11 @@ export type CypheriaPreloadApi = {
     readonly getHealth: () => Promise<AppHealthStatus>
     readonly getMetadata: () => Promise<AppMetadata>
     readonly pickDirectory: () => Promise<{ path: string | null }>
+    readonly pickSoundFile: () => Promise<{ path: string | null }>
     readonly openExternal: (url: string) => Promise<{ opened: true }>
     readonly openConfig: () => Promise<{ opened: true }>
     readonly revealProject: (projectId: string) => Promise<{ revealed: true }>
+    readonly openProject: (projectId: string) => Promise<{ opened: true }>
   }
   readonly browser: {
     readonly openDapp: (url: string) => Promise<BrowserSessionOpenResult>
@@ -585,8 +688,13 @@ export type CypheriaPreloadApi = {
     readonly getConnectionProxy: () => Promise<ConnectionProxySettings>
     readonly getLanguage: () => Promise<LanguageSettings>
     readonly getWorkspaceLayout: () => Promise<WorkspaceLayoutSettings>
+    readonly getPreferences: () => Promise<DesktopPreferences>
+    readonly listOpenTargets: () => Promise<OpenTarget[]>
+    readonly listNotificationSounds: () => Promise<string[]>
+    readonly previewNotificationSound: () => Promise<{ played: boolean }>
     readonly listAppearanceFonts: () => Promise<AppearanceFontOption[]>
     readonly onLanguageChanged: (handler: (settings: LanguageSettings) => void) => () => void
+    readonly onPreferencesChanged: (handler: (settings: DesktopPreferences) => void) => () => void
     readonly setAppearance: (settings: AppearanceSettingsWrite) => Promise<AppearanceSettings>
     readonly setConnectionProxy: (
       settings: ConnectionProxySettings
@@ -595,6 +703,7 @@ export type CypheriaPreloadApi = {
     readonly setWorkspaceLayout: (
       settings: WorkspaceLayoutSettingsWrite
     ) => Promise<WorkspaceLayoutSettings>
+    readonly setPreferences: (settings: DesktopPreferencesWrite) => Promise<DesktopPreferences>
     readonly testConnectionProxy: (
       settings: ConnectionProxySettings
     ) => Promise<ConnectionProxyTestResult>

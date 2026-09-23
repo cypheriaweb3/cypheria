@@ -42,6 +42,12 @@ The established interaction model is a product invariant:
 
 Query keys and optimistic updates are based on Cypheria IDs. Harness session IDs never replace Thread IDs in navigation or cache identity.
 
+## Page headers
+
+Desktop does not reserve a global titlebar above every route. A route that needs the shared chrome renders `PageHeader` itself and supplies its own children; a route that does not need a header fills the content area from the top. `PageHeader` owns the standard 44-pixel geometry, Electron drag region, and animated leading inset that keeps route content coordinated with the Sidebar's expanded and collapsed titlebar controls.
+
+Conversation workspaces intentionally do not use `PageHeader`. Their chrome is split between the conversation `ChatHeader` and the right `ChatPanel` workspace header, matching the Chat Demo reference. The conversation header participates in the same Sidebar inset transition, while the right header carries its tab strip, tab launcher, and full-screen action without a bottom border. Bottom-panel and side-panel toggles remain fixed at the right edge of the window header; when the side panel is hidden, the conversation header expands beneath that area while reserving space for both controls.
+
 ## Settings navigation
 
 Settings and the workspace use the same resizable Desktop sidebar shell, titlebar geometry, compact horizontal gutters, collapse behavior, and width state; only their navigation content differs. Settings uses one flattened, virtualized navigation list. The back row, group labels, ordinary settings items, the expandable Agent harnesses row, and all visible Agent child rows share one scroll container and one TanStack Virtual virtualizer. Search and the theme footer stay outside that container. Expansion, search, and registry membership changes rebuild the flat row model; route changes scroll the active item into view. Agent child rows never introduce a nested scroller or second navigation virtualizer. The Agent harnesses parent is an expand control rather than a page and is never active. Its children are the harnesses in the user's Agent registry; the four native harnesses are registered during Server initialization.
@@ -72,12 +78,14 @@ Canonical Timeline history and ordered live updates are consumed directly throug
 
 ## Desktop-local settings
 
-Electron stores local preferences in `userData/desktop-settings.json`:
+Electron stores local preferences in `userData/config.json`:
 
 - appearance, language, font, density, and layout;
 - shortcuts, sound, window bounds, and panel state;
 - Server auto-start, executable, and preferred port;
 - browser, update, tray, and OS-integration behavior.
+
+The General settings page groups local preferences under General, Composer, Popout Window, and Notifications. General includes the default folder for tasks without a project (`~/Documents/Cypheria` unless changed), dynamically discovered local file opening applications, UI language, menu bar presence, bottom panel control, terminal placement, sleep prevention, and plugin availability. Composer includes plain text input, context window usage, the three Enter send modes, and follow-up behavior. Popout Window includes its global shortcut and standalone chat default. Notifications includes turn completion mode, permission and question alerts, plus Default and Classic bundled sounds, None, sounds discovered from macOS, and a custom sound file picker. Selecting a sound plays a preview; selecting None stops any preview. The plugin availability switch also updates Codex's process-wide `plugins` experimental feature through Server.
 
 Shared Agent, model, integration, Web3, and Server behavior belongs in Cypheria Server configuration or the database. UI preferences are not written to Codex configuration.
 

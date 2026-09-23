@@ -107,8 +107,9 @@ import {
   BranchIcon,
   ChatIcon,
   ClipIcon,
-  CloseBoldIcon,
+  CollapseIcon,
   DockIcon,
+  ExpandIcon,
   FileIcon,
   FileImageIcon,
   GlobeIcon,
@@ -133,7 +134,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
   type ChangeEvent,
-  type CSSProperties,
   type FormEvent,
   type ReactNode,
   useEffect,
@@ -703,6 +703,25 @@ export function ConversationWorkspace({
     queryFn: () => sidebarData.listProjects(),
     queryKey: sidebarQueryKeys.projects(),
   })
+  const desktopPreferencesQuery = useQuery({
+    queryFn: () => window.cypheria?.settings.getPreferences(),
+    queryKey: ["settings", "preferences"],
+    staleTime: Number.POSITIVE_INFINITY,
+  })
+  const workspaceLayoutQuery = useQuery({
+    queryFn: () => window.cypheria?.settings.getWorkspaceLayout(),
+    queryKey: ["settings", "workspace-layout"],
+    staleTime: Number.POSITIVE_INFINITY,
+  })
+  const desktopPreferences = desktopPreferencesQuery.data
+  const workspaceLayout = workspaceLayoutQuery.data
+  useEffect(
+    () =>
+      window.cypheria?.settings.onPreferencesChanged((settings) => {
+        queryClient.setQueryData(["settings", "preferences"], settings)
+      }),
+    [queryClient]
+  )
   const project = projectsQuery.data?.data.find((item) => item.id === initialProjectId)
   const [controller] = useState(
     () =>
@@ -725,6 +744,7 @@ export function ConversationWorkspace({
     controller.getSnapshot
   )
   const [composer, setComposer] = useState(initialPrompt ?? "")
+  const [contextUsage, setContextUsage] = useState<{ tokens: number; max: number } | null>(null)
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([])
   const attachmentInput = useRef<HTMLInputElement>(null)
   const [rightVisibility, setRightVisibility] = useState<ChatPanelVisibility>(
@@ -732,17 +752,30 @@ export function ConversationWorkspace({
   )
   const [bottomVisibility, setBottomVisibility] = useState<ChatPanelVisibility>("hidden")
   const [rightFullscreen, setRightFullscreen] = useState(false)
-  const [rightTab, setRightTab] = useState("summary")
+  const [wideViewport, setWideViewport] = useState(true)
+  const [rightTab, setRightTab] = useState<string | undefined>("summary")
+  const [openRightTabs, setOpenRightTabs] = useState<string[]>(["summary"])
   const terminals = useWorkspaceTerminals(initialProjectId)
 
   useEffect(() => {
-    controller.setCwd(project?.roots[0])
-  }, [controller, project?.roots])
+    controller.setCwd(
+      project?.roots[0] ?? desktopPreferences?.projectlessWorkspaceRoot ?? undefined
+    )
+  }, [controller, project?.roots, desktopPreferences?.projectlessWorkspaceRoot])
 
   useEffect(() => {
     void controller.connect()
     return () => controller.dispose()
   }, [controller])
+
+  useEffect(() => {
+    const media = window.matchMedia?.("(min-width: 1181px)")
+    if (!media) return
+    const update = () => setWideViewport(media.matches)
+    update()
+    media.addEventListener("change", update)
+    return () => media.removeEventListener("change", update)
+  }, [])
 
   const threadId = snapshot.threadId
   const goalQuery = useQuery({
@@ -768,6 +801,22 @@ export function ConversationWorkspace({
       (await ensureCypheriaClient()).harnesses.codex.threads.usage(threadId as string),
     queryKey: ["codex", "thread", threadId, "usage"],
   })
+  useEffect(() => {
+    if (!codex || !threadId) return
+    let unsubscribe: (() => void) | undefined
+    let disposed = false
+    void ensureCypheriaClient().then((client) => {
+      if (disposed) return
+      unsubscribe = client.harnesses.codex.threads.subscribeUsage(threadId, (update) => {
+        const max = update.tokenUsage.modelContextWindow
+        if (max) setContextUsage({ tokens: update.tokenUsage.last.totalTokens, max })
+      })
+    })
+    return () => {
+      disposed = true
+      unsubscribe?.()
+    }
+  }, [codex, threadId])
   const modelsQuery = useQuery({
     enabled: codex,
     queryFn: async () => (await ensureCypheriaClient()).harnesses.codex.models.list(),
@@ -1099,7 +1148,20 @@ export function ConversationWorkspace({
         title: i18n._(msg({ id: "chat.panel.artifacts", message: "Artifacts" })),
       },
     ]
-    return tabs.map((tab) => ({ ...tab, closable: false, movable: true }))
+    tabs.push({
+      content:
+        rightVisibility === "visible" && rightTab === "terminal" ? (
+          <WorkspaceTerminalView
+            controller={terminals}
+            onHide={() => setRightVisibility("hidden")}
+            placement="right"
+          />
+        ) : null,
+      icon: <DockIcon />,
+      id: "terminal",
+      title: i18n._(msg({ id: "chat.panel.terminal", message: "Terminal" })),
+    })
+    return tabs.map((tab) => ({ ...tab, closable: true }))
   }, [
     artifacts,
     codex,
@@ -1111,10 +1173,14 @@ export function ConversationWorkspace({
     snapshot.items.length,
     sources,
     subagents,
+    terminals,
+    rightVisibility,
+    rightTab,
   ])
 
+  const rightTabs = panelTabs.filter((tab) => openRightTabs.includes(tab.id))
   const launcherItems = panelTabs.map<ChatPanelLauncherItem>((tab) => ({
-    disabled: tab.id === rightTab,
+    disabled: openRightTabs.includes(tab.id),
     icon: tab.icon,
     id: tab.id,
     label: tab.title,
@@ -1178,6 +1244,7 @@ export function ConversationWorkspace({
       queryClient.invalidateQueries({ queryKey: ["codex", "permissions"] }),
     ])
   }
+  const oppositeFollowUp = useRef(false)
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     const text = composer.trim()
@@ -1185,12 +1252,17 @@ export function ConversationWorkspace({
     const submittedAttachments = attachments
     setComposer("")
     setAttachments([])
+    const queuePreferred =
+      (desktopPreferences?.followUpQueueMode === "queue") !== oppositeFollowUp.current
+    oppositeFollowUp.current = false
     const mode: ConversationSubmitMode = busy
-      ? snapshot.thread?.capabilities.steer
-        ? "steer"
-        : codex
-          ? "queue"
-          : "send"
+      ? queuePreferred && codex
+        ? "queue"
+        : snapshot.thread?.capabilities.steer
+          ? "steer"
+          : codex
+            ? "queue"
+            : "send"
       : "send"
     try {
       await controller.submit(
@@ -1217,12 +1289,33 @@ export function ConversationWorkspace({
   const rightPanel = codex ? (
     <ChatPanel
       activeTabId={rightTab}
-      actions={null}
+      actions={
+        <ChatPanelToggle
+          label={
+            rightFullscreen
+              ? i18n._(msg({ id: "chat.workspace.exitFullscreen", message: "Exit full screen" }))
+              : i18n._(msg({ id: "chat.workspace.enterFullscreen", message: "Enter full screen" }))
+          }
+          onClick={() => setRightFullscreen((value) => !value)}
+          panel="right"
+          pressed={rightFullscreen}
+          tooltip={
+            rightFullscreen
+              ? i18n._(msg({ id: "chat.workspace.exitFullscreen", message: "Exit full screen" }))
+              : i18n._(msg({ id: "chat.workspace.enterFullscreen", message: "Enter full screen" }))
+          }
+        >
+          {rightFullscreen ? <CollapseIcon /> : <ExpandIcon />}
+        </ChatPanelToggle>
+      }
       closeTabLabel={(tab) =>
         `${i18n._(msg({ id: "common.close", message: "Close" }))} ${String(tab.title)}`
       }
-      headerClassName="border-b-0"
-      hideLabel={i18n._(msg({ id: "chat.workspace.hideSidePanel", message: "Hide side panel" }))}
+      emptyState={
+        <ChatPanelEmptyState>
+          <Trans id="chat.panel.empty">Open a panel tab to inspect task context</Trans>
+        </ChatPanelEmptyState>
+      }
       launcher={
         <ChatPanelLauncher
           items={launcherItems}
@@ -1230,16 +1323,23 @@ export function ConversationWorkspace({
             msg({ id: "chat.workspace.openSidePanelTab", message: "Open side panel tab" })
           )}
           onLaunch={(id) => {
+            setOpenRightTabs((current) => (current.includes(id) ? current : [...current, id]))
             setRightTab(id)
             setRightVisibility("visible")
           }}
         />
       }
       onActiveTabChange={setRightTab}
-      onMoveTab={() => setBottomVisibility("visible")}
-      onVisibilityChange={setRightVisibility}
+      onCloseTab={(id) => {
+        const closedIndex = rightTabs.findIndex((tab) => tab.id === id)
+        const nextTabs = rightTabs.filter((tab) => tab.id !== id)
+        setOpenRightTabs((current) => current.filter((tabId) => tabId !== id))
+        if (rightTab === id) {
+          setRightTab(nextTabs[Math.min(closedIndex, nextTabs.length - 1)]?.id)
+        }
+      }}
       placement="right"
-      tabs={panelTabs}
+      tabs={rightTabs}
       tabsLabel={i18n._(msg({ id: "chat.workspace.sidePanelTabs", message: "Side panel tabs" }))}
       visibility={rightVisibility}
       workspaceHeader
@@ -1247,15 +1347,26 @@ export function ConversationWorkspace({
   ) : null
 
   const header = (
-    <ChatHeader reserveFixedActions>
+    <ChatHeader
+      className="desktop-titlebar overflow-hidden"
+      reserveFixedActions={!codex || !(wideViewport && rightVisibility === "visible")}
+    >
       <ChatHeaderBreadcrumb>
-        <span>{agentId}</span>
-        <span aria-hidden="true">•</span>
+        <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+          <AgentIcon className="size-3.5" />
+        </span>
+        <ChatHeaderTitle>
+          {snapshot.thread?.title ?? i18n._(msg({ id: "chat.newTask", message: "New task" }))}
+        </ChatHeaderTitle>
       </ChatHeaderBreadcrumb>
-      <ChatHeaderTitle>
-        {snapshot.thread?.title ?? i18n._(msg({ id: "chat.newTask", message: "New task" }))}
-      </ChatHeaderTitle>
-      <ChatHeaderStatus state={snapshot.error ? "error" : busy ? "running" : "idle"}>
+      <span className="hidden shrink truncate text-xs text-muted-foreground sm:inline">
+        {project?.name ?? agentId}
+      </span>
+      <ChatHeaderStatus
+        className="hidden lg:flex"
+        state={snapshot.error ? "error" : busy ? "running" : "idle"}
+      >
+        <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
         {snapshot.error
           ? snapshot.error.message
           : busy
@@ -1269,11 +1380,13 @@ export function ConversationWorkspace({
     <ChatWorkspaceShell
       allowRightPanelFullscreen={codex}
       bottomPanel={
-        <WorkspaceTerminalView
-          controller={terminals}
-          onHide={() => setBottomVisibility("hidden")}
-          placement="bottom"
-        />
+        bottomVisibility === "visible" ? (
+          <WorkspaceTerminalView
+            controller={terminals}
+            onHide={() => setBottomVisibility("hidden")}
+            placement="bottom"
+          />
+        ) : null
       }
       bottomPanelVisibility={bottomVisibility}
       bottomPanelResizeLabel={i18n._(
@@ -1281,49 +1394,53 @@ export function ConversationWorkspace({
       )}
       fixedHeaderActions={
         <>
-          {codex ? (
+          {workspaceLayout?.showBottomPanelControl !== false ? (
             <ChatPanelToggle
-              label={
-                rightFullscreen
-                  ? i18n._(
-                      msg({ id: "chat.workspace.exitFullscreen", message: "Exit full screen" })
-                    )
-                  : i18n._(
-                      msg({ id: "chat.workspace.enterFullscreen", message: "Enter full screen" })
-                    )
-              }
+              label={i18n._(
+                msg({ id: "chat.workspace.toggleBottomPanel", message: "Toggle bottom panel" })
+              )}
               onClick={() => {
-                setRightVisibility("visible")
-                setRightFullscreen((value) => !value)
+                if (workspaceLayout?.defaultTerminalLocation === "right" && codex) {
+                  setBottomVisibility("hidden")
+                  setOpenRightTabs((current) =>
+                    current.includes("terminal") ? current : [...current, "terminal"]
+                  )
+                  setRightTab("terminal")
+                  setRightVisibility("visible")
+                } else {
+                  if (rightTab === "terminal") setRightVisibility("hidden")
+                  setBottomVisibility((value) => (value === "visible" ? "hidden" : "visible"))
+                }
               }}
-              panel="right"
-              pressed={rightFullscreen}
+              panel="bottom"
+              pressed={
+                workspaceLayout?.defaultTerminalLocation === "right"
+                  ? rightVisibility === "visible" && rightTab === "terminal"
+                  : bottomVisibility === "visible"
+              }
+              tooltip={i18n._(
+                msg({ id: "chat.workspace.toggleBottomPanel", message: "Toggle bottom panel" })
+              )}
             >
-              {rightFullscreen ? <CloseBoldIcon /> : <SidebarRightIcon />}
+              <DockIcon />
             </ChatPanelToggle>
           ) : null}
-          <ChatPanelToggle
-            label={i18n._(
-              msg({ id: "chat.workspace.toggleBottomPanel", message: "Toggle bottom panel" })
-            )}
-            onClick={() =>
-              setBottomVisibility((value) => (value === "visible" ? "hidden" : "visible"))
-            }
-            panel="bottom"
-            pressed={bottomVisibility === "visible"}
-          >
-            <DockIcon />
-          </ChatPanelToggle>
           {codex ? (
             <ChatPanelToggle
               label={i18n._(
                 msg({ id: "chat.workspace.toggleSidePanel", message: "Toggle side panel" })
               )}
-              onClick={() =>
-                setRightVisibility((value) => (value === "visible" ? "hidden" : "visible"))
-              }
+              onClick={() => {
+                if (rightVisibility === "visible") {
+                  setRightFullscreen(false)
+                  setRightVisibility("hidden")
+                } else setRightVisibility("visible")
+              }}
               panel="right"
-              pressed={rightVisibility === "visible"}
+              pressed={wideViewport && rightVisibility === "visible"}
+              tooltip={i18n._(
+                msg({ id: "chat.workspace.toggleSidePanel", message: "Toggle side panel" })
+              )}
             >
               <SidebarRightIcon />
             </ChatPanelToggle>
@@ -1333,17 +1450,12 @@ export function ConversationWorkspace({
       header={header}
       onBottomPanelVisibilityChange={setBottomVisibility}
       onRightPanelFullscreenChange={setRightFullscreen}
-      rightPanel={rightPanel}
+      rightPanel={wideViewport ? rightPanel : undefined}
       rightPanelFullscreen={rightFullscreen}
       rightPanelResizeLabel={i18n._(
         msg({ id: "chat.workspace.resizeSidePanel", message: "Resize side panel" })
       )}
-      rightPanelVisibility={codex ? rightVisibility : "closed"}
-      style={
-        {
-          "--chat-fixed-header-actions-width": codex ? "7rem" : "2.5rem",
-        } as CSSProperties
-      }
+      rightPanelVisibility={codex && wideViewport ? rightVisibility : "closed"}
     >
       <ChatMainColumn>
         <VirtualTimeline
@@ -1434,6 +1546,36 @@ export function ConversationWorkspace({
                       msg({ id: "chat.prompt.label", message: "Message Cypheria" })
                     )}
                     onChange={(event) => setComposer(event.currentTarget.value)}
+                    onPaste={(event) => {
+                      if (desktopPreferences?.composerPlainTextMode) return
+                      const url = event.clipboardData.getData("text/plain").trim()
+                      const field = event.currentTarget
+                      const selected = field.value.slice(field.selectionStart, field.selectionEnd)
+                      if (!selected || !/^https?:\/\/\S+$/u.test(url)) return
+                      event.preventDefault()
+                      setComposer(
+                        `${field.value.slice(0, field.selectionStart)}[${selected}](${url})${field.value.slice(field.selectionEnd)}`
+                      )
+                    }}
+                    onKeyDown={(event) => {
+                      if (event.key !== "Enter" || event.nativeEvent.isComposing) return
+                      if (event.shiftKey && (event.metaKey || event.ctrlKey)) {
+                        event.preventDefault()
+                        oppositeFollowUp.current = true
+                        event.currentTarget.form?.requestSubmit()
+                      } else if (
+                        desktopPreferences?.composerEnterBehavior !== "enter" &&
+                        (event.metaKey || event.ctrlKey)
+                      ) {
+                        event.preventDefault()
+                        event.currentTarget.form?.requestSubmit()
+                      }
+                    }}
+                    submitOnEnter={
+                      desktopPreferences?.composerEnterBehavior !== "cmdAlways" &&
+                      (desktopPreferences?.composerEnterBehavior !== "cmdIfMultiline" ||
+                        !composer.includes("\n"))
+                    }
                     placeholder={
                       busy
                         ? i18n._(
@@ -1559,6 +1701,14 @@ export function ConversationWorkspace({
                             ))}
                         </SelectContent>
                       </Select>
+                    ) : null}
+                    {desktopPreferences?.showContextWindowUsage && contextUsage ? (
+                      <ChatComposerMeter
+                        detail={`${contextUsage.tokens.toLocaleString()} / ${contextUsage.max.toLocaleString()} tokens`}
+                        label="Context window"
+                        max={contextUsage.max}
+                        value={contextUsage.tokens}
+                      />
                     ) : null}
                     {usageQuery.data?.threadUsage ? (
                       <ChatComposerMeter

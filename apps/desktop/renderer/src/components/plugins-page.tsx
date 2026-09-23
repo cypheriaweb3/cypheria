@@ -59,6 +59,7 @@ import {
   openAiPopularPlugins,
   pluginsInOpenAiCategory,
 } from "./openai-plugin-directory"
+import { PageHeader } from "./page-header"
 import { isRemotePluginCatalogAuthError } from "./plugin-catalog-auth"
 import {
   AddMcpDialog,
@@ -601,7 +602,7 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
         }}
         integrations={integrations}
       />
-      <header className="desktop-titlebar flex h-11 shrink-0 items-center justify-between gap-3 px-4">
+      <PageHeader>
         {selected ? (
           <nav aria-label="Breadcrumb" className="flex items-center gap-3 text-sm">
             <button
@@ -646,7 +647,7 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
             {AddMenu}
           </div>
         )}
-      </header>
+      </PageHeader>
       <div className="relative min-h-0 flex-1 overflow-y-auto">
         {selected && detailQuery.isPending ? (
           <div

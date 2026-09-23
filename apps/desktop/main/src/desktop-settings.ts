@@ -5,6 +5,7 @@ import { z } from "zod"
 
 import {
   AppearanceSettingsWriteSchema,
+  DesktopPreferencesWriteSchema,
   LanguageSettingsWriteSchema,
   WorkspaceLayoutSettingsWriteSchema,
 } from "../../ipc/src/index.js"
@@ -50,12 +51,32 @@ export const defaultWorkspaceLayoutSettings = WorkspaceLayoutSettingsWriteSchema
   showBottomPanelControl: true,
 })
 
+export const defaultDesktopPreferences = DesktopPreferencesWriteSchema.parse({
+  projectlessWorkspaceRoot: null,
+  openInTargetPreference: "system",
+  macMenuBarEnabled: process.platform === "darwin",
+  preventSleepWhileRunning: false,
+  pluginsEnabled: true,
+  composerPlainTextMode: false,
+  showContextWindowUsage: false,
+  composerEnterBehavior: "enter",
+  followUpQueueMode: "steer",
+  hotkeyWindowHotkey: null,
+  hotkeyWindowProjectlessDefaultEnabled: false,
+  notificationsTurnMode: "unfocused",
+  notificationsPermissionsEnabled: true,
+  notificationsQuestionsEnabled: true,
+  notificationSound: "default",
+  notificationCustomSoundPath: null,
+})
+
 const DesktopSettingsDocumentSchema = z
   .object({
     version: z.literal(1),
     appearance: AppearanceSettingsWriteSchema,
     language: LanguageSettingsWriteSchema,
     workspaceLayout: WorkspaceLayoutSettingsWriteSchema,
+    preferences: DesktopPreferencesWriteSchema.default(defaultDesktopPreferences),
     server: z
       .object({
         autoStart: z.boolean(),
@@ -75,12 +96,13 @@ export const defaultDesktopSettings: DesktopSettingsDocument = {
   appearance: defaultAppearanceSettings,
   language: { preference: "system" },
   workspaceLayout: defaultWorkspaceLayoutSettings,
+  preferences: defaultDesktopPreferences,
   server: { autoStart: true, executablePath: null, preferredPort: null },
   window: { maximized: false },
   behavior: { automaticUpdates: true, soundsEnabled: true },
 }
 
-const settingsFileName = "desktop-settings.json"
+const settingsFileName = "config.json"
 const writeQueues = new Map<string, Promise<unknown>>()
 
 export const getDesktopSettingsPath = (userDataDir: string): string =>

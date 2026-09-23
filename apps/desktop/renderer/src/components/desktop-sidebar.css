@@ -16,7 +16,7 @@
 }
 @media (min-width: 768px) {
   /* The fixed divider is revealed underneath the retracting sidebar. */
-  .desktop-shell::after {
+  .desktop-shell:has(.desktop-titlebar)::after {
     content: "";
     position: fixed;
     top: calc(var(--chrome-height) - 1px);
@@ -127,10 +127,6 @@
   .desktop-shell[data-preview="true"] .desktop-collapsed-tools .collapsed-secondary {
     opacity: 0;
     pointer-events: none;
-  }
-  .desktop-shell .main-panel > :not(.desktop-collapsed-tools):not(:has(.desktop-titlebar)) {
-    margin-top: var(--chrome-height);
-    max-height: calc(100vh - var(--chrome-height));
   }
   .desktop-titlebar {
     height: var(--chrome-height);

@@ -19,6 +19,16 @@ msgid "search.keyboardHelp"
 msgstr "↑↓ Navigate · Enter Open · Esc Close"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.cmdAlways"
+msgstr "⌘ Enter always"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.cmdIfMultiline"
+msgstr "⌘ Enter for multiline prompts"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.interaction.actionRequired"
 msgstr "Action required"
@@ -44,9 +54,19 @@ msgid "settings.agentHarnesses"
 msgstr "Agent harnesses"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.pluginsDescription"
+msgstr "Allow ChatGPT to use installed plugins"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.interaction.allowOnce"
 msgstr "Allow once"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.alwaysOption"
+msgstr "Always"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -187,8 +207,23 @@ msgstr "Choose a folder and enter a project name."
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
+msgid "settings.general.chooseCustomSound"
+msgstr "Choose custom sound…"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.sendShortcutDescription"
+msgstr "Choose when Enter sends a prompt or inserts a new line"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
 msgid "settings.workspace.terminalLocation.description"
 msgstr "Choose where the terminal opens when using the panel control or shortcut"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.chooseFolder"
+msgstr "Choose…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -219,6 +254,11 @@ msgstr "Command"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.state.completed"
 msgstr "Completed"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.composerSection"
+msgstr "Composer"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -292,6 +332,11 @@ msgstr "Decline"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
+msgid "settings.general.openDestination"
+msgstr "Default file open destination"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
 msgid "settings.workspace.terminalLocation.title"
 msgstr "Default terminal location"
 
@@ -299,6 +344,11 @@ msgstr "Default terminal location"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.workspace.terminalLocation.label"
 msgstr "Default terminal location"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.standaloneChat"
+msgstr "Default to standalone chat"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
@@ -328,7 +378,6 @@ msgstr "Deny"
 #. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
 #: renderer/src/i18n.test.ts
-#: renderer/src/routes/settings.general.tsx
 msgid "settings.language.label"
 msgstr "Display language"
 
@@ -361,6 +410,21 @@ msgstr "Edit project"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.editSection"
 msgstr "Edit section"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.permissionNotifications"
+msgstr "Enable permission notifications"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.questionNotifications"
+msgstr "Enable question notifications"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.enterOption"
+msgstr "Enter"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -418,6 +482,11 @@ msgid "chat.panel.files"
 msgstr "Files"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.followUp"
+msgstr "Follow-up behavior"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.forkChat"
 msgstr "Fork chat"
@@ -458,11 +527,6 @@ msgid "chat.workspace.hideBottomPanel"
 msgstr "Hide bottom panel"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.workspace.hideSidePanel"
-msgstr "Hide side panel"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.hideTerminalPanel"
 msgstr "Hide terminal panel"
@@ -488,9 +552,29 @@ msgid "settings.group.integrations"
 msgstr "Integrations"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.menuBarDescription"
+msgstr "Keep ChatGPT in the macOS menu bar when the main window is closed"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.plainTextDescription"
+msgstr "Keep code, Markdown, and links as literal text while writing messages"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.renameChatDescription"
 msgstr "Keep the title short and recognizable."
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.preventSleepDescription"
+msgstr "Keep your computer awake while ChatGPT is running a task"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.languageLabel"
+msgstr "Language"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -696,9 +780,34 @@ msgid "chat.panel.subagents.empty"
 msgstr "No subagents have been used"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.notificationSound"
+msgstr "Notification sound"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.notificationsSection"
+msgstr "Notifications"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.offOption"
+msgstr "Off"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.empty"
+msgstr "Open a panel tab to inspect task context"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.openBottomPanelTab"
 msgstr "Open bottom panel tab"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.openProjectFolder"
+msgstr "Open project folder"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -716,13 +825,13 @@ msgid "chat.tool.output"
 msgstr "Output"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.state.pending"
+#: renderer/src/components/chat-sidebar.tsx
+msgid "navigation.pending"
 msgstr "Pending"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.pending"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.state.pending"
 msgstr "Pending"
 
 #. js-lingui-explicit-id
@@ -746,9 +855,19 @@ msgid "navigation.pinned"
 msgstr "Pinned"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.plainText"
+msgstr "Plain text composer"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.plan"
 msgstr "Plan"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.plugins"
+msgstr "Plugins"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -761,9 +880,29 @@ msgid "navigation.pluginsAndSkills"
 msgstr "Plugins & skills"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.popoutSection"
+msgstr "Popout Window"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.popoutHotkey"
+msgstr "Popout Window hotkey"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
 msgid "settings.preferences.title"
 msgstr "Preferences"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.hotkeyCapturePrompt"
+msgstr "Press shortcut…"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.preventSleep"
+msgstr "Prevent sleep while running"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -791,9 +930,24 @@ msgid "chat.project.namePlaceholder"
 msgstr "My project"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.projectlessFolder"
+msgstr "Projectless task folder"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.projects"
 msgstr "Projects"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.queueOption"
+msgstr "Queue"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.followUpDescription"
+msgstr "Queue follow-ups while ChatGPT runs or steer the current run. Press ⇧⌘⏎ to do the opposite for one message"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -884,11 +1038,6 @@ msgstr "Restore chat"
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.description"
 msgstr "Restore chats to the sidebar or permanently delete ones you no longer need."
-
-#. js-lingui-explicit-id
-#: renderer/src/components/chat-sidebar.tsx
-msgid "navigation.revealProject"
-msgstr "Reveal in Finder"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -982,6 +1131,21 @@ msgid "chat.prompt.send"
 msgstr "Send"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.sendShortcut"
+msgstr "Send shortcut"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.popoutHotkeyDescription"
+msgstr "Set a global shortcut for Popout Window. Leave unset to keep it off."
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.turnNotificationsDescription"
+msgstr "Set when ChatGPT alerts you that it's finished"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.title"
 msgstr "Settings"
@@ -993,14 +1157,39 @@ msgstr "Show a quick terminal panel control in the chat title bar"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
+msgid "settings.general.questionNotificationsDescription"
+msgstr "Show alerts when input is needed to continue"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.permissionNotificationsDescription"
+msgstr "Show alerts when notification permissions are required"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
 msgid "settings.workspace.bottomPanelControl.toggle"
 msgstr "Show bottom panel control in the app title bar"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.contextUsage"
+msgstr "Show context window usage"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.menuBar"
+msgstr "Show in menu bar"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 #: renderer/src/routes/settings.archived.tsx
 msgid "navigation.showMore"
 msgstr "Show more"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.contextUsageDescription"
+msgstr "Show token usage in the composer"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1018,6 +1207,11 @@ msgid "navigation.sortChatsBy"
 msgstr "Sort chats by"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.notificationSoundDescription"
+msgstr "Sound for task completion, permission requests, and questions"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
 msgid "chat.project.sourceFolders"
 msgstr "Source folders"
@@ -1031,6 +1225,16 @@ msgstr "Sources"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.empty.start"
 msgstr "Start a conversation"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.standaloneChatDescription"
+msgstr "Start new chats outside of any project"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.steerOption"
+msgstr "Steer"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1058,6 +1262,11 @@ msgid "chat.panel.summary"
 msgstr "Summary"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.terminal"
+msgstr "Terminal"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.terminalTabs"
 msgstr "Terminal tabs"
@@ -1066,6 +1275,11 @@ msgstr "Terminal tabs"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.archiveChatDescription"
 msgstr "The chat will move to Archived chats."
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.projectlessFolderDescription"
+msgstr "The location where tasks started outside of projects store their data by default."
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
@@ -1096,6 +1310,11 @@ msgstr "Toggle side panel"
 #: renderer/src/components/chat-search.tsx
 msgid "search.tryAgain"
 msgstr "Try again"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.turnNotifications"
+msgstr "Turn completion notifications"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1136,6 +1355,16 @@ msgstr "View"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.wallets"
 msgstr "Wallets & assets"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.unfocusedOption"
+msgstr "When unfocused"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.general.tsx
+msgid "settings.general.openDestinationDescription"
+msgstr "Where files and folders open by default"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx

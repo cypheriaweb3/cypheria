@@ -48,6 +48,10 @@ export interface McpActions {
   ): Promise<void>
 }
 export interface PluginActions {
+  setGlobalEnabled(
+    input: Payload<"integration.plugin.set-global-enabled.request">,
+    options?: RequestOptions
+  ): Promise<void>
   install(
     input: Payload<"integration.plugin.install.request">,
     options?: RequestOptions
@@ -139,6 +143,8 @@ export const createIntegrationActions = (client: ServerClient): IntegrationActio
         mutation("integration.mcp.set-enabled.request", input, options),
     },
     plugins: {
+      setGlobalEnabled: (input, options) =>
+        mutation("integration.plugin.set-global-enabled.request", input, options),
       install: (input, options) => request("integration.plugin.install.request", input, options),
       list: (input, options) => request("integration.plugin.list.request", input, options),
       read: (input, options) => request("integration.plugin.read.request", input, options),

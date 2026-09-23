@@ -4,6 +4,29 @@ import type { AgentManager } from "./agent/agent-manager.js"
 import { IntegrationService } from "./integration-service.js"
 
 describe("IntegrationService", () => {
+  it("updates Codex's process-wide plugins feature", async () => {
+    const callCodex = vi.fn(async () => ({ enablement: { plugins: false } }))
+    const service = new IntegrationService({ callCodex } as unknown as AgentManager)
+    const send = vi.fn()
+    await service.handle(
+      {
+        payload: { agentId: "codex", enabled: false },
+        requestId: "req_plugins_global",
+        type: "integration.plugin.set-global-enabled.request",
+      },
+      send
+    )
+    expect(callCodex).toHaveBeenCalledWith("experimentalFeature/enablement/set", {
+      enablement: { plugins: false },
+    })
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: { ok: true, value: { succeeded: true } },
+        type: "integration.plugin.set-global-enabled.response",
+      })
+    )
+  })
+
   it("projects Codex skills with compatibility and harness provenance", async () => {
     const callCodex = vi.fn(async () => ({
       data: [

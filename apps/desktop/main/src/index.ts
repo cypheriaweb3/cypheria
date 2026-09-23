@@ -1,18 +1,27 @@
-import { randomUUID } from "node:crypto"
+import { type ChildProcess, execFile } from "node:child_process"
+import { createHash, randomUUID } from "node:crypto"
 import { existsSync, mkdirSync } from "node:fs"
-import { dirname, join, relative, resolve } from "node:path"
+import { copyFile, mkdir } from "node:fs/promises"
+import { homedir } from "node:os"
+import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
+import { promisify } from "node:util"
 import { type CypheriaClient, createCypheriaClient } from "@cypheria/client"
 import {
   app,
   BrowserWindow,
   dialog,
+  globalShortcut,
   Menu,
+  Notification,
+  nativeImage,
   nativeTheme,
   net,
+  powerSaveBlocker,
   protocol,
   session,
   shell,
+  Tray,
 } from "electron"
 import {
   type AppearanceSettings,
@@ -24,12 +33,15 @@ import {
   appExternalOpenContract,
   appHealthCheckContract,
   appMetadataReadContract,
+  appProjectOpenContract,
   appProjectRevealContract,
+  appSoundPickContract,
   browserSessionOpenContract,
   CYPHERIA_APPEARANCE_ARGUMENT_PREFIX,
   CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX,
   CYPHERIA_IPC_CHANNELS,
   CYPHERIA_LANGUAGE_ARGUMENT_PREFIX,
+  type DesktopPreferences,
   dappProviderRequestContract,
   IPC_PROTOCOL_VERSION,
   settingsAppearanceFontsListContract,
@@ -40,6 +52,11 @@ import {
   settingsConnectionProxyWriteContract,
   settingsLanguageReadContract,
   settingsLanguageWriteContract,
+  settingsNotificationSoundPreviewContract,
+  settingsNotificationSoundsListContract,
+  settingsOpenTargetsListContract,
+  settingsPreferencesReadContract,
+  settingsPreferencesWriteContract,
   settingsWorkspaceLayoutReadContract,
   settingsWorkspaceLayoutWriteContract,
 } from "../../ipc/src/index.js"
@@ -59,9 +76,12 @@ import {
 } from "./dapp-browser.js"
 import { registerIpcRoute } from "./ipc.js"
 import { readLanguageSettings, writeLanguageSettings } from "./language-config.js"
+import { getOpenTargetApplication, listOpenTargets } from "./open-targets.js"
+import { readDesktopPreferences, writeDesktopPreferences } from "./preferences-config.js"
 import { resolveGeneratedImageProtocolPath } from "./renderer-protocol.js"
 import { DesktopServerManager } from "./server-manager.js"
 import { listSystemFonts } from "./system-fonts.js"
+import { findSystemNotificationSoundFile, listSystemNotificationSounds } from "./system-sounds.js"
 import {
   readWorkspaceLayoutSettings,
   writeWorkspaceLayoutSettings,
@@ -80,6 +100,92 @@ let desktopClient: CypheriaClient | null = null
 let desktopRuntimePaths: DesktopAppPaths | null = null
 let desktopServerManager: DesktopServerManager | null = null
 let currentAppearanceSettings: AppearanceSettings | null = null
+let currentPreferences: DesktopPreferences | null = null
+let menuBarTray: Tray | null = null
+let popoutWindow: BrowserWindow | null = null
+let registeredPopoutHotkey: string | null = null
+let sleepBlockerId: number | null = null
+let currentSoundPreview: ChildProcess | null = null
+const runningThreadIds = new Set<string>()
+const notificationSounds = {
+  default: "cypheria-notification",
+  classic: "cypheria-classic",
+} as const
+const customSoundName = (path: string): string =>
+  `cypheria-custom-${createHash("sha256").update(path).digest("hex").slice(0, 16)}`
+
+const selectedNotificationSound = (preferences: DesktopPreferences | null): string | undefined => {
+  switch (preferences?.notificationSound) {
+    case "default":
+    case "classic":
+      return notificationSounds[preferences.notificationSound]
+    case "custom":
+      return preferences.notificationCustomSoundPath
+        ? customSoundName(preferences.notificationCustomSoundPath)
+        : undefined
+    default:
+      return preferences?.notificationSound === "none" ? undefined : preferences?.notificationSound
+  }
+}
+
+const stageNotificationSounds = async (preferences: DesktopPreferences): Promise<void> => {
+  if (process.platform !== "darwin") return
+  const sourceDirectory = isPackagedRuntime
+    ? join(process.resourcesPath, "sounds")
+    : join(currentDir, "../../resources/sounds")
+  const destinationDirectory = join(homedir(), "Library", "Sounds")
+  await mkdir(destinationDirectory, { recursive: true })
+  await Promise.all(
+    Object.values(notificationSounds).map((name) =>
+      copyFile(join(sourceDirectory, `${name}.wav`), join(destinationDirectory, `${name}.wav`))
+    )
+  )
+  if (preferences.notificationSound === "custom") {
+    const path = preferences.notificationCustomSoundPath
+    if (
+      !path ||
+      !isAbsolute(path) ||
+      ![".wav", ".aiff", ".aif", ".caf"].includes(extname(path).toLowerCase())
+    ) {
+      throw new Error("Choose a WAV, AIFF, or CAF sound file")
+    }
+    await copyFile(
+      path,
+      join(destinationDirectory, `${customSoundName(path)}${extname(path).toLowerCase()}`)
+    )
+  }
+}
+
+const previewNotificationSound = async (): Promise<{ played: boolean }> => {
+  currentSoundPreview?.kill()
+  currentSoundPreview = null
+  const preferences = currentPreferences
+  if (process.platform !== "darwin" || !preferences || preferences.notificationSound === "none") {
+    return { played: false }
+  }
+
+  const sound = preferences.notificationSound
+  const file =
+    sound === "default" || sound === "classic"
+      ? join(homedir(), "Library", "Sounds", `${notificationSounds[sound]}.wav`)
+      : sound === "custom"
+        ? preferences.notificationCustomSoundPath
+        : await findSystemNotificationSoundFile(sound)
+  if (!file || !existsSync(file))
+    throw new Error(`Notification sound file is unavailable: ${sound}`)
+
+  await new Promise<void>((resolve, reject) => {
+    const preview = execFile("afplay", [file], () => {})
+    currentSoundPreview = preview
+    preview.once("spawn", resolve)
+    preview.once("error", reject)
+    preview.once("close", () => {
+      if (currentSoundPreview === preview) currentSoundPreview = null
+    })
+  })
+  return { played: true }
+}
+const execFileAsync = promisify(execFile)
 let currentConnectionProxySettings: import("../../ipc/src/index.js").ConnectionProxySettings = {
   mode: "system",
 }
@@ -183,6 +289,144 @@ const getRendererUrl = (): string | undefined => {
   return rendererUrl ? rendererUrl : undefined
 }
 
+const focusMainWindow = (): void => {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+}
+
+const openPopoutWindow = async (): Promise<void> => {
+  if (popoutWindow && !popoutWindow.isDestroyed()) {
+    popoutWindow.focus()
+    return
+  }
+  const appearance = await readAppearanceSettings(app.getPath("userData"))
+  const language = await readLanguageSettings(
+    app.getPath("userData"),
+    app.getPreferredSystemLanguages()
+  )
+  const url = new URL("/", getRendererUrl() ?? "cypheria://app/")
+  if (!currentPreferences?.hotkeyWindowProjectlessDefaultEnabled && mainWindow) {
+    const projectId = new URL(mainWindow.webContents.getURL()).searchParams.get("project")
+    if (projectId) url.searchParams.set("project", projectId)
+  }
+  const window = new BrowserWindow({
+    width: 520,
+    height: 680,
+    minWidth: 400,
+    minHeight: 450,
+    title: "Cypheria",
+    backgroundColor: getActiveChromeTheme(appearance).surface,
+    webPreferences: {
+      additionalArguments: [
+        `${CYPHERIA_APPEARANCE_ARGUMENT_PREFIX}${encodeURIComponent(JSON.stringify(toAppearanceBootstrap(appearance)))}`,
+        `${CYPHERIA_LANGUAGE_ARGUMENT_PREFIX}${encodeURIComponent(JSON.stringify({ locale: language.locale, preference: language.preference }))}`,
+        `${CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX}${isDevelopmentShell ? "1" : "0"}`,
+      ],
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: preloadPath,
+      sandbox: true,
+      webSecurity: true,
+    },
+  })
+  popoutWindow = window
+  window.on("closed", () => {
+    if (popoutWindow === window) popoutWindow = null
+  })
+  await window.loadURL(url.toString())
+  window.show()
+}
+
+const syncSleepBlocker = (): void => {
+  if (currentPreferences?.preventSleepWhileRunning && runningThreadIds.size > 0) {
+    sleepBlockerId ??= powerSaveBlocker.start("prevent-app-suspension")
+  } else if (sleepBlockerId !== null) {
+    powerSaveBlocker.stop(sleepBlockerId)
+    sleepBlockerId = null
+  }
+}
+
+const applyDesktopPreferences = (preferences: DesktopPreferences): void => {
+  const nextHotkey = preferences.hotkeyWindowHotkey
+  if (nextHotkey !== registeredPopoutHotkey) {
+    if (registeredPopoutHotkey) globalShortcut.unregister(registeredPopoutHotkey)
+    registeredPopoutHotkey = null
+    if (nextHotkey) {
+      if (
+        !globalShortcut.register(nextHotkey, () => void openPopoutWindow().catch(logFatalError))
+      ) {
+        throw new Error(`Could not register the Popout Window hotkey: ${nextHotkey}`)
+      }
+      registeredPopoutHotkey = nextHotkey
+    }
+  }
+  currentPreferences = preferences
+  if (process.platform === "darwin") {
+    if (preferences.macMenuBarEnabled && !menuBarTray) {
+      const icon = nativeImage.createFromPath(applicationIconPath).resize({ width: 18, height: 18 })
+      menuBarTray = new Tray(icon)
+      menuBarTray.setToolTip("Cypheria")
+      menuBarTray.setContextMenu(
+        Menu.buildFromTemplate([
+          { label: "Open Cypheria", click: focusMainWindow },
+          { type: "separator" },
+          { label: "Quit Cypheria", click: () => app.quit() },
+        ])
+      )
+      menuBarTray.on("click", focusMainWindow)
+    } else if (!preferences.macMenuBarEnabled && menuBarTray) {
+      menuBarTray.destroy()
+      menuBarTray = null
+    }
+  }
+  syncSleepBlocker()
+}
+
+const subscribeToDesktopThreadEvents = (client: CypheriaClient): void => {
+  const showNotification = (title: string, body: string): void => {
+    if (!Notification.isSupported()) return
+    const notification = new Notification({
+      title,
+      body,
+      silent: currentPreferences?.notificationSound === "none",
+      sound: selectedNotificationSound(currentPreferences),
+    })
+    notification.on("click", focusMainWindow)
+    notification.show()
+  }
+  client.on("thread.updated.notification", ({ payload }) => {
+    const wasRunning = runningThreadIds.has(payload.id)
+    const isRunning = payload.state === "running" || payload.state === "starting"
+    if (isRunning) runningThreadIds.add(payload.id)
+    else runningThreadIds.delete(payload.id)
+    syncSleepBlocker()
+    if (
+      wasRunning &&
+      !isRunning &&
+      payload.state === "idle" &&
+      currentPreferences?.notificationsTurnMode !== "off" &&
+      (currentPreferences?.notificationsTurnMode === "always" || !BrowserWindow.getFocusedWindow())
+    ) {
+      showNotification("Task complete", payload.title ?? "Your task is ready")
+    }
+  })
+  client.on("thread.interaction.requested.notification", ({ payload }) => {
+    if (
+      payload.interaction.kind === "permission" &&
+      currentPreferences?.notificationsPermissionsEnabled
+    ) {
+      showNotification("Permission required", "A task is waiting for your approval")
+    } else if (
+      payload.interaction.kind !== "permission" &&
+      currentPreferences?.notificationsQuestionsEnabled
+    ) {
+      showNotification("Input needed", "A task is waiting for your response")
+    }
+  })
+}
+
 const registerRendererProtocol = (codexHome: string): void => {
   const generatedImagesDir = join(codexHome, "generated_images")
   protocol.handle("cypheria", (request) => {
@@ -229,6 +473,14 @@ const registerIpcHandlers = (paths: DesktopAppPaths, client: CypheriaClient): vo
     })
     return { path: result.canceled ? null : (result.filePaths[0] ?? null) }
   })
+  registerIpcRoute(appSoundPickContract, async () => {
+    const result = await dialog.showOpenDialog({
+      filters: [{ name: "Sound files", extensions: ["wav", "aiff", "aif", "caf"] }],
+      properties: ["openFile"],
+      title: "Choose custom sound",
+    })
+    return { path: result.canceled ? null : (result.filePaths[0] ?? null) }
+  })
   registerIpcRoute(appConfigOpenContract, async () => {
     const result = await shell.openPath(join(paths.configDir, "config.json"))
     if (result) throw new Error(result)
@@ -240,6 +492,24 @@ const registerIpcHandlers = (paths: DesktopAppPaths, client: CypheriaClient): vo
     if (!root) throw new Error("Project folder is unavailable.")
     shell.showItemInFolder(root)
     return { revealed: true }
+  })
+  registerIpcRoute(appProjectOpenContract, async ({ projectId }) => {
+    const project = await client.projects.get(projectId)
+    const root = project.roots[0]
+    if (!root) throw new Error("Project folder is unavailable.")
+    const destination = currentPreferences?.openInTargetPreference ?? "system"
+    if (destination === "reveal") shell.showItemInFolder(root)
+    else if (destination === "system") {
+      const error = await shell.openPath(root)
+      if (error) throw new Error(error)
+    } else {
+      const appName = getOpenTargetApplication(destination)
+      if (!appName || !(await listOpenTargets()).some((target) => target.id === destination)) {
+        throw new Error(`The selected file open destination is unavailable: ${destination}`)
+      }
+      await execFileAsync("open", ["-a", appName, root])
+    }
+    return { opened: true }
   })
   registerIpcRoute(browserSessionOpenContract, ({ url }) => {
     if (!dappBrowserController) throw new Error("The dApp browser is unavailable.")
@@ -283,6 +553,48 @@ const registerIpcHandlers = (paths: DesktopAppPaths, client: CypheriaClient): vo
   registerIpcRoute(settingsWorkspaceLayoutWriteContract, (settings) =>
     writeWorkspaceLayoutSettings(app.getPath("userData"), settings)
   )
+  registerIpcRoute(settingsPreferencesReadContract, () =>
+    readDesktopPreferences(app.getPath("userData"))
+  )
+  registerIpcRoute(settingsOpenTargetsListContract, () => listOpenTargets())
+  registerIpcRoute(settingsNotificationSoundsListContract, () => listSystemNotificationSounds())
+  registerIpcRoute(settingsNotificationSoundPreviewContract, previewNotificationSound)
+  registerIpcRoute(settingsPreferencesWriteContract, async (settings) => {
+    if (
+      !["default", "classic", "none", "custom"].includes(settings.notificationSound) &&
+      !(await listSystemNotificationSounds()).includes(settings.notificationSound)
+    ) {
+      throw new Error(
+        `The selected notification sound is unavailable: ${settings.notificationSound}`
+      )
+    }
+    const previous = currentPreferences
+    const saved = await writeDesktopPreferences(app.getPath("userData"), settings)
+    try {
+      if (saved.projectlessWorkspaceRoot) {
+        await mkdir(saved.projectlessWorkspaceRoot, { recursive: true })
+      }
+      await stageNotificationSounds(saved)
+      applyDesktopPreferences(saved)
+      if (previous?.pluginsEnabled !== saved.pluginsEnabled) {
+        await desktopClient?.integrations.plugins.setGlobalEnabled({
+          agentId: "codex",
+          enabled: saved.pluginsEnabled,
+        })
+      }
+    } catch (error) {
+      if (previous) {
+        const { configPath: _configPath, ...previousWrite } = previous
+        await writeDesktopPreferences(app.getPath("userData"), previousWrite)
+        applyDesktopPreferences(previous)
+      }
+      throw error
+    }
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send(CYPHERIA_IPC_CHANNELS.settingsPreferencesChanged, saved)
+    }
+    return saved
+  })
   registerIpcRoute(settingsConnectionProxyReadContract, () => currentConnectionProxySettings)
   registerIpcRoute(settingsConnectionProxyTestContract, async (settings) => {
     const testSession = session.fromPartition(`proxy-test-${randomUUID()}`, { cache: false })
@@ -531,6 +843,11 @@ const registerLifecycleHandlers = (): void => {
 
   app.on("before-quit", (event) => {
     isQuitting = true
+    globalShortcut.unregisterAll()
+    if (sleepBlockerId !== null) {
+      powerSaveBlocker.stop(sleepBlockerId)
+      sleepBlockerId = null
+    }
     if (shutdownComplete) return
     event.preventDefault()
     if (shutdownPromise) return
@@ -590,6 +907,20 @@ const startDesktopApp = async (): Promise<void> => {
     url: server.url,
   })
   await desktopClient.ensureConnected()
+  currentPreferences = await readDesktopPreferences(app.getPath("userData"))
+  if (currentPreferences.projectlessWorkspaceRoot) {
+    await mkdir(currentPreferences.projectlessWorkspaceRoot, { recursive: true })
+  }
+  await stageNotificationSounds(currentPreferences).catch((error: unknown) => {
+    console.warn("Could not stage notification sounds", error)
+  })
+  await desktopClient.integrations.plugins
+    .setGlobalEnabled({ agentId: "codex", enabled: currentPreferences.pluginsEnabled })
+    .catch((error: unknown) => {
+      console.warn("Could not apply the Codex plugins preference at startup", error)
+    })
+  applyDesktopPreferences(currentPreferences)
+  subscribeToDesktopThreadEvents(desktopClient)
   if (process.platform === "darwin") {
     app.dock?.setIcon(applicationIconPath)
   }

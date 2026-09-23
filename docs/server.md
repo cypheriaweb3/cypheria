@@ -66,7 +66,7 @@ Configuration responses distinguish:
 - paths that require a restart;
 - paths currently controlled by environment overrides.
 
-Desktop appearance, layout, shortcuts, window state, update preferences, and operating-system integration remain in Electron's local `desktop-settings.json`, not Server configuration.
+Desktop appearance, layout, shortcuts, window state, update preferences, and operating-system integration remain in Electron's local `config.json`, not Server configuration.
 
 ## Environment overrides
 

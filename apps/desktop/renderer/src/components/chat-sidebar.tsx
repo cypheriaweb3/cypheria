@@ -551,9 +551,9 @@ export function ChatSidebar({
                     onProjectPin={(project, pinned) =>
                       void moveProjectToSection(project, pinned ? PINNED_SIDEBAR_SECTION_ID : null)
                     }
-                    onRevealProject={(project) =>
+                    onOpenProject={(project) =>
                       void runSidebarMutation(async () => {
-                        await window.cypheria?.app.revealProject(project.id)
+                        await window.cypheria?.app.openProject(project.id)
                       })
                     }
                     onPinnedSortChange={updatePinnedSort}
@@ -784,7 +784,7 @@ type RowViewProps = Readonly<{
   onProjectDialog: (kind: "archive" | "edit" | "remove", project: SidebarProjectView) => void
   onProjectMoveSection: (project: SidebarProjectView, sectionId: string | null) => void
   onProjectPin: (project: SidebarProjectView, pinned: boolean) => void
-  onRevealProject: (project: SidebarProjectView) => void
+  onOpenProject: (project: SidebarProjectView) => void
   onPinnedSortChange: (sort: SidebarSort) => void
   onShowMorePinned: () => void
   onShowMoreProjectChats: (id: string) => void
@@ -924,7 +924,7 @@ function ChatSidebarRowView(props: RowViewProps) {
           onMoveSection={(sectionId) => props.onProjectMoveSection(row.project, sectionId)}
           onPin={(pinned) => props.onProjectPin(row.project, pinned)}
           onRemove={() => props.onProjectDialog("remove", row.project)}
-          onReveal={() => props.onRevealProject(row.project)}
+          onOpen={() => props.onOpenProject(row.project)}
         />
       </div>
     )
@@ -1406,7 +1406,7 @@ function ProjectMenu({
   onMoveSection,
   onPin,
   onRemove,
-  onReveal,
+  onOpen,
 }: Readonly<{
   archiveEnabled: boolean
   project: SidebarProjectView
@@ -1418,7 +1418,7 @@ function ProjectMenu({
   onMoveSection: (sectionId: string | null) => void
   onPin: (pinned: boolean) => void
   onRemove: () => void
-  onReveal: () => void
+  onOpen: () => void
 }>) {
   const pinned = project.sectionId === PINNED_SIDEBAR_SECTION_ID
   const sectionId = project.sectionId
@@ -1469,13 +1469,9 @@ function ProjectMenu({
             </DropdownMenuItem>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-        <DropdownMenuItem
-          className="py-1.5"
-          disabled={project.roots.length === 0}
-          onClick={onReveal}
-        >
+        <DropdownMenuItem className="py-1.5" disabled={project.roots.length === 0} onClick={onOpen}>
           <ExternalLink />
-          <Trans id="navigation.revealProject">Reveal in Finder</Trans>
+          <Trans id="navigation.openProjectFolder">Open project folder</Trans>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         {onMarkRead ? (

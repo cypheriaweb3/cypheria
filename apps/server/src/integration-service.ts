@@ -140,6 +140,13 @@ export class IntegrationService {
           await this.#writeConfig(`plugins.${message.payload.id}.enabled`, message.payload.enabled)
           respond({ succeeded: true })
           break
+        case "integration.plugin.set-global-enabled.request":
+          this.#assertCodex(message.payload.agentId)
+          await this.#call("experimentalFeature/enablement/set", {
+            enablement: { plugins: message.payload.enabled },
+          } satisfies v2.ExperimentalFeatureEnablementSetParams)
+          respond({ succeeded: true })
+          break
         case "integration.marketplace.add.request": {
           this.#assertCodex(message.payload.agentId)
           const result = await this.#call<v2.MarketplaceAddResponse>("marketplace/add", {

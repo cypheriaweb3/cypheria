@@ -42,6 +42,12 @@ Sidebar 使用 Cypheria Projects、Threads、Sections facades。Server 直接返
 
 Query key 和乐观更新基于 Cypheria ID。Harness session ID 不会替代 Thread ID 成为导航或缓存身份。
 
+## 页面标题栏
+
+Desktop 不会在所有路由上方全局预留标题栏。需要共享窗口 chrome 的路由自行渲染 `PageHeader` 并传入自己的子组件；不需要标题栏的路由则从内容区顶部开始填充。`PageHeader` 负责标准的 44px 几何尺寸、Electron 拖拽区域，以及让页面内容与 Sidebar 展开/折叠标题栏控件联动的左侧 inset 动画。
+
+会话工作区有意不使用 `PageHeader`。它的 chrome 按 Chat Demo 参考拆分为会话 `ChatHeader` 与右侧 `ChatPanel` workspace header。会话标题栏参与同一套 Sidebar inset 过渡；右侧标题栏承载标签页组、标签页 launcher 和全屏操作，并且没有底部 border。底部面板与右侧面板 toggle 固定在窗口标题栏右缘；右侧面板隐藏时，会话标题栏扩展到该区域下方，同时为这两个控件保留空间。
+
 ## Settings 导航
 
 Settings 与工作区使用同一个可调整宽度的 Desktop sidebar shell，并共享 titlebar 几何、紧凑横向留白、折叠行为和宽度状态；两者只有导航内容不同。Settings 使用一个扁平化、虚拟化的导航列表。返回行、分组标题、普通设置项、可展开的 Agent harnesses 行，以及所有可见 Agent 子项共享一个滚动容器与一个 TanStack Virtual virtualizer。搜索框与主题 footer 留在容器外。展开、搜索和 registry 成员变化会重建扁平 row model；路由变化时会把 active item 滚动到可见区域。Agent 子项绝不创建嵌套滚动容器或第二个导航 virtualizer。Agent harnesses 父项只是展开控件，不对应页面，因此不会进入 active 状态。其子项来自用户的 Agent registry；Server 初始化时会注册四个原生 harness。
@@ -72,12 +78,14 @@ Canonical Timeline 历史与有序实时更新都直接通过 `@cypheria/client`
 
 ## Desktop 本地设置
 
-Electron 在 `userData/desktop-settings.json` 保存本地偏好：
+Electron 在 `userData/config.json` 保存本地偏好：
 
 - 外观、语言、字体、密度和布局；
 - 快捷键、声音、窗口边界和 panel 状态；
 - Server 自动启动、executable 和首选端口；
 - browser、更新、tray 和 OS integration 行为。
+
+常规设置页将本地偏好分为 General、Composer、Popout Window 和 Notifications。General 包含无项目任务默认目录（默认 `~/Documents/Cypheria`）、动态发现的本机文件打开应用、界面语言、菜单栏驻留、底部面板控件、终端位置、防止休眠和插件可用性。Composer 包含纯文本输入、上下文窗口用量、三种 Enter 发送模式和跟进消息行为。Popout Window 包含全局快捷键与默认独立聊天。Notifications 包含任务完成提醒模式、权限与问题提醒，以及内置 Default 和 Classic、None、从 macOS 发现的声音和自选声音文件。选中声音时立即试听；选中 None 时停止试听。插件总开关还会通过 Server 更新 Codex 进程级的 `plugins` 实验功能。
 
 共享 Agent、model、integration、Web3 和 Server 行为属于 Cypheria Server 配置或数据库。UI 偏好不会写入 Codex 配置。
 

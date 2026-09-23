@@ -9,7 +9,9 @@ import type {
   ConnectionProxySettings,
   ConnectionProxyTestResult,
   CypheriaPreloadApi,
+  DesktopPreferences,
   LanguageSettings,
+  OpenTarget,
   WorkspaceLayoutSettings,
 } from "../../ipc/src/index.js"
 import {
@@ -18,6 +20,7 @@ import {
   CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX,
   CYPHERIA_IPC_CHANNELS,
   CYPHERIA_LANGUAGE_ARGUMENT_PREFIX,
+  DesktopPreferencesSchema,
   LanguageBootstrapSchema,
   LanguageSettingsSchema,
 } from "../../ipc/src/index.js"
@@ -60,10 +63,13 @@ const cypheriaApi: CypheriaPreloadApi = {
     getHealth: () => invoke<AppHealthStatus>(CYPHERIA_IPC_CHANNELS.appHealthCheck),
     getMetadata: () => invoke<AppMetadata>(CYPHERIA_IPC_CHANNELS.appMetadataRead),
     pickDirectory: () => invoke(CYPHERIA_IPC_CHANNELS.appDirectoryPick),
+    pickSoundFile: () => invoke(CYPHERIA_IPC_CHANNELS.appSoundPick),
     openExternal: (url) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.appExternalOpen, { url }),
     openConfig: () => invoke(CYPHERIA_IPC_CHANNELS.appConfigOpen),
     revealProject: (projectId) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.appProjectReveal, { projectId }),
+    openProject: (projectId) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.appProjectOpen, { projectId }),
   },
   browser: {
     openDapp: (url) =>
@@ -78,6 +84,12 @@ const cypheriaApi: CypheriaPreloadApi = {
     getLanguage: () => invoke<LanguageSettings>(CYPHERIA_IPC_CHANNELS.settingsLanguageRead),
     getWorkspaceLayout: () =>
       invoke<WorkspaceLayoutSettings>(CYPHERIA_IPC_CHANNELS.settingsWorkspaceLayoutRead),
+    getPreferences: () => invoke<DesktopPreferences>(CYPHERIA_IPC_CHANNELS.settingsPreferencesRead),
+    listOpenTargets: () => invoke<OpenTarget[]>(CYPHERIA_IPC_CHANNELS.settingsOpenTargetsList),
+    listNotificationSounds: () =>
+      invoke<string[]>(CYPHERIA_IPC_CHANNELS.settingsNotificationSoundsList),
+    previewNotificationSound: () =>
+      invoke<{ played: boolean }>(CYPHERIA_IPC_CHANNELS.settingsNotificationSoundPreview),
     listAppearanceFonts: () =>
       invoke<AppearanceFontOption[]>(CYPHERIA_IPC_CHANNELS.settingsAppearanceFontsList),
     onLanguageChanged: (handler) => {
@@ -86,6 +98,13 @@ const cypheriaApi: CypheriaPreloadApi = {
       }
       ipcRenderer.on(CYPHERIA_IPC_CHANNELS.settingsLanguageChanged, listener)
       return () => ipcRenderer.off(CYPHERIA_IPC_CHANNELS.settingsLanguageChanged, listener)
+    },
+    onPreferencesChanged: (handler) => {
+      const listener = (_event: IpcRendererEvent, settings: DesktopPreferences): void => {
+        handler(DesktopPreferencesSchema.parse(settings))
+      }
+      ipcRenderer.on(CYPHERIA_IPC_CHANNELS.settingsPreferencesChanged, listener)
+      return () => ipcRenderer.off(CYPHERIA_IPC_CHANNELS.settingsPreferencesChanged, listener)
     },
     setAppearance: (settings) =>
       ipcRenderer.invoke(
@@ -107,6 +126,11 @@ const cypheriaApi: CypheriaPreloadApi = {
         CYPHERIA_IPC_CHANNELS.settingsWorkspaceLayoutWrite,
         settings
       ) as Promise<WorkspaceLayoutSettings>,
+    setPreferences: (settings) =>
+      ipcRenderer.invoke(
+        CYPHERIA_IPC_CHANNELS.settingsPreferencesWrite,
+        settings
+      ) as Promise<DesktopPreferences>,
     testConnectionProxy: (settings) =>
       ipcRenderer.invoke(
         CYPHERIA_IPC_CHANNELS.settingsConnectionProxyTest,

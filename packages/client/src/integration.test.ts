@@ -17,12 +17,18 @@ describe("integration actions", () => {
 
     await actions.skills.list({ agentId: "codex", cwd: "/workspace" })
     await actions.plugins.setEnabled({ agentId: "codex", enabled: false, id: "review@team" })
+    await actions.plugins.setGlobalEnabled({ agentId: "codex", enabled: false })
 
     expect(requestIntegration.mock.calls).toEqual([
       ["integration.skill.list.request", { agentId: "codex", cwd: "/workspace" }, undefined],
       [
         "integration.plugin.set-enabled.request",
         { agentId: "codex", enabled: false, id: "review@team" },
+        undefined,
+      ],
+      [
+        "integration.plugin.set-global-enabled.request",
+        { agentId: "codex", enabled: false },
         undefined,
       ],
     ])

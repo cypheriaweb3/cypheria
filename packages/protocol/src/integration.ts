@@ -219,6 +219,10 @@ export const PluginSetEnabledRequestSchema = request(
   "integration.plugin.set-enabled.request",
   setEnabled
 )
+export const PluginSetGlobalEnabledRequestSchema = request(
+  "integration.plugin.set-global-enabled.request",
+  z.object({ agentId: AgentIdSchema, enabled: z.boolean() }).strict()
+)
 export const MarketplaceAddRequestSchema = request(
   "integration.marketplace.add.request",
   z
@@ -303,6 +307,10 @@ export const PluginSetEnabledResponseSchema = response(
   "integration.plugin.set-enabled.response",
   mutation
 )
+export const PluginSetGlobalEnabledResponseSchema = response(
+  "integration.plugin.set-global-enabled.response",
+  mutation
+)
 export const MarketplaceAddResponseSchema = response(
   "integration.marketplace.add.response",
   z.object({ marketplaceName: z.string().nullable(), succeeded: z.literal(true) }).strict()
@@ -340,6 +348,7 @@ export const INTEGRATION_CLIENT_SCHEMAS = [
   PluginInstallRequestSchema,
   PluginUninstallRequestSchema,
   PluginSetEnabledRequestSchema,
+  PluginSetGlobalEnabledRequestSchema,
   MarketplaceAddRequestSchema,
   MarketplaceUpgradeRequestSchema,
   MarketplaceRemoveRequestSchema,
@@ -359,6 +368,7 @@ export const INTEGRATION_SERVER_SCHEMAS = [
   PluginInstallResponseSchema,
   PluginUninstallResponseSchema,
   PluginSetEnabledResponseSchema,
+  PluginSetGlobalEnabledResponseSchema,
   MarketplaceAddResponseSchema,
   MarketplaceUpgradeResponseSchema,
   MarketplaceRemoveResponseSchema,

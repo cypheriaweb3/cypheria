@@ -78,4 +78,4 @@ The following never belong in Codex configuration:
 - Sidebar expansion, draft, cache, and scroll position;
 - Server executable and auto-start preferences.
 
-Desktop stores those values in Electron's `desktop-settings.json`.
+Desktop stores those values in Electron's `config.json`.

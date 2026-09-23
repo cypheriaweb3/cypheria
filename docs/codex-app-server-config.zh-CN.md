@@ -78,4 +78,4 @@ Harness-native Skills、MCP、plugins、marketplaces 和 Apps 通过 Cypheria [I
 - Sidebar expansion、draft、cache 和 scroll position；
 - Server executable 和 auto-start preference。
 
-Desktop 将这些值保存在 Electron 的 `desktop-settings.json`。
+Desktop 将这些值保存在 Electron 的 `config.json`。

@@ -66,7 +66,7 @@ Server 只解析一次根目录，再把派生路径传给各服务。Cypheria �
 - 需要重启的路径；
 - 当前被环境变量覆盖的路径。
 
-Desktop 外观、布局、快捷键、窗口状态、更新偏好和操作系统集成继续保存在 Electron 本地 `desktop-settings.json`，不属于 Server 配置。
+Desktop 外观、布局、快捷键、窗口状态、更新偏好和操作系统集成继续保存在 Electron 本地 `config.json`，不属于 Server 配置。
 
 ## 环境变量覆盖
 
