@@ -357,6 +357,17 @@ export const GitHubPrReviewRequestSchema = input(
     })
     .strict()
 )
+export const GitHubPrSetStateRequestSchema = input(
+  "git.github-pr-set-state.request",
+  z
+    .object({
+      cwd: path,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      action: z.enum(["close", "reopen", "ready", "draft"]),
+    })
+    .strict()
+)
 export const GitHubPrCreateRequestSchema = input(
   "git.github-pr-create.request",
   z
@@ -544,6 +555,7 @@ export const GitHubPrActivityResponseSchema = output(
 )
 export const GitHubPrCommentResponseSchema = output("git.github-pr-comment.response", success)
 export const GitHubPrReviewResponseSchema = output("git.github-pr-review.response", success)
+export const GitHubPrSetStateResponseSchema = output("git.github-pr-set-state.response", success)
 export const GitHubPrCreateResponseSchema = output(
   "git.github-pr-create.response",
   GitHubPullRequestSchema
@@ -613,6 +625,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubPrActivityRequestSchema,
   GitHubPrCommentRequestSchema,
   GitHubPrReviewRequestSchema,
+  GitHubPrSetStateRequestSchema,
   GitHubPrCreateRequestSchema,
   GitHubPrUpdateRequestSchema,
   GitHubPrMergeRequestSchema,
@@ -655,6 +668,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubPrActivityResponseSchema,
   GitHubPrCommentResponseSchema,
   GitHubPrReviewResponseSchema,
+  GitHubPrSetStateResponseSchema,
   GitHubPrCreateResponseSchema,
   GitHubPrUpdateResponseSchema,
   GitHubPrMergeResponseSchema,

@@ -266,6 +266,11 @@ msgid "settings.general.chooseFolder"
 msgstr "选择…"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.close"
+msgstr "关闭"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "common.close"
 msgstr "关闭"
@@ -274,6 +279,11 @@ msgstr "关闭"
 #: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.closeBottomPanel"
 msgstr "关闭"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.closeTitle"
+msgstr "关闭拉取请求？"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
@@ -329,6 +339,11 @@ msgstr "会话"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.error.conversation"
 msgstr "会话错误"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.markDraft"
+msgstr "转为草稿"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -762,6 +777,11 @@ msgstr "标记为已读"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.markAsUnread"
 msgstr "标记为未读"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.markReady"
+msgstr "标记为可供审查"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1286,6 +1306,11 @@ msgstr "重命名会话"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.reopen"
+msgstr "重新打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.requestChanges"
 msgstr "请求修改"
 
@@ -1620,6 +1645,11 @@ msgstr "显示的头部提交必须仍与拉取请求一致。"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.projectlessFolderDescription"
 msgstr "在项目之外开始的任务默认存放数据的位置。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.closeDescription"
+msgstr "之后仍可重新打开此拉取请求。"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx

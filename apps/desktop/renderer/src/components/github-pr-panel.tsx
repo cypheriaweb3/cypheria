@@ -43,6 +43,7 @@ export function GitHubPrPanel({
   const [commentBody, setCommentBody] = useState("")
   const [reviewBody, setReviewBody] = useState("")
   const [mergeOpen, setMergeOpen] = useState(false)
+  const [closeOpen, setCloseOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const selectPullRequest = (number: number) => {
@@ -124,6 +125,14 @@ export function GitHubPrPanel({
     } finally {
       setBusy(false)
     }
+  }
+  const setPrState = (action: "close" | "reopen" | "ready" | "draft") => {
+    const pr = selected.data
+    const head = pr?.headRefOid
+    if (!pr || !head) return
+    void mutate(async () => {
+      await (await ensureCypheriaClient()).git.githubPrSetState(cwd, pr.number, head, action)
+    })
   }
 
   return (
@@ -391,6 +400,67 @@ export function GitHubPrPanel({
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+            ) : null}
+            {cliAvailable && selected.data.state === "OPEN" && selected.data.headRefOid ? (
+              <>
+                <Button
+                  disabled={busy}
+                  onClick={() => setPrState(selected.data.isDraft ? "ready" : "draft")}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  {selected.data.isDraft ? (
+                    <Trans id="git.github.markReady">Mark ready</Trans>
+                  ) : (
+                    <Trans id="git.github.markDraft">Convert to draft</Trans>
+                  )}
+                </Button>
+                <AlertDialog onOpenChange={setCloseOpen} open={closeOpen}>
+                  <AlertDialogTrigger
+                    render={<Button disabled={busy} size="sm" variant="outline" />}
+                  >
+                    <Trans id="git.github.close">Close</Trans>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>
+                        <Trans id="git.github.closeTitle">Close pull request?</Trans>
+                      </AlertDialogTitle>
+                      <AlertDialogDescription>
+                        <Trans id="git.github.closeDescription">
+                          The pull request can be reopened later.
+                        </Trans>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>
+                        <Trans id="git.github.cancel">Cancel</Trans>
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        disabled={busy}
+                        onClick={() => {
+                          setCloseOpen(false)
+                          setPrState("close")
+                        }}
+                      >
+                        <Trans id="git.github.close">Close</Trans>
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            ) : null}
+            {cliAvailable && selected.data.state === "CLOSED" && selected.data.headRefOid ? (
+              <Button
+                disabled={busy}
+                onClick={() => setPrState("reopen")}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Trans id="git.github.reopen">Reopen</Trans>
+              </Button>
             ) : null}
           </div>
           {cliAvailable && selected.data.state === "OPEN" ? (

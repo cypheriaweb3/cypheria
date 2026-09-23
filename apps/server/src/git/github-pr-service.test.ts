@@ -16,6 +16,7 @@ describe("GitHubPrService", () => {
     created.push(cwd)
     const binary = join(cwd, "gh")
     const log = join(cwd, "calls.jsonl")
+    const stateFile = join(cwd, "pr-state.json")
     const pr = {
       number: 42,
       title: "Review change",
@@ -29,6 +30,7 @@ describe("GitHubPrService", () => {
       updatedAt: "2026-09-23T00:00:00Z",
       author: { login: "tester" },
     }
+    await writeFile(stateFile, JSON.stringify(pr))
     await writeFile(
       binary,
       `#!/usr/bin/env node
@@ -45,7 +47,7 @@ else if (args[1] === "create") process.stdout.write("https://github.com/org/repo
 else if (args[1] === "checks") { process.stdout.write(JSON.stringify([{ bucket: "pending", completedAt: null, link: "https://github.com/org/repo/actions/runs/1", name: "build", startedAt: "2026-09-23T00:00:00Z", state: "IN_PROGRESS", workflow: "CI" }])); process.exit(8) }
 else if (args[1] === "view" && args.includes("comments,reviews")) process.stdout.write(JSON.stringify({ comments: [{ id: "C1", body: "Looks good", createdAt: "2026-09-23T00:00:00Z", author: { login: "tester" } }], reviews: [{ id: "R1", body: "Approved", state: "APPROVED", submittedAt: "2026-09-23T00:00:00Z", author: { login: "reviewer" } }] }))
 else if (args[1] === "edit" || args[1] === "merge") process.stdout.write("")
-else process.stdout.write(${JSON.stringify(JSON.stringify(pr))})
+else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
 `
     )
     await chmod(binary, 0o755)
@@ -143,6 +145,23 @@ else process.stdout.write(${JSON.stringify(JSON.stringify(pr))})
     await expect(service.review(cwd, 42, pr.headRefOid, "request_changes", " ")).rejects.toThrow(
       "body is required"
     )
+    await service.setState(cwd, 42, pr.headRefOid, "close")
+    await service.setState(cwd, 42, pr.headRefOid, "draft")
+    await writeFile(stateFile, JSON.stringify({ ...pr, isDraft: true }))
+    await service.setState(cwd, 42, pr.headRefOid, "ready")
+    await writeFile(stateFile, JSON.stringify({ ...pr, state: "CLOSED" }))
+    await service.setState(cwd, 42, pr.headRefOid, "reopen")
+    await expect(service.setState(cwd, 42, "b".repeat(40), "reopen")).rejects.toThrow(
+      "head changed"
+    )
+    const stateCalls = (await readFile(log, "utf8"))
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line))
+    expect(stateCalls).toContainEqual(["pr", "close", "42"])
+    expect(stateCalls).toContainEqual(["pr", "ready", "42", "--undo"])
+    expect(stateCalls).toContainEqual(["pr", "ready", "42"])
+    expect(stateCalls).toContainEqual(["pr", "reopen", "42"])
   })
 
   it("reports an unavailable CLI without treating it as an authenticated account", async () => {

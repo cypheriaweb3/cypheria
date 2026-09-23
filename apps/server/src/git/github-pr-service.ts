@@ -203,12 +203,45 @@ export class GitHubPrService {
     })
   }
 
-  async #assertCurrentHead(cwd: string, number: number, expectedHead: string): Promise<void> {
+  async setState(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    action: "close" | "reopen" | "ready" | "draft"
+  ): Promise<void> {
+    const current = await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    if (action === "close") {
+      if (current.state !== "OPEN") throw new Error("The GitHub pull request is not open")
+      await this.#run(cwd, ["pr", "close", String(number)])
+    } else if (action === "reopen") {
+      if (current.state !== "CLOSED") throw new Error("The GitHub pull request is not closed")
+      await this.#run(cwd, ["pr", "reopen", String(number)])
+    } else if (action === "ready") {
+      if (current.state !== "OPEN" || !current.isDraft)
+        throw new Error("The GitHub pull request is not a draft")
+      await this.#run(cwd, ["pr", "ready", String(number)])
+    } else if (action === "draft") {
+      if (current.state !== "OPEN" || current.isDraft)
+        throw new Error("The GitHub pull request is not ready")
+      await this.#run(cwd, ["pr", "ready", String(number), "--undo"])
+    } else {
+      throw new Error("Invalid GitHub pull request state action")
+    }
+  }
+
+  async #assertCurrentHead(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    requireOpen = true
+  ): Promise<GitHubPullRequest> {
     if (!/^[a-f0-9]{40,64}$/iu.test(expectedHead))
       throw new Error("Invalid expected GitHub PR head")
     const current = await this.read(cwd, number)
-    if (current.state !== "OPEN") throw new Error("The GitHub pull request is no longer open")
+    if (requireOpen && current.state !== "OPEN")
+      throw new Error("The GitHub pull request is no longer open")
     if (current.headRefOid !== expectedHead) throw new Error("The GitHub pull request head changed")
+    return current
   }
 
   async create(

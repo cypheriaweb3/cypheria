@@ -266,6 +266,11 @@ msgid "settings.general.chooseFolder"
 msgstr "Choose…"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.close"
+msgstr "Close"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "common.close"
 msgstr "Close"
@@ -274,6 +279,11 @@ msgstr "Close"
 #: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.closeBottomPanel"
 msgstr "Close"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.closeTitle"
+msgstr "Close pull request?"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/workspace-terminal.tsx
@@ -329,6 +339,11 @@ msgstr "Conversation"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.error.conversation"
 msgstr "Conversation error"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.markDraft"
+msgstr "Convert to draft"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -762,6 +777,11 @@ msgstr "Mark as read"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.markAsUnread"
 msgstr "Mark as unread"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.markReady"
+msgstr "Mark ready"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1286,6 +1306,11 @@ msgstr "Rename chat"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.reopen"
+msgstr "Reopen"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.requestChanges"
 msgstr "Request changes"
 
@@ -1620,6 +1645,11 @@ msgstr "The displayed head commit must still match the pull request."
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.projectlessFolderDescription"
 msgstr "The location where tasks started outside of projects store their data by default."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.closeDescription"
+msgstr "The pull request can be reopened later."
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx

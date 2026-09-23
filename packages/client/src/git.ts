@@ -132,6 +132,13 @@ export interface GitActions {
     body: string,
     options?: RequestOptions
   ): Promise<void>
+  githubPrSetState(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    action: "close" | "reopen" | "ready" | "draft",
+    options?: RequestOptions
+  ): Promise<void>
   githubPrCreate(
     cwd: string,
     input: { head: string; base: string; title: string; body: string; draft?: boolean },
@@ -291,6 +298,15 @@ export const createGitActions = (client: ServerClient): GitActions => ({
       await client.requestGit(
         "git.github-pr-review.request",
         { cwd, number, expectedHead, decision, body },
+        options
+      )
+    )
+  },
+  githubPrSetState: async (cwd, number, expectedHead, action, options) => {
+    unwrap(
+      await client.requestGit(
+        "git.github-pr-set-state.request",
+        { cwd, number, expectedHead, action },
         options
       )
     )

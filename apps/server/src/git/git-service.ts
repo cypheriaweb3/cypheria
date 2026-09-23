@@ -213,6 +213,15 @@ export class GitService {
           )
           value = { succeeded: true }
           break
+        case "git.github-pr-set-state.request":
+          await this.githubPrSetState(
+            message.payload.cwd,
+            message.payload.number,
+            message.payload.expectedHead,
+            message.payload.action
+          )
+          value = { succeeded: true }
+          break
         case "git.github-pr-create.request":
           value = await this.githubPrCreate(message.payload.cwd, message.payload)
           break
@@ -439,6 +448,15 @@ export class GitService {
     body: string
   ): Promise<void> {
     await this.#github.review((await this.discover(cwd)).root, number, expectedHead, decision, body)
+  }
+
+  async githubPrSetState(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    action: "close" | "reopen" | "ready" | "draft"
+  ): Promise<void> {
+    await this.#github.setState((await this.discover(cwd)).root, number, expectedHead, action)
   }
 
   async githubPrCreate(
