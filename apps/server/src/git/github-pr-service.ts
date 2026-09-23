@@ -48,10 +48,24 @@ const operand = (value: string, name: string): string => {
     throw new Error(`Invalid GitHub ${name}`)
   return value
 }
-const threadQuery = `query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100){nodes{id path line isResolved viewerCanResolve viewerCanUnresolve comments(first:100){nodes{id body createdAt author{login}} pageInfo{hasNextPage}}} pageInfo{hasNextPage}}}}}`
+const threadQuery = `query($owner:String!,$repo:String!,$number:Int!,$cursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100,after:$cursor){nodes{id path line isResolved viewerCanResolve viewerCanUnresolve comments(first:100){nodes{id body createdAt author{login}} pageInfo{hasNextPage endCursor}}} pageInfo{hasNextPage endCursor}}}}}`
+const threadCommentsQuery = `query($threadId:ID!,$cursor:String!){node(id:$threadId){... on PullRequestReviewThread{comments(first:100,after:$cursor){nodes{id body createdAt author{login}} pageInfo{hasNextPage endCursor}}}}}`
 const threadReplyMutation = `mutation($threadId:ID!,$body:String!){addPullRequestReviewThreadReply(input:{pullRequestReviewThreadId:$threadId,body:$body}){comment{id}}}`
 const threadResolveMutation = `mutation($threadId:ID!){resolveReviewThread(input:{threadId:$threadId}){thread{id}}}`
 const threadUnresolveMutation = `mutation($threadId:ID!){unresolveReviewThread(input:{threadId:$threadId}){thread{id}}}`
+const commentMutations = {
+  comment: {
+    update: `mutation($id:ID!,$body:String!){updateIssueComment(input:{id:$id,body:$body}){issueComment{id}}}`,
+    delete: `mutation($id:ID!){deleteIssueComment(input:{id:$id}){clientMutationId}}`,
+  },
+  review: {
+    update: `mutation($id:ID!,$body:String!){updatePullRequestReview(input:{pullRequestReviewId:$id,body:$body}){pullRequestReview{id}}}`,
+  },
+  review_comment: {
+    update: `mutation($id:ID!,$body:String!){updatePullRequestReviewComment(input:{pullRequestReviewCommentId:$id,body:$body}){pullRequestReviewComment{id}}}`,
+    delete: `mutation($id:ID!){deletePullRequestReviewComment(input:{id:$id}){clientMutationId}}`,
+  },
+} as const
 
 export class GitHubPrService {
   readonly #binary: string
@@ -260,70 +274,105 @@ export class GitHubPrService {
   ): Promise<GitHubPullRequestThreads> {
     const pr = await this.#assertCurrentHead(cwd, number, expectedHead, false)
     const repository = this.#repositoryIdentity(pr.url, number)
-    const response = z
-      .object({
-        repository: z
-          .object({
-            pullRequest: z
-              .object({
-                reviewThreads: z.object({
-                  nodes: z.array(
-                    z.object({
-                      id: z.string(),
-                      path: z.string(),
-                      line: z.number().int().nullable(),
-                      isResolved: z.boolean(),
-                      viewerCanResolve: z.boolean(),
-                      viewerCanUnresolve: z.boolean(),
-                      comments: z.object({
-                        nodes: z.array(
-                          z.object({
-                            id: z.string(),
-                            body: z.string(),
-                            createdAt: z.string(),
-                            author: z.object({ login: z.string() }).nullable(),
-                          })
-                        ),
-                        pageInfo: z.object({ hasNextPage: z.boolean() }),
-                      }),
-                    })
-                  ),
-                  pageInfo: z.object({ hasNextPage: z.boolean() }),
+    const commentConnection = z.object({
+      nodes: z.array(
+        z.object({
+          id: z.string(),
+          body: z.string(),
+          createdAt: z.string(),
+          author: z.object({ login: z.string() }).nullable(),
+        })
+      ),
+      pageInfo: z.object({ hasNextPage: z.boolean(), endCursor: z.string().nullable().optional() }),
+    })
+    const responseSchema = z.object({
+      repository: z
+        .object({
+          pullRequest: z
+            .object({
+              reviewThreads: z.object({
+                nodes: z.array(
+                  z.object({
+                    id: z.string(),
+                    path: z.string(),
+                    line: z.number().int().nullable(),
+                    isResolved: z.boolean(),
+                    viewerCanResolve: z.boolean(),
+                    viewerCanUnresolve: z.boolean(),
+                    comments: commentConnection,
+                  })
+                ),
+                pageInfo: z.object({
+                  hasNextPage: z.boolean(),
+                  endCursor: z.string().nullable().optional(),
                 }),
-              })
-              .nullable(),
-          })
-          .nullable(),
-      })
-      .parse(
+              }),
+            })
+            .nullable(),
+        })
+        .nullable(),
+    })
+    const threads: GitHubPullRequestThreads["threads"] = []
+    let cursor: string | null = null
+    let truncated = false
+    for (let page = 0; page < 100; page += 1) {
+      const response = responseSchema.parse(
         await this.#graphql(cwd, repository.host, threadQuery, {
           owner: repository.owner,
           repo: repository.repo,
           number,
+          cursor,
         })
       )
-    if (!response.repository?.pullRequest) throw new Error("GitHub pull request is unavailable")
-    const connection = response.repository.pullRequest.reviewThreads
+      if (!response.repository?.pullRequest) throw new Error("GitHub pull request is unavailable")
+      const connection = response.repository.pullRequest.reviewThreads
+      for (const thread of connection.nodes) {
+        const comments = [...thread.comments.nodes]
+        let commentCursor = thread.comments.pageInfo.endCursor ?? null
+        let hasMore = thread.comments.pageInfo.hasNextPage
+        for (let commentPage = 0; hasMore && commentPage < 100; commentPage += 1) {
+          if (!commentCursor) throw new Error("GitHub review comments are missing a page cursor")
+          const next = z
+            .object({ node: z.object({ comments: commentConnection }).nullable() })
+            .parse(
+              await this.#graphql(cwd, repository.host, threadCommentsQuery, {
+                threadId: thread.id,
+                cursor: commentCursor,
+              })
+            )
+          if (!next.node) throw new Error("GitHub review thread is unavailable")
+          comments.push(...next.node.comments.nodes)
+          hasMore = next.node.comments.pageInfo.hasNextPage
+          const nextCursor = next.node.comments.pageInfo.endCursor ?? null
+          if (hasMore && (!nextCursor || nextCursor === commentCursor))
+            throw new Error("GitHub review comments returned a repeated page")
+          commentCursor = nextCursor
+        }
+        truncated ||= hasMore
+        threads.push({
+          id: thread.id,
+          path: thread.path,
+          line: thread.line,
+          isResolved: thread.isResolved,
+          canResolve: thread.viewerCanResolve,
+          canUnresolve: thread.viewerCanUnresolve,
+          comments: comments.map((comment) => ({
+            id: comment.id,
+            body: comment.body,
+            author: comment.author?.login ?? null,
+            createdAt: comment.createdAt,
+          })),
+        })
+      }
+      if (!connection.pageInfo.hasNextPage) break
+      const nextCursor = connection.pageInfo.endCursor ?? null
+      if (!nextCursor || nextCursor === cursor)
+        throw new Error("GitHub review threads returned a repeated page")
+      cursor = nextCursor
+      if (page === 99) truncated = true
+    }
     await this.#assertCurrentHead(cwd, number, expectedHead, false)
-    return GitHubPullRequestThreadsSchema.parse({
-      threads: connection.nodes.map((thread) => ({
-        id: thread.id,
-        path: thread.path,
-        line: thread.line,
-        isResolved: thread.isResolved,
-        canResolve: thread.viewerCanResolve,
-        canUnresolve: thread.viewerCanUnresolve,
-        comments: thread.comments.nodes.map((comment) => ({
-          id: comment.id,
-          body: comment.body,
-          author: comment.author?.login ?? null,
-          createdAt: comment.createdAt,
-        })),
-      })),
-      truncated:
-        connection.pageInfo.hasNextPage ||
-        connection.nodes.some((thread) => thread.comments.pageInfo.hasNextPage),
-    })
+    return GitHubPullRequestThreadsSchema.parse({ threads, truncated })
   }
 
   async threadAction(
@@ -430,6 +479,53 @@ export class GitHubPrService {
     await this.#assertCurrentHead(cwd, number, expectedHead)
     await this.#withBodyFile(body, async (bodyFile) => {
       await this.#run(cwd, ["pr", "comment", String(number), "--body-file", bodyFile])
+    })
+  }
+
+  async commentAction(
+    cwd: string,
+    input: {
+      number: number
+      expectedHead: string
+      nodeId: string
+      commentType: "comment" | "review" | "review_comment"
+      action: "update" | "delete"
+      body?: string
+    }
+  ): Promise<void> {
+    if (!input.nodeId.trim() || input.nodeId.length > 2000 || /[\0\r\n]/u.test(input.nodeId))
+      throw new Error("Invalid GitHub comment ID")
+    if (input.action === "update" && (!input.body?.trim() || input.body.length > 100_000))
+      throw new Error("GitHub comment body is required")
+    if (input.commentType === "review" && input.action === "delete")
+      throw new Error("GitHub reviews cannot be deleted here")
+    const pr = await this.#assertCurrentHead(cwd, input.number, input.expectedHead, false)
+    const repository = this.#repositoryIdentity(pr.url, input.number)
+    const account = (
+      await this.#run(cwd, ["api", "user", "--jq", ".login", "--hostname", repository.host])
+    ).trim()
+    if (!account) throw new Error("GitHub account is unavailable")
+    const items =
+      input.commentType === "review_comment"
+        ? (await this.threads(cwd, input.number, input.expectedHead)).threads.flatMap(
+            (thread) => thread.comments
+          )
+        : input.commentType === "review"
+          ? (await this.activity(cwd, input.number)).reviews
+          : (await this.activity(cwd, input.number)).comments
+    const target = items.find((item) => item.id === input.nodeId)
+    if (!target || target.author?.toLowerCase() !== account.toLowerCase())
+      throw new Error("GitHub comment is unavailable for this account")
+    const mutation =
+      input.action === "delete"
+        ? input.commentType === "comment"
+          ? commentMutations.comment.delete
+          : commentMutations.review_comment.delete
+        : commentMutations[input.commentType].update
+    await this.#assertCurrentHead(cwd, input.number, input.expectedHead, false)
+    await this.#graphql(cwd, repository.host, mutation, {
+      id: input.nodeId,
+      ...(input.action === "update" ? { body: input.body?.trim() ?? "" } : {}),
     })
   }
 
@@ -619,7 +715,7 @@ export class GitHubPrService {
     cwd: string,
     host: string,
     query: string,
-    variables: Record<string, string | number>
+    variables: Record<string, string | number | null>
   ): Promise<unknown> {
     const raw = await this.#withBodyFile(JSON.stringify({ query, variables }), (bodyFile) =>
       this.#run(cwd, ["api", "graphql", "--input", bodyFile, "--hostname", host])

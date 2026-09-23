@@ -340,6 +340,10 @@ export class GitService {
           )
           value = { succeeded: true }
           break
+        case "git.github-pr-comment-action.request":
+          await this.githubPrCommentAction(message.payload.cwd, message.payload)
+          value = { succeeded: true }
+          break
         case "git.github-pr-review.request":
           await this.githubPrReview(
             message.payload.cwd,
@@ -783,6 +787,20 @@ export class GitService {
     body: string
   ): Promise<void> {
     await this.#github.comment((await this.discover(cwd)).root, number, expectedHead, body)
+  }
+
+  async githubPrCommentAction(
+    cwd: string,
+    input: {
+      number: number
+      expectedHead: string
+      nodeId: string
+      commentType: "comment" | "review" | "review_comment"
+      action: "update" | "delete"
+      body?: string
+    }
+  ): Promise<void> {
+    await this.#github.commentAction((await this.discover(cwd)).root, input)
   }
 
   async githubPrReview(

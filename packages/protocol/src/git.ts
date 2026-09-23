@@ -585,6 +585,20 @@ export const GitHubPrCommentRequestSchema = input(
     })
     .strict()
 )
+export const GitHubPrCommentActionRequestSchema = input(
+  "git.github-pr-comment-action.request",
+  z
+    .object({
+      cwd: path,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      nodeId: z.string().min(1).max(2000),
+      commentType: z.enum(["comment", "review", "review_comment"]),
+      action: z.enum(["update", "delete"]),
+      body: z.string().max(100_000).optional(),
+    })
+    .strict()
+)
 export const GitHubPrReviewRequestSchema = input(
   "git.github-pr-review.request",
   z
@@ -911,6 +925,10 @@ export const GitHubPrThreadActionResponseSchema = output(
   success
 )
 export const GitHubPrCommentResponseSchema = output("git.github-pr-comment.response", success)
+export const GitHubPrCommentActionResponseSchema = output(
+  "git.github-pr-comment-action.response",
+  success
+)
 export const GitHubPrReviewResponseSchema = output("git.github-pr-review.response", success)
 export const GitHubPrSetStateResponseSchema = output("git.github-pr-set-state.response", success)
 export const GitHubPrCreateResponseSchema = output(
@@ -1020,6 +1038,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubPrThreadsRequestSchema,
   GitHubPrThreadActionRequestSchema,
   GitHubPrCommentRequestSchema,
+  GitHubPrCommentActionRequestSchema,
   GitHubPrReviewRequestSchema,
   GitHubPrSetStateRequestSchema,
   GitHubPrCreateRequestSchema,
@@ -1087,6 +1106,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubPrThreadsResponseSchema,
   GitHubPrThreadActionResponseSchema,
   GitHubPrCommentResponseSchema,
+  GitHubPrCommentActionResponseSchema,
   GitHubPrReviewResponseSchema,
   GitHubPrSetStateResponseSchema,
   GitHubPrCreateResponseSchema,

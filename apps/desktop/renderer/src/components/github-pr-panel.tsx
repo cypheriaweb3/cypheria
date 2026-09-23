@@ -48,6 +48,8 @@ export function GitHubPrPanel({
   const [editTitle, setEditTitle] = useState("")
   const [editBody, setEditBody] = useState<string | null>(null)
   const [commentBody, setCommentBody] = useState("")
+  const [editingComment, setEditingComment] = useState<string | null>(null)
+  const [commentEditBody, setCommentEditBody] = useState("")
   const [reviewBody, setReviewBody] = useState("")
   const [reviewer, setReviewer] = useState("")
   const [replyThreadId, setReplyThreadId] = useState<string | null>(null)
@@ -73,6 +75,7 @@ export function GitHubPrPanel({
     setEditTitle("")
     setEditBody(null)
     setCommentBody("")
+    setEditingComment(null)
     setReviewBody("")
     setReviewer("")
     setReplyThreadId(null)
@@ -250,6 +253,108 @@ export function GitHubPrPanel({
     void mutate(async () => {
       await (await ensureCypheriaClient()).git.githubPrSetState(cwd, pr.number, head, action)
     })
+  }
+  const commentActions = (
+    nodeId: string,
+    commentType: "comment" | "review" | "review_comment",
+    body: string,
+    author: string | null
+  ) => {
+    const pr = selected.data
+    if (
+      !pr?.headRefOid ||
+      !author ||
+      author.toLowerCase() !== availability.data?.account?.toLowerCase()
+    )
+      return null
+    const head = pr.headRefOid
+    const key = `${commentType}:${nodeId}`
+    const run = (action: "update" | "delete") =>
+      void mutate(async () => {
+        await (await ensureCypheriaClient()).git.githubPrCommentAction(cwd, {
+          number: pr.number,
+          expectedHead: head,
+          nodeId,
+          commentType,
+          action,
+          ...(action === "update" ? { body: commentEditBody } : {}),
+        })
+        setEditingComment(null)
+      })
+    return (
+      <div className="space-y-1">
+        {editingComment === key ? (
+          <div className="space-y-1">
+            <Textarea
+              aria-label={i18n._(msg({ id: "git.github.editComment", message: "Edit comment" }))}
+              onChange={(event) => setCommentEditBody(event.target.value)}
+              rows={3}
+              value={commentEditBody}
+            />
+            <div className="flex gap-1">
+              <Button
+                disabled={busy || !commentEditBody.trim()}
+                onClick={() => run("update")}
+                size="sm"
+                type="button"
+              >
+                <Trans id="git.github.saveComment">Save</Trans>
+              </Button>
+              <Button
+                onClick={() => setEditingComment(null)}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                <Trans id="git.github.cancelCommentEdit">Cancel</Trans>
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex gap-1">
+            <Button
+              disabled={busy}
+              onClick={() => {
+                setEditingComment(key)
+                setCommentEditBody(body)
+              }}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              <Trans id="git.github.editComment">Edit comment</Trans>
+            </Button>
+            {commentType !== "review" ? (
+              <AlertDialog>
+                <AlertDialogTrigger render={<Button disabled={busy} size="sm" variant="ghost" />}>
+                  <Trans id="git.github.deleteComment">Delete</Trans>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>
+                      <Trans id="git.github.deleteCommentTitle">Delete comment?</Trans>
+                    </AlertDialogTitle>
+                    <AlertDialogDescription>
+                      <Trans id="git.github.deleteCommentDescription">
+                        This removes the comment from GitHub.
+                      </Trans>
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>
+                      <Trans id="git.github.cancelCommentEdit">Cancel</Trans>
+                    </AlertDialogCancel>
+                    <AlertDialogAction onClick={() => run("delete")}>
+                      <Trans id="git.github.deleteComment">Delete</Trans>
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            ) : null}
+          </div>
+        )}
+      </div>
+    )
   }
 
   return (
@@ -487,12 +592,14 @@ export function GitHubPrPanel({
                 <div className="rounded border p-2 text-xs" key={comment.id}>
                   <span className="font-medium">{comment.author ?? "GitHub"}</span>
                   <p className="whitespace-pre-wrap">{comment.body}</p>
+                  {commentActions(comment.id, "comment", comment.body, comment.author)}
                 </div>
               ))}
               {activity.data?.reviews.map((review) => (
                 <div className="rounded border p-2 text-xs" key={review.id}>
                   <span className="font-medium">{review.author ?? "GitHub"}</span> · {review.state}
                   {review.body ? <p className="whitespace-pre-wrap">{review.body}</p> : null}
+                  {commentActions(review.id, "review", review.body, review.author)}
                 </div>
               ))}
               {activity.isError ? (
@@ -520,6 +627,7 @@ export function GitHubPrPanel({
                     <div className="border-l pl-2" key={comment.id}>
                       <span className="font-medium">{comment.author ?? "GitHub"}</span>
                       <p className="whitespace-pre-wrap">{comment.body}</p>
+                      {commentActions(comment.id, "review_comment", comment.body, comment.author)}
                     </div>
                   ))}
                   <div className="flex flex-wrap gap-1">

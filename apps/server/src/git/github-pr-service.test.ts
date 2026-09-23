@@ -45,6 +45,8 @@ else if (args[0] === "api" && args[1] === "graphql") {
   if (request.query.includes("reviewThreads")) process.stdout.write(JSON.stringify({ data: { repository: { pullRequest: { reviewThreads: { nodes: [{ id: "THREAD_1", path: "file.txt", line: 2, isResolved: false, viewerCanResolve: true, viewerCanUnresolve: false, comments: { nodes: [{ id: "COMMENT_1", body: "Please fix", createdAt: "2026-09-23T00:00:00Z", author: { login: "reviewer" } }], pageInfo: { hasNextPage: false } } }], pageInfo: { hasNextPage: false } } } } } }))
   else if (request.query.includes("addPullRequestReviewThreadReply")) process.stdout.write(JSON.stringify({ data: { addPullRequestReviewThreadReply: { comment: { id: "COMMENT_2" } } } }))
   else if (request.query.includes("resolveReviewThread")) process.stdout.write(JSON.stringify({ data: { resolveReviewThread: { thread: { id: "THREAD_1" } } } }))
+  else if (request.query.includes("updateIssueComment")) process.stdout.write(JSON.stringify({ data: { updateIssueComment: { issueComment: { id: "C1" } } } }))
+  else if (request.query.includes("deleteIssueComment")) process.stdout.write(JSON.stringify({ data: { deleteIssueComment: { clientMutationId: null } } }))
 }
 else if (args[0] === "api" && args.includes("--method")) process.stdout.write(JSON.stringify({ id: 1 }))
 else if (args[0] === "api") process.stdout.write("tester\\n")
@@ -163,6 +165,30 @@ else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
       })
     ).rejects.toThrow("head changed")
     await service.comment(cwd, 42, pr.headRefOid, "Please check this")
+    await service.commentAction(cwd, {
+      number: 42,
+      expectedHead: pr.headRefOid,
+      nodeId: "C1",
+      commentType: "comment",
+      action: "update",
+      body: "Revised comment",
+    })
+    await service.commentAction(cwd, {
+      number: 42,
+      expectedHead: pr.headRefOid,
+      nodeId: "C1",
+      commentType: "comment",
+      action: "delete",
+    })
+    await expect(
+      service.commentAction(cwd, {
+        number: 42,
+        expectedHead: pr.headRefOid,
+        nodeId: "COMMENT_1",
+        commentType: "review_comment",
+        action: "delete",
+      })
+    ).rejects.toThrow("unavailable for this account")
     await service.review(cwd, 42, pr.headRefOid, "approve", "Approved")
     expect(
       await service.create(cwd, {
@@ -322,5 +348,48 @@ else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
       authenticated: false,
       repository: null,
     })
+  })
+
+  it("loads all review thread and comment pages before exposing the discussion", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "cypheria-gh-pages-"))
+    created.push(cwd)
+    const binary = join(cwd, "gh")
+    const pr = {
+      number: 42,
+      title: "Paged",
+      body: "",
+      url: "https://github.com/org/repo/pull/42",
+      state: "OPEN",
+      isDraft: false,
+      headRefName: "feature",
+      headRefOid: "a".repeat(40),
+      baseRefName: "main",
+      updatedAt: "2026-09-23T00:00:00Z",
+      author: { login: "tester" },
+    }
+    await writeFile(
+      binary,
+      `#!/usr/bin/env node
+const fs = require("node:fs")
+const args = process.argv.slice(2)
+if (args[1] === "view") process.stdout.write(${JSON.stringify(JSON.stringify(pr))})
+else {
+  const request = JSON.parse(fs.readFileSync(args[args.indexOf("--input") + 1], "utf8"))
+  const note = (id) => ({ id, body: id, createdAt: "2026-09-23T00:00:00Z", author: { login: "tester" } })
+  const comments = (nodes, more, cursor) => ({ nodes, pageInfo: { hasNextPage: more, endCursor: cursor } })
+  const thread = (id, notes) => ({ id, path: "file.txt", line: 1, isResolved: false, viewerCanResolve: true, viewerCanUnresolve: false, comments: notes })
+  let data
+  if (request.query.includes("node(id:")) data = { node: { comments: comments([note("C2")], false, "note2") } }
+  else if (request.variables.cursor === "thread1") data = { repository: { pullRequest: { reviewThreads: { nodes: [thread("T2", comments([note("C3")], false, "note3"))], pageInfo: { hasNextPage: false, endCursor: "thread2" } } } } }
+  else data = { repository: { pullRequest: { reviewThreads: { nodes: [thread("T1", comments([note("C1")], true, "note1"))], pageInfo: { hasNextPage: true, endCursor: "thread1" } } } } }
+  process.stdout.write(JSON.stringify({ data }))
+}
+`
+    )
+    await chmod(binary, 0o755)
+    const result = await new GitHubPrService(binary).threads(cwd, 42, pr.headRefOid)
+    expect(result.truncated).toBe(false)
+    expect(result.threads.map((thread) => thread.id)).toEqual(["T1", "T2"])
+    expect(result.threads[0]?.comments.map((comment) => comment.id)).toEqual(["C1", "C2"])
   })
 })

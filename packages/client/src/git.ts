@@ -237,6 +237,18 @@ export interface GitActions {
     body: string,
     options?: RequestOptions
   ): Promise<void>
+  githubPrCommentAction(
+    cwd: string,
+    input: {
+      number: number
+      expectedHead: string
+      nodeId: string
+      commentType: "comment" | "review" | "review_comment"
+      action: "update" | "delete"
+      body?: string
+    },
+    options?: RequestOptions
+  ): Promise<void>
   githubPrReview(
     cwd: string,
     number: number,
@@ -516,6 +528,11 @@ export const createGitActions = (client: ServerClient): GitActions => ({
         { cwd, number, expectedHead, body },
         options
       )
+    )
+  },
+  githubPrCommentAction: async (cwd, input, options) => {
+    unwrap(
+      await client.requestGit("git.github-pr-comment-action.request", { cwd, ...input }, options)
     )
   },
   githubPrReview: async (cwd, number, expectedHead, decision, body, options) => {
