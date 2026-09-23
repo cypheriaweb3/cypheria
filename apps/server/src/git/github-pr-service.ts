@@ -6,6 +6,10 @@ import { join } from "node:path"
 import { promisify } from "node:util"
 import {
   type GitHubAvailability,
+  type GitHubPrMetadata,
+  GitHubPrMetadataSchema,
+  type GitHubPrReviewStatus,
+  GitHubPrReviewStatusSchema,
   type GitHubPrRevisionFile,
   GitHubPrRevisionFileSchema,
   type GitHubPrRevisionSnapshot,
@@ -17,6 +21,8 @@ import {
   GitHubPullRequestSchema,
   type GitHubPullRequestThreads,
   GitHubPullRequestThreadsSchema,
+  type GitHubUserCandidate,
+  GitHubUserCandidateSchema,
 } from "@cypheria/protocol"
 import { z } from "zod"
 
@@ -62,6 +68,10 @@ const threadCommentsQuery = `query($threadId:ID!,$cursor:String!){node(id:$threa
 const threadReplyMutation = `mutation($threadId:ID!,$body:String!){addPullRequestReviewThreadReply(input:{pullRequestReviewThreadId:$threadId,body:$body}){comment{id}}}`
 const threadResolveMutation = `mutation($threadId:ID!){resolveReviewThread(input:{threadId:$threadId}){thread{id}}}`
 const threadUnresolveMutation = `mutation($threadId:ID!){unresolveReviewThread(input:{threadId:$threadId}){thread{id}}}`
+const metadataQuery = `query($owner:String!,$repo:String!,$number:Int!){viewer{login} repository(owner:$owner,name:$repo){mergeCommitAllowed squashMergeAllowed pullRequest(number:$number){additions deletions changedFiles headRefOid author{login avatarUrl} createdAt autoMergeRequest{enabledAt}}}}`
+const reviewStatusQuery = `query($owner:String!,$repo:String!,$number:Int!,$cursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewDecision reviewRequests(first:100){nodes{requestedReviewer{__typename ... on User{login} ... on Team{slug}}} pageInfo{hasNextPage}} reviews(first:100,after:$cursor){nodes{author{login} state submittedAt} pageInfo{hasNextPage endCursor}}}}}`
+const collaboratorQuery = `query($owner:String!,$repo:String!,$search:String!){repository(owner:$owner,name:$repo){collaborators(first:100,query:$search){edges{node{avatarUrl(size:48) login}}}}}`
+const mentionQuery = `query($owner:String!,$repo:String!,$number:Int!,$search:String!){repository(owner:$owner,name:$repo){mentionableUsers(first:10,query:$search){nodes{avatarUrl(size:48) login}} pullRequest(number:$number){participants(first:100){nodes{avatarUrl(size:48) login}}}}}`
 const commentMutations = {
   comment: {
     update: `mutation($id:ID!,$body:String!){updateIssueComment(input:{id:$id,body:$body}){issueComment{id}}}`,
@@ -343,6 +353,208 @@ export class GitHubPrService {
         ? { status: "unavailable" }
         : { status: "success", baseContent, headContent }
     )
+  }
+
+  async metadata(cwd: string, number: number, expectedHead: string): Promise<GitHubPrMetadata> {
+    const pr = await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    const repository = this.#repositoryIdentity(pr.url, number)
+    const result = z
+      .object({
+        viewer: z.object({ login: z.string() }),
+        repository: z
+          .object({
+            mergeCommitAllowed: z.boolean(),
+            squashMergeAllowed: z.boolean(),
+            pullRequest: z
+              .object({
+                additions: z.number().int().nonnegative().nullish(),
+                deletions: z.number().int().nonnegative().nullish(),
+                changedFiles: z.number().int().nonnegative().nullish(),
+                headRefOid: z.string(),
+                author: z.object({ login: z.string(), avatarUrl: z.url().nullable() }).nullable(),
+                createdAt: z.string().nullable(),
+                autoMergeRequest: z.object({ enabledAt: z.string() }).nullable(),
+              })
+              .nullable(),
+          })
+          .nullable(),
+      })
+      .parse(
+        await this.#graphql(cwd, repository.host, metadataQuery, {
+          owner: repository.owner,
+          repo: repository.repo,
+          number,
+        })
+      )
+    const details = result.repository?.pullRequest
+    if (!details) throw new Error("GitHub pull request metadata is unavailable")
+    if (details.headRefOid !== expectedHead) throw new Error("GitHub pull request head changed")
+    await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    return GitHubPrMetadataSchema.parse({
+      additions: details.additions ?? null,
+      deletions: details.deletions ?? null,
+      changedFiles: details.changedFiles ?? null,
+      headRevision: revision(details.headRefOid),
+      authorAvatarUrl: details.author?.avatarUrl ?? null,
+      authorLogin: details.author?.login ?? null,
+      createdAt: details.createdAt,
+      isAuthor: details.author?.login.toLowerCase() === result.viewer.login.toLowerCase(),
+      isAutoMergeEnabled: details.autoMergeRequest !== null,
+      allowedMergeMethods: [
+        ...(result.repository?.squashMergeAllowed ? ["squash" as const] : []),
+        ...(result.repository?.mergeCommitAllowed ? ["merge" as const] : []),
+      ],
+    })
+  }
+
+  async reviewStatus(
+    cwd: string,
+    number: number,
+    expectedHead: string
+  ): Promise<GitHubPrReviewStatus> {
+    const pr = await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    const repository = this.#repositoryIdentity(pr.url, number)
+    const responseSchema = z.object({
+      repository: z
+        .object({
+          pullRequest: z
+            .object({
+              reviewDecision: z.string().nullable(),
+              reviewRequests: z.object({
+                nodes: z.array(
+                  z.object({
+                    requestedReviewer: z
+                      .object({
+                        __typename: z.string(),
+                        login: z.string().optional(),
+                        slug: z.string().optional(),
+                      })
+                      .nullable(),
+                  })
+                ),
+                pageInfo: z.object({ hasNextPage: z.boolean() }),
+              }),
+              reviews: z.object({
+                nodes: z.array(
+                  z.object({
+                    author: z.object({ login: z.string() }).nullable(),
+                    state: z.string(),
+                    submittedAt: z.string().nullable(),
+                  })
+                ),
+                pageInfo: z.object({
+                  hasNextPage: z.boolean(),
+                  endCursor: z.string().nullable().optional(),
+                }),
+              }),
+            })
+            .nullable(),
+        })
+        .nullable(),
+    })
+    const reviews: GitHubPrReviewStatus["reviews"] = []
+    let requests: GitHubPrReviewStatus["reviewRequests"] = []
+    let cursor: string | null = null
+    let truncated = false
+    let decision: string | null = null
+    for (let page = 0; page < 20; page += 1) {
+      const result = responseSchema.parse(
+        await this.#graphql(cwd, repository.host, reviewStatusQuery, {
+          owner: repository.owner,
+          repo: repository.repo,
+          number,
+          cursor,
+        })
+      )
+      const data = result.repository?.pullRequest
+      if (!data) throw new Error("GitHub pull request reviews are unavailable")
+      if (page === 0) {
+        decision = data.reviewDecision
+        truncated = data.reviewRequests.pageInfo.hasNextPage
+        requests = data.reviewRequests.nodes.flatMap<
+          GitHubPrReviewStatus["reviewRequests"][number]
+        >(({ requestedReviewer }) => {
+          if (requestedReviewer?.__typename === "User" && requestedReviewer.login)
+            return [{ type: "user" as const, login: requestedReviewer.login }]
+          if (requestedReviewer?.__typename === "Team" && requestedReviewer.slug)
+            return [{ type: "team" as const, login: requestedReviewer.slug }]
+          return []
+        })
+      }
+      reviews.push(
+        ...data.reviews.nodes.map((review) => ({
+          author: review.author?.login ?? null,
+          state: review.state,
+          submittedAt: review.submittedAt,
+        }))
+      )
+      if (!data.reviews.pageInfo.hasNextPage) break
+      const next = data.reviews.pageInfo.endCursor ?? null
+      if (!next || next === cursor) throw new Error("GitHub reviews returned a repeated page")
+      cursor = next
+      if (page === 19) truncated = true
+    }
+    await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    return GitHubPrReviewStatusSchema.parse({
+      reviewDecision: decision,
+      reviewRequests: requests,
+      reviews,
+      truncated,
+    })
+  }
+
+  async userSearch(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    query: string,
+    scope: "collaborators" | "mentions"
+  ): Promise<GitHubUserCandidate[]> {
+    if (query.length > 100 || /[\0\r\n]/u.test(query)) throw new Error("Invalid GitHub user search")
+    if (scope === "collaborators" && !query.trim()) return []
+    const pr = await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    const repository = this.#repositoryIdentity(pr.url, number)
+    const user = z.object({ login: z.string(), avatarUrl: z.url().nullable() })
+    const result = await this.#graphql(
+      cwd,
+      repository.host,
+      scope === "collaborators" ? collaboratorQuery : mentionQuery,
+      { owner: repository.owner, repo: repository.repo, number, search: query.trim() }
+    )
+    const users =
+      scope === "collaborators"
+        ? (z
+            .object({
+              repository: z
+                .object({ collaborators: z.object({ edges: z.array(z.object({ node: user })) }) })
+                .nullable(),
+            })
+            .parse(result)
+            .repository?.collaborators.edges.map((edge) => edge.node) ?? [])
+        : (() => {
+            const data = z
+              .object({
+                repository: z
+                  .object({
+                    mentionableUsers: z.object({ nodes: z.array(user) }),
+                    pullRequest: z
+                      .object({ participants: z.object({ nodes: z.array(user) }) })
+                      .nullable(),
+                  })
+                  .nullable(),
+              })
+              .parse(result).repository
+            return [
+              ...(data?.pullRequest?.participants.nodes ?? []).filter((candidate) =>
+                candidate.login.toLowerCase().includes(query.trim().toLowerCase())
+              ),
+              ...(query.trim() ? (data?.mentionableUsers.nodes ?? []) : []),
+            ]
+          })()
+    await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    return GitHubUserCandidateSchema.array().parse([
+      ...new Map(users.map((candidate) => [candidate.login.toLowerCase(), candidate])).values(),
+    ])
   }
 
   async autoMergeEnabled(cwd: string, number: number): Promise<boolean> {

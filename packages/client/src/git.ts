@@ -9,12 +9,15 @@ import type {
   GitHubAppPullRequest,
   GitHubAppPullRequestSummary,
   GitHubAvailability,
+  GitHubPrMetadata,
+  GitHubPrReviewStatus,
   GitHubPrRevisionFile,
   GitHubPrRevisionSnapshot,
   GitHubPullRequest,
   GitHubPullRequestActivity,
   GitHubPullRequestChecks,
   GitHubPullRequestThreads,
+  GitHubUserCandidate,
   GitLabMergeRequest,
   GitLabMergeRequestChecks,
   GitLabMergeRequestDiscussion,
@@ -217,6 +220,26 @@ export interface GitActions {
     headPath: string | null,
     options?: RequestOptions
   ): Promise<GitHubPrRevisionFile>
+  githubPrMetadata(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    options?: RequestOptions
+  ): Promise<GitHubPrMetadata>
+  githubPrReviewStatus(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    options?: RequestOptions
+  ): Promise<GitHubPrReviewStatus>
+  githubPrUserSearch(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    query: string,
+    scope: "collaborators" | "mentions",
+    options?: RequestOptions
+  ): Promise<GitHubUserCandidate[]>
   githubPrAutoMergeStatus(cwd: string, number: number, options?: RequestOptions): Promise<boolean>
   githubPrToggleAutoMerge(
     cwd: string,
@@ -547,6 +570,30 @@ export const createGitActions = (client: ServerClient): GitActions => ({
       await client.requestGit(
         "git.github-pr-revision-file.request",
         { cwd, number, expectedHead, baseRevision, headRevision, basePath, headPath },
+        options
+      )
+    ),
+  githubPrMetadata: async (cwd, number, expectedHead, options) =>
+    unwrap(
+      await client.requestGit(
+        "git.github-pr-metadata.request",
+        { cwd, number, expectedHead },
+        options
+      )
+    ),
+  githubPrReviewStatus: async (cwd, number, expectedHead, options) =>
+    unwrap(
+      await client.requestGit(
+        "git.github-pr-review-status.request",
+        { cwd, number, expectedHead },
+        options
+      )
+    ),
+  githubPrUserSearch: async (cwd, number, expectedHead, query, scope, options) =>
+    unwrap(
+      await client.requestGit(
+        "git.github-pr-user-search.request",
+        { cwd, number, expectedHead, query, scope },
         options
       )
     ),

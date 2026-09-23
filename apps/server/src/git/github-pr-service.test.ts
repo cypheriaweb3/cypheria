@@ -443,4 +443,62 @@ else if (args[1]?.includes("/contents/")) process.stdout.write(JSON.stringify({ 
     ).rejects.toThrow("Invalid GitHub revision file path")
     await expect(service.revisionSnapshot(cwd, 42, "d".repeat(40))).rejects.toThrow("head changed")
   })
+
+  it("reads PR metadata, paged review status, and account-scoped user suggestions", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "cypheria-gh-insights-"))
+    created.push(cwd)
+    const binary = join(cwd, "gh")
+    const head = "a".repeat(40)
+    const pr = {
+      number: 42,
+      title: "Insights",
+      body: "",
+      url: "https://github.com/org/repo/pull/42",
+      state: "OPEN",
+      isDraft: false,
+      headRefName: "feature",
+      headRefOid: head,
+      baseRefName: "main",
+      updatedAt: "2026-09-23T00:00:00Z",
+      author: { login: "tester" },
+    }
+    await writeFile(
+      binary,
+      `#!/usr/bin/env node
+const fs = require("node:fs")
+const args = process.argv.slice(2)
+if (args[1] === "view") process.stdout.write(${JSON.stringify(JSON.stringify(pr))})
+else {
+  const request = JSON.parse(fs.readFileSync(args[args.indexOf("--input") + 1], "utf8"))
+  let data
+  if (request.query.includes("mergeCommitAllowed")) data = { viewer: { login: "tester" }, repository: { mergeCommitAllowed: true, squashMergeAllowed: true, pullRequest: { additions: 4, deletions: 2, changedFiles: 1, headRefOid: ${JSON.stringify(head)}, author: { login: "tester", avatarUrl: null }, createdAt: "2026-09-23T00:00:00Z", autoMergeRequest: null } } }
+  else if (request.query.includes("reviewDecision")) data = { repository: { pullRequest: { reviewDecision: "REVIEW_REQUIRED", reviewRequests: { nodes: [{ requestedReviewer: { __typename: "User", login: "reviewer" } }], pageInfo: { hasNextPage: false } }, reviews: request.variables.cursor ? { nodes: [{ author: { login: "reviewer" }, state: "APPROVED", submittedAt: "2026-09-24T00:00:00Z" }], pageInfo: { hasNextPage: false, endCursor: "page2" } } : { nodes: [{ author: { login: "tester" }, state: "COMMENTED", submittedAt: "2026-09-23T00:00:00Z" }], pageInfo: { hasNextPage: true, endCursor: "page1" } } } } }
+  else if (request.query.includes("collaborators")) data = { repository: { collaborators: { edges: [{ node: { login: "reviewer", avatarUrl: null } }] } } }
+  else data = { repository: { mentionableUsers: { nodes: [{ login: "reviewer", avatarUrl: null }] }, pullRequest: { participants: { nodes: [{ login: "reviewer", avatarUrl: null }] } } } }
+  process.stdout.write(JSON.stringify({ data }))
+}
+`
+    )
+    await chmod(binary, 0o755)
+    const service = new GitHubPrService(binary)
+    expect(await service.metadata(cwd, 42, head)).toMatchObject({
+      additions: 4,
+      deletions: 2,
+      changedFiles: 1,
+      isAuthor: true,
+      allowedMergeMethods: ["squash", "merge"],
+    })
+    expect(await service.reviewStatus(cwd, 42, head)).toMatchObject({
+      reviewDecision: "REVIEW_REQUIRED",
+      truncated: false,
+      reviewRequests: [{ type: "user", login: "reviewer" }],
+      reviews: [{ state: "COMMENTED" }, { state: "APPROVED" }],
+    })
+    expect(await service.userSearch(cwd, 42, head, "rev", "collaborators")).toEqual([
+      { login: "reviewer", avatarUrl: null },
+    ])
+    expect(await service.userSearch(cwd, 42, head, "rev", "mentions")).toEqual([
+      { login: "reviewer", avatarUrl: null },
+    ])
+  })
 })

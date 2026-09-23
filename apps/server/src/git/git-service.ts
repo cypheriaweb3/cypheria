@@ -13,12 +13,15 @@ import type {
   GitHubAppPullRequest,
   GitHubAppPullRequestSummary,
   GitHubAvailability,
+  GitHubPrMetadata,
+  GitHubPrReviewStatus,
   GitHubPrRevisionFile,
   GitHubPrRevisionSnapshot,
   GitHubPullRequest,
   GitHubPullRequestActivity,
   GitHubPullRequestChecks,
   GitHubPullRequestThreads,
+  GitHubUserCandidate,
   GitLabMergeRequest,
   GitLabMergeRequestChecks,
   GitLabMergeRequestDiscussion,
@@ -325,6 +328,29 @@ export class GitService {
             message.payload.headRevision,
             message.payload.basePath,
             message.payload.headPath
+          )
+          break
+        case "git.github-pr-metadata.request":
+          value = await this.githubPrMetadata(
+            message.payload.cwd,
+            message.payload.number,
+            message.payload.expectedHead
+          )
+          break
+        case "git.github-pr-review-status.request":
+          value = await this.githubPrReviewStatus(
+            message.payload.cwd,
+            message.payload.number,
+            message.payload.expectedHead
+          )
+          break
+        case "git.github-pr-user-search.request":
+          value = await this.githubPrUserSearch(
+            message.payload.cwd,
+            message.payload.number,
+            message.payload.expectedHead,
+            message.payload.query,
+            message.payload.scope
           )
           break
         case "git.github-pr-auto-merge-status.request":
@@ -800,6 +826,38 @@ export class GitService {
       headRevision,
       basePath,
       headPath
+    )
+  }
+
+  async githubPrMetadata(
+    cwd: string,
+    number: number,
+    expectedHead: string
+  ): Promise<GitHubPrMetadata> {
+    return this.#github.metadata((await this.discover(cwd)).root, number, expectedHead)
+  }
+
+  async githubPrReviewStatus(
+    cwd: string,
+    number: number,
+    expectedHead: string
+  ): Promise<GitHubPrReviewStatus> {
+    return this.#github.reviewStatus((await this.discover(cwd)).root, number, expectedHead)
+  }
+
+  async githubPrUserSearch(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    query: string,
+    scope: "collaborators" | "mentions"
+  ): Promise<GitHubUserCandidate[]> {
+    return this.#github.userSearch(
+      (await this.discover(cwd)).root,
+      number,
+      expectedHead,
+      query,
+      scope
     )
   }
 

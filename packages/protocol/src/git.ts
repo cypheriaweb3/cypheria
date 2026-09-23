@@ -228,6 +228,41 @@ export const GitHubPrRevisionFileSchema = z.discriminatedUnion("status", [
     .strict(),
   z.object({ status: z.literal("unavailable") }).strict(),
 ])
+export const GitHubPrMetadataSchema = z
+  .object({
+    additions: z.number().int().nonnegative().nullable(),
+    deletions: z.number().int().nonnegative().nullable(),
+    changedFiles: z.number().int().nonnegative().nullable(),
+    headRevision: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    authorAvatarUrl: z.url().nullable(),
+    authorLogin: z.string().nullable(),
+    createdAt: z.string().nullable(),
+    isAuthor: z.boolean(),
+    isAutoMergeEnabled: z.boolean(),
+    allowedMergeMethods: z.array(z.enum(["merge", "squash"])),
+  })
+  .strict()
+export const GitHubPrReviewStatusSchema = z
+  .object({
+    reviewDecision: z.string().nullable(),
+    reviewRequests: z.array(
+      z.object({ type: z.enum(["user", "team"]), login: z.string() }).strict()
+    ),
+    reviews: z.array(
+      z
+        .object({
+          author: z.string().nullable(),
+          state: z.string(),
+          submittedAt: z.string().nullable(),
+        })
+        .strict()
+    ),
+    truncated: z.boolean(),
+  })
+  .strict()
+export const GitHubUserCandidateSchema = z
+  .object({ login: z.string(), avatarUrl: z.url().nullable() })
+  .strict()
 export const GitLabMergeRequestSchema = z
   .object({
     iid: z.number().int().positive(),
@@ -582,6 +617,38 @@ export const GitHubPrRevisionFileRequestSchema = input(
       headRevision: z.string().regex(/^[a-f0-9]{40,64}$/iu),
       basePath: path.nullable(),
       headPath: path.nullable(),
+    })
+    .strict()
+)
+export const GitHubPrMetadataRequestSchema = input(
+  "git.github-pr-metadata.request",
+  z
+    .object({
+      cwd: path,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    })
+    .strict()
+)
+export const GitHubPrReviewStatusRequestSchema = input(
+  "git.github-pr-review-status.request",
+  z
+    .object({
+      cwd: path,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    })
+    .strict()
+)
+export const GitHubPrUserSearchRequestSchema = input(
+  "git.github-pr-user-search.request",
+  z
+    .object({
+      cwd: path,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      query: z.string().max(100),
+      scope: z.enum(["collaborators", "mentions"]),
     })
     .strict()
 )
@@ -973,6 +1040,18 @@ export const GitHubPrRevisionFileResponseSchema = output(
   "git.github-pr-revision-file.response",
   GitHubPrRevisionFileSchema
 )
+export const GitHubPrMetadataResponseSchema = output(
+  "git.github-pr-metadata.response",
+  GitHubPrMetadataSchema
+)
+export const GitHubPrReviewStatusResponseSchema = output(
+  "git.github-pr-review-status.response",
+  GitHubPrReviewStatusSchema
+)
+export const GitHubPrUserSearchResponseSchema = output(
+  "git.github-pr-user-search.response",
+  z.array(GitHubUserCandidateSchema)
+)
 export const GitHubPrAutoMergeStatusResponseSchema = output(
   "git.github-pr-auto-merge-status.response",
   z.object({ enabled: z.boolean() }).strict()
@@ -1107,6 +1186,9 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubPrRevisionSnapshotRequestSchema,
   GitHubPrRevisionDiffRequestSchema,
   GitHubPrRevisionFileRequestSchema,
+  GitHubPrMetadataRequestSchema,
+  GitHubPrReviewStatusRequestSchema,
+  GitHubPrUserSearchRequestSchema,
   GitHubPrAutoMergeStatusRequestSchema,
   GitHubPrToggleAutoMergeRequestSchema,
   GitHubPrChecksRequestSchema,
@@ -1178,6 +1260,9 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubPrRevisionSnapshotResponseSchema,
   GitHubPrRevisionDiffResponseSchema,
   GitHubPrRevisionFileResponseSchema,
+  GitHubPrMetadataResponseSchema,
+  GitHubPrReviewStatusResponseSchema,
+  GitHubPrUserSearchResponseSchema,
   GitHubPrAutoMergeStatusResponseSchema,
   GitHubPrToggleAutoMergeResponseSchema,
   GitHubPrChecksResponseSchema,
@@ -1231,6 +1316,9 @@ export type GitHubPullRequestActivity = z.infer<typeof GitHubPullRequestActivity
 export type GitHubPullRequestThreads = z.infer<typeof GitHubPullRequestThreadsSchema>
 export type GitHubPrRevisionSnapshot = z.infer<typeof GitHubPrRevisionSnapshotSchema>
 export type GitHubPrRevisionFile = z.infer<typeof GitHubPrRevisionFileSchema>
+export type GitHubPrMetadata = z.infer<typeof GitHubPrMetadataSchema>
+export type GitHubPrReviewStatus = z.infer<typeof GitHubPrReviewStatusSchema>
+export type GitHubUserCandidate = z.infer<typeof GitHubUserCandidateSchema>
 export type GitLabMergeRequest = z.infer<typeof GitLabMergeRequestSchema>
 export type GitLabMergeRequestNote = z.infer<typeof GitLabMergeRequestNoteSchema>
 export type GitLabMergeRequestDiscussion = z.infer<typeof GitLabMergeRequestDiscussionSchema>

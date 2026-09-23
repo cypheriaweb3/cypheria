@@ -52,6 +52,7 @@ export function GitHubPrPanel({
   const [commentEditBody, setCommentEditBody] = useState("")
   const [reviewBody, setReviewBody] = useState("")
   const [reviewer, setReviewer] = useState("")
+  const [reviewerSearchQuery, setReviewerSearchQuery] = useState("")
   const [replyThreadId, setReplyThreadId] = useState<string | null>(null)
   const [replyBody, setReplyBody] = useState("")
   const [inlinePath, setInlinePath] = useState("")
@@ -79,6 +80,7 @@ export function GitHubPrPanel({
     setEditingComment(null)
     setReviewBody("")
     setReviewer("")
+    setReviewerSearchQuery("")
     setReplyThreadId(null)
     setReplyBody("")
     setInlinePath("")
@@ -260,6 +262,49 @@ export function GitHubPrPanel({
     queryFn: async () => {
       if (!selected.data) throw new Error("A pull request is required")
       return (await ensureCypheriaClient()).git.githubPrActivity(cwd, selected.data.number)
+    },
+    retry: false,
+  })
+  const metadata = useQuery({
+    enabled: cliAvailable && Boolean(selected.data?.headRefOid),
+    queryKey: ["github-pr", cwd, "metadata", selected.data?.number, selected.data?.headRefOid],
+    queryFn: async () => {
+      const pr = selected.data
+      if (!pr?.headRefOid) throw new Error("A pull request head is required")
+      return (await ensureCypheriaClient()).git.githubPrMetadata(cwd, pr.number, pr.headRefOid)
+    },
+    retry: false,
+  })
+  const reviewStatus = useQuery({
+    enabled: cliAvailable && Boolean(selected.data?.headRefOid),
+    queryKey: ["github-pr", cwd, "review-status", selected.data?.number, selected.data?.headRefOid],
+    queryFn: async () => {
+      const pr = selected.data
+      if (!pr?.headRefOid) throw new Error("A pull request head is required")
+      return (await ensureCypheriaClient()).git.githubPrReviewStatus(cwd, pr.number, pr.headRefOid)
+    },
+    retry: false,
+  })
+  const reviewerCandidates = useQuery({
+    enabled: cliAvailable && Boolean(selected.data?.headRefOid && reviewerSearchQuery),
+    queryKey: [
+      "github-pr",
+      cwd,
+      "reviewer-search",
+      selected.data?.number,
+      selected.data?.headRefOid,
+      reviewerSearchQuery,
+    ],
+    queryFn: async () => {
+      const pr = selected.data
+      if (!pr?.headRefOid) throw new Error("A pull request head is required")
+      return (await ensureCypheriaClient()).git.githubPrUserSearch(
+        cwd,
+        pr.number,
+        pr.headRefOid,
+        reviewerSearchQuery,
+        "collaborators"
+      )
     },
     retry: false,
   })
@@ -567,6 +612,18 @@ export function GitHubPrPanel({
             {selected.data.headRefName} → {selected.data.baseRefName} · {selected.data.state}
           </p>
           <p className="text-xs whitespace-pre-wrap">{selected.data.body}</p>
+          {metadata.data ? (
+            <p className="text-xs text-muted-foreground">
+              +{metadata.data.additions ?? 0} / -{metadata.data.deletions ?? 0} ·{" "}
+              {metadata.data.changedFiles ?? 0} files ·{" "}
+              {metadata.data.allowedMergeMethods.join(", ")}
+            </p>
+          ) : null}
+          {metadata.isError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{metadata.error.message}</AlertDescription>
+            </Alert>
+          ) : null}
           {cliAvailable && selected.data.headRefOid ? (
             <div className="space-y-2 border-t pt-2">
               <Button
@@ -664,6 +721,31 @@ export function GitHubPrPanel({
               <p className="text-xs font-medium">
                 <Trans id="git.github.activity">Discussion and reviews</Trans>
               </p>
+              {reviewStatus.data ? (
+                <div className="space-y-1 text-xs text-muted-foreground">
+                  <p>
+                    <Trans id="git.github.reviewDecision">Review decision</Trans>:{" "}
+                    {reviewStatus.data.reviewDecision ?? "—"}
+                  </p>
+                  {reviewStatus.data.reviewRequests.map((request) => (
+                    <p key={`${request.type}:${request.login}`}>
+                      {request.type}: {request.login}
+                    </p>
+                  ))}
+                  {reviewStatus.data.truncated ? (
+                    <p>
+                      <Trans id="git.github.reviewsTruncated">
+                        More reviews are available on GitHub.
+                      </Trans>
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+              {reviewStatus.isError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>{reviewStatus.error.message}</AlertDescription>
+                </Alert>
+              ) : null}
               {activity.data?.comments.map((comment) => (
                 <div className="rounded border p-2 text-xs" key={comment.id}>
                   <span className="font-medium">{comment.author ?? "GitHub"}</span>
@@ -891,6 +973,31 @@ export function GitHubPrPanel({
                 )}
                 value={reviewer}
               />
+              <Button
+                disabled={!reviewer.trim()}
+                onClick={() => setReviewerSearchQuery(reviewer.trim())}
+                size="sm"
+                type="button"
+                variant="ghost"
+              >
+                <Trans id="git.github.searchReviewers">Search reviewers</Trans>
+              </Button>
+              {reviewerCandidates.data?.map((candidate) => (
+                <Button
+                  key={candidate.login}
+                  onClick={() => setReviewer(candidate.login)}
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  {candidate.login}
+                </Button>
+              ))}
+              {reviewerCandidates.isError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>{reviewerCandidates.error.message}</AlertDescription>
+                </Alert>
+              ) : null}
               <div className="flex gap-2">
                 {(["add", "remove"] as const).map((action) => (
                   <Button
