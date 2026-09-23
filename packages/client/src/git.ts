@@ -9,10 +9,12 @@ import type {
   GitHubAppPullRequest,
   GitHubAppPullRequestSummary,
   GitHubAvailability,
+  GitHubPrAttributesFile,
   GitHubPrMetadata,
   GitHubPrReviewStatus,
   GitHubPrRevisionFile,
   GitHubPrRevisionSnapshot,
+  GitHubPrStackEntry,
   GitHubPullRequest,
   GitHubPullRequestActivity,
   GitHubPullRequestChecks,
@@ -240,6 +242,19 @@ export interface GitActions {
     scope: "collaborators" | "mentions",
     options?: RequestOptions
   ): Promise<GitHubUserCandidate[]>
+  githubPrStack(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    options?: RequestOptions
+  ): Promise<GitHubPrStackEntry[]>
+  githubPrAttributes(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    paths: string[],
+    options?: RequestOptions
+  ): Promise<GitHubPrAttributesFile[]>
   githubPrAutoMergeStatus(cwd: string, number: number, options?: RequestOptions): Promise<boolean>
   githubPrToggleAutoMerge(
     cwd: string,
@@ -594,6 +609,18 @@ export const createGitActions = (client: ServerClient): GitActions => ({
       await client.requestGit(
         "git.github-pr-user-search.request",
         { cwd, number, expectedHead, query, scope },
+        options
+      )
+    ),
+  githubPrStack: async (cwd, number, expectedHead, options) =>
+    unwrap(
+      await client.requestGit("git.github-pr-stack.request", { cwd, number, expectedHead }, options)
+    ),
+  githubPrAttributes: async (cwd, number, expectedHead, paths, options) =>
+    unwrap(
+      await client.requestGit(
+        "git.github-pr-attributes.request",
+        { cwd, number, expectedHead, paths },
         options
       )
     ),

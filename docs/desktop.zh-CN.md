@@ -92,6 +92,8 @@ GitHub CLI 拉取请求列表支持服务端关键词搜索，以及打开、已
 
 PR 面板列出 GitHub 上的精确修订提交，并可读取所选提交的差异。Server 也能读取指定 base 和 head 修订的文本文件内容；二进制或过大的文件会返回不可用。每次修订读取前后都会核对面板显示的 PR head。
 
+CLI 路径可沿打开的 PR 的 base 和 head 分支查看堆叠关系，上限为 50 个 PR，并检查循环。它也可从面板显示的 PR head 读取变更文件各级父目录的 `.gitattributes`；截断的属性文件会被拒绝，读取后还会再次核对 PR head。
+
 CLI 路径可以请求或移除用户及团队 reviewer。修改 reviewer、标题或正文前会比较面板显示的 head SHA，操作后面板会刷新 PR 数据。
 
 CLI 路径也会读取 PR 的新增和删除行数、变更文件数、作者、自动合并状态、可用合并方式、reviewer 请求及分页审查决定。reviewer 搜索使用 GitHub 仓库协作者建议；Server 还提供来自 PR 参与者和可提及用户的提及建议。

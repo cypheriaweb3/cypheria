@@ -93,6 +93,8 @@ When the CLI can access the repository, the PR panel selects the current branch'
 
 The PR panel lists exact GitHub revision commits and loads the selected commit's diff. The Server can also read text file content at the selected base and head revisions; it returns unavailable for binary or oversized files. Each revision read checks the displayed PR head before and after the request.
 
+The CLI path can inspect a PR stack by following open PR base and head branches, with a 50-PR limit and cycle checks. It can read `.gitattributes` from the displayed PR head for a changed file's parent directories, rejecting truncated attributes and rechecking the PR head after reading.
+
 The CLI path can request or remove a user or team reviewer. Reviewer changes and title/body edits compare the displayed head SHA before writing; the panel refreshes PR data after the operation.
 
 The CLI path also reads PR additions, deletions, changed-file count, author, auto-merge state, allowed merge methods, reviewer requests, and paginated review decisions. Reviewer search uses GitHub's repository collaborator suggestions; the Server also exposes mention suggestions from PR participants and mentionable users.

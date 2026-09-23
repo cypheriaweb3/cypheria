@@ -263,6 +263,19 @@ export const GitHubPrReviewStatusSchema = z
 export const GitHubUserCandidateSchema = z
   .object({ login: z.string(), avatarUrl: z.url().nullable() })
   .strict()
+export const GitHubPrStackEntrySchema = z
+  .object({
+    number: z.number().int().positive(),
+    title: z.string(),
+    isDraft: z.boolean(),
+    baseBranch: z.string(),
+    headBranch: z.string(),
+    parentNumber: z.number().int().positive().nullable(),
+  })
+  .strict()
+export const GitHubPrAttributesFileSchema = z
+  .object({ basePath: z.string(), contents: z.string() })
+  .strict()
 export const GitLabMergeRequestSchema = z
   .object({
     iid: z.number().int().positive(),
@@ -649,6 +662,27 @@ export const GitHubPrUserSearchRequestSchema = input(
       expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
       query: z.string().max(100),
       scope: z.enum(["collaborators", "mentions"]),
+    })
+    .strict()
+)
+export const GitHubPrStackRequestSchema = input(
+  "git.github-pr-stack.request",
+  z
+    .object({
+      cwd: path,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    })
+    .strict()
+)
+export const GitHubPrAttributesRequestSchema = input(
+  "git.github-pr-attributes.request",
+  z
+    .object({
+      cwd: path,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      paths: z.array(path).max(500),
     })
     .strict()
 )
@@ -1052,6 +1086,14 @@ export const GitHubPrUserSearchResponseSchema = output(
   "git.github-pr-user-search.response",
   z.array(GitHubUserCandidateSchema)
 )
+export const GitHubPrStackResponseSchema = output(
+  "git.github-pr-stack.response",
+  z.array(GitHubPrStackEntrySchema)
+)
+export const GitHubPrAttributesResponseSchema = output(
+  "git.github-pr-attributes.response",
+  z.array(GitHubPrAttributesFileSchema)
+)
 export const GitHubPrAutoMergeStatusResponseSchema = output(
   "git.github-pr-auto-merge-status.response",
   z.object({ enabled: z.boolean() }).strict()
@@ -1189,6 +1231,8 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubPrMetadataRequestSchema,
   GitHubPrReviewStatusRequestSchema,
   GitHubPrUserSearchRequestSchema,
+  GitHubPrStackRequestSchema,
+  GitHubPrAttributesRequestSchema,
   GitHubPrAutoMergeStatusRequestSchema,
   GitHubPrToggleAutoMergeRequestSchema,
   GitHubPrChecksRequestSchema,
@@ -1263,6 +1307,8 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubPrMetadataResponseSchema,
   GitHubPrReviewStatusResponseSchema,
   GitHubPrUserSearchResponseSchema,
+  GitHubPrStackResponseSchema,
+  GitHubPrAttributesResponseSchema,
   GitHubPrAutoMergeStatusResponseSchema,
   GitHubPrToggleAutoMergeResponseSchema,
   GitHubPrChecksResponseSchema,
@@ -1319,6 +1365,8 @@ export type GitHubPrRevisionFile = z.infer<typeof GitHubPrRevisionFileSchema>
 export type GitHubPrMetadata = z.infer<typeof GitHubPrMetadataSchema>
 export type GitHubPrReviewStatus = z.infer<typeof GitHubPrReviewStatusSchema>
 export type GitHubUserCandidate = z.infer<typeof GitHubUserCandidateSchema>
+export type GitHubPrStackEntry = z.infer<typeof GitHubPrStackEntrySchema>
+export type GitHubPrAttributesFile = z.infer<typeof GitHubPrAttributesFileSchema>
 export type GitLabMergeRequest = z.infer<typeof GitLabMergeRequestSchema>
 export type GitLabMergeRequestNote = z.infer<typeof GitLabMergeRequestNoteSchema>
 export type GitLabMergeRequestDiscussion = z.infer<typeof GitLabMergeRequestDiscussionSchema>

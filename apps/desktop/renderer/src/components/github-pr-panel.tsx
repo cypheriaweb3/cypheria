@@ -61,6 +61,9 @@ export function GitHubPrPanel({
   const [inlineBody, setInlineBody] = useState("")
   const [showDiff, setShowDiff] = useState(false)
   const [selectedRevision, setSelectedRevision] = useState<string | null>(null)
+  const [showStack, setShowStack] = useState(false)
+  const [attributesPath, setAttributesPath] = useState("")
+  const [selectedAttributesPath, setSelectedAttributesPath] = useState<string | null>(null)
   const [mergeOpen, setMergeOpen] = useState(false)
   const [closeOpen, setCloseOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -88,6 +91,9 @@ export function GitHubPrPanel({
     setInlineBody("")
     setShowDiff(false)
     setSelectedRevision(null)
+    setShowStack(false)
+    setAttributesPath("")
+    setSelectedAttributesPath(null)
     setSelectedNumber(number)
   }
   const availability = useQuery({
@@ -233,6 +239,36 @@ export function GitHubPrPanel({
         revision.parentSha ?? snapshot.mergeBaseRevision,
         revision.sha
       )
+    },
+    retry: false,
+  })
+  const stack = useQuery({
+    enabled: cliAvailable && showStack && Boolean(selected.data?.headRefOid),
+    queryKey: ["github-pr", cwd, "stack", selected.data?.number, selected.data?.headRefOid],
+    queryFn: async () => {
+      const pr = selected.data
+      if (!pr?.headRefOid) throw new Error("A pull request head is required")
+      return (await ensureCypheriaClient()).git.githubPrStack(cwd, pr.number, pr.headRefOid)
+    },
+    retry: false,
+  })
+  const attributes = useQuery({
+    enabled: cliAvailable && Boolean(selected.data?.headRefOid && selectedAttributesPath),
+    queryKey: [
+      "github-pr",
+      cwd,
+      "attributes",
+      selected.data?.number,
+      selected.data?.headRefOid,
+      selectedAttributesPath,
+    ],
+    queryFn: async () => {
+      const pr = selected.data
+      if (!pr?.headRefOid || !selectedAttributesPath)
+        throw new Error("A changed file path is required")
+      return (await ensureCypheriaClient()).git.githubPrAttributes(cwd, pr.number, pr.headRefOid, [
+        selectedAttributesPath,
+      ])
     },
     retry: false,
   })
@@ -635,12 +671,80 @@ export function GitHubPrPanel({
                 <Trans id="git.github.codeChanges">Code changes</Trans>
               </Button>
               {showDiff ? (
-                <pre className="max-h-96 overflow-auto rounded border p-2 text-xs whitespace-pre-wrap">
-                  {prDiff.isError
-                    ? prDiff.error.message
-                    : (prDiff.data ??
-                      i18n._(msg({ id: "git.github.diffLoading", message: "Loading diff…" })))}
-                </pre>
+                <div className="space-y-2">
+                  <pre className="max-h-96 overflow-auto rounded border p-2 text-xs whitespace-pre-wrap">
+                    {prDiff.isError
+                      ? prDiff.error.message
+                      : (prDiff.data ??
+                        i18n._(msg({ id: "git.github.diffLoading", message: "Loading diff…" })))}
+                  </pre>
+                  <div className="flex gap-1">
+                    <Input
+                      aria-label={i18n._(
+                        msg({
+                          id: "git.github.attributesPath",
+                          message: "Changed file path for attributes",
+                        })
+                      )}
+                      onChange={(event) => setAttributesPath(event.target.value)}
+                      placeholder={i18n._(
+                        msg({
+                          id: "git.github.attributesPath",
+                          message: "Changed file path for attributes",
+                        })
+                      )}
+                      value={attributesPath}
+                    />
+                    <Button
+                      disabled={!attributesPath.trim()}
+                      onClick={() => setSelectedAttributesPath(attributesPath.trim())}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <Trans id="git.github.loadAttributes">Load attributes</Trans>
+                    </Button>
+                  </div>
+                  {attributes.data?.map((file) => (
+                    <pre
+                      className="overflow-auto rounded border p-2 text-xs whitespace-pre-wrap"
+                      key={file.basePath}
+                    >
+                      {file.basePath || "."}/.gitattributes{"\n"}
+                      {file.contents}
+                    </pre>
+                  ))}
+                  {attributes.isError ? (
+                    <Alert variant="destructive">
+                      <AlertDescription>{attributes.error.message}</AlertDescription>
+                    </Alert>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {cliAvailable && selected.data.headRefOid ? (
+            <div className="space-y-1 border-t pt-2">
+              <Button
+                onClick={() => setShowStack((value) => !value)}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Trans id="git.github.stack">Pull request stack</Trans>
+              </Button>
+              {showStack
+                ? stack.data?.map((entry) => (
+                    <p className="text-xs" key={entry.number}>
+                      #{entry.number} {entry.title} · {entry.baseBranch} → {entry.headBranch}
+                      {entry.parentNumber ? ` · #${entry.parentNumber}` : ""}
+                    </p>
+                  ))
+                : null}
+              {showStack && stack.isError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>{stack.error.message}</AlertDescription>
+                </Alert>
               ) : null}
             </div>
           ) : null}

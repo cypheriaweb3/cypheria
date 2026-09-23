@@ -501,4 +501,80 @@ else {
       { login: "reviewer", avatarUrl: null },
     ])
   })
+
+  it("finds related PR branches and reads revision-bound attributes", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "cypheria-gh-stack-"))
+    created.push(cwd)
+    const binary = join(cwd, "gh")
+    const head = "a".repeat(40)
+    const pr = {
+      number: 42,
+      title: "First",
+      body: "",
+      url: "https://github.com/org/repo/pull/42",
+      state: "OPEN",
+      isDraft: false,
+      headRefName: "feature",
+      headRefOid: head,
+      baseRefName: "main",
+      updatedAt: "2026-09-23T00:00:00Z",
+      author: { login: "tester" },
+    }
+    const base = { ref: "main", repo: { id: 1, owner: { login: "org" } } }
+    const first = {
+      number: 42,
+      title: "First",
+      draft: false,
+      state: "open",
+      base,
+      head: { ref: "feature", repo: base.repo },
+    }
+    const second = {
+      number: 43,
+      title: "Second",
+      draft: true,
+      state: "open",
+      base: { ref: "feature", repo: base.repo },
+      head: { ref: "next", repo: base.repo },
+    }
+    await writeFile(
+      binary,
+      `#!/usr/bin/env node
+const args = process.argv.slice(2)
+if (args[1] === "view") process.stdout.write(${JSON.stringify(JSON.stringify(pr))})
+else if (args[1] === "graphql") process.stdout.write(JSON.stringify({ data: { repository: { f0: { text: "*.txt text", isTruncated: false }, f1: { text: "* text", isTruncated: false } } } }))
+else if (args[1]?.includes("pulls/42")) process.stdout.write(${JSON.stringify(JSON.stringify(first))})
+else if (args[1]?.includes("base=feature")) process.stdout.write(${JSON.stringify(JSON.stringify([second]))})
+else if (args[1]?.includes("head=org%3Afeature")) process.stdout.write(${JSON.stringify(JSON.stringify([first]))})
+else process.stdout.write("[]")
+`
+    )
+    await chmod(binary, 0o755)
+    const service = new GitHubPrService(binary)
+    expect(await service.stack(cwd, 42, head)).toEqual([
+      {
+        number: 42,
+        title: "First",
+        isDraft: false,
+        baseBranch: "main",
+        headBranch: "feature",
+        parentNumber: null,
+      },
+      {
+        number: 43,
+        title: "Second",
+        isDraft: true,
+        baseBranch: "feature",
+        headBranch: "next",
+        parentNumber: 42,
+      },
+    ])
+    expect(await service.attributes(cwd, 42, head, ["src/file.txt"])).toEqual([
+      { basePath: "src", contents: "*.txt text" },
+      { basePath: "", contents: "* text" },
+    ])
+    await expect(service.attributes(cwd, 42, head, ["../secret"])).rejects.toThrow(
+      "Invalid GitHub PR path"
+    )
+  })
 })

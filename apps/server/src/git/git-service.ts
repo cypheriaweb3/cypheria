@@ -13,10 +13,12 @@ import type {
   GitHubAppPullRequest,
   GitHubAppPullRequestSummary,
   GitHubAvailability,
+  GitHubPrAttributesFile,
   GitHubPrMetadata,
   GitHubPrReviewStatus,
   GitHubPrRevisionFile,
   GitHubPrRevisionSnapshot,
+  GitHubPrStackEntry,
   GitHubPullRequest,
   GitHubPullRequestActivity,
   GitHubPullRequestChecks,
@@ -351,6 +353,21 @@ export class GitService {
             message.payload.expectedHead,
             message.payload.query,
             message.payload.scope
+          )
+          break
+        case "git.github-pr-stack.request":
+          value = await this.githubPrStack(
+            message.payload.cwd,
+            message.payload.number,
+            message.payload.expectedHead
+          )
+          break
+        case "git.github-pr-attributes.request":
+          value = await this.githubPrAttributes(
+            message.payload.cwd,
+            message.payload.number,
+            message.payload.expectedHead,
+            message.payload.paths
           )
           break
         case "git.github-pr-auto-merge-status.request":
@@ -859,6 +876,23 @@ export class GitService {
       query,
       scope
     )
+  }
+
+  async githubPrStack(
+    cwd: string,
+    number: number,
+    expectedHead: string
+  ): Promise<GitHubPrStackEntry[]> {
+    return this.#github.stack((await this.discover(cwd)).root, number, expectedHead)
+  }
+
+  async githubPrAttributes(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    paths: readonly string[]
+  ): Promise<GitHubPrAttributesFile[]> {
+    return this.#github.attributes((await this.discover(cwd)).root, number, expectedHead, paths)
   }
 
   async githubPrAutoMergeStatus(cwd: string, number: number): Promise<boolean> {

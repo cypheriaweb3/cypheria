@@ -2,10 +2,12 @@ import { isUtf8 } from "node:buffer"
 import { execFile } from "node:child_process"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { join, posix } from "node:path"
 import { promisify } from "node:util"
 import {
   type GitHubAvailability,
+  type GitHubPrAttributesFile,
+  GitHubPrAttributesFileSchema,
   type GitHubPrMetadata,
   GitHubPrMetadataSchema,
   type GitHubPrReviewStatus,
@@ -14,6 +16,8 @@ import {
   GitHubPrRevisionFileSchema,
   type GitHubPrRevisionSnapshot,
   GitHubPrRevisionSnapshotSchema,
+  type GitHubPrStackEntry,
+  GitHubPrStackEntrySchema,
   type GitHubPullRequest,
   type GitHubPullRequestActivity,
   type GitHubPullRequestChecks,
@@ -555,6 +559,163 @@ export class GitHubPrService {
     return GitHubUserCandidateSchema.array().parse([
       ...new Map(users.map((candidate) => [candidate.login.toLowerCase(), candidate])).values(),
     ])
+  }
+
+  async stack(cwd: string, number: number, expectedHead: string): Promise<GitHubPrStackEntry[]> {
+    const pr = await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    const repository = this.#repositoryIdentity(pr.url, number)
+    const branch = z.object({
+      ref: z.string(),
+      repo: z
+        .object({ id: z.number().int(), owner: z.object({ login: z.string() }).optional() })
+        .nullable(),
+    })
+    const stackPr = z.object({
+      number: z.number().int().positive(),
+      title: z.string(),
+      draft: z.boolean().default(false),
+      state: z.enum(["open", "closed"]),
+      base: branch,
+      head: branch,
+      stack: z.object({ number: z.number().int().positive().optional() }).nullish(),
+    })
+    type StackPr = z.infer<typeof stackPr>
+    const fetch = async (suffix: string): Promise<unknown> =>
+      JSON.parse(
+        await this.#run(cwd, [
+          "api",
+          `repos/${repository.owner}/${repository.repo}/${suffix}`,
+          "--hostname",
+          repository.host,
+        ])
+      )
+    const current = stackPr.parse(await fetch(`pulls/${number}`))
+    if (current.number !== number) throw new Error("GitHub returned the wrong pull request")
+    if (current.state !== "open") return []
+    const related = (child: StackPr, parent: StackPr): boolean =>
+      child.number !== parent.number &&
+      child.head.repo?.id === parent.base.repo?.id &&
+      child.head.ref === parent.base.ref
+    let entries: StackPr[]
+    if (current.stack?.number) {
+      entries = z
+        .object({ pull_requests: z.array(stackPr).max(50) })
+        .parse(await fetch(`stacks/${current.stack.number}`))
+        .pull_requests.filter((item) => item.state === "open")
+      if (!entries.some((item) => item.number === number))
+        throw new Error("GitHub stack omitted the selected pull request")
+    } else {
+      entries = [current]
+      const seen = new Set([number])
+      for (let index = 0; index < entries.length; index += 1) {
+        const item = entries[index]
+        if (!item) break
+        const candidates = await Promise.all([
+          item.base.repo
+            ? fetch(
+                `pulls?state=open&per_page=51&head=${encodeURIComponent(`${item.base.repo.owner?.login ?? repository.owner}:${item.base.ref}`)}`
+              )
+            : Promise.resolve([]),
+          item.head.repo?.id === current.base.repo?.id
+            ? fetch(`pulls?state=open&per_page=51&base=${encodeURIComponent(item.head.ref)}`)
+            : Promise.resolve([]),
+        ])
+        const [parents, children] = candidates.map((candidate) =>
+          z.array(stackPr).max(50).parse(candidate)
+        )
+        for (const candidate of [
+          ...(parents ?? []).filter((entry) => related(entry, item)),
+          ...(children ?? []).filter((entry) => related(item, entry)),
+        ]) {
+          if (seen.has(candidate.number)) continue
+          if (entries.length >= 50) throw new Error("GitHub PR stack exceeds the 50-PR limit")
+          seen.add(candidate.number)
+          entries.push(candidate)
+        }
+      }
+    }
+    const mapped = entries.map((entry) => {
+      const parents = entries.filter((candidate) => related(candidate, entry))
+      if (parents.length > 1) throw new Error("Multiple GitHub PRs match a stack base branch")
+      return {
+        number: entry.number,
+        title: entry.title,
+        isDraft: entry.draft,
+        baseBranch: entry.base.ref,
+        headBranch: entry.head.ref,
+        parentNumber: parents[0]?.number ?? null,
+      }
+    })
+    const ordered: typeof mapped = []
+    const visit = (parent: number | null) => {
+      for (const entry of mapped.filter((candidate) => candidate.parentNumber === parent)) {
+        if (ordered.some((item) => item.number === entry.number)) continue
+        ordered.push(entry)
+        visit(entry.number)
+      }
+    }
+    visit(null)
+    if (ordered.length !== mapped.length) throw new Error("GitHub PR stack contains a cycle")
+    await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    return GitHubPrStackEntrySchema.array().parse(ordered)
+  }
+
+  async attributes(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    paths: readonly string[]
+  ): Promise<GitHubPrAttributesFile[]> {
+    if (paths.length > 500) throw new Error("Too many GitHub PR paths")
+    const pr = await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    const repository = this.#repositoryIdentity(pr.url, number)
+    const directories = new Set<string>()
+    for (const path of paths) {
+      if (
+        !path ||
+        path.startsWith("/") ||
+        path.split("/").includes("..") ||
+        /[\0\r\n]/u.test(path) ||
+        path.length > 1000
+      )
+        throw new Error("Invalid GitHub PR path")
+      for (let directory = posix.dirname(path); ; directory = posix.dirname(directory)) {
+        directories.add(directory)
+        if (directory === ".") break
+      }
+    }
+    const files: GitHubPrAttributesFile[] = []
+    const values = [...directories]
+    for (let start = 0; start < values.length; start += 50) {
+      const batch = values.slice(start, start + 50)
+      const fields = batch.map((directory, index) => {
+        const attributePath = directory === "." ? ".gitattributes" : `${directory}/.gitattributes`
+        return `f${index}:object(expression:${JSON.stringify(`${expectedHead}:${attributePath}`)}){... on Blob{text isTruncated}}`
+      })
+      const result = z
+        .object({ repository: z.object({}).passthrough().nullable() })
+        .parse(
+          await this.#graphql(
+            cwd,
+            repository.host,
+            `query($owner:String!,$repo:String!){repository(owner:$owner,name:$repo){${fields.join(" ")}}}`,
+            { owner: repository.owner, repo: repository.repo }
+          )
+        )
+      if (!result.repository) throw new Error("GitHub repository is unavailable")
+      for (const [index, directory] of batch.entries()) {
+        const raw = result.repository[`f${index}`]
+        const file = z
+          .object({ text: z.string().nullable(), isTruncated: z.boolean() })
+          .nullable()
+          .parse(raw)
+        if (file?.isTruncated) throw new Error("GitHub PR attributes were truncated")
+        if (file?.text !== null && file?.text !== undefined)
+          files.push({ basePath: directory === "." ? "" : directory, contents: file.text })
+      }
+    }
+    await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    return GitHubPrAttributesFileSchema.array().parse(files)
   }
 
   async autoMergeEnabled(cwd: string, number: number): Promise<boolean> {
