@@ -8,6 +8,7 @@ import type {
   GitBranchReview,
   GitBranchSearchResult,
   GitClientMessage,
+  GitCommitSummary,
   GitHubAppAvailability,
   GitHubAppPullRequest,
   GitHubAppPullRequestSummary,
@@ -152,6 +153,15 @@ export class GitService {
           break
         case "git.branch-review-diff.request":
           value = { diff: await this.branchReviewDiff(message.payload.cwd, message.payload) }
+          break
+        case "git.commit-list.request":
+          value = await this.commitList(message.payload.cwd, message.payload.limit)
+          break
+        case "git.commit-review.request":
+          value = await this.commitReview(message.payload.cwd, message.payload.commit)
+          break
+        case "git.commit-review-diff.request":
+          value = { diff: await this.commitReviewDiff(message.payload.cwd, message.payload) }
           break
         case "git.review-file.request":
           value = await this.reviewFile(
@@ -1071,6 +1081,98 @@ export class GitService {
           "--no-color",
           input.base,
           input.expectedHead,
+          "--",
+          path,
+        ],
+        { readOnly: true }
+      )
+    ).stdout
+  }
+
+  async commitList(cwd: string, limit = 30): Promise<GitCommitSummary[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 100)
+      throw new Error("Invalid Git commit limit")
+    const repository = await this.discover(cwd)
+    const { stdout } = await this.#executor.run(
+      repository.root,
+      ["log", "-z", `-${limit}`, "--format=%H%x00%s%x00%aI"],
+      { readOnly: true }
+    )
+    const values = stdout.split("\0")
+    const commits: GitCommitSummary[] = []
+    for (let index = 0; index + 2 < values.length; index += 3) {
+      const [id, subject, date] = values.slice(index, index + 3)
+      if (!id || subject === undefined || !date) continue
+      commits.push({ id, subject, date })
+    }
+    return commits
+  }
+
+  async commitReview(cwd: string, commit: string): Promise<GitBranchReview> {
+    if (!/^[a-f0-9]{40,64}$/iu.test(commit)) throw new Error("Invalid Git commit")
+    const repository = await this.discover(cwd)
+    const head = trimmed(
+      (
+        await this.#executor.run(
+          repository.root,
+          ["rev-parse", "--verify", "--end-of-options", `${commit}^{commit}`],
+          { readOnly: true }
+        )
+      ).stdout
+    )
+    const lineage = trimmed(
+      (
+        await this.#executor.run(repository.root, ["rev-list", "--parents", "-n", "1", head], {
+          readOnly: true,
+        })
+      ).stdout
+    ).split(" ")
+    const base =
+      lineage[1] ??
+      trimmed(
+        (
+          await this.#executor.run(repository.root, ["hash-object", "-t", "tree", "/dev/null"], {
+            readOnly: true,
+          })
+        ).stdout
+      )
+    const { stdout } = await this.#executor.run(
+      repository.root,
+      ["diff", "--no-ext-diff", "--no-textconv", "--no-renames", "--name-status", "-z", base, head],
+      { readOnly: true }
+    )
+    const values = stdout.split("\0")
+    const entries: GitBranchReview["entries"][number][] = []
+    for (let index = 0; index + 1 < values.length; index += 2) {
+      const code = values[index]
+      const path = values[index + 1]
+      if (!code || !path) continue
+      if (code !== "A" && code !== "M" && code !== "D" && code !== "T" && code !== "U")
+        throw new Error(`Unexpected Git commit diff status: ${code}`)
+      entries.push({ code, path })
+    }
+    return { base, head, entries }
+  }
+
+  async commitReviewDiff(
+    cwd: string,
+    input: { base: string; commit: string; path: string }
+  ): Promise<string> {
+    const review = await this.commitReview(cwd, input.commit)
+    if (review.base !== input.base || review.head !== input.commit)
+      throw new GitStaleSnapshotError("Commit review changed; refresh the review")
+    const repository = await this.discover(cwd)
+    const path = this.#historicalPath(repository.root, input.path)
+    return (
+      await this.#executor.run(
+        repository.root,
+        [
+          "diff",
+          "--no-ext-diff",
+          "--no-textconv",
+          "--no-color",
+          review.base,
+          review.head,
           "--",
           path,
         ],

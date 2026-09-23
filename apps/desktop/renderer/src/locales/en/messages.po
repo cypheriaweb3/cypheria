@@ -322,6 +322,11 @@ msgstr "Command"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
+msgid "git.review.commitSource"
+msgstr "Commit"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
 msgid "git.review.commitMessage"
 msgstr "Commit message"
 
@@ -751,6 +756,11 @@ msgstr "Loading {pluginName} plugin details"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.branchLoading"
 msgstr "Loading branch changes…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.commitLoading"
+msgstr "Loading commit changes…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
@@ -1534,6 +1544,11 @@ msgstr "Section"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.selectBranch"
 msgstr "Select branch"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.selectCommit"
+msgstr "Select commit"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx

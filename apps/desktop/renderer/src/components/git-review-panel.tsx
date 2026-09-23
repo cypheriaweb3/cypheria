@@ -30,7 +30,7 @@ import { ensureCypheriaClient } from "../cypheria-client.js"
 import { GitHubPrPanel } from "./github-pr-panel.js"
 import { GitLabMrPanel } from "./gitlab-mr-panel.js"
 
-type ReviewSource = "unstaged" | "staged" | "uncommitted" | "branch"
+type ReviewSource = "unstaged" | "staged" | "uncommitted" | "branch" | "commit"
 const branchValue = (branch: { name: string; scope: "local" | "remote" }) =>
   branch.scope === "remote" ? `refs/remotes/${branch.name}` : branch.name
 
@@ -52,6 +52,7 @@ export function GitReviewPanel({
   const queryClient = useQueryClient()
   const [source, setSource] = useState<ReviewSource>("unstaged")
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
+  const [selectedCommit, setSelectedCommit] = useState("")
   const [message, setMessage] = useState("")
   const [targetBranch, setTargetBranch] = useState("")
   const [branchSearch, setBranchSearch] = useState("")
@@ -114,21 +115,46 @@ export function GitReviewPanel({
     refetchInterval: 5_000,
     retry: false,
   })
+  const commits = useQuery({
+    enabled: source === "commit" && Boolean(status.data?.head),
+    queryKey: ["git", cwd, "commits", status.data?.head],
+    queryFn: async () => (await ensureCypheriaClient()).git.commitList(cwd),
+    retry: false,
+  })
+  const activeCommit = commits.data?.some((commit) => commit.id === selectedCommit)
+    ? selectedCommit
+    : commits.data?.[0]?.id
+  const commitReview = useQuery({
+    enabled: source === "commit" && Boolean(activeCommit),
+    queryKey: ["git", cwd, "commit-review", activeCommit],
+    queryFn: async () => {
+      if (!activeCommit) throw new Error("A commit is required")
+      return (await ensureCypheriaClient()).git.commitReview(cwd, activeCommit)
+    },
+    retry: false,
+  })
   const entries =
     source === "branch"
       ? (branchReview.data?.entries ?? [])
-      : (status.data?.entries.filter(({ code }) =>
-          source === "staged"
-            ? code[0] !== " " && code[0] !== "?"
-            : source === "unstaged"
-              ? code[1] !== " "
-              : true
-        ) ?? [])
+      : source === "commit"
+        ? (commitReview.data?.entries ?? [])
+        : (status.data?.entries.filter(({ code }) =>
+            source === "staged"
+              ? code[0] !== " " && code[0] !== "?"
+              : source === "unstaged"
+                ? code[1] !== " "
+                : true
+          ) ?? [])
   const activePath = entries.some((entry) => entry.path === selectedPath)
     ? selectedPath
     : entries[0]?.path
   const diff = useQuery({
-    enabled: Boolean(status.data && activePath && (source !== "branch" || branchReview.data)),
+    enabled: Boolean(
+      status.data &&
+        activePath &&
+        (source !== "branch" || branchReview.data) &&
+        (source !== "commit" || commitReview.data)
+    ),
     queryKey: [
       "git",
       cwd,
@@ -139,6 +165,8 @@ export function GitReviewPanel({
       status.data?.entries,
       branchReview.data?.base,
       branchReview.data?.head,
+      commitReview.data?.base,
+      commitReview.data?.head,
     ],
     queryFn: async () => {
       const git = (await ensureCypheriaClient()).git
@@ -149,6 +177,14 @@ export function GitReviewPanel({
           path: activePath,
         })
         return { diff: branchDiff, revision: null, hunks: [] }
+      }
+      if (source === "commit" && commitReview.data && activePath) {
+        const commitDiff = await git.commitReviewDiff(cwd, {
+          base: commitReview.data.base,
+          commit: commitReview.data.head,
+          path: activePath,
+        })
+        return { diff: commitDiff, revision: null, hunks: [] }
       }
       if (source === "uncommitted" && activePath) {
         const untracked = status.data?.entries.some(
@@ -269,10 +305,39 @@ export function GitReviewPanel({
         >
           <Trans id="git.review.branchChanges">Branch</Trans>
         </Button>
+        <Button
+          disabled={!status.data?.head}
+          onClick={() => setSource("commit")}
+          size="sm"
+          type="button"
+          variant={source === "commit" ? "secondary" : "ghost"}
+        >
+          <Trans id="git.review.commitSource">Commit</Trans>
+        </Button>
         <span className="ml-auto truncate text-xs text-muted-foreground">
           {status.data?.branch ?? "HEAD"}
         </span>
       </ChatReviewToolbar>
+      {source === "commit" && status.data?.head ? (
+        <div className="border-b p-2">
+          <NativeSelect
+            aria-label={i18n._(msg({ id: "git.review.selectCommit", message: "Select commit" }))}
+            className="w-full"
+            onChange={(event) => {
+              setSelectedCommit(event.target.value)
+              setSelectedPath(null)
+            }}
+            size="sm"
+            value={activeCommit ?? ""}
+          >
+            {commits.data?.map((commit) => (
+              <NativeSelectOption key={commit.id} value={commit.id}>
+                {commit.id.slice(0, 8)} · {commit.subject}
+              </NativeSelectOption>
+            ))}
+          </NativeSelect>
+        </div>
+      ) : null}
       {status.data ? (
         <div className="space-y-2 border-b p-2">
           <Input
@@ -390,7 +455,18 @@ export function GitReviewPanel({
           <Trans id="git.review.branchLoading">Loading branch changes…</Trans>
         </p>
       ) : null}
-      {status.data && files.length === 0 && (source !== "branch" || branchReview.isSuccess) ? (
+      {source === "commit" && commitReview.isError ? (
+        <p className="p-3 text-sm text-destructive">{commitReview.error.message}</p>
+      ) : null}
+      {source === "commit" && commitReview.isPending ? (
+        <p className="p-3 text-sm text-muted-foreground">
+          <Trans id="git.review.commitLoading">Loading commit changes…</Trans>
+        </p>
+      ) : null}
+      {status.data &&
+      files.length === 0 &&
+      (source !== "branch" || branchReview.isSuccess) &&
+      (source !== "commit" || commitReview.isSuccess) ? (
         <p className="p-3 text-sm text-muted-foreground">
           <Trans id="git.review.empty">No changes in this source</Trans>
         </p>

@@ -3,6 +3,7 @@ import type {
   GitBranchContext,
   GitBranchReview,
   GitBranchSearchResult,
+  GitCommitSummary,
   GitHubAppAvailability,
   GitHubAppCreatedPullRequest,
   GitHubAppPullRequest,
@@ -66,6 +67,13 @@ export interface GitActions {
   branchReviewDiff(
     cwd: string,
     input: { base: string; expectedHead: string; path: string },
+    options?: RequestOptions
+  ): Promise<string>
+  commitList(cwd: string, limit?: number, options?: RequestOptions): Promise<GitCommitSummary[]>
+  commitReview(cwd: string, commit: string, options?: RequestOptions): Promise<GitBranchReview>
+  commitReviewDiff(
+    cwd: string,
+    input: { base: string; commit: string; path: string },
     options?: RequestOptions
   ): Promise<string>
   reviewFile(
@@ -265,6 +273,14 @@ export const createGitActions = (client: ServerClient): GitActions => ({
   branchReviewDiff: async (cwd, input, options) =>
     unwrap<{ diff: string }>(
       await client.requestGit("git.branch-review-diff.request", { cwd, ...input }, options)
+    ).diff,
+  commitList: async (cwd, limit = 30, options) =>
+    unwrap(await client.requestGit("git.commit-list.request", { cwd, limit }, options)),
+  commitReview: async (cwd, commit, options) =>
+    unwrap(await client.requestGit("git.commit-review.request", { cwd, commit }, options)),
+  commitReviewDiff: async (cwd, input, options) =>
+    unwrap<{ diff: string }>(
+      await client.requestGit("git.commit-review-diff.request", { cwd, ...input }, options)
     ).diff,
   reviewFile: async (cwd, source, path, options) =>
     unwrap(await client.requestGit("git.review-file.request", { cwd, source, path }, options)),

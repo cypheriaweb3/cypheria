@@ -125,6 +125,39 @@ describe("GitService", () => {
     ).rejects.toThrow("Branch changed")
   }, 20_000)
 
+  it("reviews a selected commit against its first parent, including a root commit", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await writeFile(join(root, "file.txt"), "first\n")
+    await service.stage(root, ["file.txt"])
+    const first = await service.commit(root, "First")
+    await writeFile(join(root, "file.txt"), "second\n")
+    await service.stage(root, ["file.txt"])
+    const second = await service.commit(root, "Second")
+    expect((await service.commitList(root)).map(({ id }) => id)).toEqual([second, first])
+    const rootReview = await service.commitReview(root, first)
+    expect(rootReview.entries).toEqual([{ code: "A", path: "file.txt" }])
+    expect(
+      await service.commitReviewDiff(root, {
+        base: rootReview.base,
+        commit: first,
+        path: "file.txt",
+      })
+    ).toContain("+first")
+    const review = await service.commitReview(root, second)
+    expect(review).toMatchObject({
+      base: first,
+      head: second,
+      entries: [{ code: "M", path: "file.txt" }],
+    })
+    expect(
+      await service.commitReviewDiff(root, { base: first, commit: second, path: "file.txt" })
+    ).toContain("+second")
+    await expect(
+      service.commitReviewDiff(root, { base: second, commit: second, path: "file.txt" })
+    ).rejects.toThrow("Commit review changed")
+  }, 20_000)
+
   it("applies individual review sections and rejects stale file revisions", async () => {
     const root = await repository()
     const service = new GitService(join(root, "cache"), join(root, "home"))
