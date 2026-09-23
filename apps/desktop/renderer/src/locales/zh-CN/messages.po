@@ -1773,6 +1773,11 @@ msgstr "任务完成提醒"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
+msgid "git.review.uncommitted"
+msgstr "未提交"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
 msgid "git.review.undoRevert"
 msgstr "恢复更改"
 

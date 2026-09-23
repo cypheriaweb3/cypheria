@@ -30,7 +30,7 @@ import { ensureCypheriaClient } from "../cypheria-client.js"
 import { GitHubPrPanel } from "./github-pr-panel.js"
 import { GitLabMrPanel } from "./gitlab-mr-panel.js"
 
-type ReviewSource = "unstaged" | "staged" | "branch"
+type ReviewSource = "unstaged" | "staged" | "uncommitted" | "branch"
 const branchValue = (branch: { name: string; scope: "local" | "remote" }) =>
   branch.scope === "remote" ? `refs/remotes/${branch.name}` : branch.name
 
@@ -118,7 +118,11 @@ export function GitReviewPanel({
     source === "branch"
       ? (branchReview.data?.entries ?? [])
       : (status.data?.entries.filter(({ code }) =>
-          source === "staged" ? code[0] !== " " && code[0] !== "?" : code[1] !== " "
+          source === "staged"
+            ? code[0] !== " " && code[0] !== "?"
+            : source === "unstaged"
+              ? code[1] !== " "
+              : true
         ) ?? [])
   const activePath = entries.some((entry) => entry.path === selectedPath)
     ? selectedPath
@@ -146,7 +150,22 @@ export function GitReviewPanel({
         })
         return { diff: branchDiff, revision: null, hunks: [] }
       }
-      if (!activePath || source === "branch") throw new Error("A review file is required")
+      if (source === "uncommitted" && activePath) {
+        const untracked = status.data?.entries.some(
+          (entry) => entry.path === activePath && entry.code === "??"
+        )
+        const combinedDiff = status.data?.head
+          ? await git.diff(cwd, { ...(untracked ? {} : { base: "HEAD" }), paths: [activePath] })
+          : [
+              await git.diff(cwd, { staged: true, paths: [activePath] }),
+              await git.diff(cwd, { paths: [activePath] }),
+            ]
+              .filter(Boolean)
+              .join("\n")
+        return { diff: combinedDiff, revision: null, hunks: [] }
+      }
+      if (!activePath || (source !== "staged" && source !== "unstaged"))
+        throw new Error("A review file is required")
       return git.reviewFile(cwd, source, activePath)
     },
     refetchInterval: 3_000,
@@ -231,6 +250,14 @@ export function GitReviewPanel({
           variant={source === "staged" ? "secondary" : "ghost"}
         >
           <Trans id="git.review.staged">Staged</Trans>
+        </Button>
+        <Button
+          onClick={() => setSource("uncommitted")}
+          size="sm"
+          type="button"
+          variant={source === "uncommitted" ? "secondary" : "ghost"}
+        >
+          <Trans id="git.review.uncommitted">Uncommitted</Trans>
         </Button>
         <Button
           disabled={!status.data?.head || !branchContext.data?.defaultBranch}
@@ -385,7 +412,7 @@ export function GitReviewPanel({
           </pre>
         </ChatReviewDiffHost>
       ) : null}
-      {activePath && source !== "branch" && diff.data?.hunks.length ? (
+      {activePath && (source === "staged" || source === "unstaged") && diff.data?.hunks.length ? (
         <div className="space-y-1 border-t p-2">
           {diff.data.hunks.map((hunk) => (
             <div className="flex items-center gap-2" key={hunk.index}>
@@ -423,7 +450,7 @@ export function GitReviewPanel({
           ))}
         </div>
       ) : null}
-      {activePath && source !== "branch" ? (
+      {activePath && (source === "staged" || source === "unstaged") ? (
         <div className="flex gap-2 border-t p-2">
           {source === "unstaged" ? (
             <>

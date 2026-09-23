@@ -1773,6 +1773,11 @@ msgstr "Turn completion notifications"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
+msgid "git.review.uncommitted"
+msgstr "Uncommitted"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
 msgid "git.review.undoRevert"
 msgstr "Undo last revert"
 
