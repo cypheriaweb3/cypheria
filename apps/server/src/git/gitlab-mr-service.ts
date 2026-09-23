@@ -29,6 +29,8 @@ const mrResponse = z
         source_branch: z.string(),
         target_branch: z.string(),
         title: z.string(),
+        author: z.object({ id: z.number().int().positive() }).passthrough().optional(),
+        reviewers: z.array(z.object({ id: z.number().int().positive() }).passthrough()).optional(),
         description: z.string().nullish(),
         state: z.enum(["opened", "closed", "merged", "locked"]),
         draft: z.boolean(),
@@ -77,6 +79,60 @@ const pipelinePageResponse = z.object({
   ),
   pagination: z.object({ next_page: z.union([z.string(), z.number()]).nullable() }),
 })
+const discussionPageResponse = z.object({
+  data: z.array(
+    z.object({
+      id: z.string(),
+      notes: z.array(
+        z.object({
+          id: z.number().int().positive(),
+          body: z.string(),
+          author: z.object({ username: z.string() }),
+          created_at: z.string(),
+          system: z.boolean(),
+          resolvable: z.boolean(),
+          resolved: z.boolean().optional(),
+          position: z
+            .object({
+              position_type: z.enum(["text", "image", "file"]),
+              old_path: z.string(),
+              new_path: z.string(),
+              old_line: z.number().int().nullish(),
+              new_line: z.number().int().nullish(),
+            })
+            .nullish(),
+        })
+      ),
+    })
+  ),
+  pagination: z.object({ next_page: z.union([z.string(), z.number()]).nullable() }),
+})
+const reviewerUser = z.object({
+  id: z.number().int().positive(),
+  username: z.string(),
+  avatar_url: z.url().nullable(),
+})
+const reviewerPageResponse = z.object({
+  data: z.array(
+    z.object({
+      user: reviewerUser,
+      state: z.enum([
+        "unreviewed",
+        "reviewed",
+        "requested_changes",
+        "approved",
+        "unapproved",
+        "review_started",
+      ]),
+    })
+  ),
+  pagination: z.object({ next_page: z.union([z.string(), z.number()]).nullable() }),
+})
+const approvalsResponse = z.object({
+  data: z.object({ approved_by: z.array(z.object({ user: reviewerUser })) }),
+})
+const memberSearchResponse = z.object({ data: z.array(reviewerUser) })
+const currentUserResponse = z.object({ data: z.object({ id: z.number().int().positive() }) })
 
 const pathFromRemote = (remote: string): string => {
   const value = remote.trim()
@@ -173,6 +229,28 @@ export type GitLabMergeRequest = {
 }
 
 export type GitLabMergeRequestNote = { id: number; body: string }
+export type GitLabMergeRequestDiscussion = {
+  id: string
+  notes: Array<{
+    id: number
+    body: string
+    author: string
+    createdAt: string
+    system: boolean
+    resolved: boolean
+    path: string | null
+    line: number | null
+    side: "left" | "right" | null
+  }>
+}
+export type GitLabReviewer = {
+  userId: number
+  login: string
+  avatarUrl: string | null
+  status: "waiting" | "changes_requested" | "approved"
+  isReviewRequested: boolean
+}
+export type GitLabReviewerCandidate = Pick<GitLabReviewer, "userId" | "login" | "avatarUrl">
 export type GitLabMergeRequestChecks = {
   checksComplete: boolean
   checks: Array<{
@@ -357,6 +435,210 @@ export class GitLabMrService {
       checksComplete: pages.every((entry) => entry.complete),
       checks: pages.flatMap((entry) => entry.jobs),
     }
+  }
+
+  async discussions(
+    root: string,
+    nativeThreadId: string,
+    iid: number
+  ): Promise<GitLabMergeRequestDiscussion[]> {
+    const context = await this.#context(root, nativeThreadId, iid, [
+      "list_merge_request_discussions",
+    ])
+    const discussions: GitLabMergeRequestDiscussion[] = []
+    let page = 1
+    for (let count = 0; count < 100; count += 1) {
+      const result = discussionPageResponse.parse(
+        await this.#apps.call(
+          context.selection,
+          nativeThreadId,
+          "gitlab",
+          "list_merge_request_discussions",
+          { project_id: context.projectPath, merge_request_iid: iid, page, per_page: 100 }
+        )
+      )
+      for (const discussion of result.data) {
+        discussions.push({
+          id: discussion.id,
+          notes: discussion.notes.map((note) => {
+            const position = note.position?.position_type === "text" ? note.position : null
+            const side = position ? (position.new_line == null ? "left" : "right") : null
+            return {
+              id: note.id,
+              body: note.body,
+              author: note.author.username,
+              createdAt: note.created_at,
+              system: note.system,
+              resolved: note.resolvable && note.resolved === true,
+              path: position ? (side === "left" ? position.old_path : position.new_path) : null,
+              line: position
+                ? side === "left"
+                  ? (position.old_line ?? null)
+                  : (position.new_line ?? null)
+                : null,
+              side,
+            }
+          }),
+        })
+      }
+      if (result.pagination.next_page === null) return discussions
+      const next = Number(result.pagination.next_page)
+      if (!Number.isSafeInteger(next) || next <= page)
+        throw new Error("GitLab returned a repeated discussion page")
+      page = next
+    }
+    throw new Error("GitLab discussion pagination exceeded the safe limit")
+  }
+
+  async reviewers(root: string, nativeThreadId: string, iid: number): Promise<GitLabReviewer[]> {
+    const context = await this.#context(root, nativeThreadId, iid, [
+      "list_merge_request_reviewers",
+      "get_merge_request_approvals",
+    ])
+    return this.#reviewersWithContext(context, nativeThreadId, iid)
+  }
+
+  async searchReviewers(
+    root: string,
+    nativeThreadId: string,
+    query: string
+  ): Promise<GitLabReviewerCandidate[]> {
+    if (!query.trim() || query.length > 100) throw new Error("Invalid GitLab reviewer search")
+    const selection = await this.#apps.select(connectorId, "gitlab", [
+      "get_project",
+      "list_project_inherited_members",
+    ])
+    const project = await this.#project(root, nativeThreadId, selection)
+    const result = memberSearchResponse.parse(
+      await this.#apps.call(selection, nativeThreadId, "gitlab", "list_project_inherited_members", {
+        project_id: project.projectPath,
+        query: query.trim(),
+        state: "active",
+        page: 1,
+        per_page: 100,
+      })
+    )
+    return result.data.map((user) => ({
+      userId: user.id,
+      login: user.username,
+      avatarUrl: user.avatar_url,
+    }))
+  }
+
+  async reviewerAction(
+    root: string,
+    nativeThreadId: string,
+    iid: number,
+    userId: number,
+    action: "add" | "remove"
+  ): Promise<GitLabReviewer[]> {
+    if (!Number.isSafeInteger(userId) || userId < 1) throw new Error("Invalid GitLab reviewer")
+    const context = await this.#context(root, nativeThreadId, iid, [
+      "get_current_user",
+      "list_merge_request_reviewers",
+      "get_merge_request_approvals",
+      "update_merge_request",
+    ])
+    const currentUser = currentUserResponse.parse(
+      await this.#apps.call(context.selection, nativeThreadId, "gitlab", "get_current_user", {})
+    ).data.id
+    if (context.mr.author?.id !== currentUser || context.mr.state !== "opened")
+      throw new Error("Only the author of an open GitLab merge request can manage reviewers")
+    if (!context.mr.reviewers) throw new Error("GitLab did not provide the current reviewer list")
+    const current = await this.#reviewersWithContext(context, nativeThreadId, iid)
+    const ids = context.mr.reviewers.map((reviewer) => reviewer.id)
+    const next =
+      action === "add"
+        ? [...new Set([...ids, userId])]
+        : ids.filter(
+            (id) =>
+              id !== userId ||
+              !current.some((reviewer) => reviewer.userId === id && reviewer.isReviewRequested)
+          )
+    if (next.length === ids.length && next.every((id, index) => id === ids[index])) return current
+    try {
+      const updated = mrResponse.parse(
+        await this.#apps.call(
+          context.selection,
+          nativeThreadId,
+          "gitlab",
+          "update_merge_request",
+          { project_id: context.projectPath, merge_request_iid: iid, reviewer_ids: next },
+          { recheckAfter: false }
+        )
+      ).data
+      this.#validateMr(context.projectPath, context.projectId, iid, updated)
+      const after = await this.#context(root, nativeThreadId, iid, [
+        "list_merge_request_reviewers",
+        "get_merge_request_approvals",
+      ])
+      if (
+        after.selection.accountLinkId !== context.selection.accountLinkId ||
+        !after.mr.reviewers ||
+        [...after.mr.reviewers.map((reviewer) => reviewer.id)].sort((a, b) => a - b).join(",") !==
+          [...next].sort((a, b) => a - b).join(",")
+      )
+        throw new Error("GitLab reviewer update was not confirmed")
+      return this.#reviewersWithContext(after, nativeThreadId, iid)
+    } catch {
+      throw new Error("Could not confirm the reviewer update. Check GitLab before trying again")
+    }
+  }
+
+  async #reviewersWithContext(
+    context: Context,
+    nativeThreadId: string,
+    iid: number
+  ): Promise<GitLabReviewer[]> {
+    const entries: Array<z.infer<typeof reviewerPageResponse>["data"][number]> = []
+    let page = 1
+    for (let count = 0; count < 100; count += 1) {
+      const result = reviewerPageResponse.parse(
+        await this.#apps.call(
+          context.selection,
+          nativeThreadId,
+          "gitlab",
+          "list_merge_request_reviewers",
+          { project_id: context.projectPath, merge_request_iid: String(iid), page, per_page: 100 }
+        )
+      )
+      entries.push(...result.data)
+      if (result.pagination.next_page === null) break
+      const next = Number(result.pagination.next_page)
+      if (!Number.isSafeInteger(next) || next <= page)
+        throw new Error("GitLab returned a repeated reviewer page")
+      page = next
+      if (count === 99) throw new Error("GitLab reviewer pagination exceeded the safe limit")
+    }
+    const approvals = approvalsResponse.parse(
+      await this.#apps.call(
+        context.selection,
+        nativeThreadId,
+        "gitlab",
+        "get_merge_request_approvals",
+        { project_id: context.projectPath, merge_request_iid: iid }
+      )
+    ).data.approved_by
+    const approved = new Set(approvals.map((item) => item.user.id))
+    const states = new Map(entries.map((item) => [item.user.id, item.state]))
+    const users = new Map([...entries, ...approvals].map((item) => [item.user.id, item.user]))
+    return [...users.values()].map((user) => {
+      const state = states.get(user.id)
+      return {
+        userId: user.id,
+        login: user.username,
+        avatarUrl: user.avatar_url,
+        status:
+          state === "requested_changes"
+            ? "changes_requested"
+            : state === "approved" || approved.has(user.id)
+              ? "approved"
+              : "waiting",
+        isReviewRequested:
+          !approved.has(user.id) &&
+          (state === "unreviewed" || state === "unapproved" || state === "review_started"),
+      }
+    })
   }
 
   async updateTitle(

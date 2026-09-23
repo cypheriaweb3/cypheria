@@ -219,6 +219,40 @@ export const GitLabMergeRequestSchema = z
 export const GitLabMergeRequestNoteSchema = z
   .object({ id: z.number().int().positive(), body: z.string() })
   .strict()
+export const GitLabMergeRequestDiscussionSchema = z
+  .object({
+    id: z.string(),
+    notes: z.array(
+      z
+        .object({
+          id: z.number().int().positive(),
+          body: z.string(),
+          author: z.string(),
+          createdAt: z.string(),
+          system: z.boolean(),
+          resolved: z.boolean(),
+          path: z.string().nullable(),
+          line: z.number().int().nullable(),
+          side: z.enum(["left", "right"]).nullable(),
+        })
+        .strict()
+    ),
+  })
+  .strict()
+export const GitLabReviewerSchema = z
+  .object({
+    userId: z.number().int().positive(),
+    login: z.string(),
+    avatarUrl: z.url().nullable(),
+    status: z.enum(["waiting", "changes_requested", "approved"]),
+    isReviewRequested: z.boolean(),
+  })
+  .strict()
+export const GitLabReviewerCandidateSchema = GitLabReviewerSchema.pick({
+  userId: true,
+  login: true,
+  avatarUrl: true,
+}).strict()
 export const GitLabMergeRequestChecksSchema = z
   .object({
     checksComplete: z.boolean(),
@@ -638,6 +672,40 @@ export const GitLabMrChecksRequestSchema = input(
     .object({ cwd: path, threadId: ProjectThreadIdSchema, iid: z.number().int().positive() })
     .strict()
 )
+export const GitLabMrDiscussionsRequestSchema = input(
+  "git.gitlab-mr-discussions.request",
+  z
+    .object({ cwd: path, threadId: ProjectThreadIdSchema, iid: z.number().int().positive() })
+    .strict()
+)
+export const GitLabMrReviewersRequestSchema = input(
+  "git.gitlab-mr-reviewers.request",
+  z
+    .object({ cwd: path, threadId: ProjectThreadIdSchema, iid: z.number().int().positive() })
+    .strict()
+)
+export const GitLabMrReviewerSearchRequestSchema = input(
+  "git.gitlab-mr-reviewer-search.request",
+  z
+    .object({
+      cwd: path,
+      threadId: ProjectThreadIdSchema,
+      query: z.string().trim().min(1).max(100),
+    })
+    .strict()
+)
+export const GitLabMrReviewerActionRequestSchema = input(
+  "git.gitlab-mr-reviewer-action.request",
+  z
+    .object({
+      cwd: path,
+      threadId: ProjectThreadIdSchema,
+      iid: z.number().int().positive(),
+      userId: z.number().int().positive(),
+      action: z.enum(["add", "remove"]),
+    })
+    .strict()
+)
 export const GitLabMrUpdateTitleRequestSchema = input(
   "git.gitlab-mr-update-title.request",
   z
@@ -870,6 +938,22 @@ export const GitLabMrChecksResponseSchema = output(
   "git.gitlab-mr-checks.response",
   GitLabMergeRequestChecksSchema
 )
+export const GitLabMrDiscussionsResponseSchema = output(
+  "git.gitlab-mr-discussions.response",
+  z.array(GitLabMergeRequestDiscussionSchema)
+)
+export const GitLabMrReviewersResponseSchema = output(
+  "git.gitlab-mr-reviewers.response",
+  z.array(GitLabReviewerSchema)
+)
+export const GitLabMrReviewerSearchResponseSchema = output(
+  "git.gitlab-mr-reviewer-search.response",
+  z.array(GitLabReviewerCandidateSchema)
+)
+export const GitLabMrReviewerActionResponseSchema = output(
+  "git.gitlab-mr-reviewer-action.response",
+  z.array(GitLabReviewerSchema)
+)
 export const GitLabMrUpdateTitleResponseSchema = output(
   "git.gitlab-mr-update-title.response",
   GitLabMergeRequestSchema
@@ -945,6 +1029,10 @@ export const GIT_CLIENT_SCHEMAS = [
   GitLabMrReadRequestSchema,
   GitLabMrForBranchRequestSchema,
   GitLabMrChecksRequestSchema,
+  GitLabMrDiscussionsRequestSchema,
+  GitLabMrReviewersRequestSchema,
+  GitLabMrReviewerSearchRequestSchema,
+  GitLabMrReviewerActionRequestSchema,
   GitLabMrUpdateTitleRequestSchema,
   GitLabMrPostCommentRequestSchema,
   GitLabMrCreateRequestSchema,
@@ -1008,6 +1096,10 @@ export const GIT_SERVER_SCHEMAS = [
   GitLabMrReadResponseSchema,
   GitLabMrForBranchResponseSchema,
   GitLabMrChecksResponseSchema,
+  GitLabMrDiscussionsResponseSchema,
+  GitLabMrReviewersResponseSchema,
+  GitLabMrReviewerSearchResponseSchema,
+  GitLabMrReviewerActionResponseSchema,
   GitLabMrUpdateTitleResponseSchema,
   GitLabMrPostCommentResponseSchema,
   GitLabMrCreateResponseSchema,
@@ -1040,4 +1132,7 @@ export type GitHubPullRequestActivity = z.infer<typeof GitHubPullRequestActivity
 export type GitHubPullRequestThreads = z.infer<typeof GitHubPullRequestThreadsSchema>
 export type GitLabMergeRequest = z.infer<typeof GitLabMergeRequestSchema>
 export type GitLabMergeRequestNote = z.infer<typeof GitLabMergeRequestNoteSchema>
+export type GitLabMergeRequestDiscussion = z.infer<typeof GitLabMergeRequestDiscussionSchema>
+export type GitLabReviewer = z.infer<typeof GitLabReviewerSchema>
+export type GitLabReviewerCandidate = z.infer<typeof GitLabReviewerCandidateSchema>
 export type GitLabMergeRequestChecks = z.infer<typeof GitLabMergeRequestChecksSchema>

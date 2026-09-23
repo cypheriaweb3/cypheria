@@ -19,7 +19,10 @@ import type {
   GitHubPullRequestThreads,
   GitLabMergeRequest,
   GitLabMergeRequestChecks,
+  GitLabMergeRequestDiscussion,
   GitLabMergeRequestNote,
+  GitLabReviewer,
+  GitLabReviewerCandidate,
   GitOrigin,
   GitReviewFile,
   GitReviewLineCount,
@@ -403,6 +406,36 @@ export class GitService {
             message.payload.cwd,
             message.payload.threadId,
             message.payload.iid
+          )
+          break
+        case "git.gitlab-mr-discussions.request":
+          value = await this.gitlabMrDiscussions(
+            message.payload.cwd,
+            message.payload.threadId,
+            message.payload.iid
+          )
+          break
+        case "git.gitlab-mr-reviewers.request":
+          value = await this.gitlabMrReviewers(
+            message.payload.cwd,
+            message.payload.threadId,
+            message.payload.iid
+          )
+          break
+        case "git.gitlab-mr-reviewer-search.request":
+          value = await this.gitlabMrReviewerSearch(
+            message.payload.cwd,
+            message.payload.threadId,
+            message.payload.query
+          )
+          break
+        case "git.gitlab-mr-reviewer-action.request":
+          value = await this.gitlabMrReviewerAction(
+            message.payload.cwd,
+            message.payload.threadId,
+            message.payload.iid,
+            message.payload.userId,
+            message.payload.action
           )
           break
         case "git.gitlab-mr-update-title.request":
@@ -832,6 +865,44 @@ export class GitService {
   ): Promise<GitLabMergeRequestChecks> {
     const { service, root, nativeThreadId } = await this.#gitlabThread(cwd, threadId)
     return service.checks(root, nativeThreadId, iid)
+  }
+
+  async gitlabMrDiscussions(
+    cwd: string,
+    threadId: string,
+    iid: number
+  ): Promise<GitLabMergeRequestDiscussion[]> {
+    if (!this.#gitlab) throw new Error("GitLab app is unavailable")
+    const { root, nativeThreadId } = await this.#codexThreadRepository(cwd, threadId)
+    return this.#gitlab.discussions(root, nativeThreadId, iid)
+  }
+
+  async gitlabMrReviewers(cwd: string, threadId: string, iid: number): Promise<GitLabReviewer[]> {
+    if (!this.#gitlab) throw new Error("GitLab app is unavailable")
+    const { root, nativeThreadId } = await this.#codexThreadRepository(cwd, threadId)
+    return this.#gitlab.reviewers(root, nativeThreadId, iid)
+  }
+
+  async gitlabMrReviewerSearch(
+    cwd: string,
+    threadId: string,
+    query: string
+  ): Promise<GitLabReviewerCandidate[]> {
+    if (!this.#gitlab) throw new Error("GitLab app is unavailable")
+    const { root, nativeThreadId } = await this.#codexThreadRepository(cwd, threadId)
+    return this.#gitlab.searchReviewers(root, nativeThreadId, query)
+  }
+
+  async gitlabMrReviewerAction(
+    cwd: string,
+    threadId: string,
+    iid: number,
+    userId: number,
+    action: "add" | "remove"
+  ): Promise<GitLabReviewer[]> {
+    if (!this.#gitlab) throw new Error("GitLab app is unavailable")
+    const { root, nativeThreadId } = await this.#codexThreadRepository(cwd, threadId)
+    return this.#gitlab.reviewerAction(root, nativeThreadId, iid, userId, action)
   }
 
   async gitlabMrUpdateTitle(

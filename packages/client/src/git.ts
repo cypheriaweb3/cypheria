@@ -15,7 +15,10 @@ import type {
   GitHubPullRequestThreads,
   GitLabMergeRequest,
   GitLabMergeRequestChecks,
+  GitLabMergeRequestDiscussion,
   GitLabMergeRequestNote,
+  GitLabReviewer,
+  GitLabReviewerCandidate,
   GitOrigin,
   GitRepository,
   GitReviewFile,
@@ -293,6 +296,32 @@ export interface GitActions {
     iid: number,
     options?: RequestOptions
   ): Promise<GitLabMergeRequestChecks>
+  gitlabMrDiscussions(
+    cwd: string,
+    threadId: string,
+    iid: number,
+    options?: RequestOptions
+  ): Promise<GitLabMergeRequestDiscussion[]>
+  gitlabMrReviewers(
+    cwd: string,
+    threadId: string,
+    iid: number,
+    options?: RequestOptions
+  ): Promise<GitLabReviewer[]>
+  gitlabMrReviewerSearch(
+    cwd: string,
+    threadId: string,
+    query: string,
+    options?: RequestOptions
+  ): Promise<GitLabReviewerCandidate[]>
+  gitlabMrReviewerAction(
+    cwd: string,
+    threadId: string,
+    iid: number,
+    userId: number,
+    action: "add" | "remove",
+    options?: RequestOptions
+  ): Promise<GitLabReviewer[]>
   gitlabMrUpdateTitle(
     cwd: string,
     threadId: string,
@@ -543,6 +572,30 @@ export const createGitActions = (client: ServerClient): GitActions => ({
   gitlabMrChecks: async (cwd, threadId, iid, options) =>
     unwrap(
       await client.requestGit("git.gitlab-mr-checks.request", { cwd, threadId, iid }, options)
+    ),
+  gitlabMrDiscussions: async (cwd, threadId, iid, options) =>
+    unwrap(
+      await client.requestGit("git.gitlab-mr-discussions.request", { cwd, threadId, iid }, options)
+    ),
+  gitlabMrReviewers: async (cwd, threadId, iid, options) =>
+    unwrap(
+      await client.requestGit("git.gitlab-mr-reviewers.request", { cwd, threadId, iid }, options)
+    ),
+  gitlabMrReviewerSearch: async (cwd, threadId, query, options) =>
+    unwrap(
+      await client.requestGit(
+        "git.gitlab-mr-reviewer-search.request",
+        { cwd, threadId, query },
+        options
+      )
+    ),
+  gitlabMrReviewerAction: async (cwd, threadId, iid, userId, action, options) =>
+    unwrap(
+      await client.requestGit(
+        "git.gitlab-mr-reviewer-action.request",
+        { cwd, threadId, iid, userId, action },
+        options
+      )
     ),
   gitlabMrUpdateTitle: async (cwd, threadId, iid, title, options) =>
     unwrap(

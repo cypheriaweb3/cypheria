@@ -47,7 +47,7 @@ const fixture = (
     accountLinkId: "link-1",
     server: "codex_apps" as const,
   }))
-  const call = vi.fn(async (_selection, _threadId, _namespace, action: string) =>
+  const call = vi.fn(async (_selection, _threadId, _namespace, action: string, _args?: unknown) =>
     Object.hasOwn(responses, action)
       ? responses[action]
       : action === "get_project"
@@ -62,6 +62,133 @@ const fixture = (
 }
 
 describe("GitLabMrService", () => {
+  it("reads MR discussions and reviewers from the selected account", async () => {
+    const { service, call } = fixture("git@gitlab.com:group/project.git", project, mr, {
+      list_merge_request_discussions: {
+        data: [
+          {
+            id: "discussion-1",
+            notes: [
+              {
+                id: 11,
+                body: "Please fix",
+                author: { username: "reviewer" },
+                created_at: "2026-09-23T00:00:00Z",
+                system: false,
+                resolvable: true,
+                resolved: false,
+                position: {
+                  position_type: "text",
+                  old_path: "file.txt",
+                  new_path: "file.txt",
+                  old_line: null,
+                  new_line: 3,
+                },
+              },
+            ],
+          },
+        ],
+        pagination: { next_page: null },
+      },
+      list_merge_request_reviewers: {
+        data: [{ user: { id: 2, username: "reviewer", avatar_url: null }, state: "unreviewed" }],
+        pagination: { next_page: null },
+      },
+      get_merge_request_approvals: { data: { approved_by: [] } },
+      list_project_inherited_members: { data: [{ id: 2, username: "reviewer", avatar_url: null }] },
+    })
+    expect(await service.discussions("/repo", "native-thread", 7)).toEqual([
+      {
+        id: "discussion-1",
+        notes: [
+          {
+            id: 11,
+            body: "Please fix",
+            author: "reviewer",
+            createdAt: "2026-09-23T00:00:00Z",
+            system: false,
+            resolved: false,
+            path: "file.txt",
+            line: 3,
+            side: "right",
+          },
+        ],
+      },
+    ])
+    expect(await service.reviewers("/repo", "native-thread", 7)).toEqual([
+      {
+        userId: 2,
+        login: "reviewer",
+        avatarUrl: null,
+        status: "waiting",
+        isReviewRequested: true,
+      },
+    ])
+    expect(await service.searchReviewers("/repo", "native-thread", "review")).toEqual([
+      {
+        userId: 2,
+        login: "reviewer",
+        avatarUrl: null,
+      },
+    ])
+    expect(call).toHaveBeenCalledWith(
+      expect.any(Object),
+      "native-thread",
+      "gitlab",
+      "list_project_inherited_members",
+      {
+        project_id: "group/project",
+        query: "review",
+        state: "active",
+        page: 1,
+        per_page: 100,
+      }
+    )
+  })
+
+  it("updates reviewer IDs only for the MR author and confirms the resulting list", async () => {
+    const base = { ...mr.data, author: { id: 1 }, reviewers: [{ id: 2 }] }
+    const { service, call } = fixture("git@gitlab.com:group/project.git", project, { data: base })
+    let updated = false
+    call.mockImplementation(async (_selection, _threadId, _namespace, action, args) => {
+      if (action === "get_project") return project
+      if (action === "get_merge_request")
+        return { data: { ...base, reviewers: updated ? [{ id: 2 }, { id: 3 }] : [{ id: 2 }] } }
+      if (action === "get_current_user") return { data: { id: 1 } }
+      if (action === "list_merge_request_reviewers")
+        return {
+          data: (updated ? [2, 3] : [2]).map((id) => ({
+            user: { id, username: `user-${id}`, avatar_url: null },
+            state: "unreviewed",
+          })),
+          pagination: { next_page: null },
+        }
+      if (action === "get_merge_request_approvals") return { data: { approved_by: [] } }
+      if (action === "update_merge_request") {
+        expect(args).toMatchObject({
+          project_id: "group/project",
+          merge_request_iid: 7,
+          reviewer_ids: [2, 3],
+        })
+        updated = true
+        return { data: { ...base, reviewers: [{ id: 2 }, { id: 3 }] } }
+      }
+      throw new Error(`Unexpected action ${action}`)
+    })
+    expect(await service.reviewerAction("/repo", "native-thread", 7, 3, "add")).toHaveLength(2)
+    expect(updated).toBe(true)
+    await expect(
+      fixture(
+        "git@gitlab.com:group/project.git",
+        project,
+        { data: { ...base, author: { id: 9 } } },
+        {
+          get_current_user: { data: { id: 1 } },
+        }
+      ).service.reviewerAction("/repo", "native-thread", 7, 3, "add")
+    ).rejects.toThrow("Only the author")
+  })
+
   it("finds the current branch MR and verifies both list and detail identity", async () => {
     const matched = { ...mr.data, source_project_id: 42 }
     const { service, select, call } = fixture(

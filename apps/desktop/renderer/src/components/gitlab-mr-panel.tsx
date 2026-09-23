@@ -28,6 +28,7 @@ export function GitLabMrPanel({
   const [description, setDescription] = useState("")
   const [newTitle, setNewTitle] = useState("")
   const [comment, setComment] = useState("")
+  const [reviewerQuery, setReviewerQuery] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const branchMr = useQuery({
@@ -56,6 +57,37 @@ export function GitLabMrPanel({
     queryFn: async () => {
       if (!threadId || !mr.data) throw new Error("A local Codex thread and MR are required")
       return (await ensureCypheriaClient()).git.gitlabMrChecks(cwd, threadId, mr.data.iid)
+    },
+    retry: false,
+  })
+  const discussions = useQuery({
+    enabled: Boolean(threadId && mr.data),
+    queryKey: ["gitlab-mr", cwd, threadId, "discussions", mr.data?.iid],
+    queryFn: async () => {
+      if (!threadId || !mr.data) throw new Error("A local Codex thread and MR are required")
+      return (await ensureCypheriaClient()).git.gitlabMrDiscussions(cwd, threadId, mr.data.iid)
+    },
+    retry: false,
+  })
+  const reviewers = useQuery({
+    enabled: Boolean(threadId && mr.data),
+    queryKey: ["gitlab-mr", cwd, threadId, "reviewers", mr.data?.iid],
+    queryFn: async () => {
+      if (!threadId || !mr.data) throw new Error("A local Codex thread and MR are required")
+      return (await ensureCypheriaClient()).git.gitlabMrReviewers(cwd, threadId, mr.data.iid)
+    },
+    retry: false,
+  })
+  const reviewerCandidates = useQuery({
+    enabled: Boolean(threadId && mr.data && reviewerQuery.trim()),
+    queryKey: ["gitlab-mr", cwd, threadId, "reviewer-search", reviewerQuery.trim()],
+    queryFn: async () => {
+      if (!threadId) throw new Error("A local Codex thread is required")
+      return (await ensureCypheriaClient()).git.gitlabMrReviewerSearch(
+        cwd,
+        threadId,
+        reviewerQuery.trim()
+      )
     },
     retry: false,
   })
@@ -190,6 +222,122 @@ export function GitLabMrPanel({
           >
             <Trans id="git.gitlab.postComment">Post comment</Trans>
           </Button>
+          <div className="space-y-1 border-t pt-2">
+            <p className="text-xs font-medium">
+              <Trans id="git.gitlab.discussions">Discussions</Trans>
+            </p>
+            {discussions.data?.map((discussion) => (
+              <div className="space-y-1 rounded border p-2 text-xs" key={discussion.id}>
+                {discussion.notes.map((note) => (
+                  <div className="border-l pl-2" key={note.id}>
+                    <span className="font-medium">{note.author}</span>
+                    {note.path ? (
+                      <span className="ml-2 font-mono text-muted-foreground">
+                        {note.path}
+                        {note.line ? `:${note.line}` : ""}
+                      </span>
+                    ) : null}
+                    {note.resolved ? (
+                      <span className="ml-2 text-muted-foreground">
+                        <Trans id="git.gitlab.resolved">Resolved</Trans>
+                      </span>
+                    ) : null}
+                    <p className="whitespace-pre-wrap">{note.body}</p>
+                  </div>
+                ))}
+              </div>
+            ))}
+            {discussions.isError ? (
+              <Alert variant="destructive">
+                <AlertDescription>{discussions.error.message}</AlertDescription>
+              </Alert>
+            ) : null}
+          </div>
+          <div className="space-y-2 border-t pt-2">
+            <p className="text-xs font-medium">
+              <Trans id="git.gitlab.reviewers">Reviewers</Trans>
+            </p>
+            {reviewers.data?.map((reviewer) => (
+              <div className="flex items-center gap-2 text-xs" key={reviewer.userId}>
+                <span className="min-w-0 flex-1 truncate">{reviewer.login}</span>
+                <span className="text-muted-foreground">{reviewer.status}</span>
+                {reviewer.isReviewRequested ? (
+                  <Button
+                    disabled={busy || !threadId}
+                    onClick={() =>
+                      void mutate(async () => {
+                        if (!threadId) throw new Error("A local Codex thread is required")
+                        await (await ensureCypheriaClient()).git.gitlabMrReviewerAction(
+                          cwd,
+                          threadId,
+                          mr.data.iid,
+                          reviewer.userId,
+                          "remove"
+                        )
+                      })
+                    }
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <Trans id="git.gitlab.removeReviewer">Remove</Trans>
+                  </Button>
+                ) : null}
+              </div>
+            ))}
+            {reviewers.isError ? (
+              <Alert variant="destructive">
+                <AlertDescription>{reviewers.error.message}</AlertDescription>
+              </Alert>
+            ) : null}
+            <Input
+              aria-label={i18n._(
+                msg({ id: "git.gitlab.searchReviewers", message: "Search project members" })
+              )}
+              maxLength={100}
+              onChange={(event) => setReviewerQuery(event.target.value)}
+              placeholder={i18n._(
+                msg({ id: "git.gitlab.searchReviewers", message: "Search project members" })
+              )}
+              value={reviewerQuery}
+            />
+            {reviewerCandidates.data
+              ?.filter(
+                (candidate) =>
+                  !reviewers.data?.some((reviewer) => reviewer.userId === candidate.userId)
+              )
+              .map((candidate) => (
+                <div className="flex items-center gap-2 text-xs" key={candidate.userId}>
+                  <span className="min-w-0 flex-1 truncate">{candidate.login}</span>
+                  <Button
+                    disabled={busy || !threadId}
+                    onClick={() =>
+                      void mutate(async () => {
+                        if (!threadId) throw new Error("A local Codex thread is required")
+                        await (await ensureCypheriaClient()).git.gitlabMrReviewerAction(
+                          cwd,
+                          threadId,
+                          mr.data.iid,
+                          candidate.userId,
+                          "add"
+                        )
+                        setReviewerQuery("")
+                      })
+                    }
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <Trans id="git.gitlab.addReviewer">Request review</Trans>
+                  </Button>
+                </div>
+              ))}
+            {reviewerCandidates.isError ? (
+              <Alert variant="destructive">
+                <AlertDescription>{reviewerCandidates.error.message}</AlertDescription>
+              </Alert>
+            ) : null}
+          </div>
           <div className="space-y-1 border-t pt-2">
             <p className="text-xs font-medium">
               <Trans id="git.gitlab.checks">Pipeline checks</Trans>
