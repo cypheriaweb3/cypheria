@@ -35,6 +35,15 @@ export const GitStatusSchema = z
 export const GitBranchSchema = z
   .object({ name: z.string(), current: z.boolean(), commit: z.string() })
   .strict()
+export const GitBranchContextSchema = z
+  .object({
+    current: z.string().nullable(),
+    upstream: z.string().nullable(),
+    defaultBranch: z.string().nullable(),
+    ahead: z.number().int().nonnegative(),
+    behind: z.number().int().nonnegative(),
+  })
+  .strict()
 export const GitWorktreeSchema = z
   .object({
     path,
@@ -76,6 +85,10 @@ export const GitDiscoverRequestSchema = input(
 export const GitStatusRequestSchema = input("git.status.request", z.object({ cwd: path }).strict())
 export const GitBranchesRequestSchema = input(
   "git.branches.request",
+  z.object({ cwd: path }).strict()
+)
+export const GitBranchContextRequestSchema = input(
+  "git.branch-context.request",
   z.object({ cwd: path }).strict()
 )
 export const GitInitRequestSchema = input("git.init.request", z.object({ cwd: path }).strict())
@@ -196,6 +209,10 @@ const success = z.object({ succeeded: z.literal(true) }).strict()
 export const GitDiscoverResponseSchema = output("git.discover.response", GitRepositorySchema)
 export const GitStatusResponseSchema = output("git.status.response", GitStatusSchema)
 export const GitBranchesResponseSchema = output("git.branches.response", z.array(GitBranchSchema))
+export const GitBranchContextResponseSchema = output(
+  "git.branch-context.response",
+  GitBranchContextSchema
+)
 export const GitInitResponseSchema = output("git.init.response", GitRepositorySchema)
 export const GitBranchCreateResponseSchema = output(
   "git.branch-create.response",
@@ -258,6 +275,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitDiscoverRequestSchema,
   GitStatusRequestSchema,
   GitBranchesRequestSchema,
+  GitBranchContextRequestSchema,
   GitInitRequestSchema,
   GitBranchCreateRequestSchema,
   GitCheckoutRequestSchema,
@@ -281,6 +299,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitDiscoverResponseSchema,
   GitStatusResponseSchema,
   GitBranchesResponseSchema,
+  GitBranchContextResponseSchema,
   GitInitResponseSchema,
   GitBranchCreateResponseSchema,
   GitCheckoutResponseSchema,
@@ -307,6 +326,7 @@ export type GitServerMessage = z.infer<(typeof GIT_SERVER_SCHEMAS)[number]>
 export type GitRepository = z.infer<typeof GitRepositorySchema>
 export type GitStatus = z.infer<typeof GitStatusSchema>
 export type GitBranch = z.infer<typeof GitBranchSchema>
+export type GitBranchContext = z.infer<typeof GitBranchContextSchema>
 export type GitWorktree = z.infer<typeof GitWorktreeSchema>
 export type GitHubAvailability = z.infer<typeof GitHubAvailabilitySchema>
 export type GitHubPullRequest = z.infer<typeof GitHubPullRequestSchema>

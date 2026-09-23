@@ -19,6 +19,11 @@ const tools = [
   tool("git_discover", "Find the local repository root and common Git directory.", {}),
   tool("git_status", "Read branch, HEAD, and changed files in a local repository.", {}),
   tool("git_branches", "List local branches and their commit IDs.", {}),
+  tool(
+    "git_branch_context",
+    "Read the current, upstream, and default branches with ahead and behind counts.",
+    {}
+  ),
   tool("git_init", "Initialize a Git repository in an existing local directory.", {}),
   tool(
     "git_branch_create",
@@ -109,7 +114,7 @@ const handle = async (request) => {
       reply(id, {
         protocolVersion: params?.protocolVersion || "2025-03-26",
         capabilities: { tools: {} },
-        serverInfo: { name: "cypheria-app-tools", version: "0.3.1" },
+        serverInfo: { name: "cypheria-app-tools", version: "0.3.2" },
       })
       return
     case "ping":

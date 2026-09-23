@@ -1,6 +1,7 @@
 import { realpath, stat } from "node:fs/promises"
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path"
 import type {
+  GitBranchContext,
   GitClientMessage,
   GitHubAvailability,
   GitHubPullRequest,
@@ -58,6 +59,9 @@ export class GitService {
           break
         case "git.branches.request":
           value = await this.branches(message.payload.cwd)
+          break
+        case "git.branch-context.request":
+          value = await this.branchContext(message.payload.cwd)
           break
         case "git.init.request":
           value = await this.init(message.payload.cwd)
@@ -236,6 +240,76 @@ export class GitService {
     if (existing) throw new Error(`Directory is already in Git repository ${existing.root}`)
     await this.#executor.run(cwd, ["init", "--initial-branch=main"])
     return this.discover(cwd)
+  }
+
+  async branchContext(cwd: string): Promise<GitBranchContext> {
+    const { root } = await this.discover(cwd)
+    const current =
+      (
+        await this.#executor.run(root, ["branch", "--show-current"], { readOnly: true })
+      ).stdout.trim() || null
+    const optional = async (args: string[]): Promise<string | null> => {
+      try {
+        return (await this.#executor.run(root, args, { readOnly: true })).stdout.trim() || null
+      } catch (error) {
+        if (error instanceof GitCommandError) return null
+        throw error
+      }
+    }
+    const upstream = current
+      ? await optional(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}"])
+      : null
+    const upstreamRemote = upstream?.split("/")[0]
+    const remote = upstreamRemote || "origin"
+    const remoteHead = await optional([
+      "symbolic-ref",
+      "--quiet",
+      "--short",
+      `refs/remotes/${remote}/HEAD`,
+    ])
+    let defaultBranch = remoteHead
+    if (!defaultBranch) {
+      for (const ref of [`${remote}/main`, `${remote}/master`, "main", "master"]) {
+        const fullRef = ref.includes("/") ? `refs/remotes/${ref}` : `refs/heads/${ref}`
+        const exists = await this.#executor
+          .run(root, ["show-ref", "--verify", "--quiet", fullRef], { readOnly: true })
+          .then(
+            () => true,
+            () => false
+          )
+        if (exists) {
+          defaultBranch = ref
+          break
+        }
+      }
+    }
+    let ahead = 0
+    let behind = 0
+    if (upstream) {
+      const counts = (
+        await this.#executor.run(
+          root,
+          ["rev-list", "--left-right", "--count", "HEAD...@{upstream}"],
+          {
+            readOnly: true,
+          }
+        )
+      ).stdout.trim()
+      const [left, right] = counts.split(/\s+/u).map(Number)
+      if (
+        left === undefined ||
+        right === undefined ||
+        !Number.isSafeInteger(left) ||
+        !Number.isSafeInteger(right) ||
+        left < 0 ||
+        right < 0
+      ) {
+        throw new Error("Git returned invalid ahead/behind counts")
+      }
+      ahead = left
+      behind = right
+    }
+    return { current, upstream, defaultBranch, ahead, behind }
   }
 
   async createBranch(cwd: string, name: string, startPoint?: string): Promise<string> {

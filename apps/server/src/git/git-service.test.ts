@@ -25,6 +25,31 @@ const repository = async () => {
 }
 
 describe("GitService", () => {
+  it("reports the current branch, upstream, default branch, and ahead count", async () => {
+    const root = await repository()
+    const remote = await mkdtemp(join(tmpdir(), "cypheria-git-remote-"))
+    created.push(remote)
+    await run("git", ["init", "--bare", "-q", remote])
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await writeFile(join(root, "file.txt"), "first\n")
+    await service.stage(root, ["file.txt"])
+    await service.commit(root, "First commit")
+    await run("git", ["-C", root, "branch", "-M", "main"])
+    await run("git", ["-C", root, "remote", "add", "origin", remote])
+    await run("git", ["-C", root, "push", "-u", "origin", "main"])
+    expect(await service.branchContext(root)).toEqual({
+      current: "main",
+      upstream: "origin/main",
+      defaultBranch: "origin/main",
+      ahead: 0,
+      behind: 0,
+    })
+    await writeFile(join(root, "file.txt"), "second\n")
+    await service.stage(root, ["file.txt"])
+    await service.commit(root, "Second commit")
+    expect(await service.branchContext(root)).toMatchObject({ ahead: 1, behind: 0 })
+  }, 20_000)
+
   it("initializes a directory and creates and checks out branches with stash recovery", async () => {
     const root = await mkdtemp(join(tmpdir(), "cypheria-git-init-"))
     created.push(root)

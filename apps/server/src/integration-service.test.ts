@@ -4,6 +4,95 @@ import type { AgentManager } from "./agent/agent-manager.js"
 import { IntegrationService } from "./integration-service.js"
 
 describe("IntegrationService", () => {
+  it("updates an already installed bundled plugin when listing after an app update", async () => {
+    let listed = 0
+    const callCodex = vi.fn(async (method: string) => {
+      if (method === "plugin/list") {
+        listed += 1
+        return {
+          featuredPluginIds: [],
+          marketplaceLoadErrors: [],
+          marketplaces:
+            listed === 1
+              ? [
+                  {
+                    name: "cypheria-bundled",
+                    path: "/bundled/marketplace.json",
+                    plugins: [{ name: "cypheria-app-tools", installed: true }],
+                  },
+                ]
+              : [],
+        }
+      }
+      if (method === "marketplace/add")
+        return { installedRoot: "/bundled", marketplaceName: "cypheria-bundled" }
+      if (method === "plugin/installed")
+        return {
+          marketplaces: [
+            {
+              name: "cypheria-bundled",
+              plugins: [
+                {
+                  name: "cypheria-app-tools",
+                  installed: true,
+                  localVersion: "0.3.1",
+                  version: "0.3.2",
+                },
+              ],
+            },
+          ],
+        }
+      if (method === "plugin/install") return { appsNeedingAuth: [] }
+      throw new Error(`Unexpected call: ${method}`)
+    })
+    const service = new IntegrationService({ callCodex } as unknown as AgentManager)
+    const send = vi.fn()
+    await service.handle(
+      {
+        payload: { agentId: "codex" },
+        requestId: "req_bundled_update",
+        type: "integration.plugin.list.request",
+      },
+      send
+    )
+    expect(callCodex).toHaveBeenCalledWith(
+      "plugin/install",
+      expect.objectContaining({ pluginName: "cypheria-app-tools" })
+    )
+    expect(listed).toBe(2)
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ payload: { ok: true, value: { errors: [], marketplaces: [] } } })
+    )
+  })
+
+  it("refreshes the Codex App directory once before reading later pages", async () => {
+    const callCodex = vi.fn(async (method: string, params: { cursor?: string | null } = {}) => {
+      if (method === "app/installed") return { apps: [] }
+      if (method === "app/list")
+        return { data: [], nextCursor: params.cursor === null ? "next-page" : null }
+      throw new Error(`Unexpected call: ${method}`)
+    })
+    const service = new IntegrationService({ callCodex } as unknown as AgentManager)
+    await service.handle(
+      {
+        payload: { forceRefresh: true },
+        requestId: "req_apps_refresh",
+        type: "integration.codex.app.list.request",
+      },
+      vi.fn()
+    )
+    expect(callCodex).toHaveBeenCalledWith("app/list", {
+      cursor: null,
+      forceRefetch: true,
+      limit: 100,
+    })
+    expect(callCodex).toHaveBeenCalledWith("app/list", {
+      cursor: "next-page",
+      forceRefetch: false,
+      limit: 100,
+    })
+  })
+
   it("installs remote plugins by catalog ID rather than display name", async () => {
     const callCodex = vi.fn(async (method: string) => {
       if (method === "plugin/list")

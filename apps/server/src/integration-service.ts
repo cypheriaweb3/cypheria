@@ -7,6 +7,7 @@ import type {
   IntegrationClientMessage,
   IntegrationServerMessage,
   MarketplaceSourceKind,
+  MarketplaceView,
 } from "@cypheria/protocol"
 import { IntegrationIdSchema } from "@cypheria/protocol"
 import type { v2 } from "@cypheria/protocol/codex-types"
@@ -235,7 +236,7 @@ export class IntegrationService {
       this.#pages<v2.AppInfo>((cursor) =>
         this.#call<v2.AppsListResponse>("app/list", {
           cursor,
-          forceRefetch: forceRefresh,
+          forceRefetch: forceRefresh && cursor === null,
           limit: 100,
         })
       ),
@@ -403,12 +404,28 @@ export class IntegrationService {
     }
   }
 
-  async #listPlugins(cwd?: string, forceRefetch = false) {
+  async #listPlugins(
+    cwd?: string,
+    forceRefetch = false
+  ): Promise<{ errors: { message: string; path: string }[]; marketplaces: MarketplaceView[] }> {
     try {
       const response = await this.#call<v2.PluginListResponse>("plugin/list", {
         cwds: cwd ? [cwd] : null,
         forceRefetch,
       })
+      if (
+        !this.#bundledPluginPromise &&
+        response.marketplaces.some(
+          (marketplace) =>
+            marketplace.name === cypheriaMarketplace &&
+            marketplace.plugins.some(
+              (plugin) => plugin.name === "cypheria-app-tools" && plugin.installed
+            )
+        )
+      ) {
+        await this.#ensureBundledPlugin()
+        return this.#listPlugins(cwd, true)
+      }
       const featured = new Set(response.featuredPluginIds)
       const marketplaces = await Promise.all(
         response.marketplaces.map(async (marketplace) => ({

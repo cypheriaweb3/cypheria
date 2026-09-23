@@ -1,5 +1,6 @@
 import type {
   GitBranch,
+  GitBranchContext,
   GitHubAvailability,
   GitHubPullRequest,
   GitRepository,
@@ -21,6 +22,7 @@ export interface GitActions {
   discover(cwd: string, options?: RequestOptions): Promise<GitRepository>
   status(cwd: string, options?: RequestOptions): Promise<GitStatus>
   branches(cwd: string, options?: RequestOptions): Promise<GitBranch[]>
+  branchContext(cwd: string, options?: RequestOptions): Promise<GitBranchContext>
   init(cwd: string, options?: RequestOptions): Promise<GitRepository>
   createBranch(
     cwd: string,
@@ -85,6 +87,8 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(await client.requestGit("git.status.request", { cwd }, options)),
   branches: async (cwd, options) =>
     unwrap(await client.requestGit("git.branches.request", { cwd }, options)),
+  branchContext: async (cwd, options) =>
+    unwrap(await client.requestGit("git.branch-context.request", { cwd }, options)),
   init: async (cwd, options) =>
     unwrap(await client.requestGit("git.init.request", { cwd }, options)),
   createBranch: async (cwd, name, startPoint, options) =>
