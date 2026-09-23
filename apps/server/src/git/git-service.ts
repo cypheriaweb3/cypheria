@@ -1,4 +1,4 @@
-import { realpath, stat } from "node:fs/promises"
+import { lstat, realpath, stat } from "node:fs/promises"
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path"
 import type {
   GitBranchContext,
@@ -795,6 +795,34 @@ export class GitService {
     input: { staged?: boolean; base?: string; paths?: readonly string[] } = {}
   ): Promise<string> {
     const repository = await this.discover(cwd)
+    if (!input.staged && !input.base && input.paths?.length === 1) {
+      const [path] = await this.#paths(repository.root, input.paths)
+      if (!path) throw new Error("Untracked Git path is unavailable")
+      if (
+        (await this.status(repository.root)).entries.some(
+          (entry) => entry.code === "??" && entry.path === path
+        )
+      ) {
+        const file = await lstat(resolve(repository.root, path))
+        if (!file.isFile()) throw new Error("Untracked Git diff requires a regular file")
+        return (
+          await this.#executor.run(
+            repository.root,
+            [
+              "diff",
+              "--no-index",
+              "--no-ext-diff",
+              "--no-textconv",
+              "--no-color",
+              "--",
+              "/dev/null",
+              path,
+            ],
+            { readOnly: true, allowExitCodes: [1] }
+          )
+        ).stdout
+      }
+    }
     const args = [
       "diff",
       "--no-ext-diff",

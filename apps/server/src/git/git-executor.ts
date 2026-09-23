@@ -34,7 +34,12 @@ export class GitExecutor {
   async run(
     cwd: string,
     args: readonly string[],
-    options: { readOnly?: boolean; signal?: AbortSignal; timeoutMs?: number } = {}
+    options: {
+      readOnly?: boolean
+      signal?: AbortSignal
+      timeoutMs?: number
+      allowExitCodes?: readonly number[]
+    } = {}
   ): Promise<GitCommandResult> {
     const resolvedCwd = await realpath(cwd)
     if (!(await stat(resolvedCwd)).isDirectory())
@@ -69,7 +74,10 @@ export class GitExecutor {
       })
       return { stdout, stderr }
     } catch (error) {
-      const failure = error as Error & { stderr?: string; stdout?: string }
+      const failure = error as Error & { code?: number | string; stderr?: string; stdout?: string }
+      if (typeof failure.code === "number" && options.allowExitCodes?.includes(failure.code)) {
+        return { stdout: failure.stdout ?? "", stderr: failure.stderr ?? "" }
+      }
       throw new GitCommandError(args, failure.stdout ?? "", failure.stderr ?? "", error)
     }
   }

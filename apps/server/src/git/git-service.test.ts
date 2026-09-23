@@ -155,6 +155,7 @@ describe("GitService", () => {
       code: "??",
       path: "src/file.txt",
     })
+    expect(await service.diff(root, { paths: ["src/file.txt"] })).toContain("+first")
     await service.stage(root, ["src/file.txt"])
     expect(await service.diff(root, { staged: true })).toContain("+first")
     const head = await service.commit(root, "First commit")
@@ -183,6 +184,7 @@ describe("GitService", () => {
     const service = new GitService(join(root, "cache"), join(root, "home"))
     await expect(service.stage(root, ["../outside.txt"])).rejects.toThrow("outside the repository")
     await expect(service.stage(root, ["outside/file.txt"])).rejects.toThrow("resolves outside")
+    await expect(service.diff(root, { paths: ["outside"] })).rejects.toThrow("regular file")
     await expect(service.diff(root, { base: "--output=/tmp/unsafe" })).rejects.toThrow(
       "Invalid Git base"
     )
