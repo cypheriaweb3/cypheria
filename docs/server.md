@@ -57,7 +57,7 @@ The Server resolves this root once and passes derived paths to services. Cypheri
 
 Desired shared configuration is stored at `$CYPHERIA_HOME/config/config.json`, currently schema version 1. The product has not shipped, so this is the current baseline and no legacy configuration migration is performed. Missing configuration uses secure defaults without writing a file. Patches are validated as a complete document and written atomically with owner-only permissions.
 
-The document contains listener, CORS, message limits, session timeouts, shutdown, relay, embedded-web, and shared Agent settings. Strongly typed Codex vocabulary remains nested under `agents.codex`; discovered new-session defaults for all harnesses are keyed by Agent ID under `agents.defaults`. Secrets such as `CYPHERIA_SERVER_TOKEN` are environment-only and never returned through settings APIs.
+The document contains listener, CORS, message limits, session timeouts, shutdown, relay, embedded-web, logging, and shared Agent settings. Strongly typed Codex vocabulary remains nested under `agents.codex`; discovered new-session defaults for all harnesses are keyed by Agent ID under `agents.defaults`. Secrets such as `CYPHERIA_SERVER_TOKEN` are environment-only and never returned through settings APIs.
 
 Configuration responses distinguish:
 
@@ -73,6 +73,11 @@ Desktop appearance, layout, shortcuts, window state, update preferences, and ope
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `CYPHERIA_HOME` | `~/.cypheria` | Application home |
+| `CYPHERIA_LOG_LEVEL` | `info` | Console log threshold |
+| `CYPHERIA_LOG_FILE_LEVEL` | `info` | File log threshold |
+| `CYPHERIA_LOG_FILE_PATH` | `$CYPHERIA_HOME/logs/server.log` | File path; relative paths resolve from `CYPHERIA_HOME` |
+| `CYPHERIA_LOG_ROTATE_SIZE_MB` | `10` | Maximum size per log file in MiB |
+| `CYPHERIA_LOG_ROTATE_COUNT` | `3` | Rotated files retained |
 | `CYPHERIA_SERVER_HOST` | `127.0.0.1` | Listener host |
 | `CYPHERIA_SERVER_PORT` | `6768` | Listener port; `0` requests an ephemeral port |
 | `CYPHERIA_SERVER_TOKEN` | unset | Bearer credential; required for non-loopback binding |
@@ -87,6 +92,12 @@ Desktop appearance, layout, shortcuts, window state, update preferences, and ope
 | `CYPHERIA_SERVER_RELAY_ENDPOINT` | unset | Server-facing relay endpoint |
 
 The configuration schema and code remain the final authority for optional relay publication and TLS flags.
+
+## Agent and Server logs
+
+The Server writes structured JSON logs to the console and rotating files. The worker writes `logs/server.log`; the supervisor writes `logs/server-supervisor.log`. The `server.logging` configuration stores console and file levels, optional file path, and rotation limits. Environment overrides take precedence; changes to persisted logging settings require a Server restart.
+
+Codex, Pi, and ACP process lifecycle records include Agent ID, process ID, exit result, and the number of stderr bytes. Codex request timeouts include the method name. Agent stderr is drained so it cannot block the protocol, but its raw contents are not stored because they may contain credentials or user data. Conversation output remains in the canonical Timeline.
 
 ## HTTP operations
 

@@ -1,9 +1,9 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises"
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { PersistedServerConfigSchema } from "@cypheria/protocol"
 import { afterEach, describe, expect, it } from "vitest"
-import { resolveServerConfigPath } from "./persisted-config.js"
+import { DEFAULT_PERSISTED_SERVER_CONFIG, resolveServerConfigPath } from "./persisted-config.js"
 import { ServerConfigStore } from "./server-config-store.js"
 
 const temporaryDirectories: string[] = []
@@ -40,6 +40,34 @@ describe("ServerConfigStore", () => {
     expect(snapshot.overrideControlledPaths).toContain("server.listen.port")
     expect(snapshot.restartRequiredPaths).not.toContain("server.listen.port")
     expect(store.effective.port).toBe(9900)
+  })
+
+  it("persists logging settings and requires a restart", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "cypheria-server-logging-"))
+    temporaryDirectories.push(configDir)
+    const store = await ServerConfigStore.open(configDir, {})
+    const snapshot = await store.patch({
+      server: { logging: { level: "debug", file: { rotate: { maxSizeMb: 25 } } } },
+    })
+    expect(snapshot.config.server.logging?.level).toBe("debug")
+    expect(snapshot.config.server.logging?.file.rotate.maxSizeMb).toBe(25)
+    expect(snapshot.restartRequiredPaths).toEqual(
+      expect.arrayContaining(["server.logging.level", "server.logging.file.rotate.maxSizeMb"])
+    )
+  })
+
+  it("adds default logging to existing configuration files", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "cypheria-server-logging-legacy-"))
+    temporaryDirectories.push(configDir)
+    const { logging: _logging, ...server } = DEFAULT_PERSISTED_SERVER_CONFIG.server
+    await writeFile(
+      resolveServerConfigPath(configDir),
+      JSON.stringify({ ...DEFAULT_PERSISTED_SERVER_CONFIG, server })
+    )
+    const store = await ServerConfigStore.open(configDir, {})
+    expect(store.getSnapshot().config.server.logging?.level).toBe("info")
+    const snapshot = await store.patch({ server: { logging: { level: "debug" } } })
+    expect(snapshot.config.server.logging?.file.level).toBe("info")
   })
 
   it("validates the complete desired configuration before writing", async () => {

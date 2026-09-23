@@ -5,6 +5,7 @@ import { z } from "zod"
 import { DEFAULT_PERSISTED_SERVER_CONFIG } from "./persisted-config.js"
 
 const PortSchema = z.coerce.number().int().min(0).max(65_535)
+const LogLevelSchema = z.enum(["trace", "debug", "info", "warn", "error", "fatal"])
 
 const AuthTokenSchema = z
   .string()
@@ -26,6 +27,11 @@ export const CypheriaServerConfigSchema = z
     ),
     authToken: AuthTokenSchema.optional(),
     host: z.string().trim().min(1),
+    logLevel: LogLevelSchema,
+    logFileLevel: LogLevelSchema,
+    logFilePath: z.string().trim().min(1).optional(),
+    logRotateSizeMb: z.number().int().min(1).max(1024),
+    logRotateCount: z.number().int().min(1).max(20),
     maxMessageBytes: z
       .number()
       .int()
@@ -97,6 +103,7 @@ export function loadServerConfig(
   persisted: PersistedServerConfig = DEFAULT_PERSISTED_SERVER_CONFIG
 ): CypheriaServerConfig {
   const configured = persisted.server
+  const logging = configured.logging
   const overrideControlledPaths: string[] = []
   const fromEnvironment = <T>(
     name: string,
@@ -122,6 +129,28 @@ export function loadServerConfig(
     host:
       fromEnvironment("CYPHERIA_SERVER_HOST", "server.listen.host", (value) => value.trim()) ??
       configured.listen.host,
+    logLevel:
+      fromEnvironment("CYPHERIA_LOG_LEVEL", "server.logging.level", (value) =>
+        LogLevelSchema.parse(value.trim())
+      ) ?? logging.level,
+    logFileLevel:
+      fromEnvironment("CYPHERIA_LOG_FILE_LEVEL", "server.logging.file.level", (value) =>
+        LogLevelSchema.parse(value.trim())
+      ) ?? logging.file.level,
+    logFilePath:
+      fromEnvironment("CYPHERIA_LOG_FILE_PATH", "server.logging.file.path", (value) =>
+        value.trim()
+      ) ?? logging.file.path,
+    logRotateSizeMb:
+      fromEnvironment(
+        "CYPHERIA_LOG_ROTATE_SIZE_MB",
+        "server.logging.file.rotate.maxSizeMb",
+        (value) => z.coerce.number().int().min(1).max(1024).parse(value)
+      ) ?? logging.file.rotate.maxSizeMb,
+    logRotateCount:
+      fromEnvironment("CYPHERIA_LOG_ROTATE_COUNT", "server.logging.file.rotate.maxFiles", (value) =>
+        z.coerce.number().int().min(1).max(20).parse(value)
+      ) ?? logging.file.rotate.maxFiles,
     maxMessageBytes:
       fromEnvironment(
         "CYPHERIA_SERVER_MAX_MESSAGE_BYTES",

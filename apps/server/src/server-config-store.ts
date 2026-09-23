@@ -19,6 +19,11 @@ import {
 const EFFECTIVE_CONFIG_PATHS: ReadonlyArray<
   readonly [persisted: string, effective: keyof CypheriaServerConfig]
 > = [
+  ["server.logging.level", "logLevel"],
+  ["server.logging.file.level", "logFileLevel"],
+  ["server.logging.file.path", "logFilePath"],
+  ["server.logging.file.rotate.maxSizeMb", "logRotateSizeMb"],
+  ["server.logging.file.rotate.maxFiles", "logRotateCount"],
   ["server.cors.allowedOrigins", "allowedOrigins"],
   ["server.limits.maxMessageBytes", "maxMessageBytes"],
   ["server.listen.host", "host"],
@@ -94,6 +99,17 @@ export class ServerConfigStore {
         defaults: {},
       },
       server: {
+        logging: {
+          level: runningConfig.logLevel,
+          file: {
+            level: runningConfig.logFileLevel,
+            ...(runningConfig.logFilePath ? { path: runningConfig.logFilePath } : {}),
+            rotate: {
+              maxSizeMb: runningConfig.logRotateSizeMb,
+              maxFiles: runningConfig.logRotateCount,
+            },
+          },
+        },
         cors: { allowedOrigins: runningConfig.allowedOrigins },
         limits: { maxMessageBytes: runningConfig.maxMessageBytes },
         listen: { host: runningConfig.host, port: runningConfig.port },

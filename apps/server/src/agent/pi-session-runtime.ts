@@ -1,7 +1,6 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process"
 import { mkdir } from "node:fs/promises"
 import { createInterface } from "node:readline"
-
 import {
   type AgentPiClientMessage,
   type AgentPiClientRequest,
@@ -13,8 +12,10 @@ import {
   wrapPiServerEvent,
 } from "@cypheria/protocol"
 import type { RpcResponse } from "@earendil-works/pi-coding-agent"
+import type { Logger } from "pino"
 
 import type { AgentInstallReceipt } from "./agent-installer.js"
+import { monitorAgentProcess } from "./agent-process-log.js"
 import type { ToolchainManager } from "./toolchain-manager.js"
 
 type PiOutput = PiServerEvent | RpcResponse
@@ -24,6 +25,7 @@ export class PiSessionRuntime {
   readonly #receipt: AgentInstallReceipt
   readonly #send: (message: AgentPiServerMessage) => void
   readonly #toolchains: ToolchainManager
+  readonly #logger: Logger | undefined
   #process: ChildProcessWithoutNullStreams | undefined
 
   constructor(options: {
@@ -31,11 +33,13 @@ export class PiSessionRuntime {
     receipt: AgentInstallReceipt
     send: (message: AgentPiServerMessage) => void
     toolchains: ToolchainManager
+    logger?: Logger
   }) {
     this.#home = options.home
     this.#receipt = options.receipt
     this.#send = options.send
     this.#toolchains = options.toolchains
+    this.#logger = options.logger
   }
 
   get running(): boolean {
@@ -52,6 +56,7 @@ export class PiSessionRuntime {
       windowsHide: true,
     })
     this.#process = child
+    monitorAgentProcess(child, this.#logger)
     const lines = createInterface({ input: child.stdout })
     lines.on("line", (line) => {
       try {

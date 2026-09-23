@@ -57,7 +57,7 @@ Server 只解析一次根目录，再把派生路径传给各服务。Cypheria �
 
 期望的共享配置存储在 `$CYPHERIA_HOME/config/config.json`，当前 Schema 版本为 1。产品尚未发布，因此它就是当前 baseline，不执行旧配置迁移。文件不存在时使用安全默认值且不主动写文件。Patch 会先作为完整文档校验，再以仅所有者可读写权限原子写入。
 
-该文档包含 listener、CORS、消息限制、session timeout、shutdown、relay、内嵌 web 和共享 Agent 设置。强类型 Codex 词汇保留在 `agents.codex` 下；所有 harness 发现出的新 session 默认值按 Agent ID 存在 `agents.defaults`。`CYPHERIA_SERVER_TOKEN` 等密钥只存在于环境变量中，设置 API 不会返回它们。
+该文档包含 listener、CORS、消息限制、session timeout、shutdown、relay、内嵌 web、日志和共享 Agent 设置。强类型 Codex 词汇保留在 `agents.codex` 下；所有 harness 发现出的新 session 默认值按 Agent ID 存在 `agents.defaults`。`CYPHERIA_SERVER_TOKEN` 等密钥只存在于环境变量中，设置 API 不会返回它们。
 
 配置响应区分：
 
@@ -73,6 +73,11 @@ Desktop 外观、布局、快捷键、窗口状态、更新偏好和操作系统
 | 变量 | 默认值 | 用途 |
 | --- | --- | --- |
 | `CYPHERIA_HOME` | `~/.cypheria` | 应用主目录 |
+| `CYPHERIA_LOG_LEVEL` | `info` | 控制台日志级别 |
+| `CYPHERIA_LOG_FILE_LEVEL` | `info` | 文件日志级别 |
+| `CYPHERIA_LOG_FILE_PATH` | `$CYPHERIA_HOME/logs/server.log` | 日志文件路径；相对路径从 `CYPHERIA_HOME` 解析 |
+| `CYPHERIA_LOG_ROTATE_SIZE_MB` | `10` | 单个日志文件的最大 MiB 数 |
+| `CYPHERIA_LOG_ROTATE_COUNT` | `3` | 保留的轮转文件数 |
 | `CYPHERIA_SERVER_HOST` | `127.0.0.1` | 监听地址 |
 | `CYPHERIA_SERVER_PORT` | `6768` | 监听端口；`0` 请求临时端口 |
 | `CYPHERIA_SERVER_TOKEN` | 未设置 | Bearer 凭证；非 loopback 监听时必需 |
@@ -87,6 +92,12 @@ Desktop 外观、布局、快捷键、窗口状态、更新偏好和操作系统
 | `CYPHERIA_SERVER_RELAY_ENDPOINT` | 未设置 | Server 侧 relay endpoint |
 
 可选 relay 发布和 TLS flag 的最终权威仍是配置 Schema 与代码。
+
+## Agent 和 Server 日志
+
+Server 向控制台和轮转文件写入结构化 JSON 日志。worker 写入 `logs/server.log`；supervisor 写入 `logs/server-supervisor.log`。`server.logging` 配置保存控制台及文件级别、可选文件路径和轮转限制。环境变量覆盖配置文件；持久化日志设置变更需要重启 Server。
+
+Codex、Pi 和 ACP 进程生命周期记录包含 Agent ID、进程 ID、退出结果和 stderr 字节数。Codex 请求超时还会记录方法名。Server 会持续读取 Agent stderr，避免管道阻塞协议；原始内容可能含凭据或用户数据，因此不落盘。对话输出继续保存在规范 Timeline 中。
 
 ## HTTP 运维接口
 

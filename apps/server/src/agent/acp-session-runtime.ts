@@ -8,11 +8,13 @@ import {
   getAcpLogicalCodec,
   parseAcpNegotiatedInitializeResult,
 } from "@cypheria/protocol/acp-adapter"
+import type { Logger } from "pino"
 import {
   ACP_V1_FALLBACK_REQUIRED_CODE,
   isMisreportedAcpV1InitializeResult,
 } from "./acp-negotiation.js"
 import type { AgentInstallReceipt } from "./agent-installer.js"
+import { monitorAgentProcess } from "./agent-process-log.js"
 import type { ToolchainManager } from "./toolchain-manager.js"
 
 type RawMessage = {
@@ -34,6 +36,7 @@ export class AcpSessionRuntime {
   readonly #receipt: AgentInstallReceipt
   readonly #send: (message: AgentAcpServerMessage) => void
   readonly #toolchains: ToolchainManager
+  readonly #logger: Logger | undefined
   readonly #pending = new Map<string, { method: string; responseType: string; version: 1 | 2 }>()
   #process: ChildProcessWithoutNullStreams | undefined
   #initialized = false
@@ -44,11 +47,13 @@ export class AcpSessionRuntime {
     receipt: AgentInstallReceipt
     send: (message: AgentAcpServerMessage) => void
     toolchains: ToolchainManager
+    logger?: Logger
   }) {
     this.#agent = options.agent
     this.#receipt = options.receipt
     this.#send = options.send
     this.#toolchains = options.toolchains
+    this.#logger = options.logger
   }
 
   get running(): boolean {
@@ -67,6 +72,7 @@ export class AcpSessionRuntime {
       windowsHide: true,
     })
     this.#process = child
+    monitorAgentProcess(child, this.#logger)
     const lines = createInterface({ input: child.stdout })
     lines.on("line", (line) => {
       try {

@@ -14,6 +14,48 @@ afterEach(async () => {
 })
 
 describe("CodexRuntime", () => {
+  it("drains app-server diagnostics without blocking account requests", async () => {
+    const home = await mkdtemp(join(tmpdir(), "cypheria-codex-runtime-"))
+    homes.push(home)
+    const script = `
+      import { createInterface } from "node:readline";
+      const lines = createInterface({ input: process.stdin });
+      const send = (message) => process.stdout.write(JSON.stringify(message) + "\\n");
+      lines.on("line", (line) => {
+        const message = JSON.parse(line);
+        if (message.method === "initialize") {
+          process.stderr.write("diagnostic ".repeat(200000), () =>
+            send({ id: message.id, jsonrpc: "2.0", result: { codexHome: "/tmp/codex", platformFamily: "unix", platformOs: "linux", userAgent: "test" } })
+          );
+        } else if (message.method === "account/read") {
+          send({ id: message.id, jsonrpc: "2.0", result: { account: null, requiresOpenaiAuth: true } });
+        }
+      });
+    `
+    const runtime = new CodexRuntime({
+      codexHome: home,
+      receipt: {
+        agentId: "codex",
+        args: ["--input-type=module", "-e", script],
+        command: process.execPath,
+        installedAt: new Date().toISOString(),
+        integrity: "not-applicable",
+        kind: "npx",
+        source: "@openai/codex",
+        version: "0.0.0-test",
+      },
+      toolchains: { environment: () => process.env } as never,
+    })
+    try {
+      await expect(runtime.request("account/read", { refreshToken: false })).resolves.toEqual({
+        account: null,
+        requiresOpenaiAuth: true,
+      })
+    } finally {
+      await runtime.stop()
+    }
+  })
+
   it("initializes the app server before sending account requests", async () => {
     const home = await mkdtemp(join(tmpdir(), "cypheria-codex-runtime-"))
     homes.push(home)

@@ -141,6 +141,7 @@ export class CypheriaServer implements HttpAppHost {
       reconnectGraceMs: this.config.sessionReconnectGraceMs,
     })
     this.agentManager = new AgentManager({
+      logger: this.logger.child({ service: "agents" }),
       cacheDir: this.runtime.paths.cacheDir,
       cypheriaHome: this.runtime.paths.cypheriaHome,
       persistence: createAgentRegistryPersistenceService(this.database.db),

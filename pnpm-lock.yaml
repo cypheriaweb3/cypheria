@@ -69,10 +69,10 @@ importers:
         version: 18.0.1(@types/react@19.2.15)(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
       '@lingui/core':
         specifier: ^6.6.0
-        version: 6.6.0(@babel/core@8.0.1)(@babel/types@7.29.7)
+        version: 6.6.0(@babel/core@8.0.1)(@babel/types@8.0.4)
       '@lingui/react':
         specifier: ^6.6.0
-        version: 6.6.0(@babel/core@8.0.1)(@babel/types@7.29.7)(react@19.2.6)
+        version: 6.6.0(@babel/core@8.0.1)(@babel/types@8.0.4)(react@19.2.6)
       '@solana/wallet-standard-chains':
         specifier: ^1.1.2
         version: 1.1.2
@@ -139,7 +139,7 @@ importers:
         version: 4.2.0
       '@lingui/babel-plugin-lingui-macro':
         specifier: ^6.6.0
-        version: 6.6.0(@babel/core@8.0.1)(@babel/types@7.29.7)
+        version: 6.6.0(@babel/core@8.0.1)(@babel/types@8.0.4)
       '@lingui/cli':
         specifier: ^6.6.0
         version: 6.6.0(esbuild@0.28.2)(rolldown@1.2.7)
@@ -151,7 +151,7 @@ importers:
         version: 6.6.0
       '@lingui/vite-plugin':
         specifier: ^6.6.0
-        version: 6.6.0(@babel/core@8.0.1)(@lingui/babel-plugin-lingui-macro@6.6.0(@babel/core@8.0.1)(@babel/types@7.29.7))(@rolldown/plugin-babel@0.2.3(@babel/core@8.0.1)(@babel/plugin-transform-runtime@7.29.7(@babel/core@8.0.1))(@babel/runtime@7.29.7)(rolldown@1.2.7)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)))(esbuild@0.28.2)(rolldown@1.2.7)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))
+        version: 6.6.0(@babel/core@8.0.1)(@lingui/babel-plugin-lingui-macro@6.6.0(@babel/core@8.0.1)(@babel/types@8.0.4))(@rolldown/plugin-babel@0.2.3(@babel/core@8.0.1)(@babel/plugin-transform-runtime@7.29.7(@babel/core@8.0.1))(@babel/runtime@7.29.7)(rolldown@1.2.7)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)))(esbuild@0.28.2)(rolldown@1.2.7)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))
       '@rolldown/plugin-babel':
         specifier: ^0.2.3
         version: 0.2.3(@babel/core@8.0.1)(@babel/plugin-transform-runtime@7.29.7(@babel/core@8.0.1))(@babel/runtime@7.29.7)(rolldown@1.2.7)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))
@@ -293,6 +293,9 @@ importers:
       pino:
         specifier: ^10.3.1
         version: 10.3.1
+      rotating-file-stream:
+        specifier: ^3.2.10
+        version: 3.2.10
       tar:
         specifier: ^7.5.11
         version: 7.5.22
@@ -341,10 +344,10 @@ importers:
         version: 0.2.5(@fumadocs/base-ui@16.15.12(@date-fns/tz@1.5.0)(@types/mdx@2.0.14)(@types/react@19.2.15)(date-fns@4.4.0)(fumadocs-core@16.15.12(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.8(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.15)(flexsearch@0.8.212)(lucide-react@1.47.0(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.6.5))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(tailwindcss@4.3.0))(fumadocs-core@16.15.12(@mdx-js/mdx@3.1.1)(@tanstack/react-router@1.170.8(react-dom@19.2.6(react@19.2.6))(react@19.2.6))(@types/estree-jsx@1.0.5)(@types/hast@3.0.5)(@types/mdast@4.0.4)(@types/react@19.2.15)(flexsearch@0.8.212)(lucide-react@1.47.0(react@19.2.6))(react-dom@19.2.6(react@19.2.6))(react@19.2.6)(zod@4.6.5))
       '@lingui/core':
         specifier: ^6.6.0
-        version: 6.6.0(@babel/core@8.0.1)(@babel/types@8.0.4)
+        version: 6.6.0(@babel/core@8.0.1)(@babel/types@7.29.7)
       '@lingui/react':
         specifier: ^6.6.0
-        version: 6.6.0(@babel/core@8.0.1)(@babel/types@8.0.4)(react@19.2.6)
+        version: 6.6.0(@babel/core@8.0.1)(@babel/types@7.29.7)(react@19.2.6)
       '@tanstack/react-router':
         specifier: ^1.170.8
         version: 1.170.8(react-dom@19.2.6(react@19.2.6))(react@19.2.6)
@@ -378,7 +381,7 @@ importers:
         version: 1.56.0(@types/node@25.9.1)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))(wrangler@4.135.0(@types/node@25.9.1))
       '@lingui/babel-plugin-lingui-macro':
         specifier: ^6.6.0
-        version: 6.6.0(@babel/core@8.0.1)(@babel/types@8.0.4)
+        version: 6.6.0(@babel/core@8.0.1)(@babel/types@7.29.7)
       '@lingui/cli':
         specifier: ^6.6.0
         version: 6.6.0(esbuild@0.28.2)(rolldown@1.2.7)
@@ -390,7 +393,7 @@ importers:
         version: 6.6.0
       '@lingui/vite-plugin':
         specifier: ^6.6.0
-        version: 6.6.0(@babel/core@8.0.1)(@lingui/babel-plugin-lingui-macro@6.6.0(@babel/core@8.0.1)(@babel/types@8.0.4))(@rolldown/plugin-babel@0.2.3(@babel/core@8.0.1)(@babel/plugin-transform-runtime@7.29.7(@babel/core@8.0.1))(@babel/runtime@7.29.7)(rolldown@1.2.7)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)))(esbuild@0.28.2)(rolldown@1.2.7)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))
+        version: 6.6.0(@babel/core@8.0.1)(@lingui/babel-plugin-lingui-macro@6.6.0(@babel/core@8.0.1)(@babel/types@7.29.7))(@rolldown/plugin-babel@0.2.3(@babel/core@8.0.1)(@babel/plugin-transform-runtime@7.29.7(@babel/core@8.0.1))(@babel/runtime@7.29.7)(rolldown@1.2.7)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1)))(esbuild@0.28.2)(rolldown@1.2.7)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.1))
       '@playwright/test':
         specifier: ^1.55.0
         version: 1.63.0
@@ -8849,6 +8852,10 @@ packages:
     resolution: {integrity: sha512-g0EtLvBjTUB7jhyV0S/TCup3v/XSVl45vUIGbOGU4QPiyjTenCe4mKuFvW9fEgYmS2Fo42AUssRmNuMziXdrig==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
+
+  rotating-file-stream@3.2.10:
+    resolution: {integrity: sha512-9kviflu1v0iTD3MNoRLjPuuqLTsTOrovKdadoSYcUsgY5mKFNuhcM7WifJcwvxfIP6YJdVVxgWQr9YS3lJS+bg==}
+    engines: {node: '>=14.0'}
 
   rou3@0.8.1:
     resolution: {integrity: sha512-ePa+XGk00/3HuCqrEnK3LxJW7I0SdNg6EFzKUJG73hMAdDcOUC/i/aSz7LSDwLrGr33kal/rqOGydzwl6U7zBA==}
@@ -19366,6 +19373,8 @@ snapshots:
       '@rolldown/binding-openharmony-arm64': 1.2.7
       '@rolldown/binding-win32-arm64-msvc': 1.2.7
       '@rolldown/binding-win32-x64-msvc': 1.2.7
+
+  rotating-file-stream@3.2.10: {}
 
   rou3@0.8.1: {}
 

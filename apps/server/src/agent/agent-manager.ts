@@ -1,7 +1,6 @@
 import { spawn } from "node:child_process"
 import { randomUUID } from "node:crypto"
 import { join } from "node:path"
-
 import type { AgentRegistryPersistenceService, AgentRegistryRecord } from "@cypheria/db"
 import {
   type AGENT_CODEX_CLIENT_RPC,
@@ -33,6 +32,7 @@ import {
 } from "@cypheria/protocol"
 import type { AgentAcpClientMessage, AgentAcpServerMessage } from "@cypheria/protocol/acp-adapter"
 import { ModelRuntime, type ModelRuntimeAuthOverrides } from "@earendil-works/pi-coding-agent"
+import type { Logger } from "pino"
 import type { ThreadHarnessAdapter } from "../thread/harness-adapter.js"
 import {
   authenticateAcp,
@@ -102,6 +102,7 @@ export type AgentManagerOptions = {
   cypheriaHome: string
   persistence: AgentRegistryPersistenceService
   publish: Send
+  logger?: Logger
   codexSettings?: () => CodexAgentSettings
   agentDefaults?: (agentId: AgentId) => Record<string, HarnessSettingValue>
   networkBootstrap?: boolean
@@ -162,12 +163,14 @@ export class AgentManager {
   readonly #subscriptions = new Map<string, AbortController>()
   readonly #threadAdapters = new Map<string, ManagedThreadAdapter>()
   readonly #networkBootstrap: boolean
+  readonly #logger: Logger | undefined
   readonly #maintenanceAgents = new Set<AgentId>()
   #catalogInvalidator: ((agentId?: AgentId) => void) | undefined
   #defaultsResolver:
     | ((agentId: AgentId) => Promise<Record<string, HarnessSettingValue>>)
     | undefined
   #codexRuntime: CodexRuntime | undefined
+  #codexRuntimeInitialization: Promise<CodexRuntime> | undefined
   #piModelRuntime: Promise<ModelRuntime> | undefined
   #threadCoordinator: AgentThreadCoordinator | undefined
   #stopping = false
@@ -176,6 +179,7 @@ export class AgentManager {
     this.#persistence = options.persistence
     this.#publish = options.publish
     this.#networkBootstrap = options.networkBootstrap ?? true
+    this.#logger = options.logger
     this.#agentDefaults = options.agentDefaults ?? (() => ({}))
     this.#codexSettings =
       options.codexSettings ??
@@ -415,6 +419,7 @@ export class AgentManager {
         receipt,
         send: context.send,
         toolchains: this.toolchains,
+        logger: this.#logger?.child({ agentId: message.agent, sessionId: context.sessionId }),
       })
       this.#acpRuntimes.set(key, runtime)
       this.#markSessionRunning(context.sessionId, message.agent)
@@ -712,6 +717,7 @@ export class AgentManager {
         receipt,
         send: context.send,
         toolchains: this.toolchains,
+        logger: this.#logger?.child({ agentId: "pi", sessionId: context.sessionId }),
       })
       this.#piRuntimes.set(context.sessionId, runtime)
     }
@@ -1122,64 +1128,81 @@ export class AgentManager {
   }
 
   async #ensureCodexRuntime(): Promise<CodexRuntime> {
-    if (!this.#codexRuntime) {
-      this.#codexRuntime = new CodexRuntime({
+    if (this.#codexRuntimeInitialization) return this.#codexRuntimeInitialization
+    if (this.#codexRuntime) return this.#codexRuntime
+    const initialization = (async () => {
+      const runtime = new CodexRuntime({
         codexHome: join(this.#agentHomes, "..", "codex"),
         receipt: await this.#requiredReceipt("codex"),
         toolchains: this.toolchains,
+        logger: this.#logger?.child({ agentId: "codex" }),
       })
-      const settings = this.#codexSettings()
-      await this.#codexRuntime.request("config/batchWrite", {
-        edits: [
-          { keyPath: "model_provider", mergeStrategy: "replace", value: settings.provider },
-          { keyPath: "model", mergeStrategy: "replace", value: settings.model },
-          {
-            keyPath: "model_reasoning_effort",
-            mergeStrategy: "replace",
-            value: settings.reasoningEffort,
-          },
-          { keyPath: "service_tier", mergeStrategy: "replace", value: settings.serviceTier },
-          {
-            keyPath: "approval_policy",
-            mergeStrategy: "replace",
-            value: settings.approvalPolicy,
-          },
-          {
-            keyPath: "approvals_reviewer",
-            mergeStrategy: "replace",
-            value: settings.approvalsReviewer,
-          },
-          {
-            keyPath: "sandbox_mode",
-            mergeStrategy: "replace",
-            value: settings.sandboxMode,
-          },
-          {
-            keyPath: "sandbox_workspace_write.network_access",
-            mergeStrategy: "replace",
-            value: settings.networkAccess,
-          },
-          { keyPath: "web_search", mergeStrategy: "replace", value: settings.webSearch },
-          {
-            keyPath: "model_verbosity",
-            mergeStrategy: "replace",
-            value: settings.modelVerbosity,
-          },
-          {
-            keyPath: "model_reasoning_summary",
-            mergeStrategy: "replace",
-            value: settings.modelReasoningSummary,
-          },
-          {
-            keyPath: "desktop.showFullAccessInComposer",
-            mergeStrategy: "replace",
-            value: settings.showFullAccessInComposer,
-          },
-        ],
-        reloadUserConfig: true,
-      })
+      try {
+        const settings = this.#codexSettings()
+        await runtime.request("config/batchWrite", {
+          edits: [
+            { keyPath: "model_provider", mergeStrategy: "replace", value: settings.provider },
+            { keyPath: "model", mergeStrategy: "replace", value: settings.model },
+            {
+              keyPath: "model_reasoning_effort",
+              mergeStrategy: "replace",
+              value: settings.reasoningEffort,
+            },
+            { keyPath: "service_tier", mergeStrategy: "replace", value: settings.serviceTier },
+            {
+              keyPath: "approval_policy",
+              mergeStrategy: "replace",
+              value: settings.approvalPolicy,
+            },
+            {
+              keyPath: "approvals_reviewer",
+              mergeStrategy: "replace",
+              value: settings.approvalsReviewer,
+            },
+            {
+              keyPath: "sandbox_mode",
+              mergeStrategy: "replace",
+              value: settings.sandboxMode,
+            },
+            {
+              keyPath: "sandbox_workspace_write.network_access",
+              mergeStrategy: "replace",
+              value: settings.networkAccess,
+            },
+            { keyPath: "web_search", mergeStrategy: "replace", value: settings.webSearch },
+            {
+              keyPath: "model_verbosity",
+              mergeStrategy: "replace",
+              value: settings.modelVerbosity,
+            },
+            {
+              keyPath: "model_reasoning_summary",
+              mergeStrategy: "replace",
+              value: settings.modelReasoningSummary,
+            },
+            {
+              keyPath: "desktop.showFullAccessInComposer",
+              mergeStrategy: "replace",
+              value: settings.showFullAccessInComposer,
+            },
+          ],
+          reloadUserConfig: true,
+        })
+        this.#codexRuntime = runtime
+        return runtime
+      } catch (error) {
+        await runtime.stop()
+        throw error
+      }
+    })()
+    this.#codexRuntimeInitialization = initialization
+    try {
+      return await initialization
+    } finally {
+      if (this.#codexRuntimeInitialization === initialization) {
+        this.#codexRuntimeInitialization = undefined
+      }
     }
-    return this.#codexRuntime
   }
 
   #ensurePiModelRuntime(): Promise<ModelRuntime> {

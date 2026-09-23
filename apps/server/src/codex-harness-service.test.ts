@@ -27,6 +27,7 @@ const config: PersistedServerConfig = {
     defaults: {},
   },
   server: {
+    logging: { level: "info", file: { level: "info", rotate: { maxSizeMb: 10, maxFiles: 3 } } },
     cors: { allowedOrigins: [] },
     limits: { maxMessageBytes: 1024 },
     listen: { host: "127.0.0.1", port: 6768 },

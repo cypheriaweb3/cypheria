@@ -333,6 +333,21 @@ export const ServerDiagnosticsSchema = z.object({
 export type ServerDiagnostics = z.infer<typeof ServerDiagnosticsSchema>
 
 const OptionalRelayEndpointSchema = z.string().trim().min(1).max(2048).optional()
+const ServerLogLevelSchema = z.enum(["trace", "debug", "info", "warn", "error", "fatal"])
+const ServerLoggingSchema = z
+  .object({
+    level: ServerLogLevelSchema,
+    file: z
+      .object({
+        level: ServerLogLevelSchema,
+        path: z.string().trim().min(1).optional(),
+        rotate: z
+          .object({ maxSizeMb: z.int().min(1).max(1024), maxFiles: z.int().min(1).max(20) })
+          .strict(),
+      })
+      .strict(),
+  })
+  .strict()
 
 export const PersistedServerConfigSchema = z
   .object({
@@ -345,6 +360,10 @@ export const PersistedServerConfigSchema = z
     version: z.literal(1),
     server: z
       .object({
+        logging: ServerLoggingSchema.default({
+          level: "info",
+          file: { level: "info", rotate: { maxSizeMb: 10, maxFiles: 3 } },
+        }),
         cors: z
           .object({
             allowedOrigins: z.array(z.string().url()).default([]),
@@ -406,6 +425,26 @@ export const PersistedServerConfigPatchSchema = z
       .optional(),
     server: z
       .object({
+        logging: z
+          .object({
+            level: ServerLogLevelSchema.optional(),
+            file: z
+              .object({
+                level: ServerLogLevelSchema.optional(),
+                path: z.string().trim().min(1).optional(),
+                rotate: z
+                  .object({
+                    maxSizeMb: z.int().min(1).max(1024).optional(),
+                    maxFiles: z.int().min(1).max(20).optional(),
+                  })
+                  .strict()
+                  .optional(),
+              })
+              .strict()
+              .optional(),
+          })
+          .strict()
+          .optional(),
         cors: z
           .object({ allowedOrigins: z.array(z.string().url()).optional() })
           .strict()

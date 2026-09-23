@@ -1,7 +1,6 @@
 import { type ChildProcessWithoutNullStreams, spawn } from "node:child_process"
 import { mkdir } from "node:fs/promises"
 import { createInterface } from "node:readline"
-
 import {
   AGENT_CODEX_CLIENT_NOTIFICATION_TYPE_TO_METHOD,
   AGENT_CODEX_CLIENT_REQUEST_TYPE_TO_METHOD,
@@ -20,8 +19,10 @@ import {
   type AgentCodexServerResponse,
   type RequestId,
 } from "@cypheria/protocol"
+import type { Logger } from "pino"
 
 import type { AgentInstallReceipt } from "./agent-installer.js"
+import { monitorAgentProcess } from "./agent-process-log.js"
 import type { ToolchainManager } from "./toolchain-manager.js"
 
 type CodexServerMessage =
@@ -97,6 +98,7 @@ export class CodexRuntime {
   >()
   readonly #threadOwners = new Map<string, string>()
   readonly #toolchains: ToolchainManager
+  readonly #logger: Logger | undefined
   #activeSession: string | undefined
   #process: ChildProcessWithoutNullStreams | undefined
   #sequence = 0
@@ -106,10 +108,12 @@ export class CodexRuntime {
     codexHome: string
     receipt: AgentInstallReceipt
     toolchains: ToolchainManager
+    logger?: Logger
   }) {
     this.#codexHome = options.codexHome
     this.#receipt = options.receipt
     this.#toolchains = options.toolchains
+    this.#logger = options.logger
   }
 
   get running(): boolean {
@@ -137,6 +141,7 @@ export class CodexRuntime {
       windowsHide: true,
     })
     this.#process = child
+    monitorAgentProcess(child, this.#logger)
     const lines = createInterface({ input: child.stdout })
     lines.on("line", (line) => {
       try {
@@ -318,6 +323,7 @@ export class CodexRuntime {
         if (!this.#pending.delete(internalId)) return
         const error = new Error(`Codex ${method} request timed out`)
         error.name = "AGENT_TIMEOUT"
+        this.#logger?.warn({ method }, "Codex App Server request timed out")
         reject(error)
       }, 30_000).unref()
       this.#pending.set(internalId, { kind: "internal", reject, resolve, timeout })
