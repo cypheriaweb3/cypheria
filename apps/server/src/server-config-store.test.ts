@@ -99,6 +99,11 @@ describe("ServerConfigStore", () => {
     await expect(store.patch({ git: { worktreeRoot: "relative/worktrees" } })).rejects.toThrow(
       "Worktree root must be absolute"
     )
+    await expect(
+      store.patch({
+        git: { worktreeRoot: process.platform === "win32" ? "/tmp/trees" : "C:\\trees" },
+      })
+    ).rejects.toThrow("absolute on this host")
     await expect(readFile(resolveServerConfigPath(configDir), "utf8")).rejects.toMatchObject({
       code: "ENOENT",
     })

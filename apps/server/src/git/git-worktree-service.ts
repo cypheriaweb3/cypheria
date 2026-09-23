@@ -132,6 +132,44 @@ export class GitWorktreeService {
     return { path, head: commit, branch: null, managed: true, active: true, ownerThreadId: null }
   }
 
+  async cleanup(
+    repository: Repository,
+    keepCount: number,
+    protectedPaths: readonly string[]
+  ): Promise<string[]> {
+    if (!Number.isSafeInteger(keepCount) || keepCount < 0 || keepCount > 1000)
+      throw new Error("Invalid worktree retention count")
+    const protectedRoots = protectedPaths.map((path) => resolve(path))
+    const active = (await this.list(repository)).filter((entry) => entry.managed && entry.active)
+    const aged = await Promise.all(
+      active.map(async (entry) => {
+        const record = await this.#record(repository, entry.path)
+        const id = record.snapshotRef.split("/").at(-1)
+        const modified = (await stat(join(this.#root, ".metadata", `${id}.json`))).mtimeMs
+        return { entry, modified }
+      })
+    )
+    aged.sort((left, right) => right.modified - left.modified)
+    const removed: string[] = []
+    for (const { entry, modified } of aged.slice(keepCount)) {
+      if (removed.length >= 5) break
+      if (
+        entry.ownerThreadId ||
+        entry.path === repository.root ||
+        modified > Date.now() - 10 * 60_000 ||
+        protectedRoots.some((path) => path === entry.path || inside(entry.path, path))
+      )
+        continue
+      try {
+        await this.delete(repository, entry.path)
+        removed.push(entry.path)
+      } catch {
+        // Dirty or changed worktrees remain available for an explicit user action.
+      }
+    }
+    return removed
+  }
+
   async setOwner(
     repository: Repository,
     path: string,

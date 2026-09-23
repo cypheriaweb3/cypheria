@@ -1,3 +1,4 @@
+import { isAbsolute } from "node:path"
 import type {
   PersistedServerConfig,
   PersistedServerConfigPatch,
@@ -159,6 +160,8 @@ export class ServerConfigStore {
 
   async patch(patch: PersistedServerConfigPatch): Promise<ServerConfigSnapshot> {
     const next = applyPersistedServerConfigPatch(this.#persisted, patch)
+    if (next.git.worktreeRoot && !isAbsolute(next.git.worktreeRoot))
+      throw new Error("Git worktree root must be absolute on this host")
     loadServerConfig(this.#env, this.#resolutionOverrides, next)
     await savePersistedServerConfig(this.#configDir, next)
     this.#persisted = next
@@ -168,6 +171,8 @@ export class ServerConfigStore {
 
   async reload(): Promise<ServerConfigSnapshot> {
     const next = await loadPersistedServerConfig(this.#configDir)
+    if (next.git.worktreeRoot && !isAbsolute(next.git.worktreeRoot))
+      throw new Error("Git worktree root must be absolute on this host")
     loadServerConfig(this.#env, this.#resolutionOverrides, next)
     this.#persisted = next
     this.#refreshRestartRequiredPaths()

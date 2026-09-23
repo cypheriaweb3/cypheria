@@ -117,6 +117,8 @@ Shared Agent, model, integration, Web3, and Server behavior belongs in Cypheria 
 
 The Git settings page stores local Codex Git preferences in Server configuration. It covers branch prefix, guarded force push default, review mode, PR draft and merge defaults, sidebar PR icons, worktree root and retention, upstream refresh, and commit, PR, and watch instructions. The worktree root takes effect after Server restart. The Review panel respects the last-turn-only mode; PR creation and merge use the configured defaults.
 
+After creating a managed worktree, Server may clean up at most five older managed worktrees according to the retention setting. It protects the source checkout, the new worktree, owned worktrees, worktrees used by any saved thread, dirty worktrees, and worktrees created or updated in the last ten minutes. Cleaned worktrees retain a Git snapshot and can be restored. A cleanup failure does not undo successful worktree creation.
+
 For new or resumed managed Codex threads, Server includes the configured branch prefix and commit and PR instructions in Codex developer instructions.
 
 ## dApp and Web3 boundary

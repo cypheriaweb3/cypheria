@@ -490,7 +490,26 @@ export class GitService {
   }
 
   async createWorktree(cwd: string, startPoint?: string): Promise<GitWorktree> {
-    return this.#worktrees.create(await this.discover(cwd), startPoint)
+    const repository = await this.discover(cwd)
+    const created = await this.#worktrees.create(repository, startPoint)
+    const settings = this.#getSettings()
+    if (settings.worktreeAutoCleanupEnabled && this.#threads) {
+      try {
+        const protectedPaths = [repository.root, created.path]
+        for (const archived of [false, true]) {
+          let cursor: string | null = null
+          do {
+            const page = await this.#threads.list({ archived, cursor, limit: 200 })
+            for (const thread of page.data) if (thread.cwd) protectedPaths.push(thread.cwd)
+            cursor = page.nextCursor
+          } while (cursor)
+        }
+        await this.#worktrees.cleanup(repository, settings.worktreeKeepCount, protectedPaths)
+      } catch {
+        // Worktree creation succeeded; cleanup can be retried on a later creation.
+      }
+    }
+    return created
   }
 
   async deleteWorktree(cwd: string, path: string): Promise<void> {
