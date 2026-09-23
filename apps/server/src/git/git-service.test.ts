@@ -215,7 +215,12 @@ describe("GitService", () => {
     expect(await readFile(join(root, "file.txt"), "utf8")).toBe(
       changed.replace("first changed\n", "line 1\n")
     )
-    await new GitService(join(home, "cache"), home).undoReviewRevert(root, undoId)
+    const restarted = new GitService(join(home, "cache"), home)
+    expect(await restarted.reviewUndoList(root)).toEqual([
+      { id: undoId, path: "file.txt", createdAt: expect.any(String) },
+    ])
+    await restarted.undoReviewRevert(root, undoId)
+    expect(await restarted.reviewUndoList(root)).toEqual([])
     expect(await readFile(join(root, "file.txt"), "utf8")).toBe(changed)
   }, 20_000)
 

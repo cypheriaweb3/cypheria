@@ -59,7 +59,6 @@ export function GitReviewPanel({
   const [stashChanges, setStashChanges] = useState(false)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
-  const [undoId, setUndoId] = useState<string | null>(null)
   const [pendingRevert, setPendingRevert] = useState<{
     snapshot: GitReviewFile
     hunkIndex?: number
@@ -89,6 +88,12 @@ export function GitReviewPanel({
     queryKey: ["git", cwd, "worktrees"],
     queryFn: async () => (await ensureCypheriaClient()).git.worktrees(cwd),
     refetchInterval: 5_000,
+    retry: false,
+  })
+  const reviewUndos = useQuery({
+    enabled: Boolean(status.data),
+    queryKey: ["git", cwd, "review-undos"],
+    queryFn: async () => (await ensureCypheriaClient()).git.reviewUndoList(cwd),
     retry: false,
   })
   const branchContext = useQuery({
@@ -168,14 +173,13 @@ export function GitReviewPanel({
     const snapshot = selected ?? diff.data
     if (!snapshot?.revision) return
     void mutate(async () => {
-      const result = await (await ensureCypheriaClient()).git.applyReviewSection(cwd, {
+      await (await ensureCypheriaClient()).git.applyReviewSection(cwd, {
         source: snapshot.source,
         path: snapshot.path,
         revision: snapshot.revision,
         action,
         hunkIndex,
       })
-      if (result) setUndoId(result)
     })
   }
   const files: ChatReviewFileDescriptor[] = entries.map((entry) => ({
@@ -458,22 +462,31 @@ export function GitReviewPanel({
           )}
         </div>
       ) : null}
-      {undoId ? (
-        <div className="border-t p-2">
-          <Button
-            disabled={busy}
-            onClick={() =>
-              void mutate(async () => {
-                await (await ensureCypheriaClient()).git.undoReviewRevert(cwd, undoId)
-                setUndoId(null)
-              })
-            }
-            size="sm"
-            type="button"
-            variant="outline"
-          >
-            <Trans id="git.review.undoRevert">Undo last revert</Trans>
-          </Button>
+      {reviewUndos.data?.length ? (
+        <div className="space-y-1 border-t p-2">
+          <p className="text-xs font-medium">
+            <Trans id="git.review.savedReverts">Saved reverts</Trans>
+          </p>
+          {reviewUndos.data.slice(0, 5).map((entry) => (
+            <div className="flex items-center gap-2" key={entry.id}>
+              <span className="min-w-0 flex-1 truncate text-xs" title={entry.path}>
+                {entry.path}
+              </span>
+              <Button
+                disabled={busy}
+                onClick={() =>
+                  void mutate(async () => {
+                    await (await ensureCypheriaClient()).git.undoReviewRevert(cwd, entry.id)
+                  })
+                }
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Trans id="git.review.undoRevert">Undo revert</Trans>
+              </Button>
+            </div>
+          ))}
         </div>
       ) : null}
       <AlertDialog

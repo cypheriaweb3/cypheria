@@ -6,10 +6,12 @@ import {
   lstat,
   mkdir,
   open,
+  readdir,
   readFile,
   readlink,
   rename,
   rm,
+  stat,
   symlink,
   writeFile,
 } from "node:fs/promises"
@@ -98,6 +100,33 @@ export class GitReviewUndoStore {
 
   async read(id: string): Promise<Readonly<Record>> {
     return this.#read(id)
+  }
+
+  async list(
+    commonGitDir: string
+  ): Promise<Array<{ id: string; path: string; createdAt: string }>> {
+    const ids = await readdir(this.#root).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return []
+      throw error
+    })
+    const records = await Promise.all(
+      ids
+        .filter((id) => undoIdPattern.test(id))
+        .map(async (id) => {
+          try {
+            const record = await this.#read(id)
+            if (record.commonGitDir !== commonGitDir || !record.afterRevision) return null
+            const info = await stat(join(this.#directory(id), "record.json"))
+            return { id, path: record.path, createdAt: info.mtime.toISOString() }
+          } catch {
+            return null
+          }
+        })
+    )
+    return records
+      .filter((record): record is NonNullable<typeof record> => record !== null)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, 50)
   }
 
   async restore(id: string, commonGitDir: string, currentRevision: string): Promise<string> {

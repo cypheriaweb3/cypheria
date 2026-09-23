@@ -60,6 +60,9 @@ export const GitReviewFileSchema = z
     ),
   })
   .strict()
+export const GitReviewUndoEntrySchema = z
+  .object({ id: z.uuid(), path, createdAt: z.iso.datetime() })
+  .strict()
 export const GitBranchContextSchema = z
   .object({
     current: z.string().nullable(),
@@ -272,6 +275,10 @@ export const GitApplyReviewSectionRequestSchema = input(
 export const GitUndoReviewRevertRequestSchema = input(
   "git.undo-review-revert.request",
   z.object({ cwd: path, undoId: z.uuid() }).strict()
+)
+export const GitReviewUndoListRequestSchema = input(
+  "git.review-undo-list.request",
+  z.object({ cwd: path }).strict()
 )
 export const GitStageRequestSchema = input(
   "git.stage.request",
@@ -542,6 +549,10 @@ export const GitApplyReviewSectionResponseSchema = output(
   z.object({ undoId: z.uuid().nullable() }).strict()
 )
 export const GitUndoReviewRevertResponseSchema = output("git.undo-review-revert.response", success)
+export const GitReviewUndoListResponseSchema = output(
+  "git.review-undo-list.response",
+  z.array(GitReviewUndoEntrySchema)
+)
 export const GitStageResponseSchema = output("git.stage.response", success)
 export const GitUnstageResponseSchema = output("git.unstage.response", success)
 export const GitCommitResponseSchema = output(
@@ -665,6 +676,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitReviewFileRequestSchema,
   GitApplyReviewSectionRequestSchema,
   GitUndoReviewRevertRequestSchema,
+  GitReviewUndoListRequestSchema,
   GitStageRequestSchema,
   GitUnstageRequestSchema,
   GitCommitRequestSchema,
@@ -713,6 +725,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitReviewFileResponseSchema,
   GitApplyReviewSectionResponseSchema,
   GitUndoReviewRevertResponseSchema,
+  GitReviewUndoListResponseSchema,
   GitStageResponseSchema,
   GitUnstageResponseSchema,
   GitCommitResponseSchema,
@@ -756,6 +769,7 @@ export type GitBranch = z.infer<typeof GitBranchSchema>
 export type GitBranchSearchResult = z.infer<typeof GitBranchSearchResultSchema>
 export type GitBranchReview = z.infer<typeof GitBranchReviewSchema>
 export type GitReviewFile = z.infer<typeof GitReviewFileSchema>
+export type GitReviewUndoEntry = z.infer<typeof GitReviewUndoEntrySchema>
 export type GitBranchContext = z.infer<typeof GitBranchContextSchema>
 export type GitWorktree = z.infer<typeof GitWorktreeSchema>
 export type GitHubAvailability = z.infer<typeof GitHubAvailabilitySchema>

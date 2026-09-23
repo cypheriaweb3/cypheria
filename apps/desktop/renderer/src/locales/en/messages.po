@@ -209,11 +209,6 @@ msgid "navigation.byProject"
 msgstr "By project"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.cancel"
-msgstr "Cancel"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 #: renderer/src/routes/settings.archived.tsx
 msgid "common.cancel"
@@ -223,6 +218,11 @@ msgstr "Cancel"
 #: renderer/src/components/chat-sidebar.tsx
 #: renderer/src/components/project-create-dialog.tsx
 msgid "chat.cancel"
+msgstr "Cancel"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.cancel"
 msgstr "Cancel"
 
 #. js-lingui-explicit-id
@@ -1448,6 +1448,11 @@ msgstr "Save section"
 #: renderer/src/components/gitlab-mr-panel.tsx
 msgid "git.gitlab.saveTitle"
 msgstr "Save title"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.savedReverts"
+msgstr "Saved reverts"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx

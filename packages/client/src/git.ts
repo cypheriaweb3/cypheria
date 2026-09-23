@@ -17,6 +17,7 @@ import type {
   GitOrigin,
   GitRepository,
   GitReviewFile,
+  GitReviewUndoEntry,
   GitServerMessage,
   GitStatus,
   GitWorktree,
@@ -85,6 +86,7 @@ export interface GitActions {
     options?: RequestOptions
   ): Promise<string | null>
   undoReviewRevert(cwd: string, undoId: string, options?: RequestOptions): Promise<void>
+  reviewUndoList(cwd: string, options?: RequestOptions): Promise<GitReviewUndoEntry[]>
   stage(cwd: string, paths: string[], options?: RequestOptions): Promise<void>
   unstage(cwd: string, paths: string[], options?: RequestOptions): Promise<void>
   commit(cwd: string, message: string, options?: RequestOptions): Promise<string>
@@ -273,6 +275,8 @@ export const createGitActions = (client: ServerClient): GitActions => ({
   undoReviewRevert: async (cwd, undoId, options) => {
     unwrap(await client.requestGit("git.undo-review-revert.request", { cwd, undoId }, options))
   },
+  reviewUndoList: async (cwd, options) =>
+    unwrap(await client.requestGit("git.review-undo-list.request", { cwd }, options)),
   stage: async (cwd, paths, options) => {
     unwrap(await client.requestGit("git.stage.request", { cwd, paths }, options))
   },

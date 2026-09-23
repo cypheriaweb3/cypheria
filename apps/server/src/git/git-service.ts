@@ -167,6 +167,9 @@ export class GitService {
           await this.undoReviewRevert(message.payload.cwd, message.payload.undoId)
           value = { succeeded: true }
           break
+        case "git.review-undo-list.request":
+          value = await this.reviewUndoList(message.payload.cwd)
+          break
         case "git.stage.request":
           await this.stage(message.payload.cwd, message.payload.paths)
           value = { succeeded: true }
@@ -1212,6 +1215,24 @@ export class GitService {
     await this.#paths(repository.root, [path])
     const current = await this.reviewFile(repository.root, "unstaged", path)
     await this.#reviewUndo.restore(undoId, repository.commonGitDir, current.revision)
+  }
+
+  async reviewUndoList(
+    cwd: string
+  ): Promise<Array<{ id: string; path: string; createdAt: string }>> {
+    const repository = await this.discover(cwd)
+    const records = await this.#reviewUndo.list(repository.commonGitDir)
+    return records
+      .filter(({ path }) => {
+        const relativePath = relative(repository.root, path)
+        return (
+          relativePath &&
+          relativePath !== ".." &&
+          !relativePath.startsWith(`..${sep}`) &&
+          !isAbsolute(relativePath)
+        )
+      })
+      .map(({ id, path, createdAt }) => ({ id, path: relative(repository.root, path), createdAt }))
   }
 
   async #applyReviewPatch(

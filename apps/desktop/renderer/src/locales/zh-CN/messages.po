@@ -209,11 +209,6 @@ msgid "navigation.byProject"
 msgstr "按项目"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.cancel"
-msgstr "取消"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 #: renderer/src/routes/settings.archived.tsx
 msgid "common.cancel"
@@ -223,6 +218,11 @@ msgstr "取消"
 #: renderer/src/components/chat-sidebar.tsx
 #: renderer/src/components/project-create-dialog.tsx
 msgid "chat.cancel"
+msgstr "取消"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.cancel"
 msgstr "取消"
 
 #. js-lingui-explicit-id
@@ -1450,6 +1450,11 @@ msgid "git.gitlab.saveTitle"
 msgstr "保存标题"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.savedReverts"
+msgstr "已保存的撤销记录"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.schedules"
 msgstr "计划任务"
@@ -1769,7 +1774,7 @@ msgstr "任务完成提醒"
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.undoRevert"
-msgstr "恢复上次撤销"
+msgstr "恢复更改"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
