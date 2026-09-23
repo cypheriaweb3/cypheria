@@ -94,6 +94,8 @@ PR 面板列出 GitHub 上的精确修订提交，并可读取所选提交的差
 
 CLI 路径可沿打开的 PR 的 base 和 head 分支查看堆叠关系，上限为 50 个 PR，并检查循环。它也可从面板显示的 PR head 读取变更文件各级父目录的 `.gitattributes`；截断的属性文件会被拒绝，读取后还会再次核对 PR head。
 
+随附的 `cypheria-app-tools` Codex 插件从 Server 已认证的公开 Git 协议目录加载 MCP 工具名称和输入 schema，向 Agent 提供相同的 Server 操作，包括本地 Review、工作树、GitHub PR 和 GitLab MR。已连接 App 的操作仍要求相应账户 link 和本地 Codex 线程；插件不声明 GitHub 或 GitLab App ID。若旧版 Server 没有该目录，插件继续提供内置的核心 Git 工具。
+
 CLI 路径可以请求或移除用户及团队 reviewer。修改 reviewer、标题或正文前会比较面板显示的 head SHA，操作后面板会刷新 PR 数据。
 
 CLI 路径也会读取 PR 的新增和删除行数、变更文件数、作者、自动合并状态、可用合并方式、reviewer 请求及分页审查决定。reviewer 搜索使用 GitHub 仓库协作者建议；Server 还提供来自 PR 参与者和可提及用户的提及建议。

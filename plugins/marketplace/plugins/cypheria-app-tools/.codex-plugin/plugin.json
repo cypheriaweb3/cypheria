@@ -1,6 +1,6 @@
 {
   "name": "cypheria-app-tools",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "description": "Local Git tools backed by the Cypheria Server.",
   "author": {
     "name": "Cypheria"
@@ -8,7 +8,7 @@
   "interface": {
     "displayName": "Cypheria App Tools",
     "shortDescription": "Inspect and change local Git repositories.",
-    "longDescription": "Calls the Cypheria Server for repository status, diffs, staging, commits, and push operations.",
+    "longDescription": "Discovers Git operations from the Cypheria Server, including repository, review, worktree, GitHub PR, and GitLab MR actions.",
     "developerName": "Cypheria",
     "category": "Developer Tools",
     "capabilities": ["Read", "Write"],

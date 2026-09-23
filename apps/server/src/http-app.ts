@@ -25,6 +25,7 @@ import {
   resolveWebSocketAllowedOrigins,
 } from "./auth.js"
 import type { CypheriaServerConfig } from "./config.js"
+import { gitToolsCatalog } from "./git/git-tools-catalog.js"
 import type { CypheriaRuntimeMethod } from "./runtime/index.js"
 import type { ClientConnection } from "./session/client-connection.js"
 import type { SessionHost } from "./session/client-session.js"
@@ -110,6 +111,7 @@ export function createHttpApp(options: CreateHttpAppOptions): Hono {
   app.get("/api/v1/status", (context) => context.json(host.getStatus()))
   app.get("/api/v1/state", (context) => context.json(host.getState()))
   app.get("/api/v1/diagnostics", (context) => context.json(host.getDiagnostics()))
+  app.get("/api/v1/git/tools", (context) => context.json(gitToolsCatalog()))
   app.get("/api/v1/config", (context) => context.json(host.getConfig()))
   app.post(
     "/api/v1/config/patch",

@@ -15,7 +15,7 @@ const tool = (name, description, properties, required = ["cwd"]) => ({
     additionalProperties: false,
   },
 })
-const tools = [
+const bundledTools = [
   tool("git_discover", "Find the local repository root and common Git directory.", {}),
   tool("git_status", "Read branch, HEAD, and changed files in a local repository.", {}),
   tool("git_branches", "List local branches and their commit IDs.", {}),
@@ -80,10 +80,58 @@ const tools = [
     ["cwd", "path"]
   ),
 ]
-const operations = new Set(tools.map((entry) => entry.name))
+const typeFromName = (name) => `git.${name.slice(4).replaceAll("_", "-")}.request`
+let catalog = {
+  tools: bundledTools,
+  types: new Map(bundledTools.map((entry) => [entry.name, typeFromName(entry.name)])),
+}
+let catalogCheckedAt = 0
 
-const callServer = async (name, args) => {
-  const type = `git.${name.slice(4).replaceAll("_", "-")}.request`
+const refreshCatalog = async () => {
+  if (Date.now() - catalogCheckedAt < 30_000) return
+  try {
+    const response = await fetch(new URL("/api/v1/git/tools", serverUrl), {
+      headers: token ? { authorization: `Bearer ${token}` } : {},
+      signal: AbortSignal.timeout(5000),
+    })
+    if (!response.ok) return
+    const body = await response.json()
+    if (!Array.isArray(body.tools)) return
+    const descriptions = new Map(bundledTools.map((entry) => [entry.name, entry.description]))
+    const tools = []
+    const types = new Map()
+    for (const entry of body.tools) {
+      if (
+        typeof entry.type !== "string" ||
+        !/^git\.[a-z0-9-]+\.request$/u.test(entry.type) ||
+        entry.inputSchema?.type !== "object"
+      )
+        return
+      const name = `git_${entry.type.slice(4, -8).replaceAll("-", "_")}`
+      if (types.has(name)) return
+      types.set(name, entry.type)
+      const requirement =
+        entry.type.includes("gitlab-mr-") || entry.type.includes("github-app-")
+          ? " A connected App and local Codex thread are required."
+          : ""
+      tools.push({
+        name,
+        description:
+          descriptions.get(name) ||
+          `Call the Cypheria Server ${entry.type} operation.${requirement}`,
+        inputSchema: entry.inputSchema,
+      })
+    }
+    if (tools.length) {
+      catalog = { tools, types }
+      catalogCheckedAt = Date.now()
+    }
+  } catch {
+    // Older or temporarily unavailable Servers keep the bundled core tool list.
+  }
+}
+
+const callServer = async (type, args) => {
   const response = await fetch(new URL("/api/v1/git/request", serverUrl), {
     method: "POST",
     headers: {
@@ -114,22 +162,25 @@ const handle = async (request) => {
       reply(id, {
         protocolVersion: params?.protocolVersion || "2025-03-26",
         capabilities: { tools: {} },
-        serverInfo: { name: "cypheria-app-tools", version: "0.3.2" },
+        serverInfo: { name: "cypheria-app-tools", version: "0.4.0" },
       })
       return
     case "ping":
       reply(id, {})
       return
     case "tools/list":
-      reply(id, { tools })
+      await refreshCatalog()
+      reply(id, { tools: catalog.tools })
       return
     case "tools/call": {
-      if (!operations.has(params?.name)) {
+      await refreshCatalog()
+      const type = catalog.types.get(params?.name)
+      if (!type) {
         fail(id, -32602, "Unknown Cypheria tool")
         return
       }
       try {
-        const value = await callServer(params.name, params.arguments || {})
+        const value = await callServer(type, params.arguments || {})
         reply(id, { content: [{ type: "text", text: JSON.stringify(value) }] })
       } catch (error) {
         reply(id, {

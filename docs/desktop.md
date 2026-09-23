@@ -95,6 +95,8 @@ The PR panel lists exact GitHub revision commits and loads the selected commit's
 
 The CLI path can inspect a PR stack by following open PR base and head branches, with a 50-PR limit and cycle checks. It can read `.gitattributes` from the displayed PR head for a changed file's parent directories, rejecting truncated attributes and rechecking the PR head after reading.
 
+The bundled `cypheria-app-tools` Codex plugin loads its MCP tool names and input schemas from the Server's authenticated public Git protocol catalog. It exposes the same Server operations to the Agent, including local review, worktree, GitHub PR, and GitLab MR actions. Connected App operations still require their own account link and a local Codex thread; the plugin does not claim a GitHub or GitLab App ID. If an older Server lacks the catalog, the plugin keeps its bundled core Git tools.
+
 The CLI path can request or remove a user or team reviewer. Reviewer changes and title/body edits compare the displayed head SHA before writing; the panel refreshes PR data after the operation.
 
 The CLI path also reads PR additions, deletions, changed-file count, author, auto-merge state, allowed merge methods, reviewer requests, and paginated review decisions. Reviewer search uses GitHub's repository collaborator suggestions; the Server also exposes mention suggestions from PR participants and mentionable users.
