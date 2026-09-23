@@ -162,6 +162,7 @@ const TimelineTextItemSchema = TimelineBaseItemSchema.extend({
 export const ThreadTimelineItemSchema = z.discriminatedUnion("type", [
   TimelineTextItemSchema.extend({
     attachments: z.array(ThreadAttachmentSchema).optional(),
+    clientMessageId: z.string().min(1).optional(),
     role: z.enum(["user", "assistant"]),
     type: z.literal("message"),
   }),

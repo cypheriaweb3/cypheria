@@ -23,6 +23,7 @@ export class ThreadTimelineStore {
     input: ThreadHarnessHistoryItem
   ): Promise<{ epoch: string; row: ThreadTimelineRow }> {
     const appended = await this.#persistence.append(threadId, {
+      agentMessageId: input.agentMessageId ?? null,
       item: input.item,
       harnessItemId: input.harnessItemId ?? null,
       timestamp: input.timestamp ?? new Date().toISOString(),
@@ -144,6 +145,7 @@ export class ThreadTimelineStore {
     const timeline = await this.#persistence.replace(
       threadId,
       history.map((input) => ({
+        agentMessageId: input.agentMessageId ?? null,
         item: input.item,
         harnessItemId: input.harnessItemId ?? null,
         timestamp: input.timestamp ?? new Date().toISOString(),
@@ -151,6 +153,30 @@ export class ThreadTimelineStore {
       }))
     )
     return { epoch: timeline.epoch }
+  }
+
+  /**
+   * Reconciles an Agent echo with the canonical row created at request acceptance. The Agent ID is
+   * durable but intentionally omitted from public Timeline rows.
+   */
+  async reconcileUserMessage(
+    threadId: string,
+    clientMessageId: string,
+    agentMessageId?: string | null
+  ): Promise<boolean> {
+    const timeline = await this.#persistence.get(threadId)
+    const row = timeline.rows.find((candidate) => {
+      if (!candidate.item || typeof candidate.item !== "object") return false
+      const item = candidate.item as Record<string, unknown>
+      return (
+        item.type === "message" && item.role === "user" && item.clientMessageId === clientMessageId
+      )
+    })
+    if (!row) return false
+    if (agentMessageId && row.agentMessageId !== agentMessageId) {
+      await this.#persistence.setAgentMessageId(threadId, timeline.epoch, row.seq, agentMessageId)
+    }
+    return true
   }
 
   async #get(threadId: string): Promise<Timeline> {

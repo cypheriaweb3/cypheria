@@ -14,6 +14,8 @@ type ThreadHarnessExtensionEvent = Extract<
 >
 
 export type ThreadHarnessHistoryItem = {
+  /** Agent-native message identity. Kept internal and never projected onto the public row. */
+  readonly agentMessageId?: string | null
   readonly item: ThreadTimelineItem
   readonly harnessItemId?: string | null
   readonly timestamp?: string
@@ -74,8 +76,11 @@ export interface ThreadHarnessAdapter {
   create(input: ThreadHarnessCreateInput): Promise<ThreadHarnessSession>
   delete(context: ThreadHarnessContext): Promise<void>
   resume(input: ThreadHarnessResumeInput): Promise<ThreadHarnessSession>
-  startTurn(input: ThreadHarnessTurnInput): Promise<{ turnId: string }>
-  steerTurn(input: ThreadHarnessSteerInput): Promise<void>
+  startTurn(input: ThreadHarnessTurnInput): Promise<{
+    readonly agentMessageId?: string
+    readonly turnId: string
+  }>
+  steerTurn(input: ThreadHarnessSteerInput): Promise<{ readonly agentMessageId?: string }>
   cancelTurn(context: ThreadHarnessContext & { turnId?: string }): Promise<void>
   updateConfig(
     context: ThreadHarnessContext,

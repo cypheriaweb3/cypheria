@@ -34,6 +34,7 @@ describe("ManagedThreadAdapter", () => {
       }
     )
     const manager = {
+      codexDynamicTools: { getSpecs: () => [] },
       disposeSession: vi.fn(),
       handleCodex,
       releaseThreadAdapter: vi.fn(),
@@ -80,7 +81,10 @@ describe("ManagedThreadAdapter", () => {
         responses.push(message)
       }
     )
-    const manager = { handleCodex } as unknown as AgentManager
+    const manager = {
+      codexDynamicTools: { getSpecs: () => [] },
+      handleCodex,
+    } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "codex")
     const created = await adapter.create({
       ...input("codex"),
@@ -92,10 +96,36 @@ describe("ManagedThreadAdapter", () => {
       cwd: "/repo",
       threadId: input("codex").threadId,
     }
-    await adapter.startTurn({
+    const started = await adapter.startTurn({
       ...context,
       clientMessageId: "message-1",
       content: [{ text: "hello", type: "text" }],
+    })
+    expect(started.turnId).toBe("turn-1")
+
+    turnContext?.send({
+      payload: {
+        item: {
+          clientId: "message-1",
+          content: [{ text: "hello", type: "text" }],
+          id: "agent-message-1",
+          type: "userMessage",
+        },
+        threadId: "codex-thread-1",
+        turnId: "turn-1",
+      },
+      type: "agent.codex.item.started.notification",
+    } as unknown as AgentRuntimeServerMessage)
+    expect(events.at(-1)).toMatchObject({
+      item: {
+        agentMessageId: "agent-message-1",
+        item: {
+          clientMessageId: "message-1",
+          role: "user",
+          text: "hello",
+        },
+      },
+      type: "timeline",
     })
 
     turnContext?.send({
@@ -457,7 +487,7 @@ describe("ManagedThreadAdapter", () => {
       })
     )
 
-    await adapter.startTurn({
+    const started = await adapter.startTurn({
       agentId: "gemini",
       agentSessionId: created.sessionId,
       clientMessageId: "message-1",
@@ -475,7 +505,8 @@ describe("ManagedThreadAdapter", () => {
       },
       type: "interaction-requested",
     })
-    expect(events).toContainEqual({ turnId: "message-1", type: "turn-completed" })
+    expect(events).toContainEqual({ turnId: started.turnId, type: "turn-completed" })
+    expect(started.turnId).not.toBe("message-1")
 
     await adapter.respondToInteraction(
       {
@@ -521,7 +552,7 @@ describe("ManagedThreadAdapter", () => {
         cwd: "/repo",
         threadId: input("pi").threadId,
       })
-    ).resolves.toEqual({ turnId: "message-1" })
+    ).resolves.toEqual({ turnId: expect.any(String) })
     expect(handlePi.mock.calls.map(([message]) => message.type)).toEqual([
       "agent.pi.model.set.request",
       "agent.pi.thinking_level.set.request",
@@ -636,6 +667,31 @@ describe("ManagedThreadAdapter", () => {
     const manager = { handleOpenCode } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "opencode")
     await adapter.create({ ...input("opencode"), onEvent: (event) => events.push(event) })
+
+    const started = await adapter.startTurn({
+      agentId: "opencode",
+      agentSessionId: "opencode-session-1",
+      clientMessageId: "client-message-1",
+      content: [{ text: "hello", type: "text" }],
+      cwd: "/repo",
+      threadId: input("opencode").threadId,
+    })
+    const promptCall = calls.find(
+      (call) =>
+        (call.payload as Record<string, unknown> | undefined)?.operation === "session.prompt"
+    )
+    expect(promptCall).toMatchObject({
+      payload: {
+        body: {
+          id: expect.stringMatching(/^msg_/u),
+          metadata: { cypheriaClientMessageId: "client-message-1" },
+        },
+        operation: "session.prompt",
+      },
+    })
+    expect(started.agentMessageId).toMatch(/^msg_/u)
+    expect(started.agentMessageId).not.toBe("client-message-1")
+    expect(started.turnId).not.toBe("client-message-1")
 
     send?.({
       payload: {

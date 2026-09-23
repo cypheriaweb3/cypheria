@@ -3,6 +3,8 @@ import type {
   ProjectThreadPersistenceService,
   ThreadLifecycleOperationRecord,
   ThreadLifecyclePersistenceService,
+  ThreadMessageRequestPersistenceService,
+  ThreadMessageRequestResolution,
   ThreadRecord,
   ThreadTimelinePersistenceService,
 } from "@cypheria/db"
@@ -50,6 +52,7 @@ export type ThreadManagerOptions = {
   readonly adapterFor: (agentId: AgentId, threadId: string) => ThreadHarnessAdapter
   readonly assertAgentCallable: (agentId: AgentId) => Promise<void>
   readonly lifecycle: ThreadLifecyclePersistenceService
+  readonly messageRequests: ThreadMessageRequestPersistenceService
   readonly persistence: ProjectThreadPersistenceService
   readonly publish: Publish
   readonly timelinePersistence: ThreadTimelinePersistenceService
@@ -69,16 +72,17 @@ export class ThreadManager {
   readonly #assertAgentCallable: ThreadManagerOptions["assertAgentCallable"]
   readonly #lifecycle: ThreadLifecyclePersistenceService
   readonly #locks = new Map<string, Promise<unknown>>()
+  readonly #messageRequests: ThreadMessageRequestPersistenceService
   readonly #persistence: ProjectThreadPersistenceService
   readonly #publish: Publish
   readonly #runtime = new Map<string, RuntimeState>()
   readonly #timeline: ThreadTimelineStore
-  readonly #turnRequests = new Map<string, Map<string, string>>()
 
   constructor(options: ThreadManagerOptions) {
     this.#adapterFor = options.adapterFor
     this.#assertAgentCallable = options.assertAgentCallable
     this.#lifecycle = options.lifecycle
+    this.#messageRequests = options.messageRequests
     this.#persistence = options.persistence
     this.#publish = options.publish
     this.#timeline = new ThreadTimelineStore(options.timelinePersistence)
@@ -346,7 +350,7 @@ export class ThreadManager {
         runtime.state = "idle"
         runtime.activeTurn = null
         runtime.pendingInteractions.clear()
-        await this.#timeline.replace(threadId, session.history ?? [])
+        if (session.history !== undefined) await this.#timeline.replace(threadId, session.history)
         const timeline = await this.#timeline.head(threadId)
         const view = this.#view(thread)
         this.#publish({
@@ -426,7 +430,6 @@ export class ThreadManager {
         await this.#lifecycle.complete(operation.id)
         this.#runtime.delete(threadId)
         await this.#timeline.delete(threadId)
-        this.#turnRequests.delete(threadId)
         this.#publish({ payload: { threadId }, type: "thread.deleted.notification" })
       } catch (error) {
         runtime.state = "errored"
@@ -445,6 +448,14 @@ export class ThreadManager {
     threadId: string
   }): Promise<{ thread: ThreadView; turnId: string }> {
     const stored = await this.#required(input.threadId)
+    const request = { content: input.content, operation: "start" as const }
+    const existing = await this.#messageRequests.inspect({
+      clientMessageId: input.clientMessageId,
+      request,
+      threadId: input.threadId,
+    })
+    const previousTurnId = this.#resolveMessageRequest(existing)
+    if (previousTurnId) return { thread: this.#view(stored), turnId: previousTurnId }
     await this.#assertAgentCallable(stored.agentId as AgentId)
     if (stored.archivedAt !== null) {
       throw new ThreadManagerError("THREAD_ARCHIVED", "Archived threads must be unarchived first")
@@ -453,28 +464,44 @@ export class ThreadManager {
     return this.#withLock(input.threadId, async () => {
       const thread = await this.#required(input.threadId)
       const runtime = this.#state(thread.id)
-      const previous = this.#turnRequests.get(thread.id)?.get(input.clientMessageId)
-      if (previous) return { thread: this.#view(thread), turnId: previous }
+      const current = await this.#messageRequests.inspect({
+        clientMessageId: input.clientMessageId,
+        request,
+        threadId: thread.id,
+      })
+      const currentTurnId = this.#resolveMessageRequest(current)
+      if (currentTurnId) return { thread: this.#view(thread), turnId: currentTurnId }
       if (runtime.activeTurn) {
         throw new ThreadManagerError("THREAD_BUSY", "Thread already has an active turn")
       }
       if (runtime.state !== "idle") {
         throw new ThreadManagerError("THREAD_NOT_READY", `Thread is ${runtime.state}`)
       }
-      const { turnId } = await this.#adapterFor(thread.agentId as AgentId, thread.id).startTurn({
+      const claimed = await this.#messageRequests.claim({
+        clientMessageId: input.clientMessageId,
+        request,
+        threadId: thread.id,
+      })
+      const claimedTurnId = this.#resolveMessageRequest(claimed)
+      if (claimedTurnId) return { thread: this.#view(thread), turnId: claimedTurnId }
+      const { agentMessageId, turnId } = await this.#adapterFor(
+        thread.agentId as AgentId,
+        thread.id
+      ).startTurn({
         ...this.#context(thread),
         clientMessageId: input.clientMessageId,
         content: input.content,
       })
-      let requests = this.#turnRequests.get(thread.id)
-      if (!requests) {
-        requests = new Map()
-        this.#turnRequests.set(thread.id, requests)
-      }
-      requests.set(input.clientMessageId, turnId)
       runtime.activeTurn = { id: turnId, startedAt: new Date().toISOString() }
       runtime.state = "running"
-      await this.#appendUserInput(thread.id, turnId, input.clientMessageId, input.content)
+      await this.#appendUserInput(
+        thread.id,
+        turnId,
+        input.clientMessageId,
+        input.content,
+        agentMessageId
+      )
+      await this.#messageRequests.complete(thread.id, input.clientMessageId, turnId)
       return { thread: this.#updateAndPublishSync(thread), turnId }
     })
   }
@@ -487,8 +514,17 @@ export class ThreadManager {
     return this.#withLock(input.threadId, async () => {
       const thread = await this.#required(input.threadId)
       const runtime = this.#state(thread.id)
-      const previous = this.#turnRequests.get(thread.id)?.get(input.clientMessageId)
-      if (previous) return { thread: this.#view(thread), turnId: previous }
+      const request = {
+        content: input.content,
+        operation: "steer" as const,
+      }
+      const existing = await this.#messageRequests.inspect({
+        clientMessageId: input.clientMessageId,
+        request,
+        threadId: thread.id,
+      })
+      const previousTurnId = this.#resolveMessageRequest(existing)
+      if (previousTurnId) return { thread: this.#view(thread), turnId: previousTurnId }
       if (!runtime.activeTurn || runtime.state !== "running") {
         throw new ThreadManagerError("TURN_NOT_ACTIVE", "Thread has no active turn to steer")
       }
@@ -499,19 +535,27 @@ export class ThreadManager {
         )
       }
       const turnId = runtime.activeTurn.id
-      await this.#adapterFor(thread.agentId as AgentId, thread.id).steerTurn({
+      const claimed = await this.#messageRequests.claim({
+        clientMessageId: input.clientMessageId,
+        request,
+        threadId: thread.id,
+      })
+      const claimedTurnId = this.#resolveMessageRequest(claimed)
+      if (claimedTurnId) return { thread: this.#view(thread), turnId: claimedTurnId }
+      const result = await this.#adapterFor(thread.agentId as AgentId, thread.id).steerTurn({
         ...this.#context(thread),
         clientMessageId: input.clientMessageId,
         content: input.content,
         turnId,
       })
-      let requests = this.#turnRequests.get(thread.id)
-      if (!requests) {
-        requests = new Map()
-        this.#turnRequests.set(thread.id, requests)
-      }
-      requests.set(input.clientMessageId, turnId)
-      await this.#appendUserInput(thread.id, turnId, input.clientMessageId, input.content)
+      await this.#appendUserInput(
+        thread.id,
+        turnId,
+        input.clientMessageId,
+        input.content,
+        result.agentMessageId
+      )
+      await this.#messageRequests.complete(thread.id, input.clientMessageId, turnId)
       return { thread: this.#updateAndPublishSync(thread), turnId }
     })
   }
@@ -653,6 +697,18 @@ export class ThreadManager {
       const runtime = this.#state(threadId)
       switch (event.type) {
         case "timeline":
+          if (
+            event.item.item.type === "message" &&
+            event.item.item.role === "user" &&
+            event.item.item.clientMessageId &&
+            (await this.#timeline.reconcileUserMessage(
+              threadId,
+              event.item.item.clientMessageId,
+              event.item.agentMessageId
+            ))
+          ) {
+            break
+          }
           await this.#appendTimeline(threadId, event.item)
           break
         case "interaction-requested":
@@ -749,7 +805,8 @@ export class ThreadManager {
     threadId: string,
     turnId: string,
     clientMessageId: string,
-    content: readonly ThreadInputBlock[]
+    content: readonly ThreadInputBlock[],
+    agentMessageId?: string
   ): Promise<void> {
     const text = content
       .filter(
@@ -760,10 +817,11 @@ export class ThreadManager {
     const attachments = content.filter(
       (block): block is Exclude<ThreadInputBlock, { type: "text" }> => block.type !== "text"
     )
-    if (!text && attachments.length === 0) return
     await this.#appendTimeline(threadId, {
+      agentMessageId,
       item: {
         ...(attachments.length > 0 ? { attachments } : {}),
+        clientMessageId,
         itemId: `user:${clientMessageId}`,
         operation: "replace",
         role: "user",
@@ -772,6 +830,25 @@ export class ThreadManager {
       },
       turnId,
     })
+  }
+
+  #resolveMessageRequest(resolution: ThreadMessageRequestResolution): string | undefined {
+    switch (resolution.status) {
+      case "new":
+        return undefined
+      case "completed":
+        return resolution.turnId
+      case "conflict":
+        throw new ThreadManagerError(
+          "CLIENT_MESSAGE_ID_CONFLICT",
+          "clientMessageId was already used for a different Thread message"
+        )
+      case "pending":
+        throw new ThreadManagerError(
+          "THREAD_MESSAGE_OUTCOME_UNKNOWN",
+          "The Agent may have accepted this message before the previous request was interrupted"
+        )
+    }
   }
 
   #context(thread: ThreadRecord): ThreadHarnessContext {

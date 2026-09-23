@@ -67,7 +67,7 @@ ACP harness 使用官方 ACP SDK，并在 Server 内把稳定 v1 与 v2 协议�
 
 语义匹配时，harness 优先生成通用 Timeline item。Agent 专属数据放入 `harnessData`；只有无法忠实表达的事件才使用 `harness` item。Permissions、questions 和 MCP elicitation 转换为通用 Thread interactions。
 
-持久化 Canonical Timeline 是唯一权威。原生事件可以保留或记录用于调试，但 Desktop、Expo 和 CLI 不从 harness 进程重建历史。
+持久化 Canonical Timeline 是唯一权威。已提交的用户 row 以 `clientMessageId` 作为公开身份；Agent 回显该消息时，adapter 会把回显校正到已有 row，并持久补全其内部 `agentMessageId`，而不是追加重复消息。原生事件可以保留或记录用于调试，但 Desktop、Expo、CLI 和 AI SDK providers 不从 harness 进程重建历史。
 
 ## 客户端会话消费者
 

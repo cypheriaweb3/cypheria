@@ -67,7 +67,7 @@ Formal Thread sessions follow the negotiated lifecycle as well. On v2, the prese
 
 Harnesses prefer a common Timeline item whenever semantics match. Agent-specific data belongs in `harnessData`; only events without a faithful common representation use a `harness` item. Permissions, questions, and MCP elicitation become common Thread interactions.
 
-The persisted Canonical Timeline is authoritative. Native events may be retained or logged for debugging, but Desktop, Expo, and CLI do not rebuild history from a harness process.
+The persisted Canonical Timeline is authoritative. A submitted user row is keyed publicly by `clientMessageId`; when an Agent echoes that message, the adapter reconciles the echo into the existing row and durably enriches its internal `agentMessageId` instead of appending a duplicate. Native events may be retained or logged for debugging, but Desktop, Expo, CLI, and AI SDK providers do not rebuild history from a harness process.
 
 ## Client conversation consumers
 

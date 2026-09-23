@@ -89,6 +89,36 @@ describe("ThreadTimelineStore", () => {
     close()
   })
 
+  it("keeps Agent message identity internal while reconciling user echoes", async () => {
+    const { close, persistence } = await setup()
+    const store = new ThreadTimelineStore(persistence)
+    await store.append(threadId, {
+      agentMessageId: "agent-message-provisional",
+      item: {
+        clientMessageId: "client-message-1",
+        itemId: "user:client-message-1",
+        operation: "replace",
+        role: "user",
+        text: "hello",
+        type: "message",
+      },
+    })
+
+    await expect(
+      store.reconcileUserMessage(threadId, "client-message-1", "agent-message-confirmed")
+    ).resolves.toBe(true)
+    const internal = await persistence.get(threadId)
+    expect(internal.rows).toMatchObject([{ agentMessageId: "agent-message-confirmed" }])
+    const publicPage = await store.page(threadId, {
+      direction: "tail",
+      limit: 100,
+      projection: "canonical",
+    })
+    expect(publicPage.canonicalRows).toHaveLength(1)
+    expect(publicPage.canonicalRows[0]).not.toHaveProperty("agentMessageId")
+    close()
+  })
+
   it("pages complete projected items without cutting through canonical deltas", async () => {
     const { close, persistence } = await setup()
     const store = new ThreadTimelineStore(persistence)

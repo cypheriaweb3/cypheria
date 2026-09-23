@@ -19,7 +19,7 @@ Every connection enables foreign keys. Server services define transaction bounda
 | Runtime | `runtime_metadata`, `settings`, `audit_logs`, `workspaces` | Runtime metadata, key/value settings, append-oriented audit, workspace records |
 | Agents | `agent_registry` | User-selected Agent membership, creation time, installation, enablement, versions, and state; native harnesses are seeded |
 | Projects and Threads | `projects`, `threads`, `project_items`, `sections`, `section_items` | Durable organization, ordering, membership, archive and harness linkage |
-| Thread execution | `thread_lifecycle_operations`, `thread_timeline_epochs`, `thread_timeline_rows` | Recovery journal and append-only Canonical Timeline |
+| Thread execution | `thread_lifecycle_operations`, `thread_message_requests`, `thread_timeline_epochs`, `thread_timeline_rows` | Lifecycle recovery, message idempotency receipts, and append-only Canonical Timeline |
 | Schedules | `schedules`, `schedule_runs` | Definitions, next occurrence, leases, and run history |
 | Networks | `networks`, `network_rpc_endpoints`, `dapp_network_contexts` | Chain definitions, ordered endpoints, health, and origin context |
 | Wallets | `wallets`, `wallet_accounts`, `chain_accounts`, `wallet_hd_schemes`, `active_wallet_context` | Public wallet metadata and active selection |
@@ -38,7 +38,9 @@ Ordering columns are non-negative and unique in their scope. Membership moves an
 
 ## Canonical Timeline
 
-`thread_timeline_epochs` stores the active epoch and next sequence for each Thread. `thread_timeline_rows` stores immutable canonical rows keyed by Thread, epoch, and sequence. Appending allocates contiguous sequence numbers in one transaction. Rehydration or history replacement creates a new epoch and atomically replaces its rows.
+`thread_timeline_epochs` stores the active epoch and next sequence for each Thread. `thread_timeline_rows` stores immutable canonical rows keyed by Thread, epoch, and sequence. Appending allocates contiguous sequence numbers in one transaction. Rehydration or history replacement creates a new epoch and atomically replaces its rows. The internal nullable `agent_message_id` links a submitted canonical user row to the Agent-native message without exposing that identity in the public Timeline contract.
+
+`thread_message_requests` is keyed by Thread and `client_message_id`. It stores a stable request fingerprint and a `pending` or `completed` receipt with the accepted turn ID. A pending receipt survives restart and blocks automatic replay when Agent delivery is ambiguous; a completed receipt makes identical retries return the original turn. Rows are removed with their owning Thread.
 
 The Server validates stored Timeline JSON against `ThreadTimelineRowSchema` when reading it back. Harness-native history is input to adaptation, not an alternative client-facing history table.
 

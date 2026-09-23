@@ -109,6 +109,12 @@ export {
   threadLifecycleStatuses,
 } from "./thread-lifecycle.js"
 export {
+  createThreadMessageRequestPersistenceService,
+  type ThreadMessageRequestInput,
+  type ThreadMessageRequestPersistenceService,
+  type ThreadMessageRequestResolution,
+} from "./thread-message-request.js"
+export {
   createThreadTimelinePersistenceService,
   type PersistedThreadTimeline,
   type PersistedThreadTimelineRow,

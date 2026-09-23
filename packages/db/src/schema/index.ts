@@ -8,6 +8,7 @@ export {
   sectionItems,
   sections,
   threadLifecycleOperations,
+  threadMessageRequests,
   threads,
   threadTimelineEpochs,
   threadTimelineRows,

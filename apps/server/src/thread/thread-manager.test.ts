@@ -7,6 +7,7 @@ import {
   createAgentRegistryPersistenceService,
   createProjectThreadPersistenceService,
   createThreadLifecyclePersistenceService,
+  createThreadMessageRequestPersistenceService,
   createThreadTimelinePersistenceService,
   openCypheriaDatabase,
 } from "@cypheria/db"
@@ -29,6 +30,8 @@ class FakeAdapter implements ThreadHarnessAdapter {
   createSessionId: string | null | undefined
   readonly creates: ThreadHarnessCreateInput[] = []
   readonly steers: Array<Parameters<ThreadHarnessAdapter["steerTurn"]>[0]> = []
+  readonly starts: Array<Parameters<ThreadHarnessAdapter["startTurn"]>[0]> = []
+  startError: Error | undefined
 
   async close(): Promise<void> {
     if (this.closeError) throw this.closeError
@@ -77,11 +80,16 @@ class FakeAdapter implements ThreadHarnessAdapter {
       sessionId: input.agentSessionId ?? "missing",
     }
   }
-  async startTurn() {
-    return { turnId: "turn-1" }
+  async startTurn(input: Parameters<ThreadHarnessAdapter["startTurn"]>[0]) {
+    this.starts.push(input)
+    if (this.startError) throw this.startError
+    return { agentMessageId: "agent-message-1", turnId: "turn-1" }
   }
-  async steerTurn(input: Parameters<ThreadHarnessAdapter["steerTurn"]>[0]): Promise<void> {
+  async steerTurn(
+    input: Parameters<ThreadHarnessAdapter["steerTurn"]>[0]
+  ): Promise<{ agentMessageId?: string }> {
     this.steers.push(input)
+    return {}
   }
   async cancelTurn(): Promise<void> {}
   async updateConfig(): Promise<void> {}
@@ -125,16 +133,19 @@ const setup = async () => {
   await agents.setEnabled("codex", true)
   const adapter = new FakeAdapter()
   const messages: ServerMessage[] = []
+  const messageRequests = createThreadMessageRequestPersistenceService(database.db)
+  const timelinePersistence = createThreadTimelinePersistenceService(database.db)
   const manager = new ThreadManager({
     adapterFor: () => adapter,
     assertAgentCallable: async () => undefined,
     lifecycle: createThreadLifecyclePersistenceService(database.db),
+    messageRequests,
     persistence: createProjectThreadPersistenceService(database.db),
     publish: (message) => messages.push(message),
-    timelinePersistence: createThreadTimelinePersistenceService(database.db),
+    timelinePersistence,
   })
   await manager.initialize()
-  return { adapter, database, manager, messages }
+  return { adapter, database, manager, messageRequests, messages, timelinePersistence }
 }
 
 describe("ThreadManager", () => {
@@ -190,6 +201,93 @@ describe("ThreadManager", () => {
         type: "thread.timeline.appended.notification",
       })
     )
+  })
+
+  it("durably deduplicates matching client message IDs", async () => {
+    const { adapter, manager } = await setup()
+    const created = await manager.create({ agentId: "codex" })
+    const request = {
+      clientMessageId: "message-deduplicated",
+      content: [{ text: "start", type: "text" as const }],
+      threadId: created.thread.id,
+    }
+
+    const first = await manager.startTurn(request)
+    const repeated = await manager.startTurn(request)
+
+    expect(repeated.turnId).toBe(first.turnId)
+    expect(adapter.starts).toHaveLength(1)
+  })
+
+  it("rejects reuse of a client message ID for different content", async () => {
+    const { manager } = await setup()
+    const created = await manager.create({ agentId: "codex" })
+    await manager.startTurn({
+      clientMessageId: "message-conflict",
+      content: [{ text: "first", type: "text" }],
+      threadId: created.thread.id,
+    })
+
+    await expect(
+      manager.startTurn({
+        clientMessageId: "message-conflict",
+        content: [{ text: "different", type: "text" }],
+        threadId: created.thread.id,
+      })
+    ).rejects.toMatchObject({ code: "CLIENT_MESSAGE_ID_CONFLICT" })
+  })
+
+  it("does not replay an Agent call with an ambiguous pending receipt", async () => {
+    const { adapter, manager } = await setup()
+    const created = await manager.create({ agentId: "codex" })
+    adapter.startError = new Error("connection lost")
+    const request = {
+      clientMessageId: "message-ambiguous",
+      content: [{ text: "start", type: "text" as const }],
+      threadId: created.thread.id,
+    }
+
+    await expect(manager.startTurn(request)).rejects.toThrow("connection lost")
+    adapter.startError = undefined
+    await expect(manager.startTurn(request)).rejects.toMatchObject({
+      code: "THREAD_MESSAGE_OUTCOME_UNKNOWN",
+    })
+    expect(adapter.starts).toHaveLength(1)
+  })
+
+  it("reconciles an Agent user-message echo without appending a duplicate row", async () => {
+    const { adapter, manager, timelinePersistence } = await setup()
+    const created = await manager.create({ agentId: "codex" })
+    await manager.startTurn({
+      clientMessageId: "message-echo",
+      content: [{ text: "start", type: "text" }],
+      threadId: created.thread.id,
+    })
+
+    adapter.events.get(created.thread.id)?.({
+      item: {
+        agentMessageId: "agent-message-confirmed",
+        harnessItemId: "agent-message-confirmed",
+        item: {
+          clientMessageId: "message-echo",
+          itemId: "agent-message-confirmed",
+          operation: "replace",
+          role: "user",
+          text: "start",
+          type: "message",
+        },
+      },
+      type: "timeline",
+    })
+
+    await expect
+      .poll(async () => (await timelinePersistence.get(created.thread.id)).rows)
+      .toMatchObject([
+        {
+          agentMessageId: "agent-message-confirmed",
+          item: { clientMessageId: "message-echo", role: "user" },
+        },
+      ])
   })
 
   it("waits for active turns before suspending and resuming an agent's sessions", async () => {

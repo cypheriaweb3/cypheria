@@ -19,7 +19,7 @@ Cypheria 通过 Drizzle ORM 和本地 libSQL driver 使用 SQLite。`packages/db
 | Runtime | `runtime_metadata`, `settings`, `audit_logs`, `workspaces` | Runtime metadata、key/value settings、追加型 audit、workspace records |
 | Agents | `agent_registry` | 用户选择的 Agent 成员关系、创建时间、安装、启用、版本和状态；原生 harness 会预置 |
 | Projects 与 Threads | `projects`, `threads`, `project_items`, `sections`, `section_items` | 持久组织、排序、membership、archive 和 harness linkage |
-| Thread 执行 | `thread_lifecycle_operations`, `thread_timeline_epochs`, `thread_timeline_rows` | 恢复 journal 和只追加 Canonical Timeline |
+| Thread 执行 | `thread_lifecycle_operations`, `thread_message_requests`, `thread_timeline_epochs`, `thread_timeline_rows` | 生命周期恢复、消息幂等 receipt 和只追加 Canonical Timeline |
 | Schedules | `schedules`, `schedule_runs` | Definitions、next occurrence、leases 和 run history |
 | Networks | `networks`, `network_rpc_endpoints`, `dapp_network_contexts` | Chain definitions、有序 endpoints、health 和 origin context |
 | Wallets | `wallets`, `wallet_accounts`, `chain_accounts`, `wallet_hd_schemes`, `active_wallet_context` | 公开 wallet metadata 和 active selection |
@@ -38,7 +38,9 @@ Cypheria UUIDv7 标识 Projects、Threads 和 Sections。Thread 拥有一个不�
 
 ## Canonical Timeline
 
-`thread_timeline_epochs` 保存每个 Thread 的 active epoch 和 next sequence。`thread_timeline_rows` 保存以 Thread、epoch、sequence 为键的不可变 canonical rows。Append 在一个事务中分配连续 sequence。Rehydration 或 history replacement 创建新 epoch 并原子替换 rows。
+`thread_timeline_epochs` 保存每个 Thread 的 active epoch 和 next sequence。`thread_timeline_rows` 保存以 Thread、epoch、sequence 为键的不可变 canonical rows。Append 在一个事务中分配连续 sequence。Rehydration 或 history replacement 创建新 epoch 并原子替换 rows。内部可空字段 `agent_message_id` 把已提交的 canonical 用户 row 与 Agent 原生消息关联起来，但不会把该身份暴露到公开 Timeline 契约。
+
+`thread_message_requests` 以 Thread 和 `client_message_id` 为键，保存稳定 request fingerprint，以及带已接受 turn ID 的 `pending` 或 `completed` receipt。Pending receipt 会跨重启保留，并在 Agent 投递结果不明确时阻止自动重放；completed receipt 则让相同重试返回原 turn。删除所属 Thread 时，这些 rows 会一并删除。
 
 Server 读取 Timeline JSON 时使用 `ThreadTimelineRowSchema` 校验。Harness 原生 history 是适配输入，不是另一套客户端历史表。
 

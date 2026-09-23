@@ -80,13 +80,19 @@ Project 组织 workspace roots 和有序 Thread membership。Thread 是持久 Ag
 
 通用 item 可以包含 `harnessData`，用于来源和诊断，而不改变其共享语义。Harness-only item 保留 `agentId`、原生类型和已校验 payload，使客户端可以选择 harness 扩展。
 
+由 Thread start 或 steer request 产生的 canonical 用户 `message` 会携带原始 `clientMessageId`。它是客户端乐观状态与 Agent 回显进行校正时使用的稳定公开身份。对应的 Agent 原生消息身份在内部以 `agentMessageId` 持久化，不属于公开 Timeline row。
+
 Timeline cursor 包含 epoch 和 sequence。Epoch 用于检测历史替换或重建。读取支持 `tail`、`before` 和 `after`，并可请求 canonical rows 或 projected display items。Projection 会把同一 item 的后续 rows 折叠为稳定展示项，同时保留精确的源 sequence ranges。
 
 客户端订阅 append notification，并在 replacement notification、cursor gap、重连或 epoch 不匹配后重新读取。持久化 Server Timeline 是历史与实时投影的唯一权威。
 
 ## Turns 与 interactions
 
-Thread 输入是由文本、图片、音频、resource link 或 embedded resource 组成的有序列表，并受 Thread 公布能力限制。客户端生成的 message ID 使 start 和 steer 操作可安全关联。活动 turn 可以通过 Thread API 取消。
+Thread 输入是由文本、图片、音频、resource link 或 embedded resource 组成的有序列表，并受 Thread 公布能力限制。每个 start 和 steer request 都包含客户端生成的 `clientMessageId`。在同一 Thread 内，使用相同 operation 与内容重试同一 ID 时，Server 返回原 turn，不会再次提交给 Agent；用同一 ID 提交不同内容会以 `CLIENT_MESSAGE_ID_CONFLICT` 失败。
+
+消息身份、执行身份和原生身份彼此独立：`clientMessageId` 标识已提交的用户消息，`turnId` 标识可包含 start 与 steer 消息的 Agent 执行，内部 `agentMessageId` 则标识所选 Agent runtime 中对应的消息。
+
+Server 会在调用 Agent 前持久化 pending receipt，只有 canonical 用户 row 已持久化后才标记 completed。若进程或连接在 Agent 可能已接受消息后中断，后续重试会返回 `THREAD_MESSAGE_OUTCOME_UNKNOWN`，而不会冒险重复提交。客户端在传输重试时必须沿用同一 ID；遇到 unknown outcome 后，只有显式用户操作才能使用新 ID 再次发送。活动 turn 可以通过 Thread API 取消。
 
 权限请求、问题和 MCP elicitation 会归一化为待处理 Thread interactions。Response 使用 allow、deny、selection、text、answers、elicitation action 或 cancellation 等判别结果。Harness metadata 保留原生上下文，共同生命周期保持统一。
 

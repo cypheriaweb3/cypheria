@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto"
+import { randomBytes, randomUUID } from "node:crypto"
 import { fileURLToPath } from "node:url"
 
 import type {
@@ -127,6 +127,25 @@ const localInput = (uri: string, name?: string | null): v2.UserInput | null => {
   if (/\.(?:avif|gif|jpe?g|png|webp)$/u.test(label)) return { path, type: "localImage" }
   if (/\.(?:aac|flac|m4a|mp3|ogg|wav)$/u.test(label)) return { path, type: "localAudio" }
   return { name: name ?? path.split(/[\\/]/u).at(-1) ?? path, path, type: "mention" }
+}
+
+const OPENCODE_ID_ALPHABET = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+let lastOpenCodeMessageTimestamp = -1
+let openCodeMessageCounter = 0
+
+const createOpenCodeMessageId = (): string => {
+  const now = Date.now()
+  if (now !== lastOpenCodeMessageTimestamp) openCodeMessageCounter = 0
+  lastOpenCodeMessageTimestamp = now
+  openCodeMessageCounter += 1
+  const ascending = (BigInt(now) * 0x1000n + BigInt(openCodeMessageCounter))
+    .toString(16)
+    .padStart(12, "0")
+    .slice(-12)
+  const random = Array.from(randomBytes(14), (value) =>
+    OPENCODE_ID_ALPHABET.at(value % OPENCODE_ID_ALPHABET.length)
+  ).join("")
+  return `msg_${ascending}${random}`
 }
 
 const mapInput = (content: readonly ThreadInputBlock[]): v2.UserInput[] =>
@@ -290,11 +309,13 @@ const mapCodexHistory = (thread: Record<string, unknown>): ThreadHarnessHistoryI
     if (!turn || typeof turn !== "object") continue
     const turnRecord = turn as Record<string, unknown>
     for (const item of Array.isArray(turnRecord.items) ? turnRecord.items : []) {
-      const mapped = codexThreadItemToTimeline(item as v2.ThreadItem)
+      const canonical = codexThreadItemToTimeline(item as v2.ThreadItem)
+      const mapped = canonical
+        ? { harnessItemId: canonical.itemId, item: canonical }
+        : mapHarnessHistoryItem(item, "codex")
       if (mapped)
         history.push({
-          item: mapped,
-          harnessItemId: mapped.itemId,
+          ...mapped,
           turnId: stringId(turnRecord.id),
         })
     }
@@ -330,30 +351,55 @@ const mapHarnessItem = (value: unknown, agentId: AgentId): ThreadTimelineItem | 
   const item = value as Record<string, unknown>
   const itemId = stringId(item.id ?? item.itemId ?? item.callID ?? item.callId) ?? randomUUID()
   const type = String(item.type ?? "unknown")
+  const normalizedType = type.toLowerCase()
   const harnessData = { agentId, nativeType: type, payload: value }
   const text =
     typeof item.text === "string"
       ? item.text
       : typeof item.content === "string"
         ? item.content
-        : undefined
-  if (type.includes("reasoning") && text !== undefined) {
+        : Array.isArray(item.content)
+          ? item.content
+              .flatMap((content) => {
+                if (typeof content === "string") return [content]
+                if (!content || typeof content !== "object") return []
+                const block = content as Record<string, unknown>
+                return typeof block.text === "string" ? [block.text] : []
+              })
+              .join("\n")
+          : undefined
+  if (normalizedType.includes("reasoning") && text !== undefined) {
     return { itemId, operation: "replace", harnessData, text, type: "reasoning" }
   }
   if (
-    (type.includes("message") || type === "text" || type === "user" || type === "assistant") &&
+    (normalizedType.includes("message") ||
+      normalizedType === "text" ||
+      normalizedType === "user" ||
+      normalizedType === "assistant") &&
     text !== undefined
   ) {
+    const role =
+      normalizedType.includes("user") || item.role === "user" || item.type === "user"
+        ? "user"
+        : "assistant"
+    const metadata =
+      item.metadata && typeof item.metadata === "object"
+        ? (item.metadata as Record<string, unknown>)
+        : undefined
+    const clientMessageId = stringId(
+      item.clientId ?? item.clientMessageId ?? metadata?.cypheriaClientMessageId
+    )
     return {
+      ...(role === "user" && clientMessageId ? { clientMessageId } : {}),
       itemId,
       operation: "replace",
       harnessData,
-      role: type.includes("user") || item.role === "user" ? "user" : "assistant",
+      role,
       text,
       type: "message",
     }
   }
-  if (type.includes("command")) {
+  if (normalizedType.includes("command")) {
     return {
       command: String(item.command ?? item.input ?? ""),
       cwd: typeof item.cwd === "string" ? item.cwd : null,
@@ -366,7 +412,7 @@ const mapHarnessItem = (value: unknown, agentId: AgentId): ThreadTimelineItem | 
       type: "command",
     }
   }
-  if (type.includes("file") && Array.isArray(item.changes) && item.changes.length > 0) {
+  if (normalizedType.includes("file") && Array.isArray(item.changes) && item.changes.length > 0) {
     const changes = item.changes.flatMap((change) => {
       if (!change || typeof change !== "object") return []
       const record = change as Record<string, unknown>
@@ -401,7 +447,7 @@ const mapHarnessItem = (value: unknown, agentId: AgentId): ThreadTimelineItem | 
       }
     }
   }
-  if (type.includes("plan") && Array.isArray(item.entries)) {
+  if (normalizedType.includes("plan") && Array.isArray(item.entries)) {
     return {
       entries: item.entries.flatMap((entry) => {
         if (!entry || typeof entry !== "object") return []
@@ -425,7 +471,7 @@ const mapHarnessItem = (value: unknown, agentId: AgentId): ThreadTimelineItem | 
       type: "plan",
     }
   }
-  if (type.includes("tool") || type.includes("file")) {
+  if (normalizedType.includes("tool") || normalizedType.includes("file")) {
     return {
       error: typeof item.error === "string" ? item.error : null,
       input: item.input ?? item.command ?? null,
@@ -444,6 +490,24 @@ const mapHarnessItem = (value: unknown, agentId: AgentId): ThreadTimelineItem | 
     payload: value,
     status: mapTimelineStatus(item.status),
     type: "harness",
+  }
+}
+
+const mapHarnessHistoryItem = (
+  value: unknown,
+  agentId: AgentId
+): ThreadHarnessHistoryItem | undefined => {
+  const item = mapHarnessItem(value, agentId)
+  if (!item) return undefined
+  const native = value && typeof value === "object" ? (value as Record<string, unknown>) : undefined
+  const agentMessageId =
+    item.type === "message" && item.role === "user"
+      ? stringId(native?.messageId ?? native?.messageID ?? native?.id)
+      : null
+  return {
+    ...(agentMessageId ? { agentMessageId } : {}),
+    harnessItemId: item.itemId,
+    item,
   }
 }
 
@@ -663,7 +727,9 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     this.#manager.releaseThreadAdapter(this.agentId, context.threadId)
   }
 
-  async startTurn(input: ThreadHarnessTurnInput): Promise<{ turnId: string }> {
+  async startTurn(
+    input: ThreadHarnessTurnInput
+  ): Promise<{ agentMessageId?: string; turnId: string }> {
     if (this.agentId === "codex") {
       if (!input.agentSessionId) throw new Error("Codex thread is not bound")
       const response = await this.#request(input.threadId, {
@@ -674,7 +740,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         type: "agent.codex.turn.start.request",
       })
       const turn = resultOf(response).turn as Record<string, unknown>
-      const turnId = stringId(turn?.id) ?? input.clientMessageId
+      const turnId = stringId(turn?.id) ?? randomUUID()
       if (turn?.id && !this.#codexProjectors.has(turnId)) {
         const projector = new CodexTurnProjector(input.agentSessionId, turn as v2.Turn)
         this.#codexProjectors.set(turnId, projector)
@@ -708,17 +774,22 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         })
       }
       const prompt = mapOpenCodeInput(input.content)
+      const agentMessageId = createOpenCodeMessageId()
       const response = await this.#openCodeCall(input.threadId, {
         body: {
-          id: input.clientMessageId,
+          id: agentMessageId,
           ...(prompt.files.length > 0 ? { files: prompt.files } : {}),
+          metadata: { cypheriaClientMessageId: input.clientMessageId },
           sessionID: input.agentSessionId,
           text: prompt.text,
         },
         operation: "session.prompt",
       })
       const inbox = resultOf(response).data as Record<string, unknown>
-      return { turnId: stringId(inbox.id) ?? input.clientMessageId }
+      return {
+        agentMessageId: stringId(inbox.id) ?? agentMessageId,
+        turnId: randomUUID(),
+      }
     }
     if (this.agentId === "claude") {
       const defaults = await this.#defaultsFor("claude")
@@ -763,7 +834,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         requestId: randomUUID(),
         type: "agent.claude.query.start.request",
       })
-      return { turnId: input.clientMessageId }
+      return { turnId: randomUUID() }
     }
     if (this.agentId === "pi") {
       if (!this.#defaultsApplied) {
@@ -799,10 +870,11 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         requestId: randomUUID(),
         type: "agent.pi.prompt.request",
       })
-      return { turnId: input.clientMessageId }
+      return { turnId: randomUUID() }
     }
     if (!input.agentSessionId) throw new Error("ACP thread is not bound")
     const protocolVersion = this.#requireAcpVersion()
+    const turnId = randomUUID()
     await this.#request(input.threadId, {
       agent: this.agentId,
       payload: {
@@ -814,12 +886,12 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       type: "agent.acp.session.prompt.request",
     })
     if (protocolVersion === 1) {
-      this.#onEvent?.({ turnId: input.clientMessageId, type: "turn-completed" })
+      this.#onEvent?.({ turnId, type: "turn-completed" })
     }
-    return { turnId: input.clientMessageId }
+    return { turnId }
   }
 
-  async steerTurn(input: ThreadHarnessSteerInput): Promise<void> {
+  async steerTurn(input: ThreadHarnessSteerInput): Promise<{ readonly agentMessageId?: string }> {
     if (this.agentId === "codex") {
       if (!input.agentSessionId) throw new Error("Codex thread is not bound")
       await this.#request(input.threadId, {
@@ -830,7 +902,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         threadId: input.agentSessionId,
         type: "agent.codex.turn.steer.request",
       })
-      return
+      return {}
     }
     if (this.agentId === "pi") {
       await this.#request(input.threadId, {
@@ -844,7 +916,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         requestId: randomUUID(),
         type: "agent.pi.steer.request",
       })
-      return
+      return {}
     }
     throw new Error(`${this.agentId} does not support steering active turns`)
   }
@@ -1574,13 +1646,28 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         this.#emitCodexUpdates(projector.apply(notification))
       }
     } else if (turnId) {
+      if (
+        (method === "item/started" || method === "item/completed") &&
+        (params.item as { type?: unknown } | undefined)?.type === "userMessage"
+      ) {
+        const userMessage = mapHarnessHistoryItem(params.item, "codex")
+        if (userMessage) {
+          this.#onEvent?.({
+            item: { ...userMessage, turnId },
+            type: "timeline",
+          })
+        }
+      }
       const projector = this.#codexProjectors.get(turnId)
       if (projector) this.#emitCodexUpdates(projector.apply(notification))
       else if ((method === "item/started" || method === "item/completed") && params.item) {
-        const item = codexThreadItemToTimeline(params.item as v2.ThreadItem)
+        const canonical = codexThreadItemToTimeline(params.item as v2.ThreadItem)
+        const item = canonical
+          ? { harnessItemId: canonical.itemId, item: canonical }
+          : mapHarnessHistoryItem(params.item, "codex")
         if (item) {
           this.#onEvent?.({
-            item: { harnessItemId: item.itemId, item, turnId },
+            item: { ...item, turnId },
             type: "timeline",
           })
         }
@@ -1875,11 +1962,11 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       })
       return
     }
-    const item = mapHarnessItem(
+    const item = mapHarnessHistoryItem(
       payload.item ?? payload.message ?? payload.event ?? payload.update,
       this.agentId
     )
-    if (item) onEvent({ item: { item, harnessItemId: item.itemId }, type: "timeline" })
+    if (item) onEvent({ item, type: "timeline" })
   }
 
   #mapOpenCodeHistory(value: unknown): ThreadHarnessHistoryItem[] {
@@ -1889,13 +1976,19 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       const record = message as Record<string, unknown>
       const parts = Array.isArray(record.content) ? record.content : [record]
       return parts.flatMap((part, index) => {
-        const item = mapHarnessItem(
+        const item = mapHarnessHistoryItem(
           part && typeof part === "object"
-            ? { id: `${String(record.id ?? "message")}:${index}`, ...part }
+            ? {
+                id: `${String(record.id ?? "message")}:${index}`,
+                messageId: record.id,
+                metadata: record.metadata,
+                role: record.role ?? record.type,
+                ...part,
+              }
             : part,
           this.agentId
         )
-        return item ? [{ item, harnessItemId: item.itemId }] : []
+        return item ? [item] : []
       })
     })
   }

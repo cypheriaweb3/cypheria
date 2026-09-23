@@ -80,13 +80,19 @@ The append-only Canonical Timeline is the durable conversation history. Each row
 
 Common items may include `harnessData` for provenance and diagnostics without changing their shared meaning. Harness-only items retain `agentId`, native type, and validated payload so a client can select a harness extension.
 
+A canonical user `message` carries the originating `clientMessageId` when it came from a Thread start or steer request. This is the stable public identity used to reconcile optimistic client state and Agent echoes. The corresponding Agent-native message identity is stored internally as `agentMessageId`; it is not part of public Timeline rows.
+
 Timeline cursors contain an epoch and sequence. The epoch detects replacement or rebuilt history. Reads support `tail`, `before`, and `after`, and can request canonical rows or projected display items. Projection folds later rows for the same item into a stable display item while retaining exact source sequence ranges.
 
 Clients subscribe to append notifications and re-read after a replacement notification, cursor gap, reconnect, or epoch mismatch. The persisted Server Timeline remains authoritative for both history and live projection.
 
 ## Turns and interactions
 
-Thread input is an ordered list of text, image, audio, resource-link, or embedded-resource blocks, restricted by advertised Thread capabilities. A client-generated message ID makes start and steer operations safely correlatable. Active turns can be cancelled through the Thread API.
+Thread input is an ordered list of text, image, audio, resource-link, or embedded-resource blocks, restricted by advertised Thread capabilities. Every start and steer request includes a client-generated `clientMessageId`. Within one Thread, retrying the same ID with identical operation and content returns the original turn without resubmitting to the Agent; reusing it for different content fails with `CLIENT_MESSAGE_ID_CONFLICT`.
+
+Message identity, execution identity, and native identity are separate: `clientMessageId` identifies the submitted user message, `turnId` identifies the Agent execution that may contain start and steer messages, and internal `agentMessageId` identifies the corresponding message in the selected Agent runtime.
+
+The Server persists a pending receipt before calling the Agent and marks it completed only after the canonical user row is durable. If a process or connection is interrupted after the Agent may have accepted the message, a later retry fails with `THREAD_MESSAGE_OUTCOME_UNKNOWN` instead of risking a duplicate submission. Clients must keep the same ID for transport retries, but require explicit user action and a new ID after an unknown outcome. Active turns can be cancelled through the Thread API.
 
 Permission requests, questions, and MCP elicitation are normalized as pending Thread interactions. Responses use discriminated outcomes such as allow, deny, selection, text, answers, elicitation action, or cancellation. Harness metadata preserves native context while the common lifecycle stays uniform.
 

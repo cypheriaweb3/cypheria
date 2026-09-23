@@ -119,6 +119,44 @@ export const threadLifecycleOperations = sqliteTable(
   ]
 )
 
+/**
+ * Durable idempotency receipts for Thread message submission. A pending receipt is deliberately
+ * retained after an ambiguous Agent call so a restart cannot replay the same user message.
+ */
+export const threadMessageRequests = sqliteTable(
+  "thread_message_requests",
+  {
+    threadId: text("thread_id")
+      .notNull()
+      .references(() => threads.id, { onDelete: "cascade" }),
+    clientMessageId: text("client_message_id").notNull(),
+    fingerprint: text("fingerprint").notNull(),
+    status: text("status", { enum: ["pending", "completed"] }).notNull(),
+    turnId: text("turn_id"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.threadId, table.clientMessageId] }),
+    index("thread_message_requests_status_idx").on(table.status),
+    check(
+      "thread_message_requests_client_message_id_check",
+      sql`length(${table.clientMessageId}) > 0`
+    ),
+    check("thread_message_requests_fingerprint_check", sql`length(${table.fingerprint}) > 0`),
+    check("thread_message_requests_status_check", sql`${table.status} IN ('pending', 'completed')`),
+    check(
+      "thread_message_requests_turn_id_check",
+      sql`(${table.status} = 'pending' AND ${table.turnId} IS NULL) OR (${table.status} = 'completed' AND length(${table.turnId}) > 0)`
+    ),
+    check("thread_message_requests_created_at_check", sql`${table.createdAt} >= 0`),
+    check(
+      "thread_message_requests_updated_at_check",
+      sql`${table.updatedAt} >= ${table.createdAt}`
+    ),
+  ]
+)
+
 export const threadTimelineEpochs = sqliteTable(
   "thread_timeline_epochs",
   {
@@ -145,6 +183,7 @@ export const threadTimelineRows = sqliteTable(
     epoch: text("epoch").notNull(),
     seq: integer("seq").notNull(),
     turnId: text("turn_id"),
+    agentMessageId: text("agent_message_id"),
     harnessItemId: text("harness_item_id"),
     timestamp: text("timestamp").notNull(),
     item: text("item", { mode: "json" }).$type<unknown>().notNull(),
@@ -153,6 +192,7 @@ export const threadTimelineRows = sqliteTable(
     primaryKey({ columns: [table.threadId, table.epoch, table.seq] }),
     index("thread_timeline_rows_thread_epoch_seq_idx").on(table.threadId, table.epoch, table.seq),
     index("thread_timeline_rows_turn_id_idx").on(table.turnId),
+    index("thread_timeline_rows_agent_message_id_idx").on(table.agentMessageId),
     check("thread_timeline_rows_epoch_check", sql`length(${table.epoch}) > 0`),
     check("thread_timeline_rows_seq_check", sql`${table.seq} >= 1`),
     check("thread_timeline_rows_timestamp_check", sql`length(${table.timestamp}) > 0`),

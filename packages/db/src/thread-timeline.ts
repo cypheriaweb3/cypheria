@@ -6,6 +6,7 @@ import type { CypheriaDatabase } from "./client.js"
 import { threadTimelineEpochs, threadTimelineRows } from "./schema/index.js"
 
 export type PersistedThreadTimelineRow = {
+  readonly agentMessageId: string | null
   readonly item: unknown
   readonly harnessItemId: string | null
   readonly seq: number
@@ -27,6 +28,12 @@ export type ThreadTimelinePersistenceService = {
   ): Promise<{ epoch: string; row: PersistedThreadTimelineRow }>
   delete(threadId: string): Promise<void>
   get(threadId: string): Promise<PersistedThreadTimeline>
+  setAgentMessageId(
+    threadId: string,
+    epoch: string,
+    seq: number,
+    agentMessageId: string
+  ): Promise<void>
   replace(
     threadId: string,
     rows: readonly ThreadTimelineAppendInput[]
@@ -40,6 +47,7 @@ const readRows = async (
 ): Promise<PersistedThreadTimelineRow[]> =>
   db
     .select({
+      agentMessageId: threadTimelineRows.agentMessageId,
       item: threadTimelineRows.item,
       harnessItemId: threadTimelineRows.harnessItemId,
       seq: threadTimelineRows.seq,
@@ -101,6 +109,19 @@ export const createThreadTimelinePersistenceService = (
       state = { epoch, nextSeq: 1, threadId, updatedAt: Date.now() }
     }
     return { epoch: state.epoch, rows: await readRows(db, threadId, state.epoch) }
+  },
+
+  async setAgentMessageId(threadId, epoch, seq, agentMessageId) {
+    await db
+      .update(threadTimelineRows)
+      .set({ agentMessageId })
+      .where(
+        and(
+          eq(threadTimelineRows.threadId, threadId),
+          eq(threadTimelineRows.epoch, epoch),
+          eq(threadTimelineRows.seq, seq)
+        )
+      )
   },
 
   async replace(threadId, inputs) {

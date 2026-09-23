@@ -15,6 +15,13 @@
       "when": 1789880169394,
       "tag": "0001_complex_whirlwind",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1790071664896,
+      "tag": "0002_thread_message_identity",
+      "breakpoints": true
     }
   ]
 }
