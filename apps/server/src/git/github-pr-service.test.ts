@@ -60,6 +60,7 @@ else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
       error: null,
     })
     expect(await service.list(cwd, "all", 5)).toEqual([pr])
+    expect(await service.list(cwd, "closed", 10, "bug fix")).toEqual([pr])
     expect(await service.read(cwd, 42)).toEqual(pr)
     expect(await service.checks(cwd, 42)).toEqual([
       {
@@ -110,6 +111,18 @@ else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
       "all",
       "--limit",
       "5",
+      "--json",
+      expect.any(String),
+    ])
+    expect(calls).toContainEqual([
+      "pr",
+      "list",
+      "--state",
+      "closed",
+      "--limit",
+      "10",
+      "--search",
+      "bug fix",
       "--json",
       expect.any(String),
     ])

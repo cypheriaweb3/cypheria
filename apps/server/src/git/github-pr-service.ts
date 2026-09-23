@@ -102,8 +102,12 @@ export class GitHubPrService {
   async list(
     cwd: string,
     state: "open" | "closed" | "merged" | "all" = "open",
-    limit = 30
+    limit = 30,
+    query = ""
   ): Promise<GitHubPullRequest[]> {
+    if (query.length > 200 || query.includes("\0") || query.includes("\n")) {
+      throw new Error("Invalid GitHub PR search query")
+    }
     const result = await this.#run(cwd, [
       "pr",
       "list",
@@ -111,6 +115,7 @@ export class GitHubPrService {
       state,
       "--limit",
       String(limit),
+      ...(query.trim() ? ["--search", query.trim()] : []),
       "--json",
       fields,
     ])

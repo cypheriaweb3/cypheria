@@ -12,6 +12,7 @@ import {
 } from "@cypheria/ui/components/alert-dialog"
 import { Button } from "@cypheria/ui/components/button"
 import { Input } from "@cypheria/ui/components/input"
+import { NativeSelect, NativeSelectOption } from "@cypheria/ui/components/native-select"
 import { Textarea } from "@cypheria/ui/components/textarea"
 import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
@@ -34,6 +35,9 @@ export function GitHubPrPanel({
   const { i18n } = useLingui()
   const queryClient = useQueryClient()
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null)
+  const [prSearchText, setPrSearchText] = useState("")
+  const [prSearchQuery, setPrSearchQuery] = useState("")
+  const [prListState, setPrListState] = useState<"open" | "closed" | "merged" | "all">("open")
   const [base, setBase] = useState("")
   const [title, setTitle] = useState("")
   const [body, setBody] = useState("")
@@ -72,10 +76,25 @@ export function GitHubPrPanel({
   })
   const list = useQuery({
     enabled: cliAvailable || Boolean(threadId && appAvailability.data?.canRead),
-    queryKey: ["github-pr", cwd, "list", cliAvailable ? "cli" : "app", threadId],
+    queryKey: [
+      "github-pr",
+      cwd,
+      "list",
+      cliAvailable ? "cli" : "app",
+      threadId,
+      prListState,
+      prSearchQuery,
+    ],
     queryFn: async () => {
       const git = (await ensureCypheriaClient()).git
-      if (cliAvailable) return { items: await git.githubPrList(cwd), truncated: false }
+      if (cliAvailable) {
+        const items = await git.githubPrList(cwd, {
+          state: prListState,
+          query: prSearchQuery,
+          limit: 100,
+        })
+        return { items, truncated: items.length === 100 }
+      }
       if (!threadId) throw new Error("A local Codex thread is required")
       return git.githubAppPrList(cwd, threadId)
     },
@@ -174,9 +193,51 @@ export function GitHubPrPanel({
           <AlertDescription>{appAvailability.data.error}</AlertDescription>
         </Alert>
       ) : null}
+      {cliAvailable ? (
+        <div className="flex flex-wrap gap-2">
+          <Input
+            aria-label={i18n._(msg({ id: "git.github.search", message: "Search pull requests" }))}
+            className="min-w-40 flex-1"
+            maxLength={200}
+            onChange={(event) => setPrSearchText(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") setPrSearchQuery(prSearchText.trim())
+            }}
+            placeholder={i18n._(msg({ id: "git.github.search", message: "Search pull requests" }))}
+            value={prSearchText}
+          />
+          <NativeSelect
+            aria-label={i18n._(msg({ id: "git.github.listState", message: "Pull request state" }))}
+            onChange={(event) => setPrListState(event.target.value as typeof prListState)}
+            size="sm"
+            value={prListState}
+          >
+            <NativeSelectOption value="open">
+              <Trans id="git.github.stateOpen">Open</Trans>
+            </NativeSelectOption>
+            <NativeSelectOption value="closed">
+              <Trans id="git.github.stateClosed">Closed</Trans>
+            </NativeSelectOption>
+            <NativeSelectOption value="merged">
+              <Trans id="git.github.stateMerged">Merged</Trans>
+            </NativeSelectOption>
+            <NativeSelectOption value="all">
+              <Trans id="git.github.stateAll">All</Trans>
+            </NativeSelectOption>
+          </NativeSelect>
+          <Button
+            onClick={() => setPrSearchQuery(prSearchText.trim())}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <Trans id="git.github.searchAction">Search</Trans>
+          </Button>
+        </div>
+      ) : null}
       {list.data?.items.length === 0 ? (
         <p className="text-xs text-muted-foreground">
-          <Trans id="git.github.noPullRequests">No open pull requests</Trans>
+          <Trans id="git.github.noPullRequests">No pull requests found</Trans>
         </p>
       ) : null}
       {list.data?.items.map((pr) => (

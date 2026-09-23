@@ -103,7 +103,7 @@ export interface GitActions {
   ): Promise<GitHubAppPullRequest>
   githubPrList(
     cwd: string,
-    input?: { state?: "open" | "closed" | "merged" | "all"; limit?: number },
+    input?: { state?: "open" | "closed" | "merged" | "all"; limit?: number; query?: string },
     options?: RequestOptions
   ): Promise<GitHubPullRequest[]>
   githubPrRead(cwd: string, number: number, options?: RequestOptions): Promise<GitHubPullRequest>

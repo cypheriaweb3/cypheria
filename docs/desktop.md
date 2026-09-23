@@ -74,6 +74,8 @@ For a conversation with a local working directory, the Codex Review panel reads 
 
 The unstaged Review source also renders text diffs for untracked regular files before they are staged.
 
+The GitHub CLI pull request list supports server-side query search and open, closed, merged, or all state filters.
+
 The common experience includes drafts, attachments, temporary-to-persistent Thread transitions, per-Thread scope, streaming, cancellation, retry, virtualized Timeline, scroll anchoring, position restoration, unread state, search, navigation, reasoning, plans, tools, commands, diffs, terminals, approvals, artifacts, and failure recovery.
 
 Harness-specific UI is limited to discriminated Timeline extensions, header actions, model settings, permission details, and genuine harness capabilities. Codex remains the fidelity reference, but Claude, Pi, OpenCode, and ACP reuse the same shell rather than cloning it.

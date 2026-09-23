@@ -54,6 +54,11 @@ msgid "settings.agentHarnesses"
 msgstr "Agent harnesses"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.stateAll"
+msgstr "All"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.pluginsDescription"
 msgstr "Allow ChatGPT to use installed plugins"
@@ -266,13 +271,13 @@ msgid "settings.general.chooseFolder"
 msgstr "Choose…"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.close"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "common.close"
 msgstr "Close"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "common.close"
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.close"
 msgstr "Close"
 
 #. js-lingui-explicit-id
@@ -289,6 +294,11 @@ msgstr "Close pull request?"
 #: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.closeTerminal"
 msgstr "Close terminal"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.stateClosed"
+msgstr "Closed"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -819,6 +829,11 @@ msgid "git.gitlab.title"
 msgstr "Merge request title"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.stateMerged"
+msgstr "Merged"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.prompt.label"
 msgstr "Message Cypheria"
@@ -960,11 +975,6 @@ msgid "chat.panel.mcp.empty"
 msgstr "No MCP App is open"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.noPullRequests"
-msgstr "No open pull requests"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.noPinnedChats"
 msgstr "No pinned chats"
@@ -988,6 +998,11 @@ msgstr "No project"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.noProjects"
 msgstr "No projects yet"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.noPullRequests"
+msgstr "No open pull requests"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -1028,6 +1043,11 @@ msgstr "Notifications"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.offOption"
 msgstr "Off"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.stateOpen"
+msgstr "Open"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1208,6 +1228,11 @@ msgstr "Pull request comment"
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.reviewBody"
 msgstr "Pull request review"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.listState"
+msgstr "Pull request state"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/github-pr-panel.tsx
@@ -1395,6 +1420,11 @@ msgid "chat.scrollToLatest"
 msgstr "Scroll to latest"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.searchAction"
+msgstr "Search"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 #: renderer/src/components/chat-search.tsx
 msgid "navigation.search"
@@ -1424,6 +1454,11 @@ msgstr "Search chats…"
 #: renderer/src/components/language-selector.tsx
 msgid "settings.language.search"
 msgstr "Search languages"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.search"
+msgstr "Search pull requests"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx

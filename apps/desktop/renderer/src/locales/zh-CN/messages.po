@@ -54,6 +54,11 @@ msgid "settings.agentHarnesses"
 msgstr "Agent harnesses"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.stateAll"
+msgstr "全部"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.pluginsDescription"
 msgstr "允许 Cypheria 使用已安装的插件"
@@ -266,13 +271,13 @@ msgid "settings.general.chooseFolder"
 msgstr "选择…"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.close"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "common.close"
 msgstr "关闭"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "common.close"
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.close"
 msgstr "关闭"
 
 #. js-lingui-explicit-id
@@ -289,6 +294,11 @@ msgstr "关闭拉取请求？"
 #: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.closeTerminal"
 msgstr "关闭终端"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.stateClosed"
+msgstr "已关闭"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -819,6 +829,11 @@ msgid "git.gitlab.title"
 msgstr "合并请求标题"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.stateMerged"
+msgstr "已合并"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.prompt.label"
 msgstr "给 Cypheria 发消息"
@@ -960,11 +975,6 @@ msgid "chat.panel.mcp.empty"
 msgstr "未打开 MCP 应用"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.noPullRequests"
-msgstr "没有打开的拉取请求"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.noPinnedChats"
 msgstr "暂无置顶对话"
@@ -988,6 +998,11 @@ msgstr "无项目"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.noProjects"
 msgstr "暂无项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.noPullRequests"
+msgstr "未找到拉取请求"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
@@ -1028,6 +1043,11 @@ msgstr "通知"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.offOption"
 msgstr "关闭"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.stateOpen"
+msgstr "打开"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1208,6 +1228,11 @@ msgstr "拉取请求评论"
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.reviewBody"
 msgstr "拉取请求审查"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.listState"
+msgstr "拉取请求状态"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/github-pr-panel.tsx
@@ -1395,6 +1420,11 @@ msgid "chat.scrollToLatest"
 msgstr "滚动到最新"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.searchAction"
+msgstr "搜索"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 #: renderer/src/components/chat-search.tsx
 msgid "navigation.search"
@@ -1424,6 +1454,11 @@ msgstr "搜索对话…"
 #: renderer/src/components/language-selector.tsx
 msgid "settings.language.search"
 msgstr "搜索语言"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.search"
+msgstr "搜索拉取请求"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx

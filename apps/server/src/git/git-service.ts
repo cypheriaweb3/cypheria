@@ -182,7 +182,8 @@ export class GitService {
           value = await this.githubPrList(
             message.payload.cwd,
             message.payload.state,
-            message.payload.limit
+            message.payload.limit,
+            message.payload.query
           )
           break
         case "git.github-pr-read.request":
@@ -414,9 +415,10 @@ export class GitService {
   async githubPrList(
     cwd: string,
     state?: "open" | "closed" | "merged" | "all",
-    limit?: number
+    limit?: number,
+    query?: string
   ): Promise<GitHubPullRequest[]> {
-    return this.#github.list((await this.discover(cwd)).root, state, limit)
+    return this.#github.list((await this.discover(cwd)).root, state, limit, query)
   }
 
   async githubPrRead(cwd: string, number: number): Promise<GitHubPullRequest> {
