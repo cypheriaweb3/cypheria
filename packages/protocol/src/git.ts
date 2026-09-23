@@ -203,6 +203,31 @@ export const GitHubPullRequestThreadsSchema = z
     truncated: z.boolean(),
   })
   .strict()
+export const GitHubPrRevisionSnapshotSchema = z
+  .object({
+    baseRevision: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    headRevision: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    mergeBaseRevision: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    commits: z.array(
+      z
+        .object({
+          sha: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+          parentSha: z
+            .string()
+            .regex(/^[a-f0-9]{40,64}$/iu)
+            .nullable(),
+          title: z.string(),
+        })
+        .strict()
+    ),
+  })
+  .strict()
+export const GitHubPrRevisionFileSchema = z.discriminatedUnion("status", [
+  z
+    .object({ status: z.literal("success"), baseContent: z.string(), headContent: z.string() })
+    .strict(),
+  z.object({ status: z.literal("unavailable") }).strict(),
+])
 export const GitLabMergeRequestSchema = z
   .object({
     iid: z.number().int().positive(),
@@ -521,6 +546,42 @@ export const GitHubPrDiffRequestSchema = input(
       cwd: path,
       number: z.number().int().positive(),
       expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    })
+    .strict()
+)
+export const GitHubPrRevisionSnapshotRequestSchema = input(
+  "git.github-pr-revision-snapshot.request",
+  z
+    .object({
+      cwd: path,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    })
+    .strict()
+)
+export const GitHubPrRevisionDiffRequestSchema = input(
+  "git.github-pr-revision-diff.request",
+  z
+    .object({
+      cwd: path,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      baseRevision: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      headRevision: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    })
+    .strict()
+)
+export const GitHubPrRevisionFileRequestSchema = input(
+  "git.github-pr-revision-file.request",
+  z
+    .object({
+      cwd: path,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      baseRevision: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      headRevision: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      basePath: path.nullable(),
+      headPath: path.nullable(),
     })
     .strict()
 )
@@ -900,6 +961,18 @@ export const GitHubPrDiffResponseSchema = output(
   "git.github-pr-diff.response",
   z.object({ diff: z.string() }).strict()
 )
+export const GitHubPrRevisionSnapshotResponseSchema = output(
+  "git.github-pr-revision-snapshot.response",
+  GitHubPrRevisionSnapshotSchema
+)
+export const GitHubPrRevisionDiffResponseSchema = output(
+  "git.github-pr-revision-diff.response",
+  z.object({ diff: z.string() }).strict()
+)
+export const GitHubPrRevisionFileResponseSchema = output(
+  "git.github-pr-revision-file.response",
+  GitHubPrRevisionFileSchema
+)
 export const GitHubPrAutoMergeStatusResponseSchema = output(
   "git.github-pr-auto-merge-status.response",
   z.object({ enabled: z.boolean() }).strict()
@@ -1031,6 +1104,9 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubPrReadRequestSchema,
   GitHubPrForBranchRequestSchema,
   GitHubPrDiffRequestSchema,
+  GitHubPrRevisionSnapshotRequestSchema,
+  GitHubPrRevisionDiffRequestSchema,
+  GitHubPrRevisionFileRequestSchema,
   GitHubPrAutoMergeStatusRequestSchema,
   GitHubPrToggleAutoMergeRequestSchema,
   GitHubPrChecksRequestSchema,
@@ -1099,6 +1175,9 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubPrReadResponseSchema,
   GitHubPrForBranchResponseSchema,
   GitHubPrDiffResponseSchema,
+  GitHubPrRevisionSnapshotResponseSchema,
+  GitHubPrRevisionDiffResponseSchema,
+  GitHubPrRevisionFileResponseSchema,
   GitHubPrAutoMergeStatusResponseSchema,
   GitHubPrToggleAutoMergeResponseSchema,
   GitHubPrChecksResponseSchema,
@@ -1150,6 +1229,8 @@ export type GitHubPullRequest = z.infer<typeof GitHubPullRequestSchema>
 export type GitHubPullRequestChecks = z.infer<typeof GitHubPullRequestChecksSchema>
 export type GitHubPullRequestActivity = z.infer<typeof GitHubPullRequestActivitySchema>
 export type GitHubPullRequestThreads = z.infer<typeof GitHubPullRequestThreadsSchema>
+export type GitHubPrRevisionSnapshot = z.infer<typeof GitHubPrRevisionSnapshotSchema>
+export type GitHubPrRevisionFile = z.infer<typeof GitHubPrRevisionFileSchema>
 export type GitLabMergeRequest = z.infer<typeof GitLabMergeRequestSchema>
 export type GitLabMergeRequestNote = z.infer<typeof GitLabMergeRequestNoteSchema>
 export type GitLabMergeRequestDiscussion = z.infer<typeof GitLabMergeRequestDiscussionSchema>

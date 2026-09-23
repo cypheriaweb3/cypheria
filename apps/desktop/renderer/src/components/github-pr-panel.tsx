@@ -59,6 +59,7 @@ export function GitHubPrPanel({
   const [inlineSide, setInlineSide] = useState<"LEFT" | "RIGHT">("RIGHT")
   const [inlineBody, setInlineBody] = useState("")
   const [showDiff, setShowDiff] = useState(false)
+  const [selectedRevision, setSelectedRevision] = useState<string | null>(null)
   const [mergeOpen, setMergeOpen] = useState(false)
   const [closeOpen, setCloseOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -84,6 +85,7 @@ export function GitHubPrPanel({
     setInlineLine("")
     setInlineBody("")
     setShowDiff(false)
+    setSelectedRevision(null)
     setSelectedNumber(number)
   }
   const availability = useQuery({
@@ -188,6 +190,47 @@ export function GitHubPrPanel({
       const pr = selected.data
       if (!pr?.headRefOid) throw new Error("A pull request head is required")
       return (await ensureCypheriaClient()).git.githubPrDiff(cwd, pr.number, pr.headRefOid)
+    },
+    retry: false,
+  })
+  const revisionSnapshot = useQuery({
+    enabled: cliAvailable && Boolean(selected.data?.headRefOid),
+    queryKey: ["github-pr", cwd, "revisions", selected.data?.number, selected.data?.headRefOid],
+    queryFn: async () => {
+      const pr = selected.data
+      if (!pr?.headRefOid) throw new Error("A pull request head is required")
+      return (await ensureCypheriaClient()).git.githubPrRevisionSnapshot(
+        cwd,
+        pr.number,
+        pr.headRefOid
+      )
+    },
+    retry: false,
+  })
+  const revision = revisionSnapshot.data?.commits.find((commit) => commit.sha === selectedRevision)
+  const revisionDiff = useQuery({
+    enabled:
+      cliAvailable && Boolean(selected.data?.headRefOid && revision && revisionSnapshot.data),
+    queryKey: [
+      "github-pr",
+      cwd,
+      "revision-diff",
+      selected.data?.number,
+      selected.data?.headRefOid,
+      selectedRevision,
+    ],
+    queryFn: async () => {
+      const pr = selected.data
+      const snapshot = revisionSnapshot.data
+      if (!pr?.headRefOid || !revision || !snapshot)
+        throw new Error("A pull request revision is required")
+      return (await ensureCypheriaClient()).git.githubPrRevisionDiff(
+        cwd,
+        pr.number,
+        pr.headRefOid,
+        revision.parentSha ?? snapshot.mergeBaseRevision,
+        revision.sha
+      )
     },
     retry: false,
   })
@@ -541,6 +584,39 @@ export function GitHubPrPanel({
                     : (prDiff.data ??
                       i18n._(msg({ id: "git.github.diffLoading", message: "Loading diff…" })))}
                 </pre>
+              ) : null}
+            </div>
+          ) : null}
+          {cliAvailable && selected.data.headRefOid ? (
+            <div className="space-y-1 border-t pt-2">
+              <p className="text-xs font-medium">
+                <Trans id="git.github.revisions">Revisions</Trans>
+              </p>
+              {revisionSnapshot.data?.commits.map((commit) => (
+                <Button
+                  key={commit.sha}
+                  onClick={() =>
+                    setSelectedRevision(commit.sha === selectedRevision ? null : commit.sha)
+                  }
+                  size="sm"
+                  type="button"
+                  variant={commit.sha === selectedRevision ? "secondary" : "ghost"}
+                >
+                  <span className="font-mono">{commit.sha.slice(0, 7)}</span> {commit.title}
+                </Button>
+              ))}
+              {revision ? (
+                <pre className="max-h-96 overflow-auto rounded border p-2 text-xs whitespace-pre-wrap">
+                  {revisionDiff.isError
+                    ? revisionDiff.error.message
+                    : (revisionDiff.data ??
+                      i18n._(msg({ id: "git.github.diffLoading", message: "Loading diff…" })))}
+                </pre>
+              ) : null}
+              {revisionSnapshot.isError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>{revisionSnapshot.error.message}</AlertDescription>
+                </Alert>
               ) : null}
             </div>
           ) : null}

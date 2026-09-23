@@ -9,6 +9,8 @@ import type {
   GitHubAppPullRequest,
   GitHubAppPullRequestSummary,
   GitHubAvailability,
+  GitHubPrRevisionFile,
+  GitHubPrRevisionSnapshot,
   GitHubPullRequest,
   GitHubPullRequestActivity,
   GitHubPullRequestChecks,
@@ -191,6 +193,30 @@ export interface GitActions {
     expectedHead: string,
     options?: RequestOptions
   ): Promise<string>
+  githubPrRevisionSnapshot(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    options?: RequestOptions
+  ): Promise<GitHubPrRevisionSnapshot>
+  githubPrRevisionDiff(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    baseRevision: string,
+    headRevision: string,
+    options?: RequestOptions
+  ): Promise<string>
+  githubPrRevisionFile(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    baseRevision: string,
+    headRevision: string,
+    basePath: string | null,
+    headPath: string | null,
+    options?: RequestOptions
+  ): Promise<GitHubPrRevisionFile>
   githubPrAutoMergeStatus(cwd: string, number: number, options?: RequestOptions): Promise<boolean>
   githubPrToggleAutoMerge(
     cwd: string,
@@ -491,6 +517,39 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap<{ diff: string }>(
       await client.requestGit("git.github-pr-diff.request", { cwd, number, expectedHead }, options)
     ).diff,
+  githubPrRevisionSnapshot: async (cwd, number, expectedHead, options) =>
+    unwrap(
+      await client.requestGit(
+        "git.github-pr-revision-snapshot.request",
+        { cwd, number, expectedHead },
+        options
+      )
+    ),
+  githubPrRevisionDiff: async (cwd, number, expectedHead, baseRevision, headRevision, options) =>
+    unwrap<{ diff: string }>(
+      await client.requestGit(
+        "git.github-pr-revision-diff.request",
+        { cwd, number, expectedHead, baseRevision, headRevision },
+        options
+      )
+    ).diff,
+  githubPrRevisionFile: async (
+    cwd,
+    number,
+    expectedHead,
+    baseRevision,
+    headRevision,
+    basePath,
+    headPath,
+    options
+  ) =>
+    unwrap(
+      await client.requestGit(
+        "git.github-pr-revision-file.request",
+        { cwd, number, expectedHead, baseRevision, headRevision, basePath, headPath },
+        options
+      )
+    ),
   githubPrAutoMergeStatus: async (cwd, number, options) =>
     unwrap<{ enabled: boolean }>(
       await client.requestGit("git.github-pr-auto-merge-status.request", { cwd, number }, options)

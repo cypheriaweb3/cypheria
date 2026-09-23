@@ -13,6 +13,8 @@ import type {
   GitHubAppPullRequest,
   GitHubAppPullRequestSummary,
   GitHubAvailability,
+  GitHubPrRevisionFile,
+  GitHubPrRevisionSnapshot,
   GitHubPullRequest,
   GitHubPullRequestActivity,
   GitHubPullRequestChecks,
@@ -295,6 +297,35 @@ export class GitService {
               message.payload.expectedHead
             ),
           }
+          break
+        case "git.github-pr-revision-snapshot.request":
+          value = await this.githubPrRevisionSnapshot(
+            message.payload.cwd,
+            message.payload.number,
+            message.payload.expectedHead
+          )
+          break
+        case "git.github-pr-revision-diff.request":
+          value = {
+            diff: await this.githubPrRevisionDiff(
+              message.payload.cwd,
+              message.payload.number,
+              message.payload.expectedHead,
+              message.payload.baseRevision,
+              message.payload.headRevision
+            ),
+          }
+          break
+        case "git.github-pr-revision-file.request":
+          value = await this.githubPrRevisionFile(
+            message.payload.cwd,
+            message.payload.number,
+            message.payload.expectedHead,
+            message.payload.baseRevision,
+            message.payload.headRevision,
+            message.payload.basePath,
+            message.payload.headPath
+          )
           break
         case "git.github-pr-auto-merge-status.request":
           value = {
@@ -726,6 +757,50 @@ export class GitService {
 
   async githubPrDiff(cwd: string, number: number, expectedHead: string): Promise<string> {
     return this.#github.diff((await this.discover(cwd)).root, number, expectedHead)
+  }
+
+  async githubPrRevisionSnapshot(
+    cwd: string,
+    number: number,
+    expectedHead: string
+  ): Promise<GitHubPrRevisionSnapshot> {
+    return this.#github.revisionSnapshot((await this.discover(cwd)).root, number, expectedHead)
+  }
+
+  async githubPrRevisionDiff(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    baseRevision: string,
+    headRevision: string
+  ): Promise<string> {
+    return this.#github.revisionDiff(
+      (await this.discover(cwd)).root,
+      number,
+      expectedHead,
+      baseRevision,
+      headRevision
+    )
+  }
+
+  async githubPrRevisionFile(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    baseRevision: string,
+    headRevision: string,
+    basePath: string | null,
+    headPath: string | null
+  ): Promise<GitHubPrRevisionFile> {
+    return this.#github.revisionFile(
+      (await this.discover(cwd)).root,
+      number,
+      expectedHead,
+      baseRevision,
+      headRevision,
+      basePath,
+      headPath
+    )
   }
 
   async githubPrAutoMergeStatus(cwd: string, number: number): Promise<boolean> {

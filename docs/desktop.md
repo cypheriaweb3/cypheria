@@ -91,6 +91,8 @@ For open GitHub PRs, the CLI path reads the auto-merge state and can enable or d
 
 When the CLI can access the repository, the PR panel selects the current branch's PR from the list and can load its patch. Server checks the displayed PR head SHA before and after fetching that patch, so it rejects a diff if the PR changes during the read.
 
+The PR panel lists exact GitHub revision commits and loads the selected commit's diff. The Server can also read text file content at the selected base and head revisions; it returns unavailable for binary or oversized files. Each revision read checks the displayed PR head before and after the request.
+
 The CLI path can request or remove a user or team reviewer. Reviewer changes and title/body edits compare the displayed head SHA before writing; the panel refreshes PR data after the operation.
 
 The CLI path also reads paginated review threads and replies, posts a comment on a changed line, replies to a thread, and resolves or reopens threads when the account has permission. The author can edit or delete their issue and review comments and edit their review body. It verifies the displayed PR head before reading and writing, checks a thread belongs to that PR before changing it, and checks comment ownership before editing or deleting. If GitHub exceeds the 100-page safety limit, the panel marks the discussion as incomplete.

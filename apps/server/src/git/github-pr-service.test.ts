@@ -392,4 +392,55 @@ else {
     expect(result.threads.map((thread) => thread.id)).toEqual(["T1", "T2"])
     expect(result.threads[0]?.comments.map((comment) => comment.id)).toEqual(["C1", "C2"])
   })
+
+  it("reads exact PR revisions and rejects stale or unsafe file requests", async () => {
+    const cwd = await mkdtemp(join(tmpdir(), "cypheria-gh-revisions-"))
+    created.push(cwd)
+    const binary = join(cwd, "gh")
+    const head = "a".repeat(40)
+    const base = "b".repeat(40)
+    const mergeBase = "c".repeat(40)
+    const pr = {
+      number: 42,
+      title: "Revisions",
+      body: "",
+      url: "https://github.com/org/repo/pull/42",
+      state: "OPEN",
+      isDraft: false,
+      headRefName: "feature",
+      headRefOid: head,
+      baseRefName: "main",
+      updatedAt: "2026-09-23T00:00:00Z",
+      author: { login: "tester" },
+    }
+    await writeFile(
+      binary,
+      `#!/usr/bin/env node
+const args = process.argv.slice(2)
+if (args[1] === "view") process.stdout.write(${JSON.stringify(JSON.stringify(pr))})
+else if (args[1]?.includes("/pulls/42")) process.stdout.write(JSON.stringify({ base: { sha: ${JSON.stringify(base)} }, head: { sha: ${JSON.stringify(head)} } }))
+else if (args.includes("--slurp")) process.stdout.write(JSON.stringify([{ merge_base_commit: { sha: ${JSON.stringify(mergeBase)} }, commits: [{ sha: ${JSON.stringify(head)}, parents: [{ sha: ${JSON.stringify(mergeBase)} }], commit: { message: "First line\\nBody" } }] }]))
+else if (args[1]?.includes("/compare/")) process.stdout.write("diff --git a/file.txt b/file.txt\\n+new\\n")
+else if (args[1]?.includes("/contents/")) process.stdout.write(JSON.stringify({ content: "SGVsbG8=", encoding: "base64", size: 5 }))
+`
+    )
+    await chmod(binary, 0o755)
+    const service = new GitHubPrService(binary)
+    expect(await service.revisionSnapshot(cwd, 42, head)).toEqual({
+      baseRevision: base,
+      headRevision: head,
+      mergeBaseRevision: mergeBase,
+      commits: [{ sha: head, parentSha: mergeBase, title: "First line" }],
+    })
+    expect(await service.revisionDiff(cwd, 42, head, mergeBase, head)).toContain("+new")
+    expect(await service.revisionFile(cwd, 42, head, mergeBase, head, null, "file.txt")).toEqual({
+      status: "success",
+      baseContent: "",
+      headContent: "Hello",
+    })
+    await expect(
+      service.revisionFile(cwd, 42, head, mergeBase, head, "../secret", "file.txt")
+    ).rejects.toThrow("Invalid GitHub revision file path")
+    await expect(service.revisionSnapshot(cwd, 42, "d".repeat(40))).rejects.toThrow("head changed")
+  })
 })

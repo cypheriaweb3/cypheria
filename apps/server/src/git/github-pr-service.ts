@@ -1,3 +1,4 @@
+import { isUtf8 } from "node:buffer"
 import { execFile } from "node:child_process"
 import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
@@ -5,6 +6,10 @@ import { join } from "node:path"
 import { promisify } from "node:util"
 import {
   type GitHubAvailability,
+  type GitHubPrRevisionFile,
+  GitHubPrRevisionFileSchema,
+  type GitHubPrRevisionSnapshot,
+  GitHubPrRevisionSnapshotSchema,
   type GitHubPullRequest,
   type GitHubPullRequestActivity,
   type GitHubPullRequestChecks,
@@ -46,6 +51,10 @@ const activityResponse = z
 const operand = (value: string, name: string): string => {
   if (!value || value.startsWith("-") || /[\0\r\n]/u.test(value))
     throw new Error(`Invalid GitHub ${name}`)
+  return value
+}
+const revision = (value: string): string => {
+  if (!/^[a-f0-9]{40,64}$/iu.test(value)) throw new Error("Invalid GitHub revision")
   return value
 }
 const threadQuery = `query($owner:String!,$repo:String!,$number:Int!,$cursor:String){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100,after:$cursor){nodes{id path line isResolved viewerCanResolve viewerCanUnresolve comments(first:100){nodes{id body createdAt author{login}} pageInfo{hasNextPage endCursor}}} pageInfo{hasNextPage endCursor}}}}}`
@@ -185,6 +194,155 @@ export class GitHubPrService {
     const diff = await this.#run(cwd, ["pr", "diff", String(number), "--patch"])
     await this.#assertCurrentHead(cwd, number, expectedHead, false)
     return diff
+  }
+
+  async revisionSnapshot(
+    cwd: string,
+    number: number,
+    expectedHead: string
+  ): Promise<GitHubPrRevisionSnapshot> {
+    const pr = await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    const { host, owner, repo } = this.#repositoryIdentity(pr.url, number)
+    const details = z
+      .object({
+        base: z.object({ sha: z.string() }),
+        head: z.object({ sha: z.string() }),
+      })
+      .parse(
+        JSON.parse(
+          await this.#run(cwd, [
+            "api",
+            `repos/${owner}/${repo}/pulls/${number}`,
+            "--hostname",
+            host,
+          ])
+        )
+      )
+    const base = revision(details.base.sha)
+    const head = revision(details.head.sha)
+    if (head !== expectedHead) throw new Error("GitHub PR revision changed")
+    const pages = z
+      .array(
+        z.object({
+          merge_base_commit: z.object({ sha: z.string() }),
+          commits: z.array(
+            z.object({
+              sha: z.string(),
+              parents: z.array(z.object({ sha: z.string() })),
+              commit: z.object({ message: z.string() }),
+            })
+          ),
+        })
+      )
+      .parse(
+        JSON.parse(
+          await this.#run(cwd, [
+            "api",
+            `repos/${owner}/${repo}/compare/${base}...${head}?per_page=100`,
+            "--paginate",
+            "--slurp",
+            "--hostname",
+            host,
+          ])
+        )
+      )
+    const first = pages[0]
+    if (!first) throw new Error("GitHub returned no pull request revision snapshot")
+    await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    return GitHubPrRevisionSnapshotSchema.parse({
+      baseRevision: base,
+      headRevision: head,
+      mergeBaseRevision: revision(first.merge_base_commit.sha),
+      commits: pages.flatMap((page) =>
+        page.commits.map((commit) => ({
+          sha: revision(commit.sha),
+          parentSha: commit.parents[0] ? revision(commit.parents[0].sha) : null,
+          title: commit.commit.message.split("\n")[0] ?? "",
+        }))
+      ),
+    })
+  }
+
+  async revisionDiff(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    baseRevision: string,
+    headRevision: string
+  ): Promise<string> {
+    const pr = await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    const { host, owner, repo } = this.#repositoryIdentity(pr.url, number)
+    const base = revision(baseRevision)
+    const head = revision(headRevision)
+    const diff = await this.#run(cwd, [
+      "api",
+      `repos/${owner}/${repo}/compare/${base}...${head}`,
+      "-H",
+      "Accept: application/vnd.github.diff",
+      "--hostname",
+      host,
+    ])
+    await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    return diff
+  }
+
+  async revisionFile(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    baseRevision: string,
+    headRevision: string,
+    basePath: string | null,
+    headPath: string | null
+  ): Promise<GitHubPrRevisionFile> {
+    const pr = await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    const { host, owner, repo } = this.#repositoryIdentity(pr.url, number)
+    const base = revision(baseRevision)
+    const head = revision(headRevision)
+    const read = async (path: string | null, sha: string): Promise<string | null> => {
+      if (path === null) return ""
+      if (
+        !path ||
+        path.startsWith("/") ||
+        path.split("/").includes("..") ||
+        /[\0\r\n]/u.test(path) ||
+        path.length > 1000
+      )
+        throw new Error("Invalid GitHub revision file path")
+      const encoded = path.split("/").map(encodeURIComponent).join("/")
+      const response = z
+        .object({
+          content: z.string(),
+          encoding: z.string(),
+          size: z.number().int().nonnegative(),
+        })
+        .parse(
+          JSON.parse(
+            await this.#run(cwd, [
+              "api",
+              `repos/${owner}/${repo}/contents/${encoded}?ref=${sha}`,
+              "-H",
+              "Accept: application/vnd.github.object+json",
+              "--hostname",
+              host,
+            ])
+          )
+        )
+      if (response.size > 1024 * 1024 || response.encoding !== "base64") return null
+      const bytes = Buffer.from(response.content, "base64")
+      if (bytes.byteLength > 1024 * 1024 || bytes.includes(0) || !isUtf8(bytes)) return null
+      return bytes.toString("utf8")
+    }
+    const [baseContent, headContent] = await Promise.all([
+      read(basePath, base),
+      read(headPath, head),
+    ])
+    await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    return GitHubPrRevisionFileSchema.parse(
+      baseContent === null || headContent === null
+        ? { status: "unavailable" }
+        : { status: "success", baseContent, headContent }
+    )
   }
 
   async autoMergeEnabled(cwd: string, number: number): Promise<boolean> {
