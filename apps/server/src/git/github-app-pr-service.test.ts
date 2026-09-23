@@ -6,7 +6,8 @@ import { GitHubAppPrService } from "./github-app-pr-service.js"
 const fixture = (
   remote = "git@github.com:org/repo.git",
   repoResult: unknown = { repository_full_name: "org/repo" },
-  createResult: unknown = { number: 42, url: "https://github.com/org/repo/pull/42" }
+  createResult: unknown = { number: 42, url: "https://github.com/org/repo/pull/42" },
+  responses: Record<string, unknown> = {}
 ) => {
   const run = vi.fn(async (_root: string, args: string[]) => {
     const stdout =
@@ -25,7 +26,11 @@ const fixture = (
     server: "codex_apps" as const,
   }))
   const call = vi.fn(async (_selection, _threadId, _namespace, action: string) =>
-    action === "get_repo" ? repoResult : createResult
+    Object.hasOwn(responses, action)
+      ? responses[action]
+      : action === "get_repo"
+        ? repoResult
+        : createResult
   )
   const service = new GitHubAppPrService(
     { run } as unknown as GitExecutor,
@@ -39,6 +44,7 @@ describe("GitHubAppPrService", () => {
     const { service, select, call } = fixture()
     expect(await service.availability("/repo", "native-thread")).toEqual({
       available: true,
+      canRead: true,
       repository: "org/repo",
       error: null,
     })
@@ -68,6 +74,60 @@ describe("GitHubAppPrService", () => {
         body: "Details",
         draft: true,
       }
+    )
+  })
+
+  it("lists and reads only PRs in the selected GitHub repository", async () => {
+    const { service, call } = fixture(undefined, undefined, undefined, {
+      search_prs: {
+        issues: [
+          {
+            issue_number: 42,
+            title: "Review change",
+            url: "https://github.com/org/repo/pull/42",
+            updated_at: "2026-09-23T00:00:00Z",
+          },
+        ],
+        total_count: 2,
+      },
+      get_pr_info: {
+        number: 42,
+        title: "Review change",
+        body: "Details",
+        url: "https://github.com/org/repo/pull/42",
+        state: "OPEN",
+        merged: false,
+        draft: true,
+        head: "feature",
+        head_sha: "a".repeat(40),
+        base: "main",
+        updated_at: "2026-09-23T00:00:00Z",
+        user: { login: "tester" },
+      },
+    })
+    expect(await service.list("/repo", "native-thread")).toEqual({
+      items: [
+        {
+          number: 42,
+          title: "Review change",
+          url: "https://github.com/org/repo/pull/42",
+          updatedAt: "2026-09-23T00:00:00Z",
+        },
+      ],
+      truncated: true,
+    })
+    expect(await service.read("/repo", "native-thread", 42)).toMatchObject({
+      number: 42,
+      title: "Review change",
+      headRefName: "feature",
+      headRefOid: "a".repeat(40),
+    })
+    expect(call).toHaveBeenCalledWith(
+      expect.any(Object),
+      "native-thread",
+      "github",
+      "get_pr_info",
+      { pr_number: 42, repository_full_name: "org/repo" }
     )
   })
 
@@ -124,5 +184,25 @@ describe("GitHubAppPrService", () => {
         body: "",
       })
     ).rejects.toThrow("another repository")
+    await expect(
+      fixture(undefined, undefined, undefined, {
+        search_prs: {
+          issues: [{ issue_number: 42, url: "https://github.com/other/repo/pull/42" }],
+        },
+      }).service.list("/repo", "thread")
+    ).rejects.toThrow("another repository")
+    await expect(
+      fixture(undefined, undefined, undefined, {
+        get_pr_info: {
+          number: 99,
+          title: "Wrong PR",
+          state: "OPEN",
+          merged: false,
+          draft: false,
+          head: "feature",
+          base: "main",
+        },
+      }).service.read("/repo", "thread", 42)
+    ).rejects.toThrow("changed")
   })
 })

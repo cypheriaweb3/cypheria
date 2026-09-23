@@ -8,6 +8,53 @@ const repoResponse = z.object({ repository_full_name: z.string().min(3) }).passt
 const createdResponse = z
   .object({ number: z.number().int().positive(), url: z.url() })
   .passthrough()
+const searchResponse = z
+  .object({
+    issues: z.array(
+      z
+        .object({
+          issue_number: z.number().int().positive(),
+          title: z.string().optional(),
+          url: z.url().optional(),
+          updated_at: z.string().nullable().optional(),
+        })
+        .passthrough()
+    ),
+    total_count: z.number().int().nonnegative().optional(),
+  })
+  .passthrough()
+const infoResponse = z
+  .object({
+    number: z.number().int().positive(),
+    title: z.string(),
+    body: z.string().nullable().optional(),
+    url: z.url().nullable().optional(),
+    state: z.enum(["OPEN", "CLOSED", "MERGED", "open", "closed", "merged"]),
+    merged: z.boolean(),
+    draft: z.boolean(),
+    head: z.string(),
+    head_sha: z.string().nullish(),
+    base: z.string(),
+    updated_at: z.string().nullable().optional(),
+    user: z.object({ login: z.string() }).passthrough().nullable().optional(),
+  })
+  .passthrough()
+
+const checkedPrUrl = (repository: string, number: number, value?: string | null): string => {
+  const result = value ?? `https://github.com/${repository}/pull/${number}`
+  const url = new URL(result)
+  if (
+    url.origin !== "https://github.com" ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash ||
+    url.pathname.toLowerCase() !== `/${repository}/pull/${number}`.toLowerCase()
+  ) {
+    throw new Error("The GitHub app returned a pull request from another repository")
+  }
+  return result
+}
 
 const repositoryFromRemote = (remote: string): string => {
   const value = remote.trim()
@@ -43,6 +90,7 @@ const repositoryFromRemote = (remote: string): string => {
 
 export type GitHubAppAvailability = {
   available: boolean
+  canRead: boolean
   repository: string | null
   error: string | null
 }
@@ -57,15 +105,95 @@ export class GitHubAppPrService {
   }
 
   async availability(root: string, nativeThreadId: string): Promise<GitHubAppAvailability> {
-    try {
-      const { repository } = await this.#context(root, nativeThreadId)
-      return { available: true, repository, error: null }
-    } catch (error) {
-      return {
-        available: false,
+    const create = await this.#context(root, nativeThreadId, ["create_pull_request"]).then(
+      ({ repository }) => ({ repository, error: null }),
+      (error) => ({
         repository: null,
         error: error instanceof Error ? error.message : String(error),
-      }
+      })
+    )
+    const read = await this.#context(root, nativeThreadId, ["search_prs", "get_pr_info"]).then(
+      ({ repository }) => ({ repository, error: null }),
+      (error) => ({
+        repository: null,
+        error: error instanceof Error ? error.message : String(error),
+      })
+    )
+    return {
+      available: create.repository !== null,
+      canRead: read.repository !== null,
+      repository: create.repository ?? read.repository,
+      error: create.repository || read.repository ? null : (create.error ?? read.error),
+    }
+  }
+
+  async list(
+    root: string,
+    nativeThreadId: string
+  ): Promise<{
+    items: Array<{ number: number; title: string; url: string; updatedAt: string }>
+    truncated: boolean
+  }> {
+    const { repository, selection } = await this.#context(root, nativeThreadId, ["search_prs"])
+    const page = searchResponse.parse(
+      await this.#apps.call(selection, nativeThreadId, "github", "search_prs", {
+        query: "is:pr archived:false",
+        state: "open",
+        order: "desc",
+        sort: "updated",
+        topn: 20,
+        repository_full_name: repository,
+      })
+    )
+    if (page.issues.length > 20) throw new Error("The GitHub app returned too many pull requests")
+    return {
+      items: page.issues.map((issue) => ({
+        number: issue.issue_number,
+        title: issue.title ?? `Pull request #${issue.issue_number}`,
+        url: checkedPrUrl(repository, issue.issue_number, issue.url),
+        updatedAt: issue.updated_at ?? "",
+      })),
+      truncated: (page.total_count ?? page.issues.length) > page.issues.length,
+    }
+  }
+
+  async read(
+    root: string,
+    nativeThreadId: string,
+    number: number
+  ): Promise<{
+    number: number
+    title: string
+    body: string
+    url: string
+    state: string
+    isDraft: boolean
+    headRefName: string
+    headRefOid: string | null
+    baseRefName: string
+    updatedAt: string
+    author: { login: string } | null
+  }> {
+    const { repository, selection } = await this.#context(root, nativeThreadId, ["get_pr_info"])
+    const info = infoResponse.parse(
+      await this.#apps.call(selection, nativeThreadId, "github", "get_pr_info", {
+        pr_number: number,
+        repository_full_name: repository,
+      })
+    )
+    if (info.number !== number) throw new Error("The selected GitHub pull request changed")
+    return {
+      number: info.number,
+      title: info.title,
+      body: info.body ?? "",
+      url: checkedPrUrl(repository, number, info.url),
+      state: info.merged ? "MERGED" : info.state.toUpperCase(),
+      isDraft: info.draft,
+      headRefName: info.head,
+      headRefOid: info.head_sha ?? null,
+      baseRefName: info.base,
+      updatedAt: info.updated_at ?? "",
+      author: info.user ? { login: info.user.login } : null,
     }
   }
 
@@ -78,7 +206,9 @@ export class GitHubAppPrService {
     if (!input.base || input.base.startsWith("-") || /[\0\r\n]/u.test(input.base)) {
       throw new Error("Invalid GitHub base branch")
     }
-    const { repository, selection } = await this.#context(root, nativeThreadId)
+    const { repository, selection } = await this.#context(root, nativeThreadId, [
+      "create_pull_request",
+    ])
     await this.#verifiedPushedBranch(root, input.head)
     const created = createdResponse.parse(
       await this.#apps.call(selection, nativeThreadId, "github", "create_pull_request", {
@@ -90,32 +220,19 @@ export class GitHubAppPrService {
         draft: input.draft ?? false,
       })
     )
-    const url = new URL(created.url)
-    if (
-      url.origin !== "https://github.com" ||
-      url.username ||
-      url.password ||
-      url.search ||
-      url.hash ||
-      url.pathname.toLowerCase() !== `/${repository}/pull/${created.number}`.toLowerCase()
-    ) {
-      throw new Error("The GitHub app returned a pull request from another repository")
-    }
-    return { number: created.number, url: created.url }
+    return { number: created.number, url: checkedPrUrl(repository, created.number, created.url) }
   }
 
   async #context(
     root: string,
-    nativeThreadId: string
+    nativeThreadId: string,
+    actions: readonly string[]
   ): Promise<{ repository: string; selection: CodexAppSelection }> {
     const remote = (
       await this.#executor.run(root, ["remote", "get-url", "origin"], { readOnly: true })
     ).stdout
     const repository = repositoryFromRemote(remote)
-    const selection = await this.#apps.select(connectorId, "github", [
-      "get_repo",
-      "create_pull_request",
-    ])
+    const selection = await this.#apps.select(connectorId, "github", ["get_repo", ...actions])
     const result = repoResponse.parse(
       await this.#apps.call(selection, nativeThreadId, "github", "get_repo", {
         repository_full_name: repository,

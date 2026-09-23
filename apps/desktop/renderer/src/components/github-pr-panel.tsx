@@ -61,22 +61,32 @@ export function GitHubPrPanel({
     retry: false,
   })
   const list = useQuery({
-    enabled: cliAvailable,
-    queryKey: ["github-pr", cwd, "list"],
-    queryFn: async () => (await ensureCypheriaClient()).git.githubPrList(cwd),
+    enabled: cliAvailable || Boolean(threadId && appAvailability.data?.canRead),
+    queryKey: ["github-pr", cwd, "list", cliAvailable ? "cli" : "app", threadId],
+    queryFn: async () => {
+      const git = (await ensureCypheriaClient()).git
+      if (cliAvailable) return { items: await git.githubPrList(cwd), truncated: false }
+      if (!threadId) throw new Error("A local Codex thread is required")
+      return git.githubAppPrList(cwd, threadId)
+    },
     retry: false,
   })
   const selected = useQuery({
-    enabled: selectedNumber !== null,
-    queryKey: ["github-pr", cwd, "detail", selectedNumber],
+    enabled:
+      selectedNumber !== null &&
+      (cliAvailable || Boolean(threadId && appAvailability.data?.canRead)),
+    queryKey: ["github-pr", cwd, "detail", cliAvailable ? "cli" : "app", threadId, selectedNumber],
     queryFn: async () => {
       if (selectedNumber === null) throw new Error("A pull request number is required")
-      return (await ensureCypheriaClient()).git.githubPrRead(cwd, selectedNumber)
+      const git = (await ensureCypheriaClient()).git
+      if (cliAvailable) return git.githubPrRead(cwd, selectedNumber)
+      if (!threadId) throw new Error("A local Codex thread is required")
+      return git.githubAppPrRead(cwd, threadId, selectedNumber)
     },
     retry: false,
   })
   const checks = useQuery({
-    enabled: selected.data?.state === "OPEN",
+    enabled: cliAvailable && selected.data?.state === "OPEN",
     queryKey: ["github-pr", cwd, "checks", selected.data?.number, selected.data?.headRefOid],
     queryFn: async () => {
       if (!selected.data) throw new Error("A pull request is required")
@@ -137,12 +147,12 @@ export function GitHubPrPanel({
           <AlertDescription>{appAvailability.data.error}</AlertDescription>
         </Alert>
       ) : null}
-      {list.data?.length === 0 ? (
+      {list.data?.items.length === 0 ? (
         <p className="text-xs text-muted-foreground">
           <Trans id="git.github.noPullRequests">No open pull requests</Trans>
         </p>
       ) : null}
-      {list.data?.map((pr) => (
+      {list.data?.items.map((pr) => (
         <Button
           className="flex h-auto w-full justify-start whitespace-normal text-left"
           key={pr.number}
@@ -151,9 +161,17 @@ export function GitHubPrPanel({
           type="button"
           variant={selectedNumber === pr.number ? "secondary" : "ghost"}
         >
-          #{pr.number} {pr.title} · {pr.headRefName} → {pr.baseRefName}
+          #{pr.number} {pr.title}
+          {"headRefName" in pr && "baseRefName" in pr
+            ? ` · ${pr.headRefName} → ${pr.baseRefName}`
+            : null}
         </Button>
       ))}
+      {list.data?.truncated ? (
+        <p className="text-xs text-muted-foreground">
+          <Trans id="git.github.listTruncated">Showing the most recent pull requests</Trans>
+        </p>
+      ) : null}
       {list.isError ? (
         <Alert variant="destructive">
           <AlertDescription>{list.error.message}</AlertDescription>
@@ -168,7 +186,7 @@ export function GitHubPrPanel({
             {selected.data.headRefName} → {selected.data.baseRefName} · {selected.data.state}
           </p>
           <p className="text-xs whitespace-pre-wrap">{selected.data.body}</p>
-          {selected.data.state === "OPEN" ? (
+          {cliAvailable && selected.data.state === "OPEN" ? (
             <div className="space-y-1 border-t pt-2">
               <p className="text-xs font-medium">
                 <Trans id="git.github.checks">Checks</Trans>
@@ -216,7 +234,7 @@ export function GitHubPrPanel({
             >
               <Trans id="git.github.browser">Browser</Trans>
             </Button>
-            {selected.data.state === "OPEN" ? (
+            {cliAvailable && selected.data.state === "OPEN" && selected.data.headRefOid ? (
               <AlertDialog onOpenChange={setMergeOpen} open={mergeOpen}>
                 <AlertDialogTrigger render={<Button disabled={busy} size="sm" variant="outline" />}>
                   <Trans id="git.github.merge">Merge</Trans>
@@ -239,12 +257,14 @@ export function GitHubPrPanel({
                     <AlertDialogAction
                       disabled={busy}
                       onClick={() => {
+                        const head = selected.data.headRefOid
+                        if (!head) return
                         setMergeOpen(false)
                         void mutate(async () => {
                           await (await ensureCypheriaClient()).git.githubPrMerge(
                             cwd,
                             selected.data.number,
-                            selected.data.headRefOid,
+                            head,
                             "merge"
                           )
                         })
@@ -257,7 +277,7 @@ export function GitHubPrPanel({
               </AlertDialog>
             ) : null}
           </div>
-          {selected.data.state === "OPEN" ? (
+          {cliAvailable && selected.data.state === "OPEN" ? (
             <div className="space-y-2 border-t pt-2">
               <Input
                 aria-label={i18n._(
@@ -351,6 +371,7 @@ export function GitHubPrPanel({
                   } else {
                     if (!threadId) throw new Error("A local Codex thread is required")
                     const created = await git.githubAppPrCreate(cwd, threadId, input)
+                    setSelectedNumber(created.number)
                     await openExternal(created.url)
                   }
                   setTitle("")

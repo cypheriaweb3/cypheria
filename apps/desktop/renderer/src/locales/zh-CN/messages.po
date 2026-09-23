@@ -1462,6 +1462,11 @@ msgid "settings.general.contextUsageDescription"
 msgstr "在输入框中显示 token 用量"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.listTruncated"
+msgstr "显示最近的拉取请求"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.workspace.sidePanelTabs"
 msgstr "侧边面板标签页"

@@ -1462,6 +1462,11 @@ msgid "settings.general.contextUsageDescription"
 msgstr "Show token usage in the composer"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.listTruncated"
+msgstr "Showing the most recent pull requests"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.workspace.sidePanelTabs"
 msgstr "Side panel tabs"

@@ -6,6 +6,8 @@ import type {
   GitBranchSearchResult,
   GitClientMessage,
   GitHubAppAvailability,
+  GitHubAppPullRequest,
+  GitHubAppPullRequestSummary,
   GitHubAvailability,
   GitHubPullRequest,
   GitHubPullRequestChecks,
@@ -163,6 +165,16 @@ export class GitService {
             message.payload.cwd,
             message.payload.threadId,
             message.payload
+          )
+          break
+        case "git.github-app-pr-list.request":
+          value = await this.githubAppPrList(message.payload.cwd, message.payload.threadId)
+          break
+        case "git.github-app-pr-read.request":
+          value = await this.githubAppPrRead(
+            message.payload.cwd,
+            message.payload.threadId,
+            message.payload.number
           )
           break
         case "git.github-pr-list.request":
@@ -328,7 +340,12 @@ export class GitService {
 
   async githubAppAvailability(cwd: string, threadId: string): Promise<GitHubAppAvailability> {
     if (!this.#githubApp)
-      return { available: false, repository: null, error: "GitHub app is unavailable" }
+      return {
+        available: false,
+        canRead: false,
+        repository: null,
+        error: "GitHub app is unavailable",
+      }
     const { root, nativeThreadId } = await this.#codexThreadRepository(cwd, threadId)
     return this.#githubApp.availability(root, nativeThreadId)
   }
@@ -341,6 +358,25 @@ export class GitService {
     if (!this.#githubApp) throw new Error("GitHub app is unavailable")
     const { root, nativeThreadId } = await this.#codexThreadRepository(cwd, threadId)
     return this.#githubApp.create(root, nativeThreadId, input)
+  }
+
+  async githubAppPrList(
+    cwd: string,
+    threadId: string
+  ): Promise<{ items: GitHubAppPullRequestSummary[]; truncated: boolean }> {
+    if (!this.#githubApp) throw new Error("GitHub app is unavailable")
+    const { root, nativeThreadId } = await this.#codexThreadRepository(cwd, threadId)
+    return this.#githubApp.list(root, nativeThreadId)
+  }
+
+  async githubAppPrRead(
+    cwd: string,
+    threadId: string,
+    number: number
+  ): Promise<GitHubAppPullRequest> {
+    if (!this.#githubApp) throw new Error("GitHub app is unavailable")
+    const { root, nativeThreadId } = await this.#codexThreadRepository(cwd, threadId)
+    return this.#githubApp.read(root, nativeThreadId, number)
   }
 
   async githubPrList(
