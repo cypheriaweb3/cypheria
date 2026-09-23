@@ -39,6 +39,13 @@ title: 当前路线图
   - 在打包 Electron build 中验证 authenticated connector authorization。
   - 完成 [Integrations](integrations.zh-CN.md) 所述 Cypheria 原生 plugin process、permission 和 Desktop contribution 契约。
 
+## 本地 Git 与拉取请求
+
+- [ ] 在 Server 中完成 ChatGPT Desktop 的本地 Git 操作清单，包括仓库查询、受保护的 Review 修改、轮次差异、工作树归属与迁移、缓存失效以及持久化 Git 设置。
+- [ ] 按操作、仓库访问和实际工具 scope，在 `gh` CLI 与已连接 GitHub App 工具之间完成 GitHub PR 路由；补齐 Desktop PR 流程及失败恢复状态。
+- [ ] 通过已连接 GitLab App 工具完成 GitLab MR 操作，并校验 connector、账户 link、工具 scope、项目和 URL；按需保留浏览器表单创建路径。
+- [ ] 在打包 Electron 中验证 Connect 行为，并在 Cypheria 管理的 Codex home 中验证 GitHub/GitLab 授权和实际 PR/MR 调用。
+
 ## Expo
 
 Expo 当前保持为可构建客户端基础。移动端产品工作会在 Desktop 体验成熟后规划；本文不维护未经批准的功能 checklist。

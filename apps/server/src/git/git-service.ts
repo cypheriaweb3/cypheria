@@ -1,9 +1,16 @@
 import { realpath, stat } from "node:fs/promises"
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path"
-import type { GitClientMessage, GitServerMessage, GitWorktree } from "@cypheria/protocol"
+import type {
+  GitClientMessage,
+  GitHubAvailability,
+  GitHubPullRequest,
+  GitServerMessage,
+  GitWorktree,
+} from "@cypheria/protocol"
 
 import { GitCommandError, GitExecutor } from "./git-executor.js"
 import { GitWorktreeService } from "./git-worktree-service.js"
+import { GitHubPrService } from "./github-pr-service.js"
 
 export type GitRepository = {
   readonly commonGitDir: string
@@ -28,6 +35,7 @@ const validateOperand = (value: string, name: string): string => {
 export class GitService {
   readonly #executor: GitExecutor
   readonly #worktrees: GitWorktreeService
+  readonly #github = new GitHubPrService()
 
   constructor(cacheDir: string, cypheriaHome: string) {
     this.#executor = new GitExecutor(cacheDir)
@@ -100,6 +108,19 @@ export class GitService {
         case "git.worktree-restore.request":
           value = await this.restoreWorktree(message.payload.cwd, message.payload.path)
           break
+        case "git.github-availability.request":
+          value = await this.githubAvailability(message.payload.cwd)
+          break
+        case "git.github-pr-list.request":
+          value = await this.githubPrList(
+            message.payload.cwd,
+            message.payload.state,
+            message.payload.limit
+          )
+          break
+        case "git.github-pr-read.request":
+          value = await this.githubPrRead(message.payload.cwd, message.payload.number)
+          break
       }
       send({ type, requestId: message.requestId, payload: { ok: true, value } } as GitServerMessage)
     } catch (error) {
@@ -150,6 +171,22 @@ export class GitService {
 
   async restoreWorktree(cwd: string, path: string): Promise<GitWorktree> {
     return this.#worktrees.restore(await this.discover(cwd), path)
+  }
+
+  async githubAvailability(cwd: string): Promise<GitHubAvailability> {
+    return this.#github.availability((await this.discover(cwd)).root)
+  }
+
+  async githubPrList(
+    cwd: string,
+    state?: "open" | "closed" | "merged" | "all",
+    limit?: number
+  ): Promise<GitHubPullRequest[]> {
+    return this.#github.list((await this.discover(cwd)).root, state, limit)
+  }
+
+  async githubPrRead(cwd: string, number: number): Promise<GitHubPullRequest> {
+    return this.#github.read((await this.discover(cwd)).root, number)
   }
 
   async init(cwd: string): Promise<GitRepository> {

@@ -44,6 +44,30 @@ export const GitWorktreeSchema = z
     active: z.boolean(),
   })
   .strict()
+export const GitHubAvailabilitySchema = z
+  .object({
+    installed: z.boolean(),
+    authenticated: z.boolean(),
+    account: z.string().nullable(),
+    repository: z.string().nullable(),
+    error: z.string().nullable(),
+  })
+  .strict()
+export const GitHubPullRequestSchema = z
+  .object({
+    number: z.number().int().positive(),
+    title: z.string(),
+    body: z.string(),
+    url: z.url(),
+    state: z.string(),
+    isDraft: z.boolean(),
+    headRefName: z.string(),
+    headRefOid: z.string(),
+    baseRefName: z.string(),
+    updatedAt: z.string(),
+    author: z.object({ login: z.string() }).nullable(),
+  })
+  .strict()
 
 export const GitDiscoverRequestSchema = input(
   "git.discover.request",
@@ -114,6 +138,24 @@ export const GitWorktreeRestoreRequestSchema = input(
   "git.worktree-restore.request",
   z.object({ cwd: path, path }).strict()
 )
+export const GitHubAvailabilityRequestSchema = input(
+  "git.github-availability.request",
+  z.object({ cwd: path }).strict()
+)
+export const GitHubPrListRequestSchema = input(
+  "git.github-pr-list.request",
+  z
+    .object({
+      cwd: path,
+      state: z.enum(["open", "closed", "merged", "all"]).optional(),
+      limit: z.number().int().min(1).max(100).optional(),
+    })
+    .strict()
+)
+export const GitHubPrReadRequestSchema = input(
+  "git.github-pr-read.request",
+  z.object({ cwd: path, number: z.number().int().positive() }).strict()
+)
 
 const success = z.object({ succeeded: z.literal(true) }).strict()
 export const GitDiscoverResponseSchema = output("git.discover.response", GitRepositorySchema)
@@ -152,6 +194,18 @@ export const GitWorktreeRestoreResponseSchema = output(
   "git.worktree-restore.response",
   GitWorktreeSchema
 )
+export const GitHubAvailabilityResponseSchema = output(
+  "git.github-availability.response",
+  GitHubAvailabilitySchema
+)
+export const GitHubPrListResponseSchema = output(
+  "git.github-pr-list.response",
+  z.array(GitHubPullRequestSchema)
+)
+export const GitHubPrReadResponseSchema = output(
+  "git.github-pr-read.response",
+  GitHubPullRequestSchema
+)
 
 export const GIT_CLIENT_SCHEMAS = [
   GitDiscoverRequestSchema,
@@ -169,6 +223,9 @@ export const GIT_CLIENT_SCHEMAS = [
   GitWorktreeCreateRequestSchema,
   GitWorktreeDeleteRequestSchema,
   GitWorktreeRestoreRequestSchema,
+  GitHubAvailabilityRequestSchema,
+  GitHubPrListRequestSchema,
+  GitHubPrReadRequestSchema,
 ] as const
 export const GIT_SERVER_SCHEMAS = [
   GitDiscoverResponseSchema,
@@ -186,6 +243,9 @@ export const GIT_SERVER_SCHEMAS = [
   GitWorktreeCreateResponseSchema,
   GitWorktreeDeleteResponseSchema,
   GitWorktreeRestoreResponseSchema,
+  GitHubAvailabilityResponseSchema,
+  GitHubPrListResponseSchema,
+  GitHubPrReadResponseSchema,
 ] as const
 export const GIT_RESPONSE_TYPES = GIT_SERVER_SCHEMAS.map((schema) => schema.shape.type.value)
 export const GitClientMessageSchema = z.discriminatedUnion("type", GIT_CLIENT_SCHEMAS)
@@ -195,3 +255,5 @@ export type GitRepository = z.infer<typeof GitRepositorySchema>
 export type GitStatus = z.infer<typeof GitStatusSchema>
 export type GitBranch = z.infer<typeof GitBranchSchema>
 export type GitWorktree = z.infer<typeof GitWorktreeSchema>
+export type GitHubAvailability = z.infer<typeof GitHubAvailabilitySchema>
+export type GitHubPullRequest = z.infer<typeof GitHubPullRequestSchema>
