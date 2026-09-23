@@ -75,6 +75,53 @@ describe("GitService", () => {
     expect((await service.branchContext(root)).upstream).toBe("origin/feature/search")
   }, 20_000)
 
+  it("reviews committed branch changes from the merge base and rejects stale diffs", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await mkdir(join(root, "removed"))
+    await writeFile(join(root, "removed", "file.txt"), "old\n")
+    await service.stage(root, ["removed/file.txt"])
+    await service.commit(root, "Base")
+    await run("git", ["-C", root, "branch", "-M", "main"])
+    await service.createBranch(root, "feature")
+    await service.checkout(root, "feature")
+    await rm(join(root, "removed"), { recursive: true })
+    await service.stage(root, ["removed"])
+    await writeFile(join(root, "added.txt"), "new\n")
+    await service.stage(root, ["added.txt"])
+    const head = await service.commit(root, "Feature")
+    const review = await service.branchReview(root, "main")
+    expect(review.head).toBe(head)
+    expect(review.entries).toEqual([
+      { code: "A", path: "added.txt" },
+      { code: "D", path: "removed/file.txt" },
+    ])
+    expect(
+      await service.branchReviewDiff(root, {
+        base: review.base,
+        expectedHead: review.head,
+        path: "removed/file.txt",
+      })
+    ).toContain("-old")
+    await expect(
+      service.branchReviewDiff(root, {
+        base: review.base,
+        expectedHead: review.head,
+        path: "../other",
+      })
+    ).rejects.toThrow("outside the repository")
+    await writeFile(join(root, "added.txt"), "newer\n")
+    await service.stage(root, ["added.txt"])
+    await service.commit(root, "Advance")
+    await expect(
+      service.branchReviewDiff(root, {
+        base: review.base,
+        expectedHead: review.head,
+        path: "added.txt",
+      })
+    ).rejects.toThrow("Branch changed")
+  }, 20_000)
+
   it("initializes a directory and creates and checks out branches with stash recovery", async () => {
     const root = await mkdtemp(join(tmpdir(), "cypheria-git-init-"))
     created.push(root)

@@ -18,7 +18,7 @@ import { type ReactNode, useId, useState } from "react"
 import { ensureCypheriaClient } from "../cypheria-client.js"
 import { GitLabMrPanel } from "./gitlab-mr-panel.js"
 
-type ReviewSource = "unstaged" | "staged"
+type ReviewSource = "unstaged" | "staged" | "branch"
 const branchValue = (branch: { name: string; scope: "local" | "remote" }) =>
   branch.scope === "remote" ? `refs/remotes/${branch.name}` : branch.name
 
@@ -74,21 +74,60 @@ export function GitReviewPanel({
     refetchInterval: 5_000,
     retry: false,
   })
+  const branchContext = useQuery({
+    enabled: Boolean(status.data?.head),
+    queryKey: ["git", cwd, "branch-context"],
+    queryFn: async () => (await ensureCypheriaClient()).git.branchContext(cwd),
+    refetchInterval: 5_000,
+    retry: false,
+  })
+  const branchReview = useQuery({
+    enabled: source === "branch" && Boolean(status.data?.head && branchContext.data?.defaultBranch),
+    queryKey: ["git", cwd, "branch-review", branchContext.data?.defaultBranch, status.data?.head],
+    queryFn: async () => {
+      const base = branchContext.data?.defaultBranch
+      if (!base) throw new Error("Base branch is unavailable")
+      return (await ensureCypheriaClient()).git.branchReview(cwd, base)
+    },
+    refetchInterval: 5_000,
+    retry: false,
+  })
   const entries =
-    status.data?.entries.filter(({ code }) =>
-      source === "staged" ? code[0] !== " " && code[0] !== "?" : code[1] !== " "
-    ) ?? []
+    source === "branch"
+      ? (branchReview.data?.entries ?? [])
+      : (status.data?.entries.filter(({ code }) =>
+          source === "staged" ? code[0] !== " " && code[0] !== "?" : code[1] !== " "
+        ) ?? [])
   const activePath = entries.some((entry) => entry.path === selectedPath)
     ? selectedPath
     : entries[0]?.path
   const diff = useQuery({
-    enabled: Boolean(status.data && activePath),
-    queryKey: ["git", cwd, "diff", source, activePath, status.data?.head, status.data?.entries],
-    queryFn: async () =>
-      (await ensureCypheriaClient()).git.diff(cwd, {
+    enabled: Boolean(status.data && activePath && (source !== "branch" || branchReview.data)),
+    queryKey: [
+      "git",
+      cwd,
+      "diff",
+      source,
+      activePath,
+      status.data?.head,
+      status.data?.entries,
+      branchReview.data?.base,
+      branchReview.data?.head,
+    ],
+    queryFn: async () => {
+      const git = (await ensureCypheriaClient()).git
+      if (source === "branch" && branchReview.data && activePath) {
+        return git.branchReviewDiff(cwd, {
+          base: branchReview.data.base,
+          expectedHead: branchReview.data.head,
+          path: activePath,
+        })
+      }
+      return git.diff(cwd, {
         staged: source === "staged",
         paths: activePath ? [activePath] : undefined,
-      }),
+      })
+    },
     refetchInterval: 3_000,
     retry: false,
   })
@@ -153,6 +192,16 @@ export function GitReviewPanel({
           variant={source === "staged" ? "secondary" : "ghost"}
         >
           <Trans id="git.review.staged">Staged</Trans>
+        </Button>
+        <Button
+          disabled={!status.data?.head || !branchContext.data?.defaultBranch}
+          onClick={() => setSource("branch")}
+          size="sm"
+          title={branchContext.data?.defaultBranch ?? undefined}
+          type="button"
+          variant={source === "branch" ? "secondary" : "ghost"}
+        >
+          <Trans id="git.review.branchChanges">Branch</Trans>
         </Button>
         <span className="ml-auto truncate text-xs text-muted-foreground">
           {status.data?.branch ?? "HEAD"}
@@ -267,7 +316,15 @@ export function GitReviewPanel({
           <Trans id="git.review.loading">Loading repository changes…</Trans>
         </p>
       ) : null}
-      {status.data && files.length === 0 ? (
+      {source === "branch" && branchReview.isError ? (
+        <p className="p-3 text-sm text-destructive">{branchReview.error.message}</p>
+      ) : null}
+      {source === "branch" && branchReview.isPending ? (
+        <p className="p-3 text-sm text-muted-foreground">
+          <Trans id="git.review.branchLoading">Loading branch changes…</Trans>
+        </p>
+      ) : null}
+      {status.data && files.length === 0 && (source !== "branch" || branchReview.isSuccess) ? (
         <p className="p-3 text-sm text-muted-foreground">
           <Trans id="git.review.empty">No changes in this source</Trans>
         </p>
@@ -278,14 +335,18 @@ export function GitReviewPanel({
       {activePath ? (
         <ChatReviewDiffHost>
           <pre className="overflow-x-auto p-3 text-xs whitespace-pre-wrap">
-            {diff.data ||
-              (diff.isPending
-                ? i18n._(msg({ id: "git.review.diffLoading", message: "Loading diff…" }))
-                : i18n._(msg({ id: "git.review.noTextDiff", message: "No text diff available" })))}
+            {diff.isError
+              ? diff.error.message
+              : diff.data ||
+                (diff.isPending
+                  ? i18n._(msg({ id: "git.review.diffLoading", message: "Loading diff…" }))
+                  : i18n._(
+                      msg({ id: "git.review.noTextDiff", message: "No text diff available" })
+                    ))}
           </pre>
         </ChatReviewDiffHost>
       ) : null}
-      {activePath ? (
+      {activePath && source !== "branch" ? (
         <div className="flex gap-2 border-t p-2">
           {source === "unstaged" ? (
             <Button

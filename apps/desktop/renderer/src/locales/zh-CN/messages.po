@@ -160,6 +160,11 @@ msgstr "底部面板控件"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
+msgid "git.review.branchChanges"
+msgstr "分支"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
 msgid "git.review.branch"
 msgstr "分支"
 
@@ -651,6 +656,11 @@ msgstr "最近更新"
 #: renderer/src/i18n.test.ts
 msgid "plugins.detail.loading"
 msgstr "正在加载 {pluginName} 插件详情"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.branchLoading"
+msgstr "正在加载分支变更…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx

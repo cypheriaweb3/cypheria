@@ -42,6 +42,13 @@ export const GitBranchSchema = z
 export const GitBranchSearchResultSchema = GitBranchSchema.extend({
   scope: z.enum(["local", "remote"]),
 }).strict()
+export const GitBranchReviewSchema = z
+  .object({
+    base: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    head: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    entries: z.array(z.object({ code: z.enum(["A", "M", "D", "T", "U"]), path }).strict()),
+  })
+  .strict()
 export const GitBranchContextSchema = z
   .object({
     current: z.string().nullable(),
@@ -155,6 +162,21 @@ export const GitDiffRequestSchema = input(
       staged: z.boolean().optional(),
       base: z.string().optional(),
       paths: paths.optional(),
+    })
+    .strict()
+)
+export const GitBranchReviewRequestSchema = input(
+  "git.branch-review.request",
+  z.object({ cwd: path, base: z.string().min(1) }).strict()
+)
+export const GitBranchReviewDiffRequestSchema = input(
+  "git.branch-review-diff.request",
+  z
+    .object({
+      cwd: path,
+      base: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      path,
     })
     .strict()
 )
@@ -334,6 +356,14 @@ export const GitDiffResponseSchema = output(
   "git.diff.response",
   z.object({ diff: z.string() }).strict()
 )
+export const GitBranchReviewResponseSchema = output(
+  "git.branch-review.response",
+  GitBranchReviewSchema
+)
+export const GitBranchReviewDiffResponseSchema = output(
+  "git.branch-review-diff.response",
+  z.object({ diff: z.string() }).strict()
+)
 export const GitStageResponseSchema = output("git.stage.response", success)
 export const GitUnstageResponseSchema = output("git.unstage.response", success)
 export const GitCommitResponseSchema = output(
@@ -417,6 +447,8 @@ export const GIT_CLIENT_SCHEMAS = [
   GitBranchCreateRequestSchema,
   GitCheckoutRequestSchema,
   GitDiffRequestSchema,
+  GitBranchReviewRequestSchema,
+  GitBranchReviewDiffRequestSchema,
   GitStageRequestSchema,
   GitUnstageRequestSchema,
   GitCommitRequestSchema,
@@ -449,6 +481,8 @@ export const GIT_SERVER_SCHEMAS = [
   GitBranchCreateResponseSchema,
   GitCheckoutResponseSchema,
   GitDiffResponseSchema,
+  GitBranchReviewResponseSchema,
+  GitBranchReviewDiffResponseSchema,
   GitStageResponseSchema,
   GitUnstageResponseSchema,
   GitCommitResponseSchema,
@@ -479,6 +513,7 @@ export type GitOrigin = z.infer<typeof GitOriginSchema>
 export type GitStatus = z.infer<typeof GitStatusSchema>
 export type GitBranch = z.infer<typeof GitBranchSchema>
 export type GitBranchSearchResult = z.infer<typeof GitBranchSearchResultSchema>
+export type GitBranchReview = z.infer<typeof GitBranchReviewSchema>
 export type GitBranchContext = z.infer<typeof GitBranchContextSchema>
 export type GitWorktree = z.infer<typeof GitWorktreeSchema>
 export type GitHubAvailability = z.infer<typeof GitHubAvailabilitySchema>

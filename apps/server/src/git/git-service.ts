@@ -2,6 +2,7 @@ import { realpath, stat } from "node:fs/promises"
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path"
 import type {
   GitBranchContext,
+  GitBranchReview,
   GitBranchSearchResult,
   GitClientMessage,
   GitHubAvailability,
@@ -34,6 +35,7 @@ export type GitStatus = {
 }
 
 const trimmed = (value: string): string => value.trimEnd()
+class GitStaleSnapshotError extends Error {}
 const validateOperand = (value: string, name: string): string => {
   if (!value || value.startsWith("-") || value.includes("\0") || value.includes("\n")) {
     throw new Error(`Invalid Git ${name}`)
@@ -112,6 +114,12 @@ export class GitService {
           break
         case "git.diff.request":
           value = { diff: await this.diff(message.payload.cwd, message.payload) }
+          break
+        case "git.branch-review.request":
+          value = await this.branchReview(message.payload.cwd, message.payload.base)
+          break
+        case "git.branch-review-diff.request":
+          value = { diff: await this.branchReviewDiff(message.payload.cwd, message.payload) }
           break
         case "git.stage.request":
           await this.stage(message.payload.cwd, message.payload.paths)
@@ -220,7 +228,12 @@ export class GitService {
         payload: {
           ok: false,
           error: {
-            code: error instanceof GitCommandError ? "GIT_COMMAND_FAILED" : "GIT_INVALID_REQUEST",
+            code:
+              error instanceof GitStaleSnapshotError
+                ? "GIT_STALE_SNAPSHOT"
+                : error instanceof GitCommandError
+                  ? "GIT_COMMAND_FAILED"
+                  : "GIT_INVALID_REQUEST",
             message: error instanceof Error ? error.message : String(error),
           },
         },
@@ -649,6 +662,100 @@ export class GitService {
     return (await this.#executor.run(repository.root, args, { readOnly: true })).stdout
   }
 
+  async branchReview(cwd: string, base: string): Promise<GitBranchReview> {
+    const repository = await this.discover(cwd)
+    const reference = validateOperand(base, "base branch")
+    const head = trimmed(
+      (
+        await this.#executor.run(repository.root, ["rev-parse", "--verify", "HEAD"], {
+          readOnly: true,
+        })
+      ).stdout
+    )
+    const baseCommit = trimmed(
+      (
+        await this.#executor.run(
+          repository.root,
+          ["rev-parse", "--verify", "--end-of-options", `${reference}^{commit}`],
+          { readOnly: true }
+        )
+      ).stdout
+    )
+    const mergeBase = trimmed(
+      (
+        await this.#executor.run(repository.root, ["merge-base", head, baseCommit], {
+          readOnly: true,
+        })
+      ).stdout
+    )
+    const { stdout } = await this.#executor.run(
+      repository.root,
+      [
+        "diff",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--no-renames",
+        "--name-status",
+        "-z",
+        mergeBase,
+        head,
+      ],
+      { readOnly: true }
+    )
+    const records = stdout.split("\0")
+    const entries: GitBranchReview["entries"][number][] = []
+    for (let index = 0; index < records.length - 1; index += 2) {
+      const code = records[index]
+      const path = records[index + 1]
+      if (!code || !path) continue
+      if (code !== "A" && code !== "M" && code !== "D" && code !== "T" && code !== "U") {
+        throw new Error(`Unexpected Git branch diff status: ${code}`)
+      }
+      entries.push({ code, path })
+    }
+    return { base: mergeBase, head, entries }
+  }
+
+  async branchReviewDiff(
+    cwd: string,
+    input: { base: string; expectedHead: string; path: string }
+  ): Promise<string> {
+    const repository = await this.discover(cwd)
+    if (
+      !/^[a-f0-9]{40,64}$/iu.test(input.base) ||
+      !/^[a-f0-9]{40,64}$/iu.test(input.expectedHead)
+    ) {
+      throw new Error("Invalid Git review snapshot")
+    }
+    const currentHead = trimmed(
+      (
+        await this.#executor.run(repository.root, ["rev-parse", "--verify", "HEAD"], {
+          readOnly: true,
+        })
+      ).stdout
+    )
+    if (currentHead !== input.expectedHead) {
+      throw new GitStaleSnapshotError("Branch changed; refresh the review")
+    }
+    const path = this.#historicalPath(repository.root, input.path)
+    return (
+      await this.#executor.run(
+        repository.root,
+        [
+          "diff",
+          "--no-ext-diff",
+          "--no-textconv",
+          "--no-color",
+          input.base,
+          input.expectedHead,
+          "--",
+          path,
+        ],
+        { readOnly: true }
+      )
+    ).stdout
+  }
+
   async stage(cwd: string, paths: readonly string[]): Promise<void> {
     const repository = await this.discover(cwd)
     await this.#executor.run(repository.root, [
@@ -772,5 +879,19 @@ export class GitService {
         return relativePath || "."
       })
     )
+  }
+
+  #historicalPath(root: string, path: string): string {
+    if (!path || path.includes("\0")) throw new Error("Invalid Git path")
+    const relativePath = relative(root, resolve(root, path))
+    if (
+      relativePath === ".." ||
+      relativePath.startsWith(`..${sep}`) ||
+      isAbsolute(relativePath) ||
+      relativePath === ""
+    ) {
+      throw new Error("Git path is outside the repository")
+    }
+    return relativePath
   }
 }

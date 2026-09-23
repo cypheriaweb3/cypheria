@@ -1,6 +1,7 @@
 import type {
   GitBranch,
   GitBranchContext,
+  GitBranchReview,
   GitBranchSearchResult,
   GitHubAvailability,
   GitHubPullRequest,
@@ -51,6 +52,12 @@ export interface GitActions {
   diff(
     cwd: string,
     input?: { staged?: boolean; base?: string; paths?: string[] },
+    options?: RequestOptions
+  ): Promise<string>
+  branchReview(cwd: string, base: string, options?: RequestOptions): Promise<GitBranchReview>
+  branchReviewDiff(
+    cwd: string,
+    input: { base: string; expectedHead: string; path: string },
     options?: RequestOptions
   ): Promise<string>
   stage(cwd: string, paths: string[], options?: RequestOptions): Promise<void>
@@ -159,6 +166,12 @@ export const createGitActions = (client: ServerClient): GitActions => ({
   diff: async (cwd, input = {}, options) =>
     unwrap<{ diff: string }>(
       await client.requestGit("git.diff.request", { cwd, ...input }, options)
+    ).diff,
+  branchReview: async (cwd, base, options) =>
+    unwrap(await client.requestGit("git.branch-review.request", { cwd, base }, options)),
+  branchReviewDiff: async (cwd, input, options) =>
+    unwrap<{ diff: string }>(
+      await client.requestGit("git.branch-review-diff.request", { cwd, ...input }, options)
     ).diff,
   stage: async (cwd, paths, options) => {
     unwrap(await client.requestGit("git.stage.request", { cwd, paths }, options))

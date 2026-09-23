@@ -160,6 +160,11 @@ msgstr "Bottom panel control"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
+msgid "git.review.branchChanges"
+msgstr "Branch"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
 msgid "git.review.branch"
 msgstr "Branch"
 
@@ -651,6 +656,11 @@ msgstr "Last updated"
 #: renderer/src/i18n.test.ts
 msgid "plugins.detail.loading"
 msgstr "Loading {pluginName} plugin details"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.branchLoading"
+msgstr "Loading branch changes…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-workspace.tsx
