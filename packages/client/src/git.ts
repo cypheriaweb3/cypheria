@@ -79,11 +79,12 @@ export interface GitActions {
       source: "staged" | "unstaged"
       path: string
       revision: string
-      action: "stage" | "unstage"
+      action: "stage" | "unstage" | "revert"
       hunkIndex?: number
     },
     options?: RequestOptions
-  ): Promise<void>
+  ): Promise<string | null>
+  undoReviewRevert(cwd: string, undoId: string, options?: RequestOptions): Promise<void>
   stage(cwd: string, paths: string[], options?: RequestOptions): Promise<void>
   unstage(cwd: string, paths: string[], options?: RequestOptions): Promise<void>
   commit(cwd: string, message: string, options?: RequestOptions): Promise<string>
@@ -265,8 +266,12 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     ).diff,
   reviewFile: async (cwd, source, path, options) =>
     unwrap(await client.requestGit("git.review-file.request", { cwd, source, path }, options)),
-  applyReviewSection: async (cwd, input, options) => {
-    unwrap(await client.requestGit("git.apply-review-section.request", { cwd, ...input }, options))
+  applyReviewSection: async (cwd, input, options) =>
+    unwrap<{ undoId: string | null }>(
+      await client.requestGit("git.apply-review-section.request", { cwd, ...input }, options)
+    ).undoId,
+  undoReviewRevert: async (cwd, undoId, options) => {
+    unwrap(await client.requestGit("git.undo-review-revert.request", { cwd, undoId }, options))
   },
   stage: async (cwd, paths, options) => {
     unwrap(await client.requestGit("git.stage.request", { cwd, paths }, options))

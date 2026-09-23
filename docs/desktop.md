@@ -74,7 +74,7 @@ For a conversation with a local working directory, the Codex Review panel reads 
 
 The unstaged Review source also renders text diffs for untracked regular files before they are staged.
 
-Staged and unstaged Review files have a Server-issued revision. Whole-file and individual text-section stage or unstage actions refresh and compare that revision before changing the index; stale actions fail and refresh the Review. New and deleted files remain whole-file actions.
+Staged and unstaged Review files have a Server-issued revision. Whole-file and individual text-section stage or unstage actions refresh and compare that revision before changing the index; stale actions fail and refresh the Review. The unstaged source also supports confirmed whole-file and text-section revert. Before reverting, Server saves the original file or symlink under `CYPHERIA_HOME/git-review-undo`; the panel offers an immediate Undo action. Undo rejects a file changed after revert. New, deleted, and binary files remain whole-file actions.
 
 The GitHub CLI pull request list supports server-side query search and open, closed, merged, or all state filters.
 

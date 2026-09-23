@@ -27,6 +27,7 @@ import type { AgentManager } from "../agent/agent-manager.js"
 import { CodexAppToolClient } from "../codex-app-tool-client.js"
 import type { ThreadManager } from "../thread/thread-manager.js"
 import { GitCommandError, GitExecutor } from "./git-executor.js"
+import { GitReviewUndoStore } from "./git-review-undo-store.js"
 import { GitWorktreeService } from "./git-worktree-service.js"
 import { GitHubAppPrService } from "./github-app-pr-service.js"
 import { GitHubPrService } from "./github-pr-service.js"
@@ -74,6 +75,7 @@ const validateOperand = (value: string, name: string): string => {
 export class GitService {
   readonly #executor: GitExecutor
   readonly #worktrees: GitWorktreeService
+  readonly #reviewUndo: GitReviewUndoStore
   readonly #github = new GitHubPrService()
   readonly #githubApp: GitHubAppPrService | null
   readonly #gitlab: GitLabMrService | null
@@ -86,6 +88,7 @@ export class GitService {
   ) {
     this.#executor = new GitExecutor(cacheDir)
     this.#worktrees = new GitWorktreeService(this.#executor, cypheriaHome)
+    this.#reviewUndo = new GitReviewUndoStore(cypheriaHome)
     const apps = connectors ? new CodexAppToolClient(connectors.agents) : null
     this.#gitlab = apps ? new GitLabMrService(this.#executor, apps) : null
     this.#githubApp = apps ? new GitHubAppPrService(this.#executor, apps) : null
@@ -158,7 +161,10 @@ export class GitService {
           )
           break
         case "git.apply-review-section.request":
-          await this.applyReviewSection(message.payload.cwd, message.payload)
+          value = { undoId: await this.applyReviewSection(message.payload.cwd, message.payload) }
+          break
+        case "git.undo-review-revert.request":
+          await this.undoReviewRevert(message.payload.cwd, message.payload.undoId)
           value = { succeeded: true }
           break
         case "git.stage.request":
@@ -1122,13 +1128,14 @@ export class GitService {
       source: "staged" | "unstaged"
       path: string
       revision: string
-      action: "stage" | "unstage"
+      action: "stage" | "unstage" | "revert"
       hunkIndex?: number
     }
-  ): Promise<void> {
+  ): Promise<string | null> {
     if (
       (input.action === "stage" && input.source !== "unstaged") ||
-      (input.action === "unstage" && input.source !== "staged")
+      (input.action === "unstage" && input.source !== "staged") ||
+      (input.action === "revert" && input.source !== "unstaged")
     ) {
       throw new Error("Invalid Git review action for source")
     }
@@ -1137,21 +1144,90 @@ export class GitService {
       throw new GitStaleSnapshotError("File changed; refresh the review")
     }
     if (!snapshot.diff) throw new Error("There are no changes in this file")
+    if (input.action === "revert") {
+      const repository = await this.discover(cwd)
+      const absolute = resolve(repository.root, snapshot.path)
+      const undoId = await this.#reviewUndo.capture(
+        repository.commonGitDir,
+        absolute,
+        snapshot.revision
+      )
+      let applied = false
+      try {
+        if (
+          (await this.reviewFile(cwd, "unstaged", snapshot.path)).revision !== snapshot.revision
+        ) {
+          throw new GitStaleSnapshotError("File changed; refresh the review")
+        }
+        if (input.hunkIndex === undefined) {
+          const untracked = (await this.status(cwd)).entries.some(
+            (entry) => entry.code === "??" && entry.path === snapshot.path
+          )
+          if (untracked) await rm(absolute)
+          else
+            await this.#executor.run(repository.root, [
+              "restore",
+              "--worktree",
+              "--",
+              snapshot.path,
+            ])
+        } else {
+          const hunk = reviewHunks(snapshot.diff)[input.hunkIndex]
+          if (!hunk) throw new Error("This Git review section cannot be applied")
+          await this.#applyReviewPatch(repository.root, hunk.patch, false, true)
+        }
+        applied = true
+        const after = await this.reviewFile(cwd, "unstaged", snapshot.path)
+        await this.#reviewUndo.complete(undoId, after.revision)
+        return undoId
+      } catch (error) {
+        if (!applied) await this.#reviewUndo.discard(undoId)
+        else throw new Error(`Revert applied; recovery ID: ${undoId}`, { cause: error })
+        throw error
+      }
+    }
     if (input.hunkIndex === undefined) {
       if (input.action === "stage") await this.stage(cwd, [snapshot.path])
       else await this.unstage(cwd, [snapshot.path])
-      return
+      return null
     }
     const hunk = reviewHunks(snapshot.diff)[input.hunkIndex]
     if (!hunk) throw new Error("This Git review section cannot be applied")
+    await this.#applyReviewPatch(
+      (await this.discover(cwd)).root,
+      hunk.patch,
+      true,
+      input.action === "unstage"
+    )
+    return null
+  }
+
+  async undoReviewRevert(cwd: string, undoId: string): Promise<void> {
+    const repository = await this.discover(cwd)
+    const record = await this.#reviewUndo.read(undoId)
+    if (record.commonGitDir !== repository.commonGitDir) {
+      throw new Error("Git review undo belongs to another repository")
+    }
+    const path = relative(repository.root, record.path)
+    await this.#paths(repository.root, [path])
+    const current = await this.reviewFile(repository.root, "unstaged", path)
+    await this.#reviewUndo.restore(undoId, repository.commonGitDir, current.revision)
+  }
+
+  async #applyReviewPatch(
+    root: string,
+    patch: string,
+    cached: boolean,
+    reverse: boolean
+  ): Promise<void> {
     const directory = await mkdtemp(join(tmpdir(), "cypheria-git-review-"))
     const patchFile = join(directory, "section.patch")
     try {
-      await writeFile(patchFile, hunk.patch, { mode: 0o600 })
-      await this.#executor.run((await this.discover(cwd)).root, [
+      await writeFile(patchFile, patch, { mode: 0o600 })
+      await this.#executor.run(root, [
         "apply",
-        "--cached",
-        ...(input.action === "unstage" ? ["--reverse"] : []),
+        ...(cached ? ["--cached"] : []),
+        ...(reverse ? ["--reverse"] : []),
         "--",
         patchFile,
       ])

@@ -74,7 +74,7 @@ AgentChatWorkspace
 
 Review 的未暂存来源也会在文件暂存前展示未跟踪普通文件的文本差异。
 
-Review 的已暂存和未暂存文件由 Server 提供 revision。整文件或单个文本段落的暂存、取消暂存操作会在修改 index 前重新核对 revision；过期操作会失败并刷新 Review。新增和删除文件仍以整文件操作。
+Review 的已暂存和未暂存文件由 Server 提供 revision。整文件或单个文本段落的暂存、取消暂存操作会在修改 index 前重新核对 revision；过期操作会失败并刷新 Review。未暂存来源还支持经确认后撤销整文件或单个文本段落的更改。撤销前 Server 将原文件或符号链接保存在 `CYPHERIA_HOME/git-review-undo`，面板提供即时恢复操作；撤销后文件再次变化时会拒绝恢复。新增、删除及二进制文件仍以整文件操作。
 
 GitHub CLI 拉取请求列表支持服务端关键词搜索，以及打开、已关闭、已合并或全部状态筛选。
 

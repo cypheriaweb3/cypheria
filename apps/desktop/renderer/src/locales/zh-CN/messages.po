@@ -29,6 +29,11 @@ msgid "settings.general.cmdIfMultiline"
 msgstr "多行输入时用 ⌘ Enter 发送"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.revertDescription"
+msgstr "撤销前会保存可恢复的副本。"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.interaction.actionRequired"
 msgstr "需要操作"
@@ -202,6 +207,11 @@ msgstr "浏览器"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.byProject"
 msgstr "按项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.cancel"
+msgstr "取消"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1380,6 +1390,26 @@ msgid "settings.archived.description"
 msgstr "将会话恢复到侧栏，或永久删除不再需要的会话。"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.revert"
+msgstr "撤销"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.revertTitle"
+msgstr "撤销更改？"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.revertFile"
+msgstr "撤销文件更改"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.revertHunk"
+msgstr "撤销此段更改"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.review"
 msgstr "审查"
@@ -1735,6 +1765,11 @@ msgstr "重试"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.turnNotifications"
 msgstr "任务完成提醒"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.undoRevert"
+msgstr "恢复上次撤销"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx

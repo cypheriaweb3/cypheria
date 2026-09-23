@@ -29,6 +29,11 @@ msgid "settings.general.cmdIfMultiline"
 msgstr "⌘ Enter for multiline prompts"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.revertDescription"
+msgstr "A recoverable copy will be saved before the changes are reverted."
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.interaction.actionRequired"
 msgstr "Action required"
@@ -202,6 +207,11 @@ msgstr "Browser"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.byProject"
 msgstr "By project"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.cancel"
+msgstr "Cancel"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1380,6 +1390,26 @@ msgid "settings.archived.description"
 msgstr "Restore chats to the sidebar or permanently delete ones you no longer need."
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.revert"
+msgstr "Revert"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.revertTitle"
+msgstr "Revert changes?"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.revertFile"
+msgstr "Revert file"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.revertHunk"
+msgstr "Revert section"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.review"
 msgstr "Review"
@@ -1735,6 +1765,11 @@ msgstr "Try again"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.turnNotifications"
 msgstr "Turn completion notifications"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.undoRevert"
+msgstr "Undo last revert"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx

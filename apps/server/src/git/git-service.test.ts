@@ -189,6 +189,67 @@ describe("GitService", () => {
     ).rejects.toThrow("File changed")
   }, 20_000)
 
+  it("reverts a review section and restores it after a service restart", async () => {
+    const root = await repository()
+    const home = await mkdtemp(join(tmpdir(), "cypheria-git-home-"))
+    created.push(home)
+    const service = new GitService(join(home, "cache"), home)
+    const original = `${Array.from({ length: 24 }, (_, index) => `line ${index + 1}`).join("\n")}\n`
+    await writeFile(join(root, "file.txt"), original)
+    await service.stage(root, ["file.txt"])
+    await service.commit(root, "Base")
+    const changed = original
+      .replace("line 1\n", "first changed\n")
+      .replace("line 24\n", "last changed\n")
+    await writeFile(join(root, "file.txt"), changed)
+    const snapshot = await service.reviewFile(root, "unstaged", "file.txt")
+    const undoId = await service.applyReviewSection(root, {
+      source: "unstaged",
+      path: "file.txt",
+      revision: snapshot.revision,
+      action: "revert",
+      hunkIndex: 0,
+    })
+    expect(undoId).toMatch(/^[a-f0-9-]{36}$/u)
+    if (!undoId) throw new Error("Expected a Git review undo ID")
+    expect(await readFile(join(root, "file.txt"), "utf8")).toBe(
+      changed.replace("first changed\n", "line 1\n")
+    )
+    await new GitService(join(home, "cache"), home).undoReviewRevert(root, undoId)
+    expect(await readFile(join(root, "file.txt"), "utf8")).toBe(changed)
+  }, 20_000)
+
+  it("restores a reverted untracked file and rejects undo after subsequent edits", async () => {
+    const root = await repository()
+    const home = await mkdtemp(join(tmpdir(), "cypheria-git-home-"))
+    created.push(home)
+    const service = new GitService(join(home, "cache"), home)
+    const path = join(root, "binary.bin")
+    const bytes = Buffer.from([0, 1, 2, 255])
+    await writeFile(path, bytes)
+    const snapshot = await service.reviewFile(root, "unstaged", "binary.bin")
+    const undoId = await service.applyReviewSection(root, {
+      source: "unstaged",
+      path: "binary.bin",
+      revision: snapshot.revision,
+      action: "revert",
+    })
+    if (!undoId) throw new Error("Expected a Git review undo ID")
+    await expect(readFile(path)).rejects.toMatchObject({ code: "ENOENT" })
+    await service.undoReviewRevert(root, undoId)
+    expect(await readFile(path)).toEqual(bytes)
+    const secondSnapshot = await service.reviewFile(root, "unstaged", "binary.bin")
+    const secondUndoId = await service.applyReviewSection(root, {
+      source: "unstaged",
+      path: "binary.bin",
+      revision: secondSnapshot.revision,
+      action: "revert",
+    })
+    if (!secondUndoId) throw new Error("Expected a Git review undo ID")
+    await writeFile(path, Buffer.from([8, 9]))
+    await expect(service.undoReviewRevert(root, secondUndoId)).rejects.toThrow("File changed")
+  }, 60_000)
+
   it("initializes a directory and creates and checks out branches with stash recovery", async () => {
     const root = await mkdtemp(join(tmpdir(), "cypheria-git-init-"))
     created.push(root)

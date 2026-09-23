@@ -264,10 +264,14 @@ export const GitApplyReviewSectionRequestSchema = input(
       source: z.enum(["staged", "unstaged"]),
       path,
       revision: z.string().regex(/^[a-f0-9]{64}$/u),
-      action: z.enum(["stage", "unstage"]),
+      action: z.enum(["stage", "unstage", "revert"]),
       hunkIndex: z.number().int().nonnegative().optional(),
     })
     .strict()
+)
+export const GitUndoReviewRevertRequestSchema = input(
+  "git.undo-review-revert.request",
+  z.object({ cwd: path, undoId: z.uuid() }).strict()
 )
 export const GitStageRequestSchema = input(
   "git.stage.request",
@@ -535,8 +539,9 @@ export const GitBranchReviewDiffResponseSchema = output(
 export const GitReviewFileResponseSchema = output("git.review-file.response", GitReviewFileSchema)
 export const GitApplyReviewSectionResponseSchema = output(
   "git.apply-review-section.response",
-  success
+  z.object({ undoId: z.uuid().nullable() }).strict()
 )
+export const GitUndoReviewRevertResponseSchema = output("git.undo-review-revert.response", success)
 export const GitStageResponseSchema = output("git.stage.response", success)
 export const GitUnstageResponseSchema = output("git.unstage.response", success)
 export const GitCommitResponseSchema = output(
@@ -659,6 +664,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitBranchReviewDiffRequestSchema,
   GitReviewFileRequestSchema,
   GitApplyReviewSectionRequestSchema,
+  GitUndoReviewRevertRequestSchema,
   GitStageRequestSchema,
   GitUnstageRequestSchema,
   GitCommitRequestSchema,
@@ -706,6 +712,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitBranchReviewDiffResponseSchema,
   GitReviewFileResponseSchema,
   GitApplyReviewSectionResponseSchema,
+  GitUndoReviewRevertResponseSchema,
   GitStageResponseSchema,
   GitUnstageResponseSchema,
   GitCommitResponseSchema,

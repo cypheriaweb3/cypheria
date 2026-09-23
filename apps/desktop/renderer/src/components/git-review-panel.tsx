@@ -1,3 +1,14 @@
+import type { GitReviewFile } from "@cypheria/protocol"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@cypheria/ui/components/alert-dialog"
 import { Button } from "@cypheria/ui/components/button"
 import {
   ChatReviewDiffHost,
@@ -48,6 +59,11 @@ export function GitReviewPanel({
   const [stashChanges, setStashChanges] = useState(false)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
+  const [undoId, setUndoId] = useState<string | null>(null)
+  const [pendingRevert, setPendingRevert] = useState<{
+    snapshot: GitReviewFile
+    hunkIndex?: number
+  } | null>(null)
   const status = useQuery({
     queryKey: ["git", cwd, "status"],
     queryFn: async () => (await ensureCypheriaClient()).git.status(cwd),
@@ -144,18 +160,23 @@ export function GitReviewPanel({
       setBusy(false)
     }
   }
-  const applyReview = (action: "stage" | "unstage", hunkIndex?: number) => {
-    const snapshot = diff.data
+  const applyReview = (
+    action: "stage" | "unstage" | "revert",
+    hunkIndex?: number,
+    selected?: GitReviewFile
+  ) => {
+    const snapshot = selected ?? diff.data
     if (!snapshot?.revision) return
-    void mutate(async () =>
-      (await ensureCypheriaClient()).git.applyReviewSection(cwd, {
+    void mutate(async () => {
+      const result = await (await ensureCypheriaClient()).git.applyReviewSection(cwd, {
         source: snapshot.source,
         path: snapshot.path,
         revision: snapshot.revision,
         action,
         hunkIndex,
       })
-    )
+      if (result) setUndoId(result)
+    })
   }
   const files: ChatReviewFileDescriptor[] = entries.map((entry) => ({
     id: entry.path,
@@ -380,6 +401,20 @@ export function GitReviewPanel({
                   <Trans id="git.review.stageHunk">Stage section</Trans>
                 )}
               </Button>
+              {source === "unstaged" ? (
+                <Button
+                  disabled={busy}
+                  onClick={() => {
+                    const snapshot = diff.data
+                    if (snapshot?.revision) setPendingRevert({ snapshot, hunkIndex: hunk.index })
+                  }}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  <Trans id="git.review.revertHunk">Revert section</Trans>
+                </Button>
+              ) : null}
             </div>
           ))}
         </div>
@@ -387,15 +422,29 @@ export function GitReviewPanel({
       {activePath && source !== "branch" ? (
         <div className="flex gap-2 border-t p-2">
           {source === "unstaged" ? (
-            <Button
-              disabled={busy}
-              onClick={() => applyReview("stage")}
-              size="sm"
-              type="button"
-              variant="outline"
-            >
-              <Trans id="git.review.stage">Stage file</Trans>
-            </Button>
+            <>
+              <Button
+                disabled={busy}
+                onClick={() => applyReview("stage")}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Trans id="git.review.stage">Stage file</Trans>
+              </Button>
+              <Button
+                disabled={busy}
+                onClick={() => {
+                  const snapshot = diff.data
+                  if (snapshot?.revision) setPendingRevert({ snapshot })
+                }}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Trans id="git.review.revertFile">Revert file</Trans>
+              </Button>
+            </>
           ) : (
             <Button
               disabled={busy}
@@ -409,6 +458,58 @@ export function GitReviewPanel({
           )}
         </div>
       ) : null}
+      {undoId ? (
+        <div className="border-t p-2">
+          <Button
+            disabled={busy}
+            onClick={() =>
+              void mutate(async () => {
+                await (await ensureCypheriaClient()).git.undoReviewRevert(cwd, undoId)
+                setUndoId(null)
+              })
+            }
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <Trans id="git.review.undoRevert">Undo last revert</Trans>
+          </Button>
+        </div>
+      ) : null}
+      <AlertDialog
+        onOpenChange={(open) => {
+          if (!open) setPendingRevert(null)
+        }}
+        open={pendingRevert !== null}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              <Trans id="git.review.revertTitle">Revert changes?</Trans>
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <Trans id="git.review.revertDescription">
+                A recoverable copy will be saved before the changes are reverted.
+              </Trans>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              <Trans id="git.review.cancel">Cancel</Trans>
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={busy}
+              onClick={() => {
+                if (pendingRevert)
+                  applyReview("revert", pendingRevert.hunkIndex, pendingRevert.snapshot)
+                setPendingRevert(null)
+              }}
+            >
+              <Trans id="git.review.revert">Revert</Trans>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {status.data ? (
         <div className="space-y-2 border-t p-2">
           <Input
