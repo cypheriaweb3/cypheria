@@ -26,6 +26,8 @@ MCP servers are also a common concept. The integration API reports tools, resour
 
 Transport credentials and OAuth state stay in the Server or harness runtime. MCP elicitation enters the common Thread interaction lifecycle.
 
+For Codex's `codex_apps` server, each discovered tool reports an `appScope` only when its metadata identifies a consistent connector, account link, and action resource URI. Other tools report `null`. Consumers must recheck this scope and the current account before invoking a connector tool; discovery alone does not grant access.
+
 ## Plugin ecosystems
 
 `ecosystem` identifies the plugin contract:

@@ -4,6 +4,73 @@ import type { AgentManager } from "./agent/agent-manager.js"
 import { IntegrationService } from "./integration-service.js"
 
 describe("IntegrationService", () => {
+  it("projects account-bound Codex App tool scopes without exposing raw metadata", async () => {
+    const callCodex = vi.fn(async (method: string) => {
+      if (method === "config/read") return { config: { mcp_servers: {} } }
+      if (method === "mcpServerStatus/list")
+        return {
+          data: [
+            {
+              name: "codex_apps",
+              authStatus: "authenticated",
+              pluginId: null,
+              resources: [],
+              resourceTemplates: [],
+              runtimeStatus: "running",
+              tools: {
+                "gitlab.get_project": {
+                  description: "Get project",
+                  _meta: {
+                    connectorId: "connector_gitlab",
+                    link_id: "link-1",
+                    _codex_apps: {
+                      resource_uri: "/connector_gitlab/link-1/get_project",
+                    },
+                  },
+                },
+              },
+            },
+          ],
+          nextCursor: null,
+        }
+      throw new Error(`Unexpected call: ${method}`)
+    })
+    const service = new IntegrationService({ callCodex } as unknown as AgentManager)
+    const send = vi.fn()
+    await service.handle(
+      {
+        payload: { agentId: "codex" },
+        requestId: "req_mcp",
+        type: "integration.mcp.list.request",
+      },
+      send
+    )
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: {
+          ok: true,
+          value: {
+            servers: [
+              expect.objectContaining({
+                tools: [
+                  {
+                    name: "gitlab.get_project",
+                    description: "Get project",
+                    appScope: {
+                      connectorId: "connector_gitlab",
+                      accountLinkId: "link-1",
+                      resourceUri: "/connector_gitlab/link-1/get_project",
+                    },
+                  },
+                ],
+              }),
+            ],
+          },
+        },
+      })
+    )
+  })
+
   it("updates Codex's process-wide plugins feature", async () => {
     const callCodex = vi.fn(async () => ({ enablement: { plugins: false } }))
     const service = new IntegrationService({ callCodex } as unknown as AgentManager)

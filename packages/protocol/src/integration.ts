@@ -69,7 +69,18 @@ export const McpServerViewSchema = z
         "disabled",
       ])
       .nullable(),
-    tools: z.array(z.object({ description: z.string().nullable(), name: z.string() }).strict()),
+    tools: z.array(
+      z
+        .object({
+          description: z.string().nullable(),
+          name: z.string(),
+          appScope: z
+            .object({ connectorId: z.string(), accountLinkId: z.string(), resourceUri: z.string() })
+            .strict()
+            .nullable(),
+        })
+        .strict()
+    ),
   })
   .strict()
 export type McpServerView = z.infer<typeof McpServerViewSchema>

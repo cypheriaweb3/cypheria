@@ -12,6 +12,7 @@ import { IntegrationIdSchema } from "@cypheria/protocol"
 import type { v2 } from "@cypheria/protocol/codex-types"
 import { z } from "zod"
 import type { AgentManager } from "./agent/agent-manager.js"
+import { codexAppToolScope } from "./codex-app-tool-scope.js"
 
 const openAiMarketplaces = new Set([
   "openai-api-curated",
@@ -307,7 +308,16 @@ export class IntegrationService {
         resourceCount: server.resources.length + server.resourceTemplates.length,
         runtimeStatus: server.runtimeStatus,
         tools: Object.entries(server.tools).flatMap(([name, tool]) =>
-          tool ? [{ description: tool.description ?? null, name }] : []
+          tool
+            ? [
+                {
+                  description: tool.description ?? null,
+                  name,
+                  appScope:
+                    server.name === "codex_apps" ? codexAppToolScope(name, tool._meta) : null,
+                },
+              ]
+            : []
         ),
       })
     )

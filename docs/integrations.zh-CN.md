@@ -26,6 +26,8 @@ MCP server 也是通用概念。Integration API 报告 tools、resources、authe
 
 传输凭证和 OAuth 状态留在 Server 或 harness runtime。MCP elicitation 进入通用 Thread interaction 生命周期。
 
+对于 Codex 的 `codex_apps` server，只有工具 metadata 中的 connector、账户 link 和动作 resource URI 相互一致时，发现结果才为该工具报告 `appScope`；其他工具返回 `null`。调用 connector 工具前，消费者仍需重新校验此作用域和当前账户；仅发现工具不代表已获得访问权限。
+
 ## 插件生态
 
 `ecosystem` 标识插件契约：
