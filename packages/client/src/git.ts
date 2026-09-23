@@ -1,6 +1,7 @@
 import type {
   GitBranch,
   GitBranchContext,
+  GitBranchSearchResult,
   GitHubAvailability,
   GitHubPullRequest,
   GitLabMergeRequest,
@@ -27,6 +28,12 @@ export interface GitActions {
   origin(cwd: string, options?: RequestOptions): Promise<GitOrigin>
   status(cwd: string, options?: RequestOptions): Promise<GitStatus>
   branches(cwd: string, options?: RequestOptions): Promise<GitBranch[]>
+  searchBranches(
+    cwd: string,
+    query: string,
+    limit?: number,
+    options?: RequestOptions
+  ): Promise<GitBranchSearchResult[]>
   branchContext(cwd: string, options?: RequestOptions): Promise<GitBranchContext>
   init(cwd: string, options?: RequestOptions): Promise<GitRepository>
   createBranch(
@@ -137,6 +144,8 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(await client.requestGit("git.status.request", { cwd }, options)),
   branches: async (cwd, options) =>
     unwrap(await client.requestGit("git.branches.request", { cwd }, options)),
+  searchBranches: async (cwd, query, limit = 20, options) =>
+    unwrap(await client.requestGit("git.branch-search.request", { cwd, query, limit }, options)),
   branchContext: async (cwd, options) =>
     unwrap(await client.requestGit("git.branch-context.request", { cwd }, options)),
   init: async (cwd, options) =>

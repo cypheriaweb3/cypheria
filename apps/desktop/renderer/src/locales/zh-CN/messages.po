@@ -1125,6 +1125,11 @@ msgid "navigation.recents"
 msgstr "最近"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.remoteBranch"
+msgstr "远端"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "common.remove"
 msgstr "移除"
@@ -1234,6 +1239,11 @@ msgstr "搜索"
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.search"
 msgstr "搜索已归档会话"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.searchBranches"
+msgstr "搜索分支"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx

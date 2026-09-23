@@ -1125,6 +1125,11 @@ msgid "navigation.recents"
 msgstr "Recents"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.remoteBranch"
+msgstr "remote"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "common.remove"
 msgstr "Remove"
@@ -1234,6 +1239,11 @@ msgstr "Search"
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.search"
 msgstr "Search archived chats"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.searchBranches"
+msgstr "Search branches"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx

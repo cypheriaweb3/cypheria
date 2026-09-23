@@ -19,6 +19,8 @@ import { ensureCypheriaClient } from "../cypheria-client.js"
 import { GitLabMrPanel } from "./gitlab-mr-panel.js"
 
 type ReviewSource = "unstaged" | "staged"
+const branchValue = (branch: { name: string; scope: "local" | "remote" }) =>
+  branch.scope === "remote" ? `refs/remotes/${branch.name}` : branch.name
 
 const statusKind = (code: string): ChatReviewFileDescriptor["status"] => {
   if (code.includes("?")) return "added"
@@ -40,6 +42,7 @@ export function GitReviewPanel({
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [message, setMessage] = useState("")
   const [targetBranch, setTargetBranch] = useState("")
+  const [branchSearch, setBranchSearch] = useState("")
   const [newBranch, setNewBranch] = useState("")
   const [stashChanges, setStashChanges] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -52,8 +55,8 @@ export function GitReviewPanel({
   })
   const branches = useQuery({
     enabled: Boolean(status.data),
-    queryKey: ["git", cwd, "branches"],
-    queryFn: async () => (await ensureCypheriaClient()).git.branches(cwd),
+    queryKey: ["git", cwd, "branch-search", branchSearch],
+    queryFn: async () => (await ensureCypheriaClient()).git.searchBranches(cwd, branchSearch),
     refetchInterval: 3_000,
     retry: false,
   })
@@ -157,6 +160,18 @@ export function GitReviewPanel({
       </ChatReviewToolbar>
       {status.data ? (
         <div className="space-y-2 border-b p-2">
+          <Input
+            aria-label={i18n._(
+              msg({ id: "git.review.searchBranches", message: "Search branches" })
+            )}
+            className="h-8"
+            maxLength={200}
+            onChange={(event) => setBranchSearch(event.target.value)}
+            placeholder={i18n._(
+              msg({ id: "git.review.searchBranches", message: "Search branches" })
+            )}
+            value={branchSearch}
+          />
           <div className="flex items-center gap-2">
             <NativeSelect
               aria-label={i18n._(msg({ id: "git.review.branch", message: "Branch" }))}
@@ -168,9 +183,29 @@ export function GitReviewPanel({
               <NativeSelectOption value="">
                 <Trans id="git.review.selectBranch">Select branch</Trans>
               </NativeSelectOption>
+              {status.data.branch &&
+              !branches.data?.some((branch) => branchValue(branch) === status.data.branch) ? (
+                <NativeSelectOption value={status.data.branch}>
+                  {status.data.branch}
+                </NativeSelectOption>
+              ) : null}
+              {targetBranch &&
+              targetBranch !== status.data.branch &&
+              !branches.data?.some((branch) => branchValue(branch) === targetBranch) ? (
+                <NativeSelectOption value={targetBranch}>{targetBranch}</NativeSelectOption>
+              ) : null}
               {branches.data?.map((branch) => (
-                <NativeSelectOption key={branch.name} value={branch.name}>
+                <NativeSelectOption
+                  key={`${branch.scope}:${branch.name}`}
+                  value={branchValue(branch)}
+                >
                   {branch.name}
+                  {branch.scope === "remote" ? (
+                    <>
+                      {" "}
+                      (<Trans id="git.review.remoteBranch">remote</Trans>)
+                    </>
+                  ) : null}
                 </NativeSelectOption>
               ))}
             </NativeSelect>

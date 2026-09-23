@@ -39,6 +39,9 @@ export const GitStatusSchema = z
 export const GitBranchSchema = z
   .object({ name: z.string(), current: z.boolean(), commit: z.string() })
   .strict()
+export const GitBranchSearchResultSchema = GitBranchSchema.extend({
+  scope: z.enum(["local", "remote"]),
+}).strict()
 export const GitBranchContextSchema = z
   .object({
     current: z.string().nullable(),
@@ -124,6 +127,12 @@ export const GitStatusRequestSchema = input("git.status.request", z.object({ cwd
 export const GitBranchesRequestSchema = input(
   "git.branches.request",
   z.object({ cwd: path }).strict()
+)
+export const GitBranchSearchRequestSchema = input(
+  "git.branch-search.request",
+  z
+    .object({ cwd: path, query: z.string().max(200), limit: z.number().int().min(1).max(100) })
+    .strict()
 )
 export const GitBranchContextRequestSchema = input(
   "git.branch-context.request",
@@ -307,6 +316,10 @@ export const GitDiscoverResponseSchema = output("git.discover.response", GitRepo
 export const GitOriginResponseSchema = output("git.origin.response", GitOriginSchema)
 export const GitStatusResponseSchema = output("git.status.response", GitStatusSchema)
 export const GitBranchesResponseSchema = output("git.branches.response", z.array(GitBranchSchema))
+export const GitBranchSearchResponseSchema = output(
+  "git.branch-search.response",
+  z.array(GitBranchSearchResultSchema)
+)
 export const GitBranchContextResponseSchema = output(
   "git.branch-context.response",
   GitBranchContextSchema
@@ -398,6 +411,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitOriginRequestSchema,
   GitStatusRequestSchema,
   GitBranchesRequestSchema,
+  GitBranchSearchRequestSchema,
   GitBranchContextRequestSchema,
   GitInitRequestSchema,
   GitBranchCreateRequestSchema,
@@ -429,6 +443,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitOriginResponseSchema,
   GitStatusResponseSchema,
   GitBranchesResponseSchema,
+  GitBranchSearchResponseSchema,
   GitBranchContextResponseSchema,
   GitInitResponseSchema,
   GitBranchCreateResponseSchema,
@@ -463,6 +478,7 @@ export type GitRepository = z.infer<typeof GitRepositorySchema>
 export type GitOrigin = z.infer<typeof GitOriginSchema>
 export type GitStatus = z.infer<typeof GitStatusSchema>
 export type GitBranch = z.infer<typeof GitBranchSchema>
+export type GitBranchSearchResult = z.infer<typeof GitBranchSearchResultSchema>
 export type GitBranchContext = z.infer<typeof GitBranchContextSchema>
 export type GitWorktree = z.infer<typeof GitWorktreeSchema>
 export type GitHubAvailability = z.infer<typeof GitHubAvailabilitySchema>

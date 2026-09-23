@@ -2,6 +2,7 @@ import { realpath, stat } from "node:fs/promises"
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path"
 import type {
   GitBranchContext,
+  GitBranchSearchResult,
   GitClientMessage,
   GitHubAvailability,
   GitHubPullRequest,
@@ -79,6 +80,13 @@ export class GitService {
           break
         case "git.branches.request":
           value = await this.branches(message.payload.cwd)
+          break
+        case "git.branch-search.request":
+          value = await this.searchBranches(
+            message.payload.cwd,
+            message.payload.query,
+            message.payload.limit
+          )
           break
         case "git.branch-context.request":
           value = await this.branchContext(message.payload.cwd)
@@ -498,6 +506,8 @@ export class GitService {
   async checkout(cwd: string, target: string, stashChanges = false): Promise<GitStatus> {
     const repository = await this.discover(cwd)
     const ref = validateOperand(target, "checkout target")
+    const explicitRemote = ref.startsWith("refs/remotes/")
+    const shortRemote = explicitRemote ? ref.slice("refs/remotes/".length) : ref
     const previous = await this.status(repository.root)
     if (previous.entries.length > 0 && !stashChanges) {
       throw new Error("Working tree has changes; choose stashChanges to preserve them")
@@ -515,20 +525,40 @@ export class GitService {
     const stashAfter = stashChanges ? await this.#stashHead(repository.root) : null
     const createdStash = stashAfter !== null && stashAfter !== stashBefore
     try {
-      const local = await this.#executor
-        .run(repository.root, ["show-ref", "--verify", "--quiet", `refs/heads/${ref}`], {
-          readOnly: true,
-        })
-        .then(
-          () => true,
-          () => false
-        )
+      const local = explicitRemote
+        ? false
+        : await this.#executor
+            .run(repository.root, ["show-ref", "--verify", "--quiet", `refs/heads/${ref}`], {
+              readOnly: true,
+            })
+            .then(
+              () => true,
+              () => false
+            )
       if (local) {
         await this.#executor.run(repository.root, ["switch", "--", ref])
-      } else if (/^[a-f0-9]{40,64}$/iu.test(ref)) {
+      } else if (!explicitRemote && /^[a-f0-9]{40,64}$/iu.test(ref)) {
         await this.#executor.run(repository.root, ["switch", "--detach", ref])
       } else {
-        await this.#executor.run(repository.root, ["switch", "--guess", "--", ref])
+        const remote = await this.#executor
+          .run(
+            repository.root,
+            ["show-ref", "--verify", "--quiet", `refs/remotes/${shortRemote}`],
+            {
+              readOnly: true,
+            }
+          )
+          .then(
+            () => true,
+            () => false
+          )
+        if (remote) {
+          await this.#executor.run(repository.root, ["switch", "--track", shortRemote])
+        } else if (explicitRemote) {
+          throw new Error("Remote branch does not exist")
+        } else {
+          await this.#executor.run(repository.root, ["switch", "--guess", "--", ref])
+        }
       }
     } catch (error) {
       if (createdStash) {
@@ -681,6 +711,36 @@ export class GitService {
       branches.push({ current: head?.trim() === "*", name, commit: commit ?? "" })
     }
     return branches
+  }
+
+  async searchBranches(cwd: string, query: string, limit = 20): Promise<GitBranchSearchResult[]> {
+    if (query.length > 200 || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
+      throw new Error("Invalid Git branch search")
+    }
+    const repository = await this.discover(cwd)
+    const { stdout } = await this.#executor.run(
+      repository.root,
+      [
+        "for-each-ref",
+        "--sort=-committerdate",
+        "--format=%(HEAD)%00%(refname)%00%(objectname)%00",
+        "refs/heads",
+        "refs/remotes",
+      ],
+      { readOnly: true }
+    )
+    const matches: GitBranchSearchResult[] = []
+    const needle = query.toLocaleLowerCase()
+    for (const line of stdout.split("\n")) {
+      const [head, ref, commit] = line.split("\0")
+      if (!ref || !commit || ref.endsWith("/HEAD")) continue
+      const scope = ref.startsWith("refs/heads/") ? "local" : "remote"
+      const name = ref.slice(scope === "local" ? "refs/heads/".length : "refs/remotes/".length)
+      if (!name.toLocaleLowerCase().includes(needle)) continue
+      matches.push({ name, current: head?.trim() === "*", commit, scope })
+      if (matches.length >= limit) break
+    }
+    return matches
   }
 
   async #paths(root: string, paths: readonly string[]): Promise<string[]> {

@@ -50,6 +50,31 @@ describe("GitService", () => {
     expect(await service.branchContext(root)).toMatchObject({ ahead: 1, behind: 0 })
   }, 20_000)
 
+  it("searches local and remote branches and checks out a remote tracking branch", async () => {
+    const root = await repository()
+    const remote = await mkdtemp(join(tmpdir(), "cypheria-git-remote-"))
+    created.push(remote)
+    await run("git", ["init", "--bare", "-q", remote])
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await writeFile(join(root, "file.txt"), "first\n")
+    await service.stage(root, ["file.txt"])
+    const head = await service.commit(root, "First commit")
+    await run("git", ["-C", root, "branch", "-M", "main"])
+    await run("git", ["-C", root, "remote", "add", "origin", remote])
+    await run("git", ["-C", root, "branch", "feature/search"])
+    await run("git", ["-C", root, "push", "origin", "main", "feature/search"])
+    await run("git", ["-C", root, "branch", "-D", "feature/search"])
+    expect(await service.searchBranches(root, "FEATURE", 10)).toEqual([
+      { name: "origin/feature/search", scope: "remote", current: false, commit: head },
+    ])
+    expect((await service.searchBranches(root, "", 1)).length).toBe(1)
+    expect(await service.searchBranches(root, "head", 20)).toEqual([])
+    expect((await service.checkout(root, "refs/remotes/origin/feature/search")).branch).toBe(
+      "feature/search"
+    )
+    expect((await service.branchContext(root)).upstream).toBe("origin/feature/search")
+  }, 20_000)
+
   it("initializes a directory and creates and checks out branches with stash recovery", async () => {
     const root = await mkdtemp(join(tmpdir(), "cypheria-git-init-"))
     created.push(root)
