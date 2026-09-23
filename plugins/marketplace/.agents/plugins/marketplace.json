@@ -1,5 +1,5 @@
 {
-  "name": "cypheria-curated",
+  "name": "cypheria-bundled",
   "interface": { "displayName": "Cypheria" },
   "plugins": [
     {

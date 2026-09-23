@@ -20,7 +20,7 @@ const openAiMarketplaces = new Set([
   "openai-curated-remote",
   "openai-primary-runtime",
 ])
-const cypheriaMarketplace = "cypheria-curated"
+const cypheriaMarketplace = "cypheria-bundled"
 
 const sourceKind = (name: string): MarketplaceSourceKind => {
   if (name === cypheriaMarketplace) return "cypheria"
@@ -540,15 +540,25 @@ export class IntegrationService {
       installSuggestionPluginNames: null,
     })
     const entry = installed.marketplaces
-      .find((marketplace) => marketplace.name === "cypheria-curated")
+      .find((marketplace) => marketplace.name === cypheriaMarketplace)
       ?.plugins.find((plugin) => plugin.name === "cypheria-app-tools")
-    if (entry?.installed) return
-    await this.#call<v2.PluginInstallResponse>("plugin/install", {
-      installAttemptId: randomUUID(),
-      marketplacePath: join(registered.installedRoot, ".agents", "plugins", "marketplace.json"),
-      pluginName: "cypheria-app-tools",
-      remoteMarketplaceName: null,
-    })
+    if (!entry?.installed) {
+      await this.#call<v2.PluginInstallResponse>("plugin/install", {
+        installAttemptId: randomUUID(),
+        marketplacePath: join(registered.installedRoot, ".agents", "plugins", "marketplace.json"),
+        pluginName: "cypheria-app-tools",
+        remoteMarketplaceName: null,
+      })
+    }
+    const previous = installed.marketplaces.find(
+      (marketplace) => marketplace.name === "cypheria-curated"
+    )
+    if (previous?.plugins.length === 1 && previous.plugins[0]?.name === "cypheria-app-tools") {
+      if (previous.plugins[0].installed) {
+        await this.#call("plugin/uninstall", { pluginId: previous.plugins[0].id })
+      }
+      await this.#call("marketplace/remove", { marketplaceName: "cypheria-curated" })
+    }
   }
 
   async #removeMarketplace(name: string): Promise<void> {

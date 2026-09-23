@@ -38,7 +38,7 @@ Transport credentials and OAuth state stay in the Server or harness runtime. MCP
 
 Plugin views retain source type, marketplace identity, install policy, availability, version, capabilities, compatibility, and harness provenance. Listing, detail, install, uninstall, and enablement operations are implemented through harness adapters where the harness supports them.
 
-When Codex plugins are enabled, Server registers the bundled `cypheria-curated` marketplace and installs `cypheria-app-tools` in Cypheria's managed Codex home. This is a Codex MCP plugin whose local Git tools call the same Server Git service as Desktop through an authenticated local HTTP route. It declares no OpenAI App ID and has no GitHub or GitLab connector credentials.
+When Codex plugins are enabled, Server registers the bundled `cypheria-bundled` marketplace and installs `cypheria-app-tools` in Cypheria's managed Codex home. This is a Codex MCP plugin whose local Git tools call the same Server Git service as Desktop through an authenticated local HTTP route. It declares no OpenAI App ID and has no GitHub or GitLab connector credentials.
 
 Cypheria-native plugins are a separate contract. The intended manifest declares Server entry points, Desktop UI contributions, optional future Expo contributions, permissions, compatible Cypheria versions, and contribution points. Server code must run in a controlled child process. Desktop contributions must be sandboxed and receive scoped host APIs rather than Node.js, filesystem, database, or secret access. Completing this runtime and UX remains planned work.
 

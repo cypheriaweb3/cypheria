@@ -32,15 +32,25 @@ describe("IntegrationService", () => {
       if (method === "marketplace/add")
         return {
           installedRoot: "/bundled/marketplace",
-          marketplaceName: "cypheria-curated",
+          marketplaceName: "cypheria-bundled",
           alreadyAdded: false,
         }
       if (method === "plugin/installed")
         return {
           marketplaces: [
             {
-              name: "cypheria-curated",
+              name: "cypheria-bundled",
               plugins: [{ name: "cypheria-app-tools", installed: false }],
+            },
+            {
+              name: "cypheria-curated",
+              plugins: [
+                {
+                  id: "cypheria-app-tools@cypheria-curated",
+                  name: "cypheria-app-tools",
+                  installed: true,
+                },
+              ],
             },
           ],
         }
@@ -68,6 +78,12 @@ describe("IntegrationService", () => {
         marketplacePath: "/bundled/marketplace/.agents/plugins/marketplace.json",
       })
     )
+    expect(callCodex).toHaveBeenCalledWith("plugin/uninstall", {
+      pluginId: "cypheria-app-tools@cypheria-curated",
+    })
+    expect(callCodex).toHaveBeenCalledWith("marketplace/remove", {
+      marketplaceName: "cypheria-curated",
+    })
     expect(send).toHaveBeenCalledWith(
       expect.objectContaining({ payload: { ok: true, value: { succeeded: true } } })
     )
