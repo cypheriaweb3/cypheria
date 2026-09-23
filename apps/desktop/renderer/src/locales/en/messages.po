@@ -251,6 +251,16 @@ msgid "chat.command"
 msgstr "Command"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.commitMessage"
+msgstr "Commit message"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.commit"
+msgstr "Commit staged"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.state.completed"
 msgstr "Completed"
@@ -599,9 +609,19 @@ msgid "chat.loadingConversation"
 msgstr "Loading conversation…"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.diffLoading"
+msgstr "Loading diff…"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.loadingEarlier"
 msgstr "Loading earlier messages…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.loading"
+msgstr "Loading repository changes…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -688,6 +708,11 @@ msgstr "No archived chats"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.browser.empty"
 msgstr "No browser session is open"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.empty"
+msgstr "No changes in this source"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -778,6 +803,11 @@ msgstr "No sources in this conversation"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.subagents.empty"
 msgstr "No subagents have been used"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.noTextDiff"
+msgstr "No text diff available"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -938,6 +968,11 @@ msgstr "Projectless task folder"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.projects"
 msgstr "Projects"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.push"
+msgstr "Push"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -1222,6 +1257,16 @@ msgid "chat.panel.sources"
 msgstr "Sources"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.stage"
+msgstr "Stage file"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.staged"
+msgstr "Staged"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.empty.start"
 msgstr "Start a conversation"
@@ -1330,6 +1375,16 @@ msgstr "Unpin"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.unread"
 msgstr "Unread"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.unstage"
+msgstr "Unstage file"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.unstaged"
+msgstr "Unstaged"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx

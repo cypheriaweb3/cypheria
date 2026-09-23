@@ -151,6 +151,7 @@ import {
   type ConversationSubmitMode,
   ThreadConversationController,
 } from "../thread-conversation-controller.js"
+import { GitReviewPanel } from "./git-review-panel.js"
 import { useWorkspaceTerminals, WorkspaceTerminalView } from "./workspace-terminal.js"
 
 const jsonRecord = (value: unknown): Record<string, unknown> =>
@@ -936,8 +937,29 @@ export function ConversationWorkspace({
     [diffs]
   )
 
+  const gitCwd =
+    snapshot.thread?.cwd ?? project?.roots[0] ?? desktopPreferences?.projectlessWorkspaceRoot
+
   const panelTabs = useMemo<ChatPanelTabDescriptor[]>(() => {
     if (!codex) return []
+    const timelineReview = reviewFiles.length ? (
+      <ChatReviewPanel>
+        <ChatReviewFileList files={reviewFiles} />
+        <ChatReviewDiffHost>
+          <pre className="p-3 whitespace-pre-wrap">
+            {diffs
+              .flatMap(({ item }) =>
+                item.type === "diff" ? item.changes.map((change) => change.diff) : []
+              )
+              .join("\n")}
+          </pre>
+        </ChatReviewDiffHost>
+      </ChatReviewPanel>
+    ) : (
+      <EmptyPanel>
+        <Trans id="chat.panel.review.empty">No file changes to review</Trans>
+      </EmptyPanel>
+    )
     const tabs: ChatPanelTabDescriptor[] = [
       {
         content: (
@@ -1046,23 +1068,10 @@ export function ConversationWorkspace({
         title: i18n._(msg({ id: "chat.panel.plan", message: "Plan" })),
       },
       {
-        content: reviewFiles.length ? (
-          <ChatReviewPanel>
-            <ChatReviewFileList files={reviewFiles} />
-            <ChatReviewDiffHost>
-              <pre className="p-3 whitespace-pre-wrap">
-                {diffs
-                  .flatMap(({ item }) =>
-                    item.type === "diff" ? item.changes.map((change) => change.diff) : []
-                  )
-                  .join("\n")}
-              </pre>
-            </ChatReviewDiffHost>
-          </ChatReviewPanel>
+        content: gitCwd ? (
+          <GitReviewPanel cwd={gitCwd} fallback={timelineReview} />
         ) : (
-          <EmptyPanel>
-            <Trans id="chat.panel.review.empty">No file changes to review</Trans>
-          </EmptyPanel>
+          timelineReview
         ),
         icon: <BranchIcon />,
         id: "review",
@@ -1167,6 +1176,7 @@ export function ConversationWorkspace({
     codex,
     diffs,
     goalQuery.data,
+    gitCwd,
     i18n,
     plans,
     reviewFiles,

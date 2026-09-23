@@ -251,6 +251,16 @@ msgid "chat.command"
 msgstr "命令"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.commitMessage"
+msgstr "提交说明"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.commit"
+msgstr "提交已暂存内容"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.state.completed"
 msgstr "已完成"
@@ -599,9 +609,19 @@ msgid "chat.loadingConversation"
 msgstr "正在加载对话…"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.diffLoading"
+msgstr "正在加载差异…"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.loadingEarlier"
 msgstr "正在加载更早的消息…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.loading"
+msgstr "正在加载仓库变更…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -688,6 +708,11 @@ msgstr "没有已归档会话"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.browser.empty"
 msgstr "未打开浏览器会话"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.empty"
+msgstr "此来源没有变更"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -778,6 +803,11 @@ msgstr "此会话中没有来源"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.subagents.empty"
 msgstr "尚未使用子代理"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.noTextDiff"
+msgstr "没有可显示的文本差异"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -938,6 +968,11 @@ msgstr "无项目任务目录"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.projects"
 msgstr "项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.push"
+msgstr "推送"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -1222,6 +1257,16 @@ msgid "chat.panel.sources"
 msgstr "来源"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.stage"
+msgstr "暂存文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.staged"
+msgstr "已暂存"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.empty.start"
 msgstr "开始会话"
@@ -1330,6 +1375,16 @@ msgstr "取消置顶"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.unread"
 msgstr "未读"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.unstage"
+msgstr "取消暂存"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.unstaged"
+msgstr "未暂存"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
