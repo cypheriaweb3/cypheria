@@ -40,6 +40,8 @@ MCP server 也是通用概念。Integration API 报告 tools、resources、authe
 
 Plugin view 保留 source type、marketplace identity、install policy、availability、version、capabilities、compatibility 和 harness provenance。Harness 支持时，通过 harness adapter 实现列表、详情、安装、卸载和启用操作。
 
+Codex 远程插件的目录 ID 与展示名称不同。Server 在远程详情和安装请求前，从最新的 `plugin/list` 结果解析该 ID，避免用展示名称调用 Codex 安装接口。
+
 启用 Codex 插件时，Server 会注册随程序分发的 `cypheria-bundled` marketplace，并在 Cypheria 管理的 Codex home 中安装 `cypheria-app-tools`。这是一个 Codex MCP 插件，其本地 Git 工具通过经过认证的本地 HTTP 路由调用与 Desktop 相同的 Server Git 服务。它不声明 OpenAI App ID，也不持有 GitHub 或 GitLab connector 凭据。
 其 worktree 工具在 `CYPHERIA_HOME/worktrees` 下创建 detached worktree、列出托管和外部 worktree，并利用保存的提交引用删除或恢复干净的托管 worktree。
 

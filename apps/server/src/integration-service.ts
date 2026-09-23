@@ -472,9 +472,12 @@ export class IntegrationService {
     marketplacePath: string | null
     pluginName: string
   }) {
+    const pluginName = locator.marketplacePath
+      ? locator.pluginName
+      : await this.#remotePluginId(locator.marketplaceName, locator.pluginName)
     const { plugin } = await this.#call<v2.PluginReadResponse>("plugin/read", {
       marketplacePath: locator.marketplacePath,
-      pluginName: locator.pluginName,
+      pluginName,
       remoteMarketplaceName: locator.marketplacePath ? null : locator.marketplaceName,
     })
     const ui = plugin.summary.interface
@@ -507,13 +510,31 @@ export class IntegrationService {
     marketplacePath: string | null
     pluginName: string
   }) {
+    const pluginName = locator.marketplacePath
+      ? locator.pluginName
+      : await this.#remotePluginId(locator.marketplaceName, locator.pluginName)
     const response = await this.#call<v2.PluginInstallResponse>("plugin/install", {
       installAttemptId: randomUUID(),
       marketplacePath: locator.marketplacePath,
-      pluginName: locator.pluginName,
+      pluginName,
       remoteMarketplaceName: locator.marketplacePath ? null : locator.marketplaceName,
     })
     return { appsNeedingAuth: response.appsNeedingAuth.map((app) => app.name), installed: true }
+  }
+
+  async #remotePluginId(marketplaceName: string, pluginName: string): Promise<string> {
+    const result = await this.#call<v2.PluginListResponse>("plugin/list", {
+      cwds: null,
+      forceRefetch: true,
+    })
+    const marketplace = result.marketplaces.find(
+      (entry) => entry.name === marketplaceName && entry.path === null
+    )
+    const plugin = marketplace?.plugins.find((entry) => entry.name === pluginName)
+    if (!plugin?.remotePluginId) {
+      throw new Error(`Remote plugin ${pluginName} is unavailable in ${marketplaceName}`)
+    }
+    return plugin.remotePluginId
   }
 
   async #ensureBundledPlugin(): Promise<void> {

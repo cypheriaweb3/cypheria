@@ -40,6 +40,8 @@ For Codex's `codex_apps` server, each discovered tool reports an `appScope` only
 
 Plugin views retain source type, marketplace identity, install policy, availability, version, capabilities, compatibility, and harness provenance. Listing, detail, install, uninstall, and enablement operations are implemented through harness adapters where the harness supports them.
 
+Codex remote plugins have a catalog ID distinct from their displayed name. Server resolves that ID from a fresh `plugin/list` result before remote detail or install requests, so a visible plugin is not sent to Codex's install endpoint under its display name.
+
 When Codex plugins are enabled, Server registers the bundled `cypheria-bundled` marketplace and installs `cypheria-app-tools` in Cypheria's managed Codex home. This is a Codex MCP plugin whose local Git tools call the same Server Git service as Desktop through an authenticated local HTTP route. It declares no OpenAI App ID and has no GitHub or GitLab connector credentials.
 Its worktree tools create detached worktrees under `CYPHERIA_HOME/worktrees`, list managed and external worktrees, and delete or restore clean managed worktrees from a saved commit ref.
 

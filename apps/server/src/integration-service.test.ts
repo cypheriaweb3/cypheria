@@ -4,6 +4,56 @@ import type { AgentManager } from "./agent/agent-manager.js"
 import { IntegrationService } from "./integration-service.js"
 
 describe("IntegrationService", () => {
+  it("installs remote plugins by catalog ID rather than display name", async () => {
+    const callCodex = vi.fn(async (method: string) => {
+      if (method === "plugin/list")
+        return {
+          marketplaces: [
+            {
+              name: "openai-curated-remote",
+              path: null,
+              plugins: [
+                {
+                  name: "gitlab",
+                  remotePluginId: "plugin_connector_1p_gitlab",
+                },
+              ],
+            },
+          ],
+        }
+      if (method === "plugin/install") return { appsNeedingAuth: [] }
+      throw new Error(`Unexpected call: ${method}`)
+    })
+    const service = new IntegrationService({ callCodex } as unknown as AgentManager)
+    const send = vi.fn()
+    await service.handle(
+      {
+        payload: {
+          agentId: "codex",
+          marketplaceName: "openai-curated-remote",
+          marketplacePath: null,
+          pluginName: "gitlab",
+        },
+        requestId: "req_remote_install",
+        type: "integration.plugin.install.request",
+      },
+      send
+    )
+    expect(callCodex).toHaveBeenCalledWith("plugin/list", { cwds: null, forceRefetch: true })
+    expect(callCodex).toHaveBeenCalledWith(
+      "plugin/install",
+      expect.objectContaining({
+        pluginName: "plugin_connector_1p_gitlab",
+        remoteMarketplaceName: "openai-curated-remote",
+      })
+    )
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: { ok: true, value: { appsNeedingAuth: [], installed: true } },
+      })
+    )
+  })
+
   it("projects account-bound Codex App tool scopes without exposing raw metadata", async () => {
     const callCodex = vi.fn(async (method: string) => {
       if (method === "config/read") return { config: { mcp_servers: {} } }

@@ -346,9 +346,16 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
     ...(skills.some((skill) => skill.scope === "admin") ? ["Admin installed"] : []),
   ]
   const activeSkillSource = skillSources.includes(scope) ? scope : (skillSources[0] ?? null)
+  const installError =
+    selected &&
+    mutation.isError &&
+    mutation.variables?.type === "install" &&
+    mutation.variables.plugin.id === selected.id
+      ? mutation.error
+      : null
   const error =
     integrations.error ??
-    mutation.error ??
+    (installError ? null : mutation.error) ??
     skillMutation.error ??
     refresh.error ??
     updateMarket.error ??
@@ -726,6 +733,15 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
                     </Button>
                   </div>
                 </div>
+                {installError && (
+                  <Alert variant="destructive" className="mt-6" role="alert">
+                    <CircleAlert className="size-4" />
+                    <AlertTitle>Couldn’t install plugin</AlertTitle>
+                    <AlertDescription className="break-words">
+                      {errorText(installError)}
+                    </AlertDescription>
+                  </Alert>
+                )}
                 {detailQuery.error && (
                   <p role="alert" className="mt-8 text-sm text-destructive">
                     {errorText(detailQuery.error)}
