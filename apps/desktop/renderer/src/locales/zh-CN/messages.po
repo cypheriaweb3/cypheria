@@ -311,6 +311,11 @@ msgid "git.github.stateClosed"
 msgstr "已关闭"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.codeChanges"
+msgstr "代码更改"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.subagent.codexCollaboration"
 msgstr "Codex 协作"
@@ -772,6 +777,11 @@ msgstr "正在加载提交更改…"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.loadingConversation"
 msgstr "正在加载对话…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.diffLoading"
+msgstr "正在加载差异…"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx

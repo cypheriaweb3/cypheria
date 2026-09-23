@@ -158,6 +158,12 @@ export interface GitActions {
     options?: RequestOptions
   ): Promise<GitHubPullRequest[]>
   githubPrRead(cwd: string, number: number, options?: RequestOptions): Promise<GitHubPullRequest>
+  githubPrDiff(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    options?: RequestOptions
+  ): Promise<string>
   githubPrChecks(
     cwd: string,
     number: number,
@@ -363,6 +369,10 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(await client.requestGit("git.github-pr-list.request", { cwd, ...input }, options)),
   githubPrRead: async (cwd, number, options) =>
     unwrap(await client.requestGit("git.github-pr-read.request", { cwd, number }, options)),
+  githubPrDiff: async (cwd, number, expectedHead, options) =>
+    unwrap<{ diff: string }>(
+      await client.requestGit("git.github-pr-diff.request", { cwd, number, expectedHead }, options)
+    ).diff,
   githubPrChecks: async (cwd, number, options) =>
     unwrap(await client.requestGit("git.github-pr-checks.request", { cwd, number }, options)),
   githubPrActivity: async (cwd, number, options) =>

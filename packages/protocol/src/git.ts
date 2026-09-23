@@ -413,6 +413,16 @@ export const GitHubPrReadRequestSchema = input(
   "git.github-pr-read.request",
   z.object({ cwd: path, number: z.number().int().positive() }).strict()
 )
+export const GitHubPrDiffRequestSchema = input(
+  "git.github-pr-diff.request",
+  z
+    .object({
+      cwd: path,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    })
+    .strict()
+)
 export const GitHubPrChecksRequestSchema = input(
   "git.github-pr-checks.request",
   z.object({ cwd: path, number: z.number().int().positive() }).strict()
@@ -670,6 +680,10 @@ export const GitHubPrReadResponseSchema = output(
   "git.github-pr-read.response",
   GitHubPullRequestSchema
 )
+export const GitHubPrDiffResponseSchema = output(
+  "git.github-pr-diff.response",
+  z.object({ diff: z.string() }).strict()
+)
 export const GitHubPrChecksResponseSchema = output(
   "git.github-pr-checks.response",
   GitHubPullRequestChecksSchema
@@ -757,6 +771,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubAppPrReadRequestSchema,
   GitHubPrListRequestSchema,
   GitHubPrReadRequestSchema,
+  GitHubPrDiffRequestSchema,
   GitHubPrChecksRequestSchema,
   GitHubPrActivityRequestSchema,
   GitHubPrCommentRequestSchema,
@@ -811,6 +826,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubAppPrReadResponseSchema,
   GitHubPrListResponseSchema,
   GitHubPrReadResponseSchema,
+  GitHubPrDiffResponseSchema,
   GitHubPrChecksResponseSchema,
   GitHubPrActivityResponseSchema,
   GitHubPrCommentResponseSchema,

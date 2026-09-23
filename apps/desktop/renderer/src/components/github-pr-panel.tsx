@@ -46,6 +46,7 @@ export function GitHubPrPanel({
   const [editBody, setEditBody] = useState<string | null>(null)
   const [commentBody, setCommentBody] = useState("")
   const [reviewBody, setReviewBody] = useState("")
+  const [showDiff, setShowDiff] = useState(false)
   const [mergeOpen, setMergeOpen] = useState(false)
   const [closeOpen, setCloseOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -55,6 +56,7 @@ export function GitHubPrPanel({
     setEditBody(null)
     setCommentBody("")
     setReviewBody("")
+    setShowDiff(false)
     setSelectedNumber(number)
   }
   const availability = useQuery({
@@ -100,17 +102,30 @@ export function GitHubPrPanel({
     },
     retry: false,
   })
+  const activeNumber =
+    selectedNumber ??
+    list.data?.items.find((item) => "headRefName" in item && item.headRefName === branch)?.number ??
+    null
   const selected = useQuery({
     enabled:
-      selectedNumber !== null &&
-      (cliAvailable || Boolean(threadId && appAvailability.data?.canRead)),
-    queryKey: ["github-pr", cwd, "detail", cliAvailable ? "cli" : "app", threadId, selectedNumber],
+      activeNumber !== null && (cliAvailable || Boolean(threadId && appAvailability.data?.canRead)),
+    queryKey: ["github-pr", cwd, "detail", cliAvailable ? "cli" : "app", threadId, activeNumber],
     queryFn: async () => {
-      if (selectedNumber === null) throw new Error("A pull request number is required")
+      if (activeNumber === null) throw new Error("A pull request number is required")
       const git = (await ensureCypheriaClient()).git
-      if (cliAvailable) return git.githubPrRead(cwd, selectedNumber)
+      if (cliAvailable) return git.githubPrRead(cwd, activeNumber)
       if (!threadId) throw new Error("A local Codex thread is required")
-      return git.githubAppPrRead(cwd, threadId, selectedNumber)
+      return git.githubAppPrRead(cwd, threadId, activeNumber)
+    },
+    retry: false,
+  })
+  const prDiff = useQuery({
+    enabled: showDiff && cliAvailable && Boolean(selected.data?.headRefOid),
+    queryKey: ["github-pr", cwd, "diff", selected.data?.number, selected.data?.headRefOid],
+    queryFn: async () => {
+      const pr = selected.data
+      if (!pr?.headRefOid) throw new Error("A pull request head is required")
+      return (await ensureCypheriaClient()).git.githubPrDiff(cwd, pr.number, pr.headRefOid)
     },
     retry: false,
   })
@@ -247,7 +262,7 @@ export function GitHubPrPanel({
           onClick={() => selectPullRequest(pr.number)}
           size="sm"
           type="button"
-          variant={selectedNumber === pr.number ? "secondary" : "ghost"}
+          variant={activeNumber === pr.number ? "secondary" : "ghost"}
         >
           #{pr.number} {pr.title}
           {"headRefName" in pr && "baseRefName" in pr
@@ -274,6 +289,26 @@ export function GitHubPrPanel({
             {selected.data.headRefName} → {selected.data.baseRefName} · {selected.data.state}
           </p>
           <p className="text-xs whitespace-pre-wrap">{selected.data.body}</p>
+          {cliAvailable && selected.data.headRefOid ? (
+            <div className="space-y-2 border-t pt-2">
+              <Button
+                onClick={() => setShowDiff((value) => !value)}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                <Trans id="git.github.codeChanges">Code changes</Trans>
+              </Button>
+              {showDiff ? (
+                <pre className="max-h-96 overflow-auto rounded border p-2 text-xs whitespace-pre-wrap">
+                  {prDiff.isError
+                    ? prDiff.error.message
+                    : (prDiff.data ??
+                      i18n._(msg({ id: "git.github.diffLoading", message: "Loading diff…" })))}
+                </pre>
+              ) : null}
+            </div>
+          ) : null}
           {cliAvailable && selected.data.state === "OPEN" ? (
             <div className="space-y-1 border-t pt-2">
               <p className="text-xs font-medium">

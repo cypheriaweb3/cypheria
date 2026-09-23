@@ -127,6 +127,13 @@ export class GitHubPrService {
     return GitHubPullRequestSchema.parse(JSON.parse(result))
   }
 
+  async diff(cwd: string, number: number, expectedHead: string): Promise<string> {
+    await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    const diff = await this.#run(cwd, ["pr", "diff", String(number), "--patch"])
+    await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    return diff
+  }
+
   async checks(cwd: string, number: number): Promise<GitHubPullRequestChecks> {
     const result = await this.#run(
       cwd,

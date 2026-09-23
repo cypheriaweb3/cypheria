@@ -265,6 +265,15 @@ export class GitService {
         case "git.github-pr-read.request":
           value = await this.githubPrRead(message.payload.cwd, message.payload.number)
           break
+        case "git.github-pr-diff.request":
+          value = {
+            diff: await this.githubPrDiff(
+              message.payload.cwd,
+              message.payload.number,
+              message.payload.expectedHead
+            ),
+          }
+          break
         case "git.github-pr-checks.request":
           value = await this.githubPrChecks(message.payload.cwd, message.payload.number)
           break
@@ -588,6 +597,10 @@ export class GitService {
 
   async githubPrRead(cwd: string, number: number): Promise<GitHubPullRequest> {
     return this.#github.read((await this.discover(cwd)).root, number)
+  }
+
+  async githubPrDiff(cwd: string, number: number, expectedHead: string): Promise<string> {
+    return this.#github.diff((await this.discover(cwd)).root, number, expectedHead)
   }
 
   async githubPrChecks(cwd: string, number: number): Promise<GitHubPullRequestChecks> {
