@@ -29,6 +29,7 @@ import { CodexAppToolClient } from "../codex-app-tool-client.js"
 import type { ThreadManager } from "../thread/thread-manager.js"
 import { GitCommandError, GitExecutor } from "./git-executor.js"
 import { GitReviewUndoStore } from "./git-review-undo-store.js"
+import { GitTurnDiffService } from "./git-turn-diff-service.js"
 import { GitWorktreeService } from "./git-worktree-service.js"
 import { GitHubAppPrService } from "./github-app-pr-service.js"
 import { GitHubPrService } from "./github-pr-service.js"
@@ -77,6 +78,7 @@ export class GitService {
   readonly #executor: GitExecutor
   readonly #worktrees: GitWorktreeService
   readonly #reviewUndo: GitReviewUndoStore
+  readonly #turnDiff: GitTurnDiffService
   readonly #github = new GitHubPrService()
   readonly #githubApp: GitHubAppPrService | null
   readonly #gitlab: GitLabMrService | null
@@ -90,6 +92,7 @@ export class GitService {
     this.#executor = new GitExecutor(cacheDir)
     this.#worktrees = new GitWorktreeService(this.#executor, cypheriaHome)
     this.#reviewUndo = new GitReviewUndoStore(cypheriaHome)
+    this.#turnDiff = new GitTurnDiffService(this.#executor, cypheriaHome)
     const apps = connectors ? new CodexAppToolClient(connectors.agents) : null
     this.#gitlab = apps ? new GitLabMrService(this.#executor, apps) : null
     this.#githubApp = apps ? new GitHubAppPrService(this.#executor, apps) : null
@@ -162,6 +165,12 @@ export class GitService {
           break
         case "git.commit-review-diff.request":
           value = { diff: await this.commitReviewDiff(message.payload.cwd, message.payload) }
+          break
+        case "git.last-turn-review.request":
+          value = await this.lastTurnReview(message.payload.cwd, message.payload.threadId)
+          break
+        case "git.last-turn-review-diff.request":
+          value = { diff: await this.lastTurnReviewDiff(message.payload.cwd, message.payload) }
           break
         case "git.review-file.request":
           value = await this.reviewFile(
@@ -1173,6 +1182,55 @@ export class GitService {
           "--no-color",
           review.base,
           review.head,
+          "--",
+          path,
+        ],
+        { readOnly: true }
+      )
+    ).stdout
+  }
+
+  async turnCaptureStart(threadId: string, cwd: string): Promise<string> {
+    const repository = await this.discover(cwd)
+    return this.#turnDiff.start(threadId, repository.root, repository.commonGitDir)
+  }
+
+  async turnCaptureComplete(captureId: string, turnId: string): Promise<void> {
+    await this.#turnDiff.complete(captureId, turnId)
+  }
+
+  async turnCaptureDiscard(captureId: string): Promise<void> {
+    await this.#turnDiff.discard(captureId)
+  }
+
+  async lastTurnReview(cwd: string, threadId: string): Promise<GitBranchReview | null> {
+    const repository = await this.discover(cwd)
+    return this.#turnDiff.review(threadId, repository.root, repository.commonGitDir)
+  }
+
+  async lastTurnReviewDiff(
+    cwd: string,
+    input: { threadId: string; base: string; head: string; path: string }
+  ): Promise<string> {
+    const repository = await this.discover(cwd)
+    await this.#turnDiff.assertSnapshot(
+      input.threadId,
+      repository.root,
+      repository.commonGitDir,
+      input.base,
+      input.head
+    )
+    const path = this.#historicalPath(repository.root, input.path)
+    return (
+      await this.#executor.run(
+        repository.root,
+        [
+          "diff",
+          "--no-ext-diff",
+          "--no-textconv",
+          "--no-color",
+          input.base,
+          input.head,
           "--",
           path,
         ],

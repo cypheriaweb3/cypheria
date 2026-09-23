@@ -158,6 +158,46 @@ describe("GitService", () => {
     ).rejects.toThrow("Commit review changed")
   }, 20_000)
 
+  it("pins last-turn changes without modifying the real index", async () => {
+    const root = await repository()
+    const home = await mkdtemp(join(tmpdir(), "cypheria-git-home-"))
+    created.push(home)
+    const service = new GitService(join(home, "cache"), home)
+    await writeFile(join(root, "file.txt"), "base\n")
+    await service.stage(root, ["file.txt"])
+    await service.commit(root, "Base")
+    await writeFile(join(root, "file.txt"), "before\n")
+    const capture = await service.turnCaptureStart("thread-test", root)
+    await writeFile(join(root, "file.txt"), "after\n")
+    await writeFile(join(root, "new.txt"), "created\n")
+    await service.turnCaptureComplete(capture, "turn-test")
+    expect(await service.diff(root, { staged: true })).toBe("")
+    const review = await service.lastTurnReview(root, "thread-test")
+    expect(review?.entries).toEqual([
+      { code: "M", path: "file.txt" },
+      { code: "A", path: "new.txt" },
+    ])
+    if (!review) throw new Error("Expected last-turn review")
+    await writeFile(join(root, "file.txt"), "later\n")
+    const restarted = new GitService(join(home, "cache"), home)
+    expect(
+      await restarted.lastTurnReviewDiff(root, {
+        threadId: "thread-test",
+        base: review.base,
+        head: review.head,
+        path: "file.txt",
+      })
+    ).toContain("+after")
+    await expect(
+      restarted.lastTurnReviewDiff(root, {
+        threadId: "thread-test",
+        base: review.head,
+        head: review.head,
+        path: "file.txt",
+      })
+    ).rejects.toThrow("snapshot changed")
+  }, 30_000)
+
   it("applies individual review sections and rejects stale file revisions", async () => {
     const root = await repository()
     const service = new GitService(join(root, "cache"), join(root, "home"))

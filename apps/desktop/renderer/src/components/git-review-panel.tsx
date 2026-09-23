@@ -30,7 +30,7 @@ import { ensureCypheriaClient } from "../cypheria-client.js"
 import { GitHubPrPanel } from "./github-pr-panel.js"
 import { GitLabMrPanel } from "./gitlab-mr-panel.js"
 
-type ReviewSource = "unstaged" | "staged" | "uncommitted" | "branch" | "commit"
+type ReviewSource = "unstaged" | "staged" | "uncommitted" | "branch" | "commit" | "last-turn"
 const branchValue = (branch: { name: string; scope: "local" | "remote" }) =>
   branch.scope === "remote" ? `refs/remotes/${branch.name}` : branch.name
 
@@ -133,18 +133,30 @@ export function GitReviewPanel({
     },
     retry: false,
   })
+  const lastTurnReview = useQuery({
+    enabled: source === "last-turn" && Boolean(threadId && status.data),
+    queryKey: ["git", cwd, "last-turn-review", threadId],
+    queryFn: async () => {
+      if (!threadId) throw new Error("A thread is required")
+      return (await ensureCypheriaClient()).git.lastTurnReview(cwd, threadId)
+    },
+    refetchInterval: 5_000,
+    retry: false,
+  })
   const entries =
     source === "branch"
       ? (branchReview.data?.entries ?? [])
       : source === "commit"
         ? (commitReview.data?.entries ?? [])
-        : (status.data?.entries.filter(({ code }) =>
-            source === "staged"
-              ? code[0] !== " " && code[0] !== "?"
-              : source === "unstaged"
-                ? code[1] !== " "
-                : true
-          ) ?? [])
+        : source === "last-turn"
+          ? (lastTurnReview.data?.entries ?? [])
+          : (status.data?.entries.filter(({ code }) =>
+              source === "staged"
+                ? code[0] !== " " && code[0] !== "?"
+                : source === "unstaged"
+                  ? code[1] !== " "
+                  : true
+            ) ?? [])
   const activePath = entries.some((entry) => entry.path === selectedPath)
     ? selectedPath
     : entries[0]?.path
@@ -153,7 +165,8 @@ export function GitReviewPanel({
       status.data &&
         activePath &&
         (source !== "branch" || branchReview.data) &&
-        (source !== "commit" || commitReview.data)
+        (source !== "commit" || commitReview.data) &&
+        (source !== "last-turn" || lastTurnReview.data)
     ),
     queryKey: [
       "git",
@@ -167,6 +180,8 @@ export function GitReviewPanel({
       branchReview.data?.head,
       commitReview.data?.base,
       commitReview.data?.head,
+      lastTurnReview.data?.base,
+      lastTurnReview.data?.head,
     ],
     queryFn: async () => {
       const git = (await ensureCypheriaClient()).git
@@ -185,6 +200,15 @@ export function GitReviewPanel({
           path: activePath,
         })
         return { diff: commitDiff, revision: null, hunks: [] }
+      }
+      if (source === "last-turn" && lastTurnReview.data && activePath && threadId) {
+        const turnDiff = await git.lastTurnReviewDiff(cwd, {
+          threadId,
+          base: lastTurnReview.data.base,
+          head: lastTurnReview.data.head,
+          path: activePath,
+        })
+        return { diff: turnDiff, revision: null, hunks: [] }
       }
       if (source === "uncommitted" && activePath) {
         const untracked = status.data?.entries.some(
@@ -313,6 +337,15 @@ export function GitReviewPanel({
           variant={source === "commit" ? "secondary" : "ghost"}
         >
           <Trans id="git.review.commitSource">Commit</Trans>
+        </Button>
+        <Button
+          disabled={!threadId}
+          onClick={() => setSource("last-turn")}
+          size="sm"
+          type="button"
+          variant={source === "last-turn" ? "secondary" : "ghost"}
+        >
+          <Trans id="git.review.lastTurn">Last turn</Trans>
         </Button>
         <span className="ml-auto truncate text-xs text-muted-foreground">
           {status.data?.branch ?? "HEAD"}
@@ -463,10 +496,14 @@ export function GitReviewPanel({
           <Trans id="git.review.commitLoading">Loading commit changes…</Trans>
         </p>
       ) : null}
+      {source === "last-turn" && lastTurnReview.isError ? (
+        <p className="p-3 text-sm text-destructive">{lastTurnReview.error.message}</p>
+      ) : null}
       {status.data &&
       files.length === 0 &&
       (source !== "branch" || branchReview.isSuccess) &&
-      (source !== "commit" || commitReview.isSuccess) ? (
+      (source !== "commit" || commitReview.isSuccess) &&
+      (source !== "last-turn" || lastTurnReview.isSuccess) ? (
         <p className="p-3 text-sm text-muted-foreground">
           <Trans id="git.review.empty">No changes in this source</Trans>
         </p>

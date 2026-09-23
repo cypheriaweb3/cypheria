@@ -165,6 +165,11 @@ export class CypheriaServer implements HttpAppHost {
       persistence: projectThreadPersistence,
       publish: (message) => this.registry.broadcast(message),
       timelinePersistence: createThreadTimelinePersistenceService(this.database.db),
+      turnCapture: {
+        start: (threadId, cwd) => this.git.turnCaptureStart(threadId, cwd),
+        complete: (captureId, turnId) => this.git.turnCaptureComplete(captureId, turnId),
+        discard: (captureId) => this.git.turnCaptureDiscard(captureId),
+      },
     })
     this.git = new GitService(this.runtime.paths.cacheDir, this.runtime.paths.cypheriaHome, {
       agents: this.agentManager,

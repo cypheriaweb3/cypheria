@@ -117,7 +117,9 @@ afterEach(() => {
   }
 })
 
-const setup = async () => {
+const setup = async (
+  turnCapture?: ConstructorParameters<typeof ThreadManager>[0]["turnCapture"]
+) => {
   const home = mkdtempSync(join(tmpdir(), "cypheria-thread-manager-test-"))
   const database = openCypheriaDatabase({ cypheriaHome: home })
   databases.push({ close: database.close, home })
@@ -147,12 +149,46 @@ const setup = async () => {
     persistence: createProjectThreadPersistenceService(database.db),
     publish: (message) => messages.push(message),
     timelinePersistence,
+    turnCapture,
   })
   await manager.initialize()
   return { adapter, database, manager, messageRequests, messages, timelinePersistence }
 }
 
 describe("ThreadManager", () => {
+  it("captures a local Codex turn and discards a capture when starting fails", async () => {
+    const captures: string[] = []
+    const { adapter, manager } = await setup({
+      start: async (threadId, cwd) => {
+        captures.push(`start:${threadId}:${cwd}`)
+        return "capture-1"
+      },
+      complete: async (id, turnId) => {
+        captures.push(`complete:${id}:${turnId}`)
+      },
+      discard: async (id) => {
+        captures.push(`discard:${id}`)
+      },
+    })
+    const created = await manager.create({ agentId: "codex", cwd: "/repo" })
+    await manager.startTurn({
+      clientMessageId: "capture-start",
+      content: [{ text: "work", type: "text" }],
+      threadId: created.thread.id,
+    })
+    adapter.events.get(created.thread.id)?.({ turnId: "turn-1", type: "turn-completed" })
+    await vi.waitFor(() => expect(captures).toContain("complete:capture-1:turn-1"))
+    adapter.startError = new Error("start failed")
+    await expect(
+      manager.startTurn({
+        clientMessageId: "capture-fail",
+        content: [{ text: "again", type: "text" }],
+        threadId: created.thread.id,
+      })
+    ).rejects.toThrow("start failed")
+    expect(captures).toContain("discard:capture-1")
+  })
+
   it("creates a harness session first and binds it to the public thread", async () => {
     const { manager, messages } = await setup()
     const created = await manager.create({ agentId: "codex", cwd: "/repo" })

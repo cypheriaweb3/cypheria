@@ -277,6 +277,22 @@ export const GitCommitReviewDiffRequestSchema = input(
     })
     .strict()
 )
+export const GitLastTurnReviewRequestSchema = input(
+  "git.last-turn-review.request",
+  z.object({ cwd: path, threadId: ProjectThreadIdSchema }).strict()
+)
+export const GitLastTurnReviewDiffRequestSchema = input(
+  "git.last-turn-review-diff.request",
+  z
+    .object({
+      cwd: path,
+      threadId: ProjectThreadIdSchema,
+      base: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      head: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      path,
+    })
+    .strict()
+)
 export const GitReviewFileRequestSchema = input(
   "git.review-file.request",
   z.object({ cwd: path, source: z.enum(["staged", "unstaged"]), path }).strict()
@@ -577,6 +593,14 @@ export const GitCommitReviewDiffResponseSchema = output(
   "git.commit-review-diff.response",
   z.object({ diff: z.string() }).strict()
 )
+export const GitLastTurnReviewResponseSchema = output(
+  "git.last-turn-review.response",
+  GitBranchReviewSchema.nullable()
+)
+export const GitLastTurnReviewDiffResponseSchema = output(
+  "git.last-turn-review-diff.response",
+  z.object({ diff: z.string() }).strict()
+)
 export const GitReviewFileResponseSchema = output("git.review-file.response", GitReviewFileSchema)
 export const GitApplyReviewSectionResponseSchema = output(
   "git.apply-review-section.response",
@@ -710,6 +734,8 @@ export const GIT_CLIENT_SCHEMAS = [
   GitCommitListRequestSchema,
   GitCommitReviewRequestSchema,
   GitCommitReviewDiffRequestSchema,
+  GitLastTurnReviewRequestSchema,
+  GitLastTurnReviewDiffRequestSchema,
   GitReviewFileRequestSchema,
   GitApplyReviewSectionRequestSchema,
   GitUndoReviewRevertRequestSchema,
@@ -762,6 +788,8 @@ export const GIT_SERVER_SCHEMAS = [
   GitCommitListResponseSchema,
   GitCommitReviewResponseSchema,
   GitCommitReviewDiffResponseSchema,
+  GitLastTurnReviewResponseSchema,
+  GitLastTurnReviewDiffResponseSchema,
   GitReviewFileResponseSchema,
   GitApplyReviewSectionResponseSchema,
   GitUndoReviewRevertResponseSchema,

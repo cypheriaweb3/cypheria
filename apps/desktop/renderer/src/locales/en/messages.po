@@ -742,6 +742,11 @@ msgid "settings.language.description"
 msgstr "Language for the app UI"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.lastTurn"
+msgstr "Last turn"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sort.updated"
 msgstr "Last updated"

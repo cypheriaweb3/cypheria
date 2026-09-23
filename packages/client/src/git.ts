@@ -76,6 +76,16 @@ export interface GitActions {
     input: { base: string; commit: string; path: string },
     options?: RequestOptions
   ): Promise<string>
+  lastTurnReview(
+    cwd: string,
+    threadId: string,
+    options?: RequestOptions
+  ): Promise<GitBranchReview | null>
+  lastTurnReviewDiff(
+    cwd: string,
+    input: { threadId: string; base: string; head: string; path: string },
+    options?: RequestOptions
+  ): Promise<string>
   reviewFile(
     cwd: string,
     source: "staged" | "unstaged",
@@ -281,6 +291,12 @@ export const createGitActions = (client: ServerClient): GitActions => ({
   commitReviewDiff: async (cwd, input, options) =>
     unwrap<{ diff: string }>(
       await client.requestGit("git.commit-review-diff.request", { cwd, ...input }, options)
+    ).diff,
+  lastTurnReview: async (cwd, threadId, options) =>
+    unwrap(await client.requestGit("git.last-turn-review.request", { cwd, threadId }, options)),
+  lastTurnReviewDiff: async (cwd, input, options) =>
+    unwrap<{ diff: string }>(
+      await client.requestGit("git.last-turn-review-diff.request", { cwd, ...input }, options)
     ).diff,
   reviewFile: async (cwd, source, path, options) =>
     unwrap(await client.requestGit("git.review-file.request", { cwd, source, path }, options)),

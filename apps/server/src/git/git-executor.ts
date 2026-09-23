@@ -39,6 +39,7 @@ export class GitExecutor {
       signal?: AbortSignal
       timeoutMs?: number
       allowExitCodes?: readonly number[]
+      env?: Record<string, string>
     } = {}
   ): Promise<GitCommandResult> {
     const resolvedCwd = await realpath(cwd)
@@ -66,6 +67,7 @@ export class GitExecutor {
           LANG: "C",
           LANGUAGE: "C",
           LC_MESSAGES: "C",
+          ...options.env,
         },
         maxBuffer: MAX_OUTPUT_BYTES,
         signal: options.signal,

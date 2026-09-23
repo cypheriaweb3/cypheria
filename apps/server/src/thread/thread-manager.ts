@@ -32,7 +32,7 @@ import { ThreadTimelineStore } from "./timeline-store.js"
 type Publish = (message: ServerMessage) => void
 
 type RuntimeState = {
-  activeTurn: { id: string; startedAt: string } | null
+  activeTurn: { id: string; startedAt: string; captureId?: string | null } | null
   capabilities: ThreadView["capabilities"]
   pendingInteractions: Map<string, ThreadInteraction>
   state: ThreadState
@@ -56,6 +56,11 @@ export type ThreadManagerOptions = {
   readonly persistence: ProjectThreadPersistenceService
   readonly publish: Publish
   readonly timelinePersistence: ThreadTimelinePersistenceService
+  readonly turnCapture?: {
+    start(threadId: string, cwd: string): Promise<string>
+    complete(captureId: string, turnId: string): Promise<void>
+    discard(captureId: string): Promise<void>
+  }
 }
 
 const stoppedCapabilities: ThreadView["capabilities"] = {
@@ -77,6 +82,7 @@ export class ThreadManager {
   readonly #publish: Publish
   readonly #runtime = new Map<string, RuntimeState>()
   readonly #timeline: ThreadTimelineStore
+  readonly #turnCapture: ThreadManagerOptions["turnCapture"]
 
   constructor(options: ThreadManagerOptions) {
     this.#adapterFor = options.adapterFor
@@ -86,6 +92,7 @@ export class ThreadManager {
     this.#persistence = options.persistence
     this.#publish = options.publish
     this.#timeline = new ThreadTimelineStore(options.timelinePersistence)
+    this.#turnCapture = options.turnCapture
   }
 
   async initialize(): Promise<void> {
@@ -577,15 +584,23 @@ export class ThreadManager {
       })
       const claimedTurnId = this.#resolveMessageRequest(claimed)
       if (claimedTurnId) return { thread: this.#view(thread), turnId: claimedTurnId }
-      const { agentMessageId, turnId } = await this.#adapterFor(
-        thread.agentId as AgentId,
-        thread.id
-      ).startTurn({
-        ...this.#context(thread),
-        clientMessageId: input.clientMessageId,
-        content: input.content,
-      })
-      runtime.activeTurn = { id: turnId, startedAt: new Date().toISOString() }
+      const captureId =
+        thread.agentId === "codex" && thread.cwd && this.#turnCapture
+          ? await this.#turnCapture.start(thread.id, thread.cwd).catch(() => null)
+          : null
+      let started: Awaited<ReturnType<ThreadHarnessAdapter["startTurn"]>>
+      try {
+        started = await this.#adapterFor(thread.agentId as AgentId, thread.id).startTurn({
+          ...this.#context(thread),
+          clientMessageId: input.clientMessageId,
+          content: input.content,
+        })
+      } catch (error) {
+        if (captureId) await this.#turnCapture?.discard(captureId).catch(() => undefined)
+        throw error
+      }
+      const { agentMessageId, turnId } = started
+      runtime.activeTurn = { id: turnId, startedAt: new Date().toISOString(), captureId }
       runtime.state = "running"
       await this.#appendUserInput(
         thread.id,
@@ -666,6 +681,10 @@ export class ThreadManager {
         ...this.#context(thread),
         turnId: target,
       })
+      if (runtime.activeTurn?.captureId)
+        await this.#turnCapture
+          ?.complete(runtime.activeTurn.captureId, target)
+          .catch(() => undefined)
       runtime.activeTurn = null
       runtime.state = "idle"
       return this.#updateAndPublishSync(thread)
@@ -826,6 +845,11 @@ export class ThreadManager {
             event.turnId === "active" ||
             runtime.activeTurn.id === event.turnId
           ) {
+            const captureId = runtime.activeTurn?.captureId
+            if (captureId)
+              await this.#turnCapture
+                ?.complete(captureId, runtime.activeTurn?.id ?? event.turnId)
+                .catch(() => undefined)
             runtime.activeTurn = null
             runtime.state = "idle"
             this.#updateAndPublishSync(thread)
@@ -838,6 +862,8 @@ export class ThreadManager {
           }
           break
         case "error":
+          if (runtime.activeTurn?.captureId)
+            await this.#turnCapture?.discard(runtime.activeTurn.captureId).catch(() => undefined)
           runtime.activeTurn = null
           runtime.state = "errored"
           await this.#appendTimeline(threadId, {
