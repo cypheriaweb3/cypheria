@@ -156,6 +156,41 @@ export const GitHubPrReadRequestSchema = input(
   "git.github-pr-read.request",
   z.object({ cwd: path, number: z.number().int().positive() }).strict()
 )
+export const GitHubPrCreateRequestSchema = input(
+  "git.github-pr-create.request",
+  z
+    .object({
+      cwd: path,
+      head: z.string().min(1),
+      base: z.string().min(1),
+      title: z.string().min(1).max(1000),
+      body: z.string().max(100_000),
+      draft: z.boolean().optional(),
+    })
+    .strict()
+)
+export const GitHubPrUpdateRequestSchema = input(
+  "git.github-pr-update.request",
+  z
+    .object({
+      cwd: path,
+      number: z.number().int().positive(),
+      title: z.string().min(1).max(1000).optional(),
+      body: z.string().max(100_000).optional(),
+    })
+    .strict()
+)
+export const GitHubPrMergeRequestSchema = input(
+  "git.github-pr-merge.request",
+  z
+    .object({
+      cwd: path,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      method: z.enum(["merge", "squash"]),
+    })
+    .strict()
+)
 
 const success = z.object({ succeeded: z.literal(true) }).strict()
 export const GitDiscoverResponseSchema = output("git.discover.response", GitRepositorySchema)
@@ -206,6 +241,18 @@ export const GitHubPrReadResponseSchema = output(
   "git.github-pr-read.response",
   GitHubPullRequestSchema
 )
+export const GitHubPrCreateResponseSchema = output(
+  "git.github-pr-create.response",
+  GitHubPullRequestSchema
+)
+export const GitHubPrUpdateResponseSchema = output(
+  "git.github-pr-update.response",
+  GitHubPullRequestSchema
+)
+export const GitHubPrMergeResponseSchema = output(
+  "git.github-pr-merge.response",
+  GitHubPullRequestSchema
+)
 
 export const GIT_CLIENT_SCHEMAS = [
   GitDiscoverRequestSchema,
@@ -226,6 +273,9 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubAvailabilityRequestSchema,
   GitHubPrListRequestSchema,
   GitHubPrReadRequestSchema,
+  GitHubPrCreateRequestSchema,
+  GitHubPrUpdateRequestSchema,
+  GitHubPrMergeRequestSchema,
 ] as const
 export const GIT_SERVER_SCHEMAS = [
   GitDiscoverResponseSchema,
@@ -246,6 +296,9 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubAvailabilityResponseSchema,
   GitHubPrListResponseSchema,
   GitHubPrReadResponseSchema,
+  GitHubPrCreateResponseSchema,
+  GitHubPrUpdateResponseSchema,
+  GitHubPrMergeResponseSchema,
 ] as const
 export const GIT_RESPONSE_TYPES = GIT_SERVER_SCHEMAS.map((schema) => schema.shape.type.value)
 export const GitClientMessageSchema = z.discriminatedUnion("type", GIT_CLIENT_SCHEMAS)

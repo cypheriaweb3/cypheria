@@ -121,6 +121,24 @@ export class GitService {
         case "git.github-pr-read.request":
           value = await this.githubPrRead(message.payload.cwd, message.payload.number)
           break
+        case "git.github-pr-create.request":
+          value = await this.githubPrCreate(message.payload.cwd, message.payload)
+          break
+        case "git.github-pr-update.request":
+          value = await this.githubPrUpdate(
+            message.payload.cwd,
+            message.payload.number,
+            message.payload
+          )
+          break
+        case "git.github-pr-merge.request":
+          value = await this.githubPrMerge(
+            message.payload.cwd,
+            message.payload.number,
+            message.payload.expectedHead,
+            message.payload.method
+          )
+          break
       }
       send({ type, requestId: message.requestId, payload: { ok: true, value } } as GitServerMessage)
     } catch (error) {
@@ -187,6 +205,30 @@ export class GitService {
 
   async githubPrRead(cwd: string, number: number): Promise<GitHubPullRequest> {
     return this.#github.read((await this.discover(cwd)).root, number)
+  }
+
+  async githubPrCreate(
+    cwd: string,
+    input: { head: string; base: string; title: string; body: string; draft?: boolean }
+  ): Promise<GitHubPullRequest> {
+    return this.#github.create((await this.discover(cwd)).root, input)
+  }
+
+  async githubPrUpdate(
+    cwd: string,
+    number: number,
+    input: { title?: string; body?: string }
+  ): Promise<GitHubPullRequest> {
+    return this.#github.update((await this.discover(cwd)).root, number, input)
+  }
+
+  async githubPrMerge(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    method: "merge" | "squash"
+  ): Promise<GitHubPullRequest> {
+    return this.#github.merge((await this.discover(cwd)).root, number, expectedHead, method)
   }
 
   async init(cwd: string): Promise<GitRepository> {

@@ -58,6 +58,24 @@ export interface GitActions {
     options?: RequestOptions
   ): Promise<GitHubPullRequest[]>
   githubPrRead(cwd: string, number: number, options?: RequestOptions): Promise<GitHubPullRequest>
+  githubPrCreate(
+    cwd: string,
+    input: { head: string; base: string; title: string; body: string; draft?: boolean },
+    options?: RequestOptions
+  ): Promise<GitHubPullRequest>
+  githubPrUpdate(
+    cwd: string,
+    number: number,
+    input: { title?: string; body?: string },
+    options?: RequestOptions
+  ): Promise<GitHubPullRequest>
+  githubPrMerge(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    method: "merge" | "squash",
+    options?: RequestOptions
+  ): Promise<GitHubPullRequest>
 }
 
 export const createGitActions = (client: ServerClient): GitActions => ({
@@ -108,4 +126,18 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(await client.requestGit("git.github-pr-list.request", { cwd, ...input }, options)),
   githubPrRead: async (cwd, number, options) =>
     unwrap(await client.requestGit("git.github-pr-read.request", { cwd, number }, options)),
+  githubPrCreate: async (cwd, input, options) =>
+    unwrap(await client.requestGit("git.github-pr-create.request", { cwd, ...input }, options)),
+  githubPrUpdate: async (cwd, number, input, options) =>
+    unwrap(
+      await client.requestGit("git.github-pr-update.request", { cwd, number, ...input }, options)
+    ),
+  githubPrMerge: async (cwd, number, expectedHead, method, options) =>
+    unwrap(
+      await client.requestGit(
+        "git.github-pr-merge.request",
+        { cwd, number, expectedHead, method },
+        options
+      )
+    ),
 })

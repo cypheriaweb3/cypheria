@@ -140,7 +140,7 @@ The common operations on `client.harnesses` cover installation-adjacent state, a
 
 The `git` capability provides local repository discovery and initialization, status, branch listing, branch creation and checkout, diff, stage, unstage, commit, push, and managed worktree listing, creation, deletion, and restoration through the Server Git executor. Each `git.*.request` returns a correlated typed response with a success value or error. Git operations use the Server host's filesystem and Git installation. Managed worktrees live under `CYPHERIA_HOME/worktrees`; Server records their repository identity and uses `refs/cypheria/worktrees/*` to restore the committed HEAD after deletion. Listings include restorable deleted worktrees. Deletion rejects uncommitted changes and the current worktree.
 The authenticated `POST /api/v1/git/request` endpoint accepts the same validated Git request envelope for the bundled MCP tool process.
-GitHub PR availability, listing, and detail reads use the Server host's `gh` installation and active `gh` account. Availability reports CLI, account, and current repository access separately; PR reads use fixed JSON fields and validate the result before returning it to clients.
+GitHub PR availability, listing, detail, creation, title/body editing, and merge use the Server host's `gh` installation and active `gh` account. Availability reports CLI, account, and current repository access separately; PR reads use fixed JSON fields and validate the result before returning it to clients. Creation checks for an existing PR on the head branch and passes the body through a private temporary file. Merge requires the displayed head commit SHA and uses `gh --match-head-commit`.
 
 ## Validation rules
 
