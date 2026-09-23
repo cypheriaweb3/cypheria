@@ -541,6 +541,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     this.#attach(input.onEvent)
     this.#ownerThreadId = input.threadId
     if (this.agentId === "codex") {
+      const gitInstructions = this.#manager.codexGitInstructions()
       const response = await this.#request(
         input.threadId,
         input.forkedFromAgentSessionId
@@ -553,6 +554,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
             }
           : {
               cwd: input.cwd,
+              ...(gitInstructions ? { developerInstructions: gitInstructions } : {}),
               dynamicTools: this.#manager.codexDynamicTools.getSpecs(),
               requestId: randomUUID(),
               type: "agent.codex.thread.start.request",
@@ -619,8 +621,10 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     this.#ownerThreadId = input.threadId
     if (this.agentId === "codex") {
       if (!input.agentSessionId) return this.create({ ...input, forkedFromAgentSessionId: null })
+      const gitInstructions = this.#manager.codexGitInstructions()
       const response = await this.#request(input.threadId, {
         cwd: input.cwd,
+        ...(gitInstructions ? { developerInstructions: gitInstructions } : {}),
         excludeTurns: false,
         requestId: randomUUID(),
         threadId: input.agentSessionId,

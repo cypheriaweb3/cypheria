@@ -148,6 +148,7 @@ export class CypheriaServer implements HttpAppHost {
       publish: (message) => this.registry.broadcast(message),
       networkBootstrap: options.agentNetworkBootstrap,
       codexSettings: () => this.configStore.getSnapshot().config.agents.codex,
+      gitSettings: () => this.configStore.getSnapshot().config.git,
       agentDefaults: (agentId) =>
         this.configStore.getSnapshot().config.agents.defaults[agentId] ?? {},
     })

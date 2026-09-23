@@ -18,6 +18,30 @@ const input = (agentId: AgentId): ThreadHarnessCreateInput => ({
 })
 
 describe("ManagedThreadAdapter", () => {
+  it("passes Git instructions when resuming a Codex thread", async () => {
+    const handleCodex = vi.fn(
+      async (message: Record<string, unknown>, context: AgentMessageContext) => {
+        context.send({
+          payload: {
+            requestId: message.requestId,
+            thread: { id: "codex-thread-1", turns: [] },
+          },
+          type: "agent.codex.thread.resume.response",
+        } as unknown as AgentRuntimeServerMessage)
+      }
+    )
+    const manager = {
+      codexGitInstructions: () => "Use feature/ for new Git branches.",
+      handleCodex,
+    } as unknown as AgentManager
+    const adapter = new ManagedThreadAdapter(manager, "codex")
+    await adapter.resume({ ...input("codex"), agentSessionId: "codex-thread-1" })
+    expect(handleCodex.mock.calls[0]?.[0]).toMatchObject({
+      developerInstructions: "Use feature/ for new Git branches.",
+      type: "agent.codex.thread.resume.request",
+    })
+  })
+
   it("maps Codex thread/start to a server-owned Thread session", async () => {
     const handleCodex = vi.fn(
       async (
@@ -35,6 +59,7 @@ describe("ManagedThreadAdapter", () => {
     )
     const manager = {
       codexDynamicTools: { getSpecs: () => [] },
+      codexGitInstructions: () => "Use codex/ for new Git branches.",
       disposeSession: vi.fn(),
       handleCodex,
       releaseThreadAdapter: vi.fn(),
@@ -47,6 +72,7 @@ describe("ManagedThreadAdapter", () => {
     })
     expect(handleCodex.mock.calls[0]?.[0]).toMatchObject({
       cwd: "/repo",
+      developerInstructions: "Use codex/ for new Git branches.",
       type: "agent.codex.thread.start.request",
     })
   })
@@ -83,6 +109,7 @@ describe("ManagedThreadAdapter", () => {
     )
     const manager = {
       codexDynamicTools: { getSpecs: () => [] },
+      codexGitInstructions: () => undefined,
       handleCodex,
     } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "codex")

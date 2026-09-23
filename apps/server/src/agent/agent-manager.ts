@@ -23,6 +23,8 @@ import {
   type AgentPiServerMessage,
   type AgentView,
   type CodexAgentSettings,
+  DEFAULT_GIT_SETTINGS,
+  type GitSettings,
   type HarnessSettingValue,
   isNativeAgentId,
   isRegistryAgentId,
@@ -44,6 +46,7 @@ import { AcpSessionRuntime } from "./acp-session-runtime.js"
 import { AgentInstaller } from "./agent-installer.js"
 import { type ClaudePermissionHandler, ClaudeSessionRuntime } from "./claude-session-runtime.js"
 import { type CodexDynamicToolHandler, CodexDynamicToolRegistry } from "./codex-dynamic-tools.js"
+import { codexGitInstructions } from "./codex-git-instructions.js"
 import { CodexRuntime } from "./codex-runtime.js"
 import { ManagedThreadAdapter } from "./managed-thread-adapter.js"
 import { NATIVE_AGENT_MANIFEST } from "./native-agent-manifest.js"
@@ -105,6 +108,7 @@ export type AgentManagerOptions = {
   publish: Send
   logger?: Logger
   codexSettings?: () => CodexAgentSettings
+  gitSettings?: () => GitSettings
   agentDefaults?: (agentId: AgentId) => Record<string, HarnessSettingValue>
   networkBootstrap?: boolean
   installer?: Pick<AgentInstaller, "cleanupInterrupted" | "install" | "readCurrent" | "uninstall">
@@ -148,6 +152,7 @@ export class AgentManager {
   readonly #agentHomes: string
   readonly #claudeRuntimes = new Map<string, Promise<ClaudeSessionRuntime>>()
   readonly #codexSettings: () => CodexAgentSettings
+  readonly #gitSettings: () => GitSettings
   readonly #installer: Pick<
     AgentInstaller,
     "cleanupInterrupted" | "install" | "readCurrent" | "uninstall"
@@ -182,6 +187,7 @@ export class AgentManager {
     this.#networkBootstrap = options.networkBootstrap ?? true
     this.#logger = options.logger
     this.#agentDefaults = options.agentDefaults ?? (() => ({}))
+    this.#gitSettings = options.gitSettings ?? (() => DEFAULT_GIT_SETTINGS)
     this.#codexSettings =
       options.codexSettings ??
       (() => ({
@@ -293,6 +299,10 @@ export class AgentManager {
       this.#threadAdapters.set(key, adapter)
     }
     return adapter
+  }
+
+  codexGitInstructions(): string | undefined {
+    return codexGitInstructions(this.#gitSettings())
   }
 
   defaultsFor(agentId: AgentId): Record<string, HarnessSettingValue> {
