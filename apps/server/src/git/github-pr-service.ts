@@ -134,6 +134,36 @@ export class GitHubPrService {
     return diff
   }
 
+  async autoMergeEnabled(cwd: string, number: number): Promise<boolean> {
+    const response: unknown = JSON.parse(
+      await this.#run(cwd, ["pr", "view", String(number), "--json", "autoMergeRequest"])
+    )
+    const parsed = z
+      .object({
+        autoMergeRequest: z.object({ enabledAt: z.string() }).passthrough().nullable(),
+      })
+      .parse(response)
+    return parsed.autoMergeRequest !== null
+  }
+
+  async toggleAutoMerge(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    enabled: boolean,
+    method: "merge" | "squash"
+  ): Promise<void> {
+    await this.#assertCurrentHead(cwd, number, expectedHead)
+    await this.#run(cwd, [
+      "pr",
+      "merge",
+      String(number),
+      ...(enabled
+        ? ["--auto", `--${method}`, "--match-head-commit", expectedHead]
+        : ["--disable-auto"]),
+    ])
+  }
+
   async checks(cwd: string, number: number): Promise<GitHubPullRequestChecks> {
     const result = await this.#run(
       cwd,

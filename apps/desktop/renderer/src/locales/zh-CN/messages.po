@@ -562,6 +562,11 @@ msgstr "拒绝"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.disableAutoMerge"
+msgstr "关闭自动合并"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.activity"
 msgstr "讨论与审查"
 
@@ -605,6 +610,11 @@ msgstr "编辑项目"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.editSection"
 msgstr "编辑分组"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.enableAutoMerge"
+msgstr "开启自动合并"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx

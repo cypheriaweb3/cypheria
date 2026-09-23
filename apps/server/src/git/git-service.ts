@@ -283,6 +283,24 @@ export class GitService {
             ),
           }
           break
+        case "git.github-pr-auto-merge-status.request":
+          value = {
+            enabled: await this.githubPrAutoMergeStatus(
+              message.payload.cwd,
+              message.payload.number
+            ),
+          }
+          break
+        case "git.github-pr-toggle-auto-merge.request":
+          await this.githubPrToggleAutoMerge(
+            message.payload.cwd,
+            message.payload.number,
+            message.payload.expectedHead,
+            message.payload.enabled,
+            message.payload.method
+          )
+          value = { succeeded: true }
+          break
         case "git.github-pr-checks.request":
           value = await this.githubPrChecks(message.payload.cwd, message.payload.number)
           break
@@ -627,6 +645,26 @@ export class GitService {
 
   async githubPrDiff(cwd: string, number: number, expectedHead: string): Promise<string> {
     return this.#github.diff((await this.discover(cwd)).root, number, expectedHead)
+  }
+
+  async githubPrAutoMergeStatus(cwd: string, number: number): Promise<boolean> {
+    return this.#github.autoMergeEnabled((await this.discover(cwd)).root, number)
+  }
+
+  async githubPrToggleAutoMerge(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    enabled: boolean,
+    method: "merge" | "squash"
+  ): Promise<void> {
+    await this.#github.toggleAutoMerge(
+      (await this.discover(cwd)).root,
+      number,
+      expectedHead,
+      enabled,
+      method
+    )
   }
 
   async githubPrChecks(cwd: string, number: number): Promise<GitHubPullRequestChecks> {

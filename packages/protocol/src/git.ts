@@ -423,6 +423,22 @@ export const GitHubPrDiffRequestSchema = input(
     })
     .strict()
 )
+export const GitHubPrAutoMergeStatusRequestSchema = input(
+  "git.github-pr-auto-merge-status.request",
+  z.object({ cwd: path, number: z.number().int().positive() }).strict()
+)
+export const GitHubPrToggleAutoMergeRequestSchema = input(
+  "git.github-pr-toggle-auto-merge.request",
+  z
+    .object({
+      cwd: path,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      enabled: z.boolean(),
+      method: z.enum(["merge", "squash"]),
+    })
+    .strict()
+)
 export const GitHubPrChecksRequestSchema = input(
   "git.github-pr-checks.request",
   z.object({ cwd: path, number: z.number().int().positive() }).strict()
@@ -701,6 +717,14 @@ export const GitHubPrDiffResponseSchema = output(
   "git.github-pr-diff.response",
   z.object({ diff: z.string() }).strict()
 )
+export const GitHubPrAutoMergeStatusResponseSchema = output(
+  "git.github-pr-auto-merge-status.response",
+  z.object({ enabled: z.boolean() }).strict()
+)
+export const GitHubPrToggleAutoMergeResponseSchema = output(
+  "git.github-pr-toggle-auto-merge.response",
+  success
+)
 export const GitHubPrChecksResponseSchema = output(
   "git.github-pr-checks.response",
   GitHubPullRequestChecksSchema
@@ -794,6 +818,8 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubPrListRequestSchema,
   GitHubPrReadRequestSchema,
   GitHubPrDiffRequestSchema,
+  GitHubPrAutoMergeStatusRequestSchema,
+  GitHubPrToggleAutoMergeRequestSchema,
   GitHubPrChecksRequestSchema,
   GitHubPrActivityRequestSchema,
   GitHubPrCommentRequestSchema,
@@ -851,6 +877,8 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubPrListResponseSchema,
   GitHubPrReadResponseSchema,
   GitHubPrDiffResponseSchema,
+  GitHubPrAutoMergeStatusResponseSchema,
+  GitHubPrToggleAutoMergeResponseSchema,
   GitHubPrChecksResponseSchema,
   GitHubPrActivityResponseSchema,
   GitHubPrCommentResponseSchema,

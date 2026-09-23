@@ -164,6 +164,15 @@ export interface GitActions {
     expectedHead: string,
     options?: RequestOptions
   ): Promise<string>
+  githubPrAutoMergeStatus(cwd: string, number: number, options?: RequestOptions): Promise<boolean>
+  githubPrToggleAutoMerge(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    enabled: boolean,
+    method: "merge" | "squash",
+    options?: RequestOptions
+  ): Promise<void>
   githubPrChecks(
     cwd: string,
     number: number,
@@ -387,6 +396,19 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap<{ diff: string }>(
       await client.requestGit("git.github-pr-diff.request", { cwd, number, expectedHead }, options)
     ).diff,
+  githubPrAutoMergeStatus: async (cwd, number, options) =>
+    unwrap<{ enabled: boolean }>(
+      await client.requestGit("git.github-pr-auto-merge-status.request", { cwd, number }, options)
+    ).enabled,
+  githubPrToggleAutoMerge: async (cwd, number, expectedHead, enabled, method, options) => {
+    unwrap(
+      await client.requestGit(
+        "git.github-pr-toggle-auto-merge.request",
+        { cwd, number, expectedHead, enabled, method },
+        options
+      )
+    )
+  },
   githubPrChecks: async (cwd, number, options) =>
     unwrap(await client.requestGit("git.github-pr-checks.request", { cwd, number }, options)),
   githubPrActivity: async (cwd, number, options) =>

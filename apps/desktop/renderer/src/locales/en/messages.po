@@ -562,6 +562,11 @@ msgstr "Deny"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.disableAutoMerge"
+msgstr "Disable auto merge"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.activity"
 msgstr "Discussion and reviews"
 
@@ -605,6 +610,11 @@ msgstr "Edit project"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.editSection"
 msgstr "Edit section"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.enableAutoMerge"
+msgstr "Enable auto merge"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx

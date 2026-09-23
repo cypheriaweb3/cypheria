@@ -46,6 +46,7 @@ else if (args[1] === "list") process.stdout.write(args.includes("--head") && !ar
 else if (args[1] === "create") process.stdout.write("https://github.com/org/repo/pull/42\\n")
 else if (args[1] === "checks") { process.stdout.write(JSON.stringify([{ bucket: "pending", completedAt: null, link: "https://github.com/org/repo/actions/runs/1", name: "build", startedAt: "2026-09-23T00:00:00Z", state: "IN_PROGRESS", workflow: "CI" }])); process.exit(8) }
 else if (args[1] === "diff") process.stdout.write("diff --git a/file.txt b/file.txt\\n+new\\n")
+else if (args[1] === "view" && args.includes("autoMergeRequest")) process.stdout.write(JSON.stringify({ autoMergeRequest: null }))
 else if (args[1] === "view" && args.includes("comments,reviews")) process.stdout.write(JSON.stringify({ comments: [{ id: "C1", body: "Looks good", createdAt: "2026-09-23T00:00:00Z", author: { login: "tester" } }], reviews: [{ id: "R1", body: "Approved", state: "APPROVED", submittedAt: "2026-09-23T00:00:00Z", author: { login: "reviewer" } }] }))
 else if (args[1] === "edit" || args[1] === "merge") process.stdout.write("")
 else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
@@ -64,6 +65,7 @@ else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
     expect(await service.list(cwd, "closed", 10, "bug fix")).toEqual([pr])
     expect(await service.read(cwd, 42)).toEqual(pr)
     expect(await service.diff(cwd, 42, pr.headRefOid)).toContain("+new")
+    expect(await service.autoMergeEnabled(cwd, 42)).toBe(false)
     expect(await service.checks(cwd, 42)).toEqual([
       {
         bucket: "pending",
@@ -110,6 +112,8 @@ else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
     await service.reviewer(cwd, 42, pr.headRefOid, "reviewer", "add")
     await service.reviewer(cwd, 42, pr.headRefOid, "org/team", "remove")
     expect(await service.merge(cwd, 42, pr.headRefOid, "squash")).toEqual(pr)
+    await service.toggleAutoMerge(cwd, 42, pr.headRefOid, true, "squash")
+    await service.toggleAutoMerge(cwd, 42, pr.headRefOid, false, "merge")
     const calls = (await readFile(log, "utf8"))
       .trim()
       .split("\n")
@@ -159,6 +163,16 @@ else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
       "--match-head-commit",
       pr.headRefOid,
     ])
+    expect(calls).toContainEqual([
+      "pr",
+      "merge",
+      "42",
+      "--auto",
+      "--squash",
+      "--match-head-commit",
+      pr.headRefOid,
+    ])
+    expect(calls).toContainEqual(["pr", "merge", "42", "--disable-auto"])
     await expect(
       service.create(cwd, { head: "--bad", base: "main", title: "Title", body: "" })
     ).rejects.toThrow("Invalid GitHub head")

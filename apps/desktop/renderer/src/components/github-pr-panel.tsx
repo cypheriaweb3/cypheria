@@ -149,6 +149,16 @@ export function GitHubPrPanel({
     refetchInterval: 30_000,
     retry: false,
   })
+  const autoMerge = useQuery({
+    enabled: cliAvailable && selected.data?.state === "OPEN",
+    queryKey: ["github-pr", cwd, "auto-merge", selected.data?.number],
+    queryFn: async () => {
+      if (!selected.data) throw new Error("A pull request is required")
+      return (await ensureCypheriaClient()).git.githubPrAutoMergeStatus(cwd, selected.data.number)
+    },
+    refetchInterval: 30_000,
+    retry: false,
+  })
   const activity = useQuery({
     enabled: cliAvailable && Boolean(selected.data),
     queryKey: ["github-pr", cwd, "activity", selected.data?.number],
@@ -551,6 +561,38 @@ export function GitHubPrPanel({
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+            ) : null}
+            {cliAvailable && selected.data.state === "OPEN" && selected.data.headRefOid ? (
+              <Button
+                disabled={busy || !autoMerge.isSuccess}
+                onClick={() => {
+                  const head = selected.data.headRefOid
+                  if (!head) return
+                  void mutate(async () => {
+                    await (await ensureCypheriaClient()).git.githubPrToggleAutoMerge(
+                      cwd,
+                      selected.data.number,
+                      head,
+                      !autoMerge.data,
+                      gitSettings.data?.config.git.pullRequestMergeMethod ?? "merge"
+                    )
+                  })
+                }}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                {autoMerge.data ? (
+                  <Trans id="git.github.disableAutoMerge">Disable auto merge</Trans>
+                ) : (
+                  <Trans id="git.github.enableAutoMerge">Enable auto merge</Trans>
+                )}
+              </Button>
+            ) : null}
+            {autoMerge.isError ? (
+              <Alert variant="destructive">
+                <AlertDescription>{autoMerge.error.message}</AlertDescription>
+              </Alert>
             ) : null}
             {cliAvailable && selected.data.state === "OPEN" && selected.data.headRefOid ? (
               <>

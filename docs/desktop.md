@@ -84,6 +84,8 @@ Staged and unstaged Review files have a Server-issued revision. Whole-file and i
 
 The GitHub CLI pull request list supports server-side query search and open, closed, merged, or all state filters.
 
+For open GitHub PRs, the CLI path reads the auto-merge state and can enable or disable auto-merge. Enabling uses the configured merge method and checks the displayed head commit before sending the action.
+
 When the CLI can access the repository, the PR panel selects the current branch's PR from the list and can load its patch. Server checks the displayed PR head SHA before and after fetching that patch, so it rejects a diff if the PR changes during the read.
 
 The CLI path can request or remove a user or team reviewer. Reviewer changes and title/body edits compare the displayed head SHA before writing; the panel refreshes PR data after the operation.
