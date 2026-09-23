@@ -779,13 +779,13 @@ msgid "chat.loadingConversation"
 msgstr "正在加载对话…"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.diffLoading"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.diffLoading"
 msgstr "正在加载差异…"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.diffLoading"
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.diffLoading"
 msgstr "正在加载差异…"
 
 #. js-lingui-explicit-id
@@ -1365,6 +1365,11 @@ msgid "navigation.removeProject"
 msgstr "移除项目"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.removeReviewer"
+msgstr "移除 Reviewer"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.rename"
 msgstr "重命名"
@@ -1383,6 +1388,11 @@ msgstr "重新打开"
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.requestChanges"
 msgstr "请求修改"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.requestReviewer"
+msgstr "请求 Reviewer"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1443,6 +1453,11 @@ msgstr "审查"
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.reviewComment"
 msgstr "审查评论"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.reviewer"
+msgstr "Reviewer 用户名或团队"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx

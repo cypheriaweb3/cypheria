@@ -295,10 +295,11 @@ export class GitHubPrService {
   async update(
     cwd: string,
     number: number,
-    input: { title?: string; body?: string }
+    input: { expectedHead: string; title?: string; body?: string }
   ): Promise<GitHubPullRequest> {
     if (input.title === undefined && input.body === undefined)
       throw new Error("No GitHub PR changes supplied")
+    await this.#assertCurrentHead(cwd, number, input.expectedHead)
     const args = ["pr", "edit", String(number)]
     if (input.title !== undefined) {
       if (!input.title.trim() || input.title.includes("\0"))
@@ -313,6 +314,29 @@ export class GitHubPrService {
       await this.#run(cwd, args)
     }
     return this.read(cwd, number)
+  }
+
+  async reviewer(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    reviewer: string,
+    action: "add" | "remove"
+  ): Promise<void> {
+    if (
+      reviewer !== "@copilot" &&
+      !/^[A-Za-z0-9][A-Za-z0-9-]*(?:\/[A-Za-z0-9][A-Za-z0-9-]*)?$/u.test(reviewer)
+    )
+      throw new Error("Invalid GitHub reviewer")
+    if (action !== "add" && action !== "remove") throw new Error("Invalid GitHub reviewer action")
+    await this.#assertCurrentHead(cwd, number, expectedHead)
+    await this.#run(cwd, [
+      "pr",
+      "edit",
+      String(number),
+      action === "add" ? "--add-reviewer" : "--remove-reviewer",
+      reviewer,
+    ])
   }
 
   async merge(

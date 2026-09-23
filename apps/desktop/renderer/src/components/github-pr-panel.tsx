@@ -46,6 +46,7 @@ export function GitHubPrPanel({
   const [editBody, setEditBody] = useState<string | null>(null)
   const [commentBody, setCommentBody] = useState("")
   const [reviewBody, setReviewBody] = useState("")
+  const [reviewer, setReviewer] = useState("")
   const [showDiff, setShowDiff] = useState(false)
   const [mergeOpen, setMergeOpen] = useState(false)
   const [closeOpen, setCloseOpen] = useState(false)
@@ -56,6 +57,7 @@ export function GitHubPrPanel({
     setEditBody(null)
     setCommentBody("")
     setReviewBody("")
+    setReviewer("")
     setShowDiff(false)
     setSelectedNumber(number)
   }
@@ -374,6 +376,51 @@ export function GitHubPrPanel({
           ) : null}
           {cliAvailable && selected.data.state === "OPEN" && selected.data.headRefOid ? (
             <div className="space-y-2 border-t pt-2">
+              <Input
+                aria-label={i18n._(
+                  msg({ id: "git.github.reviewer", message: "Reviewer login or team" })
+                )}
+                onChange={(event) => setReviewer(event.target.value)}
+                placeholder={i18n._(
+                  msg({ id: "git.github.reviewer", message: "Reviewer login or team" })
+                )}
+                value={reviewer}
+              />
+              <div className="flex gap-2">
+                {(["add", "remove"] as const).map((action) => (
+                  <Button
+                    disabled={busy || !reviewer.trim()}
+                    key={action}
+                    onClick={() => {
+                      const head = selected.data.headRefOid
+                      if (!head) return
+                      void mutate(async () => {
+                        await (await ensureCypheriaClient()).git.githubPrReviewer(
+                          cwd,
+                          selected.data.number,
+                          head,
+                          reviewer.trim(),
+                          action
+                        )
+                        setReviewer("")
+                      })
+                    }}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    {action === "add" ? (
+                      <Trans id="git.github.requestReviewer">Request reviewer</Trans>
+                    ) : (
+                      <Trans id="git.github.removeReviewer">Remove reviewer</Trans>
+                    )}
+                  </Button>
+                ))}
+              </div>
+            </div>
+          ) : null}
+          {cliAvailable && selected.data.state === "OPEN" && selected.data.headRefOid ? (
+            <div className="space-y-2 border-t pt-2">
               <Textarea
                 aria-label={i18n._(
                   msg({ id: "git.github.commentBody", message: "Pull request comment" })
@@ -582,10 +629,13 @@ export function GitHubPrPanel({
                 disabled={busy || (!editTitle.trim() && editBody === null)}
                 onClick={() =>
                   void mutate(async () => {
+                    const head = selected.data.headRefOid
+                    if (!head) throw new Error("A pull request head is required")
                     await (await ensureCypheriaClient()).git.githubPrUpdate(
                       cwd,
                       selected.data.number,
                       {
+                        expectedHead: head,
                         title: editTitle.trim() || undefined,
                         body: editBody ?? undefined,
                       }

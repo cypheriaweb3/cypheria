@@ -484,8 +484,21 @@ export const GitHubPrUpdateRequestSchema = input(
     .object({
       cwd: path,
       number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
       title: z.string().min(1).max(1000).optional(),
       body: z.string().max(100_000).optional(),
+    })
+    .strict()
+)
+export const GitHubPrReviewerRequestSchema = input(
+  "git.github-pr-reviewer.request",
+  z
+    .object({
+      cwd: path,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      reviewer: z.string().min(1).max(100),
+      action: z.enum(["add", "remove"]),
     })
     .strict()
 )
@@ -703,6 +716,7 @@ export const GitHubPrUpdateResponseSchema = output(
   "git.github-pr-update.response",
   GitHubPullRequestSchema
 )
+export const GitHubPrReviewerResponseSchema = output("git.github-pr-reviewer.response", success)
 export const GitHubPrMergeResponseSchema = output(
   "git.github-pr-merge.response",
   GitHubPullRequestSchema
@@ -779,6 +793,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubPrSetStateRequestSchema,
   GitHubPrCreateRequestSchema,
   GitHubPrUpdateRequestSchema,
+  GitHubPrReviewerRequestSchema,
   GitHubPrMergeRequestSchema,
   GitLabMrReadRequestSchema,
   GitLabMrChecksRequestSchema,
@@ -834,6 +849,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubPrSetStateResponseSchema,
   GitHubPrCreateResponseSchema,
   GitHubPrUpdateResponseSchema,
+  GitHubPrReviewerResponseSchema,
   GitHubPrMergeResponseSchema,
   GitLabMrReadResponseSchema,
   GitLabMrChecksResponseSchema,

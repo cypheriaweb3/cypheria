@@ -100,7 +100,15 @@ else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
         draft: true,
       })
     ).toEqual(pr)
-    expect(await service.update(cwd, 42, { title: "New title", body: "Updated body" })).toEqual(pr)
+    expect(
+      await service.update(cwd, 42, {
+        expectedHead: pr.headRefOid,
+        title: "New title",
+        body: "Updated body",
+      })
+    ).toEqual(pr)
+    await service.reviewer(cwd, 42, pr.headRefOid, "reviewer", "add")
+    await service.reviewer(cwd, 42, pr.headRefOid, "org/team", "remove")
     expect(await service.merge(cwd, 42, pr.headRefOid, "squash")).toEqual(pr)
     const calls = (await readFile(log, "utf8"))
       .trim()
@@ -141,6 +149,8 @@ else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
     )
     expect(calls).toContainEqual({ body: "Line 1\nLine 2" })
     expect(calls).toContainEqual({ body: "Updated body" })
+    expect(calls).toContainEqual(["pr", "edit", "42", "--add-reviewer", "reviewer"])
+    expect(calls).toContainEqual(["pr", "edit", "42", "--remove-reviewer", "org/team"])
     expect(calls).toContainEqual([
       "pr",
       "merge",
@@ -155,7 +165,18 @@ else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
     await expect(
       service.create(cwd, { head: "existing", base: "main", title: "Title", body: "" })
     ).rejects.toThrow("already exists")
-    await expect(service.update(cwd, 42, {})).rejects.toThrow("No GitHub PR changes")
+    await expect(service.update(cwd, 42, { expectedHead: pr.headRefOid })).rejects.toThrow(
+      "No GitHub PR changes"
+    )
+    await expect(
+      service.update(cwd, 42, { expectedHead: "b".repeat(40), title: "Stale" })
+    ).rejects.toThrow("head changed")
+    await expect(service.reviewer(cwd, 42, pr.headRefOid, "../bad", "add")).rejects.toThrow(
+      "Invalid GitHub reviewer"
+    )
+    await expect(service.reviewer(cwd, 42, "b".repeat(40), "reviewer", "add")).rejects.toThrow(
+      "head changed"
+    )
     await expect(service.merge(cwd, 42, "stale", "merge")).rejects.toThrow("Invalid expected")
     await expect(service.comment(cwd, 42, "b".repeat(40), "Stale")).rejects.toThrow("head changed")
     await expect(service.diff(cwd, 42, "b".repeat(40))).rejects.toThrow("head changed")

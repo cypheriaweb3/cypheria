@@ -204,9 +204,17 @@ export interface GitActions {
   githubPrUpdate(
     cwd: string,
     number: number,
-    input: { title?: string; body?: string },
+    input: { expectedHead: string; title?: string; body?: string },
     options?: RequestOptions
   ): Promise<GitHubPullRequest>
+  githubPrReviewer(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    reviewer: string,
+    action: "add" | "remove",
+    options?: RequestOptions
+  ): Promise<void>
   githubPrMerge(
     cwd: string,
     number: number,
@@ -410,6 +418,15 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(
       await client.requestGit("git.github-pr-update.request", { cwd, number, ...input }, options)
     ),
+  githubPrReviewer: async (cwd, number, expectedHead, reviewer, action, options) => {
+    unwrap(
+      await client.requestGit(
+        "git.github-pr-reviewer.request",
+        { cwd, number, expectedHead, reviewer, action },
+        options
+      )
+    )
+  },
   githubPrMerge: async (cwd, number, expectedHead, method, options) =>
     unwrap(
       await client.requestGit(

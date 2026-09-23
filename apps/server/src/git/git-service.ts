@@ -318,6 +318,16 @@ export class GitService {
             message.payload
           )
           break
+        case "git.github-pr-reviewer.request":
+          await this.githubPrReviewer(
+            message.payload.cwd,
+            message.payload.number,
+            message.payload.expectedHead,
+            message.payload.reviewer,
+            message.payload.action
+          )
+          value = { succeeded: true }
+          break
         case "git.github-pr-merge.request":
           value = await this.githubPrMerge(
             message.payload.cwd,
@@ -649,9 +659,25 @@ export class GitService {
   async githubPrUpdate(
     cwd: string,
     number: number,
-    input: { title?: string; body?: string }
+    input: { expectedHead: string; title?: string; body?: string }
   ): Promise<GitHubPullRequest> {
     return this.#github.update((await this.discover(cwd)).root, number, input)
+  }
+
+  async githubPrReviewer(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    reviewer: string,
+    action: "add" | "remove"
+  ): Promise<void> {
+    await this.#github.reviewer(
+      (await this.discover(cwd)).root,
+      number,
+      expectedHead,
+      reviewer,
+      action
+    )
   }
 
   async githubPrMerge(
