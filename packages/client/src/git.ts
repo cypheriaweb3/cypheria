@@ -61,20 +61,20 @@ export interface GitActions {
   ): Promise<GitStatus>
   diff(
     cwd: string,
-    input?: { staged?: boolean; base?: string; paths?: string[] },
+    input?: { staged?: boolean; base?: string; paths?: string[]; ignoreWhitespace?: boolean },
     options?: RequestOptions
   ): Promise<string>
   branchReview(cwd: string, base: string, options?: RequestOptions): Promise<GitBranchReview>
   branchReviewDiff(
     cwd: string,
-    input: { base: string; expectedHead: string; path: string },
+    input: { base: string; expectedHead: string; path: string; ignoreWhitespace?: boolean },
     options?: RequestOptions
   ): Promise<string>
   commitList(cwd: string, limit?: number, options?: RequestOptions): Promise<GitCommitSummary[]>
   commitReview(cwd: string, commit: string, options?: RequestOptions): Promise<GitBranchReview>
   commitReviewDiff(
     cwd: string,
-    input: { base: string; commit: string; path: string },
+    input: { base: string; commit: string; path: string; ignoreWhitespace?: boolean },
     options?: RequestOptions
   ): Promise<string>
   lastTurnReview(
@@ -84,7 +84,13 @@ export interface GitActions {
   ): Promise<GitBranchReview | null>
   lastTurnReviewDiff(
     cwd: string,
-    input: { threadId: string; base: string; head: string; path: string },
+    input: {
+      threadId: string
+      base: string
+      head: string
+      path: string
+      ignoreWhitespace?: boolean
+    },
     options?: RequestOptions
   ): Promise<string>
   reviewLineCounts(
@@ -93,6 +99,7 @@ export interface GitActions {
       source: "unstaged" | "staged" | "uncommitted" | "branch" | "commit" | "last-turn"
       base?: string
       head?: string
+      ignoreWhitespace?: boolean
     },
     options?: RequestOptions
   ): Promise<GitReviewLineCount[]>
@@ -100,6 +107,7 @@ export interface GitActions {
     cwd: string,
     source: "staged" | "unstaged",
     path: string,
+    ignoreWhitespace?: boolean,
     options?: RequestOptions
   ): Promise<GitReviewFile>
   applyReviewSection(
@@ -339,8 +347,14 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     ).diff,
   reviewLineCounts: async (cwd, input, options) =>
     unwrap(await client.requestGit("git.review-line-counts.request", { cwd, ...input }, options)),
-  reviewFile: async (cwd, source, path, options) =>
-    unwrap(await client.requestGit("git.review-file.request", { cwd, source, path }, options)),
+  reviewFile: async (cwd, source, path, ignoreWhitespace, options) =>
+    unwrap(
+      await client.requestGit(
+        "git.review-file.request",
+        { cwd, source, path, ignoreWhitespace },
+        options
+      )
+    ),
   applyReviewSection: async (cwd, input, options) =>
     unwrap<{ undoId: string | null }>(
       await client.requestGit("git.apply-review-section.request", { cwd, ...input }, options)

@@ -28,6 +28,24 @@ const repository = async () => {
 }
 
 describe("GitService", () => {
+  it("ignores whitespace in review display without changing the mutation revision", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await writeFile(join(root, "file.txt"), "one two\n")
+    await service.stage(root, ["file.txt"])
+    await service.commit(root, "Base")
+    await writeFile(join(root, "file.txt"), "one  two\n")
+    const raw = await service.reviewFile(root, "unstaged", "file.txt")
+    const filtered = await service.reviewFile(root, "unstaged", "file.txt", true)
+    expect(raw.diff).toContain("+one  two")
+    expect(filtered.diff).toBe("")
+    expect(filtered.hunks).toEqual([])
+    expect(filtered.revision).toBe(raw.revision)
+    expect(
+      await service.reviewLineCounts(root, { source: "unstaged", ignoreWhitespace: true })
+    ).toEqual([])
+  }, 20_000)
+
   it("counts staged, unstaged, and combined review lines", async () => {
     const root = await repository()
     const service = new GitService(join(root, "cache"), join(root, "home"))

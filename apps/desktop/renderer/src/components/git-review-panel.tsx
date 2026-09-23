@@ -48,6 +48,7 @@ export function GitReviewPanel({
   threadId,
 }: Readonly<{ cwd: string; fallback: ReactNode; threadId: string | null }>) {
   const stashId = useId()
+  const whitespaceId = useId()
   const { i18n } = useLingui()
   const queryClient = useQueryClient()
   const [source, setSource] = useState<ReviewSource>("unstaged")
@@ -56,6 +57,9 @@ export function GitReviewPanel({
   const [message, setMessage] = useState("")
   const [targetBranch, setTargetBranch] = useState("")
   const [branchSearch, setBranchSearch] = useState("")
+  const [reviewBaseSearch, setReviewBaseSearch] = useState("")
+  const [reviewBase, setReviewBase] = useState("")
+  const [ignoreWhitespace, setIgnoreWhitespace] = useState(false)
   const [fileSearch, setFileSearch] = useState("")
   const [newBranch, setNewBranch] = useState("")
   const [stashChanges, setStashChanges] = useState(false)
@@ -88,6 +92,13 @@ export function GitReviewPanel({
     refetchInterval: 3_000,
     retry: false,
   })
+  const reviewBaseBranches = useQuery({
+    enabled: source === "branch" && Boolean(status.data),
+    queryKey: ["git", cwd, "review-base-search", reviewBaseSearch],
+    queryFn: async () =>
+      (await ensureCypheriaClient()).git.searchBranches(cwd, reviewBaseSearch, 100),
+    retry: false,
+  })
   const origin = useQuery({
     enabled: Boolean(status.data),
     queryKey: ["git", cwd, "origin"],
@@ -115,13 +126,13 @@ export function GitReviewPanel({
     refetchInterval: 5_000,
     retry: false,
   })
+  const activeReviewBase = reviewBase || branchContext.data?.defaultBranch || ""
   const branchReview = useQuery({
-    enabled: source === "branch" && Boolean(status.data?.head && branchContext.data?.defaultBranch),
-    queryKey: ["git", cwd, "branch-review", branchContext.data?.defaultBranch, status.data?.head],
+    enabled: source === "branch" && Boolean(status.data?.head && activeReviewBase),
+    queryKey: ["git", cwd, "branch-review", activeReviewBase, status.data?.head],
     queryFn: async () => {
-      const base = branchContext.data?.defaultBranch
-      if (!base) throw new Error("Base branch is unavailable")
-      return (await ensureCypheriaClient()).git.branchReview(cwd, base)
+      if (!activeReviewBase) throw new Error("Base branch is unavailable")
+      return (await ensureCypheriaClient()).git.branchReview(cwd, activeReviewBase)
     },
     refetchInterval: 5_000,
     retry: false,
@@ -195,6 +206,7 @@ export function GitReviewPanel({
       cwd,
       "line-counts",
       source,
+      ignoreWhitespace,
       reviewSnapshot?.base,
       reviewSnapshot?.head,
       status.data?.entries,
@@ -202,6 +214,7 @@ export function GitReviewPanel({
     queryFn: async () =>
       (await ensureCypheriaClient()).git.reviewLineCounts(cwd, {
         source,
+        ignoreWhitespace,
         ...(reviewSnapshot ? { base: reviewSnapshot.base, head: reviewSnapshot.head } : {}),
       }),
     refetchInterval: 5_000,
@@ -229,6 +242,7 @@ export function GitReviewPanel({
       cwd,
       "diff",
       source,
+      ignoreWhitespace,
       activePath,
       status.data?.head,
       status.data?.entries,
@@ -246,6 +260,7 @@ export function GitReviewPanel({
           base: branchReview.data.base,
           expectedHead: branchReview.data.head,
           path: activePath,
+          ignoreWhitespace,
         })
         return { diff: branchDiff, revision: null, hunks: [] }
       }
@@ -254,6 +269,7 @@ export function GitReviewPanel({
           base: commitReview.data.base,
           commit: commitReview.data.head,
           path: activePath,
+          ignoreWhitespace,
         })
         return { diff: commitDiff, revision: null, hunks: [] }
       }
@@ -263,6 +279,7 @@ export function GitReviewPanel({
           base: lastTurnReview.data.base,
           head: lastTurnReview.data.head,
           path: activePath,
+          ignoreWhitespace,
         })
         return { diff: turnDiff, revision: null, hunks: [] }
       }
@@ -271,10 +288,14 @@ export function GitReviewPanel({
           (entry) => entry.path === activePath && entry.code === "??"
         )
         const combinedDiff = status.data?.head
-          ? await git.diff(cwd, { ...(untracked ? {} : { base: "HEAD" }), paths: [activePath] })
+          ? await git.diff(cwd, {
+              ...(untracked ? {} : { base: "HEAD" }),
+              paths: [activePath],
+              ignoreWhitespace,
+            })
           : [
-              await git.diff(cwd, { staged: true, paths: [activePath] }),
-              await git.diff(cwd, { paths: [activePath] }),
+              await git.diff(cwd, { staged: true, paths: [activePath], ignoreWhitespace }),
+              await git.diff(cwd, { paths: [activePath], ignoreWhitespace }),
             ]
               .filter(Boolean)
               .join("\n")
@@ -282,7 +303,7 @@ export function GitReviewPanel({
       }
       if (!activePath || (source !== "staged" && source !== "unstaged"))
         throw new Error("A review file is required")
-      return git.reviewFile(cwd, source, activePath)
+      return git.reviewFile(cwd, source, activePath, ignoreWhitespace)
     },
     refetchInterval: 3_000,
     retry: false,
@@ -386,10 +407,10 @@ export function GitReviewPanel({
               <Trans id="git.review.uncommitted">Uncommitted</Trans>
             </Button>
             <Button
-              disabled={!status.data?.head || !branchContext.data?.defaultBranch}
+              disabled={!status.data?.head || !activeReviewBase}
               onClick={() => setSource("branch")}
               size="sm"
-              title={branchContext.data?.defaultBranch ?? undefined}
+              title={activeReviewBase || undefined}
               type="button"
               variant={source === "branch" ? "secondary" : "ghost"}
             >
@@ -419,6 +440,51 @@ export function GitReviewPanel({
           {status.data?.branch ?? "HEAD"}
         </span>
       </ChatReviewToolbar>
+      {source === "branch" ? (
+        <div className="space-y-2 border-b p-2">
+          <Input
+            aria-label={i18n._(
+              msg({ id: "git.review.searchBaseBranches", message: "Search base branches" })
+            )}
+            maxLength={200}
+            onChange={(event) => setReviewBaseSearch(event.target.value)}
+            placeholder={i18n._(
+              msg({ id: "git.review.searchBaseBranches", message: "Search base branches" })
+            )}
+            value={reviewBaseSearch}
+          />
+          <NativeSelect
+            aria-label={i18n._(msg({ id: "git.review.baseBranch", message: "Base branch" }))}
+            className="w-full"
+            onChange={(event) => {
+              setReviewBase(event.target.value)
+              setSelectedPath(null)
+            }}
+            size="sm"
+            value={activeReviewBase}
+          >
+            {!activeReviewBase ? (
+              <NativeSelectOption value="">
+                <Trans id="git.review.selectBaseBranch">Select base branch</Trans>
+              </NativeSelectOption>
+            ) : null}
+            {activeReviewBase &&
+            !reviewBaseBranches.data?.some((branch) => branchValue(branch) === activeReviewBase) ? (
+              <NativeSelectOption value={activeReviewBase}>{activeReviewBase}</NativeSelectOption>
+            ) : null}
+            {reviewBaseBranches.data
+              ?.filter((branch) => !branch.current || branchValue(branch) === activeReviewBase)
+              .map((branch) => (
+                <NativeSelectOption
+                  key={`${branch.scope}:${branch.name}`}
+                  value={branchValue(branch)}
+                >
+                  {branch.name}
+                </NativeSelectOption>
+              ))}
+          </NativeSelect>
+        </div>
+      ) : null}
       <div className="flex items-center gap-2 border-b p-2">
         <Input
           aria-label={i18n._(
@@ -442,6 +508,17 @@ export function GitReviewPanel({
           </span>
         ) : null}
       </div>
+      <label
+        className="flex items-center gap-2 border-b px-2 py-1.5 text-xs text-muted-foreground"
+        htmlFor={whitespaceId}
+      >
+        <Checkbox
+          id={whitespaceId}
+          checked={ignoreWhitespace}
+          onCheckedChange={(checked) => setIgnoreWhitespace(checked === true)}
+        />
+        <Trans id="git.review.ignoreWhitespace">Ignore whitespace changes</Trans>
+      </label>
       {lineCounts.isError ? (
         <p className="border-b p-2 text-xs text-destructive">{lineCounts.error.message}</p>
       ) : null}

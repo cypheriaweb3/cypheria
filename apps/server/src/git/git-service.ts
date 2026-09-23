@@ -190,7 +190,8 @@ export class GitService {
           value = await this.reviewFile(
             message.payload.cwd,
             message.payload.source,
-            message.payload.path
+            message.payload.path,
+            message.payload.ignoreWhitespace
           )
           break
         case "git.apply-review-section.request":
@@ -1085,7 +1086,12 @@ export class GitService {
 
   async diff(
     cwd: string,
-    input: { staged?: boolean; base?: string; paths?: readonly string[] } = {}
+    input: {
+      staged?: boolean
+      base?: string
+      paths?: readonly string[]
+      ignoreWhitespace?: boolean
+    } = {}
   ): Promise<string> {
     const repository = await this.discover(cwd)
     if (!input.staged && !input.base && input.paths?.length === 1) {
@@ -1107,6 +1113,7 @@ export class GitService {
               "--no-ext-diff",
               "--no-textconv",
               "--no-color",
+              ...(input.ignoreWhitespace ? ["--ignore-all-space"] : []),
               "--",
               "/dev/null",
               path,
@@ -1124,6 +1131,7 @@ export class GitService {
       "--src-prefix=a/",
       "--dst-prefix=b/",
     ]
+    if (input.ignoreWhitespace) args.push("--ignore-all-space")
     if (input.staged) args.push("--cached")
     if (input.base) args.push(validateOperand(input.base, "base"))
     if (input.paths?.length) args.push("--", ...(await this.#paths(repository.root, input.paths)))
@@ -1136,10 +1144,19 @@ export class GitService {
       source: "unstaged" | "staged" | "uncommitted" | "branch" | "commit" | "last-turn"
       base?: string
       head?: string
+      ignoreWhitespace?: boolean
     }
   ): Promise<GitReviewLineCount[]> {
     const repository = await this.discover(cwd)
-    const prefix = ["diff", "--no-ext-diff", "--no-textconv", "--no-color", "--numstat", "-z"]
+    const prefix = [
+      "diff",
+      "--no-ext-diff",
+      "--no-textconv",
+      "--no-color",
+      "--numstat",
+      "-z",
+      ...(input.ignoreWhitespace ? ["--ignore-all-space"] : []),
+    ]
     const run = async (refs: readonly string[]) =>
       parseGitNumstat(
         (await this.#executor.run(repository.root, [...prefix, ...refs], { readOnly: true })).stdout
@@ -1217,7 +1234,7 @@ export class GitService {
 
   async branchReviewDiff(
     cwd: string,
-    input: { base: string; expectedHead: string; path: string }
+    input: { base: string; expectedHead: string; path: string; ignoreWhitespace?: boolean }
   ): Promise<string> {
     const repository = await this.discover(cwd)
     if (
@@ -1245,6 +1262,7 @@ export class GitService {
           "--no-ext-diff",
           "--no-textconv",
           "--no-color",
+          ...(input.ignoreWhitespace ? ["--ignore-all-space"] : []),
           input.base,
           input.expectedHead,
           "--",
@@ -1322,7 +1340,7 @@ export class GitService {
 
   async commitReviewDiff(
     cwd: string,
-    input: { base: string; commit: string; path: string }
+    input: { base: string; commit: string; path: string; ignoreWhitespace?: boolean }
   ): Promise<string> {
     const review = await this.commitReview(cwd, input.commit)
     if (review.base !== input.base || review.head !== input.commit)
@@ -1337,6 +1355,7 @@ export class GitService {
           "--no-ext-diff",
           "--no-textconv",
           "--no-color",
+          ...(input.ignoreWhitespace ? ["--ignore-all-space"] : []),
           review.base,
           review.head,
           "--",
@@ -1367,7 +1386,13 @@ export class GitService {
 
   async lastTurnReviewDiff(
     cwd: string,
-    input: { threadId: string; base: string; head: string; path: string }
+    input: {
+      threadId: string
+      base: string
+      head: string
+      path: string
+      ignoreWhitespace?: boolean
+    }
   ): Promise<string> {
     const repository = await this.discover(cwd)
     await this.#turnDiff.assertSnapshot(
@@ -1386,6 +1411,7 @@ export class GitService {
           "--no-ext-diff",
           "--no-textconv",
           "--no-color",
+          ...(input.ignoreWhitespace ? ["--ignore-all-space"] : []),
           input.base,
           input.head,
           "--",
@@ -1399,12 +1425,13 @@ export class GitService {
   async reviewFile(
     cwd: string,
     source: "staged" | "unstaged",
-    path: string
+    path: string,
+    ignoreWhitespace = false
   ): Promise<GitReviewFile> {
     const repository = await this.discover(cwd)
     const [safePath] = await this.#paths(repository.root, [path])
     if (!safePath) throw new Error("Invalid Git review path")
-    const [status, diff, index] = await Promise.all([
+    const [status, rawDiff, index] = await Promise.all([
       this.status(repository.root),
       this.diff(repository.root, { staged: source === "staged", paths: [safePath] }),
       this.#executor.run(repository.root, ["ls-files", "--stage", "-z", "--", safePath], {
@@ -1430,15 +1457,24 @@ export class GitService {
     }
     const revision = createHash("sha256")
       .update(
-        `${source}\0${safePath}\0${status.head ?? ""}\0${index.stdout}\0${content.digest("hex")}\0${diff}`
+        `${source}\0${safePath}\0${status.head ?? ""}\0${index.stdout}\0${content.digest("hex")}\0${rawDiff}`
       )
       .digest("hex")
+    const diff = ignoreWhitespace
+      ? await this.diff(repository.root, {
+          staged: source === "staged",
+          paths: [safePath],
+          ignoreWhitespace: true,
+        })
+      : rawDiff
     return {
       source,
       path: safePath,
       diff,
       revision,
-      hunks: reviewHunks(diff).map((hunk, index) => ({ index, header: hunk.header })),
+      hunks: ignoreWhitespace
+        ? []
+        : reviewHunks(diff).map((hunk, index) => ({ index, header: hunk.header })),
     }
   }
 

@@ -245,6 +245,7 @@ export const GitDiffRequestSchema = input(
     .object({
       cwd: path,
       staged: z.boolean().optional(),
+      ignoreWhitespace: z.boolean().optional(),
       base: z.string().optional(),
       paths: paths.optional(),
     })
@@ -262,6 +263,7 @@ export const GitBranchReviewDiffRequestSchema = input(
       base: z.string().regex(/^[a-f0-9]{40,64}$/iu),
       expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
       path,
+      ignoreWhitespace: z.boolean().optional(),
     })
     .strict()
 )
@@ -281,6 +283,7 @@ export const GitCommitReviewDiffRequestSchema = input(
       base: z.string().regex(/^[a-f0-9]{40,64}$/iu),
       commit: z.string().regex(/^[a-f0-9]{40,64}$/iu),
       path,
+      ignoreWhitespace: z.boolean().optional(),
     })
     .strict()
 )
@@ -297,6 +300,7 @@ export const GitLastTurnReviewDiffRequestSchema = input(
       base: z.string().regex(/^[a-f0-9]{40,64}$/iu),
       head: z.string().regex(/^[a-f0-9]{40,64}$/iu),
       path,
+      ignoreWhitespace: z.boolean().optional(),
     })
     .strict()
 )
@@ -306,6 +310,7 @@ export const GitReviewLineCountsRequestSchema = input(
     .object({
       cwd: path,
       source: z.enum(["unstaged", "staged", "uncommitted", "branch", "commit", "last-turn"]),
+      ignoreWhitespace: z.boolean().optional(),
       base: z
         .string()
         .regex(/^[a-f0-9]{40,64}$/iu)
@@ -319,7 +324,14 @@ export const GitReviewLineCountsRequestSchema = input(
 )
 export const GitReviewFileRequestSchema = input(
   "git.review-file.request",
-  z.object({ cwd: path, source: z.enum(["staged", "unstaged"]), path }).strict()
+  z
+    .object({
+      cwd: path,
+      source: z.enum(["staged", "unstaged"]),
+      path,
+      ignoreWhitespace: z.boolean().optional(),
+    })
+    .strict()
 )
 export const GitApplyReviewSectionRequestSchema = input(
   "git.apply-review-section.request",
