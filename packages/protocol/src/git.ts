@@ -476,6 +476,10 @@ export const GitHubPrReadRequestSchema = input(
   "git.github-pr-read.request",
   z.object({ cwd: path, number: z.number().int().positive() }).strict()
 )
+export const GitHubPrForBranchRequestSchema = input(
+  "git.github-pr-for-branch.request",
+  z.object({ cwd: path, branch: z.string().min(1).max(500) }).strict()
+)
 export const GitHubPrDiffRequestSchema = input(
   "git.github-pr-diff.request",
   z
@@ -806,6 +810,10 @@ export const GitHubPrReadResponseSchema = output(
   "git.github-pr-read.response",
   GitHubPullRequestSchema
 )
+export const GitHubPrForBranchResponseSchema = output(
+  "git.github-pr-for-branch.response",
+  GitHubPullRequestSchema.nullable()
+)
 export const GitHubPrDiffResponseSchema = output(
   "git.github-pr-diff.response",
   z.object({ diff: z.string() }).strict()
@@ -919,6 +927,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubAppPrReadRequestSchema,
   GitHubPrListRequestSchema,
   GitHubPrReadRequestSchema,
+  GitHubPrForBranchRequestSchema,
   GitHubPrDiffRequestSchema,
   GitHubPrAutoMergeStatusRequestSchema,
   GitHubPrToggleAutoMergeRequestSchema,
@@ -981,6 +990,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubAppPrReadResponseSchema,
   GitHubPrListResponseSchema,
   GitHubPrReadResponseSchema,
+  GitHubPrForBranchResponseSchema,
   GitHubPrDiffResponseSchema,
   GitHubPrAutoMergeStatusResponseSchema,
   GitHubPrToggleAutoMergeResponseSchema,

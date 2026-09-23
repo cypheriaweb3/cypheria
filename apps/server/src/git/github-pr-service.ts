@@ -136,6 +136,36 @@ export class GitHubPrService {
     return GitHubPullRequestSchema.parse(JSON.parse(result))
   }
 
+  async forBranch(cwd: string, branch: string): Promise<GitHubPullRequest | null> {
+    const head = operand(branch, "head branch")
+    if (head.length > 500) throw new Error("Invalid GitHub head branch")
+    const branchName = head.split(":").at(-1) ?? head
+    const result = GitHubPullRequestSchema.array().parse(
+      JSON.parse(
+        await this.#run(cwd, [
+          "pr",
+          "list",
+          "--head",
+          branchName,
+          "--author",
+          "@me",
+          "--state",
+          "all",
+          "--limit",
+          "100",
+          "--json",
+          fields,
+        ])
+      )
+    )
+    const matching = result.filter((pr) => pr.headRefName === branchName)
+    return (
+      matching.find((pr) => pr.state === "OPEN") ??
+      matching.find((pr) => pr.state === "MERGED") ??
+      null
+    )
+  }
+
   async diff(cwd: string, number: number, expectedHead: string): Promise<string> {
     await this.#assertCurrentHead(cwd, number, expectedHead, false)
     const diff = await this.#run(cwd, ["pr", "diff", String(number), "--patch"])

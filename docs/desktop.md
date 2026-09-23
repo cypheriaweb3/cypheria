@@ -96,6 +96,8 @@ The CLI path also reads review threads, posts a comment on a changed line, repli
 
 The CLI PR list supports state and text search, created-by-me and review-requested scopes, and loading additional results in batches of 100 up to 500. GitHub App results retain the connector's available scope and limit.
 
+The CLI also queries the current branch's authored PR independently of the list. It favors an open PR, otherwise a merged PR, so a PR outside the current list remains available and a second open PR is not offered for the same branch.
+
 Managed worktrees persist an optional owner Thread ID in Cypheria's worktree metadata. The Server checks that an assigned local Codex thread belongs to the same repository and currently uses that worktree. A worktree with an owner cannot be deleted until its owner moves away.
 
 The Review panel can move an idle local Codex thread between its checkout and an active managed worktree. The Server rejects a move during a turn or pending interaction, resumes the native thread at the destination, updates worktree ownership, and restores the prior directory if the move fails. Moving the thread changes its working directory; local uncommitted files remain in their original directory.

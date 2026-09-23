@@ -133,8 +133,19 @@ export function GitHubPrPanel({
     },
     retry: false,
   })
+  const branchPr = useQuery({
+    enabled: cliAvailable && Boolean(branch),
+    queryKey: ["github-pr", cwd, "for-branch", branch],
+    queryFn: async () => {
+      if (!branch) throw new Error("A local Git branch is required")
+      return (await ensureCypheriaClient()).git.githubPrForBranch(cwd, branch)
+    },
+    refetchInterval: 30_000,
+    retry: false,
+  })
   const activeNumber =
     selectedNumber ??
+    branchPr.data?.number ??
     list.data?.items.find((item) => "headRefName" in item && item.headRefName === branch)?.number ??
     null
   const selected = useQuery({
@@ -371,6 +382,11 @@ export function GitHubPrPanel({
       {list.isError ? (
         <Alert variant="destructive">
           <AlertDescription>{list.error.message}</AlertDescription>
+        </Alert>
+      ) : null}
+      {branchPr.isError ? (
+        <Alert variant="destructive">
+          <AlertDescription>{branchPr.error.message}</AlertDescription>
         </Alert>
       ) : null}
       {selected.data ? (
@@ -980,6 +996,13 @@ export function GitHubPrPanel({
           <p className="text-xs text-muted-foreground">
             <Trans id="git.github.createHint">Create from the pushed current branch</Trans>
           </p>
+          {branchPr.data?.state === "OPEN" ? (
+            <p className="text-xs text-muted-foreground">
+              <Trans id="git.github.existingBranchPr">
+                The current branch already has an open pull request.
+              </Trans>
+            </p>
+          ) : null}
           <Input
             aria-label={i18n._(msg({ id: "git.github.base", message: "Base branch" }))}
             onChange={(event) => setBase(event.target.value)}
@@ -1001,7 +1024,9 @@ export function GitHubPrPanel({
           />
           <div className="flex flex-wrap gap-2">
             <Button
-              disabled={busy || !branch || !base.trim() || !title.trim()}
+              disabled={
+                busy || !branch || !base.trim() || !title.trim() || branchPr.data?.state === "OPEN"
+              }
               onClick={() =>
                 void mutate(async () => {
                   if (!branch) throw new Error("A local Git branch is required")
