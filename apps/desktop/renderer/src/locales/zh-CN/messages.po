@@ -336,6 +336,11 @@ msgid "navigation.createSection"
 msgstr "创建分组"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.createWorktree"
+msgstr "创建工作树"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sort.created"
 msgstr "创建时间"
@@ -369,6 +374,11 @@ msgstr "默认终端位置"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.standaloneChat"
 msgstr "默认使用独立聊天"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.deleteWorktree"
+msgstr "删除"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
@@ -1470,3 +1480,8 @@ msgstr "正在处理…"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.workspace"
 msgstr "工作区导航"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.worktrees"
+msgstr "工作树"

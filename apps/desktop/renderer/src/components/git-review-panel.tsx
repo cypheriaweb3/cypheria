@@ -52,6 +52,13 @@ export function GitReviewPanel({ cwd, fallback }: Readonly<{ cwd: string; fallba
     refetchInterval: 3_000,
     retry: false,
   })
+  const worktrees = useQuery({
+    enabled: Boolean(status.data),
+    queryKey: ["git", cwd, "worktrees"],
+    queryFn: async () => (await ensureCypheriaClient()).git.worktrees(cwd),
+    refetchInterval: 5_000,
+    retry: false,
+  })
   const entries =
     status.data?.entries.filter(({ code }) =>
       source === "staged" ? code[0] !== " " && code[0] !== "?" : code[1] !== " "
@@ -299,6 +306,48 @@ export function GitReviewPanel({ cwd, fallback }: Readonly<{ cwd: string; fallba
               <Trans id="git.review.push">Push</Trans>
             </Button>
           </div>
+        </div>
+      ) : null}
+      {status.data?.head ? (
+        <div className="space-y-2 border-t p-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-medium">
+              <Trans id="git.review.worktrees">Worktrees</Trans>
+            </span>
+            <Button
+              disabled={busy}
+              onClick={() =>
+                void mutate(async () => (await ensureCypheriaClient()).git.createWorktree(cwd))
+              }
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <Trans id="git.review.createWorktree">Create worktree</Trans>
+            </Button>
+          </div>
+          {worktrees.data
+            ?.filter((entry) => entry.managed)
+            .map((entry) => (
+              <div className="flex items-center gap-2" key={entry.path}>
+                <span className="min-w-0 flex-1 truncate text-xs" title={entry.path}>
+                  {entry.path}
+                </span>
+                <Button
+                  disabled={busy}
+                  onClick={() =>
+                    void mutate(async () =>
+                      (await ensureCypheriaClient()).git.deleteWorktree(cwd, entry.path)
+                    )
+                  }
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  <Trans id="git.review.deleteWorktree">Delete</Trans>
+                </Button>
+              </div>
+            ))}
         </div>
       ) : null}
       {actionError ? <p className="p-2 text-sm text-destructive">{actionError}</p> : null}

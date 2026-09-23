@@ -336,6 +336,11 @@ msgid "navigation.createSection"
 msgstr "Create section"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.createWorktree"
+msgstr "Create worktree"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sort.created"
 msgstr "Date created"
@@ -369,6 +374,11 @@ msgstr "Default terminal location"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.standaloneChat"
 msgstr "Default to standalone chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.deleteWorktree"
+msgstr "Delete"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
@@ -1470,3 +1480,8 @@ msgstr "Working…"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.workspace"
 msgstr "Workspace navigation"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.worktrees"
+msgstr "Worktrees"
