@@ -38,6 +38,8 @@ export function GitHubPrPanel({
   const [prSearchText, setPrSearchText] = useState("")
   const [prSearchQuery, setPrSearchQuery] = useState("")
   const [prListState, setPrListState] = useState<"open" | "closed" | "merged" | "all">("open")
+  const [prListScope, setPrListScope] = useState<"all" | "authored" | "reviewing">("all")
+  const [prListLimit, setPrListLimit] = useState(100)
   const [base, setBase] = useState("")
   const [title, setTitle] = useState("")
   const [body, setBody] = useState("")
@@ -95,17 +97,25 @@ export function GitHubPrPanel({
       cliAvailable ? "cli" : "app",
       threadId,
       prListState,
+      prListScope,
       prSearchQuery,
+      prListLimit,
     ],
     queryFn: async () => {
       const git = (await ensureCypheriaClient()).git
       if (cliAvailable) {
+        const scopeQuery =
+          prListScope === "authored"
+            ? "author:@me"
+            : prListScope === "reviewing"
+              ? "review-requested:@me"
+              : ""
         const items = await git.githubPrList(cwd, {
           state: prListState,
-          query: prSearchQuery,
-          limit: 100,
+          query: [prSearchQuery, scopeQuery].filter(Boolean).join(" "),
+          limit: prListLimit,
         })
-        return { items, truncated: items.length === 100 }
+        return { items, truncated: items.length === prListLimit }
       }
       if (!threadId) throw new Error("A local Codex thread is required")
       return git.githubAppPrList(cwd, threadId)
@@ -233,17 +243,23 @@ export function GitHubPrPanel({
           <Input
             aria-label={i18n._(msg({ id: "git.github.search", message: "Search pull requests" }))}
             className="min-w-40 flex-1"
-            maxLength={200}
+            maxLength={170}
             onChange={(event) => setPrSearchText(event.target.value)}
             onKeyDown={(event) => {
-              if (event.key === "Enter") setPrSearchQuery(prSearchText.trim())
+              if (event.key === "Enter") {
+                setPrListLimit(100)
+                setPrSearchQuery(prSearchText.trim())
+              }
             }}
             placeholder={i18n._(msg({ id: "git.github.search", message: "Search pull requests" }))}
             value={prSearchText}
           />
           <NativeSelect
             aria-label={i18n._(msg({ id: "git.github.listState", message: "Pull request state" }))}
-            onChange={(event) => setPrListState(event.target.value as typeof prListState)}
+            onChange={(event) => {
+              setPrListLimit(100)
+              setPrListState(event.target.value as typeof prListState)
+            }}
             size="sm"
             value={prListState}
           >
@@ -260,8 +276,32 @@ export function GitHubPrPanel({
               <Trans id="git.github.stateAll">All</Trans>
             </NativeSelectOption>
           </NativeSelect>
+          <NativeSelect
+            aria-label={i18n._(
+              msg({ id: "git.github.listScope", message: "Pull request involvement" })
+            )}
+            onChange={(event) => {
+              setPrListLimit(100)
+              setPrListScope(event.target.value as typeof prListScope)
+            }}
+            size="sm"
+            value={prListScope}
+          >
+            <NativeSelectOption value="all">
+              <Trans id="git.github.scopeAll">All</Trans>
+            </NativeSelectOption>
+            <NativeSelectOption value="authored">
+              <Trans id="git.github.scopeAuthored">Created by me</Trans>
+            </NativeSelectOption>
+            <NativeSelectOption value="reviewing">
+              <Trans id="git.github.scopeReviewing">Review requested</Trans>
+            </NativeSelectOption>
+          </NativeSelect>
           <Button
-            onClick={() => setPrSearchQuery(prSearchText.trim())}
+            onClick={() => {
+              setPrListLimit(100)
+              setPrSearchQuery(prSearchText.trim())
+            }}
             size="sm"
             type="button"
             variant="outline"
@@ -291,9 +331,21 @@ export function GitHubPrPanel({
         </Button>
       ))}
       {list.data?.truncated ? (
-        <p className="text-xs text-muted-foreground">
-          <Trans id="git.github.listTruncated">Showing the most recent pull requests</Trans>
-        </p>
+        cliAvailable && prListLimit < 500 ? (
+          <Button
+            disabled={list.isFetching}
+            onClick={() => setPrListLimit((limit) => Math.min(limit + 100, 500))}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <Trans id="git.github.loadMore">Load more pull requests</Trans>
+          </Button>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            <Trans id="git.github.listTruncated">Showing the most recent pull requests</Trans>
+          </p>
+        )
       ) : null}
       {list.isError ? (
         <Alert variant="destructive">

@@ -105,6 +105,9 @@ export class GitHubPrService {
     limit = 30,
     query = ""
   ): Promise<GitHubPullRequest[]> {
+    if (!Number.isInteger(limit) || limit < 1 || limit > 500) {
+      throw new Error("Invalid GitHub PR list limit")
+    }
     if (query.length > 200 || query.includes("\0") || query.includes("\n")) {
       throw new Error("Invalid GitHub PR search query")
     }

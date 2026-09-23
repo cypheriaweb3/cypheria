@@ -63,6 +63,7 @@ else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
     })
     expect(await service.list(cwd, "all", 5)).toEqual([pr])
     expect(await service.list(cwd, "closed", 10, "bug fix")).toEqual([pr])
+    expect(await service.list(cwd, "open", 200, "review-requested:@me")).toEqual([pr])
     expect(await service.read(cwd, 42)).toEqual(pr)
     expect(await service.diff(cwd, 42, pr.headRefOid)).toContain("+new")
     expect(await service.autoMergeEnabled(cwd, 42)).toBe(false)
@@ -140,6 +141,18 @@ else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
       "--json",
       expect.any(String),
     ])
+    expect(calls).toContainEqual([
+      "pr",
+      "list",
+      "--state",
+      "open",
+      "--limit",
+      "200",
+      "--search",
+      "review-requested:@me",
+      "--json",
+      expect.any(String),
+    ])
     expect(calls).toContainEqual(["pr", "view", "42", "--json", expect.any(String)])
     expect(calls).toContainEqual(["pr", "diff", "42", "--patch"])
     expect(calls).toContainEqual(["pr", "checks", "42", "--json", expect.any(String)])
@@ -192,6 +205,7 @@ else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
       "head changed"
     )
     await expect(service.merge(cwd, 42, "stale", "merge")).rejects.toThrow("Invalid expected")
+    await expect(service.list(cwd, "open", 501)).rejects.toThrow("list limit")
     await expect(service.comment(cwd, 42, "b".repeat(40), "Stale")).rejects.toThrow("head changed")
     await expect(service.diff(cwd, 42, "b".repeat(40))).rejects.toThrow("head changed")
     await expect(service.review(cwd, 42, pr.headRefOid, "request_changes", " ")).rejects.toThrow(

@@ -440,7 +440,7 @@ export const GitHubPrListRequestSchema = input(
     .object({
       cwd: path,
       state: z.enum(["open", "closed", "merged", "all"]).optional(),
-      limit: z.number().int().min(1).max(100).optional(),
+      limit: z.number().int().min(1).max(500).optional(),
       query: z.string().max(200).optional(),
     })
     .strict()
