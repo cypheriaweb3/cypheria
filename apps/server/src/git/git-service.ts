@@ -16,7 +16,7 @@ import type { ThreadManager } from "../thread/thread-manager.js"
 import { GitCommandError, GitExecutor } from "./git-executor.js"
 import { GitWorktreeService } from "./git-worktree-service.js"
 import { GitHubPrService } from "./github-pr-service.js"
-import { GitLabMrService } from "./gitlab-mr-service.js"
+import { GitLabMrService, gitLabBrowserFormUrl } from "./gitlab-mr-service.js"
 
 export type GitRepository = {
   readonly commonGitDir: string
@@ -181,6 +181,16 @@ export class GitService {
             message.payload.body
           )
           break
+        case "git.gitlab-mr-create.request":
+          value = await this.gitlabMrCreate(
+            message.payload.cwd,
+            message.payload.threadId,
+            message.payload
+          )
+          break
+        case "git.gitlab-mr-browser-form.request":
+          value = { url: await this.gitlabMrBrowserForm(message.payload.cwd, message.payload) }
+          break
       }
       send({ type, requestId: message.requestId, payload: { ok: true, value } } as GitServerMessage)
     } catch (error) {
@@ -296,6 +306,28 @@ export class GitService {
   ): Promise<GitLabMergeRequestNote> {
     const { service, root, nativeThreadId } = await this.#gitlabThread(cwd, threadId)
     return service.postComment(root, nativeThreadId, iid, body)
+  }
+
+  async gitlabMrCreate(
+    cwd: string,
+    threadId: string,
+    input: {
+      sourceBranch: string
+      targetBranch?: string
+      title: string
+      description: string
+      draft?: boolean
+    }
+  ): Promise<GitLabMergeRequest> {
+    const { service, root, nativeThreadId } = await this.#gitlabThread(cwd, threadId)
+    return service.create(root, nativeThreadId, input)
+  }
+
+  async gitlabMrBrowserForm(
+    cwd: string,
+    input: { sourceBranch: string; title: string; description: string }
+  ): Promise<string> {
+    return gitLabBrowserFormUrl(this.#executor, (await this.discover(cwd)).root, input)
   }
 
   async #gitlabThread(

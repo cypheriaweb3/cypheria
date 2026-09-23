@@ -249,6 +249,31 @@ export const GitLabMrPostCommentRequestSchema = input(
     })
     .strict()
 )
+export const GitLabMrCreateRequestSchema = input(
+  "git.gitlab-mr-create.request",
+  z
+    .object({
+      cwd: path,
+      threadId: ProjectThreadIdSchema,
+      sourceBranch: z.string().min(1),
+      targetBranch: z.string().min(1).optional(),
+      title: z.string().min(1).max(1000),
+      description: z.string().max(1_000_000),
+      draft: z.boolean().optional(),
+    })
+    .strict()
+)
+export const GitLabMrBrowserFormRequestSchema = input(
+  "git.gitlab-mr-browser-form.request",
+  z
+    .object({
+      cwd: path,
+      sourceBranch: z.string().min(1),
+      title: z.string().min(1).max(1000),
+      description: z.string().max(1_000_000),
+    })
+    .strict()
+)
 
 const success = z.object({ succeeded: z.literal(true) }).strict()
 export const GitDiscoverResponseSchema = output("git.discover.response", GitRepositorySchema)
@@ -327,6 +352,14 @@ export const GitLabMrPostCommentResponseSchema = output(
   "git.gitlab-mr-post-comment.response",
   GitLabMergeRequestNoteSchema
 )
+export const GitLabMrCreateResponseSchema = output(
+  "git.gitlab-mr-create.response",
+  GitLabMergeRequestSchema
+)
+export const GitLabMrBrowserFormResponseSchema = output(
+  "git.gitlab-mr-browser-form.response",
+  z.object({ url: z.url() }).strict()
+)
 
 export const GIT_CLIENT_SCHEMAS = [
   GitDiscoverRequestSchema,
@@ -354,6 +387,8 @@ export const GIT_CLIENT_SCHEMAS = [
   GitLabMrReadRequestSchema,
   GitLabMrUpdateTitleRequestSchema,
   GitLabMrPostCommentRequestSchema,
+  GitLabMrCreateRequestSchema,
+  GitLabMrBrowserFormRequestSchema,
 ] as const
 export const GIT_SERVER_SCHEMAS = [
   GitDiscoverResponseSchema,
@@ -381,6 +416,8 @@ export const GIT_SERVER_SCHEMAS = [
   GitLabMrReadResponseSchema,
   GitLabMrUpdateTitleResponseSchema,
   GitLabMrPostCommentResponseSchema,
+  GitLabMrCreateResponseSchema,
+  GitLabMrBrowserFormResponseSchema,
 ] as const
 export const GIT_RESPONSE_TYPES = GIT_SERVER_SCHEMAS.map((schema) => schema.shape.type.value)
 export const GitClientMessageSchema = z.discriminatedUnion("type", GIT_CLIENT_SCHEMAS)

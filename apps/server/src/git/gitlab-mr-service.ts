@@ -11,6 +11,7 @@ const projectResponse = z
     data: z
       .object({
         id: z.number().int().positive(),
+        default_branch: z.string().min(1).nullish(),
         path_with_namespace: z.string().min(1),
         web_url: z.url(),
       })
@@ -73,6 +74,54 @@ const pathFromRemote = (remote: string): string => {
 }
 
 const expectedProjectUrl = (path: string) => `${gitLabOrigin}/${path}`
+const remotePath = async (executor: GitExecutor, root: string): Promise<string> => {
+  const remote = (await executor.run(root, ["remote", "get-url", "origin"], { readOnly: true }))
+    .stdout
+  return pathFromRemote(remote)
+}
+const validateBranch = (branch: string): void => {
+  if (!branch || branch.startsWith("-") || branch.includes("\0") || branch.includes("\n"))
+    throw new Error("Invalid GitLab branch")
+}
+const verifiedPushedBranch = async (
+  executor: GitExecutor,
+  root: string,
+  branch: string
+): Promise<void> => {
+  validateBranch(branch)
+  await remotePath(executor, root)
+  const current = (
+    await executor.run(root, ["branch", "--show-current"], { readOnly: true })
+  ).stdout.trim()
+  if (current !== branch) throw new Error("The selected GitLab branch is not checked out")
+  const local = (
+    await executor.run(root, ["rev-parse", "--verify", `refs/heads/${branch}`], {
+      readOnly: true,
+    })
+  ).stdout.trim()
+  const remote = (
+    await executor.run(root, ["ls-remote", "--heads", "origin", `refs/heads/${branch}`], {
+      readOnly: true,
+    })
+  ).stdout.trim()
+  if (remote !== `${local}\trefs/heads/${branch}`)
+    throw new Error("Push the current branch to GitLab before creating a merge request")
+}
+
+export const gitLabBrowserFormUrl = async (
+  executor: GitExecutor,
+  root: string,
+  input: { sourceBranch: string; title: string; description: string }
+): Promise<string> => {
+  if (!input.title.trim()) throw new Error("GitLab merge request title is required")
+  await verifiedPushedBranch(executor, root, input.sourceBranch)
+  const path = await remotePath(executor, root)
+  const url = new URL(`${expectedProjectUrl(path)}/-/merge_requests/new`)
+  url.searchParams.set("merge_request[source_branch]", input.sourceBranch)
+  url.searchParams.set("merge_request[title]", input.title)
+  url.searchParams.set("merge_request[description]", input.description)
+  return url.href
+}
 
 export type GitLabMergeRequest = {
   iid: number
@@ -95,6 +144,7 @@ type Context = {
   mr: MergeRequestData
   selection: CodexAppSelection
 }
+type Project = { projectPath: string; projectId: number; defaultBranch: string | null }
 
 /** Read GitLab.com MRs only for the local origin and the selected Codex account. */
 export class GitLabMrService {
@@ -156,21 +206,100 @@ export class GitLabMrService {
     return { id: note.id, body: note.body }
   }
 
+  async create(
+    root: string,
+    nativeThreadId: string,
+    input: {
+      sourceBranch: string
+      targetBranch?: string
+      title: string
+      description: string
+      draft?: boolean
+    }
+  ): Promise<GitLabMergeRequest> {
+    if (!input.title.trim()) throw new Error("GitLab merge request title is required")
+    await verifiedPushedBranch(this.#executor, root, input.sourceBranch)
+    const selection = await this.#apps.select(connectorId, "gitlab", [
+      "get_project",
+      "create_merge_request",
+    ])
+    const project = await this.#project(root, nativeThreadId, selection)
+    const targetBranch = input.targetBranch ?? project.defaultBranch
+    if (!targetBranch) throw new Error("The GitLab project has no default target branch")
+    validateBranch(targetBranch)
+    if (targetBranch === input.sourceBranch)
+      throw new Error("GitLab source and target branches must differ")
+    const title =
+      input.draft && !/^(draft:|wip:)/iu.test(input.title) ? `Draft: ${input.title}` : input.title
+    let response: unknown
+    try {
+      response = await this.#apps.call(
+        selection,
+        nativeThreadId,
+        "gitlab",
+        "create_merge_request",
+        {
+          project_id: project.projectId,
+          source_branch: input.sourceBranch,
+          target_branch: targetBranch,
+          title,
+          description: input.description,
+        },
+        { recheckAfter: false }
+      )
+    } catch {
+      throw new Error("Could not confirm the merge request. Check GitLab before trying again")
+    }
+    try {
+      const mr = mrResponse.parse(response).data
+      this.#validateMr(project.projectPath, project.projectId, mr.iid, mr)
+      if (
+        mr.source_branch !== input.sourceBranch ||
+        mr.target_branch !== targetBranch ||
+        mr.title !== title
+      )
+        throw new Error("GitLab returned another merge request")
+      return this.#view({ ...project, mr, selection })
+    } catch {
+      throw new Error("Could not confirm the merge request. Check GitLab before trying again")
+    }
+  }
+
+  async browserFormUrl(
+    root: string,
+    input: { sourceBranch: string; title: string; description: string }
+  ): Promise<string> {
+    return gitLabBrowserFormUrl(this.#executor, root, input)
+  }
+
   async #context(
     root: string,
     nativeThreadId: string,
     iid: number,
     additionalActions: readonly string[] = []
   ): Promise<Context> {
-    const remote = (
-      await this.#executor.run(root, ["remote", "get-url", "origin"], { readOnly: true })
-    ).stdout
-    const projectPath = pathFromRemote(remote)
     const selection = await this.#apps.select(connectorId, "gitlab", [
       "get_project",
       "get_merge_request",
       ...additionalActions,
     ])
+    const project = await this.#project(root, nativeThreadId, selection)
+    const mr = mrResponse.parse(
+      await this.#apps.call(selection, nativeThreadId, "gitlab", "get_merge_request", {
+        project_id: project.projectId,
+        merge_request_iid: iid,
+      })
+    ).data
+    this.#validateMr(project.projectPath, project.projectId, iid, mr)
+    return { ...project, mr, selection }
+  }
+
+  async #project(
+    root: string,
+    nativeThreadId: string,
+    selection: CodexAppSelection
+  ): Promise<Project> {
+    const projectPath = await remotePath(this.#executor, root)
     const project = projectResponse.parse(
       await this.#apps.call(selection, nativeThreadId, "gitlab", "get_project", {
         project_id: encodeURIComponent(projectPath),
@@ -181,14 +310,7 @@ export class GitLabMrService {
       project.web_url.replace(/\/$/u, "") !== expectedProjectUrl(projectPath)
     )
       throw new Error("The selected GitLab project does not match the local origin")
-    const mr = mrResponse.parse(
-      await this.#apps.call(selection, nativeThreadId, "gitlab", "get_merge_request", {
-        project_id: project.id,
-        merge_request_iid: iid,
-      })
-    ).data
-    this.#validateMr(projectPath, project.id, iid, mr)
-    return { projectPath, projectId: project.id, mr, selection }
+    return { projectPath, projectId: project.id, defaultBranch: project.default_branch ?? null }
   }
 
   #validateMr(projectPath: string, projectId: number, iid: number, mr: MergeRequestData): void {

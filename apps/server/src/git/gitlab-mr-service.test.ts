@@ -6,6 +6,7 @@ import { GitLabMrService } from "./gitlab-mr-service.js"
 const project = {
   data: {
     id: 42,
+    default_branch: "main",
     path_with_namespace: "group/project",
     web_url: "https://gitlab.com/group/project",
   },
@@ -30,7 +31,17 @@ const fixture = (
   mrResult: unknown = mr,
   responses: Record<string, unknown> = {}
 ) => {
-  const run = vi.fn(async () => ({ stdout: `${remote}\n`, stderr: "" }))
+  const run = vi.fn(async (_root: string, args: string[]) => {
+    const stdout =
+      args[0] === "branch"
+        ? "feature\n"
+        : args[0] === "rev-parse"
+          ? `${"a".repeat(40)}\n`
+          : args[0] === "ls-remote"
+            ? `${"a".repeat(40)}\trefs/heads/feature\n`
+            : `${remote}\n`
+    return { stdout, stderr: "" }
+  })
   const select = vi.fn(async () => ({
     connectorId: "connector_0c9786b2f41f41558056126bdb46c9bd",
     accountLinkId: "link-1",
@@ -141,5 +152,77 @@ describe("GitLabMrService", () => {
     await expect(service.postComment("/repo", "native-thread", 7, " ")).rejects.toThrow(
       "comment is required"
     )
+  })
+
+  it("creates an MR only for the pushed current branch and confirms the result", async () => {
+    const created = { data: { ...mr.data, title: "Draft: Add feature" } }
+    const { service, call, run } = fixture("git@gitlab.com:group/project.git", project, mr, {
+      create_merge_request: created,
+    })
+    expect(
+      await service.create("/repo", "native-thread", {
+        sourceBranch: "feature",
+        title: "Add feature",
+        description: "Details",
+        draft: true,
+      })
+    ).toMatchObject({ iid: 7, title: "Draft: Add feature", draft: true })
+    expect(run).toHaveBeenCalledWith(
+      "/repo",
+      ["ls-remote", "--heads", "origin", "refs/heads/feature"],
+      { readOnly: true }
+    )
+    expect(call).toHaveBeenCalledWith(
+      expect.any(Object),
+      "native-thread",
+      "gitlab",
+      "create_merge_request",
+      {
+        project_id: 42,
+        source_branch: "feature",
+        target_branch: "main",
+        title: "Draft: Add feature",
+        description: "Details",
+      },
+      { recheckAfter: false }
+    )
+  })
+
+  it("creates the browser form URL after push without a connector call", async () => {
+    const { service, call } = fixture("git@gitlab.com:group/project.git")
+    const url = new URL(
+      await service.browserFormUrl("/repo", {
+        sourceBranch: "feature",
+        title: "Add feature",
+        description: "Details",
+      })
+    )
+    expect(url.origin + url.pathname).toBe("https://gitlab.com/group/project/-/merge_requests/new")
+    expect(url.searchParams.get("merge_request[source_branch]")).toBe("feature")
+    expect(url.searchParams.get("merge_request[title]")).toBe("Add feature")
+    expect(call).not.toHaveBeenCalled()
+  })
+
+  it("rejects an unpushed branch before attempting MR creation", async () => {
+    const { service, run, call } = fixture("git@gitlab.com:group/project.git")
+    run.mockImplementation(async (_root, args) => ({
+      stdout:
+        args[0] === "branch"
+          ? "feature\n"
+          : args[0] === "rev-parse"
+            ? `${"a".repeat(40)}\n`
+            : args[0] === "ls-remote"
+              ? ""
+              : "git@gitlab.com:group/project.git\n",
+      stderr: "",
+    }))
+    await expect(
+      service.create("/repo", "native-thread", {
+        sourceBranch: "feature",
+        title: "Add feature",
+        description: "Details",
+      })
+    ).rejects.toThrow("Push the current branch")
+    expect(call).not.toHaveBeenCalled()
   })
 })

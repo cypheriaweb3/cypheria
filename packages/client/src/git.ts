@@ -100,6 +100,23 @@ export interface GitActions {
     body: string,
     options?: RequestOptions
   ): Promise<GitLabMergeRequestNote>
+  gitlabMrCreate(
+    cwd: string,
+    threadId: string,
+    input: {
+      sourceBranch: string
+      targetBranch?: string
+      title: string
+      description: string
+      draft?: boolean
+    },
+    options?: RequestOptions
+  ): Promise<GitLabMergeRequest>
+  gitlabMrBrowserForm(
+    cwd: string,
+    input: { sourceBranch: string; title: string; description: string },
+    options?: RequestOptions
+  ): Promise<string>
 }
 
 export const createGitActions = (client: ServerClient): GitActions => ({
@@ -184,4 +201,12 @@ export const createGitActions = (client: ServerClient): GitActions => ({
         options
       )
     ),
+  gitlabMrCreate: async (cwd, threadId, input, options) =>
+    unwrap(
+      await client.requestGit("git.gitlab-mr-create.request", { cwd, threadId, ...input }, options)
+    ),
+  gitlabMrBrowserForm: async (cwd, input, options) =>
+    unwrap<{ url: string }>(
+      await client.requestGit("git.gitlab-mr-browser-form.request", { cwd, ...input }, options)
+    ).url,
 })
