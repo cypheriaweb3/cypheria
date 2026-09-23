@@ -149,6 +149,11 @@ msgid "settings.backToWorkspace"
 msgstr "Back to workspace"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.base"
+msgstr "Base branch"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.workspace.terminalLocation.bottom"
 msgstr "Bottom"
@@ -169,6 +174,11 @@ msgid "git.review.branch"
 msgstr "Branch"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.browser"
+msgstr "Browser"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.browser"
 msgstr "Browser"
@@ -182,6 +192,11 @@ msgstr "Browser"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.byProject"
 msgstr "By project"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.cancel"
+msgstr "Cancel"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -341,6 +356,11 @@ msgid "git.gitlab.createDraft"
 msgstr "Create draft"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.createHint"
+msgstr "Create from the pushed current branch"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/gitlab-mr-panel.tsx
 msgid "git.gitlab.createHint"
 msgstr "Create from the pushed current branch"
@@ -349,6 +369,11 @@ msgstr "Create from the pushed current branch"
 #: renderer/src/components/gitlab-mr-panel.tsx
 msgid "git.gitlab.create"
 msgstr "Create MR"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.create"
+msgstr "Create PR"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
@@ -440,6 +465,11 @@ msgstr "Display language"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "chat.done"
 msgstr "Done"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.draft"
+msgstr "Draft"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -560,6 +590,11 @@ msgstr "General"
 #: renderer/src/components/app-shell.tsx
 msgid "settings.general"
 msgstr "General"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.heading"
+msgstr "GitHub pull requests"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/gitlab-mr-panel.tsx
@@ -714,6 +749,16 @@ msgid "chat.panel.mcp"
 msgstr "MCP App"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.merge"
+msgstr "Merge"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeTitle"
+msgstr "Merge pull request?"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/gitlab-mr-panel.tsx
 msgid "git.gitlab.comment"
 msgstr "Merge request comment"
@@ -778,6 +823,16 @@ msgstr "New chat in {projectName}"
 #: renderer/src/components/gitlab-mr-panel.tsx
 msgid "git.gitlab.newTitle"
 msgstr "New merge request title"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.editBody"
+msgstr "New pull request body"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.editTitle"
+msgstr "New pull request title"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -858,6 +913,11 @@ msgstr "No matching chats."
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.mcp.empty"
 msgstr "No MCP App is open"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.noPullRequests"
+msgstr "No open pull requests"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1085,6 +1145,16 @@ msgid "navigation.projects"
 msgstr "Projects"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.body"
+msgstr "Pull request body"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.title"
+msgstr "Pull request title"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.push"
 msgstr "Push"
@@ -1108,6 +1178,11 @@ msgstr "queued"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.queue.queued"
 msgstr "Queued"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.ready"
+msgstr "Ready"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1218,6 +1293,11 @@ msgstr "Running"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.save"
 msgstr "Save"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.save"
+msgstr "Save changes"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1475,6 +1555,11 @@ msgstr "Terminal tabs"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.archiveChatDescription"
 msgstr "The chat will move to Archived chats."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeDescription"
+msgstr "The displayed head commit must still match the pull request."
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx

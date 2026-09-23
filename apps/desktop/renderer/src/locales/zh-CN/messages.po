@@ -149,6 +149,11 @@ msgid "settings.backToWorkspace"
 msgstr "返回工作区"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.base"
+msgstr "基准分支"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.workspace.terminalLocation.bottom"
 msgstr "底部"
@@ -169,6 +174,11 @@ msgid "git.review.branch"
 msgstr "分支"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.browser"
+msgstr "浏览器"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.browser"
 msgstr "浏览器"
@@ -182,6 +192,11 @@ msgstr "浏览器"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.byProject"
 msgstr "按项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.cancel"
+msgstr "取消"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -341,6 +356,11 @@ msgid "git.gitlab.createDraft"
 msgstr "创建草稿 MR"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.createHint"
+msgstr "从已推送的当前分支创建"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/gitlab-mr-panel.tsx
 msgid "git.gitlab.createHint"
 msgstr "从已推送的当前分支创建"
@@ -349,6 +369,11 @@ msgstr "从已推送的当前分支创建"
 #: renderer/src/components/gitlab-mr-panel.tsx
 msgid "git.gitlab.create"
 msgstr "创建 MR"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.create"
+msgstr "创建 PR"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
@@ -440,6 +465,11 @@ msgstr "显示语言"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "chat.done"
 msgstr "完成"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.draft"
+msgstr "草稿"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -560,6 +590,11 @@ msgstr "常规"
 #: renderer/src/components/app-shell.tsx
 msgid "settings.general"
 msgstr "常规"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.heading"
+msgstr "GitHub 拉取请求"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/gitlab-mr-panel.tsx
@@ -714,6 +749,16 @@ msgid "chat.panel.mcp"
 msgstr "MCP 应用"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.merge"
+msgstr "合并"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeTitle"
+msgstr "合并拉取请求？"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/gitlab-mr-panel.tsx
 msgid "git.gitlab.comment"
 msgstr "合并请求评论"
@@ -778,6 +823,16 @@ msgstr "在 {projectName} 中新建会话"
 #: renderer/src/components/gitlab-mr-panel.tsx
 msgid "git.gitlab.newTitle"
 msgstr "新的合并请求标题"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.editBody"
+msgstr "新的拉取请求正文"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.editTitle"
+msgstr "新的拉取请求标题"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -858,6 +913,11 @@ msgstr "没有匹配的对话。"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.mcp.empty"
 msgstr "未打开 MCP 应用"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.noPullRequests"
+msgstr "没有打开的拉取请求"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1085,6 +1145,16 @@ msgid "navigation.projects"
 msgstr "项目"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.body"
+msgstr "拉取请求正文"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.title"
+msgstr "拉取请求标题"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.push"
 msgstr "推送"
@@ -1108,6 +1178,11 @@ msgstr "已排队"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.queue.queued"
 msgstr "已排队"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.ready"
+msgstr "就绪"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1218,6 +1293,11 @@ msgstr "运行中"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.save"
 msgstr "保存"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.save"
+msgstr "保存更改"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1475,6 +1555,11 @@ msgstr "终端标签"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.archiveChatDescription"
 msgstr "该会话将移至已归档会话。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.mergeDescription"
+msgstr "显示的头部提交必须仍与拉取请求一致。"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx

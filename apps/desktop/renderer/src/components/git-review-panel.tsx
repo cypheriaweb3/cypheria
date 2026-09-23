@@ -16,6 +16,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { type ReactNode, useId, useState } from "react"
 
 import { ensureCypheriaClient } from "../cypheria-client.js"
+import { GitHubPrPanel } from "./github-pr-panel.js"
 import { GitLabMrPanel } from "./gitlab-mr-panel.js"
 
 type ReviewSource = "unstaged" | "staged" | "branch"
@@ -471,6 +472,9 @@ export function GitReviewPanel({
           key={cwd}
           threadId={threadId}
         />
+      ) : null}
+      {origin.data?.provider === "github" ? (
+        <GitHubPrPanel branch={status.data?.branch ?? null} cwd={cwd} key={cwd} />
       ) : null}
       {actionError ? <p className="p-2 text-sm text-destructive">{actionError}</p> : null}
     </ChatReviewPanel>
