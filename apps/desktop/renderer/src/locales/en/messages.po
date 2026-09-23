@@ -1075,6 +1075,11 @@ msgid "chat.panel.review.empty"
 msgstr "No file changes to review"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.noMatchingFiles"
+msgstr "No files match this search"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.files.empty"
 msgstr "No files were produced"
@@ -1649,6 +1654,11 @@ msgstr "Search archived chats"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.searchBranches"
 msgstr "Search branches"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.searchFiles"
+msgstr "Search changed files"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx

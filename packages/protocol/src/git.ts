@@ -63,6 +63,13 @@ export const GitReviewFileSchema = z
     ),
   })
   .strict()
+export const GitReviewLineCountSchema = z
+  .object({
+    path,
+    additions: z.number().int().nonnegative().nullable(),
+    deletions: z.number().int().nonnegative().nullable(),
+  })
+  .strict()
 export const GitReviewUndoEntrySchema = z
   .object({ id: z.uuid(), path, createdAt: z.iso.datetime() })
   .strict()
@@ -290,6 +297,23 @@ export const GitLastTurnReviewDiffRequestSchema = input(
       base: z.string().regex(/^[a-f0-9]{40,64}$/iu),
       head: z.string().regex(/^[a-f0-9]{40,64}$/iu),
       path,
+    })
+    .strict()
+)
+export const GitReviewLineCountsRequestSchema = input(
+  "git.review-line-counts.request",
+  z
+    .object({
+      cwd: path,
+      source: z.enum(["unstaged", "staged", "uncommitted", "branch", "commit", "last-turn"]),
+      base: z
+        .string()
+        .regex(/^[a-f0-9]{40,64}$/iu)
+        .optional(),
+      head: z
+        .string()
+        .regex(/^[a-f0-9]{40,64}$/iu)
+        .optional(),
     })
     .strict()
 )
@@ -644,6 +668,10 @@ export const GitLastTurnReviewDiffResponseSchema = output(
   "git.last-turn-review-diff.response",
   z.object({ diff: z.string() }).strict()
 )
+export const GitReviewLineCountsResponseSchema = output(
+  "git.review-line-counts.response",
+  z.array(GitReviewLineCountSchema)
+)
 export const GitReviewFileResponseSchema = output("git.review-file.response", GitReviewFileSchema)
 export const GitApplyReviewSectionResponseSchema = output(
   "git.apply-review-section.response",
@@ -796,6 +824,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitCommitReviewDiffRequestSchema,
   GitLastTurnReviewRequestSchema,
   GitLastTurnReviewDiffRequestSchema,
+  GitReviewLineCountsRequestSchema,
   GitReviewFileRequestSchema,
   GitApplyReviewSectionRequestSchema,
   GitUndoReviewRevertRequestSchema,
@@ -855,6 +884,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitCommitReviewDiffResponseSchema,
   GitLastTurnReviewResponseSchema,
   GitLastTurnReviewDiffResponseSchema,
+  GitReviewLineCountsResponseSchema,
   GitReviewFileResponseSchema,
   GitApplyReviewSectionResponseSchema,
   GitUndoReviewRevertResponseSchema,
@@ -908,6 +938,7 @@ export type GitBranchSearchResult = z.infer<typeof GitBranchSearchResultSchema>
 export type GitBranchReview = z.infer<typeof GitBranchReviewSchema>
 export type GitCommitSummary = z.infer<typeof GitCommitSummarySchema>
 export type GitReviewFile = z.infer<typeof GitReviewFileSchema>
+export type GitReviewLineCount = z.infer<typeof GitReviewLineCountSchema>
 export type GitReviewUndoEntry = z.infer<typeof GitReviewUndoEntrySchema>
 export type GitBranchContext = z.infer<typeof GitBranchContextSchema>
 export type GitWorktree = z.infer<typeof GitWorktreeSchema>

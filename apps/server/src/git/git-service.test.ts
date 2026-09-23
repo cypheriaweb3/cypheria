@@ -28,6 +28,25 @@ const repository = async () => {
 }
 
 describe("GitService", () => {
+  it("counts staged, unstaged, and combined review lines", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await writeFile(join(root, "file.txt"), "first\n")
+    await service.stage(root, ["file.txt"])
+    await service.commit(root, "Base")
+    await writeFile(join(root, "file.txt"), "first\nsecond\n")
+    await service.stage(root, ["file.txt"])
+    await writeFile(join(root, "file.txt"), "first\nsecond\nthird\n")
+    expect(await service.reviewLineCounts(root, { source: "staged" })).toEqual([
+      { path: "file.txt", additions: 1, deletions: 0 },
+    ])
+    expect(await service.reviewLineCounts(root, { source: "unstaged" })).toEqual([
+      { path: "file.txt", additions: 1, deletions: 0 },
+    ])
+    expect(await service.reviewLineCounts(root, { source: "uncommitted" })).toEqual([
+      { path: "file.txt", additions: 2, deletions: 0 },
+    ])
+  }, 20_000)
   it("reports the current branch, upstream, default branch, and ahead count", async () => {
     const root = await repository()
     const remote = await mkdtemp(join(tmpdir(), "cypheria-git-remote-"))

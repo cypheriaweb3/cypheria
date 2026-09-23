@@ -18,6 +18,7 @@ import type {
   GitOrigin,
   GitRepository,
   GitReviewFile,
+  GitReviewLineCount,
   GitReviewUndoEntry,
   GitServerMessage,
   GitStatus,
@@ -86,6 +87,15 @@ export interface GitActions {
     input: { threadId: string; base: string; head: string; path: string },
     options?: RequestOptions
   ): Promise<string>
+  reviewLineCounts(
+    cwd: string,
+    input: {
+      source: "unstaged" | "staged" | "uncommitted" | "branch" | "commit" | "last-turn"
+      base?: string
+      head?: string
+    },
+    options?: RequestOptions
+  ): Promise<GitReviewLineCount[]>
   reviewFile(
     cwd: string,
     source: "staged" | "unstaged",
@@ -327,6 +337,8 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap<{ diff: string }>(
       await client.requestGit("git.last-turn-review-diff.request", { cwd, ...input }, options)
     ).diff,
+  reviewLineCounts: async (cwd, input, options) =>
+    unwrap(await client.requestGit("git.review-line-counts.request", { cwd, ...input }, options)),
   reviewFile: async (cwd, source, path, options) =>
     unwrap(await client.requestGit("git.review-file.request", { cwd, source, path }, options)),
   applyReviewSection: async (cwd, input, options) =>

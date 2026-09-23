@@ -56,6 +56,7 @@ export function GitReviewPanel({
   const [message, setMessage] = useState("")
   const [targetBranch, setTargetBranch] = useState("")
   const [branchSearch, setBranchSearch] = useState("")
+  const [fileSearch, setFileSearch] = useState("")
   const [newBranch, setNewBranch] = useState("")
   const [stashChanges, setStashChanges] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -167,9 +168,54 @@ export function GitReviewPanel({
                   ? code[1] !== " "
                   : true
             ) ?? [])
-  const activePath = entries.some((entry) => entry.path === selectedPath)
+  const fileSearchTerm = fileSearch.trim().toLowerCase()
+  const visibleEntries = fileSearchTerm
+    ? entries.filter((entry) => entry.path.toLowerCase().includes(fileSearchTerm))
+    : entries
+  const activePath = visibleEntries.some((entry) => entry.path === selectedPath)
     ? selectedPath
-    : entries[0]?.path
+    : visibleEntries[0]?.path
+  const reviewSnapshot =
+    source === "branch"
+      ? branchReview.data
+      : source === "commit"
+        ? commitReview.data
+        : source === "last-turn"
+          ? lastTurnReview.data
+          : null
+  const lineCounts = useQuery({
+    enabled: Boolean(
+      status.data &&
+        (source === "branch" || source === "commit" || source === "last-turn"
+          ? reviewSnapshot
+          : true)
+    ),
+    queryKey: [
+      "git",
+      cwd,
+      "line-counts",
+      source,
+      reviewSnapshot?.base,
+      reviewSnapshot?.head,
+      status.data?.entries,
+    ],
+    queryFn: async () =>
+      (await ensureCypheriaClient()).git.reviewLineCounts(cwd, {
+        source,
+        ...(reviewSnapshot ? { base: reviewSnapshot.base, head: reviewSnapshot.head } : {}),
+      }),
+    refetchInterval: 5_000,
+    retry: false,
+  })
+  const countsByPath = new Map(lineCounts.data?.map((entry) => [entry.path, entry]) ?? [])
+  const visibleAdditions = visibleEntries.reduce(
+    (total, entry) => total + (countsByPath.get(entry.path)?.additions ?? 0),
+    0
+  )
+  const visibleDeletions = visibleEntries.reduce(
+    (total, entry) => total + (countsByPath.get(entry.path)?.deletions ?? 0),
+    0
+  )
   const diff = useQuery({
     enabled: Boolean(
       status.data &&
@@ -271,11 +317,19 @@ export function GitReviewPanel({
       })
     })
   }
-  const files: ChatReviewFileDescriptor[] = entries.map((entry) => ({
+  const files: ChatReviewFileDescriptor[] = visibleEntries.map((entry) => ({
     id: entry.path,
     path: entry.path,
     selected: entry.path === activePath,
     status: statusKind(entry.code),
+    ...(countsByPath.get(entry.path)?.additions !== null &&
+    countsByPath.get(entry.path)?.additions !== undefined
+      ? { additions: countsByPath.get(entry.path)?.additions ?? 0 }
+      : {}),
+    ...(countsByPath.get(entry.path)?.deletions !== null &&
+    countsByPath.get(entry.path)?.deletions !== undefined
+      ? { deletions: countsByPath.get(entry.path)?.deletions ?? 0 }
+      : {}),
   }))
 
   if (status.isError) {
@@ -365,6 +419,32 @@ export function GitReviewPanel({
           {status.data?.branch ?? "HEAD"}
         </span>
       </ChatReviewToolbar>
+      <div className="flex items-center gap-2 border-b p-2">
+        <Input
+          aria-label={i18n._(
+            msg({ id: "git.review.searchFiles", message: "Search changed files" })
+          )}
+          className="h-8 min-w-0 flex-1"
+          maxLength={200}
+          onChange={(event) => setFileSearch(event.target.value)}
+          placeholder={i18n._(
+            msg({ id: "git.review.searchFiles", message: "Search changed files" })
+          )}
+          value={fileSearch}
+        />
+        <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+          {files.length}/{entries.length}
+        </span>
+        {lineCounts.data ? (
+          <span className="shrink-0 font-mono text-xs tabular-nums">
+            <span className="text-emerald-600">+{visibleAdditions}</span>{" "}
+            <span className="text-destructive">-{visibleDeletions}</span>
+          </span>
+        ) : null}
+      </div>
+      {lineCounts.isError ? (
+        <p className="border-b p-2 text-xs text-destructive">{lineCounts.error.message}</p>
+      ) : null}
       {source === "commit" && status.data?.head ? (
         <div className="border-b p-2">
           <NativeSelect
@@ -514,12 +594,17 @@ export function GitReviewPanel({
         <p className="p-3 text-sm text-destructive">{lastTurnReview.error.message}</p>
       ) : null}
       {status.data &&
-      files.length === 0 &&
+      entries.length === 0 &&
       (source !== "branch" || branchReview.isSuccess) &&
       (source !== "commit" || commitReview.isSuccess) &&
       (source !== "last-turn" || lastTurnReview.isSuccess) ? (
         <p className="p-3 text-sm text-muted-foreground">
           <Trans id="git.review.empty">No changes in this source</Trans>
+        </p>
+      ) : null}
+      {entries.length > 0 && files.length === 0 ? (
+        <p className="p-3 text-sm text-muted-foreground">
+          <Trans id="git.review.noMatchingFiles">No files match this search</Trans>
         </p>
       ) : null}
       {files.length > 0 ? (

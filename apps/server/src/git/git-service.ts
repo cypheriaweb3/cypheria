@@ -21,6 +21,7 @@ import type {
   GitLabMergeRequestNote,
   GitOrigin,
   GitReviewFile,
+  GitReviewLineCount,
   GitServerMessage,
   GitSettings,
   GitWorktree,
@@ -30,6 +31,7 @@ import type { AgentManager } from "../agent/agent-manager.js"
 import { CodexAppToolClient } from "../codex-app-tool-client.js"
 import type { ThreadManager } from "../thread/thread-manager.js"
 import { GitCommandError, GitExecutor } from "./git-executor.js"
+import { combineGitNumstats, parseGitNumstat } from "./git-numstat.js"
 import { GitReviewUndoStore } from "./git-review-undo-store.js"
 import { GitTurnDiffService } from "./git-turn-diff-service.js"
 import { GitWorktreeService } from "./git-worktree-service.js"
@@ -180,6 +182,9 @@ export class GitService {
           break
         case "git.last-turn-review-diff.request":
           value = { diff: await this.lastTurnReviewDiff(message.payload.cwd, message.payload) }
+          break
+        case "git.review-line-counts.request":
+          value = await this.reviewLineCounts(message.payload.cwd, message.payload)
           break
         case "git.review-file.request":
           value = await this.reviewFile(
@@ -1104,6 +1109,37 @@ export class GitService {
     if (input.base) args.push(validateOperand(input.base, "base"))
     if (input.paths?.length) args.push("--", ...(await this.#paths(repository.root, input.paths)))
     return (await this.#executor.run(repository.root, args, { readOnly: true })).stdout
+  }
+
+  async reviewLineCounts(
+    cwd: string,
+    input: {
+      source: "unstaged" | "staged" | "uncommitted" | "branch" | "commit" | "last-turn"
+      base?: string
+      head?: string
+    }
+  ): Promise<GitReviewLineCount[]> {
+    const repository = await this.discover(cwd)
+    const prefix = ["diff", "--no-ext-diff", "--no-textconv", "--no-color", "--numstat", "-z"]
+    const run = async (refs: readonly string[]) =>
+      parseGitNumstat(
+        (await this.#executor.run(repository.root, [...prefix, ...refs], { readOnly: true })).stdout
+      )
+    if (input.source === "staged") return run(["--cached"])
+    if (input.source === "unstaged") return run([])
+    if (input.source === "uncommitted") {
+      const head = (await this.status(repository.root)).head
+      if (head) return run([head])
+      return combineGitNumstats(await Promise.all([run(["--cached"]), run([])]))
+    }
+    if (
+      !input.base ||
+      !input.head ||
+      !/^[a-f0-9]{40,64}$/iu.test(input.base) ||
+      !/^[a-f0-9]{40,64}$/iu.test(input.head)
+    )
+      throw new Error("A pinned Git review snapshot is required")
+    return run([input.base, input.head])
   }
 
   async branchReview(cwd: string, base: string): Promise<GitBranchReview> {
