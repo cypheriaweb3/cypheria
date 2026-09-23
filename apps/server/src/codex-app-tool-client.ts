@@ -37,7 +37,8 @@ export class CodexAppToolClient {
     threadId: string,
     namespace: string,
     action: string,
-    args: Record<string, unknown>
+    args: Record<string, unknown>,
+    options: { recheckAfter?: boolean } = {}
   ): Promise<unknown> {
     if (!threadId) throw new Error("A Codex thread is required for connector calls")
     const scope = (await this.#scopes(selection.connectorId, namespace, [action]))[0]
@@ -54,9 +55,11 @@ export class CodexAppToolClient {
     if (result.isError || result.structuredContent === undefined) {
       throw new Error("The selected connector request failed")
     }
-    const after = (await this.#scopes(selection.connectorId, namespace, [action]))[0]
-    if (after?.resourceUri !== scope.resourceUri) {
-      throw new Error("The selected connector account changed during the request")
+    if (options.recheckAfter !== false) {
+      const after = (await this.#scopes(selection.connectorId, namespace, [action]))[0]
+      if (after?.resourceUri !== scope.resourceUri) {
+        throw new Error("The selected connector account changed during the request")
+      }
     }
     return result.structuredContent
   }

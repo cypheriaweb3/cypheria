@@ -4,6 +4,7 @@ import type {
   GitHubAvailability,
   GitHubPullRequest,
   GitLabMergeRequest,
+  GitLabMergeRequestNote,
   GitRepository,
   GitServerMessage,
   GitStatus,
@@ -85,6 +86,20 @@ export interface GitActions {
     iid: number,
     options?: RequestOptions
   ): Promise<GitLabMergeRequest>
+  gitlabMrUpdateTitle(
+    cwd: string,
+    threadId: string,
+    iid: number,
+    title: string,
+    options?: RequestOptions
+  ): Promise<GitLabMergeRequest>
+  gitlabMrPostComment(
+    cwd: string,
+    threadId: string,
+    iid: number,
+    body: string,
+    options?: RequestOptions
+  ): Promise<GitLabMergeRequestNote>
 }
 
 export const createGitActions = (client: ServerClient): GitActions => ({
@@ -153,4 +168,20 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     ),
   gitlabMrRead: async (cwd, threadId, iid, options) =>
     unwrap(await client.requestGit("git.gitlab-mr-read.request", { cwd, threadId, iid }, options)),
+  gitlabMrUpdateTitle: async (cwd, threadId, iid, title, options) =>
+    unwrap(
+      await client.requestGit(
+        "git.gitlab-mr-update-title.request",
+        { cwd, threadId, iid, title },
+        options
+      )
+    ),
+  gitlabMrPostComment: async (cwd, threadId, iid, body, options) =>
+    unwrap(
+      await client.requestGit(
+        "git.gitlab-mr-post-comment.request",
+        { cwd, threadId, iid, body },
+        options
+      )
+    ),
 })

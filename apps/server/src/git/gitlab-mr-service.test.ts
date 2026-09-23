@@ -24,7 +24,12 @@ const mr = {
   },
 }
 
-const fixture = (remote: string, projectResult: unknown = project, mrResult: unknown = mr) => {
+const fixture = (
+  remote: string,
+  projectResult: unknown = project,
+  mrResult: unknown = mr,
+  responses: Record<string, unknown> = {}
+) => {
   const run = vi.fn(async () => ({ stdout: `${remote}\n`, stderr: "" }))
   const select = vi.fn(async () => ({
     connectorId: "connector_0c9786b2f41f41558056126bdb46c9bd",
@@ -32,7 +37,11 @@ const fixture = (remote: string, projectResult: unknown = project, mrResult: unk
     server: "codex_apps" as const,
   }))
   const call = vi.fn(async (_selection, _threadId, _namespace, action: string) =>
-    action === "get_project" ? projectResult : mrResult
+    Object.hasOwn(responses, action)
+      ? responses[action]
+      : action === "get_project"
+        ? projectResult
+        : mrResult
   )
   const service = new GitLabMrService(
     { run } as unknown as GitExecutor,
@@ -82,5 +91,55 @@ describe("GitLabMrService", () => {
         data: { ...mr.data, web_url: "https://gitlab.com/group/other/-/merge_requests/7" },
       }).service.read("/repo", "thread", 7)
     ).rejects.toThrow("changed")
+  })
+
+  it("updates only the selected MR title and verifies the write response", async () => {
+    const updated = { data: { ...mr.data, title: "New title" } }
+    const { service, select, call } = fixture("git@gitlab.com:group/project.git", project, mr, {
+      update_merge_request: updated,
+    })
+    expect(await service.updateTitle("/repo", "native-thread", 7, "New title")).toMatchObject({
+      iid: 7,
+      title: "New title",
+    })
+    expect(select).toHaveBeenCalledWith("connector_0c9786b2f41f41558056126bdb46c9bd", "gitlab", [
+      "get_project",
+      "get_merge_request",
+      "update_merge_request",
+    ])
+    expect(call).toHaveBeenCalledWith(
+      expect.any(Object),
+      "native-thread",
+      "gitlab",
+      "update_merge_request",
+      { project_id: 42, merge_request_iid: 7, title: "New title" },
+      { recheckAfter: false }
+    )
+    await expect(
+      fixture("git@gitlab.com:group/project.git", project, mr, {
+        update_merge_request: mr,
+      }).service.updateTitle("/repo", "native-thread", 7, "New title")
+    ).rejects.toThrow("did not confirm")
+  })
+
+  it("posts an ordinary MR comment and verifies the write response", async () => {
+    const { service, call } = fixture("git@gitlab.com:group/project.git", project, mr, {
+      create_merge_request_note: { data: { id: 15, body: "Looks good" } },
+    })
+    expect(await service.postComment("/repo", "native-thread", 7, "Looks good")).toEqual({
+      id: 15,
+      body: "Looks good",
+    })
+    expect(call).toHaveBeenCalledWith(
+      expect.any(Object),
+      "native-thread",
+      "gitlab",
+      "create_merge_request_note",
+      { project_id: "42", merge_request_iid: 7, body: "Looks good" },
+      { recheckAfter: false }
+    )
+    await expect(service.postComment("/repo", "native-thread", 7, " ")).rejects.toThrow(
+      "comment is required"
+    )
   })
 })

@@ -1,5 +1,5 @@
 import { z } from "zod"
-import type { CodexAppToolClient } from "../codex-app-tool-client.js"
+import type { CodexAppSelection, CodexAppToolClient } from "../codex-app-tool-client.js"
 import type { GitExecutor } from "./git-executor.js"
 
 const connectorId = "connector_0c9786b2f41f41558056126bdb46c9bd"
@@ -34,6 +34,10 @@ const mrResponse = z
       })
       .passthrough(),
   })
+  .passthrough()
+
+const noteResponse = z
+  .object({ data: z.object({ id: z.number().int().positive(), body: z.string() }).passthrough() })
   .passthrough()
 
 const pathFromRemote = (remote: string): string => {
@@ -82,6 +86,16 @@ export type GitLabMergeRequest = {
   webUrl: string
 }
 
+export type GitLabMergeRequestNote = { id: number; body: string }
+
+type MergeRequestData = z.infer<typeof mrResponse>["data"]
+type Context = {
+  projectPath: string
+  projectId: number
+  mr: MergeRequestData
+  selection: CodexAppSelection
+}
+
 /** Read GitLab.com MRs only for the local origin and the selected Codex account. */
 export class GitLabMrService {
   readonly #executor: GitExecutor
@@ -93,6 +107,61 @@ export class GitLabMrService {
   }
 
   async read(root: string, nativeThreadId: string, iid: number): Promise<GitLabMergeRequest> {
+    const context = await this.#context(root, nativeThreadId, iid)
+    return this.#view(context)
+  }
+
+  async updateTitle(
+    root: string,
+    nativeThreadId: string,
+    iid: number,
+    title: string
+  ): Promise<GitLabMergeRequest> {
+    if (!title.trim()) throw new Error("GitLab merge request title is required")
+    const context = await this.#context(root, nativeThreadId, iid, ["update_merge_request"])
+    const updated = mrResponse.parse(
+      await this.#apps.call(
+        context.selection,
+        nativeThreadId,
+        "gitlab",
+        "update_merge_request",
+        { project_id: context.projectId, merge_request_iid: iid, title },
+        { recheckAfter: false }
+      )
+    ).data
+    this.#validateMr(context.projectPath, context.projectId, iid, updated)
+    if (updated.title !== title) throw new Error("GitLab did not confirm the updated title")
+    return this.#view({ ...context, mr: updated })
+  }
+
+  async postComment(
+    root: string,
+    nativeThreadId: string,
+    iid: number,
+    body: string
+  ): Promise<GitLabMergeRequestNote> {
+    if (!body.trim()) throw new Error("GitLab merge request comment is required")
+    const context = await this.#context(root, nativeThreadId, iid, ["create_merge_request_note"])
+    const note = noteResponse.parse(
+      await this.#apps.call(
+        context.selection,
+        nativeThreadId,
+        "gitlab",
+        "create_merge_request_note",
+        { project_id: String(context.projectId), merge_request_iid: iid, body },
+        { recheckAfter: false }
+      )
+    ).data
+    if (note.body !== body) throw new Error("GitLab did not confirm the posted comment")
+    return { id: note.id, body: note.body }
+  }
+
+  async #context(
+    root: string,
+    nativeThreadId: string,
+    iid: number,
+    additionalActions: readonly string[] = []
+  ): Promise<Context> {
     const remote = (
       await this.#executor.run(root, ["remote", "get-url", "origin"], { readOnly: true })
     ).stdout
@@ -100,6 +169,7 @@ export class GitLabMrService {
     const selection = await this.#apps.select(connectorId, "gitlab", [
       "get_project",
       "get_merge_request",
+      ...additionalActions,
     ])
     const project = projectResponse.parse(
       await this.#apps.call(selection, nativeThreadId, "gitlab", "get_project", {
@@ -117,12 +187,20 @@ export class GitLabMrService {
         merge_request_iid: iid,
       })
     ).data
+    this.#validateMr(projectPath, project.id, iid, mr)
+    return { projectPath, projectId: project.id, mr, selection }
+  }
+
+  #validateMr(projectPath: string, projectId: number, iid: number, mr: MergeRequestData): void {
     if (
       mr.iid !== iid ||
-      mr.project_id !== project.id ||
+      mr.project_id !== projectId ||
       mr.web_url !== `${expectedProjectUrl(projectPath)}/-/merge_requests/${iid}`
     )
       throw new Error("The selected GitLab merge request changed")
+  }
+
+  #view({ projectPath, mr }: Context): GitLabMergeRequest {
     return {
       iid: mr.iid,
       projectPath,

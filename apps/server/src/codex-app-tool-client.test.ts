@@ -79,4 +79,40 @@ describe("CodexAppToolClient", () => {
       client.call(selection, "thread-1", "gitlab", "get_project", { project_id: 42 })
     ).rejects.toThrow("changed during")
   })
+
+  it("does not turn a confirmed write into an ambiguous error when the account changes afterward", async () => {
+    let link = "link-1"
+    const callCodex = vi.fn(async (method: string) => {
+      if (method === "mcpServerStatus/list")
+        return {
+          data: [
+            {
+              name: "codex_apps",
+              tools: {
+                "gitlab.create_merge_request_note": tool("create_merge_request_note", link),
+              },
+            },
+          ],
+          nextCursor: null,
+        }
+      if (method === "mcpServer/tool/call") {
+        link = "link-2"
+        return { structuredContent: { data: { id: 15, body: "Done" } }, content: [] }
+      }
+      throw new Error(`Unexpected call: ${method}`)
+    })
+    const client = new CodexAppToolClient({ callCodex } as unknown as AgentManager)
+    const selection = await client.select(connectorId, "gitlab", ["create_merge_request_note"])
+    expect(
+      await client.call(
+        selection,
+        "thread-1",
+        "gitlab",
+        "create_merge_request_note",
+        { body: "Done" },
+        { recheckAfter: false }
+      )
+    ).toEqual({ data: { id: 15, body: "Done" } })
+    expect(callCodex).toHaveBeenCalledTimes(3)
+  })
 })

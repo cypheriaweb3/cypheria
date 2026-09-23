@@ -91,6 +91,9 @@ export const GitLabMergeRequestSchema = z
     webUrl: z.url(),
   })
   .strict()
+export const GitLabMergeRequestNoteSchema = z
+  .object({ id: z.number().int().positive(), body: z.string() })
+  .strict()
 
 export const GitDiscoverRequestSchema = input(
   "git.discover.request",
@@ -224,6 +227,28 @@ export const GitLabMrReadRequestSchema = input(
     .object({ cwd: path, threadId: ProjectThreadIdSchema, iid: z.number().int().positive() })
     .strict()
 )
+export const GitLabMrUpdateTitleRequestSchema = input(
+  "git.gitlab-mr-update-title.request",
+  z
+    .object({
+      cwd: path,
+      threadId: ProjectThreadIdSchema,
+      iid: z.number().int().positive(),
+      title: z.string().min(1).max(1000),
+    })
+    .strict()
+)
+export const GitLabMrPostCommentRequestSchema = input(
+  "git.gitlab-mr-post-comment.request",
+  z
+    .object({
+      cwd: path,
+      threadId: ProjectThreadIdSchema,
+      iid: z.number().int().positive(),
+      body: z.string().min(1).max(1_000_000),
+    })
+    .strict()
+)
 
 const success = z.object({ succeeded: z.literal(true) }).strict()
 export const GitDiscoverResponseSchema = output("git.discover.response", GitRepositorySchema)
@@ -294,6 +319,14 @@ export const GitLabMrReadResponseSchema = output(
   "git.gitlab-mr-read.response",
   GitLabMergeRequestSchema
 )
+export const GitLabMrUpdateTitleResponseSchema = output(
+  "git.gitlab-mr-update-title.response",
+  GitLabMergeRequestSchema
+)
+export const GitLabMrPostCommentResponseSchema = output(
+  "git.gitlab-mr-post-comment.response",
+  GitLabMergeRequestNoteSchema
+)
 
 export const GIT_CLIENT_SCHEMAS = [
   GitDiscoverRequestSchema,
@@ -319,6 +352,8 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubPrUpdateRequestSchema,
   GitHubPrMergeRequestSchema,
   GitLabMrReadRequestSchema,
+  GitLabMrUpdateTitleRequestSchema,
+  GitLabMrPostCommentRequestSchema,
 ] as const
 export const GIT_SERVER_SCHEMAS = [
   GitDiscoverResponseSchema,
@@ -344,6 +379,8 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubPrUpdateResponseSchema,
   GitHubPrMergeResponseSchema,
   GitLabMrReadResponseSchema,
+  GitLabMrUpdateTitleResponseSchema,
+  GitLabMrPostCommentResponseSchema,
 ] as const
 export const GIT_RESPONSE_TYPES = GIT_SERVER_SCHEMAS.map((schema) => schema.shape.type.value)
 export const GitClientMessageSchema = z.discriminatedUnion("type", GIT_CLIENT_SCHEMAS)
@@ -357,3 +394,4 @@ export type GitWorktree = z.infer<typeof GitWorktreeSchema>
 export type GitHubAvailability = z.infer<typeof GitHubAvailabilitySchema>
 export type GitHubPullRequest = z.infer<typeof GitHubPullRequestSchema>
 export type GitLabMergeRequest = z.infer<typeof GitLabMergeRequestSchema>
+export type GitLabMergeRequestNote = z.infer<typeof GitLabMergeRequestNoteSchema>

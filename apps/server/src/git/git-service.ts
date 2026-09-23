@@ -6,6 +6,7 @@ import type {
   GitHubAvailability,
   GitHubPullRequest,
   GitLabMergeRequest,
+  GitLabMergeRequestNote,
   GitServerMessage,
   GitWorktree,
 } from "@cypheria/protocol"
@@ -164,6 +165,22 @@ export class GitService {
             message.payload.iid
           )
           break
+        case "git.gitlab-mr-update-title.request":
+          value = await this.gitlabMrUpdateTitle(
+            message.payload.cwd,
+            message.payload.threadId,
+            message.payload.iid,
+            message.payload.title
+          )
+          break
+        case "git.gitlab-mr-post-comment.request":
+          value = await this.gitlabMrPostComment(
+            message.payload.cwd,
+            message.payload.threadId,
+            message.payload.iid,
+            message.payload.body
+          )
+          break
       }
       send({ type, requestId: message.requestId, payload: { ok: true, value } } as GitServerMessage)
     } catch (error) {
@@ -257,6 +274,34 @@ export class GitService {
   }
 
   async gitlabMrRead(cwd: string, threadId: string, iid: number): Promise<GitLabMergeRequest> {
+    const { service, root, nativeThreadId } = await this.#gitlabThread(cwd, threadId)
+    return service.read(root, nativeThreadId, iid)
+  }
+
+  async gitlabMrUpdateTitle(
+    cwd: string,
+    threadId: string,
+    iid: number,
+    title: string
+  ): Promise<GitLabMergeRequest> {
+    const { service, root, nativeThreadId } = await this.#gitlabThread(cwd, threadId)
+    return service.updateTitle(root, nativeThreadId, iid, title)
+  }
+
+  async gitlabMrPostComment(
+    cwd: string,
+    threadId: string,
+    iid: number,
+    body: string
+  ): Promise<GitLabMergeRequestNote> {
+    const { service, root, nativeThreadId } = await this.#gitlabThread(cwd, threadId)
+    return service.postComment(root, nativeThreadId, iid, body)
+  }
+
+  async #gitlabThread(
+    cwd: string,
+    threadId: string
+  ): Promise<{ service: GitLabMrService; root: string; nativeThreadId: string }> {
     if (!this.#gitlab || !this.#threads) throw new Error("GitLab connector is unavailable")
     const thread = await this.#threads.get(threadId)
     if (thread.agentId !== "codex" || !thread.agentSessionId || !thread.cwd) {
@@ -267,7 +312,7 @@ export class GitService {
     if (threadRepository.commonGitDir !== repository.commonGitDir) {
       throw new Error("The Codex thread belongs to another Git repository")
     }
-    return this.#gitlab.read(repository.root, thread.agentSessionId, iid)
+    return { service: this.#gitlab, root: repository.root, nativeThreadId: thread.agentSessionId }
   }
 
   async init(cwd: string): Promise<GitRepository> {
