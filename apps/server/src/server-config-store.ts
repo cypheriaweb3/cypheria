@@ -3,6 +3,7 @@ import type {
   PersistedServerConfigPatch,
   ServerConfigSnapshot,
 } from "@cypheria/protocol"
+import { DEFAULT_GIT_SETTINGS } from "@cypheria/protocol"
 
 import {
   type CypheriaServerConfig,
@@ -48,6 +49,7 @@ export class ServerConfigStore {
   readonly #env: NodeJS.ProcessEnv
   readonly #resolutionOverrides: CypheriaServerConfigOverrides
   readonly #runningConfig: CypheriaServerConfig
+  readonly #runningGitWorktreeRoot: string | null
 
   #persisted: PersistedServerConfig
   #restartRequiredPaths: string[] = []
@@ -64,6 +66,7 @@ export class ServerConfigStore {
     this.#persisted = options.persisted
     this.#resolutionOverrides = options.resolutionOverrides ?? {}
     this.#runningConfig = options.runningConfig
+    this.#runningGitWorktreeRoot = options.persisted.git.worktreeRoot
   }
 
   static async open(
@@ -81,6 +84,7 @@ export class ServerConfigStore {
     env: NodeJS.ProcessEnv = {}
   ): ServerConfigStore {
     const persisted: PersistedServerConfig = {
+      git: DEFAULT_GIT_SETTINGS,
       agents: {
         codex: {
           approvalPolicy: "on-request",
@@ -176,5 +180,7 @@ export class ServerConfigStore {
     this.#restartRequiredPaths = EFFECTIVE_CONFIG_PATHS.flatMap(([path, key]) =>
       overridden.has(path) || same(this.#runningConfig[key], desired[key]) ? [] : [path]
     )
+    if (this.#runningGitWorktreeRoot !== this.#persisted.git.worktreeRoot)
+      this.#restartRequiredPaths.push("git.worktreeRoot")
   }
 }

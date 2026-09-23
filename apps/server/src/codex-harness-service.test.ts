@@ -1,4 +1,8 @@
-import type { CodexHarnessServerMessage, PersistedServerConfig } from "@cypheria/protocol"
+import {
+  type CodexHarnessServerMessage,
+  DEFAULT_GIT_SETTINGS,
+  type PersistedServerConfig,
+} from "@cypheria/protocol"
 import { describe, expect, it, vi } from "vitest"
 
 import type { AgentManager } from "./agent/agent-manager.js"
@@ -9,6 +13,7 @@ import type { ThreadManager } from "./thread/thread-manager.js"
 const threads = {} as ThreadManager
 
 const config: PersistedServerConfig = {
+  git: DEFAULT_GIT_SETTINGS,
   agents: {
     codex: {
       approvalPolicy: "on-request",

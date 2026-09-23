@@ -25,7 +25,7 @@ export class GitWorktreeService {
   readonly #executor: GitExecutor
   readonly #root: string
 
-  constructor(executor: GitExecutor, cypheriaHome: string) {
+  constructor(executor: GitExecutor, cypheriaHome: string, configuredRoot: string | null = null) {
     this.#executor = executor
     let home: string
     try {
@@ -33,7 +33,9 @@ export class GitWorktreeService {
     } catch {
       home = join(realpathSync(dirname(cypheriaHome)), basename(cypheriaHome))
     }
-    this.#root = join(home, "worktrees")
+    if (configuredRoot && !isAbsolute(configuredRoot))
+      throw new Error("Git worktree root must be absolute")
+    this.#root = configuredRoot ? resolve(configuredRoot) : join(home, "worktrees")
   }
 
   async list(repository: Repository): Promise<GitWorktree[]> {

@@ -22,8 +22,10 @@ import type {
   GitOrigin,
   GitReviewFile,
   GitServerMessage,
+  GitSettings,
   GitWorktree,
 } from "@cypheria/protocol"
+import { DEFAULT_GIT_SETTINGS } from "@cypheria/protocol"
 import type { AgentManager } from "../agent/agent-manager.js"
 import { CodexAppToolClient } from "../codex-app-tool-client.js"
 import type { ThreadManager } from "../thread/thread-manager.js"
@@ -83,14 +85,21 @@ export class GitService {
   readonly #githubApp: GitHubAppPrService | null
   readonly #gitlab: GitLabMrService | null
   readonly #threads: ThreadManager | null
+  readonly #getSettings: () => GitSettings
 
   constructor(
     cacheDir: string,
     cypheriaHome: string,
-    connectors?: { agents: AgentManager; threads: ThreadManager }
+    connectors?: { agents: AgentManager; threads: ThreadManager },
+    getSettings: () => GitSettings = () => DEFAULT_GIT_SETTINGS
   ) {
+    this.#getSettings = getSettings
     this.#executor = new GitExecutor(cacheDir)
-    this.#worktrees = new GitWorktreeService(this.#executor, cypheriaHome)
+    this.#worktrees = new GitWorktreeService(
+      this.#executor,
+      cypheriaHome,
+      getSettings().worktreeRoot
+    )
     this.#reviewUndo = new GitReviewUndoStore(cypheriaHome)
     this.#turnDiff = new GitTurnDiffService(this.#executor, cypheriaHome)
     const apps = connectors ? new CodexAppToolClient(connectors.agents) : null
@@ -1495,7 +1504,7 @@ export class GitService {
   ): Promise<string> {
     const repository = await this.discover(cwd)
     const args = ["push", "--porcelain"]
-    if (input.forceWithLease) args.push("--force-with-lease")
+    if (input.forceWithLease ?? this.#getSettings().alwaysForcePush) args.push("--force-with-lease")
     if (input.setUpstream) args.push("-u")
     if (input.remote) args.push(validateOperand(input.remote, "remote"))
     if (input.branch) args.push(validateOperand(input.branch, "branch"))

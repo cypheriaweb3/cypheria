@@ -59,6 +59,11 @@ msgid "settings.agentHarnesses"
 msgstr "Agent harnesses"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.instructions"
+msgstr "Agent instructions"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.stateAll"
 msgstr "All"
@@ -154,9 +159,19 @@ msgid "navigation.auditLog"
 msgstr "Audit log"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.watchAutoMerge"
+msgstr "Auto merge watched PRs"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
 msgid "settings.language.automatic"
 msgstr "Automatic detection"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.autoCleanup"
+msgstr "Automatic worktree cleanup"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -167,6 +182,11 @@ msgstr "Back to workspace"
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.base"
 msgstr "Base branch"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.bestEffort"
+msgstr "Best effort"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -187,6 +207,16 @@ msgstr "Branch"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.branch"
 msgstr "Branch"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.branchPrefix"
+msgstr "Branch prefix"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.branches"
+msgstr "Branches and Review"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -331,6 +361,11 @@ msgid "git.review.commitSource"
 msgstr "Commit"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.commitInstructions"
+msgstr "Commit instructions"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.commitMessage"
 msgstr "Commit message"
@@ -441,6 +476,11 @@ msgid "chat.project.create"
 msgstr "Create project"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.prDraft"
+msgstr "Create PRs as drafts by default"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.createSection"
 msgstr "Create section"
@@ -479,6 +519,11 @@ msgstr "Default terminal location"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.workspace.terminalLocation.label"
 msgstr "Default terminal location"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.forcePush"
+msgstr "Default to force push with lease"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -642,6 +687,11 @@ msgid "navigation.forkChat"
 msgstr "Fork chat"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.reviewFull"
+msgstr "Full"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.title"
 msgstr "General"
@@ -655,6 +705,16 @@ msgstr "General"
 #: renderer/src/components/app-shell.tsx
 msgid "settings.general"
 msgstr "General"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.title"
+msgstr "Git"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.git"
+msgstr "Git"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/github-pr-panel.tsx
@@ -752,6 +812,11 @@ msgid "git.review.lastTurn"
 msgstr "Last turn"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.reviewLastTurn"
+msgstr "Last turn only"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sort.updated"
 msgstr "Last updated"
@@ -804,6 +869,11 @@ msgid "git.review.loading"
 msgstr "Loading repository changes…"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.description"
+msgstr "Local Codex Git and pull request preferences"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sort.manual"
 msgstr "Manual order"
@@ -837,6 +907,16 @@ msgstr "MCP App"
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.merge"
 msgstr "Merge"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.mergeCommit"
+msgstr "Merge commit"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.mergeMethod"
+msgstr "Merge method"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/github-pr-panel.tsx
@@ -902,6 +982,11 @@ msgstr "Move thread to checkout"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.networks"
 msgstr "Networks"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.never"
+msgstr "Never"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1210,6 +1295,16 @@ msgid "git.gitlab.postComment"
 msgstr "Post comment"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.prInstructions"
+msgstr "PR instructions"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.watchInstructions"
+msgstr "PR watch instructions"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
 msgid "settings.preferences.title"
 msgstr "Preferences"
@@ -1283,6 +1378,11 @@ msgstr "Pull request state"
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.title"
 msgstr "Pull request title"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequests"
+msgstr "Pull requests"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1405,6 +1505,11 @@ msgid "chat.workspace.resizeSidePanel"
 msgstr "Resize side panel"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.restartRoot"
+msgstr "Restart Server to use the new worktree root."
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.restore"
 msgstr "Restore"
@@ -1455,6 +1560,11 @@ msgid "git.github.reviewComment"
 msgstr "Review comment"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.reviewMode"
+msgstr "Review mode"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.reviewer"
 msgstr "Reviewer login or team"
@@ -1478,6 +1588,11 @@ msgstr "Save"
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.save"
 msgstr "Save changes"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.save"
+msgstr "Save Git settings"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1642,6 +1757,11 @@ msgid "navigation.showMore"
 msgstr "Show more"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.sidebarPrIcons"
+msgstr "Show PR icons in sidebar"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.contextUsageDescription"
 msgstr "Show token usage in the composer"
@@ -1685,6 +1805,11 @@ msgstr "Source folders"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.sources"
 msgstr "Sources"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.squash"
+msgstr "Squash"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1872,6 +1997,11 @@ msgid "navigation.editProjectDescription"
 msgstr "Update the project name shown in the sidebar."
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.upstreamRefresh"
+msgstr "Upstream refresh"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "menu.view"
 msgstr "View"
@@ -1912,6 +2042,21 @@ msgid "navigation.workspace"
 msgstr "Workspace navigation"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.worktreeRoot"
+msgstr "Worktree root"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.worktrees"
+msgstr "Worktrees"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.worktrees"
 msgstr "Worktrees"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.keepCount"
+msgstr "Worktrees to keep"

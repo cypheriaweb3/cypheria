@@ -19,6 +19,7 @@ import { Route as AuditRouteImport } from "./routes/audit"
 import { Route as ApprovalsRouteImport } from "./routes/approvals"
 import { Route as IndexRouteImport } from "./routes/index"
 import { Route as SettingsPluginsRouteImport } from "./routes/settings.plugins"
+import { Route as SettingsGitRouteImport } from "./routes/settings.git"
 import { Route as SettingsGeneralRouteImport } from "./routes/settings.general"
 import { Route as SettingsArchivedRouteImport } from "./routes/settings.archived"
 import { Route as SettingsAppearanceRouteImport } from "./routes/settings.appearance"
@@ -74,6 +75,11 @@ const SettingsPluginsRoute = SettingsPluginsRouteImport.update({
   path: "/settings/plugins",
   getParentRoute: () => rootRouteImport,
 } as any)
+const SettingsGitRoute = SettingsGitRouteImport.update({
+  id: "/settings/git",
+  path: "/settings/git",
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsGeneralRoute = SettingsGeneralRouteImport.update({
   id: "/settings/general",
   path: "/settings/general",
@@ -109,6 +115,7 @@ export interface FileRoutesByFullPath {
   "/settings/appearance": typeof SettingsAppearanceRoute
   "/settings/archived": typeof SettingsArchivedRoute
   "/settings/general": typeof SettingsGeneralRoute
+  "/settings/git": typeof SettingsGitRoute
   "/settings/plugins": typeof SettingsPluginsRoute
   "/settings/agent-harnesses/$agentId/$sectionId": typeof SettingsAgentHarnessesAgentIdSectionIdRoute
 }
@@ -125,6 +132,7 @@ export interface FileRoutesByTo {
   "/settings/appearance": typeof SettingsAppearanceRoute
   "/settings/archived": typeof SettingsArchivedRoute
   "/settings/general": typeof SettingsGeneralRoute
+  "/settings/git": typeof SettingsGitRoute
   "/settings/plugins": typeof SettingsPluginsRoute
   "/settings/agent-harnesses/$agentId/$sectionId": typeof SettingsAgentHarnessesAgentIdSectionIdRoute
 }
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   "/settings/appearance": typeof SettingsAppearanceRoute
   "/settings/archived": typeof SettingsArchivedRoute
   "/settings/general": typeof SettingsGeneralRoute
+  "/settings/git": typeof SettingsGitRoute
   "/settings/plugins": typeof SettingsPluginsRoute
   "/settings/agent-harnesses/$agentId/$sectionId": typeof SettingsAgentHarnessesAgentIdSectionIdRoute
 }
@@ -160,6 +169,7 @@ export interface FileRouteTypes {
     | "/settings/appearance"
     | "/settings/archived"
     | "/settings/general"
+    | "/settings/git"
     | "/settings/plugins"
     | "/settings/agent-harnesses/$agentId/$sectionId"
   fileRoutesByTo: FileRoutesByTo
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | "/settings/appearance"
     | "/settings/archived"
     | "/settings/general"
+    | "/settings/git"
     | "/settings/plugins"
     | "/settings/agent-harnesses/$agentId/$sectionId"
   id:
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | "/settings/appearance"
     | "/settings/archived"
     | "/settings/general"
+    | "/settings/git"
     | "/settings/plugins"
     | "/settings/agent-harnesses/$agentId/$sectionId"
   fileRoutesById: FileRoutesById
@@ -209,6 +221,7 @@ export interface RootRouteChildren {
   SettingsAppearanceRoute: typeof SettingsAppearanceRoute
   SettingsArchivedRoute: typeof SettingsArchivedRoute
   SettingsGeneralRoute: typeof SettingsGeneralRoute
+  SettingsGitRoute: typeof SettingsGitRoute
   SettingsPluginsRoute: typeof SettingsPluginsRoute
   SettingsAgentHarnessesAgentIdSectionIdRoute: typeof SettingsAgentHarnessesAgentIdSectionIdRoute
 }
@@ -285,6 +298,13 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof SettingsPluginsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    "/settings/git": {
+      id: "/settings/git"
+      path: "/settings/git"
+      fullPath: "/settings/git"
+      preLoaderRoute: typeof SettingsGitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     "/settings/general": {
       id: "/settings/general"
       path: "/settings/general"
@@ -329,6 +349,7 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsAppearanceRoute: SettingsAppearanceRoute,
   SettingsArchivedRoute: SettingsArchivedRoute,
   SettingsGeneralRoute: SettingsGeneralRoute,
+  SettingsGitRoute: SettingsGitRoute,
   SettingsPluginsRoute: SettingsPluginsRoute,
   SettingsAgentHarnessesAgentIdSectionIdRoute:
     SettingsAgentHarnessesAgentIdSectionIdRoute,

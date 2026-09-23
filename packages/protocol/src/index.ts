@@ -349,6 +349,47 @@ const ServerLoggingSchema = z
   })
   .strict()
 
+export const GitSettingsSchema = z
+  .object({
+    branchPrefix: z.string().max(100),
+    alwaysForcePush: z.boolean(),
+    createPullRequestAsDraft: z.boolean(),
+    pullRequestMergeMethod: z.enum(["merge", "squash"]),
+    reviewMode: z.enum(["full", "last-turn-only"]),
+    showSidebarPrIcons: z.boolean(),
+    worktreeRoot: z
+      .string()
+      .trim()
+      .min(1)
+      .refine((path) => /^(?:\/|[A-Za-z]:[\\/]|\\\\)/u.test(path), "Worktree root must be absolute")
+      .nullable(),
+    commitInstructions: z.string().max(100_000),
+    prInstructions: z.string().max(100_000),
+    prWatchAutoMerge: z.boolean(),
+    prWatchInstructions: z.string().max(100_000),
+    upstreamRefreshMode: z.enum(["never", "best-effort"]),
+    worktreeAutoCleanupEnabled: z.boolean(),
+    worktreeKeepCount: z.int().min(0).max(1000),
+  })
+  .strict()
+export type GitSettings = z.infer<typeof GitSettingsSchema>
+export const DEFAULT_GIT_SETTINGS: GitSettings = {
+  branchPrefix: "codex/",
+  alwaysForcePush: false,
+  createPullRequestAsDraft: true,
+  pullRequestMergeMethod: "merge",
+  reviewMode: "full",
+  showSidebarPrIcons: true,
+  worktreeRoot: null,
+  commitInstructions: "",
+  prInstructions: "",
+  prWatchAutoMerge: false,
+  prWatchInstructions: "",
+  upstreamRefreshMode: "best-effort",
+  worktreeAutoCleanupEnabled: true,
+  worktreeKeepCount: 15,
+}
+
 export const PersistedServerConfigSchema = z
   .object({
     agents: z
@@ -358,6 +399,7 @@ export const PersistedServerConfigSchema = z
       })
       .strict(),
     version: z.literal(1),
+    git: GitSettingsSchema.default(DEFAULT_GIT_SETTINGS),
     server: z
       .object({
         logging: ServerLoggingSchema.default({
@@ -416,6 +458,7 @@ export type PersistedServerConfig = z.infer<typeof PersistedServerConfigSchema>
 
 export const PersistedServerConfigPatchSchema = z
   .object({
+    git: GitSettingsSchema.partial().strict().optional(),
     agents: z
       .object({
         codex: CodexAgentSettingsSchema.partial().strict().optional(),

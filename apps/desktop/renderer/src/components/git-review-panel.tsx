@@ -24,7 +24,7 @@ import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { type ReactNode, useId, useState } from "react"
+import { type ReactNode, useEffect, useId, useState } from "react"
 
 import { ensureCypheriaClient } from "../cypheria-client.js"
 import { GitHubPrPanel } from "./github-pr-panel.js"
@@ -64,6 +64,16 @@ export function GitReviewPanel({
     snapshot: GitReviewFile
     hunkIndex?: number
   } | null>(null)
+  const gitSettings = useQuery({
+    queryKey: ["settings", "git"],
+    queryFn: async () => (await ensureCypheriaClient()).server.config(),
+    staleTime: 30_000,
+  })
+  const lastTurnOnly =
+    gitSettings.data?.config.git.reviewMode === "last-turn-only" && Boolean(threadId)
+  useEffect(() => {
+    if (lastTurnOnly) setSource("last-turn")
+  }, [lastTurnOnly])
   const status = useQuery({
     queryKey: ["git", cwd, "status"],
     queryFn: async () => (await ensureCypheriaClient()).git.status(cwd),
@@ -295,49 +305,53 @@ export function GitReviewPanel({
   return (
     <ChatReviewPanel>
       <ChatReviewToolbar>
-        <Button
-          onClick={() => setSource("unstaged")}
-          size="sm"
-          type="button"
-          variant={source === "unstaged" ? "secondary" : "ghost"}
-        >
-          <Trans id="git.review.unstaged">Unstaged</Trans>
-        </Button>
-        <Button
-          onClick={() => setSource("staged")}
-          size="sm"
-          type="button"
-          variant={source === "staged" ? "secondary" : "ghost"}
-        >
-          <Trans id="git.review.staged">Staged</Trans>
-        </Button>
-        <Button
-          onClick={() => setSource("uncommitted")}
-          size="sm"
-          type="button"
-          variant={source === "uncommitted" ? "secondary" : "ghost"}
-        >
-          <Trans id="git.review.uncommitted">Uncommitted</Trans>
-        </Button>
-        <Button
-          disabled={!status.data?.head || !branchContext.data?.defaultBranch}
-          onClick={() => setSource("branch")}
-          size="sm"
-          title={branchContext.data?.defaultBranch ?? undefined}
-          type="button"
-          variant={source === "branch" ? "secondary" : "ghost"}
-        >
-          <Trans id="git.review.branchChanges">Branch</Trans>
-        </Button>
-        <Button
-          disabled={!status.data?.head}
-          onClick={() => setSource("commit")}
-          size="sm"
-          type="button"
-          variant={source === "commit" ? "secondary" : "ghost"}
-        >
-          <Trans id="git.review.commitSource">Commit</Trans>
-        </Button>
+        {!lastTurnOnly ? (
+          <>
+            <Button
+              onClick={() => setSource("unstaged")}
+              size="sm"
+              type="button"
+              variant={source === "unstaged" ? "secondary" : "ghost"}
+            >
+              <Trans id="git.review.unstaged">Unstaged</Trans>
+            </Button>
+            <Button
+              onClick={() => setSource("staged")}
+              size="sm"
+              type="button"
+              variant={source === "staged" ? "secondary" : "ghost"}
+            >
+              <Trans id="git.review.staged">Staged</Trans>
+            </Button>
+            <Button
+              onClick={() => setSource("uncommitted")}
+              size="sm"
+              type="button"
+              variant={source === "uncommitted" ? "secondary" : "ghost"}
+            >
+              <Trans id="git.review.uncommitted">Uncommitted</Trans>
+            </Button>
+            <Button
+              disabled={!status.data?.head || !branchContext.data?.defaultBranch}
+              onClick={() => setSource("branch")}
+              size="sm"
+              title={branchContext.data?.defaultBranch ?? undefined}
+              type="button"
+              variant={source === "branch" ? "secondary" : "ghost"}
+            >
+              <Trans id="git.review.branchChanges">Branch</Trans>
+            </Button>
+            <Button
+              disabled={!status.data?.head}
+              onClick={() => setSource("commit")}
+              size="sm"
+              type="button"
+              variant={source === "commit" ? "secondary" : "ghost"}
+            >
+              <Trans id="git.review.commitSource">Commit</Trans>
+            </Button>
+          </>
+        ) : null}
         <Button
           disabled={!threadId}
           onClick={() => setSource("last-turn")}

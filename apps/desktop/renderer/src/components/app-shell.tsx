@@ -66,6 +66,7 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  GitBranch,
   LoaderCircle,
   MoreHorizontal,
   Palette,
@@ -129,6 +130,12 @@ const settingsItems = [
     href: "/settings/appearance",
     icon: <Palette className="size-4" strokeWidth={1.9} />,
     label: msg({ id: "settings.appearance", message: "Appearance" }),
+  },
+  {
+    group: "personal",
+    href: "/settings/git",
+    icon: <GitBranch className="size-4" strokeWidth={1.9} />,
+    label: msg({ id: "settings.git", message: "Git" }),
   },
   {
     group: "integrations",

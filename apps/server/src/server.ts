@@ -171,10 +171,15 @@ export class CypheriaServer implements HttpAppHost {
         discard: (captureId) => this.git.turnCaptureDiscard(captureId),
       },
     })
-    this.git = new GitService(this.runtime.paths.cacheDir, this.runtime.paths.cypheriaHome, {
-      agents: this.agentManager,
-      threads: this.threadManager,
-    })
+    this.git = new GitService(
+      this.runtime.paths.cacheDir,
+      this.runtime.paths.cypheriaHome,
+      {
+        agents: this.agentManager,
+        threads: this.threadManager,
+      },
+      () => this.configStore.getSnapshot().config.git
+    )
     this.codexHarness = new CodexHarnessService(
       this.agentManager,
       this.configStore,

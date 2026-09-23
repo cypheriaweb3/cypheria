@@ -18,7 +18,7 @@ import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 
 import { ensureCypheriaClient } from "../cypheria-client.js"
 
@@ -52,6 +52,14 @@ export function GitHubPrPanel({
   const [closeOpen, setCloseOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const gitSettings = useQuery({
+    queryKey: ["settings", "git"],
+    queryFn: async () => (await ensureCypheriaClient()).server.config(),
+    staleTime: 30_000,
+  })
+  useEffect(() => {
+    if (gitSettings.data) setDraft(gitSettings.data.config.git.createPullRequestAsDraft)
+  }, [gitSettings.data])
   const selectPullRequest = (number: number) => {
     setEditTitle("")
     setEditBody(null)
@@ -533,7 +541,7 @@ export function GitHubPrPanel({
                             cwd,
                             selected.data.number,
                             head,
-                            "merge"
+                            gitSettings.data?.config.git.pullRequestMergeMethod ?? "merge"
                           )
                         })
                       }}

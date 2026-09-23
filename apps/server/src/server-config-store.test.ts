@@ -70,6 +70,24 @@ describe("ServerConfigStore", () => {
     expect(snapshot.config.server.logging?.file.level).toBe("info")
   })
 
+  it("migrates old configuration and persists Git settings", async () => {
+    const configDir = await mkdtemp(join(tmpdir(), "cypheria-server-git-settings-"))
+    temporaryDirectories.push(configDir)
+    const { git: _git, ...legacy } = DEFAULT_PERSISTED_SERVER_CONFIG
+    await writeFile(resolveServerConfigPath(configDir), JSON.stringify(legacy))
+    const store = await ServerConfigStore.open(configDir, {})
+    expect(store.getSnapshot().config.git.branchPrefix).toBe("codex/")
+
+    const snapshot = await store.patch({
+      git: { branchPrefix: "feature/", worktreeRoot: join(configDir, "trees") },
+    })
+    expect(snapshot.config.git.branchPrefix).toBe("feature/")
+    expect(snapshot.restartRequiredPaths).toContain("git.worktreeRoot")
+    const reopened = await ServerConfigStore.open(configDir, {})
+    expect(reopened.getSnapshot().config.git.branchPrefix).toBe("feature/")
+    expect(reopened.getSnapshot().config.git.worktreeRoot).toBe(join(configDir, "trees"))
+  })
+
   it("validates the complete desired configuration before writing", async () => {
     const configDir = await mkdtemp(join(tmpdir(), "cypheria-server-config-invalid-"))
     temporaryDirectories.push(configDir)
@@ -77,6 +95,9 @@ describe("ServerConfigStore", () => {
 
     await expect(store.patch({ server: { relay: { enabled: true } } })).rejects.toThrow(
       "required when relay is enabled"
+    )
+    await expect(store.patch({ git: { worktreeRoot: "relative/worktrees" } })).rejects.toThrow(
+      "Worktree root must be absolute"
     )
     await expect(readFile(resolveServerConfigPath(configDir), "utf8")).rejects.toMatchObject({
       code: "ENOENT",

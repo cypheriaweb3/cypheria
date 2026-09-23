@@ -2,6 +2,7 @@ import { mkdir, open, readFile, rename } from "node:fs/promises"
 import { resolve } from "node:path"
 
 import {
+  DEFAULT_GIT_SETTINGS,
   type PersistedServerConfig,
   type PersistedServerConfigPatch,
   PersistedServerConfigSchema,
@@ -10,6 +11,7 @@ import {
 export const CYPHERIA_SERVER_CONFIG_FILENAME = "config.json" as const
 
 export const DEFAULT_PERSISTED_SERVER_CONFIG: PersistedServerConfig = {
+  git: DEFAULT_GIT_SETTINGS,
   agents: {
     codex: {
       approvalPolicy: "on-request",

@@ -111,6 +111,8 @@ The General settings page groups local preferences under General, Composer, Popo
 
 Shared Agent, model, integration, Web3, and Server behavior belongs in Cypheria Server configuration or the database. UI preferences are not written to Codex configuration.
 
+The Git settings page stores local Codex Git preferences in Server configuration. It covers branch prefix, guarded force push default, review mode, PR draft and merge defaults, sidebar PR icons, worktree root and retention, upstream refresh, and commit, PR, and watch instructions. The worktree root takes effect after Server restart. The Review panel respects the last-turn-only mode; PR creation and merge use the configured defaults.
+
 ## dApp and Web3 boundary
 
 Each dApp origin receives an isolated session partition and scoped provider permissions. Electron owns the `WebContents`, navigation policy, popups, downloads, and injection boundary. Provider requests are forwarded to Server Web3 APIs; signing and policy evaluation remain in the privileged Server runtime.

@@ -111,6 +111,8 @@ Electron 在 `userData/config.json` 保存本地偏好：
 
 共享 Agent、model、integration、Web3 和 Server 行为属于 Cypheria Server 配置或数据库。UI 偏好不会写入 Codex 配置。
 
+Git 设置页将本地 Codex Git 偏好保存在 Server 配置中，包括分支前缀、带租约的强制推送默认值、审查模式、PR 草稿和合并默认值、侧栏 PR 图标、工作树根目录及保留数量、上游刷新方式，以及提交、PR 和关注指令。工作树根目录在 Server 重启后生效。Review 面板遵循仅显示最后一轮的模式；创建和合并 PR 使用配置的默认值。
+
 ## dApp 与 Web3 边界
 
 每个 dApp origin 使用隔离 session partition 和受限 provider permissions。Electron 负责 `WebContents`、导航策略、弹窗、下载和注入边界。Provider request 转发到 Server Web3 API；签名和策略评估仍在特权 Server runtime 中。

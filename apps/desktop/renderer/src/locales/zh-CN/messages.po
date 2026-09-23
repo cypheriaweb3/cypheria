@@ -59,6 +59,11 @@ msgid "settings.agentHarnesses"
 msgstr "Agent harnesses"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.instructions"
+msgstr "Agent 指令"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.stateAll"
 msgstr "全部"
@@ -154,9 +159,19 @@ msgid "navigation.auditLog"
 msgstr "审计日志"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.watchAutoMerge"
+msgstr "自动合并关注的 PR"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/language-selector.tsx
 msgid "settings.language.automatic"
 msgstr "自动检测"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.autoCleanup"
+msgstr "自动清理工作树"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -167,6 +182,11 @@ msgstr "返回工作区"
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.base"
 msgstr "基准分支"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.bestEffort"
+msgstr "尽力刷新"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -187,6 +207,16 @@ msgstr "分支"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.branch"
 msgstr "分支"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.branchPrefix"
+msgstr "分支前缀"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.branches"
+msgstr "分支和审查"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -331,6 +361,11 @@ msgid "git.review.commitSource"
 msgstr "提交"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.commitInstructions"
+msgstr "提交指令"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.commitMessage"
 msgstr "提交说明"
@@ -441,6 +476,11 @@ msgid "chat.project.create"
 msgstr "创建项目"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.prDraft"
+msgstr "默认创建草稿 PR"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.createSection"
 msgstr "创建分组"
@@ -479,6 +519,11 @@ msgstr "默认终端位置"
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.workspace.terminalLocation.label"
 msgstr "默认终端位置"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.forcePush"
+msgstr "默认使用带租约的强制推送"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -642,6 +687,11 @@ msgid "navigation.forkChat"
 msgstr "Fork 会话"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.reviewFull"
+msgstr "完整"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.title"
 msgstr "常规"
@@ -655,6 +705,16 @@ msgstr "常规"
 #: renderer/src/components/app-shell.tsx
 msgid "settings.general"
 msgstr "常规"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.title"
+msgstr "Git"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/app-shell.tsx
+msgid "settings.git"
+msgstr "Git"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/github-pr-panel.tsx
@@ -752,6 +812,11 @@ msgid "git.review.lastTurn"
 msgstr "最后一轮"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.reviewLastTurn"
+msgstr "仅最后一轮"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sort.updated"
 msgstr "最近更新"
@@ -804,6 +869,11 @@ msgid "git.review.loading"
 msgstr "正在加载仓库变更…"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.description"
+msgstr "本地 Codex Git 和拉取请求偏好设置"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sort.manual"
 msgstr "手动排序"
@@ -837,6 +907,16 @@ msgstr "MCP 应用"
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.merge"
 msgstr "合并"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.mergeCommit"
+msgstr "合并提交"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.mergeMethod"
+msgstr "合并方式"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/github-pr-panel.tsx
@@ -902,6 +982,11 @@ msgstr "将线程移回检出目录"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.networks"
 msgstr "网络"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.never"
+msgstr "从不"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1210,6 +1295,16 @@ msgid "git.gitlab.postComment"
 msgstr "发表评论"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.prInstructions"
+msgstr "PR 指令"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.watchInstructions"
+msgstr "PR 关注指令"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.appearance.tsx
 msgid "settings.preferences.title"
 msgstr "偏好设置"
@@ -1283,6 +1378,11 @@ msgstr "拉取请求状态"
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.title"
 msgstr "拉取请求标题"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.pullRequests"
+msgstr "拉取请求"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1405,6 +1505,11 @@ msgid "chat.workspace.resizeSidePanel"
 msgstr "调整侧边面板大小"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.restartRoot"
+msgstr "重启 Server 后新的工作树根目录才会生效。"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
 msgid "settings.archived.restore"
 msgstr "恢复"
@@ -1455,6 +1560,11 @@ msgid "git.github.reviewComment"
 msgstr "审查评论"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.reviewMode"
+msgstr "审查模式"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.reviewer"
 msgstr "Reviewer 用户名或团队"
@@ -1478,6 +1588,11 @@ msgstr "保存"
 #: renderer/src/components/github-pr-panel.tsx
 msgid "git.github.save"
 msgstr "保存更改"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.save"
+msgstr "保存 Git 设置"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
@@ -1642,6 +1757,11 @@ msgid "navigation.showMore"
 msgstr "显示更多"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.sidebarPrIcons"
+msgstr "在侧栏显示 PR 图标"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.contextUsageDescription"
 msgstr "在输入框中显示 token 用量"
@@ -1685,6 +1805,11 @@ msgstr "源文件夹"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.sources"
 msgstr "来源"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.squash"
+msgstr "压缩合并"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
@@ -1872,6 +1997,11 @@ msgid "navigation.editProjectDescription"
 msgstr "更新此项目在侧栏中显示的名称。"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.upstreamRefresh"
+msgstr "上游刷新"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "menu.view"
 msgstr "查看"
@@ -1912,6 +2042,21 @@ msgid "navigation.workspace"
 msgstr "工作区导航"
 
 #. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.worktreeRoot"
+msgstr "工作树根目录"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.worktrees"
+msgstr "工作树"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.worktrees"
 msgstr "工作树"
+
+#. js-lingui-explicit-id
+#: renderer/src/routes/settings.git.tsx
+msgid "settings.git.keepCount"
+msgstr "保留工作树数量"
