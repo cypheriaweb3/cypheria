@@ -51,6 +51,7 @@ export class ThreadConversationController {
   #client: CypheriaClient | null = null
   #cwd: string | undefined
   #disposed = false
+  #connectionGeneration = 0
   #epoch: string | null = null
   #rows: ThreadTimelineRow[] = []
   #snapshot: ThreadConversationSnapshot
@@ -75,10 +76,12 @@ export class ThreadConversationController {
   }
 
   async connect(): Promise<void> {
-    if (this.#client || this.#disposed) return
+    if (this.#client) return
+    this.#disposed = false
+    const generation = ++this.#connectionGeneration
     try {
       const client = await ensureCypheriaClient()
-      if (this.#disposed) return
+      if (this.#disposed || generation !== this.#connectionGeneration) return
       this.#client = client
       this.#subscribeClient(client)
       if (this.#snapshot.threadId) {
@@ -87,17 +90,19 @@ export class ThreadConversationController {
           existing.state === "stopped" || existing.state === "errored"
             ? (await client.threads.resume(existing.id)).thread
             : existing
+        if (this.#disposed || generation !== this.#connectionGeneration) return
         await this.#hydrate(ready)
       } else {
         this.#set({ ...this.#snapshot, loadState: "ready" })
       }
     } catch (error) {
-      this.#fail(error)
+      if (generation === this.#connectionGeneration) this.#fail(error)
     }
   }
 
   dispose(): void {
     this.#disposed = true
+    this.#connectionGeneration += 1
     this.#client = null
     for (const unsubscribe of this.#unsubscribers.splice(0)) unsubscribe()
     this.#listeners.clear()
