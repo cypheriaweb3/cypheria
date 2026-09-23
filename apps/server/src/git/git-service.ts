@@ -5,6 +5,7 @@ import type {
   GitBranchReview,
   GitBranchSearchResult,
   GitClientMessage,
+  GitHubAppAvailability,
   GitHubAvailability,
   GitHubPullRequest,
   GitHubPullRequestChecks,
@@ -20,6 +21,7 @@ import { CodexAppToolClient } from "../codex-app-tool-client.js"
 import type { ThreadManager } from "../thread/thread-manager.js"
 import { GitCommandError, GitExecutor } from "./git-executor.js"
 import { GitWorktreeService } from "./git-worktree-service.js"
+import { GitHubAppPrService } from "./github-app-pr-service.js"
 import { GitHubPrService } from "./github-pr-service.js"
 import { GitLabMrService, gitLabBrowserFormUrl } from "./gitlab-mr-service.js"
 
@@ -48,6 +50,7 @@ export class GitService {
   readonly #executor: GitExecutor
   readonly #worktrees: GitWorktreeService
   readonly #github = new GitHubPrService()
+  readonly #githubApp: GitHubAppPrService | null
   readonly #gitlab: GitLabMrService | null
   readonly #threads: ThreadManager | null
 
@@ -58,9 +61,9 @@ export class GitService {
   ) {
     this.#executor = new GitExecutor(cacheDir)
     this.#worktrees = new GitWorktreeService(this.#executor, cypheriaHome)
-    this.#gitlab = connectors
-      ? new GitLabMrService(this.#executor, new CodexAppToolClient(connectors.agents))
-      : null
+    const apps = connectors ? new CodexAppToolClient(connectors.agents) : null
+    this.#gitlab = apps ? new GitLabMrService(this.#executor, apps) : null
+    this.#githubApp = apps ? new GitHubAppPrService(this.#executor, apps) : null
     this.#threads = connectors?.threads ?? null
   }
 
@@ -151,6 +154,16 @@ export class GitService {
           break
         case "git.github-availability.request":
           value = await this.githubAvailability(message.payload.cwd)
+          break
+        case "git.github-app-availability.request":
+          value = await this.githubAppAvailability(message.payload.cwd, message.payload.threadId)
+          break
+        case "git.github-app-pr-create.request":
+          value = await this.githubAppPrCreate(
+            message.payload.cwd,
+            message.payload.threadId,
+            message.payload
+          )
           break
         case "git.github-pr-list.request":
           value = await this.githubPrList(
@@ -313,6 +326,23 @@ export class GitService {
     return this.#github.availability((await this.discover(cwd)).root)
   }
 
+  async githubAppAvailability(cwd: string, threadId: string): Promise<GitHubAppAvailability> {
+    if (!this.#githubApp)
+      return { available: false, repository: null, error: "GitHub app is unavailable" }
+    const { root, nativeThreadId } = await this.#codexThreadRepository(cwd, threadId)
+    return this.#githubApp.availability(root, nativeThreadId)
+  }
+
+  async githubAppPrCreate(
+    cwd: string,
+    threadId: string,
+    input: { head: string; base: string; title: string; body: string; draft?: boolean }
+  ): Promise<{ number: number; url: string }> {
+    if (!this.#githubApp) throw new Error("GitHub app is unavailable")
+    const { root, nativeThreadId } = await this.#codexThreadRepository(cwd, threadId)
+    return this.#githubApp.create(root, nativeThreadId, input)
+  }
+
   async githubPrList(
     cwd: string,
     state?: "open" | "closed" | "merged" | "all",
@@ -413,17 +443,26 @@ export class GitService {
     cwd: string,
     threadId: string
   ): Promise<{ service: GitLabMrService; root: string; nativeThreadId: string }> {
-    if (!this.#gitlab || !this.#threads) throw new Error("GitLab connector is unavailable")
+    if (!this.#gitlab) throw new Error("GitLab connector is unavailable")
+    const { root, nativeThreadId } = await this.#codexThreadRepository(cwd, threadId)
+    return { service: this.#gitlab, root, nativeThreadId }
+  }
+
+  async #codexThreadRepository(
+    cwd: string,
+    threadId: string
+  ): Promise<{ root: string; nativeThreadId: string }> {
+    if (!this.#threads) throw new Error("A local Codex thread is required")
     const thread = await this.#threads.get(threadId)
     if (thread.agentId !== "codex" || !thread.agentSessionId || !thread.cwd) {
-      throw new Error("A local Codex thread is required for GitLab merge requests")
+      throw new Error("A local Codex thread is required for connector pull requests")
     }
     const repository = await this.discover(cwd)
     const threadRepository = await this.discover(thread.cwd)
     if (threadRepository.commonGitDir !== repository.commonGitDir) {
       throw new Error("The Codex thread belongs to another Git repository")
     }
-    return { service: this.#gitlab, root: repository.root, nativeThreadId: thread.agentSessionId }
+    return { root: repository.root, nativeThreadId: thread.agentSessionId }
   }
 
   async init(cwd: string): Promise<GitRepository> {

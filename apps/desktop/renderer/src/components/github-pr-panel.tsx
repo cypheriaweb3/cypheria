@@ -26,7 +26,11 @@ const openExternal = async (url: string): Promise<void> => {
   await window.cypheria.app.openExternal(url)
 }
 
-export function GitHubPrPanel({ cwd, branch }: Readonly<{ cwd: string; branch: string | null }>) {
+export function GitHubPrPanel({
+  cwd,
+  branch,
+  threadId,
+}: Readonly<{ cwd: string; branch: string | null; threadId: string | null }>) {
   const { i18n } = useLingui()
   const queryClient = useQueryClient()
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null)
@@ -45,8 +49,19 @@ export function GitHubPrPanel({ cwd, branch }: Readonly<{ cwd: string; branch: s
     staleTime: 30_000,
     retry: false,
   })
+  const cliAvailable = Boolean(availability.data?.authenticated && availability.data.repository)
+  const appAvailability = useQuery({
+    enabled: Boolean(threadId) && !cliAvailable,
+    queryKey: ["github-pr", cwd, threadId, "app-availability"],
+    queryFn: async () => {
+      if (!threadId) throw new Error("A local Codex thread is required")
+      return (await ensureCypheriaClient()).git.githubAppAvailability(cwd, threadId)
+    },
+    staleTime: 30_000,
+    retry: false,
+  })
   const list = useQuery({
-    enabled: availability.data?.authenticated === true && Boolean(availability.data.repository),
+    enabled: cliAvailable,
     queryKey: ["github-pr", cwd, "list"],
     queryFn: async () => (await ensureCypheriaClient()).git.githubPrList(cwd),
     retry: false,
@@ -91,7 +106,7 @@ export function GitHubPrPanel({ cwd, branch }: Readonly<{ cwd: string; branch: s
       <p className="text-xs font-medium">
         <Trans id="git.github.heading">GitHub pull requests</Trans>
       </p>
-      {availability.data?.error ? (
+      {availability.data?.error && !appAvailability.data?.available ? (
         <Alert>
           <AlertDescription>{availability.data.error}</AlertDescription>
         </Alert>
@@ -105,6 +120,22 @@ export function GitHubPrPanel({ cwd, branch }: Readonly<{ cwd: string; branch: s
         <p className="text-xs text-muted-foreground">
           {availability.data.account} · {availability.data.repository}
         </p>
+      ) : null}
+      {appAvailability.data?.available ? (
+        <p className="text-xs text-muted-foreground">
+          <Trans id="git.github.connectedApp">Connected GitHub App</Trans> ·{" "}
+          {appAvailability.data.repository}
+        </p>
+      ) : null}
+      {appAvailability.isError ? (
+        <Alert variant="destructive">
+          <AlertDescription>{appAvailability.error.message}</AlertDescription>
+        </Alert>
+      ) : null}
+      {appAvailability.data?.error ? (
+        <Alert>
+          <AlertDescription>{appAvailability.data.error}</AlertDescription>
+        </Alert>
       ) : null}
       {list.data?.length === 0 ? (
         <p className="text-xs text-muted-foreground">
@@ -276,7 +307,7 @@ export function GitHubPrPanel({ cwd, branch }: Readonly<{ cwd: string; branch: s
           <AlertDescription>{selected.error.message}</AlertDescription>
         </Alert>
       ) : null}
-      {availability.data?.authenticated && availability.data.repository ? (
+      {cliAvailable || appAvailability.data?.available ? (
         <div className="space-y-2 border-t pt-2">
           <p className="text-xs text-muted-foreground">
             <Trans id="git.github.createHint">Create from the pushed current branch</Trans>
@@ -306,14 +337,22 @@ export function GitHubPrPanel({ cwd, branch }: Readonly<{ cwd: string; branch: s
               onClick={() =>
                 void mutate(async () => {
                   if (!branch) throw new Error("A local Git branch is required")
-                  const created = await (await ensureCypheriaClient()).git.githubPrCreate(cwd, {
+                  const git = (await ensureCypheriaClient()).git
+                  const input = {
                     head: branch,
                     base: base.trim(),
                     title: title.trim(),
                     body,
                     draft,
-                  })
-                  setSelectedNumber(created.number)
+                  }
+                  if (cliAvailable) {
+                    const created = await git.githubPrCreate(cwd, input)
+                    setSelectedNumber(created.number)
+                  } else {
+                    if (!threadId) throw new Error("A local Codex thread is required")
+                    const created = await git.githubAppPrCreate(cwd, threadId, input)
+                    await openExternal(created.url)
+                  }
                   setTitle("")
                   setBody("")
                 })

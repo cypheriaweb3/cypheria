@@ -306,6 +306,11 @@ msgid "settings.general.composerSection"
 msgstr "输入框"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.connectedApp"
+msgstr "已连接 GitHub App"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "common.continue"
 msgstr "继续"

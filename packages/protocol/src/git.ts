@@ -76,6 +76,16 @@ export const GitHubAvailabilitySchema = z
     error: z.string().nullable(),
   })
   .strict()
+export const GitHubAppAvailabilitySchema = z
+  .object({
+    available: z.boolean(),
+    repository: z.string().nullable(),
+    error: z.string().nullable(),
+  })
+  .strict()
+export const GitHubAppCreatedPullRequestSchema = z
+  .object({ number: z.number().int().positive(), url: z.url() })
+  .strict()
 export const GitHubPullRequestSchema = z
   .object({
     number: z.number().int().positive(),
@@ -236,6 +246,24 @@ export const GitWorktreeRestoreRequestSchema = input(
 export const GitHubAvailabilityRequestSchema = input(
   "git.github-availability.request",
   z.object({ cwd: path }).strict()
+)
+export const GitHubAppAvailabilityRequestSchema = input(
+  "git.github-app-availability.request",
+  z.object({ cwd: path, threadId: ProjectThreadIdSchema }).strict()
+)
+export const GitHubAppPrCreateRequestSchema = input(
+  "git.github-app-pr-create.request",
+  z
+    .object({
+      cwd: path,
+      threadId: ProjectThreadIdSchema,
+      head: z.string().min(1),
+      base: z.string().min(1),
+      title: z.string().min(1).max(1000),
+      body: z.string().max(100_000),
+      draft: z.boolean().optional(),
+    })
+    .strict()
 )
 export const GitHubPrListRequestSchema = input(
   "git.github-pr-list.request",
@@ -408,6 +436,14 @@ export const GitHubAvailabilityResponseSchema = output(
   "git.github-availability.response",
   GitHubAvailabilitySchema
 )
+export const GitHubAppAvailabilityResponseSchema = output(
+  "git.github-app-availability.response",
+  GitHubAppAvailabilitySchema
+)
+export const GitHubAppPrCreateResponseSchema = output(
+  "git.github-app-pr-create.response",
+  GitHubAppCreatedPullRequestSchema
+)
 export const GitHubPrListResponseSchema = output(
   "git.github-pr-list.response",
   z.array(GitHubPullRequestSchema)
@@ -479,6 +515,8 @@ export const GIT_CLIENT_SCHEMAS = [
   GitWorktreeDeleteRequestSchema,
   GitWorktreeRestoreRequestSchema,
   GitHubAvailabilityRequestSchema,
+  GitHubAppAvailabilityRequestSchema,
+  GitHubAppPrCreateRequestSchema,
   GitHubPrListRequestSchema,
   GitHubPrReadRequestSchema,
   GitHubPrChecksRequestSchema,
@@ -514,6 +552,8 @@ export const GIT_SERVER_SCHEMAS = [
   GitWorktreeDeleteResponseSchema,
   GitWorktreeRestoreResponseSchema,
   GitHubAvailabilityResponseSchema,
+  GitHubAppAvailabilityResponseSchema,
+  GitHubAppPrCreateResponseSchema,
   GitHubPrListResponseSchema,
   GitHubPrReadResponseSchema,
   GitHubPrChecksResponseSchema,
@@ -540,6 +580,8 @@ export type GitBranchReview = z.infer<typeof GitBranchReviewSchema>
 export type GitBranchContext = z.infer<typeof GitBranchContextSchema>
 export type GitWorktree = z.infer<typeof GitWorktreeSchema>
 export type GitHubAvailability = z.infer<typeof GitHubAvailabilitySchema>
+export type GitHubAppAvailability = z.infer<typeof GitHubAppAvailabilitySchema>
+export type GitHubAppCreatedPullRequest = z.infer<typeof GitHubAppCreatedPullRequestSchema>
 export type GitHubPullRequest = z.infer<typeof GitHubPullRequestSchema>
 export type GitHubPullRequestChecks = z.infer<typeof GitHubPullRequestChecksSchema>
 export type GitLabMergeRequest = z.infer<typeof GitLabMergeRequestSchema>

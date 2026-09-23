@@ -3,6 +3,8 @@ import type {
   GitBranchContext,
   GitBranchReview,
   GitBranchSearchResult,
+  GitHubAppAvailability,
+  GitHubAppCreatedPullRequest,
   GitHubAvailability,
   GitHubPullRequest,
   GitHubPullRequestChecks,
@@ -74,6 +76,17 @@ export interface GitActions {
   deleteWorktree(cwd: string, path: string, options?: RequestOptions): Promise<void>
   restoreWorktree(cwd: string, path: string, options?: RequestOptions): Promise<GitWorktree>
   githubAvailability(cwd: string, options?: RequestOptions): Promise<GitHubAvailability>
+  githubAppAvailability(
+    cwd: string,
+    threadId: string,
+    options?: RequestOptions
+  ): Promise<GitHubAppAvailability>
+  githubAppPrCreate(
+    cwd: string,
+    threadId: string,
+    input: { head: string; base: string; title: string; body: string; draft?: boolean },
+    options?: RequestOptions
+  ): Promise<GitHubAppCreatedPullRequest>
   githubPrList(
     cwd: string,
     input?: { state?: "open" | "closed" | "merged" | "all"; limit?: number },
@@ -204,6 +217,18 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(await client.requestGit("git.worktree-restore.request", { cwd, path }, options)),
   githubAvailability: async (cwd, options) =>
     unwrap(await client.requestGit("git.github-availability.request", { cwd }, options)),
+  githubAppAvailability: async (cwd, threadId, options) =>
+    unwrap(
+      await client.requestGit("git.github-app-availability.request", { cwd, threadId }, options)
+    ),
+  githubAppPrCreate: async (cwd, threadId, input, options) =>
+    unwrap(
+      await client.requestGit(
+        "git.github-app-pr-create.request",
+        { cwd, threadId, ...input },
+        options
+      )
+    ),
   githubPrList: async (cwd, input = {}, options) =>
     unwrap(await client.requestGit("git.github-pr-list.request", { cwd, ...input }, options)),
   githubPrRead: async (cwd, number, options) =>

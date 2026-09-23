@@ -474,7 +474,12 @@ export function GitReviewPanel({
         />
       ) : null}
       {origin.data?.provider === "github" ? (
-        <GitHubPrPanel branch={status.data?.branch ?? null} cwd={cwd} key={cwd} />
+        <GitHubPrPanel
+          branch={status.data?.branch ?? null}
+          cwd={cwd}
+          key={cwd}
+          threadId={threadId}
+        />
       ) : null}
       {actionError ? <p className="p-2 text-sm text-destructive">{actionError}</p> : null}
     </ChatReviewPanel>

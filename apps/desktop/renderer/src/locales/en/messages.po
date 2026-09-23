@@ -306,6 +306,11 @@ msgid "settings.general.composerSection"
 msgstr "Composer"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.connectedApp"
+msgstr "Connected GitHub App"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "common.continue"
 msgstr "Continue"
