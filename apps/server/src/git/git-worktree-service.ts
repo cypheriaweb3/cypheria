@@ -13,6 +13,7 @@ type Record = {
   sourceRoot: string
   path: string
   snapshotRef: string
+  ownerThreadId?: string | null
 }
 
 const inside = (root: string, path: string): boolean => {
@@ -55,12 +56,14 @@ export class GitWorktreeService {
           .find((line) => line.startsWith("branch "))
           ?.slice(7)
           .replace(/^refs\/heads\//u, "") ?? null
+      const record = await this.#record(repository, path).catch(() => null)
       result.push({
         path,
         head,
         branch,
-        managed: await this.#isManaged(repository, path),
+        managed: record !== null,
         active: true,
+        ownerThreadId: record?.ownerThreadId ?? null,
       })
     }
     const metadata = join(this.#root, ".metadata")
@@ -82,7 +85,15 @@ export class GitWorktreeService {
           ({ stdout }) => stdout.trim(),
           () => null
         )
-      if (head) result.push({ path: record.path, head, branch: null, managed: true, active: false })
+      if (head)
+        result.push({
+          path: record.path,
+          head,
+          branch: null,
+          managed: true,
+          active: false,
+          ownerThreadId: record.ownerThreadId ?? null,
+        })
     }
     return result
   }
@@ -110,16 +121,47 @@ export class GitWorktreeService {
         sourceRoot: repository.root,
         path,
         snapshotRef,
+        ownerThreadId: null,
       })
     } catch (error) {
       await this.#executor.run(repository.root, ["worktree", "remove", "--", path])
       throw error
     }
-    return { path, head: commit, branch: null, managed: true, active: true }
+    return { path, head: commit, branch: null, managed: true, active: true, ownerThreadId: null }
+  }
+
+  async setOwner(
+    repository: Repository,
+    path: string,
+    threadId: string | null
+  ): Promise<GitWorktree> {
+    const record = await this.#record(repository, path)
+    if (threadId !== null) {
+      const files = await readdir(join(this.#root, ".metadata"))
+      for (const file of files) {
+        if (
+          !/^[a-f0-9-]{36}\.json$/u.test(file) ||
+          file === `${record.snapshotRef.split("/").at(-1)}.json`
+        )
+          continue
+        const other = await readFile(join(this.#root, ".metadata", file), "utf8").then(
+          (value) => JSON.parse(value) as Partial<Record>,
+          () => null
+        )
+        if (other?.commonGitDir === repository.commonGitDir && other.ownerThreadId === threadId) {
+          throw new Error("The thread already owns another worktree")
+        }
+      }
+    }
+    await this.#writeRecord({ ...record, ownerThreadId: threadId }, true)
+    const updated = (await this.list(repository)).find((entry) => entry.path === record.path)
+    if (!updated) throw new Error("Managed worktree is unavailable")
+    return updated
   }
 
   async delete(repository: Repository, path: string): Promise<void> {
     const record = await this.#record(repository, path)
+    if (record.ownerThreadId) throw new Error("Move the owner thread before deleting this worktree")
     if (repository.root === record.path) throw new Error("Cannot delete the current worktree")
     const worktree = await realpath(record.path)
     if (worktree !== record.path) throw new Error("Managed worktree path changed")
@@ -151,14 +193,14 @@ export class GitWorktreeService {
       })
     ).stdout.trim()
     await this.#executor.run(repository.root, ["worktree", "add", "--detach", record.path, head])
-    return { path: record.path, head, branch: null, managed: true, active: true }
-  }
-
-  async #isManaged(repository: Repository, path: string): Promise<boolean> {
-    return this.#record(repository, path).then(
-      () => true,
-      () => false
-    )
+    return {
+      path: record.path,
+      head,
+      branch: null,
+      managed: true,
+      active: true,
+      ownerThreadId: record.ownerThreadId ?? null,
+    }
   }
 
   async #record(repository: Repository, path: string): Promise<Record> {
@@ -179,14 +221,30 @@ export class GitWorktreeService {
     ) {
       throw new Error("Managed worktree repository identity mismatch")
     }
+    if (
+      parsed.ownerThreadId !== undefined &&
+      parsed.ownerThreadId !== null &&
+      typeof parsed.ownerThreadId !== "string"
+    ) {
+      throw new Error("Invalid managed worktree owner")
+    }
     return parsed
   }
 
-  async #writeRecord(record: Record): Promise<void> {
+  async #writeRecord(record: Record, overwrite = false): Promise<void> {
     const metadata = join(this.#root, ".metadata")
     await mkdir(metadata, { recursive: true, mode: 0o700 })
     const id = record.snapshotRef.split("/").at(-1)
     const target = join(metadata, `${id}.json`)
+    if (
+      !overwrite &&
+      (await stat(target).then(
+        () => true,
+        () => false
+      ))
+    ) {
+      throw new Error("Managed worktree record already exists")
+    }
     const temporary = `${target}.${randomUUID()}.tmp`
     await writeFile(temporary, JSON.stringify(record), { mode: 0o600, flag: "wx" })
     await rename(temporary, target)

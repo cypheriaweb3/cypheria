@@ -4,8 +4,9 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { promisify } from "node:util"
 import { afterEach, describe, expect, it } from "vitest"
-
+import { GitExecutor } from "./git-executor.js"
 import { GitService } from "./git-service.js"
+import { GitWorktreeService } from "./git-worktree-service.js"
 
 const run = promisify(execFile)
 const created: string[] = []
@@ -217,6 +218,18 @@ describe("GitService", () => {
     const worktree = await service.createWorktree(root)
     expect(worktree).toMatchObject({ head: first, managed: true, branch: null })
     expect(await service.worktrees(root)).toContainEqual(worktree)
+    const owner = "01984de2-8f74-7c91-a3b2-5c5e937cf400"
+    const manager = new GitWorktreeService(new GitExecutor(join(root, "cache")), join(root, "home"))
+    expect(
+      await manager.setOwner(await service.discover(root), worktree.path, owner)
+    ).toMatchObject({
+      ownerThreadId: owner,
+    })
+    expect(await service.worktrees(root)).toContainEqual({ ...worktree, ownerThreadId: owner })
+    await expect(service.deleteWorktree(root, worktree.path)).rejects.toThrow(
+      "Move the owner thread"
+    )
+    await manager.setOwner(await service.discover(root), worktree.path, null)
     await writeFile(join(worktree.path, "file.txt"), "dirty\n")
     await expect(service.deleteWorktree(root, worktree.path)).rejects.toThrow("uncommitted changes")
     await writeFile(join(worktree.path, "file.txt"), "first\n")

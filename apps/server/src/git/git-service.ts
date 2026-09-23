@@ -155,6 +155,13 @@ export class GitService {
         case "git.worktree-restore.request":
           value = await this.restoreWorktree(message.payload.cwd, message.payload.path)
           break
+        case "git.worktree-owner.request":
+          value = await this.setWorktreeOwner(
+            message.payload.cwd,
+            message.payload.path,
+            message.payload.threadId
+          )
+          break
         case "git.github-availability.request":
           value = await this.githubAvailability(message.payload.cwd)
           break
@@ -367,6 +374,29 @@ export class GitService {
     return this.#worktrees.restore(await this.discover(cwd), path)
   }
 
+  async setWorktreeOwner(cwd: string, path: string, threadId: string | null): Promise<GitWorktree> {
+    const repository = await this.discover(cwd)
+    const worktree = (await this.#worktrees.list(repository)).find((entry) => entry.path === path)
+    if (!worktree?.managed) throw new Error("Path is not a managed Cypheria worktree")
+    if (threadId !== null) {
+      if (!worktree.active) throw new Error("Restore the worktree before assigning a thread")
+      await this.#codexThreadRepository(cwd, threadId)
+      const thread = await this.#threads?.get(threadId)
+      if (!thread?.cwd || (await realpath(thread.cwd)) !== (await realpath(path))) {
+        throw new Error("The thread is not in this worktree")
+      }
+    } else if (worktree.ownerThreadId && this.#threads) {
+      const owner = await this.#threads.get(worktree.ownerThreadId).catch(() => null)
+      if (
+        owner?.cwd &&
+        (await realpath(owner.cwd).catch(() => null)) === (await realpath(path).catch(() => null))
+      ) {
+        throw new Error("Move the owner thread before releasing this worktree")
+      }
+    }
+    return this.#worktrees.setOwner(repository, path, threadId)
+  }
+
   async githubAvailability(cwd: string): Promise<GitHubAvailability> {
     return this.#github.availability((await this.discover(cwd)).root)
   }
@@ -557,7 +587,7 @@ export class GitService {
     if (!this.#threads) throw new Error("A local Codex thread is required")
     const thread = await this.#threads.get(threadId)
     if (thread.agentId !== "codex" || !thread.agentSessionId || !thread.cwd) {
-      throw new Error("A local Codex thread is required for connector pull requests")
+      throw new Error("A local Codex thread is required")
     }
     const repository = await this.discover(cwd)
     const threadRepository = await this.discover(thread.cwd)

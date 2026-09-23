@@ -78,6 +78,12 @@ export interface GitActions {
   createWorktree(cwd: string, startPoint?: string, options?: RequestOptions): Promise<GitWorktree>
   deleteWorktree(cwd: string, path: string, options?: RequestOptions): Promise<void>
   restoreWorktree(cwd: string, path: string, options?: RequestOptions): Promise<GitWorktree>
+  setWorktreeOwner(
+    cwd: string,
+    path: string,
+    threadId: string | null,
+    options?: RequestOptions
+  ): Promise<GitWorktree>
   githubAvailability(cwd: string, options?: RequestOptions): Promise<GitHubAvailability>
   githubAppAvailability(
     cwd: string,
@@ -256,6 +262,8 @@ export const createGitActions = (client: ServerClient): GitActions => ({
   },
   restoreWorktree: async (cwd, path, options) =>
     unwrap(await client.requestGit("git.worktree-restore.request", { cwd, path }, options)),
+  setWorktreeOwner: async (cwd, path, threadId, options) =>
+    unwrap(await client.requestGit("git.worktree-owner.request", { cwd, path, threadId }, options)),
   githubAvailability: async (cwd, options) =>
     unwrap(await client.requestGit("git.github-availability.request", { cwd }, options)),
   githubAppAvailability: async (cwd, threadId, options) =>
