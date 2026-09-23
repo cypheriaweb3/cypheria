@@ -16,6 +16,7 @@ import type {
   GitLabMergeRequestNote,
   GitOrigin,
   GitRepository,
+  GitReviewFile,
   GitServerMessage,
   GitStatus,
   GitWorktree,
@@ -66,6 +67,23 @@ export interface GitActions {
     input: { base: string; expectedHead: string; path: string },
     options?: RequestOptions
   ): Promise<string>
+  reviewFile(
+    cwd: string,
+    source: "staged" | "unstaged",
+    path: string,
+    options?: RequestOptions
+  ): Promise<GitReviewFile>
+  applyReviewSection(
+    cwd: string,
+    input: {
+      source: "staged" | "unstaged"
+      path: string
+      revision: string
+      action: "stage" | "unstage"
+      hunkIndex?: number
+    },
+    options?: RequestOptions
+  ): Promise<void>
   stage(cwd: string, paths: string[], options?: RequestOptions): Promise<void>
   unstage(cwd: string, paths: string[], options?: RequestOptions): Promise<void>
   commit(cwd: string, message: string, options?: RequestOptions): Promise<string>
@@ -245,6 +263,11 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap<{ diff: string }>(
       await client.requestGit("git.branch-review-diff.request", { cwd, ...input }, options)
     ).diff,
+  reviewFile: async (cwd, source, path, options) =>
+    unwrap(await client.requestGit("git.review-file.request", { cwd, source, path }, options)),
+  applyReviewSection: async (cwd, input, options) => {
+    unwrap(await client.requestGit("git.apply-review-section.request", { cwd, ...input }, options))
+  },
   stage: async (cwd, paths, options) => {
     unwrap(await client.requestGit("git.stage.request", { cwd, paths }, options))
   },

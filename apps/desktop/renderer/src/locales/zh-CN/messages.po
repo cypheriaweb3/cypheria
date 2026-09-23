@@ -1613,6 +1613,11 @@ msgstr "暂存文件"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
+msgid "git.review.stageHunk"
+msgstr "暂存段落"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
 msgid "git.review.staged"
 msgstr "已暂存"
 
@@ -1750,6 +1755,11 @@ msgstr "未读"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.unstage"
 msgstr "取消暂存"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.unstageHunk"
+msgstr "取消暂存段落"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx

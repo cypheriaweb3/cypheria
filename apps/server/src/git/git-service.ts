@@ -1,5 +1,8 @@
-import { lstat, realpath, stat } from "node:fs/promises"
-import { dirname, isAbsolute, relative, resolve, sep } from "node:path"
+import { createHash } from "node:crypto"
+import { constants } from "node:fs"
+import { lstat, mkdtemp, open, readlink, realpath, rm, stat, writeFile } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
 import type {
   GitBranchContext,
   GitBranchReview,
@@ -16,6 +19,7 @@ import type {
   GitLabMergeRequestChecks,
   GitLabMergeRequestNote,
   GitOrigin,
+  GitReviewFile,
   GitServerMessage,
   GitWorktree,
 } from "@cypheria/protocol"
@@ -42,6 +46,24 @@ export type GitStatus = {
 
 const trimmed = (value: string): string => value.trimEnd()
 class GitStaleSnapshotError extends Error {}
+const reviewHunks = (diff: string): Array<{ header: string; patch: string }> => {
+  if ((diff.match(/^diff --git /gmu)?.length ?? 0) !== 1) return []
+  if (
+    /^(?:new file mode|deleted file mode|rename from|rename to|copy from|copy to|Binary files|GIT binary patch)/gmu.test(
+      diff
+    )
+  )
+    return []
+  const matches = [...diff.matchAll(/^@@ .+? @@.*$/gmu)]
+  const first = matches[0]?.index
+  if (first === undefined) return []
+  const prefix = diff.slice(0, first)
+  return matches.map((match, index) => {
+    const start = match.index ?? first
+    const end = matches[index + 1]?.index ?? diff.length
+    return { header: match[0], patch: prefix + diff.slice(start, end) }
+  })
+}
 const validateOperand = (value: string, name: string): string => {
   if (!value || value.startsWith("-") || value.includes("\0") || value.includes("\n")) {
     throw new Error(`Invalid Git ${name}`)
@@ -127,6 +149,17 @@ export class GitService {
           break
         case "git.branch-review-diff.request":
           value = { diff: await this.branchReviewDiff(message.payload.cwd, message.payload) }
+          break
+        case "git.review-file.request":
+          value = await this.reviewFile(
+            message.payload.cwd,
+            message.payload.source,
+            message.payload.path
+          )
+          break
+        case "git.apply-review-section.request":
+          await this.applyReviewSection(message.payload.cwd, message.payload)
+          value = { succeeded: true }
           break
         case "git.stage.request":
           await this.stage(message.payload.cwd, message.payload.paths)
@@ -1035,6 +1068,96 @@ export class GitService {
         { readOnly: true }
       )
     ).stdout
+  }
+
+  async reviewFile(
+    cwd: string,
+    source: "staged" | "unstaged",
+    path: string
+  ): Promise<GitReviewFile> {
+    const repository = await this.discover(cwd)
+    const [safePath] = await this.#paths(repository.root, [path])
+    if (!safePath) throw new Error("Invalid Git review path")
+    const [status, diff, index] = await Promise.all([
+      this.status(repository.root),
+      this.diff(repository.root, { staged: source === "staged", paths: [safePath] }),
+      this.#executor.run(repository.root, ["ls-files", "--stage", "-z", "--", safePath], {
+        readOnly: true,
+      }),
+    ])
+    const absolute = resolve(repository.root, safePath)
+    const file = await lstat(absolute).catch(() => null)
+    const content = createHash("sha256")
+    if (file?.isFile()) {
+      const handle = await open(absolute, constants.O_RDONLY | constants.O_NOFOLLOW)
+      try {
+        if (!(await handle.stat()).isFile()) throw new Error("Git review file changed")
+        for await (const chunk of handle.createReadStream({ autoClose: false }))
+          content.update(chunk)
+      } finally {
+        await handle.close()
+      }
+    } else if (file?.isSymbolicLink()) {
+      content.update(await readlink(absolute))
+    } else {
+      content.update("missing")
+    }
+    const revision = createHash("sha256")
+      .update(
+        `${source}\0${safePath}\0${status.head ?? ""}\0${index.stdout}\0${content.digest("hex")}\0${diff}`
+      )
+      .digest("hex")
+    return {
+      source,
+      path: safePath,
+      diff,
+      revision,
+      hunks: reviewHunks(diff).map((hunk, index) => ({ index, header: hunk.header })),
+    }
+  }
+
+  async applyReviewSection(
+    cwd: string,
+    input: {
+      source: "staged" | "unstaged"
+      path: string
+      revision: string
+      action: "stage" | "unstage"
+      hunkIndex?: number
+    }
+  ): Promise<void> {
+    if (
+      (input.action === "stage" && input.source !== "unstaged") ||
+      (input.action === "unstage" && input.source !== "staged")
+    ) {
+      throw new Error("Invalid Git review action for source")
+    }
+    const snapshot = await this.reviewFile(cwd, input.source, input.path)
+    if (snapshot.revision !== input.revision) {
+      throw new GitStaleSnapshotError("File changed; refresh the review")
+    }
+    if (!snapshot.diff) throw new Error("There are no changes in this file")
+    if (input.hunkIndex === undefined) {
+      if (input.action === "stage") await this.stage(cwd, [snapshot.path])
+      else await this.unstage(cwd, [snapshot.path])
+      return
+    }
+    const hunk = reviewHunks(snapshot.diff)[input.hunkIndex]
+    if (!hunk) throw new Error("This Git review section cannot be applied")
+    const directory = await mkdtemp(join(tmpdir(), "cypheria-git-review-"))
+    const patchFile = join(directory, "section.patch")
+    try {
+      await writeFile(patchFile, hunk.patch, { mode: 0o600 })
+      await this.#executor.run((await this.discover(cwd)).root, [
+        "apply",
+        "--cached",
+        ...(input.action === "unstage" ? ["--reverse"] : []),
+        "--",
+        patchFile,
+      ])
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
   }
 
   async stage(cwd: string, paths: readonly string[]): Promise<void> {

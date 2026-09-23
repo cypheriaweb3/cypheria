@@ -125,6 +125,70 @@ describe("GitService", () => {
     ).rejects.toThrow("Branch changed")
   }, 20_000)
 
+  it("applies individual review sections and rejects stale file revisions", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    const original = `${Array.from({ length: 24 }, (_, index) => `line ${index + 1}`).join("\n")}\n`
+    await writeFile(join(root, "file.txt"), original)
+    await service.stage(root, ["file.txt"])
+    await service.commit(root, "Base")
+    await writeFile(
+      join(root, "file.txt"),
+      original.replace("line 1\n", "first changed\n").replace("line 24\n", "last changed\n")
+    )
+    const snapshot = await service.reviewFile(root, "unstaged", "file.txt")
+    expect(snapshot.hunks).toHaveLength(2)
+    await service.applyReviewSection(root, {
+      source: "unstaged",
+      path: "file.txt",
+      revision: snapshot.revision,
+      action: "stage",
+      hunkIndex: 0,
+    })
+    expect(await service.diff(root, { staged: true })).toContain("+first changed")
+    expect(await service.diff(root, { staged: true })).not.toContain("+last changed")
+    await expect(
+      service.applyReviewSection(root, {
+        source: "unstaged",
+        path: "file.txt",
+        revision: snapshot.revision,
+        action: "stage",
+        hunkIndex: 1,
+      })
+    ).rejects.toThrow("File changed")
+    const staged = await service.reviewFile(root, "staged", "file.txt")
+    await service.applyReviewSection(root, {
+      source: "staged",
+      path: "file.txt",
+      revision: staged.revision,
+      action: "unstage",
+      hunkIndex: 0,
+    })
+    expect(await service.diff(root, { staged: true })).toBe("")
+    const untracked = join(root, "untracked.txt")
+    await writeFile(untracked, "new\n")
+    const newFile = await service.reviewFile(root, "unstaged", "untracked.txt")
+    expect(newFile.hunks).toEqual([])
+    await service.applyReviewSection(root, {
+      source: "unstaged",
+      path: "untracked.txt",
+      revision: newFile.revision,
+      action: "stage",
+    })
+    expect(await service.diff(root, { staged: true, paths: ["untracked.txt"] })).toContain("+new")
+    await writeFile(join(root, "binary.bin"), Buffer.from([0, 1, 2]))
+    const binary = await service.reviewFile(root, "unstaged", "binary.bin")
+    await writeFile(join(root, "binary.bin"), Buffer.from([0, 1, 3]))
+    await expect(
+      service.applyReviewSection(root, {
+        source: "unstaged",
+        path: "binary.bin",
+        revision: binary.revision,
+        action: "stage",
+      })
+    ).rejects.toThrow("File changed")
+  }, 20_000)
+
   it("initializes a directory and creates and checks out branches with stash recovery", async () => {
     const root = await mkdtemp(join(tmpdir(), "cypheria-git-init-"))
     created.push(root)

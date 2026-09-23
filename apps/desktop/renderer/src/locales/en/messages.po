@@ -1613,6 +1613,11 @@ msgstr "Stage file"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx
+msgid "git.review.stageHunk"
+msgstr "Stage section"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
 msgid "git.review.staged"
 msgstr "Staged"
 
@@ -1750,6 +1755,11 @@ msgstr "Unread"
 #: renderer/src/components/git-review-panel.tsx
 msgid "git.review.unstage"
 msgstr "Unstage file"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.unstageHunk"
+msgstr "Unstage section"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/git-review-panel.tsx

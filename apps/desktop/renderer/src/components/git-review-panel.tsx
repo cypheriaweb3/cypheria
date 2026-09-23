@@ -118,16 +118,15 @@ export function GitReviewPanel({
     queryFn: async () => {
       const git = (await ensureCypheriaClient()).git
       if (source === "branch" && branchReview.data && activePath) {
-        return git.branchReviewDiff(cwd, {
+        const branchDiff = await git.branchReviewDiff(cwd, {
           base: branchReview.data.base,
           expectedHead: branchReview.data.head,
           path: activePath,
         })
+        return { diff: branchDiff, revision: null, hunks: [] }
       }
-      return git.diff(cwd, {
-        staged: source === "staged",
-        paths: activePath ? [activePath] : undefined,
-      })
+      if (!activePath || source === "branch") throw new Error("A review file is required")
+      return git.reviewFile(cwd, source, activePath)
     },
     refetchInterval: 3_000,
     retry: false,
@@ -140,9 +139,23 @@ export function GitReviewPanel({
       await queryClient.invalidateQueries({ queryKey: ["git", cwd] })
     } catch (error) {
       setActionError(error instanceof Error ? error.message : String(error))
+      await queryClient.invalidateQueries({ queryKey: ["git", cwd] })
     } finally {
       setBusy(false)
     }
+  }
+  const applyReview = (action: "stage" | "unstage", hunkIndex?: number) => {
+    const snapshot = diff.data
+    if (!snapshot?.revision) return
+    void mutate(async () =>
+      (await ensureCypheriaClient()).git.applyReviewSection(cwd, {
+        source: snapshot.source,
+        path: snapshot.path,
+        revision: snapshot.revision,
+        action,
+        hunkIndex,
+      })
+    )
   }
   const files: ChatReviewFileDescriptor[] = entries.map((entry) => ({
     id: entry.path,
@@ -338,7 +351,7 @@ export function GitReviewPanel({
           <pre className="overflow-x-auto p-3 text-xs whitespace-pre-wrap">
             {diff.isError
               ? diff.error.message
-              : diff.data ||
+              : diff.data?.diff ||
                 (diff.isPending
                   ? i18n._(msg({ id: "git.review.diffLoading", message: "Loading diff…" }))
                   : i18n._(
@@ -347,14 +360,36 @@ export function GitReviewPanel({
           </pre>
         </ChatReviewDiffHost>
       ) : null}
+      {activePath && source !== "branch" && diff.data?.hunks.length ? (
+        <div className="space-y-1 border-t p-2">
+          {diff.data.hunks.map((hunk) => (
+            <div className="flex items-center gap-2" key={hunk.index}>
+              <span className="min-w-0 flex-1 truncate font-mono text-xs" title={hunk.header}>
+                {hunk.header}
+              </span>
+              <Button
+                disabled={busy}
+                onClick={() => applyReview(source === "staged" ? "unstage" : "stage", hunk.index)}
+                size="sm"
+                type="button"
+                variant="outline"
+              >
+                {source === "staged" ? (
+                  <Trans id="git.review.unstageHunk">Unstage section</Trans>
+                ) : (
+                  <Trans id="git.review.stageHunk">Stage section</Trans>
+                )}
+              </Button>
+            </div>
+          ))}
+        </div>
+      ) : null}
       {activePath && source !== "branch" ? (
         <div className="flex gap-2 border-t p-2">
           {source === "unstaged" ? (
             <Button
               disabled={busy}
-              onClick={() =>
-                void mutate(async () => (await ensureCypheriaClient()).git.stage(cwd, [activePath]))
-              }
+              onClick={() => applyReview("stage")}
               size="sm"
               type="button"
               variant="outline"
@@ -364,11 +399,7 @@ export function GitReviewPanel({
           ) : (
             <Button
               disabled={busy}
-              onClick={() =>
-                void mutate(async () =>
-                  (await ensureCypheriaClient()).git.unstage(cwd, [activePath])
-                )
-              }
+              onClick={() => applyReview("unstage")}
               size="sm"
               type="button"
               variant="outline"

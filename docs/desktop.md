@@ -74,6 +74,8 @@ For a conversation with a local working directory, the Codex Review panel reads 
 
 The unstaged Review source also renders text diffs for untracked regular files before they are staged.
 
+Staged and unstaged Review files have a Server-issued revision. Whole-file and individual text-section stage or unstage actions refresh and compare that revision before changing the index; stale actions fail and refresh the Review. New and deleted files remain whole-file actions.
+
 The GitHub CLI pull request list supports server-side query search and open, closed, merged, or all state filters.
 
 Managed worktrees persist an optional owner Thread ID in Cypheria's worktree metadata. The Server checks that an assigned local Codex thread belongs to the same repository and currently uses that worktree. A worktree with an owner cannot be deleted until its owner moves away.
