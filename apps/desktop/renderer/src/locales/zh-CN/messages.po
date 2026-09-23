@@ -164,13 +164,13 @@ msgid "git.review.branch"
 msgstr "分支"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.browser"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.browser"
 msgstr "浏览器"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.panel.browser"
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.browser"
 msgstr "浏览器"
 
 #. js-lingui-explicit-id
@@ -855,6 +855,11 @@ msgid "navigation.noPinnedChats"
 msgstr "暂无置顶对话"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.noChecks"
+msgstr "没有流水线检查"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.plan.empty"
 msgstr "暂无计划"
@@ -973,6 +978,11 @@ msgstr "置顶"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.pinned"
 msgstr "置顶"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.checks"
+msgstr "流水线检查"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -1347,6 +1357,11 @@ msgid "navigation.signingPolicies"
 msgstr "签名策略"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.checksPartial"
+msgstr "部分流水线检查未能加载。"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sortChatsBy"
 msgstr "对话排序方式"
@@ -1522,13 +1537,13 @@ msgid "navigation.editProjectDescription"
 msgstr "更新此项目在侧栏中显示的名称。"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.open"
+#: renderer/src/components/app-shell.tsx
+msgid "menu.view"
 msgstr "查看"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-msgid "menu.view"
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.open"
 msgstr "查看"
 
 #. js-lingui-explicit-id

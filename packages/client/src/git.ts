@@ -4,6 +4,7 @@ import type {
   GitHubAvailability,
   GitHubPullRequest,
   GitLabMergeRequest,
+  GitLabMergeRequestChecks,
   GitLabMergeRequestNote,
   GitOrigin,
   GitRepository,
@@ -88,6 +89,12 @@ export interface GitActions {
     iid: number,
     options?: RequestOptions
   ): Promise<GitLabMergeRequest>
+  gitlabMrChecks(
+    cwd: string,
+    threadId: string,
+    iid: number,
+    options?: RequestOptions
+  ): Promise<GitLabMergeRequestChecks>
   gitlabMrUpdateTitle(
     cwd: string,
     threadId: string,
@@ -189,6 +196,10 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     ),
   gitlabMrRead: async (cwd, threadId, iid, options) =>
     unwrap(await client.requestGit("git.gitlab-mr-read.request", { cwd, threadId, iid }, options)),
+  gitlabMrChecks: async (cwd, threadId, iid, options) =>
+    unwrap(
+      await client.requestGit("git.gitlab-mr-checks.request", { cwd, threadId, iid }, options)
+    ),
   gitlabMrUpdateTitle: async (cwd, threadId, iid, title, options) =>
     unwrap(
       await client.requestGit(

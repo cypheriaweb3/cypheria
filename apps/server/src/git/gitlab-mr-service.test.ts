@@ -154,6 +154,78 @@ describe("GitLabMrService", () => {
     )
   })
 
+  it("reads pipeline jobs and bridges only for the selected MR and account", async () => {
+    const withPipeline = { data: { ...mr.data, head_pipeline: { id: 99, project_id: 42 } } }
+    const { service, select, call } = fixture(
+      "git@gitlab.com:group/project.git",
+      project,
+      withPipeline,
+      {
+        list_pipeline_jobs: {
+          data: [
+            {
+              name: "test",
+              stage: "verify",
+              status: "failed",
+              allow_failure: true,
+              web_url: "https://gitlab.com/group/project/-/jobs/10",
+              started_at: null,
+              finished_at: null,
+            },
+          ],
+          pagination: { next_page: null },
+        },
+        list_pipeline_bridges: { data: [], pagination: { next_page: null } },
+      }
+    )
+    expect(await service.checks("/repo", "native-thread", 7)).toEqual({
+      checksComplete: true,
+      checks: [
+        {
+          name: "test",
+          stage: "verify",
+          state: "neutral",
+          link: "https://gitlab.com/group/project/-/jobs/10",
+          startedAt: null,
+          completedAt: null,
+        },
+      ],
+    })
+    expect(select).toHaveBeenCalledWith("connector_0c9786b2f41f41558056126bdb46c9bd", "gitlab", [
+      "list_pipeline_jobs",
+      "list_pipeline_bridges",
+    ])
+    expect(call).toHaveBeenCalledWith(
+      expect.any(Object),
+      "native-thread",
+      "gitlab",
+      "list_pipeline_jobs",
+      { project_id: 42, pipeline_id: 99, page: 1, per_page: 100 }
+    )
+  })
+
+  it("marks pipeline checks incomplete when one action fails", async () => {
+    const withPipeline = { data: { ...mr.data, head_pipeline: { id: 99, project_id: 42 } } }
+    const { service, call } = fixture("git@gitlab.com:group/project.git", project, withPipeline, {
+      list_pipeline_bridges: { data: [], pagination: { next_page: null } },
+    })
+    call.mockImplementation(async (_selection, _threadId, _namespace, action) => {
+      if (action === "list_pipeline_jobs") throw new Error("Page failed")
+      if (action === "get_project") return project
+      if (action === "get_merge_request") return withPipeline
+      return { data: [], pagination: { next_page: null } }
+    })
+    expect(await service.checks("/repo", "native-thread", 7)).toEqual({
+      checksComplete: false,
+      checks: [],
+    })
+    await expect(
+      fixture("git@gitlab.com:group/project.git", project, {
+        data: { ...mr.data, head_pipeline: { id: 99, project_id: 77 } },
+      }).service.checks("/repo", "native-thread", 7)
+    ).rejects.toThrow("another project")
+  })
+
   it("creates an MR only for the pushed current branch and confirms the result", async () => {
     const created = { data: { ...mr.data, title: "Draft: Add feature" } }
     const { service, call, run } = fixture("git@gitlab.com:group/project.git", project, mr, {

@@ -39,12 +39,22 @@ export function GitLabMrPanel({
     },
     retry: false,
   })
+  const checks = useQuery({
+    enabled: Boolean(threadId && mr.data),
+    queryKey: ["gitlab-mr-checks", cwd, threadId, mr.data?.iid],
+    queryFn: async () => {
+      if (!threadId || !mr.data) throw new Error("A local Codex thread and MR are required")
+      return (await ensureCypheriaClient()).git.gitlabMrChecks(cwd, threadId, mr.data.iid)
+    },
+    retry: false,
+  })
   const mutate = async (action: () => Promise<void>) => {
     setBusy(true)
     setError(null)
     try {
       await action()
       await queryClient.invalidateQueries({ queryKey: ["gitlab-mr", cwd] })
+      await queryClient.invalidateQueries({ queryKey: ["gitlab-mr-checks", cwd] })
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
@@ -164,6 +174,44 @@ export function GitLabMrPanel({
           >
             <Trans id="git.gitlab.postComment">Post comment</Trans>
           </Button>
+          <div className="space-y-1 border-t pt-2">
+            <p className="text-xs font-medium">
+              <Trans id="git.gitlab.checks">Pipeline checks</Trans>
+            </p>
+            {checks.data && !checks.data.checksComplete ? (
+              <p className="text-xs text-muted-foreground">
+                <Trans id="git.gitlab.checksPartial">
+                  Some pipeline checks could not be loaded.
+                </Trans>
+              </p>
+            ) : null}
+            {checks.data?.checks.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                <Trans id="git.gitlab.noChecks">No pipeline checks</Trans>
+              </p>
+            ) : null}
+            {checks.data?.checks.map((check) => (
+              <div className="flex items-center justify-between gap-2 text-xs" key={check.link}>
+                <span className="truncate">
+                  {check.stage} · {check.name}
+                </span>
+                <span className="shrink-0 text-muted-foreground">{check.state}</span>
+                <Button
+                  onClick={() => void mutate(async () => openExternal(check.link))}
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <Trans id="git.gitlab.browser">Browser</Trans>
+                </Button>
+              </div>
+            ))}
+            {checks.isError ? (
+              <Alert variant="destructive">
+                <AlertDescription>{checks.error.message}</AlertDescription>
+              </Alert>
+            ) : null}
+          </div>
         </div>
       ) : null}
       <div className="space-y-2 border-t pt-2">

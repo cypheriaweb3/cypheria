@@ -70,7 +70,7 @@ AgentChatWorkspace
   └─ SharedPanels
 ```
 
-对于有本地工作目录的会话，Codex 的 Review 面板通过 Server Git API 读取仓库。它展示已暂存及未暂存的文件和文本差异，并提供仓库初始化、分支创建与切换、文件暂存、取消暂存、提交、推送，以及托管工作树的创建、删除和恢复操作。删除工作树要求其没有未提交改动，并保存已提交的 HEAD，供在面板中恢复。面板优先使用会话工作目录，并在打开时刷新本地状态。对于 GitLab.com origin，面板还提供 MR 详情、标题修改、普通评论、原生创建以及在系统浏览器打开预填表单；原生操作要求本地 Codex 线程和已连接的 GitLab App。
+对于有本地工作目录的会话，Codex 的 Review 面板通过 Server Git API 读取仓库。它展示已暂存及未暂存的文件和文本差异，并提供仓库初始化、分支创建与切换、文件暂存、取消暂存、提交、推送，以及托管工作树的创建、删除和恢复操作。删除工作树要求其没有未提交改动，并保存已提交的 HEAD，供在面板中恢复。面板优先使用会话工作目录，并在打开时刷新本地状态。对于 GitLab.com origin，面板还提供 MR 详情、pipeline jobs 与 bridges、标题修改、普通评论、原生创建以及在系统浏览器打开预填表单；原生操作要求本地 Codex 线程和已连接的 GitLab App。若部分 pipeline 页面加载失败，结果会标明不完整。
 
 共同体验包括草稿、附件、临时到持久 Thread 转换、每 Thread scope、流式输出、取消、重试、虚拟 Timeline、滚动锚点、位置恢复、未读、搜索、导航、reasoning、plans、tools、commands、diffs、terminals、approvals、artifacts 和故障恢复。
 

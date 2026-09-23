@@ -164,13 +164,13 @@ msgid "git.review.branch"
 msgstr "Branch"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.browser"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.browser"
 msgstr "Browser"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.panel.browser"
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.browser"
 msgstr "Browser"
 
 #. js-lingui-explicit-id
@@ -855,6 +855,11 @@ msgid "navigation.noPinnedChats"
 msgstr "No pinned chats"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.noChecks"
+msgstr "No pipeline checks"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.plan.empty"
 msgstr "No plan is available"
@@ -973,6 +978,11 @@ msgstr "Pin"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.pinned"
 msgstr "Pinned"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.checks"
+msgstr "Pipeline checks"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -1347,6 +1357,11 @@ msgid "navigation.signingPolicies"
 msgstr "Signing policies"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.checksPartial"
+msgstr "Some pipeline checks could not be loaded."
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sortChatsBy"
 msgstr "Sort chats by"
@@ -1522,13 +1537,13 @@ msgid "navigation.editProjectDescription"
 msgstr "Update the project name shown in the sidebar."
 
 #. js-lingui-explicit-id
-#: renderer/src/components/gitlab-mr-panel.tsx
-msgid "git.gitlab.open"
+#: renderer/src/components/app-shell.tsx
+msgid "menu.view"
 msgstr "View"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/app-shell.tsx
-msgid "menu.view"
+#: renderer/src/components/gitlab-mr-panel.tsx
+msgid "git.gitlab.open"
 msgstr "View"
 
 #. js-lingui-explicit-id

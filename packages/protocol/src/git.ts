@@ -97,6 +97,23 @@ export const GitLabMergeRequestSchema = z
 export const GitLabMergeRequestNoteSchema = z
   .object({ id: z.number().int().positive(), body: z.string() })
   .strict()
+export const GitLabMergeRequestChecksSchema = z
+  .object({
+    checksComplete: z.boolean(),
+    checks: z.array(
+      z
+        .object({
+          name: z.string(),
+          stage: z.string(),
+          state: z.enum(["passing", "failing", "neutral", "skipped", "pending", "unknown"]),
+          link: z.url(),
+          startedAt: z.string().nullable(),
+          completedAt: z.string().nullable(),
+        })
+        .strict()
+    ),
+  })
+  .strict()
 
 export const GitDiscoverRequestSchema = input(
   "git.discover.request",
@@ -231,6 +248,12 @@ export const GitLabMrReadRequestSchema = input(
     .object({ cwd: path, threadId: ProjectThreadIdSchema, iid: z.number().int().positive() })
     .strict()
 )
+export const GitLabMrChecksRequestSchema = input(
+  "git.gitlab-mr-checks.request",
+  z
+    .object({ cwd: path, threadId: ProjectThreadIdSchema, iid: z.number().int().positive() })
+    .strict()
+)
 export const GitLabMrUpdateTitleRequestSchema = input(
   "git.gitlab-mr-update-title.request",
   z
@@ -349,6 +372,10 @@ export const GitLabMrReadResponseSchema = output(
   "git.gitlab-mr-read.response",
   GitLabMergeRequestSchema
 )
+export const GitLabMrChecksResponseSchema = output(
+  "git.gitlab-mr-checks.response",
+  GitLabMergeRequestChecksSchema
+)
 export const GitLabMrUpdateTitleResponseSchema = output(
   "git.gitlab-mr-update-title.response",
   GitLabMergeRequestSchema
@@ -391,6 +418,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubPrUpdateRequestSchema,
   GitHubPrMergeRequestSchema,
   GitLabMrReadRequestSchema,
+  GitLabMrChecksRequestSchema,
   GitLabMrUpdateTitleRequestSchema,
   GitLabMrPostCommentRequestSchema,
   GitLabMrCreateRequestSchema,
@@ -421,6 +449,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubPrUpdateResponseSchema,
   GitHubPrMergeResponseSchema,
   GitLabMrReadResponseSchema,
+  GitLabMrChecksResponseSchema,
   GitLabMrUpdateTitleResponseSchema,
   GitLabMrPostCommentResponseSchema,
   GitLabMrCreateResponseSchema,
@@ -440,3 +469,4 @@ export type GitHubAvailability = z.infer<typeof GitHubAvailabilitySchema>
 export type GitHubPullRequest = z.infer<typeof GitHubPullRequestSchema>
 export type GitLabMergeRequest = z.infer<typeof GitLabMergeRequestSchema>
 export type GitLabMergeRequestNote = z.infer<typeof GitLabMergeRequestNoteSchema>
+export type GitLabMergeRequestChecks = z.infer<typeof GitLabMergeRequestChecksSchema>

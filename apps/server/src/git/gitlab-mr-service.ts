@@ -25,6 +25,7 @@ const mrResponse = z
       .object({
         iid: z.number().int().positive(),
         project_id: z.number().int().positive(),
+        source_project_id: z.number().int().positive().nullish(),
         source_branch: z.string(),
         target_branch: z.string(),
         title: z.string(),
@@ -32,6 +33,10 @@ const mrResponse = z
         state: z.enum(["opened", "closed", "merged", "locked"]),
         draft: z.boolean(),
         web_url: z.url(),
+        head_pipeline: z
+          .object({ id: z.number().int().positive(), project_id: z.number().int().positive() })
+          .passthrough()
+          .nullish(),
       })
       .passthrough(),
   })
@@ -40,6 +45,21 @@ const mrResponse = z
 const noteResponse = z
   .object({ data: z.object({ id: z.number().int().positive(), body: z.string() }).passthrough() })
   .passthrough()
+
+const pipelinePageResponse = z.object({
+  data: z.array(
+    z.object({
+      name: z.string(),
+      stage: z.string(),
+      status: z.string(),
+      allow_failure: z.boolean(),
+      web_url: z.url(),
+      started_at: z.string().nullable(),
+      finished_at: z.string().nullable(),
+    })
+  ),
+  pagination: z.object({ next_page: z.union([z.string(), z.number()]).nullable() }),
+})
 
 const pathFromRemote = (remote: string): string => {
   const value = remote.trim()
@@ -136,6 +156,45 @@ export type GitLabMergeRequest = {
 }
 
 export type GitLabMergeRequestNote = { id: number; body: string }
+export type GitLabMergeRequestChecks = {
+  checksComplete: boolean
+  checks: Array<{
+    name: string
+    stage: string
+    state: "passing" | "failing" | "neutral" | "skipped" | "pending" | "unknown"
+    link: string
+    startedAt: string | null
+    completedAt: string | null
+  }>
+}
+
+const checkState = (
+  status: string,
+  allowFailure: boolean
+): GitLabMergeRequestChecks["checks"][number]["state"] => {
+  switch (status) {
+    case "success":
+      return "passing"
+    case "failed":
+      return allowFailure ? "neutral" : "failing"
+    case "canceled":
+      return "failing"
+    case "skipped":
+      return "skipped"
+    case "created":
+    case "waiting_for_resource":
+    case "waiting_for_callback":
+    case "preparing":
+    case "pending":
+    case "running":
+    case "canceling":
+    case "scheduled":
+    case "manual":
+      return "pending"
+    default:
+      return "unknown"
+  }
+}
 
 type MergeRequestData = z.infer<typeof mrResponse>["data"]
 type Context = {
@@ -159,6 +218,81 @@ export class GitLabMrService {
   async read(root: string, nativeThreadId: string, iid: number): Promise<GitLabMergeRequest> {
     const context = await this.#context(root, nativeThreadId, iid)
     return this.#view(context)
+  }
+
+  async checks(
+    root: string,
+    nativeThreadId: string,
+    iid: number
+  ): Promise<GitLabMergeRequestChecks> {
+    const context = await this.#context(root, nativeThreadId, iid)
+    const pipeline = context.mr.head_pipeline
+    if (!pipeline) return { checksComplete: true, checks: [] }
+    if (
+      pipeline.project_id !== context.projectId &&
+      pipeline.project_id !== context.mr.source_project_id
+    ) {
+      throw new Error("The GitLab merge request pipeline belongs to another project")
+    }
+    const selection = await this.#apps.select(connectorId, "gitlab", [
+      "list_pipeline_jobs",
+      "list_pipeline_bridges",
+    ])
+    if (selection.accountLinkId !== context.selection.accountLinkId) {
+      throw new Error("The selected GitLab account changed during the request")
+    }
+    const pages = await Promise.all(
+      (["list_pipeline_jobs", "list_pipeline_bridges"] as const).map(async (action) => {
+        const jobs: GitLabMergeRequestChecks["checks"] = []
+        let page = 1
+        try {
+          for (let count = 0; count < 100; count += 1) {
+            const response = pipelinePageResponse.parse(
+              await this.#apps.call(selection, nativeThreadId, "gitlab", action, {
+                project_id: pipeline.project_id,
+                pipeline_id: pipeline.id,
+                page,
+                per_page: 100,
+              })
+            )
+            for (const job of response.data) {
+              const url = new URL(job.web_url)
+              if (url.origin !== gitLabOrigin || url.username || url.password) {
+                throw new Error("GitLab returned an untrusted job URL")
+              }
+              jobs.push({
+                name: job.name,
+                stage: job.stage,
+                state: checkState(job.status, job.allow_failure),
+                link: job.web_url,
+                startedAt: job.started_at,
+                completedAt: job.finished_at,
+              })
+            }
+            if (response.pagination.next_page === null) return { jobs, complete: true }
+            const next = Number(response.pagination.next_page)
+            if (!Number.isSafeInteger(next) || next <= page) {
+              throw new Error("GitLab returned a repeated job page")
+            }
+            page = next
+          }
+        } catch {
+          return { jobs, complete: false }
+        }
+        return { jobs, complete: false }
+      })
+    )
+    const after = await this.#apps.select(connectorId, "gitlab", [
+      "list_pipeline_jobs",
+      "list_pipeline_bridges",
+    ])
+    if (after.accountLinkId !== selection.accountLinkId) {
+      throw new Error("The selected GitLab account changed during the request")
+    }
+    return {
+      checksComplete: pages.every((entry) => entry.complete),
+      checks: pages.flatMap((entry) => entry.jobs),
+    }
   }
 
   async updateTitle(

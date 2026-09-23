@@ -6,6 +6,7 @@ import type {
   GitHubAvailability,
   GitHubPullRequest,
   GitLabMergeRequest,
+  GitLabMergeRequestChecks,
   GitLabMergeRequestNote,
   GitOrigin,
   GitServerMessage,
@@ -169,6 +170,13 @@ export class GitService {
             message.payload.iid
           )
           break
+        case "git.gitlab-mr-checks.request":
+          value = await this.gitlabMrChecks(
+            message.payload.cwd,
+            message.payload.threadId,
+            message.payload.iid
+          )
+          break
         case "git.gitlab-mr-update-title.request":
           value = await this.gitlabMrUpdateTitle(
             message.payload.cwd,
@@ -319,6 +327,15 @@ export class GitService {
   async gitlabMrRead(cwd: string, threadId: string, iid: number): Promise<GitLabMergeRequest> {
     const { service, root, nativeThreadId } = await this.#gitlabThread(cwd, threadId)
     return service.read(root, nativeThreadId, iid)
+  }
+
+  async gitlabMrChecks(
+    cwd: string,
+    threadId: string,
+    iid: number
+  ): Promise<GitLabMergeRequestChecks> {
+    const { service, root, nativeThreadId } = await this.#gitlabThread(cwd, threadId)
+    return service.checks(root, nativeThreadId, iid)
   }
 
   async gitlabMrUpdateTitle(
