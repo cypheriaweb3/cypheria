@@ -744,6 +744,20 @@ const createMainWindow = async (
 
   registerDeveloperContextMenu(window)
 
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    try {
+      const target = new URL(url)
+      if (target.protocol === "http:" || target.protocol === "https:") {
+        void shell.openExternal(target.href).catch((error: unknown) => {
+          console.error("Failed to open external URL", error)
+        })
+      }
+    } catch {
+      // Reject malformed URLs and never create a renderer-owned browser window.
+    }
+    return { action: "deny" }
+  })
+
   dappBrowserController = createDappBrowserController({
     createWebContents: createElectronDappWebContentsFactory(window),
     preloadPath: dappPreloadPath,

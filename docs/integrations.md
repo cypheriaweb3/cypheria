@@ -52,6 +52,8 @@ The independent public Cypheria Marketplace service is planned and documented se
 
 Apps follow the OpenAI App Server/connector model and belong exclusively to the Codex harness extension. They are exposed through `client.harnesses.codex.apps`, including list, enablement, connect, callable/accessibility state, install URL, and plugin association.
 
+Desktop opens an App's install URL in the system browser. When focus returns, it refreshes App and MCP availability; the external page does not send a trusted local completion callback.
+
 Apps are not renamed into a universal Agent feature. If another harness later offers an equivalent capability, it receives its own harness extension and terminology.
 
 ## Caching and refresh

@@ -52,6 +52,8 @@ Marketplace source 与 plugin ecosystem 是独立字段。Source kind 为 `cyphe
 
 Apps 遵循 OpenAI App Server/connector 模型，只属于 Codex harness 扩展。它们通过 `client.harnesses.codex.apps` 暴露，包括 list、enablement、connect、callable/accessibility state、install URL 和 plugin association。
 
+Desktop 在系统浏览器中打开 App 安装页面。窗口重新获得焦点后，会刷新 App 和 MCP 的可用状态；外部页面不会向本地发送可信的完成回调。
+
 Apps 不会被改名为通用 Agent 功能。如果其他 harness 未来提供类似能力，应获得自己的 harness extension 与术语。
 
 ## 缓存与刷新

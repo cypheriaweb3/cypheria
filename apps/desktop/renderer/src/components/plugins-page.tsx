@@ -785,15 +785,17 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
                                 {linkedApp ? (
                                   <AppConnection app={linkedApp} integrations={integrations} />
                                 ) : app.installUrl ? (
-                                  <a
-                                    href={app.installUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      if (window.cypheria && app.installUrl)
+                                        void window.cypheria.app.openExternal(app.installUrl)
+                                    }}
                                     className="flex shrink-0 items-center gap-1 rounded-lg border px-2 py-1 text-xs"
                                   >
                                     Connect
                                     <ExternalLink className="size-3" />
-                                  </a>
+                                  </button>
                                 ) : (
                                   <span className="text-xs text-muted-foreground">
                                     {integrations.appsQuery.isPending
