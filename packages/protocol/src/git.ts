@@ -41,6 +41,7 @@ export const GitWorktreeSchema = z
     head: z.string().nullable(),
     branch: z.string().nullable(),
     managed: z.boolean(),
+    active: z.boolean(),
   })
   .strict()
 

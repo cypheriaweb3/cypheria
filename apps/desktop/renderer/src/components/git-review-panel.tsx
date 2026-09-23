@@ -334,17 +334,23 @@ export function GitReviewPanel({ cwd, fallback }: Readonly<{ cwd: string; fallba
                   {entry.path}
                 </span>
                 <Button
-                  disabled={busy}
+                  disabled={busy || entry.path === status.data.repository.root}
                   onClick={() =>
                     void mutate(async () =>
-                      (await ensureCypheriaClient()).git.deleteWorktree(cwd, entry.path)
+                      entry.active
+                        ? (await ensureCypheriaClient()).git.deleteWorktree(cwd, entry.path)
+                        : (await ensureCypheriaClient()).git.restoreWorktree(cwd, entry.path)
                     )
                   }
                   size="sm"
                   type="button"
                   variant="outline"
                 >
-                  <Trans id="git.review.deleteWorktree">Delete</Trans>
+                  {entry.active ? (
+                    <Trans id="git.review.deleteWorktree">Delete</Trans>
+                  ) : (
+                    <Trans id="git.review.restoreWorktree">Restore</Trans>
+                  )}
                 </Button>
               </div>
             ))}

@@ -519,17 +519,21 @@ export class IntegrationService {
 
   async #installBundledPlugin(): Promise<void> {
     const candidates = [
-      new URL("./marketplace/", import.meta.url),
       new URL("../../../plugins/marketplace/", import.meta.url),
+      new URL("./marketplace/", import.meta.url),
     ]
-    const marketplaceDirectory = await Promise.any(
-      candidates.map(async (candidate) => {
-        await access(new URL(".agents/plugins/marketplace.json", candidate))
-        return fileURLToPath(candidate)
-      })
-    ).catch(() => {
-      throw new Error("Bundled Cypheria plugin marketplace is unavailable")
-    })
+    let marketplaceDirectory: string | undefined
+    for (const candidate of candidates) {
+      const available = await access(new URL(".agents/plugins/marketplace.json", candidate)).then(
+        () => true,
+        () => false
+      )
+      if (available) {
+        marketplaceDirectory = fileURLToPath(candidate)
+        break
+      }
+    }
+    if (!marketplaceDirectory) throw new Error("Bundled Cypheria plugin marketplace is unavailable")
     const registered = await this.#call<v2.MarketplaceAddResponse>("marketplace/add", {
       source: marketplaceDirectory,
       refName: null,

@@ -376,13 +376,13 @@ msgid "settings.general.standaloneChat"
 msgstr "Default to standalone chat"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.deleteWorktree"
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.delete"
 msgstr "Delete"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.archived.tsx
-msgid "settings.archived.delete"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.deleteWorktree"
 msgstr "Delete"
 
 #. js-lingui-explicit-id
@@ -1088,6 +1088,11 @@ msgstr "Resize bottom panel"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.workspace.resizeSidePanel"
 msgstr "Resize side panel"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.restoreWorktree"
+msgstr "Restore"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx

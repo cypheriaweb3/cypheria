@@ -54,7 +54,7 @@ const tools = [
     setUpstream: { type: "boolean" },
     forceWithLease: { type: "boolean" },
   }),
-  tool("git_worktrees", "List Git worktrees and identify Cypheria-managed ones.", {}),
+  tool("git_worktrees", "List active Git worktrees and restorable Cypheria-managed worktrees.", {}),
   tool("git_worktree_create", "Create a detached Cypheria-managed worktree from a commit or ref.", {
     startPoint: { type: "string" },
   }),
@@ -109,7 +109,7 @@ const handle = async (request) => {
       reply(id, {
         protocolVersion: params?.protocolVersion || "2025-03-26",
         capabilities: { tools: {} },
-        serverInfo: { name: "cypheria-app-tools", version: "0.3.0" },
+        serverInfo: { name: "cypheria-app-tools", version: "0.3.1" },
       })
       return
     case "ping":

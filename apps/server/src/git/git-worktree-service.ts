@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { realpathSync } from "node:fs"
-import { mkdir, readFile, realpath, rename, stat, writeFile } from "node:fs/promises"
+import { mkdir, readdir, readFile, realpath, rename, stat, writeFile } from "node:fs/promises"
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
 import type { GitWorktree } from "@cypheria/protocol"
 
@@ -55,7 +55,34 @@ export class GitWorktreeService {
           .find((line) => line.startsWith("branch "))
           ?.slice(7)
           .replace(/^refs\/heads\//u, "") ?? null
-      result.push({ path, head, branch, managed: await this.#isManaged(repository, path) })
+      result.push({
+        path,
+        head,
+        branch,
+        managed: await this.#isManaged(repository, path),
+        active: true,
+      })
+    }
+    const metadata = join(this.#root, ".metadata")
+    const files = await readdir(metadata).catch(() => [])
+    for (const file of files) {
+      if (!/^[a-f0-9-]{36}\.json$/u.test(file)) continue
+      let record: Record
+      try {
+        record = JSON.parse(await readFile(join(metadata, file), "utf8")) as Record
+        if (record.commonGitDir !== repository.commonGitDir) continue
+        await this.#record(repository, record.path)
+      } catch {
+        continue
+      }
+      if (result.some((entry) => entry.path === record.path)) continue
+      const head = await this.#executor
+        .run(repository.root, ["rev-parse", "--verify", record.snapshotRef], { readOnly: true })
+        .then(
+          ({ stdout }) => stdout.trim(),
+          () => null
+        )
+      if (head) result.push({ path: record.path, head, branch: null, managed: true, active: false })
     }
     return result
   }
@@ -88,11 +115,12 @@ export class GitWorktreeService {
       await this.#executor.run(repository.root, ["worktree", "remove", "--", path])
       throw error
     }
-    return { path, head: commit, branch: null, managed: true }
+    return { path, head: commit, branch: null, managed: true, active: true }
   }
 
   async delete(repository: Repository, path: string): Promise<void> {
     const record = await this.#record(repository, path)
+    if (repository.root === record.path) throw new Error("Cannot delete the current worktree")
     const worktree = await realpath(record.path)
     if (worktree !== record.path) throw new Error("Managed worktree path changed")
     const dirty = (
@@ -123,7 +151,7 @@ export class GitWorktreeService {
       })
     ).stdout.trim()
     await this.#executor.run(repository.root, ["worktree", "add", "--detach", record.path, head])
-    return { path: record.path, head, branch: null, managed: true }
+    return { path: record.path, head, branch: null, managed: true, active: true }
   }
 
   async #isManaged(repository: Repository, path: string): Promise<boolean> {

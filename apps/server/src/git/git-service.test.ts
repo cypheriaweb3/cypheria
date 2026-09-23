@@ -105,10 +105,11 @@ describe("GitService", () => {
     await expect(service.deleteWorktree(root, worktree.path)).rejects.toThrow("uncommitted changes")
     await writeFile(join(worktree.path, "file.txt"), "first\n")
     await expect(service.deleteWorktree(root, root)).rejects.toThrow("managed Cypheria worktree")
-    await service.deleteWorktree(root, worktree.path)
-    expect((await service.worktrees(root)).some((entry) => entry.path === worktree.path)).toBe(
-      false
+    await expect(service.deleteWorktree(worktree.path, worktree.path)).rejects.toThrow(
+      "current worktree"
     )
+    await service.deleteWorktree(root, worktree.path)
+    expect(await service.worktrees(root)).toContainEqual({ ...worktree, active: false })
     expect(await service.restoreWorktree(root, worktree.path)).toEqual(worktree)
     expect(await readFile(join(worktree.path, "file.txt"), "utf8")).toBe("first\n")
     await expect(service.restoreWorktree(root, worktree.path)).rejects.toThrow("already exists")

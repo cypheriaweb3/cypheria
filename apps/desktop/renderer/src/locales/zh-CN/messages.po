@@ -376,13 +376,13 @@ msgid "settings.general.standaloneChat"
 msgstr "默认使用独立聊天"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/git-review-panel.tsx
-msgid "git.review.deleteWorktree"
+#: renderer/src/routes/settings.archived.tsx
+msgid "settings.archived.delete"
 msgstr "删除"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.archived.tsx
-msgid "settings.archived.delete"
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.deleteWorktree"
 msgstr "删除"
 
 #. js-lingui-explicit-id
@@ -1088,6 +1088,11 @@ msgstr "调整底部面板大小"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.workspace.resizeSidePanel"
 msgstr "调整侧边面板大小"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.restoreWorktree"
+msgstr "恢复"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.archived.tsx
