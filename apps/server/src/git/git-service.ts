@@ -1,8 +1,9 @@
 import { realpath, stat } from "node:fs/promises"
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path"
-import type { GitClientMessage, GitServerMessage } from "@cypheria/protocol"
+import type { GitClientMessage, GitServerMessage, GitWorktree } from "@cypheria/protocol"
 
 import { GitCommandError, GitExecutor } from "./git-executor.js"
+import { GitWorktreeService } from "./git-worktree-service.js"
 
 export type GitRepository = {
   readonly commonGitDir: string
@@ -26,9 +27,11 @@ const validateOperand = (value: string, name: string): string => {
 
 export class GitService {
   readonly #executor: GitExecutor
+  readonly #worktrees: GitWorktreeService
 
-  constructor(cacheDir: string) {
+  constructor(cacheDir: string, cypheriaHome: string) {
     this.#executor = new GitExecutor(cacheDir)
+    this.#worktrees = new GitWorktreeService(this.#executor, cypheriaHome)
   }
 
   async handle(
@@ -84,6 +87,19 @@ export class GitService {
         case "git.push.request":
           value = { output: await this.push(message.payload.cwd, message.payload) }
           break
+        case "git.worktrees.request":
+          value = await this.worktrees(message.payload.cwd)
+          break
+        case "git.worktree-create.request":
+          value = await this.createWorktree(message.payload.cwd, message.payload.startPoint)
+          break
+        case "git.worktree-delete.request":
+          await this.deleteWorktree(message.payload.cwd, message.payload.path)
+          value = { succeeded: true }
+          break
+        case "git.worktree-restore.request":
+          value = await this.restoreWorktree(message.payload.cwd, message.payload.path)
+          break
       }
       send({ type, requestId: message.requestId, payload: { ok: true, value } } as GitServerMessage)
     } catch (error) {
@@ -118,6 +134,22 @@ export class GitService {
       ).stdout
     )
     return { commonGitDir: await realpath(commonGitDir), root: await realpath(root) }
+  }
+
+  async worktrees(cwd: string): Promise<GitWorktree[]> {
+    return this.#worktrees.list(await this.discover(cwd))
+  }
+
+  async createWorktree(cwd: string, startPoint?: string): Promise<GitWorktree> {
+    return this.#worktrees.create(await this.discover(cwd), startPoint)
+  }
+
+  async deleteWorktree(cwd: string, path: string): Promise<void> {
+    await this.#worktrees.delete(await this.discover(cwd), path)
+  }
+
+  async restoreWorktree(cwd: string, path: string): Promise<GitWorktree> {
+    return this.#worktrees.restore(await this.discover(cwd), path)
   }
 
   async init(cwd: string): Promise<GitRepository> {

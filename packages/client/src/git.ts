@@ -1,4 +1,10 @@
-import type { GitBranch, GitRepository, GitServerMessage, GitStatus } from "@cypheria/protocol"
+import type {
+  GitBranch,
+  GitRepository,
+  GitServerMessage,
+  GitStatus,
+  GitWorktree,
+} from "@cypheria/protocol"
 import type { RequestOptions } from "./request-options.js"
 import type { ServerClient } from "./server-client.js"
 
@@ -39,6 +45,10 @@ export interface GitActions {
     input?: { remote?: string; branch?: string; setUpstream?: boolean; forceWithLease?: boolean },
     options?: RequestOptions
   ): Promise<string>
+  worktrees(cwd: string, options?: RequestOptions): Promise<GitWorktree[]>
+  createWorktree(cwd: string, startPoint?: string, options?: RequestOptions): Promise<GitWorktree>
+  deleteWorktree(cwd: string, path: string, options?: RequestOptions): Promise<void>
+  restoreWorktree(cwd: string, path: string, options?: RequestOptions): Promise<GitWorktree>
 }
 
 export const createGitActions = (client: ServerClient): GitActions => ({
@@ -74,4 +84,13 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap<{ output: string }>(
       await client.requestGit("git.push.request", { cwd, ...input }, options)
     ).output,
+  worktrees: async (cwd, options) =>
+    unwrap(await client.requestGit("git.worktrees.request", { cwd }, options)),
+  createWorktree: async (cwd, startPoint, options) =>
+    unwrap(await client.requestGit("git.worktree-create.request", { cwd, startPoint }, options)),
+  deleteWorktree: async (cwd, path, options) => {
+    unwrap(await client.requestGit("git.worktree-delete.request", { cwd, path }, options))
+  },
+  restoreWorktree: async (cwd, path, options) =>
+    unwrap(await client.requestGit("git.worktree-restore.request", { cwd, path }, options)),
 })

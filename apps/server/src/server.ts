@@ -153,7 +153,7 @@ export class CypheriaServer implements HttpAppHost {
     this.integrations = new IntegrationService(this.agentManager)
     const projectThreadPersistence = createProjectThreadPersistenceService(this.database.db)
     this.terminals = new TerminalService(projectThreadPersistence)
-    this.git = new GitService(this.runtime.paths.cacheDir)
+    this.git = new GitService(this.runtime.paths.cacheDir, this.runtime.paths.cypheriaHome)
     this.projectThread = new ProjectThreadService({
       persistence: projectThreadPersistence,
     })

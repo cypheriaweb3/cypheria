@@ -35,6 +35,14 @@ export const GitStatusSchema = z
 export const GitBranchSchema = z
   .object({ name: z.string(), current: z.boolean(), commit: z.string() })
   .strict()
+export const GitWorktreeSchema = z
+  .object({
+    path,
+    head: z.string().nullable(),
+    branch: z.string().nullable(),
+    managed: z.boolean(),
+  })
+  .strict()
 
 export const GitDiscoverRequestSchema = input(
   "git.discover.request",
@@ -89,6 +97,22 @@ export const GitPushRequestSchema = input(
     })
     .strict()
 )
+export const GitWorktreesRequestSchema = input(
+  "git.worktrees.request",
+  z.object({ cwd: path }).strict()
+)
+export const GitWorktreeCreateRequestSchema = input(
+  "git.worktree-create.request",
+  z.object({ cwd: path, startPoint: z.string().optional() }).strict()
+)
+export const GitWorktreeDeleteRequestSchema = input(
+  "git.worktree-delete.request",
+  z.object({ cwd: path, path }).strict()
+)
+export const GitWorktreeRestoreRequestSchema = input(
+  "git.worktree-restore.request",
+  z.object({ cwd: path, path }).strict()
+)
 
 const success = z.object({ succeeded: z.literal(true) }).strict()
 export const GitDiscoverResponseSchema = output("git.discover.response", GitRepositorySchema)
@@ -114,6 +138,19 @@ export const GitPushResponseSchema = output(
   "git.push.response",
   z.object({ output: z.string() }).strict()
 )
+export const GitWorktreesResponseSchema = output(
+  "git.worktrees.response",
+  z.array(GitWorktreeSchema)
+)
+export const GitWorktreeCreateResponseSchema = output(
+  "git.worktree-create.response",
+  GitWorktreeSchema
+)
+export const GitWorktreeDeleteResponseSchema = output("git.worktree-delete.response", success)
+export const GitWorktreeRestoreResponseSchema = output(
+  "git.worktree-restore.response",
+  GitWorktreeSchema
+)
 
 export const GIT_CLIENT_SCHEMAS = [
   GitDiscoverRequestSchema,
@@ -127,6 +164,10 @@ export const GIT_CLIENT_SCHEMAS = [
   GitUnstageRequestSchema,
   GitCommitRequestSchema,
   GitPushRequestSchema,
+  GitWorktreesRequestSchema,
+  GitWorktreeCreateRequestSchema,
+  GitWorktreeDeleteRequestSchema,
+  GitWorktreeRestoreRequestSchema,
 ] as const
 export const GIT_SERVER_SCHEMAS = [
   GitDiscoverResponseSchema,
@@ -140,6 +181,10 @@ export const GIT_SERVER_SCHEMAS = [
   GitUnstageResponseSchema,
   GitCommitResponseSchema,
   GitPushResponseSchema,
+  GitWorktreesResponseSchema,
+  GitWorktreeCreateResponseSchema,
+  GitWorktreeDeleteResponseSchema,
+  GitWorktreeRestoreResponseSchema,
 ] as const
 export const GIT_RESPONSE_TYPES = GIT_SERVER_SCHEMAS.map((schema) => schema.shape.type.value)
 export const GitClientMessageSchema = z.discriminatedUnion("type", GIT_CLIENT_SCHEMAS)
@@ -148,3 +193,4 @@ export type GitServerMessage = z.infer<(typeof GIT_SERVER_SCHEMAS)[number]>
 export type GitRepository = z.infer<typeof GitRepositorySchema>
 export type GitStatus = z.infer<typeof GitStatusSchema>
 export type GitBranch = z.infer<typeof GitBranchSchema>
+export type GitWorktree = z.infer<typeof GitWorktreeSchema>

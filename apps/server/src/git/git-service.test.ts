@@ -28,7 +28,7 @@ describe("GitService", () => {
   it("initializes a directory and creates and checks out branches with stash recovery", async () => {
     const root = await mkdtemp(join(tmpdir(), "cypheria-git-init-"))
     created.push(root)
-    const service = new GitService(join(root, "cache"))
+    const service = new GitService(join(root, "cache"), join(root, "home"))
     expect((await service.init(root)).root).toBe(await realpath(root))
     await run("git", ["-C", root, "config", "user.name", "Git Test"])
     await run("git", ["-C", root, "config", "user.email", "git-test@example.invalid"])
@@ -52,7 +52,7 @@ describe("GitService", () => {
     const nested = join(root, "src")
     await mkdir(nested)
     await writeFile(join(nested, "file.txt"), "first\n")
-    const service = new GitService(join(root, "cache"))
+    const service = new GitService(join(root, "cache"), join(root, "home"))
     expect((await service.discover(nested)).root).toBe(await realpath(root))
     expect((await service.status(root)).entries).toContainEqual({
       code: "??",
@@ -83,7 +83,7 @@ describe("GitService", () => {
     created.push(external)
     const { symlink } = await import("node:fs/promises")
     await symlink(external, join(root, "outside"))
-    const service = new GitService(join(root, "cache"))
+    const service = new GitService(join(root, "cache"), join(root, "home"))
     await expect(service.stage(root, ["../outside.txt"])).rejects.toThrow("outside the repository")
     await expect(service.stage(root, ["outside/file.txt"])).rejects.toThrow("resolves outside")
     await expect(service.diff(root, { base: "--output=/tmp/unsafe" })).rejects.toThrow(
@@ -91,4 +91,26 @@ describe("GitService", () => {
     )
     await expect(service.push(root, { remote: "--mirror" })).rejects.toThrow("Invalid Git remote")
   })
+
+  it("creates, snapshots, deletes, and restores only clean managed worktrees", async () => {
+    const root = await repository()
+    await writeFile(join(root, "file.txt"), "first\n")
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await service.stage(root, ["file.txt"])
+    const first = await service.commit(root, "First commit")
+    const worktree = await service.createWorktree(root)
+    expect(worktree).toMatchObject({ head: first, managed: true, branch: null })
+    expect(await service.worktrees(root)).toContainEqual(worktree)
+    await writeFile(join(worktree.path, "file.txt"), "dirty\n")
+    await expect(service.deleteWorktree(root, worktree.path)).rejects.toThrow("uncommitted changes")
+    await writeFile(join(worktree.path, "file.txt"), "first\n")
+    await expect(service.deleteWorktree(root, root)).rejects.toThrow("managed Cypheria worktree")
+    await service.deleteWorktree(root, worktree.path)
+    expect((await service.worktrees(root)).some((entry) => entry.path === worktree.path)).toBe(
+      false
+    )
+    expect(await service.restoreWorktree(root, worktree.path)).toEqual(worktree)
+    expect(await readFile(join(worktree.path, "file.txt"), "utf8")).toBe("first\n")
+    await expect(service.restoreWorktree(root, worktree.path)).rejects.toThrow("already exists")
+  }, 20_000)
 })

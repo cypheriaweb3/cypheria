@@ -1,6 +1,6 @@
 {
   "name": "cypheria-app-tools",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Local Git tools backed by the Cypheria Server.",
   "author": {
     "name": "Cypheria"
