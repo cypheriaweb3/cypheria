@@ -1,6 +1,7 @@
 import { link, mkdir, mkdtemp, readFile, rm, stat, symlink, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { gzipSync } from "node:zlib"
 import { BlobWriter, TextReader, ZipWriter } from "@zip.js/zip.js"
 import { create as createTar } from "tar"
 import { afterEach, describe, expect, it } from "vitest"
@@ -34,6 +35,16 @@ const exists = async (path: string): Promise<boolean> =>
     () => true,
     () => false
   )
+
+const createGzipTar = async (
+  source: string,
+  archive: string,
+  entries: readonly string[]
+): Promise<void> => {
+  const uncompressed = `${archive}.tar`
+  createTar({ cwd: source, file: uncompressed, sync: true }, [...entries])
+  await writeFile(archive, gzipSync(await readFile(uncompressed)))
+}
 
 const receipt = (version: string, installedAt: string): AgentInstallReceipt => ({
   agentId: "gemini",
@@ -122,7 +133,7 @@ describe("extractAgentArchive", () => {
     const archive = join(root, "agent.tar.gz")
     await mkdir(source)
     await symlink("../../outside", join(source, "agent"))
-    await createTar({ cwd: source, file: archive, gzip: true }, ["agent"])
+    await createGzipTar(source, archive, ["agent"])
 
     await expect(extractAgentArchive(archive, join(root, "extracted"))).rejects.toThrow(
       /unsupported SymbolicLink/
@@ -136,7 +147,7 @@ describe("extractAgentArchive", () => {
     await mkdir(source)
     await writeFile(join(source, "agent"), "executable")
     await link(join(source, "agent"), join(source, "agent-link"))
-    await createTar({ cwd: source, file: archive, gzip: true }, ["agent", "agent-link"])
+    await createGzipTar(source, archive, ["agent", "agent-link"])
 
     await expect(extractAgentArchive(archive, join(root, "extracted"))).rejects.toThrow(
       /unsupported Link/
