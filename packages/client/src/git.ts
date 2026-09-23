@@ -3,6 +3,7 @@ import type {
   GitBranchContext,
   GitHubAvailability,
   GitHubPullRequest,
+  GitLabMergeRequest,
   GitRepository,
   GitServerMessage,
   GitStatus,
@@ -78,6 +79,12 @@ export interface GitActions {
     method: "merge" | "squash",
     options?: RequestOptions
   ): Promise<GitHubPullRequest>
+  gitlabMrRead(
+    cwd: string,
+    threadId: string,
+    iid: number,
+    options?: RequestOptions
+  ): Promise<GitLabMergeRequest>
 }
 
 export const createGitActions = (client: ServerClient): GitActions => ({
@@ -144,4 +151,6 @@ export const createGitActions = (client: ServerClient): GitActions => ({
         options
       )
     ),
+  gitlabMrRead: async (cwd, threadId, iid, options) =>
+    unwrap(await client.requestGit("git.gitlab-mr-read.request", { cwd, threadId, iid }, options)),
 })

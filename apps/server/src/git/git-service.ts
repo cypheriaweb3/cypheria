@@ -5,13 +5,17 @@ import type {
   GitClientMessage,
   GitHubAvailability,
   GitHubPullRequest,
+  GitLabMergeRequest,
   GitServerMessage,
   GitWorktree,
 } from "@cypheria/protocol"
-
+import type { AgentManager } from "../agent/agent-manager.js"
+import { CodexAppToolClient } from "../codex-app-tool-client.js"
+import type { ThreadManager } from "../thread/thread-manager.js"
 import { GitCommandError, GitExecutor } from "./git-executor.js"
 import { GitWorktreeService } from "./git-worktree-service.js"
 import { GitHubPrService } from "./github-pr-service.js"
+import { GitLabMrService } from "./gitlab-mr-service.js"
 
 export type GitRepository = {
   readonly commonGitDir: string
@@ -37,10 +41,20 @@ export class GitService {
   readonly #executor: GitExecutor
   readonly #worktrees: GitWorktreeService
   readonly #github = new GitHubPrService()
+  readonly #gitlab: GitLabMrService | null
+  readonly #threads: ThreadManager | null
 
-  constructor(cacheDir: string, cypheriaHome: string) {
+  constructor(
+    cacheDir: string,
+    cypheriaHome: string,
+    connectors?: { agents: AgentManager; threads: ThreadManager }
+  ) {
     this.#executor = new GitExecutor(cacheDir)
     this.#worktrees = new GitWorktreeService(this.#executor, cypheriaHome)
+    this.#gitlab = connectors
+      ? new GitLabMrService(this.#executor, new CodexAppToolClient(connectors.agents))
+      : null
+    this.#threads = connectors?.threads ?? null
   }
 
   async handle(
@@ -143,6 +157,13 @@ export class GitService {
             message.payload.method
           )
           break
+        case "git.gitlab-mr-read.request":
+          value = await this.gitlabMrRead(
+            message.payload.cwd,
+            message.payload.threadId,
+            message.payload.iid
+          )
+          break
       }
       send({ type, requestId: message.requestId, payload: { ok: true, value } } as GitServerMessage)
     } catch (error) {
@@ -233,6 +254,20 @@ export class GitService {
     method: "merge" | "squash"
   ): Promise<GitHubPullRequest> {
     return this.#github.merge((await this.discover(cwd)).root, number, expectedHead, method)
+  }
+
+  async gitlabMrRead(cwd: string, threadId: string, iid: number): Promise<GitLabMergeRequest> {
+    if (!this.#gitlab || !this.#threads) throw new Error("GitLab connector is unavailable")
+    const thread = await this.#threads.get(threadId)
+    if (thread.agentId !== "codex" || !thread.agentSessionId || !thread.cwd) {
+      throw new Error("A local Codex thread is required for GitLab merge requests")
+    }
+    const repository = await this.discover(cwd)
+    const threadRepository = await this.discover(thread.cwd)
+    if (threadRepository.commonGitDir !== repository.commonGitDir) {
+      throw new Error("The Codex thread belongs to another Git repository")
+    }
+    return this.#gitlab.read(repository.root, thread.agentSessionId, iid)
   }
 
   async init(cwd: string): Promise<GitRepository> {

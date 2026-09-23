@@ -153,7 +153,6 @@ export class CypheriaServer implements HttpAppHost {
     this.integrations = new IntegrationService(this.agentManager)
     const projectThreadPersistence = createProjectThreadPersistenceService(this.database.db)
     this.terminals = new TerminalService(projectThreadPersistence)
-    this.git = new GitService(this.runtime.paths.cacheDir, this.runtime.paths.cypheriaHome)
     this.projectThread = new ProjectThreadService({
       persistence: projectThreadPersistence,
     })
@@ -165,6 +164,10 @@ export class CypheriaServer implements HttpAppHost {
       persistence: projectThreadPersistence,
       publish: (message) => this.registry.broadcast(message),
       timelinePersistence: createThreadTimelinePersistenceService(this.database.db),
+    })
+    this.git = new GitService(this.runtime.paths.cacheDir, this.runtime.paths.cypheriaHome, {
+      agents: this.agentManager,
+      threads: this.threadManager,
     })
     this.codexHarness = new CodexHarnessService(
       this.agentManager,

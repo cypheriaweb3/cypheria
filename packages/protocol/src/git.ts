@@ -1,5 +1,6 @@
 import { z } from "zod"
 
+import { ProjectThreadIdSchema } from "./project-thread.ts"
 import { RequestIdSchema } from "./request-id.ts"
 
 const path = z.string().min(1)
@@ -75,6 +76,19 @@ export const GitHubPullRequestSchema = z
     baseRefName: z.string(),
     updatedAt: z.string(),
     author: z.object({ login: z.string() }).nullable(),
+  })
+  .strict()
+export const GitLabMergeRequestSchema = z
+  .object({
+    iid: z.number().int().positive(),
+    projectPath: z.string().min(1),
+    title: z.string(),
+    description: z.string(),
+    state: z.enum(["opened", "closed", "merged", "locked"]),
+    draft: z.boolean(),
+    sourceBranch: z.string(),
+    targetBranch: z.string(),
+    webUrl: z.url(),
   })
   .strict()
 
@@ -204,6 +218,12 @@ export const GitHubPrMergeRequestSchema = input(
     })
     .strict()
 )
+export const GitLabMrReadRequestSchema = input(
+  "git.gitlab-mr-read.request",
+  z
+    .object({ cwd: path, threadId: ProjectThreadIdSchema, iid: z.number().int().positive() })
+    .strict()
+)
 
 const success = z.object({ succeeded: z.literal(true) }).strict()
 export const GitDiscoverResponseSchema = output("git.discover.response", GitRepositorySchema)
@@ -270,6 +290,10 @@ export const GitHubPrMergeResponseSchema = output(
   "git.github-pr-merge.response",
   GitHubPullRequestSchema
 )
+export const GitLabMrReadResponseSchema = output(
+  "git.gitlab-mr-read.response",
+  GitLabMergeRequestSchema
+)
 
 export const GIT_CLIENT_SCHEMAS = [
   GitDiscoverRequestSchema,
@@ -294,6 +318,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubPrCreateRequestSchema,
   GitHubPrUpdateRequestSchema,
   GitHubPrMergeRequestSchema,
+  GitLabMrReadRequestSchema,
 ] as const
 export const GIT_SERVER_SCHEMAS = [
   GitDiscoverResponseSchema,
@@ -318,6 +343,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubPrCreateResponseSchema,
   GitHubPrUpdateResponseSchema,
   GitHubPrMergeResponseSchema,
+  GitLabMrReadResponseSchema,
 ] as const
 export const GIT_RESPONSE_TYPES = GIT_SERVER_SCHEMAS.map((schema) => schema.shape.type.value)
 export const GitClientMessageSchema = z.discriminatedUnion("type", GIT_CLIENT_SCHEMAS)
@@ -330,3 +356,4 @@ export type GitBranchContext = z.infer<typeof GitBranchContextSchema>
 export type GitWorktree = z.infer<typeof GitWorktreeSchema>
 export type GitHubAvailability = z.infer<typeof GitHubAvailabilitySchema>
 export type GitHubPullRequest = z.infer<typeof GitHubPullRequestSchema>
+export type GitLabMergeRequest = z.infer<typeof GitLabMergeRequestSchema>
