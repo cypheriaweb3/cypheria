@@ -21,6 +21,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 
 import { ensureCypheriaClient } from "../cypheria-client.js"
+import { findGithubPrWatch, githubPrFixPrompt, githubPrWatchName } from "./github-pr-watch.js"
 
 const openExternal = async (url: string): Promise<void> => {
   if (!window.cypheria) throw new Error("The system browser is unavailable")
@@ -89,6 +90,22 @@ export function GitHubPrPanel({
     retry: false,
   })
   const cliAvailable = Boolean(availability.data?.authenticated && availability.data.repository)
+  const thread = useQuery({
+    enabled: cliAvailable && Boolean(threadId),
+    queryKey: ["thread", threadId, "github-pr-watch"],
+    queryFn: async () => {
+      if (!threadId) throw new Error("A local Codex thread is required")
+      return (await ensureCypheriaClient()).threads.get(threadId)
+    },
+    retry: false,
+  })
+  const localCodexThread = thread.data?.agentId === "codex"
+  const schedules = useQuery({
+    enabled: localCodexThread,
+    queryKey: ["cypheria", "schedules"],
+    queryFn: async () => (await ensureCypheriaClient()).schedules.list(),
+    retry: false,
+  })
   const appAvailability = useQuery({
     enabled: Boolean(threadId) && !cliAvailable,
     queryKey: ["github-pr", cwd, threadId, "app-availability"],
@@ -210,6 +227,10 @@ export function GitHubPrPanel({
     },
     retry: false,
   })
+  const watch =
+    selected.data && threadId && schedules.data
+      ? findGithubPrWatch(schedules.data, threadId, selected.data)
+      : null
   const mutate = async (action: () => Promise<void>) => {
     setBusy(true)
     setError(null)
@@ -802,6 +823,97 @@ export function GitHubPrPanel({
             >
               <Trans id="git.github.browser">Browser</Trans>
             </Button>
+            {cliAvailable &&
+            localCodexThread &&
+            threadId &&
+            selected.data.state === "OPEN" &&
+            selected.data.headRefOid &&
+            gitSettings.data ? (
+              <>
+                <Button
+                  disabled={busy}
+                  onClick={() =>
+                    void mutate(async () => {
+                      await (await ensureCypheriaClient()).threads.startTurn({
+                        clientMessageId: crypto.randomUUID(),
+                        content: [
+                          {
+                            type: "text",
+                            text: githubPrFixPrompt(
+                              selected.data,
+                              gitSettings.data.config.git,
+                              false
+                            ),
+                          },
+                        ],
+                        threadId,
+                      })
+                    })
+                  }
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  <Trans id="git.github.fixPr">Fix PR</Trans>
+                </Button>
+                {watch ? (
+                  <Button
+                    disabled={busy}
+                    onClick={() =>
+                      void mutate(async () => {
+                        const client = await ensureCypheriaClient()
+                        if (watch.status === "paused") await client.schedules.resume(watch.id)
+                        else await client.schedules.pause(watch.id)
+                        await queryClient.invalidateQueries({ queryKey: ["cypheria", "schedules"] })
+                      })
+                    }
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    {watch.status === "paused" ? (
+                      <Trans id="git.github.resumeWatch">Resume watch</Trans>
+                    ) : (
+                      <Trans id="git.github.pauseWatch">Pause watch</Trans>
+                    )}
+                  </Button>
+                ) : (
+                  <Button
+                    disabled={busy || !schedules.isSuccess || !availability.data?.repository}
+                    onClick={() =>
+                      void mutate(async () => {
+                        const repository = availability.data?.repository
+                        if (!repository) throw new Error("GitHub repository is unavailable")
+                        await (await ensureCypheriaClient()).schedules.create({
+                          cadence: { type: "interval", everyMs: 600_000 },
+                          name: githubPrWatchName(repository, selected.data.number),
+                          target: {
+                            type: "thread",
+                            threadId,
+                            content: [
+                              {
+                                type: "text",
+                                text: githubPrFixPrompt(
+                                  selected.data,
+                                  gitSettings.data.config.git,
+                                  true
+                                ),
+                              },
+                            ],
+                          },
+                        })
+                        await queryClient.invalidateQueries({ queryKey: ["cypheria", "schedules"] })
+                      })
+                    }
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <Trans id="git.github.watchPr">Watch and fix</Trans>
+                  </Button>
+                )}
+              </>
+            ) : null}
             {cliAvailable && selected.data.state === "OPEN" && selected.data.headRefOid ? (
               <AlertDialog onOpenChange={setMergeOpen} open={mergeOpen}>
                 <AlertDialogTrigger render={<Button disabled={busy} size="sm" variant="outline" />}>

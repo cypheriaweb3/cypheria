@@ -98,6 +98,8 @@ The CLI PR list supports state and text search, created-by-me and review-request
 
 The CLI also queries the current branch's authored PR independently of the list. It favors an open PR, otherwise a merged PR, so a PR outside the current list remains available and a second open PR is not offered for the same branch.
 
+For an open PR in a local Codex thread, **Fix PR** starts a turn in that thread with the PR URL and guarded repair instructions. **Watch and fix** creates a persistent Server schedule that runs the same thread every ten minutes. The watch prompt uses the saved auto-merge, merge-method, and custom watch instructions at creation time; the PR panel can pause and resume the schedule. Runs report a closed or merged PR without making changes, while the schedule remains available for the user to pause.
+
 Managed worktrees persist an optional owner Thread ID in Cypheria's worktree metadata. The Server checks that an assigned local Codex thread belongs to the same repository and currently uses that worktree. A worktree with an owner cannot be deleted until its owner moves away.
 
 The Review panel can move an idle local Codex thread between its checkout and an active managed worktree. The Server rejects a move during a turn or pending interaction, resumes the native thread at the destination, updates worktree ownership, and restores the prior directory if the move fails. Moving the thread changes its working directory; local uncommitted files remain in their original directory.
