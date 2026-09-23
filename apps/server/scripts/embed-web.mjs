@@ -5,6 +5,10 @@ const source = fileURLToPath(new URL("../../expo/dist/", import.meta.url))
 const destination = fileURLToPath(new URL("../dist/web/", import.meta.url))
 const migrationsSource = fileURLToPath(new URL("../../../packages/db/drizzle/", import.meta.url))
 const migrationsDestination = fileURLToPath(new URL("../dist/drizzle/", import.meta.url))
+const pluginMarketplaceSource = fileURLToPath(
+  new URL("../../../plugins/marketplace/", import.meta.url)
+)
+const pluginMarketplaceDestination = fileURLToPath(new URL("../dist/marketplace/", import.meta.url))
 
 try {
   await access(new URL("index.html", new URL("../../expo/dist/", import.meta.url)))
@@ -19,3 +23,5 @@ await mkdir(destination, { recursive: true })
 await cp(source, destination, { recursive: true })
 await rm(migrationsDestination, { force: true, recursive: true })
 await cp(migrationsSource, migrationsDestination, { recursive: true })
+await rm(pluginMarketplaceDestination, { force: true, recursive: true })
+await cp(pluginMarketplaceSource, pluginMarketplaceDestination, { recursive: true })

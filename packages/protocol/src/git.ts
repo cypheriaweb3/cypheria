@@ -121,6 +121,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitPushResponseSchema,
 ] as const
 export const GIT_RESPONSE_TYPES = GIT_SERVER_SCHEMAS.map((schema) => schema.shape.type.value)
+export const GitClientMessageSchema = z.discriminatedUnion("type", GIT_CLIENT_SCHEMAS)
 export type GitClientMessage = z.infer<(typeof GIT_CLIENT_SCHEMAS)[number]>
 export type GitServerMessage = z.infer<(typeof GIT_SERVER_SCHEMAS)[number]>
 export type GitRepository = z.infer<typeof GitRepositorySchema>

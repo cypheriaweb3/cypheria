@@ -1,6 +1,8 @@
 import {
   CYPHERIA_WEBSOCKET_PATH,
   createConnectionOfferUrl,
+  GitClientMessageSchema,
+  type GitServerMessage,
   HttpLifecycleRequestSchema,
   HttpRuntimeRequestSchema,
   PersistedServerConfigPatchSchema,
@@ -119,6 +121,24 @@ export function createHttpApp(options: CreateHttpAppOptions): Hono {
     async (context) => context.json(await host.patchConfig(context.req.valid("json")))
   )
   app.post("/api/v1/config/reload", async (context) => context.json(await host.reloadConfig()))
+  app.post(
+    "/api/v1/git/request",
+    bodyLimit({ maxSize: config.maxMessageBytes }),
+    zValidator("json", GitClientMessageSchema, (result, context) => {
+      if (!result.success) return context.json(jsonError("Invalid Git request"), 400)
+      return undefined
+    }),
+    async (context) => {
+      if (!host.handleGitMessage) return context.json(jsonError("Git is unavailable"), 503)
+      let response: GitServerMessage | undefined
+      await host.handleGitMessage(context.req.valid("json"), (message) => {
+        response = message
+      })
+      return response
+        ? context.json(response)
+        : context.json(jsonError("Git response is unavailable"), 503)
+    }
+  )
   app.get("/api/v1/relay/pairing-offer", (context) => {
     const pairing = host.getRelayPairingOffer()
     if (!pairing) {

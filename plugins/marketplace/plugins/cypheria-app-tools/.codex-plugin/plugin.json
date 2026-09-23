@@ -1,0 +1,18 @@
+{
+  "name": "cypheria-app-tools",
+  "version": "0.1.0",
+  "description": "Local Git tools backed by the Cypheria Server.",
+  "author": {
+    "name": "Cypheria"
+  },
+  "interface": {
+    "displayName": "Cypheria App Tools",
+    "shortDescription": "Inspect and change local Git repositories.",
+    "longDescription": "Calls the Cypheria Server for repository status, diffs, staging, commits, and push operations.",
+    "developerName": "Cypheria",
+    "category": "Developer Tools",
+    "capabilities": ["Read", "Write"],
+    "defaultPrompt": "Show the Git status for this workspace."
+  },
+  "mcpServers": "./.mcp.json"
+}

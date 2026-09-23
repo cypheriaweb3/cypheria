@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
-import { readFile, stat } from "node:fs/promises"
-import { extname } from "node:path"
+import { access, readFile, stat } from "node:fs/promises"
+import { extname, join } from "node:path"
+import { fileURLToPath } from "node:url"
 
 import type {
   IntegrationClientMessage,
@@ -70,6 +71,7 @@ const mcpConfigSchema = z.record(
 
 export class IntegrationService {
   readonly #agents: AgentManager
+  #bundledPluginPromise: Promise<void> | undefined
 
   constructor(agents: AgentManager) {
     this.#agents = agents
@@ -145,6 +147,7 @@ export class IntegrationService {
           await this.#call("experimentalFeature/enablement/set", {
             enablement: { plugins: message.payload.enabled },
           } satisfies v2.ExperimentalFeatureEnablementSetParams)
+          if (message.payload.enabled) await this.#ensureBundledPlugin()
           respond({ succeeded: true })
           break
         case "integration.marketplace.add.request": {
@@ -501,6 +504,51 @@ export class IntegrationService {
       remoteMarketplaceName: locator.marketplacePath ? null : locator.marketplaceName,
     })
     return { appsNeedingAuth: response.appsNeedingAuth.map((app) => app.name), installed: true }
+  }
+
+  async #ensureBundledPlugin(): Promise<void> {
+    const pending = this.#bundledPluginPromise ?? this.#installBundledPlugin()
+    this.#bundledPluginPromise = pending
+    try {
+      await pending
+    } catch (error) {
+      if (this.#bundledPluginPromise === pending) this.#bundledPluginPromise = undefined
+      throw error
+    }
+  }
+
+  async #installBundledPlugin(): Promise<void> {
+    const candidates = [
+      new URL("./marketplace/", import.meta.url),
+      new URL("../../../plugins/marketplace/", import.meta.url),
+    ]
+    const marketplaceDirectory = await Promise.any(
+      candidates.map(async (candidate) => {
+        await access(new URL(".agents/plugins/marketplace.json", candidate))
+        return fileURLToPath(candidate)
+      })
+    ).catch(() => {
+      throw new Error("Bundled Cypheria plugin marketplace is unavailable")
+    })
+    const registered = await this.#call<v2.MarketplaceAddResponse>("marketplace/add", {
+      source: marketplaceDirectory,
+      refName: null,
+      sparsePaths: null,
+    })
+    const installed = await this.#call<v2.PluginInstalledResponse>("plugin/installed", {
+      cwds: null,
+      installSuggestionPluginNames: null,
+    })
+    const entry = installed.marketplaces
+      .find((marketplace) => marketplace.name === "cypheria-curated")
+      ?.plugins.find((plugin) => plugin.name === "cypheria-app-tools")
+    if (entry?.installed) return
+    await this.#call<v2.PluginInstallResponse>("plugin/install", {
+      installAttemptId: randomUUID(),
+      marketplacePath: join(registered.installedRoot, ".agents", "plugins", "marketplace.json"),
+      pluginName: "cypheria-app-tools",
+      remoteMarketplaceName: null,
+    })
   }
 
   async #removeMarketplace(name: string): Promise<void> {

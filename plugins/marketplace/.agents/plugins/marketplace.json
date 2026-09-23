@@ -1,0 +1,12 @@
+{
+  "name": "cypheria-curated",
+  "interface": { "displayName": "Cypheria" },
+  "plugins": [
+    {
+      "name": "cypheria-app-tools",
+      "source": { "source": "local", "path": "./plugins/cypheria-app-tools" },
+      "policy": { "installation": "AVAILABLE", "authentication": "ON_USE" },
+      "category": "Developer Tools"
+    }
+  ]
+}

@@ -27,6 +27,52 @@ describe("IntegrationService", () => {
     )
   })
 
+  it("registers and installs the bundled Git tools when plugins are enabled", async () => {
+    const callCodex = vi.fn(async (method: string) => {
+      if (method === "marketplace/add")
+        return {
+          installedRoot: "/bundled/marketplace",
+          marketplaceName: "cypheria-curated",
+          alreadyAdded: false,
+        }
+      if (method === "plugin/installed")
+        return {
+          marketplaces: [
+            {
+              name: "cypheria-curated",
+              plugins: [{ name: "cypheria-app-tools", installed: false }],
+            },
+          ],
+        }
+      if (method === "plugin/install") return { appsNeedingAuth: [] }
+      return { enablement: { plugins: true } }
+    })
+    const service = new IntegrationService({ callCodex } as unknown as AgentManager)
+    const send = vi.fn()
+    await service.handle(
+      {
+        payload: { agentId: "codex", enabled: true },
+        requestId: "req_plugins_enable",
+        type: "integration.plugin.set-global-enabled.request",
+      },
+      send
+    )
+    expect(callCodex).toHaveBeenCalledWith(
+      "marketplace/add",
+      expect.objectContaining({ source: expect.stringContaining("plugins/marketplace") })
+    )
+    expect(callCodex).toHaveBeenCalledWith(
+      "plugin/install",
+      expect.objectContaining({
+        pluginName: "cypheria-app-tools",
+        marketplacePath: "/bundled/marketplace/.agents/plugins/marketplace.json",
+      })
+    )
+    expect(send).toHaveBeenCalledWith(
+      expect.objectContaining({ payload: { ok: true, value: { succeeded: true } } })
+    )
+  })
+
   it("projects Codex skills with compatibility and harness provenance", async () => {
     const callCodex = vi.fn(async () => ({
       data: [

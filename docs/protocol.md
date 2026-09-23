@@ -139,6 +139,7 @@ client.server
 The common operations on `client.harnesses` cover installation-adjacent state, authentication, models, and typed settings for every Agent. Named child facades expose only genuine harness extensions. Codex Apps, guardian, and lower-level compatibility operations remain under `harnesses.codex`; common integration operations remain available through `integrations`.
 
 The `git` capability provides local repository discovery, status, branch listing, diff, stage, unstage, commit, and push through the Server Git executor. Each `git.*.request` returns a correlated typed response with a success value or error. Git operations use the Server host's filesystem and Git installation.
+The authenticated `POST /api/v1/git/request` endpoint accepts the same validated Git request envelope for the bundled MCP tool process.
 
 ## Validation rules
 

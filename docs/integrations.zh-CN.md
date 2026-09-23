@@ -38,6 +38,8 @@ MCP server 也是通用概念。Integration API 报告 tools、resources、authe
 
 Plugin view 保留 source type、marketplace identity、install policy、availability、version、capabilities、compatibility 和 harness provenance。Harness 支持时，通过 harness adapter 实现列表、详情、安装、卸载和启用操作。
 
+启用 Codex 插件时，Server 会注册随程序分发的 `cypheria-curated` marketplace，并在 Cypheria 管理的 Codex home 中安装 `cypheria-app-tools`。这是一个 Codex MCP 插件，其本地 Git 工具通过经过认证的本地 HTTP 路由调用与 Desktop 相同的 Server Git 服务。它不声明 OpenAI App ID，也不持有 GitHub 或 GitLab connector 凭据。
+
 Cypheria 原生插件使用独立契约。目标 manifest 声明 Server entry points、Desktop UI contributions、可选的未来 Expo contributions、permissions、兼容 Cypheria 版本和 contribution points。Server 代码必须运行在受控子进程中。Desktop contribution 必须沙箱化，并只获得受限 host API，而不是 Node.js、文件系统、数据库或密钥权限。完成该 runtime 与 UX 仍是计划工作。
 
 ## Marketplace 来源
