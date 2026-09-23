@@ -302,6 +302,99 @@ export class ThreadManager {
     })
   }
 
+  async moveWorkingDirectory(threadId: string, cwd: string): Promise<ThreadView> {
+    return this.#withLock(threadId, async () => {
+      const thread = await this.#required(threadId)
+      if (thread.agentId !== "codex" || !thread.agentSessionId || !thread.cwd) {
+        throw new ThreadManagerError("THREAD_AGENT_MISMATCH", "A local Codex thread is required")
+      }
+      const runtime = this.#state(threadId)
+      if (
+        runtime.activeTurn ||
+        runtime.pendingInteractions.size > 0 ||
+        (runtime.state !== "idle" && runtime.state !== "stopped")
+      ) {
+        throw new ThreadManagerError(
+          "THREAD_ACTIVE",
+          "Finish the current turn before moving the thread"
+        )
+      }
+      if (thread.cwd === cwd) return this.#view(thread)
+      const wasIdle = runtime.state === "idle"
+      const adapter = this.#adapterFor("codex", threadId)
+      if (wasIdle) {
+        runtime.state = "stopping"
+        this.#updateAndPublishSync(thread)
+        try {
+          await adapter.close(this.#context(thread))
+        } catch (error) {
+          runtime.state = "errored"
+          this.#updateAndPublishSync(thread)
+          throw error
+        }
+        runtime.state = "stopped"
+      }
+      let moved: ThreadRecord | null = null
+      try {
+        moved = await this.#persistence.updateThread(threadId, { cwd })
+        if (wasIdle) {
+          const session = await adapter.resume({
+            ...this.#context(moved),
+            onEvent: (event) => this.#acceptEvent(threadId, event),
+          })
+          if (session.sessionId !== thread.agentSessionId) {
+            throw new ThreadManagerError(
+              "THREAD_BINDING_MISMATCH",
+              "Harness resumed a different session"
+            )
+          }
+          runtime.capabilities = session.capabilities
+          runtime.state = "idle"
+          if (session.history !== undefined) await this.#timeline.replace(threadId, session.history)
+        }
+        return this.#updateAndPublishSync(moved)
+      } catch (error) {
+        const rollbackFailures: unknown[] = []
+        if (moved && wasIdle) {
+          await adapter.close(this.#context(moved)).catch((cause) => rollbackFailures.push(cause))
+        }
+        let restored = true
+        if (moved) {
+          await this.#persistence.updateThread(threadId, { cwd: thread.cwd }).catch((cause) => {
+            restored = false
+            rollbackFailures.push(cause)
+          })
+        }
+        if (wasIdle && restored) {
+          try {
+            const session = await adapter.resume({
+              ...this.#context(thread),
+              onEvent: (event) => this.#acceptEvent(threadId, event),
+            })
+            if (session.sessionId !== thread.agentSessionId) {
+              throw new ThreadManagerError(
+                "THREAD_BINDING_MISMATCH",
+                "Harness resumed a different session"
+              )
+            }
+            runtime.capabilities = session.capabilities
+            runtime.state = "idle"
+          } catch (cause) {
+            rollbackFailures.push(cause)
+            runtime.state = "errored"
+          }
+        } else if (wasIdle) {
+          runtime.state = "errored"
+        }
+        this.#updateAndPublishSync(restored ? thread : (moved ?? thread))
+        if (rollbackFailures.length) {
+          throw new AggregateError([error, ...rollbackFailures], "Thread move and rollback failed")
+        }
+        throw error
+      }
+    })
+  }
+
   async fork(input: {
     beforeThreadId?: string | null
     cwd?: string | null

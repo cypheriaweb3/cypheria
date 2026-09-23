@@ -435,6 +435,30 @@ export function GitReviewPanel({
               <Trans id="git.review.createWorktree">Create worktree</Trans>
             </Button>
           </div>
+          {threadId &&
+          worktrees.data?.some(
+            (entry) => entry.path === status.data.repository.root && entry.managed
+          ) ? (
+            <Button
+              disabled={busy || !worktrees.data?.find((entry) => !entry.managed && entry.active)}
+              onClick={() => {
+                const checkout = worktrees.data?.find((entry) => !entry.managed && entry.active)
+                if (checkout)
+                  void mutate(async () =>
+                    (await ensureCypheriaClient()).git.moveThreadToWorktree(
+                      cwd,
+                      checkout.path,
+                      threadId
+                    )
+                  )
+              }}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <Trans id="git.review.moveToCheckout">Move thread to checkout</Trans>
+            </Button>
+          ) : null}
           {worktrees.data
             ?.filter((entry) => entry.managed)
             .map((entry) => (
@@ -442,6 +466,27 @@ export function GitReviewPanel({
                 <span className="min-w-0 flex-1 truncate text-xs" title={entry.path}>
                   {entry.path}
                 </span>
+                {threadId && entry.active && entry.path !== status.data.repository.root ? (
+                  <Button
+                    disabled={
+                      busy || Boolean(entry.ownerThreadId && entry.ownerThreadId !== threadId)
+                    }
+                    onClick={() =>
+                      void mutate(async () =>
+                        (await ensureCypheriaClient()).git.moveThreadToWorktree(
+                          cwd,
+                          entry.path,
+                          threadId
+                        )
+                      )
+                    }
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <Trans id="git.review.moveThreadHere">Move thread here</Trans>
+                  </Button>
+                ) : null}
                 <Button
                   disabled={busy || entry.path === status.data.repository.root}
                   onClick={() =>

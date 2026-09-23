@@ -854,6 +854,16 @@ msgid "chat.workspace.moveTerminalBottom"
 msgstr "将终端移到底部"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.moveThreadHere"
+msgstr "将线程移到这里"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.moveToCheckout"
+msgstr "将线程移回检出目录"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.networks"
 msgstr "网络"
@@ -1420,14 +1430,14 @@ msgid "chat.scrollToLatest"
 msgstr "滚动到最新"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.searchAction"
-msgstr "搜索"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 #: renderer/src/components/chat-search.tsx
 msgid "navigation.search"
+msgstr "搜索"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.searchAction"
 msgstr "搜索"
 
 #. js-lingui-explicit-id

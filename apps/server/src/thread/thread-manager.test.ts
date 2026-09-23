@@ -31,6 +31,8 @@ class FakeAdapter implements ThreadHarnessAdapter {
   readonly creates: ThreadHarnessCreateInput[] = []
   readonly steers: Array<Parameters<ThreadHarnessAdapter["steerTurn"]>[0]> = []
   readonly starts: Array<Parameters<ThreadHarnessAdapter["startTurn"]>[0]> = []
+  readonly resumes: Array<Parameters<ThreadHarnessAdapter["resume"]>[0]> = []
+  resumeErrorForCwd: string | undefined
   startError: Error | undefined
 
   async close(): Promise<void> {
@@ -56,6 +58,8 @@ class FakeAdapter implements ThreadHarnessAdapter {
     if (this.deleteError) throw this.deleteError
   }
   async resume(input: Parameters<ThreadHarnessAdapter["resume"]>[0]) {
+    this.resumes.push(input)
+    if (input.cwd === this.resumeErrorForCwd) throw new Error("resume failed")
     this.events.set(input.threadId, input.onEvent)
     return {
       capabilities: {
@@ -160,6 +164,33 @@ describe("ThreadManager", () => {
       state: "idle",
     })
     expect(messages.at(-1)?.type).toBe("thread.created.notification")
+  })
+
+  it("moves an idle Codex thread's working directory and restores it when resume fails", async () => {
+    const { adapter, manager } = await setup()
+    const created = await manager.create({ agentId: "codex", cwd: "/repo" })
+    expect(await manager.moveWorkingDirectory(created.thread.id, "/repo/worktree")).toMatchObject({
+      cwd: "/repo/worktree",
+      state: "idle",
+    })
+    expect(adapter.resumes.at(-1)?.cwd).toBe("/repo/worktree")
+    adapter.resumeErrorForCwd = "/repo/broken"
+    await expect(manager.moveWorkingDirectory(created.thread.id, "/repo/broken")).rejects.toThrow(
+      "resume failed"
+    )
+    expect(await manager.get(created.thread.id)).toMatchObject({
+      cwd: "/repo/worktree",
+      state: "idle",
+    })
+    expect(adapter.resumes.at(-1)?.cwd).toBe("/repo/worktree")
+    await manager.startTurn({
+      clientMessageId: "move-active",
+      content: [{ text: "work", type: "text" }],
+      threadId: created.thread.id,
+    })
+    await expect(
+      manager.moveWorkingDirectory(created.thread.id, "/repo/other")
+    ).rejects.toMatchObject({ code: "THREAD_ACTIVE" })
   })
 
   it("rehydrates harness history into a new timeline epoch", async () => {

@@ -854,6 +854,16 @@ msgid "chat.workspace.moveTerminalBottom"
 msgstr "Move terminal to bottom"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.moveThreadHere"
+msgstr "Move thread here"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.moveToCheckout"
+msgstr "Move thread to checkout"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.networks"
 msgstr "Networks"
@@ -1420,14 +1430,14 @@ msgid "chat.scrollToLatest"
 msgstr "Scroll to latest"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.searchAction"
-msgstr "Search"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 #: renderer/src/components/chat-search.tsx
 msgid "navigation.search"
+msgstr "Search"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.searchAction"
 msgstr "Search"
 
 #. js-lingui-explicit-id

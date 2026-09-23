@@ -84,6 +84,12 @@ export interface GitActions {
     threadId: string | null,
     options?: RequestOptions
   ): Promise<GitWorktree>
+  moveThreadToWorktree(
+    cwd: string,
+    path: string,
+    threadId: string,
+    options?: RequestOptions
+  ): Promise<void>
   githubAvailability(cwd: string, options?: RequestOptions): Promise<GitHubAvailability>
   githubAppAvailability(
     cwd: string,
@@ -264,6 +270,11 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(await client.requestGit("git.worktree-restore.request", { cwd, path }, options)),
   setWorktreeOwner: async (cwd, path, threadId, options) =>
     unwrap(await client.requestGit("git.worktree-owner.request", { cwd, path, threadId }, options)),
+  moveThreadToWorktree: async (cwd, path, threadId, options) => {
+    unwrap(
+      await client.requestGit("git.worktree-move-thread.request", { cwd, path, threadId }, options)
+    )
+  },
   githubAvailability: async (cwd, options) =>
     unwrap(await client.requestGit("git.github-availability.request", { cwd }, options)),
   githubAppAvailability: async (cwd, threadId, options) =>

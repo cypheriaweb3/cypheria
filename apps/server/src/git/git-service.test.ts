@@ -4,6 +4,8 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { promisify } from "node:util"
 import { afterEach, describe, expect, it } from "vitest"
+import type { AgentManager } from "../agent/agent-manager.js"
+import type { ThreadManager } from "../thread/thread-manager.js"
 import { GitExecutor } from "./git-executor.js"
 import { GitService } from "./git-service.js"
 import { GitWorktreeService } from "./git-worktree-service.js"
@@ -242,5 +244,58 @@ describe("GitService", () => {
     expect(await service.restoreWorktree(root, worktree.path)).toEqual(worktree)
     expect(await readFile(join(worktree.path, "file.txt"), "utf8")).toBe("first\n")
     await expect(service.restoreWorktree(root, worktree.path)).rejects.toThrow("already exists")
+  }, 20_000)
+
+  it("moves a local Codex thread into and out of a managed worktree", async () => {
+    const root = await repository()
+    const threadId = "01984de2-8f74-7c91-a3b2-5c5e937cf400"
+    const thread = {
+      id: threadId,
+      agentId: "codex",
+      agentSessionId: "native-thread",
+      cwd: root,
+      activeTurn: null as { id: string } | null,
+      pendingInteractions: [] as unknown[],
+    }
+    const threads = {
+      get: async () => thread,
+      moveWorkingDirectory: async (_id: string, cwd: string) => {
+        thread.cwd = cwd
+        return thread
+      },
+    } as unknown as ThreadManager
+    const service = new GitService(join(root, "cache"), join(root, "home"), {
+      agents: {} as AgentManager,
+      threads,
+    })
+    await writeFile(join(root, "file.txt"), "first\n")
+    await service.stage(root, ["file.txt"])
+    await service.commit(root, "First commit")
+    const worktree = await service.createWorktree(root)
+    await service.moveThreadToWorktree(root, worktree.path, threadId)
+    expect(thread.cwd).toBe(worktree.path)
+    expect(
+      (await service.worktrees(root)).find((entry) => entry.path === worktree.path)?.ownerThreadId
+    ).toBe(threadId)
+    const records = new GitWorktreeService(new GitExecutor(join(root, "cache")), join(root, "home"))
+    await records.setOwner(await service.discover(root), worktree.path, null)
+    await service.moveThreadToWorktree(worktree.path, worktree.path, threadId)
+    expect(
+      (await service.worktrees(root)).find((entry) => entry.path === worktree.path)?.ownerThreadId
+    ).toBe(threadId)
+    await expect(service.deleteWorktree(root, worktree.path)).rejects.toThrow(
+      "Move the owner thread"
+    )
+    thread.activeTurn = { id: "active" }
+    await expect(service.moveThreadToWorktree(root, root, threadId)).rejects.toThrow(
+      "Finish the current turn"
+    )
+    thread.activeTurn = null
+    await service.moveThreadToWorktree(worktree.path, root, threadId)
+    expect(thread.cwd).toBe(await realpath(root))
+    expect(
+      (await service.worktrees(root)).find((entry) => entry.path === worktree.path)?.ownerThreadId
+    ).toBeNull()
+    await service.deleteWorktree(root, worktree.path)
   }, 20_000)
 })

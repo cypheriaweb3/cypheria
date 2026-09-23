@@ -162,6 +162,14 @@ export class GitService {
             message.payload.threadId
           )
           break
+        case "git.worktree-move-thread.request":
+          await this.moveThreadToWorktree(
+            message.payload.cwd,
+            message.payload.path,
+            message.payload.threadId
+          )
+          value = { succeeded: true }
+          break
         case "git.github-availability.request":
           value = await this.githubAvailability(message.payload.cwd)
           break
@@ -395,6 +403,72 @@ export class GitService {
       }
     }
     return this.#worktrees.setOwner(repository, path, threadId)
+  }
+
+  async moveThreadToWorktree(cwd: string, path: string, threadId: string): Promise<void> {
+    if (!this.#threads) throw new Error("A local Codex thread is required")
+    const repository = await this.discover(cwd)
+    await this.#codexThreadRepository(cwd, threadId)
+    const thread = await this.#threads.get(threadId)
+    if (!thread.cwd || thread.activeTurn || thread.pendingInteractions.length) {
+      throw new Error("Finish the current turn before moving the thread")
+    }
+    const sourceRoot = (await this.discover(thread.cwd)).root
+    const worktrees = await this.#worktrees.list(repository)
+    const targetPath = await realpath(path).catch(() => path)
+    const destination = worktrees.find((entry) => entry.path === targetPath)
+    if (!destination?.active) throw new Error("The target is not an active Git worktree")
+    const target = destination.managed ? destination : null
+    if (target?.ownerThreadId && target.ownerThreadId !== threadId) {
+      throw new Error("Another thread owns the target worktree")
+    }
+    const source = worktrees.find((entry) => entry.path === sourceRoot && entry.managed)
+    if (source?.ownerThreadId && source.ownerThreadId !== threadId) {
+      throw new Error("Another thread owns the source worktree")
+    }
+    if ((await realpath(thread.cwd)) === targetPath) {
+      for (const stale of worktrees.filter(
+        (entry) => entry.managed && entry.ownerThreadId === threadId && entry.path !== targetPath
+      )) {
+        await this.#worktrees.setOwner(repository, stale.path, null)
+      }
+      if (target && target.ownerThreadId !== threadId) {
+        await this.#worktrees.setOwner(repository, targetPath, threadId)
+      }
+      return
+    }
+    const previousCwd = thread.cwd
+    await this.#threads.moveWorkingDirectory(threadId, targetPath)
+    let targetAssigned = false
+    let sourceReleased = false
+    try {
+      if (target) {
+        await this.#worktrees.setOwner(repository, targetPath, threadId)
+        targetAssigned = true
+      }
+      if (source?.ownerThreadId === threadId && sourceRoot !== targetPath) {
+        await this.#worktrees.setOwner(repository, sourceRoot, null)
+        sourceReleased = true
+      }
+    } catch (error) {
+      const failures: unknown[] = []
+      if (targetAssigned) {
+        await this.#worktrees
+          .setOwner(repository, targetPath, null)
+          .catch((cause) => failures.push(cause))
+      }
+      if (sourceReleased) {
+        await this.#worktrees
+          .setOwner(repository, sourceRoot, threadId)
+          .catch((cause) => failures.push(cause))
+      }
+      await this.#threads
+        .moveWorkingDirectory(threadId, previousCwd)
+        .catch((cause) => failures.push(cause))
+      if (failures.length)
+        throw new AggregateError([error, ...failures], "Git worktree handoff and rollback failed")
+      throw error
+    }
   }
 
   async githubAvailability(cwd: string): Promise<GitHubAvailability> {

@@ -285,6 +285,10 @@ export const GitWorktreeOwnerRequestSchema = input(
   "git.worktree-owner.request",
   z.object({ cwd: path, path, threadId: ProjectThreadIdSchema.nullable() }).strict()
 )
+export const GitWorktreeMoveThreadRequestSchema = input(
+  "git.worktree-move-thread.request",
+  z.object({ cwd: path, path, threadId: ProjectThreadIdSchema }).strict()
+)
 export const GitHubAvailabilityRequestSchema = input(
   "git.github-availability.request",
   z.object({ cwd: path }).strict()
@@ -527,6 +531,10 @@ export const GitWorktreeOwnerResponseSchema = output(
   "git.worktree-owner.response",
   GitWorktreeSchema
 )
+export const GitWorktreeMoveThreadResponseSchema = output(
+  "git.worktree-move-thread.response",
+  success
+)
 export const GitHubAvailabilityResponseSchema = output(
   "git.github-availability.response",
   GitHubAvailabilitySchema
@@ -625,6 +633,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitWorktreeDeleteRequestSchema,
   GitWorktreeRestoreRequestSchema,
   GitWorktreeOwnerRequestSchema,
+  GitWorktreeMoveThreadRequestSchema,
   GitHubAvailabilityRequestSchema,
   GitHubAppAvailabilityRequestSchema,
   GitHubAppPrCreateRequestSchema,
@@ -669,6 +678,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitWorktreeDeleteResponseSchema,
   GitWorktreeRestoreResponseSchema,
   GitWorktreeOwnerResponseSchema,
+  GitWorktreeMoveThreadResponseSchema,
   GitHubAvailabilityResponseSchema,
   GitHubAppAvailabilityResponseSchema,
   GitHubAppPrCreateResponseSchema,
