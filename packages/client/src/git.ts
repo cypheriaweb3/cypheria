@@ -228,6 +228,12 @@ export interface GitActions {
     iid: number,
     options?: RequestOptions
   ): Promise<GitLabMergeRequest>
+  gitlabMrForBranch(
+    cwd: string,
+    threadId: string,
+    branch: string,
+    options?: RequestOptions
+  ): Promise<GitLabMergeRequest | null>
   gitlabMrChecks(
     cwd: string,
     threadId: string,
@@ -437,6 +443,14 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     ),
   gitlabMrRead: async (cwd, threadId, iid, options) =>
     unwrap(await client.requestGit("git.gitlab-mr-read.request", { cwd, threadId, iid }, options)),
+  gitlabMrForBranch: async (cwd, threadId, branch, options) =>
+    unwrap(
+      await client.requestGit(
+        "git.gitlab-mr-for-branch.request",
+        { cwd, threadId, branch },
+        options
+      )
+    ),
   gitlabMrChecks: async (cwd, threadId, iid, options) =>
     unwrap(
       await client.requestGit("git.gitlab-mr-checks.request", { cwd, threadId, iid }, options)

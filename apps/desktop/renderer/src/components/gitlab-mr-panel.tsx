@@ -30,12 +30,23 @@ export function GitLabMrPanel({
   const [comment, setComment] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const mr = useQuery({
-    enabled: Boolean(threadId && iid),
-    queryKey: ["gitlab-mr", cwd, threadId, iid],
+  const branchMr = useQuery({
+    enabled: Boolean(threadId && branch),
+    queryKey: ["gitlab-mr", cwd, threadId, "branch", branch],
     queryFn: async () => {
-      if (!threadId || !iid) throw new Error("A local Codex thread and MR number are required")
-      return (await ensureCypheriaClient()).git.gitlabMrRead(cwd, threadId, iid)
+      if (!threadId || !branch) throw new Error("A local Codex thread and branch are required")
+      return (await ensureCypheriaClient()).git.gitlabMrForBranch(cwd, threadId, branch)
+    },
+    retry: false,
+  })
+  const activeIid = iid ?? branchMr.data?.iid ?? null
+  const mr = useQuery({
+    enabled: Boolean(threadId && activeIid),
+    queryKey: ["gitlab-mr", cwd, threadId, activeIid],
+    queryFn: async () => {
+      if (!threadId || !activeIid)
+        throw new Error("A local Codex thread and MR number are required")
+      return (await ensureCypheriaClient()).git.gitlabMrRead(cwd, threadId, activeIid)
     },
     retry: false,
   })
@@ -90,7 +101,12 @@ export function GitLabMrPanel({
           <Trans id="git.gitlab.open">View</Trans>
         </Button>
       </div>
-      {mr.isPending && iid ? (
+      {branchMr.isError ? (
+        <Alert variant="destructive">
+          <AlertDescription>{branchMr.error.message}</AlertDescription>
+        </Alert>
+      ) : null}
+      {mr.isPending && activeIid ? (
         <p className="text-xs text-muted-foreground">
           <Trans id="git.gitlab.loading">Loading merge request…</Trans>
         </p>

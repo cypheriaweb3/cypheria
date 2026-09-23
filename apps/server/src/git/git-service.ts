@@ -352,6 +352,13 @@ export class GitService {
             message.payload.iid
           )
           break
+        case "git.gitlab-mr-for-branch.request":
+          value = await this.gitlabMrForBranch(
+            message.payload.cwd,
+            message.payload.threadId,
+            message.payload.branch
+          )
+          break
         case "git.gitlab-mr-checks.request":
           value = await this.gitlabMrChecks(
             message.payload.cwd,
@@ -701,6 +708,15 @@ export class GitService {
   async gitlabMrRead(cwd: string, threadId: string, iid: number): Promise<GitLabMergeRequest> {
     const { service, root, nativeThreadId } = await this.#gitlabThread(cwd, threadId)
     return service.read(root, nativeThreadId, iid)
+  }
+
+  async gitlabMrForBranch(
+    cwd: string,
+    threadId: string,
+    branch: string
+  ): Promise<GitLabMergeRequest | null> {
+    const { service, root, nativeThreadId } = await this.#gitlabThread(cwd, threadId)
+    return service.forBranch(root, nativeThreadId, branch)
   }
 
   async gitlabMrChecks(

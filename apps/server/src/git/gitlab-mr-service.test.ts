@@ -62,6 +62,53 @@ const fixture = (
 }
 
 describe("GitLabMrService", () => {
+  it("finds the current branch MR and verifies both list and detail identity", async () => {
+    const matched = { ...mr.data, source_project_id: 42 }
+    const { service, select, call } = fixture(
+      "git@gitlab.com:group/project.git",
+      project,
+      {
+        data: matched,
+      },
+      {
+        list_merge_requests: { data: [matched] },
+      }
+    )
+    expect(await service.forBranch("/repo", "native-thread", "feature")).toMatchObject({
+      iid: 7,
+      sourceBranch: "feature",
+    })
+    expect(select).toHaveBeenCalledWith("connector_0c9786b2f41f41558056126bdb46c9bd", "gitlab", [
+      "get_project",
+      "list_merge_requests",
+      "get_merge_request",
+    ])
+    expect(call).toHaveBeenCalledWith(
+      expect.any(Object),
+      "native-thread",
+      "gitlab",
+      "list_merge_requests",
+      {
+        page: 1,
+        per_page: 1,
+        scope: "all",
+        source_branch: "feature",
+        source_project_id: 42,
+        state: "opened",
+      }
+    )
+    const mismatch = fixture(
+      "git@gitlab.com:group/project.git",
+      project,
+      { data: matched },
+      {
+        list_merge_requests: { data: [{ ...matched, source_branch: "other" }] },
+      }
+    )
+    await expect(mismatch.service.forBranch("/repo", "native-thread", "feature")).rejects.toThrow(
+      "does not match the branch"
+    )
+  })
   it("reads an MR only after matching the local GitLab origin and project", async () => {
     const { service, select, call } = fixture("git@gitlab.com:group/project.git")
     expect(await service.read("/repo", "native-thread", 7)).toEqual({

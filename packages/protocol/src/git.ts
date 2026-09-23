@@ -519,6 +519,10 @@ export const GitLabMrReadRequestSchema = input(
     .object({ cwd: path, threadId: ProjectThreadIdSchema, iid: z.number().int().positive() })
     .strict()
 )
+export const GitLabMrForBranchRequestSchema = input(
+  "git.gitlab-mr-for-branch.request",
+  z.object({ cwd: path, threadId: ProjectThreadIdSchema, branch: z.string().min(1) }).strict()
+)
 export const GitLabMrChecksRequestSchema = input(
   "git.gitlab-mr-checks.request",
   z
@@ -725,6 +729,10 @@ export const GitLabMrReadResponseSchema = output(
   "git.gitlab-mr-read.response",
   GitLabMergeRequestSchema
 )
+export const GitLabMrForBranchResponseSchema = output(
+  "git.gitlab-mr-for-branch.response",
+  GitLabMergeRequestSchema.nullable()
+)
 export const GitLabMrChecksResponseSchema = output(
   "git.gitlab-mr-checks.response",
   GitLabMergeRequestChecksSchema
@@ -796,6 +804,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubPrReviewerRequestSchema,
   GitHubPrMergeRequestSchema,
   GitLabMrReadRequestSchema,
+  GitLabMrForBranchRequestSchema,
   GitLabMrChecksRequestSchema,
   GitLabMrUpdateTitleRequestSchema,
   GitLabMrPostCommentRequestSchema,
@@ -852,6 +861,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubPrReviewerResponseSchema,
   GitHubPrMergeResponseSchema,
   GitLabMrReadResponseSchema,
+  GitLabMrForBranchResponseSchema,
   GitLabMrChecksResponseSchema,
   GitLabMrUpdateTitleResponseSchema,
   GitLabMrPostCommentResponseSchema,

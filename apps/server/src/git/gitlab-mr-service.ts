@@ -42,6 +42,23 @@ const mrResponse = z
   })
   .passthrough()
 
+const mrListResponse = z
+  .object({
+    data: z.array(
+      z
+        .object({
+          iid: z.number().int().positive(),
+          project_id: z.number().int().positive(),
+          source_project_id: z.number().int().positive(),
+          source_branch: z.string(),
+          state: z.enum(["opened", "closed", "merged", "locked"]),
+          web_url: z.url(),
+        })
+        .passthrough()
+    ),
+  })
+  .passthrough()
+
 const noteResponse = z
   .object({ data: z.object({ id: z.number().int().positive(), body: z.string() }).passthrough() })
   .passthrough()
@@ -218,6 +235,53 @@ export class GitLabMrService {
   async read(root: string, nativeThreadId: string, iid: number): Promise<GitLabMergeRequest> {
     const context = await this.#context(root, nativeThreadId, iid)
     return this.#view(context)
+  }
+
+  async forBranch(
+    root: string,
+    nativeThreadId: string,
+    branch: string
+  ): Promise<GitLabMergeRequest | null> {
+    validateBranch(branch)
+    const selection = await this.#apps.select(connectorId, "gitlab", [
+      "get_project",
+      "list_merge_requests",
+      "get_merge_request",
+    ])
+    const project = await this.#project(root, nativeThreadId, selection)
+    for (const state of ["opened", "locked", "merged"] as const) {
+      const page = mrListResponse.parse(
+        await this.#apps.call(selection, nativeThreadId, "gitlab", "list_merge_requests", {
+          page: 1,
+          per_page: 1,
+          scope: "all",
+          source_branch: branch,
+          source_project_id: project.projectId,
+          state,
+        })
+      )
+      const item = page.data[0]
+      if (!item) continue
+      if (
+        item.project_id !== project.projectId ||
+        item.source_project_id !== project.projectId ||
+        item.source_branch !== branch ||
+        item.state !== state
+      )
+        throw new Error("The selected GitLab merge request does not match the branch")
+      this.#validateMr(project.projectPath, project.projectId, item.iid, item)
+      const mr = mrResponse.parse(
+        await this.#apps.call(selection, nativeThreadId, "gitlab", "get_merge_request", {
+          project_id: project.projectId,
+          merge_request_iid: item.iid,
+        })
+      ).data
+      this.#validateMr(project.projectPath, project.projectId, item.iid, mr)
+      if (mr.source_project_id !== project.projectId || mr.source_branch !== branch)
+        throw new Error("The selected GitLab merge request changed")
+      return this.#view({ ...project, mr, selection })
+    }
+    return null
   }
 
   async checks(
@@ -447,7 +511,12 @@ export class GitLabMrService {
     return { projectPath, projectId: project.id, defaultBranch: project.default_branch ?? null }
   }
 
-  #validateMr(projectPath: string, projectId: number, iid: number, mr: MergeRequestData): void {
+  #validateMr(
+    projectPath: string,
+    projectId: number,
+    iid: number,
+    mr: Pick<MergeRequestData, "iid" | "project_id" | "web_url">
+  ): void {
     if (
       mr.iid !== iid ||
       mr.project_id !== projectId ||
