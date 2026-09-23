@@ -49,6 +49,12 @@ export function GitHubPrPanel({
   const [commentBody, setCommentBody] = useState("")
   const [reviewBody, setReviewBody] = useState("")
   const [reviewer, setReviewer] = useState("")
+  const [replyThreadId, setReplyThreadId] = useState<string | null>(null)
+  const [replyBody, setReplyBody] = useState("")
+  const [inlinePath, setInlinePath] = useState("")
+  const [inlineLine, setInlineLine] = useState("")
+  const [inlineSide, setInlineSide] = useState<"LEFT" | "RIGHT">("RIGHT")
+  const [inlineBody, setInlineBody] = useState("")
   const [showDiff, setShowDiff] = useState(false)
   const [mergeOpen, setMergeOpen] = useState(false)
   const [closeOpen, setCloseOpen] = useState(false)
@@ -68,6 +74,11 @@ export function GitHubPrPanel({
     setCommentBody("")
     setReviewBody("")
     setReviewer("")
+    setReplyThreadId(null)
+    setReplyBody("")
+    setInlinePath("")
+    setInlineLine("")
+    setInlineBody("")
     setShowDiff(false)
     setSelectedNumber(number)
   }
@@ -175,6 +186,16 @@ export function GitHubPrPanel({
     queryFn: async () => {
       if (!selected.data) throw new Error("A pull request is required")
       return (await ensureCypheriaClient()).git.githubPrActivity(cwd, selected.data.number)
+    },
+    retry: false,
+  })
+  const threads = useQuery({
+    enabled: cliAvailable && Boolean(selected.data?.headRefOid),
+    queryKey: ["github-pr", cwd, "threads", selected.data?.number, selected.data?.headRefOid],
+    queryFn: async () => {
+      const pr = selected.data
+      if (!pr?.headRefOid) throw new Error("A pull request head is required")
+      return (await ensureCypheriaClient()).git.githubPrThreads(cwd, pr.number, pr.headRefOid)
     },
     retry: false,
   })
@@ -441,6 +462,199 @@ export function GitHubPrPanel({
                 <Alert variant="destructive">
                   <AlertDescription>{activity.error.message}</AlertDescription>
                 </Alert>
+              ) : null}
+            </div>
+          ) : null}
+          {cliAvailable && selected.data.headRefOid ? (
+            <div className="space-y-2 border-t pt-2">
+              <p className="text-xs font-medium">
+                <Trans id="git.github.reviewThreads">Review threads</Trans>
+              </p>
+              {threads.data?.threads.map((thread) => (
+                <div className="space-y-2 rounded border p-2 text-xs" key={thread.id}>
+                  <p className="font-mono text-muted-foreground">
+                    {thread.path}
+                    {thread.line ? `:${thread.line}` : ""} ·{" "}
+                    {thread.isResolved
+                      ? i18n._(msg({ id: "git.github.resolved", message: "Resolved" }))
+                      : i18n._(msg({ id: "git.github.unresolved", message: "Unresolved" }))}
+                  </p>
+                  {thread.comments.map((comment) => (
+                    <div className="border-l pl-2" key={comment.id}>
+                      <span className="font-medium">{comment.author ?? "GitHub"}</span>
+                      <p className="whitespace-pre-wrap">{comment.body}</p>
+                    </div>
+                  ))}
+                  <div className="flex flex-wrap gap-1">
+                    <Button
+                      disabled={busy || selected.data.state !== "OPEN"}
+                      onClick={() => {
+                        setReplyThreadId(thread.id)
+                        setReplyBody("")
+                      }}
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <Trans id="git.github.reply">Reply</Trans>
+                    </Button>
+                    {(thread.isResolved ? thread.canUnresolve : thread.canResolve) ? (
+                      <Button
+                        disabled={busy || selected.data.state !== "OPEN"}
+                        onClick={() =>
+                          void mutate(async () => {
+                            const head = selected.data.headRefOid
+                            if (!head) throw new Error("A pull request head is required")
+                            await (await ensureCypheriaClient()).git.githubPrThreadAction(cwd, {
+                              number: selected.data.number,
+                              expectedHead: head,
+                              action: thread.isResolved ? "unresolve" : "resolve",
+                              threadId: thread.id,
+                            })
+                          })
+                        }
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        {thread.isResolved ? (
+                          <Trans id="git.github.reopenThread">Reopen thread</Trans>
+                        ) : (
+                          <Trans id="git.github.resolveThread">Resolve thread</Trans>
+                        )}
+                      </Button>
+                    ) : null}
+                  </div>
+                  {replyThreadId === thread.id ? (
+                    <div className="space-y-1">
+                      <Textarea
+                        aria-label={i18n._(
+                          msg({ id: "git.github.replyBody", message: "Review thread reply" })
+                        )}
+                        onChange={(event) => setReplyBody(event.target.value)}
+                        rows={2}
+                        value={replyBody}
+                      />
+                      <Button
+                        disabled={busy || !replyBody.trim()}
+                        onClick={() =>
+                          void mutate(async () => {
+                            const head = selected.data.headRefOid
+                            if (!head) throw new Error("A pull request head is required")
+                            await (await ensureCypheriaClient()).git.githubPrThreadAction(cwd, {
+                              number: selected.data.number,
+                              expectedHead: head,
+                              action: "reply",
+                              threadId: thread.id,
+                              body: replyBody,
+                            })
+                            setReplyThreadId(null)
+                            setReplyBody("")
+                          })
+                        }
+                        size="sm"
+                        type="button"
+                      >
+                        <Trans id="git.github.postReply">Post reply</Trans>
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              ))}
+              {threads.data?.truncated ? (
+                <p className="text-xs text-muted-foreground">
+                  <Trans id="git.github.threadsTruncated">
+                    More review threads are available on GitHub.
+                  </Trans>
+                </p>
+              ) : null}
+              {threads.isError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>{threads.error.message}</AlertDescription>
+                </Alert>
+              ) : null}
+              {selected.data.state === "OPEN" ? (
+                <div className="space-y-2 rounded border p-2">
+                  <p className="text-xs font-medium">
+                    <Trans id="git.github.inlineComment">Comment on a changed line</Trans>
+                  </p>
+                  <div className="flex gap-2">
+                    <Input
+                      aria-label={i18n._(
+                        msg({ id: "git.github.inlinePath", message: "Changed file path" })
+                      )}
+                      onChange={(event) => setInlinePath(event.target.value)}
+                      placeholder={i18n._(
+                        msg({ id: "git.github.inlinePath", message: "Changed file path" })
+                      )}
+                      value={inlinePath}
+                    />
+                    <Input
+                      aria-label={i18n._(
+                        msg({ id: "git.github.inlineLine", message: "Diff line number" })
+                      )}
+                      min={1}
+                      onChange={(event) => setInlineLine(event.target.value)}
+                      placeholder={i18n._(
+                        msg({ id: "git.github.inlineLine", message: "Diff line number" })
+                      )}
+                      type="number"
+                      value={inlineLine}
+                    />
+                    <NativeSelect
+                      aria-label={i18n._(
+                        msg({ id: "git.github.inlineSide", message: "Diff side" })
+                      )}
+                      onChange={(event) => setInlineSide(event.target.value as "LEFT" | "RIGHT")}
+                      size="sm"
+                      value={inlineSide}
+                    >
+                      <NativeSelectOption value="RIGHT">
+                        <Trans id="git.github.newSide">New</Trans>
+                      </NativeSelectOption>
+                      <NativeSelectOption value="LEFT">
+                        <Trans id="git.github.oldSide">Old</Trans>
+                      </NativeSelectOption>
+                    </NativeSelect>
+                  </div>
+                  <Textarea
+                    aria-label={i18n._(
+                      msg({ id: "git.github.inlineBody", message: "Inline comment" })
+                    )}
+                    onChange={(event) => setInlineBody(event.target.value)}
+                    rows={2}
+                    value={inlineBody}
+                  />
+                  <Button
+                    disabled={
+                      busy ||
+                      !inlinePath.trim() ||
+                      !Number.isInteger(Number(inlineLine)) ||
+                      Number(inlineLine) < 1 ||
+                      !inlineBody.trim()
+                    }
+                    onClick={() =>
+                      void mutate(async () => {
+                        const head = selected.data.headRefOid
+                        if (!head) throw new Error("A pull request head is required")
+                        await (await ensureCypheriaClient()).git.githubPrThreadAction(cwd, {
+                          number: selected.data.number,
+                          expectedHead: head,
+                          action: "inline",
+                          path: inlinePath.trim(),
+                          line: Number(inlineLine),
+                          side: inlineSide,
+                          body: inlineBody,
+                        })
+                        setInlineBody("")
+                      })
+                    }
+                    size="sm"
+                    type="button"
+                  >
+                    <Trans id="git.github.postInline">Post inline comment</Trans>
+                  </Button>
+                </div>
               ) : null}
             </div>
           ) : null}

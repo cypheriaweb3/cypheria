@@ -92,6 +92,8 @@ When the CLI can access the repository, the PR panel selects the current branch'
 
 The CLI path can request or remove a user or team reviewer. Reviewer changes and title/body edits compare the displayed head SHA before writing; the panel refreshes PR data after the operation.
 
+The CLI path also reads review threads, posts a comment on a changed line, replies to a thread, and resolves or reopens threads when the account has permission. It verifies the displayed PR head before reading and writing, and checks a thread belongs to that PR before changing it. If GitHub has more than 100 threads or more than 100 replies in a thread, the panel marks the discussion as incomplete.
+
 The CLI PR list supports state and text search, created-by-me and review-requested scopes, and loading additional results in batches of 100 up to 500. GitHub App results retain the connector's available scope and limit.
 
 Managed worktrees persist an optional owner Thread ID in Cypheria's worktree metadata. The Server checks that an assigned local Codex thread belongs to the same repository and currently uses that worktree. A worktree with an owner cannot be deleted until its owner moves away.

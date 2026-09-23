@@ -16,6 +16,7 @@ import type {
   GitHubPullRequest,
   GitHubPullRequestActivity,
   GitHubPullRequestChecks,
+  GitHubPullRequestThreads,
   GitLabMergeRequest,
   GitLabMergeRequestChecks,
   GitLabMergeRequestNote,
@@ -312,6 +313,17 @@ export class GitService {
           break
         case "git.github-pr-activity.request":
           value = await this.githubPrActivity(message.payload.cwd, message.payload.number)
+          break
+        case "git.github-pr-threads.request":
+          value = await this.githubPrThreads(
+            message.payload.cwd,
+            message.payload.number,
+            message.payload.expectedHead
+          )
+          break
+        case "git.github-pr-thread-action.request":
+          await this.githubPrThreadAction(message.payload.cwd, message.payload)
+          value = { succeeded: true }
           break
         case "git.github-pr-comment.request":
           await this.githubPrComment(
@@ -698,6 +710,30 @@ export class GitService {
 
   async githubPrActivity(cwd: string, number: number): Promise<GitHubPullRequestActivity> {
     return this.#github.activity((await this.discover(cwd)).root, number)
+  }
+
+  async githubPrThreads(
+    cwd: string,
+    number: number,
+    expectedHead: string
+  ): Promise<GitHubPullRequestThreads> {
+    return this.#github.threads((await this.discover(cwd)).root, number, expectedHead)
+  }
+
+  async githubPrThreadAction(
+    cwd: string,
+    input: {
+      number: number
+      expectedHead: string
+      action: "reply" | "resolve" | "unresolve" | "inline"
+      threadId?: string
+      body?: string
+      path?: string
+      line?: number
+      side?: "LEFT" | "RIGHT"
+    }
+  ): Promise<void> {
+    await this.#github.threadAction((await this.discover(cwd)).root, input)
   }
 
   async githubPrComment(

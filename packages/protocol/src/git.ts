@@ -176,6 +176,33 @@ export const GitHubPullRequestActivitySchema = z
     ),
   })
   .strict()
+export const GitHubPullRequestThreadsSchema = z
+  .object({
+    threads: z.array(
+      z
+        .object({
+          id: z.string(),
+          path: z.string(),
+          line: z.number().int().nullable(),
+          isResolved: z.boolean(),
+          canResolve: z.boolean(),
+          canUnresolve: z.boolean(),
+          comments: z.array(
+            z
+              .object({
+                id: z.string(),
+                body: z.string(),
+                author: z.string().nullable(),
+                createdAt: z.string(),
+              })
+              .strict()
+          ),
+        })
+        .strict()
+    ),
+    truncated: z.boolean(),
+  })
+  .strict()
 export const GitLabMergeRequestSchema = z
   .object({
     iid: z.number().int().positive(),
@@ -483,6 +510,32 @@ export const GitHubPrActivityRequestSchema = input(
   "git.github-pr-activity.request",
   z.object({ cwd: path, number: z.number().int().positive() }).strict()
 )
+export const GitHubPrThreadsRequestSchema = input(
+  "git.github-pr-threads.request",
+  z
+    .object({
+      cwd: path,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    })
+    .strict()
+)
+export const GitHubPrThreadActionRequestSchema = input(
+  "git.github-pr-thread-action.request",
+  z
+    .object({
+      cwd: path,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      action: z.enum(["reply", "resolve", "unresolve", "inline"]),
+      threadId: z.string().min(1).max(2000).optional(),
+      body: z.string().max(100_000).optional(),
+      path: path.optional(),
+      line: z.number().int().positive().optional(),
+      side: z.enum(["LEFT", "RIGHT"]).optional(),
+    })
+    .strict()
+)
 export const GitHubPrCommentRequestSchema = input(
   "git.github-pr-comment.request",
   z
@@ -773,6 +826,14 @@ export const GitHubPrActivityResponseSchema = output(
   "git.github-pr-activity.response",
   GitHubPullRequestActivitySchema
 )
+export const GitHubPrThreadsResponseSchema = output(
+  "git.github-pr-threads.response",
+  GitHubPullRequestThreadsSchema
+)
+export const GitHubPrThreadActionResponseSchema = output(
+  "git.github-pr-thread-action.response",
+  success
+)
 export const GitHubPrCommentResponseSchema = output("git.github-pr-comment.response", success)
 export const GitHubPrReviewResponseSchema = output("git.github-pr-review.response", success)
 export const GitHubPrSetStateResponseSchema = output("git.github-pr-set-state.response", success)
@@ -863,6 +924,8 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubPrToggleAutoMergeRequestSchema,
   GitHubPrChecksRequestSchema,
   GitHubPrActivityRequestSchema,
+  GitHubPrThreadsRequestSchema,
+  GitHubPrThreadActionRequestSchema,
   GitHubPrCommentRequestSchema,
   GitHubPrReviewRequestSchema,
   GitHubPrSetStateRequestSchema,
@@ -923,6 +986,8 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubPrToggleAutoMergeResponseSchema,
   GitHubPrChecksResponseSchema,
   GitHubPrActivityResponseSchema,
+  GitHubPrThreadsResponseSchema,
+  GitHubPrThreadActionResponseSchema,
   GitHubPrCommentResponseSchema,
   GitHubPrReviewResponseSchema,
   GitHubPrSetStateResponseSchema,
@@ -962,6 +1027,7 @@ export type GitHubAppPullRequest = z.infer<typeof GitHubAppPullRequestSchema>
 export type GitHubPullRequest = z.infer<typeof GitHubPullRequestSchema>
 export type GitHubPullRequestChecks = z.infer<typeof GitHubPullRequestChecksSchema>
 export type GitHubPullRequestActivity = z.infer<typeof GitHubPullRequestActivitySchema>
+export type GitHubPullRequestThreads = z.infer<typeof GitHubPullRequestThreadsSchema>
 export type GitLabMergeRequest = z.infer<typeof GitLabMergeRequestSchema>
 export type GitLabMergeRequestNote = z.infer<typeof GitLabMergeRequestNoteSchema>
 export type GitLabMergeRequestChecks = z.infer<typeof GitLabMergeRequestChecksSchema>

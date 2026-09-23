@@ -12,6 +12,7 @@ import type {
   GitHubPullRequest,
   GitHubPullRequestActivity,
   GitHubPullRequestChecks,
+  GitHubPullRequestThreads,
   GitLabMergeRequest,
   GitLabMergeRequestChecks,
   GitLabMergeRequestNote,
@@ -201,6 +202,26 @@ export interface GitActions {
     number: number,
     options?: RequestOptions
   ): Promise<GitHubPullRequestActivity>
+  githubPrThreads(
+    cwd: string,
+    number: number,
+    expectedHead: string,
+    options?: RequestOptions
+  ): Promise<GitHubPullRequestThreads>
+  githubPrThreadAction(
+    cwd: string,
+    input: {
+      number: number
+      expectedHead: string
+      action: "reply" | "resolve" | "unresolve" | "inline"
+      threadId?: string
+      body?: string
+      path?: string
+      line?: number
+      side?: "LEFT" | "RIGHT"
+    },
+    options?: RequestOptions
+  ): Promise<void>
   githubPrComment(
     cwd: string,
     number: number,
@@ -439,6 +460,19 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(await client.requestGit("git.github-pr-checks.request", { cwd, number }, options)),
   githubPrActivity: async (cwd, number, options) =>
     unwrap(await client.requestGit("git.github-pr-activity.request", { cwd, number }, options)),
+  githubPrThreads: async (cwd, number, expectedHead, options) =>
+    unwrap(
+      await client.requestGit(
+        "git.github-pr-threads.request",
+        { cwd, number, expectedHead },
+        options
+      )
+    ),
+  githubPrThreadAction: async (cwd, input, options) => {
+    unwrap(
+      await client.requestGit("git.github-pr-thread-action.request", { cwd, ...input }, options)
+    )
+  },
   githubPrComment: async (cwd, number, expectedHead, body, options) => {
     unwrap(
       await client.requestGit(

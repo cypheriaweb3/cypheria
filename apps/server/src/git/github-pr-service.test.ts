@@ -40,6 +40,13 @@ fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify(args) + "\\n")
 const bodyFile = args.indexOf("--body-file")
 if (bodyFile >= 0) fs.appendFileSync(${JSON.stringify(log)}, JSON.stringify({ body: fs.readFileSync(args[bodyFile + 1], "utf8") }) + "\\n")
 if (args[0] === "--version") process.stdout.write("gh version 1\\n")
+else if (args[0] === "api" && args[1] === "graphql") {
+  const request = JSON.parse(fs.readFileSync(args[args.indexOf("--input") + 1], "utf8"))
+  if (request.query.includes("reviewThreads")) process.stdout.write(JSON.stringify({ data: { repository: { pullRequest: { reviewThreads: { nodes: [{ id: "THREAD_1", path: "file.txt", line: 2, isResolved: false, viewerCanResolve: true, viewerCanUnresolve: false, comments: { nodes: [{ id: "COMMENT_1", body: "Please fix", createdAt: "2026-09-23T00:00:00Z", author: { login: "reviewer" } }], pageInfo: { hasNextPage: false } } }], pageInfo: { hasNextPage: false } } } } } }))
+  else if (request.query.includes("addPullRequestReviewThreadReply")) process.stdout.write(JSON.stringify({ data: { addPullRequestReviewThreadReply: { comment: { id: "COMMENT_2" } } } }))
+  else if (request.query.includes("resolveReviewThread")) process.stdout.write(JSON.stringify({ data: { resolveReviewThread: { thread: { id: "THREAD_1" } } } }))
+}
+else if (args[0] === "api" && args.includes("--method")) process.stdout.write(JSON.stringify({ id: 1 }))
 else if (args[0] === "api") process.stdout.write("tester\\n")
 else if (args[0] === "repo") process.stdout.write("org/repo\\n")
 else if (args[1] === "list") process.stdout.write(args.includes("--head") && !args.includes("existing") ? "[]" : ${JSON.stringify(JSON.stringify([pr]))})
@@ -92,6 +99,66 @@ else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
         },
       ],
     })
+    expect(await service.threads(cwd, 42, pr.headRefOid)).toEqual({
+      threads: [
+        {
+          id: "THREAD_1",
+          path: "file.txt",
+          line: 2,
+          isResolved: false,
+          canResolve: true,
+          canUnresolve: false,
+          comments: [
+            {
+              id: "COMMENT_1",
+              body: "Please fix",
+              author: "reviewer",
+              createdAt: "2026-09-23T00:00:00Z",
+            },
+          ],
+        },
+      ],
+      truncated: false,
+    })
+    await service.threadAction(cwd, {
+      number: 42,
+      expectedHead: pr.headRefOid,
+      action: "reply",
+      threadId: "THREAD_1",
+      body: "Fixed",
+    })
+    await service.threadAction(cwd, {
+      number: 42,
+      expectedHead: pr.headRefOid,
+      action: "resolve",
+      threadId: "THREAD_1",
+    })
+    await service.threadAction(cwd, {
+      number: 42,
+      expectedHead: pr.headRefOid,
+      action: "inline",
+      path: "file.txt",
+      line: 2,
+      side: "RIGHT",
+      body: "Please fix",
+    })
+    await expect(
+      service.threadAction(cwd, {
+        number: 42,
+        expectedHead: pr.headRefOid,
+        action: "reply",
+        threadId: "OTHER",
+        body: "Wrong",
+      })
+    ).rejects.toThrow("unavailable")
+    await expect(
+      service.threadAction(cwd, {
+        number: 42,
+        expectedHead: "b".repeat(40),
+        action: "resolve",
+        threadId: "THREAD_1",
+      })
+    ).rejects.toThrow("head changed")
     await service.comment(cwd, 42, pr.headRefOid, "Please check this")
     await service.review(cwd, 42, pr.headRefOid, "approve", "Approved")
     expect(

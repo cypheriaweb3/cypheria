@@ -10,6 +10,8 @@ import {
   type GitHubPullRequestChecks,
   GitHubPullRequestChecksSchema,
   GitHubPullRequestSchema,
+  type GitHubPullRequestThreads,
+  GitHubPullRequestThreadsSchema,
 } from "@cypheria/protocol"
 import { z } from "zod"
 
@@ -46,6 +48,10 @@ const operand = (value: string, name: string): string => {
     throw new Error(`Invalid GitHub ${name}`)
   return value
 }
+const threadQuery = `query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){reviewThreads(first:100){nodes{id path line isResolved viewerCanResolve viewerCanUnresolve comments(first:100){nodes{id body createdAt author{login}} pageInfo{hasNextPage}}} pageInfo{hasNextPage}}}}}`
+const threadReplyMutation = `mutation($threadId:ID!,$body:String!){addPullRequestReviewThreadReply(input:{pullRequestReviewThreadId:$threadId,body:$body}){comment{id}}}`
+const threadResolveMutation = `mutation($threadId:ID!){resolveReviewThread(input:{threadId:$threadId}){thread{id}}}`
+const threadUnresolveMutation = `mutation($threadId:ID!){unresolveReviewThread(input:{threadId:$threadId}){thread{id}}}`
 
 export class GitHubPrService {
   readonly #binary: string
@@ -215,6 +221,178 @@ export class GitHubPrService {
         submittedAt: review.submittedAt ?? "",
       })),
     }
+  }
+
+  async threads(
+    cwd: string,
+    number: number,
+    expectedHead: string
+  ): Promise<GitHubPullRequestThreads> {
+    const pr = await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    const repository = this.#repositoryIdentity(pr.url, number)
+    const response = z
+      .object({
+        repository: z
+          .object({
+            pullRequest: z
+              .object({
+                reviewThreads: z.object({
+                  nodes: z.array(
+                    z.object({
+                      id: z.string(),
+                      path: z.string(),
+                      line: z.number().int().nullable(),
+                      isResolved: z.boolean(),
+                      viewerCanResolve: z.boolean(),
+                      viewerCanUnresolve: z.boolean(),
+                      comments: z.object({
+                        nodes: z.array(
+                          z.object({
+                            id: z.string(),
+                            body: z.string(),
+                            createdAt: z.string(),
+                            author: z.object({ login: z.string() }).nullable(),
+                          })
+                        ),
+                        pageInfo: z.object({ hasNextPage: z.boolean() }),
+                      }),
+                    })
+                  ),
+                  pageInfo: z.object({ hasNextPage: z.boolean() }),
+                }),
+              })
+              .nullable(),
+          })
+          .nullable(),
+      })
+      .parse(
+        await this.#graphql(cwd, repository.host, threadQuery, {
+          owner: repository.owner,
+          repo: repository.repo,
+          number,
+        })
+      )
+    if (!response.repository?.pullRequest) throw new Error("GitHub pull request is unavailable")
+    const connection = response.repository.pullRequest.reviewThreads
+    await this.#assertCurrentHead(cwd, number, expectedHead, false)
+    return GitHubPullRequestThreadsSchema.parse({
+      threads: connection.nodes.map((thread) => ({
+        id: thread.id,
+        path: thread.path,
+        line: thread.line,
+        isResolved: thread.isResolved,
+        canResolve: thread.viewerCanResolve,
+        canUnresolve: thread.viewerCanUnresolve,
+        comments: thread.comments.nodes.map((comment) => ({
+          id: comment.id,
+          body: comment.body,
+          author: comment.author?.login ?? null,
+          createdAt: comment.createdAt,
+        })),
+      })),
+      truncated:
+        connection.pageInfo.hasNextPage ||
+        connection.nodes.some((thread) => thread.comments.pageInfo.hasNextPage),
+    })
+  }
+
+  async threadAction(
+    cwd: string,
+    input: {
+      number: number
+      expectedHead: string
+      action: "reply" | "resolve" | "unresolve" | "inline"
+      threadId?: string
+      body?: string
+      path?: string
+      line?: number
+      side?: "LEFT" | "RIGHT"
+    }
+  ): Promise<void> {
+    const pr = await this.#assertCurrentHead(cwd, input.number, input.expectedHead)
+    const repository = this.#repositoryIdentity(pr.url, input.number)
+    if (input.action === "inline") {
+      const path = input.path
+      if (
+        !path ||
+        path.startsWith("/") ||
+        path.startsWith("-") ||
+        path.split("/").includes("..") ||
+        /[\0\r\n]/u.test(path) ||
+        path.length > 1000
+      )
+        throw new Error("Invalid GitHub PR comment path")
+      if (
+        !input.body?.trim() ||
+        input.body.length > 100_000 ||
+        !Number.isInteger(input.line) ||
+        (input.line ?? 0) < 1 ||
+        !input.side
+      )
+        throw new Error("Invalid GitHub PR inline comment")
+      await this.#withBodyFile(
+        JSON.stringify({
+          body: input.body.trim(),
+          commit_id: input.expectedHead,
+          path,
+          line: input.line,
+          side: input.side,
+        }),
+        async (bodyFile) => {
+          await this.#run(cwd, [
+            "api",
+            "--method",
+            "POST",
+            `repos/${repository.owner}/${repository.repo}/pulls/${input.number}/comments`,
+            "--input",
+            bodyFile,
+            "--hostname",
+            repository.host,
+          ])
+        }
+      )
+      return
+    }
+    const threadId = input.threadId
+    if (!threadId || threadId.length > 2000 || /[\0\r\n]/u.test(threadId))
+      throw new Error("Invalid GitHub PR review thread")
+    const threads = await this.threads(cwd, input.number, input.expectedHead)
+    const thread = threads.threads.find((entry) => entry.id === threadId)
+    if (!thread) throw new Error("GitHub PR review thread is unavailable")
+    if (input.action === "reply") {
+      if (!input.body?.trim() || input.body.length > 100_000)
+        throw new Error("GitHub PR reply body is required")
+      const data = z
+        .object({
+          addPullRequestReviewThreadReply: z.object({ comment: z.object({ id: z.string() }) }),
+        })
+        .parse(
+          await this.#graphql(cwd, repository.host, threadReplyMutation, {
+            threadId,
+            body: input.body.trim(),
+          })
+        )
+      if (!data.addPullRequestReviewThreadReply.comment.id)
+        throw new Error("GitHub PR reply failed")
+      return
+    }
+    if (input.action === "resolve" || input.action === "unresolve") {
+      if (input.action === "resolve" && (thread.isResolved || !thread.canResolve))
+        throw new Error("GitHub PR thread cannot be resolved")
+      if (input.action === "unresolve" && (!thread.isResolved || !thread.canUnresolve))
+        throw new Error("GitHub PR thread cannot be reopened")
+      const field = input.action === "resolve" ? "resolveReviewThread" : "unresolveReviewThread"
+      z.object({ [field]: z.object({ thread: z.object({ id: z.string() }) }) }).parse(
+        await this.#graphql(
+          cwd,
+          repository.host,
+          input.action === "resolve" ? threadResolveMutation : threadUnresolveMutation,
+          { threadId }
+        )
+      )
+      return
+    }
+    throw new Error("Invalid GitHub PR thread action")
   }
 
   async comment(cwd: string, number: number, expectedHead: string, body: string): Promise<void> {
@@ -389,6 +567,44 @@ export class GitHubPrService {
       expectedHead,
     ])
     return this.read(cwd, number)
+  }
+
+  #repositoryIdentity(url: string, number: number): { host: string; owner: string; repo: string } {
+    const parsed = new URL(url)
+    const match = parsed.pathname.match(/^\/([A-Za-z0-9-]+)\/([A-Za-z0-9_.-]+)\/pull\/(\d+)\/?$/u)
+    if (
+      parsed.protocol !== "https:" ||
+      parsed.username ||
+      parsed.password ||
+      parsed.search ||
+      parsed.hash ||
+      !match ||
+      Number(match[3]) !== number
+    )
+      throw new Error("GitHub pull request URL does not match the repository")
+    return { host: parsed.hostname, owner: match[1] ?? "", repo: match[2] ?? "" }
+  }
+
+  async #graphql(
+    cwd: string,
+    host: string,
+    query: string,
+    variables: Record<string, string | number>
+  ): Promise<unknown> {
+    const raw = await this.#withBodyFile(JSON.stringify({ query, variables }), (bodyFile) =>
+      this.#run(cwd, ["api", "graphql", "--input", bodyFile, "--hostname", host])
+    )
+    const response = z
+      .object({
+        data: z.unknown().optional(),
+        errors: z.array(z.object({ message: z.string() })).optional(),
+      })
+      .passthrough()
+      .parse(JSON.parse(raw))
+    if (response.errors?.length)
+      throw new Error(response.errors.map((error) => error.message).join("; "))
+    if (response.data == null) throw new Error("GitHub GraphQL returned no data")
+    return response.data
   }
 
   async #withBodyFile<T>(body: string, use: (path: string) => Promise<T>): Promise<T> {
