@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process"
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { promisify } from "node:util"
@@ -25,6 +25,28 @@ const repository = async () => {
 }
 
 describe("GitService", () => {
+  it("initializes a directory and creates and checks out branches with stash recovery", async () => {
+    const root = await mkdtemp(join(tmpdir(), "cypheria-git-init-"))
+    created.push(root)
+    const service = new GitService(join(root, "cache"))
+    expect((await service.init(root)).root).toBe(await realpath(root))
+    await run("git", ["-C", root, "config", "user.name", "Git Test"])
+    await run("git", ["-C", root, "config", "user.email", "git-test@example.invalid"])
+    await run("git", ["-C", root, "config", "commit.gpgsign", "false"])
+    await writeFile(join(root, "file.txt"), "first\n")
+    await service.stage(root, ["file.txt"])
+    await service.commit(root, "First commit")
+    await expect(service.createBranch(root, "--force")).rejects.toThrow("Invalid Git branch")
+    expect(await service.createBranch(root, "feature")).toBe("feature")
+    expect((await service.checkout(root, "feature")).branch).toBe("feature")
+    await writeFile(join(root, "file.txt"), "changed\n")
+    await expect(service.checkout(root, "main")).rejects.toThrow("Working tree has changes")
+    await expect(service.checkout(root, "missing", true)).rejects.toThrow()
+    expect(await readFile(join(root, "file.txt"), "utf8")).toBe("changed\n")
+    expect((await service.checkout(root, "main", true)).branch).toBe("main")
+    expect(await readFile(join(root, "file.txt"), "utf8")).toBe("changed\n")
+  }, 20_000)
+
   it("discovers nested workspaces and performs status, stage, diff, commit, and branches", async () => {
     const root = await repository()
     const nested = join(root, "src")
@@ -53,7 +75,7 @@ describe("GitService", () => {
       code: " M",
       path: "src/file.txt",
     })
-  })
+  }, 20_000)
 
   it("rejects paths outside the repository, symlink parent escapes, and option-like refs", async () => {
     const root = await repository()

@@ -13,6 +13,19 @@ export interface GitActions {
   discover(cwd: string, options?: RequestOptions): Promise<GitRepository>
   status(cwd: string, options?: RequestOptions): Promise<GitStatus>
   branches(cwd: string, options?: RequestOptions): Promise<GitBranch[]>
+  init(cwd: string, options?: RequestOptions): Promise<GitRepository>
+  createBranch(
+    cwd: string,
+    name: string,
+    startPoint?: string,
+    options?: RequestOptions
+  ): Promise<string>
+  checkout(
+    cwd: string,
+    target: string,
+    stashChanges?: boolean,
+    options?: RequestOptions
+  ): Promise<GitStatus>
   diff(
     cwd: string,
     input?: { staged?: boolean; base?: string; paths?: string[] },
@@ -35,6 +48,14 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(await client.requestGit("git.status.request", { cwd }, options)),
   branches: async (cwd, options) =>
     unwrap(await client.requestGit("git.branches.request", { cwd }, options)),
+  init: async (cwd, options) =>
+    unwrap(await client.requestGit("git.init.request", { cwd }, options)),
+  createBranch: async (cwd, name, startPoint, options) =>
+    unwrap<{ name: string }>(
+      await client.requestGit("git.branch-create.request", { cwd, name, startPoint }, options)
+    ).name,
+  checkout: async (cwd, target, stashChanges, options) =>
+    unwrap(await client.requestGit("git.checkout.request", { cwd, target, stashChanges }, options)),
   diff: async (cwd, input = {}, options) =>
     unwrap<{ diff: string }>(
       await client.requestGit("git.diff.request", { cwd, ...input }, options)

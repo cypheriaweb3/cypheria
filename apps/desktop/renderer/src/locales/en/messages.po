@@ -159,6 +159,11 @@ msgid "settings.workspace.bottomPanelControl.title"
 msgstr "Bottom panel control"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.branch"
+msgstr "Branch"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.browser"
 msgstr "Browser"
@@ -314,6 +319,11 @@ msgstr "Could not search chats."
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sidebarActionFailed"
 msgstr "Couldn’t update the sidebar"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.createBranch"
+msgstr "Create"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
@@ -552,6 +562,11 @@ msgid "navigation.inOneList"
 msgstr "In one list"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.init"
+msgstr "Initialize repository"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.tool.input"
 msgstr "Input"
@@ -672,6 +687,11 @@ msgstr "Move terminal to bottom"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.networks"
 msgstr "Networks"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.newBranch"
+msgstr "New branch name"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -1161,6 +1181,11 @@ msgid "navigation.section"
 msgstr "Section"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.selectBranch"
+msgstr "Select branch"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.prompt.send"
 msgstr "Send"
@@ -1277,6 +1302,11 @@ msgid "settings.general.standaloneChatDescription"
 msgstr "Start new chats outside of any project"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.stashChanges"
+msgstr "Stash local changes before switching"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.steerOption"
 msgstr "Steer"
@@ -1305,6 +1335,11 @@ msgstr "Subagents"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.summary"
 msgstr "Summary"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.switch"
+msgstr "Switch"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx

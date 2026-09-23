@@ -45,6 +45,15 @@ export const GitBranchesRequestSchema = input(
   "git.branches.request",
   z.object({ cwd: path }).strict()
 )
+export const GitInitRequestSchema = input("git.init.request", z.object({ cwd: path }).strict())
+export const GitBranchCreateRequestSchema = input(
+  "git.branch-create.request",
+  z.object({ cwd: path, name: z.string().min(1), startPoint: z.string().optional() }).strict()
+)
+export const GitCheckoutRequestSchema = input(
+  "git.checkout.request",
+  z.object({ cwd: path, target: z.string().min(1), stashChanges: z.boolean().optional() }).strict()
+)
 export const GitDiffRequestSchema = input(
   "git.diff.request",
   z
@@ -85,6 +94,12 @@ const success = z.object({ succeeded: z.literal(true) }).strict()
 export const GitDiscoverResponseSchema = output("git.discover.response", GitRepositorySchema)
 export const GitStatusResponseSchema = output("git.status.response", GitStatusSchema)
 export const GitBranchesResponseSchema = output("git.branches.response", z.array(GitBranchSchema))
+export const GitInitResponseSchema = output("git.init.response", GitRepositorySchema)
+export const GitBranchCreateResponseSchema = output(
+  "git.branch-create.response",
+  z.object({ name: z.string() }).strict()
+)
+export const GitCheckoutResponseSchema = output("git.checkout.response", GitStatusSchema)
 export const GitDiffResponseSchema = output(
   "git.diff.response",
   z.object({ diff: z.string() }).strict()
@@ -104,6 +119,9 @@ export const GIT_CLIENT_SCHEMAS = [
   GitDiscoverRequestSchema,
   GitStatusRequestSchema,
   GitBranchesRequestSchema,
+  GitInitRequestSchema,
+  GitBranchCreateRequestSchema,
+  GitCheckoutRequestSchema,
   GitDiffRequestSchema,
   GitStageRequestSchema,
   GitUnstageRequestSchema,
@@ -114,6 +132,9 @@ export const GIT_SERVER_SCHEMAS = [
   GitDiscoverResponseSchema,
   GitStatusResponseSchema,
   GitBranchesResponseSchema,
+  GitInitResponseSchema,
+  GitBranchCreateResponseSchema,
+  GitCheckoutResponseSchema,
   GitDiffResponseSchema,
   GitStageResponseSchema,
   GitUnstageResponseSchema,

@@ -6,11 +6,14 @@ import {
   ChatReviewPanel,
   ChatReviewToolbar,
 } from "@cypheria/ui/components/chat"
+import { Checkbox } from "@cypheria/ui/components/checkbox"
+import { Input } from "@cypheria/ui/components/input"
+import { NativeSelect, NativeSelectOption } from "@cypheria/ui/components/native-select"
 import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { type ReactNode, useState } from "react"
+import { type ReactNode, useId, useState } from "react"
 
 import { ensureCypheriaClient } from "../cypheria-client.js"
 
@@ -25,16 +28,27 @@ const statusKind = (code: string): ChatReviewFileDescriptor["status"] => {
 }
 
 export function GitReviewPanel({ cwd, fallback }: Readonly<{ cwd: string; fallback: ReactNode }>) {
+  const stashId = useId()
   const { i18n } = useLingui()
   const queryClient = useQueryClient()
   const [source, setSource] = useState<ReviewSource>("unstaged")
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [message, setMessage] = useState("")
+  const [targetBranch, setTargetBranch] = useState("")
+  const [newBranch, setNewBranch] = useState("")
+  const [stashChanges, setStashChanges] = useState(false)
   const [busy, setBusy] = useState(false)
   const [actionError, setActionError] = useState<string | null>(null)
   const status = useQuery({
     queryKey: ["git", cwd, "status"],
     queryFn: async () => (await ensureCypheriaClient()).git.status(cwd),
+    refetchInterval: 3_000,
+    retry: false,
+  })
+  const branches = useQuery({
+    enabled: Boolean(status.data),
+    queryKey: ["git", cwd, "branches"],
+    queryFn: async () => (await ensureCypheriaClient()).git.branches(cwd),
     refetchInterval: 3_000,
     retry: false,
   })
@@ -75,7 +89,29 @@ export function GitReviewPanel({ cwd, fallback }: Readonly<{ cwd: string; fallba
     status: statusKind(entry.code),
   }))
 
-  if (status.isError && fallback) return fallback
+  if (status.isError) {
+    const canInit = /not a git repository/iu.test(status.error.message)
+    return (
+      <>
+        <div className="space-y-2 border-b p-3">
+          <p className="text-sm text-muted-foreground">{status.error.message}</p>
+          {canInit ? (
+            <Button
+              disabled={busy}
+              onClick={() => void mutate(async () => (await ensureCypheriaClient()).git.init(cwd))}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <Trans id="git.review.init">Initialize repository</Trans>
+            </Button>
+          ) : null}
+          {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
+        </div>
+        {fallback}
+      </>
+    )
+  }
 
   return (
     <ChatReviewPanel>
@@ -100,8 +136,77 @@ export function GitReviewPanel({ cwd, fallback }: Readonly<{ cwd: string; fallba
           {status.data?.branch ?? "HEAD"}
         </span>
       </ChatReviewToolbar>
-      {status.isError ? (
-        <p className="p-3 text-sm text-destructive">{status.error.message}</p>
+      {status.data ? (
+        <div className="space-y-2 border-b p-2">
+          <div className="flex items-center gap-2">
+            <NativeSelect
+              aria-label={i18n._(msg({ id: "git.review.branch", message: "Branch" }))}
+              className="min-w-0 flex-1"
+              onChange={(event) => setTargetBranch(event.target.value)}
+              size="sm"
+              value={targetBranch || status.data.branch || ""}
+            >
+              <NativeSelectOption value="">
+                <Trans id="git.review.selectBranch">Select branch</Trans>
+              </NativeSelectOption>
+              {branches.data?.map((branch) => (
+                <NativeSelectOption key={branch.name} value={branch.name}>
+                  {branch.name}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+            <Button
+              disabled={busy || !targetBranch || targetBranch === status.data.branch}
+              onClick={() =>
+                void mutate(async () =>
+                  (await ensureCypheriaClient()).git.checkout(cwd, targetBranch, stashChanges)
+                )
+              }
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <Trans id="git.review.switch">Switch</Trans>
+            </Button>
+          </div>
+          <label
+            className="flex items-center gap-2 text-xs text-muted-foreground"
+            htmlFor={stashId}
+          >
+            <Checkbox
+              id={stashId}
+              checked={stashChanges}
+              onCheckedChange={(checked) => setStashChanges(checked === true)}
+            />
+            <Trans id="git.review.stashChanges">Stash local changes before switching</Trans>
+          </label>
+          <div className="flex gap-2">
+            <Input
+              aria-label={i18n._(msg({ id: "git.review.newBranch", message: "New branch name" }))}
+              onChange={(event) => setNewBranch(event.target.value)}
+              placeholder={i18n._(msg({ id: "git.review.newBranch", message: "New branch name" }))}
+              value={newBranch}
+            />
+            <Button
+              disabled={busy || !newBranch.trim()}
+              onClick={() =>
+                void mutate(async () => {
+                  const name = await (await ensureCypheriaClient()).git.createBranch(
+                    cwd,
+                    newBranch.trim()
+                  )
+                  setTargetBranch(name)
+                  setNewBranch("")
+                })
+              }
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <Trans id="git.review.createBranch">Create</Trans>
+            </Button>
+          </div>
+        </div>
       ) : null}
       {status.isPending ? (
         <p className="p-3 text-sm text-muted-foreground">
@@ -159,7 +264,7 @@ export function GitReviewPanel({ cwd, fallback }: Readonly<{ cwd: string; fallba
       ) : null}
       {status.data ? (
         <div className="space-y-2 border-t p-2">
-          <input
+          <Input
             aria-label={i18n._(msg({ id: "git.review.commitMessage", message: "Commit message" }))}
             className="h-8 w-full rounded border bg-background px-2 text-sm"
             onChange={(event) => setMessage(event.target.value)}

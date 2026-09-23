@@ -48,6 +48,25 @@ export class GitService {
         case "git.branches.request":
           value = await this.branches(message.payload.cwd)
           break
+        case "git.init.request":
+          value = await this.init(message.payload.cwd)
+          break
+        case "git.branch-create.request":
+          value = {
+            name: await this.createBranch(
+              message.payload.cwd,
+              message.payload.name,
+              message.payload.startPoint
+            ),
+          }
+          break
+        case "git.checkout.request":
+          value = await this.checkout(
+            message.payload.cwd,
+            message.payload.target,
+            message.payload.stashChanges
+          )
+          break
         case "git.diff.request":
           value = { diff: await this.diff(message.payload.cwd, message.payload) }
           break
@@ -99,6 +118,104 @@ export class GitService {
       ).stdout
     )
     return { commonGitDir: await realpath(commonGitDir), root: await realpath(root) }
+  }
+
+  async init(cwd: string): Promise<GitRepository> {
+    const existing = await this.discover(cwd).catch(() => null)
+    if (existing) throw new Error(`Directory is already in Git repository ${existing.root}`)
+    await this.#executor.run(cwd, ["init", "--initial-branch=main"])
+    return this.discover(cwd)
+  }
+
+  async createBranch(cwd: string, name: string, startPoint?: string): Promise<string> {
+    const repository = await this.discover(cwd)
+    const branch = validateOperand(name, "branch")
+    await this.#executor.run(repository.root, ["check-ref-format", "--branch", branch], {
+      readOnly: true,
+    })
+    let start: string | undefined
+    if (startPoint) {
+      const ref = validateOperand(startPoint, "start point")
+      start = (
+        await this.#executor.run(
+          repository.root,
+          ["rev-parse", "--verify", "--end-of-options", `${ref}^{commit}`],
+          { readOnly: true }
+        )
+      ).stdout.trim()
+    }
+    await this.#executor.run(repository.root, ["branch", "--", branch, ...(start ? [start] : [])])
+    return branch
+  }
+
+  async checkout(cwd: string, target: string, stashChanges = false): Promise<GitStatus> {
+    const repository = await this.discover(cwd)
+    const ref = validateOperand(target, "checkout target")
+    const previous = await this.status(repository.root)
+    if (previous.entries.length > 0 && !stashChanges) {
+      throw new Error("Working tree has changes; choose stashChanges to preserve them")
+    }
+    const stashBefore = stashChanges ? await this.#stashHead(repository.root) : null
+    if (stashChanges && previous.entries.length > 0) {
+      await this.#executor.run(repository.root, [
+        "stash",
+        "push",
+        "--include-untracked",
+        "-m",
+        "Cypheria branch checkout",
+      ])
+    }
+    const stashAfter = stashChanges ? await this.#stashHead(repository.root) : null
+    const createdStash = stashAfter !== null && stashAfter !== stashBefore
+    try {
+      const local = await this.#executor
+        .run(repository.root, ["show-ref", "--verify", "--quiet", `refs/heads/${ref}`], {
+          readOnly: true,
+        })
+        .then(
+          () => true,
+          () => false
+        )
+      if (local) {
+        await this.#executor.run(repository.root, ["switch", "--", ref])
+      } else if (/^[a-f0-9]{40,64}$/iu.test(ref)) {
+        await this.#executor.run(repository.root, ["switch", "--detach", ref])
+      } else {
+        await this.#executor.run(repository.root, ["switch", "--guess", "--", ref])
+      }
+    } catch (error) {
+      if (createdStash) {
+        try {
+          await this.#executor.run(repository.root, ["stash", "pop", "--index"])
+        } catch (restoreError) {
+          throw new Error(
+            `Checkout failed and saved changes need recovery from stash ${stashAfter}: ${String(restoreError)}`,
+            { cause: error }
+          )
+        }
+      }
+      throw error
+    }
+    if (createdStash) {
+      try {
+        await this.#executor.run(repository.root, ["stash", "pop", "--index"])
+      } catch (error) {
+        throw new Error(
+          `Branch changed, but saved changes need recovery from stash ${stashAfter}: ${String(error)}`,
+          { cause: error }
+        )
+      }
+    }
+    return this.status(repository.root)
+  }
+
+  async #stashHead(root: string): Promise<string | null> {
+    return this.#executor
+      .run(root, ["rev-parse", "--verify", "refs/stash"], { readOnly: true })
+      .then(
+        ({ stdout }) => stdout.trim(),
+        () => null
+      )
   }
 
   async status(cwd: string): Promise<GitStatus> {

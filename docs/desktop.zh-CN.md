@@ -70,7 +70,7 @@ AgentChatWorkspace
   └─ SharedPanels
 ```
 
-对于有本地工作目录的会话，Codex 的 Review 面板通过 Server Git API 读取仓库。它展示已暂存及未暂存的文件和文本差异，并提供文件暂存、取消暂存、提交与推送操作。面板优先使用会话工作目录，并在打开时刷新本地状态。
+对于有本地工作目录的会话，Codex 的 Review 面板通过 Server Git API 读取仓库。它展示已暂存及未暂存的文件和文本差异，并提供仓库初始化、分支创建与切换、文件暂存、取消暂存、提交与推送操作。面板优先使用会话工作目录，并在打开时刷新本地状态。
 
 共同体验包括草稿、附件、临时到持久 Thread 转换、每 Thread scope、流式输出、取消、重试、虚拟 Timeline、滚动锚点、位置恢复、未读、搜索、导航、reasoning、plans、tools、commands、diffs、terminals、approvals、artifacts 和故障恢复。
 

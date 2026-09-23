@@ -159,6 +159,11 @@ msgid "settings.workspace.bottomPanelControl.title"
 msgstr "底部面板控件"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.branch"
+msgstr "分支"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.browser"
 msgstr "浏览器"
@@ -314,6 +319,11 @@ msgstr "无法搜索对话。"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.sidebarActionFailed"
 msgstr "侧栏操作失败"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.createBranch"
+msgstr "创建"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
@@ -552,6 +562,11 @@ msgid "navigation.inOneList"
 msgstr "合并为一个列表"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.init"
+msgstr "初始化仓库"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.tool.input"
 msgstr "输入"
@@ -672,6 +687,11 @@ msgstr "将终端移到底部"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.networks"
 msgstr "网络"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.newBranch"
+msgstr "新分支名称"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -1161,6 +1181,11 @@ msgid "navigation.section"
 msgstr "分区"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.selectBranch"
+msgstr "选择分支"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.prompt.send"
 msgstr "发送"
@@ -1277,6 +1302,11 @@ msgid "settings.general.standaloneChatDescription"
 msgstr "在任何项目之外开始新聊天"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.stashChanges"
+msgstr "切换前储藏本地更改"
+
+#. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.steerOption"
 msgstr "引导当前运行"
@@ -1305,6 +1335,11 @@ msgstr "子代理"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.summary"
 msgstr "摘要"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/git-review-panel.tsx
+msgid "git.review.switch"
+msgstr "切换"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx

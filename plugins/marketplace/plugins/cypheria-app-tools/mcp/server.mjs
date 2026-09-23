@@ -19,6 +19,19 @@ const tools = [
   tool("git_discover", "Find the local repository root and common Git directory.", {}),
   tool("git_status", "Read branch, HEAD, and changed files in a local repository.", {}),
   tool("git_branches", "List local branches and their commit IDs.", {}),
+  tool("git_init", "Initialize a Git repository in an existing local directory.", {}),
+  tool(
+    "git_branch_create",
+    "Create a local branch from HEAD or a start point.",
+    { name: { type: "string" }, startPoint: { type: "string" } },
+    ["cwd", "name"]
+  ),
+  tool(
+    "git_checkout",
+    "Switch branches, optionally stashing and restoring local changes.",
+    { target: { type: "string" }, stashChanges: { type: "boolean" } },
+    ["cwd", "target"]
+  ),
   tool("git_diff", "Read a staged, unstaged, or base-ref diff.", {
     staged: { type: "boolean" },
     base: { type: "string" },
@@ -76,7 +89,7 @@ const handle = async (request) => {
       reply(id, {
         protocolVersion: params?.protocolVersion || "2025-03-26",
         capabilities: { tools: {} },
-        serverInfo: { name: "cypheria-app-tools", version: "0.1.0" },
+        serverInfo: { name: "cypheria-app-tools", version: "0.2.0" },
       })
       return
     case "ping":

@@ -542,7 +542,7 @@ export class IntegrationService {
     const entry = installed.marketplaces
       .find((marketplace) => marketplace.name === cypheriaMarketplace)
       ?.plugins.find((plugin) => plugin.name === "cypheria-app-tools")
-    if (!entry?.installed) {
+    if (!entry?.installed || entry.localVersion !== entry.version) {
       await this.#call<v2.PluginInstallResponse>("plugin/install", {
         installAttemptId: randomUUID(),
         marketplacePath: join(registered.installedRoot, ".agents", "plugins", "marketplace.json"),
