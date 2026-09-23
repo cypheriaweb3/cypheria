@@ -6,6 +6,8 @@ import { promisify } from "node:util"
 import {
   type GitHubAvailability,
   type GitHubPullRequest,
+  type GitHubPullRequestChecks,
+  GitHubPullRequestChecksSchema,
   GitHubPullRequestSchema,
 } from "@cypheria/protocol"
 
@@ -91,6 +93,35 @@ export class GitHubPrService {
   async read(cwd: string, number: number): Promise<GitHubPullRequest> {
     const result = await this.#run(cwd, ["pr", "view", String(number), "--json", fields])
     return GitHubPullRequestSchema.parse(JSON.parse(result))
+  }
+
+  async checks(cwd: string, number: number): Promise<GitHubPullRequestChecks> {
+    const result = await this.#run(
+      cwd,
+      [
+        "pr",
+        "checks",
+        String(number),
+        "--json",
+        "bucket,completedAt,link,name,startedAt,state,workflow",
+      ],
+      { allowExitCodes: [1, 8] }
+    )
+    const checks: unknown = JSON.parse(result)
+    if (!Array.isArray(checks)) throw new Error("GitHub CLI returned invalid PR checks")
+    return GitHubPullRequestChecksSchema.parse(
+      checks.map((check: unknown) => {
+        if (typeof check !== "object" || check === null) return check
+        const value = check as Record<string, unknown>
+        return {
+          ...value,
+          link: value.link || null,
+          workflow: value.workflow || null,
+          startedAt: value.startedAt || null,
+          completedAt: value.completedAt || null,
+        }
+      })
+    )
   }
 
   async create(
@@ -182,7 +213,11 @@ export class GitHubPrService {
     }
   }
 
-  async #run(cwd: string, args: string[]): Promise<string> {
+  async #run(
+    cwd: string,
+    args: string[],
+    options: { allowExitCodes?: readonly number[] } = {}
+  ): Promise<string> {
     try {
       const { stdout } = await execFileAsync(this.#binary, args, {
         cwd,
@@ -194,7 +229,14 @@ export class GitHubPrService {
       })
       return stdout
     } catch (error) {
-      const failure = error as Error & { stderr?: string }
+      const failure = error as Error & { code?: number | string; stderr?: string; stdout?: string }
+      if (
+        typeof failure.code === "number" &&
+        options.allowExitCodes?.includes(failure.code) &&
+        failure.stdout?.trim()
+      ) {
+        return failure.stdout
+      }
       throw new Error(failure.stderr?.trim() || failure.message, { cause: error })
     }
   }

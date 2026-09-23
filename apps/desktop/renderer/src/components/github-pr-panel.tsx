@@ -60,6 +60,16 @@ export function GitHubPrPanel({ cwd, branch }: Readonly<{ cwd: string; branch: s
     },
     retry: false,
   })
+  const checks = useQuery({
+    enabled: selected.data?.state === "OPEN",
+    queryKey: ["github-pr", cwd, "checks", selected.data?.number, selected.data?.headRefOid],
+    queryFn: async () => {
+      if (!selected.data) throw new Error("A pull request is required")
+      return (await ensureCypheriaClient()).git.githubPrChecks(cwd, selected.data.number)
+    },
+    refetchInterval: 30_000,
+    retry: false,
+  })
   const mutate = async (action: () => Promise<void>) => {
     setBusy(true)
     setError(null)
@@ -127,6 +137,45 @@ export function GitHubPrPanel({ cwd, branch }: Readonly<{ cwd: string; branch: s
             {selected.data.headRefName} → {selected.data.baseRefName} · {selected.data.state}
           </p>
           <p className="text-xs whitespace-pre-wrap">{selected.data.body}</p>
+          {selected.data.state === "OPEN" ? (
+            <div className="space-y-1 border-t pt-2">
+              <p className="text-xs font-medium">
+                <Trans id="git.github.checks">Checks</Trans>
+              </p>
+              {checks.data?.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  <Trans id="git.github.noChecks">No checks</Trans>
+                </p>
+              ) : null}
+              {checks.data?.map((check) => (
+                <div
+                  className="flex items-center gap-2 text-xs"
+                  key={`${check.name}:${check.link}`}
+                >
+                  <span className="min-w-0 flex-1 truncate">{check.name}</span>
+                  <span className="shrink-0 text-muted-foreground">{check.bucket}</span>
+                  {check.link ? (
+                    <Button
+                      onClick={() => {
+                        const link = check.link
+                        if (link) void mutate(async () => openExternal(link))
+                      }}
+                      size="sm"
+                      type="button"
+                      variant="ghost"
+                    >
+                      <Trans id="git.github.browser">Browser</Trans>
+                    </Button>
+                  ) : null}
+                </div>
+              ))}
+              {checks.isError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>{checks.error.message}</AlertDescription>
+                </Alert>
+              ) : null}
+            </div>
+          ) : null}
           <div className="flex flex-wrap gap-2">
             <Button
               onClick={() => void mutate(async () => openExternal(selected.data.url))}

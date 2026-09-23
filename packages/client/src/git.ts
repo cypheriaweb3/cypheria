@@ -5,6 +5,7 @@ import type {
   GitBranchSearchResult,
   GitHubAvailability,
   GitHubPullRequest,
+  GitHubPullRequestChecks,
   GitLabMergeRequest,
   GitLabMergeRequestChecks,
   GitLabMergeRequestNote,
@@ -79,6 +80,11 @@ export interface GitActions {
     options?: RequestOptions
   ): Promise<GitHubPullRequest[]>
   githubPrRead(cwd: string, number: number, options?: RequestOptions): Promise<GitHubPullRequest>
+  githubPrChecks(
+    cwd: string,
+    number: number,
+    options?: RequestOptions
+  ): Promise<GitHubPullRequestChecks>
   githubPrCreate(
     cwd: string,
     input: { head: string; base: string; title: string; body: string; draft?: boolean },
@@ -202,6 +208,8 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(await client.requestGit("git.github-pr-list.request", { cwd, ...input }, options)),
   githubPrRead: async (cwd, number, options) =>
     unwrap(await client.requestGit("git.github-pr-read.request", { cwd, number }, options)),
+  githubPrChecks: async (cwd, number, options) =>
+    unwrap(await client.requestGit("git.github-pr-checks.request", { cwd, number }, options)),
   githubPrCreate: async (cwd, input, options) =>
     unwrap(await client.requestGit("git.github-pr-create.request", { cwd, ...input }, options)),
   githubPrUpdate: async (cwd, number, input, options) =>

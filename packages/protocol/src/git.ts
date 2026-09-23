@@ -91,6 +91,19 @@ export const GitHubPullRequestSchema = z
     author: z.object({ login: z.string() }).nullable(),
   })
   .strict()
+export const GitHubPullRequestChecksSchema = z.array(
+  z
+    .object({
+      name: z.string(),
+      state: z.string(),
+      bucket: z.enum(["pass", "fail", "pending", "skipping", "cancel"]),
+      link: z.url().nullable(),
+      workflow: z.string().nullable(),
+      startedAt: z.string().nullable(),
+      completedAt: z.string().nullable(),
+    })
+    .strict()
+)
 export const GitLabMergeRequestSchema = z
   .object({
     iid: z.number().int().positive(),
@@ -236,6 +249,10 @@ export const GitHubPrListRequestSchema = input(
 )
 export const GitHubPrReadRequestSchema = input(
   "git.github-pr-read.request",
+  z.object({ cwd: path, number: z.number().int().positive() }).strict()
+)
+export const GitHubPrChecksRequestSchema = input(
+  "git.github-pr-checks.request",
   z.object({ cwd: path, number: z.number().int().positive() }).strict()
 )
 export const GitHubPrCreateRequestSchema = input(
@@ -399,6 +416,10 @@ export const GitHubPrReadResponseSchema = output(
   "git.github-pr-read.response",
   GitHubPullRequestSchema
 )
+export const GitHubPrChecksResponseSchema = output(
+  "git.github-pr-checks.response",
+  GitHubPullRequestChecksSchema
+)
 export const GitHubPrCreateResponseSchema = output(
   "git.github-pr-create.response",
   GitHubPullRequestSchema
@@ -460,6 +481,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubAvailabilityRequestSchema,
   GitHubPrListRequestSchema,
   GitHubPrReadRequestSchema,
+  GitHubPrChecksRequestSchema,
   GitHubPrCreateRequestSchema,
   GitHubPrUpdateRequestSchema,
   GitHubPrMergeRequestSchema,
@@ -494,6 +516,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubAvailabilityResponseSchema,
   GitHubPrListResponseSchema,
   GitHubPrReadResponseSchema,
+  GitHubPrChecksResponseSchema,
   GitHubPrCreateResponseSchema,
   GitHubPrUpdateResponseSchema,
   GitHubPrMergeResponseSchema,
@@ -518,6 +541,7 @@ export type GitBranchContext = z.infer<typeof GitBranchContextSchema>
 export type GitWorktree = z.infer<typeof GitWorktreeSchema>
 export type GitHubAvailability = z.infer<typeof GitHubAvailabilitySchema>
 export type GitHubPullRequest = z.infer<typeof GitHubPullRequestSchema>
+export type GitHubPullRequestChecks = z.infer<typeof GitHubPullRequestChecksSchema>
 export type GitLabMergeRequest = z.infer<typeof GitLabMergeRequestSchema>
 export type GitLabMergeRequestNote = z.infer<typeof GitLabMergeRequestNoteSchema>
 export type GitLabMergeRequestChecks = z.infer<typeof GitLabMergeRequestChecksSchema>

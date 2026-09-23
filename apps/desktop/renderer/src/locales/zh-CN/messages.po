@@ -174,13 +174,13 @@ msgid "git.review.branch"
 msgstr "分支"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.browser"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.browser"
 msgstr "浏览器"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.panel.browser"
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.browser"
 msgstr "浏览器"
 
 #. js-lingui-explicit-id
@@ -194,11 +194,6 @@ msgid "navigation.byProject"
 msgstr "按项目"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.cancel"
-msgstr "取消"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 #: renderer/src/routes/settings.archived.tsx
 msgid "common.cancel"
@@ -208,6 +203,11 @@ msgstr "取消"
 #: renderer/src/components/chat-sidebar.tsx
 #: renderer/src/components/project-create-dialog.tsx
 msgid "chat.cancel"
+msgstr "取消"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.cancel"
 msgstr "取消"
 
 #. js-lingui-explicit-id
@@ -229,6 +229,11 @@ msgstr "对话"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.deleteSectionDescription"
 msgstr "此分组中的对话将返回到最近列表。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.checks"
+msgstr "检查"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
@@ -870,6 +875,11 @@ msgid "navigation.noChats"
 msgstr "暂无对话"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.noChecks"
+msgstr "没有检查"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.review.empty"
 msgstr "没有可审查的文件变更"
@@ -1180,13 +1190,13 @@ msgid "chat.queue.queued"
 msgstr "已排队"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.ready"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.state.ready"
 msgstr "就绪"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.state.ready"
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.ready"
 msgstr "就绪"
 
 #. js-lingui-explicit-id

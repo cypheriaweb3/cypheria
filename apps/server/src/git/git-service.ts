@@ -7,6 +7,7 @@ import type {
   GitClientMessage,
   GitHubAvailability,
   GitHubPullRequest,
+  GitHubPullRequestChecks,
   GitLabMergeRequest,
   GitLabMergeRequestChecks,
   GitLabMergeRequestNote,
@@ -160,6 +161,9 @@ export class GitService {
           break
         case "git.github-pr-read.request":
           value = await this.githubPrRead(message.payload.cwd, message.payload.number)
+          break
+        case "git.github-pr-checks.request":
+          value = await this.githubPrChecks(message.payload.cwd, message.payload.number)
           break
         case "git.github-pr-create.request":
           value = await this.githubPrCreate(message.payload.cwd, message.payload)
@@ -319,6 +323,10 @@ export class GitService {
 
   async githubPrRead(cwd: string, number: number): Promise<GitHubPullRequest> {
     return this.#github.read((await this.discover(cwd)).root, number)
+  }
+
+  async githubPrChecks(cwd: string, number: number): Promise<GitHubPullRequestChecks> {
+    return this.#github.checks((await this.discover(cwd)).root, number)
   }
 
   async githubPrCreate(

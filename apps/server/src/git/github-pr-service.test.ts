@@ -42,6 +42,7 @@ else if (args[0] === "api") process.stdout.write("tester\\n")
 else if (args[0] === "repo") process.stdout.write("org/repo\\n")
 else if (args[1] === "list") process.stdout.write(args.includes("--head") && !args.includes("existing") ? "[]" : ${JSON.stringify(JSON.stringify([pr]))})
 else if (args[1] === "create") process.stdout.write("https://github.com/org/repo/pull/42\\n")
+else if (args[1] === "checks") { process.stdout.write(JSON.stringify([{ bucket: "pending", completedAt: null, link: "https://github.com/org/repo/actions/runs/1", name: "build", startedAt: "2026-09-23T00:00:00Z", state: "IN_PROGRESS", workflow: "CI" }])); process.exit(8) }
 else if (args[1] === "edit" || args[1] === "merge") process.stdout.write("")
 else process.stdout.write(${JSON.stringify(JSON.stringify(pr))})
 `
@@ -57,6 +58,17 @@ else process.stdout.write(${JSON.stringify(JSON.stringify(pr))})
     })
     expect(await service.list(cwd, "all", 5)).toEqual([pr])
     expect(await service.read(cwd, 42)).toEqual(pr)
+    expect(await service.checks(cwd, 42)).toEqual([
+      {
+        bucket: "pending",
+        completedAt: null,
+        link: "https://github.com/org/repo/actions/runs/1",
+        name: "build",
+        startedAt: "2026-09-23T00:00:00Z",
+        state: "IN_PROGRESS",
+        workflow: "CI",
+      },
+    ])
     expect(
       await service.create(cwd, {
         head: "feature",
@@ -83,6 +95,7 @@ else process.stdout.write(${JSON.stringify(JSON.stringify(pr))})
       expect.any(String),
     ])
     expect(calls).toContainEqual(["pr", "view", "42", "--json", expect.any(String)])
+    expect(calls).toContainEqual(["pr", "checks", "42", "--json", expect.any(String)])
     expect(calls).toContainEqual(
       expect.arrayContaining(["pr", "create", "--head", "feature", "--base", "main", "--draft"])
     )

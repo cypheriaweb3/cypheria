@@ -174,13 +174,13 @@ msgid "git.review.branch"
 msgstr "Branch"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.browser"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.panel.browser"
 msgstr "Browser"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.panel.browser"
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.browser"
 msgstr "Browser"
 
 #. js-lingui-explicit-id
@@ -194,11 +194,6 @@ msgid "navigation.byProject"
 msgstr "By project"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.cancel"
-msgstr "Cancel"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 #: renderer/src/routes/settings.archived.tsx
 msgid "common.cancel"
@@ -208,6 +203,11 @@ msgstr "Cancel"
 #: renderer/src/components/chat-sidebar.tsx
 #: renderer/src/components/project-create-dialog.tsx
 msgid "chat.cancel"
+msgstr "Cancel"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.cancel"
 msgstr "Cancel"
 
 #. js-lingui-explicit-id
@@ -229,6 +229,11 @@ msgstr "Chats"
 #: renderer/src/components/chat-sidebar.tsx
 msgid "navigation.deleteSectionDescription"
 msgstr "Chats in this section will return to Recents."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.checks"
+msgstr "Checks"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/project-create-dialog.tsx
@@ -870,6 +875,11 @@ msgid "navigation.noChats"
 msgstr "No chats yet"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.noChecks"
+msgstr "No checks"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.panel.review.empty"
 msgstr "No file changes to review"
@@ -1180,13 +1190,13 @@ msgid "chat.queue.queued"
 msgstr "Queued"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/github-pr-panel.tsx
-msgid "git.github.ready"
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.state.ready"
 msgstr "Ready"
 
 #. js-lingui-explicit-id
-#: renderer/src/components/conversation-workspace.tsx
-msgid "chat.state.ready"
+#: renderer/src/components/github-pr-panel.tsx
+msgid "git.github.ready"
 msgstr "Ready"
 
 #. js-lingui-explicit-id
