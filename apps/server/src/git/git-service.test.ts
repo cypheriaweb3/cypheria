@@ -90,6 +90,32 @@ describe("GitService", () => {
     expect(await service.branchContext(root)).toMatchObject({ ahead: 1, behind: 0 })
   }, 20_000)
 
+  it("compares diverged branches from their merge base using pinned commits", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await writeFile(join(root, "shared.txt"), "base\n")
+    await service.stage(root, ["shared.txt"])
+    const first = await service.commit(root, "Base")
+    await run("git", ["-C", root, "branch", "-M", "main"])
+    await service.createBranch(root, "feature")
+    await writeFile(join(root, "main.txt"), "main\n")
+    await service.stage(root, ["main.txt"])
+    const main = await service.commit(root, "Main")
+    await service.checkout(root, "feature")
+    await writeFile(join(root, "feature.txt"), "one\ntwo\n")
+    await service.stage(root, ["feature.txt"])
+    const feature = await service.commit(root, "Feature")
+    expect(await service.branchComparison(root, "main")).toEqual({
+      base: main,
+      head: feature,
+      mergeBase: first,
+      ahead: 1,
+      behind: 1,
+      files: [{ path: "feature.txt", additions: 2, deletions: 0 }],
+    })
+    await expect(service.branchComparison(root, "--bad")).rejects.toThrow("Invalid Git ref")
+  }, 20_000)
+
   it("searches local and remote branches and checks out a remote tracking branch", async () => {
     const root = await repository()
     const remote = await mkdtemp(join(tmpdir(), "cypheria-git-remote-"))

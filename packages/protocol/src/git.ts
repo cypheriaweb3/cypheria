@@ -82,6 +82,16 @@ export const GitBranchContextSchema = z
     behind: z.number().int().nonnegative(),
   })
   .strict()
+export const GitBranchComparisonSchema = z
+  .object({
+    base: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    head: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    mergeBase: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    ahead: z.number().int().nonnegative(),
+    behind: z.number().int().nonnegative(),
+    files: z.array(GitReviewLineCountSchema),
+  })
+  .strict()
 export const GitWorktreeSchema = z
   .object({
     path,
@@ -363,6 +373,10 @@ export const GitBranchSearchRequestSchema = input(
 export const GitBranchContextRequestSchema = input(
   "git.branch-context.request",
   z.object({ cwd: path }).strict()
+)
+export const GitBranchComparisonRequestSchema = input(
+  "git.branch-comparison.request",
+  z.object({ cwd: path, base: path, head: path.optional() }).strict()
 )
 export const GitInitRequestSchema = input("git.init.request", z.object({ cwd: path }).strict())
 export const GitBranchCreateRequestSchema = input(
@@ -943,6 +957,10 @@ export const GitBranchContextResponseSchema = output(
   "git.branch-context.response",
   GitBranchContextSchema
 )
+export const GitBranchComparisonResponseSchema = output(
+  "git.branch-comparison.response",
+  GitBranchComparisonSchema
+)
 export const GitInitResponseSchema = output("git.init.response", GitRepositorySchema)
 export const GitBranchCreateResponseSchema = output(
   "git.branch-create.response",
@@ -1190,6 +1208,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitBranchesRequestSchema,
   GitBranchSearchRequestSchema,
   GitBranchContextRequestSchema,
+  GitBranchComparisonRequestSchema,
   GitInitRequestSchema,
   GitBranchCreateRequestSchema,
   GitCheckoutRequestSchema,
@@ -1266,6 +1285,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitBranchesResponseSchema,
   GitBranchSearchResponseSchema,
   GitBranchContextResponseSchema,
+  GitBranchComparisonResponseSchema,
   GitInitResponseSchema,
   GitBranchCreateResponseSchema,
   GitCheckoutResponseSchema,
@@ -1350,6 +1370,7 @@ export type GitReviewFile = z.infer<typeof GitReviewFileSchema>
 export type GitReviewLineCount = z.infer<typeof GitReviewLineCountSchema>
 export type GitReviewUndoEntry = z.infer<typeof GitReviewUndoEntrySchema>
 export type GitBranchContext = z.infer<typeof GitBranchContextSchema>
+export type GitBranchComparison = z.infer<typeof GitBranchComparisonSchema>
 export type GitWorktree = z.infer<typeof GitWorktreeSchema>
 export type GitHubAvailability = z.infer<typeof GitHubAvailabilitySchema>
 export type GitHubAppAvailability = z.infer<typeof GitHubAppAvailabilitySchema>

@@ -4,6 +4,7 @@ import { lstat, mkdtemp, open, readlink, realpath, rm, stat, writeFile } from "n
 import { tmpdir } from "node:os"
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
 import type {
+  GitBranchComparison,
   GitBranchContext,
   GitBranchReview,
   GitBranchSearchResult,
@@ -150,6 +151,13 @@ export class GitService {
           break
         case "git.branch-context.request":
           value = await this.branchContext(message.payload.cwd)
+          break
+        case "git.branch-comparison.request":
+          value = await this.branchComparison(
+            message.payload.cwd,
+            message.payload.base,
+            message.payload.head
+          )
           break
         case "git.init.request":
           value = await this.init(message.payload.cwd)
@@ -1233,6 +1241,71 @@ export class GitService {
       behind = right
     }
     return { current, upstream, defaultBranch, ahead, behind }
+  }
+
+  async branchComparison(cwd: string, base: string, head = "HEAD"): Promise<GitBranchComparison> {
+    const { root } = await this.discover(cwd)
+    const resolveCommit = async (ref: string): Promise<string> =>
+      trimmed(
+        (
+          await this.#executor.run(
+            root,
+            [
+              "rev-parse",
+              "--verify",
+              "--end-of-options",
+              `${validateOperand(ref, "ref")}^{commit}`,
+            ],
+            { readOnly: true }
+          )
+        ).stdout
+      )
+    const baseCommit = await resolveCommit(base)
+    const headCommit = await resolveCommit(head)
+    const mergeBase = trimmed(
+      (await this.#executor.run(root, ["merge-base", baseCommit, headCommit], { readOnly: true }))
+        .stdout
+    )
+    const counts = (
+      await this.#executor.run(
+        root,
+        ["rev-list", "--left-right", "--count", `${baseCommit}...${headCommit}`],
+        { readOnly: true }
+      )
+    ).stdout.trim()
+    const [behindText, aheadText] = counts.split(/\s+/u)
+    const behind = Number(behindText)
+    const ahead = Number(aheadText)
+    if (
+      !/^\d+$/u.test(behindText ?? "") ||
+      !/^\d+$/u.test(aheadText ?? "") ||
+      !Number.isSafeInteger(behind) ||
+      !Number.isSafeInteger(ahead)
+    ) {
+      throw new Error("Git returned invalid branch comparison counts")
+    }
+    const { stdout } = await this.#executor.run(
+      root,
+      [
+        "diff",
+        "--no-ext-diff",
+        "--no-textconv",
+        "--no-renames",
+        "--numstat",
+        "-z",
+        mergeBase,
+        headCommit,
+      ],
+      { readOnly: true }
+    )
+    return {
+      base: baseCommit,
+      head: headCommit,
+      mergeBase,
+      ahead,
+      behind,
+      files: parseGitNumstat(stdout),
+    }
   }
 
   async createBranch(cwd: string, name: string, startPoint?: string): Promise<string> {
