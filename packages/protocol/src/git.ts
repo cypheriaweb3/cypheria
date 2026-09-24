@@ -656,6 +656,17 @@ export const GitHubAppPrChecksRequestSchema = input(
     })
     .strict()
 )
+export const GitHubAppPrThreadsRequestSchema = input(
+  "git.github-app-pr-threads.request",
+  z
+    .object({
+      cwd: path,
+      threadId: ProjectThreadIdSchema,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    })
+    .strict()
+)
 export const GitHubPrListRequestSchema = input(
   "git.github-pr-list.request",
   z
@@ -1160,6 +1171,10 @@ export const GitHubAppPrChecksResponseSchema = output(
   "git.github-app-pr-checks.response",
   GitHubAppPrChecksSchema
 )
+export const GitHubAppPrThreadsResponseSchema = output(
+  "git.github-app-pr-threads.response",
+  GitHubPullRequestThreadsSchema
+)
 export const GitHubPrListResponseSchema = output(
   "git.github-pr-list.response",
   z.array(GitHubPullRequestSchema)
@@ -1343,6 +1358,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubAppPrDiffRequestSchema,
   GitHubAppPrActivityRequestSchema,
   GitHubAppPrChecksRequestSchema,
+  GitHubAppPrThreadsRequestSchema,
   GitHubPrListRequestSchema,
   GitHubPrReadRequestSchema,
   GitHubPrForBranchRequestSchema,
@@ -1427,6 +1443,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubAppPrDiffResponseSchema,
   GitHubAppPrActivityResponseSchema,
   GitHubAppPrChecksResponseSchema,
+  GitHubAppPrThreadsResponseSchema,
   GitHubPrListResponseSchema,
   GitHubPrReadResponseSchema,
   GitHubPrForBranchResponseSchema,

@@ -93,6 +93,7 @@ When the CLI can access the repository, the PR panel selects the current branch'
 When the CLI cannot access the repository, a connected GitHub App can also load the PR patch. It selects the required tools on one account link and checks the PR head before and after fetching the diff.
 The connected App can also display PR comments and reviews through its read tools. These reads use one account link and reject activity when the PR head changes during acquisition.
 For an open PR, the App path reads checks through `get_pr_statuses`, validates the viewer login, repository, PR URL, and head revision, and keeps incomplete check sets distinct from an empty completed set.
+The App path can also display inline review threads and their comments through `list_pull_request_review_threads`, checking the PR head before and after the read. Thread mutations remain on the CLI path.
 
 The PR panel lists exact GitHub revision commits and loads the selected commit's diff. The Server can also read text file content at the selected base and head revisions; it returns unavailable for binary or oversized files. Each revision read checks the displayed PR head before and after the request.
 

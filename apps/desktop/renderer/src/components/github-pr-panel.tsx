@@ -389,12 +389,25 @@ export function GitHubPrPanel({
     retry: false,
   })
   const threads = useQuery({
-    enabled: cliAvailable && Boolean(selected.data?.headRefOid),
-    queryKey: ["github-pr", cwd, "threads", selected.data?.number, selected.data?.headRefOid],
+    enabled:
+      (cliAvailable || Boolean(threadId && appAvailability.data?.canRead)) &&
+      Boolean(selected.data?.headRefOid),
+    queryKey: [
+      "github-pr",
+      cwd,
+      "threads",
+      cliAvailable ? "cli" : "app",
+      threadId,
+      selected.data?.number,
+      selected.data?.headRefOid,
+    ],
     queryFn: async () => {
       const pr = selected.data
       if (!pr?.headRefOid) throw new Error("A pull request head is required")
-      return (await ensureCypheriaClient()).git.githubPrThreads(cwd, pr.number, pr.headRefOid)
+      const git = (await ensureCypheriaClient()).git
+      if (cliAvailable) return git.githubPrThreads(cwd, pr.number, pr.headRefOid)
+      if (!threadId) throw new Error("A local Codex thread is required")
+      return git.githubAppPrThreads(cwd, threadId, pr.number, pr.headRefOid)
     },
     retry: false,
   })
@@ -939,6 +952,35 @@ export function GitHubPrPanel({
               {activity.isError ? (
                 <Alert variant="destructive">
                   <AlertDescription>{activity.error.message}</AlertDescription>
+                </Alert>
+              ) : null}
+            </div>
+          ) : null}
+          {!cliAvailable && appAvailability.data?.canRead && selected.data.headRefOid ? (
+            <div className="space-y-2 border-t pt-2">
+              <p className="text-xs font-medium">
+                <Trans id="git.github.reviewThreads">Review threads</Trans>
+              </p>
+              {threads.data?.threads.map((thread) => (
+                <div className="space-y-1 rounded border p-2 text-xs" key={thread.id}>
+                  <p className="font-mono text-muted-foreground">
+                    {thread.path}
+                    {thread.line ? `:${thread.line}` : ""} ·{" "}
+                    {thread.isResolved
+                      ? i18n._(msg({ id: "git.github.resolved", message: "Resolved" }))
+                      : i18n._(msg({ id: "git.github.unresolved", message: "Unresolved" }))}
+                  </p>
+                  {thread.comments.map((comment) => (
+                    <div className="border-l pl-2" key={comment.id}>
+                      <span className="font-medium">{comment.author ?? "GitHub"}</span>
+                      <p className="whitespace-pre-wrap">{comment.body}</p>
+                    </div>
+                  ))}
+                </div>
+              ))}
+              {threads.isError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>{threads.error.message}</AlertDescription>
                 </Alert>
               ) : null}
             </div>

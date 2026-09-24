@@ -222,6 +222,13 @@ export interface GitActions {
     expectedHead: string,
     options?: RequestOptions
   ): Promise<GitHubAppPrChecks>
+  githubAppPrThreads(
+    cwd: string,
+    threadId: string,
+    number: number,
+    expectedHead: string,
+    options?: RequestOptions
+  ): Promise<GitHubPullRequestThreads>
   githubPrList(
     cwd: string,
     input?: { state?: "open" | "closed" | "merged" | "all"; limit?: number; query?: string },
@@ -616,6 +623,14 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(
       await client.requestGit(
         "git.github-app-pr-checks.request",
+        { cwd, threadId, number, expectedHead },
+        options
+      )
+    ),
+  githubAppPrThreads: async (cwd, threadId, number, expectedHead, options) =>
+    unwrap(
+      await client.requestGit(
+        "git.github-app-pr-threads.request",
         { cwd, threadId, number, expectedHead },
         options
       )

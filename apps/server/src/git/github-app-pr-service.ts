@@ -1,5 +1,5 @@
-import type { GitHubAppPrChecks } from "@cypheria/protocol"
-import { GitHubAppPrChecksSchema } from "@cypheria/protocol"
+import type { GitHubAppPrChecks, GitHubPullRequestThreads } from "@cypheria/protocol"
+import { GitHubAppPrChecksSchema, GitHubPullRequestThreadsSchema } from "@cypheria/protocol"
 import { z } from "zod"
 import type { CodexAppSelection, CodexAppToolClient } from "../codex-app-tool-client.js"
 import type { GitExecutor } from "./git-executor.js"
@@ -42,6 +42,36 @@ const infoResponse = z
   })
   .passthrough()
 const diffResponse = z.object({ diff: z.string().max(8 * 1024 * 1024) }).passthrough()
+const threadsResponse = z
+  .object({
+    review_threads: z
+      .array(
+        z
+          .object({
+            id: z.string(),
+            path: z.string(),
+            line: z.number().int().nullable().optional(),
+            is_resolved: z.boolean(),
+            viewer_can_resolve: z.boolean().optional(),
+            viewer_can_unresolve: z.boolean().optional(),
+            comments: z
+              .array(
+                z
+                  .object({
+                    id: z.union([z.string(), z.number().int()]),
+                    body: z.string(),
+                    created_at: z.string(),
+                    author: z.object({ login: z.string() }).nullable().optional(),
+                  })
+                  .passthrough()
+              )
+              .max(500),
+          })
+          .passthrough()
+      )
+      .max(500),
+  })
+  .passthrough()
 const commentsResponse = z
   .object({
     comments: z
@@ -490,6 +520,65 @@ export class GitHubAppPrService {
           completedAt: null,
         }
       }),
+    })
+  }
+
+  async threads(
+    root: string,
+    nativeThreadId: string,
+    number: number,
+    expectedHead: string
+  ): Promise<GitHubPullRequestThreads> {
+    if (!/^[a-f0-9]{40,64}$/iu.test(expectedHead))
+      throw new Error("A pinned GitHub pull request head is required")
+    const { repository, selection } = await this.#context(root, nativeThreadId, [
+      "get_pr_info",
+      "list_pull_request_review_threads",
+    ])
+    const readHead = async (): Promise<string> => {
+      const info = infoResponse.parse(
+        await this.#apps.call(selection, nativeThreadId, "github", "get_pr_info", {
+          pr_number: number,
+          repository_full_name: repository,
+        })
+      )
+      if (info.number !== number) throw new Error("The selected GitHub pull request changed")
+      checkedPrUrl(repository, number, info.url)
+      if (!info.head_sha || !/^[a-f0-9]{40,64}$/iu.test(info.head_sha))
+        throw new Error("The GitHub app did not return the pull request head")
+      return info.head_sha
+    }
+    if ((await readHead()) !== expectedHead) throw new Error("The GitHub pull request head changed")
+    const response = threadsResponse.parse(
+      await this.#apps.call(
+        selection,
+        nativeThreadId,
+        "github",
+        "list_pull_request_review_threads",
+        {
+          pr_number: number,
+          repo_full_name: repository,
+        }
+      )
+    )
+    if ((await readHead()) !== expectedHead)
+      throw new Error("The GitHub pull request head changed during review thread acquisition")
+    return GitHubPullRequestThreadsSchema.parse({
+      threads: response.review_threads.map((thread) => ({
+        id: thread.id,
+        path: thread.path,
+        line: thread.line ?? null,
+        isResolved: thread.is_resolved,
+        canResolve: thread.viewer_can_resolve ?? false,
+        canUnresolve: thread.viewer_can_unresolve ?? false,
+        comments: thread.comments.map((comment) => ({
+          id: String(comment.id),
+          body: comment.body,
+          author: comment.author?.login ?? null,
+          createdAt: comment.created_at,
+        })),
+      })),
+      truncated: false,
     })
   }
 
