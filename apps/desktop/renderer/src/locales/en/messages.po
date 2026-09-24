@@ -99,11 +99,6 @@ msgid "git.github.stateAll"
 msgstr "All"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.general.pluginsDescription"
-msgstr "Allow ChatGPT to use installed plugins"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.interaction.allowOnce"
 msgstr "Allow once"
@@ -819,7 +814,7 @@ msgstr "Integrations"
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.menuBarDescription"
-msgstr "Keep ChatGPT in the macOS menu bar when the main window is closed"
+msgstr "Keep Cypheria in the macOS menu bar when the main window is closed"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -834,7 +829,7 @@ msgstr "Keep the title short and recognizable."
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.preventSleepDescription"
-msgstr "Keep your computer awake while ChatGPT is running a task"
+msgstr "Keep your computer awake while Cypheria is running a task"
 
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
@@ -1305,11 +1300,6 @@ msgid "chat.panel.plan"
 msgstr "Plan"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.general.plugins"
-msgstr "Plugins"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.plugins"
 msgstr "Plugins"
@@ -1442,7 +1432,7 @@ msgstr "Queue"
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.followUpDescription"
-msgstr "Queue follow-ups while ChatGPT runs or steer the current run. Press ⇧⌘⏎ to do the opposite for one message"
+msgstr "Queue follow-ups while Cypheria runs or steer the current run. Press ⇧⌘⏎ to do the opposite for one message"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
@@ -1763,7 +1753,7 @@ msgstr "Set a global shortcut for Popout Window. Leave unset to keep it off."
 #. js-lingui-explicit-id
 #: renderer/src/routes/settings.general.tsx
 msgid "settings.general.turnNotificationsDescription"
-msgstr "Set when ChatGPT alerts you that it's finished"
+msgstr "Set when Cypheria alerts you that it's finished"
 
 #. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
@@ -2154,3 +2144,35 @@ msgstr "Use connected GitHub App tools when the CLI cannot serve an operation"
 #. js-lingui-explicit-id
 msgid "git.github.boardRepositorySearch"
 msgstr "Repository (owner/name)"
+
+#. js-lingui-explicit-id
+msgid "settings.general.permissionsSection"
+msgstr "Permissions"
+
+#. js-lingui-explicit-id
+msgid "settings.general.defaultPermissions"
+msgstr "Default permissions"
+
+#. js-lingui-explicit-id
+msgid "settings.general.defaultPermissionsDescription"
+msgstr "By default, Cypheria can read and edit files in its workspace. It can ask for additional access when needed"
+
+#. js-lingui-explicit-id
+msgid "settings.general.fullAccess"
+msgstr "Full access"
+
+#. js-lingui-explicit-id
+msgid "settings.general.fullAccessDescription"
+msgstr "When Cypheria runs with full access, it can edit any file on your computer and run commands with network, without your approval. This significantly increases the risk of data loss, leaks, or unexpected behavior."
+
+#. js-lingui-explicit-id
+msgid "settings.general.fullAccessConfirmTitle"
+msgstr "Make Full Access available?"
+
+#. js-lingui-explicit-id
+msgid "settings.general.fullAccessConfirmDescription"
+msgstr "When selected, Cypheria can access the internet and read and edit files without asking for approval — including potentially destructive commands"
+
+#. js-lingui-explicit-id
+msgid "settings.general.fullAccessConfirmNote"
+msgstr "Turning this on adds Full Access to the composer's permissions menu. It does not turn Full Access on."

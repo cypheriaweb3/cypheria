@@ -610,12 +610,6 @@ const registerIpcHandlers = (paths: DesktopAppPaths, client: CypheriaClient): vo
       }
       await stageNotificationSounds(saved)
       applyDesktopPreferences(saved)
-      if (previous?.pluginsEnabled !== saved.pluginsEnabled) {
-        await desktopClient?.integrations.plugins.setGlobalEnabled({
-          agentId: "codex",
-          enabled: saved.pluginsEnabled,
-        })
-      }
     } catch (error) {
       if (previous) {
         const { configPath: _configPath, ...previousWrite } = previous
@@ -962,11 +956,6 @@ const startDesktopApp = async (): Promise<void> => {
   await stageNotificationSounds(currentPreferences).catch((error: unknown) => {
     console.warn("Could not stage notification sounds", error)
   })
-  await desktopClient.integrations.plugins
-    .setGlobalEnabled({ agentId: "codex", enabled: currentPreferences.pluginsEnabled })
-    .catch((error: unknown) => {
-      console.warn("Could not apply the Codex plugins preference at startup", error)
-    })
   applyDesktopPreferences(currentPreferences)
   subscribeToDesktopThreadEvents(desktopClient)
   if (process.platform === "darwin") {

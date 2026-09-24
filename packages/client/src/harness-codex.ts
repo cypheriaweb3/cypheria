@@ -72,10 +72,6 @@ export interface CodexHarnessActions {
       input: Payload<"harness.codex.permissions.defaults.set.request">,
       options?: RequestOptions
     ): Promise<Value<"harness.codex.permissions.defaults.set.response">>
-    setShowFullAccess(
-      enabled: boolean,
-      options?: RequestOptions
-    ): Promise<Value<"harness.codex.permissions.show-full-access.set.response">>
   }
   readonly threads: {
     readonly backgroundTerminals: {
@@ -211,8 +207,6 @@ export const createCodexHarnessActions = (client: ServerClient): CodexHarnessAct
       defaults: (options) => request("harness.codex.permissions.defaults.get.request", {}, options),
       setDefaults: (input, options) =>
         request("harness.codex.permissions.defaults.set.request", input, options),
-      setShowFullAccess: (enabled, options) =>
-        request("harness.codex.permissions.show-full-access.set.request", { enabled }, options),
     },
     threads: {
       backgroundTerminals: {

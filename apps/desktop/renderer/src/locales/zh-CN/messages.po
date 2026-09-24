@@ -99,11 +99,6 @@ msgid "git.github.stateAll"
 msgstr "全部"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.general.pluginsDescription"
-msgstr "允许 Cypheria 使用已安装的插件"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.interaction.allowOnce"
 msgstr "仅允许一次"
@@ -1305,11 +1300,6 @@ msgid "chat.panel.plan"
 msgstr "计划"
 
 #. js-lingui-explicit-id
-#: renderer/src/routes/settings.general.tsx
-msgid "settings.general.plugins"
-msgstr "插件"
-
-#. js-lingui-explicit-id
 #: renderer/src/components/app-shell.tsx
 msgid "settings.plugins"
 msgstr "插件"
@@ -2154,3 +2144,35 @@ msgstr "CLI 无法执行操作时使用已连接的 GitHub App 工具"
 #. js-lingui-explicit-id
 msgid "git.github.boardRepositorySearch"
 msgstr "仓库（所有者/名称）"
+
+#. js-lingui-explicit-id
+msgid "settings.general.permissionsSection"
+msgstr "权限"
+
+#. js-lingui-explicit-id
+msgid "settings.general.defaultPermissions"
+msgstr "默认权限"
+
+#. js-lingui-explicit-id
+msgid "settings.general.defaultPermissionsDescription"
+msgstr "默认情况下，Cypheria 可以读取和编辑工作区中的文件。需要更多访问权限时，它可以提出请求。"
+
+#. js-lingui-explicit-id
+msgid "settings.general.fullAccess"
+msgstr "完全访问权限"
+
+#. js-lingui-explicit-id
+msgid "settings.general.fullAccessDescription"
+msgstr "以完全访问权限运行时，Cypheria 无需征求批准即可编辑计算机上的任何文件，并运行可访问网络的命令。这会显著增加数据丢失、泄露或发生意外行为的风险。"
+
+#. js-lingui-explicit-id
+msgid "settings.general.fullAccessConfirmTitle"
+msgstr "允许使用完全访问权限？"
+
+#. js-lingui-explicit-id
+msgid "settings.general.fullAccessConfirmDescription"
+msgstr "选择后，Cypheria 无需征求批准即可访问互联网并读取、编辑文件，包括执行可能具有破坏性的命令。"
+
+#. js-lingui-explicit-id
+msgid "settings.general.fullAccessConfirmNote"
+msgstr "开启后，输入框的权限菜单会显示“完全访问权限”，但不会立即启用该权限。"

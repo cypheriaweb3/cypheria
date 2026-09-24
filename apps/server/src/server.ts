@@ -147,7 +147,6 @@ export class CypheriaServer implements HttpAppHost {
       persistence: createAgentRegistryPersistenceService(this.database.db),
       publish: (message) => this.registry.broadcast(message),
       networkBootstrap: options.agentNetworkBootstrap,
-      codexSettings: () => this.configStore.getSnapshot().config.agents.codex,
       gitSettings: () => this.configStore.getSnapshot().config.git,
       managedShellEnvironment: (cwd) => this.git.managedShellEnvironment(cwd),
       agentDefaults: (agentId) =>

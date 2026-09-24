@@ -59,8 +59,8 @@ export const CodexModelSettingsSchema = z
   .strict()
 export type CodexModelSettings = z.infer<typeof CodexModelSettingsSchema>
 
-export const CodexApprovalPolicySchema = z.enum(["untrusted", "on-request", "never"])
-export const CodexApprovalsReviewerSchema = z.enum(["user", "auto_review", "guardian_subagent"])
+export const CodexApprovalPolicySchema = z.enum(["on-request", "never"])
+export const CodexApprovalsReviewerSchema = z.enum(["user", "auto_review"])
 export const CodexSandboxModeSchema = z.enum(["read-only", "workspace-write", "danger-full-access"])
 export const CodexPermissionDefaultsWriteSchema = z
   .object({
@@ -76,11 +76,13 @@ export const CodexPermissionDefaultsWriteSchema = z
 export type CodexPermissionDefaultsWrite = z.infer<typeof CodexPermissionDefaultsWriteSchema>
 export const CodexAgentSettingsSchema = CodexModelSettingsSchema.extend({
   ...CodexPermissionDefaultsWriteSchema.shape,
-  showFullAccessInComposer: z.boolean(),
+  personality: z.enum(["friendly", "pragmatic", "none"]),
+  pluginsEnabled: z.boolean(),
 }).strict()
 export type CodexAgentSettings = z.infer<typeof CodexAgentSettingsSchema>
 export const CodexPermissionDefaultsSchema = CodexPermissionDefaultsWriteSchema.extend({
   allowedApprovalPolicies: z.array(CodexApprovalPolicySchema).nullable(),
+  allowedApprovalsReviewers: z.array(CodexApprovalsReviewerSchema).nullable(),
   allowedSandboxModes: z.array(CodexSandboxModeSchema).nullable(),
   allowedWebSearchModes: z.array(z.enum(["disabled", "cached", "indexed", "live"])).nullable(),
   configPath: z.string().min(1),
@@ -112,7 +114,6 @@ export const CodexPermissionsCatalogSchema = z
         .strict()
     ),
     selected: CodexPermissionSelectionSchema,
-    showFullAccess: z.boolean(),
     source: z.enum(["config", "managed", "selection", "server-default"]),
   })
   .strict()
@@ -170,10 +171,6 @@ export const CodexPermissionDefaultsSetRequestSchema = request(
 export const CodexPermissionsCatalogGetRequestSchema = request(
   "harness.codex.permissions.catalog.get.request",
   z.object({ cwd: z.string().min(1).optional() }).strict()
-)
-export const CodexPermissionsShowFullAccessSetRequestSchema = request(
-  "harness.codex.permissions.show-full-access.set.request",
-  z.object({ enabled: z.boolean() }).strict()
 )
 export const CodexGuardianRetryRequestSchema = request(
   "harness.codex.guardian.retry.request",
@@ -276,10 +273,6 @@ export const CodexPermissionsCatalogGetResponseSchema = response(
   "harness.codex.permissions.catalog.get.response",
   CodexPermissionsCatalogSchema
 )
-export const CodexPermissionsShowFullAccessSetResponseSchema = response(
-  "harness.codex.permissions.show-full-access.set.response",
-  CodexPermissionsCatalogSchema
-)
 export const CodexGuardianRetryResponseSchema = response(
   "harness.codex.guardian.retry.response",
   succeeded
@@ -347,7 +340,6 @@ export const CODEX_HARNESS_CLIENT_SCHEMAS = [
   CodexPermissionDefaultsGetRequestSchema,
   CodexPermissionDefaultsSetRequestSchema,
   CodexPermissionsCatalogGetRequestSchema,
-  CodexPermissionsShowFullAccessSetRequestSchema,
   CodexGuardianRetryRequestSchema,
   CodexThreadGoalGetRequestSchema,
   CodexThreadGoalSetRequestSchema,
@@ -379,7 +371,6 @@ export const CODEX_HARNESS_SERVER_SCHEMAS = [
   CodexPermissionDefaultsGetResponseSchema,
   CodexPermissionDefaultsSetResponseSchema,
   CodexPermissionsCatalogGetResponseSchema,
-  CodexPermissionsShowFullAccessSetResponseSchema,
   CodexGuardianRetryResponseSchema,
   CodexThreadGoalGetResponseSchema,
   CodexThreadGoalSetResponseSchema,

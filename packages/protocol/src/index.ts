@@ -26,7 +26,6 @@ import {
   CODEX_HARNESS_CLIENT_SCHEMAS,
   CODEX_HARNESS_RESPONSE_TYPES,
   CODEX_HARNESS_SERVER_SCHEMAS,
-  CodexAgentSettingsSchema,
   type CodexHarnessClientMessage,
   type CodexHarnessServerMessage,
 } from "./harness-codex.ts"
@@ -397,7 +396,6 @@ export const PersistedServerConfigSchema = z
   .object({
     agents: z
       .object({
-        codex: CodexAgentSettingsSchema,
         defaults: z.record(z.string(), z.record(z.string(), HarnessSettingValueSchema)),
       })
       .strict(),
@@ -464,7 +462,6 @@ export const PersistedServerConfigPatchSchema = z
     git: GitSettingsSchema.partial().strict().optional(),
     agents: z
       .object({
-        codex: CodexAgentSettingsSchema.partial().strict().optional(),
         defaults: z.record(z.string(), z.record(z.string(), HarnessSettingValueSchema)).optional(),
       })
       .strict()

@@ -1,4 +1,14 @@
 import { cn } from "@cypheria/ui"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@cypheria/ui/components/alert-dialog"
 import { Button } from "@cypheria/ui/components/button"
 import { Switch } from "@cypheria/ui/components/switch"
 import { msg } from "@lingui/core/macro"
@@ -6,7 +16,7 @@ import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
-import { X } from "lucide-react"
+import { TriangleAlert, X } from "lucide-react"
 import { type ReactNode, useEffect, useState } from "react"
 import type {
   DesktopPreferences,
@@ -38,7 +48,7 @@ const fallbackPreferences: DesktopPreferences = {
   openInTargetPreference: "system",
   macMenuBarEnabled: false,
   preventSleepWhileRunning: false,
-  pluginsEnabled: true,
+  permissionModeVisibility: false,
   composerPlainTextMode: false,
   showContextWindowUsage: false,
   composerEnterBehavior: "enter",
@@ -59,6 +69,7 @@ const uiFontSemiboldClass =
 function GeneralSettingsRoute() {
   const { i18n } = useLingui()
   const [capturingHotkey, setCapturingHotkey] = useState(false)
+  const [fullAccessConfirmationOpen, setFullAccessConfirmationOpen] = useState(false)
   const queryClient = useQueryClient()
   const languageQuery = useQuery({
     queryFn: () => window.cypheria?.settings.getLanguage() ?? fallbackLanguageSettings,
@@ -130,6 +141,15 @@ function GeneralSettingsRoute() {
     const { configPath: _configPath, ...current } = preferences
     preferencesMutation.mutate({ ...current, ...update })
   }
+  const confirmFullAccessVisibility = async () => {
+    const { configPath: _configPath, ...current } = preferences
+    try {
+      await preferencesMutation.mutateAsync({ ...current, permissionModeVisibility: true })
+      setFullAccessConfirmationOpen(false)
+    } catch {
+      // Keep the dialog open so the failed write can be retried.
+    }
+  }
   const updateNotificationSound = async (update: Partial<DesktopPreferencesWrite>) => {
     const { configPath: _configPath, ...current } = preferences
     await preferencesMutation.mutateAsync({ ...current, ...update })
@@ -177,6 +197,45 @@ function GeneralSettingsRoute() {
             <Trans id="settings.general.title">General</Trans>
           </h1>
         </header>
+        <section className="grid gap-3">
+          <h2 className={cn("text-sm", uiFontSemiboldClass)}>
+            <Trans id="settings.general.permissionsSection">Permissions</Trans>
+          </h2>
+          <div className="rounded-xl border border-border bg-card px-4 shadow-xs">
+            <SettingRow
+              title={<Trans id="settings.general.defaultPermissions">Default permissions</Trans>}
+              description={
+                <Trans id="settings.general.defaultPermissionsDescription">
+                  By default, Cypheria can read and edit files in its workspace. It can ask for
+                  additional access when needed
+                </Trans>
+              }
+            >
+              <Switch aria-label="Default permissions" checked disabled />
+            </SettingRow>
+            <SettingRow
+              title={<Trans id="settings.general.fullAccess">Full access</Trans>}
+              description={
+                <Trans id="settings.general.fullAccessDescription">
+                  When Cypheria runs with full access, it can edit any file on your computer and run
+                  commands with network, without your approval. This significantly increases the
+                  risk of data loss, leaks, or unexpected behavior.
+                </Trans>
+              }
+            >
+              <Switch
+                aria-label="Full access"
+                checked={preferences.permissionModeVisibility}
+                disabled={preferencesDisabled}
+                onCheckedChange={(checked) =>
+                  checked
+                    ? setFullAccessConfirmationOpen(true)
+                    : updatePreferences({ permissionModeVisibility: false })
+                }
+              />
+            </SettingRow>
+          </div>
+        </section>
         <section className="grid gap-3">
           <h2 className={cn("text-sm", uiFontSemiboldClass)}>
             <Trans id="settings.general.section">General</Trans>
@@ -263,7 +322,7 @@ function GeneralSettingsRoute() {
               title={<Trans id="settings.general.menuBar">Show in menu bar</Trans>}
               description={
                 <Trans id="settings.general.menuBarDescription">
-                  Keep ChatGPT in the macOS menu bar when the main window is closed
+                  Keep Cypheria in the macOS menu bar when the main window is closed
                 </Trans>
               }
             >
@@ -342,21 +401,11 @@ function GeneralSettingsRoute() {
               title={<Trans id="settings.general.preventSleep">Prevent sleep while running</Trans>}
               description={
                 <Trans id="settings.general.preventSleepDescription">
-                  Keep your computer awake while ChatGPT is running a task
+                  Keep your computer awake while Cypheria is running a task
                 </Trans>
               }
             >
               {preferenceSwitch("preventSleepWhileRunning", "Prevent sleep while running")}
-            </SettingRow>
-            <SettingRow
-              title={<Trans id="settings.general.plugins">Plugins</Trans>}
-              description={
-                <Trans id="settings.general.pluginsDescription">
-                  Allow ChatGPT to use installed plugins
-                </Trans>
-              }
-            >
-              {preferenceSwitch("pluginsEnabled", "Plugins")}
             </SettingRow>
           </div>
         </section>
@@ -418,7 +467,7 @@ function GeneralSettingsRoute() {
               title={<Trans id="settings.general.followUp">Follow-up behavior</Trans>}
               description={
                 <Trans id="settings.general.followUpDescription">
-                  Queue follow-ups while ChatGPT runs or steer the current run. Press ⇧⌘⏎ to do the
+                  Queue follow-ups while Cypheria runs or steer the current run. Press ⇧⌘⏎ to do the
                   opposite for one message
                 </Trans>
               }
@@ -530,7 +579,7 @@ function GeneralSettingsRoute() {
               }
               description={
                 <Trans id="settings.general.turnNotificationsDescription">
-                  Set when ChatGPT alerts you that it's finished
+                  Set when Cypheria alerts you that it's finished
                 </Trans>
               }
             >
@@ -664,6 +713,46 @@ function GeneralSettingsRoute() {
           </p>
         ) : null}
       </div>
+      <AlertDialog open={fullAccessConfirmationOpen} onOpenChange={setFullAccessConfirmationOpen}>
+        <AlertDialogContent className="data-[size=default]:sm:max-w-lg">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <TriangleAlert className="size-5 shrink-0" aria-hidden="true" />
+              <Trans id="settings.general.fullAccessConfirmTitle">
+                Make Full Access available?
+              </Trans>
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <Trans id="settings.general.fullAccessConfirmDescription">
+                When selected, Cypheria can access the internet and read and edit files without
+                asking for approval — including potentially destructive commands
+              </Trans>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <p className="text-sm text-muted-foreground">
+            <Trans id="settings.general.fullAccessConfirmNote">
+              Turning this on adds Full Access to the composer's permissions menu. It does not turn
+              Full Access on.
+            </Trans>
+          </p>
+          <AlertDialogFooter>
+            <AlertDialogCancel variant="secondary">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={preferencesMutation.isPending}
+              variant="destructive"
+              onClick={() => void confirmFullAccessVisibility()}
+            >
+              <TriangleAlert className="size-4" aria-hidden="true" />
+              Confirm
+            </AlertDialogAction>
+          </AlertDialogFooter>
+          {preferencesMutation.isError ? (
+            <p className="text-sm text-destructive" role="alert">
+              {String(preferencesMutation.error?.message ?? "Could not save this setting.")}
+            </p>
+          ) : null}
+        </AlertDialogContent>
+      </AlertDialog>
     </SettingsFrame>
   )
 }

@@ -10,10 +10,11 @@ Cypheria 通过通用 Thread interaction 生命周期展示 Codex permissions，
 
 `client.harnesses.codex.permissions` 暴露：
 
-- approval policy、reviewer、sandbox、network、web search、verbosity 和 reasoning summary 的共享默认值；
+- approval policy、reviewer、sandbox、network、web search、verbosity 和 reasoning summary 的 Codex 原生值及 Cypheria 界面回退值，见 [Codex 配置](codex-app-server-config.zh-CN.md#settings-中未设置的值)；
 - 可针对 working directory 查询的有效 permission catalog；
 - 原生 permission profiles 与管理员限制；
-- 控制 composer 是否显示 Full access 的偏好。
+
+Desktop 偏好单独提供 `composer.permissionModeVisibility`，不属于 Codex permissions API。
 
 Server 读取 App Server configuration requirements，并在返回 catalog 前移除不可用 choice。Managed default 会显示为 managed，而不是被重写为本地偏好。
 
@@ -51,7 +52,7 @@ Full access 可以读取和修改 workspace 外的文件，并在没有普通 ap
 
 - App Server requirements 允许内置 danger-full-access profile；
 - 允许 danger-full-access sandbox 与 `never` approval policy；
-- 用户共享 Cypheria 设置允许在 composer 中显示。
+- Desktop 本地的 `composer.permissionModeVisibility` 设置允许在 composer 中显示。
 
 Desktop 在启用显示或选择它之前要求清晰确认。UI 不得为新 Thread 预选 Full access。
 

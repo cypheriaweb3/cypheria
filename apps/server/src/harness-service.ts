@@ -1702,11 +1702,11 @@ export class HarnessService {
       return { models: [], settingSections: genericSections(agentId, defaults) }
     }
 
-    const [models, permissions] = await Promise.all([
+    const [models, permissions, settings] = await Promise.all([
       this.#codex.models(false),
       this.#codex.permissionDefaults(),
+      this.#codex.agentSettings(),
     ])
-    const settings = this.#codex.settings()
     return {
       models: models.map((model) => ({
         agentId,
@@ -1732,49 +1732,26 @@ export class HarnessService {
         })),
       })),
       settingSections: [
-        section("model-defaults", "Model defaults", 30, [
-          select("provider", "Provider", settings.provider, [
-            option("openai", "OpenAI"),
-            option("amazon-bedrock", "Amazon Bedrock"),
-            option("ollama", "Ollama"),
-            option("lmstudio", "LM Studio"),
-          ]),
-          select(
-            "model",
-            "Default model",
-            settings.model,
-            models
-              .filter((model) => !model.hidden)
-              .map((model) => option(model.id, model.displayName))
-          ),
-          select("reasoningEffort", "Reasoning effort", settings.reasoningEffort, [
-            option("minimal", "Minimal"),
-            option("low", "Low"),
-            option("medium", "Medium"),
-            option("high", "High"),
-            option("xhigh", "Extra high"),
-          ]),
-          select("serviceTier", "Service tier", settings.serviceTier, [
-            option("auto", "Auto"),
-            option("default", "Default"),
-            option("flex", "Flex"),
-            option("priority", "Priority"),
-          ]),
-        ]),
-        section("permissions", "Permissions", 40, [
+        section("settings", "Settings", 30, [
           select(
             "approvalPolicy",
             "Approval policy",
             permissions.approvalPolicy,
-            (permissions.allowedApprovalPolicies ?? ["untrusted", "on-request", "never"]).map(
-              (id) => option(id)
+            (permissions.allowedApprovalPolicies ?? ["on-request", "never"])
+              .filter((id) => id === "on-request" || id === "never")
+              .map((id) => option(id))
+          ),
+          select(
+            "approvalsReviewer",
+            "Approval reviewer",
+            permissions.approvalsReviewer,
+            [option("user", "User"), option("auto_review", "Auto review")].filter(
+              (entry) =>
+                permissions.allowedApprovalsReviewers?.includes(
+                  entry.value as "user" | "auto_review"
+                ) ?? true
             )
           ),
-          select("approvalsReviewer", "Approval reviewer", permissions.approvalsReviewer, [
-            option("user", "User"),
-            option("auto_review", "Auto review"),
-            option("guardian_subagent", "Guardian subagent"),
-          ]),
           select(
             "sandboxMode",
             "Sandbox",
@@ -1788,18 +1765,46 @@ export class HarnessService {
             ).map((id) => option(id))
           ),
           boolean("networkAccess", "Network access", permissions.networkAccess),
-          boolean(
-            "showFullAccessInComposer",
-            "Show Full access",
-            this.#config.getSnapshot().config.agents.codex.showFullAccessInComposer
+          select(
+            "webSearch",
+            "Web search",
+            permissions.webSearch,
+            [
+              option("disabled", "Disabled"),
+              option("cached", "Cached"),
+              option("indexed", "Indexed"),
+              option("live", "Live"),
+            ].filter(
+              (entry) =>
+                permissions.allowedWebSearchModes?.includes(
+                  entry.value as "disabled" | "cached" | "indexed" | "live"
+                ) ?? true
+            )
           ),
-        ]),
-        section("responses-web", "Responses & web", 50, [
-          select("webSearch", "Web search", permissions.webSearch, [
-            option("disabled", "Disabled"),
-            option("cached", "Cached"),
-            option("indexed", "Indexed"),
-            option("live", "Live"),
+          select(
+            "model",
+            "Model",
+            settings.model,
+            models
+              .filter((model) => !model.hidden)
+              .map((model) => option(model.id, model.displayName))
+          ),
+          select("reasoningEffort", "Reasoning effort", settings.reasoningEffort, [
+            option("low", "Light"),
+            option("medium", "Medium"),
+            option("high", "High"),
+            option("xhigh", "Extra High"),
+            option("max", "Max"),
+            option("ultra", "Ultra"),
+          ]),
+          select("serviceTier", "Speed", settings.serviceTier, [
+            option("default", "Standard"),
+            option("priority", "Fast"),
+          ]),
+          select("personality", "Communication style", settings.personality, [
+            option("friendly", "Friendly"),
+            option("pragmatic", "Pragmatic"),
+            option("none", "None"),
           ]),
           select("modelVerbosity", "Output detail", permissions.modelVerbosity, [
             option("low", "Low"),
@@ -1812,8 +1817,8 @@ export class HarnessService {
             option("detailed", "Detailed"),
             option("none", "None"),
           ]),
+          boolean("pluginsEnabled", "Plugins", settings.pluginsEnabled),
         ]),
-        section("advanced", "Advanced", 60, []),
       ],
     }
   }
@@ -1850,26 +1855,7 @@ export class HarnessService {
     }
 
     if (agentId === "codex") {
-      const current = this.#config.getSnapshot().config.agents.codex
-      const next = { ...current, ...values }
-      await this.#codex.setSettings({
-        model: typeof next.model === "string" ? next.model : null,
-        provider: next.provider as typeof current.provider,
-        reasoningEffort: typeof next.reasoningEffort === "string" ? next.reasoningEffort : null,
-        serviceTier: typeof next.serviceTier === "string" ? next.serviceTier : null,
-      })
-      await this.#codex.setPermissionDefaults({
-        approvalPolicy: next.approvalPolicy as typeof current.approvalPolicy,
-        approvalsReviewer: next.approvalsReviewer as typeof current.approvalsReviewer,
-        modelReasoningSummary: next.modelReasoningSummary as typeof current.modelReasoningSummary,
-        modelVerbosity: next.modelVerbosity as typeof current.modelVerbosity,
-        networkAccess: Boolean(next.networkAccess),
-        sandboxMode: next.sandboxMode as typeof current.sandboxMode,
-        webSearch: next.webSearch as typeof current.webSearch,
-      })
-      if (typeof next.showFullAccessInComposer === "boolean") {
-        await this.#codex.setShowFullAccess(next.showFullAccessInComposer)
-      }
+      await this.#codex.updateNativeSettings(values)
     } else {
       const current = this.#config.getSnapshot().config.agents.defaults[agentId] ?? {}
       await this.#config.patch({ agents: { defaults: { [agentId]: { ...current, ...values } } } })

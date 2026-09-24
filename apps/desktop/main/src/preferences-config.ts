@@ -21,8 +21,16 @@ const effectivePreferences = (
   configPath: getDesktopSettingsPath(userDataDir),
 })
 
-export const readDesktopPreferences = async (userDataDir: string): Promise<DesktopPreferences> =>
-  effectivePreferences((await readDesktopSettings(userDataDir)).preferences, userDataDir)
+export const readDesktopPreferences = async (userDataDir: string): Promise<DesktopPreferences> => {
+  const settings = await readDesktopSettings(userDataDir)
+  return effectivePreferences(
+    {
+      ...settings.preferences,
+      permissionModeVisibility: settings.composer.permissionModeVisibility,
+    },
+    userDataDir
+  )
+}
 
 export const writeDesktopPreferences = async (
   userDataDir: string,
@@ -32,6 +40,11 @@ export const writeDesktopPreferences = async (
   if (preferences.projectlessWorkspaceRoot && !isAbsolute(preferences.projectlessWorkspaceRoot)) {
     throw new Error("The projectless task folder must be an absolute path")
   }
-  await updateDesktopSettings(userDataDir, (current) => ({ ...current, preferences }))
+  const { permissionModeVisibility, ...storedPreferences } = preferences
+  await updateDesktopSettings(userDataDir, (current) => ({
+    ...current,
+    composer: { permissionModeVisibility },
+    preferences: storedPreferences,
+  }))
   return effectivePreferences(preferences, userDataDir)
 }

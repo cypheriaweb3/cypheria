@@ -56,7 +56,7 @@ export const defaultDesktopPreferences = DesktopPreferencesWriteSchema.parse({
   openInTargetPreference: "system",
   macMenuBarEnabled: process.platform === "darwin",
   preventSleepWhileRunning: false,
-  pluginsEnabled: true,
+  permissionModeVisibility: false,
   composerPlainTextMode: false,
   showContextWindowUsage: false,
   composerEnterBehavior: "enter",
@@ -69,6 +69,8 @@ export const defaultDesktopPreferences = DesktopPreferencesWriteSchema.parse({
   notificationSound: "default",
   notificationCustomSoundPath: null,
 })
+const { permissionModeVisibility: defaultPermissionModeVisibility, ...defaultStoredPreferences } =
+  defaultDesktopPreferences
 
 const DesktopSettingsDocumentSchema = z
   .object({
@@ -76,7 +78,12 @@ const DesktopSettingsDocumentSchema = z
     appearance: AppearanceSettingsWriteSchema,
     language: LanguageSettingsWriteSchema,
     workspaceLayout: WorkspaceLayoutSettingsWriteSchema,
-    preferences: DesktopPreferencesWriteSchema.default(defaultDesktopPreferences),
+    preferences: DesktopPreferencesWriteSchema.omit({ permissionModeVisibility: true }).default(
+      defaultStoredPreferences
+    ),
+    composer: z.object({ permissionModeVisibility: z.boolean() }).strict().default({
+      permissionModeVisibility: defaultPermissionModeVisibility,
+    }),
     server: z
       .object({
         autoStart: z.boolean(),
@@ -96,7 +103,8 @@ export const defaultDesktopSettings: DesktopSettingsDocument = {
   appearance: defaultAppearanceSettings,
   language: { preference: "system" },
   workspaceLayout: defaultWorkspaceLayoutSettings,
-  preferences: defaultDesktopPreferences,
+  preferences: defaultStoredPreferences,
+  composer: { permissionModeVisibility: defaultPermissionModeVisibility },
   server: { autoStart: true, executablePath: null, preferredPort: null },
   window: { maximized: false },
   behavior: { automaticUpdates: true, soundsEnabled: true },

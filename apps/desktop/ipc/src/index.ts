@@ -287,7 +287,7 @@ export const DesktopPreferencesWriteSchema = z
     openInTargetPreference: z.string().min(1),
     macMenuBarEnabled: z.boolean(),
     preventSleepWhileRunning: z.boolean(),
-    pluginsEnabled: z.boolean(),
+    permissionModeVisibility: z.boolean(),
     composerPlainTextMode: z.boolean(),
     showContextWindowUsage: z.boolean(),
     composerEnterBehavior: z.enum(["enter", "cmdIfMultiline", "cmdAlways"]),

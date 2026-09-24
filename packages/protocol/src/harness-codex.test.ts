@@ -39,10 +39,11 @@ describe("Codex harness protocol", () => {
         reasoningEffort: null,
         sandboxMode: "workspace-write",
         serviceTier: null,
-        showFullAccessInComposer: false,
+        personality: "none",
+        pluginsEnabled: true,
         webSearch: "cached",
       })
-    ).toMatchObject({ sandboxMode: "workspace-write", showFullAccessInComposer: false })
+    ).toMatchObject({ sandboxMode: "workspace-write", personality: "none" })
     expect(
       ClientMessageSchema.parse({
         payload: {},

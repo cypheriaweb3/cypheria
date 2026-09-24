@@ -10,10 +10,11 @@ Cypheria presents Codex permissions through the common Thread interaction lifecy
 
 `client.harnesses.codex.permissions` exposes:
 
-- shared defaults for approval policy, reviewer, sandbox, network, web search, verbosity, and reasoning summary;
+- Codex-backed values and Cypheria display fallbacks for approval policy, reviewer, sandbox, network, web search, verbosity, and reasoning summary; see [Codex Configuration](codex-app-server-config.md#unset-values-in-settings);
 - the effective permission catalog for an optional working directory;
 - native permission profiles and administrator restrictions;
-- the preference controlling whether Full access is visible in the composer.
+
+Desktop preferences expose `composer.permissionModeVisibility` separately from the Codex permissions API.
 
 The Server reads App Server configuration requirements and removes unavailable choices before returning the catalog. A managed default is shown as managed rather than rewritten as a local preference.
 
@@ -51,7 +52,7 @@ Full access can read and modify files outside the workspace and execute commands
 
 - App Server requirements allow the built-in danger-full-access profile;
 - danger-full-access sandbox and `never` approval policy are allowed;
-- the user's shared Cypheria setting permits showing it in the composer.
+- the Desktop-local `composer.permissionModeVisibility` setting permits showing it in the composer.
 
 Desktop requires a clear confirmation before enabling its visibility or selecting it. The UI must not preselect Full access for a new Thread.
 

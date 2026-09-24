@@ -69,6 +69,7 @@ import {
 } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { waitForAgentOperation } from "../components/agent-operation"
+import { CodexSettingsSection } from "../components/codex-settings-section"
 import { AuthenticationSection } from "../components/harness-authentication-section"
 import { HarnessIcon } from "../components/harness-icon"
 import { NetworkProxyCard } from "../components/network-proxy-card"
@@ -83,6 +84,10 @@ export const Route = createFileRoute("/settings/agent-harnesses/$agentId/$sectio
 const baseSections = [
   { id: "authentication", label: "Authentication" },
   { id: "models", label: "Models" },
+]
+const codexSections = [
+  { id: "authentication", label: "Authentication" },
+  { id: "settings", label: "Settings" },
 ]
 
 const agentOperationsQueryKey = ["cypheria", "agent-operations"] as const
@@ -112,11 +117,14 @@ function AgentHarnessSettingsRoute() {
     queryKey: ["harness", agentId, "catalog"],
   })
   const sections = useMemo(
-    () => [
-      ...baseSections,
-      ...(catalogQuery.data?.settingSections ?? []).map(({ id, label }) => ({ id, label })),
-    ],
-    [catalogQuery.data?.settingSections]
+    () =>
+      agentId === "codex"
+        ? codexSections
+        : [
+            ...baseSections,
+            ...(catalogQuery.data?.settingSections ?? []).map(({ id, label }) => ({ id, label })),
+          ],
+    [agentId, catalogQuery.data?.settingSections]
   )
 
   useEffect(() => {
@@ -221,10 +229,17 @@ function AgentHarnessSettingsRoute() {
               </nav>
               <section className="min-w-0">
                 {sectionId === "authentication" ? <AuthenticationSection agent={agent} /> : null}
-                {sectionId === "models" ? (
+                {sectionId === "models" && agentId !== "codex" ? (
                   <ModelsSection agentId={agentId} snapshot={catalogQuery.data} />
                 ) : null}
-                {!baseSections.some((item) => item.id === sectionId) ? (
+                {sectionId === "settings" && agentId === "codex" ? (
+                  <CodexSettingsSection
+                    snapshot={catalogQuery.data}
+                    loading={catalogQuery.isLoading}
+                  />
+                ) : null}
+                {!baseSections.some((item) => item.id === sectionId) &&
+                !(sectionId === "settings" && agentId === "codex") ? (
                   <SettingsSection
                     agentId={agentId}
                     section={catalogQuery.data?.settingSections.find(
@@ -246,18 +261,40 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
   const queryClient = useQueryClient()
   const [restartOpen, setRestartOpen] = useState(false)
   const [uninstallOpen, setUninstallOpen] = useState(false)
-  const [operation, setOperation] = useState<AgentOperation>()
+  const [uninstallOperation, setUninstallOperation] = useState<AgentOperation>()
+  const operations = useQuery({
+    queryFn: async () => (await ensureCypheriaClient()).agents.listOperations(),
+    queryKey: agentOperationsQueryKey,
+    refetchInterval: (query) => (query.state.data?.some(operationInProgress) ? 250 : false),
+    refetchOnMount: "always",
+    staleTime: 0,
+  })
+  const updateOperation = useMemo(
+    () =>
+      [...(operations.data ?? [])]
+        .reverse()
+        .find(
+          (candidate) =>
+            candidate.kind === "update" &&
+            candidate.target.kind === "agent" &&
+            candidate.target.agentId === agent.id
+        ),
+    [agent.id, operations.data]
+  )
+  const updating = updateOperation ? operationInProgress(updateOperation) : false
   const update = useMutation({
-    mutationFn: async () => {
-      const client = await ensureCypheriaClient()
-      return waitForAgentOperation(await client.agents.update(agent.id), setOperation)
-    },
-    onSuccess: async () => {
-      setOperation(undefined)
-      await queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
-      await queryClient.invalidateQueries({ queryKey: ["harness", agent.id] })
+    mutationFn: async () => (await ensureCypheriaClient()).agents.update(agent.id),
+    onSuccess: (nextOperation) => {
+      queryClient.setQueryData<AgentOperation[]>(agentOperationsQueryKey, (current) =>
+        upsertAgentOperation(current, nextOperation)
+      )
     },
   })
+  useEffect(() => {
+    if (updateOperation?.status !== "succeeded") return
+    void queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
+    void queryClient.invalidateQueries({ queryKey: ["harness", agent.id] })
+  }, [agent.id, queryClient, updateOperation?.status])
   const restart = useMutation({
     mutationFn: async () => {
       const client = await ensureCypheriaClient()
@@ -274,10 +311,10 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
   const uninstall = useMutation({
     mutationFn: async () => {
       const client = await ensureCypheriaClient()
-      return waitForAgentOperation(await client.agents.uninstall(agent.id), setOperation)
+      return waitForAgentOperation(await client.agents.uninstall(agent.id), setUninstallOperation)
     },
     onSuccess: async () => {
-      setOperation(undefined)
+      setUninstallOperation(undefined)
       setUninstallOpen(false)
       queryClient.removeQueries({ queryKey: ["harness", agent.id] })
       await queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
@@ -299,13 +336,16 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
     if (uninstall.isPending) return
     if (!open) {
       uninstall.reset()
-      setOperation(undefined)
+      setUninstallOperation(undefined)
     }
     setUninstallOpen(open)
   }
   const maintenancePending =
-    disable.isPending || restart.isPending || update.isPending || uninstall.isPending
-  const progress = Math.round((operation?.progress ?? 0) * 100)
+    disable.isPending || restart.isPending || update.isPending || updating || uninstall.isPending
+  const updateProgress = Math.round(((updating ? updateOperation?.progress : 0) ?? 0) * 100)
+  const uninstallProgress = Math.round((uninstallOperation?.progress ?? 0) * 100)
+  const updateError =
+    update.error?.message ?? (updateOperation?.status === "failed" ? updateOperation.error : null)
   if (!agent.installed) return null
   const updateAvailable = isAgentUpdateAvailable(agent)
   return (
@@ -322,53 +362,31 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
             }}
           />
         ) : null}
-        {updateAvailable ? (
+        {updateAvailable || updating ? (
           <Button
             aria-label={
-              update.error
-                ? `Update ${agent.name} failed: ${update.error.message}`
-                : `Update ${agent.name} to v${agent.availableVersion}`
+              updateError
+                ? `Update ${agent.name} failed: ${updateError}`
+                : updating
+                  ? `Updating ${agent.name}: ${updateProgress}%`
+                  : `Update ${agent.name} to v${agent.availableVersion}`
             }
             disabled={maintenancePending}
-            size={update.isPending ? "default" : "icon"}
-            title={update.error?.message ?? `Update to v${agent.availableVersion}`}
-            variant="outline"
+            size={update.isPending || updating ? "default" : "icon"}
+            title={updateError ?? `Update to v${agent.availableVersion}`}
+            variant="default"
             onClick={() => update.mutate()}
           >
-            {update.isPending ? (
+            {update.isPending || updating ? (
               <>
                 <LoaderCircle className="size-4 animate-spin" />
-                <span className="tabular-nums">{progress}%</span>
+                <span className="tabular-nums">{updateProgress}%</span>
               </>
             ) : (
               <Download className="size-4" />
             )}
           </Button>
         ) : null}
-        <Button
-          aria-label={
-            uninstall.error
-              ? `Uninstall ${agent.name} failed: ${uninstall.error.message}`
-              : uninstall.isPending
-                ? `Uninstall ${agent.name}: ${progress}%`
-                : `Uninstall ${agent.name}`
-          }
-          disabled={maintenancePending}
-          size={uninstall.isPending ? "default" : "icon"}
-          title={uninstall.error?.message ?? `Uninstall ${agent.name}`}
-          type="button"
-          variant="destructive"
-          onClick={() => setUninstallDialogOpen(true)}
-        >
-          {uninstall.isPending ? (
-            <>
-              <LoaderCircle className="size-4 animate-spin" />
-              <span className="tabular-nums">{progress}%</span>
-            </>
-          ) : (
-            <Trash2 className="size-4" aria-hidden="true" />
-          )}
-        </Button>
         <DropdownMenu>
           <DropdownMenuTrigger
             render={
@@ -387,11 +405,20 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
               <RotateCw aria-hidden="true" />
               Restart
             </DropdownMenuItem>
+            <DropdownMenuItem variant="destructive" onClick={() => setUninstallDialogOpen(true)}>
+              <Trash2 aria-hidden="true" />
+              Uninstall
+            </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
       {disable.error ? (
         <span className="text-xs text-destructive">{disable.error.message}</span>
+      ) : null}
+      {updateError ? (
+        <span className="text-xs text-destructive" role="alert">
+          {updateError}
+        </span>
       ) : null}
       <AlertDialog open={restartOpen} onOpenChange={setRestartDialogOpen}>
         <AlertDialogContent>
@@ -450,22 +477,20 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
             <Button
               aria-label={
                 uninstall.isPending
-                  ? `Uninstall ${agent.name}: ${progress}%`
+                  ? `Uninstall ${agent.name}: ${uninstallProgress}%`
                   : `Uninstall ${agent.name}`
               }
               disabled={uninstall.isPending}
-              size={uninstall.isPending ? "default" : "icon"}
-              title={`Uninstall ${agent.name}`}
               variant="destructive"
               onClick={() => uninstall.mutate()}
             >
               {uninstall.isPending ? (
                 <>
                   <LoaderCircle className="size-4 animate-spin" />
-                  <span className="tabular-nums">{progress}%</span>
+                  <span className="tabular-nums">Uninstalling… {uninstallProgress}%</span>
                 </>
               ) : (
-                <Trash2 className="size-4" aria-hidden="true" />
+                "Uninstall"
               )}
             </Button>
           </DialogFooter>

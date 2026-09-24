@@ -1,4 +1,5 @@
-import { mkdtemp, rm } from "node:fs/promises"
+import { existsSync } from "node:fs"
+import { mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -32,6 +33,101 @@ afterEach(async () => {
 })
 
 describe("AgentManager enable gate", () => {
+  it("reports Claude and Pi as running only while their runtimes are active", async () => {
+    const home = await mkdtemp(join(tmpdir(), "cypheria-agent-manager-runtime-state-"))
+    homes.push(home)
+    const script = join(home, "pi-runtime.mjs")
+    await writeFile(
+      script,
+      [
+        'import { existsSync, writeFileSync } from "node:fs"',
+        `const home = ${JSON.stringify(home)}`,
+        "process.stdin.once('data', (data) => {",
+        "  const { id } = JSON.parse(data.toString())",
+        "  setInterval(() => {",
+        "    if (!existsSync(home + '/stop-' + id)) return",
+        "    writeFileSync(home + '/exited-' + id, '')",
+        "    process.exit(0)",
+        "  }, 20)",
+        "})",
+      ].join("\n")
+    )
+    const database = createInMemoryDatabase()
+    await applyDatabaseMigrations(database.client)
+    const persistence = createAgentRegistryPersistenceService(database.db)
+    const receipts = new Map<AgentId, AgentInstallReceipt>([
+      ["claude", receipt("claude")],
+      [
+        "pi",
+        {
+          agentId: "pi",
+          args: [script],
+          command: process.execPath,
+          installedAt: new Date().toISOString(),
+          integrity: "not-applicable",
+          kind: "npx",
+          source: "pi",
+          version: NATIVE_AGENT_MANIFEST.pi.cliVersion,
+        },
+      ],
+    ])
+    for (const agentId of ["claude", "pi"] as const) {
+      await persistence.reconcile([{ id: agentId, native: true }])
+      await persistence.setVersion(agentId, {
+        description: agentId,
+        icon: null,
+        name: agentId,
+        repository: null,
+        version: NATIVE_AGENT_MANIFEST[agentId].cliVersion,
+        website: null,
+      })
+      await persistence.setEnabled(agentId, true)
+    }
+    const manager = new AgentManager({
+      cacheDir: join(home, "cache"),
+      cypheriaHome: home,
+      installer: {
+        cleanupInterrupted: async () => undefined,
+        install: async (agentId) => {
+          const installed = receipts.get(agentId)
+          if (!installed) throw new Error(`No receipt for ${agentId}`)
+          return installed
+        },
+        readCurrent: async (agentId) => receipts.get(agentId),
+        uninstall: async () => undefined,
+      },
+      networkBootstrap: false,
+      persistence,
+      publish: () => undefined,
+    })
+    await manager.start()
+    try {
+      expect(await manager.startAgent("claude", "session")).toMatchObject({
+        runtimeState: "stopped",
+      })
+      expect(await manager.startAgent("pi", "session")).toMatchObject({
+        runtimeState: "stopped",
+      })
+      for (const sessionId of ["first", "second"]) {
+        await manager.handlePi(
+          { requestId: `pi-${sessionId}`, type: "agent.pi.state.get.request" },
+          { send: () => undefined, sessionId }
+        )
+      }
+      expect(await manager.get("pi", "first")).toMatchObject({ runtimeState: "running" })
+      await writeFile(join(home, "stop-pi-first"), "")
+      await expect.poll(() => existsSync(join(home, "exited-pi-first"))).toBe(true)
+      expect(await manager.get("pi", "second")).toMatchObject({ runtimeState: "running" })
+      await writeFile(join(home, "stop-pi-second"), "")
+      await expect
+        .poll(async () => (await manager.get("pi", "second")).runtimeState)
+        .toBe("stopped")
+    } finally {
+      await manager.stop()
+      database.close()
+    }
+  })
+
   it("seeds only native records and persists a catalog agent when the user adds it", async () => {
     const home = await mkdtemp(join(tmpdir(), "cypheria-agent-manager-registry-"))
     homes.push(home)

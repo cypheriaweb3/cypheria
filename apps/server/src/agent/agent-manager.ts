@@ -22,7 +22,6 @@ import {
   type AgentPiClientMessage,
   type AgentPiServerMessage,
   type AgentView,
-  type CodexAgentSettings,
   DEFAULT_GIT_SETTINGS,
   type GitSettings,
   type HarnessSettingValue,
@@ -107,7 +106,6 @@ export type AgentManagerOptions = {
   persistence: AgentRegistryPersistenceService
   publish: Send
   logger?: Logger
-  codexSettings?: () => CodexAgentSettings
   gitSettings?: () => GitSettings
   managedShellEnvironment?: (cwd: string) => Promise<Record<string, string> | null>
   agentDefaults?: (agentId: AgentId) => Record<string, HarnessSettingValue>
@@ -144,6 +142,15 @@ const isNewerReleaseVersion = (
   )
 }
 
+const hasRunningRuntime = async (
+  runtimes: Iterable<Promise<{ running: boolean }>>
+): Promise<boolean> => {
+  const states = await Promise.all(
+    [...runtimes].map(async (pending) => (await pending.catch(() => undefined))?.running ?? false)
+  )
+  return states.some(Boolean)
+}
+
 export class AgentManager {
   readonly registry: AgentRegistryService
   readonly toolchains: ToolchainManager
@@ -152,7 +159,6 @@ export class AgentManager {
   readonly #agentDefaults: (agentId: AgentId) => Record<string, HarnessSettingValue>
   readonly #agentHomes: string
   readonly #claudeRuntimes = new Map<string, Promise<ClaudeSessionRuntime>>()
-  readonly #codexSettings: () => CodexAgentSettings
   readonly #gitSettings: () => GitSettings
   readonly #managedShellEnvironment: (cwd: string) => Promise<Record<string, string> | null>
   readonly #installer: Pick<
@@ -167,7 +173,6 @@ export class AgentManager {
   readonly #persistence: AgentRegistryPersistenceService
   readonly #publish: Send
   readonly #records = new Map<AgentId, AgentRegistryRecord>()
-  readonly #sessionStates = new Map<string, Set<AgentId>>()
   readonly #subscriptions = new Map<string, AbortController>()
   readonly #threadAdapters = new Map<string, ManagedThreadAdapter>()
   readonly #networkBootstrap: boolean
@@ -191,22 +196,6 @@ export class AgentManager {
     this.#agentDefaults = options.agentDefaults ?? (() => ({}))
     this.#gitSettings = options.gitSettings ?? (() => DEFAULT_GIT_SETTINGS)
     this.#managedShellEnvironment = options.managedShellEnvironment ?? (async () => null)
-    this.#codexSettings =
-      options.codexSettings ??
-      (() => ({
-        approvalPolicy: "on-request",
-        approvalsReviewer: "user",
-        model: null,
-        modelReasoningSummary: null,
-        modelVerbosity: null,
-        networkAccess: true,
-        provider: "openai",
-        reasoningEffort: null,
-        sandboxMode: "workspace-write",
-        serviceTier: null,
-        showFullAccessInComposer: false,
-        webSearch: null,
-      }))
     this.#agentHomes = join(options.cypheriaHome, "agents")
     this.registry = new AgentRegistryService()
     this.toolchains = new ToolchainManager({
@@ -260,7 +249,6 @@ export class AgentManager {
     ])
     this.#piModelRuntime = undefined
     this.#threadAdapters.clear()
-    this.#sessionStates.clear()
     this.codexDynamicTools.clear()
   }
 
@@ -291,7 +279,6 @@ export class AgentManager {
         this.#subscriptions.delete(key)
       }
     }
-    this.#sessionStates.delete(sessionId)
   }
 
   adapterFor(agentId: AgentId, threadId: string): ThreadHarnessAdapter {
@@ -447,7 +434,6 @@ export class AgentManager {
     })
     const runtime = await pending
     if (this.#acpRuntimes.get(key) !== pending) return
-    this.#markSessionRunning(context.sessionId, message.agent)
     runtime.send(message)
   }
 
@@ -505,7 +491,6 @@ export class AgentManager {
     await this.#assertCallable("codex")
     const runtime = await this.#ensureCodexRuntime()
     await runtime.send(context.sessionId, context.send, message)
-    this.#markSessionRunning(context.sessionId, "codex")
   }
 
   async callCodex(
@@ -728,7 +713,6 @@ export class AgentManager {
     const runtime = await pending
     if (this.#claudeRuntimes.get(context.sessionId) !== pending) return
     await runtime.send(message)
-    this.#markSessionRunning(context.sessionId, "claude")
   }
 
   async handlePi(message: AgentPiClientMessage, context: AgentMessageContext): Promise<void> {
@@ -746,7 +730,6 @@ export class AgentManager {
     const runtime = await pending
     if (this.#piRuntimes.get(context.sessionId) !== pending) return
     await runtime.send(message)
-    this.#markSessionRunning(context.sessionId, "pi")
   }
 
   async list(sessionId: string): Promise<AgentView[]> {
@@ -825,12 +808,7 @@ export class AgentManager {
     const latestVersion = native?.cliVersion ?? entry?.version ?? null
     const version = record.version ?? latestVersion
     if (!version) throw this.#error("AGENT_VERSION_UNAVAILABLE", `${agentId} has no known version`)
-    const running =
-      agentId === "opencode"
-        ? this.#openCode.running
-        : agentId === "codex"
-          ? (this.#codexRuntime?.running ?? false)
-          : [...this.#sessionStates.values()].some((agents) => agents.has(agentId))
+    const running = await this.#isAgentRunning(agentId)
     const receipt = await this.#installer.readCurrent(agentId)
     return {
       id: agentId,
@@ -878,7 +856,6 @@ export class AgentManager {
     if (!receipt) throw this.#error("AGENT_NOT_INSTALLED", `${agentId} is not installed`)
     if (agentId === "opencode") await this.#openCode.start(receipt)
     else if (agentId === "codex") await (await this.#ensureCodexRuntime()).start()
-    else this.#markSessionRunning(sessionId, agentId)
     const view = await this.get(agentId, sessionId)
     this.#publish({ payload: view, type: "agent.updated.notification" })
     return view
@@ -1114,7 +1091,6 @@ export class AgentManager {
     for (const [, runtime] of matches) {
       await (await runtime.catch(() => undefined))?.stop()
     }
-    for (const agents of this.#sessionStates.values()) agents.delete(agentId)
   }
 
   async #pumpOpenCodeEvents(
@@ -1148,10 +1124,16 @@ export class AgentManager {
     }
   }
 
-  #markSessionRunning(sessionId: string, agentId: AgentId): void {
-    const agents = this.#sessionStates.get(sessionId) ?? new Set<AgentId>()
-    agents.add(agentId)
-    this.#sessionStates.set(sessionId, agents)
+  async #isAgentRunning(agentId: AgentId): Promise<boolean> {
+    if (agentId === "opencode") return this.#openCode.running
+    if (agentId === "codex") return this.#codexRuntime?.running ?? false
+    if (agentId === "claude") return hasRunningRuntime(this.#claudeRuntimes.values())
+    if (agentId === "pi") return hasRunningRuntime(this.#piRuntimes.values())
+    return hasRunningRuntime(
+      [...this.#acpRuntimes.entries()]
+        .filter(([key]) => key.endsWith(`:${agentId}`))
+        .map(([, runtime]) => runtime)
+    )
   }
 
   async #stopCodexRuntime(): Promise<void> {
@@ -1172,56 +1154,6 @@ export class AgentManager {
         logger: this.#logger?.child({ agentId: "codex" }),
       })
       try {
-        const settings = this.#codexSettings()
-        await runtime.request("config/batchWrite", {
-          edits: [
-            { keyPath: "model_provider", mergeStrategy: "replace", value: settings.provider },
-            { keyPath: "model", mergeStrategy: "replace", value: settings.model },
-            {
-              keyPath: "model_reasoning_effort",
-              mergeStrategy: "replace",
-              value: settings.reasoningEffort,
-            },
-            { keyPath: "service_tier", mergeStrategy: "replace", value: settings.serviceTier },
-            {
-              keyPath: "approval_policy",
-              mergeStrategy: "replace",
-              value: settings.approvalPolicy,
-            },
-            {
-              keyPath: "approvals_reviewer",
-              mergeStrategy: "replace",
-              value: settings.approvalsReviewer,
-            },
-            {
-              keyPath: "sandbox_mode",
-              mergeStrategy: "replace",
-              value: settings.sandboxMode,
-            },
-            {
-              keyPath: "sandbox_workspace_write.network_access",
-              mergeStrategy: "replace",
-              value: settings.networkAccess,
-            },
-            { keyPath: "web_search", mergeStrategy: "replace", value: settings.webSearch },
-            {
-              keyPath: "model_verbosity",
-              mergeStrategy: "replace",
-              value: settings.modelVerbosity,
-            },
-            {
-              keyPath: "model_reasoning_summary",
-              mergeStrategy: "replace",
-              value: settings.modelReasoningSummary,
-            },
-            {
-              keyPath: "desktop.showFullAccessInComposer",
-              mergeStrategy: "replace",
-              value: settings.showFullAccessInComposer,
-            },
-          ],
-          reloadUserConfig: true,
-        })
         this.#codexRuntime = runtime
         return runtime
       } catch (error) {

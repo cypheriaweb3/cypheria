@@ -1,4 +1,6 @@
+import { dirname, join } from "node:path"
 import type {
+  CodexAgentSettings,
   CodexHarnessClientMessage,
   CodexHarnessServerMessage,
   CodexModelSettings,
@@ -59,7 +61,7 @@ export class CodexHarnessService {
           respond({ models: await this.models(message.payload.includeHidden ?? false) })
           break
         case "harness.codex.model-settings.get.request":
-          respond(this.settings())
+          respond(await this.settings())
           break
         case "harness.codex.model-settings.set.request":
           respond(await this.setSettings(message.payload))
@@ -72,9 +74,6 @@ export class CodexHarnessService {
           break
         case "harness.codex.permissions.catalog.get.request":
           respond(await this.permissionsCatalog(message.payload.cwd))
-          break
-        case "harness.codex.permissions.show-full-access.set.request":
-          respond(await this.setShowFullAccess(message.payload.enabled))
           break
         case "harness.codex.guardian.retry.request":
           await this.callThread("thread/approveGuardianDeniedAction", message.payload)
@@ -233,14 +232,62 @@ export class CodexHarnessService {
     }))
   }
 
-  settings(): CodexModelSettings {
-    const { model, provider, reasoningEffort, serviceTier } =
-      this.#config.getSnapshot().config.agents.codex
+  private async nativeConfig(cwd?: string): Promise<v2.Config> {
+    return (
+      await this.call<v2.ConfigReadResponse>("config/read", {
+        includeLayers: false,
+        ...(cwd ? { cwd } : {}),
+      })
+    ).config
+  }
+
+  async agentSettings(cwd?: string): Promise<CodexAgentSettings> {
+    const [config, features] = await Promise.all([
+      this.nativeConfig(cwd),
+      this.call<v2.ExperimentalFeatureListResponse>("experimentalFeature/list", { limit: 100 }),
+    ])
+    const values = config as Record<string, unknown>
+    const pluginFeature = features.data.find((feature) => feature.name === "plugins")
+    const personalityFeature = features.data.find((feature) => feature.name === "personality")
+    const personality = values.personality
+    return {
+      approvalPolicy: config.approval_policy === "never" ? "never" : "on-request",
+      approvalsReviewer: config.approvals_reviewer === "auto_review" ? "auto_review" : "user",
+      model: config.model,
+      modelReasoningSummary: config.model_reasoning_summary ?? null,
+      modelVerbosity: config.model_verbosity ?? null,
+      networkAccess: config.sandbox_workspace_write?.network_access ?? false,
+      personality:
+        personality === "friendly" || personality === "pragmatic" || personality === "none"
+          ? personality
+          : personalityFeature?.enabled === false
+            ? "none"
+            : "pragmatic",
+      pluginsEnabled: pluginFeature?.enabled ?? true,
+      provider:
+        config.model_provider === "amazon-bedrock" ||
+        config.model_provider === "ollama" ||
+        config.model_provider === "lmstudio"
+          ? config.model_provider
+          : "openai",
+      reasoningEffort: config.model_reasoning_effort ?? null,
+      sandboxMode:
+        config.sandbox_mode === "read-only" ||
+        config.sandbox_mode === "workspace-write" ||
+        config.sandbox_mode === "danger-full-access"
+          ? config.sandbox_mode
+          : "workspace-write",
+      serviceTier: config.service_tier === "fast" ? "priority" : (config.service_tier ?? null),
+      webSearch: config.web_search ?? null,
+    }
+  }
+
+  async settings(): Promise<CodexModelSettings> {
+    const { model, provider, reasoningEffort, serviceTier } = await this.agentSettings()
     return { model, provider, reasoningEffort, serviceTier }
   }
 
   async setSettings(settings: CodexModelSettings): Promise<CodexModelSettings> {
-    await this.#config.patch({ agents: { codex: settings } })
     await this.call("config/batchWrite", {
       edits: [
         { keyPath: "model_provider", mergeStrategy: "replace", value: settings.provider },
@@ -265,18 +312,24 @@ export class CodexHarnessService {
   async permissionDefaults(): Promise<CodexPermissionDefaults> {
     const requirements = await this.requirements()
     const snapshot = this.#config.getSnapshot()
-    const settings = snapshot.config.agents.codex
+    const settings = await this.agentSettings()
     const allowedApprovalPolicies =
       requirements?.allowedApprovalPolicies?.filter(
-        (policy): policy is CodexPermissionDefaults["approvalPolicy"] => typeof policy === "string"
+        (policy): policy is CodexPermissionDefaults["approvalPolicy"] =>
+          policy === "on-request" || policy === "never"
       ) ?? null
     return {
       allowedApprovalPolicies,
+      allowedApprovalsReviewers:
+        requirements?.allowedApprovalsReviewers?.filter(
+          (reviewer): reviewer is CodexPermissionDefaults["approvalsReviewer"] =>
+            reviewer === "user" || reviewer === "auto_review"
+        ) ?? null,
       allowedSandboxModes: requirements?.allowedSandboxModes ?? null,
       allowedWebSearchModes: requirements?.allowedWebSearchModes ?? null,
       approvalPolicy: settings.approvalPolicy,
       approvalsReviewer: settings.approvalsReviewer,
-      configPath: snapshot.path,
+      configPath: join(dirname(dirname(snapshot.path)), "codex", "config.toml"),
       modelReasoningSummary: settings.modelReasoningSummary,
       modelVerbosity: settings.modelVerbosity,
       networkAccess: settings.networkAccess,
@@ -288,7 +341,6 @@ export class CodexHarnessService {
   async setPermissionDefaults(
     settings: CodexPermissionDefaultsWrite
   ): Promise<CodexPermissionDefaults> {
-    await this.#config.patch({ agents: { codex: settings } })
     await this.call("config/batchWrite", {
       edits: [
         { keyPath: "approval_policy", mergeStrategy: "replace", value: settings.approvalPolicy },
@@ -320,6 +372,37 @@ export class CodexHarnessService {
     return this.permissionDefaults()
   }
 
+  async updateNativeSettings(
+    values: Record<string, string | boolean | number | null>
+  ): Promise<void> {
+    const keyPaths: Record<string, string> = {
+      approvalPolicy: "approval_policy",
+      approvalsReviewer: "approvals_reviewer",
+      sandboxMode: "sandbox_mode",
+      networkAccess: "sandbox_workspace_write.network_access",
+      webSearch: "web_search",
+      model: "model",
+      reasoningEffort: "model_reasoning_effort",
+      serviceTier: "service_tier",
+      personality: "personality",
+      modelVerbosity: "model_verbosity",
+      modelReasoningSummary: "model_reasoning_summary",
+      pluginsEnabled: "features.plugins",
+    }
+    const edits = Object.entries(values).map(([id, value]) => {
+      const keyPath = keyPaths[id]
+      if (!keyPath) throw new Error(`Unknown Codex setting: ${id}`)
+      return { keyPath, mergeStrategy: "replace" as const, value }
+    })
+    if (edits.length === 0) return
+    await this.call("config/batchWrite", { edits, reloadUserConfig: true })
+    if (typeof values.pluginsEnabled === "boolean") {
+      await this.call("experimentalFeature/enablement/set", {
+        enablement: { plugins: values.pluginsEnabled },
+      })
+    }
+  }
+
   async permissionsCatalog(cwd?: string): Promise<CodexPermissionsCatalog> {
     const requirements = await this.requirements()
     const profiles: v2.PermissionProfileSummary[] = []
@@ -336,7 +419,7 @@ export class CodexHarnessService {
     } while (cursor)
 
     const snapshot = this.#config.getSnapshot()
-    const settings = snapshot.config.agents.codex
+    const settings = await this.agentSettings(cwd)
     const allowedProfile = (id: string): boolean =>
       profiles.find((profile) => profile.id === id)?.allowed ??
       requirements?.allowedPermissionProfiles?.[id] ??
@@ -348,16 +431,14 @@ export class CodexHarnessService {
         ? { agentMode: "read-only", kind: "agent-mode" }
         : settings.sandboxMode === "danger-full-access"
           ? { agentMode: "full-access", kind: "agent-mode" }
-          : settings.approvalsReviewer === "auto_review" ||
-              settings.approvalsReviewer === "guardian_subagent"
+          : settings.approvalsReviewer === "auto_review"
             ? { agentMode: "guardian-approvals", kind: "agent-mode" }
             : { agentMode: "auto", kind: "agent-mode" }
     const allowedReviewers = requirements?.allowedApprovalsReviewers
     const autoReviewAvailable =
       allowedReviewers === null ||
       allowedReviewers === undefined ||
-      allowedReviewers.includes("auto_review") ||
-      allowedReviewers.includes("guardian_subagent")
+      allowedReviewers.includes("auto_review")
     const allowedApproval = (policy: v2.AskForApproval): boolean =>
       requirements?.allowedApprovalPolicies?.some(
         (allowed) => JSON.stringify(allowed) === JSON.stringify(policy)
@@ -381,22 +462,11 @@ export class CodexHarnessService {
     return {
       autoReviewAvailable,
       availableAgentModes,
-      configPath: snapshot.path,
+      configPath: join(dirname(dirname(snapshot.path)), "codex", "config.toml"),
       fullAccessCanBeShown: fullAccessAllowed,
       profiles: profiles.filter((profile) => !builtInProfiles.has(profile.id)),
       selected,
-      showFullAccess: settings.showFullAccessInComposer,
       source: requirements?.defaultPermissions ? "managed" : "config",
     }
-  }
-
-  async setShowFullAccess(enabled: boolean): Promise<CodexPermissionsCatalog> {
-    await this.#config.patch({ agents: { codex: { showFullAccessInComposer: enabled } } })
-    await this.call("config/value/write", {
-      keyPath: "desktop.showFullAccessInComposer",
-      mergeStrategy: "replace",
-      value: enabled,
-    })
-    return this.permissionsCatalog()
   }
 }

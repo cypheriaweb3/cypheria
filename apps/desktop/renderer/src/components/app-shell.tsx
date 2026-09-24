@@ -166,13 +166,37 @@ const settingsGroups = [
   },
 ] as const
 
-type HarnessNavigationAgent = Pick<AgentView, "enabled" | "icon" | "id" | "installed" | "name">
+type HarnessNavigationAgent = Pick<
+  AgentView,
+  "enabled" | "icon" | "id" | "installed" | "name" | "runtimeState"
+>
 
 const nativeHarnessNavigationAgents: HarnessNavigationAgent[] = [
-  { enabled: false, icon: null, id: "codex", installed: false, name: "Codex" },
-  { enabled: false, icon: null, id: "claude", installed: false, name: "Claude" },
-  { enabled: false, icon: null, id: "pi", installed: false, name: "Pi" },
-  { enabled: false, icon: null, id: "opencode", installed: false, name: "OpenCode" },
+  {
+    enabled: false,
+    icon: null,
+    id: "codex",
+    installed: false,
+    name: "Codex",
+    runtimeState: "stopped",
+  },
+  {
+    enabled: false,
+    icon: null,
+    id: "claude",
+    installed: false,
+    name: "Claude",
+    runtimeState: "stopped",
+  },
+  { enabled: false, icon: null, id: "pi", installed: false, name: "Pi", runtimeState: "stopped" },
+  {
+    enabled: false,
+    icon: null,
+    id: "opencode",
+    installed: false,
+    name: "OpenCode",
+    runtimeState: "stopped",
+  },
 ]
 
 const desktopSidebarContentClassName = "min-h-0 overflow-hidden px-1.5 pb-3 pt-0.5"
@@ -442,6 +466,7 @@ function SettingsNavigation({
   const agents = useQuery({
     queryFn: async () => (await ensureCypheriaClient()).agents.list(),
     queryKey: ["cypheria", "agents"],
+    refetchInterval: 5_000,
   })
   const backToWorkspace = activeI18n._(
     msg({ id: "settings.backToWorkspace", message: "Back to workspace" })
@@ -681,7 +706,14 @@ function SettingsNavigation({
 }
 
 function HarnessStatusDot({ agent }: { agent: HarnessNavigationAgent }) {
-  const state = !agent.installed ? "Not installed" : agent.enabled ? "Enabled" : "Disabled"
+  const running = agent.installed && agent.enabled && agent.runtimeState === "running"
+  const state = !agent.installed
+    ? "Not installed"
+    : !agent.enabled
+      ? "Disabled"
+      : running
+        ? "Running"
+        : "Enabled, not running"
   return (
     <span
       aria-label={state}
@@ -689,7 +721,8 @@ function HarnessStatusDot({ agent }: { agent: HarnessNavigationAgent }) {
         "size-1 shrink-0 rounded-full",
         !agent.installed && "bg-muted-foreground/45",
         agent.installed && !agent.enabled && "bg-amber-500",
-        agent.installed && agent.enabled && "bg-emerald-500"
+        agent.installed && agent.enabled && !running && "bg-emerald-500",
+        running && "bg-blue-500"
       )}
       role="status"
       title={state}

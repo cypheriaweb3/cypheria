@@ -1363,7 +1363,7 @@ export function ConversationWorkspace({
       ...write,
       approvalPolicy: mode === "full-access" ? "never" : "on-request",
       approvalsReviewer: mode === "guardian-approvals" ? "auto_review" : "user",
-      networkAccess: mode !== "read-only",
+      networkAccess: defaults.networkAccess,
       sandboxMode:
         mode === "read-only"
           ? "read-only"
@@ -1826,7 +1826,8 @@ export function ConversationWorkspace({
                             .filter(
                               (mode) =>
                                 mode !== "granular" &&
-                                (mode !== "full-access" || permissionsQuery.data?.showFullAccess)
+                                (mode !== "full-access" ||
+                                  desktopPreferences?.permissionModeVisibility)
                             )
                             .map((mode) => (
                               <SelectItem key={mode} value={mode}>

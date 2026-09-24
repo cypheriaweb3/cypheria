@@ -29,14 +29,19 @@ describe("desktop settings store", () => {
     await writeDesktopPreferences(userDataDir, {
       ...write,
       composerEnterBehavior: "cmdIfMultiline",
+      permissionModeVisibility: true,
       notificationSound: "classic",
       notificationsTurnMode: "always",
     })
     await expect(readDesktopPreferences(userDataDir)).resolves.toMatchObject({
       composerEnterBehavior: "cmdIfMultiline",
+      permissionModeVisibility: true,
       notificationSound: "classic",
       notificationsTurnMode: "always",
     })
+    const document = await readDesktopSettings(userDataDir)
+    expect(document.composer.permissionModeVisibility).toBe(true)
+    expect(document.preferences).not.toHaveProperty("permissionModeVisibility")
   })
 
   it("serializes concurrent section updates without losing either change", async () => {

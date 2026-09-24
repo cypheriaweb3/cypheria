@@ -1,8 +1,4 @@
-import {
-  type CodexHarnessServerMessage,
-  DEFAULT_GIT_SETTINGS,
-  type PersistedServerConfig,
-} from "@cypheria/protocol"
+import type { CodexHarnessServerMessage } from "@cypheria/protocol"
 import { describe, expect, it, vi } from "vitest"
 
 import type { AgentManager } from "./agent/agent-manager.js"
@@ -10,53 +6,19 @@ import { CodexHarnessService } from "./codex-harness-service.js"
 import type { ServerConfigStore } from "./server-config-store.js"
 import type { ThreadManager } from "./thread/thread-manager.js"
 
-const threads = {} as ThreadManager
-
-const config: PersistedServerConfig = {
-  git: DEFAULT_GIT_SETTINGS,
-  agents: {
-    codex: {
-      approvalPolicy: "on-request",
-      approvalsReviewer: "user",
-      model: null,
-      modelReasoningSummary: null,
-      modelVerbosity: null,
-      networkAccess: true,
-      provider: "openai",
-      reasoningEffort: null,
-      sandboxMode: "workspace-write",
-      serviceTier: null,
-      showFullAccessInComposer: false,
-      webSearch: null,
-    },
-    defaults: {},
-  },
-  server: {
-    logging: { level: "info", file: { level: "info", rotate: { maxSizeMb: 10, maxFiles: 3 } } },
-    cors: { allowedOrigins: [] },
-    limits: { maxMessageBytes: 1024 },
-    listen: { host: "127.0.0.1", port: 6768 },
-    relay: { enabled: false, publicUseTls: true, useTls: true },
-    sessions: { helloTimeoutMs: 1000, reconnectGraceMs: 1000 },
-    shutdownTimeoutMs: 1000,
-    webApp: { enabled: false },
-  },
-  version: 1,
-}
+const store = {
+  getSnapshot: () => ({ path: "/tmp/cypheria/config/config.json" }),
+  patch: vi.fn(),
+} as unknown as ServerConfigStore
 
 describe("CodexHarnessService", () => {
   it("translates Cypheria thread ids before calling native Codex thread methods", async () => {
     const callCodex = vi.fn(async () => ({ goal: null }))
-    const get = vi.fn(async () => ({
-      agentId: "codex",
-      agentSessionId: "native-codex-thread",
-    }))
-    const store = { getSnapshot: () => ({ config }) } as unknown as ServerConfigStore
+    const get = vi.fn(async () => ({ agentId: "codex", agentSessionId: "native-thread" }))
     const service = new CodexHarnessService({ callCodex } as unknown as AgentManager, store, {
       get,
     } as unknown as ThreadManager)
     const messages: CodexHarnessServerMessage[] = []
-
     await service.handle(
       {
         payload: { threadId: "cypheria-thread" },
@@ -65,81 +27,161 @@ describe("CodexHarnessService", () => {
       },
       (message) => messages.push(message)
     )
-
-    expect(get).toHaveBeenCalledWith("cypheria-thread")
-    expect(callCodex).toHaveBeenCalledWith("thread/goal/get", {
-      threadId: "native-codex-thread",
-    })
+    expect(callCodex).toHaveBeenCalledWith("thread/goal/get", { threadId: "native-thread" })
     expect(messages[0]).toMatchObject({ payload: { ok: true, value: { goal: null } } })
   })
 
-  it("projects account state and persists model settings in Cypheria config", async () => {
-    const callCodex = vi.fn(async (method: string) => {
-      if (method === "account/read") {
-        return {
-          account: { email: "me@example.com", planType: "pro", type: "chatgpt" },
-          requiresOpenaiAuth: true,
+  it("reads native Codex defaults and writes model settings without changing Server config", async () => {
+    const native = {
+      approval_policy: "on-request",
+      approvals_reviewer: "user",
+      model: "gpt-6-sol",
+      model_provider: "openai",
+      model_reasoning_effort: "medium",
+      model_reasoning_summary: null,
+      model_verbosity: null,
+      sandbox_mode: "workspace-write",
+      sandbox_workspace_write: { network_access: false },
+      service_tier: "default",
+      web_search: "cached",
+    }
+    const callCodex = vi.fn(
+      async (method: string, params?: { edits?: Array<{ keyPath: string; value: unknown }> }) => {
+        if (method === "config/read") return { config: native }
+        if (method === "experimentalFeature/list")
+          return { data: [{ name: "plugins", enabled: true }], nextCursor: null }
+        if (method === "config/batchWrite") {
+          for (const edit of params?.edits ?? []) {
+            if (edit.keyPath === "model") native.model = String(edit.value)
+            if (edit.keyPath === "model_reasoning_effort")
+              native.model_reasoning_effort = String(edit.value)
+          }
         }
-      }
-      return {}
-    })
-    const patch = vi.fn(
-      async (value: { agents: { codex: Partial<PersistedServerConfig["agents"]["codex"]> } }) => {
-        config.agents.codex = { ...config.agents.codex, ...value.agents.codex }
-        return {} as never
+        return {}
       }
     )
-    const store = {
-      getSnapshot: () => ({ config }),
-      patch,
-    } as unknown as ServerConfigStore
     const service = new CodexHarnessService(
       { callCodex } as unknown as AgentManager,
       store,
-      threads
+      {} as ThreadManager
     )
-    const messages: CodexHarnessServerMessage[] = []
-    await service.handle(
-      {
-        payload: { refresh: true },
-        requestId: "account-1",
-        type: "harness.codex.account.get.request",
-      },
-      (message) => messages.push(message)
+    expect(await service.settings()).toMatchObject({
+      model: "gpt-6-sol",
+      reasoningEffort: "medium",
+    })
+    native.service_tier = "fast"
+    expect(await service.settings()).toMatchObject({ serviceTier: "priority" })
+    await service.setSettings({
+      model: "gpt-6-astra",
+      provider: "openai",
+      reasoningEffort: "high",
+      serviceTier: "default",
+    })
+    expect(callCodex).toHaveBeenCalledWith(
+      "config/batchWrite",
+      expect.objectContaining({
+        edits: expect.arrayContaining([
+          { keyPath: "model", mergeStrategy: "replace", value: "gpt-6-astra" },
+        ]),
+        reloadUserConfig: true,
+      })
     )
-    expect(messages[0]).toMatchObject({
-      payload: { ok: true, value: { email: "me@example.com", type: "chatgpt" } },
+    expect(store.patch).not.toHaveBeenCalled()
+    expect(await service.settings()).toMatchObject({
+      model: "gpt-6-astra",
+      reasoningEffort: "high",
     })
 
-    await service.handle(
-      {
-        payload: {
-          model: "gpt-6-codex",
-          provider: "openai",
-          reasoningEffort: "high",
-          serviceTier: null,
-        },
-        requestId: "settings-1",
-        type: "harness.codex.model-settings.set.request",
-      },
-      (message) => messages.push(message)
-    )
-    expect(patch).toHaveBeenCalledWith({
-      agents: {
-        codex: {
-          model: "gpt-6-codex",
-          provider: "openai",
-          reasoningEffort: "high",
-          serviceTier: null,
-        },
-      },
+    callCodex.mockClear()
+    await service.updateNativeSettings({ pluginsEnabled: false, personality: "pragmatic" })
+    expect(callCodex).toHaveBeenCalledWith("config/batchWrite", {
+      edits: [
+        { keyPath: "features.plugins", mergeStrategy: "replace", value: false },
+        { keyPath: "personality", mergeStrategy: "replace", value: "pragmatic" },
+      ],
+      reloadUserConfig: true,
     })
-    expect(callCodex).toHaveBeenCalledWith("config/batchWrite", expect.any(Object))
+    expect(callCodex).toHaveBeenCalledWith("experimentalFeature/enablement/set", {
+      enablement: { plugins: false },
+    })
+    callCodex.mockClear()
+    await service.updateNativeSettings({ serviceTier: "priority" })
+    expect(callCodex).toHaveBeenCalledWith("config/batchWrite", {
+      edits: [{ keyPath: "service_tier", mergeStrategy: "replace", value: "priority" }],
+      reloadUserConfig: true,
+    })
+    expect(store.patch).not.toHaveBeenCalled()
   })
 
-  it("persists permission defaults and projects the permissions catalog", async () => {
+  it("uses the Auto preset when native global config keys are unset", async () => {
     const callCodex = vi.fn(async (method: string) => {
-      if (method === "configRequirements/read") {
+      if (method === "config/read")
+        return {
+          config: {
+            approval_policy: null,
+            approvals_reviewer: null,
+            model: null,
+            model_provider: null,
+            model_reasoning_effort: null,
+            model_reasoning_summary: null,
+            model_verbosity: null,
+            personality: null,
+            sandbox_mode: null,
+            sandbox_workspace_write: null,
+            service_tier: null,
+            web_search: null,
+          },
+        }
+      if (method === "experimentalFeature/list")
+        return {
+          data: [
+            { name: "personality", enabled: true },
+            { name: "plugins", enabled: true },
+          ],
+          nextCursor: null,
+        }
+      return {}
+    })
+    const service = new CodexHarnessService(
+      { callCodex } as unknown as AgentManager,
+      store,
+      {} as ThreadManager
+    )
+
+    expect(await service.agentSettings()).toMatchObject({
+      approvalPolicy: "on-request",
+      approvalsReviewer: "user",
+      networkAccess: false,
+      personality: "pragmatic",
+      pluginsEnabled: true,
+      sandboxMode: "workspace-write",
+      serviceTier: null,
+      webSearch: null,
+    })
+    expect(callCodex).not.toHaveBeenCalledWith("config/batchWrite", expect.anything())
+  })
+
+  it("derives the permissions menu from Codex config and managed requirements", async () => {
+    const callCodex = vi.fn(async (method: string) => {
+      if (method === "config/read")
+        return {
+          config: {
+            model: null,
+            model_provider: "openai",
+            model_reasoning_effort: null,
+            service_tier: null,
+            approval_policy: "never",
+            approvals_reviewer: "user",
+            sandbox_mode: "danger-full-access",
+            sandbox_workspace_write: { network_access: false },
+            web_search: "cached",
+            model_verbosity: null,
+            model_reasoning_summary: null,
+          },
+        }
+      if (method === "experimentalFeature/list")
+        return { data: [{ name: "plugins", enabled: false }], nextCursor: null }
+      if (method === "configRequirements/read")
         return {
           requirements: {
             allowedApprovalPolicies: ["on-request", "never"],
@@ -150,8 +192,7 @@ describe("CodexHarnessService", () => {
             defaultPermissions: null,
           },
         }
-      }
-      if (method === "permissionProfile/list") {
+      if (method === "permissionProfile/list")
         return {
           data: [
             { allowed: true, description: "Workspace", id: ":workspace" },
@@ -159,62 +200,25 @@ describe("CodexHarnessService", () => {
           ],
           nextCursor: null,
         }
-      }
       return {}
     })
-    const patch = vi.fn(
-      async (value: { agents: { codex: Partial<typeof config.agents.codex> } }) => {
-        config.agents.codex = { ...config.agents.codex, ...value.agents.codex }
-        return {} as never
-      }
-    )
-    const store = {
-      getSnapshot: () => ({ config, path: "/tmp/cypheria/config/config.json" }),
-      patch,
-    } as unknown as ServerConfigStore
     const service = new CodexHarnessService(
       { callCodex } as unknown as AgentManager,
       store,
-      threads
+      {} as ThreadManager
     )
-    const messages: CodexHarnessServerMessage[] = []
-    await service.handle(
-      {
-        payload: {
-          approvalPolicy: "never",
-          approvalsReviewer: "auto_review",
-          modelReasoningSummary: "concise",
-          modelVerbosity: "high",
-          networkAccess: false,
-          sandboxMode: "danger-full-access",
-          webSearch: "live",
-        },
-        requestId: "permissions-1",
-        type: "harness.codex.permissions.defaults.set.request",
-      },
-      (message) => messages.push(message)
-    )
-    await service.handle(
-      {
-        payload: {},
-        requestId: "catalog-1",
-        type: "harness.codex.permissions.catalog.get.request",
-      },
-      (message) => messages.push(message)
-    )
-    expect(patch).toHaveBeenCalledWith(
-      expect.objectContaining({
-        agents: { codex: expect.objectContaining({ sandboxMode: "danger-full-access" }) },
-      })
-    )
-    expect(messages.at(-1)).toMatchObject({
-      payload: {
-        ok: true,
-        value: {
-          profiles: [{ allowed: true, description: "Team policy", id: "team" }],
-          selected: { agentMode: "full-access", kind: "agent-mode" },
-        },
-      },
+    expect(await service.agentSettings()).toMatchObject({
+      pluginsEnabled: false,
+      sandboxMode: "danger-full-access",
+    })
+    expect(await service.permissionsCatalog()).toMatchObject({
+      profiles: [{ allowed: true, description: "Team policy", id: "team" }],
+      selected: { agentMode: "full-access", kind: "agent-mode" },
+    })
+    await service.permissionsCatalog("/tmp/project")
+    expect(callCodex).toHaveBeenCalledWith("config/read", {
+      cwd: "/tmp/project",
+      includeLayers: false,
     })
   })
 })
