@@ -18,9 +18,10 @@ import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useSyncExternalStore } from "react"
 
 import { ensureCypheriaClient } from "../cypheria-client.js"
+import { githubPrAssociations } from "../git-pr-associations.js"
 import { findGithubPrWatch, githubPrFixPrompt, githubPrWatchName } from "./github-pr-watch.js"
 
 const openExternal = async (url: string): Promise<void> => {
@@ -46,6 +47,10 @@ export function GitHubPrPanel({
 }: Readonly<{ cwd: string; branch: string | null; threadId: string | null }>) {
   const { i18n } = useLingui()
   const queryClient = useQueryClient()
+  const associations = useSyncExternalStore(
+    githubPrAssociations.subscribe,
+    githubPrAssociations.getSnapshot
+  )
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null)
   const [directPrNumber, setDirectPrNumber] = useState("")
   const [prSearchText, setPrSearchText] = useState("")
@@ -796,6 +801,30 @@ export function GitHubPrPanel({
           <p className="text-xs text-muted-foreground">
             {selected.data.headRefName} → {selected.data.baseRefName} · {selected.data.state}
           </p>
+          {threadId ? (
+            <Button
+              onClick={() => {
+                if (!selected.data) return
+                if (associations[threadId]?.some((item) => item.url === selected.data.url))
+                  githubPrAssociations.remove(threadId, selected.data.url)
+                else
+                  githubPrAssociations.add(threadId, {
+                    number: selected.data.number,
+                    title: selected.data.title,
+                    url: selected.data.url,
+                  })
+              }}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              {associations[threadId]?.some((item) => item.url === selected.data.url) ? (
+                <Trans id="git.github.detachThread">Detach from chat</Trans>
+              ) : (
+                <Trans id="git.github.attachThread">Attach to chat</Trans>
+              )}
+            </Button>
+          ) : null}
           <p className="text-xs whitespace-pre-wrap">{selected.data.body}</p>
           {media.data?.map((item) => (
             <img
@@ -1811,10 +1840,21 @@ export function GitHubPrPanel({
                     if (cliAvailable) {
                       const created = await git.githubPrCreate(cwd, input)
                       selectPullRequest(created.number)
+                      if (threadId)
+                        githubPrAssociations.add(threadId, {
+                          number: created.number,
+                          title: created.title,
+                          url: created.url,
+                        })
                     } else {
                       if (!threadId) throw new Error("A local Codex thread is required")
                       const created = await git.githubAppPrCreate(cwd, threadId, input)
                       selectPullRequest(created.number)
+                      githubPrAssociations.add(threadId, {
+                        number: created.number,
+                        title: input.title,
+                        url: created.url,
+                      })
                       await openExternal(created.url)
                     }
                   } catch (cause) {

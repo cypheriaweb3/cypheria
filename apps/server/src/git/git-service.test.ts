@@ -28,6 +28,75 @@ const repository = async () => {
 }
 
 describe("GitService", () => {
+  it("audits mutating requests without storing Git content", async () => {
+    const root = await repository()
+    const events: Array<{
+      eventType: string
+      correlationId?: string | null
+      payloadSummary?: string | null
+    }> = []
+    const service = new GitService(join(root, "cache"), join(root, "home"), {
+      audit: {
+        append: async (input) => {
+          events.push(input)
+          return input as never
+        },
+      },
+    })
+    await writeFile(join(root, "file.txt"), "private content\n")
+    const responses: unknown[] = []
+    await service.handle(
+      {
+        type: "git.stage.request",
+        requestId: "stage-1",
+        payload: { cwd: root, paths: ["file.txt"] },
+      },
+      (response) => responses.push(response)
+    )
+    await service.handle(
+      {
+        type: "git.stage.request",
+        requestId: "stage-2",
+        payload: { cwd: root, paths: ["missing.txt"] },
+      },
+      (response) => responses.push(response)
+    )
+    expect(responses).toMatchObject([{ payload: { ok: true } }, { payload: { ok: false } }])
+    expect(events.map((event) => [event.correlationId, event.eventType])).toEqual([
+      ["stage-1", "git.stage.started"],
+      ["stage-1", "git.stage.succeeded"],
+      ["stage-2", "git.stage.started"],
+      ["stage-2", "git.stage.failed"],
+    ])
+    expect(JSON.stringify(events)).not.toContain("private content")
+    expect(JSON.stringify(events)).not.toContain(root)
+    const unavailableAudit = new GitService(join(root, "cache"), join(root, "home"), {
+      audit: {
+        append: async () => {
+          throw new Error("Audit unavailable")
+        },
+      },
+    })
+    await writeFile(join(root, "another.txt"), "local\n")
+    const rejected: unknown[] = []
+    await unavailableAudit.handle(
+      {
+        type: "git.stage.request",
+        requestId: "stage-3",
+        payload: { cwd: root, paths: ["another.txt"] },
+      },
+      (response) => rejected.push(response)
+    )
+    expect(rejected).toMatchObject([
+      { payload: { ok: false, error: { code: "GIT_AUDIT_UNAVAILABLE" } } },
+    ])
+    expect(
+      (await unavailableAudit.status(root)).entries.some(
+        (entry) => entry.path === "another.txt" && entry.code === "??"
+      )
+    ).toBe(true)
+  })
+
   it("can include unstaged files and record validated co-authors in a commit", async () => {
     const root = await repository()
     const service = new GitService(join(root, "cache"), join(root, "home"))

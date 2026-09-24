@@ -141,6 +141,7 @@ client.server
 `git` capability 通过 Server Git 执行器提供本地仓库发现与初始化、不暴露远程 URL 的 origin provider 分类、状态、分支列表与上下文（当前、上游、默认、领先/落后提交数）、分支创建与切换、差异、暂存、取消暂存、提交、推送，以及托管 worktree 的列举、创建、删除和恢复。每个 `git.*.request` 都返回带关联 ID 的类型化成功值或错误。Git 操作使用 Server 所在主机的文件系统和 Git 安装。托管 worktree 位于 `CYPHERIA_HOME/worktrees` 下；Server 记录其仓库身份，并通过 `refs/cypheria/worktrees/*` 在删除后恢复已提交的 HEAD。列表包括可恢复的已删除 worktree。存在未提交改动时或目标为当前工作树时拒绝删除。
 提交请求可选带 `includeUnstaged` 和经过校验的 `coAuthors` 字段。纳入未暂存改动时会先暂存全部本地改动；若暂存后发生错误，index 会保留以供恢复。Git 进程错误区分认证、拒绝、缺少上游、冲突、超时及无可提交内容。
 经过认证的 `POST /api/v1/git/request` 端点为随程序分发的 MCP 工具进程接受同一套经校验的 Git 请求封装。
+Server 以请求 ID 关联并审计 Git 修改请求的开始和结果。审计记录只包含操作类型和结果，不包含请求载荷或仓库路径。开始阶段的审计写入失败时，不执行修改。
 `git.branch-comparison.request` 将 base 和可选的 head ref 解析为固定提交，返回两者的 merge base、领先/落后提交数，以及从 merge base 到 head 的逐文件增删行数。无效或不存在的 ref 会被拒绝，工作树不会被改动。
 `git.index-entries.request` 返回指定路径的索引 mode、对象 ID 和冲突 stage。`git.submodule-paths.request` 从索引列出 stage 为零的 gitlink，包括尚未初始化的 submodule；两者都不会打开 submodule 工作树。
 `git.text-blob.request` 将固定提交中的文件读取为 UTF-8 文本；非 blob、二进制数据及超过 1 MiB 的内容返回不可用。`git.blame-file.request` 返回仓库文件有上限的逐行归属信息，不返回文件内容。两者都拒绝仓库外路径。

@@ -15,6 +15,7 @@ import {
 } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
+import type { AuditLogService } from "@cypheria/db"
 import type {
   GitBlameLine,
   GitBranchComparison,
@@ -95,7 +96,45 @@ const WORKTREE_ENV_KEYS = [
   "RUSTUP_HOME",
   "GOPATH",
 ] as const
+const auditedOperations = new Set<GitClientMessage["type"]>([
+  "git.set-config-value.request",
+  "git.init.request",
+  "git.branch-create.request",
+  "git.checkout.request",
+  "git.apply-review-section.request",
+  "git.apply-review-sections.request",
+  "git.undo-review-revert.request",
+  "git.stage.request",
+  "git.unstage.request",
+  "git.commit.request",
+  "git.push.request",
+  "git.worktree-create.request",
+  "git.worktree-job-start.request",
+  "git.worktree-job-cancel.request",
+  "git.worktree-job-retry.request",
+  "git.worktree-delete.request",
+  "git.worktree-restore.request",
+  "git.worktree-move-thread.request",
+  "git.synced-branch-sync.request",
+  "git.synced-branch-undo.request",
+  "git.github-app-pr-create.request",
+  "git.github-pr-toggle-auto-merge.request",
+  "git.github-pr-thread-action.request",
+  "git.github-pr-comment.request",
+  "git.github-pr-comment-action.request",
+  "git.github-pr-review.request",
+  "git.github-pr-set-state.request",
+  "git.github-pr-create.request",
+  "git.github-pr-update.request",
+  "git.github-pr-reviewer.request",
+  "git.github-pr-merge.request",
+  "git.gitlab-mr-reviewer-action.request",
+  "git.gitlab-mr-update-title.request",
+  "git.gitlab-mr-post-comment.request",
+  "git.gitlab-mr-create.request",
+])
 class GitStaleSnapshotError extends Error {}
+class GitAuditUnavailableError extends Error {}
 const reviewHunks = (diff: string): Array<{ header: string; patch: string }> => {
   if ((diff.match(/^diff --git /gmu)?.length ?? 0) !== 1) return []
   if (
@@ -144,6 +183,7 @@ export class GitService {
   readonly #githubApp: GitHubAppPrService | null
   readonly #gitlab: GitLabMrService | null
   readonly #threads: ThreadManager | null
+  readonly #audit: Pick<AuditLogService, "append"> | null
   readonly #getSettings: () => GitSettings
   readonly #worktreeJobs = new Map<
     string,
@@ -160,7 +200,11 @@ export class GitService {
   constructor(
     cacheDir: string,
     cypheriaHome: string,
-    connectors?: { agents: AgentManager; threads: ThreadManager },
+    connectors?: {
+      agents?: AgentManager
+      threads?: ThreadManager
+      audit?: Pick<AuditLogService, "append">
+    },
     getSettings: () => GitSettings = () => DEFAULT_GIT_SETTINGS
   ) {
     this.#getSettings = getSettings
@@ -172,10 +216,11 @@ export class GitService {
     )
     this.#reviewUndo = new GitReviewUndoStore(cypheriaHome)
     this.#turnDiff = new GitTurnDiffService(this.#executor, cypheriaHome)
-    const apps = connectors ? new CodexAppToolClient(connectors.agents) : null
+    const apps = connectors?.agents ? new CodexAppToolClient(connectors.agents) : null
     this.#gitlab = apps ? new GitLabMrService(this.#executor, apps) : null
     this.#githubApp = apps ? new GitHubAppPrService(this.#executor, apps) : null
     this.#threads = connectors?.threads ?? null
+    this.#audit = connectors?.audit ?? null
   }
 
   async handle(
@@ -183,7 +228,20 @@ export class GitService {
     send: (message: GitServerMessage) => void
   ): Promise<boolean> {
     const type = message.type.replace(/\.request$/u, ".response") as GitServerMessage["type"]
+    const audited = auditedOperations.has(message.type) && this.#audit !== null
+    const audit = async (outcome: "started" | "succeeded" | "failed") => {
+      await this.#audit?.append({
+        actor: "local-client",
+        correlationId: message.requestId,
+        eventType: `${message.type.replace(/\.request$/u, "")}.${outcome}`,
+        source: "git",
+      })
+    }
     try {
+      if (audited)
+        await audit("started").catch(() => {
+          throw new GitAuditUnavailableError("Git audit is unavailable; no operation was started")
+        })
       let value: unknown
       switch (message.type) {
         case "git.discover.request":
@@ -727,8 +785,10 @@ export class GitService {
           value = { url: await this.gitlabMrBrowserForm(message.payload.cwd, message.payload) }
           break
       }
+      if (audited) await audit("succeeded").catch(() => undefined)
       send({ type, requestId: message.requestId, payload: { ok: true, value } } as GitServerMessage)
     } catch (error) {
+      if (audited) await audit("failed").catch(() => undefined)
       send({
         type,
         requestId: message.requestId,
@@ -736,11 +796,13 @@ export class GitService {
           ok: false,
           error: {
             code:
-              error instanceof GitStaleSnapshotError
-                ? "GIT_STALE_SNAPSHOT"
-                : error instanceof GitCommandError
-                  ? "GIT_COMMAND_FAILED"
-                  : "GIT_INVALID_REQUEST",
+              error instanceof GitAuditUnavailableError
+                ? "GIT_AUDIT_UNAVAILABLE"
+                : error instanceof GitStaleSnapshotError
+                  ? "GIT_STALE_SNAPSHOT"
+                  : error instanceof GitCommandError
+                    ? "GIT_COMMAND_FAILED"
+                    : "GIT_INVALID_REQUEST",
             message: error instanceof Error ? error.message : String(error),
           },
         },

@@ -178,6 +178,7 @@ export class CypheriaServer implements HttpAppHost {
       {
         agents: this.agentManager,
         threads: this.threadManager,
+        audit: this.web3.audit,
       },
       () => this.configStore.getSnapshot().config.git
     )

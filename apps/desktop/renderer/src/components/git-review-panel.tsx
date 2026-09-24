@@ -31,6 +31,25 @@ import { GitHubPrPanel } from "./github-pr-panel.js"
 import { GitLabMrPanel } from "./gitlab-mr-panel.js"
 
 type ReviewSource = "unstaged" | "staged" | "uncommitted" | "branch" | "commit" | "last-turn"
+const reviewSourceKey = "cypheria.git.review.source"
+const reviewSources: readonly ReviewSource[] = [
+  "unstaged",
+  "staged",
+  "uncommitted",
+  "branch",
+  "commit",
+  "last-turn",
+]
+const savedReviewSource = (threadId: string | null): ReviewSource => {
+  try {
+    const saved = window.localStorage.getItem(reviewSourceKey)
+    return reviewSources.includes(saved as ReviewSource) && (saved !== "last-turn" || threadId)
+      ? (saved as ReviewSource)
+      : "unstaged"
+  } catch {
+    return "unstaged"
+  }
+}
 const branchValue = (branch: { name: string; scope: "local" | "remote" }) =>
   branch.scope === "remote" ? `refs/remotes/${branch.name}` : branch.name
 
@@ -60,7 +79,7 @@ export function GitReviewPanel({
   const commitIncludeUnstagedId = useId()
   const { i18n } = useLingui()
   const queryClient = useQueryClient()
-  const [source, setSource] = useState<ReviewSource>("unstaged")
+  const [source, setSource] = useState<ReviewSource>(() => savedReviewSource(threadId))
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [selectedCommit, setSelectedCommit] = useState("")
   const [message, setMessage] = useState("")
@@ -96,6 +115,16 @@ export function GitReviewPanel({
   useEffect(() => {
     if (lastTurnOnly) setSource("last-turn")
   }, [lastTurnOnly])
+  useEffect(() => {
+    if (!threadId && source === "last-turn") setSource("unstaged")
+  }, [source, threadId])
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(reviewSourceKey, source)
+    } catch {
+      // Review remains usable when browser storage is unavailable.
+    }
+  }, [source])
   const status = useQuery({
     queryKey: ["git", cwd, "status"],
     queryFn: async () => (await ensureCypheriaClient()).git.status(cwd),

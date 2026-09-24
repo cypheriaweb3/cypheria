@@ -51,6 +51,7 @@ import {
   FolderInput,
   FolderOpen,
   GitFork,
+  GitPullRequest,
   Globe2,
   LoaderCircle,
   Mail,
@@ -80,8 +81,9 @@ import {
   useSyncExternalStore,
 } from "react"
 import { unreadThreadMutationFromServerMessage, unreadThreadStore } from "../chat-unread-state.js"
-import { cypheriaClient } from "../cypheria-client.js"
+import { cypheriaClient, ensureCypheriaClient } from "../cypheria-client.js"
 import { filterDevelopmentItems, isDesktopDevelopment } from "../development-mode.js"
+import { type GitHubPrAssociation, githubPrAssociations } from "../git-pr-associations.js"
 import {
   PINNED_SIDEBAR_SECTION_ID,
   type SidebarProjectView,
@@ -196,6 +198,15 @@ export function ChatSidebar({
   const { i18n } = useLingui()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const prAssociations = useSyncExternalStore(
+    githubPrAssociations.subscribe,
+    githubPrAssociations.getSnapshot
+  )
+  const gitSettings = useQuery({
+    queryKey: ["settings", "git"],
+    queryFn: async () => (await ensureCypheriaClient()).server.config(),
+    staleTime: 30_000,
+  })
   const scrollRef = useRef<HTMLDivElement>(null)
   const [expandedSections, setExpandedSections] = useState<Set<SidebarSectionId>>(
     () => new Set(["pinned", "projects", "recents"])
@@ -527,6 +538,10 @@ export function ChatSidebar({
                     pinnedLoading={pinnedQuery.isFetchingNextPage}
                     pinnedSort={pinnedSort}
                     row={row}
+                    prAssociations={
+                      prAssociations[row.kind === "thread" ? row.thread.id : ""] ?? []
+                    }
+                    showPrIcons={gitSettings.data?.config.git.showSidebarPrIcons ?? true}
                     sections={sections}
                     onArchiveSection={setArchivingSection}
                     onCopyThread={(kind, thread) => {
@@ -770,6 +785,8 @@ type RowViewProps = Readonly<{
   pinnedLoading: boolean
   pinnedSort: SidebarSort
   row: ChatSidebarRow
+  prAssociations: readonly GitHubPrAssociation[]
+  showPrIcons: boolean
   sections: readonly SidebarSectionView[]
   unreadThreadIds: ReadonlySet<string>
   onArchiveSection: (section: SidebarSectionView) => void
@@ -950,6 +967,12 @@ function ChatSidebarRowView(props: RowViewProps) {
           <span className={cn("min-w-0 flex-1 truncate", isUnread && "font-semibold")}>
             {row.thread.title}
           </span>
+          {props.showPrIcons && props.prAssociations.length > 0 ? (
+            <GitPullRequest
+              aria-label="Attached GitHub pull request"
+              className="size-3.5 shrink-0 text-muted-foreground"
+            />
+          ) : null}
           {isUnread ? (
             <>
               <span aria-hidden="true" className="size-1.5 shrink-0 rounded-full bg-primary" />
