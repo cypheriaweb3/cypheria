@@ -307,11 +307,25 @@ export function GitHubPrPanel({
     retry: false,
   })
   const activity = useQuery({
-    enabled: cliAvailable && Boolean(selected.data),
-    queryKey: ["github-pr", cwd, "activity", selected.data?.number],
+    enabled:
+      cliAvailable ||
+      Boolean(threadId && appAvailability.data?.canRead && selected.data?.headRefOid),
+    queryKey: [
+      "github-pr",
+      cwd,
+      "activity",
+      cliAvailable ? "cli" : "app",
+      threadId,
+      selected.data?.number,
+      selected.data?.headRefOid,
+    ],
     queryFn: async () => {
       if (!selected.data) throw new Error("A pull request is required")
-      return (await ensureCypheriaClient()).git.githubPrActivity(cwd, selected.data.number)
+      const git = (await ensureCypheriaClient()).git
+      if (cliAvailable) return git.githubPrActivity(cwd, selected.data.number)
+      if (!threadId || !selected.data.headRefOid)
+        throw new Error("A local Codex thread and pull request head are required")
+      return git.githubAppPrActivity(cwd, threadId, selected.data.number, selected.data.headRefOid)
     },
     retry: false,
   })
@@ -880,6 +894,30 @@ export function GitHubPrPanel({
                   <span className="font-medium">{review.author ?? "GitHub"}</span> · {review.state}
                   {review.body ? <p className="whitespace-pre-wrap">{review.body}</p> : null}
                   {commentActions(review.id, "review", review.body, review.author)}
+                </div>
+              ))}
+              {activity.isError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>{activity.error.message}</AlertDescription>
+                </Alert>
+              ) : null}
+            </div>
+          ) : null}
+          {!cliAvailable && appAvailability.data?.canRead && selected.data.headRefOid ? (
+            <div className="space-y-2 border-t pt-2">
+              <p className="text-xs font-medium">
+                <Trans id="git.github.activity">Discussion and reviews</Trans>
+              </p>
+              {activity.data?.comments.map((comment) => (
+                <div className="rounded border p-2 text-xs" key={comment.id}>
+                  <span className="font-medium">{comment.author ?? "GitHub"}</span>
+                  <p className="whitespace-pre-wrap">{comment.body}</p>
+                </div>
+              ))}
+              {activity.data?.reviews.map((review) => (
+                <div className="rounded border p-2 text-xs" key={review.id}>
+                  <span className="font-medium">{review.author ?? "GitHub"}</span> · {review.state}
+                  {review.body ? <p className="whitespace-pre-wrap">{review.body}</p> : null}
                 </div>
               ))}
               {activity.isError ? (

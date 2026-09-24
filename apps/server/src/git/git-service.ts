@@ -319,6 +319,14 @@ export class GitService {
             ),
           }
           break
+        case "git.github-app-pr-activity.request":
+          value = await this.githubAppPrActivity(
+            message.payload.cwd,
+            message.payload.threadId,
+            message.payload.number,
+            message.payload.expectedHead
+          )
+          break
         case "git.github-pr-list.request":
           value = await this.githubPrList(
             message.payload.cwd,
@@ -829,6 +837,17 @@ export class GitService {
     if (!this.#githubApp) throw new Error("GitHub app is unavailable")
     const { root, nativeThreadId } = await this.#codexThreadRepository(cwd, threadId)
     return this.#githubApp.diff(root, nativeThreadId, number, expectedHead)
+  }
+
+  async githubAppPrActivity(
+    cwd: string,
+    threadId: string,
+    number: number,
+    expectedHead: string
+  ): Promise<GitHubPullRequestActivity> {
+    if (!this.#githubApp) throw new Error("GitHub app is unavailable")
+    const { root, nativeThreadId } = await this.#codexThreadRepository(cwd, threadId)
+    return this.#githubApp.activity(root, nativeThreadId, number, expectedHead)
   }
 
   async githubPrList(

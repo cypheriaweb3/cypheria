@@ -40,6 +40,39 @@ const infoResponse = z
   })
   .passthrough()
 const diffResponse = z.object({ diff: z.string().max(8 * 1024 * 1024) }).passthrough()
+const commentsResponse = z
+  .object({
+    comments: z
+      .array(
+        z
+          .object({
+            id: z.union([z.string(), z.number().int()]),
+            body: z.string().nullable().optional(),
+            created_at: z.string(),
+            user: z.object({ login: z.string() }).nullable().optional(),
+          })
+          .passthrough()
+      )
+      .max(500),
+  })
+  .passthrough()
+const reviewsResponse = z
+  .object({
+    reviews: z
+      .array(
+        z
+          .object({
+            id: z.union([z.string(), z.number().int()]),
+            body: z.string().nullable().optional(),
+            state: z.string(),
+            submitted_at: z.string().nullable().optional(),
+            author: z.object({ login: z.string() }).nullable().optional(),
+          })
+          .passthrough()
+      )
+      .max(500),
+  })
+  .passthrough()
 
 const checkedPrUrl = (repository: string, number: number, value?: string | null): string => {
   const result = value ?? `https://github.com/${repository}/pull/${number}`
@@ -236,6 +269,68 @@ export class GitHubAppPrService {
     if ((await readHead()) !== expectedHead)
       throw new Error("The GitHub pull request head changed during diff acquisition")
     return diff
+  }
+
+  async activity(
+    root: string,
+    nativeThreadId: string,
+    number: number,
+    expectedHead: string
+  ): Promise<{
+    comments: Array<{ id: string; body: string; author: string | null; createdAt: string }>
+    reviews: Array<{
+      id: string
+      body: string
+      author: string | null
+      state: string
+      submittedAt: string
+    }>
+  }> {
+    if (!/^[a-f0-9]{40,64}$/iu.test(expectedHead))
+      throw new Error("A pinned GitHub pull request head is required")
+    const { repository, selection } = await this.#context(root, nativeThreadId, [
+      "get_pr_info",
+      "fetch_pr_comments",
+      "list_pull_request_reviews",
+    ])
+    const readHead = async (): Promise<string> => {
+      const info = infoResponse.parse(
+        await this.#apps.call(selection, nativeThreadId, "github", "get_pr_info", {
+          pr_number: number,
+          repository_full_name: repository,
+        })
+      )
+      if (info.number !== number) throw new Error("The selected GitHub pull request changed")
+      checkedPrUrl(repository, number, info.url)
+      if (!info.head_sha || !/^[a-f0-9]{40,64}$/iu.test(info.head_sha))
+        throw new Error("The GitHub app did not return the pull request head")
+      return info.head_sha
+    }
+    if ((await readHead()) !== expectedHead) throw new Error("The GitHub pull request head changed")
+    const args = { pr_number: number, repo_full_name: repository }
+    const comments = commentsResponse.parse(
+      await this.#apps.call(selection, nativeThreadId, "github", "fetch_pr_comments", args)
+    )
+    const reviews = reviewsResponse.parse(
+      await this.#apps.call(selection, nativeThreadId, "github", "list_pull_request_reviews", args)
+    )
+    if ((await readHead()) !== expectedHead)
+      throw new Error("The GitHub pull request head changed during activity acquisition")
+    return {
+      comments: comments.comments.map((comment) => ({
+        id: String(comment.id),
+        body: comment.body ?? "",
+        author: comment.user?.login ?? null,
+        createdAt: comment.created_at,
+      })),
+      reviews: reviews.reviews.map((review) => ({
+        id: String(review.id),
+        body: review.body ?? "",
+        author: review.author?.login ?? null,
+        state: review.state,
+        submittedAt: review.submitted_at ?? "",
+      })),
+    }
   }
 
   async create(

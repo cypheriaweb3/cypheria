@@ -174,6 +174,56 @@ describe("GitHubAppPrService", () => {
     )
   })
 
+  it("reads connector comments and reviews from a pinned PR head", async () => {
+    const head = "a".repeat(40)
+    const { service, select } = fixture(undefined, undefined, undefined, {
+      get_pr_info: {
+        number: 42,
+        title: "Change",
+        state: "OPEN",
+        merged: false,
+        draft: false,
+        head: "feature",
+        head_sha: head,
+        base: "main",
+      },
+      fetch_pr_comments: {
+        comments: [
+          { id: 1, body: "Please fix", created_at: "2026-09-23", user: { login: "alice" } },
+        ],
+      },
+      list_pull_request_reviews: {
+        reviews: [
+          {
+            id: "review-1",
+            body: "Approved",
+            state: "APPROVED",
+            submitted_at: "2026-09-24",
+            author: { login: "bob" },
+          },
+        ],
+      },
+    })
+    expect(await service.activity("/repo", "thread", 42, head)).toEqual({
+      comments: [{ id: "1", body: "Please fix", author: "alice", createdAt: "2026-09-23" }],
+      reviews: [
+        {
+          id: "review-1",
+          body: "Approved",
+          author: "bob",
+          state: "APPROVED",
+          submittedAt: "2026-09-24",
+        },
+      ],
+    })
+    expect(select).toHaveBeenCalledWith("connector_76869538009648d5b282a4bb21c3d157", "github", [
+      "get_repo",
+      "get_pr_info",
+      "fetch_pr_comments",
+      "list_pull_request_reviews",
+    ])
+  })
+
   it("rejects untrusted origins, another repository, stale push, and another PR URL", async () => {
     expect(
       (
