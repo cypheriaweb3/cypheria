@@ -20,7 +20,7 @@ const fixture = (
             : `${"a".repeat(40)}\trefs/heads/feature\n`
     return { stdout, stderr: "" }
   })
-  const select = vi.fn(async () => ({
+  const select = vi.fn(async (_connector: string, _namespace: string, _actions: string[]) => ({
     connectorId: "connector_76869538009648d5b282a4bb21c3d157",
     accountLinkId: "link-1",
     server: "codex_apps" as const,
@@ -44,7 +44,14 @@ describe("GitHubAppPrService", () => {
     const { service, select, call } = fixture()
     expect(await service.availability("/repo", "native-thread")).toEqual({
       available: true,
+      canList: true,
       canRead: true,
+      canSearchByAccount: true,
+      canDiff: true,
+      canActivity: true,
+      canChecks: true,
+      canThreads: true,
+      canMedia: true,
       repository: "org/repo",
       error: null,
     })
@@ -73,8 +80,31 @@ describe("GitHubAppPrService", () => {
         title: "Review change",
         body: "Details",
         draft: true,
-      }
+      },
+      { recheckAfter: false }
     )
+  })
+
+  it("reports each connected App operation against one account link", async () => {
+    const { service, select } = fixture()
+    select.mockImplementation(async (_connector, _namespace, actions: string[]) => {
+      if (actions.includes("get_pr_diff") || actions.includes("get_pr_statuses")) {
+        throw new Error("Tool unavailable")
+      }
+      return {
+        connectorId: "connector_76869538009648d5b282a4bb21c3d157",
+        accountLinkId: "link-1",
+        server: "codex_apps" as const,
+      }
+    })
+    expect(await service.availability("/repo", "native-thread")).toMatchObject({
+      canList: true,
+      canRead: true,
+      canDiff: false,
+      canChecks: false,
+      canThreads: true,
+      repository: "org/repo",
+    })
   })
 
   it("lists and reads only PRs in the selected GitHub repository", async () => {
@@ -489,7 +519,7 @@ describe("GitHubAppPrService", () => {
         title: "Title",
         body: "",
       })
-    ).rejects.toThrow("another repository")
+    ).rejects.toThrow("Check GitHub before trying again")
     await expect(
       fixture(undefined, undefined, undefined, {
         search_prs: {

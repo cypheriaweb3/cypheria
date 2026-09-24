@@ -30,6 +30,7 @@ import type {
   GitLabMergeRequestChecks,
   GitLabMergeRequestDiscussion,
   GitLabMergeRequestNote,
+  GitLabMrAvailability,
   GitLabReviewer,
   GitLabReviewerCandidate,
   GitOrigin,
@@ -477,6 +478,11 @@ export interface GitActions {
     iid: number,
     options?: RequestOptions
   ): Promise<GitLabMergeRequest>
+  gitlabMrAvailability(
+    cwd: string,
+    threadId: string,
+    options?: RequestOptions
+  ): Promise<GitLabMrAvailability>
   gitlabMrForBranch(
     cwd: string,
     threadId: string,
@@ -918,6 +924,10 @@ export const createGitActions = (client: ServerClient): GitActions => ({
         { cwd, threadId, branch },
         options
       )
+    ),
+  gitlabMrAvailability: async (cwd, threadId, options) =>
+    unwrap(
+      await client.requestGit("git.gitlab-mr-availability.request", { cwd, threadId }, options)
     ),
   gitlabMrChecks: async (cwd, threadId, iid, options) =>
     unwrap(

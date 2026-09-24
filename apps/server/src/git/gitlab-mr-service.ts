@@ -1,3 +1,4 @@
+import type { GitLabMrAvailability } from "@cypheria/protocol"
 import { z } from "zod"
 import type { CodexAppSelection, CodexAppToolClient } from "../codex-app-tool-client.js"
 import type { GitExecutor } from "./git-executor.js"
@@ -308,6 +309,65 @@ export class GitLabMrService {
   constructor(executor: GitExecutor, apps: CodexAppToolClient) {
     this.#executor = executor
     this.#apps = apps
+  }
+
+  async availability(root: string, nativeThreadId: string): Promise<GitLabMrAvailability> {
+    const baseline = await this.#apps
+      .select(connectorId, "gitlab", ["get_project"])
+      .then(
+        async (selection) => ({
+          selection,
+          project: await this.#project(root, nativeThreadId, selection),
+          error: null,
+        }),
+        (error) => ({
+          selection: null,
+          project: null,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      )
+      .catch((error) => ({
+        selection: null,
+        project: null,
+        error: error instanceof Error ? error.message : String(error),
+      }))
+    const groups = {
+      canRead: ["get_merge_request"],
+      canFindByBranch: ["list_merge_requests", "get_merge_request"],
+      canCreate: ["create_merge_request"],
+      canComment: ["get_merge_request", "create_merge_request_note"],
+      canUpdateTitle: ["get_merge_request", "update_merge_request"],
+      canReadDiscussions: ["get_merge_request", "list_merge_request_discussions"],
+      canReadReviewers: [
+        "get_merge_request",
+        "list_merge_request_reviewers",
+        "get_merge_request_approvals",
+      ],
+      canSearchReviewers: ["list_project_inherited_members"],
+      canManageReviewers: [
+        "get_merge_request",
+        "get_current_user",
+        "list_merge_request_reviewers",
+        "get_merge_request_approvals",
+        "update_merge_request",
+      ],
+      canReadChecks: ["get_merge_request", "list_pipeline_jobs", "list_pipeline_bridges"],
+    } as const
+    const entries = await Promise.all(
+      Object.entries(groups).map(async ([name, actions]) => {
+        if (!baseline.selection) return [name, false] as const
+        const selection = await this.#apps
+          .select(connectorId, "gitlab", ["get_project", ...actions])
+          .catch(() => null)
+        return [name, selection?.accountLinkId === baseline.selection.accountLinkId] as const
+      })
+    )
+    return {
+      connected: baseline.project !== null,
+      project: baseline.project?.projectPath ?? null,
+      error: baseline.error,
+      ...(Object.fromEntries(entries) as Record<keyof typeof groups, boolean>),
+    }
   }
 
   async read(root: string, nativeThreadId: string, iid: number): Promise<GitLabMergeRequest> {

@@ -149,9 +149,33 @@ export const GitHubAvailabilitySchema = z
 export const GitHubAppAvailabilitySchema = z
   .object({
     available: z.boolean(),
+    canList: z.boolean(),
     canRead: z.boolean(),
+    canSearchByAccount: z.boolean(),
+    canDiff: z.boolean(),
+    canActivity: z.boolean(),
+    canChecks: z.boolean(),
+    canThreads: z.boolean(),
+    canMedia: z.boolean(),
     repository: z.string().nullable(),
     error: z.string().nullable(),
+  })
+  .strict()
+export const GitLabMrAvailabilitySchema = z
+  .object({
+    connected: z.boolean(),
+    project: z.string().nullable(),
+    error: z.string().nullable(),
+    canRead: z.boolean(),
+    canFindByBranch: z.boolean(),
+    canCreate: z.boolean(),
+    canComment: z.boolean(),
+    canUpdateTitle: z.boolean(),
+    canReadDiscussions: z.boolean(),
+    canReadReviewers: z.boolean(),
+    canSearchReviewers: z.boolean(),
+    canManageReviewers: z.boolean(),
+    canReadChecks: z.boolean(),
   })
   .strict()
 export const GitHubAppCreatedPullRequestSchema = z
@@ -1038,6 +1062,10 @@ export const GitLabMrReadRequestSchema = input(
     .object({ cwd: path, threadId: ProjectThreadIdSchema, iid: z.number().int().positive() })
     .strict()
 )
+export const GitLabMrAvailabilityRequestSchema = input(
+  "git.gitlab-mr-availability.request",
+  z.object({ cwd: path, threadId: ProjectThreadIdSchema }).strict()
+)
 export const GitLabMrForBranchRequestSchema = input(
   "git.gitlab-mr-for-branch.request",
   z.object({ cwd: path, threadId: ProjectThreadIdSchema, branch: z.string().min(1) }).strict()
@@ -1422,6 +1450,10 @@ export const GitLabMrReadResponseSchema = output(
   "git.gitlab-mr-read.response",
   GitLabMergeRequestSchema
 )
+export const GitLabMrAvailabilityResponseSchema = output(
+  "git.gitlab-mr-availability.response",
+  GitLabMrAvailabilitySchema
+)
 export const GitLabMrForBranchResponseSchema = output(
   "git.gitlab-mr-for-branch.response",
   GitLabMergeRequestSchema.nullable()
@@ -1548,6 +1580,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubPrReviewerRequestSchema,
   GitHubPrMergeRequestSchema,
   GitLabMrReadRequestSchema,
+  GitLabMrAvailabilityRequestSchema,
   GitLabMrForBranchRequestSchema,
   GitLabMrChecksRequestSchema,
   GitLabMrDiscussionsRequestSchema,
@@ -1644,6 +1677,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubPrReviewerResponseSchema,
   GitHubPrMergeResponseSchema,
   GitLabMrReadResponseSchema,
+  GitLabMrAvailabilityResponseSchema,
   GitLabMrForBranchResponseSchema,
   GitLabMrChecksResponseSchema,
   GitLabMrDiscussionsResponseSchema,
@@ -1677,6 +1711,7 @@ export type GitTextBlob = z.infer<typeof GitTextBlobSchema>
 export type GitBlameLine = z.infer<typeof GitBlameLineSchema>
 export type GitWorktree = z.infer<typeof GitWorktreeSchema>
 export type GitWorktreeJob = z.infer<typeof GitWorktreeJobSchema>
+export type GitLabMrAvailability = z.infer<typeof GitLabMrAvailabilitySchema>
 export type GitHubAvailability = z.infer<typeof GitHubAvailabilitySchema>
 export type GitHubAppAvailability = z.infer<typeof GitHubAppAvailabilitySchema>
 export type GitHubAppCreatedPullRequest = z.infer<typeof GitHubAppCreatedPullRequestSchema>

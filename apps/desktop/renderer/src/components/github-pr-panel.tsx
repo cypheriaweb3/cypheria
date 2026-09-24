@@ -47,6 +47,7 @@ export function GitHubPrPanel({
   const { i18n } = useLingui()
   const queryClient = useQueryClient()
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null)
+  const [directPrNumber, setDirectPrNumber] = useState("")
   const [prSearchText, setPrSearchText] = useState("")
   const [prSearchQuery, setPrSearchQuery] = useState("")
   const [prListState, setPrListState] = useState<"open" | "closed" | "merged" | "all">("open")
@@ -113,6 +114,17 @@ export function GitHubPrPanel({
     staleTime: 30_000,
     retry: false,
   })
+  const branchContext = useQuery({
+    enabled: Boolean(branch),
+    queryKey: ["github-pr", cwd, "branch-context"],
+    queryFn: async () => (await ensureCypheriaClient()).git.branchContext(cwd),
+    refetchInterval: 10_000,
+    retry: false,
+  })
+  useEffect(() => {
+    if (!base && branchContext.data?.defaultBranch)
+      setBase(branchContext.data.defaultBranch.replace(/^origin\//u, ""))
+  }, [base, branchContext.data?.defaultBranch])
   const cliAvailable = Boolean(availability.data?.authenticated && availability.data.repository)
   const thread = useQuery({
     enabled: cliAvailable && Boolean(threadId),
@@ -140,8 +152,12 @@ export function GitHubPrPanel({
     staleTime: 30_000,
     retry: false,
   })
+  useEffect(() => {
+    if (!cliAvailable && appAvailability.data && !appAvailability.data.canSearchByAccount)
+      setPrListScope("all")
+  }, [appAvailability.data, cliAvailable])
   const list = useQuery({
-    enabled: cliAvailable || Boolean(threadId && appAvailability.data?.canRead),
+    enabled: cliAvailable || Boolean(threadId && appAvailability.data?.canList),
     queryKey: [
       "github-pr",
       cwd,
@@ -212,7 +228,7 @@ export function GitHubPrPanel({
     enabled:
       !cliAvailable &&
       Boolean(
-        threadId && appAvailability.data?.canRead && selected.data?.headRefOid && mediaLinks.length
+        threadId && appAvailability.data?.canMedia && selected.data?.headRefOid && mediaLinks.length
       ),
     queryKey: [
       "github-pr",
@@ -242,7 +258,7 @@ export function GitHubPrPanel({
   const prDiff = useQuery({
     enabled:
       showDiff &&
-      (cliAvailable || Boolean(threadId && appAvailability.data?.canRead)) &&
+      (cliAvailable || Boolean(threadId && appAvailability.data?.canDiff)) &&
       Boolean(selected.data?.headRefOid),
     queryKey: [
       "github-pr",
@@ -338,7 +354,7 @@ export function GitHubPrPanel({
     enabled:
       selected.data?.state === "OPEN" &&
       (cliAvailable ||
-        Boolean(threadId && appAvailability.data?.canRead && selected.data?.headRefOid)),
+        Boolean(threadId && appAvailability.data?.canChecks && selected.data?.headRefOid)),
     queryKey: [
       "github-pr",
       cwd,
@@ -373,7 +389,7 @@ export function GitHubPrPanel({
   const activity = useQuery({
     enabled:
       cliAvailable ||
-      Boolean(threadId && appAvailability.data?.canRead && selected.data?.headRefOid),
+      Boolean(threadId && appAvailability.data?.canActivity && selected.data?.headRefOid),
     queryKey: [
       "github-pr",
       cwd,
@@ -438,7 +454,7 @@ export function GitHubPrPanel({
   })
   const threads = useQuery({
     enabled:
-      (cliAvailable || Boolean(threadId && appAvailability.data?.canRead)) &&
+      (cliAvailable || Boolean(threadId && appAvailability.data?.canThreads)) &&
       Boolean(selected.data?.headRefOid),
     queryKey: [
       "github-pr",
@@ -471,6 +487,7 @@ export function GitHubPrPanel({
       await queryClient.invalidateQueries({ queryKey: ["github-pr", cwd] })
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
+      await queryClient.invalidateQueries({ queryKey: ["github-pr", cwd] })
     } finally {
       setBusy(false)
     }
@@ -625,7 +642,7 @@ export function GitHubPrPanel({
           <AlertDescription>{appAvailability.data.error}</AlertDescription>
         </Alert>
       ) : null}
-      {cliAvailable || appAvailability.data?.canRead ? (
+      {cliAvailable || appAvailability.data?.canList ? (
         <div className="flex flex-wrap gap-2">
           <Input
             aria-label={i18n._(msg({ id: "git.github.search", message: "Search pull requests" }))}
@@ -677,10 +694,16 @@ export function GitHubPrPanel({
             <NativeSelectOption value="all">
               <Trans id="git.github.scopeAll">All</Trans>
             </NativeSelectOption>
-            <NativeSelectOption value="authored">
+            <NativeSelectOption
+              disabled={!cliAvailable && !appAvailability.data?.canSearchByAccount}
+              value="authored"
+            >
               <Trans id="git.github.scopeAuthored">Created by me</Trans>
             </NativeSelectOption>
-            <NativeSelectOption value="reviewing">
+            <NativeSelectOption
+              disabled={!cliAvailable && !appAvailability.data?.canSearchByAccount}
+              value="reviewing"
+            >
               <Trans id="git.github.scopeReviewing">Review requested</Trans>
             </NativeSelectOption>
           </NativeSelect>
@@ -694,6 +717,26 @@ export function GitHubPrPanel({
             variant="outline"
           >
             <Trans id="git.github.searchAction">Search</Trans>
+          </Button>
+        </div>
+      ) : null}
+      {!cliAvailable && appAvailability.data?.canRead && !appAvailability.data.canList ? (
+        <div className="flex gap-2">
+          <Input
+            aria-label={i18n._(msg({ id: "git.github.prNumber", message: "Pull request number" }))}
+            min={1}
+            onChange={(event) => setDirectPrNumber(event.target.value)}
+            type="number"
+            value={directPrNumber}
+          />
+          <Button
+            disabled={!Number.isSafeInteger(Number(directPrNumber)) || Number(directPrNumber) < 1}
+            onClick={() => selectPullRequest(Number(directPrNumber))}
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <Trans id="git.github.openPr">Open PR</Trans>
           </Button>
         </div>
       ) : null}
@@ -779,7 +822,7 @@ export function GitHubPrPanel({
               <AlertDescription>{metadata.error.message}</AlertDescription>
             </Alert>
           ) : null}
-          {selected.data.headRefOid && (cliAvailable || appAvailability.data?.canRead) ? (
+          {selected.data.headRefOid && (cliAvailable || appAvailability.data?.canDiff) ? (
             <div className="space-y-2 border-t pt-2">
               <Button
                 onClick={() => setShowDiff((value) => !value)}
@@ -904,7 +947,7 @@ export function GitHubPrPanel({
               ) : null}
             </div>
           ) : null}
-          {selected.data.state === "OPEN" && (cliAvailable || appAvailability.data?.canRead) ? (
+          {selected.data.state === "OPEN" && (cliAvailable || appAvailability.data?.canChecks) ? (
             <div className="space-y-1 border-t pt-2">
               <p className="text-xs font-medium">
                 <Trans id="git.github.checks">Checks</Trans>
@@ -994,7 +1037,7 @@ export function GitHubPrPanel({
               ) : null}
             </div>
           ) : null}
-          {!cliAvailable && appAvailability.data?.canRead && selected.data.headRefOid ? (
+          {!cliAvailable && appAvailability.data?.canActivity && selected.data.headRefOid ? (
             <div className="space-y-2 border-t pt-2">
               <p className="text-xs font-medium">
                 <Trans id="git.github.activity">Discussion and reviews</Trans>
@@ -1018,7 +1061,7 @@ export function GitHubPrPanel({
               ) : null}
             </div>
           ) : null}
-          {!cliAvailable && appAvailability.data?.canRead && selected.data.headRefOid ? (
+          {!cliAvailable && appAvailability.data?.canThreads && selected.data.headRefOid ? (
             <div className="space-y-2 border-t pt-2">
               <p className="text-xs font-medium">
                 <Trans id="git.github.reviewThreads">Review threads</Trans>
@@ -1679,6 +1722,25 @@ export function GitHubPrPanel({
           <p className="text-xs text-muted-foreground">
             <Trans id="git.github.createHint">Create from the pushed current branch</Trans>
           </p>
+          {branch && (!branchContext.data?.upstream || branchContext.data.ahead > 0) ? (
+            <Button
+              disabled={busy}
+              onClick={() =>
+                void mutate(async () => {
+                  await (await ensureCypheriaClient()).git.push(cwd, {
+                    remote: "origin",
+                    branch,
+                    setUpstream: !branchContext.data?.upstream,
+                  })
+                })
+              }
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <Trans id="git.github.pushBranch">Push current branch</Trans>
+            </Button>
+          ) : null}
           {branchPr.data?.state === "OPEN" ? (
             <p className="text-xs text-muted-foreground">
               <Trans id="git.github.existingBranchPr">

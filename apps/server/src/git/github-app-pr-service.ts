@@ -270,7 +270,14 @@ const repositoryFromRemote = (remote: string): string => {
 
 export type GitHubAppAvailability = {
   available: boolean
+  canList: boolean
   canRead: boolean
+  canSearchByAccount: boolean
+  canDiff: boolean
+  canActivity: boolean
+  canChecks: boolean
+  canThreads: boolean
+  canMedia: boolean
   repository: string | null
   error: string | null
 }
@@ -285,25 +292,35 @@ export class GitHubAppPrService {
   }
 
   async availability(root: string, nativeThreadId: string): Promise<GitHubAppAvailability> {
-    const create = await this.#context(root, nativeThreadId, ["create_pull_request"]).then(
-      ({ repository }) => ({ repository, error: null }),
-      (error) => ({
-        repository: null,
-        error: error instanceof Error ? error.message : String(error),
+    const context = await this.#context(root, nativeThreadId, []).then(
+      (value) => ({ value, error: null }),
+      (error) => ({ value: null, error: error instanceof Error ? error.message : String(error) })
+    )
+    const groups = {
+      available: ["create_pull_request"],
+      canList: ["search_prs"],
+      canRead: ["get_pr_info"],
+      canSearchByAccount: ["search_prs", "get_user_login"],
+      canDiff: ["get_pr_info", "get_pr_diff"],
+      canActivity: ["get_pr_info", "fetch_pr_comments", "list_pull_request_reviews"],
+      canChecks: ["get_pr_info", "get_user_login", "get_pr_statuses"],
+      canThreads: ["get_pr_info", "list_pull_request_review_threads"],
+      canMedia: ["get_pr_info", "download_user_content"],
+    } as const
+    const entries = await Promise.all(
+      Object.entries(groups).map(async ([name, actions]) => {
+        if (!context.value) return [name, false] as const
+        const selection = await this.#apps
+          .select(connectorId, "github", ["get_repo", ...actions])
+          .catch(() => null)
+        return [name, selection?.accountLinkId === context.value.selection.accountLinkId] as const
       })
     )
-    const read = await this.#context(root, nativeThreadId, ["search_prs", "get_pr_info"]).then(
-      ({ repository }) => ({ repository, error: null }),
-      (error) => ({
-        repository: null,
-        error: error instanceof Error ? error.message : String(error),
-      })
-    )
+    const flags = Object.fromEntries(entries) as Record<keyof typeof groups, boolean>
     return {
-      available: create.repository !== null,
-      canRead: read.repository !== null,
-      repository: create.repository ?? read.repository,
-      error: create.repository || read.repository ? null : (create.error ?? read.error),
+      ...flags,
+      repository: context.value?.repository ?? null,
+      error: context.error,
     }
   }
 
@@ -764,17 +781,28 @@ export class GitHubAppPrService {
       "create_pull_request",
     ])
     await this.#verifiedPushedBranch(root, input.head)
-    const created = createdResponse.parse(
-      await this.#apps.call(selection, nativeThreadId, "github", "create_pull_request", {
-        repository_full_name: repository,
-        head: input.head,
-        base: input.base,
-        title: input.title,
-        body: input.body,
-        draft: input.draft ?? false,
-      })
-    )
-    return { number: created.number, url: checkedPrUrl(repository, created.number, created.url) }
+    try {
+      const created = createdResponse.parse(
+        await this.#apps.call(
+          selection,
+          nativeThreadId,
+          "github",
+          "create_pull_request",
+          {
+            repository_full_name: repository,
+            head: input.head,
+            base: input.base,
+            title: input.title,
+            body: input.body,
+            draft: input.draft ?? false,
+          },
+          { recheckAfter: false }
+        )
+      )
+      return { number: created.number, url: checkedPrUrl(repository, created.number, created.url) }
+    } catch {
+      throw new Error("Could not confirm the pull request. Check GitHub before trying again")
+    }
   }
 
   async #context(

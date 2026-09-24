@@ -31,8 +31,25 @@ export function GitLabMrPanel({
   const [reviewerQuery, setReviewerQuery] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const branchContext = useQuery({
+    enabled: Boolean(branch),
+    queryKey: ["gitlab-mr", cwd, "branch-context"],
+    queryFn: async () => (await ensureCypheriaClient()).git.branchContext(cwd),
+    refetchInterval: 10_000,
+    retry: false,
+  })
+  const availability = useQuery({
+    enabled: Boolean(threadId),
+    queryKey: ["gitlab-mr", cwd, threadId, "availability"],
+    queryFn: async () => {
+      if (!threadId) throw new Error("A local Codex thread is required")
+      return (await ensureCypheriaClient()).git.gitlabMrAvailability(cwd, threadId)
+    },
+    staleTime: 30_000,
+    retry: false,
+  })
   const branchMr = useQuery({
-    enabled: Boolean(threadId && branch),
+    enabled: Boolean(threadId && branch && availability.data?.canFindByBranch),
     queryKey: ["gitlab-mr", cwd, threadId, "branch", branch],
     queryFn: async () => {
       if (!threadId || !branch) throw new Error("A local Codex thread and branch are required")
@@ -42,7 +59,7 @@ export function GitLabMrPanel({
   })
   const activeIid = iid ?? branchMr.data?.iid ?? null
   const mr = useQuery({
-    enabled: Boolean(threadId && activeIid),
+    enabled: Boolean(threadId && activeIid && availability.data?.canRead),
     queryKey: ["gitlab-mr", cwd, threadId, activeIid],
     queryFn: async () => {
       if (!threadId || !activeIid)
@@ -52,7 +69,7 @@ export function GitLabMrPanel({
     retry: false,
   })
   const checks = useQuery({
-    enabled: Boolean(threadId && mr.data),
+    enabled: Boolean(threadId && mr.data && availability.data?.canReadChecks),
     queryKey: ["gitlab-mr-checks", cwd, threadId, mr.data?.iid],
     queryFn: async () => {
       if (!threadId || !mr.data) throw new Error("A local Codex thread and MR are required")
@@ -61,7 +78,7 @@ export function GitLabMrPanel({
     retry: false,
   })
   const discussions = useQuery({
-    enabled: Boolean(threadId && mr.data),
+    enabled: Boolean(threadId && mr.data && availability.data?.canReadDiscussions),
     queryKey: ["gitlab-mr", cwd, threadId, "discussions", mr.data?.iid],
     queryFn: async () => {
       if (!threadId || !mr.data) throw new Error("A local Codex thread and MR are required")
@@ -70,7 +87,7 @@ export function GitLabMrPanel({
     retry: false,
   })
   const reviewers = useQuery({
-    enabled: Boolean(threadId && mr.data),
+    enabled: Boolean(threadId && mr.data && availability.data?.canReadReviewers),
     queryKey: ["gitlab-mr", cwd, threadId, "reviewers", mr.data?.iid],
     queryFn: async () => {
       if (!threadId || !mr.data) throw new Error("A local Codex thread and MR are required")
@@ -79,7 +96,9 @@ export function GitLabMrPanel({
     retry: false,
   })
   const reviewerCandidates = useQuery({
-    enabled: Boolean(threadId && mr.data && reviewerQuery.trim()),
+    enabled: Boolean(
+      threadId && mr.data && reviewerQuery.trim() && availability.data?.canSearchReviewers
+    ),
     queryKey: ["gitlab-mr", cwd, threadId, "reviewer-search", reviewerQuery.trim()],
     queryFn: async () => {
       if (!threadId) throw new Error("A local Codex thread is required")
@@ -100,6 +119,7 @@ export function GitLabMrPanel({
       await queryClient.invalidateQueries({ queryKey: ["gitlab-mr-checks", cwd] })
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
+      await queryClient.invalidateQueries({ queryKey: ["gitlab-mr", cwd] })
     } finally {
       setBusy(false)
     }
@@ -114,6 +134,28 @@ export function GitLabMrPanel({
       <p className="text-xs font-medium">
         <Trans id="git.gitlab.heading">GitLab merge requests</Trans>
       </p>
+      {availability.data?.project ? (
+        <p className="text-xs text-muted-foreground">{availability.data.project}</p>
+      ) : null}
+      {availability.data?.error ? (
+        <Alert variant="destructive">
+          <AlertDescription>{availability.data.error}</AlertDescription>
+        </Alert>
+      ) : null}
+      {availability.isError ? (
+        <Alert variant="destructive">
+          <AlertDescription>{availability.error.message}</AlertDescription>
+        </Alert>
+      ) : null}
+      {availability.data?.connected && !availability.data.canRead ? (
+        <Alert>
+          <AlertDescription>
+            <Trans id="git.gitlab.readUnavailable">
+              The connected GitLab account does not provide MR reading.
+            </Trans>
+          </AlertDescription>
+        </Alert>
+      ) : null}
       <div className="flex gap-2">
         <Input
           aria-label={i18n._(msg({ id: "git.gitlab.number", message: "Merge request number" }))}
@@ -124,7 +166,12 @@ export function GitLabMrPanel({
           value={iidInput}
         />
         <Button
-          disabled={!threadId || !Number.isSafeInteger(selectedIid) || selectedIid < 1}
+          disabled={
+            !threadId ||
+            !availability.data?.canRead ||
+            !Number.isSafeInteger(selectedIid) ||
+            selectedIid < 1
+          }
           onClick={() => setIid(selectedIid)}
           size="sm"
           type="button"
@@ -138,7 +185,7 @@ export function GitLabMrPanel({
           <AlertDescription>{branchMr.error.message}</AlertDescription>
         </Alert>
       ) : null}
-      {mr.isPending && activeIid ? (
+      {mr.isFetching && activeIid ? (
         <p className="text-xs text-muted-foreground">
           <Trans id="git.gitlab.loading">Loading merge request…</Trans>
         </p>
@@ -173,7 +220,13 @@ export function GitLabMrPanel({
               value={newTitle}
             />
             <Button
-              disabled={busy || !newTitle.trim() || newTitle === mr.data.title || !threadId}
+              disabled={
+                busy ||
+                !availability.data?.canUpdateTitle ||
+                !newTitle.trim() ||
+                newTitle === mr.data.title ||
+                !threadId
+              }
               onClick={() =>
                 void mutate(async () => {
                   if (!threadId) throw new Error("A local Codex thread is required")
@@ -203,7 +256,7 @@ export function GitLabMrPanel({
             value={comment}
           />
           <Button
-            disabled={busy || !comment.trim() || !threadId}
+            disabled={busy || !availability.data?.canComment || !comment.trim() || !threadId}
             onClick={() =>
               void mutate(async () => {
                 if (!threadId) throw new Error("A local Codex thread is required")
@@ -263,7 +316,7 @@ export function GitLabMrPanel({
                 <span className="text-muted-foreground">{reviewer.status}</span>
                 {reviewer.isReviewRequested ? (
                   <Button
-                    disabled={busy || !threadId}
+                    disabled={busy || !threadId || !availability.data?.canManageReviewers}
                     onClick={() =>
                       void mutate(async () => {
                         if (!threadId) throw new Error("A local Codex thread is required")
@@ -291,6 +344,7 @@ export function GitLabMrPanel({
               </Alert>
             ) : null}
             <Input
+              disabled={!availability.data?.canSearchReviewers}
               aria-label={i18n._(
                 msg({ id: "git.gitlab.searchReviewers", message: "Search project members" })
               )}
@@ -310,7 +364,7 @@ export function GitLabMrPanel({
                 <div className="flex items-center gap-2 text-xs" key={candidate.userId}>
                   <span className="min-w-0 flex-1 truncate">{candidate.login}</span>
                   <Button
-                    disabled={busy || !threadId}
+                    disabled={busy || !threadId || !availability.data?.canManageReviewers}
                     onClick={() =>
                       void mutate(async () => {
                         if (!threadId) throw new Error("A local Codex thread is required")
@@ -382,6 +436,32 @@ export function GitLabMrPanel({
         <p className="text-xs text-muted-foreground">
           <Trans id="git.gitlab.createHint">Create from the pushed current branch</Trans>
         </p>
+        {availability.data?.connected && !availability.data.canCreate ? (
+          <p className="text-xs text-muted-foreground">
+            <Trans id="git.gitlab.createUnavailable">
+              MR creation is unavailable for this account.
+            </Trans>
+          </p>
+        ) : null}
+        {branch && (!branchContext.data?.upstream || branchContext.data.ahead > 0) ? (
+          <Button
+            disabled={busy}
+            onClick={() =>
+              void mutate(async () => {
+                await (await ensureCypheriaClient()).git.push(cwd, {
+                  remote: "origin",
+                  branch,
+                  setUpstream: !branchContext.data?.upstream,
+                })
+              })
+            }
+            size="sm"
+            type="button"
+            variant="outline"
+          >
+            <Trans id="git.gitlab.pushBranch">Push current branch</Trans>
+          </Button>
+        ) : null}
         <Input
           aria-label={i18n._(msg({ id: "git.gitlab.title", message: "Merge request title" }))}
           onChange={(event) => setTitle(event.target.value)}
@@ -402,7 +482,9 @@ export function GitLabMrPanel({
         <div className="flex flex-wrap gap-2">
           {([false, true] as const).map((draft) => (
             <Button
-              disabled={busy || !branch || !threadId || !title.trim()}
+              disabled={
+                busy || !branch || !threadId || !availability.data?.canCreate || !title.trim()
+              }
               key={String(draft)}
               onClick={() =>
                 void mutate(async () => {

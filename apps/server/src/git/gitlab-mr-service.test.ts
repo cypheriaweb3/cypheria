@@ -42,7 +42,7 @@ const fixture = (
             : `${remote}\n`
     return { stdout, stderr: "" }
   })
-  const select = vi.fn(async () => ({
+  const select = vi.fn(async (_connector: string, _namespace: string, _actions: string[]) => ({
     connectorId: "connector_0c9786b2f41f41558056126bdb46c9bd",
     accountLinkId: "link-1",
     server: "codex_apps" as const,
@@ -62,6 +62,27 @@ const fixture = (
 }
 
 describe("GitLabMrService", () => {
+  it("reports GitLab actions from the connected project account", async () => {
+    const { service, select } = fixture("git@gitlab.com:group/project.git")
+    select.mockImplementation(async (_connector, _namespace, actions: string[]) => {
+      if (actions.includes("create_merge_request") || actions.includes("list_pipeline_bridges")) {
+        throw new Error("Tool unavailable")
+      }
+      return {
+        connectorId: "connector_0c9786b2f41f41558056126bdb46c9bd",
+        accountLinkId: "link-1",
+        server: "codex_apps" as const,
+      }
+    })
+    expect(await service.availability("/repo", "native-thread")).toMatchObject({
+      connected: true,
+      project: "group/project",
+      canRead: true,
+      canCreate: false,
+      canReadChecks: false,
+      canComment: true,
+    })
+  })
   it("reads MR discussions and reviewers from the selected account", async () => {
     const { service, call } = fixture("git@gitlab.com:group/project.git", project, mr, {
       list_merge_request_discussions: {

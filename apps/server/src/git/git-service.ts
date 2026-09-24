@@ -46,6 +46,7 @@ import type {
   GitLabMergeRequestChecks,
   GitLabMergeRequestDiscussion,
   GitLabMergeRequestNote,
+  GitLabMrAvailability,
   GitLabReviewer,
   GitLabReviewerCandidate,
   GitOrigin,
@@ -618,6 +619,9 @@ export class GitService {
             message.payload.iid
           )
           break
+        case "git.gitlab-mr-availability.request":
+          value = await this.gitlabMrAvailability(message.payload.cwd, message.payload.threadId)
+          break
         case "git.gitlab-mr-for-branch.request":
           value = await this.gitlabMrForBranch(
             message.payload.cwd,
@@ -1124,7 +1128,14 @@ export class GitService {
     if (!this.#githubApp)
       return {
         available: false,
+        canList: false,
         canRead: false,
+        canSearchByAccount: false,
+        canDiff: false,
+        canActivity: false,
+        canChecks: false,
+        canThreads: false,
+        canMedia: false,
         repository: null,
         error: "GitHub app is unavailable",
       }
@@ -1474,6 +1485,12 @@ export class GitService {
   async gitlabMrRead(cwd: string, threadId: string, iid: number): Promise<GitLabMergeRequest> {
     const { service, root, nativeThreadId } = await this.#gitlabThread(cwd, threadId)
     return service.read(root, nativeThreadId, iid)
+  }
+
+  async gitlabMrAvailability(cwd: string, threadId: string): Promise<GitLabMrAvailability> {
+    if (!this.#gitlab) throw new Error("GitLab app is unavailable")
+    const { root, nativeThreadId } = await this.#codexThreadRepository(cwd, threadId)
+    return this.#gitlab.availability(root, nativeThreadId)
   }
 
   async gitlabMrForBranch(
