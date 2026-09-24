@@ -153,6 +153,74 @@ describe("GitService", () => {
     expect((await service.indexInfo(root)).lastModified).toBeGreaterThan(0)
   }, 20_000)
 
+  it("resolves clone state and worktree refs and isolates worktree configuration", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await writeFile(join(root, "file.txt"), "base\n")
+    await service.stage(root, ["file.txt"])
+    const commit = await service.commit(root, "Base")
+    await service.createBranch(root, "feature")
+    expect(await service.cloneState(root)).toEqual({
+      shallow: false,
+      partial: false,
+      promisorRemote: null,
+    })
+    expect(await service.worktreeStartingRef(root, "feature")).toEqual({
+      ref: "refs/heads/feature",
+      commit,
+    })
+    await expect(service.worktreeStartingRef(root, "--bad")).rejects.toThrow(
+      "Invalid Git start point"
+    )
+    const worktree = await service.createWorktree(root)
+    expect(await service.configValue(worktree.path, "codex.localEnvironmentConfigPath")).toBeNull()
+    await service.setConfigValue(
+      worktree.path,
+      "codex.localEnvironmentConfigPath",
+      "/tmp/cypheria-env.json"
+    )
+    expect(await service.configValue(worktree.path, "codex.localEnvironmentConfigPath")).toBe(
+      "/tmp/cypheria-env.json"
+    )
+    expect(await service.configValue(root, "codex.localEnvironmentConfigPath")).toBeNull()
+    await service.setConfigValue(worktree.path, "codex.localEnvironmentConfigPath", null)
+    expect(await service.configValue(worktree.path, "codex.localEnvironmentConfigPath")).toBeNull()
+  }, 30_000)
+
+  it("reports partial Review application without applying stale sections", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await writeFile(join(root, "first.txt"), "old\n")
+    await writeFile(join(root, "second.txt"), "old\n")
+    await service.stage(root, ["first.txt", "second.txt"])
+    await service.commit(root, "Base")
+    await writeFile(join(root, "first.txt"), "new\n")
+    await writeFile(join(root, "second.txt"), "new\n")
+    const first = await service.reviewFile(root, "unstaged", "first.txt")
+    const second = await service.reviewFile(root, "unstaged", "second.txt")
+    await writeFile(join(root, "second.txt"), "newer\n")
+    expect(
+      await service.applyReviewSections(root, [
+        { source: "unstaged", path: "first.txt", revision: first.revision, action: "stage" },
+        { source: "unstaged", path: "second.txt", revision: second.revision, action: "stage" },
+      ])
+    ).toEqual([
+      { path: "first.txt", status: "applied", undoId: null, error: null },
+      {
+        path: "second.txt",
+        status: "stale",
+        undoId: null,
+        error: "File changed; refresh the review",
+      },
+    ])
+    expect((await service.status(root)).entries).toEqual(
+      expect.arrayContaining([
+        { code: "M ", path: "first.txt" },
+        { code: " M", path: "second.txt" },
+      ])
+    )
+  }, 30_000)
+
   it("reads bounded UTF-8 blobs and blame metadata without exposing binary content", async () => {
     const root = await repository()
     const service = new GitService(join(root, "cache"), join(root, "home"))

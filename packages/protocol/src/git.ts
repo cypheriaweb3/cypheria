@@ -92,6 +92,9 @@ export const GitBranchComparisonSchema = z
     files: z.array(GitReviewLineCountSchema),
   })
   .strict()
+export const GitCloneStateSchema = z
+  .object({ shallow: z.boolean(), partial: z.boolean(), promisorRemote: z.string().nullable() })
+  .strict()
 export const GitIndexEntrySchema = z
   .object({
     path,
@@ -409,6 +412,28 @@ export const GitBranchComparisonRequestSchema = input(
   "git.branch-comparison.request",
   z.object({ cwd: path, base: path, head: path.optional() }).strict()
 )
+export const GitCloneStateRequestSchema = input(
+  "git.clone-state.request",
+  z.object({ cwd: path }).strict()
+)
+export const GitWorktreeStartingRefRequestSchema = input(
+  "git.worktree-starting-ref.request",
+  z.object({ cwd: path, startPoint: z.string().min(1) }).strict()
+)
+export const GitConfigValueRequestSchema = input(
+  "git.config-value.request",
+  z.object({ cwd: path, key: z.enum(["codex.localEnvironmentConfigPath"]) }).strict()
+)
+export const GitSetConfigValueRequestSchema = input(
+  "git.set-config-value.request",
+  z
+    .object({
+      cwd: path,
+      key: z.enum(["codex.localEnvironmentConfigPath"]),
+      value: z.string().max(4096).nullable(),
+    })
+    .strict()
+)
 export const GitIndexEntriesRequestSchema = input(
   "git.index-entries.request",
   z.object({ cwd: path, path }).strict()
@@ -542,6 +567,18 @@ export const GitApplyReviewSectionRequestSchema = input(
       revision: z.string().regex(/^[a-f0-9]{64}$/u),
       action: z.enum(["stage", "unstage", "revert"]),
       hunkIndex: z.number().int().nonnegative().optional(),
+    })
+    .strict()
+)
+export const GitApplyReviewSectionsRequestSchema = input(
+  "git.apply-review-sections.request",
+  z
+    .object({
+      cwd: path,
+      sections: z
+        .array(GitApplyReviewSectionRequestSchema.shape.payload.omit({ cwd: true }))
+        .min(1)
+        .max(100),
     })
     .strict()
 )
@@ -1077,6 +1114,19 @@ export const GitBranchComparisonResponseSchema = output(
   "git.branch-comparison.response",
   GitBranchComparisonSchema
 )
+export const GitCloneStateResponseSchema = output("git.clone-state.response", GitCloneStateSchema)
+export const GitWorktreeStartingRefResponseSchema = output(
+  "git.worktree-starting-ref.response",
+  z.object({ ref: z.string(), commit: z.string().regex(/^[a-f0-9]{40,64}$/iu) }).strict()
+)
+export const GitConfigValueResponseSchema = output(
+  "git.config-value.response",
+  z.object({ value: z.string().nullable() }).strict()
+)
+export const GitSetConfigValueResponseSchema = output(
+  "git.set-config-value.response",
+  z.object({ succeeded: z.literal(true) }).strict()
+)
 export const GitIndexEntriesResponseSchema = output(
   "git.index-entries.response",
   z.array(GitIndexEntrySchema)
@@ -1137,6 +1187,19 @@ export const GitReviewFileResponseSchema = output("git.review-file.response", Gi
 export const GitApplyReviewSectionResponseSchema = output(
   "git.apply-review-section.response",
   z.object({ undoId: z.uuid().nullable() }).strict()
+)
+export const GitApplyReviewSectionsResponseSchema = output(
+  "git.apply-review-sections.response",
+  z.array(
+    z
+      .object({
+        path,
+        status: z.enum(["applied", "stale", "conflict", "failed"]),
+        undoId: z.uuid().nullable(),
+        error: z.string().nullable(),
+      })
+      .strict()
+  )
 )
 export const GitUndoReviewRevertResponseSchema = output("git.undo-review-revert.response", success)
 export const GitReviewUndoListResponseSchema = output(
@@ -1359,6 +1422,10 @@ export const GIT_CLIENT_SCHEMAS = [
   GitBranchSearchRequestSchema,
   GitBranchContextRequestSchema,
   GitBranchComparisonRequestSchema,
+  GitCloneStateRequestSchema,
+  GitWorktreeStartingRefRequestSchema,
+  GitConfigValueRequestSchema,
+  GitSetConfigValueRequestSchema,
   GitIndexEntriesRequestSchema,
   GitSubmodulePathsRequestSchema,
   GitTextBlobRequestSchema,
@@ -1378,6 +1445,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitReviewLineCountsRequestSchema,
   GitReviewFileRequestSchema,
   GitApplyReviewSectionRequestSchema,
+  GitApplyReviewSectionsRequestSchema,
   GitUndoReviewRevertRequestSchema,
   GitReviewUndoListRequestSchema,
   GitStageRequestSchema,
@@ -1446,6 +1514,10 @@ export const GIT_SERVER_SCHEMAS = [
   GitBranchSearchResponseSchema,
   GitBranchContextResponseSchema,
   GitBranchComparisonResponseSchema,
+  GitCloneStateResponseSchema,
+  GitWorktreeStartingRefResponseSchema,
+  GitConfigValueResponseSchema,
+  GitSetConfigValueResponseSchema,
   GitIndexEntriesResponseSchema,
   GitSubmodulePathsResponseSchema,
   GitTextBlobResponseSchema,
@@ -1465,6 +1537,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitReviewLineCountsResponseSchema,
   GitReviewFileResponseSchema,
   GitApplyReviewSectionResponseSchema,
+  GitApplyReviewSectionsResponseSchema,
   GitUndoReviewRevertResponseSchema,
   GitReviewUndoListResponseSchema,
   GitStageResponseSchema,
@@ -1541,6 +1614,7 @@ export type GitReviewLineCount = z.infer<typeof GitReviewLineCountSchema>
 export type GitReviewUndoEntry = z.infer<typeof GitReviewUndoEntrySchema>
 export type GitBranchContext = z.infer<typeof GitBranchContextSchema>
 export type GitBranchComparison = z.infer<typeof GitBranchComparisonSchema>
+export type GitCloneState = z.infer<typeof GitCloneStateSchema>
 export type GitIndexEntry = z.infer<typeof GitIndexEntrySchema>
 export type GitTextBlob = z.infer<typeof GitTextBlobSchema>
 export type GitBlameLine = z.infer<typeof GitBlameLineSchema>

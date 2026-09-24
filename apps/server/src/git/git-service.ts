@@ -11,6 +11,7 @@ import type {
   GitBranchReview,
   GitBranchSearchResult,
   GitClientMessage,
+  GitCloneState,
   GitCommitSummary,
   GitHubAppAvailability,
   GitHubAppPrChecks,
@@ -179,6 +180,19 @@ export class GitService {
             message.payload.head
           )
           break
+        case "git.clone-state.request":
+          value = await this.cloneState(message.payload.cwd)
+          break
+        case "git.worktree-starting-ref.request":
+          value = await this.worktreeStartingRef(message.payload.cwd, message.payload.startPoint)
+          break
+        case "git.config-value.request":
+          value = { value: await this.configValue(message.payload.cwd, message.payload.key) }
+          break
+        case "git.set-config-value.request":
+          await this.setConfigValue(message.payload.cwd, message.payload.key, message.payload.value)
+          value = { succeeded: true }
+          break
         case "git.index-entries.request":
           value = await this.indexEntries(message.payload.cwd, message.payload.path)
           break
@@ -254,6 +268,9 @@ export class GitService {
           break
         case "git.apply-review-section.request":
           value = { undoId: await this.applyReviewSection(message.payload.cwd, message.payload) }
+          break
+        case "git.apply-review-sections.request":
+          value = await this.applyReviewSections(message.payload.cwd, message.payload.sections)
           break
         case "git.undo-review-revert.request":
           await this.undoReviewRevert(message.payload.cwd, message.payload.undoId)
@@ -1473,6 +1490,91 @@ export class GitService {
     }
   }
 
+  async cloneState(cwd: string): Promise<GitCloneState> {
+    const { root } = await this.discover(cwd)
+    const shallow =
+      (
+        await this.#executor.run(root, ["rev-parse", "--is-shallow-repository"], { readOnly: true })
+      ).stdout.trim() === "true"
+    const remotes = (
+      await this.#executor.run(root, ["config", "--get-regexp", "^remote\\..*\\.promisor$"], {
+        readOnly: true,
+        allowExitCodes: [1],
+      })
+    ).stdout
+    const promisorRemote =
+      remotes
+        .split("\n")
+        .map((line) => /^remote\.(.+)\.promisor\s+true$/iu.exec(line)?.[1] ?? null)
+        .find((name) => name !== null) ?? null
+    const partialClone = (
+      await this.#executor.run(root, ["config", "--get", "extensions.partialClone"], {
+        readOnly: true,
+        allowExitCodes: [1],
+      })
+    ).stdout.trim()
+    return { shallow, partial: promisorRemote !== null || partialClone.length > 0, promisorRemote }
+  }
+
+  async worktreeStartingRef(
+    cwd: string,
+    startPoint: string
+  ): Promise<{ ref: string; commit: string }> {
+    const { root } = await this.discover(cwd)
+    const input = validateOperand(startPoint, "start point")
+    const commit = (
+      await this.#executor.run(
+        root,
+        ["rev-parse", "--verify", "--end-of-options", `${input}^{commit}`],
+        { readOnly: true }
+      )
+    ).stdout.trim()
+    const symbolic = (
+      await this.#executor.run(
+        root,
+        ["rev-parse", "--symbolic-full-name", "--verify", "--end-of-options", input],
+        { readOnly: true, allowExitCodes: [1] }
+      )
+    ).stdout.trim()
+    return { ref: symbolic || commit, commit }
+  }
+
+  async configValue(cwd: string, key: "codex.localEnvironmentConfigPath"): Promise<string | null> {
+    const { root } = await this.discover(cwd)
+    if (key !== "codex.localEnvironmentConfigPath") throw new Error("Unsupported Git config key")
+    const enabled = (
+      await this.#executor.run(root, ["config", "--local", "--get", "extensions.worktreeConfig"], {
+        readOnly: true,
+        allowExitCodes: [1],
+      })
+    ).stdout.trim()
+    if (enabled !== "true") return null
+    const { stdout } = await this.#executor.run(root, ["config", "--worktree", "--get", key], {
+      readOnly: true,
+      allowExitCodes: [1],
+    })
+    return stdout ? stdout.trimEnd() : null
+  }
+
+  async setConfigValue(
+    cwd: string,
+    key: "codex.localEnvironmentConfigPath",
+    value: string | null
+  ): Promise<void> {
+    const { root } = await this.discover(cwd)
+    if (key !== "codex.localEnvironmentConfigPath") throw new Error("Unsupported Git config key")
+    if (value !== null && (value.length > 4096 || /[\0\r\n]/u.test(value)))
+      throw new Error("Invalid Git config value")
+    await this.#executor.run(root, ["config", "--local", "extensions.worktreeConfig", "true"])
+    if (value === null) {
+      await this.#executor.run(root, ["config", "--worktree", "--unset-all", key], {
+        allowExitCodes: [5],
+      })
+    } else {
+      await this.#executor.run(root, ["config", "--worktree", "--replace-all", key, value])
+    }
+  }
+
   async indexEntries(cwd: string, path: string): Promise<GitIndexEntry[]> {
     const { root } = await this.discover(cwd)
     const safePath = this.#historicalPath(root, path)
@@ -2204,6 +2306,50 @@ export class GitService {
       input.action === "unstage"
     )
     return null
+  }
+
+  async applyReviewSections(
+    cwd: string,
+    sections: readonly {
+      source: "staged" | "unstaged"
+      path: string
+      revision: string
+      action: "stage" | "unstage" | "revert"
+      hunkIndex?: number
+    }[]
+  ): Promise<
+    Array<{
+      path: string
+      status: "applied" | "stale" | "conflict" | "failed"
+      undoId: string | null
+      error: string | null
+    }>
+  > {
+    if (sections.length < 1 || sections.length > 100)
+      throw new Error("Invalid review section count")
+    await this.discover(cwd)
+    const results: Array<{
+      path: string
+      status: "applied" | "stale" | "conflict" | "failed"
+      undoId: string | null
+      error: string | null
+    }> = []
+    for (const section of sections) {
+      try {
+        const undoId = await this.applyReviewSection(cwd, section)
+        results.push({ path: section.path, status: "applied", undoId, error: null })
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        const status =
+          error instanceof GitStaleSnapshotError
+            ? "stale"
+            : error instanceof GitCommandError && /patch does not apply|conflict/iu.test(message)
+              ? "conflict"
+              : "failed"
+        results.push({ path: section.path, status, undoId: null, error: message })
+      }
+    }
+    return results
   }
 
   async undoReviewRevert(cwd: string, undoId: string): Promise<void> {

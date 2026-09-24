@@ -5,6 +5,7 @@ import type {
   GitBranchContext,
   GitBranchReview,
   GitBranchSearchResult,
+  GitCloneState,
   GitCommitSummary,
   GitHubAppAvailability,
   GitHubAppCreatedPullRequest,
@@ -69,6 +70,23 @@ export interface GitActions {
     head?: string,
     options?: RequestOptions
   ): Promise<GitBranchComparison>
+  cloneState(cwd: string, options?: RequestOptions): Promise<GitCloneState>
+  worktreeStartingRef(
+    cwd: string,
+    startPoint: string,
+    options?: RequestOptions
+  ): Promise<{ ref: string; commit: string }>
+  configValue(
+    cwd: string,
+    key: "codex.localEnvironmentConfigPath",
+    options?: RequestOptions
+  ): Promise<string | null>
+  setConfigValue(
+    cwd: string,
+    key: "codex.localEnvironmentConfigPath",
+    value: string | null,
+    options?: RequestOptions
+  ): Promise<void>
   indexEntries(cwd: string, path: string, options?: RequestOptions): Promise<GitIndexEntry[]>
   submodulePaths(cwd: string, options?: RequestOptions): Promise<string[]>
   textBlob(
@@ -154,6 +172,24 @@ export interface GitActions {
     },
     options?: RequestOptions
   ): Promise<string | null>
+  applyReviewSections(
+    cwd: string,
+    sections: Array<{
+      source: "staged" | "unstaged"
+      path: string
+      revision: string
+      action: "stage" | "unstage" | "revert"
+      hunkIndex?: number
+    }>,
+    options?: RequestOptions
+  ): Promise<
+    Array<{
+      path: string
+      status: "applied" | "stale" | "conflict" | "failed"
+      undoId: string | null
+      error: string | null
+    }>
+  >
   undoReviewRevert(cwd: string, undoId: string, options?: RequestOptions): Promise<void>
   reviewUndoList(cwd: string, options?: RequestOptions): Promise<GitReviewUndoEntry[]>
   stage(cwd: string, paths: string[], options?: RequestOptions): Promise<void>
@@ -510,6 +546,19 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(await client.requestGit("git.branch-context.request", { cwd }, options)),
   branchComparison: async (cwd, base, head, options) =>
     unwrap(await client.requestGit("git.branch-comparison.request", { cwd, base, head }, options)),
+  cloneState: async (cwd, options) =>
+    unwrap(await client.requestGit("git.clone-state.request", { cwd }, options)),
+  worktreeStartingRef: async (cwd, startPoint, options) =>
+    unwrap(
+      await client.requestGit("git.worktree-starting-ref.request", { cwd, startPoint }, options)
+    ),
+  configValue: async (cwd, key, options) =>
+    unwrap<{ value: string | null }>(
+      await client.requestGit("git.config-value.request", { cwd, key }, options)
+    ).value,
+  setConfigValue: async (cwd, key, value, options) => {
+    unwrap(await client.requestGit("git.set-config-value.request", { cwd, key, value }, options))
+  },
   indexEntries: async (cwd, path, options) =>
     unwrap(await client.requestGit("git.index-entries.request", { cwd, path }, options)),
   submodulePaths: async (cwd, options) =>
@@ -566,6 +615,10 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap<{ undoId: string | null }>(
       await client.requestGit("git.apply-review-section.request", { cwd, ...input }, options)
     ).undoId,
+  applyReviewSections: async (cwd, sections, options) =>
+    unwrap(
+      await client.requestGit("git.apply-review-sections.request", { cwd, sections }, options)
+    ),
   undoReviewRevert: async (cwd, undoId, options) => {
     unwrap(await client.requestGit("git.undo-review-revert.request", { cwd, undoId }, options))
   },
