@@ -186,6 +186,12 @@ export const GitHubPullRequestChecksSchema = z.array(
 export const GitHubAppPrChecksSchema = z
   .object({ checks: GitHubPullRequestChecksSchema, complete: z.boolean() })
   .strict()
+export const GitHubAppPrMediaSchema = z
+  .object({
+    mimeType: z.enum(["image/png", "image/jpeg", "image/gif", "image/webp"]),
+    contentsBase64: z.string().min(1),
+  })
+  .strict()
 export const GitHubPullRequestActivitySchema = z
   .object({
     comments: z.array(
@@ -664,6 +670,18 @@ export const GitHubAppPrThreadsRequestSchema = input(
       threadId: ProjectThreadIdSchema,
       number: z.number().int().positive(),
       expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    })
+    .strict()
+)
+export const GitHubAppPrMediaRequestSchema = input(
+  "git.github-app-pr-media.request",
+  z
+    .object({
+      cwd: path,
+      threadId: ProjectThreadIdSchema,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      url: z.url(),
     })
     .strict()
 )
@@ -1175,6 +1193,10 @@ export const GitHubAppPrThreadsResponseSchema = output(
   "git.github-app-pr-threads.response",
   GitHubPullRequestThreadsSchema
 )
+export const GitHubAppPrMediaResponseSchema = output(
+  "git.github-app-pr-media.response",
+  GitHubAppPrMediaSchema
+)
 export const GitHubPrListResponseSchema = output(
   "git.github-pr-list.response",
   z.array(GitHubPullRequestSchema)
@@ -1359,6 +1381,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubAppPrActivityRequestSchema,
   GitHubAppPrChecksRequestSchema,
   GitHubAppPrThreadsRequestSchema,
+  GitHubAppPrMediaRequestSchema,
   GitHubPrListRequestSchema,
   GitHubPrReadRequestSchema,
   GitHubPrForBranchRequestSchema,
@@ -1444,6 +1467,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubAppPrActivityResponseSchema,
   GitHubAppPrChecksResponseSchema,
   GitHubAppPrThreadsResponseSchema,
+  GitHubAppPrMediaResponseSchema,
   GitHubPrListResponseSchema,
   GitHubPrReadResponseSchema,
   GitHubPrForBranchResponseSchema,
@@ -1506,6 +1530,7 @@ export type GitHubAvailability = z.infer<typeof GitHubAvailabilitySchema>
 export type GitHubAppAvailability = z.infer<typeof GitHubAppAvailabilitySchema>
 export type GitHubAppCreatedPullRequest = z.infer<typeof GitHubAppCreatedPullRequestSchema>
 export type GitHubAppPrChecks = z.infer<typeof GitHubAppPrChecksSchema>
+export type GitHubAppPrMedia = z.infer<typeof GitHubAppPrMediaSchema>
 export type GitHubAppPullRequestSummary = z.infer<typeof GitHubAppPullRequestSummarySchema>
 export type GitHubAppPullRequest = z.infer<typeof GitHubAppPullRequestSchema>
 export type GitHubPullRequest = z.infer<typeof GitHubPullRequestSchema>

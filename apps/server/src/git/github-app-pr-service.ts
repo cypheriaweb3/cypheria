@@ -1,4 +1,8 @@
-import type { GitHubAppPrChecks, GitHubPullRequestThreads } from "@cypheria/protocol"
+import type {
+  GitHubAppPrChecks,
+  GitHubAppPrMedia,
+  GitHubPullRequestThreads,
+} from "@cypheria/protocol"
 import { GitHubAppPrChecksSchema, GitHubPullRequestThreadsSchema } from "@cypheria/protocol"
 import { z } from "zod"
 import type { CodexAppSelection, CodexAppToolClient } from "../codex-app-tool-client.js"
@@ -42,6 +46,29 @@ const infoResponse = z
   })
   .passthrough()
 const diffResponse = z.object({ diff: z.string().max(8 * 1024 * 1024) }).passthrough()
+const mediaResponse = z.union([
+  z.object({ content: z.string() }).passthrough(),
+  z.object({ contentsBase64: z.string(), mimeType: z.string() }).passthrough(),
+  z.object({ contents_base64: z.string(), mime_type: z.string() }).passthrough(),
+  z.object({ content_base64: z.string(), mime_type: z.string() }).passthrough(),
+])
+const imageMime = (bytes: Buffer): GitHubAppPrMedia["mimeType"] | null => {
+  if (bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10])))
+    return "image/png"
+  if (bytes.length >= 3 && bytes[0] === 255 && bytes[1] === 216 && bytes[2] === 255)
+    return "image/jpeg"
+  if (
+    bytes.subarray(0, 6).toString("ascii") === "GIF87a" ||
+    bytes.subarray(0, 6).toString("ascii") === "GIF89a"
+  )
+    return "image/gif"
+  if (
+    bytes.subarray(0, 4).toString("ascii") === "RIFF" &&
+    bytes.subarray(8, 12).toString("ascii") === "WEBP"
+  )
+    return "image/webp"
+  return null
+}
 const threadsResponse = z
   .object({
     review_threads: z
@@ -580,6 +607,77 @@ export class GitHubAppPrService {
       })),
       truncated: false,
     })
+  }
+
+  async media(
+    root: string,
+    nativeThreadId: string,
+    number: number,
+    expectedHead: string,
+    source: string
+  ): Promise<GitHubAppPrMedia> {
+    if (!/^[a-f0-9]{40,64}$/iu.test(expectedHead))
+      throw new Error("A pinned GitHub pull request head is required")
+    if (source.length > 4096) throw new Error("Invalid GitHub media URL")
+    const url = new URL(source)
+    if (
+      url.protocol !== "https:" ||
+      url.hostname !== "private-user-images.githubusercontent.com" ||
+      url.port ||
+      url.username ||
+      url.password ||
+      url.hash ||
+      url.pathname === "/"
+    )
+      throw new Error("Invalid GitHub media URL")
+    const { repository, selection } = await this.#context(root, nativeThreadId, [
+      "get_pr_info",
+      "download_user_content",
+    ])
+    const readHead = async (): Promise<string> => {
+      const info = infoResponse.parse(
+        await this.#apps.call(selection, nativeThreadId, "github", "get_pr_info", {
+          pr_number: number,
+          repository_full_name: repository,
+        })
+      )
+      if (info.number !== number) throw new Error("The selected GitHub pull request changed")
+      checkedPrUrl(repository, number, info.url)
+      if (!info.head_sha || !/^[a-f0-9]{40,64}$/iu.test(info.head_sha))
+        throw new Error("The GitHub app did not return the pull request head")
+      return info.head_sha
+    }
+    if ((await readHead()) !== expectedHead) throw new Error("The GitHub pull request head changed")
+    const result = mediaResponse.parse(
+      await this.#apps.call(selection, nativeThreadId, "github", "download_user_content", {
+        url: source,
+      })
+    )
+    const encoded =
+      typeof result.content === "string"
+        ? result.content
+        : typeof result.contentsBase64 === "string"
+          ? result.contentsBase64
+          : typeof result.contents_base64 === "string"
+            ? result.contents_base64
+            : typeof result.content_base64 === "string"
+              ? result.content_base64
+              : null
+    if (
+      encoded === null ||
+      encoded.length > 6 * 1024 * 1024 ||
+      encoded.length % 4 !== 0 ||
+      !/^[A-Za-z0-9+/]*={0,2}$/u.test(encoded)
+    )
+      throw new Error("GitHub media exceeds the size limit or is invalid")
+    const bytes = Buffer.from(encoded, "base64")
+    if (bytes.length > 4 * 1024 * 1024 || bytes.toString("base64") !== encoded)
+      throw new Error("GitHub media exceeds the size limit or is invalid")
+    const mimeType = imageMime(bytes)
+    if (!mimeType) throw new Error("GitHub media is not a supported image")
+    if ((await readHead()) !== expectedHead)
+      throw new Error("The GitHub pull request head changed during media acquisition")
+    return { mimeType, contentsBase64: encoded }
   }
 
   async create(

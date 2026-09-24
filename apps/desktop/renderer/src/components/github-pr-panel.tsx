@@ -27,6 +27,17 @@ const openExternal = async (url: string): Promise<void> => {
   if (!window.cypheria) throw new Error("The system browser is unavailable")
   await window.cypheria.app.openExternal(url)
 }
+const githubMediaLinks = (body: string): Array<{ alt: string; url: string }> =>
+  [
+    ...body.matchAll(
+      /!\[([^\]]*)\]\((https:\/\/private-user-images\.githubusercontent\.com\/[^)\s]+)\)/gu
+    ),
+  ]
+    .map((match) => ({ alt: match[1] ?? "", url: match[2] ?? "" }))
+    .filter(
+      (item, index, items) => items.findIndex((candidate) => candidate.url === item.url) === index
+    )
+    .slice(0, 4)
 
 export function GitHubPrPanel({
   cwd,
@@ -188,6 +199,38 @@ export function GitHubPrPanel({
       if (cliAvailable) return git.githubPrRead(cwd, activeNumber)
       if (!threadId) throw new Error("A local Codex thread is required")
       return git.githubAppPrRead(cwd, threadId, activeNumber)
+    },
+    retry: false,
+  })
+  const mediaLinks = githubMediaLinks(selected.data?.body ?? "")
+  const media = useQuery({
+    enabled:
+      !cliAvailable &&
+      Boolean(
+        threadId && appAvailability.data?.canRead && selected.data?.headRefOid && mediaLinks.length
+      ),
+    queryKey: [
+      "github-pr",
+      cwd,
+      "media",
+      threadId,
+      selected.data?.number,
+      selected.data?.headRefOid,
+      mediaLinks,
+    ],
+    queryFn: async () => {
+      const pr = selected.data
+      const head = pr?.headRefOid
+      if (!threadId || !pr || !head)
+        throw new Error("A local Codex thread and pull request head are required")
+      const git = (await ensureCypheriaClient()).git
+      return Promise.all(
+        mediaLinks.map(async (link) => ({
+          alt: link.alt,
+          url: link.url,
+          ...(await git.githubAppPrMedia(cwd, threadId, pr.number, head, link.url)),
+        }))
+      )
     },
     retry: false,
   })
@@ -705,6 +748,20 @@ export function GitHubPrPanel({
             {selected.data.headRefName} → {selected.data.baseRefName} · {selected.data.state}
           </p>
           <p className="text-xs whitespace-pre-wrap">{selected.data.body}</p>
+          {media.data?.map((item) => (
+            <img
+              alt={item.alt}
+              className="max-h-64 max-w-full rounded border object-contain"
+              key={item.url}
+              loading="lazy"
+              src={`data:${item.mimeType};base64,${item.contentsBase64}`}
+            />
+          ))}
+          {media.isError ? (
+            <Alert variant="destructive">
+              <AlertDescription>{media.error.message}</AlertDescription>
+            </Alert>
+          ) : null}
           {metadata.data ? (
             <p className="text-xs text-muted-foreground">
               +{metadata.data.additions ?? 0} / -{metadata.data.deletions ?? 0} ·{" "}

@@ -9,6 +9,7 @@ import type {
   GitHubAppAvailability,
   GitHubAppCreatedPullRequest,
   GitHubAppPrChecks,
+  GitHubAppPrMedia,
   GitHubAppPullRequest,
   GitHubAppPullRequestSummary,
   GitHubAvailability,
@@ -229,6 +230,14 @@ export interface GitActions {
     expectedHead: string,
     options?: RequestOptions
   ): Promise<GitHubPullRequestThreads>
+  githubAppPrMedia(
+    cwd: string,
+    threadId: string,
+    number: number,
+    expectedHead: string,
+    url: string,
+    options?: RequestOptions
+  ): Promise<GitHubAppPrMedia>
   githubPrList(
     cwd: string,
     input?: { state?: "open" | "closed" | "merged" | "all"; limit?: number; query?: string },
@@ -632,6 +641,14 @@ export const createGitActions = (client: ServerClient): GitActions => ({
       await client.requestGit(
         "git.github-app-pr-threads.request",
         { cwd, threadId, number, expectedHead },
+        options
+      )
+    ),
+  githubAppPrMedia: async (cwd, threadId, number, expectedHead, url, options) =>
+    unwrap(
+      await client.requestGit(
+        "git.github-app-pr-media.request",
+        { cwd, threadId, number, expectedHead, url },
         options
       )
     ),

@@ -14,6 +14,7 @@ import type {
   GitCommitSummary,
   GitHubAppAvailability,
   GitHubAppPrChecks,
+  GitHubAppPrMedia,
   GitHubAppPullRequest,
   GitHubAppPullRequestSummary,
   GitHubAvailability,
@@ -355,6 +356,15 @@ export class GitService {
             message.payload.threadId,
             message.payload.number,
             message.payload.expectedHead
+          )
+          break
+        case "git.github-app-pr-media.request":
+          value = await this.githubAppPrMedia(
+            message.payload.cwd,
+            message.payload.threadId,
+            message.payload.number,
+            message.payload.expectedHead,
+            message.payload.url
           )
           break
         case "git.github-pr-list.request":
@@ -917,6 +927,18 @@ export class GitService {
     if (!this.#githubApp) throw new Error("GitHub app is unavailable")
     const { root, nativeThreadId } = await this.#codexThreadRepository(cwd, threadId)
     return this.#githubApp.threads(root, nativeThreadId, number, expectedHead)
+  }
+
+  async githubAppPrMedia(
+    cwd: string,
+    threadId: string,
+    number: number,
+    expectedHead: string,
+    url: string
+  ): Promise<GitHubAppPrMedia> {
+    if (!this.#githubApp) throw new Error("GitHub app is unavailable")
+    const { root, nativeThreadId } = await this.#codexThreadRepository(cwd, threadId)
+    return this.#githubApp.media(root, nativeThreadId, number, expectedHead, url)
   }
 
   async githubPrList(

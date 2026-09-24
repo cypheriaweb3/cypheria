@@ -342,6 +342,38 @@ describe("GitHubAppPrService", () => {
     ])
   })
 
+  it("downloads bounded private PR images on the selected account link", async () => {
+    const head = "a".repeat(40)
+    const encoded =
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9WlRTaUAAAAASUVORK5CYII="
+    const { service, select } = fixture(undefined, undefined, undefined, {
+      get_pr_info: {
+        number: 42,
+        title: "Change",
+        state: "OPEN",
+        merged: false,
+        draft: false,
+        head: "feature",
+        head_sha: head,
+        base: "main",
+      },
+      download_user_content: { content: encoded },
+    })
+    const url = "https://private-user-images.githubusercontent.com/123/image.png?token=opaque"
+    expect(await service.media("/repo", "thread", 42, head, url)).toEqual({
+      mimeType: "image/png",
+      contentsBase64: encoded,
+    })
+    expect(select).toHaveBeenCalledWith("connector_76869538009648d5b282a4bb21c3d157", "github", [
+      "get_repo",
+      "get_pr_info",
+      "download_user_content",
+    ])
+    await expect(
+      service.media("/repo", "thread", 42, head, "https://example.com/image.png")
+    ).rejects.toThrow("Invalid GitHub media URL")
+  })
+
   it("rejects untrusted origins, another repository, stale push, and another PR URL", async () => {
     expect(
       (

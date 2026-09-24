@@ -93,6 +93,7 @@ GitHub CLI 拉取请求列表支持服务端关键词搜索，以及打开、已
 已连接的 App 也可通过只读工具显示 PR 评论和审查。这些读取使用同一账户 link；获取期间 PR head 发生变化时会拒绝返回活动数据。
 对于打开的 PR，App 路径通过 `get_pr_statuses` 读取检查结果，校验查看者登录名、仓库、PR URL 和 head 修订，并区分尚未完成的检查集与已完成的空检查集。
 App 路径也可通过 `list_pull_request_review_threads` 显示行内审查线程及其评论，并在读取前后核对 PR head。线程修改仍走 CLI 路径。
+对于 PR 正文中嵌入的私有图片，App 路径在同一仓库账户 link 上使用 `download_user_content`。Server 只接受 GitHub 私有图片域名，在下载前后校验 PR head，并返回不超过 4 MiB 的受支持图片以供内联显示。
 
 PR 面板列出 GitHub 上的精确修订提交，并可读取所选提交的差异。Server 也能读取指定 base 和 head 修订的文本文件内容；二进制或过大的文件会返回不可用。每次修订读取前后都会核对面板显示的 PR head。
 
