@@ -127,6 +127,16 @@ export const GitWorktreeSchema = z
     ownerThreadId: ProjectThreadIdSchema.nullable(),
   })
   .strict()
+export const GitWorktreeJobSchema = z
+  .object({
+    id: z.uuid(),
+    phase: z.enum(["queued", "creating", "setting-up", "ready", "failed", "cancelled"]),
+    path: path.nullable(),
+    error: z.string().nullable(),
+    log: z.string(),
+    worktree: GitWorktreeSchema.nullable(),
+  })
+  .strict()
 export const GitHubAvailabilitySchema = z
   .object({
     installed: z.boolean(),
@@ -621,6 +631,29 @@ export const GitWorktreesRequestSchema = input(
 export const GitWorktreeCreateRequestSchema = input(
   "git.worktree-create.request",
   z.object({ cwd: path, startPoint: z.string().optional() }).strict()
+)
+export const GitWorktreeJobStartRequestSchema = input(
+  "git.worktree-job-start.request",
+  z
+    .object({
+      cwd: path,
+      startPoint: z.string().optional(),
+      includeChanges: z.boolean().optional(),
+      environmentConfigPath: z.string().nullable().optional(),
+    })
+    .strict()
+)
+export const GitWorktreeJobReadRequestSchema = input(
+  "git.worktree-job-read.request",
+  z.object({ id: z.uuid() }).strict()
+)
+export const GitWorktreeJobCancelRequestSchema = input(
+  "git.worktree-job-cancel.request",
+  z.object({ id: z.uuid() }).strict()
+)
+export const GitWorktreeJobRetryRequestSchema = input(
+  "git.worktree-job-retry.request",
+  z.object({ id: z.uuid(), skipSetup: z.boolean().optional() }).strict()
 )
 export const GitWorktreeDeleteRequestSchema = input(
   "git.worktree-delete.request",
@@ -1224,6 +1257,22 @@ export const GitWorktreeCreateResponseSchema = output(
   "git.worktree-create.response",
   GitWorktreeSchema
 )
+export const GitWorktreeJobStartResponseSchema = output(
+  "git.worktree-job-start.response",
+  GitWorktreeJobSchema
+)
+export const GitWorktreeJobReadResponseSchema = output(
+  "git.worktree-job-read.response",
+  GitWorktreeJobSchema
+)
+export const GitWorktreeJobCancelResponseSchema = output(
+  "git.worktree-job-cancel.response",
+  GitWorktreeJobSchema
+)
+export const GitWorktreeJobRetryResponseSchema = output(
+  "git.worktree-job-retry.response",
+  GitWorktreeJobSchema
+)
 export const GitWorktreeDeleteResponseSchema = output("git.worktree-delete.response", success)
 export const GitWorktreeRestoreResponseSchema = output(
   "git.worktree-restore.response",
@@ -1454,6 +1503,10 @@ export const GIT_CLIENT_SCHEMAS = [
   GitPushRequestSchema,
   GitWorktreesRequestSchema,
   GitWorktreeCreateRequestSchema,
+  GitWorktreeJobStartRequestSchema,
+  GitWorktreeJobReadRequestSchema,
+  GitWorktreeJobCancelRequestSchema,
+  GitWorktreeJobRetryRequestSchema,
   GitWorktreeDeleteRequestSchema,
   GitWorktreeRestoreRequestSchema,
   GitWorktreeOwnerRequestSchema,
@@ -1546,6 +1599,10 @@ export const GIT_SERVER_SCHEMAS = [
   GitPushResponseSchema,
   GitWorktreesResponseSchema,
   GitWorktreeCreateResponseSchema,
+  GitWorktreeJobStartResponseSchema,
+  GitWorktreeJobReadResponseSchema,
+  GitWorktreeJobCancelResponseSchema,
+  GitWorktreeJobRetryResponseSchema,
   GitWorktreeDeleteResponseSchema,
   GitWorktreeRestoreResponseSchema,
   GitWorktreeOwnerResponseSchema,
@@ -1619,6 +1676,7 @@ export type GitIndexEntry = z.infer<typeof GitIndexEntrySchema>
 export type GitTextBlob = z.infer<typeof GitTextBlobSchema>
 export type GitBlameLine = z.infer<typeof GitBlameLineSchema>
 export type GitWorktree = z.infer<typeof GitWorktreeSchema>
+export type GitWorktreeJob = z.infer<typeof GitWorktreeJobSchema>
 export type GitHubAvailability = z.infer<typeof GitHubAvailabilitySchema>
 export type GitHubAppAvailability = z.infer<typeof GitHubAppAvailabilitySchema>
 export type GitHubAppCreatedPullRequest = z.infer<typeof GitHubAppCreatedPullRequestSchema>

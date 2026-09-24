@@ -4,13 +4,16 @@ import {
   copyFile,
   lstat,
   mkdir,
+  mkdtemp,
   readdir,
   readFile,
   realpath,
   rename,
+  rm,
   stat,
   writeFile,
 } from "node:fs/promises"
+import { tmpdir } from "node:os"
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
 import type { GitWorktree } from "@cypheria/protocol"
 
@@ -110,7 +113,11 @@ export class GitWorktreeService {
     return result
   }
 
-  async create(repository: Repository, startPoint?: string): Promise<GitWorktree> {
+  async create(
+    repository: Repository,
+    startPoint?: string,
+    options: { includeChanges?: boolean; signal?: AbortSignal } = {}
+  ): Promise<GitWorktree> {
     const ref = startPoint ?? "HEAD"
     if (!ref || ref.startsWith("-") || /[\0\n]/u.test(ref))
       throw new Error("Invalid Git start point")
@@ -121,13 +128,61 @@ export class GitWorktreeService {
         { readOnly: true }
       )
     ).stdout.trim()
+    let changes: { staged: string; unstaged: string; untracked: string[] } | null = null
+    if (options.includeChanges) {
+      const sourceHead = (
+        await this.#executor.run(repository.root, ["rev-parse", "HEAD"], {
+          readOnly: true,
+          signal: options.signal,
+        })
+      ).stdout.trim()
+      if (sourceHead !== commit)
+        throw new Error("Local changes require the current HEAD as the worktree start point")
+      const staged = (
+        await this.#executor.run(
+          repository.root,
+          ["diff", "--cached", "--binary", "--no-ext-diff", "--no-textconv"],
+          { readOnly: true, signal: options.signal }
+        )
+      ).stdout
+      const unstaged = (
+        await this.#executor.run(
+          repository.root,
+          ["diff", "--binary", "--no-ext-diff", "--no-textconv"],
+          { readOnly: true, signal: options.signal }
+        )
+      ).stdout
+      const untracked = (
+        await this.#executor.run(
+          repository.root,
+          ["ls-files", "--others", "--exclude-standard", "-z"],
+          { readOnly: true, signal: options.signal }
+        )
+      ).stdout
+        .split("\0")
+        .filter(Boolean)
+      changes = { staged, unstaged, untracked }
+    }
     const id = randomUUID()
     const path = join(this.#root, `${basename(repository.root)}-${id}`)
     const snapshotRef = `refs/cypheria/worktrees/${id}`
     await mkdir(this.#root, { recursive: true, mode: 0o700 })
-    await this.#executor.run(repository.root, ["worktree", "add", "--detach", path, commit])
     try {
+      await this.#executor.run(repository.root, ["worktree", "add", "--detach", path, commit], {
+        signal: options.signal,
+      })
+    } catch (error) {
+      await this.#executor
+        .run(repository.root, ["worktree", "remove", "--force", "--", path])
+        .catch(() => {})
+      await rm(path, { recursive: true, force: true })
+      throw error
+    }
+    try {
+      if (changes) await this.#applyLocalChanges(repository.root, path, changes, options.signal)
+      options.signal?.throwIfAborted()
       await this.#copyWorktreeResources(repository.root, path)
+      options.signal?.throwIfAborted()
       await this.#writeRecord({
         version: 1,
         commonGitDir: repository.commonGitDir,
@@ -141,6 +196,78 @@ export class GitWorktreeService {
       throw error
     }
     return { path, head: commit, branch: null, managed: true, active: true, ownerThreadId: null }
+  }
+
+  async #applyLocalChanges(
+    source: string,
+    target: string,
+    changes: { staged: string; unstaged: string; untracked: string[] },
+    signal?: AbortSignal
+  ): Promise<void> {
+    const temporary = await mkdtemp(join(tmpdir(), "cypheria-worktree-patch-"))
+    try {
+      for (const [name, patch, args] of [
+        ["staged", changes.staged, ["--index"]],
+        ["unstaged", changes.unstaged, []],
+      ] as const) {
+        if (!patch) continue
+        signal?.throwIfAborted()
+        const file = join(temporary, `${name}.patch`)
+        await writeFile(file, patch, { mode: 0o600 })
+        await this.#executor.run(target, ["apply", "--binary", ...args, "--", file], { signal })
+      }
+      for (const path of changes.untracked) {
+        signal?.throwIfAborted()
+        if (!path || isAbsolute(path) || path.split(/[\\/]/u).includes(".."))
+          throw new Error("Invalid untracked worktree path")
+        const from = join(source, path)
+        const to = join(target, path)
+        if (!inside(source, from) || !inside(target, to))
+          throw new Error("Untracked path leaves repository")
+        if (!(await lstat(from)).isFile())
+          throw new Error("Untracked worktree resource is not a regular file")
+        await this.#copyRegularFile(source, target, path)
+      }
+    } finally {
+      await rm(temporary, { recursive: true, force: true })
+    }
+  }
+
+  async #copyRegularFile(source: string, target: string, path: string): Promise<void> {
+    const from = join(source, path)
+    const to = join(target, path)
+    const parent = dirname(to)
+    let current = target
+    for (const part of relative(target, parent).split(sep).filter(Boolean)) {
+      current = join(current, part)
+      const existing = await lstat(current).catch((error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return null
+        throw error
+      })
+      if (existing?.isSymbolicLink())
+        throw new Error("Cannot copy worktree resource through a symlink")
+      if (existing && !existing.isDirectory())
+        throw new Error("Worktree resource parent is not a directory")
+      if (!existing) await mkdir(current)
+    }
+    await copyFile(from, to, constants.COPYFILE_EXCL).catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== "EEXIST") throw error
+    })
+  }
+
+  async copyEnvironmentConfig(
+    repository: Repository,
+    worktreePath: string,
+    sourcePath: string
+  ): Promise<string> {
+    await this.#record(repository, worktreePath)
+    const sourceFile = await realpath(sourcePath)
+    if (!inside(repository.root, sourceFile) || !(await stat(sourceFile)).isFile()) {
+      throw new Error("Environment config must be a regular file inside the repository")
+    }
+    const path = relative(repository.root, sourceFile)
+    await this.#copyRegularFile(repository.root, worktreePath, path)
+    return join(worktreePath, path)
   }
 
   async #copyWorktreeResources(source: string, target: string): Promise<void> {
@@ -188,23 +315,7 @@ export class GitWorktreeService {
         ))
       )
         continue
-      const parent = dirname(to)
-      let current = target
-      for (const part of relative(target, parent).split(sep).filter(Boolean)) {
-        current = join(current, part)
-        const existing = await lstat(current).catch((error: NodeJS.ErrnoException) => {
-          if (error.code === "ENOENT") return null
-          throw error
-        })
-        if (existing?.isSymbolicLink())
-          throw new Error("Cannot copy worktree resource through a symlink")
-        if (existing && !existing.isDirectory())
-          throw new Error("Worktree resource parent is not a directory")
-        if (!existing) await mkdir(current)
-      }
-      await copyFile(from, to, constants.COPYFILE_EXCL).catch((error: NodeJS.ErrnoException) => {
-        if (error.code !== "EEXIST") throw error
-      })
+      await this.#copyRegularFile(source, target, path)
     }
   }
 

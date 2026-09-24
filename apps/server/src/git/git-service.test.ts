@@ -679,6 +679,109 @@ describe("GitService", () => {
     })
   }, 20_000)
 
+  it("transfers staged, unstaged, and untracked changes into a managed worktree", async () => {
+    const root = await repository()
+    const home = await mkdtemp(join(tmpdir(), "cypheria-worktree-home-"))
+    created.push(home)
+    const service = new GitService(join(home, "cache"), home)
+    await writeFile(join(root, "file.txt"), "base\n")
+    await service.stage(root, ["file.txt"])
+    await service.commit(root, "Base")
+    await writeFile(join(root, "file.txt"), "staged\n")
+    await service.stage(root, ["file.txt"])
+    await writeFile(join(root, "file.txt"), "unstaged\n")
+    await writeFile(join(root, "new.txt"), "untracked\n")
+    const worktree = await service.createWorktree(root, "HEAD", { includeChanges: true })
+    expect(await readFile(join(worktree.path, "file.txt"), "utf8")).toBe("unstaged\n")
+    expect(await readFile(join(worktree.path, "new.txt"), "utf8")).toBe("untracked\n")
+    expect((await service.status(worktree.path)).entries).toEqual(
+      expect.arrayContaining([
+        { code: "MM", path: "file.txt" },
+        { code: "??", path: "new.txt" },
+      ])
+    )
+    expect(await readFile(join(root, "file.txt"), "utf8")).toBe("unstaged\n")
+  }, 30_000)
+
+  it("runs selected worktree setup and lets a failed setup be skipped", async () => {
+    const root = await repository()
+    const home = await mkdtemp(join(tmpdir(), "cypheria-worktree-home-"))
+    created.push(home)
+    const service = new GitService(join(home, "cache"), home)
+    await writeFile(join(root, "file.txt"), "base\n")
+    await service.stage(root, ["file.txt"])
+    await service.commit(root, "Base")
+    await writeFile(join(root, ".gitignore"), "environment.json\n")
+    await service.stage(root, [".gitignore"])
+    await service.commit(root, "Ignore environment")
+    await writeFile(
+      join(root, "environment.json"),
+      JSON.stringify({ version: 1, name: "Test", setup: { script: "printf 'ready' > setup.txt" } })
+    )
+    const waitForJob = async (id: string) => {
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        const job = service.worktreeJob(id)
+        if (["ready", "failed", "cancelled"].includes(job.phase)) return job
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+      throw new Error("Worktree job did not finish")
+    }
+    const initial = await service.startWorktreeJob({
+      cwd: root,
+      environmentConfigPath: "environment.json",
+    })
+    const ready = await waitForJob(initial.id)
+    expect(ready.phase).toBe("ready")
+    if (!ready.path) throw new Error("Missing worktree path")
+    expect(await readFile(join(ready.path, "setup.txt"), "utf8")).toBe("ready")
+    expect(await service.configValue(ready.path, "codex.localEnvironmentConfigPath")).toBe(
+      join(ready.path, "environment.json")
+    )
+
+    await writeFile(
+      join(root, "environment.json"),
+      JSON.stringify({ version: 1, name: "Test", setup: { script: "exit 7" } })
+    )
+    const failed = await service.startWorktreeJob({
+      cwd: root,
+      environmentConfigPath: "environment.json",
+    })
+    expect((await waitForJob(failed.id)).phase).toBe("failed")
+    expect(["queued", "ready"]).toContain(service.retryWorktreeJob(failed.id, true).phase)
+    expect((await waitForJob(failed.id)).phase).toBe("ready")
+  }, 45_000)
+
+  it("cancels a running worktree setup and permits skipping it", async () => {
+    const root = await repository()
+    const home = await mkdtemp(join(tmpdir(), "cypheria-worktree-home-"))
+    created.push(home)
+    const service = new GitService(join(home, "cache"), home)
+    await writeFile(join(root, "file.txt"), "base\n")
+    await service.stage(root, ["file.txt"])
+    await service.commit(root, "Base")
+    await writeFile(
+      join(root, "environment.json"),
+      JSON.stringify({ version: 1, name: "Slow", setup: { script: "exec sleep 5" } })
+    )
+    const job = await service.startWorktreeJob({
+      cwd: root,
+      environmentConfigPath: "environment.json",
+    })
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      if (service.worktreeJob(job.id).phase === "setting-up") break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    expect(service.worktreeJob(job.id).phase).toBe("setting-up")
+    service.cancelWorktreeJob(job.id)
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      if (service.worktreeJob(job.id).phase === "cancelled") break
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    expect(service.worktreeJob(job.id).phase).toBe("cancelled")
+    service.retryWorktreeJob(job.id, true)
+    expect(service.worktreeJob(job.id).phase).toBe("ready")
+  }, 20_000)
+
   it("moves a local Codex thread into and out of a managed worktree", async () => {
     const root = await repository()
     const threadId = "01984de2-8f74-7c91-a3b2-5c5e937cf400"

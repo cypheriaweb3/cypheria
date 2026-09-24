@@ -49,6 +49,7 @@ export function GitReviewPanel({
 }: Readonly<{ cwd: string; fallback: ReactNode; threadId: string | null }>) {
   const stashId = useId()
   const whitespaceId = useId()
+  const worktreeChangesId = useId()
   const { i18n } = useLingui()
   const queryClient = useQueryClient()
   const [source, setSource] = useState<ReviewSource>("unstaged")
@@ -57,6 +58,9 @@ export function GitReviewPanel({
   const [message, setMessage] = useState("")
   const [targetBranch, setTargetBranch] = useState("")
   const [worktreeStartPoint, setWorktreeStartPoint] = useState("HEAD")
+  const [worktreeIncludeChanges, setWorktreeIncludeChanges] = useState(false)
+  const [worktreeEnvironmentPath, setWorktreeEnvironmentPath] = useState("")
+  const [worktreeJobId, setWorktreeJobId] = useState<string | null>(null)
   const [branchSearch, setBranchSearch] = useState("")
   const [reviewBaseSearch, setReviewBaseSearch] = useState("")
   const [reviewBase, setReviewBase] = useState("")
@@ -114,6 +118,26 @@ export function GitReviewPanel({
     refetchInterval: 5_000,
     retry: false,
   })
+  const worktreeJob = useQuery({
+    enabled: Boolean(worktreeJobId),
+    queryKey: ["git", cwd, "worktree-job", worktreeJobId],
+    queryFn: async () => {
+      if (!worktreeJobId) throw new Error("Worktree operation is unavailable")
+      return (await ensureCypheriaClient()).git.worktreeJob(worktreeJobId)
+    },
+    refetchInterval: (query) =>
+      query.state.data && ["ready", "failed", "cancelled"].includes(query.state.data.phase)
+        ? false
+        : 500,
+    retry: false,
+  })
+  const worktreeJobRunning = Boolean(
+    worktreeJob.data && ["queued", "creating", "setting-up"].includes(worktreeJob.data.phase)
+  )
+  useEffect(() => {
+    if (worktreeJob.data?.phase === "ready")
+      void queryClient.invalidateQueries({ queryKey: ["git", cwd, "worktrees"] })
+  }, [cwd, queryClient, worktreeJob.data?.phase])
   const reviewUndos = useQuery({
     enabled: Boolean(status.data),
     queryKey: ["git", cwd, "review-undos"],
@@ -908,14 +932,16 @@ export function GitReviewPanel({
               ))}
             </NativeSelect>
             <Button
-              disabled={busy}
+              disabled={busy || worktreeJobRunning}
               onClick={() =>
-                void mutate(async () =>
-                  (await ensureCypheriaClient()).git.createWorktree(
-                    cwd,
-                    worktreeStartPoint === "HEAD" ? undefined : worktreeStartPoint
-                  )
-                )
+                void mutate(async () => {
+                  const job = await (await ensureCypheriaClient()).git.startWorktreeJob(cwd, {
+                    startPoint: worktreeStartPoint === "HEAD" ? undefined : worktreeStartPoint,
+                    includeChanges: worktreeIncludeChanges,
+                    environmentConfigPath: worktreeEnvironmentPath.trim() || null,
+                  })
+                  setWorktreeJobId(job.id)
+                })
               }
               size="sm"
               type="button"
@@ -924,6 +950,102 @@ export function GitReviewPanel({
               <Trans id="git.review.createWorktree">Create worktree</Trans>
             </Button>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center gap-2 text-xs" htmlFor={worktreeChangesId}>
+              <Checkbox
+                checked={worktreeIncludeChanges}
+                id={worktreeChangesId}
+                onCheckedChange={(checked) => setWorktreeIncludeChanges(checked === true)}
+              />
+              <Trans id="git.review.includeLocalChanges">Include local changes</Trans>
+            </label>
+            <Input
+              aria-label={i18n._(
+                msg({
+                  id: "git.review.environmentConfig",
+                  message: "Local environment config path",
+                })
+              )}
+              className="min-w-40 flex-1"
+              onChange={(event) => setWorktreeEnvironmentPath(event.target.value)}
+              placeholder={i18n._(
+                msg({ id: "git.review.noEnvironment", message: "No local environment" })
+              )}
+              value={worktreeEnvironmentPath}
+            />
+          </div>
+          {worktreeJob.data ? (
+            <div className="space-y-1 rounded-md border p-2 text-xs">
+              <p>
+                {worktreeJob.data.phase}
+                {worktreeJob.data.path ? ` · ${worktreeJob.data.path}` : ""}
+              </p>
+              {worktreeJob.data.error ? (
+                <p className="text-destructive">{worktreeJob.data.error}</p>
+              ) : null}
+              {worktreeJob.data.log ? (
+                <pre className="max-h-36 overflow-auto whitespace-pre-wrap">
+                  {worktreeJob.data.log}
+                </pre>
+              ) : null}
+              <div className="flex gap-2">
+                {worktreeJobRunning ? (
+                  <Button
+                    onClick={() =>
+                      void mutate(async () => {
+                        await (await ensureCypheriaClient()).git.cancelWorktreeJob(
+                          worktreeJob.data.id
+                        )
+                        await worktreeJob.refetch()
+                      })
+                    }
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <Trans id="git.review.cancelWorktree">Cancel</Trans>
+                  </Button>
+                ) : null}
+                {["failed", "cancelled"].includes(worktreeJob.data.phase) ? (
+                  <>
+                    <Button
+                      onClick={() =>
+                        void mutate(async () => {
+                          await (await ensureCypheriaClient()).git.retryWorktreeJob(
+                            worktreeJob.data.id
+                          )
+                          await worktreeJob.refetch()
+                        })
+                      }
+                      size="sm"
+                      type="button"
+                      variant="outline"
+                    >
+                      <Trans id="git.review.retryWorktree">Retry</Trans>
+                    </Button>
+                    {worktreeJob.data.path ? (
+                      <Button
+                        onClick={() =>
+                          void mutate(async () => {
+                            await (await ensureCypheriaClient()).git.retryWorktreeJob(
+                              worktreeJob.data.id,
+                              true
+                            )
+                            await worktreeJob.refetch()
+                          })
+                        }
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        <Trans id="git.review.skipSetup">Skip setup</Trans>
+                      </Button>
+                    ) : null}
+                  </>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
           {threadId &&
           worktrees.data?.some(
             (entry) => entry.path === status.data.repository.root && entry.managed

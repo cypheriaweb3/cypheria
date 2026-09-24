@@ -41,6 +41,7 @@ import type {
   GitStatus,
   GitTextBlob,
   GitWorktree,
+  GitWorktreeJob,
 } from "@cypheria/protocol"
 import type { RequestOptions } from "./request-options.js"
 import type { ServerClient } from "./server-client.js"
@@ -202,6 +203,22 @@ export interface GitActions {
   ): Promise<string>
   worktrees(cwd: string, options?: RequestOptions): Promise<GitWorktree[]>
   createWorktree(cwd: string, startPoint?: string, options?: RequestOptions): Promise<GitWorktree>
+  startWorktreeJob(
+    cwd: string,
+    input?: {
+      startPoint?: string
+      includeChanges?: boolean
+      environmentConfigPath?: string | null
+    },
+    options?: RequestOptions
+  ): Promise<GitWorktreeJob>
+  worktreeJob(id: string, options?: RequestOptions): Promise<GitWorktreeJob>
+  cancelWorktreeJob(id: string, options?: RequestOptions): Promise<GitWorktreeJob>
+  retryWorktreeJob(
+    id: string,
+    skipSetup?: boolean,
+    options?: RequestOptions
+  ): Promise<GitWorktreeJob>
   deleteWorktree(cwd: string, path: string, options?: RequestOptions): Promise<void>
   restoreWorktree(cwd: string, path: string, options?: RequestOptions): Promise<GitWorktree>
   setWorktreeOwner(
@@ -642,6 +659,14 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(await client.requestGit("git.worktrees.request", { cwd }, options)),
   createWorktree: async (cwd, startPoint, options) =>
     unwrap(await client.requestGit("git.worktree-create.request", { cwd, startPoint }, options)),
+  startWorktreeJob: async (cwd, input = {}, options) =>
+    unwrap(await client.requestGit("git.worktree-job-start.request", { cwd, ...input }, options)),
+  worktreeJob: async (id, options) =>
+    unwrap(await client.requestGit("git.worktree-job-read.request", { id }, options)),
+  cancelWorktreeJob: async (id, options) =>
+    unwrap(await client.requestGit("git.worktree-job-cancel.request", { id }, options)),
+  retryWorktreeJob: async (id, skipSetup, options) =>
+    unwrap(await client.requestGit("git.worktree-job-retry.request", { id, skipSetup }, options)),
   deleteWorktree: async (cwd, path, options) => {
     unwrap(await client.requestGit("git.worktree-delete.request", { cwd, path }, options))
   },

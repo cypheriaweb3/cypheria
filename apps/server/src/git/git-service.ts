@@ -1,7 +1,18 @@
 import { isUtf8 } from "node:buffer"
-import { createHash } from "node:crypto"
+import { spawn } from "node:child_process"
+import { createHash, randomUUID } from "node:crypto"
 import { constants } from "node:fs"
-import { lstat, mkdtemp, open, readlink, realpath, rm, stat, writeFile } from "node:fs/promises"
+import {
+  lstat,
+  mkdtemp,
+  open,
+  readFile,
+  readlink,
+  realpath,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
 import type {
@@ -44,6 +55,7 @@ import type {
   GitSettings,
   GitTextBlob,
   GitWorktree,
+  GitWorktreeJob,
 } from "@cypheria/protocol"
 import { DEFAULT_GIT_SETTINGS } from "@cypheria/protocol"
 import type { AgentManager } from "../agent/agent-manager.js"
@@ -121,6 +133,17 @@ export class GitService {
   readonly #gitlab: GitLabMrService | null
   readonly #threads: ThreadManager | null
   readonly #getSettings: () => GitSettings
+  readonly #worktreeJobs = new Map<
+    string,
+    {
+      state: GitWorktreeJob
+      cwd: string
+      startPoint?: string
+      includeChanges: boolean
+      environmentConfigPath: string | null
+      controller: AbortController
+    }
+  >()
 
   constructor(
     cacheDir: string,
@@ -298,6 +321,18 @@ export class GitService {
           break
         case "git.worktree-create.request":
           value = await this.createWorktree(message.payload.cwd, message.payload.startPoint)
+          break
+        case "git.worktree-job-start.request":
+          value = await this.startWorktreeJob(message.payload)
+          break
+        case "git.worktree-job-read.request":
+          value = this.worktreeJob(message.payload.id)
+          break
+        case "git.worktree-job-cancel.request":
+          value = this.cancelWorktreeJob(message.payload.id)
+          break
+        case "git.worktree-job-retry.request":
+          value = this.retryWorktreeJob(message.payload.id, message.payload.skipSetup)
           break
         case "git.worktree-delete.request":
           await this.deleteWorktree(message.payload.cwd, message.payload.path)
@@ -727,9 +762,13 @@ export class GitService {
     return this.#worktrees.list(await this.discover(cwd))
   }
 
-  async createWorktree(cwd: string, startPoint?: string): Promise<GitWorktree> {
+  async createWorktree(
+    cwd: string,
+    startPoint?: string,
+    options: { includeChanges?: boolean; signal?: AbortSignal } = {}
+  ): Promise<GitWorktree> {
     const repository = await this.discover(cwd)
-    const created = await this.#worktrees.create(repository, startPoint)
+    const created = await this.#worktrees.create(repository, startPoint, options)
     const settings = this.#getSettings()
     if (settings.worktreeAutoCleanupEnabled && this.#threads) {
       try {
@@ -748,6 +787,219 @@ export class GitService {
       }
     }
     return created
+  }
+
+  async startWorktreeJob(input: {
+    cwd: string
+    startPoint?: string
+    includeChanges?: boolean
+    environmentConfigPath?: string | null
+  }): Promise<GitWorktreeJob> {
+    await this.discover(input.cwd)
+    if (this.#worktreeJobs.size >= 100) {
+      for (const [id, job] of this.#worktreeJobs) {
+        if (["ready", "failed", "cancelled"].includes(job.state.phase))
+          this.#worktreeJobs.delete(id)
+        if (this.#worktreeJobs.size < 100) break
+      }
+    }
+    if (this.#worktreeJobs.size >= 100) throw new Error("Too many active worktree operations")
+    const id = randomUUID()
+    const job = {
+      state: { id, phase: "queued" as const, path: null, error: null, log: "", worktree: null },
+      cwd: input.cwd,
+      startPoint: input.startPoint,
+      includeChanges: input.includeChanges ?? false,
+      environmentConfigPath: input.environmentConfigPath ?? null,
+      controller: new AbortController(),
+    }
+    this.#worktreeJobs.set(id, job)
+    void this.#runWorktreeJob(id, false)
+    return { ...job.state }
+  }
+
+  worktreeJob(id: string): GitWorktreeJob {
+    const job = this.#worktreeJobs.get(id)
+    if (!job) throw new Error("Worktree operation not found")
+    return { ...job.state }
+  }
+
+  cancelWorktreeJob(id: string): GitWorktreeJob {
+    const job = this.#worktreeJobs.get(id)
+    if (!job) throw new Error("Worktree operation not found")
+    if (["queued", "creating", "setting-up"].includes(job.state.phase)) job.controller.abort()
+    return { ...job.state }
+  }
+
+  retryWorktreeJob(id: string, skipSetup = false): GitWorktreeJob {
+    const job = this.#worktreeJobs.get(id)
+    if (!job) throw new Error("Worktree operation not found")
+    if (!(["failed", "cancelled"] as string[]).includes(job.state.phase)) {
+      throw new Error("Only failed or cancelled worktree operations can be retried")
+    }
+    job.controller = new AbortController()
+    job.state = { ...job.state, phase: "queued", error: null }
+    void this.#runWorktreeJob(id, skipSetup)
+    return { ...job.state }
+  }
+
+  async #runWorktreeJob(id: string, skipSetup: boolean): Promise<void> {
+    const job = this.#worktreeJobs.get(id)
+    if (!job) return
+    try {
+      if (!job.state.worktree) {
+        job.state = { ...job.state, phase: "creating" }
+        await this.#refreshWorktreeUpstream(job)
+        const worktree = await this.createWorktree(job.cwd, job.startPoint, {
+          includeChanges: job.includeChanges,
+          signal: job.controller.signal,
+        })
+        job.state = { ...job.state, path: worktree.path, worktree }
+      }
+      job.controller.signal.throwIfAborted()
+      if (job.environmentConfigPath && !skipSetup) {
+        job.state = { ...job.state, phase: "setting-up" }
+        await this.#setupWorktreeJob(job)
+      }
+      job.controller.signal.throwIfAborted()
+      job.state = { ...job.state, phase: "ready", error: null }
+    } catch (error) {
+      job.state = {
+        ...job.state,
+        phase: job.controller.signal.aborted ? "cancelled" : "failed",
+        error: job.controller.signal.aborted
+          ? null
+          : error instanceof Error
+            ? error.message
+            : String(error),
+      }
+    }
+  }
+
+  async #refreshWorktreeUpstream(job: {
+    state: GitWorktreeJob
+    cwd: string
+    startPoint?: string
+    controller: AbortController
+  }): Promise<void> {
+    if (this.#getSettings().upstreamRefreshMode !== "best-effort") return
+    const ref = job.startPoint
+    if (!ref?.startsWith("refs/remotes/")) return
+    const repository = await this.discover(job.cwd)
+    validateOperand(ref, "start point")
+    await this.#executor.run(repository.root, ["check-ref-format", ref], { readOnly: true })
+    const remotes = (
+      await this.#executor.run(repository.root, ["remote"], {
+        readOnly: true,
+        signal: job.controller.signal,
+      })
+    ).stdout
+      .split("\n")
+      .filter(Boolean)
+      .sort((a, b) => b.length - a.length)
+    const remainder = ref.slice("refs/remotes/".length)
+    const remote = remotes.find((name) => remainder.startsWith(`${name}/`))
+    if (!remote) return
+    const branch = remainder.slice(remote.length + 1)
+    if (!branch || branch === "HEAD") return
+    try {
+      await this.#executor.run(
+        repository.root,
+        ["fetch", "--no-tags", remote, `+refs/heads/${branch}:${ref}`],
+        {
+          signal: job.controller.signal,
+          timeoutMs: 30_000,
+        }
+      )
+      job.state = { ...job.state, log: `${job.state.log}Upstream refreshed\n`.slice(-65_536) }
+    } catch {
+      job.controller.signal.throwIfAborted()
+      job.state = {
+        ...job.state,
+        log: `${job.state.log}Could not refresh upstream; using cached Git state\n`.slice(-65_536),
+      }
+    }
+  }
+
+  async #setupWorktreeJob(job: {
+    state: GitWorktreeJob
+    cwd: string
+    environmentConfigPath: string | null
+    controller: AbortController
+  }): Promise<void> {
+    const worktree = job.state.worktree
+    const selected = job.environmentConfigPath
+    if (!worktree || !selected) return
+    const repository = await this.discover(job.cwd)
+    const sourcePath = await realpath(resolve(repository.root, selected))
+    const rel = relative(repository.root, sourcePath)
+    if (!rel || rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
+      throw new Error("Environment config must be inside the repository")
+    }
+    if ((await stat(sourcePath)).size > 64 * 1024)
+      throw new Error("Environment config is too large")
+    const targetPath = await this.#worktrees.copyEnvironmentConfig(
+      repository,
+      worktree.path,
+      sourcePath
+    )
+    const config = JSON.parse(await readFile(targetPath, "utf8")) as {
+      version?: unknown
+      name?: unknown
+      setup?: { script?: unknown; darwin?: { script?: unknown }; linux?: { script?: unknown } }
+    }
+    if (
+      config.version !== 1 ||
+      typeof config.name !== "string" ||
+      !config.name.trim() ||
+      typeof config.setup?.script !== "string"
+    ) {
+      throw new Error("Invalid worktree environment config")
+    }
+    const platformScript =
+      process.platform === "darwin"
+        ? config.setup.darwin?.script
+        : process.platform === "linux"
+          ? config.setup.linux?.script
+          : undefined
+    const script = typeof platformScript === "string" ? platformScript : config.setup.script
+    if (!script.trim() || script.length > 100_000) throw new Error("Invalid worktree setup script")
+    await this.setConfigValue(worktree.path, "codex.localEnvironmentConfigPath", targetPath)
+    await new Promise<void>((resolvePromise, rejectPromise) => {
+      const child = spawn("/bin/sh", ["-c", script], {
+        cwd: worktree.path,
+        env: {
+          ...process.env,
+          CODEX_SOURCE_TREE_PATH: repository.root,
+          CODEX_WORKTREE_PATH: worktree.path,
+        },
+        signal: job.controller.signal,
+        stdio: ["ignore", "pipe", "pipe"],
+      })
+      let timedOut = false
+      const timeout = setTimeout(() => {
+        timedOut = true
+        child.kill("SIGTERM")
+      }, 5 * 60_000)
+      timeout.unref()
+      const append = (chunk: Buffer) => {
+        job.state = { ...job.state, log: (job.state.log + chunk.toString("utf8")).slice(-65_536) }
+      }
+      child.stdout.on("data", append)
+      child.stderr.on("data", append)
+      child.on("error", (error) => {
+        clearTimeout(timeout)
+        rejectPromise(error)
+      })
+      child.on("close", (code) => {
+        clearTimeout(timeout)
+        timedOut
+          ? rejectPromise(new Error("Worktree setup timed out"))
+          : code === 0
+            ? resolvePromise()
+            : rejectPromise(new Error(`Worktree setup exited with code ${code}`))
+      })
+    })
   }
 
   async deleteWorktree(cwd: string, path: string): Promise<void> {
