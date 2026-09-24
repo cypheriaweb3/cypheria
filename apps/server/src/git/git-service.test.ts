@@ -615,4 +615,38 @@ describe("GitService", () => {
     ).toBeNull()
     await service.deleteWorktree(root, worktree.path)
   }, 20_000)
+
+  it("preserves a nested thread directory during worktree moves", async () => {
+    const root = await repository()
+    const nested = join(root, "packages", "app")
+    await mkdir(nested, { recursive: true })
+    await writeFile(join(nested, "file.txt"), "first\n")
+    const threadId = "01984de2-8f74-7c91-a3b2-5c5e937cf401"
+    const thread = {
+      id: threadId,
+      agentId: "codex",
+      agentSessionId: "nested-thread",
+      cwd: nested,
+      activeTurn: null,
+      pendingInteractions: [],
+    }
+    const threads = {
+      get: async () => thread,
+      moveWorkingDirectory: async (_id: string, cwd: string) => {
+        thread.cwd = cwd
+        return thread
+      },
+    } as unknown as ThreadManager
+    const service = new GitService(join(root, "cache"), join(root, "home"), {
+      agents: {} as AgentManager,
+      threads,
+    })
+    await service.stage(root, ["packages/app/file.txt"])
+    await service.commit(root, "Base")
+    const worktree = await service.createWorktree(root)
+    await service.moveThreadToWorktree(root, worktree.path, threadId)
+    expect(thread.cwd).toBe(join(worktree.path, "packages", "app"))
+    await service.moveThreadToWorktree(worktree.path, root, threadId)
+    expect(thread.cwd).toBe(await realpath(nested))
+  }, 20_000)
 })

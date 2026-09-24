@@ -760,7 +760,24 @@ export class GitService {
     if (source?.ownerThreadId && source.ownerThreadId !== threadId) {
       throw new Error("Another thread owns the source worktree")
     }
-    if ((await realpath(thread.cwd)) === targetPath) {
+    const sourceCwd = await realpath(thread.cwd)
+    const relativeCwd = relative(sourceRoot, sourceCwd)
+    if (relativeCwd === ".." || relativeCwd.startsWith(`..${sep}`) || isAbsolute(relativeCwd)) {
+      throw new Error("The thread working directory is outside its Git worktree")
+    }
+    const destinationCwd = await realpath(join(targetPath, relativeCwd)).catch(() => {
+      throw new Error("The target worktree does not contain the thread's working directory")
+    })
+    const relativeDestination = relative(targetPath, destinationCwd)
+    if (
+      relativeDestination === ".." ||
+      relativeDestination.startsWith(`..${sep}`) ||
+      isAbsolute(relativeDestination) ||
+      !(await stat(destinationCwd)).isDirectory()
+    ) {
+      throw new Error("The target working directory is outside its Git worktree")
+    }
+    if (sourceCwd === destinationCwd) {
       for (const stale of worktrees.filter(
         (entry) => entry.managed && entry.ownerThreadId === threadId && entry.path !== targetPath
       )) {
@@ -772,7 +789,7 @@ export class GitService {
       return
     }
     const previousCwd = thread.cwd
-    await this.#threads.moveWorkingDirectory(threadId, targetPath)
+    await this.#threads.moveWorkingDirectory(threadId, destinationCwd)
     let targetAssigned = false
     let sourceReleased = false
     try {
