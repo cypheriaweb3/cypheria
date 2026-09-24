@@ -224,6 +224,7 @@ type ChatReviewFileListProps = HTMLAttributes<HTMLUListElement> & {
   onSelectFile?: (fileId: string) => void
   selectFileLabel?: (file: ChatReviewFileDescriptor) => string
   statusLabel?: (file: ChatReviewFileDescriptor) => ReactNode
+  tree?: boolean
 }
 
 export function ChatReviewFileList({
@@ -232,39 +233,79 @@ export function ChatReviewFileList({
   onSelectFile,
   selectFileLabel,
   statusLabel,
+  tree = false,
   ...props
 }: ChatReviewFileListProps) {
-  return (
-    <ul data-slot="chat-review-file-list" className={cn("p-2", className)} {...props}>
-      {files.map((file) => (
-        <li key={file.id}>
-          <Button
-            aria-label={selectFileLabel?.(file)}
-            aria-pressed={file.selected}
-            className="h-auto w-full min-w-0 justify-start gap-2 px-2 py-1.5 text-left font-normal"
-            disabled={!onSelectFile}
-            onClick={() => onSelectFile?.(file.id)}
-            type="button"
-            variant={file.selected ? "secondary" : "ghost"}
-          >
-            <FileIcon className="shrink-0" />
-            <span className="min-w-0 flex-1 truncate">{file.path}</span>
-            {statusLabel && (
-              <span className="text-xs text-muted-foreground">{statusLabel(file)}</span>
+  type Directory = {
+    folders: Map<string, Directory>
+    files: ChatReviewFileDescriptor[]
+  }
+  const root: Directory = { folders: new Map(), files: [] }
+  if (tree) {
+    for (const file of files) {
+      const segments = typeof file.path === "string" ? file.path.split("/") : [file.id]
+      let directory = root
+      for (const segment of segments.slice(0, -1)) {
+        let next = directory.folders.get(segment)
+        if (!next) {
+          next = { folders: new Map(), files: [] }
+          directory.folders.set(segment, next)
+        }
+        directory = next
+      }
+      directory.files.push(file)
+    }
+  } else root.files.push(...files)
+  const renderFile = (file: ChatReviewFileDescriptor) => (
+    <li key={file.id}>
+      <Button
+        aria-label={selectFileLabel?.(file)}
+        aria-pressed={file.selected}
+        className="h-auto w-full min-w-0 justify-start gap-2 px-2 py-1.5 text-left font-normal"
+        disabled={!onSelectFile}
+        onClick={() => onSelectFile?.(file.id)}
+        title={typeof file.path === "string" ? file.path : undefined}
+        type="button"
+        variant={file.selected ? "secondary" : "ghost"}
+      >
+        <FileIcon className="shrink-0" />
+        <span className="min-w-0 flex-1 truncate">
+          {tree && typeof file.path === "string"
+            ? (file.path.split("/").at(-1) ?? file.path)
+            : file.path}
+        </span>
+        {statusLabel && <span className="text-xs text-muted-foreground">{statusLabel(file)}</span>}
+        {(file.additions !== undefined || file.deletions !== undefined) && (
+          <span className="flex shrink-0 gap-1 font-mono text-xs tabular-nums">
+            {file.additions !== undefined && (
+              <span className="text-emerald-600">+{file.additions}</span>
             )}
-            {(file.additions !== undefined || file.deletions !== undefined) && (
-              <span className="flex shrink-0 gap-1 font-mono text-xs tabular-nums">
-                {file.additions !== undefined && (
-                  <span className="text-emerald-600">+{file.additions}</span>
-                )}
-                {file.deletions !== undefined && (
-                  <span className="text-destructive">-{file.deletions}</span>
-                )}
-              </span>
+            {file.deletions !== undefined && (
+              <span className="text-destructive">-{file.deletions}</span>
             )}
-          </Button>
+          </span>
+        )}
+      </Button>
+    </li>
+  )
+  const renderDirectory = (directory: Directory, prefix: string): ReactNode => (
+    <>
+      {[...directory.folders].map(([name, child]) => (
+        <li key={`${prefix}/${name}`}>
+          <details open>
+            <summary className="cursor-pointer px-2 py-1 text-xs text-muted-foreground">
+              {name}
+            </summary>
+            <ul className="ml-3 border-l pl-1">{renderDirectory(child, `${prefix}/${name}`)}</ul>
+          </details>
         </li>
       ))}
+      {directory.files.map(renderFile)}
+    </>
+  )
+  return (
+    <ul data-slot="chat-review-file-list" className={cn("p-2", className)} {...props}>
+      {renderDirectory(root, "")}
     </ul>
   )
 }

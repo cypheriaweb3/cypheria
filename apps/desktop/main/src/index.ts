@@ -1,7 +1,7 @@
 import { type ChildProcess, execFile } from "node:child_process"
 import { createHash, randomUUID } from "node:crypto"
 import { existsSync, mkdirSync } from "node:fs"
-import { copyFile, mkdir } from "node:fs/promises"
+import { copyFile, mkdir, realpath, stat } from "node:fs/promises"
 import { homedir } from "node:os"
 import { dirname, extname, isAbsolute, join, relative, resolve } from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
@@ -31,6 +31,7 @@ import {
   appConfigOpenContract,
   appDirectoryPickContract,
   appExternalOpenContract,
+  appGitFileActionContract,
   appHealthCheckContract,
   appMetadataReadContract,
   appProjectOpenContract,
@@ -510,6 +511,39 @@ const registerIpcHandlers = (paths: DesktopAppPaths, client: CypheriaClient): vo
       await execFileAsync("open", ["-a", appName, root])
     }
     return { opened: true }
+  })
+  registerIpcRoute(appGitFileActionContract, async ({ cwd, path, action }) => {
+    const repository = await client.git.discover(cwd)
+    const candidate = resolve(repository.root, path)
+    const relativePath = relative(repository.root, candidate)
+    if (
+      !relativePath ||
+      relativePath === ".." ||
+      relativePath.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) ||
+      isAbsolute(relativePath)
+    ) {
+      throw new Error("Git file is outside the repository")
+    }
+    const source = await realpath(candidate)
+    const resolvedRelative = relative(repository.root, source)
+    if (
+      !resolvedRelative ||
+      resolvedRelative === ".." ||
+      resolvedRelative.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) ||
+      isAbsolute(resolvedRelative) ||
+      !(await stat(source)).isFile()
+    ) {
+      throw new Error("Git file is unavailable")
+    }
+    if (action === "open") {
+      const error = await shell.openPath(source)
+      if (error) throw new Error(error)
+      return { completed: true }
+    }
+    const destination = await dialog.showSaveDialog({ defaultPath: source })
+    if (destination.canceled || !destination.filePath) return { completed: false }
+    await copyFile(source, destination.filePath)
+    return { completed: true }
   })
   registerIpcRoute(browserSessionOpenContract, ({ url }) => {
     if (!dappBrowserController) throw new Error("The dApp browser is unavailable.")

@@ -45,17 +45,26 @@ const statusKind = (code: string): ChatReviewFileDescriptor["status"] => {
 export function GitReviewPanel({
   cwd,
   fallback,
+  onAddFile,
   threadId,
-}: Readonly<{ cwd: string; fallback: ReactNode; threadId: string | null }>) {
+}: Readonly<{
+  cwd: string
+  fallback: ReactNode
+  onAddFile?: (path: string) => void
+  threadId: string | null
+}>) {
   const stashId = useId()
   const whitespaceId = useId()
   const worktreeChangesId = useId()
+  const commitIncludeUnstagedId = useId()
   const { i18n } = useLingui()
   const queryClient = useQueryClient()
   const [source, setSource] = useState<ReviewSource>("unstaged")
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
   const [selectedCommit, setSelectedCommit] = useState("")
   const [message, setMessage] = useState("")
+  const [coAuthors, setCoAuthors] = useState("")
+  const [commitIncludeUnstaged, setCommitIncludeUnstaged] = useState(false)
   const [targetBranch, setTargetBranch] = useState("")
   const [worktreeStartPoint, setWorktreeStartPoint] = useState("HEAD")
   const [worktreeIncludeChanges, setWorktreeIncludeChanges] = useState(false)
@@ -377,6 +386,19 @@ export function GitReviewPanel({
       ? { deletions: countsByPath.get(entry.path)?.deletions ?? 0 }
       : {}),
   }))
+  const canCommit = Boolean(
+    status.data?.entries.some(({ code }) =>
+      commitIncludeUnstaged ? code !== "  " : code[0] !== " " && code[0] !== "?"
+    )
+  )
+  const commitInput = () => ({
+    message,
+    includeUnstaged: commitIncludeUnstaged,
+    coAuthors: coAuthors
+      .split(";")
+      .map((value) => value.trim())
+      .filter(Boolean),
+  })
 
   if (status.isError) {
     const canInit = /not a git repository/iu.test(status.error.message)
@@ -710,10 +732,63 @@ export function GitReviewPanel({
         </p>
       ) : null}
       {files.length > 0 ? (
-        <ChatReviewFileList files={files} onSelectFile={setSelectedPath} />
+        <ChatReviewFileList files={files} onSelectFile={setSelectedPath} tree />
       ) : null}
       {activePath ? (
         <ChatReviewDiffHost>
+          <div className="flex flex-wrap gap-1 border-b p-2">
+            <Button
+              onClick={() =>
+                void navigator.clipboard
+                  .writeText(activePath)
+                  .catch((error: unknown) =>
+                    setActionError(error instanceof Error ? error.message : String(error))
+                  )
+              }
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              <Trans id="git.review.copyPath">Copy path</Trans>
+            </Button>
+            {onAddFile ? (
+              <Button onClick={() => onAddFile(activePath)} size="sm" type="button" variant="ghost">
+                <Trans id="git.review.addToChat">Add to chat</Trans>
+              </Button>
+            ) : null}
+            {window.cypheria ? (
+              <>
+                <Button
+                  onClick={() =>
+                    void window.cypheria?.app
+                      .gitFileAction({ cwd, path: activePath, action: "open" })
+                      .catch((error: unknown) =>
+                        setActionError(error instanceof Error ? error.message : String(error))
+                      )
+                  }
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <Trans id="git.review.openFile">Open file</Trans>
+                </Button>
+                <Button
+                  onClick={() =>
+                    void window.cypheria?.app
+                      .gitFileAction({ cwd, path: activePath, action: "save" })
+                      .catch((error: unknown) =>
+                        setActionError(error instanceof Error ? error.message : String(error))
+                      )
+                  }
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  <Trans id="git.review.saveAs">Save as…</Trans>
+                </Button>
+              </>
+            ) : null}
+          </div>
           <pre className="overflow-x-auto p-3 text-xs whitespace-pre-wrap">
             {diff.isError
               ? diff.error.message
@@ -873,23 +948,62 @@ export function GitReviewPanel({
             placeholder={i18n._(msg({ id: "git.review.commitMessage", message: "Commit message" }))}
             value={message}
           />
+          <Input
+            aria-label={i18n._(
+              msg({ id: "git.review.coAuthors", message: "Co-authors, separated by semicolons" })
+            )}
+            onChange={(event) => setCoAuthors(event.target.value)}
+            placeholder={i18n._(
+              msg({ id: "git.review.coAuthors", message: "Co-authors, separated by semicolons" })
+            )}
+            value={coAuthors}
+          />
+          <label
+            className="flex items-center gap-2 text-xs text-muted-foreground"
+            htmlFor={commitIncludeUnstagedId}
+          >
+            <Checkbox
+              checked={commitIncludeUnstaged}
+              id={commitIncludeUnstagedId}
+              onCheckedChange={(checked) => setCommitIncludeUnstaged(checked === true)}
+            />
+            <Trans id="git.review.includeUnstaged">Include unstaged changes</Trans>
+          </label>
           <div className="flex gap-2">
             <Button
-              disabled={
-                busy ||
-                !message.trim() ||
-                !status.data.entries.some(({ code }) => code[0] !== " " && code[0] !== "?")
-              }
+              disabled={busy || !message.trim() || !canCommit}
               onClick={() =>
                 void mutate(async () => {
-                  await (await ensureCypheriaClient()).git.commit(cwd, message)
+                  await (await ensureCypheriaClient()).git.commit(cwd, commitInput())
                   setMessage("")
                 })
               }
               size="sm"
               type="button"
             >
-              <Trans id="git.review.commit">Commit staged</Trans>
+              <Trans id="git.review.commit">Commit</Trans>
+            </Button>
+            <Button
+              disabled={busy || !message.trim() || !canCommit}
+              onClick={() =>
+                void mutate(async () => {
+                  const git = (await ensureCypheriaClient()).git
+                  await git.commit(cwd, commitInput())
+                  setMessage("")
+                  try {
+                    await git.push(cwd)
+                  } catch (error) {
+                    throw new Error(
+                      `Commit succeeded; push failed. You can retry Push: ${error instanceof Error ? error.message : String(error)}`
+                    )
+                  }
+                })
+              }
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <Trans id="git.review.commitAndPush">Commit and push</Trans>
             </Button>
             <Button
               disabled={busy || !status.data.head}

@@ -1072,6 +1072,11 @@ export function ConversationWorkspace({
           <GitReviewPanel
             cwd={gitCwd}
             fallback={timelineReview}
+            onAddFile={(path) =>
+              setComposer(
+                (current) => `${current}${current && !/\s$/u.test(current) ? " " : ""}@${path} `
+              )
+            }
             threadId={snapshot.thread?.id ?? null}
           />
         ) : (

@@ -196,7 +196,11 @@ export interface GitActions {
   reviewUndoList(cwd: string, options?: RequestOptions): Promise<GitReviewUndoEntry[]>
   stage(cwd: string, paths: string[], options?: RequestOptions): Promise<void>
   unstage(cwd: string, paths: string[], options?: RequestOptions): Promise<void>
-  commit(cwd: string, message: string, options?: RequestOptions): Promise<string>
+  commit(
+    cwd: string,
+    input: string | { message: string; includeUnstaged?: boolean; coAuthors?: string[] },
+    options?: RequestOptions
+  ): Promise<string>
   push(
     cwd: string,
     input?: { remote?: string; branch?: string; setUpstream?: boolean; forceWithLease?: boolean },
@@ -653,9 +657,13 @@ export const createGitActions = (client: ServerClient): GitActions => ({
   unstage: async (cwd, paths, options) => {
     unwrap(await client.requestGit("git.unstage.request", { cwd, paths }, options))
   },
-  commit: async (cwd, message, options) =>
+  commit: async (cwd, input, options) =>
     unwrap<{ commit: string }>(
-      await client.requestGit("git.commit.request", { cwd, message }, options)
+      await client.requestGit(
+        "git.commit.request",
+        { cwd, ...(typeof input === "string" ? { message: input } : input) },
+        options
+      )
     ).commit,
   push: async (cwd, input = {}, options) =>
     unwrap<{ output: string }>(

@@ -28,6 +28,28 @@ const repository = async () => {
 }
 
 describe("GitService", () => {
+  it("can include unstaged files and record validated co-authors in a commit", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await writeFile(join(root, "staged.txt"), "staged\n")
+    await service.stage(root, ["staged.txt"])
+    await writeFile(join(root, "untracked.txt"), "untracked\n")
+    await expect(
+      service.commit(root, "Message", { includeUnstaged: true, coAuthors: ["Bad\nAuthor"] })
+    ).rejects.toThrow("Invalid commit co-author")
+    expect(
+      (await service.status(root)).entries.some((entry) => entry.path === "untracked.txt")
+    ).toBe(true)
+    const commit = await service.commit(root, "Message", {
+      includeUnstaged: true,
+      coAuthors: ["Partner <partner@example.invalid>"],
+    })
+    expect(commit).toMatch(/^[a-f0-9]{40,64}$/u)
+    const { stdout } = await run("git", ["-C", root, "show", "--pretty=full", "--stat", "HEAD"])
+    expect(stdout).toContain("Co-authored-by: Partner <partner@example.invalid>")
+    expect(stdout).toContain("untracked.txt")
+  }, 20_000)
+
   it("ignores whitespace in review display without changing the mutation revision", async () => {
     const root = await repository()
     const service = new GitService(join(root, "cache"), join(root, "home"))

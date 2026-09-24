@@ -312,7 +312,12 @@ export class GitService {
           value = { succeeded: true }
           break
         case "git.commit.request":
-          value = { commit: await this.commit(message.payload.cwd, message.payload.message) }
+          value = {
+            commit: await this.commit(message.payload.cwd, message.payload.message, {
+              includeUnstaged: message.payload.includeUnstaged,
+              coAuthors: message.payload.coAuthors,
+            }),
+          }
           break
         case "git.push.request":
           value = { output: await this.push(message.payload.cwd, message.payload) }
@@ -2692,10 +2697,23 @@ export class GitService {
     ])
   }
 
-  async commit(cwd: string, message: string): Promise<string> {
+  async commit(
+    cwd: string,
+    message: string,
+    options: { includeUnstaged?: boolean; coAuthors?: readonly string[] } = {}
+  ): Promise<string> {
     if (!message.trim()) throw new Error("Commit message is required")
     const repository = await this.discover(cwd)
-    await this.#executor.run(repository.root, ["commit", "-m", message])
+    const coAuthors = options.coAuthors ?? []
+    if (
+      coAuthors.length > 20 ||
+      coAuthors.some((author) => !author.trim() || author.length > 200 || /[\r\n\0]/u.test(author))
+    ) {
+      throw new Error("Invalid commit co-author")
+    }
+    const commitMessage = `${message.trim()}${coAuthors.length ? `\n\n${coAuthors.map((author) => `Co-authored-by: ${author.trim()}`).join("\n")}` : ""}`
+    if (options.includeUnstaged) await this.#executor.run(repository.root, ["add", "-A"])
+    await this.#executor.run(repository.root, ["commit", "-m", commitMessage])
     return trimmed(
       (await this.#executor.run(repository.root, ["rev-parse", "HEAD"], { readOnly: true })).stdout
     )

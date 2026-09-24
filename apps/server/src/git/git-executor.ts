@@ -13,6 +13,14 @@ export class GitCommandError extends Error {
   readonly args: readonly string[]
   readonly stderr: string
   readonly stdout: string
+  readonly kind:
+    | "authentication"
+    | "conflict"
+    | "missing-upstream"
+    | "nothing-to-commit"
+    | "rejected"
+    | "timeout"
+    | "unknown"
 
   constructor(args: readonly string[], stdout: string, stderr: string, cause: unknown) {
     super(stderr.trim() || (cause instanceof Error ? cause.message : "Git command failed"))
@@ -20,6 +28,23 @@ export class GitCommandError extends Error {
     this.args = args
     this.stderr = stderr
     this.stdout = stdout
+    const message = `${stderr}\n${cause instanceof Error ? cause.message : ""}`
+    this.kind =
+      /authentication failed|permission denied|could not read username|terminal prompts disabled/iu.test(
+        message
+      )
+        ? "authentication"
+        : /non-fast-forward|rejected|failed to push some refs/iu.test(message)
+          ? "rejected"
+          : /no upstream branch|has no upstream branch/iu.test(message)
+            ? "missing-upstream"
+            : /nothing to commit|no changes added to commit/iu.test(message)
+              ? "nothing-to-commit"
+              : /conflict|patch does not apply|would be overwritten/iu.test(message)
+                ? "conflict"
+                : /timed out|timeout|ETIMEDOUT/iu.test(message)
+                  ? "timeout"
+                  : "unknown"
   }
 }
 
@@ -51,6 +76,8 @@ export class GitExecutor {
       "safe.bareRepository=explicit",
       "-c",
       `core.hooksPath=${this.#hooksDir}`,
+      "-c",
+      "core.fsmonitor=false",
       "-c",
       "core.pager=cat",
       ...args,
@@ -95,6 +122,8 @@ export class GitExecutor {
       "safe.bareRepository=explicit",
       "-c",
       `core.hooksPath=${this.#hooksDir}`,
+      "-c",
+      "core.fsmonitor=false",
       "-c",
       "core.pager=cat",
       "cat-file",

@@ -634,7 +634,14 @@ export const GitUnstageRequestSchema = input(
 )
 export const GitCommitRequestSchema = input(
   "git.commit.request",
-  z.object({ cwd: path, message: z.string().min(1).max(100_000) }).strict()
+  z
+    .object({
+      cwd: path,
+      message: z.string().min(1).max(100_000),
+      includeUnstaged: z.boolean().optional(),
+      coAuthors: z.array(z.string().min(1).max(200)).max(20).optional(),
+    })
+    .strict()
 )
 export const GitPushRequestSchema = input(
   "git.push.request",

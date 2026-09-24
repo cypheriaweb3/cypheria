@@ -31,6 +31,7 @@ export const CYPHERIA_IPC_CHANNELS = {
   appConfigOpen: "app.config.open",
   appProjectReveal: "app.project.reveal",
   appProjectOpen: "app.project.open",
+  appGitFileAction: "app.git-file.action",
   browserSessionOpen: "browser.session.open",
   dappProviderRequest: "dapp.provider.request",
   dappProviderEvent: "dapp.provider.event",
@@ -495,6 +496,18 @@ export const appProjectOpenContract = {
   response: z.object({ opened: z.literal(true) }).strict(),
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<{ projectId: string }, { opened: true }>
+export const appGitFileActionContract = {
+  channel: CYPHERIA_IPC_CHANNELS.appGitFileAction,
+  namespace: "app",
+  request: z
+    .object({ cwd: z.string().min(1), path: z.string().min(1), action: z.enum(["open", "save"]) })
+    .strict(),
+  response: z.object({ completed: z.boolean() }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  { cwd: string; path: string; action: "open" | "save" },
+  { completed: boolean }
+>
 
 export const browserSessionOpenContract = {
   channel: CYPHERIA_IPC_CHANNELS.browserSessionOpen,
@@ -644,6 +657,7 @@ export const ipcContracts = {
   appConfigOpen: appConfigOpenContract,
   appProjectReveal: appProjectRevealContract,
   appProjectOpen: appProjectOpenContract,
+  appGitFileAction: appGitFileActionContract,
   browserSessionOpen: browserSessionOpenContract,
   dappProviderRequest: dappProviderRequestContract,
   settingsAppearanceFontsList: settingsAppearanceFontsListContract,
@@ -679,6 +693,11 @@ export type CypheriaPreloadApi = {
     readonly openConfig: () => Promise<{ opened: true }>
     readonly revealProject: (projectId: string) => Promise<{ revealed: true }>
     readonly openProject: (projectId: string) => Promise<{ opened: true }>
+    readonly gitFileAction: (input: {
+      cwd: string
+      path: string
+      action: "open" | "save"
+    }) => Promise<{ completed: boolean }>
   }
   readonly browser: {
     readonly openDapp: (url: string) => Promise<BrowserSessionOpenResult>

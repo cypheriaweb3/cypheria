@@ -70,6 +70,7 @@ const cypheriaApi: CypheriaPreloadApi = {
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.appProjectReveal, { projectId }),
     openProject: (projectId) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.appProjectOpen, { projectId }),
+    gitFileAction: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.appGitFileAction, input),
   },
   browser: {
     openDapp: (url) =>
