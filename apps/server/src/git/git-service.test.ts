@@ -572,6 +572,22 @@ describe("GitService", () => {
     await expect(service.restoreWorktree(root, worktree.path)).rejects.toThrow("already exists")
   }, 20_000)
 
+  it("creates a detached worktree from a selected branch without switching the source", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await writeFile(join(root, "file.txt"), "first\n")
+    await service.stage(root, ["file.txt"])
+    const first = await service.commit(root, "First")
+    await service.createBranch(root, "base")
+    await writeFile(join(root, "file.txt"), "second\n")
+    await service.stage(root, ["file.txt"])
+    const second = await service.commit(root, "Second")
+    const worktree = await service.createWorktree(root, "base")
+    expect(worktree.head).toBe(first)
+    expect((await service.status(root)).head).toBe(second)
+    expect(await readFile(join(worktree.path, "file.txt"), "utf8")).toBe("first\n")
+  }, 20_000)
+
   it("moves a local Codex thread into and out of a managed worktree", async () => {
     const root = await repository()
     const threadId = "01984de2-8f74-7c91-a3b2-5c5e937cf400"

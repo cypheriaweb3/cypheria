@@ -56,6 +56,7 @@ export function GitReviewPanel({
   const [selectedCommit, setSelectedCommit] = useState("")
   const [message, setMessage] = useState("")
   const [targetBranch, setTargetBranch] = useState("")
+  const [worktreeStartPoint, setWorktreeStartPoint] = useState("HEAD")
   const [branchSearch, setBranchSearch] = useState("")
   const [reviewBaseSearch, setReviewBaseSearch] = useState("")
   const [reviewBase, setReviewBase] = useState("")
@@ -884,10 +885,37 @@ export function GitReviewPanel({
             <span className="text-xs font-medium">
               <Trans id="git.review.worktrees">Worktrees</Trans>
             </span>
+            <NativeSelect
+              aria-label={i18n._(
+                msg({ id: "git.review.worktreeStart", message: "Worktree start point" })
+              )}
+              className="min-w-0 max-w-40"
+              onChange={(event) => setWorktreeStartPoint(event.target.value)}
+              size="sm"
+              value={worktreeStartPoint}
+            >
+              <NativeSelectOption value="HEAD">HEAD</NativeSelectOption>
+              {worktreeStartPoint !== "HEAD" &&
+              !branches.data?.some((entry) => branchValue(entry) === worktreeStartPoint) ? (
+                <NativeSelectOption value={worktreeStartPoint}>
+                  {worktreeStartPoint}
+                </NativeSelectOption>
+              ) : null}
+              {branches.data?.map((entry) => (
+                <NativeSelectOption key={`${entry.scope}:${entry.name}`} value={branchValue(entry)}>
+                  {entry.name}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
             <Button
               disabled={busy}
               onClick={() =>
-                void mutate(async () => (await ensureCypheriaClient()).git.createWorktree(cwd))
+                void mutate(async () =>
+                  (await ensureCypheriaClient()).git.createWorktree(
+                    cwd,
+                    worktreeStartPoint === "HEAD" ? undefined : worktreeStartPoint
+                  )
+                )
               }
               size="sm"
               type="button"
