@@ -56,6 +56,7 @@ export function GitReviewPanel({
   const stashId = useId()
   const whitespaceId = useId()
   const worktreeChangesId = useId()
+  const moveChangesId = useId()
   const commitIncludeUnstagedId = useId()
   const { i18n } = useLingui()
   const queryClient = useQueryClient()
@@ -68,6 +69,7 @@ export function GitReviewPanel({
   const [targetBranch, setTargetBranch] = useState("")
   const [worktreeStartPoint, setWorktreeStartPoint] = useState("HEAD")
   const [worktreeIncludeChanges, setWorktreeIncludeChanges] = useState(false)
+  const [moveChanges, setMoveChanges] = useState(false)
   const [worktreeEnvironmentPath, setWorktreeEnvironmentPath] = useState("")
   const [worktreeJobId, setWorktreeJobId] = useState<string | null>(null)
   const [branchSearch, setBranchSearch] = useState("")
@@ -83,6 +85,7 @@ export function GitReviewPanel({
     snapshot: GitReviewFile
     hunkIndex?: number
   } | null>(null)
+  const [pendingSync, setPendingSync] = useState<"sync" | "undo" | null>(null)
   const gitSettings = useQuery({
     queryKey: ["settings", "git"],
     queryFn: async () => (await ensureCypheriaClient()).server.config(),
@@ -124,6 +127,19 @@ export function GitReviewPanel({
     enabled: Boolean(status.data),
     queryKey: ["git", cwd, "worktrees"],
     queryFn: async () => (await ensureCypheriaClient()).git.worktrees(cwd),
+    refetchInterval: 5_000,
+    retry: false,
+  })
+  const currentManagedWorktree = worktrees.data?.some(
+    (entry) => entry.managed && entry.active && entry.path === status.data?.repository.root
+  )
+  const syncedBranch = useQuery({
+    enabled: Boolean(status.data && currentManagedWorktree),
+    queryKey: ["git", cwd, "synced-branch", status.data?.repository.root],
+    queryFn: async () => {
+      if (!status.data) throw new Error("A Git worktree is required")
+      return (await ensureCypheriaClient()).git.syncedBranchState(cwd, status.data.repository.root)
+    },
     refetchInterval: 5_000,
     retry: false,
   })
@@ -907,6 +923,48 @@ export function GitReviewPanel({
       ) : null}
       <AlertDialog
         onOpenChange={(open) => {
+          if (!open) setPendingSync(null)
+        }}
+        open={pendingSync !== null}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              <Trans id="git.review.syncConfirmTitle">Update the synced branch?</Trans>
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <Trans id="git.review.syncConfirmDescription">
+                The target must be clean. Cypheria saves the previous branch commit for Undo.
+              </Trans>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>
+              <Trans id="git.review.cancel">Cancel</Trans>
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={busy || !syncedBranch.data || !status.data}
+              onClick={() => {
+                const action = pendingSync
+                const state = syncedBranch.data
+                const root = status.data?.repository.root
+                setPendingSync(null)
+                if (!action || !state || !root) return
+                void mutate(async () => {
+                  const git = (await ensureCypheriaClient()).git
+                  if (action === "sync")
+                    await git.syncBranch(cwd, root, state.branchHead, state.worktreeHead)
+                  else await git.undoSync(cwd, root)
+                })
+              }}
+            >
+              <Trans id="git.review.confirm">Confirm</Trans>
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        onOpenChange={(open) => {
           if (!open) setPendingRevert(null)
         }}
         open={pendingRevert !== null}
@@ -1160,6 +1218,62 @@ export function GitReviewPanel({
               </div>
             </div>
           ) : null}
+          {syncedBranch.data ? (
+            <div className="space-y-1 rounded-md border p-2 text-xs">
+              <p>
+                <Trans id="git.review.syncedBranch">Synced branch</Trans>:{" "}
+                {syncedBranch.data.branch}
+              </p>
+              {syncedBranch.data.branchHead !== syncedBranch.data.expectedHead ? (
+                <p className="text-destructive">
+                  <Trans id="git.review.syncedBranchChanged">
+                    The branch changed outside this worktree. Refresh before syncing.
+                  </Trans>
+                </p>
+              ) : null}
+              <div className="flex gap-2">
+                <Button
+                  disabled={
+                    busy ||
+                    syncedBranch.data.branchHead === syncedBranch.data.worktreeHead ||
+                    syncedBranch.data.branchHead !== syncedBranch.data.expectedHead ||
+                    syncedBranch.data.sourceDirty ||
+                    syncedBranch.data.worktreeDirty
+                  }
+                  onClick={() => setPendingSync("sync")}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  <Trans id="git.review.syncBranch">Sync committed changes to branch</Trans>
+                </Button>
+                {syncedBranch.data.backupRef ? (
+                  <Button
+                    disabled={busy || syncedBranch.data.sourceDirty}
+                    onClick={() => setPendingSync("undo")}
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <Trans id="git.review.undoSync">Undo last sync</Trans>
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+          {threadId ? (
+            <label
+              className="flex items-center gap-2 text-xs text-muted-foreground"
+              htmlFor={moveChangesId}
+            >
+              <Checkbox
+                checked={moveChanges}
+                id={moveChangesId}
+                onCheckedChange={(checked) => setMoveChanges(checked === true)}
+              />
+              <Trans id="git.review.copyChangesOnMove">Copy local changes when moving thread</Trans>
+            </label>
+          ) : null}
           {threadId &&
           worktrees.data?.some(
             (entry) => entry.path === status.data.repository.root && entry.managed
@@ -1173,7 +1287,8 @@ export function GitReviewPanel({
                     (await ensureCypheriaClient()).git.moveThreadToWorktree(
                       cwd,
                       checkout.path,
-                      threadId
+                      threadId,
+                      { copyChanges: moveChanges }
                     )
                   )
               }}
@@ -1201,7 +1316,8 @@ export function GitReviewPanel({
                         (await ensureCypheriaClient()).git.moveThreadToWorktree(
                           cwd,
                           entry.path,
-                          threadId
+                          threadId,
+                          { copyChanges: moveChanges }
                         )
                       )
                     }

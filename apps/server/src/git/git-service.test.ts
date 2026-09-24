@@ -738,7 +738,11 @@ describe("GitService", () => {
     await service.commit(root, "Ignore environment")
     await writeFile(
       join(root, "environment.json"),
-      JSON.stringify({ version: 1, name: "Test", setup: { script: "printf 'ready' > setup.txt" } })
+      JSON.stringify({
+        version: 1,
+        name: "Test",
+        setup: { script: "export PATH=\"$PWD/tools:$PATH\"; printf 'ready' > setup.txt" },
+      })
     )
     const waitForJob = async (id: string) => {
       for (let attempt = 0; attempt < 100; attempt += 1) {
@@ -759,6 +763,17 @@ describe("GitService", () => {
     expect(await service.configValue(ready.path, "codex.localEnvironmentConfigPath")).toBe(
       join(ready.path, "environment.json")
     )
+    const gitDir = (
+      await run("git", ["-C", ready.path, "rev-parse", "--absolute-git-dir"])
+    ).stdout.trim()
+    const shellEnvironment = JSON.parse(
+      await readFile(join(gitDir, "codex-shell-environment.json"), "utf8")
+    ) as { version: number; set: Record<string, string>; exclude: string[] }
+    expect(shellEnvironment).toMatchObject({
+      version: 1,
+      set: { PATH: expect.stringContaining(`${ready.path}/tools:`) },
+      exclude: [],
+    })
 
     await writeFile(
       join(root, "environment.json"),
@@ -806,6 +821,8 @@ describe("GitService", () => {
 
   it("moves a local Codex thread into and out of a managed worktree", async () => {
     const root = await repository()
+    const home = await mkdtemp(join(tmpdir(), "cypheria-git-handoff-"))
+    created.push(home)
     const threadId = "01984de2-8f74-7c91-a3b2-5c5e937cf400"
     const thread = {
       id: threadId,
@@ -822,7 +839,7 @@ describe("GitService", () => {
         return thread
       },
     } as unknown as ThreadManager
-    const service = new GitService(join(root, "cache"), join(root, "home"), {
+    const service = new GitService(join(home, "cache"), home, {
       agents: {} as AgentManager,
       threads,
     })
@@ -830,12 +847,17 @@ describe("GitService", () => {
     await service.stage(root, ["file.txt"])
     await service.commit(root, "First commit")
     const worktree = await service.createWorktree(root)
-    await service.moveThreadToWorktree(root, worktree.path, threadId)
+    await writeFile(join(root, "file.txt"), "first\nsecond\n")
+    await service.stage(root, ["file.txt"])
+    await writeFile(join(root, "untracked.txt"), "local\n")
+    await service.moveThreadToWorktree(root, worktree.path, threadId, true)
     expect(thread.cwd).toBe(worktree.path)
+    expect(await readFile(join(worktree.path, "file.txt"), "utf8")).toBe("first\nsecond\n")
+    expect(await readFile(join(worktree.path, "untracked.txt"), "utf8")).toBe("local\n")
     expect(
       (await service.worktrees(root)).find((entry) => entry.path === worktree.path)?.ownerThreadId
     ).toBe(threadId)
-    const records = new GitWorktreeService(new GitExecutor(join(root, "cache")), join(root, "home"))
+    const records = new GitWorktreeService(new GitExecutor(join(home, "cache")), home)
     await records.setOwner(await service.discover(root), worktree.path, null)
     await service.moveThreadToWorktree(worktree.path, worktree.path, threadId)
     expect(
@@ -854,6 +876,8 @@ describe("GitService", () => {
     expect(
       (await service.worktrees(root)).find((entry) => entry.path === worktree.path)?.ownerThreadId
     ).toBeNull()
+    await run("git", ["-C", worktree.path, "reset", "--hard", "HEAD"])
+    await run("git", ["-C", worktree.path, "clean", "-fd"])
     await service.deleteWorktree(root, worktree.path)
   }, 20_000)
 

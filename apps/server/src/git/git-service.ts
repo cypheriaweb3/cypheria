@@ -54,6 +54,7 @@ import type {
   GitReviewLineCount,
   GitServerMessage,
   GitSettings,
+  GitSyncedBranchState,
   GitTextBlob,
   GitWorktree,
   GitWorktreeJob,
@@ -84,6 +85,16 @@ export type GitStatus = {
 }
 
 const trimmed = (value: string): string => value.trimEnd()
+const WORKTREE_ENV_KEYS = [
+  "PATH",
+  "VIRTUAL_ENV",
+  "CONDA_PREFIX",
+  "PYENV_VERSION",
+  "NPM_CONFIG_PREFIX",
+  "CARGO_HOME",
+  "RUSTUP_HOME",
+  "GOPATH",
+] as const
 class GitStaleSnapshotError extends Error {}
 const reviewHunks = (diff: string): Array<{ header: string; patch: string }> => {
   if ((diff.match(/^diff --git /gmu)?.length ?? 0) !== 1) return []
@@ -358,8 +369,26 @@ export class GitService {
           await this.moveThreadToWorktree(
             message.payload.cwd,
             message.payload.path,
-            message.payload.threadId
+            message.payload.threadId,
+            message.payload.copyChanges
           )
+          value = { succeeded: true }
+          break
+        case "git.synced-branch-state.request":
+          value = await this.syncedBranchState(message.payload.cwd, message.payload.path)
+          break
+        case "git.synced-branch-sync.request":
+          value = {
+            backupRef: await this.syncBranch(
+              message.payload.cwd,
+              message.payload.path,
+              message.payload.expectedBranchHead,
+              message.payload.expectedWorktreeHead
+            ),
+          }
+          break
+        case "git.synced-branch-undo.request":
+          await this.undoSync(message.payload.cwd, message.payload.path)
           value = { succeeded: true }
           break
         case "git.github-availability.request":
@@ -974,41 +1003,68 @@ export class GitService {
     const script = typeof platformScript === "string" ? platformScript : config.setup.script
     if (!script.trim() || script.length > 100_000) throw new Error("Invalid worktree setup script")
     await this.setConfigValue(worktree.path, "codex.localEnvironmentConfigPath", targetPath)
-    await new Promise<void>((resolvePromise, rejectPromise) => {
-      const child = spawn("/bin/sh", ["-c", script], {
-        cwd: worktree.path,
-        env: {
-          ...process.env,
-          CODEX_SOURCE_TREE_PATH: repository.root,
-          CODEX_WORKTREE_PATH: worktree.path,
-        },
-        signal: job.controller.signal,
-        stdio: ["ignore", "pipe", "pipe"],
+    const captureDirectory = await mkdtemp(join(tmpdir(), "cypheria-worktree-env-"))
+    const capturePath = join(captureDirectory, "environment")
+    try {
+      await new Promise<void>((resolvePromise, rejectPromise) => {
+        const captureScript = `${script}\nstatus=$?\nif [ "$status" -eq 0 ]; then env -0 > "$CYPHERIA_ENV_CAPTURE_PATH"; fi\nexit "$status"`
+        const child = spawn("/bin/sh", ["-c", captureScript], {
+          cwd: worktree.path,
+          env: {
+            ...process.env,
+            CODEX_SOURCE_TREE_PATH: repository.root,
+            CODEX_WORKTREE_PATH: worktree.path,
+            CYPHERIA_ENV_CAPTURE_PATH: capturePath,
+          },
+          signal: job.controller.signal,
+          stdio: ["ignore", "pipe", "pipe"],
+        })
+        let timedOut = false
+        const timeout = setTimeout(() => {
+          timedOut = true
+          child.kill("SIGTERM")
+        }, 5 * 60_000)
+        timeout.unref()
+        const append = (chunk: Buffer) => {
+          job.state = { ...job.state, log: (job.state.log + chunk.toString("utf8")).slice(-65_536) }
+        }
+        child.stdout.on("data", append)
+        child.stderr.on("data", append)
+        child.on("error", (error) => {
+          clearTimeout(timeout)
+          rejectPromise(error)
+        })
+        child.on("close", (code) => {
+          clearTimeout(timeout)
+          timedOut
+            ? rejectPromise(new Error("Worktree setup timed out"))
+            : code === 0
+              ? resolvePromise()
+              : rejectPromise(new Error(`Worktree setup exited with code ${code}`))
+        })
       })
-      let timedOut = false
-      const timeout = setTimeout(() => {
-        timedOut = true
-        child.kill("SIGTERM")
-      }, 5 * 60_000)
-      timeout.unref()
-      const append = (chunk: Buffer) => {
-        job.state = { ...job.state, log: (job.state.log + chunk.toString("utf8")).slice(-65_536) }
+      const captured = await readFile(capturePath).catch(() => null)
+      const values: Record<string, string> = {}
+      if (captured && captured.length <= 256 * 1024) {
+        const environment = new Map(
+          captured
+            .toString("utf8")
+            .split("\0")
+            .filter(Boolean)
+            .map((entry) => {
+              const index = entry.indexOf("=")
+              return [entry.slice(0, index), entry.slice(index + 1)] as const
+            })
+        )
+        for (const key of WORKTREE_ENV_KEYS) {
+          const value = environment.get(key)
+          if (value && value.length <= 10_000 && value !== process.env[key]) values[key] = value
+        }
       }
-      child.stdout.on("data", append)
-      child.stderr.on("data", append)
-      child.on("error", (error) => {
-        clearTimeout(timeout)
-        rejectPromise(error)
-      })
-      child.on("close", (code) => {
-        clearTimeout(timeout)
-        timedOut
-          ? rejectPromise(new Error("Worktree setup timed out"))
-          : code === 0
-            ? resolvePromise()
-            : rejectPromise(new Error(`Worktree setup exited with code ${code}`))
-      })
-    })
+      await this.#worktrees.writeShellEnvironment(repository, worktree.path, values)
+    } finally {
+      await rm(captureDirectory, { recursive: true, force: true })
+    }
   }
 
   async deleteWorktree(cwd: string, path: string): Promise<void> {
@@ -1042,7 +1098,12 @@ export class GitService {
     return this.#worktrees.setOwner(repository, path, threadId)
   }
 
-  async moveThreadToWorktree(cwd: string, path: string, threadId: string): Promise<void> {
+  async moveThreadToWorktree(
+    cwd: string,
+    path: string,
+    threadId: string,
+    copyChanges = false
+  ): Promise<void> {
     if (!this.#threads) throw new Error("A local Codex thread is required")
     const repository = await this.discover(cwd)
     await this.#codexThreadRepository(cwd, threadId)
@@ -1092,6 +1153,7 @@ export class GitService {
       return
     }
     const previousCwd = thread.cwd
+    if (copyChanges) await this.#worktrees.copyLocalChanges(sourceRoot, targetPath)
     await this.#threads.moveWorkingDirectory(threadId, destinationCwd)
     let targetAssigned = false
     let sourceReleased = false
@@ -1123,6 +1185,28 @@ export class GitService {
         throw new AggregateError([error, ...failures], "Git worktree handoff and rollback failed")
       throw error
     }
+  }
+
+  async syncedBranchState(cwd: string, path: string): Promise<GitSyncedBranchState | null> {
+    return this.#worktrees.syncedBranchState(await this.discover(cwd), path)
+  }
+
+  async syncBranch(
+    cwd: string,
+    path: string,
+    expectedBranchHead: string,
+    expectedWorktreeHead: string
+  ): Promise<string> {
+    return this.#worktrees.syncBranch(
+      await this.discover(cwd),
+      path,
+      expectedBranchHead,
+      expectedWorktreeHead
+    )
+  }
+
+  async undoSync(cwd: string, path: string): Promise<void> {
+    await this.#worktrees.undoSync(await this.discover(cwd), path)
   }
 
   async githubAvailability(cwd: string): Promise<GitHubAvailability> {

@@ -127,6 +127,17 @@ export const GitWorktreeSchema = z
     ownerThreadId: ProjectThreadIdSchema.nullable(),
   })
   .strict()
+export const GitSyncedBranchStateSchema = z
+  .object({
+    branch: z.string().min(1),
+    expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    branchHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    worktreeHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    sourceDirty: z.boolean(),
+    worktreeDirty: z.boolean(),
+    backupRef: z.string().nullable(),
+  })
+  .strict()
 export const GitWorktreeJobSchema = z
   .object({
     id: z.uuid(),
@@ -700,7 +711,33 @@ export const GitWorktreeOwnerRequestSchema = input(
 )
 export const GitWorktreeMoveThreadRequestSchema = input(
   "git.worktree-move-thread.request",
-  z.object({ cwd: path, path, threadId: ProjectThreadIdSchema }).strict()
+  z
+    .object({
+      cwd: path,
+      path,
+      threadId: ProjectThreadIdSchema,
+      copyChanges: z.boolean().optional(),
+    })
+    .strict()
+)
+export const GitSyncedBranchStateRequestSchema = input(
+  "git.synced-branch-state.request",
+  z.object({ cwd: path, path }).strict()
+)
+export const GitSyncedBranchSyncRequestSchema = input(
+  "git.synced-branch-sync.request",
+  z
+    .object({
+      cwd: path,
+      path,
+      expectedBranchHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      expectedWorktreeHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    })
+    .strict()
+)
+export const GitSyncedBranchUndoRequestSchema = input(
+  "git.synced-branch-undo.request",
+  z.object({ cwd: path, path }).strict()
 )
 export const GitHubAvailabilityRequestSchema = input(
   "git.github-availability.request",
@@ -1321,6 +1358,15 @@ export const GitWorktreeMoveThreadResponseSchema = output(
   "git.worktree-move-thread.response",
   success
 )
+export const GitSyncedBranchStateResponseSchema = output(
+  "git.synced-branch-state.response",
+  GitSyncedBranchStateSchema.nullable()
+)
+export const GitSyncedBranchSyncResponseSchema = output(
+  "git.synced-branch-sync.response",
+  z.object({ backupRef: z.string().min(1) }).strict()
+)
+export const GitSyncedBranchUndoResponseSchema = output("git.synced-branch-undo.response", success)
 export const GitHubAvailabilityResponseSchema = output(
   "git.github-availability.response",
   GitHubAvailabilitySchema
@@ -1550,6 +1596,9 @@ export const GIT_CLIENT_SCHEMAS = [
   GitWorktreeRestoreRequestSchema,
   GitWorktreeOwnerRequestSchema,
   GitWorktreeMoveThreadRequestSchema,
+  GitSyncedBranchStateRequestSchema,
+  GitSyncedBranchSyncRequestSchema,
+  GitSyncedBranchUndoRequestSchema,
   GitHubAvailabilityRequestSchema,
   GitHubAppAvailabilityRequestSchema,
   GitHubAppPrCreateRequestSchema,
@@ -1647,6 +1696,9 @@ export const GIT_SERVER_SCHEMAS = [
   GitWorktreeRestoreResponseSchema,
   GitWorktreeOwnerResponseSchema,
   GitWorktreeMoveThreadResponseSchema,
+  GitSyncedBranchStateResponseSchema,
+  GitSyncedBranchSyncResponseSchema,
+  GitSyncedBranchUndoResponseSchema,
   GitHubAvailabilityResponseSchema,
   GitHubAppAvailabilityResponseSchema,
   GitHubAppPrCreateResponseSchema,
@@ -1717,6 +1769,7 @@ export type GitIndexEntry = z.infer<typeof GitIndexEntrySchema>
 export type GitTextBlob = z.infer<typeof GitTextBlobSchema>
 export type GitBlameLine = z.infer<typeof GitBlameLineSchema>
 export type GitWorktree = z.infer<typeof GitWorktreeSchema>
+export type GitSyncedBranchState = z.infer<typeof GitSyncedBranchStateSchema>
 export type GitWorktreeJob = z.infer<typeof GitWorktreeJobSchema>
 export type GitLabMrAvailability = z.infer<typeof GitLabMrAvailabilitySchema>
 export type GitHubAvailability = z.infer<typeof GitHubAvailabilitySchema>

@@ -27,12 +27,25 @@ type Record = {
   path: string
   snapshotRef: string
   ownerThreadId?: string | null
+  syncedBranch?: { branch: string; expectedHead: string; lastSyncedTreeRef: string }
+  syncBackupRef?: string | null
+  shellEnvironment?: { [key: string]: string }
 }
 
 const inside = (root: string, path: string): boolean => {
   const part = relative(root, path)
   return part !== "" && part !== ".." && !part.startsWith(`..${sep}`) && !isAbsolute(part)
 }
+const shellEnvironmentKeys = new Set([
+  "PATH",
+  "VIRTUAL_ENV",
+  "CONDA_PREFIX",
+  "PYENV_VERSION",
+  "NPM_CONFIG_PREFIX",
+  "CARGO_HOME",
+  "RUSTUP_HOME",
+  "GOPATH",
+])
 
 export class GitWorktreeService {
   readonly #executor: GitExecutor
@@ -138,34 +151,46 @@ export class GitWorktreeService {
       ).stdout.trim()
       if (sourceHead !== commit)
         throw new Error("Local changes require the current HEAD as the worktree start point")
-      const staged = (
-        await this.#executor.run(
-          repository.root,
-          ["diff", "--cached", "--binary", "--no-ext-diff", "--no-textconv"],
-          { readOnly: true, signal: options.signal }
-        )
-      ).stdout
-      const unstaged = (
-        await this.#executor.run(
-          repository.root,
-          ["diff", "--binary", "--no-ext-diff", "--no-textconv"],
-          { readOnly: true, signal: options.signal }
-        )
-      ).stdout
-      const untracked = (
-        await this.#executor.run(
-          repository.root,
-          ["ls-files", "--others", "--exclude-standard", "-z"],
-          { readOnly: true, signal: options.signal }
-        )
-      ).stdout
-        .split("\0")
-        .filter(Boolean)
-      changes = { staged, unstaged, untracked }
+      changes = await this.#captureLocalChanges(repository.root, options.signal)
     }
     const id = randomUUID()
     const path = join(this.#root, `${basename(repository.root)}-${id}`)
     const snapshotRef = `refs/cypheria/worktrees/${id}`
+    const selectedBranch =
+      startPoint && !startPoint.startsWith("refs/remotes/")
+        ? startPoint.replace(/^refs\/heads\//u, "")
+        : null
+    const isLocalBranch = selectedBranch
+      ? await this.#executor
+          .run(
+            repository.root,
+            ["show-ref", "--verify", "--quiet", `refs/heads/${selectedBranch}`],
+            {
+              readOnly: true,
+            }
+          )
+          .then(
+            () => true,
+            () => false
+          )
+      : false
+    const currentBranch = (
+      await this.#executor.run(repository.root, ["branch", "--show-current"], {
+        readOnly: true,
+      })
+    ).stdout.trim()
+    const syncedBranch =
+      isLocalBranch && selectedBranch && selectedBranch !== currentBranch
+        ? {
+            branch: selectedBranch,
+            expectedHead: commit,
+            lastSyncedTreeRef: (
+              await this.#executor.run(repository.root, ["rev-parse", `${commit}^{tree}`], {
+                readOnly: true,
+              })
+            ).stdout.trim(),
+          }
+        : undefined
     await mkdir(this.#root, { recursive: true, mode: 0o700 })
     try {
       await this.#executor.run(repository.root, ["worktree", "add", "--detach", path, commit], {
@@ -190,12 +215,347 @@ export class GitWorktreeService {
         path,
         snapshotRef,
         ownerThreadId: null,
+        syncedBranch,
       })
+      if (syncedBranch) await this.#writeSyncedBranch(repository, path, syncedBranch)
     } catch (error) {
       await this.#executor.run(repository.root, ["worktree", "remove", "--force", "--", path])
       throw error
     }
     return { path, head: commit, branch: null, managed: true, active: true, ownerThreadId: null }
+  }
+
+  async copyLocalChanges(source: string, target: string): Promise<boolean> {
+    if (source === target) return false
+    const [sourceHead, targetHead, targetStatus] = await Promise.all([
+      this.#executor.run(source, ["rev-parse", "HEAD"], { readOnly: true }),
+      this.#executor.run(target, ["rev-parse", "HEAD"], { readOnly: true }),
+      this.#executor.run(target, ["status", "--porcelain=v1", "-z"], { readOnly: true }),
+    ])
+    if (sourceHead.stdout.trim() !== targetHead.stdout.trim())
+      throw new Error("Local changes require the source and target to have the same HEAD")
+    if (targetStatus.stdout) throw new Error("Target worktree must be clean before copying changes")
+    const changes = await this.#captureLocalChanges(source)
+    if (!changes.staged && !changes.unstaged && changes.untracked.length === 0) return false
+    try {
+      await this.#applyLocalChanges(source, target, changes)
+    } catch (error) {
+      const failures: unknown[] = []
+      await this.#executor
+        .run(target, ["reset", "--hard", "HEAD"])
+        .catch((cause) => failures.push(cause))
+      await this.#executor.run(target, ["clean", "-fd"]).catch((cause) => failures.push(cause))
+      if (failures.length)
+        throw new AggregateError([error, ...failures], "Copying Git changes and rollback failed")
+      throw error
+    }
+    return true
+  }
+
+  async writeShellEnvironment(
+    repository: Repository,
+    worktree: string,
+    values: { [key: string]: string }
+  ): Promise<void> {
+    await this.#record(repository, worktree)
+    if (
+      Object.entries(values).some(
+        ([key, value]) =>
+          !shellEnvironmentKeys.has(key) ||
+          typeof value !== "string" ||
+          value.length > 10_000 ||
+          value.includes("\0")
+      )
+    ) {
+      throw new Error("Invalid managed worktree shell environment")
+    }
+    const gitDir = await realpath(
+      (
+        await this.#executor.run(worktree, ["rev-parse", "--absolute-git-dir"], {
+          readOnly: true,
+        })
+      ).stdout.trim()
+    )
+    if (!inside(repository.commonGitDir, gitDir))
+      throw new Error("Managed worktree Git directory is outside the repository")
+    const target = join(gitDir, "codex-shell-environment.json")
+    const temporary = `${target}.${randomUUID()}.tmp`
+    try {
+      await writeFile(temporary, `${JSON.stringify({ version: 1, set: values, exclude: [] })}\n`, {
+        mode: 0o600,
+      })
+      await rename(temporary, target)
+      const record = await this.#record(repository, worktree)
+      await this.#writeRecord({ ...record, shellEnvironment: values }, true)
+    } finally {
+      await rm(temporary, { force: true })
+    }
+  }
+
+  async syncedBranchState(
+    repository: Repository,
+    worktree: string
+  ): Promise<{
+    branch: string
+    expectedHead: string
+    branchHead: string
+    worktreeHead: string
+    sourceDirty: boolean
+    worktreeDirty: boolean
+    backupRef: string | null
+  } | null> {
+    const record = await this.#record(repository, worktree)
+    if (!record.syncedBranch) return null
+    const sourceCommonGitDir = await realpath(
+      (
+        await this.#executor.run(
+          record.sourceRoot,
+          ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+          { readOnly: true }
+        )
+      ).stdout.trim()
+    )
+    if (sourceCommonGitDir !== repository.commonGitDir)
+      throw new Error("Synced branch source belongs to another repository")
+    const { branch, expectedHead } = record.syncedBranch
+    const worktreeList = (
+      await this.#executor.run(repository.root, ["worktree", "list", "--porcelain"], {
+        readOnly: true,
+      })
+    ).stdout
+    for (const block of worktreeList.split("\n\n")) {
+      if (!block.split("\n").includes(`branch refs/heads/${branch}`)) continue
+      const checkedOutPath = block
+        .split("\n")
+        .find((line) => line.startsWith("worktree "))
+        ?.slice("worktree ".length)
+      if (
+        checkedOutPath &&
+        (await realpath(checkedOutPath)) !== (await realpath(record.sourceRoot))
+      ) {
+        throw new Error("Synced branch is checked out in another worktree")
+      }
+    }
+    const branchHead = (
+      await this.#executor.run(repository.root, ["rev-parse", `refs/heads/${branch}`], {
+        readOnly: true,
+      })
+    ).stdout.trim()
+    const worktreeHead = (
+      await this.#executor.run(worktree, ["rev-parse", "HEAD"], { readOnly: true })
+    ).stdout.trim()
+    const sourceBranch = (
+      await this.#executor.run(record.sourceRoot, ["branch", "--show-current"], {
+        readOnly: true,
+      })
+    ).stdout.trim()
+    const sourceDirty =
+      sourceBranch === branch &&
+      Boolean(
+        (
+          await this.#executor.run(record.sourceRoot, ["status", "--porcelain=v1", "-z"], {
+            readOnly: true,
+          })
+        ).stdout
+      )
+    const worktreeDirty = Boolean(
+      (
+        await this.#executor.run(worktree, ["status", "--porcelain=v1", "-z"], {
+          readOnly: true,
+        })
+      ).stdout
+    )
+    return {
+      branch,
+      expectedHead,
+      branchHead,
+      worktreeHead,
+      sourceDirty,
+      worktreeDirty,
+      backupRef: record.syncBackupRef ?? null,
+    }
+  }
+
+  async syncBranch(
+    repository: Repository,
+    worktree: string,
+    expectedBranchHead: string,
+    expectedWorktreeHead: string
+  ): Promise<string> {
+    const record = await this.#record(repository, worktree)
+    const state = await this.syncedBranchState(repository, worktree)
+    if (!record.syncedBranch || !state) throw new Error("Worktree has no synced branch")
+    if (
+      state.branchHead !== expectedBranchHead ||
+      state.worktreeHead !== expectedWorktreeHead ||
+      state.branchHead !== state.expectedHead
+    ) {
+      throw new Error("Synced branch changed; refresh before syncing")
+    }
+    if (state.sourceDirty || state.worktreeDirty)
+      throw new Error("Commit or move local changes before syncing this branch")
+    if (state.branchHead === state.worktreeHead) return state.branchHead
+    const backupRef = `refs/cypheria/worktree-sync/${randomUUID()}`
+    await this.#executor.run(repository.root, ["update-ref", backupRef, state.branchHead])
+    const sourceBranch = (
+      await this.#executor.run(record.sourceRoot, ["branch", "--show-current"], {
+        readOnly: true,
+      })
+    ).stdout.trim()
+    await this.#executor.run(repository.root, [
+      "update-ref",
+      `refs/heads/${state.branch}`,
+      state.worktreeHead,
+      state.branchHead,
+    ])
+    try {
+      if (sourceBranch === state.branch)
+        await this.#executor.run(record.sourceRoot, ["reset", "--hard", state.worktreeHead])
+      const updated = {
+        branch: state.branch,
+        expectedHead: state.worktreeHead,
+        lastSyncedTreeRef: (
+          await this.#executor.run(worktree, ["rev-parse", "HEAD^{tree}"], { readOnly: true })
+        ).stdout.trim(),
+      }
+      await this.#writeSyncedBranch(repository, worktree, updated)
+      await this.#writeRecord({ ...record, syncedBranch: updated, syncBackupRef: backupRef }, true)
+    } catch (error) {
+      const failures: unknown[] = []
+      await this.#executor
+        .run(repository.root, [
+          "update-ref",
+          `refs/heads/${state.branch}`,
+          state.branchHead,
+          state.worktreeHead,
+        ])
+        .catch((cause) => failures.push(cause))
+      if (sourceBranch === state.branch)
+        await this.#executor
+          .run(record.sourceRoot, ["reset", "--hard", state.branchHead])
+          .catch((cause) => failures.push(cause))
+      await this.#writeRecord(record, true).catch((cause) => failures.push(cause))
+      await this.#writeSyncedBranch(repository, worktree, record.syncedBranch).catch((cause) =>
+        failures.push(cause)
+      )
+      if (failures.length)
+        throw new AggregateError([error, ...failures], "Synced branch update and rollback failed")
+      throw error
+    }
+    return backupRef
+  }
+
+  async undoSync(repository: Repository, worktree: string): Promise<void> {
+    const record = await this.#record(repository, worktree)
+    const state = await this.syncedBranchState(repository, worktree)
+    if (!state || !record.syncedBranch || !state.backupRef)
+      throw new Error("No synced branch backup is available")
+    if (state.branchHead !== state.expectedHead || state.sourceDirty)
+      throw new Error("Synced branch changed; undo would overwrite newer changes")
+    const oldHead = (
+      await this.#executor.run(repository.root, ["rev-parse", "--verify", state.backupRef], {
+        readOnly: true,
+      })
+    ).stdout.trim()
+    const sourceBranch = (
+      await this.#executor.run(record.sourceRoot, ["branch", "--show-current"], {
+        readOnly: true,
+      })
+    ).stdout.trim()
+    await this.#executor.run(repository.root, [
+      "update-ref",
+      `refs/heads/${state.branch}`,
+      oldHead,
+      state.branchHead,
+    ])
+    try {
+      if (sourceBranch === state.branch)
+        await this.#executor.run(record.sourceRoot, ["reset", "--hard", oldHead])
+      const updated = {
+        branch: state.branch,
+        expectedHead: oldHead,
+        lastSyncedTreeRef: (
+          await this.#executor.run(repository.root, ["rev-parse", `${oldHead}^{tree}`], {
+            readOnly: true,
+          })
+        ).stdout.trim(),
+      }
+      await this.#writeSyncedBranch(repository, worktree, updated)
+      await this.#writeRecord({ ...record, syncedBranch: updated, syncBackupRef: null }, true)
+    } catch (error) {
+      const failures: unknown[] = []
+      await this.#executor
+        .run(repository.root, [
+          "update-ref",
+          `refs/heads/${state.branch}`,
+          state.branchHead,
+          oldHead,
+        ])
+        .catch((cause) => failures.push(cause))
+      if (sourceBranch === state.branch)
+        await this.#executor
+          .run(record.sourceRoot, ["reset", "--hard", state.branchHead])
+          .catch((cause) => failures.push(cause))
+      await this.#writeRecord(record, true).catch((cause) => failures.push(cause))
+      await this.#writeSyncedBranch(repository, worktree, record.syncedBranch).catch((cause) =>
+        failures.push(cause)
+      )
+      if (failures.length)
+        throw new AggregateError([error, ...failures], "Synced branch undo and rollback failed")
+      throw error
+    }
+  }
+
+  async #writeSyncedBranch(
+    repository: Repository,
+    worktree: string,
+    value: { branch: string; lastSyncedTreeRef: string }
+  ): Promise<void> {
+    const gitDir = await realpath(
+      (
+        await this.#executor.run(worktree, ["rev-parse", "--absolute-git-dir"], {
+          readOnly: true,
+        })
+      ).stdout.trim()
+    )
+    if (!inside(repository.commonGitDir, gitDir))
+      throw new Error("Managed worktree Git directory is outside the repository")
+    await writeFile(
+      join(gitDir, "codex-synced-branch.json"),
+      `${JSON.stringify({ branch: value.branch, lastSyncedTreeRef: value.lastSyncedTreeRef })}\n`,
+      { mode: 0o600 }
+    )
+  }
+
+  async #captureLocalChanges(
+    source: string,
+    signal?: AbortSignal
+  ): Promise<{ staged: string; unstaged: string; untracked: string[] }> {
+    const staged = (
+      await this.#executor.run(
+        source,
+        ["diff", "--cached", "--binary", "--no-ext-diff", "--no-textconv"],
+        {
+          readOnly: true,
+          signal,
+        }
+      )
+    ).stdout
+    const unstaged = (
+      await this.#executor.run(source, ["diff", "--binary", "--no-ext-diff", "--no-textconv"], {
+        readOnly: true,
+        signal,
+      })
+    ).stdout
+    const untracked = (
+      await this.#executor.run(source, ["ls-files", "--others", "--exclude-standard", "-z"], {
+        readOnly: true,
+        signal,
+      })
+    ).stdout
+      .split("\0")
+      .filter(Boolean)
+    return { staged, unstaged, untracked }
   }
 
   async #applyLocalChanges(
@@ -420,6 +780,10 @@ export class GitWorktreeService {
       })
     ).stdout.trim()
     await this.#executor.run(repository.root, ["worktree", "add", "--detach", record.path, head])
+    if (record.syncedBranch)
+      await this.#writeSyncedBranch(repository, record.path, record.syncedBranch)
+    if (record.shellEnvironment)
+      await this.writeShellEnvironment(repository, record.path, record.shellEnvironment)
     return {
       path: record.path,
       head,
@@ -454,6 +818,42 @@ export class GitWorktreeService {
       typeof parsed.ownerThreadId !== "string"
     ) {
       throw new Error("Invalid managed worktree owner")
+    }
+    if (parsed.syncedBranch) {
+      const sync = parsed.syncedBranch
+      if (
+        typeof sync.branch !== "string" ||
+        !sync.branch ||
+        typeof sync.expectedHead !== "string" ||
+        !/^[a-f0-9]{40,64}$/iu.test(sync.expectedHead) ||
+        typeof sync.lastSyncedTreeRef !== "string" ||
+        !/^[a-f0-9]{40,64}$/iu.test(sync.lastSyncedTreeRef)
+      ) {
+        throw new Error("Invalid managed worktree synced branch")
+      }
+      await this.#executor.run(repository.root, ["check-ref-format", `refs/heads/${sync.branch}`], {
+        readOnly: true,
+      })
+    }
+    if (
+      parsed.syncBackupRef != null &&
+      !/^refs\/cypheria\/worktree-sync\/[a-f0-9-]{36}$/u.test(parsed.syncBackupRef)
+    ) {
+      throw new Error("Invalid managed worktree sync backup")
+    }
+    if (
+      parsed.shellEnvironment &&
+      (typeof parsed.shellEnvironment !== "object" ||
+        Array.isArray(parsed.shellEnvironment) ||
+        Object.entries(parsed.shellEnvironment).some(
+          ([key, value]) =>
+            !shellEnvironmentKeys.has(key) ||
+            typeof value !== "string" ||
+            value.length > 10_000 ||
+            value.includes("\0")
+        ))
+    ) {
+      throw new Error("Invalid managed worktree shell environment")
     }
     return parsed
   }

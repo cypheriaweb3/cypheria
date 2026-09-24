@@ -40,6 +40,7 @@ import type {
   GitReviewUndoEntry,
   GitServerMessage,
   GitStatus,
+  GitSyncedBranchState,
   GitTextBlob,
   GitWorktree,
   GitWorktreeJob,
@@ -236,8 +237,22 @@ export interface GitActions {
     cwd: string,
     path: string,
     threadId: string,
+    input?: { copyChanges?: boolean },
     options?: RequestOptions
   ): Promise<void>
+  syncedBranchState(
+    cwd: string,
+    path: string,
+    options?: RequestOptions
+  ): Promise<GitSyncedBranchState | null>
+  syncBranch(
+    cwd: string,
+    path: string,
+    expectedBranchHead: string,
+    expectedWorktreeHead: string,
+    options?: RequestOptions
+  ): Promise<{ backupRef: string }>
+  undoSync(cwd: string, path: string, options?: RequestOptions): Promise<void>
   githubAvailability(cwd: string, options?: RequestOptions): Promise<GitHubAvailability>
   githubAppAvailability(
     cwd: string,
@@ -688,10 +703,27 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(await client.requestGit("git.worktree-restore.request", { cwd, path }, options)),
   setWorktreeOwner: async (cwd, path, threadId, options) =>
     unwrap(await client.requestGit("git.worktree-owner.request", { cwd, path, threadId }, options)),
-  moveThreadToWorktree: async (cwd, path, threadId, options) => {
+  moveThreadToWorktree: async (cwd, path, threadId, input, options) => {
     unwrap(
-      await client.requestGit("git.worktree-move-thread.request", { cwd, path, threadId }, options)
+      await client.requestGit(
+        "git.worktree-move-thread.request",
+        { cwd, path, threadId, ...input },
+        options
+      )
     )
+  },
+  syncedBranchState: async (cwd, path, options) =>
+    unwrap(await client.requestGit("git.synced-branch-state.request", { cwd, path }, options)),
+  syncBranch: async (cwd, path, expectedBranchHead, expectedWorktreeHead, options) =>
+    unwrap(
+      await client.requestGit(
+        "git.synced-branch-sync.request",
+        { cwd, path, expectedBranchHead, expectedWorktreeHead },
+        options
+      )
+    ),
+  undoSync: async (cwd, path, options) => {
+    unwrap(await client.requestGit("git.synced-branch-undo.request", { cwd, path }, options))
   },
   githubAvailability: async (cwd, options) =>
     unwrap(await client.requestGit("git.github-availability.request", { cwd }, options)),
