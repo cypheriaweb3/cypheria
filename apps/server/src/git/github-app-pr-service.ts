@@ -39,6 +39,7 @@ const infoResponse = z
     user: z.object({ login: z.string() }).passthrough().nullable().optional(),
   })
   .passthrough()
+const diffResponse = z.object({ diff: z.string().max(8 * 1024 * 1024) }).passthrough()
 
 const checkedPrUrl = (repository: string, number: number, value?: string | null): string => {
   const result = value ?? `https://github.com/${repository}/pull/${number}`
@@ -195,6 +196,46 @@ export class GitHubAppPrService {
       updatedAt: info.updated_at ?? "",
       author: info.user ? { login: info.user.login } : null,
     }
+  }
+
+  async diff(
+    root: string,
+    nativeThreadId: string,
+    number: number,
+    expectedHead: string
+  ): Promise<string> {
+    if (!/^[a-f0-9]{40,64}$/iu.test(expectedHead))
+      throw new Error("A pinned GitHub pull request head is required")
+    const { repository, selection } = await this.#context(root, nativeThreadId, [
+      "get_pr_info",
+      "get_pr_diff",
+    ])
+    const readHead = async (): Promise<string> => {
+      const info = infoResponse.parse(
+        await this.#apps.call(selection, nativeThreadId, "github", "get_pr_info", {
+          pr_number: number,
+          repository_full_name: repository,
+        })
+      )
+      if (info.number !== number) throw new Error("The selected GitHub pull request changed")
+      checkedPrUrl(repository, number, info.url)
+      if (!info.head_sha || !/^[a-f0-9]{40,64}$/iu.test(info.head_sha))
+        throw new Error("The GitHub app did not return the pull request head")
+      return info.head_sha
+    }
+    if ((await readHead()) !== expectedHead) throw new Error("The GitHub pull request head changed")
+    const { diff } = diffResponse.parse(
+      await this.#apps.call(selection, nativeThreadId, "github", "get_pr_diff", {
+        format: "diff",
+        pr_number: number,
+        repo_full_name: repository,
+      })
+    )
+    if (diff && !diff.startsWith("diff --git "))
+      throw new Error("The GitHub app returned an invalid pull request diff")
+    if ((await readHead()) !== expectedHead)
+      throw new Error("The GitHub pull request head changed during diff acquisition")
+    return diff
   }
 
   async create(

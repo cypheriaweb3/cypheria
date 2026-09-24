@@ -90,6 +90,7 @@ The GitHub CLI pull request list supports server-side query search and open, clo
 For open GitHub PRs, the CLI path reads the auto-merge state and can enable or disable auto-merge. Enabling uses the configured merge method and checks the displayed head commit before sending the action.
 
 When the CLI can access the repository, the PR panel selects the current branch's PR from the list and can load its patch. Server checks the displayed PR head SHA before and after fetching that patch, so it rejects a diff if the PR changes during the read.
+When the CLI cannot access the repository, a connected GitHub App can also load the PR patch. It selects the required tools on one account link and checks the PR head before and after fetching the diff.
 
 The PR panel lists exact GitHub revision commits and loads the selected commit's diff. The Server can also read text file content at the selected base and head revisions; it returns unavailable for binary or oversized files. Each revision read checks the displayed PR head before and after the request.
 

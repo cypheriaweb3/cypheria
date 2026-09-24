@@ -131,6 +131,49 @@ describe("GitHubAppPrService", () => {
     )
   })
 
+  it("reads a connector PR diff with one account link and a pinned head", async () => {
+    const head = "a".repeat(40)
+    const info = {
+      number: 42,
+      title: "Change",
+      state: "OPEN",
+      merged: false,
+      draft: false,
+      head: "feature",
+      head_sha: head,
+      base: "main",
+      url: "https://github.com/org/repo/pull/42",
+    }
+    const { service, call, select } = fixture(undefined, undefined, undefined, {
+      get_pr_info: info,
+      get_pr_diff: { diff: "diff --git a/file.txt b/file.txt\n+new\n" },
+    })
+    expect(await service.diff("/repo", "thread", 42, head)).toContain("+new")
+    expect(select).toHaveBeenCalledWith("connector_76869538009648d5b282a4bb21c3d157", "github", [
+      "get_repo",
+      "get_pr_info",
+      "get_pr_diff",
+    ])
+    expect(call).toHaveBeenCalledWith(expect.any(Object), "thread", "github", "get_pr_diff", {
+      format: "diff",
+      pr_number: 42,
+      repo_full_name: "org/repo",
+    })
+    await expect(service.diff("/repo", "thread", 42, "b".repeat(40))).rejects.toThrow(
+      "head changed"
+    )
+    let reads = 0
+    call.mockImplementation(async (_selection, _thread, _namespace, action) => {
+      if (action === "get_repo") return { repository_full_name: "org/repo" }
+      if (action === "get_pr_diff") return { diff: "diff --git a/file.txt b/file.txt\n+new\n" }
+      reads += 1
+      return { ...info, head_sha: reads === 1 ? head : "b".repeat(40) }
+    })
+    await expect(service.diff("/repo", "thread", 42, head)).rejects.toThrow(
+      "during diff acquisition"
+    )
+  })
+
   it("rejects untrusted origins, another repository, stale push, and another PR URL", async () => {
     expect(
       (

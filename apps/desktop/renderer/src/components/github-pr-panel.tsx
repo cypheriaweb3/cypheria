@@ -192,12 +192,26 @@ export function GitHubPrPanel({
     retry: false,
   })
   const prDiff = useQuery({
-    enabled: showDiff && cliAvailable && Boolean(selected.data?.headRefOid),
-    queryKey: ["github-pr", cwd, "diff", selected.data?.number, selected.data?.headRefOid],
+    enabled:
+      showDiff &&
+      (cliAvailable || Boolean(threadId && appAvailability.data?.canRead)) &&
+      Boolean(selected.data?.headRefOid),
+    queryKey: [
+      "github-pr",
+      cwd,
+      "diff",
+      cliAvailable ? "cli" : "app",
+      threadId,
+      selected.data?.number,
+      selected.data?.headRefOid,
+    ],
     queryFn: async () => {
       const pr = selected.data
       if (!pr?.headRefOid) throw new Error("A pull request head is required")
-      return (await ensureCypheriaClient()).git.githubPrDiff(cwd, pr.number, pr.headRefOid)
+      const git = (await ensureCypheriaClient()).git
+      if (cliAvailable) return git.githubPrDiff(cwd, pr.number, pr.headRefOid)
+      if (!threadId) throw new Error("A local Codex thread is required")
+      return git.githubAppPrDiff(cwd, threadId, pr.number, pr.headRefOid)
     },
     retry: false,
   })
@@ -660,7 +674,7 @@ export function GitHubPrPanel({
               <AlertDescription>{metadata.error.message}</AlertDescription>
             </Alert>
           ) : null}
-          {cliAvailable && selected.data.headRefOid ? (
+          {selected.data.headRefOid && (cliAvailable || appAvailability.data?.canRead) ? (
             <div className="space-y-2 border-t pt-2">
               <Button
                 onClick={() => setShowDiff((value) => !value)}
@@ -678,43 +692,47 @@ export function GitHubPrPanel({
                       : (prDiff.data ??
                         i18n._(msg({ id: "git.github.diffLoading", message: "Loading diff…" })))}
                   </pre>
-                  <div className="flex gap-1">
-                    <Input
-                      aria-label={i18n._(
-                        msg({
-                          id: "git.github.attributesPath",
-                          message: "Changed file path for attributes",
-                        })
-                      )}
-                      onChange={(event) => setAttributesPath(event.target.value)}
-                      placeholder={i18n._(
-                        msg({
-                          id: "git.github.attributesPath",
-                          message: "Changed file path for attributes",
-                        })
-                      )}
-                      value={attributesPath}
-                    />
-                    <Button
-                      disabled={!attributesPath.trim()}
-                      onClick={() => setSelectedAttributesPath(attributesPath.trim())}
-                      size="sm"
-                      type="button"
-                      variant="outline"
-                    >
-                      <Trans id="git.github.loadAttributes">Load attributes</Trans>
-                    </Button>
-                  </div>
-                  {attributes.data?.map((file) => (
-                    <pre
-                      className="overflow-auto rounded border p-2 text-xs whitespace-pre-wrap"
-                      key={file.basePath}
-                    >
-                      {file.basePath || "."}/.gitattributes{"\n"}
-                      {file.contents}
-                    </pre>
-                  ))}
-                  {attributes.isError ? (
+                  {cliAvailable ? (
+                    <div className="flex gap-1">
+                      <Input
+                        aria-label={i18n._(
+                          msg({
+                            id: "git.github.attributesPath",
+                            message: "Changed file path for attributes",
+                          })
+                        )}
+                        onChange={(event) => setAttributesPath(event.target.value)}
+                        placeholder={i18n._(
+                          msg({
+                            id: "git.github.attributesPath",
+                            message: "Changed file path for attributes",
+                          })
+                        )}
+                        value={attributesPath}
+                      />
+                      <Button
+                        disabled={!attributesPath.trim()}
+                        onClick={() => setSelectedAttributesPath(attributesPath.trim())}
+                        size="sm"
+                        type="button"
+                        variant="outline"
+                      >
+                        <Trans id="git.github.loadAttributes">Load attributes</Trans>
+                      </Button>
+                    </div>
+                  ) : null}
+                  {cliAvailable
+                    ? attributes.data?.map((file) => (
+                        <pre
+                          className="overflow-auto rounded border p-2 text-xs whitespace-pre-wrap"
+                          key={file.basePath}
+                        >
+                          {file.basePath || "."}/.gitattributes{"\n"}
+                          {file.contents}
+                        </pre>
+                      ))
+                    : null}
+                  {cliAvailable && attributes.isError ? (
                     <Alert variant="destructive">
                       <AlertDescription>{attributes.error.message}</AlertDescription>
                     </Alert>
