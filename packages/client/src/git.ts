@@ -7,6 +7,7 @@ import type {
   GitCommitSummary,
   GitHubAppAvailability,
   GitHubAppCreatedPullRequest,
+  GitHubAppPrChecks,
   GitHubAppPullRequest,
   GitHubAppPullRequestSummary,
   GitHubAvailability,
@@ -205,6 +206,13 @@ export interface GitActions {
     expectedHead: string,
     options?: RequestOptions
   ): Promise<GitHubPullRequestActivity>
+  githubAppPrChecks(
+    cwd: string,
+    threadId: string,
+    number: number,
+    expectedHead: string,
+    options?: RequestOptions
+  ): Promise<GitHubAppPrChecks>
   githubPrList(
     cwd: string,
     input?: { state?: "open" | "closed" | "merged" | "all"; limit?: number; query?: string },
@@ -587,6 +595,14 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(
       await client.requestGit(
         "git.github-app-pr-activity.request",
+        { cwd, threadId, number, expectedHead },
+        options
+      )
+    ),
+  githubAppPrChecks: async (cwd, threadId, number, expectedHead, options) =>
+    unwrap(
+      await client.requestGit(
+        "git.github-app-pr-checks.request",
         { cwd, threadId, number, expectedHead },
         options
       )

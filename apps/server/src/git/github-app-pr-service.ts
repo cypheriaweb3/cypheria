@@ -1,3 +1,5 @@
+import type { GitHubAppPrChecks } from "@cypheria/protocol"
+import { GitHubAppPrChecksSchema } from "@cypheria/protocol"
 import { z } from "zod"
 import type { CodexAppSelection, CodexAppToolClient } from "../codex-app-tool-client.js"
 import type { GitExecutor } from "./git-executor.js"
@@ -73,6 +75,93 @@ const reviewsResponse = z
       .max(500),
   })
   .passthrough()
+const checksResponse = z
+  .object({
+    viewer_login: z.string().nullable(),
+    results: z
+      .array(
+        z
+          .object({
+            status: z.enum(["success", "not_found", "error"]),
+            pr_number: z.number().int().positive(),
+            repository_full_name: z.string(),
+            checks_complete: z.boolean().optional(),
+            pull_request: z
+              .object({
+                number: z.number().int().positive(),
+                headRefOid: z.string(),
+                url: z.url(),
+              })
+              .passthrough()
+              .optional(),
+            checks: z
+              .array(
+                z.discriminatedUnion("__typename", [
+                  z
+                    .object({
+                      __typename: z.literal("CheckRun"),
+                      name: z.string(),
+                      status: z.string(),
+                      conclusion: z.string().nullable(),
+                      detailsUrl: z.string().nullable(),
+                      startedAt: z.string().nullable(),
+                      completedAt: z.string().nullable(),
+                      checkSuite: z
+                        .object({
+                          workflowRun: z
+                            .object({ workflow: z.object({ name: z.string() }).nullable() })
+                            .nullable(),
+                        })
+                        .nullable()
+                        .optional(),
+                    })
+                    .passthrough(),
+                  z
+                    .object({
+                      __typename: z.literal("StatusContext"),
+                      context: z.string(),
+                      state: z.string(),
+                      targetUrl: z.string().nullable(),
+                      createdAt: z.string().nullable().optional(),
+                    })
+                    .passthrough(),
+                ])
+              )
+              .max(500)
+              .optional(),
+          })
+          .passthrough()
+      )
+      .length(1),
+  })
+  .passthrough()
+const checkBucket = (state: string): "pass" | "fail" | "pending" | "skipping" | "cancel" => {
+  switch (state.toLowerCase()) {
+    case "success":
+      return "pass"
+    case "neutral":
+    case "skipped":
+      return "skipping"
+    case "cancelled":
+      return "cancel"
+    case "failure":
+    case "error":
+    case "timed_out":
+    case "action_required":
+      return "fail"
+    default:
+      return "pending"
+  }
+}
+const safeCheckUrl = (value: string | null | undefined): string | null => {
+  if (!value) return null
+  try {
+    const url = new URL(value)
+    return url.protocol === "https:" && !url.username && !url.password ? value : null
+  } catch {
+    return null
+  }
+}
 
 const checkedPrUrl = (repository: string, number: number, value?: string | null): string => {
   const result = value ?? `https://github.com/${repository}/pull/${number}`
@@ -331,6 +420,77 @@ export class GitHubAppPrService {
         submittedAt: review.submitted_at ?? "",
       })),
     }
+  }
+
+  async checks(
+    root: string,
+    nativeThreadId: string,
+    number: number,
+    expectedHead: string
+  ): Promise<GitHubAppPrChecks> {
+    if (!/^[a-f0-9]{40,64}$/iu.test(expectedHead))
+      throw new Error("A pinned GitHub pull request head is required")
+    const { repository, selection } = await this.#context(root, nativeThreadId, [
+      "get_user_login",
+      "get_pr_statuses",
+      "get_pr_info",
+    ])
+    const identity = z
+      .object({ login: z.string().min(1) })
+      .parse(await this.#apps.call(selection, nativeThreadId, "github", "get_user_login", {}))
+    const response = checksResponse.parse(
+      await this.#apps.call(selection, nativeThreadId, "github", "get_pr_statuses", {
+        pull_requests: [{ pr_number: number, repository_full_name: repository }],
+      })
+    )
+    const result = response.results[0]
+    if (
+      !result ||
+      response.viewer_login?.toLowerCase() !== identity.login.toLowerCase() ||
+      result.pr_number !== number ||
+      result.repository_full_name.toLowerCase() !== repository.toLowerCase() ||
+      result.status !== "success" ||
+      !result.pull_request ||
+      result.pull_request.number !== number ||
+      result.pull_request.headRefOid !== expectedHead
+    )
+      throw new Error("GitHub pull request checks are unavailable or stale")
+    checkedPrUrl(repository, number, result.pull_request.url)
+    const info = infoResponse.parse(
+      await this.#apps.call(selection, nativeThreadId, "github", "get_pr_info", {
+        pr_number: number,
+        repository_full_name: repository,
+      })
+    )
+    if (info.number !== number || info.head_sha !== expectedHead)
+      throw new Error("The GitHub pull request head changed during checks acquisition")
+    checkedPrUrl(repository, number, info.url)
+    return GitHubAppPrChecksSchema.parse({
+      complete: result.checks_complete ?? false,
+      checks: (result.checks ?? []).map((check) => {
+        if (check.__typename === "CheckRun") {
+          const state = check.conclusion ?? check.status
+          return {
+            name: check.name,
+            state,
+            bucket: checkBucket(state),
+            link: safeCheckUrl(check.detailsUrl),
+            workflow: check.checkSuite?.workflowRun?.workflow?.name ?? null,
+            startedAt: check.startedAt,
+            completedAt: check.completedAt,
+          }
+        }
+        return {
+          name: check.context,
+          state: check.state,
+          bucket: checkBucket(check.state),
+          link: safeCheckUrl(check.targetUrl),
+          workflow: null,
+          startedAt: check.createdAt ?? null,
+          completedAt: null,
+        }
+      }),
+    })
   }
 
   async create(

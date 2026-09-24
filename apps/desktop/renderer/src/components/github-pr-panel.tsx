@@ -287,11 +287,27 @@ export function GitHubPrPanel({
     retry: false,
   })
   const checks = useQuery({
-    enabled: cliAvailable && selected.data?.state === "OPEN",
-    queryKey: ["github-pr", cwd, "checks", selected.data?.number, selected.data?.headRefOid],
+    enabled:
+      selected.data?.state === "OPEN" &&
+      (cliAvailable ||
+        Boolean(threadId && appAvailability.data?.canRead && selected.data?.headRefOid)),
+    queryKey: [
+      "github-pr",
+      cwd,
+      "checks",
+      cliAvailable ? "cli" : "app",
+      threadId,
+      selected.data?.number,
+      selected.data?.headRefOid,
+    ],
     queryFn: async () => {
       if (!selected.data) throw new Error("A pull request is required")
-      return (await ensureCypheriaClient()).git.githubPrChecks(cwd, selected.data.number)
+      const git = (await ensureCypheriaClient()).git
+      if (cliAvailable)
+        return { checks: await git.githubPrChecks(cwd, selected.data.number), complete: true }
+      if (!threadId || !selected.data.headRefOid)
+        throw new Error("A local Codex thread and pull request head are required")
+      return git.githubAppPrChecks(cwd, threadId, selected.data.number, selected.data.headRefOid)
     },
     refetchInterval: 30_000,
     retry: false,
@@ -813,17 +829,17 @@ export function GitHubPrPanel({
               ) : null}
             </div>
           ) : null}
-          {cliAvailable && selected.data.state === "OPEN" ? (
+          {selected.data.state === "OPEN" && (cliAvailable || appAvailability.data?.canRead) ? (
             <div className="space-y-1 border-t pt-2">
               <p className="text-xs font-medium">
                 <Trans id="git.github.checks">Checks</Trans>
               </p>
-              {checks.data?.length === 0 ? (
+              {checks.data?.checks.length === 0 && checks.data.complete ? (
                 <p className="text-xs text-muted-foreground">
                   <Trans id="git.github.noChecks">No checks</Trans>
                 </p>
               ) : null}
-              {checks.data?.map((check) => (
+              {checks.data?.checks.map((check) => (
                 <div
                   className="flex items-center gap-2 text-xs"
                   key={`${check.name}:${check.link}`}

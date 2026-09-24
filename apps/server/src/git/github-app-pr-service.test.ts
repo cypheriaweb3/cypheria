@@ -224,6 +224,75 @@ describe("GitHubAppPrService", () => {
     ])
   })
 
+  it("maps connector PR checks and verifies viewer, repository, and head", async () => {
+    const head = "a".repeat(40)
+    const responses = {
+      get_user_login: { login: "tester" },
+      get_pr_statuses: {
+        viewer_login: "tester",
+        results: [
+          {
+            status: "success",
+            pr_number: 42,
+            repository_full_name: "org/repo",
+            checks_complete: false,
+            pull_request: {
+              number: 42,
+              headRefOid: head,
+              url: "https://github.com/org/repo/pull/42",
+            },
+            checks: [
+              {
+                __typename: "CheckRun",
+                name: "build",
+                status: "IN_PROGRESS",
+                conclusion: null,
+                detailsUrl: "https://github.com/org/repo/actions/runs/1",
+                startedAt: "2026-09-24",
+                completedAt: null,
+              },
+            ],
+          },
+        ],
+      },
+      get_pr_info: {
+        number: 42,
+        title: "Change",
+        state: "OPEN",
+        merged: false,
+        draft: false,
+        head: "feature",
+        head_sha: head,
+        base: "main",
+      },
+    }
+    const { service, call } = fixture(undefined, undefined, undefined, responses)
+    expect(await service.checks("/repo", "thread", 42, head)).toEqual({
+      complete: false,
+      checks: [
+        {
+          name: "build",
+          state: "IN_PROGRESS",
+          bucket: "pending",
+          link: "https://github.com/org/repo/actions/runs/1",
+          workflow: null,
+          startedAt: "2026-09-24",
+          completedAt: null,
+        },
+      ],
+    })
+    call.mockImplementation(async (_selection, _thread, _namespace, action) =>
+      action === "get_pr_statuses"
+        ? { ...responses.get_pr_statuses, viewer_login: "another" }
+        : action === "get_repo"
+          ? { repository_full_name: "org/repo" }
+          : responses[action as keyof typeof responses]
+    )
+    await expect(service.checks("/repo", "thread", 42, head)).rejects.toThrow(
+      "unavailable or stale"
+    )
+  })
+
   it("rejects untrusted origins, another repository, stale push, and another PR URL", async () => {
     expect(
       (

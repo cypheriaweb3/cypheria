@@ -92,6 +92,7 @@ For open GitHub PRs, the CLI path reads the auto-merge state and can enable or d
 When the CLI can access the repository, the PR panel selects the current branch's PR from the list and can load its patch. Server checks the displayed PR head SHA before and after fetching that patch, so it rejects a diff if the PR changes during the read.
 When the CLI cannot access the repository, a connected GitHub App can also load the PR patch. It selects the required tools on one account link and checks the PR head before and after fetching the diff.
 The connected App can also display PR comments and reviews through its read tools. These reads use one account link and reject activity when the PR head changes during acquisition.
+For an open PR, the App path reads checks through `get_pr_statuses`, validates the viewer login, repository, PR URL, and head revision, and keeps incomplete check sets distinct from an empty completed set.
 
 The PR panel lists exact GitHub revision commits and loads the selected commit's diff. The Server can also read text file content at the selected base and head revisions; it returns unavailable for binary or oversized files. Each revision read checks the displayed PR head before and after the request.
 

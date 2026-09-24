@@ -169,6 +169,9 @@ export const GitHubPullRequestChecksSchema = z.array(
     })
     .strict()
 )
+export const GitHubAppPrChecksSchema = z
+  .object({ checks: GitHubPullRequestChecksSchema, complete: z.boolean() })
+  .strict()
 export const GitHubPullRequestActivitySchema = z
   .object({
     comments: z.array(
@@ -611,6 +614,17 @@ export const GitHubAppPrDiffRequestSchema = input(
 )
 export const GitHubAppPrActivityRequestSchema = input(
   "git.github-app-pr-activity.request",
+  z
+    .object({
+      cwd: path,
+      threadId: ProjectThreadIdSchema,
+      number: z.number().int().positive(),
+      expectedHead: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    })
+    .strict()
+)
+export const GitHubAppPrChecksRequestSchema = input(
+  "git.github-app-pr-checks.request",
   z
     .object({
       cwd: path,
@@ -1115,6 +1129,10 @@ export const GitHubAppPrActivityResponseSchema = output(
   "git.github-app-pr-activity.response",
   GitHubPullRequestActivitySchema
 )
+export const GitHubAppPrChecksResponseSchema = output(
+  "git.github-app-pr-checks.response",
+  GitHubAppPrChecksSchema
+)
 export const GitHubPrListResponseSchema = output(
   "git.github-pr-list.response",
   z.array(GitHubPullRequestSchema)
@@ -1295,6 +1313,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitHubAppPrReadRequestSchema,
   GitHubAppPrDiffRequestSchema,
   GitHubAppPrActivityRequestSchema,
+  GitHubAppPrChecksRequestSchema,
   GitHubPrListRequestSchema,
   GitHubPrReadRequestSchema,
   GitHubPrForBranchRequestSchema,
@@ -1376,6 +1395,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitHubAppPrReadResponseSchema,
   GitHubAppPrDiffResponseSchema,
   GitHubAppPrActivityResponseSchema,
+  GitHubAppPrChecksResponseSchema,
   GitHubPrListResponseSchema,
   GitHubPrReadResponseSchema,
   GitHubPrForBranchResponseSchema,
@@ -1435,6 +1455,7 @@ export type GitWorktree = z.infer<typeof GitWorktreeSchema>
 export type GitHubAvailability = z.infer<typeof GitHubAvailabilitySchema>
 export type GitHubAppAvailability = z.infer<typeof GitHubAppAvailabilitySchema>
 export type GitHubAppCreatedPullRequest = z.infer<typeof GitHubAppCreatedPullRequestSchema>
+export type GitHubAppPrChecks = z.infer<typeof GitHubAppPrChecksSchema>
 export type GitHubAppPullRequestSummary = z.infer<typeof GitHubAppPullRequestSummarySchema>
 export type GitHubAppPullRequest = z.infer<typeof GitHubAppPullRequestSchema>
 export type GitHubPullRequest = z.infer<typeof GitHubPullRequestSchema>
