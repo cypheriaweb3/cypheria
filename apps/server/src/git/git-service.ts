@@ -315,7 +315,11 @@ export class GitService {
           )
           break
         case "git.github-app-pr-list.request":
-          value = await this.githubAppPrList(message.payload.cwd, message.payload.threadId)
+          value = await this.githubAppPrList(
+            message.payload.cwd,
+            message.payload.threadId,
+            message.payload
+          )
           break
         case "git.github-app-pr-read.request":
           value = await this.githubAppPrRead(
@@ -868,11 +872,17 @@ export class GitService {
 
   async githubAppPrList(
     cwd: string,
-    threadId: string
+    threadId: string,
+    options: {
+      state?: "open" | "closed" | "merged" | "all"
+      scope?: "all" | "authored" | "reviewing"
+      query?: string
+      limit?: number
+    } = {}
   ): Promise<{ items: GitHubAppPullRequestSummary[]; truncated: boolean }> {
     if (!this.#githubApp) throw new Error("GitHub app is unavailable")
     const { root, nativeThreadId } = await this.#codexThreadRepository(cwd, threadId)
-    return this.#githubApp.list(root, nativeThreadId)
+    return this.#githubApp.list(root, nativeThreadId, options)
   }
 
   async githubAppPrRead(

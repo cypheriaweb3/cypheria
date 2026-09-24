@@ -194,6 +194,12 @@ export interface GitActions {
   githubAppPrList(
     cwd: string,
     threadId: string,
+    input?: {
+      state?: "open" | "closed" | "merged" | "all"
+      scope?: "all" | "authored" | "reviewing"
+      query?: string
+      limit?: number
+    },
     options?: RequestOptions
   ): Promise<{ items: GitHubAppPullRequestSummary[]; truncated: boolean }>
   githubAppPrRead(
@@ -606,8 +612,14 @@ export const createGitActions = (client: ServerClient): GitActions => ({
         options
       )
     ),
-  githubAppPrList: async (cwd, threadId, options) =>
-    unwrap(await client.requestGit("git.github-app-pr-list.request", { cwd, threadId }, options)),
+  githubAppPrList: async (cwd, threadId, input = {}, options) =>
+    unwrap(
+      await client.requestGit(
+        "git.github-app-pr-list.request",
+        { cwd, threadId, ...input },
+        options
+      )
+    ),
   githubAppPrRead: async (cwd, threadId, number, options) =>
     unwrap(
       await client.requestGit("git.github-app-pr-read.request", { cwd, threadId, number }, options)

@@ -95,6 +95,7 @@ The connected App can also display PR comments and reviews through its read tool
 For an open PR, the App path reads checks through `get_pr_statuses`, validates the viewer login, repository, PR URL, and head revision, and keeps incomplete check sets distinct from an empty completed set.
 The App path can also display inline review threads and their comments through `list_pull_request_review_threads`, checking the PR head before and after the read. Thread mutations remain on the CLI path.
 For private images embedded in a PR body, the App path uses `download_user_content` on the same repository account link. Server accepts only the private GitHub image host, validates the PR head before and after download, and returns supported images up to 4 MiB for inline display.
+The App PR list accepts the panel's text, lifecycle, and involvement filters. It uses the connected account login for authored or review-requested searches, queries open and closed states separately when needed, validates every returned PR URL against the repository, and shows at most 100 latest results.
 
 The PR panel lists exact GitHub revision commits and loads the selected commit's diff. The Server can also read text file content at the selected base and head revisions; it returns unavailable for binary or oversized files. Each revision read checks the displayed PR head before and after the request.
 

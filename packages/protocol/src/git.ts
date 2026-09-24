@@ -621,7 +621,16 @@ export const GitHubAppPrCreateRequestSchema = input(
 )
 export const GitHubAppPrListRequestSchema = input(
   "git.github-app-pr-list.request",
-  z.object({ cwd: path, threadId: ProjectThreadIdSchema }).strict()
+  z
+    .object({
+      cwd: path,
+      threadId: ProjectThreadIdSchema,
+      state: z.enum(["open", "closed", "merged", "all"]).optional(),
+      scope: z.enum(["all", "authored", "reviewing"]).optional(),
+      query: z.string().max(200).optional(),
+      limit: z.number().int().min(1).max(100).optional(),
+    })
+    .strict()
 )
 export const GitHubAppPrReadRequestSchema = input(
   "git.github-app-pr-read.request",

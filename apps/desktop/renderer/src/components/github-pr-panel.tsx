@@ -170,7 +170,12 @@ export function GitHubPrPanel({
         return { items, truncated: items.length === prListLimit }
       }
       if (!threadId) throw new Error("A local Codex thread is required")
-      return git.githubAppPrList(cwd, threadId)
+      return git.githubAppPrList(cwd, threadId, {
+        state: prListState,
+        scope: prListScope,
+        query: prSearchQuery,
+        limit: Math.min(prListLimit, 100),
+      })
     },
     retry: false,
   })
@@ -620,7 +625,7 @@ export function GitHubPrPanel({
           <AlertDescription>{appAvailability.data.error}</AlertDescription>
         </Alert>
       ) : null}
-      {cliAvailable ? (
+      {cliAvailable || appAvailability.data?.canRead ? (
         <div className="flex flex-wrap gap-2">
           <Input
             aria-label={i18n._(msg({ id: "git.github.search", message: "Search pull requests" }))}

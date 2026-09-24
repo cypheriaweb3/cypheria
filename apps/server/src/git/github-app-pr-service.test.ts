@@ -131,6 +131,69 @@ describe("GitHubAppPrService", () => {
     )
   })
 
+  it("filters connector PR searches by lifecycle, involvement, and text", async () => {
+    const { service, call, select } = fixture(undefined, undefined, undefined, {
+      get_user_login: { login: "tester" },
+      search_prs: {
+        issues: [
+          { issue_number: 42, title: "Fix bug", url: "https://github.com/org/repo/pull/42" },
+        ],
+        total_count: 1,
+      },
+    })
+    expect(
+      await service.list("/repo", "thread", {
+        state: "all",
+        scope: "reviewing",
+        query: "bug",
+        limit: 10,
+      })
+    ).toEqual({
+      items: [
+        { number: 42, title: "Fix bug", url: "https://github.com/org/repo/pull/42", updatedAt: "" },
+      ],
+      truncated: false,
+    })
+    expect(select).toHaveBeenCalledWith("connector_76869538009648d5b282a4bb21c3d157", "github", [
+      "get_repo",
+      "search_prs",
+      "get_user_login",
+    ])
+    const searches = call.mock.calls.filter((args) => args[3] === "search_prs")
+    expect(searches).toHaveLength(3)
+    expect(call).toHaveBeenCalledWith(
+      expect.any(Object),
+      "thread",
+      "github",
+      "search_prs",
+      expect.objectContaining({
+        query: "is:pr archived:false bug review-requested:tester",
+        state: "open",
+        topn: 10,
+      })
+    )
+    expect(call).toHaveBeenCalledWith(
+      expect.any(Object),
+      "thread",
+      "github",
+      "search_prs",
+      expect.objectContaining({
+        query: "is:pr archived:false bug review-requested:tester is:merged",
+        state: "closed",
+      })
+    )
+    expect(call).toHaveBeenCalledWith(
+      expect.any(Object),
+      "thread",
+      "github",
+      "search_prs",
+      expect.objectContaining({
+        query: "is:pr archived:false bug review-requested:tester -is:merged",
+        state: "closed",
+      })
+    )
+  })
+
   it("reads a connector PR diff with one account link and a pinned head", async () => {
     const head = "a".repeat(40)
     const info = {

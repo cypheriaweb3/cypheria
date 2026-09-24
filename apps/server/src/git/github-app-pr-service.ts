@@ -309,31 +309,102 @@ export class GitHubAppPrService {
 
   async list(
     root: string,
-    nativeThreadId: string
+    nativeThreadId: string,
+    options: {
+      state?: "open" | "closed" | "merged" | "all"
+      scope?: "all" | "authored" | "reviewing"
+      query?: string
+      limit?: number
+    } = {}
   ): Promise<{
     items: Array<{ number: number; title: string; url: string; updatedAt: string }>
     truncated: boolean
   }> {
-    const { repository, selection } = await this.#context(root, nativeThreadId, ["search_prs"])
-    const page = searchResponse.parse(
-      await this.#apps.call(selection, nativeThreadId, "github", "search_prs", {
-        query: "is:pr archived:false",
-        state: "open",
-        order: "desc",
-        sort: "updated",
-        topn: 20,
-        repository_full_name: repository,
+    const state = options.state ?? "open"
+    const scope = options.scope ?? "all"
+    const limit = options.limit ?? 100
+    if (
+      !Number.isSafeInteger(limit) ||
+      limit < 1 ||
+      limit > 100 ||
+      (options.query?.length ?? 0) > 200
+    )
+      throw new Error("Invalid GitHub pull request search")
+    const { repository, selection } = await this.#context(
+      root,
+      nativeThreadId,
+      scope === "all" ? ["search_prs"] : ["search_prs", "get_user_login"]
+    )
+    const login =
+      scope === "all"
+        ? null
+        : z
+            .object({ login: z.string().min(1) })
+            .parse(await this.#apps.call(selection, nativeThreadId, "github", "get_user_login", {}))
+            .login
+    const baseQuery = [
+      "is:pr",
+      "archived:false",
+      options.query?.trim() || "",
+      login ? (scope === "authored" ? `author:${login}` : `review-requested:${login}`) : "",
+    ]
+      .filter(Boolean)
+      .join(" ")
+    const searches =
+      state === "all"
+        ? [
+            { state: "open", query: baseQuery },
+            { state: "closed", query: `${baseQuery} is:merged` },
+            { state: "closed", query: `${baseQuery} -is:merged` },
+          ]
+        : [
+            {
+              state: state === "open" ? "open" : "closed",
+              query:
+                state === "merged"
+                  ? `${baseQuery} is:merged`
+                  : state === "closed"
+                    ? `${baseQuery} -is:merged`
+                    : baseQuery,
+            },
+          ]
+    const pages = await Promise.all(
+      searches.map(async (search) => {
+        const page = searchResponse.parse(
+          await this.#apps.call(selection, nativeThreadId, "github", "search_prs", {
+            query: search.query,
+            state: search.state,
+            order: "desc",
+            sort: "updated",
+            topn: limit,
+            repository_full_name: repository,
+          })
+        )
+        if (page.issues.length > limit)
+          throw new Error("The GitHub app returned too many pull requests")
+        for (const issue of page.issues) checkedPrUrl(repository, issue.issue_number, issue.url)
+        return page
       })
     )
-    if (page.issues.length > 20) throw new Error("The GitHub app returned too many pull requests")
+    const issues = [
+      ...new Map(
+        pages.flatMap((page) => page.issues).map((issue) => [issue.issue_number, issue])
+      ).values(),
+    ].sort((left, right) => (right.updated_at ?? "").localeCompare(left.updated_at ?? ""))
     return {
-      items: page.issues.map((issue) => ({
+      items: issues.slice(0, limit).map((issue) => ({
         number: issue.issue_number,
         title: issue.title ?? `Pull request #${issue.issue_number}`,
         url: checkedPrUrl(repository, issue.issue_number, issue.url),
         updatedAt: issue.updated_at ?? "",
       })),
-      truncated: (page.total_count ?? page.issues.length) > page.issues.length,
+      truncated:
+        issues.length > limit ||
+        pages.some((page) =>
+          page.total_count === undefined
+            ? page.issues.length === limit
+            : page.total_count > page.issues.length
+        ),
     }
   }
 
