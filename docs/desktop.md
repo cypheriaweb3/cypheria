@@ -114,13 +114,13 @@ The CLI path also reads paginated review threads and replies, posts a comment on
 
 The CLI PR list supports state and text search, created-by-me and review-requested scopes, and loading additional results in batches of 100 up to 500. GitHub App results retain the connector's available scope and limit.
 
-The CLI also queries the current branch's authored PR independently of the list. It favors an open PR, otherwise a merged PR, so a PR outside the current list remains available and a second open PR is not offered for the same branch.
+The CLI also queries the current branch's PR independently of the list, regardless of its author. It favors an open PR, otherwise a merged PR, so a PR outside the current list remains available and a second open PR is not offered for the same branch. If creation has an uncertain outcome, the panel checks the branch again on the CLI path; otherwise it requires the user to check GitHub before retrying.
 
 For an open PR in a local Codex thread, **Fix PR** starts a turn in that thread with the PR URL and guarded repair instructions. **Watch and fix** creates a persistent Server schedule that runs the same thread every ten minutes. The watch prompt uses the saved auto-merge, merge-method, and custom watch instructions at creation time; the PR panel can pause and resume the schedule. Runs report a closed or merged PR without making changes, while the schedule remains available for the user to pause.
 
 Managed worktrees persist an optional owner Thread ID in Cypheria's worktree metadata. The Server checks that an assigned local Codex thread belongs to the same repository and currently uses that worktree. A worktree with an owner cannot be deleted until its owner moves away.
 
-The Review panel can move an idle local Codex thread between its checkout and an active managed worktree. The Server rejects a move during a turn or pending interaction, resumes the native thread at the destination, updates worktree ownership, and restores the prior directory if the move fails. Moving the thread changes its working directory; local uncommitted files remain in their original directory.
+The Review panel can move an idle local Codex thread between its checkout and an active managed worktree. The Server rejects a move during a turn or pending interaction, resumes the native thread at the destination, updates worktree ownership, and restores the prior directory if the move fails. The move can optionally copy local changes when both checkouts have the same HEAD and the destination is clean; the source files remain available.
 When the thread starts in a repository subdirectory, the Server moves it to the same relative directory in the target worktree. It rejects missing directories and paths that resolve outside the target worktree.
 The Review panel can create a detached managed worktree from `HEAD` or a selected local or remote branch. The source checkout stays on its current branch.
 When creating it, Server copies ignored `AGENTS.override.md` files and ignored regular files selected by the source root's `.worktreeinclude`. It skips symlinks and existing destination files.

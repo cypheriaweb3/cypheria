@@ -78,6 +78,7 @@ export function GitHubPrPanel({
   const [selectedAttributesPath, setSelectedAttributesPath] = useState<string | null>(null)
   const [mergeOpen, setMergeOpen] = useState(false)
   const [closeOpen, setCloseOpen] = useState(false)
+  const [createNeedsReview, setCreateNeedsReview] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const gitSettings = useQuery({
@@ -1748,6 +1749,24 @@ export function GitHubPrPanel({
               </Trans>
             </p>
           ) : null}
+          {createNeedsReview ? (
+            <Alert variant="destructive">
+              <AlertDescription className="flex flex-wrap items-center gap-2">
+                <Trans id="git.github.createUncertain">
+                  The result of the create request is uncertain. Check GitHub for an existing pull
+                  request before trying again.
+                </Trans>
+                <Button
+                  onClick={() => setCreateNeedsReview(false)}
+                  size="sm"
+                  type="button"
+                  variant="outline"
+                >
+                  <Trans id="git.github.checkedRemote">I checked GitHub</Trans>
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : null}
           <Input
             aria-label={i18n._(msg({ id: "git.github.base", message: "Base branch" }))}
             onChange={(event) => setBase(event.target.value)}
@@ -1770,7 +1789,12 @@ export function GitHubPrPanel({
           <div className="flex flex-wrap gap-2">
             <Button
               disabled={
-                busy || !branch || !base.trim() || !title.trim() || branchPr.data?.state === "OPEN"
+                busy ||
+                createNeedsReview ||
+                !branch ||
+                !base.trim() ||
+                !title.trim() ||
+                branchPr.data?.state === "OPEN"
               }
               onClick={() =>
                 void mutate(async () => {
@@ -1783,15 +1807,29 @@ export function GitHubPrPanel({
                     body,
                     draft,
                   }
-                  if (cliAvailable) {
-                    const created = await git.githubPrCreate(cwd, input)
-                    selectPullRequest(created.number)
-                  } else {
-                    if (!threadId) throw new Error("A local Codex thread is required")
-                    const created = await git.githubAppPrCreate(cwd, threadId, input)
-                    selectPullRequest(created.number)
-                    await openExternal(created.url)
+                  try {
+                    if (cliAvailable) {
+                      const created = await git.githubPrCreate(cwd, input)
+                      selectPullRequest(created.number)
+                    } else {
+                      if (!threadId) throw new Error("A local Codex thread is required")
+                      const created = await git.githubAppPrCreate(cwd, threadId, input)
+                      selectPullRequest(created.number)
+                      await openExternal(created.url)
+                    }
+                  } catch (cause) {
+                    if (cliAvailable) {
+                      const existing = await git.githubPrForBranch(cwd, branch).catch(() => null)
+                      if (existing?.state === "OPEN") {
+                        selectPullRequest(existing.number)
+                        setCreateNeedsReview(false)
+                        return
+                      }
+                    }
+                    setCreateNeedsReview(true)
+                    throw cause
                   }
+                  setCreateNeedsReview(false)
                   setTitle("")
                   setBody("")
                 })

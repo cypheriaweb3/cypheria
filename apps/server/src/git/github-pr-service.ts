@@ -184,8 +184,6 @@ export class GitHubPrService {
           "list",
           "--head",
           branchName,
-          "--author",
-          "@me",
           "--state",
           "all",
           "--limit",
