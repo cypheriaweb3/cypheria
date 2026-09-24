@@ -21,6 +21,7 @@ import type { DynamicToolCallOutputContentItem } from "./DynamicToolCallOutputCo
 import type { DynamicToolCallStatus } from "./DynamicToolCallStatus.ts";
 import type { FileUpdateChange } from "./FileUpdateChange.ts";
 import type { HookPromptFragment } from "./HookPromptFragment.ts";
+import type { McpAppUi } from "./McpAppUi.ts";
 import type { McpToolCallAppContext } from "./McpToolCallAppContext.ts";
 import type { McpToolCallError } from "./McpToolCallError.ts";
 import type { McpToolCallResult } from "./McpToolCallResult.ts";
@@ -70,9 +71,13 @@ exitCode: number | null,
  */
 durationMs: number | null, } | { "type": "fileChange", id: string, changes: Array<FileUpdateChange>, status: PatchApplyStatus, } | { "type": "mcpToolCall", id: string, server: string, tool: string, status: McpToolCallStatus, arguments: JsonValue, appContext: McpToolCallAppContext | null,
 /**
- * Deprecated: use `appContext.resourceUri` instead.
+ * Legacy compatibility field; prefer `mcpAppUi.resourceUri` when available.
  */
-mcpAppResourceUri?: string, pluginId: string | null, readOnlyHint: boolean | null, result: McpToolCallResult | null, error: McpToolCallError | null,
+mcpAppResourceUri?: string,
+/**
+ * Presentation captured from the invoked descriptor; absent in older history.
+ */
+mcpAppUi: McpAppUi | null, pluginId: string | null, readOnlyHint: boolean | null, result: McpToolCallResult | null, error: McpToolCallError | null,
 /**
  * The duration of the MCP tool call in milliseconds.
  */

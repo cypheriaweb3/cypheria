@@ -100,6 +100,7 @@ const responseTypeOverrides = {
   "externalAgentConfig/import/readHistories": "ExternalAgentConfigImportHistoriesReadResponse",
   "memory/reset": "MemoryResetResponse",
   "remoteControl/status/read": "RemoteControlStatusReadResponse",
+  "rollout/compress": "RolloutCompressResponse",
   "windowsSandbox/readiness": "WindowsSandboxReadinessResponse",
 }
 

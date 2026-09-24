@@ -25,16 +25,16 @@ The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method
 ### userVerification
 
 - `userVerification/status` — Read status for userVerification. Input: `UserVerificationStatusParams`: `{}`. Output: `UserVerificationStatusResponse`: `credentialId?`, `unavailableMessage?`, `unavailableReason?`.
-- `userVerification/enroll` — Perform userVerification/enroll. Input: `UserVerificationEnrollParams`: `{}`. Output: `UserVerificationEnrollResponse`: `credentialId`.
+- `userVerification/enroll` — Perform userVerification/enroll. Input: `UserVerificationEnrollParams`: `{}`. Output: `UserVerificationEnrollResponse`: `algorithm?`, `credentialId`, `publicKey?`.
 - `userVerification/delete` — Delete userVerification. Input: `UserVerificationDeleteParams`: `{}`. Output: `UserVerificationDeleteResponse`: `{}`.
 - `userVerification/verify` — Perform userVerification/verify. Input: `UserVerificationVerifyParams`: `challenge`, `description`, `title`. Output: `UserVerificationVerifyResponse`: `proof`.
 - `userVerification/cancel` — Cancel userVerification. Input: `UserVerificationCancelParams`: `requestId`. Output: `UserVerificationCancelResponse`: `{}`.
 
 ### Thread
 
-- `thread/start` — Start thread. Input: `ThreadStartParams`: `allowProviderModelFallback?`, `approvalPolicy?`, `approvalsReviewer?`, `baseInstructions?`, `config?`, `cwd?`, `developerInstructions?`, `dynamicTools?`, `environments?`, `ephemeral?`, `experimentalRawEvents?`, `historyMode?`, `mockExperimentalField?`, `model?`, `modelProvider?`, `multiAgentMode?`, `permissions?`, `personality?`, `projectId?`, `runtimeWorkspaceRoots?`, `sandbox?`, `selectedCapabilityRoots?`, `serviceName?`, `serviceTier?`, `sessionStartSource?`, `threadSource?`. Output: `ThreadStartResponse`: `activePermissionProfile?`, `approvalPolicy`, `approvalsReviewer`, `cwd`, `instructionSources?`, `model`, `modelProvider`, `multiAgentMode?`, `reasoningEffort?`, `runtimeWorkspaceRoots?`, `sandbox`, `serviceTier?`, `thread`.
-- `thread/resume` — Resume thread. Input: `ThreadResumeParams`: `approvalPolicy?`, `approvalsReviewer?`, `baseInstructions?`, `config?`, `cwd?`, `developerInstructions?`, `excludeTurns?`, `history?`, `initialTurnsPage?`, `model?`, `modelProvider?`, `path?`, `permissions?`, `personality?`, `runtimeWorkspaceRoots?`, `sandbox?`, `serviceTier?`, `threadId`. Output: `ThreadResumeResponse`: `activePermissionProfile?`, `approvalPolicy`, `approvalsReviewer`, `cwd`, `initialTurnsPage?`, `instructionSources?`, `itemsBackwardsCursor?`, `model`, `modelProvider`, `multiAgentMode?`, `reasoningEffort?`, `runtimeWorkspaceRoots?`, `sandbox`, `serviceTier?`, `thread`, `turnsBackwardsCursor?`.
-- `thread/fork` — Fork thread. Input: `ThreadForkParams`: `approvalPolicy?`, `approvalsReviewer?`, `baseInstructions?`, `beforeTurnId?`, `config?`, `cwd?`, `deferGoalContinuation?`, `developerInstructions?`, `ephemeral?`, `excludeTurns?`, `lastTurnId?`, `model?`, `modelProvider?`, `path?`, `permissions?`, `runtimeWorkspaceRoots?`, `sandbox?`, `serviceTier?`, `threadId`, `threadSource?`. Output: `ThreadForkResponse`: `activePermissionProfile?`, `approvalPolicy`, `approvalsReviewer`, `cwd`, `instructionSources?`, `model`, `modelProvider`, `multiAgentMode?`, `reasoningEffort?`, `runtimeWorkspaceRoots?`, `sandbox`, `serviceTier?`, `thread`.
+- `thread/start` — Start thread. Input: `ThreadStartParams`: `allowProviderModelFallback?`, `approvalPolicy?`, `approvalsReviewer?`, `baseInstructions?`, `config?`, `cwd?`, `daybreakEnabled?`, `developerInstructions?`, `dynamicTools?`, `environments?`, `ephemeral?`, `experimentalRawEvents?`, `historyMode?`, `mockExperimentalField?`, `model?`, `modelProvider?`, `multiAgentMode?`, `permissions?`, `personality?`, `projectId?`, `runtimeWorkspaceRoots?`, `sandbox?`, `selectedCapabilityRoots?`, `serviceName?`, `serviceTier?`, `sessionStartSource?`, `threadSource?`. Output: `ThreadStartResponse`: `activePermissionProfile?`, `approvalPolicy`, `approvalsReviewer`, `cwd`, `disabledPluginIds?`, `instructionSources?`, `model`, `modelProvider`, `multiAgentMode?`, `reasoningEffort?`, `runtimeWorkspaceRoots?`, `sandbox`, `serviceTier?`, `thread`.
+- `thread/resume` — Resume thread. Input: `ThreadResumeParams`: `approvalPolicy?`, `approvalsReviewer?`, `baseInstructions?`, `config?`, `cwd?`, `developerInstructions?`, `excludeTurns?`, `history?`, `initialTurnsPage?`, `model?`, `modelProvider?`, `path?`, `permissions?`, `personality?`, `runtimeWorkspaceRoots?`, `sandbox?`, `serviceTier?`, `threadId`. Output: `ThreadResumeResponse`: `activePermissionProfile?`, `approvalPolicy`, `approvalsReviewer`, `collaborationMode?`, `cwd`, `disabledPluginIds?`, `initialTurnsPage?`, `instructionSources?`, `itemsBackwardsCursor?`, `model`, `modelProvider`, `multiAgentMode?`, `reasoningEffort?`, `runtimeWorkspaceRoots?`, `sandbox`, `serviceTier?`, `thread`, `turnsBackwardsCursor?`.
+- `thread/fork` — Fork thread. Input: `ThreadForkParams`: `approvalPolicy?`, `approvalsReviewer?`, `baseInstructions?`, `beforeTurnId?`, `config?`, `cwd?`, `deferGoalContinuation?`, `developerInstructions?`, `ephemeral?`, `excludeTurns?`, `lastTurnId?`, `model?`, `modelProvider?`, `path?`, `permissions?`, `runtimeWorkspaceRoots?`, `sandbox?`, `serviceTier?`, `threadId`, `threadSource?`. Output: `ThreadForkResponse`: `activePermissionProfile?`, `approvalPolicy`, `approvalsReviewer`, `cwd`, `disabledPluginIds?`, `instructionSources?`, `model`, `modelProvider`, `multiAgentMode?`, `reasoningEffort?`, `runtimeWorkspaceRoots?`, `sandbox`, `serviceTier?`, `thread`.
 - `thread/archive` — Archive thread. Input: `ThreadArchiveParams`: `threadId`. Output: `ThreadArchiveResponse`: `{}`.
 - `thread/delete` — Delete thread. Input: `ThreadDeleteParams`: `threadId`. Output: `ThreadDeleteResponse`: `{}`.
 - `thread/unsubscribe` — Unsubscribe from thread. Input: `ThreadUnsubscribeParams`: `threadId`. Output: `ThreadUnsubscribeResponse`: `status`.
@@ -55,7 +55,7 @@ The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method
 - `thread/attachment/list` — List thread attachment. Input: `ThreadAttachmentListParams`: `cursor?`, `limit?`, `threadId`. Output: `ThreadAttachmentListResponse`: `data`, `nextCursor?`.
 - `thread/attachment/remove` — Remove thread attachment. Input: `ThreadAttachmentRemoveParams`: `attachmentType`, `identityKey`, `threadId`. Output: `ThreadAttachmentRemoveResponse`: `{}`.
 - `thread/section/move` — Move thread section. Input: `ThreadSectionMoveParams`: `beforeThreadId?`, `sectionId`, `threadId`. Output: `ThreadSectionMoveResponse`: `{}`.
-- `thread/settings/update` — Update thread settings. Input: `ThreadSettingsUpdateParams`: `approvalPolicy?`, `approvalsReviewer?`, `collaborationMode?`, `cwd?`, `effort?`, `model?`, `multiAgentMode?`, `permissions?`, `personality?`, `sandboxPolicy?`, `serviceTier?`, `summary?`, `threadId`. Output: `ThreadSettingsUpdateResponse`: `{}`.
+- `thread/settings/update` — Update thread settings. Input: `ThreadSettingsUpdateParams`: `approvalPolicy?`, `approvalsReviewer?`, `collaborationMode?`, `cwd?`, `disabledPluginIds?`, `effort?`, `model?`, `multiAgentMode?`, `permissions?`, `personality?`, `sandboxPolicy?`, `serviceTier?`, `summary?`, `threadId`. Output: `ThreadSettingsUpdateResponse`: `{}`.
 - `thread/memoryMode/set` — Set thread memoryMode. Input: `ThreadMemoryModeSetParams`: `mode`, `threadId`. Output: `ThreadMemoryModeSetResponse`: `{}`.
 - `thread/unarchive` — Unarchive thread. Input: `ThreadUnarchiveParams`: `threadId`. Output: `ThreadUnarchiveResponse`: `thread`.
 - `thread/compact/start` — Start thread compact. Input: `ThreadCompactStartParams`: `threadId`. Output: `ThreadCompactStartResponse`: `{}`.
@@ -64,7 +64,6 @@ The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method
 - `thread/backgroundTerminals/clean` — Clean thread backgroundTerminals. Input: `ThreadBackgroundTerminalsCleanParams`: `threadId`. Output: `ThreadBackgroundTerminalsCleanResponse`: `{}`.
 - `thread/backgroundTerminals/list` — List thread backgroundTerminals. Input: `ThreadBackgroundTerminalsListParams`: `cursor?`, `limit?`, `threadId`. Output: `ThreadBackgroundTerminalsListResponse`: `data`, `nextCursor?`.
 - `thread/backgroundTerminals/terminate` — Terminate thread backgroundTerminals. Input: `ThreadBackgroundTerminalsTerminateParams`: `processId`, `threadId`. Output: `ThreadBackgroundTerminalsTerminateResponse`: `terminated`.
-- `thread/rollback` — Roll back thread. Input: `ThreadRollbackParams`: `numTurns`, `threadId`. Output: `ThreadRollbackResponse`: `thread`.
 - `thread/revert` — Revert thread. Input: `ThreadRevertParams`: `beforeTurnId`, `threadId`. Output: `ThreadRevertResponse`: `itemsBackwardsCursor?`, `thread`, `turnsBackwardsCursor?`.
 - `thread/list` — List thread. Input: `ThreadListParams`: `ancestorThreadId?`, `archived?`, `cursor?`, `cwd?`, `limit?`, `modelProviders?`, `originators?`, `parentThreadId?`, `projectId?`, `searchTerm?`, `sectionId?`, `sortDirection?`, `sortKey?`, `sourceKinds?`, `useStateDbOnly?`. Output: `ThreadListResponse`: `backwardsCursor?`, `data`, `nextCursor?`.
 - `thread/search` — Search thread. Input: `ThreadSearchParams`: `archived?`, `cursor?`, `limit?`, `searchTerm`, `sortDirection?`, `sortKey?`, `sourceKinds?`. Output: `ThreadSearchResponse`: `backwardsCursor?`, `data`, `nextCursor?`.
@@ -86,6 +85,10 @@ The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method
 
 - `memory/status` — Read status for memory. Input: `MemoryStatusParams`: `minConsolidatedThreads?`. Output: `MemoryStatusResponse`: `v2ConsolidatedThreads`, `v2Ready`.
 - `memory/reset` — Reset memory. Input: `undefined` (omit `params`). Output: `MemoryResetResponse`: `{}`.
+
+### rollout
+
+- `rollout/compress` — Perform rollout/compress. Input: `undefined` (omit `params`). Output: `RolloutCompressResponse`: `{}`.
 
 ### Project
 
@@ -156,7 +159,7 @@ The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method
 
 ### Turn
 
-- `turn/start` — Start turn. Input: `TurnStartParams`: `additionalContext?`, `approvalPolicy?`, `approvalsReviewer?`, `clientUserMessageId?`, `collaborationMode?`, `cwd?`, `cyberAccessProgram?`, `effort?`, `environments?`, `input`, `model?`, `multiAgentMode?`, `outputSchema?`, `permissions?`, `personality?`, `responsesapiClientMetadata?`, `runtimeWorkspaceRoots?`, `sandboxPolicy?`, `serviceTier?`, `serviceTierForTurn?`, `summary?`, `threadId`, `toolOutput?`, `turnTrigger?`. Output: `TurnStartResponse`: `turn`.
+- `turn/start` — Start turn. Input: `TurnStartParams`: `additionalContext?`, `approvalPolicy?`, `approvalsReviewer?`, `clientUserMessageId?`, `collaborationMode?`, `cwd?`, `cyberAccessProgram?`, `disabledPluginIds?`, `effort?`, `environments?`, `input`, `model?`, `multiAgentMode?`, `outputSchema?`, `permissions?`, `personality?`, `responsesapiClientMetadata?`, `runtimeWorkspaceRoots?`, `sandboxPolicy?`, `serviceTier?`, `serviceTierForTurn?`, `summary?`, `threadId`, `toolOutput?`, `turnTrigger?`. Output: `TurnStartResponse`: `turn`.
 - `turn/settings/update` — Update turn settings. Input: `TurnSettingsUpdateParams`: `approvalsReviewer?`, `effort?`, `model?`, `serviceTier?`, `summary?`, `threadId`, `turnId`. Output: `TurnSettingsUpdateResponse`: `status`.
 - `turn/steer` — Steer turn. Input: `TurnSteerParams`: `additionalContext?`, `clientUserMessageId?`, `expectedTurnId`, `input`, `responsesapiClientMetadata?`, `threadId`. Output: `TurnSteerResponse`: `turnId`.
 - `turn/interrupt` — Interrupt turn. Input: `TurnInterruptParams`: `threadId`, `turnId`. Output: `TurnInterruptResponse`: `{}`.
@@ -242,7 +245,7 @@ The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method
 - `account/usage/read` — Read account usage. Input: `GetAccountTokenUsageParams`: `threadId?`; `params` itself is optional. Output: `GetAccountTokenUsageResponse`: `dailyUsageBuckets?`, `summary`, `threadUsage?`.
 - `account/workspaceMessages/read` — Read account workspaceMessages. Input: `undefined` (omit `params`). Output: `GetWorkspaceMessagesResponse`: `featureEnabled`, `messages`.
 - `account/sendAddCreditsNudgeEmail` — Send an add-credits nudge email for account. Input: `SendAddCreditsNudgeEmailParams`: `creditType`. Output: `SendAddCreditsNudgeEmailResponse`: `status`.
-- `account/read` — Read account. Input: `GetAccountParams`: `refreshToken?`. Output: `GetAccountResponse`: `account?`, `requiresOpenaiAuth`.
+- `account/read` — Read account. Input: `GetAccountParams`: `refreshToken?`. Output: `GetAccountResponse`: `account?`, `requiresOpenaiAuth`, `workspaceRouting?`.
 
 ### Feedback
 

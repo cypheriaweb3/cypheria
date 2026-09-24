@@ -241,6 +241,7 @@ const claudeQueryOptionShape = {
     z.array(z.string()),
     z.object({ preset: z.literal("claude_code"), type: z.literal("preset") }),
   ]),
+  verbatimPrompts: z.boolean(),
 } satisfies Record<SerializableOptionKey, z.ZodType>
 
 const ClaudeQueryOptionsObjectSchema = z.strictObject(claudeQueryOptionShape).partial()
@@ -667,6 +668,14 @@ export const AGENT_CLAUDE_RPC = {
     "agent.claude.query.mcp_server.reconnect.response",
     z.strictObject({ ...queryIdParams, serverName: z.string() }),
     emptyResultSchema
+  ),
+  readMcpResource: rpc(
+    "query",
+    "readMcpResource",
+    "agent.claude.query.mcp_resource.read.request",
+    "agent.claude.query.mcp_resource.read.response",
+    z.strictObject({ ...queryIdParams, serverName: z.string(), uri: z.string() }),
+    claudeJsonSchema<QueryMethodResult<"readMcpResource">>()
   ),
   toggleMcpServer: rpc(
     "query",

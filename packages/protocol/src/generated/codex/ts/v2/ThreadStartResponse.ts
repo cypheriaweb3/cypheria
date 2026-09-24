@@ -11,7 +11,11 @@ import type { AskForApproval } from "./AskForApproval.ts";
 import type { SandboxPolicy } from "./SandboxPolicy.ts";
 import type { Thread } from "./Thread.ts";
 
-export type ThreadStartResponse = { thread: Thread, model: string, modelProvider: string, serviceTier: string | null, cwd: AbsolutePathBuf,
+export type ThreadStartResponse = { thread: Thread, model: string, modelProvider: string, serviceTier: string | null,
+/**
+ * Saved list of disabled plugin IDs. Does not yet filter plugin capabilities.
+ */
+disabledPluginIds: Array<string>, cwd: AbsolutePathBuf,
 /**
  * Thread-scoped runtime workspace roots used to materialize
  * `:workspace_roots`.

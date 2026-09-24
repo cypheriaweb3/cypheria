@@ -91,6 +91,7 @@ export type { SubAgentSource } from "./SubAgentSource.ts";
 export type { ThreadId } from "./ThreadId.ts";
 export type { ThreadMemoryMode } from "./ThreadMemoryMode.ts";
 export type { Tool } from "./Tool.ts";
+export type { ToolExposureSurface } from "./ToolExposureSurface.ts";
 export type { Verbosity } from "./Verbosity.ts";
 export type { WebSearchAction } from "./WebSearchAction.ts";
 export type { WebSearchContextSize } from "./WebSearchContextSize.ts";

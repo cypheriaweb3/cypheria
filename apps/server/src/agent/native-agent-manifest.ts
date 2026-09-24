@@ -15,7 +15,7 @@ export type NativeAgentManifestEntry = {
 export const NATIVE_AGENT_MANIFEST = {
   claude: {
     cliPackage: "@anthropic-ai/claude-code",
-    cliVersion: "2.1.278",
+    cliVersion: "2.1.281",
     description:
       "Claude Code is an agentic coding tool that reads codebases, edits files, runs commands, and integrates with development tools.",
     icon: null,
@@ -27,7 +27,7 @@ export const NATIVE_AGENT_MANIFEST = {
   },
   codex: {
     cliPackage: "@openai/codex",
-    cliVersion: "0.155.1",
+    cliVersion: "0.156.1",
     description: "Codex is a coding agent from OpenAI that runs locally on your computer.",
     icon: null,
     launcher: "node",
@@ -38,7 +38,7 @@ export const NATIVE_AGENT_MANIFEST = {
   },
   opencode: {
     cliPackage: "@opencode/cli",
-    cliVersion: "2.0.11",
+    cliVersion: "2.0.16",
     description:
       "OpenCode is an open source agent that helps you write code in your terminal, IDE, or desktop.",
     icon: null,
@@ -50,7 +50,7 @@ export const NATIVE_AGENT_MANIFEST = {
   },
   pi: {
     cliPackage: "@earendil-works/pi-coding-agent",
-    cliVersion: "0.86.1",
+    cliVersion: "0.87.1",
     description: "Pi is a minimal agent harness that adapts to your workflows.",
     icon: null,
     launcher: "node",

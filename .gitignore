@@ -34,3 +34,7 @@ yarn-error.log*
 .vscode/
 
 .artifacts/
+
+# Local agent state
+.claude/worktrees/
+.claude/settings.local.json

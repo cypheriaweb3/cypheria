@@ -294,7 +294,7 @@ describe("ManagedThreadAdapter", () => {
           } else if (message.type === "agent.acp.session.prompt.request") {
             context.send({
               agent: "gemini",
-              payload: { requestId: message.requestId, result: null },
+              payload: { requestId: message.requestId, result: { messageId: "acp-v2-message" } },
               protocolVersion: 2,
               type: "agent.acp.session.prompt.response",
             } as AgentRuntimeServerMessage)

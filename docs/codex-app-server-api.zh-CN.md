@@ -25,16 +25,16 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 ### userVerification
 
 - `userVerification/status` — 读取状态userVerification。 入参: `UserVerificationStatusParams`: `{}`. 出参: `UserVerificationStatusResponse`: `credentialId?`, `unavailableMessage?`, `unavailableReason?`.
-- `userVerification/enroll` — 执行 userVerification/enroll。 入参: `UserVerificationEnrollParams`: `{}`. 出参: `UserVerificationEnrollResponse`: `credentialId`.
+- `userVerification/enroll` — 执行 userVerification/enroll。 入参: `UserVerificationEnrollParams`: `{}`. 出参: `UserVerificationEnrollResponse`: `algorithm?`, `credentialId`, `publicKey?`.
 - `userVerification/delete` — 删除userVerification。 入参: `UserVerificationDeleteParams`: `{}`. 出参: `UserVerificationDeleteResponse`: `{}`.
 - `userVerification/verify` — 执行 userVerification/verify。 入参: `UserVerificationVerifyParams`: `challenge`, `description`, `title`. 出参: `UserVerificationVerifyResponse`: `proof`.
 - `userVerification/cancel` — 取消userVerification。 入参: `UserVerificationCancelParams`: `requestId`. 出参: `UserVerificationCancelResponse`: `{}`.
 
 ### 任务线程
 
-- `thread/start` — 启动任务线程。 入参: `ThreadStartParams`: `allowProviderModelFallback?`, `approvalPolicy?`, `approvalsReviewer?`, `baseInstructions?`, `config?`, `cwd?`, `developerInstructions?`, `dynamicTools?`, `environments?`, `ephemeral?`, `experimentalRawEvents?`, `historyMode?`, `mockExperimentalField?`, `model?`, `modelProvider?`, `multiAgentMode?`, `permissions?`, `personality?`, `projectId?`, `runtimeWorkspaceRoots?`, `sandbox?`, `selectedCapabilityRoots?`, `serviceName?`, `serviceTier?`, `sessionStartSource?`, `threadSource?`. 出参: `ThreadStartResponse`: `activePermissionProfile?`, `approvalPolicy`, `approvalsReviewer`, `cwd`, `instructionSources?`, `model`, `modelProvider`, `multiAgentMode?`, `reasoningEffort?`, `runtimeWorkspaceRoots?`, `sandbox`, `serviceTier?`, `thread`.
-- `thread/resume` — 恢复任务线程。 入参: `ThreadResumeParams`: `approvalPolicy?`, `approvalsReviewer?`, `baseInstructions?`, `config?`, `cwd?`, `developerInstructions?`, `excludeTurns?`, `history?`, `initialTurnsPage?`, `model?`, `modelProvider?`, `path?`, `permissions?`, `personality?`, `runtimeWorkspaceRoots?`, `sandbox?`, `serviceTier?`, `threadId`. 出参: `ThreadResumeResponse`: `activePermissionProfile?`, `approvalPolicy`, `approvalsReviewer`, `cwd`, `initialTurnsPage?`, `instructionSources?`, `itemsBackwardsCursor?`, `model`, `modelProvider`, `multiAgentMode?`, `reasoningEffort?`, `runtimeWorkspaceRoots?`, `sandbox`, `serviceTier?`, `thread`, `turnsBackwardsCursor?`.
-- `thread/fork` — 分叉任务线程。 入参: `ThreadForkParams`: `approvalPolicy?`, `approvalsReviewer?`, `baseInstructions?`, `beforeTurnId?`, `config?`, `cwd?`, `deferGoalContinuation?`, `developerInstructions?`, `ephemeral?`, `excludeTurns?`, `lastTurnId?`, `model?`, `modelProvider?`, `path?`, `permissions?`, `runtimeWorkspaceRoots?`, `sandbox?`, `serviceTier?`, `threadId`, `threadSource?`. 出参: `ThreadForkResponse`: `activePermissionProfile?`, `approvalPolicy`, `approvalsReviewer`, `cwd`, `instructionSources?`, `model`, `modelProvider`, `multiAgentMode?`, `reasoningEffort?`, `runtimeWorkspaceRoots?`, `sandbox`, `serviceTier?`, `thread`.
+- `thread/start` — 启动任务线程。 入参: `ThreadStartParams`: `allowProviderModelFallback?`, `approvalPolicy?`, `approvalsReviewer?`, `baseInstructions?`, `config?`, `cwd?`, `daybreakEnabled?`, `developerInstructions?`, `dynamicTools?`, `environments?`, `ephemeral?`, `experimentalRawEvents?`, `historyMode?`, `mockExperimentalField?`, `model?`, `modelProvider?`, `multiAgentMode?`, `permissions?`, `personality?`, `projectId?`, `runtimeWorkspaceRoots?`, `sandbox?`, `selectedCapabilityRoots?`, `serviceName?`, `serviceTier?`, `sessionStartSource?`, `threadSource?`. 出参: `ThreadStartResponse`: `activePermissionProfile?`, `approvalPolicy`, `approvalsReviewer`, `cwd`, `disabledPluginIds?`, `instructionSources?`, `model`, `modelProvider`, `multiAgentMode?`, `reasoningEffort?`, `runtimeWorkspaceRoots?`, `sandbox`, `serviceTier?`, `thread`.
+- `thread/resume` — 恢复任务线程。 入参: `ThreadResumeParams`: `approvalPolicy?`, `approvalsReviewer?`, `baseInstructions?`, `config?`, `cwd?`, `developerInstructions?`, `excludeTurns?`, `history?`, `initialTurnsPage?`, `model?`, `modelProvider?`, `path?`, `permissions?`, `personality?`, `runtimeWorkspaceRoots?`, `sandbox?`, `serviceTier?`, `threadId`. 出参: `ThreadResumeResponse`: `activePermissionProfile?`, `approvalPolicy`, `approvalsReviewer`, `collaborationMode?`, `cwd`, `disabledPluginIds?`, `initialTurnsPage?`, `instructionSources?`, `itemsBackwardsCursor?`, `model`, `modelProvider`, `multiAgentMode?`, `reasoningEffort?`, `runtimeWorkspaceRoots?`, `sandbox`, `serviceTier?`, `thread`, `turnsBackwardsCursor?`.
+- `thread/fork` — 分叉任务线程。 入参: `ThreadForkParams`: `approvalPolicy?`, `approvalsReviewer?`, `baseInstructions?`, `beforeTurnId?`, `config?`, `cwd?`, `deferGoalContinuation?`, `developerInstructions?`, `ephemeral?`, `excludeTurns?`, `lastTurnId?`, `model?`, `modelProvider?`, `path?`, `permissions?`, `runtimeWorkspaceRoots?`, `sandbox?`, `serviceTier?`, `threadId`, `threadSource?`. 出参: `ThreadForkResponse`: `activePermissionProfile?`, `approvalPolicy`, `approvalsReviewer`, `cwd`, `disabledPluginIds?`, `instructionSources?`, `model`, `modelProvider`, `multiAgentMode?`, `reasoningEffort?`, `runtimeWorkspaceRoots?`, `sandbox`, `serviceTier?`, `thread`.
 - `thread/archive` — 归档任务线程。 入参: `ThreadArchiveParams`: `threadId`. 出参: `ThreadArchiveResponse`: `{}`.
 - `thread/delete` — 删除任务线程。 入参: `ThreadDeleteParams`: `threadId`. 出参: `ThreadDeleteResponse`: `{}`.
 - `thread/unsubscribe` — 取消订阅任务线程。 入参: `ThreadUnsubscribeParams`: `threadId`. 出参: `ThreadUnsubscribeResponse`: `status`.
@@ -55,7 +55,7 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 - `thread/attachment/list` — 列出任务线程的 attachment。 入参: `ThreadAttachmentListParams`: `cursor?`, `limit?`, `threadId`. 出参: `ThreadAttachmentListResponse`: `data`, `nextCursor?`.
 - `thread/attachment/remove` — 移除任务线程的 attachment。 入参: `ThreadAttachmentRemoveParams`: `attachmentType`, `identityKey`, `threadId`. 出参: `ThreadAttachmentRemoveResponse`: `{}`.
 - `thread/section/move` — 移动任务线程的 section。 入参: `ThreadSectionMoveParams`: `beforeThreadId?`, `sectionId`, `threadId`. 出参: `ThreadSectionMoveResponse`: `{}`.
-- `thread/settings/update` — 更新任务线程的 settings。 入参: `ThreadSettingsUpdateParams`: `approvalPolicy?`, `approvalsReviewer?`, `collaborationMode?`, `cwd?`, `effort?`, `model?`, `multiAgentMode?`, `permissions?`, `personality?`, `sandboxPolicy?`, `serviceTier?`, `summary?`, `threadId`. 出参: `ThreadSettingsUpdateResponse`: `{}`.
+- `thread/settings/update` — 更新任务线程的 settings。 入参: `ThreadSettingsUpdateParams`: `approvalPolicy?`, `approvalsReviewer?`, `collaborationMode?`, `cwd?`, `disabledPluginIds?`, `effort?`, `model?`, `multiAgentMode?`, `permissions?`, `personality?`, `sandboxPolicy?`, `serviceTier?`, `summary?`, `threadId`. 出参: `ThreadSettingsUpdateResponse`: `{}`.
 - `thread/memoryMode/set` — 设置任务线程的 memoryMode。 入参: `ThreadMemoryModeSetParams`: `mode`, `threadId`. 出参: `ThreadMemoryModeSetResponse`: `{}`.
 - `thread/unarchive` — 取消归档任务线程。 入参: `ThreadUnarchiveParams`: `threadId`. 出参: `ThreadUnarchiveResponse`: `thread`.
 - `thread/compact/start` — 启动任务线程的 compact。 入参: `ThreadCompactStartParams`: `threadId`. 出参: `ThreadCompactStartResponse`: `{}`.
@@ -64,7 +64,6 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 - `thread/backgroundTerminals/clean` — 清理任务线程的 backgroundTerminals。 入参: `ThreadBackgroundTerminalsCleanParams`: `threadId`. 出参: `ThreadBackgroundTerminalsCleanResponse`: `{}`.
 - `thread/backgroundTerminals/list` — 列出任务线程的 backgroundTerminals。 入参: `ThreadBackgroundTerminalsListParams`: `cursor?`, `limit?`, `threadId`. 出参: `ThreadBackgroundTerminalsListResponse`: `data`, `nextCursor?`.
 - `thread/backgroundTerminals/terminate` — 终止任务线程的 backgroundTerminals。 入参: `ThreadBackgroundTerminalsTerminateParams`: `processId`, `threadId`. 出参: `ThreadBackgroundTerminalsTerminateResponse`: `terminated`.
-- `thread/rollback` — 回滚任务线程。 入参: `ThreadRollbackParams`: `numTurns`, `threadId`. 出参: `ThreadRollbackResponse`: `thread`.
 - `thread/revert` — 还原任务线程。 入参: `ThreadRevertParams`: `beforeTurnId`, `threadId`. 出参: `ThreadRevertResponse`: `itemsBackwardsCursor?`, `thread`, `turnsBackwardsCursor?`.
 - `thread/list` — 列出任务线程。 入参: `ThreadListParams`: `ancestorThreadId?`, `archived?`, `cursor?`, `cwd?`, `limit?`, `modelProviders?`, `originators?`, `parentThreadId?`, `projectId?`, `searchTerm?`, `sectionId?`, `sortDirection?`, `sortKey?`, `sourceKinds?`, `useStateDbOnly?`. 出参: `ThreadListResponse`: `backwardsCursor?`, `data`, `nextCursor?`.
 - `thread/search` — 搜索任务线程。 入参: `ThreadSearchParams`: `archived?`, `cursor?`, `limit?`, `searchTerm`, `sortDirection?`, `sortKey?`, `sourceKinds?`. 出参: `ThreadSearchResponse`: `backwardsCursor?`, `data`, `nextCursor?`.
@@ -86,6 +85,10 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 
 - `memory/status` — 读取状态记忆。 入参: `MemoryStatusParams`: `minConsolidatedThreads?`. 出参: `MemoryStatusResponse`: `v2ConsolidatedThreads`, `v2Ready`.
 - `memory/reset` — 重置记忆。 入参: `undefined`（省略 `params`）. 出参: `MemoryResetResponse`: `{}`.
+
+### rollout
+
+- `rollout/compress` — 执行 rollout/compress。 入参: `undefined`（省略 `params`）. 出参: `RolloutCompressResponse`: `{}`.
 
 ### 项目
 
@@ -156,7 +159,7 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 
 ### 轮次
 
-- `turn/start` — 启动轮次。 入参: `TurnStartParams`: `additionalContext?`, `approvalPolicy?`, `approvalsReviewer?`, `clientUserMessageId?`, `collaborationMode?`, `cwd?`, `cyberAccessProgram?`, `effort?`, `environments?`, `input`, `model?`, `multiAgentMode?`, `outputSchema?`, `permissions?`, `personality?`, `responsesapiClientMetadata?`, `runtimeWorkspaceRoots?`, `sandboxPolicy?`, `serviceTier?`, `serviceTierForTurn?`, `summary?`, `threadId`, `toolOutput?`, `turnTrigger?`. 出参: `TurnStartResponse`: `turn`.
+- `turn/start` — 启动轮次。 入参: `TurnStartParams`: `additionalContext?`, `approvalPolicy?`, `approvalsReviewer?`, `clientUserMessageId?`, `collaborationMode?`, `cwd?`, `cyberAccessProgram?`, `disabledPluginIds?`, `effort?`, `environments?`, `input`, `model?`, `multiAgentMode?`, `outputSchema?`, `permissions?`, `personality?`, `responsesapiClientMetadata?`, `runtimeWorkspaceRoots?`, `sandboxPolicy?`, `serviceTier?`, `serviceTierForTurn?`, `summary?`, `threadId`, `toolOutput?`, `turnTrigger?`. 出参: `TurnStartResponse`: `turn`.
 - `turn/settings/update` — 更新轮次的 settings。 入参: `TurnSettingsUpdateParams`: `approvalsReviewer?`, `effort?`, `model?`, `serviceTier?`, `summary?`, `threadId`, `turnId`. 出参: `TurnSettingsUpdateResponse`: `status`.
 - `turn/steer` — 引导轮次。 入参: `TurnSteerParams`: `additionalContext?`, `clientUserMessageId?`, `expectedTurnId`, `input`, `responsesapiClientMetadata?`, `threadId`. 出参: `TurnSteerResponse`: `turnId`.
 - `turn/interrupt` — 中断轮次。 入参: `TurnInterruptParams`: `threadId`, `turnId`. 出参: `TurnInterruptResponse`: `{}`.
@@ -242,7 +245,7 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 - `account/usage/read` — 读取账户的 usage。 入参: `GetAccountTokenUsageParams`: `threadId?`；`params` 本身可省略. 出参: `GetAccountTokenUsageResponse`: `dailyUsageBuckets?`, `summary`, `threadUsage?`.
 - `account/workspaceMessages/read` — 读取账户的 workspaceMessages。 入参: `undefined`（省略 `params`）. 出参: `GetWorkspaceMessagesResponse`: `featureEnabled`, `messages`.
 - `account/sendAddCreditsNudgeEmail` — 发送充值提示邮件账户。 入参: `SendAddCreditsNudgeEmailParams`: `creditType`. 出参: `SendAddCreditsNudgeEmailResponse`: `status`.
-- `account/read` — 读取账户。 入参: `GetAccountParams`: `refreshToken?`. 出参: `GetAccountResponse`: `account?`, `requiresOpenaiAuth`.
+- `account/read` — 读取账户。 入参: `GetAccountParams`: `refreshToken?`. 出参: `GetAccountResponse`: `account?`, `requiresOpenaiAuth`, `workspaceRouting?`.
 
 ### 反馈
 

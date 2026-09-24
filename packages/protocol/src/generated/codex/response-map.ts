@@ -39,6 +39,7 @@ export type CodexClientResponseMap = {
   readonly "thread/memoryMode/set": v2.ThreadMemoryModeSetResponse
   readonly "memory/status": v2.MemoryStatusResponse
   readonly "memory/reset": v2.MemoryResetResponse
+  readonly "rollout/compress": v2.RolloutCompressResponse
   readonly "thread/unarchive": v2.ThreadUnarchiveResponse
   readonly "thread/compact/start": v2.ThreadCompactStartResponse
   readonly "thread/shellCommand": v2.ThreadShellCommandResponse
@@ -46,7 +47,6 @@ export type CodexClientResponseMap = {
   readonly "thread/backgroundTerminals/clean": v2.ThreadBackgroundTerminalsCleanResponse
   readonly "thread/backgroundTerminals/list": v2.ThreadBackgroundTerminalsListResponse
   readonly "thread/backgroundTerminals/terminate": v2.ThreadBackgroundTerminalsTerminateResponse
-  readonly "thread/rollback": v2.ThreadRollbackResponse
   readonly "thread/revert": v2.ThreadRevertResponse
   readonly "thread/list": v2.ThreadListResponse
   readonly "project/list": v2.ProjectListResponse

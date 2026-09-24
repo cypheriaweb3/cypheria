@@ -302,6 +302,8 @@ export class ClaudeSessionRuntime {
           return [params.path, params.mtime]
         case "reconnectMcpServer":
           return [params.serverName]
+        case "readMcpResource":
+          return [params.serverName, params.uri]
         case "toggleMcpServer":
           return [params.serverName, params.enabled]
         case "setMcpServers":

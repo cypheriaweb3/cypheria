@@ -641,6 +641,15 @@ export const zJsonrpcMessage = z.union([
     zJsonrpcError
 ]);
 
+/**
+ * Backend routing policy. Wire values match the accounts/check contract.
+ */
+export const zAccountRoutingOverride = z.enum([
+    'NO_CONSTRAINT',
+    'us',
+    'us_cr'
+]);
+
 export const zAccountTokenUsageDailyBucket = z.looseObject({
     startDate: z.string(),
     tokens: z.int()
@@ -835,17 +844,6 @@ export const zApprovalsReviewer = z.enum([
     'auto_review',
     'guardian_subagent'
 ]);
-
-export const zAppConfig = z.looseObject({
-    approvals_reviewer: zApprovalsReviewer.nullish(),
-    default_tools_approval_mode: zAppToolApproval.nullish(),
-    default_tools_enabled: z.boolean().nullish(),
-    destructive_enabled: z.boolean().nullish(),
-    enabled: z.boolean().optional(),
-    links: zAppLinksConfig.nullish(),
-    open_world_enabled: z.boolean().nullish(),
-    tools: zAppToolsConfig.nullish()
-});
 
 /**
  * Approval settings for a connected account within an app.
@@ -2288,11 +2286,17 @@ export const zContentItem = z.union([
         text: z.string(),
         type: z.enum(['input_text'])
     }),
-    z.looseObject({
+    z.intersection(z.union([
+        z.looseObject({
+            image_url: z.string()
+        }),
+        z.looseObject({
+            file_id: z.string()
+        })
+    ]), z.looseObject({
         detail: zImageDetail.nullish(),
-        image_url: z.string(),
         type: z.enum(['input_image'])
-    }),
+    })),
     z.looseObject({
         audio_url: z.string(),
         type: z.enum(['input_audio'])
@@ -2311,11 +2315,17 @@ export const zFunctionCallOutputContentItem = z.union([
         text: z.string(),
         type: z.enum(['input_text'])
     }),
-    z.looseObject({
+    z.intersection(z.union([
+        z.looseObject({
+            image_url: z.string()
+        }),
+        z.looseObject({
+            file_id: z.string()
+        })
+    ]), z.looseObject({
         detail: zImageDetail.nullish(),
-        image_url: z.string(),
         type: z.enum(['input_image'])
-    }),
+    })),
     z.looseObject({
         audio_url: z.string(),
         type: z.enum(['input_audio'])
@@ -2645,6 +2655,16 @@ export const zMarketplaceUpgradeResponse = z.looseObject({
     upgradedRoots: z.array(zAbsolutePathBuf)
 });
 
+export const zMcpAppDisplayMode = z.enum(['inline', 'fullscreen']);
+
+/**
+ * UI resource and display preference for model invocations, captured from the tool descriptor.
+ */
+export const zMcpAppUi = z.looseObject({
+    preferredModelDisplayMode: zMcpAppDisplayMode,
+    resourceUri: z.string()
+});
+
 export const zMcpAuthStatus = z.enum([
     'unknown',
     'unsupported',
@@ -2947,6 +2967,13 @@ export const zMockExperimentalMethodResponse = z.looseObject({
  */
 export const zModeKind = z.enum(['plan', 'default']);
 
+/**
+ * Caller-specific explicit access programs advertised by model discovery.
+ */
+export const zModelAccessPrograms = z.looseObject({
+    cyber: z.array(zCyberAccessProgram)
+});
+
 export const zModelAvailabilityNux = z.looseObject({
     message: z.string()
 });
@@ -3242,6 +3269,9 @@ export const zPermissionProfileListResponse = z.looseObject({
     nextCursor: z.string().nullish()
 });
 
+/**
+ * Deprecated: `friendly` and `pragmatic` no longer select a style.
+ */
 export const zPersonality = z.enum([
     'none',
     'friendly',
@@ -3301,14 +3331,6 @@ export const zAccount = z.union([
 export const zAccountUpdatedNotification = z.looseObject({
     authMode: zAuthMode.nullish(),
     planType: zPlanType.nullish()
-});
-
-/**
- * GetAccountResponse
- */
-export const zGetAccountResponse = z.looseObject({
-    account: zAccount.nullish(),
-    requiresOpenaiAuth: z.boolean()
 });
 
 export const zPluginAuthPolicy = z.enum(['ON_INSTALL', 'ON_USE']);
@@ -4083,6 +4105,7 @@ export const zReasoningEffortOption = z.looseObject({
 export const zModel = z.looseObject({
     additionalSpeedTiers: z.array(z.string()).optional(),
     availabilityNux: zModelAvailabilityNux.nullish(),
+    availableAccessPrograms: zModelAccessPrograms.nullish(),
     defaultReasoningEffort: zReasoningEffort,
     defaultServiceTier: z.string().nullish(),
     description: z.string(),
@@ -4654,6 +4677,13 @@ export const zReviewStartParams = z.looseObject({
     threadId: z.string()
 });
 
+/**
+ * RolloutCompressResponse
+ *
+ * Acknowledges the compression trigger, not completion. Existing maintenance locks and cooldowns can cause the background pass to skip without doing work.
+ */
+export const zRolloutCompressResponse = z.looseObject({});
+
 export const zSandboxMode = z.enum([
     'read-only',
     'workspace-write',
@@ -4871,6 +4901,7 @@ export const zPluginDetail = z.looseObject({
     marketplaceName: z.string(),
     marketplacePath: zAbsolutePathBuf.nullish(),
     mcpServers: z.array(z.string()),
+    onboardingSkill: zSkillSummary.nullish(),
     scheduledTasks: z.array(zScheduledTaskSummary).nullish(),
     shareUrl: z.string().nullish(),
     skills: z.array(zSkillSummary),
@@ -6072,16 +6103,6 @@ export const zThreadRevertedNotification = z.looseObject({
 });
 
 /**
- * ThreadRollbackParams
- *
- * DEPRECATED: `thread/rollback` will be removed soon.
- */
-export const zThreadRollbackParams = z.looseObject({
-    numTurns: z.int().gte(0).max(4294967295, { error: 'Invalid value: Expected uint32 to be <= 4294967295' }),
-    threadId: z.string()
-});
-
-/**
  * ThreadSearchOccurrencesParams
  *
  * Parameters for searching visible message occurrences within one paginated thread.
@@ -6253,6 +6274,7 @@ export const zThreadSettings = z.looseObject({
     approvalsReviewer: zApprovalsReviewer,
     collaborationMode: zCollaborationMode,
     cwd: zAbsolutePathBuf,
+    disabledPluginIds: z.array(z.string()).optional(),
     effort: zReasoningEffort.nullish(),
     model: z.string(),
     modelProvider: z.string(),
@@ -6271,6 +6293,7 @@ export const zThreadSettingsUpdateParams = z.looseObject({
     approvalsReviewer: zApprovalsReviewer.nullish(),
     collaborationMode: zCollaborationMode.nullish(),
     cwd: z.string().nullish(),
+    disabledPluginIds: z.array(z.string()).nullish(),
     effort: zReasoningEffort.nullish(),
     model: z.string().nullish(),
     multiAgentMode: zMultiAgentMode.nullish(),
@@ -6550,6 +6573,7 @@ export const zMcpServerStatus = z.looseObject({
     resourceTemplates: z.array(zResourceTemplate),
     resources: z.array(zResource),
     runtimeStatus: zMcpServerConnectionStatus.nullish(),
+    serverCapabilities: z.unknown().optional(),
     serverInfo: zMcpServerInfo.nullish(),
     tools: z.object({}).catchall(zTool),
     toolsError: z.string().nullish()
@@ -6561,6 +6585,27 @@ export const zMcpServerStatus = z.looseObject({
 export const zListMcpServerStatusResponse = z.looseObject({
     data: z.array(zMcpServerStatus),
     nextCursor: z.string().nullish()
+});
+
+/**
+ * A model-facing surface on which a tool can be exposed.
+ */
+export const zToolExposureSurface = z.union([
+    z.enum(['code_mode']),
+    z.enum(['deferred']),
+    z.enum(['direct'])
+]);
+
+export const zAppConfig = z.looseObject({
+    approvals_reviewer: zApprovalsReviewer.nullish(),
+    default_tools_approval_mode: zAppToolApproval.nullish(),
+    default_tools_enabled: z.boolean().nullish(),
+    destructive_enabled: z.boolean().nullish(),
+    enabled: z.boolean().optional(),
+    links: zAppLinksConfig.nullish(),
+    omit_tools_from: z.array(zToolExposureSurface).nullish(),
+    open_world_enabled: z.boolean().nullish(),
+    tools: zAppToolsConfig.nullish()
 });
 
 /**
@@ -6590,6 +6635,7 @@ export const zThreadStartParams = z.looseObject({
     baseInstructions: z.string().nullish(),
     config: z.looseObject({}).nullish(),
     cwd: z.string().nullish(),
+    daybreakEnabled: z.boolean().nullish(),
     developerInstructions: z.string().nullish(),
     dynamicTools: z.array(zDynamicToolSpec).nullish(),
     environments: z.array(zTurnEnvironmentParams).nullish(),
@@ -6779,11 +6825,17 @@ export const zUserInput = z.union([
         text_elements: z.array(zTextElement).optional(),
         type: z.enum(['text'])
     }),
-    z.looseObject({
+    z.intersection(z.union([
+        z.looseObject({
+            url: z.string()
+        }),
+        z.looseObject({
+            fileId: z.string()
+        })
+    ]), z.looseObject({
         detail: zImageDetail.nullish(),
-        type: z.enum(['image']),
-        url: z.string()
-    }),
+        type: z.enum(['image'])
+    })),
     z.looseObject({
         detail: zImageDetail.nullish(),
         path: z.string(),
@@ -6866,6 +6918,7 @@ export const zTurnStartParams = z.looseObject({
     collaborationMode: zCollaborationMode.nullish(),
     cwd: z.string().nullish(),
     cyberAccessProgram: zCyberAccessProgram.nullish(),
+    disabledPluginIds: z.array(z.string()).nullish(),
     effort: zReasoningEffort.nullish(),
     environments: z.array(zTurnEnvironmentParams).nullish(),
     input: z.array(zUserInput),
@@ -6932,9 +6985,13 @@ export const zUserVerificationEnrollParams = z.strictObject({});
 
 /**
  * UserVerificationEnrollResponse
+ *
+ * Public metadata for a created or reused local credential. The caller completes backend registration; this response does not establish server enrollment. Older app-servers omit the metadata fields; callers must check both before registration.
  */
 export const zUserVerificationEnrollResponse = z.looseObject({
-    credentialId: z.string()
+    algorithm: z.string().nullish(),
+    credentialId: z.string(),
+    publicKey: z.string().nullish()
 });
 
 export const zUserVerificationFailureReason = z.enum([
@@ -7130,6 +7187,7 @@ export const zThreadItem = z.union([
         error: zMcpToolCallError.nullish(),
         id: z.string(),
         mcpAppResourceUri: z.string().nullish(),
+        mcpAppUi: zMcpAppUi.nullish(),
         pluginId: z.string().nullish(),
         readOnlyHint: z.boolean().nullish(),
         result: zMcpToolCallResult.nullish(),
@@ -7350,6 +7408,7 @@ export const zThreadForkResponse = z.looseObject({
     approvalPolicy: zAskForApproval,
     approvalsReviewer: zApprovalsReviewer,
     cwd: zAbsolutePathBuf,
+    disabledPluginIds: z.array(z.string()).optional(),
     instructionSources: z.array(zLegacyAppPathString).optional(),
     model: z.string(),
     modelProvider: z.string(),
@@ -7400,13 +7459,6 @@ export const zThreadRevertResponse = z.looseObject({
     turnsBackwardsCursor: z.string().nullish()
 });
 
-/**
- * ThreadRollbackResponse
- */
-export const zThreadRollbackResponse = z.looseObject({
-    thread: zThread
-});
-
 export const zThreadSearchResult = z.looseObject({
     snippet: z.string(),
     thread: zThread
@@ -7429,6 +7481,7 @@ export const zThreadStartResponse = z.looseObject({
     approvalPolicy: zAskForApproval,
     approvalsReviewer: zApprovalsReviewer,
     cwd: zAbsolutePathBuf,
+    disabledPluginIds: z.array(z.string()).optional(),
     instructionSources: z.array(zLegacyAppPathString).optional(),
     model: z.string(),
     modelProvider: z.string(),
@@ -7499,7 +7552,9 @@ export const zThreadResumeResponse = z.looseObject({
     activePermissionProfile: zActivePermissionProfile.nullish(),
     approvalPolicy: zAskForApproval,
     approvalsReviewer: zApprovalsReviewer,
+    collaborationMode: zCollaborationMode.nullish(),
     cwd: zAbsolutePathBuf,
+    disabledPluginIds: z.array(z.string()).optional(),
     initialTurnsPage: zTurnsPage.nullish(),
     instructionSources: z.array(zLegacyAppPathString).optional(),
     itemsBackwardsCursor: z.string().nullish(),
@@ -7582,20 +7637,11 @@ export const zConfigReadResponse = z.looseObject({
     origins: z.object({}).catchall(zConfigLayerMetadata)
 });
 
-export const zWindowsSandboxReadiness = z.enum([
-    'ready',
-    'notConfigured',
-    'updateRequired'
+export const zWindowsSandboxImplementation = z.enum([
+    'elevated',
+    'unelevated',
+    'mxc'
 ]);
-
-/**
- * WindowsSandboxReadinessResponse
- */
-export const zWindowsSandboxReadinessResponse = z.looseObject({
-    status: zWindowsSandboxReadiness
-});
-
-export const zWindowsSandboxSetupMode = z.enum(['elevated', 'unelevated']);
 
 export const zConfigRequirements = z.looseObject({
     additionalDeveloperInstructions: z.string().nullish(),
@@ -7606,10 +7652,11 @@ export const zConfigRequirements = z.looseObject({
     allowRemoteControl: z.boolean().nullish(),
     allowedApprovalPolicies: z.array(zAskForApproval).nullish(),
     allowedApprovalsReviewers: z.array(zApprovalsReviewer).nullish(),
+    allowedLoginMethods: z.array(zForcedLoginMethod).nullish(),
     allowedPermissionProfiles: z.object({}).catchall(z.boolean()).nullish(),
     allowedSandboxModes: z.array(zSandboxMode).nullish(),
     allowedWebSearchModes: z.array(zWebSearchMode).nullish(),
-    allowedWindowsSandboxImplementations: z.array(zWindowsSandboxSetupMode).nullish(),
+    allowedWindowsSandboxImplementations: z.array(zWindowsSandboxImplementation).nullish(),
     application: zApplicationRequirements.nullish(),
     autoReview: zAutoReviewRequirements.nullish(),
     browserUse: zBrowserUseRequirements.nullish(),
@@ -7625,10 +7672,11 @@ export const zConfigRequirements = z.looseObject({
     inAppBrowser: zInAppBrowserRequirements.nullish(),
     logDir: z.string().nullish(),
     modelCatalogJson: z.string().nullish(),
+    modelProvider: z.string().nullish(),
+    modelProviders: z.looseObject({}).nullish(),
     models: zModelsRequirements.nullish(),
     network: zNetworkRequirements.nullish(),
-    sqliteHome: z.string().nullish(),
-    windowsSandboxPrivateDesktop: z.boolean().nullish()
+    sqliteHome: z.string().nullish()
 });
 
 /**
@@ -7637,6 +7685,21 @@ export const zConfigRequirements = z.looseObject({
 export const zConfigRequirementsReadResponse = z.looseObject({
     requirements: zConfigRequirements.nullish()
 });
+
+export const zWindowsSandboxReadiness = z.enum([
+    'ready',
+    'notConfigured',
+    'updateRequired'
+]);
+
+/**
+ * WindowsSandboxReadinessResponse
+ */
+export const zWindowsSandboxReadinessResponse = z.looseObject({
+    status: zWindowsSandboxReadiness
+});
+
+export const zWindowsSandboxSetupMode = z.enum(['elevated', 'unelevated']);
 
 /**
  * WindowsSandboxSetupCompletedNotification
@@ -7833,6 +7896,11 @@ export const zClientRequest = z.union([
     }),
     z.looseObject({
         id: zRequestId,
+        method: z.enum(['rollout/compress']),
+        params: z.null().optional()
+    }),
+    z.looseObject({
+        id: zRequestId,
         method: z.enum(['thread/unarchive']),
         params: zThreadUnarchiveParams
     }),
@@ -7865,11 +7933,6 @@ export const zClientRequest = z.union([
         id: zRequestId,
         method: z.enum(['thread/backgroundTerminals/terminate']),
         params: zThreadBackgroundTerminalsTerminateParams
-    }),
-    z.looseObject({
-        id: zRequestId,
-        method: z.enum(['thread/rollback']),
-        params: zThreadRollbackParams
     }),
     z.looseObject({
         id: zRequestId,
@@ -8852,6 +8915,21 @@ export const zWorkspaceMessage = z.looseObject({
 export const zGetWorkspaceMessagesResponse = z.looseObject({
     featureEnabled: z.boolean(),
     messages: z.array(zWorkspaceMessage)
+});
+
+export const zWorkspaceRouting = z.looseObject({
+    accountRoutingOverride: zAccountRoutingOverride,
+    backendOrigin: z.string(),
+    chatgptAccountId: z.string()
+});
+
+/**
+ * GetAccountResponse
+ */
+export const zGetAccountResponse = z.looseObject({
+    account: zAccount.nullish(),
+    requiresOpenaiAuth: z.boolean(),
+    workspaceRouting: zWorkspaceRouting.nullish()
 });
 
 export const zWriteStatus = z.enum(['ok', 'okOverridden']);
