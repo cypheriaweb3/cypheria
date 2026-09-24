@@ -44,6 +44,7 @@ Codex 远程插件的目录 ID 与展示名称不同。Server 在远程详情和
 
 启用 Codex 插件时，Server 会注册随程序分发的 `cypheria-bundled` marketplace，并在 Cypheria 管理的 Codex home 中安装 `cypheria-app-tools`。这是一个 Codex MCP 插件，其本地 Git 工具通过经过认证的本地 HTTP 路由调用与 Desktop 相同的 Server Git 服务。它不声明 OpenAI App ID，也不持有 GitHub 或 GitLab connector 凭据。
 Cypheria 更新后若发现已安装的内置插件，Server 会先检查其本地版本，并从随程序分发的 marketplace 更新插件，再返回列表。
+Git 后端与 Agent 工具的关系详见[本地 Git 设计](git.zh-CN.md)。
 其 worktree 工具在 `CYPHERIA_HOME/worktrees` 下创建 detached worktree、列出托管和外部 worktree，并利用保存的提交引用删除或恢复干净的托管 worktree。
 
 Cypheria 原生插件使用独立契约。目标 manifest 声明 Server entry points、Desktop UI contributions、可选的未来 Expo contributions、permissions、兼容 Cypheria 版本和 contribution points。Server 代码必须运行在受控子进程中。Desktop contribution 必须沙箱化，并只获得受限 host API，而不是 Node.js、文件系统、数据库或密钥权限。完成该 runtime 与 UX 仍是计划工作。

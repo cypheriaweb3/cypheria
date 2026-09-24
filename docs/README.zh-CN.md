@@ -24,6 +24,7 @@ title: Cypheria 文档
 ## 产品界面
 
 - [Desktop](desktop.zh-CN.md)：Electron 边界、Server Manager、Sidebar、会话工作台与本地设置。
+- [本地 Git 设计](git.zh-CN.md)：Git 能力归属、后端选择、安全、持久状态与 Agent 工具。
 - [Integrations](integrations.zh-CN.md)：Skills、MCP、plugins、marketplace 来源与 Codex Apps。
 - [Web3](web3.zh-CN.md)：network、wallet、policy、签名、dApp 与审计。
 - [UI 系统](ui.zh-CN.md)：视觉原则、主题实现、会话组件与回归不变量。
