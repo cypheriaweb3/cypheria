@@ -588,6 +588,29 @@ describe("GitService", () => {
     expect(await readFile(join(worktree.path, "file.txt"), "utf8")).toBe("first\n")
   }, 20_000)
 
+  it("copies ignored agent overrides and selected resources into a new worktree", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await writeFile(join(root, ".gitignore"), "*.local\nAGENTS.override.md\n")
+    await writeFile(join(root, "file.txt"), "tracked\n")
+    await service.stage(root, [".gitignore", "file.txt"])
+    await service.commit(root, "Base")
+    await mkdir(join(root, "nested"))
+    await writeFile(join(root, "nested", "AGENTS.override.md"), "agent instructions\n")
+    await writeFile(join(root, "env.local"), "selected\n")
+    await writeFile(join(root, "other.local"), "not selected\n")
+    await writeFile(join(root, ".worktreeinclude"), "env.local\n")
+
+    const worktree = await service.createWorktree(root)
+    expect(await readFile(join(worktree.path, "nested", "AGENTS.override.md"), "utf8")).toBe(
+      "agent instructions\n"
+    )
+    expect(await readFile(join(worktree.path, "env.local"), "utf8")).toBe("selected\n")
+    await expect(readFile(join(worktree.path, "other.local"), "utf8")).rejects.toMatchObject({
+      code: "ENOENT",
+    })
+  }, 20_000)
+
   it("moves a local Codex thread into and out of a managed worktree", async () => {
     const root = await repository()
     const threadId = "01984de2-8f74-7c91-a3b2-5c5e937cf400"

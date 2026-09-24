@@ -1,6 +1,16 @@
 import { randomUUID } from "node:crypto"
-import { realpathSync } from "node:fs"
-import { mkdir, readdir, readFile, realpath, rename, stat, writeFile } from "node:fs/promises"
+import { constants, realpathSync } from "node:fs"
+import {
+  copyFile,
+  lstat,
+  mkdir,
+  readdir,
+  readFile,
+  realpath,
+  rename,
+  stat,
+  writeFile,
+} from "node:fs/promises"
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
 import type { GitWorktree } from "@cypheria/protocol"
 
@@ -117,6 +127,7 @@ export class GitWorktreeService {
     await mkdir(this.#root, { recursive: true, mode: 0o700 })
     await this.#executor.run(repository.root, ["worktree", "add", "--detach", path, commit])
     try {
+      await this.#copyWorktreeResources(repository.root, path)
       await this.#writeRecord({
         version: 1,
         commonGitDir: repository.commonGitDir,
@@ -126,10 +137,75 @@ export class GitWorktreeService {
         ownerThreadId: null,
       })
     } catch (error) {
-      await this.#executor.run(repository.root, ["worktree", "remove", "--", path])
+      await this.#executor.run(repository.root, ["worktree", "remove", "--force", "--", path])
       throw error
     }
     return { path, head: commit, branch: null, managed: true, active: true, ownerThreadId: null }
+  }
+
+  async #copyWorktreeResources(source: string, target: string): Promise<void> {
+    const ignored = new Set(
+      (
+        await this.#executor.run(
+          source,
+          ["ls-files", "--others", "--ignored", "--exclude-standard", "-z"],
+          { readOnly: true }
+        )
+      ).stdout
+        .split("\0")
+        .filter(Boolean)
+    )
+    const resources = new Set(
+      [...ignored].filter(
+        (path) => path === "AGENTS.override.md" || path.endsWith("/AGENTS.override.md")
+      )
+    )
+    const include = join(source, ".worktreeinclude")
+    if (
+      await lstat(include).then(
+        (entry) => entry.isFile(),
+        () => false
+      )
+    ) {
+      const selected = (
+        await this.#executor.run(
+          source,
+          ["ls-files", "--others", "--ignored", "--exclude-from=.worktreeinclude", "-z"],
+          { readOnly: true }
+        )
+      ).stdout.split("\0")
+      for (const path of selected) if (ignored.has(path)) resources.add(path)
+    }
+    for (const path of resources) {
+      if (!path || isAbsolute(path) || path.split(/[\\/]/u).includes("..")) continue
+      const from = join(source, path)
+      const to = join(target, path)
+      if (!inside(source, from) || !inside(target, to)) continue
+      if (
+        !(await lstat(from).then(
+          (entry) => entry.isFile(),
+          () => false
+        ))
+      )
+        continue
+      const parent = dirname(to)
+      let current = target
+      for (const part of relative(target, parent).split(sep).filter(Boolean)) {
+        current = join(current, part)
+        const existing = await lstat(current).catch((error: NodeJS.ErrnoException) => {
+          if (error.code === "ENOENT") return null
+          throw error
+        })
+        if (existing?.isSymbolicLink())
+          throw new Error("Cannot copy worktree resource through a symlink")
+        if (existing && !existing.isDirectory())
+          throw new Error("Worktree resource parent is not a directory")
+        if (!existing) await mkdir(current)
+      }
+      await copyFile(from, to, constants.COPYFILE_EXCL).catch((error: NodeJS.ErrnoException) => {
+        if (error.code !== "EEXIST") throw error
+      })
+    }
   }
 
   async cleanup(
