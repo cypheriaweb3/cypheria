@@ -53,7 +53,8 @@ export function GitHubPrPanel({
   const queryClient = useQueryClient()
   const associations = useSyncExternalStore(
     githubPrAssociations.subscribe,
-    githubPrAssociations.getSnapshot
+    githubPrAssociations.getSnapshot,
+    githubPrAssociations.getServerSnapshot
   )
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null)
   const [directPrNumber, setDirectPrNumber] = useState("")

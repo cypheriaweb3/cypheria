@@ -200,7 +200,8 @@ export function ChatSidebar({
   const queryClient = useQueryClient()
   const prAssociations = useSyncExternalStore(
     githubPrAssociations.subscribe,
-    githubPrAssociations.getSnapshot
+    githubPrAssociations.getSnapshot,
+    githubPrAssociations.getServerSnapshot
   )
   const gitSettings = useQuery({
     queryKey: ["settings", "git"],

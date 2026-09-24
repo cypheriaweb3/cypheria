@@ -14,6 +14,7 @@ type AttachmentRecord = Readonly<{
   updatedAt: string
 }>
 const listeners = new Set<() => void>()
+const serverSnapshot: Associations = {}
 let current: Associations | null = null
 let attachmentRecords: AttachmentRecord[] | null = null
 
@@ -110,6 +111,7 @@ const publish = (next: Associations) => {
 
 export const githubPrAssociations = {
   getSnapshot: (): Associations => (current ??= load()),
+  getServerSnapshot: (): Associations => serverSnapshot,
   subscribe: (listener: () => void) => {
     listeners.add(listener)
     return () => listeners.delete(listener)
