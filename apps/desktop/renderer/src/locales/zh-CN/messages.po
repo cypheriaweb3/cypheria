@@ -2080,3 +2080,47 @@ msgstr "工作树"
 #: renderer/src/routes/settings.git.tsx
 msgid "settings.git.keepCount"
 msgstr "保留工作树数量"
+
+#. js-lingui-explicit-id
+msgid "git.github.allRepositories"
+msgstr "所有仓库"
+
+#. js-lingui-explicit-id
+msgid "git.github.commitChanges"
+msgstr "创建前提交本地改动"
+
+#. js-lingui-explicit-id
+msgid "git.github.commitMessage"
+msgstr "提交说明（留空则自动生成）"
+
+#. js-lingui-explicit-id
+msgid "git.review.generateMessage"
+msgstr "生成"
+
+#. js-lingui-explicit-id
+msgid "git.github.generateDescription"
+msgstr "生成"
+
+#. js-lingui-explicit-id
+msgid "git.github.linkedChats"
+msgstr "关联的聊天："
+
+#. js-lingui-explicit-id
+msgid "git.github.newBranch"
+msgstr "新分支（可选）"
+
+#. js-lingui-explicit-id
+msgid "git.github.board"
+msgstr "跨仓库拉取请求"
+
+#. js-lingui-explicit-id
+msgid "git.github.repositoryFilter"
+msgstr "仓库筛选"
+
+#. js-lingui-explicit-id
+msgid "settings.git.githubConnector"
+msgstr "CLI 无法执行操作时使用已连接的 GitHub App 工具"
+
+#. js-lingui-explicit-id
+msgid "git.github.boardRepositorySearch"
+msgstr "仓库（所有者/名称）"

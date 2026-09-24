@@ -11,6 +11,7 @@ import {
   AlertDialogTrigger,
 } from "@cypheria/ui/components/alert-dialog"
 import { Button } from "@cypheria/ui/components/button"
+import { Checkbox } from "@cypheria/ui/components/checkbox"
 import { Input } from "@cypheria/ui/components/input"
 import { NativeSelect, NativeSelectOption } from "@cypheria/ui/components/native-select"
 import { Textarea } from "@cypheria/ui/components/textarea"
@@ -18,10 +19,12 @@ import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useNavigate } from "@tanstack/react-router"
 import { useEffect, useState, useSyncExternalStore } from "react"
 
 import { ensureCypheriaClient } from "../cypheria-client.js"
 import { githubPrAssociations } from "../git-pr-associations.js"
+import { type GitHubPrOperation, githubPrProvider } from "./github-pr-provider.js"
 import { findGithubPrWatch, githubPrFixPrompt, githubPrWatchName } from "./github-pr-watch.js"
 
 const openExternal = async (url: string): Promise<void> => {
@@ -46,6 +49,7 @@ export function GitHubPrPanel({
   threadId,
 }: Readonly<{ cwd: string; branch: string | null; threadId: string | null }>) {
   const { i18n } = useLingui()
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const associations = useSyncExternalStore(
     githubPrAssociations.subscribe,
@@ -58,7 +62,13 @@ export function GitHubPrPanel({
   const [prListState, setPrListState] = useState<"open" | "closed" | "merged" | "all">("open")
   const [prListScope, setPrListScope] = useState<"all" | "authored" | "reviewing">("all")
   const [prListLimit, setPrListLimit] = useState(100)
+  const [boardRepository, setBoardRepository] = useState("all")
+  const [boardRepositoryQuery, setBoardRepositoryQuery] = useState("")
+  const [boardLimit, setBoardLimit] = useState(100)
   const [base, setBase] = useState("")
+  const [newBranchName, setNewBranchName] = useState("")
+  const [commitChanges, setCommitChanges] = useState(false)
+  const [createCommitMessage, setCreateCommitMessage] = useState("")
   const [title, setTitle] = useState("")
   const [body, setBody] = useState("")
   const [draft, setDraft] = useState(true)
@@ -149,7 +159,7 @@ export function GitHubPrPanel({
     retry: false,
   })
   const appAvailability = useQuery({
-    enabled: Boolean(threadId) && !cliAvailable,
+    enabled: Boolean(threadId) && (gitSettings.data?.config.git.githubConnectorEnabled ?? true),
     queryKey: ["github-pr", cwd, threadId, "app-availability"],
     queryFn: async () => {
       if (!threadId) throw new Error("A local Codex thread is required")
@@ -158,17 +168,80 @@ export function GitHubPrPanel({
     staleTime: 30_000,
     retry: false,
   })
+  const appConnected = Boolean(
+    appAvailability.data &&
+      (appAvailability.data.available ||
+        appAvailability.data.canList ||
+        appAvailability.data.canRead ||
+        appAvailability.data.canDiff ||
+        appAvailability.data.canChecks ||
+        appAvailability.data.canActivity ||
+        appAvailability.data.canThreads)
+  )
+  const providerFor = (operation: GitHubPrOperation) =>
+    githubPrProvider(
+      operation,
+      availability.data,
+      appAvailability.data,
+      Boolean(threadId),
+      gitSettings.data?.config.git.githubConnectorEnabled ?? true
+    )
+  const listProvider = providerFor("list")
+  const readProvider = providerFor("read")
+  const diffProvider = providerFor("diff")
+  const checksProvider = providerFor("checks")
+  const activityProvider = providerFor("activity")
+  const threadsProvider = providerFor("threads")
+  const createProvider = providerFor("create")
+  const board = useQuery({
+    enabled:
+      Boolean(availability.data?.authenticated) &&
+      (!boardRepositoryQuery.trim() ||
+        (/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(boardRepositoryQuery.trim()) &&
+          boardRepositoryQuery
+            .trim()
+            .split("/")
+            .every((part) => part !== "." && part !== ".."))),
+    queryKey: [
+      "github-pr",
+      "board",
+      cwd,
+      prListState,
+      prListScope,
+      prSearchQuery,
+      boardRepositoryQuery,
+      boardLimit,
+    ],
+    queryFn: async () =>
+      (await ensureCypheriaClient()).git.githubPrBoard(cwd, {
+        state: prListState,
+        scope: prListScope,
+        query: prSearchQuery,
+        repository: boardRepositoryQuery.trim() || undefined,
+        limit: boardLimit,
+      }),
+    retry: false,
+  })
+  const boardRepositories = [...new Set(board.data?.map((entry) => entry.repository) ?? [])].sort()
+  const boardEntries =
+    board.data?.filter(
+      (entry) => boardRepository === "all" || entry.repository === boardRepository
+    ) ?? []
   useEffect(() => {
-    if (!cliAvailable && appAvailability.data && !appAvailability.data.canSearchByAccount)
+    if (
+      !availability.data?.authenticated &&
+      appAvailability.data &&
+      !appAvailability.data.canSearchByAccount
+    )
       setPrListScope("all")
-  }, [appAvailability.data, cliAvailable])
+  }, [appAvailability.data, availability.data?.authenticated])
   const list = useQuery({
-    enabled: cliAvailable || Boolean(threadId && appAvailability.data?.canList),
+    enabled: listProvider !== null,
     queryKey: [
       "github-pr",
       cwd,
       "list",
-      cliAvailable ? "cli" : "app",
+      listProvider,
       threadId,
       prListState,
       prListScope,
@@ -177,7 +250,7 @@ export function GitHubPrPanel({
     ],
     queryFn: async () => {
       const git = (await ensureCypheriaClient()).git
-      if (cliAvailable) {
+      if (listProvider === "cli") {
         const scopeQuery =
           prListScope === "authored"
             ? "author:@me"
@@ -217,13 +290,12 @@ export function GitHubPrPanel({
     list.data?.items.find((item) => "headRefName" in item && item.headRefName === branch)?.number ??
     null
   const selected = useQuery({
-    enabled:
-      activeNumber !== null && (cliAvailable || Boolean(threadId && appAvailability.data?.canRead)),
-    queryKey: ["github-pr", cwd, "detail", cliAvailable ? "cli" : "app", threadId, activeNumber],
+    enabled: activeNumber !== null && readProvider !== null,
+    queryKey: ["github-pr", cwd, "detail", readProvider, threadId, activeNumber],
     queryFn: async () => {
       if (activeNumber === null) throw new Error("A pull request number is required")
       const git = (await ensureCypheriaClient()).git
-      if (cliAvailable) return git.githubPrRead(cwd, activeNumber)
+      if (readProvider === "cli") return git.githubPrRead(cwd, activeNumber)
       if (!threadId) throw new Error("A local Codex thread is required")
       return git.githubAppPrRead(cwd, threadId, activeNumber)
     },
@@ -262,15 +334,12 @@ export function GitHubPrPanel({
     retry: false,
   })
   const prDiff = useQuery({
-    enabled:
-      showDiff &&
-      (cliAvailable || Boolean(threadId && appAvailability.data?.canDiff)) &&
-      Boolean(selected.data?.headRefOid),
+    enabled: showDiff && diffProvider !== null && Boolean(selected.data?.headRefOid),
     queryKey: [
       "github-pr",
       cwd,
       "diff",
-      cliAvailable ? "cli" : "app",
+      diffProvider,
       threadId,
       selected.data?.number,
       selected.data?.headRefOid,
@@ -279,7 +348,7 @@ export function GitHubPrPanel({
       const pr = selected.data
       if (!pr?.headRefOid) throw new Error("A pull request head is required")
       const git = (await ensureCypheriaClient()).git
-      if (cliAvailable) return git.githubPrDiff(cwd, pr.number, pr.headRefOid)
+      if (diffProvider === "cli") return git.githubPrDiff(cwd, pr.number, pr.headRefOid)
       if (!threadId) throw new Error("A local Codex thread is required")
       return git.githubAppPrDiff(cwd, threadId, pr.number, pr.headRefOid)
     },
@@ -359,13 +428,13 @@ export function GitHubPrPanel({
   const checks = useQuery({
     enabled:
       selected.data?.state === "OPEN" &&
-      (cliAvailable ||
-        Boolean(threadId && appAvailability.data?.canChecks && selected.data?.headRefOid)),
+      checksProvider !== null &&
+      Boolean(selected.data?.headRefOid),
     queryKey: [
       "github-pr",
       cwd,
       "checks",
-      cliAvailable ? "cli" : "app",
+      checksProvider,
       threadId,
       selected.data?.number,
       selected.data?.headRefOid,
@@ -373,7 +442,7 @@ export function GitHubPrPanel({
     queryFn: async () => {
       if (!selected.data) throw new Error("A pull request is required")
       const git = (await ensureCypheriaClient()).git
-      if (cliAvailable)
+      if (checksProvider === "cli")
         return { checks: await git.githubPrChecks(cwd, selected.data.number), complete: true }
       if (!threadId || !selected.data.headRefOid)
         throw new Error("A local Codex thread and pull request head are required")
@@ -393,14 +462,12 @@ export function GitHubPrPanel({
     retry: false,
   })
   const activity = useQuery({
-    enabled:
-      cliAvailable ||
-      Boolean(threadId && appAvailability.data?.canActivity && selected.data?.headRefOid),
+    enabled: activityProvider !== null && Boolean(selected.data?.headRefOid),
     queryKey: [
       "github-pr",
       cwd,
       "activity",
-      cliAvailable ? "cli" : "app",
+      activityProvider,
       threadId,
       selected.data?.number,
       selected.data?.headRefOid,
@@ -408,7 +475,7 @@ export function GitHubPrPanel({
     queryFn: async () => {
       if (!selected.data) throw new Error("A pull request is required")
       const git = (await ensureCypheriaClient()).git
-      if (cliAvailable) return git.githubPrActivity(cwd, selected.data.number)
+      if (activityProvider === "cli") return git.githubPrActivity(cwd, selected.data.number)
       if (!threadId || !selected.data.headRefOid)
         throw new Error("A local Codex thread and pull request head are required")
       return git.githubAppPrActivity(cwd, threadId, selected.data.number, selected.data.headRefOid)
@@ -459,14 +526,12 @@ export function GitHubPrPanel({
     retry: false,
   })
   const threads = useQuery({
-    enabled:
-      (cliAvailable || Boolean(threadId && appAvailability.data?.canThreads)) &&
-      Boolean(selected.data?.headRefOid),
+    enabled: threadsProvider !== null && Boolean(selected.data?.headRefOid),
     queryKey: [
       "github-pr",
       cwd,
       "threads",
-      cliAvailable ? "cli" : "app",
+      threadsProvider,
       threadId,
       selected.data?.number,
       selected.data?.headRefOid,
@@ -475,7 +540,7 @@ export function GitHubPrPanel({
       const pr = selected.data
       if (!pr?.headRefOid) throw new Error("A pull request head is required")
       const git = (await ensureCypheriaClient()).git
-      if (cliAvailable) return git.githubPrThreads(cwd, pr.number, pr.headRefOid)
+      if (threadsProvider === "cli") return git.githubPrThreads(cwd, pr.number, pr.headRefOid)
       if (!threadId) throw new Error("A local Codex thread is required")
       return git.githubAppPrThreads(cwd, threadId, pr.number, pr.headRefOid)
     },
@@ -617,7 +682,7 @@ export function GitHubPrPanel({
       <p className="text-xs font-medium">
         <Trans id="git.github.heading">GitHub pull requests</Trans>
       </p>
-      {availability.data?.error && !appAvailability.data?.available ? (
+      {availability.data?.error && !appConnected ? (
         <Alert>
           <AlertDescription>{availability.data.error}</AlertDescription>
         </Alert>
@@ -632,10 +697,10 @@ export function GitHubPrPanel({
           {availability.data.account} · {availability.data.repository}
         </p>
       ) : null}
-      {appAvailability.data?.available ? (
+      {appConnected ? (
         <p className="text-xs text-muted-foreground">
           <Trans id="git.github.connectedApp">Connected GitHub App</Trans> ·{" "}
-          {appAvailability.data.repository}
+          {appAvailability.data?.repository}
         </p>
       ) : null}
       {appAvailability.isError ? (
@@ -701,13 +766,17 @@ export function GitHubPrPanel({
               <Trans id="git.github.scopeAll">All</Trans>
             </NativeSelectOption>
             <NativeSelectOption
-              disabled={!cliAvailable && !appAvailability.data?.canSearchByAccount}
+              disabled={
+                !availability.data?.authenticated && !appAvailability.data?.canSearchByAccount
+              }
               value="authored"
             >
               <Trans id="git.github.scopeAuthored">Created by me</Trans>
             </NativeSelectOption>
             <NativeSelectOption
-              disabled={!cliAvailable && !appAvailability.data?.canSearchByAccount}
+              disabled={
+                !availability.data?.authenticated && !appAvailability.data?.canSearchByAccount
+              }
               value="reviewing"
             >
               <Trans id="git.github.scopeReviewing">Review requested</Trans>
@@ -745,6 +814,93 @@ export function GitHubPrPanel({
             <Trans id="git.github.openPr">Open PR</Trans>
           </Button>
         </div>
+      ) : null}
+      {board.data ? (
+        <div className="space-y-2 rounded-md border p-2">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-medium">
+              <Trans id="git.github.board">Pull requests across repositories</Trans>
+            </span>
+            <NativeSelect
+              aria-label={i18n._(
+                msg({ id: "git.github.repositoryFilter", message: "Repository filter" })
+              )}
+              onChange={(event) => setBoardRepository(event.target.value)}
+              size="sm"
+              value={boardRepository}
+            >
+              <NativeSelectOption value="all">
+                <Trans id="git.github.allRepositories">All repositories</Trans>
+              </NativeSelectOption>
+              {boardRepositories.map((repository) => (
+                <NativeSelectOption key={repository} value={repository}>
+                  {repository}
+                </NativeSelectOption>
+              ))}
+            </NativeSelect>
+          </div>
+          <Input
+            aria-label={i18n._(
+              msg({ id: "git.github.boardRepositorySearch", message: "Repository (owner/name)" })
+            )}
+            onChange={(event) => {
+              setBoardRepositoryQuery(event.target.value)
+              setBoardRepository("all")
+              setBoardLimit(100)
+            }}
+            placeholder={i18n._(
+              msg({ id: "git.github.boardRepositorySearch", message: "Repository (owner/name)" })
+            )}
+            value={boardRepositoryQuery}
+          />
+          <div className="max-h-56 space-y-1 overflow-y-auto">
+            {boardEntries.map((entry) => (
+              <div className="flex items-center gap-1" key={entry.url}>
+                <Button
+                  className="h-auto min-w-0 flex-1 justify-start truncate text-left"
+                  onClick={() => void openExternal(entry.url)}
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  {entry.repository} #{entry.number} · {entry.title}
+                </Button>
+                {threadId ? (
+                  <Button
+                    onClick={() =>
+                      githubPrAssociations.add(threadId, {
+                        number: entry.number,
+                        title: entry.title,
+                        url: entry.url,
+                      })
+                    }
+                    size="sm"
+                    type="button"
+                    variant="outline"
+                  >
+                    <Trans id="git.github.attachThread">Attach to chat</Trans>
+                  </Button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+          {board.data.length === boardLimit && boardLimit < 500 ? (
+            <Button
+              disabled={board.isFetching}
+              onClick={() => setBoardLimit((limit) => Math.min(limit + 100, 500))}
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <Trans id="git.github.loadMore">Load more pull requests</Trans>
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+      {board.isError ? (
+        <Alert variant="destructive">
+          <AlertDescription>{board.error.message}</AlertDescription>
+        </Alert>
       ) : null}
       {list.data?.items.length === 0 ? (
         <p className="text-xs text-muted-foreground">
@@ -824,6 +980,24 @@ export function GitHubPrPanel({
                 <Trans id="git.github.attachThread">Attach to chat</Trans>
               )}
             </Button>
+          ) : null}
+          {githubPrAssociations.forPullRequest(selected.data.url).length ? (
+            <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+              <Trans id="git.github.linkedChats">Linked chats:</Trans>
+              {githubPrAssociations
+                .forPullRequest(selected.data.url)
+                .map(({ threadId: linkedThreadId }) => (
+                  <Button
+                    key={linkedThreadId}
+                    onClick={() => void navigate({ search: { thread: linkedThreadId }, to: "/" })}
+                    size="sm"
+                    type="button"
+                    variant="ghost"
+                  >
+                    {linkedThreadId.slice(0, 8)}
+                  </Button>
+                ))}
+            </div>
           ) : null}
           <p className="text-xs whitespace-pre-wrap">{selected.data.body}</p>
           {media.data?.map((item) => (
@@ -1747,7 +1921,7 @@ export function GitHubPrPanel({
           <AlertDescription>{selected.error.message}</AlertDescription>
         </Alert>
       ) : null}
-      {cliAvailable || appAvailability.data?.available ? (
+      {createProvider ? (
         <div className="space-y-2 border-t pt-2">
           <p className="text-xs text-muted-foreground">
             <Trans id="git.github.createHint">Create from the pushed current branch</Trans>
@@ -1803,11 +1977,72 @@ export function GitHubPrPanel({
             value={base}
           />
           <Input
-            aria-label={i18n._(msg({ id: "git.github.title", message: "Pull request title" }))}
-            onChange={(event) => setTitle(event.target.value)}
-            placeholder={i18n._(msg({ id: "git.github.title", message: "Pull request title" }))}
-            value={title}
+            aria-label={i18n._(
+              msg({ id: "git.github.newBranch", message: "New branch (optional)" })
+            )}
+            onChange={(event) => setNewBranchName(event.target.value)}
+            placeholder={i18n._(
+              msg({ id: "git.github.newBranch", message: "New branch (optional)" })
+            )}
+            value={newBranchName}
           />
+          <label
+            className="flex items-center gap-2 text-xs text-muted-foreground"
+            htmlFor="git-create-pr-commit-changes"
+          >
+            <Checkbox
+              checked={commitChanges}
+              id="git-create-pr-commit-changes"
+              onCheckedChange={(checked) => setCommitChanges(checked === true)}
+            />
+            <Trans id="git.github.commitChanges">Commit local changes before creating</Trans>
+          </label>
+          {commitChanges ? (
+            <Input
+              aria-label={i18n._(
+                msg({
+                  id: "git.github.commitMessage",
+                  message: "Commit message (leave blank to generate)",
+                })
+              )}
+              onChange={(event) => setCreateCommitMessage(event.target.value)}
+              placeholder={i18n._(
+                msg({
+                  id: "git.github.commitMessage",
+                  message: "Commit message (leave blank to generate)",
+                })
+              )}
+              value={createCommitMessage}
+            />
+          ) : null}
+          <div className="flex gap-2">
+            <Input
+              aria-label={i18n._(msg({ id: "git.github.title", message: "Pull request title" }))}
+              className="min-w-0 flex-1"
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder={i18n._(msg({ id: "git.github.title", message: "Pull request title" }))}
+              value={title}
+            />
+            <Button
+              disabled={busy || !base.trim()}
+              onClick={() =>
+                void mutate(async () => {
+                  const generated = await (await ensureCypheriaClient()).git.generateText(
+                    cwd,
+                    "pull-request",
+                    base.trim()
+                  )
+                  setTitle(generated.title)
+                  setBody(generated.body)
+                })
+              }
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <Trans id="git.github.generateDescription">Generate</Trans>
+            </Button>
+          </div>
           <Textarea
             aria-label={i18n._(msg({ id: "git.github.body", message: "Pull request body" }))}
             onChange={(event) => setBody(event.target.value)}
@@ -1820,24 +2055,67 @@ export function GitHubPrPanel({
               disabled={
                 busy ||
                 createNeedsReview ||
-                !branch ||
+                (!branch && !newBranchName.trim()) ||
                 !base.trim() ||
-                !title.trim() ||
-                branchPr.data?.state === "OPEN"
+                (!newBranchName.trim() && branchPr.data?.state === "OPEN")
               }
               onClick={() =>
                 void mutate(async () => {
-                  if (!branch) throw new Error("A local Git branch is required")
                   const git = (await ensureCypheriaClient()).git
+                  let head = branch
+                  if (newBranchName.trim()) {
+                    head = await git.createBranch(cwd, newBranchName.trim())
+                    await git.checkout(cwd, head, true)
+                  }
+                  if (!head) throw new Error("A local Git branch is required")
+                  if (commitChanges) {
+                    const state = await git.status(cwd)
+                    if (state.entries.length) {
+                      const commitTitle =
+                        createCommitMessage.trim() || (await git.generateText(cwd, "commit")).title
+                      await git.commit(cwd, { message: commitTitle, includeUnstaged: true })
+                    }
+                  }
+                  if (cliAvailable) {
+                    const existing = await git.githubPrForBranch(cwd, head)
+                    if (existing?.state === "OPEN") {
+                      selectPullRequest(existing.number)
+                      setCreateNeedsReview(false)
+                      return
+                    }
+                  } else if (
+                    createProvider === "app" &&
+                    appAvailability.data?.canList &&
+                    threadId
+                  ) {
+                    const existing = await git.githubAppPrList(cwd, threadId, {
+                      state: "open",
+                      query: `head:${head}`,
+                      limit: 20,
+                    })
+                    if (existing.items[0]) {
+                      selectPullRequest(existing.items[0].number)
+                      setCreateNeedsReview(false)
+                      return
+                    }
+                  }
+                  await git.push(cwd, { remote: "origin", branch: head, setUpstream: true })
+                  const generated = title.trim()
+                    ? null
+                    : await git.generateText(cwd, "pull-request", base.trim())
+                  if (generated) {
+                    setTitle(generated.title)
+                    setBody(generated.body)
+                  }
                   const input = {
-                    head: branch,
+                    head,
                     base: base.trim(),
-                    title: title.trim(),
-                    body,
+                    title: generated?.title ?? title.trim(),
+                    body: generated?.body ?? body,
                     draft,
                   }
                   try {
-                    if (cliAvailable) {
+                    if (createProvider === "cli") {
                       const created = await git.githubPrCreate(cwd, input)
                       selectPullRequest(created.number)
                       if (threadId)
@@ -1859,7 +2137,7 @@ export function GitHubPrPanel({
                     }
                   } catch (cause) {
                     if (cliAvailable) {
-                      const existing = await git.githubPrForBranch(cwd, branch).catch(() => null)
+                      const existing = await git.githubPrForBranch(cwd, head).catch(() => null)
                       if (existing?.state === "OPEN") {
                         selectPullRequest(existing.number)
                         setCreateNeedsReview(false)
@@ -1872,6 +2150,9 @@ export function GitHubPrPanel({
                   setCreateNeedsReview(false)
                   setTitle("")
                   setBody("")
+                  setNewBranchName("")
+                  setCreateCommitMessage("")
+                  setCommitChanges(false)
                 })
               }
               size="sm"

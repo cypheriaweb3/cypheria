@@ -2080,3 +2080,47 @@ msgstr "Worktrees"
 #: renderer/src/routes/settings.git.tsx
 msgid "settings.git.keepCount"
 msgstr "Worktrees to keep"
+
+#. js-lingui-explicit-id
+msgid "git.github.allRepositories"
+msgstr "All repositories"
+
+#. js-lingui-explicit-id
+msgid "git.github.commitChanges"
+msgstr "Commit local changes before creating"
+
+#. js-lingui-explicit-id
+msgid "git.github.commitMessage"
+msgstr "Commit message (leave blank to generate)"
+
+#. js-lingui-explicit-id
+msgid "git.review.generateMessage"
+msgstr "Generate"
+
+#. js-lingui-explicit-id
+msgid "git.github.generateDescription"
+msgstr "Generate"
+
+#. js-lingui-explicit-id
+msgid "git.github.linkedChats"
+msgstr "Linked chats:"
+
+#. js-lingui-explicit-id
+msgid "git.github.newBranch"
+msgstr "New branch (optional)"
+
+#. js-lingui-explicit-id
+msgid "git.github.board"
+msgstr "Pull requests across repositories"
+
+#. js-lingui-explicit-id
+msgid "git.github.repositoryFilter"
+msgstr "Repository filter"
+
+#. js-lingui-explicit-id
+msgid "settings.git.githubConnector"
+msgstr "Use connected GitHub App tools when the CLI cannot serve an operation"
+
+#. js-lingui-explicit-id
+msgid "git.github.boardRepositorySearch"
+msgstr "Repository (owner/name)"

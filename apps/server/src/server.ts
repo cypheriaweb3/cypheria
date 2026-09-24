@@ -149,6 +149,7 @@ export class CypheriaServer implements HttpAppHost {
       networkBootstrap: options.agentNetworkBootstrap,
       codexSettings: () => this.configStore.getSnapshot().config.agents.codex,
       gitSettings: () => this.configStore.getSnapshot().config.git,
+      managedShellEnvironment: (cwd) => this.git.managedShellEnvironment(cwd),
       agentDefaults: (agentId) =>
         this.configStore.getSnapshot().config.agents.defaults[agentId] ?? {},
     })
@@ -165,6 +166,12 @@ export class CypheriaServer implements HttpAppHost {
       messageRequests: createThreadMessageRequestPersistenceService(this.database.db),
       persistence: projectThreadPersistence,
       publish: (message) => this.registry.broadcast(message),
+      onArchived: async (cwd) => {
+        await this.git.cleanupManagedWorktrees(cwd)
+      },
+      onUnarchiving: async (cwd) => {
+        await this.git.restoreArchivedWorktree(cwd)
+      },
       timelinePersistence: createThreadTimelinePersistenceService(this.database.db),
       turnCapture: {
         start: (threadId, cwd) => this.git.turnCaptureStart(threadId, cwd),
@@ -179,6 +186,7 @@ export class CypheriaServer implements HttpAppHost {
         agents: this.agentManager,
         threads: this.threadManager,
         audit: this.web3.audit,
+        publishChanged: (message) => this.registry.broadcast(message),
       },
       () => this.configStore.getSnapshot().config.git
     )
@@ -548,6 +556,7 @@ export class CypheriaServer implements HttpAppHost {
     this.#webSocketServer?.close()
     this.#webSocketServer = undefined
     this.schedules.stop()
+    this.git.stop()
     this.terminals.stop()
     this.web3.stop()
     this.harnesses.stop()

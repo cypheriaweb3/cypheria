@@ -1,7 +1,7 @@
 import { isUtf8 } from "node:buffer"
 import { spawn } from "node:child_process"
 import { createHash, randomUUID } from "node:crypto"
-import { constants } from "node:fs"
+import { constants, type FSWatcher, watch } from "node:fs"
 import {
   lstat,
   mkdtemp,
@@ -51,6 +51,7 @@ import type {
   GitLabReviewer,
   GitLabReviewerCandidate,
   GitOrigin,
+  GitRepositoryChangedNotification,
   GitReviewFile,
   GitReviewLineCount,
   GitServerMessage,
@@ -103,6 +104,8 @@ const auditedOperations = new Set<GitClientMessage["type"]>([
   "git.checkout.request",
   "git.apply-review-section.request",
   "git.apply-review-sections.request",
+  "git.apply-patch.request",
+  "git.apply-changes.request",
   "git.undo-review-revert.request",
   "git.stage.request",
   "git.unstage.request",
@@ -184,7 +187,15 @@ export class GitService {
   readonly #gitlab: GitLabMrService | null
   readonly #threads: ThreadManager | null
   readonly #audit: Pick<AuditLogService, "append"> | null
+  readonly #agents: AgentManager | null
+  readonly #codexHome: string
   readonly #getSettings: () => GitSettings
+  readonly #publishChanged: ((message: GitRepositoryChangedNotification) => void) | null
+  readonly #discoveryCache = new Map<string, { repository: GitRepository; expiresAt: number }>()
+  readonly #watchers = new Map<
+    string,
+    { handles: FSWatcher[]; generation: number; timer: NodeJS.Timeout | null }
+  >()
   readonly #worktreeJobs = new Map<
     string,
     {
@@ -204,10 +215,14 @@ export class GitService {
       agents?: AgentManager
       threads?: ThreadManager
       audit?: Pick<AuditLogService, "append">
+      publishChanged?: (message: GitRepositoryChangedNotification) => void
     },
     getSettings: () => GitSettings = () => DEFAULT_GIT_SETTINGS
   ) {
     this.#getSettings = getSettings
+    this.#publishChanged = connectors?.publishChanged ?? null
+    this.#agents = connectors?.agents ?? null
+    this.#codexHome = join(cypheriaHome, "codex")
     this.#executor = new GitExecutor(cacheDir)
     this.#worktrees = new GitWorktreeService(
       this.#executor,
@@ -246,6 +261,28 @@ export class GitService {
       switch (message.type) {
         case "git.discover.request":
           value = await this.discover(message.payload.cwd)
+          break
+        case "git.availability.request":
+          value = await this.availability(message.payload.cwd)
+          break
+        case "git.remotes.request":
+          value = await this.remotes(message.payload.cwd)
+          break
+        case "git.branch-exists.request":
+          value = {
+            exists: await this.branchExists(
+              message.payload.cwd,
+              message.payload.name,
+              message.payload.scope
+            ),
+          }
+          break
+        case "git.branch-commits.request":
+          value = await this.branchCommits(
+            message.payload.cwd,
+            message.payload.ref,
+            message.payload.limit
+          )
           break
         case "git.origin.request":
           value = await this.origin(message.payload.cwd)
@@ -372,6 +409,12 @@ export class GitService {
         case "git.review-undo-list.request":
           value = await this.reviewUndoList(message.payload.cwd)
           break
+        case "git.apply-patch.request":
+          value = await this.applyPatch(message.payload.cwd, message.payload)
+          break
+        case "git.apply-changes.request":
+          value = await this.applyChanges(message.payload.cwd, message.payload)
+          break
         case "git.stage.request":
           await this.stage(message.payload.cwd, message.payload.paths)
           value = { succeeded: true }
@@ -387,6 +430,13 @@ export class GitService {
               coAuthors: message.payload.coAuthors,
             }),
           }
+          break
+        case "git.generate-text.request":
+          value = await this.generateText(
+            message.payload.cwd,
+            message.payload.kind,
+            message.payload.base
+          )
           break
         case "git.push.request":
           value = { output: await this.push(message.payload.cwd, message.payload) }
@@ -451,6 +501,9 @@ export class GitService {
           break
         case "git.github-availability.request":
           value = await this.githubAvailability(message.payload.cwd)
+          break
+        case "git.github-pr-board.request":
+          value = await this.#github.board(message.payload.cwd, message.payload)
           break
         case "git.github-app-availability.request":
           value = await this.githubAppAvailability(message.payload.cwd, message.payload.threadId)
@@ -785,7 +838,13 @@ export class GitService {
           value = { url: await this.gitlabMrBrowserForm(message.payload.cwd, message.payload) }
           break
       }
-      if (audited) await audit("succeeded").catch(() => undefined)
+      const failedResult =
+        value && typeof value === "object" && "status" in value && value.status === "error"
+      if (auditedOperations.has(message.type) && !failedResult && "cwd" in message.payload) {
+        const changed = await this.discover(message.payload.cwd).catch(() => null)
+        if (changed) this.#markChanged(changed.root)
+      }
+      if (audited) await audit(failedResult ? "failed" : "succeeded").catch(() => undefined)
       send({ type, requestId: message.requestId, payload: { ok: true, value } } as GitServerMessage)
     } catch (error) {
       if (audited) await audit("failed").catch(() => undefined)
@@ -812,8 +871,12 @@ export class GitService {
   }
 
   async discover(cwd: string): Promise<GitRepository> {
+    const resolvedCwd = await realpath(cwd)
+    const cached = this.#discoveryCache.get(resolvedCwd)
+    if (cached && cached.expiresAt > Date.now()) return cached.repository
     const root = trimmed(
-      (await this.#executor.run(cwd, ["rev-parse", "--show-toplevel"], { readOnly: true })).stdout
+      (await this.#executor.run(resolvedCwd, ["rev-parse", "--show-toplevel"], { readOnly: true }))
+        .stdout
     )
     const commonGitDir = trimmed(
       (
@@ -826,7 +889,60 @@ export class GitService {
         )
       ).stdout
     )
-    return { commonGitDir: await realpath(commonGitDir), root: await realpath(root) }
+    const repository = { commonGitDir: await realpath(commonGitDir), root: await realpath(root) }
+    this.#discoveryCache.set(resolvedCwd, { repository, expiresAt: Date.now() + 1000 })
+    this.#ensureWatch(repository)
+    return repository
+  }
+
+  stop(): void {
+    for (const watcher of this.#watchers.values()) {
+      if (watcher.timer) clearTimeout(watcher.timer)
+      for (const handle of watcher.handles) handle.close()
+    }
+    this.#watchers.clear()
+    this.#discoveryCache.clear()
+  }
+
+  #ensureWatch(repository: GitRepository): void {
+    if (this.#watchers.has(repository.root)) return
+    const handles: FSWatcher[] = []
+    const changed = () => this.#markChanged(repository.root)
+    for (const path of new Set([repository.root, repository.commonGitDir])) {
+      try {
+        const handle = watch(path, { recursive: true }, changed)
+        handle.on("error", changed)
+        handle.unref()
+        handles.push(handle)
+      } catch {
+        try {
+          const handle = watch(path, changed)
+          handle.on("error", changed)
+          handle.unref()
+          handles.push(handle)
+        } catch {
+          /* Polling remains available when native watching is unsupported. */
+        }
+      }
+    }
+    this.#watchers.set(repository.root, { handles, generation: 0, timer: null })
+  }
+
+  #markChanged(root: string): void {
+    for (const [cwd, entry] of this.#discoveryCache)
+      if (entry.repository.root === root) this.#discoveryCache.delete(cwd)
+    const watcher = this.#watchers.get(root)
+    if (!watcher || !this.#publishChanged) return
+    watcher.generation += 1
+    if (watcher.timer) clearTimeout(watcher.timer)
+    watcher.timer = setTimeout(() => {
+      watcher.timer = null
+      this.#publishChanged?.({
+        type: "git.repository-changed.notification",
+        payload: { root, generation: watcher.generation },
+      })
+    }, 60)
+    watcher.timer.unref()
   }
 
   async origin(cwd: string): Promise<GitOrigin> {
@@ -858,8 +974,87 @@ export class GitService {
     return { provider }
   }
 
+  async availability(cwd: string): Promise<{ available: boolean; version: string | null }> {
+    try {
+      const version = (
+        await this.#executor.run(cwd, ["--version"], { readOnly: true })
+      ).stdout.trim()
+      return { available: true, version }
+    } catch {
+      return { available: false, version: null }
+    }
+  }
+
+  async remotes(cwd: string): Promise<Array<{ name: string; host: string; repository: string }>> {
+    const repository = await this.discover(cwd)
+    const stdout = (await this.#executor.run(repository.root, ["remote", "-v"], { readOnly: true }))
+      .stdout
+    const result: Array<{ name: string; host: string; repository: string }> = []
+    for (const line of stdout.split("\n")) {
+      const match = /^([^\t]+)\t(.+) \(fetch\)$/u.exec(line)
+      if (!match) continue
+      const [, name, remote] = match
+      if (!name || !remote) continue
+      let host: string
+      let path: string
+      const scp = /^[^@\s]+@([^:]+):(.+)$/u.exec(remote)
+      if (scp) {
+        host = scp[1] ?? ""
+        path = scp[2] ?? ""
+      } else {
+        try {
+          const url = new URL(remote)
+          if (!["https:", "ssh:", "git:"].includes(url.protocol)) continue
+          host = url.hostname
+          path = url.pathname.replace(/^\//u, "")
+        } catch {
+          continue
+        }
+      }
+      const identity = path.replace(/\.git$/iu, "")
+      if (host && identity) result.push({ name, host: host.toLowerCase(), repository: identity })
+    }
+    return result
+  }
+
+  async branchExists(
+    cwd: string,
+    name: string,
+    scope: "local" | "remote" | "any" = "any"
+  ): Promise<boolean> {
+    const repository = await this.discover(cwd)
+    const branch = validateOperand(name, "branch")
+    await this.#executor.run(repository.root, ["check-ref-format", `refs/heads/${branch}`], {
+      readOnly: true,
+    })
+    const refs =
+      scope === "local"
+        ? [`refs/heads/${branch}`]
+        : scope === "remote"
+          ? [`refs/remotes/${branch}`]
+          : [`refs/heads/${branch}`, `refs/remotes/${branch}`]
+    for (const ref of refs) {
+      if (
+        await this.#executor
+          .run(repository.root, ["show-ref", "--verify", "--quiet", ref], { readOnly: true })
+          .then(
+            () => true,
+            () => false
+          )
+      )
+        return true
+    }
+    return false
+  }
+
   async worktrees(cwd: string): Promise<GitWorktree[]> {
     return this.#worktrees.list(await this.discover(cwd))
+  }
+
+  async managedShellEnvironment(cwd: string): Promise<Record<string, string> | null> {
+    const repository = await this.discover(cwd).catch(() => null)
+    if (!repository) return null
+    return this.#worktrees.shellEnvironment(repository, repository.root)
   }
 
   async createWorktree(
@@ -869,24 +1064,40 @@ export class GitService {
   ): Promise<GitWorktree> {
     const repository = await this.discover(cwd)
     const created = await this.#worktrees.create(repository, startPoint, options)
-    const settings = this.#getSettings()
-    if (settings.worktreeAutoCleanupEnabled && this.#threads) {
-      try {
-        const protectedPaths = [repository.root, created.path]
-        for (const archived of [false, true]) {
-          let cursor: string | null = null
-          do {
-            const page = await this.#threads.list({ archived, cursor, limit: 200 })
-            for (const thread of page.data) if (thread.cwd) protectedPaths.push(thread.cwd)
-            cursor = page.nextCursor
-          } while (cursor)
-        }
-        await this.#worktrees.cleanup(repository, settings.worktreeKeepCount, protectedPaths)
-      } catch {
-        // Worktree creation succeeded; cleanup can be retried on a later creation.
-      }
-    }
+    await this.cleanupManagedWorktrees(repository.root, [created.path]).catch(() => {
+      // Worktree creation succeeded; cleanup can be retried later.
+    })
     return created
+  }
+
+  async cleanupManagedWorktrees(
+    cwd: string,
+    extraProtected: readonly string[] = []
+  ): Promise<string[]> {
+    const settings = this.#getSettings()
+    if (!settings.worktreeAutoCleanupEnabled || !this.#threads) return []
+    const repository = await this.discover(cwd)
+    const protectedPaths = [repository.root, ...extraProtected]
+    const protectedOwnerThreadIds: string[] = []
+    let cursor: string | null = null
+    do {
+      const page = await this.#threads.list({ archived: false, cursor, limit: 200 })
+      for (const thread of page.data) {
+        protectedOwnerThreadIds.push(thread.id)
+        if (thread.cwd) protectedPaths.push(thread.cwd)
+      }
+      cursor = page.nextCursor
+    } while (cursor)
+    return this.#worktrees.cleanup(
+      repository,
+      settings.worktreeKeepCount,
+      protectedPaths,
+      protectedOwnerThreadIds
+    )
+  }
+
+  async restoreArchivedWorktree(cwd: string): Promise<void> {
+    await this.#worktrees.restoreIfArchived(cwd)
   }
 
   async startWorktreeJob(input: {
@@ -1212,6 +1423,7 @@ export class GitService {
       if (target && target.ownerThreadId !== threadId) {
         await this.#worktrees.setOwner(repository, targetPath, threadId)
       }
+      await this.cleanupManagedWorktrees(repository.root, [targetPath]).catch(() => undefined)
       return
     }
     const previousCwd = thread.cwd
@@ -1247,6 +1459,7 @@ export class GitService {
         throw new AggregateError([error, ...failures], "Git worktree handoff and rollback failed")
       throw error
     }
+    await this.cleanupManagedWorktrees(repository.root, [targetPath]).catch(() => undefined)
   }
 
   async syncedBranchState(cwd: string, path: string): Promise<GitSyncedBranchState | null> {
@@ -2444,12 +2657,30 @@ export class GitService {
   }
 
   async commitList(cwd: string, limit = 30): Promise<GitCommitSummary[]> {
+    return this.branchCommits(cwd, "HEAD", limit)
+  }
+
+  async branchCommits(cwd: string, ref: string, limit = 30): Promise<GitCommitSummary[]> {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100)
       throw new Error("Invalid Git commit limit")
     const repository = await this.discover(cwd)
+    const resolvedRef = trimmed(
+      (
+        await this.#executor.run(
+          repository.root,
+          [
+            "rev-parse",
+            "--verify",
+            "--end-of-options",
+            `${validateOperand(ref, "branch ref")}^{commit}`,
+          ],
+          { readOnly: true }
+        )
+      ).stdout
+    )
     const { stdout } = await this.#executor.run(
       repository.root,
-      ["log", "-z", `-${limit}`, "--format=%H%x00%s%x00%aI"],
+      ["log", "-z", `-${limit}`, "--format=%H%x00%s%x00%aI", resolvedRef],
       { readOnly: true }
     )
     const values = stdout.split("\0")
@@ -2740,7 +2971,7 @@ export class GitService {
   ): Promise<
     Array<{
       path: string
-      status: "applied" | "stale" | "conflict" | "failed"
+      status: "applied" | "stale" | "conflict" | "skipped" | "failed"
       undoId: string | null
       error: string | null
     }>
@@ -2750,7 +2981,7 @@ export class GitService {
     await this.discover(cwd)
     const results: Array<{
       path: string
-      status: "applied" | "stale" | "conflict" | "failed"
+      status: "applied" | "stale" | "conflict" | "skipped" | "failed"
       undoId: string | null
       error: string | null
     }> = []
@@ -2763,9 +2994,11 @@ export class GitService {
         const status =
           error instanceof GitStaleSnapshotError
             ? "stale"
-            : error instanceof GitCommandError && /patch does not apply|conflict/iu.test(message)
-              ? "conflict"
-              : "failed"
+            : message === "There are no changes in this file"
+              ? "skipped"
+              : /patch does not apply|conflict/iu.test(message)
+                ? "conflict"
+                : "failed"
         results.push({ path: section.path, status, undoId: null, error: message })
       }
     }
@@ -2802,26 +3035,191 @@ export class GitService {
       .map(({ id, path, createdAt }) => ({ id, path: relative(repository.root, path), createdAt }))
   }
 
+  async applyChanges(
+    cwd: string,
+    input: { sourceHeadRef: string; sourceTreeRef: string; destinationHeadRef: string }
+  ) {
+    const repository = await this.discover(cwd)
+    const head = trimmed(
+      (await this.#executor.run(repository.root, ["rev-parse", "HEAD"], { readOnly: true })).stdout
+    )
+    if (head !== input.destinationHeadRef)
+      throw new GitStaleSnapshotError("Destination changed; refresh before applying changes")
+    const base = trimmed(
+      (
+        await this.#executor.run(
+          repository.root,
+          ["merge-base", input.sourceHeadRef, input.destinationHeadRef],
+          { readOnly: true }
+        )
+      ).stdout
+    )
+    const diff = (
+      await this.#executor.run(
+        repository.root,
+        [
+          "diff",
+          "--binary",
+          "--full-index",
+          "--no-ext-diff",
+          "--no-textconv",
+          base,
+          input.sourceTreeRef,
+        ],
+        { readOnly: true }
+      )
+    ).stdout
+    if (!diff)
+      return {
+        status: "success" as const,
+        appliedPaths: [],
+        skippedPaths: [],
+        conflictedPaths: [],
+        error: null,
+      }
+    return this.applyPatch(cwd, { diff, target: "unstaged", allowBinary: true })
+  }
+
+  async applyPatch(
+    cwd: string,
+    input: {
+      diff: string
+      target: "unstaged" | "staged" | "staged-and-unstaged"
+      atomic?: boolean
+      reverse?: boolean
+      allowBinary?: boolean
+    }
+  ) {
+    const repository = await this.discover(cwd)
+    if (!input.diff || Buffer.byteLength(input.diff) > 32 * 1024 * 1024)
+      throw new Error("Invalid Git patch size")
+    const paths = [...input.diff.matchAll(/^diff --git a\/(.+?) b\/(.+)$/gmu)]
+      .flatMap((match) => [match[1], match[2]])
+      .filter((value): value is string => Boolean(value && value !== "/dev/null"))
+    if (!paths.length) throw new Error("Git patch has no file changes")
+    for (const path of new Set(paths)) {
+      const safe = this.#historicalPath(repository.root, path)
+      let parent = dirname(resolve(repository.root, safe))
+      while (parent !== repository.root) {
+        const info = await lstat(parent).catch((error: NodeJS.ErrnoException) => {
+          if (error.code === "ENOENT") return null
+          throw error
+        })
+        if (info?.isSymbolicLink() || (info && !info.isDirectory()))
+          throw new Error("Git patch path has an unsafe parent")
+        parent = dirname(parent)
+      }
+    }
+    const directory = await mkdtemp(join(tmpdir(), "cypheria-git-patch-"))
+    const patchFile = join(directory, "changes.patch")
+    const indexFile = join(directory, "index")
+    try {
+      await writeFile(patchFile, input.diff, { mode: 0o600 })
+      const temporaryIndex = input.target === "unstaged" && !input.atomic
+      const env = temporaryIndex ? { GIT_INDEX_FILE: indexFile } : undefined
+      if (temporaryIndex) {
+        await this.#executor.run(repository.root, ["read-tree", "HEAD"], { env })
+        const existing = await Promise.all(
+          [...new Set(paths)].map(async (path) =>
+            (await stat(resolve(repository.root, path)).catch(() => null)) !== null ? path : null
+          )
+        )
+        if (existing.some(Boolean))
+          await this.#executor.run(
+            repository.root,
+            ["add", "--", ...existing.filter((path): path is string => path !== null)],
+            { env }
+          )
+      }
+      const args = [
+        "apply",
+        ...(input.reverse ? ["--reverse"] : []),
+        ...(input.allowBinary ? ["--binary"] : []),
+        ...(!input.atomic ? ["--3way"] : []),
+        ...(input.target === "staged"
+          ? ["--cached"]
+          : input.target === "staged-and-unstaged"
+            ? ["--index"]
+            : []),
+        "--",
+        patchFile,
+      ]
+      if (input.atomic)
+        await this.#executor.run(repository.root, ["apply", "--check", ...args.slice(1)], { env })
+      const before = (
+        await this.#executor.run(repository.root, ["status", "--porcelain=v1", "-z"], {
+          readOnly: true,
+        })
+      ).stdout
+      try {
+        await this.#executor.run(repository.root, args, { env })
+        return {
+          status: "success" as const,
+          appliedPaths: [...new Set(paths)],
+          skippedPaths: [],
+          conflictedPaths: [],
+          error: null,
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        const after = (
+          await this.#executor.run(repository.root, ["status", "--porcelain=v1", "-z"], {
+            readOnly: true,
+          })
+        ).stdout
+        const uniquePaths = [...new Set(paths)]
+        const mentionedConflicts = uniquePaths.filter(
+          (path) =>
+            message.includes(`Merge conflict in ${path}`) ||
+            message.includes(`${path}: patch does not apply`) ||
+            message.includes(`patch failed: ${path}:`)
+        )
+        const conflictedPaths = mentionedConflicts.length
+          ? mentionedConflicts
+          : /conflict|patch does not apply/iu.test(message)
+            ? uniquePaths
+            : []
+        const entryFor = (output: string, path: string) =>
+          output.split("\0").find((entry) => entry.slice(3) === path) ?? null
+        const appliedPaths =
+          before !== after
+            ? uniquePaths.filter(
+                (path) =>
+                  !conflictedPaths.includes(path) &&
+                  entryFor(before, path) !== entryFor(after, path)
+              )
+            : []
+        return {
+          status:
+            (appliedPaths.length || (conflictedPaths.length && before !== after)) && !input.atomic
+              ? ("partial-success" as const)
+              : ("error" as const),
+          appliedPaths,
+          skippedPaths: uniquePaths.filter(
+            (path) => !appliedPaths.includes(path) && !conflictedPaths.includes(path)
+          ),
+          conflictedPaths,
+          error: message,
+        }
+      }
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
+  }
+
   async #applyReviewPatch(
     root: string,
     patch: string,
     cached: boolean,
     reverse: boolean
   ): Promise<void> {
-    const directory = await mkdtemp(join(tmpdir(), "cypheria-git-review-"))
-    const patchFile = join(directory, "section.patch")
-    try {
-      await writeFile(patchFile, patch, { mode: 0o600 })
-      await this.#executor.run(root, [
-        "apply",
-        ...(cached ? ["--cached"] : []),
-        ...(reverse ? ["--reverse"] : []),
-        "--",
-        patchFile,
-      ])
-    } finally {
-      await rm(directory, { recursive: true, force: true })
-    }
+    const result = await this.applyPatch(root, {
+      diff: patch,
+      target: cached ? "staged" : "unstaged",
+      reverse,
+      allowBinary: true,
+    })
+    if (result.status !== "success") throw new Error(result.error || "Git review patch failed")
   }
 
   async stage(cwd: string, paths: readonly string[]): Promise<void> {
@@ -2863,6 +3261,153 @@ export class GitService {
     return trimmed(
       (await this.#executor.run(repository.root, ["rev-parse", "HEAD"], { readOnly: true })).stdout
     )
+  }
+
+  async generateText(
+    cwd: string,
+    kind: "commit" | "pull-request",
+    base?: string
+  ): Promise<{ title: string; body: string }> {
+    if (!this.#agents) throw new Error("Codex is unavailable for Git text generation")
+    const repository = await this.discover(cwd)
+    const baseName = kind === "pull-request" ? validateOperand(base ?? "HEAD", "base") : null
+    const baseRef = baseName
+      ? await this.#executor
+          .run(
+            repository.root,
+            ["rev-parse", "--verify", "--end-of-options", `${baseName}^{commit}`],
+            { readOnly: true }
+          )
+          .then(
+            ({ stdout }) => stdout.trim(),
+            async () =>
+              (
+                await this.#executor.run(
+                  repository.root,
+                  [
+                    "rev-parse",
+                    "--verify",
+                    "--end-of-options",
+                    `refs/remotes/origin/${baseName}^{commit}`,
+                  ],
+                  { readOnly: true }
+                )
+              ).stdout.trim()
+          )
+      : null
+    const diff =
+      kind === "commit"
+        ? [
+            (
+              await this.#executor.run(
+                repository.root,
+                ["diff", "--cached", "--binary", "--no-ext-diff", "--no-textconv"],
+                { readOnly: true }
+              )
+            ).stdout,
+            (
+              await this.#executor.run(
+                repository.root,
+                ["diff", "--binary", "--no-ext-diff", "--no-textconv"],
+                { readOnly: true }
+              )
+            ).stdout,
+          ].join("\n")
+        : (
+            await this.#executor.run(
+              repository.root,
+              ["diff", "--binary", "--no-ext-diff", "--no-textconv", `${baseRef}...HEAD`],
+              { readOnly: true }
+            )
+          ).stdout
+    const status = kind === "commit" ? await this.status(cwd) : null
+    if (!diff && !status?.entries.length) throw new Error("There are no changes to describe")
+    const directory = await mkdtemp(join(tmpdir(), "cypheria-git-generate-"))
+    const outputPath = join(directory, "output.json")
+    const schemaPath = join(directory, "schema.json")
+    try {
+      await writeFile(
+        schemaPath,
+        JSON.stringify({
+          type: "object",
+          properties: { title: { type: "string" }, body: { type: "string" } },
+          required: ["title", "body"],
+          additionalProperties: false,
+        }),
+        { mode: 0o600 }
+      )
+      const instructions =
+        kind === "commit"
+          ? this.#getSettings().commitInstructions
+          : this.#getSettings().prInstructions
+      const prompt = [
+        kind === "commit"
+          ? "Write a concise Git commit subject. Put it in title; body may be empty."
+          : "Write a pull request title and body describing this branch's changes.",
+        "Return only JSON matching the supplied schema. Do not modify files.",
+        instructions ? `Additional instructions:\n${instructions}` : "",
+        status
+          ? `Git status:\n${status.entries.map((entry) => `${entry.code} ${entry.path}`).join("\n")}`
+          : "",
+        `Diff (truncated to 64 KiB):\n${diff.slice(0, 65_536)}`,
+      ]
+        .filter(Boolean)
+        .join("\n\n")
+      const spec = await this.#agents.authTerminalSpec(
+        "codex",
+        [
+          "exec",
+          "--ephemeral",
+          "--sandbox",
+          "read-only",
+          "--skip-git-repo-check",
+          "--output-schema",
+          schemaPath,
+          "--output-last-message",
+          outputPath,
+          "-",
+        ],
+        { CODEX_HOME: this.#codexHome }
+      )
+      await new Promise<void>((resolve, reject) => {
+        const child = spawn(spec.command, spec.args, {
+          cwd: repository.root,
+          env: { ...spec.env, CODEX_HOME: this.#codexHome },
+          stdio: ["pipe", "ignore", "pipe"],
+          windowsHide: true,
+        })
+        let stderr = ""
+        const timer = setTimeout(() => child.kill(), 120_000)
+        child.stderr.on("data", (chunk: Buffer) => {
+          stderr = (stderr + chunk.toString()).slice(-16_384)
+        })
+        child.on("error", (error) => {
+          clearTimeout(timer)
+          reject(error)
+        })
+        child.on("close", (code) => {
+          clearTimeout(timer)
+          if (code === 0) resolve()
+          else reject(new Error(stderr.trim() || `Codex text generation failed (${code})`))
+        })
+        child.stdin.end(prompt)
+      })
+      const generated = JSON.parse(await readFile(outputPath, "utf8")) as {
+        title?: unknown
+        body?: unknown
+      }
+      if (
+        typeof generated.title !== "string" ||
+        !generated.title.trim() ||
+        typeof generated.body !== "string" ||
+        generated.title.length > 500 ||
+        generated.body.length > 100_000
+      )
+        throw new Error("Codex returned invalid Git text")
+      return { title: generated.title.trim(), body: generated.body.trim() }
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
   }
 
   async push(

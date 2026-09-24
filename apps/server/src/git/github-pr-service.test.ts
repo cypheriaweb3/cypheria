@@ -51,6 +51,7 @@ else if (args[0] === "api" && args[1] === "graphql") {
 else if (args[0] === "api" && args.includes("--method")) process.stdout.write(JSON.stringify({ id: 1 }))
 else if (args[0] === "api") process.stdout.write("tester\\n")
 else if (args[0] === "repo") process.stdout.write("org/repo\\n")
+else if (args[0] === "search") process.stdout.write(JSON.stringify([{ number: 42, title: "Review change", url: "https://github.com/org/repo/pull/42", updatedAt: "2026-09-23T00:00:00Z", state: "open", repository: { nameWithOwner: "org/repo" } }]))
 else if (args[1] === "list") process.stdout.write(args.includes("--head") && (args[args.indexOf("--head") + 1] === "other" || args.includes("open") && !args.includes("existing")) ? "[]" : ${JSON.stringify(JSON.stringify([pr]))})
 else if (args[1] === "create") process.stdout.write("https://github.com/org/repo/pull/42\\n")
 else if (args[1] === "checks") { process.stdout.write(JSON.stringify([{ bucket: "pending", completedAt: null, link: "https://github.com/org/repo/actions/runs/1", name: "build", startedAt: "2026-09-23T00:00:00Z", state: "IN_PROGRESS", workflow: "CI" }])); process.exit(8) }
@@ -73,6 +74,19 @@ else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
     expect(await service.list(cwd, "all", 5)).toEqual([pr])
     expect(await service.list(cwd, "closed", 10, "bug fix")).toEqual([pr])
     expect(await service.list(cwd, "open", 200, "review-requested:@me")).toEqual([pr])
+    expect(
+      await service.board(cwd, { state: "open", scope: "reviewing", repository: "org/repo" })
+    ).toEqual([
+      {
+        number: 42,
+        title: "Review change",
+        url: "https://github.com/org/repo/pull/42",
+        updatedAt: "2026-09-23T00:00:00Z",
+        state: "open",
+        repository: "org/repo",
+      },
+    ])
+    await expect(service.board(cwd, { repository: "../other" })).rejects.toThrow()
     expect(await service.forBranch(cwd, "feature")).toEqual(pr)
     expect(await service.forBranch(cwd, "tester:feature")).toEqual(pr)
     expect(await service.forBranch(cwd, "other")).toBeNull()

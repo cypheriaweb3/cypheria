@@ -20,6 +20,9 @@ describe("GitHub PR associations", () => {
     const entry = { number: 42, title: "Review", url: "https://github.com/org/repo/pull/42" }
     githubPrAssociations.add("thread-one", entry)
     expect(githubPrAssociations.getSnapshot()["thread-one"]).toEqual([entry])
+    expect(githubPrAssociations.forPullRequest(entry.url)).toEqual([
+      { threadId: "thread-one", association: entry },
+    ])
     expect(() =>
       githubPrAssociations.add("thread-one", {
         ...entry,
@@ -31,5 +34,8 @@ describe("GitHub PR associations", () => {
     expect(restored.githubPrAssociations.getSnapshot()["thread-one"]).toEqual([entry])
     restored.githubPrAssociations.remove("thread-one", entry.url)
     expect(restored.githubPrAssociations.getSnapshot()["thread-one"]).toEqual([])
+    expect(restored.githubPrAssociations.attachmentHistory(entry.url)).toMatchObject([
+      { threadId: "thread-one", attached: false },
+    ])
   })
 })

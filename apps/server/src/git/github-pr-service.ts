@@ -8,6 +8,7 @@ import {
   type GitHubAvailability,
   type GitHubPrAttributesFile,
   GitHubPrAttributesFileSchema,
+  type GitHubPrBoardEntry,
   type GitHubPrMetadata,
   GitHubPrMetadataSchema,
   type GitHubPrReviewStatus,
@@ -140,6 +141,78 @@ export class GitHubPrService {
       repository,
       error: repository ? null : "GitHub CLI cannot access this repository",
     }
+  }
+
+  async board(
+    cwd: string,
+    options: {
+      state?: "open" | "closed" | "merged" | "all"
+      scope?: "all" | "authored" | "reviewing"
+      repository?: string
+      query?: string
+      limit?: number
+    } = {}
+  ): Promise<GitHubPrBoardEntry[]> {
+    const limit = options.limit ?? 100
+    if (
+      !Number.isSafeInteger(limit) ||
+      limit < 1 ||
+      limit > 500 ||
+      (options.query?.length ?? 0) > 200 ||
+      /[\0\r\n]/u.test(options.query ?? "")
+    )
+      throw new Error("Invalid GitHub PR board query")
+    const repository = options.repository?.trim()
+    if (
+      repository &&
+      (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(repository) ||
+        repository.split("/").some((part) => part === "." || part === ".."))
+    )
+      throw new Error("Invalid GitHub repository filter")
+    const args = ["search", "prs", "--limit", String(limit), "--sort", "updated", "--order", "desc"]
+    if (repository) args.push("--repo", repository)
+    if (options.state === "open" || options.state === "closed") args.push("--state", options.state)
+    if (options.state === "merged") args.push("--merged")
+    if (options.scope === "authored") args.push("--author", "@me")
+    if (options.scope === "reviewing") args.push("--review-requested", "@me")
+    if (options.query?.trim()) args.push(options.query.trim())
+    args.push("--json", "number,title,url,updatedAt,repository,state")
+    const raw = JSON.parse(await this.#run(cwd, args)) as unknown
+    const parsed = z
+      .array(
+        z
+          .object({
+            number: z.number().int().positive(),
+            repository: z.object({ nameWithOwner: z.string().min(3) }).passthrough(),
+            title: z.string(),
+            url: z.url(),
+            updatedAt: z.string(),
+            state: z.string(),
+          })
+          .passthrough()
+      )
+      .parse(raw)
+    return parsed.flatMap((entry) => {
+      const url = new URL(entry.url)
+      if (
+        url.origin !== "https://github.com" ||
+        url.username ||
+        url.password ||
+        url.pathname.toLowerCase() !==
+          `/${entry.repository.nameWithOwner}/pull/${entry.number}`.toLowerCase()
+      )
+        return []
+      return [
+        {
+          number: entry.number,
+          repository: entry.repository.nameWithOwner,
+          title: entry.title,
+          url: entry.url,
+          updatedAt: entry.updatedAt,
+          state: entry.state,
+        },
+      ]
+    })
   }
 
   async list(

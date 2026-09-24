@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promi
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { promisify } from "node:util"
+import { DEFAULT_GIT_SETTINGS } from "@cypheria/protocol"
 import { afterEach, describe, expect, it } from "vitest"
 import type { AgentManager } from "../agent/agent-manager.js"
 import type { ThreadManager } from "../thread/thread-manager.js"
@@ -28,6 +29,106 @@ const repository = async () => {
 }
 
 describe("GitService", () => {
+  it("generates a commit title using saved instructions and the managed Codex home", async () => {
+    const root = await repository()
+    await writeFile(join(root, "file.txt"), "base\n")
+    await run("git", ["-C", root, "add", "file.txt"])
+    await run("git", ["-C", root, "commit", "-qm", "Base"])
+    await writeFile(join(root, "file.txt"), "changed\n")
+    const script = join(root, "fake-codex.cjs")
+    await writeFile(
+      script,
+      `const fs=require('node:fs'); let prompt=''; process.stdin.on('data', c=>prompt+=c); process.stdin.on('end', ()=>{ fs.writeFileSync('received-prompt.txt', prompt); const i=process.argv.indexOf('--output-last-message'); fs.writeFileSync(process.argv[i+1], JSON.stringify({title:'Describe change',body:''})); });`
+    )
+    const agents = {
+      authTerminalSpec: async (
+        _agentId: string,
+        args: string[],
+        extraEnvironment: Record<string, string>
+      ) => ({
+        command: process.execPath,
+        args: [script, ...args],
+        cwd: root,
+        env: { ...process.env, ...extraEnvironment } as Record<string, string>,
+      }),
+    } as unknown as AgentManager
+    const service = new GitService(join(root, "cache"), join(root, "home"), { agents }, () => ({
+      ...DEFAULT_GIT_SETTINGS,
+      commitInstructions: "Use imperative mood.",
+    }))
+    expect(await service.generateText(root, "commit")).toEqual({
+      title: "Describe change",
+      body: "",
+    })
+    const prompt = await readFile(join(root, "received-prompt.txt"), "utf8")
+    expect(prompt).toContain("Use imperative mood.")
+    expect(prompt).toContain("+changed")
+    service.stop()
+  })
+
+  it("reports Git availability and safe remote and branch queries", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await writeFile(join(root, "file.txt"), "base\n")
+    await service.stage(root, ["file.txt"])
+    const commit = await service.commit(root, "Base")
+    await service.createBranch(root, "feature")
+    await run("git", [
+      "-C",
+      root,
+      "remote",
+      "add",
+      "origin",
+      "https://secret@example.com/org/repo.git",
+    ])
+    expect(await service.availability(root)).toMatchObject({ available: true })
+    expect(await service.remotes(root)).toEqual([
+      { name: "origin", host: "example.com", repository: "org/repo" },
+    ])
+    expect(await service.branchExists(root, "feature", "local")).toBe(true)
+    expect(await service.branchExists(root, "missing", "local")).toBe(false)
+    expect(await service.branchCommits(root, "feature")).toMatchObject([
+      { id: commit, subject: "Base" },
+    ])
+  })
+
+  it("notifies clients when an external Git worktree change invalidates cached metadata", async () => {
+    const root = await repository()
+    const events: string[] = []
+    const service = new GitService(join(root, "cache"), join(root, "home"), {
+      publishChanged: (message) => events.push(message.payload.root),
+    })
+    try {
+      await service.status(root)
+      await writeFile(join(root, "external.txt"), "new\n")
+      await expect.poll(() => events.length, { timeout: 3000 }).toBeGreaterThan(0)
+      expect(events).toContain(await realpath(root))
+    } finally {
+      service.stop()
+    }
+  })
+
+  it("applies a patch to the worktree without changing the real index", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await writeFile(join(root, "file.txt"), "base\n")
+    await service.stage(root, ["file.txt"])
+    await service.commit(root, "Base")
+    await writeFile(join(root, "file.txt"), "updated\n")
+    const diff = await service.diff(root)
+    await run("git", ["-C", root, "restore", "--worktree", "--", "file.txt"])
+    const result = await service.applyPatch(root, { diff, target: "unstaged" })
+    expect(result).toMatchObject({ status: "success", appliedPaths: ["file.txt"] })
+    expect(await readFile(join(root, "file.txt"), "utf8")).toBe("updated\n")
+    expect((await service.status(root)).entries).toContainEqual({ code: " M", path: "file.txt" })
+    const nested =
+      "diff --git a/nested/new.txt b/nested/new.txt\nnew file mode 100644\n--- /dev/null\n+++ b/nested/new.txt\n@@ -0,0 +1 @@\n+hello\n"
+    expect(
+      await service.applyPatch(root, { diff: nested, target: "unstaged", atomic: true })
+    ).toMatchObject({ status: "success" })
+    expect(await readFile(join(root, "nested", "new.txt"), "utf8")).toBe("hello\n")
+  })
+
   it("audits mutating requests without storing Git content", async () => {
     const root = await repository()
     const events: Array<{

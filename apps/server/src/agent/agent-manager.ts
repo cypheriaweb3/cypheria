@@ -109,6 +109,7 @@ export type AgentManagerOptions = {
   logger?: Logger
   codexSettings?: () => CodexAgentSettings
   gitSettings?: () => GitSettings
+  managedShellEnvironment?: (cwd: string) => Promise<Record<string, string> | null>
   agentDefaults?: (agentId: AgentId) => Record<string, HarnessSettingValue>
   networkBootstrap?: boolean
   installer?: Pick<AgentInstaller, "cleanupInterrupted" | "install" | "readCurrent" | "uninstall">
@@ -153,6 +154,7 @@ export class AgentManager {
   readonly #claudeRuntimes = new Map<string, Promise<ClaudeSessionRuntime>>()
   readonly #codexSettings: () => CodexAgentSettings
   readonly #gitSettings: () => GitSettings
+  readonly #managedShellEnvironment: (cwd: string) => Promise<Record<string, string> | null>
   readonly #installer: Pick<
     AgentInstaller,
     "cleanupInterrupted" | "install" | "readCurrent" | "uninstall"
@@ -188,6 +190,7 @@ export class AgentManager {
     this.#logger = options.logger
     this.#agentDefaults = options.agentDefaults ?? (() => ({}))
     this.#gitSettings = options.gitSettings ?? (() => DEFAULT_GIT_SETTINGS)
+    this.#managedShellEnvironment = options.managedShellEnvironment ?? (async () => null)
     this.#codexSettings =
       options.codexSettings ??
       (() => ({
@@ -303,6 +306,14 @@ export class AgentManager {
 
   codexGitInstructions(): string | undefined {
     return codexGitInstructions(this.#gitSettings())
+  }
+
+  async codexWorktreeConfig(
+    cwd: string | null | undefined
+  ): Promise<Record<string, unknown> | undefined> {
+    if (!cwd) return undefined
+    const values = await this.#managedShellEnvironment(cwd)
+    return values ? { shell_environment_policy: { set: values } } : undefined
   }
 
   defaultsFor(agentId: AgentId): Record<string, HarnessSettingValue> {

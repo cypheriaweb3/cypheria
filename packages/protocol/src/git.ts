@@ -25,6 +25,21 @@ const output = <T extends string, S extends z.ZodType>(type: T, value: S) =>
     .strict()
 
 export const GitRepositorySchema = z.object({ root: path, commonGitDir: path }).strict()
+export const GitAvailabilitySchema = z
+  .object({ available: z.boolean(), version: z.string().nullable() })
+  .strict()
+export const GitRemoteIdentitySchema = z
+  .object({ name: z.string(), host: z.string(), repository: z.string() })
+  .strict()
+export const GitRepositoryChangedNotificationSchema = z
+  .object({
+    type: z.literal("git.repository-changed.notification"),
+    payload: z.object({ root: path, generation: z.number().int().nonnegative() }).strict(),
+  })
+  .strict()
+export type GitRepositoryChangedNotification = z.infer<
+  typeof GitRepositoryChangedNotificationSchema
+>
 export const GitOriginSchema = z
   .object({ provider: z.enum(["github", "gitlab", "other", "none"]) })
   .strict()
@@ -155,6 +170,16 @@ export const GitHubAvailabilitySchema = z
     account: z.string().nullable(),
     repository: z.string().nullable(),
     error: z.string().nullable(),
+  })
+  .strict()
+export const GitHubPrBoardEntrySchema = z
+  .object({
+    number: z.number().int().positive(),
+    repository: z.string().min(3),
+    title: z.string(),
+    url: z.url(),
+    updatedAt: z.string(),
+    state: z.string(),
   })
   .strict()
 export const GitHubAppAvailabilitySchema = z
@@ -437,6 +462,22 @@ export const GitDiscoverRequestSchema = input(
   "git.discover.request",
   z.object({ cwd: path }).strict()
 )
+export const GitAvailabilityRequestSchema = input(
+  "git.availability.request",
+  z.object({ cwd: path }).strict()
+)
+export const GitRemotesRequestSchema = input(
+  "git.remotes.request",
+  z.object({ cwd: path }).strict()
+)
+export const GitBranchExistsRequestSchema = input(
+  "git.branch-exists.request",
+  z.object({ cwd: path, name: path, scope: z.enum(["local", "remote", "any"]).optional() }).strict()
+)
+export const GitBranchCommitsRequestSchema = input(
+  "git.branch-commits.request",
+  z.object({ cwd: path, ref: path, limit: z.number().int().min(1).max(100).optional() }).strict()
+)
 export const GitOriginRequestSchema = input("git.origin.request", z.object({ cwd: path }).strict())
 export const GitStatusRequestSchema = input("git.status.request", z.object({ cwd: path }).strict())
 export const GitBranchesRequestSchema = input(
@@ -635,6 +676,33 @@ export const GitReviewUndoListRequestSchema = input(
   "git.review-undo-list.request",
   z.object({ cwd: path }).strict()
 )
+export const GitApplyPatchRequestSchema = input(
+  "git.apply-patch.request",
+  z
+    .object({
+      cwd: path,
+      diff: z
+        .string()
+        .min(1)
+        .max(32 * 1024 * 1024),
+      target: z.enum(["unstaged", "staged", "staged-and-unstaged"]).default("unstaged"),
+      atomic: z.boolean().optional(),
+      reverse: z.boolean().optional(),
+      allowBinary: z.boolean().optional(),
+    })
+    .strict()
+)
+export const GitApplyChangesRequestSchema = input(
+  "git.apply-changes.request",
+  z
+    .object({
+      cwd: path,
+      sourceHeadRef: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      sourceTreeRef: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+      destinationHeadRef: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    })
+    .strict()
+)
 export const GitStageRequestSchema = input(
   "git.stage.request",
   z.object({ cwd: path, paths }).strict()
@@ -652,6 +720,12 @@ export const GitCommitRequestSchema = input(
       includeUnstaged: z.boolean().optional(),
       coAuthors: z.array(z.string().min(1).max(200)).max(20).optional(),
     })
+    .strict()
+)
+export const GitGenerateTextRequestSchema = input(
+  "git.generate-text.request",
+  z
+    .object({ cwd: path, kind: z.enum(["commit", "pull-request"]), base: z.string().optional() })
     .strict()
 )
 export const GitPushRequestSchema = input(
@@ -742,6 +816,19 @@ export const GitSyncedBranchUndoRequestSchema = input(
 export const GitHubAvailabilityRequestSchema = input(
   "git.github-availability.request",
   z.object({ cwd: path }).strict()
+)
+export const GitHubPrBoardRequestSchema = input(
+  "git.github-pr-board.request",
+  z
+    .object({
+      cwd: path,
+      state: z.enum(["open", "closed", "merged", "all"]).optional(),
+      scope: z.enum(["all", "authored", "reviewing"]).optional(),
+      repository: z.string().max(200).optional(),
+      query: z.string().max(200).optional(),
+      limit: z.number().int().min(1).max(500).optional(),
+    })
+    .strict()
 )
 export const GitHubAppAvailabilityRequestSchema = input(
   "git.github-app-availability.request",
@@ -1204,6 +1291,22 @@ export const GitLabMrBrowserFormRequestSchema = input(
 
 const success = z.object({ succeeded: z.literal(true) }).strict()
 export const GitDiscoverResponseSchema = output("git.discover.response", GitRepositorySchema)
+export const GitAvailabilityResponseSchema = output(
+  "git.availability.response",
+  GitAvailabilitySchema
+)
+export const GitRemotesResponseSchema = output(
+  "git.remotes.response",
+  z.array(GitRemoteIdentitySchema)
+)
+export const GitBranchExistsResponseSchema = output(
+  "git.branch-exists.response",
+  z.object({ exists: z.boolean() }).strict()
+)
+export const GitBranchCommitsResponseSchema = output(
+  "git.branch-commits.response",
+  z.array(GitCommitSummarySchema)
+)
 export const GitOriginResponseSchema = output("git.origin.response", GitOriginSchema)
 export const GitStatusResponseSchema = output("git.status.response", GitStatusSchema)
 export const GitBranchesResponseSchema = output("git.branches.response", z.array(GitBranchSchema))
@@ -1299,7 +1402,7 @@ export const GitApplyReviewSectionsResponseSchema = output(
     z
       .object({
         path,
-        status: z.enum(["applied", "stale", "conflict", "failed"]),
+        status: z.enum(["applied", "stale", "conflict", "skipped", "failed"]),
         undoId: z.uuid().nullable(),
         error: z.string().nullable(),
       })
@@ -1311,11 +1414,29 @@ export const GitReviewUndoListResponseSchema = output(
   "git.review-undo-list.response",
   z.array(GitReviewUndoEntrySchema)
 )
+export const GitPatchResultSchema = z
+  .object({
+    status: z.enum(["success", "partial-success", "error"]),
+    appliedPaths: z.array(path),
+    skippedPaths: z.array(path),
+    conflictedPaths: z.array(path),
+    error: z.string().nullable(),
+  })
+  .strict()
+export const GitApplyPatchResponseSchema = output("git.apply-patch.response", GitPatchResultSchema)
+export const GitApplyChangesResponseSchema = output(
+  "git.apply-changes.response",
+  GitPatchResultSchema
+)
 export const GitStageResponseSchema = output("git.stage.response", success)
 export const GitUnstageResponseSchema = output("git.unstage.response", success)
 export const GitCommitResponseSchema = output(
   "git.commit.response",
   z.object({ commit: z.string() }).strict()
+)
+export const GitGenerateTextResponseSchema = output(
+  "git.generate-text.response",
+  z.object({ title: z.string(), body: z.string() }).strict()
 )
 export const GitPushResponseSchema = output(
   "git.push.response",
@@ -1370,6 +1491,10 @@ export const GitSyncedBranchUndoResponseSchema = output("git.synced-branch-undo.
 export const GitHubAvailabilityResponseSchema = output(
   "git.github-availability.response",
   GitHubAvailabilitySchema
+)
+export const GitHubPrBoardResponseSchema = output(
+  "git.github-pr-board.response",
+  z.array(GitHubPrBoardEntrySchema)
 )
 export const GitHubAppAvailabilityResponseSchema = output(
   "git.github-app-availability.response",
@@ -1550,6 +1675,10 @@ export const GitLabMrBrowserFormResponseSchema = output(
 
 export const GIT_CLIENT_SCHEMAS = [
   GitDiscoverRequestSchema,
+  GitAvailabilityRequestSchema,
+  GitRemotesRequestSchema,
+  GitBranchExistsRequestSchema,
+  GitBranchCommitsRequestSchema,
   GitOriginRequestSchema,
   GitStatusRequestSchema,
   GitBranchesRequestSchema,
@@ -1582,9 +1711,12 @@ export const GIT_CLIENT_SCHEMAS = [
   GitApplyReviewSectionsRequestSchema,
   GitUndoReviewRevertRequestSchema,
   GitReviewUndoListRequestSchema,
+  GitApplyPatchRequestSchema,
+  GitApplyChangesRequestSchema,
   GitStageRequestSchema,
   GitUnstageRequestSchema,
   GitCommitRequestSchema,
+  GitGenerateTextRequestSchema,
   GitPushRequestSchema,
   GitWorktreesRequestSchema,
   GitWorktreeCreateRequestSchema,
@@ -1600,6 +1732,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitSyncedBranchSyncRequestSchema,
   GitSyncedBranchUndoRequestSchema,
   GitHubAvailabilityRequestSchema,
+  GitHubPrBoardRequestSchema,
   GitHubAppAvailabilityRequestSchema,
   GitHubAppPrCreateRequestSchema,
   GitHubAppPrListRequestSchema,
@@ -1650,6 +1783,10 @@ export const GIT_CLIENT_SCHEMAS = [
 ] as const
 export const GIT_SERVER_SCHEMAS = [
   GitDiscoverResponseSchema,
+  GitAvailabilityResponseSchema,
+  GitRemotesResponseSchema,
+  GitBranchExistsResponseSchema,
+  GitBranchCommitsResponseSchema,
   GitOriginResponseSchema,
   GitStatusResponseSchema,
   GitBranchesResponseSchema,
@@ -1682,9 +1819,12 @@ export const GIT_SERVER_SCHEMAS = [
   GitApplyReviewSectionsResponseSchema,
   GitUndoReviewRevertResponseSchema,
   GitReviewUndoListResponseSchema,
+  GitApplyPatchResponseSchema,
+  GitApplyChangesResponseSchema,
   GitStageResponseSchema,
   GitUnstageResponseSchema,
   GitCommitResponseSchema,
+  GitGenerateTextResponseSchema,
   GitPushResponseSchema,
   GitWorktreesResponseSchema,
   GitWorktreeCreateResponseSchema,
@@ -1700,6 +1840,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitSyncedBranchSyncResponseSchema,
   GitSyncedBranchUndoResponseSchema,
   GitHubAvailabilityResponseSchema,
+  GitHubPrBoardResponseSchema,
   GitHubAppAvailabilityResponseSchema,
   GitHubAppPrCreateResponseSchema,
   GitHubAppPrListResponseSchema,
@@ -1753,6 +1894,8 @@ export const GitClientMessageSchema = z.discriminatedUnion("type", GIT_CLIENT_SC
 export type GitClientMessage = z.infer<(typeof GIT_CLIENT_SCHEMAS)[number]>
 export type GitServerMessage = z.infer<(typeof GIT_SERVER_SCHEMAS)[number]>
 export type GitRepository = z.infer<typeof GitRepositorySchema>
+export type GitAvailability = z.infer<typeof GitAvailabilitySchema>
+export type GitRemoteIdentity = z.infer<typeof GitRemoteIdentitySchema>
 export type GitOrigin = z.infer<typeof GitOriginSchema>
 export type GitStatus = z.infer<typeof GitStatusSchema>
 export type GitBranch = z.infer<typeof GitBranchSchema>
@@ -1762,6 +1905,7 @@ export type GitCommitSummary = z.infer<typeof GitCommitSummarySchema>
 export type GitReviewFile = z.infer<typeof GitReviewFileSchema>
 export type GitReviewLineCount = z.infer<typeof GitReviewLineCountSchema>
 export type GitReviewUndoEntry = z.infer<typeof GitReviewUndoEntrySchema>
+export type GitPatchResult = z.infer<typeof GitPatchResultSchema>
 export type GitBranchContext = z.infer<typeof GitBranchContextSchema>
 export type GitBranchComparison = z.infer<typeof GitBranchComparisonSchema>
 export type GitCloneState = z.infer<typeof GitCloneStateSchema>
@@ -1773,6 +1917,7 @@ export type GitSyncedBranchState = z.infer<typeof GitSyncedBranchStateSchema>
 export type GitWorktreeJob = z.infer<typeof GitWorktreeJobSchema>
 export type GitLabMrAvailability = z.infer<typeof GitLabMrAvailabilitySchema>
 export type GitHubAvailability = z.infer<typeof GitHubAvailabilitySchema>
+export type GitHubPrBoardEntry = z.infer<typeof GitHubPrBoardEntrySchema>
 export type GitHubAppAvailability = z.infer<typeof GitHubAppAvailabilitySchema>
 export type GitHubAppCreatedPullRequest = z.infer<typeof GitHubAppCreatedPullRequestSchema>
 export type GitHubAppPrChecks = z.infer<typeof GitHubAppPrChecksSchema>

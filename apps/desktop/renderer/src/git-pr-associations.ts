@@ -6,8 +6,51 @@ export type GitHubPrAssociation = Readonly<{
 
 type Associations = Readonly<Record<string, readonly GitHubPrAssociation[]>>
 const key = "cypheria.git.github-pr-associations.v1"
+const attachmentKey = "cypheria.git.github-pr-attachments.v1"
+type AttachmentRecord = Readonly<{
+  threadId: string
+  url: string
+  attached: boolean
+  updatedAt: string
+}>
 const listeners = new Set<() => void>()
 let current: Associations | null = null
+let attachmentRecords: AttachmentRecord[] | null = null
+
+const loadAttachmentRecords = (): AttachmentRecord[] => {
+  try {
+    const value: unknown = JSON.parse(window.localStorage.getItem(attachmentKey) ?? "[]")
+    if (!Array.isArray(value)) return []
+    return value
+      .filter((entry): entry is AttachmentRecord =>
+        Boolean(
+          entry &&
+            typeof entry === "object" &&
+            typeof entry.threadId === "string" &&
+            typeof entry.url === "string" &&
+            typeof entry.attached === "boolean" &&
+            typeof entry.updatedAt === "string"
+        )
+      )
+      .slice(0, 5000)
+  } catch {
+    return []
+  }
+}
+
+const updateAttachment = (threadId: string, url: string, attached: boolean) => {
+  if (!attachmentRecords) attachmentRecords = loadAttachmentRecords()
+  const records = attachmentRecords
+  attachmentRecords = [
+    { threadId, url, attached, updatedAt: new Date().toISOString() },
+    ...records.filter((entry) => entry.threadId !== threadId || entry.url !== url),
+  ].slice(0, 5000)
+  try {
+    window.localStorage.setItem(attachmentKey, JSON.stringify(attachmentRecords))
+  } catch {
+    // Keep the in-memory record if storage is unavailable.
+  }
+}
 
 const valid = (value: unknown): value is GitHubPrAssociation => {
   if (!value || typeof value !== "object") return false
@@ -71,10 +114,21 @@ export const githubPrAssociations = {
     listeners.add(listener)
     return () => listeners.delete(listener)
   },
+  forPullRequest: (url: string): Array<{ threadId: string; association: GitHubPrAssociation }> =>
+    Object.entries(githubPrAssociations.getSnapshot()).flatMap(([threadId, entries]) =>
+      entries
+        .filter((association) => association.url === url)
+        .map((association) => ({ threadId, association }))
+    ),
+  attachmentHistory: (url: string): AttachmentRecord[] => {
+    if (!attachmentRecords) attachmentRecords = loadAttachmentRecords()
+    return attachmentRecords.filter((entry) => entry.url === url)
+  },
   add: (threadId: string, association: GitHubPrAssociation) => {
     if (!threadId || threadId.length >= 200 || !valid(association))
       throw new Error("Invalid GitHub PR association")
     const existing = githubPrAssociations.getSnapshot()[threadId] ?? []
+    updateAttachment(threadId, association.url, true)
     publish({
       ...githubPrAssociations.getSnapshot(),
       [threadId]: [association, ...existing.filter((entry) => entry.url !== association.url)].slice(
@@ -85,6 +139,7 @@ export const githubPrAssociations = {
   },
   remove: (threadId: string, url: string) => {
     const snapshot = githubPrAssociations.getSnapshot()
+    updateAttachment(threadId, url, false)
     publish({
       ...snapshot,
       [threadId]: (snapshot[threadId] ?? []).filter((entry) => entry.url !== url),
@@ -94,8 +149,9 @@ export const githubPrAssociations = {
 
 if (typeof window !== "undefined") {
   window.addEventListener("storage", (event) => {
-    if (event.key !== key) return
-    current = load()
+    if (event.key !== key && event.key !== attachmentKey) return
+    if (event.key === key) current = load()
+    else attachmentRecords = loadAttachmentRecords()
     for (const listener of listeners) listener()
   })
 }

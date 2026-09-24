@@ -121,6 +121,21 @@ function GitSettingsRoute() {
               <Trans id="settings.git.pullRequests">Pull requests</Trans>
             </h2>
             <label
+              htmlFor="git-github-connector"
+              className="flex items-center justify-between gap-3 text-sm"
+            >
+              <span>
+                <Trans id="settings.git.githubConnector">
+                  Use connected GitHub App tools when the CLI cannot serve an operation
+                </Trans>
+              </span>
+              <Switch
+                id="git-github-connector"
+                checked={draft.githubConnectorEnabled}
+                onCheckedChange={(value) => set("githubConnectorEnabled", value)}
+              />
+            </label>
+            <label
               htmlFor="git-pr-draft"
               className="flex items-center justify-between gap-3 text-sm"
             >

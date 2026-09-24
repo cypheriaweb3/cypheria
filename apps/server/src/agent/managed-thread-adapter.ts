@@ -542,11 +542,13 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     this.#ownerThreadId = input.threadId
     if (this.agentId === "codex") {
       const gitInstructions = this.#manager.codexGitInstructions()
+      const worktreeConfig = await this.#manager.codexWorktreeConfig?.(input.cwd)
       const response = await this.#request(
         input.threadId,
         input.forkedFromAgentSessionId
           ? {
               cwd: input.cwd,
+              ...(worktreeConfig ? { config: worktreeConfig } : {}),
               excludeTurns: false,
               requestId: randomUUID(),
               threadId: input.forkedFromAgentSessionId,
@@ -554,6 +556,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
             }
           : {
               cwd: input.cwd,
+              ...(worktreeConfig ? { config: worktreeConfig } : {}),
               ...(gitInstructions ? { developerInstructions: gitInstructions } : {}),
               dynamicTools: this.#manager.codexDynamicTools.getSpecs(),
               requestId: randomUUID(),
@@ -622,8 +625,10 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     if (this.agentId === "codex") {
       if (!input.agentSessionId) return this.create({ ...input, forkedFromAgentSessionId: null })
       const gitInstructions = this.#manager.codexGitInstructions()
+      const worktreeConfig = await this.#manager.codexWorktreeConfig?.(input.cwd)
       const response = await this.#request(input.threadId, {
         cwd: input.cwd,
+        ...(worktreeConfig ? { config: worktreeConfig } : {}),
         ...(gitInstructions ? { developerInstructions: gitInstructions } : {}),
         excludeTurns: false,
         requestId: randomUUID(),

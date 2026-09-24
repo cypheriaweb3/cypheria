@@ -55,6 +55,8 @@ export type ThreadManagerOptions = {
   readonly messageRequests: ThreadMessageRequestPersistenceService
   readonly persistence: ProjectThreadPersistenceService
   readonly publish: Publish
+  readonly onArchived?: (cwd: string) => Promise<void>
+  readonly onUnarchiving?: (cwd: string) => Promise<void>
   readonly timelinePersistence: ThreadTimelinePersistenceService
   readonly turnCapture?: {
     start(threadId: string, cwd: string): Promise<string>
@@ -80,6 +82,8 @@ export class ThreadManager {
   readonly #messageRequests: ThreadMessageRequestPersistenceService
   readonly #persistence: ProjectThreadPersistenceService
   readonly #publish: Publish
+  readonly #onArchived: ThreadManagerOptions["onArchived"]
+  readonly #onUnarchiving: ThreadManagerOptions["onUnarchiving"]
   readonly #runtime = new Map<string, RuntimeState>()
   readonly #timeline: ThreadTimelineStore
   readonly #turnCapture: ThreadManagerOptions["turnCapture"]
@@ -91,6 +95,8 @@ export class ThreadManager {
     this.#messageRequests = options.messageRequests
     this.#persistence = options.persistence
     this.#publish = options.publish
+    this.#onArchived = options.onArchived
+    this.#onUnarchiving = options.onUnarchiving
     this.#timeline = new ThreadTimelineStore(options.timelinePersistence)
     this.#turnCapture = options.turnCapture
   }
@@ -491,24 +497,28 @@ export class ThreadManager {
     const thread = await this.#required(threadId)
     if (thread.archivedAt !== null) return this.#view(thread)
     if (this.#state(threadId).state !== "stopped") await this.close(threadId)
-    return this.#withLock(threadId, async () => {
+    const archived = await this.#withLock(threadId, async () => {
       const current = await this.#required(threadId)
       if (current.archivedAt !== null) return this.#view(current)
       return this.#updateAndPublish(
         await this.#persistence.setThreadArchived(threadId, Math.floor(Date.now() / 1000))
       )
     })
+    if (archived.cwd) await this.#onArchived?.(archived.cwd).catch(() => undefined)
+    return archived
   }
 
   async unarchive(threadId: string): Promise<ThreadView> {
     return this.#withLock(threadId, async () => {
       const thread = await this.#required(threadId)
       if (thread.archivedAt === null) return this.#view(thread)
+      if (thread.cwd) await this.#onUnarchiving?.(thread.cwd)
       return this.#updateAndPublish(await this.#persistence.setThreadArchived(threadId, null))
     })
   }
 
   async delete(threadId: string): Promise<void> {
+    const cwd = (await this.#required(threadId)).cwd
     await this.#withLock(threadId, async () => {
       const thread = await this.#required(threadId)
       const runtime = this.#state(threadId)
@@ -540,6 +550,7 @@ export class ThreadManager {
         throw error
       }
     })
+    if (cwd) await this.#onArchived?.(cwd).catch(() => undefined)
   }
 
   async startTurn(input: {

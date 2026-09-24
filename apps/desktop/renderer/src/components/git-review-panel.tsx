@@ -26,7 +26,7 @@ import { Trans } from "@lingui/react/macro"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { type ReactNode, useEffect, useId, useState } from "react"
 
-import { ensureCypheriaClient } from "../cypheria-client.js"
+import { cypheriaClient, ensureCypheriaClient } from "../cypheria-client.js"
 import { GitHubPrPanel } from "./github-pr-panel.js"
 import { GitLabMrPanel } from "./gitlab-mr-panel.js"
 
@@ -131,6 +131,16 @@ export function GitReviewPanel({
     refetchInterval: 3_000,
     retry: false,
   })
+  useEffect(() => {
+    const root = status.data?.repository.root
+    if (!root) return
+    return cypheriaClient.subscribe((message) => {
+      if (message.type !== "git.repository-changed.notification" || message.payload.root !== root)
+        return
+      void queryClient.invalidateQueries({ queryKey: ["git", cwd] })
+      void queryClient.invalidateQueries({ queryKey: ["github-pr", cwd] })
+    })
+  }, [cwd, queryClient, status.data?.repository.root])
   const branches = useQuery({
     enabled: Boolean(status.data),
     queryKey: ["git", cwd, "branch-search", branchSearch],
@@ -436,8 +446,8 @@ export function GitReviewPanel({
       commitIncludeUnstaged ? code !== "  " : code[0] !== " " && code[0] !== "?"
     )
   )
-  const commitInput = () => ({
-    message,
+  const commitInput = (commitMessage: string) => ({
+    message: commitMessage,
     includeUnstaged: commitIncludeUnstaged,
     coAuthors: coAuthors
       .split(";")
@@ -963,7 +973,8 @@ export function GitReviewPanel({
             </AlertDialogTitle>
             <AlertDialogDescription>
               <Trans id="git.review.syncConfirmDescription">
-                The target must be clean. Cypheria saves the previous branch commit for Undo.
+                The branch checkout must be clean. Cypheria includes uncommitted worktree files in a
+                snapshot commit and saves the previous branch commit for Undo.
               </Trans>
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -1028,13 +1039,36 @@ export function GitReviewPanel({
       </AlertDialog>
       {status.data ? (
         <div className="space-y-2 border-t p-2">
-          <Input
-            aria-label={i18n._(msg({ id: "git.review.commitMessage", message: "Commit message" }))}
-            className="h-8 w-full rounded border bg-background px-2 text-sm"
-            onChange={(event) => setMessage(event.target.value)}
-            placeholder={i18n._(msg({ id: "git.review.commitMessage", message: "Commit message" }))}
-            value={message}
-          />
+          <div className="flex gap-2">
+            <Input
+              aria-label={i18n._(
+                msg({ id: "git.review.commitMessage", message: "Commit message" })
+              )}
+              className="h-8 min-w-0 flex-1 rounded border bg-background px-2 text-sm"
+              onChange={(event) => setMessage(event.target.value)}
+              placeholder={i18n._(
+                msg({ id: "git.review.commitMessage", message: "Commit message" })
+              )}
+              value={message}
+            />
+            <Button
+              disabled={busy || !canCommit}
+              onClick={() =>
+                void mutate(async () => {
+                  const generated = await (await ensureCypheriaClient()).git.generateText(
+                    cwd,
+                    "commit"
+                  )
+                  setMessage(generated.title)
+                })
+              }
+              size="sm"
+              type="button"
+              variant="outline"
+            >
+              <Trans id="git.review.generateMessage">Generate</Trans>
+            </Button>
+          </div>
           <Input
             aria-label={i18n._(
               msg({ id: "git.review.coAuthors", message: "Co-authors, separated by semicolons" })
@@ -1058,10 +1092,13 @@ export function GitReviewPanel({
           </label>
           <div className="flex gap-2">
             <Button
-              disabled={busy || !message.trim() || !canCommit}
+              disabled={busy || !canCommit}
               onClick={() =>
                 void mutate(async () => {
-                  await (await ensureCypheriaClient()).git.commit(cwd, commitInput())
+                  const git = (await ensureCypheriaClient()).git
+                  const commitMessage =
+                    message.trim() || (await git.generateText(cwd, "commit")).title
+                  await git.commit(cwd, commitInput(commitMessage))
                   setMessage("")
                 })
               }
@@ -1071,11 +1108,13 @@ export function GitReviewPanel({
               <Trans id="git.review.commit">Commit</Trans>
             </Button>
             <Button
-              disabled={busy || !message.trim() || !canCommit}
+              disabled={busy || !canCommit}
               onClick={() =>
                 void mutate(async () => {
                   const git = (await ensureCypheriaClient()).git
-                  await git.commit(cwd, commitInput())
+                  const commitMessage =
+                    message.trim() || (await git.generateText(cwd, "commit")).title
+                  await git.commit(cwd, commitInput(commitMessage))
                   setMessage("")
                   try {
                     await git.push(cwd)
@@ -1264,17 +1303,17 @@ export function GitReviewPanel({
                 <Button
                   disabled={
                     busy ||
-                    syncedBranch.data.branchHead === syncedBranch.data.worktreeHead ||
+                    (syncedBranch.data.branchHead === syncedBranch.data.worktreeHead &&
+                      !syncedBranch.data.worktreeDirty) ||
                     syncedBranch.data.branchHead !== syncedBranch.data.expectedHead ||
-                    syncedBranch.data.sourceDirty ||
-                    syncedBranch.data.worktreeDirty
+                    syncedBranch.data.sourceDirty
                   }
                   onClick={() => setPendingSync("sync")}
                   size="sm"
                   type="button"
                   variant="outline"
                 >
-                  <Trans id="git.review.syncBranch">Sync committed changes to branch</Trans>
+                  <Trans id="git.review.syncBranch">Sync worktree to branch</Trans>
                 </Button>
                 {syncedBranch.data.backupRef ? (
                   <Button

@@ -11,6 +11,7 @@ import {
   GIT_RESPONSE_TYPES,
   GIT_SERVER_SCHEMAS,
   type GitClientMessage,
+  GitRepositoryChangedNotificationSchema,
   type GitServerMessage,
 } from "./git.ts"
 import {
@@ -357,6 +358,7 @@ export const GitSettingsSchema = z
     pullRequestMergeMethod: z.enum(["merge", "squash"]),
     reviewMode: z.enum(["full", "last-turn-only"]),
     showSidebarPrIcons: z.boolean(),
+    githubConnectorEnabled: z.boolean().default(true),
     worktreeRoot: z
       .string()
       .trim()
@@ -380,6 +382,7 @@ export const DEFAULT_GIT_SETTINGS: GitSettings = {
   pullRequestMergeMethod: "merge",
   reviewMode: "full",
   showSidebarPrIcons: true,
+  githubConnectorEnabled: true,
   worktreeRoot: null,
   commitInstructions: "",
   prInstructions: "",
@@ -673,6 +676,7 @@ export type SessionOutboundMessage =
   | AgentManagementServerMessage
   | IntegrationServerMessage
   | GitServerMessage
+  | z.infer<typeof GitRepositoryChangedNotificationSchema>
   | CodexHarnessServerMessage
   | HarnessServerMessage
   | ProjectThreadServerMessage
@@ -691,6 +695,7 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   ...AGENT_MANAGEMENT_SERVER_SCHEMAS,
   ...INTEGRATION_SERVER_SCHEMAS,
   ...GIT_SERVER_SCHEMAS,
+  GitRepositoryChangedNotificationSchema,
   ...CODEX_HARNESS_SERVER_SCHEMAS,
   ...HARNESS_SERVER_SCHEMAS,
   ...PROJECT_THREAD_SERVER_SCHEMAS,

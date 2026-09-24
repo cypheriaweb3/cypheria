@@ -41,9 +41,6 @@ The detailed future service boundary and threat model are in [Marketplace](marke
 
 ## Local Git and pull requests
 
-- [ ] Complete the ChatGPT Desktop local Git operation inventory in Server, including repository queries, guarded Review mutations, turn diffs, worktree ownership and handoff, cache invalidation, and persisted Git settings.
-- [ ] Complete GitHub PR routing between the `gh` CLI and connected GitHub App tools according to operation, access, and available tool scopes; add the Desktop PR workflow and recovery states.
-- [ ] Complete GitLab MR actions through the connected GitLab App tools with connector, account link, tool scope, project, and URL validation; retain the browser form creation path where needed.
 - [ ] Verify packaged Electron Connect behavior and GitHub/GitLab authorization and PR/MR calls in Cypheria's managed Codex home.
 
 ## Expo

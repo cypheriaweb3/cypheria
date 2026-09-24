@@ -60,6 +60,9 @@ describe("ManagedThreadAdapter", () => {
     const manager = {
       codexDynamicTools: { getSpecs: () => [] },
       codexGitInstructions: () => "Use codex/ for new Git branches.",
+      codexWorktreeConfig: async () => ({
+        shell_environment_policy: { set: { PATH: "/repo/bin" } },
+      }),
       disposeSession: vi.fn(),
       handleCodex,
       releaseThreadAdapter: vi.fn(),
@@ -71,6 +74,7 @@ describe("ManagedThreadAdapter", () => {
       sessionId: "01984de2-8f74-7c91-a3b2-5c5e937cf400",
     })
     expect(handleCodex.mock.calls[0]?.[0]).toMatchObject({
+      config: { shell_environment_policy: { set: { PATH: "/repo/bin" } } },
       cwd: "/repo",
       developerInstructions: "Use codex/ for new Git branches.",
       type: "agent.codex.thread.start.request",

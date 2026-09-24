@@ -1,4 +1,5 @@
 import type {
+  GitAvailability,
   GitBlameLine,
   GitBranch,
   GitBranchComparison,
@@ -15,6 +16,7 @@ import type {
   GitHubAppPullRequestSummary,
   GitHubAvailability,
   GitHubPrAttributesFile,
+  GitHubPrBoardEntry,
   GitHubPrMetadata,
   GitHubPrReviewStatus,
   GitHubPrRevisionFile,
@@ -34,6 +36,8 @@ import type {
   GitLabReviewer,
   GitLabReviewerCandidate,
   GitOrigin,
+  GitPatchResult,
+  GitRemoteIdentity,
   GitRepository,
   GitReviewFile,
   GitReviewLineCount,
@@ -57,6 +61,20 @@ const unwrap = <T>(message: GitServerMessage): T => {
 
 export interface GitActions {
   discover(cwd: string, options?: RequestOptions): Promise<GitRepository>
+  availability(cwd: string, options?: RequestOptions): Promise<GitAvailability>
+  remotes(cwd: string, options?: RequestOptions): Promise<GitRemoteIdentity[]>
+  branchExists(
+    cwd: string,
+    name: string,
+    scope?: "local" | "remote" | "any",
+    options?: RequestOptions
+  ): Promise<boolean>
+  branchCommits(
+    cwd: string,
+    ref: string,
+    limit?: number,
+    options?: RequestOptions
+  ): Promise<GitCommitSummary[]>
   origin(cwd: string, options?: RequestOptions): Promise<GitOrigin>
   status(cwd: string, options?: RequestOptions): Promise<GitStatus>
   branches(cwd: string, options?: RequestOptions): Promise<GitBranch[]>
@@ -195,6 +213,26 @@ export interface GitActions {
   >
   undoReviewRevert(cwd: string, undoId: string, options?: RequestOptions): Promise<void>
   reviewUndoList(cwd: string, options?: RequestOptions): Promise<GitReviewUndoEntry[]>
+  applyPatch(
+    cwd: string,
+    input: {
+      diff: string
+      target?: "unstaged" | "staged" | "staged-and-unstaged"
+      atomic?: boolean
+      reverse?: boolean
+      allowBinary?: boolean
+    },
+    options?: RequestOptions
+  ): Promise<GitPatchResult>
+  applyChanges(
+    cwd: string,
+    input: {
+      sourceHeadRef: string
+      sourceTreeRef: string
+      destinationHeadRef: string
+    },
+    options?: RequestOptions
+  ): Promise<GitPatchResult>
   stage(cwd: string, paths: string[], options?: RequestOptions): Promise<void>
   unstage(cwd: string, paths: string[], options?: RequestOptions): Promise<void>
   commit(
@@ -202,6 +240,12 @@ export interface GitActions {
     input: string | { message: string; includeUnstaged?: boolean; coAuthors?: string[] },
     options?: RequestOptions
   ): Promise<string>
+  generateText(
+    cwd: string,
+    kind: "commit" | "pull-request",
+    base?: string,
+    options?: RequestOptions
+  ): Promise<{ title: string; body: string }>
   push(
     cwd: string,
     input?: { remote?: string; branch?: string; setUpstream?: boolean; forceWithLease?: boolean },
@@ -254,6 +298,17 @@ export interface GitActions {
   ): Promise<{ backupRef: string }>
   undoSync(cwd: string, path: string, options?: RequestOptions): Promise<void>
   githubAvailability(cwd: string, options?: RequestOptions): Promise<GitHubAvailability>
+  githubPrBoard(
+    cwd: string,
+    input?: {
+      state?: "open" | "closed" | "merged" | "all"
+      scope?: "all" | "authored" | "reviewing"
+      repository?: string
+      query?: string
+      limit?: number
+    },
+    options?: RequestOptions
+  ): Promise<GitHubPrBoardEntry[]>
   githubAppAvailability(
     cwd: string,
     threadId: string,
@@ -576,6 +631,16 @@ export interface GitActions {
 export const createGitActions = (client: ServerClient): GitActions => ({
   discover: async (cwd, options) =>
     unwrap(await client.requestGit("git.discover.request", { cwd }, options)),
+  availability: async (cwd, options) =>
+    unwrap(await client.requestGit("git.availability.request", { cwd }, options)),
+  remotes: async (cwd, options) =>
+    unwrap(await client.requestGit("git.remotes.request", { cwd }, options)),
+  branchExists: async (cwd, name, scope, options) =>
+    unwrap<{ exists: boolean }>(
+      await client.requestGit("git.branch-exists.request", { cwd, name, scope }, options)
+    ).exists,
+  branchCommits: async (cwd, ref, limit, options) =>
+    unwrap(await client.requestGit("git.branch-commits.request", { cwd, ref, limit }, options)),
   origin: async (cwd, options) =>
     unwrap(await client.requestGit("git.origin.request", { cwd }, options)),
   status: async (cwd, options) =>
@@ -666,6 +731,10 @@ export const createGitActions = (client: ServerClient): GitActions => ({
   },
   reviewUndoList: async (cwd, options) =>
     unwrap(await client.requestGit("git.review-undo-list.request", { cwd }, options)),
+  applyPatch: async (cwd, input, options) =>
+    unwrap(await client.requestGit("git.apply-patch.request", { cwd, ...input }, options)),
+  applyChanges: async (cwd, input, options) =>
+    unwrap(await client.requestGit("git.apply-changes.request", { cwd, ...input }, options)),
   stage: async (cwd, paths, options) => {
     unwrap(await client.requestGit("git.stage.request", { cwd, paths }, options))
   },
@@ -680,6 +749,8 @@ export const createGitActions = (client: ServerClient): GitActions => ({
         options
       )
     ).commit,
+  generateText: async (cwd, kind, base, options) =>
+    unwrap(await client.requestGit("git.generate-text.request", { cwd, kind, base }, options)),
   push: async (cwd, input = {}, options) =>
     unwrap<{ output: string }>(
       await client.requestGit("git.push.request", { cwd, ...input }, options)
@@ -727,6 +798,8 @@ export const createGitActions = (client: ServerClient): GitActions => ({
   },
   githubAvailability: async (cwd, options) =>
     unwrap(await client.requestGit("git.github-availability.request", { cwd }, options)),
+  githubPrBoard: async (cwd, input = {}, options) =>
+    unwrap(await client.requestGit("git.github-pr-board.request", { cwd, ...input }, options)),
   githubAppAvailability: async (cwd, threadId, options) =>
     unwrap(
       await client.requestGit("git.github-app-availability.request", { cwd, threadId }, options)

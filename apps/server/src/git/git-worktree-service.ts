@@ -126,6 +126,35 @@ export class GitWorktreeService {
     return result
   }
 
+  async restoreIfArchived(path: string): Promise<GitWorktree | null> {
+    const metadata = join(this.#root, ".metadata")
+    const files = await readdir(metadata).catch(() => [])
+    for (const file of files) {
+      if (!/^[a-f0-9-]{36}\.json$/u.test(file)) continue
+      const record = await readFile(join(metadata, file), "utf8").then(
+        (value) => JSON.parse(value) as Partial<Record>,
+        () => null
+      )
+      if (
+        !record?.path ||
+        (record.path !== path && !inside(record.path, path)) ||
+        !record.sourceRoot ||
+        !record.commonGitDir
+      )
+        continue
+      const repository = { root: record.sourceRoot, commonGitDir: record.commonGitDir }
+      if (
+        await stat(record.path).then(
+          () => true,
+          () => false
+        )
+      )
+        return null
+      return this.restore(repository, record.path)
+    }
+    return null
+  }
+
   async create(
     repository: Repository,
     startPoint?: string,
@@ -292,6 +321,14 @@ export class GitWorktreeService {
     }
   }
 
+  async shellEnvironment(
+    repository: Repository,
+    worktree: string
+  ): Promise<{ [key: string]: string } | null> {
+    const record = await this.#record(repository, worktree).catch(() => null)
+    return record?.shellEnvironment ?? null
+  }
+
   async syncedBranchState(
     repository: Repository,
     worktree: string
@@ -392,9 +429,14 @@ export class GitWorktreeService {
     ) {
       throw new Error("Synced branch changed; refresh before syncing")
     }
-    if (state.sourceDirty || state.worktreeDirty)
-      throw new Error("Commit or move local changes before syncing this branch")
-    if (state.branchHead === state.worktreeHead) return state.branchHead
+    if (state.sourceDirty)
+      throw new Error("Move local changes out of the branch checkout before syncing")
+    if (state.branchHead === state.worktreeHead && !state.worktreeDirty) return state.branchHead
+    const worktreeSnapshot = state.worktreeDirty
+      ? await this.#snapshotWorkingTree(worktree, state.worktreeHead)
+      : null
+    if (worktreeSnapshot?.tree === record.syncedBranch.lastSyncedTreeRef) return state.branchHead
+    const targetHead = worktreeSnapshot?.commit ?? state.worktreeHead
     const backupRef = `refs/cypheria/worktree-sync/${randomUUID()}`
     await this.#executor.run(repository.root, ["update-ref", backupRef, state.branchHead])
     const sourceBranch = (
@@ -405,18 +447,20 @@ export class GitWorktreeService {
     await this.#executor.run(repository.root, [
       "update-ref",
       `refs/heads/${state.branch}`,
-      state.worktreeHead,
+      targetHead,
       state.branchHead,
     ])
     try {
       if (sourceBranch === state.branch)
-        await this.#executor.run(record.sourceRoot, ["reset", "--hard", state.worktreeHead])
+        await this.#executor.run(record.sourceRoot, ["reset", "--hard", targetHead])
       const updated = {
         branch: state.branch,
-        expectedHead: state.worktreeHead,
-        lastSyncedTreeRef: (
-          await this.#executor.run(worktree, ["rev-parse", "HEAD^{tree}"], { readOnly: true })
-        ).stdout.trim(),
+        expectedHead: targetHead,
+        lastSyncedTreeRef:
+          worktreeSnapshot?.tree ??
+          (
+            await this.#executor.run(worktree, ["rev-parse", "HEAD^{tree}"], { readOnly: true })
+          ).stdout.trim(),
       }
       await this.#writeSyncedBranch(repository, worktree, updated)
       await this.#writeRecord({ ...record, syncedBranch: updated, syncBackupRef: backupRef }, true)
@@ -427,7 +471,7 @@ export class GitWorktreeService {
           "update-ref",
           `refs/heads/${state.branch}`,
           state.branchHead,
-          state.worktreeHead,
+          targetHead,
         ])
         .catch((cause) => failures.push(cause))
       if (sourceBranch === state.branch)
@@ -525,6 +569,38 @@ export class GitWorktreeService {
       `${JSON.stringify({ branch: value.branch, lastSyncedTreeRef: value.lastSyncedTreeRef })}\n`,
       { mode: 0o600 }
     )
+  }
+
+  async #snapshotWorkingTree(
+    worktree: string,
+    parent: string
+  ): Promise<{ commit: string; tree: string }> {
+    const directory = await mkdtemp(join(tmpdir(), "cypheria-git-sync-"))
+    try {
+      const env = { GIT_INDEX_FILE: join(directory, "index") }
+      await this.#executor.run(worktree, ["read-tree", parent], { env })
+      await this.#executor.run(worktree, ["add", "-A"], { env })
+      const tree = (
+        await this.#executor.run(worktree, ["write-tree"], { env, readOnly: true })
+      ).stdout.trim()
+      const commit = (
+        await this.#executor.run(
+          worktree,
+          ["commit-tree", tree, "-p", parent, "-m", "Cypheria worktree sync snapshot"],
+          {
+            env: {
+              GIT_AUTHOR_NAME: "Cypheria",
+              GIT_AUTHOR_EMAIL: "git-sync@cypheria.local",
+              GIT_COMMITTER_NAME: "Cypheria",
+              GIT_COMMITTER_EMAIL: "git-sync@cypheria.local",
+            },
+          }
+        )
+      ).stdout.trim()
+      return { commit, tree }
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
   }
 
   async #captureLocalChanges(
@@ -682,7 +758,8 @@ export class GitWorktreeService {
   async cleanup(
     repository: Repository,
     keepCount: number,
-    protectedPaths: readonly string[]
+    protectedPaths: readonly string[],
+    protectedOwnerThreadIds?: readonly string[]
   ): Promise<string[]> {
     if (!Number.isSafeInteger(keepCount) || keepCount < 0 || keepCount > 1000)
       throw new Error("Invalid worktree retention count")
@@ -701,14 +778,19 @@ export class GitWorktreeService {
     for (const { entry, modified } of aged.slice(keepCount)) {
       if (removed.length >= 5) break
       if (
-        entry.ownerThreadId ||
+        (entry.ownerThreadId &&
+          (!protectedOwnerThreadIds || protectedOwnerThreadIds.includes(entry.ownerThreadId))) ||
         entry.path === repository.root ||
         modified > Date.now() - 10 * 60_000 ||
         protectedRoots.some((path) => path === entry.path || inside(entry.path, path))
       )
         continue
       try {
-        await this.delete(repository, entry.path)
+        await this.delete(
+          repository,
+          entry.path,
+          Boolean(entry.ownerThreadId && protectedOwnerThreadIds)
+        )
         removed.push(entry.path)
       } catch {
         // Dirty or changed worktrees remain available for an explicit user action.
@@ -746,9 +828,10 @@ export class GitWorktreeService {
     return updated
   }
 
-  async delete(repository: Repository, path: string): Promise<void> {
+  async delete(repository: Repository, path: string, allowArchivedOwner = false): Promise<void> {
     const record = await this.#record(repository, path)
-    if (record.ownerThreadId) throw new Error("Move the owner thread before deleting this worktree")
+    if (record.ownerThreadId && !allowArchivedOwner)
+      throw new Error("Move the owner thread before deleting this worktree")
     if (repository.root === record.path) throw new Error("Cannot delete the current worktree")
     const worktree = await realpath(record.path)
     if (worktree !== record.path) throw new Error("Managed worktree path changed")
