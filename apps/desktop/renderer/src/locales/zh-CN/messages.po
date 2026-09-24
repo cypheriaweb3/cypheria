@@ -14,6 +14,36 @@ msgstr ""
 "Plural-Forms: \n"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.group.tools"
+msgstr "工具活动"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.group.subagents"
+msgstr "子代理活动"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.turnDiffAvailable"
+msgstr "本轮差异可用"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.computerUse.elevatedRisk"
+msgstr "高风险"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.computerUse.disclosure"
+msgstr "Computer Use 可以操作电脑上的应用，也可能在工作时截取屏幕画面。你可以随时停止它。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.computerUse.firstUse"
+msgstr "电脑访问请求"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.keyboardHelp"
 msgstr "↑↓ 导航 · Enter 打开 · Esc 关闭"

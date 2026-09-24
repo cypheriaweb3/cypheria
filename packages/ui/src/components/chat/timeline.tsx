@@ -61,6 +61,29 @@ export function ChatTimelineItem({
   )
 }
 
+type ChatTurnGroupProps = HTMLAttributes<HTMLElement> & {
+  kind: "tools" | "subagents"
+  label: string
+  current?: boolean
+}
+
+export function ChatTurnGroup({ className, kind, label, current, ...props }: ChatTurnGroupProps) {
+  return (
+    <section
+      aria-label={label}
+      data-current={current || undefined}
+      data-kind={kind}
+      data-slot="chat-turn-group"
+      className={cn(
+        "flex min-w-0 flex-col gap-3 border-l border-border/70 pl-3",
+        "data-[current=true]:border-primary/50",
+        className
+      )}
+      {...props}
+    />
+  )
+}
+
 type ChatUserMessageProps = HTMLAttributes<HTMLDivElement> & {
   compact?: boolean
 }

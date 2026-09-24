@@ -137,6 +137,8 @@ Harness-specific UI is limited to discriminated Timeline extensions, header acti
 
 Canonical Timeline history and ordered live updates are consumed directly through `@cypheria/client`. A framework-independent controller handles pagination, reconnection, gap recovery, send, steer, native Codex queueing, cancellation, and interactions; React subscribes through `useSyncExternalStore`. Codex uses a dedicated workspace, while other Agents use the common Thread workspace until they receive specialized extensions.
 
+The Codex workspace applies a Desktop-only render split after Canonical Timeline projection, without changing stored items or inventing App Server item types. It keeps user input, interim commentary, consecutive tool or subagent activity, plan, diff, final answer, and post-answer notices as distinct virtual rows. The latest turn tracks only its current synchronous commentary; asynchronous delivery or a question clears that marker. A final answer can precede completed trailing activity in source order, so the split looks past finished commands and tools and renders the answer after the process group. Pending approvals remain in the composer interaction surface, while goal, queue, usage, and other runtime state stay outside history. A Codex MCP elicitation identified by its metadata as a Computer Use app request additionally displays a screenshot/access disclosure and high-risk badge when applicable; it does not become a timeline item. The shared `ChatTurnGroup` is presentation-only; the development Chat Demo uses the same splitter in a two-turn fixture and includes a Computer Use request sample alongside its 128-message virtualized transcript.
+
 ## Desktop-local settings
 
 Electron stores local preferences in `userData/config.json`:

@@ -40,7 +40,7 @@ Typography 使用清晰的 UI 字体栈，并为 code、command、path、address
 
 ## 会话组件
 
-`components/chat` surface 提供可组合的 message、reasoning、tool、command、plan、attachment、composer state、pending interaction、panel、preview 和 streaming state。这些组件只包含展示与无障碍行为。Desktop 负责 Thread controller、TanStack Virtual 集成、scroll restoration、panel registry、xterm process view 和 harness extensions。
+`components/chat` surface 提供可组合的 message、reasoning、tool、command、plan、attachment、composer state、pending interaction、panel、preview 和 streaming state。`ChatTurnGroup` 为连续工具和子代理活动提供有标签、可访问的视觉边界。这些组件只包含展示与无障碍行为。Desktop 负责 Thread controller、TanStack Virtual 集成、scroll restoration、panel registry、xterm process view 和 harness extensions。
 
 Timeline renderer 接收 Canonical Timeline item。Harness renderer 只为判别 harness item 或确有额外行为的 metadata 注册。
 

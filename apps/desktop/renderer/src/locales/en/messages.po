@@ -14,6 +14,36 @@ msgstr ""
 "Plural-Forms: \n"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.group.tools"
+msgstr "Tool activity"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.group.subagents"
+msgstr "Subagent activity"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.turnDiffAvailable"
+msgstr "Turn diff available"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.computerUse.elevatedRisk"
+msgstr "Elevated risk"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.computerUse.disclosure"
+msgstr "Computer Use can interact with apps on your computer and may capture screenshots. You can stop it at any time."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.computerUse.firstUse"
+msgstr "Computer access request"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/chat-search.tsx
 msgid "search.keyboardHelp"
 msgstr "↑↓ Navigate · Enter Open · Esc Close"

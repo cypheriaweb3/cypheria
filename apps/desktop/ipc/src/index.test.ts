@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   appConfigOpenContract,
+  appGitFileActionContract,
   browserSessionOpenContract,
   ConnectionProxySettingsSchema,
   dappProviderRequestContract,
@@ -14,6 +15,7 @@ describe("desktop IPC contracts", () => {
       "appConfigOpen",
       "appDirectoryPick",
       "appExternalOpen",
+      "appGitFileAction",
       "appHealthCheck",
       "appMetadataRead",
       "appProjectOpen",
@@ -41,6 +43,20 @@ describe("desktop IPC contracts", () => {
 
   it("validates desktop path and proxy settings", () => {
     expect(appConfigOpenContract.request.parse({})).toEqual({})
+    expect(
+      appGitFileActionContract.request.parse({
+        action: "open",
+        cwd: "/workspace",
+        path: "src/index.ts",
+      })
+    ).toEqual({ action: "open", cwd: "/workspace", path: "src/index.ts" })
+    expect(() =>
+      appGitFileActionContract.request.parse({
+        action: "delete",
+        cwd: "/workspace",
+        path: "src/index.ts",
+      })
+    ).toThrow()
     expect(
       ConnectionProxySettingsSchema.parse({
         bypass: "localhost, example.test",

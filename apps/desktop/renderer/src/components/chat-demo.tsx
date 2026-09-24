@@ -1,3 +1,4 @@
+import type { ThreadTimelineItem, ThreadTimelineProjectedItem } from "@cypheria/protocol"
 import { Badge } from "@cypheria/ui/components/badge"
 import { Button } from "@cypheria/ui/components/button"
 import {
@@ -122,6 +123,7 @@ import {
   ChatToolTrigger,
   ChatTranscriptLine,
   ChatTurnActivity,
+  ChatTurnGroup,
   ChatTurnMarker,
   ChatTurnNavigator,
   ChatTurnNotice,
@@ -198,6 +200,7 @@ import { useVirtualizer } from "@tanstack/react-virtual"
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import promptWallpaper from "../assets/plugins/prompt-wallpaper.webp"
+import { splitCodexRenderGroups } from "../codex-render-groups.js"
 
 type DemoPanelId =
   | "sources"
@@ -227,6 +230,7 @@ type DemoPanelId =
   | "timeline"
 
 type DemoTimelineGroup =
+  | "grouping"
   | "reasoning"
   | "planning"
   | "tools"
@@ -252,6 +256,7 @@ type DemoPendingSurface =
   | "permission"
   | "question"
   | "elicitation"
+  | "computer-use"
   | "plan"
   | "options"
   | "setup"
@@ -349,6 +354,175 @@ const historicalMessages: DemoMessage[] = Array.from({ length: 60 }, (_, turnInd
 }).flat()
 
 const initialMessages: DemoMessage[] = [...historicalMessages, ...showcaseMessages]
+
+const demoProjectedItem = (
+  item: ThreadTimelineItem,
+  seq: number,
+  turnId = "demo-render-group-turn"
+): ThreadTimelineProjectedItem => ({
+  collapsed: false,
+  item,
+  seqEnd: seq,
+  seqStart: seq,
+  sourceSeqRanges: [{ start: seq, end: seq }],
+  timestamp: "2026-09-24T00:00:00.000Z",
+  turnId,
+})
+
+const demoRenderRows = splitCodexRenderGroups(
+  [
+    demoProjectedItem(
+      {
+        itemId: "demo-user",
+        operation: "replace",
+        role: "user",
+        text: "Compare the latest Codex turn grouping.",
+        type: "message",
+      },
+      1
+    ),
+    demoProjectedItem(
+      {
+        itemId: "demo-commentary",
+        operation: "replace",
+        role: "assistant",
+        text: "I’ll inspect the activity and then summarize the result.",
+        type: "message",
+        harnessData: {
+          agentId: "codex",
+          nativeType: "codex.item.agentMessage",
+          payload: {
+            lifecycle: "completed",
+            item: { phase: "commentary", delivery: null, questions: null },
+          },
+        },
+      },
+      2
+    ),
+    demoProjectedItem(
+      {
+        command: "rg 'render group' analysis/",
+        cwd: null,
+        durationMs: 34,
+        exitCode: 0,
+        itemId: "demo-command-1",
+        output: "3 matches",
+        status: "completed",
+        type: "command",
+      },
+      3
+    ),
+    demoProjectedItem(
+      {
+        error: null,
+        input: { path: "split-items-into-render-groups.js" },
+        itemId: "demo-tool",
+        name: "read_file",
+        output: "Source inspected",
+        status: "completed",
+        type: "tool",
+      },
+      4
+    ),
+    demoProjectedItem(
+      {
+        entries: [
+          { status: "completed", text: "Group activity by turn" },
+          { status: "in_progress", text: "Render the final answer separately" },
+        ],
+        itemId: "demo-plan",
+        type: "plan",
+      },
+      5
+    ),
+    demoProjectedItem(
+      {
+        itemId: "demo-final",
+        operation: "replace",
+        role: "assistant",
+        text: "The final answer is separate from the process activity.",
+        type: "message",
+        harnessData: {
+          agentId: "codex",
+          nativeType: "codex.item.agentMessage",
+          payload: {
+            lifecycle: "completed",
+            item: { phase: "final_answer", delivery: null, questions: null },
+          },
+        },
+      },
+      6
+    ),
+    demoProjectedItem(
+      {
+        command: "git status --short",
+        cwd: null,
+        durationMs: 12,
+        exitCode: 0,
+        itemId: "demo-late-command",
+        output: "clean",
+        status: "completed",
+        type: "command",
+      },
+      7
+    ),
+    demoProjectedItem(
+      {
+        itemId: "demo-reroute",
+        message: "Model rerouted to an available backend",
+        status: "completed",
+        type: "status",
+        harnessData: { agentId: "codex", nativeType: "model/rerouted" },
+      },
+      8
+    ),
+    demoProjectedItem(
+      {
+        itemId: "demo-live-user",
+        operation: "replace",
+        role: "user",
+        text: "Show the live commentary and tool group too.",
+        type: "message",
+      },
+      9,
+      "demo-live-turn"
+    ),
+    demoProjectedItem(
+      {
+        itemId: "demo-live-commentary",
+        operation: "replace",
+        role: "assistant",
+        text: "I’m grouping the active tool calls now.",
+        type: "message",
+        harnessData: {
+          agentId: "codex",
+          nativeType: "codex.item.agentMessage",
+          payload: {
+            lifecycle: "started",
+            item: { phase: "commentary", delivery: null, questions: null },
+          },
+        },
+      },
+      10,
+      "demo-live-turn"
+    ),
+    demoProjectedItem(
+      {
+        command: "pnpm --filter @cypheria/ui test",
+        cwd: null,
+        durationMs: null,
+        exitCode: null,
+        itemId: "demo-live-command",
+        output: "Tests running…",
+        status: "running",
+        type: "command",
+      },
+      11,
+      "demo-live-turn"
+    ),
+  ],
+  "demo-live-turn"
+)
 
 const initialPlacements: Record<DemoPanelId, ChatPanelPlacement | null> = {
   artifact: "right",
@@ -463,6 +637,7 @@ const panelIds: DemoPanelId[] = [
 ]
 
 const timelineGroups: ReadonlyArray<{ id: DemoTimelineGroup; label: string }> = [
+  { id: "grouping", label: "Turn render groups" },
   { id: "reasoning", label: "Reasoning & response" },
   { id: "planning", label: "Plans & todos" },
   { id: "tools", label: "Tools & execution" },
@@ -490,12 +665,14 @@ const pendingSurfaceOptions: ReadonlyArray<{ id: DemoPendingSurface; label: stri
   { id: "permission", label: "Permission request" },
   { id: "question", label: "User input" },
   { id: "elicitation", label: "MCP elicitation" },
+  { id: "computer-use", label: "Computer Use app approval" },
   { id: "plan", label: "Implement plan" },
   { id: "options", label: "Option picker" },
   { id: "setup", label: "Setup step" },
 ]
 
 const initialTimelineGroups = new Set<DemoTimelineGroup>([
+  "grouping",
   "reasoning",
   "planning",
   "tools",
@@ -1855,6 +2032,44 @@ export default function ChatDemo() {
       )
     }
 
+    if (pendingSurface === "computer-use") {
+      return (
+        <ChatMcpElicitationRequest
+          badge="Elevated risk"
+          description="Computer Use requests access to a local app and may capture screenshots while working."
+          title="Allow Computer Use to access this app?"
+        >
+          <ChatPendingInteractionBody>
+            <ChatComposerBanner
+              title="First-use disclosure"
+              description="Choose which apps are accessible. You can stop actions at any time and control screenshot training preferences."
+              tone="warning"
+            />
+            <ChatPendingQuestion legend="Requested app">
+              <ChatPendingOption
+                label="Browser"
+                description="Read and interact with the active browser window."
+                selected
+              />
+            </ChatPendingQuestion>
+          </ChatPendingInteractionBody>
+          <ChatPendingInteractionFooter>
+            <Button
+              onClick={() => setPendingSurface("none")}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              Decline
+            </Button>
+            <Button onClick={() => setPendingSurface("none")} size="sm" type="button">
+              Allow once
+            </Button>
+          </ChatPendingInteractionFooter>
+        </ChatMcpElicitationRequest>
+      )
+    }
+
     if (pendingSurface === "plan") {
       return (
         <ChatPlanImplementationRequest
@@ -2166,6 +2381,74 @@ export default function ChatDemo() {
     if (showcase === "catalog") {
       return (
         <div className="space-y-6" data-demo-timeline-catalog>
+          {visibleTimelineGroups.has("grouping") ? (
+            <section className="space-y-3" data-demo-group="grouping">
+              <ChatTimestampSeparator>
+                Completed and live turns · projected render groups
+              </ChatTimestampSeparator>
+              <p className="text-xs text-muted-foreground">
+                The same Desktop splitter routes projected items into user, commentary, tool, plan,
+                final-answer, and post-answer surfaces. The live commentary starts a tool group.
+              </p>
+              {demoRenderRows.map((row) => (
+                <div data-demo-render-kind={row.kind} key={row.id}>
+                  {row.kind === "tools" || row.kind === "subagents" ? (
+                    <ChatTurnGroup
+                      current={row.toolGroupStart}
+                      kind={row.kind}
+                      label={row.kind === "tools" ? "Tool activity" : "Subagent activity"}
+                    >
+                      {row.items.map(({ item }) => (
+                        <ChatTimelineEvent
+                          key={item.itemId}
+                          type={item.type === "command" ? "exec" : "dynamic-tool-call"}
+                          title={
+                            item.type === "command"
+                              ? item.command
+                              : item.type === "tool"
+                                ? item.name
+                                : item.itemId
+                          }
+                          metadata="Completed"
+                        />
+                      ))}
+                    </ChatTurnGroup>
+                  ) : row.kind === "user" ? (
+                    <ChatUserMessage>
+                      {row.items[0]?.item.type === "message" ? row.items[0].item.text : ""}
+                    </ChatUserMessage>
+                  ) : row.kind === "commentary" || row.kind === "assistant" ? (
+                    <ChatAssistantMessage>
+                      <span className="mb-1 block text-xs text-muted-foreground">
+                        {row.kind === "commentary" ? "Commentary" : "Final answer"}
+                      </span>
+                      {row.items[0]?.item.type === "message" ? row.items[0].item.text : ""}
+                    </ChatAssistantMessage>
+                  ) : row.kind === "plan" ? (
+                    <ChatPlanCard>
+                      <ChatTodoList>
+                        <ChatTodoItem state="completed" stateLabel="Completed">
+                          Group activity by turn
+                        </ChatTodoItem>
+                        <ChatTodoItem state="running" stateLabel="In progress">
+                          Render the final answer separately
+                        </ChatTodoItem>
+                      </ChatTodoList>
+                    </ChatPlanCard>
+                  ) : (
+                    <ChatTimelineEvent
+                      type="model-rerouted"
+                      title={
+                        row.items[0]?.item.type === "status"
+                          ? row.items[0].item.message
+                          : "Turn notice"
+                      }
+                    />
+                  )}
+                </div>
+              ))}
+            </section>
+          ) : null}
           {visibleTimelineGroups.has("reasoning") ? (
             <section className="space-y-2" data-demo-group="reasoning">
               <ChatTimestampSeparator>Reasoning and response</ChatTimestampSeparator>

@@ -95,6 +95,7 @@ import {
   ChatToolContent,
   ChatToolSection,
   ChatToolTrigger,
+  ChatTurnGroup,
   ChatTurnNotice,
   ChatUserInputRequest,
   ChatUserMessage,
@@ -143,7 +144,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react"
-
+import { type CodexRenderRow, splitCodexRenderGroups } from "../codex-render-groups.js"
 import { ensureCypheriaClient } from "../cypheria-client.js"
 import { Route } from "../routes/index.js"
 import { sidebarData, sidebarQueryKeys } from "../sidebar-data.js"
@@ -216,12 +217,27 @@ const itemPayload = (item: ThreadTimelineItem): Record<string, unknown> => {
   return jsonRecord(item.harnessData?.payload)
 }
 
-function TimelineItemView({ entry }: { entry: ThreadTimelineProjectedItem }) {
+function TimelineItemView({
+  entry,
+  renderKind,
+}: {
+  entry: ThreadTimelineProjectedItem
+  renderKind?: CodexRenderRow["kind"]
+}) {
   const { i18n } = useLingui()
   const item = entry.item
   if (item.type === "message") {
+    if (renderKind === "plan") {
+      return (
+        <ChatTimelineItem kind="activity">
+          <ChatPlanCard>
+            <ChatMessageContent isAnimating={false}>{item.text}</ChatMessageContent>
+          </ChatPlanCard>
+        </ChatTimelineItem>
+      )
+    }
     return (
-      <ChatTimelineItem kind={item.role}>
+      <ChatTimelineItem kind={renderKind === "activity" ? "activity" : item.role}>
         {item.role === "user" ? (
           <ChatUserMessage>{item.text}</ChatUserMessage>
         ) : (
@@ -382,6 +398,16 @@ function TimelineItemView({ entry }: { entry: ThreadTimelineProjectedItem }) {
     item.type === "harness"
       ? item.nativeType
       : i18n._(msg({ id: "chat.unknownItem", message: "Unknown item" }))
+  if (nativeType === "turn/diff/updated") {
+    return (
+      <ChatTimelineItem kind="activity">
+        <ChatTimelineEvent
+          type="turn-diff"
+          title={i18n._(msg({ id: "chat.turnDiffAvailable", message: "Turn diff available" }))}
+        />
+      </ChatTimelineItem>
+    )
+  }
   if (nativeType.includes("subAgentActivity")) {
     const raw = jsonRecord(payload.item ?? payload)
     return (
@@ -414,12 +440,16 @@ function TimelineItemView({ entry }: { entry: ThreadTimelineProjectedItem }) {
 
 function VirtualTimeline({
   items,
+  codex,
+  activeTurnId,
   loading,
   loadingOlder,
   hasOlder,
   onLoadOlder,
 }: {
   items: readonly ThreadTimelineProjectedItem[]
+  codex: boolean
+  activeTurnId: string | null
   loading: boolean
   loadingOlder: boolean
   hasOlder: boolean
@@ -429,12 +459,23 @@ function VirtualTimeline({
   const parentRef = useRef<HTMLDivElement>(null)
   const [following, setFollowing] = useState(true)
   const initialPositioned = useRef(false)
+  const rows = useMemo(
+    () =>
+      codex
+        ? splitCodexRenderGroups(items, activeTurnId)
+        : items.map((item) => ({
+            id: `${item.turnId ?? "thread"}:${item.item.itemId}`,
+            items: [item],
+            kind: "activity" as const,
+            turnId: item.turnId,
+          })),
+    [activeTurnId, codex, items]
+  )
   const virtualizer = useVirtualizer({
-    count: items.length,
+    count: rows.length,
     estimateSize: () => 160,
     getItemKey: (index) => {
-      const entry = items[index]
-      return entry ? `${entry.turnId ?? "thread"}:${entry.item.itemId}` : index
+      return rows[index]?.id ?? index
     },
     getScrollElement: () => parentRef.current,
     overscan: 8,
@@ -442,15 +483,15 @@ function VirtualTimeline({
   const virtualItems = virtualizer.getVirtualItems()
 
   useLayoutEffect(() => {
-    if (!items.length || initialPositioned.current) return
+    if (!rows.length || initialPositioned.current) return
     initialPositioned.current = true
-    virtualizer.scrollToIndex(items.length - 1, { align: "end", behavior: "auto" })
-  }, [items.length, virtualizer])
+    virtualizer.scrollToIndex(rows.length - 1, { align: "end", behavior: "auto" })
+  }, [rows.length, virtualizer])
 
   useLayoutEffect(() => {
-    if (!following || !items.length) return
-    virtualizer.scrollToIndex(items.length - 1, { align: "end", behavior: "auto" })
-  }, [following, items.length, virtualizer])
+    if (!following || !rows.length) return
+    virtualizer.scrollToIndex(rows.length - 1, { align: "end", behavior: "auto" })
+  }, [following, rows.length, virtualizer])
 
   return (
     <div className="relative min-h-0 flex-1">
@@ -468,7 +509,7 @@ function VirtualTimeline({
           <ChatTimelineState state="loading">
             <Trans id="chat.loadingConversation">Loading conversation…</Trans>
           </ChatTimelineState>
-        ) : items.length === 0 ? (
+        ) : rows.length === 0 ? (
           <ChatTimelineState state="empty">
             <Trans id="chat.empty.start">Start a conversation</Trans>
           </ChatTimelineState>
@@ -483,17 +524,52 @@ function VirtualTimeline({
               </div>
             ) : null}
             {virtualItems.map((virtualItem) => {
-              const entry = items[virtualItem.index]
-              if (!entry) return null
+              const row = rows[virtualItem.index]
+              if (!row) return null
               return (
                 <div
                   className="absolute top-0 left-0 w-full px-2 pb-8 sm:px-3"
                   data-index={virtualItem.index}
+                  data-render-kind={row.kind}
+                  data-current-commentary={
+                    ("currentCommentary" in row && row.currentCommentary) || undefined
+                  }
+                  data-tool-group-start={
+                    ("toolGroupStart" in row && row.toolGroupStart) || undefined
+                  }
                   key={virtualItem.key}
                   ref={virtualizer.measureElement}
                   style={{ transform: `translateY(${virtualItem.start + 32}px)` }}
                 >
-                  <TimelineItemView entry={entry} />
+                  {row.kind === "tools" || row.kind === "subagents" ? (
+                    <ChatTurnGroup
+                      current={"toolGroupStart" in row && row.toolGroupStart}
+                      kind={row.kind}
+                      label={
+                        row.kind === "tools"
+                          ? i18n._(msg({ id: "chat.group.tools", message: "Tool activity" }))
+                          : i18n._(
+                              msg({ id: "chat.group.subagents", message: "Subagent activity" })
+                            )
+                      }
+                    >
+                      {row.items.map((entry) => (
+                        <TimelineItemView
+                          entry={entry}
+                          key={entry.item.itemId}
+                          renderKind={row.kind}
+                        />
+                      ))}
+                    </ChatTurnGroup>
+                  ) : (
+                    row.items.map((entry) => (
+                      <TimelineItemView
+                        entry={entry}
+                        key={entry.item.itemId}
+                        renderKind={row.kind}
+                      />
+                    ))
+                  )}
                 </div>
               )
             })}
@@ -504,7 +580,7 @@ function VirtualTimeline({
         <ChatScrollToLatest
           label={i18n._(msg({ id: "chat.scrollToLatest", message: "Scroll to latest" }))}
           onClick={() => {
-            virtualizer.scrollToIndex(items.length - 1, { align: "end", behavior: "auto" })
+            virtualizer.scrollToIndex(rows.length - 1, { align: "end", behavior: "auto" })
             setFollowing(true)
           }}
         >
@@ -530,6 +606,20 @@ function PendingInteraction({
   const isElicitation =
     interaction.harness?.agentId === "codex" &&
     interaction.harness.nativeType.includes("mcp_server.elicitation")
+  const metadata = jsonRecord(interaction.harness?.metadata)
+  const isComputerUse =
+    isElicitation &&
+    [metadata, jsonRecord(metadata.request), jsonRecord(metadata.elicitation)].some(
+      (candidate) =>
+        candidate.kind === "computerUseAppApproval" ||
+        (typeof candidate.connectorName === "string" &&
+          /computer[ -]?use/iu.test(candidate.connectorName))
+    )
+  const elevatedComputerUseRisk =
+    isComputerUse &&
+    [metadata, jsonRecord(metadata.request), jsonRecord(metadata.elicitation)].some(
+      (candidate) => candidate.riskLevel === "high"
+    )
   const Surface = isPermission
     ? ChatPermissionRequest
     : isElicitation
@@ -537,12 +627,34 @@ function PendingInteraction({
       : ChatUserInputRequest
   return (
     <Surface
+      badge={
+        elevatedComputerUseRisk
+          ? i18n._(msg({ id: "chat.computerUse.elevatedRisk", message: "Elevated risk" }))
+          : undefined
+      }
       description={interaction.message}
       title={
         interaction.title ??
         i18n._(msg({ id: "chat.interaction.actionRequired", message: "Action required" }))
       }
     >
+      {isComputerUse ? (
+        <ChatPendingInteractionBody>
+          <ChatComposerBanner
+            description={i18n._(
+              msg({
+                id: "chat.computerUse.disclosure",
+                message:
+                  "Computer Use can interact with apps on your computer and may capture screenshots. You can stop it at any time.",
+              })
+            )}
+            title={i18n._(
+              msg({ id: "chat.computerUse.firstUse", message: "Computer access request" })
+            )}
+            tone="warning"
+          />
+        </ChatPendingInteractionBody>
+      ) : null}
       {interaction.questions?.length ? (
         <ChatPendingInteractionBody>
           {interaction.questions.map((question, questionIndex) => {
@@ -1479,6 +1591,8 @@ export function ConversationWorkspace({
     >
       <ChatMainColumn>
         <VirtualTimeline
+          activeTurnId={snapshot.thread?.activeTurn?.id ?? null}
+          codex={codex}
           hasOlder={snapshot.hasOlder}
           items={snapshot.items}
           loading={snapshot.loadState === "loading"}

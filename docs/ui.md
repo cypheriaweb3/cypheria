@@ -40,7 +40,7 @@ Shared components remain presentation-oriented. Data fetching and Electron acces
 
 ## Conversation components
 
-The `components/chat` surface provides composable messages, reasoning, tools, commands, plans, attachments, composer states, pending interactions, panels, previews, and streaming states. These components contain presentation and accessibility behavior only. Desktop owns the Thread controller, TanStack Virtual integration, scroll restoration, panel registry, xterm process view, and harness extensions.
+The `components/chat` surface provides composable messages, reasoning, tools, commands, plans, attachments, composer states, pending interactions, panels, previews, and streaming states. `ChatTurnGroup` gives consecutive tool and subagent activity a labeled, accessible visual boundary. These components contain presentation and accessibility behavior only. Desktop owns the Thread controller, TanStack Virtual integration, scroll restoration, panel registry, xterm process view, and harness extensions.
 
 Timeline renderers accept Canonical Timeline items. Harness renderers are registered only for discriminated harness items or metadata with genuine additional behavior.
 

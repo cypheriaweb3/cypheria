@@ -81,6 +81,9 @@ describe("ChatDemo", () => {
     expect(required(container, '[data-slot="chat-queued-input-list"]')).toBeTruthy()
     expect(required(container, '[data-slot="chat-composer-banner"]')).toBeTruthy()
     expect(required(container, '[data-slot="chat-desktop-notification-preview"]')).toBeTruthy()
+    expect(
+      required(document, '[aria-label="Show Turn render groups"]').getAttribute("aria-checked")
+    ).toBe("true")
 
     for (const title of [
       "Artifact",

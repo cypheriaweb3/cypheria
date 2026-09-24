@@ -69,6 +69,7 @@ import {
   ChatToolContent,
   ChatToolSection,
   ChatToolTrigger,
+  ChatTurnGroup,
   ChatTurnMarker,
   ChatTurnNavigator,
   ChatTurnNotice,
@@ -93,6 +94,16 @@ afterEach(() => {
 })
 
 describe("chat presentation components", () => {
+  it("labels grouped tool activity without owning timeline state", () => {
+    render(
+      <ChatTurnGroup current kind="tools" label="Tool activity">
+        <span>Read files</span>
+      </ChatTurnGroup>
+    )
+    const group = screen.getByRole("region", { name: "Tool activity" })
+    expect(group).toHaveAttribute("data-slot", "chat-turn-group")
+    expect(group).toHaveAttribute("data-current", "true")
+  })
   it("identifies audited timeline events and panel surface kinds", () => {
     const { container } = render(
       <div>
