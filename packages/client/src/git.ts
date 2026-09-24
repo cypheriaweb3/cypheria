@@ -78,6 +78,7 @@ export interface GitActions {
     options?: RequestOptions
   ): Promise<GitTextBlob>
   blameFile(cwd: string, path: string, options?: RequestOptions): Promise<GitBlameLine[]>
+  indexInfo(cwd: string, options?: RequestOptions): Promise<{ lastModified: number }>
   init(cwd: string, options?: RequestOptions): Promise<GitRepository>
   createBranch(
     cwd: string,
@@ -517,6 +518,8 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(await client.requestGit("git.text-blob.request", { cwd, revision, path }, options)),
   blameFile: async (cwd, path, options) =>
     unwrap(await client.requestGit("git.blame-file.request", { cwd, path }, options)),
+  indexInfo: async (cwd, options) =>
+    unwrap(await client.requestGit("git.index-info.request", { cwd }, options)),
   init: async (cwd, options) =>
     unwrap(await client.requestGit("git.init.request", { cwd }, options)),
   createBranch: async (cwd, name, startPoint, options) =>

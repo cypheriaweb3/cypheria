@@ -425,6 +425,10 @@ export const GitBlameFileRequestSchema = input(
   "git.blame-file.request",
   z.object({ cwd: path, path }).strict()
 )
+export const GitIndexInfoRequestSchema = input(
+  "git.index-info.request",
+  z.object({ cwd: path }).strict()
+)
 export const GitInitRequestSchema = input("git.init.request", z.object({ cwd: path }).strict())
 export const GitBranchCreateRequestSchema = input(
   "git.branch-create.request",
@@ -1083,6 +1087,10 @@ export const GitBlameFileResponseSchema = output(
   "git.blame-file.response",
   z.array(GitBlameLineSchema)
 )
+export const GitIndexInfoResponseSchema = output(
+  "git.index-info.response",
+  z.object({ lastModified: z.number().nonnegative() }).strict()
+)
 export const GitInitResponseSchema = output("git.init.response", GitRepositorySchema)
 export const GitBranchCreateResponseSchema = output(
   "git.branch-create.response",
@@ -1355,6 +1363,7 @@ export const GIT_CLIENT_SCHEMAS = [
   GitSubmodulePathsRequestSchema,
   GitTextBlobRequestSchema,
   GitBlameFileRequestSchema,
+  GitIndexInfoRequestSchema,
   GitInitRequestSchema,
   GitBranchCreateRequestSchema,
   GitCheckoutRequestSchema,
@@ -1441,6 +1450,7 @@ export const GIT_SERVER_SCHEMAS = [
   GitSubmodulePathsResponseSchema,
   GitTextBlobResponseSchema,
   GitBlameFileResponseSchema,
+  GitIndexInfoResponseSchema,
   GitInitResponseSchema,
   GitBranchCreateResponseSchema,
   GitCheckoutResponseSchema,

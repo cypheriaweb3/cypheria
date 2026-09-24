@@ -144,6 +144,15 @@ describe("GitService", () => {
     ])
   }, 20_000)
 
+  it("reports the worktree-local Git index modification time", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    expect(await service.indexInfo(root)).toEqual({ lastModified: 0 })
+    await writeFile(join(root, "file.txt"), "first\n")
+    await service.stage(root, ["file.txt"])
+    expect((await service.indexInfo(root)).lastModified).toBeGreaterThan(0)
+  }, 20_000)
+
   it("reads bounded UTF-8 blobs and blame metadata without exposing binary content", async () => {
     const root = await repository()
     const service = new GitService(join(root, "cache"), join(root, "home"))

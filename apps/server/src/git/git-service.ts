@@ -195,6 +195,9 @@ export class GitService {
         case "git.blame-file.request":
           value = await this.blameFile(message.payload.cwd, message.payload.path)
           break
+        case "git.index-info.request":
+          value = await this.indexInfo(message.payload.cwd)
+          break
         case "git.init.request":
           value = await this.init(message.payload.cwd)
           break
@@ -1561,6 +1564,24 @@ export class GitService {
     }
     if (current) throw new Error("Git returned incomplete blame data")
     return lines
+  }
+
+  async indexInfo(cwd: string): Promise<{ lastModified: number }> {
+    const { root } = await this.discover(cwd)
+    const indexPath = trimmed(
+      (
+        await this.#executor.run(
+          root,
+          ["rev-parse", "--path-format=absolute", "--git-path", "index"],
+          { readOnly: true }
+        )
+      ).stdout
+    )
+    const info = await stat(indexPath).catch((error: NodeJS.ErrnoException) => {
+      if (error.code === "ENOENT") return null
+      throw error
+    })
+    return { lastModified: info ? Math.max(0, info.mtimeMs) : 0 }
   }
 
   async createBranch(cwd: string, name: string, startPoint?: string): Promise<string> {
