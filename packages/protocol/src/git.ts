@@ -100,6 +100,20 @@ export const GitIndexEntrySchema = z
     stage: z.number().int().min(0).max(3),
   })
   .strict()
+export const GitTextBlobSchema = z.discriminatedUnion("status", [
+  z.object({ status: z.literal("success"), content: z.string() }).strict(),
+  z.object({ status: z.literal("unavailable") }).strict(),
+])
+export const GitBlameLineSchema = z
+  .object({
+    commitSha: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    lineNumber: z.number().int().positive(),
+    author: z.string().nullable(),
+    authorLogin: z.string().nullable(),
+    authorTime: z.number().int().nonnegative().nullable(),
+    summary: z.string().nullable(),
+  })
+  .strict()
 export const GitWorktreeSchema = z
   .object({
     path,
@@ -396,6 +410,14 @@ export const GitIndexEntriesRequestSchema = input(
 export const GitSubmodulePathsRequestSchema = input(
   "git.submodule-paths.request",
   z.object({ cwd: path }).strict()
+)
+export const GitTextBlobRequestSchema = input(
+  "git.text-blob.request",
+  z.object({ cwd: path, revision: z.string().regex(/^[a-f0-9]{40,64}$/iu), path }).strict()
+)
+export const GitBlameFileRequestSchema = input(
+  "git.blame-file.request",
+  z.object({ cwd: path, path }).strict()
 )
 export const GitInitRequestSchema = input("git.init.request", z.object({ cwd: path }).strict())
 export const GitBranchCreateRequestSchema = input(
@@ -1018,6 +1040,11 @@ export const GitIndexEntriesResponseSchema = output(
   z.array(GitIndexEntrySchema)
 )
 export const GitSubmodulePathsResponseSchema = output("git.submodule-paths.response", z.array(path))
+export const GitTextBlobResponseSchema = output("git.text-blob.response", GitTextBlobSchema)
+export const GitBlameFileResponseSchema = output(
+  "git.blame-file.response",
+  z.array(GitBlameLineSchema)
+)
 export const GitInitResponseSchema = output("git.init.response", GitRepositorySchema)
 export const GitBranchCreateResponseSchema = output(
   "git.branch-create.response",
@@ -1280,6 +1307,8 @@ export const GIT_CLIENT_SCHEMAS = [
   GitBranchComparisonRequestSchema,
   GitIndexEntriesRequestSchema,
   GitSubmodulePathsRequestSchema,
+  GitTextBlobRequestSchema,
+  GitBlameFileRequestSchema,
   GitInitRequestSchema,
   GitBranchCreateRequestSchema,
   GitCheckoutRequestSchema,
@@ -1362,6 +1391,8 @@ export const GIT_SERVER_SCHEMAS = [
   GitBranchComparisonResponseSchema,
   GitIndexEntriesResponseSchema,
   GitSubmodulePathsResponseSchema,
+  GitTextBlobResponseSchema,
+  GitBlameFileResponseSchema,
   GitInitResponseSchema,
   GitBranchCreateResponseSchema,
   GitCheckoutResponseSchema,
@@ -1451,6 +1482,8 @@ export type GitReviewUndoEntry = z.infer<typeof GitReviewUndoEntrySchema>
 export type GitBranchContext = z.infer<typeof GitBranchContextSchema>
 export type GitBranchComparison = z.infer<typeof GitBranchComparisonSchema>
 export type GitIndexEntry = z.infer<typeof GitIndexEntrySchema>
+export type GitTextBlob = z.infer<typeof GitTextBlobSchema>
+export type GitBlameLine = z.infer<typeof GitBlameLineSchema>
 export type GitWorktree = z.infer<typeof GitWorktreeSchema>
 export type GitHubAvailability = z.infer<typeof GitHubAvailabilitySchema>
 export type GitHubAppAvailability = z.infer<typeof GitHubAppAvailabilitySchema>

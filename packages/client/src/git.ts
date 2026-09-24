@@ -1,4 +1,5 @@
 import type {
+  GitBlameLine,
   GitBranch,
   GitBranchComparison,
   GitBranchContext,
@@ -36,6 +37,7 @@ import type {
   GitReviewUndoEntry,
   GitServerMessage,
   GitStatus,
+  GitTextBlob,
   GitWorktree,
 } from "@cypheria/protocol"
 import type { RequestOptions } from "./request-options.js"
@@ -68,6 +70,13 @@ export interface GitActions {
   ): Promise<GitBranchComparison>
   indexEntries(cwd: string, path: string, options?: RequestOptions): Promise<GitIndexEntry[]>
   submodulePaths(cwd: string, options?: RequestOptions): Promise<string[]>
+  textBlob(
+    cwd: string,
+    revision: string,
+    path: string,
+    options?: RequestOptions
+  ): Promise<GitTextBlob>
+  blameFile(cwd: string, path: string, options?: RequestOptions): Promise<GitBlameLine[]>
   init(cwd: string, options?: RequestOptions): Promise<GitRepository>
   createBranch(
     cwd: string,
@@ -482,6 +491,10 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(await client.requestGit("git.index-entries.request", { cwd, path }, options)),
   submodulePaths: async (cwd, options) =>
     unwrap(await client.requestGit("git.submodule-paths.request", { cwd }, options)),
+  textBlob: async (cwd, revision, path, options) =>
+    unwrap(await client.requestGit("git.text-blob.request", { cwd, revision, path }, options)),
+  blameFile: async (cwd, path, options) =>
+    unwrap(await client.requestGit("git.blame-file.request", { cwd, path }, options)),
   init: async (cwd, options) =>
     unwrap(await client.requestGit("git.init.request", { cwd }, options)),
   createBranch: async (cwd, name, startPoint, options) =>

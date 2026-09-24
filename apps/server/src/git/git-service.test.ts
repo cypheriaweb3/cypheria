@@ -144,6 +144,29 @@ describe("GitService", () => {
     ])
   }, 20_000)
 
+  it("reads bounded UTF-8 blobs and blame metadata without exposing binary content", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await writeFile(join(root, "hello.txt"), "first\nsecond\n")
+    await writeFile(join(root, "binary.dat"), Buffer.from([0, 255, 1]))
+    await service.stage(root, ["hello.txt", "binary.dat"])
+    const commit = await service.commit(root, "Base")
+    expect(await service.textBlob(root, commit, "hello.txt")).toEqual({
+      status: "success",
+      content: "first\nsecond\n",
+    })
+    expect(await service.textBlob(root, commit, "binary.dat")).toEqual({
+      status: "unavailable",
+    })
+    await expect(service.textBlob(root, commit, "../outside")).rejects.toThrow(
+      "outside the repository"
+    )
+    expect(await service.blameFile(root, "hello.txt")).toEqual([
+      expect.objectContaining({ commitSha: commit, lineNumber: 1, author: "Git Test" }),
+      expect.objectContaining({ commitSha: commit, lineNumber: 2, author: "Git Test" }),
+    ])
+  }, 20_000)
+
   it("searches local and remote branches and checks out a remote tracking branch", async () => {
     const root = await repository()
     const remote = await mkdtemp(join(tmpdir(), "cypheria-git-remote-"))

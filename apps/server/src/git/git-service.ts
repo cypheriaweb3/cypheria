@@ -1,9 +1,11 @@
+import { isUtf8 } from "node:buffer"
 import { createHash } from "node:crypto"
 import { constants } from "node:fs"
 import { lstat, mkdtemp, open, readlink, realpath, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
 import type {
+  GitBlameLine,
   GitBranchComparison,
   GitBranchContext,
   GitBranchReview,
@@ -38,6 +40,7 @@ import type {
   GitReviewLineCount,
   GitServerMessage,
   GitSettings,
+  GitTextBlob,
   GitWorktree,
 } from "@cypheria/protocol"
 import { DEFAULT_GIT_SETTINGS } from "@cypheria/protocol"
@@ -180,6 +183,16 @@ export class GitService {
           break
         case "git.submodule-paths.request":
           value = await this.submodulePaths(message.payload.cwd)
+          break
+        case "git.text-blob.request":
+          value = await this.textBlob(
+            message.payload.cwd,
+            message.payload.revision,
+            message.payload.path
+          )
+          break
+        case "git.blame-file.request":
+          value = await this.blameFile(message.payload.cwd, message.payload.path)
           break
         case "git.init.request":
           value = await this.init(message.payload.cwd)
@@ -1408,6 +1421,78 @@ export class GitService {
     return parseIndexEntries(stdout)
       .filter((entry) => entry.mode === "160000" && entry.stage === 0)
       .map((entry) => entry.path)
+  }
+
+  async textBlob(cwd: string, revision: string, path: string): Promise<GitTextBlob> {
+    if (!/^[a-f0-9]{40,64}$/iu.test(revision)) throw new Error("Invalid Git revision")
+    const { root } = await this.discover(cwd)
+    const safePath = this.#historicalPath(root, path)
+    const object = trimmed(
+      (
+        await this.#executor.run(
+          root,
+          ["rev-parse", "--verify", "--end-of-options", `${revision}:${safePath}`],
+          { readOnly: true }
+        )
+      ).stdout
+    )
+    if (!/^[a-f0-9]{40,64}$/iu.test(object)) throw new Error("Git returned an invalid object")
+    const kind = trimmed(
+      (await this.#executor.run(root, ["cat-file", "-t", object], { readOnly: true })).stdout
+    )
+    if (kind !== "blob") return { status: "unavailable" }
+    const size = Number(
+      trimmed(
+        (await this.#executor.run(root, ["cat-file", "-s", object], { readOnly: true })).stdout
+      )
+    )
+    if (!Number.isSafeInteger(size) || size < 0) throw new Error("Git returned invalid blob size")
+    if (size > 1024 * 1024) return { status: "unavailable" }
+    const bytes = await this.#executor.readBlob(root, object, 1024 * 1024)
+    if (bytes.length !== size || bytes.includes(0) || !isUtf8(bytes))
+      return { status: "unavailable" }
+    return { status: "success", content: bytes.toString("utf8") }
+  }
+
+  async blameFile(cwd: string, path: string): Promise<GitBlameLine[]> {
+    const { root } = await this.discover(cwd)
+    const safePath = this.#historicalPath(root, path)
+    const { stdout } = await this.#executor.run(
+      root,
+      ["blame", "--line-porcelain", "--", safePath],
+      { readOnly: true }
+    )
+    const lines: GitBlameLine[] = []
+    let current: GitBlameLine | null = null
+    for (const line of stdout.split("\n")) {
+      const header = /^(?:\^)?([a-f0-9]{40,64}) \d+ (\d+)(?: \d+)?$/u.exec(line)
+      if (header) {
+        current = {
+          commitSha: header[1] ?? "",
+          lineNumber: Number(header[2]),
+          author: null,
+          authorLogin: null,
+          authorTime: null,
+          summary: null,
+        }
+      } else if (current && line.startsWith("\t")) {
+        lines.push(current)
+        current = null
+        if (lines.length > 10_000) throw new Error("Git blame exceeds the line limit")
+      } else if (current) {
+        if (line.startsWith("author ")) current.author = line.slice(7) || null
+        else if (line.startsWith("author-mail ")) {
+          const email = line.slice(12).replace(/^<|>$/gu, "")
+          current.authorLogin =
+            /^(?:\d+\+)?([^@]+)@users\.noreply\.github\.com$/iu.exec(email)?.[1] ?? null
+        } else if (line.startsWith("author-time ")) {
+          const time = Number(line.slice(12))
+          current.authorTime = Number.isSafeInteger(time) && time >= 0 ? time : null
+        } else if (line.startsWith("summary ")) current.summary = line.slice(8) || null
+      }
+    }
+    if (current) throw new Error("Git returned incomplete blame data")
+    return lines
   }
 
   async createBranch(cwd: string, name: string, startPoint?: string): Promise<string> {
