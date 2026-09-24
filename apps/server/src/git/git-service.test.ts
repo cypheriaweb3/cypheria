@@ -116,6 +116,34 @@ describe("GitService", () => {
     await expect(service.branchComparison(root, "--bad")).rejects.toThrow("Invalid Git ref")
   }, 20_000)
 
+  it("reads exact index entries and submodule gitlinks without opening their worktrees", async () => {
+    const root = await repository()
+    const service = new GitService(join(root, "cache"), join(root, "home"))
+    await mkdir(join(root, "src"))
+    await writeFile(join(root, "src", "file.txt"), "content\n")
+    await service.stage(root, ["src/file.txt"])
+    const [entry] = await service.indexEntries(root, "src/file.txt")
+    expect(entry).toMatchObject({ path: "src/file.txt", mode: "100644", stage: 0 })
+    expect(entry?.objectId).toMatch(/^[a-f0-9]{40,64}$/u)
+    expect(await service.indexEntries(root, "src")).toEqual([])
+    await expect(service.indexEntries(root, "../outside")).rejects.toThrow("outside the repository")
+    const head = await service.commit(root, "Base")
+    await run("git", [
+      "-C",
+      root,
+      "update-index",
+      "--add",
+      "--cacheinfo",
+      "160000",
+      head,
+      "vendor/lib",
+    ])
+    expect(await service.submodulePaths(root)).toEqual(["vendor/lib"])
+    expect(await service.indexEntries(root, "vendor/lib")).toEqual([
+      { path: "vendor/lib", mode: "160000", objectId: head, stage: 0 },
+    ])
+  }, 20_000)
+
   it("searches local and remote branches and checks out a remote tracking branch", async () => {
     const root = await repository()
     const remote = await mkdtemp(join(tmpdir(), "cypheria-git-remote-"))

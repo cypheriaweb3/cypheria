@@ -92,6 +92,14 @@ export const GitBranchComparisonSchema = z
     files: z.array(GitReviewLineCountSchema),
   })
   .strict()
+export const GitIndexEntrySchema = z
+  .object({
+    path,
+    mode: z.string().regex(/^[0-7]{6}$/u),
+    objectId: z.string().regex(/^[a-f0-9]{40,64}$/iu),
+    stage: z.number().int().min(0).max(3),
+  })
+  .strict()
 export const GitWorktreeSchema = z
   .object({
     path,
@@ -377,6 +385,14 @@ export const GitBranchContextRequestSchema = input(
 export const GitBranchComparisonRequestSchema = input(
   "git.branch-comparison.request",
   z.object({ cwd: path, base: path, head: path.optional() }).strict()
+)
+export const GitIndexEntriesRequestSchema = input(
+  "git.index-entries.request",
+  z.object({ cwd: path, path }).strict()
+)
+export const GitSubmodulePathsRequestSchema = input(
+  "git.submodule-paths.request",
+  z.object({ cwd: path }).strict()
 )
 export const GitInitRequestSchema = input("git.init.request", z.object({ cwd: path }).strict())
 export const GitBranchCreateRequestSchema = input(
@@ -961,6 +977,11 @@ export const GitBranchComparisonResponseSchema = output(
   "git.branch-comparison.response",
   GitBranchComparisonSchema
 )
+export const GitIndexEntriesResponseSchema = output(
+  "git.index-entries.response",
+  z.array(GitIndexEntrySchema)
+)
+export const GitSubmodulePathsResponseSchema = output("git.submodule-paths.response", z.array(path))
 export const GitInitResponseSchema = output("git.init.response", GitRepositorySchema)
 export const GitBranchCreateResponseSchema = output(
   "git.branch-create.response",
@@ -1209,6 +1230,8 @@ export const GIT_CLIENT_SCHEMAS = [
   GitBranchSearchRequestSchema,
   GitBranchContextRequestSchema,
   GitBranchComparisonRequestSchema,
+  GitIndexEntriesRequestSchema,
+  GitSubmodulePathsRequestSchema,
   GitInitRequestSchema,
   GitBranchCreateRequestSchema,
   GitCheckoutRequestSchema,
@@ -1286,6 +1309,8 @@ export const GIT_SERVER_SCHEMAS = [
   GitBranchSearchResponseSchema,
   GitBranchContextResponseSchema,
   GitBranchComparisonResponseSchema,
+  GitIndexEntriesResponseSchema,
+  GitSubmodulePathsResponseSchema,
   GitInitResponseSchema,
   GitBranchCreateResponseSchema,
   GitCheckoutResponseSchema,
@@ -1371,6 +1396,7 @@ export type GitReviewLineCount = z.infer<typeof GitReviewLineCountSchema>
 export type GitReviewUndoEntry = z.infer<typeof GitReviewUndoEntrySchema>
 export type GitBranchContext = z.infer<typeof GitBranchContextSchema>
 export type GitBranchComparison = z.infer<typeof GitBranchComparisonSchema>
+export type GitIndexEntry = z.infer<typeof GitIndexEntrySchema>
 export type GitWorktree = z.infer<typeof GitWorktreeSchema>
 export type GitHubAvailability = z.infer<typeof GitHubAvailabilitySchema>
 export type GitHubAppAvailability = z.infer<typeof GitHubAppAvailabilitySchema>

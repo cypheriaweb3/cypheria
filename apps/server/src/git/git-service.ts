@@ -25,6 +25,7 @@ import type {
   GitHubPullRequestChecks,
   GitHubPullRequestThreads,
   GitHubUserCandidate,
+  GitIndexEntry,
   GitLabMergeRequest,
   GitLabMergeRequestChecks,
   GitLabMergeRequestDiscussion,
@@ -89,6 +90,20 @@ const validateOperand = (value: string, name: string): string => {
   }
   return value
 }
+const parseIndexEntries = (output: string): GitIndexEntry[] =>
+  output
+    .split("\0")
+    .filter(Boolean)
+    .map((record) => {
+      const match = /^([0-7]{6}) ([a-f0-9]{40,64}) ([0-3])\t(.+)$/su.exec(record)
+      if (!match) throw new Error("Git returned invalid index entries")
+      return {
+        mode: match[1] ?? "",
+        objectId: match[2] ?? "",
+        stage: Number(match[3]),
+        path: match[4] ?? "",
+      }
+    })
 
 export class GitService {
   readonly #executor: GitExecutor
@@ -158,6 +173,12 @@ export class GitService {
             message.payload.base,
             message.payload.head
           )
+          break
+        case "git.index-entries.request":
+          value = await this.indexEntries(message.payload.cwd, message.payload.path)
+          break
+        case "git.submodule-paths.request":
+          value = await this.submodulePaths(message.payload.cwd)
           break
         case "git.init.request":
           value = await this.init(message.payload.cwd)
@@ -1306,6 +1327,27 @@ export class GitService {
       behind,
       files: parseGitNumstat(stdout),
     }
+  }
+
+  async indexEntries(cwd: string, path: string): Promise<GitIndexEntry[]> {
+    const { root } = await this.discover(cwd)
+    const safePath = this.#historicalPath(root, path)
+    const { stdout } = await this.#executor.run(
+      root,
+      ["ls-files", "--stage", "-z", "--", safePath],
+      { readOnly: true }
+    )
+    return parseIndexEntries(stdout).filter((entry) => entry.path === safePath)
+  }
+
+  async submodulePaths(cwd: string): Promise<string[]> {
+    const { root } = await this.discover(cwd)
+    const { stdout } = await this.#executor.run(root, ["ls-files", "--stage", "-z"], {
+      readOnly: true,
+    })
+    return parseIndexEntries(stdout)
+      .filter((entry) => entry.mode === "160000" && entry.stage === 0)
+      .map((entry) => entry.path)
   }
 
   async createBranch(cwd: string, name: string, startPoint?: string): Promise<string> {

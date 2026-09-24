@@ -21,6 +21,7 @@ import type {
   GitHubPullRequestChecks,
   GitHubPullRequestThreads,
   GitHubUserCandidate,
+  GitIndexEntry,
   GitLabMergeRequest,
   GitLabMergeRequestChecks,
   GitLabMergeRequestDiscussion,
@@ -64,6 +65,8 @@ export interface GitActions {
     head?: string,
     options?: RequestOptions
   ): Promise<GitBranchComparison>
+  indexEntries(cwd: string, path: string, options?: RequestOptions): Promise<GitIndexEntry[]>
+  submodulePaths(cwd: string, options?: RequestOptions): Promise<string[]>
   init(cwd: string, options?: RequestOptions): Promise<GitRepository>
   createBranch(
     cwd: string,
@@ -453,6 +456,10 @@ export const createGitActions = (client: ServerClient): GitActions => ({
     unwrap(await client.requestGit("git.branch-context.request", { cwd }, options)),
   branchComparison: async (cwd, base, head, options) =>
     unwrap(await client.requestGit("git.branch-comparison.request", { cwd, base, head }, options)),
+  indexEntries: async (cwd, path, options) =>
+    unwrap(await client.requestGit("git.index-entries.request", { cwd, path }, options)),
+  submodulePaths: async (cwd, options) =>
+    unwrap(await client.requestGit("git.submodule-paths.request", { cwd }, options)),
   init: async (cwd, options) =>
     unwrap(await client.requestGit("git.init.request", { cwd }, options)),
   createBranch: async (cwd, name, startPoint, options) =>
