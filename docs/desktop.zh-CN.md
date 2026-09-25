@@ -145,6 +145,8 @@ Harness 专属 UI 仅限判别 Timeline 扩展、header actions、model settings
 
 Composer 使用共享的 `ChatModelSelector` 与 `ChatContextUsage` 展示组件。Selector 把 Agent、model、推理强度与速度合并起来，并隐藏所选 Agent 未广告的维度。首条消息发送前，切换 Agent 会改变新 Thread 使用的 runtime；已有 Thread 保持其 Agent identity。Context control 是一个紧凑 meter，hover card 会针对 Codex、Claude、Pi、OpenCode 与 ACP 显示不同明细，并用 source label 区分 reported、queried、derived 与 estimated。Chat Demo 同时展示这两个组件，开发者无需真实 Agent 即可切换检查所有呈现变体。
 
+共享的 `ChatComposerEditor` 使用 Tiptap/ProseMirror，支持富文本和文件、Agent、Skill、App、插件、MCP 资源、浏览器标签页的语义行内引用。`@` 提供文件／Agent／资源／标签页／插件引用，`$` 提供 Skill／App，`/` 调用由使用方提供的本地命令。候选项由使用方提供；正式页面不会编造 Agent 资源。编辑器将引用序列化为链接，沿用现有文本输入路径；`ChatComposerAttachmentList` 将图片、文件、粘贴文本、appshot 等上下文保留在编辑器文档外，并提供受控状态、移除和重排。Desktop 的显式纯文本偏好仍使用 textarea 路径。Desktop 继续负责附件、文本草稿与发送；结构化编辑器 JSON 只在内存中，不持久化，也不作为新协议类型发送。本次 UI 实现不包含后端或 Agent 侧的引用解析。
+
 Canonical Timeline 历史与有序实时更新都直接通过 `@cypheria/client` 消费。无框架 controller 负责分页、重连、缺口恢复、send、steer、Codex 原生 queue、cancel 和 interaction；React 通过 `useSyncExternalStore` 订阅。Codex 使用专用 workspace，其他 Agent 在获得专属扩展前使用公共 Thread workspace。
 
 Codex workspace 在 Canonical Timeline 投影后执行仅属于 Desktop 的展示分组，不改变已存储 item，也不发明 App Server item 类型。用户输入、过程 commentary、连续工具或子代理活动、plan、diff、最终回答和回答后通知成为不同的虚拟行。最新轮次只跟踪当前同步 commentary；异步投递或提问会清除该标记。原始顺序中最终回答之后仍可能有已完成活动，因此分组会越过已结束的命令和工具查找最终回答，并把回答显示在过程组之后。待处理审批留在 composer 交互区；goal、queue、usage 等运行时状态不进入历史。若 Codex MCP elicitation 的 metadata 表明它是 Computer Use 应用访问请求，还会显示屏幕截图与访问披露，并在适用时显示高风险标记；它不会成为 Timeline item。共享 `ChatTurnGroup` 只负责展示；开发版 Chat Demo 在 128 条消息的虚拟化会话之外，也用同一分组函数展示双轮次样例和 Computer Use 请求样例。

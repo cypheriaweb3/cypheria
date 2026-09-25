@@ -212,11 +212,12 @@ describe("ChatDemo", () => {
   })
 
   it("adds a local user turn and exposes the stop state", async () => {
-    const textarea = required<HTMLTextAreaElement>(container, '[aria-label="Message Chat Demo"]')
-    const valueSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")?.set
-    act(() => {
-      valueSetter?.call(textarea, "Show the streaming state")
-      textarea.dispatchEvent(new Event("input", { bubbles: true }))
+    const editor = required<HTMLDivElement>(container, '[aria-label="Message Chat Demo"]')
+    await act(async () => {
+      const paragraph = required<HTMLParagraphElement>(editor, "p")
+      paragraph.textContent = "Show the streaming state"
+      editor.dispatchEvent(new Event("input", { bubbles: true }))
+      await Promise.resolve()
     })
     await act(async () => {
       required<HTMLButtonElement>(container, '[aria-label="Send message"]').click()
@@ -228,6 +229,7 @@ describe("ChatDemo", () => {
     ).toBe("129")
     expect(required(container, '[aria-label="Stop generating"]')).toBeTruthy()
     expect(container.textContent).toContain("Preparing a response…")
+    expect(required(container, '[aria-label="Message Chat Demo"]').textContent).toBe("")
 
     act(() => required<HTMLButtonElement>(container, '[aria-label="Stop generating"]').click())
     expect(required<HTMLButtonElement>(container, '[aria-label="Send message"]').disabled).toBe(

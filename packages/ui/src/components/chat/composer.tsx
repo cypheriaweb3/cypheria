@@ -1,6 +1,6 @@
 import type {
   ComponentProps,
-  FormHTMLAttributes,
+  ComponentPropsWithRef,
   HTMLAttributes,
   KeyboardEvent,
   ReactNode,
@@ -57,7 +57,7 @@ export function ChatComposerFrame({ className, ...props }: HTMLAttributes<HTMLDi
   )
 }
 
-export function ChatComposerForm({ className, ...props }: FormHTMLAttributes<HTMLFormElement>) {
+export function ChatComposerForm({ className, ...props }: ComponentPropsWithRef<"form">) {
   return (
     <form
       data-slot="chat-composer-form"

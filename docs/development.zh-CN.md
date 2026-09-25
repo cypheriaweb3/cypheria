@@ -99,6 +99,8 @@ Desktop 开发壳会显示一个固定的 **Chat Demo** 导航项，对应 `/cha
 组件的本地交互展示，不会连接 Agent runtime。其 transcript 使用 `@tanstack/react-virtual`
 展示 128 条可变高度消息，并包含行测量、overscan、采样 turn 导航和实时消息追加，从而无需生产数据即可检查长会话行为。右侧与底部界面可同时调整尺寸，并提供工作区 **Files** 面板（两个内存中的工作区根目录，支持新建、重命名、移动、删除、筛选、编辑，以及 Markdown、图片、SVG 与 CSV/TSV 预览）以及审计得到的全部 25 类内容 host：sources、subagents、plan、summary、goal、review、pull request、terminal、file、image、browser、MCP App、automation、artifact、PDF、document、notebook、presentation、workbook、entity detail、side chat、MCP thread/file extension、sandbox 与 secondary timeline。悬浮展示控制器可以逐组切换 9 类 Timeline item 和各个 panel tab，也可以在精选视图与完整目录之间切换。preload bootstrap 标志会在正式打包版本中隐藏该入口并重定向该路由。
 
+其 composer 还展示 Tiptap 行内引用、`@`／`$`／`/` 候选菜单，以及可选的附件托盘（包含等待中和失败样例）；这些 fixture 仅属于 Demo。
+
 ### 删除 Chat Demo
 
 Chat Demo 是临时开发脚手架。当正式会话工作区已经采用共享 Chat 组件后，按以下清单删除 Demo：

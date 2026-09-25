@@ -107,6 +107,7 @@ pull request, terminal, file, image, browser, MCP App, automation, artifact, PDF
 presentation, workbook, entity details, side chat, MCP thread/file extensions, sandbox, and a
 secondary timeline. A floating display controller switches nine Timeline families and individual
 panel tabs between a compact curated view and the exhaustive catalog.
+Its composer also showcases Tiptap inline references, `@`/`$`/`/` suggestions, and a selectable attachment tray with pending and failed samples; those fixture entries are Demo-only.
 
 ### Removing Chat Demo
 

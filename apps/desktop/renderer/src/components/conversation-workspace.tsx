@@ -13,12 +13,12 @@ import {
   ChatAssistantMessage,
   ChatBrowserPanel,
   ChatCommandBlock,
-  ChatComposerAttachment,
-  ChatComposerAttachmentTray,
+  ChatComposerAttachmentList,
   ChatComposerBanner,
   ChatComposerBody,
   ChatComposerControl,
   ChatComposerDock,
+  ChatComposerEditor,
   ChatComposerFooter,
   ChatComposerForm,
   ChatComposerFrame,
@@ -860,6 +860,8 @@ export function ConversationWorkspace({
   const [composer, setComposer] = useState(initialPrompt ?? "")
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([])
   const attachmentInput = useRef<HTMLInputElement>(null)
+  const composerForm = useRef<HTMLFormElement>(null)
+  const [composerEpoch, setComposerEpoch] = useState(0)
   const [rightVisibility, setRightVisibility] = useState<ChatPanelVisibility>(
     codex ? "visible" : "hidden"
   )
@@ -1358,6 +1360,7 @@ export function ConversationWorkspace({
     if (!text && attachments.length === 0) return
     const submittedAttachments = attachments
     setComposer("")
+    setComposerEpoch((current) => current + 1)
     setAttachments([])
     const queuePreferred =
       (desktopPreferences?.followUpQueueMode === "queue") !== oppositeFollowUp.current
@@ -1385,12 +1388,16 @@ export function ConversationWorkspace({
     }
   }
 
-  const attach = async (event: ChangeEvent<HTMLInputElement>) => {
-    const files = [...(event.currentTarget.files ?? [])]
-    event.currentTarget.value = ""
+  const attachFiles = async (files: File[]) => {
     if (files.length === 0) return
     const next = await Promise.all(files.map(fileBlock))
     setAttachments((current) => [...current, ...next])
+  }
+
+  const attach = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = [...(event.currentTarget.files ?? [])]
+    event.currentTarget.value = ""
+    await attachFiles(files)
   }
 
   const rightPanel = codex ? (
@@ -1582,7 +1589,7 @@ export function ConversationWorkspace({
                 onRespond={(response) => void controller.respond(pending.id, response)}
               />
             ) : (
-              <ChatComposerForm onSubmit={submit}>
+              <ChatComposerForm ref={composerForm} onSubmit={submit}>
                 <input
                   className="sr-only"
                   multiple
@@ -1592,21 +1599,30 @@ export function ConversationWorkspace({
                 />
                 {attachments.length ? (
                   <ChatComposerHeader>
-                    <ChatComposerAttachmentTray>
-                      {attachments.map((attachment) => (
-                        <ChatComposerAttachment
-                          key={attachment.id}
-                          metadata={attachment.mimeType}
-                          name={attachment.name}
-                          onRemove={() =>
-                            setAttachments((current) =>
-                              current.filter((item) => item.id !== attachment.id)
-                            )
-                          }
-                          removeLabel={`${i18n._(msg({ id: "common.remove", message: "Remove" }))} ${attachment.name}`}
-                        />
-                      ))}
-                    </ChatComposerAttachmentTray>
+                    <ChatComposerAttachmentList
+                      aria-label={i18n._(msg({ id: "chat.prompt.addFiles", message: "Add files" }))}
+                      items={attachments.map((attachment) => ({
+                        id: attachment.id,
+                        kind: attachment.mimeType.startsWith("image/") ? "image" : "file",
+                        name: attachment.name,
+                        detail: attachment.mimeType,
+                        previewUrl:
+                          attachment.block.type === "image"
+                            ? `data:${attachment.mimeType};base64,${attachment.block.data}`
+                            : undefined,
+                      }))}
+                      onRemove={(id) =>
+                        setAttachments((current) => current.filter((item) => item.id !== id))
+                      }
+                      onReorder={(ids) =>
+                        setAttachments((current) =>
+                          ids.flatMap((id) => current.find((item) => item.id === id) ?? [])
+                        )
+                      }
+                      removeLabel={(item) =>
+                        `${i18n._(msg({ id: "common.remove", message: "Remove" }))} ${item.name}`
+                      }
+                    />
                   </ChatComposerHeader>
                 ) : null}
                 {queueQuery.data?.data.length ||
@@ -1650,55 +1666,97 @@ export function ConversationWorkspace({
                   </ChatComposerHeader>
                 ) : null}
                 <ChatComposerBody>
-                  <ChatComposerTextarea
-                    aria-label={i18n._(
-                      msg({ id: "chat.prompt.label", message: "Message Cypheria" })
-                    )}
-                    onChange={(event) => setComposer(event.currentTarget.value)}
-                    onPaste={(event) => {
-                      if (desktopPreferences?.composerPlainTextMode) return
-                      const url = event.clipboardData.getData("text/plain").trim()
-                      const field = event.currentTarget
-                      const selected = field.value.slice(field.selectionStart, field.selectionEnd)
-                      if (!selected || !/^https?:\/\/\S+$/u.test(url)) return
-                      event.preventDefault()
-                      setComposer(
-                        `${field.value.slice(0, field.selectionStart)}[${selected}](${url})${field.value.slice(field.selectionEnd)}`
-                      )
-                    }}
-                    onKeyDown={(event) => {
-                      if (event.key !== "Enter" || event.nativeEvent.isComposing) return
-                      if (event.shiftKey && (event.metaKey || event.ctrlKey)) {
-                        event.preventDefault()
-                        oppositeFollowUp.current = true
-                        event.currentTarget.form?.requestSubmit()
-                      } else if (
-                        desktopPreferences?.composerEnterBehavior !== "enter" &&
-                        (event.metaKey || event.ctrlKey)
-                      ) {
-                        event.preventDefault()
-                        event.currentTarget.form?.requestSubmit()
+                  {desktopPreferences?.composerPlainTextMode ? (
+                    <ChatComposerTextarea
+                      aria-label={i18n._(
+                        msg({ id: "chat.prompt.label", message: "Message Cypheria" })
+                      )}
+                      onChange={(event) => setComposer(event.currentTarget.value)}
+                      onKeyDown={(event) => {
+                        if (event.key !== "Enter" || event.nativeEvent.isComposing) return
+                        if (event.shiftKey && (event.metaKey || event.ctrlKey)) {
+                          event.preventDefault()
+                          oppositeFollowUp.current = true
+                          composerForm.current?.requestSubmit()
+                        } else if (event.metaKey || event.ctrlKey) {
+                          event.preventDefault()
+                          composerForm.current?.requestSubmit()
+                        }
+                      }}
+                      submitOnEnter={
+                        desktopPreferences?.composerEnterBehavior !== "cmdAlways" &&
+                        (desktopPreferences?.composerEnterBehavior !== "cmdIfMultiline" ||
+                          !composer.includes("\n"))
                       }
-                    }}
-                    submitOnEnter={
-                      desktopPreferences?.composerEnterBehavior !== "cmdAlways" &&
-                      (desktopPreferences?.composerEnterBehavior !== "cmdIfMultiline" ||
-                        !composer.includes("\n"))
-                    }
-                    placeholder={
-                      busy
-                        ? i18n._(
-                            msg({
-                              id: "chat.prompt.steerPlaceholder",
-                              message: "Steer the current task…",
-                            })
-                          )
-                        : i18n._(
-                            msg({ id: "chat.prompt.placeholderShort", message: "Ask anything…" })
-                          )
-                    }
-                    value={composer}
-                  />
+                      placeholder={
+                        busy
+                          ? i18n._(
+                              msg({
+                                id: "chat.prompt.steerPlaceholder",
+                                message: "Steer the current task…",
+                              })
+                            )
+                          : i18n._(
+                              msg({ id: "chat.prompt.placeholderShort", message: "Ask anything…" })
+                            )
+                      }
+                      value={composer}
+                    />
+                  ) : (
+                    <ChatComposerEditor
+                      key={composerEpoch}
+                      aria-label={i18n._(
+                        msg({ id: "chat.prompt.label", message: "Message Cypheria" })
+                      )}
+                      onChange={(text) => setComposer(text)}
+                      onAlternateSubmit={() => {
+                        oppositeFollowUp.current = true
+                        composerForm.current?.requestSubmit()
+                      }}
+                      onSubmit={() => composerForm.current?.requestSubmit()}
+                      onPasteFiles={(files) => void attachFiles(files)}
+                      onPasteLongText={(text) =>
+                        void attachFiles([
+                          new File([text], "Pasted text.txt", { type: "text/plain" }),
+                        ])
+                      }
+                      onCommand={(id) => {
+                        if (id === "attach") attachmentInput.current?.click()
+                        if (id === "clear") setComposer("")
+                      }}
+                      suggestions={[
+                        ...attachments.map((attachment) => ({
+                          id: attachment.id,
+                          kind: "file" as const,
+                          label: attachment.name,
+                          target: attachment.name,
+                        })),
+                        {
+                          id: "attach",
+                          kind: "command" as const,
+                          label: i18n._(msg({ id: "chat.prompt.addFiles", message: "Add files" })),
+                        },
+                      ]}
+                      submitOnEnter={
+                        desktopPreferences?.composerEnterBehavior !== "cmdAlways" &&
+                        (desktopPreferences?.composerEnterBehavior !== "cmdIfMultiline" ||
+                          !composer.includes("\n"))
+                      }
+                      placeholder={
+                        busy
+                          ? i18n._(
+                              msg({
+                                id: "chat.prompt.steerPlaceholder",
+                                message: "Steer the current task…",
+                              })
+                            )
+                          : i18n._(
+                              msg({ id: "chat.prompt.placeholderShort", message: "Ask anything…" })
+                            )
+                      }
+                      value={composer}
+                    />
+                  )}
                 </ChatComposerBody>
                 <ChatComposerFooter>
                   <ChatComposerUtilityBar>

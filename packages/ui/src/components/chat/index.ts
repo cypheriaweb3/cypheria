@@ -1,4 +1,6 @@
 export * from "./composer.js"
+export * from "./composer-attachment-list.js"
+export * from "./composer-editor.js"
 export * from "./composer-surfaces.js"
 export * from "./context-usage.js"
 export * from "./file-paths.js"

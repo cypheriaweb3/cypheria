@@ -11,11 +11,13 @@ import {
   ChatApprovalRequest,
   ChatAssistantMessage,
   ChatCommandBlock,
+  type ChatComposerAttachmentItem,
+  ChatComposerAttachmentList,
   ChatComposerBanner,
   ChatComposerBody,
-  ChatComposerContextTray,
   ChatComposerControl,
   ChatComposerDock,
+  ChatComposerEditor,
   ChatComposerFooter,
   ChatComposerForm,
   ChatComposerFrame,
@@ -25,10 +27,9 @@ import {
   type ChatComposerStatus,
   ChatComposerStatusMessage,
   ChatComposerSubmit,
-  ChatComposerTextarea,
+  type ChatComposerSuggestion,
   ChatComposerTopTray,
   ChatComposerUtilityBar,
-  ChatContextChip,
   ChatContextUsage,
   ChatDesktopNotificationPreview,
   ChatFileChange,
@@ -253,6 +254,7 @@ type DemoComposerExtra =
   | "warning"
   | "status"
   | "notification"
+  | "attachments"
 
 type DemoPendingSurface =
   | "none"
@@ -665,6 +667,7 @@ const composerExtras: ReadonlyArray<{ id: DemoComposerExtra; label: string }> = 
   { id: "warning", label: "Safety and usage banner" },
   { id: "status", label: "Live status message" },
   { id: "notification", label: "Desktop notification preview" },
+  { id: "attachments", label: "Attachment tray samples" },
 ]
 
 const pendingSurfaceOptions: ReadonlyArray<{ id: DemoPendingSurface; label: string }> = [
@@ -707,11 +710,118 @@ const initialComposerExtras = new Set<DemoComposerExtra>([
 const assistantReply =
   "This local response demonstrates submitted, streaming, and completed states without contacting an agent runtime. New turns retain the same bottom anchoring and controlled panel contracts."
 
+const demoSuggestions: ChatComposerSuggestion[] = [
+  {
+    id: "chat-demo",
+    kind: "file",
+    label: "chat-demo.tsx",
+    target: "apps/desktop/renderer/src/components/chat-demo.tsx",
+    description: "Workspace file",
+    icon: <FileCodeIcon />,
+  },
+  {
+    id: "ui-chat",
+    kind: "file",
+    label: "chat components",
+    target: "packages/ui/src/components/chat",
+    description: "Folder",
+    icon: <FolderOpenIcon />,
+  },
+  {
+    id: "agent-review",
+    kind: "agent",
+    label: "review agent",
+    target: "agent://review",
+    description: "Agent",
+    icon: <AgentIcon />,
+  },
+  {
+    id: "mcp-docs",
+    kind: "resource",
+    label: "MCP docs",
+    target: "mcp://docs",
+    description: "Resource",
+    icon: <McpIcon />,
+  },
+  {
+    id: "browser",
+    kind: "browser-tab",
+    label: "Current browser tab",
+    target: "browser://current",
+    description: "Browser tab",
+    icon: <GlobeIcon />,
+  },
+  {
+    id: "review",
+    kind: "skill",
+    label: "review",
+    target: "skill://review",
+    description: "Skill",
+    icon: <SparklesIcon />,
+  },
+  {
+    id: "figma",
+    kind: "app",
+    label: "Figma",
+    target: "app://figma",
+    description: "App",
+    icon: <CubeIcon />,
+  },
+  {
+    id: "computer-use",
+    kind: "plugin",
+    label: "computer-use",
+    target: "plugin://computer-use",
+    description: "Plugin",
+    icon: <ToolsIcon />,
+  },
+  {
+    id: "attach",
+    kind: "command",
+    label: "Attach files",
+    description: "Open file picker",
+    icon: <FileIcon />,
+  },
+  {
+    id: "clear",
+    kind: "command",
+    label: "Clear draft",
+    description: "Empty the editor",
+    icon: <CloseBoldIcon />,
+  },
+]
+
+const demoTraySamples: ChatComposerAttachmentItem[] = [
+  {
+    id: "sample-image",
+    kind: "image",
+    name: "layout-screenshot.png",
+    detail: "Image",
+    previewUrl: promptWallpaper,
+  },
+  {
+    id: "sample-appshot",
+    kind: "appshot",
+    name: "Browser window",
+    detail: "Appshot",
+    previewUrl: promptWallpaper,
+  },
+  { id: "sample-file", kind: "file", name: "composer.tsx", detail: "Workspace file" },
+  { id: "sample-paste", kind: "pasted-text", name: "Pasted text", detail: "5,420 characters" },
+  { id: "sample-upload", kind: "file", name: "design-notes.pdf", status: "uploading" },
+  { id: "sample-error", kind: "file", name: "failed-upload.zip", status: "error" },
+]
+
 export default function ChatDemo() {
   const [messages, setMessages] = useState(initialMessages)
   const [draft, setDraft] = useState("")
+  const [composerEpoch, setComposerEpoch] = useState(0)
   const [status, setStatus] = useState<ChatComposerStatus>("ready")
-  const [pendingAttachments, setPendingAttachments] = useState<string[]>([])
+  const [pendingAttachments, setPendingAttachments] = useState<ChatComposerAttachmentItem[]>([])
+  const [sampleAttachments, setSampleAttachments] = useState(demoTraySamples)
+  const [attachmentOrder, setAttachmentOrder] = useState<string[]>([])
+  const attachmentPreviewUrls = useRef<string[]>([])
+  const composerFormRef = useRef<HTMLFormElement>(null)
   const [model, setModel] = useState("gpt-5.6")
   const [reasoning, setReasoning] = useState("high")
   const [demoAgent, setDemoAgent] = useState<"codex" | "claude" | "pi" | "opencode" | "acp">(
@@ -746,6 +856,28 @@ export default function ChatDemo() {
   const scrollFrameRef = useRef<number | null>(null)
   const timersRef = useRef<number[]>([])
   const timelineMountedRef = useRef(false)
+
+  useEffect(
+    () => () => {
+      for (const url of attachmentPreviewUrls.current) URL.revokeObjectURL(url)
+    },
+    []
+  )
+
+  const previewForFile = (file: File) => {
+    if (!file.type.startsWith("image/")) return undefined
+    const url = URL.createObjectURL(file)
+    attachmentPreviewUrls.current.push(url)
+    return url
+  }
+
+  const releasePreview = useCallback((item: ChatComposerAttachmentItem) => {
+    if (!item.previewUrl?.startsWith("blob:")) return
+    URL.revokeObjectURL(item.previewUrl)
+    attachmentPreviewUrls.current = attachmentPreviewUrls.current.filter(
+      (url) => url !== item.previewUrl
+    )
+  }, [])
 
   const clearTimers = useCallback(() => {
     for (const timer of timersRef.current) window.clearTimeout(timer)
@@ -865,12 +997,16 @@ export default function ChatDemo() {
       const trimmed = draft.trim()
       if (!trimmed || status === "submitted" || status === "streaming") return
       clearTimers()
+      pendingAttachments.forEach(releasePreview)
       setDraft("")
+      setComposerEpoch((current) => current + 1)
       setPendingAttachments([])
       setMessages((current) => [
         ...current,
         {
-          attachments: pendingAttachments.length ? pendingAttachments : undefined,
+          attachments: pendingAttachments.length
+            ? pendingAttachments.map((item) => item.name)
+            : undefined,
           id: `user-${Date.now()}`,
           role: "user",
           text: trimmed,
@@ -890,7 +1026,7 @@ export default function ChatDemo() {
         }, 1_100),
       ]
     },
-    [clearTimers, draft, pendingAttachments, status]
+    [clearTimers, draft, pendingAttachments, releasePreview, status]
   )
 
   const panelContent = useMemo<Record<DemoPanelId, React.ReactNode>>(
@@ -3150,7 +3286,7 @@ export default function ChatDemo() {
               {pendingSurface !== "none" ? (
                 renderPendingComposer()
               ) : (
-                <ChatComposerForm onSubmit={submitMessage}>
+                <ChatComposerForm ref={composerFormRef} onSubmit={submitMessage}>
                   <input
                     ref={attachmentInputRef}
                     accept="image/*,.md,.txt"
@@ -3160,36 +3296,91 @@ export default function ChatDemo() {
                     tabIndex={-1}
                     type="file"
                     onChange={(event) => {
-                      setPendingAttachments(
-                        Array.from(event.currentTarget.files ?? []).map((file) => file.name)
-                      )
+                      setPendingAttachments((current) => [
+                        ...current,
+                        ...Array.from(event.currentTarget.files ?? []).map((file) => ({
+                          id: crypto.randomUUID(),
+                          kind: file.type.startsWith("image/")
+                            ? ("image" as const)
+                            : ("file" as const),
+                          name: file.name,
+                          detail: file.type || "Local file",
+                          previewUrl: previewForFile(file),
+                        })),
+                      ])
                       event.currentTarget.value = ""
                     }}
                   />
-                  {pendingAttachments.length ? (
+                  {pendingAttachments.length || visibleComposerExtras.has("attachments") ? (
                     <ChatComposerHeader>
-                      <ChatComposerContextTray>
-                        {pendingAttachments.map((attachment) => (
-                          <ChatContextChip
-                            key={attachment}
-                            label={attachment}
-                            removeLabel={`Remove ${attachment}`}
-                            onRemove={() =>
-                              setPendingAttachments((current) =>
-                                current.filter((item) => item !== attachment)
-                              )
-                            }
-                          />
-                        ))}
-                      </ChatComposerContextTray>
+                      <ChatComposerAttachmentList
+                        aria-label="Composer attachments"
+                        errorLabel="Upload failed"
+                        items={[
+                          ...pendingAttachments,
+                          ...(visibleComposerExtras.has("attachments") ? sampleAttachments : []),
+                        ].sort((a, b) => {
+                          const aIndex = attachmentOrder.indexOf(a.id)
+                          const bIndex = attachmentOrder.indexOf(b.id)
+                          return (
+                            (aIndex < 0 ? Number.MAX_SAFE_INTEGER : aIndex) -
+                            (bIndex < 0 ? Number.MAX_SAFE_INTEGER : bIndex)
+                          )
+                        })}
+                        onRemove={(id) => {
+                          const item = pendingAttachments.find((item) => item.id === id)
+                          if (item) releasePreview(item)
+                          setPendingAttachments((current) =>
+                            current.filter((item) => item.id !== id)
+                          )
+                          setSampleAttachments((current) =>
+                            current.filter((item) => item.id !== id)
+                          )
+                        }}
+                        onReorder={setAttachmentOrder}
+                        removeLabel={(item) => `Remove ${item.name}`}
+                        uploadingLabel="Uploading…"
+                      />
                     </ChatComposerHeader>
                   ) : null}
                   <ChatComposerBody>
-                    <ChatComposerTextarea
+                    <ChatComposerEditor
+                      key={composerEpoch}
                       aria-label="Message Chat Demo"
                       disabled={status === "submitted"}
-                      onChange={(event) => setDraft(event.currentTarget.value)}
+                      onChange={(text) => setDraft(text)}
+                      onCommand={(id) => {
+                        if (id === "attach") attachmentInputRef.current?.click()
+                        if (id === "clear") setDraft("")
+                      }}
+                      onPasteFiles={(files) =>
+                        setPendingAttachments((current) => [
+                          ...current,
+                          ...files.map((file) => ({
+                            id: crypto.randomUUID(),
+                            kind: file.type.startsWith("image/")
+                              ? ("image" as const)
+                              : ("file" as const),
+                            name: file.name,
+                            detail: file.type || "Pasted file",
+                            previewUrl: previewForFile(file),
+                          })),
+                        ])
+                      }
+                      onPasteLongText={(text) =>
+                        setPendingAttachments((current) => [
+                          ...current,
+                          {
+                            id: crypto.randomUUID(),
+                            kind: "pasted-text",
+                            name: "Pasted text",
+                            detail: `${text.length.toLocaleString()} characters`,
+                          },
+                        ])
+                      }
+                      onSubmit={() => composerFormRef.current?.requestSubmit()}
                       placeholder="Ask Cypheria to build, explain, or review…"
+                      suggestions={demoSuggestions}
                       value={draft}
                     />
                   </ChatComposerBody>
