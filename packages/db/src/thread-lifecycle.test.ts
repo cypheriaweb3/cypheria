@@ -41,7 +41,7 @@ describe("thread lifecycle persistence", () => {
     database.close()
   })
 
-  it("retains failed operations for diagnosis but excludes them from recovery", async () => {
+  it("retains failed deletes for diagnosis and automated recovery", async () => {
     const database = createInMemoryDatabase()
     await applyDatabaseMigrations(database.client)
     await database.client.execute({
@@ -62,7 +62,9 @@ describe("thread lifecycle persistence", () => {
       error: "harness unavailable",
       status: "failed",
     })
-    expect(await service.listRecoverable()).toEqual([])
+    expect(await service.listRecoverable()).toEqual([
+      expect.objectContaining({ id: operation.id, kind: "delete", status: "failed" }),
+    ])
     database.close()
   })
 })

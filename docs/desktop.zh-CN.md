@@ -32,11 +32,17 @@ Browser view 默认关闭 `nodeIntegration`，开启 `contextIsolation`、sandbo
 
 Sidebar 使用 Cypheria Projects、Threads、Sections facades。Server 直接返回 membership 和排序；renderer 不从 Codex metadata 推断它们。
 
+Renderer 将 Projects、Sections、Project memberships 和 Section memberships 保存在 eager TanStack DB Query Collections 中；活跃 Thread collection 使用 on-demand 同步。Live queries 从这些规范化资源派生 Sidebar 视图，Server notifications 则通过 direct writes 应用跨窗口和外部变更。move、reorder、pin 与 unpin 等领域动作继续使用显式 Cypheria RPC，因为它们会原子更新多个有序资源。查询取消会传递给共享 client 的 request signal；重连或 mutation 恢复可以重新获取全部 Sidebar collections，而无需恢复定时轮询。
+
 既有交互模型是产品不变量：
 
 - Pinned、自定义 Sections、Projects 和 recents 保持层级与视觉密度。
 - Project Threads 保持嵌套，并支持展开、分页和“显示更多”。
 - 协议允许时，选择、创建、重命名、归档、删除、固定、取消固定、拖放、跨 Section 移动和排序保持可用。
+
+Project 编辑器会展示有序的源目录列表。排在首位的 root 是主要 root，并作为 Thread 的默认 `cwd`；用户保存前可以添加、移除目录，或将另一个 root 设为主要目录。若某个 root 仍是 Project Thread 的 `cwd`，Server 校验会拒绝将其移除。
+
+Pinned 与自定义 Sections 按 Server 定义的混合顺序渲染，因此 Projects 与独立 Threads 保持交错。Sidebar 拖放使用 dnd-kit，并为 Sections、Projects、Project Threads 和 Section 混合条目发送对应的 `before...` 位置提示。Priority 排序依次考虑未读、需要关注、运行中和最近更新的 Threads。Thread 行无需打开会话即可显示运行、失败和停止状态。
 - 上下文菜单、键盘导航、未读状态和运行状态保持可见。
 - 加载、空、错误和乐观状态保持布局，失败 mutation 会回滚。
 

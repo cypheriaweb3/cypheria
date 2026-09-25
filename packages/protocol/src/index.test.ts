@@ -64,8 +64,16 @@ describe("Cypheria protocol", () => {
   it("dispatches every logical session wire type from a flat discriminator", () => {
     expect(SessionInboundMessageSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
     expect(SessionOutboundMessageSchema).toBeInstanceOf(z.ZodDiscriminatedUnion)
-    expect((SessionInboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(148)
-    expect((SessionOutboundMessageSchema as z.ZodDiscriminatedUnion).options).toHaveLength(166)
+    const inbound = (SessionInboundMessageSchema as z.ZodDiscriminatedUnion)
+      .options as unknown as Array<{ shape: { type: { value: string } } }>
+    const outbound = (SessionOutboundMessageSchema as z.ZodDiscriminatedUnion)
+      .options as unknown as Array<{ shape: { type: { value: string } } }>
+    const inboundTypes = inbound.map((schema) => schema.shape.type.value)
+    const outboundTypes = outbound.map((schema) => schema.shape.type.value)
+    expect(new Set(inboundTypes).size).toBe(inbound.length)
+    expect(new Set(outboundTypes).size).toBe(outbound.length)
+    expect(inboundTypes).toContain("project.membership.list.request")
+    expect(outboundTypes).toContain("project.membership.upserted.notification")
   })
 
   it("validates Thread UUIDv7 inputs without exposing agent-session binding", () => {

@@ -13,6 +13,7 @@ import { Trans } from "@lingui/react/macro"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Folder, FolderPlus, LoaderCircle } from "lucide-react"
 import { useEffect, useState } from "react"
+import { getSidebarCollections } from "../sidebar-collections.js"
 import { sidebarData, sidebarQueryKeys } from "../sidebar-data.js"
 
 export function ProjectCreateDialog({
@@ -32,7 +33,10 @@ export function ProjectCreateDialog({
   const createProject = useMutation({
     mutationFn: () => sidebarData.createProject(name.trim(), root),
     onSuccess: async (project) => {
-      await queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all })
+      await Promise.all([
+        getSidebarCollections(queryClient).invalidate(),
+        queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all }),
+      ])
       setName("")
       setRoot("")
       onCreated?.(project.id)

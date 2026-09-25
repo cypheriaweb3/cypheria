@@ -90,6 +90,7 @@ export type AgentRuntimeServerMessage =
 type RuntimeSend = (message: AgentRuntimeServerMessage) => void
 
 export type AgentMessageContext = {
+  cwd?: string
   requestClaudePermission?: ClaudePermissionHandler
   send: RuntimeSend
   sessionId: string
@@ -720,6 +721,7 @@ export class AgentManager {
     const pending = getOrInitialize(this.#piRuntimes, context.sessionId, async () => {
       const receipt = await this.#requiredReceipt("pi")
       return new PiSessionRuntime({
+        cwd: context.cwd,
         home: join(this.#agentHomes, "pi", "home"),
         receipt,
         send: context.send,

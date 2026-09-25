@@ -69,6 +69,25 @@ Server 在展示 permission choice 前读取 App Server configuration requiremen
 
 客户端必须渲染返回的 catalog，不得展示被禁止的 choice、从原始文件推断 policy，或声称成功写入原生配置即可覆盖管理员托管 requirement。
 
+## 基于路径的项目信任
+
+Codex 将用户 `config.toml` 中的 `projects` table 用作本机路径信任映射，而不是具名 Project 注册表：
+
+```toml
+[projects."/absolute/path/to/repository"]
+trust_level = "trusted"
+```
+
+每个带引号的 key 标识一个文件系统路径，其 value 当前记录 `trusted` 或 `untrusted` 决策。Codex 会规范化路径，并根据 Thread 工作目录、发现的项目根和 Git 仓库根解析当前决策。默认项目根 marker 是 `.git`。Linked Git worktree 可以使用 worktree 专属条目，同时 Codex 也会把主 checkout 根作为 trust fallback。
+
+Trust 控制仓库可控配置的加载。对于 trusted path，Codex 可以加载从发现的项目根到当前工作目录之间的 `.codex/config.toml` 层；越靠近工作目录的 layer 优先级越高。项目本地 hooks 与 rules 或 exec policies 使用同一 trust boundary。如果路径为 untrusted，或没有正向 trust 决策，这些 project-scoped `.codex/` layers 会保持 disabled，而 user、system 与 managed configuration 仍然生效。该行为及配置层顺序由 [Codex 官方配置文档](https://learn.chatgpt.com/docs/config-file/config-basic)定义。
+
+Path trust 不是 sandbox grant。它不会绕过 approval policy、有效 permission profile 或托管 `requirements.toml`；项目本地配置也不能覆盖受保护的 machine-local provider、authentication、host metadata、notification、profile selection 或 telemetry keys。将仓库移动或复制到新路径通常需要新的决策；如果已受信任路径中的仓库内容被替换，该路径决策仍会保留。因此 trust 修改必须作为安全敏感的原生配置变更处理，不能根据仓库名称、remote 或 Cypheria metadata 推断。
+
+Cypheria 在隔离的 `CODEX_HOME` 内应用该机制。用户默认 `~/.codex/config.toml` 中的 trust entry 不会被读取或复制到 `$CYPHERIA_HOME/codex/config.toml`；反过来，受管 Codex App Server 写入的决策也不会修改用户默认 Codex home。执行 `thread/start` 时，如果客户端明确提供了工作目录、该路径尚无决策，且有效 permission profile 已允许写入该目录，Codex 可能将该路径持久化为 trusted 并重新加载配置；它不会覆盖明确的 `untrusted` 决策。该推断使用工作目录和有效 permissions，而不使用 Project identifier。
+
+实验性的 App Server Project API 是另一套 conversation grouping surface，包含 ID、name、roots、metadata、ordering 和 Thread membership。它的 `projectId` 与 roots 不参与 `config.toml` trust resolution。Cypheria 自己拥有 Project records，不创建或分配原生 Codex projects，并按[客户端/服务端协议](protocol.zh-CN.md)所述独立传递 working directory 与 `runtimeWorkspaceRoots`。把仓库加入 Cypheria Project 绝不能自动把该路径标记为 trusted。
+
 ## Thread 与 turn scope
 
 共享设置是新 Thread 的默认值。Thread 会捕获 harness session 状态，并可接收支持的 model、reasoning、service-tier、working-directory 和 permission selection。启动普通 turn 不会重建 Codex 进程，也不会重新加载所有原生配置字段。

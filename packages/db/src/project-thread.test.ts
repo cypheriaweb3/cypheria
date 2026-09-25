@@ -57,20 +57,17 @@ describe("project/thread persistence", () => {
 
   it("maintains project membership timestamps, ordering, and materialized recency", async () => {
     const { close, projectThread } = await setup()
-    const firstProject = await projectThread.createProject(
-      { name: "First", roots: ["/first"] },
-      101
-    )
+    const firstProject = await projectThread.createProject({ name: "First", roots: ["/work"] }, 101)
     const secondProject = await projectThread.createProject(
-      { name: "Second", roots: ["/second"] },
+      { name: "Second", roots: ["/work"] },
       102
     )
     const firstThread = await projectThread.createThread(
-      { agentId: "codex", recencyAt: 200, title: "First" },
+      { agentId: "codex", cwd: "/work", recencyAt: 200, title: "First" },
       103
     )
     const secondThread = await projectThread.createThread(
-      { agentId: "codex", recencyAt: 300, title: "Second" },
+      { agentId: "codex", cwd: "/work", recencyAt: 300, title: "Second" },
       104
     )
 
@@ -112,6 +109,10 @@ describe("project/thread persistence", () => {
       createdAt: 107,
       project: { id: secondProject.id },
     })
+    expect((await projectThread.listProjectMemberships()).data).toMatchObject([
+      { position: 0, projectId: firstProject.id, threadId: firstThread.id },
+      { position: 0, projectId: secondProject.id, threadId: secondThread.id },
+    ])
 
     await projectThread.touchThreadRecency(firstThread.id, 400, 108)
     expect((await projectThread.getProject(firstProject.id))?.recencyAt).toBe(400)
@@ -166,8 +167,76 @@ describe("project/thread persistence", () => {
     expect((await projectThread.listSectionItems(PINNED_SECTION_ID)).data).toMatchObject([
       { thread: { id: thread.id }, type: "thread" },
     ])
+    expect((await projectThread.listSectionMemberships()).data).toEqual(
+      expect.arrayContaining([
+        {
+          createdAt: expect.any(Number),
+          item: { id: project.id, type: "project" },
+          position: expect.any(Number),
+          sectionId: section.id,
+          updatedAt: expect.any(Number),
+        },
+        {
+          createdAt: expect.any(Number),
+          item: { id: thread.id, type: "thread" },
+          position: expect.any(Number),
+          sectionId: PINNED_SECTION_ID,
+          updatedAt: expect.any(Number),
+        },
+      ])
+    )
     await projectThread.unpinItem({ id: thread.id, type: "thread" }, 107)
     expect((await projectThread.listSectionItems(PINNED_SECTION_ID)).data).toHaveLength(0)
+    close()
+  })
+
+  it("filters projectless and unsectioned threads and sorts direct section threads", async () => {
+    const { close, projectThread } = await setup()
+    const section = await projectThread.createSection({ name: "Work" }, 101)
+    const project = await projectThread.createProject({ name: "Project", roots: ["/work"] }, 102)
+    const first = await projectThread.createThread({ agentId: "codex", title: "First" }, 103)
+    const second = await projectThread.createThread({ agentId: "codex", title: "Second" }, 104)
+    const projectThreadRecord = await projectThread.createThread(
+      {
+        agentId: "codex",
+        cwd: "/work",
+        projectPlacement: { projectId: project.id },
+        title: "Project",
+      },
+      105
+    )
+
+    await projectThread.moveItemToSection(
+      { item: { id: second.id, type: "thread" }, sectionId: section.id },
+      106
+    )
+    await projectThread.moveItemToSection(
+      {
+        beforeItem: { id: second.id, type: "thread" },
+        item: { id: first.id, type: "thread" },
+        sectionId: section.id,
+      },
+      107
+    )
+
+    expect(
+      (
+        await projectThread.listThreads({
+          sectionId: section.id,
+          sortDirection: "asc",
+          sortKey: "sectionPosition",
+        })
+      ).data.map(({ id }) => id)
+    ).toEqual([first.id, second.id])
+    expect((await projectThread.listThreads({ sectionId: null })).data.map(({ id }) => id)).toEqual(
+      [projectThreadRecord.id]
+    )
+    expect((await projectThread.listThreads({ projectId: null })).data.map(({ id }) => id)).toEqual(
+      [first.id, second.id]
+    )
+    expect(
+      (await projectThread.listThreads({ projectId: project.id })).data.map(({ id }) => id)
+    ).toEqual([projectThreadRecord.id])
     close()
   })
 
@@ -175,20 +244,32 @@ describe("project/thread persistence", () => {
     const { close, projectThread } = await setup()
     const project = await projectThread.createProject({ name: "Project", roots: ["/work"] }, 101)
     const parent = await projectThread.createThread(
-      { agentId: "codex", projectPlacement: { projectId: project.id } },
+      { agentId: "codex", cwd: "/work", projectPlacement: { projectId: project.id } },
       102
     )
     const child = await projectThread.createThread(
-      { agentId: "codex", forkedFromId: parent.id, projectPlacement: { projectId: project.id } },
+      {
+        agentId: "codex",
+        cwd: "/work",
+        forkedFromId: parent.id,
+        projectPlacement: { projectId: project.id },
+      },
       103
     )
 
-    await projectThread.deleteThread(parent.id, 104)
+    await projectThread.markThreadDeleting(parent.id, 104)
+    expect(await projectThread.getThread(parent.id)).toBeUndefined()
+    expect(await projectThread.listDeletedResources()).toContainEqual(
+      expect.objectContaining({ type: "thread", value: expect.objectContaining({ id: parent.id }) })
+    )
+    await projectThread.purgeThread(parent.id, 104)
     expect(await projectThread.getThread(child.id)).toMatchObject({
       forkedFromId: null,
       updatedAt: 104,
     })
-    await projectThread.deleteProject(project.id, 105)
+    await projectThread.markProjectDeleting(project.id, 105)
+    expect(await projectThread.getProject(project.id)).toBeUndefined()
+    await projectThread.purgeProject(project.id, 105)
     expect(await projectThread.getThread(child.id)).toBeDefined()
     expect(await projectThread.getThreadProject(child.id)).toBeUndefined()
     close()
@@ -201,6 +282,7 @@ describe("project/thread persistence", () => {
     const thread = await projectThread.createThread(
       {
         agentId: "codex",
+        cwd: "/work",
         projectPlacement: { projectId: project.id },
         recencyAt: 200,
         sectionPlacement: { sectionId: section.id },
@@ -225,6 +307,32 @@ describe("project/thread persistence", () => {
       { thread: { id: thread.id }, type: "thread" },
     ])
     expect((await projectThread.getProject(project.id))?.recencyAt).toBe(200)
+    close()
+  })
+
+  it("keeps every project thread cwd in the project's saved roots", async () => {
+    const { close, projectThread } = await setup()
+    const project = await projectThread.createProject(
+      { name: "Project", roots: ["/work", "/shared"] },
+      101
+    )
+    const thread = await projectThread.createThread({ agentId: "codex", cwd: "/work" }, 102)
+
+    await expect(
+      projectThread.moveThreadToProject({ projectId: project.id, threadId: thread.id }, 103)
+    ).resolves.toMatchObject({ project: { id: project.id } })
+    await expect(
+      projectThread.updateThread(thread.id, { cwd: "/work/child" }, 104)
+    ).rejects.toMatchObject({ code: "THREAD_CWD_OUTSIDE_PROJECT" })
+    await expect(
+      projectThread.updateProject(project.id, { roots: ["/shared"] }, 105)
+    ).rejects.toMatchObject({ code: "THREAD_CWD_OUTSIDE_PROJECT" })
+
+    const outside = await projectThread.createThread({ agentId: "codex", cwd: "/elsewhere" }, 106)
+    await expect(
+      projectThread.moveThreadToProject({ projectId: project.id, threadId: outside.id }, 107)
+    ).rejects.toMatchObject({ code: "THREAD_CWD_OUTSIDE_PROJECT" })
+    expect(await projectThread.getThreadProject(outside.id)).toBeUndefined()
     close()
   })
 })

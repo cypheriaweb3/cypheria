@@ -139,23 +139,80 @@ const setup = async (
   await agents.setEnabled("codex", true)
   const adapter = new FakeAdapter()
   const messages: ServerMessage[] = []
+  const lifecycle = createThreadLifecyclePersistenceService(database.db)
+  const persistence = createProjectThreadPersistenceService(database.db)
   const messageRequests = createThreadMessageRequestPersistenceService(database.db)
   const timelinePersistence = createThreadTimelinePersistenceService(database.db)
   const manager = new ThreadManager({
     adapterFor: () => adapter,
     assertAgentCallable: async () => undefined,
-    lifecycle: createThreadLifecyclePersistenceService(database.db),
+    lifecycle,
     messageRequests,
-    persistence: createProjectThreadPersistenceService(database.db),
+    persistence,
     publish: (message) => messages.push(message),
     timelinePersistence,
     turnCapture,
   })
   await manager.initialize()
-  return { adapter, database, manager, messageRequests, messages, timelinePersistence }
+  return {
+    adapter,
+    database,
+    lifecycle,
+    manager,
+    messageRequests,
+    messages,
+    persistence,
+    timelinePersistence,
+  }
 }
 
 describe("ThreadManager", () => {
+  it("passes a project's default cwd and workspace roots without exposing project identity", async () => {
+    const { adapter, manager, persistence } = await setup()
+    const project = await persistence.createProject({
+      name: "Workspace",
+      roots: ["/repo", "/shared"],
+    })
+
+    const created = await manager.create({
+      agentId: "codex",
+      projectPlacement: { projectId: project.id },
+    })
+
+    expect(adapter.creates[0]).toMatchObject({
+      cwd: "/repo",
+      workspaceRoots: ["/repo", "/shared"],
+    })
+    expect(adapter.creates[0]).not.toHaveProperty("project")
+    await manager.startTurn({
+      clientMessageId: "project-turn",
+      content: [{ text: "work", type: "text" }],
+      threadId: created.thread.id,
+    })
+    expect(adapter.starts[0]?.workspaceRoots).toEqual(["/repo", "/shared"])
+  })
+
+  it("requires a project thread cwd to exactly match a saved workspace root", async () => {
+    const { adapter, manager, persistence } = await setup()
+    const project = await persistence.createProject({ name: "Workspace", roots: ["/repo"] })
+
+    await expect(
+      manager.create({
+        agentId: "codex",
+        cwd: "/elsewhere",
+        projectPlacement: { projectId: project.id },
+      })
+    ).rejects.toMatchObject({ code: "THREAD_CWD_OUTSIDE_PROJECT" })
+    await expect(
+      manager.create({
+        agentId: "codex",
+        cwd: "/repo/packages/app",
+        projectPlacement: { projectId: project.id },
+      })
+    ).rejects.toMatchObject({ code: "THREAD_CWD_OUTSIDE_PROJECT" })
+    expect(adapter.creates).toEqual([])
+  })
+
   it("captures a local Codex turn and discards a capture when starting fails", async () => {
     const captures: string[] = []
     const { adapter, manager } = await setup({
@@ -422,13 +479,22 @@ describe("ThreadManager", () => {
     expect((await manager.get(created.thread.id)).agentSessionId).toBe("missing")
   })
 
-  it("keeps the Cypheria thread when harness deletion fails", async () => {
-    const { adapter, manager } = await setup()
+  it("tombstones a Cypheria thread for retry when harness deletion fails", async () => {
+    const { adapter, lifecycle, manager, persistence } = await setup()
     const created = await manager.create({ agentId: "codex" })
     adapter.deleteError = new Error("harness refused")
 
     await expect(manager.delete(created.thread.id)).rejects.toThrow("harness refused")
-    expect(await manager.get(created.thread.id)).toMatchObject({ state: "errored" })
+    await expect(manager.get(created.thread.id)).rejects.toMatchObject({ code: "THREAD_NOT_FOUND" })
+    expect(await persistence.listDeletedResources()).toContainEqual(
+      expect.objectContaining({
+        type: "thread",
+        value: expect.objectContaining({ id: created.thread.id }),
+      })
+    )
+    expect(await lifecycle.listRecoverable()).toContainEqual(
+      expect.objectContaining({ kind: "delete", threadId: created.thread.id })
+    )
   })
 
   it("accepts only the first response to a pending interaction", async () => {

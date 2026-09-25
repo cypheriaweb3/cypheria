@@ -66,7 +66,25 @@ const setup = () => {
     projects: {
       create: vi.fn(),
       delete: vi.fn(),
+      getThreadProject: vi.fn((threadId: string) =>
+        Promise.resolve(
+          threadId === projectThread.id
+            ? { createdAt: 1, position: 0, project, updatedAt: 1 }
+            : undefined
+        )
+      ),
       list: vi.fn(() => page([project])),
+      listMemberships: vi.fn(() =>
+        page([
+          {
+            createdAt: 1,
+            position: 0,
+            projectId: project.id,
+            threadId: projectThread.id,
+            updatedAt: 1,
+          },
+        ])
+      ),
       listThreads: vi.fn(() =>
         page([{ createdAt: 1, position: 0, thread: projectThread, updatedAt: 1 }])
       ),
@@ -77,7 +95,32 @@ const setup = () => {
     sections: {
       create: vi.fn(),
       delete: vi.fn(),
+      getItemSection: vi.fn(({ id, type }: { id: string; type: "project" | "thread" }) =>
+        Promise.resolve(
+          (type === "project" && id === project.id) || (type === "thread" && id === pinnedThread.id)
+            ? { createdAt: 1, position: type === "project" ? 0 : 1, section: pinned, updatedAt: 1 }
+            : undefined
+        )
+      ),
       list: vi.fn(() => page([pinned, section])),
+      listMemberships: vi.fn(() =>
+        page([
+          {
+            createdAt: 1,
+            item: { id: project.id, type: "project" as const },
+            position: 0,
+            sectionId: pinned.id,
+            updatedAt: 1,
+          },
+          {
+            createdAt: 1,
+            item: { id: pinnedThread.id, type: "thread" as const },
+            position: 1,
+            sectionId: pinned.id,
+            updatedAt: 1,
+          },
+        ])
+      ),
       listItems: vi.fn(({ sectionId }: { sectionId: string }) =>
         sectionId === pinned.id
           ? page([
@@ -105,7 +148,13 @@ const setup = () => {
     threads: {
       archive: vi.fn(),
       fork: vi.fn(),
-      list: vi.fn(() => page([projectThread, pinnedThread])),
+      list: vi.fn(({ sectionId }: { sectionId?: string | null } = {}) =>
+        sectionId === pinned.id
+          ? page([pinnedThread])
+          : sectionId === null
+            ? page([projectThread])
+            : page([projectThread, pinnedThread])
+      ),
       update: vi.fn(),
     },
     timeline: { get: vi.fn() },
@@ -133,6 +182,7 @@ describe("SidebarDataApi", () => {
 
     await data.moveItemToSection({ id: project.id, type: "project" }, section.id)
     await data.moveThreadToProject("01996a3a-bcde-7000-8000-000000000001", project.id)
+    await data.updateProject(project.id, "Cypheria workspace", ["/repo", "/shared"])
 
     expect(api.sections.moveItem).toHaveBeenCalledWith({
       item: { id: project.id, type: "project" },
@@ -141,6 +191,11 @@ describe("SidebarDataApi", () => {
     expect(api.projects.moveThread).toHaveBeenCalledWith({
       projectId: project.id,
       threadId: "01996a3a-bcde-7000-8000-000000000001",
+    })
+    expect(api.projects.update).toHaveBeenCalledWith({
+      name: "Cypheria workspace",
+      projectId: project.id,
+      roots: ["/repo", "/shared"],
     })
   })
 })

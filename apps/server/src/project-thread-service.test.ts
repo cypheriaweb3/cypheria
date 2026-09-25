@@ -28,7 +28,11 @@ describe("ProjectThreadService", () => {
         { id: "codex", native: true },
       ])
       const persistence = createProjectThreadPersistenceService(database.db)
-      const service = new ProjectThreadService({ persistence })
+      const published: ServerMessage[] = []
+      const service = new ProjectThreadService({
+        persistence,
+        publish: (message) => published.push(message),
+      })
       await service.initialize()
 
       const dispatch = async (
@@ -59,8 +63,30 @@ describe("ProjectThreadService", () => {
         throw new Error("Expected project creation to succeed")
       }
       const project = projectResponse.payload.value
+      expect(published.at(-1)).toMatchObject({
+        payload: { id: project.id },
+        type: "project.created.notification",
+      })
 
-      const thread = await persistence.createThread({ agentId: "codex" })
+      const thread = await persistence.createThread({ agentId: "codex", cwd: "/tmp/cypheria" })
+      expect(
+        (
+          await dispatch({
+            payload: { item: { id: project.id, type: "project" } },
+            requestId: "unsectioned-project",
+            type: "section.item.get.request",
+          })
+        ).payload
+      ).toEqual({ ok: true, value: null })
+      expect(
+        (
+          await dispatch({
+            payload: { threadId: thread.id },
+            requestId: "projectless-thread",
+            type: "project.item.get.request",
+          })
+        ).payload
+      ).toEqual({ ok: true, value: null })
       const membership = await dispatch({
         payload: { projectId: project.id, threadId: thread.id },
         requestId: "membership",
@@ -70,6 +96,24 @@ describe("ProjectThreadService", () => {
         throw new Error("Expected project membership move to succeed")
       }
       expect(membership.payload.value).toMatchObject({ project: { id: project.id } })
+      expect(published).toContainEqual(
+        expect.objectContaining({
+          payload: expect.objectContaining({ projectId: project.id, threadId: thread.id }),
+          type: "project.membership.upserted.notification",
+        })
+      )
+      expect(
+        (
+          await dispatch({
+            payload: {},
+            requestId: "memberships",
+            type: "project.membership.list.request",
+          })
+        ).payload
+      ).toMatchObject({
+        ok: true,
+        value: { data: [{ projectId: project.id, threadId: thread.id }] },
+      })
     } finally {
       database.close()
       rmSync(temporaryDirectory, { force: true, recursive: true })

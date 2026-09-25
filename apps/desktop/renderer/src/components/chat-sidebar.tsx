@@ -26,16 +26,20 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@cypheria/ui/components/tooltip"
+import {
+  DragDropProvider,
+  type DragEndEvent,
+  type DragStartEvent,
+  KeyboardSensor,
+  PointerSensor,
+  useDraggable,
+  useDroppable,
+} from "@dnd-kit/react"
 import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
-import {
-  useInfiniteQuery,
-  useMutation,
-  useQueries,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query"
+import { eq, useLiveQuery } from "@tanstack/react-db"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
@@ -74,6 +78,7 @@ import {
   type Dispatch,
   type ReactNode,
   type SetStateAction,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -84,6 +89,7 @@ import { unreadThreadMutationFromServerMessage, unreadThreadStore } from "../cha
 import { cypheriaClient, ensureCypheriaClient } from "../cypheria-client.js"
 import { filterDevelopmentItems, isDesktopDevelopment } from "../development-mode.js"
 import { type GitHubPrAssociation, githubPrAssociations } from "../git-pr-associations.js"
+import { getSidebarCollections } from "../sidebar-collections.js"
 import {
   PINNED_SIDEBAR_SECTION_ID,
   type SidebarProjectView,
@@ -97,13 +103,21 @@ import {
   type ChatSidebarRow,
   estimateChatSidebarRowSize,
   groupProjectThreads,
+  placeSidebarDragItem,
   SIDEBAR_BATCH_SIZE,
   type SidebarCustomSection,
+  type SidebarDragItem,
   type SidebarSectionId,
+  sidebarDragItemForRow,
 } from "./chat-sidebar-model.js"
 import { ProjectCreateDialog } from "./project-create-dialog"
+import { ProjectEditDialog } from "./project-edit-dialog"
 
 const THREAD_PAGE_SIZE = 30
+const sidebarDragSensors = [
+  PointerSensor.configure({ preventActivation: () => false }),
+  KeyboardSensor,
+]
 type SidebarSort = "priority" | "updated" | "created" | "manual"
 type SectionDialogState =
   | { mode: "create"; target?: { id: string; kind: "project" | "thread" } }
@@ -174,15 +188,6 @@ const sectionLabels = {
   recents: msg({ id: "navigation.recents", message: "Recents" }),
 } as const
 
-const sortRequest = (sort: SidebarSort) =>
-  sort === "manual"
-    ? ({ sortDirection: "asc", sortKey: "section_position" } as const)
-    : sort === "priority"
-      ? ({ sortDirection: "desc", sortKey: "recency_at" } as const)
-      : sort === "created"
-        ? ({ sortDirection: "desc", sortKey: "created_at" } as const)
-        : ({ sortDirection: "desc", sortKey: "updated_at" } as const)
-
 const readPreference = <T extends string>(key: string, fallback: T): T => {
   try {
     return (globalThis.localStorage?.getItem(key) as T | null) ?? fallback
@@ -198,6 +203,7 @@ export function ChatSidebar({
   const { i18n } = useLingui()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const sidebarCollections = useMemo(() => getSidebarCollections(queryClient), [queryClient])
   const prAssociations = useSyncExternalStore(
     githubPrAssociations.subscribe,
     githubPrAssociations.getSnapshot,
@@ -239,6 +245,8 @@ export function ChatSidebar({
   } | null>(null)
   const [archivingSection, setArchivingSection] = useState<SidebarSectionView | null>(null)
   const [mutationError, setMutationError] = useState<string | null>(null)
+  const [dragging, setDragging] = useState<SidebarDragItem | null>(null)
+  const [optimisticRows, setOptimisticRows] = useState<readonly ChatSidebarRow[] | null>(null)
   const unreadThreadIds = useSyncExternalStore(
     unreadThreadStore.subscribe,
     unreadThreadStore.getSnapshot,
@@ -258,69 +266,167 @@ export function ChatSidebar({
     })
   }, [activeThreadId])
 
-  const pinnedQuery = useInfiniteQuery({
-    initialPageParam: null as string | null,
-    queryKey: sidebarQueryKeys.threads("pinned", pinnedSort),
-    queryFn: ({ pageParam }) =>
-      sidebarData.listThreads({
-        cursor: pageParam,
-        limit: SIDEBAR_BATCH_SIZE,
-        sectionId: PINNED_SIDEBAR_SECTION_ID,
-        ...sortRequest(pinnedSort),
-      }),
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    refetchInterval: 15_000,
+  const projectsLive = useLiveQuery({
+    query: (query) => query.from({ project: sidebarCollections.projects }),
+    queryKey: ["cypheria", "sidebar-db", "projects-view"],
   })
-  const catalogQuery = useInfiniteQuery({
-    initialPageParam: null as string | null,
-    queryKey: sidebarQueryKeys.threads("unsectioned", chatSort),
-    queryFn: ({ pageParam }) =>
-      sidebarData.listThreads({
-        cursor: pageParam,
-        limit: THREAD_PAGE_SIZE,
-        sectionId: null,
-        ...sortRequest(chatSort),
-      }),
-    getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
-    refetchInterval: 15_000,
+  const sectionsLive = useLiveQuery({
+    query: (query) => query.from({ section: sidebarCollections.sections }),
+    queryKey: ["cypheria", "sidebar-db", "sections-view"],
   })
-  const projectsQuery = useQuery({
-    queryFn: () => sidebarData.listProjects(),
-    queryKey: sidebarQueryKeys.projects(),
-    refetchInterval: 15_000,
+  const projectMembershipsLive = useLiveQuery({
+    query: (query) => query.from({ projectMembership: sidebarCollections.projectMemberships }),
+    queryKey: ["cypheria", "sidebar-db", "project-memberships-view"],
   })
-  const sectionsQuery = useQuery({
-    queryFn: () => sidebarData.listSections(),
-    queryKey: sidebarQueryKeys.sections(),
-    refetchInterval: 15_000,
+  const sectionMembershipsLive = useLiveQuery({
+    query: (query) => query.from({ sectionMembership: sidebarCollections.sectionMemberships }),
+    queryKey: ["cypheria", "sidebar-db", "section-memberships-view"],
   })
+  const threadsLive = useLiveQuery({
+    query: (query) =>
+      query
+        .from({ thread: sidebarCollections.threads })
+        .where(({ thread }) => eq(thread.archivedAt, null)),
+    queryKey: ["cypheria", "sidebar-db", "threads", "active-view"],
+  })
+  const [pinnedLimit, setPinnedLimit] = useState(SIDEBAR_BATCH_SIZE)
+  const [catalogLimit, setCatalogLimit] = useState(THREAD_PAGE_SIZE)
+
   const sections = useMemo(
-    () => (sectionsQuery.data?.data ?? []).filter(({ id }) => id !== PINNED_SIDEBAR_SECTION_ID),
-    [sectionsQuery.data?.data]
+    () =>
+      (sectionsLive.data ?? [])
+        .filter(({ id }) => id !== PINNED_SIDEBAR_SECTION_ID)
+        .toSorted(
+          (left, right) => left.position - right.position || left.id.localeCompare(right.id)
+        )
+        .map(({ id, name }) => ({ id, name })),
+    [sectionsLive.data]
   )
-  const customThreadQueries = useQueries({
-    queries: sections.map((section) => ({
-      queryFn: () =>
-        sidebarData.listThreads({
-          limit: 100,
-          sectionId: section.id,
-          sortDirection: "asc",
-          sortKey: "section_position",
-        }),
-      queryKey: sidebarQueryKeys.threads("section", section.id),
-      refetchInterval: 15_000,
-    })),
-  })
+  const sectionById = useMemo(
+    () => new Map((sectionsLive.data ?? []).map((section) => [section.id, section])),
+    [sectionsLive.data]
+  )
+  const projectByThread = useMemo(
+    () =>
+      new Map(
+        (projectMembershipsLive.data ?? []).map((membership) => [
+          membership.threadId,
+          membership.projectId,
+        ])
+      ),
+    [projectMembershipsLive.data]
+  )
+  const sectionByItem = useMemo(
+    () =>
+      new Map(
+        (sectionMembershipsLive.data ?? []).map((membership) => [
+          `${membership.item.type}:${membership.item.id}`,
+          membership,
+        ])
+      ),
+    [sectionMembershipsLive.data]
+  )
+  const projects = useMemo<SidebarProjectView[]>(
+    () =>
+      (projectsLive.data ?? [])
+        .map((project) => {
+          const membership = sectionByItem.get(`project:${project.id}`)
+          return {
+            ...project,
+            sectionId: membership?.sectionId ?? null,
+            sectionPosition: membership?.position ?? null,
+          }
+        })
+        .toSorted(
+          (left, right) => left.position - right.position || left.id.localeCompare(right.id)
+        ),
+    [projectsLive.data, sectionByItem]
+  )
+  const allThreads = useMemo<SidebarThreadView[]>(
+    () =>
+      (threadsLive.data ?? []).map((thread) => {
+        const membership = sectionByItem.get(`thread:${thread.id}`)
+        const section = membership ? sectionById.get(membership.sectionId) : undefined
+        return {
+          agentId: thread.agentId,
+          attention: thread.attention,
+          createdAt: thread.createdAt,
+          cwd: thread.cwd ?? "",
+          id: thread.id,
+          position: thread.position,
+          projectId: projectByThread.get(thread.id) ?? null,
+          recencyAt: thread.recencyAt,
+          sectionId: membership?.sectionId ?? null,
+          sectionName: section?.name ?? null,
+          sectionPosition: membership?.position ?? null,
+          status:
+            thread.state === "running"
+              ? "active"
+              : thread.state === "errored"
+                ? "systemError"
+                : thread.state === "stopped"
+                  ? "notLoaded"
+                  : "idle",
+          title: thread.title ?? "New chat",
+          updatedAt: thread.updatedAt,
+        }
+      }),
+    [projectByThread, sectionById, sectionByItem, threadsLive.data]
+  )
 
   useEffect(() => {
     setExpandedCustomSections((current) => new Set([...current, ...sections.map(({ id }) => id)]))
   }, [sections])
 
-  const pinnedThreads = pinnedQuery.data?.pages.flatMap((page) => page.data) ?? []
-  const catalogThreads = catalogQuery.data?.pages.flatMap((page) => page.data) ?? []
+  const compareThreads = useCallback(
+    (sort: SidebarSort) => (left: SidebarThreadView, right: SidebarThreadView) => {
+      const compared =
+        sort === "priority"
+          ? Number(unreadThreadIds.has(right.id)) - Number(unreadThreadIds.has(left.id)) ||
+            Number(right.attention) - Number(left.attention) ||
+            Number(right.status === "active") - Number(left.status === "active") ||
+            right.updatedAt - left.updatedAt
+          : sort === "created"
+            ? (right.createdAt ?? 0) - (left.createdAt ?? 0)
+            : sort === "updated"
+              ? right.updatedAt - left.updatedAt
+              : (left.sectionPosition ?? left.position ?? 0) -
+                (right.sectionPosition ?? right.position ?? 0)
+      return compared || left.id.localeCompare(right.id)
+    },
+    [unreadThreadIds]
+  )
+  const allPinnedThreads = useMemo(
+    () =>
+      allThreads
+        .filter(({ sectionId }) => sectionId === PINNED_SIDEBAR_SECTION_ID)
+        .toSorted(compareThreads(pinnedSort)),
+    [allThreads, compareThreads, pinnedSort]
+  )
+  const pinnedThreads = useMemo(
+    () => allPinnedThreads.slice(0, pinnedLimit),
+    [allPinnedThreads, pinnedLimit]
+  )
+  const allCatalogThreads = useMemo(
+    () =>
+      allThreads.filter(({ sectionId }) => sectionId === null).toSorted(compareThreads(chatSort)),
+    [allThreads, chatSort, compareThreads]
+  )
+  const catalogThreads = useMemo(
+    () => allCatalogThreads.slice(0, catalogLimit),
+    [allCatalogThreads, catalogLimit]
+  )
+  const pinnedHasMore = pinnedLimit < allPinnedThreads.length
+  const catalogHasMore = catalogLimit < allCatalogThreads.length
+  const fetchNextPinnedPage = useCallback(() => {
+    setPinnedLimit((current) => current + SIDEBAR_BATCH_SIZE)
+  }, [])
+  const fetchNextCatalogPage = useCallback(() => {
+    setCatalogLimit((current) => current + THREAD_PAGE_SIZE)
+  }, [])
   const allProjectGroups = useMemo(
-    () => groupProjectThreads(catalogThreads, projectsQuery.data?.data ?? []),
-    [catalogThreads, projectsQuery.data?.data]
+    () => groupProjectThreads(catalogThreads, projects, compareThreads(chatSort)),
+    [catalogThreads, chatSort, compareThreads, projects]
   )
   const pinnedProjectGroups = useMemo(
     () => allProjectGroups.filter(({ project }) => project.sectionId === PINNED_SIDEBAR_SECTION_ID),
@@ -339,12 +445,14 @@ export function ChatSidebar({
   )
   const customSections = useMemo<SidebarCustomSection[]>(
     () =>
-      sections.map((section, index) => ({
+      sections.map((section) => ({
         ...section,
         projects: allProjectGroups.filter(({ project }) => project.sectionId === section.id),
-        threads: customThreadQueries[index]?.data?.data ?? [],
+        threads: allThreads
+          .filter(({ sectionId }) => sectionId === section.id)
+          .toSorted(compareThreads("manual")),
       })),
-    [allProjectGroups, customThreadQueries, sections]
+    [allProjectGroups, allThreads, compareThreads, sections]
   )
   const expandedProjects = useMemo(
     () =>
@@ -359,7 +467,7 @@ export function ChatSidebar({
     () => filterDevelopmentItems(virtualNavigationItems, isDesktopDevelopment()),
     []
   )
-  const rows = useMemo(
+  const calculatedRows = useMemo(
     () =>
       buildChatSidebarRows({
         customSections,
@@ -367,28 +475,26 @@ export function ChatSidebar({
         expandedProjects,
         expandedSections,
         navigationIds: visibleNavigationItems.map(({ id }) => id),
-        pinnedHasMore: pinnedQuery.hasNextPage,
+        pinnedHasMore,
         pinnedProjects: pinnedProjectGroups,
         pinnedThreads,
         projectGroups,
         projectChatLimits,
-        projectsHasMore: catalogQuery.hasNextPage,
-        recentHasMore: catalogQuery.hasNextPage,
-        recentLoading: catalogQuery.isFetchingNextPage && catalogLoadIntent == null,
+        projectsHasMore: catalogHasMore,
+        recentHasMore: catalogHasMore,
+        recentLoading: false,
         recentThreads,
         showProjects: organizeByProject,
         visibleProjectCount,
       }),
     [
-      catalogLoadIntent,
-      catalogQuery.hasNextPage,
-      catalogQuery.isFetchingNextPage,
+      catalogHasMore,
       customSections,
       expandedCustomSections,
       expandedProjects,
       expandedSections,
       organizeByProject,
-      pinnedQuery.hasNextPage,
+      pinnedHasMore,
       pinnedProjectGroups,
       pinnedThreads,
       projectGroups,
@@ -398,6 +504,7 @@ export function ChatSidebar({
       visibleProjectCount,
     ]
   )
+  const rows = optimisticRows ?? calculatedRows
   const virtualizer = useVirtualizer({
     count: rows.length,
     estimateSize: (index) => estimateChatSidebarRowSize(rows[index] as ChatSidebarRow),
@@ -408,22 +515,27 @@ export function ChatSidebar({
   const virtualItems = virtualizer.getVirtualItems()
 
   useEffect(() => {
-    if (catalogLoadIntent == null || catalogQuery.isFetchingNextPage) return
-    if (!catalogQuery.hasNextPage) return setCatalogLoadIntent(null)
+    if (catalogLoadIntent == null) return
+    if (!catalogHasMore) return setCatalogLoadIntent(null)
     const reached =
       catalogLoadIntent === "projects"
         ? allProjectGroups.length >= visibleProjectCount
         : (allProjectGroups.find(({ projectId }) => projectId === catalogLoadIntent)?.threads
             .length ?? 0) >= (projectChatLimits[catalogLoadIntent] ?? SIDEBAR_BATCH_SIZE)
     if (reached) return setCatalogLoadIntent(null)
-    void catalogQuery.fetchNextPage()
-  }, [allProjectGroups, catalogLoadIntent, catalogQuery, projectChatLimits, visibleProjectCount])
+    fetchNextCatalogPage()
+  }, [
+    allProjectGroups,
+    catalogHasMore,
+    catalogLoadIntent,
+    fetchNextCatalogPage,
+    projectChatLimits,
+    visibleProjectCount,
+  ])
   useEffect(() => {
-    if (!catalogQuery.hasNextPage || catalogQuery.isFetchingNextPage || catalogLoadIntent != null)
-      return
-    if (virtualItems.some(({ index }) => rows[index]?.kind === "loading"))
-      void catalogQuery.fetchNextPage()
-  }, [catalogLoadIntent, catalogQuery, rows, virtualItems])
+    if (!catalogHasMore || catalogLoadIntent != null) return
+    if (virtualItems.some(({ index }) => rows[index]?.kind === "loading")) fetchNextCatalogPage()
+  }, [catalogHasMore, catalogLoadIntent, fetchNextCatalogPage, rows, virtualItems])
 
   const toggleSet = <T,>(setter: Dispatch<SetStateAction<Set<T>>>, value: T) =>
     setter((current) => {
@@ -449,25 +561,38 @@ export function ChatSidebar({
   }
   const invalidateSidebar = async () => {
     sidebarData.invalidate()
-    await queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all })
+    await Promise.all([
+      sidebarCollections.invalidate(),
+      queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all }),
+    ])
   }
   const runSidebarMutation = async (mutation: () => Promise<unknown>) => {
     setMutationError(null)
     try {
       await mutation()
       await invalidateSidebar()
+      setOptimisticRows(null)
       return true
     } catch (reason) {
+      setOptimisticRows(null)
       setMutationError(reason instanceof Error ? reason.message : String(reason))
       return false
     }
   }
-  const moveThreadToSection = (thread: SidebarThreadView, sectionId: string | null) =>
+  const moveThreadToSection = (
+    thread: SidebarThreadView,
+    sectionId: string | null,
+    beforeItem?: { id: string; type: "project" | "thread" } | null
+  ) =>
     runSidebarMutation(() =>
-      sidebarData.moveItemToSection({ id: thread.id, type: "thread" }, sectionId)
+      sidebarData.moveItemToSection({ id: thread.id, type: "thread" }, sectionId, beforeItem)
     )
-  const moveThreadToProject = (thread: SidebarThreadView, projectId: string | null) =>
-    runSidebarMutation(() => sidebarData.moveThreadToProject(thread.id, projectId))
+  const moveThreadToProject = (
+    thread: SidebarThreadView,
+    projectId: string | null,
+    beforeThreadId?: string | null
+  ) =>
+    runSidebarMutation(() => sidebarData.moveThreadToProject(thread.id, projectId, beforeThreadId))
   const forkThread = (thread: SidebarThreadView) =>
     runSidebarMutation(async () => {
       const fork = await sidebarData.forkThread(thread.id)
@@ -478,6 +603,101 @@ export function ChatSidebar({
     runSidebarMutation(() =>
       sidebarData.moveItemToSection({ id: project.id, type: "project" }, sectionId)
     )
+  const dropOnRow = async (source: SidebarDragItem, target: ChatSidebarRow) => {
+    if (sidebarDragItemForRow(target)?.key === source.key) return
+    const optimisticMutation = (mutation: () => Promise<unknown>) => {
+      setOptimisticRows(placeSidebarDragItem(rows, source, target))
+      return runSidebarMutation(mutation)
+    }
+    if (source.type === "section") {
+      if (target.kind === "customSection") {
+        await optimisticMutation(() => sidebarData.moveSection(source.id, target.sectionId))
+      }
+      return
+    }
+    const item = { id: source.id, type: source.type }
+    if (target.kind === "customSection") {
+      await optimisticMutation(() => sidebarData.moveItemToSection(item, target.sectionId))
+      return
+    }
+    if (target.kind === "section") {
+      if (target.section === "pinned") {
+        await optimisticMutation(() =>
+          sidebarData.moveItemToSection(item, PINNED_SIDEBAR_SECTION_ID)
+        )
+      } else if (target.section === "projects" && source.type === "project") {
+        await optimisticMutation(() => sidebarData.moveItemToSection(item, null))
+      } else if (target.section === "recents" && source.type === "thread") {
+        await optimisticMutation(async () => {
+          await sidebarData.moveItemToSection(item, null)
+          await sidebarData.moveThreadToProject(source.id, null)
+          await sidebarData.moveThread(source.id, null)
+        })
+      }
+      return
+    }
+    if (target.kind === "project") {
+      if (source.type === "thread") {
+        await optimisticMutation(() =>
+          sidebarData.moveThreadToProject(source.id, target.project.id)
+        )
+      } else if (target.project.sectionId) {
+        await optimisticMutation(() =>
+          sidebarData.moveItemToSection(item, target.project.sectionId, {
+            id: target.project.id,
+            type: "project",
+          })
+        )
+      } else {
+        await optimisticMutation(async () => {
+          await sidebarData.moveItemToSection(item, null)
+          await sidebarData.moveProject(source.id, target.project.id)
+        })
+      }
+      return
+    }
+    if (target.kind !== "thread") return
+    if (source.type === "project") {
+      if (target.thread.sectionId) {
+        await optimisticMutation(() =>
+          sidebarData.moveItemToSection(item, target.thread.sectionId, {
+            id: target.thread.id,
+            type: "thread",
+          })
+        )
+      }
+      return
+    }
+    if (target.parentProjectId) {
+      await optimisticMutation(() =>
+        sidebarData.moveThreadToProject(source.id, target.parentProjectId ?? null, target.thread.id)
+      )
+    } else if (target.thread.sectionId) {
+      await optimisticMutation(() =>
+        sidebarData.moveItemToSection(item, target.thread.sectionId, {
+          id: target.thread.id,
+          type: "thread",
+        })
+      )
+    } else {
+      await optimisticMutation(async () => {
+        await sidebarData.moveItemToSection(item, null)
+        await sidebarData.moveThreadToProject(source.id, null)
+        await sidebarData.moveThread(source.id, target.thread.id)
+      })
+    }
+  }
+  const handleDragStart = (event: DragStartEvent) => {
+    const item = event.operation.source?.data.item
+    setDragging(isSidebarDragItem(item) ? item : null)
+  }
+  const handleDragEnd = (event: DragEndEvent) => {
+    const item = event.operation.source?.data.item
+    const target = event.operation.target?.data.row
+    setDragging(null)
+    if (event.canceled || !isSidebarDragItem(item) || !isChatSidebarRow(target)) return
+    void dropOnRow(item, target)
+  }
   const copyText = async (value: string) => {
     try {
       await navigator.clipboard.writeText(value)
@@ -507,115 +727,147 @@ export function ChatSidebar({
   return (
     <>
       <TooltipProvider delay={450}>
-        <nav
-          aria-label={i18n._(msg({ id: "navigation.workspace", message: "Workspace navigation" }))}
-          className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
-          ref={scrollRef}
+        <DragDropProvider
+          sensors={sidebarDragSensors}
+          onDragEnd={handleDragEnd}
+          onDragStart={handleDragStart}
         >
-          <ul className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-            {virtualItems.map((virtualRow) => {
-              const row = rows[virtualRow.index]
-              if (!row) return null
-              return (
-                <li
-                  className="absolute left-0 top-0 w-full px-1"
-                  data-index={virtualRow.index}
-                  key={row.key}
-                  style={{
-                    height: virtualRow.size,
-                    transform: `translateY(${virtualRow.start}px)`,
-                  }}
-                >
-                  <ChatSidebarRowView
-                    catalogLoading={catalogQuery.isFetchingNextPage}
-                    catalogLoadIntent={catalogLoadIntent}
-                    chatSort={chatSort}
-                    collapsedProjects={collapsedProjects}
-                    expandedCustomSections={expandedCustomSections}
-                    expandedSections={expandedSections}
-                    organizeByProject={organizeByProject}
-                    pendingCount={pendingCount}
-                    projects={projectsQuery.data?.data ?? []}
-                    pinnedLoading={pinnedQuery.isFetchingNextPage}
-                    pinnedSort={pinnedSort}
-                    row={row}
-                    prAssociations={
-                      prAssociations[row.kind === "thread" ? row.thread.id : ""] ?? []
-                    }
-                    showPrIcons={gitSettings.data?.config.git.showSidebarPrIcons ?? true}
-                    sections={sections}
-                    onArchiveSection={setArchivingSection}
-                    onCopyThread={(kind, thread) => {
-                      if (kind === "cwd") void copyText(thread.cwd)
-                      if (kind === "link")
-                        void copyText(`cypheria://app/?thread=${encodeURIComponent(thread.id)}`)
-                      if (kind === "markdown") void copyThreadMarkdown(thread)
+          <nav
+            aria-label={i18n._(
+              msg({ id: "navigation.workspace", message: "Workspace navigation" })
+            )}
+            className="min-h-0 flex-1 overflow-y-auto overscroll-contain"
+            ref={scrollRef}
+          >
+            <ul className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+              {virtualItems.map((virtualRow) => {
+                const row = rows[virtualRow.index]
+                if (!row) return null
+                return (
+                  <li
+                    className="absolute left-0 top-0 w-full px-1"
+                    data-index={virtualRow.index}
+                    key={row.key}
+                    style={{
+                      height: virtualRow.size,
+                      transform: `translateY(${virtualRow.start}px)`,
                     }}
-                    onCreateProject={() => setProjectDialogOpen(true)}
-                    onCreateSection={() => setSectionDialog({ mode: "create" })}
-                    onCreateSectionFor={(target) => setSectionDialog({ mode: "create", target })}
-                    onDeleteSection={setDeletingSection}
-                    onEditSection={(section) => setSectionDialog({ mode: "edit", section })}
-                    onOrganizationChange={setOrganization}
-                    onNewChatProject={(project) =>
-                      void navigate({ search: { project: project.id }, to: "/" })
-                    }
-                    onProjectDialog={(kind, project) => setProjectDialog({ kind, project })}
-                    onProjectMoveSection={(project, sectionId) =>
-                      void moveProjectToSection(project, sectionId)
-                    }
-                    onProjectPin={(project, pinned) =>
-                      void moveProjectToSection(project, pinned ? PINNED_SIDEBAR_SECTION_ID : null)
-                    }
-                    onOpenProject={(project) =>
-                      void runSidebarMutation(async () => {
-                        await window.cypheria?.app.openProject(project.id)
-                      })
-                    }
-                    onPinnedSortChange={updatePinnedSort}
-                    onShowMorePinned={() => void pinnedQuery.fetchNextPage()}
-                    onShowMoreProjectChats={(projectId) => {
-                      const target =
-                        (projectChatLimits[projectId] ?? SIDEBAR_BATCH_SIZE) + SIDEBAR_BATCH_SIZE
-                      setProjectChatLimits((current) => ({ ...current, [projectId]: target }))
-                      if (
-                        (projectGroups.find((project) => project.projectId === projectId)?.threads
-                          .length ?? 0) < target &&
-                        catalogQuery.hasNextPage
-                      )
-                        setCatalogLoadIntent(projectId)
-                    }}
-                    onShowMoreProjects={() => {
-                      const target = visibleProjectCount + SIDEBAR_BATCH_SIZE
-                      setVisibleProjectCount(target)
-                      if (projectGroups.length < target && catalogQuery.hasNextPage)
-                        setCatalogLoadIntent("projects")
-                    }}
-                    onSortChange={updateChatSort}
-                    onThreadFork={(thread) => void forkThread(thread)}
-                    onThreadDialog={(kind, thread) => setThreadDialog({ kind, thread })}
-                    onThreadMoveProject={(thread, projectId) =>
-                      void moveThreadToProject(thread, projectId)
-                    }
-                    onThreadMoveSection={(thread, sectionId) =>
-                      void moveThreadToSection(thread, sectionId)
-                    }
-                    onThreadReadState={(thread, unread) => {
-                      if (unread) unreadThreadStore.markUnread(thread.id)
-                      else unreadThreadStore.markRead(thread.id)
-                    }}
-                    onToggleCustomSection={(id) => toggleSet(setExpandedCustomSections, id)}
-                    onToggleProject={(id) => toggleSet(setCollapsedProjects, id)}
-                    onToggleSection={(id) => toggleSet(setExpandedSections, id)}
-                    unreadThreadIds={unreadThreadIds}
-                  />
-                </li>
-              )
-            })}
-          </ul>
-        </nav>
+                  >
+                    <SidebarDndRow dragging={dragging} row={row}>
+                      <ChatSidebarRowView
+                        catalogLoading={threadsLive.isLoading}
+                        catalogLoadIntent={catalogLoadIntent}
+                        chatSort={chatSort}
+                        collapsedProjects={collapsedProjects}
+                        expandedCustomSections={expandedCustomSections}
+                        expandedSections={expandedSections}
+                        organizeByProject={organizeByProject}
+                        pendingCount={pendingCount}
+                        projects={projects}
+                        pinnedLoading={threadsLive.isLoading}
+                        pinnedSort={pinnedSort}
+                        row={row}
+                        prAssociations={
+                          prAssociations[row.kind === "thread" ? row.thread.id : ""] ?? []
+                        }
+                        showPrIcons={gitSettings.data?.config.git.showSidebarPrIcons ?? true}
+                        sections={sections}
+                        onArchiveSection={setArchivingSection}
+                        onCopyThread={(kind, thread) => {
+                          if (kind === "cwd") void copyText(thread.cwd)
+                          if (kind === "link")
+                            void copyText(`cypheria://app/?thread=${encodeURIComponent(thread.id)}`)
+                          if (kind === "markdown") void copyThreadMarkdown(thread)
+                        }}
+                        onCreateProject={() => setProjectDialogOpen(true)}
+                        onCreateSection={() => setSectionDialog({ mode: "create" })}
+                        onCreateSectionFor={(target) =>
+                          setSectionDialog({ mode: "create", target })
+                        }
+                        onDeleteSection={setDeletingSection}
+                        onEditSection={(section) => setSectionDialog({ mode: "edit", section })}
+                        onOrganizationChange={setOrganization}
+                        onNewChatProject={(project) =>
+                          void navigate({ search: { project: project.id }, to: "/" })
+                        }
+                        onProjectDialog={(kind, project) => setProjectDialog({ kind, project })}
+                        onProjectMoveSection={(project, sectionId) =>
+                          void moveProjectToSection(project, sectionId)
+                        }
+                        onProjectPin={(project, pinned) =>
+                          void moveProjectToSection(
+                            project,
+                            pinned ? PINNED_SIDEBAR_SECTION_ID : null
+                          )
+                        }
+                        onOpenProject={(project) =>
+                          void runSidebarMutation(async () => {
+                            await window.cypheria?.app.openProject(project.id)
+                          })
+                        }
+                        onPinnedSortChange={updatePinnedSort}
+                        onShowMorePinned={fetchNextPinnedPage}
+                        onShowMoreProjectChats={(projectId) => {
+                          const target =
+                            (projectChatLimits[projectId] ?? SIDEBAR_BATCH_SIZE) +
+                            SIDEBAR_BATCH_SIZE
+                          setProjectChatLimits((current) => ({ ...current, [projectId]: target }))
+                          if (
+                            (projectGroups.find((project) => project.projectId === projectId)
+                              ?.threads.length ?? 0) < target &&
+                            catalogHasMore
+                          )
+                            setCatalogLoadIntent(projectId)
+                        }}
+                        onShowMoreProjects={() => {
+                          const target = visibleProjectCount + SIDEBAR_BATCH_SIZE
+                          setVisibleProjectCount(target)
+                          if (projectGroups.length < target && catalogHasMore)
+                            setCatalogLoadIntent("projects")
+                        }}
+                        onSortChange={updateChatSort}
+                        onThreadFork={(thread) => void forkThread(thread)}
+                        onThreadDialog={(kind, thread) => setThreadDialog({ kind, thread })}
+                        onThreadMoveProject={(thread, projectId) =>
+                          void moveThreadToProject(thread, projectId)
+                        }
+                        onThreadMoveSection={(thread, sectionId) =>
+                          void moveThreadToSection(thread, sectionId)
+                        }
+                        onThreadReadState={(thread, unread) => {
+                          if (unread) unreadThreadStore.markUnread(thread.id)
+                          else unreadThreadStore.markRead(thread.id)
+                        }}
+                        onToggleCustomSection={(id) => toggleSet(setExpandedCustomSections, id)}
+                        onToggleProject={(id) => toggleSet(setCollapsedProjects, id)}
+                        onToggleSection={(id) => toggleSet(setExpandedSections, id)}
+                        unreadThreadIds={unreadThreadIds}
+                      />
+                    </SidebarDndRow>
+                  </li>
+                )
+              })}
+            </ul>
+          </nav>
+        </DragDropProvider>
       </TooltipProvider>
       <ProjectCreateDialog onOpenChange={setProjectDialogOpen} open={projectDialogOpen} />
+      <ProjectEditDialog
+        project={projectDialog?.kind === "edit" ? projectDialog.project : null}
+        onDelete={async (project) => {
+          const succeeded = await runSidebarMutation(() => sidebarData.deleteProject(project.id))
+          if (succeeded) setProjectDialog(null)
+          return succeeded
+        }}
+        onOpenChange={(open) => !open && setProjectDialog(null)}
+        onSave={async (project, name, roots) => {
+          const succeeded = await runSidebarMutation(() =>
+            sidebarData.updateProject(project.id, name, roots)
+          )
+          if (succeeded) setProjectDialog(null)
+          return succeeded
+        }}
+      />
       <SectionDialog
         dialog={sectionDialog}
         onCreated={async (section, target) => {
@@ -715,7 +967,7 @@ export function ChatSidebar({
             : undefined
         }
         initialValue={projectDialog?.project.name}
-        open={projectDialog != null}
+        open={projectDialog != null && projectDialog.kind !== "edit"}
         title={
           projectDialog?.kind === "edit"
             ? i18n._(msg({ id: "navigation.editProject", message: "Edit project" }))
@@ -723,11 +975,10 @@ export function ChatSidebar({
               ? i18n._(msg({ id: "navigation.archiveProjectChats", message: "Archive chats" }))
               : i18n._(msg({ id: "navigation.removeProject", message: "Remove project" }))
         }
-        onConfirm={async (value) => {
+        onConfirm={async () => {
           if (!projectDialog) return false
           const { kind, project } = projectDialog
           const succeeded = await runSidebarMutation(async () => {
-            if (kind === "edit") await sidebarData.updateProject(project.id, value.trim())
             if (kind === "archive")
               await archiveMatchingThreads((thread) => thread.projectId === project.id)
             if (kind === "remove") await sidebarData.deleteProject(project.id)
@@ -770,6 +1021,72 @@ export function ChatSidebar({
       />
       <SidebarErrorDialog error={mutationError} onClose={() => setMutationError(null)} />
     </>
+  )
+}
+
+const isSidebarDragItem = (value: unknown): value is SidebarDragItem => {
+  if (!value || typeof value !== "object") return false
+  const item = value as Partial<SidebarDragItem>
+  return (
+    typeof item.id === "string" &&
+    typeof item.key === "string" &&
+    (item.type === "project" || item.type === "section" || item.type === "thread")
+  )
+}
+
+const isChatSidebarRow = (value: unknown): value is ChatSidebarRow =>
+  Boolean(
+    value &&
+      typeof value === "object" &&
+      "key" in value &&
+      typeof (value as { key?: unknown }).key === "string" &&
+      "kind" in value
+  )
+
+const isSidebarDropTarget = (row: ChatSidebarRow) =>
+  row.kind === "section" ||
+  row.kind === "customSection" ||
+  row.kind === "project" ||
+  row.kind === "thread"
+
+function SidebarDndRow({
+  children,
+  dragging,
+  row,
+}: Readonly<{
+  children: ReactNode
+  dragging: SidebarDragItem | null
+  row: ChatSidebarRow
+}>) {
+  const item = sidebarDragItemForRow(row)
+  const { isDragging, ref: draggableRef } = useDraggable({
+    data: { item },
+    disabled: item == null,
+    id: `sidebar-drag:${row.key}`,
+  })
+  const { isDropTarget, ref: droppableRef } = useDroppable({
+    data: { row },
+    disabled: !isSidebarDropTarget(row),
+    id: `sidebar-drop:${row.key}`,
+  })
+  const setNodeRef = useCallback(
+    (node: HTMLElement | null) => {
+      draggableRef(node)
+      droppableRef(node)
+    },
+    [draggableRef, droppableRef]
+  )
+  return (
+    <div
+      className={cn(
+        "h-full rounded-md transition-[background-color,box-shadow,opacity]",
+        isDragging && "z-10 opacity-60",
+        isDropTarget && dragging?.key !== item?.key && "bg-sidebar-accent ring-1 ring-sidebar-ring"
+      )}
+      ref={setNodeRef}
+    >
+      {children}
+    </div>
   )
 }
 
@@ -965,6 +1282,29 @@ function ChatSidebarRowView(props: RowViewProps) {
           }
           tooltip={row.thread.title}
         >
+          {row.thread.status === "active" ? (
+            <LoaderCircle
+              aria-label={i18n._(msg({ id: "navigation.threadRunning", message: "Running" }))}
+              className="size-3.5 shrink-0 animate-spin text-primary"
+            />
+          ) : row.thread.status === "systemError" ? (
+            <>
+              <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-destructive" />
+              <span className="sr-only">
+                {i18n._(msg({ id: "navigation.threadError", message: "Error" }))}
+              </span>
+            </>
+          ) : row.thread.status === "notLoaded" ? (
+            <>
+              <span
+                aria-hidden="true"
+                className="size-2 shrink-0 rounded-full border border-muted-foreground/50"
+              />
+              <span className="sr-only">
+                {i18n._(msg({ id: "navigation.threadStopped", message: "Stopped" }))}
+              </span>
+            </>
+          ) : null}
           <span className={cn("min-w-0 flex-1 truncate", isUnread && "font-semibold")}>
             {row.thread.title}
           </span>
@@ -1589,7 +1929,10 @@ function SectionDialog({
     onSuccess: async (section) => {
       if (dialog?.mode === "create") await onCreated(section, dialog.target)
       sidebarData.invalidate()
-      await queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all })
+      await Promise.all([
+        getSidebarCollections(queryClient).invalidate(),
+        queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all }),
+      ])
       onOpenChange(false)
     },
   })
@@ -1669,7 +2012,10 @@ function DeleteSectionDialog({
     },
     onSuccess: async () => {
       sidebarData.invalidate()
-      await queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all })
+      await Promise.all([
+        getSidebarCollections(queryClient).invalidate(),
+        queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all }),
+      ])
       onOpenChange(false)
     },
   })

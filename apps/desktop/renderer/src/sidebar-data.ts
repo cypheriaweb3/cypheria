@@ -1,9 +1,9 @@
 import type { CypheriaApi } from "@cypheria/client"
 import type {
   Project,
-  ProjectItem,
+  ProjectMembershipRecord,
   Section,
-  SectionItem,
+  SectionMembershipRecord,
   ThreadTimelineProjectedItem,
   ThreadView,
 } from "@cypheria/protocol"
@@ -16,11 +16,16 @@ export type SidebarThreadStatus = "active" | "idle" | "notLoaded" | "systemError
 
 export type SidebarThreadView = {
   agentId: ThreadView["agentId"]
+  attention: boolean
+  createdAt?: number
   cwd: string
   id: string
+  position?: number
   projectId: string | null
+  recencyAt?: number | null
   sectionId: string | null
   sectionName: string | null
+  sectionPosition: number | null
   status: SidebarThreadStatus
   title: string
   updatedAt: number
@@ -28,6 +33,7 @@ export type SidebarThreadView = {
 
 export type SidebarProjectView = Project & {
   sectionId: string | null
+  sectionPosition: number | null
 }
 
 export type SidebarSectionView = Pick<Section, "id" | "name">
@@ -41,20 +47,13 @@ export type SidebarThreadListInput = {
   searchTerm?: string
   sectionId?: string | null
   sortDirection?: "asc" | "desc"
-  sortKey?: "created_at" | "updated_at" | "recency_at" | "section_position"
+  sortKey?: "created_at" | "updated_at" | "recency_at" | "section_position" | "priority"
 }
 
 type SidebarSnapshot = {
   projects: SidebarProjectView[]
   sections: SidebarSectionView[]
-  threads: Array<
-    SidebarThreadView & {
-      createdAt: number
-      position: number
-      recencyAt: number | null
-      sectionPosition: number | null
-    }
-  >
+  threads: SidebarThreadView[]
 }
 
 const collectPages = async <T>(
@@ -107,6 +106,9 @@ export class SidebarDataApi {
   }
 
   async listThreads(input: SidebarThreadListInput = {}): Promise<SidebarPage<SidebarThreadView>> {
+    if (!(input.archived ?? false) && !input.searchTerm?.trim() && input.sortKey !== "priority") {
+      return this.#listActiveThreads(input)
+    }
     const snapshot = await this.#load(input.archived ?? false)
     const direction = input.sortDirection ?? "desc"
     const sortKey = input.sortKey ?? "updated_at"
@@ -122,26 +124,54 @@ export class SidebarDataApi {
       })
       .toSorted((left, right) => {
         const compared =
-          sortKey === "created_at"
-            ? compareNumber(left.createdAt, right.createdAt, direction)
-            : sortKey === "recency_at"
-              ? compareNumber(left.recencyAt, right.recencyAt, direction)
-              : sortKey === "section_position"
-                ? compareNumber(left.sectionPosition, right.sectionPosition, direction)
-                : compareNumber(left.updatedAt, right.updatedAt, direction)
+          sortKey === "priority"
+            ? Number(right.attention) - Number(left.attention) ||
+              Number(right.status === "active") - Number(left.status === "active") ||
+              compareNumber(left.updatedAt, right.updatedAt, "desc")
+            : sortKey === "created_at"
+              ? compareNumber(left.createdAt ?? null, right.createdAt ?? null, direction)
+              : sortKey === "recency_at"
+                ? compareNumber(left.recencyAt ?? null, right.recencyAt ?? null, direction)
+                : sortKey === "section_position"
+                  ? compareNumber(left.sectionPosition, right.sectionPosition, direction)
+                  : compareNumber(left.updatedAt, right.updatedAt, direction)
         return compared || left.id.localeCompare(right.id)
       })
     return page(values, input.cursor, input.limit)
   }
 
   async listProjects(): Promise<SidebarPage<SidebarProjectView>> {
-    const snapshot = await this.#load(false)
-    return { data: snapshot.projects, nextCursor: null }
+    const client = await this.#client()
+    const [projects, memberships] = await Promise.all([
+      collectPages<Project>((cursor) => client.projects.list({ cursor, limit: 200 })),
+      collectPages<SectionMembershipRecord>((cursor) =>
+        client.sections.listMemberships({ cursor, limit: 200 })
+      ),
+    ])
+    const sectionByProject = new Map(
+      memberships.flatMap((membership) =>
+        membership.item.type === "project" ? [[membership.item.id, membership] as const] : []
+      )
+    )
+    return {
+      data: projects.map((project) => {
+        const membership = sectionByProject.get(project.id)
+        return {
+          ...project,
+          sectionId: membership?.sectionId ?? null,
+          sectionPosition: membership?.position ?? null,
+        }
+      }),
+      nextCursor: null,
+    }
   }
 
   async listSections(): Promise<SidebarPage<SidebarSectionView>> {
-    const snapshot = await this.#load(false)
-    return { data: snapshot.sections, nextCursor: null }
+    const client = await this.#client()
+    const sections = await collectPages<Section>((cursor) =>
+      client.sections.list({ cursor, limit: 200 })
+    )
+    return { data: sections.map(({ id, name }) => ({ id, name })), nextCursor: null }
   }
 
   async archiveThread(threadId: string) {
@@ -178,20 +208,53 @@ export class SidebarDataApi {
     return result.thread
   }
 
-  async moveThreadToProject(threadId: string, projectId: string | null) {
+  async moveThreadToProject(
+    threadId: string,
+    projectId: string | null,
+    beforeThreadId?: string | null
+  ) {
     const client = await this.#client()
-    if (projectId) await client.projects.moveThread({ projectId, threadId })
+    if (projectId)
+      await client.projects.moveThread({
+        ...(beforeThreadId === undefined ? {} : { beforeThreadId }),
+        projectId,
+        threadId,
+      })
     else await client.projects.removeThread(threadId)
     this.invalidate()
   }
 
   async moveItemToSection(
     item: { id: string; type: "project" | "thread" },
-    sectionId: string | null
+    sectionId: string | null,
+    beforeItem?: { id: string; type: "project" | "thread" } | null
   ) {
     const client = await this.#client()
-    if (sectionId) await client.sections.moveItem({ item, sectionId })
+    if (sectionId)
+      await client.sections.moveItem({
+        ...(beforeItem === undefined ? {} : { beforeItem }),
+        item,
+        sectionId,
+      })
     else await client.sections.removeItem(item)
+    this.invalidate()
+  }
+
+  async moveProject(projectId: string, beforeProjectId?: string | null) {
+    const client = await this.#client()
+    await client.projects.move({ beforeProjectId, projectId })
+    this.invalidate()
+  }
+
+  async moveSection(sectionId: string, beforeSectionId?: string | null) {
+    const client = await this.#client()
+    await client.sections.move({ beforeSectionId, sectionId })
+    this.invalidate()
+  }
+
+  async moveThread(threadId: string, beforeThreadId?: string | null) {
+    const client = await this.#client()
+    await client.threads.move({ beforeThreadId, threadId })
     this.invalidate()
   }
 
@@ -202,9 +265,9 @@ export class SidebarDataApi {
     return result
   }
 
-  async updateProject(projectId: string, name: string) {
+  async updateProject(projectId: string, name: string, roots: readonly string[]) {
     const client = await this.#client()
-    const result = await client.projects.update({ name, projectId })
+    const result = await client.projects.update({ name, projectId, roots: [...roots] })
     this.invalidate()
     return result
   }
@@ -254,6 +317,77 @@ export class SidebarDataApi {
     this.invalidate()
   }
 
+  async #listActiveThreads(input: SidebarThreadListInput): Promise<SidebarPage<SidebarThreadView>> {
+    const client = await this.#client()
+    const requestedSort = input.sortKey ?? "updated_at"
+    const sortKey =
+      requestedSort === "created_at"
+        ? "createdAt"
+        : requestedSort === "updated_at"
+          ? "updatedAt"
+          : requestedSort === "recency_at" || requestedSort === "priority"
+            ? "recencyAt"
+            : input.sectionId
+              ? "sectionPosition"
+              : "position"
+    const [result, projectMemberships, sectionMemberships, sections] = await Promise.all([
+      client.threads.list({
+        archived: false,
+        cursor: input.cursor,
+        limit: input.limit,
+        sectionId: input.sectionId,
+        sortDirection: input.sortDirection,
+        sortKey,
+      }),
+      collectPages<ProjectMembershipRecord>((cursor) =>
+        client.projects.listMemberships({ cursor, limit: 200 })
+      ),
+      collectPages<SectionMembershipRecord>((cursor) =>
+        client.sections.listMemberships({ cursor, limit: 200 })
+      ),
+      collectPages<Section>((cursor) => client.sections.list({ cursor, limit: 200 })),
+    ])
+    const projectByThread = new Map(
+      projectMemberships.map(({ projectId, threadId }) => [threadId, projectId])
+    )
+    const sectionById = new Map(sections.map((section) => [section.id, section]))
+    const sectionByThread = new Map(
+      sectionMemberships.flatMap((membership) =>
+        membership.item.type === "thread" ? [[membership.item.id, membership] as const] : []
+      )
+    )
+    const data = result.data.map((thread) => {
+      const sectionMembership = sectionByThread.get(thread.id)
+      const section = sectionMembership ? sectionById.get(sectionMembership.sectionId) : undefined
+      return {
+        agentId: thread.agentId,
+        attention: thread.attention,
+        createdAt: thread.createdAt,
+        cwd: thread.cwd ?? "",
+        id: thread.id,
+        position: thread.position,
+        projectId: projectByThread.get(thread.id) ?? null,
+        recencyAt: thread.recencyAt,
+        sectionId: sectionMembership?.sectionId ?? null,
+        sectionName: section?.name ?? null,
+        sectionPosition: sectionMembership?.position ?? null,
+        status: statusFor(thread.state),
+        title: thread.title ?? "New chat",
+        updatedAt: thread.updatedAt,
+      }
+    })
+    if (requestedSort === "priority") {
+      data.sort(
+        (left, right) =>
+          Number(right.attention) - Number(left.attention) ||
+          Number(right.status === "active") - Number(left.status === "active") ||
+          right.updatedAt - left.updatedAt ||
+          left.id.localeCompare(right.id)
+      )
+    }
+    return { data, nextCursor: result.nextCursor }
+  }
+
   async #load(archived: boolean): Promise<SidebarSnapshot> {
     if (archived) return this.#createSnapshot(true)
     if (!this.#snapshot) {
@@ -273,74 +407,54 @@ export class SidebarDataApi {
 
   async #createSnapshot(archived: boolean): Promise<SidebarSnapshot> {
     const client = await this.#client()
-    const [threads, projects, sections] = await Promise.all([
-      collectPages<ThreadView>((cursor) => client.threads.list({ archived, cursor, limit: 200 })),
-      collectPages<Project>((cursor) => client.projects.list({ cursor, limit: 200 })),
-      collectPages<Section>((cursor) => client.sections.list({ cursor, limit: 200 })),
-    ])
-    const [projectPages, sectionPages] = await Promise.all([
-      Promise.all(
-        projects.map(async (project) => ({
-          items: await collectPages<ProjectItem>((cursor) =>
-            client.projects.listThreads({ cursor, limit: 200, projectId: project.id })
-          ),
-          project,
-        }))
-      ),
-      Promise.all(
-        sections.map(async (section) => ({
-          items: await collectPages<SectionItem>((cursor) =>
-            client.sections.listItems({ cursor, limit: 200, sectionId: section.id })
-          ),
-          section,
-        }))
-      ),
-    ])
-    const projectByThread = new Map<string, string>()
-    for (const { items, project } of projectPages)
-      for (const { thread } of items) projectByThread.set(thread.id, project.id)
+    const [threads, projects, sections, projectMemberships, sectionMemberships] = await Promise.all(
+      [
+        collectPages<ThreadView>((cursor) => client.threads.list({ archived, cursor, limit: 200 })),
+        collectPages<Project>((cursor) => client.projects.list({ cursor, limit: 200 })),
+        collectPages<Section>((cursor) => client.sections.list({ cursor, limit: 200 })),
+        collectPages<ProjectMembershipRecord>((cursor) =>
+          client.projects.listMemberships({ cursor, limit: 200 })
+        ),
+        collectPages<SectionMembershipRecord>((cursor) =>
+          client.sections.listMemberships({ cursor, limit: 200 })
+        ),
+      ]
+    )
+    const projectByThread = new Map(
+      projectMemberships.map(({ projectId, threadId }) => [threadId, projectId])
+    )
     const sectionByThread = new Map<string, { id: string; name: string; position: number }>()
-    const sectionByProject = new Map<string, string>()
-    for (const { items, section } of sectionPages) {
-      for (const item of items) {
-        if (item.type === "thread")
-          sectionByThread.set(item.thread.id, {
+    const sectionByProject = new Map<string, { id: string; position: number }>()
+    const sectionById = new Map(sections.map((section) => [section.id, section]))
+    for (const membership of sectionMemberships) {
+      if (membership.item.type === "thread") {
+        const section = sectionById.get(membership.sectionId)
+        if (section) {
+          sectionByThread.set(membership.item.id, {
             id: section.id,
             name: section.name,
-            position: item.position,
+            position: membership.position,
           })
-        else sectionByProject.set(item.project.id, section.id)
-      }
-    }
-    if (archived) {
-      const memberships = await Promise.all(
-        threads.map(async (thread) => ({
-          project: await client.projects.getThreadProject(thread.id),
-          section: await client.sections.getItemSection({ id: thread.id, type: "thread" }),
-          thread,
-        }))
-      )
-      for (const membership of memberships) {
-        if (membership.project)
-          projectByThread.set(membership.thread.id, membership.project.project.id)
-        if (membership.section)
-          sectionByThread.set(membership.thread.id, {
-            id: membership.section.section.id,
-            name: membership.section.section.name,
-            position: membership.section.position,
-          })
+        }
+      } else {
+        sectionByProject.set(membership.item.id, {
+          id: membership.sectionId,
+          position: membership.position,
+        })
       }
     }
     return {
       projects: projects.map((project) => ({
         ...project,
-        sectionId: sectionByProject.get(project.id) ?? null,
+        sectionId: sectionByProject.get(project.id)?.id ?? null,
+        sectionPosition: sectionByProject.get(project.id)?.position ?? null,
       })),
       sections: sections.map(({ id, name }) => ({ id, name })),
       threads: threads.map((thread) => {
         const section = sectionByThread.get(thread.id)
         return {
           agentId: thread.agentId,
+          attention: thread.attention,
           createdAt: thread.createdAt,
           cwd: thread.cwd ?? "",
           id: thread.id,

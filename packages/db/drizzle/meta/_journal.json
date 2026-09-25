@@ -22,6 +22,13 @@
       "when": 1790071664896,
       "tag": "0002_thread_message_identity",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1790316175690,
+      "tag": "0003_resource-lifecycle",
+      "breakpoints": true
     }
   ]
 }

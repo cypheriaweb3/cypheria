@@ -21,6 +21,7 @@ import type { ToolchainManager } from "./toolchain-manager.js"
 type PiOutput = PiServerEvent | RpcResponse
 
 export class PiSessionRuntime {
+  readonly #cwd: string | undefined
   readonly #home: string
   readonly #receipt: AgentInstallReceipt
   readonly #send: (message: AgentPiServerMessage) => void
@@ -30,12 +31,14 @@ export class PiSessionRuntime {
   #startPromise: Promise<void> | undefined
 
   constructor(options: {
+    cwd?: string
     home: string
     receipt: AgentInstallReceipt
     send: (message: AgentPiServerMessage) => void
     toolchains: ToolchainManager
     logger?: Logger
   }) {
+    this.#cwd = options.cwd
     this.#home = options.home
     this.#receipt = options.receipt
     this.#send = options.send
@@ -62,6 +65,7 @@ export class PiSessionRuntime {
   async #start(): Promise<void> {
     await mkdir(this.#home, { recursive: true })
     const child = spawn(this.#receipt.command, [...this.#receipt.args, "--mode", "rpc"], {
+      ...(this.#cwd ? { cwd: this.#cwd } : {}),
       env: { ...this.#toolchains.environment(), PI_CODING_AGENT_DIR: this.#home },
       shell: false,
       stdio: ["pipe", "pipe", "pipe"],

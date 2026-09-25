@@ -33,6 +33,7 @@ export type ThreadHarnessContext = {
   readonly agentSessionId: string | null
   readonly cwd: string | null
   readonly threadId: string
+  readonly workspaceRoots?: readonly string[]
 }
 
 export type ThreadHarnessEvent =
@@ -52,6 +53,7 @@ export type ThreadHarnessCreateInput = {
   readonly forkedFromAgentSessionId: string | null
   readonly onEvent: (event: ThreadHarnessEvent) => void
   readonly threadId: string
+  readonly workspaceRoots?: readonly string[]
 }
 
 export type ThreadHarnessResumeInput = ThreadHarnessContext & {

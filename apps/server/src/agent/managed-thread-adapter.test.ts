@@ -35,9 +35,14 @@ describe("ManagedThreadAdapter", () => {
       handleCodex,
     } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "codex")
-    await adapter.resume({ ...input("codex"), agentSessionId: "codex-thread-1" })
+    await adapter.resume({
+      ...input("codex"),
+      agentSessionId: "codex-thread-1",
+      workspaceRoots: ["/repo", "/shared"],
+    })
     expect(handleCodex.mock.calls[0]?.[0]).toMatchObject({
       developerInstructions: "Use feature/ for new Git branches.",
+      runtimeWorkspaceRoots: ["/repo", "/shared"],
       type: "agent.codex.thread.resume.request",
     })
   })
@@ -69,7 +74,12 @@ describe("ManagedThreadAdapter", () => {
     } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "codex")
 
-    await expect(adapter.create(input("codex"))).resolves.toMatchObject({
+    await expect(
+      adapter.create({
+        ...input("codex"),
+        workspaceRoots: ["/repo", "/shared"],
+      })
+    ).resolves.toMatchObject({
       capabilities: { fork: true },
       sessionId: "01984de2-8f74-7c91-a3b2-5c5e937cf400",
     })
@@ -77,8 +87,10 @@ describe("ManagedThreadAdapter", () => {
       config: { shell_environment_policy: { set: { PATH: "/repo/bin" } } },
       cwd: "/repo",
       developerInstructions: "Use codex/ for new Git branches.",
+      runtimeWorkspaceRoots: ["/repo", "/shared"],
       type: "agent.codex.thread.start.request",
     })
+    expect(handleCodex.mock.calls[0]?.[0]).not.toHaveProperty("projectId")
   })
 
   it("preserves Codex permission, question, and elicitation response details", async () => {
@@ -126,6 +138,7 @@ describe("ManagedThreadAdapter", () => {
       agentSessionId: created.sessionId,
       cwd: "/repo",
       threadId: input("codex").threadId,
+      workspaceRoots: ["/repo", "/shared"],
     }
     const started = await adapter.startTurn({
       ...context,
@@ -133,6 +146,10 @@ describe("ManagedThreadAdapter", () => {
       content: [{ text: "hello", type: "text" }],
     })
     expect(started.turnId).toBe("turn-1")
+    expect(handleCodex.mock.calls[1]?.[0]).toMatchObject({
+      runtimeWorkspaceRoots: ["/repo", "/shared"],
+      type: "agent.codex.turn.start.request",
+    })
 
     turnContext?.send({
       payload: {
@@ -276,7 +293,14 @@ describe("ManagedThreadAdapter", () => {
               payload: {
                 requestId: message.requestId,
                 result: {
-                  capabilities: { session: { prompt: { image: {} } } },
+                  capabilities: {
+                    session: {
+                      additionalDirectories: {},
+                      fork: {},
+                      prompt: { image: {} },
+                      resume: {},
+                    },
+                  },
                   info: { name: "test", version: "1" },
                   protocolVersion: 2,
                 },
@@ -290,6 +314,20 @@ describe("ManagedThreadAdapter", () => {
               payload: { requestId: message.requestId, result: { sessionId: "acp-v2-session" } },
               protocolVersion: 2,
               type: "agent.acp.session.new.response",
+            } as AgentRuntimeServerMessage)
+          } else if (message.type === "agent.acp.session.fork.request") {
+            context.send({
+              agent: "gemini",
+              payload: { requestId: message.requestId, result: { sessionId: "acp-v2-fork" } },
+              protocolVersion: 2,
+              type: "agent.acp.session.fork.response",
+            } as AgentRuntimeServerMessage)
+          } else if (message.type === "agent.acp.session.resume.request") {
+            context.send({
+              agent: "gemini",
+              payload: { requestId: message.requestId, result: {} },
+              protocolVersion: 2,
+              type: "agent.acp.session.resume.response",
             } as AgentRuntimeServerMessage)
           } else if (message.type === "agent.acp.session.prompt.request") {
             context.send({
@@ -320,6 +358,7 @@ describe("ManagedThreadAdapter", () => {
     const created = await adapter.create({
       ...input("gemini"),
       onEvent: (event) => events.push(event),
+      workspaceRoots: ["/repo", "/shared"],
     })
     expect(created).toMatchObject({
       capabilities: { promptContent: expect.arrayContaining(["text", "image"]) },
@@ -340,6 +379,45 @@ describe("ManagedThreadAdapter", () => {
         expect.objectContaining({ protocolVersion: 2, type: "agent.acp.session.prompt.request" }),
       ])
     )
+    expect(
+      messages.find((message) => message.type === "agent.acp.session.new.request")
+    ).toMatchObject({
+      payload: { additionalDirectories: ["/shared"], cwd: "/repo" },
+    })
+
+    const forkedAdapter = new ManagedThreadAdapter(manager, "gemini")
+    await forkedAdapter.create({
+      ...input("gemini"),
+      forkedFromAgentSessionId: "acp-v2-session",
+      workspaceRoots: ["/repo", "/shared"],
+      threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf397",
+    })
+    expect(
+      messages.find((message) => message.type === "agent.acp.session.fork.request")
+    ).toMatchObject({
+      payload: {
+        additionalDirectories: ["/shared"],
+        cwd: "/repo",
+        sessionId: "acp-v2-session",
+      },
+    })
+
+    const resumedAdapter = new ManagedThreadAdapter(manager, "gemini")
+    await resumedAdapter.resume({
+      ...input("gemini"),
+      agentSessionId: "acp-v2-session",
+      threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf398",
+      workspaceRoots: ["/repo", "/shared"],
+    })
+    expect(
+      messages.find((message) => message.type === "agent.acp.session.resume.request")
+    ).toMatchObject({
+      payload: {
+        additionalDirectories: ["/shared"],
+        cwd: "/repo",
+        sessionId: "acp-v2-session",
+      },
+    })
     expect(events).toContainEqual({ turnId: "active", type: "turn-completed" })
   })
 
@@ -630,9 +708,11 @@ describe("ManagedThreadAdapter", () => {
       content: [{ text: "hello", type: "text" }],
       cwd: "/repo",
       threadId: input("claude").threadId,
+      workspaceRoots: ["/repo", "/shared"],
     })
     expect(handleClaude.mock.calls[0]?.[0]).toMatchObject({
       options: {
+        additionalDirectories: ["/shared"],
         effort: "high",
         model: "claude-test",
         permissionMode: "plan",
@@ -677,7 +757,12 @@ describe("ManagedThreadAdapter", () => {
           const operation = String(payload.operation)
           context.send({
             payload: {
-              data: operation === "session.create" ? { id: "opencode-session-1" } : true,
+              data:
+                operation === "session.create"
+                  ? { id: "opencode-session-1" }
+                  : operation === "session.fork"
+                    ? { id: "opencode-session-2" }
+                    : true,
               headers: {},
               ok: true,
               status: 200,
@@ -697,7 +782,21 @@ describe("ManagedThreadAdapter", () => {
     )
     const manager = { handleOpenCode } as unknown as AgentManager
     const adapter = new ManagedThreadAdapter(manager, "opencode")
-    await adapter.create({ ...input("opencode"), onEvent: (event) => events.push(event) })
+    await adapter.create({
+      ...input("opencode"),
+      onEvent: (event) => events.push(event),
+      workspaceRoots: ["/repo", "/shared"],
+    })
+    const createCall = calls.find(
+      (call) =>
+        (call.payload as Record<string, unknown> | undefined)?.operation === "session.create"
+    )
+    expect(createCall).toMatchObject({
+      payload: { body: { location: { directory: "/repo" } }, operation: "session.create" },
+    })
+    expect((createCall?.payload as { body?: Record<string, unknown> })?.body).not.toHaveProperty(
+      "metadata"
+    )
 
     const started = await adapter.startTurn({
       agentId: "opencode",
@@ -791,5 +890,38 @@ describe("ManagedThreadAdapter", () => {
         operation: "session.form.reply",
       },
     })
+
+    const forked = new ManagedThreadAdapter(manager, "opencode")
+    await forked.create({
+      ...input("opencode"),
+      cwd: "/shared",
+      forkedFromAgentSessionId: "opencode-session-1",
+      onEvent: (event) => events.push(event),
+      threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf498",
+    })
+    expect(calls).toContainEqual(
+      expect.objectContaining({
+        payload: {
+          body: { directory: "/shared", sessionID: "opencode-session-2" },
+          operation: "session.move",
+        },
+      })
+    )
+
+    const resumed = new ManagedThreadAdapter(manager, "opencode")
+    await resumed.resume({
+      ...input("opencode"),
+      agentSessionId: "opencode-session-1",
+      cwd: "/repo/restored",
+      onEvent: (event) => events.push(event),
+    })
+    expect(calls).toContainEqual(
+      expect.objectContaining({
+        payload: {
+          body: { directory: "/repo/restored", sessionID: "opencode-session-1" },
+          operation: "session.move",
+        },
+      })
+    )
   })
 })

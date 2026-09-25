@@ -2176,3 +2176,28 @@ msgstr "When selected, Cypheria can access the internet and read and edit files 
 #. js-lingui-explicit-id
 msgid "settings.general.fullAccessConfirmNote"
 msgstr "Turning this on adds Full Access to the composer's permissions menu. It does not turn Full Access on."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.addFolder"
+msgstr "Add folder"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.primary"
+msgstr "Primary"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.removeFolder"
+msgstr "Remove folder"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.removeLocalProject"
+msgstr "Remove local project"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.setPrimary"
+msgstr "Set as primary"

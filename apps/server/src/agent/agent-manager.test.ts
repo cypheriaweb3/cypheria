@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs"
-import { mkdtemp, rm, writeFile } from "node:fs/promises"
+import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -36,6 +36,8 @@ describe("AgentManager enable gate", () => {
   it("reports Claude and Pi as running only while their runtimes are active", async () => {
     const home = await mkdtemp(join(tmpdir(), "cypheria-agent-manager-runtime-state-"))
     homes.push(home)
+    const projectCwd = join(home, "project")
+    await mkdir(projectCwd)
     const script = join(home, "pi-runtime.mjs")
     await writeFile(
       script,
@@ -44,6 +46,7 @@ describe("AgentManager enable gate", () => {
         `const home = ${JSON.stringify(home)}`,
         "process.stdin.once('data', (data) => {",
         "  const { id } = JSON.parse(data.toString())",
+        "  writeFileSync(home + '/cwd-' + id, process.cwd())",
         "  setInterval(() => {",
         "    if (!existsSync(home + '/stop-' + id)) return",
         "    writeFileSync(home + '/exited-' + id, '')",
@@ -111,9 +114,13 @@ describe("AgentManager enable gate", () => {
       for (const sessionId of ["first", "second"]) {
         await manager.handlePi(
           { requestId: `pi-${sessionId}`, type: "agent.pi.state.get.request" },
-          { send: () => undefined, sessionId }
+          { cwd: projectCwd, send: () => undefined, sessionId }
         )
       }
+      await expect.poll(() => existsSync(join(home, "cwd-pi-first"))).toBe(true)
+      await expect(readFile(join(home, "cwd-pi-first"), "utf8")).resolves.toBe(
+        await realpath(projectCwd)
+      )
       expect(await manager.get("pi", "first")).toMatchObject({ runtimeState: "running" })
       await writeFile(join(home, "stop-pi-first"), "")
       await expect.poll(() => existsSync(join(home, "exited-pi-first"))).toBe(true)

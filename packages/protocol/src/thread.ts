@@ -367,10 +367,12 @@ export const ThreadListRequestSchema = request(
     cursor: ProjectThreadCursorSchema.nullish(),
     forkedFromId: ProjectThreadIdSchema.optional(),
     limit: ProjectThreadLimitSchema.optional(),
-    projectId: ProjectThreadIdSchema.optional(),
-    sectionId: ProjectThreadIdSchema.optional(),
+    projectId: ProjectThreadIdSchema.nullable().optional(),
+    sectionId: ProjectThreadIdSchema.nullable().optional(),
     sortDirection: ProjectThreadSortDirectionSchema.optional(),
-    sortKey: z.enum(["position", "recencyAt"]).optional(),
+    sortKey: z
+      .enum(["position", "recencyAt", "createdAt", "updatedAt", "sectionPosition"])
+      .optional(),
   })
 )
 export const ThreadUpdateRequestSchema = request(

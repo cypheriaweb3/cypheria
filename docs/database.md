@@ -18,7 +18,7 @@ Every connection enables foreign keys. Server services define transaction bounda
 | --- | --- | --- |
 | Runtime | `runtime_metadata`, `settings`, `audit_logs`, `workspaces` | Runtime metadata, key/value settings, append-oriented audit, workspace records |
 | Agents | `agent_registry` | User-selected Agent membership, creation time, installation, enablement, versions, and state; native harnesses are seeded |
-| Projects and Threads | `projects`, `threads`, `project_items`, `sections`, `section_items` | Durable organization, ordering, membership, archive and harness linkage |
+| Projects and Threads | `projects`, `threads`, `project_items`, `sections`, `section_items` | Durable organization, ordering, membership, archive, and harness linkage |
 | Thread execution | `thread_lifecycle_operations`, `thread_message_requests`, `thread_timeline_epochs`, `thread_timeline_rows` | Lifecycle recovery, message idempotency receipts, and append-only Canonical Timeline |
 | Schedules | `schedules`, `schedule_runs` | Definitions, next occurrence, leases, and run history |
 | Networks | `networks`, `network_rpc_endpoints`, `dapp_network_contexts` | Chain definitions, ordered endpoints, health, and origin context |
@@ -33,6 +33,8 @@ Private keys, mnemonics, vault encryption keys, decrypted signers, and secret en
 Cypheria UUIDv7 values identify Projects, Threads, and Sections. A Thread has one immutable Agent, at most one harness session linkage per Agent, optional fork origin, and independent Project and Section membership.
 
 `project_items` places a Thread in at most one Project. `section_items` interleaves Project and Thread entries in one ordered domain and places each entry in at most one Section. The fixed Pinned Section has stable ID `01984de2-8f74-7c91-a3b2-5c5e937cf318`.
+
+Project, Thread, and Section deletion is staged. The Server first commits `deleted_at`, which removes the resource from normal reads, then performs Agent or dependent cleanup, and only then purges the row. Thread lifecycle receipts make failed Agent deletion retryable at startup. Tombstoned Projects and Sections are retried at startup and on a five-minute cleanup interval. Cypheria Project identity remains internal and is not mapped to Codex or OpenCode projects.
 
 Ordering columns are non-negative and unique in their scope. Membership moves and compaction execute transactionally so clients never observe duplicate positions.
 

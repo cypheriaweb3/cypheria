@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto"
 
-import { asc, eq, inArray } from "drizzle-orm"
+import { and, asc, eq, inArray, or } from "drizzle-orm"
 
 import type { CypheriaDatabase } from "./client.js"
 import { threadLifecycleOperations } from "./schema/index.js"
@@ -108,7 +108,17 @@ export const createThreadLifecyclePersistenceService = (
       .select()
       .from(threadLifecycleOperations)
       .where(
-        inArray(threadLifecycleOperations.status, ["pending", "harness-created", "harness-deleted"])
+        or(
+          inArray(threadLifecycleOperations.status, [
+            "pending",
+            "harness-created",
+            "harness-deleted",
+          ]),
+          and(
+            eq(threadLifecycleOperations.kind, "delete"),
+            eq(threadLifecycleOperations.status, "failed")
+          )
+        )
       )
       .orderBy(asc(threadLifecycleOperations.createdAt), asc(threadLifecycleOperations.id)),
   transition: async (id, patch, now = nowSeconds()) => {

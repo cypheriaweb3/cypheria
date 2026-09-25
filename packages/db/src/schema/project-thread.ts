@@ -20,12 +20,14 @@ export const projects = sqliteTable(
     roots: text("roots", { mode: "json" }).$type<string[]>().notNull(),
     position: integer("position").notNull(),
     recencyAt: integer("recency_at"),
+    deletedAt: integer("deleted_at"),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },
   (table) => [
     uniqueIndex("projects_position_unique").on(table.position),
     index("projects_recency_at_idx").on(table.recencyAt),
+    index("projects_deleted_at_idx").on(table.deletedAt),
     check(
       "projects_id_uuidv7_check",
       sql`length(${table.id}) = 36 AND substr(${table.id}, 15, 1) = '7'`
@@ -42,6 +44,7 @@ export const threads = sqliteTable(
   "threads",
   {
     archivedAt: integer("archived_at"),
+    deletedAt: integer("deleted_at"),
     id: text("id").primaryKey(),
     agentId: text("agent_id")
       .notNull()
@@ -64,6 +67,7 @@ export const threads = sqliteTable(
       .where(sql`${table.agentSessionId} IS NOT NULL`),
     index("threads_agent_id_idx").on(table.agentId),
     index("threads_archived_at_idx").on(table.archivedAt),
+    index("threads_deleted_at_idx").on(table.deletedAt),
     index("threads_forked_from_id_idx").on(table.forkedFromId),
     index("threads_recency_at_idx").on(table.recencyAt),
     check(
@@ -230,12 +234,14 @@ export const sections = sqliteTable(
     name: text("name").notNull(),
     icon: text("icon"),
     color: text("color"),
+    deletedAt: integer("deleted_at"),
     position: integer("position").notNull(),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },
   (table) => [
     uniqueIndex("sections_position_unique").on(table.position),
+    index("sections_deleted_at_idx").on(table.deletedAt),
     check(
       "sections_id_uuidv7_check",
       sql`length(${table.id}) = 36 AND substr(${table.id}, 15, 1) = '7'`

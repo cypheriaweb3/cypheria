@@ -18,7 +18,7 @@ Cypheria 通过 Drizzle ORM 和本地 libSQL driver 使用 SQLite。`packages/db
 | --- | --- | --- |
 | Runtime | `runtime_metadata`, `settings`, `audit_logs`, `workspaces` | Runtime metadata、key/value settings、追加型 audit、workspace records |
 | Agents | `agent_registry` | 用户选择的 Agent 成员关系、创建时间、安装、启用、版本和状态；原生 harness 会预置 |
-| Projects 与 Threads | `projects`, `threads`, `project_items`, `sections`, `section_items` | 持久组织、排序、membership、archive 和 harness linkage |
+| Projects 与 Threads | `projects`, `threads`, `project_items`, `sections`, `section_items` | 持久组织、排序、membership、archive 与 harness linkage |
 | Thread 执行 | `thread_lifecycle_operations`, `thread_message_requests`, `thread_timeline_epochs`, `thread_timeline_rows` | 生命周期恢复、消息幂等 receipt 和只追加 Canonical Timeline |
 | Schedules | `schedules`, `schedule_runs` | Definitions、next occurrence、leases 和 run history |
 | Networks | `networks`, `network_rpc_endpoints`, `dapp_network_contexts` | Chain definitions、有序 endpoints、health 和 origin context |
@@ -33,6 +33,8 @@ Cypheria 通过 Drizzle ORM 和本地 libSQL driver 使用 SQLite。`packages/db
 Cypheria UUIDv7 标识 Projects、Threads 和 Sections。Thread 拥有一个不可变 Agent；每个 Agent 至多对应一个 harness session linkage；可选 fork origin；Project 和 Section membership 相互独立。
 
 `project_items` 让一个 Thread 最多属于一个 Project。`section_items` 在同一有序域中交错 Project 和 Thread，并让每个条目最多属于一个 Section。固定 Pinned Section 的稳定 ID 为 `01984de2-8f74-7c91-a3b2-5c5e937cf318`。
+
+Project、Thread 与 Section 采用分阶段删除。Server 先提交 `deleted_at`，使资源从普通读取中消失；再执行 Agent 或依赖清理；最后物理删除 row。Thread lifecycle receipt 让失败的 Agent 删除可在启动时重试。带 tombstone 的 Projects 与 Sections 会在启动时及每五分钟的清理周期中重试。Cypheria Project 身份只在 Cypheria 内部使用，不映射到 Codex 或 OpenCode project。
 
 排序列在所属 scope 中非负且唯一。Membership move 和 compaction 在事务中执行，客户端不会观察到重复 position。
 

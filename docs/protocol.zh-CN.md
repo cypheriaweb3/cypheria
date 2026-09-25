@@ -60,6 +60,10 @@ Project 组织 workspace roots 和有序 Thread membership。Thread 是持久 Ag
 
 协议提供创建、读取、列表、更新、移动、membership、归档和删除操作。顺序使用显式 position 和 `before...` 位置提示。固定 Pinned Section 由稳定协议常量表示；客户端不从 harness 元数据推断 Section 归属。
 
+Project 与 Section membership 也作为规范化列表资源提供。Project membership 携带 `threadId`、`projectId`、position 与 timestamps；Section membership 携带 item reference、`sectionId`、position 与 timestamps。Project、Section 和 membership mutation 会发布类型化的 created、updated、upserted 与 deleted notifications，因此客户端可以维护规范化的本地 collections，而无需 N+1 membership 读取或轮询。逻辑删除 notification 会在 tombstone 提交后、延迟物理清理前发布；排序操作会发布所有受影响记录的规范 position。
+
+当 Thread 属于某个 Project 时，其规范化后的 `cwd` 必须与 Project 已保存的某个 root 完全一致；省略 `cwd` 时使用排在首位的主要 root。持久化边界会在创建 Thread、将 Thread 移入 Project 或修改 `cwd` 时强制检查该不变量，并阻止 Project 更新移除仍被成员 Thread 使用的 root。Codex 在 start、fork、resume 和每次 turn start 时通过 `runtimeWorkspaceRoots` 接收完整且有序的 roots，但 Cypheria 不创建 Codex project、不发送原生 project ID，也不修改 Codex Thread 的 project metadata。Claude 通过 `options.additionalDirectories` 接收额外目录；声明 `session.additionalDirectories` capability 的 ACP Agent 则在 session new、fork、load 或 resume 时接收 `additionalDirectories`；两者都会先从 Project roots 中排除当前 `cwd`，剩余为空时省略该字段。OpenCode 只接收解析后的 `cwd`：创建时使用 `session.create.location.directory`，fork 与 resume 时通过 `session.move` 对齐 session directory。Cypheria 不向 OpenCode 发送 project metadata，也不创建或持久化 OpenCode project 映射。Pi 同样没有额外目录接口，因此每个 Thread 的 RPC 进程会使用解析后的 `cwd` 启动。
+
 列表接口有上限并使用 cursor 分页。Mutation response 返回 Server 权威值，供客户端校正乐观更新。
 
 ## Canonical Timeline

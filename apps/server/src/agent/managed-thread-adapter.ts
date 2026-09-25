@@ -1,4 +1,5 @@
 import { randomBytes, randomUUID } from "node:crypto"
+import { resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 import type {
@@ -85,6 +86,16 @@ const payloadOf = (message: AgentRuntimeServerMessage): Record<string, unknown> 
   "payload" in message && message.payload && typeof message.payload === "object"
     ? (message.payload as Record<string, unknown>)
     : {}
+
+const additionalDirectories = (
+  roots: readonly string[] | undefined,
+  cwd: string | null
+): string[] | undefined => {
+  if (!roots) return undefined
+  const normalizedCwd = cwd ? resolve(cwd) : null
+  const directories = roots.filter((root) => resolve(root) !== normalizedCwd)
+  return directories.length > 0 ? directories : undefined
+}
 
 const requestIdOf = (message: AgentRuntimeServerMessage): string | number | null | undefined => {
   if ("requestId" in message) return message.requestId
@@ -531,6 +542,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   #onEvent: ((event: ThreadHarnessEvent) => void) | undefined
   #harnessSessionId: string | null = null
   #ownerThreadId: string | null = null
+  #cwd: string | null = null
 
   constructor(manager: AgentManager, agentId: AgentId) {
     this.#manager = manager
@@ -540,6 +552,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   async create(input: ThreadHarnessCreateInput): Promise<ThreadHarnessSession> {
     this.#attach(input.onEvent)
     this.#ownerThreadId = input.threadId
+    this.#cwd = input.cwd
     if (this.agentId === "codex") {
       const gitInstructions = this.#manager.codexGitInstructions()
       const worktreeConfig = await this.#manager.codexWorktreeConfig?.(input.cwd)
@@ -548,6 +561,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         input.forkedFromAgentSessionId
           ? {
               cwd: input.cwd,
+              ...(input.workspaceRoots ? { runtimeWorkspaceRoots: [...input.workspaceRoots] } : {}),
               ...(worktreeConfig ? { config: worktreeConfig } : {}),
               excludeTurns: false,
               requestId: randomUUID(),
@@ -556,6 +570,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
             }
           : {
               cwd: input.cwd,
+              ...(input.workspaceRoots ? { runtimeWorkspaceRoots: [...input.workspaceRoots] } : {}),
               ...(worktreeConfig ? { config: worktreeConfig } : {}),
               ...(gitInstructions ? { developerInstructions: gitInstructions } : {}),
               dynamicTools: this.#manager.codexDynamicTools.getSpecs(),
@@ -604,8 +619,14 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
             }
       )
       const session = resultOf(response).data as Record<string, unknown>
-      await this.#subscribeOpenCode(input.threadId)
       const sessionId = stringId(session.id)
+      if (input.forkedFromAgentSessionId && input.cwd) {
+        await this.#openCodeCall(input.threadId, {
+          body: { directory: input.cwd, sessionID: sessionId },
+          operation: "session.move",
+        })
+      }
+      await this.#subscribeOpenCode(input.threadId)
       this.#harnessSessionId = sessionId
       return { capabilities: capabilities(this.agentId), sessionId }
     }
@@ -622,12 +643,14 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   async resume(input: ThreadHarnessResumeInput): Promise<ThreadHarnessSession> {
     this.#attach(input.onEvent)
     this.#ownerThreadId = input.threadId
+    this.#cwd = input.cwd
     if (this.agentId === "codex") {
       if (!input.agentSessionId) return this.create({ ...input, forkedFromAgentSessionId: null })
       const gitInstructions = this.#manager.codexGitInstructions()
       const worktreeConfig = await this.#manager.codexWorktreeConfig?.(input.cwd)
       const response = await this.#request(input.threadId, {
         cwd: input.cwd,
+        ...(input.workspaceRoots ? { runtimeWorkspaceRoots: [...input.workspaceRoots] } : {}),
         ...(worktreeConfig ? { config: worktreeConfig } : {}),
         ...(gitInstructions ? { developerInstructions: gitInstructions } : {}),
         excludeTurns: false,
@@ -646,6 +669,12 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     }
     if (this.agentId === "opencode") {
       if (!input.agentSessionId) return this.create({ ...input, forkedFromAgentSessionId: null })
+      if (input.cwd) {
+        await this.#openCodeCall(input.threadId, {
+          body: { directory: input.cwd, sessionID: input.agentSessionId },
+          operation: "session.move",
+        })
+      }
       const response = await this.#openCodeCall(input.threadId, {
         body: { order: "asc", sessionID: input.agentSessionId },
         operation: "message.list",
@@ -695,6 +724,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     await this.#manager.disposeSession(context.threadId)
     this.#cancelPendingInteractions()
     this.#codexProjectors.clear()
+    this.#cwd = null
     this.#ownerThreadId = null
     this.#onEvent = undefined
   }
@@ -739,12 +769,14 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   async startTurn(
     input: ThreadHarnessTurnInput
   ): Promise<{ agentMessageId?: string; turnId: string }> {
+    this.#cwd = input.cwd
     if (this.agentId === "codex") {
       if (!input.agentSessionId) throw new Error("Codex thread is not bound")
       const response = await this.#request(input.threadId, {
         clientUserMessageId: input.clientMessageId,
         input: mapInput(input.content),
         requestId: randomUUID(),
+        ...(input.workspaceRoots ? { runtimeWorkspaceRoots: [...input.workspaceRoots] } : {}),
         threadId: input.agentSessionId,
         type: "agent.codex.turn.start.request",
       })
@@ -802,12 +834,14 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     }
     if (this.agentId === "claude") {
       const defaults = await this.#defaultsFor("claude")
+      const directories = additionalDirectories(input.workspaceRoots, input.cwd)
       const text = input.content
         .filter((block) => block.type === "text")
         .map((block) => block.text)
         .join("\n")
       await this.#request(input.threadId, {
         options: {
+          ...(directories ? { additionalDirectories: directories } : {}),
           ...(input.cwd ? { cwd: input.cwd } : {}),
           ...(input.agentSessionId ? { resume: input.agentSessionId } : {}),
           ...(typeof defaults.model === "string" && defaults.model
@@ -1277,6 +1311,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   async #createAcp(input: ThreadHarnessCreateInput): Promise<ThreadHarnessSession> {
     await this.#initializeAcp(input.threadId)
     const protocolVersion = this.#requireAcpVersion()
+    const directories = additionalDirectories(input.workspaceRoots, input.cwd)
     if (input.forkedFromAgentSessionId && !this.#supportsAcp("fork")) {
       await this.#manager.disposeSession(input.threadId)
       throw new Error("ACP agent lacks session.fork capability")
@@ -1285,11 +1320,20 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       agent: this.agentId,
       payload: input.forkedFromAgentSessionId
         ? {
+            ...(this.#supportsAcp("additionalDirectories") && directories
+              ? { additionalDirectories: directories }
+              : {}),
             cwd: input.cwd ?? process.cwd(),
             mcpServers: [],
             sessionId: input.forkedFromAgentSessionId,
           }
-        : { cwd: input.cwd ?? process.cwd(), mcpServers: [] },
+        : {
+            ...(this.#supportsAcp("additionalDirectories") && directories
+              ? { additionalDirectories: directories }
+              : {}),
+            cwd: input.cwd ?? process.cwd(),
+            mcpServers: [],
+          },
       protocolVersion,
       requestId: randomUUID(),
       type: input.forkedFromAgentSessionId
@@ -1310,12 +1354,16 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     if (!input.agentSessionId) return this.#createAcp({ ...input, forkedFromAgentSessionId: null })
     await this.#initializeAcp(input.threadId)
     const protocolVersion = this.#requireAcpVersion()
+    const directories = additionalDirectories(input.workspaceRoots, input.cwd)
     if (protocolVersion === 1 && this.#acpCapabilities?.loadSession !== true) {
       throw new Error("ACP v1 agent lacks session/load capability")
     }
     const response = await this.#request(input.threadId, {
       agent: this.agentId,
       payload: {
+        ...(this.#supportsAcp("additionalDirectories") && directories
+          ? { additionalDirectories: directories }
+          : {}),
         cwd: input.cwd ?? process.cwd(),
         mcpServers: [],
         sessionId: input.agentSessionId,
@@ -1378,7 +1426,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     return manager.defaultsFor?.(agentId) ?? {}
   }
 
-  #supportsAcp(capability: "close" | "delete" | "fork"): boolean {
+  #supportsAcp(capability: "additionalDirectories" | "close" | "delete" | "fork"): boolean {
     const session = (
       this.#acpProtocolVersion === 2
         ? (this.#acpCapabilities?.session ?? {})
@@ -1479,6 +1527,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     })
     try {
       const context = {
+        ...(this.#cwd ? { cwd: this.#cwd } : {}),
         requestClaudePermission: this.#requestClaudePermission,
         send: this.#receive,
         sessionId: threadId,

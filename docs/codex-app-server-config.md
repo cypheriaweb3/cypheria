@@ -69,6 +69,25 @@ The Server reads App Server configuration requirements before presenting permiss
 
 Clients must render the returned catalog. They must not expose a disallowed choice, infer policy from raw files, or claim that a successful native write overrides an administrator-managed requirement.
 
+## Path-based project trust
+
+Codex uses the `projects` table in its user `config.toml` as a machine-local path trust map. It is not a registry of named projects:
+
+```toml
+[projects."/absolute/path/to/repository"]
+trust_level = "trusted"
+```
+
+Each quoted key identifies a filesystem path and its value currently records a `trusted` or `untrusted` decision. Codex normalizes the path for lookup and resolves the active decision from the Thread working directory, the discovered project root, and the Git repository root. The default project-root marker is `.git`. Linked Git worktrees can use a worktree-specific entry, while the main checkout root is also considered as a trust fallback.
+
+Trust gates repository-controlled configuration. For a trusted path, Codex can load `.codex/config.toml` layers from the discovered project root down to the current working directory; layers closer to the working directory take precedence. Project-local hooks and rules or exec policies use the same trust boundary. If the path is untrusted or has no positive trust decision, those project-scoped `.codex/` layers remain disabled while user, system, and managed configuration still applies. This behavior and the layer order are defined by the [official Codex configuration documentation](https://learn.chatgpt.com/docs/config-file/config-basic).
+
+Path trust is not a sandbox grant. It does not bypass approval policy, the effective permission profile, or managed `requirements.toml`, and project-local configuration cannot override protected machine-local provider, authentication, host metadata, notification, profile-selection, or telemetry keys. Moving or copying a repository to a new path normally requires a new decision; replacing repository content at an already trusted path retains the path decision. Trust changes must therefore be treated as security-sensitive native configuration changes, not inferred from repository names, remotes, or Cypheria metadata.
+
+Cypheria applies this mechanism inside its isolated `CODEX_HOME`. A trust entry in the user's default `~/.codex/config.toml` is neither read nor copied into `$CYPHERIA_HOME/codex/config.toml`. Conversely, a decision written by the managed Codex App Server does not modify the user's default Codex home. On `thread/start`, Codex may persist a missing path as trusted and reload configuration when the client explicitly supplied the working directory and the effective permission profile already permits writing there. It does not replace an explicit `untrusted` decision. This inference uses the working directory and effective permissions, not a project identifier.
+
+The experimental App Server Project API is a separate conversation-grouping surface with IDs, names, roots, metadata, ordering, and Thread membership. Its `projectId` and roots do not participate in `config.toml` trust resolution. Cypheria owns its own Project records, does not create or assign native Codex projects, and passes working-directory and `runtimeWorkspaceRoots` values independently as described in [Client/server protocol](protocol.md). Adding a repository to a Cypheria Project must never by itself mark that path as trusted.
+
 ## Thread and turn scope
 
 Shared settings are defaults for new Threads. A Thread captures harness session state and may receive supported model, reasoning, service-tier, working-directory, and permission selections. Starting a normal turn does not recreate the Codex process or reload every native configuration field.

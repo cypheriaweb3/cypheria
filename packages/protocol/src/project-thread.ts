@@ -96,6 +96,24 @@ export const SectionMembershipSchema = z.object({
 })
 export type SectionMembership = z.infer<typeof SectionMembershipSchema>
 
+export const ProjectMembershipRecordSchema = z.object({
+  createdAt: UnixTimestampSecondsSchema,
+  position: z.int().nonnegative(),
+  projectId: ProjectThreadIdSchema,
+  threadId: ProjectThreadIdSchema,
+  updatedAt: UnixTimestampSecondsSchema,
+})
+export type ProjectMembershipRecord = z.infer<typeof ProjectMembershipRecordSchema>
+
+export const SectionMembershipRecordSchema = z.object({
+  createdAt: UnixTimestampSecondsSchema,
+  item: SectionItemRefSchema,
+  position: z.int().nonnegative(),
+  sectionId: ProjectThreadIdSchema,
+  updatedAt: UnixTimestampSecondsSchema,
+})
+export type SectionMembershipRecord = z.infer<typeof SectionMembershipRecordSchema>
+
 const pageSchema = <S extends z.ZodType>(schema: S) =>
   z.object({ data: z.array(schema), nextCursor: ProjectThreadCursorSchema.nullable() })
 const listPayloadSchema = z.object({
@@ -178,6 +196,10 @@ export const ProjectItemRemoveRequestSchema = request(
   "project.item.remove.request",
   z.object({ threadId: ProjectThreadIdSchema })
 )
+export const ProjectMembershipListRequestSchema = request(
+  "project.membership.list.request",
+  listPayloadSchema.extend({ projectId: ProjectThreadIdSchema.optional() })
+)
 
 export const SectionCreateRequestSchema = request(
   "section.create.request",
@@ -239,6 +261,10 @@ export const SectionItemUnpinRequestSchema = request(
   "section.item.unpin.request",
   z.object({ item: SectionItemRefSchema })
 )
+export const SectionMembershipListRequestSchema = request(
+  "section.membership.list.request",
+  listPayloadSchema.extend({ sectionId: ProjectThreadIdSchema.optional() })
+)
 
 export const ProjectCreateResponseSchema = response("project.create.response", ProjectSchema)
 export const ProjectReadResponseSchema = response("project.read.response", ProjectSchema)
@@ -262,6 +288,10 @@ export const ProjectItemMoveResponseSchema = response(
   ProjectMembershipSchema
 )
 export const ProjectItemRemoveResponseSchema = response("project.item.remove.response", emptySchema)
+export const ProjectMembershipListResponseSchema = response(
+  "project.membership.list.response",
+  pageSchema(ProjectMembershipRecordSchema)
+)
 export const SectionCreateResponseSchema = response("section.create.response", SectionSchema)
 export const SectionReadResponseSchema = response("section.read.response", SectionSchema)
 export const SectionListResponseSchema = response(
@@ -289,6 +319,51 @@ export const SectionItemPinResponseSchema = response(
   SectionMembershipSchema
 )
 export const SectionItemUnpinResponseSchema = response("section.item.unpin.response", emptySchema)
+export const SectionMembershipListResponseSchema = response(
+  "section.membership.list.response",
+  pageSchema(SectionMembershipRecordSchema)
+)
+
+export const ProjectCreatedNotificationSchema = z.object({
+  payload: ProjectSchema,
+  type: z.literal("project.created.notification"),
+})
+export const ProjectUpdatedNotificationSchema = z.object({
+  payload: ProjectSchema,
+  type: z.literal("project.updated.notification"),
+})
+export const ProjectDeletedNotificationSchema = z.object({
+  payload: z.object({ projectId: ProjectThreadIdSchema }),
+  type: z.literal("project.deleted.notification"),
+})
+export const SectionCreatedNotificationSchema = z.object({
+  payload: SectionSchema,
+  type: z.literal("section.created.notification"),
+})
+export const SectionUpdatedNotificationSchema = z.object({
+  payload: SectionSchema,
+  type: z.literal("section.updated.notification"),
+})
+export const SectionDeletedNotificationSchema = z.object({
+  payload: z.object({ sectionId: ProjectThreadIdSchema }),
+  type: z.literal("section.deleted.notification"),
+})
+export const ProjectMembershipUpsertedNotificationSchema = z.object({
+  payload: ProjectMembershipRecordSchema,
+  type: z.literal("project.membership.upserted.notification"),
+})
+export const ProjectMembershipDeletedNotificationSchema = z.object({
+  payload: z.object({ threadId: ProjectThreadIdSchema }),
+  type: z.literal("project.membership.deleted.notification"),
+})
+export const SectionMembershipUpsertedNotificationSchema = z.object({
+  payload: SectionMembershipRecordSchema,
+  type: z.literal("section.membership.upserted.notification"),
+})
+export const SectionMembershipDeletedNotificationSchema = z.object({
+  payload: z.object({ item: SectionItemRefSchema }),
+  type: z.literal("section.membership.deleted.notification"),
+})
 
 export const PROJECT_THREAD_CLIENT_SCHEMAS = [
   ProjectCreateRequestSchema,
@@ -301,6 +376,7 @@ export const PROJECT_THREAD_CLIENT_SCHEMAS = [
   ProjectItemListRequestSchema,
   ProjectItemMoveRequestSchema,
   ProjectItemRemoveRequestSchema,
+  ProjectMembershipListRequestSchema,
   SectionCreateRequestSchema,
   SectionReadRequestSchema,
   SectionListRequestSchema,
@@ -313,6 +389,7 @@ export const PROJECT_THREAD_CLIENT_SCHEMAS = [
   SectionItemRemoveRequestSchema,
   SectionItemPinRequestSchema,
   SectionItemUnpinRequestSchema,
+  SectionMembershipListRequestSchema,
 ] as const
 
 export const PROJECT_THREAD_SERVER_SCHEMAS = [
@@ -326,6 +403,7 @@ export const PROJECT_THREAD_SERVER_SCHEMAS = [
   ProjectItemListResponseSchema,
   ProjectItemMoveResponseSchema,
   ProjectItemRemoveResponseSchema,
+  ProjectMembershipListResponseSchema,
   SectionCreateResponseSchema,
   SectionReadResponseSchema,
   SectionListResponseSchema,
@@ -338,11 +416,23 @@ export const PROJECT_THREAD_SERVER_SCHEMAS = [
   SectionItemRemoveResponseSchema,
   SectionItemPinResponseSchema,
   SectionItemUnpinResponseSchema,
+  SectionMembershipListResponseSchema,
+  ProjectCreatedNotificationSchema,
+  ProjectUpdatedNotificationSchema,
+  ProjectDeletedNotificationSchema,
+  SectionCreatedNotificationSchema,
+  SectionUpdatedNotificationSchema,
+  SectionDeletedNotificationSchema,
+  ProjectMembershipUpsertedNotificationSchema,
+  ProjectMembershipDeletedNotificationSchema,
+  SectionMembershipUpsertedNotificationSchema,
+  SectionMembershipDeletedNotificationSchema,
 ] as const
 
-export const PROJECT_THREAD_RESPONSE_TYPES = PROJECT_THREAD_SERVER_SCHEMAS.map(
-  (schema) => schema.shape.type.value
-)
+export const PROJECT_THREAD_RESPONSE_TYPES = PROJECT_THREAD_SERVER_SCHEMAS.flatMap((schema) => {
+  const type = schema.shape.type.value
+  return type.endsWith(".response") ? [type] : []
+})
 
 export type ProjectThreadClientMessage = z.infer<(typeof PROJECT_THREAD_CLIENT_SCHEMAS)[number]>
 export type ProjectThreadServerMessage = z.infer<(typeof PROJECT_THREAD_SERVER_SCHEMAS)[number]>

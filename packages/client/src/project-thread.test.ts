@@ -8,15 +8,18 @@ describe("project and section actions", () => {
     const requestProjectThread = vi.fn(async (type: string, _payload: unknown) => ({
       payload: {
         ok: true as const,
-        value: {
-          createdAt: 100,
-          id: "01984de2-8f74-7c91-a3b2-5c5e937cf319",
-          name: "Cypheria",
-          position: 0,
-          recencyAt: null,
-          roots: ["/tmp/cypheria"],
-          updatedAt: 100,
-        },
+        value:
+          type === "project.membership.list.request"
+            ? { data: [], nextCursor: null }
+            : {
+                createdAt: 100,
+                id: "01984de2-8f74-7c91-a3b2-5c5e937cf319",
+                name: "Cypheria",
+                position: 0,
+                recencyAt: null,
+                roots: ["/tmp/cypheria"],
+                updatedAt: 100,
+              },
       },
       requestId: "test",
       type: type.replace(/\.request$/, ".response"),
@@ -29,6 +32,15 @@ describe("project and section actions", () => {
     expect(requestProjectThread).toHaveBeenCalledWith(
       "project.create.request",
       { name: "Cypheria", roots: ["/tmp/cypheria"] },
+      undefined
+    )
+    await expect(actions.projects.listMemberships()).resolves.toEqual({
+      data: [],
+      nextCursor: null,
+    })
+    expect(requestProjectThread).toHaveBeenCalledWith(
+      "project.membership.list.request",
+      {},
       undefined
     )
   })

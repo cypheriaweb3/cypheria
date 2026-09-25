@@ -6,6 +6,7 @@ export const AGENT_OPENCODE_V2_OPERATIONS = [
   "server.info",
   "session.create",
   "session.fork",
+  "session.move",
   "session.remove",
   "session.switch_agent",
   "session.switch_model",

@@ -2,12 +2,14 @@ import type {
   Project,
   ProjectItem,
   ProjectMembership,
+  ProjectMembershipRecord,
   ProjectThreadClientMessage,
   ProjectThreadServerMessage,
   Section,
   SectionItem,
   SectionItemRef,
   SectionMembership,
+  SectionMembershipRecord,
 } from "@cypheria/protocol"
 
 import type { RequestOptions } from "./request-options.js"
@@ -48,6 +50,10 @@ export interface ProjectActions {
     input: Payload<"project.item.list.request">,
     options?: RequestOptions
   ): Promise<ProjectThreadPage<ProjectItem>>
+  listMemberships(
+    input?: Payload<"project.membership.list.request">,
+    options?: RequestOptions
+  ): Promise<ProjectThreadPage<ProjectMembershipRecord>>
   move(input: Payload<"project.move.request">, options?: RequestOptions): Promise<void>
   moveThread(
     input: Payload<"project.item.move.request">,
@@ -70,6 +76,10 @@ export interface SectionActions {
     input: Payload<"section.item.list.request">,
     options?: RequestOptions
   ): Promise<ProjectThreadPage<SectionItem>>
+  listMemberships(
+    input?: Payload<"section.membership.list.request">,
+    options?: RequestOptions
+  ): Promise<ProjectThreadPage<SectionMembershipRecord>>
   move(input: Payload<"section.move.request">, options?: RequestOptions): Promise<void>
   moveItem(
     input: Payload<"section.item.move.request">,
@@ -107,6 +117,8 @@ export const createProjectThreadActions = (client: ServerClient): ProjectThreadA
         request("project.item.get.request", { threadId }, options),
       list: (input = {}, options) => request("project.list.request", input, options),
       listThreads: (input, options) => request("project.item.list.request", input, options),
+      listMemberships: (input = {}, options) =>
+        request("project.membership.list.request", input, options),
       move: async (input, options) => {
         await request("project.move.request", input, options)
       },
@@ -125,6 +137,8 @@ export const createProjectThreadActions = (client: ServerClient): ProjectThreadA
       getItemSection: (item, options) => request("section.item.get.request", { item }, options),
       list: (input = {}, options) => request("section.list.request", input, options),
       listItems: (input, options) => request("section.item.list.request", input, options),
+      listMemberships: (input = {}, options) =>
+        request("section.membership.list.request", input, options),
       move: async (input, options) => {
         await request("section.move.request", input, options)
       },

@@ -32,11 +32,17 @@ The packaged application copies the Server distribution into its resources. Desk
 
 The Sidebar consumes the Cypheria Projects, Threads, and Sections facades. The Server returns membership and ordering directly; the renderer does not infer them from Codex metadata.
 
+The renderer stores Projects, Sections, Project memberships, and Section memberships in eager TanStack DB Query Collections. The active Thread collection uses on-demand synchronization. Live queries derive the Sidebar view from these normalized resources, while Server notifications apply direct writes for cross-window and external changes. Domain actions such as move, reorder, pin, and unpin remain explicit Cypheria RPCs because they update multiple ordered resources atomically. Query cancellation is forwarded to the shared client request signal, and reconnect or mutation recovery can refetch all Sidebar collections without returning to interval polling.
+
 The established interaction model is a product invariant:
 
 - Pinned, custom Sections, Projects, and recents keep their hierarchy and visual density.
 - Project Threads remain nested and support expansion, pagination, and “show more”.
 - Selection, create, rename, archive, delete, pin, unpin, drag, cross-Section move, and reorder remain available where the protocol permits.
+
+The Project editor exposes the ordered source-root list. The first root is the primary root used as the default Thread `cwd`; users can add and remove folders or promote another root to primary before saving. Server validation rejects removing a root that is still the `cwd` of a Project Thread.
+
+Pinned and custom Sections render their Server-defined mixed order, so Projects and standalone Threads remain interleaved. Sidebar drag and drop uses dnd-kit and sends the corresponding `before...` placement hint for Sections, Projects, Project Threads, and mixed Section items. Priority sorting orders unread, attention-required, running, then recently updated Threads. Thread rows expose running, failed, and stopped runtime state without opening the conversation.
 - Context menus, keyboard navigation, unread state, and running state remain visible.
 - Loading, empty, error, and optimistic states preserve layout and roll back failed mutations.
 

@@ -52,9 +52,83 @@ export type ChatSidebarRow =
   | { key: string; kind: "empty"; section: SidebarSectionId }
   | { key: string; kind: "customEmpty"; sectionId: string }
 
+export type SidebarDragItem = {
+  id: string
+  key: string
+  type: "project" | "section" | "thread"
+}
+
+export const sidebarDragItemForRow = (row: ChatSidebarRow): SidebarDragItem | null =>
+  row.kind === "thread"
+    ? { id: row.thread.id, key: row.key, type: "thread" }
+    : row.kind === "project"
+      ? { id: row.project.id, key: row.key, type: "project" }
+      : row.kind === "customSection"
+        ? { id: row.sectionId, key: row.key, type: "section" }
+        : null
+
+const isProjectDescendant = (row: ChatSidebarRow, projectId: string) =>
+  (row.kind === "thread" && row.parentProjectId === projectId) ||
+  (row.kind === "showMore" && row.projectId === projectId)
+
+const sectionEnd = (rows: readonly ChatSidebarRow[], start: number) => {
+  let end = start + 1
+  while (end < rows.length && rows[end]?.kind !== "section" && rows[end]?.kind !== "customSection")
+    end += 1
+  return end
+}
+
+/** Provides an immediate, reversible visual placement while the Server confirms a drag mutation. */
+export function placeSidebarDragItem(
+  rows: readonly ChatSidebarRow[],
+  source: SidebarDragItem,
+  target: ChatSidebarRow
+): ChatSidebarRow[] {
+  const sourceStart = rows.findIndex(({ key }) => key === source.key)
+  if (sourceStart < 0 || target.key === source.key) return [...rows]
+  let sourceEnd = sourceStart + 1
+  if (source.type === "project") {
+    while (
+      sourceEnd < rows.length &&
+      isProjectDescendant(rows[sourceEnd] as ChatSidebarRow, source.id)
+    )
+      sourceEnd += 1
+  } else if (source.type === "section") {
+    sourceEnd = sectionEnd(rows, sourceStart)
+  }
+  let moving = rows.slice(sourceStart, sourceEnd)
+  const remaining = [...rows.slice(0, sourceStart), ...rows.slice(sourceEnd)]
+  const targetIndex = remaining.findIndex(({ key }) => key === target.key)
+  if (targetIndex < 0) return [...rows]
+  let insertAt = targetIndex
+  if (source.type !== "section" && (target.kind === "section" || target.kind === "customSection")) {
+    insertAt = sectionEnd(remaining, targetIndex)
+  } else if (source.type === "thread" && target.kind === "project") {
+    moving = moving.map((row) =>
+      row.kind === "thread"
+        ? {
+            ...row,
+            key: `${target.key}:thread:${row.thread.id}`,
+            parentProjectId: target.project.id,
+            source: "project",
+          }
+        : row
+    )
+    insertAt = targetIndex + 1
+    while (
+      insertAt < remaining.length &&
+      isProjectDescendant(remaining[insertAt] as ChatSidebarRow, target.project.id)
+    )
+      insertAt += 1
+  }
+  return [...remaining.slice(0, insertAt), ...moving, ...remaining.slice(insertAt)]
+}
+
 export function groupProjectThreads(
   threads: readonly SidebarThreadView[],
-  projects: readonly SidebarProjectView[] = []
+  projects: readonly SidebarProjectView[] = [],
+  compareThreads: (left: SidebarThreadView, right: SidebarThreadView) => number = (left, right) =>
+    right.updatedAt - left.updatedAt
 ): SidebarProjectGroup[] {
   const groups = new Map<string, SidebarThreadView[]>()
   for (const thread of threads) {
@@ -67,9 +141,7 @@ export function groupProjectThreads(
 
   return [...groups.entries()]
     .map(([projectId, projectThreads]) => {
-      const sortedThreads = projectThreads.toSorted(
-        (left, right) => right.updatedAt - left.updatedAt
-      )
+      const sortedThreads = projectThreads.toSorted(compareThreads)
       const project = projectById.get(projectId) ?? {
         createdAt: 0,
         id: projectId,
@@ -78,6 +150,7 @@ export function groupProjectThreads(
         recencyAt: sortedThreads[0]?.updatedAt ?? null,
         roots: [],
         sectionId: null,
+        sectionPosition: null,
         updatedAt: sortedThreads[0]?.updatedAt ?? 0,
       }
       return {
@@ -164,19 +237,45 @@ export function buildChatSidebarRows({
       })
   }
 
+  const appendSectionItems = (
+    projects: readonly SidebarProjectGroup[],
+    threads: readonly SidebarThreadView[],
+    keyPrefix: string,
+    threadSource: "pinned" | "recent"
+  ) => {
+    const items = [
+      ...projects.map((project) => ({
+        item: project,
+        position: project.project.sectionPosition,
+        type: "project" as const,
+      })),
+      ...threads.map((thread) => ({
+        item: thread,
+        position: thread.sectionPosition,
+        type: "thread" as const,
+      })),
+    ].toSorted(
+      (left, right) =>
+        (left.position ?? Number.MAX_SAFE_INTEGER) - (right.position ?? Number.MAX_SAFE_INTEGER) ||
+        (left.type === "project" ? left.item.projectId : left.item.id).localeCompare(
+          right.type === "project" ? right.item.projectId : right.item.id
+        )
+    )
+    for (const entry of items) {
+      if (entry.type === "project") appendProject(entry.item, keyPrefix)
+      else
+        rows.push({
+          key: `${keyPrefix}${keyPrefix.startsWith("custom-section:") ? ":thread" : ""}:${entry.item.id}`,
+          kind: "thread",
+          source: threadSource,
+          thread: entry.item,
+        })
+    }
+  }
+
   rows.push({ key: "section:pinned", kind: "section", section: "pinned" })
   if (expandedSections.has("pinned")) {
-    for (const project of pinnedProjects) appendProject(project, "pinned")
-    rows.push(
-      ...pinnedThreads.map(
-        (thread): ChatSidebarRow => ({
-          key: `pinned:${thread.id}`,
-          kind: "thread",
-          source: "pinned",
-          thread,
-        })
-      )
-    )
+    appendSectionItems(pinnedProjects, pinnedThreads, "pinned", "pinned")
     if (pinnedProjects.length === 0 && pinnedThreads.length === 0 && !pinnedHasMore)
       rows.push({ key: "empty:pinned", kind: "empty", section: "pinned" })
     if (pinnedHasMore) rows.push({ key: "show-more:pinned", kind: "showMore", target: "pinned" })
@@ -192,17 +291,7 @@ export function buildChatSidebarRows({
       sectionName: section.name,
     })
     if (!expandedCustomSections.has(section.id)) continue
-    for (const project of section.projects) appendProject(project, `custom-section:${section.id}`)
-    rows.push(
-      ...section.threads.map(
-        (thread): ChatSidebarRow => ({
-          key: `custom-section:${section.id}:thread:${thread.id}`,
-          kind: "thread",
-          source: "recent",
-          thread,
-        })
-      )
-    )
+    appendSectionItems(section.projects, section.threads, `custom-section:${section.id}`, "recent")
     if (section.projects.length === 0 && section.threads.length === 0)
       rows.push({ key: `custom-empty:${section.id}`, kind: "customEmpty", sectionId: section.id })
   }

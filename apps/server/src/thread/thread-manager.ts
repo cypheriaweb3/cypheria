@@ -20,7 +20,6 @@ import {
   type ThreadState,
   type ThreadView,
 } from "@cypheria/protocol"
-
 import type {
   ThreadHarnessAdapter,
   ThreadHarnessContext,
@@ -107,6 +106,15 @@ export class ThreadManager {
     }
   }
 
+  async cleanupDeletedThreads(): Promise<void> {
+    for (const operation of await this.#lifecycle.listRecoverable()) {
+      if (operation.kind !== "delete") continue
+      await this.#withLock(operation.threadId, async () => {
+        if (await this.#lifecycle.get(operation.id)) await this.#recover(operation)
+      })
+    }
+  }
+
   async handle(
     message: ThreadClientMessage,
     send: (message: ServerMessage) => void
@@ -134,19 +142,19 @@ export class ThreadManager {
           respond(await this.update(threadId, patch))
           break
         }
-        case "thread.recency.touch.request":
-          respond(
-            await this.#updateAndPublish(
-              await this.#persistence.touchThreadRecency(
-                message.payload.threadId,
-                message.payload.recencyAt
-              )
-            )
+        case "thread.recency.touch.request": {
+          const thread = await this.#persistence.touchThreadRecency(
+            message.payload.threadId,
+            message.payload.recencyAt
           )
+          respond(await this.#updateAndPublish(thread))
+          await this.#publishThreadProject(thread.id)
           break
+        }
         case "thread.move.request":
           await this.#persistence.moveThread(message.payload)
           respond({})
+          await this.#publishThreads()
           break
         case "thread.resume.request":
           respond(await this.resume(message.payload.threadId))
@@ -226,6 +234,14 @@ export class ThreadManager {
       if (source && !source.agentSessionId) {
         throw new ThreadManagerError("THREAD_FORK_UNAVAILABLE", "The source thread is not bound")
       }
+      const placement = input.projectPlacement
+      const project = placement
+        ? await this.#persistence.getProject(placement.projectId)
+        : undefined
+      if (placement && !project) {
+        throw new ThreadManagerError("PROJECT_NOT_FOUND", "Project was not found")
+      }
+      const cwd = project ? this.#projectCwd(project.roots, input.cwd) : (input.cwd ?? null)
       const operation = await this.#lifecycle.begin({
         agentId,
         input: input as Record<string, unknown>,
@@ -238,10 +254,11 @@ export class ThreadManager {
       try {
         const session = await adapter.create({
           agentId,
-          cwd: input.cwd ?? null,
+          cwd,
           forkedFromAgentSessionId: source?.agentSessionId ?? null,
           onEvent: (event) => this.#acceptEvent(threadId, event),
           threadId,
+          ...(project ? { workspaceRoots: project.roots } : {}),
         })
         harnessSessionId = session.sessionId
         await this.#lifecycle.transition(operation.id, {
@@ -251,6 +268,7 @@ export class ThreadManager {
         const thread = await this.#persistence.createThread({
           ...input,
           agentSessionId: session.sessionId,
+          cwd,
           id: threadId,
         })
         databaseCommitted = true
@@ -265,6 +283,17 @@ export class ThreadManager {
         await this.#lifecycle.complete(operation.id)
         const view = this.#view(thread)
         this.#publish({ payload: view, type: "thread.created.notification" })
+        const [projectMembership, sectionMembership] = await Promise.all([
+          this.#persistence.getThreadProject(thread.id),
+          this.#persistence.getItemSection({ id: thread.id, type: "thread" }),
+        ])
+        if (projectMembership) {
+          await this.#publishProjectMemberships(projectMembership.project.id)
+          await this.#publishThreadProject(thread.id)
+        }
+        if (sectionMembership) {
+          await this.#publishSectionMemberships(sectionMembership.section.id)
+        }
         return { thread: view, timeline }
       } catch (error) {
         if (databaseCommitted) {
@@ -274,7 +303,7 @@ export class ThreadManager {
             await adapter.delete({
               agentId,
               agentSessionId: harnessSessionId,
-              cwd: input.cwd ?? null,
+              cwd,
               threadId,
             })
             await this.#lifecycle
@@ -311,7 +340,12 @@ export class ThreadManager {
           "Thread cwd can only be changed while the thread is stopped"
         )
       }
-      return this.#updateAndPublish(await this.#persistence.updateThread(threadId, patch))
+      const nextPatch = { ...patch }
+      if (patch.cwd !== undefined) {
+        const membership = await this.#persistence.getThreadProject(threadId)
+        if (membership) nextPatch.cwd = this.#projectCwd(membership.project.roots, patch.cwd)
+      }
+      return this.#updateAndPublish(await this.#persistence.updateThread(threadId, nextPatch))
     })
   }
 
@@ -333,6 +367,8 @@ export class ThreadManager {
         )
       }
       if (thread.cwd === cwd) return this.#view(thread)
+      const membership = await this.#persistence.getThreadProject(threadId)
+      const nextCwd = membership ? this.#projectCwd(membership.project.roots, cwd) : cwd
       const wasIdle = runtime.state === "idle"
       const adapter = this.#adapterFor("codex", threadId)
       if (wasIdle) {
@@ -349,10 +385,10 @@ export class ThreadManager {
       }
       let moved: ThreadRecord | null = null
       try {
-        moved = await this.#persistence.updateThread(threadId, { cwd })
+        moved = await this.#persistence.updateThread(threadId, { cwd: nextCwd })
         if (wasIdle) {
           const session = await adapter.resume({
-            ...this.#context(moved),
+            ...(await this.#resumeContext(moved)),
             onEvent: (event) => this.#acceptEvent(threadId, event),
           })
           if (session.sessionId !== thread.agentSessionId) {
@@ -381,7 +417,7 @@ export class ThreadManager {
         if (wasIdle && restored) {
           try {
             const session = await adapter.resume({
-              ...this.#context(thread),
+              ...(await this.#resumeContext(thread)),
               onEvent: (event) => this.#acceptEvent(threadId, event),
             })
             if (session.sessionId !== thread.agentSessionId) {
@@ -417,12 +453,15 @@ export class ThreadManager {
     title?: string | null
   }) {
     const source = await this.#required(input.threadId)
+    const sourceProject = await this.#persistence.getThreadProject(source.id)
     return this.create({
       agentId: source.agentId,
       beforeThreadId: input.beforeThreadId,
       cwd: input.cwd === undefined ? source.cwd : input.cwd,
       forkedFromId: source.id,
-      projectPlacement: input.projectPlacement,
+      projectPlacement:
+        input.projectPlacement ??
+        (sourceProject ? { projectId: sourceProject.project.id } : undefined),
       sectionPlacement: input.sectionPlacement,
       title: input.title === undefined ? source.title : input.title,
     })
@@ -439,7 +478,7 @@ export class ThreadManager {
       this.#setState(thread, "starting")
       try {
         const session = await this.#adapterFor(agentId, threadId).resume({
-          ...this.#context(thread),
+          ...(await this.#resumeContext(thread)),
           onEvent: (event) => this.#acceptEvent(threadId, event),
         })
         if (thread.agentSessionId && session.sessionId !== thread.agentSessionId) {
@@ -505,6 +544,7 @@ export class ThreadManager {
       )
     })
     if (archived.cwd) await this.#onArchived?.(archived.cwd).catch(() => undefined)
+    await this.#publishThreadProject(threadId)
     return archived
   }
 
@@ -513,12 +553,19 @@ export class ThreadManager {
       const thread = await this.#required(threadId)
       if (thread.archivedAt === null) return this.#view(thread)
       if (thread.cwd) await this.#onUnarchiving?.(thread.cwd)
-      return this.#updateAndPublish(await this.#persistence.setThreadArchived(threadId, null))
+      const unarchived = await this.#updateAndPublish(
+        await this.#persistence.setThreadArchived(threadId, null)
+      )
+      await this.#publishThreadProject(threadId)
+      return unarchived
     })
   }
 
   async delete(threadId: string): Promise<void> {
-    const cwd = (await this.#required(threadId)).cwd
+    const initial = await this.#required(threadId)
+    const cwd = initial.cwd
+    const project = await this.#persistence.getThreadProject(threadId)
+    const section = await this.#persistence.getItemSection({ id: threadId, type: "thread" })
     await this.#withLock(threadId, async () => {
       const thread = await this.#required(threadId)
       const runtime = this.#state(threadId)
@@ -532,21 +579,43 @@ export class ThreadManager {
         threadId,
       })
       let harnessDeleted = false
+      let tombstoned = false
       try {
+        await this.#persistence.markThreadDeleting(threadId)
+        tombstoned = true
+        this.#publish({ payload: { threadId }, type: "thread.deleted.notification" })
+        if (project) {
+          this.#publish({
+            payload: { threadId },
+            type: "project.membership.deleted.notification",
+          })
+        }
+        if (section) {
+          this.#publish({
+            payload: { item: { id: threadId, type: "thread" } },
+            type: "section.membership.deleted.notification",
+          })
+        }
         await this.#adapterFor(thread.agentId as AgentId, thread.id).delete(this.#context(thread))
         harnessDeleted = true
         await this.#lifecycle.transition(operation.id, { status: "harness-deleted" })
-        await this.#persistence.deleteThread(threadId)
+        await this.#persistence.purgeThread(threadId)
         await this.#lifecycle.complete(operation.id)
         this.#runtime.delete(threadId)
         await this.#timeline.delete(threadId)
-        this.#publish({ payload: { threadId }, type: "thread.deleted.notification" })
+        if (project) {
+          await this.#publishProjectMemberships(project.project.id)
+          await this.#publishProject(project.project.id)
+        }
+        if (section) await this.#publishSectionMemberships(section.section.id)
       } catch (error) {
         runtime.state = "errored"
         if (!harnessDeleted) {
           await this.#lifecycle.fail(operation.id, this.#message(error)).catch(() => undefined)
         }
-        this.#publish({ payload: this.#view(thread), type: "thread.updated.notification" })
+        if (!tombstoned) {
+          this.#publish({ payload: this.#view(thread), type: "thread.updated.notification" })
+        }
         throw error
       }
     })
@@ -602,7 +671,7 @@ export class ThreadManager {
       let started: Awaited<ReturnType<ThreadHarnessAdapter["startTurn"]>>
       try {
         started = await this.#adapterFor(thread.agentId as AgentId, thread.id).startTurn({
-          ...this.#context(thread),
+          ...(await this.#resumeContext(thread)),
           clientMessageId: input.clientMessageId,
           content: input.content,
         })
@@ -990,6 +1059,26 @@ export class ThreadManager {
     }
   }
 
+  async #resumeContext(thread: ThreadRecord): Promise<ThreadHarnessContext> {
+    const membership = await this.#persistence.getThreadProject(thread.id)
+    return {
+      ...this.#context(thread),
+      ...(membership ? { workspaceRoots: membership.project.roots } : {}),
+    }
+  }
+
+  #projectCwd(roots: readonly string[], requested: string | null | undefined): string {
+    const normalizedRoots = [...new Set(roots.map((root) => resolve(root)))]
+    const cwd = resolve(requested ?? normalizedRoots[0] ?? "")
+    if (!isAbsolute(cwd) || !normalizedRoots.includes(cwd)) {
+      throw new ThreadManagerError(
+        "THREAD_CWD_OUTSIDE_PROJECT",
+        "Thread cwd must match one of the project workspace roots"
+      )
+    }
+    return cwd
+  }
+
   #message(error: unknown): string {
     return error instanceof Error ? error.message : String(error)
   }
@@ -1016,9 +1105,12 @@ export class ThreadManager {
         )
         return
       }
-      const thread = await this.#persistence.getThread(operation.threadId)
+      const deletedThread = (await this.#persistence.listDeletedResources())
+        .flatMap((resource) => (resource.type === "thread" ? [resource.value] : []))
+        .find((value) => value.id === operation.threadId)
+      const thread = (await this.#persistence.getThread(operation.threadId)) ?? deletedThread
       if (operation.status === "harness-deleted") {
-        if (thread) await this.#persistence.deleteThread(thread.id)
+        if (thread) await this.#persistence.purgeThread(thread.id)
         await this.#lifecycle.complete(operation.id)
         return
       }
@@ -1028,7 +1120,8 @@ export class ThreadManager {
       }
       await this.#adapterFor(thread.agentId as AgentId, thread.id).delete(this.#context(thread))
       await this.#lifecycle.transition(operation.id, { status: "harness-deleted" })
-      await this.#persistence.deleteThread(thread.id)
+      if (thread.deletedAt === null) await this.#persistence.markThreadDeleting(thread.id)
+      await this.#persistence.purgeThread(thread.id)
       await this.#lifecycle.complete(operation.id)
     } catch (error) {
       await this.#lifecycle.fail(operation.id, this.#message(error))
@@ -1083,6 +1176,65 @@ export class ThreadManager {
     }
   }
 
+  async #publishProjectMemberships(projectId: string): Promise<void> {
+    let cursor: string | null = null
+    do {
+      const page = await this.#persistence.listProjectMemberships({
+        cursor,
+        limit: 200,
+        projectId,
+      })
+      for (const membership of page.data) {
+        this.#publish({
+          payload: membership,
+          type: "project.membership.upserted.notification",
+        })
+      }
+      cursor = page.nextCursor
+    } while (cursor)
+  }
+
+  async #publishProject(projectId: string): Promise<void> {
+    const project = await this.#persistence.getProject(projectId)
+    if (project) this.#publish({ payload: project, type: "project.updated.notification" })
+  }
+
+  async #publishThreadProject(threadId: string): Promise<void> {
+    const membership = await this.#persistence.getThreadProject(threadId)
+    if (membership) await this.#publishProject(membership.project.id)
+  }
+
+  async #publishThreads(): Promise<void> {
+    for (const archived of [false, true]) {
+      let cursor: string | null = null
+      do {
+        const page = await this.#persistence.listThreads({ archived, cursor, limit: 200 })
+        for (const thread of page.data) {
+          this.#publish({ payload: this.#view(thread), type: "thread.updated.notification" })
+        }
+        cursor = page.nextCursor
+      } while (cursor)
+    }
+  }
+
+  async #publishSectionMemberships(sectionId: string): Promise<void> {
+    let cursor: string | null = null
+    do {
+      const page = await this.#persistence.listSectionMemberships({
+        cursor,
+        limit: 200,
+        sectionId,
+      })
+      for (const membership of page.data) {
+        this.#publish({
+          payload: membership,
+          type: "section.membership.upserted.notification",
+        })
+      }
+      cursor = page.nextCursor
+    } while (cursor)
+  }
+
   async #withLock<T>(threadId: string, task: () => Promise<T>): Promise<T> {
     const previous = this.#locks.get(threadId) ?? Promise.resolve()
     const current = previous.catch(() => undefined).then(task)
@@ -1094,3 +1246,5 @@ export class ThreadManager {
     }
   }
 }
+
+import { isAbsolute, resolve } from "node:path"

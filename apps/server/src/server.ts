@@ -122,6 +122,7 @@ export class CypheriaServer implements HttpAppHost {
   #stopPromise: Promise<void> | undefined
   #webSocketServer: WebSocketServer | undefined
   #webSocketHeartbeat: NodeJS.Timeout | undefined
+  #resourceCleanupTimer: NodeJS.Timeout | undefined
 
   constructor(options: CypheriaServerOptions = {}) {
     this.logger = options.logger ?? pino({ name: "cypheria-server" })
@@ -157,6 +158,7 @@ export class CypheriaServer implements HttpAppHost {
     this.terminals = new TerminalService(projectThreadPersistence)
     this.projectThread = new ProjectThreadService({
       persistence: projectThreadPersistence,
+      publish: (message) => this.registry.broadcast(message),
     })
     this.threadManager = new ThreadManager({
       adapterFor: (agentId, threadId) => this.agentManager.adapterFor(agentId, threadId),
@@ -235,10 +237,19 @@ export class CypheriaServer implements HttpAppHost {
     await this.runtime.start()
     try {
       await applyDatabaseMigrations(this.database.client)
-      await this.projectThread.initialize()
       await this.web3.initialize()
       await this.agentManager.start()
+      await this.projectThread.initialize()
       await this.threadManager.initialize()
+      this.#resourceCleanupTimer = setInterval(
+        () => {
+          void Promise.all([
+            this.projectThread.cleanupDeletedResources(),
+            this.threadManager.cleanupDeletedThreads(),
+          ]).catch((error) => this.logger.warn({ error }, "Deferred resource cleanup failed"))
+        },
+        5 * 60 * 1000
+      ).unref()
       await this.schedules.start()
       const startedAt = new Date().toISOString()
       const id = await loadOrCreateServerId(this.runtime.paths.configDir)
@@ -552,6 +563,8 @@ export class CypheriaServer implements HttpAppHost {
     this.registry.closeAll(1001, reason)
     if (this.#webSocketHeartbeat) clearInterval(this.#webSocketHeartbeat)
     this.#webSocketHeartbeat = undefined
+    if (this.#resourceCleanupTimer) clearInterval(this.#resourceCleanupTimer)
+    this.#resourceCleanupTimer = undefined
     this.#webSocketServer?.close()
     this.#webSocketServer = undefined
     this.schedules.stop()

@@ -131,6 +131,8 @@ export class OpenCodeRuntime {
             return client.session.create(input as never)
           case "session.fork":
             return client.session.fork(input as never)
+          case "session.move":
+            return client.session.move(input as never)
           case "session.remove":
             return client.session.remove(input as never)
           case "session.switch_agent":

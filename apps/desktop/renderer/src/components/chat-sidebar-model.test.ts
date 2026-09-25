@@ -3,8 +3,10 @@ import type { SidebarProjectView, SidebarThreadView } from "../sidebar-data.js"
 import {
   buildChatSidebarRows,
   groupProjectThreads,
+  placeSidebarDragItem,
   SIDEBAR_BATCH_SIZE,
   type SidebarSectionId,
+  sidebarDragItemForRow,
 } from "./chat-sidebar-model.js"
 
 const thread = (
@@ -13,11 +15,13 @@ const thread = (
   updatedAt = Number(id.replace(/\D/g, "")) || 0
 ): SidebarThreadView => ({
   agentId: "codex",
+  attention: false,
   cwd: "/work",
   id,
   projectId,
   sectionId: null,
   sectionName: null,
+  sectionPosition: null,
   status: "idle",
   title: id,
   updatedAt,
@@ -115,6 +119,7 @@ describe("chat sidebar row model", () => {
           recencyAt: null,
           roots: ["/work/cypheria"],
           sectionId: null,
+          sectionPosition: null,
           updatedAt: 1,
         },
       ]
@@ -172,6 +177,7 @@ describe("chat sidebar row model", () => {
         recencyAt: 2,
         roots: ["/work/pinned"],
         sectionId: "01984de2-8f74-7c91-a3b2-5c5e937cf318",
+        sectionPosition: 0,
         updatedAt: 2,
       },
       {
@@ -182,6 +188,7 @@ describe("chat sidebar row model", () => {
         recencyAt: 1,
         roots: ["/work/section"],
         sectionId: "section-1",
+        sectionPosition: 0,
         updatedAt: 1,
       },
     ]
@@ -226,5 +233,78 @@ describe("chat sidebar row model", () => {
     expect(sectionRow?.kind).toBe("customSection")
     if (sectionRow?.kind !== "customSection") throw new Error("Expected custom section row")
     expect(sectionRow.archiveEnabled).toBe(true)
+  })
+
+  it("preserves the server's mixed project and thread order inside a section", () => {
+    const direct = { ...thread("direct"), sectionId: "section-1", sectionPosition: 0 }
+    const project: SidebarProjectView = {
+      createdAt: 1,
+      id: "project-a",
+      name: "Project",
+      position: 0,
+      recencyAt: null,
+      roots: ["/work"],
+      sectionId: "section-1",
+      sectionPosition: 1,
+      updatedAt: 1,
+    }
+    const rows = buildChatSidebarRows({
+      customSections: [
+        {
+          id: "section-1",
+          name: "Work",
+          projects: groupProjectThreads([], [project]),
+          threads: [direct],
+        },
+      ],
+      expandedCustomSections: new Set(["section-1"]),
+      expandedProjects: new Set(),
+      expandedSections: allSections,
+      navigationIds: [],
+      pinnedHasMore: false,
+      pinnedThreads: [],
+      projectGroups: [],
+      projectChatLimits: {},
+      projectsHasMore: false,
+      recentHasMore: false,
+      recentLoading: false,
+      recentThreads: [],
+      visibleProjectCount: SIDEBAR_BATCH_SIZE,
+    })
+
+    expect(rows.map(({ key }) => key).slice(3, 5)).toEqual([
+      "custom-section:section-1:thread:direct",
+      "custom-section:section-1:project:project-a",
+    ])
+  })
+
+  it("optimistically moves a dragged thread with its target project", () => {
+    const rows = buildChatSidebarRows({
+      expandedProjects: new Set(["project-a"]),
+      expandedSections: allSections,
+      navigationIds: [],
+      pinnedHasMore: false,
+      pinnedThreads: [],
+      projectGroups: groupProjectThreads([thread("project-chat", "project-a")]),
+      projectChatLimits: {},
+      projectsHasMore: false,
+      recentHasMore: false,
+      recentLoading: false,
+      recentThreads: [thread("standalone")],
+      visibleProjectCount: SIDEBAR_BATCH_SIZE,
+    })
+    const sourceRow = rows.find((row) => row.kind === "thread" && row.thread.id === "standalone")
+    const targetRow = rows.find((row) => row.kind === "project" && row.project.id === "project-a")
+    if (!sourceRow || !targetRow) throw new Error("Expected draggable rows")
+    const source = sidebarDragItemForRow(sourceRow)
+    if (!source) throw new Error("Expected a draggable source")
+
+    const placed = placeSidebarDragItem(rows, source, targetRow)
+
+    expect(placed.map(({ key }) => key).slice(3, 6)).toEqual([
+      "projects:project:project-a",
+      "projects:project:project-a:thread:project-chat",
+      "projects:project:project-a:thread:standalone",
+    ])
   })
 })

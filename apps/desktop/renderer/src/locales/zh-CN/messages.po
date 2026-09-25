@@ -2176,3 +2176,28 @@ msgstr "选择后，Cypheria 无需征求批准即可访问互联网并读取、
 #. js-lingui-explicit-id
 msgid "settings.general.fullAccessConfirmNote"
 msgstr "开启后，输入框的权限菜单会显示“完全访问权限”，但不会立即启用该权限。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.addFolder"
+msgstr "添加文件夹"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.primary"
+msgstr "主要"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.removeFolder"
+msgstr "移除文件夹"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.removeLocalProject"
+msgstr "移除本地项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/project-edit-dialog.tsx
+msgid "chat.project.setPrimary"
+msgstr "设为主要"

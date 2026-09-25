@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto"
 import { isAbsolute, normalize } from "node:path"
 
-import { and, asc, eq, isNull, sql } from "drizzle-orm"
+import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm"
 import { z } from "zod"
 
 import type { CypheriaDatabase } from "./client.js"
@@ -14,6 +14,11 @@ export type ThreadRecord = typeof threads.$inferSelect
 export type SectionRecord = typeof sections.$inferSelect
 export type ProjectItemRecord = typeof projectItems.$inferSelect
 export type SectionItemRecord = typeof sectionItems.$inferSelect
+
+export type DeletedResource =
+  | { readonly type: "project"; readonly value: ProjectRecord }
+  | { readonly type: "section"; readonly value: SectionRecord }
+  | { readonly type: "thread"; readonly value: ThreadRecord }
 
 export type Page<T> = {
   readonly data: T[]
@@ -40,6 +45,14 @@ export type ProjectMembershipView = {
   readonly updatedAt: number
 }
 
+export type ProjectMembershipRecord = {
+  readonly createdAt: number
+  readonly position: number
+  readonly projectId: string
+  readonly threadId: string
+  readonly updatedAt: number
+}
+
 export type SectionItemView =
   | {
       readonly createdAt: number
@@ -60,6 +73,14 @@ export type SectionMembershipView = {
   readonly createdAt: number
   readonly position: number
   readonly section: SectionRecord
+  readonly updatedAt: number
+}
+
+export type SectionMembershipRecord = {
+  readonly createdAt: number
+  readonly item: SectionItemRef
+  readonly position: number
+  readonly sectionId: string
   readonly updatedAt: number
 }
 
@@ -106,10 +127,10 @@ export type ListThreadsOptions = {
   readonly cursor?: string | null
   readonly forkedFromId?: string
   readonly limit?: number
-  readonly projectId?: string
-  readonly sectionId?: string
+  readonly projectId?: string | null
+  readonly sectionId?: string | null
   readonly sortDirection?: SortDirection
-  readonly sortKey?: "position" | "recencyAt"
+  readonly sortKey?: "position" | "recencyAt" | "createdAt" | "updatedAt" | "sectionPosition"
 }
 
 export type ListOptions = {
@@ -144,9 +165,6 @@ export type ProjectThreadPersistenceService = {
     now?: number
   ): Promise<SectionRecord>
   createThread(input: CreateThreadInput, now?: number): Promise<ThreadRecord>
-  deleteProject(projectId: string, now?: number): Promise<void>
-  deleteSection(sectionId: string, now?: number): Promise<void>
-  deleteThread(threadId: string, now?: number): Promise<void>
   ensurePinnedSection(now?: number): Promise<SectionRecord>
   getItemSection(item: SectionItemRef): Promise<SectionMembershipView | undefined>
   getProject(projectId: string): Promise<ProjectRecord | undefined>
@@ -154,10 +172,20 @@ export type ProjectThreadPersistenceService = {
   getThread(threadId: string): Promise<ThreadRecord | undefined>
   getThreadProject(threadId: string): Promise<ProjectMembershipView | undefined>
   listProjectThreads(projectId: string, options?: ListOptions): Promise<Page<ProjectItemView>>
+  listProjectMemberships(
+    options?: ListOptions & { readonly projectId?: string }
+  ): Promise<Page<ProjectMembershipRecord>>
   listProjects(options?: ListProjectsOptions): Promise<Page<ProjectRecord>>
   listSectionItems(sectionId: string, options?: ListOptions): Promise<Page<SectionItemView>>
+  listSectionMemberships(
+    options?: ListOptions & { readonly sectionId?: string }
+  ): Promise<Page<SectionMembershipRecord>>
   listSections(options?: ListOptions): Promise<Page<SectionRecord>>
   listThreads(options?: ListThreadsOptions): Promise<Page<ThreadRecord>>
+  listDeletedResources(): Promise<DeletedResource[]>
+  markProjectDeleting(projectId: string, now?: number): Promise<ProjectRecord>
+  markSectionDeleting(sectionId: string, now?: number): Promise<SectionRecord>
+  markThreadDeleting(threadId: string, now?: number): Promise<ThreadRecord>
   moveItemToSection(
     input: { beforeItem?: SectionItemRef | null; item: SectionItemRef; sectionId: string },
     now?: number
@@ -184,6 +212,9 @@ export type ProjectThreadPersistenceService = {
   ): Promise<SectionMembershipView>
   removeItemFromSection(item: SectionItemRef, now?: number): Promise<void>
   removeThreadFromProject(threadId: string, now?: number): Promise<void>
+  purgeProject(projectId: string, now?: number): Promise<void>
+  purgeSection(sectionId: string, now?: number): Promise<void>
+  purgeThread(threadId: string, now?: number): Promise<void>
   setThreadArchived(
     threadId: string,
     archivedAt: number | null,
@@ -252,6 +283,19 @@ const parseRoots = (values: readonly string[]): string[] => {
     throw new ProjectThreadPersistenceError("INVALID_ROOTS", "Project roots must be absolute paths")
   }
   return roots
+}
+
+const assertThreadCwdMatchesProjectRoots = (
+  thread: Pick<ThreadRecord, "cwd">,
+  roots: readonly string[]
+): void => {
+  const cwd = thread.cwd?.trim()
+  if (!cwd || !isAbsolute(cwd) || !roots.includes(normalize(cwd))) {
+    throw new ProjectThreadPersistenceError(
+      "THREAD_CWD_OUTSIDE_PROJECT",
+      "Thread cwd must match one of the project workspace roots"
+    )
+  }
 }
 
 const parseLimit = (value = PAGE_LIMIT): number => {
@@ -341,7 +385,11 @@ const loadProject = async (
   db: ProjectThreadExecutor,
   projectId: string
 ): Promise<ProjectRecord | undefined> => {
-  const [record] = await db.select().from(projects).where(eq(projects.id, projectId)).limit(1)
+  const [record] = await db
+    .select()
+    .from(projects)
+    .where(and(eq(projects.id, projectId), isNull(projects.deletedAt)))
+    .limit(1)
   return record
 }
 
@@ -349,7 +397,11 @@ const loadThread = async (
   db: ProjectThreadExecutor,
   threadId: string
 ): Promise<ThreadRecord | undefined> => {
-  const [record] = await db.select().from(threads).where(eq(threads.id, threadId)).limit(1)
+  const [record] = await db
+    .select()
+    .from(threads)
+    .where(and(eq(threads.id, threadId), isNull(threads.deletedAt)))
+    .limit(1)
   return record
 }
 
@@ -357,7 +409,11 @@ const loadSection = async (
   db: ProjectThreadExecutor,
   sectionId: string
 ): Promise<SectionRecord | undefined> => {
-  const [record] = await db.select().from(sections).where(eq(sections.id, sectionId)).limit(1)
+  const [record] = await db
+    .select()
+    .from(sections)
+    .where(and(eq(sections.id, sectionId), isNull(sections.deletedAt)))
+    .limit(1)
   return record
 }
 
@@ -569,7 +625,13 @@ const recomputeProjectRecency = async (
     .select({ recencyAt: threads.recencyAt })
     .from(projectItems)
     .innerJoin(threads, eq(projectItems.threadId, threads.id))
-    .where(and(eq(projectItems.projectId, projectId), isNull(threads.archivedAt)))
+    .where(
+      and(
+        eq(projectItems.projectId, projectId),
+        isNull(threads.archivedAt),
+        isNull(threads.deletedAt)
+      )
+    )
   const recencies = values.flatMap(({ recencyAt }) => (recencyAt === null ? [] : [recencyAt]))
   const recencyAt = recencies.length === 0 ? null : Math.max(...recencies)
   const project = await requireProject(db, projectId)
@@ -701,7 +763,8 @@ const moveThreadToProjectInTransaction = async (
   now: number
 ): Promise<ProjectMembershipView> => {
   const project = await requireProject(db, input.projectId)
-  await requireThread(db, input.threadId)
+  const thread = await requireThread(db, input.threadId)
+  assertThreadCwdMatchesProjectRoots(thread, project.roots)
   const existing = await findProjectItem(db, input.threadId)
   const oldProjectId = existing?.projectId
   let targetIds = await projectItemIdsByPosition(db, project.id)
@@ -780,6 +843,7 @@ export const createProjectThreadPersistenceService = (
       const ids = await projectIdsByPosition(tx)
       await tx.insert(projects).values({
         createdAt: now,
+        deletedAt: null,
         id,
         name: parseName(input.name),
         position: ids.length,
@@ -817,6 +881,7 @@ export const createProjectThreadPersistenceService = (
       await tx.insert(sections).values({
         color: input.color ?? null,
         createdAt: now,
+        deletedAt: null,
         icon: input.icon ?? null,
         id,
         name: parseName(input.name),
@@ -842,6 +907,7 @@ export const createProjectThreadPersistenceService = (
         agentSessionId: input.agentSessionId ?? null,
         archivedAt: null,
         createdAt: now,
+        deletedAt: null,
         cwd: input.cwd ?? null,
         forkedFromId: input.forkedFromId ?? null,
         id,
@@ -871,68 +937,6 @@ export const createProjectThreadPersistenceService = (
       return requireThread(tx, id)
     })
   },
-  deleteProject: async (projectId, nowValue = nowSeconds()) => {
-    const now = parseNow(nowValue)
-    await db.transaction(async (tx) => {
-      const project = await requireProject(tx, projectId)
-      const membership = await findSectionItem(tx, { id: project.id, type: "project" })
-      await tx.delete(projects).where(eq(projects.id, project.id))
-      await reindexProjects(tx, await projectIdsByPosition(tx), now)
-      if (membership) {
-        await reindexSectionItems(
-          tx,
-          membership.sectionId,
-          await sectionItemIdsByPosition(tx, membership.sectionId),
-          now
-        )
-      }
-    })
-  },
-  deleteSection: async (sectionId, nowValue = nowSeconds()) => {
-    const now = parseNow(nowValue)
-    if (sectionId === PINNED_SECTION_ID) {
-      throw new ProjectThreadPersistenceError(
-        "PINNED_SECTION_IMMUTABLE",
-        "Pinned cannot be deleted"
-      )
-    }
-    await db.transaction(async (tx) => {
-      const section = await requireSection(tx, sectionId)
-      await tx.delete(sections).where(eq(sections.id, section.id))
-      await reindexSections(tx, await sectionIdsByPosition(tx), now)
-    })
-  },
-  deleteThread: async (threadId, nowValue = nowSeconds()) => {
-    const now = parseNow(nowValue)
-    await db.transaction(async (tx) => {
-      const thread = await requireThread(tx, threadId)
-      const projectItem = await findProjectItem(tx, thread.id)
-      const sectionItem = await findSectionItem(tx, { id: thread.id, type: "thread" })
-      await tx
-        .update(threads)
-        .set({ forkedFromId: null, updatedAt: now })
-        .where(eq(threads.forkedFromId, thread.id))
-      await tx.delete(threads).where(eq(threads.id, thread.id))
-      await reindexThreads(tx, await threadIdsByPosition(tx), now)
-      if (projectItem) {
-        await reindexProjectItems(
-          tx,
-          projectItem.projectId,
-          await projectItemIdsByPosition(tx, projectItem.projectId),
-          now
-        )
-        await recomputeProjectRecency(tx, projectItem.projectId, now)
-      }
-      if (sectionItem) {
-        await reindexSectionItems(
-          tx,
-          sectionItem.sectionId,
-          await sectionItemIdsByPosition(tx, sectionItem.sectionId),
-          now
-        )
-      }
-    })
-  },
   ensurePinnedSection: async (nowValue = nowSeconds()) => {
     const now = parseNow(nowValue)
     return db.transaction(async (tx) => {
@@ -943,6 +947,7 @@ export const createProjectThreadPersistenceService = (
         await tx.insert(sections).values({
           color: null,
           createdAt: now,
+          deletedAt: null,
           icon: null,
           id: PINNED_SECTION_ID,
           name: "Pinned",
@@ -964,7 +969,8 @@ export const createProjectThreadPersistenceService = (
   getItemSection: async (item) => {
     const membership = await findSectionItem(db, item)
     if (!membership) return undefined
-    const section = await requireSection(db, membership.sectionId)
+    const section = await loadSection(db, membership.sectionId)
+    if (!section) return undefined
     return {
       createdAt: membership.createdAt,
       position: membership.position,
@@ -978,12 +984,42 @@ export const createProjectThreadPersistenceService = (
   getThreadProject: async (threadId) => {
     const item = await findProjectItem(db, parseId(threadId))
     if (!item) return undefined
+    const project = await loadProject(db, item.projectId)
+    if (!project) return undefined
     return {
       createdAt: item.createdAt,
       position: item.position,
-      project: await requireProject(db, item.projectId),
+      project,
       updatedAt: item.updatedAt,
     }
+  },
+  listProjectMemberships: async (options = {}) => {
+    const rows = await db
+      .select({ item: projectItems })
+      .from(projectItems)
+      .innerJoin(projects, eq(projectItems.projectId, projects.id))
+      .innerJoin(threads, eq(projectItems.threadId, threads.id))
+      .where(
+        and(
+          isNull(projects.deletedAt),
+          isNull(threads.deletedAt),
+          options.projectId === undefined
+            ? undefined
+            : eq(projectItems.projectId, parseId(options.projectId))
+        )
+      )
+      .orderBy(asc(projectItems.projectId), asc(projectItems.position), asc(projectItems.threadId))
+    return paginate(
+      rows.map(({ item }) => ({
+        createdAt: item.createdAt,
+        position: item.position,
+        projectId: item.projectId,
+        threadId: item.threadId,
+        updatedAt: item.updatedAt,
+      })),
+      options,
+      ({ threadId }) => threadId
+    )
   },
   listProjectThreads: async (projectId, options = {}) => {
     const project = await requireProject(db, projectId)
@@ -991,7 +1027,13 @@ export const createProjectThreadPersistenceService = (
       .select({ item: projectItems, thread: threads })
       .from(projectItems)
       .innerJoin(threads, eq(projectItems.threadId, threads.id))
-      .where(and(eq(projectItems.projectId, project.id), isNull(threads.archivedAt)))
+      .where(
+        and(
+          eq(projectItems.projectId, project.id),
+          isNull(threads.archivedAt),
+          isNull(threads.deletedAt)
+        )
+      )
       .orderBy(asc(projectItems.position), asc(projectItems.threadId))
     return paginate(
       rows.map(({ item, thread }) => ({
@@ -1005,7 +1047,7 @@ export const createProjectThreadPersistenceService = (
     )
   },
   listProjects: async (options = {}) => {
-    const values = await db.select().from(projects)
+    const values = await db.select().from(projects).where(isNull(projects.deletedAt))
     const sortKey = options.sortKey ?? "position"
     const direction = options.sortDirection ?? (sortKey === "recencyAt" ? "desc" : "asc")
     values.sort((left, right) => {
@@ -1029,7 +1071,8 @@ export const createProjectThreadPersistenceService = (
     const values: SectionItemView[] = []
     for (const row of rows) {
       if (row.itemType === "thread" && row.threadId) {
-        const thread = await requireThread(db, row.threadId)
+        const thread = await loadThread(db, row.threadId)
+        if (!thread) continue
         if (thread.archivedAt !== null) continue
         values.push({
           createdAt: row.createdAt,
@@ -1039,10 +1082,12 @@ export const createProjectThreadPersistenceService = (
           updatedAt: row.updatedAt,
         })
       } else if (row.itemType === "project" && row.projectId) {
+        const project = await loadProject(db, row.projectId)
+        if (!project) continue
         values.push({
           createdAt: row.createdAt,
           position: row.position,
-          project: await requireProject(db, row.projectId),
+          project,
           type: "project",
           updatedAt: row.updatedAt,
         })
@@ -1052,15 +1097,61 @@ export const createProjectThreadPersistenceService = (
       value.type === "thread" ? value.thread.id : value.project.id
     )
   },
+  listSectionMemberships: async (options = {}) => {
+    const [rows, activeProjects, activeThreads] = await Promise.all([
+      db
+        .select({ membership: sectionItems })
+        .from(sectionItems)
+        .innerJoin(sections, eq(sectionItems.sectionId, sections.id))
+        .where(
+          and(
+            isNull(sections.deletedAt),
+            options.sectionId === undefined
+              ? undefined
+              : eq(sectionItems.sectionId, parseId(options.sectionId))
+          )
+        )
+        .orderBy(asc(sectionItems.sectionId), asc(sectionItems.position), asc(sectionItems.id)),
+      db.select({ id: projects.id }).from(projects).where(isNull(projects.deletedAt)),
+      db.select({ id: threads.id }).from(threads).where(isNull(threads.deletedAt)),
+    ])
+    const activeProjectIds = new Set(activeProjects.map(({ id }) => id))
+    const activeThreadIds = new Set(activeThreads.map(({ id }) => id))
+    const values: SectionMembershipRecord[] = []
+    for (const row of rows) {
+      const membership = row.membership
+      if (membership.itemType === "thread" && membership.threadId) {
+        if (!activeThreadIds.has(membership.threadId)) continue
+        values.push({
+          createdAt: membership.createdAt,
+          item: { id: membership.threadId, type: "thread" },
+          position: membership.position,
+          sectionId: membership.sectionId,
+          updatedAt: membership.updatedAt,
+        })
+      } else if (membership.itemType === "project" && membership.projectId) {
+        if (!activeProjectIds.has(membership.projectId)) continue
+        values.push({
+          createdAt: membership.createdAt,
+          item: { id: membership.projectId, type: "project" },
+          position: membership.position,
+          sectionId: membership.sectionId,
+          updatedAt: membership.updatedAt,
+        })
+      }
+    }
+    return paginate(values, options, ({ item }) => `${item.type}:${item.id}`)
+  },
   listSections: async (options = {}) => {
     const values = await db
       .select()
       .from(sections)
+      .where(isNull(sections.deletedAt))
       .orderBy(asc(sections.position), asc(sections.id))
     return paginate(values, options, ({ id }) => id)
   },
   listThreads: async (options = {}) => {
-    let values = await db.select().from(threads)
+    let values = await db.select().from(threads).where(isNull(threads.deletedAt))
     const archived = options.archived ?? false
     values = values.filter((thread) => (thread.archivedAt !== null) === archived)
     if (options.agentId !== undefined)
@@ -1070,29 +1161,117 @@ export const createProjectThreadPersistenceService = (
       values = values.filter((thread) => thread.forkedFromId === forkedFromId)
     }
     if (options.projectId !== undefined) {
-      const ids = new Set(await projectItemIdsByPosition(db, parseId(options.projectId)))
-      values = values.filter(({ id }) => ids.has(id))
+      const ids =
+        options.projectId === null
+          ? new Set(
+              (await db.select({ id: projectItems.threadId }).from(projectItems)).map(
+                ({ id }) => id
+              )
+            )
+          : new Set(await projectItemIdsByPosition(db, parseId(options.projectId)))
+      values = values.filter(({ id }) => (options.projectId === null ? !ids.has(id) : ids.has(id)))
     }
     if (options.sectionId !== undefined) {
-      const rows = await db
-        .select({ threadId: sectionItems.threadId })
-        .from(sectionItems)
-        .where(eq(sectionItems.sectionId, parseId(options.sectionId)))
+      const rows =
+        options.sectionId === null
+          ? await db.select({ threadId: sectionItems.threadId }).from(sectionItems)
+          : await db
+              .select({ threadId: sectionItems.threadId })
+              .from(sectionItems)
+              .where(eq(sectionItems.sectionId, parseId(options.sectionId)))
       const ids = new Set(rows.flatMap(({ threadId }) => (threadId ? [threadId] : [])))
-      values = values.filter(({ id }) => ids.has(id))
+      values = values.filter(({ id }) => (options.sectionId === null ? !ids.has(id) : ids.has(id)))
     }
     const sortKey = options.sortKey ?? "position"
     const direction = options.sortDirection ?? (sortKey === "recencyAt" ? "desc" : "asc")
+    const sectionPositions = new Map<string, number>()
+    if (sortKey === "sectionPosition" && options.sectionId) {
+      const rows = await db
+        .select({ position: sectionItems.position, threadId: sectionItems.threadId })
+        .from(sectionItems)
+        .where(eq(sectionItems.sectionId, parseId(options.sectionId)))
+      for (const { position, threadId } of rows) {
+        if (threadId) sectionPositions.set(threadId, position)
+      }
+    }
     values.sort((left, right) => {
       const compared =
         sortKey === "position"
           ? direction === "asc"
             ? left.position - right.position
             : right.position - left.position
-          : compareNullableNumber(left.recencyAt, right.recencyAt, direction)
+          : sortKey === "createdAt"
+            ? direction === "asc"
+              ? left.createdAt - right.createdAt
+              : right.createdAt - left.createdAt
+            : sortKey === "updatedAt"
+              ? direction === "asc"
+                ? left.updatedAt - right.updatedAt
+                : right.updatedAt - left.updatedAt
+              : sortKey === "sectionPosition"
+                ? compareNullableNumber(
+                    sectionPositions.get(left.id) ?? null,
+                    sectionPositions.get(right.id) ?? null,
+                    direction
+                  )
+                : compareNullableNumber(left.recencyAt, right.recencyAt, direction)
       return compared || left.id.localeCompare(right.id)
     })
     return paginate(values, options, ({ id }) => id)
+  },
+  listDeletedResources: async () => {
+    const [deletedProjects, deletedSections, deletedThreads] = await Promise.all([
+      db.select().from(projects).where(isNotNull(projects.deletedAt)),
+      db.select().from(sections).where(isNotNull(sections.deletedAt)),
+      db.select().from(threads).where(isNotNull(threads.deletedAt)),
+    ])
+    return [
+      ...deletedProjects.map((value) => ({ type: "project" as const, value })),
+      ...deletedSections.map((value) => ({ type: "section" as const, value })),
+      ...deletedThreads.map((value) => ({ type: "thread" as const, value })),
+    ]
+  },
+  markProjectDeleting: async (projectId, nowValue = nowSeconds()) => {
+    const now = parseNow(nowValue)
+    const project = await requireProject(db, projectId)
+    const [record] = await db
+      .update(projects)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(eq(projects.id, project.id))
+      .returning()
+    if (!record)
+      throw new ProjectThreadPersistenceError("WRITE_FAILED", "Project was not marked for deletion")
+    return record
+  },
+  markSectionDeleting: async (sectionId, nowValue = nowSeconds()) => {
+    const now = parseNow(nowValue)
+    if (sectionId === PINNED_SECTION_ID) {
+      throw new ProjectThreadPersistenceError(
+        "PINNED_SECTION_IMMUTABLE",
+        "Pinned cannot be deleted"
+      )
+    }
+    const section = await requireSection(db, sectionId)
+    const [record] = await db
+      .update(sections)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(eq(sections.id, section.id))
+      .returning()
+    if (!record)
+      throw new ProjectThreadPersistenceError("WRITE_FAILED", "Section was not marked for deletion")
+    return record
+  },
+  markThreadDeleting: async (threadId, nowValue = nowSeconds()) => {
+    const now = parseNow(nowValue)
+    const thread = await requireThread(db, threadId)
+    const [record] = await db
+      .update(threads)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(eq(threads.id, thread.id))
+      .returning()
+    if (!record)
+      throw new ProjectThreadPersistenceError("WRITE_FAILED", "Thread was not marked for deletion")
+    return record
   },
   moveItemToSection: async (input, nowValue = nowSeconds()) =>
     db.transaction((tx) => moveItemToSectionInTransaction(tx, input, parseNow(nowValue))),
@@ -1177,6 +1356,86 @@ export const createProjectThreadPersistenceService = (
       await recomputeProjectRecency(tx, item.projectId, now)
     })
   },
+  purgeProject: async (projectId, nowValue = nowSeconds()) => {
+    const now = parseNow(nowValue)
+    const id = parseId(projectId)
+    await db.transaction(async (tx) => {
+      const [project] = await tx.select().from(projects).where(eq(projects.id, id)).limit(1)
+      if (!project) return
+      if (project.deletedAt === null) {
+        throw new ProjectThreadPersistenceError(
+          "RESOURCE_NOT_DELETING",
+          "Project is not marked for deletion"
+        )
+      }
+      const membership = await findSectionItem(tx, { id, type: "project" })
+      await tx.delete(projects).where(eq(projects.id, id))
+      await reindexProjects(tx, await projectIdsByPosition(tx), now)
+      if (membership) {
+        await reindexSectionItems(
+          tx,
+          membership.sectionId,
+          await sectionItemIdsByPosition(tx, membership.sectionId),
+          now
+        )
+      }
+    })
+  },
+  purgeSection: async (sectionId, nowValue = nowSeconds()) => {
+    const now = parseNow(nowValue)
+    const id = parseId(sectionId)
+    await db.transaction(async (tx) => {
+      const [section] = await tx.select().from(sections).where(eq(sections.id, id)).limit(1)
+      if (!section) return
+      if (section.deletedAt === null) {
+        throw new ProjectThreadPersistenceError(
+          "RESOURCE_NOT_DELETING",
+          "Section is not marked for deletion"
+        )
+      }
+      await tx.delete(sections).where(eq(sections.id, id))
+      await reindexSections(tx, await sectionIdsByPosition(tx), now)
+    })
+  },
+  purgeThread: async (threadId, nowValue = nowSeconds()) => {
+    const now = parseNow(nowValue)
+    const id = parseId(threadId)
+    await db.transaction(async (tx) => {
+      const [thread] = await tx.select().from(threads).where(eq(threads.id, id)).limit(1)
+      if (!thread) return
+      if (thread.deletedAt === null) {
+        throw new ProjectThreadPersistenceError(
+          "RESOURCE_NOT_DELETING",
+          "Thread is not marked for deletion"
+        )
+      }
+      const projectItem = await findProjectItem(tx, id)
+      const sectionItem = await findSectionItem(tx, { id, type: "thread" })
+      await tx
+        .update(threads)
+        .set({ forkedFromId: null, updatedAt: now })
+        .where(eq(threads.forkedFromId, id))
+      await tx.delete(threads).where(eq(threads.id, id))
+      await reindexThreads(tx, await threadIdsByPosition(tx), now)
+      if (projectItem) {
+        await reindexProjectItems(
+          tx,
+          projectItem.projectId,
+          await projectItemIdsByPosition(tx, projectItem.projectId),
+          now
+        )
+        await recomputeProjectRecency(tx, projectItem.projectId, now)
+      }
+      if (sectionItem) {
+        await reindexSectionItems(
+          tx,
+          sectionItem.sectionId,
+          await sectionItemIdsByPosition(tx, sectionItem.sectionId),
+          now
+        )
+      }
+    })
+  },
   setThreadArchived: async (threadId, archivedAtValue, nowValue = nowSeconds()) => {
     const now = parseNow(nowValue)
     const archivedAt = archivedAtValue === null ? null : parseTimestamp(archivedAtValue)
@@ -1223,18 +1482,30 @@ export const createProjectThreadPersistenceService = (
   updateProject: async (projectId, patch, nowValue = nowSeconds()) => {
     const now = parseNow(nowValue)
     const id = parseId(projectId)
-    await requireProject(db, id)
-    const [record] = await db
-      .update(projects)
-      .set({
-        ...(patch.name === undefined ? {} : { name: parseName(patch.name) }),
-        ...(patch.roots === undefined ? {} : { roots: parseRoots(patch.roots) }),
-        updatedAt: now,
-      })
-      .where(eq(projects.id, id))
-      .returning()
-    if (!record) throw new ProjectThreadPersistenceError("WRITE_FAILED", "Project was not updated")
-    return record
+    return db.transaction(async (tx) => {
+      await requireProject(tx, id)
+      const roots = patch.roots === undefined ? undefined : parseRoots(patch.roots)
+      if (roots) {
+        const members = await tx
+          .select({ cwd: threads.cwd })
+          .from(projectItems)
+          .innerJoin(threads, eq(projectItems.threadId, threads.id))
+          .where(eq(projectItems.projectId, id))
+        for (const member of members) assertThreadCwdMatchesProjectRoots(member, roots)
+      }
+      const [record] = await tx
+        .update(projects)
+        .set({
+          ...(patch.name === undefined ? {} : { name: parseName(patch.name) }),
+          ...(roots === undefined ? {} : { roots }),
+          updatedAt: now,
+        })
+        .where(eq(projects.id, id))
+        .returning()
+      if (!record)
+        throw new ProjectThreadPersistenceError("WRITE_FAILED", "Project was not updated")
+      return record
+    })
   },
   updateSection: async (sectionId, patch, nowValue = nowSeconds()) => {
     const now = parseNow(nowValue)
@@ -1260,17 +1531,26 @@ export const createProjectThreadPersistenceService = (
   },
   updateThread: async (threadId, patch, nowValue = nowSeconds()) => {
     const now = parseNow(nowValue)
-    const thread = await requireThread(db, threadId)
-    const [record] = await db
-      .update(threads)
-      .set({
-        ...(patch.cwd === undefined ? {} : { cwd: patch.cwd }),
-        ...(patch.title === undefined ? {} : { title: patch.title }),
-        updatedAt: now,
-      })
-      .where(eq(threads.id, thread.id))
-      .returning()
-    if (!record) throw new ProjectThreadPersistenceError("WRITE_FAILED", "Thread was not updated")
-    return record
+    return db.transaction(async (tx) => {
+      const thread = await requireThread(tx, threadId)
+      if (patch.cwd !== undefined) {
+        const membership = await findProjectItem(tx, thread.id)
+        if (membership) {
+          const project = await requireProject(tx, membership.projectId)
+          assertThreadCwdMatchesProjectRoots({ cwd: patch.cwd }, project.roots)
+        }
+      }
+      const [record] = await tx
+        .update(threads)
+        .set({
+          ...(patch.cwd === undefined ? {} : { cwd: patch.cwd }),
+          ...(patch.title === undefined ? {} : { title: patch.title }),
+          updatedAt: now,
+        })
+        .where(eq(threads.id, thread.id))
+        .returning()
+      if (!record) throw new ProjectThreadPersistenceError("WRITE_FAILED", "Thread was not updated")
+      return record
+    })
   },
 })
