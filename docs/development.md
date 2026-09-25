@@ -101,7 +101,8 @@ Its transcript uses `@tanstack/react-virtual` with 128 variable-height messages,
 overscan, sampled turn navigation, and live message appends so long-conversation behavior can be
 inspected without production data. The preload bootstrap flag hides the item and redirects the
 route in packaged production builds. Its right and bottom surfaces are simultaneously resizable and
-offer all 25 audited content hosts as tabs: sources, subagents, plan, summary, goal, review,
+offer a workspace **Files** panel (two in-memory workspace roots with create, rename, move, delete, filter, editing, and Markdown, image, SVG, and CSV/TSV previews)
+and all 25 audited content hosts as tabs: sources, subagents, plan, summary, goal, review,
 pull request, terminal, file, image, browser, MCP App, automation, artifact, PDF, document, notebook,
 presentation, workbook, entity details, side chat, MCP thread/file extensions, sandbox, and a
 secondary timeline. A floating display controller switches nine Timeline families and individual
@@ -112,8 +113,8 @@ panel tabs between a compact curated view and the exhaustive catalog.
 Chat Demo is temporary development scaffolding. When the production conversation workspace has
 adopted the shared chat components, remove the demo with this checklist:
 
-1. Delete `apps/desktop/renderer/src/components/chat-demo.tsx`, its test, and
-   `apps/desktop/renderer/src/routes/chat-demo.tsx`.
+1. Delete `apps/desktop/renderer/src/components/chat-demo.tsx`, `chat-demo-files.tsx`, the demo
+   test, and `apps/desktop/renderer/src/routes/chat-demo.tsx`.
 2. Remove the `Chat Demo` item, `MessageSquare` import, and development-item filtering from
    `chat-sidebar.tsx`.
 3. If no other development-only renderer feature uses it, delete `development-mode.ts` and its

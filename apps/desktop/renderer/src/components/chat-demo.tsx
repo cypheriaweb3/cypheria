@@ -201,6 +201,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } fro
 
 import promptWallpaper from "../assets/plugins/prompt-wallpaper.webp"
 import { splitCodexRenderGroups } from "../codex-render-groups.js"
+import { DemoFilesPanel } from "./chat-demo-files.js"
 
 type DemoPanelId =
   | "sources"
@@ -212,6 +213,7 @@ type DemoPanelId =
   | "pull-request"
   | "terminal"
   | "file"
+  | "files"
   | "image"
   | "browser"
   | "mcp"
@@ -536,6 +538,7 @@ const initialPlacements: Record<DemoPanelId, ChatPanelPlacement | null> = {
   sandbox: "bottom",
   timeline: "bottom",
   file: "right",
+  files: "right",
   goal: "right",
   image: "right",
   mcp: "bottom",
@@ -564,6 +567,7 @@ const panelTitles: Record<DemoPanelId, string> = {
   sandbox: "Sandbox",
   timeline: "Timeline",
   file: "File",
+  files: "Files",
   goal: "Goal",
   image: "Image",
   mcp: "MCP App",
@@ -592,6 +596,7 @@ const panelIcons: Record<DemoPanelId, React.ReactNode> = {
   sandbox: <TerminalIcon />,
   timeline: <StatusIcon />,
   file: <FileCodeIcon />,
+  files: <FolderOpenIcon />,
   goal: <PinIcon />,
   image: <FileImageIcon />,
   mcp: <McpIcon />,
@@ -609,6 +614,7 @@ const panelIcons: Record<DemoPanelId, React.ReactNode> = {
 }
 
 const panelIds: DemoPanelId[] = [
+  "files",
   "review",
   "sources",
   "plan",
@@ -681,6 +687,7 @@ const initialTimelineGroups = new Set<DemoTimelineGroup>([
 ])
 
 const initialEnabledPanels = new Set<DemoPanelId>([
+  "files",
   "review",
   "sources",
   "plan",
@@ -725,7 +732,7 @@ export default function ChatDemo() {
   const [visibleComposerExtras, setVisibleComposerExtras] = useState(initialComposerExtras)
   const [pendingSurface, setPendingSurface] = useState<DemoPendingSurface>("none")
   const [pendingOption, setPendingOption] = useState("changed-files")
-  const [rightActive, setRightActive] = useState<DemoPanelId>("review")
+  const [rightActive, setRightActive] = useState<DemoPanelId>("files")
   const [bottomActive, setBottomActive] = useState<DemoPanelId>("terminal")
   const [selectedReviewFile, setSelectedReviewFile] = useState("chat-demo.tsx")
   const attachmentInputRef = useRef<HTMLInputElement>(null)
@@ -1109,6 +1116,7 @@ export default function ChatDemo() {
           </ChatPanelContent>
         </ChatPreviewPanel>
       ),
+      files: <DemoFilesPanel />,
       file: (
         <ChatPreviewPanel
           toolbar={

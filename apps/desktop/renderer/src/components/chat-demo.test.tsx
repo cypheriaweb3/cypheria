@@ -12,6 +12,19 @@ class ResizeObserverStub implements ResizeObserver {
   unobserve() {}
 }
 
+class IntersectionObserverStub implements IntersectionObserver {
+  readonly root = null
+  readonly rootMargin = "0px"
+  readonly scrollMargin = "0px"
+  readonly thresholds = [0]
+  disconnect() {}
+  observe() {}
+  takeRecords() {
+    return []
+  }
+  unobserve() {}
+}
+
 const required = <T extends Element>(container: ParentNode, selector: string): T => {
   const element = container.querySelector<T>(selector)
   if (!element) throw new Error(`Missing demo element: ${selector}`)
@@ -41,6 +54,7 @@ describe("ChatDemo", () => {
     HTMLElement.prototype.scrollTo = vi.fn()
     Element.prototype.scrollIntoView = vi.fn()
     vi.stubGlobal("ResizeObserver", ResizeObserverStub)
+    vi.stubGlobal("IntersectionObserver", IntersectionObserverStub)
     container = document.createElement("div")
     document.body.append(container)
     root = createRoot(container)
@@ -63,9 +77,11 @@ describe("ChatDemo", () => {
     expect(container.textContent).toContain("128 messages · virtualized")
     expect(container.querySelectorAll("[data-demo-message]").length).toBeLessThan(128)
     expect(container.querySelectorAll('[data-slot="chat-turn-marker"]')).toHaveLength(18)
+    expect(requiredText(container, '[role="tab"]', "Files")).toBeTruthy()
+    expect(required(container, '[data-slot="chat-files-panel"]')).toBeTruthy()
     expect(requiredText(container, '[role="tab"]', "Sources")).toBeTruthy()
     expect(requiredText(container, '[role="tab"]', "Terminal")).toBeTruthy()
-    expect(container.querySelectorAll('[data-slot="chat-panel-tab"]')).toHaveLength(5)
+    expect(container.querySelectorAll('[data-slot="chat-panel-tab"]')).toHaveLength(6)
 
     await act(async () => {
       required<HTMLButtonElement>(container, '[aria-label="Choose visible demo elements"]').click()
@@ -100,6 +116,7 @@ describe("ChatDemo", () => {
       "Plan",
       "Presentation",
       "Pull request",
+      "Files",
       "Review",
       "Sources",
       "Subagents",
