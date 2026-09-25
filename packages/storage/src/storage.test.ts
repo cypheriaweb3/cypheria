@@ -22,6 +22,23 @@ const rows = {
 const exerciseReplicaStore = async (store: ReplicaStore): Promise<void> => {
   await store.open()
   await store.apply({ deletes: [], upserts: [rows.first, rows.second, rows.other] })
+  const firstPage = await store.listPage({ limit: 1 })
+  expect(firstPage.items).toEqual([
+    {
+      scopeId: "workspace-a",
+      entityType: "thread",
+      entityId: "1",
+      payloadLength: 7,
+      payloadPreview: '{"v":1}',
+      payloadTruncated: false,
+    },
+  ])
+  await expect(store.listPage({ cursor: firstPage.nextCursor, limit: 1 })).resolves.toMatchObject({
+    items: [{ entityId: "2" }],
+  })
+  await expect(store.listPage({ query: "project" })).resolves.toMatchObject({
+    items: [{ scopeId: "workspace-b" }],
+  })
   await expect(store.read("workspace-a", ["thread"])).resolves.toEqual([rows.first, rows.second])
   await expect(store.read("workspace-a", ["thread"], ["2"])).resolves.toEqual([rows.second])
   await store.apply({
@@ -44,7 +61,11 @@ describe("client storage contracts", () => {
     const values = new Map<string, string>()
     const storage = createWebKeyValueStorage({
       getStorage: () => ({
+        get length() {
+          return values.size
+        },
         getItem: (key) => values.get(key) ?? null,
+        key: (index) => [...values.keys()][index] ?? null,
         removeItem: (key) => {
           values.delete(key)
         },
@@ -56,12 +77,22 @@ describe("client storage contracts", () => {
     const changes: Array<string | null> = []
     const unsubscribe = storage.subscribe?.("cypheria:layout", (value) => changes.push(value))
 
-    await storage.setItem("cypheria:layout", "compact")
-    await expect(storage.getItem("cypheria:layout")).resolves.toBe("compact")
+    await storage.setItem("cypheria:layout", "compact".repeat(50))
+    await storage.setItem("other:key", "other")
+    await expect(storage.getItem("cypheria:layout")).resolves.toBe("compact".repeat(50))
+    await expect(storage.listPage({ query: "cypheria" })).resolves.toMatchObject({
+      items: [
+        {
+          key: "cypheria:layout",
+          valueLength: 350,
+          valueTruncated: true,
+        },
+      ],
+    })
     await storage.removeItem("cypheria:layout")
     unsubscribe?.()
 
-    expect(changes).toEqual(["compact", null])
+    expect(changes).toEqual(["compact".repeat(50), null])
   })
 
   it("applies the replica contract in memory", async () => {
@@ -157,6 +188,19 @@ describe("client storage contracts", () => {
       async list() {
         return [...bytesByKey.keys()]
       },
+      async listPage(request = {}) {
+        const query = request.query?.toLocaleLowerCase() ?? ""
+        return {
+          items: [...bytesByKey]
+            .filter(([storageKey]) => !query || storageKey.toLocaleLowerCase().includes(query))
+            .map(([storageKey, bytes]) => ({
+              storageKey,
+              byteSize: bytes.byteLength,
+              bytePreview: bytes.slice(0, 32),
+            })),
+          nextCursor: null,
+        }
+      },
     })
     const saved = await attachments.save({
       id: "att_kept",
@@ -178,6 +222,15 @@ describe("client storage contracts", () => {
       byteSize: 3,
     })
     await expect(attachments.read(saved)).resolves.toEqual(new Uint8Array([1, 2, 3]))
+    await expect(attachments.listPage({ query: "kept" })).resolves.toMatchObject({
+      items: [
+        {
+          storageKey: "att_kept",
+          storageType: "native-file",
+          byteSize: 3,
+        },
+      ],
+    })
     await attachments.garbageCollect(new Set([saved.storageKey]))
     expect([...bytesByKey.keys()]).toEqual(["att_kept"])
     await expect(
@@ -202,7 +255,70 @@ describe("client storage contracts", () => {
     })
 
     await expect(attachments.read(kept)).resolves.toEqual(new Uint8Array([8, 9]))
+    await expect(attachments.listPage({ query: "kept" })).resolves.toEqual({
+      items: [
+        {
+          storageKey: "att_kept",
+          storageType: "web-indexeddb",
+          byteSize: 2,
+          bytePreview: new Uint8Array([8, 9]),
+        },
+      ],
+      nextCursor: null,
+    })
     await attachments.garbageCollect(new Set([kept.storageKey]))
     await expect(attachments.read(orphan)).rejects.toThrow("was not found")
+  })
+
+  it("migrates legacy IndexedDB attachment records without loading blobs while listing", async () => {
+    const databaseName = `attachments-legacy-${crypto.randomUUID()}`
+    const legacy = await new Promise<IDBDatabase>((resolve, reject) => {
+      const request = indexedDB.open(databaseName, 1)
+      request.addEventListener("upgradeneeded", () => {
+        request.result.createObjectStore("attachments", { keyPath: "storageKey" })
+      })
+      request.addEventListener("success", () => resolve(request.result))
+      request.addEventListener("error", () => reject(request.error))
+    })
+    const transaction = legacy.transaction("attachments", "readwrite")
+    transaction.objectStore("attachments").put({
+      id: "att_legacy",
+      storageKey: "att_legacy",
+      storageType: "web-indexeddb",
+      mediaType: "application/octet-stream",
+      fileName: null,
+      byteSize: 40,
+      createdAt: 1,
+      bytes: new Uint8Array(40).fill(7).buffer,
+    })
+    await new Promise<void>((resolve, reject) => {
+      transaction.addEventListener("complete", () => resolve())
+      transaction.addEventListener("error", () => reject(transaction.error))
+    })
+    legacy.close()
+
+    const attachments = createIndexedDbAttachmentStore({ databaseName, indexedDb: indexedDB })
+    await expect(attachments.listPage()).resolves.toEqual({
+      items: [
+        {
+          storageKey: "att_legacy",
+          storageType: "web-indexeddb",
+          byteSize: 40,
+          bytePreview: new Uint8Array(32).fill(7),
+        },
+      ],
+      nextCursor: null,
+    })
+    await expect(
+      attachments.read({
+        id: "att_legacy",
+        storageKey: "att_legacy",
+        storageType: "web-indexeddb",
+        mediaType: "application/octet-stream",
+        fileName: null,
+        byteSize: 40,
+        createdAt: 1,
+      })
+    ).resolves.toEqual(new Uint8Array(40).fill(7))
   })
 })

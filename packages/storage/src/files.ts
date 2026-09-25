@@ -5,12 +5,20 @@ import {
   assertAttachmentStorageType,
   normalizeAttachmentInput,
 } from "./attachment.js"
+import type { StoragePage, StoragePageRequest } from "./inspection.js"
+
+export interface AttachmentFileInspectionEntry {
+  readonly storageKey: string
+  readonly byteSize: number
+  readonly bytePreview: Uint8Array
+}
 
 export interface AttachmentFileDriver {
   write(storageKey: string, bytes: Uint8Array): Promise<void>
   read(storageKey: string): Promise<Uint8Array>
   delete(storageKey: string): Promise<void>
   list(): Promise<readonly string[]>
+  listPage(request?: StoragePageRequest): Promise<StoragePage<AttachmentFileInspectionEntry>>
 }
 
 export function createFileAttachmentStore(
@@ -49,6 +57,13 @@ export function createFileAttachmentStore(
           if (!referenced.has(validKey)) await driver.delete(validKey)
         })
       )
+    },
+    async listPage(request) {
+      const page = await driver.listPage(request)
+      return {
+        items: page.items.map((item) => ({ ...item, storageType })),
+        nextCursor: page.nextCursor,
+      }
     },
   }
 }

@@ -62,6 +62,7 @@ import {
   settingsWorkspaceLayoutWriteContract,
   storageAttachmentDeleteContract,
   storageAttachmentListContract,
+  storageAttachmentListPageContract,
   storageAttachmentReadContract,
   storageAttachmentWriteContract,
 } from "../../ipc/src/index.js"
@@ -70,6 +71,7 @@ import { readAppearanceSettings, writeAppearanceSettings } from "./appearance-co
 import { configureChromiumFeatures } from "./chromium-features.js"
 import {
   deleteDesktopAttachment,
+  listDesktopAttachmentPage,
   listDesktopAttachments,
   readDesktopAttachment,
   writeDesktopAttachment,
@@ -578,6 +580,9 @@ const registerIpcHandlers = (paths: DesktopAppPaths, client: CypheriaClient): vo
   )
   registerIpcRoute(storageAttachmentListContract, () =>
     listDesktopAttachments(app.getPath("userData"))
+  )
+  registerIpcRoute(storageAttachmentListPageContract, (request) =>
+    listDesktopAttachmentPage(app.getPath("userData"), request)
   )
   registerIpcRoute(settingsAppearanceReadContract, () =>
     readAppearanceSettings(app.getPath("userData"))

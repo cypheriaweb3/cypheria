@@ -54,6 +54,7 @@ export const CYPHERIA_IPC_CHANNELS = {
   settingsConnectionProxyWrite: "settings.connection-proxy.write",
   storageAttachmentDelete: "storage.attachment.delete",
   storageAttachmentList: "storage.attachment.list",
+  storageAttachmentListPage: "storage.attachment.list-page",
   storageAttachmentRead: "storage.attachment.read",
   storageAttachmentWrite: "storage.attachment.write",
 } as const
@@ -696,6 +697,40 @@ export const storageAttachmentListContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<EmptyPayload, { storageKeys: string[] }>
 
+export const StoragePageRequestSchema = z
+  .object({
+    cursor: z.string().min(1).nullable().optional(),
+    limit: z.number().int().min(1).max(100).optional(),
+    query: z.string().max(256).optional(),
+  })
+  .strict()
+export type StoragePageRequest = z.infer<typeof StoragePageRequestSchema>
+
+export const AttachmentFileInspectionEntrySchema = z
+  .object({
+    storageKey: AttachmentStorageKeySchema,
+    byteSize: z.number().int().positive(),
+    bytePreview: z.instanceof(Uint8Array).refine((bytes) => bytes.byteLength <= 32),
+  })
+  .strict()
+export type AttachmentFileInspectionEntry = z.infer<typeof AttachmentFileInspectionEntrySchema>
+
+export const storageAttachmentListPageContract = {
+  channel: CYPHERIA_IPC_CHANNELS.storageAttachmentListPage,
+  namespace: "storage",
+  request: StoragePageRequestSchema,
+  response: z
+    .object({
+      items: z.array(AttachmentFileInspectionEntrySchema),
+      nextCursor: z.string().min(1).nullable(),
+    })
+    .strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  StoragePageRequest,
+  { items: AttachmentFileInspectionEntry[]; nextCursor: string | null }
+>
+
 export const ipcContracts = {
   appDirectoryPick: appDirectoryPickContract,
   appSoundPick: appSoundPickContract,
@@ -725,6 +760,7 @@ export const ipcContracts = {
   settingsConnectionProxyWrite: settingsConnectionProxyWriteContract,
   storageAttachmentDelete: storageAttachmentDeleteContract,
   storageAttachmentList: storageAttachmentListContract,
+  storageAttachmentListPage: storageAttachmentListPageContract,
   storageAttachmentRead: storageAttachmentReadContract,
   storageAttachmentWrite: storageAttachmentWriteContract,
 } as const
@@ -758,6 +794,10 @@ export type CypheriaPreloadApi = {
     readonly attachments: {
       readonly delete: (storageKey: string) => Promise<{ deleted: true }>
       readonly list: () => Promise<{ storageKeys: string[] }>
+      readonly listPage: (request: StoragePageRequest) => Promise<{
+        items: AttachmentFileInspectionEntry[]
+        nextCursor: string | null
+      }>
       readonly read: (storageKey: string) => Promise<{ bytes: Uint8Array }>
       readonly write: (storageKey: string, bytes: Uint8Array) => Promise<{ byteSize: number }>
     }

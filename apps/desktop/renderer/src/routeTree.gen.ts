@@ -14,6 +14,7 @@ import { Route as SchedulesRouteImport } from "./routes/schedules"
 import { Route as PoliciesRouteImport } from "./routes/policies"
 import { Route as PluginsRouteImport } from "./routes/plugins"
 import { Route as NetworksRouteImport } from "./routes/networks"
+import { Route as DebugRouteImport } from "./routes/debug"
 import { Route as ChatDemoRouteImport } from "./routes/chat-demo"
 import { Route as AuditRouteImport } from "./routes/audit"
 import { Route as ApprovalsRouteImport } from "./routes/approvals"
@@ -48,6 +49,11 @@ const PluginsRoute = PluginsRouteImport.update({
 const NetworksRoute = NetworksRouteImport.update({
   id: "/networks",
   path: "/networks",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DebugRoute = DebugRouteImport.update({
+  id: "/debug",
+  path: "/debug",
   getParentRoute: () => rootRouteImport,
 } as any)
 const ChatDemoRoute = ChatDemoRouteImport.update({
@@ -107,6 +113,7 @@ export interface FileRoutesByFullPath {
   "/approvals": typeof ApprovalsRoute
   "/audit": typeof AuditRoute
   "/chat-demo": typeof ChatDemoRoute
+  "/debug": typeof DebugRoute
   "/networks": typeof NetworksRoute
   "/plugins": typeof PluginsRoute
   "/policies": typeof PoliciesRoute
@@ -124,6 +131,7 @@ export interface FileRoutesByTo {
   "/approvals": typeof ApprovalsRoute
   "/audit": typeof AuditRoute
   "/chat-demo": typeof ChatDemoRoute
+  "/debug": typeof DebugRoute
   "/networks": typeof NetworksRoute
   "/plugins": typeof PluginsRoute
   "/policies": typeof PoliciesRoute
@@ -142,6 +150,7 @@ export interface FileRoutesById {
   "/approvals": typeof ApprovalsRoute
   "/audit": typeof AuditRoute
   "/chat-demo": typeof ChatDemoRoute
+  "/debug": typeof DebugRoute
   "/networks": typeof NetworksRoute
   "/plugins": typeof PluginsRoute
   "/policies": typeof PoliciesRoute
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | "/approvals"
     | "/audit"
     | "/chat-demo"
+    | "/debug"
     | "/networks"
     | "/plugins"
     | "/policies"
@@ -178,6 +188,7 @@ export interface FileRouteTypes {
     | "/approvals"
     | "/audit"
     | "/chat-demo"
+    | "/debug"
     | "/networks"
     | "/plugins"
     | "/policies"
@@ -195,6 +206,7 @@ export interface FileRouteTypes {
     | "/approvals"
     | "/audit"
     | "/chat-demo"
+    | "/debug"
     | "/networks"
     | "/plugins"
     | "/policies"
@@ -213,6 +225,7 @@ export interface RootRouteChildren {
   ApprovalsRoute: typeof ApprovalsRoute
   AuditRoute: typeof AuditRoute
   ChatDemoRoute: typeof ChatDemoRoute
+  DebugRoute: typeof DebugRoute
   NetworksRoute: typeof NetworksRoute
   PluginsRoute: typeof PluginsRoute
   PoliciesRoute: typeof PoliciesRoute
@@ -261,6 +274,13 @@ declare module "@tanstack/react-router" {
       path: "/networks"
       fullPath: "/networks"
       preLoaderRoute: typeof NetworksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/debug": {
+      id: "/debug"
+      path: "/debug"
+      fullPath: "/debug"
+      preLoaderRoute: typeof DebugRouteImport
       parentRoute: typeof rootRouteImport
     }
     "/chat-demo": {
@@ -341,6 +361,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApprovalsRoute: ApprovalsRoute,
   AuditRoute: AuditRoute,
   ChatDemoRoute: ChatDemoRoute,
+  DebugRoute: DebugRoute,
   NetworksRoute: NetworksRoute,
   PluginsRoute: PluginsRoute,
   PoliciesRoute: PoliciesRoute,

@@ -41,6 +41,7 @@ describe("desktop IPC contracts", () => {
       "settingsWorkspaceLayoutWrite",
       "storageAttachmentDelete",
       "storageAttachmentList",
+      "storageAttachmentListPage",
       "storageAttachmentRead",
       "storageAttachmentWrite",
     ])

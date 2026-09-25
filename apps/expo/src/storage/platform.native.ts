@@ -1,4 +1,10 @@
 import type { ClientStorage } from "@cypheria/storage"
+import {
+  createTextPreview,
+  decodeStorageCursor,
+  encodeStorageCursor,
+  normalizeStoragePageRequest,
+} from "@cypheria/storage"
 import { createFileAttachmentStore } from "@cypheria/storage/files"
 import {
   createSqliteReplicaStore,
@@ -7,7 +13,7 @@ import {
   type ReplicaSqliteValue,
 } from "@cypheria/storage/sqlite"
 import AsyncStorage from "@react-native-async-storage/async-storage"
-import { Directory, File, Paths } from "expo-file-system"
+import { Directory, File, FileMode, Paths } from "expo-file-system"
 import { openDatabaseAsync, type SQLiteDatabase } from "expo-sqlite"
 
 const toSqliteConnection = (
@@ -47,6 +53,34 @@ export const clientStorage: ClientStorage = {
     getItem: (key) => AsyncStorage.getItem(key),
     setItem: (key, value) => AsyncStorage.setItem(key, value),
     removeItem: (key) => AsyncStorage.removeItem(key),
+    async listPage(request = {}) {
+      const { cursor, limit, query } = normalizeStoragePageRequest(request)
+      const cursorKey = decodeStorageCursor(cursor, 1)?.[0] ?? null
+      const matchingKeys = (await AsyncStorage.getAllKeys())
+        .filter(
+          (key) =>
+            (cursorKey === null || key > cursorKey) &&
+            (!query || key.toLocaleLowerCase().includes(query))
+        )
+        .sort()
+      const pageKeys = matchingKeys.slice(0, limit + 1)
+      const hasMore = pageKeys.length > limit
+      if (hasMore) pageKeys.pop()
+      const values = new Map(await AsyncStorage.multiGet(pageKeys))
+      return {
+        items: pageKeys.map((key) => {
+          const preview = createTextPreview(values.get(key) ?? "")
+          return {
+            key,
+            valueLength: preview.length,
+            valuePreview: preview.preview,
+            valueTruncated: preview.truncated,
+          }
+        }),
+        nextCursor:
+          hasMore && pageKeys.length ? encodeStorageCursor([pageKeys.at(-1) as string]) : null,
+      }
+    },
   },
   replica: createSqliteReplicaStore(sqliteDriver, 1),
   attachments: createFileAttachmentStore("native-file", {
@@ -72,6 +106,42 @@ export const clientStorage: ClientStorage = {
         .filter((entry): entry is File => entry instanceof File && validStorageKey.test(entry.name))
         .map((file) => file.name)
         .sort()
+    },
+    async listPage(request = {}) {
+      const { cursor, limit, query } = normalizeStoragePageRequest(request)
+      const cursorKey = decodeStorageCursor(cursor, 1)?.[0] ?? null
+      if (!attachmentDirectory.exists) return { items: [], nextCursor: null }
+      const matchingKeys = attachmentDirectory
+        .list()
+        .filter((entry): entry is File => entry instanceof File && validStorageKey.test(entry.name))
+        .map((file) => file.name)
+        .filter(
+          (storageKey) =>
+            storageKey > (cursorKey ?? "") &&
+            (!query || storageKey.toLocaleLowerCase().includes(query))
+        )
+        .sort()
+      const pageKeys = matchingKeys.slice(0, limit + 1)
+      const hasMore = pageKeys.length > limit
+      if (hasMore) pageKeys.pop()
+      const items = pageKeys.map((storageKey) => {
+        const file = new File(attachmentDirectory, storageKey)
+        const handle = file.open(FileMode.ReadOnly)
+        try {
+          return {
+            storageKey,
+            byteSize: file.size,
+            bytePreview: handle.readBytes(Math.min(file.size, 32)),
+          }
+        } finally {
+          handle.close()
+        }
+      })
+      return {
+        items,
+        nextCursor:
+          hasMore && pageKeys.length ? encodeStorageCursor([pageKeys.at(-1) as string]) : null,
+      }
     },
   }),
 }

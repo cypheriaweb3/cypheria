@@ -46,6 +46,7 @@ import {
   Archive,
   BellDot,
   Boxes,
+  Bug,
   Check,
   ChevronDown,
   ChevronRight,
@@ -172,6 +173,13 @@ const virtualNavigationItems = [
     icon: Boxes,
     id: "plugins",
     label: msg({ id: "navigation.pluginsAndSkills", message: "Plugins & skills" }),
+  },
+  {
+    developmentOnly: true,
+    href: "/debug",
+    icon: Bug,
+    id: "debug",
+    label: "Storage Debug",
   },
   {
     developmentOnly: true,

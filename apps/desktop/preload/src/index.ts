@@ -83,6 +83,8 @@ const cypheriaApi: CypheriaPreloadApi = {
       delete: (storageKey) =>
         ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageAttachmentDelete, { storageKey }),
       list: () => invoke(CYPHERIA_IPC_CHANNELS.storageAttachmentList),
+      listPage: (request) =>
+        ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageAttachmentListPage, request),
       read: (storageKey) =>
         ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageAttachmentRead, { storageKey }),
       write: (storageKey, bytes) =>

@@ -1,3 +1,5 @@
+import type { StoragePage, StoragePageRequest } from "./inspection.js"
+
 export type AttachmentStorageType = "desktop-file" | "native-file" | "web-indexeddb"
 
 export interface AttachmentMetadata {
@@ -23,6 +25,14 @@ export interface AttachmentStore {
   read(attachment: AttachmentMetadata): Promise<Uint8Array>
   delete(attachment: AttachmentMetadata): Promise<void>
   garbageCollect(referencedStorageKeys: ReadonlySet<string>): Promise<void>
+  listPage(request?: StoragePageRequest): Promise<StoragePage<AttachmentInspectionEntry>>
+}
+
+export interface AttachmentInspectionEntry {
+  readonly storageKey: string
+  readonly storageType: AttachmentStorageType
+  readonly byteSize: number
+  readonly bytePreview: Uint8Array
 }
 
 const attachmentIdPattern = /^[A-Za-z0-9_-]{1,128}$/u

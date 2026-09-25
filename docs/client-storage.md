@@ -32,11 +32,15 @@ Raw key/value storage only persists strings. `@cypheria/storage/jotai` adds `ato
 
 Keys must be stable, namespaced, and owned by one domain. Larger collections and queryable records belong in the replica rather than a single JSON value.
 
+The inspection API uses keyset pagination and searches key names. It reads values only for the current page and returns at most a 240-character preview plus the original character count.
+
 ## Replica store
 
 The replica is a semantic row store, not a portable SQL API. Each row has `scopeId`, `entityType`, `entityId`, and a serialized payload. The owning domain defines payload schemas and converts records at the boundary.
 
 The application supplies a positive semantic schema version. When that version changes, an adapter clears the rebuildable replica instead of trying to expose platform-specific migrations. IndexedDB and SQLite implementations provide atomic batches for upserts and deletes. Replica contents must be recoverable from the Server or another durable source.
+
+Replica inspection also uses an opaque keyset cursor. Queries scan row keys and serialized payloads, but results contain only a 240-character payload preview and its full character count.
 
 ## Attachment bytes
 
@@ -44,8 +48,10 @@ Attachment metadata and bytes have separate lifecycles. A domain persists metada
 
 The Web adapter keeps blobs in a dedicated IndexedDB database. Native Expo stores them in its document directory. Desktop sends bounded `Uint8Array` values over the isolated preload bridge; Electron main validates the key, enforces a 32 MiB limit, and writes only inside its owned directory. Renderer code never receives a filesystem path or Node.js access.
 
+Attachment inspection returns paginated keys, sizes, and at most the first 32 bytes. File adapters read only that prefix; the Web adapter keeps the prefix in its metadata object store so listing never materializes complete blobs.
+
 ## Validation and security
 
 Storage adapters validate identifiers and storage types, but domain owners must validate deserialized replica payloads and attachment metadata. Client replicas and browser storage are ordinary local application data: they are not encrypted secret storage and must not be trusted as authority after reconnecting to the Server.
 
-Electron keeps context isolation and sandboxing enabled. Its attachment IPC accepts only the four declared operations—write, read, delete, and list—and never accepts arbitrary paths. Protocol-visible or shared state still crosses the normal Zod-validated client/server boundary.
+Electron keeps context isolation and sandboxing enabled. Its attachment IPC accepts only declared, schema-validated operations and never accepts arbitrary paths. Protocol-visible or shared state still crosses the normal Zod-validated client/server boundary.

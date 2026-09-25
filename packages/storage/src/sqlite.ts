@@ -1,4 +1,16 @@
-import type { ReplicaRow, ReplicaRowChanges, ReplicaScopeRows, ReplicaStore } from "./replica.js"
+import {
+  decodeStorageCursor,
+  encodeStorageCursor,
+  normalizeStoragePageRequest,
+  type StoragePageRequest,
+} from "./inspection.js"
+import type {
+  ReplicaInspectionEntry,
+  ReplicaRow,
+  ReplicaRowChanges,
+  ReplicaScopeRows,
+  ReplicaStore,
+} from "./replica.js"
 
 export type ReplicaSqliteValue = string | number | null
 
@@ -23,6 +35,14 @@ interface StoredRow {
   readonly entity_type: string
   readonly entity_id: string
   readonly payload: string
+}
+
+interface StoredInspectionRow {
+  readonly scope_id: string
+  readonly entity_type: string
+  readonly entity_id: string
+  readonly payload_length: number
+  readonly payload_preview: string
 }
 
 const createRowsSql = `
@@ -149,6 +169,68 @@ export function createSqliteReplicaStore(
       return [...scopes].map(
         ([scopeId, scopeRows]): ReplicaScopeRows => ({ scopeId, rows: scopeRows })
       )
+    },
+    async listPage(request: StoragePageRequest = {}) {
+      const { cursor, limit, query } = normalizeStoragePageRequest(request)
+      const cursorParts = decodeStorageCursor(cursor, 3)
+      const keyClause = cursorParts
+        ? `(
+             scope_id > ? OR
+             (scope_id = ? AND entity_type > ?) OR
+             (scope_id = ? AND entity_type = ? AND entity_id > ?)
+           )`
+        : "1 = 1"
+      const keyParams = cursorParts
+        ? [
+            cursorParts[0] as string,
+            cursorParts[0] as string,
+            cursorParts[1] as string,
+            cursorParts[0] as string,
+            cursorParts[1] as string,
+            cursorParts[2] as string,
+          ]
+        : []
+      const escapedQuery = query
+        .replaceAll("\\", "\\\\")
+        .replaceAll("%", "\\%")
+        .replaceAll("_", "\\_")
+      const queryClause = query
+        ? ` AND (
+             lower(scope_id) LIKE ? ESCAPE '\\' OR
+             lower(entity_type) LIKE ? ESCAPE '\\' OR
+             lower(entity_id) LIKE ? ESCAPE '\\' OR
+             lower(payload) LIKE ? ESCAPE '\\'
+           )`
+        : ""
+      const queryParams = query ? Array.from({ length: 4 }, () => `%${escapedQuery}%`) : []
+      const rows = await current().all<StoredInspectionRow>(
+        `SELECT scope_id, entity_type, entity_id,
+                length(payload) AS payload_length,
+                substr(payload, 1, 240) AS payload_preview
+         FROM client_replica_rows
+         WHERE ${keyClause}${queryClause}
+         ORDER BY scope_id, entity_type, entity_id
+         LIMIT ?`,
+        [...keyParams, ...queryParams, limit + 1]
+      )
+      const hasMore = rows.length > limit
+      if (hasMore) rows.pop()
+      const items: ReplicaInspectionEntry[] = rows.map((row) => ({
+        scopeId: row.scope_id,
+        entityType: row.entity_type,
+        entityId: row.entity_id,
+        payloadLength: row.payload_length,
+        payloadPreview: row.payload_preview,
+        payloadTruncated: row.payload_length > [...row.payload_preview].length,
+      }))
+      const last = items.at(-1)
+      return {
+        items,
+        nextCursor:
+          hasMore && last
+            ? encodeStorageCursor([last.scopeId, last.entityType, last.entityId])
+            : null,
+      }
     },
     apply,
     async deleteScope(scopeId) {

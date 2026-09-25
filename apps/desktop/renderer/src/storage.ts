@@ -29,6 +29,9 @@ export const desktopClientStorage: ClientStorage = {
       const result = await requireAttachmentBridge().list()
       return result.storageKeys
     },
+    async listPage(request) {
+      return requireAttachmentBridge().listPage(request ?? {})
+    },
   }),
 }
 

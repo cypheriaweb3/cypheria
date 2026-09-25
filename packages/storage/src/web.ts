@@ -1,18 +1,34 @@
 import {
+  type AttachmentInspectionEntry,
   type AttachmentMetadata,
   type AttachmentStore,
   assertAttachmentStorageType,
   normalizeAttachmentInput,
 } from "./attachment.js"
 import {
+  createTextPreview,
+  decodeStorageCursor,
+  encodeStorageCursor,
+  normalizeStoragePageRequest,
+  type StoragePageRequest,
+} from "./inspection.js"
+import {
   type KeyValueStorage,
   type KeyValueStorageListener,
   StorageUnavailableError,
 } from "./key-value.js"
-import type { ReplicaRow, ReplicaRowChanges, ReplicaScopeRows, ReplicaStore } from "./replica.js"
+import type {
+  ReplicaInspectionEntry,
+  ReplicaRow,
+  ReplicaRowChanges,
+  ReplicaScopeRows,
+  ReplicaStore,
+} from "./replica.js"
 
 interface WebStorageLike {
+  readonly length: number
   getItem(key: string): string | null
+  key(index: number): string | null
   setItem(key: string, value: string): void
   removeItem(key: string): void
 }
@@ -61,6 +77,39 @@ export function createWebKeyValueStorage(options: WebKeyValueStorageOptions = {}
     async removeItem(key) {
       requireStorage().removeItem(key)
       emit(key, null)
+    },
+    async listPage(request = {}) {
+      const { cursor, limit, query } = normalizeStoragePageRequest(request)
+      const cursorKey = decodeStorageCursor(cursor, 1)?.[0] ?? null
+      const storage = requireStorage()
+      const keys: string[] = []
+      for (let index = 0; index < storage.length; index += 1) {
+        const key = storage.key(index)
+        if (
+          key !== null &&
+          (cursorKey === null || key > cursorKey) &&
+          (!query || key.toLocaleLowerCase().includes(query))
+        ) {
+          keys.push(key)
+        }
+      }
+      keys.sort()
+      const pageKeys = keys.slice(0, limit + 1)
+      const hasMore = pageKeys.length > limit
+      if (hasMore) pageKeys.pop()
+      return {
+        items: pageKeys.map((key) => {
+          const preview = createTextPreview(storage.getItem(key) ?? "")
+          return {
+            key,
+            valueLength: preview.length,
+            valuePreview: preview.preview,
+            valueTruncated: preview.truncated,
+          }
+        }),
+        nextCursor:
+          hasMore && pageKeys.length ? encodeStorageCursor([pageKeys.at(-1) as string]) : null,
+      }
     },
     subscribe(key, listener) {
       const keyListeners = listeners.get(key) ?? new Set<KeyValueStorageListener>()
@@ -254,6 +303,62 @@ export function createIndexedDbReplicaStore(options: IndexedDbReplicaStoreOption
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([scopeId, scopeRows]): ReplicaScopeRows => ({ scopeId, rows: scopeRows }))
     },
+    async listPage(request: StoragePageRequest = {}) {
+      const { cursor, limit, query } = normalizeStoragePageRequest(request)
+      const cursorKey = decodeStorageCursor(cursor, 3)
+      const transaction = current().transaction(replicaRowsStore, "readonly")
+      const store = transaction.objectStore(replicaRowsStore)
+      const range = cursorKey ? IDBKeyRange.lowerBound(cursorKey, true) : undefined
+      const entries: ReplicaInspectionEntry[] = []
+      let hasMore = false
+      await new Promise<void>((resolve, reject) => {
+        const cursorRequest = store.openCursor(range)
+        cursorRequest.addEventListener("error", () =>
+          reject(cursorRequest.error ?? new Error("IndexedDB cursor failed."))
+        )
+        cursorRequest.addEventListener("success", () => {
+          const rowCursor = cursorRequest.result
+          if (!rowCursor) return
+          const row = rowCursor.value as ReplicaRow
+          const matches =
+            !query ||
+            [row.scopeId, row.entityType, row.entityId, row.payload].some((value) =>
+              value.toLocaleLowerCase().includes(query)
+            )
+          if (matches) {
+            if (entries.length === limit) {
+              hasMore = true
+              return
+            }
+            const payload = createTextPreview(row.payload)
+            entries.push({
+              scopeId: row.scopeId,
+              entityType: row.entityType,
+              entityId: row.entityId,
+              payloadLength: payload.length,
+              payloadPreview: payload.preview,
+              payloadTruncated: payload.truncated,
+            })
+          }
+          rowCursor.continue()
+        })
+        transaction.addEventListener("complete", () => resolve())
+        transaction.addEventListener("abort", () =>
+          reject(transaction.error ?? new Error("IndexedDB transaction was aborted."))
+        )
+        transaction.addEventListener("error", () =>
+          reject(transaction.error ?? new Error("IndexedDB transaction failed."))
+        )
+      })
+      const last = entries.at(-1)
+      return {
+        items: entries,
+        nextCursor:
+          hasMore && last
+            ? encodeStorageCursor([last.scopeId, last.entityType, last.entityId])
+            : null,
+      }
+    },
     async apply(changes: ReplicaRowChanges) {
       await runTransaction(current(), replicaRowsStore, async (transaction) => {
         const rows = transaction.objectStore(replicaRowsStore)
@@ -298,8 +403,13 @@ export function createIndexedDbReplicaStore(options: IndexedDbReplicaStoreOption
   }
 }
 
-interface StoredAttachmentRecord extends AttachmentMetadata {
+interface StoredAttachmentBytes {
+  readonly storageKey: string
   readonly bytes: ArrayBuffer
+}
+
+interface StoredAttachmentMetadata extends AttachmentMetadata {
+  readonly bytePreview: ArrayBuffer
 }
 
 export interface IndexedDbAttachmentStoreOptions {
@@ -307,17 +417,37 @@ export interface IndexedDbAttachmentStoreOptions {
   readonly indexedDb?: IDBFactory
 }
 
-const attachmentObjectStore = "attachments"
+const attachmentBytesStore = "attachments"
+const attachmentMetadataStore = "metadata"
 
 const openAttachmentDatabase = (
   indexedDb: IDBFactory,
   databaseName: string
 ): Promise<IDBDatabase> =>
   new Promise((resolve, reject) => {
-    const request = indexedDb.open(databaseName, 1)
-    request.addEventListener("upgradeneeded", () => {
-      if (!request.result.objectStoreNames.contains(attachmentObjectStore)) {
-        request.result.createObjectStore(attachmentObjectStore, { keyPath: "storageKey" })
+    const request = indexedDb.open(databaseName, 2)
+    request.addEventListener("upgradeneeded", (event) => {
+      if (!request.result.objectStoreNames.contains(attachmentBytesStore)) {
+        request.result.createObjectStore(attachmentBytesStore, { keyPath: "storageKey" })
+      }
+      const metadata = request.result.objectStoreNames.contains(attachmentMetadataStore)
+        ? (request.transaction as IDBTransaction).objectStore(attachmentMetadataStore)
+        : request.result.createObjectStore(attachmentMetadataStore, { keyPath: "storageKey" })
+      if ((event as IDBVersionChangeEvent).oldVersion === 1) {
+        const bytes = (request.transaction as IDBTransaction).objectStore(attachmentBytesStore)
+        const cursorRequest = bytes.openCursor()
+        cursorRequest.addEventListener("success", () => {
+          const cursor = cursorRequest.result
+          if (!cursor) return
+          const legacy = cursor.value as StoredAttachmentMetadata & { readonly bytes: ArrayBuffer }
+          const { bytes: storedBytes, ...storedMetadata } = legacy
+          metadata.put({
+            ...storedMetadata,
+            bytePreview: storedBytes.slice(0, 32),
+          } satisfies StoredAttachmentMetadata)
+          cursor.update({ storageKey: legacy.storageKey, bytes: storedBytes })
+          cursor.continue()
+        })
       }
     })
     request.addEventListener("success", () => resolve(request.result))
@@ -340,13 +470,14 @@ export function createIndexedDbAttachmentStore(
   }
 
   const attachmentRequest = async <Result>(
+    storeName: string,
     mode: IDBTransactionMode,
     operation: (store: IDBObjectStore) => IDBRequest<Result>
   ): Promise<Result> => {
     const opened = await database()
-    const transaction = opened.transaction(attachmentObjectStore, mode)
+    const transaction = opened.transaction(storeName, mode)
     const completion = transactionComplete(transaction)
-    const result = await requestResult(operation(transaction.objectStore(attachmentObjectStore)))
+    const result = await requestResult(operation(transaction.objectStore(storeName)))
     await completion
     return result
   }
@@ -365,14 +496,30 @@ export function createIndexedDbAttachmentStore(
         createdAt: normalized.createdAt,
       }
       const bytes = Uint8Array.from(normalized.bytes).buffer
-      await attachmentRequest("readwrite", (store) =>
-        store.put({ ...metadata, bytes } satisfies StoredAttachmentRecord)
+      const opened = await database()
+      await runTransaction(
+        opened,
+        [attachmentBytesStore, attachmentMetadataStore],
+        async (transaction) => {
+          await requestResult(
+            transaction
+              .objectStore(attachmentBytesStore)
+              .put({ storageKey: metadata.storageKey, bytes } satisfies StoredAttachmentBytes)
+          )
+          await requestResult(
+            transaction.objectStore(attachmentMetadataStore).put({
+              ...metadata,
+              bytePreview: bytes.slice(0, 32),
+            } satisfies StoredAttachmentMetadata)
+          )
+        }
       )
       return metadata
     },
     async read(attachment) {
       assertAttachmentStorageType(attachment, "web-indexeddb")
-      const record = await attachmentRequest<StoredAttachmentRecord | undefined>(
+      const record = await attachmentRequest<StoredAttachmentBytes | undefined>(
+        attachmentBytesStore,
         "readonly",
         (store) => store.get(attachment.storageKey)
       )
@@ -381,17 +528,83 @@ export function createIndexedDbAttachmentStore(
     },
     async delete(attachment) {
       assertAttachmentStorageType(attachment, "web-indexeddb")
-      await attachmentRequest("readwrite", (store) => store.delete(attachment.storageKey))
+      const opened = await database()
+      await runTransaction(
+        opened,
+        [attachmentBytesStore, attachmentMetadataStore],
+        async (transaction) => {
+          await requestResult(
+            transaction.objectStore(attachmentBytesStore).delete(attachment.storageKey)
+          )
+          await requestResult(
+            transaction.objectStore(attachmentMetadataStore).delete(attachment.storageKey)
+          )
+        }
+      )
     },
     async garbageCollect(referencedStorageKeys) {
       const opened = await database()
-      await runTransaction(opened, attachmentObjectStore, async (transaction) => {
-        const store = transaction.objectStore(attachmentObjectStore)
-        const keys = await requestResult<IDBValidKey[]>(store.getAllKeys())
-        for (const key of keys) {
-          if (!referencedStorageKeys.has(String(key))) await requestResult(store.delete(key))
+      await runTransaction(
+        opened,
+        [attachmentBytesStore, attachmentMetadataStore],
+        async (transaction) => {
+          const metadata = transaction.objectStore(attachmentMetadataStore)
+          const bytes = transaction.objectStore(attachmentBytesStore)
+          const keys = await requestResult<IDBValidKey[]>(metadata.getAllKeys())
+          for (const key of keys) {
+            if (!referencedStorageKeys.has(String(key))) {
+              await requestResult(metadata.delete(key))
+              await requestResult(bytes.delete(key))
+            }
+          }
         }
+      )
+    },
+    async listPage(request = {}) {
+      const { cursor, limit, query } = normalizeStoragePageRequest(request)
+      const cursorKey = decodeStorageCursor(cursor, 1)?.[0] ?? null
+      const opened = await database()
+      const transaction = opened.transaction(attachmentMetadataStore, "readonly")
+      const store = transaction.objectStore(attachmentMetadataStore)
+      const range = cursorKey ? IDBKeyRange.lowerBound(cursorKey, true) : undefined
+      const entries: AttachmentInspectionEntry[] = []
+      let hasMore = false
+      await new Promise<void>((resolve, reject) => {
+        const cursorRequest = store.openCursor(range)
+        cursorRequest.addEventListener("error", () =>
+          reject(cursorRequest.error ?? new Error("IndexedDB cursor failed."))
+        )
+        cursorRequest.addEventListener("success", () => {
+          const attachmentCursor = cursorRequest.result
+          if (!attachmentCursor) return
+          const record = attachmentCursor.value as StoredAttachmentMetadata
+          if (!query || record.storageKey.toLocaleLowerCase().includes(query)) {
+            if (entries.length === limit) {
+              hasMore = true
+              return
+            }
+            entries.push({
+              storageKey: record.storageKey,
+              storageType: "web-indexeddb",
+              byteSize: record.byteSize,
+              bytePreview: new Uint8Array(record.bytePreview),
+            })
+          }
+          attachmentCursor.continue()
+        })
+        transaction.addEventListener("complete", () => resolve())
+        transaction.addEventListener("abort", () =>
+          reject(transaction.error ?? new Error("IndexedDB transaction was aborted."))
+        )
+        transaction.addEventListener("error", () =>
+          reject(transaction.error ?? new Error("IndexedDB transaction failed."))
+        )
       })
+      const last = entries.at(-1)
+      return {
+        items: entries,
+        nextCursor: hasMore && last ? encodeStorageCursor([last.storageKey]) : null,
+      }
     },
   }
 }

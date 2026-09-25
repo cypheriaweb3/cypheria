@@ -1,7 +1,15 @@
 import { randomUUID } from "node:crypto"
 import { lstat, mkdir, open, readdir, readFile, rename, rm } from "node:fs/promises"
 import { join } from "node:path"
-import { assertAttachmentId } from "@cypheria/storage"
+import {
+  assertAttachmentId,
+  decodeStorageCursor,
+  encodeStorageCursor,
+  normalizeStoragePageRequest,
+  type StoragePage,
+  type StoragePageRequest,
+} from "@cypheria/storage"
+import type { AttachmentFileInspectionEntry } from "@cypheria/storage/files"
 
 import { MAX_DESKTOP_ATTACHMENT_BYTES } from "../../ipc/src/index.js"
 
@@ -73,5 +81,43 @@ export const listDesktopAttachments = async (
       .filter((entry) => entry.isFile() && /^[A-Za-z0-9_-]{1,128}$/u.test(entry.name))
       .map((entry) => entry.name)
       .sort(),
+  }
+}
+
+export const listDesktopAttachmentPage = async (
+  userDataDir: string,
+  request: StoragePageRequest = {}
+): Promise<StoragePage<AttachmentFileInspectionEntry>> => {
+  const { cursor, limit, query } = normalizeStoragePageRequest(request)
+  const cursorKey = decodeStorageCursor(cursor, 1)?.[0] ?? null
+  const { storageKeys } = await listDesktopAttachments(userDataDir)
+  const matchingKeys = storageKeys.filter(
+    (storageKey) =>
+      storageKey > (cursorKey ?? "") && (!query || storageKey.toLocaleLowerCase().includes(query))
+  )
+  const pageKeys = matchingKeys.slice(0, limit + 1)
+  const hasMore = pageKeys.length > limit
+  if (hasMore) pageKeys.pop()
+  const items = await Promise.all(
+    pageKeys.map(async (storageKey): Promise<AttachmentFileInspectionEntry> => {
+      const path = attachmentPath(userDataDir, storageKey)
+      const metadata = await lstat(path)
+      if (!metadata.isFile() || metadata.size === 0) {
+        throw new Error(`Stored attachment '${storageKey}' is unavailable.`)
+      }
+      const bytePreview = new Uint8Array(Math.min(metadata.size, 32))
+      const handle = await open(path, "r")
+      try {
+        await handle.read(bytePreview, 0, bytePreview.byteLength, 0)
+      } finally {
+        await handle.close()
+      }
+      return { storageKey, byteSize: metadata.size, bytePreview }
+    })
+  )
+  return {
+    items,
+    nextCursor:
+      hasMore && pageKeys.length ? encodeStorageCursor([pageKeys.at(-1) as string]) : null,
   }
 }

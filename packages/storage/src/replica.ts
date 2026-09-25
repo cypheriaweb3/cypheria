@@ -1,3 +1,12 @@
+import {
+  createTextPreview,
+  decodeStorageCursor,
+  encodeStorageCursor,
+  normalizeStoragePageRequest,
+  type StoragePage,
+  type StoragePageRequest,
+} from "./inspection.js"
+
 export interface ReplicaRowKey {
   readonly scopeId: string
   readonly entityType: string
@@ -18,6 +27,12 @@ export interface ReplicaScopeRows {
   readonly rows: readonly ReplicaRow[]
 }
 
+export interface ReplicaInspectionEntry extends ReplicaRowKey {
+  readonly payloadLength: number
+  readonly payloadPreview: string
+  readonly payloadTruncated: boolean
+}
+
 /**
  * Durable, rebuildable client replica storage. Domain owners serialize and
  * validate payloads; the store owns keys, transactions, and schema reset.
@@ -30,6 +45,7 @@ export interface ReplicaStore {
     entityIds?: readonly string[]
   ): Promise<ReplicaRow[]>
   readAll(): Promise<ReplicaScopeRows[]>
+  listPage(request?: StoragePageRequest): Promise<StoragePage<ReplicaInspectionEntry>>
   apply(changes: ReplicaRowChanges): Promise<void>
   deleteScope(scopeId: string): Promise<void>
   renameScope(oldScopeId: string, newScopeId: string): Promise<void>
@@ -82,6 +98,54 @@ export function createMemoryReplicaStore(): ReplicaStore {
         scopes.set(row.scopeId, scopeRows)
       }
       return [...scopes].map(([scopeId, scopeRows]) => ({ scopeId, rows: scopeRows }))
+    },
+    async listPage(request = {}) {
+      assertOpen()
+      const { cursor, limit, query } = normalizeStoragePageRequest(request)
+      const cursorParts = decodeStorageCursor(cursor, 3)
+      const matching = [...rows.values()]
+        .sort(compareRows)
+        .filter((row) => {
+          if (
+            cursorParts &&
+            compareRows(row, {
+              scopeId: cursorParts[0] as string,
+              entityType: cursorParts[1] as string,
+              entityId: cursorParts[2] as string,
+              payload: "",
+            }) <= 0
+          ) {
+            return false
+          }
+          if (!query) return true
+          return [row.scopeId, row.entityType, row.entityId, row.payload].some((value) =>
+            value.toLocaleLowerCase().includes(query)
+          )
+        })
+        .slice(0, limit + 1)
+      const hasMore = matching.length > limit
+      if (hasMore) matching.pop()
+      return {
+        items: matching.map((row) => {
+          const payload = createTextPreview(row.payload)
+          return {
+            scopeId: row.scopeId,
+            entityType: row.entityType,
+            entityId: row.entityId,
+            payloadLength: payload.length,
+            payloadPreview: payload.preview,
+            payloadTruncated: payload.truncated,
+          }
+        }),
+        nextCursor:
+          hasMore && matching.length
+            ? encodeStorageCursor([
+                (matching.at(-1) as ReplicaRow).scopeId,
+                (matching.at(-1) as ReplicaRow).entityType,
+                (matching.at(-1) as ReplicaRow).entityId,
+              ])
+            : null,
+      }
     },
     async apply(changes) {
       assertOpen()

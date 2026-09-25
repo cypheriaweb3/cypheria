@@ -7,6 +7,7 @@ import { MAX_DESKTOP_ATTACHMENT_BYTES } from "../../ipc/src/index.js"
 import {
   deleteDesktopAttachment,
   getDesktopAttachmentDirectory,
+  listDesktopAttachmentPage,
   listDesktopAttachments,
   readDesktopAttachment,
   writeDesktopAttachment,
@@ -43,6 +44,16 @@ describe("desktop attachment storage", () => {
     await expect(listDesktopAttachments(userDataDir)).resolves.toEqual({
       storageKeys: ["att_one"],
     })
+    await expect(listDesktopAttachmentPage(userDataDir, { query: "one" })).resolves.toEqual({
+      items: [
+        {
+          storageKey: "att_one",
+          byteSize: 2,
+          bytePreview: new Uint8Array([4, 5]),
+        },
+      ],
+      nextCursor: null,
+    })
     await expect(deleteDesktopAttachment(userDataDir, "att_one")).resolves.toEqual({
       deleted: true,
     })
@@ -75,5 +86,24 @@ describe("desktop attachment storage", () => {
     await expect(listDesktopAttachments(userDataDir)).resolves.toEqual({
       storageKeys: ["att_visible"],
     })
+  })
+
+  it("paginates attachment inspection without reading complete files", async () => {
+    const userDataDir = await createUserDataDirectory()
+    await writeDesktopAttachment(userDataDir, "att_a", new Uint8Array(40).fill(1))
+    await writeDesktopAttachment(userDataDir, "att_b", new Uint8Array(40).fill(2))
+
+    const first = await listDesktopAttachmentPage(userDataDir, { limit: 1 })
+    expect(first.items).toEqual([
+      {
+        storageKey: "att_a",
+        byteSize: 40,
+        bytePreview: new Uint8Array(32).fill(1),
+      },
+    ])
+    expect(first.nextCursor).not.toBeNull()
+    await expect(
+      listDesktopAttachmentPage(userDataDir, { cursor: first.nextCursor, limit: 1 })
+    ).resolves.toMatchObject({ items: [{ storageKey: "att_b" }], nextCursor: null })
   })
 })
