@@ -18,6 +18,7 @@ This index assigns one owner to each subject. Follow links instead of copying de
 - [Client/server protocol](protocol.md): transport, messages, domain operations, timelines, and errors.
 - [Agent harnesses](agent-harnesses.md): registry, installation, runtime models, first-party harnesses, and ACP.
 - [Database](database.md): current SQLite baseline and migration policy.
+- [Client storage](client-storage.md): cross-platform key/value state, rebuildable replicas, and attachment bytes.
 - [Schedules](schedules.md): cadence, leases, execution, recovery, and non-replay guarantees.
 - [Relay](relay.md): encrypted remote transport, deployment, capacity, and observability.
 

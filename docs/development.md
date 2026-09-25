@@ -35,6 +35,7 @@ Implemented packages:
 | `packages/protocol` | Public protocol, Zod validation, generated Codex artifacts |
 | `packages/client` | Public TypeScript SDK, connection lifecycle, and domain facades |
 | `packages/db` | SQLite schema, migrations, and repositories |
+| `packages/storage` | Cross-platform client key/value, replica, attachment, and Jotai adapters |
 | `packages/web3` | Pure Web3 domain modules |
 | `packages/relay` | Pairing, E2EE, and relay transport helpers |
 | `packages/ui` | Shared UI and conversation presentation primitives |

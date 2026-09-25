@@ -17,7 +17,7 @@ export * from "./integrations.js"
 
 export const IPC_PROTOCOL_VERSION = 1
 
-export const ipcNamespaces = ["app", "browser", "dapp", "settings"] as const
+export const ipcNamespaces = ["app", "browser", "dapp", "settings", "storage"] as const
 
 export const IpcNamespaceSchema = z.enum(ipcNamespaces)
 export type IpcNamespace = z.infer<typeof IpcNamespaceSchema>
@@ -52,12 +52,26 @@ export const CYPHERIA_IPC_CHANNELS = {
   settingsConnectionProxyRead: "settings.connection-proxy.read",
   settingsConnectionProxyTest: "settings.connection-proxy.test",
   settingsConnectionProxyWrite: "settings.connection-proxy.write",
+  storageAttachmentDelete: "storage.attachment.delete",
+  storageAttachmentList: "storage.attachment.list",
+  storageAttachmentRead: "storage.attachment.read",
+  storageAttachmentWrite: "storage.attachment.write",
 } as const
 
 export type CypheriaIpcChannel = (typeof CYPHERIA_IPC_CHANNELS)[keyof typeof CYPHERIA_IPC_CHANNELS]
 
 export const EmptyPayloadSchema = z.object({}).strict()
 export type EmptyPayload = z.infer<typeof EmptyPayloadSchema>
+
+export const MAX_DESKTOP_ATTACHMENT_BYTES = 32 * 1024 * 1024
+export const AttachmentStorageKeySchema = z.string().regex(/^[A-Za-z0-9_-]{1,128}$/u)
+export const AttachmentBytesSchema = z
+  .instanceof(Uint8Array)
+  .refine((bytes) => bytes.byteLength > 0, "Attachment bytes cannot be empty.")
+  .refine(
+    (bytes) => bytes.byteLength <= MAX_DESKTOP_ATTACHMENT_BYTES,
+    `Attachment bytes cannot exceed ${MAX_DESKTOP_ATTACHMENT_BYTES} bytes.`
+  )
 
 export const AppMetadataSchema = z
   .object({
@@ -648,6 +662,40 @@ export const settingsConnectionProxyTestContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<ConnectionProxySettings, ConnectionProxyTestResult>
 
+export const storageAttachmentWriteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.storageAttachmentWrite,
+  namespace: "storage",
+  request: z
+    .object({ storageKey: AttachmentStorageKeySchema, bytes: AttachmentBytesSchema })
+    .strict(),
+  response: z.object({ byteSize: z.number().int().positive() }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ storageKey: string; bytes: Uint8Array }, { byteSize: number }>
+
+export const storageAttachmentReadContract = {
+  channel: CYPHERIA_IPC_CHANNELS.storageAttachmentRead,
+  namespace: "storage",
+  request: z.object({ storageKey: AttachmentStorageKeySchema }).strict(),
+  response: z.object({ bytes: AttachmentBytesSchema }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ storageKey: string }, { bytes: Uint8Array }>
+
+export const storageAttachmentDeleteContract = {
+  channel: CYPHERIA_IPC_CHANNELS.storageAttachmentDelete,
+  namespace: "storage",
+  request: z.object({ storageKey: AttachmentStorageKeySchema }).strict(),
+  response: z.object({ deleted: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ storageKey: string }, { deleted: true }>
+
+export const storageAttachmentListContract = {
+  channel: CYPHERIA_IPC_CHANNELS.storageAttachmentList,
+  namespace: "storage",
+  request: EmptyPayloadSchema,
+  response: z.object({ storageKeys: z.array(AttachmentStorageKeySchema) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, { storageKeys: string[] }>
+
 export const ipcContracts = {
   appDirectoryPick: appDirectoryPickContract,
   appSoundPick: appSoundPickContract,
@@ -675,6 +723,10 @@ export const ipcContracts = {
   settingsConnectionProxyRead: settingsConnectionProxyReadContract,
   settingsConnectionProxyTest: settingsConnectionProxyTestContract,
   settingsConnectionProxyWrite: settingsConnectionProxyWriteContract,
+  storageAttachmentDelete: storageAttachmentDeleteContract,
+  storageAttachmentList: storageAttachmentListContract,
+  storageAttachmentRead: storageAttachmentReadContract,
+  storageAttachmentWrite: storageAttachmentWriteContract,
 } as const
 
 export type CypheriaPreloadApi = {
@@ -701,6 +753,14 @@ export type CypheriaPreloadApi = {
   }
   readonly browser: {
     readonly openDapp: (url: string) => Promise<BrowserSessionOpenResult>
+  }
+  readonly storage: {
+    readonly attachments: {
+      readonly delete: (storageKey: string) => Promise<{ deleted: true }>
+      readonly list: () => Promise<{ storageKeys: string[] }>
+      readonly read: (storageKey: string) => Promise<{ bytes: Uint8Array }>
+      readonly write: (storageKey: string, bytes: Uint8Array) => Promise<{ byteSize: number }>
+    }
   }
   readonly settings: {
     readonly getAppearance: () => Promise<AppearanceSettings>

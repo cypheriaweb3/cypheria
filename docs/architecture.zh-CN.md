@@ -55,6 +55,7 @@ Agent 原生事件在此边界归一化。原生载荷可以为诊断保留，�
 - `@cypheria/protocol` 负责版本化公开契约、运行时校验和生成的上游协议产物。
 - `@cypheria/client` 是公开 TypeScript SDK，负责连接和领域 facade，不依赖 Electron 或数据库。
 - `@cypheria/db` 负责 Server 使用的 SQLite Schema、迁移基线和 repositories。
+- `@cypheria/storage` 负责非权威客户端存储端口，以及键值状态、可重建 Replica 和附件二进制的平台 adapter；见[客户端存储](client-storage.zh-CN.md)。
 - `@cypheria/web3` 包含纯 Network、Policy、Wallet、Provider 领域逻辑；特权编排仍在 Server。
 - `@cypheria/ui` 包含可复用展示组件，包括不依赖协议的会话、面板、通知和 artifact surface。
 

@@ -1,0 +1,52 @@
+export type KeyValueStorageListener = (value: string | null) => void
+
+export interface KeyValueStorage {
+  getItem(key: string): Promise<string | null>
+  setItem(key: string, value: string): Promise<void>
+  removeItem(key: string): Promise<void>
+  subscribe?(key: string, listener: KeyValueStorageListener): () => void
+}
+
+export class StorageUnavailableError extends Error {
+  constructor(message = "Client key-value storage is unavailable in this runtime.") {
+    super(message)
+    this.name = "StorageUnavailableError"
+  }
+}
+
+export function createMemoryKeyValueStorage(
+  initialValues: Readonly<Record<string, string>> = {}
+): KeyValueStorage & { snapshot(): ReadonlyMap<string, string> } {
+  const values = new Map(Object.entries(initialValues))
+  const listeners = new Map<string, Set<KeyValueStorageListener>>()
+
+  const emit = (key: string, value: string | null) => {
+    for (const listener of listeners.get(key) ?? []) listener(value)
+  }
+
+  return {
+    async getItem(key) {
+      return values.get(key) ?? null
+    },
+    async setItem(key, value) {
+      values.set(key, value)
+      emit(key, value)
+    },
+    async removeItem(key) {
+      values.delete(key)
+      emit(key, null)
+    },
+    subscribe(key, listener) {
+      const keyListeners = listeners.get(key) ?? new Set<KeyValueStorageListener>()
+      keyListeners.add(listener)
+      listeners.set(key, keyListeners)
+      return () => {
+        keyListeners.delete(listener)
+        if (keyListeners.size === 0) listeners.delete(key)
+      }
+    },
+    snapshot() {
+      return new Map(values)
+    },
+  }
+}

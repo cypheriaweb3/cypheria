@@ -55,6 +55,7 @@ Agent-native events are normalized at this boundary. Native payloads may be reta
 - `@cypheria/protocol` owns versioned public contracts, runtime validation, and generated upstream protocol artifacts.
 - `@cypheria/client` is the public TypeScript SDK. It owns connections and domain facades without Electron or database dependencies.
 - `@cypheria/db` owns the SQLite schema, migration baseline, and repositories used by the Server.
+- `@cypheria/storage` owns non-authoritative client storage ports and platform adapters for key/value state, rebuildable replicas, and attachment bytes; see [Client Storage](client-storage.md).
 - `@cypheria/web3` contains pure network, policy, wallet, and provider domain logic; privileged orchestration stays in the Server.
 - `@cypheria/ui` contains reusable presentation primitives, including protocol-independent conversation, panel, notification, and artifact surfaces.
 

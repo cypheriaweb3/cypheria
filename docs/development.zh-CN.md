@@ -35,6 +35,7 @@ JavaScript 和 TypeScript 工作区命令统一使用 pnpm。仓库使用 Turbor
 | `packages/protocol` | 公开协议、Zod 校验、生成的 Codex 产物 |
 | `packages/client` | 公开 TypeScript SDK、连接生命周期和领域 facade |
 | `packages/db` | SQLite Schema、迁移和 repositories |
+| `packages/storage` | 跨平台客户端键值、Replica、附件和 Jotai adapter |
 | `packages/web3` | 纯 Web3 领域模块 |
 | `packages/relay` | 配对、E2EE 和 relay 传输工具 |
 | `packages/ui` | 共享 UI 与会话展示原语 |

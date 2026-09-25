@@ -1,0 +1,27 @@
+{
+  "name": "@cypheria/storage",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./files": "./src/files.ts",
+    "./jotai": "./src/jotai.ts",
+    "./sqlite": "./src/sqlite.ts",
+    "./web": "./src/web.ts"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "pnpm typecheck && pnpm test",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "jotai": "^2.20.0",
+    "zod": "^4.6.2"
+  },
+  "devDependencies": {
+    "fake-indexeddb": "^6.2.5",
+    "vitest": "^4.1.7"
+  }
+}

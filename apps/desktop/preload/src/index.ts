@@ -78,6 +78,20 @@ const cypheriaApi: CypheriaPreloadApi = {
         url,
       }) as Promise<BrowserSessionOpenResult>,
   },
+  storage: {
+    attachments: {
+      delete: (storageKey) =>
+        ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageAttachmentDelete, { storageKey }),
+      list: () => invoke(CYPHERIA_IPC_CHANNELS.storageAttachmentList),
+      read: (storageKey) =>
+        ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageAttachmentRead, { storageKey }),
+      write: (storageKey, bytes) =>
+        ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageAttachmentWrite, {
+          storageKey,
+          bytes,
+        }),
+    },
+  },
   settings: {
     getAppearance: () => invoke<AppearanceSettings>(CYPHERIA_IPC_CHANNELS.settingsAppearanceRead),
     getConnectionProxy: () =>

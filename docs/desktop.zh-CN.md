@@ -164,6 +164,8 @@ Electron 在 `userData/config.json` 保存本地偏好：
 
 共享 Agent、model、integration、Web3 和 Server 行为属于 Cypheria Server 配置或数据库。UI 偏好不会写入 Codex 配置。
 
+其他本地 UI 状态、可重建 Replica 与附件二进制使用共享的[客户端存储](client-storage.zh-CN.md)端口。这样既让 renderer 状态与 Server 数据库分离，又保留 Electron main 对附件文件的所有权。
+
 Git 设置页将本地 Codex Git 偏好保存在 Server 配置中，包括分支前缀、带租约的强制推送默认值、审查模式、PR 草稿和合并默认值、GitHub App 后备、侧栏 PR 图标、工作树根目录及保留数量、上游刷新方式，以及提交、PR 和关注指令。工作树根目录在 Server 重启后生效。Review 面板遵循仅显示最后一轮的模式；创建和合并 PR 使用配置的默认值。
 
 创建托管工作树后，Server 可按保留数量设置清理最多五个较旧的托管工作树。它会保护源 checkout、新建工作树、活跃或未归档线程使用的工作树、含未提交改动的工作树，以及最近十分钟创建或更新的工作树。归档和线程迁移也会触发清理；必要时会先从快照恢复已归档线程的工作树再取消归档。被清理的工作树仍保留 Git 快照，可恢复。清理失败不会撤销成功的工作树创建。

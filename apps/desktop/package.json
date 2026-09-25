@@ -29,6 +29,7 @@
     "@cypheria/client": "workspace:*",
     "@cypheria/protocol": "workspace:*",
     "@cypheria/server": "workspace:*",
+    "@cypheria/storage": "workspace:*",
     "@cypheria/ui": "workspace:*",
     "@cypheria/web3": "workspace:*",
     "@dnd-kit/react": "^0.5.0",

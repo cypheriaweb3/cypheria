@@ -164,6 +164,8 @@ The General settings page groups local preferences under Permissions, General, C
 
 Shared Agent, model, integration, Web3, and Server behavior belongs in Cypheria Server configuration or the database. UI preferences are not written to Codex configuration.
 
+Other local UI state, rebuildable replicas, and attachment bytes use the shared [Client Storage](client-storage.md) ports. This keeps renderer state separate from the Server database while retaining Electron main ownership of attachment files.
+
 The Git settings page stores local Codex Git preferences in Server configuration. It covers branch prefix, guarded force push default, review mode, PR draft and merge defaults, GitHub App fallback, sidebar PR icons, worktree root and retention, upstream refresh, and commit, PR, and watch instructions. The worktree root takes effect after Server restart. The Review panel respects the last-turn-only mode; PR creation and merge use the configured defaults.
 
 After creating a managed worktree, Server may clean up at most five older managed worktrees according to the retention setting. It protects the source checkout, the new worktree, worktrees used by active or unarchived threads, dirty worktrees, and worktrees created or updated in the last ten minutes. Archive and thread handoff also trigger cleanup; an archived thread's snapshot is restored before unarchiving when needed. Cleaned worktrees retain a Git snapshot and can be restored. A cleanup failure does not undo successful worktree creation.

@@ -7,6 +7,7 @@ import {
   ConnectionProxySettingsSchema,
   dappProviderRequestContract,
   ipcContracts,
+  storageAttachmentWriteContract,
 } from "./index.js"
 
 describe("desktop IPC contracts", () => {
@@ -38,7 +39,32 @@ describe("desktop IPC contracts", () => {
       "settingsPreferencesWrite",
       "settingsWorkspaceLayoutRead",
       "settingsWorkspaceLayoutWrite",
+      "storageAttachmentDelete",
+      "storageAttachmentList",
+      "storageAttachmentRead",
+      "storageAttachmentWrite",
     ])
+  })
+
+  it("accepts bounded attachment bytes and rejects unsafe storage keys", () => {
+    expect(
+      storageAttachmentWriteContract.request.parse({
+        storageKey: "att_01ABC_xyz",
+        bytes: new Uint8Array([1, 2, 3]),
+      })
+    ).toMatchObject({ storageKey: "att_01ABC_xyz" })
+    expect(() =>
+      storageAttachmentWriteContract.request.parse({
+        storageKey: "../escape",
+        bytes: new Uint8Array([1]),
+      })
+    ).toThrow()
+    expect(() =>
+      storageAttachmentWriteContract.request.parse({
+        storageKey: "att_empty",
+        bytes: new Uint8Array(),
+      })
+    ).toThrow()
   })
 
   it("validates desktop path and proxy settings", () => {
