@@ -24,6 +24,7 @@ import {
   ChatComposerTextarea,
   ChatComposerTopTray,
   ChatContextChip,
+  ChatContextUsage,
   ChatDesktopNotificationPreview,
   ChatFileChange,
   ChatFileChanges,
@@ -31,6 +32,7 @@ import {
   ChatFixedTurnSummaryItem,
   ChatHeader,
   ChatMessageContent,
+  ChatModelSelector,
   ChatPanel,
   ChatPanelEmptyState,
   ChatPanelErrorState,
@@ -94,6 +96,53 @@ afterEach(() => {
 })
 
 describe("chat presentation components", () => {
+  it("renders compact context usage and unified model controls", () => {
+    render(
+      <div>
+        <ChatModelSelector
+          agent="codex"
+          agentLabel="Codex"
+          agentOptions={[{ label: "Codex", value: "codex" }]}
+          labels={{ agent: "Agent", model: "Model", reasoning: "Reasoning", speed: "Speed" }}
+          model="gpt"
+          modelOptions={[{ label: "GPT", value: "gpt" }]}
+          onAgentChange={() => undefined}
+          onModelChange={() => undefined}
+          onReasoningChange={() => undefined}
+          onSpeedChange={() => undefined}
+          reasoning="high"
+          reasoningOptions={[{ label: "High", value: "high" }]}
+          speed="fast"
+          speedOptions={[{ label: "Fast", value: "fast" }]}
+        />
+        <ChatContextUsage
+          agent="codex"
+          agentLabel="Codex"
+          maxTokens={200}
+          sourceLabel="Agent reported"
+          tokens={{
+            cacheRead: 10,
+            cacheWrite: 0,
+            input: 30,
+            output: 5,
+            reasoning: 5,
+            total: 50,
+          }}
+          usedTokens={50}
+        />
+      </div>
+    )
+
+    expect(screen.getByRole("combobox", { name: "Agent" })).toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "Model" })).toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "Reasoning" })).toBeInTheDocument()
+    expect(screen.getByRole("combobox", { name: "Speed" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Codex context 25%" })).toHaveAttribute(
+      "data-agent",
+      "codex"
+    )
+  })
+
   it("labels grouped tool activity without owning timeline state", () => {
     render(
       <ChatTurnGroup current kind="tools" label="Tool activity">

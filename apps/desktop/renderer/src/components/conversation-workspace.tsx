@@ -104,7 +104,6 @@ import {
 import {
   AgentIcon,
   ArrowDownIcon,
-  BrainIcon,
   BranchIcon,
   ChatIcon,
   ClipIcon,
@@ -152,6 +151,8 @@ import {
   type ConversationSubmitMode,
   ThreadConversationController,
 } from "../thread-conversation-controller.js"
+import { ComposerModelSelector } from "./composer-model-selector.js"
+import { ContextUsage } from "./context-usage.js"
 import { GitReviewPanel } from "./git-review-panel.js"
 import { useWorkspaceTerminals, WorkspaceTerminalView } from "./workspace-terminal.js"
 
@@ -857,7 +858,6 @@ export function ConversationWorkspace({
     controller.getSnapshot
   )
   const [composer, setComposer] = useState(initialPrompt ?? "")
-  const [contextUsage, setContextUsage] = useState<{ tokens: number; max: number } | null>(null)
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([])
   const attachmentInput = useRef<HTMLInputElement>(null)
   const [rightVisibility, setRightVisibility] = useState<ChatPanelVisibility>(
@@ -914,32 +914,27 @@ export function ConversationWorkspace({
       (await ensureCypheriaClient()).harnesses.codex.threads.usage(threadId as string),
     queryKey: ["codex", "thread", threadId, "usage"],
   })
+  const contextUsageQuery = useQuery({
+    enabled: Boolean(threadId),
+    queryFn: async () =>
+      (await ensureCypheriaClient()).threads.contextUsage.get(threadId as string),
+    queryKey: ["thread", threadId, "context-usage"],
+  })
   useEffect(() => {
-    if (!codex || !threadId) return
+    if (!threadId) return
     let unsubscribe: (() => void) | undefined
     let disposed = false
     void ensureCypheriaClient().then((client) => {
       if (disposed) return
-      unsubscribe = client.harnesses.codex.threads.subscribeUsage(threadId, (update) => {
-        const max = update.tokenUsage.modelContextWindow
-        if (max) setContextUsage({ tokens: update.tokenUsage.last.totalTokens, max })
+      unsubscribe = client.threads.contextUsage.subscribe(threadId, (usage) => {
+        queryClient.setQueryData(["thread", threadId, "context-usage"], usage)
       })
     })
     return () => {
       disposed = true
       unsubscribe?.()
     }
-  }, [codex, threadId])
-  const modelsQuery = useQuery({
-    enabled: codex,
-    queryFn: async () => (await ensureCypheriaClient()).harnesses.codex.models.list(),
-    queryKey: ["codex", "models"],
-  })
-  const modelSettingsQuery = useQuery({
-    enabled: codex,
-    queryFn: async () => (await ensureCypheriaClient()).harnesses.codex.models.settings(),
-    queryKey: ["codex", "model-settings"],
-  })
+  }, [queryClient, threadId])
   const permissionsQuery = useQuery({
     enabled: codex,
     queryFn: async () =>
@@ -1320,10 +1315,6 @@ export function ConversationWorkspace({
   const pending = snapshot.thread?.pendingInteractions[0]
   const busy = snapshot.thread?.state === "running" || snapshot.thread?.state === "starting"
   const composerStatus = snapshot.error ? "error" : busy ? "streaming" : "ready"
-  const configuredModel =
-    modelsQuery.data?.find((model) => model.model === modelSettingsQuery.data?.model) ??
-    modelsQuery.data?.find((model) => model.isDefault) ??
-    modelsQuery.data?.[0]
   const permissionLabel = (() => {
     const selected = permissionsQuery.data?.selected
     if (!selected) return i18n._(msg({ id: "chat.permissions", message: "Permissions" }))
@@ -1331,22 +1322,6 @@ export function ConversationWorkspace({
     if (selected.kind === "agent-mode") return selected.agentMode
     return selected.kind
   })()
-  const updateModel = async (modelId: string, effort?: string | null) => {
-    const settings = modelSettingsQuery.data
-    if (!settings) return
-    await (await ensureCypheriaClient()).harnesses.codex.models.setSettings({
-      ...settings,
-      model: modelId,
-      reasoningEffort: effort ?? settings.reasoningEffort,
-    })
-    if (busy) {
-      await controller.updateConfig({
-        model: modelId,
-        thinking: effort ?? settings.reasoningEffort,
-      })
-    }
-    await queryClient.invalidateQueries({ queryKey: ["codex", "model-settings"] })
-  }
   const updatePermissionMode = async (
     mode: "read-only" | "auto" | "guardian-approvals" | "full-access"
   ) => {
@@ -1735,64 +1710,24 @@ export function ConversationWorkspace({
                     >
                       <ClipIcon />
                     </ChatComposerControl>
-                    <ChatContextChip label={agentId} />
                     {project ? <ChatContextChip label={project.name} /> : null}
-                    {codex && configuredModel ? (
-                      <Select
-                        onValueChange={(value) => {
-                          if (!value) return
-                          const model = modelsQuery.data?.find(
-                            (candidate) => candidate.model === value
-                          )
-                          void updateModel(value, model?.defaultReasoningEffort)
-                        }}
-                        value={configuredModel.model}
-                      >
-                        <SelectTrigger
-                          aria-label={i18n._(msg({ id: "chat.model", message: "Model" }))}
-                          className="h-7 max-w-40 border-0 bg-transparent px-2 text-xs shadow-none"
-                          size="sm"
-                        >
-                          <BrainIcon />
-                          <SelectValue>{configuredModel.displayName}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {modelsQuery.data?.map((model) => (
-                            <SelectItem key={model.id} value={model.model}>
-                              {model.displayName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : null}
-                    {codex && configuredModel?.reasoningEfforts.length ? (
-                      <Select
-                        onValueChange={(value) =>
-                          value && void updateModel(configuredModel.model, value)
-                        }
-                        value={
-                          modelSettingsQuery.data?.reasoningEffort ??
-                          configuredModel.defaultReasoningEffort
-                        }
-                      >
-                        <SelectTrigger
-                          aria-label={i18n._(
-                            msg({ id: "chat.reasoningEffort", message: "Reasoning effort" })
-                          )}
-                          className="h-7 max-w-32 border-0 bg-transparent px-2 text-xs shadow-none"
-                          size="sm"
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {configuredModel.reasoningEfforts.map((effort) => (
-                            <SelectItem key={effort.value} value={effort.value}>
-                              {effort.value}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    ) : null}
+                    <ComposerModelSelector
+                      agentId={agentId}
+                      allowAgentChange={!threadId}
+                      onAgentChange={(nextAgentId) => {
+                        if (threadId || nextAgentId === agentId) return
+                        void navigate({
+                          search: {
+                            agent: nextAgentId,
+                            project: initialProjectId,
+                            prompt: composer || undefined,
+                            section: initialSectionId,
+                          },
+                          to: "/",
+                        })
+                      }}
+                      onThreadConfigChange={(patch) => controller.updateConfig(patch)}
+                    />
                     {codex ? (
                       <Select
                         onValueChange={(value) => {
@@ -1837,13 +1772,8 @@ export function ConversationWorkspace({
                         </SelectContent>
                       </Select>
                     ) : null}
-                    {desktopPreferences?.showContextWindowUsage && contextUsage ? (
-                      <ChatComposerMeter
-                        detail={`${contextUsage.tokens.toLocaleString()} / ${contextUsage.max.toLocaleString()} tokens`}
-                        label="Context window"
-                        max={contextUsage.max}
-                        value={contextUsage.tokens}
-                      />
+                    {desktopPreferences?.showContextWindowUsage && contextUsageQuery.data ? (
+                      <ContextUsage usage={contextUsageQuery.data} />
                     ) : null}
                     {usageQuery.data?.threadUsage ? (
                       <ChatComposerMeter

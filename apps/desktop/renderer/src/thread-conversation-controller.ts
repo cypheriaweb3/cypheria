@@ -191,6 +191,7 @@ export class ThreadConversationController {
   async updateConfig(patch: {
     mode?: string | null
     model?: string | null
+    speed?: string | null
     thinking?: string | null
   }): Promise<void> {
     const client = this.#requireClient()

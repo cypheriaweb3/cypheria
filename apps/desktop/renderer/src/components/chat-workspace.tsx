@@ -33,7 +33,7 @@ export default function ChatWorkspace() {
     )
   }
 
-  const agentId = threadQuery.data?.agentId ?? "codex"
+  const agentId = threadQuery.data?.agentId ?? search.agent ?? "codex"
   return (
     <ConversationWorkspace
       agentId={agentId}

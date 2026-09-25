@@ -18,6 +18,65 @@ const input = (agentId: AgentId): ThreadHarnessCreateInput => ({
 })
 
 describe("ManagedThreadAdapter", () => {
+  it("normalizes Codex context window updates", async () => {
+    const events: ThreadHarnessEvent[] = []
+    let runtimeContext: AgentMessageContext | undefined
+    const manager = {
+      codexDynamicTools: { getSpecs: () => [] },
+      codexGitInstructions: () => undefined,
+      handleCodex: async (message: Record<string, unknown>, context: AgentMessageContext) => {
+        runtimeContext = context
+        context.send({
+          payload: {
+            requestId: message.requestId,
+            thread: { id: "codex-thread-usage", turns: [] },
+          },
+          type: "agent.codex.thread.start.response",
+        } as unknown as AgentRuntimeServerMessage)
+      },
+    } as unknown as AgentManager
+    const adapter = new ManagedThreadAdapter(manager, "codex")
+    await adapter.create({ ...input("codex"), onEvent: (event) => events.push(event) })
+
+    runtimeContext?.send({
+      payload: {
+        threadId: "codex-thread-usage",
+        tokenUsage: {
+          last: {
+            cacheWriteInputTokens: 0,
+            cachedInputTokens: 20,
+            inputTokens: 50,
+            outputTokens: 10,
+            reasoningOutputTokens: 5,
+            totalTokens: 85,
+          },
+          modelContextWindow: 200,
+          total: {
+            cacheWriteInputTokens: 0,
+            cachedInputTokens: 40,
+            inputTokens: 100,
+            outputTokens: 20,
+            reasoningOutputTokens: 10,
+            totalTokens: 170,
+          },
+        },
+      },
+      type: "agent.codex.thread.token_usage.updated.notification",
+    } as unknown as AgentRuntimeServerMessage)
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: "context-usage",
+        usage: expect.objectContaining({
+          kind: "codex",
+          maxTokens: 200,
+          percentage: 42.5,
+          usedTokens: 85,
+        }),
+      })
+    )
+  })
+
   it("passes Git instructions when resuming a Codex thread", async () => {
     const handleCodex = vi.fn(
       async (message: Record<string, unknown>, context: AgentMessageContext) => {

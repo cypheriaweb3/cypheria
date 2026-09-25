@@ -1,6 +1,7 @@
 import type {
   AgentId,
   ThreadCapabilities,
+  ThreadContextUsage,
   ThreadInputBlock,
   ThreadInteraction,
   ThreadInteractionResponse,
@@ -41,6 +42,7 @@ export type ThreadHarnessEvent =
   | { readonly interaction: ThreadInteraction; readonly type: "interaction-requested" }
   | { readonly interactionId: string; readonly type: "interaction-resolved" }
   | { readonly message: string; readonly type: "progress" }
+  | { readonly type: "context-usage"; readonly usage: ThreadContextUsage }
   | { readonly code: string; readonly message: string; readonly type: "warning" }
   | ThreadHarnessExtensionEvent
   | { readonly sessionId: string; readonly type: "session-bound" }
@@ -77,6 +79,7 @@ export interface ThreadHarnessAdapter {
   close(context: ThreadHarnessContext): Promise<void>
   create(input: ThreadHarnessCreateInput): Promise<ThreadHarnessSession>
   delete(context: ThreadHarnessContext): Promise<void>
+  getContextUsage(context: ThreadHarnessContext): Promise<ThreadContextUsage | null>
   resume(input: ThreadHarnessResumeInput): Promise<ThreadHarnessSession>
   startTurn(input: ThreadHarnessTurnInput): Promise<{
     readonly agentMessageId?: string
@@ -89,6 +92,7 @@ export interface ThreadHarnessAdapter {
     patch: {
       readonly mode?: string | null
       readonly model?: string | null
+      readonly speed?: string | null
       readonly thinking?: string | null
     }
   ): Promise<void>

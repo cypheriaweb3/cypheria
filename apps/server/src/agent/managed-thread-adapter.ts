@@ -7,6 +7,8 @@ import type {
   AgentOpenCodeV2Operation,
   RegistryAgentId,
   ThreadCapabilities,
+  ThreadContextTokenBreakdown,
+  ThreadContextUsage,
   ThreadInputBlock,
   ThreadTimelineItem,
 } from "@cypheria/protocol"
@@ -130,6 +132,36 @@ const resultOf = (message: AgentRuntimeServerMessage): Record<string, unknown> =
 
 const stringId = (value: unknown): string | null =>
   typeof value === "string" && value.length > 0 ? value : null
+
+const numberValue = (value: unknown): number | null =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : null
+
+const tokenBreakdown = (value: unknown): ThreadContextTokenBreakdown => {
+  const tokens = value && typeof value === "object" ? (value as Record<string, unknown>) : {}
+  const input = numberValue(tokens.input ?? tokens.inputTokens) ?? 0
+  const output = numberValue(tokens.output ?? tokens.outputTokens) ?? 0
+  const reasoning = numberValue(tokens.reasoning ?? tokens.reasoningOutputTokens) ?? 0
+  const cacheRead = numberValue(tokens.cacheRead ?? tokens.cachedInputTokens) ?? 0
+  const cacheWrite = numberValue(tokens.cacheWrite ?? tokens.cacheWriteInputTokens) ?? 0
+  return {
+    cacheRead,
+    cacheWrite,
+    input,
+    output,
+    reasoning,
+    total:
+      numberValue(tokens.total ?? tokens.totalTokens) ??
+      input + output + reasoning + cacheRead + cacheWrite,
+  }
+}
+
+const usageBase = (usedTokens: number, maxTokens: number) => ({
+  maxTokens,
+  observedAt: new Date().toISOString(),
+  percentage: (usedTokens / maxTokens) * 100,
+  remainingTokens: Math.max(0, maxTokens - usedTokens),
+  usedTokens,
+})
 
 const localInput = (uri: string, name?: string | null): v2.UserInput | null => {
   if (!uri.startsWith("file:")) return null
@@ -541,6 +573,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   #defaultsApplied = false
   #onEvent: ((event: ThreadHarnessEvent) => void) | undefined
   #harnessSessionId: string | null = null
+  #contextUsage: ThreadContextUsage | null = null
   #ownerThreadId: string | null = null
   #cwd: string | null = null
 
@@ -551,6 +584,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
 
   async create(input: ThreadHarnessCreateInput): Promise<ThreadHarnessSession> {
     this.#attach(input.onEvent)
+    this.#contextUsage = null
     this.#ownerThreadId = input.threadId
     this.#cwd = input.cwd
     if (this.agentId === "codex") {
@@ -642,6 +676,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
 
   async resume(input: ThreadHarnessResumeInput): Promise<ThreadHarnessSession> {
     this.#attach(input.onEvent)
+    this.#contextUsage = null
     this.#ownerThreadId = input.threadId
     this.#cwd = input.cwd
     if (this.agentId === "codex") {
@@ -727,6 +762,137 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     this.#cwd = null
     this.#ownerThreadId = null
     this.#onEvent = undefined
+  }
+
+  async getContextUsage(context: ThreadHarnessContext): Promise<ThreadContextUsage | null> {
+    if (this.agentId === "codex") return this.#contextUsage
+    if (this.agentId === "claude") {
+      if (!this.#harnessSessionId) return this.#contextUsage
+      const result = resultOf(
+        await this.#request(context.threadId, {
+          options: { detail: "full" },
+          queryId: context.threadId,
+          requestId: randomUUID(),
+          type: "agent.claude.query.context_usage.get.request",
+        })
+      )
+      const usedTokens = numberValue(result.totalTokens)
+      const maxTokens = numberValue(result.maxTokens)
+      const rawMaxTokens = numberValue(result.rawMaxTokens) ?? maxTokens
+      if (usedTokens === null || maxTokens === null || rawMaxTokens === null || maxTokens === 0) {
+        return this.#contextUsage
+      }
+      const categories = (Array.isArray(result.categories) ? result.categories : []).flatMap(
+        (candidate) => {
+          if (!candidate || typeof candidate !== "object") return []
+          const category = candidate as Record<string, unknown>
+          const tokens = numberValue(category.tokens)
+          const kind = category.kind
+          if (
+            tokens === null ||
+            (kind !== "used" && kind !== "free" && kind !== "buffer" && kind !== "deferred")
+          )
+            return []
+          return [
+            {
+              kind: kind as "used" | "free" | "buffer" | "deferred",
+              name: String(category.name ?? ""),
+              tokens,
+            },
+          ]
+        }
+      )
+      this.#contextUsage = {
+        agentId: "claude",
+        categories,
+        cost: null,
+        kind: "claude",
+        model: stringId(result.model),
+        rawMaxTokens,
+        source: "queried",
+        tokens: null,
+        ...usageBase(usedTokens, maxTokens),
+      }
+      return this.#contextUsage
+    }
+    if (this.agentId === "pi") {
+      const result = resultOf(
+        await this.#request(context.threadId, {
+          requestId: randomUUID(),
+          type: "agent.pi.session.stats.get.request",
+        })
+      )
+      const stats = (result.data ?? result) as Record<string, unknown>
+      const contextUsage = (stats.contextUsage ?? {}) as Record<string, unknown>
+      const usedTokens = numberValue(contextUsage.tokens)
+      const maxTokens = numberValue(contextUsage.contextWindow)
+      if (usedTokens === null || maxTokens === null || maxTokens === 0) return this.#contextUsage
+      const sessionTokens = tokenBreakdown(stats.tokens)
+      this.#contextUsage = {
+        agentId: "pi",
+        cost:
+          numberValue(stats.cost) === null
+            ? null
+            : { amount: numberValue(stats.cost) as number, currency: "USD", scope: "session" },
+        kind: "pi",
+        model: null,
+        sessionTokens,
+        source: "estimated",
+        tokens: null,
+        ...usageBase(usedTokens, maxTokens),
+      }
+      return this.#contextUsage
+    }
+    if (this.agentId === "opencode") {
+      if (!context.agentSessionId) return this.#contextUsage
+      const [messagesResponse, modelsResponse] = await Promise.all([
+        this.#openCodeCall(context.threadId, {
+          body: { limit: 1, order: "desc", sessionID: context.agentSessionId, type: "assistant" },
+          operation: "message.list",
+        }),
+        this.#openCodeCall(context.threadId, { operation: "model.list" }),
+      ])
+      const dataArray = (value: unknown): unknown[] => {
+        if (Array.isArray(value)) return value
+        if (!value || typeof value !== "object") return []
+        const data = (value as Record<string, unknown>).data
+        return Array.isArray(data) ? data : dataArray(data)
+      }
+      const latest = dataArray(resultOf(messagesResponse).data).find(
+        (value) => value && typeof value === "object"
+      ) as Record<string, unknown> | undefined
+      const info = ((latest?.info ?? latest) as Record<string, unknown> | undefined) ?? {}
+      const modelRef = (info.model ?? {}) as Record<string, unknown>
+      const providerId = stringId(modelRef.providerID ?? info.providerID)
+      const modelId = stringId(modelRef.id ?? info.modelID)
+      const model = dataArray(resultOf(modelsResponse).data).find((candidate) => {
+        if (!candidate || typeof candidate !== "object") return false
+        const record = candidate as Record<string, unknown>
+        return (
+          stringId(record.providerID) === providerId &&
+          stringId(record.modelID ?? record.id) === modelId
+        )
+      }) as Record<string, unknown> | undefined
+      const limit = (model?.limit ?? {}) as Record<string, unknown>
+      const maxTokens = numberValue(limit.context)
+      if (!latest || !maxTokens || maxTokens === 0) return this.#contextUsage
+      const tokens = tokenBreakdown(info.tokens)
+      this.#contextUsage = {
+        agentId: "opencode",
+        cost:
+          numberValue(info.cost) === null
+            ? null
+            : { amount: numberValue(info.cost) as number, currency: "USD", scope: "turn" },
+        kind: "opencode",
+        model: modelId,
+        providerId,
+        source: "derived",
+        tokens,
+        ...usageBase(tokens.total, maxTokens),
+      }
+      return this.#contextUsage
+    }
+    return this.#contextUsage
   }
 
   async delete(context: ThreadHarnessContext): Promise<void> {
@@ -1006,24 +1172,50 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     patch: {
       mode?: string | null
       model?: string | null
+      speed?: string | null
       thinking?: string | null
     }
   ): Promise<void> {
     if (this.agentId === "codex") {
       const turnId = [...this.#codexProjectors.keys()].at(-1)
-      if (!context.agentSessionId || !turnId) return
+      if (!context.agentSessionId) return
       if (patch.mode !== undefined) {
         throw new Error("Codex permission mode changes apply to the next turn")
       }
-      if (patch.model || patch.thinking) {
+      if (patch.model !== undefined || patch.speed !== undefined || patch.thinking !== undefined) {
         await this.#request(context.threadId, {
-          ...(patch.thinking ? { effort: patch.thinking } : {}),
-          ...(patch.model ? { model: patch.model } : {}),
+          ...(patch.thinking !== undefined ? { effort: patch.thinking } : {}),
+          ...(patch.model !== undefined ? { model: patch.model } : {}),
+          ...(patch.speed !== undefined ? { serviceTier: patch.speed } : {}),
           requestId: randomUUID(),
           threadId: context.agentSessionId,
-          turnId,
-          type: "agent.codex.turn.settings.update.request",
+          type: "agent.codex.thread.settings.update.request",
         })
+        if (turnId) {
+          await this.#request(context.threadId, {
+            ...(patch.thinking !== undefined ? { effort: patch.thinking } : {}),
+            ...(patch.model !== undefined ? { model: patch.model } : {}),
+            ...(patch.speed !== undefined ? { serviceTier: patch.speed } : {}),
+            requestId: randomUUID(),
+            threadId: context.agentSessionId,
+            turnId,
+            type: "agent.codex.turn.settings.update.request",
+          })
+        }
+      }
+      return
+    }
+    if (this.agentId === "opencode") {
+      if (patch.model && context.agentSessionId) {
+        const [providerID, id] = patch.model.split("/", 2)
+        if (!providerID || !id) throw new Error("OpenCode model must use provider/model format")
+        await this.#openCodeCall(context.threadId, {
+          body: { model: { id, providerID }, sessionID: context.agentSessionId },
+          operation: "session.switch_model",
+        })
+      }
+      if (patch.thinking || patch.speed || patch.mode) {
+        throw new Error("OpenCode does not expose live reasoning or speed configuration")
       }
       return
     }
@@ -1057,8 +1249,38 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         })
       return
     }
-    if (Object.values(patch).some((value) => value !== undefined)) {
-      throw new Error(`${this.agentId} configuration mapping is not available for this option`)
+    if (context.agentSessionId) {
+      const protocolVersion = this.#requireAcpVersion()
+      for (const [configId, value] of Object.entries({
+        mode: patch.mode,
+        model: patch.model,
+        speed: patch.speed,
+        thought_level: patch.thinking,
+      })) {
+        if (value === undefined || value === null) continue
+        if (protocolVersion === 1 && configId === "mode") {
+          await this.#request(context.threadId, {
+            agent: this.agentId,
+            payload: { modeId: value, sessionId: context.agentSessionId },
+            protocolVersion,
+            requestId: randomUUID(),
+            type: "agent.acp.session.set_mode.request",
+          })
+        } else {
+          await this.#request(context.threadId, {
+            agent: this.agentId,
+            payload: {
+              configId,
+              sessionId: context.agentSessionId,
+              ...(protocolVersion === 2 ? { type: "id" } : {}),
+              value,
+            },
+            protocolVersion,
+            requestId: randomUUID(),
+            type: "agent.acp.session.set_config_option.request",
+          })
+        }
+      }
     }
   }
 
@@ -1737,6 +1959,26 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       this.#onEvent?.({ turnId, type: "turn-completed" })
     }
 
+    if (method === "thread/tokenUsage/updated") {
+      const usage = params.tokenUsage as Record<string, unknown> | undefined
+      const last = tokenBreakdown(usage?.last)
+      const total = tokenBreakdown(usage?.total)
+      const maxTokens = numberValue(usage?.modelContextWindow)
+      if (maxTokens && maxTokens > 0) {
+        this.#contextUsage = {
+          agentId: "codex",
+          cost: null,
+          cumulativeTokens: total,
+          kind: "codex",
+          model: null,
+          source: "reported",
+          tokens: last,
+          ...usageBase(last.total, maxTokens),
+        }
+        this.#onEvent?.({ type: "context-usage", usage: this.#contextUsage })
+      }
+    }
+
     const highFrequency =
       method.endsWith("Delta") ||
       method === "item/started" ||
@@ -2000,14 +2242,40 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         event?.type === "session.execution.interrupted"
       ) {
         onEvent({ turnId: "active", type: "turn-completed" })
+        this.#refreshContextUsage()
         return
       }
       const item = this.#mapOpenCodeEventItem(event, data)
       if (item) onEvent({ item: { item, harnessItemId: item.itemId }, type: "timeline" })
       return
     }
-    if (message.type === "agent.acp.session.update.notification" && message.protocolVersion === 2) {
+    if (message.type === "agent.acp.session.update.notification") {
       const update = payload.update as Record<string, unknown> | undefined
+      if (update?.sessionUpdate === "usage_update") {
+        const usedTokens = numberValue(update.used)
+        const maxTokens = numberValue(update.size)
+        const cost = update.cost as Record<string, unknown> | null | undefined
+        if (usedTokens !== null && maxTokens && maxTokens > 0) {
+          this.#contextUsage = {
+            agentId: this.agentId,
+            cost:
+              numberValue(cost?.amount) === null || !stringId(cost?.currency)
+                ? null
+                : {
+                    amount: numberValue(cost?.amount) as number,
+                    currency: String(cost?.currency),
+                    scope: "session",
+                  },
+            kind: "acp",
+            model: null,
+            source: "reported",
+            tokens: null,
+            ...usageBase(usedTokens, maxTokens),
+          }
+          onEvent({ type: "context-usage", usage: this.#contextUsage })
+        }
+        return
+      }
       if (update?.sessionUpdate === "state_update" && update.state === "idle") {
         onEvent({ turnId: "active", type: "turn-completed" })
         return
@@ -2018,6 +2286,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         turnId: stringId(payload.turnId ?? payload.id) ?? "active",
         type: "turn-completed",
       })
+      this.#refreshContextUsage()
       return
     }
     const item = mapHarnessHistoryItem(
@@ -2025,6 +2294,20 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       this.agentId
     )
     if (item) onEvent({ item, type: "timeline" })
+  }
+
+  #refreshContextUsage(): void {
+    if (!this.#ownerThreadId) return
+    void this.getContextUsage({
+      agentId: this.agentId,
+      agentSessionId: this.#harnessSessionId,
+      cwd: this.#cwd,
+      threadId: this.#ownerThreadId,
+    })
+      .then((usage) => {
+        if (usage) this.#onEvent?.({ type: "context-usage", usage })
+      })
+      .catch(() => undefined)
   }
 
   #mapOpenCodeHistory(value: unknown): ThreadHarnessHistoryItem[] {

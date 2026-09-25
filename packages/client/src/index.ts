@@ -31,7 +31,12 @@ import {
   type ServerSession,
 } from "./server-client.js"
 import { createTerminalActions, type TerminalActions } from "./terminal.js"
-import { createThreadActions, type ThreadActions, type TimelineActions } from "./thread.js"
+import {
+  createThreadActions,
+  type ThreadActions,
+  type ThreadContextUsageActions,
+  type TimelineActions,
+} from "./thread.js"
 import { createWeb3Actions, type Web3Actions } from "./web3.js"
 
 export type AgentActions = AgentManagementActions
@@ -228,6 +233,7 @@ export type {
   ScheduleActions,
   SectionActions,
   ThreadActions,
+  ThreadContextUsageActions,
   TimelineActions,
   Web3Actions,
 }

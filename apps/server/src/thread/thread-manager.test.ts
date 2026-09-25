@@ -11,7 +11,7 @@ import {
   createThreadTimelinePersistenceService,
   openCypheriaDatabase,
 } from "@cypheria/db"
-import type { AgentId, ServerMessage } from "@cypheria/protocol"
+import type { AgentId, ServerMessage, ThreadContextUsage } from "@cypheria/protocol"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type {
@@ -28,6 +28,7 @@ class FakeAdapter implements ThreadHarnessAdapter {
   deleteError: Error | undefined
   interactionError: Error | undefined
   createSessionId: string | null | undefined
+  contextUsage: ThreadContextUsage | null = null
   readonly creates: ThreadHarnessCreateInput[] = []
   readonly steers: Array<Parameters<ThreadHarnessAdapter["steerTurn"]>[0]> = []
   readonly starts: Array<Parameters<ThreadHarnessAdapter["startTurn"]>[0]> = []
@@ -56,6 +57,10 @@ class FakeAdapter implements ThreadHarnessAdapter {
   }
   async delete(): Promise<void> {
     if (this.deleteError) throw this.deleteError
+  }
+
+  async getContextUsage() {
+    return this.contextUsage
   }
   async resume(input: Parameters<ThreadHarnessAdapter["resume"]>[0]) {
     this.resumes.push(input)
@@ -167,6 +172,45 @@ const setup = async (
 }
 
 describe("ThreadManager", () => {
+  it("queries, caches, and publishes normalized context usage", async () => {
+    const { adapter, manager, messages } = await setup()
+    const created = await manager.create({ agentId: "codex", cwd: "/repo" })
+    adapter.contextUsage = {
+      agentId: "codex",
+      cost: null,
+      cumulativeTokens: {
+        cacheRead: 10,
+        cacheWrite: 0,
+        input: 20,
+        output: 5,
+        reasoning: 2,
+        total: 37,
+      },
+      kind: "codex",
+      maxTokens: 100,
+      model: null,
+      observedAt: new Date().toISOString(),
+      percentage: 37,
+      remainingTokens: 63,
+      source: "reported",
+      tokens: {
+        cacheRead: 10,
+        cacheWrite: 0,
+        input: 20,
+        output: 5,
+        reasoning: 2,
+        total: 37,
+      },
+      usedTokens: 37,
+    }
+
+    await expect(manager.getContextUsage(created.thread.id)).resolves.toEqual(adapter.contextUsage)
+    expect(messages.at(-1)).toMatchObject({
+      payload: { threadId: created.thread.id, usage: adapter.contextUsage },
+      type: "thread.context.usage.updated.notification",
+    })
+  })
+
   it("passes a project's default cwd and workspace roots without exposing project identity", async () => {
     const { adapter, manager, persistence } = await setup()
     const project = await persistence.createProject({

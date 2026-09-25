@@ -67,6 +67,8 @@ Formal Thread sessions follow the negotiated lifecycle as well. On v2, the prese
 
 Harnesses prefer a common Timeline item whenever semantics match. Agent-specific data belongs in `harnessData`; only events without a faithful common representation use a `harness` item. Permissions, questions, and MCP elicitation become common Thread interactions.
 
+Context usage also stays behind the common Thread adapter. Codex and ACP publish native usage updates. Claude is queried through `getContextUsage`, Pi through `get_session_stats`, and OpenCode is derived from the latest assistant-message token counts plus the selected model's context limit, matching OpenCode's own UI calculation. Pi is explicitly marked estimated. These values are runtime state and never become Timeline items.
+
 The persisted Canonical Timeline is authoritative. A submitted user row is keyed publicly by `clientMessageId`; when an Agent echoes that message, the adapter reconciles the echo into the existing row and durably enriches its internal `agentMessageId` instead of appending a duplicate. Native events may be retained or logged for debugging, but Desktop, Expo, CLI, and AI SDK providers do not rebuild history from a harness process.
 
 ## Client conversation consumers

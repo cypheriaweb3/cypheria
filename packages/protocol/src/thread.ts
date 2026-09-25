@@ -47,6 +47,67 @@ export const ThreadActiveTurnSchema = z.object({
 })
 export type ThreadActiveTurn = z.infer<typeof ThreadActiveTurnSchema>
 
+export const ThreadContextTokenBreakdownSchema = z.object({
+  cacheRead: z.number().nonnegative(),
+  cacheWrite: z.number().nonnegative(),
+  input: z.number().nonnegative(),
+  output: z.number().nonnegative(),
+  reasoning: z.number().nonnegative(),
+  total: z.number().nonnegative(),
+})
+export type ThreadContextTokenBreakdown = z.infer<typeof ThreadContextTokenBreakdownSchema>
+
+export const ThreadContextCostSchema = z.object({
+  amount: z.number().nonnegative(),
+  currency: z.string().min(1),
+  scope: z.enum(["session", "turn"]),
+})
+export type ThreadContextCost = z.infer<typeof ThreadContextCostSchema>
+
+const ThreadContextUsageBaseSchema = z.object({
+  agentId: AgentIdSchema,
+  cost: ThreadContextCostSchema.nullable(),
+  maxTokens: z.number().positive(),
+  model: z.string().nullable(),
+  observedAt: z.string().datetime(),
+  percentage: z.number().nonnegative(),
+  remainingTokens: z.number().nonnegative(),
+  source: z.enum(["reported", "queried", "derived", "estimated"]),
+  tokens: ThreadContextTokenBreakdownSchema.nullable(),
+  usedTokens: z.number().nonnegative(),
+})
+
+export const ThreadContextUsageSchema = z.intersection(
+  ThreadContextUsageBaseSchema,
+  z.discriminatedUnion("kind", [
+    z.object({
+      cumulativeTokens: ThreadContextTokenBreakdownSchema,
+      kind: z.literal("codex"),
+    }),
+    z.object({
+      categories: z.array(
+        z.object({
+          kind: z.enum(["used", "free", "buffer", "deferred"]),
+          name: z.string(),
+          tokens: z.number().nonnegative(),
+        })
+      ),
+      kind: z.literal("claude"),
+      rawMaxTokens: z.number().positive(),
+    }),
+    z.object({
+      kind: z.literal("pi"),
+      sessionTokens: ThreadContextTokenBreakdownSchema,
+    }),
+    z.object({
+      kind: z.literal("opencode"),
+      providerId: z.string().nullable(),
+    }),
+    z.object({ kind: z.literal("acp") }),
+  ])
+)
+export type ThreadContextUsage = z.infer<typeof ThreadContextUsageSchema>
+
 export const ThreadInteractionOptionSchema = z.object({
   description: z.string().nullable(),
   id: z.string().min(1),
@@ -452,11 +513,16 @@ export const ThreadTimelineGetRequestSchema = request(
     threadId: ProjectThreadIdSchema,
   })
 )
+export const ThreadContextUsageGetRequestSchema = request(
+  "thread.context.usage.get.request",
+  z.object({ threadId: ProjectThreadIdSchema })
+)
 export const ThreadConfigUpdateRequestSchema = request(
   "thread.config.update.request",
   z.object({
     mode: z.string().nullable().optional(),
     model: z.string().nullable().optional(),
+    speed: z.string().nullable().optional(),
     thinking: z.string().nullable().optional(),
     threadId: ProjectThreadIdSchema,
   })
@@ -528,6 +594,10 @@ export const ThreadTimelineGetResponseSchema = response(
   "thread.timeline.get.response",
   ThreadTimelinePageSchema
 )
+export const ThreadContextUsageGetResponseSchema = response(
+  "thread.context.usage.get.response",
+  ThreadContextUsageSchema.nullable()
+)
 export const ThreadConfigUpdateResponseSchema = response(
   "thread.config.update.response",
   ThreadViewSchema
@@ -573,6 +643,13 @@ export const ThreadInteractionResolvedNotificationSchema = z.object({
   payload: z.object({ interactionId: z.string().min(1), threadId: ProjectThreadIdSchema }),
   type: z.literal("thread.interaction.resolved.notification"),
 })
+export const ThreadContextUsageUpdatedNotificationSchema = z.object({
+  payload: z.object({
+    threadId: ProjectThreadIdSchema,
+    usage: ThreadContextUsageSchema.nullable(),
+  }),
+  type: z.literal("thread.context.usage.updated.notification"),
+})
 export const ThreadEventNotificationSchema = z.object({
   payload: z.object({
     event: z.discriminatedUnion("type", [
@@ -607,6 +684,7 @@ export const THREAD_CLIENT_SCHEMAS = [
   ThreadTurnSteerRequestSchema,
   ThreadTurnCancelRequestSchema,
   ThreadTimelineGetRequestSchema,
+  ThreadContextUsageGetRequestSchema,
   ThreadConfigUpdateRequestSchema,
   ThreadInteractionRespondRequestSchema,
 ] as const
@@ -628,6 +706,7 @@ export const THREAD_SERVER_SCHEMAS = [
   ThreadTurnSteerResponseSchema,
   ThreadTurnCancelResponseSchema,
   ThreadTimelineGetResponseSchema,
+  ThreadContextUsageGetResponseSchema,
   ThreadConfigUpdateResponseSchema,
   ThreadInteractionRespondResponseSchema,
   ThreadCreatedNotificationSchema,
@@ -637,6 +716,7 @@ export const THREAD_SERVER_SCHEMAS = [
   ThreadTimelineReplacedNotificationSchema,
   ThreadInteractionRequestedNotificationSchema,
   ThreadInteractionResolvedNotificationSchema,
+  ThreadContextUsageUpdatedNotificationSchema,
   ThreadEventNotificationSchema,
 ] as const
 

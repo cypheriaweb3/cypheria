@@ -20,7 +20,6 @@ import {
   ChatComposerForm,
   ChatComposerFrame,
   ChatComposerHeader,
-  ChatComposerMeter,
   ChatComposerPanel,
   ChatComposerRevealControl,
   type ChatComposerStatus,
@@ -30,6 +29,7 @@ import {
   ChatComposerTopTray,
   ChatComposerUtilityBar,
   ChatContextChip,
+  ChatContextUsage,
   ChatDesktopNotificationPreview,
   ChatFileChange,
   ChatFileChanges,
@@ -48,6 +48,7 @@ import {
   ChatMcpThreadPanel,
   ChatMessageActions,
   ChatMessageContent,
+  ChatModelSelector,
   ChatOptionPickerRequest,
   ChatPanel,
   ChatPanelContent,
@@ -202,6 +203,7 @@ import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } fro
 import promptWallpaper from "../assets/plugins/prompt-wallpaper.webp"
 import { splitCodexRenderGroups } from "../codex-render-groups.js"
 import { DemoFilesPanel } from "./chat-demo-files.js"
+import { HarnessIcon } from "./harness-icon.js"
 
 type DemoPanelId =
   | "sources"
@@ -712,6 +714,10 @@ export default function ChatDemo() {
   const [pendingAttachments, setPendingAttachments] = useState<string[]>([])
   const [model, setModel] = useState("gpt-5.6")
   const [reasoning, setReasoning] = useState("high")
+  const [demoAgent, setDemoAgent] = useState<"codex" | "claude" | "pi" | "opencode" | "acp">(
+    "codex"
+  )
+  const [speed, setSpeed] = useState("standard")
   const [autoApprove, setAutoApprove] = useState(false)
   const [approvalDecision, setApprovalDecision] = useState<"pending" | "approved" | "rejected">(
     "pending"
@@ -1906,6 +1912,27 @@ export default function ChatDemo() {
   )
 
   const generating = status === "submitted" || status === "streaming"
+  const demoUsage = {
+    acp: { max: 128_000, source: "Agent reported", used: 46_200 },
+    claude: { max: 200_000, source: "Live query", used: 121_400 },
+    codex: { max: 272_000, source: "Agent reported", used: 84_300 },
+    opencode: { max: 200_000, source: "Derived", used: 73_800 },
+    pi: { max: 128_000, source: "Estimated", used: 51_100 },
+  }[demoAgent]
+  const demoAgentLabel =
+    demoAgent === "opencode"
+      ? "OpenCode"
+      : demoAgent === "acp"
+        ? "ACP agent"
+        : demoAgent.charAt(0).toUpperCase() + demoAgent.slice(1)
+  const demoTokenBreakdown = {
+    cacheRead: 18_200,
+    cacheWrite: 1_200,
+    input: 46_400,
+    output: 12_700,
+    reasoning: 5_800,
+    total: demoUsage.used,
+  }
 
   const renderPendingComposer = () => {
     if (pendingSurface === "approval") {
@@ -3033,12 +3060,41 @@ export default function ChatDemo() {
                       title="Approval policy is active"
                       tone="warning"
                     />
-                    <ChatComposerMeter
-                      className="px-2.5"
-                      detail="68%"
-                      label="Context window"
-                      value={68}
-                    />
+                    <div className="flex items-center justify-between px-2.5">
+                      <span className="text-xs text-muted-foreground">Context usage preview</span>
+                      <ChatContextUsage
+                        agent={demoAgent}
+                        agentLabel={demoAgentLabel}
+                        categories={
+                          demoAgent === "claude"
+                            ? [
+                                { kind: "used", label: "Messages", tokens: 78_200 },
+                                { kind: "used", label: "System prompt", tokens: 21_400 },
+                                { kind: "buffer", label: "Compaction buffer", tokens: 20_000 },
+                              ]
+                            : undefined
+                        }
+                        costLabel={
+                          demoAgent === "pi" || demoAgent === "acp"
+                            ? "$0.4281 USD · session"
+                            : undefined
+                        }
+                        icon={
+                          <HarnessIcon
+                            agentId={demoAgent === "acp" ? "gemini" : demoAgent}
+                            name={demoAgentLabel}
+                          />
+                        }
+                        maxTokens={demoUsage.max}
+                        model={model}
+                        sessionTokens={demoAgent === "pi" ? demoTokenBreakdown : null}
+                        sourceLabel={demoUsage.source}
+                        tokens={
+                          demoAgent === "claude" || demoAgent === "acp" ? null : demoTokenBreakdown
+                        }
+                        usedTokens={demoUsage.used}
+                      />
+                    </div>
                   </div>
                 ) : null}
                 {visibleComposerExtras.has("queue") ? (
@@ -3168,39 +3224,87 @@ export default function ChatDemo() {
                         {autoApprove ? "Full access" : "Ask to approve"}
                       </ChatComposerControl>
                       <span className="ml-auto" />
-                      <Select value={model} onValueChange={(value) => setModel(String(value))}>
-                        <SelectTrigger aria-label="Model" className="h-7 w-auto border-0 px-2">
-                          <SelectValue>
-                            {model === "gpt-6" ? "GPT-6 Astra" : "GPT-5.6 Sol"}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="gpt-5.6">GPT-5.6 Sol</SelectItem>
-                          <SelectItem value="gpt-6">GPT-6 Astra</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <Select
-                        value={reasoning}
-                        onValueChange={(value) => setReasoning(String(value))}
-                      >
-                        <SelectTrigger
-                          aria-label="Reasoning effort"
-                          className="h-7 w-auto border-0 px-2"
-                        >
-                          <SelectValue>
-                            {reasoning === "xhigh"
-                              ? "XHigh"
-                              : reasoning === "high"
-                                ? "High"
-                                : "Medium"}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="medium">Medium</SelectItem>
-                          <SelectItem value="high">High</SelectItem>
-                          <SelectItem value="xhigh">XHigh</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <ChatModelSelector
+                        agent={demoAgent}
+                        agentLabel={demoAgentLabel}
+                        agentOptions={[
+                          { label: "Codex", value: "codex" },
+                          { label: "Claude", value: "claude" },
+                          { label: "Pi", value: "pi" },
+                          { label: "OpenCode", value: "opencode" },
+                          { label: "ACP agent", value: "acp" },
+                        ].map((option) => ({
+                          ...option,
+                          icon: (
+                            <HarnessIcon
+                              agentId={
+                                option.value === "acp"
+                                  ? "gemini"
+                                  : (option.value as "codex" | "claude" | "pi" | "opencode")
+                              }
+                              name={option.label}
+                            />
+                          ),
+                        }))}
+                        labels={{
+                          agent: "Agent",
+                          model: "Model",
+                          reasoning: "Reasoning effort",
+                          speed: "Speed",
+                        }}
+                        model={model}
+                        modelOptions={[
+                          { description: "OpenAI", label: "GPT-5.6 Sol", value: "gpt-5.6" },
+                          { description: "OpenAI", label: "GPT-6 Astra", value: "gpt-6" },
+                        ]}
+                        onAgentChange={(value) => setDemoAgent(value as typeof demoAgent)}
+                        onModelChange={setModel}
+                        onReasoningChange={setReasoning}
+                        onSpeedChange={setSpeed}
+                        reasoning={reasoning}
+                        reasoningOptions={[
+                          { label: "Medium", value: "medium" },
+                          { label: "High", value: "high" },
+                          { label: "XHigh", value: "xhigh" },
+                        ]}
+                        speed={speed}
+                        speedOptions={[
+                          { description: "Default speed", label: "Standard", value: "standard" },
+                          { description: "Faster, increased usage", label: "Fast", value: "fast" },
+                        ]}
+                      />
+                      <ChatContextUsage
+                        agent={demoAgent}
+                        agentLabel={demoAgentLabel}
+                        categories={
+                          demoAgent === "claude"
+                            ? [
+                                { kind: "used", label: "Messages", tokens: 78_200 },
+                                { kind: "used", label: "System prompt", tokens: 21_400 },
+                                { kind: "buffer", label: "Compaction buffer", tokens: 20_000 },
+                              ]
+                            : undefined
+                        }
+                        costLabel={
+                          demoAgent === "pi" || demoAgent === "acp"
+                            ? "$0.4281 USD · session"
+                            : undefined
+                        }
+                        icon={
+                          <HarnessIcon
+                            agentId={demoAgent === "acp" ? "gemini" : demoAgent}
+                            name={demoAgentLabel}
+                          />
+                        }
+                        maxTokens={demoUsage.max}
+                        model={model}
+                        sessionTokens={demoAgent === "pi" ? demoTokenBreakdown : null}
+                        sourceLabel={demoUsage.source}
+                        tokens={
+                          demoAgent === "claude" || demoAgent === "acp" ? null : demoTokenBreakdown
+                        }
+                        usedTokens={demoUsage.used}
+                      />
                     </ChatComposerUtilityBar>
                     <ChatComposerControl
                       label="Hide composer"

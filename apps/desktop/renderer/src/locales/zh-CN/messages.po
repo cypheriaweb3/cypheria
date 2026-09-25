@@ -14,6 +14,36 @@ msgstr ""
 "Plural-Forms: \n"
 
 #. js-lingui-explicit-id
+#: renderer/src/components/composer-model-selector.tsx
+msgid "chat.agent"
+msgstr "Agent"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/context-usage.tsx
+msgid "chat.context.derived"
+msgstr "推导值"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/context-usage.tsx
+msgid "chat.context.estimated"
+msgstr "估算值"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/context-usage.tsx
+msgid "chat.context.queried"
+msgstr "实时查询"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/context-usage.tsx
+msgid "chat.context.reported"
+msgstr "Agent 上报"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/composer-model-selector.tsx
+msgid "chat.speed"
+msgstr "速度"
+
+#. js-lingui-explicit-id
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.group.tools"
 msgstr "工具活动"

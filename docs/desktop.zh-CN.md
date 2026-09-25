@@ -143,6 +143,8 @@ Review 面板的工作树控件可选择包含本地改动及仓库内环境配�
 
 Harness 专属 UI 仅限判别 Timeline 扩展、header actions、model settings、permission details 和真实 harness capabilities。Codex 仍是保真参考，但 Claude、Pi、OpenCode 和 ACP 复用同一 shell，而不是复制整套 UI。
 
+Composer 使用共享的 `ChatModelSelector` 与 `ChatContextUsage` 展示组件。Selector 把 Agent、model、推理强度与速度合并起来，并隐藏所选 Agent 未广告的维度。首条消息发送前，切换 Agent 会改变新 Thread 使用的 runtime；已有 Thread 保持其 Agent identity。Context control 是一个紧凑 meter，hover card 会针对 Codex、Claude、Pi、OpenCode 与 ACP 显示不同明细，并用 source label 区分 reported、queried、derived 与 estimated。Chat Demo 同时展示这两个组件，开发者无需真实 Agent 即可切换检查所有呈现变体。
+
 Canonical Timeline 历史与有序实时更新都直接通过 `@cypheria/client` 消费。无框架 controller 负责分页、重连、缺口恢复、send、steer、Codex 原生 queue、cancel 和 interaction；React 通过 `useSyncExternalStore` 订阅。Codex 使用专用 workspace，其他 Agent 在获得专属扩展前使用公共 Thread workspace。
 
 Codex workspace 在 Canonical Timeline 投影后执行仅属于 Desktop 的展示分组，不改变已存储 item，也不发明 App Server item 类型。用户输入、过程 commentary、连续工具或子代理活动、plan、diff、最终回答和回答后通知成为不同的虚拟行。最新轮次只跟踪当前同步 commentary；异步投递或提问会清除该标记。原始顺序中最终回答之后仍可能有已完成活动，因此分组会越过已结束的命令和工具查找最终回答，并把回答显示在过程组之后。待处理审批留在 composer 交互区；goal、queue、usage 等运行时状态不进入历史。若 Codex MCP elicitation 的 metadata 表明它是 Computer Use 应用访问请求，还会显示屏幕截图与访问披露，并在适用时显示高风险标记；它不会成为 Timeline item。共享 `ChatTurnGroup` 只负责展示；开发版 Chat Demo 在 128 条消息的虚拟化会话之外，也用同一分组函数展示双轮次样例和 Computer Use 请求样例。

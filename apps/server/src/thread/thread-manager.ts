@@ -13,6 +13,7 @@ import {
   type AgentId,
   type ServerMessage,
   type ThreadClientMessage,
+  type ThreadContextUsage,
   type ThreadInputBlock,
   type ThreadInteraction,
   ThreadSchema,
@@ -33,6 +34,7 @@ type Publish = (message: ServerMessage) => void
 type RuntimeState = {
   activeTurn: { id: string; startedAt: string; captureId?: string | null } | null
   capabilities: ThreadView["capabilities"]
+  contextUsage: ThreadContextUsage | null
   pendingInteractions: Map<string, ThreadInteraction>
   state: ThreadState
 }
@@ -188,6 +190,9 @@ export class ThreadManager {
           await this.#required(message.payload.threadId)
           respond(await this.#timeline.page(message.payload.threadId, message.payload))
           break
+        case "thread.context.usage.get.request":
+          respond(await this.getContextUsage(message.payload.threadId))
+          break
         case "thread.config.update.request": {
           const { threadId, ...patch } = message.payload
           respond(await this.updateConfig(threadId, patch))
@@ -275,6 +280,7 @@ export class ThreadManager {
         this.#runtime.set(threadId, {
           activeTurn: null,
           capabilities: session.capabilities,
+          contextUsage: null,
           pendingInteractions: new Map(),
           state: "idle",
         })
@@ -776,6 +782,7 @@ export class ThreadManager {
     patch: {
       mode?: string | null
       model?: string | null
+      speed?: string | null
       thinking?: string | null
     }
   ): Promise<ThreadView> {
@@ -785,8 +792,20 @@ export class ThreadManager {
         this.#context(thread),
         patch
       )
+      if (patch.model !== undefined) this.#publishContextUsage(threadId, null)
       return this.#updateAndPublishSync(thread)
     })
+  }
+
+  async getContextUsage(threadId: string): Promise<ThreadContextUsage | null> {
+    const thread = await this.#required(threadId)
+    const runtime = this.#state(threadId)
+    if (runtime.state === "stopped" || runtime.state === "deleting") return runtime.contextUsage
+    const usage = await this.#adapterFor(thread.agentId as AgentId, thread.id).getContextUsage(
+      this.#context(thread)
+    )
+    if (usage) this.#publishContextUsage(threadId, usage)
+    return usage ?? runtime.contextUsage
   }
 
   async respondToInteraction(
@@ -888,6 +907,9 @@ export class ThreadManager {
       if (!thread) return
       const runtime = this.#state(threadId)
       switch (event.type) {
+        case "context-usage":
+          this.#publishContextUsage(threadId, event.usage)
+          break
         case "timeline":
           if (
             event.item.item.type === "message" &&
@@ -1145,12 +1167,21 @@ export class ThreadManager {
       state = {
         activeTurn: null,
         capabilities: stoppedCapabilities,
+        contextUsage: null,
         pendingInteractions: new Map(),
         state: "stopped",
       }
       this.#runtime.set(threadId, state)
     }
     return state
+  }
+
+  #publishContextUsage(threadId: string, usage: ThreadContextUsage | null): void {
+    this.#state(threadId).contextUsage = usage
+    this.#publish({
+      payload: { threadId, usage },
+      type: "thread.context.usage.updated.notification",
+    })
   }
 
   async #updateAndPublish(thread: ThreadRecord): Promise<ThreadView> {

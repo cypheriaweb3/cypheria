@@ -113,4 +113,58 @@ describe("thread actions", () => {
       undefined
     )
   })
+
+  it("queries and subscribes to normalized context usage", async () => {
+    const usage = {
+      agentId: "codex" as const,
+      cost: null,
+      cumulativeTokens: {
+        cacheRead: 10,
+        cacheWrite: 0,
+        input: 20,
+        output: 5,
+        reasoning: 2,
+        total: 37,
+      },
+      kind: "codex" as const,
+      maxTokens: 100,
+      model: null,
+      observedAt: new Date().toISOString(),
+      percentage: 37,
+      remainingTokens: 63,
+      source: "reported" as const,
+      tokens: {
+        cacheRead: 10,
+        cacheWrite: 0,
+        input: 20,
+        output: 5,
+        reasoning: 2,
+        total: 37,
+      },
+      usedTokens: 37,
+    }
+    let notificationHandler: ((message: unknown) => void) | undefined
+    const requestThread = vi.fn(async (type: string) => ({
+      payload: { ok: true as const, value: usage },
+      requestId: "test",
+      type: type.replace(/\.request$/, ".response"),
+    }))
+    const on = vi.fn((_type, handler) => {
+      notificationHandler = handler
+      return () => undefined
+    })
+    const actions = createThreadActions({ on, requestThread } as unknown as ServerClient)
+    const observed = vi.fn()
+
+    await expect(actions.contextUsage.get(thread.id)).resolves.toEqual(usage)
+    actions.contextUsage.subscribe(thread.id, observed)
+    notificationHandler?.({ payload: { threadId: thread.id, usage } })
+
+    expect(requestThread).toHaveBeenCalledWith(
+      "thread.context.usage.get.request",
+      { threadId: thread.id },
+      undefined
+    )
+    expect(observed).toHaveBeenCalledWith(usage)
+  })
 })

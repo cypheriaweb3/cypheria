@@ -1,5 +1,6 @@
 import type {
   ThreadClientMessage,
+  ThreadContextUsage,
   ThreadServerMessage,
   ThreadTimelinePage,
   ThreadView,
@@ -69,6 +70,12 @@ export interface ThreadActions {
     options?: RequestOptions
   ): Promise<ThreadView>
   readonly timeline: TimelineActions
+  readonly contextUsage: ThreadContextUsageActions
+}
+
+export interface ThreadContextUsageActions {
+  get(threadId: string, options?: RequestOptions): Promise<ThreadContextUsage | null>
+  subscribe(threadId: string, handler: (usage: ThreadContextUsage | null) => void): () => void
 }
 
 export interface TimelineActions {
@@ -88,6 +95,13 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
   const timeline: TimelineActions = {
     get: (input, options) => request("thread.timeline.get.request", input, options),
   }
+  const contextUsage: ThreadContextUsageActions = {
+    get: (threadId, options) => request("thread.context.usage.get.request", { threadId }, options),
+    subscribe: (threadId, handler) =>
+      client.on("thread.context.usage.updated.notification", ({ payload }) => {
+        if (payload.threadId === threadId) handler(payload.usage)
+      }),
+  }
 
   return {
     archive: (threadId, options) => request("thread.archive.request", { threadId }, options),
@@ -98,6 +112,7 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
         options
       ),
     close: (threadId, options) => request("thread.close.request", { threadId }, options),
+    contextUsage,
     create: (input, options) => request("thread.create.request", input, options),
     delete: async (threadId, options) => {
       await request("thread.delete.request", { threadId }, options)

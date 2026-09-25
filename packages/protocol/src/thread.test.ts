@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest"
 import {
   projectThreadTimelineRows,
   ThreadArchiveRequestSchema,
+  ThreadContextUsageSchema,
   ThreadForkRequestSchema,
   ThreadInteractionRespondRequestSchema,
   ThreadTimelineGetRequestSchema,
@@ -13,6 +14,26 @@ import {
 } from "./index.ts"
 
 describe("thread protocol", () => {
+  test("normalizes agent-specific context usage without native payloads", () => {
+    const usage = ThreadContextUsageSchema.parse({
+      agentId: "claude",
+      categories: [{ kind: "used", name: "Messages", tokens: 70 }],
+      cost: null,
+      kind: "claude",
+      maxTokens: 100,
+      model: "claude-sonnet",
+      observedAt: new Date().toISOString(),
+      percentage: 70,
+      rawMaxTokens: 120,
+      remainingTokens: 30,
+      source: "queried",
+      tokens: null,
+      usedTokens: 70,
+    })
+    expect(usage.kind).toBe("claude")
+    expect(usage.remainingTokens).toBe(30)
+  })
+
   test("uses thread identity while keeping the harness session id observational", () => {
     const thread = ThreadViewSchema.parse({
       activeTurn: null,

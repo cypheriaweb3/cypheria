@@ -67,6 +67,8 @@ ACP harness 使用官方 ACP SDK，并在 Server 内把稳定 v1 与 v2 协议�
 
 语义匹配时，harness 优先生成通用 Timeline item。Agent 专属数据放入 `harnessData`；只有无法忠实表达的事件才使用 `harness` item。Permissions、questions 和 MCP elicitation 转换为通用 Thread interactions。
 
+Context usage 同样隐藏在公共 Thread adapter 之后。Codex 与 ACP 发布原生 usage update；Claude 通过 `getContextUsage` 查询，Pi 通过 `get_session_stats` 查询，OpenCode 则按自身 UI 的算法，由最新 assistant message 的 token 计数与所选 model 的 context limit 推导。Pi 的结果会明确标为 estimated。这些值属于 runtime state，不会成为 Timeline item。
+
 持久化 Canonical Timeline 是唯一权威。已提交的用户 row 以 `clientMessageId` 作为公开身份；Agent 回显该消息时，adapter 会把回显校正到已有 row，并持久补全其内部 `agentMessageId`，而不是追加重复消息。原生事件可以保留或记录用于调试，但 Desktop、Expo、CLI 和 AI SDK providers 不从 harness 进程重建历史。
 
 ## 客户端会话消费者
