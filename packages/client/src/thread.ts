@@ -1,4 +1,7 @@
 import type {
+  ThreadAttachmentPage,
+  ThreadAttachmentRecord,
+  ThreadAttachmentType,
   ThreadClientMessage,
   ThreadContextUsage,
   ThreadServerMessage,
@@ -69,8 +72,49 @@ export interface ThreadActions {
     input: Payload<"thread.config.update.request">,
     options?: RequestOptions
   ): Promise<ThreadView>
+  readonly attachments: ThreadAttachmentActions
   readonly timeline: TimelineActions
   readonly contextUsage: ThreadContextUsageActions
+}
+
+export type ThreadAttachmentEvent = Extract<
+  ThreadServerMessage,
+  {
+    type: "thread.attachment.upserted.notification" | "thread.attachment.deleted.notification"
+  }
+>
+
+export interface ThreadAttachmentActions {
+  addPullRequest(
+    threadId: string,
+    url: string,
+    options?: RequestOptions
+  ): Promise<ThreadAttachmentRecord>
+  addWorktree(
+    threadId: string,
+    worktreeId: string,
+    options?: RequestOptions
+  ): Promise<ThreadAttachmentRecord>
+  list(
+    input?: Payload<"thread.attachment.list.request">,
+    options?: RequestOptions
+  ): Promise<ThreadAttachmentPage>
+  listOwners(
+    attachmentType: ThreadAttachmentType,
+    identityKey: string,
+    input?: Omit<
+      Payload<"thread.attachment.owners.list.request">,
+      "attachmentType" | "identityKey"
+    >,
+    options?: RequestOptions
+  ): Promise<ThreadAttachmentPage>
+  remove(
+    threadId: string,
+    attachmentType: ThreadAttachmentType,
+    identityKey: string,
+    options?: RequestOptions
+  ): Promise<boolean>
+  subscribe(handler: (event: ThreadAttachmentEvent) => void): () => void
 }
 
 export interface ThreadContextUsageActions {
@@ -102,9 +146,47 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
         if (payload.threadId === threadId) handler(payload.usage)
       }),
   }
+  const attachments: ThreadAttachmentActions = {
+    addPullRequest: (threadId, url, options) =>
+      request(
+        "thread.attachment.add.request",
+        { attachment: { attachmentType: "pull_request", url }, threadId },
+        options
+      ),
+    addWorktree: (threadId, worktreeId, options) =>
+      request(
+        "thread.attachment.add.request",
+        { attachment: { attachmentType: "worktree", worktreeId }, threadId },
+        options
+      ),
+    list: (input = {}, options) => request("thread.attachment.list.request", input, options),
+    listOwners: (attachmentType, identityKey, input = {}, options) =>
+      request(
+        "thread.attachment.owners.list.request",
+        { ...input, attachmentType, identityKey },
+        options
+      ),
+    remove: async (threadId, attachmentType, identityKey, options) => {
+      const result = await request<{ removed: boolean }>(
+        "thread.attachment.remove.request",
+        { attachmentType, identityKey, threadId },
+        options
+      )
+      return result.removed
+    },
+    subscribe: (handler) => {
+      const unsubscribeUpserted = client.on("thread.attachment.upserted.notification", handler)
+      const unsubscribeDeleted = client.on("thread.attachment.deleted.notification", handler)
+      return () => {
+        unsubscribeUpserted()
+        unsubscribeDeleted()
+      }
+    },
+  }
 
   return {
     archive: (threadId, options) => request("thread.archive.request", { threadId }, options),
+    attachments,
     cancelTurn: (threadId, turnId, options) =>
       request(
         "thread.turn.cancel.request",

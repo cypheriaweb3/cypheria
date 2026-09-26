@@ -38,6 +38,8 @@ The client supports browser, Node, injected, and relay E2EE transports. It valid
 
 `threadId` is the only operation key. Timeline pages use epoch and sequence cursors; clients rebuild when a response requests reset or a replacement notification invalidates local projection.
 
+`client.threads.attachments` lists, adds, removes, reverse-resolves, and subscribes to Server-owned pull-request and managed-worktree relationships. The facade is common to every Agent and every client platform.
+
 ## Dependency boundary
 
 This package depends on `@cypheria/protocol` and `@cypheria/relay`. It does not import Electron, Desktop, Server runtime internals, databases, or Agent SDKs.

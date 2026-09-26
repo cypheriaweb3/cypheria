@@ -57,6 +57,7 @@ export type ThreadManagerOptions = {
   readonly persistence: ProjectThreadPersistenceService
   readonly publish: Publish
   readonly onArchived?: (cwd: string) => Promise<void>
+  readonly onDeleting?: (threadId: string) => Promise<void>
   readonly onUnarchiving?: (cwd: string) => Promise<void>
   readonly timelinePersistence: ThreadTimelinePersistenceService
   readonly turnCapture?: {
@@ -84,6 +85,7 @@ export class ThreadManager {
   readonly #persistence: ProjectThreadPersistenceService
   readonly #publish: Publish
   readonly #onArchived: ThreadManagerOptions["onArchived"]
+  readonly #onDeleting: ThreadManagerOptions["onDeleting"]
   readonly #onUnarchiving: ThreadManagerOptions["onUnarchiving"]
   readonly #runtime = new Map<string, RuntimeState>()
   readonly #timeline: ThreadTimelineStore
@@ -97,6 +99,7 @@ export class ThreadManager {
     this.#persistence = options.persistence
     this.#publish = options.publish
     this.#onArchived = options.onArchived
+    this.#onDeleting = options.onDeleting
     this.#onUnarchiving = options.onUnarchiving
     this.#timeline = new ThreadTimelineStore(options.timelinePersistence)
     this.#turnCapture = options.turnCapture
@@ -587,6 +590,7 @@ export class ThreadManager {
       let harnessDeleted = false
       let tombstoned = false
       try {
+        await this.#onDeleting?.(threadId)
         await this.#persistence.markThreadDeleting(threadId)
         tombstoned = true
         this.#publish({ payload: { threadId }, type: "thread.deleted.notification" })
@@ -1132,7 +1136,10 @@ export class ThreadManager {
         .find((value) => value.id === operation.threadId)
       const thread = (await this.#persistence.getThread(operation.threadId)) ?? deletedThread
       if (operation.status === "harness-deleted") {
-        if (thread) await this.#persistence.purgeThread(thread.id)
+        if (thread) {
+          await this.#onDeleting?.(thread.id)
+          await this.#persistence.purgeThread(thread.id)
+        }
         await this.#lifecycle.complete(operation.id)
         return
       }
@@ -1140,6 +1147,7 @@ export class ThreadManager {
         await this.#lifecycle.complete(operation.id)
         return
       }
+      await this.#onDeleting?.(thread.id)
       await this.#adapterFor(thread.agentId as AgentId, thread.id).delete(this.#context(thread))
       await this.#lifecycle.transition(operation.id, { status: "harness-deleted" })
       if (thread.deletedAt === null) await this.#persistence.markThreadDeleting(thread.id)

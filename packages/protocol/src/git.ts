@@ -134,6 +134,7 @@ export const GitBlameLineSchema = z
   .strict()
 export const GitWorktreeSchema = z
   .object({
+    id: z.uuid().nullable(),
     path,
     head: z.string().nullable(),
     branch: z.string().nullable(),
@@ -1149,6 +1150,7 @@ export const GitHubPrCreateRequestSchema = input(
       title: z.string().min(1).max(1000),
       body: z.string().max(100_000),
       draft: z.boolean().optional(),
+      threadId: ProjectThreadIdSchema.optional(),
     })
     .strict()
 )

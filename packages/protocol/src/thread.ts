@@ -187,6 +187,51 @@ export const ThreadAttachmentSchema = z.discriminatedUnion("type", [
 ])
 export type ThreadAttachment = z.infer<typeof ThreadAttachmentSchema>
 
+export const ThreadAttachmentTypeSchema = z.enum(["pull_request", "worktree"])
+export type ThreadAttachmentType = z.infer<typeof ThreadAttachmentTypeSchema>
+
+const ThreadAttachmentRecordBaseSchema = z.object({
+  createdAt: UnixTimestampSecondsSchema,
+  identityKey: z.string().trim().min(1).max(2048),
+  threadId: ProjectThreadIdSchema,
+  updatedAt: UnixTimestampSecondsSchema,
+})
+
+export const ThreadPullRequestAttachmentPayloadSchema = z
+  .object({
+    host: z.string().trim().min(1).max(253),
+    number: z.int().positive(),
+    owner: z.string().trim().min(1).max(1000),
+    provider: z.enum(["github", "gitlab"]),
+    repository: z.string().trim().min(1).max(255),
+    url: z.url().max(4096),
+  })
+  .strict()
+export type ThreadPullRequestAttachmentPayload = z.infer<
+  typeof ThreadPullRequestAttachmentPayloadSchema
+>
+
+export const ThreadWorktreeAttachmentPayloadSchema = z.object({ worktreeId: z.uuid() }).strict()
+export type ThreadWorktreeAttachmentPayload = z.infer<typeof ThreadWorktreeAttachmentPayloadSchema>
+
+export const ThreadAttachmentRecordSchema = z.discriminatedUnion("attachmentType", [
+  ThreadAttachmentRecordBaseSchema.extend({
+    attachmentType: z.literal("pull_request"),
+    payload: ThreadPullRequestAttachmentPayloadSchema,
+  }),
+  ThreadAttachmentRecordBaseSchema.extend({
+    attachmentType: z.literal("worktree"),
+    payload: ThreadWorktreeAttachmentPayloadSchema,
+  }),
+])
+export type ThreadAttachmentRecord = z.infer<typeof ThreadAttachmentRecordSchema>
+
+export const ThreadAttachmentPageSchema = z.object({
+  data: z.array(ThreadAttachmentRecordSchema),
+  nextCursor: ProjectThreadCursorSchema.nullable(),
+})
+export type ThreadAttachmentPage = z.infer<typeof ThreadAttachmentPageSchema>
+
 export const ThreadInputBlockSchema = z.discriminatedUnion("type", [
   ThreadTextInputBlockSchema,
   ThreadImageInputBlockSchema,
@@ -562,6 +607,45 @@ export const ThreadInteractionRespondRequestSchema = request(
     threadId: ProjectThreadIdSchema,
   })
 )
+export const ThreadAttachmentListRequestSchema = request(
+  "thread.attachment.list.request",
+  z.object({
+    attachmentType: ThreadAttachmentTypeSchema.optional(),
+    cursor: ProjectThreadCursorSchema.nullish(),
+    limit: ProjectThreadLimitSchema.optional(),
+    threadId: ProjectThreadIdSchema.optional(),
+  })
+)
+export const ThreadAttachmentOwnersListRequestSchema = request(
+  "thread.attachment.owners.list.request",
+  z.object({
+    attachmentType: ThreadAttachmentTypeSchema,
+    cursor: ProjectThreadCursorSchema.nullish(),
+    identityKey: z.string().trim().min(1).max(2048),
+    limit: ProjectThreadLimitSchema.optional(),
+  })
+)
+export const ThreadAttachmentAddRequestSchema = request(
+  "thread.attachment.add.request",
+  z.object({
+    attachment: z.discriminatedUnion("attachmentType", [
+      z.object({ attachmentType: z.literal("pull_request"), url: z.url().max(4096) }),
+      z.object({
+        attachmentType: z.literal("worktree"),
+        worktreeId: z.uuid(),
+      }),
+    ]),
+    threadId: ProjectThreadIdSchema,
+  })
+)
+export const ThreadAttachmentRemoveRequestSchema = request(
+  "thread.attachment.remove.request",
+  z.object({
+    attachmentType: ThreadAttachmentTypeSchema,
+    identityKey: z.string().trim().min(1).max(2048),
+    threadId: ProjectThreadIdSchema,
+  })
+)
 
 export const ThreadCreateResponseSchema = response("thread.create.response", threadReadySchema)
 export const ThreadGetResponseSchema = response("thread.get.response", ThreadViewSchema)
@@ -605,6 +689,22 @@ export const ThreadConfigUpdateResponseSchema = response(
 export const ThreadInteractionRespondResponseSchema = response(
   "thread.interaction.respond.response",
   ThreadViewSchema
+)
+export const ThreadAttachmentListResponseSchema = response(
+  "thread.attachment.list.response",
+  ThreadAttachmentPageSchema
+)
+export const ThreadAttachmentOwnersListResponseSchema = response(
+  "thread.attachment.owners.list.response",
+  ThreadAttachmentPageSchema
+)
+export const ThreadAttachmentAddResponseSchema = response(
+  "thread.attachment.add.response",
+  ThreadAttachmentRecordSchema
+)
+export const ThreadAttachmentRemoveResponseSchema = response(
+  "thread.attachment.remove.response",
+  z.object({ removed: z.boolean() })
 )
 
 export const ThreadCreatedNotificationSchema = z.object({
@@ -666,6 +766,18 @@ export const ThreadEventNotificationSchema = z.object({
   }),
   type: z.literal("thread.event.notification"),
 })
+export const ThreadAttachmentUpsertedNotificationSchema = z.object({
+  payload: ThreadAttachmentRecordSchema,
+  type: z.literal("thread.attachment.upserted.notification"),
+})
+export const ThreadAttachmentDeletedNotificationSchema = z.object({
+  payload: z.object({
+    attachmentType: ThreadAttachmentTypeSchema,
+    identityKey: z.string().trim().min(1).max(2048),
+    threadId: ProjectThreadIdSchema,
+  }),
+  type: z.literal("thread.attachment.deleted.notification"),
+})
 
 export const THREAD_CLIENT_SCHEMAS = [
   ThreadCreateRequestSchema,
@@ -687,6 +799,10 @@ export const THREAD_CLIENT_SCHEMAS = [
   ThreadContextUsageGetRequestSchema,
   ThreadConfigUpdateRequestSchema,
   ThreadInteractionRespondRequestSchema,
+  ThreadAttachmentListRequestSchema,
+  ThreadAttachmentOwnersListRequestSchema,
+  ThreadAttachmentAddRequestSchema,
+  ThreadAttachmentRemoveRequestSchema,
 ] as const
 
 export const THREAD_SERVER_SCHEMAS = [
@@ -709,6 +825,10 @@ export const THREAD_SERVER_SCHEMAS = [
   ThreadContextUsageGetResponseSchema,
   ThreadConfigUpdateResponseSchema,
   ThreadInteractionRespondResponseSchema,
+  ThreadAttachmentListResponseSchema,
+  ThreadAttachmentOwnersListResponseSchema,
+  ThreadAttachmentAddResponseSchema,
+  ThreadAttachmentRemoveResponseSchema,
   ThreadCreatedNotificationSchema,
   ThreadUpdatedNotificationSchema,
   ThreadDeletedNotificationSchema,
@@ -718,6 +838,8 @@ export const THREAD_SERVER_SCHEMAS = [
   ThreadInteractionResolvedNotificationSchema,
   ThreadContextUsageUpdatedNotificationSchema,
   ThreadEventNotificationSchema,
+  ThreadAttachmentUpsertedNotificationSchema,
+  ThreadAttachmentDeletedNotificationSchema,
 ] as const
 
 export const THREAD_RESPONSE_TYPES = THREAD_SERVER_SCHEMAS.flatMap((schema) => {

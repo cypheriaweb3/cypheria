@@ -4,7 +4,7 @@ title: Database
 
 # Database
 
-Cypheria uses SQLite through Drizzle ORM and the local libSQL driver. `packages/db/src/schema/` is the editable schema source; `packages/db/drizzle/0000_initial.sql` and its snapshot are the current generated migration baseline.
+Cypheria uses SQLite through Drizzle ORM and the local libSQL driver. `packages/db/src/schema/` is the editable schema source; `packages/db/drizzle/` contains the generated migration chain and snapshots.
 
 ## Location and ownership
 
@@ -20,7 +20,7 @@ Every connection enables foreign keys. Server services define transaction bounda
 | --- | --- | --- |
 | Runtime | `runtime_metadata`, `settings`, `audit_logs`, `workspaces` | Runtime metadata, key/value settings, append-oriented audit, workspace records |
 | Agents | `agent_registry` | User-selected Agent membership, creation time, installation, enablement, versions, and state; native harnesses are seeded |
-| Projects and Threads | `projects`, `threads`, `project_items`, `sections`, `section_items` | Durable organization, ordering, membership, archive, and harness linkage |
+| Projects and Threads | `projects`, `threads`, `project_items`, `sections`, `section_items`, `thread_attachments` | Durable organization, ordering, membership, archive, harness linkage, and cross-client Git attachments |
 | Thread execution | `thread_lifecycle_operations`, `thread_message_requests`, `thread_timeline_epochs`, `thread_timeline_rows` | Lifecycle recovery, message idempotency receipts, and append-only Canonical Timeline |
 | Schedules | `schedules`, `schedule_runs` | Definitions, next occurrence, leases, and run history |
 | Networks | `networks`, `network_rpc_endpoints`, `dapp_network_contexts` | Chain definitions, ordered endpoints, health, and origin context |
@@ -39,6 +39,8 @@ Cypheria UUIDv7 values identify Projects, Threads, and Sections. A Thread has on
 Project, Thread, and Section deletion is staged. The Server first commits `deleted_at`, which removes the resource from normal reads, then performs Agent or dependent cleanup, and only then purges the row. Thread lifecycle receipts make failed Agent deletion retryable at startup. Tombstoned Projects and Sections are retried at startup and on a five-minute cleanup interval. Cypheria Project identity remains internal and is not mapped to Codex or OpenCode projects.
 
 Ordering columns are non-negative and unique in their scope. Membership moves and compaction execute transactionally so clients never observe duplicate positions.
+
+`thread_attachments` stores Server-authoritative relationships between a Thread and an external pull request or managed worktree. Pull requests use a canonical provider, host, repository, and number identity and may belong to multiple Threads. A managed worktree UUID can belong to only one Thread. Queries are cursor-paginated in both directions, deletion follows the Thread foreign key, and mutations publish typed notifications so Desktop, Expo, Web, and CLI clients can converge without browser-local association state. The model is independent of `agent_id`.
 
 ## Canonical Timeline
 
@@ -70,9 +72,7 @@ Transactions protect ordering changes, memberships, Timeline sequence allocation
 
 ## Migration policy
 
-The product has not shipped. There is deliberately one baseline migration, `0000_initial.sql`, with one matching snapshot and journal entry. No old application data is detected, imported, or upgraded. Before the first release, schema changes replace this baseline.
-
-After the first public release, migrations become append-only: never edit or delete an applied migration. Generate from the schema, review SQL, and test both empty-database creation and upgrade from the previous released schema.
+Generated migrations are applied in journal order. The product does not detect or import legacy application data. Generate schema changes from the current Drizzle source, review the SQL, and test creation of an empty database. Published migrations become append-only; do not rewrite applied history.
 
 ```sh
 pnpm --filter @cypheria/db db:generate --name=<migration-name>

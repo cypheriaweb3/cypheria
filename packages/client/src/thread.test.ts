@@ -30,6 +30,69 @@ const thread = {
 }
 
 describe("thread actions", () => {
+  it("exposes generic Server-owned Thread attachments and notifications", async () => {
+    const attachment = {
+      attachmentType: "pull_request" as const,
+      createdAt: 100,
+      identityKey: "github:github.com:cypheria/cypheria#42",
+      payload: {
+        host: "github.com",
+        number: 42,
+        owner: "cypheria",
+        provider: "github" as const,
+        repository: "cypheria",
+        url: "https://github.com/cypheria/cypheria/pull/42",
+      },
+      threadId: thread.id,
+      updatedAt: 100,
+    }
+    const requestThread = vi.fn(async (type: string) => ({
+      payload: {
+        ok: true as const,
+        value:
+          type === "thread.attachment.list.request"
+            ? { data: [attachment], nextCursor: null }
+            : attachment,
+      },
+      requestId: "test",
+      type: type.replace(/\.request$/, ".response"),
+    }))
+    const handlers = new Map<string, (message: never) => void>()
+    const on = vi.fn((type: string, handler: (message: never) => void) => {
+      handlers.set(type, handler)
+      return () => handlers.delete(type)
+    })
+    const actions = createThreadActions({ on, requestThread } as unknown as ServerClient)
+
+    await expect(
+      actions.attachments.addPullRequest(thread.id, attachment.payload.url)
+    ).resolves.toEqual(attachment)
+    await expect(actions.attachments.list({ attachmentType: "pull_request" })).resolves.toEqual({
+      data: [attachment],
+      nextCursor: null,
+    })
+    const observed = vi.fn()
+    const unsubscribe = actions.attachments.subscribe(observed)
+    handlers.get("thread.attachment.upserted.notification")?.({
+      payload: attachment,
+      type: "thread.attachment.upserted.notification",
+    } as never)
+    expect(observed).toHaveBeenCalledWith({
+      payload: attachment,
+      type: "thread.attachment.upserted.notification",
+    })
+    unsubscribe()
+
+    expect(requestThread).toHaveBeenCalledWith(
+      "thread.attachment.add.request",
+      {
+        attachment: { attachmentType: "pull_request", url: attachment.payload.url },
+        threadId: thread.id,
+      },
+      undefined
+    )
+  })
+
   it("uses thread.get and never exposes the harness session id as a handle", async () => {
     const requestThread = vi.fn(async (type: string, _payload: unknown) => ({
       payload: { ok: true as const, value: thread },

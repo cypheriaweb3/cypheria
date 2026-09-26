@@ -3,6 +3,8 @@ import { describe, expect, test } from "vitest"
 import {
   projectThreadTimelineRows,
   ThreadArchiveRequestSchema,
+  ThreadAttachmentAddRequestSchema,
+  ThreadAttachmentRecordSchema,
   ThreadContextUsageSchema,
   ThreadForkRequestSchema,
   ThreadInteractionRespondRequestSchema,
@@ -14,6 +16,34 @@ import {
 } from "./index.ts"
 
 describe("thread protocol", () => {
+  test("models Server-owned pull-request and worktree attachments independently of Agents", () => {
+    const threadId = "01996a3a-bcde-7000-8000-000000000001"
+    expect(
+      ThreadAttachmentAddRequestSchema.parse({
+        payload: {
+          attachment: {
+            attachmentType: "pull_request",
+            url: "https://github.com/cypheria/cypheria/pull/42",
+          },
+          threadId,
+        },
+        requestId: "attachment-1",
+        type: "thread.attachment.add.request",
+      }).payload.attachment
+    ).toMatchObject({ attachmentType: "pull_request" })
+
+    expect(
+      ThreadAttachmentRecordSchema.safeParse({
+        attachmentType: "worktree",
+        createdAt: 1,
+        identityKey: "c4a760a8-19be-4db1-aa1b-f42159a20542",
+        payload: { worktreeId: "c4a760a8-19be-4db1-aa1b-f42159a20542" },
+        threadId,
+        updatedAt: 1,
+      }).success
+    ).toBe(true)
+  })
+
   test("normalizes agent-specific context usage without native payloads", () => {
     const usage = ThreadContextUsageSchema.parse({
       agentId: "claude",

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { promisify } from "node:util"
 import { DEFAULT_GIT_SETTINGS } from "@cypheria/protocol"
-import { afterEach, describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import type { AgentManager } from "../agent/agent-manager.js"
 import type { ThreadManager } from "../thread/thread-manager.js"
 import { GitExecutor } from "./git-executor.js"
@@ -989,15 +989,15 @@ describe("GitService", () => {
     expect(service.worktreeJob(job.id).phase).toBe("ready")
   }, 20_000)
 
-  it("moves a local Codex thread into and out of a managed worktree", async () => {
+  it("moves any Agent Thread into and out of a managed worktree and syncs attachments", async () => {
     const root = await repository()
     const home = await mkdtemp(join(tmpdir(), "cypheria-git-handoff-"))
     created.push(home)
     const threadId = "01984de2-8f74-7c91-a3b2-5c5e937cf400"
     const thread = {
       id: threadId,
-      agentId: "codex",
-      agentSessionId: "native-thread",
+      agentId: "claude",
+      agentSessionId: null,
       cwd: root,
       activeTurn: null as { id: string } | null,
       pendingInteractions: [] as unknown[],
@@ -1009,8 +1009,14 @@ describe("GitService", () => {
         return thread
       },
     } as unknown as ThreadManager
+    const threadAttachments = {
+      attachPullRequest: vi.fn(),
+      attachWorktree: vi.fn(),
+      detachWorktree: vi.fn(),
+    }
     const service = new GitService(join(home, "cache"), home, {
       agents: {} as AgentManager,
+      threadAttachments,
       threads,
     })
     await writeFile(join(root, "file.txt"), "first\n")
@@ -1027,6 +1033,7 @@ describe("GitService", () => {
     expect(
       (await service.worktrees(root)).find((entry) => entry.path === worktree.path)?.ownerThreadId
     ).toBe(threadId)
+    expect(threadAttachments.attachWorktree).toHaveBeenCalledWith(threadId, worktree.id)
     const records = new GitWorktreeService(new GitExecutor(join(home, "cache")), home)
     await records.setOwner(await service.discover(root), worktree.path, null)
     await service.moveThreadToWorktree(worktree.path, worktree.path, threadId)
@@ -1046,6 +1053,7 @@ describe("GitService", () => {
     expect(
       (await service.worktrees(root)).find((entry) => entry.path === worktree.path)?.ownerThreadId
     ).toBeNull()
+    expect(threadAttachments.detachWorktree).toHaveBeenCalledWith(threadId, worktree.id)
     await run("git", ["-C", worktree.path, "reset", "--hard", "HEAD"])
     await run("git", ["-C", worktree.path, "clean", "-fd"])
     await service.deleteWorktree(root, worktree.path)

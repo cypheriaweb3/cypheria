@@ -522,7 +522,14 @@ export interface GitActions {
   ): Promise<void>
   githubPrCreate(
     cwd: string,
-    input: { head: string; base: string; title: string; body: string; draft?: boolean },
+    input: {
+      head: string
+      base: string
+      title: string
+      body: string
+      draft?: boolean
+      threadId?: string
+    },
     options?: RequestOptions
   ): Promise<GitHubPullRequest>
   githubPrUpdate(

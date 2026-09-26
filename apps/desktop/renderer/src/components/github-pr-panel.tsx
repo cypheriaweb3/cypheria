@@ -20,10 +20,10 @@ import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-import { useEffect, useState, useSyncExternalStore } from "react"
+import { useEffect, useState } from "react"
 
 import { ensureCypheriaClient } from "../cypheria-client.js"
-import { githubPrAssociations } from "../git-pr-associations.js"
+import { useThreadAttachments } from "../thread-attachments.js"
 import { type GitHubPrOperation, githubPrProvider } from "./github-pr-provider.js"
 import { findGithubPrWatch, githubPrFixPrompt, githubPrWatchName } from "./github-pr-watch.js"
 
@@ -51,11 +51,16 @@ export function GitHubPrPanel({
   const { i18n } = useLingui()
   const navigate = useNavigate()
   const queryClient = useQueryClient()
-  const associations = useSyncExternalStore(
-    githubPrAssociations.subscribe,
-    githubPrAssociations.getSnapshot,
-    githubPrAssociations.getServerSnapshot
+  const pullRequestAttachments = useThreadAttachments("pull_request")
+  const associations = (pullRequestAttachments.data ?? []).filter(
+    (attachment) => attachment.attachmentType === "pull_request"
   )
+  const attachmentsForUrl = (url: string) =>
+    associations.filter((attachment) => attachment.payload.url === url)
+  const attachmentForThread = (url: string) =>
+    associations.find(
+      (attachment) => attachment.threadId === threadId && attachment.payload.url === url
+    )
   const [selectedNumber, setSelectedNumber] = useState<number | null>(null)
   const [directPrNumber, setDirectPrNumber] = useState("")
   const [prSearchText, setPrSearchText] = useState("")
@@ -869,10 +874,9 @@ export function GitHubPrPanel({
                 {threadId ? (
                   <Button
                     onClick={() =>
-                      githubPrAssociations.add(threadId, {
-                        number: entry.number,
-                        title: entry.title,
-                        url: entry.url,
+                      void mutate(async () => {
+                        const client = await ensureCypheriaClient()
+                        await client.threads.attachments.addPullRequest(threadId, entry.url)
                       })
                     }
                     size="sm"
@@ -960,44 +964,47 @@ export function GitHubPrPanel({
           </p>
           {threadId ? (
             <Button
-              onClick={() => {
-                if (!selected.data) return
-                if (associations[threadId]?.some((item) => item.url === selected.data.url))
-                  githubPrAssociations.remove(threadId, selected.data.url)
-                else
-                  githubPrAssociations.add(threadId, {
-                    number: selected.data.number,
-                    title: selected.data.title,
-                    url: selected.data.url,
-                  })
-              }}
+              onClick={() =>
+                void mutate(async () => {
+                  if (!selected.data) return
+                  const client = await ensureCypheriaClient()
+                  const attachment = attachmentForThread(selected.data.url)
+                  if (attachment) {
+                    await client.threads.attachments.remove(
+                      threadId,
+                      "pull_request",
+                      attachment.identityKey
+                    )
+                  } else {
+                    await client.threads.attachments.addPullRequest(threadId, selected.data.url)
+                  }
+                })
+              }
               size="sm"
               type="button"
               variant="outline"
             >
-              {associations[threadId]?.some((item) => item.url === selected.data.url) ? (
+              {attachmentForThread(selected.data.url) ? (
                 <Trans id="git.github.detachThread">Detach from chat</Trans>
               ) : (
                 <Trans id="git.github.attachThread">Attach to chat</Trans>
               )}
             </Button>
           ) : null}
-          {githubPrAssociations.forPullRequest(selected.data.url).length ? (
+          {attachmentsForUrl(selected.data.url).length ? (
             <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
               <Trans id="git.github.linkedChats">Linked chats:</Trans>
-              {githubPrAssociations
-                .forPullRequest(selected.data.url)
-                .map(({ threadId: linkedThreadId }) => (
-                  <Button
-                    key={linkedThreadId}
-                    onClick={() => void navigate({ search: { thread: linkedThreadId }, to: "/" })}
-                    size="sm"
-                    type="button"
-                    variant="ghost"
-                  >
-                    {linkedThreadId.slice(0, 8)}
-                  </Button>
-                ))}
+              {attachmentsForUrl(selected.data.url).map(({ threadId: linkedThreadId }) => (
+                <Button
+                  key={linkedThreadId}
+                  onClick={() => void navigate({ search: { thread: linkedThreadId }, to: "/" })}
+                  size="sm"
+                  type="button"
+                  variant="ghost"
+                >
+                  {linkedThreadId.slice(0, 8)}
+                </Button>
+              ))}
             </div>
           ) : null}
           <p className="text-xs whitespace-pre-wrap">{selected.data.body}</p>
@@ -2062,7 +2069,8 @@ export function GitHubPrPanel({
               }
               onClick={() =>
                 void mutate(async () => {
-                  const git = (await ensureCypheriaClient()).git
+                  const client = await ensureCypheriaClient()
+                  const git = client.git
                   let head = branch
                   if (newBranchName.trim()) {
                     head = await git.createBranch(cwd, newBranchName.trim())
@@ -2080,6 +2088,9 @@ export function GitHubPrPanel({
                   if (cliAvailable) {
                     const existing = await git.githubPrForBranch(cwd, head)
                     if (existing?.state === "OPEN") {
+                      if (threadId) {
+                        await client.threads.attachments.addPullRequest(threadId, existing.url)
+                      }
                       selectPullRequest(existing.number)
                       setCreateNeedsReview(false)
                       return
@@ -2095,6 +2106,10 @@ export function GitHubPrPanel({
                       limit: 20,
                     })
                     if (existing.items[0]) {
+                      await client.threads.attachments.addPullRequest(
+                        threadId,
+                        existing.items[0].url
+                      )
                       selectPullRequest(existing.items[0].number)
                       setCreateNeedsReview(false)
                       return
@@ -2114,26 +2129,16 @@ export function GitHubPrPanel({
                     title: generated?.title ?? title.trim(),
                     body: generated?.body ?? body,
                     draft,
+                    ...(threadId ? { threadId } : {}),
                   }
                   try {
                     if (createProvider === "cli") {
                       const created = await git.githubPrCreate(cwd, input)
                       selectPullRequest(created.number)
-                      if (threadId)
-                        githubPrAssociations.add(threadId, {
-                          number: created.number,
-                          title: created.title,
-                          url: created.url,
-                        })
                     } else {
                       if (!threadId) throw new Error("A local Codex thread is required")
                       const created = await git.githubAppPrCreate(cwd, threadId, input)
                       selectPullRequest(created.number)
-                      githubPrAssociations.add(threadId, {
-                        number: created.number,
-                        title: input.title,
-                        url: created.url,
-                      })
                       await openExternal(created.url)
                     }
                   } catch (cause) {

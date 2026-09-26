@@ -99,6 +99,14 @@ export {
   type SigningIntentReplayStore,
 } from "./signing.js"
 export {
+  createThreadAttachmentPersistenceService,
+  type ThreadAttachmentPage,
+  ThreadAttachmentPersistenceError,
+  type ThreadAttachmentPersistenceService,
+  type ThreadAttachmentRecord,
+  type ThreadAttachmentType,
+} from "./thread-attachment.js"
+export {
   type BeginThreadLifecycleOperationInput,
   createThreadLifecyclePersistenceService,
   type ThreadLifecycleKind,

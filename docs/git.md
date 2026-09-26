@@ -4,15 +4,15 @@ title: Local Git design
 
 # Local Git design
 
-This document explains how Cypheria's local Codex Git experience is assembled and why each backend is selected. [Desktop](desktop.md) owns the visible Review and PR/MR behavior, [Protocol](protocol.md) owns request contracts, and [Integrations](integrations.md) owns plugin and App lifecycle details. Git commands act on the **Server host's working directory**; a connected GitHub or GitLab account is not required for local repository operations.
+This document explains how Cypheria's local Git experience is assembled and why each backend is selected. [Desktop](desktop.md) owns the visible Review and PR/MR behavior, [Protocol](protocol.md) owns request contracts, and [Integrations](integrations.md) owns plugin and App lifecycle details. Git commands act on the **Server host's working directory**; a connected GitHub or GitLab account is not required for local repository operations.
 
 ## Boundaries and data flow
 
 ```mermaid
 flowchart LR
   Desktop[Desktop Review and PR panels] --> Client[client.git]
-  Agent[Codex agent] --> Plugin[cypheria-app-tools MCP plugin]
-  Plugin --> Route[Authenticated local Git route]
+  Agent[Agent] --> Tools[Agent Git tools]
+  Tools --> Route[Authenticated local Git route]
   Client --> Protocol[Public Git protocol]
   Route --> Protocol
   Protocol --> Server[Server Git service]
@@ -25,7 +25,7 @@ flowchart LR
 
 `apps/server` owns Git execution, repository and worktree state, connector calls, validation, and audit. `@cypheria/protocol` validates the public messages and `@cypheria/client` exposes them to Desktop. Electron main handles only OS-facing actions such as opening a local file or a URL. The renderer does not run Git, `gh`, or connector tools. The bundled Agent plugin calls the same Server capability; it is a Codex MCP client, not an implementation of the GitHub or GitLab App.
 
-This is a local Codex workflow. A remote client may call a Server capability against that Server's host filesystem, but the Git design does not run a cloud checkout or turn ChatGPT Work into a local repository.
+Local repository and managed-worktree capabilities are Agent-neutral and use Cypheria Thread IDs. A remote client may call a Server capability against that Server's host filesystem, but the Git design does not run a cloud checkout. Connector operations implemented through `codex_apps` remain a Codex extension until another Agent adapter provides an equivalent connector backend.
 
 ## Backend selection
 
@@ -50,20 +50,20 @@ Local Git writes run through the Server executor and audit boundary. A failed in
 
 ## Worktrees and persisted state
 
-Managed detached worktrees have repository identity, an optional owning Cypheria Thread, setup metadata, and restorable Git refs. Creation and thread handoff can copy local changes under guarded conditions. Branch synchronization can include uncommitted changes by creating a synthetic snapshot through a temporary index; it checks the branch baseline and source checkout, retains a backup ref, and supports Undo. Setup may capture an allowlisted toolchain environment for later Codex thread start, resume, and fork. Retention cleanup protects active use and dirty worktrees; an archived thread's cleaned worktree is restored before unarchiving.
+Managed detached worktrees have a stable UUID, repository identity, an optional owning Cypheria Thread, setup metadata, and restorable Git refs. Creation and thread handoff can copy local changes under guarded conditions. Worktree handoff uses the common Thread working-directory capability rather than a Codex identity, so every Agent adapter can participate when it supports changing `cwd`. Branch synchronization can include uncommitted changes by creating a synthetic snapshot through a temporary index; it checks the branch baseline and source checkout, retains a backup ref, and supports Undo. Setup may capture an allowlisted toolchain environment for later Agent startup where the adapter supports it. Retention cleanup protects active use and dirty worktrees; an archived thread's cleaned worktree is restored before unarchiving.
 
 | State | Owner and lifetime |
 | --- | --- |
 | Git preferences and text instructions | Server configuration; shared across Desktop sessions. The configured worktree root takes effect after Server restart. |
-| Thread identity and working directory | Server persistence; worktree ownership is recorded in managed worktree metadata. |
+| Thread identity, working directory, and Git attachments | Server persistence. `thread_attachments` records cross-client PR and worktree relationships; managed worktree metadata also enforces host lifecycle invariants. |
 | Worktree snapshots and synchronization backups | Managed metadata and `refs/cypheria/*` in Git; retained for restoration and guarded Undo. |
 | Last-turn trees and Review revert copies | Server runtime data under `CYPHERIA_HOME`; retained across process restarts as described in [Desktop](desktop.md). |
-| Selected Review source and PR/chat associations | Desktop browser storage, including bounded attachment history for reverse lookup. |
+| Selected Review source | Desktop client state; it is presentation-only and may differ by client. |
 | Repository discovery cache and filesystem watchers | Server memory only. Mutations and watcher events invalidate discovery and notify Desktop; periodic reads cover unsupported watching. |
 | GitHub/GitLab App connection | Codex connector account state; Cypheria checks current tool and link availability before each supported action. |
 
 ## Agent tools and validation status
 
-The `cypheria-bundled` marketplace distributes `cypheria-app-tools` to Cypheria's managed Codex home. Its tools use the authenticated public Git route and the same Server policies as Desktop. The plugin declares no OpenAI App ID; GitHub and GitLab plugins supply their own App declarations and connected tools. Planned: a future Cypheria-native extension can reuse the Server protocol without changing Git ownership.
+The public Git and Thread Attachment contracts are independent of an Agent harness. The `cypheria-bundled` marketplace currently distributes `cypheria-app-tools` to Cypheria's managed Codex home, so Codex is the first Agent with the complete tool path. Its tools use the authenticated public Git route and the same Server policies as Desktop. Other Agent adapters have an implementation point at the same public service boundary and do not need a second Git store or attachment model.
 
 Local protocol, Git, worktree, provider-selection, and UI checks cover the implemented paths. Packaged Electron Connect behavior and live GitHub/GitLab authorization and PR/MR calls in Cypheria's managed Codex home remain the explicit [verification task](todo.md#local-git-and-pull-requests); completion of those checks is required before claiming end-to-end parity.

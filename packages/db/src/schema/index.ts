@@ -23,6 +23,7 @@ export {
   signingIntents,
   signingPolicies,
 } from "./signing.js"
+export { threadAttachments } from "./thread-attachment.js"
 export {
   activeWalletContext,
   chainAccounts,

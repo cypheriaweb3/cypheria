@@ -64,6 +64,7 @@ import type {
 import { DEFAULT_GIT_SETTINGS } from "@cypheria/protocol"
 import type { AgentManager } from "../agent/agent-manager.js"
 import { CodexAppToolClient } from "../codex-app-tool-client.js"
+import type { ThreadAttachmentService } from "../thread/thread-attachment-service.js"
 import type { ThreadManager } from "../thread/thread-manager.js"
 import { GitCommandError, GitExecutor } from "./git-executor.js"
 import { combineGitNumstats, parseGitNumstat } from "./git-numstat.js"
@@ -191,6 +192,10 @@ export class GitService {
   readonly #codexHome: string
   readonly #getSettings: () => GitSettings
   readonly #publishChanged: ((message: GitRepositoryChangedNotification) => void) | null
+  readonly #threadAttachments: Pick<
+    ThreadAttachmentService,
+    "attachPullRequest" | "attachWorktree" | "detachWorktree"
+  > | null
   readonly #discoveryCache = new Map<string, { repository: GitRepository; expiresAt: number }>()
   readonly #watchers = new Map<
     string,
@@ -216,11 +221,16 @@ export class GitService {
       threads?: ThreadManager
       audit?: Pick<AuditLogService, "append">
       publishChanged?: (message: GitRepositoryChangedNotification) => void
+      threadAttachments?: Pick<
+        ThreadAttachmentService,
+        "attachPullRequest" | "attachWorktree" | "detachWorktree"
+      >
     },
     getSettings: () => GitSettings = () => DEFAULT_GIT_SETTINGS
   ) {
     this.#getSettings = getSettings
     this.#publishChanged = connectors?.publishChanged ?? null
+    this.#threadAttachments = connectors?.threadAttachments ?? null
     this.#agents = connectors?.agents ?? null
     this.#codexHome = join(cypheriaHome, "codex")
     this.#executor = new GitExecutor(cacheDir)
@@ -1051,6 +1061,10 @@ export class GitService {
     return this.#worktrees.list(await this.discover(cwd))
   }
 
+  async worktreeExists(worktreeId: string): Promise<boolean> {
+    return this.#worktrees.has(worktreeId)
+  }
+
   async managedShellEnvironment(cwd: string): Promise<Record<string, string> | null> {
     const repository = await this.discover(cwd).catch(() => null)
     if (!repository) return null
@@ -1354,7 +1368,7 @@ export class GitService {
     if (!worktree?.managed) throw new Error("Path is not a managed Cypheria worktree")
     if (threadId !== null) {
       if (!worktree.active) throw new Error("Restore the worktree before assigning a thread")
-      await this.#codexThreadRepository(cwd, threadId)
+      await this.#threadRepository(cwd, threadId)
       const thread = await this.#threads?.get(threadId)
       if (!thread?.cwd || (await realpath(thread.cwd)) !== (await realpath(path))) {
         throw new Error("The thread is not in this worktree")
@@ -1368,7 +1382,14 @@ export class GitService {
         throw new Error("Move the owner thread before releasing this worktree")
       }
     }
-    return this.#worktrees.setOwner(repository, path, threadId)
+    const updated = await this.#worktrees.setOwner(repository, path, threadId)
+    if (worktree.id && worktree.ownerThreadId !== threadId && this.#threadAttachments) {
+      if (worktree.ownerThreadId) {
+        await this.#threadAttachments.detachWorktree(worktree.ownerThreadId, worktree.id)
+      }
+      if (threadId) await this.#threadAttachments.attachWorktree(threadId, worktree.id)
+    }
+    return updated
   }
 
   async moveThreadToWorktree(
@@ -1377,9 +1398,9 @@ export class GitService {
     threadId: string,
     copyChanges = false
   ): Promise<void> {
-    if (!this.#threads) throw new Error("A local Codex thread is required")
+    if (!this.#threads) throw new Error("A local Thread is required")
     const repository = await this.discover(cwd)
-    await this.#codexThreadRepository(cwd, threadId)
+    await this.#threadRepository(cwd, threadId)
     const thread = await this.#threads.get(threadId)
     if (!thread.cwd || thread.activeTurn || thread.pendingInteractions.length) {
       throw new Error("Finish the current turn before moving the thread")
@@ -1419,9 +1440,11 @@ export class GitService {
         (entry) => entry.managed && entry.ownerThreadId === threadId && entry.path !== targetPath
       )) {
         await this.#worktrees.setOwner(repository, stale.path, null)
+        if (stale.id) await this.#threadAttachments?.detachWorktree(threadId, stale.id)
       }
       if (target && target.ownerThreadId !== threadId) {
         await this.#worktrees.setOwner(repository, targetPath, threadId)
+        if (target.id) await this.#threadAttachments?.attachWorktree(threadId, target.id)
       }
       await this.cleanupManagedWorktrees(repository.root, [targetPath]).catch(() => undefined)
       return
@@ -1458,6 +1481,10 @@ export class GitService {
       if (failures.length)
         throw new AggregateError([error, ...failures], "Git worktree handoff and rollback failed")
       throw error
+    }
+    if (target?.id) await this.#threadAttachments?.attachWorktree(threadId, target.id)
+    if (source?.id && sourceReleased) {
+      await this.#threadAttachments?.detachWorktree(threadId, source.id)
     }
     await this.cleanupManagedWorktrees(repository.root, [targetPath]).catch(() => undefined)
   }
@@ -1514,7 +1541,9 @@ export class GitService {
   ): Promise<{ number: number; url: string }> {
     if (!this.#githubApp) throw new Error("GitHub app is unavailable")
     const { root, nativeThreadId } = await this.#codexThreadRepository(cwd, threadId)
-    return this.#githubApp.create(root, nativeThreadId, input)
+    const created = await this.#githubApp.create(root, nativeThreadId, input)
+    await this.#threadAttachments?.attachPullRequest(threadId, created.url)
+    return created
   }
 
   async githubAppPrList(
@@ -1808,9 +1837,19 @@ export class GitService {
 
   async githubPrCreate(
     cwd: string,
-    input: { head: string; base: string; title: string; body: string; draft?: boolean }
+    input: {
+      head: string
+      base: string
+      title: string
+      body: string
+      draft?: boolean
+      threadId?: string
+    }
   ): Promise<GitHubPullRequest> {
-    return this.#github.create((await this.discover(cwd)).root, input)
+    const { threadId, ...createInput } = input
+    const created = await this.#github.create((await this.discover(cwd)).root, createInput)
+    if (threadId) await this.#threadAttachments?.attachPullRequest(threadId, created.url)
+    return created
   }
 
   async githubPrUpdate(
@@ -1945,7 +1984,9 @@ export class GitService {
     }
   ): Promise<GitLabMergeRequest> {
     const { service, root, nativeThreadId } = await this.#gitlabThread(cwd, threadId)
-    return service.create(root, nativeThreadId, input)
+    const created = await service.create(root, nativeThreadId, input)
+    await this.#threadAttachments?.attachPullRequest(threadId, created.webUrl)
+    return created
   }
 
   async gitlabMrBrowserForm(
@@ -1968,17 +2009,23 @@ export class GitService {
     cwd: string,
     threadId: string
   ): Promise<{ root: string; nativeThreadId: string }> {
-    if (!this.#threads) throw new Error("A local Codex thread is required")
-    const thread = await this.#threads.get(threadId)
-    if (thread.agentId !== "codex" || !thread.agentSessionId || !thread.cwd) {
+    const { root, thread } = await this.#threadRepository(cwd, threadId)
+    if (thread.agentId !== "codex" || !thread.agentSessionId) {
       throw new Error("A local Codex thread is required")
     }
+    return { root, nativeThreadId: thread.agentSessionId }
+  }
+
+  async #threadRepository(cwd: string, threadId: string) {
+    if (!this.#threads) throw new Error("A local Thread is required")
+    const thread = await this.#threads.get(threadId)
+    if (!thread.cwd) throw new Error("The Thread does not have a working directory")
     const repository = await this.discover(cwd)
     const threadRepository = await this.discover(thread.cwd)
     if (threadRepository.commonGitDir !== repository.commonGitDir) {
-      throw new Error("The Codex thread belongs to another Git repository")
+      throw new Error("The Thread belongs to another Git repository")
     }
-    return { root: repository.root, nativeThreadId: thread.agentSessionId }
+    return { root: repository.root, thread }
   }
 
   async init(cwd: string): Promise<GitRepository> {

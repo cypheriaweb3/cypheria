@@ -89,7 +89,6 @@ import {
 import { unreadThreadMutationFromServerMessage, unreadThreadStore } from "../chat-unread-state.js"
 import { cypheriaClient, ensureCypheriaClient } from "../cypheria-client.js"
 import { filterDevelopmentItems, isDesktopDevelopment } from "../development-mode.js"
-import { type GitHubPrAssociation, githubPrAssociations } from "../git-pr-associations.js"
 import { getSidebarCollections } from "../sidebar-collections.js"
 import {
   PINNED_SIDEBAR_SECTION_ID,
@@ -99,6 +98,7 @@ import {
   sidebarData,
   sidebarQueryKeys,
 } from "../sidebar-data.js"
+import { useThreadAttachments } from "../thread-attachments.js"
 import {
   buildChatSidebarRows,
   type ChatSidebarRow,
@@ -212,10 +212,10 @@ export function ChatSidebar({
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const sidebarCollections = useMemo(() => getSidebarCollections(queryClient), [queryClient])
-  const prAssociations = useSyncExternalStore(
-    githubPrAssociations.subscribe,
-    githubPrAssociations.getSnapshot,
-    githubPrAssociations.getServerSnapshot
+  const pullRequestAttachments = useThreadAttachments("pull_request")
+  const threadsWithPullRequests = useMemo(
+    () => new Set(pullRequestAttachments.data?.map(({ threadId }) => threadId) ?? []),
+    [pullRequestAttachments.data]
   )
   const gitSettings = useQuery({
     queryKey: ["settings", "git"],
@@ -775,8 +775,8 @@ export function ChatSidebar({
                         pinnedLoading={threadsLive.isLoading}
                         pinnedSort={pinnedSort}
                         row={row}
-                        prAssociations={
-                          prAssociations[row.kind === "thread" ? row.thread.id : ""] ?? []
+                        hasPullRequestAttachment={
+                          row.kind === "thread" && threadsWithPullRequests.has(row.thread.id)
                         }
                         showPrIcons={gitSettings.data?.config.git.showSidebarPrIcons ?? true}
                         sections={sections}
@@ -1111,7 +1111,7 @@ type RowViewProps = Readonly<{
   pinnedLoading: boolean
   pinnedSort: SidebarSort
   row: ChatSidebarRow
-  prAssociations: readonly GitHubPrAssociation[]
+  hasPullRequestAttachment: boolean
   showPrIcons: boolean
   sections: readonly SidebarSectionView[]
   unreadThreadIds: ReadonlySet<string>
@@ -1316,9 +1316,9 @@ function ChatSidebarRowView(props: RowViewProps) {
           <span className={cn("min-w-0 flex-1 truncate", isUnread && "font-semibold")}>
             {row.thread.title}
           </span>
-          {props.showPrIcons && props.prAssociations.length > 0 ? (
+          {props.showPrIcons && props.hasPullRequestAttachment ? (
             <GitPullRequest
-              aria-label="Attached GitHub pull request"
+              aria-label="Attached pull request"
               className="size-3.5 shrink-0 text-muted-foreground"
             />
           ) : null}

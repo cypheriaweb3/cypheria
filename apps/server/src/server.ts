@@ -7,6 +7,7 @@ import {
   createAgentRegistryPersistenceService,
   createProjectThreadPersistenceService,
   createSchedulePersistenceService,
+  createThreadAttachmentPersistenceService,
   createThreadLifecyclePersistenceService,
   createThreadMessageRequestPersistenceService,
   createThreadTimelinePersistenceService,
@@ -68,6 +69,10 @@ import { ServerConfigStore } from "./server-config-store.js"
 import type { SessionTransport } from "./session/client-session.js"
 import { ConnectionRegistry } from "./session/connection-registry.js"
 import { TerminalService } from "./terminal-service.js"
+import {
+  type ThreadAttachmentClientMessage,
+  ThreadAttachmentService,
+} from "./thread/thread-attachment-service.js"
 import { ThreadManager } from "./thread/thread-manager.js"
 import { CYPHERIA_SERVER_VERSION } from "./version.js"
 import { ServerWeb3Service } from "./web3-service.js"
@@ -107,6 +112,7 @@ export class CypheriaServer implements HttpAppHost {
   readonly codexHarness: CodexHarnessService
   readonly harnesses: HarnessService
   readonly schedules: ScheduleService
+  readonly threadAttachments: ThreadAttachmentService
   readonly threadManager: ThreadManager
   readonly terminals: TerminalService
   readonly git: GitService
@@ -160,6 +166,12 @@ export class CypheriaServer implements HttpAppHost {
       persistence: projectThreadPersistence,
       publish: (message) => this.registry.broadcast(message),
     })
+    this.threadAttachments = new ThreadAttachmentService({
+      persistence: createThreadAttachmentPersistenceService(this.database.db),
+      projects: projectThreadPersistence,
+      publish: (message) => this.registry.broadcast(message),
+      worktreeExists: (worktreeId) => this.git.worktreeExists(worktreeId),
+    })
     this.threadManager = new ThreadManager({
       adapterFor: (agentId, threadId) => this.agentManager.adapterFor(agentId, threadId),
       assertAgentCallable: (agentId) => this.agentManager.assertCallable(agentId),
@@ -170,6 +182,7 @@ export class CypheriaServer implements HttpAppHost {
       onArchived: async (cwd) => {
         await this.git.cleanupManagedWorktrees(cwd)
       },
+      onDeleting: (threadId) => this.threadAttachments.deleteForThread(threadId),
       onUnarchiving: async (cwd) => {
         await this.git.restoreArchivedWorktree(cwd)
       },
@@ -188,6 +201,7 @@ export class CypheriaServer implements HttpAppHost {
         threads: this.threadManager,
         audit: this.web3.audit,
         publishChanged: (message) => this.registry.broadcast(message),
+        threadAttachments: this.threadAttachments,
       },
       () => this.configStore.getSnapshot().config.git
     )
@@ -433,6 +447,10 @@ export class CypheriaServer implements HttpAppHost {
     message: ClientMessage,
     send: (message: ServerMessage) => void
   ): Promise<boolean> {
+    if (message.type.startsWith("thread.attachment.")) {
+      await this.threadAttachments.handle(message as ThreadAttachmentClientMessage, send)
+      return true
+    }
     if (message.type.startsWith("thread.")) {
       await this.threadManager.handle(message as ThreadClientMessage, send)
       return true

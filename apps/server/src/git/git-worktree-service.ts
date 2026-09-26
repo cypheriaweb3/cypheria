@@ -64,6 +64,21 @@ export class GitWorktreeService {
     this.#root = configuredRoot ? resolve(configuredRoot) : join(home, "worktrees")
   }
 
+  async has(id: string): Promise<boolean> {
+    if (!/^[a-f0-9-]{36}$/u.test(id)) return false
+    const record = await readFile(join(this.#root, ".metadata", `${id}.json`), "utf8").then(
+      (value) => JSON.parse(value) as Partial<Record>,
+      () => null
+    )
+    return Boolean(
+      record &&
+        record.version === 1 &&
+        record.snapshotRef === `refs/cypheria/worktrees/${id}` &&
+        typeof record.path === "string" &&
+        basename(record.path).endsWith(`-${id}`)
+    )
+  }
+
   async list(repository: Repository): Promise<GitWorktree[]> {
     const { stdout } = await this.#executor.run(
       repository.root,
@@ -85,7 +100,9 @@ export class GitWorktreeService {
           ?.slice(7)
           .replace(/^refs\/heads\//u, "") ?? null
       const record = await this.#record(repository, path).catch(() => null)
+      const id = record?.snapshotRef.split("/").at(-1) ?? null
       result.push({
+        id,
         path,
         head,
         branch,
@@ -115,6 +132,7 @@ export class GitWorktreeService {
         )
       if (head)
         result.push({
+          id: record.snapshotRef.split("/").at(-1) ?? null,
           path: record.path,
           head,
           branch: null,
@@ -251,7 +269,15 @@ export class GitWorktreeService {
       await this.#executor.run(repository.root, ["worktree", "remove", "--force", "--", path])
       throw error
     }
-    return { path, head: commit, branch: null, managed: true, active: true, ownerThreadId: null }
+    return {
+      id,
+      path,
+      head: commit,
+      branch: null,
+      managed: true,
+      active: true,
+      ownerThreadId: null,
+    }
   }
 
   async copyLocalChanges(source: string, target: string): Promise<boolean> {
@@ -868,6 +894,7 @@ export class GitWorktreeService {
     if (record.shellEnvironment)
       await this.writeShellEnvironment(repository, record.path, record.shellEnvironment)
     return {
+      id: record.snapshotRef.split("/").at(-1) ?? null,
       path: record.path,
       head,
       branch: null,

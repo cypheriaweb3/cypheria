@@ -4,15 +4,15 @@ title: 本地 Git 设计
 
 # 本地 Git 设计
 
-本文说明 Cypheria 的本地 Codex Git 体验如何组成，以及各后端的选择依据。[Desktop](desktop.zh-CN.md) 负责说明可见的 Review 和 PR/MR 行为，[协议](protocol.zh-CN.md) 负责请求契约，[Integrations](integrations.zh-CN.md) 负责插件和 App 生命周期。Git 命令作用于 **Server 主机的工作目录**；本地仓库操作不要求连接 GitHub 或 GitLab 账户。
+本文说明 Cypheria 的本地 Git 体验如何组成，以及各后端的选择依据。[Desktop](desktop.zh-CN.md) 负责说明可见的 Review 和 PR/MR 行为，[协议](protocol.zh-CN.md) 负责请求契约，[Integrations](integrations.zh-CN.md) 负责插件和 App 生命周期。Git 命令作用于 **Server 主机的工作目录**；本地仓库操作不要求连接 GitHub 或 GitLab 账户。
 
 ## 边界与数据流
 
 ```mermaid
 flowchart LR
   Desktop[Desktop Review 与 PR 面板] --> Client[client.git]
-  Agent[Codex agent] --> Plugin[cypheria-app-tools MCP 插件]
-  Plugin --> Route[已认证的本地 Git 路由]
+  Agent[Agent] --> Tools[Agent Git 工具]
+  Tools --> Route[已认证的本地 Git 路由]
   Client --> Protocol[公开 Git 协议]
   Route --> Protocol
   Protocol --> Server[Server Git 服务]
@@ -25,7 +25,7 @@ flowchart LR
 
 `apps/server` 负责 Git 执行、仓库和工作树状态、connector 调用、校验及审计。`@cypheria/protocol` 校验公开消息，`@cypheria/client` 将能力提供给 Desktop。Electron main 只处理打开本地文件或 URL 等操作系统动作。renderer 不运行 Git、`gh` 或 connector 工具。随附的 Agent 插件调用同一 Server 能力；它是 Codex MCP 客户端，不实现 GitHub 或 GitLab App。
 
-这是本地 Codex 工作流。远程客户端可以调用 Server 能力，操作的是该 Server 主机的文件系统；此设计不运行云端 checkout，也不会把 ChatGPT Work 当作本地仓库。
+本地仓库与托管工作树能力不依赖具体 Agent，并统一使用 Cypheria Thread ID。远程客户端可以调用 Server 能力，操作的是该 Server 主机的文件系统；此设计不运行云端 checkout。通过 `codex_apps` 实现的 connector 操作仍属于 Codex 扩展，直到其他 Agent adapter 提供等价 connector 后端。
 
 ## 后端选择
 
@@ -50,20 +50,20 @@ Review 汇集已暂存、未暂存、未提交、分支、提交及最后一轮�
 
 ## 工作树与持久状态
 
-托管的 detached 工作树保存仓库身份、可选的所属 Cypheria 线程、setup 元数据及可恢复 Git ref。创建和线程迁移可在受保护的条件下复制本地改动。分支同步可通过临时索引创建合成快照，纳入未提交变更；同步校验分支基线和源 checkout，保留备份 ref，并支持 Undo。setup 可以捕获白名单内的工具链环境变量，供后续 Codex 线程启动、恢复和 fork 使用。保留数量清理会保护正在使用及含未提交改动的工作树；已归档线程被清理的工作树会在取消归档前恢复。
+托管的 detached 工作树保存稳定 UUID、仓库身份、可选的所属 Cypheria 线程、setup 元数据及可恢复 Git ref。创建和线程迁移可在受保护的条件下复制本地改动。工作树迁移使用公共 Thread 工作目录能力而非 Codex 身份，因此每个支持修改 `cwd` 的 Agent adapter 都能参与。分支同步可通过临时索引创建合成快照，纳入未提交变更；同步校验分支基线和源 checkout，保留备份 ref，并支持 Undo。setup 可以捕获白名单内的工具链环境变量，供支持该能力的 Agent adapter 后续启动使用。保留数量清理会保护正在使用及含未提交改动的工作树；已归档线程被清理的工作树会在取消归档前恢复。
 
 | 状态 | 所属位置与生命周期 |
 | --- | --- |
 | Git 偏好与文案指令 | Server 配置，跨 Desktop 会话共享。配置的工作树根目录在 Server 重启后生效。 |
-| 线程身份和工作目录 | Server 持久状态；工作树归属保存在托管工作树元数据中。 |
+| 线程身份、工作目录与 Git 附件 | Server 持久状态。`thread_attachments` 保存跨客户端 PR/工作树关系；托管工作树元数据同时执行主机生命周期约束。 |
 | 工作树快照与同步备份 | 托管元数据及 Git 中的 `refs/cypheria/*`，用于恢复和受保护的 Undo。 |
 | 最后一轮 tree 与 Review 撤销副本 | `CYPHERIA_HOME` 下的 Server 运行数据；跨进程重启保留，详见 [Desktop](desktop.zh-CN.md)。 |
-| 选定的 Review 来源和 PR/聊天关联 | Desktop 浏览器存储，包括有上限的关联历史，供反向查找。 |
+| 选定的 Review 来源 | Desktop 客户端状态；只影响展示，不要求各客户端一致。 |
 | 仓库发现缓存与文件系统监视器 | 只存在于 Server 内存。修改和监视事件会使发现结果失效并通知 Desktop；不支持监视时仍有定期读取。 |
 | GitHub/GitLab App 连接 | Codex connector 账户状态；Cypheria 在执行支持的动作前检查当前工具和 link 可用性。 |
 
 ## Agent 工具与验证状态
 
-`cypheria-bundled` marketplace 向 Cypheria 管理的 Codex home 分发 `cypheria-app-tools`。其工具通过已认证的公开 Git 路由，使用与 Desktop 相同的 Server 策略。该插件不声明 OpenAI App ID；GitHub 和 GitLab 插件分别提供自身的 App 声明与已连接工具。计划中：未来的 Cypheria 原生扩展可复用 Server 协议，而不改变 Git 能力的归属。
+公开 Git 与 Thread Attachment 契约不依赖具体 Agent harness。`cypheria-bundled` marketplace 目前向 Cypheria 管理的 Codex home 分发 `cypheria-app-tools`，所以 Codex 是首个打通完整工具链的 Agent。其工具通过已认证的公开 Git 路由，使用与 Desktop 相同的 Server 策略。其他 Agent adapter 在同一个公开 service 边界拥有实现位置，无需建立第二套 Git 存储或附件模型。
 
 本地协议、Git、工作树、后端选择及 UI 检查覆盖了已实现路径。打包 Electron 的 Connect 行为，以及 Cypheria 管理的 Codex home 中 GitHub/GitLab 真实账户授权和 PR/MR 调用，仍属于明确的[验收任务](todo.zh-CN.md#本地-git-与拉取请求)；完成这些检查后才能宣称端到端对齐。

@@ -4,7 +4,7 @@ title: 数据库
 
 # 数据库
 
-Cypheria 通过 Drizzle ORM 和本地 libSQL driver 使用 SQLite。`packages/db/src/schema/` 是可编辑 Schema 来源；`packages/db/drizzle/0000_initial.sql` 及其 snapshot 是当前生成迁移基线。
+Cypheria 通过 Drizzle ORM 和本地 libSQL driver 使用 SQLite。`packages/db/src/schema/` 是可编辑 Schema 来源；`packages/db/drizzle/` 保存生成的 migration 链与 snapshots。
 
 ## 位置与所有权
 
@@ -20,7 +20,7 @@ Cypheria 通过 Drizzle ORM 和本地 libSQL driver 使用 SQLite。`packages/db
 | --- | --- | --- |
 | Runtime | `runtime_metadata`, `settings`, `audit_logs`, `workspaces` | Runtime metadata、key/value settings、追加型 audit、workspace records |
 | Agents | `agent_registry` | 用户选择的 Agent 成员关系、创建时间、安装、启用、版本和状态；原生 harness 会预置 |
-| Projects 与 Threads | `projects`, `threads`, `project_items`, `sections`, `section_items` | 持久组织、排序、membership、archive 与 harness linkage |
+| Projects 与 Threads | `projects`, `threads`, `project_items`, `sections`, `section_items`, `thread_attachments` | 持久组织、排序、membership、archive、harness linkage 与跨客户端 Git 附件 |
 | Thread 执行 | `thread_lifecycle_operations`, `thread_message_requests`, `thread_timeline_epochs`, `thread_timeline_rows` | 生命周期恢复、消息幂等 receipt 和只追加 Canonical Timeline |
 | Schedules | `schedules`, `schedule_runs` | Definitions、next occurrence、leases 和 run history |
 | Networks | `networks`, `network_rpc_endpoints`, `dapp_network_contexts` | Chain definitions、有序 endpoints、health 和 origin context |
@@ -39,6 +39,8 @@ Cypheria UUIDv7 标识 Projects、Threads 和 Sections。Thread 拥有一个不�
 Project、Thread 与 Section 采用分阶段删除。Server 先提交 `deleted_at`，使资源从普通读取中消失；再执行 Agent 或依赖清理；最后物理删除 row。Thread lifecycle receipt 让失败的 Agent 删除可在启动时重试。带 tombstone 的 Projects 与 Sections 会在启动时及每五分钟的清理周期中重试。Cypheria Project 身份只在 Cypheria 内部使用，不映射到 Codex 或 OpenCode project。
 
 排序列在所属 scope 中非负且唯一。Membership move 和 compaction 在事务中执行，客户端不会观察到重复 position。
+
+`thread_attachments` 保存 Thread 与外部 pull request 或托管 worktree 之间由 Server 掌握的权威关系。Pull request 使用规范化的 provider、host、repository 与 number 身份，可关联多个 Threads；一个托管 worktree UUID 只能属于一个 Thread。两个查询方向都使用 cursor 分页，删除遵循 Thread foreign key，修改会发布类型化通知，使 Desktop、Expo、Web 与 CLI 无需浏览器本地关联状态也能收敛。该模型与 `agent_id` 无关。
 
 ## Canonical Timeline
 
@@ -70,9 +72,7 @@ Transaction 保护排序变更、memberships、Timeline sequence 分配、Schedu
 
 ## 迁移策略
 
-产品尚未发布，因此有意只保留一个 baseline migration：`0000_initial.sql`，以及一个匹配 snapshot 和 journal entry。不探测、导入或升级旧应用数据。首次发布前，Schema 变更直接替换该 baseline。
-
-首次公开发布后，migration 改为只追加：不得修改或删除已应用 migration。应从 Schema 生成并评审 SQL，同时测试空数据库创建和从上一发布 Schema 升级。
+生成的 migrations 按 journal 顺序应用。产品不探测或导入旧应用数据。Schema 变更应从当前 Drizzle source 生成，评审 SQL，并测试空数据库创建。已经发布的 migration 只允许追加，不得重写已应用历史。
 
 ```sh
 pnpm --filter @cypheria/db db:generate --name=<migration-name>

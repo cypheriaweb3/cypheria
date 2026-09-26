@@ -66,6 +66,8 @@ Project 与 Section membership 也作为规范化列表资源提供。Project me
 
 列表接口有上限并使用 cursor 分页。Mutation response 返回 Server 权威值，供客户端校正乐观更新。
 
+Thread Attachments 是 Server 共享资源，不是 prompt 内容块或客户端偏好。`thread.attachment.list/add/remove` 管理 pull request 与托管 worktree 关系，`thread.attachment.owners.list` 提供反向查询，upsert/delete notifications 使各客户端保持同步。Pull request URL 由 Server 规范化为稳定的 provider/repository identity。该契约使用 Cypheria Thread ID，适用于所有 Agent，不依赖 harness session ID。
+
 ## Canonical Timeline
 
 只追加的 Canonical Timeline 是持久会话历史。每一行包含单调递增序号、时间戳、可选 turn ID、可选 harness item ID，以及一种判别 item：
@@ -154,7 +156,7 @@ Server 以请求 ID 关联并审计 Git 修改请求的开始和结果。审计�
 `git.index-entries.request` 返回指定路径的索引 mode、对象 ID 和冲突 stage。`git.submodule-paths.request` 从索引列出 stage 为零的 gitlink，包括尚未初始化的 submodule；两者都不会打开 submodule 工作树。
 `git.text-blob.request` 将固定提交中的文件读取为 UTF-8 文本；非 blob、二进制数据及超过 1 MiB 的内容返回不可用。`git.blame-file.request` 返回仓库文件有上限的逐行归属信息，不返回文件内容。两者都拒绝仓库外路径。
 `git.index-info.request` 返回当前工作树索引的毫秒修改时间；索引尚不存在时返回零，且不暴露索引路径。客户端可用它检测索引变化。
-`git.worktree-job-start/read/cancel/retry` 返回有界的内存中创建状态（`queued`、`creating`、`setting-up`、`ready`、`failed` 或 `cancelled`）及 setup 输出。选定起点解析为源 HEAD 时，创建可复制已暂存、未暂存和未跟踪改动；远端起点在启用时会 best-effort 刷新上游。选定的环境配置须为仓库内的普通 JSON 文件，包含 `version: 1`、非空 `name` 和 `setup.script`，可用 `setup.darwin.script` 或 `setup.linux.script` 覆盖。Server 将文件复制到工作树，把工作树内路径写入专属 Git config，并在新工作树中运行脚本，注入 `CODEX_SOURCE_TREE_PATH` 和 `CODEX_WORKTREE_PATH`。setup 失败会保留工作树供重试或明确跳过；创建失败会清理新分配的工作树。
+`git.worktree-job-start/read/cancel/retry` 返回有界的内存中创建状态（`queued`、`creating`、`setting-up`、`ready`、`failed` 或 `cancelled`）及 setup 输出。每个托管 worktree 都有一个供 Thread Attachments 使用的稳定 UUID；非托管 worktree 不提供 ID。选定起点解析为源 HEAD 时，创建可复制已暂存、未暂存和未跟踪改动；远端起点在启用时会 best-effort 刷新上游。选定的环境配置须为仓库内的普通 JSON 文件，包含 `version: 1`、非空 `name` 和 `setup.script`，可用 `setup.darwin.script` 或 `setup.linux.script` 覆盖。Server 将文件复制到工作树，把工作树内路径写入专属 Git config，并在新工作树中运行脚本，注入 `CODEX_SOURCE_TREE_PATH` 和 `CODEX_WORKTREE_PATH`。setup 失败会保留工作树供重试或明确跳过；创建失败会清理新分配的工作树。
 `git.worktree-move-thread.request` 可选择在源与目标 HEAD 相同且目标干净时复制本地改动。`git.synced-branch-state/sync/undo` 支持将托管 detached worktree 的变更受保护地同步到选定的本地分支。同步可通过临时 index 和合成提交纳入未提交文件，且不改变工作树 index；它会拒绝脏的源 checkout 或已在外部移动的分支，先前的分支提交保存在 `refs/cypheria/worktree-sync/*`，并更新 checkout 与元数据。撤销要求同步后的分支未再次变化。setup 只捕获少量白名单工具链环境变量的变化，将 `codex-shell-environment.json` 写入 worktree Git 目录；Server 在 Codex 线程启动、恢复和 fork 时通过 `shell_environment_policy.set` 传入捕获值，并保留这些值供恢复。
 `git.availability`、`git.remotes`、`git.branch-exists` 和 `git.branch-commits` 提供有界的本地查询；远端身份不包含 URL 凭据。`git.apply-patch` 支持暂存、未暂存及组合目标、反向与二进制补丁、可选原子检查，以及使用临时 index 的未暂存三方应用。`git.apply-changes` 在找到 merge base 后，将源 tree 应用到固定的目标 HEAD。两者返回已应用、跳过及冲突的路径。`git.clone-state.request` 返回浅克隆与部分克隆状态。`git.worktree-starting-ref.request` 将选定分支或修订解析为固定提交。Git config 读写请求只允许操作工作树专属配置中的 `codex.localEnvironmentConfigPath`；启用工作树配置前，读取返回 null。`git.apply-review-sections.request` 按顺序执行最多 100 个固定文件修订的 Review 操作，逐项返回已应用、跳过、过期、冲突或失败结果，调用方可保留成功项并只刷新失败项。Server 短暂缓存仓库发现，并在 Git 修改或文件系统监视事件发生时失效。它广播 `git.repository-changed.notification`，让 Desktop 刷新 Git 和 PR 查询；不支持原生监视时，定期读取仍可作为后备。
 GitHub PR 的可用性检查、列表、详情、创建、标题及正文编辑和合并使用 Server 所在主机的 `gh` 安装和当前 `gh` 账户。可用性分别报告 CLI、账户与当前仓库访问情况；PR 读取使用固定 JSON 字段，并在返回给客户端前校验结果。创建前检查 head 分支是否已有 PR，正文通过私有临时文件传入。合并要求传入当前显示的 head commit SHA，并使用 `gh --match-head-commit`。
