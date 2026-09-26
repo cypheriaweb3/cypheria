@@ -14,79 +14,75 @@ import { Switch } from "@cypheria/ui/components/switch"
 import { msg } from "@lingui/core/macro"
 import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
+import { useAtomValue } from "jotai"
 import { TriangleAlert, X } from "lucide-react"
-import { type ReactNode, useEffect, useState } from "react"
-import type {
-  DesktopPreferences,
-  DesktopPreferencesWrite,
-  LanguagePreference,
-  LanguageSettings,
-  WorkspaceLayoutSettings,
-  WorkspaceLayoutSettingsWrite,
-} from "../../../ipc/src/index.js"
+import { type ReactNode, useState } from "react"
+import type { ClientPreferencesSnapshot, NotificationSound } from "../../../ipc/src/index.js"
+import {
+  clientStateStore,
+  composerEnterBehaviorAtom,
+  composerPlainTextModeAtom,
+  defaultTerminalLocationAtom,
+  followUpQueueModeAtom,
+  hotkeyWindowHotkeyAtom,
+  hotkeyWindowProjectlessDefaultEnabledAtom,
+  localeOverrideAtom,
+  macMenuBarEnabledAtom,
+  notificationSoundAtom,
+  notificationsPermissionsEnabledAtom,
+  notificationsQuestionsEnabledAtom,
+  notificationsTurnModeAtom,
+  openInTargetPreferenceAtom,
+  permissionModeVisibilityAtom,
+  preventSleepWhileRunningAtom,
+  projectlessWorkspaceRootAtom,
+  showBottomPanelControlAtom,
+  showContextWindowUsageAtom,
+} from "../client-state.js"
 import { LanguageSelector } from "../components/language-selector.js"
 import { SettingsFrame } from "../components/settings-frame"
-import { activateLanguage } from "../i18n.js"
 
 export const Route = createFileRoute("/settings/general")({ component: GeneralSettingsRoute })
 
-const fallbackLanguageSettings: LanguageSettings = {
-  configPath: "Browser preview",
-  locale: "en",
-  preference: "system",
-}
-const fallbackWorkspaceLayoutSettings: WorkspaceLayoutSettings = {
-  configPath: "Browser preview",
-  defaultTerminalLocation: "bottom",
-  showBottomPanelControl: true,
-}
-const fallbackPreferences: DesktopPreferences = {
-  configPath: "Browser preview",
-  projectlessWorkspaceRoot: null,
-  openInTargetPreference: "system",
-  macMenuBarEnabled: false,
-  preventSleepWhileRunning: false,
-  permissionModeVisibility: false,
-  composerPlainTextMode: false,
-  showContextWindowUsage: false,
-  composerEnterBehavior: "enter",
-  followUpQueueMode: "steer",
-  hotkeyWindowHotkey: null,
-  hotkeyWindowProjectlessDefaultEnabled: false,
-  notificationsTurnMode: "unfocused",
-  notificationsPermissionsEnabled: true,
-  notificationsQuestionsEnabled: true,
-  notificationSound: "default",
-  notificationCustomSoundPath: null,
-}
 const uiFontMediumClass =
   "[font-stretch:var(--font-sans-stretch)] [font-style:var(--font-sans-style)] [font-weight:max(500,var(--font-sans-weight))]"
 const uiFontSemiboldClass =
   "[font-stretch:var(--font-sans-stretch)] [font-style:var(--font-sans-style)] [font-weight:max(600,var(--font-sans-weight))]"
 
+const notificationSoundValue = (sound: NotificationSound): string => {
+  if (sound.type === "none") return "none"
+  if (sound.type === "bundled") return sound.sound
+  if (sound.type === "custom") return "custom"
+  return sound.name
+}
+
 function GeneralSettingsRoute() {
   const { i18n } = useLingui()
   const [capturingHotkey, setCapturingHotkey] = useState(false)
   const [fullAccessConfirmationOpen, setFullAccessConfirmationOpen] = useState(false)
-  const queryClient = useQueryClient()
-  const languageQuery = useQuery({
-    queryFn: () => window.cypheria?.settings.getLanguage() ?? fallbackLanguageSettings,
-    queryKey: ["settings", "language"],
-    staleTime: Number.POSITIVE_INFINITY,
-  })
-  const workspaceLayoutQuery = useQuery({
-    queryFn: () =>
-      window.cypheria?.settings.getWorkspaceLayout() ?? fallbackWorkspaceLayoutSettings,
-    queryKey: ["settings", "workspace-layout"],
-    staleTime: Number.POSITIVE_INFINITY,
-  })
-  const preferencesQuery = useQuery({
-    queryFn: () => window.cypheria?.settings.getPreferences() ?? fallbackPreferences,
-    queryKey: ["settings", "preferences"],
-    staleTime: Number.POSITIVE_INFINITY,
-  })
+  const [saveError, setSaveError] = useState<Error | null>(null)
+  const localeOverride = useAtomValue(localeOverrideAtom)
+  const defaultTerminalLocation = useAtomValue(defaultTerminalLocationAtom)
+  const showBottomPanelControl = useAtomValue(showBottomPanelControlAtom)
+  const projectlessWorkspaceRoot = useAtomValue(projectlessWorkspaceRootAtom)
+  const openInTargetPreference = useAtomValue(openInTargetPreferenceAtom)
+  const macMenuBarEnabled = useAtomValue(macMenuBarEnabledAtom)
+  const preventSleepWhileRunning = useAtomValue(preventSleepWhileRunningAtom)
+  const permissionModeVisibility = useAtomValue(permissionModeVisibilityAtom)
+  const composerPlainTextMode = useAtomValue(composerPlainTextModeAtom)
+  const showContextWindowUsage = useAtomValue(showContextWindowUsageAtom)
+  const composerEnterBehavior = useAtomValue(composerEnterBehaviorAtom)
+  const followUpQueueMode = useAtomValue(followUpQueueModeAtom)
+  const hotkeyWindowHotkey = useAtomValue(hotkeyWindowHotkeyAtom)
+  const hotkeyWindowProjectlessDefaultEnabled = useAtomValue(
+    hotkeyWindowProjectlessDefaultEnabledAtom
+  )
+  const notificationsTurnMode = useAtomValue(notificationsTurnModeAtom)
+  const notificationsPermissionsEnabled = useAtomValue(notificationsPermissionsEnabledAtom)
+  const notificationsQuestionsEnabled = useAtomValue(notificationsQuestionsEnabledAtom)
+  const notificationSound = useAtomValue(notificationSoundAtom)
   const openTargetsQuery = useQuery({
     queryFn: () =>
       window.cypheria?.settings.listOpenTargets() ?? [{ id: "system", label: "Default app" }],
@@ -96,66 +92,156 @@ function GeneralSettingsRoute() {
     queryFn: () => window.cypheria?.settings.listNotificationSounds() ?? [],
     queryKey: ["settings", "notification-sounds"],
   })
-  useEffect(
-    () =>
-      window.cypheria?.settings.onPreferencesChanged((settings) => {
-        queryClient.setQueryData(["settings", "preferences"], settings)
-      }),
-    [queryClient]
-  )
-  const preferencesMutation = useMutation({
-    mutationFn: (settings: DesktopPreferencesWrite) =>
-      window.cypheria?.settings.setPreferences(settings) ??
-      Promise.resolve({ ...settings, configPath: fallbackPreferences.configPath }),
-    onSuccess: (settings) => queryClient.setQueryData(["settings", "preferences"], settings),
-  })
-  const languageMutation = useMutation({
-    mutationFn: (preference: LanguagePreference) =>
-      window.cypheria?.settings.setLanguage({ preference }) ??
-      Promise.resolve<LanguageSettings>({
-        ...fallbackLanguageSettings,
-        locale: preference === "zh-CN" ? "zh-CN" : "en",
-        preference,
-      }),
-    onSuccess: (settings) => {
-      queryClient.setQueryData(["settings", "language"], settings)
-      activateLanguage(settings)
-    },
-  })
-  const workspaceLayoutMutation = useMutation({
-    mutationFn: (settings: WorkspaceLayoutSettingsWrite) =>
-      window.cypheria?.settings.setWorkspaceLayout(settings) ??
-      Promise.resolve<WorkspaceLayoutSettings>({
-        ...settings,
-        configPath: fallbackWorkspaceLayoutSettings.configPath,
-      }),
-    onSuccess: (settings) => {
-      queryClient.setQueryData(["settings", "workspace-layout"], settings)
-    },
-  })
-  const workspaceLayout = workspaceLayoutQuery.data ?? fallbackWorkspaceLayoutSettings
-  const workspaceLayoutDisabled = !workspaceLayoutQuery.data || workspaceLayoutMutation.isPending
-  const preferences = preferencesQuery.data ?? fallbackPreferences
-  const preferencesDisabled = !preferencesQuery.data || preferencesMutation.isPending
-  const updatePreferences = (update: Partial<DesktopPreferencesWrite>) => {
-    const { configPath: _configPath, ...current } = preferences
-    preferencesMutation.mutate({ ...current, ...update })
+  const workspaceLayout = { defaultTerminalLocation, showBottomPanelControl }
+  const workspaceLayoutDisabled = false
+  const preferences = {
+    projectlessWorkspaceRoot,
+    openInTargetPreference,
+    macMenuBarEnabled,
+    preventSleepWhileRunning,
+    permissionModeVisibility,
+    composerPlainTextMode,
+    showContextWindowUsage,
+    composerEnterBehavior,
+    followUpQueueMode,
+    hotkeyWindowHotkey,
+    hotkeyWindowProjectlessDefaultEnabled,
+    notificationsTurnMode,
+    notificationsPermissionsEnabled,
+    notificationsQuestionsEnabled,
+    notificationSound,
+  }
+  const preferencesDisabled = false
+  type PreferenceUpdate = Partial<
+    Omit<ClientPreferencesSnapshot, "projectlessWorkspaceRoot"> & {
+      projectlessWorkspaceRoot: string | null
+    }
+  >
+  const updatePreferences = async (update: PreferenceUpdate) => {
+    setSaveError(null)
+    try {
+      const operations: Promise<unknown>[] = []
+      for (const [key, value] of Object.entries(update)) {
+        switch (key) {
+          case "projectlessWorkspaceRoot":
+            operations.push(
+              Promise.resolve(
+                clientStateStore.set(projectlessWorkspaceRootAtom, value as string | null)
+              )
+            )
+            break
+          case "openInTargetPreference":
+            operations.push(
+              Promise.resolve(clientStateStore.set(openInTargetPreferenceAtom, value as string))
+            )
+            break
+          case "macMenuBarEnabled":
+            operations.push(
+              Promise.resolve(clientStateStore.set(macMenuBarEnabledAtom, value as boolean))
+            )
+            break
+          case "preventSleepWhileRunning":
+            operations.push(
+              Promise.resolve(clientStateStore.set(preventSleepWhileRunningAtom, value as boolean))
+            )
+            break
+          case "permissionModeVisibility":
+            operations.push(
+              Promise.resolve(clientStateStore.set(permissionModeVisibilityAtom, value as boolean))
+            )
+            break
+          case "composerPlainTextMode":
+            operations.push(
+              Promise.resolve(clientStateStore.set(composerPlainTextModeAtom, value as boolean))
+            )
+            break
+          case "showContextWindowUsage":
+            operations.push(
+              Promise.resolve(clientStateStore.set(showContextWindowUsageAtom, value as boolean))
+            )
+            break
+          case "composerEnterBehavior":
+            operations.push(
+              Promise.resolve(
+                clientStateStore.set(
+                  composerEnterBehaviorAtom,
+                  value as typeof composerEnterBehavior
+                )
+              )
+            )
+            break
+          case "followUpQueueMode":
+            operations.push(
+              Promise.resolve(
+                clientStateStore.set(followUpQueueModeAtom, value as typeof followUpQueueMode)
+              )
+            )
+            break
+          case "hotkeyWindowHotkey":
+            operations.push(
+              Promise.resolve(clientStateStore.set(hotkeyWindowHotkeyAtom, value as string | null))
+            )
+            break
+          case "hotkeyWindowProjectlessDefaultEnabled":
+            operations.push(
+              Promise.resolve(
+                clientStateStore.set(hotkeyWindowProjectlessDefaultEnabledAtom, value as boolean)
+              )
+            )
+            break
+          case "notificationsTurnMode":
+            operations.push(
+              Promise.resolve(
+                clientStateStore.set(
+                  notificationsTurnModeAtom,
+                  value as typeof notificationsTurnMode
+                )
+              )
+            )
+            break
+          case "notificationsPermissionsEnabled":
+            operations.push(
+              Promise.resolve(
+                clientStateStore.set(notificationsPermissionsEnabledAtom, value as boolean)
+              )
+            )
+            break
+          case "notificationsQuestionsEnabled":
+            operations.push(
+              Promise.resolve(
+                clientStateStore.set(notificationsQuestionsEnabledAtom, value as boolean)
+              )
+            )
+            break
+          case "notificationSound":
+            operations.push(
+              Promise.resolve(
+                clientStateStore.set(notificationSoundAtom, value as NotificationSound)
+              )
+            )
+            break
+        }
+      }
+      await Promise.all(operations)
+    } catch (error) {
+      const normalized = error instanceof Error ? error : new Error(String(error))
+      setSaveError(normalized)
+      throw normalized
+    }
   }
   const confirmFullAccessVisibility = async () => {
-    const { configPath: _configPath, ...current } = preferences
     try {
-      await preferencesMutation.mutateAsync({ ...current, permissionModeVisibility: true })
+      await updatePreferences({ permissionModeVisibility: true })
       setFullAccessConfirmationOpen(false)
     } catch {
       // Keep the dialog open so the failed write can be retried.
     }
   }
-  const updateNotificationSound = async (update: Partial<DesktopPreferencesWrite>) => {
-    const { configPath: _configPath, ...current } = preferences
-    await preferencesMutation.mutateAsync({ ...current, ...update })
+  const updateNotificationSound = async (sound: NotificationSound) => {
+    await updatePreferences({ notificationSound: sound })
     await window.cypheria?.settings.previewNotificationSound()
   }
-  const preferenceSwitch = (key: keyof DesktopPreferencesWrite, label: string) => (
+  const preferenceSwitch = (key: keyof typeof preferences, label: string) => (
     <Switch
       aria-label={label}
       checked={Boolean(preferences[key])}
@@ -164,7 +250,7 @@ function GeneralSettingsRoute() {
     />
   )
   const preferenceSelect = (
-    key: keyof DesktopPreferencesWrite,
+    key: keyof typeof preferences,
     options: readonly (readonly [string, string])[],
     label: string
   ) => (
@@ -182,12 +268,12 @@ function GeneralSettingsRoute() {
       ))}
     </select>
   )
-  const updateWorkspaceLayout = (update: Partial<WorkspaceLayoutSettingsWrite>) =>
-    workspaceLayoutMutation.mutate({
-      defaultTerminalLocation: workspaceLayout.defaultTerminalLocation,
-      showBottomPanelControl: workspaceLayout.showBottomPanelControl,
-      ...update,
-    })
+  const updateWorkspaceLayout = (update: Partial<typeof workspaceLayout>) => {
+    if (update.defaultTerminalLocation)
+      void clientStateStore.set(defaultTerminalLocationAtom, update.defaultTerminalLocation)
+    if (update.showBottomPanelControl !== undefined)
+      void clientStateStore.set(showBottomPanelControlAtom, update.showBottomPanelControl)
+  }
 
   return (
     <SettingsFrame>
@@ -313,9 +399,11 @@ function GeneralSettingsRoute() {
               title={<Trans id="settings.general.languageLabel">Language</Trans>}
             >
               <LanguageSelector
-                disabled={!languageQuery.data || languageMutation.isPending}
-                onChange={(value) => languageMutation.mutate(value)}
-                value={languageQuery.data?.preference ?? "system"}
+                disabled={false}
+                onChange={(value) =>
+                  void clientStateStore.set(localeOverrideAtom, value === "system" ? null : value)
+                }
+                value={localeOverride ?? "system"}
               />
             </SettingRow>
             <SettingRow
@@ -658,23 +746,24 @@ function GeneralSettingsRoute() {
                     if (value === "choose") {
                       const file = await window.cypheria?.app.pickSoundFile()
                       if (file?.path) {
-                        await updateNotificationSound({
-                          notificationSound: "custom",
-                          notificationCustomSoundPath: file.path,
-                        })
+                        await updateNotificationSound({ type: "custom", path: file.path })
                       } else {
-                        select.value = preferences.notificationSound
+                        select.value = notificationSoundValue(preferences.notificationSound)
                       }
                     } else {
-                      await updateNotificationSound({
-                        notificationSound: value as DesktopPreferencesWrite["notificationSound"],
-                      })
+                      await updateNotificationSound(
+                        value === "none"
+                          ? { type: "none" }
+                          : value === "default" || value === "classic"
+                            ? { type: "bundled", sound: value }
+                            : { type: "system", name: value }
+                      )
                     }
                   } catch {
-                    select.value = preferences.notificationSound
+                    select.value = notificationSoundValue(preferences.notificationSound)
                   }
                 }}
-                value={preferences.notificationSound}
+                value={notificationSoundValue(preferences.notificationSound)}
               >
                 <option value="default">Default</option>
                 <option value="classic">Classic</option>
@@ -684,9 +773,9 @@ function GeneralSettingsRoute() {
                     {sound}
                   </option>
                 ))}
-                {preferences.notificationCustomSoundPath ? (
+                {preferences.notificationSound.type === "custom" ? (
                   <option value="custom">
-                    {preferences.notificationCustomSoundPath.split("/").at(-1)}
+                    {preferences.notificationSound.path.split("/").at(-1)}
                   </option>
                 ) : null}
                 <option value="choose">
@@ -701,17 +790,7 @@ function GeneralSettingsRoute() {
             </SettingRow>
           </div>
         </section>
-        {languageMutation.isError ||
-        workspaceLayoutMutation.isError ||
-        preferencesMutation.isError ? (
-          <p className="text-[13px] text-destructive">
-            {String(
-              languageMutation.error?.message ??
-                workspaceLayoutMutation.error?.message ??
-                preferencesMutation.error?.message
-            )}
-          </p>
-        ) : null}
+        {saveError ? <p className="text-[13px] text-destructive">{saveError.message}</p> : null}
       </div>
       <AlertDialog open={fullAccessConfirmationOpen} onOpenChange={setFullAccessConfirmationOpen}>
         <AlertDialogContent className="data-[size=default]:sm:max-w-lg">
@@ -738,7 +817,7 @@ function GeneralSettingsRoute() {
           <AlertDialogFooter>
             <AlertDialogCancel variant="secondary">Cancel</AlertDialogCancel>
             <AlertDialogAction
-              disabled={preferencesMutation.isPending}
+              disabled={false}
               variant="destructive"
               onClick={() => void confirmFullAccessVisibility()}
             >
@@ -746,9 +825,9 @@ function GeneralSettingsRoute() {
               Confirm
             </AlertDialogAction>
           </AlertDialogFooter>
-          {preferencesMutation.isError ? (
+          {saveError ? (
             <p className="text-sm text-destructive" role="alert">
-              {String(preferencesMutation.error?.message ?? "Could not save this setting.")}
+              {saveError.message}
             </p>
           ) : null}
         </AlertDialogContent>

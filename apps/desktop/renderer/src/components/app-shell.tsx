@@ -57,7 +57,7 @@ import {
   useNavigate,
 } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { Provider as JotaiProvider } from "jotai"
+import { Provider as JotaiProvider, useAtomValue } from "jotai"
 import {
   Archive,
   ArrowLeft,
@@ -85,9 +85,16 @@ import {
   useRef,
   useState,
 } from "react"
+import { panelLayoutKey } from "../../../ipc/src/index.js"
 import { useAppearanceController } from "../appearance.js"
+import { clientStateStore, localeOverrideAtom } from "../client-state.js"
+import {
+  deletePersistedComposerDraft,
+  garbageCollectComposerDrafts,
+} from "../composer-draft-storage.js"
 import { ensureCypheriaClient } from "../cypheria-client.js"
-import { activateLanguage, getBootstrapLanguage, i18n } from "../i18n.js"
+import { activateLanguage, i18n, resolveRendererLocale } from "../i18n.js"
+import { desktopClientStorage } from "../storage.js"
 import { web3Api } from "../web3-api.js"
 import { NewChatLink } from "./chat-navigation"
 import { ChatSearch } from "./chat-search"
@@ -238,24 +245,47 @@ function QueryProvider({ children }: Readonly<{ children: ReactNode }>) {
     <QueryClientProvider client={queryClient}>
       <AppearanceController />
       <LanguageController />
+      <ServerSettingsSubscription />
       {children}
     </QueryClientProvider>
   )
 }
 
-function LanguageController() {
+function ServerSettingsSubscription() {
   const queryClient = useQueryClient()
+  useEffect(() => {
+    let disposed = false
+    let unsubscribe: (() => void) | undefined
+    void ensureCypheriaClient().then((client) => {
+      if (disposed) return
+      unsubscribe = client.subscribe((message) => {
+        if (message.type === "server.config.updated.notification") {
+          queryClient.setQueryData(["settings", "server-config"], message.payload)
+          queryClient.setQueryData(["settings", "git"], message.payload)
+        } else if (message.type === "server.network-proxies.updated.notification") {
+          queryClient.setQueryData(["server", "network-proxies"], message.payload)
+        } else if (message.type === "thread.deleted.notification") {
+          void Promise.all([
+            deletePersistedComposerDraft(message.payload.threadId),
+            desktopClientStorage.keyValue.removeItem(panelLayoutKey(message.payload.threadId)),
+          ])
+        }
+      })
+    })
+    return () => {
+      disposed = true
+      unsubscribe?.()
+    }
+  }, [queryClient])
+  return null
+}
+
+function LanguageController() {
+  const localeOverride = useAtomValue(localeOverrideAtom)
 
   useEffect(() => {
-    const cypheria = window.cypheria
-    activateLanguage(getBootstrapLanguage())
-    if (!cypheria) return
-
-    return cypheria.settings.onLanguageChanged((settings) => {
-      activateLanguage(settings)
-      queryClient.setQueryData(["settings", "language"], settings)
-    })
-  }, [queryClient])
+    activateLanguage({ localeOverride, locale: resolveRendererLocale(localeOverride) })
+  }, [localeOverride])
 
   return null
 }
@@ -266,6 +296,9 @@ function AppearanceController() {
 }
 
 function AppShell({ children }: Readonly<{ children: ReactNode }>) {
+  useEffect(() => {
+    void garbageCollectComposerDrafts().catch(() => undefined)
+  }, [])
   const { i18n: activeI18n } = useLingui()
   const location = useLocation()
   const { pathname } = location
@@ -945,7 +978,7 @@ function RootDocument({ children }: Readonly<{ children: ReactNode }>) {
         <HeadContent />
       </head>
       <body className="font-sans text-sm">
-        <JotaiProvider>{children}</JotaiProvider>
+        <JotaiProvider store={clientStateStore}>{children}</JotaiProvider>
         <Scripts />
       </body>
     </html>

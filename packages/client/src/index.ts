@@ -1,4 +1,9 @@
 import type {
+  AgentId,
+  NetworkProxyDraft,
+  NetworkProxyListPatch,
+  NetworkProxyListSnapshot,
+  NetworkProxyTestResult,
   PersistedServerConfigPatch,
   ServerConfigSnapshot,
   ServerDiagnostics,
@@ -50,6 +55,16 @@ export interface ServerActions {
   ): Promise<ServerConfigSnapshot>
   ping(options?: RequestOptions): Promise<void>
   reloadConfig(options?: RequestOptions): Promise<ServerConfigSnapshot>
+  networkProxies(options?: RequestOptions): Promise<NetworkProxyListSnapshot>
+  patchNetworkProxies(
+    patch: NetworkProxyListPatch,
+    options?: RequestOptions
+  ): Promise<NetworkProxyListSnapshot>
+  testNetworkProxy(
+    agentId: AgentId,
+    proxy: NetworkProxyDraft,
+    options?: RequestOptions
+  ): Promise<NetworkProxyTestResult>
   status(options?: RequestOptions): Promise<ServerStatus>
   supports(capability: string): boolean
   supportsFeature(feature: string): boolean
@@ -197,6 +212,11 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
       patchConfig: async (patch, options) => serverClient.patchServerConfig(patch, options),
       ping: async (options) => serverClient.ping(options),
       reloadConfig: async (options) => serverClient.reloadServerConfig(options),
+      networkProxies: async (options) => serverClient.getNetworkProxies(options),
+      patchNetworkProxies: async (patch, options) =>
+        serverClient.patchNetworkProxies(patch, options),
+      testNetworkProxy: async (agentId, proxy, options) =>
+        serverClient.testNetworkProxy(agentId, proxy, options),
       status: async (options) => serverClient.getServerStatus(options),
       supports: (capability) => serverClient.supports(capability),
       supportsFeature: (feature) => serverClient.supportsFeature(feature),

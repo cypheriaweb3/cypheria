@@ -98,6 +98,10 @@ export const clientStorage: ClientStorage = {
       if (!file.exists) throw new Error(`Attachment '${storageKey}' was not found.`)
       return file.bytes()
     },
+    async stat(storageKey) {
+      const file = new File(attachmentDirectory, storageKey)
+      return file.exists ? { byteSize: file.size, exists: true } : { byteSize: 0, exists: false }
+    },
     async delete(storageKey) {
       const file = new File(attachmentDirectory, storageKey)
       if (file.exists) file.delete()

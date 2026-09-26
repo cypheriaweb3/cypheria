@@ -12,6 +12,7 @@ import {
   listDesktopAttachmentPage,
   listDesktopAttachments,
   readDesktopAttachment,
+  statDesktopAttachment,
   writeDesktopAttachment,
 } from "./client-attachment-store.js"
 
@@ -40,6 +41,10 @@ describe("desktop attachment storage", () => {
     await expect(readDesktopAttachment(userDataDir, "att_one")).resolves.toEqual({
       bytes: new Uint8Array([1, 2, 3]),
     })
+    await expect(statDesktopAttachment(userDataDir, "att_one")).resolves.toEqual({
+      byteSize: 3,
+      exists: true,
+    })
     await writeDesktopAttachment(userDataDir, "att_one", new Uint8Array([4, 5]))
     await expect(
       readFile(join(getDesktopAttachmentDirectory(userDataDir), "att_one"))
@@ -59,6 +64,10 @@ describe("desktop attachment storage", () => {
     })
     await expect(deleteDesktopAttachment(userDataDir, "att_one")).resolves.toEqual({
       deleted: true,
+    })
+    await expect(statDesktopAttachment(userDataDir, "att_one")).resolves.toEqual({
+      byteSize: 0,
+      exists: false,
     })
     await expect(listDesktopAttachments(userDataDir)).resolves.toEqual({ storageKeys: [] })
   })

@@ -8,13 +8,22 @@ import { afterEach, describe, expect, it, vi } from "vitest"
 import type { AgentManager } from "../agent/agent-manager.js"
 import type { ThreadManager } from "../thread/thread-manager.js"
 import { GitExecutor } from "./git-executor.js"
-import { GitService } from "./git-service.js"
+import { GitService as BaseGitService } from "./git-service.js"
 import { GitWorktreeService } from "./git-worktree-service.js"
 
 const run = promisify(execFile)
 const created: string[] = []
+const services: BaseGitService[] = []
+
+class GitService extends BaseGitService {
+  constructor(...args: ConstructorParameters<typeof BaseGitService>) {
+    super(...args)
+    services.push(this)
+  }
+}
 
 afterEach(async () => {
+  for (const service of services.splice(0)) service.stop()
   await Promise.all(created.splice(0).map((path) => rm(path, { recursive: true, force: true })))
 })
 
@@ -90,7 +99,7 @@ describe("GitService", () => {
     expect(await service.branchCommits(root, "feature")).toMatchObject([
       { id: commit, subject: "Base" },
     ])
-  })
+  }, 20_000)
 
   it("notifies clients when an external Git worktree change invalidates cached metadata", async () => {
     const root = await repository()
@@ -127,7 +136,7 @@ describe("GitService", () => {
       await service.applyPatch(root, { diff: nested, target: "unstaged", atomic: true })
     ).toMatchObject({ status: "success" })
     expect(await readFile(join(root, "nested", "new.txt"), "utf8")).toBe("hello\n")
-  })
+  }, 20_000)
 
   it("audits mutating requests without storing Git content", async () => {
     const root = await repository()

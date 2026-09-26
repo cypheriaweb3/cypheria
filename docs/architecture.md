@@ -27,7 +27,7 @@ The Server is the sole authority for shared product state. A client may manage a
 
 - Agent registration, installation, enablement, process lifecycle, health, and native-protocol adapters.
 - Projects, Threads, Sections, turns, interactions, and the Canonical Timeline.
-- Shared Agent settings and integration state.
+- Shared Git settings, per-Agent Cypheria extensions, the independent named proxy list, Agent-native settings access, and integration state.
 - Schedules, Web3 services, privileged terminals, local Git execution, artifacts, and audit records.
 - Database access, migrations, configuration loading, logging, and versioned client connections.
 - Static hosting for the current Expo web export.
@@ -36,7 +36,7 @@ Agent-native events are normalized at this boundary. Native payloads may be reta
 
 ### Desktop
 
-`apps/desktop` is an Electron application with a TanStack Start renderer. Electron main ensures that a compatible local Server is available and owns windows, isolated dApp `WebContents`, preload IPC, desktop settings, updates, secure storage, and operating-system integration. The renderer uses `@cypheria/client` for shared product capabilities.
+`apps/desktop` is an Electron application with a TanStack Start renderer. Electron main ensures that a compatible local Server is available and owns windows, isolated dApp `WebContents`, preload IPC, client KV/Replica/attachment backends, updates, secure storage, and operating-system integration. The renderer uses Jotai over client KV for device-local state and `@cypheria/client` plus TanStack Query for shared Server state. Device-local state is intentionally not synchronized between clients.
 
 ### Expo and CLI
 
@@ -71,10 +71,11 @@ Agent-native events are normalized at this boundary. Native payloads may be reta
 
 ### Desktop startup
 
-1. Electron main discovers a compatible Server or starts a supervised local instance.
-2. It waits for health and protocol compatibility before exposing the connection configuration.
-3. The renderer connects through `@cypheria/client`.
-4. Shutdown only reclaims a Server instance that the Desktop owns and that is safe to stop.
+1. Electron main opens Desktop client storage and reads validated appearance and locale values before creating a window.
+2. It discovers a compatible Server or starts a supervised local instance.
+3. It waits for health and protocol compatibility before exposing the connection configuration.
+4. The renderer connects through `@cypheria/client`; shared Server config notifications refresh TanStack Query while local KV notifications stay inside the Desktop installation.
+5. Shutdown only reclaims a Server instance that the Desktop owns and that is safe to stop.
 
 ### Signing
 

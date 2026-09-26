@@ -4,15 +4,8 @@ import {
   walletProviderResponseSchema,
 } from "@cypheria/web3/provider"
 import { z } from "zod"
-import {
-  type ConnectionProxySettings,
-  ConnectionProxySettingsSchema,
-  type ConnectionProxyTestResult,
-  ConnectionProxyTestResultSchema,
-} from "./connections.js"
 
 export * from "./codex.js"
-export * from "./connections.js"
 export * from "./integrations.js"
 
 export const IPC_PROTOCOL_VERSION = 1
@@ -36,27 +29,15 @@ export const CYPHERIA_IPC_CHANNELS = {
   dappProviderRequest: "dapp.provider.request",
   dappProviderEvent: "dapp.provider.event",
   settingsAppearanceFontsList: "settings.appearance.fonts.list",
-  settingsAppearanceRead: "settings.appearance.read",
-  settingsAppearanceWrite: "settings.appearance.write",
-  settingsLanguageChanged: "settings.language.changed",
-  settingsLanguageRead: "settings.language.read",
-  settingsLanguageWrite: "settings.language.write",
-  settingsWorkspaceLayoutRead: "settings.workspace-layout.read",
-  settingsWorkspaceLayoutWrite: "settings.workspace-layout.write",
-  settingsPreferencesRead: "settings.preferences.read",
   settingsOpenTargetsList: "settings.open-targets.list",
   settingsNotificationSoundsList: "settings.notification-sounds.list",
   settingsNotificationSoundPreview: "settings.notification-sound.preview",
-  settingsPreferencesWrite: "settings.preferences.write",
-  settingsPreferencesChanged: "settings.preferences.changed",
-  settingsConnectionProxyRead: "settings.connection-proxy.read",
-  settingsConnectionProxyTest: "settings.connection-proxy.test",
-  settingsConnectionProxyWrite: "settings.connection-proxy.write",
   storageAttachmentDelete: "storage.attachment.delete",
   storageAttachmentCopyFile: "storage.attachment.copy-file",
   storageAttachmentList: "storage.attachment.list",
   storageAttachmentListPage: "storage.attachment.list-page",
   storageAttachmentRead: "storage.attachment.read",
+  storageAttachmentStat: "storage.attachment.stat",
   storageAttachmentWrite: "storage.attachment.write",
   storageKeyValueChanged: "storage.key-value.changed",
   storageKeyValueGet: "storage.key-value.get",
@@ -204,14 +185,14 @@ export const AppearanceSettingsSchema = z
     reducedMotionPreference: AppearanceReducedMotionPreferenceSchema,
     useFontSmoothing: z.boolean(),
     usePointerCursors: z.boolean(),
-    configPath: z.string().min(1),
   })
   .strict()
 export type AppearanceSettings = z.infer<typeof AppearanceSettingsSchema>
-export const AppearanceSettingsWriteSchema = AppearanceSettingsSchema.omit({ configPath: true })
+export const AppearanceSettingsWriteSchema = AppearanceSettingsSchema
 export type AppearanceSettingsWrite = z.infer<typeof AppearanceSettingsWriteSchema>
 export const CYPHERIA_APPEARANCE_ARGUMENT_PREFIX = "--cypheria-appearance="
 export const CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX = "--cypheria-development="
+export const CYPHERIA_WINDOW_ROLE_ARGUMENT_PREFIX = "--cypheria-window-role="
 
 export const SupportedLocaleSchema = z.enum(["en", "zh-CN"])
 export type SupportedLocale = z.infer<typeof SupportedLocaleSchema>
@@ -290,29 +271,87 @@ export const LanguageSettingsWriteSchema = z
   .strict()
 export type LanguageSettingsWrite = z.infer<typeof LanguageSettingsWriteSchema>
 export const LanguageSettingsSchema = LanguageSettingsWriteSchema.extend({
-  configPath: z.string().min(1),
   locale: SupportedLocaleSchema,
 }).strict()
 export type LanguageSettings = z.infer<typeof LanguageSettingsSchema>
-export const LanguageBootstrapSchema = LanguageSettingsSchema.omit({ configPath: true })
+export const LanguageBootstrapSchema = z
+  .object({ locale: SupportedLocaleSchema, localeOverride: LanguageLocaleSchema.nullable() })
+  .strict()
 export type LanguageBootstrap = z.infer<typeof LanguageBootstrapSchema>
 export const CYPHERIA_LANGUAGE_ARGUMENT_PREFIX = "--cypheria-language="
 
-export const WorkspaceLayoutSettingsWriteSchema = z
-  .object({
-    defaultTerminalLocation: z.enum(["bottom", "right"]),
-    showBottomPanelControl: z.boolean(),
-  })
-  .strict()
-export type WorkspaceLayoutSettingsWrite = z.infer<typeof WorkspaceLayoutSettingsWriteSchema>
-export const WorkspaceLayoutSettingsSchema = WorkspaceLayoutSettingsWriteSchema.extend({
-  configPath: z.string().min(1),
-}).strict()
-export type WorkspaceLayoutSettings = z.infer<typeof WorkspaceLayoutSettingsSchema>
+export type ClientSettingCategory =
+  | "activity"
+  | "appearance"
+  | "composer"
+  | "general"
+  | "git-ui"
+  | "locale"
+  | "notifications"
+  | "panel"
+  | "popout"
+  | "sidebar"
 
-export const DesktopPreferencesWriteSchema = z
+export type ClientSettingDefinition<Value> = Readonly<{
+  category: ClientSettingCategory
+  defaultValue: Value
+  key: string
+  schema: z.ZodType<Value>
+  version: 1
+}>
+
+const defineClientSetting = <Value>(
+  definition: ClientSettingDefinition<Value>
+): ClientSettingDefinition<Value> => definition
+
+const defaultFontSans =
+  'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+const defaultFontMono = 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono"'
+
+export const DEFAULT_APPEARANCE_SETTINGS: AppearanceSettingsWrite =
+  AppearanceSettingsWriteSchema.parse({
+    theme: "system",
+    lightThemeId: "codex",
+    darkThemeId: "codex",
+    lightTheme: {
+      accent: "#0169cc",
+      accentSource: "chatgpt",
+      contrast: 45,
+      fonts: { code: defaultFontMono, ui: defaultFontSans },
+      ink: "#0d0d0d",
+      opaqueWindows: false,
+      semanticColors: { diffAdded: "#00a240", diffRemoved: "#e02e2a", skill: "#751ed9" },
+      surface: "#ffffff",
+    },
+    darkTheme: {
+      accent: "#0169cc",
+      accentSource: "chatgpt",
+      contrast: 60,
+      fonts: { code: defaultFontMono, ui: defaultFontSans },
+      ink: "#fcfcfc",
+      opaqueWindows: true,
+      semanticColors: { diffAdded: "#00a240", diffRemoved: "#e02e2a", skill: "#b06dff" },
+      surface: "#111111",
+    },
+    uiFontSize: 14,
+    codeFontSize: 13,
+    diffMarkerStyle: "color",
+    reducedMotionPreference: "system",
+    useFontSmoothing: true,
+    usePointerCursors: false,
+  })
+
+export const NotificationSoundSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("none") }).strict(),
+  z.object({ type: z.literal("bundled"), sound: z.enum(["default", "classic"]) }).strict(),
+  z.object({ type: z.literal("system"), name: z.string().trim().min(1) }).strict(),
+  z.object({ type: z.literal("custom"), path: z.string().trim().min(1) }).strict(),
+])
+export type NotificationSound = z.infer<typeof NotificationSoundSchema>
+
+export const ClientPreferencesSnapshotSchema = z
   .object({
-    projectlessWorkspaceRoot: z.string().min(1).nullable(),
+    projectlessWorkspaceRoot: z.string().min(1),
     openInTargetPreference: z.string().min(1),
     macMenuBarEnabled: z.boolean(),
     preventSleepWhileRunning: z.boolean(),
@@ -326,15 +365,408 @@ export const DesktopPreferencesWriteSchema = z
     notificationsTurnMode: z.enum(["off", "unfocused", "always"]),
     notificationsPermissionsEnabled: z.boolean(),
     notificationsQuestionsEnabled: z.boolean(),
-    notificationSound: z.string().min(1),
-    notificationCustomSoundPath: z.string().min(1).nullable(),
+    notificationSound: NotificationSoundSchema,
   })
   .strict()
-export type DesktopPreferencesWrite = z.infer<typeof DesktopPreferencesWriteSchema>
-export const DesktopPreferencesSchema = DesktopPreferencesWriteSchema.extend({
-  configPath: z.string().min(1),
-}).strict()
-export type DesktopPreferences = z.infer<typeof DesktopPreferencesSchema>
+export type ClientPreferencesSnapshot = z.infer<typeof ClientPreferencesSnapshotSchema>
+
+export type ClientSettingDefinitions = Readonly<{
+  appearance: ClientSettingDefinition<AppearanceSettingsWrite>
+  localeOverride: ClientSettingDefinition<LanguageLocale | null>
+  projectlessWorkspaceRoot: ClientSettingDefinition<string | null>
+  openInTargetPreference: ClientSettingDefinition<string>
+  macMenuBarEnabled: ClientSettingDefinition<boolean>
+  preventSleepWhileRunning: ClientSettingDefinition<boolean>
+  permissionModeVisibility: ClientSettingDefinition<boolean>
+  composerPlainTextMode: ClientSettingDefinition<boolean>
+  showContextWindowUsage: ClientSettingDefinition<boolean>
+  composerEnterBehavior: ClientSettingDefinition<"enter" | "cmdIfMultiline" | "cmdAlways">
+  followUpQueueMode: ClientSettingDefinition<"queue" | "steer">
+  defaultTerminalLocation: ClientSettingDefinition<"bottom" | "right">
+  showBottomPanelControl: ClientSettingDefinition<boolean>
+  hotkeyWindowHotkey: ClientSettingDefinition<string | null>
+  hotkeyWindowProjectlessDefaultEnabled: ClientSettingDefinition<boolean>
+  notificationsTurnMode: ClientSettingDefinition<"off" | "unfocused" | "always">
+  notificationsPermissionsEnabled: ClientSettingDefinition<boolean>
+  notificationsQuestionsEnabled: ClientSettingDefinition<boolean>
+  notificationSound: ClientSettingDefinition<NotificationSound>
+  sidebarOrganization: ClientSettingDefinition<"by-project" | "one-list">
+  pinnedSidebarSort: ClientSettingDefinition<"priority" | "updated" | "created" | "manual">
+  chatSidebarSort: ClientSettingDefinition<"priority" | "updated" | "created" | "manual">
+  gitReviewSource: ClientSettingDefinition<
+    "unstaged" | "staged" | "uncommitted" | "branch" | "commit" | "last-turn"
+  >
+  unreadThreadIds: ClientSettingDefinition<string[]>
+}>
+
+export const clientSettingDefinitions: ClientSettingDefinitions = {
+  appearance: defineClientSetting({
+    category: "appearance",
+    defaultValue: DEFAULT_APPEARANCE_SETTINGS,
+    key: "appearance",
+    schema: AppearanceSettingsWriteSchema,
+    version: 1,
+  }),
+  localeOverride: defineClientSetting({
+    category: "locale",
+    defaultValue: null as LanguageLocale | null,
+    key: "localeOverride",
+    schema: LanguageLocaleSchema.nullable(),
+    version: 1,
+  }),
+  projectlessWorkspaceRoot: defineClientSetting({
+    category: "general",
+    defaultValue: null as string | null,
+    key: "projectlessWorkspaceRoot",
+    schema: z.string().trim().min(1).nullable(),
+    version: 1,
+  }),
+  openInTargetPreference: defineClientSetting({
+    category: "general",
+    defaultValue: "system",
+    key: "openInTargetPreference",
+    schema: z.string().trim().min(1),
+    version: 1,
+  }),
+  macMenuBarEnabled: defineClientSetting({
+    category: "general",
+    defaultValue: true,
+    key: "macMenuBarEnabled",
+    schema: z.boolean(),
+    version: 1,
+  }),
+  preventSleepWhileRunning: defineClientSetting({
+    category: "general",
+    defaultValue: false,
+    key: "preventSleepWhileRunning",
+    schema: z.boolean(),
+    version: 1,
+  }),
+  permissionModeVisibility: defineClientSetting({
+    category: "composer",
+    defaultValue: false,
+    key: "permissionModeVisibility",
+    schema: z.boolean(),
+    version: 1,
+  }),
+  composerPlainTextMode: defineClientSetting({
+    category: "composer",
+    defaultValue: false,
+    key: "composerPlainTextMode",
+    schema: z.boolean(),
+    version: 1,
+  }),
+  showContextWindowUsage: defineClientSetting({
+    category: "composer",
+    defaultValue: false,
+    key: "showContextWindowUsage",
+    schema: z.boolean(),
+    version: 1,
+  }),
+  composerEnterBehavior: defineClientSetting({
+    category: "composer",
+    defaultValue: "enter" as const,
+    key: "composerEnterBehavior",
+    schema: z.enum(["enter", "cmdIfMultiline", "cmdAlways"]),
+    version: 1,
+  }),
+  followUpQueueMode: defineClientSetting({
+    category: "composer",
+    defaultValue: "steer" as const,
+    key: "followUpQueueMode",
+    schema: z.enum(["queue", "steer"]),
+    version: 1,
+  }),
+  defaultTerminalLocation: defineClientSetting({
+    category: "panel",
+    defaultValue: "bottom" as const,
+    key: "defaultTerminalLocation",
+    schema: z.enum(["bottom", "right"]),
+    version: 1,
+  }),
+  showBottomPanelControl: defineClientSetting({
+    category: "panel",
+    defaultValue: true,
+    key: "showBottomPanelControl",
+    schema: z.boolean(),
+    version: 1,
+  }),
+  hotkeyWindowHotkey: defineClientSetting({
+    category: "popout",
+    defaultValue: null as string | null,
+    key: "hotkeyWindowHotkey",
+    schema: z.string().trim().min(1).nullable(),
+    version: 1,
+  }),
+  hotkeyWindowProjectlessDefaultEnabled: defineClientSetting({
+    category: "popout",
+    defaultValue: false,
+    key: "hotkeyWindowProjectlessDefaultEnabled",
+    schema: z.boolean(),
+    version: 1,
+  }),
+  notificationsTurnMode: defineClientSetting({
+    category: "notifications",
+    defaultValue: "unfocused" as const,
+    key: "notificationsTurnMode",
+    schema: z.enum(["off", "unfocused", "always"]),
+    version: 1,
+  }),
+  notificationsPermissionsEnabled: defineClientSetting({
+    category: "notifications",
+    defaultValue: true,
+    key: "notificationsPermissionsEnabled",
+    schema: z.boolean(),
+    version: 1,
+  }),
+  notificationsQuestionsEnabled: defineClientSetting({
+    category: "notifications",
+    defaultValue: true,
+    key: "notificationsQuestionsEnabled",
+    schema: z.boolean(),
+    version: 1,
+  }),
+  notificationSound: defineClientSetting({
+    category: "notifications",
+    defaultValue: { type: "bundled", sound: "default" } as NotificationSound,
+    key: "notificationSound",
+    schema: NotificationSoundSchema,
+    version: 1,
+  }),
+  sidebarOrganization: defineClientSetting({
+    category: "sidebar",
+    defaultValue: "by-project" as const,
+    key: "sidebarOrganization",
+    schema: z.enum(["by-project", "one-list"]),
+    version: 1,
+  }),
+  pinnedSidebarSort: defineClientSetting({
+    category: "sidebar",
+    defaultValue: "manual" as const,
+    key: "pinnedSidebarSort",
+    schema: z.enum(["priority", "updated", "created", "manual"]),
+    version: 1,
+  }),
+  chatSidebarSort: defineClientSetting({
+    category: "sidebar",
+    defaultValue: "updated" as const,
+    key: "chatSidebarSort",
+    schema: z.enum(["priority", "updated", "created", "manual"]),
+    version: 1,
+  }),
+  gitReviewSource: defineClientSetting({
+    category: "git-ui",
+    defaultValue: "unstaged" as const,
+    key: "gitReviewSource",
+    schema: z.enum(["unstaged", "staged", "uncommitted", "branch", "commit", "last-turn"]),
+    version: 1,
+  }),
+  unreadThreadIds: defineClientSetting({
+    category: "activity",
+    defaultValue: [] as string[],
+    key: "unreadThreadIds",
+    schema: z.array(z.string().min(1)).max(1_000),
+    version: 1,
+  }),
+}
+
+export type ClientSettingName = keyof typeof clientSettingDefinitions
+
+export const AttachmentMetadataSchema = z
+  .object({
+    id: z.string().min(1),
+    storageKey: AttachmentStorageKeySchema,
+    storageType: z.enum(["desktop-file", "native-file", "web-indexeddb"]),
+    mimeType: z.string().min(1),
+    fileName: z.string().nullable(),
+    byteSize: z.number().int().positive(),
+    createdAt: z.number().int().nonnegative(),
+  })
+  .strict()
+
+const draftOwnedAttachmentSchema = <
+  const Kind extends "image" | "audio" | "file" | "pasted-text" | "appshot",
+>(
+  kind: Kind
+) =>
+  z
+    .object({
+      id: z.string().min(1),
+      kind: z.literal(kind),
+      name: z.string().min(1),
+      attachment: AttachmentMetadataSchema,
+      status: z.enum(["ready", "unavailable"]).default("ready"),
+      error: z.string().max(2_048).optional(),
+    })
+    .strict()
+const DraftReferenceStatusSchema = z.enum(["ready", "degraded", "unavailable"])
+export type ComposerDraftAttachment =
+  | {
+      id: string
+      kind: "image" | "audio" | "file" | "pasted-text" | "appshot"
+      name: string
+      attachment: z.infer<typeof AttachmentMetadataSchema>
+      status: "ready" | "unavailable"
+      error?: string
+    }
+  | {
+      id: string
+      kind: "resource-link"
+      name: string
+      uri: string
+      mimeType?: string
+      status: "ready" | "degraded" | "unavailable"
+    }
+  | { id: string; kind: "workspace-file"; name: string; path: string }
+  | {
+      id: string
+      kind: "browser-tab"
+      title: string
+      tabIdentity?: string
+      url?: string
+      status: "ready" | "degraded" | "unavailable"
+    }
+  | {
+      id: string
+      kind: "mcp-resource"
+      name: string
+      uri: string
+      server?: string
+      summary?: string
+      status: "ready" | "degraded" | "unavailable"
+    }
+  | { id: string; kind: "selected-text"; text: string; source?: string }
+  | {
+      id: string
+      kind: "app-context"
+      name: string
+      content: string
+      imageAttachments: Array<z.infer<typeof AttachmentMetadataSchema>>
+    }
+
+export const ComposerDraftAttachmentSchema: z.ZodType<ComposerDraftAttachment> =
+  z.discriminatedUnion("kind", [
+    draftOwnedAttachmentSchema("image"),
+    draftOwnedAttachmentSchema("audio"),
+    draftOwnedAttachmentSchema("file"),
+    draftOwnedAttachmentSchema("pasted-text"),
+    draftOwnedAttachmentSchema("appshot"),
+    z
+      .object({
+        id: z.string().min(1),
+        kind: z.literal("resource-link"),
+        name: z.string().min(1),
+        uri: z.string().min(1),
+        mimeType: z.string().min(1).optional(),
+        status: DraftReferenceStatusSchema.default("ready"),
+      })
+      .strict(),
+    z
+      .object({
+        id: z.string().min(1),
+        kind: z.literal("workspace-file"),
+        name: z.string().min(1),
+        path: z.string().min(1),
+      })
+      .strict(),
+    z
+      .object({
+        id: z.string().min(1),
+        kind: z.literal("browser-tab"),
+        title: z.string().min(1),
+        tabIdentity: z.string().min(1).optional(),
+        url: z.url().optional(),
+        status: DraftReferenceStatusSchema.default("ready"),
+      })
+      .strict(),
+    z
+      .object({
+        id: z.string().min(1),
+        kind: z.literal("mcp-resource"),
+        name: z.string().min(1),
+        uri: z.string().min(1),
+        server: z.string().min(1).optional(),
+        summary: z.string().max(4_096).optional(),
+        status: DraftReferenceStatusSchema.default("ready"),
+      })
+      .strict(),
+    z
+      .object({
+        id: z.string().min(1),
+        kind: z.literal("selected-text"),
+        text: z.string().max(256_000),
+        source: z.string().max(2_048).optional(),
+      })
+      .strict(),
+    z
+      .object({
+        id: z.string().min(1),
+        kind: z.literal("app-context"),
+        name: z.string().min(1),
+        content: z.string().max(256_000),
+        imageAttachments: z.array(AttachmentMetadataSchema).max(16).default([]),
+      })
+      .strict(),
+  ]) as z.ZodType<ComposerDraftAttachment>
+
+export type ComposerDraft = {
+  text: string
+  attachments: ComposerDraftAttachment[]
+  status: "editing" | "submitting" | "failed"
+  updatedAt: number
+}
+
+export const ComposerDraftSchema: z.ZodType<ComposerDraft> = z
+  .object({
+    text: z.string().max(1_000_000),
+    attachments: z.array(ComposerDraftAttachmentSchema).max(100),
+    status: z.enum(["editing", "submitting", "failed"]),
+    updatedAt: z.number().int().nonnegative(),
+  })
+  .strict() as z.ZodType<ComposerDraft>
+
+export type PanelLayoutCheckpoint = {
+  right: {
+    visible: boolean
+    size: number
+    activeTab: string | null
+    openTabs: string[]
+    fullscreen: boolean
+  }
+  bottom: {
+    visible: boolean
+    size: number
+    activeTab: string | null
+    openTabs: string[]
+  }
+  focusedPanel: "right" | "bottom" | null
+}
+
+export const PanelLayoutCheckpointSchema: z.ZodType<PanelLayoutCheckpoint> = z
+  .object({
+    right: z
+      .object({
+        visible: z.boolean(),
+        size: z.number().min(180).max(2_000),
+        activeTab: z.string().min(1).nullable(),
+        openTabs: z.array(z.string().min(1)).max(100),
+        fullscreen: z.boolean(),
+      })
+      .strict(),
+    bottom: z
+      .object({
+        visible: z.boolean(),
+        size: z.number().min(100).max(1_500),
+        activeTab: z.string().min(1).nullable(),
+        openTabs: z.array(z.string().min(1)).max(100),
+      })
+      .strict(),
+    focusedPanel: z.enum(["right", "bottom"]).nullable(),
+  })
+  .strict() as z.ZodType<PanelLayoutCheckpoint>
+
+export const panelLayoutKey = (threadId: string): string => `panelLayout:${threadId}`
+export const composerDraftKey = (scopeId: string): string => `composerDraft:${scopeId}`
 
 export const OpenTargetSchema = z
   .object({ id: z.string().min(1), label: z.string().min(1) })
@@ -557,22 +989,6 @@ export const dappProviderRequestContract = {
   z.output<typeof walletProviderResponseSchema>
 >
 
-export const settingsAppearanceReadContract = {
-  channel: CYPHERIA_IPC_CHANNELS.settingsAppearanceRead,
-  namespace: "settings",
-  request: EmptyPayloadSchema,
-  response: AppearanceSettingsSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, AppearanceSettings>
-
-export const settingsAppearanceWriteContract = {
-  channel: CYPHERIA_IPC_CHANNELS.settingsAppearanceWrite,
-  namespace: "settings",
-  request: AppearanceSettingsWriteSchema,
-  response: AppearanceSettingsSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<AppearanceSettingsWrite, AppearanceSettings>
-
 export const settingsAppearanceFontsListContract = {
   channel: CYPHERIA_IPC_CHANNELS.settingsAppearanceFontsList,
   namespace: "settings",
@@ -580,46 +996,6 @@ export const settingsAppearanceFontsListContract = {
   response: z.array(AppearanceFontOptionSchema),
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<EmptyPayload, AppearanceFontOption[]>
-
-export const settingsLanguageReadContract = {
-  channel: CYPHERIA_IPC_CHANNELS.settingsLanguageRead,
-  namespace: "settings",
-  request: EmptyPayloadSchema,
-  response: LanguageSettingsSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, LanguageSettings>
-
-export const settingsLanguageWriteContract = {
-  channel: CYPHERIA_IPC_CHANNELS.settingsLanguageWrite,
-  namespace: "settings",
-  request: LanguageSettingsWriteSchema,
-  response: LanguageSettingsSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<LanguageSettingsWrite, LanguageSettings>
-
-export const settingsWorkspaceLayoutReadContract = {
-  channel: CYPHERIA_IPC_CHANNELS.settingsWorkspaceLayoutRead,
-  namespace: "settings",
-  request: EmptyPayloadSchema,
-  response: WorkspaceLayoutSettingsSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, WorkspaceLayoutSettings>
-
-export const settingsWorkspaceLayoutWriteContract = {
-  channel: CYPHERIA_IPC_CHANNELS.settingsWorkspaceLayoutWrite,
-  namespace: "settings",
-  request: WorkspaceLayoutSettingsWriteSchema,
-  response: WorkspaceLayoutSettingsSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<WorkspaceLayoutSettingsWrite, WorkspaceLayoutSettings>
-
-export const settingsPreferencesReadContract = {
-  channel: CYPHERIA_IPC_CHANNELS.settingsPreferencesRead,
-  namespace: "settings",
-  request: EmptyPayloadSchema,
-  response: DesktopPreferencesSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, DesktopPreferences>
 
 export const settingsOpenTargetsListContract = {
   channel: CYPHERIA_IPC_CHANNELS.settingsOpenTargetsList,
@@ -644,38 +1020,6 @@ export const settingsNotificationSoundPreviewContract = {
   response: z.object({ played: z.boolean() }).strict(),
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<EmptyPayload, { played: boolean }>
-
-export const settingsPreferencesWriteContract = {
-  channel: CYPHERIA_IPC_CHANNELS.settingsPreferencesWrite,
-  namespace: "settings",
-  request: DesktopPreferencesWriteSchema,
-  response: DesktopPreferencesSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<DesktopPreferencesWrite, DesktopPreferences>
-
-export const settingsConnectionProxyReadContract = {
-  channel: CYPHERIA_IPC_CHANNELS.settingsConnectionProxyRead,
-  namespace: "settings",
-  request: EmptyPayloadSchema,
-  response: ConnectionProxySettingsSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<EmptyPayload, ConnectionProxySettings>
-
-export const settingsConnectionProxyWriteContract = {
-  channel: CYPHERIA_IPC_CHANNELS.settingsConnectionProxyWrite,
-  namespace: "settings",
-  request: ConnectionProxySettingsSchema,
-  response: ConnectionProxySettingsSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<ConnectionProxySettings, ConnectionProxySettings>
-
-export const settingsConnectionProxyTestContract = {
-  channel: CYPHERIA_IPC_CHANNELS.settingsConnectionProxyTest,
-  namespace: "settings",
-  request: ConnectionProxySettingsSchema,
-  response: ConnectionProxyTestResultSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<ConnectionProxySettings, ConnectionProxyTestResult>
 
 export const storageAttachmentWriteContract = {
   channel: CYPHERIA_IPC_CHANNELS.storageAttachmentWrite,
@@ -704,6 +1048,14 @@ export const storageAttachmentReadContract = {
   response: z.object({ bytes: AttachmentBytesSchema }).strict(),
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<{ storageKey: string }, { bytes: Uint8Array }>
+
+export const storageAttachmentStatContract = {
+  channel: CYPHERIA_IPC_CHANNELS.storageAttachmentStat,
+  namespace: "storage",
+  request: z.object({ storageKey: AttachmentStorageKeySchema }).strict(),
+  response: z.object({ byteSize: z.number().int().nonnegative(), exists: z.boolean() }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ storageKey: string }, { byteSize: number; exists: boolean }>
 
 export const storageAttachmentDeleteContract = {
   channel: CYPHERIA_IPC_CHANNELS.storageAttachmentDelete,
@@ -943,25 +1295,15 @@ export const ipcContracts = {
   browserSessionOpen: browserSessionOpenContract,
   dappProviderRequest: dappProviderRequestContract,
   settingsAppearanceFontsList: settingsAppearanceFontsListContract,
-  settingsAppearanceRead: settingsAppearanceReadContract,
-  settingsAppearanceWrite: settingsAppearanceWriteContract,
-  settingsLanguageRead: settingsLanguageReadContract,
-  settingsLanguageWrite: settingsLanguageWriteContract,
-  settingsWorkspaceLayoutRead: settingsWorkspaceLayoutReadContract,
-  settingsWorkspaceLayoutWrite: settingsWorkspaceLayoutWriteContract,
-  settingsPreferencesRead: settingsPreferencesReadContract,
   settingsOpenTargetsList: settingsOpenTargetsListContract,
   settingsNotificationSoundsList: settingsNotificationSoundsListContract,
   settingsNotificationSoundPreview: settingsNotificationSoundPreviewContract,
-  settingsPreferencesWrite: settingsPreferencesWriteContract,
-  settingsConnectionProxyRead: settingsConnectionProxyReadContract,
-  settingsConnectionProxyTest: settingsConnectionProxyTestContract,
-  settingsConnectionProxyWrite: settingsConnectionProxyWriteContract,
   storageAttachmentDelete: storageAttachmentDeleteContract,
   storageAttachmentCopyFile: storageAttachmentCopyFileContract,
   storageAttachmentList: storageAttachmentListContract,
   storageAttachmentListPage: storageAttachmentListPageContract,
   storageAttachmentRead: storageAttachmentReadContract,
+  storageAttachmentStat: storageAttachmentStatContract,
   storageAttachmentWrite: storageAttachmentWriteContract,
   storageKeyValueGet: storageKeyValueGetContract,
   storageKeyValueListPage: storageKeyValueListPageContract,
@@ -982,6 +1324,7 @@ export type CypheriaPreloadApi = {
     readonly appearance: AppearanceSettingsWrite
     readonly development: boolean
     readonly language: LanguageBootstrap
+    readonly windowRole: "main" | "popout"
   }
   readonly app: {
     readonly platform: NodeJS.Platform
@@ -1004,6 +1347,7 @@ export type CypheriaPreloadApi = {
   }
   readonly storage: {
     readonly attachments: {
+      readonly getPathForFile: (file: File) => string
       readonly delete: (storageKey: string) => Promise<{ deleted: true }>
       readonly copyFileUri: (storageKey: string, uri: string) => Promise<{ byteSize: number }>
       readonly list: () => Promise<{ storageKeys: string[] }>
@@ -1012,6 +1356,7 @@ export type CypheriaPreloadApi = {
         nextCursor: string | null
       }>
       readonly read: (storageKey: string) => Promise<{ bytes: Uint8Array }>
+      readonly stat: (storageKey: string) => Promise<{ byteSize: number; exists: boolean }>
       readonly write: (storageKey: string, bytes: Uint8Array) => Promise<{ byteSize: number }>
     }
     readonly keyValue: {
@@ -1046,28 +1391,9 @@ export type CypheriaPreloadApi = {
     }
   }
   readonly settings: {
-    readonly getAppearance: () => Promise<AppearanceSettings>
-    readonly getConnectionProxy: () => Promise<ConnectionProxySettings>
-    readonly getLanguage: () => Promise<LanguageSettings>
-    readonly getWorkspaceLayout: () => Promise<WorkspaceLayoutSettings>
-    readonly getPreferences: () => Promise<DesktopPreferences>
     readonly listOpenTargets: () => Promise<OpenTarget[]>
     readonly listNotificationSounds: () => Promise<string[]>
     readonly previewNotificationSound: () => Promise<{ played: boolean }>
     readonly listAppearanceFonts: () => Promise<AppearanceFontOption[]>
-    readonly onLanguageChanged: (handler: (settings: LanguageSettings) => void) => () => void
-    readonly onPreferencesChanged: (handler: (settings: DesktopPreferences) => void) => () => void
-    readonly setAppearance: (settings: AppearanceSettingsWrite) => Promise<AppearanceSettings>
-    readonly setConnectionProxy: (
-      settings: ConnectionProxySettings
-    ) => Promise<ConnectionProxySettings>
-    readonly setLanguage: (settings: LanguageSettingsWrite) => Promise<LanguageSettings>
-    readonly setWorkspaceLayout: (
-      settings: WorkspaceLayoutSettingsWrite
-    ) => Promise<WorkspaceLayoutSettings>
-    readonly setPreferences: (settings: DesktopPreferencesWrite) => Promise<DesktopPreferences>
-    readonly testConnectionProxy: (
-      settings: ConnectionProxySettings
-    ) => Promise<ConnectionProxyTestResult>
   }
 }

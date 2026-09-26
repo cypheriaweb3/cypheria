@@ -28,9 +28,11 @@ Desktop and Expo compose the ports at their application boundary. Electron main 
 
 ## Key-value state
 
-Raw key/value storage only persists strings. `@cypheria/storage/jotai` adds `atomWithValidatedStorage` and `createValidatedJotaiStorage`: values are wrapped with an explicit version, validated with Zod on reads and writes, optionally migrated, and removed if corrupt. Application state uses Jotai; the storage package does not introduce Zustand. Desktop key/value changes are broadcast by Electron main so every renderer window observes the same SQLite-backed value.
+Raw key/value storage only persists strings. `@cypheria/storage/jotai` adds `atomWithValidatedStorage` and `createValidatedJotaiStorage`: values are wrapped with an explicit version, validated with a runtime schema on reads and writes, and removed if corrupt or from a different version. Application state uses Jotai; the storage package does not introduce Zustand. Desktop key/value changes are broadcast by Electron main so every renderer window in the same installation observes the same SQLite-backed value. This notification is not cross-client synchronization.
 
-Keys must be stable, namespaced, and owned by one domain. Larger collections and queryable records belong in the replica rather than a single JSON value.
+Keys must be stable, semantic camel-case names owned by one domain. Client settings do not add `cypheria`, `client`, or `desktop` prefixes. Static settings use one key per value; dynamic records use `composerDraft:<scopeId>` and `panelLayout:<threadId>`. Every definition starts at envelope version 1. Larger rebuildable collections and queryable records belong in the replica rather than a single JSON value.
+
+Desktop settings are registered with their category, key, schema, default, and version. Renderer components use validated atoms from one explicit vanilla Jotai store. Electron main uses the same codec and definitions for startup appearance and locale, plus settings with operating-system side effects. There is no separate Desktop settings JSON file or broad settings IPC.
 
 The inspection API uses keyset pagination and searches key names. It reads values only for the current page and returns at most a 240-character preview plus the original character count.
 
@@ -49,6 +51,8 @@ Attachment metadata and bytes have separate lifecycles. A domain persists metada
 `SaveAttachmentInput` accepts a discriminated `source`: `bytes`, `blob`, base64 `data_url`, or `file_uri`. MIME type is optional and is inferred from Blob or data URL sources when possible; file names are inferred from file URIs when omitted. Expo native resolves file URIs through its file-system API. On Desktop, `file_uri` sources take a direct-copy fast path: IPC carries only the URI and storage key, and Electron main copies the source into managed storage without materializing its bytes in the renderer. Other source kinds retain the bounded byte-transfer fallback.
 
 The Web adapter keeps attachment bytes in a dedicated IndexedDB database. Native Expo stores them in its document directory. Desktop sends bounded `Uint8Array` values over the isolated preload bridge only for in-memory sources; file URI sources are copied by Electron main. Main validates storage requests, owns `kv.sqlite`, `replica.sqlite`, and the attachment directory, enforces a 32 MiB attachment limit, and writes only inside its owned paths. Renderer code never receives Node.js access.
+
+Composer drafts store text, ordered attachment metadata, status, and update time in KV; they never embed base64. Owned image, audio, file, pasted-text, and appshot bytes live in `AttachmentStore`. Browser tabs and MCP resources keep recoverable references and visible degraded or unavailable state, while selected text and bounded app context remain self-contained. Recovery uses `AttachmentStore.stat()` so it does not read a large file merely to validate it. Missing bytes block submission until the attachment is removed or reattached. Draft cleanup is bounded and drives attachment garbage collection.
 
 Attachment inspection returns paginated keys, sizes, and at most the first 32 bytes. File adapters read only that prefix; the Web adapter keeps the prefix in its metadata object store so listing never materializes complete blobs.
 

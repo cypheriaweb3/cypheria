@@ -33,9 +33,15 @@ export interface AttachmentStore {
   readonly storageType: AttachmentStorageType
   save(input: SaveAttachmentInput): Promise<AttachmentMetadata>
   read(attachment: AttachmentMetadata): Promise<Uint8Array>
+  stat(attachment: AttachmentMetadata): Promise<AttachmentStat>
   delete(attachment: AttachmentMetadata): Promise<void>
   garbageCollect(referencedStorageKeys: ReadonlySet<string>): Promise<void>
   listPage(request?: StoragePageRequest): Promise<StoragePage<AttachmentInspectionEntry>>
+}
+
+export interface AttachmentStat {
+  readonly byteSize: number
+  readonly exists: boolean
 }
 
 export interface AttachmentInspectionEntry {

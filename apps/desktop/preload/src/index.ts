@@ -1,18 +1,12 @@
 import type { IpcRendererEvent } from "electron"
-import { contextBridge, ipcRenderer } from "electron"
+import { contextBridge, ipcRenderer, webUtils } from "electron"
 import type {
   AppearanceFontOption,
-  AppearanceSettings,
   AppHealthStatus,
   AppMetadata,
   BrowserSessionOpenResult,
-  ConnectionProxySettings,
-  ConnectionProxyTestResult,
   CypheriaPreloadApi,
-  DesktopPreferences,
-  LanguageSettings,
   OpenTarget,
-  WorkspaceLayoutSettings,
 } from "../../ipc/src/index.js"
 import {
   AppearanceSettingsWriteSchema,
@@ -20,9 +14,8 @@ import {
   CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX,
   CYPHERIA_IPC_CHANNELS,
   CYPHERIA_LANGUAGE_ARGUMENT_PREFIX,
-  DesktopPreferencesSchema,
+  CYPHERIA_WINDOW_ROLE_ARGUMENT_PREFIX,
   LanguageBootstrapSchema,
-  LanguageSettingsSchema,
   StorageKeyValueChangeSchema,
 } from "../../ipc/src/index.js"
 
@@ -51,6 +44,11 @@ const readBootstrapLanguage = () => {
 const readBootstrapDevelopment = () =>
   process.argv.some((value) => value === `${CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX}1`)
 
+const readWindowRole = (): "main" | "popout" =>
+  process.argv.some((value) => value === `${CYPHERIA_WINDOW_ROLE_ARGUMENT_PREFIX}popout`)
+    ? "popout"
+    : "main"
+
 const invoke = <T>(channel: string): Promise<T> => ipcRenderer.invoke(channel) as Promise<T>
 
 const cypheriaApi: CypheriaPreloadApi = {
@@ -58,6 +56,7 @@ const cypheriaApi: CypheriaPreloadApi = {
     appearance: readBootstrapAppearance(),
     development: readBootstrapDevelopment(),
     language: readBootstrapLanguage(),
+    windowRole: readWindowRole(),
   },
   app: {
     platform: process.platform,
@@ -81,6 +80,7 @@ const cypheriaApi: CypheriaPreloadApi = {
   },
   storage: {
     attachments: {
+      getPathForFile: (file) => webUtils.getPathForFile(file),
       copyFileUri: (storageKey, uri) =>
         ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageAttachmentCopyFile, {
           storageKey,
@@ -93,6 +93,8 @@ const cypheriaApi: CypheriaPreloadApi = {
         ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageAttachmentListPage, request),
       read: (storageKey) =>
         ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageAttachmentRead, { storageKey }),
+      stat: (storageKey) =>
+        ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageAttachmentStat, { storageKey }),
       write: (storageKey, bytes) =>
         ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageAttachmentWrite, {
           storageKey,
@@ -137,13 +139,6 @@ const cypheriaApi: CypheriaPreloadApi = {
     },
   },
   settings: {
-    getAppearance: () => invoke<AppearanceSettings>(CYPHERIA_IPC_CHANNELS.settingsAppearanceRead),
-    getConnectionProxy: () =>
-      invoke<ConnectionProxySettings>(CYPHERIA_IPC_CHANNELS.settingsConnectionProxyRead),
-    getLanguage: () => invoke<LanguageSettings>(CYPHERIA_IPC_CHANNELS.settingsLanguageRead),
-    getWorkspaceLayout: () =>
-      invoke<WorkspaceLayoutSettings>(CYPHERIA_IPC_CHANNELS.settingsWorkspaceLayoutRead),
-    getPreferences: () => invoke<DesktopPreferences>(CYPHERIA_IPC_CHANNELS.settingsPreferencesRead),
     listOpenTargets: () => invoke<OpenTarget[]>(CYPHERIA_IPC_CHANNELS.settingsOpenTargetsList),
     listNotificationSounds: () =>
       invoke<string[]>(CYPHERIA_IPC_CHANNELS.settingsNotificationSoundsList),
@@ -151,50 +146,6 @@ const cypheriaApi: CypheriaPreloadApi = {
       invoke<{ played: boolean }>(CYPHERIA_IPC_CHANNELS.settingsNotificationSoundPreview),
     listAppearanceFonts: () =>
       invoke<AppearanceFontOption[]>(CYPHERIA_IPC_CHANNELS.settingsAppearanceFontsList),
-    onLanguageChanged: (handler) => {
-      const listener = (_event: IpcRendererEvent, settings: LanguageSettings): void => {
-        handler(LanguageSettingsSchema.parse(settings))
-      }
-      ipcRenderer.on(CYPHERIA_IPC_CHANNELS.settingsLanguageChanged, listener)
-      return () => ipcRenderer.off(CYPHERIA_IPC_CHANNELS.settingsLanguageChanged, listener)
-    },
-    onPreferencesChanged: (handler) => {
-      const listener = (_event: IpcRendererEvent, settings: DesktopPreferences): void => {
-        handler(DesktopPreferencesSchema.parse(settings))
-      }
-      ipcRenderer.on(CYPHERIA_IPC_CHANNELS.settingsPreferencesChanged, listener)
-      return () => ipcRenderer.off(CYPHERIA_IPC_CHANNELS.settingsPreferencesChanged, listener)
-    },
-    setAppearance: (settings) =>
-      ipcRenderer.invoke(
-        CYPHERIA_IPC_CHANNELS.settingsAppearanceWrite,
-        settings
-      ) as Promise<AppearanceSettings>,
-    setConnectionProxy: (settings) =>
-      ipcRenderer.invoke(
-        CYPHERIA_IPC_CHANNELS.settingsConnectionProxyWrite,
-        settings
-      ) as Promise<ConnectionProxySettings>,
-    setLanguage: (settings) =>
-      ipcRenderer.invoke(
-        CYPHERIA_IPC_CHANNELS.settingsLanguageWrite,
-        settings
-      ) as Promise<LanguageSettings>,
-    setWorkspaceLayout: (settings) =>
-      ipcRenderer.invoke(
-        CYPHERIA_IPC_CHANNELS.settingsWorkspaceLayoutWrite,
-        settings
-      ) as Promise<WorkspaceLayoutSettings>,
-    setPreferences: (settings) =>
-      ipcRenderer.invoke(
-        CYPHERIA_IPC_CHANNELS.settingsPreferencesWrite,
-        settings
-      ) as Promise<DesktopPreferences>,
-    testConnectionProxy: (settings) =>
-      ipcRenderer.invoke(
-        CYPHERIA_IPC_CHANNELS.settingsConnectionProxyTest,
-        settings
-      ) as Promise<ConnectionProxyTestResult>,
   },
 }
 

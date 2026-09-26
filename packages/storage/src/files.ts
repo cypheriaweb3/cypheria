@@ -19,6 +19,7 @@ export interface AttachmentFileDriver {
   write(storageKey: string, bytes: Uint8Array): Promise<void>
   copyFileUri?(storageKey: string, uri: string): Promise<number>
   read(storageKey: string): Promise<Uint8Array>
+  stat(storageKey: string): Promise<{ byteSize: number; exists: boolean }>
   delete(storageKey: string): Promise<void>
   list(): Promise<readonly string[]>
   listPage(request?: StoragePageRequest): Promise<StoragePage<AttachmentFileInspectionEntry>>
@@ -61,6 +62,10 @@ export function createFileAttachmentStore(
     async read(attachment) {
       assertAttachmentStorageType(attachment, storageType)
       return driver.read(assertAttachmentId(attachment.storageKey))
+    },
+    async stat(attachment) {
+      assertAttachmentStorageType(attachment, storageType)
+      return driver.stat(assertAttachmentId(attachment.storageKey))
     },
     async delete(attachment) {
       assertAttachmentStorageType(attachment, storageType)

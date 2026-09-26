@@ -3,12 +3,12 @@ import { afterEach, describe, expect, it } from "vitest"
 import { activateLanguage, i18n } from "./i18n.js"
 
 afterEach(() => {
-  activateLanguage({ locale: "en", preference: "en" })
+  activateLanguage({ locale: "en", localeOverride: "en" })
 })
 
 describe("desktop renderer internationalization", () => {
   it("activates the Simplified Chinese catalog without reloading", () => {
-    activateLanguage({ locale: "zh-CN", preference: "zh-CN" })
+    activateLanguage({ locale: "zh-CN", localeOverride: "zh-CN" })
 
     expect(i18n.locale).toBe("zh-CN")
     expect(i18n._("navigation.newChat")).toBe("新建对话")

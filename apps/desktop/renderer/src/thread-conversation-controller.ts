@@ -31,7 +31,7 @@ export type ThreadConversationControllerOptions = {
   readonly initialThreadId?: string
   readonly projectId?: string
   readonly sectionId?: string
-  readonly onThreadCreated?: (threadId: string) => void
+  readonly onThreadCreated?: (threadId: string) => Promise<void> | void
 }
 
 const initialSnapshot = (threadId?: string): ThreadConversationSnapshot => ({
@@ -322,7 +322,7 @@ export class ThreadConversationController {
       thread: ready.thread,
       threadId: ready.thread.id,
     })
-    this.#options.onThreadCreated?.(ready.thread.id)
+    await this.#options.onThreadCreated?.(ready.thread.id)
     return ready.thread
   }
 

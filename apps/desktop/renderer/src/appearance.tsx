@@ -6,13 +6,10 @@ import {
   defaultCodexAppearanceThemeSettings,
   mapCodexAppearanceToCypheriaThemeState,
 } from "@cypheria/ui"
-import { atom, useAtom } from "jotai"
-import { useCallback, useEffect, useLayoutEffect } from "react"
-import type {
-  AppearanceSettings,
-  AppearanceSettingsWrite,
-  AppearanceThemeMode,
-} from "../../ipc/src/index.js"
+import { useAtom } from "jotai"
+import { useCallback, useLayoutEffect } from "react"
+import type { AppearanceSettingsWrite, AppearanceThemeMode } from "../../ipc/src/index.js"
+import { appearanceAtom } from "./client-state.js"
 
 export const defaultAppearanceSettings: AppearanceSettingsWrite = {
   theme: "system",
@@ -37,13 +34,6 @@ export type AppearancePreferences = Pick<
   | "usePointerCursors"
 >
 
-const initialAppearance =
-  typeof window === "undefined"
-    ? defaultAppearanceSettings
-    : (window.cypheria?.bootstrap.appearance ?? defaultAppearanceSettings)
-
-const appearanceAtom = atom<AppearanceSettingsWrite>(initialAppearance)
-
 export const resolveThemeMode = (mode: AppearanceThemeMode): CypheriaThemeMode => {
   if (mode !== "system") {
     return mode
@@ -54,11 +44,6 @@ export const resolveThemeMode = (mode: AppearanceThemeMode): CypheriaThemeMode =
   }
 
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"
-}
-
-const toAppearanceState = (settings: AppearanceSettings): AppearanceSettingsWrite => {
-  const { configPath: _, ...appearance } = settings
-  return appearance
 }
 
 export function applyAppearanceToElement(
@@ -80,23 +65,16 @@ export function useAppearance() {
   const [appearance, setAppearance] = useAtom(appearanceAtom)
 
   const syncAppearance = useCallback(
-    (settings: AppearanceSettings | AppearanceSettingsWrite) => {
-      setAppearance("configPath" in settings ? toAppearanceState(settings) : settings)
+    (settings: AppearanceSettingsWrite) => {
+      void setAppearance(settings)
     },
     [setAppearance]
   )
 
   const updateAppearance = useCallback(
     async (nextAppearance: AppearanceSettingsWrite) => {
-      const cypheria = window.cypheria
-      if (!cypheria) {
-        setAppearance(nextAppearance)
-        return undefined
-      }
-
-      const savedSettings = await cypheria.settings.setAppearance(nextAppearance)
-      setAppearance(toAppearanceState(savedSettings))
-      return savedSettings
+      await setAppearance(nextAppearance)
+      return nextAppearance
     },
     [setAppearance]
   )
@@ -147,7 +125,7 @@ export function usePreferences() {
 }
 
 export function useAppearanceController() {
-  const { appearance, syncAppearance } = useAppearance()
+  const { appearance } = useAppearance()
 
   useLayoutEffect(() => {
     const applyTheme = (mode: CypheriaThemeMode) => {
@@ -171,18 +149,4 @@ export function useAppearanceController() {
     mediaQuery.addEventListener("change", handleSystemThemeChange)
     return () => mediaQuery.removeEventListener("change", handleSystemThemeChange)
   }, [appearance])
-
-  useEffect(() => {
-    let cancelled = false
-
-    void window.cypheria?.settings.getAppearance().then((settings) => {
-      if (!cancelled) {
-        syncAppearance(settings)
-      }
-    })
-
-    return () => {
-      cancelled = true
-    }
-  }, [syncAppearance])
 }

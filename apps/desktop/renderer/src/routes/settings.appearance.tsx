@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@cypheria/ui/components/select"
 import { Trans } from "@lingui/react/macro"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { Check, CheckCircle2, ChevronDown, Monitor, Moon, Sun, X } from "lucide-react"
 import {
@@ -65,21 +65,6 @@ const appearanceModes = [
   { icon: Moon, label: "Dark", value: "dark" },
 ] as const
 
-const fallbackAppearanceSettings = {
-  theme: "system",
-  lightThemeId: "codex",
-  darkThemeId: "codex",
-  lightTheme: defaultCodexAppearanceThemeSettings.light,
-  darkTheme: defaultCodexAppearanceThemeSettings.dark,
-  uiFontSize: 14,
-  codeFontSize: 13,
-  configPath: "Browser preview",
-  diffMarkerStyle: "color",
-  reducedMotionPreference: "system",
-  useFontSmoothing: true,
-  usePointerCursors: false,
-} as const
-
 const uiFontFaceClass =
   "[font-stretch:var(--font-sans-stretch)] [font-style:var(--font-sans-style)]"
 const uiFontMediumClass = cn(uiFontFaceClass, "[font-weight:max(500,var(--font-sans-weight))]")
@@ -92,8 +77,7 @@ declare global {
 }
 
 function AppearanceRoute() {
-  const queryClient = useQueryClient()
-  const { syncAppearance } = useAppearance()
+  const { appearance: savedAppearance, syncAppearance, updateAppearance } = useAppearance()
   const [appearanceMode, setAppearanceMode] = useState<AppearanceMode>("system")
   const [codeFontSize, setCodeFontSize] = useState(13)
   const [diffMarkerStyle, setDiffMarkerStyle] = useState<DiffMarkerStyle>("color")
@@ -110,11 +94,7 @@ function AppearanceRoute() {
   const [useFontSmoothing, setUseFontSmoothing] = useState(true)
   const [usePointerCursors, setUsePointerCursors] = useState(false)
 
-  const appearanceQuery = useQuery({
-    queryFn: () => window.cypheria?.settings.getAppearance() ?? fallbackAppearanceSettings,
-    queryKey: ["settings", "appearance"],
-    staleTime: Number.POSITIVE_INFINITY,
-  })
+  const appearanceQuery = { data: savedAppearance }
 
   useEffect(() => {
     if (!appearanceQuery.data) {
@@ -147,14 +127,8 @@ function AppearanceRoute() {
       reducedMotionPreference: ReducedMotionPreference
       useFontSmoothing: boolean
       usePointerCursors: boolean
-    }) =>
-      window.cypheria?.settings.setAppearance(settings) ??
-      Promise.resolve({
-        ...settings,
-        configPath: fallbackAppearanceSettings.configPath,
-      }),
+    }) => updateAppearance(settings),
     onSuccess: (settings) => {
-      queryClient.setQueryData(["settings", "appearance"], settings)
       setAppearanceMode(settings.theme)
       setCodeFontSize(settings.codeFontSize)
       setDiffMarkerStyle(settings.diffMarkerStyle)

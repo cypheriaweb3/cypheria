@@ -27,7 +27,7 @@ Server 是共享产品状态的唯一权威。客户端可以管理本地 Server
 
 - Agent 注册、安装、启用、进程生命周期、健康状态和原生协议适配器。
 - Projects、Threads、Sections、Turns、Interactions 和 Canonical Timeline。
-- 共享 Agent 设置与集成状态。
+- 共享 Git 设置、逐 Agent 的 Cypheria 扩展、独立具名代理列表、Agent 原生设置访问与集成状态。
 - Schedules、Web3 服务、特权 Terminal、本地 Git 执行、Artifacts 和审计记录。
 - 数据库访问、迁移、配置加载、日志和版本化客户端连接。
 - 托管当前 Expo web 静态导出。
@@ -36,7 +36,7 @@ Agent 原生事件在此边界归一化。原生载荷可以为诊断保留，�
 
 ### Desktop
 
-`apps/desktop` 是使用 TanStack Start renderer 的 Electron 应用。Electron main 确保兼容的本地 Server 可用，并负责窗口、隔离的 dApp `WebContents`、preload IPC、桌面本地设置、更新、安全存储和操作系统集成。Renderer 通过 `@cypheria/client` 使用共享产品能力。
+`apps/desktop` 是使用 TanStack Start renderer 的 Electron 应用。Electron main 确保兼容的本地 Server 可用，并负责窗口、隔离的 dApp `WebContents`、preload IPC、客户端 KV／Replica／附件后端、更新、安全存储和操作系统集成。Renderer 使用 Jotai + 客户端 KV 管理设备本地状态，并通过 `@cypheria/client` + TanStack Query 使用 Server 共享状态。设备本地状态有意不在客户端之间同步。
 
 ### Expo 与 CLI
 
@@ -71,10 +71,11 @@ Agent 原生事件在此边界归一化。原生载荷可以为诊断保留，�
 
 ### Desktop 启动
 
-1. Electron main 发现兼容 Server，或启动受监管的本地实例。
-2. 暴露连接配置前等待健康检查和协议兼容性通过。
-3. Renderer 通过 `@cypheria/client` 连接。
-4. 关闭时只回收由当前 Desktop 拥有且可安全停止的 Server。
+1. Electron main 打开 Desktop 客户端存储，并在创建窗口前读取经过校验的 appearance 与 locale。
+2. Electron main 发现兼容 Server，或启动受监管的本地实例。
+3. 暴露连接配置前等待健康检查和协议兼容性通过。
+4. Renderer 通过 `@cypheria/client` 连接；共享 Server 配置通知刷新 TanStack Query，本地 KV 通知则只留在同一 Desktop 安装内。
+5. 关闭时只回收由当前 Desktop 拥有且可安全停止的 Server。
 
 ### 签名
 

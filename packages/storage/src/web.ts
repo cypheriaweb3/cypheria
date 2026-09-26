@@ -518,6 +518,15 @@ export function createIndexedDbAttachmentStore(
       if (!record) throw new Error(`Attachment '${attachment.id}' was not found.`)
       return new Uint8Array(record.bytes)
     },
+    async stat(attachment) {
+      assertAttachmentStorageType(attachment, "web-indexeddb")
+      const record = await attachmentRequest<StoredAttachmentMetadata | undefined>(
+        attachmentMetadataStore,
+        "readonly",
+        (store) => store.get(attachment.storageKey)
+      )
+      return record ? { byteSize: record.byteSize, exists: true } : { byteSize: 0, exists: false }
+    },
     async delete(attachment) {
       assertAttachmentStorageType(attachment, "web-indexeddb")
       const opened = await database()

@@ -123,4 +123,5 @@ Harness-native Skills、MCP、plugins、marketplaces 和 Apps 通过 Cypheria [I
 - Server executable 和 auto-start preference。
 - `composer.permissionModeVisibility`，它只控制 composer 权限菜单是否显示 Full access。
 
-Desktop 将这些值保存在 Electron 的 `config.json`。
+Desktop 将需要持久化的客户端本地值保存在 KV store 中。草稿的二进制附件使用
+AttachmentStore，临时窗口和进程状态则只保留在内存中。

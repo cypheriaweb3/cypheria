@@ -102,6 +102,23 @@ export const readDesktopAttachment = async (
   return { bytes: new Uint8Array(await readFile(path)) }
 }
 
+export const statDesktopAttachment = async (
+  userDataDir: string,
+  storageKey: string
+): Promise<{ byteSize: number; exists: boolean }> => {
+  try {
+    const metadata = await lstat(attachmentPath(userDataDir, storageKey))
+    return metadata.isFile()
+      ? { byteSize: metadata.size, exists: metadata.size > 0 }
+      : { byteSize: 0, exists: false }
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return { byteSize: 0, exists: false }
+    }
+    throw error
+  }
+}
+
 export const deleteDesktopAttachment = async (
   userDataDir: string,
   storageKey: string

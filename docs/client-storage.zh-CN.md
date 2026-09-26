@@ -28,9 +28,11 @@ Desktop 和 Expo 在各自应用边界组合这些端口。Electron main 是两�
 
 ## 键值状态
 
-原始键值存储只持久化字符串。`@cypheria/storage/jotai` 提供 `atomWithValidatedStorage` 和 `createValidatedJotaiStorage`：值带有显式版本，读写时使用 Zod 校验，可按需迁移，损坏时会被移除。应用状态使用 Jotai；存储包不引入 Zustand。Desktop 键值变更由 Electron main 广播，因此每个 renderer 窗口都能观察同一份 SQLite 状态。
+原始键值存储只持久化字符串。`@cypheria/storage/jotai` 提供 `atomWithValidatedStorage` 和 `createValidatedJotaiStorage`：值带有显式版本，读写时使用 runtime Schema 校验，损坏或版本不同时会被移除。应用状态使用 Jotai；存储包不引入 Zustand。Desktop 键值变更由 Electron main 广播，因此同一安装中的每个 renderer 窗口都能观察同一份 SQLite 状态；该通知不承担跨客户端同步。
 
-键名必须稳定、带命名空间，并由单一领域所有。较大的集合和需要查询的记录应放进 Replica，而不是单个 JSON 值。
+键名必须稳定、使用语义化 camelCase，并由单一领域所有。客户端设置不增加 `cypheria`、`client` 或 `desktop` 前缀。静态设置每项一个 key；动态记录使用 `composerDraft:<scopeId>` 和 `panelLayout:<threadId>`。所有定义都从 envelope 版本 1 开始。较大的可重建集合和需要查询的记录应放进 Replica，而不是单个 JSON 值。
+
+Desktop 设置通过分类、key、Schema、默认值与版本统一注册。Renderer 组件使用同一个显式 vanilla Jotai store 中的校验 atom。Electron main 使用同一套 codec 和定义读取启动期外观、locale，以及带操作系统副作用的设置。不再存在独立 Desktop 设置 JSON 文件或宽泛的设置 IPC。
 
 检查接口使用 keyset 分页并按键名查询。它只读取当前页的值，最多返回 240 个字符的预览和原始字符数。
 
@@ -49,6 +51,8 @@ Replica 检查同样使用不透明 keyset cursor。查询会扫描记录 key �
 `SaveAttachmentInput` 接受带判别字段的 `source`：`bytes`、`blob`、Base64 `data_url` 或 `file_uri`。MIME type 可省略，并在可能时从 Blob 或 data URL 推断；未提供文件名时会从 file URI 推断。Expo Native 通过其文件系统 API 解析 file URI。在 Desktop 中，`file_uri` 使用直接复制的快速路径：IPC 只传递 URI 与 storage key，由 Electron main 直接把源文件复制进托管存储，不在 renderer 中物化文件 bytes。其他 source kind 仍保留有大小限制的 bytes 传输回退路径。
 
 Web adapter 把附件 bytes 放在专用 IndexedDB 数据库中。Expo Native 放在应用 document 目录。Desktop 只为内存 source 通过隔离 preload bridge 传输带上限的 `Uint8Array`；file URI source 由 Electron main 直接复制。Main 会校验存储请求，拥有 `kv.sqlite`、`replica.sqlite` 与附件目录，执行 32 MiB 附件限制，并且只在自己管理的路径内写入。Renderer 永远不会获得 Node.js 权限。
+
+Composer 草稿在 KV 中保存文本、有序附件 metadata、状态与更新时间，绝不内嵌 base64。图片、音频、文件、粘贴文本和 appshot 的自有字节保存在 `AttachmentStore`。浏览器标签页与 MCP 资源保留可恢复引用和可见的降级／不可用状态；选中文本与受限 app context 保持自包含。恢复时通过 `AttachmentStore.stat()` 校验，因此不会为了检查而读取大文件。二进制缺失时禁止提交，直到移除或重新附加。草稿清理保持有界，并驱动附件垃圾回收。
 
 附件检查按页返回 key、大小以及最多前 32 字节。文件 adapter 只读取该前缀；Web adapter 把前缀保存在 metadata object store 中，因此列表查询不会加载完整 blob。
 

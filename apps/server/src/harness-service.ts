@@ -17,7 +17,6 @@ import {
 import type { AgentManager } from "./agent/agent-manager.js"
 import type { CodexHarnessService } from "./codex-harness-service.js"
 import { HarnessCatalogManager } from "./harness-catalog-manager.js"
-import type { ServerConfigStore } from "./server-config-store.js"
 import type { TerminalService } from "./terminal-service.js"
 
 type Send = (message: ServerMessage) => void
@@ -235,24 +234,6 @@ const boolean = (
   value,
 })
 
-const number = (
-  id: string,
-  label: string,
-  value: number | null,
-  options: { defaultValue?: number | null; max?: number; min?: number; step?: number } = {},
-  description: string | null = null
-): HarnessSettingDefinition => ({
-  defaultValue: options.defaultValue ?? null,
-  description,
-  id,
-  label,
-  max: options.max ?? null,
-  min: options.min ?? null,
-  step: options.step ?? null,
-  type: "number",
-  value,
-})
-
 const section = (
   id: string,
   label: string,
@@ -261,83 +242,10 @@ const section = (
   description: string | null = null
 ): HarnessSettingSection => ({ description, id, label, order, settings })
 
-const genericSections = (
-  agentId: AgentId,
-  values: Record<string, string | boolean | number | null>
-): HarnessSettingSection[] => {
-  if (agentId === "claude") {
-    return [
-      section("model-defaults", "Model defaults", 30, [
-        select("model", "Default model", String(values.model ?? ""), []),
-      ]),
-      section("permissions", "Permissions", 40, [
-        select("permissionMode", "Permission mode", String(values.permissionMode ?? "default"), [
-          option("default", "Default"),
-          option("acceptEdits", "Accept edits"),
-          option("plan", "Plan"),
-          option("dontAsk", "Don't ask"),
-          option("bypassPermissions", "Bypass permissions"),
-        ]),
-      ]),
-      section("thinking", "Thinking", 50, [
-        select("thinkingMode", "Thinking mode", String(values.thinkingMode ?? "adaptive"), [
-          option("adaptive", "Adaptive"),
-          option("enabled", "Enabled"),
-          option("disabled", "Disabled"),
-        ]),
-        select("effort", "Effort", String(values.effort ?? "high"), [
-          option("low", "Low"),
-          option("medium", "Medium"),
-          option("high", "High"),
-          option("max", "Max"),
-        ]),
-        number(
-          "maxThinkingTokens",
-          "Thinking budget",
-          typeof values.maxThinkingTokens === "number" ? values.maxThinkingTokens : null,
-          { min: 1024, step: 1024 }
-        ),
-      ]),
-    ]
-  }
-  if (agentId === "opencode") {
-    return [
-      section("model-defaults", "Model defaults", 30, [
-        select("model", "Default model", String(values.model ?? ""), []),
-        select("variant", "Variant", String(values.variant ?? ""), []),
-      ]),
-      section("agent-defaults", "Agent defaults", 40, [
-        select("agent", "Default agent", String(values.agent ?? ""), []),
-        select("mode", "Default mode", String(values.mode ?? ""), []),
-      ]),
-    ]
-  }
-  if (agentId === "pi") {
-    return [
-      section("model-defaults", "Model defaults", 30, [
-        select("provider", "Default provider", String(values.provider ?? ""), []),
-        select("model", "Default model", String(values.model ?? ""), []),
-      ]),
-      section("thinking", "Thinking", 40, [
-        select("thinkingLevel", "Thinking level", String(values.thinkingLevel ?? "medium"), [
-          option("off", "Off"),
-          option("minimal", "Minimal"),
-          option("low", "Low"),
-          option("medium", "Medium"),
-          option("high", "High"),
-          option("xhigh", "Extra high"),
-        ]),
-      ]),
-    ]
-  }
-  return [section("general", "General", 30, [])]
-}
-
 export class HarnessService {
   readonly catalog: HarnessCatalogManager
   readonly #agents: AgentManager
   readonly #codex: CodexHarnessService
-  readonly #config: ServerConfigStore
   readonly #terminals: TerminalService
   readonly #acpAuthMethods = new Map<
     AgentId,
@@ -362,15 +270,9 @@ export class HarnessService {
     { agentId: AgentId; providerId: string; sessionId: string; terminalId: string }
   >()
 
-  constructor(
-    agents: AgentManager,
-    codex: CodexHarnessService,
-    config: ServerConfigStore,
-    terminals: TerminalService
-  ) {
+  constructor(agents: AgentManager, codex: CodexHarnessService, terminals: TerminalService) {
     this.#agents = agents
     this.#codex = codex
-    this.#config = config
     this.#terminals = terminals
     this.catalog = new HarnessCatalogManager((agentId, signal) => this.#discover(agentId, signal))
   }
@@ -472,24 +374,7 @@ export class HarnessService {
     agentId: AgentId
   ): Promise<Record<string, string | boolean | number | null>> {
     if (agentId === "codex") return {}
-    const saved = this.#config.getSnapshot().config.agents.defaults[agentId] ?? {}
-    const snapshot = await this.catalog.get(agentId)
-    const definitions = new Map(
-      snapshot.settingSections.flatMap((entry) =>
-        entry.settings.map((setting) => [setting.id, setting])
-      )
-    )
-    return Object.fromEntries(
-      Object.entries(saved).filter(([id, value]) => {
-        const definition = definitions.get(id)
-        if (!definition || value === null) return false
-        if (definition.type === "boolean") return typeof value === "boolean"
-        if (definition.type === "number") return typeof value === "number"
-        return (
-          typeof value === "string" && definition.options.some((option) => option.value === value)
-        )
-      })
-    )
+    return {}
   }
 
   async handle(message: HarnessClientMessage, sessionId: string, send: Send): Promise<boolean> {
@@ -1419,7 +1304,6 @@ export class HarnessService {
 
   async #discover(agentId: AgentId, signal: AbortSignal) {
     if (signal.aborted) throw signal.reason
-    const defaults = this.#config.getSnapshot().config.agents.defaults[agentId] ?? {}
     if (agentId === "claude") {
       const catalog = await this.#agents.getClaudeCatalog()
       return {
@@ -1444,17 +1328,7 @@ export class HarnessService {
             label: id,
           })),
         })),
-        settingSections: genericSections(agentId, defaults).map((entry) => ({
-          ...entry,
-          settings: entry.settings.map((setting) =>
-            setting.id === "model" && setting.type === "select"
-              ? {
-                  ...setting,
-                  options: catalog.models.map((model) => option(model.value, model.displayName)),
-                }
-              : setting
-          ),
-        })),
+        settingSections: [],
       }
     }
     if (agentId === "pi") {
@@ -1487,32 +1361,14 @@ export class HarnessService {
               }))
             : [],
         })),
-        settingSections: genericSections(agentId, defaults).map((entry) => ({
-          ...entry,
-          settings: entry.settings.map((setting) =>
-            setting.id === "provider" && setting.type === "select"
-              ? {
-                  ...setting,
-                  options: catalog.providers.map((provider) => option(provider.id, provider.name)),
-                }
-              : setting.id === "model" && setting.type === "select"
-                ? {
-                    ...setting,
-                    options: catalog.models.map((model) =>
-                      option(`${model.provider}/${model.id}`, model.name)
-                    ),
-                  }
-                : setting
-          ),
-        })),
+        settingSections: [],
       }
     }
     if (agentId === "opencode") {
-      const [modelResult, defaultResult, providerResult, agentResult] = await Promise.all([
+      const [modelResult, defaultResult, providerResult] = await Promise.all([
         this.#agents.callOpenCode("model.list"),
         this.#agents.callOpenCode("model.default"),
         this.#agents.callOpenCode("provider.list"),
-        this.#agents.callOpenCode("agent.list"),
       ])
       if (!modelResult.ok)
         throw new Error(`OpenCode model discovery failed (${modelResult.status})`)
@@ -1520,8 +1376,6 @@ export class HarnessService {
         throw new Error(`OpenCode default model discovery failed (${defaultResult.status})`)
       if (!providerResult.ok)
         throw new Error(`OpenCode provider discovery failed (${providerResult.status})`)
-      if (!agentResult.ok)
-        throw new Error(`OpenCode agent discovery failed (${agentResult.status})`)
       const models = ((modelResult.data as { data?: unknown[] })?.data ?? []) as Array<{
         capabilities: { output?: string[] }
         enabled: boolean
@@ -1538,19 +1392,6 @@ export class HarnessService {
         id: string
         name: string
       }>
-      const agents = ((agentResult.data as { data?: unknown[] })?.data ?? []) as Array<{
-        description?: string
-        hidden?: boolean
-        id: string
-        mode: "all" | "primary" | "subagent"
-        name: string
-      }>
-      const modelOptions = models.map((model) =>
-        option(`${model.providerID}/${model.modelID}`, model.name)
-      )
-      const variantOptions = [
-        ...new Set(models.flatMap((model) => model.variants.map((variant) => variant.id))),
-      ].map((id) => option(id))
       return {
         models: models.map((model) => {
           const provider = providers.find((candidate) => candidate.id === model.providerID)
@@ -1580,29 +1421,7 @@ export class HarnessService {
               : [],
           }
         }),
-        settingSections: genericSections(agentId, defaults).map((entry) => ({
-          ...entry,
-          settings: entry.settings.map((setting) => {
-            if (setting.type !== "select") return setting
-            if (setting.id === "model") return { ...setting, options: modelOptions }
-            if (setting.id === "variant") return { ...setting, options: variantOptions }
-            if (setting.id === "agent") {
-              return {
-                ...setting,
-                options: agents
-                  .filter((agent) => !agent.hidden)
-                  .map((agent) => option(agent.id, agent.name, agent.description ?? null)),
-              }
-            }
-            if (setting.id === "mode") {
-              return {
-                ...setting,
-                options: [option("primary", "Primary"), option("subagent", "Subagent")],
-              }
-            }
-            return setting
-          }),
-        })),
+        settingSections: [],
       }
     }
     if (!isNativeAgentId(agentId)) {
@@ -1613,63 +1432,6 @@ export class HarnessService {
         return { models: [], settingSections: [], status: probe.status }
       }
       this.#acpConnected.add(agentId)
-      const sectionMap = new Map<string, HarnessSettingSection>()
-      const sectionFor = (
-        category: string | null
-      ): { id: string; label: string; order: number } => {
-        if (category === "model" || category === "model_config") {
-          return { id: "model-defaults", label: "Model defaults", order: 30 }
-        }
-        if (category === "mode") return { id: "mode", label: "Mode", order: 40 }
-        if (category === "thought_level") return { id: "thinking", label: "Thinking", order: 50 }
-        if (!category) return { id: "general", label: "General", order: 90 }
-        const id = category
-          .replace(/^_+/u, "")
-          .replace(/[^a-zA-Z0-9]+/gu, "-")
-          .replace(/^-|-$/gu, "")
-          .toLocaleLowerCase()
-        return {
-          id: id || "general",
-          label: category.replace(/^_+/u, "").replace(/[_-]+/gu, " "),
-          order: 60,
-        }
-      }
-      for (const config of probe.configOptions) {
-        const metadata = sectionFor(config.category)
-        const target =
-          sectionMap.get(metadata.id) ?? section(metadata.id, metadata.label, metadata.order, [])
-        const savedValue = defaults[config.id]
-        target.settings.push(
-          config.type === "boolean"
-            ? boolean(
-                config.id,
-                config.name,
-                typeof savedValue === "boolean" ? savedValue : Boolean(config.currentValue),
-                config.description
-              )
-            : select(
-                config.id,
-                config.name,
-                typeof savedValue === "string" ? savedValue : String(config.currentValue),
-                config.options.map((item) => option(item.value, item.name, item.description)),
-                config.description
-              )
-        )
-        sectionMap.set(metadata.id, target)
-      }
-      if (probe.modes.length > 0 && !sectionMap.has("mode")) {
-        sectionMap.set(
-          "mode",
-          section("mode", "Mode", 40, [
-            select(
-              "mode",
-              "Default mode",
-              String(defaults.mode ?? probe.modes[0]?.id ?? ""),
-              probe.modes.map((mode) => option(mode.id, mode.name, mode.description))
-            ),
-          ])
-        )
-      }
       const models = probe.configOptions
         .filter(
           (config) =>
@@ -1695,11 +1457,11 @@ export class HarnessService {
         )
       return {
         models,
-        settingSections: [...sectionMap.values()].sort((left, right) => left.order - right.order),
+        settingSections: [],
       }
     }
     if (agentId !== "codex") {
-      return { models: [], settingSections: genericSections(agentId, defaults) }
+      return { models: [], settingSections: [] }
     }
 
     const [models, permissions, settings] = await Promise.all([
@@ -1857,8 +1619,7 @@ export class HarnessService {
     if (agentId === "codex") {
       await this.#codex.updateNativeSettings(values)
     } else {
-      const current = this.#config.getSnapshot().config.agents.defaults[agentId] ?? {}
-      await this.#config.patch({ agents: { defaults: { [agentId]: { ...current, ...values } } } })
+      throw new Error(`${agentId} does not support updating native settings`)
     }
     this.catalog.invalidate(agentId)
     return this.catalog.get(agentId, true)
