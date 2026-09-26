@@ -46,7 +46,9 @@ Replica inspection also uses an opaque keyset cursor. Queries scan row keys and 
 
 Attachment metadata and bytes have separate lifecycles. A domain persists metadata in its normal record, while `AttachmentStore` saves and reads bytes by an opaque generated key. Garbage collection receives the set of referenced keys and deletes unreferenced blobs.
 
-The Web adapter keeps blobs in a dedicated IndexedDB database. Native Expo stores them in its document directory. Desktop sends bounded `Uint8Array` values over the isolated preload bridge; Electron main validates the key, enforces a 32 MiB limit, and writes only inside its owned directory. Renderer code never receives a filesystem path or Node.js access.
+`SaveAttachmentInput` accepts a discriminated `source`: `bytes`, `blob`, base64 `data_url`, or `file_uri`. MIME type is optional and is inferred from Blob or data URL sources when possible; file names are inferred from file URIs when omitted. Adapters normalize these convenient inputs to owned bytes before persistence. Expo native resolves file URIs through its file-system API. Desktop renderer callers use Blob sources from file inputs or drag-and-drop; its isolated IPC deliberately does not accept renderer-supplied arbitrary file paths.
+
+The Web adapter keeps attachment bytes in a dedicated IndexedDB database. Native Expo stores them in its document directory. Desktop sends bounded `Uint8Array` values over the isolated preload bridge; Electron main validates the key, enforces a 32 MiB limit, and writes only inside its owned directory. Renderer code never receives a filesystem path or Node.js access.
 
 Attachment inspection returns paginated keys, sizes, and at most the first 32 bytes. File adapters read only that prefix; the Web adapter keeps the prefix in its metadata object store so listing never materializes complete blobs.
 

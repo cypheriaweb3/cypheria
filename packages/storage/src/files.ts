@@ -1,8 +1,10 @@
 import {
+  type AttachmentSourceResolver,
   type AttachmentStorageType,
   type AttachmentStore,
   assertAttachmentId,
   assertAttachmentStorageType,
+  normalizeAttachmentDescriptor,
   normalizeAttachmentInput,
 } from "./attachment.js"
 import type { StoragePage, StoragePageRequest } from "./inspection.js"
@@ -15,6 +17,7 @@ export interface AttachmentFileInspectionEntry {
 
 export interface AttachmentFileDriver {
   write(storageKey: string, bytes: Uint8Array): Promise<void>
+  copyFileUri?(storageKey: string, uri: string): Promise<number>
   read(storageKey: string): Promise<Uint8Array>
   delete(storageKey: string): Promise<void>
   list(): Promise<readonly string[]>
@@ -23,18 +26,33 @@ export interface AttachmentFileDriver {
 
 export function createFileAttachmentStore(
   storageType: Extract<AttachmentStorageType, "desktop-file" | "native-file">,
-  driver: AttachmentFileDriver
+  driver: AttachmentFileDriver,
+  sourceResolver: AttachmentSourceResolver = {}
 ): AttachmentStore {
   return {
     storageType,
     async save(input) {
-      const normalized = normalizeAttachmentInput(input)
+      if (input.source.kind === "file_uri" && driver.copyFileUri) {
+        const normalized = normalizeAttachmentDescriptor(input)
+        const byteSize = await driver.copyFileUri(normalized.id, input.source.uri)
+        if (!Number.isSafeInteger(byteSize) || byteSize < 1) {
+          await driver.delete(normalized.id)
+          throw new Error("Attachment bytes cannot be empty.")
+        }
+        return {
+          ...normalized,
+          storageKey: normalized.id,
+          storageType,
+          byteSize,
+        }
+      }
+      const normalized = await normalizeAttachmentInput(input, sourceResolver)
       await driver.write(normalized.id, normalized.bytes)
       return {
         id: normalized.id,
         storageKey: normalized.id,
         storageType,
-        mediaType: normalized.mediaType,
+        mimeType: normalized.mimeType,
         fileName: normalized.fileName,
         byteSize: normalized.bytes.byteLength,
         createdAt: normalized.createdAt,

@@ -6,17 +6,27 @@ export interface AttachmentMetadata {
   readonly id: string
   readonly storageKey: string
   readonly storageType: AttachmentStorageType
-  readonly mediaType: string
+  readonly mimeType: string
   readonly fileName: string | null
   readonly byteSize: number
   readonly createdAt: number
 }
 
+export type AttachmentDataSource =
+  | { readonly kind: "bytes"; readonly bytes: Uint8Array }
+  | { readonly kind: "blob"; readonly blob: Blob }
+  | { readonly kind: "data_url"; readonly dataUrl: string }
+  | { readonly kind: "file_uri"; readonly uri: string }
+
 export interface SaveAttachmentInput {
   readonly id?: string
-  readonly bytes: Uint8Array
-  readonly mediaType: string
+  readonly mimeType?: string
   readonly fileName?: string | null
+  readonly source: AttachmentDataSource
+}
+
+export interface AttachmentSourceResolver {
+  readonly readFileUri?: (uri: string) => Promise<Uint8Array>
 }
 
 export interface AttachmentStore {
@@ -48,18 +58,81 @@ export const createAttachmentId = (): string => {
   return `att_${Date.now().toString(36)}_${Math.random().toString(36).slice(2)}`
 }
 
-export const normalizeAttachmentInput = (input: SaveAttachmentInput) => {
-  const id = assertAttachmentId(input.id ?? createAttachmentId())
-  const mediaType = input.mediaType.trim().toLowerCase()
-  if (!mediaType) throw new Error("Attachment media type is required.")
-  const bytes = new Uint8Array(input.bytes)
+const normalizeMimeType = (value: string | null | undefined): string =>
+  value?.trim().toLowerCase() || "application/octet-stream"
+
+const parseDataUrl = (dataUrl: string): { bytes: Uint8Array; mimeType: string | null } => {
+  const match = /^data:([^,]*),([\s\S]+)$/iu.exec(dataUrl.trim())
+  if (!match) throw new Error("Malformed attachment data URL.")
+  const metadata = match[1] ?? ""
+  const payload = match[2]?.replace(/\s/gu, "") ?? ""
+  const [mimeType, ...parameters] = metadata.split(";").map((part) => part.trim())
+  if (!parameters.some((parameter) => parameter.toLowerCase() === "base64")) {
+    throw new Error("Attachment data URL must be base64 encoded.")
+  }
+  if (!payload) throw new Error("Attachment data URL has no payload.")
+  try {
+    return {
+      bytes: Uint8Array.from(atob(payload), (character) => character.charCodeAt(0)),
+      mimeType: mimeType || null,
+    }
+  } catch (error) {
+    throw new Error("Attachment data URL has an invalid base64 payload.", { cause: error })
+  }
+}
+
+const fileNameFromUri = (uri: string): string | null => {
+  const lastSegment = uri.replaceAll("\\", "/").split("/").at(-1)?.trim()
+  if (!lastSegment) return null
+  try {
+    return decodeURIComponent(lastSegment)
+  } catch {
+    return lastSegment
+  }
+}
+
+const sourceToBytes = async (
+  source: AttachmentDataSource,
+  resolver: AttachmentSourceResolver
+): Promise<{ bytes: Uint8Array; mimeType: string | null }> => {
+  if (source.kind === "bytes") {
+    return { bytes: new Uint8Array(source.bytes), mimeType: null }
+  }
+  if (source.kind === "blob") {
+    return {
+      bytes: new Uint8Array(await source.blob.arrayBuffer()),
+      mimeType: source.blob.type || null,
+    }
+  }
+  if (source.kind === "data_url") return parseDataUrl(source.dataUrl)
+  if (!resolver.readFileUri) {
+    throw new Error("Attachment file URI sources are unavailable in this runtime.")
+  }
+  return { bytes: new Uint8Array(await resolver.readFileUri(source.uri)), mimeType: null }
+}
+
+export const normalizeAttachmentDescriptor = (
+  input: SaveAttachmentInput,
+  inferredMimeType: string | null = null
+) => ({
+  id: assertAttachmentId(input.id ?? createAttachmentId()),
+  mimeType: normalizeMimeType(input.mimeType ?? inferredMimeType),
+  fileName:
+    input.fileName?.trim() ||
+    (input.source.kind === "file_uri" ? fileNameFromUri(input.source.uri) : null),
+  createdAt: Date.now(),
+})
+
+export const normalizeAttachmentInput = async (
+  input: SaveAttachmentInput,
+  resolver: AttachmentSourceResolver = {}
+) => {
+  const resolved = await sourceToBytes(input.source, resolver)
+  const bytes = resolved.bytes
   if (bytes.byteLength === 0) throw new Error("Attachment bytes cannot be empty.")
   return {
-    id,
+    ...normalizeAttachmentDescriptor(input, resolved.mimeType),
     bytes,
-    mediaType,
-    fileName: input.fileName?.trim() || null,
-    createdAt: Date.now(),
   }
 }
 

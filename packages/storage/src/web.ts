@@ -425,29 +425,13 @@ const openAttachmentDatabase = (
   databaseName: string
 ): Promise<IDBDatabase> =>
   new Promise((resolve, reject) => {
-    const request = indexedDb.open(databaseName, 2)
-    request.addEventListener("upgradeneeded", (event) => {
+    const request = indexedDb.open(databaseName, 1)
+    request.addEventListener("upgradeneeded", () => {
       if (!request.result.objectStoreNames.contains(attachmentBytesStore)) {
         request.result.createObjectStore(attachmentBytesStore, { keyPath: "storageKey" })
       }
-      const metadata = request.result.objectStoreNames.contains(attachmentMetadataStore)
-        ? (request.transaction as IDBTransaction).objectStore(attachmentMetadataStore)
-        : request.result.createObjectStore(attachmentMetadataStore, { keyPath: "storageKey" })
-      if ((event as IDBVersionChangeEvent).oldVersion === 1) {
-        const bytes = (request.transaction as IDBTransaction).objectStore(attachmentBytesStore)
-        const cursorRequest = bytes.openCursor()
-        cursorRequest.addEventListener("success", () => {
-          const cursor = cursorRequest.result
-          if (!cursor) return
-          const legacy = cursor.value as StoredAttachmentMetadata & { readonly bytes: ArrayBuffer }
-          const { bytes: storedBytes, ...storedMetadata } = legacy
-          metadata.put({
-            ...storedMetadata,
-            bytePreview: storedBytes.slice(0, 32),
-          } satisfies StoredAttachmentMetadata)
-          cursor.update({ storageKey: legacy.storageKey, bytes: storedBytes })
-          cursor.continue()
-        })
+      if (!request.result.objectStoreNames.contains(attachmentMetadataStore)) {
+        request.result.createObjectStore(attachmentMetadataStore, { keyPath: "storageKey" })
       }
     })
     request.addEventListener("success", () => resolve(request.result))
@@ -485,12 +469,20 @@ export function createIndexedDbAttachmentStore(
   return {
     storageType: "web-indexeddb",
     async save(input) {
-      const normalized = normalizeAttachmentInput(input)
+      const normalized = await normalizeAttachmentInput(input, {
+        readFileUri: async (uri) => {
+          const response = await fetch(uri)
+          if (!response.ok) {
+            throw new Error(`Attachment URI returned HTTP ${response.status}.`)
+          }
+          return new Uint8Array(await response.arrayBuffer())
+        },
+      })
       const metadata: AttachmentMetadata = {
         id: normalized.id,
         storageKey: normalized.id,
         storageType: "web-indexeddb",
-        mediaType: normalized.mediaType,
+        mimeType: normalized.mimeType,
         fileName: normalized.fileName,
         byteSize: normalized.bytes.byteLength,
         createdAt: normalized.createdAt,

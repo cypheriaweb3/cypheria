@@ -90,6 +90,12 @@ export const clientStorage: ClientStorage = {
       file.create({ intermediates: true, overwrite: true })
       file.write(bytes)
     },
+    async copyFileUri(storageKey, uri) {
+      ensureAttachmentDirectory()
+      const destination = new File(attachmentDirectory, storageKey)
+      await new File(uri).copy(destination, { overwrite: true })
+      return destination.size
+    },
     async read(storageKey) {
       const file = new File(attachmentDirectory, storageKey)
       if (!file.exists) throw new Error(`Attachment '${storageKey}' was not found.`)

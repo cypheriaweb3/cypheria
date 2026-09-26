@@ -46,7 +46,9 @@ Replica 检查同样使用不透明 keyset cursor。查询会扫描记录 key �
 
 附件 metadata 与二进制具有独立生命周期。领域在普通记录中保存 metadata，`AttachmentStore` 则通过生成的不透明 key 保存和读取 bytes。垃圾回收接收仍被引用的 key 集合，并删除无引用 blob。
 
-Web adapter 把 blob 放在专用 IndexedDB 数据库中。Expo Native 放在应用 document 目录。Desktop 通过隔离 preload bridge 传输带上限的 `Uint8Array`；Electron main 校验 key、执行 32 MiB 限制，并且只在自己管理的目录内写文件。Renderer 永远不会获得文件系统路径或 Node.js 权限。
+`SaveAttachmentInput` 接受带判别字段的 `source`：`bytes`、`blob`、Base64 `data_url` 或 `file_uri`。MIME type 可省略，并在可能时从 Blob 或 data URL 推断；未提供文件名时会从 file URI 推断。Adapter 会先把这些便捷输入归一化为自有 bytes，再进行持久化。Expo Native 通过其文件系统 API 解析 file URI。Desktop renderer 调用方使用文件输入框或拖放产生的 Blob；其隔离 IPC 特意不接受 renderer 提供的任意文件路径。
+
+Web adapter 把附件 bytes 放在专用 IndexedDB 数据库中。Expo Native 放在应用 document 目录。Desktop 通过隔离 preload bridge 传输带上限的 `Uint8Array`；Electron main 校验 key、执行 32 MiB 限制，并且只在自己管理的目录内写文件。Renderer 永远不会获得文件系统路径或 Node.js 权限。
 
 附件检查按页返回 key、大小以及最多前 32 字节。文件 adapter 只读取该前缀；Web adapter 把前缀保存在 metadata object store 中，因此列表查询不会加载完整 blob。
 

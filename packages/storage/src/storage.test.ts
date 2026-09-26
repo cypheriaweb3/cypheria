@@ -177,6 +177,11 @@ describe("client storage contracts", () => {
       async write(key, bytes) {
         bytesByKey.set(key, new Uint8Array(bytes))
       },
+      async copyFileUri(key, uri) {
+        expect(uri).toBe("file:///tmp/report%20one.txt")
+        bytesByKey.set(key, new Uint8Array([7, 8]))
+        return 2
+      },
       async read(key) {
         const bytes = bytesByKey.get(key)
         if (!bytes) throw new Error("not found")
@@ -204,24 +209,39 @@ describe("client storage contracts", () => {
     })
     const saved = await attachments.save({
       id: "att_kept",
-      bytes: new Uint8Array([1, 2, 3]),
-      mediaType: "IMAGE/PNG",
+      source: { kind: "bytes", bytes: new Uint8Array([1, 2, 3]) },
+      mimeType: "IMAGE/PNG",
       fileName: " image.png ",
     })
-    await attachments.save({
+    const dataUrl = await attachments.save({
       id: "att_orphan",
-      bytes: new Uint8Array([4]),
-      mediaType: "application/octet-stream",
+      source: { kind: "data_url", dataUrl: "data:text/plain;base64,SGk=" },
+    })
+    const blob = await attachments.save({
+      id: "att_blob",
+      source: { kind: "blob", blob: new Blob(["# title"], { type: "text/markdown" }) },
+    })
+    const fileUri = await attachments.save({
+      id: "att_file",
+      source: { kind: "file_uri", uri: "file:///tmp/report%20one.txt" },
     })
 
     expect(saved).toMatchObject({
       storageKey: "att_kept",
       storageType: "native-file",
-      mediaType: "image/png",
+      mimeType: "image/png",
       fileName: "image.png",
       byteSize: 3,
     })
     await expect(attachments.read(saved)).resolves.toEqual(new Uint8Array([1, 2, 3]))
+    expect(dataUrl).toMatchObject({ mimeType: "text/plain", byteSize: 2 })
+    expect(blob).toMatchObject({ mimeType: "text/markdown", byteSize: 7 })
+    expect(fileUri).toMatchObject({
+      mimeType: "application/octet-stream",
+      fileName: "report one.txt",
+      byteSize: 2,
+    })
+    await expect(attachments.read(dataUrl)).resolves.toEqual(new Uint8Array([72, 105]))
     await expect(attachments.listPage({ query: "kept" })).resolves.toMatchObject({
       items: [
         {
@@ -245,13 +265,13 @@ describe("client storage contracts", () => {
     })
     const kept = await attachments.save({
       id: "att_kept",
-      bytes: new Uint8Array([8, 9]),
-      mediaType: "application/octet-stream",
+      source: { kind: "bytes", bytes: new Uint8Array([8, 9]) },
+      mimeType: "application/octet-stream",
     })
     const orphan = await attachments.save({
       id: "att_orphan",
-      bytes: new Uint8Array([10]),
-      mediaType: "application/octet-stream",
+      source: { kind: "bytes", bytes: new Uint8Array([10]) },
+      mimeType: "application/octet-stream",
     })
 
     await expect(attachments.read(kept)).resolves.toEqual(new Uint8Array([8, 9]))
@@ -268,57 +288,5 @@ describe("client storage contracts", () => {
     })
     await attachments.garbageCollect(new Set([kept.storageKey]))
     await expect(attachments.read(orphan)).rejects.toThrow("was not found")
-  })
-
-  it("migrates legacy IndexedDB attachment records without loading blobs while listing", async () => {
-    const databaseName = `attachments-legacy-${crypto.randomUUID()}`
-    const legacy = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = indexedDB.open(databaseName, 1)
-      request.addEventListener("upgradeneeded", () => {
-        request.result.createObjectStore("attachments", { keyPath: "storageKey" })
-      })
-      request.addEventListener("success", () => resolve(request.result))
-      request.addEventListener("error", () => reject(request.error))
-    })
-    const transaction = legacy.transaction("attachments", "readwrite")
-    transaction.objectStore("attachments").put({
-      id: "att_legacy",
-      storageKey: "att_legacy",
-      storageType: "web-indexeddb",
-      mediaType: "application/octet-stream",
-      fileName: null,
-      byteSize: 40,
-      createdAt: 1,
-      bytes: new Uint8Array(40).fill(7).buffer,
-    })
-    await new Promise<void>((resolve, reject) => {
-      transaction.addEventListener("complete", () => resolve())
-      transaction.addEventListener("error", () => reject(transaction.error))
-    })
-    legacy.close()
-
-    const attachments = createIndexedDbAttachmentStore({ databaseName, indexedDb: indexedDB })
-    await expect(attachments.listPage()).resolves.toEqual({
-      items: [
-        {
-          storageKey: "att_legacy",
-          storageType: "web-indexeddb",
-          byteSize: 40,
-          bytePreview: new Uint8Array(32).fill(7),
-        },
-      ],
-      nextCursor: null,
-    })
-    await expect(
-      attachments.read({
-        id: "att_legacy",
-        storageKey: "att_legacy",
-        storageType: "web-indexeddb",
-        mediaType: "application/octet-stream",
-        fileName: null,
-        byteSize: 40,
-        createdAt: 1,
-      })
-    ).resolves.toEqual(new Uint8Array(40).fill(7))
   })
 })
