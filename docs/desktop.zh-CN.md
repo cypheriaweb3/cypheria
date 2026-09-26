@@ -164,7 +164,7 @@ Electron 在 `userData/config.json` 保存本地偏好：
 
 共享 Agent、model、integration、Web3 和 Server 行为属于 Cypheria Server 配置或数据库。UI 偏好不会写入 Codex 配置。
 
-其他本地 UI 状态、可重建 Replica 与附件二进制使用共享的[客户端存储](client-storage.zh-CN.md)端口。这样既让 renderer 状态与 Server 数据库分离，又保留 Electron main 对附件文件的所有权。
+其他本地 UI 状态、可重建 Replica 与附件二进制使用共享的[客户端存储](client-storage.zh-CN.md)端口。Electron main 同时拥有 Desktop SQLite 键值数据库、Replica 数据库和附件文件；renderer 只能通过经过校验的 preload IPC 访问。它们与权威 Server 数据库保持分离。
 
 开发构建会提供 `/debug` 路由和仅开发模式显示的 Sidebar 入口。其紧凑左右布局可以浏览键值状态、Replica 记录与附件二进制，并支持查询、keyset 分页、受限文本预览和受限二进制前缀。非 Desktop 开发模式访问该路由会重定向到主工作区，生产导航也不会显示入口。
 

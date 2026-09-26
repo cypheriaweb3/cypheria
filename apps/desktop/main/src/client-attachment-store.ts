@@ -14,7 +14,7 @@ import type { AttachmentFileInspectionEntry } from "@cypheria/storage/files"
 
 import { MAX_DESKTOP_ATTACHMENT_BYTES } from "../../ipc/src/index.js"
 
-const attachmentDirectoryName = "client-attachments"
+const attachmentDirectoryName = "attachments"
 
 export const getDesktopAttachmentDirectory = (userDataDir: string): string =>
   join(userDataDir, attachmentDirectoryName)

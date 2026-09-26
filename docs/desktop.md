@@ -164,7 +164,7 @@ The General settings page groups local preferences under Permissions, General, C
 
 Shared Agent, model, integration, Web3, and Server behavior belongs in Cypheria Server configuration or the database. UI preferences are not written to Codex configuration.
 
-Other local UI state, rebuildable replicas, and attachment bytes use the shared [Client Storage](client-storage.md) ports. This keeps renderer state separate from the Server database while retaining Electron main ownership of attachment files.
+Other local UI state, rebuildable replicas, and attachment bytes use the shared [Client Storage](client-storage.md) ports. Electron main owns the Desktop SQLite key/value and replica databases as well as attachment files; the renderer reaches them only through validated preload IPC. These stores remain separate from the authoritative Server database.
 
 Development builds expose a `/debug` route and a development-only sidebar entry. Its compact split view browses key/value state, replica rows, and attachment bytes with search, keyset pagination, bounded text previews, and bounded binary prefixes. The route redirects to the main workspace outside Desktop development mode and is not shown in production navigation.
 

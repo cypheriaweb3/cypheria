@@ -58,6 +58,19 @@ export const CYPHERIA_IPC_CHANNELS = {
   storageAttachmentListPage: "storage.attachment.list-page",
   storageAttachmentRead: "storage.attachment.read",
   storageAttachmentWrite: "storage.attachment.write",
+  storageKeyValueChanged: "storage.key-value.changed",
+  storageKeyValueGet: "storage.key-value.get",
+  storageKeyValueListPage: "storage.key-value.list-page",
+  storageKeyValueRemove: "storage.key-value.remove",
+  storageKeyValueSet: "storage.key-value.set",
+  storageReplicaApply: "storage.replica.apply",
+  storageReplicaClear: "storage.replica.clear",
+  storageReplicaDeleteScope: "storage.replica.delete-scope",
+  storageReplicaListPage: "storage.replica.list-page",
+  storageReplicaOpen: "storage.replica.open",
+  storageReplicaRead: "storage.replica.read",
+  storageReplicaReadAll: "storage.replica.read-all",
+  storageReplicaRenameScope: "storage.replica.rename-scope",
 } as const
 
 export type CypheriaIpcChannel = (typeof CYPHERIA_IPC_CHANNELS)[keyof typeof CYPHERIA_IPC_CHANNELS]
@@ -717,6 +730,181 @@ export const StoragePageRequestSchema = z
   .strict()
 export type StoragePageRequest = z.infer<typeof StoragePageRequestSchema>
 
+const MAX_STORAGE_KEY_CHARACTERS = 512
+const MAX_STORAGE_VALUE_CHARACTERS = 16 * 1024 * 1024
+const MAX_REPLICA_BATCH_ROWS = 10_000
+const StorageKeySchema = z.string().min(1).max(MAX_STORAGE_KEY_CHARACTERS)
+const StorageValueSchema = z.string().max(MAX_STORAGE_VALUE_CHARACTERS)
+const StorageTextPreviewSchema = z.string().max(240)
+
+export const KeyValueInspectionEntrySchema = z
+  .object({
+    key: StorageKeySchema,
+    valueLength: z.number().int().nonnegative(),
+    valuePreview: StorageTextPreviewSchema,
+    valueTruncated: z.boolean(),
+  })
+  .strict()
+export type KeyValueInspectionEntry = z.infer<typeof KeyValueInspectionEntrySchema>
+
+export const StorageKeyValueChangeSchema = z
+  .object({ key: StorageKeySchema, value: StorageValueSchema.nullable() })
+  .strict()
+export type StorageKeyValueChange = z.infer<typeof StorageKeyValueChangeSchema>
+
+const ReplicaIdentifierSchema = z.string().min(1).max(1_024)
+export const ReplicaRowKeySchema = z
+  .object({
+    scopeId: ReplicaIdentifierSchema,
+    entityType: ReplicaIdentifierSchema,
+    entityId: ReplicaIdentifierSchema,
+  })
+  .strict()
+export type ReplicaRowKey = z.infer<typeof ReplicaRowKeySchema>
+
+export const ReplicaRowSchema = ReplicaRowKeySchema.extend({ payload: StorageValueSchema }).strict()
+export type ReplicaRow = z.infer<typeof ReplicaRowSchema>
+
+export const ReplicaScopeRowsSchema = z
+  .object({ scopeId: ReplicaIdentifierSchema, rows: z.array(ReplicaRowSchema) })
+  .strict()
+export type ReplicaScopeRows = z.infer<typeof ReplicaScopeRowsSchema>
+
+export const ReplicaInspectionEntrySchema = ReplicaRowKeySchema.extend({
+  payloadLength: z.number().int().nonnegative(),
+  payloadPreview: StorageTextPreviewSchema,
+  payloadTruncated: z.boolean(),
+}).strict()
+export type ReplicaInspectionEntry = z.infer<typeof ReplicaInspectionEntrySchema>
+
+export const storageKeyValueGetContract = {
+  channel: CYPHERIA_IPC_CHANNELS.storageKeyValueGet,
+  namespace: "storage",
+  request: z.object({ key: StorageKeySchema }).strict(),
+  response: z.object({ value: StorageValueSchema.nullable() }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ key: string }, { value: string | null }>
+
+export const storageKeyValueSetContract = {
+  channel: CYPHERIA_IPC_CHANNELS.storageKeyValueSet,
+  namespace: "storage",
+  request: z.object({ key: StorageKeySchema, value: StorageValueSchema }).strict(),
+  response: z.object({ saved: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ key: string; value: string }, { saved: true }>
+
+export const storageKeyValueRemoveContract = {
+  channel: CYPHERIA_IPC_CHANNELS.storageKeyValueRemove,
+  namespace: "storage",
+  request: z.object({ key: StorageKeySchema }).strict(),
+  response: z.object({ removed: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ key: string }, { removed: true }>
+
+export const storageKeyValueListPageContract = {
+  channel: CYPHERIA_IPC_CHANNELS.storageKeyValueListPage,
+  namespace: "storage",
+  request: StoragePageRequestSchema,
+  response: z
+    .object({
+      items: z.array(KeyValueInspectionEntrySchema),
+      nextCursor: z.string().min(1).nullable(),
+    })
+    .strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  StoragePageRequest,
+  { items: KeyValueInspectionEntry[]; nextCursor: string | null }
+>
+
+export const storageReplicaOpenContract = {
+  channel: CYPHERIA_IPC_CHANNELS.storageReplicaOpen,
+  namespace: "storage",
+  request: EmptyPayloadSchema,
+  response: z.object({ opened: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, { opened: true }>
+
+export const storageReplicaReadContract = {
+  channel: CYPHERIA_IPC_CHANNELS.storageReplicaRead,
+  namespace: "storage",
+  request: z
+    .object({
+      scopeId: ReplicaIdentifierSchema,
+      entityTypes: z.array(ReplicaIdentifierSchema).max(MAX_REPLICA_BATCH_ROWS),
+      entityIds: z.array(ReplicaIdentifierSchema).max(MAX_REPLICA_BATCH_ROWS).optional(),
+    })
+    .strict(),
+  response: z.object({ rows: z.array(ReplicaRowSchema) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  { scopeId: string; entityTypes: string[]; entityIds?: string[] },
+  { rows: ReplicaRow[] }
+>
+
+export const storageReplicaReadAllContract = {
+  channel: CYPHERIA_IPC_CHANNELS.storageReplicaReadAll,
+  namespace: "storage",
+  request: EmptyPayloadSchema,
+  response: z.object({ scopes: z.array(ReplicaScopeRowsSchema) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, { scopes: ReplicaScopeRows[] }>
+
+export const storageReplicaListPageContract = {
+  channel: CYPHERIA_IPC_CHANNELS.storageReplicaListPage,
+  namespace: "storage",
+  request: StoragePageRequestSchema,
+  response: z
+    .object({
+      items: z.array(ReplicaInspectionEntrySchema),
+      nextCursor: z.string().min(1).nullable(),
+    })
+    .strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  StoragePageRequest,
+  { items: ReplicaInspectionEntry[]; nextCursor: string | null }
+>
+
+export const storageReplicaApplyContract = {
+  channel: CYPHERIA_IPC_CHANNELS.storageReplicaApply,
+  namespace: "storage",
+  request: z
+    .object({
+      deletes: z.array(ReplicaRowKeySchema).max(MAX_REPLICA_BATCH_ROWS),
+      upserts: z.array(ReplicaRowSchema).max(MAX_REPLICA_BATCH_ROWS),
+    })
+    .strict(),
+  response: z.object({ applied: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ deletes: ReplicaRowKey[]; upserts: ReplicaRow[] }, { applied: true }>
+
+export const storageReplicaDeleteScopeContract = {
+  channel: CYPHERIA_IPC_CHANNELS.storageReplicaDeleteScope,
+  namespace: "storage",
+  request: z.object({ scopeId: ReplicaIdentifierSchema }).strict(),
+  response: z.object({ deleted: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ scopeId: string }, { deleted: true }>
+
+export const storageReplicaRenameScopeContract = {
+  channel: CYPHERIA_IPC_CHANNELS.storageReplicaRenameScope,
+  namespace: "storage",
+  request: z
+    .object({ oldScopeId: ReplicaIdentifierSchema, newScopeId: ReplicaIdentifierSchema })
+    .strict(),
+  response: z.object({ renamed: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ oldScopeId: string; newScopeId: string }, { renamed: true }>
+
+export const storageReplicaClearContract = {
+  channel: CYPHERIA_IPC_CHANNELS.storageReplicaClear,
+  namespace: "storage",
+  request: EmptyPayloadSchema,
+  response: z.object({ cleared: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<EmptyPayload, { cleared: true }>
+
 export const AttachmentFileInspectionEntrySchema = z
   .object({
     storageKey: AttachmentStorageKeySchema,
@@ -775,6 +963,18 @@ export const ipcContracts = {
   storageAttachmentListPage: storageAttachmentListPageContract,
   storageAttachmentRead: storageAttachmentReadContract,
   storageAttachmentWrite: storageAttachmentWriteContract,
+  storageKeyValueGet: storageKeyValueGetContract,
+  storageKeyValueListPage: storageKeyValueListPageContract,
+  storageKeyValueRemove: storageKeyValueRemoveContract,
+  storageKeyValueSet: storageKeyValueSetContract,
+  storageReplicaApply: storageReplicaApplyContract,
+  storageReplicaClear: storageReplicaClearContract,
+  storageReplicaDeleteScope: storageReplicaDeleteScopeContract,
+  storageReplicaListPage: storageReplicaListPageContract,
+  storageReplicaOpen: storageReplicaOpenContract,
+  storageReplicaRead: storageReplicaReadContract,
+  storageReplicaReadAll: storageReplicaReadAllContract,
+  storageReplicaRenameScope: storageReplicaRenameScopeContract,
 } as const
 
 export type CypheriaPreloadApi = {
@@ -813,6 +1013,36 @@ export type CypheriaPreloadApi = {
       }>
       readonly read: (storageKey: string) => Promise<{ bytes: Uint8Array }>
       readonly write: (storageKey: string, bytes: Uint8Array) => Promise<{ byteSize: number }>
+    }
+    readonly keyValue: {
+      readonly getItem: (key: string) => Promise<{ value: string | null }>
+      readonly setItem: (key: string, value: string) => Promise<{ saved: true }>
+      readonly removeItem: (key: string) => Promise<{ removed: true }>
+      readonly listPage: (request: StoragePageRequest) => Promise<{
+        items: KeyValueInspectionEntry[]
+        nextCursor: string | null
+      }>
+      readonly onChanged: (handler: (change: StorageKeyValueChange) => void) => () => void
+    }
+    readonly replica: {
+      readonly open: () => Promise<{ opened: true }>
+      readonly read: (
+        scopeId: string,
+        entityTypes: readonly string[],
+        entityIds?: readonly string[]
+      ) => Promise<{ rows: ReplicaRow[] }>
+      readonly readAll: () => Promise<{ scopes: ReplicaScopeRows[] }>
+      readonly listPage: (request: StoragePageRequest) => Promise<{
+        items: ReplicaInspectionEntry[]
+        nextCursor: string | null
+      }>
+      readonly apply: (changes: {
+        readonly deletes: readonly ReplicaRowKey[]
+        readonly upserts: readonly ReplicaRow[]
+      }) => Promise<{ applied: true }>
+      readonly deleteScope: (scopeId: string) => Promise<{ deleted: true }>
+      readonly renameScope: (oldScopeId: string, newScopeId: string) => Promise<{ renamed: true }>
+      readonly clear: () => Promise<{ cleared: true }>
     }
   }
   readonly settings: {

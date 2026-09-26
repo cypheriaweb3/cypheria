@@ -60,12 +60,24 @@ import {
   settingsPreferencesWriteContract,
   settingsWorkspaceLayoutReadContract,
   settingsWorkspaceLayoutWriteContract,
-  storageAttachmentDeleteContract,
   storageAttachmentCopyFileContract,
+  storageAttachmentDeleteContract,
   storageAttachmentListContract,
   storageAttachmentListPageContract,
   storageAttachmentReadContract,
   storageAttachmentWriteContract,
+  storageKeyValueGetContract,
+  storageKeyValueListPageContract,
+  storageKeyValueRemoveContract,
+  storageKeyValueSetContract,
+  storageReplicaApplyContract,
+  storageReplicaClearContract,
+  storageReplicaDeleteScopeContract,
+  storageReplicaListPageContract,
+  storageReplicaOpenContract,
+  storageReplicaReadAllContract,
+  storageReplicaReadContract,
+  storageReplicaRenameScopeContract,
 } from "../../ipc/src/index.js"
 import { buildDesktopAppPaths, type DesktopAppPaths } from "./app-paths.js"
 import { readAppearanceSettings, writeAppearanceSettings } from "./appearance-config.js"
@@ -78,6 +90,10 @@ import {
   readDesktopAttachment,
   writeDesktopAttachment,
 } from "./client-attachment-store.js"
+import {
+  createDesktopClientStorageDatabase,
+  type DesktopClientStorageDatabase,
+} from "./client-storage-database.js"
 import {
   applyConnectionProxyToSession,
   readConnectionProxySettings,
@@ -114,6 +130,7 @@ let shutdownPromise: Promise<void> | null = null
 let desktopClient: CypheriaClient | null = null
 let desktopRuntimePaths: DesktopAppPaths | null = null
 let desktopServerManager: DesktopServerManager | null = null
+let desktopStorageDatabase: DesktopClientStorageDatabase | null = null
 let currentAppearanceSettings: AppearanceSettings | null = null
 let currentPreferences: DesktopPreferences | null = null
 let menuBarTray: Tray | null = null
@@ -463,7 +480,11 @@ const registerRendererProtocol = (codexHome: string): void => {
   })
 }
 
-const registerIpcHandlers = (paths: DesktopAppPaths, client: CypheriaClient): void => {
+const registerIpcHandlers = (
+  paths: DesktopAppPaths,
+  client: CypheriaClient,
+  storageDatabase: DesktopClientStorageDatabase
+): void => {
   const appMetadata: AppMetadata = {
     name: app.getName(),
     version: app.getVersion(),
@@ -589,6 +610,55 @@ const registerIpcHandlers = (paths: DesktopAppPaths, client: CypheriaClient): vo
   registerIpcRoute(storageAttachmentListPageContract, (request) =>
     listDesktopAttachmentPage(app.getPath("userData"), request)
   )
+  registerIpcRoute(storageKeyValueGetContract, async ({ key }) => ({
+    value: await storageDatabase.keyValue.getItem(key),
+  }))
+  registerIpcRoute(storageKeyValueSetContract, async ({ key, value }) => {
+    await storageDatabase.keyValue.setItem(key, value)
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send(CYPHERIA_IPC_CHANNELS.storageKeyValueChanged, { key, value })
+    }
+    return { saved: true }
+  })
+  registerIpcRoute(storageKeyValueRemoveContract, async ({ key }) => {
+    await storageDatabase.keyValue.removeItem(key)
+    for (const window of BrowserWindow.getAllWindows()) {
+      window.webContents.send(CYPHERIA_IPC_CHANNELS.storageKeyValueChanged, { key, value: null })
+    }
+    return { removed: true }
+  })
+  registerIpcRoute(storageKeyValueListPageContract, (request) =>
+    storageDatabase.keyValue.listPage(request)
+  )
+  registerIpcRoute(storageReplicaOpenContract, async () => {
+    await storageDatabase.replica.open()
+    return { opened: true }
+  })
+  registerIpcRoute(storageReplicaReadContract, async ({ scopeId, entityTypes, entityIds }) => ({
+    rows: await storageDatabase.replica.read(scopeId, entityTypes, entityIds),
+  }))
+  registerIpcRoute(storageReplicaReadAllContract, async () => ({
+    scopes: await storageDatabase.replica.readAll(),
+  }))
+  registerIpcRoute(storageReplicaListPageContract, (request) =>
+    storageDatabase.replica.listPage(request)
+  )
+  registerIpcRoute(storageReplicaApplyContract, async (changes) => {
+    await storageDatabase.replica.apply(changes)
+    return { applied: true }
+  })
+  registerIpcRoute(storageReplicaDeleteScopeContract, async ({ scopeId }) => {
+    await storageDatabase.replica.deleteScope(scopeId)
+    return { deleted: true }
+  })
+  registerIpcRoute(storageReplicaRenameScopeContract, async ({ oldScopeId, newScopeId }) => {
+    await storageDatabase.replica.renameScope(oldScopeId, newScopeId)
+    return { renamed: true }
+  })
+  registerIpcRoute(storageReplicaClearContract, async () => {
+    await storageDatabase.replica.clear()
+    return { cleared: true }
+  })
   registerIpcRoute(settingsAppearanceReadContract, () =>
     readAppearanceSettings(app.getPath("userData"))
   )
@@ -926,8 +996,11 @@ const registerLifecycleHandlers = (): void => {
     event.preventDefault()
     if (shutdownPromise) return
     shutdownPromise = (async () => {
-      await desktopClient?.close()
-      await desktopServerManager?.stopOwned()
+      await Promise.all([
+        desktopStorageDatabase?.close(),
+        desktopClient?.close(),
+        desktopServerManager?.stopOwned(),
+      ])
     })()
       .catch(logFatalError)
       .finally(() => {
@@ -959,6 +1032,10 @@ const startDesktopApp = async (): Promise<void> => {
   registerLifecycleHandlers()
 
   await app.whenReady()
+  desktopStorageDatabase = createDesktopClientStorageDatabase({
+    keyValueFilePath: join(app.getPath("userData"), "kv.sqlite"),
+    replicaFilePath: join(app.getPath("userData"), "replica.sqlite"),
+  })
   desktopServerManager = new DesktopServerManager({
     cliCandidates: [
       process.env.CYPHERIA_SERVER_CLI_PATH ?? "",
@@ -996,7 +1073,7 @@ const startDesktopApp = async (): Promise<void> => {
   registerRendererProtocol(runtimePaths.codexHome)
   currentConnectionProxySettings = await readConnectionProxySettings(runtimePaths.configDir)
   await applyConnectionProxyToSession(session.defaultSession, currentConnectionProxySettings)
-  registerIpcHandlers(runtimePaths, desktopClient)
+  registerIpcHandlers(runtimePaths, desktopClient, desktopStorageDatabase)
   mainWindow = await createMainWindow(desktopClient, runtimePaths)
 }
 

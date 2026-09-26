@@ -1,9 +1,15 @@
 import {
+  createTextPreview,
   decodeStorageCursor,
   encodeStorageCursor,
   normalizeStoragePageRequest,
   type StoragePageRequest,
 } from "./inspection.js"
+import type {
+  KeyValueInspectionEntry,
+  KeyValueStorage,
+  KeyValueStorageListener,
+} from "./key-value.js"
 import type {
   ReplicaInspectionEntry,
   ReplicaRow,
@@ -12,18 +18,141 @@ import type {
   ReplicaStore,
 } from "./replica.js"
 
-export type ReplicaSqliteValue = string | number | null
+export type SqliteValue = string | number | null
 
-export interface ReplicaSqliteConnection {
+export interface SqliteConnection {
   exec(sql: string): Promise<void>
-  run(sql: string, params?: readonly ReplicaSqliteValue[]): Promise<void>
-  all<Row>(sql: string, params?: readonly ReplicaSqliteValue[]): Promise<Row[]>
-  transaction(operation: (connection: ReplicaSqliteConnection) => Promise<void>): Promise<void>
+  run(sql: string, params?: readonly SqliteValue[]): Promise<void>
+  all<Row>(sql: string, params?: readonly SqliteValue[]): Promise<Row[]>
+  transaction(operation: (connection: SqliteConnection) => Promise<void>): Promise<void>
   close(): Promise<void>
 }
 
-export interface ReplicaSqliteDriver {
-  open(): Promise<ReplicaSqliteConnection>
+export interface SqliteDriver {
+  open(): Promise<SqliteConnection>
+}
+
+export interface SqliteKeyValueStorage extends KeyValueStorage {
+  close(): Promise<void>
+}
+
+interface StoredKeyValue {
+  readonly key: string
+  readonly value_length: number
+  readonly value_preview: string
+}
+
+const createKeyValueSql = `
+  CREATE TABLE IF NOT EXISTS client_key_value (
+    key TEXT PRIMARY KEY NOT NULL,
+    value TEXT NOT NULL
+  )
+`
+
+const escapeLikePattern = (value: string): string =>
+  value.replaceAll("\\", "\\\\").replaceAll("%", "\\%").replaceAll("_", "\\_")
+
+export function createSqliteKeyValueStorage(driver: SqliteDriver): SqliteKeyValueStorage {
+  let connection: SqliteConnection | null = null
+  let opening: Promise<SqliteConnection> | null = null
+  const listeners = new Map<string, Set<KeyValueStorageListener>>()
+
+  const current = async (): Promise<SqliteConnection> => {
+    if (connection) return connection
+    opening ??= (async () => {
+      const opened = await driver.open()
+      try {
+        await opened.exec(createKeyValueSql)
+        connection = opened
+        return opened
+      } catch (error) {
+        await opened.close().catch(() => undefined)
+        throw error
+      }
+    })()
+    try {
+      return await opening
+    } catch (error) {
+      opening = null
+      throw error
+    }
+  }
+
+  const emit = (key: string, value: string | null): void => {
+    for (const listener of listeners.get(key) ?? []) listener(value)
+  }
+
+  return {
+    async getItem(key) {
+      const rows = await (await current()).all<{ value: string }>(
+        "SELECT value FROM client_key_value WHERE key = ?",
+        [key]
+      )
+      return rows[0]?.value ?? null
+    },
+    async setItem(key, value) {
+      await (await current()).run(
+        `INSERT INTO client_key_value (key, value) VALUES (?, ?)
+         ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
+        [key, value]
+      )
+      emit(key, value)
+    },
+    async removeItem(key) {
+      await (await current()).run("DELETE FROM client_key_value WHERE key = ?", [key])
+      emit(key, null)
+    },
+    async listPage(request = {}) {
+      const { cursor, limit, query } = normalizeStoragePageRequest(request)
+      const cursorKey = decodeStorageCursor(cursor, 1)?.[0] ?? null
+      const keyClause = cursorKey === null ? "1 = 1" : "key > ?"
+      const keyParams = cursorKey === null ? [] : [cursorKey]
+      const queryClause = query ? " AND lower(key) LIKE ? ESCAPE '\\'" : ""
+      const queryParams = query ? [`%${escapeLikePattern(query)}%`] : []
+      const rows = await (await current()).all<StoredKeyValue>(
+        `SELECT key, length(value) AS value_length, substr(value, 1, 240) AS value_preview
+         FROM client_key_value
+         WHERE ${keyClause}${queryClause}
+         ORDER BY key
+         LIMIT ?`,
+        [...keyParams, ...queryParams, limit + 1]
+      )
+      const hasMore = rows.length > limit
+      if (hasMore) rows.pop()
+      const items: KeyValueInspectionEntry[] = rows.map((row) => {
+        const preview = createTextPreview(row.value_preview)
+        return {
+          key: row.key,
+          valueLength: row.value_length,
+          valuePreview: row.value_preview,
+          valueTruncated: row.value_length > preview.length,
+        }
+      })
+      return {
+        items,
+        nextCursor:
+          hasMore && items.length
+            ? encodeStorageCursor([(items.at(-1) as KeyValueInspectionEntry).key])
+            : null,
+      }
+    },
+    subscribe(key, listener) {
+      const keyListeners = listeners.get(key) ?? new Set<KeyValueStorageListener>()
+      keyListeners.add(listener)
+      listeners.set(key, keyListeners)
+      return () => {
+        keyListeners.delete(listener)
+        if (keyListeners.size === 0) listeners.delete(key)
+      }
+    },
+    async close() {
+      const opened = connection ?? (opening ? await opening.catch(() => null) : null)
+      connection = null
+      opening = null
+      listeners.clear()
+      if (opened) await opened.close()
+    },
+  }
 }
 
 interface StoredMeta {
@@ -70,16 +199,16 @@ const toReplicaRow = (row: StoredRow): ReplicaRow => ({
 })
 
 export function createSqliteReplicaStore(
-  driver: ReplicaSqliteDriver,
+  driver: SqliteDriver,
   schemaVersion: number
 ): ReplicaStore {
   if (!Number.isInteger(schemaVersion) || schemaVersion < 1) {
     throw new Error("Replica schema version must be a positive integer.")
   }
-  let connection: ReplicaSqliteConnection | null = null
+  let connection: SqliteConnection | null = null
   let opening: Promise<void> | null = null
 
-  const current = (): ReplicaSqliteConnection => {
+  const current = (): SqliteConnection => {
     if (!connection) throw new Error("Replica store has not been opened.")
     return connection
   }
@@ -190,10 +319,7 @@ export function createSqliteReplicaStore(
             cursorParts[2] as string,
           ]
         : []
-      const escapedQuery = query
-        .replaceAll("\\", "\\\\")
-        .replaceAll("%", "\\%")
-        .replaceAll("_", "\\_")
+      const escapedQuery = escapeLikePattern(query)
       const queryClause = query
         ? ` AND (
              lower(scope_id) LIKE ? ESCAPE '\\' OR

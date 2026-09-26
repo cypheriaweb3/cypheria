@@ -8,23 +8,20 @@ import {
 import { createFileAttachmentStore } from "@cypheria/storage/files"
 import {
   createSqliteReplicaStore,
-  type ReplicaSqliteConnection,
-  type ReplicaSqliteDriver,
-  type ReplicaSqliteValue,
+  type SqliteConnection,
+  type SqliteDriver,
+  type SqliteValue,
 } from "@cypheria/storage/sqlite"
 import AsyncStorage from "@react-native-async-storage/async-storage"
 import { Directory, File, FileMode, Paths } from "expo-file-system"
 import { openDatabaseAsync, type SQLiteDatabase } from "expo-sqlite"
 
-const toSqliteConnection = (
-  database: SQLiteDatabase,
-  closeable: boolean
-): ReplicaSqliteConnection => ({
+const toSqliteConnection = (database: SQLiteDatabase, closeable: boolean): SqliteConnection => ({
   exec: (sql) => database.execAsync(sql),
   async run(sql, params = []) {
     await database.runAsync(sql, [...params])
   },
-  all: <Row>(sql: string, params: readonly ReplicaSqliteValue[] = []) =>
+  all: <Row>(sql: string, params: readonly SqliteValue[] = []) =>
     database.getAllAsync<Row>(sql, [...params]),
   transaction: (operation) =>
     database.withExclusiveTransactionAsync((transaction) =>
@@ -35,7 +32,7 @@ const toSqliteConnection = (
   },
 })
 
-const sqliteDriver: ReplicaSqliteDriver = {
+const sqliteDriver: SqliteDriver = {
   async open() {
     return toSqliteConnection(await openDatabaseAsync("cypheria-client-replica.db"), true)
   },

@@ -23,6 +23,7 @@ import {
   DesktopPreferencesSchema,
   LanguageBootstrapSchema,
   LanguageSettingsSchema,
+  StorageKeyValueChangeSchema,
 } from "../../ipc/src/index.js"
 
 const readBootstrapAppearance = () => {
@@ -97,6 +98,42 @@ const cypheriaApi: CypheriaPreloadApi = {
           storageKey,
           bytes,
         }),
+    },
+    keyValue: {
+      getItem: (key) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageKeyValueGet, { key }),
+      setItem: (key, value) =>
+        ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageKeyValueSet, { key, value }),
+      removeItem: (key) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageKeyValueRemove, { key }),
+      listPage: (request) =>
+        ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageKeyValueListPage, request),
+      onChanged: (handler) => {
+        const listener = (_event: IpcRendererEvent, rawChange: unknown): void => {
+          handler(StorageKeyValueChangeSchema.parse(rawChange))
+        }
+        ipcRenderer.on(CYPHERIA_IPC_CHANNELS.storageKeyValueChanged, listener)
+        return () => ipcRenderer.off(CYPHERIA_IPC_CHANNELS.storageKeyValueChanged, listener)
+      },
+    },
+    replica: {
+      open: () => invoke(CYPHERIA_IPC_CHANNELS.storageReplicaOpen),
+      read: (scopeId, entityTypes, entityIds) =>
+        ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageReplicaRead, {
+          scopeId,
+          entityTypes,
+          ...(entityIds ? { entityIds } : {}),
+        }),
+      readAll: () => invoke(CYPHERIA_IPC_CHANNELS.storageReplicaReadAll),
+      listPage: (request) =>
+        ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageReplicaListPage, request),
+      apply: (changes) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageReplicaApply, changes),
+      deleteScope: (scopeId) =>
+        ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageReplicaDeleteScope, { scopeId }),
+      renameScope: (oldScopeId, newScopeId) =>
+        ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageReplicaRenameScope, {
+          oldScopeId,
+          newScopeId,
+        }),
+      clear: () => invoke(CYPHERIA_IPC_CHANNELS.storageReplicaClear),
     },
   },
   settings: {

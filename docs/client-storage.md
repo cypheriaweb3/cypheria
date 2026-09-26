@@ -20,15 +20,15 @@ Only rebuildable or device-local data belongs here. Threads, Timeline history, s
 
 | Runtime | Key/value | Replica | Attachment bytes |
 | --- | --- | --- | --- |
-| Desktop (TanStack Start renderer + Electron) | browser `localStorage` | IndexedDB | Electron-owned files under `userData/client-attachments`, accessed through validated preload IPC |
+| Desktop (TanStack Start renderer + Electron) | Electron-owned SQLite `~/.cypheria/desktop/kv.sqlite` | Electron-owned SQLite `~/.cypheria/desktop/replica.sqlite` | Electron-owned files under `~/.cypheria/desktop/attachments` |
 | Expo Web | browser `localStorage` | IndexedDB | IndexedDB |
 | Expo iOS and Android | AsyncStorage | `expo-sqlite` | app document files through `expo-file-system` |
 
-Desktop and Expo compose the ports at their application boundary. A caller opens the replica before use and closes it when its runtime is disposed. Web adapters avoid browser globals at module evaluation so server rendering can import the composition safely; actual storage access still requires a browser runtime.
+Desktop and Expo compose the ports at their application boundary. Electron main is the sole owner of both Desktop SQLite databases and attachment files; the sandboxed renderer accesses all three stores through the validated preload bridge. On Desktop, Electron main keeps the shared replica open for the application lifetime, so disposing one renderer cannot close storage used by another window. Other callers open the replica before use and close it when their runtime is disposed. Web adapters avoid browser globals at module evaluation so server rendering can import the composition safely; actual storage access still requires a browser runtime.
 
 ## Key-value state
 
-Raw key/value storage only persists strings. `@cypheria/storage/jotai` adds `atomWithValidatedStorage` and `createValidatedJotaiStorage`: values are wrapped with an explicit version, validated with Zod on reads and writes, optionally migrated, and removed if corrupt. Application state uses Jotai; the storage package does not introduce Zustand.
+Raw key/value storage only persists strings. `@cypheria/storage/jotai` adds `atomWithValidatedStorage` and `createValidatedJotaiStorage`: values are wrapped with an explicit version, validated with Zod on reads and writes, optionally migrated, and removed if corrupt. Application state uses Jotai; the storage package does not introduce Zustand. Desktop key/value changes are broadcast by Electron main so every renderer window observes the same SQLite-backed value.
 
 Keys must be stable, namespaced, and owned by one domain. Larger collections and queryable records belong in the replica rather than a single JSON value.
 
@@ -38,7 +38,7 @@ The inspection API uses keyset pagination and searches key names. It reads value
 
 The replica is a semantic row store, not a portable SQL API. Each row has `scopeId`, `entityType`, `entityId`, and a serialized payload. The owning domain defines payload schemas and converts records at the boundary.
 
-The application supplies a positive semantic schema version. When that version changes, an adapter clears the rebuildable replica instead of trying to expose platform-specific migrations. IndexedDB and SQLite implementations provide atomic batches for upserts and deletes. Replica contents must be recoverable from the Server or another durable source.
+The application supplies a positive semantic schema version. When that version changes, an adapter clears the rebuildable replica instead of trying to expose platform-specific migrations. IndexedDB and SQLite implementations provide atomic batches for upserts and deletes. The Desktop replica database is physically separate from `kv.sqlite`, so rebuilding it cannot remove key/value state. Replica contents must be recoverable from the Server or another durable source.
 
 Replica inspection also uses an opaque keyset cursor. Queries scan row keys and serialized payloads, but results contain only a 240-character payload preview and its full character count.
 
@@ -48,7 +48,7 @@ Attachment metadata and bytes have separate lifecycles. A domain persists metada
 
 `SaveAttachmentInput` accepts a discriminated `source`: `bytes`, `blob`, base64 `data_url`, or `file_uri`. MIME type is optional and is inferred from Blob or data URL sources when possible; file names are inferred from file URIs when omitted. Expo native resolves file URIs through its file-system API. On Desktop, `file_uri` sources take a direct-copy fast path: IPC carries only the URI and storage key, and Electron main copies the source into managed storage without materializing its bytes in the renderer. Other source kinds retain the bounded byte-transfer fallback.
 
-The Web adapter keeps attachment bytes in a dedicated IndexedDB database. Native Expo stores them in its document directory. Desktop sends bounded `Uint8Array` values over the isolated preload bridge only for in-memory sources; file URI sources are copied by Electron main. Main validates the key, enforces a 32 MiB limit, and writes only inside its owned directory. Renderer code never receives Node.js access.
+The Web adapter keeps attachment bytes in a dedicated IndexedDB database. Native Expo stores them in its document directory. Desktop sends bounded `Uint8Array` values over the isolated preload bridge only for in-memory sources; file URI sources are copied by Electron main. Main validates storage requests, owns `kv.sqlite`, `replica.sqlite`, and the attachment directory, enforces a 32 MiB attachment limit, and writes only inside its owned paths. Renderer code never receives Node.js access.
 
 Attachment inspection returns paginated keys, sizes, and at most the first 32 bytes. File adapters read only that prefix; the Web adapter keeps the prefix in its metadata object store so listing never materializes complete blobs.
 

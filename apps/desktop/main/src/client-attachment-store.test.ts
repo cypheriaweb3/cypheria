@@ -32,6 +32,7 @@ afterEach(async () => {
 describe("desktop attachment storage", () => {
   it("writes, reads, lists, overwrites, and deletes opaque attachment files", async () => {
     const userDataDir = await createUserDataDirectory()
+    expect(getDesktopAttachmentDirectory(userDataDir)).toBe(join(userDataDir, "attachments"))
 
     await expect(
       writeDesktopAttachment(userDataDir, "att_one", new Uint8Array([1, 2, 3]))

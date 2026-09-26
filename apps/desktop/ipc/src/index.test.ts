@@ -9,6 +9,8 @@ import {
   ipcContracts,
   storageAttachmentCopyFileContract,
   storageAttachmentWriteContract,
+  storageKeyValueSetContract,
+  storageReplicaApplyContract,
 } from "./index.js"
 
 describe("desktop IPC contracts", () => {
@@ -46,7 +48,49 @@ describe("desktop IPC contracts", () => {
       "storageAttachmentListPage",
       "storageAttachmentRead",
       "storageAttachmentWrite",
+      "storageKeyValueGet",
+      "storageKeyValueListPage",
+      "storageKeyValueRemove",
+      "storageKeyValueSet",
+      "storageReplicaApply",
+      "storageReplicaClear",
+      "storageReplicaDeleteScope",
+      "storageReplicaListPage",
+      "storageReplicaOpen",
+      "storageReplicaRead",
+      "storageReplicaReadAll",
+      "storageReplicaRenameScope",
     ])
+  })
+
+  it("validates bounded key/value and replica writes", () => {
+    expect(
+      storageKeyValueSetContract.request.parse({
+        key: "cypheria.client.appearance",
+        value: JSON.stringify({ theme: "dark" }),
+      })
+    ).toMatchObject({ key: "cypheria.client.appearance" })
+    expect(() => storageKeyValueSetContract.request.parse({ key: "", value: "dark" })).toThrow()
+
+    expect(
+      storageReplicaApplyContract.request.parse({
+        deletes: [{ scopeId: "workspace-a", entityType: "thread", entityId: "old" }],
+        upserts: [
+          {
+            scopeId: "workspace-a",
+            entityType: "thread",
+            entityId: "new",
+            payload: JSON.stringify({ title: "New" }),
+          },
+        ],
+      })
+    ).toMatchObject({ upserts: [{ entityId: "new" }] })
+    expect(() =>
+      storageReplicaApplyContract.request.parse({
+        deletes: [],
+        upserts: [{ scopeId: "", entityType: "thread", entityId: "new", payload: "{}" }],
+      })
+    ).toThrow()
   })
 
   it("accepts bounded attachment bytes and rejects unsafe storage keys", () => {
