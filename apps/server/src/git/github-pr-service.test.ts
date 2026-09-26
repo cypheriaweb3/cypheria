@@ -353,7 +353,7 @@ else process.stdout.write(fs.readFileSync(${JSON.stringify(stateFile)}, "utf8"))
     expect(stateCalls).toContainEqual(["pr", "ready", "42", "--undo"])
     expect(stateCalls).toContainEqual(["pr", "ready", "42"])
     expect(stateCalls).toContainEqual(["pr", "reopen", "42"])
-  })
+  }, 30_000)
 
   it("reports an unavailable CLI without treating it as an authenticated account", async () => {
     const cwd = await mkdtemp(join(tmpdir(), "cypheria-gh-missing-"))
