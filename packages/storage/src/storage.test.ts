@@ -142,29 +142,24 @@ describe("client storage contracts", () => {
     }
   })
 
-  it("validates and migrates Jotai persistence envelopes", async () => {
+  it("validates versioned Jotai persistence envelopes and deletes invalid values", async () => {
     const keyValue = createMemoryKeyValueStorage()
     const storage = createValidatedJotaiStorage(
       keyValue,
       z.object({ compact: z.boolean() }).strict(),
-      {
-        version: 2,
-        migrate(value, storedVersion) {
-          if (storedVersion !== 1 || typeof value !== "boolean") return null
-          return { compact: value }
-        },
-      }
+      { version: 1 }
     )
 
-    await keyValue.setItem("layout", JSON.stringify({ value: true, version: 1 }))
+    await keyValue.setItem("layout", JSON.stringify({ value: true, version: 2 }))
     await expect(storage.getItem("layout", { compact: false })).resolves.toEqual({
-      compact: true,
+      compact: false,
     })
+    await expect(keyValue.getItem("layout")).resolves.toBeNull()
     await storage.setItem("layout", { compact: false })
     await expect(keyValue.getItem("layout")).resolves.toBe(
-      JSON.stringify({ value: { compact: false }, version: 2 })
+      JSON.stringify({ value: { compact: false }, version: 1 })
     )
-    await keyValue.setItem("layout", JSON.stringify({ value: { compact: "yes" }, version: 2 }))
+    await keyValue.setItem("layout", JSON.stringify({ value: { compact: "yes" }, version: 1 }))
     await expect(storage.getItem("layout", { compact: false })).resolves.toEqual({
       compact: false,
     })
@@ -186,6 +181,10 @@ describe("client storage contracts", () => {
         const bytes = bytesByKey.get(key)
         if (!bytes) throw new Error("not found")
         return new Uint8Array(bytes)
+      },
+      async stat(key) {
+        const bytes = bytesByKey.get(key)
+        return bytes ? { byteSize: bytes.byteLength, exists: true } : { byteSize: 0, exists: false }
       },
       async delete(key) {
         bytesByKey.delete(key)
@@ -234,6 +233,7 @@ describe("client storage contracts", () => {
       byteSize: 3,
     })
     await expect(attachments.read(saved)).resolves.toEqual(new Uint8Array([1, 2, 3]))
+    await expect(attachments.stat(saved)).resolves.toEqual({ byteSize: 3, exists: true })
     expect(dataUrl).toMatchObject({ mimeType: "text/plain", byteSize: 2 })
     expect(blob).toMatchObject({ mimeType: "text/markdown", byteSize: 7 })
     expect(fileUri).toMatchObject({

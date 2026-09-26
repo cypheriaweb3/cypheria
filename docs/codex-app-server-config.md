@@ -123,4 +123,5 @@ The following never belong in Codex configuration:
 - Server executable and auto-start preferences.
 - `composer.permissionModeVisibility`, which only makes Full access visible in the composer permissions menu.
 
-Desktop stores those values in Electron's `config.json`.
+Desktop stores durable client-local values in its KV store. Binary draft attachments use the
+AttachmentStore, while transient window and process state remains in memory.

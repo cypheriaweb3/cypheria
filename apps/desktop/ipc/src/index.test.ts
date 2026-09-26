@@ -4,9 +4,11 @@ import {
   appConfigOpenContract,
   appGitFileActionContract,
   browserSessionOpenContract,
-  ConnectionProxySettingsSchema,
+  clientSettingDefinitions,
+  composerDraftKey,
   dappProviderRequestContract,
   ipcContracts,
+  panelLayoutKey,
   storageAttachmentCopyFileContract,
   storageAttachmentWriteContract,
   storageKeyValueSetContract,
@@ -28,25 +30,15 @@ describe("desktop IPC contracts", () => {
       "browserSessionOpen",
       "dappProviderRequest",
       "settingsAppearanceFontsList",
-      "settingsAppearanceRead",
-      "settingsAppearanceWrite",
-      "settingsConnectionProxyRead",
-      "settingsConnectionProxyTest",
-      "settingsConnectionProxyWrite",
-      "settingsLanguageRead",
-      "settingsLanguageWrite",
       "settingsNotificationSoundPreview",
       "settingsNotificationSoundsList",
       "settingsOpenTargetsList",
-      "settingsPreferencesRead",
-      "settingsPreferencesWrite",
-      "settingsWorkspaceLayoutRead",
-      "settingsWorkspaceLayoutWrite",
       "storageAttachmentCopyFile",
       "storageAttachmentDelete",
       "storageAttachmentList",
       "storageAttachmentListPage",
       "storageAttachmentRead",
+      "storageAttachmentStat",
       "storageAttachmentWrite",
       "storageKeyValueGet",
       "storageKeyValueListPage",
@@ -66,10 +58,10 @@ describe("desktop IPC contracts", () => {
   it("validates bounded key/value and replica writes", () => {
     expect(
       storageKeyValueSetContract.request.parse({
-        key: "cypheria.client.appearance",
+        key: "appearance",
         value: JSON.stringify({ theme: "dark" }),
       })
-    ).toMatchObject({ key: "cypheria.client.appearance" })
+    ).toMatchObject({ key: "appearance" })
     expect(() => storageKeyValueSetContract.request.parse({ key: "", value: "dark" })).toThrow()
 
     expect(
@@ -126,7 +118,7 @@ describe("desktop IPC contracts", () => {
     ).toThrow()
   })
 
-  it("validates desktop path and proxy settings", () => {
+  it("validates desktop path actions", () => {
     expect(appConfigOpenContract.request.parse({})).toEqual({})
     expect(
       appGitFileActionContract.request.parse({
@@ -142,17 +134,21 @@ describe("desktop IPC contracts", () => {
         path: "src/index.ts",
       })
     ).toThrow()
-    expect(
-      ConnectionProxySettingsSchema.parse({
-        bypass: "localhost, example.test",
-        host: "127.0.0.1",
-        mode: "manual",
-        password: "secret",
-        port: 7890,
-        protocol: "socks5",
-        username: "proxy-user",
+  })
+
+  it("defines every client setting as a valid version 1 value", () => {
+    for (const [name, definition] of Object.entries(clientSettingDefinitions)) {
+      expect(definition.version, name).toBe(1)
+      expect(definition.key, name).not.toMatch(/^(cypheria|client|desktop)[.:]/u)
+      expect(definition.schema.safeParse(definition.defaultValue), name).toMatchObject({
+        success: true,
       })
-    ).toMatchObject({ mode: "manual", port: 7890, protocol: "socks5" })
+    }
+  })
+
+  it("uses scoped semantic keys for drafts and panel checkpoints", () => {
+    expect(composerDraftKey("thread-1")).toBe("composerDraft:thread-1")
+    expect(panelLayoutKey("thread-1")).toBe("panelLayout:thread-1")
   })
 
   it("keeps dApp WebContents traffic origin-scoped", () => {

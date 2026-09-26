@@ -42,6 +42,7 @@ import { eq, useLiveQuery } from "@tanstack/react-db"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
+import { useAtom, useAtomValue } from "jotai"
 import {
   Archive,
   BellDot,
@@ -84,9 +85,14 @@ import {
   useMemo,
   useRef,
   useState,
-  useSyncExternalStore,
 } from "react"
-import { unreadThreadMutationFromServerMessage, unreadThreadStore } from "../chat-unread-state.js"
+import { mutateUnreadThread, unreadThreadMutationFromServerMessage } from "../chat-unread-state.js"
+import {
+  chatSidebarSortAtom,
+  pinnedSidebarSortAtom,
+  sidebarOrganizationAtom,
+  unreadThreadIdsAtom,
+} from "../client-state.js"
 import { cypheriaClient, ensureCypheriaClient } from "../cypheria-client.js"
 import { filterDevelopmentItems, isDesktopDevelopment } from "../development-mode.js"
 import { getSidebarCollections } from "../sidebar-collections.js"
@@ -196,14 +202,6 @@ const sectionLabels = {
   recents: msg({ id: "navigation.recents", message: "Recents" }),
 } as const
 
-const readPreference = <T extends string>(key: string, fallback: T): T => {
-  try {
-    return (globalThis.localStorage?.getItem(key) as T | null) ?? fallback
-  } catch {
-    return fallback
-  }
-}
-
 export function ChatSidebar({
   activeThreadId,
   pendingCount,
@@ -231,15 +229,10 @@ export function ChatSidebar({
   const [visibleProjectCount, setVisibleProjectCount] = useState(SIDEBAR_BATCH_SIZE)
   const [projectChatLimits, setProjectChatLimits] = useState<Record<string, number>>({})
   const [catalogLoadIntent, setCatalogLoadIntent] = useState<"projects" | string | null>(null)
-  const [organizeByProject, setOrganizeByProject] = useState(
-    () => readPreference("cypheria.sidebar.organization", "by-project") === "by-project"
-  )
-  const [pinnedSort, setPinnedSort] = useState<SidebarSort>(() =>
-    readPreference("cypheria.sidebar.pinned-sort", "manual")
-  )
-  const [chatSort, setChatSort] = useState<SidebarSort>(() =>
-    readPreference("cypheria.sidebar.chat-sort", "updated")
-  )
+  const [sidebarOrganization, setSidebarOrganization] = useAtom(sidebarOrganizationAtom)
+  const organizeByProject = sidebarOrganization === "by-project"
+  const [pinnedSort, setPinnedSort] = useAtom(pinnedSidebarSortAtom)
+  const [chatSort, setChatSort] = useAtom(chatSidebarSortAtom)
   const [projectDialogOpen, setProjectDialogOpen] = useState(false)
   const [sectionDialog, setSectionDialog] = useState<SectionDialogState | null>(null)
   const [deletingSection, setDeletingSection] = useState<SidebarSectionView | null>(null)
@@ -255,22 +248,18 @@ export function ChatSidebar({
   const [mutationError, setMutationError] = useState<string | null>(null)
   const [dragging, setDragging] = useState<SidebarDragItem | null>(null)
   const [optimisticRows, setOptimisticRows] = useState<readonly ChatSidebarRow[] | null>(null)
-  const unreadThreadIds = useSyncExternalStore(
-    unreadThreadStore.subscribe,
-    unreadThreadStore.getSnapshot,
-    unreadThreadStore.getSnapshot
-  )
+  const unreadIds = useAtomValue(unreadThreadIdsAtom)
+  const unreadThreadIds = useMemo(() => new Set(unreadIds), [unreadIds])
 
   useEffect(() => {
-    if (activeThreadId) unreadThreadStore.markRead(activeThreadId)
+    if (activeThreadId) mutateUnreadThread({ action: "read", threadId: activeThreadId })
   }, [activeThreadId])
 
   useEffect(() => {
     return cypheriaClient.subscribe((event) => {
       const mutation = unreadThreadMutationFromServerMessage(event, activeThreadId)
       if (!mutation) return
-      if (mutation.action === "unread") unreadThreadStore.markUnread(mutation.threadId)
-      else unreadThreadStore.markRead(mutation.threadId)
+      mutateUnreadThread(mutation)
     })
   }, [activeThreadId])
 
@@ -553,19 +542,13 @@ export function ChatSidebar({
       return next
     })
   const setOrganization = (byProject: boolean) => {
-    setOrganizeByProject(byProject)
-    globalThis.localStorage?.setItem(
-      "cypheria.sidebar.organization",
-      byProject ? "by-project" : "one-list"
-    )
+    void setSidebarOrganization(byProject ? "by-project" : "one-list")
   }
   const updatePinnedSort = (sort: SidebarSort) => {
-    setPinnedSort(sort)
-    globalThis.localStorage?.setItem("cypheria.sidebar.pinned-sort", sort)
+    void setPinnedSort(sort)
   }
   const updateChatSort = (sort: SidebarSort) => {
-    setChatSort(sort)
-    globalThis.localStorage?.setItem("cypheria.sidebar.chat-sort", sort)
+    void setChatSort(sort)
   }
   const invalidateSidebar = async () => {
     sidebarData.invalidate()
@@ -604,7 +587,7 @@ export function ChatSidebar({
   const forkThread = (thread: SidebarThreadView) =>
     runSidebarMutation(async () => {
       const fork = await sidebarData.forkThread(thread.id)
-      unreadThreadStore.markRead(fork.id)
+      mutateUnreadThread({ action: "read", threadId: fork.id })
       await navigate({ search: { thread: fork.id }, to: "/" })
     })
   const moveProjectToSection = (project: SidebarProjectView, sectionId: string | null) =>
@@ -843,8 +826,10 @@ export function ChatSidebar({
                           void moveThreadToSection(thread, sectionId)
                         }
                         onThreadReadState={(thread, unread) => {
-                          if (unread) unreadThreadStore.markUnread(thread.id)
-                          else unreadThreadStore.markRead(thread.id)
+                          mutateUnreadThread({
+                            action: unread ? "unread" : "read",
+                            threadId: thread.id,
+                          })
                         }}
                         onToggleCustomSection={(id) => toggleSet(setExpandedCustomSections, id)}
                         onToggleProject={(id) => toggleSet(setCollapsedProjects, id)}
@@ -1260,7 +1245,8 @@ function ChatSidebarRowView(props: RowViewProps) {
           onMarkRead={
             hasUnread
               ? () => {
-                  for (const { id } of row.threads) unreadThreadStore.markRead(id)
+                  for (const { id } of row.threads)
+                    mutateUnreadThread({ action: "read", threadId: id })
                 }
               : undefined
           }

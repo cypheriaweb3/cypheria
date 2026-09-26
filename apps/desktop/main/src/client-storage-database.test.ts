@@ -18,18 +18,18 @@ describe("desktop client storage database", () => {
     const replicaFilePath = join(directory, "replica.sqlite")
     const storage = createDesktopClientStorageDatabase({ keyValueFilePath, replicaFilePath })
     const changes: Array<string | null> = []
-    const unsubscribe = storage.keyValue.subscribe?.("cypheria.client.layout", (value) =>
+    const unsubscribe = storage.keyValue.subscribe?.("panelLayout:thread-1", (value) =>
       changes.push(value)
     )
 
     try {
-      await storage.keyValue.setItem("cypheria.client.layout", "compact".repeat(50))
-      await storage.keyValue.setItem("cypheria.client.literal%_key", "literal")
-      await expect(storage.keyValue.getItem("cypheria.client.layout")).resolves.toBe(
+      await storage.keyValue.setItem("panelLayout:thread-1", "compact".repeat(50))
+      await storage.keyValue.setItem("literal%_key", "literal")
+      await expect(storage.keyValue.getItem("panelLayout:thread-1")).resolves.toBe(
         "compact".repeat(50)
       )
       await expect(storage.keyValue.listPage({ query: "%_" })).resolves.toMatchObject({
-        items: [{ key: "cypheria.client.literal%_key" }],
+        items: [{ key: "literal%_key" }],
       })
       await expect(storage.keyValue.listPage({ query: "layout" })).resolves.toMatchObject({
         items: [{ valueLength: 350, valueTruncated: true }],
@@ -42,7 +42,7 @@ describe("desktop client storage database", () => {
         items: [{ entityId: "thread-1", payloadTruncated: false }],
       })
 
-      await storage.keyValue.removeItem("cypheria.client.layout")
+      await storage.keyValue.removeItem("panelLayout:thread-1")
       expect(changes).toEqual(["compact".repeat(50), null])
       if (process.platform !== "win32") {
         expect((await stat(keyValueFilePath)).mode & 0o777).toBe(0o600)
@@ -66,7 +66,7 @@ describe("desktop client storage database", () => {
         replicaFilePath,
         replicaSchemaVersion: 1,
       })
-      await first.keyValue.setItem("cypheria.client.appearance", "dark")
+      await first.keyValue.setItem("appearance", "dark")
       await first.replica.open()
       await first.replica.apply({ deletes: [], upserts: [firstRow] })
       await first.close()
@@ -78,7 +78,7 @@ describe("desktop client storage database", () => {
       })
       await second.replica.open()
       await expect(second.replica.readAll()).resolves.toEqual([])
-      await expect(second.keyValue.getItem("cypheria.client.appearance")).resolves.toBe("dark")
+      await expect(second.keyValue.getItem("appearance")).resolves.toBe("dark")
       await second.close()
     } finally {
       await rm(directory, { force: true, recursive: true })

@@ -23,6 +23,38 @@ afterEach(async () => {
 })
 
 describe("CypheriaServer", () => {
+  it("clears Agent references and the default when a network proxy is deleted", async () => {
+    const cypheriaHome = await mkdtemp(join(tmpdir(), "cypheria-server-proxy-test-"))
+    temporaryDirectories.push(cypheriaHome)
+    const server = new CypheriaServer({
+      agentNetworkBootstrap: false,
+      config: loadServerConfig({}, { port: 0, webAppEnabled: false }),
+      logger: pino({ level: "silent" }),
+      runtime: new CypheriaRuntime({ env: { CYPHERIA_HOME: cypheriaHome } }),
+    })
+    await server.start()
+    try {
+      await server.patchNetworkProxies({
+        defaultProxyId: "office",
+        proxies: { office: { id: "office", mode: "direct", name: "Office" } },
+      })
+      await server.patchConfig({
+        agents: {
+          claude: { networkProxyId: "office" },
+          codex: { networkProxyId: "office" },
+        },
+      })
+
+      const proxies = await server.patchNetworkProxies({ proxies: { office: null } })
+
+      expect(proxies.defaultProxyId).toBeNull()
+      expect(proxies.proxies).toEqual([])
+      expect(server.getConfig().config.agents).toEqual({ claude: {}, codex: {} })
+    } finally {
+      await server.stop("Test complete")
+    }
+  })
+
   it("owns Web3 state behind the versioned client protocol", async () => {
     const cypheriaHome = await mkdtemp(join(tmpdir(), "cypheria-server-web3-test-"))
     temporaryDirectories.push(cypheriaHome)

@@ -12,9 +12,7 @@ export const CYPHERIA_SERVER_CONFIG_FILENAME = "config.json" as const
 
 export const DEFAULT_PERSISTED_SERVER_CONFIG: PersistedServerConfig = {
   git: DEFAULT_GIT_SETTINGS,
-  agents: {
-    defaults: {},
-  },
+  agents: {},
   server: {
     logging: {
       level: "info",
@@ -63,10 +61,21 @@ const deepMerge = <T extends Record<string, unknown>>(
 export const applyPersistedServerConfigPatch = (
   current: PersistedServerConfig,
   patch: PersistedServerConfigPatch
-): PersistedServerConfig =>
-  PersistedServerConfigSchema.parse(
-    deepMerge(current as unknown as Record<string, unknown>, patch as Record<string, unknown>)
-  )
+): PersistedServerConfig => {
+  const merged = deepMerge(
+    current as unknown as Record<string, unknown>,
+    patch as Record<string, unknown>
+  ) as unknown as PersistedServerConfig
+  if (patch.agents) {
+    for (const [agentId, agentPatch] of Object.entries(patch.agents)) {
+      if (agentPatch.networkProxyId === null) {
+        const currentAgent = merged.agents[agentId as keyof typeof merged.agents]
+        if (currentAgent) delete currentAgent.networkProxyId
+      }
+    }
+  }
+  return PersistedServerConfigSchema.parse(merged)
+}
 
 export async function loadPersistedServerConfig(configDir: string): Promise<PersistedServerConfig> {
   const path = resolveServerConfigPath(configDir)

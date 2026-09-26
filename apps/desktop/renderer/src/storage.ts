@@ -1,8 +1,10 @@
 import type { ClientStorage, KeyValueStorage, ReplicaStore } from "@cypheria/storage"
 import { createFileAttachmentStore } from "@cypheria/storage/files"
 
+const getStorageBridge = () => globalThis.window?.cypheria?.storage
+
 const requireStorageBridge = () => {
-  const bridge = globalThis.window?.cypheria?.storage
+  const bridge = getStorageBridge()
   if (!bridge) throw new Error("Desktop client storage is unavailable outside Electron.")
   return bridge
 }
@@ -15,7 +17,9 @@ const requireAttachmentBridge = () => {
 
 const keyValue: KeyValueStorage = {
   async getItem(key) {
-    return (await requireStorageBridge().keyValue.getItem(key)).value
+    const bridge = getStorageBridge()
+    if (!bridge) return null
+    return (await bridge.keyValue.getItem(key)).value
   },
   async setItem(key, value) {
     await requireStorageBridge().keyValue.setItem(key, value)
@@ -77,6 +81,9 @@ export const desktopClientStorage: ClientStorage = {
     async read(storageKey) {
       const result = await requireAttachmentBridge().read(storageKey)
       return result.bytes
+    },
+    stat(storageKey) {
+      return requireAttachmentBridge().stat(storageKey)
     },
     async delete(storageKey) {
       await requireAttachmentBridge().delete(storageKey)

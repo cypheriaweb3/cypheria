@@ -6,6 +6,7 @@ import {
   type AgentManagementClientMessage,
   type AgentManagementServerMessage,
 } from "./agent/management.ts"
+import { AgentIdSchema } from "./agent/registry.ts"
 import {
   GIT_CLIENT_SCHEMAS,
   GIT_RESPONSE_TYPES,
@@ -20,7 +21,6 @@ import {
   HARNESS_SERVER_SCHEMAS,
   type HarnessClientMessage,
   type HarnessServerMessage,
-  HarnessSettingValueSchema,
 } from "./harness.ts"
 import {
   CODEX_HARNESS_CLIENT_SCHEMAS,
@@ -392,13 +392,141 @@ export const DEFAULT_GIT_SETTINGS: GitSettings = {
   worktreeKeepCount: 15,
 }
 
+export const NetworkProxyIdSchema = z
+  .string()
+  .trim()
+  .regex(/^[A-Za-z0-9_-]{1,64}$/u)
+export type NetworkProxyId = z.infer<typeof NetworkProxyIdSchema>
+
+export const NetworkProxyProtocolSchema = z.enum(["http", "https", "socks4", "socks5"])
+export type NetworkProxyProtocol = z.infer<typeof NetworkProxyProtocolSchema>
+export type NetworkProxyDraft =
+  | { id: string; name: string; mode: "system" | "direct" }
+  | {
+      id: string
+      name: string
+      mode: "manual"
+      protocol: NetworkProxyProtocol
+      host: string
+      port: number
+      bypass: string[]
+      username?: string
+      password?: string | null
+    }
+export const NetworkProxyDraftSchema: z.ZodType<NetworkProxyDraft> = z.discriminatedUnion("mode", [
+  z
+    .object({
+      id: NetworkProxyIdSchema,
+      name: z.string().trim().min(1).max(100),
+      mode: z.literal("system"),
+    })
+    .strict(),
+  z
+    .object({
+      id: NetworkProxyIdSchema,
+      name: z.string().trim().min(1).max(100),
+      mode: z.literal("direct"),
+    })
+    .strict(),
+  z
+    .object({
+      id: NetworkProxyIdSchema,
+      name: z.string().trim().min(1).max(100),
+      mode: z.literal("manual"),
+      protocol: NetworkProxyProtocolSchema,
+      host: z.string().trim().min(1).max(253),
+      port: z.int().min(1).max(65_535),
+      bypass: z.array(z.string().trim().min(1).max(253)).max(256),
+      username: z.string().max(256).optional(),
+      password: z.string().max(4_096).nullable().optional(),
+    })
+    .strict(),
+]) as z.ZodType<NetworkProxyDraft>
+
+export type NetworkProxySnapshot =
+  | { id: string; name: string; mode: "system" | "direct" }
+  | {
+      id: string
+      name: string
+      mode: "manual"
+      protocol: NetworkProxyProtocol
+      host: string
+      port: number
+      bypass: string[]
+      username?: string
+      passwordConfigured: boolean
+    }
+export const NetworkProxySnapshotSchema: z.ZodType<NetworkProxySnapshot> = z.discriminatedUnion(
+  "mode",
+  [
+    z.object({ id: NetworkProxyIdSchema, name: z.string(), mode: z.literal("system") }).strict(),
+    z.object({ id: NetworkProxyIdSchema, name: z.string(), mode: z.literal("direct") }).strict(),
+    z
+      .object({
+        id: NetworkProxyIdSchema,
+        name: z.string(),
+        mode: z.literal("manual"),
+        protocol: NetworkProxyProtocolSchema,
+        host: z.string(),
+        port: z.int(),
+        bypass: z.array(z.string()),
+        username: z.string().optional(),
+        passwordConfigured: z.boolean(),
+      })
+      .strict(),
+  ]
+) as z.ZodType<NetworkProxySnapshot>
+
+export type NetworkProxyListSnapshot = {
+  version: 1
+  defaultProxyId: string | null
+  proxies: NetworkProxySnapshot[]
+}
+export const NetworkProxyListSnapshotSchema: z.ZodType<NetworkProxyListSnapshot> = z
+  .object({
+    version: z.literal(1),
+    defaultProxyId: NetworkProxyIdSchema.nullable(),
+    proxies: z.array(NetworkProxySnapshotSchema),
+  })
+  .strict() as z.ZodType<NetworkProxyListSnapshot>
+
+export type NetworkProxyListPatch = {
+  defaultProxyId?: string | null
+  proxies?: Record<string, NetworkProxyDraft | null>
+}
+export const NetworkProxyListPatchSchema: z.ZodType<NetworkProxyListPatch> = z
+  .object({
+    defaultProxyId: NetworkProxyIdSchema.nullable().optional(),
+    proxies: z.record(NetworkProxyIdSchema, NetworkProxyDraftSchema.nullable()).optional(),
+  })
+  .strict() as z.ZodType<NetworkProxyListPatch>
+
+export const NetworkProxyTestResultSchema = z
+  .object({ ok: z.boolean(), latencyMs: z.int().nonnegative(), message: z.string() })
+  .strict()
+export type NetworkProxyTestResult = z.infer<typeof NetworkProxyTestResultSchema>
+
+export const AgentAdditionalSettingsSchema = z
+  .object({ networkProxyId: NetworkProxyIdSchema.optional() })
+  .strict()
+export type AgentAdditionalSettings = z.infer<typeof AgentAdditionalSettingsSchema>
+
+const validateAgentSettingKeys = (
+  value: Record<string, unknown>,
+  context: { addIssue(issue: { code: "custom"; message: string; path: PropertyKey[] }): void }
+) => {
+  for (const key of Object.keys(value)) {
+    if (!AgentIdSchema.safeParse(key).success) {
+      context.addIssue({ code: "custom", message: `Unknown Agent id: ${key}`, path: [key] })
+    }
+  }
+}
+
 export const PersistedServerConfigSchema = z
   .object({
     agents: z
-      .object({
-        defaults: z.record(z.string(), z.record(z.string(), HarnessSettingValueSchema)),
-      })
-      .strict(),
+      .record(z.string(), AgentAdditionalSettingsSchema)
+      .superRefine(validateAgentSettingKeys),
     version: z.literal(1),
     git: GitSettingsSchema.default(DEFAULT_GIT_SETTINGS),
     server: z
@@ -461,10 +589,11 @@ export const PersistedServerConfigPatchSchema = z
   .object({
     git: GitSettingsSchema.partial().strict().optional(),
     agents: z
-      .object({
-        defaults: z.record(z.string(), z.record(z.string(), HarnessSettingValueSchema)).optional(),
-      })
-      .strict()
+      .record(
+        z.string(),
+        z.object({ networkProxyId: NetworkProxyIdSchema.nullable().optional() }).strict()
+      )
+      .superRefine(validateAgentSettingKeys)
       .optional(),
     server: z
       .object({
@@ -559,6 +688,21 @@ export const ServerConfigPatchRequestSchema = z.object({
   payload: z.object({ patch: PersistedServerConfigPatchSchema }),
 })
 
+export const NetworkProxyListGetRequestSchema = z.object({
+  type: z.literal("server.network-proxies.get.request"),
+  requestId: RequestIdSchema,
+})
+export const NetworkProxyListPatchRequestSchema = z.object({
+  type: z.literal("server.network-proxies.patch.request"),
+  requestId: RequestIdSchema,
+  payload: z.object({ patch: NetworkProxyListPatchSchema }).strict(),
+})
+export const NetworkProxyTestRequestSchema = z.object({
+  type: z.literal("server.network-proxies.test.request"),
+  requestId: RequestIdSchema,
+  payload: z.object({ agentId: AgentIdSchema, proxy: NetworkProxyDraftSchema }).strict(),
+})
+
 export const ServerOperationalStateSchema = z.object({
   config: z.object({
     path: z.string(),
@@ -593,6 +737,9 @@ export type SessionInboundMessage =
   | z.infer<typeof ServerConfigGetRequestSchema>
   | z.infer<typeof ServerConfigPatchRequestSchema>
   | z.infer<typeof ServerConfigReloadRequestSchema>
+  | z.infer<typeof NetworkProxyListGetRequestSchema>
+  | z.infer<typeof NetworkProxyListPatchRequestSchema>
+  | z.infer<typeof NetworkProxyTestRequestSchema>
   | AgentManagementClientMessage
   | IntegrationClientMessage
   | GitClientMessage
@@ -610,6 +757,9 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   ServerConfigGetRequestSchema,
   ServerConfigPatchRequestSchema,
   ServerConfigReloadRequestSchema,
+  NetworkProxyListGetRequestSchema,
+  NetworkProxyListPatchRequestSchema,
+  NetworkProxyTestRequestSchema,
   ...AGENT_MANAGEMENT_CLIENT_SCHEMAS,
   ...INTEGRATION_CLIENT_SCHEMAS,
   ...GIT_CLIENT_SCHEMAS,
@@ -662,6 +812,31 @@ export const ServerConfigReloadResponseSchema = z.object({
   payload: ServerConfigSnapshotSchema,
 })
 
+export const ServerConfigUpdatedNotificationSchema = z.object({
+  type: z.literal("server.config.updated.notification"),
+  payload: ServerConfigSnapshotSchema,
+})
+
+export const NetworkProxyListGetResponseSchema = z.object({
+  type: z.literal("server.network-proxies.get.response"),
+  requestId: RequestIdSchema,
+  payload: NetworkProxyListSnapshotSchema,
+})
+export const NetworkProxyListPatchResponseSchema = z.object({
+  type: z.literal("server.network-proxies.patch.response"),
+  requestId: RequestIdSchema,
+  payload: NetworkProxyListSnapshotSchema,
+})
+export const NetworkProxyTestResponseSchema = z.object({
+  type: z.literal("server.network-proxies.test.response"),
+  requestId: RequestIdSchema,
+  payload: NetworkProxyTestResultSchema,
+})
+export const NetworkProxyListUpdatedNotificationSchema = z.object({
+  type: z.literal("server.network-proxies.updated.notification"),
+  payload: NetworkProxyListSnapshotSchema,
+})
+
 /** A server-to-client message carried inside a top-level WebSocket `session` envelope. */
 export type SessionOutboundMessage =
   | z.infer<typeof ServerStatusNotificationSchema>
@@ -670,6 +845,11 @@ export type SessionOutboundMessage =
   | z.infer<typeof ServerConfigGetResponseSchema>
   | z.infer<typeof ServerConfigPatchResponseSchema>
   | z.infer<typeof ServerConfigReloadResponseSchema>
+  | z.infer<typeof ServerConfigUpdatedNotificationSchema>
+  | z.infer<typeof NetworkProxyListGetResponseSchema>
+  | z.infer<typeof NetworkProxyListPatchResponseSchema>
+  | z.infer<typeof NetworkProxyTestResponseSchema>
+  | z.infer<typeof NetworkProxyListUpdatedNotificationSchema>
   | AgentManagementServerMessage
   | IntegrationServerMessage
   | GitServerMessage
@@ -689,6 +869,11 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   ServerConfigGetResponseSchema,
   ServerConfigPatchResponseSchema,
   ServerConfigReloadResponseSchema,
+  ServerConfigUpdatedNotificationSchema,
+  NetworkProxyListGetResponseSchema,
+  NetworkProxyListPatchResponseSchema,
+  NetworkProxyTestResponseSchema,
+  NetworkProxyListUpdatedNotificationSchema,
   ...AGENT_MANAGEMENT_SERVER_SCHEMAS,
   ...INTEGRATION_SERVER_SCHEMAS,
   ...GIT_SERVER_SCHEMAS,
@@ -711,6 +896,9 @@ const clientResponseTypes = new Set<string>([
   "server.config.get.response",
   "server.config.patch.response",
   "server.config.reload.response",
+  "server.network-proxies.get.response",
+  "server.network-proxies.patch.response",
+  "server.network-proxies.test.response",
   "agent.list.response",
   "agent.add.response",
   "agent.remove.response",

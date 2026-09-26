@@ -1,4 +1,5 @@
 import { createServerProcessLogger } from "./logger.js"
+import { NetworkProxyStore } from "./network-proxy-store.js"
 import { isSupervisorMessage, type WorkerToSupervisorMessage } from "./process-messages.js"
 import { buildRuntimePaths } from "./runtime/index.js"
 import { CypheriaServer, type ServerLifecycleAction } from "./server.js"
@@ -77,8 +78,10 @@ if (typeof process.send === "function") {
 
 try {
   const configStore = await ServerConfigStore.open(buildRuntimePaths().configDir)
+  const networkProxyStore = await NetworkProxyStore.open(buildRuntimePaths().configDir)
   server = new CypheriaServer({
     configStore,
+    networkProxyStore,
     logger,
     onLifecycleRequest: ({ action, reason }) => {
       if (process.send) send({ action, reason, type: "lifecycle" })

@@ -132,10 +132,13 @@ import { useLingui } from "@lingui/react"
 import { Trans } from "@lingui/react/macro"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useVirtualizer } from "@tanstack/react-virtual"
+import { atom, useAtom, useAtomValue } from "jotai"
 import {
   type ChangeEvent,
   type FormEvent,
   type ReactNode,
+  type SetStateAction,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -143,7 +146,33 @@ import {
   useState,
   useSyncExternalStore,
 } from "react"
+import type {
+  ComposerDraft,
+  ComposerDraftAttachment,
+  PanelLayoutCheckpoint,
+} from "../../../ipc/src/index.js"
+import {
+  clientStateStore,
+  composerDraftAtom,
+  composerEnterBehaviorAtom,
+  composerPlainTextModeAtom,
+  defaultTerminalLocationAtom,
+  followUpQueueModeAtom,
+  panelLayoutAtom,
+  permissionModeVisibilityAtom,
+  projectlessWorkspaceRootAtom,
+  showBottomPanelControlAtom,
+  showContextWindowUsageAtom,
+} from "../client-state.js"
 import { type CodexRenderRow, splitCodexRenderGroups } from "../codex-render-groups.js"
+import {
+  COMPOSER_DRAFT_WRITE_DELAY_MS,
+  deleteDraftAttachments,
+  draftAttachmentToInputBlock,
+  isOwnedDraftAttachment,
+  saveFileDraftAttachment,
+  verifyDraftAttachments,
+} from "../composer-draft-storage.js"
 import { ensureCypheriaClient } from "../cypheria-client.js"
 import { Route } from "../routes/index.js"
 import { sidebarData, sidebarQueryKeys } from "../sidebar-data.js"
@@ -171,27 +200,20 @@ const formatted = (value: unknown): string => {
   }
 }
 
-type ComposerAttachment = {
-  block: ThreadInputBlock
-  id: string
-  mimeType: string
-  name: string
-}
+const draftAttachmentName = (attachment: ComposerDraftAttachment): string =>
+  attachment.kind === "browser-tab"
+    ? attachment.title
+    : attachment.kind === "selected-text"
+      ? "Selected text"
+      : attachment.name
 
-const fileBlock = async (file: File): Promise<ComposerAttachment> => {
-  const bytes = new Uint8Array(await file.arrayBuffer())
-  let binary = ""
-  for (let index = 0; index < bytes.length; index += 0x8000) {
-    binary += String.fromCharCode(...bytes.subarray(index, index + 0x8000))
+const draftAttachmentMimeType = (attachment: ComposerDraftAttachment): string => {
+  if (isOwnedDraftAttachment(attachment)) return attachment.attachment.mimeType
+  if (attachment.kind === "resource-link") return attachment.mimeType ?? "resource-link"
+  if (attachment.kind === "selected-text" || attachment.kind === "app-context") {
+    return "text/plain"
   }
-  const data = btoa(binary)
-  const mimeType = file.type || "application/octet-stream"
-  const block: ThreadInputBlock = mimeType.startsWith("image/")
-    ? { data, mimeType, type: "image" }
-    : mimeType.startsWith("audio/")
-      ? { data, mimeType, type: "audio" }
-      : { data, mimeType, name: file.name, type: "embedded-resource", uri: file.name }
-  return { block, id: crypto.randomUUID(), mimeType, name: file.name }
+  return attachment.kind
 }
 
 const activityState = (status?: string): ChatActivityState => {
@@ -798,6 +820,7 @@ function EmptyPanel({ children }: { children: ReactNode }) {
 export function ConversationWorkspace({
   agentId,
   initialPrompt,
+  initialDraftId,
   initialProjectId,
   initialSectionId,
   initialThreadId,
@@ -805,6 +828,7 @@ export function ConversationWorkspace({
 }: {
   agentId: AgentId
   initialPrompt?: string
+  initialDraftId?: string
   initialProjectId?: string
   initialSectionId?: string
   initialThreadId?: string
@@ -813,29 +837,39 @@ export function ConversationWorkspace({
   const { i18n } = useLingui()
   const navigate = Route.useNavigate()
   const queryClient = useQueryClient()
+  const draftScopeId = initialThreadId ?? initialDraftId
+  if (!draftScopeId) throw new Error("A composer draft scope is required.")
+  const draftAtom = useMemo(() => composerDraftAtom(draftScopeId), [draftScopeId])
+  const [persistedDraft, setPersistedDraft] = useAtom(draftAtom)
+  const canPersistPanel =
+    Boolean(initialThreadId) && window.cypheria?.bootstrap.windowRole === "main"
+  const panelAtom = useMemo(
+    () =>
+      canPersistPanel
+        ? panelLayoutAtom(initialThreadId as string)
+        : atom<PanelLayoutCheckpoint | null>(null),
+    [canPersistPanel, initialThreadId]
+  )
+  const [persistedPanelLayout, setPersistedPanelLayout] = useAtom(panelAtom)
+  const activeDraftScopeRef = useRef(draftScopeId)
+  const draftSnapshotRef = useRef<ComposerDraft | null>(persistedDraft)
+  const draftWriteTimerRef = useRef<number | null>(null)
   const projectsQuery = useQuery({
     queryFn: () => sidebarData.listProjects(),
     queryKey: sidebarQueryKeys.projects(),
   })
-  const desktopPreferencesQuery = useQuery({
-    queryFn: () => window.cypheria?.settings.getPreferences(),
-    queryKey: ["settings", "preferences"],
-    staleTime: Number.POSITIVE_INFINITY,
-  })
-  const workspaceLayoutQuery = useQuery({
-    queryFn: () => window.cypheria?.settings.getWorkspaceLayout(),
-    queryKey: ["settings", "workspace-layout"],
-    staleTime: Number.POSITIVE_INFINITY,
-  })
-  const desktopPreferences = desktopPreferencesQuery.data
-  const workspaceLayout = workspaceLayoutQuery.data
-  useEffect(
-    () =>
-      window.cypheria?.settings.onPreferencesChanged((settings) => {
-        queryClient.setQueryData(["settings", "preferences"], settings)
-      }),
-    [queryClient]
-  )
+  const desktopPreferences = {
+    projectlessWorkspaceRoot: useAtomValue(projectlessWorkspaceRootAtom),
+    followUpQueueMode: useAtomValue(followUpQueueModeAtom),
+    composerPlainTextMode: useAtomValue(composerPlainTextModeAtom),
+    composerEnterBehavior: useAtomValue(composerEnterBehaviorAtom),
+    permissionModeVisibility: useAtomValue(permissionModeVisibilityAtom),
+    showContextWindowUsage: useAtomValue(showContextWindowUsageAtom),
+  }
+  const workspaceLayout = {
+    defaultTerminalLocation: useAtomValue(defaultTerminalLocationAtom),
+    showBottomPanelControl: useAtomValue(showBottomPanelControlAtom),
+  }
   const project = projectsQuery.data?.data.find((item) => item.id === initialProjectId)
   const [controller] = useState(
     () =>
@@ -845,10 +879,21 @@ export function ConversationWorkspace({
         initialThreadId,
         projectId: initialProjectId,
         sectionId: initialSectionId,
-        onThreadCreated: (threadId) => {
+        onThreadCreated: async (threadId) => {
+          if (draftWriteTimerRef.current !== null) {
+            window.clearTimeout(draftWriteTimerRef.current)
+            draftWriteTimerRef.current = null
+          }
+          const previousScope = activeDraftScopeRef.current
+          const draft = draftSnapshotRef.current
+          if (draft) await clientStateStore.set(composerDraftAtom(threadId), draft)
+          if (previousScope !== threadId) {
+            await clientStateStore.set(composerDraftAtom(previousScope), null)
+          }
+          activeDraftScopeRef.current = threadId
           sidebarData.invalidate()
-          void queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all })
-          void navigate({ replace: true, search: { thread: threadId } })
+          await queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all })
+          await navigate({ replace: true, search: { thread: threadId } })
         },
       })
   )
@@ -857,20 +902,167 @@ export function ConversationWorkspace({
     controller.getSnapshot,
     controller.getSnapshot
   )
-  const [composer, setComposer] = useState(initialPrompt ?? "")
-  const [attachments, setAttachments] = useState<ComposerAttachment[]>([])
+  const [composer, setComposer] = useState(persistedDraft?.text ?? initialPrompt ?? "")
+  const [attachments, setAttachments] = useState<ComposerDraftAttachment[]>(
+    persistedDraft?.attachments ?? []
+  )
+  const draftStatusRef = useRef<ComposerDraft["status"]>(persistedDraft?.status ?? "editing")
+  const verifiedDraftScopeRef = useRef(false)
   const attachmentInput = useRef<HTMLInputElement>(null)
   const composerForm = useRef<HTMLFormElement>(null)
   const [composerEpoch, setComposerEpoch] = useState(0)
-  const [rightVisibility, setRightVisibility] = useState<ChatPanelVisibility>(
-    codex ? "visible" : "hidden"
+  const [rightVisibility, setRightVisibilityState] = useState<ChatPanelVisibility>(
+    persistedPanelLayout?.right.visible ? "visible" : codex ? "visible" : "hidden"
   )
-  const [bottomVisibility, setBottomVisibility] = useState<ChatPanelVisibility>("hidden")
-  const [rightFullscreen, setRightFullscreen] = useState(false)
+  const [bottomVisibility, setBottomVisibilityState] = useState<ChatPanelVisibility>(
+    persistedPanelLayout?.bottom.visible ? "visible" : "hidden"
+  )
+  const [rightFullscreen, setRightFullscreenState] = useState(
+    persistedPanelLayout?.right.fullscreen ?? false
+  )
   const [wideViewport, setWideViewport] = useState(true)
-  const [rightTab, setRightTab] = useState<string | undefined>("summary")
-  const [openRightTabs, setOpenRightTabs] = useState<string[]>(["summary"])
+  const [rightTab, setRightTabState] = useState<string | undefined>(
+    persistedPanelLayout?.right.activeTab ?? "summary"
+  )
+  const [openRightTabs, setOpenRightTabsState] = useState<string[]>(
+    persistedPanelLayout?.right.openTabs.length ? persistedPanelLayout.right.openTabs : ["summary"]
+  )
+  const [rightPanelSize, setRightPanelSizeState] = useState(persistedPanelLayout?.right.size ?? 420)
+  const [bottomPanelSize, setBottomPanelSizeState] = useState(
+    persistedPanelLayout?.bottom.size ?? 280
+  )
+  const panelDirtyRef = useRef(false)
+  const markPanelDirty = useCallback(() => {
+    panelDirtyRef.current = true
+  }, [])
+  const setRightVisibility = useCallback(
+    (value: SetStateAction<ChatPanelVisibility>) => {
+      markPanelDirty()
+      setRightVisibilityState(value)
+    },
+    [markPanelDirty]
+  )
+  const setBottomVisibility = useCallback(
+    (value: SetStateAction<ChatPanelVisibility>) => {
+      markPanelDirty()
+      setBottomVisibilityState(value)
+    },
+    [markPanelDirty]
+  )
+  const setRightFullscreen = useCallback(
+    (value: SetStateAction<boolean>) => {
+      markPanelDirty()
+      setRightFullscreenState(value)
+    },
+    [markPanelDirty]
+  )
+  const setRightTab = useCallback(
+    (value: SetStateAction<string | undefined>) => {
+      markPanelDirty()
+      setRightTabState(value)
+    },
+    [markPanelDirty]
+  )
+  const setOpenRightTabs = useCallback(
+    (value: SetStateAction<string[]>) => {
+      markPanelDirty()
+      setOpenRightTabsState(value)
+    },
+    [markPanelDirty]
+  )
   const terminals = useWorkspaceTerminals(initialProjectId)
+
+  useEffect(() => {
+    if (!canPersistPanel || !panelDirtyRef.current) return
+    const timer = window.setTimeout(() => {
+      const checkpoint: PanelLayoutCheckpoint = {
+        bottom: {
+          activeTab: bottomVisibility === "visible" ? "terminal" : null,
+          openTabs: bottomVisibility === "closed" ? [] : ["terminal"],
+          size: bottomPanelSize,
+          visible: bottomVisibility === "visible",
+        },
+        focusedPanel:
+          rightVisibility === "visible"
+            ? "right"
+            : bottomVisibility === "visible"
+              ? "bottom"
+              : null,
+        right: {
+          activeTab: rightTab ?? null,
+          fullscreen: rightFullscreen,
+          openTabs: openRightTabs,
+          size: rightPanelSize,
+          visible: rightVisibility === "visible",
+        },
+      }
+      void setPersistedPanelLayout(checkpoint)
+    }, 250)
+    return () => window.clearTimeout(timer)
+  }, [
+    bottomPanelSize,
+    bottomVisibility,
+    canPersistPanel,
+    openRightTabs,
+    rightFullscreen,
+    rightPanelSize,
+    rightTab,
+    rightVisibility,
+    setPersistedPanelLayout,
+  ])
+
+  useEffect(() => {
+    if (!persistedDraft || verifiedDraftScopeRef.current) return
+    verifiedDraftScopeRef.current = true
+    let disposed = false
+    void verifyDraftAttachments(persistedDraft)
+      .then((verified) => {
+        if (disposed) return
+        setAttachments(verified.attachments)
+        draftSnapshotRef.current = verified
+        void setPersistedDraft(verified)
+      })
+      .catch(() => undefined)
+    return () => {
+      disposed = true
+    }
+  }, [persistedDraft, setPersistedDraft])
+
+  useEffect(() => {
+    const draft: ComposerDraft = {
+      attachments,
+      status: draftStatusRef.current,
+      text: composer,
+      updatedAt: Date.now(),
+    }
+    draftSnapshotRef.current = draft
+    const timer = window.setTimeout(() => {
+      draftWriteTimerRef.current = null
+      void setPersistedDraft(
+        draft && (draft.text.length > 0 || draft.attachments.length > 0) ? draft : null
+      )
+    }, COMPOSER_DRAFT_WRITE_DELAY_MS)
+    draftWriteTimerRef.current = timer
+    return () => {
+      window.clearTimeout(timer)
+      if (draftWriteTimerRef.current === timer) draftWriteTimerRef.current = null
+    }
+  }, [attachments, composer, setPersistedDraft])
+
+  useEffect(() => {
+    const flush = () => {
+      const draft = draftSnapshotRef.current
+      void clientStateStore.set(
+        composerDraftAtom(activeDraftScopeRef.current),
+        draft && (draft.text.length > 0 || draft.attachments.length > 0) ? draft : null
+      )
+    }
+    window.addEventListener("pagehide", flush)
+    return () => {
+      window.removeEventListener("pagehide", flush)
+      flush()
+    }
+  }, [])
 
   useEffect(() => {
     controller.setCwd(
@@ -1305,9 +1497,18 @@ export function ConversationWorkspace({
     terminals,
     rightVisibility,
     rightTab,
+    setRightVisibility,
   ])
 
   const rightTabs = panelTabs.filter((tab) => openRightTabs.includes(tab.id))
+  useEffect(() => {
+    const validIds = new Set(panelTabs.map((tab) => tab.id))
+    setOpenRightTabsState((current) => {
+      const filtered = current.filter((id) => validIds.has(id))
+      return filtered.length === current.length ? current : filtered
+    })
+    setRightTabState((current) => (current && validIds.has(current) ? current : "summary"))
+  }, [panelTabs])
   const launcherItems = panelTabs.map<ChatPanelLauncherItem>((tab) => ({
     disabled: openRightTabs.includes(tab.id),
     icon: tab.icon,
@@ -1359,6 +1560,33 @@ export function ConversationWorkspace({
     const text = composer.trim()
     if (!text && attachments.length === 0) return
     const submittedAttachments = attachments
+    if (
+      submittedAttachments.some(
+        (attachment) => isOwnedDraftAttachment(attachment) && attachment.status !== "ready"
+      )
+    )
+      return
+    draftStatusRef.current = "submitting"
+    const submittingDraft: ComposerDraft = {
+      attachments: submittedAttachments,
+      status: "submitting",
+      text,
+      updatedAt: Date.now(),
+    }
+    draftSnapshotRef.current = submittingDraft
+    await clientStateStore.set(composerDraftAtom(activeDraftScopeRef.current), submittingDraft)
+    let inputAttachments: ThreadInputBlock[]
+    try {
+      inputAttachments = await Promise.all(submittedAttachments.map(draftAttachmentToInputBlock))
+    } catch {
+      draftStatusRef.current = "failed"
+      draftSnapshotRef.current = { ...submittingDraft, status: "failed" }
+      await clientStateStore.set(
+        composerDraftAtom(activeDraftScopeRef.current),
+        draftSnapshotRef.current
+      )
+      return
+    }
     setComposer("")
     setComposerEpoch((current) => current + 1)
     setAttachments([])
@@ -1376,22 +1604,47 @@ export function ConversationWorkspace({
       : "send"
     try {
       await controller.submit(
-        [
-          ...(text ? [{ text, type: "text" } as const] : []),
-          ...submittedAttachments.map(({ block }) => block),
-        ],
+        [...(text ? [{ text, type: "text" } as const] : []), ...inputAttachments],
         mode
       )
+      await deleteDraftAttachments(submittedAttachments)
+      draftStatusRef.current = "editing"
+      draftSnapshotRef.current = null
+      await clientStateStore.set(composerDraftAtom(activeDraftScopeRef.current), null)
     } catch {
+      draftStatusRef.current = "failed"
       setComposer(text)
       setAttachments(submittedAttachments)
+      const failedDraft: ComposerDraft = {
+        ...submittingDraft,
+        status: "failed",
+        updatedAt: Date.now(),
+      }
+      draftSnapshotRef.current = failedDraft
+      await clientStateStore.set(composerDraftAtom(activeDraftScopeRef.current), failedDraft)
     }
   }
 
   const attachFiles = async (files: File[]) => {
     if (files.length === 0) return
-    const next = await Promise.all(files.map(fileBlock))
-    setAttachments((current) => [...current, ...next])
+    const saved: ComposerDraftAttachment[] = []
+    try {
+      for (const file of files) saved.push(await saveFileDraftAttachment(file))
+      const nextAttachments = [...attachments, ...saved]
+      const nextDraft: ComposerDraft = {
+        attachments: nextAttachments,
+        status: "editing",
+        text: composer,
+        updatedAt: Date.now(),
+      }
+      await clientStateStore.set(composerDraftAtom(activeDraftScopeRef.current), nextDraft)
+      draftStatusRef.current = "editing"
+      draftSnapshotRef.current = nextDraft
+      setAttachments(nextAttachments)
+    } catch (error) {
+      await deleteDraftAttachments(saved)
+      throw error
+    }
   }
 
   const attach = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -1503,6 +1756,11 @@ export function ConversationWorkspace({
         ) : null
       }
       bottomPanelVisibility={bottomVisibility}
+      bottomPanelSize={bottomPanelSize}
+      onBottomPanelResize={(size) => {
+        markPanelDirty()
+        setBottomPanelSizeState(size)
+      }}
       bottomPanelResizeLabel={i18n._(
         msg({ id: "chat.workspace.resizeBottomPanel", message: "Resize bottom panel" })
       )}
@@ -1566,6 +1824,11 @@ export function ConversationWorkspace({
       onRightPanelFullscreenChange={setRightFullscreen}
       rightPanel={wideViewport ? rightPanel : undefined}
       rightPanelFullscreen={rightFullscreen}
+      rightPanelSize={rightPanelSize}
+      onRightPanelResize={(size) => {
+        markPanelDirty()
+        setRightPanelSizeState(size)
+      }}
       rightPanelResizeLabel={i18n._(
         msg({ id: "chat.workspace.resizeSidePanel", message: "Resize side panel" })
       )}
@@ -1603,17 +1866,21 @@ export function ConversationWorkspace({
                       aria-label={i18n._(msg({ id: "chat.prompt.addFiles", message: "Add files" }))}
                       items={attachments.map((attachment) => ({
                         id: attachment.id,
-                        kind: attachment.mimeType.startsWith("image/") ? "image" : "file",
-                        name: attachment.name,
-                        detail: attachment.mimeType,
-                        previewUrl:
-                          attachment.block.type === "image"
-                            ? `data:${attachment.mimeType};base64,${attachment.block.data}`
-                            : undefined,
+                        kind:
+                          isOwnedDraftAttachment(attachment) && attachment.kind === "image"
+                            ? "image"
+                            : "file",
+                        name: draftAttachmentName(attachment),
+                        detail:
+                          isOwnedDraftAttachment(attachment) && attachment.status === "unavailable"
+                            ? attachment.error
+                            : draftAttachmentMimeType(attachment),
                       }))}
-                      onRemove={(id) =>
+                      onRemove={(id) => {
+                        const removed = attachments.find((item) => item.id === id)
                         setAttachments((current) => current.filter((item) => item.id !== id))
-                      }
+                        if (removed) void deleteDraftAttachments([removed])
+                      }}
                       onReorder={(ids) =>
                         setAttachments((current) =>
                           ids.flatMap((id) => current.find((item) => item.id === id) ?? [])
@@ -1728,8 +1995,8 @@ export function ConversationWorkspace({
                         ...attachments.map((attachment) => ({
                           id: attachment.id,
                           kind: "file" as const,
-                          label: attachment.name,
-                          target: attachment.name,
+                          label: draftAttachmentName(attachment),
+                          target: draftAttachmentName(attachment),
                         })),
                         {
                           id: "attach",

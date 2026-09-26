@@ -2,6 +2,7 @@ export * from "./attachment.js"
 export * from "./inspection.js"
 export * from "./key-value.js"
 export * from "./replica.js"
+export * from "./validated-value.js"
 
 import type { AttachmentStore } from "./attachment.js"
 import type { KeyValueStorage } from "./key-value.js"

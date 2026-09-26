@@ -345,11 +345,18 @@ export class AgentInstaller {
   readonly #agentsHome: string
   readonly #cacheDir: string
   readonly #toolchains: ToolchainManager
+  readonly #toolchainsFor: (agentId: AgentId) => ToolchainManager
 
-  constructor(options: { cacheDir: string; cypheriaHome: string; toolchains: ToolchainManager }) {
+  constructor(options: {
+    cacheDir: string
+    cypheriaHome: string
+    toolchains: ToolchainManager
+    toolchainsFor?: (agentId: AgentId) => ToolchainManager
+  }) {
     this.#agentsHome = join(options.cypheriaHome, "agents")
     this.#cacheDir = join(options.cacheDir, "agents")
     this.#toolchains = options.toolchains
+    this.#toolchainsFor = options.toolchainsFor ?? (() => options.toolchains)
   }
 
   async cleanupInterrupted(): Promise<void> {
@@ -369,6 +376,7 @@ export class AgentInstaller {
     entry?: AgentRegistryEntry,
     options: { onProgress?: (value: number) => void; signal?: AbortSignal } = {}
   ): Promise<AgentInstallReceipt> {
+    const toolchains = this.#toolchainsFor(agentId)
     await mkdir(this.#agentsHome, { recursive: true })
     const native = Object.hasOwn(NATIVE_AGENT_MANIFEST, agentId)
       ? NATIVE_AGENT_MANIFEST[agentId as keyof typeof NATIVE_AGENT_MANIFEST]
@@ -381,7 +389,8 @@ export class AgentInstaller {
         [],
         undefined,
         native.launcher,
-        options
+        options,
+        toolchains
       )
     if (!entry) throw new Error(`No installation descriptor is available for ${agentId}`)
     const selected = selectAgentDistribution(entry.distribution)
@@ -395,7 +404,8 @@ export class AgentInstaller {
         selected.definition.args,
         selected.definition.env,
         "npx",
-        options
+        options,
+        toolchains
       )
     if (selected?.kind === "uvx")
       return this.#installUvx(
@@ -404,7 +414,8 @@ export class AgentInstaller {
         selected.definition.package,
         selected.definition.args,
         selected.definition.env,
-        options
+        options,
+        toolchains
       )
     throw new Error(`Agent ${agentId} has no distribution for ${registryPlatform()}`)
   }
@@ -437,14 +448,15 @@ export class AgentInstaller {
     args: readonly string[] = [],
     environment?: Record<string, string>,
     launcher: "executable" | "node" | "npx" = "node",
-    options: { onProgress?: (value: number) => void; signal?: AbortSignal } = {}
+    options: { onProgress?: (value: number) => void; signal?: AbortSignal } = {},
+    toolchains: ToolchainManager = this.#toolchains
   ): Promise<AgentInstallReceipt> {
     options.signal?.throwIfAborted()
     options.onProgress?.(0.05)
-    let node = this.#toolchains.executable("node")
+    let node = toolchains.executable("node")
     if (!node) {
-      await this.#toolchains.update("node")
-      node = this.#toolchains.executable("node")
+      await toolchains.update("node")
+      node = toolchains.executable("node")
     }
     if (!node) throw new Error("Managed Node.js is unavailable")
     options.signal?.throwIfAborted()
@@ -456,7 +468,7 @@ export class AgentInstaller {
       await run(
         npm,
         ["install", "--prefix", staging, "--no-audit", "--no-fund", "--no-save", packageSpec],
-        this.#toolchains.environment(),
+        toolchains.environment(),
         options.signal
       )
       options.onProgress?.(0.72)
@@ -519,15 +531,16 @@ export class AgentInstaller {
     packageSpec: string,
     args: readonly string[] = [],
     environment?: Record<string, string>,
-    options: { onProgress?: (value: number) => void; signal?: AbortSignal } = {}
+    options: { onProgress?: (value: number) => void; signal?: AbortSignal } = {},
+    toolchains: ToolchainManager = this.#toolchains
   ): Promise<AgentInstallReceipt> {
     options.signal?.throwIfAborted()
     options.onProgress?.(0.05)
     for (const toolchain of ["uv", "python"] as const) {
-      if (!this.#toolchains.executable(toolchain)) await this.#toolchains.update(toolchain)
+      if (!toolchains.executable(toolchain)) await toolchains.update(toolchain)
     }
-    const uv = this.#toolchains.executable("uv")
-    const python = this.#toolchains.executable("python")
+    const uv = toolchains.executable("uv")
+    const python = toolchains.executable("python")
     if (!uv || !python) throw new Error("Managed uv and Python are unavailable")
     const launch = uvxInstallPlan(agentId, version, packageSpec, args)
     const staging = join(this.#agentsHome, agentId, "staging", randomUUID())
@@ -550,7 +563,7 @@ export class AgentInstaller {
           ...launch.additionalPackages.flatMap((requirement) => ["--with", requirement]),
           launch.requirement,
         ],
-        this.#toolchains.environment({
+        toolchains.environment({
           UV_TOOL_BIN_DIR: stagingBin,
           UV_TOOL_DIR: stagingTools,
         }),

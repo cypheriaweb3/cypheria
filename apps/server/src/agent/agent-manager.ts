@@ -110,6 +110,7 @@ export type AgentManagerOptions = {
   gitSettings?: () => GitSettings
   managedShellEnvironment?: (cwd: string) => Promise<Record<string, string> | null>
   agentDefaults?: (agentId: AgentId) => Record<string, HarnessSettingValue>
+  agentEnvironment?: (agentId: AgentId, base: NodeJS.ProcessEnv) => NodeJS.ProcessEnv
   networkBootstrap?: boolean
   installer?: Pick<AgentInstaller, "cleanupInterrupted" | "install" | "readCurrent" | "uninstall">
 }
@@ -158,6 +159,8 @@ export class AgentManager {
   readonly codexDynamicTools = new CodexDynamicToolRegistry()
   readonly #acpRuntimes = new Map<string, Promise<AcpSessionRuntime>>()
   readonly #agentDefaults: (agentId: AgentId) => Record<string, HarnessSettingValue>
+  readonly #agentEnvironment: (agentId: AgentId, base: NodeJS.ProcessEnv) => NodeJS.ProcessEnv
+  readonly #agentToolchains = new Map<AgentId, ToolchainManager>()
   readonly #agentHomes: string
   readonly #claudeRuntimes = new Map<string, Promise<ClaudeSessionRuntime>>()
   readonly #gitSettings: () => GitSettings
@@ -195,6 +198,7 @@ export class AgentManager {
     this.#networkBootstrap = options.networkBootstrap ?? true
     this.#logger = options.logger
     this.#agentDefaults = options.agentDefaults ?? (() => ({}))
+    this.#agentEnvironment = options.agentEnvironment ?? ((_agentId, base) => ({ ...base }))
     this.#gitSettings = options.gitSettings ?? (() => DEFAULT_GIT_SETTINGS)
     this.#managedShellEnvironment = options.managedShellEnvironment ?? (async () => null)
     this.#agentHomes = join(options.cypheriaHome, "agents")
@@ -209,11 +213,30 @@ export class AgentManager {
         cacheDir: options.cacheDir,
         cypheriaHome: options.cypheriaHome,
         toolchains: this.toolchains,
+        toolchainsFor: (agentId) => this.#toolchainsFor(agentId),
       })
     this.#openCode = new OpenCodeRuntime({
       cypheriaHome: options.cypheriaHome,
-      toolchains: this.toolchains,
+      toolchains: this.#toolchainsFor("opencode"),
     })
+  }
+
+  #toolchainsFor(agentId: AgentId): ToolchainManager {
+    const existing = this.#agentToolchains.get(agentId)
+    if (existing) return existing
+    const environment = this.#agentEnvironment
+    const base = this.toolchains
+    const scoped = new Proxy(base, {
+      get(target, property, receiver) {
+        if (property === "environment") {
+          return (extra: NodeJS.ProcessEnv = {}) => environment(agentId, target.environment(extra))
+        }
+        const value = Reflect.get(target, property, receiver)
+        return typeof value === "function" ? value.bind(target) : value
+      },
+    })
+    this.#agentToolchains.set(agentId, scoped)
+    return scoped
   }
 
   async start(): Promise<void> {
@@ -429,7 +452,7 @@ export class AgentManager {
         agent: message.agent,
         receipt,
         send: context.send,
-        toolchains: this.toolchains,
+        toolchains: this.#toolchainsFor(message.agent),
         logger: this.#logger?.child({ agentId: message.agent, sessionId: context.sessionId }),
       })
     })
@@ -570,7 +593,7 @@ export class AgentManager {
       home: join(this.#agentHomes, "claude", "home"),
       receipt: await this.#requiredReceipt("claude"),
       send: () => undefined,
-      toolchains: this.toolchains,
+      toolchains: this.#toolchainsFor("claude"),
     })
     return runtime.discover()
   }
@@ -582,7 +605,7 @@ export class AgentManager {
     return discoverAcpAuth({
       receipt: await this.#requiredReceipt(agentId),
       signal,
-      toolchains: this.toolchains,
+      toolchains: this.#toolchainsFor(agentId),
     })
   }
 
@@ -593,7 +616,7 @@ export class AgentManager {
     return probeAcpCatalog({
       receipt: await this.#requiredReceipt(agentId),
       signal,
-      toolchains: this.toolchains,
+      toolchains: this.#toolchainsFor(agentId),
     })
   }
 
@@ -606,7 +629,7 @@ export class AgentManager {
       methodId,
       receipt: await this.#requiredReceipt(agentId),
       signal,
-      toolchains: this.toolchains,
+      toolchains: this.#toolchainsFor(agentId),
     })
   }
 
@@ -615,7 +638,7 @@ export class AgentManager {
     await logoutAcp({
       receipt,
       signal,
-      toolchains: this.toolchains,
+      toolchains: this.#toolchainsFor(agentId),
     })
   }
 
@@ -625,7 +648,7 @@ export class AgentManager {
     extraEnvironment: Record<string, string> = {}
   ): Promise<{ args: string[]; command: string; cwd: string; env: Record<string, string> }> {
     const receipt = await this.#requiredReceipt(agentId)
-    const rawEnvironment = this.toolchains.environment({
+    const rawEnvironment = this.#toolchainsFor(agentId).environment({
       ...receipt.environment,
       ...extraEnvironment,
       ...(agentId === "claude"
@@ -708,7 +731,7 @@ export class AgentManager {
         receipt,
         requestPermission: context.requestClaudePermission,
         send: context.send,
-        toolchains: this.toolchains,
+        toolchains: this.#toolchainsFor("claude"),
       })
     })
     const runtime = await pending
@@ -725,7 +748,7 @@ export class AgentManager {
         home: join(this.#agentHomes, "pi", "home"),
         receipt,
         send: context.send,
-        toolchains: this.toolchains,
+        toolchains: this.#toolchainsFor("pi"),
         logger: this.#logger?.child({ agentId: "pi", sessionId: context.sessionId }),
       })
     })
@@ -1152,7 +1175,7 @@ export class AgentManager {
       const runtime = new CodexRuntime({
         codexHome: join(this.#agentHomes, "..", "codex"),
         receipt: await this.#requiredReceipt("codex"),
-        toolchains: this.toolchains,
+        toolchains: this.#toolchainsFor("codex"),
         logger: this.#logger?.child({ agentId: "codex" }),
       })
       try {

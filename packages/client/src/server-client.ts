@@ -1,4 +1,5 @@
 import {
+  type AgentId,
   type AgentManagementClientMessage,
   type AgentManagementServerMessage,
   type ClientCapabilities,
@@ -22,6 +23,10 @@ import {
   type IntegrationClientMessage,
   type IntegrationServerMessage,
   isClientResponseMessage,
+  type NetworkProxyDraft,
+  type NetworkProxyListPatch,
+  type NetworkProxyListSnapshot,
+  type NetworkProxyTestResult,
   type PersistedServerConfigPatch,
   type ProjectThreadClientMessage,
   type ProjectThreadServerMessage,
@@ -439,6 +444,57 @@ export class ServerClient {
       SERVER_CAPABILITIES.config
     )
     return (message as Extract<ServerMessage, { type: "server.config.reload.response" }>).payload
+  }
+
+  async getNetworkProxies(options?: RequestOptions): Promise<NetworkProxyListSnapshot> {
+    const message = await this.#request(
+      {
+        requestId: this.#nextRequestId("network-proxies"),
+        type: "server.network-proxies.get.request",
+      },
+      "server.network-proxies.get.response",
+      options,
+      SERVER_CAPABILITIES.config
+    )
+    return (message as Extract<ServerMessage, { type: "server.network-proxies.get.response" }>)
+      .payload
+  }
+
+  async patchNetworkProxies(
+    patch: NetworkProxyListPatch,
+    options?: RequestOptions
+  ): Promise<NetworkProxyListSnapshot> {
+    const message = await this.#request(
+      {
+        payload: { patch },
+        requestId: this.#nextRequestId("network-proxies-patch"),
+        type: "server.network-proxies.patch.request",
+      },
+      "server.network-proxies.patch.response",
+      options,
+      SERVER_CAPABILITIES.config
+    )
+    return (message as Extract<ServerMessage, { type: "server.network-proxies.patch.response" }>)
+      .payload
+  }
+
+  async testNetworkProxy(
+    agentId: AgentId,
+    proxy: NetworkProxyDraft,
+    options?: RequestOptions
+  ): Promise<NetworkProxyTestResult> {
+    const message = await this.#request(
+      {
+        payload: { agentId, proxy },
+        requestId: this.#nextRequestId("network-proxy-test"),
+        type: "server.network-proxies.test.request",
+      },
+      "server.network-proxies.test.response",
+      options,
+      SERVER_CAPABILITIES.config
+    )
+    return (message as Extract<ServerMessage, { type: "server.network-proxies.test.response" }>)
+      .payload
   }
 
   async requestAgentManagement(
