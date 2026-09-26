@@ -26,6 +26,7 @@ const message = (
 ) =>
   entry(
     {
+      boundary: "assistant-final",
       harnessData: {
         agentId: "codex",
         nativeType: "codex.item.agentMessage",
@@ -59,7 +60,14 @@ describe("splitCodexRenderGroups", () => {
   it("separates final answer from trailing completed tools and notices", () => {
     const rows = splitCodexRenderGroups([
       entry(
-        { itemId: "user", operation: "replace", role: "user", text: "hello", type: "message" },
+        {
+          boundary: "turn-user",
+          itemId: "user",
+          operation: "replace",
+          role: "user",
+          text: "hello",
+          type: "message",
+        },
         1
       ),
       message("commentary", 2, "commentary"),
@@ -156,6 +164,7 @@ describe("splitCodexRenderGroups", () => {
   it("does not turn a native plan message into a final answer", () => {
     const plan = entry(
       {
+        boundary: null,
         harnessData: {
           agentId: "codex",
           nativeType: "codex.item.plan",

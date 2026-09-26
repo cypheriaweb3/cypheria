@@ -30,7 +30,7 @@ Desktop 和 Expo 在各自应用边界组合这些端口。Electron main 是两�
 
 原始键值存储只持久化字符串。`@cypheria/storage/jotai` 提供 `atomWithValidatedStorage` 和 `createValidatedJotaiStorage`：值带有显式版本，读写时使用 runtime Schema 校验，损坏或版本不同时会被移除。应用状态使用 Jotai；存储包不引入 Zustand。Desktop 键值变更由 Electron main 广播，因此同一安装中的每个 renderer 窗口都能观察同一份 SQLite 状态；该通知不承担跨客户端同步。
 
-键名必须稳定、使用语义化 camelCase，并由单一领域所有。客户端设置不增加 `cypheria`、`client` 或 `desktop` 前缀。静态设置每项一个 key；动态记录使用 `composerDraft:<scopeId>` 和 `panelLayout:<threadId>`。所有定义都从 envelope 版本 1 开始。较大的可重建集合和需要查询的记录应放进 Replica，而不是单个 JSON 值。
+键名必须稳定、使用语义化 camelCase，并由单一领域所有。客户端设置不增加 `cypheria`、`client` 或 `desktop` 前缀。静态设置每项一个 key；动态记录使用 `composerDraft:<threadId>`、供所有尚未创建 Thread 的聊天共用的固定 `composerDraft:new`，以及 `panelLayout:<threadId>`。所有定义都从 envelope 版本 1 开始。较大的可重建集合和需要查询的记录应放进 Replica，而不是单个 JSON 值。
 
 Desktop 设置通过分类、key、Schema、默认值与版本统一注册。Renderer 组件使用同一个显式 vanilla Jotai store 中的校验 atom。Electron main 使用同一套 codec 和定义读取启动期外观、locale，以及带操作系统副作用的设置。不再存在独立 Desktop 设置 JSON 文件或宽泛的设置 IPC。
 

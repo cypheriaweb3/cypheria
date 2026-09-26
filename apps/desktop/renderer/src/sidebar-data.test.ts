@@ -13,8 +13,9 @@ const thread = (id: string, title: string): ThreadView => ({
   capabilities: {
     changeCwd: true,
     configure: true,
-    fork: true,
+    fork: { assistantMessage: true, threadHead: true, userMessage: true },
     promptContent: ["text"],
+    rewind: { userMessage: true },
     harnessExtensions: true,
     steer: true,
   },

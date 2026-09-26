@@ -34,8 +34,13 @@ export type ThreadPromptContentType = z.infer<typeof ThreadPromptContentTypeSche
 export const ThreadCapabilitiesSchema = z.object({
   changeCwd: z.boolean(),
   configure: z.boolean(),
-  fork: z.boolean(),
+  fork: z.object({
+    assistantMessage: z.boolean(),
+    threadHead: z.boolean(),
+    userMessage: z.boolean(),
+  }),
   promptContent: z.array(ThreadPromptContentTypeSchema),
+  rewind: z.object({ userMessage: z.boolean() }),
   harnessExtensions: z.boolean(),
   steer: z.boolean(),
 })
@@ -265,9 +270,13 @@ const TimelineTextItemSchema = TimelineBaseItemSchema.extend({
   text: z.string(),
 })
 
+export const ThreadMessageBoundarySchema = z.enum(["turn-user", "steer-user", "assistant-final"])
+export type ThreadMessageBoundary = z.infer<typeof ThreadMessageBoundarySchema>
+
 export const ThreadTimelineItemSchema = z.discriminatedUnion("type", [
   TimelineTextItemSchema.extend({
     attachments: z.array(ThreadAttachmentSchema).optional(),
+    boundary: ThreadMessageBoundarySchema.nullable(),
     clientMessageId: z.string().min(1).optional(),
     role: z.enum(["user", "assistant"]),
     type: z.literal("message"),
@@ -415,6 +424,16 @@ export const ThreadTimelinePageSchema = z.object({
 })
 export type ThreadTimelinePage = z.infer<typeof ThreadTimelinePageSchema>
 
+export const ThreadTimelineSnapshotSchema = z.object({
+  canonicalRows: z.array(ThreadTimelineRowSchema),
+  endCursor: ThreadTimelineCursorSchema.nullable(),
+  epoch: z.string().uuid(),
+  projectedItems: z.array(ThreadTimelineProjectedItemSchema),
+  startCursor: ThreadTimelineCursorSchema.nullable(),
+  threadId: ProjectThreadIdSchema,
+})
+export type ThreadTimelineSnapshot = z.infer<typeof ThreadTimelineSnapshotSchema>
+
 const errorSchema = z.object({ code: z.string().min(1), message: z.string().min(1) })
 const emptySchema = z.object({})
 const request = <T extends string, S extends z.ZodType>(type: T, payload: S) =>
@@ -431,6 +450,16 @@ const timelineHeadSchema = z.object({
   epoch: z.string().uuid(),
 })
 const threadReadySchema = z.object({ thread: ThreadViewSchema, timeline: timelineHeadSchema })
+const threadBranchResultSchema = z.object({
+  composerContent: z.array(ThreadInputBlockSchema),
+  thread: ThreadViewSchema,
+  timeline: ThreadTimelineSnapshotSchema,
+})
+const threadMutationWarningSchema = z.object({ code: z.string().min(1), message: z.string() })
+const threadArchiveResultSchema = z.object({
+  thread: ThreadViewSchema,
+  warnings: z.array(threadMutationWarningSchema),
+})
 const threadListPageSchema = z.object({
   data: z.array(ThreadViewSchema),
   nextCursor: ProjectThreadCursorSchema.nullable(),
@@ -450,16 +479,17 @@ const projectPlacementSchema = z.object({
 
 export const ThreadCreateRequestSchema = request(
   "thread.create.request",
-  z.object({
-    agentId: AgentIdSchema,
-    ...beforeThreadSchema.shape,
-    cwd: z.string().nullable().optional(),
-    forkedFromId: ProjectThreadIdSchema.nullish(),
-    projectPlacement: projectPlacementSchema.optional(),
-    recencyAt: UnixTimestampSecondsSchema.nullish(),
-    sectionPlacement: sectionPlacementSchema.optional(),
-    title: z.string().nullable().optional(),
-  })
+  z
+    .object({
+      agentId: AgentIdSchema,
+      ...beforeThreadSchema.shape,
+      cwd: z.string().nullable().optional(),
+      projectPlacement: projectPlacementSchema.optional(),
+      recencyAt: UnixTimestampSecondsSchema.nullish(),
+      sectionPlacement: sectionPlacementSchema.optional(),
+      title: z.string().nullable().optional(),
+    })
+    .strict()
 )
 export const ThreadGetRequestSchema = request(
   "thread.get.request",
@@ -503,14 +533,26 @@ export const ThreadResumeRequestSchema = request(
 )
 export const ThreadForkRequestSchema = request(
   "thread.fork.request",
-  z.object({
-    ...beforeThreadSchema.shape,
-    cwd: z.string().nullable().optional(),
-    projectPlacement: projectPlacementSchema.optional(),
-    sectionPlacement: sectionPlacementSchema.optional(),
-    threadId: ProjectThreadIdSchema,
-    title: z.string().nullable().optional(),
-  })
+  z
+    .object({
+      target: z.discriminatedUnion("kind", [
+        z.object({ kind: z.literal("thread-head") }),
+        z.object({ kind: z.literal("user-message"), cursor: ThreadTimelineCursorSchema }),
+        z.object({ kind: z.literal("assistant-message"), cursor: ThreadTimelineCursorSchema }),
+      ]),
+      threadId: ProjectThreadIdSchema,
+      title: z.string().nullable().optional(),
+    })
+    .strict()
+)
+export const ThreadRewindRequestSchema = request(
+  "thread.rewind.request",
+  z
+    .object({
+      target: z.object({ kind: z.literal("user-message"), cursor: ThreadTimelineCursorSchema }),
+      threadId: ProjectThreadIdSchema,
+    })
+    .strict()
 )
 export const ThreadCloseRequestSchema = request(
   "thread.close.request",
@@ -519,6 +561,10 @@ export const ThreadCloseRequestSchema = request(
 export const ThreadArchiveRequestSchema = request(
   "thread.archive.request",
   z.object({ threadId: ProjectThreadIdSchema })
+)
+export const ThreadArchiveManyRequestSchema = request(
+  "thread.archive_many.request",
+  z.object({ threadIds: z.array(ProjectThreadIdSchema).min(1).max(500) })
 )
 export const ThreadUnarchiveRequestSchema = request(
   "thread.unarchive.request",
@@ -657,9 +703,25 @@ export const ThreadTouchRecencyResponseSchema = response(
 )
 export const ThreadMoveResponseSchema = response("thread.move.response", emptySchema)
 export const ThreadResumeResponseSchema = response("thread.resume.response", threadReadySchema)
-export const ThreadForkResponseSchema = response("thread.fork.response", threadReadySchema)
+export const ThreadForkResponseSchema = response("thread.fork.response", threadBranchResultSchema)
+export const ThreadRewindResponseSchema = response(
+  "thread.rewind.response",
+  threadBranchResultSchema
+)
 export const ThreadCloseResponseSchema = response("thread.close.response", ThreadViewSchema)
-export const ThreadArchiveResponseSchema = response("thread.archive.response", ThreadViewSchema)
+export const ThreadArchiveResponseSchema = response(
+  "thread.archive.response",
+  threadArchiveResultSchema
+)
+export const ThreadArchiveManyResponseSchema = response(
+  "thread.archive_many.response",
+  z.object({
+    failed: z.array(
+      z.object({ code: z.string(), message: z.string(), threadId: ProjectThreadIdSchema })
+    ),
+    succeeded: z.array(threadArchiveResultSchema),
+  })
+)
 export const ThreadUnarchiveResponseSchema = response("thread.unarchive.response", ThreadViewSchema)
 export const ThreadDeleteResponseSchema = response("thread.delete.response", emptySchema)
 export const ThreadTurnStartResponseSchema = response(
@@ -788,8 +850,10 @@ export const THREAD_CLIENT_SCHEMAS = [
   ThreadMoveRequestSchema,
   ThreadResumeRequestSchema,
   ThreadForkRequestSchema,
+  ThreadRewindRequestSchema,
   ThreadCloseRequestSchema,
   ThreadArchiveRequestSchema,
+  ThreadArchiveManyRequestSchema,
   ThreadUnarchiveRequestSchema,
   ThreadDeleteRequestSchema,
   ThreadTurnStartRequestSchema,
@@ -814,8 +878,10 @@ export const THREAD_SERVER_SCHEMAS = [
   ThreadMoveResponseSchema,
   ThreadResumeResponseSchema,
   ThreadForkResponseSchema,
+  ThreadRewindResponseSchema,
   ThreadCloseResponseSchema,
   ThreadArchiveResponseSchema,
+  ThreadArchiveManyResponseSchema,
   ThreadUnarchiveResponseSchema,
   ThreadDeleteResponseSchema,
   ThreadTurnStartResponseSchema,

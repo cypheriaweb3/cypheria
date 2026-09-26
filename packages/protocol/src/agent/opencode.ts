@@ -10,6 +10,7 @@ export const AGENT_OPENCODE_V2_OPERATIONS = [
   "session.remove",
   "session.switch_agent",
   "session.switch_model",
+  "session.update",
   "session.prompt",
   "session.interrupt",
   "message.list",

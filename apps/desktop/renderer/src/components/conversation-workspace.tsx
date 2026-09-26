@@ -102,6 +102,12 @@ import {
   ChatWorkspaceShell,
 } from "@cypheria/ui/components/chat"
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@cypheria/ui/components/dropdown-menu"
+import {
   AgentIcon,
   ArrowDownIcon,
   BranchIcon,
@@ -133,6 +139,7 @@ import { Trans } from "@lingui/react/macro"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { atom, useAtom, useAtomValue } from "jotai"
+import { MoreHorizontal } from "lucide-react"
 import {
   type ChangeEvent,
   type FormEvent,
@@ -169,6 +176,7 @@ import {
   COMPOSER_DRAFT_WRITE_DELAY_MS,
   deleteDraftAttachments,
   draftAttachmentToInputBlock,
+  inputBlocksToComposerDraft,
   isOwnedDraftAttachment,
   saveFileDraftAttachment,
   verifyDraftAttachments,
@@ -242,14 +250,23 @@ const itemPayload = (item: ThreadTimelineItem): Record<string, unknown> => {
 
 function TimelineItemView({
   entry,
+  actionBusy,
+  onFork,
+  onRewind,
   renderKind,
 }: {
   entry: ThreadTimelineProjectedItem
+  actionBusy?: boolean
+  onFork?: (entry: ThreadTimelineProjectedItem) => void
+  onRewind?: (entry: ThreadTimelineProjectedItem) => void
   renderKind?: CodexRenderRow["kind"]
 }) {
   const { i18n } = useLingui()
   const item = entry.item
   if (item.type === "message") {
+    const forkAction =
+      item.boundary === "turn-user" || item.boundary === "assistant-final" ? onFork : undefined
+    const rewindAction = item.boundary === "turn-user" ? onRewind : undefined
     if (renderKind === "plan") {
       return (
         <ChatTimelineItem kind="activity">
@@ -260,15 +277,49 @@ function TimelineItemView({
       )
     }
     return (
-      <ChatTimelineItem kind={renderKind === "activity" ? "activity" : item.role}>
-        {item.role === "user" ? (
-          <ChatUserMessage>{item.text}</ChatUserMessage>
-        ) : (
-          <ChatAssistantMessage>
-            <ChatMessageContent isAnimating={false}>{item.text}</ChatMessageContent>
-          </ChatAssistantMessage>
-        )}
-      </ChatTimelineItem>
+      <div className="group/message relative">
+        <ChatTimelineItem kind={renderKind === "activity" ? "activity" : item.role}>
+          {item.role === "user" ? (
+            <ChatUserMessage>{item.text}</ChatUserMessage>
+          ) : (
+            <ChatAssistantMessage>
+              <ChatMessageContent isAnimating={false}>{item.text}</ChatMessageContent>
+            </ChatAssistantMessage>
+          )}
+        </ChatTimelineItem>
+        {forkAction || rewindAction ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  aria-label={i18n._(
+                    msg({ id: "chat.message.actions", message: "Message actions" })
+                  )}
+                  className="absolute -bottom-7 right-0 size-7 opacity-0 transition-opacity group-hover/message:opacity-100 data-[state=open]:opacity-100"
+                  disabled={actionBusy}
+                  size="icon"
+                  variant="ghost"
+                />
+              }
+            >
+              <MoreHorizontal className="size-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {rewindAction ? (
+                <DropdownMenuItem onClick={() => rewindAction(entry)}>
+                  <Trans id="chat.message.rewind">Rewind to here</Trans>
+                </DropdownMenuItem>
+              ) : null}
+              {forkAction ? (
+                <DropdownMenuItem onClick={() => forkAction(entry)}>
+                  <BranchIcon />
+                  <Trans id="chat.message.fork">Fork in new chat</Trans>
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : null}
+      </div>
     )
   }
   if (item.type === "reasoning") {
@@ -469,6 +520,10 @@ function VirtualTimeline({
   loadingOlder,
   hasOlder,
   onLoadOlder,
+  actionBusy,
+  onForkAssistant,
+  onForkUser,
+  onRewind,
 }: {
   items: readonly ThreadTimelineProjectedItem[]
   codex: boolean
@@ -477,6 +532,10 @@ function VirtualTimeline({
   loadingOlder: boolean
   hasOlder: boolean
   onLoadOlder: () => void
+  actionBusy?: boolean
+  onForkAssistant?: (entry: ThreadTimelineProjectedItem) => void
+  onForkUser?: (entry: ThreadTimelineProjectedItem) => void
+  onRewind?: (entry: ThreadTimelineProjectedItem) => void
 }) {
   const { i18n } = useLingui()
   const parentRef = useRef<HTMLDivElement>(null)
@@ -578,8 +637,16 @@ function VirtualTimeline({
                     >
                       {row.items.map((entry) => (
                         <TimelineItemView
+                          actionBusy={actionBusy}
                           entry={entry}
                           key={entry.item.itemId}
+                          onFork={
+                            entry.item.type === "message" &&
+                            entry.item.boundary === "assistant-final"
+                              ? onForkAssistant
+                              : onForkUser
+                          }
+                          onRewind={onRewind}
                           renderKind={row.kind}
                         />
                       ))}
@@ -587,8 +654,15 @@ function VirtualTimeline({
                   ) : (
                     row.items.map((entry) => (
                       <TimelineItemView
+                        actionBusy={actionBusy}
                         entry={entry}
                         key={entry.item.itemId}
+                        onFork={
+                          entry.item.type === "message" && entry.item.boundary === "assistant-final"
+                            ? onForkAssistant
+                            : onForkUser
+                        }
+                        onRewind={onRewind}
                         renderKind={row.kind}
                       />
                     ))
@@ -820,7 +894,6 @@ function EmptyPanel({ children }: { children: ReactNode }) {
 export function ConversationWorkspace({
   agentId,
   initialPrompt,
-  initialDraftId,
   initialProjectId,
   initialSectionId,
   initialThreadId,
@@ -828,7 +901,6 @@ export function ConversationWorkspace({
 }: {
   agentId: AgentId
   initialPrompt?: string
-  initialDraftId?: string
   initialProjectId?: string
   initialSectionId?: string
   initialThreadId?: string
@@ -837,8 +909,7 @@ export function ConversationWorkspace({
   const { i18n } = useLingui()
   const navigate = Route.useNavigate()
   const queryClient = useQueryClient()
-  const draftScopeId = initialThreadId ?? initialDraftId
-  if (!draftScopeId) throw new Error("A composer draft scope is required.")
+  const draftScopeId = initialThreadId ?? "new"
   const draftAtom = useMemo(() => composerDraftAtom(draftScopeId), [draftScopeId])
   const [persistedDraft, setPersistedDraft] = useAtom(draftAtom)
   const canPersistPanel =
@@ -911,6 +982,8 @@ export function ConversationWorkspace({
   const attachmentInput = useRef<HTMLInputElement>(null)
   const composerForm = useRef<HTMLFormElement>(null)
   const [composerEpoch, setComposerEpoch] = useState(0)
+  const [timelineActionBusy, setTimelineActionBusy] = useState(false)
+  const [timelineActionError, setTimelineActionError] = useState<Error | null>(null)
   const [rightVisibility, setRightVisibilityState] = useState<ChatPanelVisibility>(
     persistedPanelLayout?.right.visible ? "visible" : codex ? "visible" : "hidden"
   )
@@ -1516,8 +1589,86 @@ export function ConversationWorkspace({
     label: tab.title,
   }))
   const pending = snapshot.thread?.pendingInteractions[0]
-  const busy = snapshot.thread?.state === "running" || snapshot.thread?.state === "starting"
-  const composerStatus = snapshot.error ? "error" : busy ? "streaming" : "ready"
+  const busy =
+    timelineActionBusy ||
+    snapshot.thread?.state === "running" ||
+    snapshot.thread?.state === "starting"
+  const displayedError = timelineActionError ?? snapshot.error
+  const composerStatus = displayedError ? "error" : busy ? "streaming" : "ready"
+  const forkTimelineMessage = async (entry: ThreadTimelineProjectedItem) => {
+    const thread = snapshot.thread
+    const epoch = snapshot.epoch
+    const item = entry.item
+    if (!thread || !epoch || item.type !== "message") return
+    const kind =
+      item.boundary === "turn-user"
+        ? "user-message"
+        : item.boundary === "assistant-final"
+          ? "assistant-message"
+          : null
+    if (!kind) return
+    setTimelineActionBusy(true)
+    setTimelineActionError(null)
+    try {
+      const client = await ensureCypheriaClient()
+      const result = await client.threads.fork({
+        target: { cursor: { epoch, seq: entry.seqEnd }, kind },
+        threadId: thread.id,
+      })
+      const draft = await inputBlocksToComposerDraft(result.composerContent)
+      await clientStateStore.set(
+        composerDraftAtom(result.thread.id),
+        draft.text || draft.attachments.length > 0 ? draft : null
+      )
+      sidebarData.invalidate()
+      await queryClient.invalidateQueries({ queryKey: sidebarQueryKeys.all })
+      await navigate({ search: { thread: result.thread.id } })
+    } catch (error) {
+      setTimelineActionError(error instanceof Error ? error : new Error(String(error)))
+    } finally {
+      setTimelineActionBusy(false)
+    }
+  }
+  const rewindTimelineMessage = async (entry: ThreadTimelineProjectedItem) => {
+    const thread = snapshot.thread
+    const epoch = snapshot.epoch
+    if (!thread || !epoch || entry.item.type !== "message" || entry.item.boundary !== "turn-user")
+      return
+    if (
+      (composer.length > 0 || attachments.length > 0) &&
+      !window.confirm(
+        i18n._(
+          msg({
+            id: "chat.message.rewindReplaceDraft",
+            message: "Rewind will replace the current composer draft. Continue?",
+          })
+        )
+      )
+    )
+      return
+    setTimelineActionBusy(true)
+    setTimelineActionError(null)
+    try {
+      const client = await ensureCypheriaClient()
+      const result = await client.threads.rewind({
+        target: { cursor: { epoch, seq: entry.seqEnd }, kind: "user-message" },
+        threadId: thread.id,
+      })
+      const draft = await inputBlocksToComposerDraft(result.composerContent)
+      await deleteDraftAttachments(attachments)
+      setComposer(draft.text)
+      setAttachments(draft.attachments)
+      setComposerEpoch((current) => current + 1)
+      draftStatusRef.current = "editing"
+      draftSnapshotRef.current = draft
+      await clientStateStore.set(composerDraftAtom(thread.id), draft)
+      await controller.refresh()
+    } catch (error) {
+      setTimelineActionError(error instanceof Error ? error : new Error(String(error)))
+    } finally {
+      setTimelineActionBusy(false)
+    }
+  }
   const permissionLabel = (() => {
     const selected = permissionsQuery.data?.selected
     if (!selected) return i18n._(msg({ id: "chat.permissions", message: "Permissions" }))
@@ -1731,11 +1882,11 @@ export function ConversationWorkspace({
       </span>
       <ChatHeaderStatus
         className="hidden lg:flex"
-        state={snapshot.error ? "error" : busy ? "running" : "idle"}
+        state={displayedError ? "error" : busy ? "running" : "idle"}
       >
         <span aria-hidden="true" className="size-1.5 rounded-full bg-current" />
-        {snapshot.error
-          ? snapshot.error.message
+        {displayedError
+          ? displayedError.message
           : busy
             ? i18n._(msg({ id: "chat.state.working", message: "Working…" }))
             : activityLabel(i18n)}
@@ -1836,13 +1987,29 @@ export function ConversationWorkspace({
     >
       <ChatMainColumn>
         <VirtualTimeline
+          actionBusy={timelineActionBusy}
           activeTurnId={snapshot.thread?.activeTurn?.id ?? null}
           codex={codex}
           hasOlder={snapshot.hasOlder}
           items={snapshot.items}
           loading={snapshot.loadState === "loading"}
           loadingOlder={snapshot.loadingOlder}
+          onForkAssistant={
+            snapshot.thread?.capabilities.fork.assistantMessage
+              ? (entry) => void forkTimelineMessage(entry)
+              : undefined
+          }
+          onForkUser={
+            snapshot.thread?.capabilities.fork.userMessage
+              ? (entry) => void forkTimelineMessage(entry)
+              : undefined
+          }
           onLoadOlder={() => void controller.loadOlder()}
+          onRewind={
+            snapshot.thread?.capabilities.rewind.userMessage
+              ? (entry) => void rewindTimelineMessage(entry)
+              : undefined
+          }
         />
         <ChatComposerDock>
           <ChatComposerFrame>
@@ -2123,14 +2290,14 @@ export function ConversationWorkspace({
                     submitLabel={i18n._(msg({ id: "chat.prompt.send", message: "Send" }))}
                   />
                 </ChatComposerFooter>
-                {snapshot.error ? (
+                {displayedError ? (
                   <ChatComposerBanner
                     title={i18n._(
                       msg({ id: "chat.error.conversation", message: "Conversation error" })
                     )}
                     tone="error"
                   >
-                    {snapshot.error.message}
+                    {displayedError.message}
                   </ChatComposerBanner>
                 ) : null}
               </ChatComposerForm>

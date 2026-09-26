@@ -10,6 +10,7 @@ import {
 import type { ThreadHarnessHistoryItem } from "./harness-adapter.js"
 
 type Timeline = { epoch: string; rows: ThreadTimelineRow[] }
+export type ResolvedThreadTimelineRow = ThreadTimelineRow & { agentMessageId: string | null }
 
 export class ThreadTimelineStore {
   readonly #persistence: ThreadTimelinePersistenceService
@@ -45,6 +46,74 @@ export class ThreadTimelineStore {
       endCursor: last ? { epoch: timeline.epoch, seq: last.seq } : null,
       epoch: timeline.epoch,
     }
+  }
+
+  async history(threadId: string): Promise<readonly ThreadHarnessHistoryItem[]> {
+    const timeline = await this.#persistence.get(threadId)
+    return timeline.rows.map((row) => ({
+      agentMessageId: row.agentMessageId,
+      harnessItemId: row.harnessItemId,
+      item: ThreadTimelineRowSchema.parse(row).item,
+      timestamp: row.timestamp,
+      turnId: row.turnId,
+    }))
+  }
+
+  async snapshot(threadId: string) {
+    const timeline = await this.#get(threadId)
+    const first = timeline.rows[0]
+    const last = timeline.rows.at(-1)
+    return {
+      canonicalRows: timeline.rows,
+      endCursor: last ? { epoch: timeline.epoch, seq: last.seq } : null,
+      epoch: timeline.epoch,
+      projectedItems: projectThreadTimelineRows(timeline.rows),
+      startCursor: first ? { epoch: timeline.epoch, seq: first.seq } : null,
+      threadId,
+    }
+  }
+
+  async finalizeAssistant(
+    threadId: string,
+    turnId: string
+  ): Promise<{ epoch: string; row: ThreadTimelineRow } | null> {
+    const timeline = await this.#persistence.get(threadId)
+    const publicRows = timeline.rows.map((row) => ThreadTimelineRowSchema.parse(row))
+    const projected = projectThreadTimelineRows(publicRows)
+      .filter(
+        (entry) =>
+          entry.turnId === turnId &&
+          entry.item.type === "message" &&
+          entry.item.role === "assistant"
+      )
+      .at(-1)
+    if (!projected || projected.item.type !== "message") return null
+    const source = [...timeline.rows]
+      .reverse()
+      .find(
+        (row) => row.item && (row.item as { itemId?: unknown }).itemId === projected.item.itemId
+      )
+    return this.append(threadId, {
+      agentMessageId: source?.agentMessageId ?? null,
+      harnessItemId: source?.harnessItemId ?? projected.item.itemId,
+      item: { ...projected.item, boundary: "assistant-final", operation: "replace" },
+      turnId,
+    })
+  }
+
+  async resolve(
+    threadId: string,
+    cursor: { epoch: string; seq: number }
+  ): Promise<{ row: ResolvedThreadTimelineRow; rows: readonly ResolvedThreadTimelineRow[] }> {
+    const timeline = await this.#persistence.get(threadId)
+    if (timeline.epoch !== cursor.epoch) throw new Error("Timeline cursor belongs to an old epoch")
+    const rows = timeline.rows.map((candidate) => ({
+      ...ThreadTimelineRowSchema.parse(candidate),
+      agentMessageId: candidate.agentMessageId,
+    }))
+    const row = rows.find((candidate) => candidate.seq === cursor.seq)
+    if (!row) throw new Error("Timeline cursor does not identify an item")
+    return { row, rows }
   }
 
   async page(

@@ -80,8 +80,6 @@ describe("Cypheria protocol", () => {
     const message = ThreadCreateRequestSchema.parse({
       payload: {
         agentId: "codex",
-        agentSessionId: "reserved-for-later",
-        forkedFromId: "01984de2-8f74-7c91-a3b2-5c5e937cf319",
         recencyAt: 1_800_000_000,
       },
       requestId: "projectThread-1",
@@ -91,7 +89,11 @@ describe("Cypheria protocol", () => {
     expect(message.payload).not.toHaveProperty("agentSessionId")
     expect(
       ThreadCreateRequestSchema.safeParse({
-        payload: { agentId: "codex", forkedFromId: "not-a-uuid" },
+        payload: {
+          agentId: "codex",
+          agentSessionId: "reserved-for-later",
+          forkedFromId: "01984de2-8f74-7c91-a3b2-5c5e937cf319",
+        },
         requestId: "projectThread-2",
         type: "thread.create.request",
       }).success

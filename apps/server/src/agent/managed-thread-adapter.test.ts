@@ -12,7 +12,6 @@ import { ManagedThreadAdapter } from "./managed-thread-adapter.js"
 const input = (agentId: AgentId): ThreadHarnessCreateInput => ({
   agentId,
   cwd: "/repo",
-  forkedFromAgentSessionId: null,
   onEvent: () => undefined,
   threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf399",
 })
@@ -106,6 +105,114 @@ describe("ManagedThreadAdapter", () => {
     })
   })
 
+  it("maps Codex user and assistant branch boundaries without file revert", async () => {
+    const requests: Record<string, unknown>[] = []
+    const handleCodex = vi.fn(
+      async (message: Record<string, unknown>, context: AgentMessageContext) => {
+        requests.push(message)
+        context.send({
+          payload: {
+            requestId: message.requestId,
+            thread: {
+              id: `fork-${requests.length}`,
+              turns: [
+                {
+                  id: "history-turn",
+                  items: [
+                    {
+                      delivery: null,
+                      id: "assistant-draft",
+                      memoryCitation: null,
+                      phase: null,
+                      questions: null,
+                      text: "draft",
+                      type: "agentMessage",
+                    },
+                    {
+                      delivery: null,
+                      id: "assistant-final",
+                      memoryCitation: null,
+                      phase: null,
+                      questions: null,
+                      text: "final",
+                      type: "agentMessage",
+                    },
+                  ],
+                  status: "completed",
+                },
+              ],
+            },
+          },
+          type: "agent.codex.thread.fork.response",
+        } as unknown as AgentRuntimeServerMessage)
+      }
+    )
+    const manager = { handleCodex } as unknown as AgentManager
+    const base = {
+      ...input("codex"),
+      agentSessionId: "codex-source",
+      sourceThreadId: input("codex").threadId,
+    }
+
+    const firstFork = await new ManagedThreadAdapter(manager, "codex").fork({
+      ...base,
+      target: {
+        agentMessageId: "user-native",
+        kind: "user-message",
+        messageOrdinal: 0,
+        previousAgentMessageId: null,
+        turnId: "turn-user",
+      },
+      threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf401",
+    })
+    await new ManagedThreadAdapter(manager, "codex").fork({
+      ...base,
+      target: {
+        agentMessageId: "assistant-native",
+        kind: "assistant-message",
+        messageOrdinal: 1,
+        nextAgentMessageId: "next-user-native",
+        nextTurnId: "turn-next",
+        nextUserOrdinal: 2,
+        turnId: "turn-user",
+      },
+      threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf402",
+    })
+    await new ManagedThreadAdapter(manager, "codex").fork({
+      ...base,
+      target: {
+        agentMessageId: "assistant-last-native",
+        kind: "assistant-message",
+        messageOrdinal: 3,
+        nextAgentMessageId: null,
+        nextTurnId: null,
+        nextUserOrdinal: null,
+        turnId: "turn-last",
+      },
+      threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf403",
+    })
+
+    expect(requests[0]).toMatchObject({
+      beforeTurnId: "turn-user",
+      type: "agent.codex.thread.fork.request",
+    })
+    expect(requests[1]).toMatchObject({
+      beforeTurnId: "turn-next",
+      type: "agent.codex.thread.fork.request",
+    })
+    expect(requests[2]).not.toHaveProperty("beforeTurnId")
+    expect(
+      firstFork.history?.flatMap((entry) =>
+        entry.item.type === "message" ? [entry.item.boundary] : []
+      )
+    ).toEqual([null, "assistant-final"])
+    expect(requests).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "agent.codex.thread.revert.request" }),
+      ])
+    )
+  })
+
   it("maps Codex thread/start to a server-owned Thread session", async () => {
     const handleCodex = vi.fn(
       async (
@@ -139,7 +246,10 @@ describe("ManagedThreadAdapter", () => {
         workspaceRoots: ["/repo", "/shared"],
       })
     ).resolves.toMatchObject({
-      capabilities: { fork: true },
+      capabilities: {
+        fork: { assistantMessage: true, threadHead: true, userMessage: true },
+        rewind: { userMessage: true },
+      },
       sessionId: "01984de2-8f74-7c91-a3b2-5c5e937cf400",
     })
     expect(handleCodex.mock.calls[0]?.[0]).toMatchObject({
@@ -420,7 +530,11 @@ describe("ManagedThreadAdapter", () => {
       workspaceRoots: ["/repo", "/shared"],
     })
     expect(created).toMatchObject({
-      capabilities: { promptContent: expect.arrayContaining(["text", "image"]) },
+      capabilities: {
+        fork: { assistantMessage: false, threadHead: true, userMessage: false },
+        promptContent: expect.arrayContaining(["text", "image"]),
+        rewind: { userMessage: false },
+      },
       sessionId: "acp-v2-session",
     })
     await adapter.startTurn({
@@ -445,9 +559,11 @@ describe("ManagedThreadAdapter", () => {
     })
 
     const forkedAdapter = new ManagedThreadAdapter(manager, "gemini")
-    await forkedAdapter.create({
+    await forkedAdapter.fork({
       ...input("gemini"),
-      forkedFromAgentSessionId: "acp-v2-session",
+      agentSessionId: "acp-v2-session",
+      sourceThreadId: input("gemini").threadId,
+      target: { kind: "thread-head" },
       workspaceRoots: ["/repo", "/shared"],
       threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf397",
     })
@@ -477,7 +593,11 @@ describe("ManagedThreadAdapter", () => {
         sessionId: "acp-v2-session",
       },
     })
-    expect(events).toContainEqual({ turnId: "active", type: "turn-completed" })
+    expect(events).toContainEqual({
+      successful: true,
+      turnId: "active",
+      type: "turn-completed",
+    })
   })
 
   it("retries initialization on a fresh v1 runtime for a misreported v2 response", async () => {
@@ -733,6 +853,209 @@ describe("ManagedThreadAdapter", () => {
     expect(handlePi.mock.calls[2]?.[0]).not.toHaveProperty("payload")
   })
 
+  it("associates Pi entry IDs with the submitted user message and streamed assistant", async () => {
+    const events: ThreadHarnessEvent[] = []
+    const handlePi = vi.fn(
+      async (message: Record<string, unknown>, context: AgentMessageContext) => {
+        if (message.type === "agent.pi.prompt.request") {
+          context.send({
+            payload: {
+              entry: {
+                id: "pi-user-entry",
+                message: { content: [{ text: "hello", type: "text" }], role: "user" },
+                type: "message",
+              },
+              type: "entry_appended",
+            },
+            type: "agent.pi.entry.appended.notification",
+          } as AgentRuntimeServerMessage)
+          context.send({
+            payload: {
+              message: { content: [{ text: "answer", type: "text" }], role: "assistant" },
+              type: "message_start",
+            },
+            type: "agent.pi.message.start.notification",
+          } as AgentRuntimeServerMessage)
+          context.send({
+            payload: {
+              entry: {
+                id: "pi-assistant-entry",
+                message: { content: [{ text: "answer", type: "text" }], role: "assistant" },
+                type: "message",
+              },
+              type: "entry_appended",
+            },
+            type: "agent.pi.entry.appended.notification",
+          } as AgentRuntimeServerMessage)
+          context.send({
+            payload: { messages: [], type: "agent_end", willRetry: false },
+            type: "agent.pi.agent.end.notification",
+          } as AgentRuntimeServerMessage)
+        }
+        context.send({
+          payload: { requestId: String(message.requestId) },
+          type: String(message.type).replace(/\.request$/u, ".response"),
+        } as AgentRuntimeServerMessage)
+      }
+    )
+    const manager = {
+      defaultsFor: () => ({}),
+      handlePi,
+    } as unknown as AgentManager
+    const adapter = new ManagedThreadAdapter(manager, "pi")
+    await adapter.create({ ...input("pi"), onEvent: (event) => events.push(event) })
+
+    await adapter.startTurn({
+      agentId: "pi",
+      agentSessionId: null,
+      clientMessageId: "client-message-1",
+      content: [{ text: "hello", type: "text" }],
+      cwd: "/repo",
+      threadId: input("pi").threadId,
+    })
+
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        item: expect.objectContaining({
+          agentMessageId: "pi-user-entry",
+          item: expect.objectContaining({
+            clientMessageId: "client-message-1",
+            role: "user",
+          }),
+        }),
+        type: "timeline",
+      })
+    )
+    const assistantEvents = events.filter(
+      (event) => event.type === "timeline" && event.item.item.type === "message"
+    )
+    expect(assistantEvents.at(-1)).toMatchObject({
+      item: {
+        agentMessageId: "pi-assistant-entry",
+        item: { boundary: null, operation: "replace", role: "assistant", text: "answer" },
+      },
+      type: "timeline",
+    })
+    expect(
+      assistantEvents
+        .filter((event) => event.type === "timeline" && event.item.item.type === "message")
+        .map((event) =>
+          event.type === "timeline" && event.item.item.type === "message"
+            ? event.item.item.itemId
+            : null
+        )
+    ).toEqual(["pi-user-entry", expect.any(String), expect.any(String)])
+    expect(
+      (assistantEvents.at(-2) as Extract<ThreadHarnessEvent, { type: "timeline" }>).item.item.itemId
+    ).toBe(
+      (assistantEvents.at(-1) as Extract<ThreadHarnessEvent, { type: "timeline" }>).item.item.itemId
+    )
+    expect(events).toContainEqual({
+      successful: true,
+      turnId: "active",
+      type: "turn-completed",
+    })
+  })
+
+  it("maps Pi user and assistant branch boundaries to fork-before or clone", async () => {
+    const calls: Record<string, unknown>[] = []
+    let forkNumber = 0
+    const entries = [
+      { id: "pi-user-1", message: { content: "one", role: "user" }, type: "message" },
+      {
+        id: "pi-assistant-1",
+        message: { content: "answer one", role: "assistant" },
+        type: "message",
+      },
+      { id: "pi-user-2", message: { content: "two", role: "user" }, type: "message" },
+      {
+        id: "pi-assistant-2",
+        message: { content: "answer two", role: "assistant" },
+        type: "message",
+      },
+    ]
+    const handlePi = vi.fn(
+      async (message: Record<string, unknown>, context: AgentMessageContext) => {
+        calls.push(message)
+        const type = String(message.type)
+        let result: unknown
+        if (type === "agent.pi.session.switch.request") result = { cancelled: false }
+        else if (type === "agent.pi.session.entries.get.request") result = { entries }
+        else if (type === "agent.pi.session.fork.request") {
+          forkNumber += 1
+          result = { cancelled: false, text: "" }
+        } else if (type === "agent.pi.session.clone.request") {
+          forkNumber += 1
+          result = { cancelled: false }
+        } else if (type === "agent.pi.session.stats.get.request") {
+          result = { sessionFile: `/sessions/pi-fork-${forkNumber}.json` }
+        }
+        context.send({
+          payload: { requestId: String(message.requestId), result },
+          type: type.replace(/\.request$/u, ".response"),
+        } as AgentRuntimeServerMessage)
+      }
+    )
+    const manager = { handlePi } as unknown as AgentManager
+    const base = {
+      ...input("pi"),
+      agentSessionId: "/sessions/pi-source.json",
+      sourceThreadId: input("pi").threadId,
+    }
+
+    await new ManagedThreadAdapter(manager, "pi").fork({
+      ...base,
+      target: {
+        agentMessageId: "pi-user-1",
+        kind: "user-message",
+        messageOrdinal: 0,
+        previousAgentMessageId: null,
+        turnId: "turn-1",
+      },
+      threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf411",
+    })
+    await new ManagedThreadAdapter(manager, "pi").fork({
+      ...base,
+      target: {
+        agentMessageId: "pi-assistant-1",
+        kind: "assistant-message",
+        messageOrdinal: 1,
+        nextAgentMessageId: "pi-user-2",
+        nextTurnId: "turn-2",
+        nextUserOrdinal: 2,
+        turnId: "turn-1",
+      },
+      threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf412",
+    })
+    await new ManagedThreadAdapter(manager, "pi").fork({
+      ...base,
+      target: {
+        agentMessageId: "pi-assistant-2",
+        kind: "assistant-message",
+        messageOrdinal: 3,
+        nextAgentMessageId: null,
+        nextTurnId: null,
+        nextUserOrdinal: null,
+        turnId: "turn-2",
+      },
+      threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf413",
+    })
+
+    expect(calls).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          entryId: "pi-user-1",
+          type: "agent.pi.session.fork.request",
+        }),
+        expect.objectContaining({
+          entryId: "pi-user-2",
+          type: "agent.pi.session.fork.request",
+        }),
+        expect.objectContaining({ type: "agent.pi.session.clone.request" }),
+      ])
+    )
+  })
+
   it("bridges Claude canUseTool through a Thread interaction", async () => {
     const events: ThreadHarnessEvent[] = []
     let context: AgentMessageContext | undefined
@@ -778,6 +1101,15 @@ describe("ManagedThreadAdapter", () => {
         thinking: { budgetTokens: 8192, type: "enabled" },
       },
     })
+    context?.send({
+      queryId: input("claude").threadId,
+      type: "agent.claude.query.complete.notification",
+    } as AgentRuntimeServerMessage)
+    expect(events).toContainEqual({
+      successful: true,
+      turnId: "active",
+      type: "turn-completed",
+    })
 
     const controller = new AbortController()
     const permission = context?.requestClaudePermission?.({
@@ -802,6 +1134,202 @@ describe("ManagedThreadAdapter", () => {
       { outcome: "allow_once", type: "permission" }
     )
     await expect(permission).resolves.toMatchObject({ behavior: "allow", toolUseID: "tool-1" })
+  })
+
+  it("maps Claude user and assistant branch boundaries to native message IDs", async () => {
+    const calls: Record<string, unknown>[] = []
+    const sourceMessages = [
+      {
+        message: { content: "one", role: "user" },
+        type: "user",
+        uuid: "claude-user-1",
+      },
+      {
+        message: { content: "answer one", role: "assistant" },
+        type: "assistant",
+        uuid: "claude-assistant-1",
+      },
+      {
+        message: { content: "two", role: "user" },
+        type: "user",
+        uuid: "claude-user-2",
+      },
+      {
+        message: { content: "answer two", role: "assistant" },
+        type: "assistant",
+        uuid: "claude-assistant-2",
+      },
+    ]
+    let forkNumber = 0
+    const handleClaude = vi.fn(
+      async (message: Record<string, unknown>, context: AgentMessageContext) => {
+        calls.push(message)
+        const type = String(message.type)
+        let result: unknown
+        if (type === "agent.claude.session.messages.list.request") {
+          result = sourceMessages
+        } else {
+          forkNumber += 1
+          result = { sessionId: `claude-fork-${forkNumber}` }
+        }
+        context.send({
+          payload: { requestId: String(message.requestId), result },
+          type: type.replace(/\.request$/u, ".response"),
+        } as AgentRuntimeServerMessage)
+      }
+    )
+    const manager = { handleClaude } as unknown as AgentManager
+    const base = {
+      ...input("claude"),
+      agentSessionId: "claude-source",
+      sourceThreadId: input("claude").threadId,
+    }
+
+    const firstUser = await new ManagedThreadAdapter(manager, "claude").fork({
+      ...base,
+      target: {
+        agentMessageId: "claude-user-1",
+        kind: "user-message",
+        messageOrdinal: 0,
+        previousAgentMessageId: null,
+        turnId: "turn-1",
+      },
+      threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf421",
+    })
+    const assistantFork = await new ManagedThreadAdapter(manager, "claude").fork({
+      ...base,
+      target: {
+        agentMessageId: "claude-user-2",
+        kind: "user-message",
+        messageOrdinal: 2,
+        previousAgentMessageId: "claude-assistant-1",
+        turnId: "turn-2",
+      },
+      threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf422",
+    })
+    await new ManagedThreadAdapter(manager, "claude").fork({
+      ...base,
+      target: {
+        agentMessageId: "claude-assistant-2",
+        kind: "assistant-message",
+        messageOrdinal: 3,
+        nextAgentMessageId: null,
+        nextTurnId: null,
+        nextUserOrdinal: null,
+        turnId: "turn-2",
+      },
+      threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf423",
+    })
+
+    expect(firstUser).toMatchObject({ history: [], sessionId: null })
+    const forks = calls.filter(
+      (call) => call.type === "agent.claude.session.fork.request"
+    ) as Array<{ options?: { upToMessageId?: string } }>
+    expect(forks).toHaveLength(2)
+    expect(forks[0]?.options).toMatchObject({ upToMessageId: "claude-assistant-1" })
+    expect(forks[1]?.options).toMatchObject({ upToMessageId: "claude-assistant-2" })
+    expect(assistantFork.history?.at(-1)).toMatchObject({
+      agentMessageId: "claude-assistant-2",
+      item: { boundary: "assistant-final", role: "assistant", text: "answer two" },
+    })
+  })
+
+  it("maps OpenCode user and assistant branches to native before boundaries", async () => {
+    const calls: Array<{ body?: Record<string, unknown>; operation: string }> = []
+    const messages = [
+      { id: "opencode-user-1", text: "one", type: "user" },
+      { content: "answer one", id: "opencode-assistant-1", type: "assistant" },
+      { id: "opencode-user-2", text: "two", type: "user" },
+      { content: "answer two", id: "opencode-assistant-2", type: "assistant" },
+    ]
+    let forkNumber = 0
+    const handleOpenCode = vi.fn(
+      async (message: Record<string, unknown>, context: AgentMessageContext) => {
+        if (message.type === "agent.opencode.event.subscribe.request") {
+          context.send({
+            payload: {
+              subscriptionId: (message.payload as { subscriptionId: string }).subscriptionId,
+            },
+            requestId: String(message.requestId),
+            type: "agent.opencode.event.subscribe.response",
+          })
+          return
+        }
+        const payload = message.payload as {
+          body?: Record<string, unknown>
+          operation: string
+        }
+        calls.push(payload)
+        let data: unknown = true
+        if (payload.operation === "session.fork") {
+          forkNumber += 1
+          data = { id: `opencode-fork-${forkNumber}` }
+        } else if (payload.operation === "message.list") {
+          data = { cursor: {}, data: messages }
+        }
+        context.send({
+          payload: { data: data as never, headers: {}, ok: true, status: 200 },
+          requestId: String(message.requestId),
+          type: "agent.opencode.call.response",
+        })
+      }
+    )
+    const manager = { handleOpenCode } as unknown as AgentManager
+    const base = {
+      ...input("opencode"),
+      agentSessionId: "opencode-source",
+      sourceThreadId: input("opencode").threadId,
+    }
+
+    const targets = [
+      {
+        agentMessageId: "opencode-user-1",
+        kind: "user-message" as const,
+        messageOrdinal: 0,
+        previousAgentMessageId: null,
+        turnId: "turn-1",
+      },
+      {
+        agentMessageId: "opencode-assistant-1",
+        kind: "assistant-message" as const,
+        messageOrdinal: 1,
+        nextAgentMessageId: "opencode-user-2",
+        nextTurnId: "turn-2",
+        nextUserOrdinal: 2,
+        turnId: "turn-1",
+      },
+      {
+        agentMessageId: "opencode-assistant-2",
+        kind: "assistant-message" as const,
+        messageOrdinal: 3,
+        nextAgentMessageId: null,
+        nextTurnId: null,
+        nextUserOrdinal: null,
+        turnId: "turn-2",
+      },
+    ]
+    const results = []
+    for (const [index, target] of targets.entries()) {
+      results.push(
+        await new ManagedThreadAdapter(manager, "opencode").fork({
+          ...base,
+          target,
+          threadId: `01984de2-8f74-7c91-a3b2-5c5e937cf43${index}`,
+        })
+      )
+    }
+
+    expect(
+      calls.filter((call) => call.operation === "session.fork").map((call) => call.body)
+    ).toEqual([
+      { before: "opencode-user-1", sessionID: "opencode-source" },
+      { before: "opencode-user-2", sessionID: "opencode-source" },
+      { sessionID: "opencode-source" },
+    ])
+    expect(results.at(-1)?.history?.at(-1)).toMatchObject({
+      agentMessageId: "opencode-assistant-2",
+      item: { boundary: "assistant-final", role: "assistant", text: "answer two" },
+    })
   })
 
   it("bridges OpenCode v2 forms and answers", async () => {
@@ -951,11 +1479,13 @@ describe("ManagedThreadAdapter", () => {
     })
 
     const forked = new ManagedThreadAdapter(manager, "opencode")
-    await forked.create({
-      ...input("opencode"),
+    await forked.fork({
+      agentId: "opencode",
+      agentSessionId: "opencode-session-1",
       cwd: "/shared",
-      forkedFromAgentSessionId: "opencode-session-1",
       onEvent: (event) => events.push(event),
+      sourceThreadId: input("opencode").threadId,
+      target: { kind: "thread-head" },
       threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf498",
     })
     expect(calls).toContainEqual(
@@ -963,6 +1493,33 @@ describe("ManagedThreadAdapter", () => {
         payload: {
           body: { directory: "/shared", sessionID: "opencode-session-2" },
           operation: "session.move",
+        },
+      })
+    )
+
+    const messageFork = new ManagedThreadAdapter(manager, "opencode")
+    await messageFork.fork({
+      agentId: "opencode",
+      agentSessionId: "opencode-session-1",
+      cwd: "/repo",
+      onEvent: (event) => events.push(event),
+      sourceThreadId: input("opencode").threadId,
+      target: {
+        agentMessageId: "next-user-native",
+        kind: "assistant-message",
+        messageOrdinal: 1,
+        nextAgentMessageId: "next-user-native",
+        nextTurnId: "turn-2",
+        nextUserOrdinal: 2,
+        turnId: "turn-1",
+      },
+      threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf497",
+    })
+    expect(calls).toContainEqual(
+      expect.objectContaining({
+        payload: {
+          body: { before: "next-user-native", sessionID: "opencode-session-1" },
+          operation: "session.fork",
         },
       })
     )

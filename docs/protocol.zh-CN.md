@@ -58,7 +58,7 @@ Agent management 会区分持久化 registry 与可用 harness catalog。`agent.
 
 Project 组织 workspace roots 和有序 Thread membership。Thread 是持久 Agent 会话身份，包含 `agentId`、harness session 关联、状态、能力、待处理 interactions、最近时间、归档状态，以及可选 Project 或 Section 位置。Section 同时排序 Projects 和独立 Threads。
 
-协议提供创建、读取、列表、更新、移动、membership、归档和删除操作。顺序使用显式 position 和 `before...` 位置提示。固定 Pinned Section 由稳定协议常量表示；客户端不从 harness 元数据推断 Section 归属。
+协议提供创建、读取、列表、更新、移动、membership、fork、rewind、归档和删除操作。顺序使用显式 position 和 `before...` 位置提示。固定 Pinned Section 由稳定协议常量表示；客户端不从 harness 元数据推断 Section 归属。
 
 Project 与 Section membership 也作为规范化列表资源提供。Project membership 携带 `threadId`、`projectId`、position 与 timestamps；Section membership 携带 item reference、`sectionId`、position 与 timestamps。Project、Section 和 membership mutation 会发布类型化的 created、updated、upserted 与 deleted notifications，因此客户端可以维护规范化的本地 collections，而无需 N+1 membership 读取或轮询。逻辑删除 notification 会在 tombstone 提交后、延迟物理清理前发布；排序操作会发布所有受影响记录的规范 position。
 
@@ -91,6 +91,14 @@ Thread Attachments 是 Server 共享资源，不是 prompt 内容块或客户端
 Timeline cursor 包含 epoch 和 sequence。Epoch 用于检测历史替换或重建。读取支持 `tail`、`before` 和 `after`，并可请求 canonical rows 或 projected display items。Projection 会把同一 item 的后续 rows 折叠为稳定展示项，同时保留精确的源 sequence ranges。
 
 客户端订阅 append notification，并在 replacement notification、cursor gap、重连或 epoch 不匹配后重新读取。持久化 Server Timeline 是历史与实时投影的唯一权威。
+
+消息 row 带有显式操作边界。`turn-user` 可以 Rewind 或执行用户消息 Fork，`steer-user` 两者均不可用，`assistant-final` 只能 Fork。Assistant 流式 row 不带边界；turn 成功后，Server 会为最终 assistant 消息追加 completion replacement。失败或取消的 turn 不会获得 `assistant-final` 边界。Server 会针对当前 epoch 解析每个请求 cursor，并校验持久化 item，而不信任客户端声明的消息种类。
+
+`thread.fork` 有三种 target。`thread-head` 复制完整 provider session；`user-message` 在该消息之前分支，并返回其完整 input blocks 供新 Thread composer 恢复；`assistant-message` 包含选中的已完成 assistant 消息，并返回空 composer。Fork 继承 source 的 Project 与普通 Section、排在 source 之后并记录 `forkedFromId`，但不继承 pinned、unread 或 archived 状态。`thread.rewind` 只接受 `user-message` target，保留 Cypheria Thread ID，替换 provider-session binding 与 Timeline epoch，并返回选中消息的 input blocks 给原 composer。两种操作都不会回滚 workspace 文件，不接受任意 Timeline item，也不会通过重放 prompts 近似 provider 不支持的边界。
+
+分支成功 response 包含权威 Thread、完整的替换后 Timeline snapshot 与 composer input blocks。Provider 分支、session binding 和 Timeline 替换由持久 lifecycle journal 覆盖。启动恢复会完成已提交的 binding，或补偿尚未提交的 provider branch，且绝不会重新发送用户消息。
+
+Archive 以本地状态为权威：Server 取消活动 turn、关闭 runtime、持久化 `archivedAt`，再尝试 provider 原生 archive。原生失败以 warning 返回，不撤销本地归档。Unarchive 先执行原生 restore，成功后才清除 `archivedAt`。Rename 先更新本地，再 best-effort 同步原生标题。`thread.archive_many` 独立执行每个单 Thread 操作，返回成功项、失败项与逐项 warnings，单项失败不会中断其余操作。
 
 ## Turns 与 interactions
 

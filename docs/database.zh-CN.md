@@ -44,7 +44,7 @@ Project、Thread 与 Section 采用分阶段删除。Server 先提交 `deleted_a
 
 ## Canonical Timeline
 
-`thread_timeline_epochs` 保存每个 Thread 的 active epoch 和 next sequence。`thread_timeline_rows` 保存以 Thread、epoch、sequence 为键的不可变 canonical rows。Append 在一个事务中分配连续 sequence。Rehydration 或 history replacement 创建新 epoch 并原子替换 rows。内部可空字段 `agent_message_id` 把已提交的 canonical 用户 row 与 Agent 原生消息关联起来，但不会把该身份暴露到公开 Timeline 契约。
+`thread_timeline_epochs` 保存每个 Thread 的 active epoch 和 next sequence。`thread_timeline_rows` 保存以 Thread、epoch、sequence 为键的不可变 canonical rows。Append 在一个事务中分配连续 sequence。Rehydration、Fork 或 Rewind 会创建新 epoch 并原子替换 rows；旧 epoch 不会保留。消息 JSON 会记录 `turn-user`、`steer-user`、`assistant-final` 或无操作边界；nullable `turn_id` 与内部 `agent_message_id` 保留 provider 原生分支 identity，但不会把原生消息 ID 暴露到公开 Timeline 契约。
 
 `thread_message_requests` 以 Thread 和 `client_message_id` 为键，保存稳定 request fingerprint，以及带已接受 turn ID 的 `pending` 或 `completed` receipt。Pending receipt 会跨重启保留，并在 Agent 投递结果不明确时阻止自动重放；completed receipt 则让相同重试返回原 turn。删除所属 Thread 时，这些 rows 会一并删除。
 
@@ -54,7 +54,7 @@ Server 读取 Timeline JSON 时使用 `ThreadTimelineRowSchema` 校验。Harness
 
 Schedule definition、next-run advancement、occurrence claim 和 run creation 通过事务协调。Claim 防止并发执行。重启时，遗留 running row 会先变为 interrupted，再恢复 active definitions。Web3 外部副作用不会自动重放。
 
-Thread lifecycle operation 同样记录非原子的 harness 工作，使删除和 session transition 可在故障后校正。
+Thread lifecycle operation 同样记录非原子的 harness 工作，使删除和 session transition 可在故障后校正。Fork 与 Rewind 依次经过 provider-branched、binding-committed 和 timeline-replaced 阶段。恢复可以完成已经提交的 binding，或删除尚未提交的 branch session，但绝不会重放用户消息。
 
 ## SQLite 约定
 

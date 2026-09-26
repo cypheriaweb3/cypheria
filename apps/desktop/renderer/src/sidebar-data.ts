@@ -178,7 +178,7 @@ export class SidebarDataApi {
     const client = await this.#client()
     const result = await client.threads.archive(threadId)
     this.invalidate()
-    return result
+    return result.thread
   }
 
   async unarchiveThread(threadId: string) {
@@ -203,7 +203,7 @@ export class SidebarDataApi {
 
   async forkThread(threadId: string) {
     const client = await this.#client()
-    const result = await client.threads.fork({ threadId })
+    const result = await client.threads.fork({ target: { kind: "thread-head" }, threadId })
     this.invalidate()
     return result.thread
   }
@@ -313,8 +313,15 @@ export class SidebarDataApi {
   async archiveMatchingThreads(matches: (thread: SidebarThreadView) => boolean) {
     const client = await this.#client()
     const snapshot = await this.#load(false)
-    for (const thread of snapshot.threads.filter(matches)) await client.threads.archive(thread.id)
+    const threadIds = snapshot.threads.filter(matches).map((thread) => thread.id)
+    if (threadIds.length === 0) return
+    const result = await client.threads.archiveMany(threadIds)
     this.invalidate()
+    if (result.failed.length > 0) {
+      throw new Error(
+        result.failed.map((failure) => `${failure.threadId}: ${failure.message}`).join("\n")
+      )
+    }
   }
 
   async #listActiveThreads(input: SidebarThreadListInput): Promise<SidebarPage<SidebarThreadView>> {

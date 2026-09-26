@@ -34,6 +34,7 @@ import type {
   ThreadHarnessContext,
   ThreadHarnessCreateInput,
   ThreadHarnessEvent,
+  ThreadHarnessForkInput,
   ThreadHarnessHistoryItem,
   ThreadHarnessResumeInput,
   ThreadHarnessSession,
@@ -69,7 +70,18 @@ const capabilities = (
   return {
     changeCwd: true,
     configure: true,
-    fork: agentId === "codex" || agentId === "opencode" || session.fork != null,
+    fork: {
+      assistantMessage:
+        agentId === "codex" || agentId === "claude" || agentId === "opencode" || agentId === "pi",
+      threadHead:
+        agentId === "codex" ||
+        agentId === "claude" ||
+        agentId === "opencode" ||
+        agentId === "pi" ||
+        session.fork != null,
+      userMessage:
+        agentId === "codex" || agentId === "claude" || agentId === "opencode" || agentId === "pi",
+    },
     promptContent: [
       "text",
       ...(agentId === "codex" || agentId === "opencode" || supportsPrompt(prompt.image)
@@ -79,6 +91,10 @@ const capabilities = (
       ...(agentId !== "codex" ? (["resource-link"] as const) : []),
       ...(supportsPrompt(prompt.embeddedContext) ? (["embedded-resource"] as const) : []),
     ],
+    rewind: {
+      userMessage:
+        agentId === "codex" || agentId === "claude" || agentId === "opencode" || agentId === "pi",
+    },
     harnessExtensions: agentId === "codex",
     steer: agentId === "codex" || agentId === "pi",
   }
@@ -348,22 +364,37 @@ const extractThread = (result: Record<string, unknown>): Record<string, unknown>
 
 const mapCodexHistory = (thread: Record<string, unknown>): ThreadHarnessHistoryItem[] => {
   const history: ThreadHarnessHistoryItem[] = []
+  const successfulTurns = new Set<string>()
   for (const turn of Array.isArray(thread.turns) ? thread.turns : []) {
     if (!turn || typeof turn !== "object") continue
     const turnRecord = turn as Record<string, unknown>
+    const successful = turnRecord.status === "completed"
+    const turnId = stringId(turnRecord.id)
+    if (successful && turnId) successfulTurns.add(turnId)
     for (const item of Array.isArray(turnRecord.items) ? turnRecord.items : []) {
       const canonical = codexThreadItemToTimeline(item as v2.ThreadItem)
       const mapped = canonical
-        ? { harnessItemId: canonical.itemId, item: canonical }
+        ? {
+            ...(canonical.type === "message" ? { agentMessageId: canonical.itemId } : {}),
+            harnessItemId: canonical.itemId,
+            item:
+              canonical.type === "message"
+                ? { ...canonical, boundary: "assistant-final" as const }
+                : canonical,
+          }
         : mapHarnessHistoryItem(item, "codex")
       if (mapped)
         history.push({
           ...mapped,
-          turnId: stringId(turnRecord.id),
+          item:
+            mapped.item.type === "message" && mapped.item.role === "assistant"
+              ? { ...mapped.item, boundary: successful ? "assistant-final" : null }
+              : mapped.item,
+          turnId,
         })
     }
   }
-  return history
+  return markFinalAssistantBoundaries(history, (turnId) => successfulTurns.has(turnId))
 }
 
 const mapTimelineStatus = (
@@ -434,6 +465,7 @@ const mapHarnessItem = (value: unknown, agentId: AgentId): ThreadTimelineItem | 
     )
     return {
       ...(role === "user" && clientMessageId ? { clientMessageId } : {}),
+      boundary: null,
       itemId,
       operation: "replace",
       harnessData,
@@ -544,14 +576,48 @@ const mapHarnessHistoryItem = (
   if (!item) return undefined
   const native = value && typeof value === "object" ? (value as Record<string, unknown>) : undefined
   const agentMessageId =
-    item.type === "message" && item.role === "user"
-      ? stringId(native?.messageId ?? native?.messageID ?? native?.id)
+    item.type === "message"
+      ? stringId(native?.messageId ?? native?.messageID ?? native?.uuid ?? native?.id)
       : null
   return {
     ...(agentMessageId ? { agentMessageId } : {}),
     harnessItemId: item.itemId,
-    item,
+    item:
+      item.type === "message"
+        ? {
+            ...item,
+            boundary: item.role === "user" ? "turn-user" : "assistant-final",
+          }
+        : item,
   }
+}
+
+const markFinalAssistantBoundaries = (
+  history: readonly ThreadHarnessHistoryItem[],
+  successfulTurn: (turnId: string) => boolean = () => true
+): ThreadHarnessHistoryItem[] => {
+  const finalAssistantByTurn = new Map<string, number>()
+  history.forEach((entry, index) => {
+    if (entry.turnId && entry.item.type === "message" && entry.item.role === "assistant") {
+      finalAssistantByTurn.set(entry.turnId, index)
+    }
+  })
+  return history.map((entry, index) =>
+    entry.item.type === "message" && entry.item.role === "assistant"
+      ? {
+          ...entry,
+          item: {
+            ...entry.item,
+            boundary:
+              entry.turnId &&
+              finalAssistantByTurn.get(entry.turnId) === index &&
+              successfulTurn(entry.turnId)
+                ? ("assistant-final" as const)
+                : null,
+          },
+        }
+      : entry
+  )
 }
 
 /** Bridges existing native/raw runtimes into server-owned Thread semantics. */
@@ -568,6 +634,8 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   >()
   readonly #reverse = new Map<string, AgentRuntimeServerMessage>()
   readonly #codexProjectors = new Map<string, CodexTurnProjector>()
+  readonly #pendingNativeUserMessages: string[] = []
+  #piActiveAssistantItemId: string | null = null
   #acpCapabilities: Record<string, unknown> | undefined
   #acpProtocolVersion: 1 | 2 | undefined
   #defaultsApplied = false
@@ -590,28 +658,15 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     if (this.agentId === "codex") {
       const gitInstructions = this.#manager.codexGitInstructions()
       const worktreeConfig = await this.#manager.codexWorktreeConfig?.(input.cwd)
-      const response = await this.#request(
-        input.threadId,
-        input.forkedFromAgentSessionId
-          ? {
-              cwd: input.cwd,
-              ...(input.workspaceRoots ? { runtimeWorkspaceRoots: [...input.workspaceRoots] } : {}),
-              ...(worktreeConfig ? { config: worktreeConfig } : {}),
-              excludeTurns: false,
-              requestId: randomUUID(),
-              threadId: input.forkedFromAgentSessionId,
-              type: "agent.codex.thread.fork.request",
-            }
-          : {
-              cwd: input.cwd,
-              ...(input.workspaceRoots ? { runtimeWorkspaceRoots: [...input.workspaceRoots] } : {}),
-              ...(worktreeConfig ? { config: worktreeConfig } : {}),
-              ...(gitInstructions ? { developerInstructions: gitInstructions } : {}),
-              dynamicTools: this.#manager.codexDynamicTools.getSpecs(),
-              requestId: randomUUID(),
-              type: "agent.codex.thread.start.request",
-            }
-      )
+      const response = await this.#request(input.threadId, {
+        cwd: input.cwd,
+        ...(input.workspaceRoots ? { runtimeWorkspaceRoots: [...input.workspaceRoots] } : {}),
+        ...(worktreeConfig ? { config: worktreeConfig } : {}),
+        ...(gitInstructions ? { developerInstructions: gitInstructions } : {}),
+        dynamicTools: this.#manager.codexDynamicTools.getSpecs(),
+        requestId: randomUUID(),
+        type: "agent.codex.thread.start.request",
+      })
       const thread = extractThread(resultOf(response))
       const sessionId = stringId(thread.id)
       this.#harnessSessionId = sessionId
@@ -624,54 +679,290 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     if (this.agentId === "opencode") {
       const defaults = await this.#defaultsFor("opencode")
       const model = typeof defaults.model === "string" ? defaults.model.split("/", 2) : []
-      const response = await this.#openCodeCall(
-        input.threadId,
-        input.forkedFromAgentSessionId
-          ? {
-              body: { sessionID: input.forkedFromAgentSessionId },
-              operation: "session.fork",
-            }
-          : {
-              body: {
-                ...(typeof defaults.agent === "string" && defaults.agent
-                  ? { agent: defaults.agent }
-                  : {}),
-                ...(input.cwd ? { location: { directory: input.cwd } } : {}),
-                ...(model[0] && model[1]
-                  ? {
-                      model: {
-                        id: model[1],
-                        providerID: model[0],
-                        ...(typeof defaults.variant === "string" && defaults.variant
-                          ? { variant: defaults.variant }
-                          : {}),
-                      },
-                    }
-                  : {}),
-              },
-              operation: "session.create",
-            }
-      )
+      const response = await this.#openCodeCall(input.threadId, {
+        body: {
+          ...(typeof defaults.agent === "string" && defaults.agent
+            ? { agent: defaults.agent }
+            : {}),
+          ...(input.cwd ? { location: { directory: input.cwd } } : {}),
+          ...(model[0] && model[1]
+            ? {
+                model: {
+                  id: model[1],
+                  providerID: model[0],
+                  ...(typeof defaults.variant === "string" && defaults.variant
+                    ? { variant: defaults.variant }
+                    : {}),
+                },
+              }
+            : {}),
+        },
+        operation: "session.create",
+      })
       const session = resultOf(response).data as Record<string, unknown>
       const sessionId = stringId(session.id)
-      if (input.forkedFromAgentSessionId && input.cwd) {
-        await this.#openCodeCall(input.threadId, {
-          body: { directory: input.cwd, sessionID: sessionId },
-          operation: "session.move",
-        })
-      }
       await this.#subscribeOpenCode(input.threadId)
       this.#harnessSessionId = sessionId
       return { capabilities: capabilities(this.agentId), sessionId }
     }
     if (this.agentId === "claude" || this.agentId === "pi") {
-      if (input.forkedFromAgentSessionId) {
-        throw new Error(`${this.agentId} does not expose a native empty-session fork`)
-      }
       this.#harnessSessionId = null
       return { capabilities: capabilities(this.agentId), sessionId: null }
     }
     return this.#createAcp(input)
+  }
+
+  async fork(input: ThreadHarnessForkInput): Promise<ThreadHarnessSession> {
+    if (!input.agentSessionId) throw new Error(`${this.agentId} thread is not bound`)
+    this.#attach(input.onEvent)
+    this.#contextUsage = null
+    this.#ownerThreadId = input.threadId
+    this.#cwd = input.cwd
+
+    if (this.agentId === "codex") {
+      const response = await this.#request(input.sourceThreadId, {
+        cwd: input.cwd,
+        ...(input.workspaceRoots ? { runtimeWorkspaceRoots: [...input.workspaceRoots] } : {}),
+        ...(input.target.kind === "user-message" ? { beforeTurnId: input.target.turnId } : {}),
+        ...(input.target.kind === "assistant-message" && input.target.nextTurnId
+          ? { beforeTurnId: input.target.nextTurnId }
+          : {}),
+        excludeTurns: false,
+        requestId: randomUUID(),
+        threadId: input.agentSessionId,
+        type: "agent.codex.thread.fork.request",
+      })
+      const thread = extractThread(resultOf(response))
+      const sessionId = stringId(thread.id)
+      if (!sessionId) throw new Error("Codex did not return a forked thread ID")
+      this.#harnessSessionId = sessionId
+      return {
+        capabilities: capabilities(this.agentId),
+        history: mapCodexHistory(thread),
+        sessionId,
+      }
+    }
+
+    if (this.agentId === "opencode") {
+      if (input.target.kind === "user-message" && !input.target.agentMessageId) {
+        throw new Error("OpenCode user-message branch lacks a native message ID")
+      }
+      if (
+        input.target.kind === "assistant-message" &&
+        input.target.nextUserOrdinal !== null &&
+        !input.target.nextAgentMessageId
+      ) {
+        throw new Error("OpenCode assistant branch lacks the following native user message ID")
+      }
+      const before =
+        input.target.kind === "user-message"
+          ? input.target.agentMessageId
+          : input.target.kind === "assistant-message"
+            ? input.target.nextAgentMessageId
+            : null
+      const forkResponse = await this.#openCodeCall(input.sourceThreadId, {
+        body: {
+          ...(before ? { before } : {}),
+          sessionID: input.agentSessionId,
+        },
+        operation: "session.fork",
+      })
+      const session = resultOf(forkResponse).data as Record<string, unknown>
+      const sessionId = stringId(session?.id)
+      if (!sessionId) throw new Error("OpenCode did not return a forked session ID")
+      if (input.cwd) {
+        await this.#openCodeCall(input.threadId, {
+          body: { directory: input.cwd, sessionID: sessionId },
+          operation: "session.move",
+        })
+      }
+      const historyResponse = await this.#openCodeCall(input.threadId, {
+        body: { order: "asc", sessionID: sessionId },
+        operation: "message.list",
+      })
+      await this.#subscribeOpenCode(input.threadId)
+      this.#harnessSessionId = sessionId
+      return {
+        capabilities: capabilities(this.agentId),
+        history: this.#mapOpenCodeHistory(
+          (resultOf(historyResponse).data as Record<string, unknown> | undefined)?.data
+        ),
+        sessionId,
+      }
+    }
+
+    if (this.agentId === "claude") {
+      const sourceHistoryResponse = await this.#request(input.sourceThreadId, {
+        requestId: randomUUID(),
+        sessionId: input.agentSessionId,
+        type: "agent.claude.session.messages.list.request",
+      })
+      const rawSourceHistory = payloadOf(sourceHistoryResponse).result
+      const sourceValues = Array.isArray(rawSourceHistory)
+        ? rawSourceHistory
+        : Array.isArray((rawSourceHistory as Record<string, unknown> | undefined)?.messages)
+          ? ((rawSourceHistory as Record<string, unknown>).messages as unknown[])
+          : []
+      const sourceMessages = sourceValues.filter((value) => {
+        if (!value || typeof value !== "object") return false
+        const record = value as Record<string, unknown>
+        return (
+          record.type === "user" ||
+          record.type === "assistant" ||
+          record.role === "user" ||
+          record.role === "assistant"
+        )
+      }) as Array<Record<string, unknown>>
+      const upToRecord =
+        input.target.kind === "user-message"
+          ? sourceMessages[input.target.messageOrdinal - 1]
+          : input.target.kind === "assistant-message"
+            ? sourceMessages[input.target.messageOrdinal]
+            : undefined
+      const upToMessageId = upToRecord
+        ? stringId(upToRecord.messageId ?? upToRecord.messageID ?? upToRecord.uuid ?? upToRecord.id)
+        : undefined
+      if (input.target.kind === "user-message" && !upToMessageId) {
+        this.#harnessSessionId = null
+        return { capabilities: capabilities(this.agentId), history: [], sessionId: null }
+      }
+      const response = await this.#request(input.sourceThreadId, {
+        options: {
+          ...(input.cwd ? { dir: input.cwd } : {}),
+          ...(upToMessageId ? { upToMessageId } : {}),
+        },
+        requestId: randomUUID(),
+        sessionId: input.agentSessionId,
+        type: "agent.claude.session.fork.request",
+      })
+      const result = resultOf(response)
+      const sessionId = stringId(result.sessionId ?? result.id)
+      if (!sessionId) throw new Error("Claude did not return a forked session ID")
+      const historyResponse = await this.#request(input.threadId, {
+        requestId: randomUUID(),
+        sessionId,
+        type: "agent.claude.session.messages.list.request",
+      })
+      const rawHistory = payloadOf(historyResponse).result
+      const values = Array.isArray(rawHistory)
+        ? rawHistory
+        : Array.isArray((rawHistory as Record<string, unknown> | undefined)?.messages)
+          ? ((rawHistory as Record<string, unknown>).messages as unknown[])
+          : []
+      this.#harnessSessionId = sessionId
+      return {
+        capabilities: capabilities(this.agentId),
+        history: this.#mapClaudeHistory(values),
+        sessionId,
+      }
+    }
+
+    if (this.agentId === "pi") {
+      await this.#request(input.threadId, {
+        requestId: randomUUID(),
+        sessionPath: input.agentSessionId,
+        type: "agent.pi.session.switch.request",
+      })
+      const before = await this.#request(input.threadId, {
+        requestId: randomUUID(),
+        type: "agent.pi.session.entries.get.request",
+      })
+      const entriesResult = resultOf(before)
+      const entries = Array.isArray(entriesResult.entries)
+        ? entriesResult.entries
+        : Array.isArray((entriesResult.data as Record<string, unknown> | undefined)?.entries)
+          ? ((entriesResult.data as Record<string, unknown>).entries as unknown[])
+          : []
+      const messageEntries = entries.filter((entry) => {
+        if (!entry || typeof entry !== "object") return false
+        const record = entry as Record<string, unknown>
+        const message = record.message as Record<string, unknown> | undefined
+        return (
+          record.type === "message" && (message?.role === "user" || message?.role === "assistant")
+        )
+      }) as Array<Record<string, unknown>>
+      if (input.target.kind === "thread-head") {
+        await this.#request(input.threadId, {
+          requestId: randomUUID(),
+          type: "agent.pi.session.clone.request",
+        })
+      } else {
+        const ordinal =
+          input.target.kind === "user-message"
+            ? input.target.messageOrdinal
+            : input.target.nextUserOrdinal
+        if (ordinal === null) {
+          await this.#request(input.threadId, {
+            requestId: randomUUID(),
+            type: "agent.pi.session.clone.request",
+          })
+        } else {
+          const entryId = stringId(messageEntries[ordinal]?.id)
+          if (!entryId) throw new Error("Pi branch target could not be resolved")
+          await this.#request(input.threadId, {
+            entryId,
+            requestId: randomUUID(),
+            type: "agent.pi.session.fork.request",
+          })
+        }
+      }
+      const [statsResponse, historyResponse] = await Promise.all([
+        this.#request(input.threadId, {
+          requestId: randomUUID(),
+          type: "agent.pi.session.stats.get.request",
+        }),
+        this.#request(input.threadId, {
+          requestId: randomUUID(),
+          type: "agent.pi.session.entries.get.request",
+        }),
+      ])
+      const stats = resultOf(statsResponse)
+      const statsData = (stats.data ?? stats) as Record<string, unknown>
+      const sessionId = stringId(statsData.sessionFile)
+      if (!sessionId) throw new Error("Pi did not return a persisted fork path")
+      const historyResult = resultOf(historyResponse)
+      const historyEntries = Array.isArray(historyResult.entries)
+        ? historyResult.entries
+        : Array.isArray((historyResult.data as Record<string, unknown> | undefined)?.entries)
+          ? ((historyResult.data as Record<string, unknown>).entries as unknown[])
+          : []
+      this.#harnessSessionId = sessionId
+      return {
+        capabilities: capabilities(this.agentId),
+        history: this.#mapPiHistory(historyEntries),
+        sessionId,
+      }
+    }
+
+    if (input.target.kind !== "thread-head") {
+      throw new Error("ACP only supports complete-session forks")
+    }
+    await this.#initializeAcp(input.threadId)
+    if (!this.#supportsAcp("fork")) throw new Error("ACP agent lacks session.fork capability")
+    const protocolVersion = this.#requireAcpVersion()
+    const directories = additionalDirectories(input.workspaceRoots, input.cwd)
+    const response = await this.#request(input.threadId, {
+      agent: this.agentId,
+      payload: {
+        ...(this.#supportsAcp("additionalDirectories") && directories
+          ? { additionalDirectories: directories }
+          : {}),
+        cwd: input.cwd ?? process.cwd(),
+        mcpServers: [],
+        sessionId: input.agentSessionId,
+      },
+      protocolVersion,
+      requestId: randomUUID(),
+      type: "agent.acp.session.fork.request",
+    })
+    const sessionId = stringId(resultOf(response).sessionId)
+    if (!sessionId) throw new Error("ACP agent did not return a session ID")
+    this.#harnessSessionId = sessionId
+    await this.#applyAcpDefaults(input.threadId, sessionId)
+    return {
+      capabilities: capabilities(this.agentId, this.#acpCapabilities, protocolVersion),
+      sessionId,
+    }
   }
 
   async resume(input: ThreadHarnessResumeInput): Promise<ThreadHarnessSession> {
@@ -680,7 +971,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     this.#ownerThreadId = input.threadId
     this.#cwd = input.cwd
     if (this.agentId === "codex") {
-      if (!input.agentSessionId) return this.create({ ...input, forkedFromAgentSessionId: null })
+      if (!input.agentSessionId) return this.create(input)
       const gitInstructions = this.#manager.codexGitInstructions()
       const worktreeConfig = await this.#manager.codexWorktreeConfig?.(input.cwd)
       const response = await this.#request(input.threadId, {
@@ -703,7 +994,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       }
     }
     if (this.agentId === "opencode") {
-      if (!input.agentSessionId) return this.create({ ...input, forkedFromAgentSessionId: null })
+      if (!input.agentSessionId) return this.create(input)
       if (input.cwd) {
         await this.#openCodeCall(input.threadId, {
           body: { directory: input.cwd, sessionID: input.agentSessionId },
@@ -724,9 +1015,50 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         sessionId: input.agentSessionId,
       }
     }
-    if (this.agentId === "claude" || this.agentId === "pi") {
+    if (this.agentId === "claude") {
       this.#harnessSessionId = input.agentSessionId
-      return { capabilities: capabilities(this.agentId), sessionId: input.agentSessionId }
+      if (!input.agentSessionId)
+        return { capabilities: capabilities(this.agentId), sessionId: null }
+      const response = await this.#request(input.threadId, {
+        requestId: randomUUID(),
+        sessionId: input.agentSessionId,
+        type: "agent.claude.session.messages.list.request",
+      })
+      const rawHistory = payloadOf(response).result
+      const values = Array.isArray(rawHistory)
+        ? rawHistory
+        : Array.isArray((rawHistory as Record<string, unknown> | undefined)?.messages)
+          ? ((rawHistory as Record<string, unknown>).messages as unknown[])
+          : []
+      return {
+        capabilities: capabilities(this.agentId),
+        history: this.#mapClaudeHistory(values),
+        sessionId: input.agentSessionId,
+      }
+    }
+    if (this.agentId === "pi") {
+      if (!input.agentSessionId) return this.create(input)
+      await this.#request(input.threadId, {
+        requestId: randomUUID(),
+        sessionPath: input.agentSessionId,
+        type: "agent.pi.session.switch.request",
+      })
+      const response = await this.#request(input.threadId, {
+        requestId: randomUUID(),
+        type: "agent.pi.session.entries.get.request",
+      })
+      const result = resultOf(response)
+      const entries = Array.isArray(result.entries)
+        ? result.entries
+        : Array.isArray((result.data as Record<string, unknown> | undefined)?.entries)
+          ? ((result.data as Record<string, unknown>).entries as unknown[])
+          : []
+      this.#harnessSessionId = input.agentSessionId
+      return {
+        capabilities: capabilities(this.agentId),
+        history: this.#mapPiHistory(entries),
+        sessionId: input.agentSessionId,
+      }
     }
     return this.#resumeAcp(input)
   }
@@ -759,9 +1091,73 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     await this.#manager.disposeSession(context.threadId)
     this.#cancelPendingInteractions()
     this.#codexProjectors.clear()
+    this.#pendingNativeUserMessages.length = 0
+    this.#piActiveAssistantItemId = null
     this.#cwd = null
     this.#ownerThreadId = null
     this.#onEvent = undefined
+  }
+
+  async archive(context: ThreadHarnessContext): Promise<void> {
+    if (!context.agentSessionId) return
+    if (this.agentId === "codex") {
+      await this.#request(context.threadId, {
+        requestId: randomUUID(),
+        threadId: context.agentSessionId,
+        type: "agent.codex.thread.archive.request",
+      })
+    } else if (this.agentId === "opencode") {
+      await this.#openCodeCall(context.threadId, {
+        body: { archived: true, sessionID: context.agentSessionId },
+        operation: "session.update",
+      })
+    }
+  }
+
+  async unarchive(context: ThreadHarnessContext): Promise<void> {
+    if (!context.agentSessionId) return
+    if (this.agentId === "codex") {
+      await this.#request(context.threadId, {
+        requestId: randomUUID(),
+        threadId: context.agentSessionId,
+        type: "agent.codex.thread.unarchive.request",
+      })
+    } else if (this.agentId === "opencode") {
+      await this.#openCodeCall(context.threadId, {
+        body: { archived: false, sessionID: context.agentSessionId },
+        operation: "session.update",
+      })
+    }
+  }
+
+  async rename(context: ThreadHarnessContext, title: string | null): Promise<void> {
+    if (!context.agentSessionId || title === null) return
+    if (this.agentId === "codex") {
+      await this.#request(context.threadId, {
+        name: title,
+        requestId: randomUUID(),
+        threadId: context.agentSessionId,
+        type: "agent.codex.thread.name.set.request",
+      })
+    } else if (this.agentId === "claude") {
+      await this.#request(context.threadId, {
+        requestId: randomUUID(),
+        sessionId: context.agentSessionId,
+        title,
+        type: "agent.claude.session.rename.request",
+      })
+    } else if (this.agentId === "opencode") {
+      await this.#openCodeCall(context.threadId, {
+        body: { sessionID: context.agentSessionId, title },
+        operation: "session.update",
+      })
+    } else if (this.agentId === "pi") {
+      await this.#request(context.threadId, {
+        name: title,
+        requestId: randomUUID(),
+        type: "agent.pi.session.name.set.request",
+      })
+    }
   }
 
   async getContextUsage(context: ThreadHarnessContext): Promise<ThreadContextUsage | null> {
@@ -907,8 +1303,13 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         body: { sessionID: context.agentSessionId },
         operation: "session.remove",
       })
-    } else if (this.agentId !== "claude" && this.agentId !== "pi" && context.agentSessionId) {
-      if (!this.#supportsAcp("delete")) throw new Error("ACP agent lacks session.delete capability")
+    } else if (this.agentId === "claude" && context.agentSessionId) {
+      await this.#request(context.threadId, {
+        requestId: randomUUID(),
+        sessionId: context.agentSessionId,
+        type: "agent.claude.session.delete.request",
+      })
+    } else if (this.agentId !== "pi" && context.agentSessionId && this.#supportsAcp("delete")) {
       await this.#request(context.threadId, {
         agent: this.agentId,
         payload: { sessionId: context.agentSessionId },
@@ -1005,44 +1406,50 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         .filter((block) => block.type === "text")
         .map((block) => block.text)
         .join("\n")
-      await this.#request(input.threadId, {
-        options: {
-          ...(directories ? { additionalDirectories: directories } : {}),
-          ...(input.cwd ? { cwd: input.cwd } : {}),
-          ...(input.agentSessionId ? { resume: input.agentSessionId } : {}),
-          ...(typeof defaults.model === "string" && defaults.model
-            ? { model: defaults.model }
-            : {}),
-          ...(typeof defaults.permissionMode === "string" && defaults.permissionMode
-            ? { permissionMode: defaults.permissionMode }
-            : {}),
-          ...(typeof defaults.effort === "string" && defaults.effort
-            ? { effort: defaults.effort }
-            : {}),
-          ...(typeof defaults.maxThinkingTokens === "number"
-            ? { maxThinkingTokens: defaults.maxThinkingTokens }
-            : {}),
-          ...(defaults.thinkingMode === "adaptive"
-            ? { thinking: { type: "adaptive" } }
-            : defaults.thinkingMode === "disabled"
-              ? { thinking: { type: "disabled" } }
-              : defaults.thinkingMode === "enabled"
-                ? {
-                    thinking: {
-                      budgetTokens:
-                        typeof defaults.maxThinkingTokens === "number"
-                          ? defaults.maxThinkingTokens
-                          : 10_000,
-                      type: "enabled",
-                    },
-                  }
-                : {}),
-        },
-        prompt: { text, type: "text" },
-        queryId: input.threadId,
-        requestId: randomUUID(),
-        type: "agent.claude.query.start.request",
-      })
+      this.#pendingNativeUserMessages.push(input.clientMessageId)
+      try {
+        await this.#request(input.threadId, {
+          options: {
+            ...(directories ? { additionalDirectories: directories } : {}),
+            ...(input.cwd ? { cwd: input.cwd } : {}),
+            ...(input.agentSessionId ? { resume: input.agentSessionId } : {}),
+            ...(typeof defaults.model === "string" && defaults.model
+              ? { model: defaults.model }
+              : {}),
+            ...(typeof defaults.permissionMode === "string" && defaults.permissionMode
+              ? { permissionMode: defaults.permissionMode }
+              : {}),
+            ...(typeof defaults.effort === "string" && defaults.effort
+              ? { effort: defaults.effort }
+              : {}),
+            ...(typeof defaults.maxThinkingTokens === "number"
+              ? { maxThinkingTokens: defaults.maxThinkingTokens }
+              : {}),
+            ...(defaults.thinkingMode === "adaptive"
+              ? { thinking: { type: "adaptive" } }
+              : defaults.thinkingMode === "disabled"
+                ? { thinking: { type: "disabled" } }
+                : defaults.thinkingMode === "enabled"
+                  ? {
+                      thinking: {
+                        budgetTokens:
+                          typeof defaults.maxThinkingTokens === "number"
+                            ? defaults.maxThinkingTokens
+                            : 10_000,
+                        type: "enabled",
+                      },
+                    }
+                  : {}),
+          },
+          prompt: { text, type: "text" },
+          queryId: input.threadId,
+          requestId: randomUUID(),
+          type: "agent.claude.query.start.request",
+        })
+      } catch (error) {
+        this.#removePendingNativeUserMessage(input.clientMessageId)
+        throw error
+      }
       return { turnId: randomUUID() }
     }
     if (this.agentId === "pi") {
@@ -1068,17 +1475,23 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         }
         this.#defaultsApplied = true
       }
-      await this.#request(input.threadId, {
-        images: input.content
-          .filter((block) => block.type === "image")
-          .map((block) => ({ data: block.data, mimeType: block.mimeType, type: "image" })),
-        message: input.content
-          .filter((block) => block.type === "text")
-          .map((block) => block.text)
-          .join("\n"),
-        requestId: randomUUID(),
-        type: "agent.pi.prompt.request",
-      })
+      this.#pendingNativeUserMessages.push(input.clientMessageId)
+      try {
+        await this.#request(input.threadId, {
+          images: input.content
+            .filter((block) => block.type === "image")
+            .map((block) => ({ data: block.data, mimeType: block.mimeType, type: "image" })),
+          message: input.content
+            .filter((block) => block.type === "text")
+            .map((block) => block.text)
+            .join("\n"),
+          requestId: randomUUID(),
+          type: "agent.pi.prompt.request",
+        })
+      } catch (error) {
+        this.#removePendingNativeUserMessage(input.clientMessageId)
+        throw error
+      }
       return { turnId: randomUUID() }
     }
     if (!input.agentSessionId) throw new Error("ACP thread is not bound")
@@ -1114,17 +1527,23 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       return {}
     }
     if (this.agentId === "pi") {
-      await this.#request(input.threadId, {
-        images: input.content
-          .filter((block) => block.type === "image")
-          .map((block) => ({ data: block.data, mimeType: block.mimeType, type: "image" })),
-        message: input.content
-          .filter((block) => block.type === "text")
-          .map((block) => block.text)
-          .join("\n"),
-        requestId: randomUUID(),
-        type: "agent.pi.steer.request",
-      })
+      this.#pendingNativeUserMessages.push(input.clientMessageId)
+      try {
+        await this.#request(input.threadId, {
+          images: input.content
+            .filter((block) => block.type === "image")
+            .map((block) => ({ data: block.data, mimeType: block.mimeType, type: "image" })),
+          message: input.content
+            .filter((block) => block.type === "text")
+            .map((block) => block.text)
+            .join("\n"),
+          requestId: randomUUID(),
+          type: "agent.pi.steer.request",
+        })
+      } catch (error) {
+        this.#removePendingNativeUserMessage(input.clientMessageId)
+        throw error
+      }
       return {}
     }
     throw new Error(`${this.agentId} does not support steering active turns`)
@@ -1534,33 +1953,18 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     await this.#initializeAcp(input.threadId)
     const protocolVersion = this.#requireAcpVersion()
     const directories = additionalDirectories(input.workspaceRoots, input.cwd)
-    if (input.forkedFromAgentSessionId && !this.#supportsAcp("fork")) {
-      await this.#manager.disposeSession(input.threadId)
-      throw new Error("ACP agent lacks session.fork capability")
-    }
     const response = await this.#request(input.threadId, {
       agent: this.agentId,
-      payload: input.forkedFromAgentSessionId
-        ? {
-            ...(this.#supportsAcp("additionalDirectories") && directories
-              ? { additionalDirectories: directories }
-              : {}),
-            cwd: input.cwd ?? process.cwd(),
-            mcpServers: [],
-            sessionId: input.forkedFromAgentSessionId,
-          }
-        : {
-            ...(this.#supportsAcp("additionalDirectories") && directories
-              ? { additionalDirectories: directories }
-              : {}),
-            cwd: input.cwd ?? process.cwd(),
-            mcpServers: [],
-          },
+      payload: {
+        ...(this.#supportsAcp("additionalDirectories") && directories
+          ? { additionalDirectories: directories }
+          : {}),
+        cwd: input.cwd ?? process.cwd(),
+        mcpServers: [],
+      },
       protocolVersion,
       requestId: randomUUID(),
-      type: input.forkedFromAgentSessionId
-        ? "agent.acp.session.fork.request"
-        : "agent.acp.session.new.request",
+      type: "agent.acp.session.new.request",
     })
     const sessionId = stringId(resultOf(response).sessionId)
     if (!sessionId) throw new Error("ACP agent did not return a session ID")
@@ -1573,7 +1977,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   }
 
   async #resumeAcp(input: ThreadHarnessResumeInput): Promise<ThreadHarnessSession> {
-    if (!input.agentSessionId) return this.#createAcp({ ...input, forkedFromAgentSessionId: null })
+    if (!input.agentSessionId) return this.#createAcp(input)
     await this.#initializeAcp(input.threadId)
     const protocolVersion = this.#requireAcpVersion()
     const directories = additionalDirectories(input.workspaceRoots, input.cwd)
@@ -1646,6 +2050,11 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     }
     if (manager.validatedDefaultsFor) return manager.validatedDefaultsFor(agentId)
     return manager.defaultsFor?.(agentId) ?? {}
+  }
+
+  #removePendingNativeUserMessage(clientMessageId: string): void {
+    const index = this.#pendingNativeUserMessages.indexOf(clientMessageId)
+    if (index >= 0) this.#pendingNativeUserMessages.splice(index, 1)
   }
 
   #supportsAcp(capability: "additionalDirectories" | "close" | "delete" | "fork"): boolean {
@@ -1956,7 +2365,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
 
     if (method === "turn/completed" && turnId) {
       this.#codexProjectors.delete(turnId)
-      this.#onEvent?.({ turnId, type: "turn-completed" })
+      this.#onEvent?.({ successful: turn?.status === "completed", turnId, type: "turn-completed" })
     }
 
     if (method === "thread/tokenUsage/updated") {
@@ -2042,7 +2451,24 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     )
     if (nativeSessionId && nativeSessionId !== this.#harnessSessionId) {
       this.#harnessSessionId = nativeSessionId
-      onEvent({ sessionId: nativeSessionId, type: "session-bound" })
+      if (this.agentId === "pi" && this.#ownerThreadId) {
+        void this.#request(this.#ownerThreadId, {
+          requestId: randomUUID(),
+          type: "agent.pi.session.stats.get.request",
+        })
+          .then((response) => {
+            const result = resultOf(response)
+            const stats = (result.data ?? result) as Record<string, unknown>
+            const sessionFile = stringId(stats.sessionFile)
+            if (sessionFile) {
+              this.#harnessSessionId = sessionFile
+              onEvent({ sessionId: sessionFile, type: "session-bound" })
+            }
+          })
+          .catch(() => undefined)
+      } else {
+        onEvent({ sessionId: nativeSessionId, type: "session-bound" })
+      }
     }
     if (message.type.endsWith(".request")) {
       const interactionId = `harness:${this.agentId}:${String(requestIdOf(message))}`
@@ -2175,6 +2601,44 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       })
       return
     }
+    if (this.agentId === "claude") {
+      const nested =
+        payload.message && typeof payload.message === "object"
+          ? (payload.message as Record<string, unknown>)
+          : undefined
+      const role = String(nested?.role ?? payload.role ?? payload.type ?? "")
+      const messageId = stringId(
+        payload.messageId ?? payload.messageID ?? payload.uuid ?? payload.id
+      )
+      if ((role === "user" || role === "assistant") && nested && messageId) {
+        const clientMessageId =
+          role === "user" ? this.#pendingNativeUserMessages.shift() : undefined
+        const item = mapHarnessHistoryItem(
+          {
+            ...payload,
+            ...nested,
+            ...(clientMessageId ? { clientMessageId } : {}),
+            id: messageId,
+            messageId,
+            type: role,
+          },
+          "claude"
+        )
+        if (item) {
+          onEvent({
+            item: {
+              ...item,
+              item:
+                item.item.type === "message" && item.item.role === "assistant"
+                  ? { ...item.item, boundary: null }
+                  : item.item,
+            },
+            type: "timeline",
+          })
+        }
+        return
+      }
+    }
     if (message.type === "agent.opencode.event.notification") {
       const event = payload.event as Record<string, unknown>
       const data = (event?.data ?? {}) as Record<string, unknown>
@@ -2235,19 +2699,95 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         }
         return
       }
+      if (event?.type === "session.idle" || event?.type === "session.execution.succeeded") {
+        onEvent({ successful: true, turnId: "active", type: "turn-completed" })
+        this.#refreshContextUsage()
+        return
+      }
       if (
-        event?.type === "session.idle" ||
-        event?.type === "session.execution.succeeded" ||
         event?.type === "session.execution.failed" ||
         event?.type === "session.execution.interrupted"
       ) {
-        onEvent({ turnId: "active", type: "turn-completed" })
+        onEvent({ successful: false, turnId: "active", type: "turn-completed" })
         this.#refreshContextUsage()
         return
       }
       const item = this.#mapOpenCodeEventItem(event, data)
-      if (item) onEvent({ item: { item, harnessItemId: item.itemId }, type: "timeline" })
+      if (item)
+        onEvent({
+          item: {
+            agentMessageId: stringId(data.assistantMessageID),
+            harnessItemId: item.itemId,
+            item,
+          },
+          type: "timeline",
+        })
       return
+    }
+    if (this.agentId === "pi" && message.type === "agent.pi.entry.appended.notification") {
+      const entry = payload.entry as Record<string, unknown> | undefined
+      const nativeMessage = entry?.message as Record<string, unknown> | undefined
+      const role = String(nativeMessage?.role ?? "")
+      const entryId = stringId(entry?.id)
+      if (entry?.type === "message" && nativeMessage && entryId) {
+        const clientMessageId =
+          role === "user" ? this.#pendingNativeUserMessages.shift() : undefined
+        const itemId = role === "assistant" ? (this.#piActiveAssistantItemId ?? entryId) : entryId
+        const item = mapHarnessHistoryItem(
+          {
+            ...nativeMessage,
+            ...(clientMessageId ? { clientMessageId } : {}),
+            id: itemId,
+            messageId: entryId,
+            type: role,
+          },
+          "pi"
+        )
+        if (item) {
+          onEvent({
+            item: {
+              ...item,
+              item:
+                item.item.type === "message" && item.item.role === "assistant"
+                  ? { ...item.item, boundary: null, operation: "replace" }
+                  : item.item,
+            },
+            type: "timeline",
+          })
+        }
+        if (role === "assistant") this.#piActiveAssistantItemId = null
+      }
+      return
+    }
+    if (
+      this.agentId === "pi" &&
+      (message.type === "agent.pi.message.start.notification" ||
+        message.type === "agent.pi.message.update.notification" ||
+        message.type === "agent.pi.message.end.notification")
+    ) {
+      const nativeMessage = payload.message as Record<string, unknown> | undefined
+      const role = String(nativeMessage?.role ?? "")
+      if (role === "user") return
+      if (role === "assistant" && nativeMessage) {
+        this.#piActiveAssistantItemId ??= randomUUID()
+        const item = mapHarnessHistoryItem(
+          { ...nativeMessage, id: this.#piActiveAssistantItemId, type: "assistant" },
+          "pi"
+        )
+        if (item) {
+          onEvent({
+            item: {
+              ...item,
+              item:
+                item.item.type === "message"
+                  ? { ...item.item, boundary: null, operation: "replace" }
+                  : item.item,
+            },
+            type: "timeline",
+          })
+        }
+        return
+      }
     }
     if (message.type === "agent.acp.session.update.notification") {
       const update = payload.update as Record<string, unknown> | undefined
@@ -2277,12 +2817,44 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         return
       }
       if (update?.sessionUpdate === "state_update" && update.state === "idle") {
-        onEvent({ turnId: "active", type: "turn-completed" })
+        onEvent({
+          successful:
+            update.stopReason !== "cancelled" &&
+            update.stopReason !== "interrupted" &&
+            update.stopReason !== "error",
+          turnId: "active",
+          type: "turn-completed",
+        })
         return
       }
     }
+    if (message.type === "agent.claude.query.complete.notification") {
+      onEvent({ successful: true, turnId: "active", type: "turn-completed" })
+      this.#refreshContextUsage()
+      return
+    }
+    if (message.type === "agent.claude.query.error.notification") {
+      onEvent({
+        error: String(payload.message ?? "Claude query failed"),
+        turnId: "active",
+        type: "error",
+      })
+      return
+    }
+    if (message.type === "agent.pi.agent.end.notification") {
+      if (payload.willRetry !== true) {
+        onEvent({ successful: true, turnId: "active", type: "turn-completed" })
+        this.#refreshContextUsage()
+      }
+      return
+    }
     if (message.type.includes("turn.completed") || message.type.includes("agent_end")) {
       onEvent({
+        successful:
+          payload.status !== "failed" &&
+          payload.status !== "cancelled" &&
+          payload.status !== "interrupted" &&
+          payload.error == null,
         turnId: stringId(payload.turnId ?? payload.id) ?? "active",
         type: "turn-completed",
       })
@@ -2293,7 +2865,22 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       payload.item ?? payload.message ?? payload.event ?? payload.update,
       this.agentId
     )
-    if (item) onEvent({ item, type: "timeline" })
+    if (item) {
+      const clientMessageId =
+        this.agentId === "claude" &&
+        item.item.type === "message" &&
+        item.item.role === "user" &&
+        !item.item.clientMessageId
+          ? this.#pendingNativeUserMessages.shift()
+          : undefined
+      onEvent({
+        item:
+          clientMessageId && item.item.type === "message"
+            ? { ...item, item: { ...item.item, clientMessageId } }
+            : item,
+        type: "timeline",
+      })
+    }
   }
 
   #refreshContextUsage(): void {
@@ -2312,11 +2899,19 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
 
   #mapOpenCodeHistory(value: unknown): ThreadHarnessHistoryItem[] {
     if (!Array.isArray(value)) return []
-    return value.flatMap((message) => {
-      if (!message || typeof message !== "object") return []
+    const history: ThreadHarnessHistoryItem[] = []
+    const unsuccessfulTurns = new Set<string>()
+    let turnId: string | null = null
+    for (const message of value) {
+      if (!message || typeof message !== "object") continue
       const record = message as Record<string, unknown>
+      const role = String(record.role ?? record.type ?? "")
+      if (role === "user") turnId = stringId(record.id) ?? randomUUID()
+      if (role === "assistant" && turnId && (record.error != null || record.finish === "error")) {
+        unsuccessfulTurns.add(turnId)
+      }
       const parts = Array.isArray(record.content) ? record.content : [record]
-      return parts.flatMap((part, index) => {
+      parts.forEach((part, index) => {
         const item = mapHarnessHistoryItem(
           part && typeof part === "object"
             ? {
@@ -2329,9 +2924,72 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
             : part,
           this.agentId
         )
-        return item ? [item] : []
+        if (item) history.push({ ...item, turnId })
       })
-    })
+    }
+    return markFinalAssistantBoundaries(history, (candidate) => !unsuccessfulTurns.has(candidate))
+  }
+
+  #mapPiHistory(value: unknown): ThreadHarnessHistoryItem[] {
+    if (!Array.isArray(value)) return []
+    const history: ThreadHarnessHistoryItem[] = []
+    const unsuccessfulTurns = new Set<string>()
+    let turnId: string | null = null
+    for (const entry of value) {
+      if (!entry || typeof entry !== "object") continue
+      const record = entry as Record<string, unknown>
+      if (record.type !== "message" || !record.message || typeof record.message !== "object") {
+        continue
+      }
+      const message = record.message as Record<string, unknown>
+      const role = String(message.role ?? "")
+      if (role !== "user" && role !== "assistant") continue
+      const entryId = stringId(record.id)
+      if (role === "user") turnId = entryId ?? randomUUID()
+      if (
+        role === "assistant" &&
+        turnId &&
+        (message.stopReason === "error" || message.stopReason === "aborted")
+      ) {
+        unsuccessfulTurns.add(turnId)
+      }
+      const mapped = mapHarnessHistoryItem(
+        { ...message, id: entryId ?? randomUUID(), messageId: entryId, type: role },
+        "pi"
+      )
+      if (mapped) history.push({ ...mapped, turnId })
+    }
+    return markFinalAssistantBoundaries(history, (candidate) => !unsuccessfulTurns.has(candidate))
+  }
+
+  #mapClaudeHistory(value: unknown): ThreadHarnessHistoryItem[] {
+    if (!Array.isArray(value)) return []
+    const history: ThreadHarnessHistoryItem[] = []
+    let turnId: string | null = null
+    for (const message of value) {
+      if (!message || typeof message !== "object") continue
+      const record = message as Record<string, unknown>
+      const nested =
+        record.message && typeof record.message === "object"
+          ? (record.message as Record<string, unknown>)
+          : undefined
+      const role = String(nested?.role ?? record.role ?? record.type ?? "")
+      if (role !== "user" && role !== "assistant") continue
+      const messageId = stringId(record.messageId ?? record.messageID ?? record.uuid ?? record.id)
+      if (role === "user") turnId = messageId ?? randomUUID()
+      const mapped = mapHarnessHistoryItem(
+        {
+          ...record,
+          ...nested,
+          id: messageId ?? randomUUID(),
+          messageId,
+          type: role,
+        },
+        "claude"
+      )
+      if (mapped) history.push({ ...mapped, turnId })
+    }
+    return markFinalAssistantBoundaries(history)
   }
 
   #mapOpenCodeEventItem(
@@ -2344,6 +3002,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     const ordinal = typeof data.ordinal === "number" ? data.ordinal : 0
     if (type === "session.text.delta" || type === "session.text.ended") {
       return {
+        boundary: null,
         harnessData: { agentId: this.agentId, nativeType: type, payload: event },
         itemId: `${assistantMessageId}:text:${ordinal}`,
         operation: type.endsWith(".delta") ? "append" : "replace",

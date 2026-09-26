@@ -32,6 +32,7 @@ describe("unread thread state", () => {
         epoch: crypto.randomUUID(),
         row: {
           item: {
+            boundary: "assistant-final" as const,
             itemId: "assistant-1",
             operation: "append" as const,
             role: "assistant" as const,

@@ -16,6 +16,7 @@ export type ConversationSubmitMode = "send" | "steer" | "queue"
 export type ConversationLoadState = "loading" | "ready" | "error"
 
 export type ThreadConversationSnapshot = {
+  readonly epoch: string | null
   readonly error: Error | null
   readonly hasOlder: boolean
   readonly items: readonly ThreadTimelineProjectedItem[]
@@ -35,6 +36,7 @@ export type ThreadConversationControllerOptions = {
 }
 
 const initialSnapshot = (threadId?: string): ThreadConversationSnapshot => ({
+  epoch: null,
   error: null,
   hasOlder: false,
   items: [],
@@ -318,6 +320,7 @@ export class ThreadConversationController {
     this.#epoch = ready.timeline.epoch
     this.#set({
       ...this.#snapshot,
+      epoch: this.#epoch,
       loadState: "ready",
       thread: ready.thread,
       threadId: ready.thread.id,
@@ -360,6 +363,7 @@ export class ThreadConversationController {
   ): void {
     this.#set({
       ...this.#snapshot,
+      epoch: this.#epoch,
       hasOlder,
       items: projectThreadTimelineRows(this.#rows),
       loadState,

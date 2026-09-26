@@ -63,6 +63,14 @@ ACP harness 使用官方 ACP SDK，并在 Server 内把稳定 v1 与 v2 协议�
 
 正式 Thread session 同样遵循协商后的生命周期。在 v2 中，出现 `capabilities.session` 即表示支持基础 session 方法；恢复使用 `session/resume`，`session/prompt` 的接受响应不代表 turn 已结束，只有 idle `state_update` 才结束 turn。在 v1 中，Cypheria 继续使用 v1 capability 布局、`session/load`、prompt response 语义与 mode 方法。V2 的 mode/model 默认值通过带类型的 configuration options 应用。ACP connection header 与传输细节不会成为公开 Cypheria 消息字段。
 
+## 分支与原生生命周期
+
+公共 adapter 使用 provider 的精确分支能力，而不重放摘要或旧 prompts。Codex 使用 `thread/fork`：用户边界把该用户所在 turn 作为 `beforeTurnId`，非末尾 assistant 边界把后续 turn 作为 `beforeTurnId`，末尾 assistant 或 thread-head 则省略边界。Claude 使用 `forkSession`；用户边界选择前一条原生消息（首条用户消息产生空白 session），assistant 边界选择该 assistant 消息。OpenCode 使用 `session.fork`；用户消息成为 `before`，assistant 消息以后续用户消息作为 `before`，末尾 assistant 使用完整 fork。Pi 会让独立的目标 runtime 切换到 source session，并对用户消息或非末尾 assistant 使用 fork-before；thread-head 与末尾 assistant clone session。生成的 Pi session-file 路径成为持久 harness binding。每种受支持的第一方分支随后都会读取目标历史，并用稳定的原生消息与 turn identity 重建新的 Canonical Timeline epoch。
+
+ACP 只在协商出 `session.fork` 时公布 thread-head Fork。ACP 没有可靠的消息级 branch 或 rollback 边界，因此 Cypheria 不公布消息 Fork 或 Rewind，也不会模拟这些操作。当协议表面不能回放目标历史时，完整 ACP fork 会保留 source 的精确 Canonical Timeline。
+
+原生生命周期映射有意保持非对称。所有 Agent 的 Archive 都以本地状态为准；Codex 还会接收 archive/unarchive，OpenCode 则接收对应的 archived session update。Claude、Pi 与 ACP 的 archive 仅保留本地状态。Rename 在本地标题提交后同步到 Codex、Claude、OpenCode 与 Pi；ACP rename 仅本地。Delete 会调用 Codex delete、Claude session delete、OpenCode session remove，或 capability-gated ACP `session/delete`；Pi delete 保持本地，因为其 RPC 表面没有足够明确的安全删除操作。原生 archive 与 rename 失败属于 warning，而原生 restore 必须成功后才能解除本地归档。
+
 ## Canonical 适配
 
 语义匹配时，harness 优先生成通用 Timeline item。Agent 专属数据放入 `harnessData`；只有无法忠实表达的事件才使用 `harness` item。Permissions、questions 和 MCP elicitation 转换为通用 Thread interactions。

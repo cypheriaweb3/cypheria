@@ -53,6 +53,7 @@ describe("Cypheria client facade", () => {
     ])
     expect(Object.keys(api.thread).sort()).toEqual([
       "archive",
+      "archiveMany",
       "attachments",
       "cancelTurn",
       "close",
@@ -66,6 +67,7 @@ describe("Cypheria client facade", () => {
       "move",
       "respondToInteraction",
       "resume",
+      "rewind",
       "startTurn",
       "steerTurn",
       "timeline",

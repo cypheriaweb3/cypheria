@@ -44,7 +44,7 @@ Ordering columns are non-negative and unique in their scope. Membership moves an
 
 ## Canonical Timeline
 
-`thread_timeline_epochs` stores the active epoch and next sequence for each Thread. `thread_timeline_rows` stores immutable canonical rows keyed by Thread, epoch, and sequence. Appending allocates contiguous sequence numbers in one transaction. Rehydration or history replacement creates a new epoch and atomically replaces its rows. The internal nullable `agent_message_id` links a submitted canonical user row to the Agent-native message without exposing that identity in the public Timeline contract.
+`thread_timeline_epochs` stores the active epoch and next sequence for each Thread. `thread_timeline_rows` stores immutable canonical rows keyed by Thread, epoch, and sequence. Appending allocates contiguous sequence numbers in one transaction. Rehydration, Fork, or Rewind creates a new epoch and atomically replaces its rows; superseded epochs are not retained. Message JSON records `turn-user`, `steer-user`, `assistant-final`, or no operation boundary, while nullable `turn_id` and internal `agent_message_id` preserve the provider-native branch identity without exposing the native message ID in the public Timeline contract.
 
 `thread_message_requests` is keyed by Thread and `client_message_id`. It stores a stable request fingerprint and a `pending` or `completed` receipt with the accepted turn ID. A pending receipt survives restart and blocks automatic replay when Agent delivery is ambiguous; a completed receipt makes identical retries return the original turn. Rows are removed with their owning Thread.
 
@@ -54,7 +54,7 @@ The Server validates stored Timeline JSON against `ThreadTimelineRowSchema` when
 
 Schedule definition, next-run advancement, occurrence claim, and run creation are coordinated transactionally. Claims prevent concurrent execution. On restart, abandoned running rows become interrupted before active definitions are recovered. Web3 side effects are not replayed automatically.
 
-Thread lifecycle operations similarly journal non-atomic harness work so deletion and session transitions can be reconciled after failure.
+Thread lifecycle operations similarly journal non-atomic harness work so deletion and session transitions can be reconciled after failure. Fork and Rewind progress through provider-branched, binding-committed, and timeline-replaced phases. Recovery may finish a committed binding or delete an uncommitted branch session, but it never replays a user message.
 
 ## SQLite conventions
 

@@ -161,7 +161,9 @@ Electron 将 Desktop 私有偏好以版本 1 值保存到 `userData/kv.sqlite`�
 
 其他本地 UI 状态、可重建 Replica 与附件二进制使用共享的[客户端存储](client-storage.zh-CN.md)端口。Electron main 同时拥有 Desktop SQLite 键值数据库、Replica 数据库和附件文件；renderer 只能通过经过校验的 preload IPC 访问。它们与权威 Server 数据库保持分离。
 
-Composer 文本与有序附件 metadata 保存在 `composerDraft:<scopeId>`，使用 250 ms debounce，并在 page-hide 时 flush。新建 composer 的 scope 会放进路由 search；Server 创建 Thread 后再重绑定为 `composerDraft:<threadId>`。文件选择通过 Electron `webUtils.getPathForFile()` 与 main 进程直接复制；只有剪贴板、粘贴文本、截图等已经在内存中的来源才使用受限 bytes 路径。提交失败时完整保留草稿。二进制缺失会显示为不可用，且不能提交。
+已有 Thread 的 Composer 文本与有序附件 metadata 保存在 `composerDraft:<threadId>`；所有尚未创建 Thread 的空白聊天共用固定 `composerDraft:new`，并使用 250 ms debounce 和 page-hide flush。路由 search 不再携带草稿身份。Server 创建 Thread 后，Desktop 会把共享的新聊天草稿移动到该 Thread 的 key。文件选择通过 Electron `webUtils.getPathForFile()` 与 main 进程直接复制；只有剪贴板、粘贴文本、截图等已经在内存中的来源才使用受限 bytes 路径。提交失败时完整保留草稿。二进制缺失会显示为不可用，且不能提交。
+
+Timeline 消息菜单由 Server 公布的逐边界 capability 决定。`turn-user` 消息可以显示 **Rewind to here** 与 **Fork in new chat**；`assistant-final` 消息可以显示 Fork；steer 消息、流式或未成功完成的 assistant 消息、tools、reasoning 和其他 items 均不显示这些操作。Rewind 在覆盖非空草稿前要求确认，且仅在 Server 操作成功后写入返回的 input blocks。用户消息 Fork 会把这些 blocks 写入新 Thread 草稿；assistant 与 thread-head Fork 使用空 composer。分支操作进行时，相关操作与提交会被锁定。
 
 主窗口把用户改动后的 Thread 布局保存在 `panelLayout:<threadId>`，包括左右／底部 panel 的可见性与尺寸、右侧 tab 状态、全屏状态和焦点。新 Thread 使用代码中的固定默认值，在用户改变 workspace 前不创建布局值。Popout 窗口只在内存中保留布局。恢复时会过滤不支持的 tab。
 

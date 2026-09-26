@@ -139,6 +139,8 @@ export class OpenCodeRuntime {
             return client.session.switchAgent(input as never)
           case "session.switch_model":
             return client.session.switchModel(input as never)
+          case "session.update":
+            return client.session.update(input as never)
           case "session.prompt":
             return client.session.prompt(input as never)
           case "session.interrupt":

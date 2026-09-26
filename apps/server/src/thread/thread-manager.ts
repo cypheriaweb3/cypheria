@@ -8,7 +8,7 @@ import type {
   ThreadRecord,
   ThreadTimelinePersistenceService,
 } from "@cypheria/db"
-import { createThreadId } from "@cypheria/db"
+import { createThreadId, PINNED_SECTION_ID } from "@cypheria/db"
 import {
   type AgentId,
   type ServerMessage,
@@ -19,17 +19,20 @@ import {
   ThreadSchema,
   type ThreadServerMessage,
   type ThreadState,
+  type ThreadTimelineCursor,
   type ThreadView,
 } from "@cypheria/protocol"
 import type {
   ThreadHarnessAdapter,
   ThreadHarnessContext,
   ThreadHarnessEvent,
+  ThreadHarnessHistoryItem,
   ThreadInteractionResponse,
 } from "./harness-adapter.js"
 import { ThreadTimelineStore } from "./timeline-store.js"
 
 type Publish = (message: ServerMessage) => void
+type CreatePublicThreadInput = Omit<CreateThreadInput, "agentSessionId" | "forkedFromId" | "id">
 
 type RuntimeState = {
   activeTurn: { id: string; startedAt: string; captureId?: string | null } | null
@@ -70,8 +73,9 @@ export type ThreadManagerOptions = {
 const stoppedCapabilities: ThreadView["capabilities"] = {
   changeCwd: true,
   configure: false,
-  fork: false,
+  fork: { assistantMessage: false, threadHead: false, userMessage: false },
   promptContent: ["text"],
+  rewind: { userMessage: false },
   harnessExtensions: false,
   steer: false,
 }
@@ -167,11 +171,17 @@ export class ThreadManager {
         case "thread.fork.request":
           respond(await this.fork(message.payload))
           break
+        case "thread.rewind.request":
+          respond(await this.rewind(message.payload))
+          break
         case "thread.close.request":
           respond(await this.close(message.payload.threadId))
           break
         case "thread.archive.request":
           respond(await this.archive(message.payload.threadId))
+          break
+        case "thread.archive_many.request":
+          respond(await this.archiveMany(message.payload.threadIds))
           break
         case "thread.unarchive.request":
           respond(await this.unarchive(message.payload.threadId))
@@ -227,7 +237,7 @@ export class ThreadManager {
     }
   }
 
-  async create(input: CreateThreadInput): Promise<{
+  async create(input: CreatePublicThreadInput): Promise<{
     thread: ThreadView
     timeline: Awaited<ReturnType<ThreadTimelineStore["head"]>>
   }> {
@@ -235,13 +245,6 @@ export class ThreadManager {
     return this.#withLock(threadId, async () => {
       const agentId = input.agentId as AgentId
       await this.#assertAgentCallable(agentId)
-      const source = input.forkedFromId ? await this.#required(input.forkedFromId) : undefined
-      if (source && source.agentId !== agentId) {
-        throw new ThreadManagerError("THREAD_AGENT_MISMATCH", "A fork must use the source agent")
-      }
-      if (source && !source.agentSessionId) {
-        throw new ThreadManagerError("THREAD_FORK_UNAVAILABLE", "The source thread is not bound")
-      }
       const placement = input.projectPlacement
       const project = placement
         ? await this.#persistence.getProject(placement.projectId)
@@ -263,7 +266,6 @@ export class ThreadManager {
         const session = await adapter.create({
           agentId,
           cwd,
-          forkedFromAgentSessionId: source?.agentSessionId ?? null,
           onEvent: (event) => this.#acceptEvent(threadId, event),
           threadId,
           ...(project ? { workspaceRoots: project.roots } : {}),
@@ -354,7 +356,26 @@ export class ThreadManager {
         const membership = await this.#persistence.getThreadProject(threadId)
         if (membership) nextPatch.cwd = this.#projectCwd(membership.project.roots, patch.cwd)
       }
-      return this.#updateAndPublish(await this.#persistence.updateThread(threadId, nextPatch))
+      const updated = await this.#persistence.updateThread(threadId, nextPatch)
+      const view = await this.#updateAndPublish(updated)
+      if (patch.title !== undefined) {
+        await this.#adapterFor(updated.agentId as AgentId, updated.id)
+          .rename(this.#context(updated), patch.title)
+          .catch((error) =>
+            this.#publish({
+              payload: {
+                event: {
+                  code: "PROVIDER_RENAME_FAILED",
+                  message: this.#message(error),
+                  type: "warning",
+                },
+                threadId,
+              },
+              type: "thread.event.notification",
+            })
+          )
+      }
+      return view
     })
   }
 
@@ -454,25 +475,232 @@ export class ThreadManager {
   }
 
   async fork(input: {
-    beforeThreadId?: string | null
-    cwd?: string | null
-    projectPlacement?: CreateThreadInput["projectPlacement"]
-    sectionPlacement?: CreateThreadInput["sectionPlacement"]
+    target:
+      | { kind: "thread-head" }
+      | { kind: "user-message"; cursor: ThreadTimelineCursor }
+      | { kind: "assistant-message"; cursor: ThreadTimelineCursor }
     threadId: string
     title?: string | null
   }) {
-    const source = await this.#required(input.threadId)
-    const sourceProject = await this.#persistence.getThreadProject(source.id)
-    return this.create({
-      agentId: source.agentId,
-      beforeThreadId: input.beforeThreadId,
-      cwd: input.cwd === undefined ? source.cwd : input.cwd,
-      forkedFromId: source.id,
-      projectPlacement:
-        input.projectPlacement ??
-        (sourceProject ? { projectId: sourceProject.project.id } : undefined),
-      sectionPlacement: input.sectionPlacement,
-      title: input.title === undefined ? source.title : input.title,
+    let source = await this.#required(input.threadId)
+    if (input.target.kind === "thread-head" && this.#state(source.id).state === "stopped") {
+      await this.resume(source.id)
+      source = await this.#required(source.id)
+    }
+    if (!source.agentSessionId) {
+      throw new ThreadManagerError("THREAD_FORK_UNAVAILABLE", "The source thread is not bound")
+    }
+    const resolved = await this.#resolveBranchTarget(source, input.target, "fork")
+    const threadId = createThreadId()
+    return this.#withLock(threadId, async () => {
+      const placement = await this.#forkPlacement(source.id)
+      const operation = await this.#lifecycle.begin({
+        agentId: source.agentId,
+        input: { sourceThreadId: source.id, target: input.target },
+        kind: "fork",
+        threadId,
+      })
+      const adapter = this.#adapterFor(source.agentId as AgentId, threadId)
+      let sessionId: string | null | undefined
+      let databaseCommitted = false
+      try {
+        const session = await adapter.fork({
+          ...(await this.#resumeContext(source)),
+          onEvent: (event) => this.#acceptEvent(threadId, event),
+          sourceThreadId: source.id,
+          target: resolved.target,
+          threadId,
+        })
+        if (session.sessionId && session.sessionId === source.agentSessionId) {
+          throw new ThreadManagerError(
+            "THREAD_FORK_BINDING_REUSED",
+            "Provider fork reused the source session binding"
+          )
+        }
+        sessionId = session.sessionId
+        await this.#lifecycle.transition(operation.id, {
+          agentSessionId: sessionId,
+          status: "provider-branched",
+        })
+        const thread = await this.#persistence.createThread({
+          agentId: source.agentId,
+          agentSessionId: sessionId,
+          beforeThreadId: placement.beforeThreadId,
+          cwd: source.cwd,
+          forkedFromId: source.id,
+          id: threadId,
+          projectPlacement: placement.projectPlacement,
+          sectionPlacement: placement.sectionPlacement,
+          title: input.title === undefined ? source.title : input.title,
+        })
+        databaseCommitted = true
+        await this.#lifecycle.transition(operation.id, {
+          agentSessionId: sessionId,
+          status: "binding-committed",
+        })
+        this.#runtime.set(threadId, {
+          activeTurn: null,
+          capabilities: session.capabilities,
+          contextUsage: null,
+          pendingInteractions: new Map(),
+          state: "idle",
+        })
+        const history =
+          session.history ??
+          (input.target.kind === "thread-head" ? await this.#timeline.history(source.id) : [])
+        await this.#timeline.replace(
+          threadId,
+          await this.#preserveHistoryIdentity(source.id, history)
+        )
+        await this.#lifecycle.transition(operation.id, {
+          agentSessionId: sessionId,
+          status: "timeline-replaced",
+        })
+        const timeline = await this.#timeline.snapshot(threadId)
+        await this.#lifecycle.complete(operation.id)
+        const view = this.#view(thread)
+        this.#publish({ payload: view, type: "thread.created.notification" })
+        await this.#publishForkPlacement(threadId, placement)
+        return { composerContent: resolved.composerContent, thread: view, timeline }
+      } catch (error) {
+        if (!databaseCommitted && sessionId !== undefined) {
+          await adapter
+            .delete({
+              agentId: source.agentId as AgentId,
+              agentSessionId: sessionId,
+              cwd: source.cwd,
+              threadId,
+            })
+            .catch(() => undefined)
+        } else if (!databaseCommitted) {
+          await adapter
+            .close({
+              agentId: source.agentId as AgentId,
+              agentSessionId: source.agentSessionId,
+              cwd: source.cwd,
+              threadId,
+            })
+            .catch(() => undefined)
+        }
+        if (!databaseCommitted) {
+          await this.#lifecycle.fail(operation.id, this.#message(error)).catch(() => undefined)
+        }
+        throw error
+      }
+    })
+  }
+
+  async rewind(input: {
+    target: { kind: "user-message"; cursor: ThreadTimelineCursor }
+    threadId: string
+  }) {
+    let source = await this.#required(input.threadId)
+    if (!source.agentSessionId) {
+      throw new ThreadManagerError("THREAD_REWIND_UNAVAILABLE", "The source thread is not bound")
+    }
+    const resolved = await this.#resolveBranchTarget(source, input.target, "rewind")
+    if (this.#state(source.id).activeTurn) await this.cancelTurn(source.id)
+    return this.#withLock(source.id, async () => {
+      source = await this.#required(source.id)
+      const operation = await this.#lifecycle.begin({
+        agentId: source.agentId,
+        agentSessionId: source.agentSessionId,
+        input: { oldAgentSessionId: source.agentSessionId, target: input.target },
+        kind: "rewind",
+        threadId: source.id,
+      })
+      const adapter = this.#adapterFor(source.agentId as AgentId, source.id)
+      let bindingCommitted = false
+      let sessionId: string | null | undefined
+      try {
+        const session = await adapter.fork({
+          ...(await this.#resumeContext(source)),
+          onEvent: (event) => this.#acceptEvent(source.id, event),
+          sourceThreadId: source.id,
+          target: resolved.target,
+        })
+        if (session.sessionId && session.sessionId === source.agentSessionId) {
+          throw new ThreadManagerError(
+            "THREAD_FORK_BINDING_REUSED",
+            "Provider fork reused the source session binding"
+          )
+        }
+        sessionId = session.sessionId
+        await this.#lifecycle.transition(operation.id, {
+          agentSessionId: session.sessionId,
+          status: "provider-branched",
+        })
+        const rebound = await this.#persistence.bindThreadAgentSession(source.id, session.sessionId)
+        bindingCommitted = true
+        await this.#lifecycle.transition(operation.id, {
+          agentSessionId: session.sessionId,
+          status: "binding-committed",
+        })
+        const runtime = this.#state(source.id)
+        runtime.activeTurn = null
+        runtime.capabilities = session.capabilities
+        runtime.pendingInteractions.clear()
+        runtime.state = "idle"
+        await this.#timeline.replace(
+          source.id,
+          await this.#preserveHistoryIdentity(source.id, session.history ?? [])
+        )
+        await this.#lifecycle.transition(operation.id, {
+          agentSessionId: session.sessionId,
+          status: "timeline-replaced",
+        })
+        const timeline = await this.#timeline.snapshot(source.id)
+        await this.#lifecycle.complete(operation.id)
+        const view = this.#view(rebound)
+        this.#publish({
+          payload: { epoch: timeline.epoch, reason: "history_changed", threadId: source.id },
+          type: "thread.timeline.replaced.notification",
+        })
+        this.#publish({ payload: view, type: "thread.updated.notification" })
+        return { composerContent: resolved.composerContent, thread: view, timeline }
+      } catch (error) {
+        if (!bindingCommitted) {
+          const compensationFailures: unknown[] = []
+          if (sessionId !== undefined) {
+            await adapter
+              .delete({
+                agentId: source.agentId as AgentId,
+                agentSessionId: sessionId,
+                cwd: source.cwd,
+                threadId: source.id,
+              })
+              .catch((cause) => compensationFailures.push(cause))
+          } else {
+            await adapter
+              .close(this.#context(source))
+              .catch((cause) => compensationFailures.push(cause))
+          }
+          try {
+            const restored = await this.#adapterFor(source.agentId as AgentId, source.id).resume({
+              ...(await this.#resumeContext(source)),
+              onEvent: (event) => this.#acceptEvent(source.id, event),
+            })
+            const runtime = this.#state(source.id)
+            runtime.capabilities = restored.capabilities
+            runtime.state = "idle"
+          } catch (cause) {
+            compensationFailures.push(cause)
+            this.#state(source.id).state = "errored"
+          }
+          await this.#lifecycle.fail(operation.id, this.#message(error)).catch(() => undefined)
+          if (compensationFailures.length > 0) {
+            throw new AggregateError(
+              [error, ...compensationFailures],
+              "Thread rewind and provider-session restoration failed"
+            )
+          }
+        } else {
+          const runtime = this.#state(source.id)
+          runtime.state = "errored"
+          this.#updateAndPublishSync(await this.#required(source.id))
+        }
+        throw error
+      }
     })
   }
 
@@ -504,7 +732,12 @@ export class ThreadManager {
         runtime.state = "idle"
         runtime.activeTurn = null
         runtime.pendingInteractions.clear()
-        if (session.history !== undefined) await this.#timeline.replace(threadId, session.history)
+        if (session.history !== undefined) {
+          await this.#timeline.replace(
+            threadId,
+            await this.#preserveHistoryIdentity(threadId, session.history)
+          )
+        }
         const timeline = await this.#timeline.head(threadId)
         const view = this.#view(thread)
         this.#publish({
@@ -541,9 +774,13 @@ export class ThreadManager {
     })
   }
 
-  async archive(threadId: string): Promise<ThreadView> {
+  async archive(threadId: string): Promise<{
+    thread: ThreadView
+    warnings: Array<{ code: string; message: string }>
+  }> {
     const thread = await this.#required(threadId)
-    if (thread.archivedAt !== null) return this.#view(thread)
+    if (thread.archivedAt !== null) return { thread: this.#view(thread), warnings: [] }
+    if (this.#state(threadId).activeTurn) await this.cancelTurn(threadId)
     if (this.#state(threadId).state !== "stopped") await this.close(threadId)
     const archived = await this.#withLock(threadId, async () => {
       const current = await this.#required(threadId)
@@ -553,8 +790,36 @@ export class ThreadManager {
       )
     })
     if (archived.cwd) await this.#onArchived?.(archived.cwd).catch(() => undefined)
+    const warnings: Array<{ code: string; message: string }> = []
+    await this.#adapterFor(thread.agentId as AgentId, thread.id)
+      .archive(this.#context(thread))
+      .catch((error) => {
+        const warning = { code: "PROVIDER_ARCHIVE_FAILED", message: this.#message(error) }
+        warnings.push(warning)
+        this.#publish({
+          payload: { event: { ...warning, type: "warning" }, threadId },
+          type: "thread.event.notification",
+        })
+      })
     await this.#publishThreadProject(threadId)
-    return archived
+    return { thread: archived, warnings }
+  }
+
+  async archiveMany(threadIds: readonly string[]) {
+    const succeeded: Array<Awaited<ReturnType<ThreadManager["archive"]>>> = []
+    const failed: Array<{ code: string; message: string; threadId: string }> = []
+    for (const threadId of [...new Set(threadIds)]) {
+      try {
+        succeeded.push(await this.archive(threadId))
+      } catch (error) {
+        failed.push({
+          code: error instanceof ThreadManagerError ? error.code : "THREAD_ARCHIVE_FAILED",
+          message: this.#message(error),
+          threadId,
+        })
+      }
+    }
+    return { failed, succeeded }
   }
 
   async unarchive(threadId: string): Promise<ThreadView> {
@@ -562,6 +827,7 @@ export class ThreadManager {
       const thread = await this.#required(threadId)
       if (thread.archivedAt === null) return this.#view(thread)
       if (thread.cwd) await this.#onUnarchiving?.(thread.cwd)
+      await this.#adapterFor(thread.agentId as AgentId, thread.id).unarchive(this.#context(thread))
       const unarchived = await this.#updateAndPublish(
         await this.#persistence.setThreadArchived(threadId, null)
       )
@@ -697,7 +963,8 @@ export class ThreadManager {
         turnId,
         input.clientMessageId,
         input.content,
-        agentMessageId
+        agentMessageId,
+        "turn-user"
       )
       await this.#messageRequests.complete(thread.id, input.clientMessageId, turnId)
       return { thread: this.#updateAndPublishSync(thread), turnId }
@@ -751,7 +1018,8 @@ export class ThreadManager {
         turnId,
         input.clientMessageId,
         input.content,
-        result.agentMessageId
+        result.agentMessageId,
+        "steer-user"
       )
       await this.#messageRequests.complete(thread.id, input.clientMessageId, turnId)
       return { thread: this.#updateAndPublishSync(thread), turnId }
@@ -927,7 +1195,10 @@ export class ThreadManager {
           ) {
             break
           }
-          await this.#appendTimeline(threadId, event.item)
+          await this.#appendTimeline(threadId, {
+            ...event.item,
+            turnId: event.item.turnId ?? runtime.activeTurn?.id ?? null,
+          })
           break
         case "interaction-requested":
           runtime.pendingInteractions.set(event.interaction.id, event.interaction)
@@ -951,6 +1222,17 @@ export class ThreadManager {
             event.turnId === "active" ||
             runtime.activeTurn.id === event.turnId
           ) {
+            const completedTurnId = runtime.activeTurn?.id ?? event.turnId
+            const finalized =
+              event.successful === false
+                ? null
+                : await this.#timeline.finalizeAssistant(threadId, completedTurnId)
+            if (finalized) {
+              this.#publish({
+                payload: { ...finalized, threadId },
+                type: "thread.timeline.appended.notification",
+              })
+            }
             const captureId = runtime.activeTurn?.captureId
             if (captureId)
               await this.#turnCapture
@@ -1031,7 +1313,8 @@ export class ThreadManager {
     turnId: string,
     clientMessageId: string,
     content: readonly ThreadInputBlock[],
-    agentMessageId?: string
+    agentMessageId: string | undefined,
+    boundary: "turn-user" | "steer-user"
   ): Promise<void> {
     const text = content
       .filter(
@@ -1047,6 +1330,7 @@ export class ThreadManager {
       item: {
         ...(attachments.length > 0 ? { attachments } : {}),
         clientMessageId,
+        boundary,
         itemId: `user:${clientMessageId}`,
         operation: "replace",
         role: "user",
@@ -1055,6 +1339,208 @@ export class ThreadManager {
       },
       turnId,
     })
+  }
+
+  async #resolveBranchTarget(
+    source: ThreadRecord,
+    target:
+      | { kind: "thread-head" }
+      | { kind: "user-message"; cursor: ThreadTimelineCursor }
+      | { kind: "assistant-message"; cursor: ThreadTimelineCursor },
+    operation: "fork" | "rewind"
+  ): Promise<{
+    composerContent: ThreadInputBlock[]
+    target: Parameters<ThreadHarnessAdapter["fork"]>[0]["target"]
+  }> {
+    const capabilities = this.#state(source.id).capabilities
+    if (target.kind === "thread-head") {
+      if (!capabilities.fork.threadHead) {
+        throw new ThreadManagerError(
+          "THREAD_FORK_UNSUPPORTED",
+          `${source.agentId} does not support complete-session forks`
+        )
+      }
+      return { composerContent: [], target }
+    }
+    const supported =
+      target.kind === "user-message"
+        ? operation === "rewind"
+          ? capabilities.rewind.userMessage
+          : capabilities.fork.userMessage
+        : capabilities.fork.assistantMessage
+    if (!supported) {
+      throw new ThreadManagerError(
+        "THREAD_BRANCH_UNSUPPORTED",
+        `${source.agentId} does not support ${operation} at this message`
+      )
+    }
+    let resolved: Awaited<ReturnType<ThreadTimelineStore["resolve"]>>
+    try {
+      resolved = await this.#timeline.resolve(source.id, target.cursor)
+    } catch (error) {
+      throw new ThreadManagerError("INVALID_TIMELINE_CURSOR", this.#message(error))
+    }
+    const { row, rows } = resolved
+    if (row.item.type !== "message") {
+      throw new ThreadManagerError("INVALID_BRANCH_TARGET", "Only message boundaries can be used")
+    }
+    if (target.kind === "user-message" && row.item.boundary !== "turn-user") {
+      throw new ThreadManagerError(
+        "INVALID_BRANCH_TARGET",
+        "Rewind and user-message fork require a turn user message"
+      )
+    }
+    if (target.kind === "assistant-message" && row.item.boundary !== "assistant-final") {
+      throw new ThreadManagerError(
+        "INVALID_BRANCH_TARGET",
+        "Assistant-message fork requires a completed final assistant message"
+      )
+    }
+    if (!row.turnId) {
+      throw new ThreadManagerError("INVALID_BRANCH_TARGET", "Message boundary has no turn identity")
+    }
+    const messages = rows.filter(
+      (candidate) => candidate.item.type === "message" && candidate.agentMessageId
+    )
+    const messagesByItem = new Map<string, { firstSeq: number; row: (typeof rows)[number] }>()
+    for (const candidate of rows) {
+      if (candidate.item.type !== "message") continue
+      const previous = messagesByItem.get(candidate.item.itemId)
+      messagesByItem.set(candidate.item.itemId, {
+        firstSeq: previous?.firstSeq ?? candidate.seq,
+        row: candidate,
+      })
+    }
+    const messageRows = [...messagesByItem.values()]
+      .sort((left, right) => left.firstSeq - right.firstSeq)
+      .map((entry) => entry.row)
+    const messageOrdinal = messageRows.findIndex(
+      (candidate) => candidate.item.itemId === row.item.itemId
+    )
+    if (messageOrdinal < 0) {
+      throw new ThreadManagerError("INVALID_BRANCH_TARGET", "Message boundary was not projected")
+    }
+    if (target.kind === "user-message") {
+      const previous = messages.filter((candidate) => candidate.seq < row.seq).at(-1)
+      return {
+        composerContent: [
+          ...(row.item.text.length > 0
+            ? ([{ text: row.item.text, type: "text" }] satisfies ThreadInputBlock[])
+            : []),
+          ...(row.item.attachments ?? []),
+        ],
+        target: {
+          agentMessageId: row.agentMessageId,
+          kind: target.kind,
+          messageOrdinal,
+          previousAgentMessageId: previous?.agentMessageId ?? null,
+          turnId: row.turnId,
+        },
+      }
+    }
+    const nextUser = rows.find(
+      (candidate) =>
+        candidate.seq > row.seq &&
+        candidate.item.type === "message" &&
+        candidate.item.boundary === "turn-user"
+    )
+    const nextUserOrdinal = nextUser
+      ? messageRows.findIndex((candidate) => candidate.item.itemId === nextUser.item.itemId)
+      : null
+    return {
+      composerContent: [],
+      target: {
+        agentMessageId: row.agentMessageId,
+        kind: target.kind,
+        messageOrdinal,
+        nextAgentMessageId: nextUser?.agentMessageId ?? null,
+        nextTurnId: nextUser?.turnId ?? null,
+        nextUserOrdinal: nextUserOrdinal !== null && nextUserOrdinal >= 0 ? nextUserOrdinal : null,
+        turnId: row.turnId,
+      },
+    }
+  }
+
+  async #forkPlacement(sourceThreadId: string): Promise<{
+    beforeThreadId: string | null
+    projectPlacement?: CreateThreadInput["projectPlacement"]
+    sectionPlacement?: CreateThreadInput["sectionPlacement"]
+  }> {
+    const allThreads = await this.#collectPages((cursor) =>
+      this.#persistence.listThreads({
+        cursor,
+        limit: 200,
+        sortDirection: "asc",
+        sortKey: "position",
+      })
+    )
+    const sourceIndex = allThreads.findIndex((thread) => thread.id === sourceThreadId)
+    const beforeThreadId = sourceIndex >= 0 ? (allThreads[sourceIndex + 1]?.id ?? null) : null
+    const project = await this.#persistence.getThreadProject(sourceThreadId)
+    const section = await this.#persistence.getItemSection({ id: sourceThreadId, type: "thread" })
+    let projectPlacement: CreateThreadInput["projectPlacement"]
+    if (project) {
+      const memberships = await this.#collectPages((cursor) =>
+        this.#persistence.listProjectMemberships({
+          cursor,
+          limit: 200,
+          projectId: project.project.id,
+        })
+      )
+      const index = memberships.findIndex((item) => item.threadId === sourceThreadId)
+      projectPlacement = {
+        beforeThreadId: index >= 0 ? (memberships[index + 1]?.threadId ?? null) : null,
+        projectId: project.project.id,
+      }
+    }
+    let sectionPlacement: CreateThreadInput["sectionPlacement"]
+    if (section && section.section.id !== PINNED_SECTION_ID) {
+      const memberships = await this.#collectPages((cursor) =>
+        this.#persistence.listSectionMemberships({
+          cursor,
+          limit: 200,
+          sectionId: section.section.id,
+        })
+      )
+      const index = memberships.findIndex(
+        (membership) => membership.item.type === "thread" && membership.item.id === sourceThreadId
+      )
+      sectionPlacement = {
+        beforeItem: index >= 0 ? (memberships[index + 1]?.item ?? null) : null,
+        sectionId: section.section.id,
+      }
+    }
+    return { beforeThreadId, projectPlacement, sectionPlacement }
+  }
+
+  async #publishForkPlacement(
+    threadId: string,
+    placement: {
+      beforeThreadId: string | null
+      projectPlacement?: CreateThreadInput["projectPlacement"]
+      sectionPlacement?: CreateThreadInput["sectionPlacement"]
+    }
+  ): Promise<void> {
+    if (placement.projectPlacement) {
+      await this.#publishProjectMemberships(placement.projectPlacement.projectId)
+      await this.#publishThreadProject(threadId)
+    }
+    if (placement.sectionPlacement) {
+      await this.#publishSectionMemberships(placement.sectionPlacement.sectionId)
+    }
+  }
+
+  async #collectPages<T>(
+    load: (cursor: string | null) => Promise<{ data: T[]; nextCursor: string | null }>
+  ): Promise<T[]> {
+    const result: T[] = []
+    let cursor: string | null = null
+    do {
+      const page = await load(cursor)
+      result.push(...page.data)
+      cursor = page.nextCursor
+    } while (cursor)
+    return result
   }
 
   #resolveMessageRequest(resolution: ThreadMessageRequestResolution): string | undefined {
@@ -1131,6 +1617,64 @@ export class ThreadManager {
         )
         return
       }
+      if (operation.kind === "fork" || operation.kind === "rewind") {
+        const thread = await this.#persistence.getThread(operation.threadId)
+        if (operation.status === "timeline-replaced") {
+          await this.#lifecycle.complete(operation.id)
+          return
+        }
+        const bindingCommitted =
+          operation.status === "binding-committed" ||
+          (operation.status === "provider-branched" &&
+            thread !== undefined &&
+            thread.agentSessionId === operation.agentSessionId)
+        if (bindingCommitted && thread) {
+          if (operation.status === "provider-branched") {
+            await this.#lifecycle.transition(operation.id, {
+              agentSessionId: operation.agentSessionId,
+              status: "binding-committed",
+            })
+          }
+          const adapter = this.#adapterFor(thread.agentId as AgentId, thread.id)
+          const session = await adapter.resume({
+            ...(await this.#resumeContext(thread)),
+            onEvent: (event) => this.#acceptEvent(thread.id, event),
+          })
+          if (session.sessionId !== thread.agentSessionId) {
+            throw new ThreadManagerError(
+              "THREAD_BINDING_MISMATCH",
+              "Recovered branch resumed a different provider session"
+            )
+          }
+          const identitySourceThreadId =
+            operation.kind === "fork" && typeof operation.input.sourceThreadId === "string"
+              ? operation.input.sourceThreadId
+              : thread.id
+          await this.#timeline.replace(
+            thread.id,
+            await this.#preserveHistoryIdentity(identitySourceThreadId, session.history ?? [])
+          )
+          await this.#lifecycle.transition(operation.id, {
+            agentSessionId: session.sessionId,
+            status: "timeline-replaced",
+          })
+          await this.#lifecycle.complete(operation.id)
+          return
+        }
+        if (
+          (operation.status === "provider-branched" || operation.status === "binding-committed") &&
+          operation.agentSessionId
+        ) {
+          await this.#adapterFor(operation.agentId as AgentId, operation.threadId).delete({
+            agentId: operation.agentId as AgentId,
+            agentSessionId: operation.agentSessionId,
+            cwd: thread?.cwd ?? null,
+            threadId: operation.threadId,
+          })
+        }
+        await this.#lifecycle.complete(operation.id)
+        return
+      }
       const deletedThread = (await this.#persistence.listDeletedResources())
         .flatMap((resource) => (resource.type === "thread" ? [resource.value] : []))
         .find((value) => value.id === operation.threadId)
@@ -1162,6 +1706,45 @@ export class ThreadManager {
     const thread = await this.#persistence.getThread(threadId)
     if (!thread) throw new ThreadManagerError("THREAD_NOT_FOUND", "Thread was not found")
     return thread
+  }
+
+  async #preserveHistoryIdentity(
+    sourceThreadId: string,
+    history: readonly ThreadHarnessHistoryItem[]
+  ): Promise<readonly ThreadHarnessHistoryItem[]> {
+    const previous = await this.#timeline.history(sourceThreadId)
+    const byAgentMessageId = new Map(
+      previous.flatMap((entry) =>
+        entry.agentMessageId && entry.item.type === "message"
+          ? ([[entry.agentMessageId, entry]] as const)
+          : []
+      )
+    )
+    const byClientMessageId = new Map(
+      previous.flatMap((entry) =>
+        entry.item.type === "message" && entry.item.clientMessageId
+          ? ([[entry.item.clientMessageId, entry]] as const)
+          : []
+      )
+    )
+    return history.map((entry) => {
+      if (entry.item.type !== "message") return entry
+      const prior =
+        (entry.agentMessageId ? byAgentMessageId.get(entry.agentMessageId) : undefined) ??
+        (entry.item.clientMessageId ? byClientMessageId.get(entry.item.clientMessageId) : undefined)
+      if (!prior || prior.item.type !== "message" || prior.item.role !== entry.item.role) {
+        return entry
+      }
+      return {
+        ...entry,
+        item: {
+          ...entry.item,
+          boundary: prior.item.boundary,
+          ...(prior.item.clientMessageId ? { clientMessageId: prior.item.clientMessageId } : {}),
+        },
+        turnId: prior.turnId ?? entry.turnId,
+      }
+    })
   }
 
   #setState(thread: ThreadRecord, state: ThreadState): void {

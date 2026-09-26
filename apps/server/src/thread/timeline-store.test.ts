@@ -47,10 +47,24 @@ describe("ThreadTimelineStore", () => {
     const { close, persistence } = await setup()
     const store = new ThreadTimelineStore(persistence)
     await store.append(threadId, {
-      item: { itemId: "a", operation: "append", role: "assistant", text: "hel", type: "message" },
+      item: {
+        boundary: null,
+        itemId: "a",
+        operation: "append",
+        role: "assistant",
+        text: "hel",
+        type: "message",
+      },
     })
     await store.append(threadId, {
-      item: { itemId: "a", operation: "append", role: "assistant", text: "lo", type: "message" },
+      item: {
+        boundary: null,
+        itemId: "a",
+        operation: "append",
+        role: "assistant",
+        text: "lo",
+        type: "message",
+      },
     })
 
     const canonical = await store.page(threadId, {
@@ -95,6 +109,7 @@ describe("ThreadTimelineStore", () => {
     await store.append(threadId, {
       agentMessageId: "agent-message-provisional",
       item: {
+        boundary: "turn-user",
         clientMessageId: "client-message-1",
         itemId: "user:client-message-1",
         operation: "replace",
@@ -123,13 +138,34 @@ describe("ThreadTimelineStore", () => {
     const { close, persistence } = await setup()
     const store = new ThreadTimelineStore(persistence)
     await store.append(threadId, {
-      item: { itemId: "a", operation: "append", role: "assistant", text: "hel", type: "message" },
+      item: {
+        boundary: null,
+        itemId: "a",
+        operation: "append",
+        role: "assistant",
+        text: "hel",
+        type: "message",
+      },
     })
     await store.append(threadId, {
-      item: { itemId: "b", operation: "replace", role: "user", text: "next", type: "message" },
+      item: {
+        boundary: "turn-user",
+        itemId: "b",
+        operation: "replace",
+        role: "user",
+        text: "next",
+        type: "message",
+      },
     })
     await store.append(threadId, {
-      item: { itemId: "a", operation: "append", role: "assistant", text: "lo", type: "message" },
+      item: {
+        boundary: null,
+        itemId: "a",
+        operation: "append",
+        role: "assistant",
+        text: "lo",
+        type: "message",
+      },
     })
 
     const page = await store.page(threadId, {

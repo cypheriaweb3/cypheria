@@ -74,8 +74,9 @@ describe("thread protocol", () => {
       capabilities: {
         changeCwd: true,
         configure: true,
-        fork: true,
+        fork: { assistantMessage: true, threadHead: true, userMessage: true },
         promptContent: ["text"],
+        rewind: { userMessage: true },
         harnessExtensions: true,
         steer: true,
       },
@@ -106,11 +107,11 @@ describe("thread protocol", () => {
     ).toBe(threadId)
     expect(
       ThreadForkRequestSchema.parse({
-        payload: { cwd: "/tmp/fork", threadId, title: "Fork" },
+        payload: { target: { kind: "thread-head" }, threadId, title: "Fork" },
         requestId: "request-2",
         type: "thread.fork.request",
       }).payload
-    ).toMatchObject({ cwd: "/tmp/fork", threadId, title: "Fork" })
+    ).toMatchObject({ target: { kind: "thread-head" }, threadId, title: "Fork" })
   })
 
   test("keeps epoch and sequence in the timeline contract", () => {
@@ -197,6 +198,7 @@ describe("thread protocol", () => {
           { data: "AA==", mimeType: "image/png", type: "image" },
           { name: "spec.md", type: "resource-link", uri: "https://example.com/spec.md" },
         ],
+        boundary: "turn-user",
         itemId: "user-1",
         operation: "replace",
         role: "user",
@@ -265,6 +267,7 @@ describe("thread protocol", () => {
     const rows = [
       {
         item: {
+          boundary: null,
           itemId: "assistant-1",
           operation: "append" as const,
           role: "assistant" as const,
@@ -293,6 +296,7 @@ describe("thread protocol", () => {
       },
       {
         item: {
+          boundary: "assistant-final" as const,
           itemId: "assistant-1",
           operation: "append" as const,
           role: "assistant" as const,

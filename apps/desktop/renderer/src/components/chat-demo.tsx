@@ -379,6 +379,7 @@ const demoRenderRows = splitCodexRenderGroups(
   [
     demoProjectedItem(
       {
+        boundary: "turn-user",
         itemId: "demo-user",
         operation: "replace",
         role: "user",
@@ -389,6 +390,7 @@ const demoRenderRows = splitCodexRenderGroups(
     ),
     demoProjectedItem(
       {
+        boundary: null,
         itemId: "demo-commentary",
         operation: "replace",
         role: "assistant",
@@ -443,6 +445,7 @@ const demoRenderRows = splitCodexRenderGroups(
     ),
     demoProjectedItem(
       {
+        boundary: "assistant-final",
         itemId: "demo-final",
         operation: "replace",
         role: "assistant",
@@ -484,6 +487,7 @@ const demoRenderRows = splitCodexRenderGroups(
     ),
     demoProjectedItem(
       {
+        boundary: "turn-user",
         itemId: "demo-live-user",
         operation: "replace",
         role: "user",
@@ -495,6 +499,7 @@ const demoRenderRows = splitCodexRenderGroups(
     ),
     demoProjectedItem(
       {
+        boundary: null,
         itemId: "demo-live-commentary",
         operation: "replace",
         role: "assistant",

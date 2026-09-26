@@ -1,6 +1,5 @@
 import { Trans } from "@lingui/react/macro"
 import { useQuery } from "@tanstack/react-query"
-import { useEffect } from "react"
 
 import { ensureCypheriaClient } from "../cypheria-client.js"
 import { Route } from "../routes/index.js"
@@ -8,14 +7,6 @@ import { ConversationWorkspace } from "./conversation-workspace.js"
 
 export default function ChatWorkspace() {
   const search = Route.useSearch()
-  const navigate = Route.useNavigate()
-  useEffect(() => {
-    if (search.thread || search.draft) return
-    void navigate({
-      replace: true,
-      search: (current) => ({ ...current, draft: crypto.randomUUID() }),
-    })
-  }, [navigate, search.draft, search.thread])
   const threadQuery = useQuery({
     enabled: Boolean(search.thread),
     queryFn: () =>
@@ -34,8 +25,6 @@ export default function ChatWorkspace() {
     )
   }
 
-  if (!search.thread && !search.draft) return null
-
   if (threadQuery.error) {
     return (
       <div className="grid size-full place-items-center p-8 text-sm text-destructive" role="alert">
@@ -50,11 +39,10 @@ export default function ChatWorkspace() {
       agentId={agentId}
       codex={agentId === "codex"}
       initialProjectId={search.project}
-      initialDraftId={search.draft}
       initialPrompt={search.prompt}
       initialSectionId={search.section}
       initialThreadId={search.thread}
-      key={`${search.thread ?? search.draft ?? "new"}:${agentId}:${search.project ?? ""}:${search.section ?? ""}`}
+      key={`${search.thread ?? "new"}:${agentId}:${search.project ?? ""}:${search.section ?? ""}`}
     />
   )
 }

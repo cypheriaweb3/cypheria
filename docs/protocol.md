@@ -58,7 +58,7 @@ Unknown feature-flag names are preserved. Additive optional fields are preferred
 
 Projects group workspace roots and ordered Thread membership. Threads are the durable Agent conversation identity and carry `agentId`, harness session linkage, state, capabilities, pending interactions, recency, archive state, and optional Project or Section placement. Sections order both Projects and standalone Threads.
 
-The protocol provides create, read, list, update, move, membership, archive, and delete operations. Ordering uses explicit positions and `before...` placement hints. The fixed Pinned Section is represented by a stable protocol constant; clients do not infer Section membership from harness metadata.
+The protocol provides create, read, list, update, move, membership, fork, rewind, archive, and delete operations. Ordering uses explicit positions and `before...` placement hints. The fixed Pinned Section is represented by a stable protocol constant; clients do not infer Section membership from harness metadata.
 
 Project and Section membership also have normalized list resources. A Project membership carries `threadId`, `projectId`, position, and timestamps; a Section membership carries an item reference, `sectionId`, position, and timestamps. Project, Section, and membership mutations publish typed created, updated, upserted, and deleted notifications. Clients may therefore maintain normalized local collections without N+1 membership reads or polling. A logical delete notification is published after the tombstone is committed and before deferred physical cleanup; reorder operations publish the canonical positions of every affected record.
 
@@ -91,6 +91,14 @@ A canonical user `message` carries the originating `clientMessageId` when it cam
 Timeline cursors contain an epoch and sequence. The epoch detects replacement or rebuilt history. Reads support `tail`, `before`, and `after`, and can request canonical rows or projected display items. Projection folds later rows for the same item into a stable display item while retaining exact source sequence ranges.
 
 Clients subscribe to append notifications and re-read after a replacement notification, cursor gap, reconnect, or epoch mismatch. The persisted Server Timeline remains authoritative for both history and live projection.
+
+Message rows carry an explicit operation boundary. `turn-user` is eligible for Rewind and user-message Fork, `steer-user` is eligible for neither, and `assistant-final` is eligible only for Fork. Assistant streaming rows have no boundary; after a turn succeeds, the Server appends a completion replacement for the final assistant message. Failed or cancelled turns never gain an `assistant-final` boundary. The Server resolves every requested cursor against the current epoch and validates the stored item instead of trusting a client-supplied message kind.
+
+`thread.fork` has one of three targets. `thread-head` copies the complete provider session; `user-message` branches immediately before that message and returns its complete input blocks for the new Thread composer; `assistant-message` includes the selected completed assistant message and returns an empty composer. A fork inherits the source Project and ordinary Section, is placed after the source, and records `forkedFromId`, but does not inherit pinned, unread, or archived state. `thread.rewind` accepts only a `user-message` target, preserves the Cypheria Thread ID, replaces its provider-session binding and Timeline epoch, and returns the selected input blocks for the same composer. Neither operation reverts workspace files, accepts arbitrary Timeline items, or approximates an unsupported provider boundary by replaying prompts.
+
+Successful branch responses include the authoritative Thread, the complete replacement Timeline snapshot, and composer input blocks. Provider branching, session binding, and Timeline replacement are covered by a durable lifecycle journal. Startup recovery completes a committed binding or compensates an uncommitted provider branch and never resends a user message.
+
+Archive is local-authoritative: the Server cancels an active turn, closes the runtime, persists `archivedAt`, and then attempts the provider-native archive. A native failure is returned as a warning without undoing local archive. Unarchive performs the native restore first and clears `archivedAt` only after it succeeds. Rename is local-first with best-effort native synchronization. `thread.archive_many` applies the single-Thread operation independently and returns successes, failures, and per-item warnings without stopping at the first failure.
 
 ## Turns and interactions
 

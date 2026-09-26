@@ -27,6 +27,11 @@ type ReadyThread = Extract<
   { ok: true }
 >["value"]
 
+type BranchReadyThread = Extract<
+  Extract<ThreadServerMessage, { type: "thread.fork.response" }>["payload"],
+  { ok: true }
+>["value"]
+
 const unwrap = <T>(message: ThreadServerMessage): T => {
   const payload = message.payload as ResultPayload<T>
   if (payload.ok) return payload.value
@@ -36,7 +41,14 @@ const unwrap = <T>(message: ThreadServerMessage): T => {
 }
 
 export interface ThreadActions {
-  archive(threadId: string, options?: RequestOptions): Promise<ThreadView>
+  archive(
+    threadId: string,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.archive.response">>
+  archiveMany(
+    threadIds: readonly string[],
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.archive_many.response">>
   cancelTurn(threadId: string, turnId?: string, options?: RequestOptions): Promise<ThreadView>
   close(threadId: string, options?: RequestOptions): Promise<ThreadView>
   create(input: Payload<"thread.create.request">, options?: RequestOptions): Promise<ReadyThread>
@@ -46,7 +58,7 @@ export interface ThreadActions {
     input: Payload<"thread.timeline.get.request">,
     options?: RequestOptions
   ): Promise<ThreadTimelinePage>
-  fork(input: Payload<"thread.fork.request">, options?: RequestOptions): Promise<ReadyThread>
+  fork(input: Payload<"thread.fork.request">, options?: RequestOptions): Promise<BranchReadyThread>
   list(
     input?: Payload<"thread.list.request">,
     options?: RequestOptions
@@ -57,6 +69,10 @@ export interface ThreadActions {
     options?: RequestOptions
   ): Promise<ThreadView>
   resume(threadId: string, options?: RequestOptions): Promise<ReadyThread>
+  rewind(
+    input: Payload<"thread.rewind.request">,
+    options?: RequestOptions
+  ): Promise<BranchReadyThread>
   startTurn(
     input: Payload<"thread.turn.start.request">,
     options?: RequestOptions
@@ -76,6 +92,15 @@ export interface ThreadActions {
   readonly timeline: TimelineActions
   readonly contextUsage: ThreadContextUsageActions
 }
+
+type SuccessValue<Message> = Message extends { payload: infer Payload }
+  ? Payload extends { ok: true; value: infer Value }
+    ? Value
+    : never
+  : never
+type ExtractReady<T extends ThreadServerMessage["type"]> = SuccessValue<
+  Extract<ThreadServerMessage, { type: T }>
+>
 
 export type ThreadAttachmentEvent = Extract<
   ThreadServerMessage,
@@ -186,6 +211,8 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
 
   return {
     archive: (threadId, options) => request("thread.archive.request", { threadId }, options),
+    archiveMany: (threadIds, options) =>
+      request("thread.archive_many.request", { threadIds: [...threadIds] }, options),
     attachments,
     cancelTurn: (threadId, turnId, options) =>
       request(
@@ -209,6 +236,7 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
     respondToInteraction: (input, options) =>
       request("thread.interaction.respond.request", input, options),
     resume: (threadId, options) => request("thread.resume.request", { threadId }, options),
+    rewind: (input, options) => request("thread.rewind.request", input, options),
     startTurn: (input, options) => request("thread.turn.start.request", input, options),
     steerTurn: (input, options) => request("thread.turn.steer.request", input, options),
     touchRecency: (threadId, recencyAt, options) =>

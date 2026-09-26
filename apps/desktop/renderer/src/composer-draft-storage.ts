@@ -7,13 +7,20 @@ import { desktopClientStorage } from "./storage.js"
 export const COMPOSER_DRAFT_WRITE_DELAY_MS = 250
 export const MAX_PERSISTED_COMPOSER_DRAFTS = 100
 
-const ownedKinds = new Set(["image", "audio", "file", "pasted-text", "appshot"])
+const ownedKinds = new Set([
+  "image",
+  "audio",
+  "file",
+  "pasted-text",
+  "appshot",
+  "embedded-resource",
+])
 
 export const isOwnedDraftAttachment = (
   attachment: ComposerDraftAttachment
 ): attachment is Extract<
   ComposerDraftAttachment,
-  { kind: "image" | "audio" | "file" | "pasted-text" | "appshot" }
+  { kind: "image" | "audio" | "file" | "pasted-text" | "appshot" | "embedded-resource" }
 > => ownedKinds.has(attachment.kind)
 
 const encodeBase64 = (bytes: Uint8Array): string => {
@@ -22,6 +29,70 @@ const encodeBase64 = (bytes: Uint8Array): string => {
     binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000))
   }
   return btoa(binary)
+}
+
+const decodeBase64 = (value: string): Uint8Array => {
+  const binary = atob(value)
+  return Uint8Array.from(binary, (character) => character.charCodeAt(0))
+}
+
+export const inputBlocksToComposerDraft = async (
+  content: readonly ThreadInputBlock[]
+): Promise<ComposerDraft> => {
+  const attachments: ComposerDraftAttachment[] = []
+  const text: string[] = []
+  for (const block of content) {
+    if (block.type === "text") {
+      text.push(block.text)
+      continue
+    }
+    if (block.type === "resource-link") {
+      attachments.push({
+        id: crypto.randomUUID(),
+        kind: "resource-link",
+        name: block.name ?? block.uri,
+        status: "ready",
+        uri: block.uri,
+      })
+      continue
+    }
+    const mimeType = block.mimeType
+    const fileName =
+      block.type === "embedded-resource"
+        ? (block.name ?? block.uri)
+        : block.type === "image"
+          ? "image"
+          : "audio"
+    const bytes = decodeBase64(block.data)
+    const buffer = bytes.buffer.slice(
+      bytes.byteOffset,
+      bytes.byteOffset + bytes.byteLength
+    ) as ArrayBuffer
+    const metadata = await desktopClientStorage.attachments.save({
+      fileName,
+      mimeType,
+      source: { blob: new Blob([buffer], { type: mimeType }), kind: "blob" },
+    })
+    if (block.type === "embedded-resource") {
+      attachments.push({
+        attachment: metadata,
+        id: metadata.id,
+        kind: "embedded-resource",
+        name: fileName,
+        status: "ready",
+        uri: block.uri,
+      })
+    } else {
+      attachments.push({
+        attachment: metadata,
+        id: metadata.id,
+        kind: block.type,
+        name: fileName,
+        status: "ready",
+      })
+    }
+  }
+  return { attachments, status: "editing", text: text.join("\n"), updatedAt: Date.now() }
 }
 
 const embeddedTextBlock = (name: string, text: string, uri: string): ThreadInputBlock => ({
@@ -46,6 +117,15 @@ export const draftAttachmentToInputBlock = async (
     }
     if (attachment.kind === "audio") {
       return { data, mimeType: attachment.attachment.mimeType, type: "audio" }
+    }
+    if (attachment.kind === "embedded-resource") {
+      return {
+        data,
+        mimeType: attachment.attachment.mimeType,
+        name: attachment.name,
+        type: "embedded-resource",
+        uri: attachment.uri,
+      }
     }
     return {
       data,

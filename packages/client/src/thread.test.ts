@@ -12,8 +12,9 @@ const thread = {
   capabilities: {
     changeCwd: true,
     configure: false,
-    fork: false,
+    fork: { assistantMessage: false, threadHead: false, userMessage: false },
     promptContent: ["text" as const],
+    rewind: { userMessage: false },
     harnessExtensions: false,
     steer: false,
   },
@@ -133,8 +134,21 @@ describe("thread actions", () => {
         ok: true as const,
         value:
           type === "thread.fork.request"
-            ? { thread, timeline: { endCursor: null, epoch: crypto.randomUUID() } }
-            : thread,
+            ? {
+                composerContent: [],
+                thread,
+                timeline: {
+                  canonicalRows: [],
+                  endCursor: null,
+                  epoch: crypto.randomUUID(),
+                  projectedItems: [],
+                  startCursor: null,
+                  threadId: thread.id,
+                },
+              }
+            : type === "thread.archive.request"
+              ? { thread, warnings: [] }
+              : thread,
       },
       requestId: "test",
       type: type.replace(/\.request$/, ".response"),
@@ -143,7 +157,7 @@ describe("thread actions", () => {
 
     await actions.archive(thread.id)
     await actions.unarchive(thread.id)
-    await actions.fork({ threadId: thread.id })
+    await actions.fork({ target: { kind: "thread-head" }, threadId: thread.id })
 
     expect(requestThread.mock.calls.map(([type]) => type)).toEqual([
       "thread.archive.request",

@@ -2231,3 +2231,23 @@ msgstr "移除本地项目"
 #: renderer/src/components/project-edit-dialog.tsx
 msgid "chat.project.setPrimary"
 msgstr "设为主要"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.message.actions"
+msgstr "消息操作"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.message.fork"
+msgstr "在新聊天中分叉"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.message.rewind"
+msgstr "回退到此处"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.message.rewindReplaceDraft"
+msgstr "回退会替换当前的输入草稿。是否继续？"

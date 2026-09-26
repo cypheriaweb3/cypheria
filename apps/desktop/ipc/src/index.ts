@@ -585,7 +585,7 @@ export const AttachmentMetadataSchema = z
   .strict()
 
 const draftOwnedAttachmentSchema = <
-  const Kind extends "image" | "audio" | "file" | "pasted-text" | "appshot",
+  const Kind extends "image" | "audio" | "file" | "pasted-text" | "appshot" | "embedded-resource",
 >(
   kind: Kind
 ) =>
@@ -605,6 +605,15 @@ export type ComposerDraftAttachment =
       id: string
       kind: "image" | "audio" | "file" | "pasted-text" | "appshot"
       name: string
+      attachment: z.infer<typeof AttachmentMetadataSchema>
+      status: "ready" | "unavailable"
+      error?: string
+    }
+  | {
+      id: string
+      kind: "embedded-resource"
+      name: string
+      uri: string
       attachment: z.infer<typeof AttachmentMetadataSchema>
       status: "ready" | "unavailable"
       error?: string
@@ -651,6 +660,9 @@ export const ComposerDraftAttachmentSchema: z.ZodType<ComposerDraftAttachment> =
     draftOwnedAttachmentSchema("file"),
     draftOwnedAttachmentSchema("pasted-text"),
     draftOwnedAttachmentSchema("appshot"),
+    draftOwnedAttachmentSchema("embedded-resource")
+      .extend({ uri: z.string().min(1) })
+      .strict(),
     z
       .object({
         id: z.string().min(1),

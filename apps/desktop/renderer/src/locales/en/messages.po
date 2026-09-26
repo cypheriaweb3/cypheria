@@ -2231,3 +2231,23 @@ msgstr "Remove local project"
 #: renderer/src/components/project-edit-dialog.tsx
 msgid "chat.project.setPrimary"
 msgstr "Set as primary"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.message.actions"
+msgstr "Message actions"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.message.fork"
+msgstr "Fork in new chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.message.rewind"
+msgstr "Rewind to here"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.message.rewindReplaceDraft"
+msgstr "Rewind will replace the current composer draft. Continue?"

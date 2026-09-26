@@ -5,11 +5,14 @@ import { and, asc, eq, inArray, or } from "drizzle-orm"
 import type { CypheriaDatabase } from "./client.js"
 import { threadLifecycleOperations } from "./schema/index.js"
 
-export const threadLifecycleKinds = ["create", "delete"] as const
+export const threadLifecycleKinds = ["create", "delete", "fork", "rewind"] as const
 export const threadLifecycleStatuses = [
   "pending",
   "harness-created",
   "harness-deleted",
+  "provider-branched",
+  "binding-committed",
+  "timeline-replaced",
   "failed",
 ] as const
 
@@ -113,6 +116,9 @@ export const createThreadLifecyclePersistenceService = (
             "pending",
             "harness-created",
             "harness-deleted",
+            "provider-branched",
+            "binding-committed",
+            "timeline-replaced",
           ]),
           and(
             eq(threadLifecycleOperations.kind, "delete"),

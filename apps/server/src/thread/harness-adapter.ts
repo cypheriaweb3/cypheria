@@ -46,16 +46,40 @@ export type ThreadHarnessEvent =
   | { readonly code: string; readonly message: string; readonly type: "warning" }
   | ThreadHarnessExtensionEvent
   | { readonly sessionId: string; readonly type: "session-bound" }
-  | { readonly turnId: string; readonly type: "turn-completed" }
+  | { readonly successful?: boolean; readonly turnId: string; readonly type: "turn-completed" }
   | { readonly error: string; readonly turnId: string | null; readonly type: "error" }
 
 export type ThreadHarnessCreateInput = {
   readonly agentId: AgentId
   readonly cwd: string | null
-  readonly forkedFromAgentSessionId: string | null
   readonly onEvent: (event: ThreadHarnessEvent) => void
   readonly threadId: string
   readonly workspaceRoots?: readonly string[]
+}
+
+export type ThreadHarnessBranchTarget =
+  | { readonly kind: "thread-head" }
+  | {
+      readonly agentMessageId: string | null
+      readonly kind: "user-message"
+      readonly messageOrdinal: number
+      readonly previousAgentMessageId: string | null
+      readonly turnId: string
+    }
+  | {
+      readonly agentMessageId: string | null
+      readonly kind: "assistant-message"
+      readonly messageOrdinal: number
+      readonly nextAgentMessageId: string | null
+      readonly nextTurnId: string | null
+      readonly nextUserOrdinal: number | null
+      readonly turnId: string
+    }
+
+export type ThreadHarnessForkInput = ThreadHarnessContext & {
+  readonly onEvent: (event: ThreadHarnessEvent) => void
+  readonly sourceThreadId: string
+  readonly target: ThreadHarnessBranchTarget
 }
 
 export type ThreadHarnessResumeInput = ThreadHarnessContext & {
@@ -79,8 +103,12 @@ export interface ThreadHarnessAdapter {
   close(context: ThreadHarnessContext): Promise<void>
   create(input: ThreadHarnessCreateInput): Promise<ThreadHarnessSession>
   delete(context: ThreadHarnessContext): Promise<void>
+  fork(input: ThreadHarnessForkInput): Promise<ThreadHarnessSession>
   getContextUsage(context: ThreadHarnessContext): Promise<ThreadContextUsage | null>
   resume(input: ThreadHarnessResumeInput): Promise<ThreadHarnessSession>
+  archive(context: ThreadHarnessContext): Promise<void>
+  unarchive(context: ThreadHarnessContext): Promise<void>
+  rename(context: ThreadHarnessContext, title: string | null): Promise<void>
   startTurn(input: ThreadHarnessTurnInput): Promise<{
     readonly agentMessageId?: string
     readonly turnId: string

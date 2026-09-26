@@ -51,6 +51,7 @@ const toolInput = (item: v2.ThreadItem): unknown => {
       return { action: item.action, query: item.query }
     case "collabAgentToolCall":
       return {
+        boundary: null,
         model: item.model,
         prompt: item.prompt,
         reasoningEffort: item.reasoningEffort,
@@ -91,6 +92,7 @@ export const codexThreadItemToTimeline = (
       return undefined
     case "agentMessage":
       return {
+        boundary: null,
         harnessData: metadata,
         itemId: item.id,
         operation: "replace",
@@ -108,6 +110,7 @@ export const codexThreadItemToTimeline = (
       }
     case "plan":
       return {
+        boundary: null,
         harnessData: metadata,
         itemId: item.id,
         operation: "replace",
