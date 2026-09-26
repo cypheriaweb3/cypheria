@@ -12,7 +12,6 @@ export const CYPHERIA_SERVER_CONFIG_FILENAME = "config.json" as const
 
 export const DEFAULT_PERSISTED_SERVER_CONFIG: PersistedServerConfig = {
   git: DEFAULT_GIT_SETTINGS,
-  agents: {},
   server: {
     logging: {
       level: "info",
@@ -66,14 +65,6 @@ export const applyPersistedServerConfigPatch = (
     current as unknown as Record<string, unknown>,
     patch as Record<string, unknown>
   ) as unknown as PersistedServerConfig
-  if (patch.agents) {
-    for (const [agentId, agentPatch] of Object.entries(patch.agents)) {
-      if (agentPatch.networkProxyId === null) {
-        const currentAgent = merged.agents[agentId as keyof typeof merged.agents]
-        if (currentAgent) delete currentAgent.networkProxyId
-      }
-    }
-  }
   return PersistedServerConfigSchema.parse(merged)
 }
 

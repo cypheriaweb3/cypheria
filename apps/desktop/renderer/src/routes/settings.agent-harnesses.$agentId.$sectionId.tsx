@@ -72,7 +72,7 @@ import { waitForAgentOperation } from "../components/agent-operation"
 import { CodexSettingsSection } from "../components/codex-settings-section"
 import { AuthenticationSection } from "../components/harness-authentication-section"
 import { HarnessIcon } from "../components/harness-icon"
-import { AgentNetworkProxySection, NetworkProxyCard } from "../components/network-proxy-card"
+import { NetworkProxyCard } from "../components/network-proxy-card"
 import { SettingsFrame } from "../components/settings-frame"
 import { ToolchainCard } from "../components/toolchain-card"
 import { ensureCypheriaClient } from "../cypheria-client.js"
@@ -84,12 +84,10 @@ export const Route = createFileRoute("/settings/agent-harnesses/$agentId/$sectio
 const baseSections = [
   { id: "authentication", label: "Authentication" },
   { id: "models", label: "Models" },
-  { id: "network-proxy", label: "Network proxy" },
 ]
 const codexSections = [
   { id: "authentication", label: "Authentication" },
   { id: "settings", label: "Settings" },
-  { id: "network-proxy", label: "Network proxy" },
 ]
 
 const agentOperationsQueryKey = ["cypheria", "agent-operations"] as const
@@ -150,7 +148,7 @@ function AgentHarnessSettingsRoute() {
 
   return (
     <SettingsFrame wide>
-      <NetworkProxyCard agentId={agentId} />
+      <NetworkProxyCard />
       <ToolchainCard />
       {agentsQuery.isLoading || !agent ? (
         <Skeleton className="mt-4 h-96 w-full" />
@@ -239,9 +237,6 @@ function AgentHarnessSettingsRoute() {
                     snapshot={catalogQuery.data}
                     loading={catalogQuery.isLoading}
                   />
-                ) : null}
-                {sectionId === "network-proxy" ? (
-                  <AgentNetworkProxySection agentId={agentId} />
                 ) : null}
                 {!baseSections.some((item) => item.id === sectionId) &&
                 !(sectionId === "settings" && agentId === "codex") ? (

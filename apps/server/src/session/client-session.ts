@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto"
 
 import {
-  type AgentId,
   type ClientCapabilities,
   type ClientDescriptor,
   type ClientMessage,
@@ -13,9 +12,8 @@ import {
   type HarnessClientMessage,
   type IntegrationClientMessage,
   type IntegrationServerMessage,
-  type NetworkProxyDraft,
-  type NetworkProxyListPatch,
-  type NetworkProxyListSnapshot,
+  type NetworkProxySettings,
+  type NetworkProxySnapshot,
   type NetworkProxyTestResult,
   type PersistedServerConfigPatch,
   type ScheduleClientMessage,
@@ -44,9 +42,9 @@ export type SessionHost = {
   getStatus(): ServerStatus
   patchConfig(patch: PersistedServerConfigPatch): Promise<ServerConfigSnapshot>
   reloadConfig(): Promise<ServerConfigSnapshot>
-  getNetworkProxies?(): NetworkProxyListSnapshot
-  patchNetworkProxies?(patch: NetworkProxyListPatch): Promise<NetworkProxyListSnapshot>
-  testNetworkProxy?(agentId: AgentId, proxy: NetworkProxyDraft): Promise<NetworkProxyTestResult>
+  getNetworkProxy?(): NetworkProxySnapshot
+  setNetworkProxy?(settings: NetworkProxySettings): Promise<NetworkProxySnapshot>
+  testNetworkProxy?(settings: NetworkProxySettings): Promise<NetworkProxyTestResult>
   handleProjectThreadMessage?(
     message: ClientMessage,
     send: (message: ServerMessage) => void
@@ -254,32 +252,28 @@ export class ClientSession {
           type: "server.config.reload.response",
         })
         break
-      case "server.network-proxies.get.request":
-        if (!this.#host.getNetworkProxies) throw new Error("Network proxy settings are unavailable")
+      case "server.network-proxy.get.request":
+        if (!this.#host.getNetworkProxy) throw new Error("Network proxy settings are unavailable")
         this.sendTo(source, {
-          payload: this.#host.getNetworkProxies(),
+          payload: this.#host.getNetworkProxy(),
           requestId: message.requestId,
-          type: "server.network-proxies.get.response",
+          type: "server.network-proxy.get.response",
         })
         break
-      case "server.network-proxies.patch.request":
-        if (!this.#host.patchNetworkProxies)
-          throw new Error("Network proxy settings are unavailable")
+      case "server.network-proxy.set.request":
+        if (!this.#host.setNetworkProxy) throw new Error("Network proxy settings are unavailable")
         this.sendTo(source, {
-          payload: await this.#host.patchNetworkProxies(message.payload.patch),
+          payload: await this.#host.setNetworkProxy(message.payload.settings),
           requestId: message.requestId,
-          type: "server.network-proxies.patch.response",
+          type: "server.network-proxy.set.response",
         })
         break
-      case "server.network-proxies.test.request":
+      case "server.network-proxy.test.request":
         if (!this.#host.testNetworkProxy) throw new Error("Network proxy testing is unavailable")
         this.sendTo(source, {
-          payload: await this.#host.testNetworkProxy(
-            message.payload.agentId,
-            message.payload.proxy
-          ),
+          payload: await this.#host.testNetworkProxy(message.payload.settings),
           requestId: message.requestId,
-          type: "server.network-proxies.test.response",
+          type: "server.network-proxy.test.response",
         })
         break
       default:

@@ -28,9 +28,8 @@ import {
   type HarnessClientMessage,
   type IntegrationClientMessage,
   type IntegrationServerMessage,
-  type NetworkProxyDraft,
-  type NetworkProxyListPatch,
-  type NetworkProxyListSnapshot,
+  type NetworkProxySettings,
+  type NetworkProxySnapshot,
   type NetworkProxyTestResult,
   type PersistedServerConfigPatch,
   type ProjectThreadClientMessage,
@@ -126,7 +125,7 @@ export class CypheriaServer implements HttpAppHost {
   readonly git: GitService
   readonly database: OpenDatabaseResult
   readonly web3: ServerWeb3Service
-  readonly networkProxies: NetworkProxyStore
+  readonly networkProxy: NetworkProxyStore
 
   #address: CypheriaServerAddress | undefined
   #httpServer: HttpServer | undefined
@@ -150,7 +149,7 @@ export class CypheriaServer implements HttpAppHost {
         options.config ?? loadServerConfig()
       )
     this.config = this.configStore.effective
-    this.networkProxies =
+    this.networkProxy =
       options.networkProxyStore ?? NetworkProxyStore.empty(this.runtime.paths.configDir)
     this.database = options.database ?? openCypheriaDatabase({ dbDir: this.runtime.paths.dbDir })
     this.web3 = new ServerWeb3Service(this.database, this.runtime.paths)
@@ -169,12 +168,7 @@ export class CypheriaServer implements HttpAppHost {
       gitSettings: () => this.configStore.getSnapshot().config.git,
       managedShellEnvironment: (cwd) => this.git.managedShellEnvironment(cwd),
       agentDefaults: () => ({}),
-      agentEnvironment: (agentId, base) =>
-        this.networkProxies.environment(
-          agentId,
-          this.configStore.getSnapshot().config.agents[agentId],
-          base
-        ),
+      agentEnvironment: (_agentId, base) => this.networkProxy.environment(base),
     })
     this.integrations = new IntegrationService(this.agentManager)
     const projectThreadPersistence = createProjectThreadPersistenceService(this.database.db)
@@ -262,7 +256,6 @@ export class CypheriaServer implements HttpAppHost {
     }
     await this.runtime.start()
     try {
-      await this.#unlinkUnknownNetworkProxyReferences()
       await applyDatabaseMigrations(this.database.client)
       await this.web3.initialize()
       await this.agentManager.start()
@@ -395,12 +388,6 @@ export class CypheriaServer implements HttpAppHost {
 
   async patchConfig(patch: PersistedServerConfigPatch): Promise<ServerConfigSnapshot> {
     return this.#withConfigurationMutation(async () => {
-      for (const [agentId, settings] of Object.entries(patch.agents ?? {})) {
-        const proxyId = settings.networkProxyId
-        if (proxyId && !this.networkProxies.has(proxyId)) {
-          throw new Error(`Unknown network proxy '${proxyId}' for Agent '${agentId}'`)
-        }
-      }
       const snapshot = await this.configStore.patch(patch)
       this.harnesses.invalidate()
       this.registry.broadcast({ payload: snapshot, type: "server.config.updated.notification" })
@@ -411,64 +398,23 @@ export class CypheriaServer implements HttpAppHost {
   async reloadConfig(): Promise<ServerConfigSnapshot> {
     return this.#withConfigurationMutation(async () => {
       await this.configStore.reload()
-      const snapshot = await this.#unlinkUnknownNetworkProxyReferences()
+      const snapshot = this.configStore.getSnapshot()
       this.harnesses.invalidate()
       this.registry.broadcast({ payload: snapshot, type: "server.config.updated.notification" })
       return snapshot
     })
   }
 
-  getNetworkProxies(): NetworkProxyListSnapshot {
-    return this.networkProxies.snapshot()
+  getNetworkProxy(): NetworkProxySnapshot {
+    return this.networkProxy.snapshot()
   }
 
-  async patchNetworkProxies(patch: NetworkProxyListPatch): Promise<NetworkProxyListSnapshot> {
+  async setNetworkProxy(settings: NetworkProxySettings): Promise<NetworkProxySnapshot> {
     return this.#withConfigurationMutation(async () => {
-      const deleted = new Set(
-        Object.entries(patch.proxies ?? {}).flatMap(([id, proxy]) => (proxy === null ? [id] : []))
-      )
-      const currentConfig = this.configStore.getSnapshot()
-      const affectedAgents = Object.entries(currentConfig.config.agents).flatMap(
-        ([agentId, settings]) =>
-          settings.networkProxyId && deleted.has(settings.networkProxyId)
-            ? [[agentId, settings.networkProxyId] as const]
-            : []
-      )
-      const unlinkPatch: PersistedServerConfigPatch = {
-        agents: Object.fromEntries(
-          affectedAgents.map(([agentId]) => [agentId, { networkProxyId: null }])
-        ),
-      }
-      if (affectedAgents.length > 0) await this.configStore.patch(unlinkPatch)
-      let snapshot: NetworkProxyListSnapshot
-      try {
-        const currentDefault = this.networkProxies.snapshot().defaultProxyId
-        snapshot = await this.networkProxies.patch(
-          currentDefault && deleted.has(currentDefault) && patch.defaultProxyId === undefined
-            ? { ...patch, defaultProxyId: null }
-            : patch
-        )
-      } catch (error) {
-        if (affectedAgents.length > 0) {
-          await this.configStore.patch({
-            agents: Object.fromEntries(
-              affectedAgents.map(([agentId, networkProxyId]) => [agentId, { networkProxyId }])
-            ),
-          })
-        }
-        throw error
-      }
-      if (affectedAgents.length > 0) {
-        const configSnapshot = this.configStore.getSnapshot()
-        this.harnesses.invalidate()
-        this.registry.broadcast({
-          payload: configSnapshot,
-          type: "server.config.updated.notification",
-        })
-      }
+      const snapshot = await this.networkProxy.set(settings)
       this.registry.broadcast({
         payload: snapshot,
-        type: "server.network-proxies.updated.notification",
+        type: "server.network-proxy.updated.notification",
       })
       return snapshot
     })
@@ -483,22 +429,7 @@ export class CypheriaServer implements HttpAppHost {
     return current
   }
 
-  async #unlinkUnknownNetworkProxyReferences(): Promise<ServerConfigSnapshot> {
-    const current = this.configStore.getSnapshot()
-    const agents = Object.fromEntries(
-      Object.entries(current.config.agents).flatMap(([agentId, settings]) =>
-        settings.networkProxyId && !this.networkProxies.has(settings.networkProxyId)
-          ? [[agentId, { networkProxyId: null }]]
-          : []
-      )
-    )
-    return Object.keys(agents).length > 0 ? this.configStore.patch({ agents }) : current
-  }
-
-  async testNetworkProxy(
-    agentId: import("@cypheria/protocol").AgentId,
-    proxy: NetworkProxyDraft
-  ): Promise<NetworkProxyTestResult> {
+  async testNetworkProxy(settings: NetworkProxySettings): Promise<NetworkProxyTestResult> {
     const startedAt = performance.now()
     try {
       const { stdout } = await promisify(execFile)(
@@ -514,14 +445,14 @@ export class CypheriaServer implements HttpAppHost {
           "10",
           "https://api.openai.com/v1/models",
         ],
-        { env: this.networkProxies.environmentForDraft(agentId, proxy, process.env) }
+        { env: this.networkProxy.environmentForSettings(settings, process.env) }
       )
       const status = Number(stdout.trim())
       return {
         latencyMs: Math.round(performance.now() - startedAt),
         message: Number.isInteger(status)
-          ? `Agent ${agentId} reached the test endpoint (HTTP ${status}).`
-          : `Agent ${agentId} reached the test endpoint.`,
+          ? `Reached the test endpoint (HTTP ${status}).`
+          : "Reached the test endpoint.",
         ok: status >= 100 && status < 600,
       }
     } catch (error) {

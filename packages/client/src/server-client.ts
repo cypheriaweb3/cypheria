@@ -1,5 +1,4 @@
 import {
-  type AgentId,
   type AgentManagementClientMessage,
   type AgentManagementServerMessage,
   type ClientCapabilities,
@@ -23,9 +22,8 @@ import {
   type IntegrationClientMessage,
   type IntegrationServerMessage,
   isClientResponseMessage,
-  type NetworkProxyDraft,
-  type NetworkProxyListPatch,
-  type NetworkProxyListSnapshot,
+  type NetworkProxySettings,
+  type NetworkProxySnapshot,
   type NetworkProxyTestResult,
   type PersistedServerConfigPatch,
   type ProjectThreadClientMessage,
@@ -446,54 +444,53 @@ export class ServerClient {
     return (message as Extract<ServerMessage, { type: "server.config.reload.response" }>).payload
   }
 
-  async getNetworkProxies(options?: RequestOptions): Promise<NetworkProxyListSnapshot> {
+  async getNetworkProxy(options?: RequestOptions): Promise<NetworkProxySnapshot> {
     const message = await this.#request(
       {
-        requestId: this.#nextRequestId("network-proxies"),
-        type: "server.network-proxies.get.request",
+        requestId: this.#nextRequestId("network-proxy"),
+        type: "server.network-proxy.get.request",
       },
-      "server.network-proxies.get.response",
+      "server.network-proxy.get.response",
       options,
       SERVER_CAPABILITIES.config
     )
-    return (message as Extract<ServerMessage, { type: "server.network-proxies.get.response" }>)
+    return (message as Extract<ServerMessage, { type: "server.network-proxy.get.response" }>)
       .payload
   }
 
-  async patchNetworkProxies(
-    patch: NetworkProxyListPatch,
+  async setNetworkProxy(
+    settings: NetworkProxySettings,
     options?: RequestOptions
-  ): Promise<NetworkProxyListSnapshot> {
+  ): Promise<NetworkProxySnapshot> {
     const message = await this.#request(
       {
-        payload: { patch },
-        requestId: this.#nextRequestId("network-proxies-patch"),
-        type: "server.network-proxies.patch.request",
+        payload: { settings },
+        requestId: this.#nextRequestId("network-proxy-set"),
+        type: "server.network-proxy.set.request",
       },
-      "server.network-proxies.patch.response",
+      "server.network-proxy.set.response",
       options,
       SERVER_CAPABILITIES.config
     )
-    return (message as Extract<ServerMessage, { type: "server.network-proxies.patch.response" }>)
+    return (message as Extract<ServerMessage, { type: "server.network-proxy.set.response" }>)
       .payload
   }
 
   async testNetworkProxy(
-    agentId: AgentId,
-    proxy: NetworkProxyDraft,
+    settings: NetworkProxySettings,
     options?: RequestOptions
   ): Promise<NetworkProxyTestResult> {
     const message = await this.#request(
       {
-        payload: { agentId, proxy },
+        payload: { settings },
         requestId: this.#nextRequestId("network-proxy-test"),
-        type: "server.network-proxies.test.request",
+        type: "server.network-proxy.test.request",
       },
-      "server.network-proxies.test.response",
+      "server.network-proxy.test.response",
       options,
       SERVER_CAPABILITIES.config
     )
-    return (message as Extract<ServerMessage, { type: "server.network-proxies.test.response" }>)
+    return (message as Extract<ServerMessage, { type: "server.network-proxy.test.response" }>)
       .payload
   }
 

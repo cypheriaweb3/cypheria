@@ -43,7 +43,7 @@ pnpm --filter @cypheria/server server stop --if-idle
 ```text
 $CYPHERIA_HOME/
   codex/     Cypheria-managed Codex home
-  config/    config.json, network-proxies.json, PID and Server identity, relay key
+  config/    config.json, network-proxy.json, PID and Server identity, relay key
   db/        SQLite database
   logs/      Server and runtime logs
   vault/     encrypted wallet vault data
@@ -57,9 +57,9 @@ The Server resolves this root once and passes derived paths to services. Cypheri
 
 Desired shared configuration is stored at `$CYPHERIA_HOME/config/config.json`, currently schema version 1. The product has not shipped, so this is the current baseline and no legacy configuration migration is performed. Missing configuration uses secure defaults without writing a file. Patches are validated as a complete document and written atomically with owner-only permissions.
 
-The document contains listener, CORS, message limits, session timeouts, shutdown, relay, embedded-web, logging, Git settings, and Cypheria-owned per-Agent extensions under `agents[agentId]`. An Agent entry may contain `networkProxyId`; omitting it selects the Server default proxy. Agent-native settings are read and written only through an adapter that supports the native API. Codex global settings remain in its isolated native `config.toml`; unsupported harnesses are read-only instead of falling back to generic Server configuration. Secrets such as `CYPHERIA_SERVER_TOKEN` are environment-only and never returned through settings APIs.
+The document contains listener, CORS, message limits, session timeouts, shutdown, relay, embedded-web, logging, and Git settings. Agent-native settings are read and written only through an adapter that supports the native API. Codex global settings remain in its isolated native `config.toml`; unsupported harnesses are read-only instead of falling back to generic Server configuration. Secrets such as `CYPHERIA_SERVER_TOKEN` are environment-only and never returned through settings APIs.
 
-Named network proxies are stored independently in `$CYPHERIA_HOME/config/network-proxies.json`, schema version 1, with owner-only permissions. The list has an optional default and supports system inheritance, explicit direct connection, and manual HTTP, HTTPS, SOCKS4, or SOCKS5 profiles. Manual credentials are persisted in that file, but snapshots expose only `passwordConfigured`; patch omission preserves a password, a string replaces it, and `null` clears it. Proxy selection is isolated per Agent and is injected into that Agent's subprocess and managed toolchain environment without mutating global `process.env`. Deleting a proxy clears every Agent reference to it, causing those Agents to use the remaining Server default, and deleting the default also clears that designation. It does not affect Server HTTP, Git, Electron browsing, or other Agents. Proxy tests execute on the Server for the selected Agent.
+The single Agent network proxy is stored independently in `$CYPHERIA_HOME/config/network-proxy.json` with owner-only permissions. It supports system inheritance, explicit direct connection, and manual HTTP, HTTPS, SOCKS4, or SOCKS5 configuration. Manual credentials are persisted in that file, but snapshots expose only `passwordConfigured`; omitting a password while saving or testing preserves the stored password, a string replaces it, and `null` clears it. The same settings are injected into every Agent subprocess and managed toolchain environment without mutating global `process.env`. They do not affect Server HTTP, Git, or Electron browsing. Proxy tests execute on the Server.
 
 Configuration responses distinguish:
 

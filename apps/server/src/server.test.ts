@@ -23,7 +23,7 @@ afterEach(async () => {
 })
 
 describe("CypheriaServer", () => {
-  it("clears Agent references and the default when a network proxy is deleted", async () => {
+  it("exposes one shared network proxy through the client protocol", async () => {
     const cypheriaHome = await mkdtemp(join(tmpdir(), "cypheria-server-proxy-test-"))
     temporaryDirectories.push(cypheriaHome)
     const server = new CypheriaServer({
@@ -32,25 +32,14 @@ describe("CypheriaServer", () => {
       logger: pino({ level: "silent" }),
       runtime: new CypheriaRuntime({ env: { CYPHERIA_HOME: cypheriaHome } }),
     })
-    await server.start()
+    const address = await server.start()
+    const client = createCypheriaClient({ clientId: "proxy-test", url: address.url })
     try {
-      await server.patchNetworkProxies({
-        defaultProxyId: "office",
-        proxies: { office: { id: "office", mode: "direct", name: "Office" } },
-      })
-      await server.patchConfig({
-        agents: {
-          claude: { networkProxyId: "office" },
-          codex: { networkProxyId: "office" },
-        },
-      })
-
-      const proxies = await server.patchNetworkProxies({ proxies: { office: null } })
-
-      expect(proxies.defaultProxyId).toBeNull()
-      expect(proxies.proxies).toEqual([])
-      expect(server.getConfig().config.agents).toEqual({ claude: {}, codex: {} })
+      expect(await client.server.networkProxy()).toEqual({ mode: "system" })
+      expect(await client.server.setNetworkProxy({ mode: "direct" })).toEqual({ mode: "direct" })
+      expect(server.getNetworkProxy()).toEqual({ mode: "direct" })
     } finally {
+      await client.close()
       await server.stop("Test complete")
     }
   })

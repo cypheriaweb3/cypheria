@@ -262,8 +262,8 @@ function ServerSettingsSubscription() {
         if (message.type === "server.config.updated.notification") {
           queryClient.setQueryData(["settings", "server-config"], message.payload)
           queryClient.setQueryData(["settings", "git"], message.payload)
-        } else if (message.type === "server.network-proxies.updated.notification") {
-          queryClient.setQueryData(["server", "network-proxies"], message.payload)
+        } else if (message.type === "server.network-proxy.updated.notification") {
+          queryClient.setQueryData(["server", "network-proxy"], message.payload)
         } else if (message.type === "thread.deleted.notification") {
           void Promise.all([
             deletePersistedComposerDraft(message.payload.threadId),

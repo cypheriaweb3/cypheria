@@ -1,8 +1,6 @@
 import type {
-  AgentId,
-  NetworkProxyDraft,
-  NetworkProxyListPatch,
-  NetworkProxyListSnapshot,
+  NetworkProxySettings,
+  NetworkProxySnapshot,
   NetworkProxyTestResult,
   PersistedServerConfigPatch,
   ServerConfigSnapshot,
@@ -55,14 +53,13 @@ export interface ServerActions {
   ): Promise<ServerConfigSnapshot>
   ping(options?: RequestOptions): Promise<void>
   reloadConfig(options?: RequestOptions): Promise<ServerConfigSnapshot>
-  networkProxies(options?: RequestOptions): Promise<NetworkProxyListSnapshot>
-  patchNetworkProxies(
-    patch: NetworkProxyListPatch,
+  networkProxy(options?: RequestOptions): Promise<NetworkProxySnapshot>
+  setNetworkProxy(
+    settings: NetworkProxySettings,
     options?: RequestOptions
-  ): Promise<NetworkProxyListSnapshot>
+  ): Promise<NetworkProxySnapshot>
   testNetworkProxy(
-    agentId: AgentId,
-    proxy: NetworkProxyDraft,
+    settings: NetworkProxySettings,
     options?: RequestOptions
   ): Promise<NetworkProxyTestResult>
   status(options?: RequestOptions): Promise<ServerStatus>
@@ -212,11 +209,10 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
       patchConfig: async (patch, options) => serverClient.patchServerConfig(patch, options),
       ping: async (options) => serverClient.ping(options),
       reloadConfig: async (options) => serverClient.reloadServerConfig(options),
-      networkProxies: async (options) => serverClient.getNetworkProxies(options),
-      patchNetworkProxies: async (patch, options) =>
-        serverClient.patchNetworkProxies(patch, options),
-      testNetworkProxy: async (agentId, proxy, options) =>
-        serverClient.testNetworkProxy(agentId, proxy, options),
+      networkProxy: async (options) => serverClient.getNetworkProxy(options),
+      setNetworkProxy: async (settings, options) => serverClient.setNetworkProxy(settings, options),
+      testNetworkProxy: async (settings, options) =>
+        serverClient.testNetworkProxy(settings, options),
       status: async (options) => serverClient.getServerStatus(options),
       supports: (capability) => serverClient.supports(capability),
       supportsFeature: (feature) => serverClient.supportsFeature(feature),
