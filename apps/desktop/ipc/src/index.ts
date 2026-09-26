@@ -53,6 +53,7 @@ export const CYPHERIA_IPC_CHANNELS = {
   settingsConnectionProxyTest: "settings.connection-proxy.test",
   settingsConnectionProxyWrite: "settings.connection-proxy.write",
   storageAttachmentDelete: "storage.attachment.delete",
+  storageAttachmentCopyFile: "storage.attachment.copy-file",
   storageAttachmentList: "storage.attachment.list",
   storageAttachmentListPage: "storage.attachment.list-page",
   storageAttachmentRead: "storage.attachment.read",
@@ -673,6 +674,16 @@ export const storageAttachmentWriteContract = {
   version: IPC_PROTOCOL_VERSION,
 } satisfies IpcContract<{ storageKey: string; bytes: Uint8Array }, { byteSize: number }>
 
+export const storageAttachmentCopyFileContract = {
+  channel: CYPHERIA_IPC_CHANNELS.storageAttachmentCopyFile,
+  namespace: "storage",
+  request: z
+    .object({ storageKey: AttachmentStorageKeySchema, uri: z.string().trim().min(1) })
+    .strict(),
+  response: z.object({ byteSize: z.number().int().positive() }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<{ storageKey: string; uri: string }, { byteSize: number }>
+
 export const storageAttachmentReadContract = {
   channel: CYPHERIA_IPC_CHANNELS.storageAttachmentRead,
   namespace: "storage",
@@ -759,6 +770,7 @@ export const ipcContracts = {
   settingsConnectionProxyTest: settingsConnectionProxyTestContract,
   settingsConnectionProxyWrite: settingsConnectionProxyWriteContract,
   storageAttachmentDelete: storageAttachmentDeleteContract,
+  storageAttachmentCopyFile: storageAttachmentCopyFileContract,
   storageAttachmentList: storageAttachmentListContract,
   storageAttachmentListPage: storageAttachmentListPageContract,
   storageAttachmentRead: storageAttachmentReadContract,
@@ -793,6 +805,7 @@ export type CypheriaPreloadApi = {
   readonly storage: {
     readonly attachments: {
       readonly delete: (storageKey: string) => Promise<{ deleted: true }>
+      readonly copyFileUri: (storageKey: string, uri: string) => Promise<{ byteSize: number }>
       readonly list: () => Promise<{ storageKeys: string[] }>
       readonly listPage: (request: StoragePageRequest) => Promise<{
         items: AttachmentFileInspectionEntry[]

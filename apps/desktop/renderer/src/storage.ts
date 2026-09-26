@@ -15,6 +15,10 @@ export const desktopClientStorage: ClientStorage = {
     schemaVersion: 1,
   }),
   attachments: createFileAttachmentStore("desktop-file", {
+    async copyFileUri(storageKey, uri) {
+      const result = await requireAttachmentBridge().copyFileUri(storageKey, uri)
+      return result.byteSize
+    },
     async write(storageKey, bytes) {
       await requireAttachmentBridge().write(storageKey, bytes)
     },

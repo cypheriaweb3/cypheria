@@ -1,10 +1,12 @@
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { pathToFileURL } from "node:url"
 import { afterEach, describe, expect, it } from "vitest"
 
 import { MAX_DESKTOP_ATTACHMENT_BYTES } from "../../ipc/src/index.js"
 import {
+  copyDesktopAttachmentFile,
   deleteDesktopAttachment,
   getDesktopAttachmentDirectory,
   listDesktopAttachmentPage,
@@ -76,6 +78,19 @@ describe("desktop attachment storage", () => {
         new Uint8Array(MAX_DESKTOP_ATTACHMENT_BYTES + 1)
       )
     ).rejects.toThrow("Attachment size")
+  })
+
+  it("copies file URI sources inside the main process", async () => {
+    const userDataDir = await createUserDataDirectory()
+    const source = join(userDataDir, "source file.txt")
+    await writeFile(source, "copied without an IPC byte payload")
+
+    await expect(
+      copyDesktopAttachmentFile(userDataDir, "att_copied", pathToFileURL(source).href)
+    ).resolves.toEqual({ byteSize: 34 })
+    await expect(
+      readFile(join(getDesktopAttachmentDirectory(userDataDir), "att_copied"), "utf8")
+    ).resolves.toBe("copied without an IPC byte payload")
   })
 
   it("ignores temporary and unrelated files when listing", async () => {

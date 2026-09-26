@@ -7,6 +7,7 @@ import {
   ConnectionProxySettingsSchema,
   dappProviderRequestContract,
   ipcContracts,
+  storageAttachmentCopyFileContract,
   storageAttachmentWriteContract,
 } from "./index.js"
 
@@ -39,6 +40,7 @@ describe("desktop IPC contracts", () => {
       "settingsPreferencesWrite",
       "settingsWorkspaceLayoutRead",
       "settingsWorkspaceLayoutWrite",
+      "storageAttachmentCopyFile",
       "storageAttachmentDelete",
       "storageAttachmentList",
       "storageAttachmentListPage",
@@ -65,6 +67,18 @@ describe("desktop IPC contracts", () => {
         storageKey: "att_empty",
         bytes: new Uint8Array(),
       })
+    ).toThrow()
+  })
+
+  it("accepts file URI copy requests without carrying attachment bytes", () => {
+    expect(
+      storageAttachmentCopyFileContract.request.parse({
+        storageKey: "att_file",
+        uri: "file:///tmp/report.pdf",
+      })
+    ).toEqual({ storageKey: "att_file", uri: "file:///tmp/report.pdf" })
+    expect(() =>
+      storageAttachmentCopyFileContract.request.parse({ storageKey: "../escape", uri: "/tmp/a" })
     ).toThrow()
   })
 

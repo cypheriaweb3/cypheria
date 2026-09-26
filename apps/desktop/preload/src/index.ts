@@ -80,6 +80,11 @@ const cypheriaApi: CypheriaPreloadApi = {
   },
   storage: {
     attachments: {
+      copyFileUri: (storageKey, uri) =>
+        ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageAttachmentCopyFile, {
+          storageKey,
+          uri,
+        }),
       delete: (storageKey) =>
         ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.storageAttachmentDelete, { storageKey }),
       list: () => invoke(CYPHERIA_IPC_CHANNELS.storageAttachmentList),

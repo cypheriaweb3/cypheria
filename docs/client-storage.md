@@ -46,9 +46,9 @@ Replica inspection also uses an opaque keyset cursor. Queries scan row keys and 
 
 Attachment metadata and bytes have separate lifecycles. A domain persists metadata in its normal record, while `AttachmentStore` saves and reads bytes by an opaque generated key. Garbage collection receives the set of referenced keys and deletes unreferenced blobs.
 
-`SaveAttachmentInput` accepts a discriminated `source`: `bytes`, `blob`, base64 `data_url`, or `file_uri`. MIME type is optional and is inferred from Blob or data URL sources when possible; file names are inferred from file URIs when omitted. Adapters normalize these convenient inputs to owned bytes before persistence. Expo native resolves file URIs through its file-system API. Desktop renderer callers use Blob sources from file inputs or drag-and-drop; its isolated IPC deliberately does not accept renderer-supplied arbitrary file paths.
+`SaveAttachmentInput` accepts a discriminated `source`: `bytes`, `blob`, base64 `data_url`, or `file_uri`. MIME type is optional and is inferred from Blob or data URL sources when possible; file names are inferred from file URIs when omitted. Expo native resolves file URIs through its file-system API. On Desktop, `file_uri` sources take a direct-copy fast path: IPC carries only the URI and storage key, and Electron main copies the source into managed storage without materializing its bytes in the renderer. Other source kinds retain the bounded byte-transfer fallback.
 
-The Web adapter keeps attachment bytes in a dedicated IndexedDB database. Native Expo stores them in its document directory. Desktop sends bounded `Uint8Array` values over the isolated preload bridge; Electron main validates the key, enforces a 32 MiB limit, and writes only inside its owned directory. Renderer code never receives a filesystem path or Node.js access.
+The Web adapter keeps attachment bytes in a dedicated IndexedDB database. Native Expo stores them in its document directory. Desktop sends bounded `Uint8Array` values over the isolated preload bridge only for in-memory sources; file URI sources are copied by Electron main. Main validates the key, enforces a 32 MiB limit, and writes only inside its owned directory. Renderer code never receives Node.js access.
 
 Attachment inspection returns paginated keys, sizes, and at most the first 32 bytes. File adapters read only that prefix; the Web adapter keeps the prefix in its metadata object store so listing never materializes complete blobs.
 
@@ -56,4 +56,4 @@ Attachment inspection returns paginated keys, sizes, and at most the first 32 by
 
 Storage adapters validate identifiers and storage types, but domain owners must validate deserialized replica payloads and attachment metadata. Client replicas and browser storage are ordinary local application data: they are not encrypted secret storage and must not be trusted as authority after reconnecting to the Server.
 
-Electron keeps context isolation and sandboxing enabled. Its attachment IPC accepts only declared, schema-validated operations and never accepts arbitrary paths. Protocol-visible or shared state still crosses the normal Zod-validated client/server boundary.
+Electron keeps context isolation and sandboxing enabled. Its attachment IPC accepts only declared, schema-validated operations; file URI copying is limited to the attachment store's managed destination and size limit. Protocol-visible or shared state still crosses the normal Zod-validated client/server boundary.

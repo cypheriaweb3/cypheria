@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
-import { lstat, mkdir, open, readdir, readFile, rename, rm } from "node:fs/promises"
-import { join } from "node:path"
+import { copyFile, lstat, mkdir, open, readdir, readFile, rename, rm, stat } from "node:fs/promises"
+import { isAbsolute, join, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 import {
   assertAttachmentId,
   decodeStorageCursor,
@@ -20,6 +21,47 @@ export const getDesktopAttachmentDirectory = (userDataDir: string): string =>
 
 const attachmentPath = (userDataDir: string, storageKey: string): string =>
   join(getDesktopAttachmentDirectory(userDataDir), assertAttachmentId(storageKey))
+
+const sourcePathFromFileUri = (uri: string): string => {
+  const normalized = uri.trim()
+  if (!normalized) throw new Error("Attachment file URI is required.")
+  if (normalized.startsWith("file:")) return fileURLToPath(normalized)
+  if (!isAbsolute(normalized)) throw new Error("Attachment file URI must be an absolute path.")
+  return resolve(normalized)
+}
+
+export const copyDesktopAttachmentFile = async (
+  userDataDir: string,
+  storageKey: string,
+  uri: string
+): Promise<{ byteSize: number }> => {
+  const source = sourcePathFromFileUri(uri)
+  const sourceMetadata = await stat(source)
+  if (
+    !sourceMetadata.isFile() ||
+    sourceMetadata.size === 0 ||
+    sourceMetadata.size > MAX_DESKTOP_ATTACHMENT_BYTES
+  ) {
+    throw new Error("Attachment source is unavailable or exceeds the size limit.")
+  }
+
+  const directory = getDesktopAttachmentDirectory(userDataDir)
+  await mkdir(directory, { mode: 0o700, recursive: true })
+  const destination = attachmentPath(userDataDir, storageKey)
+  const temporary = join(directory, `.${storageKey}.${randomUUID()}.tmp`)
+  try {
+    await copyFile(source, temporary)
+    const copiedMetadata = await stat(temporary)
+    if (!copiedMetadata.isFile() || copiedMetadata.size !== sourceMetadata.size) {
+      throw new Error("Attachment source changed while it was being copied.")
+    }
+    await rename(temporary, destination)
+  } catch (error) {
+    await rm(temporary, { force: true })
+    throw error
+  }
+  return { byteSize: sourceMetadata.size }
+}
 
 export const writeDesktopAttachment = async (
   userDataDir: string,
