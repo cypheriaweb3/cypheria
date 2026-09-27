@@ -1,5 +1,7 @@
 import {
   CYPHERIA_PROTOCOL_VERSION,
+  type CypheriaBinaryFrame,
+  decodeCypheriaBinaryFrame,
   decodeWSInboundMessage,
   encodeProtocolMessage,
   type WSHelloMessage,
@@ -30,6 +32,21 @@ export class ClientConnection {
 
   async receive(raw: Uint8Array): Promise<void> {
     if (this.#closed) return
+    let binaryFrame: CypheriaBinaryFrame | null
+    try {
+      binaryFrame = decodeCypheriaBinaryFrame(raw)
+    } catch {
+      this.close(1008, "Invalid binary frame")
+      return
+    }
+    if (binaryFrame) {
+      if (!this.#session) {
+        this.close(1008, "Hello required")
+        return
+      }
+      await this.#session.receiveBinaryFrame(binaryFrame, this.#options.transport)
+      return
+    }
     let message: WSInboundMessage
     try {
       message = decodeWSInboundMessage(raw)

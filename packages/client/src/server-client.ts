@@ -12,8 +12,11 @@ import {
   ConnectionOfferV2Schema,
   CYPHERIA_PROTOCOL_VERSION,
   CYPHERIA_WEBSOCKET_PATH,
+  type CypheriaBinaryFrame,
   createWebSocketProtocols,
+  decodeCypheriaBinaryFrame,
   decodeWSOutboundMessage,
+  encodeCypheriaBinaryFrame,
   encodeProtocolMessage,
   type GitClientMessage,
   type GitServerMessage,
@@ -81,6 +84,7 @@ export type ServerClientConfig = {
   readonly clientId?: string
   readonly clientType?: ClientKind
   readonly connectTimeoutMs?: number
+  readonly onBinaryFrameListenerError?: (error: Error, frame: CypheriaBinaryFrame) => void
   readonly onListenerError?: (error: Error, message: ServerMessage) => void
   readonly reconnect?: ReconnectConfig
   readonly relayOffer?: ConnectionOfferV2 | string
@@ -111,6 +115,7 @@ type ConnectCallbacks = {
 }
 
 type ServerMessageHandler = (message: ServerMessage) => void
+type BinaryFrameHandler = (frame: CypheriaBinaryFrame) => void
 type ConnectionHandler = (state: ConnectionState) => void
 
 export class CypheriaConnectionError extends Error {
@@ -191,7 +196,7 @@ const messageRequestId = (message: ServerMessage): RequestId | undefined => {
     : undefined
 }
 
-const decodeBinaryFrame = (data: unknown): Uint8Array => {
+const normalizeBinaryFrame = (data: unknown): Uint8Array => {
   if (data instanceof Uint8Array) return data
   if (data instanceof ArrayBuffer) return new Uint8Array(data)
   if (ArrayBuffer.isView(data)) {
@@ -202,6 +207,7 @@ const decodeBinaryFrame = (data: unknown): Uint8Array => {
 
 /** Owns one versioned Cypheria server connection and executes only protocol-defined messages. */
 export class ServerClient {
+  readonly #binaryFrameHandlers = new Set<BinaryFrameHandler>()
   readonly #config: ServerClientConfig
   readonly #connectionHandlers = new Set<ConnectionHandler>()
   readonly #descriptor: ClientDescriptor
@@ -282,6 +288,19 @@ export class ServerClient {
   subscribe(handler: ServerMessageHandler): () => void {
     this.#messageHandlers.add(handler)
     return () => this.#messageHandlers.delete(handler)
+  }
+
+  subscribeBinaryFrames(handler: BinaryFrameHandler): () => void {
+    this.#binaryFrameHandlers.add(handler)
+    return () => this.#binaryFrameHandlers.delete(handler)
+  }
+
+  async sendBinaryFrame(frame: CypheriaBinaryFrame): Promise<void> {
+    const encoded = encodeCypheriaBinaryFrame(frame)
+    await this.ensureConnected()
+    const transport = this.#transport
+    if (!transport) throw new CypheriaConnectionError("Cypheria client is not connected")
+    await transport.send(encoded)
   }
 
   on<T extends ServerMessage["type"]>(
@@ -702,7 +721,7 @@ export class ServerClient {
           return
         }
         try {
-          this.#receive(decodeBinaryFrame(data))
+          this.#receive(normalizeBinaryFrame(data))
         } catch (error) {
           this.#handleDisconnect(
             new CypheriaProtocolError("Invalid Cypheria server message", {
@@ -735,6 +754,14 @@ export class ServerClient {
   }
 
   #receive(raw: Uint8Array): void {
+    const binaryFrame = decodeCypheriaBinaryFrame(raw)
+    if (binaryFrame) {
+      if (this.#state.status !== "connected") {
+        throw new CypheriaProtocolError("Cypheria server sent a binary frame before handshake")
+      }
+      this.#emitBinaryFrame(binaryFrame)
+      return
+    }
     const envelope = decodeWSOutboundMessage(raw)
     if (envelope.type === "pong") {
       const pending = this.#pendingPings.values().next().value
@@ -759,6 +786,19 @@ export class ServerClient {
     }
 
     this.#emit(message)
+  }
+
+  #emitBinaryFrame(frame: CypheriaBinaryFrame): void {
+    for (const handler of this.#binaryFrameHandlers) {
+      try {
+        handler(frame)
+      } catch (error) {
+        this.#config.onBinaryFrameListenerError?.(
+          asError(error, "Cypheria binary frame listener failed"),
+          frame
+        )
+      }
+    }
   }
 
   async #request(

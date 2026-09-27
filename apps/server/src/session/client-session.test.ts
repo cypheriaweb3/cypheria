@@ -1,6 +1,9 @@
 import {
   CYPHERIA_PROTOCOL_VERSION,
+  type CypheriaBinaryFrame,
+  decodeCypheriaBinaryFrame,
   decodeWSOutboundMessage,
+  encodeCypheriaBinaryFrame,
   encodeProtocolMessage,
   type ServerDiagnostics,
   type ServerIdentity,
@@ -56,14 +59,20 @@ const createFixture = () => {
   const registry = new ConnectionRegistry({ helloTimeoutMs: 1000, host, reconnectGraceMs: 1000 })
   const createConnection = (admission: SessionAdmission = OWNER_SESSION_ADMISSION) => {
     const sent: Array<ServerMessage | { type: "pong" }> = []
+    const sentBinary: CypheriaBinaryFrame[] = []
     const transport: SessionTransport = {
       close: vi.fn(),
       send: (data) => {
+        const binary = decodeCypheriaBinaryFrame(data)
+        if (binary) {
+          sentBinary.push(binary)
+          return
+        }
         const envelope = decodeWSOutboundMessage(data)
         sent.push(envelope.type === "session" ? envelope.message : envelope)
       },
     }
-    return { connection: registry.accept(transport, admission), sent, transport }
+    return { connection: registry.accept(transport, admission), sent, sentBinary, transport }
   }
   return { createConnection, host, registry }
 }
@@ -195,5 +204,54 @@ describe("ClientSession", () => {
     })
     first.connection.close()
     second.connection.close()
+  })
+
+  it("routes domain binary frames after hello and can reply to the source", async () => {
+    const fixture = createFixture()
+    fixture.host.handleBinaryFrame = vi.fn(async (_frame, _sessionId, _source, send) => {
+      send({ opcode: 0x02, payload: new Uint8Array([9, 8, 7]) })
+      return true
+    })
+    const client = fixture.createConnection()
+    await client.connection.receive(hello("web-binary"))
+    await client.connection.receive(
+      encodeCypheriaBinaryFrame({
+        opcode: 0x01,
+        payload: new Uint8Array([1, 2, 3]),
+      })
+    )
+
+    expect(fixture.host.handleBinaryFrame).toHaveBeenCalledWith(
+      {
+        opcode: 0x01,
+        payload: new Uint8Array([1, 2, 3]),
+      },
+      expect.stringMatching(/^ses_/u),
+      client.transport,
+      expect.any(Function)
+    )
+    expect(client.sentBinary).toEqual([
+      {
+        opcode: 0x02,
+        payload: new Uint8Array([9, 8, 7]),
+      },
+    ])
+    client.connection.close()
+  })
+
+  it("rejects binary frames before hello and unsupported frames after hello", async () => {
+    const fixture = createFixture()
+    const beforeHello = fixture.createConnection()
+    const frame = encodeCypheriaBinaryFrame({
+      opcode: 0x01,
+      payload: new Uint8Array(),
+    })
+    await beforeHello.connection.receive(frame)
+    expect(beforeHello.transport.close).toHaveBeenCalledWith(1008, "Hello required")
+
+    const unsupported = fixture.createConnection()
+    await unsupported.connection.receive(hello("web-unsupported-binary"))
+    await unsupported.connection.receive(frame)
+    expect(unsupported.transport.close).toHaveBeenCalledWith(1008, "Unsupported binary frame")
   })
 })

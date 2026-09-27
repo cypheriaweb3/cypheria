@@ -6,6 +6,8 @@ import {
   type ClientMessage,
   type CodexHarnessClientMessage,
   type CodexHarnessServerMessage,
+  type CypheriaBinaryFrame,
+  encodeCypheriaBinaryFrame,
   encodeProtocolMessage,
   type GitClientMessage,
   type GitServerMessage,
@@ -61,6 +63,12 @@ export type SessionHost = {
     message: HarnessClientMessage,
     sessionId: string,
     send: (message: ServerMessage) => void
+  ): Promise<boolean>
+  handleBinaryFrame?(
+    frame: CypheriaBinaryFrame,
+    sessionId: string,
+    source: SessionTransport,
+    send: (frame: CypheriaBinaryFrame) => void
   ): Promise<boolean>
   handleScheduleMessage?(
     message: ScheduleClientMessage,
@@ -175,6 +183,16 @@ export class ClientSession {
     for (const transport of this.#sources.keys()) this.sendTo(transport, message)
   }
 
+  sendBinaryFrame(frame: CypheriaBinaryFrame): void {
+    for (const transport of this.#sources.keys()) this.sendBinaryFrameTo(transport, frame)
+  }
+
+  sendBinaryFrameTo(transport: SessionTransport, frame: CypheriaBinaryFrame): void {
+    if (!this.#closed && this.#sources.has(transport)) {
+      transport.send(encodeCypheriaBinaryFrame(frame))
+    }
+  }
+
   sendTo(transport: SessionTransport, message: ServerMessage): void {
     if (!this.#closed && this.#sources.has(transport)) {
       transport.send(encodeProtocolMessage(wrapServerSessionMessage(message)))
@@ -197,6 +215,21 @@ export class ClientSession {
       source.close(1011, error instanceof Error ? error.message.slice(0, 123) : "Request failed")
     } finally {
       if (messageRequestId) sourceState.inFlight.delete(messageRequestId)
+    }
+  }
+
+  async receiveBinaryFrame(frame: CypheriaBinaryFrame, source: SessionTransport): Promise<void> {
+    if (this.#closed || !this.#sources.has(source)) return
+    try {
+      const handled = await this.#host.handleBinaryFrame?.(frame, this.id, source, (outbound) =>
+        this.sendBinaryFrameTo(source, outbound)
+      )
+      if (!handled) source.close(1008, "Unsupported binary frame")
+    } catch (error) {
+      source.close(
+        1011,
+        error instanceof Error ? error.message.slice(0, 123) : "Binary frame failed"
+      )
     }
   }
 
