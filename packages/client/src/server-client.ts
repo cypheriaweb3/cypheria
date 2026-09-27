@@ -1,6 +1,8 @@
 import {
   type AgentManagementClientMessage,
   type AgentManagementServerMessage,
+  type BrowserClientMessage,
+  type BrowserServerMessage,
   type ClientCapabilities,
   type ClientDescriptor,
   ClientDescriptorSchema,
@@ -663,6 +665,20 @@ export class ServerClient {
       SERVER_CAPABILITIES.terminals
     )
     return message as TerminalServerMessage
+  }
+
+  async requestBrowser(
+    type: BrowserClientMessage["type"],
+    payload: unknown,
+    options?: RequestOptions
+  ): Promise<BrowserServerMessage> {
+    const message = await this.#request(
+      { payload, requestId: this.#nextRequestId("browser"), type } as BrowserClientMessage,
+      type.replace(/\.request$/u, ".response"),
+      options,
+      SERVER_CAPABILITIES.browser
+    )
+    return message as BrowserServerMessage
   }
 
   async requestGit(

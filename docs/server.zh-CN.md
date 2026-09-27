@@ -48,7 +48,7 @@ $CYPHERIA_HOME/
   logs/      Server 与 runtime 日志
   vault/     加密钱包 vault 数据
   cache/     可丢弃缓存和托管工具链
-  browser/   dApp session 元数据
+  browser/   Desktop 浏览器配置（网页和 dApp 标签页）
 ```
 
 Server 只解析一次根目录，再把派生路径传给各服务。Cypheria 管理的 Codex 进程使用 `CODEX_HOME=$CYPHERIA_HOME/codex`；不会读取或修改用户默认 Codex home。

@@ -35,12 +35,11 @@ describe("Wallet provider session model", () => {
     )
   })
 
-  it("creates persistent Electron partition names from session keys", () => {
+  it("creates origin-scoped dApp sessions", () => {
     expect(createDappSession("https://app.aave.com/markets", "2026-05-28T00:00:00.000Z")).toEqual({
       createdAt: "2026-05-28T00:00:00.000Z",
       key: "cypheria:dapp:https://app.aave.com",
       origin: "https://app.aave.com",
-      partition: "persist:cypheria:dapp:https://app.aave.com",
     })
   })
 

@@ -20,7 +20,6 @@ const fromSessionRow = (row: typeof dappOrigins.$inferSelect): DappSession =>
   dappSessionSchema.parse({
     origin: row.origin,
     key: row.sessionKey,
-    partition: row.partition,
     createdAt: row.createdAt,
     ...(row.lastUsedAt ? { lastUsedAt: row.lastUsedAt } : {}),
   })
@@ -154,14 +153,12 @@ export const createDappBrowserPersistenceService = (
       .values({
         origin: session.origin,
         sessionKey: session.key,
-        partition: session.partition,
         createdAt: session.createdAt,
         lastUsedAt: session.lastUsedAt ?? null,
       })
       .onConflictDoUpdate({
         set: {
           sessionKey: session.key,
-          partition: session.partition,
           lastUsedAt: session.lastUsedAt ?? session.createdAt,
         },
         target: dappOrigins.origin,

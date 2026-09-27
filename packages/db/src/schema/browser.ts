@@ -12,7 +12,6 @@ import { wallets } from "./wallet.js"
 export const dappOrigins = sqliteTable("dapp_origins", {
   origin: text("origin").primaryKey(),
   sessionKey: text("session_key").$type<DappSessionKey>().notNull().unique(),
-  partition: text("partition").notNull(),
   createdAt: text("created_at").notNull(),
   lastUsedAt: text("last_used_at"),
 })

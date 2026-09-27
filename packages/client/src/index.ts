@@ -15,6 +15,7 @@ import {
   isAgentUpdateAvailable,
 } from "./agent-manager.js"
 import { type ArtifactActions, createArtifactActions } from "./artifact.js"
+import { type BrowserActions, createBrowserActions } from "./browser.js"
 import { createGitActions, type GitActions } from "./git.js"
 import { createHarnessActions, type HarnessActions } from "./harness.js"
 import { type CodexHarnessActions, createCodexHarnessActions } from "./harness-codex.js"
@@ -79,6 +80,7 @@ export interface CypheriaApi {
   /** Preferred plural Agent facade. `agent` remains as a compatibility alias. */
   readonly agents: AgentActions
   readonly artifacts: ArtifactActions
+  readonly browser: BrowserActions
   readonly integrations: IntegrationActions
   readonly git: GitActions
   readonly projectThread: ProjectThreadActions
@@ -170,6 +172,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
   const terminals = createTerminalActions(serverClient)
   const web3 = createWeb3Actions(serverClient)
   const artifacts = createArtifactActions(threads.timeline)
+  const browser = createBrowserActions(serverClient)
   const settings: SettingsActions = {
     get: async (options) => serverClient.getServerConfig(options),
     reload: async (options) => serverClient.reloadServerConfig(options),
@@ -179,6 +182,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
     agent: agents,
     agents,
     artifacts,
+    browser,
     integrations,
     git,
     projectThread,
@@ -229,6 +233,7 @@ export function createCypheriaApi(serverClient: ServerClient): CypheriaApi {
   }
 }
 
+export type { BrowserHostRegistration } from "./browser.js"
 export {
   type ConnectionState,
   CypheriaCapabilityError,
@@ -241,6 +246,7 @@ export {
 export type {
   AgentManagementActions,
   ArtifactActions,
+  BrowserActions,
   CodexHarnessActions,
   HarnessActions,
   IntegrationActions,

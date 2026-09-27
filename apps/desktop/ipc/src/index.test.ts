@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest"
 import {
   appConfigOpenContract,
   appGitFileActionContract,
-  browserSessionOpenContract,
+  browserAttachedRegisterContract,
+  browserDataClearContract,
   clientSettingDefinitions,
   composerDraftKey,
   dappProviderRequestContract,
@@ -27,7 +28,14 @@ describe("desktop IPC contracts", () => {
       "appProjectOpen",
       "appProjectReveal",
       "appSoundPick",
-      "browserSessionOpen",
+      "browserActiveSet",
+      "browserAttachedRegister",
+      "browserAutomationExecute",
+      "browserDataClear",
+      "browserDevToolsOpen",
+      "browserFocus",
+      "browserShortcutPolicySet",
+      "browserUnregister",
       "dappProviderRequest",
       "settingsAppearanceFontsList",
       "settingsNotificationSoundPreview",
@@ -151,13 +159,23 @@ describe("desktop IPC contracts", () => {
     expect(panelLayoutKey("thread-1")).toBe("panelLayout:thread-1")
   })
 
-  it("keeps dApp WebContents traffic origin-scoped", () => {
-    expect(browserSessionOpenContract.request.parse({ url: "https://app.example/path" })).toEqual({
-      url: "https://app.example/path",
-    })
+  it("scopes browser tabs to a Thread or the global browser", () => {
+    const registration = {
+      browserId: "5b8f7b43-86a4-4c65-9f79-3a3a3d35f0c1",
+      kind: "dapp",
+      scopeId: "global",
+      webContentsId: 7,
+    }
+    expect(browserAttachedRegisterContract.request.parse(registration)).toEqual(registration)
     expect(() =>
-      browserSessionOpenContract.request.parse({ url: "http://app.example/path" })
+      browserAttachedRegisterContract.request.parse({ ...registration, scopeId: "workspace-1" })
     ).toThrow()
+    expect(() =>
+      browserDataClearContract.request.parse({ origin: "not a url", scope: "dapp-origin" })
+    ).toThrow()
+  })
+
+  it("keeps dApp provider traffic origin-scoped", () => {
     expect(
       dappProviderRequestContract.request.parse({
         id: "provider_1",

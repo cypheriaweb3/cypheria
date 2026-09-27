@@ -33,7 +33,7 @@ Agent adapters   Cypheria runtime
 远程客户端可通过 @cypheria/relay -> apps/relay -> apps/server 连接。
 ```
 
-Electron 负责窗口、隔离的 dApp WebContents、preload bridge、Desktop 本地设置、更新与操作系统集成。共享产品状态和特权操作属于 Server。
+Electron 负责窗口、内置浏览器标签页与 dApp 钱包 provider 的加固边界、preload bridge、Desktop 本地设置、更新与操作系统集成。共享产品状态和特权操作属于 Server。
 
 详见[架构指南](docs/architecture.zh-CN.md)与[文档索引](docs/README.zh-CN.md)。
 
@@ -98,7 +98,7 @@ Cypheria 的本地数据位于 `$CYPHERIA_HOME`，默认是 `~/.cypheria`。Cyph
 - Renderer 与 dApp 页面不会获得私钥或数据库直接访问能力。
 - Agent 与 Schedule 只提交签名意图；Server 必须通过策略评估每个意图。
 - Auto-signing 默认关闭，必须通过显式策略开启。
-- dApp browser session 按 origin 隔离。
+- dApp 钱包 session 与权限按 origin 隔离；网页标签页永远不会获得钱包 provider。
 - 签名、策略决策、Schedule run 与交易结果都可审计。
 
 详见 [Web3 指南](docs/web3.zh-CN.md)与[架构安全边界](docs/architecture.zh-CN.md#信任边界)。

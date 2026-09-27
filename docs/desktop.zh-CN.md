@@ -8,12 +8,12 @@ title: Desktop
 
 ## 进程边界
 
-- Electron main 负责窗口、应用生命周期、Server 管理、桌面设置、安全存储、更新、原生菜单、操作系统集成和隔离的 dApp browser views。
+- Electron main 负责窗口、应用生命周期、Server 管理、桌面设置、安全存储、更新、原生菜单、操作系统集成，以及浏览器 guest 加固：webview 挂载、浏览器配置、弹窗、导航、自动化和 dApp provider 边界。
 - Preload 为 Electron 专属能力暴露狭窄的类型化 IPC。
 - TanStack renderer 直接通过 `@cypheria/client` 使用共享产品状态并消费实时 Agent turns。
-- dApp preload 向隔离 origin 暴露受限 provider bridge；绝不暴露 Node.js 或密钥材料。
+- 浏览器标签页是由主窗口 renderer 承载的沙箱化 `<webview>` guest。Electron main 为每个 guest 选择 preload；dApp preload 只向安全 origin 的顶层 frame 暴露受限 provider bridge，绝不暴露 Node.js 或密钥材料。
 
-Browser view 默认关闭 `nodeIntegration`，开启 `contextIsolation`、sandbox 和 web security。
+浏览器 guest 和弹窗始终关闭 `nodeIntegration`，开启 `contextIsolation`、sandbox 和 web security。
 
 ## Server Manager
 
@@ -175,9 +175,23 @@ Git 设置页将本地 Codex Git 偏好保存在 Server 配置中，包括分支
 
 对于新建或恢复的托管 Codex 线程，Server 会将配置的分支前缀和提交、PR 指令写入 Codex developer instructions。
 
-## dApp 与 Web3 边界
+## 浏览器与 dApp 边界
 
-每个 dApp origin 使用隔离 session partition 和受限 provider permissions。Electron 负责 `WebContents`、导航策略、弹窗、下载和注入边界。Provider request 转发到 Server Web3 API；签名和策略评估仍在特权 Server runtime 中。
+只有主窗口可以承载内置浏览器；popout 窗口不承载。改编的浏览器代码的第三方声明见 `NOTICE`。
+
+### 标签页与配置
+
+浏览器标签页属于某个 Thread（显示在该 Thread 的 Browser 面板中），或属于钱包 dApp 启动器使用的全局 `/browser` 页面。设备本地的标签页索引保存在 Desktop client KV 中，页面状态保存在 guest 中。Guest 统一放在 React 面板之外的固定定位容器里：可见面板把当前标签页定位到自身上方，隐藏的标签页停放为 1×1，页面仍会运行，Agent 也仍可操作。恢复的标签页在首次显示或被自动化时从保存的 URL 加载。输入框的 `@` 菜单会列出该 Thread 已打开的标签页。
+
+每个标签页都有类型。网页标签页共享 `persist:cypheria-browser` 配置，永远不会获得钱包。dApp 标签页共享独立的 `persist:cypheria-dapp-browser` 配置。切换标签页类型会重建 guest，因为 guest 挂载后配置无法更改。Electron main 拒绝其他 partition 或 preload，拒绝设备权限，阻止非 HTTP(S) 导航；需要 `window.opener` 的 `window.open` 弹窗以没有 preload 的沙箱窗口打开，其他新窗口请求会变成同类型的标签页。地址栏聚焦和重新加载快捷键在 guest 中保留，其他按键交给页面处理。
+
+### Agent 浏览器工具
+
+开启 **设置 → 通用 → Agent 浏览器工具** 后，主窗口会向 Server 注册为浏览器 host，并对调用方 Thread 的标签页执行 `browser_*` 命令。快照提供无障碍树 ref，页面变化后 ref 失效；点击、按键、悬停和拖拽在目标可见、可用且稳定后，通过 Chrome DevTools Protocol 以可信输入执行。JavaScript 对话框会被处理并报告，不会阻塞。上传在解析符号链接后只接受 Thread 工作目录内的文件。Server 契约见 [Protocol](protocol.zh-CN.md#浏览器-host-与-agent-浏览器工具)。
+
+### dApp 标签页
+
+钱包权限和 session 仍然按 origin 隔离。Electron main 根据发出请求的 frame 的 origin 推导每个 provider request 的范围，拒绝子 frame 和不匹配的 session key，并在某个 origin 首次使用 provider 时打开 Server 上的 dApp session。Provider event 会发送到当前显示该 origin 的所有 dApp 标签页。dApp 配置中的跨站请求和响应会移除 Cookie；这不涵盖第三方 frame 内通过 `document.cookie` 的访问，分区（CHIPS）Cookie 也会被移除。清除某个网站的数据会从 dApp 配置中删除其存储，但不会撤销钱包权限。签名和策略评估仍在特权 Server runtime 中进行；即使由 Agent 操作页面，来自 dApp 标签页的签名意图仍保持 `dapp` 来源。
 
 ## 跨平台要求
 

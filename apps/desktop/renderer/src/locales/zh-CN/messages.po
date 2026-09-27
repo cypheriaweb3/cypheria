@@ -2251,3 +2251,148 @@ msgstr "回退到此处"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.message.rewindReplaceDraft"
 msgstr "回退会替换当前的输入草稿。是否继续？"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.address"
+msgstr "地址"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.address.placeholder"
+msgstr "输入网址"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.address.unsupported"
+msgstr "只能打开 http 和 https 页面。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.back"
+msgstr "后退"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.dapp.clearSite"
+msgstr "清除网站数据"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.dapp.origin"
+msgstr "钱包请求仅限于 {dappOrigin}"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.devtools"
+msgstr "打开开发者工具"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.empty"
+msgstr "输入网址以打开页面。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.forward"
+msgstr "前进"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.loadFailed"
+msgstr "无法加载此页面：{loadError}"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.mode.dapp"
+msgstr "以 dApp 打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.mode.dapp.hint"
+msgstr "dApp 标签页使用独立的共享配置，可以使用你的钱包。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.mode.web"
+msgstr "以网页打开"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.mode.web.hint"
+msgstr "网页标签页不会获得钱包。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.reload"
+msgstr "重新加载"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.stop"
+msgstr "停止"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.tab.close"
+msgstr "关闭标签页"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.tab.new"
+msgstr "新标签页"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.tab.open"
+msgstr "打开标签页"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.tabs"
+msgstr "浏览器标签页"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.unavailable"
+msgstr "浏览器仅在 Desktop 主窗口中可用。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.section"
+msgstr "浏览器"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.agentTools"
+msgstr "Agent 浏览器工具"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.agentToolsDescription"
+msgstr "允许 Agent 在自己的对话中打开并控制浏览器标签页，包括已登录的页面和 dApp 标签页。钱包签名仍遵循你的策略和审批。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clearWeb"
+msgstr "网页浏览数据"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clearWebDescription"
+msgstr "清除网页标签页使用的 Cookie、存储和缓存。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clearDapp"
+msgstr "dApp 浏览数据"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clearDappDescription"
+msgstr "清除 dApp 标签页使用的 Cookie、存储和缓存。钱包授权会保留。"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clear"
+msgstr "清除"

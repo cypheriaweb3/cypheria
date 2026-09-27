@@ -43,6 +43,13 @@ The detailed future service boundary and threat model are in [Marketplace](marke
 
 - [ ] Verify packaged Electron Connect behavior and GitHub/GitLab authorization and PR/MR calls in Cypheria's managed Codex home.
 
+## Built-in browser
+
+- [ ] Give Claude, Pi, OpenCode, and ACP Agents the `browser_*` tools through their harness adapters, using the same Server broker and Thread scoping as Codex.
+- [ ] Verify the built-in browser end to end in development and packaged Electron builds: tab residency and screenshots of parked tabs, Agent commands, popups, and the dApp provider smoke test.
+- [ ] Measure whether `document.cookie` in third-party frames bypasses the dApp cookie filter, and add bounce-tracking protection for the shared dApp profile.
+- [ ] Add dApp tab controls for connected accounts, disconnect, and permission revocation once the Server exposes per-origin permission management.
+
 ## Expo
 
 Expo currently remains a buildable client foundation. Mobile product work will be planned after the Desktop experience is mature; no unapproved feature checklist is maintained here.

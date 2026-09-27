@@ -10,7 +10,7 @@ Cypheria 将纯 Web3 领域类型与特权执行分离。`@cypheria/web3` 提供
 
 客户端使用 `client.web3`。它们可以创建网络、管理钱包 metadata、提交签名意图、处理审批和操作 dApp session，但不能访问私钥、credential headers、vault files 或 provider processes。
 
-Agent 和 Schedule 使用同一 Server 边界，创建 intent 而不是 signature。Electron 负责隔离的 dApp `WebContents`，并把受限 provider request 转发到 Server。
+Agent 和 Schedule 使用同一 Server 边界，创建 intent 而不是 signature。Desktop 在内置浏览器中承载 dApp。Electron main 按发出请求的页面 origin 检查每个 provider request，再转发到 Server；参见 [Desktop](desktop.zh-CN.md#dapp-标签页)。
 
 ## Networks
 
@@ -47,7 +47,7 @@ Server 校验 active context 与 chain，只在签名操作期间解析 key，�
 
 ## dApp provider
 
-Provider 层支持受限 Ethereum 与 Solana sessions 以及通用 provider events。dApp session 把 origin 与允许的 accounts、networks、methods 和 expiry 绑定。Session 状态按 origin 隔离；disconnect、account change、chain change 和 permission update 都是显式事件。
+Provider 层支持受限 Ethereum 与 Solana sessions 以及通用 provider events。dApp session 把 origin 与允许的 accounts、networks、methods 和 expiry 绑定。Desktop 在某个 origin 首次使用 provider 时打开它。即使 dApp 标签页共享一个浏览器配置，Session 状态仍按 origin 隔离；disconnect、account change、chain change 和 permission update 都是显式事件。
 
 Wallet provider request 会经过 Schema 校验并通过 policy 路由。dApp 不会获得 Server credential 或钱包实现的直接访问权。
 
@@ -62,7 +62,7 @@ Audit record 包含 actor、source、event type、correlation ID、payload hash�
 - Renderer、localStorage、IndexedDB、日志或普通数据库字段中不得出现私钥。
 - 未经 policy evaluation 不得签名。
 - 不存在隐式 auto-sign policy。
-- dApp session 不跨 origin 共享。
+- dApp session、provider 权限和注入的 provider 状态不跨 origin 共享。
 - 公开 network view 不包含秘密 endpoint header。
 - 中断的签名或发送不得自动重放。
 - Agent 或 plugin 不获得 raw signer。

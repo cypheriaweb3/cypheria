@@ -2251,3 +2251,148 @@ msgstr "Rewind to here"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.message.rewindReplaceDraft"
 msgstr "Rewind will replace the current composer draft. Continue?"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.address"
+msgstr "Address"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.address.placeholder"
+msgstr "Enter a URL"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.address.unsupported"
+msgstr "Only http and https pages can be opened."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.back"
+msgstr "Back"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.dapp.clearSite"
+msgstr "Clear site data"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.dapp.origin"
+msgstr "Wallet requests are scoped to {dappOrigin}"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.devtools"
+msgstr "Open developer tools"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.empty"
+msgstr "Enter a URL to open a page."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.forward"
+msgstr "Forward"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.loadFailed"
+msgstr "This page could not be loaded: {loadError}"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.mode.dapp"
+msgstr "Open as dApp"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.mode.dapp.hint"
+msgstr "dApp tabs share a separate profile and can use your wallet."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.mode.web"
+msgstr "Open as web page"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.mode.web.hint"
+msgstr "Web tabs never receive a wallet."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.reload"
+msgstr "Reload"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.stop"
+msgstr "Stop"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.tab.close"
+msgstr "Close tab"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.tab.new"
+msgstr "New tab"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.tab.open"
+msgstr "Open tab"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.tabs"
+msgstr "Browser tabs"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.unavailable"
+msgstr "The browser is available in the main Desktop window."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.section"
+msgstr "Browser"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.agentTools"
+msgstr "Agent browser tools"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.agentToolsDescription"
+msgstr "Lets Agents open and control browser tabs in their own conversation, including signed-in pages and dApp tabs. Wallet signing still follows your policies and approvals."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clearWeb"
+msgstr "Web browsing data"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clearWebDescription"
+msgstr "Clears cookies, storage, and cache used by web tabs."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clearDapp"
+msgstr "dApp browsing data"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clearDappDescription"
+msgstr "Clears cookies, storage, and cache used by dApp tabs. Wallet permissions are kept."
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-settings-section.tsx
+msgid "settings.browser.clear"
+msgstr "Clear"

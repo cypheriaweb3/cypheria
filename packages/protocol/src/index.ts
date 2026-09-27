@@ -7,6 +7,13 @@ import {
   type AgentManagementServerMessage,
 } from "./agent/management.ts"
 import {
+  BROWSER_CLIENT_SCHEMAS,
+  BROWSER_RESPONSE_TYPES,
+  BROWSER_SERVER_SCHEMAS,
+  type BrowserClientMessage,
+  type BrowserServerMessage,
+} from "./browser.ts"
+import {
   GIT_CLIENT_SCHEMAS,
   GIT_RESPONSE_TYPES,
   GIT_SERVER_SCHEMAS,
@@ -79,6 +86,7 @@ export * from "./agent/opencode.ts"
 export * from "./agent/pi.ts"
 export * from "./agent/registry.ts"
 export * from "./binary-frame.ts"
+export * from "./browser.ts"
 export * from "./codex-ui/image-generation.ts"
 export * from "./codex-ui/turn-projection.ts"
 export * from "./git.ts"
@@ -102,6 +110,7 @@ const CYPHERIA_CBOR_MAX_DEPTH = 64
 /** Stable capabilities a server can advertise in the `server.status.notification` message. */
 export const SERVER_CAPABILITIES = {
   agentManager: "agent.manager",
+  browser: "browser",
   codexHarness: "harness.codex",
   harnessManagement: "harness.management",
   projectThread: "project-thread",
@@ -392,6 +401,11 @@ export const DEFAULT_GIT_SETTINGS: GitSettings = {
   worktreeKeepCount: 15,
 }
 
+/** Agent access to Desktop browser tabs. Off by default because tabs share signed-in state. */
+export const BrowserToolsSettingsSchema = z.object({ enabled: z.boolean() }).strict()
+export type BrowserToolsSettings = z.infer<typeof BrowserToolsSettingsSchema>
+export const DEFAULT_BROWSER_TOOLS_SETTINGS: BrowserToolsSettings = { enabled: false }
+
 export const NetworkProxyProtocolSchema = z.enum(["http", "https", "socks4", "socks5"])
 export type NetworkProxyProtocol = z.infer<typeof NetworkProxyProtocolSchema>
 export type NetworkProxySettings =
@@ -471,6 +485,7 @@ export const PersistedServerConfigSchema = z
   .object({
     version: z.literal(1),
     git: GitSettingsSchema.default(DEFAULT_GIT_SETTINGS),
+    browserTools: BrowserToolsSettingsSchema.default(DEFAULT_BROWSER_TOOLS_SETTINGS),
     server: z
       .object({
         logging: ServerLoggingSchema.default({
@@ -530,6 +545,7 @@ export type PersistedServerConfig = z.infer<typeof PersistedServerConfigSchema>
 export const PersistedServerConfigPatchSchema = z
   .object({
     git: GitSettingsSchema.partial().strict().optional(),
+    browserTools: BrowserToolsSettingsSchema.partial().strict().optional(),
     server: z
       .object({
         logging: z
@@ -676,6 +692,7 @@ export type SessionInboundMessage =
   | z.infer<typeof NetworkProxySetRequestSchema>
   | z.infer<typeof NetworkProxyTestRequestSchema>
   | AgentManagementClientMessage
+  | BrowserClientMessage
   | IntegrationClientMessage
   | GitClientMessage
   | CodexHarnessClientMessage
@@ -696,6 +713,7 @@ export const SessionInboundMessageSchema = discriminatedUnionByType<SessionInbou
   NetworkProxySetRequestSchema,
   NetworkProxyTestRequestSchema,
   ...AGENT_MANAGEMENT_CLIENT_SCHEMAS,
+  ...BROWSER_CLIENT_SCHEMAS,
   ...INTEGRATION_CLIENT_SCHEMAS,
   ...GIT_CLIENT_SCHEMAS,
   ...CODEX_HARNESS_CLIENT_SCHEMAS,
@@ -786,6 +804,7 @@ export type SessionOutboundMessage =
   | z.infer<typeof NetworkProxyTestResponseSchema>
   | z.infer<typeof NetworkProxyUpdatedNotificationSchema>
   | AgentManagementServerMessage
+  | BrowserServerMessage
   | IntegrationServerMessage
   | GitServerMessage
   | z.infer<typeof GitRepositoryChangedNotificationSchema>
@@ -810,6 +829,7 @@ export const SessionOutboundMessageSchema = discriminatedUnionByType<SessionOutb
   NetworkProxyTestResponseSchema,
   NetworkProxyUpdatedNotificationSchema,
   ...AGENT_MANAGEMENT_SERVER_SCHEMAS,
+  ...BROWSER_SERVER_SCHEMAS,
   ...INTEGRATION_SERVER_SCHEMAS,
   ...GIT_SERVER_SCHEMAS,
   GitRepositoryChangedNotificationSchema,
@@ -851,6 +871,7 @@ const clientResponseTypes = new Set<string>([
   "agent.toolchain.check_updates.response",
   "agent.toolchain.update.response",
   ...PROJECT_THREAD_RESPONSE_TYPES,
+  ...BROWSER_RESPONSE_TYPES,
   ...INTEGRATION_RESPONSE_TYPES,
   ...GIT_RESPONSE_TYPES,
   ...HARNESS_RESPONSE_TYPES,

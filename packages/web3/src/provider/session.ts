@@ -7,7 +7,6 @@ export type DappSession = {
   readonly key: DappSessionKey
   readonly lastUsedAt?: string
   readonly origin: string
-  readonly partition: string
 }
 
 export const normalizeDappOrigin = (value: string): string => {
@@ -40,14 +39,10 @@ export const dappSessionSchema = z
     key: dappSessionKeySchema,
     lastUsedAt: z.iso.datetime().optional(),
     origin: z.string().transform(normalizeDappOrigin),
-    partition: z.string().min(1),
   })
   .strict()
   .superRefine((session, context) => {
-    if (
-      session.key !== createDappSessionKey(session.origin) ||
-      session.partition !== `persist:${session.key}`
-    ) {
+    if (session.key !== createDappSessionKey(session.origin)) {
       context.addIssue({ code: "custom", message: "The dApp session scope is inconsistent." })
     }
   })
@@ -58,7 +53,7 @@ export const createDappSession = (
 ): DappSession => {
   const normalizedOrigin = normalizeDappOrigin(origin)
   const key = createDappSessionKey(normalizedOrigin)
-  return { createdAt, key, origin: normalizedOrigin, partition: `persist:${key}` }
+  return { createdAt, key, origin: normalizedOrigin }
 }
 
 export type DappSessionPersistence = {

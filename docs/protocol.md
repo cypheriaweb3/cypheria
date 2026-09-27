@@ -150,6 +150,7 @@ client.integrations
 client.terminals
 client.git
 client.artifacts
+client.browser
 client.settings
 client.server
 ```
@@ -172,6 +173,14 @@ The Server audits the start and outcome of mutating Git requests under their req
 GitHub PR availability, listing, detail, creation, title/body editing, and merge use the Server host's `gh` installation and active `gh` account. Availability reports CLI, account, and current repository access separately; PR reads use fixed JSON fields and validate the result before returning it to clients. Creation checks for an existing PR on the head branch and passes the body through a private temporary file. Merge requires the displayed head commit SHA and uses `gh --match-head-commit`.
 GitHub App availability is reported per operation: list, account-scoped search, detail, diff, comments and reviews, checks, review threads, media, and creation. Each available group must belong to the repository's selected account link. The Desktop enables only supported App reads; PR mutations other than creation use `gh`. The PR form can create and switch to a new branch, optionally commit local changes with a generated message, push the branch, generate PR title and body using saved instructions, and create through the selected provider. The CLI also offers a cross-repository PR board with state, involvement, text, and repository filters. After an uncertain creation response, it refreshes PR data and asks the user to check GitHub before retrying.
 GitLab MR detail, branch lookup, discussions, reviewer and approval status, project member search, reviewer management, pipeline jobs and bridges, creation, title updates, and ordinary comments use the connected GitLab App's `codex_apps` tools for a local Codex thread. `git.gitlab-mr-availability.request` reports each action group separately. Server checks that the thread belongs to the requested repository, its origin is GitLab.com, the project and MR URLs match that origin, and the required tools share one connector account link. Creation requires the current branch to match its pushed `origin` head; the browser-form URL uses the same check and works without a connector call. Server rechecks the tool resource URI after read calls; write calls validate the link before sending and confirm the response without retrying. The Desktop disables unavailable connector actions while retaining the browser form and local branch push path.
+
+## Browser hosts and Agent browser tools
+
+The `browser` capability lets a Desktop session act as a browser host. `client.browser.registerHost()` sends `browser.host.register.request` with the host kind and supported commands, repeats it after each reconnect, and releases it with `browser.host.unregister.request`. Only `desktop` sessions may register; closing the session removes the host.
+
+The Server sends one `browser.automation.command.notification` per command with an automation ID, the command, and the calling Thread ID and working directory. The host answers with `browser.automation.result.request`, whose payload is either a typed result or a typed error. Commands are `list_tabs`, `new_tab`, `close_tab`, `resize`, `snapshot`, `screenshot`, `logs`, `wait`, `click`, `fill`, `type`, `keypress`, `hover`, `select`, `drag`, `upload`, `scroll`, `navigate`, `back`, `forward`, `reload`, and `evaluate`. Errors include `browser_disabled`, `browser_no_host`, `browser_tab_not_found`, `browser_stale_ref`, `browser_timeout`, `browser_denied`, and `browser_unsupported`; handled page dialogs are reported with both.
+
+The Server broker remembers which host owns each tab, aggregates `list_tabs` across hosts, fails pending commands with a retryable `browser_no_host` when a host disconnects, and times commands out after 15 seconds. Agents reach the broker through Codex dynamic tools named `browser_<command>`; tool calls carry the Cypheria Thread, which limits them to that Thread's tabs. Browser tools are off until `browserTools.enabled` is set in Server configuration. State-changing commands are audited under the automation ID with the Thread and command name, without arguments; a command does not start when its initial audit write fails.
 
 ## Validation rules
 

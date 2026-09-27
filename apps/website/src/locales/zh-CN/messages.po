@@ -91,7 +91,7 @@ msgstr "Cypheria 将权限留在本地 Server，让敏感操作清晰可见，�
 #. js-lingui-explicit-id
 #: src/lib/copy.ts
 msgid "security.isolation.text"
-msgstr "dApp 会话使用隔离的浏览器分区，既无法访问 Node.js，也无法获得原始签名器。"
+msgstr "钱包权限按 dApp origin 隔离。dApp 页面在独立的沙箱浏览器配置中运行，既无法访问 Node.js，也无法获得原始签名器。"
 
 #. js-lingui-explicit-id
 #: src/lib/copy.ts

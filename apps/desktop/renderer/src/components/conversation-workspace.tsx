@@ -158,6 +158,9 @@ import type {
   ComposerDraftAttachment,
   PanelLayoutCheckpoint,
 } from "../../../ipc/src/index.js"
+import { BrowserPane } from "../browser/browser-pane.js"
+import { tabsForScope } from "../browser/state.js"
+import { useBrowserTabsState } from "../browser/store.js"
 import {
   clientStateStore,
   composerDraftAtom,
@@ -1044,6 +1047,8 @@ export function ConversationWorkspace({
     [markPanelDirty]
   )
   const terminals = useWorkspaceTerminals(initialProjectId)
+  const browserTabs = useBrowserTabsState()
+  const threadBrowserTabs = snapshot.thread?.id ? tabsForScope(browserTabs, snapshot.thread.id) : []
 
   useEffect(() => {
     if (!canPersistPanel || !panelDirtyRef.current) return
@@ -1504,13 +1509,17 @@ export function ConversationWorkspace({
         title: i18n._(msg({ id: "chat.panel.images", message: "Images" })),
       },
       {
-        content: (
-          <ChatBrowserPanel>
-            <EmptyPanel>
-              <Trans id="chat.panel.browser.empty">No browser session is open</Trans>
-            </EmptyPanel>
-          </ChatBrowserPanel>
-        ),
+        // The pane positions a resident <webview> over itself, so it only mounts while visible.
+        content:
+          rightVisibility === "visible" && rightTab === "browser" && snapshot.thread?.id ? (
+            <BrowserPane scopeId={snapshot.thread.id} />
+          ) : rightVisibility === "visible" && rightTab === "browser" ? (
+            <ChatBrowserPanel>
+              <EmptyPanel>
+                <Trans id="chat.panel.browser.empty">No browser session is open</Trans>
+              </EmptyPanel>
+            </ChatBrowserPanel>
+          ) : null,
         icon: <GlobeIcon />,
         id: "browser",
         title: i18n._(msg({ id: "chat.panel.browser", message: "Browser" })),
@@ -2159,6 +2168,15 @@ export function ConversationWorkspace({
                         if (id === "clear") setComposer("")
                       }}
                       suggestions={[
+                        ...threadBrowserTabs
+                          .filter((tab) => tab.url !== "about:blank")
+                          .map((tab) => ({
+                            description: tab.url,
+                            id: `browser-tab:${tab.browserId}`,
+                            kind: "browser-tab" as const,
+                            label: tab.title || tab.url,
+                            target: tab.url,
+                          })),
                         ...attachments.map((attachment) => ({
                           id: attachment.id,
                           kind: "file" as const,

@@ -50,7 +50,7 @@ The relay additionally requires Go. Package-specific commands are documented in 
 
 - `apps/server` owns shared state, database access, Agent runtimes and adapters, schedules, integrations, privileged terminals, Web3 execution, and audit.
 - `@cypheria/client` is the public TypeScript SDK. Clients use it with `@cypheria/protocol`; they do not import Server internals, repositories, or Agent SDKs.
-- Electron main may manage a local Server and owns only Desktop-local windows, isolated dApp views, preload, settings, updates, secure storage, and OS integration.
+- Electron main may manage a local Server and owns only Desktop-local windows, browser guest hardening and the dApp provider boundary, preload, settings, updates, secure storage, and OS integration.
 - AI SDK providers are browser-safe and depend on the shared client, protocol, and public AI SDK types.
 - Domain packages do not depend on `apps/server`; Server composition uses explicit services.
 - CLI uses `@cypheria/client` directly and does not depend on Desktop, Electron, or Server internals.
@@ -80,7 +80,7 @@ Do not commit local homes, IDE state, dependency directories, caches, build outp
 - Private keys, signing, policy evaluation, schedule execution, database access, Agent processes, and plugin processes stay in the Server or controlled workers.
 - Renderer and dApp pages never receive Node.js access, private keys, raw signers, or database access.
 - Every signing intent passes policy. Auto-signing is off unless an explicit enabled policy allows the exact action.
-- dApp sessions are isolated by origin.
+- dApp sessions, provider permissions, and injected provider state are isolated by origin; only dApp tabs receive a wallet provider.
 - Signatures, rejections, policy decisions, schedule runs, and transaction results are auditable.
 - Interrupted signing or sending is never replayed automatically.
 

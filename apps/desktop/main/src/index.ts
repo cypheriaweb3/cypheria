@@ -19,8 +19,10 @@ import {
   net,
   powerSaveBlocker,
   protocol,
+  session,
   shell,
   Tray,
+  webContents,
 } from "electron"
 import {
   type AppearanceSettingsWrite,
@@ -35,9 +37,17 @@ import {
   appProjectOpenContract,
   appProjectRevealContract,
   appSoundPickContract,
-  browserSessionOpenContract,
+  browserActiveSetContract,
+  browserAttachedRegisterContract,
+  browserAutomationExecuteContract,
+  browserDataClearContract,
+  browserDevToolsOpenContract,
+  browserFocusContract,
+  browserShortcutPolicySetContract,
+  browserUnregisterContract,
   type ClientPreferencesSnapshot,
   CYPHERIA_APPEARANCE_ARGUMENT_PREFIX,
+  CYPHERIA_BROWSER_CHANNELS,
   CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX,
   CYPHERIA_IPC_CHANNELS,
   CYPHERIA_LANGUAGE_ARGUMENT_PREFIX,
@@ -69,6 +79,19 @@ import {
   storageReplicaRenameScopeContract,
 } from "../../ipc/src/index.js"
 import { buildDesktopAppPaths, type DesktopAppPaths } from "./app-paths.js"
+import { executeBrowserAutomationForHost } from "./browser/automation/ipc.js"
+import { DappProviderController } from "./browser/dapp.js"
+import { installBrowserGuards, pendingBrowserWindowOpenRequests } from "./browser/guard.js"
+import { BrowserKeyboard } from "./browser/keyboard/index.js"
+import { BrowserProfiles } from "./browser/profile.js"
+import {
+  getBrowserWebContentsForHostWindow,
+  getBrowserWebviewRegistry,
+  registerAttachedBrowser,
+  setScopeActiveBrowserId,
+  unregisterBrowserFromHost,
+  unregisterBrowserHost,
+} from "./browser/webviews.js"
 import { configureChromiumFeatures } from "./chromium-features.js"
 import {
   copyDesktopAttachmentFile,
@@ -89,11 +112,6 @@ import {
   createDesktopClientStorageDatabase,
   type DesktopClientStorageDatabase,
 } from "./client-storage-database.js"
-import {
-  createDappBrowserController,
-  createElectronDappWebContentsFactory,
-  type DappBrowserController,
-} from "./dapp-browser.js"
 import { registerIpcRoute } from "./ipc.js"
 import { getOpenTargetApplication, listOpenTargets } from "./open-targets.js"
 import { resolveGeneratedImageProtocolPath } from "./renderer-protocol.js"
@@ -200,11 +218,12 @@ const previewNotificationSound = async (): Promise<{ played: boolean }> => {
   return { played: true }
 }
 const execFileAsync = promisify(execFile)
-let dappBrowserController: DappBrowserController | null = null
+const browserKeyboard = new BrowserKeyboard(getBrowserWebviewRegistry())
 
 const currentDir = dirname(fileURLToPath(import.meta.url))
 const preloadPath = join(currentDir, "../preload/index.cjs")
 const dappPreloadPath = join(currentDir, "../dapp-preload/index.cjs")
+const browserPreloadPath = join(currentDir, "../browser-preload/index.cjs")
 const rendererShellPath = join(currentDir, "../client/_shell.html")
 const rendererClientDir = dirname(rendererShellPath)
 const applicationIconPath = isPackagedRuntime
@@ -459,6 +478,97 @@ const registerRendererProtocol = (codexHome: string): void => {
   })
 }
 
+const toDappGuest = (contents: Electron.WebContents) => ({
+  getURL: () => contents.getURL(),
+  id: contents.id,
+  isDestroyed: () => contents.isDestroyed(),
+  send: (channel: string, payload: unknown) => contents.send(channel, payload),
+})
+
+const registerBrowserIpc = (client: CypheriaClient): void => {
+  const profiles = new BrowserProfiles(session)
+  const dapps = new DappProviderController({
+    findGuest: (webContentsId) => {
+      const contents = webContents.fromId(webContentsId)
+      return contents ? toDappGuest(contents) : null
+    },
+    openSession: (origin) => client.web3.dapps.openSession(origin),
+    requestRuntime: async (request) => {
+      try {
+        return await client.web3.dapps.request(request)
+      } catch {
+        return {
+          error: { code: 4900, message: "The wallet provider runtime is unavailable." },
+          id: request.id,
+        }
+      }
+    },
+  })
+  browserKeyboard.registerIpc()
+
+  registerIpcRoute(dappProviderRequestContract, (request, event) =>
+    dapps.routeProviderRequest(
+      {
+        frameOrigin: event.senderFrame?.origin ?? "",
+        isMainFrame: event.senderFrame === event.sender.mainFrame,
+        webContentsId: event.sender.id,
+      },
+      request
+    )
+  )
+  registerIpcRoute(browserAttachedRegisterContract, (input, event) => {
+    const registered = registerAttachedBrowser({
+      ...input,
+      findWebContents: (webContentsId) => webContents.fromId(webContentsId) ?? null,
+      profileSession: profiles.session(input.kind),
+      sender: event.sender,
+    })
+    const guest = webContents.fromId(input.webContentsId)
+    if (!registered || !guest) throw new Error("The browser tab registration was rejected.")
+    browserKeyboard.attach({ contents: guest, hostContents: event.sender })
+    if (input.kind === "dapp") {
+      dapps.registerGuest(guest.id)
+      guest.once("destroyed", () => dapps.unregisterGuest(input.webContentsId))
+    }
+    for (const url of pendingBrowserWindowOpenRequests.take(input.webContentsId)) {
+      event.sender.send(CYPHERIA_BROWSER_CHANNELS.newTabRequested, {
+        sourceBrowserId: input.browserId,
+        url,
+      })
+    }
+    return { registered: true as const }
+  })
+  registerIpcRoute(browserUnregisterContract, ({ browserId }, event) => {
+    unregisterBrowserFromHost(event.sender.id, browserId)
+    return { unregistered: true as const }
+  })
+  registerIpcRoute(browserActiveSetContract, ({ browserId, scopeId }, event) => {
+    setScopeActiveBrowserId({ browserId, hostWebContentsId: event.sender.id, scopeId })
+    return { updated: true as const }
+  })
+  registerIpcRoute(browserFocusContract, ({ browserId }, event) => {
+    const contents = getBrowserWebContentsForHostWindow(browserId, event.sender.id)
+    contents?.focus()
+    return { focused: contents !== null }
+  })
+  registerIpcRoute(browserDevToolsOpenContract, ({ browserId }, event) => {
+    const contents = getBrowserWebContentsForHostWindow(browserId, event.sender.id)
+    contents?.openDevTools({ mode: "detach" })
+    return { opened: contents !== null }
+  })
+  registerIpcRoute(browserAutomationExecuteContract, (request, event) =>
+    executeBrowserAutomationForHost(event.sender, request)
+  )
+  registerIpcRoute(browserShortcutPolicySetContract, (policy, event) => {
+    browserKeyboard.publish(event.sender.id, policy)
+    return { updated: true as const }
+  })
+  registerIpcRoute(browserDataClearContract, async (input) => {
+    await profiles.clear(input, webContents.getAllWebContents())
+    return { cleared: true as const }
+  })
+}
+
 const registerIpcHandlers = (
   paths: DesktopAppPaths,
   client: CypheriaClient,
@@ -559,18 +669,7 @@ const registerIpcHandlers = (
     await copyFile(source, destination.filePath)
     return { completed: true }
   })
-  registerIpcRoute(browserSessionOpenContract, ({ url }) => {
-    if (!dappBrowserController) throw new Error("The dApp browser is unavailable.")
-    return dappBrowserController.open(url)
-  })
-  registerIpcRoute(dappProviderRequestContract, async (request, event) => {
-    if (!dappBrowserController) throw new Error("The dApp browser is unavailable.")
-    return dappBrowserController.routeProviderRequest(
-      event.sender.id,
-      event.sender.getURL(),
-      request
-    )
-  })
+  registerBrowserIpc(client)
   registerIpcRoute(storageAttachmentWriteContract, ({ storageKey, bytes }) =>
     writeDesktopAttachment(app.getPath("userData"), storageKey, bytes)
   )
@@ -738,10 +837,7 @@ const registerDeveloperContextMenu = (window: BrowserWindow): void => {
   })
 }
 
-const createMainWindow = async (
-  client: CypheriaClient,
-  paths: DesktopAppPaths
-): Promise<BrowserWindow> => {
+const createMainWindow = async (paths: DesktopAppPaths): Promise<BrowserWindow> => {
   if (!desktopStorageDatabase) throw new Error("Desktop storage is unavailable")
   const appearance = await readAppearance(desktopStorageDatabase.keyValue)
   const language = await readLocaleBootstrap(
@@ -795,12 +891,20 @@ const createMainWindow = async (
       nodeIntegration: false,
       preload: preloadPath,
       sandbox: true,
+      // The renderer hosts browser tabs as <webview> guests. installBrowserGuards only lets the
+      // Cypheria browser partitions attach and forces sandboxed guest preferences.
+      webviewTag: true,
       webSecurity: true,
     },
     width: 1280,
   })
 
   registerDeveloperContextMenu(window)
+  installBrowserGuards(window, {
+    browserPreloadPath,
+    dappPreloadPath,
+    developerTools: !isPackagedRuntime,
+  })
 
   window.webContents.setWindowOpenHandler(({ url }) => {
     try {
@@ -816,22 +920,6 @@ const createMainWindow = async (
     return { action: "deny" }
   })
 
-  dappBrowserController = createDappBrowserController({
-    createWebContents: createElectronDappWebContentsFactory(window),
-    preloadPath: dappPreloadPath,
-    requestRuntime: async (request) => {
-      try {
-        return await client.web3.dapps.request(request)
-      } catch {
-        return {
-          error: { code: 4900, message: "The wallet provider runtime is unavailable." },
-          id: request.id,
-        }
-      }
-    },
-    sessions: { open: (url) => client.web3.dapps.openSession(url) },
-  })
-
   window.once("ready-to-show", () => {
     window.show()
   })
@@ -842,11 +930,11 @@ const createMainWindow = async (
     window.hide()
   })
 
+  const hostWebContentsId = window.webContents.id
   window.on("closed", () => {
-    if (mainWindow === window) {
-      mainWindow = null
-      dappBrowserController = null
-    }
+    unregisterBrowserHost(hostWebContentsId)
+    browserKeyboard.detachHost(hostWebContentsId)
+    if (mainWindow === window) mainWindow = null
   })
 
   const rendererUrl = getRendererUrl()
@@ -895,7 +983,7 @@ const registerLifecycleHandlers = (): void => {
     if (BrowserWindow.getAllWindows().length === 0) {
       if (!desktopClient || !desktopRuntimePaths) throw new Error("Desktop client is unavailable")
       await desktopClient.ensureConnected()
-      mainWindow = await createMainWindow(desktopClient, desktopRuntimePaths)
+      mainWindow = await createMainWindow(desktopRuntimePaths)
     }
   })
 
@@ -992,7 +1080,7 @@ const startDesktopApp = async (): Promise<void> => {
   }
   registerRendererProtocol(runtimePaths.codexHome)
   registerIpcHandlers(runtimePaths, desktopClient, desktopStorageDatabase)
-  mainWindow = await createMainWindow(desktopClient, runtimePaths)
+  mainWindow = await createMainWindow(runtimePaths)
 }
 
 process.on("uncaughtException", logFatalError)

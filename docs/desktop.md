@@ -8,12 +8,12 @@ title: Desktop
 
 ## Process boundary
 
-- Electron main owns windows, application lifecycle, Server management, desktop settings, secure storage, updates, native menus, OS integration, and isolated dApp browser views.
+- Electron main owns windows, application lifecycle, Server management, desktop settings, secure storage, updates, native menus, OS integration, and browser guest hardening: webview attachment, browser profiles, popups, navigation, automation, and the dApp provider boundary.
 - Preload exposes a narrow typed IPC surface for Electron-only capabilities.
 - The TanStack renderer uses `@cypheria/client` directly for shared product state and live Agent turns.
-- dApp preload exposes a scoped provider bridge to an isolated origin; it never exposes Node.js or key material.
+- Browser tabs are sandboxed `<webview>` guests hosted by the main window renderer. Electron main chooses each guest's preload; the dApp preload exposes a scoped provider bridge only to the top-level frame of a secure origin and never exposes Node.js or key material.
 
-Default browser views keep `nodeIntegration` off, `contextIsolation`, sandbox, and web security on.
+Browser guests and popups keep `nodeIntegration` off, `contextIsolation`, sandbox, and web security on.
 
 ## Server Manager
 
@@ -175,9 +175,23 @@ After creating a managed worktree, Server may clean up at most five older manage
 
 For new or resumed managed Codex threads, Server includes the configured branch prefix and commit and PR instructions in Codex developer instructions.
 
-## dApp and Web3 boundary
+## Browser and dApp boundary
 
-Each dApp origin receives an isolated session partition and scoped provider permissions. Electron owns the `WebContents`, navigation policy, popups, downloads, and injection boundary. Provider requests are forwarded to Server Web3 APIs; signing and policy evaluation remain in the privileged Server runtime.
+Only the main window may host the built-in browser; the popout window does not. Third-party notices for adapted browser code are in `NOTICE`.
+
+### Tabs and profiles
+
+A browser tab belongs to one Thread, shown in that Thread's Browser panel, or to the global `/browser` page used by the Wallets dApp launcher. The device-local tab index lives in Desktop client KV; page state lives in the guest. Guests are kept in one fixed-position host outside React panes: a visible pane positions its active tab over itself, and hidden tabs are parked at 1×1 so pages keep running and can still be driven by an Agent. Restored tabs load from their saved URL when first shown or automated. The composer `@` menu lists the Thread's open tabs.
+
+Each tab has a kind. Web tabs share the `persist:cypheria-browser` profile and never receive a wallet. dApp tabs share the separate `persist:cypheria-dapp-browser` profile. Switching a tab's kind rebuilds its guest because a profile cannot change after a guest attaches. Electron main rejects any other partition or preload, denies device permissions, blocks non-HTTP(S) navigation, opens `window.open` popups that need `window.opener` as sandboxed windows without a preload, and turns other new-window requests into tabs of the same kind. The address bar focus and reload shortcuts are reserved in the guest; other keys stay with the page.
+
+### Agent browser tools
+
+When **Settings → General → Agent browser tools** is on, the main window registers with the Server as a browser host and executes `browser_*` commands against the calling Thread's tabs. Snapshots expose accessibility-tree refs that expire when the page changes; clicks, keys, hovers, and drags use trusted input through the Chrome DevTools Protocol after the target is visible, enabled, and stable. JavaScript dialogs are handled and reported instead of blocking. Uploads accept only files inside the Thread's working directory after resolving symlinks. The Server contract is in [Protocol](protocol.md#browser-hosts-and-agent-browser-tools).
+
+### dApp tabs
+
+Wallet permissions and sessions remain per origin. Electron main derives the scope of each provider request from the sending frame's origin, rejects subframes and mismatched session keys, and opens the Server dApp session the first time an origin uses the provider. Provider events reach every dApp tab currently showing that origin. Cross-site cookies are removed from dApp-profile requests and responses; this does not cover `document.cookie` access inside third-party frames, and partitioned (CHIPS) cookies are removed as well. Clearing a site's data removes its storage from the dApp profile without revoking wallet permissions. Signing and policy evaluation remain in the privileged Server runtime, and signing intents from dApp tabs keep the `dapp` source even when an Agent drives the page.
 
 ## Cross-platform requirements
 

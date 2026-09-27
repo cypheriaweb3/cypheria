@@ -36,7 +36,7 @@ import {
   type DropResult,
 } from "@hello-pangea/dnd"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute } from "@tanstack/react-router"
+import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
   Check,
@@ -56,6 +56,9 @@ import {
   WalletCards,
 } from "lucide-react"
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react"
+import { BROWSER_GLOBAL_SCOPE } from "../../../ipc/src/browser.js"
+import { normalizeBrowserUrl } from "../browser/state.js"
+import { browserTabsStore } from "../browser/store.js"
 import { WorkbenchFrame } from "../components/workbench-frame"
 import { web3Api } from "../web3-api.js"
 
@@ -1074,22 +1077,35 @@ function AddWalletDialog({ onCreated }: Readonly<{ onCreated: () => void }>) {
 }
 
 function DappLauncher() {
+  const navigate = useNavigate()
   const [url, setUrl] = useState("")
-  const open = useMutation({
-    mutationFn: async () => {
-      if (!window.cypheria) throw new Error("The dApp browser is only available in Desktop.")
-      return window.cypheria.browser.openDapp(new URL(url).toString())
-    },
-  })
+  const [error, setError] = useState<string | null>(null)
+  const available = typeof window !== "undefined" && window.cypheria?.browser !== undefined
+  const open = () => {
+    const target = normalizeBrowserUrl(url)
+    if (!target) {
+      setError("Enter an http or https address.")
+      return
+    }
+    setError(null)
+    browserTabsStore.create({
+      activate: true,
+      kind: "dapp",
+      scopeId: BROWSER_GLOBAL_SCOPE,
+      url: target,
+    })
+    void navigate({ to: "/browser" })
+  }
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Globe2 className="size-4" />
-          Isolated dApp session
+          dApp browser
         </CardTitle>
         <CardDescription>
-          Each origin receives a separate session and explicit wallet permissions.
+          dApp tabs share a separate browser profile with third-party cookies blocked. Wallet
+          permissions are granted per origin.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -1097,18 +1113,25 @@ function DappLauncher() {
           className="flex gap-2"
           onSubmit={(event) => {
             event.preventDefault()
-            open.mutate()
+            open()
           }}
         >
           <Input
             placeholder="https://app.example"
-            type="url"
+            type="text"
             value={url}
             onChange={(event) => setUrl(event.currentTarget.value)}
           />
-          <Button type="submit">Open</Button>
+          <Button disabled={!available} type="submit">
+            Open
+          </Button>
         </form>
-        {open.error ? <p className="mt-3 text-sm text-destructive">{open.error.message}</p> : null}
+        {!available ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            The dApp browser is available in the main Desktop window.
+          </p>
+        ) : null}
+        {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
       </CardContent>
     </Card>
   )

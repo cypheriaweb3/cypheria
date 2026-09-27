@@ -46,6 +46,13 @@ title: 当前路线图
 - [ ] 通过已连接 GitLab App 工具完成 GitLab MR 操作，并校验 connector、账户 link、工具 scope、项目和 URL；按需保留浏览器表单创建路径。
 - [ ] 在打包 Electron 中验证 Connect 行为，并在 Cypheria 管理的 Codex home 中验证 GitHub/GitLab 授权和实际 PR/MR 调用。
 
+## 内置浏览器
+
+- [ ] 通过各自的 harness adapter，为 Claude、Pi、OpenCode 和 ACP Agent 提供 `browser_*` 工具，沿用与 Codex 相同的 Server broker 和 Thread 范围。
+- [ ] 在开发版和打包版 Electron 中端到端验证内置浏览器：标签页常驻与停放标签页截图、Agent 命令、弹窗，以及 dApp provider smoke test。
+- [ ] 测量第三方 frame 中的 `document.cookie` 是否绕过 dApp Cookie 过滤，并为共享的 dApp 配置加入跳转追踪（bounce tracking）防护。
+- [ ] 在 Server 提供按 origin 的权限管理后，为 dApp 标签页加入已连接账户、断开连接和撤销权限的控制。
+
 ## Expo
 
 Expo 当前保持为可构建客户端基础。移动端产品工作会在 Desktop 体验成熟后规划；本文不维护未经批准的功能 checklist。
