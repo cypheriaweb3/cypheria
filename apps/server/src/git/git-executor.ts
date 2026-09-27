@@ -1,6 +1,7 @@
 import { execFile } from "node:child_process"
+import { accessSync, constants, statSync } from "node:fs"
 import { mkdir, realpath, stat } from "node:fs/promises"
-import { join } from "node:path"
+import { delimiter, isAbsolute, join } from "node:path"
 import { promisify } from "node:util"
 
 const execFileAsync = promisify(execFile)
@@ -8,6 +9,33 @@ const DEFAULT_TIMEOUT_MS = 30_000
 const MAX_OUTPUT_BYTES = 32 * 1024 * 1024
 
 export type GitCommandResult = { stdout: string; stderr: string }
+
+const resolvedExecutables = new Map<string, string>()
+
+/**
+ * Resolves a command name through PATH once. Spawning by absolute path avoids a slow process
+ * creation fallback in large Node processes with an IPC channel, such as the supervised Server,
+ * where a bare `git` spawn costs roughly ten times more than `/usr/bin/git`.
+ */
+export const resolveExecutable = (name: string, pathValue = process.env.PATH ?? ""): string => {
+  if (process.platform === "win32" || isAbsolute(name) || name.includes("/")) return name
+  const key = `${name}\0${pathValue}`
+  const cached = resolvedExecutables.get(key)
+  if (cached) return cached
+  for (const directory of pathValue.split(delimiter)) {
+    if (!isAbsolute(directory)) continue
+    const candidate = join(directory, name)
+    try {
+      accessSync(candidate, constants.X_OK)
+      if (!statSync(candidate).isFile()) continue
+      resolvedExecutables.set(key, candidate)
+      return candidate
+    } catch {
+      // Keep searching PATH.
+    }
+  }
+  return name
+}
 
 export class GitCommandError extends Error {
   readonly args: readonly string[]
@@ -83,7 +111,7 @@ export class GitExecutor {
       ...args,
     ]
     try {
-      const { stdout, stderr } = await execFileAsync("git", commandArgs, {
+      const { stdout, stderr } = await execFileAsync(resolveExecutable("git"), commandArgs, {
         cwd: resolvedCwd,
         encoding: "utf8",
         env: {
@@ -131,7 +159,7 @@ export class GitExecutor {
       object,
     ]
     try {
-      const { stdout } = await execFileAsync("git", args, {
+      const { stdout } = await execFileAsync(resolveExecutable("git"), args, {
         cwd: resolvedCwd,
         encoding: "buffer",
         env: {

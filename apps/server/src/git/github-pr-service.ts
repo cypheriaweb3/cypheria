@@ -31,6 +31,8 @@ import {
 } from "@cypheria/protocol"
 import { z } from "zod"
 
+import { resolveExecutable } from "./git-executor.js"
+
 const execFileAsync = promisify(execFile)
 const fields =
   "number,title,body,url,state,isDraft,headRefName,headRefOid,baseRefName,updatedAt,author"
@@ -1352,7 +1354,7 @@ export class GitHubPrService {
     options: { allowExitCodes?: readonly number[] } = {}
   ): Promise<string> {
     try {
-      const { stdout } = await execFileAsync(this.#binary, args, {
+      const { stdout } = await execFileAsync(resolveExecutable(this.#binary), args, {
         cwd,
         encoding: "utf8",
         env: { ...process.env, GH_PROMPT_DISABLED: "1", GIT_TERMINAL_PROMPT: "0", NO_COLOR: "1" },
