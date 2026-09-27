@@ -27,7 +27,7 @@ Server 是共享产品状态的唯一权威。客户端可以管理本地 Server
 
 - Agent 注册、安装、启用、进程生命周期、健康状态和原生协议适配器。
 - Projects、Threads、Sections、Turns、Interactions 和 Canonical Timeline。
-- 共享 Git 设置、逐 Agent 的 Cypheria 扩展、独立具名代理列表、Agent 原生设置访问与集成状态。
+- 共享 Git 设置、供所有 Agent 使用的单一网络代理、Agent 原生设置访问与集成状态。
 - Schedules、Web3 服务、特权 Terminal、本地 Git 执行、Artifacts 和审计记录。
 - 数据库访问、迁移、配置加载、日志和版本化客户端连接。
 - 托管当前 Expo web 静态导出。

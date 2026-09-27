@@ -1,5 +1,4 @@
 import {
-  type AgentId,
   type AgentManagementClientMessage,
   type AgentManagementServerMessage,
   type BrowserClientMessage,
@@ -15,8 +14,11 @@ import {
   ConnectionOfferV2Schema,
   CYPHERIA_PROTOCOL_VERSION,
   CYPHERIA_WEBSOCKET_PATH,
+  type CypheriaBinaryFrame,
   createWebSocketProtocols,
+  decodeCypheriaBinaryFrame,
   decodeWSOutboundMessage,
+  encodeCypheriaBinaryFrame,
   encodeProtocolMessage,
   type GitClientMessage,
   type GitServerMessage,
@@ -25,9 +27,8 @@ import {
   type IntegrationClientMessage,
   type IntegrationServerMessage,
   isClientResponseMessage,
-  type NetworkProxyDraft,
-  type NetworkProxyListPatch,
-  type NetworkProxyListSnapshot,
+  type NetworkProxySettings,
+  type NetworkProxySnapshot,
   type NetworkProxyTestResult,
   type PersistedServerConfigPatch,
   type ProjectThreadClientMessage,
@@ -85,6 +86,7 @@ export type ServerClientConfig = {
   readonly clientId?: string
   readonly clientType?: ClientKind
   readonly connectTimeoutMs?: number
+  readonly onBinaryFrameListenerError?: (error: Error, frame: CypheriaBinaryFrame) => void
   readonly onListenerError?: (error: Error, message: ServerMessage) => void
   readonly reconnect?: ReconnectConfig
   readonly relayOffer?: ConnectionOfferV2 | string
@@ -115,6 +117,7 @@ type ConnectCallbacks = {
 }
 
 type ServerMessageHandler = (message: ServerMessage) => void
+type BinaryFrameHandler = (frame: CypheriaBinaryFrame) => void
 type ConnectionHandler = (state: ConnectionState) => void
 
 export class CypheriaConnectionError extends Error {
@@ -195,7 +198,7 @@ const messageRequestId = (message: ServerMessage): RequestId | undefined => {
     : undefined
 }
 
-const decodeBinaryFrame = (data: unknown): Uint8Array => {
+const normalizeBinaryFrame = (data: unknown): Uint8Array => {
   if (data instanceof Uint8Array) return data
   if (data instanceof ArrayBuffer) return new Uint8Array(data)
   if (ArrayBuffer.isView(data)) {
@@ -206,6 +209,7 @@ const decodeBinaryFrame = (data: unknown): Uint8Array => {
 
 /** Owns one versioned Cypheria server connection and executes only protocol-defined messages. */
 export class ServerClient {
+  readonly #binaryFrameHandlers = new Set<BinaryFrameHandler>()
   readonly #config: ServerClientConfig
   readonly #connectionHandlers = new Set<ConnectionHandler>()
   readonly #descriptor: ClientDescriptor
@@ -286,6 +290,19 @@ export class ServerClient {
   subscribe(handler: ServerMessageHandler): () => void {
     this.#messageHandlers.add(handler)
     return () => this.#messageHandlers.delete(handler)
+  }
+
+  subscribeBinaryFrames(handler: BinaryFrameHandler): () => void {
+    this.#binaryFrameHandlers.add(handler)
+    return () => this.#binaryFrameHandlers.delete(handler)
+  }
+
+  async sendBinaryFrame(frame: CypheriaBinaryFrame): Promise<void> {
+    const encoded = encodeCypheriaBinaryFrame(frame)
+    await this.ensureConnected()
+    const transport = this.#transport
+    if (!transport) throw new CypheriaConnectionError("Cypheria client is not connected")
+    await transport.send(encoded)
   }
 
   on<T extends ServerMessage["type"]>(
@@ -448,54 +465,53 @@ export class ServerClient {
     return (message as Extract<ServerMessage, { type: "server.config.reload.response" }>).payload
   }
 
-  async getNetworkProxies(options?: RequestOptions): Promise<NetworkProxyListSnapshot> {
+  async getNetworkProxy(options?: RequestOptions): Promise<NetworkProxySnapshot> {
     const message = await this.#request(
       {
-        requestId: this.#nextRequestId("network-proxies"),
-        type: "server.network-proxies.get.request",
+        requestId: this.#nextRequestId("network-proxy"),
+        type: "server.network-proxy.get.request",
       },
-      "server.network-proxies.get.response",
+      "server.network-proxy.get.response",
       options,
       SERVER_CAPABILITIES.config
     )
-    return (message as Extract<ServerMessage, { type: "server.network-proxies.get.response" }>)
+    return (message as Extract<ServerMessage, { type: "server.network-proxy.get.response" }>)
       .payload
   }
 
-  async patchNetworkProxies(
-    patch: NetworkProxyListPatch,
+  async setNetworkProxy(
+    settings: NetworkProxySettings,
     options?: RequestOptions
-  ): Promise<NetworkProxyListSnapshot> {
+  ): Promise<NetworkProxySnapshot> {
     const message = await this.#request(
       {
-        payload: { patch },
-        requestId: this.#nextRequestId("network-proxies-patch"),
-        type: "server.network-proxies.patch.request",
+        payload: { settings },
+        requestId: this.#nextRequestId("network-proxy-set"),
+        type: "server.network-proxy.set.request",
       },
-      "server.network-proxies.patch.response",
+      "server.network-proxy.set.response",
       options,
       SERVER_CAPABILITIES.config
     )
-    return (message as Extract<ServerMessage, { type: "server.network-proxies.patch.response" }>)
+    return (message as Extract<ServerMessage, { type: "server.network-proxy.set.response" }>)
       .payload
   }
 
   async testNetworkProxy(
-    agentId: AgentId,
-    proxy: NetworkProxyDraft,
+    settings: NetworkProxySettings,
     options?: RequestOptions
   ): Promise<NetworkProxyTestResult> {
     const message = await this.#request(
       {
-        payload: { agentId, proxy },
+        payload: { settings },
         requestId: this.#nextRequestId("network-proxy-test"),
-        type: "server.network-proxies.test.request",
+        type: "server.network-proxy.test.request",
       },
-      "server.network-proxies.test.response",
+      "server.network-proxy.test.response",
       options,
       SERVER_CAPABILITIES.config
     )
-    return (message as Extract<ServerMessage, { type: "server.network-proxies.test.response" }>)
+    return (message as Extract<ServerMessage, { type: "server.network-proxy.test.response" }>)
       .payload
   }
 
@@ -721,7 +737,7 @@ export class ServerClient {
           return
         }
         try {
-          this.#receive(decodeBinaryFrame(data))
+          this.#receive(normalizeBinaryFrame(data))
         } catch (error) {
           this.#handleDisconnect(
             new CypheriaProtocolError("Invalid Cypheria server message", {
@@ -754,6 +770,14 @@ export class ServerClient {
   }
 
   #receive(raw: Uint8Array): void {
+    const binaryFrame = decodeCypheriaBinaryFrame(raw)
+    if (binaryFrame) {
+      if (this.#state.status !== "connected") {
+        throw new CypheriaProtocolError("Cypheria server sent a binary frame before handshake")
+      }
+      this.#emitBinaryFrame(binaryFrame)
+      return
+    }
     const envelope = decodeWSOutboundMessage(raw)
     if (envelope.type === "pong") {
       const pending = this.#pendingPings.values().next().value
@@ -778,6 +802,19 @@ export class ServerClient {
     }
 
     this.#emit(message)
+  }
+
+  #emitBinaryFrame(frame: CypheriaBinaryFrame): void {
+    for (const handler of this.#binaryFrameHandlers) {
+      try {
+        handler(frame)
+      } catch (error) {
+        this.#config.onBinaryFrameListenerError?.(
+          asError(error, "Cypheria binary frame listener failed"),
+          frame
+        )
+      }
+    }
   }
 
   async #request(

@@ -2,7 +2,9 @@ import {
   type ClientMessage,
   type ConnectionOfferV2,
   CYPHERIA_PROTOCOL_VERSION,
+  decodeCypheriaBinaryFrame,
   decodeWSInboundMessage,
+  encodeCypheriaBinaryFrame,
   encodeProtocolMessage,
   SERVER_CAPABILITIES,
   type ServerIdentity,
@@ -239,6 +241,61 @@ describe("ServerClient", () => {
     socket.message(encodeProtocolMessage({ type: "pong" }))
     await expect(pingPromise).resolves.toBeUndefined()
 
+    await client.close()
+  })
+
+  it("sends and receives domain binary frames without decoding payload bytes", async () => {
+    const listenerErrors: Error[] = []
+    const client = new ServerClient({
+      clientId: "client-binary",
+      onBinaryFrameListenerError: (error) => listenerErrors.push(error),
+      webSocketFactory: testWebSocketFactory,
+    })
+    const socket = await connect(client)
+    const received: unknown[] = []
+    client.subscribeBinaryFrames(() => {
+      throw new Error("binary listener failed")
+    })
+    client.subscribeBinaryFrames((frame) => received.push(frame))
+    socket.message(
+      encodeCypheriaBinaryFrame({
+        opcode: 0x01,
+        payload: new Uint8Array([0, 255, 128]),
+      })
+    )
+
+    expect(received).toEqual([
+      {
+        opcode: 0x01,
+        payload: new Uint8Array([0, 255, 128]),
+      },
+    ])
+    expect(listenerErrors[0]?.message).toBe("binary listener failed")
+
+    await client.sendBinaryFrame({
+      opcode: 0x10,
+      payload: new Uint8Array([4, 5, 6]),
+    })
+    expect(decodeCypheriaBinaryFrame(asBytes(socket.sent.at(-1) ?? ""))).toEqual({
+      opcode: 0x10,
+      payload: new Uint8Array([4, 5, 6]),
+    })
+    await client.close()
+  })
+
+  it("rejects binary frames before the server handshake completes", async () => {
+    const client = new ServerClient({
+      clientId: "client-early-binary",
+      reconnect: { enabled: false },
+      webSocketFactory: testWebSocketFactory,
+    })
+    void client.connect().catch(() => undefined)
+    const socket = TestWebSocket.instances.at(-1)
+    if (!socket) throw new Error("Expected a WebSocket")
+    socket.open()
+    socket.message(encodeCypheriaBinaryFrame({ opcode: 0x01, payload: new Uint8Array([1, 2, 3]) }))
+
+    expect(socket.closedWith).toEqual({ code: 1002, reason: "Invalid Cypheria server message" })
     await client.close()
   })
 

@@ -27,7 +27,7 @@ The Server is the sole authority for shared product state. A client may manage a
 
 - Agent registration, installation, enablement, process lifecycle, health, and native-protocol adapters.
 - Projects, Threads, Sections, turns, interactions, and the Canonical Timeline.
-- Shared Git settings, per-Agent Cypheria extensions, the independent named proxy list, Agent-native settings access, and integration state.
+- Shared Git settings, the single Agent network proxy, Agent-native settings access, and integration state.
 - Schedules, Web3 services, privileged terminals, local Git execution, artifacts, and audit records.
 - Database access, migrations, configuration loading, logging, and versioned client connections.
 - Static hosting for the current Expo web export.

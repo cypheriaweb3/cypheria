@@ -43,7 +43,7 @@ pnpm --filter @cypheria/server server stop --if-idle
 ```text
 $CYPHERIA_HOME/
   codex/     Cypheria 管理的 Codex home
-  config/    config.json、network-proxies.json、PID、Server 身份和 relay key
+  config/    config.json、network-proxy.json、PID、Server 身份和 relay key
   db/        SQLite 数据库
   logs/      Server 与 runtime 日志
   vault/     加密钱包 vault 数据
@@ -57,9 +57,9 @@ Server 只解析一次根目录，再把派生路径传给各服务。Cypheria �
 
 期望的共享配置存储在 `$CYPHERIA_HOME/config/config.json`，当前 Schema 版本为 1。产品尚未发布，因此它就是当前 baseline，不执行旧配置迁移。文件不存在时使用安全默认值且不主动写文件。Patch 会先作为完整文档校验，再以仅所有者可读写权限原子写入。
 
-该文档包含 listener、CORS、消息限制、session timeout、shutdown、relay、内嵌 web、日志、Git 设置，以及 `agents[agentId]` 下由 Cypheria 管理的逐 Agent 扩展。Agent 记录可包含 `networkProxyId`；省略时使用 Server 默认代理。Agent 原生设置只通过支持对应原生 API 的 adapter 读写。Codex 全局设置仍保存在隔离的原生 `config.toml` 中；不支持更新的 harness 显示为只读，而不会回退写入通用 Server 配置。`CYPHERIA_SERVER_TOKEN` 等密钥只存在于环境变量中，设置 API 不会返回它们。
+该文档包含 listener、CORS、消息限制、session timeout、shutdown、relay、内嵌 web、日志与 Git 设置。Agent 原生设置只通过支持对应原生 API 的 adapter 读写。Codex 全局设置仍保存在隔离的原生 `config.toml` 中；不支持更新的 harness 显示为只读，而不会回退写入通用 Server 配置。`CYPHERIA_SERVER_TOKEN` 等密钥只存在于环境变量中，设置 API 不会返回它们。
 
-具名网络代理独立保存在 `$CYPHERIA_HOME/config/network-proxies.json`，Schema 版本为 1，并使用仅所有者可读写权限。列表可设置一个默认代理，并支持继承系统环境、明确直连，以及手动 HTTP、HTTPS、SOCKS4 或 SOCKS5 profile。手动凭据明文保存在该文件中，但 snapshot 只暴露 `passwordConfigured`；patch 省略 password 表示保留，字符串表示替换，`null` 表示清除。代理选择按 Agent 隔离，通过该 Agent 的子进程与托管工具链环境注入，绝不修改全局 `process.env`。删除代理会清除所有 Agent 对它的引用，使这些 Agent 回到剩余的 Server 默认设置；删除默认代理时也会同时清除 default 标记。它不影响 Server HTTP、Git、Electron 浏览器或其他 Agent。代理测试由 Server 针对所选 Agent 执行。
+供 Agent 使用的单一网络代理独立保存在 `$CYPHERIA_HOME/config/network-proxy.json`，并使用仅所有者可读写权限。它支持继承系统环境、明确直连，以及手动 HTTP、HTTPS、SOCKS4 或 SOCKS5 配置。手动凭据保存在该文件中，但 snapshot 只暴露 `passwordConfigured`；保存或测试时省略 password 表示保留已存密码，字符串表示替换，`null` 表示清除。同一设置会注入每个 Agent 子进程与托管工具链环境，绝不修改全局 `process.env`；它不影响 Server HTTP、Git 或 Electron 浏览器。代理测试由 Server 执行。
 
 配置响应区分：
 

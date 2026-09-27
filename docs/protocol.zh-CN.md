@@ -14,7 +14,9 @@ title: 客户端与 Server 协议
 
 ## 传输
 
-客户端通过 WebSocket subprotocol `cypheria.v1` 连接 `/api/v1/ws`。所有应用 frame 都是二进制，并包含由 `cbor2` 编码的确定性 CBOR 消息；文本 frame 会被拒绝。公开 profile 允许 null、boolean、string、有限 number、以 `number` 或 `bigint` 表示的整数、以 `Uint8Array` 表示的 byte string、array，以及仅使用 string key 的 map。值为 `undefined` 的可选对象属性会在编码前被省略；其他位置的 `undefined` 会被拒绝，且永远不会出现在 wire 上。该 profile 还拒绝自定义 tagged type、非 string map key、重复 key 和超过协议限制深度的结构。每个解码值仍会经过对应方向的 Zod Schema 校验。
+客户端通过 WebSocket subprotocol `cypheria.v1` 连接 `/api/v1/ws`。所有应用 frame 都是 WebSocket 二进制 frame；文本 frame 会被拒绝。普通协议消息使用由 `cbor2` 编码的确定性 CBOR。公开 CBOR profile 允许 null、boolean、string、有限 number、以 `number` 或 `bigint` 表示的整数、以 `Uint8Array` 表示的 byte string、array，以及仅使用 string key 的 map。值为 `undefined` 的可选对象属性会在编码前被省略；其他位置的 `undefined` 会被拒绝，且永远不会出现在 wire 上。该 profile 还拒绝自定义 tagged type、非 string map key、重复 key 和超过协议限制深度的结构。每个解码值仍会经过对应方向的 Zod Schema 校验。
+
+高吞吐领域可以使用 raw-binary frame：首字节为 opcode，其余字节由对应领域 codec 定义。`0x01–0x0f` 保留给 terminal stream，`0x10–0x1f` 保留给 file transfer。接收方会先检查这些范围，再进入普通确定性 CBOR 协议消息的解码路径；其他 frame 都按普通协议消息处理。该分流没有歧义，因为每条有效的 Cypheria 顶层协议消息都是 CBOR map，其首字节位于互不相交的 map major-type 范围 `0xa0–0xbf`。raw frame 只能在正常 hello 握手完成后发送，领域 codec 必须把其中的标识符绑定到已通过逻辑操作授权的 stream。当前尚未公开分配具体 opcode 或领域 payload 布局；在引入对应二进制 codec 前，terminal 消息仍沿用现有逻辑消息契约。
 
 顶层消息为：
 

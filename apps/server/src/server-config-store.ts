@@ -87,7 +87,6 @@ export class ServerConfigStore {
     const persisted: PersistedServerConfig = {
       git: DEFAULT_GIT_SETTINGS,
       browserTools: DEFAULT_BROWSER_TOOLS_SETTINGS,
-      agents: {},
       server: {
         logging: {
           level: runningConfig.logLevel,

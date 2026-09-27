@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto"
 
 import {
-  type AgentId,
   type BrowserClientMessage,
   type BrowserServerMessage,
   type ClientCapabilities,
@@ -10,15 +9,16 @@ import {
   type ClientMessage,
   type CodexHarnessClientMessage,
   type CodexHarnessServerMessage,
+  type CypheriaBinaryFrame,
+  encodeCypheriaBinaryFrame,
   encodeProtocolMessage,
   type GitClientMessage,
   type GitServerMessage,
   type HarnessClientMessage,
   type IntegrationClientMessage,
   type IntegrationServerMessage,
-  type NetworkProxyDraft,
-  type NetworkProxyListPatch,
-  type NetworkProxyListSnapshot,
+  type NetworkProxySettings,
+  type NetworkProxySnapshot,
   type NetworkProxyTestResult,
   type PersistedServerConfigPatch,
   type ScheduleClientMessage,
@@ -47,9 +47,9 @@ export type SessionHost = {
   getStatus(): ServerStatus
   patchConfig(patch: PersistedServerConfigPatch): Promise<ServerConfigSnapshot>
   reloadConfig(): Promise<ServerConfigSnapshot>
-  getNetworkProxies?(): NetworkProxyListSnapshot
-  patchNetworkProxies?(patch: NetworkProxyListPatch): Promise<NetworkProxyListSnapshot>
-  testNetworkProxy?(agentId: AgentId, proxy: NetworkProxyDraft): Promise<NetworkProxyTestResult>
+  getNetworkProxy?(): NetworkProxySnapshot
+  setNetworkProxy?(settings: NetworkProxySettings): Promise<NetworkProxySnapshot>
+  testNetworkProxy?(settings: NetworkProxySettings): Promise<NetworkProxyTestResult>
   handleProjectThreadMessage?(
     message: ClientMessage,
     send: (message: ServerMessage) => void
@@ -66,6 +66,12 @@ export type SessionHost = {
     message: HarnessClientMessage,
     sessionId: string,
     send: (message: ServerMessage) => void
+  ): Promise<boolean>
+  handleBinaryFrame?(
+    frame: CypheriaBinaryFrame,
+    sessionId: string,
+    source: SessionTransport,
+    send: (frame: CypheriaBinaryFrame) => void
   ): Promise<boolean>
   handleScheduleMessage?(
     message: ScheduleClientMessage,
@@ -189,6 +195,16 @@ export class ClientSession {
     for (const transport of this.#sources.keys()) this.sendTo(transport, message)
   }
 
+  sendBinaryFrame(frame: CypheriaBinaryFrame): void {
+    for (const transport of this.#sources.keys()) this.sendBinaryFrameTo(transport, frame)
+  }
+
+  sendBinaryFrameTo(transport: SessionTransport, frame: CypheriaBinaryFrame): void {
+    if (!this.#closed && this.#sources.has(transport)) {
+      transport.send(encodeCypheriaBinaryFrame(frame))
+    }
+  }
+
   sendTo(transport: SessionTransport, message: ServerMessage): void {
     if (!this.#closed && this.#sources.has(transport)) {
       transport.send(encodeProtocolMessage(wrapServerSessionMessage(message)))
@@ -211,6 +227,21 @@ export class ClientSession {
       source.close(1011, error instanceof Error ? error.message.slice(0, 123) : "Request failed")
     } finally {
       if (messageRequestId) sourceState.inFlight.delete(messageRequestId)
+    }
+  }
+
+  async receiveBinaryFrame(frame: CypheriaBinaryFrame, source: SessionTransport): Promise<void> {
+    if (this.#closed || !this.#sources.has(source)) return
+    try {
+      const handled = await this.#host.handleBinaryFrame?.(frame, this.id, source, (outbound) =>
+        this.sendBinaryFrameTo(source, outbound)
+      )
+      if (!handled) source.close(1008, "Unsupported binary frame")
+    } catch (error) {
+      source.close(
+        1011,
+        error instanceof Error ? error.message.slice(0, 123) : "Binary frame failed"
+      )
     }
   }
 
@@ -266,32 +297,28 @@ export class ClientSession {
           type: "server.config.reload.response",
         })
         break
-      case "server.network-proxies.get.request":
-        if (!this.#host.getNetworkProxies) throw new Error("Network proxy settings are unavailable")
+      case "server.network-proxy.get.request":
+        if (!this.#host.getNetworkProxy) throw new Error("Network proxy settings are unavailable")
         this.sendTo(source, {
-          payload: this.#host.getNetworkProxies(),
+          payload: this.#host.getNetworkProxy(),
           requestId: message.requestId,
-          type: "server.network-proxies.get.response",
+          type: "server.network-proxy.get.response",
         })
         break
-      case "server.network-proxies.patch.request":
-        if (!this.#host.patchNetworkProxies)
-          throw new Error("Network proxy settings are unavailable")
+      case "server.network-proxy.set.request":
+        if (!this.#host.setNetworkProxy) throw new Error("Network proxy settings are unavailable")
         this.sendTo(source, {
-          payload: await this.#host.patchNetworkProxies(message.payload.patch),
+          payload: await this.#host.setNetworkProxy(message.payload.settings),
           requestId: message.requestId,
-          type: "server.network-proxies.patch.response",
+          type: "server.network-proxy.set.response",
         })
         break
-      case "server.network-proxies.test.request":
+      case "server.network-proxy.test.request":
         if (!this.#host.testNetworkProxy) throw new Error("Network proxy testing is unavailable")
         this.sendTo(source, {
-          payload: await this.#host.testNetworkProxy(
-            message.payload.agentId,
-            message.payload.proxy
-          ),
+          payload: await this.#host.testNetworkProxy(message.payload.settings),
           requestId: message.requestId,
-          type: "server.network-proxies.test.response",
+          type: "server.network-proxy.test.response",
         })
         break
       default:
