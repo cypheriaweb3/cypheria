@@ -127,7 +127,7 @@ export const securityCopy = {
       msg({
         id: "security.isolation.text",
         message:
-          "dApp sessions use isolated browser partitions and receive neither Node.js access nor raw signers.",
+          "Wallet permissions are scoped to each dApp origin. dApp pages run in a separate sandboxed browser profile and receive neither Node.js access nor raw signers.",
       }),
     ],
     [

@@ -20,6 +20,7 @@ import { useAtomValue } from "jotai"
 import { TriangleAlert, X } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import type { ClientPreferencesSnapshot, NotificationSound } from "../../../ipc/src/index.js"
+import { BrowserSettingsSection } from "../browser/browser-settings-section.js"
 import {
   clientStateStore,
   composerEnterBehaviorAtom,
@@ -322,6 +323,10 @@ function GeneralSettingsRoute() {
             </SettingRow>
           </div>
         </section>
+        <BrowserSettingsSection
+          headingClassName={uiFontSemiboldClass}
+          titleClassName={uiFontMediumClass}
+        />
         <section className="grid gap-3">
           <h2 className={cn("text-sm", uiFontSemiboldClass)}>
             <Trans id="settings.general.section">General</Trans>

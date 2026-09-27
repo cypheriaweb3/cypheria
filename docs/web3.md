@@ -10,7 +10,7 @@ Cypheria separates pure Web3 domain types from privileged execution. `@cypheria/
 
 Clients use `client.web3`. They may create networks, manage wallet metadata, submit signing intents, answer approvals, and operate dApp sessions, but cannot access private keys, credential headers, vault files, or provider processes.
 
-Agents and schedules use the same Server boundary. They create intents rather than signatures. Electron owns isolated dApp `WebContents`; it forwards scoped provider requests to the Server.
+Agents and schedules use the same Server boundary. They create intents rather than signatures. Desktop hosts dApps in its built-in browser. Electron main checks each provider request against the origin of the page that sent it and forwards it to the Server; see [Desktop](desktop.md#dapp-tabs).
 
 ## Networks
 
@@ -47,7 +47,7 @@ The Server verifies the active context and chain, resolves keys only for the sig
 
 ## dApp provider
 
-The provider layer supports scoped Ethereum and Solana sessions and common provider events. A dApp session binds an origin to allowed accounts, networks, methods, and expiry. Session state is isolated by origin; disconnect, account changes, chain changes, and permission updates are explicit events.
+The provider layer supports scoped Ethereum and Solana sessions and common provider events. A dApp session binds an origin to allowed accounts, networks, methods, and expiry. Desktop opens it the first time an origin uses the provider. Session state is isolated by origin even though dApp tabs share one browser profile; disconnect, account changes, chain changes, and permission updates are explicit events.
 
 Wallet provider requests are schema-validated and routed through policy. A dApp never receives Server credentials or direct access to a wallet implementation.
 
@@ -62,7 +62,7 @@ Audit data is append-oriented. Redaction occurs before persistence and logging, 
 - No private keys in renderer, localStorage, IndexedDB, logs, or normal database fields.
 - No signing without policy evaluation.
 - No implicit auto-sign policy.
-- No cross-origin dApp session sharing.
+- No cross-origin sharing of dApp sessions, provider permissions, or injected provider state.
 - No secret endpoint headers in public network views.
 - No automatic replay of interrupted signing or sending.
 - No Agent or plugin receives a raw signer.

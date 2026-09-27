@@ -16,6 +16,7 @@ describe("Cypheria client facade", () => {
       "agent",
       "agents",
       "artifacts",
+      "browser",
       "git",
       "harnesses",
       "integrations",

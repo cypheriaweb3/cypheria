@@ -1,0 +1,1 @@
+ALTER TABLE `dapp_origins` DROP COLUMN `partition`;

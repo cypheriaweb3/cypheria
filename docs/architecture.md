@@ -36,7 +36,7 @@ Agent-native events are normalized at this boundary. Native payloads may be reta
 
 ### Desktop
 
-`apps/desktop` is an Electron application with a TanStack Start renderer. Electron main ensures that a compatible local Server is available and owns windows, isolated dApp `WebContents`, preload IPC, client KV/Replica/attachment backends, updates, secure storage, and operating-system integration. The renderer uses Jotai over client KV for device-local state and `@cypheria/client` plus TanStack Query for shared Server state. Device-local state is intentionally not synchronized between clients.
+`apps/desktop` is an Electron application with a TanStack Start renderer. Electron main ensures that a compatible local Server is available and owns windows, browser guest hardening and the dApp provider boundary, preload IPC, client KV/Replica/attachment backends, updates, secure storage, and operating-system integration. The renderer uses Jotai over client KV for device-local state and `@cypheria/client` plus TanStack Query for shared Server state. Device-local state is intentionally not synchronized between clients. The main window renderer hosts browser tabs as sandboxed `<webview>` guests and acts as the Server's browser host for Agent browser tools; see [Desktop](desktop.md#browser-and-dapp-boundary).
 
 ### Expo and CLI
 
@@ -94,7 +94,8 @@ Pairing establishes end-to-end keys between client and Server. The relay routes 
 - The Server process is privileged and must validate every network, filesystem, Agent, plugin, schedule, and Web3 boundary.
 - Desktop renderer, Expo, CLI, plugins, Agent processes, and dApp pages are untrusted callers of scoped APIs.
 - Electron preload exposes a narrow typed surface; renderers do not receive Node.js access.
-- dApp origins use isolated sessions and cannot share cookies, provider permissions, or injected state by default.
+- dApp provider permissions, sessions, and injected provider state are isolated by origin. dApp tabs share one browser profile separate from web tabs; first-party storage stays per origin, cross-site cookies are removed, and Chromium partitions the HTTP cache and third-party storage by top-level site. Web tabs never receive a wallet provider.
+- The main window renderer can script browser guests, including dApp pages. It still cannot reach private keys or signers, and every signing intent from a dApp page passes Server policy.
 - Private keys are encrypted outside ordinary SQLite tables and are used only by Server-owned signing services.
 - Server plugins run in controlled child processes. Desktop extensions do not receive ambient filesystem, Node.js, or secret access.
 

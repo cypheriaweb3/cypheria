@@ -4,16 +4,21 @@ import type {
   AppearanceFontOption,
   AppHealthStatus,
   AppMetadata,
-  BrowserSessionOpenResult,
   CypheriaPreloadApi,
   OpenTarget,
 } from "../../ipc/src/index.js"
 import {
   AppearanceSettingsWriteSchema,
+  BrowserNewTabRequestSchema,
+  BrowserReservedShortcutSchema,
+  BrowserShortcutInputSchema,
   CYPHERIA_APPEARANCE_ARGUMENT_PREFIX,
+  CYPHERIA_BROWSER_CHANNELS,
+  CYPHERIA_DAPP_BROWSER_PARTITION,
   CYPHERIA_DEVELOPMENT_ARGUMENT_PREFIX,
   CYPHERIA_IPC_CHANNELS,
   CYPHERIA_LANGUAGE_ARGUMENT_PREFIX,
+  CYPHERIA_WEB_BROWSER_PARTITION,
   CYPHERIA_WINDOW_ROLE_ARGUMENT_PREFIX,
   LanguageBootstrapSchema,
   StorageKeyValueChangeSchema,
@@ -51,6 +56,50 @@ const readWindowRole = (): "main" | "popout" =>
 
 const invoke = <T>(channel: string): Promise<T> => ipcRenderer.invoke(channel) as Promise<T>
 
+const subscribe =
+  <T>(channel: string, parse: (value: unknown) => T) =>
+  (handler: (value: T) => void): (() => void) => {
+    const listener = (_event: IpcRendererEvent, value: unknown): void => {
+      const parsed = (() => {
+        try {
+          return parse(value)
+        } catch {
+          return undefined
+        }
+      })()
+      if (parsed !== undefined) handler(parsed)
+    }
+    ipcRenderer.on(channel, listener)
+    return () => ipcRenderer.off(channel, listener)
+  }
+
+const browserApi: NonNullable<CypheriaPreloadApi["browser"]> = {
+  dappPartition: CYPHERIA_DAPP_BROWSER_PARTITION,
+  webPartition: CYPHERIA_WEB_BROWSER_PARTITION,
+  registerAttached: (input) =>
+    ipcRenderer.invoke(CYPHERIA_BROWSER_CHANNELS.attachedRegister, input),
+  unregister: (browserId) =>
+    ipcRenderer.invoke(CYPHERIA_BROWSER_CHANNELS.unregister, { browserId }),
+  setActive: (input) => ipcRenderer.invoke(CYPHERIA_BROWSER_CHANNELS.activeSet, input),
+  focus: (browserId) => ipcRenderer.invoke(CYPHERIA_BROWSER_CHANNELS.focus, { browserId }),
+  openDevTools: (browserId) =>
+    ipcRenderer.invoke(CYPHERIA_BROWSER_CHANNELS.devToolsOpen, { browserId }),
+  executeAutomation: (request) =>
+    ipcRenderer.invoke(CYPHERIA_BROWSER_CHANNELS.automationExecute, request),
+  setShortcutPolicy: (policy) =>
+    ipcRenderer.invoke(CYPHERIA_BROWSER_CHANNELS.shortcutPolicySet, policy),
+  clearData: (input) => ipcRenderer.invoke(CYPHERIA_BROWSER_CHANNELS.dataClear, input),
+  onNewTabRequest: subscribe(CYPHERIA_BROWSER_CHANNELS.newTabRequested, (value) =>
+    BrowserNewTabRequestSchema.parse(value)
+  ),
+  onShortcutInput: subscribe(CYPHERIA_BROWSER_CHANNELS.shortcutInput, (value) =>
+    BrowserShortcutInputSchema.parse(value)
+  ),
+  onReservedShortcut: subscribe(CYPHERIA_BROWSER_CHANNELS.reservedShortcut, (value) =>
+    BrowserReservedShortcutSchema.parse(value)
+  ),
+}
+
 const cypheriaApi: CypheriaPreloadApi = {
   bootstrap: {
     appearance: readBootstrapAppearance(),
@@ -72,12 +121,8 @@ const cypheriaApi: CypheriaPreloadApi = {
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.appProjectOpen, { projectId }),
     gitFileAction: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.appGitFileAction, input),
   },
-  browser: {
-    openDapp: (url) =>
-      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.browserSessionOpen, {
-        url,
-      }) as Promise<BrowserSessionOpenResult>,
-  },
+  // Only the main window allows <webview>; the popout window does not host browser tabs.
+  ...(readWindowRole() === "main" ? { browser: browserApi } : {}),
   storage: {
     attachments: {
       getPathForFile: (file) => webUtils.getPathForFile(file),

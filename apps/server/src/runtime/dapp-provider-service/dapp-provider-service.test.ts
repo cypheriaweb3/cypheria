@@ -137,7 +137,6 @@ describe("dApp provider runtime service", () => {
       createdAt: timestamp,
       key: "cypheria:dapp:https://app.example" as const,
       origin: "https://app.example",
-      partition: "persist:cypheria:dapp:https://app.example",
     }
     const service = createEthereumProviderRuntimeService({
       audit: { append: vi.fn(async (entry) => ({ ...entry, id: "audit_one" })) },
@@ -250,7 +249,6 @@ describe("dApp provider runtime service", () => {
           createdAt: timestamp,
           key: sessionKey,
           origin,
-          partition: "persist:network",
         }),
       },
       signingIntents: { create: vi.fn() },

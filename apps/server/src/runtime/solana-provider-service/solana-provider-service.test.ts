@@ -181,7 +181,6 @@ describe("Solana provider runtime service", () => {
           createdAt: timestamp,
           key: "cypheria:dapp:https://sol.example",
           origin: "https://sol.example",
-          partition: "persist:cypheria:dapp:https://sol.example",
         }),
       },
       signingIntents: { create: vi.fn() },

@@ -13,7 +13,6 @@ describe("Web3 actions", () => {
             ? {
                 createdAt: "2026-09-19T00:00:00.000Z",
                 origin: "https://app.example",
-                partition: "persist:cypheria-dapp-example",
                 sessionKey: "cypheria:dapp:https://app.example",
               }
             : { id: "provider_1", result: [] },

@@ -2416,7 +2416,10 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       const requestId = requestIdOf(message)
       if (requestId === undefined || requestId === null) return
       void this.#manager.codexDynamicTools
-        .call(payload as unknown as v2.DynamicToolCallParams)
+        .call(payload as unknown as v2.DynamicToolCallParams, {
+          ...(this.#ownerThreadId ? { threadId: this.#ownerThreadId } : {}),
+          ...(this.#cwd ? { cwd: this.#cwd } : {}),
+        })
         .then((result) =>
           this.#manager.handleCodex(
             {

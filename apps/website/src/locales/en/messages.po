@@ -91,7 +91,7 @@ msgstr "Cypheria keeps authority in the local Server, makes sensitive actions ex
 #. js-lingui-explicit-id
 #: src/lib/copy.ts
 msgid "security.isolation.text"
-msgstr "dApp sessions use isolated browser partitions and receive neither Node.js access nor raw signers."
+msgstr "Wallet permissions are scoped to each dApp origin. dApp pages run in a separate sandboxed browser profile and receive neither Node.js access nor raw signers."
 
 #. js-lingui-explicit-id
 #: src/lib/copy.ts

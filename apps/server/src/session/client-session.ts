@@ -2,8 +2,11 @@ import { randomUUID } from "node:crypto"
 
 import {
   type AgentId,
+  type BrowserClientMessage,
+  type BrowserServerMessage,
   type ClientCapabilities,
   type ClientDescriptor,
+  type ClientKind,
   type ClientMessage,
   type CodexHarnessClientMessage,
   type CodexHarnessServerMessage,
@@ -86,6 +89,15 @@ export type SessionHost = {
   handleWeb3Message?(
     message: Web3ClientMessage,
     send: (message: Web3ServerMessage) => void
+  ): Promise<boolean>
+  handleBrowserMessage?(
+    message: BrowserClientMessage,
+    session: {
+      readonly id: string
+      readonly kind: ClientKind
+      notify(message: BrowserServerMessage): void
+    },
+    send: (message: BrowserServerMessage) => void
   ): Promise<boolean>
 }
 
@@ -319,6 +331,21 @@ export class ClientSession {
           this.#host.handleWeb3Message &&
           (await this.#host.handleWeb3Message(message as Web3ClientMessage, (response) =>
             this.sendTo(source, response)
+          ))
+        ) {
+          break
+        }
+        if (
+          message.type.startsWith("browser.") &&
+          this.#host.handleBrowserMessage &&
+          (await this.#host.handleBrowserMessage(
+            message as BrowserClientMessage,
+            {
+              id: this.id,
+              kind: this.#client.kind,
+              notify: (notification) => this.send(notification),
+            },
+            (response) => this.sendTo(source, response)
           ))
         ) {
           break

@@ -43,7 +43,7 @@ Capabilities are discovered per Agent and Thread. Clients must not expose unsupp
 
 ### Codex
 
-The Codex harness owns a Cypheria-managed Codex App Server process and validates messages with generated artifacts in `@cypheria/protocol`. It maps Codex turns, reasoning, plans, commands, file changes, approvals, artifacts, account state, models, and permissions into Cypheria contracts. API key, ChatGPT browser, and ChatGPT device-code authentication are available through the common harness facade. Codex Apps remain a Codex/OpenAI harness extension.
+The Codex harness owns a Cypheria-managed Codex App Server process and validates messages with generated artifacts in `@cypheria/protocol`. It maps Codex turns, reasoning, plans, commands, file changes, approvals, artifacts, account state, models, and permissions into Cypheria contracts. API key, ChatGPT browser, and ChatGPT device-code authentication are available through the common harness facade. Codex Apps remain a Codex/OpenAI harness extension. Codex threads receive `browser_*` dynamic tools at thread start, and calls return `browser_disabled` until Agent browser tools are enabled. Each call is resolved to its Cypheria Thread and working directory before reaching the browser broker described in [Protocol](protocol.md#browser-hosts-and-agent-browser-tools).
 
 ### Claude
 

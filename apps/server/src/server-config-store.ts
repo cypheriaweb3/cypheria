@@ -4,7 +4,7 @@ import type {
   PersistedServerConfigPatch,
   ServerConfigSnapshot,
 } from "@cypheria/protocol"
-import { DEFAULT_GIT_SETTINGS } from "@cypheria/protocol"
+import { DEFAULT_BROWSER_TOOLS_SETTINGS, DEFAULT_GIT_SETTINGS } from "@cypheria/protocol"
 
 import {
   type CypheriaServerConfig,
@@ -86,6 +86,7 @@ export class ServerConfigStore {
   ): ServerConfigStore {
     const persisted: PersistedServerConfig = {
       git: DEFAULT_GIT_SETTINGS,
+      browserTools: DEFAULT_BROWSER_TOOLS_SETTINGS,
       agents: {},
       server: {
         logging: {

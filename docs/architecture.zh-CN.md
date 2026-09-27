@@ -36,7 +36,7 @@ Agent 原生事件在此边界归一化。原生载荷可以为诊断保留，�
 
 ### Desktop
 
-`apps/desktop` 是使用 TanStack Start renderer 的 Electron 应用。Electron main 确保兼容的本地 Server 可用，并负责窗口、隔离的 dApp `WebContents`、preload IPC、客户端 KV／Replica／附件后端、更新、安全存储和操作系统集成。Renderer 使用 Jotai + 客户端 KV 管理设备本地状态，并通过 `@cypheria/client` + TanStack Query 使用 Server 共享状态。设备本地状态有意不在客户端之间同步。
+`apps/desktop` 是使用 TanStack Start renderer 的 Electron 应用。Electron main 确保兼容的本地 Server 可用，并负责窗口、浏览器 guest 加固与 dApp provider 边界、preload IPC、客户端 KV／Replica／附件后端、更新、安全存储和操作系统集成。Renderer 使用 Jotai + 客户端 KV 管理设备本地状态，并通过 `@cypheria/client` + TanStack Query 使用 Server 共享状态。设备本地状态有意不在客户端之间同步。主窗口 renderer 以沙箱化 `<webview>` guest 承载浏览器标签页，并作为 Agent 浏览器工具的 Server 浏览器 host；参见 [Desktop](desktop.zh-CN.md#浏览器与-dapp-边界)。
 
 ### Expo 与 CLI
 
@@ -94,7 +94,8 @@ Agent 原生事件在此边界归一化。原生载荷可以为诊断保留，�
 - Server 进程是特权进程，必须校验所有网络、文件系统、Agent、插件、Schedule 和 Web3 边界。
 - Desktop renderer、Expo、CLI、插件、Agent 进程和 dApp 页面都是受限 API 的不可信调用方。
 - Electron preload 只暴露狭窄的类型化接口；renderer 不获得 Node.js 能力。
-- dApp origin 默认使用隔离 session，不共享 cookie、provider 权限或注入状态。
+- dApp 的 provider 权限、session 和注入的 provider 状态按 origin 隔离。dApp 标签页共享一个与网页标签页分开的浏览器配置；第一方存储仍按 origin 分开，跨站 Cookie 会被移除，Chromium 按顶层网站分区 HTTP 缓存和第三方存储。网页标签页永远不会获得钱包 provider。
+- 主窗口 renderer 可以对浏览器 guest（包括 dApp 页面）执行脚本，但仍无法接触私钥或签名器；来自 dApp 页面的每个签名意图都要经过 Server 策略。
 - 私钥加密保存于普通 SQLite 表之外，只能由 Server 所有的签名服务使用。
 - Server 插件运行在受控子进程中。Desktop 扩展不获得环境级文件系统、Node.js 或密钥权限。
 

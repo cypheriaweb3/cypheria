@@ -48,7 +48,7 @@ $CYPHERIA_HOME/
   logs/      Server and runtime logs
   vault/     encrypted wallet vault data
   cache/     disposable caches and managed toolchains
-  browser/   dApp session metadata
+  browser/   Desktop browser profiles (web and dApp tabs)
 ```
 
 The Server resolves this root once and passes derived paths to services. Cypheria-managed Codex processes receive `CODEX_HOME=$CYPHERIA_HOME/codex`; the user's default Codex home is not read or modified.

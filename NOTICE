@@ -1,0 +1,26 @@
+Cypheria
+Copyright (c) 2026 cypheriaweb3
+
+Cypheria is licensed under the MIT License (see LICENSE). It includes code adapted
+from the following projects, which remain under their own licenses.
+
+Paseo
+Copyright (c) 2025-present Mohamed Boudra
+Licensed under the Apache License, Version 2.0 (see licenses/Apache-2.0.txt).
+https://github.com/getpaseo/paseo
+
+  Adapted for the Cypheria built-in browser: browser automation command schemas,
+  the browser tools broker, webview registry, window-open routing, keyboard policy,
+  resident webview host, and CDP-based automation (accessibility snapshots,
+  actionability checks, trusted input, dialog handling). Adapted files carry a
+  header naming their Paseo source and were modified for Cypheria's Thread scopes,
+  tab kinds, and protocol.
+
+Playwright
+Copyright (c) Microsoft Corporation
+Licensed under the Apache License, Version 2.0 (see licenses/Apache-2.0.txt).
+https://github.com/microsoft/playwright
+
+  The accessibility snapshot script in
+  apps/desktop/main/src/browser/automation/aria-snapshot-script.ts is adapted from
+  Playwright's injected ARIA snapshot model.

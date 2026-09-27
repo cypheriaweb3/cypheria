@@ -43,7 +43,7 @@ Agent manager 按 Agent 串行化生命周期转换、报告健康状态，并�
 
 ### Codex
 
-Codex harness 负责 Cypheria 管理的 Codex App Server 进程，并使用 `@cypheria/protocol` 的生成产物校验消息。它把 Codex turns、reasoning、plans、commands、文件变更、approvals、artifacts、account、models 和 permissions 映射为 Cypheria 契约。公共 harness facade 支持 API key、ChatGPT browser 和 ChatGPT device-code 认证。Codex Apps 仍是 Codex/OpenAI harness 扩展。
+Codex harness 负责 Cypheria 管理的 Codex App Server 进程，并使用 `@cypheria/protocol` 的生成产物校验消息。它把 Codex turns、reasoning、plans、commands、文件变更、approvals、artifacts、account、models 和 permissions 映射为 Cypheria 契约。公共 harness facade 支持 API key、ChatGPT browser 和 ChatGPT device-code 认证。Codex Apps 仍是 Codex/OpenAI harness 扩展。Codex thread 在启动时获得 `browser_*` dynamic tools；在启用 Agent 浏览器工具之前，调用会返回 `browser_disabled`。每次调用在到达 [Protocol](protocol.zh-CN.md#浏览器-host-与-agent-浏览器工具) 所述的浏览器 broker 之前，会解析为对应的 Cypheria Thread 和工作目录。
 
 ### Claude
 

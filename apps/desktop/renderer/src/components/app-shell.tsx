@@ -87,6 +87,7 @@ import {
 } from "react"
 import { panelLayoutKey } from "../../../ipc/src/index.js"
 import { useAppearanceController } from "../appearance.js"
+import { BrowserRuntime } from "../browser/runtime.js"
 import { clientStateStore, localeOverrideAtom } from "../client-state.js"
 import {
   deletePersistedComposerDraft,
@@ -246,6 +247,7 @@ function QueryProvider({ children }: Readonly<{ children: ReactNode }>) {
       <AppearanceController />
       <LanguageController />
       <ServerSettingsSubscription />
+      <BrowserRuntime />
       {children}
     </QueryClientProvider>
   )

@@ -1,10 +1,27 @@
-import {
-  dappSessionSchema,
-  walletProviderRequestSchema,
-  walletProviderResponseSchema,
-} from "@cypheria/web3/provider"
+import type { BrowserAutomationOutcome, BrowserAutomationRequest } from "@cypheria/protocol"
+import { walletProviderRequestSchema, walletProviderResponseSchema } from "@cypheria/web3/provider"
 import { z } from "zod"
 
+import {
+  type BrowserAttachedRegistration,
+  type BrowserClearData,
+  type BrowserKeyboardPolicyInput,
+  type BrowserNewTabRequest,
+  type BrowserReservedShortcut,
+  type BrowserScopeId,
+  type BrowserShortcutInput,
+  browserActiveSetContract,
+  browserAttachedRegisterContract,
+  browserAutomationExecuteContract,
+  browserDataClearContract,
+  browserDevToolsOpenContract,
+  browserFocusContract,
+  browserShortcutPolicySetContract,
+  browserUnregisterContract,
+} from "./browser.js"
+import { CYPHERIA_BROWSER_CHANNELS } from "./browser-channels.js"
+
+export * from "./browser.js"
 export * from "./codex.js"
 export * from "./integrations.js"
 
@@ -25,7 +42,14 @@ export const CYPHERIA_IPC_CHANNELS = {
   appProjectReveal: "app.project.reveal",
   appProjectOpen: "app.project.open",
   appGitFileAction: "app.git-file.action",
-  browserSessionOpen: "browser.session.open",
+  browserActiveSet: CYPHERIA_BROWSER_CHANNELS.activeSet,
+  browserAttachedRegister: CYPHERIA_BROWSER_CHANNELS.attachedRegister,
+  browserAutomationExecute: CYPHERIA_BROWSER_CHANNELS.automationExecute,
+  browserDataClear: CYPHERIA_BROWSER_CHANNELS.dataClear,
+  browserDevToolsOpen: CYPHERIA_BROWSER_CHANNELS.devToolsOpen,
+  browserFocus: CYPHERIA_BROWSER_CHANNELS.focus,
+  browserShortcutPolicySet: CYPHERIA_BROWSER_CHANNELS.shortcutPolicySet,
+  browserUnregister: CYPHERIA_BROWSER_CHANNELS.unregister,
   dappProviderRequest: "dapp.provider.request",
   dappProviderEvent: "dapp.provider.event",
   settingsAppearanceFontsList: "settings.appearance.fonts.list",
@@ -804,26 +828,6 @@ export const AppearanceFontOptionSchema = z
   .strict()
 export type AppearanceFontOption = z.infer<typeof AppearanceFontOptionSchema>
 
-export const BrowserSessionOpenSchema = z
-  .object({
-    url: z.url().refine((value) => {
-      const url = new URL(value)
-      return (
-        !url.username &&
-        !url.password &&
-        (url.protocol === "https:" ||
-          (url.protocol === "http:" && ["127.0.0.1", "::1", "localhost"].includes(url.hostname)))
-      )
-    }),
-  })
-  .strict()
-export type BrowserSessionOpen = z.infer<typeof BrowserSessionOpenSchema>
-
-export const BrowserSessionOpenResultSchema = z
-  .object({ session: dappSessionSchema, webContentsId: z.number().int().positive() })
-  .strict()
-export type BrowserSessionOpenResult = z.infer<typeof BrowserSessionOpenResultSchema>
-
 export const IpcRequestEnvelopeSchema = z
   .object({
     channel: z.string().min(1),
@@ -981,14 +985,6 @@ export const appGitFileActionContract = {
   { cwd: string; path: string; action: "open" | "save" },
   { completed: boolean }
 >
-
-export const browserSessionOpenContract = {
-  channel: CYPHERIA_IPC_CHANNELS.browserSessionOpen,
-  namespace: "browser",
-  request: BrowserSessionOpenSchema,
-  response: BrowserSessionOpenResultSchema,
-  version: IPC_PROTOCOL_VERSION,
-} satisfies IpcContract<BrowserSessionOpen, BrowserSessionOpenResult>
 
 export const dappProviderRequestContract = {
   channel: CYPHERIA_IPC_CHANNELS.dappProviderRequest,
@@ -1304,7 +1300,14 @@ export const ipcContracts = {
   appProjectReveal: appProjectRevealContract,
   appProjectOpen: appProjectOpenContract,
   appGitFileAction: appGitFileActionContract,
-  browserSessionOpen: browserSessionOpenContract,
+  browserActiveSet: browserActiveSetContract,
+  browserAttachedRegister: browserAttachedRegisterContract,
+  browserAutomationExecute: browserAutomationExecuteContract,
+  browserDataClear: browserDataClearContract,
+  browserDevToolsOpen: browserDevToolsOpenContract,
+  browserFocus: browserFocusContract,
+  browserShortcutPolicySet: browserShortcutPolicySetContract,
+  browserUnregister: browserUnregisterContract,
   dappProviderRequest: dappProviderRequestContract,
   settingsAppearanceFontsList: settingsAppearanceFontsListContract,
   settingsOpenTargetsList: settingsOpenTargetsListContract,
@@ -1354,8 +1357,26 @@ export type CypheriaPreloadApi = {
       action: "open" | "save"
     }) => Promise<{ completed: boolean }>
   }
-  readonly browser: {
-    readonly openDapp: (url: string) => Promise<BrowserSessionOpenResult>
+  /** Present only in the main window, whose renderer may host `<webview>` browser tabs. */
+  readonly browser?: {
+    readonly dappPartition: string
+    readonly webPartition: string
+    readonly registerAttached: (input: BrowserAttachedRegistration) => Promise<{ registered: true }>
+    readonly unregister: (browserId: string) => Promise<{ unregistered: true }>
+    readonly setActive: (input: {
+      browserId: string | null
+      scopeId: BrowserScopeId
+    }) => Promise<{ updated: true }>
+    readonly focus: (browserId: string) => Promise<{ focused: boolean }>
+    readonly openDevTools: (browserId: string) => Promise<{ opened: boolean }>
+    readonly executeAutomation: (
+      request: BrowserAutomationRequest
+    ) => Promise<BrowserAutomationOutcome>
+    readonly setShortcutPolicy: (policy: BrowserKeyboardPolicyInput) => Promise<{ updated: true }>
+    readonly clearData: (input: BrowserClearData) => Promise<{ cleared: true }>
+    readonly onNewTabRequest: (handler: (request: BrowserNewTabRequest) => void) => () => void
+    readonly onShortcutInput: (handler: (input: BrowserShortcutInput) => void) => () => void
+    readonly onReservedShortcut: (handler: (input: BrowserReservedShortcut) => void) => () => void
   }
   readonly storage: {
     readonly attachments: {

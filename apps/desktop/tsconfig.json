@@ -13,6 +13,8 @@
     "types": ["node", "vite/client"]
   },
   "include": [
+    "browser-preload/**/*.ts",
+    "dapp-preload/**/*.ts",
     "ipc/**/*.ts",
     "main/**/*.ts",
     "preload/**/*.ts",

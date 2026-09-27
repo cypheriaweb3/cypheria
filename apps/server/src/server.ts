@@ -18,6 +18,9 @@ import {
 } from "@cypheria/db"
 import {
   type AgentManagementClientMessage,
+  type BrowserClientMessage,
+  type BrowserServerMessage,
+  type ClientKind,
   type ClientMessage,
   type CodexHarnessClientMessage,
   type CodexHarnessServerMessage,
@@ -54,6 +57,8 @@ import { serve } from "@hono/node-server"
 import pino, { type Logger } from "pino"
 import { type WebSocket, WebSocketServer } from "ws"
 import { AgentManager } from "./agent/agent-manager.js"
+import { BrowserToolsService } from "./browser-tools/service.js"
+import { browserToolSpecs } from "./browser-tools/tools.js"
 import { CodexHarnessService } from "./codex-harness-service.js"
 import { type CypheriaServerConfig, loadServerConfig } from "./config.js"
 import { collectDiagnostics } from "./diagnostics.js"
@@ -115,6 +120,7 @@ export class CypheriaServer implements HttpAppHost {
   readonly registry: ConnectionRegistry
   readonly runtime: CypheriaRuntime
   readonly agentManager: AgentManager
+  readonly browserTools: BrowserToolsService
   readonly projectThread: ProjectThreadService
   readonly integrations: IntegrationService
   readonly codexHarness: CodexHarnessService
@@ -154,6 +160,10 @@ export class CypheriaServer implements HttpAppHost {
       options.networkProxyStore ?? NetworkProxyStore.empty(this.runtime.paths.configDir)
     this.database = options.database ?? openCypheriaDatabase({ dbDir: this.runtime.paths.dbDir })
     this.web3 = new ServerWeb3Service(this.database, this.runtime.paths)
+    this.browserTools = new BrowserToolsService({
+      audit: this.web3.audit,
+      enabled: () => this.configStore.getSnapshot().config.browserTools.enabled,
+    })
     this.registry = new ConnectionRegistry({
       helloTimeoutMs: this.config.sessionHelloTimeoutMs,
       host: this,
@@ -266,6 +276,9 @@ export class CypheriaServer implements HttpAppHost {
       await applyDatabaseMigrations(this.database.client)
       await this.web3.initialize()
       await this.agentManager.start()
+      this.agentManager.registerCodexDynamicTools(browserToolSpecs(), (request, context) =>
+        this.browserTools.callCodexTool(request, context)
+      )
       await this.projectThread.initialize()
       await this.threadManager.initialize()
       this.#resourceCleanupTimer = setInterval(
@@ -536,6 +549,7 @@ export class CypheriaServer implements HttpAppHost {
   getSessionCapabilities(): string[] {
     return [
       SERVER_CAPABILITIES.agentManager,
+      SERVER_CAPABILITIES.browser,
       SERVER_CAPABILITIES.config,
       SERVER_CAPABILITIES.diagnostics,
       SERVER_CAPABILITIES.integrations,
@@ -648,7 +662,16 @@ export class CypheriaServer implements HttpAppHost {
     return this.git.handle(message, send)
   }
 
+  async handleBrowserMessage(
+    message: BrowserClientMessage,
+    session: { id: string; kind: ClientKind; notify(message: BrowserServerMessage): void },
+    send: (message: BrowserServerMessage) => void
+  ): Promise<boolean> {
+    return this.browserTools.handle(message, session, send)
+  }
+
   clientSessionClosed(sessionId: string): void {
+    this.browserTools.sessionClosed(sessionId)
     this.harnesses.closeSession(sessionId)
     this.terminals.closeSession(sessionId)
   }

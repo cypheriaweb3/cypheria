@@ -1,0 +1,447 @@
+// Browser automation command model adapted from Paseo (Apache-2.0),
+// https://github.com/getpaseo/paseo, packages/protocol/src/browser-automation.
+import { z } from "zod"
+
+import { ProjectThreadIdSchema } from "./project-thread.ts"
+import { RequestIdSchema } from "./request-id.ts"
+
+export const BrowserTabKindSchema = z.enum(["web", "dapp"])
+export type BrowserTabKind = z.infer<typeof BrowserTabKindSchema>
+
+export const BrowserAutomationErrorCodeSchema = z.enum([
+  "browser_disabled",
+  "browser_no_host",
+  "browser_tab_not_found",
+  "browser_tab_closed",
+  "browser_timeout",
+  "screenshot_no_frame",
+  "browser_denied",
+  "browser_unsupported",
+  "browser_stale_ref",
+  "browser_unknown_error",
+])
+export type BrowserAutomationErrorCode = z.infer<typeof BrowserAutomationErrorCodeSchema>
+
+const BROWSER_ID_MESSAGE =
+  "browserId must be a real id returned by browser_new_tab or browser_list_tabs"
+const WAIT_CONDITION_MESSAGE = "browser_wait requires exactly one of text or url"
+
+export const BROWSER_AUTOMATION_COMMAND_NAMES = [
+  "list_tabs",
+  "new_tab",
+  "snapshot",
+  "click",
+  "fill",
+  "wait",
+  "type",
+  "keypress",
+  "navigate",
+  "back",
+  "forward",
+  "reload",
+  "screenshot",
+  "upload",
+  "select",
+  "hover",
+  "drag",
+  "logs",
+  "evaluate",
+  "scroll",
+  "resize",
+  "close_tab",
+] as const
+
+export const BrowserAutomationCommandNameSchema = z.enum(BROWSER_AUTOMATION_COMMAND_NAMES)
+export type BrowserAutomationCommandName = z.infer<typeof BrowserAutomationCommandNameSchema>
+
+/** Commands that only read page state; every other command is audited as a mutation. */
+export const BROWSER_AUTOMATION_READ_ONLY_COMMANDS: ReadonlySet<BrowserAutomationCommandName> =
+  new Set(["list_tabs", "snapshot", "screenshot", "logs", "wait"])
+
+export const BrowserIdSchema = z
+  .string({ error: () => BROWSER_ID_MESSAGE })
+  .uuid(BROWSER_ID_MESSAGE)
+export type BrowserId = z.infer<typeof BrowserIdSchema>
+
+const tabTarget = z.object({ browserId: BrowserIdSchema }).strict()
+const BrowserRefSchema = z.string().regex(/^@e\d+$/u, "ref must look like @e12")
+const MouseButtonSchema = z.enum(["left", "right", "middle"])
+const InputModifierSchema = z.enum(["Alt", "Control", "Meta", "Shift"])
+const HttpUrlSchema = z.url().refine((value) => {
+  const protocol = new URL(value).protocol
+  return protocol === "http:" || protocol === "https:"
+}, "URL must use http or https")
+
+const command = <const T extends string, S extends z.ZodType>(name: T, args: S) =>
+  z.object({ args, command: z.literal(name) }).strict()
+
+export const BrowserAutomationListTabsCommandSchema = command(
+  "list_tabs",
+  z.object({}).strict().default({})
+)
+export const BrowserAutomationNewTabCommandSchema = command(
+  "new_tab",
+  z
+    .object({ kind: BrowserTabKindSchema.default("web"), url: HttpUrlSchema.optional() })
+    .strict()
+    .default({ kind: "web" })
+)
+export const BrowserAutomationSnapshotCommandSchema = command("snapshot", tabTarget)
+export const BrowserAutomationClickCommandSchema = command(
+  "click",
+  tabTarget.extend({
+    button: MouseButtonSchema.default("left"),
+    doubleClick: z.boolean().default(false),
+    modifiers: z.array(InputModifierSchema).default([]),
+    ref: BrowserRefSchema,
+  })
+)
+export const BrowserAutomationFillCommandSchema = command(
+  "fill",
+  tabTarget.extend({ ref: BrowserRefSchema, value: z.string() })
+)
+export const BrowserAutomationWaitCommandSchema = command(
+  "wait",
+  tabTarget
+    .extend({
+      text: z.string().min(1).optional(),
+      timeoutMs: z.int().positive().max(30_000).optional(),
+      url: z.string().min(1).optional(),
+    })
+    .refine((args) => Number(Boolean(args.text)) + Number(Boolean(args.url)) === 1, {
+      message: WAIT_CONDITION_MESSAGE,
+    })
+)
+export const BrowserAutomationTypeCommandSchema = command(
+  "type",
+  tabTarget.extend({ ref: BrowserRefSchema.optional(), text: z.string() })
+)
+export const BrowserAutomationKeypressCommandSchema = command(
+  "keypress",
+  tabTarget.extend({ key: z.string().min(1), ref: BrowserRefSchema.optional() })
+)
+export const BrowserAutomationNavigateCommandSchema = command(
+  "navigate",
+  tabTarget.extend({ url: HttpUrlSchema })
+)
+export const BrowserAutomationBackCommandSchema = command("back", tabTarget)
+export const BrowserAutomationForwardCommandSchema = command("forward", tabTarget)
+export const BrowserAutomationReloadCommandSchema = command("reload", tabTarget)
+export const BrowserAutomationScreenshotCommandSchema = command(
+  "screenshot",
+  tabTarget.extend({ fullPage: z.boolean().default(false) })
+)
+export const BrowserAutomationUploadCommandSchema = command(
+  "upload",
+  tabTarget.extend({ filePaths: z.array(z.string().min(1)).min(1), ref: BrowserRefSchema })
+)
+export const BrowserAutomationSelectCommandSchema = command(
+  "select",
+  tabTarget.extend({ ref: BrowserRefSchema, value: z.string() })
+)
+export const BrowserAutomationHoverCommandSchema = command(
+  "hover",
+  tabTarget.extend({ ref: BrowserRefSchema })
+)
+export const BrowserAutomationDragCommandSchema = command(
+  "drag",
+  tabTarget.extend({ sourceRef: BrowserRefSchema, targetRef: BrowserRefSchema })
+)
+export const BrowserAutomationLogsCommandSchema = command(
+  "logs",
+  tabTarget.extend({ maxEntries: z.int().positive().max(200).default(50) })
+)
+export const BrowserAutomationEvaluateCommandSchema = command(
+  "evaluate",
+  tabTarget.extend({ function: z.string().min(1), ref: BrowserRefSchema.optional() })
+)
+export const BrowserAutomationScrollCommandSchema = command(
+  "scroll",
+  tabTarget.extend({ deltaX: z.number(), deltaY: z.number(), ref: BrowserRefSchema.optional() })
+)
+export const BrowserAutomationResizeCommandSchema = command(
+  "resize",
+  tabTarget.extend({
+    height: z.int().positive().max(10_000),
+    width: z.int().positive().max(10_000),
+  })
+)
+export const BrowserAutomationCloseTabCommandSchema = command("close_tab", tabTarget)
+
+export const BrowserAutomationCommandSchema = z.discriminatedUnion("command", [
+  BrowserAutomationListTabsCommandSchema,
+  BrowserAutomationNewTabCommandSchema,
+  BrowserAutomationSnapshotCommandSchema,
+  BrowserAutomationClickCommandSchema,
+  BrowserAutomationFillCommandSchema,
+  BrowserAutomationWaitCommandSchema,
+  BrowserAutomationTypeCommandSchema,
+  BrowserAutomationKeypressCommandSchema,
+  BrowserAutomationNavigateCommandSchema,
+  BrowserAutomationBackCommandSchema,
+  BrowserAutomationForwardCommandSchema,
+  BrowserAutomationReloadCommandSchema,
+  BrowserAutomationScreenshotCommandSchema,
+  BrowserAutomationUploadCommandSchema,
+  BrowserAutomationSelectCommandSchema,
+  BrowserAutomationHoverCommandSchema,
+  BrowserAutomationDragCommandSchema,
+  BrowserAutomationLogsCommandSchema,
+  BrowserAutomationEvaluateCommandSchema,
+  BrowserAutomationScrollCommandSchema,
+  BrowserAutomationResizeCommandSchema,
+  BrowserAutomationCloseTabCommandSchema,
+])
+export type BrowserAutomationCommand = z.infer<typeof BrowserAutomationCommandSchema>
+/** Command arguments before defaults are applied, as written by an Agent or test. */
+export type BrowserAutomationCommandInput = z.input<typeof BrowserAutomationCommandSchema>
+
+export const BrowserTabInfoSchema = z
+  .object({
+    browserId: BrowserIdSchema,
+    canGoBack: z.boolean().optional(),
+    canGoForward: z.boolean().optional(),
+    isActive: z.boolean().default(false),
+    isLoading: z.boolean().default(false),
+    kind: BrowserTabKindSchema,
+    threadId: ProjectThreadIdSchema.optional(),
+    title: z.string(),
+    url: z.string(),
+  })
+  .strict()
+export type BrowserTabInfo = z.infer<typeof BrowserTabInfoSchema>
+
+const withBrowser = <const T extends string, S extends z.ZodRawShape>(name: T, shape: S) =>
+  z.object({ browserId: BrowserIdSchema, command: z.literal(name), ...shape }).strict()
+const point = { x: z.number().optional(), y: z.number().optional() }
+
+export const BrowserAutomationSnapshotStatsSchema = z
+  .object({
+    iframeCount: z.int().nonnegative().optional(),
+    maxDepth: z.int().nonnegative().optional(),
+    nodeCount: z.int().nonnegative(),
+    refCount: z.int().nonnegative(),
+    textLength: z.int().nonnegative(),
+  })
+  .strict()
+
+export const BrowserAutomationConsoleLogEntrySchema = z
+  .object({
+    level: z.string(),
+    line: z.int().optional(),
+    message: z.string(),
+    source: z.string().optional(),
+    timestamp: z.number(),
+  })
+  .strict()
+export type BrowserAutomationConsoleLogEntry = z.infer<
+  typeof BrowserAutomationConsoleLogEntrySchema
+>
+
+export const BrowserAutomationNetworkLogEntrySchema = z
+  .object({
+    duration: z.number(),
+    method: z.string().optional(),
+    startTime: z.number(),
+    status: z.int().optional(),
+    transferSize: z.number().optional(),
+    type: z.string().optional(),
+    url: z.string(),
+  })
+  .strict()
+export type BrowserAutomationNetworkLogEntry = z.infer<
+  typeof BrowserAutomationNetworkLogEntrySchema
+>
+
+export const BrowserAutomationResultSchema = z.discriminatedUnion("command", [
+  z.object({ command: z.literal("list_tabs"), tabs: z.array(BrowserTabInfoSchema) }).strict(),
+  withBrowser("new_tab", {
+    kind: BrowserTabKindSchema,
+    threadId: ProjectThreadIdSchema.optional(),
+    url: z.string().min(1),
+  }),
+  withBrowser("snapshot", {
+    format: z.literal("aria-yaml"),
+    snapshot: z.string(),
+    stats: BrowserAutomationSnapshotStatsSchema,
+    title: z.string(),
+    truncated: z.boolean(),
+    url: z.string(),
+  }),
+  withBrowser("click", { ref: BrowserRefSchema, ...point }),
+  withBrowser("fill", { ref: BrowserRefSchema }),
+  withBrowser("wait", { matched: z.enum(["text", "url"]) }),
+  withBrowser("type", { ref: BrowserRefSchema.optional(), ...point }),
+  withBrowser("keypress", { key: z.string().min(1), ref: BrowserRefSchema.optional(), ...point }),
+  withBrowser("navigate", { url: z.string().min(1) }),
+  withBrowser("back", {}),
+  withBrowser("forward", {}),
+  withBrowser("reload", {}),
+  withBrowser("screenshot", {
+    dataBase64: z.string().min(1),
+    height: z.int().nonnegative(),
+    mimeType: z.literal("image/png"),
+    width: z.int().nonnegative(),
+  }),
+  withBrowser("upload", { filePaths: z.array(z.string().min(1)).min(1), ref: BrowserRefSchema }),
+  withBrowser("select", { ref: BrowserRefSchema, value: z.string() }),
+  withBrowser("hover", { ref: BrowserRefSchema, ...point }),
+  withBrowser("drag", {
+    sourceRef: BrowserRefSchema,
+    sourceX: z.number().optional(),
+    sourceY: z.number().optional(),
+    targetRef: BrowserRefSchema,
+    targetX: z.number().optional(),
+    targetY: z.number().optional(),
+  }),
+  withBrowser("logs", {
+    console: z.array(BrowserAutomationConsoleLogEntrySchema),
+    network: z.array(BrowserAutomationNetworkLogEntrySchema),
+  }),
+  withBrowser("evaluate", { resultJson: z.string(), truncated: z.boolean() }),
+  withBrowser("scroll", {
+    deltaX: z.number(),
+    deltaY: z.number(),
+    ref: BrowserRefSchema.optional(),
+    ...point,
+  }),
+  withBrowser("resize", { height: z.int().positive(), width: z.int().positive() }),
+  withBrowser("close_tab", {}),
+])
+export type BrowserAutomationResult = z.infer<typeof BrowserAutomationResultSchema>
+
+export const BrowserAutomationErrorSchema = z
+  .object({
+    code: BrowserAutomationErrorCodeSchema,
+    message: z.string().min(1),
+    retryable: z.boolean().default(false),
+  })
+  .strict()
+export type BrowserAutomationError = z.infer<typeof BrowserAutomationErrorSchema>
+
+export const BrowserAutomationDialogEventSchema = z
+  .object({
+    action: z.enum(["accepted", "dismissed"]),
+    defaultValue: z.string().optional(),
+    message: z.string(),
+    promptText: z.string().optional(),
+    timestamp: z.number(),
+    type: z.enum(["alert", "confirm", "prompt", "beforeunload"]),
+  })
+  .strict()
+export type BrowserAutomationDialogEvent = z.infer<typeof BrowserAutomationDialogEventSchema>
+
+/** One command addressed to a browser host. `threadId` scopes which tabs the caller may see. */
+export const BrowserAutomationRequestSchema = z
+  .object({
+    automationId: RequestIdSchema,
+    command: BrowserAutomationCommandSchema,
+    cwd: z.string().min(1).optional(),
+    threadId: ProjectThreadIdSchema.optional(),
+  })
+  .strict()
+export type BrowserAutomationRequest = z.infer<typeof BrowserAutomationRequestSchema>
+
+export const BrowserAutomationOutcomeSchema = z.discriminatedUnion("ok", [
+  z
+    .object({
+      automationId: RequestIdSchema,
+      dialogs: z.array(BrowserAutomationDialogEventSchema).optional(),
+      ok: z.literal(true),
+      result: BrowserAutomationResultSchema,
+    })
+    .strict(),
+  z
+    .object({
+      automationId: RequestIdSchema,
+      dialogs: z.array(BrowserAutomationDialogEventSchema).optional(),
+      error: BrowserAutomationErrorSchema,
+      ok: z.literal(false),
+    })
+    .strict(),
+])
+export type BrowserAutomationOutcome = z.infer<typeof BrowserAutomationOutcomeSchema>
+export type BrowserAutomationOutcomeInput = z.input<typeof BrowserAutomationOutcomeSchema>
+
+export const BrowserHostCapabilitySchema = z
+  .object({
+    hostKind: z.string().trim().min(1).max(64).default("browser host"),
+    supportedCommands: z
+      .array(BrowserAutomationCommandNameSchema)
+      .min(1)
+      .transform((commands) => [...new Set(commands)]),
+  })
+  .strict()
+export type BrowserHostCapability = z.infer<typeof BrowserHostCapabilitySchema>
+
+const request = <const T extends string, S extends z.ZodType>(type: T, payload: S) =>
+  z.object({ payload, requestId: RequestIdSchema, type: z.literal(type) }).strict()
+const response = <const T extends string, S extends z.ZodType>(type: T, value: S) =>
+  z
+    .object({
+      payload: z.discriminatedUnion("ok", [
+        z.object({ ok: z.literal(true), value }).strict(),
+        z
+          .object({
+            error: z.object({ code: z.string(), message: z.string() }).strict(),
+            ok: z.literal(false),
+          })
+          .strict(),
+      ]),
+      requestId: RequestIdSchema,
+      type: z.literal(type),
+    })
+    .strict()
+const succeeded = z.object({ succeeded: z.literal(true) }).strict()
+
+export const BrowserHostRegisterRequestSchema = request(
+  "browser.host.register.request",
+  BrowserHostCapabilitySchema
+)
+export const BrowserHostUnregisterRequestSchema = request(
+  "browser.host.unregister.request",
+  z.object({}).strict()
+)
+export const BrowserAutomationResultRequestSchema = request(
+  "browser.automation.result.request",
+  BrowserAutomationOutcomeSchema
+)
+
+export const BrowserHostRegisterResponseSchema = response(
+  "browser.host.register.response",
+  succeeded
+)
+export const BrowserHostUnregisterResponseSchema = response(
+  "browser.host.unregister.response",
+  succeeded
+)
+export const BrowserAutomationResultResponseSchema = response(
+  "browser.automation.result.response",
+  z.object({ accepted: z.boolean() }).strict()
+)
+
+/** Server-to-host command. The host answers with `browser.automation.result.request`. */
+export const BrowserAutomationCommandNotificationSchema = z
+  .object({
+    payload: BrowserAutomationRequestSchema,
+    type: z.literal("browser.automation.command.notification"),
+  })
+  .strict()
+
+export const BROWSER_CLIENT_SCHEMAS = [
+  BrowserHostRegisterRequestSchema,
+  BrowserHostUnregisterRequestSchema,
+  BrowserAutomationResultRequestSchema,
+] as const
+export const BROWSER_SERVER_SCHEMAS = [
+  BrowserHostRegisterResponseSchema,
+  BrowserHostUnregisterResponseSchema,
+  BrowserAutomationResultResponseSchema,
+  BrowserAutomationCommandNotificationSchema,
+] as const
+export const BROWSER_RESPONSE_TYPES = BROWSER_SERVER_SCHEMAS.slice(0, 3).map(
+  (schema) => schema.shape.type.value
+)
+
+export type BrowserClientMessage = z.infer<(typeof BROWSER_CLIENT_SCHEMAS)[number]>
+export type BrowserServerMessage = z.infer<(typeof BROWSER_SERVER_SCHEMAS)[number]>

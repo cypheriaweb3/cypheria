@@ -1,7 +1,14 @@
 import type { v2 } from "@cypheria/protocol/codex-types"
 
+/** Cypheria identity of the calling thread. Codex's own `threadId` is a harness session id. */
+export type CodexDynamicToolCallContext = {
+  readonly cwd?: string
+  readonly threadId?: string
+}
+
 export type CodexDynamicToolHandler = (
-  request: v2.DynamicToolCallParams
+  request: v2.DynamicToolCallParams,
+  context: CodexDynamicToolCallContext
 ) => Promise<v2.DynamicToolCallResponse> | v2.DynamicToolCallResponse
 
 type Registration = {
@@ -45,7 +52,10 @@ export class CodexDynamicToolRegistry {
     }
   }
 
-  async call(request: v2.DynamicToolCallParams): Promise<v2.DynamicToolCallResponse> {
+  async call(
+    request: v2.DynamicToolCallParams,
+    context: CodexDynamicToolCallContext = {}
+  ): Promise<v2.DynamicToolCallResponse> {
     const registration = this.#handlers.get(requestKey(request))
     if (!registration) {
       return {
@@ -59,7 +69,7 @@ export class CodexDynamicToolRegistry {
       }
     }
     try {
-      return await registration.handler(request)
+      return await registration.handler(request, context)
     } catch (error) {
       return {
         contentItems: [

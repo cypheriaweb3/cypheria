@@ -148,6 +148,7 @@ client.integrations
 client.terminals
 client.git
 client.artifacts
+client.browser
 client.settings
 client.server
 ```
@@ -170,6 +171,14 @@ Server 以请求 ID 关联并审计 Git 修改请求的开始和结果。审计�
 GitHub PR 的可用性检查、列表、详情、创建、标题及正文编辑和合并使用 Server 所在主机的 `gh` 安装和当前 `gh` 账户。可用性分别报告 CLI、账户与当前仓库访问情况；PR 读取使用固定 JSON 字段，并在返回给客户端前校验结果。创建前检查 head 分支是否已有 PR，正文通过私有临时文件传入。合并要求传入当前显示的 head commit SHA，并使用 `gh --match-head-commit`。
 GitHub App 按操作分别报告列表、账户范围检索、详情、差异、评论及审查、检查、审查线程、媒体和创建能力。可用的每组工具必须属于该仓库选定的同一账户 link。Desktop 只启用受支持的 App 读取；除创建外的 PR 修改由 `gh` 执行。PR 表单可创建并切换到新分支、选择提交本地改动并生成提交说明、推送分支、按保存的指令生成 PR 标题和正文，再通过选定后端创建。CLI 还提供跨仓库 PR 看板，可按状态、参与方式、文本及仓库筛选。创建结果不确定时，会刷新 PR 数据并提示用户在重试前查看 GitHub。
 GitLab MR 的详情、按分支查找、讨论、reviewer 与批准状态、项目成员搜索、reviewer 管理、pipeline jobs 和 bridges、创建、标题更新及普通评论通过已连接 GitLab App 的 `codex_apps` 工具执行，要求关联本地 Codex 线程。`git.gitlab-mr-availability.request` 分别报告各操作组。Server 校验线程属于请求的仓库、origin 为 GitLab.com、项目和 MR URL 与 origin 一致，且所需工具绑定同一个 connector 账户 link。创建前要求当前分支与已推送的 `origin` 分支头一致；预填浏览器表单 URL 使用同一校验，且无需调用 connector。读取调用后会复核工具 resource URI；写入调用在发送前校验 link，并确认返回结果，不自动重试。Desktop 禁用不可用的 connector 操作，同时保留浏览器表单和本地分支推送路径。
+
+## 浏览器 Host 与 Agent 浏览器工具
+
+`browser` capability 让 Desktop session 充当浏览器 host。`client.browser.registerHost()` 发送带有 host 类型和所支持命令的 `browser.host.register.request`，每次重连后会重新发送，并通过 `browser.host.unregister.request` 释放。只有 `desktop` session 可以注册；session 关闭时 host 会被移除。
+
+Server 为每条命令发送一条 `browser.automation.command.notification`，其中包含 automation ID、命令，以及调用方 Thread 的 ID 和工作目录。Host 用 `browser.automation.result.request` 回复，payload 为类型化结果或类型化错误。命令包括 `list_tabs`、`new_tab`、`close_tab`、`resize`、`snapshot`、`screenshot`、`logs`、`wait`、`click`、`fill`、`type`、`keypress`、`hover`、`select`、`drag`、`upload`、`scroll`、`navigate`、`back`、`forward`、`reload` 和 `evaluate`。错误包括 `browser_disabled`、`browser_no_host`、`browser_tab_not_found`、`browser_stale_ref`、`browser_timeout`、`browser_denied` 和 `browser_unsupported`；两种结果都会报告已处理的页面对话框。
+
+Server broker 记住每个标签页属于哪个 host，汇总所有 host 的 `list_tabs`；host 断开时，待处理命令以可重试的 `browser_no_host` 失败；命令 15 秒后超时。Agent 通过名为 `browser_<command>` 的 Codex dynamic tools 使用 broker；工具调用带有 Cypheria Thread，因此只能操作该 Thread 的标签页。在 Server 配置中设置 `browserTools.enabled` 之前，浏览器工具保持关闭。会改变状态的命令以 automation ID 审计，记录 Thread 和命令名称，不记录参数；初始审计写入失败时命令不会开始。
 
 ## 校验规则
 

@@ -33,7 +33,7 @@ Agent adapters   Cypheria runtime
 Remote clients may use @cypheria/relay -> apps/relay -> apps/server.
 ```
 
-Electron owns windows, isolated dApp WebContents, preload bridges, desktop-local settings, updates, and operating-system integration. Shared product state and privileged operations belong to the Server.
+Electron owns windows, the hardened boundary around built-in browser tabs and the dApp wallet provider, preload bridges, desktop-local settings, updates, and operating-system integration. Shared product state and privileged operations belong to the Server.
 
 See the [architecture guide](docs/architecture.md) and [documentation index](docs/README.md).
 
@@ -97,7 +97,7 @@ Development commands, generated-code workflows, and verification rules are in th
 - Renderer and dApp pages never receive private keys or direct database access.
 - Agents and schedules submit signing intents; the Server evaluates every intent through policy.
 - Auto-signing is off by default and requires an explicit policy.
-- dApp browser sessions are isolated by origin.
+- dApp wallet sessions and permissions are isolated by origin; web tabs never receive a wallet provider.
 - Signatures, policy decisions, schedule runs, and transaction results are auditable.
 
 See the [Web3 guide](docs/web3.md) and [security boundaries](docs/architecture.md#trust-boundaries).

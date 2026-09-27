@@ -347,6 +347,12 @@ if (command === "stop") {
     run("Building Electron main", ["--filter", "@cypheria/desktop", "run", "build:main"])
     run("Building Electron preload", ["--filter", "@cypheria/desktop", "run", "build:preload"])
     run("Building dApp preload", ["--filter", "@cypheria/desktop", "run", "build:dapp-preload"])
+    run("Building browser preload", [
+      "--filter",
+      "@cypheria/desktop",
+      "run",
+      "build:browser-preload",
+    ])
     run("Rebuilding native Desktop modules", [
       "--filter",
       "@cypheria/desktop",
