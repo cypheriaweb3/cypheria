@@ -20,6 +20,7 @@ title: Cypheria 文档
 - [数据库](database.zh-CN.md)：当前 SQLite 基线与迁移策略。
 - [客户端存储](client-storage.zh-CN.md)：跨平台键值状态、可重建 Replica 与附件二进制。
 - [Schedules](schedules.zh-CN.md)：cadence、lease、执行、恢复与非重放保证。
+- [终端](terminals.zh-CN.md)：Thread 归属、私有认证终端、二进制传输与生命周期。
 - [Relay](relay.zh-CN.md)：加密远程 transport、部署、容量与可观测性。
 
 ## 产品界面

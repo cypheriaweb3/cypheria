@@ -24,6 +24,7 @@ export default defineConfig({
     cli: "src/cli.ts",
     main: "src/main.ts",
     supervisor: "src/supervisor-entrypoint.ts",
+    "terminal-worker": "src/terminal/terminal-worker.ts",
   },
   format: "esm",
   outDir: "dist",

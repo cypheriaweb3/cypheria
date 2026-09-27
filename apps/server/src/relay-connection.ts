@@ -248,18 +248,26 @@ export class RelayConnection {
             return
           }
           connection.channel = channel
+          let pendingBytes = 0
           clientConnection = this.#options.registry.accept(
             {
+              bufferedAmount: () => pendingBytes,
               close: (code, reason) => channel.close(code, reason),
               send: (data) => {
                 const bytes = data.slice().buffer
-                void channel.send(bytes).catch((error) => {
-                  this.#options.logger.warn(
-                    { connectionId, err: error },
-                    "Failed to send encrypted relay frame"
-                  )
-                  channel.close(1011, "Relay send failed")
-                })
+                pendingBytes += bytes.byteLength
+                void channel
+                  .send(bytes)
+                  .catch((error) => {
+                    this.#options.logger.warn(
+                      { connectionId, err: error },
+                      "Failed to send encrypted relay frame"
+                    )
+                    channel.close(1011, "Relay send failed")
+                  })
+                  .finally(() => {
+                    pendingBytes = Math.max(0, pendingBytes - bytes.byteLength)
+                  })
               },
             },
             OWNER_SESSION_ADMISSION

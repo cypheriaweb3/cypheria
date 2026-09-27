@@ -59,7 +59,7 @@ export type ThreadManagerOptions = {
   readonly messageRequests: ThreadMessageRequestPersistenceService
   readonly persistence: ProjectThreadPersistenceService
   readonly publish: Publish
-  readonly onArchived?: (cwd: string) => Promise<void>
+  readonly onArchived?: (threadId: string, cwd: string) => Promise<void>
   readonly onDeleting?: (threadId: string) => Promise<void>
   readonly onUnarchiving?: (cwd: string) => Promise<void>
   readonly timelinePersistence: ThreadTimelinePersistenceService
@@ -789,7 +789,7 @@ export class ThreadManager {
         await this.#persistence.setThreadArchived(threadId, Math.floor(Date.now() / 1000))
       )
     })
-    if (archived.cwd) await this.#onArchived?.(archived.cwd).catch(() => undefined)
+    if (archived.cwd) await this.#onArchived?.(threadId, archived.cwd).catch(() => undefined)
     const warnings: Array<{ code: string; message: string }> = []
     await this.#adapterFor(thread.agentId as AgentId, thread.id)
       .archive(this.#context(thread))
@@ -895,7 +895,7 @@ export class ThreadManager {
         throw error
       }
     })
-    if (cwd) await this.#onArchived?.(cwd).catch(() => undefined)
+    if (cwd) await this.#onArchived?.(threadId, cwd).catch(() => undefined)
   }
 
   async startTurn(input: {

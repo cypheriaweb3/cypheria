@@ -141,6 +141,8 @@ Review 面板的工作树控件可选择包含本地改动及仓库内环境配�
 
 共同体验包括草稿、附件、临时到持久 Thread 转换、每 Thread scope、流式输出、取消、重试、虚拟 Timeline、滚动锚点、位置恢复、未读、搜索、导航、reasoning、plans、tools、commands、diffs、terminals、approvals、artifacts 和故障恢复。
 
+终端面板订阅所选 Thread 的共享[终端目录](terminals.zh-CN.md)。远端创建会增加后台 tab，但不会改变本地焦点或面板显隐；隐藏或卸载面板只释放 stream 订阅。尚未持久化的草稿不能创建终端。交互式认证会为其私有终端复用 stream renderer，但不会增加工作区 tab。
+
 Harness 专属 UI 仅限判别 Timeline 扩展、header actions、model settings、permission details 和真实 harness capabilities。Codex 仍是保真参考，但 Claude、Pi、OpenCode 和 ACP 复用同一 shell，而不是复制整套 UI。
 
 Composer 使用共享的 `ChatModelSelector` 与 `ChatContextUsage` 展示组件。Selector 把 Agent、model、推理强度与速度合并起来，并隐藏所选 Agent 未广告的维度。首条消息发送前，切换 Agent 会改变新 Thread 使用的 runtime；已有 Thread 保持其 Agent identity。Context control 是一个紧凑 meter，hover card 会针对 Codex、Claude、Pi、OpenCode 与 ACP 显示不同明细，并用 source label 区分 reported、queried、derived 与 estimated。Chat Demo 同时展示这两个组件，开发者无需真实 Agent 即可切换检查所有呈现变体。

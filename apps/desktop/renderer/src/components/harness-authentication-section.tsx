@@ -345,7 +345,6 @@ export function AuthenticationSection({ agent }: { agent: AgentView }) {
   const [flow, setFlow] = useState<HarnessAuthFlow>()
   const [flowResponse, setFlowResponse] = useState("")
   const [terminalError, setTerminalError] = useState<string | null>(null)
-  const terminalReplay = useRef(new Map<string, string>())
   const activeFlow = useRef<{ flowId: string; terminalId?: string } | null>(null)
   const view = useQuery({
     queryFn: async () => (await ensureCypheriaClient()).harnesses.get(agent.id),
@@ -383,7 +382,6 @@ export function AuthenticationSection({ agent }: { agent: AgentView }) {
 
   const clearDialog = useCallback(() => {
     activeFlow.current = null
-    terminalReplay.current.clear()
     setDialogOpen(false)
     setProviderStep(false)
     setProviderId("")
@@ -565,38 +563,8 @@ export function AuthenticationSection({ agent }: { agent: AgentView }) {
     }
   }, [agent.id, completeDialog, flow])
 
-  const getTerminalReplay = useCallback(
-    (terminalId: string) => terminalReplay.current.get(terminalId) ?? "",
-    []
-  )
   useEffect(() => {
-    let disposed = false
-    let unsubscribeOutput: () => void = () => undefined
-    let unsubscribeExited: () => void = () => undefined
-    void ensureCypheriaClient().then((client) => {
-      if (disposed) return
-      unsubscribeOutput = client.on("terminal.output.notification", (message) => {
-        const current = terminalReplay.current.get(message.payload.terminalId) ?? ""
-        terminalReplay.current.set(message.payload.terminalId, `${current}${message.payload.data}`)
-      })
-      unsubscribeExited = client.on("terminal.exited.notification", (message) => {
-        if (message.payload.terminalId !== activeFlow.current?.terminalId) return
-        activeFlow.current = null
-        if (message.payload.exitCode === 0) {
-          void completeDialog()
-        } else {
-          setTerminalError(`Authentication process exited with code ${message.payload.exitCode}.`)
-          setFlow({
-            message: `Authentication process exited with code ${message.payload.exitCode}.`,
-            state: "failed",
-          })
-        }
-      })
-    })
     return () => {
-      disposed = true
-      unsubscribeOutput()
-      unsubscribeExited()
       const pending = activeFlow.current
       activeFlow.current = null
       if (pending?.flowId) {
@@ -605,7 +573,21 @@ export function AuthenticationSection({ agent }: { agent: AgentView }) {
         )
       }
     }
-  }, [agent.id, completeDialog])
+  }, [agent.id])
+
+  const handleTerminalExit = useCallback(
+    (event: { exitCode: number | null }) => {
+      activeFlow.current = null
+      if (event.exitCode === 0) {
+        void completeDialog()
+        return
+      }
+      const message = `Authentication process exited${event.exitCode === null ? "." : ` with code ${event.exitCode}.`}`
+      setTerminalError(message)
+      setFlow({ message, state: "failed" })
+    },
+    [completeDialog]
+  )
 
   const error =
     auth.error?.message ??
@@ -868,11 +850,12 @@ export function AuthenticationSection({ agent }: { agent: AgentView }) {
                 <div className="h-72 overflow-hidden rounded-md border bg-black">
                   <WorkspaceTerminalSurface
                     active
-                    getReplay={getTerminalReplay}
+                    onExit={handleTerminalExit}
                     session={{
                       cwd: "Authentication",
+                      name: "Authentication",
                       terminalId: flow.terminalId,
-                      title: `${agent.name} authentication`,
+                      title: "Authentication",
                     }}
                   />
                 </div>

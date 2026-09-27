@@ -142,4 +142,4 @@ Codex、Pi 和 ACP 进程生命周期记录包含 Agent ID、进程 ID、退出�
 - PID、身份、relay key、配置和 vault 文件拥有显式所有权与权限。
 - 日志追加到 `$CYPHERIA_HOME/logs`，结构化状态响应不包含凭证。
 - Diagnostics 暴露运维状态，不暴露私钥或秘密配置。
-- 数据库、Agent、插件、Schedule、Terminal 和 Web3 生命周期会在优雅关闭期间收尾。
+- 数据库、Agent、插件、Schedule、[Terminal](terminals.zh-CN.md) 和 Web3 生命周期会在优雅关闭期间收尾。

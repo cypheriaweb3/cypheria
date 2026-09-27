@@ -1046,9 +1046,9 @@ export function ConversationWorkspace({
     },
     [markPanelDirty]
   )
-  const terminals = useWorkspaceTerminals(initialProjectId)
   const browserTabs = useBrowserTabsState()
   const threadBrowserTabs = snapshot.thread?.id ? tabsForScope(browserTabs, snapshot.thread.id) : []
+  const terminals = useWorkspaceTerminals(snapshot.threadId ?? undefined)
 
   useEffect(() => {
     if (!canPersistPanel || !panelDirtyRef.current) return

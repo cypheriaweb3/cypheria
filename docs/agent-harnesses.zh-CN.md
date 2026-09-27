@@ -24,7 +24,7 @@ Agent descriptor 报告来源、distribution、已安装和可用版本、启用
 
 设置以带稳定 section 的类型化 `select`、`boolean` 或 `number` definition 描述。Server 按最新 definitions 校验每次更新。非密钥默认值按 Agent ID 持久化，并应用于新 session；凭证留在 harness 自己的 credential store 中，绝不进入配置、协议响应或日志。已经失效的保存值会保持可见并标记无效，直到用户替换。
 
-认证以包含互斥 method 的 provider 建模，而不是扁平 method 列表。Codex、Claude 和 ACP Agent 暴露一个逻辑 provider；Pi 与 OpenCode 暴露多个 provider，且每个 provider 只允许一个 active connection。OpenCode method form 会被归一化为带类型、支持条件的字段，并按最近一次发现的 definition 校验。已有连接或正在认证的 provider 必须先断开连接或取消 flow，才能启动另一种 method。Login、交互响应、轮询、取消、定向 logout 和连接测试均在 Server 中执行；Desktop 把对应用户操作显示为 Configure 与 Disconnect。浏览器、设备码、command 和 terminal flow 保留由发起请求的 client session 所有的可取消资源；关闭该 session 或停止 Server 会中止 flow，并释放其进程、终端和 reservation。连接测试会使用侵入性最低的 adapter 专属认证操作：Codex 与 Claude 刷新账户发现，Pi 与 OpenCode 发起最小 provider 请求，registry Agent 则执行 ACP 握手和临时 session probe。Pi 和 OpenCode 的 API key 配置也会在接受凭证前执行该 provider 请求；若校验失败，会再次移除该凭证。
+认证以包含互斥 method 的 provider 建模，而不是扁平 method 列表。Codex、Claude 和 ACP Agent 暴露一个逻辑 provider；Pi 与 OpenCode 暴露多个 provider，且每个 provider 只允许一个 active connection。OpenCode method form 会被归一化为带类型、支持条件的字段，并按最近一次发现的 definition 校验。已有连接或正在认证的 provider 必须先断开连接或取消 flow，才能启动另一种 method。Login、交互响应、轮询、取消、定向 logout 和连接测试均在 Server 中执行；Desktop 把对应用户操作显示为 Configure 与 Disconnect。浏览器、设备码、command 和 terminal flow 保留由发起请求的 client session 所有的可取消资源；关闭该 session 或停止 Server 会中止 flow，并释放其进程、终端和 reservation。交互式命令认证使用由共享终端引擎支持的[私有认证终端](terminals.zh-CN.md)。连接测试会使用侵入性最低的 adapter 专属认证操作：Codex 与 Claude 刷新账户发现，Pi 与 OpenCode 发起最小 provider 请求，registry Agent 则执行 ACP 握手和临时 session probe。Pi 和 OpenCode 的 API key 配置也会在接受凭证前执行该 provider 请求；若校验失败，会再次移除该凭证。
 
 ## Runtime 生命周期
 

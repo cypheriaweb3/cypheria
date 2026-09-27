@@ -2396,3 +2396,23 @@ msgstr "清除 dApp 标签页使用的 Cookie、存储和缓存。钱包授权�
 #: renderer/src/browser/browser-settings-section.tsx
 msgid "settings.browser.clear"
 msgstr "清除"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.closeSharedTerminalConfirm"
+msgstr "要为所有已连接的客户端关闭这个共享终端吗？"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.saveThreadForTerminal"
+msgstr "保存为 Thread 后才能使用终端。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.openingTerminal"
+msgstr "正在打开终端…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.terminalReady"
+msgstr "终端已准备好打开。"

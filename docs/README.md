@@ -20,6 +20,7 @@ This index assigns one owner to each subject. Follow links instead of copying de
 - [Database](database.md): current SQLite baseline and migration policy.
 - [Client storage](client-storage.md): cross-platform key/value state, rebuildable replicas, and attachment bytes.
 - [Schedules](schedules.md): cadence, leases, execution, recovery, and non-replay guarantees.
+- [Terminals](terminals.md): Thread ownership, private authentication terminals, binary streaming, and lifecycle.
 - [Relay](relay.md): encrypted remote transport, deployment, capacity, and observability.
 
 ## Product surfaces

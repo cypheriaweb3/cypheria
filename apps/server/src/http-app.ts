@@ -235,6 +235,9 @@ export function createHttpApp(options: CreateHttpAppOptions): Hono {
           onOpen: (_event, socket) => {
             connection = registry.accept(
               {
+                bufferedAmount: () =>
+                  (socket as unknown as { raw?: { bufferedAmount?: number } }).raw
+                    ?.bufferedAmount ?? 0,
                 close: (code, reason) => socket.close(code, reason),
                 send: (data) => socket.send(new Uint8Array(data)),
               },

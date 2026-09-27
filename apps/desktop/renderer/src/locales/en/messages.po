@@ -2396,3 +2396,23 @@ msgstr "Clears cookies, storage, and cache used by dApp tabs. Wallet permissions
 #: renderer/src/browser/browser-settings-section.tsx
 msgid "settings.browser.clear"
 msgstr "Clear"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.closeSharedTerminalConfirm"
+msgstr "Close this shared terminal for every connected client?"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.saveThreadForTerminal"
+msgstr "Save this conversation as a thread to use terminals."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.openingTerminal"
+msgstr "Opening terminal…"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/workspace-terminal.tsx
+msgid "chat.workspace.terminalReady"
+msgstr "Terminal is ready to open."

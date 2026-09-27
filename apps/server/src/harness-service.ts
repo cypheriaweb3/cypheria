@@ -17,7 +17,7 @@ import {
 import type { AgentManager } from "./agent/agent-manager.js"
 import type { CodexHarnessService } from "./codex-harness-service.js"
 import { HarnessCatalogManager } from "./harness-catalog-manager.js"
-import type { TerminalService } from "./terminal-service.js"
+import type { TerminalManager } from "./terminal/terminal-manager.js"
 
 type Send = (message: ServerMessage) => void
 
@@ -246,7 +246,7 @@ export class HarnessService {
   readonly catalog: HarnessCatalogManager
   readonly #agents: AgentManager
   readonly #codex: CodexHarnessService
-  readonly #terminals: TerminalService
+  readonly #terminals: TerminalManager
   readonly #acpAuthMethods = new Map<
     AgentId,
     Array<{
@@ -270,7 +270,7 @@ export class HarnessService {
     { agentId: AgentId; providerId: string; sessionId: string; terminalId: string }
   >()
 
-  constructor(agents: AgentManager, codex: CodexHarnessService, terminals: TerminalService) {
+  constructor(agents: AgentManager, codex: CodexHarnessService, terminals: TerminalManager) {
     this.#agents = agents
     this.#codex = codex
     this.#terminals = terminals
@@ -283,7 +283,7 @@ export class HarnessService {
     for (const flow of this.#piAuthFlows.values()) flow.controller.abort()
     this.#piAuthFlows.clear()
     for (const flow of this.#terminalAuthFlows.values()) {
-      this.#terminals.close(flow.terminalId, flow.sessionId)
+      void this.#terminals.closeAuthTerminal(flow.terminalId, flow.sessionId)
     }
     this.#terminalAuthFlows.clear()
     for (const [flowId, owner] of this.#flowSessions) {
@@ -309,7 +309,7 @@ export class HarnessService {
     }
     for (const [flowId, flow] of this.#terminalAuthFlows) {
       if (flow.sessionId !== sessionId) continue
-      this.#terminals.close(flow.terminalId, sessionId)
+      void this.#terminals.closeAuthTerminal(flow.terminalId, sessionId)
       this.#terminalAuthFlows.delete(flowId)
       this.#releaseFlow(flowId)
     }
@@ -397,8 +397,7 @@ export class HarnessService {
               message.payload.providerId,
               message.payload.methodId,
               message.payload.values,
-              sessionId,
-              send
+              sessionId
             )
           )
           break
@@ -812,8 +811,7 @@ export class HarnessService {
     providerId: string,
     methodId: string,
     suppliedValues: AuthValues | undefined,
-    sessionId: string,
-    send: Send
+    sessionId: string
   ) {
     const view = await this.#view(agentId)
     const provider = view.providers.find((candidate) => candidate.id === providerId)
@@ -828,7 +826,7 @@ export class HarnessService {
     const key = this.#reserveAuth(agentId, providerId)
     try {
       const values = validateAuthValues(method.fields, suppliedValues)
-      const flow = await this.#startAuthFlow(agentId, providerId, methodId, values, sessionId, send)
+      const flow = await this.#startAuthFlow(agentId, providerId, methodId, values, sessionId)
       if (flow.state === "pending" && flow.flowId) {
         this.#trackFlow(flow.flowId, key, agentId, sessionId)
       } else {
@@ -846,8 +844,7 @@ export class HarnessService {
     providerId: string,
     methodId: string,
     values: AuthValues,
-    sessionId: string,
-    send: Send
+    sessionId: string
   ): Promise<HarnessAuthFlow> {
     if (!isNativeAgentId(agentId)) {
       if (providerId !== agentId) throw new Error("Invalid ACP authentication provider")
@@ -865,8 +862,7 @@ export class HarnessService {
           methodId,
           method.args,
           method.env,
-          sessionId,
-          send
+          sessionId
         )
       }
       await this.#agents.authenticateAcp(agentId, methodId, new AbortController().signal)
@@ -969,8 +965,7 @@ export class HarnessService {
           methodId,
           ["auth", "login", methodId === "console" ? "--console" : "--claudeai"],
           {},
-          sessionId,
-          send
+          sessionId
         )
       }
       throw new Error(`${agentId} authentication requires its installed provider flow`)
@@ -1031,7 +1026,7 @@ export class HarnessService {
     }
     const terminal = this.#terminalAuthFlows.get(flowId)
     if (terminal?.agentId === agentId && terminal.sessionId === sessionId) {
-      this.#terminals.close(terminal.terminalId, sessionId)
+      await this.#terminals.closeAuthTerminal(terminal.terminalId, sessionId)
       this.#terminalAuthFlows.delete(flowId)
       this.#releaseFlow(flowId)
       return { cancelled: true }
@@ -1267,15 +1262,17 @@ export class HarnessService {
     methodId: string,
     args: string[],
     environment: Record<string, string>,
-    sessionId: string,
-    send: Send
+    sessionId: string
   ): Promise<HarnessAuthFlow> {
     const spec = await this.#agents.authTerminalSpec(agentId, args, environment)
     const flowId = `terminal:${randomUUID()}`
-    const terminal = this.#terminals.openCommand(
-      { ...spec, title: `${agentId} authentication` },
+    const terminal = await this.#terminals.createAuthTerminal(
+      {
+        ...spec,
+        flowId,
+        title: "Authentication",
+      },
       sessionId,
-      send,
       (exitCode) => {
         this.#terminalAuthFlows.delete(flowId)
         if (exitCode === 0 && !isNativeAgentId(agentId)) this.#acpConnected.add(agentId)

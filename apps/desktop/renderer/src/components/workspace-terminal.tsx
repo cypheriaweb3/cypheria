@@ -1,4 +1,5 @@
-import type { TerminalServerMessage, TerminalSession } from "@cypheria/protocol"
+import type { TerminalStream } from "@cypheria/client"
+import type { TerminalInfo, TerminalSize } from "@cypheria/protocol"
 import { cn } from "@cypheria/ui"
 import { Button } from "@cypheria/ui/components/button"
 import {
@@ -19,115 +20,83 @@ import { terminalAppearanceFromElement } from "./terminal-appearance.js"
 import { normalizeWorkspaceTerminalSize } from "./workspace-terminal-size.js"
 import "./workspace-terminal.css"
 
-const terminalReplayLimit = 1_000_000
-
-type TerminalEvent =
-  | (Extract<TerminalServerMessage, { type: "terminal.output.notification" }>["payload"] & {
-      type: "output"
-    })
-  | (Extract<TerminalServerMessage, { type: "terminal.exited.notification" }>["payload"] & {
-      type: "exited"
-    })
-
-const terminalEventText = (event: TerminalEvent): string =>
-  event.type === "output" ? event.data : `\r\n[process exited: ${event.exitCode}]\r\n`
-
-export function useWorkspaceTerminals(projectId?: string) {
-  const [sessions, setSessions] = useState<TerminalSession[]>([])
+export function useWorkspaceTerminals(threadId?: string) {
+  const [sessions, setSessions] = useState<TerminalInfo[]>([])
   const [activeTerminalId, setActiveTerminalId] = useState<string | null>(null)
   const [opening, setOpening] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const replayByTerminal = useRef(new Map<string, string>())
+
+  useEffect(() => {
+    setSessions([])
+    setActiveTerminalId(null)
+    setError(null)
+    if (!threadId) return
+    let disposed = false
+    let unsubscribe: () => void = () => undefined
+    void ensureCypheriaClient()
+      .then((client) =>
+        client.terminals.watchThread(threadId, (next) => {
+          if (disposed) return
+          setSessions((current) => {
+            const byId = new Map(next.map((terminal) => [terminal.terminalId, terminal]))
+            const reconciled = current.flatMap((terminal) => {
+              const updated = byId.get(terminal.terminalId)
+              if (!updated) return []
+              byId.delete(terminal.terminalId)
+              return [updated]
+            })
+            return [...reconciled, ...byId.values()]
+          })
+          setActiveTerminalId((current) => {
+            if (current && next.some((terminal) => terminal.terminalId === current)) return current
+            return next[0]?.terminalId ?? null
+          })
+        })
+      )
+      .then((stop) => {
+        if (disposed) stop()
+        else unsubscribe = stop
+      })
+      .catch((cause) => {
+        if (!disposed) setError(cause instanceof Error ? cause.message : String(cause))
+      })
+    return () => {
+      disposed = true
+      unsubscribe()
+    }
+  }, [threadId])
 
   const openTerminal = useCallback(async () => {
-    if (opening) return
+    if (opening || !threadId) return
     setOpening(true)
     setError(null)
     try {
-      const client = await ensureCypheriaClient()
-      const session = await client.terminals.open(projectId ? { projectId } : {})
-      replayByTerminal.current.set(session.terminalId, "")
-      setSessions((current) => {
-        const number = current.filter((item) => item.title.startsWith(session.title)).length + 1
-        return [
-          ...current,
-          { ...session, title: number === 1 ? session.title : `${session.title} ${number}` },
-        ]
-      })
-      setActiveTerminalId(session.terminalId)
+      const terminal = await (await ensureCypheriaClient()).terminals.create({ threadId })
+      setActiveTerminalId(terminal.terminalId)
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
       setOpening(false)
     }
-  }, [opening, projectId])
+  }, [opening, threadId])
 
   const closeTerminal = useCallback(async (terminalId: string) => {
-    await (await ensureCypheriaClient()).terminals.close(terminalId)
-    replayByTerminal.current.delete(terminalId)
-    setSessions((current) => {
-      const index = current.findIndex((session) => session.terminalId === terminalId)
-      const next = current.filter((session) => session.terminalId !== terminalId)
-      setActiveTerminalId((active) =>
-        active === terminalId
-          ? (next[Math.min(index, next.length - 1)]?.terminalId ?? null)
-          : active
-      )
-      return next
-    })
-  }, [])
-
-  const getTerminalReplay = useCallback(
-    (terminalId: string) => replayByTerminal.current.get(terminalId) ?? "",
-    []
-  )
-
-  useEffect(() => {
-    let disposed = false
-    let unsubscribeOutput: () => void = () => undefined
-    let unsubscribeExited: () => void = () => undefined
-    void ensureCypheriaClient().then((client) => {
-      if (disposed) return
-      const capture = (event: TerminalEvent) => {
-        const current = replayByTerminal.current.get(event.terminalId)
-        if (current === undefined) return
-        const next = `${current}${terminalEventText(event)}`
-        replayByTerminal.current.set(
-          event.terminalId,
-          next.length > terminalReplayLimit ? next.slice(-terminalReplayLimit) : next
-        )
-      }
-      unsubscribeOutput = client.on("terminal.output.notification", (message) =>
-        capture({ ...message.payload, type: "output" })
-      )
-      unsubscribeExited = client.on("terminal.exited.notification", (message) =>
-        capture({ ...message.payload, type: "exited" })
-      )
-    })
-    return () => {
-      disposed = true
-      unsubscribeOutput()
-      unsubscribeExited()
+    try {
+      await (await ensureCypheriaClient()).terminals.close(terminalId)
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause))
     }
   }, [])
-
-  useEffect(
-    () => () => {
-      replayByTerminal.current.clear()
-      void ensureCypheriaClient().then((client) => client.terminals.closeAll())
-    },
-    []
-  )
 
   return {
     activeTerminalId,
     closeTerminal,
     error,
-    getTerminalReplay,
     openTerminal,
     opening,
     sessions,
     setActiveTerminalId,
+    threadId,
   }
 }
 
@@ -153,16 +122,18 @@ export function WorkspaceTerminalView({
     activeTerminalId,
     closeTerminal,
     error,
-    getTerminalReplay,
     openTerminal,
     opening,
     sessions,
     setActiveTerminalId,
+    threadId,
   } = controller
 
   useEffect(() => {
-    if (active && openWhenEmpty && !sessions.length && !opening && !error) void openTerminal()
-  }, [active, error, openTerminal, openWhenEmpty, opening, sessions.length])
+    if (active && threadId && openWhenEmpty && !sessions.length && !opening && !error) {
+      void openTerminal()
+    }
+  }, [active, error, openTerminal, openWhenEmpty, opening, sessions.length, threadId])
 
   return (
     <section
@@ -199,14 +170,27 @@ export function WorkspaceTerminalView({
                   type="button"
                 >
                   <TerminalIcon className="size-3.5 shrink-0" />
-                  <span className="truncate">{session.title}</span>
+                  <span className="truncate">{session.name}</span>
                 </button>
                 <button
                   aria-label={i18n._(
                     msg({ id: "chat.workspace.closeTerminal", message: "Close terminal" })
                   )}
                   className="mr-1 rounded p-0.5 opacity-0 hover:bg-accent group-hover/tab:opacity-100 focus:opacity-100"
-                  onClick={() => void closeTerminal(session.terminalId)}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        i18n._(
+                          msg({
+                            id: "chat.workspace.closeSharedTerminalConfirm",
+                            message: "Close this shared terminal for every connected client?",
+                          })
+                        )
+                      )
+                    ) {
+                      void closeTerminal(session.terminalId)
+                    }
+                  }}
                   type="button"
                 >
                   <CloseBoldIcon className="size-3" />
@@ -217,14 +201,11 @@ export function WorkspaceTerminalView({
           <Button
             aria-label={i18n._(
               placement === "bottom"
-                ? msg({
-                    id: "chat.workspace.openBottomPanelTab",
-                    message: "Open bottom panel tab",
-                  })
+                ? msg({ id: "chat.workspace.openBottomPanelTab", message: "Open bottom panel tab" })
                 : msg({ id: "chat.workspace.newTerminal", message: "New terminal" })
             )}
             className="shrink-0"
-            disabled={opening}
+            disabled={opening || !threadId}
             onClick={() => void openTerminal()}
             size="icon-sm"
             variant="ghost"
@@ -281,7 +262,6 @@ export function WorkspaceTerminalView({
         {sessions.map((session) => (
           <WorkspaceTerminalSurface
             active={active && session.terminalId === activeTerminalId}
-            getReplay={getTerminalReplay}
             key={session.terminalId}
             session={session}
           />
@@ -293,7 +273,23 @@ export function WorkspaceTerminalView({
         ) : null}
         {!sessions.length && !error ? (
           <div className="absolute inset-0 grid place-content-center text-sm text-muted-foreground">
-            {opening ? "Opening terminal…" : "Terminal is ready to open."}
+            {!threadId
+              ? i18n._(
+                  msg({
+                    id: "chat.workspace.saveThreadForTerminal",
+                    message: "Save this conversation as a thread to use terminals.",
+                  })
+                )
+              : opening
+                ? i18n._(
+                    msg({ id: "chat.workspace.openingTerminal", message: "Opening terminal…" })
+                  )
+                : i18n._(
+                    msg({
+                      id: "chat.workspace.terminalReady",
+                      message: "Terminal is ready to open.",
+                    })
+                  )}
           </div>
         ) : null}
       </div>
@@ -301,19 +297,29 @@ export function WorkspaceTerminalView({
   )
 }
 
+type TerminalSurfaceSession = {
+  cwd: string
+  terminalId: string
+  title: string | null
+  name?: string
+}
+
 export function WorkspaceTerminalSurface({
   active,
-  getReplay,
+  onExit,
   session,
 }: Readonly<{
   active: boolean
-  getReplay: (terminalId: string) => string
-  session: TerminalSession
+  onExit?: (event: { exitCode: number | null; reason: string; signal: number | null }) => void
+  session: TerminalSurfaceSession
 }>) {
   const container = useRef<HTMLDivElement>(null)
   const terminal = useRef<Terminal | null>(null)
   const fit = useRef<FitAddon | null>(null)
+  const stream = useRef<TerminalStream | null>(null)
   const activeRef = useRef(active)
+  const writingServerData = useRef(0)
+  const lastInputClaimAt = useRef(0)
   activeRef.current = active
 
   useEffect(() => {
@@ -330,78 +336,122 @@ export function WorkspaceTerminalSurface({
     const fitAddon = new FitAddon()
     instance.loadAddon(fitAddon)
     instance.open(container.current)
-    const replay = getReplay(session.terminalId)
-    if (replay) instance.write(replay)
     terminal.current = instance
     fit.current = fitAddon
 
+    const writeServerData = (data: Uint8Array) => {
+      writingServerData.current += 1
+      instance.write(data, () => {
+        writingServerData.current = Math.max(0, writingServerData.current - 1)
+      })
+    }
     const data = instance.onData((value) => {
-      void ensureCypheriaClient().then((client) =>
-        client.terminals.write(session.terminalId, value)
-      )
+      if (writingServerData.current > 0) return
+      const current = stream.current
+      if (!current) return
+      const now = Date.now()
+      if (now - lastInputClaimAt.current > 1_000) {
+        lastInputClaimAt.current = now
+        const size = normalizeWorkspaceTerminalSize(instance.cols, instance.rows)
+        void current
+          .resize(size, { claim: true })
+          .then(() => current.write(value))
+          .catch(() => undefined)
+      } else {
+        void current.write(value).catch(() => undefined)
+      }
     })
     let disposed = false
-    let unsubscribeOutput: () => void = () => undefined
-    let unsubscribeExited: () => void = () => undefined
-    void ensureCypheriaClient().then((client) => {
-      if (disposed) return
-      unsubscribeOutput = client.on("terminal.output.notification", (message) => {
-        if (message.payload.terminalId !== session.terminalId) return
-        instance.write(terminalEventText({ ...message.payload, type: "output" }))
+    void ensureCypheriaClient()
+      .then((client) =>
+        client.terminals.observe(
+          session.terminalId,
+          {
+            onExit: (event) => {
+              instance.write(
+                `\r\n[process exited${event.exitCode === null ? "" : `: ${event.exitCode}`}]\r\n`
+              )
+              onExit?.(event)
+            },
+            onOutput: writeServerData,
+            onRestore: ({ data: restored, start }) => {
+              if (start) instance.reset()
+              writeServerData(restored)
+            },
+          },
+          { restore: "visible" }
+        )
+      )
+      .then((connected) => {
+        if (disposed) void connected.dispose()
+        else {
+          stream.current = connected
+          requestAnimationFrame(() => fitAndResize(true))
+        }
       })
-      unsubscribeExited = client.on("terminal.exited.notification", (message) => {
-        if (message.payload.terminalId !== session.terminalId) return
-        instance.write(terminalEventText({ ...message.payload, type: "exited" }))
+      .catch((error) => {
+        if (!disposed)
+          instance.write(
+            `\r\n[terminal unavailable: ${error instanceof Error ? error.message : String(error)}]\r\n`
+          )
       })
-    })
-    let lastSize: { cols: number; rows: number } | undefined
-    const fitAndResize = () => {
+
+    let lastSize: TerminalSize | undefined
+    const fitAndResize = (claim = false) => {
       if (!activeRef.current) return
       fitAddon.fit()
       const size = normalizeWorkspaceTerminalSize(instance.cols, instance.rows)
-      if (lastSize?.cols === size.cols && lastSize.rows === size.rows) return
+      if (!claim && lastSize?.cols === size.cols && lastSize.rows === size.rows) return
       lastSize = size
-      void ensureCypheriaClient()
-        .then((client) => client.terminals.resize(session.terminalId, size.cols, size.rows))
-        .catch(() => undefined)
+      void stream.current?.resize(size, { claim }).catch(() => undefined)
     }
-    const resize = new ResizeObserver(fitAndResize)
+    const resize = new ResizeObserver(() => fitAndResize())
     resize.observe(container.current)
+    const claim = () => fitAndResize(true)
+    container.current.addEventListener("pointerdown", claim)
     const theme = new MutationObserver(() => {
       if (!container.current) return
-      const appearance = terminalAppearanceFromElement(container.current)
-      instance.options.fontFamily = appearance.fontFamily
-      instance.options.fontSize = appearance.fontSize
-      instance.options.theme = appearance.theme
+      const next = terminalAppearanceFromElement(container.current)
+      instance.options.fontFamily = next.fontFamily
+      instance.options.fontSize = next.fontSize
+      instance.options.theme = next.theme
       if (instance.rows > 0) instance.refresh(0, instance.rows - 1)
-      requestAnimationFrame(fitAndResize)
+      requestAnimationFrame(() => fitAndResize())
     })
     theme.observe(document.documentElement, { attributes: true })
-    requestAnimationFrame(fitAndResize)
+    requestAnimationFrame(() => fitAndResize(activeRef.current))
     return () => {
+      disposed = true
+      container.current?.removeEventListener("pointerdown", claim)
       theme.disconnect()
       resize.disconnect()
-      disposed = true
-      unsubscribeOutput()
-      unsubscribeExited()
       data.dispose()
+      void stream.current?.dispose()
+      stream.current = null
       instance.dispose()
       terminal.current = null
       fit.current = null
     }
-  }, [getReplay, session.terminalId])
+  }, [onExit, session.terminalId])
 
   useEffect(() => {
     if (!active) return
     requestAnimationFrame(() => {
       fit.current?.fit()
       terminal.current?.focus()
+      const instance = terminal.current
+      if (instance) {
+        void stream.current
+          ?.resize(normalizeWorkspaceTerminalSize(instance.cols, instance.rows), { claim: true })
+          .catch(() => undefined)
+      }
     })
   }, [active])
 
+  const label = session.name ?? session.title ?? "Terminal"
   return (
     <div
-      aria-label={`${session.title} — ${session.cwd}`}
+      aria-label={`${label} — ${session.cwd}`}
       className={
         active
           ? "cypheria-terminal h-full p-2 font-mono text-[length:var(--font-mono-size)]"

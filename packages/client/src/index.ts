@@ -34,7 +34,14 @@ import {
   type ServerClientConfig,
   type ServerSession,
 } from "./server-client.js"
-import { createTerminalActions, type TerminalActions } from "./terminal.js"
+import {
+  createTerminalActions,
+  type TerminalActions,
+  type TerminalCaptureRange,
+  type TerminalObserveCallbacks,
+  type TerminalObserveOptions,
+  type TerminalStream,
+} from "./terminal.js"
 import {
   createThreadActions,
   type ThreadActions,
@@ -254,6 +261,11 @@ export type {
   ProjectThreadActions,
   ScheduleActions,
   SectionActions,
+  TerminalActions,
+  TerminalCaptureRange,
+  TerminalObserveCallbacks,
+  TerminalObserveOptions,
+  TerminalStream,
   ThreadActions,
   ThreadContextUsageActions,
   TimelineActions,

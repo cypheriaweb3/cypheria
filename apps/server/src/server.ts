@@ -26,6 +26,7 @@ import {
   type CodexHarnessServerMessage,
   CYPHERIA_PROTOCOL_VERSION,
   CYPHERIA_WEBSOCKET_PROTOCOL,
+  type CypheriaBinaryFrame,
   type GitClientMessage,
   type GitServerMessage,
   type HarnessClientMessage,
@@ -79,7 +80,7 @@ import { ScheduleService } from "./schedule/schedule-service.js"
 import { ServerConfigStore } from "./server-config-store.js"
 import type { SessionTransport } from "./session/client-session.js"
 import { ConnectionRegistry } from "./session/connection-registry.js"
-import { TerminalService } from "./terminal-service.js"
+import { TerminalManager } from "./terminal/terminal-manager.js"
 import {
   type ThreadAttachmentClientMessage,
   ThreadAttachmentService,
@@ -127,7 +128,7 @@ export class CypheriaServer implements HttpAppHost {
   readonly schedules: ScheduleService
   readonly threadAttachments: ThreadAttachmentService
   readonly threadManager: ThreadManager
-  readonly terminals: TerminalService
+  readonly terminals: TerminalManager
   readonly git: GitService
   readonly database: OpenDatabaseResult
   readonly web3: ServerWeb3Service
@@ -182,7 +183,7 @@ export class CypheriaServer implements HttpAppHost {
     })
     this.integrations = new IntegrationService(this.agentManager)
     const projectThreadPersistence = createProjectThreadPersistenceService(this.database.db)
-    this.terminals = new TerminalService(projectThreadPersistence)
+    this.terminals = new TerminalManager(projectThreadPersistence)
     this.projectThread = new ProjectThreadService({
       persistence: projectThreadPersistence,
       publish: (message) => this.registry.broadcast(message),
@@ -200,10 +201,14 @@ export class CypheriaServer implements HttpAppHost {
       messageRequests: createThreadMessageRequestPersistenceService(this.database.db),
       persistence: projectThreadPersistence,
       publish: (message) => this.registry.broadcast(message),
-      onArchived: async (cwd) => {
+      onArchived: async (threadId, cwd) => {
+        this.terminals.closeThread(threadId)
         await this.git.cleanupManagedWorktrees(cwd)
       },
-      onDeleting: (threadId) => this.threadAttachments.deleteForThread(threadId),
+      onDeleting: async (threadId) => {
+        this.terminals.closeThread(threadId)
+        await this.threadAttachments.deleteForThread(threadId)
+      },
       onUnarchiving: async (cwd) => {
         await this.git.restoreArchivedWorktree(cwd)
       },
@@ -581,9 +586,19 @@ export class CypheriaServer implements HttpAppHost {
   async handleTerminalMessage(
     message: TerminalClientMessage,
     sessionId: string,
+    source: SessionTransport,
+    sendBinary: (frame: CypheriaBinaryFrame) => void,
     send: (message: TerminalServerMessage) => void
   ): Promise<boolean> {
-    return this.terminals.handle(message, sessionId, send)
+    return this.terminals.handle(message, { send, sendBinary, sessionId, source })
+  }
+
+  async handleBinaryFrame(
+    frame: CypheriaBinaryFrame,
+    sessionId: string,
+    source: SessionTransport
+  ): Promise<boolean> {
+    return this.terminals.handleBinaryFrame(frame, sessionId, source)
   }
 
   async handleGitMessage(
@@ -605,6 +620,10 @@ export class CypheriaServer implements HttpAppHost {
     this.browserTools.sessionClosed(sessionId)
     this.harnesses.closeSession(sessionId)
     this.terminals.closeSession(sessionId)
+  }
+
+  clientTransportClosed(sessionId: string, source: SessionTransport): void {
+    this.terminals.transportClosed(sessionId, source)
   }
 
   async handleWeb3Message(

@@ -35,6 +35,8 @@
     "@libsql/client": "^0.17.4",
     "@opencode/client": "2.0.16",
     "@scure/bip39": "^1.6.0",
+    "@xterm/addon-serialize": "^0.14.0",
+    "@xterm/headless": "^6.0.0",
     "@zip.js/zip.js": "2.16.0",
     "ethers": "^6.17.0",
     "extract-zip": "^2.0.1",

@@ -36,12 +36,14 @@ import {
 } from "@cypheria/protocol"
 
 export type SessionTransport = {
+  bufferedAmount?(): number
   close(code: number, reason: string): void
   send(data: Uint8Array): void
 }
 
 export type SessionHost = {
   clientSessionClosed?(sessionId: string): void
+  clientTransportClosed?(sessionId: string, source: SessionTransport): void
   getConfig(): ServerConfigSnapshot
   getDiagnostics(): ServerDiagnostics
   getStatus(): ServerStatus
@@ -86,6 +88,8 @@ export type SessionHost = {
   handleTerminalMessage?(
     message: TerminalClientMessage,
     sessionId: string,
+    source: SessionTransport,
+    sendBinary: (frame: CypheriaBinaryFrame) => void,
     send: (message: TerminalServerMessage) => void
   ): Promise<boolean>
   handleGitMessage?(
@@ -257,6 +261,7 @@ export class ClientSession {
 
   transportClosed(transport: SessionTransport): void {
     if (this.#closed || !this.#sources.delete(transport)) return
+    this.#host.clientTransportClosed?.(this.id, transport)
     if (this.#sources.size === 0) this.#onDetach?.(this)
   }
 
@@ -392,6 +397,8 @@ export class ClientSession {
           (await this.#host.handleTerminalMessage(
             message as TerminalClientMessage,
             this.id,
+            source,
+            (frame) => this.sendBinaryFrameTo(source, frame),
             (response) => this.sendTo(source, response)
           ))
         ) {

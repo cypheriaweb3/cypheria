@@ -142,4 +142,4 @@ The standalone Server build copies the Expo static export into `apps/server/dist
 - PID, identity, relay key, configuration, and vault files use explicit ownership and permissions.
 - Logs append under `$CYPHERIA_HOME/logs` without placing credentials in structured state responses.
 - Diagnostics expose operational state, not private keys or secret configuration.
-- Database, Agent, plugin, schedule, terminal, and Web3 lifecycles close during graceful shutdown.
+- Database, Agent, plugin, schedule, [terminal](terminals.md), and Web3 lifecycles close during graceful shutdown.
