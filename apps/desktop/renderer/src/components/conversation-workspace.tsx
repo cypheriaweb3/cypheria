@@ -83,8 +83,6 @@ import {
   ChatSubagentGroup,
   ChatSubagentItem,
   ChatSubagentsPanel,
-  ChatSummaryPanel,
-  ChatSummarySection,
   ChatTimeline,
   ChatTimelineEvent,
   ChatTimelineItem,
@@ -176,6 +174,7 @@ import {
   projectlessWorkspaceRootAtom,
   showBottomPanelControlAtom,
   showContextWindowUsageAtom,
+  summaryAtom,
 } from "../client-state.js"
 import { type CodexRenderRow, splitCodexRenderGroups } from "../codex-render-groups.js"
 import {
@@ -195,6 +194,7 @@ import {
   type ConversationSubmitMode,
   ThreadConversationController,
 } from "../thread-conversation-controller.js"
+import { CodexSummary } from "./codex-summary.js"
 import { ComposerModelSelector } from "./composer-model-selector.js"
 import { ContextUsage } from "./context-usage.js"
 import { GitReviewPanel } from "./git-review-panel.js"
@@ -939,6 +939,11 @@ export function ConversationWorkspace({
     [canPersistPanel, initialThreadId]
   )
   const [persistedPanelLayout, setPersistedPanelLayout] = useAtom(panelAtom)
+  const summaryStateAtom = useMemo(() => summaryAtom(initialThreadId ?? "new"), [initialThreadId])
+  const [summaryCheckpoint, setSummaryCheckpoint] = useAtom(summaryStateAtom)
+  const summaryHostRef = useRef<HTMLDivElement>(null)
+  const summaryToggleRef = useRef<HTMLButtonElement>(null)
+  const [summaryHostWidth, setSummaryHostWidth] = useState(0)
   const activeDraftScopeRef = useRef(draftScopeId)
   const draftSnapshotRef = useRef<ComposerDraft | null>(persistedDraft)
   const draftWriteTimerRef = useRef<number | null>(null)
@@ -1025,10 +1030,10 @@ export function ConversationWorkspace({
   )
   const [wideViewport, setWideViewport] = useState(true)
   const [rightTab, setRightTabState] = useState<string | undefined>(
-    persistedPanelLayout?.right.activeTab ?? "summary"
+    persistedPanelLayout?.right.activeTab ?? "sources"
   )
   const [openRightTabs, setOpenRightTabsState] = useState<string[]>(
-    persistedPanelLayout?.right.openTabs.length ? persistedPanelLayout.right.openTabs : ["summary"]
+    persistedPanelLayout?.right.openTabs.length ? persistedPanelLayout.right.openTabs : ["sources"]
   )
   const [rightPanelSize, setRightPanelSizeState] = useState(persistedPanelLayout?.right.size ?? 420)
   const [bottomPanelSize, setBottomPanelSizeState] = useState(
@@ -1074,6 +1079,24 @@ export function ConversationWorkspace({
     [markPanelDirty]
   )
   const terminals = useWorkspaceTerminals(snapshot.threadId ?? undefined)
+  useEffect(() => {
+    const element = summaryHostRef.current
+    if (!element) return
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setSummaryHostWidth(entry.contentRect.width)
+    })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+  const summaryMode =
+    summaryHostWidth < 1096 ? "overlay" : summaryHostWidth <= 1536 ? "shift" : "gutter"
+  useEffect(() => {
+    if (summaryCheckpoint.open) return
+    const surface = summaryHostRef.current?.parentElement?.querySelector(
+      '[data-slot="chat-summary-surface"]'
+    )
+    if (surface?.contains(document.activeElement)) summaryToggleRef.current?.focus()
+  }, [summaryCheckpoint.open])
 
   useEffect(() => {
     if (!canPersistPanel || !panelDirtyRef.current) return
@@ -1367,25 +1390,6 @@ export function ConversationWorkspace({
     )
     const tabs: ChatPanelTabDescriptor[] = [
       {
-        content: (
-          <ChatSummaryPanel>
-            <ChatSummarySection
-              title={i18n._(msg({ id: "chat.panel.conversation", message: "Conversation" }))}
-            >
-              {snapshot.items.length} timeline items
-            </ChatSummarySection>
-            <ChatSummarySection
-              title={i18n._(msg({ id: "chat.panel.activity", message: "Activity" }))}
-            >
-              {diffs.length} change sets · {sources.length} sources · {subagents.length} subagents
-            </ChatSummarySection>
-          </ChatSummaryPanel>
-        ),
-        icon: <ChatIcon />,
-        id: "summary",
-        title: i18n._(msg({ id: "chat.panel.summary", message: "Summary" })),
-      },
-      {
         content: sources.length ? (
           <ChatSourcesPanel>
             <ChatSourceGroup
@@ -1599,7 +1603,6 @@ export function ConversationWorkspace({
     i18n,
     plans,
     reviewFiles,
-    snapshot.items.length,
     sources,
     subagents,
     terminals,
@@ -1615,7 +1618,7 @@ export function ConversationWorkspace({
       const filtered = current.filter((id) => validIds.has(id))
       return filtered.length === current.length ? current : filtered
     })
-    setRightTabState((current) => (current && validIds.has(current) ? current : "summary"))
+    setRightTabState((current) => (current && validIds.has(current) ? current : "sources"))
   }, [panelTabs])
   const launcherItems = panelTabs.map<ChatPanelLauncherItem>((tab) => ({
     disabled: openRightTabs.includes(tab.id),
@@ -1938,6 +1941,19 @@ export function ConversationWorkspace({
             ? i18n._(msg({ id: "chat.state.working", message: "Working…" }))
             : activityLabel(i18n)}
       </ChatHeaderStatus>
+      {codex ? (
+        <ChatPanelToggle
+          className="ml-auto"
+          ref={summaryToggleRef}
+          label={i18n._(msg({ id: "chat.summary.toggle", message: "Toggle summary" }))}
+          onClick={() => setSummaryCheckpoint((current) => ({ ...current, open: !current.open }))}
+          panel="summary"
+          pressed={summaryCheckpoint.open}
+          tooltip={i18n._(msg({ id: "chat.summary.toggle", message: "Toggle summary" }))}
+        >
+          <ChatIcon />
+        </ChatPanelToggle>
+      ) : null}
     </ChatHeader>
   )
 
@@ -2032,7 +2048,20 @@ export function ConversationWorkspace({
       )}
       rightPanelVisibility={codex && wideViewport ? rightVisibility : "closed"}
     >
-      <ChatMainColumn>
+      <ChatMainColumn
+        className={
+          codex && summaryCheckpoint.open && summaryCheckpoint.pinned && summaryMode !== "overlay"
+            ? summaryMode === "gutter"
+              ? "pr-[316px] transition-[padding-right] duration-200 motion-reduce:transition-none"
+              : "pr-[160px] transition-[padding-right] duration-200 motion-reduce:transition-none"
+            : "pr-0 transition-[padding-right] duration-200 motion-reduce:transition-none"
+        }
+      >
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0"
+          ref={summaryHostRef}
+        />
         <VirtualTimeline
           actionBusy={timelineActionBusy}
           activeTurnId={snapshot.thread?.activeTurn?.id ?? null}
@@ -2220,13 +2249,14 @@ export function ConversationWorkspace({
                               section: initialSectionId,
                             },
                           })
-                        if (id === "goal" || id === "status") {
+                        if (id === "status") {
+                          setSummaryCheckpoint((current) => ({ ...current, open: true }))
+                        }
+                        if (id === "goal") {
                           setOpenRightTabs((current) =>
-                            current.includes(id === "goal" ? "goal" : "summary")
-                              ? current
-                              : [...current, id === "goal" ? "goal" : "summary"]
+                            current.includes("goal") ? current : [...current, "goal"]
                           )
-                          setRightTab(id === "goal" ? "goal" : "summary")
+                          setRightTab("goal")
                           setRightVisibility("visible")
                         }
                         const codexSessionId = snapshot.thread?.agentSessionId
@@ -2455,6 +2485,22 @@ export function ConversationWorkspace({
             )}
           </ChatComposerFrame>
         </ChatComposerDock>
+        {codex ? (
+          <CodexSummary
+            checkpoint={summaryCheckpoint}
+            mode={summaryMode}
+            onCheckpointChange={setSummaryCheckpoint}
+            onOpenSchedule={() => void navigate({ to: "/schedules" })}
+            onOpenTab={(id) => {
+              setOpenRightTabs((current) => (current.includes(id) ? current : [...current, id]))
+              setRightTab(id)
+              setRightVisibility("visible")
+            }}
+            open={summaryCheckpoint.open}
+            terminals={terminals}
+            thread={snapshot.thread}
+          />
+        ) : null}
       </ChatMainColumn>
     </ChatWorkspaceShell>
   )

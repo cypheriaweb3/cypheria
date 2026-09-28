@@ -453,6 +453,31 @@ export const ThreadTimelinePageSchema = z.object({
 })
 export type ThreadTimelinePage = z.infer<typeof ThreadTimelinePageSchema>
 
+export const ThreadSummaryEntrySchema = z.object({
+  itemId: z.string().min(1),
+  label: z.string(),
+  detail: z.string().nullable(),
+  status: ThreadTimelineItemStatusSchema.nullable(),
+  uri: z.string().nullable(),
+})
+export type ThreadSummaryEntry = z.infer<typeof ThreadSummaryEntrySchema>
+
+export const ThreadSummarySectionSchema = z.object({
+  count: z.int().nonnegative(),
+  entries: z.array(ThreadSummaryEntrySchema).max(50),
+})
+export type ThreadSummarySection = z.infer<typeof ThreadSummarySectionSchema>
+
+export const ThreadSummarySchema = z.object({
+  epoch: z.string().uuid(),
+  outputs: ThreadSummarySectionSchema,
+  sources: ThreadSummarySectionSchema,
+  subagents: ThreadSummarySectionSchema,
+  plan: ThreadSummarySectionSchema,
+  threadId: ProjectThreadIdSchema,
+})
+export type ThreadSummary = z.infer<typeof ThreadSummarySchema>
+
 export const ThreadTimelineSnapshotSchema = z.object({
   canonicalRows: z.array(ThreadTimelineRowSchema),
   endCursor: ThreadTimelineCursorSchema.nullable(),
@@ -698,6 +723,10 @@ export const ThreadTimelineGetRequestSchema = request(
     threadId: ProjectThreadIdSchema,
   })
 )
+export const ThreadSummaryGetRequestSchema = request(
+  "thread.summary.get.request",
+  z.object({ threadId: ProjectThreadIdSchema })
+)
 export const ThreadContextUsageGetRequestSchema = request(
   "thread.context.usage.get.request",
   z.object({ threadId: ProjectThreadIdSchema })
@@ -886,6 +915,10 @@ export const ThreadTimelineGetResponseSchema = response(
   "thread.timeline.get.response",
   ThreadTimelinePageSchema
 )
+export const ThreadSummaryGetResponseSchema = response(
+  "thread.summary.get.response",
+  ThreadSummarySchema
+)
 export const ThreadContextUsageGetResponseSchema = response(
   "thread.context.usage.get.response",
   ThreadContextUsageSchema.nullable()
@@ -1014,6 +1047,7 @@ export const THREAD_CLIENT_SCHEMAS = [
   ThreadInputFileGetRequestSchema,
   ThreadComposerSuggestRequestSchema,
   ThreadTimelineGetRequestSchema,
+  ThreadSummaryGetRequestSchema,
   ThreadContextUsageGetRequestSchema,
   ThreadConfigUpdateRequestSchema,
   ThreadInteractionRespondRequestSchema,
@@ -1050,6 +1084,7 @@ export const THREAD_SERVER_SCHEMAS = [
   ThreadInputFileGetResponseSchema,
   ThreadComposerSuggestResponseSchema,
   ThreadTimelineGetResponseSchema,
+  ThreadSummaryGetResponseSchema,
   ThreadContextUsageGetResponseSchema,
   ThreadConfigUpdateResponseSchema,
   ThreadInteractionRespondResponseSchema,

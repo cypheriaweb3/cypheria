@@ -2436,3 +2436,67 @@ msgstr "Status"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.prompt.compact"
 msgstr "Compact context"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.toggle"
+msgstr "Toggle summary"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.pin"
+msgstr "Pin summary"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.unpin"
+msgstr "Unpin summary"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.close"
+msgstr "Close summary"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.loading"
+msgstr "Loading…"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.empty"
+msgstr "Nothing to summarize yet"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.outputs"
+msgstr "Outputs"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.processes"
+msgstr "Background processes"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.pullRequests"
+msgstr "Pull requests"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.schedules"
+msgstr "Schedules"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.running"
+msgstr "Running"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.showLess"
+msgstr "Show less"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.showMore"
+msgstr "Show more"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.stop"
+msgstr "Stop"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.stopConfirm"
+msgstr "Stop background process?"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.cancel"
+msgstr "Cancel"

@@ -42,6 +42,8 @@ Typography 使用清晰的 UI 字体栈，并为 code、command、path、address
 
 `components/chat` surface 提供可组合的 message、reasoning、tool、command、plan、attachment、composer state、pending interaction、panel、preview 和 streaming state。`ChatTurnGroup` 为连续工具和子代理活动提供有标签、可访问的视觉边界。这些组件只包含展示与无障碍行为。Desktop 负责 Thread controller、TanStack Virtual 集成、scroll restoration、panel registry、xterm process view 和 harness extensions。
 
+独立的 Summary 概览使用 `ChatSummarySurface`、`ChatSummaryHeader`、`ChatSummaryBody`、`ChatSummaryGroup`、`ChatSummaryRow`、`ChatSummaryStaticRow`、`ChatSummaryMore` 和 `ChatSummaryMessage`。它们仅接收展示内容、数量、状态和回调，不导入协议或 Electron。Desktop 提供完整历史与实时数据、区块操作、每 Thread 持久化、响应式位置和焦点返回。开发版 Chat Demo 提供 populated、loading、empty 与 error 变体。
+
 Timeline renderer 接收 Canonical Timeline item。Harness renderer 只为判别 harness item 或确有额外行为的 metadata 注册。
 
 ## Sidebar 不变量

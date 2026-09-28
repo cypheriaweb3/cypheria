@@ -5,6 +5,7 @@ import type {
   ThreadClientMessage,
   ThreadContextUsage,
   ThreadServerMessage,
+  ThreadSummary,
   ThreadTimelinePage,
   ThreadView,
 } from "@cypheria/protocol"
@@ -58,6 +59,7 @@ export interface ThreadActions {
     input: Payload<"thread.timeline.get.request">,
     options?: RequestOptions
   ): Promise<ThreadTimelinePage>
+  getSummary(threadId: string, options?: RequestOptions): Promise<ThreadSummary>
   fork(input: Payload<"thread.fork.request">, options?: RequestOptions): Promise<BranchReadyThread>
   list(
     input?: Payload<"thread.list.request">,
@@ -329,6 +331,7 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
     },
     get: (threadId, options) => request("thread.get.request", { threadId }, options),
     getTimeline: (input, options) => request("thread.timeline.get.request", input, options),
+    getSummary: (threadId, options) => request("thread.summary.get.request", { threadId }, options),
     inputFiles,
     fork: (input, options) => request("thread.fork.request", input, options),
     list: (input = {}, options) => request("thread.list.request", input, options),

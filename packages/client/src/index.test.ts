@@ -64,6 +64,7 @@ describe("Cypheria client facade", () => {
       "delete",
       "fork",
       "get",
+      "getSummary",
       "getTimeline",
       "inputFiles",
       "list",

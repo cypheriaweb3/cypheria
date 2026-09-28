@@ -31,6 +31,29 @@ const thread = {
 }
 
 describe("thread actions", () => {
+  it("reads the Server-owned full-history summary", async () => {
+    const summary = {
+      epoch: "01984de2-8f74-7c91-a3b2-5c5e937cf300",
+      outputs: { count: 0, entries: [] },
+      sources: { count: 0, entries: [] },
+      subagents: { count: 0, entries: [] },
+      plan: { count: 0, entries: [] },
+      threadId: thread.id,
+    }
+    const requestThread = vi.fn(async () => ({
+      payload: { ok: true as const, value: summary },
+      requestId: "test",
+      type: "thread.summary.get.response",
+    }))
+    const actions = createThreadActions({ requestThread } as unknown as ServerClient)
+    await expect(actions.getSummary(thread.id)).resolves.toEqual(summary)
+    expect(requestThread).toHaveBeenCalledWith(
+      "thread.summary.get.request",
+      { threadId: thread.id },
+      undefined
+    )
+  })
+
   it("exposes generic Server-owned Thread attachments and notifications", async () => {
     const attachment = {
       attachmentType: "pull_request" as const,

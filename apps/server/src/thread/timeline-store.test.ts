@@ -191,4 +191,35 @@ describe("ThreadTimelineStore", () => {
     expect(after.projectedItems[0]?.sourceSeqRanges).toEqual([{ end: 3, start: 3 }])
     close()
   })
+
+  it("builds Summary from all rows independently of page size and refreshes on replacement", async () => {
+    const { close, persistence } = await setup()
+    const store = new ThreadTimelineStore(persistence)
+    for (let index = 0; index < 12; index += 1) {
+      await store.append(threadId, {
+        item: {
+          itemId: `artifact-${index}`,
+          kind: "file",
+          mimeType: null,
+          name: `File ${index}`,
+          type: "artifact",
+          uri: `file:///file-${index}`,
+        },
+      })
+    }
+    const page = await store.page(threadId, {
+      direction: "tail",
+      limit: 1,
+      projection: "projected",
+    })
+    expect(page.projectedItems).toHaveLength(1)
+    const before = await store.summary(threadId)
+    expect(before.outputs.count).toBe(12)
+    expect(before.outputs.entries[0]?.label).toBe("File 11")
+    await store.replace(threadId, [])
+    const after = await store.summary(threadId)
+    expect(after.epoch).not.toBe(before.epoch)
+    expect(after.outputs.count).toBe(0)
+    close()
+  })
 })

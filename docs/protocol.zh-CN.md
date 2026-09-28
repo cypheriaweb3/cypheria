@@ -96,6 +96,8 @@ Timeline cursor 包含 epoch 和 sequence。Epoch 用于检测历史替换或重
 
 客户端订阅 append notification，并在 replacement notification、cursor gap、重连或 epoch 不匹配后重新读取。持久化 Server Timeline 是历史与实时投影的唯一权威。
 
+`thread.summary.get` 是覆盖**完整** Canonical Timeline 的只读、可重建投影，不依赖客户端已加载的分页。它返回当前 epoch，以及 Outputs、Sources、Subagents 和最新 Plan 的总数与受限条目。条目只含稳定 item ID 和紧凑 metadata，不返回完整 diff、命令输出或二进制数据。客户端在 Timeline 更新或 epoch 替换后刷新此视图；它不是第二份历史存储。PR 附件、Schedules、Terminals 与设备本地 Browser tabs 仍通过各自 API 获取，并仅在客户端界面组合。
+
 消息 row 带有显式操作边界。`turn-user` 可以 Rewind 或执行用户消息 Fork，`steer-user` 两者均不可用，`assistant-final` 只能 Fork。Assistant 流式 row 不带边界；turn 成功后，Server 会为最终 assistant 消息追加 completion replacement。失败或取消的 turn 不会获得 `assistant-final` 边界。Server 会针对当前 epoch 解析每个请求 cursor，并校验持久化 item，而不信任客户端声明的消息种类。
 
 `thread.fork` 有三种 target。`thread-head` 复制完整 provider session；`user-message` 在该消息之前分支，并返回其完整 input blocks 供新 Thread composer 恢复；`assistant-message` 包含选中的已完成 assistant 消息，并返回空 composer。Fork 继承 source 的 Project 与普通 Section、排在 source 之后并记录 `forkedFromId`，但不继承 pinned、unread 或 archived 状态。`thread.rewind` 只接受 `user-message` target，保留 Cypheria Thread ID，替换 provider-session binding 与 Timeline epoch，并返回选中消息的 input blocks 给原 composer。两种操作都不会回滚 workspace 文件，不接受任意 Timeline item，也不会通过重放 prompts 近似 provider 不支持的边界。

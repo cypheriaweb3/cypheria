@@ -219,6 +219,10 @@ export class ThreadManager {
           await this.#required(message.payload.threadId)
           respond(await this.#timeline.page(message.payload.threadId, message.payload))
           break
+        case "thread.summary.get.request":
+          await this.#required(message.payload.threadId)
+          respond(await this.#timeline.summary(message.payload.threadId))
+          break
         case "thread.context.usage.get.request":
           respond(await this.getContextUsage(message.payload.threadId))
           break

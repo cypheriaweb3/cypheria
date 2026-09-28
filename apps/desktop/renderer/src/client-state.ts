@@ -1,6 +1,7 @@
 import { atomWithValidatedStorage } from "@cypheria/storage/jotai"
 import type { SetStateAction } from "jotai/vanilla"
 import { getDefaultStore, type WritableAtom } from "jotai/vanilla"
+import { z } from "zod"
 import {
   type ClientSettingDefinition,
   type ComposerDraft,
@@ -99,6 +100,31 @@ export const composerDraftAtom = (scopeId: string): ClientStateAtom<ComposerDraf
 }
 
 const panelAtoms = new Map<string, ClientStateAtom<PanelLayoutCheckpoint | null>>()
+
+export type SummaryCheckpoint = {
+  open: boolean
+  pinned: boolean
+  expanded: Record<string, boolean>
+}
+const SummaryCheckpointSchema = z.object({
+  open: z.boolean(),
+  pinned: z.boolean(),
+  expanded: z.record(z.string(), z.boolean()),
+})
+const summaryAtoms = new Map<string, ClientStateAtom<SummaryCheckpoint>>()
+export const summaryAtom = (threadId: string): ClientStateAtom<SummaryCheckpoint> => {
+  const existing = summaryAtoms.get(threadId)
+  if (existing) return existing
+  const created = atomWithValidatedStorage<SummaryCheckpoint>(
+    `chat-summary:${threadId}`,
+    { open: false, pinned: false, expanded: {} },
+    desktopClientStorage.keyValue,
+    SummaryCheckpointSchema,
+    { getOnInit: true, version: 1 }
+  ) as unknown as ClientStateAtom<SummaryCheckpoint>
+  summaryAtoms.set(threadId, created)
+  return created
+}
 export const panelLayoutAtom = (
   threadId: string
 ): ClientStateAtom<PanelLayoutCheckpoint | null> => {

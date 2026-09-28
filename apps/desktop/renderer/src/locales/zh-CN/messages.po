@@ -2436,3 +2436,67 @@ msgstr "状态"
 #: renderer/src/components/conversation-workspace.tsx
 msgid "chat.prompt.compact"
 msgstr "压缩上下文"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.toggle"
+msgstr "切换概览"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.pin"
+msgstr "固定概览"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.unpin"
+msgstr "取消固定概览"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.close"
+msgstr "关闭概览"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.loading"
+msgstr "正在加载…"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.empty"
+msgstr "暂无可概览的内容"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.outputs"
+msgstr "产出"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.processes"
+msgstr "后台进程"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.pullRequests"
+msgstr "拉取请求"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.schedules"
+msgstr "日程"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.running"
+msgstr "运行中"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.showLess"
+msgstr "收起"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.showMore"
+msgstr "显示更多"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.stop"
+msgstr "停止"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.stopConfirm"
+msgstr "停止后台进程？"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.cancel"
+msgstr "取消"

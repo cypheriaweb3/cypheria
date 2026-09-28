@@ -153,6 +153,12 @@ Canonical Timeline 历史与有序实时更新都直接通过 `@cypheria/client`
 
 Codex workspace 在 Canonical Timeline 投影后执行仅属于 Desktop 的展示分组，不改变已存储 item，也不发明 App Server item 类型。用户输入、过程 commentary、连续工具或子代理活动、plan、diff、最终回答和回答后通知成为不同的虚拟行。最新轮次只跟踪当前同步 commentary；异步投递或提问会清除该标记。原始顺序中最终回答之后仍可能有已完成活动，因此分组会越过已结束的命令和工具查找最终回答，并把回答显示在过程组之后。待处理审批留在 composer 交互区；goal、queue、usage 等运行时状态不进入历史。若 Codex MCP elicitation 的 metadata 表明它是 Computer Use 应用访问请求，还会显示屏幕截图与访问披露，并在适用时显示高风险标记；它不会成为 Timeline item。共享 `ChatTurnGroup` 只负责展示；开发版 Chat Demo 在 128 条消息的虚拟化会话之外，也用同一分组函数展示双轮次样例和 Computer Use 请求样例。
 
+## Codex Summary 概览
+
+Codex 的独立 Summary 概览从会话标题栏打开，不再是右侧面板 tab。它可以浮于会话之上，也可固定并依据会话区域的实测宽度留出空间（低于 1096 px 时覆盖，至 1536 px 时局部偏移，更宽时留槽）。右侧详情 tabs 与底部面板保持独立。打开、固定和区块展开状态按 Thread 保存在 Desktop 客户端 KV；隐藏内容设置 inert，关闭后焦点返回标题栏开关。
+
+概览只组合真实数据：Outputs、Sources、Subagents 和最新 Plan 来自 Server 的完整历史 [Thread Summary 投影](protocol.zh-CN.md#canonical-timeline)；原生后台进程使用 Codex facade；线程终端使用共享终端目录；关联 PR 使用 Thread Attachments；Schedules 限定当前 Thread；Browser 列出 Desktop 内置且属于该线程的 tabs。条目打开相应已有详情 tab 或路由。单一来源失败只显示自身错误，不隐藏其他区块。Environment、Usage、Computer Use、外部 Chrome Browser Use、缺少来源关联的 created tasks 和缺少线程关联的 side chats 不属于 Summary 区块。
+
 ## Desktop 本地设置
 
 Electron 将 Desktop 私有偏好以版本 1 值保存到 `userData/kv.sqlite`。语义化 key 不添加产品或平台前缀。Appearance、`localeOverride`、General、Composer、Panel、Popout、Notifications、Sidebar、Git UI 与未读活动各自使用窄 Schema。Renderer 状态由 Jotai 管理；临时表单编辑值在确认前仍属于组件状态。Electron main 在创建窗口前读取 appearance 与 locale，并为相关 key 应用菜单、休眠、通知、声音与快捷键副作用。选择目录或声音等 OS 操作继续使用窄 IPC。

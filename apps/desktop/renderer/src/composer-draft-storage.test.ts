@@ -67,7 +67,26 @@ describe("composer draft attachments", () => {
       ],
       status: "editing",
       text: "first\nsecond",
+      blocks: [
+        { text: "first", type: "text" },
+        { text: "\nsecond", type: "text" },
+        {
+          name: "Specification",
+          type: "resource-link",
+          uri: "https://example.com/specification",
+        },
+      ],
     })
+  })
+
+  it("keeps text around an inline reference on the same line", async () => {
+    await expect(
+      inputBlocksToComposerDraft([
+        { text: "Read ", type: "text" },
+        { id: "/src/app.ts", kind: "workspace-file", label: "app.ts", type: "reference" },
+        { text: " now", type: "text" },
+      ])
+    ).resolves.toMatchObject({ text: "Read [@app.ts](/src/app.ts) now" })
   })
 
   it("preserves an embedded resource URI through draft attachment storage", async () => {

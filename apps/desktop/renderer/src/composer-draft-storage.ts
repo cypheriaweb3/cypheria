@@ -41,11 +41,18 @@ export const inputBlocksToComposerDraft = async (
 ): Promise<ComposerDraft> => {
   const attachments: ComposerDraftAttachment[] = []
   const text: string[] = []
+  const blocks: ThreadInputBlock[] = []
+  let previousWasText = false
   for (const block of content) {
     if (block.type === "text") {
-      text.push(block.text)
+      const restoredText = `${previousWasText ? "\n" : ""}${block.text}`
+      text.push(restoredText)
+      blocks.push({ ...block, text: restoredText })
+      previousWasText = true
       continue
     }
+    previousWasText = false
+    blocks.push(block)
     if (block.type === "reference") {
       const prefix = block.kind === "skill" || block.kind === "app" ? "$" : "@"
       const target =
@@ -121,7 +128,7 @@ export const inputBlocksToComposerDraft = async (
   }
   return {
     attachments,
-    blocks: [...content],
+    blocks,
     status: "editing",
     text: text.join(""),
     updatedAt: Date.now(),

@@ -8,6 +8,8 @@ import {
   ThreadContextUsageSchema,
   ThreadForkRequestSchema,
   ThreadInteractionRespondRequestSchema,
+  ThreadSummaryGetRequestSchema,
+  ThreadSummarySchema,
   ThreadTimelineGetRequestSchema,
   ThreadTimelineItemSchema,
   ThreadTimelinePageSchema,
@@ -16,6 +18,47 @@ import {
 } from "./index.ts"
 
 describe("thread protocol", () => {
+  test("validates compact Thread Summary requests and bounded responses", () => {
+    const threadId = "01996a3a-bcde-7000-8000-000000000001"
+    expect(
+      ThreadSummaryGetRequestSchema.parse({
+        payload: { threadId },
+        requestId: "summary-1",
+        type: "thread.summary.get.request",
+      }).payload.threadId
+    ).toBe(threadId)
+    const empty = { count: 0, entries: [] }
+    expect(
+      ThreadSummarySchema.parse({
+        epoch: "01984de2-8f74-7c91-a3b2-5c5e937cf300",
+        outputs: empty,
+        sources: empty,
+        subagents: empty,
+        plan: empty,
+        threadId,
+      }).threadId
+    ).toBe(threadId)
+    expect(
+      ThreadSummarySchema.safeParse({
+        epoch: "01984de2-8f74-7c91-a3b2-5c5e937cf300",
+        outputs: {
+          count: 51,
+          entries: Array.from({ length: 51 }, (_, index) => ({
+            itemId: String(index),
+            label: "x",
+            detail: null,
+            status: null,
+            uri: null,
+          })),
+        },
+        sources: empty,
+        subagents: empty,
+        plan: empty,
+        threadId,
+      }).success
+    ).toBe(false)
+  })
+
   test("models Server-owned pull-request and worktree attachments independently of Agents", () => {
     const threadId = "01996a3a-bcde-7000-8000-000000000001"
     expect(

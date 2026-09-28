@@ -57,6 +57,11 @@ import {
   ChatSubagentGroup,
   ChatSubagentItem,
   ChatSubagentsPanel,
+  ChatSummaryBody,
+  ChatSummaryGroup,
+  ChatSummaryHeader,
+  ChatSummaryRow,
+  ChatSummarySurface,
   ChatTerminalOutputHost,
   ChatTerminalPanel,
   ChatTerminalStatusBar,
@@ -96,6 +101,29 @@ afterEach(() => {
 })
 
 describe("chat presentation components", () => {
+  it("keeps a closed summary inert and exposes expandable sections", async () => {
+    const user = userEvent.setup()
+    const onExpandedChange = vi.fn()
+    const content = (open: boolean) => (
+      <ChatSummarySurface open={open} pinned={false}>
+        <ChatSummaryHeader>Summary</ChatSummaryHeader>
+        <ChatSummaryBody>
+          <ChatSummaryGroup count={1} expanded onExpandedChange={onExpandedChange} title="Outputs">
+            <ChatSummaryRow>result.txt</ChatSummaryRow>
+          </ChatSummaryGroup>
+        </ChatSummaryBody>
+      </ChatSummarySurface>
+    )
+    const { rerender } = render(content(false))
+    const surface = screen.getByText("Summary").closest("aside")
+    expect(surface).toHaveAttribute("inert")
+    expect(surface).toHaveAttribute("aria-hidden", "true")
+    rerender(content(true))
+    expect(surface).not.toHaveAttribute("inert")
+    await user.click(screen.getByRole("button", { name: /Outputs\s*1/u }))
+    expect(onExpandedChange).toHaveBeenCalledWith(false)
+  })
+
   it("renders compact context usage and unified model controls", () => {
     render(
       <div>

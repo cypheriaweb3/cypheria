@@ -211,6 +211,21 @@ describe("ChatDemo", () => {
     expect(required(container, '[aria-label="Message Chat Demo"]')).toBeTruthy()
   })
 
+  it("shows the independent Summary overview with collapsible real-content examples", () => {
+    const surface = required(container, '[data-slot="chat-summary-surface"]')
+    expect(surface.getAttribute("aria-hidden")).toBe("true")
+    act(() =>
+      required<HTMLButtonElement>(container, '[aria-label="Toggle pinned summary"]').click()
+    )
+    expect(surface.getAttribute("aria-hidden")).toBe("false")
+    expect(surface.textContent).toContain("Outputs")
+    expect(surface.textContent).toContain("Background processes")
+    act(() => required<HTMLButtonElement>(surface, '[aria-label="Pin summary"]').click())
+    expect(surface.getAttribute("data-pinned")).toBe("true")
+    act(() => required<HTMLButtonElement>(surface, '[aria-label="Close summary"]').click())
+    expect(surface.getAttribute("aria-hidden")).toBe("true")
+  })
+
   it("adds a local user turn and exposes the stop state", async () => {
     const editor = required<HTMLDivElement>(container, '[aria-label="Message Chat Demo"]')
     await act(async () => {

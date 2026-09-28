@@ -69,7 +69,6 @@ import {
   ChatPendingQuestion,
   ChatPendingTextInput,
   ChatPermissionRequest,
-  ChatPinnedSummary,
   ChatPlanCard,
   ChatPlanImplementationRequest,
   ChatPlanPanel,
@@ -102,8 +101,16 @@ import {
   ChatSubagentGroup,
   ChatSubagentItem,
   ChatSubagentsPanel,
+  ChatSummaryBody,
+  ChatSummaryGroup,
+  ChatSummaryHeader,
+  ChatSummaryMessage,
+  type ChatSummaryMode,
+  ChatSummaryMore,
   ChatSummaryPanel,
+  ChatSummaryRow,
   ChatSummarySection,
+  ChatSummarySurface,
   ChatTerminalOutputHost,
   ChatTerminalPanel,
   ChatTerminalStatusBar,
@@ -818,6 +825,18 @@ const demoTraySamples: ChatComposerAttachmentItem[] = [
 ]
 
 export default function ChatDemo() {
+  const demoSummaryOutputs = [
+    "review-output-0.md",
+    "packages/ui/src/components/chat/summary-1.tsx",
+    "review-output-2.md",
+    "packages/ui/src/components/chat/summary-3.tsx",
+    "review-output-4.md",
+    "packages/ui/src/components/chat/summary-5.tsx",
+    "review-output-6.md",
+    "packages/ui/src/components/chat/summary-7.tsx",
+    "review-output-8.md",
+    "packages/ui/src/components/chat/summary-9.tsx",
+  ]
   const [messages, setMessages] = useState(initialMessages)
   const [draft, setDraft] = useState("")
   const [composerEpoch, setComposerEpoch] = useState(0)
@@ -840,6 +859,13 @@ export default function ChatDemo() {
   const [retrySucceeded, setRetrySucceeded] = useState(false)
   const [composerVisible, setComposerVisible] = useState(true)
   const [summaryVisible, setSummaryVisible] = useState(false)
+  const [summaryPinned, setSummaryPinned] = useState(false)
+  const [summaryMode, setSummaryMode] = useState<ChatSummaryMode>("overlay")
+  const [summaryScenario, setSummaryScenario] = useState<
+    "populated" | "loading" | "empty" | "error"
+  >("populated")
+  const [summaryExpanded, setSummaryExpanded] = useState<Record<string, boolean>>({})
+  const [summaryShowAll, setSummaryShowAll] = useState(false)
   const [showScrollToLatest, setShowScrollToLatest] = useState(false)
   const [rightVisibility, setRightVisibility] = useState<ChatPanelVisibility>("visible")
   const [bottomVisibility, setBottomVisibility] = useState<ChatPanelVisibility>("visible")
@@ -1968,6 +1994,54 @@ export default function ChatDemo() {
         </div>
         <div className="min-h-0 overflow-y-auto p-2">
           <div className="px-1 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            Summary overview
+          </div>
+          <div className="flex min-h-8 items-center gap-2 rounded-md px-2 text-xs">
+            <span className="min-w-0 flex-1">Open Summary</span>
+            <Switch
+              aria-label="Open Summary"
+              checked={summaryVisible}
+              size="sm"
+              onCheckedChange={setSummaryVisible}
+            />
+          </div>
+          <div className="flex min-h-8 items-center gap-2 rounded-md px-2 text-xs">
+            <span className="min-w-0 flex-1">Pin Summary</span>
+            <Switch
+              aria-label="Pin Summary"
+              checked={summaryPinned}
+              size="sm"
+              onCheckedChange={setSummaryPinned}
+            />
+          </div>
+          <Select
+            value={summaryMode}
+            onValueChange={(value) => setSummaryMode(value as ChatSummaryMode)}
+          >
+            <SelectTrigger aria-label="Summary layout" className="h-8 w-full text-xs">
+              <SelectValue>{summaryMode}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="overlay">Overlay</SelectItem>
+              <SelectItem value="shift">Shift</SelectItem>
+              <SelectItem value="gutter">Gutter</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={summaryScenario}
+            onValueChange={(value) => setSummaryScenario(value as typeof summaryScenario)}
+          >
+            <SelectTrigger aria-label="Summary state" className="mt-1 h-8 w-full text-xs">
+              <SelectValue>{summaryScenario}</SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="populated">Populated</SelectItem>
+              <SelectItem value="loading">Loading</SelectItem>
+              <SelectItem value="empty">Empty</SelectItem>
+              <SelectItem value="error">Error</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="px-1 pb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             Timeline families
           </div>
           <div className="space-y-0.5">
@@ -3020,19 +3094,16 @@ export default function ChatDemo() {
       rightPanelFullscreen={rightFullscreen}
       rightPanelVisibility={wideViewport ? rightVisibility : "closed"}
     >
-      <ChatMainColumn>
-        {summaryVisible ? (
-          <ChatPinnedSummary>
-            <div className="flex min-w-0 items-center gap-2">
-              <CompareIcon className="size-4 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">
-                4 shared chat files changed while auditing the Codex conversation experience.
-              </span>
-              <Badge variant="secondary">Local demo</Badge>
-            </div>
-          </ChatPinnedSummary>
-        ) : null}
-        <div className="absolute top-3 right-3 z-30" data-demo-display-controller>
+      <ChatMainColumn
+        className={
+          summaryVisible && summaryPinned && summaryMode !== "overlay"
+            ? summaryMode === "gutter"
+              ? "pr-[316px]"
+              : "pr-[160px]"
+            : undefined
+        }
+      >
+        <div className="absolute top-3 left-3 z-40" data-demo-display-controller>
           {displayController}
         </div>
         {visibleComposerExtras.has("notification") ? (
@@ -3532,6 +3603,105 @@ export default function ChatDemo() {
             />
           </div>
         ) : null}
+        <ChatSummarySurface mode={summaryMode} open={summaryVisible} pinned={summaryPinned}>
+          <ChatSummaryHeader>
+            <span className="min-w-0 flex-1 truncate">Summary</span>
+            <Button
+              aria-label={summaryPinned ? "Unpin summary" : "Pin summary"}
+              aria-pressed={summaryPinned}
+              onClick={() => setSummaryPinned((value) => !value)}
+              size="icon-xs"
+              type="button"
+              variant="ghost"
+            >
+              <PinIcon className="size-4" />
+            </Button>
+            <Button
+              aria-label="Close summary"
+              onClick={() => setSummaryVisible(false)}
+              size="icon-xs"
+              type="button"
+              variant="ghost"
+            >
+              <CloseBoldIcon className="size-4" />
+            </Button>
+          </ChatSummaryHeader>
+          <ChatSummaryBody>
+            {summaryScenario === "loading" ? (
+              <ChatSummaryMessage role="status">Loading thread summary…</ChatSummaryMessage>
+            ) : null}
+            {summaryScenario === "empty" ? (
+              <ChatSummaryMessage>Nothing to summarize yet.</ChatSummaryMessage>
+            ) : null}
+            {summaryScenario === "populated" || summaryScenario === "error" ? (
+              <>
+                <ChatSummaryGroup
+                  count={summaryScenario === "error" ? 0 : 10}
+                  expanded={summaryExpanded.outputs ?? true}
+                  onExpandedChange={(value) =>
+                    setSummaryExpanded((current) => ({ ...current, outputs: value }))
+                  }
+                  title="Outputs"
+                >
+                  {summaryScenario === "error" ? (
+                    <ChatSummaryMessage role="alert">Could not load Outputs.</ChatSummaryMessage>
+                  ) : null}
+                  {summaryScenario === "populated"
+                    ? demoSummaryOutputs.slice(0, summaryShowAll ? 10 : 6).map((name) => (
+                        <ChatSummaryRow
+                          detail={name.endsWith(".tsx") ? "modified" : "file"}
+                          key={name}
+                          onClick={() => setRightActive("files")}
+                        >
+                          {name}
+                        </ChatSummaryRow>
+                      ))
+                    : null}
+                  {summaryScenario === "populated" ? (
+                    <ChatSummaryMore onClick={() => setSummaryShowAll((value) => !value)}>
+                      {summaryShowAll ? "Show less" : "Show more"}
+                    </ChatSummaryMore>
+                  ) : null}
+                </ChatSummaryGroup>
+                {(
+                  [
+                    ["sources", "Sources", "Design notes", "Web result"],
+                    ["subagents", "Subagents", "UI audit agent", "Running"],
+                    ["processes", "Background processes", "pnpm typecheck", "Running"],
+                    ["plan", "Plan", "Compose the conversation UI", "In progress"],
+                    ["pullRequests", "Pull requests", "#42 · cypheria", "Open"],
+                    ["schedules", "Schedules", "Review task every morning", "Active"],
+                    ["browser", "Browser", "Design reference tab", "Ready"],
+                  ] as const
+                ).map(([id, title, label, detail]) => (
+                  <ChatSummaryGroup
+                    count={1}
+                    expanded={summaryExpanded[id] ?? true}
+                    key={id}
+                    onExpandedChange={(value) =>
+                      setSummaryExpanded((current) => ({ ...current, [id]: value }))
+                    }
+                    title={title}
+                  >
+                    <ChatSummaryRow
+                      detail={detail}
+                      onClick={() => {
+                        if (id === "browser") setRightActive("browser")
+                        else if (id === "plan") setRightActive("plan")
+                        else if (id === "sources") setRightActive("sources")
+                        else if (id === "subagents") setRightActive("subagents")
+                        else if (id === "pullRequests") setRightActive("pull-request")
+                        else if (id === "processes") setBottomActive("terminal")
+                      }}
+                    >
+                      {label}
+                    </ChatSummaryRow>
+                  </ChatSummaryGroup>
+                ))}
+              </>
+            ) : null}
+          </ChatSummaryBody>
+        </ChatSummarySurface>
       </ChatMainColumn>
     </ChatWorkspaceShell>
   )

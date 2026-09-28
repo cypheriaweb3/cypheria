@@ -8,6 +8,7 @@ import {
 } from "@cypheria/protocol"
 
 import type { ThreadHarnessHistoryItem } from "./harness-adapter.js"
+import { projectThreadSummary } from "./summary.js"
 
 type Timeline = { epoch: string; rows: ThreadTimelineRow[] }
 export type ResolvedThreadTimelineRow = ThreadTimelineRow & { agentMessageId: string | null }
@@ -71,6 +72,11 @@ export class ThreadTimelineStore {
       startCursor: first ? { epoch: timeline.epoch, seq: first.seq } : null,
       threadId,
     }
+  }
+
+  async summary(threadId: string) {
+    const timeline = await this.#get(threadId)
+    return projectThreadSummary(threadId, timeline.epoch, timeline.rows)
   }
 
   async finalizeAssistant(

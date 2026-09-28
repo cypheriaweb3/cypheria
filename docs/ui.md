@@ -42,6 +42,8 @@ Shared components remain presentation-oriented. Data fetching and Electron acces
 
 The `components/chat` surface provides composable messages, reasoning, tools, commands, plans, attachments, composer states, pending interactions, panels, previews, and streaming states. `ChatTurnGroup` gives consecutive tool and subagent activity a labeled, accessible visual boundary. These components contain presentation and accessibility behavior only. Desktop owns the Thread controller, TanStack Virtual integration, scroll restoration, panel registry, xterm process view, and harness extensions.
 
+The independent Summary overview uses `ChatSummarySurface`, `ChatSummaryHeader`, `ChatSummaryBody`, `ChatSummaryGroup`, `ChatSummaryRow`, `ChatSummaryStaticRow`, `ChatSummaryMore`, and `ChatSummaryMessage`. They accept display content, counts, state, and callbacks without importing protocols or Electron. The Desktop supplies full-history and live data, section actions, per-Thread persistence, responsive placement, and focus return. The development Chat Demo exposes populated, loading, empty, and error variants.
+
 Timeline renderers accept Canonical Timeline items. Harness renderers are registered only for discriminated harness items or metadata with genuine additional behavior.
 
 ## Sidebar invariants
