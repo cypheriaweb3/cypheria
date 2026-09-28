@@ -81,6 +81,10 @@ export interface ThreadActions {
     input: Payload<"thread.turn.steer.request">,
     options?: RequestOptions
   ): Promise<{ thread: ThreadView; turnId: string }>
+  queueTurn(
+    input: Payload<"thread.turn.queue.add.request">,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.turn.queue.add.response">>
   touchRecency(threadId: string, recencyAt: number, options?: RequestOptions): Promise<ThreadView>
   unarchive(threadId: string, options?: RequestOptions): Promise<ThreadView>
   update(input: Payload<"thread.update.request">, options?: RequestOptions): Promise<ThreadView>
@@ -89,8 +93,17 @@ export interface ThreadActions {
     options?: RequestOptions
   ): Promise<ThreadView>
   readonly attachments: ThreadAttachmentActions
+  readonly inputFiles: ThreadInputFileActions
   readonly timeline: TimelineActions
   readonly contextUsage: ThreadContextUsageActions
+  readonly composer: ThreadComposerActions
+}
+
+export interface ThreadComposerActions {
+  suggest(
+    input: Payload<"thread.composer.suggest.request">,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.composer.suggest.response">>
 }
 
 type SuccessValue<Message> = Message extends { payload: infer Payload }
@@ -147,6 +160,42 @@ export interface ThreadContextUsageActions {
   subscribe(threadId: string, handler: (usage: ThreadContextUsage | null) => void): () => void
 }
 
+export interface ThreadInputFileActions {
+  upload(
+    input: {
+      bytes: Uint8Array
+      fileName: string
+      mimeType: string
+      onProgress?: (sent: number, total: number) => void
+    },
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.input-file.upload.complete.response">>
+  start(
+    input: Payload<"thread.input-file.upload.start.request">,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.input-file.upload.start.response">>
+  chunk(
+    input: Payload<"thread.input-file.upload.chunk.request">,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.input-file.upload.chunk.response">>
+  status(
+    input: Payload<"thread.input-file.upload.status.request">,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.input-file.upload.status.response">>
+  complete(
+    input: Payload<"thread.input-file.upload.complete.request">,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.input-file.upload.complete.response">>
+  abort(
+    input: Payload<"thread.input-file.upload.abort.request">,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.input-file.upload.abort.response">>
+  get(
+    input: Payload<"thread.input-file.get.request">,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.input-file.get.response">>
+}
+
 export interface TimelineActions {
   get(
     input: Payload<"thread.timeline.get.request">,
@@ -170,6 +219,57 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
       client.on("thread.context.usage.updated.notification", ({ payload }) => {
         if (payload.threadId === threadId) handler(payload.usage)
       }),
+  }
+  const inputFiles: ThreadInputFileActions = {
+    upload: async ({ bytes, fileName, mimeType, onProgress }, options) => {
+      const digest = new Uint8Array(
+        await globalThis.crypto.subtle.digest("SHA-256", Uint8Array.from(bytes))
+      )
+      const sha256 = Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("")
+      const started = await request<ExtractReady<"thread.input-file.upload.start.response">>(
+        "thread.input-file.upload.start.request",
+        { byteSize: bytes.length, fileName, mimeType, sha256 },
+        options
+      )
+      let offset = started.offset
+      while (offset < bytes.length) {
+        const slice = bytes.slice(offset, offset + started.chunkSize)
+        try {
+          const result = await request<ExtractReady<"thread.input-file.upload.chunk.response">>(
+            "thread.input-file.upload.chunk.request",
+            { bytes: slice, offset, uploadId: started.uploadId },
+            options
+          )
+          offset = result.offset
+        } catch (error) {
+          const status = await request<ExtractReady<"thread.input-file.upload.status.response">>(
+            "thread.input-file.upload.status.request",
+            { uploadId: started.uploadId },
+            options
+          ).catch(() => {
+            throw error
+          })
+          if (status.offset === offset) throw error
+          offset = status.offset
+        }
+        onProgress?.(offset, bytes.length)
+      }
+      return request(
+        "thread.input-file.upload.complete.request",
+        { uploadId: started.uploadId },
+        options
+      )
+    },
+    start: (input, options) => request("thread.input-file.upload.start.request", input, options),
+    chunk: (input, options) => request("thread.input-file.upload.chunk.request", input, options),
+    status: (input, options) => request("thread.input-file.upload.status.request", input, options),
+    complete: (input, options) =>
+      request("thread.input-file.upload.complete.request", input, options),
+    abort: (input, options) => request("thread.input-file.upload.abort.request", input, options),
+    get: (input, options) => request("thread.input-file.get.request", input, options),
+  }
+  const composer: ThreadComposerActions = {
+    suggest: (input, options) => request("thread.composer.suggest.request", input, options),
   }
   const attachments: ThreadAttachmentActions = {
     addPullRequest: (threadId, url, options) =>
@@ -221,6 +321,7 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
         options
       ),
     close: (threadId, options) => request("thread.close.request", { threadId }, options),
+    composer,
     contextUsage,
     create: (input, options) => request("thread.create.request", input, options),
     delete: async (threadId, options) => {
@@ -228,6 +329,7 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
     },
     get: (threadId, options) => request("thread.get.request", { threadId }, options),
     getTimeline: (input, options) => request("thread.timeline.get.request", input, options),
+    inputFiles,
     fork: (input, options) => request("thread.fork.request", input, options),
     list: (input = {}, options) => request("thread.list.request", input, options),
     move: async (input, options) => {
@@ -239,6 +341,7 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
     rewind: (input, options) => request("thread.rewind.request", input, options),
     startTurn: (input, options) => request("thread.turn.start.request", input, options),
     steerTurn: (input, options) => request("thread.turn.steer.request", input, options),
+    queueTurn: (input, options) => request("thread.turn.queue.add.request", input, options),
     touchRecency: (threadId, recencyAt, options) =>
       request("thread.recency.touch.request", { recencyAt, threadId }, options),
     unarchive: (threadId, options) => request("thread.unarchive.request", { threadId }, options),

@@ -11,6 +11,7 @@ import { cn } from "#lib/utils"
 export type ChatComposerMentionKind =
   | "file"
   | "agent"
+  | "thread"
   | "skill"
   | "app"
   | "plugin"
@@ -28,10 +29,28 @@ export type ChatComposerSuggestion = {
 }
 
 export type ChatComposerDocument = JSONContent
+export type ChatComposerInputBlock =
+  | { text: string; type: "text" }
+  | {
+      id: string
+      kind:
+        | "workspace-file"
+        | Exclude<ChatComposerMentionKind, "file" | "resource">
+        | "mcp-resource"
+      label: string
+      type: "reference"
+    }
+export type ChatComposerSuggestionSource =
+  | readonly ChatComposerSuggestion[]
+  | ((
+      trigger: "@" | "$" | "/",
+      query: string
+    ) => Promise<readonly ChatComposerSuggestion[]> | readonly ChatComposerSuggestion[])
 
 const nodeNameByKind: Record<ChatComposerMentionKind, string> = {
   file: "fileMention",
   agent: "agentMention",
+  thread: "threadMention",
   skill: "skillMention",
   app: "appMention",
   plugin: "pluginMention",
@@ -42,6 +61,14 @@ const nodeNameByKind: Record<ChatComposerMentionKind, string> = {
 const kindByNodeName = Object.fromEntries(
   Object.entries(nodeNameByKind).map(([kind, name]) => [name, kind])
 ) as Record<string, ChatComposerMentionKind>
+
+const decodeReferenceId = (value: string): string => {
+  try {
+    return decodeURIComponent(value)
+  } catch {
+    return value
+  }
+}
 
 function mentionNode(kind: ChatComposerMentionKind) {
   const name = nodeNameByKind[kind]
@@ -104,21 +131,36 @@ export function createChatComposerDocument(text: string): ChatComposerDocument {
       if (/^https?:\/\//u.test(target)) kind = null
       else if (label.startsWith("$")) kind = target.startsWith("app://") ? "app" : "skill"
       else if (label.startsWith("@")) {
-        kind = target.startsWith("agent://")
-          ? "agent"
-          : target.startsWith("mcp://")
-            ? "resource"
-            : target.startsWith("browser://")
-              ? "browser-tab"
-              : target.startsWith("plugin://")
-                ? "plugin"
-                : "file"
+        kind = target.startsWith("thread://")
+          ? "thread"
+          : target.startsWith("agent://")
+            ? "agent"
+            : target.startsWith("mcp://") || target.startsWith("mcp-resource:")
+              ? "resource"
+              : target.startsWith("browser://")
+                ? "browser-tab"
+                : target.startsWith("plugin://")
+                  ? "plugin"
+                  : "file"
       }
       content.push(
         kind
           ? {
               type: nodeNameByKind[kind],
-              attrs: { id: target, label: label.slice(1), target },
+              attrs: {
+                id:
+                  kind === "resource" && target.startsWith("mcp-resource:")
+                    ? decodeReferenceId(target.slice("mcp-resource:".length))
+                    : kind === "app" ||
+                        kind === "plugin" ||
+                        kind === "agent" ||
+                        kind === "browser-tab" ||
+                        kind === "thread"
+                      ? target.replace(/^(?:app|plugin|agent|browser|thread):\/\//u, "")
+                      : target,
+                label: label.slice(1),
+                target,
+              },
             }
           : { type: "text", text: label, marks: [{ type: "link", attrs: { href: target } }] }
       )
@@ -134,6 +176,47 @@ export function createChatComposerDocument(text: string): ChatComposerDocument {
       content: line ? inline(line) : undefined,
     })),
   }
+}
+
+/** Rebuilds selected mention nodes from trusted structured draft blocks without parsing Markdown. */
+export function createChatComposerDocumentFromInput(
+  blocks: readonly ChatComposerInputBlock[]
+): ChatComposerDocument {
+  const paragraphs: JSONContent[] = [{ type: "paragraph", content: [] }]
+  const append = (node: JSONContent) => {
+    const paragraph = paragraphs.at(-1)
+    if (!paragraph) return
+    paragraph.content ??= []
+    paragraph.content.push(node)
+  }
+  for (const block of blocks) {
+    if (block.type === "text") {
+      const lines = block.text.split("\n")
+      for (const [index, line] of lines.entries()) {
+        if (index) paragraphs.push({ type: "paragraph", content: [] })
+        if (line) append({ type: "text", text: line })
+      }
+      continue
+    }
+    const kind: ChatComposerMentionKind =
+      block.kind === "workspace-file"
+        ? "file"
+        : block.kind === "mcp-resource"
+          ? "resource"
+          : block.kind
+    const target =
+      block.kind === "mcp-resource"
+        ? `mcp-resource:${encodeURIComponent(block.id)}`
+        : block.kind === "app" ||
+            block.kind === "plugin" ||
+            block.kind === "thread" ||
+            block.kind === "browser-tab" ||
+            block.kind === "agent"
+          ? `${block.kind === "browser-tab" ? "browser" : block.kind}://${block.id}`
+          : block.id
+    append({ type: nodeNameByKind[kind], attrs: { id: block.id, label: block.label, target } })
+  }
+  return { type: "doc", content: paragraphs }
 }
 
 function serializeInline(node: JSONContent): string {
@@ -178,6 +261,60 @@ export function serializeChatComposerDocument(document: ChatComposerDocument): s
   return (document.content ?? []).map(block).join("\n")
 }
 
+/** Preserves selected inline identities instead of trusting a Markdown-looking text span. */
+export function chatComposerDocumentToInput(
+  document: ChatComposerDocument
+): ChatComposerInputBlock[] {
+  const blocks: ChatComposerInputBlock[] = []
+  const text = (value: string) => {
+    if (!value) return
+    const last = blocks.at(-1)
+    if (last?.type === "text") last.text += value
+    else blocks.push({ text: value, type: "text" })
+  }
+  const inline = (node: JSONContent) => {
+    const kind = kindByNodeName[node.type ?? ""]
+    if (kind) {
+      const id = String(node.attrs?.id ?? "")
+      const label = String(node.attrs?.label ?? "")
+      if (id && label) {
+        blocks.push({
+          id,
+          kind: kind === "file" ? "workspace-file" : kind === "resource" ? "mcp-resource" : kind,
+          label,
+          type: "reference",
+        })
+      } else text(`${kind === "skill" || kind === "app" ? "$" : "@"}${label}`)
+      return
+    }
+    if (node.type === "text" || node.type === "hardBreak") {
+      text(serializeInline(node))
+      return
+    }
+    for (const child of node.content ?? []) inline(child)
+  }
+  const block = (node: JSONContent) => {
+    if (node.type === "codeBlock") {
+      text(serializeChatComposerDocument({ type: "doc", content: [node] }))
+      return
+    }
+    if (node.type === "bulletList" || node.type === "orderedList") {
+      for (const [index, item] of (node.content ?? []).entries()) {
+        if (index) text("\n")
+        text(node.type === "bulletList" ? "- " : `${index + 1}. `)
+        for (const child of item.content ?? []) block(child)
+      }
+      return
+    }
+    for (const child of node.content ?? []) inline(child)
+  }
+  for (const [index, node] of (document.content ?? []).entries()) {
+    if (index) text("\n")
+    block(node)
+  }
+  return blocks
+}
+
 type ActiveSuggestion = {
   trigger: "@" | "$" | "/"
   items: ChatComposerSuggestion[]
@@ -196,7 +333,7 @@ export type ChatComposerEditorProps = Omit<
   disabled?: boolean
   plainTextMode?: boolean
   submitOnEnter?: boolean
-  suggestions?: ChatComposerSuggestion[]
+  suggestions?: ChatComposerSuggestionSource
   onChange: (value: string, document: ChatComposerDocument) => void
   onSubmit?: () => void
   onAlternateSubmit?: () => void
@@ -274,14 +411,17 @@ export function ChatComposerEditor({
                 editor: this.editor,
                 char: trigger,
                 pluginKey: new PluginKey(`chat-composer-${trigger.charCodeAt(0)}`),
-                items: ({ query }) => {
+                items: async ({ query }) => {
                   const allowed =
                     trigger === "$"
                       ? ["skill", "app"]
                       : trigger === "/"
                         ? ["command"]
-                        : ["file", "agent", "plugin", "resource", "browser-tab"]
-                  return suggestionsRef.current
+                        : ["file", "thread", "agent", "plugin", "resource", "browser-tab"]
+                  const source = suggestionsRef.current
+                  const suggestions =
+                    typeof source === "function" ? await source(trigger, query) : source
+                  return suggestions
                     .filter((item) => allowed.includes(item.kind))
                     .filter((item) =>
                       `${item.label} ${item.description ?? ""}`

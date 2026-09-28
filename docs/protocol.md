@@ -90,6 +90,8 @@ Common items may include `harnessData` for provenance and diagnostics without ch
 
 A canonical user `message` carries the originating `clientMessageId` when it came from a Thread start or steer request. This is the stable public identity used to reconcile optimistic client state and Agent echoes. The corresponding Agent-native message identity is stored internally as `agentMessageId`; it is not part of public Timeline rows.
 
+User messages may also retain the ordered original `input` blocks. Selected `reference` identities and opaque `uploaded-file` IDs are validated and mapped by the Server before Agent submission; plain text is never reinterpreted as a selected reference. The shared suggestion, chunked upload, retrieval, and queue operations are described in [Composer Inputs and References](composer.md).
+
 Timeline cursors contain an epoch and sequence. The epoch detects replacement or rebuilt history. Reads support `tail`, `before`, and `after`, and can request canonical rows or projected display items. Projection folds later rows for the same item into a stable display item while retaining exact source sequence ranges.
 
 Clients subscribe to append notifications and re-read after a replacement notification, cursor gap, reconnect, or epoch mismatch. The persisted Server Timeline remains authoritative for both history and live projection.
@@ -104,7 +106,7 @@ Archive is local-authoritative: the Server cancels an active turn, closes the ru
 
 ## Turns and interactions
 
-Thread input is an ordered list of text, image, audio, resource-link, or embedded-resource blocks, restricted by advertised Thread capabilities. Every start and steer request includes a client-generated `clientMessageId`. Within one Thread, retrying the same ID with identical operation and content returns the original turn without resubmitting to the Agent; reusing it for different content fails with `CLIENT_MESSAGE_ID_CONFLICT`.
+Thread input is an ordered list of text, image, audio, resource-link, embedded-resource, selected-reference, or uploaded-file blocks, restricted by advertised Thread capabilities and Server-side validation. Every start and steer request includes a client-generated `clientMessageId`. Within one Thread, retrying the same ID with identical operation and content returns the original turn without resubmitting to the Agent; reusing it for different content fails with `CLIENT_MESSAGE_ID_CONFLICT`.
 
 Message identity, execution identity, and native identity are separate: `clientMessageId` identifies the submitted user message, `turnId` identifies the Agent execution that may contain start and steer messages, and internal `agentMessageId` identifies the corresponding message in the selected Agent runtime.
 

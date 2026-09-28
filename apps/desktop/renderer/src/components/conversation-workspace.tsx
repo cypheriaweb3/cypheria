@@ -18,6 +18,7 @@ import {
   ChatComposerBody,
   ChatComposerControl,
   ChatComposerDock,
+  type ChatComposerDocument,
   ChatComposerEditor,
   ChatComposerFooter,
   ChatComposerForm,
@@ -100,6 +101,10 @@ import {
   ChatUserInputRequest,
   ChatUserMessage,
   ChatWorkspaceShell,
+  chatComposerDocumentToInput,
+  createChatComposerDocument,
+  createChatComposerDocumentFromInput,
+  serializeChatComposerDocument,
 } from "@cypheria/ui/components/chat"
 import {
   DropdownMenu,
@@ -159,8 +164,6 @@ import type {
   PanelLayoutCheckpoint,
 } from "../../../ipc/src/index.js"
 import { BrowserPane } from "../browser/browser-pane.js"
-import { tabsForScope } from "../browser/state.js"
-import { useBrowserTabsState } from "../browser/store.js"
 import {
   clientStateStore,
   composerDraftAtom,
@@ -187,6 +190,7 @@ import {
 import { ensureCypheriaClient } from "../cypheria-client.js"
 import { Route } from "../routes/index.js"
 import { sidebarData, sidebarQueryKeys } from "../sidebar-data.js"
+import { desktopClientStorage } from "../storage.js"
 import {
   type ConversationSubmitMode,
   ThreadConversationController,
@@ -210,6 +214,16 @@ const formatted = (value: unknown): string => {
     return String(value)
   }
 }
+
+const draftEditorDocument = (draft: ComposerDraft): ChatComposerDocument | null =>
+  draft.blocks
+    ? createChatComposerDocumentFromInput(
+        draft.blocks.filter(
+          (block): block is Extract<ThreadInputBlock, { type: "text" | "reference" }> =>
+            block.type === "text" || block.type === "reference"
+        )
+      )
+    : null
 
 const draftAttachmentName = (attachment: ComposerDraftAttachment): string =>
   attachment.kind === "browser-tab"
@@ -977,6 +991,19 @@ export function ConversationWorkspace({
     controller.getSnapshot
   )
   const [composer, setComposer] = useState(persistedDraft?.text ?? initialPrompt ?? "")
+  const composerDocumentRef = useRef<ChatComposerDocument | null>(
+    persistedDraft ? draftEditorDocument(persistedDraft) : null
+  )
+  const composerInput = useCallback((): ThreadInputBlock[] => {
+    if (desktopPreferences?.composerPlainTextMode)
+      return composer ? [{ text: composer, type: "text" }] : []
+    const document = composerDocumentRef.current
+    return chatComposerDocumentToInput(
+      document && serializeChatComposerDocument(document) === composer
+        ? document
+        : createChatComposerDocument(composer)
+    )
+  }, [composer, desktopPreferences?.composerPlainTextMode])
   const [attachments, setAttachments] = useState<ComposerDraftAttachment[]>(
     persistedDraft?.attachments ?? []
   )
@@ -1046,8 +1073,6 @@ export function ConversationWorkspace({
     },
     [markPanelDirty]
   )
-  const browserTabs = useBrowserTabsState()
-  const threadBrowserTabs = snapshot.thread?.id ? tabsForScope(browserTabs, snapshot.thread.id) : []
   const terminals = useWorkspaceTerminals(snapshot.threadId ?? undefined)
 
   useEffect(() => {
@@ -1109,6 +1134,7 @@ export function ConversationWorkspace({
   useEffect(() => {
     const draft: ComposerDraft = {
       attachments,
+      blocks: composerInput(),
       status: draftStatusRef.current,
       text: composer,
       updatedAt: Date.now(),
@@ -1125,7 +1151,7 @@ export function ConversationWorkspace({
       window.clearTimeout(timer)
       if (draftWriteTimerRef.current === timer) draftWriteTimerRef.current = null
     }
-  }, [attachments, composer, setPersistedDraft])
+  }, [attachments, composer, composerInput, setPersistedDraft])
 
   useEffect(() => {
     const flush = () => {
@@ -1665,6 +1691,7 @@ export function ConversationWorkspace({
       })
       const draft = await inputBlocksToComposerDraft(result.composerContent)
       await deleteDraftAttachments(attachments)
+      composerDocumentRef.current = draftEditorDocument(draft)
       setComposer(draft.text)
       setAttachments(draft.attachments)
       setComposerEpoch((current) => current + 1)
@@ -1726,9 +1753,11 @@ export function ConversationWorkspace({
       )
     )
       return
+    const submittedBlocks = composerInput()
     draftStatusRef.current = "submitting"
     const submittingDraft: ComposerDraft = {
       attachments: submittedAttachments,
+      blocks: submittedBlocks,
       status: "submitting",
       text,
       updatedAt: Date.now(),
@@ -1737,7 +1766,19 @@ export function ConversationWorkspace({
     await clientStateStore.set(composerDraftAtom(activeDraftScopeRef.current), submittingDraft)
     let inputAttachments: ThreadInputBlock[]
     try {
-      inputAttachments = await Promise.all(submittedAttachments.map(draftAttachmentToInputBlock))
+      const client = await ensureCypheriaClient()
+      inputAttachments = await Promise.all(
+        submittedAttachments.map(async (attachment) => {
+          if (!isOwnedDraftAttachment(attachment)) return draftAttachmentToInputBlock(attachment)
+          const bytes = await desktopClientStorage.attachments.read(attachment.attachment)
+          const file = await client.threads.inputFiles.upload({
+            bytes,
+            fileName: attachment.name,
+            mimeType: attachment.attachment.mimeType,
+          })
+          return { fileId: file.fileId, type: "uploaded-file" } as const
+        })
+      )
     } catch {
       draftStatusRef.current = "failed"
       draftSnapshotRef.current = { ...submittingDraft, status: "failed" }
@@ -1763,10 +1804,7 @@ export function ConversationWorkspace({
             : "send"
       : "send"
     try {
-      await controller.submit(
-        [...(text ? [{ text, type: "text" } as const] : []), ...inputAttachments],
-        mode
-      )
+      await controller.submit([...submittedBlocks, ...inputAttachments], mode)
       await deleteDraftAttachments(submittedAttachments)
       draftStatusRef.current = "editing"
       draftSnapshotRef.current = null
@@ -2148,10 +2186,18 @@ export function ConversationWorkspace({
                   ) : (
                     <ChatComposerEditor
                       key={composerEpoch}
+                      initialDocument={
+                        draftSnapshotRef.current?.text === composer
+                          ? (composerDocumentRef.current ?? undefined)
+                          : undefined
+                      }
                       aria-label={i18n._(
                         msg({ id: "chat.prompt.label", message: "Message Cypheria" })
                       )}
-                      onChange={(text) => setComposer(text)}
+                      onChange={(text, document) => {
+                        composerDocumentRef.current = document
+                        setComposer(text)
+                      }}
                       onAlternateSubmit={() => {
                         oppositeFollowUp.current = true
                         composerForm.current?.requestSubmit()
@@ -2166,29 +2212,116 @@ export function ConversationWorkspace({
                       onCommand={(id) => {
                         if (id === "attach") attachmentInput.current?.click()
                         if (id === "clear") setComposer("")
+                        if (id === "new")
+                          void navigate({
+                            search: {
+                              agent: agentId,
+                              project: initialProjectId,
+                              section: initialSectionId,
+                            },
+                          })
+                        if (id === "goal" || id === "status") {
+                          setOpenRightTabs((current) =>
+                            current.includes(id === "goal" ? "goal" : "summary")
+                              ? current
+                              : [...current, id === "goal" ? "goal" : "summary"]
+                          )
+                          setRightTab(id === "goal" ? "goal" : "summary")
+                          setRightVisibility("visible")
+                        }
+                        const codexSessionId = snapshot.thread?.agentSessionId
+                        if (id === "compact" && codexSessionId) {
+                          void ensureCypheriaClient().then((client) =>
+                            client.harnesses.codex.threads.compact({
+                              threadId: codexSessionId,
+                            })
+                          )
+                        }
                       }}
-                      suggestions={[
-                        ...threadBrowserTabs
-                          .filter((tab) => tab.url !== "about:blank")
-                          .map((tab) => ({
-                            description: tab.url,
-                            id: `browser-tab:${tab.browserId}`,
-                            kind: "browser-tab" as const,
-                            label: tab.title || tab.url,
-                            target: tab.url,
-                          })),
-                        ...attachments.map((attachment) => ({
-                          id: attachment.id,
-                          kind: "file" as const,
-                          label: draftAttachmentName(attachment),
-                          target: draftAttachmentName(attachment),
-                        })),
-                        {
-                          id: "attach",
-                          kind: "command" as const,
-                          label: i18n._(msg({ id: "chat.prompt.addFiles", message: "Add files" })),
-                        },
-                      ]}
+                      suggestions={async (trigger, query) => {
+                        if (trigger === "/") {
+                          const commands = [
+                            {
+                              id: "attach",
+                              label: i18n._(
+                                msg({ id: "chat.prompt.addFiles", message: "Add files" })
+                              ),
+                            },
+                            {
+                              id: "clear",
+                              label: i18n._(
+                                msg({ id: "chat.prompt.clear", message: "Clear prompt" })
+                              ),
+                            },
+                            {
+                              id: "new",
+                              label: i18n._(
+                                msg({ id: "chat.prompt.newChat", message: "New chat" })
+                              ),
+                            },
+                            ...(codex && snapshot.thread
+                              ? [
+                                  {
+                                    id: "goal",
+                                    label: i18n._(msg({ id: "chat.panel.goal", message: "Goal" })),
+                                  },
+                                  {
+                                    id: "status",
+                                    label: i18n._(
+                                      msg({ id: "chat.prompt.status", message: "Status" })
+                                    ),
+                                  },
+                                  {
+                                    id: "compact",
+                                    label: i18n._(
+                                      msg({ id: "chat.prompt.compact", message: "Compact context" })
+                                    ),
+                                  },
+                                ]
+                              : []),
+                          ]
+                          return commands
+                            .filter((item) =>
+                              item.label.toLowerCase().includes(query.toLowerCase())
+                            )
+                            .map((item) => ({ ...item, kind: "command" as const }))
+                        }
+                        const client = await ensureCypheriaClient()
+                        const result = await client.threads.composer.suggest({
+                          agentId: snapshot.thread ? undefined : agentId,
+                          cwd: snapshot.thread
+                            ? undefined
+                            : (project?.roots[0] ??
+                              desktopPreferences.projectlessWorkspaceRoot ??
+                              undefined),
+                          query,
+                          threadId: snapshot.thread?.id,
+                          trigger,
+                        })
+                        return result.items.map((item) => ({
+                          description: item.description ?? undefined,
+                          id: item.id,
+                          kind:
+                            item.kind === "workspace-file"
+                              ? ("file" as const)
+                              : item.kind === "mcp-resource"
+                                ? ("resource" as const)
+                                : item.kind,
+                          label: item.label,
+                          target:
+                            item.kind === "app"
+                              ? `app://${item.id}`
+                              : item.kind === "plugin"
+                                ? `plugin://${item.id}`
+                                : item.kind === "thread"
+                                  ? `thread://${item.id}`
+                                  : item.kind === "browser-tab"
+                                    ? `browser://${item.id}`
+                                    : item.kind === "mcp-resource"
+                                      ? `mcp-resource:${encodeURIComponent(item.id)}`
+                                      : item.id,
+                        }))
+                      }}
                       submitOnEnter={
                         desktopPreferences?.composerEnterBehavior !== "cmdAlways" &&
                         (desktopPreferences?.composerEnterBehavior !== "cmdIfMultiline" ||

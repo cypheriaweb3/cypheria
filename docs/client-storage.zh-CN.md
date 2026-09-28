@@ -54,6 +54,8 @@ Web adapter 把附件 bytes 放在专用 IndexedDB 数据库中。Expo Native �
 
 Composer 草稿在 KV 中保存文本、有序附件 metadata、状态与更新时间，绝不内嵌 base64。图片、音频、文件、粘贴文本和 appshot 的自有字节保存在 `AttachmentStore`。浏览器标签页与 MCP 资源保留可恢复引用和可见的降级／不可用状态；选中文本与受限 app context 保持自包含。恢复时通过 `AttachmentStore.stat()` 校验，因此不会为了检查而读取大文件。二进制缺失时禁止提交，直到移除或重新附加。草稿清理保持有界，并驱动附件垃圾回收。
 
+选中的 composer 引用可以作为结构化输入块保留在设备本地草稿中。发送时，本地自有字节上传到 Server，并在 Thread 输入中换成不透明 file ID；详见 [Composer 输入与引用](composer.zh-CN.md)。这不会将草稿变成 Server 共享状态。
+
 附件检查按页返回 key、大小以及最多前 32 字节。文件 adapter 只读取该前缀；Web adapter 把前缀保存在 metadata object store 中，因此列表查询不会加载完整 blob。
 
 ## 校验与安全

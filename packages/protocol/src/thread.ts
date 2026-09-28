@@ -184,11 +184,37 @@ const ThreadEmbeddedResourceInputBlockSchema = z.object({
   uri: z.string().min(1),
 })
 
+export const ThreadReferenceKindSchema = z.enum([
+  "workspace-file",
+  "thread",
+  "agent",
+  "skill",
+  "app",
+  "plugin",
+  "mcp-resource",
+  "browser-tab",
+])
+export type ThreadReferenceKind = z.infer<typeof ThreadReferenceKindSchema>
+
+export const ThreadReferenceInputBlockSchema = z
+  .object({
+    id: z.string().min(1).max(4096),
+    kind: ThreadReferenceKindSchema,
+    label: z.string().min(1).max(512),
+    type: z.literal("reference"),
+  })
+  .strict()
+
+export const ThreadUploadedFileInputBlockSchema = z
+  .object({ fileId: z.uuid(), type: z.literal("uploaded-file") })
+  .strict()
+
 export const ThreadAttachmentSchema = z.discriminatedUnion("type", [
   ThreadImageInputBlockSchema,
   ThreadAudioInputBlockSchema,
   ThreadResourceLinkInputBlockSchema,
   ThreadEmbeddedResourceInputBlockSchema,
+  ThreadUploadedFileInputBlockSchema,
 ])
 export type ThreadAttachment = z.infer<typeof ThreadAttachmentSchema>
 
@@ -243,6 +269,8 @@ export const ThreadInputBlockSchema = z.discriminatedUnion("type", [
   ThreadAudioInputBlockSchema,
   ThreadResourceLinkInputBlockSchema,
   ThreadEmbeddedResourceInputBlockSchema,
+  ThreadReferenceInputBlockSchema,
+  ThreadUploadedFileInputBlockSchema,
 ])
 export type ThreadInputBlock = z.infer<typeof ThreadInputBlockSchema>
 
@@ -278,6 +306,7 @@ export const ThreadTimelineItemSchema = z.discriminatedUnion("type", [
     attachments: z.array(ThreadAttachmentSchema).optional(),
     boundary: ThreadMessageBoundarySchema.nullable(),
     clientMessageId: z.string().min(1).optional(),
+    input: z.array(ThreadInputBlockSchema).optional(),
     role: z.enum(["user", "assistant"]),
     type: z.literal("message"),
   }),
@@ -590,9 +619,74 @@ export const ThreadTurnSteerRequestSchema = request(
     threadId: ProjectThreadIdSchema,
   })
 )
+export const ThreadTurnQueueAddRequestSchema = request(
+  "thread.turn.queue.add.request",
+  z.object({
+    clientMessageId: z.string().min(1),
+    content: z.array(ThreadInputBlockSchema).min(1),
+    threadId: ProjectThreadIdSchema,
+  })
+)
 export const ThreadTurnCancelRequestSchema = request(
   "thread.turn.cancel.request",
   z.object({ threadId: ProjectThreadIdSchema, turnId: z.string().min(1).optional() })
+)
+
+const FileIdSchema = z.uuid()
+const UploadIdSchema = z.uuid()
+export const ThreadInputFileUploadStartRequestSchema = request(
+  "thread.input-file.upload.start.request",
+  z.object({
+    byteSize: z
+      .int()
+      .positive()
+      .max(32 * 1024 * 1024),
+    fileName: z.string().trim().min(1).max(255),
+    mimeType: z.string().trim().min(1).max(255),
+    sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+  })
+)
+export const ThreadInputFileUploadChunkRequestSchema = request(
+  "thread.input-file.upload.chunk.request",
+  z.object({
+    bytes: z
+      .instanceof(Uint8Array)
+      .refine((value) => value.length > 0 && value.length <= 256 * 1024),
+    offset: z.int().nonnegative(),
+    uploadId: UploadIdSchema,
+  })
+)
+export const ThreadInputFileUploadStatusRequestSchema = request(
+  "thread.input-file.upload.status.request",
+  z.object({ uploadId: UploadIdSchema })
+)
+export const ThreadInputFileUploadCompleteRequestSchema = request(
+  "thread.input-file.upload.complete.request",
+  z.object({ uploadId: UploadIdSchema })
+)
+export const ThreadInputFileUploadAbortRequestSchema = request(
+  "thread.input-file.upload.abort.request",
+  z.object({ uploadId: UploadIdSchema })
+)
+export const ThreadInputFileGetRequestSchema = request(
+  "thread.input-file.get.request",
+  z.object({
+    fileId: FileIdSchema,
+    offset: z.int().nonnegative().default(0),
+    threadId: ProjectThreadIdSchema,
+  })
+)
+export const ThreadComposerSuggestRequestSchema = request(
+  "thread.composer.suggest.request",
+  z
+    .object({
+      agentId: AgentIdSchema.optional(),
+      cwd: z.string().min(1).optional(),
+      query: z.string().max(256),
+      threadId: ProjectThreadIdSchema.optional(),
+      trigger: z.enum(["@", "$"]),
+    })
+    .refine((value) => value.threadId !== undefined || value.agentId !== undefined)
 )
 export const ThreadTimelineGetRequestSchema = request(
   "thread.timeline.get.request",
@@ -732,9 +826,61 @@ export const ThreadTurnSteerResponseSchema = response(
   "thread.turn.steer.response",
   z.object({ thread: ThreadViewSchema, turnId: z.string().min(1) })
 )
+export const ThreadTurnQueueAddResponseSchema = response(
+  "thread.turn.queue.add.response",
+  z.object({ queuedId: z.string().min(1) })
+)
 export const ThreadTurnCancelResponseSchema = response(
   "thread.turn.cancel.response",
   ThreadViewSchema
+)
+const inputFileSchema = z.object({
+  byteSize: z.int().positive(),
+  fileId: FileIdSchema,
+  fileName: z.string().min(1),
+  mimeType: z.string().min(1),
+  sha256: z.string().regex(/^[a-f0-9]{64}$/u),
+})
+export type ThreadInputFile = z.infer<typeof inputFileSchema>
+export const ThreadInputFileUploadStartResponseSchema = response(
+  "thread.input-file.upload.start.response",
+  z.object({
+    chunkSize: z.literal(256 * 1024),
+    offset: z.int().nonnegative(),
+    uploadId: UploadIdSchema,
+  })
+)
+export const ThreadInputFileUploadChunkResponseSchema = response(
+  "thread.input-file.upload.chunk.response",
+  z.object({ offset: z.int().nonnegative() })
+)
+export const ThreadInputFileUploadStatusResponseSchema = response(
+  "thread.input-file.upload.status.response",
+  z.object({ offset: z.int().nonnegative() })
+)
+export const ThreadInputFileUploadCompleteResponseSchema = response(
+  "thread.input-file.upload.complete.response",
+  inputFileSchema
+)
+export const ThreadInputFileUploadAbortResponseSchema = response(
+  "thread.input-file.upload.abort.response",
+  z.object({ aborted: z.boolean() })
+)
+export const ThreadInputFileGetResponseSchema = response(
+  "thread.input-file.get.response",
+  z.object({
+    bytes: z.instanceof(Uint8Array),
+    file: inputFileSchema,
+    nextOffset: z.int().nonnegative().nullable(),
+  })
+)
+export const ThreadComposerSuggestResponseSchema = response(
+  "thread.composer.suggest.response",
+  z.object({
+    items: z
+      .array(ThreadReferenceInputBlockSchema.extend({ description: z.string().nullable() }))
+      .max(100),
+  })
 )
 export const ThreadTimelineGetResponseSchema = response(
   "thread.timeline.get.response",
@@ -858,7 +1004,15 @@ export const THREAD_CLIENT_SCHEMAS = [
   ThreadDeleteRequestSchema,
   ThreadTurnStartRequestSchema,
   ThreadTurnSteerRequestSchema,
+  ThreadTurnQueueAddRequestSchema,
   ThreadTurnCancelRequestSchema,
+  ThreadInputFileUploadStartRequestSchema,
+  ThreadInputFileUploadChunkRequestSchema,
+  ThreadInputFileUploadStatusRequestSchema,
+  ThreadInputFileUploadCompleteRequestSchema,
+  ThreadInputFileUploadAbortRequestSchema,
+  ThreadInputFileGetRequestSchema,
+  ThreadComposerSuggestRequestSchema,
   ThreadTimelineGetRequestSchema,
   ThreadContextUsageGetRequestSchema,
   ThreadConfigUpdateRequestSchema,
@@ -886,7 +1040,15 @@ export const THREAD_SERVER_SCHEMAS = [
   ThreadDeleteResponseSchema,
   ThreadTurnStartResponseSchema,
   ThreadTurnSteerResponseSchema,
+  ThreadTurnQueueAddResponseSchema,
   ThreadTurnCancelResponseSchema,
+  ThreadInputFileUploadStartResponseSchema,
+  ThreadInputFileUploadChunkResponseSchema,
+  ThreadInputFileUploadStatusResponseSchema,
+  ThreadInputFileUploadCompleteResponseSchema,
+  ThreadInputFileUploadAbortResponseSchema,
+  ThreadInputFileGetResponseSchema,
+  ThreadComposerSuggestResponseSchema,
   ThreadTimelineGetResponseSchema,
   ThreadContextUsageGetResponseSchema,
   ThreadConfigUpdateResponseSchema,

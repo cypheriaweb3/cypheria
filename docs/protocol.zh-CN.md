@@ -90,6 +90,8 @@ Thread Attachments 是 Server 共享资源，不是 prompt 内容块或客户端
 
 由 Thread start 或 steer request 产生的 canonical 用户 `message` 会携带原始 `clientMessageId`。它是客户端乐观状态与 Agent 回显进行校正时使用的稳定公开身份。对应的 Agent 原生消息身份在内部以 `agentMessageId` 持久化，不属于公开 Timeline row。
 
+用户消息还可以保留原始有序 `input` blocks。选中的 `reference` 身份和不透明 `uploaded-file` ID 由 Server 在提交给 Agent 前校验与映射；普通文本绝不会被重新解释为已选引用。共享的候选查询、分块上传、读取和排队操作详见 [Composer 输入与引用](composer.zh-CN.md)。
+
 Timeline cursor 包含 epoch 和 sequence。Epoch 用于检测历史替换或重建。读取支持 `tail`、`before` 和 `after`，并可请求 canonical rows 或 projected display items。Projection 会把同一 item 的后续 rows 折叠为稳定展示项，同时保留精确的源 sequence ranges。
 
 客户端订阅 append notification，并在 replacement notification、cursor gap、重连或 epoch 不匹配后重新读取。持久化 Server Timeline 是历史与实时投影的唯一权威。
@@ -104,7 +106,7 @@ Archive 以本地状态为权威：Server 取消活动 turn、关闭 runtime、�
 
 ## Turns 与 interactions
 
-Thread 输入是由文本、图片、音频、resource link 或 embedded resource 组成的有序列表，并受 Thread 公布能力限制。每个 start 和 steer request 都包含客户端生成的 `clientMessageId`。在同一 Thread 内，使用相同 operation 与内容重试同一 ID 时，Server 返回原 turn，不会再次提交给 Agent；用同一 ID 提交不同内容会以 `CLIENT_MESSAGE_ID_CONFLICT` 失败。
+Thread 输入是由文本、图片、音频、resource link、embedded resource、选中引用或已上传文件组成的有序列表，并受 Thread 公布能力及 Server 校验限制。每个 start 和 steer request 都包含客户端生成的 `clientMessageId`。在同一 Thread 内，使用相同 operation 与内容重试同一 ID 时，Server 返回原 turn，不会再次提交给 Agent；用同一 ID 提交不同内容会以 `CLIENT_MESSAGE_ID_CONFLICT` 失败。
 
 消息身份、执行身份和原生身份彼此独立：`clientMessageId` 标识已提交的用户消息，`turnId` 标识可包含 start 与 steer 消息的 Agent 执行，内部 `agentMessageId` 则标识所选 Agent runtime 中对应的消息。
 

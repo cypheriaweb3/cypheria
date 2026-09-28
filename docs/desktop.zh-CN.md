@@ -147,7 +147,7 @@ Harness 专属 UI 仅限判别 Timeline 扩展、header actions、model settings
 
 Composer 使用共享的 `ChatModelSelector` 与 `ChatContextUsage` 展示组件。Selector 把 Agent、model、推理强度与速度合并起来，并隐藏所选 Agent 未广告的维度。首条消息发送前，切换 Agent 会改变新 Thread 使用的 runtime；已有 Thread 保持其 Agent identity。Context control 是一个紧凑 meter，hover card 会针对 Codex、Claude、Pi、OpenCode 与 ACP 显示不同明细，并用 source label 区分 reported、queried、derived 与 estimated。Chat Demo 同时展示这两个组件，开发者无需真实 Agent 即可切换检查所有呈现变体。
 
-共享的 `ChatComposerEditor` 使用 Tiptap/ProseMirror，支持富文本和文件、Agent、Skill、App、插件、MCP 资源、浏览器标签页的语义行内引用。`@` 提供文件／Agent／资源／标签页／插件引用，`$` 提供 Skill／App，`/` 调用由使用方提供的本地命令。候选项由使用方提供；正式页面不会编造 Agent 资源。编辑器将引用序列化为链接，沿用现有文本输入路径；`ChatComposerAttachmentList` 将图片、文件、粘贴文本、appshot 等上下文保留在编辑器文档外，并提供受控状态、移除和重排。Desktop 的显式纯文本偏好仍使用 textarea 路径。Desktop 继续负责附件、文本草稿与发送；结构化编辑器 JSON 只在内存中，不持久化，也不作为新协议类型发送。本次 UI 实现不包含后端或 Agent 侧的引用解析。
+共享的 `ChatComposerEditor` 使用 Tiptap/ProseMirror，支持富文本和选中的语义引用。Server 提供并校验 `@` 与 `$` 候选项；Desktop 处理可执行的 `/` 命令。选中的引用成为有序协议输入块；未选中的触发器文本仍是普通文本。`ChatComposerAttachmentList` 将二进制和其他上下文保留在编辑器文档外，并提供受控状态、移除和重排。Desktop 的显式纯文本偏好仍使用 textarea 路径。所有权、上传和 Agent 映射详见 [Composer 输入与引用](composer.zh-CN.md)。
 
 Canonical Timeline 历史与有序实时更新都直接通过 `@cypheria/client` 消费。无框架 controller 负责分页、重连、缺口恢复、send、steer、Codex 原生 queue、cancel 和 interaction；React 通过 `useSyncExternalStore` 订阅。Codex 使用专用 workspace，其他 Agent 在获得专属扩展前使用公共 Thread workspace。
 

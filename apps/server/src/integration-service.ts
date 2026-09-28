@@ -79,6 +79,36 @@ export class IntegrationService {
     this.#agents = agents
   }
 
+  listComposerSkills(cwd?: string) {
+    return this.#listSkills(cwd)
+  }
+  listComposerApps() {
+    return this.#listApps()
+  }
+  listComposerPlugins(cwd?: string) {
+    return this.#listPlugins(cwd)
+  }
+  listComposerMcp() {
+    return this.#listMcp()
+  }
+  async listComposerResources() {
+    const statuses = await this.#pages<v2.McpServerStatus>((cursor) =>
+      this.#call<v2.ListMcpServerStatusResponse>("mcpServerStatus/list", {
+        cursor,
+        detail: "full",
+        limit: 100,
+      })
+    )
+    return statuses.flatMap((status) =>
+      status.resources.map((resource) => ({
+        description: resource.description ?? null,
+        server: status.name,
+        title: resource.title ?? resource.name,
+        uri: resource.uri,
+      }))
+    )
+  }
+
   async handle(
     message: IntegrationClientMessage,
     send: (message: IntegrationServerMessage) => void

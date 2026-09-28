@@ -46,6 +46,33 @@ export const inputBlocksToComposerDraft = async (
       text.push(block.text)
       continue
     }
+    if (block.type === "reference") {
+      const prefix = block.kind === "skill" || block.kind === "app" ? "$" : "@"
+      const target =
+        block.kind === "app"
+          ? `app://${block.id}`
+          : block.kind === "plugin"
+            ? `plugin://${block.id}`
+            : block.kind === "thread"
+              ? `thread://${block.id}`
+              : block.kind === "browser-tab"
+                ? `browser://${block.id}`
+                : block.kind === "mcp-resource"
+                  ? `mcp-resource:${encodeURIComponent(block.id)}`
+                  : block.id
+      text.push(`[${prefix}${block.label}](${target})`)
+      continue
+    }
+    if (block.type === "uploaded-file") {
+      attachments.push({
+        id: crypto.randomUUID(),
+        kind: "uploaded-file",
+        name: "Uploaded file",
+        fileId: block.fileId,
+        mimeType: "application/octet-stream",
+      })
+      continue
+    }
     if (block.type === "resource-link") {
       attachments.push({
         id: crypto.randomUUID(),
@@ -92,7 +119,13 @@ export const inputBlocksToComposerDraft = async (
       })
     }
   }
-  return { attachments, status: "editing", text: text.join("\n"), updatedAt: Date.now() }
+  return {
+    attachments,
+    blocks: [...content],
+    status: "editing",
+    text: text.join(""),
+    updatedAt: Date.now(),
+  }
 }
 
 const embeddedTextBlock = (name: string, text: string, uri: string): ThreadInputBlock => ({
@@ -106,6 +139,8 @@ const embeddedTextBlock = (name: string, text: string, uri: string): ThreadInput
 export const draftAttachmentToInputBlock = async (
   attachment: ComposerDraftAttachment
 ): Promise<ThreadInputBlock> => {
+  if (attachment.kind === "uploaded-file")
+    return { fileId: attachment.fileId, type: "uploaded-file" }
   if (isOwnedDraftAttachment(attachment)) {
     if (attachment.status !== "ready") {
       throw new Error(attachment.error ?? `Attachment '${attachment.name}' is unavailable.`)

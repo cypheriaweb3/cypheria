@@ -207,7 +207,7 @@ const createOpenCodeMessageId = (): string => {
   return `msg_${ascending}${random}`
 }
 
-const mapInput = (content: readonly ThreadInputBlock[]): v2.UserInput[] =>
+export const mapCodexInput = (content: readonly ThreadInputBlock[]): v2.UserInput[] =>
   content.map((block) => {
     switch (block.type) {
       case "text":
@@ -275,8 +275,10 @@ const mapOpenCodeInput = (
       files.push({ uri: `data:${block.mimeType};base64,${block.data}` })
     } else if (block.type === "resource-link") {
       files.push({ ...(block.name ? { name: block.name } : {}), uri: block.uri })
-    } else {
+    } else if (block.type === "embedded-resource") {
       text.push(`Embedded resource ${block.uri} (${block.mimeType}):\n${block.data}`)
+    } else {
+      throw new Error("Unresolved composer input block")
     }
   }
   return { files, text: text.join("\n") }
@@ -1341,7 +1343,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       if (!input.agentSessionId) throw new Error("Codex thread is not bound")
       const response = await this.#request(input.threadId, {
         clientUserMessageId: input.clientMessageId,
-        input: mapInput(input.content),
+        input: mapCodexInput(input.content),
         requestId: randomUUID(),
         ...(input.workspaceRoots ? { runtimeWorkspaceRoots: [...input.workspaceRoots] } : {}),
         threadId: input.agentSessionId,
@@ -1519,7 +1521,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       await this.#request(input.threadId, {
         clientUserMessageId: input.clientMessageId,
         expectedTurnId: input.turnId,
-        input: mapInput(input.content),
+        input: mapCodexInput(input.content),
         requestId: randomUUID(),
         threadId: input.agentSessionId,
         type: "agent.codex.turn.steer.request",

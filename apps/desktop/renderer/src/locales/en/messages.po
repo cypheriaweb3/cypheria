@@ -2416,3 +2416,23 @@ msgstr "Opening terminal…"
 #: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.terminalReady"
 msgstr "Terminal is ready to open."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.clear"
+msgstr "Clear prompt"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.newChat"
+msgstr "New chat"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.status"
+msgstr "Status"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.compact"
+msgstr "Compact context"

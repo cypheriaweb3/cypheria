@@ -54,6 +54,8 @@ The Web adapter keeps attachment bytes in a dedicated IndexedDB database. Native
 
 Composer drafts store text, ordered attachment metadata, status, and update time in KV; they never embed base64. Owned image, audio, file, pasted-text, and appshot bytes live in `AttachmentStore`. Browser tabs and MCP resources keep recoverable references and visible degraded or unavailable state, while selected text and bounded app context remain self-contained. Recovery uses `AttachmentStore.stat()` so it does not read a large file merely to validate it. Missing bytes block submission until the attachment is removed or reattached. Draft cleanup is bounded and drives attachment garbage collection.
 
+Selected composer references may be retained as structured input blocks in the device-local draft. On send, local owned bytes are uploaded to the Server and replaced by opaque file IDs in Thread input; see [Composer Inputs and References](composer.md). This does not turn drafts into shared Server state.
+
 Attachment inspection returns paginated keys, sizes, and at most the first 32 bytes. File adapters read only that prefix; the Web adapter keeps the prefix in its metadata object store so listing never materializes complete blobs.
 
 ## Validation and security

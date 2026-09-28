@@ -1,4 +1,9 @@
-import type { BrowserAutomationOutcome, BrowserAutomationRequest } from "@cypheria/protocol"
+import {
+  type BrowserAutomationOutcome,
+  type BrowserAutomationRequest,
+  type ThreadInputBlock,
+  ThreadInputBlockSchema,
+} from "@cypheria/protocol"
 import { walletProviderRequestSchema, walletProviderResponseSchema } from "@cypheria/web3/provider"
 import { z } from "zod"
 
@@ -651,6 +656,7 @@ export type ComposerDraftAttachment =
       status: "ready" | "degraded" | "unavailable"
     }
   | { id: string; kind: "workspace-file"; name: string; path: string }
+  | { id: string; kind: "uploaded-file"; name: string; fileId: string; mimeType: string }
   | {
       id: string
       kind: "browser-tab"
@@ -708,6 +714,15 @@ export const ComposerDraftAttachmentSchema: z.ZodType<ComposerDraftAttachment> =
     z
       .object({
         id: z.string().min(1),
+        kind: z.literal("uploaded-file"),
+        name: z.string().min(1),
+        fileId: z.uuid(),
+        mimeType: z.string().min(1),
+      })
+      .strict(),
+    z
+      .object({
+        id: z.string().min(1),
         kind: z.literal("browser-tab"),
         title: z.string().min(1),
         tabIdentity: z.string().min(1).optional(),
@@ -746,6 +761,7 @@ export const ComposerDraftAttachmentSchema: z.ZodType<ComposerDraftAttachment> =
   ]) as z.ZodType<ComposerDraftAttachment>
 
 export type ComposerDraft = {
+  blocks?: ThreadInputBlock[]
   text: string
   attachments: ComposerDraftAttachment[]
   status: "editing" | "submitting" | "failed"
@@ -755,6 +771,7 @@ export type ComposerDraft = {
 export const ComposerDraftSchema: z.ZodType<ComposerDraft> = z
   .object({
     text: z.string().max(1_000_000),
+    blocks: z.array(ThreadInputBlockSchema).max(1000).optional(),
     attachments: z.array(ComposerDraftAttachmentSchema).max(100),
     status: z.enum(["editing", "submitting", "failed"]),
     updatedAt: z.number().int().nonnegative(),

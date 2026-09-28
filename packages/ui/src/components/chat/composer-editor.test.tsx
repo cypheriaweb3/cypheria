@@ -9,7 +9,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import {
   ChatComposerAttachmentList,
   ChatComposerEditor,
+  chatComposerDocumentToInput,
   createChatComposerDocument,
+  createChatComposerDocumentFromInput,
   serializeChatComposerDocument,
 } from "./index.js"
 
@@ -57,6 +59,32 @@ describe("composer editor", () => {
     ).toBe("[@src/app.ts](/src/app.ts) and [$review](skill://review)")
   })
 
+  it("keeps selected references structured and ordinary links as text", () => {
+    const document = createChatComposerDocument(
+      "Read [@src/app.ts](/src/app.ts) with [$review](skill://review) and [docs](https://example.com)"
+    )
+    expect(chatComposerDocumentToInput(document)).toEqual([
+      { type: "text", text: "Read " },
+      { type: "reference", kind: "workspace-file", id: "/src/app.ts", label: "src/app.ts" },
+      { type: "text", text: " with " },
+      { type: "reference", kind: "skill", id: "skill://review", label: "review" },
+      { type: "text", text: " and [docs](https://example.com)" },
+    ])
+  })
+
+  it("restores selected identities without reparsing a Markdown target", () => {
+    const blocks = [
+      { type: "text" as const, text: "Inspect " },
+      {
+        type: "reference" as const,
+        kind: "workspace-file" as const,
+        id: "/repo/a)b.ts",
+        label: "a)b.ts",
+      },
+    ]
+    expect(chatComposerDocumentToInput(createChatComposerDocumentFromInput(blocks))).toEqual(blocks)
+  })
+
   it("mounts an accessible rich editor without submitting on mount", async () => {
     const onChange = vi.fn()
     render(
@@ -99,6 +127,35 @@ describe("composer editor", () => {
     expect(screen.getByRole("option", { name: "Clear draft" })).toBeInTheDocument()
     await user.keyboard("{Enter}")
     expect(onCommand).toHaveBeenCalledWith("clear")
+  })
+
+  it("loads reference candidates asynchronously", async () => {
+    const user = userEvent.setup()
+    const suggestions = vi.fn(async (trigger: string, query: string) =>
+      trigger === "@" && query === "read"
+        ? [
+            {
+              id: "/repo/README.md",
+              kind: "file" as const,
+              label: "README.md",
+              target: "/repo/README.md",
+            },
+          ]
+        : []
+    )
+    render(
+      <ChatComposerEditor
+        aria-label="Message Cypheria"
+        onChange={vi.fn()}
+        suggestions={suggestions}
+        value=""
+      />
+    )
+    const editor = await screen.findByRole("textbox", { name: "Message Cypheria" })
+    await user.click(editor)
+    await user.type(editor, "@read")
+    expect(await screen.findByRole("option", { name: "README.md" })).toBeInTheDocument()
+    expect(suggestions).toHaveBeenCalledWith("@", "read")
   })
 })
 

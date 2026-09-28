@@ -1,3 +1,4 @@
+import { pathToFileURL } from "node:url"
 import type {
   CreateThreadInput,
   ProjectThreadPersistenceService,
@@ -29,6 +30,7 @@ import type {
   ThreadHarnessHistoryItem,
   ThreadInteractionResponse,
 } from "./harness-adapter.js"
+import type { InputFileService } from "./input-file-service.js"
 import { ThreadTimelineStore } from "./timeline-store.js"
 
 type Publish = (message: ServerMessage) => void
@@ -56,6 +58,16 @@ export type ThreadManagerOptions = {
   readonly adapterFor: (agentId: AgentId, threadId: string) => ThreadHarnessAdapter
   readonly assertAgentCallable: (agentId: AgentId) => Promise<void>
   readonly lifecycle: ThreadLifecyclePersistenceService
+  readonly inputFiles?: InputFileService
+  readonly resolveReference?: (
+    input: Extract<ThreadInputBlock, { type: "reference" }>,
+    context: {
+      agentId: AgentId
+      cwd: string | null
+      threadId: string
+      workspaceRoots?: readonly string[]
+    }
+  ) => Promise<ThreadInputBlock>
   readonly messageRequests: ThreadMessageRequestPersistenceService
   readonly persistence: ProjectThreadPersistenceService
   readonly publish: Publish
@@ -84,6 +96,8 @@ export class ThreadManager {
   readonly #adapterFor: ThreadManagerOptions["adapterFor"]
   readonly #assertAgentCallable: ThreadManagerOptions["assertAgentCallable"]
   readonly #lifecycle: ThreadLifecyclePersistenceService
+  readonly #inputFiles: InputFileService | undefined
+  readonly #resolveReference: ThreadManagerOptions["resolveReference"]
   readonly #locks = new Map<string, Promise<unknown>>()
   readonly #messageRequests: ThreadMessageRequestPersistenceService
   readonly #persistence: ProjectThreadPersistenceService
@@ -99,6 +113,8 @@ export class ThreadManager {
     this.#adapterFor = options.adapterFor
     this.#assertAgentCallable = options.assertAgentCallable
     this.#lifecycle = options.lifecycle
+    this.#inputFiles = options.inputFiles
+    this.#resolveReference = options.resolveReference
     this.#messageRequests = options.messageRequests
     this.#persistence = options.persistence
     this.#publish = options.publish
@@ -333,6 +349,22 @@ export class ThreadManager {
 
   async get(threadId: string): Promise<ThreadView> {
     return this.#view(await this.#required(threadId))
+  }
+
+  async getComposerContext(threadId: string): Promise<ThreadHarnessContext> {
+    return this.#resumeContext(await this.#required(threadId))
+  }
+
+  async getTimeline(threadId: string, limit = 10) {
+    await this.#required(threadId)
+    return this.#timeline.page(threadId, { direction: "tail", limit, projection: "projected" })
+  }
+
+  async prepareComposerInput(
+    threadId: string,
+    content: readonly ThreadInputBlock[]
+  ): Promise<ThreadInputBlock[]> {
+    return this.#prepareInput(content, await this.#required(threadId))
   }
 
   async list(options: Parameters<ProjectThreadPersistenceService["listThreads"]>[0]) {
@@ -933,6 +965,7 @@ export class ThreadManager {
       if (runtime.state !== "idle") {
         throw new ThreadManagerError("THREAD_NOT_READY", `Thread is ${runtime.state}`)
       }
+      const adapterContent = await this.#prepareInput(input.content, thread)
       const claimed = await this.#messageRequests.claim({
         clientMessageId: input.clientMessageId,
         request,
@@ -949,7 +982,7 @@ export class ThreadManager {
         started = await this.#adapterFor(thread.agentId as AgentId, thread.id).startTurn({
           ...(await this.#resumeContext(thread)),
           clientMessageId: input.clientMessageId,
-          content: input.content,
+          content: adapterContent,
         })
       } catch (error) {
         if (captureId) await this.#turnCapture?.discard(captureId).catch(() => undefined)
@@ -1000,6 +1033,7 @@ export class ThreadManager {
         )
       }
       const turnId = runtime.activeTurn.id
+      const adapterContent = await this.#prepareInput(input.content, thread)
       const claimed = await this.#messageRequests.claim({
         clientMessageId: input.clientMessageId,
         request,
@@ -1010,7 +1044,7 @@ export class ThreadManager {
       const result = await this.#adapterFor(thread.agentId as AgentId, thread.id).steerTurn({
         ...this.#context(thread),
         clientMessageId: input.clientMessageId,
-        content: input.content,
+        content: adapterContent,
         turnId,
       })
       await this.#appendUserInput(
@@ -1317,19 +1351,23 @@ export class ThreadManager {
     boundary: "turn-user" | "steer-user"
   ): Promise<void> {
     const text = content
-      .filter(
-        (block): block is Extract<ThreadInputBlock, { type: "text" }> => block.type === "text"
-      )
-      .map((block) => block.text)
-      .join("\n")
+      .map((block) => {
+        if (block.type === "text") return block.text
+        if (block.type === "reference")
+          return `${block.kind === "skill" || block.kind === "app" ? "$" : "@"}${block.label}`
+        return ""
+      })
+      .join("")
     const attachments = content.filter(
-      (block): block is Exclude<ThreadInputBlock, { type: "text" }> => block.type !== "text"
+      (block): block is Exclude<ThreadInputBlock, { type: "text" | "reference" }> =>
+        block.type !== "text" && block.type !== "reference"
     )
     await this.#appendTimeline(threadId, {
       agentMessageId,
       item: {
         ...(attachments.length > 0 ? { attachments } : {}),
         clientMessageId,
+        input: [...content],
         boundary,
         itemId: `user:${clientMessageId}`,
         operation: "replace",
@@ -1423,7 +1461,7 @@ export class ThreadManager {
     if (target.kind === "user-message") {
       const previous = messages.filter((candidate) => candidate.seq < row.seq).at(-1)
       return {
-        composerContent: [
+        composerContent: row.item.input ?? [
           ...(row.item.text.length > 0
             ? ([{ text: row.item.text, type: "text" }] satisfies ThreadInputBlock[])
             : []),
@@ -1560,6 +1598,29 @@ export class ThreadManager {
           "The Agent may have accepted this message before the previous request was interrupted"
         )
     }
+  }
+
+  async #prepareInput(
+    content: readonly ThreadInputBlock[],
+    thread: ThreadRecord
+  ): Promise<ThreadInputBlock[]> {
+    const context = await this.#resumeContext(thread)
+    const prepared: ThreadInputBlock[] = []
+    for (const block of content) {
+      if (block.type === "uploaded-file") {
+        if (!this.#inputFiles)
+          throw new ThreadManagerError("INPUT_FILE_UNAVAILABLE", "Input files are unavailable")
+        const { file, path } = await this.#inputFiles.bind(block.fileId, thread.id)
+        prepared.push({ name: file.fileName, type: "resource-link", uri: pathToFileURL(path).href })
+      } else if (block.type === "reference") {
+        if (!this.#resolveReference)
+          throw new ThreadManagerError("REFERENCE_UNAVAILABLE", "References are unavailable")
+        prepared.push(await this.#resolveReference(block, context))
+      } else {
+        prepared.push(block)
+      }
+    }
+    return prepared
   }
 
   #context(thread: ThreadRecord): ThreadHarnessContext {

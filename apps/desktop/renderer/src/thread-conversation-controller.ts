@@ -144,16 +144,9 @@ export class ThreadConversationController {
       const clientMessageId = globalThis.crypto.randomUUID()
       if (mode === "queue") {
         if (thread.agentId !== "codex") throw new Error("Queued follow-ups require Codex")
-        await client.harnesses.codex.threads.queue.add({
-          clientUserMessageId: clientMessageId,
-          input: content.map((block) => {
-            if (block.type === "text") return { text: block.text, text_elements: [], type: "text" }
-            if (block.type === "image")
-              return { type: "image", url: `data:${block.mimeType};base64,${block.data}` }
-            if (block.type === "audio")
-              return { type: "audio", url: `data:${block.mimeType};base64,${block.data}` }
-            return { text: block.uri, text_elements: [], type: "text" }
-          }),
+        await client.threads.queueTurn({
+          clientMessageId,
+          content: [...content],
           threadId: thread.id,
         })
         return

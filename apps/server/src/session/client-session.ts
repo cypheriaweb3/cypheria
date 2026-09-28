@@ -54,7 +54,8 @@ export type SessionHost = {
   testNetworkProxy?(settings: NetworkProxySettings): Promise<NetworkProxyTestResult>
   handleProjectThreadMessage?(
     message: ClientMessage,
-    send: (message: ServerMessage) => void
+    send: (message: ServerMessage) => void,
+    clientId: string
   ): Promise<boolean>
   handleIntegrationMessage?(
     message: IntegrationClientMessage,
@@ -415,8 +416,10 @@ export class ClientSession {
         }
         if (
           this.#host.handleProjectThreadMessage &&
-          (await this.#host.handleProjectThreadMessage(message, (response) =>
-            this.sendTo(source, response)
+          (await this.#host.handleProjectThreadMessage(
+            message,
+            (response) => this.sendTo(source, response),
+            this.client.id
           ))
         ) {
           break

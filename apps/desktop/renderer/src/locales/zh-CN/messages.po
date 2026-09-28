@@ -2416,3 +2416,23 @@ msgstr "正在打开终端…"
 #: renderer/src/components/workspace-terminal.tsx
 msgid "chat.workspace.terminalReady"
 msgstr "终端已准备好打开。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.clear"
+msgstr "清空输入"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.newChat"
+msgstr "新建会话"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.status"
+msgstr "状态"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.prompt.compact"
+msgstr "压缩上下文"
