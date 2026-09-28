@@ -135,8 +135,10 @@ function ChatSearchCommands({ onSelect }: Readonly<{ onSelect: (thread: string) 
                         {thread.title ||
                           i18n._(msg({ id: "search.untitled", message: "Untitled chat" }))}
                       </span>
-                      {thread.cwd ? (
-                        <span className="truncate text-xs text-muted-foreground">{thread.cwd}</span>
+                      {thread.roots[0] ? (
+                        <span className="truncate text-xs text-muted-foreground">
+                          {thread.roots[0]}
+                        </span>
                       ) : null}
                     </div>
                   </CommandItem>

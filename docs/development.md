@@ -102,12 +102,13 @@ Its transcript uses `@tanstack/react-virtual` with 128 variable-height messages,
 overscan, sampled turn navigation, and live message appends so long-conversation behavior can be
 inspected without production data. The preload bootstrap flag hides the item and redirects the
 route in packaged production builds. Its right and bottom surfaces are simultaneously resizable and
-offer a workspace **Files** panel (two in-memory workspace roots with create, rename, move, delete, filter, editing, and Markdown, image, SVG, and CSV/TSV previews)
+offer a workspace **Files** fixture (two in-memory roots used to exercise create, rename, move, delete, filter, editing, and Markdown, image, SVG, and CSV/TSV previews)
 and all 25 audited content hosts as tabs: sources, subagents, plan, summary, goal, review,
 pull request, terminal, file, image, browser, MCP App, automation, artifact, PDF, document, notebook,
 presentation, workbook, entity details, side chat, MCP thread/file extensions, sandbox, and a
 secondary timeline. A floating display controller switches nine Timeline families and individual
 panel tabs between a compact curated view and the exhaustive catalog.
+The production Desktop Files panel instead uses the Thread-scoped paginated Server API described in [Desktop](desktop.md#conversation-workspace).
 Its composer also showcases Tiptap inline references, `@`/`$`/`/` suggestions, and a selectable attachment tray with pending and failed samples; those fixture entries are Demo-only.
 
 ### Removing Chat Demo

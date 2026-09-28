@@ -12,16 +12,27 @@ import type {
 export type ProjectThreadServiceOptions = {
   readonly persistence: ProjectThreadPersistenceService
   readonly publish?: (message: ServerMessage) => void
+  readonly workspace: {
+    deleteProject(projectId: string): Promise<unknown>
+    moveToProject(input: {
+      beforeThreadId?: string | null
+      projectId: string
+      threadId: string
+    }): Promise<unknown>
+    removeFromProject(threadId: string): Promise<unknown>
+  }
 }
 
 /** Project and section CRUD. Agent execution and Thread lifecycle belong to ThreadManager. */
 export class ProjectThreadService {
   readonly #persistence: ProjectThreadPersistenceService
   readonly #publish: (message: ServerMessage) => void
+  readonly #workspace: ProjectThreadServiceOptions["workspace"]
 
   constructor(options: ProjectThreadServiceOptions) {
     this.#persistence = options.persistence
     this.#publish = options.publish ?? (() => undefined)
+    this.#workspace = options.workspace
   }
 
   async initialize(): Promise<void> {
@@ -102,7 +113,7 @@ export class ProjectThreadService {
           const projectMemberships = await this.#collectProjectMemberships(
             message.payload.projectId
           )
-          await this.#persistence.markProjectDeleting(message.payload.projectId)
+          const result = await this.#workspace.deleteProject(message.payload.projectId)
           this.#publish({
             payload: { projectId: message.payload.projectId },
             type: "project.deleted.notification",
@@ -119,8 +130,7 @@ export class ProjectThreadService {
               type: "section.membership.deleted.notification",
             })
           }
-          await this.#persistence.purgeProject(message.payload.projectId)
-          respond({})
+          respond(result)
           await this.#publishProjects()
           if (membership) await this.#publishSectionMemberships(membership.section.id)
           break
@@ -139,8 +149,8 @@ export class ProjectThreadService {
         case "project.item.move.request":
           {
             const previous = await this.#persistence.getThreadProject(message.payload.threadId)
-            const membership = await this.#persistence.moveThreadToProject(message.payload)
-            respond(membership)
+            const result = await this.#workspace.moveToProject(message.payload)
+            respond(result)
             await this.#publishProjectMemberships(message.payload.projectId)
             await this.#publishProject(message.payload.projectId)
             if (previous && previous.project.id !== message.payload.projectId) {
@@ -152,7 +162,7 @@ export class ProjectThreadService {
         case "project.item.remove.request":
           {
             const previous = await this.#persistence.getThreadProject(message.payload.threadId)
-            await this.#persistence.removeThreadFromProject(message.payload.threadId)
+            const result = await this.#workspace.removeFromProject(message.payload.threadId)
             if (previous) {
               this.#publish({
                 payload: { threadId: message.payload.threadId },
@@ -161,8 +171,8 @@ export class ProjectThreadService {
               await this.#publishProjectMemberships(previous.project.id)
               await this.#publishProject(previous.project.id)
             }
+            respond(result)
           }
-          respond({})
           break
         case "section.create.request": {
           const section = await this.#persistence.createSection(message.payload)

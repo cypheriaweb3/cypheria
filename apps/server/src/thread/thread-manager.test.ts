@@ -23,6 +23,7 @@ import { ThreadManager } from "./thread-manager.js"
 
 class FakeAdapter implements ThreadHarnessAdapter {
   readonly agentId: AgentId = "codex"
+  readonly workspaceUpdateMode: ThreadHarnessAdapter["workspaceUpdateMode"]
   readonly events = new Map<string, (event: ThreadHarnessEvent) => void>()
   closeError: Error | undefined
   cancelError: Error | undefined
@@ -38,6 +39,10 @@ class FakeAdapter implements ThreadHarnessAdapter {
   readonly steers: Array<Parameters<ThreadHarnessAdapter["steerTurn"]>[0]> = []
   readonly starts: Array<Parameters<ThreadHarnessAdapter["startTurn"]>[0]> = []
   readonly resumes: Array<Parameters<ThreadHarnessAdapter["resume"]>[0]> = []
+  readonly workspaceUpdates: Array<
+    Parameters<NonNullable<ThreadHarnessAdapter["updateWorkspace"]>>[0]
+  > = []
+  workspaceUpdateErrorForCwd: string | undefined
   resumeHistory: Awaited<ReturnType<ThreadHarnessAdapter["resume"]>>["history"] = [
     {
       item: {
@@ -50,8 +55,11 @@ class FakeAdapter implements ThreadHarnessAdapter {
       },
     },
   ]
-  resumeErrorForCwd: string | undefined
   startError: Error | undefined
+
+  constructor(workspaceUpdateMode: ThreadHarnessAdapter["workspaceUpdateMode"] = "turn-start") {
+    this.workspaceUpdateMode = workspaceUpdateMode
+  }
 
   async close(): Promise<void> {
     if (this.closeError) throw this.closeError
@@ -62,6 +70,7 @@ class FakeAdapter implements ThreadHarnessAdapter {
     return {
       capabilities: {
         changeCwd: true,
+        changeRoots: true,
         configure: true,
         fork: { assistantMessage: true, threadHead: true, userMessage: true },
         promptContent: ["text" as const],
@@ -90,6 +99,7 @@ class FakeAdapter implements ThreadHarnessAdapter {
     return {
       capabilities: {
         changeCwd: true,
+        changeRoots: true,
         configure: true,
         fork: { assistantMessage: true, threadHead: true, userMessage: true },
         promptContent: ["text" as const],
@@ -107,11 +117,11 @@ class FakeAdapter implements ThreadHarnessAdapter {
   }
   async resume(input: Parameters<ThreadHarnessAdapter["resume"]>[0]) {
     this.resumes.push(input)
-    if (input.cwd === this.resumeErrorForCwd) throw new Error("resume failed")
     this.events.set(input.threadId, input.onEvent)
     return {
       capabilities: {
         changeCwd: true,
+        changeRoots: true,
         configure: true,
         fork: { assistantMessage: true, threadHead: true, userMessage: true },
         promptContent: ["text" as const],
@@ -138,6 +148,12 @@ class FakeAdapter implements ThreadHarnessAdapter {
     if (this.cancelError) throw this.cancelError
   }
   async updateConfig(): Promise<void> {}
+  async updateWorkspace(
+    context: Parameters<NonNullable<ThreadHarnessAdapter["updateWorkspace"]>>[0]
+  ) {
+    this.workspaceUpdates.push(context)
+    if (context.cwd === this.workspaceUpdateErrorForCwd) throw new Error("workspace update failed")
+  }
   async respondToInteraction(): Promise<void> {
     if (this.interactionError) throw this.interactionError
   }
@@ -159,7 +175,8 @@ afterEach(() => {
 })
 
 const setup = async (
-  turnCapture?: ConstructorParameters<typeof ThreadManager>[0]["turnCapture"]
+  turnCapture?: ConstructorParameters<typeof ThreadManager>[0]["turnCapture"],
+  adapter = new FakeAdapter()
 ) => {
   const home = mkdtempSync(join(tmpdir(), "cypheria-thread-manager-test-"))
   const database = openCypheriaDatabase({ cypheriaHome: home })
@@ -178,7 +195,6 @@ const setup = async (
     website: null,
   })
   await agents.setEnabled("codex", true)
-  const adapter = new FakeAdapter()
   const messages: ServerMessage[] = []
   const lifecycle = createThreadLifecyclePersistenceService(database.db)
   const persistence = createProjectThreadPersistenceService(database.db)
@@ -190,6 +206,7 @@ const setup = async (
     lifecycle,
     messageRequests,
     persistence,
+    projectlessWorkspaceRoot: join(home, "workspaces"),
     publish: (message) => messages.push(message),
     timelinePersistence,
     turnCapture,
@@ -208,9 +225,96 @@ const setup = async (
 }
 
 describe("ThreadManager", () => {
+  it("lazily adds project roots and requires exact sync for primary changes", async () => {
+    const { manager, persistence } = await setup()
+    const project = await persistence.createProject({ name: "Workspace", roots: ["/repo"] })
+    const created = await manager.create({
+      agentId: "codex",
+      projectPlacement: { projectId: project.id },
+    })
+    await persistence.updateProject(project.id, { roots: ["/repo", "/shared"] })
+    await expect(manager.syncWorkspace(created.thread.id, "safe-additive")).resolves.toMatchObject({
+      changed: true,
+      thread: { roots: ["/repo", "/shared"] },
+    })
+    await persistence.updateProject(project.id, { roots: ["/other"] })
+    await expect(manager.syncWorkspace(created.thread.id, "safe-additive")).resolves.toMatchObject({
+      changed: false,
+    })
+    await expect(manager.syncWorkspace(created.thread.id, "project-exact")).resolves.toMatchObject({
+      changed: true,
+      thread: { roots: ["/other"] },
+    })
+  })
+
+  it("applies immediate workspace changes before committing authoritative roots", async () => {
+    const adapter = new FakeAdapter("immediate")
+    const { manager, persistence } = await setup(undefined, adapter)
+    const project = await persistence.createProject({ name: "Workspace", roots: ["/repo"] })
+    const created = await manager.create({
+      agentId: "codex",
+      projectPlacement: { projectId: project.id },
+    })
+    await persistence.updateProject(project.id, { roots: ["/other", "/shared"] })
+    await expect(manager.syncWorkspace(created.thread.id, "project-exact")).resolves.toMatchObject({
+      changed: true,
+      thread: { roots: ["/other", "/shared"] },
+    })
+    expect(adapter.workspaceUpdates).toHaveLength(1)
+    expect(adapter.workspaceUpdates[0]).toMatchObject({
+      cwd: "/other",
+      workspaceRoots: ["/other", "/shared"],
+    })
+  })
+
+  it("keeps authoritative roots unchanged when an immediate workspace update fails", async () => {
+    const adapter = new FakeAdapter("immediate")
+    const { manager, persistence } = await setup(undefined, adapter)
+    const project = await persistence.createProject({ name: "Workspace", roots: ["/repo"] })
+    const created = await manager.create({
+      agentId: "codex",
+      projectPlacement: { projectId: project.id },
+    })
+    await persistence.updateProject(project.id, { roots: ["/other"] })
+    adapter.workspaceUpdateErrorForCwd = "/other"
+    await expect(manager.syncWorkspace(created.thread.id, "project-exact")).rejects.toThrow(
+      "workspace update failed"
+    )
+    await expect(manager.get(created.thread.id)).resolves.toMatchObject({ roots: ["/repo"] })
+  })
+
+  it("creates projectless work and outputs directories and shares them across forks", async () => {
+    const { manager, persistence } = await setup()
+    const source = await manager.create({ agentId: "codex", title: "Shared files" })
+    const root = source.thread.roots[0] as string
+    expect(existsSync(join(root, "work"))).toBe(true)
+    expect(existsSync(join(root, "outputs"))).toBe(true)
+    const fork = await manager.fork({ target: { kind: "thread-head" }, threadId: source.thread.id })
+    expect(fork.thread.roots).toEqual([root])
+    expect(await persistence.countProjectlessRootReferences(root)).toBe(2)
+  })
+
+  it("rejects workspace changes while a turn is active", async () => {
+    const { manager, persistence } = await setup()
+    const project = await persistence.createProject({ name: "Workspace", roots: ["/repo"] })
+    const created = await manager.create({
+      agentId: "codex",
+      projectPlacement: { projectId: project.id },
+    })
+    await manager.startTurn({
+      clientMessageId: "active-workspace",
+      content: [{ text: "work", type: "text" }],
+      threadId: created.thread.id,
+    })
+    await persistence.updateProject(project.id, { roots: ["/other"] })
+    await expect(manager.syncWorkspace(created.thread.id, "project-exact")).rejects.toMatchObject({
+      code: "THREAD_ACTIVE",
+    })
+  })
+
   it("queries, caches, and publishes normalized context usage", async () => {
     const { adapter, manager, messages } = await setup()
-    const created = await manager.create({ agentId: "codex", cwd: "/repo" })
+    const created = await manager.create({ agentId: "codex" })
     adapter.contextUsage = {
       agentId: "codex",
       cost: null,
@@ -272,25 +376,16 @@ describe("ThreadManager", () => {
     expect(adapter.starts[0]?.workspaceRoots).toEqual(["/repo", "/shared"])
   })
 
-  it("requires a project thread cwd to exactly match a saved workspace root", async () => {
+  it("derives a project thread workspace from the project's current roots", async () => {
     const { adapter, manager, persistence } = await setup()
     const project = await persistence.createProject({ name: "Workspace", roots: ["/repo"] })
 
-    await expect(
-      manager.create({
-        agentId: "codex",
-        cwd: "/elsewhere",
-        projectPlacement: { projectId: project.id },
-      })
-    ).rejects.toMatchObject({ code: "THREAD_CWD_OUTSIDE_PROJECT" })
-    await expect(
-      manager.create({
-        agentId: "codex",
-        cwd: "/repo/packages/app",
-        projectPlacement: { projectId: project.id },
-      })
-    ).rejects.toMatchObject({ code: "THREAD_CWD_OUTSIDE_PROJECT" })
-    expect(adapter.creates).toEqual([])
+    const created = await manager.create({
+      agentId: "codex",
+      projectPlacement: { projectId: project.id },
+    })
+    expect(created.thread.roots).toEqual(["/repo"])
+    expect(adapter.creates).toMatchObject([{ cwd: "/repo", workspaceRoots: ["/repo"] }])
   })
 
   it("captures a local Codex turn and discards a capture when starting fails", async () => {
@@ -307,7 +402,7 @@ describe("ThreadManager", () => {
         captures.push(`discard:${id}`)
       },
     })
-    const created = await manager.create({ agentId: "codex", cwd: "/repo" })
+    const created = await manager.create({ agentId: "codex" })
     await manager.startTurn({
       clientMessageId: "capture-start",
       content: [{ text: "work", type: "text" }],
@@ -328,34 +423,31 @@ describe("ThreadManager", () => {
 
   it("creates a harness session first and binds it to the public thread", async () => {
     const { manager, messages } = await setup()
-    const created = await manager.create({ agentId: "codex", cwd: "/repo" })
+    const created = await manager.create({ agentId: "codex" })
 
     expect(created.thread).toMatchObject({
       agentId: "codex",
       agentSessionId: `harness-${created.thread.id}`,
-      cwd: "/repo",
+      roots: [expect.any(String)],
       state: "idle",
     })
     expect(messages.at(-1)?.type).toBe("thread.created.notification")
   })
 
-  it("moves an idle Codex thread's working directory and restores it when resume fails", async () => {
-    const { adapter, manager } = await setup()
-    const created = await manager.create({ agentId: "codex", cwd: "/repo" })
-    expect(await manager.moveWorkingDirectory(created.thread.id, "/repo/worktree")).toMatchObject({
-      cwd: "/repo/worktree",
-      state: "idle",
+  it("moves an idle Thread primary root for Git handoff and rejects active moves", async () => {
+    const { adapter, manager, persistence } = await setup()
+    const project = await persistence.createProject({
+      name: "Workspace",
+      roots: ["/repo", "/shared"],
     })
-    expect(adapter.resumes.at(-1)?.cwd).toBe("/repo/worktree")
-    adapter.resumeErrorForCwd = "/repo/broken"
-    await expect(manager.moveWorkingDirectory(created.thread.id, "/repo/broken")).rejects.toThrow(
-      "resume failed"
-    )
-    expect(await manager.get(created.thread.id)).toMatchObject({
-      cwd: "/repo/worktree",
-      state: "idle",
+    const created = await manager.create({
+      agentId: "codex",
+      projectPlacement: { projectId: project.id },
     })
-    expect(adapter.resumes.at(-1)?.cwd).toBe("/repo/worktree")
+    await expect(
+      manager.moveWorkingDirectory(created.thread.id, "/repo/worktree")
+    ).resolves.toMatchObject({ roots: ["/repo/worktree", "/shared"], state: "idle" })
+    expect(adapter.resumes).toHaveLength(0)
     await manager.startTurn({
       clientMessageId: "move-active",
       content: [{ text: "work", type: "text" }],
@@ -765,13 +857,13 @@ describe("ThreadManager", () => {
 
   it("forks through the source agent session while keeping Cypheria identity", async () => {
     const { adapter, manager } = await setup()
-    const source = await manager.create({ agentId: "codex", cwd: "/repo", title: "Source" })
+    const source = await manager.create({ agentId: "codex", title: "Source" })
 
     const fork = await manager.fork({ target: { kind: "thread-head" }, threadId: source.thread.id })
 
     expect(fork.thread).toMatchObject({
       agentId: "codex",
-      cwd: "/repo",
+      roots: source.thread.roots,
       forkedFromId: source.thread.id,
       title: "Source",
     })
@@ -794,7 +886,7 @@ describe("ThreadManager", () => {
       persistence,
       timelinePersistence,
     } = await setup()
-    const source = await manager.create({ agentId: "codex", cwd: "/repo" })
+    const source = await manager.create({ agentId: "codex" })
     const restartedManager = new ThreadManager({
       adapterFor: () => adapter,
       assertAgentCallable: async () => undefined,
@@ -1016,7 +1108,7 @@ describe("ThreadManager", () => {
       persistence,
       timelinePersistence,
     } = await setup()
-    const source = await manager.create({ agentId: "codex", cwd: "/repo" })
+    const source = await manager.create({ agentId: "codex" })
     await manager.startTurn({
       clientMessageId: "replace-failure-user",
       content: [{ text: "restore after restart", type: "text" }],
@@ -1073,7 +1165,7 @@ describe("ThreadManager", () => {
       persistence,
       timelinePersistence,
     } = await setup()
-    const source = await manager.create({ agentId: "codex", cwd: "/repo" })
+    const source = await manager.create({ agentId: "codex" })
     const operation = await lifecycle.begin({
       agentId: "codex",
       agentSessionId: source.thread.agentSessionId,

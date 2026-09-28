@@ -1395,6 +1395,10 @@
           "name": "projects_name_check",
           "value": "length(trim(\"projects\".\"name\")) > 0"
         },
+        "projects_roots_json_check": {
+          "name": "projects_roots_json_check",
+          "value": "json_valid(\"projects\".\"roots\") AND json_type(\"projects\".\"roots\") = 'array' AND json_array_length(\"projects\".\"roots\") > 0"
+        },
         "projects_position_check": {
           "name": "projects_position_check",
           "value": "\"projects\".\"position\" >= 0"
@@ -3052,11 +3056,11 @@
           "notNull": false,
           "autoincrement": false
         },
-        "cwd": {
-          "name": "cwd",
+        "roots": {
+          "name": "roots",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
         },
         "position": {
@@ -3139,6 +3143,13 @@
             "recency_at"
           ],
           "isUnique": false
+        },
+        "threads_roots_idx": {
+          "name": "threads_roots_idx",
+          "columns": [
+            "roots"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -3179,6 +3190,10 @@
         "threads_position_check": {
           "name": "threads_position_check",
           "value": "\"threads\".\"position\" >= 0"
+        },
+        "threads_roots_json_check": {
+          "name": "threads_roots_json_check",
+          "value": "json_valid(\"threads\".\"roots\") AND json_type(\"threads\".\"roots\") = 'array' AND json_array_length(\"threads\".\"roots\") > 0"
         },
         "threads_archived_at_check": {
           "name": "threads_archived_at_check",

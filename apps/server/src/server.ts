@@ -1,8 +1,8 @@
 import { execFile } from "node:child_process"
 import { access } from "node:fs/promises"
 import type { Server as HttpServer } from "node:http"
-import { hostname } from "node:os"
-import { resolve } from "node:path"
+import { homedir, hostname } from "node:os"
+import { join, resolve } from "node:path"
 import { promisify } from "node:util"
 import {
   applyDatabaseMigrations,
@@ -27,6 +27,8 @@ import {
   CYPHERIA_PROTOCOL_VERSION,
   CYPHERIA_WEBSOCKET_PROTOCOL,
   type CypheriaBinaryFrame,
+  encodeFileTransferFrame,
+  FILE_TRANSFER_MAX_DATA_BYTES,
   type GitClientMessage,
   type GitServerMessage,
   type HarnessClientMessage,
@@ -90,6 +92,7 @@ import {
   ThreadAttachmentService,
 } from "./thread/thread-attachment-service.js"
 import { ThreadManager } from "./thread/thread-manager.js"
+import { WorkspaceFileError, WorkspaceFileService } from "./thread/workspace-file-service.js"
 import { CYPHERIA_SERVER_VERSION } from "./version.js"
 import { ServerWeb3Service } from "./web3-service.js"
 
@@ -133,6 +136,7 @@ export class CypheriaServer implements HttpAppHost {
   readonly threadAttachments: ThreadAttachmentService
   readonly threadManager: ThreadManager
   readonly inputFiles: InputFileService
+  readonly workspaceFiles: WorkspaceFileService
   readonly composerReferences: ComposerReferenceService
   readonly terminals: TerminalManager
   readonly git: GitService
@@ -205,11 +209,17 @@ export class CypheriaServer implements HttpAppHost {
       },
     })
     const projectThreadPersistence = createProjectThreadPersistenceService(this.database.db)
-    this.terminals = new TerminalManager(projectThreadPersistence)
-    this.projectThread = new ProjectThreadService({
+    const projectlessWorkspaceRoot = resolve(
+      this.configStore.getSnapshot().config.workspace.projectlessRoot ??
+        join(homedir(), "Documents", "Cypheria")
+    )
+    this.workspaceFiles = new WorkspaceFileService({
+      cypheriaHome: this.runtime.paths.cypheriaHome,
       persistence: projectThreadPersistence,
+      projectlessRoot: projectlessWorkspaceRoot,
       publish: (message) => this.registry.broadcast(message),
     })
+    this.terminals = new TerminalManager(projectThreadPersistence)
     this.threadAttachments = new ThreadAttachmentService({
       persistence: createThreadAttachmentPersistenceService(this.database.db),
       projects: projectThreadPersistence,
@@ -222,6 +232,7 @@ export class CypheriaServer implements HttpAppHost {
       lifecycle: createThreadLifecyclePersistenceService(this.database.db),
       messageRequests: createThreadMessageRequestPersistenceService(this.database.db),
       persistence: projectThreadPersistence,
+      projectlessWorkspaceRoot,
       publish: (message) => this.registry.broadcast(message),
       onArchived: async (threadId, cwd) => {
         this.terminals.closeThread(threadId)
@@ -242,6 +253,15 @@ export class CypheriaServer implements HttpAppHost {
         start: (threadId, cwd) => this.git.turnCaptureStart(threadId, cwd),
         complete: (captureId, turnId) => this.git.turnCaptureComplete(captureId, turnId),
         discard: (captureId) => this.git.turnCaptureDiscard(captureId),
+      },
+    })
+    this.projectThread = new ProjectThreadService({
+      persistence: projectThreadPersistence,
+      publish: (message) => this.registry.broadcast(message),
+      workspace: {
+        deleteProject: (projectId) => this.threadManager.deleteProject(projectId),
+        moveToProject: (input) => this.threadManager.moveToProject(input),
+        removeFromProject: (threadId) => this.threadManager.removeFromProject(threadId),
       },
     })
     this.git = new GitService(
@@ -487,6 +507,7 @@ export class CypheriaServer implements HttpAppHost {
   async patchConfig(patch: PersistedServerConfigPatch): Promise<ServerConfigSnapshot> {
     return this.#withConfigurationMutation(async () => {
       const snapshot = await this.configStore.patch(patch)
+      this.#applyWorkspaceConfig(snapshot)
       this.harnesses.invalidate()
       this.registry.broadcast({ payload: snapshot, type: "server.config.updated.notification" })
       return snapshot
@@ -497,10 +518,19 @@ export class CypheriaServer implements HttpAppHost {
     return this.#withConfigurationMutation(async () => {
       await this.configStore.reload()
       const snapshot = this.configStore.getSnapshot()
+      this.#applyWorkspaceConfig(snapshot)
       this.harnesses.invalidate()
       this.registry.broadcast({ payload: snapshot, type: "server.config.updated.notification" })
       return snapshot
     })
+  }
+
+  #applyWorkspaceConfig(snapshot: ServerConfigSnapshot): void {
+    const root = resolve(
+      snapshot.config.workspace.projectlessRoot ?? join(homedir(), "Documents", "Cypheria")
+    )
+    this.threadManager.setProjectlessWorkspaceRoot(root)
+    this.workspaceFiles.setProjectlessRoot(root)
   }
 
   getNetworkProxy(): NetworkProxySnapshot {
@@ -617,8 +647,102 @@ export class CypheriaServer implements HttpAppHost {
   async handleProjectThreadMessage(
     message: ClientMessage,
     send: (message: ServerMessage) => void,
-    clientId?: string
+    clientId?: string,
+    sendBinary?: (frame: CypheriaBinaryFrame) => void
   ): Promise<boolean> {
+    if (
+      message.type.startsWith("thread.files.") ||
+      message.type.startsWith("thread.workspace.cleanup.")
+    ) {
+      const respond = (value: unknown, error?: unknown) => {
+        const failure = error instanceof Error ? error : new Error(String(error))
+        send({
+          payload: error
+            ? {
+                error: {
+                  code:
+                    error instanceof WorkspaceFileError ? error.code : failure.name || "FILE_ERROR",
+                  message: failure.message,
+                },
+                ok: false,
+              }
+            : { ok: true, value },
+          requestId: message.requestId,
+          type: message.type.replace(/\.request$/u, ".response"),
+        } as ServerMessage)
+      }
+      try {
+        switch (message.type) {
+          case "thread.files.directory.list.request":
+            respond(await this.workspaceFiles.listDirectory(message.payload))
+            break
+          case "thread.files.search.request":
+            respond(await this.workspaceFiles.search(message.payload))
+            break
+          case "thread.files.read.request":
+            {
+              const transfer = await this.workspaceFiles.readForTransfer(message.payload)
+              if (transfer.result.kind === "binary") {
+                if (!sendBinary || !transfer.bytes) {
+                  throw new WorkspaceFileError(
+                    "FILE_TRANSFER_UNAVAILABLE",
+                    "This connection does not support binary file transfer"
+                  )
+                }
+                if (transfer.bytes.byteLength === 0) {
+                  sendBinary(
+                    encodeFileTransferFrame(transfer.result.streamId, transfer.bytes, true)
+                  )
+                } else {
+                  for (
+                    let offset = 0;
+                    offset < transfer.bytes.byteLength;
+                    offset += FILE_TRANSFER_MAX_DATA_BYTES
+                  ) {
+                    const chunk = transfer.bytes.subarray(
+                      offset,
+                      Math.min(offset + FILE_TRANSFER_MAX_DATA_BYTES, transfer.bytes.byteLength)
+                    )
+                    sendBinary(
+                      encodeFileTransferFrame(
+                        transfer.result.streamId,
+                        chunk,
+                        offset + chunk.byteLength === transfer.bytes.byteLength
+                      )
+                    )
+                  }
+                }
+                respond(transfer.result)
+              } else respond(transfer.result)
+            }
+            break
+          case "thread.files.create.request":
+            respond(await this.workspaceFiles.create(message.payload))
+            break
+          case "thread.files.write.request":
+            respond(await this.workspaceFiles.write(message.payload))
+            break
+          case "thread.files.move.request":
+            respond(await this.workspaceFiles.move(message.payload))
+            break
+          case "thread.files.delete.request":
+            respond(await this.workspaceFiles.delete(message.payload))
+            break
+          case "thread.files.restore.request":
+            respond(await this.workspaceFiles.restore(message.payload))
+            break
+          case "thread.workspace.cleanup.list.request":
+            respond(await this.workspaceFiles.listCleanup())
+            break
+          case "thread.workspace.cleanup.delete.request":
+            respond(await this.workspaceFiles.deleteCleanup(message.payload.paths))
+            break
+        }
+      } catch (error) {
+        respond(null, error)
+      }
+      return true
+    }
     if (message.type.startsWith("thread.input-file.")) {
       if (!clientId) throw new Error("Client identity is required for input files")
       const respond = (value: unknown, error?: Error) =>
@@ -678,9 +802,9 @@ export class CypheriaServer implements HttpAppHost {
           : {
               agentId: message.payload.agentId ?? "codex",
               agentSessionId: null,
-              cwd: message.payload.cwd ?? null,
+              cwd: message.payload.roots?.[0] ?? null,
               threadId: "",
-              workspaceRoots: message.payload.cwd ? [message.payload.cwd] : [],
+              workspaceRoots: message.payload.roots ?? [],
             }
         const items = await this.composerReferences.suggest(
           context,

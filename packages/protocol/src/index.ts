@@ -89,6 +89,7 @@ export * from "./binary-frame.ts"
 export * from "./browser.ts"
 export * from "./codex-ui/image-generation.ts"
 export * from "./codex-ui/turn-projection.ts"
+export * from "./file-transfer-binary.ts"
 export * from "./git.ts"
 export * from "./harness.ts"
 export * from "./harness-codex.ts"
@@ -487,6 +488,10 @@ export const PersistedServerConfigSchema = z
     version: z.literal(1),
     git: GitSettingsSchema.default(DEFAULT_GIT_SETTINGS),
     browserTools: BrowserToolsSettingsSchema.default(DEFAULT_BROWSER_TOOLS_SETTINGS),
+    workspace: z
+      .object({ projectlessRoot: z.string().trim().min(1).nullable() })
+      .strict()
+      .default({ projectlessRoot: null }),
     server: z
       .object({
         logging: ServerLoggingSchema.default({
@@ -547,6 +552,10 @@ export const PersistedServerConfigPatchSchema = z
   .object({
     git: GitSettingsSchema.partial().strict().optional(),
     browserTools: BrowserToolsSettingsSchema.partial().strict().optional(),
+    workspace: z
+      .object({ projectlessRoot: z.string().trim().min(1).nullable().optional() })
+      .strict()
+      .optional(),
     server: z
       .object({
         logging: z

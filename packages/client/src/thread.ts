@@ -8,7 +8,9 @@ import type {
   ThreadSummary,
   ThreadTimelinePage,
   ThreadView,
+  WorkspaceFileReadResult,
 } from "@cypheria/protocol"
+import { decodeFileTransferFrame } from "@cypheria/protocol"
 
 import type { ProjectThreadPage } from "./project-thread.js"
 import type { RequestOptions } from "./request-options.js"
@@ -95,10 +97,74 @@ export interface ThreadActions {
     options?: RequestOptions
   ): Promise<ThreadView>
   readonly attachments: ThreadAttachmentActions
+  readonly files: ThreadFileActions
   readonly inputFiles: ThreadInputFileActions
   readonly timeline: TimelineActions
   readonly contextUsage: ThreadContextUsageActions
   readonly composer: ThreadComposerActions
+  readonly workspace: ThreadWorkspaceActions
+}
+
+export interface ThreadFileActions {
+  create(
+    input: Payload<"thread.files.create.request">,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.files.create.response">>
+  delete(
+    input: Payload<"thread.files.delete.request">,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.files.delete.response">>
+  listDirectory(
+    input: Payload<"thread.files.directory.list.request">,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.files.directory.list.response">>
+  move(
+    input: Payload<"thread.files.move.request">,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.files.move.response">>
+  read(
+    input: Payload<"thread.files.read.request">,
+    options?: RequestOptions
+  ): Promise<ThreadFileReadResult>
+  restore(
+    input: Payload<"thread.files.restore.request">,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.files.restore.response">>
+  search(
+    input: Payload<"thread.files.search.request">,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.files.search.response">>
+  subscribe(
+    threadId: string,
+    handler: (
+      changes: Extract<
+        ThreadServerMessage,
+        { type: "thread.files.changed.notification" }
+      >["payload"]["changes"]
+    ) => void
+  ): () => void
+  write(
+    input: Payload<"thread.files.write.request">,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.files.write.response">>
+}
+
+export type ThreadFileReadResult =
+  | Exclude<WorkspaceFileReadResult, { kind: "binary" }>
+  | (Extract<WorkspaceFileReadResult, { kind: "binary" }> & { readonly bytes: Uint8Array })
+
+export interface ThreadWorkspaceActions {
+  cleanupDelete(
+    paths: readonly string[],
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.workspace.cleanup.delete.response">>
+  cleanupList(
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.workspace.cleanup.list.response">>
+  sync(
+    input: Payload<"thread.workspace.sync.request">,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.workspace.sync.response">>
 }
 
 export interface ThreadComposerActions {
@@ -273,6 +339,95 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
   const composer: ThreadComposerActions = {
     suggest: (input, options) => request("thread.composer.suggest.request", input, options),
   }
+  const files: ThreadFileActions = {
+    create: (input, options) => request("thread.files.create.request", input, options),
+    delete: (input, options) => request("thread.files.delete.request", input, options),
+    listDirectory: (input, options) =>
+      request("thread.files.directory.list.request", input, options),
+    move: (input, options) => request("thread.files.move.request", input, options),
+    read: async (input, options) => {
+      const chunks = new Map<string, Uint8Array[]>()
+      const ended = new Set<string>()
+      let expectedStreamId: string | undefined
+      let finish: (() => void) | undefined
+      const completed = new Promise<void>((resolve) => {
+        finish = resolve
+      })
+      const unsubscribe = client.subscribeBinaryFrames((frame) => {
+        const decoded = decodeFileTransferFrame(frame)
+        if (!decoded) return
+        const values = chunks.get(decoded.streamId) ?? []
+        values.push(Uint8Array.from(decoded.data))
+        chunks.set(decoded.streamId, values)
+        if (decoded.end) ended.add(decoded.streamId)
+        if (decoded.end && decoded.streamId === expectedStreamId) finish?.()
+      })
+      try {
+        const result = await request<ExtractReady<"thread.files.read.response">>(
+          "thread.files.read.request",
+          input,
+          options
+        )
+        if (result.kind !== "binary") return result
+        expectedStreamId = result.streamId
+        if (ended.has(result.streamId)) finish?.()
+        const signal = options?.signal
+        let rejectTransfer: (() => void) | undefined
+        const aborted = new Promise<never>((_, reject) => {
+          rejectTransfer = () =>
+            reject(
+              signal?.reason instanceof Error
+                ? signal.reason
+                : new Error("File transfer was aborted")
+            )
+          if (signal?.aborted) rejectTransfer()
+          else signal?.addEventListener("abort", rejectTransfer, { once: true })
+        })
+        let transferTimer: ReturnType<typeof setTimeout> | undefined
+        const timedOut = new Promise<never>((_, reject) => {
+          transferTimer = setTimeout(
+            () => reject(new Error("File transfer timed out")),
+            options?.timeoutMs ?? 30_000
+          )
+        })
+        try {
+          await Promise.race([completed, aborted, timedOut])
+        } finally {
+          if (transferTimer) clearTimeout(transferTimer)
+          if (signal && rejectTransfer) signal.removeEventListener("abort", rejectTransfer)
+        }
+        const received = chunks.get(result.streamId) ?? []
+        const byteLength = received.reduce((total, chunk) => total + chunk.byteLength, 0)
+        if (byteLength !== result.sizeBytes) {
+          throw new Error(
+            `Incomplete file transfer: expected ${result.sizeBytes} bytes, received ${byteLength}`
+          )
+        }
+        const bytes = new Uint8Array(byteLength)
+        let offset = 0
+        for (const chunk of received) {
+          bytes.set(chunk, offset)
+          offset += chunk.byteLength
+        }
+        return { ...result, bytes }
+      } finally {
+        unsubscribe()
+      }
+    },
+    restore: (input, options) => request("thread.files.restore.request", input, options),
+    search: (input, options) => request("thread.files.search.request", input, options),
+    subscribe: (threadId, handler) =>
+      client.on("thread.files.changed.notification", ({ payload }) => {
+        if (payload.threadId === threadId) handler(payload.changes)
+      }),
+    write: (input, options) => request("thread.files.write.request", input, options),
+  }
+  const workspace: ThreadWorkspaceActions = {
+    cleanupDelete: (paths, options) =>
+      request("thread.workspace.cleanup.delete.request", { paths: [...paths] }, options),
+    cleanupList: (options) => request("thread.workspace.cleanup.list.request", {}, options),
+    sync: (input, options) => request("thread.workspace.sync.request", input, options),
+  }
   const attachments: ThreadAttachmentActions = {
     addPullRequest: (threadId, url, options) =>
       request(
@@ -329,6 +484,7 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
     delete: async (threadId, options) => {
       await request("thread.delete.request", { threadId }, options)
     },
+    files,
     get: (threadId, options) => request("thread.get.request", { threadId }, options),
     getTimeline: (input, options) => request("thread.timeline.get.request", input, options),
     getSummary: (threadId, options) => request("thread.summary.get.request", { threadId }, options),
@@ -351,5 +507,6 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
     timeline,
     update: (input, options) => request("thread.update.request", input, options),
     updateConfig: (input, options) => request("thread.config.update.request", input, options),
+    workspace,
   }
 }

@@ -33,7 +33,7 @@ describe("TerminalManager", () => {
     const persistence = {
       getThread: vi.fn(async () => ({
         archivedAt: null,
-        cwd: process.cwd(),
+        roots: [process.cwd()],
         deletedAt: null,
         id: threadId,
       })),

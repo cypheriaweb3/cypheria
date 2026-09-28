@@ -62,6 +62,7 @@ describe("Cypheria client facade", () => {
       "contextUsage",
       "create",
       "delete",
+      "files",
       "fork",
       "get",
       "getSummary",
@@ -80,6 +81,7 @@ describe("Cypheria client facade", () => {
       "unarchive",
       "update",
       "updateConfig",
+      "workspace",
     ])
     expect(api.agent).not.toHaveProperty("acp")
     expect(api.agent).not.toHaveProperty("codex")

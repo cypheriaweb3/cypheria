@@ -2500,3 +2500,95 @@ msgstr "停止后台进程？"
 #. js-lingui-explicit-id
 msgid "chat.summary.cancel"
 msgstr "取消"
+
+#. js-lingui-explicit-id
+msgid "navigation.changeThreadWorkspace"
+msgstr "更改工作区目录？"
+
+#. js-lingui-explicit-id
+msgid "navigation.changeThreadWorkspaceDescription"
+msgstr "移动此对话也会更新 Agent 后续使用的工作目录和工作区目录。"
+
+#. js-lingui-explicit-id
+msgid "navigation.currentDirectoryWillChange"
+msgstr "当前工作目录将发生改变。这会影响后续命令和 Agent 操作。"
+
+#. js-lingui-explicit-id
+msgid "navigation.projectlessDirectoryCleanupWarning"
+msgstr "原有的无项目工作区目录在不再被其他对话引用时会被删除。"
+
+#. js-lingui-explicit-id
+msgid "navigation.projectlessDirectoryCreationWarning"
+msgstr "当前工作目录将改为新建的无项目托管目录，其中包含 work/ 和 outputs/。"
+
+#. js-lingui-explicit-id
+msgid "navigation.noWorkspaceDirectories"
+msgstr "无"
+
+#. js-lingui-explicit-id
+msgid "navigation.addedWorkspaceDirectories"
+msgstr "新增"
+
+#. js-lingui-explicit-id
+msgid "navigation.removedWorkspaceDirectories"
+msgstr "移除"
+
+#. js-lingui-explicit-id
+msgid "navigation.finishTurnBeforeWorkspaceMove"
+msgstr "请等待当前 turn 完成后再更改工作区。"
+
+#. js-lingui-explicit-id
+msgid "navigation.agentCannotChangeWorkspace"
+msgstr "此 Agent 不支持在对话创建后更改所需的工作区目录。"
+
+#. js-lingui-explicit-id
+msgid "navigation.moveChat"
+msgstr "移动对话"
+
+#. js-lingui-explicit-id
+msgid "files.undoDelete"
+msgstr "撤销删除"
+
+#. js-lingui-explicit-id
+msgid "files.open"
+msgstr "打开"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.sync"
+msgstr "同步到项目工作区目录"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.syncConfirm"
+msgstr "更改此线程的工作区目录？"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.cwdWarning"
+msgstr "重要：当前工作目录将发生改变。后续命令和 Agent turn 将从新的首个目录运行。"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.syncAction"
+msgstr "同步"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.active"
+msgstr "请等待当前 turn 完成后再更改目录。"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.unsupported"
+msgstr "此 Agent 不支持在创建后更改工作区目录。"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.directories"
+msgstr "工作区目录"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.cwd"
+msgstr "当前工作目录"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.added"
+msgstr "新增"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.removed"
+msgstr "移除"

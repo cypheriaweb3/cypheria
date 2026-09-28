@@ -14,6 +14,7 @@ export const CYPHERIA_SERVER_CONFIG_FILENAME = "config.json" as const
 export const DEFAULT_PERSISTED_SERVER_CONFIG: PersistedServerConfig = {
   git: DEFAULT_GIT_SETTINGS,
   browserTools: DEFAULT_BROWSER_TOOLS_SETTINGS,
+  workspace: { projectlessRoot: null },
   server: {
     logging: {
       level: "info",

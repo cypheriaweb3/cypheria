@@ -12,6 +12,7 @@ const thread = (id: string, title: string): ThreadView => ({
   attention: false,
   capabilities: {
     changeCwd: true,
+    changeRoots: true,
     configure: true,
     fork: { assistantMessage: true, threadHead: true, userMessage: true },
     promptContent: ["text"],
@@ -20,7 +21,7 @@ const thread = (id: string, title: string): ThreadView => ({
     steer: true,
   },
   createdAt: 1,
-  cwd: "/repo",
+  roots: ["/repo"],
   forkedFromId: null,
   id,
   pendingInteractions: [],

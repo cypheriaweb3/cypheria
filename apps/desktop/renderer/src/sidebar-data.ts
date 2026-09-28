@@ -17,11 +17,13 @@ export type SidebarThreadStatus = "active" | "idle" | "notLoaded" | "systemError
 export type SidebarThreadView = {
   agentId: ThreadView["agentId"]
   attention: boolean
+  capabilities: ThreadView["capabilities"]
   createdAt?: number
   cwd: string
   id: string
   position?: number
   projectId: string | null
+  roots: string[]
   recencyAt?: number | null
   sectionId: string | null
   sectionName: string | null
@@ -80,7 +82,7 @@ const page = <T>(values: readonly T[], cursor: string | null | undefined, limit 
 }
 
 const statusFor = (state: ThreadView["state"]): SidebarThreadStatus => {
-  if (state === "running") return "active"
+  if (["running", "starting", "stopping", "deleting"].includes(state)) return "active"
   if (state === "errored") return "systemError"
   if (state === "stopped") return "notLoaded"
   return "idle"
@@ -369,11 +371,13 @@ export class SidebarDataApi {
       return {
         agentId: thread.agentId,
         attention: thread.attention,
+        capabilities: thread.capabilities,
         createdAt: thread.createdAt,
-        cwd: thread.cwd ?? "",
+        cwd: thread.roots[0] ?? "",
         id: thread.id,
         position: thread.position,
         projectId: projectByThread.get(thread.id) ?? null,
+        roots: thread.roots,
         recencyAt: thread.recencyAt,
         sectionId: sectionMembership?.sectionId ?? null,
         sectionName: section?.name ?? null,
@@ -462,11 +466,13 @@ export class SidebarDataApi {
         return {
           agentId: thread.agentId,
           attention: thread.attention,
+          capabilities: thread.capabilities,
           createdAt: thread.createdAt,
-          cwd: thread.cwd ?? "",
+          cwd: thread.roots[0] ?? "",
           id: thread.id,
           position: thread.position,
           projectId: projectByThread.get(thread.id) ?? null,
+          roots: thread.roots,
           recencyAt: thread.recencyAt,
           sectionId: section?.id ?? null,
           sectionName: section?.name ?? null,

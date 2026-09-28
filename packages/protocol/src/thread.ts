@@ -6,51 +6,11 @@ import {
   ProjectThreadIdSchema,
   ProjectThreadLimitSchema,
   ProjectThreadSortDirectionSchema,
-  ThreadSchema,
+  ThreadInteractionSchema,
+  ThreadViewSchema,
   UnixTimestampSecondsSchema,
 } from "./project-thread.ts"
 import { RequestIdSchema } from "./request-id.ts"
-
-export const ThreadStateSchema = z.enum([
-  "stopped",
-  "starting",
-  "idle",
-  "running",
-  "stopping",
-  "deleting",
-  "errored",
-])
-export type ThreadState = z.infer<typeof ThreadStateSchema>
-
-export const ThreadPromptContentTypeSchema = z.enum([
-  "text",
-  "image",
-  "audio",
-  "resource-link",
-  "embedded-resource",
-])
-export type ThreadPromptContentType = z.infer<typeof ThreadPromptContentTypeSchema>
-
-export const ThreadCapabilitiesSchema = z.object({
-  changeCwd: z.boolean(),
-  configure: z.boolean(),
-  fork: z.object({
-    assistantMessage: z.boolean(),
-    threadHead: z.boolean(),
-    userMessage: z.boolean(),
-  }),
-  promptContent: z.array(ThreadPromptContentTypeSchema),
-  rewind: z.object({ userMessage: z.boolean() }),
-  harnessExtensions: z.boolean(),
-  steer: z.boolean(),
-})
-export type ThreadCapabilities = z.infer<typeof ThreadCapabilitiesSchema>
-
-export const ThreadActiveTurnSchema = z.object({
-  id: z.string().min(1),
-  startedAt: z.string().datetime(),
-})
-export type ThreadActiveTurn = z.infer<typeof ThreadActiveTurnSchema>
 
 export const ThreadContextTokenBreakdownSchema = z.object({
   cacheRead: z.number().nonnegative(),
@@ -113,52 +73,43 @@ export const ThreadContextUsageSchema = z.intersection(
 )
 export type ThreadContextUsage = z.infer<typeof ThreadContextUsageSchema>
 
-export const ThreadInteractionOptionSchema = z.object({
-  description: z.string().nullable(),
-  id: z.string().min(1),
-  label: z.string().min(1),
+export const WorkspaceFileEntrySchema = z.object({
+  hasChildren: z.boolean().nullable(),
+  kind: z.enum(["file", "directory", "symlink"]),
+  modifiedAt: z.string().datetime().nullable(),
+  name: z.string().min(1),
+  path: z.string(),
+  root: z.string().min(1),
+  sizeBytes: z.int().nonnegative().nullable(),
+})
+export type WorkspaceFileEntry = z.infer<typeof WorkspaceFileEntrySchema>
+
+const WorkspaceFileMetadataSchema = z.object({
+  mimeType: z.string().min(1),
+  modifiedAt: z.string().datetime().nullable(),
+  path: z.string(),
+  root: z.string().min(1),
+  sizeBytes: z.int().nonnegative(),
+  version: z.string().min(1),
 })
 
-export const ThreadQuestionSchema = z.object({
-  custom: z.boolean(),
-  header: z.string().min(1),
-  id: z.string().min(1).optional(),
-  multiple: z.boolean(),
-  options: z.array(ThreadInteractionOptionSchema),
-  question: z.string().min(1),
-  secret: z.boolean().optional(),
-})
+export const WorkspaceFileReadResultSchema = z.discriminatedUnion("kind", [
+  WorkspaceFileMetadataSchema.extend({ content: z.string(), kind: z.literal("text") }),
+  WorkspaceFileMetadataSchema.extend({ kind: z.literal("binary"), streamId: z.uuid() }),
+  WorkspaceFileMetadataSchema.extend({
+    kind: z.literal("metadata"),
+    reason: z.enum(["too-large", "unsupported"]),
+  }),
+])
+export type WorkspaceFileReadResult = z.infer<typeof WorkspaceFileReadResultSchema>
 
-export const ThreadInteractionSchema = z.object({
-  createdAt: z.string().datetime(),
-  expiresAt: z.string().datetime().nullable(),
-  id: z.string().min(1),
-  itemId: z.string().min(1).optional(),
-  kind: z.enum(["permission", "question", "elicitation"]),
-  message: z.string(),
-  options: z.array(ThreadInteractionOptionSchema),
-  harness: z
-    .object({
-      agentId: AgentIdSchema,
-      metadata: z.json(),
-      nativeType: z.string().min(1),
-    })
-    .optional(),
-  questions: z.array(ThreadQuestionSchema).optional(),
-  title: z.string().nullable(),
-  turnId: z.string().min(1).optional(),
+export const ThreadWorkspaceCleanupItemSchema = z.object({
+  createdAt: UnixTimestampSecondsSchema.nullable(),
+  kind: z.literal("projectless"),
+  path: z.string().min(1),
+  sizeBytes: z.int().nonnegative().nullable(),
 })
-export type ThreadInteraction = z.infer<typeof ThreadInteractionSchema>
-
-export const ThreadViewSchema = z.object({
-  ...ThreadSchema.shape,
-  activeTurn: ThreadActiveTurnSchema.nullable(),
-  attention: z.boolean(),
-  capabilities: ThreadCapabilitiesSchema,
-  pendingInteractions: z.array(ThreadInteractionSchema),
-  state: ThreadStateSchema,
-})
-export type ThreadView = z.infer<typeof ThreadViewSchema>
+export type ThreadWorkspaceCleanupItem = z.infer<typeof ThreadWorkspaceCleanupItemSchema>
 
 const ThreadTextInputBlockSchema = z.object({ text: z.string(), type: z.literal("text") })
 const ThreadImageInputBlockSchema = z.object({
@@ -537,7 +488,6 @@ export const ThreadCreateRequestSchema = request(
     .object({
       agentId: AgentIdSchema,
       ...beforeThreadSchema.shape,
-      cwd: z.string().nullable().optional(),
       projectPlacement: projectPlacementSchema.optional(),
       recencyAt: UnixTimestampSecondsSchema.nullish(),
       sectionPlacement: sectionPlacementSchema.optional(),
@@ -568,7 +518,6 @@ export const ThreadListRequestSchema = request(
 export const ThreadUpdateRequestSchema = request(
   "thread.update.request",
   z.object({
-    cwd: z.string().nullable().optional(),
     threadId: ProjectThreadIdSchema,
     title: z.string().nullable().optional(),
   })
@@ -706,12 +655,74 @@ export const ThreadComposerSuggestRequestSchema = request(
   z
     .object({
       agentId: AgentIdSchema.optional(),
-      cwd: z.string().min(1).optional(),
+      roots: z.array(z.string().trim().min(1)).min(1).optional(),
       query: z.string().max(256),
       threadId: ProjectThreadIdSchema.optional(),
       trigger: z.enum(["@", "$"]),
     })
     .refine((value) => value.threadId !== undefined || value.agentId !== undefined)
+)
+export const ThreadWorkspaceSyncRequestSchema = request(
+  "thread.workspace.sync.request",
+  z.object({
+    mode: z.enum(["safe-additive", "project-exact"]),
+    threadId: ProjectThreadIdSchema,
+  })
+)
+const workspaceFileLocationSchema = z.object({
+  path: z.string().max(4096),
+  root: z.string().min(1).max(4096),
+  threadId: ProjectThreadIdSchema,
+})
+export const ThreadFilesDirectoryListRequestSchema = request(
+  "thread.files.directory.list.request",
+  workspaceFileLocationSchema.extend({
+    cursor: z.string().min(1).max(2048).optional(),
+    limit: z.int().min(1).max(500).default(200),
+  })
+)
+export const ThreadFilesSearchRequestSchema = request(
+  "thread.files.search.request",
+  z.object({
+    limit: z.int().min(1).max(500).default(100),
+    query: z.string().trim().min(1).max(256),
+    threadId: ProjectThreadIdSchema,
+  })
+)
+export const ThreadFilesReadRequestSchema = request(
+  "thread.files.read.request",
+  workspaceFileLocationSchema
+)
+export const ThreadFilesCreateRequestSchema = request(
+  "thread.files.create.request",
+  workspaceFileLocationSchema.extend({ kind: z.enum(["file", "directory"]) })
+)
+export const ThreadFilesWriteRequestSchema = request(
+  "thread.files.write.request",
+  workspaceFileLocationSchema.extend({
+    content: z.string(),
+    version: z.string().min(1).nullable(),
+  })
+)
+export const ThreadFilesMoveRequestSchema = request(
+  "thread.files.move.request",
+  workspaceFileLocationSchema.extend({ destinationPath: z.string().max(4096) })
+)
+export const ThreadFilesDeleteRequestSchema = request(
+  "thread.files.delete.request",
+  workspaceFileLocationSchema
+)
+export const ThreadFilesRestoreRequestSchema = request(
+  "thread.files.restore.request",
+  z.object({ restoreToken: z.uuid(), threadId: ProjectThreadIdSchema })
+)
+export const ThreadWorkspaceCleanupListRequestSchema = request(
+  "thread.workspace.cleanup.list.request",
+  z.object({})
+)
+export const ThreadWorkspaceCleanupDeleteRequestSchema = request(
+  "thread.workspace.cleanup.delete.request",
+  z.object({ paths: z.array(z.string().min(1)).min(1).max(500) })
 )
 export const ThreadTimelineGetRequestSchema = request(
   "thread.timeline.get.request",
@@ -927,6 +938,53 @@ export const ThreadConfigUpdateResponseSchema = response(
   "thread.config.update.response",
   ThreadViewSchema
 )
+export const ThreadWorkspaceSyncResponseSchema = response(
+  "thread.workspace.sync.response",
+  z.object({ changed: z.boolean(), thread: ThreadViewSchema })
+)
+export const ThreadFilesDirectoryListResponseSchema = response(
+  "thread.files.directory.list.response",
+  z.object({ data: z.array(WorkspaceFileEntrySchema), nextCursor: z.string().nullable() })
+)
+export const ThreadFilesSearchResponseSchema = response(
+  "thread.files.search.response",
+  z.object({ data: z.array(WorkspaceFileEntrySchema) })
+)
+export const ThreadFilesReadResponseSchema = response(
+  "thread.files.read.response",
+  WorkspaceFileReadResultSchema
+)
+export const ThreadFilesCreateResponseSchema = response(
+  "thread.files.create.response",
+  WorkspaceFileEntrySchema
+)
+export const ThreadFilesWriteResponseSchema = response(
+  "thread.files.write.response",
+  WorkspaceFileReadResultSchema
+)
+export const ThreadFilesMoveResponseSchema = response(
+  "thread.files.move.response",
+  WorkspaceFileEntrySchema
+)
+export const ThreadFilesDeleteResponseSchema = response(
+  "thread.files.delete.response",
+  z.object({ restoreToken: z.uuid() })
+)
+export const ThreadFilesRestoreResponseSchema = response(
+  "thread.files.restore.response",
+  WorkspaceFileEntrySchema
+)
+export const ThreadWorkspaceCleanupListResponseSchema = response(
+  "thread.workspace.cleanup.list.response",
+  z.object({ items: z.array(ThreadWorkspaceCleanupItemSchema) })
+)
+export const ThreadWorkspaceCleanupDeleteResponseSchema = response(
+  "thread.workspace.cleanup.delete.response",
+  z.object({
+    deleted: z.array(z.string()),
+    failed: z.array(z.object({ message: z.string(), path: z.string() })),
+  })
+)
 export const ThreadInteractionRespondResponseSchema = response(
   "thread.interaction.respond.response",
   ThreadViewSchema
@@ -1019,6 +1077,20 @@ export const ThreadAttachmentDeletedNotificationSchema = z.object({
   }),
   type: z.literal("thread.attachment.deleted.notification"),
 })
+export const ThreadFilesChangedNotificationSchema = z.object({
+  payload: z.object({
+    changes: z.array(
+      z.object({
+        kind: z.enum(["created", "changed", "moved", "deleted", "restored"]),
+        path: z.string(),
+        previousPath: z.string().optional(),
+        root: z.string().min(1),
+      })
+    ),
+    threadId: ProjectThreadIdSchema,
+  }),
+  type: z.literal("thread.files.changed.notification"),
+})
 
 export const THREAD_CLIENT_SCHEMAS = [
   ThreadCreateRequestSchema,
@@ -1046,6 +1118,17 @@ export const THREAD_CLIENT_SCHEMAS = [
   ThreadInputFileUploadAbortRequestSchema,
   ThreadInputFileGetRequestSchema,
   ThreadComposerSuggestRequestSchema,
+  ThreadWorkspaceSyncRequestSchema,
+  ThreadFilesDirectoryListRequestSchema,
+  ThreadFilesSearchRequestSchema,
+  ThreadFilesReadRequestSchema,
+  ThreadFilesCreateRequestSchema,
+  ThreadFilesWriteRequestSchema,
+  ThreadFilesMoveRequestSchema,
+  ThreadFilesDeleteRequestSchema,
+  ThreadFilesRestoreRequestSchema,
+  ThreadWorkspaceCleanupListRequestSchema,
+  ThreadWorkspaceCleanupDeleteRequestSchema,
   ThreadTimelineGetRequestSchema,
   ThreadSummaryGetRequestSchema,
   ThreadContextUsageGetRequestSchema,
@@ -1083,6 +1166,17 @@ export const THREAD_SERVER_SCHEMAS = [
   ThreadInputFileUploadAbortResponseSchema,
   ThreadInputFileGetResponseSchema,
   ThreadComposerSuggestResponseSchema,
+  ThreadWorkspaceSyncResponseSchema,
+  ThreadFilesDirectoryListResponseSchema,
+  ThreadFilesSearchResponseSchema,
+  ThreadFilesReadResponseSchema,
+  ThreadFilesCreateResponseSchema,
+  ThreadFilesWriteResponseSchema,
+  ThreadFilesMoveResponseSchema,
+  ThreadFilesDeleteResponseSchema,
+  ThreadFilesRestoreResponseSchema,
+  ThreadWorkspaceCleanupListResponseSchema,
+  ThreadWorkspaceCleanupDeleteResponseSchema,
   ThreadTimelineGetResponseSchema,
   ThreadSummaryGetResponseSchema,
   ThreadContextUsageGetResponseSchema,
@@ -1103,6 +1197,7 @@ export const THREAD_SERVER_SCHEMAS = [
   ThreadEventNotificationSchema,
   ThreadAttachmentUpsertedNotificationSchema,
   ThreadAttachmentDeletedNotificationSchema,
+  ThreadFilesChangedNotificationSchema,
 ] as const
 
 export const THREAD_RESPONSE_TYPES = THREAD_SERVER_SCHEMAS.flatMap((schema) => {

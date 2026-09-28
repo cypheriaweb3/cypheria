@@ -1007,14 +1007,14 @@ describe("GitService", () => {
       id: threadId,
       agentId: "claude",
       agentSessionId: null,
-      cwd: root,
+      roots: [root],
       activeTurn: null as { id: string } | null,
       pendingInteractions: [] as unknown[],
     }
     const threads = {
       get: async () => thread,
       moveWorkingDirectory: async (_id: string, cwd: string) => {
-        thread.cwd = cwd
+        thread.roots = [cwd]
         return thread
       },
     } as unknown as ThreadManager
@@ -1036,7 +1036,7 @@ describe("GitService", () => {
     await service.stage(root, ["file.txt"])
     await writeFile(join(root, "untracked.txt"), "local\n")
     await service.moveThreadToWorktree(root, worktree.path, threadId, true)
-    expect(thread.cwd).toBe(worktree.path)
+    expect(thread.roots[0]).toBe(worktree.path)
     expect(await readFile(join(worktree.path, "file.txt"), "utf8")).toBe("first\nsecond\n")
     expect(await readFile(join(worktree.path, "untracked.txt"), "utf8")).toBe("local\n")
     expect(
@@ -1058,7 +1058,7 @@ describe("GitService", () => {
     )
     thread.activeTurn = null
     await service.moveThreadToWorktree(worktree.path, root, threadId)
-    expect(thread.cwd).toBe(await realpath(root))
+    expect(thread.roots[0]).toBe(await realpath(root))
     expect(
       (await service.worktrees(root)).find((entry) => entry.path === worktree.path)?.ownerThreadId
     ).toBeNull()
@@ -1078,14 +1078,14 @@ describe("GitService", () => {
       id: threadId,
       agentId: "codex",
       agentSessionId: "nested-thread",
-      cwd: nested,
+      roots: [nested],
       activeTurn: null,
       pendingInteractions: [],
     }
     const threads = {
       get: async () => thread,
       moveWorkingDirectory: async (_id: string, cwd: string) => {
-        thread.cwd = cwd
+        thread.roots = [cwd]
         return thread
       },
     } as unknown as ThreadManager
@@ -1097,8 +1097,8 @@ describe("GitService", () => {
     await service.commit(root, "Base")
     const worktree = await service.createWorktree(root)
     await service.moveThreadToWorktree(root, worktree.path, threadId)
-    expect(thread.cwd).toBe(join(worktree.path, "packages", "app"))
+    expect(thread.roots[0]).toBe(join(worktree.path, "packages", "app"))
     await service.moveThreadToWorktree(worktree.path, root, threadId)
-    expect(thread.cwd).toBe(await realpath(nested))
+    expect(thread.roots[0]).toBe(await realpath(nested))
   }, 20_000)
 })

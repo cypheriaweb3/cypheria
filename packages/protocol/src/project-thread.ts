@@ -28,7 +28,7 @@ export const ThreadSchema = z.object({
   agentId: AgentIdSchema,
   agentSessionId: z.string().nullable(),
   title: z.string().nullable(),
-  cwd: z.string().nullable(),
+  roots: z.array(z.string().trim().min(1)).min(1),
   forkedFromId: ProjectThreadIdSchema.nullable(),
   position: z.int().nonnegative(),
   recencyAt: UnixTimestampSecondsSchema.nullable(),
@@ -36,6 +36,95 @@ export const ThreadSchema = z.object({
   updatedAt: UnixTimestampSecondsSchema,
 })
 export type Thread = z.infer<typeof ThreadSchema>
+
+export const ThreadStateSchema = z.enum([
+  "stopped",
+  "starting",
+  "idle",
+  "running",
+  "stopping",
+  "deleting",
+  "errored",
+])
+export type ThreadState = z.infer<typeof ThreadStateSchema>
+
+export const ThreadPromptContentTypeSchema = z.enum([
+  "text",
+  "image",
+  "audio",
+  "resource-link",
+  "embedded-resource",
+])
+export type ThreadPromptContentType = z.infer<typeof ThreadPromptContentTypeSchema>
+
+export const ThreadCapabilitiesSchema = z.object({
+  changeCwd: z.boolean(),
+  changeRoots: z.boolean(),
+  configure: z.boolean(),
+  fork: z.object({
+    assistantMessage: z.boolean(),
+    threadHead: z.boolean(),
+    userMessage: z.boolean(),
+  }),
+  promptContent: z.array(ThreadPromptContentTypeSchema),
+  rewind: z.object({ userMessage: z.boolean() }),
+  harnessExtensions: z.boolean(),
+  steer: z.boolean(),
+})
+export type ThreadCapabilities = z.infer<typeof ThreadCapabilitiesSchema>
+
+export const ThreadActiveTurnSchema = z.object({
+  id: z.string().min(1),
+  startedAt: z.string().datetime(),
+})
+export type ThreadActiveTurn = z.infer<typeof ThreadActiveTurnSchema>
+
+export const ThreadInteractionOptionSchema = z.object({
+  description: z.string().nullable(),
+  id: z.string().min(1),
+  label: z.string().min(1),
+})
+
+export const ThreadQuestionSchema = z.object({
+  custom: z.boolean(),
+  header: z.string().min(1),
+  id: z.string().min(1).optional(),
+  multiple: z.boolean(),
+  options: z.array(ThreadInteractionOptionSchema),
+  question: z.string().min(1),
+  secret: z.boolean().optional(),
+})
+
+export const ThreadInteractionSchema = z.object({
+  createdAt: z.string().datetime(),
+  expiresAt: z.string().datetime().nullable(),
+  id: z.string().min(1),
+  itemId: z.string().min(1).optional(),
+  kind: z.enum(["permission", "question", "elicitation"]),
+  message: z.string(),
+  options: z.array(ThreadInteractionOptionSchema),
+  harness: z
+    .object({
+      agentId: AgentIdSchema,
+      metadata: z.json(),
+      nativeType: z.string().min(1),
+    })
+    .optional(),
+  questions: z.array(ThreadQuestionSchema).optional(),
+  title: z.string().nullable(),
+  turnId: z.string().min(1).optional(),
+})
+export type ThreadInteraction = z.infer<typeof ThreadInteractionSchema>
+
+export const ThreadViewSchema = z.object({
+  ...ThreadSchema.shape,
+  activeTurn: ThreadActiveTurnSchema.nullable(),
+  attention: z.boolean(),
+  capabilities: ThreadCapabilitiesSchema,
+  pendingInteractions: z.array(ThreadInteractionSchema),
+  state: ThreadStateSchema,
+})
+export type ThreadView = z.infer<typeof ThreadViewSchema>
 
 export const SectionSchema = z.object({
   color: z.string().nullable(),
@@ -104,6 +193,12 @@ export const ProjectMembershipRecordSchema = z.object({
   updatedAt: UnixTimestampSecondsSchema,
 })
 export type ProjectMembershipRecord = z.infer<typeof ProjectMembershipRecordSchema>
+
+export const MutationWarningSchema = z.object({
+  code: z.string().min(1),
+  message: z.string(),
+})
+export type MutationWarning = z.infer<typeof MutationWarningSchema>
 
 export const SectionMembershipRecordSchema = z.object({
   createdAt: UnixTimestampSecondsSchema,
@@ -274,7 +369,10 @@ export const ProjectListResponseSchema = response(
 )
 export const ProjectUpdateResponseSchema = response("project.update.response", ProjectSchema)
 export const ProjectMoveResponseSchema = response("project.move.response", emptySchema)
-export const ProjectDeleteResponseSchema = response("project.delete.response", emptySchema)
+export const ProjectDeleteResponseSchema = response(
+  "project.delete.response",
+  z.object({ affectedThreads: z.int().nonnegative(), warnings: z.array(MutationWarningSchema) })
+)
 export const ProjectItemGetResponseSchema = response(
   "project.item.get.response",
   ProjectMembershipSchema.nullable()
@@ -285,9 +383,16 @@ export const ProjectItemListResponseSchema = response(
 )
 export const ProjectItemMoveResponseSchema = response(
   "project.item.move.response",
-  ProjectMembershipSchema
+  z.object({
+    membership: ProjectMembershipSchema,
+    thread: ThreadViewSchema,
+    warnings: z.array(MutationWarningSchema),
+  })
 )
-export const ProjectItemRemoveResponseSchema = response("project.item.remove.response", emptySchema)
+export const ProjectItemRemoveResponseSchema = response(
+  "project.item.remove.response",
+  z.object({ thread: ThreadViewSchema, warnings: z.array(MutationWarningSchema) })
+)
 export const ProjectMembershipListResponseSchema = response(
   "project.membership.list.response",
   pageSchema(ProjectMembershipRecordSchema)

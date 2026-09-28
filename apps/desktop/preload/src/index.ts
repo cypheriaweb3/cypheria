@@ -120,6 +120,8 @@ const cypheriaApi: CypheriaPreloadApi = {
     openProject: (projectId) =>
       ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.appProjectOpen, { projectId }),
     gitFileAction: (input) => ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.appGitFileAction, input),
+    workspaceFileAction: (input) =>
+      ipcRenderer.invoke(CYPHERIA_IPC_CHANNELS.appWorkspaceFileAction, input),
   },
   // Only the main window allows <webview>; the popout window does not host browser tabs.
   ...(readWindowRole() === "main" ? { browser: browserApi } : {}),

@@ -1098,7 +1098,7 @@ export class GitService {
       const page = await this.#threads.list({ archived: false, cursor, limit: 200 })
       for (const thread of page.data) {
         protectedOwnerThreadIds.push(thread.id)
-        if (thread.cwd) protectedPaths.push(thread.cwd)
+        protectedPaths.push(...thread.roots)
       }
       cursor = page.nextCursor
     } while (cursor)
@@ -1370,14 +1370,16 @@ export class GitService {
       if (!worktree.active) throw new Error("Restore the worktree before assigning a thread")
       await this.#threadRepository(cwd, threadId)
       const thread = await this.#threads?.get(threadId)
-      if (!thread?.cwd || (await realpath(thread.cwd)) !== (await realpath(path))) {
+      const threadCwd = thread?.roots[0]
+      if (!threadCwd || (await realpath(threadCwd)) !== (await realpath(path))) {
         throw new Error("The thread is not in this worktree")
       }
     } else if (worktree.ownerThreadId && this.#threads) {
       const owner = await this.#threads.get(worktree.ownerThreadId).catch(() => null)
       if (
-        owner?.cwd &&
-        (await realpath(owner.cwd).catch(() => null)) === (await realpath(path).catch(() => null))
+        owner?.roots[0] &&
+        (await realpath(owner.roots[0]).catch(() => null)) ===
+          (await realpath(path).catch(() => null))
       ) {
         throw new Error("Move the owner thread before releasing this worktree")
       }
@@ -1402,10 +1404,11 @@ export class GitService {
     const repository = await this.discover(cwd)
     await this.#threadRepository(cwd, threadId)
     const thread = await this.#threads.get(threadId)
-    if (!thread.cwd || thread.activeTurn || thread.pendingInteractions.length) {
+    const threadCwd = thread.roots[0]
+    if (!threadCwd || thread.activeTurn || thread.pendingInteractions.length) {
       throw new Error("Finish the current turn before moving the thread")
     }
-    const sourceRoot = (await this.discover(thread.cwd)).root
+    const sourceRoot = (await this.discover(threadCwd)).root
     const worktrees = await this.#worktrees.list(repository)
     const targetPath = await realpath(path).catch(() => path)
     const destination = worktrees.find((entry) => entry.path === targetPath)
@@ -1418,7 +1421,7 @@ export class GitService {
     if (source?.ownerThreadId && source.ownerThreadId !== threadId) {
       throw new Error("Another thread owns the source worktree")
     }
-    const sourceCwd = await realpath(thread.cwd)
+    const sourceCwd = await realpath(threadCwd)
     const relativeCwd = relative(sourceRoot, sourceCwd)
     if (relativeCwd === ".." || relativeCwd.startsWith(`..${sep}`) || isAbsolute(relativeCwd)) {
       throw new Error("The thread working directory is outside its Git worktree")
@@ -1449,7 +1452,7 @@ export class GitService {
       await this.cleanupManagedWorktrees(repository.root, [targetPath]).catch(() => undefined)
       return
     }
-    const previousCwd = thread.cwd
+    const previousCwd = threadCwd
     if (copyChanges) await this.#worktrees.copyLocalChanges(sourceRoot, targetPath)
     await this.#threads.moveWorkingDirectory(threadId, destinationCwd)
     let targetAssigned = false
@@ -2019,9 +2022,10 @@ export class GitService {
   async #threadRepository(cwd: string, threadId: string) {
     if (!this.#threads) throw new Error("A local Thread is required")
     const thread = await this.#threads.get(threadId)
-    if (!thread.cwd) throw new Error("The Thread does not have a working directory")
+    const threadCwd = thread.roots[0]
+    if (!threadCwd) throw new Error("The Thread does not have a working directory")
     const repository = await this.discover(cwd)
-    const threadRepository = await this.discover(thread.cwd)
+    const threadRepository = await this.discover(threadCwd)
     if (threadRepository.commonGitDir !== repository.commonGitDir) {
       throw new Error("The Thread belongs to another Git repository")
     }

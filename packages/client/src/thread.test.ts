@@ -1,3 +1,4 @@
+import { encodeFileTransferFrame } from "@cypheria/protocol"
 import { describe, expect, it, vi } from "vitest"
 
 import type { ServerClient } from "./server-client.js"
@@ -11,6 +12,7 @@ const thread = {
   attention: false,
   capabilities: {
     changeCwd: true,
+    changeRoots: true,
     configure: false,
     fork: { assistantMessage: false, threadHead: false, userMessage: false },
     promptContent: ["text" as const],
@@ -19,7 +21,7 @@ const thread = {
     steer: false,
   },
   createdAt: 100,
-  cwd: null,
+  roots: ["/repo"],
   forkedFromId: null,
   id: "01984de2-8f74-7c91-a3b2-5c5e937cf319",
   pendingInteractions: [],
@@ -31,6 +33,45 @@ const thread = {
 }
 
 describe("thread actions", () => {
+  it("assembles streamed binary workspace files", async () => {
+    const streamId = "01984de2-8f74-7c91-a3b2-5c5e937cf400"
+    let binaryHandler: ((frame: ReturnType<typeof encodeFileTransferFrame>) => void) | undefined
+    const requestThread = vi.fn(async (type: string) => {
+      binaryHandler?.(encodeFileTransferFrame(streamId, new Uint8Array([1, 2]), false))
+      binaryHandler?.(encodeFileTransferFrame(streamId, new Uint8Array([3]), true))
+      return {
+        payload: {
+          ok: true as const,
+          value: {
+            kind: "binary" as const,
+            mimeType: "image/png",
+            modifiedAt: new Date().toISOString(),
+            path: "image.png",
+            root: "/repo",
+            sizeBytes: 3,
+            streamId,
+            version: "v1",
+          },
+        },
+        requestId: "test",
+        type: type.replace(/\.request$/, ".response"),
+      }
+    })
+    const actions = createThreadActions({
+      requestThread,
+      subscribeBinaryFrames: vi.fn((handler) => {
+        binaryHandler = handler
+        return () => {
+          binaryHandler = undefined
+        }
+      }),
+    } as unknown as ServerClient)
+
+    await expect(
+      actions.files.read({ path: "image.png", root: "/repo", threadId: thread.id })
+    ).resolves.toMatchObject({ bytes: new Uint8Array([1, 2, 3]), kind: "binary", streamId })
+  })
+
   it("reads the Server-owned full-history summary", async () => {
     const summary = {
       epoch: "01984de2-8f74-7c91-a3b2-5c5e937cf300",

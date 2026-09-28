@@ -129,6 +129,11 @@ type SidebarSort = "priority" | "updated" | "created" | "manual"
 type SectionDialogState =
   | { mode: "create"; target?: { id: string; kind: "project" | "thread" } }
   | { mode: "edit"; section: SidebarSectionView }
+type ProjectMoveState = {
+  perform: () => Promise<boolean>
+  target: SidebarProjectView | null
+  thread: SidebarThreadView
+}
 
 const virtualNavigationItems = [
   {
@@ -246,6 +251,7 @@ export function ChatSidebar({
   } | null>(null)
   const [archivingSection, setArchivingSection] = useState<SidebarSectionView | null>(null)
   const [mutationError, setMutationError] = useState<string | null>(null)
+  const [projectMove, setProjectMove] = useState<ProjectMoveState | null>(null)
   const [dragging, setDragging] = useState<SidebarDragItem | null>(null)
   const [optimisticRows, setOptimisticRows] = useState<readonly ChatSidebarRow[] | null>(null)
   const unreadIds = useAtomValue(unreadThreadIdsAtom)
@@ -347,11 +353,13 @@ export function ChatSidebar({
         return {
           agentId: thread.agentId,
           attention: thread.attention,
+          capabilities: thread.capabilities,
           createdAt: thread.createdAt,
-          cwd: thread.cwd ?? "",
+          cwd: thread.roots[0] ?? "",
           id: thread.id,
           position: thread.position,
           projectId: projectByThread.get(thread.id) ?? null,
+          roots: thread.roots,
           recencyAt: thread.recencyAt,
           sectionId: membership?.sectionId ?? null,
           sectionName: section?.name ?? null,
@@ -582,8 +590,34 @@ export function ChatSidebar({
     thread: SidebarThreadView,
     projectId: string | null,
     beforeThreadId?: string | null
-  ) =>
-    runSidebarMutation(() => sidebarData.moveThreadToProject(thread.id, projectId, beforeThreadId))
+  ) => {
+    const perform = () =>
+      runSidebarMutation(() =>
+        sidebarData.moveThreadToProject(thread.id, projectId, beforeThreadId)
+      )
+    if (thread.projectId === projectId) return perform()
+    setProjectMove({
+      perform,
+      target: projects.find((project) => project.id === projectId) ?? null,
+      thread,
+    })
+    return Promise.resolve(false)
+  }
+  const confirmProjectMove = (
+    threadId: string,
+    projectId: string | null,
+    perform: () => Promise<boolean>
+  ) => {
+    const thread = allThreads.find((candidate) => candidate.id === threadId)
+    if (!thread) return Promise.resolve(false)
+    if (thread.projectId === projectId) return perform()
+    setProjectMove({
+      perform,
+      target: projects.find((project) => project.id === projectId) ?? null,
+      thread,
+    })
+    return Promise.resolve(false)
+  }
   const forkThread = (thread: SidebarThreadView) =>
     runSidebarMutation(async () => {
       const fork = await sidebarData.forkThread(thread.id)
@@ -619,18 +653,20 @@ export function ChatSidebar({
       } else if (target.section === "projects" && source.type === "project") {
         await optimisticMutation(() => sidebarData.moveItemToSection(item, null))
       } else if (target.section === "recents" && source.type === "thread") {
-        await optimisticMutation(async () => {
-          await sidebarData.moveItemToSection(item, null)
-          await sidebarData.moveThreadToProject(source.id, null)
-          await sidebarData.moveThread(source.id, null)
-        })
+        await confirmProjectMove(source.id, null, () =>
+          optimisticMutation(async () => {
+            await sidebarData.moveItemToSection(item, null)
+            await sidebarData.moveThreadToProject(source.id, null)
+            await sidebarData.moveThread(source.id, null)
+          })
+        )
       }
       return
     }
     if (target.kind === "project") {
       if (source.type === "thread") {
-        await optimisticMutation(() =>
-          sidebarData.moveThreadToProject(source.id, target.project.id)
+        await confirmProjectMove(source.id, target.project.id, () =>
+          optimisticMutation(() => sidebarData.moveThreadToProject(source.id, target.project.id))
         )
       } else if (target.project.sectionId) {
         await optimisticMutation(() =>
@@ -660,8 +696,14 @@ export function ChatSidebar({
       return
     }
     if (target.parentProjectId) {
-      await optimisticMutation(() =>
-        sidebarData.moveThreadToProject(source.id, target.parentProjectId ?? null, target.thread.id)
+      await confirmProjectMove(source.id, target.parentProjectId, () =>
+        optimisticMutation(() =>
+          sidebarData.moveThreadToProject(
+            source.id,
+            target.parentProjectId ?? null,
+            target.thread.id
+          )
+        )
       )
     } else if (target.thread.sectionId) {
       await optimisticMutation(() =>
@@ -671,11 +713,13 @@ export function ChatSidebar({
         })
       )
     } else {
-      await optimisticMutation(async () => {
-        await sidebarData.moveItemToSection(item, null)
-        await sidebarData.moveThreadToProject(source.id, null)
-        await sidebarData.moveThread(source.id, target.thread.id)
-      })
+      await confirmProjectMove(source.id, null, () =>
+        optimisticMutation(async () => {
+          await sidebarData.moveItemToSection(item, null)
+          await sidebarData.moveThreadToProject(source.id, null)
+          await sidebarData.moveThread(source.id, target.thread.id)
+        })
+      )
     }
   }
   const handleDragStart = (event: DragStartEvent) => {
@@ -765,7 +809,7 @@ export function ChatSidebar({
                         sections={sections}
                         onArchiveSection={setArchivingSection}
                         onCopyThread={(kind, thread) => {
-                          if (kind === "cwd") void copyText(thread.cwd)
+                          if (kind === "cwd") void copyText(thread.roots[0] ?? "")
                           if (kind === "link")
                             void copyText(`cypheria://app/?thread=${encodeURIComponent(thread.id)}`)
                           if (kind === "markdown") void copyThreadMarkdown(thread)
@@ -845,6 +889,15 @@ export function ChatSidebar({
         </DragDropProvider>
       </TooltipProvider>
       <ProjectCreateDialog onOpenChange={setProjectDialogOpen} open={projectDialogOpen} />
+      <ProjectWorkspaceMoveDialog
+        move={projectMove}
+        onConfirm={async () => {
+          if (!projectMove) return
+          const succeeded = await projectMove.perform()
+          if (succeeded) setProjectMove(null)
+        }}
+        onOpenChange={(open) => !open && setProjectMove(null)}
+      />
       <ProjectEditDialog
         project={projectDialog?.kind === "edit" ? projectDialog.project : null}
         onDelete={async (project) => {
@@ -1730,7 +1783,7 @@ function ThreadMenu({
           <DropdownMenuSubContent className="min-w-52 rounded-2xl p-1.5">
             <DropdownMenuItem
               className="py-1.5"
-              disabled={!thread.cwd}
+              disabled={!thread.roots[0]}
               onClick={() => onCopy("cwd")}
             >
               <Trans id="navigation.copyWorkingDirectory">Copy working directory</Trans>
@@ -2040,6 +2093,146 @@ function DeleteSectionDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+function ProjectWorkspaceMoveDialog({
+  move,
+  onConfirm,
+  onOpenChange,
+}: Readonly<{
+  move: ProjectMoveState | null
+  onConfirm: () => Promise<void>
+  onOpenChange: (open: boolean) => void
+}>) {
+  const [pending, setPending] = useState(false)
+  const targetRoots = move?.target?.roots ?? []
+  const currentRoots = move?.thread.roots ?? []
+  const movingToProjectless = move != null && move.target === null
+  const cwdChanges = move != null && (movingToProjectless || currentRoots[0] !== targetRoots[0])
+  const added = targetRoots.filter((root) => !currentRoots.includes(root))
+  const removed = currentRoots.filter((root) => !targetRoots.includes(root))
+  const active = move?.thread.status === "active"
+  const unsupported =
+    move != null &&
+    (!move.thread.capabilities.changeRoots || (cwdChanges && !move.thread.capabilities.changeCwd))
+  const confirm = async () => {
+    setPending(true)
+    try {
+      await onConfirm()
+    } finally {
+      setPending(false)
+    }
+  }
+  return (
+    <Dialog open={move != null} onOpenChange={onOpenChange}>
+      <DialogContent className="rounded-2xl">
+        <DialogHeader>
+          <DialogTitle>
+            <Trans id="navigation.changeThreadWorkspace">Change workspace directories?</Trans>
+          </DialogTitle>
+          <DialogDescription>
+            <Trans id="navigation.changeThreadWorkspaceDescription">
+              Moving this chat changes the directories available to its Agent and Files panel.
+            </Trans>
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3 text-sm">
+          {cwdChanges ? (
+            <div className="rounded-xl border border-destructive/40 bg-destructive/10 p-3">
+              <p className="font-semibold text-destructive">
+                <Trans id="navigation.currentDirectoryWillChange">
+                  The current working directory will change.
+                </Trans>
+              </p>
+              <p className="mt-1 break-all text-muted-foreground">
+                {currentRoots[0] ?? "—"} →{" "}
+                {movingToProjectless ? "New projectless folder" : targetRoots[0]}
+              </p>
+            </div>
+          ) : null}
+          {move?.thread.projectId === null && move.target ? (
+            <p className="rounded-xl border p-3 text-muted-foreground">
+              <Trans id="navigation.projectlessDirectoryCleanupWarning">
+                The old projectless directory will be deleted after the move when no other chat uses
+                it.
+              </Trans>
+            </p>
+          ) : null}
+          {movingToProjectless ? (
+            <p className="rounded-xl border p-3 text-muted-foreground">
+              <Trans id="navigation.projectlessDirectoryCreationWarning">
+                Cypheria will create a new projectless folder containing work and outputs
+                directories.
+              </Trans>
+            </p>
+          ) : null}
+          {!movingToProjectless && (added.length > 0 || removed.length > 0) ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <WorkspaceRootChanges
+                empty={<Trans id="navigation.noWorkspaceDirectories">None</Trans>}
+                label={<Trans id="navigation.addedWorkspaceDirectories">Added</Trans>}
+                roots={added}
+              />
+              <WorkspaceRootChanges
+                empty={<Trans id="navigation.noWorkspaceDirectories">None</Trans>}
+                label={<Trans id="navigation.removedWorkspaceDirectories">Removed</Trans>}
+                roots={removed}
+              />
+            </div>
+          ) : null}
+          {active || unsupported ? (
+            <p className="rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-destructive">
+              {active ? (
+                <Trans id="navigation.finishTurnBeforeWorkspaceMove">
+                  Finish the current turn before changing workspace directories.
+                </Trans>
+              ) : (
+                <Trans id="navigation.agentCannotChangeWorkspace">
+                  This Agent cannot change workspace directories after the chat is created.
+                </Trans>
+              )}
+            </p>
+          ) : null}
+        </div>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Trans id="chat.cancel">Cancel</Trans>
+          </Button>
+          <Button
+            disabled={pending || active || unsupported}
+            type="button"
+            onClick={() => void confirm()}
+          >
+            {pending ? <LoaderCircle aria-hidden="true" className="animate-spin" /> : null}
+            <Trans id="navigation.moveChat">Move chat</Trans>
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function WorkspaceRootChanges({
+  empty,
+  label,
+  roots,
+}: Readonly<{ empty: ReactNode; label: ReactNode; roots: string[] }>) {
+  return (
+    <div className="min-w-0 rounded-xl border p-3">
+      <p className="font-medium">{label}</p>
+      {roots.length > 0 ? (
+        <ul className="mt-1 space-y-1 text-muted-foreground">
+          {roots.map((root) => (
+            <li className="break-all" key={root}>
+              {root}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-1 text-muted-foreground">{empty}</p>
+      )}
+    </div>
   )
 }
 

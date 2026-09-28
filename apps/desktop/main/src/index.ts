@@ -37,6 +37,7 @@ import {
   appProjectOpenContract,
   appProjectRevealContract,
   appSoundPickContract,
+  appWorkspaceFileActionContract,
   browserActiveSetContract,
   browserAttachedRegisterContract,
   browserAutomationExecuteContract,
@@ -669,6 +670,35 @@ const registerIpcHandlers = (
     await copyFile(source, destination.filePath)
     return { completed: true }
   })
+  registerIpcRoute(
+    appWorkspaceFileActionContract,
+    async ({ action, path, root: requestedRoot, threadId }) => {
+      const thread = await client.threads.get(threadId)
+      const root = resolve(requestedRoot)
+      if (!thread.roots.includes(root)) throw new Error("Workspace root is unavailable")
+      if (isAbsolute(path) || path.includes("\0") || path.split("/").includes("..")) {
+        throw new Error("Workspace file path is invalid")
+      }
+      const rootReal = await realpath(root)
+      const source = await realpath(resolve(root, path))
+      const relativePath = relative(rootReal, source)
+      if (
+        !relativePath ||
+        relativePath === ".." ||
+        relativePath.startsWith(`..${process.platform === "win32" ? "\\" : "/"}`) ||
+        isAbsolute(relativePath) ||
+        !(await stat(source)).isFile()
+      ) {
+        throw new Error("Workspace file is unavailable")
+      }
+      if (action === "reveal") shell.showItemInFolder(source)
+      else {
+        const error = await shell.openPath(source)
+        if (error) throw new Error(error)
+      }
+      return { completed: true as const }
+    }
+  )
   registerBrowserIpc(client)
   registerIpcRoute(storageAttachmentWriteContract, ({ storageKey, bytes }) =>
     writeDesktopAttachment(app.getPath("userData"), storageKey, bytes)
@@ -704,6 +734,9 @@ const registerIpcHandlers = (
         if (nextPreferences.projectlessWorkspaceRoot) {
           await mkdir(nextPreferences.projectlessWorkspaceRoot, { recursive: true })
         }
+        await client.server.patchConfig({
+          workspace: { projectlessRoot: nextPreferences.projectlessWorkspaceRoot },
+        })
         await stageNotificationSounds(nextPreferences)
         currentAppearanceSettings = nextAppearance
         applyNativeAppearance(mainWindow, nextAppearance)
@@ -1070,6 +1103,9 @@ const startDesktopApp = async (): Promise<void> => {
   if (currentPreferences.projectlessWorkspaceRoot) {
     await mkdir(currentPreferences.projectlessWorkspaceRoot, { recursive: true })
   }
+  await desktopClient.server.patchConfig({
+    workspace: { projectlessRoot: currentPreferences.projectlessWorkspaceRoot },
+  })
   await stageNotificationSounds(currentPreferences).catch((error: unknown) => {
     console.warn("Could not stage notification sounds", error)
   })

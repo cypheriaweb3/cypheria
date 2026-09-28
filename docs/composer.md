@@ -12,7 +12,7 @@ Other clients can use the same `@cypheria/client` APIs without sharing Desktop's
 
 ## Triggers and candidates
 
-`@` searches workspace files, existing Threads, Thread-owned browser tabs, and (for Codex) installed enabled plugins and MCP resources. `$` searches enabled Codex skills and accessible enabled Apps. Candidate lookup uses `threads.composer.suggest`; it is scoped to an existing Thread or the proposed Agent and working directory for a new Thread. The Server rechecks the selected ID at submission, including file realpath containment within the workspace and browser-tab Thread ownership. Candidate labels are display text, not authority.
+`@` searches workspace files, existing Threads, Thread-owned browser tabs, and (for Codex) installed enabled plugins and MCP resources. `$` searches enabled Codex skills and accessible enabled Apps. Candidate lookup uses `threads.composer.suggest`; it is scoped to an existing Thread or to the proposed Agent and ordered roots for a new Thread. The first root is the proposed cwd. The Server rechecks the selected ID at submission, including file realpath containment within the workspace and browser-tab Thread ownership. Candidate labels are display text, not authority.
 
 `/` is a Desktop-local command menu; it does not send an App Server skill token. Its currently executable actions are attaching a file, clearing the draft, opening a new chat, showing status, showing the goal, and requesting Codex compaction. Unselected slash text is sent literally. There is no generic arbitrary tool execution from a slash item, and no Agent selector is synthesized when the Agent does not advertise it.
 

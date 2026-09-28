@@ -32,6 +32,7 @@ const setup = async () => {
   await createProjectThreadPersistenceService(database.db).createThread({
     agentId: "codex",
     id: threadId,
+    roots: ["/thread"],
   })
   return {
     close: () => {

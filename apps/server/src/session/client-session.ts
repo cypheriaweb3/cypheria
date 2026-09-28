@@ -55,7 +55,8 @@ export type SessionHost = {
   handleProjectThreadMessage?(
     message: ClientMessage,
     send: (message: ServerMessage) => void,
-    clientId: string
+    clientId: string,
+    sendBinary: (frame: CypheriaBinaryFrame) => void
   ): Promise<boolean>
   handleIntegrationMessage?(
     message: IntegrationClientMessage,
@@ -419,7 +420,8 @@ export class ClientSession {
           (await this.#host.handleProjectThreadMessage(
             message,
             (response) => this.sendTo(source, response),
-            this.client.id
+            this.client.id,
+            (frame) => this.sendBinaryFrameTo(source, frame)
           ))
         ) {
           break

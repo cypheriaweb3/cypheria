@@ -106,6 +106,43 @@ export type SummaryCheckpoint = {
   pinned: boolean
   expanded: Record<string, boolean>
 }
+
+export type ThreadFilesCheckpoint = {
+  activeRoot: string | null
+  expandedByRoot: Record<string, string[]>
+  selectedByRoot: Record<string, string | null>
+  treeOpen: boolean
+  treeWidth: number
+}
+
+const ThreadFilesCheckpointSchema = z.object({
+  activeRoot: z.string().nullable(),
+  expandedByRoot: z.record(z.string(), z.array(z.string())),
+  selectedByRoot: z.record(z.string(), z.string().nullable()),
+  treeOpen: z.boolean(),
+  treeWidth: z.number().min(208).max(560),
+})
+const threadFilesAtoms = new Map<string, ClientStateAtom<ThreadFilesCheckpoint>>()
+export const threadFilesAtom = (threadId: string): ClientStateAtom<ThreadFilesCheckpoint> => {
+  const existing = threadFilesAtoms.get(threadId)
+  if (existing) return existing
+  const created = atomWithValidatedStorage<ThreadFilesCheckpoint>(
+    `thread-files:${threadId}`,
+    {
+      activeRoot: null,
+      expandedByRoot: {},
+      selectedByRoot: {},
+      treeOpen: true,
+      treeWidth: 352,
+    },
+    desktopClientStorage.keyValue,
+    ThreadFilesCheckpointSchema,
+    { getOnInit: true, version: 1 }
+  ) as unknown as ClientStateAtom<ThreadFilesCheckpoint>
+  threadFilesAtoms.set(threadId, created)
+  return created
+}
+
 const SummaryCheckpointSchema = z.object({
   open: z.boolean(),
   pinned: z.boolean(),

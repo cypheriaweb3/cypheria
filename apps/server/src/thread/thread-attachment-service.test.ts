@@ -28,8 +28,8 @@ describe("ThreadAttachmentService", () => {
         { id: "claude", native: true },
       ])
       const projects = createProjectThreadPersistenceService(database.db)
-      const codex = await projects.createThread({ agentId: "codex" }, 1)
-      const claude = await projects.createThread({ agentId: "claude" }, 2)
+      const codex = await projects.createThread({ agentId: "codex", roots: ["/codex"] }, 1)
+      const claude = await projects.createThread({ agentId: "claude", roots: ["/claude"] }, 2)
       const published: ServerMessage[] = []
       const service = new ThreadAttachmentService({
         persistence: createThreadAttachmentPersistenceService(database.db),

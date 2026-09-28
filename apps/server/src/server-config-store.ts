@@ -118,6 +118,7 @@ export class ServerConfigStore {
         shutdownTimeoutMs: runningConfig.shutdownTimeoutMs,
         webApp: { directory: runningConfig.webAppDir, enabled: runningConfig.webAppEnabled },
       },
+      workspace: { projectlessRoot: null },
       version: 1,
     }
     return new ServerConfigStore({
@@ -146,6 +147,8 @@ export class ServerConfigStore {
     const next = applyPersistedServerConfigPatch(this.#persisted, patch)
     if (next.git.worktreeRoot && !isAbsolute(next.git.worktreeRoot))
       throw new Error("Git worktree root must be absolute on this host")
+    if (next.workspace.projectlessRoot && !isAbsolute(next.workspace.projectlessRoot))
+      throw new Error("Projectless workspace root must be absolute on this host")
     loadServerConfig(this.#env, this.#resolutionOverrides, next)
     await savePersistedServerConfig(this.#configDir, next)
     this.#persisted = next
@@ -157,6 +160,8 @@ export class ServerConfigStore {
     const next = await loadPersistedServerConfig(this.#configDir)
     if (next.git.worktreeRoot && !isAbsolute(next.git.worktreeRoot))
       throw new Error("Git worktree root must be absolute on this host")
+    if (next.workspace.projectlessRoot && !isAbsolute(next.workspace.projectlessRoot))
+      throw new Error("Projectless workspace root must be absolute on this host")
     loadServerConfig(this.#env, this.#resolutionOverrides, next)
     this.#persisted = next
     this.#refreshRestartRequiredPaths()

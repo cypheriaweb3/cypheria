@@ -64,7 +64,11 @@ Project 组织 workspace roots 和有序 Thread membership。Thread 是持久 Ag
 
 Project 与 Section membership 也作为规范化列表资源提供。Project membership 携带 `threadId`、`projectId`、position 与 timestamps；Section membership 携带 item reference、`sectionId`、position 与 timestamps。Project、Section 和 membership mutation 会发布类型化的 created、updated、upserted 与 deleted notifications，因此客户端可以维护规范化的本地 collections，而无需 N+1 membership 读取或轮询。逻辑删除 notification 会在 tombstone 提交后、延迟物理清理前发布；排序操作会发布所有受影响记录的规范 position。
 
-当 Thread 属于某个 Project 时，其规范化后的 `cwd` 必须与 Project 已保存的某个 root 完全一致；省略 `cwd` 时使用排在首位的主要 root。持久化边界会在创建 Thread、将 Thread 移入 Project 或修改 `cwd` 时强制检查该不变量，并阻止 Project 更新移除仍被成员 Thread 使用的 root。Codex 在 start、fork、resume 和每次 turn start 时通过 `runtimeWorkspaceRoots` 接收完整且有序的 roots，但 Cypheria 不创建 Codex project、不发送原生 project ID，也不修改 Codex Thread 的 project metadata。Claude 通过 `options.additionalDirectories` 接收额外目录；声明 `session.additionalDirectories` capability 的 ACP Agent 则在 session new、fork、load 或 resume 时接收 `additionalDirectories`；两者都会先从 Project roots 中排除当前 `cwd`，剩余为空时省略该字段。OpenCode 只接收解析后的 `cwd`：创建时使用 `session.create.location.directory`，fork 与 resume 时通过 `session.move` 对齐 session directory。Cypheria 不向 OpenCode 发送 project metadata，也不创建或持久化 OpenCode project 映射。Pi 同样没有额外目录接口，因此每个 Thread 的 RPC 进程会使用解析后的 `cwd` 启动。
+`projects.roots` 是 Project 模板，`threads.roots` 则是 Thread 唯一的权威 workspace 状态；Thread 第一项 root 是其当前工作目录。创建 Project Thread 时会复制 Project 当时的 roots，之后编辑 Project 不会批量改写成员。`thread.workspace.sync` 可以在主要 root 不变且 Thread roots 仍是子集时执行静默的 additive sync，也可以执行用户确认后的 exact sync。活动 turn 会阻止 workspace 修改。Project 之间的移动会原子更新 membership 与 roots；移到 projectless 时则创建包含 `work/` 和 `outputs/` 的托管目录。Projectless Thread 移入 Project 后，只有在没有其他 projectless Thread 引用相同完整 roots 值时才删除旧托管目录。
+
+Agent capabilities 会说明创建 Thread 后能否修改 cwd 与 roots。Codex 和 Claude 在 turn start 使用最新 Thread roots；Codex 接收 `runtimeWorkspaceRoots`，Claude 接收 cwd 与 additional directories。OpenCode 与 Pi 只暴露创建时工作目录，因此拒绝之后的 workspace 修改。Agent start、resume 与 reconnect 总是使用 Thread 当前 roots 初始化。Cypheria 不创建 provider 原生 Project，也不使用 provider session ID 作为 workspace identity。
+
+`thread.files.*` 每次列出一层目录，按名称与路径搜索，读取有界 UTF-8 文本或二进制流，并提供带版本的写入、同 root 移动、隔离删除与冲突安全的恢复。每个请求都必须精确指定 Thread 的某个 root，并使用相对于 root 的路径。`thread.files.changed.notification` 用于失效受影响目录。`thread.workspace.cleanup.*` 只列出并显式删除无引用的托管 projectless 目录，绝不会自动发现或清理任意磁盘内容。
 
 列表接口有上限并使用 cursor 分页。Mutation response 返回 Server 权威值，供客户端校正乐观更新。
 

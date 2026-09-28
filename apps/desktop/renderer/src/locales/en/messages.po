@@ -2500,3 +2500,95 @@ msgstr "Stop background process?"
 #. js-lingui-explicit-id
 msgid "chat.summary.cancel"
 msgstr "Cancel"
+
+#. js-lingui-explicit-id
+msgid "navigation.changeThreadWorkspace"
+msgstr "Change workspace directories?"
+
+#. js-lingui-explicit-id
+msgid "navigation.changeThreadWorkspaceDescription"
+msgstr "Moving this chat also updates the working directory and workspace directories used by future Agent turns."
+
+#. js-lingui-explicit-id
+msgid "navigation.currentDirectoryWillChange"
+msgstr "The current working directory will change. This affects future commands and Agent actions."
+
+#. js-lingui-explicit-id
+msgid "navigation.projectlessDirectoryCleanupWarning"
+msgstr "The old projectless workspace directory will be deleted when no other chat references it."
+
+#. js-lingui-explicit-id
+msgid "navigation.projectlessDirectoryCreationWarning"
+msgstr "The current working directory will change to a new managed projectless directory containing work/ and outputs/."
+
+#. js-lingui-explicit-id
+msgid "navigation.noWorkspaceDirectories"
+msgstr "None"
+
+#. js-lingui-explicit-id
+msgid "navigation.addedWorkspaceDirectories"
+msgstr "Added"
+
+#. js-lingui-explicit-id
+msgid "navigation.removedWorkspaceDirectories"
+msgstr "Removed"
+
+#. js-lingui-explicit-id
+msgid "navigation.finishTurnBeforeWorkspaceMove"
+msgstr "Finish the current turn before changing the workspace."
+
+#. js-lingui-explicit-id
+msgid "navigation.agentCannotChangeWorkspace"
+msgstr "This Agent cannot make the required workspace changes after the chat is created."
+
+#. js-lingui-explicit-id
+msgid "navigation.moveChat"
+msgstr "Move chat"
+
+#. js-lingui-explicit-id
+msgid "files.undoDelete"
+msgstr "Undo delete"
+
+#. js-lingui-explicit-id
+msgid "files.open"
+msgstr "Open"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.sync"
+msgstr "Sync to project workspace directories"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.syncConfirm"
+msgstr "Change this thread's workspace directories?"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.cwdWarning"
+msgstr "Important: the current working directory will change. Future commands and Agent turns will run from the new first directory."
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.syncAction"
+msgstr "Sync"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.active"
+msgstr "Finish the current turn before changing directories."
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.unsupported"
+msgstr "This Agent cannot change workspace directories after creation."
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.directories"
+msgstr "Workspace directories"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.cwd"
+msgstr "Current working directory"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.added"
+msgstr "Added"
+
+#. js-lingui-explicit-id
+msgid "chat.summary.workspace.removed"
+msgstr "Removed"

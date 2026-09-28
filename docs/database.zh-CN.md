@@ -38,6 +38,8 @@ Cypheria UUIDv7 标识 Projects、Threads 和 Sections。Thread 拥有一个不�
 
 Project、Thread 与 Section 采用分阶段删除。Server 先提交 `deleted_at`，使资源从普通读取中消失；再执行 Agent 或依赖清理；最后物理删除 row。Thread lifecycle receipt 让失败的 Agent 删除可在启动时重试。带 tombstone 的 Projects 与 Sections 会在启动时及每五分钟的清理周期中重试。Cypheria Project 身份只在 Cypheria 内部使用，不映射到 Codex 或 OpenCode project。
 
+`projects.roots` 是 Project 的有序 workspace 模板。`threads.roots` 是单个 Thread 的权威 workspace，其中第一项就是该 Thread 的当前工作目录。两列都保存非空、已规范化、已去重的绝对路径 JSON 数组。编辑 Project 不会重写成员 Threads；membership 移动会在一个事务中同时更新 membership 与 Thread roots。数据库为完整序列化的 `threads.roots` 建立索引，因此共享同一托管 root 的 projectless Threads 可以在不增加新表的情况下执行引用计数。
+
 排序列在所属 scope 中非负且唯一。Membership move 和 compaction 在事务中执行，客户端不会观察到重复 position。
 
 `thread_attachments` 保存 Thread 与外部 pull request 或托管 worktree 之间由 Server 掌握的权威关系。Pull request 使用规范化的 provider、host、repository 与 number 身份，可关联多个 Threads；一个托管 worktree UUID 只能属于一个 Thread。两个查询方向都使用 cursor 分页，删除遵循 Thread foreign key，修改会发布类型化通知，使 Desktop、Expo、Web 与 CLI 无需浏览器本地关联状态也能收敛。该模型与 `agent_id` 无关。

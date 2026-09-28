@@ -40,7 +40,7 @@ Renderer 将 Projects、Sections、Project memberships 和 Section memberships �
 - Project Threads 保持嵌套，并支持展开、分页和“显示更多”。
 - 协议允许时，选择、创建、重命名、归档、删除、固定、取消固定、拖放、跨 Section 移动和排序保持可用。
 
-Project 编辑器会展示有序的源目录列表。排在首位的 root 是主要 root，并作为 Thread 的默认 `cwd`；用户保存前可以添加、移除目录，或将另一个 root 设为主要目录。若某个 root 仍是 Project Thread 的 `cwd`，Server 校验会拒绝将其移除。
+Project 编辑器展示有序 workspace roots 模板，第一项是 Project 的主要目录。保存只会修改 Project，现有 Threads 保留各自的 roots。Thread Summary 会列出 workspace directories、标识当前工作目录，在 Thread 空闲时静默应用安全的 additive Project roots，并为其他差异提供 **Sync to project workspace directories**。确认框会醒目标出 cwd 变化，并分别列出新增与移除 roots。Sidebar 菜单与拖放移动会在改变 Project membership 前使用相同警告。活动 turn 或缺少所需 cwd/root capability 的 Agent 会禁用这些修改。
 
 Pinned 与自定义 Sections 按 Server 定义的混合顺序渲染，因此 Projects 与独立 Threads 保持交错。Sidebar 拖放使用 dnd-kit，并为 Sections、Projects、Project Threads 和 Section 混合条目发送对应的 `before...` 位置提示。Priority 排序依次考虑未读、需要关注、运行中和最近更新的 Threads。Thread 行无需打开会话即可显示运行、失败和停止状态。
 - 上下文菜单、键盘导航、未读状态和运行状态保持可见。
@@ -77,6 +77,10 @@ AgentChatWorkspace
   ├─ CommonComposer
   └─ SharedPanels
 ```
+
+正式 Files 面板始终反映所选 Thread 的 roots。它保留 `@pierre/trees`，只在打开 root 或目录时加载直接子项，并支持请求合并、取消、Server 分页读取、按通知定点刷新，以及可取消的名称／路径搜索。文本写入使用 opaque version；二进制预览通过协议二进制流传递，不把字节嵌入 JSON。删除会把条目移入 Server quarantine 并提供一次恢复操作；projectless workspace 的生命周期删除与之分离。Root 选择、选中文件、展开目录、树可见性和树宽度按 Thread 保存在 Desktop 本地状态。
+
+Projectless Thread 使用一个托管 root，其直接用途目录为 `work/` 与 `outputs/`。Root 本身是 Thread cwd，这两个子目录不是额外 roots。General 中的 projectless folder 设置会同步到本地 Server，并影响之后创建的托管 workspace。残留托管目录只能通过显式 cleanup 操作删除。
 
 该体验的能力归属与后端选择规则详见[本地 Git 设计](git.zh-CN.md)。
 

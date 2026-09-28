@@ -29,6 +29,15 @@ export type ProjectThreadPage<T> = {
   readonly nextCursor: string | null
 }
 
+type SuccessValue<Message> = Message extends { payload: infer Payload }
+  ? Payload extends { ok: true; value: infer Value }
+    ? Value
+    : never
+  : never
+type ExtractReady<T extends ProjectThreadServerMessage["type"]> = SuccessValue<
+  Extract<ProjectThreadServerMessage, { type: T }>
+>
+
 const unwrap = <T>(message: ProjectThreadServerMessage): T => {
   const payload = message.payload as ResultPayload<T>
   if (payload.ok) return payload.value
@@ -39,7 +48,10 @@ const unwrap = <T>(message: ProjectThreadServerMessage): T => {
 
 export interface ProjectActions {
   create(input: Payload<"project.create.request">, options?: RequestOptions): Promise<Project>
-  delete(projectId: string, options?: RequestOptions): Promise<void>
+  delete(
+    projectId: string,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"project.delete.response">>
   get(projectId: string, options?: RequestOptions): Promise<Project>
   getThreadProject(threadId: string, options?: RequestOptions): Promise<ProjectMembership | null>
   list(
@@ -58,8 +70,11 @@ export interface ProjectActions {
   moveThread(
     input: Payload<"project.item.move.request">,
     options?: RequestOptions
-  ): Promise<ProjectMembership>
-  removeThread(threadId: string, options?: RequestOptions): Promise<void>
+  ): Promise<ExtractReady<"project.item.move.response">>
+  removeThread(
+    threadId: string,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"project.item.remove.response">>
   update(input: Payload<"project.update.request">, options?: RequestOptions): Promise<Project>
 }
 
@@ -109,9 +124,7 @@ export const createProjectThreadActions = (client: ServerClient): ProjectThreadA
   return {
     projects: {
       create: (input, options) => request("project.create.request", input, options),
-      delete: async (projectId, options) => {
-        await request("project.delete.request", { projectId }, options)
-      },
+      delete: (projectId, options) => request("project.delete.request", { projectId }, options),
       get: (projectId, options) => request("project.read.request", { projectId }, options),
       getThreadProject: (threadId, options) =>
         request("project.item.get.request", { threadId }, options),
@@ -123,9 +136,8 @@ export const createProjectThreadActions = (client: ServerClient): ProjectThreadA
         await request("project.move.request", input, options)
       },
       moveThread: (input, options) => request("project.item.move.request", input, options),
-      removeThread: async (threadId, options) => {
-        await request("project.item.remove.request", { threadId }, options)
-      },
+      removeThread: (threadId, options) =>
+        request("project.item.remove.request", { threadId }, options),
       update: (input, options) => request("project.update.request", input, options),
     },
     sections: {
