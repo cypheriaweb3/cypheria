@@ -282,7 +282,6 @@ export class ScheduleService {
       if (target.type === "new-thread") {
         const created = await this.#threadManager.create({
           agentId: target.agentId,
-          cwd: target.cwd,
           title: target.title,
         })
         createdThreadId = created.thread.id

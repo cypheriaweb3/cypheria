@@ -105,7 +105,7 @@ export type CreateThreadInput = {
   readonly agentId: string
   readonly agentSessionId?: string | null
   readonly beforeThreadId?: string | null
-  readonly cwd?: string | null
+  readonly roots: readonly string[]
   readonly forkedFromId?: string | null
   readonly id?: string
   readonly projectPlacement?: ProjectPlacement
@@ -206,12 +206,18 @@ export type ProjectThreadPersistenceService = {
     input: { beforeThreadId?: string | null; projectId: string; threadId: string },
     now?: number
   ): Promise<ProjectMembershipView>
+  countProjectlessRootReferences(root: string): Promise<number>
+  deleteProjectToProjectless(
+    projectId: string,
+    assignments: readonly { roots: readonly string[]; threadId: string }[],
+    now?: number
+  ): Promise<void>
   pinItem(
     input: { beforeItem?: SectionItemRef | null; item: SectionItemRef },
     now?: number
   ): Promise<SectionMembershipView>
   removeItemFromSection(item: SectionItemRef, now?: number): Promise<void>
-  removeThreadFromProject(threadId: string, now?: number): Promise<void>
+  removeThreadFromProject(threadId: string, roots: readonly string[], now?: number): Promise<void>
   purgeProject(projectId: string, now?: number): Promise<void>
   purgeSection(sectionId: string, now?: number): Promise<void>
   purgeThread(threadId: string, now?: number): Promise<void>
@@ -221,6 +227,7 @@ export type ProjectThreadPersistenceService = {
     now?: number
   ): Promise<ThreadRecord>
   touchThreadRecency(threadId: string, recencyAt: number, now?: number): Promise<ThreadRecord>
+  syncThreadRootsToProject(threadId: string, now?: number): Promise<ThreadRecord>
   unpinItem(item: SectionItemRef, now?: number): Promise<void>
   updateProject(
     projectId: string,
@@ -234,7 +241,7 @@ export type ProjectThreadPersistenceService = {
   ): Promise<SectionRecord>
   updateThread(
     threadId: string,
-    patch: { cwd?: string | null; title?: string | null },
+    patch: { roots?: readonly string[]; title?: string | null },
     now?: number
   ): Promise<ThreadRecord>
 }
@@ -276,26 +283,16 @@ const parseName = (value: string): string => {
 
 const parseRoots = (values: readonly string[]): string[] => {
   if (values.length === 0) {
-    throw new ProjectThreadPersistenceError("INVALID_ROOTS", "A project requires at least one root")
+    throw new ProjectThreadPersistenceError("INVALID_ROOTS", "Workspace roots must not be empty")
   }
   const roots = [...new Set(values.map((value) => normalize(value.trim())))]
   if (roots.some((root) => !isAbsolute(root))) {
-    throw new ProjectThreadPersistenceError("INVALID_ROOTS", "Project roots must be absolute paths")
-  }
-  return roots
-}
-
-const assertThreadCwdMatchesProjectRoots = (
-  thread: Pick<ThreadRecord, "cwd">,
-  roots: readonly string[]
-): void => {
-  const cwd = thread.cwd?.trim()
-  if (!cwd || !isAbsolute(cwd) || !roots.includes(normalize(cwd))) {
     throw new ProjectThreadPersistenceError(
-      "THREAD_CWD_OUTSIDE_PROJECT",
-      "Thread cwd must match one of the project workspace roots"
+      "INVALID_ROOTS",
+      "Workspace roots must be absolute paths"
     )
   }
+  return roots
 }
 
 const parseLimit = (value = PAGE_LIMIT): number => {
@@ -763,8 +760,7 @@ const moveThreadToProjectInTransaction = async (
   now: number
 ): Promise<ProjectMembershipView> => {
   const project = await requireProject(db, input.projectId)
-  const thread = await requireThread(db, input.threadId)
-  assertThreadCwdMatchesProjectRoots(thread, project.roots)
+  await requireThread(db, input.threadId)
   const existing = await findProjectItem(db, input.threadId)
   const oldProjectId = existing?.projectId
   let targetIds = await projectItemIdsByPosition(db, project.id)
@@ -807,6 +803,10 @@ const moveThreadToProjectInTransaction = async (
     threadId: input.threadId,
     updatedAt: now,
   })
+  await db
+    .update(threads)
+    .set({ roots: project.roots, updatedAt: now })
+    .where(eq(threads.id, input.threadId))
   await reindexProjectItems(db, project.id, ordered, now)
   await recomputeProjectRecency(db, project.id, now)
   const saved = await findProjectItem(db, input.threadId)
@@ -908,7 +908,6 @@ export const createProjectThreadPersistenceService = (
         archivedAt: null,
         createdAt: now,
         deletedAt: null,
-        cwd: input.cwd ?? null,
         forkedFromId: input.forkedFromId ?? null,
         id,
         position: ids.length,
@@ -917,6 +916,7 @@ export const createProjectThreadPersistenceService = (
             ? null
             : parseTimestamp(input.recencyAt),
         title: input.title ?? null,
+        roots: parseRoots(input.roots),
         updatedAt: now,
       })
       await reindexThreads(
@@ -977,6 +977,56 @@ export const createProjectThreadPersistenceService = (
       section,
       updatedAt: membership.updatedAt,
     }
+  },
+  countProjectlessRootReferences: async (root) => {
+    const normalizedRoots = parseRoots([root])
+    const [record] = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(threads)
+      .leftJoin(projectItems, eq(projectItems.threadId, threads.id))
+      .where(
+        and(
+          eq(threads.roots, normalizedRoots),
+          isNull(threads.deletedAt),
+          isNull(projectItems.threadId)
+        )
+      )
+    return Number(record?.count ?? 0)
+  },
+  deleteProjectToProjectless: async (projectId, assignments, nowValue = nowSeconds()) => {
+    const now = parseNow(nowValue)
+    const id = parseId(projectId)
+    await db.transaction(async (tx) => {
+      await requireProject(tx, id)
+      const memberIds = await projectItemIdsByPosition(tx, id)
+      const assignedIds = assignments.map(({ threadId }) => parseId(threadId))
+      if (
+        memberIds.length !== assignedIds.length ||
+        memberIds.some((threadId) => !assignedIds.includes(threadId))
+      ) {
+        throw new ProjectThreadPersistenceError(
+          "PROJECT_MEMBERSHIP_CHANGED",
+          "Project membership changed while preparing workspace directories"
+        )
+      }
+      for (const assignment of assignments) {
+        await tx
+          .update(threads)
+          .set({ roots: parseRoots(assignment.roots), updatedAt: now })
+          .where(eq(threads.id, parseId(assignment.threadId)))
+      }
+      const sectionMembership = await findSectionItem(tx, { id, type: "project" })
+      await tx.delete(projects).where(eq(projects.id, id))
+      await reindexProjects(tx, await projectIdsByPosition(tx), now)
+      if (sectionMembership) {
+        await reindexSectionItems(
+          tx,
+          sectionMembership.sectionId,
+          await sectionItemIdsByPosition(tx, sectionMembership.sectionId),
+          now
+        )
+      }
+    })
   },
   getProject: (projectId) => loadProject(db, parseId(projectId)),
   getSection: (sectionId) => loadSection(db, parseId(sectionId)),
@@ -1341,19 +1391,23 @@ export const createProjectThreadPersistenceService = (
       )
     })
   },
-  removeThreadFromProject: async (threadId, nowValue = nowSeconds()) => {
+  removeThreadFromProject: async (threadId, rootsValue, nowValue = nowSeconds()) => {
     const now = parseNow(nowValue)
+    const roots = parseRoots(rootsValue)
     await db.transaction(async (tx) => {
-      const item = await findProjectItem(tx, parseId(threadId))
-      if (!item) return
-      await tx.delete(projectItems).where(eq(projectItems.threadId, item.threadId))
-      await reindexProjectItems(
-        tx,
-        item.projectId,
-        await projectItemIdsByPosition(tx, item.projectId),
-        now
-      )
-      await recomputeProjectRecency(tx, item.projectId, now)
+      const thread = await requireThread(tx, parseId(threadId))
+      const item = await findProjectItem(tx, thread.id)
+      if (item) {
+        await tx.delete(projectItems).where(eq(projectItems.threadId, item.threadId))
+        await reindexProjectItems(
+          tx,
+          item.projectId,
+          await projectItemIdsByPosition(tx, item.projectId),
+          now
+        )
+        await recomputeProjectRecency(tx, item.projectId, now)
+      }
+      await tx.update(threads).set({ roots, updatedAt: now }).where(eq(threads.id, thread.id))
     })
   },
   purgeProject: async (projectId, nowValue = nowSeconds()) => {
@@ -1465,6 +1519,25 @@ export const createProjectThreadPersistenceService = (
       return requireThread(tx, thread.id)
     })
   },
+  syncThreadRootsToProject: async (threadId, nowValue = nowSeconds()) => {
+    const now = parseNow(nowValue)
+    return db.transaction(async (tx) => {
+      const thread = await requireThread(tx, threadId)
+      const membership = await findProjectItem(tx, thread.id)
+      if (!membership) {
+        throw new ProjectThreadPersistenceError(
+          "THREAD_NOT_IN_PROJECT",
+          "Thread does not belong to a project"
+        )
+      }
+      const project = await requireProject(tx, membership.projectId)
+      await tx
+        .update(threads)
+        .set({ roots: project.roots, updatedAt: now })
+        .where(eq(threads.id, thread.id))
+      return requireThread(tx, thread.id)
+    })
+  },
   unpinItem: async (item, nowValue = nowSeconds()) => {
     const now = parseNow(nowValue)
     await db.transaction(async (tx) => {
@@ -1485,14 +1558,6 @@ export const createProjectThreadPersistenceService = (
     return db.transaction(async (tx) => {
       await requireProject(tx, id)
       const roots = patch.roots === undefined ? undefined : parseRoots(patch.roots)
-      if (roots) {
-        const members = await tx
-          .select({ cwd: threads.cwd })
-          .from(projectItems)
-          .innerJoin(threads, eq(projectItems.threadId, threads.id))
-          .where(eq(projectItems.projectId, id))
-        for (const member of members) assertThreadCwdMatchesProjectRoots(member, roots)
-      }
       const [record] = await tx
         .update(projects)
         .set({
@@ -1533,17 +1598,11 @@ export const createProjectThreadPersistenceService = (
     const now = parseNow(nowValue)
     return db.transaction(async (tx) => {
       const thread = await requireThread(tx, threadId)
-      if (patch.cwd !== undefined) {
-        const membership = await findProjectItem(tx, thread.id)
-        if (membership) {
-          const project = await requireProject(tx, membership.projectId)
-          assertThreadCwdMatchesProjectRoots({ cwd: patch.cwd }, project.roots)
-        }
-      }
+      const roots = patch.roots === undefined ? undefined : parseRoots(patch.roots)
       const [record] = await tx
         .update(threads)
         .set({
-          ...(patch.cwd === undefined ? {} : { cwd: patch.cwd }),
+          ...(roots === undefined ? {} : { roots }),
           ...(patch.title === undefined ? {} : { title: patch.title }),
           updatedAt: now,
         })

@@ -140,7 +140,7 @@ export class ThreadConversationController {
     if (content.length === 0) return
     const client = this.#requireClient()
     try {
-      const thread = await this.#ensureThread(client)
+      const thread = await this.#ensureThread(client, content)
       const clientMessageId = globalThis.crypto.randomUUID()
       if (mode === "queue") {
         if (thread.agentId !== "codex") throw new Error("Queued follow-ups require Codex")
@@ -298,17 +298,25 @@ export class ThreadConversationController {
     )
   }
 
-  async #ensureThread(client: CypheriaClient): Promise<ThreadView> {
+  async #ensureThread(
+    client: CypheriaClient,
+    initialContent: readonly ThreadInputBlock[]
+  ): Promise<ThreadView> {
     if (this.#snapshot.thread) return this.#snapshot.thread
+    const initialTitle = initialContent
+      .find((block): block is Extract<ThreadInputBlock, { type: "text" }> => block.type === "text")
+      ?.text.trim()
+      .replace(/\s+/gu, " ")
+      .slice(0, 80)
     const ready = await client.threads.create({
       agentId: this.#options.agentId,
-      cwd: this.#cwd ?? null,
       ...(this.#options.projectId
         ? { projectPlacement: { projectId: this.#options.projectId } }
         : {}),
       ...(this.#options.sectionId
         ? { sectionPlacement: { sectionId: this.#options.sectionId } }
         : {}),
+      ...(initialTitle ? { title: initialTitle } : {}),
     })
     this.#epoch = ready.timeline.epoch
     this.#set({

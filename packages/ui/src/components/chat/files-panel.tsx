@@ -9,6 +9,7 @@ import {
 import type {
   ContextMenuItem,
   ContextMenuOpenContext,
+  FileTreeDirectoryHandle,
   FileTree as FileTreeModel,
   FileTreeMutationEvent,
   FileTreeOptions,
@@ -111,6 +112,7 @@ export interface ChatFilesPanelLabels extends ChatFilePreviewLabels {
   readonly newFolder: string
   readonly open: string
   readonly rename: string
+  readonly resizeTree: string
   readonly root: string
   readonly save: string
   readonly showPreview: string
@@ -132,6 +134,7 @@ const defaultLabels: ChatFilesPanelLabels = {
   open: "Open",
   previewUnavailable: "No preview is available for this file.",
   rename: "Rename",
+  resizeTree: "Resize file tree",
   root: "Workspace folder",
   save: "Save",
   showPreview: "Show preview",
@@ -156,6 +159,12 @@ type ChatFilesPanelProps = Omit<HTMLAttributes<HTMLDivElement>, "children"> & {
   fileLoading?: boolean
   /** Enables create, rename, drag-and-drop move, and delete. Receives the resulting path list. */
   onPathsChange?: (paths: string[], mutations: readonly ChatFileTreeMutation[]) => void
+  /** Directories whose children have not been loaded yet. */
+  unloadedDirectories?: readonly string[]
+  onDirectoryExpand?: (path: string) => void
+  expandedPaths?: readonly string[]
+  onExpandedPathsChange?: (paths: string[]) => void
+  onFilterChange?: (query: string) => void
   /** Enables editing the open file. */
   onFileSave?: (file: { readonly contents: string; readonly path: string }) => void
   onCopyPath?: (path: string) => void
@@ -166,7 +175,8 @@ type ChatFilesPanelProps = Omit<HTMLAttributes<HTMLDivElement>, "children"> & {
   /** Trailing header content, such as an open-in-application menu. */
   headerActions?: ReactNode
   labels?: Partial<ChatFilesPanelLabels>
-  treeWidth?: string
+  treeWidth?: number | string
+  onTreeWidthChange?: (width: number) => void
 }
 
 /** Bridges Cypheria theme tokens into the tree's shadow root through inherited custom properties. */
@@ -248,13 +258,19 @@ export function ChatFilesPanel({
   labels,
   onActiveRootChange,
   onCopyPath,
+  onDirectoryExpand,
+  expandedPaths,
+  onExpandedPathsChange,
   onFileSave,
+  onFilterChange,
   onPathsChange,
   onSelectedPathChange,
   onTreeOpenChange,
+  onTreeWidthChange,
   paths,
   roots,
   selectedPath,
+  unloadedDirectories,
   treeOpen: treeOpenProp,
   treeWidth = "clamp(13rem, 34%, 22rem)",
   ...props
@@ -264,6 +280,7 @@ export function ChatFilesPanel({
   const [uncontrolledTreeOpen, setUncontrolledTreeOpen] = useState(defaultTreeOpen)
   const treeOpen = treeOpenProp ?? uncontrolledTreeOpen
   const [filter, setFilter] = useState("")
+  const [liveTreeWidth, setLiveTreeWidth] = useState(treeWidth)
   const [editingPath, setEditingPath] = useState<string | null>(null)
   const discardEdit = useRef(false)
   const openFile = file && file.path === selectedPath ? file : null
@@ -280,6 +297,8 @@ export function ChatFilesPanel({
         : modeOverride?.path === openFile?.path
           ? modeOverride.mode
           : "preview"
+
+  useEffect(() => setLiveTreeWidth(treeWidth), [treeWidth])
 
   const setTreeOpen = (open: boolean) => {
     if (treeOpenProp === undefined) setUncontrolledTreeOpen(open)
@@ -381,9 +400,65 @@ export function ChatFilesPanel({
           <aside
             aria-label={text.tree}
             data-slot="chat-files-tree"
-            className="flex h-full w-(--chat-files-tree-width) shrink-0 flex-col border-l"
-            style={{ "--chat-files-tree-width": treeWidth } as CSSProperties}
+            className="relative flex h-full w-(--chat-files-tree-width) shrink-0 flex-col border-l"
+            style={
+              {
+                "--chat-files-tree-width":
+                  typeof liveTreeWidth === "number" ? `${liveTreeWidth}px` : liveTreeWidth,
+              } as CSSProperties
+            }
           >
+            {onTreeWidthChange ? (
+              <hr
+                aria-label={text.resizeTree}
+                aria-orientation="vertical"
+                aria-valuemax={560}
+                aria-valuemin={208}
+                aria-valuenow={typeof liveTreeWidth === "number" ? Math.round(liveTreeWidth) : 352}
+                className="absolute inset-y-0 -left-1 z-10 w-2 cursor-col-resize"
+                onKeyDown={(event) => {
+                  const current = typeof liveTreeWidth === "number" ? liveTreeWidth : 352
+                  const next =
+                    event.key === "ArrowLeft"
+                      ? Math.min(560, current + 16)
+                      : event.key === "ArrowRight"
+                        ? Math.max(208, current - 16)
+                        : event.key === "Home"
+                          ? 208
+                          : event.key === "End"
+                            ? 560
+                            : null
+                  if (next === null) return
+                  event.preventDefault()
+                  setLiveTreeWidth(next)
+                  onTreeWidthChange(next)
+                }}
+                onPointerDown={(event) => {
+                  event.currentTarget.setPointerCapture(event.pointerId)
+                  const panelRight =
+                    event.currentTarget.parentElement?.getBoundingClientRect().right
+                  if (panelRight === undefined) return
+                  let finalWidth =
+                    typeof liveTreeWidth === "number"
+                      ? liveTreeWidth
+                      : (event.currentTarget.parentElement?.getBoundingClientRect().width ?? 352)
+                  const resize = (pointer: PointerEvent) => {
+                    finalWidth = Math.min(560, Math.max(208, panelRight - pointer.clientX))
+                    setLiveTreeWidth(finalWidth)
+                  }
+                  const stop = () => {
+                    window.removeEventListener("pointermove", resize)
+                    window.removeEventListener("pointerup", stop)
+                    window.removeEventListener("pointercancel", stop)
+                    onTreeWidthChange(finalWidth)
+                  }
+                  window.addEventListener("pointermove", resize)
+                  window.addEventListener("pointerup", stop, { once: true })
+                  window.addEventListener("pointercancel", stop, { once: true })
+                }}
+                tabIndex={0}
+              />
+            ) : null}
             <div className="shrink-0 border-b p-2">
               <Select
                 disabled={!onActiveRootChange}
@@ -420,9 +495,15 @@ export function ChatFilesPanel({
                 </InputGroupAddon>
                 <InputGroupInput
                   aria-label={text.filter}
-                  onChange={(event) => setFilter(event.target.value)}
+                  onChange={(event) => {
+                    setFilter(event.target.value)
+                    onFilterChange?.(event.target.value)
+                  }}
                   onKeyDown={(event) => {
-                    if (event.key === "Escape") setFilter("")
+                    if (event.key === "Escape") {
+                      setFilter("")
+                      onFilterChange?.("")
+                    }
                   }}
                   placeholder={text.filter}
                   type="search"
@@ -436,11 +517,15 @@ export function ChatFilesPanel({
               gitStatus={gitStatus}
               labels={text}
               onCopyPath={onCopyPath}
+              onDirectoryExpand={onDirectoryExpand}
+              expandedPaths={expandedPaths}
+              onExpandedPathsChange={onExpandedPathsChange}
               onPathsChange={onPathsChange}
               onSelectedPathChange={onSelectedPathChange}
               paths={paths}
               selectedPath={selectedPath}
               themeMode={themeMode}
+              unloadedDirectories={unloadedDirectories}
             />
           </aside>
         )}
@@ -484,30 +569,62 @@ function ChatFilesBreadcrumb({ path, root }: { path?: string | null; root?: stri
 
 type ChatFilesTreeProps = Pick<
   ChatFilesPanelProps,
-  "gitStatus" | "onCopyPath" | "onPathsChange" | "onSelectedPathChange" | "paths" | "selectedPath"
+  | "expandedPaths"
+  | "gitStatus"
+  | "onCopyPath"
+  | "onExpandedPathsChange"
+  | "onPathsChange"
+  | "onSelectedPathChange"
+  | "paths"
+  | "selectedPath"
 > & {
   filter: string
   labels: ChatFilesPanelLabels
   themeMode: "dark" | "light"
+  unloadedDirectories?: readonly string[]
+  onDirectoryExpand?: (path: string) => void
 }
 
 function ChatFilesTree({
+  expandedPaths,
   filter,
   gitStatus,
   labels,
   onCopyPath,
+  onDirectoryExpand,
+  onExpandedPathsChange,
   onPathsChange,
   onSelectedPathChange,
   paths,
   selectedPath,
   themeMode,
+  unloadedDirectories,
 }: ChatFilesTreeProps) {
   const mutable = onPathsChange !== undefined
   const knownPaths = useRef<readonly string[]>(paths)
-  const handlers = useRef({ onPathsChange, onSelectedPathChange })
-  useLayoutEffect(() => {
-    handlers.current = { onPathsChange, onSelectedPathChange }
+  const handlers = useRef({
+    onDirectoryExpand,
+    onExpandedPathsChange,
+    onPathsChange,
+    onSelectedPathChange,
   })
+  useLayoutEffect(() => {
+    handlers.current = {
+      onDirectoryExpand,
+      onExpandedPathsChange,
+      onPathsChange,
+      onSelectedPathChange,
+    }
+  })
+  const unloadedRef = useRef(new Set(unloadedDirectories))
+  const requestedDirectories = useRef(new Set<string>())
+  const reportedExpandedPaths = useRef<readonly string[]>(expandedPaths ?? [])
+  useLayoutEffect(() => {
+    unloadedRef.current = new Set(unloadedDirectories)
+    for (const path of requestedDirectories.current) {
+      if (!unloadedRef.current.has(path)) requestedDirectories.current.delete(path)
+    }
+  }, [unloadedDirectories])
 
   const { model } = useFileTree({
     dragAndDrop: mutable,
@@ -516,10 +633,13 @@ function ChatFilesTree({
     gitStatus,
     icons: { colored: true, set: "complete" },
     initialExpansion: 1,
-    ...(selectedPath
+    ...(expandedPaths || selectedPath
       ? {
-          initialExpandedPaths: ancestorPaths(selectedPath),
-          initialSelectedPaths: [selectedPath],
+          initialExpandedPaths: [
+            ...(expandedPaths ?? []),
+            ...(selectedPath ? ancestorPaths(selectedPath) : []),
+          ],
+          ...(selectedPath ? { initialSelectedPaths: [selectedPath] } : {}),
         }
       : {}),
     ...(filter ? { initialSearchQuery: filter } : {}),
@@ -544,14 +664,45 @@ function ChatFilesTree({
   )
 
   useEffect(() => {
+    const loadExpandedDirectories = () => {
+      for (const row of model.getVisibleRows(0, model.getVisibleCount())) {
+        if (
+          row.kind !== "directory" ||
+          !row.isExpanded ||
+          !unloadedRef.current.has(row.path) ||
+          requestedDirectories.current.has(row.path)
+        ) {
+          continue
+        }
+        requestedDirectories.current.add(row.path)
+        handlers.current.onDirectoryExpand?.(row.path)
+      }
+      const expanded = paths.filter((path) => {
+        if (!isChatDirectoryPath(path)) return false
+        const item = model.getItem(path)
+        if (!item?.isDirectory()) return false
+        return (item as FileTreeDirectoryHandle).isExpanded()
+      })
+      if (!samePathSet(expanded, reportedExpandedPaths.current)) {
+        reportedExpandedPaths.current = expanded
+        handlers.current.onExpandedPathsChange?.(expanded)
+      }
+    }
+    loadExpandedDirectories()
+    return model.subscribe(loadExpandedDirectories)
+  }, [model, paths])
+
+  useEffect(() => {
     if (samePathSet(paths, knownPaths.current)) return
     knownPaths.current = paths
-    const expanded = model
-      .getVisibleRows(0, model.getVisibleCount())
-      .filter((row) => row.isExpanded)
-      .map((row) => row.path)
+    const expanded =
+      expandedPaths ??
+      model
+        .getVisibleRows(0, model.getVisibleCount())
+        .filter((row) => row.isExpanded)
+        .map((row) => row.path)
     model.resetPaths(paths, { initialExpandedPaths: expanded })
-  }, [model, paths])
+  }, [expandedPaths, model, paths])
 
   useEffect(() => {
     model.setSearch(filter.trim() || null)

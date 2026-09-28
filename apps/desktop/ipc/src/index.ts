@@ -47,6 +47,7 @@ export const CYPHERIA_IPC_CHANNELS = {
   appProjectReveal: "app.project.reveal",
   appProjectOpen: "app.project.open",
   appGitFileAction: "app.git-file.action",
+  appWorkspaceFileAction: "app.workspace-file.action",
   browserActiveSet: CYPHERIA_BROWSER_CHANNELS.activeSet,
   browserAttachedRegister: CYPHERIA_BROWSER_CHANNELS.attachedRegister,
   browserAutomationExecute: CYPHERIA_BROWSER_CHANNELS.automationExecute,
@@ -1003,6 +1004,24 @@ export const appGitFileActionContract = {
   { completed: boolean }
 >
 
+export const appWorkspaceFileActionContract = {
+  channel: CYPHERIA_IPC_CHANNELS.appWorkspaceFileAction,
+  namespace: "app",
+  request: z
+    .object({
+      action: z.enum(["open", "reveal"]),
+      path: z.string().min(1),
+      root: z.string().min(1),
+      threadId: z.string().min(1),
+    })
+    .strict(),
+  response: z.object({ completed: z.literal(true) }).strict(),
+  version: IPC_PROTOCOL_VERSION,
+} satisfies IpcContract<
+  { action: "open" | "reveal"; path: string; root: string; threadId: string },
+  { completed: true }
+>
+
 export const dappProviderRequestContract = {
   channel: CYPHERIA_IPC_CHANNELS.dappProviderRequest,
   namespace: "dapp",
@@ -1317,6 +1336,7 @@ export const ipcContracts = {
   appProjectReveal: appProjectRevealContract,
   appProjectOpen: appProjectOpenContract,
   appGitFileAction: appGitFileActionContract,
+  appWorkspaceFileAction: appWorkspaceFileActionContract,
   browserActiveSet: browserActiveSetContract,
   browserAttachedRegister: browserAttachedRegisterContract,
   browserAutomationExecute: browserAutomationExecuteContract,
@@ -1373,6 +1393,12 @@ export type CypheriaPreloadApi = {
       path: string
       action: "open" | "save"
     }) => Promise<{ completed: boolean }>
+    readonly workspaceFileAction: (input: {
+      action: "open" | "reveal"
+      path: string
+      root: string
+      threadId: string
+    }) => Promise<{ completed: true }>
   }
   /** Present only in the main window, whose renderer may host `<webview>` browser tabs. */
   readonly browser?: {

@@ -1,4 +1,4 @@
-import type { ThreadView } from "@cypheria/protocol"
+import type { Project, ThreadView } from "@cypheria/protocol"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,6 +35,7 @@ import { useThreadAttachments } from "../thread-attachments.js"
 import type { WorkspaceTerminalsController } from "./workspace-terminal.js"
 
 type Props = {
+  project?: Project
   thread: ThreadView | null
   open: boolean
   mode: ChatSummaryMode
@@ -46,6 +47,7 @@ type Props = {
 }
 
 export function CodexSummary({
+  project,
   thread,
   open,
   mode,
@@ -91,6 +93,29 @@ export function CodexSummary({
   })
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({})
   const [processError, setProcessError] = useState<string | null>(null)
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null)
+  const projectRoots = project?.roots ?? []
+  const rootsEqual =
+    Boolean(project) &&
+    thread?.roots.length === projectRoots.length &&
+    thread.roots.every((root, index) => root === projectRoots[index])
+  const safeAdditive =
+    project && thread
+      ? thread.roots[0] === projectRoots[0] &&
+        thread.roots.every((root) => projectRoots.includes(root))
+      : false
+  const showWorkspaceSync = Boolean(
+    project && thread && !rootsEqual && !(safeAdditive && thread.capabilities.changeRoots)
+  )
+  const cwdChanged = Boolean(thread && project && thread.roots[0] !== project.roots[0])
+  const addedRoots = projectRoots.filter((root) => !thread?.roots.includes(root))
+  const removedRoots = (thread?.roots ?? []).filter((root) => !projectRoots.includes(root))
+  const workspaceMutable =
+    Boolean(thread) &&
+    !thread?.activeTurn &&
+    thread?.state !== "running" &&
+    Boolean(thread?.capabilities.changeRoots) &&
+    (!cwdChanged || Boolean(thread?.capabilities.changeCwd))
 
   useEffect(() => {
     if (!open || !threadId) return
@@ -352,6 +377,140 @@ export function CodexSummary({
         </button>
       </ChatSummaryHeader>
       <ChatSummaryBody>
+        {showWorkspaceSync ? (
+          <div className="border-b p-2">
+            <AlertDialog>
+              <AlertDialogTrigger
+                disabled={!workspaceMutable}
+                render={
+                  <button
+                    className="w-full rounded-md border px-2 py-1.5 text-left text-xs font-medium hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
+                    type="button"
+                  />
+                }
+              >
+                {i18n._(
+                  msg({
+                    id: "chat.summary.workspace.sync",
+                    message: "Sync to project workspace directories",
+                  })
+                )}
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>
+                    {i18n._(
+                      msg({
+                        id: "chat.summary.workspace.syncConfirm",
+                        message: "Change this thread's workspace directories?",
+                      })
+                    )}
+                  </AlertDialogTitle>
+                  <AlertDialogDescription>
+                    <span className="block space-y-3">
+                      {cwdChanged ? (
+                        <span className="block rounded-md border border-destructive/50 bg-destructive/10 p-3 font-medium text-foreground">
+                          {i18n._(
+                            msg({
+                              id: "chat.summary.workspace.cwdWarning",
+                              message:
+                                "Important: the current working directory will change. Future commands and Agent turns will run from the new first directory.",
+                            })
+                          )}
+                        </span>
+                      ) : null}
+                      {addedRoots.length ? (
+                        <span className="block">
+                          {i18n._(msg({ id: "chat.summary.workspace.added", message: "Added" }))}:{" "}
+                          {addedRoots.join(", ")}
+                        </span>
+                      ) : null}
+                      {removedRoots.length ? (
+                        <span className="block">
+                          {i18n._(
+                            msg({ id: "chat.summary.workspace.removed", message: "Removed" })
+                          )}
+                          : {removedRoots.join(", ")}
+                        </span>
+                      ) : null}
+                    </span>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>
+                    {i18n._(msg({ id: "chat.summary.cancel", message: "Cancel" }))}
+                  </AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => {
+                      if (!thread) return
+                      setWorkspaceError(null)
+                      void ensureCypheriaClient()
+                        .then((client) =>
+                          client.threads.workspace.sync({
+                            mode: "project-exact",
+                            threadId: thread.id,
+                          })
+                        )
+                        .catch((error) =>
+                          setWorkspaceError(error instanceof Error ? error.message : String(error))
+                        )
+                    }}
+                  >
+                    {i18n._(msg({ id: "chat.summary.workspace.syncAction", message: "Sync" }))}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            {!workspaceMutable ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {thread?.activeTurn || thread?.state === "running"
+                  ? i18n._(
+                      msg({
+                        id: "chat.summary.workspace.active",
+                        message: "Finish the current turn before changing directories.",
+                      })
+                    )
+                  : i18n._(
+                      msg({
+                        id: "chat.summary.workspace.unsupported",
+                        message: "This Agent cannot change workspace directories after creation.",
+                      })
+                    )}
+              </p>
+            ) : null}
+            {workspaceError ? (
+              <p className="mt-1 text-xs text-destructive" role="alert">
+                {workspaceError}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+        {thread
+          ? group(
+              "workspace",
+              i18n._(
+                msg({ id: "chat.summary.workspace.directories", message: "Workspace directories" })
+              ),
+              thread.roots.length,
+              thread.roots.map((root, index) => (
+                <ChatSummaryStaticRow
+                  key={root}
+                  status={
+                    index === 0
+                      ? i18n._(
+                          msg({
+                            id: "chat.summary.workspace.cwd",
+                            message: "Current working directory",
+                          })
+                        )
+                      : undefined
+                  }
+                >
+                  {root}
+                </ChatSummaryStaticRow>
+              ))
+            )
+          : null}
         {summary.error ? (
           <ChatSummaryMessage role="alert">{summary.error.message}</ChatSummaryMessage>
         ) : null}

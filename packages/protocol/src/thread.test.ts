@@ -116,6 +116,7 @@ describe("thread protocol", () => {
       attention: false,
       capabilities: {
         changeCwd: true,
+        changeRoots: true,
         configure: true,
         fork: { assistantMessage: true, threadHead: true, userMessage: true },
         promptContent: ["text"],
@@ -124,7 +125,7 @@ describe("thread protocol", () => {
         steer: true,
       },
       createdAt: 1,
-      cwd: "/tmp/project",
+      roots: ["/tmp/project"],
       forkedFromId: null,
       id: "01996a3a-bcde-7000-8000-000000000001",
       pendingInteractions: [],

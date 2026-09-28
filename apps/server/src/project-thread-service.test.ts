@@ -32,6 +32,18 @@ describe("ProjectThreadService", () => {
       const service = new ProjectThreadService({
         persistence,
         publish: (message) => published.push(message),
+        workspace: {
+          deleteProject: async () => ({ affectedThreads: 0, warnings: [] }),
+          moveToProject: async (input) => ({
+            membership: await persistence.moveThreadToProject(input),
+            thread: await persistence.getThread(input.threadId),
+            warnings: [],
+          }),
+          removeFromProject: async (threadId) => {
+            await persistence.removeThreadFromProject(threadId, ["/tmp/projectless"])
+            return { thread: await persistence.getThread(threadId), warnings: [] }
+          },
+        },
       })
       await service.initialize()
 
@@ -68,7 +80,7 @@ describe("ProjectThreadService", () => {
         type: "project.created.notification",
       })
 
-      const thread = await persistence.createThread({ agentId: "codex", cwd: "/tmp/cypheria" })
+      const thread = await persistence.createThread({ agentId: "codex", roots: ["/tmp/thread"] })
       expect(
         (
           await dispatch({
@@ -95,7 +107,10 @@ describe("ProjectThreadService", () => {
       if (membership.type !== "project.item.move.response" || !membership.payload.ok) {
         throw new Error("Expected project membership move to succeed")
       }
-      expect(membership.payload.value).toMatchObject({ project: { id: project.id } })
+      expect(membership.payload.value).toMatchObject({
+        membership: { project: { id: project.id } },
+        thread: { roots: ["/tmp/cypheria"] },
+      })
       expect(published).toContainEqual(
         expect.objectContaining({
           payload: expect.objectContaining({ projectId: project.id, threadId: thread.id }),
@@ -127,6 +142,15 @@ describe("ProjectThreadService", () => {
       await applyDatabaseMigrations(database.client)
       const service = new ProjectThreadService({
         persistence: createProjectThreadPersistenceService(database.db),
+        workspace: {
+          deleteProject: async () => ({ affectedThreads: 0, warnings: [] }),
+          moveToProject: async () => {
+            throw new Error("not used")
+          },
+          removeFromProject: async () => {
+            throw new Error("not used")
+          },
+        },
       })
       await service.initialize()
       const sent: ServerMessage[] = []

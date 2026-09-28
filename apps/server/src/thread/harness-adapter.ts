@@ -100,6 +100,7 @@ export type { ThreadInteractionResponse }
 /** Harness-native behavior hidden behind the public Agent/Thread protocol. */
 export interface ThreadHarnessAdapter {
   readonly agentId: AgentId
+  readonly workspaceUpdateMode: "immediate" | "turn-start" | "unsupported"
   close(context: ThreadHarnessContext): Promise<void>
   create(input: ThreadHarnessCreateInput): Promise<ThreadHarnessSession>
   delete(context: ThreadHarnessContext): Promise<void>
@@ -124,6 +125,8 @@ export interface ThreadHarnessAdapter {
       readonly thinking?: string | null
     }
   ): Promise<void>
+  /** Applies workspace state immediately when `workspaceUpdateMode` is `immediate`. */
+  updateWorkspace?(context: ThreadHarnessContext): Promise<void>
   respondToInteraction(
     context: ThreadHarnessContext,
     interactionId: string,

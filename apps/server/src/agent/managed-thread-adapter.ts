@@ -68,7 +68,8 @@ const capabilities = (
   const supportsPrompt = (value: unknown): boolean =>
     acpVersion === 2 ? value != null : value === true
   return {
-    changeCwd: true,
+    changeCwd: agentId === "codex" || agentId === "claude",
+    changeRoots: agentId === "codex" || agentId === "claude",
     configure: true,
     fork: {
       assistantMessage:
@@ -625,6 +626,7 @@ const markFinalAssistantBoundaries = (
 /** Bridges existing native/raw runtimes into server-owned Thread semantics. */
 export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   readonly agentId: AgentId
+  readonly workspaceUpdateMode: "immediate" | "turn-start" | "unsupported"
   readonly #manager: AgentManager
   readonly #pending = new Map<string, Pending>()
   readonly #claudeInteractions = new Map<
@@ -650,6 +652,8 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   constructor(manager: AgentManager, agentId: AgentId) {
     this.#manager = manager
     this.agentId = agentId
+    this.workspaceUpdateMode =
+      agentId === "codex" || agentId === "claude" ? "turn-start" : "unsupported"
   }
 
   async create(input: ThreadHarnessCreateInput): Promise<ThreadHarnessSession> {

@@ -19,8 +19,8 @@ const setup = async () => {
     { id: "claude", native: true },
   ])
   const projects = createProjectThreadPersistenceService(database.db)
-  const first = await projects.createThread({ agentId: "codex" }, 1)
-  const second = await projects.createThread({ agentId: "claude" }, 2)
+  const first = await projects.createThread({ agentId: "codex", roots: ["/first"] }, 1)
+  const second = await projects.createThread({ agentId: "claude", roots: ["/second"] }, 2)
   return {
     attachments: createThreadAttachmentPersistenceService(database.db),
     close: () => {

@@ -12,7 +12,7 @@ title: Composer 输入与引用
 
 ## 触发器与候选项
 
-`@` 搜索工作区文件、现有 Thread、归属于该 Thread 的浏览器标签页，以及（Codex 下）已安装且启用的插件和 MCP 资源。`$` 搜索已启用的 Codex skills 与可访问且已启用的 Apps。候选查询使用 `threads.composer.suggest`；它限定到现有 Thread，或新 Thread 的拟用 Agent 与工作目录。Server 在提交时重新检查所选 ID，包括文件 realpath 是否仍在工作区内、浏览器标签页是否仍属于该 Thread。候选标签只用于显示，不是授权依据。
+`@` 搜索工作区文件、现有 Thread、归属于该 Thread 的浏览器标签页，以及（Codex 下）已安装且启用的插件和 MCP 资源。`$` 搜索已启用的 Codex skills 与可访问且已启用的 Apps。候选查询使用 `threads.composer.suggest`；它限定到现有 Thread，或新 Thread 的拟用 Agent 与有序 roots，其中第一项 root 是拟用 cwd。Server 在提交时重新检查所选 ID，包括文件 realpath 是否仍在工作区内、浏览器标签页是否仍属于该 Thread。候选标签只用于显示，不是授权依据。
 
 `/` 是 Desktop 本地命令菜单，不会向 App Server 发送 skill token。目前可执行的动作是附加文件、清空草稿、打开新聊天、查看状态、查看 goal，以及请求 Codex compact。未选择的斜杠文本会原样发送。斜杠项目不能执行任意工具，也不会为未声明能力的 Agent 虚构选择器。
 

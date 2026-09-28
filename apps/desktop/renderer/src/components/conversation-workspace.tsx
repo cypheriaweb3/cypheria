@@ -31,7 +31,6 @@ import {
   ChatContextChip,
   ChatFileChange,
   ChatFileChanges,
-  ChatFilePreviewPanel,
   ChatFixedTurnSummary,
   ChatFixedTurnSummaryItem,
   ChatGeneratedImage,
@@ -198,6 +197,7 @@ import { CodexSummary } from "./codex-summary.js"
 import { ComposerModelSelector } from "./composer-model-selector.js"
 import { ContextUsage } from "./context-usage.js"
 import { GitReviewPanel } from "./git-review-panel.js"
+import { ThreadFilesPanel } from "./thread-files-panel.js"
 import { useWorkspaceTerminals, WorkspaceTerminalView } from "./workspace-terminal.js"
 
 const jsonRecord = (value: unknown): Record<string, unknown> =>
@@ -1203,6 +1203,25 @@ export function ConversationWorkspace({
   }, [controller])
 
   useEffect(() => {
+    if (!snapshot.thread || !project) return
+    let disposed = false
+    void ensureCypheriaClient()
+      .then((client) =>
+        client.threads.workspace.sync({
+          mode: "safe-additive",
+          threadId: snapshot.thread?.id as string,
+        })
+      )
+      .then((result) => {
+        if (!disposed && result.changed) void controller.refresh()
+      })
+      .catch(() => undefined)
+    return () => {
+      disposed = true
+    }
+  }, [controller, project, snapshot.thread])
+
+  useEffect(() => {
     const media = window.matchMedia?.("(min-width: 1181px)")
     if (!media) return
     const update = () => setWideViewport(media.matches)
@@ -1366,7 +1385,7 @@ export function ConversationWorkspace({
   )
 
   const gitCwd =
-    snapshot.thread?.cwd ?? project?.roots[0] ?? desktopPreferences?.projectlessWorkspaceRoot
+    snapshot.thread?.roots[0] ?? project?.roots[0] ?? desktopPreferences?.projectlessWorkspaceRoot
 
   const panelTabs = useMemo<ChatPanelTabDescriptor[]>(() => {
     if (!codex) return []
@@ -1496,22 +1515,11 @@ export function ConversationWorkspace({
         title: i18n._(msg({ id: "chat.panel.review", message: "Review" })),
       },
       {
-        content: artifacts.length ? (
-          <ChatFilePreviewPanel>
-            <ChatPanelContent>
-              {artifacts.map(({ item }) =>
-                item.type === "artifact" ? (
-                  <div className="py-2" key={item.itemId}>
-                    {item.name}
-                    <div className="truncate text-xs text-muted-foreground">{item.uri}</div>
-                  </div>
-                ) : null
-              )}
-            </ChatPanelContent>
-          </ChatFilePreviewPanel>
+        content: snapshot.thread ? (
+          <ThreadFilesPanel thread={snapshot.thread} />
         ) : (
           <EmptyPanel>
-            <Trans id="chat.panel.files.empty">No files were produced</Trans>
+            <Trans id="chat.panel.files.empty">Start the task to browse workspace files</Trans>
           </EmptyPanel>
         ),
         icon: <FileIcon />,
@@ -1599,7 +1607,7 @@ export function ConversationWorkspace({
     diffs,
     goalQuery.data,
     gitCwd,
-    snapshot.thread?.id,
+    snapshot.thread,
     i18n,
     plans,
     reviewFiles,
@@ -2319,11 +2327,7 @@ export function ConversationWorkspace({
                         const client = await ensureCypheriaClient()
                         const result = await client.threads.composer.suggest({
                           agentId: snapshot.thread ? undefined : agentId,
-                          cwd: snapshot.thread
-                            ? undefined
-                            : (project?.roots[0] ??
-                              desktopPreferences.projectlessWorkspaceRoot ??
-                              undefined),
+                          roots: snapshot.thread ? undefined : project?.roots,
                           query,
                           threadId: snapshot.thread?.id,
                           trigger,
@@ -2497,6 +2501,7 @@ export function ConversationWorkspace({
               setRightVisibility("visible")
             }}
             open={summaryCheckpoint.open}
+            project={project}
             terminals={terminals}
             thread={snapshot.thread}
           />

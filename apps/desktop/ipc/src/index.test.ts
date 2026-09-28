@@ -28,6 +28,7 @@ describe("desktop IPC contracts", () => {
       "appProjectOpen",
       "appProjectReveal",
       "appSoundPick",
+      "appWorkspaceFileAction",
       "browserActiveSet",
       "browserAttachedRegister",
       "browserAutomationExecute",

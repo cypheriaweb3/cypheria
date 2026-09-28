@@ -37,7 +37,7 @@ describe("project/thread persistence", () => {
       102
     )
     const thread = await projectThread.createThread(
-      { agentId: "codex", cwd: "/first", title: "Thread" },
+      { agentId: "codex", roots: ["/first"], title: "Thread" },
       103
     )
 
@@ -63,11 +63,11 @@ describe("project/thread persistence", () => {
       102
     )
     const firstThread = await projectThread.createThread(
-      { agentId: "codex", cwd: "/work", recencyAt: 200, title: "First" },
+      { agentId: "codex", roots: ["/work"], recencyAt: 200, title: "First" },
       103
     )
     const secondThread = await projectThread.createThread(
-      { agentId: "codex", cwd: "/work", recencyAt: 300, title: "Second" },
+      { agentId: "codex", roots: ["/work"], recencyAt: 300, title: "Second" },
       104
     )
 
@@ -128,7 +128,7 @@ describe("project/thread persistence", () => {
     const { close, projectThread } = await setup()
     const section = await projectThread.createSection({ name: "Work" }, 101)
     const project = await projectThread.createProject({ name: "Project", roots: ["/work"] }, 102)
-    const thread = await projectThread.createThread({ agentId: "codex" }, 103)
+    const thread = await projectThread.createThread({ agentId: "codex", roots: ["/thread"] }, 103)
 
     await projectThread.moveItemToSection(
       { item: { id: project.id, type: "project" }, sectionId: section.id },
@@ -194,12 +194,18 @@ describe("project/thread persistence", () => {
     const { close, projectThread } = await setup()
     const section = await projectThread.createSection({ name: "Work" }, 101)
     const project = await projectThread.createProject({ name: "Project", roots: ["/work"] }, 102)
-    const first = await projectThread.createThread({ agentId: "codex", title: "First" }, 103)
-    const second = await projectThread.createThread({ agentId: "codex", title: "Second" }, 104)
+    const first = await projectThread.createThread(
+      { agentId: "codex", roots: ["/first"], title: "First" },
+      103
+    )
+    const second = await projectThread.createThread(
+      { agentId: "codex", roots: ["/second"], title: "Second" },
+      104
+    )
     const projectThreadRecord = await projectThread.createThread(
       {
         agentId: "codex",
-        cwd: "/work",
+        roots: ["/work"],
         projectPlacement: { projectId: project.id },
         title: "Project",
       },
@@ -244,13 +250,13 @@ describe("project/thread persistence", () => {
     const { close, projectThread } = await setup()
     const project = await projectThread.createProject({ name: "Project", roots: ["/work"] }, 101)
     const parent = await projectThread.createThread(
-      { agentId: "codex", cwd: "/work", projectPlacement: { projectId: project.id } },
+      { agentId: "codex", roots: ["/work"], projectPlacement: { projectId: project.id } },
       102
     )
     const child = await projectThread.createThread(
       {
         agentId: "codex",
-        cwd: "/work",
+        roots: ["/work"],
         forkedFromId: parent.id,
         projectPlacement: { projectId: project.id },
       },
@@ -282,7 +288,7 @@ describe("project/thread persistence", () => {
     const thread = await projectThread.createThread(
       {
         agentId: "codex",
-        cwd: "/work",
+        roots: ["/work"],
         projectPlacement: { projectId: project.id },
         recencyAt: 200,
         sectionPlacement: { sectionId: section.id },
@@ -310,29 +316,24 @@ describe("project/thread persistence", () => {
     close()
   })
 
-  it("keeps every project thread cwd in the project's saved roots", async () => {
+  it("stores thread roots independently while project moves replace them atomically", async () => {
     const { close, projectThread } = await setup()
     const project = await projectThread.createProject(
       { name: "Project", roots: ["/work", "/shared"] },
       101
     )
-    const thread = await projectThread.createThread({ agentId: "codex", cwd: "/work" }, 102)
+    const thread = await projectThread.createThread(
+      { agentId: "codex", roots: ["/elsewhere"] },
+      102
+    )
 
     await expect(
       projectThread.moveThreadToProject({ projectId: project.id, threadId: thread.id }, 103)
     ).resolves.toMatchObject({ project: { id: project.id } })
-    await expect(
-      projectThread.updateThread(thread.id, { cwd: "/work/child" }, 104)
-    ).rejects.toMatchObject({ code: "THREAD_CWD_OUTSIDE_PROJECT" })
-    await expect(
-      projectThread.updateProject(project.id, { roots: ["/shared"] }, 105)
-    ).rejects.toMatchObject({ code: "THREAD_CWD_OUTSIDE_PROJECT" })
-
-    const outside = await projectThread.createThread({ agentId: "codex", cwd: "/elsewhere" }, 106)
-    await expect(
-      projectThread.moveThreadToProject({ projectId: project.id, threadId: outside.id }, 107)
-    ).rejects.toMatchObject({ code: "THREAD_CWD_OUTSIDE_PROJECT" })
-    expect(await projectThread.getThreadProject(outside.id)).toBeUndefined()
+    expect((await projectThread.getThread(thread.id))?.roots).toEqual(["/work", "/shared"])
+    await projectThread.updateThread(thread.id, { roots: ["/work/child"] }, 104)
+    await projectThread.updateProject(project.id, { roots: ["/shared"] }, 105)
+    expect((await projectThread.getThread(thread.id))?.roots).toEqual(["/work/child"])
     close()
   })
 })

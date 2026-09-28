@@ -1,3 +1,6 @@
+import { access, mkdir, rm } from "node:fs/promises"
+import { homedir } from "node:os"
+import { join, resolve, sep } from "node:path"
 import { pathToFileURL } from "node:url"
 import type {
   CreateThreadInput,
@@ -34,7 +37,10 @@ import type { InputFileService } from "./input-file-service.js"
 import { ThreadTimelineStore } from "./timeline-store.js"
 
 type Publish = (message: ServerMessage) => void
-type CreatePublicThreadInput = Omit<CreateThreadInput, "agentSessionId" | "forkedFromId" | "id">
+type CreatePublicThreadInput = Omit<
+  CreateThreadInput,
+  "agentSessionId" | "forkedFromId" | "id" | "roots"
+>
 
 type RuntimeState = {
   activeTurn: { id: string; startedAt: string; captureId?: string | null } | null
@@ -71,6 +77,7 @@ export type ThreadManagerOptions = {
   readonly messageRequests: ThreadMessageRequestPersistenceService
   readonly persistence: ProjectThreadPersistenceService
   readonly publish: Publish
+  readonly projectlessWorkspaceRoot?: string
   readonly onArchived?: (threadId: string, cwd: string) => Promise<void>
   readonly onDeleting?: (threadId: string) => Promise<void>
   readonly onUnarchiving?: (cwd: string) => Promise<void>
@@ -83,7 +90,8 @@ export type ThreadManagerOptions = {
 }
 
 const stoppedCapabilities: ThreadView["capabilities"] = {
-  changeCwd: true,
+  changeCwd: false,
+  changeRoots: false,
   configure: false,
   fork: { assistantMessage: false, threadHead: false, userMessage: false },
   promptContent: ["text"],
@@ -102,6 +110,7 @@ export class ThreadManager {
   readonly #messageRequests: ThreadMessageRequestPersistenceService
   readonly #persistence: ProjectThreadPersistenceService
   readonly #publish: Publish
+  #projectlessWorkspaceRoot: string
   readonly #onArchived: ThreadManagerOptions["onArchived"]
   readonly #onDeleting: ThreadManagerOptions["onDeleting"]
   readonly #onUnarchiving: ThreadManagerOptions["onUnarchiving"]
@@ -118,6 +127,9 @@ export class ThreadManager {
     this.#messageRequests = options.messageRequests
     this.#persistence = options.persistence
     this.#publish = options.publish
+    this.#projectlessWorkspaceRoot = resolve(
+      options.projectlessWorkspaceRoot ?? join(homedir(), "Documents", "Cypheria")
+    )
     this.#onArchived = options.onArchived
     this.#onDeleting = options.onDeleting
     this.#onUnarchiving = options.onUnarchiving
@@ -129,6 +141,10 @@ export class ThreadManager {
     for (const operation of await this.#lifecycle.listRecoverable()) {
       await this.#recover(operation)
     }
+  }
+
+  setProjectlessWorkspaceRoot(path: string): void {
+    this.#projectlessWorkspaceRoot = resolve(path)
   }
 
   async cleanupDeletedThreads(): Promise<void> {
@@ -215,6 +231,9 @@ export class ThreadManager {
         case "thread.turn.cancel.request":
           respond(await this.cancelTurn(message.payload.threadId, message.payload.turnId))
           break
+        case "thread.workspace.sync.request":
+          respond(await this.syncWorkspace(message.payload.threadId, message.payload.mode))
+          break
         case "thread.timeline.get.request":
           await this.#required(message.payload.threadId)
           respond(await this.#timeline.page(message.payload.threadId, message.payload))
@@ -272,10 +291,14 @@ export class ThreadManager {
       if (placement && !project) {
         throw new ThreadManagerError("PROJECT_NOT_FOUND", "Project was not found")
       }
-      const cwd = project ? this.#projectCwd(project.roots, input.cwd) : (input.cwd ?? null)
+      const projectlessRoot = project
+        ? null
+        : await this.#createProjectlessWorkspace(threadId, input.title)
+      const roots = project ? [...project.roots] : [projectlessRoot as string]
+      const cwd = roots[0] as string
       const operation = await this.#lifecycle.begin({
         agentId,
-        input: input as Record<string, unknown>,
+        input: { ...input, roots },
         kind: "create",
         threadId,
       })
@@ -288,7 +311,7 @@ export class ThreadManager {
           cwd,
           onEvent: (event) => this.#acceptEvent(threadId, event),
           threadId,
-          ...(project ? { workspaceRoots: project.roots } : {}),
+          workspaceRoots: roots,
         })
         harnessSessionId = session.sessionId
         await this.#lifecycle.transition(operation.id, {
@@ -298,8 +321,8 @@ export class ThreadManager {
         const thread = await this.#persistence.createThread({
           ...input,
           agentSessionId: session.sessionId,
-          cwd,
           id: threadId,
+          roots,
         })
         databaseCommitted = true
         this.#runtime.set(threadId, {
@@ -346,6 +369,9 @@ export class ThreadManager {
         } else {
           await this.#lifecycle.fail(operation.id, this.#message(error)).catch(() => undefined)
         }
+        if (!databaseCommitted && projectlessRoot) {
+          await rm(projectlessRoot, { force: true, recursive: true }).catch(() => undefined)
+        }
         throw error
       }
     })
@@ -376,23 +402,9 @@ export class ThreadManager {
     return { ...page, data: page.data.map((thread) => this.#view(thread)) }
   }
 
-  async update(
-    threadId: string,
-    patch: { cwd?: string | null; title?: string | null }
-  ): Promise<ThreadView> {
+  async update(threadId: string, patch: { title?: string | null }): Promise<ThreadView> {
     return this.#withLock(threadId, async () => {
-      if (patch.cwd !== undefined && this.#state(threadId).state !== "stopped") {
-        throw new ThreadManagerError(
-          "THREAD_ACTIVE",
-          "Thread cwd can only be changed while the thread is stopped"
-        )
-      }
-      const nextPatch = { ...patch }
-      if (patch.cwd !== undefined) {
-        const membership = await this.#persistence.getThreadProject(threadId)
-        if (membership) nextPatch.cwd = this.#projectCwd(membership.project.roots, patch.cwd)
-      }
-      const updated = await this.#persistence.updateThread(threadId, nextPatch)
+      const updated = await this.#persistence.updateThread(threadId, patch)
       const view = await this.#updateAndPublish(updated)
       if (patch.title !== undefined) {
         await this.#adapterFor(updated.agentId as AgentId, updated.id)
@@ -415,99 +427,216 @@ export class ThreadManager {
     })
   }
 
+  /** Internal Git worktree handoff. Public Thread workspace changes use membership or sync APIs. */
   async moveWorkingDirectory(threadId: string, cwd: string): Promise<ThreadView> {
     return this.#withLock(threadId, async () => {
       const thread = await this.#required(threadId)
-      if (thread.agentId !== "codex" || !thread.agentSessionId || !thread.cwd) {
-        throw new ThreadManagerError("THREAD_AGENT_MISMATCH", "A local Codex thread is required")
-      }
       const runtime = this.#state(threadId)
-      if (
-        runtime.activeTurn ||
-        runtime.pendingInteractions.size > 0 ||
-        (runtime.state !== "idle" && runtime.state !== "stopped")
-      ) {
+      this.#assertWorkspaceMutationAllowed(thread, runtime)
+      const nextCwd = resolve(cwd)
+      if (thread.roots[0] === nextCwd) return this.#view(thread)
+      const capabilities = this.#capabilities(thread, runtime)
+      if (!capabilities.changeCwd || !capabilities.changeRoots) {
         throw new ThreadManagerError(
-          "THREAD_ACTIVE",
-          "Finish the current turn before moving the thread"
+          "THREAD_WORKSPACE_UNSUPPORTED",
+          "This Agent cannot change the thread workspace after creation"
         )
       }
-      if (thread.cwd === cwd) return this.#view(thread)
-      const membership = await this.#persistence.getThreadProject(threadId)
-      const nextCwd = membership ? this.#projectCwd(membership.project.roots, cwd) : cwd
-      const wasIdle = runtime.state === "idle"
-      const adapter = this.#adapterFor("codex", threadId)
-      if (wasIdle) {
-        runtime.state = "stopping"
-        this.#updateAndPublishSync(thread)
-        try {
-          await adapter.close(this.#context(thread))
-        } catch (error) {
-          runtime.state = "errored"
-          this.#updateAndPublishSync(thread)
-          throw error
-        }
-        runtime.state = "stopped"
+      const roots = [nextCwd, ...thread.roots.slice(1).filter((root) => root !== nextCwd)]
+      const updated = await this.#commitWorkspaceMutation(thread, roots, () =>
+        this.#persistence.updateThread(threadId, { roots })
+      )
+      return this.#updateAndPublishSync(updated)
+    })
+  }
+
+  async syncWorkspace(
+    threadId: string,
+    mode: "safe-additive" | "project-exact"
+  ): Promise<{ changed: boolean; thread: ThreadView }> {
+    return this.#withLock(threadId, async () => this.#syncWorkspaceUnlocked(threadId, mode))
+  }
+
+  async moveToProject(input: {
+    beforeThreadId?: string | null
+    projectId: string
+    threadId: string
+  }) {
+    return this.#withLock(input.threadId, async () => {
+      const thread = await this.#required(input.threadId)
+      const runtime = this.#state(thread.id)
+      this.#assertWorkspaceMutationAllowed(thread, runtime)
+      const project = await this.#persistence.getProject(input.projectId)
+      if (!project) throw new ThreadManagerError("PROJECT_NOT_FOUND", "Project was not found")
+      const cwdChanged = thread.roots[0] !== project.roots[0]
+      const capabilities = this.#capabilities(thread, runtime)
+      const rootsChanged =
+        thread.roots.length !== project.roots.length ||
+        thread.roots.some((root, index) => root !== project.roots[index])
+      if (rootsChanged && (!capabilities.changeRoots || (cwdChanged && !capabilities.changeCwd))) {
+        throw new ThreadManagerError(
+          "THREAD_WORKSPACE_UNSUPPORTED",
+          "This Agent cannot change the thread workspace after creation"
+        )
       }
-      let moved: ThreadRecord | null = null
+      const previous = await this.#persistence.getThreadProject(thread.id)
+      const projectlessRoot = !previous && thread.roots.length === 1 ? thread.roots[0] : undefined
+      const membership = rootsChanged
+        ? await this.#commitWorkspaceMutation(thread, project.roots, () =>
+            this.#persistence.moveThreadToProject(input)
+          )
+        : await this.#persistence.moveThreadToProject(input)
+      const updated = await this.#required(thread.id)
+      const warnings: Array<{ code: string; message: string }> = []
+      if (
+        projectlessRoot &&
+        this.#isManagedProjectlessRoot(projectlessRoot) &&
+        (await this.#persistence.countProjectlessRootReferences(projectlessRoot)) === 0
+      ) {
+        await rm(projectlessRoot, { force: true, recursive: true }).catch((error) => {
+          warnings.push({ code: "WORKSPACE_CLEANUP_FAILED", message: this.#message(error) })
+        })
+      }
+      return { membership, thread: this.#updateAndPublishSync(updated), warnings }
+    })
+  }
+
+  async removeFromProject(threadId: string) {
+    return this.#withLock(threadId, async () => {
+      const thread = await this.#required(threadId)
+      const runtime = this.#state(thread.id)
+      this.#assertWorkspaceMutationAllowed(thread, runtime)
+      const membership = await this.#persistence.getThreadProject(thread.id)
+      if (!membership) {
+        return {
+          thread: this.#view(thread),
+          warnings: [] as Array<{ code: string; message: string }>,
+        }
+      }
+      const capabilities = this.#capabilities(thread, runtime)
+      if (!capabilities.changeCwd || !capabilities.changeRoots) {
+        throw new ThreadManagerError(
+          "THREAD_WORKSPACE_UNSUPPORTED",
+          "This Agent cannot change the thread workspace after creation"
+        )
+      }
+      const root = await this.#createProjectlessWorkspace(thread.id, thread.title)
       try {
-        moved = await this.#persistence.updateThread(threadId, { cwd: nextCwd })
-        if (wasIdle) {
-          const session = await adapter.resume({
-            ...(await this.#resumeContext(moved)),
-            onEvent: (event) => this.#acceptEvent(threadId, event),
-          })
-          if (session.sessionId !== thread.agentSessionId) {
-            throw new ThreadManagerError(
-              "THREAD_BINDING_MISMATCH",
-              "Harness resumed a different session"
-            )
-          }
-          runtime.capabilities = session.capabilities
-          runtime.state = "idle"
-          if (session.history !== undefined) await this.#timeline.replace(threadId, session.history)
-        }
-        return this.#updateAndPublishSync(moved)
+        await this.#commitWorkspaceMutation(thread, [root], () =>
+          this.#persistence.removeThreadFromProject(thread.id, [root])
+        )
       } catch (error) {
-        const rollbackFailures: unknown[] = []
-        if (moved && wasIdle) {
-          await adapter.close(this.#context(moved)).catch((cause) => rollbackFailures.push(cause))
-        }
-        let restored = true
-        if (moved) {
-          await this.#persistence.updateThread(threadId, { cwd: thread.cwd }).catch((cause) => {
-            restored = false
-            rollbackFailures.push(cause)
-          })
-        }
-        if (wasIdle && restored) {
-          try {
-            const session = await adapter.resume({
-              ...(await this.#resumeContext(thread)),
-              onEvent: (event) => this.#acceptEvent(threadId, event),
-            })
-            if (session.sessionId !== thread.agentSessionId) {
-              throw new ThreadManagerError(
-                "THREAD_BINDING_MISMATCH",
-                "Harness resumed a different session"
-              )
-            }
-            runtime.capabilities = session.capabilities
-            runtime.state = "idle"
-          } catch (cause) {
-            rollbackFailures.push(cause)
-            runtime.state = "errored"
-          }
-        } else if (wasIdle) {
-          runtime.state = "errored"
-        }
-        this.#updateAndPublishSync(restored ? thread : (moved ?? thread))
-        if (rollbackFailures.length) {
-          throw new AggregateError([error, ...rollbackFailures], "Thread move and rollback failed")
-        }
+        await rm(root, { force: true, recursive: true }).catch(() => undefined)
         throw error
       }
+      return {
+        thread: this.#updateAndPublishSync(await this.#required(thread.id)),
+        warnings: [] as Array<{ code: string; message: string }>,
+      }
     })
+  }
+
+  async deleteProject(projectId: string) {
+    const memberships: Array<{ threadId: string }> = []
+    let cursor: string | null = null
+    do {
+      const page = await this.#persistence.listProjectMemberships({
+        cursor,
+        limit: 200,
+        projectId,
+      })
+      memberships.push(...page.data)
+      cursor = page.nextCursor
+    } while (cursor)
+    const threadIds = memberships.map(({ threadId }) => threadId).sort()
+    return this.#withLocks(threadIds, async () => {
+      const assignments: Array<{ roots: string[]; thread: ThreadRecord }> = []
+      try {
+        for (const threadId of threadIds) {
+          const thread = await this.#required(threadId)
+          const runtime = this.#state(thread.id)
+          this.#assertWorkspaceMutationAllowed(thread, runtime)
+          const capabilities = this.#capabilities(thread, runtime)
+          if (!capabilities.changeCwd || !capabilities.changeRoots) {
+            throw new ThreadManagerError(
+              "THREAD_WORKSPACE_UNSUPPORTED",
+              "Every project thread must support workspace changes before deleting the project"
+            )
+          }
+          assignments.push({
+            roots: [await this.#createProjectlessWorkspace(thread.id, thread.title)],
+            thread,
+          })
+        }
+        const commit = assignments.reduceRight<() => Promise<void>>(
+          (next, assignment) => () =>
+            this.#commitWorkspaceMutation(assignment.thread, assignment.roots, next),
+          () =>
+            this.#persistence.deleteProjectToProjectless(
+              projectId,
+              assignments.map(({ roots, thread }) => ({ roots, threadId: thread.id }))
+            )
+        )
+        await commit()
+      } catch (error) {
+        await Promise.all(
+          assignments.map(({ roots }) =>
+            rm(roots[0] as string, { force: true, recursive: true }).catch(() => undefined)
+          )
+        )
+        throw error
+      }
+      for (const { thread } of assignments) {
+        this.#updateAndPublishSync(await this.#required(thread.id))
+      }
+      return {
+        affectedThreads: assignments.length,
+        warnings: [] as Array<{ code: string; message: string }>,
+      }
+    })
+  }
+
+  async #syncWorkspaceUnlocked(
+    threadId: string,
+    mode: "safe-additive" | "project-exact"
+  ): Promise<{ changed: boolean; thread: ThreadView }> {
+    const thread = await this.#required(threadId)
+    const membership = await this.#persistence.getThreadProject(threadId)
+    if (!membership) {
+      if (mode === "safe-additive") return { changed: false, thread: this.#view(thread) }
+      throw new ThreadManagerError("THREAD_NOT_IN_PROJECT", "Thread does not belong to a project")
+    }
+    const runtime = this.#state(threadId)
+    if (runtime.activeTurn || runtime.state === "running") {
+      if (mode === "safe-additive") return { changed: false, thread: this.#view(thread) }
+      throw new ThreadManagerError("THREAD_ACTIVE", "Finish the current turn before syncing")
+    }
+    const capabilities = this.#capabilities(thread, runtime)
+    const target = membership.project.roots
+    if (
+      thread.roots.length === target.length &&
+      thread.roots.every((root, i) => root === target[i])
+    ) {
+      return { changed: false, thread: this.#view(thread) }
+    }
+    const cwdChanged = thread.roots[0] !== target[0]
+    const supported = capabilities.changeRoots && (!cwdChanged || capabilities.changeCwd)
+    if (mode === "safe-additive") {
+      const additive =
+        supported &&
+        thread.roots[0] === target[0] &&
+        thread.roots.every((root) => target.includes(root))
+      if (!additive) return { changed: false, thread: this.#view(thread) }
+    } else if (!supported) {
+      throw new ThreadManagerError(
+        "THREAD_WORKSPACE_UNSUPPORTED",
+        "This Agent cannot change the thread workspace after creation"
+      )
+    }
+    const updated = await this.#commitWorkspaceMutation(thread, target, () =>
+      this.#persistence.updateThread(threadId, { roots: target })
+    )
+    return { changed: true, thread: this.#updateAndPublishSync(updated) }
   }
 
   async fork(input: {
@@ -562,7 +691,7 @@ export class ThreadManager {
           agentId: source.agentId,
           agentSessionId: sessionId,
           beforeThreadId: placement.beforeThreadId,
-          cwd: source.cwd,
+          roots: source.roots,
           forkedFromId: source.id,
           id: threadId,
           projectPlacement: placement.projectPlacement,
@@ -604,7 +733,7 @@ export class ThreadManager {
             .delete({
               agentId: source.agentId as AgentId,
               agentSessionId: sessionId,
-              cwd: source.cwd,
+              cwd: source.roots[0] ?? null,
               threadId,
             })
             .catch(() => undefined)
@@ -613,7 +742,7 @@ export class ThreadManager {
             .close({
               agentId: source.agentId as AgentId,
               agentSessionId: source.agentSessionId,
-              cwd: source.cwd,
+              cwd: source.roots[0] ?? null,
               threadId,
             })
             .catch(() => undefined)
@@ -702,7 +831,7 @@ export class ThreadManager {
               .delete({
                 agentId: source.agentId as AgentId,
                 agentSessionId: sessionId,
-                cwd: source.cwd,
+                cwd: source.roots[0] ?? null,
                 threadId: source.id,
               })
               .catch((cause) => compensationFailures.push(cause))
@@ -825,7 +954,8 @@ export class ThreadManager {
         await this.#persistence.setThreadArchived(threadId, Math.floor(Date.now() / 1000))
       )
     })
-    if (archived.cwd) await this.#onArchived?.(threadId, archived.cwd).catch(() => undefined)
+    const archivedCwd = archived.roots[0]
+    if (archivedCwd) await this.#onArchived?.(threadId, archivedCwd).catch(() => undefined)
     const warnings: Array<{ code: string; message: string }> = []
     await this.#adapterFor(thread.agentId as AgentId, thread.id)
       .archive(this.#context(thread))
@@ -862,7 +992,8 @@ export class ThreadManager {
     return this.#withLock(threadId, async () => {
       const thread = await this.#required(threadId)
       if (thread.archivedAt === null) return this.#view(thread)
-      if (thread.cwd) await this.#onUnarchiving?.(thread.cwd)
+      const cwd = thread.roots[0]
+      if (cwd) await this.#onUnarchiving?.(cwd)
       await this.#adapterFor(thread.agentId as AgentId, thread.id).unarchive(this.#context(thread))
       const unarchived = await this.#updateAndPublish(
         await this.#persistence.setThreadArchived(threadId, null)
@@ -874,7 +1005,7 @@ export class ThreadManager {
 
   async delete(threadId: string): Promise<void> {
     const initial = await this.#required(threadId)
-    const cwd = initial.cwd
+    const cwd = initial.roots[0]
     const project = await this.#persistence.getThreadProject(threadId)
     const section = await this.#persistence.getItemSection({ id: threadId, type: "thread" })
     await this.#withLock(threadId, async () => {
@@ -932,6 +1063,14 @@ export class ThreadManager {
       }
     })
     if (cwd) await this.#onArchived?.(threadId, cwd).catch(() => undefined)
+    if (
+      !project &&
+      cwd &&
+      this.#isManagedProjectlessRoot(cwd) &&
+      (await this.#persistence.countProjectlessRootReferences(cwd)) === 0
+    ) {
+      await rm(cwd, { force: true, recursive: true }).catch(() => undefined)
+    }
   }
 
   async startTurn(input: {
@@ -954,7 +1093,7 @@ export class ThreadManager {
     }
     if (this.#state(input.threadId).state === "stopped") await this.resume(input.threadId)
     return this.#withLock(input.threadId, async () => {
-      const thread = await this.#required(input.threadId)
+      let thread = await this.#required(input.threadId)
       const runtime = this.#state(thread.id)
       const current = await this.#messageRequests.inspect({
         clientMessageId: input.clientMessageId,
@@ -969,6 +1108,8 @@ export class ThreadManager {
       if (runtime.state !== "idle") {
         throw new ThreadManagerError("THREAD_NOT_READY", `Thread is ${runtime.state}`)
       }
+      const synchronized = await this.#syncWorkspaceUnlocked(thread.id, "safe-additive")
+      if (synchronized.changed) thread = await this.#required(thread.id)
       const adapterContent = await this.#prepareInput(input.content, thread)
       const claimed = await this.#messageRequests.claim({
         clientMessageId: input.clientMessageId,
@@ -978,8 +1119,8 @@ export class ThreadManager {
       const claimedTurnId = this.#resolveMessageRequest(claimed)
       if (claimedTurnId) return { thread: this.#view(thread), turnId: claimedTurnId }
       const captureId =
-        thread.agentId === "codex" && thread.cwd && this.#turnCapture
-          ? await this.#turnCapture.start(thread.id, thread.cwd).catch(() => null)
+        thread.agentId === "codex" && thread.roots[0] && this.#turnCapture
+          ? await this.#turnCapture.start(thread.id, thread.roots[0]).catch(() => null)
           : null
       let started: Awaited<ReturnType<ThreadHarnessAdapter["startTurn"]>>
       try {
@@ -1631,29 +1772,105 @@ export class ThreadManager {
     return {
       agentId: thread.agentId as AgentId,
       agentSessionId: thread.agentSessionId,
-      cwd: thread.cwd,
+      cwd: thread.roots[0] ?? null,
       threadId: thread.id,
+      workspaceRoots: thread.roots,
     }
   }
 
   async #resumeContext(thread: ThreadRecord): Promise<ThreadHarnessContext> {
-    const membership = await this.#persistence.getThreadProject(thread.id)
-    return {
-      ...this.#context(thread),
-      ...(membership ? { workspaceRoots: membership.project.roots } : {}),
+    return this.#context(thread)
+  }
+
+  async #createProjectlessWorkspace(threadId: string, title?: string | null): Promise<string> {
+    await mkdir(this.#projectlessWorkspaceRoot, { recursive: true })
+    const slug =
+      (title ?? "thread")
+        .normalize("NFKD")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/gu, "-")
+        .replace(/^-+|-+$/gu, "")
+        .slice(0, 48) || "thread"
+    const date = new Date().toISOString().slice(0, 10)
+    const base = `${date}-${slug}-${threadId.slice(0, 8)}`
+    let suffix = 1
+    let root = join(this.#projectlessWorkspaceRoot, base)
+    while (
+      await access(root)
+        .then(() => true)
+        .catch(() => false)
+    ) {
+      suffix += 1
+      root = join(this.#projectlessWorkspaceRoot, `${base}-${suffix}`)
+    }
+    await mkdir(join(root, "work"), { recursive: true })
+    await mkdir(join(root, "outputs"), { recursive: true })
+    return resolve(root)
+  }
+
+  #assertWorkspaceMutationAllowed(thread: ThreadRecord, runtime: RuntimeState): void {
+    if (
+      runtime.activeTurn ||
+      runtime.pendingInteractions.size > 0 ||
+      (runtime.state !== "idle" && runtime.state !== "stopped")
+    ) {
+      throw new ThreadManagerError(
+        "THREAD_ACTIVE",
+        "Finish the current turn before changing workspace directories"
+      )
+    }
+    if (thread.archivedAt !== null) {
+      throw new ThreadManagerError("THREAD_ARCHIVED", "Unarchive the thread first")
     }
   }
 
-  #projectCwd(roots: readonly string[], requested: string | null | undefined): string {
-    const normalizedRoots = [...new Set(roots.map((root) => resolve(root)))]
-    const cwd = resolve(requested ?? normalizedRoots[0] ?? "")
-    if (!isAbsolute(cwd) || !normalizedRoots.includes(cwd)) {
+  async #commitWorkspaceMutation<T>(
+    thread: ThreadRecord,
+    roots: readonly string[],
+    commit: () => Promise<T>
+  ): Promise<T> {
+    const runtime = this.#state(thread.id)
+    const adapter = this.#adapterFor(thread.agentId as AgentId, thread.id)
+    if (runtime.state !== "idle" || adapter.workspaceUpdateMode === "turn-start") return commit()
+    if (adapter.workspaceUpdateMode === "unsupported") {
       throw new ThreadManagerError(
-        "THREAD_CWD_OUTSIDE_PROJECT",
-        "Thread cwd must match one of the project workspace roots"
+        "THREAD_WORKSPACE_UNSUPPORTED",
+        "This Agent cannot change the thread workspace after creation"
       )
     }
-    return cwd
+    if (!adapter.updateWorkspace) {
+      throw new ThreadManagerError(
+        "THREAD_WORKSPACE_UNSUPPORTED",
+        "The Agent adapter cannot apply workspace changes immediately"
+      )
+    }
+    const nextContext: ThreadHarnessContext = {
+      ...this.#context(thread),
+      cwd: roots[0] ?? null,
+      workspaceRoots: roots,
+    }
+    await adapter.updateWorkspace(nextContext)
+    try {
+      return await commit()
+    } catch (error) {
+      try {
+        await adapter.updateWorkspace(this.#context(thread))
+      } catch (restoreError) {
+        await adapter.close(nextContext).catch(() => undefined)
+        runtime.state = "stopped"
+        this.#updateAndPublishSync(thread)
+        throw new AggregateError(
+          [error, restoreError],
+          "Workspace update failed and the Agent runtime could not be restored"
+        )
+      }
+      throw error
+    }
+  }
+
+  #isManagedProjectlessRoot(path: string): boolean {
+    const candidate = resolve(path)
+    return candidate.startsWith(`${this.#projectlessWorkspaceRoot}${sep}`)
   }
 
   #message(error: unknown): string {
@@ -1733,7 +1950,7 @@ export class ThreadManager {
           await this.#adapterFor(operation.agentId as AgentId, operation.threadId).delete({
             agentId: operation.agentId as AgentId,
             agentSessionId: operation.agentSessionId,
-            cwd: thread?.cwd ?? null,
+            cwd: thread?.roots[0] ?? null,
             threadId: operation.threadId,
           })
         }
@@ -1857,9 +2074,19 @@ export class ThreadManager {
       ...thread,
       activeTurn: runtime.activeTurn,
       attention: runtime.pendingInteractions.size > 0 || runtime.state === "errored",
-      capabilities: runtime.capabilities,
+      capabilities: this.#capabilities(thread, runtime),
       pendingInteractions: [...runtime.pendingInteractions.values()],
       state: runtime.state,
+    }
+  }
+
+  #capabilities(thread: Pick<ThreadRecord, "agentId">, runtime: RuntimeState) {
+    if (runtime.state !== "stopped") return runtime.capabilities
+    const mutableWorkspace = thread.agentId === "codex" || thread.agentId === "claude"
+    return {
+      ...runtime.capabilities,
+      changeCwd: mutableWorkspace,
+      changeRoots: mutableWorkspace,
     }
   }
 
@@ -1932,6 +2159,13 @@ export class ThreadManager {
       if (this.#locks.get(threadId) === current) this.#locks.delete(threadId)
     }
   }
-}
 
-import { isAbsolute, resolve } from "node:path"
+  async #withLocks<T>(threadIds: readonly string[], task: () => Promise<T>): Promise<T> {
+    const ids = [...new Set(threadIds)].sort()
+    const run = (index: number): Promise<T> => {
+      const threadId = ids[index]
+      return threadId === undefined ? task() : this.#withLock(threadId, () => run(index + 1))
+    }
+    return run(0)
+  }
+}

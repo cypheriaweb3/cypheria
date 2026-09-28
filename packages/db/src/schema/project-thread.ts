@@ -33,6 +33,10 @@ export const projects = sqliteTable(
       sql`length(${table.id}) = 36 AND substr(${table.id}, 15, 1) = '7'`
     ),
     check("projects_name_check", sql`length(trim(${table.name})) > 0`),
+    check(
+      "projects_roots_json_check",
+      sql`json_valid(${table.roots}) AND json_type(${table.roots}) = 'array' AND json_array_length(${table.roots}) > 0`
+    ),
     check("projects_position_check", sql`${table.position} >= 0`),
     check("projects_recency_at_check", sql`${table.recencyAt} IS NULL OR ${table.recencyAt} >= 0`),
     check("projects_created_at_check", sql`${table.createdAt} >= 0`),
@@ -54,7 +58,7 @@ export const threads = sqliteTable(
       onDelete: "set null",
     }),
     title: text("title"),
-    cwd: text("cwd"),
+    roots: text("roots", { mode: "json" }).$type<string[]>().notNull(),
     position: integer("position").notNull(),
     recencyAt: integer("recency_at"),
     createdAt: integer("created_at").notNull(),
@@ -70,11 +74,16 @@ export const threads = sqliteTable(
     index("threads_deleted_at_idx").on(table.deletedAt),
     index("threads_forked_from_id_idx").on(table.forkedFromId),
     index("threads_recency_at_idx").on(table.recencyAt),
+    index("threads_roots_idx").on(table.roots),
     check(
       "threads_id_uuidv7_check",
       sql`length(${table.id}) = 36 AND substr(${table.id}, 15, 1) = '7'`
     ),
     check("threads_position_check", sql`${table.position} >= 0`),
+    check(
+      "threads_roots_json_check",
+      sql`json_valid(${table.roots}) AND json_type(${table.roots}) = 'array' AND json_array_length(${table.roots}) > 0`
+    ),
     check(
       "threads_archived_at_check",
       sql`${table.archivedAt} IS NULL OR ${table.archivedAt} >= 0`

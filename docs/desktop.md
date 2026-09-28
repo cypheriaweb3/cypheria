@@ -40,7 +40,7 @@ The established interaction model is a product invariant:
 - Project Threads remain nested and support expansion, pagination, and “show more”.
 - Selection, create, rename, archive, delete, pin, unpin, drag, cross-Section move, and reorder remain available where the protocol permits.
 
-The Project editor exposes the ordered source-root list. The first root is the primary root used as the default Thread `cwd`; users can add and remove folders or promote another root to primary before saving. Server validation rejects removing a root that is still the `cwd` of a Project Thread.
+The Project editor exposes the ordered workspace-root template. The first root is the Project primary directory. Saving changes only the Project; existing Threads keep their own roots. A Thread Summary lists its workspace directories, identifies the current working directory, silently applies safe additive Project roots while idle, and offers **Sync to project workspace directories** for every other difference. The confirmation makes a cwd change prominent and lists added and removed roots. Sidebar menu and drag moves use the same warning before changing Project membership. Active turns and Agents without the required cwd/root capability disable these mutations.
 
 Pinned and custom Sections render their Server-defined mixed order, so Projects and standalone Threads remain interleaved. Sidebar drag and drop uses dnd-kit and sends the corresponding `before...` placement hint for Sections, Projects, Project Threads, and mixed Section items. Priority sorting orders unread, attention-required, running, then recently updated Threads. Thread rows expose running, failed, and stopped runtime state without opening the conversation.
 - Context menus, keyboard navigation, unread state, and running state remain visible.
@@ -77,6 +77,10 @@ AgentChatWorkspace
   ├─ CommonComposer
   └─ SharedPanels
 ```
+
+The production Files panel always reflects the selected Thread's roots. It keeps `@pierre/trees` and loads only direct children when a root or directory is opened, with request coalescing, cancellation, paginated Server reads, targeted notification refresh, and cancellable name/path search. Text writes use opaque versions. Binary previews use the protocol binary stream rather than embedding bytes in JSON. Delete moves an item to Server quarantine and exposes one-step restore; lifecycle deletion of a projectless workspace is separate. Root selection, selected files, expanded directories, tree visibility, and tree width are Desktop-local per-Thread state.
+
+Projectless Threads use one managed root whose immediate purpose directories are `work/` and `outputs/`. The root itself is the Thread cwd; those two children are not additional roots. The General setting for the projectless folder is synchronized to the local Server and affects future managed workspaces. Residual managed directories are only removed through explicit cleanup operations.
 
 The ownership and backend-selection rules for this experience are in [Local Git design](git.md).
 

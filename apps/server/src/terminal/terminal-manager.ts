@@ -364,7 +364,7 @@ export class TerminalManager {
       throw new TerminalManagerError("TERMINAL_LIMIT", "Thread terminal limit reached")
     }
     this.#assertCapacity()
-    const cwd = thread.cwd
+    const cwd = thread.roots[0]
     if (!cwd)
       throw new TerminalManagerError("TERMINAL_CWD_UNAVAILABLE", "Thread has no working directory")
     const info = await stat(cwd).catch(() => undefined)
