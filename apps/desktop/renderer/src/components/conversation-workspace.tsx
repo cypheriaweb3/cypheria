@@ -1550,7 +1550,7 @@ export function ConversationWorkspace({
         // The pane positions a resident <webview> over itself, so it only mounts while visible.
         content:
           rightVisibility === "visible" && rightTab === "browser" && snapshot.thread?.id ? (
-            <BrowserPane scopeId={snapshot.thread.id} />
+            <BrowserPane threadId={snapshot.thread.id} />
           ) : rightVisibility === "visible" && rightTab === "browser" ? (
             <ChatBrowserPanel>
               <EmptyPanel>

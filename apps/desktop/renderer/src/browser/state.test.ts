@@ -10,11 +10,12 @@ import {
   patchBrowserTab,
   removeBrowserTab,
   serializeBrowserTabsState,
-  tabsForScope,
+  tabsForThread,
 } from "./state.js"
 
 const thread = "01984de2-8f74-7c91-a3b2-5c5e937cf318"
-const tab = (browserId: string, scopeId = thread): BrowserTabRecord => ({
+const otherThread = "01984de2-8f74-7c91-a3b2-5c5e937cf319"
+const tab = (browserId: string, threadId = thread): BrowserTabRecord => ({
   browserId,
   canGoBack: false,
   canGoForward: false,
@@ -23,7 +24,7 @@ const tab = (browserId: string, scopeId = thread): BrowserTabRecord => ({
   isLoading: true,
   kind: "web",
   lastError: "boom",
-  scopeId: scopeId as BrowserTabRecord["scopeId"],
+  threadId: threadId as BrowserTabRecord["threadId"],
   title: "",
   url: "https://example.com/",
   viewport: { mode: "responsive" },
@@ -43,26 +44,26 @@ describe("browser tab state", () => {
 
   it("inserts tabs after an anchor and activates the first tab of a scope", () => {
     let state = addBrowserTab(emptyBrowserTabsState(), tab(a), { activate: false })
-    expect(state.activeByScope[thread]).toBe(a)
+    expect(state.activeByThread[thread]).toBe(a)
     state = addBrowserTab(state, tab(b), { activate: false })
     state = addBrowserTab(state, tab(c), { activate: true, afterBrowserId: a })
     expect(state.tabs.map((entry) => entry.browserId)).toEqual([a, c, b])
-    expect(state.activeByScope[thread]).toBe(c)
+    expect(state.activeByThread[thread]).toBe(c)
   })
 
   it("selects a neighbor when the active tab closes", () => {
     let state = emptyBrowserTabsState()
     for (const id of [a, b, c]) state = addBrowserTab(state, tab(id), { activate: true })
     state = removeBrowserTab(activateBrowserTab(state, b), b)
-    expect(state.activeByScope[thread]).toBe(a)
+    expect(state.activeByThread[thread]).toBe(a)
     state = removeBrowserTab(removeBrowserTab(state, a), c)
-    expect(state.activeByScope[thread]).toBeUndefined()
+    expect(state.activeByThread[thread]).toBeUndefined()
   })
 
   it("keeps scopes separate and ignores no-op patches", () => {
     let state = addBrowserTab(emptyBrowserTabsState(), tab(a), { activate: true })
-    state = addBrowserTab(state, tab(b, "global"), { activate: true })
-    expect(tabsForScope(state, "global").map((entry) => entry.browserId)).toEqual([b])
+    state = addBrowserTab(state, tab(b, otherThread), { activate: true })
+    expect(tabsForThread(state, otherThread).map((entry) => entry.browserId)).toEqual([b])
     expect(patchBrowserTab(state, a, { title: "" })).toBe(state)
     expect(patchBrowserTab(state, a, { title: "Docs" }).tabs[0]?.title).toBe("Docs")
   })
@@ -73,11 +74,11 @@ describe("browser tab state", () => {
       JSON.parse(JSON.stringify(serializeBrowserTabsState(state)))
     )
     expect(restored.tabs[0]).toMatchObject({ isLoading: false, lastError: null })
-    expect(restored.activeByScope[thread]).toBe(a)
+    expect(restored.activeByThread[thread]).toBe(a)
     expect(parseBrowserTabsState({ tabs: "nope" })).toEqual(emptyBrowserTabsState())
     expect(
-      parseBrowserTabsState({ ...serializeBrowserTabsState(state), activeByScope: { x: b } })
-        .activeByScope
+      parseBrowserTabsState({ ...serializeBrowserTabsState(state), activeByThread: { x: b } })
+        .activeByThread
     ).toEqual({})
   })
 })

@@ -30,7 +30,7 @@ export function BrowserRuntime() {
             activate: true,
             afterBrowserId: sourceBrowserId,
             kind: source.kind,
-            scopeId: source.scopeId,
+            threadId: source.threadId,
             url,
           })
         } catch {
@@ -44,7 +44,7 @@ export function BrowserRuntime() {
       disposers.push(mountBrowserAutomationHost(client))
       disposers.push(
         client.on("thread.deleted.notification", ({ payload }) => {
-          for (const browserId of browserTabsStore.removeScope(payload.threadId)) {
+          for (const browserId of browserTabsStore.removeThread(payload.threadId)) {
             removeResidentBrowserWebview(browserId)
           }
         })

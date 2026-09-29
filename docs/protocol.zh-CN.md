@@ -190,7 +190,7 @@ GitLab MR 的详情、按分支查找、讨论、reviewer 与批准状态、项�
 
 Server 为每条命令发送一条 `browser.automation.command.notification`，其中包含 automation ID、命令，以及调用方 Thread 的 ID 和工作目录。Host 用 `browser.automation.result.request` 回复，payload 为类型化结果或类型化错误。命令包括 `list_tabs`、`new_tab`、`close_tab`、`resize`、`snapshot`、`screenshot`、`logs`、`wait`、`click`、`fill`、`type`、`keypress`、`hover`、`select`、`drag`、`upload`、`scroll`、`navigate`、`back`、`forward`、`reload` 和 `evaluate`。错误包括 `browser_disabled`、`browser_no_host`、`browser_tab_not_found`、`browser_stale_ref`、`browser_timeout`、`browser_denied` 和 `browser_unsupported`；两种结果都会报告已处理的页面对话框。
 
-Server broker 记住每个标签页属于哪个 host，汇总所有 host 的 `list_tabs`；host 断开时，待处理命令以可重试的 `browser_no_host` 失败；命令 15 秒后超时。Agent 通过名为 `browser_<command>` 的 Codex dynamic tools 使用 broker；工具调用带有 Cypheria Thread，因此只能操作该 Thread 的标签页。在 Server 配置中设置 `browserTools.enabled` 之前，浏览器工具保持关闭。会改变状态的命令以 automation ID 审计，记录 Thread 和命令名称，不记录参数；初始审计写入失败时命令不会开始。
+Server broker 记住每个标签页属于哪个 host，汇总所有 host 的 `list_tabs`；host 断开时，待处理命令以可重试的 `browser_no_host` 失败；命令 15 秒后超时。Agent 通过名为 `browser_<command>` 的 Codex dynamic tools 使用 broker；工具调用带有 Cypheria Thread，因此只能操作该 Thread 的标签页。每个标签页都属于某个 Thread，因此 host 会拒绝不带 Thread 的命令。在 Server 配置中设置 `browserTools.enabled` 之前，浏览器工具保持关闭。会改变状态的命令以 automation ID 审计，记录 Thread 和命令名称，不记录参数；初始审计写入失败时命令不会开始。
 
 ## 校验规则
 

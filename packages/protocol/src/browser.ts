@@ -204,7 +204,7 @@ export const BrowserTabInfoSchema = z
     isActive: z.boolean().default(false),
     isLoading: z.boolean().default(false),
     kind: BrowserTabKindSchema,
-    threadId: ProjectThreadIdSchema.optional(),
+    threadId: ProjectThreadIdSchema,
     title: z.string(),
     url: z.string(),
   })
@@ -257,7 +257,7 @@ export const BrowserAutomationResultSchema = z.discriminatedUnion("command", [
   z.object({ command: z.literal("list_tabs"), tabs: z.array(BrowserTabInfoSchema) }).strict(),
   withBrowser("new_tab", {
     kind: BrowserTabKindSchema,
-    threadId: ProjectThreadIdSchema.optional(),
+    threadId: ProjectThreadIdSchema,
     url: z.string().min(1),
   }),
   withBrowser("snapshot", {
@@ -331,7 +331,7 @@ export const BrowserAutomationDialogEventSchema = z
   .strict()
 export type BrowserAutomationDialogEvent = z.infer<typeof BrowserAutomationDialogEventSchema>
 
-/** One command addressed to a browser host. `threadId` scopes which tabs the caller may see. */
+/** One command addressed to a browser host. Tab commands require the calling Thread and only see its tabs. */
 export const BrowserAutomationRequestSchema = z
   .object({
     automationId: RequestIdSchema,

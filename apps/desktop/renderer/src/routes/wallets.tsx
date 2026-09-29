@@ -36,7 +36,7 @@ import {
   type DropResult,
 } from "@hello-pangea/dnd"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { createFileRoute, useNavigate } from "@tanstack/react-router"
+import { createFileRoute } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
 import {
   Check,
@@ -44,7 +44,6 @@ import {
   ChevronRight,
   Copy,
   Eye,
-  Globe2,
   GripVertical,
   KeyRound,
   LockKeyhole,
@@ -56,9 +55,6 @@ import {
   WalletCards,
 } from "lucide-react"
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react"
-import { BROWSER_GLOBAL_SCOPE } from "../../../ipc/src/browser.js"
-import { normalizeBrowserUrl } from "../browser/state.js"
-import { browserTabsStore } from "../browser/store.js"
 import { WorkbenchFrame } from "../components/workbench-frame"
 import { web3Api } from "../web3-api.js"
 
@@ -281,7 +277,6 @@ function WalletsRoute() {
       {deriveAccount.error ? (
         <p className="text-sm text-destructive">{deriveAccount.error.message}</p>
       ) : null}
-      <DappLauncher />
     </WorkbenchFrame>
   )
 }
@@ -1073,66 +1068,5 @@ function AddWalletDialog({ onCreated }: Readonly<{ onCreated: () => void }>) {
         {create.error ? <p className="text-sm text-destructive">{create.error.message}</p> : null}
       </DialogContent>
     </Dialog>
-  )
-}
-
-function DappLauncher() {
-  const navigate = useNavigate()
-  const [url, setUrl] = useState("")
-  const [error, setError] = useState<string | null>(null)
-  const available = typeof window !== "undefined" && window.cypheria?.browser !== undefined
-  const open = () => {
-    const target = normalizeBrowserUrl(url)
-    if (!target) {
-      setError("Enter an http or https address.")
-      return
-    }
-    setError(null)
-    browserTabsStore.create({
-      activate: true,
-      kind: "dapp",
-      scopeId: BROWSER_GLOBAL_SCOPE,
-      url: target,
-    })
-    void navigate({ to: "/browser" })
-  }
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Globe2 className="size-4" />
-          dApp browser
-        </CardTitle>
-        <CardDescription>
-          dApp tabs share a separate browser profile with third-party cookies blocked. Wallet
-          permissions are granted per origin.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form
-          className="flex gap-2"
-          onSubmit={(event) => {
-            event.preventDefault()
-            open()
-          }}
-        >
-          <Input
-            placeholder="https://app.example"
-            type="text"
-            value={url}
-            onChange={(event) => setUrl(event.currentTarget.value)}
-          />
-          <Button disabled={!available} type="submit">
-            Open
-          </Button>
-        </form>
-        {!available ? (
-          <p className="mt-3 text-sm text-muted-foreground">
-            The dApp browser is available in the main Desktop window.
-          </p>
-        ) : null}
-        {error ? <p className="mt-3 text-sm text-destructive">{error}</p> : null}
-      </CardContent>
-    </Card>
   )
 }

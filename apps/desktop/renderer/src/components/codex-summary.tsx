@@ -27,7 +27,7 @@ import { useLingui } from "@lingui/react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { type ReactNode, useEffect, useState } from "react"
 
-import { tabsForScope } from "../browser/state.js"
+import { tabsForThread } from "../browser/state.js"
 import { browserTabsStore, useBrowserTabsState } from "../browser/store.js"
 import type { SummaryCheckpoint } from "../client-state.js"
 import { ensureCypheriaClient } from "../cypheria-client.js"
@@ -62,7 +62,7 @@ export function CodexSummary({
   const threadId = thread?.id
   const nativeThreadId = thread?.agentSessionId
   const browserState = useBrowserTabsState()
-  const browserTabs = threadId ? tabsForScope(browserState, threadId) : []
+  const browserTabs = threadId ? tabsForThread(browserState, threadId) : []
   const attachments = useThreadAttachments("pull_request")
   const pullRequests = (attachments.data ?? []).filter(
     (attachment): attachment is Extract<typeof attachment, { attachmentType: "pull_request" }> =>

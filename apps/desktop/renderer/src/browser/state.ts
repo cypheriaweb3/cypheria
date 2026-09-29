@@ -2,7 +2,7 @@
 // packages/app/src/desktop/browser/store/state.ts.
 import { z } from "zod"
 
-import { type BrowserScopeId, BrowserScopeIdSchema } from "../../../ipc/src/browser.js"
+import { BrowserThreadIdSchema } from "../../../ipc/src/browser.js"
 
 export type BrowserTabKind = "web" | "dapp"
 
@@ -12,7 +12,7 @@ export type BrowserViewport =
 
 export type BrowserTabRecord = {
   browserId: string
-  scopeId: BrowserScopeId
+  threadId: string
   kind: BrowserTabKind
   url: string
   title: string
@@ -28,10 +28,12 @@ export type BrowserTabRecord = {
 export type BrowserTabsState = {
   /** Tabs in display order. */
   tabs: BrowserTabRecord[]
-  activeByScope: Record<string, string>
+  activeByThread: Record<string, string>
 }
 
-export type BrowserTabPatch = Partial<Omit<BrowserTabRecord, "browserId" | "createdAt" | "scopeId">>
+export type BrowserTabPatch = Partial<
+  Omit<BrowserTabRecord, "browserId" | "createdAt" | "threadId">
+>
 
 export const BROWSER_TABS_STORAGE_KEY = "browserTabs"
 export const DEFAULT_BROWSER_URL = "about:blank"
@@ -58,7 +60,7 @@ const BrowserTabRecordSchema = z
     isLoading: z.boolean(),
     kind: z.enum(["web", "dapp"]),
     lastError: z.string().nullable(),
-    scopeId: BrowserScopeIdSchema,
+    threadId: BrowserThreadIdSchema,
     title: z.string(),
     url: z.string(),
     viewport: ViewportSchema,
@@ -67,13 +69,13 @@ const BrowserTabRecordSchema = z
 
 export const BrowserTabsStateSchema = z
   .object({
-    activeByScope: z.record(z.string(), z.uuid()),
+    activeByThread: z.record(z.string(), z.uuid()),
     tabs: z.array(BrowserTabRecordSchema).max(200),
     version: z.literal(1),
   })
   .strict()
 
-export const emptyBrowserTabsState = (): BrowserTabsState => ({ activeByScope: {}, tabs: [] })
+export const emptyBrowserTabsState = (): BrowserTabsState => ({ activeByThread: {}, tabs: [] })
 
 /** Normalizes what a user typed into an address bar. Returns null for unsupported schemes. */
 export const normalizeBrowserUrl = (value: string | null | undefined): string | null => {
@@ -98,8 +100,8 @@ export const parseBrowserTabsState = (value: unknown): BrowserTabsState => {
   if (!result.success) return emptyBrowserTabsState()
   const ids = new Set(result.data.tabs.map((tab) => tab.browserId))
   return {
-    activeByScope: Object.fromEntries(
-      Object.entries(result.data.activeByScope).filter(([, browserId]) => ids.has(browserId))
+    activeByThread: Object.fromEntries(
+      Object.entries(result.data.activeByThread).filter(([, browserId]) => ids.has(browserId))
     ),
     tabs: result.data.tabs,
   }
@@ -107,7 +109,7 @@ export const parseBrowserTabsState = (value: unknown): BrowserTabsState => {
 
 /** Transient page state is not persisted: a restored tab reloads from its URL. */
 export const serializeBrowserTabsState = (state: BrowserTabsState) => ({
-  activeByScope: state.activeByScope,
+  activeByThread: state.activeByThread,
   tabs: state.tabs.map((tab) => ({ ...tab, isLoading: false, lastError: null })),
   version: 1 as const,
 })
@@ -123,11 +125,11 @@ export const addBrowserTab = (
     : -1
   if (anchor >= 0) tabs.splice(anchor + 1, 0, record)
   else tabs.push(record)
-  const activeByScope =
-    options.activate || !state.activeByScope[record.scopeId]
-      ? { ...state.activeByScope, [record.scopeId]: record.browserId }
-      : state.activeByScope
-  return { activeByScope, tabs }
+  const activeByThread =
+    options.activate || !state.activeByThread[record.threadId]
+      ? { ...state.activeByThread, [record.threadId]: record.browserId }
+      : state.activeByThread
+  return { activeByThread, tabs }
 }
 
 export const patchBrowserTab = (
@@ -150,16 +152,16 @@ export const patchBrowserTab = (
 export const removeBrowserTab = (state: BrowserTabsState, browserId: string): BrowserTabsState => {
   const removed = state.tabs.find((tab) => tab.browserId === browserId)
   if (!removed) return state
-  const siblings = state.tabs.filter((tab) => tab.scopeId === removed.scopeId)
+  const siblings = state.tabs.filter((tab) => tab.threadId === removed.threadId)
   const tabs = state.tabs.filter((tab) => tab.browserId !== browserId)
-  const activeByScope = { ...state.activeByScope }
-  if (activeByScope[removed.scopeId] === browserId) {
+  const activeByThread = { ...state.activeByThread }
+  if (activeByThread[removed.threadId] === browserId) {
     const index = siblings.findIndex((tab) => tab.browserId === browserId)
     const next = siblings.filter((tab) => tab.browserId !== browserId)[Math.max(0, index - 1)]
-    if (next) activeByScope[removed.scopeId] = next.browserId
-    else delete activeByScope[removed.scopeId]
+    if (next) activeByThread[removed.threadId] = next.browserId
+    else delete activeByThread[removed.threadId]
   }
-  return { activeByScope, tabs }
+  return { activeByThread, tabs }
 }
 
 export const activateBrowserTab = (
@@ -167,9 +169,9 @@ export const activateBrowserTab = (
   browserId: string
 ): BrowserTabsState => {
   const tab = state.tabs.find((candidate) => candidate.browserId === browserId)
-  if (!tab || state.activeByScope[tab.scopeId] === browserId) return state
-  return { ...state, activeByScope: { ...state.activeByScope, [tab.scopeId]: browserId } }
+  if (!tab || state.activeByThread[tab.threadId] === browserId) return state
+  return { ...state, activeByThread: { ...state.activeByThread, [tab.threadId]: browserId } }
 }
 
-export const tabsForScope = (state: BrowserTabsState, scopeId: string): BrowserTabRecord[] =>
-  state.tabs.filter((tab) => tab.scopeId === scopeId)
+export const tabsForThread = (state: BrowserTabsState, threadId: string): BrowserTabRecord[] =>
+  state.tabs.filter((tab) => tab.threadId === threadId)

@@ -14,11 +14,11 @@ import {
   SquareTerminal,
   Trash2,
   Wallet,
+  WalletMinimal,
   X,
 } from "lucide-react"
 import { type FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 
-import type { BrowserScopeId } from "../../../ipc/src/browser.js"
 import {
   ensureResidentBrowserWebview,
   getResidentBrowserWebview,
@@ -31,14 +31,12 @@ import {
   type BrowserTabKind,
   type BrowserTabRecord,
   normalizeBrowserUrl,
-  tabsForScope,
+  tabsForThread,
 } from "./state.js"
 import { browserTabsStore, useBrowserTabsState } from "./store.js"
 
 export type BrowserPaneProps = {
-  readonly scopeId: BrowserScopeId
-  /** Kind used by the new-tab button and the empty-state address bar. */
-  readonly defaultKind?: BrowserTabKind
+  readonly threadId: string
   readonly className?: string
 }
 
@@ -94,11 +92,11 @@ const usePresentedTab = (
   }, [anchor, browserId, clip, kind, viewportKey])
 }
 
-export function BrowserPane({ scopeId, defaultKind = "web", className }: BrowserPaneProps) {
+export function BrowserPane({ threadId, className }: BrowserPaneProps) {
   const { i18n } = useLingui()
   const state = useBrowserTabsState()
-  const tabs = useMemo(() => tabsForScope(state, scopeId), [state, scopeId])
-  const activeId = state.activeByScope[scopeId] ?? tabs[0]?.browserId
+  const tabs = useMemo(() => tabsForThread(state, threadId), [state, threadId])
+  const activeId = state.activeByThread[threadId] ?? tabs[0]?.browserId
   const active = tabs.find((tab) => tab.browserId === activeId)
   const anchor = useRef<HTMLDivElement>(null)
   const clip = useRef<HTMLDivElement>(null)
@@ -120,9 +118,9 @@ export function BrowserPane({ scopeId, defaultKind = "web", className }: Browser
   useEffect(() => {
     if (!active) return
     void window.cypheria?.browser
-      ?.setActive({ browserId: active.browserId, scopeId })
+      ?.setActive({ browserId: active.browserId, threadId })
       .catch(() => undefined)
-  }, [active, scopeId])
+  }, [active, threadId])
 
   useEffect(
     () =>
@@ -147,7 +145,7 @@ export function BrowserPane({ scopeId, defaultKind = "web", className }: Browser
     browserTabsStore.create({
       activate: true,
       kind,
-      scopeId,
+      threadId,
       url: normalized,
       ...(active ? { afterBrowserId: active.browserId } : {}),
     })
@@ -163,7 +161,7 @@ export function BrowserPane({ scopeId, defaultKind = "web", className }: Browser
     setAddressError(null)
     setDraft(null)
     if (!active) {
-      openNew(defaultKind, target)
+      openNew("web", target)
       return
     }
     const webview = getResidentBrowserWebview(active.browserId)
@@ -249,11 +247,20 @@ export function BrowserPane({ scopeId, defaultKind = "web", className }: Browser
             ))}
             <Button
               aria-label={i18n._(msg({ id: "browser.tab.open", message: "Open tab" }))}
-              onClick={() => openNew(defaultKind)}
+              onClick={() => openNew("web")}
               size="icon-xs"
               variant="ghost"
             >
               <Plus />
+            </Button>
+            <Button
+              aria-label={i18n._(msg({ id: "browser.tab.openDapp", message: "Open dApp tab" }))}
+              onClick={() => openNew("dapp")}
+              size="icon-xs"
+              title={i18n._(msg({ id: "browser.tab.openDapp", message: "Open dApp tab" }))}
+              variant="ghost"
+            >
+              <WalletMinimal />
             </Button>
           </div>
           <ChatPreviewToolbar>

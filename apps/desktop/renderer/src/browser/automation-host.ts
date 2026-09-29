@@ -8,7 +8,6 @@ import {
   type BrowserAutomationRequest,
 } from "@cypheria/protocol"
 
-import { BROWSER_GLOBAL_SCOPE, type BrowserScopeId } from "../../../ipc/src/browser.js"
 import {
   ensureResidentBrowserWebview,
   isBrowserAvailable,
@@ -31,25 +30,24 @@ const failure = (
   ok: false,
 })
 
-const scopeOf = (request: Request): BrowserScopeId => request.threadId ?? BROWSER_GLOBAL_SCOPE
-
 const tabNotFound = (request: Request, browserId: string) =>
   failure(request, "browser_tab_not_found", `No browser tab found for ID: ${browserId}`)
 
-/** Finds a tab the request may address: Agent calls only see tabs attached to their Thread. */
-const scopedTab = (request: Request, browserId: string) => {
+/** Finds a tab the request may address: callers only see tabs attached to their Thread. */
+const scopedTab = (threadId: string, browserId: string) => {
   const tab = browserTabsStore.get(browserId)
-  return tab && (!request.threadId || tab.scopeId === request.threadId) ? tab : undefined
+  return tab?.threadId === threadId ? tab : undefined
 }
 
 const newTab = async (
   request: Request,
+  threadId: string,
   args: { kind: "web" | "dapp"; url?: string | undefined }
 ): Promise<BrowserAutomationOutcomeInput> => {
   const record = browserTabsStore.create({
     activate: false,
     kind: args.kind,
-    scopeId: scopeOf(request),
+    threadId,
     url: args.url ?? null,
   })
   ensureResidentBrowserWebview(record)
@@ -68,14 +66,18 @@ const newTab = async (
       browserId: record.browserId,
       command: "new_tab",
       kind: record.kind,
-      ...(request.threadId ? { threadId: request.threadId } : {}),
+      threadId,
       url: record.url,
     },
   }
 }
 
-const closeTab = (request: Request, browserId: string): BrowserAutomationOutcomeInput => {
-  if (!scopedTab(request, browserId)) return tabNotFound(request, browserId)
+const closeTab = (
+  request: Request,
+  threadId: string,
+  browserId: string
+): BrowserAutomationOutcomeInput => {
+  if (!scopedTab(threadId, browserId)) return tabNotFound(request, browserId)
   browserTabsStore.remove(browserId)
   removeResidentBrowserWebview(browserId)
   return {
@@ -87,9 +89,10 @@ const closeTab = (request: Request, browserId: string): BrowserAutomationOutcome
 
 const resize = (
   request: Request,
+  threadId: string,
   args: { browserId: string; height: number; width: number }
 ): BrowserAutomationOutcomeInput => {
-  const tab = scopedTab(request, args.browserId)
+  const tab = scopedTab(threadId, args.browserId)
   if (!tab) return tabNotFound(request, args.browserId)
   ensureResidentBrowserWebview(tab)
   const size = resizeResidentBrowserWebview(args.browserId, args.width, args.height)
@@ -103,8 +106,8 @@ const resize = (
 }
 
 /** Starts a restored tab that has not been opened since launch before it is automated. */
-const materialize = async (request: Request, browserId: string) => {
-  const tab = scopedTab(request, browserId)
+const materialize = async (request: Request, threadId: string, browserId: string) => {
+  const tab = scopedTab(threadId, browserId)
   if (!tab) return tabNotFound(request, browserId)
   ensureResidentBrowserWebview(tab)
   return (await waitForBrowserRegistration(browserId))
@@ -115,6 +118,7 @@ const materialize = async (request: Request, browserId: string) => {
 /** Live tabs come from the main process; restored tabs that have not started are added here. */
 const listTabs = async (
   request: Request,
+  threadId: string,
   bridge: NonNullable<NonNullable<Window["cypheria"]>["browser"]>
 ): Promise<BrowserAutomationOutcomeInput> => {
   await browserTabsStore.load()
@@ -124,13 +128,13 @@ const listTabs = async (
   const state = browserTabsStore.getSnapshot()
   const restored = state.tabs
     .filter((tab) => !liveIds.has(tab.browserId))
-    .filter((tab) => (request.threadId ? tab.scopeId === request.threadId : true))
+    .filter((tab) => tab.threadId === threadId)
     .map((tab) => ({
       browserId: tab.browserId,
-      isActive: state.activeByScope[tab.scopeId] === tab.browserId,
+      isActive: state.activeByThread[tab.threadId] === tab.browserId,
       isLoading: false,
       kind: tab.kind,
-      ...(tab.scopeId !== BROWSER_GLOBAL_SCOPE ? { threadId: tab.scopeId } : {}),
+      threadId: tab.threadId,
       title: tab.title,
       url: tab.url,
     }))
@@ -144,18 +148,22 @@ export const executeBrowserHostCommand = async (
   if (!bridge) {
     return failure(request, "browser_unsupported", "This window cannot host browser tabs.")
   }
-  const { command } = request
+  // Browser tabs always belong to a Thread; a request without one has no tabs to address.
+  const { command, threadId } = request
+  if (!threadId) {
+    return failure(request, "browser_denied", "Browser tabs belong to a Cypheria thread.")
+  }
   switch (command.command) {
     case "new_tab":
-      return newTab(request, command.args)
+      return newTab(request, threadId, command.args)
     case "close_tab":
-      return closeTab(request, command.args.browserId)
+      return closeTab(request, threadId, command.args.browserId)
     case "resize":
-      return resize(request, command.args)
+      return resize(request, threadId, command.args)
     case "list_tabs":
-      return listTabs(request, bridge)
+      return listTabs(request, threadId, bridge)
     default: {
-      const pending = await materialize(request, command.args.browserId)
+      const pending = await materialize(request, threadId, command.args.browserId)
       if (pending) return pending
     }
   }

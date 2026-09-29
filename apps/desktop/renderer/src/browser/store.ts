@@ -1,6 +1,5 @@
 import { useSyncExternalStore } from "react"
 
-import type { BrowserScopeId } from "../../../ipc/src/browser.js"
 import { desktopClientStorage } from "../storage.js"
 import {
   activateBrowserTab,
@@ -49,7 +48,7 @@ class BrowserTabsStore {
         const createdIds = new Set(created.tabs.map((tab) => tab.browserId))
         this.#set(
           {
-            activeByScope: { ...restored.activeByScope, ...created.activeByScope },
+            activeByThread: { ...restored.activeByThread, ...created.activeByThread },
             tabs: [
               ...restored.tabs.filter((tab) => !createdIds.has(tab.browserId)),
               ...created.tabs,
@@ -67,7 +66,7 @@ class BrowserTabsStore {
   }
 
   create(input: {
-    scopeId: BrowserScopeId
+    threadId: string
     kind: BrowserTabKind
     url?: string | null
     activate?: boolean
@@ -84,7 +83,7 @@ class BrowserTabsStore {
       isLoading: false,
       kind: input.kind,
       lastError: null,
-      scopeId: input.scopeId,
+      threadId: input.threadId,
       title: "",
       url,
       viewport: RESPONSIVE_VIEWPORT,
@@ -110,8 +109,8 @@ class BrowserTabsStore {
     this.#set(activateBrowserTab(this.#state, browserId))
   }
 
-  removeScope(scopeId: string): string[] {
-    const removed = this.#state.tabs.filter((tab) => tab.scopeId === scopeId)
+  removeThread(threadId: string): string[] {
+    const removed = this.#state.tabs.filter((tab) => tab.threadId === threadId)
     let next = this.#state
     for (const tab of removed) next = removeBrowserTab(next, tab.browserId)
     this.#set(next)

@@ -26,7 +26,7 @@ export const getBrowserWebviewRegistry = (): BrowserWebviewRegistry => browserRe
 export const registerAttachedBrowser = (input: {
   browserId: string
   kind: BrowserKind
-  scopeId: string
+  threadId: string
   webContentsId: number
   sender: ContentsIdentity
   profileSession: object
@@ -49,7 +49,7 @@ export const registerAttachedBrowser = (input: {
   browserRegistry.registerScope({
     browserId: input.browserId,
     kind: input.kind,
-    scopeId: input.scopeId,
+    scopeId: input.threadId,
   })
   return true
 }

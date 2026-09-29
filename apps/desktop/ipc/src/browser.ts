@@ -12,16 +12,14 @@ export * from "./browser-channels.js"
 
 const IPC_VERSION = 1 as const
 
-/** `global` holds tabs that are not attached to a Thread, such as the wallet dApp launcher. */
-export const BROWSER_GLOBAL_SCOPE = "global"
-export const BrowserScopeIdSchema = z.union([z.literal(BROWSER_GLOBAL_SCOPE), z.uuidv7()])
-export type BrowserScopeId = z.infer<typeof BrowserScopeIdSchema>
+/** Every browser tab, web or dApp, belongs to exactly one Cypheria Thread. */
+export const BrowserThreadIdSchema = z.uuidv7()
 
 export const BrowserAttachedRegistrationSchema = z
   .object({
     browserId: BrowserIdSchema,
     kind: BrowserTabKindSchema,
-    scopeId: BrowserScopeIdSchema,
+    threadId: BrowserThreadIdSchema,
     webContentsId: z.int().positive(),
   })
   .strict()
@@ -99,7 +97,7 @@ export const browserUnregisterContract = contract(
 )
 export const browserActiveSetContract = contract(
   CYPHERIA_BROWSER_CHANNELS.activeSet,
-  z.object({ browserId: BrowserIdSchema.nullable(), scopeId: BrowserScopeIdSchema }).strict(),
+  z.object({ browserId: BrowserIdSchema.nullable(), threadId: BrowserThreadIdSchema }).strict(),
   z.object({ updated: z.literal(true) }).strict()
 )
 export const browserFocusContract = contract(

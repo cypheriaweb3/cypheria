@@ -160,16 +160,16 @@ describe("desktop IPC contracts", () => {
     expect(panelLayoutKey("thread-1")).toBe("panelLayout:thread-1")
   })
 
-  it("scopes browser tabs to a Thread or the global browser", () => {
+  it("scopes every browser tab to a Thread", () => {
     const registration = {
       browserId: "5b8f7b43-86a4-4c65-9f79-3a3a3d35f0c1",
       kind: "dapp",
-      scopeId: "global",
+      threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf318",
       webContentsId: 7,
     }
     expect(browserAttachedRegisterContract.request.parse(registration)).toEqual(registration)
     expect(() =>
-      browserAttachedRegisterContract.request.parse({ ...registration, scopeId: "workspace-1" })
+      browserAttachedRegisterContract.request.parse({ ...registration, threadId: "global" })
     ).toThrow()
     expect(() =>
       browserDataClearContract.request.parse({ origin: "not a url", scope: "dapp-origin" })
