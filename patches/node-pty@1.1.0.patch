@@ -1,0 +1,19 @@
+diff --git a/scripts/post-install.js b/scripts/post-install.js
+index 8dbac507ea9c64169ea500a0115816056c0bc309..10b72fe0ab6533b25c6f477b48e3468175b50970 100644
+--- a/scripts/post-install.js
++++ b/scripts/post-install.js
+@@ -77,4 +77,14 @@ if (os.platform() !== 'win32') {
+   }
+ }
+ 
++// The published prebuilt spawn-helper is not executable, which makes every spawn fail with
++// "posix_spawnp failed" on macOS. Restore the executable bit for the prebuilds that ship it.
++const PREBUILDS_DIR = path.join(__dirname, '../prebuilds');
++if (os.platform() !== 'win32' && fs.existsSync(PREBUILDS_DIR)) {
++  for (const target of fs.readdirSync(PREBUILDS_DIR)) {
++    const helper = path.join(PREBUILDS_DIR, target, 'spawn-helper');
++    if (fs.existsSync(helper)) fs.chmodSync(helper, 0o755);
++  }
++}
++
+ process.exit(0);
