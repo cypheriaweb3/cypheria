@@ -6,6 +6,12 @@ import { PINNED_SIDEBAR_SECTION_ID, SidebarDataApi } from "./sidebar-data.js"
 
 const thread = (id: string, title: string): ThreadView => ({
   activeTurn: null,
+  config: {
+    model: null,
+    permissionsMode: "approve-for-me",
+    speed: null,
+    thinking: null,
+  },
   agentId: "codex",
   agentSessionId: `native-${id}`,
   archivedAt: null,

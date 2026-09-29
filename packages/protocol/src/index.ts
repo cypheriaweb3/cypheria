@@ -43,6 +43,7 @@ import {
   type IntegrationServerMessage,
 } from "./integration.ts"
 import {
+  CodexPermissionsModeSchema,
   PROJECT_THREAD_CLIENT_SCHEMAS,
   PROJECT_THREAD_RESPONSE_TYPES,
   PROJECT_THREAD_SERVER_SCHEMAS,
@@ -486,6 +487,17 @@ export type NetworkProxyTestResult = z.infer<typeof NetworkProxyTestResultSchema
 export const PersistedServerConfigSchema = z
   .object({
     version: z.literal(1),
+    agents: z
+      .object({
+        codex: z
+          .object({
+            permissionsMode: CodexPermissionsModeSchema.default("approve-for-me"),
+          })
+          .strict()
+          .default({ permissionsMode: "approve-for-me" }),
+      })
+      .strict()
+      .default({ codex: { permissionsMode: "approve-for-me" } }),
     git: GitSettingsSchema.default(DEFAULT_GIT_SETTINGS),
     browserTools: BrowserToolsSettingsSchema.default(DEFAULT_BROWSER_TOOLS_SETTINGS),
     workspace: z
@@ -550,6 +562,15 @@ export type PersistedServerConfig = z.infer<typeof PersistedServerConfigSchema>
 
 export const PersistedServerConfigPatchSchema = z
   .object({
+    agents: z
+      .object({
+        codex: z
+          .object({ permissionsMode: CodexPermissionsModeSchema.optional() })
+          .strict()
+          .optional(),
+      })
+      .strict()
+      .optional(),
     git: GitSettingsSchema.partial().strict().optional(),
     browserTools: BrowserToolsSettingsSchema.partial().strict().optional(),
     workspace: z

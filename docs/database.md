@@ -32,7 +32,7 @@ Private keys, mnemonics, vault encryption keys, decrypted signers, and secret en
 
 ## Project and Thread constraints
 
-Cypheria UUIDv7 values identify Projects, Threads, and Sections. A Thread has one immutable Agent, at most one harness session linkage per Agent, optional fork origin, and independent Project and Section membership.
+Cypheria UUIDv7 values identify Projects, Threads, and Sections. A Thread has one immutable Agent, at most one harness session linkage per Agent, optional fork origin, and independent Project and Section membership. Its non-null JSON `config` column is the single persistent authority for `model`, `thinking`, `speed`, and `permissionsMode`; adapters receive the complete validated object on creation and update.
 
 `project_items` places a Thread in at most one Project. `section_items` interleaves Project and Thread entries in one ordered domain and places each entry in at most one Section. The fixed Pinned Section has stable ID `01984de2-8f74-7c91-a3b2-5c5e937cf318`.
 

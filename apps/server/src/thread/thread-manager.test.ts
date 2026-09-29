@@ -11,7 +11,7 @@ import {
   createThreadTimelinePersistenceService,
   openCypheriaDatabase,
 } from "@cypheria/db"
-import type { AgentId, ServerMessage, ThreadContextUsage } from "@cypheria/protocol"
+import type { AgentId, ServerMessage, ThreadConfig, ThreadContextUsage } from "@cypheria/protocol"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
 import type {
@@ -38,6 +38,10 @@ class FakeAdapter implements ThreadHarnessAdapter {
   readonly forks: Array<Parameters<ThreadHarnessAdapter["fork"]>[0]> = []
   readonly steers: Array<Parameters<ThreadHarnessAdapter["steerTurn"]>[0]> = []
   readonly starts: Array<Parameters<ThreadHarnessAdapter["startTurn"]>[0]> = []
+  readonly configUpdates: Array<{
+    config: ThreadConfig
+    context: Parameters<ThreadHarnessAdapter["updateConfig"]>[0]
+  }> = []
   readonly resumes: Array<Parameters<ThreadHarnessAdapter["resume"]>[0]> = []
   readonly workspaceUpdates: Array<
     Parameters<NonNullable<ThreadHarnessAdapter["updateWorkspace"]>>[0]
@@ -147,7 +151,12 @@ class FakeAdapter implements ThreadHarnessAdapter {
   async cancelTurn(): Promise<void> {
     if (this.cancelError) throw this.cancelError
   }
-  async updateConfig(): Promise<void> {}
+  async updateConfig(
+    context: Parameters<ThreadHarnessAdapter["updateConfig"]>[0],
+    config: ThreadConfig
+  ): Promise<void> {
+    this.configUpdates.push({ config, context })
+  }
   async updateWorkspace(
     context: Parameters<NonNullable<ThreadHarnessAdapter["updateWorkspace"]>>[0]
   ) {
@@ -176,7 +185,8 @@ afterEach(() => {
 
 const setup = async (
   turnCapture?: ConstructorParameters<typeof ThreadManager>[0]["turnCapture"],
-  adapter = new FakeAdapter()
+  adapter = new FakeAdapter(),
+  resolveInitialConfig?: ConstructorParameters<typeof ThreadManager>[0]["resolveInitialConfig"]
 ) => {
   const home = mkdtempSync(join(tmpdir(), "cypheria-thread-manager-test-"))
   const database = openCypheriaDatabase({ cypheriaHome: home })
@@ -208,6 +218,7 @@ const setup = async (
     persistence,
     projectlessWorkspaceRoot: join(home, "workspaces"),
     publish: (message) => messages.push(message),
+    resolveInitialConfig,
     timelinePersistence,
     turnCapture,
   })
@@ -225,6 +236,28 @@ const setup = async (
 }
 
 describe("ThreadManager", () => {
+  it("persists one authoritative config and sends full config updates to the adapter", async () => {
+    const adapter = new FakeAdapter()
+    const initial: ThreadConfig = {
+      model: "gpt-5",
+      permissionsMode: "approve-for-me",
+      speed: "fast",
+      thinking: "medium",
+    }
+    const { manager, persistence } = await setup(undefined, adapter, async () => initial)
+    const created = await manager.create({ agentId: "codex" })
+
+    expect(created.thread.config).toEqual(initial)
+    expect(adapter.creates[0]?.config).toEqual(initial)
+
+    const updated = await manager.updateConfig(created.thread.id, { thinking: "high" })
+    expect(updated.config).toEqual({ ...initial, thinking: "high" })
+    expect((await persistence.getThread(created.thread.id))?.config).toEqual(updated.config)
+    expect(adapter.configUpdates).toEqual([
+      expect.objectContaining({ config: { ...initial, thinking: "high" } }),
+    ])
+  })
+
   it("lazily adds project roots and requires exact sync for primary changes", async () => {
     const { manager, persistence } = await setup()
     const project = await persistence.createProject({ name: "Workspace", roots: ["/repo"] })

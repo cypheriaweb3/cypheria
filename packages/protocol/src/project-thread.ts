@@ -11,6 +11,24 @@ export const ProjectThreadSortDirectionSchema = z.enum(["asc", "desc"])
 export const ProjectThreadCursorSchema = z.string().min(1).max(2048)
 export const ProjectThreadLimitSchema = z.int().min(1).max(200)
 
+export const CodexPermissionsModeSchema = z.enum([
+  "ask-for-approval",
+  "approve-for-me",
+  "full-access",
+  "agent-config",
+])
+export type CodexPermissionsMode = z.infer<typeof CodexPermissionsModeSchema>
+
+export const ThreadConfigSchema = z
+  .object({
+    model: z.string().min(1).nullable(),
+    permissionsMode: CodexPermissionsModeSchema.nullable(),
+    speed: z.string().min(1).nullable(),
+    thinking: z.string().min(1).nullable(),
+  })
+  .strict()
+export type ThreadConfig = z.infer<typeof ThreadConfigSchema>
+
 export const ProjectSchema = z.object({
   createdAt: UnixTimestampSecondsSchema,
   id: ProjectThreadIdSchema,
@@ -24,6 +42,7 @@ export type Project = z.infer<typeof ProjectSchema>
 
 export const ThreadSchema = z.object({
   archivedAt: UnixTimestampSecondsSchema.nullable(),
+  config: ThreadConfigSchema,
   id: ProjectThreadIdSchema,
   agentId: AgentIdSchema,
   agentSessionId: z.string().nullable(),

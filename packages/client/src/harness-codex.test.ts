@@ -23,12 +23,10 @@ describe("Codex harness actions", () => {
 
     await actions.models.list(true)
     await actions.account.cancelLogin("login-1")
-    await actions.permissions.catalog("/workspace")
 
     expect(requestCodexHarness.mock.calls).toEqual([
       ["harness.codex.model.list.request", { includeHidden: true }, undefined],
       ["harness.codex.account.login.cancel.request", { loginId: "login-1" }, undefined],
-      ["harness.codex.permissions.catalog.get.request", { cwd: "/workspace" }, undefined],
     ])
   })
 

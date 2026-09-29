@@ -1,6 +1,7 @@
 import type {
   AgentId,
   ThreadCapabilities,
+  ThreadConfig,
   ThreadContextUsage,
   ThreadInputBlock,
   ThreadInteraction,
@@ -25,6 +26,7 @@ export type ThreadHarnessHistoryItem = {
 
 export type ThreadHarnessSession = {
   readonly capabilities: ThreadCapabilities
+  readonly config?: ThreadConfig
   readonly history?: readonly ThreadHarnessHistoryItem[]
   readonly sessionId: string | null
 }
@@ -32,6 +34,7 @@ export type ThreadHarnessSession = {
 export type ThreadHarnessContext = {
   readonly agentId: AgentId
   readonly agentSessionId: string | null
+  readonly config?: ThreadConfig
   readonly cwd: string | null
   readonly threadId: string
   readonly workspaceRoots?: readonly string[]
@@ -51,6 +54,7 @@ export type ThreadHarnessEvent =
 
 export type ThreadHarnessCreateInput = {
   readonly agentId: AgentId
+  readonly config: ThreadConfig
   readonly cwd: string | null
   readonly onEvent: (event: ThreadHarnessEvent) => void
   readonly threadId: string
@@ -116,15 +120,7 @@ export interface ThreadHarnessAdapter {
   }>
   steerTurn(input: ThreadHarnessSteerInput): Promise<{ readonly agentMessageId?: string }>
   cancelTurn(context: ThreadHarnessContext & { turnId?: string }): Promise<void>
-  updateConfig(
-    context: ThreadHarnessContext,
-    patch: {
-      readonly mode?: string | null
-      readonly model?: string | null
-      readonly speed?: string | null
-      readonly thinking?: string | null
-    }
-  ): Promise<void>
+  updateConfig(context: ThreadHarnessContext, config: ThreadConfig): Promise<void>
   /** Applies workspace state immediately when `workspaceUpdateMode` is `immediate`. */
   updateWorkspace?(context: ThreadHarnessContext): Promise<void>
   respondToInteraction(

@@ -1,3 +1,4 @@
+import type { ThreadConfig } from "@cypheria/protocol"
 import { sql } from "drizzle-orm"
 import {
   type AnySQLiteColumn,
@@ -54,6 +55,7 @@ export const threads = sqliteTable(
       .notNull()
       .references(() => agentRegistry.id, { onDelete: "restrict" }),
     agentSessionId: text("agent_session_id"),
+    config: text("config", { mode: "json" }).$type<ThreadConfig>().notNull(),
     forkedFromId: text("forked_from_id").references((): AnySQLiteColumn => threads.id, {
       onDelete: "set null",
     }),

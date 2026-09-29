@@ -8,31 +8,22 @@ Cypheria 通过通用 Thread interaction 生命周期展示 Codex permissions，
 
 ## 配置界面
 
-`client.harnesses.codex.permissions` 暴露：
+Codex 原生 approval、reviewer、sandbox、network、web search、verbosity 和 reasoning summary 设置仍保存在隔离的 Codex 配置中，见 [Codex 配置](codex-app-server-config.zh-CN.md#settings-中未设置的值)。Agent 设置页负责读写这份原生配置。
 
-- approval policy、reviewer、sandbox、network、web search、verbosity 和 reasoning summary 的 Codex 原生值及 Cypheria 界面回退值，见 [Codex 配置](codex-app-server-config.zh-CN.md#settings-中未设置的值)；
-- 可针对 working directory 查询的有效 permission catalog；
-- 原生 permission profiles 与管理员限制；
-
-Desktop 偏好单独提供 `composer.permissionModeVisibility`，不属于 Codex permissions API。
-
-Server 读取 App Server configuration requirements，并在返回 catalog 前移除不可用 choice。Managed default 会显示为 managed，而不是被重写为本地偏好。
+Cypheria 另在 `$CYPHERIA_HOME/config/config.json` 的 `agents.codex.permissionsMode` 保存新 Thread 的权限选择，默认值为 `approve-for-me`。每个 Thread 随后持久化唯一的权威配置对象，其中包含 `model`、`thinking`、`speed` 和 `permissionsMode`；composer 后续修改只更新该 Thread 对象，不更新 Agent 默认值。
 
 ## Composer 选项
 
-Cypheria 把有效 catalog 映射为简洁模式：
+Composer 始终只展示四个选项：
 
-| UI 选项 | 含义 |
-| --- | --- |
-| Read only | 以读取为主的 sandbox；提权时由用户审批 |
-| Ask for approval | Workspace sandbox；操作需要更多权限时 Codex 请求用户审批 |
-| Approve for me | Workspace sandbox 加可用自动 reviewer；不会扩大 sandbox |
-| Full access | Danger-full-access 且无普通 approval gate；只在允许且显式启用时显示 |
-| Named profile | App Server 返回的原生 Codex permission profile |
-| Managed | 管理员选择的 Server default |
-| Custom | 无法用更简洁 Cypheria 标签表示的有效原生组合 |
+| UI 选项 | 描述 | Codex turn 设置 |
+| --- | --- | --- |
+| Ask for approval | Always ask to edit external files and use the internet | `workspace-write`、`on-request`、reviewer `user` |
+| Approve for me | Only ask for actions detected as potentially unsafe | `workspace-write`、`on-request`、reviewer `auto_review` |
+| Full access | Unrestricted access to the internet and any file on your computer | `danger-full-access`、`never` |
+| Agent defaults | 使用为 Codex Agent 配置的权限 | Codex `config/read` 针对当前 cwd 的结果 |
 
-对于已有 Thread，不改变 selection 会保留 harness-owned state。显式 selection 通过 adapter 支持的类型化 Thread/harness options 发送。
+新 chat 的选择读取并更新 Server 默认值；已有 Thread 则只读取并更新持久化的 Thread 配置。Composer 不会重写 Codex permission defaults。每次 Codex create、resume、fork 和 turn 都使用 Thread 当前工作目录调用 `config/read`，因此 `Agent defaults` 会尊重 project 与 worktree 配置层。Composer 不允许单独修改 network access：workspace 模式保留原生 `sandbox_workspace_write.network_access`，`Agent defaults` 使用原生 sandbox policy。
 
 ## Approval 生命周期
 
@@ -48,13 +39,7 @@ Reviewer progress 与 decision 会显示在会话中。受支持的 Guardian den
 
 ## Full access
 
-Full access 可以读取和修改 workspace 外的文件，并在没有普通 approval 的情况下执行带网络访问的命令。只有以下条件全部成立时才会显示：
-
-- App Server requirements 允许内置 danger-full-access profile；
-- 允许 danger-full-access sandbox 与 `never` approval policy；
-- Desktop 本地的 `composer.permissionModeVisibility` 设置允许在 composer 中显示。
-
-Desktop 在启用显示或选择它之前要求清晰确认。UI 不得为新 Thread 预选 Full access。
+Full access 可以读取和修改 workspace 外的文件，并在没有普通 approval gate 的情况下执行带网络访问的命令。它始终作为显式 composer 选项存在，但绝不是内置默认值。
 
 ## 与 Web3 policy 分离
 
@@ -65,7 +50,6 @@ Codex filesystem、command、network、web-search 和 tool permission 不授权 
 ## 安全规则
 
 - 不得把缺少 approval response 视为批准。
-- 不得提供被 App Server requirements 排除的 choice。
 - 自动 reviewer 不得扩大 sandbox 或 Web3 authority。
 - 记录 requester、reviewer、selected scope、decision 和 resulting action 的来源。
 - 原生 request ID 与 callback 留在 Server。

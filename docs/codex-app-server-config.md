@@ -120,8 +120,8 @@ The following never belong in Codex configuration:
 - theme, font, language, density, and layout;
 - window, tray, browser, update, and OS integration state;
 - Sidebar expansion, draft, cache, and scroll position;
-- Server executable and auto-start preferences.
-- `composer.permissionModeVisibility`, which only makes Full access visible in the composer permissions menu.
+- Server executable and auto-start preferences;
+- the Cypheria-owned `agents.codex.permissionsMode` new-Thread default and each Thread's persisted configuration.
 
 Desktop stores durable client-local values in its KV store. Binary draft attachments use the
 AttachmentStore, while transient window and process state remains in memory.

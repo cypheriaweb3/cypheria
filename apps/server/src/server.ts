@@ -52,6 +52,8 @@ import {
   type TerminalClientMessage,
   type TerminalServerMessage,
   type ThreadClientMessage,
+  type ThreadConfig,
+  ThreadConfigSchema,
   type Web3ClientMessage,
   type Web3ServerMessage,
 } from "@cypheria/protocol"
@@ -234,6 +236,32 @@ export class CypheriaServer implements HttpAppHost {
       persistence: projectThreadPersistence,
       projectlessWorkspaceRoot,
       publish: (message) => this.registry.broadcast(message),
+      resolveInitialConfig: async (agentId, requested): Promise<ThreadConfig> => {
+        if (requested) {
+          return ThreadConfigSchema.parse({
+            ...requested,
+            permissionsMode:
+              agentId === "codex"
+                ? (requested.permissionsMode ??
+                  this.configStore.getSnapshot().config.agents.codex.permissionsMode)
+                : null,
+          })
+        }
+        const defaults = await this.agentManager.validatedDefaultsFor(agentId)
+        const stringValue = (value: unknown): string | null =>
+          typeof value === "string" && value.length > 0 ? value : null
+        return ThreadConfigSchema.parse({
+          model: stringValue(defaults.model),
+          permissionsMode:
+            agentId === "codex"
+              ? this.configStore.getSnapshot().config.agents.codex.permissionsMode
+              : null,
+          speed: stringValue(defaults.serviceTier ?? defaults.speed),
+          thinking: stringValue(
+            defaults.reasoningEffort ?? defaults.effort ?? defaults.thinkingLevel
+          ),
+        })
+      },
       onArchived: async (threadId, cwd) => {
         this.terminals.closeThread(threadId)
         await this.git.cleanupManagedWorktrees(cwd)

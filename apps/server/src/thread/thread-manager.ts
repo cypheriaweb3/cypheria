@@ -17,6 +17,8 @@ import {
   type AgentId,
   type ServerMessage,
   type ThreadClientMessage,
+  type ThreadConfig,
+  ThreadConfigSchema,
   type ThreadContextUsage,
   type ThreadInputBlock,
   type ThreadInteraction,
@@ -39,8 +41,8 @@ import { ThreadTimelineStore } from "./timeline-store.js"
 type Publish = (message: ServerMessage) => void
 type CreatePublicThreadInput = Omit<
   CreateThreadInput,
-  "agentSessionId" | "forkedFromId" | "id" | "roots"
->
+  "agentSessionId" | "config" | "forkedFromId" | "id" | "roots"
+> & { config?: ThreadConfig }
 
 type RuntimeState = {
   activeTurn: { id: string; startedAt: string; captureId?: string | null } | null
@@ -77,6 +79,10 @@ export type ThreadManagerOptions = {
   readonly messageRequests: ThreadMessageRequestPersistenceService
   readonly persistence: ProjectThreadPersistenceService
   readonly publish: Publish
+  readonly resolveInitialConfig?: (
+    agentId: AgentId,
+    requested?: ThreadConfig
+  ) => Promise<ThreadConfig>
   readonly projectlessWorkspaceRoot?: string
   readonly onArchived?: (threadId: string, cwd: string) => Promise<void>
   readonly onDeleting?: (threadId: string) => Promise<void>
@@ -110,6 +116,7 @@ export class ThreadManager {
   readonly #messageRequests: ThreadMessageRequestPersistenceService
   readonly #persistence: ProjectThreadPersistenceService
   readonly #publish: Publish
+  readonly #resolveInitialConfig: NonNullable<ThreadManagerOptions["resolveInitialConfig"]>
   #projectlessWorkspaceRoot: string
   readonly #onArchived: ThreadManagerOptions["onArchived"]
   readonly #onDeleting: ThreadManagerOptions["onDeleting"]
@@ -127,6 +134,17 @@ export class ThreadManager {
     this.#messageRequests = options.messageRequests
     this.#persistence = options.persistence
     this.#publish = options.publish
+    this.#resolveInitialConfig =
+      options.resolveInitialConfig ??
+      (async (agentId, requested) =>
+        ThreadConfigSchema.parse(
+          requested ?? {
+            model: null,
+            permissionsMode: agentId === "codex" ? "approve-for-me" : null,
+            speed: null,
+            thinking: null,
+          }
+        ))
     this.#projectlessWorkspaceRoot = resolve(
       options.projectlessWorkspaceRoot ?? join(homedir(), "Documents", "Cypheria")
     )
@@ -246,8 +264,7 @@ export class ThreadManager {
           respond(await this.getContextUsage(message.payload.threadId))
           break
         case "thread.config.update.request": {
-          const { threadId, ...patch } = message.payload
-          respond(await this.updateConfig(threadId, patch))
+          respond(await this.updateConfig(message.payload.threadId, message.payload.patch))
           break
         }
         case "thread.interaction.respond.request":
@@ -296,9 +313,10 @@ export class ThreadManager {
         : await this.#createProjectlessWorkspace(threadId, input.title)
       const roots = project ? [...project.roots] : [projectlessRoot as string]
       const cwd = roots[0] as string
+      const config = await this.#resolveInitialConfig(agentId, input.config)
       const operation = await this.#lifecycle.begin({
         agentId,
-        input: { ...input, roots },
+        input: { ...input, config, roots },
         kind: "create",
         threadId,
       })
@@ -308,6 +326,7 @@ export class ThreadManager {
       try {
         const session = await adapter.create({
           agentId,
+          config,
           cwd,
           onEvent: (event) => this.#acceptEvent(threadId, event),
           threadId,
@@ -321,6 +340,7 @@ export class ThreadManager {
         const thread = await this.#persistence.createThread({
           ...input,
           agentSessionId: session.sessionId,
+          config: session.config ?? config,
           id: threadId,
           roots,
         })
@@ -357,6 +377,7 @@ export class ThreadManager {
             await adapter.delete({
               agentId,
               agentSessionId: harnessSessionId,
+              config,
               cwd,
               threadId,
             })
@@ -691,6 +712,7 @@ export class ThreadManager {
           agentId: source.agentId,
           agentSessionId: sessionId,
           beforeThreadId: placement.beforeThreadId,
+          config: session.config ?? source.config,
           roots: source.roots,
           forkedFromId: source.id,
           id: threadId,
@@ -733,6 +755,7 @@ export class ThreadManager {
             .delete({
               agentId: source.agentId as AgentId,
               agentSessionId: sessionId,
+              config: source.config,
               cwd: source.roots[0] ?? null,
               threadId,
             })
@@ -742,6 +765,7 @@ export class ThreadManager {
             .close({
               agentId: source.agentId as AgentId,
               agentSessionId: source.agentSessionId,
+              config: source.config,
               cwd: source.roots[0] ?? null,
               threadId,
             })
@@ -795,7 +819,10 @@ export class ThreadManager {
           agentSessionId: session.sessionId,
           status: "provider-branched",
         })
-        const rebound = await this.#persistence.bindThreadAgentSession(source.id, session.sessionId)
+        let rebound = await this.#persistence.bindThreadAgentSession(source.id, session.sessionId)
+        if (session.config && JSON.stringify(session.config) !== JSON.stringify(rebound.config)) {
+          rebound = await this.#persistence.updateThread(source.id, { config: session.config })
+        }
         bindingCommitted = true
         await this.#lifecycle.transition(operation.id, {
           agentSessionId: session.sessionId,
@@ -831,6 +858,7 @@ export class ThreadManager {
               .delete({
                 agentId: source.agentId as AgentId,
                 agentSessionId: sessionId,
+                config: source.config,
                 cwd: source.roots[0] ?? null,
                 threadId: source.id,
               })
@@ -891,6 +919,9 @@ export class ThreadManager {
         }
         if (!thread.agentSessionId && session.sessionId) {
           thread = await this.#persistence.bindThreadAgentSession(threadId, session.sessionId)
+        }
+        if (session.config && JSON.stringify(session.config) !== JSON.stringify(thread.config)) {
+          thread = await this.#persistence.updateThread(threadId, { config: session.config })
         }
         const runtime = this.#state(threadId)
         runtime.capabilities = session.capabilities
@@ -1228,21 +1259,15 @@ export class ThreadManager {
     })
   }
 
-  async updateConfig(
-    threadId: string,
-    patch: {
-      mode?: string | null
-      model?: string | null
-      speed?: string | null
-      thinking?: string | null
-    }
-  ): Promise<ThreadView> {
+  async updateConfig(threadId: string, patch: Partial<ThreadConfig>): Promise<ThreadView> {
     return this.#withLock(threadId, async () => {
-      const thread = await this.#required(threadId)
+      let thread = await this.#required(threadId)
+      const config = ThreadConfigSchema.parse({ ...thread.config, ...patch })
       await this.#adapterFor(thread.agentId as AgentId, thread.id).updateConfig(
         this.#context(thread),
-        patch
+        config
       )
+      thread = await this.#persistence.updateThread(threadId, { config })
       if (patch.model !== undefined) this.#publishContextUsage(threadId, null)
       return this.#updateAndPublishSync(thread)
     })
@@ -1772,6 +1797,7 @@ export class ThreadManager {
     return {
       agentId: thread.agentId as AgentId,
       agentSessionId: thread.agentSessionId,
+      config: thread.config,
       cwd: thread.roots[0] ?? null,
       threadId: thread.id,
       workspaceRoots: thread.roots,
@@ -1950,6 +1976,16 @@ export class ThreadManager {
           await this.#adapterFor(operation.agentId as AgentId, operation.threadId).delete({
             agentId: operation.agentId as AgentId,
             agentSessionId: operation.agentSessionId,
+            config:
+              thread?.config ??
+              ThreadConfigSchema.parse(
+                (operation.input as { config?: ThreadConfig }).config ?? {
+                  model: null,
+                  permissionsMode: operation.agentId === "codex" ? "approve-for-me" : null,
+                  speed: null,
+                  thinking: null,
+                }
+              ),
             cwd: thread?.roots[0] ?? null,
             threadId: operation.threadId,
           })

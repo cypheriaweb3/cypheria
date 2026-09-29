@@ -6,6 +6,7 @@ import {
   ProjectThreadIdSchema,
   ProjectThreadLimitSchema,
   ProjectThreadSortDirectionSchema,
+  ThreadConfigSchema,
   ThreadInteractionSchema,
   ThreadViewSchema,
   UnixTimestampSecondsSchema,
@@ -488,6 +489,7 @@ export const ThreadCreateRequestSchema = request(
     .object({
       agentId: AgentIdSchema,
       ...beforeThreadSchema.shape,
+      config: ThreadConfigSchema.optional(),
       projectPlacement: projectPlacementSchema.optional(),
       recencyAt: UnixTimestampSecondsSchema.nullish(),
       sectionPlacement: sectionPlacementSchema.optional(),
@@ -745,10 +747,7 @@ export const ThreadContextUsageGetRequestSchema = request(
 export const ThreadConfigUpdateRequestSchema = request(
   "thread.config.update.request",
   z.object({
-    mode: z.string().nullable().optional(),
-    model: z.string().nullable().optional(),
-    speed: z.string().nullable().optional(),
-    thinking: z.string().nullable().optional(),
+    patch: ThreadConfigSchema.partial().strict(),
     threadId: ProjectThreadIdSchema,
   })
 )

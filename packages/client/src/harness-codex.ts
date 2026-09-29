@@ -61,10 +61,6 @@ export interface CodexHarnessActions {
     ): Promise<Value<"harness.codex.model-settings.set.response">>
   }
   readonly permissions: {
-    catalog(
-      cwd?: string,
-      options?: RequestOptions
-    ): Promise<Value<"harness.codex.permissions.catalog.get.response">>
     defaults(
       options?: RequestOptions
     ): Promise<Value<"harness.codex.permissions.defaults.get.response">>
@@ -198,12 +194,6 @@ export const createCodexHarnessActions = (client: ServerClient): CodexHarnessAct
         request("harness.codex.model-settings.set.request", input, options),
     },
     permissions: {
-      catalog: (cwd, options) =>
-        request(
-          "harness.codex.permissions.catalog.get.request",
-          { ...(cwd ? { cwd } : {}) },
-          options
-        ),
       defaults: (options) => request("harness.codex.permissions.defaults.get.request", {}, options),
       setDefaults: (input, options) =>
         request("harness.codex.permissions.defaults.set.request", input, options),

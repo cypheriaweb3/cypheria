@@ -161,7 +161,7 @@ describe("CodexHarnessService", () => {
     expect(callCodex).not.toHaveBeenCalledWith("config/batchWrite", expect.anything())
   })
 
-  it("derives the permissions menu from Codex config and managed requirements", async () => {
+  it("reads cwd-aware Codex agent settings", async () => {
     const callCodex = vi.fn(async (method: string) => {
       if (method === "config/read")
         return {
@@ -181,25 +181,6 @@ describe("CodexHarnessService", () => {
         }
       if (method === "experimentalFeature/list")
         return { data: [{ name: "plugins", enabled: false }], nextCursor: null }
-      if (method === "configRequirements/read")
-        return {
-          requirements: {
-            allowedApprovalPolicies: ["on-request", "never"],
-            allowedApprovalsReviewers: ["user", "auto_review"],
-            allowedPermissionProfiles: null,
-            allowedSandboxModes: ["workspace-write", "danger-full-access"],
-            allowedWebSearchModes: ["cached", "live"],
-            defaultPermissions: null,
-          },
-        }
-      if (method === "permissionProfile/list")
-        return {
-          data: [
-            { allowed: true, description: "Workspace", id: ":workspace" },
-            { allowed: true, description: "Team policy", id: "team" },
-          ],
-          nextCursor: null,
-        }
       return {}
     })
     const service = new CodexHarnessService(
@@ -211,11 +192,7 @@ describe("CodexHarnessService", () => {
       pluginsEnabled: false,
       sandboxMode: "danger-full-access",
     })
-    expect(await service.permissionsCatalog()).toMatchObject({
-      profiles: [{ allowed: true, description: "Team policy", id: "team" }],
-      selected: { agentMode: "full-access", kind: "agent-mode" },
-    })
-    await service.permissionsCatalog("/tmp/project")
+    await service.agentSettings("/tmp/project")
     expect(callCodex).toHaveBeenCalledWith("config/read", {
       cwd: "/tmp/project",
       includeLayers: false,

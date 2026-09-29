@@ -3,6 +3,7 @@ import type {
   HarnessCatalogSnapshot,
   HarnessSettingDefinition,
   HarnessSettingValue,
+  ThreadConfig,
 } from "@cypheria/protocol"
 import { ChatModelSelector, type ChatModelSelectorOption } from "@cypheria/ui/components/chat"
 import { msg } from "@lingui/core/macro"
@@ -34,6 +35,7 @@ export function ComposerModelSelector({
   allowAgentChange,
   onAgentChange,
   onThreadConfigChange,
+  threadConfig,
 }: {
   agentId: AgentId
   allowAgentChange: boolean
@@ -43,6 +45,7 @@ export function ComposerModelSelector({
     speed?: string | null
     thinking?: string | null
   }) => Promise<void> | void
+  threadConfig?: ThreadConfig
 }) {
   const { i18n } = useLingui()
   const queryClient = useQueryClient()
@@ -56,6 +59,7 @@ export function ComposerModelSelector({
     queryKey: ["harness", "models", agentId],
   })
   const settingsQuery = useQuery({
+    enabled: threadConfig === undefined,
     queryFn: async () => (await ensureCypheriaClient()).harnesses.settings.get({ agentId }),
     queryKey: ["harness", "settings", agentId],
   })
@@ -73,9 +77,11 @@ export function ComposerModelSelector({
   ])
   const speedSetting = setting(settingsQuery.data, ["serviceTier", "speed"])
   const currentModelId =
-    modelSetting?.type === "select" && modelSetting.value
-      ? modelSetting.value
-      : (catalog?.models.find((model) => model.isDefault)?.id ?? catalog?.models[0]?.id ?? null)
+    threadConfig !== undefined
+      ? threadConfig.model
+      : modelSetting?.type === "select" && modelSetting.value
+        ? modelSetting.value
+        : (catalog?.models.find((model) => model.isDefault)?.id ?? catalog?.models[0]?.id ?? null)
   const currentModel = catalog?.models.find(
     (model) => model.id === currentModelId || model.aliases.includes(currentModelId ?? "")
   )
@@ -101,10 +107,17 @@ export function ComposerModelSelector({
       }))
     : settingOptions(reasoningSetting)
   const reasoning =
-    reasoningSetting?.type === "select"
-      ? reasoningSetting.value
-      : (currentModel?.defaultThinkingOptionId ?? null)
-  const speed = speedSetting?.type === "select" ? speedSetting.value : null
+    threadConfig !== undefined
+      ? threadConfig.thinking
+      : reasoningSetting?.type === "select"
+        ? reasoningSetting.value
+        : (currentModel?.defaultThinkingOptionId ?? null)
+  const speed =
+    threadConfig !== undefined
+      ? threadConfig.speed
+      : speedSetting?.type === "select"
+        ? speedSetting.value
+        : null
 
   const update = async (id: string, value: HarnessSettingValue) => {
     await (await ensureCypheriaClient()).harnesses.settings.update({
@@ -118,9 +131,11 @@ export function ComposerModelSelector({
     value: HarnessSettingValue,
     patch: { model?: string | null; speed?: string | null; thinking?: string | null }
   ) => {
-    void update(id, value)
-      .then(() => onThreadConfigChange?.(patch))
-      .catch(() => undefined)
+    if (threadConfig !== undefined) {
+      void Promise.resolve(onThreadConfigChange?.(patch)).catch(() => undefined)
+      return
+    }
+    void update(id, value).catch(() => undefined)
   }
 
   const agentOptions = (
@@ -159,8 +174,8 @@ export function ComposerModelSelector({
         commit(reasoningSetting?.id ?? "reasoningEffort", value, { thinking: value })
       }}
       onSpeedChange={(value) => {
-        if (!speedSetting) return
-        commit(speedSetting.id, value, { speed: value })
+        if (!speedSetting && threadConfig === undefined) return
+        commit(speedSetting?.id ?? "serviceTier", value, { speed: value })
       }}
       reasoning={reasoning}
       reasoningOptions={reasoningOptions}

@@ -124,7 +124,7 @@ Context window usage 是瞬态 Thread runtime state，与 Timeline 历史、账�
 
 ## Harness catalog 与设置
 
-`harness.management` capability 在不改变 `cypheria.v1` 传输版本的前提下暴露公共 catalog。`AgentModelDefinition` 描述 model、provider、thinking choices 和已校验 metadata。`HarnessSettingDefinition` 描述 `select`、`boolean` 或 `number` 值，`HarnessSettingSection` 以稳定 route ID 组织 definitions。`HarnessCatalogSnapshot` 携带 models、setting sections、加载状态、生成时间、stale 状态和刷新错误。其中 `authentication-required` 是没有刷新错误的正常协议结果，表示 harness 必须先完成认证，Server 才能发现 session-scoped catalog entries。Thread 配置接受 model、thinking、mode 与 speed 变更；adapter 只应用所选 Agent 真正支持的字段。
+`harness.management` capability 在不改变 `cypheria.v1` 传输版本的前提下暴露公共 catalog。`AgentModelDefinition` 描述 model、provider、thinking choices 和已校验 metadata。`HarnessSettingDefinition` 描述 `select`、`boolean` 或 `number` 值，`HarnessSettingSection` 以稳定 route ID 组织 definitions。`HarnessCatalogSnapshot` 携带 models、setting sections、加载状态、生成时间、stale 状态和刷新错误。其中 `authentication-required` 是没有刷新错误的正常协议结果，表示 harness 必须先完成认证，Server 才能发现 session-scoped catalog entries。Thread create 可选接收完整 `config`；`thread.config.update` 接收局部 patch 并返回修改后的权威 Thread。字段包括 `model`、`thinking`、`speed` 与 `permissionsMode`。新 Thread 的缺省值来自 harness 与 Server 默认值，已有 Thread 则不会回退到后来变更的默认值。
 
 公开 Cypheria 协议版本与 ACP harness 连接版本彼此独立。Server 在 `initialize` 中优先提供 ACP v2，接受仅支持 v1 的 Agent 降级到 v1，并在该连接整个生命周期内绑定到协商出的消息 Schema。包括版本特定的 capability 布局、认证方法名称、prompt 完成语义和 v2 batch 在内的 ACP 原生细节，都保留在 Server adapter 后方。Adapter 代码从 `@cypheria/protocol/acp-adapter` 导入生成的逻辑 Schema、codec registry 和握手解析器；这些内容有意不从包根导出，也不进入公开 WebSocket union。ACP 逻辑 request 将原生方法参数统一放在 `payload` 下，只有 adapter 会把该 envelope 转换为 JSON-RPC `params`。
 

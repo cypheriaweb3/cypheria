@@ -8,31 +8,22 @@ Cypheria presents Codex permissions through the common Thread interaction lifecy
 
 ## Configuration surface
 
-`client.harnesses.codex.permissions` exposes:
+Codex-native approval, reviewer, sandbox, network, web-search, verbosity, and reasoning-summary settings remain in the isolated Codex configuration; see [Codex Configuration](codex-app-server-config.md#unset-values-in-settings). The Agent settings page reads and writes that native configuration.
 
-- Codex-backed values and Cypheria display fallbacks for approval policy, reviewer, sandbox, network, web search, verbosity, and reasoning summary; see [Codex Configuration](codex-app-server-config.md#unset-values-in-settings);
-- the effective permission catalog for an optional working directory;
-- native permission profiles and administrator restrictions;
-
-Desktop preferences expose `composer.permissionModeVisibility` separately from the Codex permissions API.
-
-The Server reads App Server configuration requirements and removes unavailable choices before returning the catalog. A managed default is shown as managed rather than rewritten as a local preference.
+Cypheria separately stores the new-Thread permission selection at `agents.codex.permissionsMode` in `$CYPHERIA_HOME/config/config.json`. Its default is `approve-for-me`. Each Thread then persists one authoritative configuration object containing `model`, `thinking`, `speed`, and `permissionsMode`; later composer changes update that Thread object instead of the Agent defaults.
 
 ## Composer choices
 
-Cypheria maps the effective catalog into concise modes:
+The composer always presents exactly four choices:
 
-| UI choice | Meaning |
-| --- | --- |
-| Read only | Read-oriented sandbox with user approval for escalation |
-| Ask for approval | Workspace sandbox; Codex asks the user when an operation needs more authority |
-| Approve for me | Workspace sandbox with an available automatic reviewer; it does not widen the sandbox |
-| Full access | Danger-full-access with no approval gate; shown only when allowed and explicitly enabled |
-| Named profile | A native Codex permission profile returned by App Server |
-| Managed | An administrator-selected Server default |
-| Custom | A valid native combination without a simpler Cypheria label |
+| UI choice | Description | Codex turn settings |
+| --- | --- | --- |
+| Ask for approval | Always ask to edit external files and use the internet | `workspace-write`, `on-request`, reviewer `user` |
+| Approve for me | Only ask for actions detected as potentially unsafe | `workspace-write`, `on-request`, reviewer `auto_review` |
+| Full access | Unrestricted access to the internet and any file on your computer | `danger-full-access`, `never` |
+| Agent defaults | Use the permissions configured for the Codex agent | The cwd-aware result of Codex `config/read` |
 
-For an existing Thread, leaving the selection unchanged preserves its harness-owned state. A deliberate selection is sent through the typed Thread/harness options supported by the adapter.
+For a new chat, the selection reads and updates the Server default. For an existing Thread, it reads and updates only the persisted Thread configuration. The composer never rewrites Codex permission defaults. Every Codex create, resume, fork, and turn resolves `config/read` with the current Thread working directory, so `Agent defaults` honors project and worktree configuration layers. Network access is not independently editable in the composer: workspace modes retain the native `sandbox_workspace_write.network_access` value, while `Agent defaults` uses the native sandbox policy.
 
 ## Approval lifecycle
 
@@ -48,13 +39,7 @@ Reviewer progress and decisions appear in the conversation. A supported Guardian
 
 ## Full access
 
-Full access can read and modify files outside the workspace and execute commands with network access without normal approval. It is hidden unless all of these are true:
-
-- App Server requirements allow the built-in danger-full-access profile;
-- danger-full-access sandbox and `never` approval policy are allowed;
-- the Desktop-local `composer.permissionModeVisibility` setting permits showing it in the composer.
-
-Desktop requires a clear confirmation before enabling its visibility or selecting it. The UI must not preselect Full access for a new Thread.
+Full access can read and modify files outside the workspace and execute commands with network access without a normal approval gate. It remains an explicit composer choice and is never the built-in default.
 
 ## Separation from Web3 policy
 
@@ -65,7 +50,6 @@ Likewise, a Web3 approval does not expand Codex sandbox authority.
 ## Security rules
 
 - Never treat an absent approval response as approval.
-- Never offer choices excluded by App Server requirements.
 - Never let an automatic reviewer widen sandbox or Web3 authority.
 - Attribute the requester, reviewer, selected scope, decision, and resulting action.
 - Keep native request IDs and callbacks in the Server.

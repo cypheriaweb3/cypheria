@@ -384,7 +384,6 @@ export const ClientPreferencesSnapshotSchema = z
     openInTargetPreference: z.string().min(1),
     macMenuBarEnabled: z.boolean(),
     preventSleepWhileRunning: z.boolean(),
-    permissionModeVisibility: z.boolean(),
     composerPlainTextMode: z.boolean(),
     showContextWindowUsage: z.boolean(),
     composerEnterBehavior: z.enum(["enter", "cmdIfMultiline", "cmdAlways"]),
@@ -406,7 +405,6 @@ export type ClientSettingDefinitions = Readonly<{
   openInTargetPreference: ClientSettingDefinition<string>
   macMenuBarEnabled: ClientSettingDefinition<boolean>
   preventSleepWhileRunning: ClientSettingDefinition<boolean>
-  permissionModeVisibility: ClientSettingDefinition<boolean>
   composerPlainTextMode: ClientSettingDefinition<boolean>
   showContextWindowUsage: ClientSettingDefinition<boolean>
   composerEnterBehavior: ClientSettingDefinition<"enter" | "cmdIfMultiline" | "cmdAlways">
@@ -468,13 +466,6 @@ export const clientSettingDefinitions: ClientSettingDefinitions = {
     category: "general",
     defaultValue: false,
     key: "preventSleepWhileRunning",
-    schema: z.boolean(),
-    version: 1,
-  }),
-  permissionModeVisibility: defineClientSetting({
-    category: "composer",
-    defaultValue: false,
-    key: "permissionModeVisibility",
     schema: z.boolean(),
     version: 1,
   }),

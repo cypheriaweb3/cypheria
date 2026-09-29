@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto"
 import { isAbsolute, normalize } from "node:path"
-
+import { type ThreadConfig, ThreadConfigSchema } from "@cypheria/protocol"
 import { and, asc, eq, isNotNull, isNull, sql } from "drizzle-orm"
 import { z } from "zod"
 
@@ -105,6 +105,7 @@ export type CreateThreadInput = {
   readonly agentId: string
   readonly agentSessionId?: string | null
   readonly beforeThreadId?: string | null
+  readonly config?: ThreadConfig
   readonly roots: readonly string[]
   readonly forkedFromId?: string | null
   readonly id?: string
@@ -241,7 +242,7 @@ export type ProjectThreadPersistenceService = {
   ): Promise<SectionRecord>
   updateThread(
     threadId: string,
-    patch: { roots?: readonly string[]; title?: string | null },
+    patch: { config?: ThreadConfig; roots?: readonly string[]; title?: string | null },
     now?: number
   ): Promise<ThreadRecord>
 }
@@ -906,6 +907,14 @@ export const createProjectThreadPersistenceService = (
         agentId: input.agentId,
         agentSessionId: input.agentSessionId ?? null,
         archivedAt: null,
+        config: ThreadConfigSchema.parse(
+          input.config ?? {
+            model: null,
+            permissionsMode: input.agentId === "codex" ? "approve-for-me" : null,
+            speed: null,
+            thinking: null,
+          }
+        ),
         createdAt: now,
         deletedAt: null,
         forkedFromId: input.forkedFromId ?? null,
@@ -1602,6 +1611,7 @@ export const createProjectThreadPersistenceService = (
       const [record] = await tx
         .update(threads)
         .set({
+          ...(patch.config === undefined ? {} : { config: ThreadConfigSchema.parse(patch.config) }),
           ...(roots === undefined ? {} : { roots }),
           ...(patch.title === undefined ? {} : { title: patch.title }),
           updatedAt: now,

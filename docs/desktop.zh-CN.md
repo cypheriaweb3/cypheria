@@ -62,7 +62,7 @@ Settings 与工作区使用同一个可调整宽度的 Desktop sidebar shell，�
 
 Authentication 页面使用面向用户的 Configure 与 Disconnect 操作。单账户 harness 在配置前显示互斥认证方式，认证后改为显示账户详情、连接测试和 Disconnect。Pi 与 OpenCode 为每个已连接 provider 显示一行，并提供 Add provider 对话框。该对话框第一步只搜索尚未连接的 provider，第二步把所选 provider 的认证方式显示为互斥单选列表。API key 表单通过 OK 完成；浏览器和 command flow 成功后自动关闭；失败会保留错误信息和可执行清理的 Cancel 操作。
 
-General 设置在 General 区域上方展示 Permissions。Default permissions 始终打开且不持久化。Full access 的可用性保存在客户端 KV 的 `permissionModeVisibility` key；开启前须确认，且只会让 composer 菜单显示 Full access。Codex 权限和其他默认值通过 App Server 保存在隔离的 Codex `config.toml` 中。
+Codex Agent 设置通过 App Server 编辑原生 model 与 permission 默认值。Composer 权限菜单与之分离：它始终包含 [Codex Permissions](codex-permissions.zh-CN.md) 记录的四种模式，新 chat 的选择保存在 Server 配置，已有 chat 的选择保存在该 Thread 的权威配置中。
 
 ## 会话工作区
 
@@ -149,7 +149,7 @@ Review 面板的工作树控件可选择包含本地改动及仓库内环境配�
 
 Harness 专属 UI 仅限判别 Timeline 扩展、header actions、model settings、permission details 和真实 harness capabilities。Codex 仍是保真参考，但 Claude、Pi、OpenCode 和 ACP 复用同一 shell，而不是复制整套 UI。
 
-Composer 使用共享的 `ChatModelSelector` 与 `ChatContextUsage` 展示组件。Selector 把 Agent、model、推理强度与速度合并起来，并隐藏所选 Agent 未广告的维度。首条消息发送前，切换 Agent 会改变新 Thread 使用的 runtime；已有 Thread 保持其 Agent identity。Context control 是一个紧凑 meter，hover card 会针对 Codex、Claude、Pi、OpenCode 与 ACP 显示不同明细，并用 source label 区分 reported、queried、derived 与 estimated。Chat Demo 同时展示这两个组件，开发者无需真实 Agent 即可切换检查所有呈现变体。
+Composer 使用共享的 `ChatModelSelector` 与 `ChatContextUsage` 展示组件。Selector 把 Agent、model、推理强度与速度合并起来，并隐藏所选 Agent 未广告的维度。首条消息发送前，切换 Agent 会改变新 Thread 使用的 runtime；已有 Thread 保持其 Agent identity。新 chat 还提供 project 选择器和明确的清除操作。当 project 的第一个 root 是 Git 仓库时，用户可以勾选 **Worktree** 并选择本地或远端起始分支。首次提交时，Desktop 会先创建托管 worktree，再创建 project Thread，并在启动首个 turn 前把 Thread 移入且关联该 worktree；若设置失败，则回滚本次创建的资源。Project 的其他 roots 仍会直接访问。已有 Thread 不显示这些创建控件。Context control 是一个紧凑 meter，hover card 会针对 Codex、Claude、Pi、OpenCode 与 ACP 显示不同明细，并用 source label 区分 reported、queried、derived 与 estimated。Chat Demo 同时展示这两个组件，开发者无需真实 Agent 即可切换检查所有呈现变体。
 
 共享的 `ChatComposerEditor` 使用 Tiptap/ProseMirror，支持富文本和选中的语义引用。Server 提供并校验 `@` 与 `$` 候选项；Desktop 处理可执行的 `/` 命令。选中的引用成为有序协议输入块；未选中的触发器文本仍是普通文本。`ChatComposerAttachmentList` 将二进制和其他上下文保留在编辑器文档外，并提供受控状态、移除和重排。Desktop 的显式纯文本偏好仍使用 textarea 路径。所有权、上传和 Agent 映射详见 [Composer 输入与引用](composer.zh-CN.md)。
 
@@ -159,7 +159,7 @@ Codex workspace 在 Canonical Timeline 投影后执行仅属于 Desktop 的展�
 
 ## Codex Summary 概览
 
-Codex 的独立 Summary 概览从会话标题栏打开，不再是右侧面板 tab。它可以浮于会话之上，也可固定并依据会话区域的实测宽度留出空间（低于 1096 px 时覆盖，至 1536 px 时局部偏移，更宽时留槽）。右侧详情 tabs 与底部面板保持独立。打开、固定和区块展开状态按 Thread 保存在 Desktop 客户端 KV；隐藏内容设置 inert，关闭后焦点返回标题栏开关。
+Codex 的独立 Summary 概览从会话标题栏打开，不再是右侧面板 tab。它可以浮于会话之上，也可固定并依据会话区域的实测宽度留出空间（低于 1096 px 时覆盖，至 1536 px 时局部偏移，更宽时留槽）。右侧详情 tabs 与底部面板保持独立。打开、固定和区块展开状态按 Thread 保存在 Desktop 客户端 KV 的 `thread-summary-ui:<threadId>`；隐藏内容设置 inert，关闭后焦点返回标题栏开关。
 
 概览只组合真实数据：Outputs、Sources、Subagents 和最新 Plan 来自 Server 的完整历史 [Thread Summary 投影](protocol.zh-CN.md#canonical-timeline)；原生后台进程使用 Codex facade；线程终端使用共享终端目录；关联 PR 使用 Thread Attachments；Schedules 限定当前 Thread；Browser 列出 Desktop 内置且属于该线程的 tabs。条目打开相应已有详情 tab 或路由。单一来源失败只显示自身错误，不隐藏其他区块。Environment、Usage、Computer Use、外部 Chrome Browser Use、缺少来源关联的 created tasks 和缺少线程关联的 side chats 不属于 Summary 区块。
 

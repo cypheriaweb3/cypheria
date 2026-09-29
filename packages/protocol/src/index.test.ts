@@ -56,6 +56,11 @@ describe("Cypheria protocol", () => {
     ).toBe(true)
     expect(
       PersistedServerConfigPatchSchema.safeParse({
+        agents: { codex: { permissionsMode: "approve-for-me" } },
+      }).success
+    ).toBe(true)
+    expect(
+      PersistedServerConfigPatchSchema.safeParse({
         server: { sessions: { reconnectGraceMs: 600_000 } },
       }).success
     ).toBe(false)
@@ -87,6 +92,26 @@ describe("Cypheria protocol", () => {
     })
 
     expect(message.payload).not.toHaveProperty("agentSessionId")
+    expect(
+      ThreadCreateRequestSchema.parse({
+        payload: {
+          agentId: "codex",
+          config: {
+            model: "gpt-5",
+            permissionsMode: "agent-config",
+            speed: "fast",
+            thinking: "high",
+          },
+        },
+        requestId: "projectThread-config",
+        type: "thread.create.request",
+      }).payload.config
+    ).toEqual({
+      model: "gpt-5",
+      permissionsMode: "agent-config",
+      speed: "fast",
+      thinking: "high",
+    })
     expect(
       ThreadCreateRequestSchema.safeParse({
         payload: {

@@ -56,9 +56,6 @@ export const macMenuBarEnabledAtom = atomFor(clientSettingDefinitions.macMenuBar
 export const preventSleepWhileRunningAtom = atomFor(
   clientSettingDefinitions.preventSleepWhileRunning
 )
-export const permissionModeVisibilityAtom = atomFor(
-  clientSettingDefinitions.permissionModeVisibility
-)
 export const composerPlainTextModeAtom = atomFor(clientSettingDefinitions.composerPlainTextMode)
 export const showContextWindowUsageAtom = atomFor(clientSettingDefinitions.showContextWindowUsage)
 export const composerEnterBehaviorAtom = atomFor(clientSettingDefinitions.composerEnterBehavior)
@@ -153,7 +150,7 @@ export const summaryAtom = (threadId: string): ClientStateAtom<SummaryCheckpoint
   const existing = summaryAtoms.get(threadId)
   if (existing) return existing
   const created = atomWithValidatedStorage<SummaryCheckpoint>(
-    `chat-summary:${threadId}`,
+    `thread-summary-ui:${threadId}`,
     { open: false, pinned: false, expanded: {} },
     desktopClientStorage.keyValue,
     SummaryCheckpointSchema,

@@ -2,6 +2,7 @@ import type { CypheriaClient } from "@cypheria/client"
 import {
   type AgentId,
   projectThreadTimelineRows,
+  type ThreadConfig,
   type ThreadInputBlock,
   type ThreadInteractionResponse,
   type ThreadTimelineCursor,
@@ -35,6 +36,18 @@ export type ThreadConversationControllerOptions = {
   readonly onThreadCreated?: (threadId: string) => Promise<void> | void
 }
 
+export type ThreadConversationCreationTarget = {
+  readonly checkout?: {
+    readonly cwd: string
+    readonly target: string
+  }
+  readonly projectId?: string
+  readonly worktree?: {
+    readonly cwd: string
+    readonly startPoint?: string
+  }
+}
+
 const initialSnapshot = (threadId?: string): ThreadConversationSnapshot => ({
   epoch: null,
   error: null,
@@ -51,6 +64,7 @@ export class ThreadConversationController {
   readonly #options: ThreadConversationControllerOptions
   readonly #unsubscribers: Array<() => void> = []
   #client: CypheriaClient | null = null
+  #creationTarget: ThreadConversationCreationTarget
   #cwd: string | undefined
   #disposed = false
   #connectionGeneration = 0
@@ -62,12 +76,17 @@ export class ThreadConversationController {
 
   constructor(options: ThreadConversationControllerOptions) {
     this.#options = options
+    this.#creationTarget = { projectId: options.projectId }
     this.#cwd = options.cwd
     this.#snapshot = initialSnapshot(options.initialThreadId)
   }
 
   setCwd(cwd: string | undefined): void {
     this.#cwd = cwd
+  }
+
+  setCreationTarget(target: ThreadConversationCreationTarget): void {
+    this.#creationTarget = target
   }
 
   getSnapshot = (): ThreadConversationSnapshot => this.#snapshot
@@ -183,17 +202,12 @@ export class ThreadConversationController {
     }
   }
 
-  async updateConfig(patch: {
-    mode?: string | null
-    model?: string | null
-    speed?: string | null
-    thinking?: string | null
-  }): Promise<void> {
+  async updateConfig(patch: Partial<ThreadConfig>): Promise<void> {
     const client = this.#requireClient()
     const threadId = this.#snapshot.threadId
     if (!threadId) return
     try {
-      const thread = await client.threads.updateConfig({ ...patch, threadId })
+      const thread = await client.threads.updateConfig({ patch, threadId })
       this.#set({ ...this.#snapshot, error: null, thread })
     } catch (error) {
       this.#fail(error, false)
@@ -308,26 +322,87 @@ export class ThreadConversationController {
       ?.text.trim()
       .replace(/\s+/gu, " ")
       .slice(0, 80)
-    const ready = await client.threads.create({
-      agentId: this.#options.agentId,
-      ...(this.#options.projectId
-        ? { projectPlacement: { projectId: this.#options.projectId } }
-        : {}),
-      ...(this.#options.sectionId
-        ? { sectionPlacement: { sectionId: this.#options.sectionId } }
-        : {}),
-      ...(initialTitle ? { title: initialTitle } : {}),
-    })
-    this.#epoch = ready.timeline.epoch
-    this.#set({
-      ...this.#snapshot,
-      epoch: this.#epoch,
-      loadState: "ready",
-      thread: ready.thread,
-      threadId: ready.thread.id,
-    })
-    await this.#options.onThreadCreated?.(ready.thread.id)
-    return ready.thread
+    let createdThreadId: string | undefined
+    let createdWorktree: { path: string } | undefined
+    let checkedOut = false
+    let previousCheckoutTarget: string | undefined
+    let workspaceCommitted = false
+    try {
+      if (this.#creationTarget.checkout) {
+        const status = await client.git.status(this.#creationTarget.checkout.cwd)
+        if (status.branch !== this.#creationTarget.checkout.target) {
+          previousCheckoutTarget = status.branch ?? status.head ?? undefined
+          await client.git.checkout(
+            this.#creationTarget.checkout.cwd,
+            this.#creationTarget.checkout.target,
+            false
+          )
+          checkedOut = true
+        }
+      }
+      if (this.#creationTarget.worktree) {
+        createdWorktree = await client.git.createWorktree(
+          this.#creationTarget.worktree.cwd,
+          this.#creationTarget.worktree.startPoint
+        )
+      }
+      const ready = await client.threads.create({
+        agentId: this.#options.agentId,
+        ...(this.#creationTarget.projectId
+          ? { projectPlacement: { projectId: this.#creationTarget.projectId } }
+          : {}),
+        ...(this.#options.sectionId
+          ? { sectionPlacement: { sectionId: this.#options.sectionId } }
+          : {}),
+        ...(initialTitle ? { title: initialTitle } : {}),
+      })
+      createdThreadId = ready.thread.id
+      const thread = createdWorktree
+        ? await this.#moveCreatedThreadToWorktree(client, ready.thread.id, createdWorktree.path)
+        : ready.thread
+      workspaceCommitted = true
+      this.#epoch = ready.timeline.epoch
+      this.#set({
+        ...this.#snapshot,
+        epoch: this.#epoch,
+        loadState: "ready",
+        thread,
+        threadId: thread.id,
+      })
+      await this.#options.onThreadCreated?.(thread.id)
+      return thread
+    } catch (error) {
+      if (!workspaceCommitted && createdThreadId) {
+        await client.threads.delete(createdThreadId).catch(() => undefined)
+      }
+      if (!workspaceCommitted && createdWorktree && this.#creationTarget.worktree) {
+        await client.git
+          .deleteWorktree(this.#creationTarget.worktree.cwd, createdWorktree.path)
+          .catch(() => undefined)
+      }
+      if (
+        !workspaceCommitted &&
+        checkedOut &&
+        previousCheckoutTarget &&
+        this.#creationTarget.checkout
+      ) {
+        await client.git
+          .checkout(this.#creationTarget.checkout.cwd, previousCheckoutTarget, false)
+          .catch(() => undefined)
+      }
+      throw error
+    }
+  }
+
+  async #moveCreatedThreadToWorktree(
+    client: CypheriaClient,
+    threadId: string,
+    path: string
+  ): Promise<ThreadView> {
+    const worktree = this.#creationTarget.worktree
+    if (!worktree) throw new Error("Missing worktree creation target")
+    await client.git.moveThreadToWorktree(worktree.cwd, path, threadId)
+    return client.threads.get(threadId)
   }
 
   async #hydrate(thread: ThreadView): Promise<void> {

@@ -32,7 +32,7 @@ Cypheria 通过 Drizzle ORM 和本地 libSQL driver 使用 SQLite。`packages/db
 
 ## Project 与 Thread 约束
 
-Cypheria UUIDv7 标识 Projects、Threads 和 Sections。Thread 拥有一个不可变 Agent；每个 Agent 至多对应一个 harness session linkage；可选 fork origin；Project 和 Section membership 相互独立。
+Cypheria UUIDv7 标识 Projects、Threads 和 Sections。Thread 拥有一个不可变 Agent；每个 Agent 至多对应一个 harness session linkage；可选 fork origin；Project 和 Section membership 相互独立。其非空 JSON `config` 列是 `model`、`thinking`、`speed` 与 `permissionsMode` 的唯一持久化权威；创建和更新时 adapter 都会收到完整且已校验的对象。
 
 `project_items` 让一个 Thread 最多属于一个 Project。`section_items` 在同一有序域中交错 Project 和 Thread，并让每个条目最多属于一个 Section。固定 Pinned Section 的稳定 ID 为 `01984de2-8f74-7c91-a3b2-5c5e937cf318`。
 

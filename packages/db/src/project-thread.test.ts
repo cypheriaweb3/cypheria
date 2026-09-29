@@ -37,13 +37,29 @@ describe("project/thread persistence", () => {
       102
     )
     const thread = await projectThread.createThread(
-      { agentId: "codex", roots: ["/first"], title: "Thread" },
+      {
+        agentId: "codex",
+        config: {
+          model: "gpt-5",
+          permissionsMode: "approve-for-me",
+          speed: "fast",
+          thinking: "medium",
+        },
+        roots: ["/first"],
+        title: "Thread",
+      },
       103
     )
 
     expect(z.uuidv7().safeParse(first.id).success).toBe(true)
     expect(z.uuidv7().safeParse(thread.id).success).toBe(true)
     expect(thread.agentSessionId).toBeNull()
+    expect(thread.config).toEqual({
+      model: "gpt-5",
+      permissionsMode: "approve-for-me",
+      speed: "fast",
+      thinking: "medium",
+    })
     expect((await projectThread.listProjects()).data.map(({ id }) => id)).toEqual([
       second.id,
       first.id,

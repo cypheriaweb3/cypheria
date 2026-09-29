@@ -6,15 +6,12 @@ import type {
   CodexModelSettings,
   CodexPermissionDefaults,
   CodexPermissionDefaultsWrite,
-  CodexPermissionsCatalog,
 } from "@cypheria/protocol"
 import type { v2 } from "@cypheria/protocol/codex-types"
 
 import type { AgentManager } from "./agent/agent-manager.js"
 import type { ServerConfigStore } from "./server-config-store.js"
 import type { ThreadManager } from "./thread/thread-manager.js"
-
-const builtInProfiles = new Set([":read-only", ":workspace", ":danger-full-access"])
 
 export class CodexHarnessService {
   readonly #agents: AgentManager
@@ -71,9 +68,6 @@ export class CodexHarnessService {
           break
         case "harness.codex.permissions.defaults.set.request":
           respond(await this.setPermissionDefaults(message.payload))
-          break
-        case "harness.codex.permissions.catalog.get.request":
-          respond(await this.permissionsCatalog(message.payload.cwd))
           break
         case "harness.codex.guardian.retry.request":
           await this.callThread("thread/approveGuardianDeniedAction", message.payload)
@@ -400,73 +394,6 @@ export class CodexHarnessService {
       await this.call("experimentalFeature/enablement/set", {
         enablement: { plugins: values.pluginsEnabled },
       })
-    }
-  }
-
-  async permissionsCatalog(cwd?: string): Promise<CodexPermissionsCatalog> {
-    const requirements = await this.requirements()
-    const profiles: v2.PermissionProfileSummary[] = []
-    let cursor: string | null = null
-    do {
-      const page: v2.PermissionProfileListResponse =
-        await this.call<v2.PermissionProfileListResponse>("permissionProfile/list", {
-          cursor,
-          ...(cwd ? { cwd } : {}),
-          limit: 100,
-        })
-      profiles.push(...page.data)
-      cursor = page.nextCursor
-    } while (cursor)
-
-    const snapshot = this.#config.getSnapshot()
-    const settings = await this.agentSettings(cwd)
-    const allowedProfile = (id: string): boolean =>
-      profiles.find((profile) => profile.id === id)?.allowed ??
-      requirements?.allowedPermissionProfiles?.[id] ??
-      true
-    const defaultProfile = requirements?.defaultPermissions ?? null
-    const selected: CodexPermissionsCatalog["selected"] = defaultProfile
-      ? { kind: "profile", profileId: defaultProfile }
-      : settings.sandboxMode === "read-only"
-        ? { agentMode: "read-only", kind: "agent-mode" }
-        : settings.sandboxMode === "danger-full-access"
-          ? { agentMode: "full-access", kind: "agent-mode" }
-          : settings.approvalsReviewer === "auto_review"
-            ? { agentMode: "guardian-approvals", kind: "agent-mode" }
-            : { agentMode: "auto", kind: "agent-mode" }
-    const allowedReviewers = requirements?.allowedApprovalsReviewers
-    const autoReviewAvailable =
-      allowedReviewers === null ||
-      allowedReviewers === undefined ||
-      allowedReviewers.includes("auto_review")
-    const allowedApproval = (policy: v2.AskForApproval): boolean =>
-      requirements?.allowedApprovalPolicies?.some(
-        (allowed) => JSON.stringify(allowed) === JSON.stringify(policy)
-      ) ?? true
-    const userReviewAllowed = requirements?.allowedApprovalsReviewers?.includes("user") ?? true
-    const fullAccessAllowed =
-      allowedProfile(":danger-full-access") &&
-      (requirements?.allowedSandboxModes?.includes("danger-full-access") ?? true) &&
-      (requirements?.allowedApprovalPolicies?.includes("never") ?? true)
-    const availableAgentModes: CodexPermissionsCatalog["availableAgentModes"] = []
-    if (allowedProfile(":read-only") && allowedApproval("on-request") && userReviewAllowed) {
-      availableAgentModes.push("read-only")
-    }
-    if (allowedProfile(":workspace") && allowedApproval("on-request") && userReviewAllowed) {
-      availableAgentModes.push("auto")
-    }
-    if (allowedProfile(":workspace") && allowedApproval("on-request") && autoReviewAvailable) {
-      availableAgentModes.push("guardian-approvals")
-    }
-    if (fullAccessAllowed) availableAgentModes.push("full-access")
-    return {
-      autoReviewAvailable,
-      availableAgentModes,
-      configPath: join(dirname(dirname(snapshot.path)), "codex", "config.toml"),
-      fullAccessCanBeShown: fullAccessAllowed,
-      profiles: profiles.filter((profile) => !builtInProfiles.has(profile.id)),
-      selected,
-      source: requirements?.defaultPermissions ? "managed" : "config",
     }
   }
 }

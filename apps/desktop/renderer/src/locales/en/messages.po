@@ -2597,3 +2597,103 @@ msgstr "Removed"
 #: renderer/src/browser/browser-pane.tsx
 msgid "browser.tab.openDapp"
 msgstr "Open dApp tab"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.agentConfig"
+msgstr "Agent defaults"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.agentConfig.description"
+msgstr "Use the permissions configured for the Codex agent"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.approve"
+msgstr "Approve for me"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.approve.description"
+msgstr "Only ask for actions detected as potentially unsafe"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.ask"
+msgstr "Ask for approval"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.ask.description"
+msgstr "Always ask to edit external files and use the internet"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.fullAccess"
+msgstr "Full access"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.fullAccess.description"
+msgstr "Unrestricted access to the internet and any file on your computer"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.choose"
+msgstr "Choose project"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.clear"
+msgstr "Don't work in a project"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.label"
+msgstr "Project"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.branch.choose"
+msgstr "Choose branch"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.branch.label"
+msgstr "Branch"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.branch.local"
+msgstr "Local branches"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.worktree.description"
+msgstr "Create an isolated copy of {projectName} so this chat can work in parallel. Other project source folders are accessed directly. The selected branch is used as the starting point."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.worktree.gitRequired"
+msgstr "Worktrees require the project's first source folder to be a Git repository."
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.worktree.label"
+msgstr "Worktree"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.search"
+msgstr "Search projects"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.empty"
+msgstr "No projects found"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.new"
+msgstr "New project"

@@ -120,8 +120,8 @@ Harness-native Skills、MCP、plugins、marketplaces 和 Apps 通过 Cypheria [I
 - theme、font、language、density 和 layout；
 - window、tray、browser、update 和 OS integration state；
 - Sidebar expansion、draft、cache 和 scroll position；
-- Server executable 和 auto-start preference。
-- `composer.permissionModeVisibility`，它只控制 composer 权限菜单是否显示 Full access。
+- Server executable 和 auto-start preference；
+- Cypheria 所有的 `agents.codex.permissionsMode` 新 Thread 默认值及各 Thread 的持久化配置。
 
 Desktop 将需要持久化的客户端本地值保存在 KV store 中。草稿的二进制附件使用
 AttachmentStore，临时窗口和进程状态则只保留在内存中。

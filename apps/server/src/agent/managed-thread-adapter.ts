@@ -7,6 +7,7 @@ import type {
   AgentOpenCodeV2Operation,
   RegistryAgentId,
   ThreadCapabilities,
+  ThreadConfig,
   ThreadContextTokenBreakdown,
   ThreadContextUsage,
   ThreadInputBlock,
@@ -179,6 +180,13 @@ const usageBase = (usedTokens: number, maxTokens: number) => ({
   remainingTokens: Math.max(0, maxTokens - usedTokens),
   usedTokens,
 })
+
+type CodexResolvedPermissions = {
+  approvalPolicy?: v2.AskForApproval
+  approvalsReviewer?: v2.ApprovalsReviewer
+  sandbox?: v2.SandboxMode
+  sandboxPolicy?: v2.SandboxPolicy
+}
 
 const localInput = (uri: string, name?: string | null): v2.UserInput | null => {
   if (!uri.startsWith("file:")) return null
@@ -646,6 +654,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   #onEvent: ((event: ThreadHarnessEvent) => void) | undefined
   #harnessSessionId: string | null = null
   #contextUsage: ThreadContextUsage | null = null
+  #config: ThreadConfig = { model: null, permissionsMode: null, speed: null, thinking: null }
   #ownerThreadId: string | null = null
   #cwd: string | null = null
 
@@ -656,7 +665,90 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       agentId === "codex" || agentId === "claude" ? "turn-start" : "unsupported"
   }
 
+  async #codexNativeConfig(threadId: string, cwd: string | null): Promise<v2.Config> {
+    const response = await this.#request(threadId, {
+      ...(cwd ? { cwd } : {}),
+      includeLayers: false,
+      requestId: randomUUID(),
+      type: "agent.codex.config.read.request",
+    })
+    const config = resultOf(response).config
+    if (!config || typeof config !== "object" || Array.isArray(config)) {
+      throw new Error("Codex config/read did not return a configuration")
+    }
+    return config as v2.Config
+  }
+
+  #codexEffectiveThreadConfig(
+    result: Record<string, unknown>,
+    requested: ThreadConfig
+  ): ThreadConfig {
+    return {
+      model: stringId(result.model) ?? requested.model,
+      permissionsMode: requested.permissionsMode,
+      speed: stringId(result.serviceTier) ?? requested.speed,
+      thinking: stringId(result.reasoningEffort) ?? requested.thinking,
+    }
+  }
+
+  #codexPermissions(
+    config: ThreadConfig,
+    native: v2.Config,
+    workspaceRoots: readonly string[] | undefined
+  ): CodexResolvedPermissions {
+    const mode = config.permissionsMode ?? "agent-config"
+    const workspace = native.sandbox_workspace_write
+    const workspacePolicy: v2.SandboxPolicy = {
+      excludeSlashTmp: workspace?.exclude_slash_tmp ?? false,
+      excludeTmpdirEnvVar: workspace?.exclude_tmpdir_env_var ?? false,
+      networkAccess: workspace?.network_access ?? false,
+      type: "workspaceWrite",
+      writableRoots: [
+        ...new Set([...(workspace?.writable_roots ?? []), ...(workspaceRoots ?? [])]),
+      ],
+    }
+    if (mode === "ask-for-approval") {
+      return {
+        approvalPolicy: "on-request",
+        approvalsReviewer: "user",
+        sandbox: "workspace-write",
+        sandboxPolicy: workspacePolicy,
+      }
+    }
+    if (mode === "approve-for-me") {
+      return {
+        approvalPolicy: "on-request",
+        approvalsReviewer: "auto_review",
+        sandbox: "workspace-write",
+        sandboxPolicy: workspacePolicy,
+      }
+    }
+    if (mode === "full-access") {
+      return {
+        approvalPolicy: "never",
+        sandbox: "danger-full-access",
+        sandboxPolicy: { type: "dangerFullAccess" },
+      }
+    }
+    const sandbox = native.sandbox_mode ?? undefined
+    const sandboxPolicy =
+      sandbox === "danger-full-access"
+        ? ({ type: "dangerFullAccess" } as const)
+        : sandbox === "read-only"
+          ? ({ networkAccess: false, type: "readOnly" } as const)
+          : sandbox === "workspace-write"
+            ? workspacePolicy
+            : undefined
+    return {
+      ...(native.approval_policy ? { approvalPolicy: native.approval_policy } : {}),
+      ...(native.approvals_reviewer ? { approvalsReviewer: native.approvals_reviewer } : {}),
+      ...(sandbox ? { sandbox } : {}),
+      ...(sandboxPolicy ? { sandboxPolicy } : {}),
+    }
+  }
+
   async create(input: ThreadHarnessCreateInput): Promise<ThreadHarnessSession> {
+    this.#config = input.config
     this.#attach(input.onEvent)
     this.#contextUsage = null
     this.#ownerThreadId = input.threadId
@@ -664,20 +756,35 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     if (this.agentId === "codex") {
       const gitInstructions = this.#manager.codexGitInstructions()
       const worktreeConfig = await this.#manager.codexWorktreeConfig?.(input.cwd)
+      const nativeConfig = await this.#codexNativeConfig(input.threadId, input.cwd)
+      const permissions = this.#codexPermissions(input.config, nativeConfig, input.workspaceRoots)
+      const config = {
+        ...(worktreeConfig ?? {}),
+        ...(input.config.thinking ? { model_reasoning_effort: input.config.thinking } : {}),
+      }
       const response = await this.#request(input.threadId, {
+        ...(input.config.model ? { model: input.config.model } : {}),
+        ...(input.config.speed ? { serviceTier: input.config.speed } : {}),
+        ...(permissions.approvalPolicy ? { approvalPolicy: permissions.approvalPolicy } : {}),
+        ...(permissions.approvalsReviewer
+          ? { approvalsReviewer: permissions.approvalsReviewer }
+          : {}),
+        ...(permissions.sandbox ? { sandbox: permissions.sandbox } : {}),
         cwd: input.cwd,
         ...(input.workspaceRoots ? { runtimeWorkspaceRoots: [...input.workspaceRoots] } : {}),
-        ...(worktreeConfig ? { config: worktreeConfig } : {}),
+        ...(Object.keys(config).length > 0 ? { config } : {}),
         ...(gitInstructions ? { developerInstructions: gitInstructions } : {}),
         dynamicTools: this.#manager.codexDynamicTools.getSpecs(),
         requestId: randomUUID(),
         type: "agent.codex.thread.start.request",
       })
-      const thread = extractThread(resultOf(response))
+      const result = resultOf(response)
+      const thread = extractThread(result)
       const sessionId = stringId(thread.id)
       this.#harnessSessionId = sessionId
       return {
         capabilities: capabilities(this.agentId),
+        config: this.#codexEffectiveThreadConfig(result, input.config),
         history: mapCodexHistory(thread),
         sessionId,
       }
@@ -724,9 +831,22 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     this.#contextUsage = null
     this.#ownerThreadId = input.threadId
     this.#cwd = input.cwd
+    this.#config = input.config ?? this.#config
 
     if (this.agentId === "codex") {
+      const nativeConfig = await this.#codexNativeConfig(input.threadId, input.cwd)
+      const permissions = this.#codexPermissions(this.#config, nativeConfig, input.workspaceRoots)
       const response = await this.#request(input.sourceThreadId, {
+        ...(this.#config.model ? { model: this.#config.model } : {}),
+        ...(this.#config.speed ? { serviceTier: this.#config.speed } : {}),
+        ...(permissions.approvalPolicy ? { approvalPolicy: permissions.approvalPolicy } : {}),
+        ...(permissions.approvalsReviewer
+          ? { approvalsReviewer: permissions.approvalsReviewer }
+          : {}),
+        ...(permissions.sandbox ? { sandbox: permissions.sandbox } : {}),
+        ...(this.#config.thinking
+          ? { config: { model_reasoning_effort: this.#config.thinking } }
+          : {}),
         cwd: input.cwd,
         ...(input.workspaceRoots ? { runtimeWorkspaceRoots: [...input.workspaceRoots] } : {}),
         ...(input.target.kind === "user-message" ? { beforeTurnId: input.target.turnId } : {}),
@@ -738,12 +858,14 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         threadId: input.agentSessionId,
         type: "agent.codex.thread.fork.request",
       })
-      const thread = extractThread(resultOf(response))
+      const result = resultOf(response)
+      const thread = extractThread(result)
       const sessionId = stringId(thread.id)
       if (!sessionId) throw new Error("Codex did not return a forked thread ID")
       this.#harnessSessionId = sessionId
       return {
         capabilities: capabilities(this.agentId),
+        config: this.#codexEffectiveThreadConfig(result, this.#config),
         history: mapCodexHistory(thread),
         sessionId,
       }
@@ -976,31 +1098,48 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     this.#contextUsage = null
     this.#ownerThreadId = input.threadId
     this.#cwd = input.cwd
+    this.#config = input.config ?? this.#config
     if (this.agentId === "codex") {
-      if (!input.agentSessionId) return this.create(input)
+      if (!input.agentSessionId) return this.create({ ...input, config: this.#config })
       const gitInstructions = this.#manager.codexGitInstructions()
       const worktreeConfig = await this.#manager.codexWorktreeConfig?.(input.cwd)
+      const nativeConfig = await this.#codexNativeConfig(input.threadId, input.cwd)
+      const permissions = this.#codexPermissions(this.#config, nativeConfig, input.workspaceRoots)
+      const config = {
+        ...(worktreeConfig ?? {}),
+        ...(this.#config.thinking ? { model_reasoning_effort: this.#config.thinking } : {}),
+      }
       const response = await this.#request(input.threadId, {
+        ...(this.#config.model ? { model: this.#config.model } : {}),
+        ...(this.#config.speed ? { serviceTier: this.#config.speed } : {}),
+        ...(permissions.approvalPolicy ? { approvalPolicy: permissions.approvalPolicy } : {}),
+        ...(permissions.approvalsReviewer
+          ? { approvalsReviewer: permissions.approvalsReviewer }
+          : {}),
+        ...(permissions.sandbox ? { sandbox: permissions.sandbox } : {}),
         cwd: input.cwd,
         ...(input.workspaceRoots ? { runtimeWorkspaceRoots: [...input.workspaceRoots] } : {}),
-        ...(worktreeConfig ? { config: worktreeConfig } : {}),
+        ...(Object.keys(config).length > 0 ? { config } : {}),
         ...(gitInstructions ? { developerInstructions: gitInstructions } : {}),
         excludeTurns: false,
         requestId: randomUUID(),
         threadId: input.agentSessionId,
         type: "agent.codex.thread.resume.request",
       })
-      const thread = extractThread(resultOf(response))
+      const result = resultOf(response)
+      const thread = extractThread(result)
       const sessionId = stringId(thread.id)
       this.#harnessSessionId = sessionId
       return {
         capabilities: capabilities(this.agentId),
+        config: this.#codexEffectiveThreadConfig(result, this.#config),
         history: mapCodexHistory(thread),
         sessionId,
       }
     }
     if (this.agentId === "opencode") {
-      if (!input.agentSessionId) return this.create(input)
+      if (!input.agentSessionId)
+        return this.create({ ...input, config: input.config ?? this.#config })
       if (input.cwd) {
         await this.#openCodeCall(input.threadId, {
           body: { directory: input.cwd, sessionID: input.agentSessionId },
@@ -1043,7 +1182,8 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       }
     }
     if (this.agentId === "pi") {
-      if (!input.agentSessionId) return this.create(input)
+      if (!input.agentSessionId)
+        return this.create({ ...input, config: input.config ?? this.#config })
       await this.#request(input.threadId, {
         requestId: randomUUID(),
         sessionPath: input.agentSessionId,
@@ -1345,7 +1485,18 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     this.#cwd = input.cwd
     if (this.agentId === "codex") {
       if (!input.agentSessionId) throw new Error("Codex thread is not bound")
+      const config = input.config ?? this.#config
+      const nativeConfig = await this.#codexNativeConfig(input.threadId, input.cwd)
+      const permissions = this.#codexPermissions(config, nativeConfig, input.workspaceRoots)
       const response = await this.#request(input.threadId, {
+        ...(config.model ? { model: config.model } : {}),
+        ...(config.thinking ? { effort: config.thinking } : {}),
+        ...(config.speed ? { serviceTier: config.speed } : {}),
+        ...(permissions.approvalPolicy ? { approvalPolicy: permissions.approvalPolicy } : {}),
+        ...(permissions.approvalsReviewer
+          ? { approvalsReviewer: permissions.approvalsReviewer }
+          : {}),
+        ...(permissions.sandboxPolicy ? { sandboxPolicy: permissions.sandboxPolicy } : {}),
         clientUserMessageId: input.clientMessageId,
         input: mapCodexInput(input.content),
         requestId: randomUUID(),
@@ -1592,61 +1743,58 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     }
   }
 
-  async updateConfig(
-    context: ThreadHarnessContext,
-    patch: {
-      mode?: string | null
-      model?: string | null
-      speed?: string | null
-      thinking?: string | null
-    }
-  ): Promise<void> {
+  async updateConfig(context: ThreadHarnessContext, config: ThreadConfig): Promise<void> {
+    const previous = context.config ?? this.#config
+    const changed = <K extends keyof ThreadConfig>(key: K): boolean => previous[key] !== config[key]
+    this.#config = config
     if (this.agentId === "codex") {
       const turnId = [...this.#codexProjectors.keys()].at(-1)
       if (!context.agentSessionId) return
-      if (patch.mode !== undefined) {
-        throw new Error("Codex permission mode changes apply to the next turn")
-      }
-      if (patch.model !== undefined || patch.speed !== undefined || patch.thinking !== undefined) {
+      const nativeConfig = await this.#codexNativeConfig(context.threadId, context.cwd)
+      const permissions = this.#codexPermissions(config, nativeConfig, context.workspaceRoots)
+      await this.#request(context.threadId, {
+        ...(config.thinking !== null ? { effort: config.thinking } : {}),
+        ...(config.model !== null ? { model: config.model } : {}),
+        ...(config.speed !== null ? { serviceTier: config.speed } : {}),
+        ...(permissions.approvalPolicy ? { approvalPolicy: permissions.approvalPolicy } : {}),
+        ...(permissions.approvalsReviewer
+          ? { approvalsReviewer: permissions.approvalsReviewer }
+          : {}),
+        ...(permissions.sandboxPolicy ? { sandboxPolicy: permissions.sandboxPolicy } : {}),
+        requestId: randomUUID(),
+        threadId: context.agentSessionId,
+        type: "agent.codex.thread.settings.update.request",
+      })
+      if (turnId && (changed("model") || changed("speed") || changed("thinking"))) {
         await this.#request(context.threadId, {
-          ...(patch.thinking !== undefined ? { effort: patch.thinking } : {}),
-          ...(patch.model !== undefined ? { model: patch.model } : {}),
-          ...(patch.speed !== undefined ? { serviceTier: patch.speed } : {}),
+          ...(changed("thinking") && config.thinking !== null ? { effort: config.thinking } : {}),
+          ...(changed("model") && config.model !== null ? { model: config.model } : {}),
+          ...(changed("speed") ? { serviceTier: config.speed } : {}),
           requestId: randomUUID(),
           threadId: context.agentSessionId,
-          type: "agent.codex.thread.settings.update.request",
+          turnId,
+          type: "agent.codex.turn.settings.update.request",
         })
-        if (turnId) {
-          await this.#request(context.threadId, {
-            ...(patch.thinking !== undefined ? { effort: patch.thinking } : {}),
-            ...(patch.model !== undefined ? { model: patch.model } : {}),
-            ...(patch.speed !== undefined ? { serviceTier: patch.speed } : {}),
-            requestId: randomUUID(),
-            threadId: context.agentSessionId,
-            turnId,
-            type: "agent.codex.turn.settings.update.request",
-          })
-        }
       }
       return
     }
     if (this.agentId === "opencode") {
-      if (patch.model && context.agentSessionId) {
-        const [providerID, id] = patch.model.split("/", 2)
+      if (changed("model") && config.model && context.agentSessionId) {
+        const [providerID, id] = config.model.split("/", 2)
         if (!providerID || !id) throw new Error("OpenCode model must use provider/model format")
         await this.#openCodeCall(context.threadId, {
           body: { model: { id, providerID }, sessionID: context.agentSessionId },
           operation: "session.switch_model",
         })
       }
-      if (patch.thinking || patch.speed || patch.mode) {
+      if (changed("thinking") || changed("speed")) {
         throw new Error("OpenCode does not expose live reasoning or speed configuration")
       }
       return
     }
     if (this.agentId === "pi") {
-      if (patch.model) {
-        const [provider, modelId] = patch.model.split("/", 2)
+      if (changed("model") && config.model) {
+        const [provider, modelId] = config.model.split("/", 2)
         if (!provider || !modelId) throw new Error("Pi model must use provider/model format")
         await this.#request(context.threadId, {
           modelId,
@@ -1655,9 +1803,9 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
           type: "agent.pi.model.set.request",
         })
       }
-      if (patch.thinking) {
+      if (changed("thinking") && config.thinking) {
         await this.#request(context.threadId, {
-          level: patch.thinking,
+          level: config.thinking,
           requestId: randomUUID(),
           type: "agent.pi.thinking_level.set.request",
         })
@@ -1665,9 +1813,9 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       return
     }
     if (this.agentId === "claude") {
-      if (patch.model)
+      if (changed("model") && config.model)
         await this.#request(context.threadId, {
-          model: patch.model,
+          model: config.model,
           queryId: context.threadId,
           requestId: randomUUID(),
           type: "agent.claude.query.model.set.request",
@@ -1677,34 +1825,23 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     if (context.agentSessionId) {
       const protocolVersion = this.#requireAcpVersion()
       for (const [configId, value] of Object.entries({
-        mode: patch.mode,
-        model: patch.model,
-        speed: patch.speed,
-        thought_level: patch.thinking,
+        model: changed("model") ? config.model : undefined,
+        speed: changed("speed") ? config.speed : undefined,
+        thought_level: changed("thinking") ? config.thinking : undefined,
       })) {
         if (value === undefined || value === null) continue
-        if (protocolVersion === 1 && configId === "mode") {
-          await this.#request(context.threadId, {
-            agent: this.agentId,
-            payload: { modeId: value, sessionId: context.agentSessionId },
-            protocolVersion,
-            requestId: randomUUID(),
-            type: "agent.acp.session.set_mode.request",
-          })
-        } else {
-          await this.#request(context.threadId, {
-            agent: this.agentId,
-            payload: {
-              configId,
-              sessionId: context.agentSessionId,
-              ...(protocolVersion === 2 ? { type: "id" } : {}),
-              value,
-            },
-            protocolVersion,
-            requestId: randomUUID(),
-            type: "agent.acp.session.set_config_option.request",
-          })
-        }
+        await this.#request(context.threadId, {
+          agent: this.agentId,
+          payload: {
+            configId,
+            sessionId: context.agentSessionId,
+            ...(protocolVersion === 2 ? { type: "id" } : {}),
+            value,
+          },
+          protocolVersion,
+          requestId: randomUUID(),
+          type: "agent.acp.session.set_config_option.request",
+        })
       }
     }
   }
@@ -1983,7 +2120,8 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
   }
 
   async #resumeAcp(input: ThreadHarnessResumeInput): Promise<ThreadHarnessSession> {
-    if (!input.agentSessionId) return this.#createAcp(input)
+    if (!input.agentSessionId)
+      return this.#createAcp({ ...input, config: input.config ?? this.#config })
     await this.#initializeAcp(input.threadId)
     const protocolVersion = this.#requireAcpVersion()
     const directories = additionalDirectories(input.workspaceRoots, input.cwd)
@@ -2897,6 +3035,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     void this.getContextUsage({
       agentId: this.agentId,
       agentSessionId: this.#harnessSessionId,
+      config: this.#config,
       cwd: this.#cwd,
       threadId: this.#ownerThreadId,
     })

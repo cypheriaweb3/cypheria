@@ -11,10 +11,40 @@ import { ManagedThreadAdapter } from "./managed-thread-adapter.js"
 
 const input = (agentId: AgentId): ThreadHarnessCreateInput => ({
   agentId,
+  config: {
+    model: null,
+    permissionsMode: agentId === "codex" ? "approve-for-me" : null,
+    speed: null,
+    thinking: null,
+  },
   cwd: "/repo",
   onEvent: () => undefined,
   threadId: "01984de2-8f74-7c91-a3b2-5c5e937cf399",
 })
+
+const respondToCodexConfigRead = (
+  message: Record<string, unknown>,
+  context: AgentMessageContext
+): boolean => {
+  if (message.type !== "agent.codex.config.read.request") return false
+  context.send({
+    payload: {
+      config: {
+        approval_policy: "on-request",
+        approvals_reviewer: "user",
+        model: "gpt-5",
+        model_provider: "openai",
+        model_reasoning_effort: "medium",
+        sandbox_mode: "workspace-write",
+        sandbox_workspace_write: { network_access: false },
+        service_tier: "fast",
+      },
+      requestId: message.requestId,
+    },
+    type: "agent.codex.config.read.response",
+  } as unknown as AgentRuntimeServerMessage)
+  return true
+}
 
 describe("ManagedThreadAdapter", () => {
   it("normalizes Codex context window updates", async () => {
@@ -24,6 +54,7 @@ describe("ManagedThreadAdapter", () => {
       codexDynamicTools: { getSpecs: () => [] },
       codexGitInstructions: () => undefined,
       handleCodex: async (message: Record<string, unknown>, context: AgentMessageContext) => {
+        if (respondToCodexConfigRead(message, context)) return
         runtimeContext = context
         context.send({
           payload: {
@@ -79,6 +110,7 @@ describe("ManagedThreadAdapter", () => {
   it("passes Git instructions when resuming a Codex thread", async () => {
     const handleCodex = vi.fn(
       async (message: Record<string, unknown>, context: AgentMessageContext) => {
+        if (respondToCodexConfigRead(message, context)) return
         context.send({
           payload: {
             requestId: message.requestId,
@@ -98,17 +130,27 @@ describe("ManagedThreadAdapter", () => {
       agentSessionId: "codex-thread-1",
       workspaceRoots: ["/repo", "/shared"],
     })
-    expect(handleCodex.mock.calls[0]?.[0]).toMatchObject({
+    expect(
+      handleCodex.mock.calls
+        .map(([message]) => message)
+        .find(({ type }) => type === "agent.codex.thread.resume.request")
+    ).toMatchObject({
       developerInstructions: "Use feature/ for new Git branches.",
       runtimeWorkspaceRoots: ["/repo", "/shared"],
       type: "agent.codex.thread.resume.request",
     })
+    expect(
+      handleCodex.mock.calls
+        .map(([message]) => message)
+        .find(({ type }) => type === "agent.codex.config.read.request")
+    ).toMatchObject({ cwd: "/repo", includeLayers: false })
   })
 
   it("maps Codex user and assistant branch boundaries without file revert", async () => {
     const requests: Record<string, unknown>[] = []
     const handleCodex = vi.fn(
       async (message: Record<string, unknown>, context: AgentMessageContext) => {
+        if (respondToCodexConfigRead(message, context)) return
         requests.push(message)
         context.send({
           payload: {
@@ -219,6 +261,7 @@ describe("ManagedThreadAdapter", () => {
         message: Record<string, unknown>,
         context: { send: (message: AgentRuntimeServerMessage) => void }
       ) => {
+        if (respondToCodexConfigRead(message, context as AgentMessageContext)) return
         context.send({
           payload: {
             requestId: message.requestId,
@@ -252,14 +295,25 @@ describe("ManagedThreadAdapter", () => {
       },
       sessionId: "01984de2-8f74-7c91-a3b2-5c5e937cf400",
     })
-    expect(handleCodex.mock.calls[0]?.[0]).toMatchObject({
+    const startRequest = handleCodex.mock.calls
+      .map(([message]) => message)
+      .find(({ type }) => type === "agent.codex.thread.start.request")
+    expect(startRequest).toMatchObject({
+      approvalPolicy: "on-request",
+      approvalsReviewer: "auto_review",
       config: { shell_environment_policy: { set: { PATH: "/repo/bin" } } },
       cwd: "/repo",
       developerInstructions: "Use codex/ for new Git branches.",
       runtimeWorkspaceRoots: ["/repo", "/shared"],
+      sandbox: "workspace-write",
       type: "agent.codex.thread.start.request",
     })
-    expect(handleCodex.mock.calls[0]?.[0]).not.toHaveProperty("projectId")
+    expect(startRequest).not.toHaveProperty("projectId")
+    expect(
+      handleCodex.mock.calls
+        .map(([message]) => message)
+        .find(({ type }) => type === "agent.codex.config.read.request")
+    ).toMatchObject({ cwd: "/repo", includeLayers: false })
   })
 
   it("preserves Codex permission, question, and elicitation response details", async () => {
@@ -268,6 +322,7 @@ describe("ManagedThreadAdapter", () => {
     let turnContext: AgentMessageContext | undefined
     const handleCodex = vi.fn(
       async (message: Record<string, unknown>, context: AgentMessageContext) => {
+        if (respondToCodexConfigRead(message, context)) return
         if (message.type === "agent.codex.thread.start.request") {
           context.send({
             payload: {
@@ -315,10 +370,25 @@ describe("ManagedThreadAdapter", () => {
       content: [{ text: "hello", type: "text" }],
     })
     expect(started.turnId).toBe("turn-1")
-    expect(handleCodex.mock.calls[1]?.[0]).toMatchObject({
+    expect(
+      handleCodex.mock.calls
+        .map(([message]) => message)
+        .find(({ type }) => type === "agent.codex.turn.start.request")
+    ).toMatchObject({
+      approvalPolicy: "on-request",
+      approvalsReviewer: "auto_review",
       runtimeWorkspaceRoots: ["/repo", "/shared"],
+      sandboxPolicy: expect.objectContaining({ networkAccess: false, type: "workspaceWrite" }),
       type: "agent.codex.turn.start.request",
     })
+    expect(
+      handleCodex.mock.calls
+        .map(([message]) => message)
+        .filter(({ type }) => type === "agent.codex.config.read.request")
+    ).toEqual([
+      expect.objectContaining({ cwd: "/repo", includeLayers: false }),
+      expect.objectContaining({ cwd: "/repo", includeLayers: false }),
+    ])
 
     turnContext?.send({
       payload: {

@@ -1,14 +1,4 @@
 import { cn } from "@cypheria/ui"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@cypheria/ui/components/alert-dialog"
 import { Button } from "@cypheria/ui/components/button"
 import { Switch } from "@cypheria/ui/components/switch"
 import { msg } from "@lingui/core/macro"
@@ -17,7 +7,7 @@ import { Trans } from "@lingui/react/macro"
 import { useQuery } from "@tanstack/react-query"
 import { createFileRoute } from "@tanstack/react-router"
 import { useAtomValue } from "jotai"
-import { TriangleAlert, X } from "lucide-react"
+import { X } from "lucide-react"
 import { type ReactNode, useState } from "react"
 import type { ClientPreferencesSnapshot, NotificationSound } from "../../../ipc/src/index.js"
 import { BrowserSettingsSection } from "../browser/browser-settings-section.js"
@@ -36,7 +26,6 @@ import {
   notificationsQuestionsEnabledAtom,
   notificationsTurnModeAtom,
   openInTargetPreferenceAtom,
-  permissionModeVisibilityAtom,
   preventSleepWhileRunningAtom,
   projectlessWorkspaceRootAtom,
   showBottomPanelControlAtom,
@@ -62,7 +51,6 @@ const notificationSoundValue = (sound: NotificationSound): string => {
 function GeneralSettingsRoute() {
   const { i18n } = useLingui()
   const [capturingHotkey, setCapturingHotkey] = useState(false)
-  const [fullAccessConfirmationOpen, setFullAccessConfirmationOpen] = useState(false)
   const [saveError, setSaveError] = useState<Error | null>(null)
   const localeOverride = useAtomValue(localeOverrideAtom)
   const defaultTerminalLocation = useAtomValue(defaultTerminalLocationAtom)
@@ -71,7 +59,6 @@ function GeneralSettingsRoute() {
   const openInTargetPreference = useAtomValue(openInTargetPreferenceAtom)
   const macMenuBarEnabled = useAtomValue(macMenuBarEnabledAtom)
   const preventSleepWhileRunning = useAtomValue(preventSleepWhileRunningAtom)
-  const permissionModeVisibility = useAtomValue(permissionModeVisibilityAtom)
   const composerPlainTextMode = useAtomValue(composerPlainTextModeAtom)
   const showContextWindowUsage = useAtomValue(showContextWindowUsageAtom)
   const composerEnterBehavior = useAtomValue(composerEnterBehaviorAtom)
@@ -100,7 +87,6 @@ function GeneralSettingsRoute() {
     openInTargetPreference,
     macMenuBarEnabled,
     preventSleepWhileRunning,
-    permissionModeVisibility,
     composerPlainTextMode,
     showContextWindowUsage,
     composerEnterBehavior,
@@ -144,11 +130,6 @@ function GeneralSettingsRoute() {
           case "preventSleepWhileRunning":
             operations.push(
               Promise.resolve(clientStateStore.set(preventSleepWhileRunningAtom, value as boolean))
-            )
-            break
-          case "permissionModeVisibility":
-            operations.push(
-              Promise.resolve(clientStateStore.set(permissionModeVisibilityAtom, value as boolean))
             )
             break
           case "composerPlainTextMode":
@@ -230,14 +211,6 @@ function GeneralSettingsRoute() {
       throw normalized
     }
   }
-  const confirmFullAccessVisibility = async () => {
-    try {
-      await updatePreferences({ permissionModeVisibility: true })
-      setFullAccessConfirmationOpen(false)
-    } catch {
-      // Keep the dialog open so the failed write can be retried.
-    }
-  }
   const updateNotificationSound = async (sound: NotificationSound) => {
     await updatePreferences({ notificationSound: sound })
     await window.cypheria?.settings.previewNotificationSound()
@@ -284,45 +257,6 @@ function GeneralSettingsRoute() {
             <Trans id="settings.general.title">General</Trans>
           </h1>
         </header>
-        <section className="grid gap-3">
-          <h2 className={cn("text-sm", uiFontSemiboldClass)}>
-            <Trans id="settings.general.permissionsSection">Permissions</Trans>
-          </h2>
-          <div className="rounded-xl border border-border bg-card px-4 shadow-xs">
-            <SettingRow
-              title={<Trans id="settings.general.defaultPermissions">Default permissions</Trans>}
-              description={
-                <Trans id="settings.general.defaultPermissionsDescription">
-                  By default, Cypheria can read and edit files in its workspace. It can ask for
-                  additional access when needed
-                </Trans>
-              }
-            >
-              <Switch aria-label="Default permissions" checked disabled />
-            </SettingRow>
-            <SettingRow
-              title={<Trans id="settings.general.fullAccess">Full access</Trans>}
-              description={
-                <Trans id="settings.general.fullAccessDescription">
-                  When Cypheria runs with full access, it can edit any file on your computer and run
-                  commands with network, without your approval. This significantly increases the
-                  risk of data loss, leaks, or unexpected behavior.
-                </Trans>
-              }
-            >
-              <Switch
-                aria-label="Full access"
-                checked={preferences.permissionModeVisibility}
-                disabled={preferencesDisabled}
-                onCheckedChange={(checked) =>
-                  checked
-                    ? setFullAccessConfirmationOpen(true)
-                    : updatePreferences({ permissionModeVisibility: false })
-                }
-              />
-            </SettingRow>
-          </div>
-        </section>
         <BrowserSettingsSection
           headingClassName={uiFontSemiboldClass}
           titleClassName={uiFontMediumClass}
@@ -797,46 +731,6 @@ function GeneralSettingsRoute() {
         </section>
         {saveError ? <p className="text-[13px] text-destructive">{saveError.message}</p> : null}
       </div>
-      <AlertDialog open={fullAccessConfirmationOpen} onOpenChange={setFullAccessConfirmationOpen}>
-        <AlertDialogContent className="data-[size=default]:sm:max-w-lg">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <TriangleAlert className="size-5 shrink-0" aria-hidden="true" />
-              <Trans id="settings.general.fullAccessConfirmTitle">
-                Make Full Access available?
-              </Trans>
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              <Trans id="settings.general.fullAccessConfirmDescription">
-                When selected, Cypheria can access the internet and read and edit files without
-                asking for approval — including potentially destructive commands
-              </Trans>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <p className="text-sm text-muted-foreground">
-            <Trans id="settings.general.fullAccessConfirmNote">
-              Turning this on adds Full Access to the composer's permissions menu. It does not turn
-              Full Access on.
-            </Trans>
-          </p>
-          <AlertDialogFooter>
-            <AlertDialogCancel variant="secondary">Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={false}
-              variant="destructive"
-              onClick={() => void confirmFullAccessVisibility()}
-            >
-              <TriangleAlert className="size-4" aria-hidden="true" />
-              Confirm
-            </AlertDialogAction>
-          </AlertDialogFooter>
-          {saveError ? (
-            <p className="text-sm text-destructive" role="alert">
-              {saveError.message}
-            </p>
-          ) : null}
-        </AlertDialogContent>
-      </AlertDialog>
     </SettingsFrame>
   )
 }

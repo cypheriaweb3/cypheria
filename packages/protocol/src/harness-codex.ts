@@ -88,36 +88,6 @@ export const CodexPermissionDefaultsSchema = CodexPermissionDefaultsWriteSchema.
   configPath: z.string().min(1),
 }).strict()
 export type CodexPermissionDefaults = z.infer<typeof CodexPermissionDefaultsSchema>
-export const CodexPermissionSelectionSchema = z.discriminatedUnion("kind", [
-  z
-    .object({
-      agentMode: z.enum(["read-only", "auto", "granular", "guardian-approvals", "full-access"]),
-      kind: z.literal("agent-mode"),
-    })
-    .strict(),
-  z.object({ kind: z.literal("profile"), profileId: z.string().min(1) }).strict(),
-  z.object({ kind: z.literal("custom") }).strict(),
-  z.object({ kind: z.literal("server-default") }).strict(),
-])
-export type CodexPermissionSelection = z.infer<typeof CodexPermissionSelectionSchema>
-export const CodexPermissionsCatalogSchema = z
-  .object({
-    autoReviewAvailable: z.boolean(),
-    availableAgentModes: z.array(
-      z.enum(["read-only", "auto", "granular", "guardian-approvals", "full-access"])
-    ),
-    configPath: z.string().min(1),
-    fullAccessCanBeShown: z.boolean(),
-    profiles: z.array(
-      z
-        .object({ allowed: z.boolean(), description: z.string().nullable(), id: z.string().min(1) })
-        .strict()
-    ),
-    selected: CodexPermissionSelectionSchema,
-    source: z.enum(["config", "managed", "selection", "server-default"]),
-  })
-  .strict()
-export type CodexPermissionsCatalog = z.infer<typeof CodexPermissionsCatalogSchema>
 
 const request = <const T extends string, S extends z.ZodType>(type: T, payload: S) =>
   z.object({ payload, requestId: RequestIdSchema, type: z.literal(type) })
@@ -167,10 +137,6 @@ export const CodexPermissionDefaultsGetRequestSchema = request(
 export const CodexPermissionDefaultsSetRequestSchema = request(
   "harness.codex.permissions.defaults.set.request",
   CodexPermissionDefaultsWriteSchema
-)
-export const CodexPermissionsCatalogGetRequestSchema = request(
-  "harness.codex.permissions.catalog.get.request",
-  z.object({ cwd: z.string().min(1).optional() }).strict()
 )
 export const CodexGuardianRetryRequestSchema = request(
   "harness.codex.guardian.retry.request",
@@ -269,10 +235,6 @@ export const CodexPermissionDefaultsSetResponseSchema = response(
   "harness.codex.permissions.defaults.set.response",
   CodexPermissionDefaultsSchema
 )
-export const CodexPermissionsCatalogGetResponseSchema = response(
-  "harness.codex.permissions.catalog.get.response",
-  CodexPermissionsCatalogSchema
-)
 export const CodexGuardianRetryResponseSchema = response(
   "harness.codex.guardian.retry.response",
   succeeded
@@ -339,7 +301,6 @@ export const CODEX_HARNESS_CLIENT_SCHEMAS = [
   CodexModelSettingsSetRequestSchema,
   CodexPermissionDefaultsGetRequestSchema,
   CodexPermissionDefaultsSetRequestSchema,
-  CodexPermissionsCatalogGetRequestSchema,
   CodexGuardianRetryRequestSchema,
   CodexThreadGoalGetRequestSchema,
   CodexThreadGoalSetRequestSchema,
@@ -370,7 +331,6 @@ export const CODEX_HARNESS_SERVER_SCHEMAS = [
   CodexModelSettingsSetResponseSchema,
   CodexPermissionDefaultsGetResponseSchema,
   CodexPermissionDefaultsSetResponseSchema,
-  CodexPermissionsCatalogGetResponseSchema,
   CodexGuardianRetryResponseSchema,
   CodexThreadGoalGetResponseSchema,
   CodexThreadGoalSetResponseSchema,

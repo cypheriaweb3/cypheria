@@ -2597,3 +2597,103 @@ msgstr "移除"
 #: renderer/src/browser/browser-pane.tsx
 msgid "browser.tab.openDapp"
 msgstr "打开 dApp 标签页"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.agentConfig"
+msgstr "Agent 默认值"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.agentConfig.description"
+msgstr "使用 Codex Agent 配置的权限"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.approve"
+msgstr "替我批准"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.approve.description"
+msgstr "仅对检测为可能不安全的操作进行询问"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.ask"
+msgstr "请求批准"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.ask.description"
+msgstr "编辑外部文件和使用互联网时始终询问"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.fullAccess"
+msgstr "完全访问"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.permissions.fullAccess.description"
+msgstr "不受限制地访问互联网和电脑上的任何文件"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.choose"
+msgstr "选择项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.clear"
+msgstr "不在项目中工作"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.label"
+msgstr "项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.branch.choose"
+msgstr "选择分支"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.branch.label"
+msgstr "分支"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.branch.local"
+msgstr "本地分支"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.worktree.description"
+msgstr "创建 {projectName} 的隔离副本，让此聊天可以并行工作。项目中的其他源文件夹仍会直接访问。所选分支将作为 worktree 的起点。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.worktree.gitRequired"
+msgstr "Worktree 要求项目的第一个源文件夹是 Git 仓库。"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.worktree.label"
+msgstr "Worktree"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.search"
+msgstr "搜索项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.empty"
+msgstr "未找到项目"
+
+#. js-lingui-explicit-id
+#: renderer/src/components/conversation-workspace.tsx
+msgid "chat.project.new"
+msgstr "新建项目"
