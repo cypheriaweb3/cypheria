@@ -77,20 +77,32 @@ describe("ACP Registry schemas", () => {
     ).toBe(false)
   })
 
-  it("accepts only ids in the committed registry snapshot", () => {
+  it("accepts only approved ids from the committed registry snapshot", () => {
     expect(AgentIdSchema.safeParse("gemini").success).toBe(true)
     expect(isRegistryAgentId("gemini")).toBe(true)
+    expect(AgentIdSchema.safeParse("qwen-code").success).toBe(false)
+    expect(isRegistryAgentId("qwen-code")).toBe(false)
     expect(AgentIdSchema.safeParse("future-agent").success).toBe(false)
     expect(isRegistryAgentId("future-agent")).toBe(false)
     expect(isRegistryAgentId("codex")).toBe(false)
   })
 
-  it("keeps every usable snapshot entry in the generated id allowlist", () => {
-    const usableIds = ACP_AGENT_REGISTRY.agents
-      .map(({ id }) => id)
-      .filter((id) => !["codex-acp", "claude-acp", "pi-acp", "opencode"].includes(id))
+  it("keeps exactly the reviewed snapshot subset in the generated id allowlist", () => {
+    const approvedIds = [
+      "antigravity-acp",
+      "cline",
+      "cursor",
+      "devin",
+      "gemini",
+      "github-copilot-cli",
+      "goose",
+      "grok-build",
+    ]
 
-    expect(usableIds.every((id) => isRegistryAgentId(id))).toBe(true)
+    expect(ACP_AGENT_REGISTRY.agents.map(({ id }) => id)).toEqual(
+      expect.arrayContaining(approvedIds)
+    )
+    expect(approvedIds.every((id) => isRegistryAgentId(id))).toBe(true)
   })
 
   it("rejects source manifests containing a preview channel", () => {

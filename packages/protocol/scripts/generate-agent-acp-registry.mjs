@@ -9,6 +9,16 @@ const idsPath = resolve(root, "src/generated/acp/agent-ids.ts")
 const registryPath = resolve(root, "src/generated/acp/registry.json")
 const registryUrl = "https://cdn.agentclientprotocol.com/registry/v1/latest/registry.json"
 const nativeIds = new Set(["codex-acp", "claude-acp", "pi-acp", "opencode"])
+const approvedIds = new Set([
+  "antigravity-acp",
+  "cline",
+  "cursor",
+  "devin",
+  "gemini",
+  "github-copilot-cli",
+  "goose",
+  "grok-build",
+])
 const checkOnly = process.argv.includes("--check")
 
 const sourceText = checkOnly
@@ -22,10 +32,13 @@ const sourceIds = new Set(source.agents.map(({ id }) => id))
 for (const id of nativeIds) {
   if (!sourceIds.has(id)) throw new Error(`Native ACP registry id is missing: ${id}`)
 }
+for (const id of approvedIds) {
+  if (!sourceIds.has(id)) throw new Error(`Approved ACP registry id is missing: ${id}`)
+}
 
 const ids = source.agents
   .map(({ id }) => id)
-  .filter((id) => !nativeIds.has(id))
+  .filter((id) => approvedIds.has(id))
   .sort()
 const rendered = `// GENERATED CODE! DO NOT MODIFY BY HAND.\nexport const REGISTRY_AGENT_IDS = ${JSON.stringify(ids, null, 2)} as const\n`
 const renderedRegistry = `${JSON.stringify(source, null, 2)}\n`

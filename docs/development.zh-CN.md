@@ -148,7 +148,7 @@ pnpm codex:generate
 pnpm --filter @cypheria/protocol generate:agent-acp-registry
 ```
 
-该维护者命令会下载、校验并规范化 registry，然后写入 `packages/protocol/src/generated/acp/registry.json` 和 `agent-ids.ts`。两个文件必须一起提交和审查。普通构建与检查只校验本地快照，绝不会获取 registry 网络数据。
+该维护者命令会下载、校验并规范化 registry，然后写入 `packages/protocol/src/generated/acp/registry.json`，并把审核子集写入 `agent-ids.ts`。每个批准的 ID 都必须存在于快照中。两个文件必须一起提交和审查。普通构建与检查只校验本地快照，绝不会获取 registry 网络数据。
 
 ## 测试策略
 

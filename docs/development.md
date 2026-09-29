@@ -164,7 +164,7 @@ The stable ACP registry snapshot and its runtime Agent ID allowlist are also gen
 pnpm --filter @cypheria/protocol generate:agent-acp-registry
 ```
 
-This maintainer command downloads, validates, normalizes, and writes `packages/protocol/src/generated/acp/registry.json` plus `agent-ids.ts`. Both files are committed and reviewed together. Normal builds and checks validate only the local snapshot and never fetch registry data.
+This maintainer command downloads, validates, normalizes, and writes `packages/protocol/src/generated/acp/registry.json` plus the reviewed subset in `agent-ids.ts`. Every approved ID must exist in the snapshot. Both files are committed and reviewed together. Normal builds and checks validate only the local snapshot and never fetch registry data.
 
 ## Testing strategy
 
