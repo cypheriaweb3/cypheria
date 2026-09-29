@@ -54,6 +54,7 @@ import {
 } from "@cypheria/ui/components/select"
 import { Skeleton } from "@cypheria/ui/components/skeleton"
 import { Switch } from "@cypheria/ui/components/switch"
+import { toast } from "@cypheria/ui/components/toast"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useVirtualizer } from "@tanstack/react-virtual"
@@ -319,12 +320,28 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
       queryClient.removeQueries({ queryKey: ["harness", agent.id] })
       await queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
     },
+    onError: (error) => {
+      toast.add({
+        description: error.message,
+        priority: "high",
+        title: `Could not uninstall ${agent.name}`,
+        type: "error",
+      })
+    },
   })
   const disable = useMutation({
     mutationFn: async () => (await ensureCypheriaClient()).agents.disable(agent.id),
     onSuccess: async () => {
       queryClient.removeQueries({ queryKey: ["harness", agent.id] })
       await queryClient.invalidateQueries({ queryKey: ["cypheria", "agents"] })
+    },
+    onError: (error) => {
+      toast.add({
+        description: error.message,
+        priority: "high",
+        title: `Could not disable ${agent.name}`,
+        type: "error",
+      })
     },
   })
   const setRestartDialogOpen = (open: boolean) => {
@@ -412,9 +429,6 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      {disable.error ? (
-        <span className="text-xs text-destructive">{disable.error.message}</span>
-      ) : null}
       {updateError ? (
         <span className="text-xs text-destructive" role="alert">
           {updateError}
@@ -463,9 +477,6 @@ function HarnessMaintenanceActions({ agent }: { agent: AgentView }) {
               page.
             </DialogDescription>
           </DialogHeader>
-          {uninstall.error ? (
-            <p className="text-sm text-destructive">{uninstall.error.message}</p>
-          ) : null}
           <DialogFooter>
             <Button
               disabled={uninstall.isPending}

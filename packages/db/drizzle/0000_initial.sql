@@ -207,7 +207,6 @@ CREATE TABLE `projects` (
 	`updated_at` integer NOT NULL,
 	CONSTRAINT "projects_id_uuidv7_check" CHECK(length("projects"."id") = 36 AND substr("projects"."id", 15, 1) = '7'),
 	CONSTRAINT "projects_name_check" CHECK(length(trim("projects"."name")) > 0),
-	CONSTRAINT "projects_roots_json_check" CHECK(json_valid("projects"."roots") AND json_type("projects"."roots") = 'array' AND json_array_length("projects"."roots") > 0),
 	CONSTRAINT "projects_position_check" CHECK("projects"."position" >= 0),
 	CONSTRAINT "projects_recency_at_check" CHECK("projects"."recency_at" IS NULL OR "projects"."recency_at" >= 0),
 	CONSTRAINT "projects_created_at_check" CHECK("projects"."created_at" >= 0),
@@ -440,7 +439,7 @@ CREATE TABLE `threads` (
 	`agent_session_id` text,
 	`forked_from_id` text,
 	`title` text,
-	`roots` text NOT NULL,
+	`cwd` text,
 	`position` integer NOT NULL,
 	`recency_at` integer,
 	`created_at` integer NOT NULL,
@@ -449,7 +448,6 @@ CREATE TABLE `threads` (
 	FOREIGN KEY (`forked_from_id`) REFERENCES `threads`(`id`) ON UPDATE no action ON DELETE set null,
 	CONSTRAINT "threads_id_uuidv7_check" CHECK(length("threads"."id") = 36 AND substr("threads"."id", 15, 1) = '7'),
 	CONSTRAINT "threads_position_check" CHECK("threads"."position" >= 0),
-	CONSTRAINT "threads_roots_json_check" CHECK(json_valid("threads"."roots") AND json_type("threads"."roots") = 'array' AND json_array_length("threads"."roots") > 0),
 	CONSTRAINT "threads_archived_at_check" CHECK("threads"."archived_at" IS NULL OR "threads"."archived_at" >= 0),
 	CONSTRAINT "threads_recency_at_check" CHECK("threads"."recency_at" IS NULL OR "threads"."recency_at" >= 0),
 	CONSTRAINT "threads_created_at_check" CHECK("threads"."created_at" >= 0),
@@ -462,7 +460,6 @@ CREATE INDEX `threads_agent_id_idx` ON `threads` (`agent_id`);--> statement-brea
 CREATE INDEX `threads_archived_at_idx` ON `threads` (`archived_at`);--> statement-breakpoint
 CREATE INDEX `threads_forked_from_id_idx` ON `threads` (`forked_from_id`);--> statement-breakpoint
 CREATE INDEX `threads_recency_at_idx` ON `threads` (`recency_at`);--> statement-breakpoint
-CREATE INDEX `threads_roots_idx` ON `threads` (`roots`);--> statement-breakpoint
 CREATE TABLE `wallet_accounts` (
 	`id` text PRIMARY KEY NOT NULL,
 	`wallet_id` text NOT NULL,

@@ -42,6 +42,7 @@ pnpm --filter @cypheria/server server stop --if-idle
 
 ```text
 $CYPHERIA_HOME/
+  agents/    托管 Agent 版本、安装回执和各 Agent 的 runtime home
   codex/     Cypheria 管理的 Codex home
   config/    config.json、network-proxy.json、PID、Server 身份和 relay key
   db/        SQLite 数据库
@@ -51,7 +52,7 @@ $CYPHERIA_HOME/
   browser/   Desktop 浏览器配置（网页和 dApp 标签页）
 ```
 
-Server 只解析一次根目录，再把派生路径传给各服务。Cypheria 管理的 Codex 进程使用 `CODEX_HOME=$CYPHERIA_HOME/codex`；不会读取或修改用户默认 Codex home。
+Server 只解析一次根目录，再把派生路径传给各服务。托管 ACP 进程默认使用 `$CYPHERIA_HOME/agents/<agent-id>/home` 作为工作目录；旧安装回执即使未记录工作目录也会补全到这里，避免 harness 本地状态落入源码 checkout。Cypheria 管理的 Codex 进程使用 `CODEX_HOME=$CYPHERIA_HOME/codex`；不会读取或修改用户默认 Codex home。
 
 ## 配置
 

@@ -42,6 +42,7 @@ pnpm --filter @cypheria/server server stop --if-idle
 
 ```text
 $CYPHERIA_HOME/
+  agents/    managed Agent versions, receipts, and per-Agent runtime homes
   codex/     Cypheria-managed Codex home
   config/    config.json, network-proxy.json, PID and Server identity, relay key
   db/        SQLite database
@@ -51,7 +52,7 @@ $CYPHERIA_HOME/
   browser/   Desktop browser profiles (web and dApp tabs)
 ```
 
-The Server resolves this root once and passes derived paths to services. Cypheria-managed Codex processes receive `CODEX_HOME=$CYPHERIA_HOME/codex`; the user's default Codex home is not read or modified.
+The Server resolves this root once and passes derived paths to services. Managed ACP processes run with `$CYPHERIA_HOME/agents/<agent-id>/home` as their default working directory, including installations whose older receipt omitted one, so harness-local state never falls back to a source checkout. Cypheria-managed Codex processes receive `CODEX_HOME=$CYPHERIA_HOME/codex`; the user's default Codex home is not read or modified.
 
 ## Configuration
 

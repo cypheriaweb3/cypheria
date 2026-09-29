@@ -432,9 +432,10 @@ export class AgentInstaller {
 
   async readCurrent(agentId: AgentId): Promise<AgentInstallReceipt | undefined> {
     try {
-      return JSON.parse(
+      const receipt = JSON.parse(
         await readFile(join(this.#agentsHome, agentId, "current.json"), "utf8")
       ) as AgentInstallReceipt
+      return this.#withWorkingDirectory(receipt)
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined
       throw error
@@ -707,8 +708,16 @@ export class AgentInstaller {
 
   async #activate(receipt: AgentInstallReceipt): Promise<void> {
     const root = join(this.#agentsHome, receipt.agentId)
-    await writeJsonAtomic(join(root, "receipts", `${receipt.version}.json`), receipt)
-    await writeJsonAtomic(join(root, "current.json"), receipt)
+    const activated = await this.#withWorkingDirectory(receipt)
+    await writeJsonAtomic(join(root, "receipts", `${receipt.version}.json`), activated)
+    await writeJsonAtomic(join(root, "current.json"), activated)
+  }
+
+  async #withWorkingDirectory(receipt: AgentInstallReceipt): Promise<AgentInstallReceipt> {
+    const workingDirectory =
+      receipt.workingDirectory ?? join(this.#agentsHome, receipt.agentId, "home")
+    await mkdir(workingDirectory, { recursive: true })
+    return { ...receipt, workingDirectory }
   }
 
   async #cleanupAgentRoot(root: string): Promise<void> {

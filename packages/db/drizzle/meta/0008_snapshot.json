@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "f03db0d2-0ea3-40e3-8a95-6dae9bddf0e8",
-  "prevId": "135e1495-216e-417a-a6cc-26c9d0f1f9e3",
+  "id": "2d44ce30-82be-4c07-a0b9-33470c4d1813",
+  "prevId": "f03db0d2-0ea3-40e3-8a95-6dae9bddf0e8",
   "tables": {
     "active_wallet_context": {
       "name": "active_wallet_context",
@@ -1394,6 +1394,10 @@
         "projects_name_check": {
           "name": "projects_name_check",
           "value": "length(trim(\"projects\".\"name\")) > 0"
+        },
+        "projects_roots_json_check": {
+          "name": "projects_roots_json_check",
+          "value": "json_valid(\"projects\".\"roots\") AND json_type(\"projects\".\"roots\") = 'array' AND json_array_length(\"projects\".\"roots\") > 0"
         },
         "projects_position_check": {
           "name": "projects_position_check",
@@ -3059,11 +3063,11 @@
           "notNull": false,
           "autoincrement": false
         },
-        "cwd": {
-          "name": "cwd",
+        "roots": {
+          "name": "roots",
           "type": "text",
           "primaryKey": false,
-          "notNull": false,
+          "notNull": true,
           "autoincrement": false
         },
         "position": {
@@ -3146,6 +3150,13 @@
             "recency_at"
           ],
           "isUnique": false
+        },
+        "threads_roots_idx": {
+          "name": "threads_roots_idx",
+          "columns": [
+            "roots"
+          ],
+          "isUnique": false
         }
       },
       "foreignKeys": {
@@ -3186,6 +3197,10 @@
         "threads_position_check": {
           "name": "threads_position_check",
           "value": "\"threads\".\"position\" >= 0"
+        },
+        "threads_roots_json_check": {
+          "name": "threads_roots_json_check",
+          "value": "json_valid(\"threads\".\"roots\") AND json_type(\"threads\".\"roots\") = 'array' AND json_array_length(\"threads\".\"roots\") > 0"
         },
         "threads_archived_at_check": {
           "name": "threads_archived_at_check",
@@ -3594,7 +3609,9 @@
   "_meta": {
     "schemas": {},
     "tables": {},
-    "columns": {}
+    "columns": {
+      "\"threads\".\"cwd\"": "\"threads\".\"roots\""
+    }
   },
   "internal": {
     "indexes": {}

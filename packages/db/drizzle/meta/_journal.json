@@ -57,6 +57,13 @@
       "when": 1790680591036,
       "tag": "0007_tough_maginty",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1790693374307,
+      "tag": "0008_thread-roots",
+      "breakpoints": true
     }
   ]
 }

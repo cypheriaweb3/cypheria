@@ -37,6 +37,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@cypheria/ui/components/sidebar"
+import { Toaster } from "@cypheria/ui/components/toast"
 import { TooltipProvider } from "@cypheria/ui/components/tooltip"
 import { msg } from "@lingui/core/macro"
 import { I18nProvider, useLingui } from "@lingui/react"
@@ -220,9 +221,11 @@ function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <RootDocument>
       <I18nProvider i18n={i18n}>
-        <QueryProvider>
-          <AppShell>{children}</AppShell>
-        </QueryProvider>
+        <Toaster>
+          <QueryProvider>
+            <AppShell>{children}</AppShell>
+          </QueryProvider>
+        </Toaster>
       </I18nProvider>
     </RootDocument>
   )

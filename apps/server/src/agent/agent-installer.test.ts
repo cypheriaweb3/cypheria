@@ -193,6 +193,34 @@ describe("npm executable detection", () => {
 })
 
 describe("managed agent launch receipts", () => {
+  it("isolates legacy ACP runtime working directories under the managed Agent home", async () => {
+    const home = await temporaryDirectory()
+    const root = join(home, "agents", "harn")
+    const legacy: AgentInstallReceipt = {
+      agentId: "harn",
+      args: ["serve", "acp"],
+      command: join(root, "versions", "0.10.140", "harn"),
+      installedAt: "2026-09-29T14:57:01.000Z",
+      integrity: "verified",
+      kind: "binary",
+      source: "https://example.com/harn.tar.gz",
+      version: "0.10.140",
+    }
+    await mkdir(root, { recursive: true })
+    await writeFile(join(root, "current.json"), JSON.stringify(legacy))
+
+    const installer = new AgentInstaller({
+      cacheDir: join(home, "cache"),
+      cypheriaHome: home,
+      toolchains: {} as ToolchainManager,
+    })
+
+    await expect(installer.readCurrent("harn")).resolves.toMatchObject({
+      workingDirectory: join(root, "home"),
+    })
+    await expect(exists(join(root, "home"))).resolves.toBe(true)
+  })
+
   it("uses uvx command semantics and scopes Minion's dependency workaround", () => {
     expect(uvxInstallPlan("fast-agent", "0.10.1", "fast-agent-acp==0.10.1", ["-x"])).toEqual({
       additionalPackages: [],
