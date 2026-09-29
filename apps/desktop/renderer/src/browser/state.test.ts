@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   activateBrowserTab,
   addBrowserTab,
+  BROWSER_TABS_LIMIT,
   type BrowserTabRecord,
   emptyBrowserTabsState,
   normalizeBrowserUrl,
@@ -80,5 +81,35 @@ describe("browser tab state", () => {
       parseBrowserTabsState({ ...serializeBrowserTabsState(state), activeByThread: { x: b } })
         .activeByThread
     ).toEqual({})
+  })
+
+  it("keeps valid tabs when other stored records are corrupt", () => {
+    const stored = serializeBrowserTabsState(
+      addBrowserTab(emptyBrowserTabsState(), tab(a), { activate: true })
+    )
+    const restored = parseBrowserTabsState({
+      ...stored,
+      activeByThread: { ...stored.activeByThread, [otherThread]: a },
+      tabs: [...stored.tabs, { browserId: b, url: 42 }, stored.tabs[0]],
+    })
+    expect(restored.tabs.map((entry) => entry.browserId)).toEqual([a])
+    expect(restored.activeByThread).toEqual({ [thread]: a })
+  })
+
+  it("persists only the newest tabs beyond the limit", () => {
+    const ids = Array.from(
+      { length: BROWSER_TABS_LIMIT + 2 },
+      (_, index) => `00000000-0000-4000-8000-${String(index).padStart(12, "0")}`
+    )
+    const state = {
+      activeByThread: { [thread]: ids[0] as string },
+      tabs: ids.map((id, index) => ({ ...tab(id), createdAt: index })),
+    }
+    const restored = parseBrowserTabsState(
+      JSON.parse(JSON.stringify(serializeBrowserTabsState(state)))
+    )
+    expect(restored.tabs.map((entry) => entry.browserId)).toEqual(ids.slice(2))
+    expect(restored.activeByThread).toEqual({})
+    expect(parseBrowserTabsState({ ...state, version: 1 }).tabs).toHaveLength(BROWSER_TABS_LIMIT)
   })
 })

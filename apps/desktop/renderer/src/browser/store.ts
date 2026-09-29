@@ -110,7 +110,20 @@ class BrowserTabsStore {
   }
 
   removeThread(threadId: string): string[] {
-    const removed = this.#state.tabs.filter((tab) => tab.threadId === threadId)
+    return this.#removeWhere((tab) => tab.threadId === threadId)
+  }
+
+  /**
+   * Drops tabs whose Thread no longer exists, covering deletions this window never heard about.
+   * Tabs created at or after `listedAt` are kept: their Thread may be newer than the listing.
+   */
+  async pruneDeletedThreads(threadIds: ReadonlySet<string>, listedAt: number): Promise<string[]> {
+    await this.load()
+    return this.#removeWhere((tab) => tab.createdAt < listedAt && !threadIds.has(tab.threadId))
+  }
+
+  #removeWhere(predicate: (tab: BrowserTabRecord) => boolean): string[] {
+    const removed = this.#state.tabs.filter(predicate)
     let next = this.#state
     for (const tab of removed) next = removeBrowserTab(next, tab.browserId)
     this.#set(next)

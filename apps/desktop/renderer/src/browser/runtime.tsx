@@ -1,3 +1,4 @@
+import type { CypheriaClient } from "@cypheria/client"
 import { useEffect } from "react"
 
 import { ensureCypheriaClient } from "../cypheria-client.js"
@@ -5,9 +6,32 @@ import { mountBrowserAutomationHost } from "./automation-host.js"
 import { isBrowserAvailable, removeResidentBrowserWebview } from "./resident-webviews.js"
 import { browserTabsStore } from "./store.js"
 
+const listThreadIds = async (client: CypheriaClient): Promise<Set<string>> => {
+  const ids = new Set<string>()
+  for (const archived of [false, true]) {
+    let cursor: string | null = null
+    do {
+      const page = await client.threads.list({ archived, cursor, limit: 200 })
+      for (const thread of page.data) ids.add(thread.id)
+      cursor = page.nextCursor
+    } while (cursor)
+  }
+  return ids
+}
+
+/** Closes tabs of Threads deleted while this window was not listening. */
+const pruneDeletedThreadTabs = async (client: CypheriaClient) => {
+  const listedAt = Date.now()
+  const threadIds = await listThreadIds(client)
+  for (const browserId of await browserTabsStore.pruneDeletedThreads(threadIds, listedAt)) {
+    removeResidentBrowserWebview(browserId)
+  }
+}
+
 /**
  * App-wide browser wiring for the main Desktop window: registers this window as the Server's
- * browser host, opens tabs requested by pages, and drops tabs of deleted Threads.
+ * browser host, opens tabs requested by pages, and drops tabs of deleted Threads. Deletion notifications
+ * can be missed while disconnected, so every (re)connection also reconciles against the Server.
  */
 export function BrowserRuntime() {
   useEffect(() => {
@@ -47,6 +71,15 @@ export function BrowserRuntime() {
           for (const browserId of browserTabsStore.removeThread(payload.threadId)) {
             removeResidentBrowserWebview(browserId)
           }
+        })
+      )
+      disposers.push(
+        client.subscribeConnectionStatus((state) => {
+          if (state.status !== "connected") return
+          pruneDeletedThreadTabs(client).catch((error: unknown) => {
+            // A failed listing proves nothing about which Threads exist; keep every tab.
+            console.warn("[browser] could not reconcile tabs with threads", error)
+          })
         })
       )
     })
