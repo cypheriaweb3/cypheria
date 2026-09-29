@@ -245,13 +245,13 @@ function tabInfoFromContents(
   browserId: string,
   contents: TabContents,
   activeBrowserId: string | null,
-  threadId: string | null,
+  threadId: string,
   kind: BrowserTabKind
 ) {
   return {
     browserId,
     kind,
-    ...(threadId ? { threadId } : {}),
+    threadId,
     url: contents.getURL(),
     title: contents.getTitle(),
     isActive: activeBrowserId === browserId,
@@ -531,13 +531,15 @@ function executeListTabs(
 
   for (const browserId of browserIds) {
     const contents = registry.getTabContents(browserId)
-    if (contents && !contents.isDestroyed()) {
+    // Every tab belongs to a Thread; an unscoped registration is not listed.
+    const tabThreadId = registry.getBrowserThreadId(browserId)
+    if (contents && !contents.isDestroyed() && tabThreadId) {
       tabs.push(
         tabInfoFromContents(
           browserId,
           contents,
           activeBrowserId,
-          registry.getBrowserThreadId(browserId),
+          tabThreadId,
           registry.getBrowserKind(browserId)
         )
       )

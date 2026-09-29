@@ -177,7 +177,7 @@ export const ensureResidentBrowserWebview = (
       .registerAttached({
         browserId: record.browserId,
         kind: record.kind,
-        scopeId: record.scopeId,
+        threadId: record.threadId,
         webContentsId: webview.getWebContentsId(),
       })
       .then(() => settle(resident, true))

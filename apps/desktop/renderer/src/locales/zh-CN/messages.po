@@ -2592,3 +2592,8 @@ msgstr "新增"
 #. js-lingui-explicit-id
 msgid "chat.summary.workspace.removed"
 msgstr "移除"
+
+#. js-lingui-explicit-id
+#: renderer/src/browser/browser-pane.tsx
+msgid "browser.tab.openDapp"
+msgstr "打开 dApp 标签页"

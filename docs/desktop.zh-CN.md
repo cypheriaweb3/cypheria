@@ -193,7 +193,7 @@ Git 设置页将本地 Codex Git 偏好保存在 Server 配置中，包括分支
 
 ### 标签页与配置
 
-浏览器标签页属于某个 Thread（显示在该 Thread 的 Browser 面板中），或属于钱包 dApp 启动器使用的全局 `/browser` 页面。设备本地的标签页索引保存在 Desktop client KV 中，页面状态保存在 guest 中。Guest 统一放在 React 面板之外的固定定位容器里：可见面板把当前标签页定位到自身上方，隐藏的标签页停放为 1×1，页面仍会运行，Agent 也仍可操作。恢复的标签页在首次显示或被自动化时从保存的 URL 加载。输入框的 `@` 菜单会列出该 Thread 已打开的标签页。
+每个浏览器标签页（无论网页还是 dApp）都只属于一个 Thread，并显示在该 Thread 的 Browser 面板中；用户也在这里打开网页和 dApp 标签页，Thread 之外没有浏览器。删除 Thread 会关闭其标签页。设备本地的标签页索引保存在 Desktop client KV 中，页面状态保存在 guest 中。Guest 统一放在 React 面板之外的固定定位容器里：可见面板把当前标签页定位到自身上方，隐藏的标签页停放为 1×1，页面仍会运行，Agent 也仍可操作。恢复的标签页在首次显示或被自动化时从保存的 URL 加载。输入框的 `@` 菜单会列出该 Thread 已打开的标签页。
 
 每个标签页都有类型。网页标签页共享 `persist:cypheria-browser` 配置，永远不会获得钱包。dApp 标签页共享独立的 `persist:cypheria-dapp-browser` 配置。切换标签页类型会重建 guest，因为 guest 挂载后配置无法更改。Electron main 拒绝其他 partition 或 preload，拒绝设备权限，阻止非 HTTP(S) 导航；需要 `window.opener` 的 `window.open` 弹窗以没有 preload 的沙箱窗口打开，其他新窗口请求会变成同类型的标签页。地址栏聚焦和重新加载快捷键在 guest 中保留，其他按键交给页面处理。
 

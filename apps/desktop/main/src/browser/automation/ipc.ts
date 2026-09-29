@@ -438,10 +438,7 @@ function createRegistry(hostWebContentsId: number): BrowserRegistry {
       const contents = getBrowserWebContentsForHostWindow(browserId, hostWebContentsId)
       return contents ? adaptWebContents(contents) : null
     },
-    getBrowserThreadId(browserId: string): string | null {
-      const scopeId = getBrowserScopeId(browserId)
-      return scopeId && scopeId !== "global" ? scopeId : null
-    },
+    getBrowserThreadId: getBrowserScopeId,
     getThreadActiveBrowserId(threadId: string): string | null {
       return getScopeActiveBrowserIdForHostWindow(threadId, hostWebContentsId)
     },

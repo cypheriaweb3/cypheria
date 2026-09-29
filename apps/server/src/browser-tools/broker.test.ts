@@ -42,11 +42,23 @@ describe("BrowserToolsBroker", () => {
     const broker = new BrowserToolsBroker()
     const first = createHost("first", (request) =>
       request.command.command === "new_tab"
-        ? ok(request, { browserId: tabA, command: "new_tab", kind: "web", url: "about:blank" })
+        ? ok(request, {
+            browserId: tabA,
+            command: "new_tab",
+            kind: "web",
+            threadId,
+            url: "about:blank",
+          })
         : ok(request, { browserId: tabA, command: "back" })
     )
     const second = createHost("second", (request) =>
-      ok(request, { browserId: tabB, command: "new_tab", kind: "web", url: "about:blank" })
+      ok(request, {
+        browserId: tabB,
+        command: "new_tab",
+        kind: "web",
+        threadId,
+        url: "about:blank",
+      })
     )
     first.attach(broker)
     second.attach(broker)
@@ -68,7 +80,7 @@ describe("BrowserToolsBroker", () => {
       createHost(`host-${index}`, (request) =>
         ok(request, {
           command: "list_tabs",
-          tabs: [{ browserId, kind: "web", title: "", url: "" }],
+          tabs: [{ browserId, kind: "web", threadId, title: "", url: "" }],
         })
       )
     )

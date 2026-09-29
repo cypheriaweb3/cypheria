@@ -543,8 +543,8 @@ const registerBrowserIpc = (client: CypheriaClient): void => {
     unregisterBrowserFromHost(event.sender.id, browserId)
     return { unregistered: true as const }
   })
-  registerIpcRoute(browserActiveSetContract, ({ browserId, scopeId }, event) => {
-    setScopeActiveBrowserId({ browserId, hostWebContentsId: event.sender.id, scopeId })
+  registerIpcRoute(browserActiveSetContract, ({ browserId, threadId }, event) => {
+    setScopeActiveBrowserId({ browserId, hostWebContentsId: event.sender.id, scopeId: threadId })
     return { updated: true as const }
   })
   registerIpcRoute(browserFocusContract, ({ browserId }, event) => {

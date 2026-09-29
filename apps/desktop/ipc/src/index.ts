@@ -13,7 +13,6 @@ import {
   type BrowserKeyboardPolicyInput,
   type BrowserNewTabRequest,
   type BrowserReservedShortcut,
-  type BrowserScopeId,
   type BrowserShortcutInput,
   browserActiveSetContract,
   browserAttachedRegisterContract,
@@ -1408,7 +1407,7 @@ export type CypheriaPreloadApi = {
     readonly unregister: (browserId: string) => Promise<{ unregistered: true }>
     readonly setActive: (input: {
       browserId: string | null
-      scopeId: BrowserScopeId
+      threadId: string
     }) => Promise<{ updated: true }>
     readonly focus: (browserId: string) => Promise<{ focused: boolean }>
     readonly openDevTools: (browserId: string) => Promise<{ opened: boolean }>
