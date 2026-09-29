@@ -58,6 +58,42 @@ const receipt = (version: string, installedAt: string): AgentInstallReceipt => (
 })
 
 describe("AgentInstaller cleanup", () => {
+  it("removes the empty agent root after uninstall", async () => {
+    const home = await temporaryDirectory()
+    const root = join(home, "agents", "gemini")
+    await Promise.all([
+      mkdir(join(root, "versions", "1.0.0"), { recursive: true }),
+      mkdir(join(root, "staging", "partial"), { recursive: true }),
+      mkdir(join(root, "receipts"), { recursive: true }),
+    ])
+    await writeFile(join(root, "current.json"), JSON.stringify(receipt("1.0.0", "2026-09-20")))
+
+    const installer = new AgentInstaller({
+      cacheDir: join(home, "cache"),
+      cypheriaHome: home,
+      toolchains: {} as ToolchainManager,
+    })
+    await installer.uninstall("gemini")
+
+    await expect(exists(root)).resolves.toBe(false)
+  })
+
+  it("preserves an agent root containing unrecognized files", async () => {
+    const home = await temporaryDirectory()
+    const root = join(home, "agents", "gemini")
+    await mkdir(root, { recursive: true })
+    await writeFile(join(root, "keep.txt"), "unrecognized data")
+
+    const installer = new AgentInstaller({
+      cacheDir: join(home, "cache"),
+      cypheriaHome: home,
+      toolchains: {} as ToolchainManager,
+    })
+    await installer.uninstall("gemini")
+
+    await expect(readFile(join(root, "keep.txt"), "utf8")).resolves.toBe("unrecognized data")
+  })
+
   it("removes interrupted staging, downloads, atomic writes, and incomplete versions", async () => {
     const home = await temporaryDirectory()
     const root = join(home, "agents", "gemini")
@@ -221,18 +257,12 @@ describe("managed agent launch receipts", () => {
     await expect(exists(join(root, "home"))).resolves.toBe(true)
   })
 
-  it("uses uvx command semantics and scopes Minion's dependency workaround", () => {
-    expect(uvxInstallPlan("fast-agent", "0.10.1", "fast-agent-acp==0.10.1", ["-x"])).toEqual({
+  it("uses uvx command semantics without an agent-specific workaround", () => {
+    expect(uvxInstallPlan("gemini", "0.61.0", "gemini-cli@0.61.0", ["--acp"])).toEqual({
       additionalPackages: [],
-      args: ["-x"],
-      command: "fast-agent-acp",
-      requirement: "fast-agent-acp==0.10.1",
-    })
-    expect(uvxInstallPlan("minion-code", "0.1.44", "minion-code@0.1.44", ["acp"])).toEqual({
-      additionalPackages: ["agent-client-protocol==0.8.1"],
-      args: ["acp"],
-      command: "minion-code",
-      requirement: "minion-code==0.1.44",
+      args: ["--acp"],
+      command: "gemini-cli",
+      requirement: "gemini-cli==0.61.0",
     })
   })
 

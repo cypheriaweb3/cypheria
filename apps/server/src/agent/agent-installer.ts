@@ -1,7 +1,17 @@
 import { spawn } from "node:child_process"
 import { randomUUID } from "node:crypto"
 import { createReadStream, createWriteStream, openAsBlob } from "node:fs"
-import { chmod, mkdir, open, readdir, readFile, realpath, rename, rm } from "node:fs/promises"
+import {
+  chmod,
+  mkdir,
+  open,
+  readdir,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  rmdir,
+} from "node:fs/promises"
 import { arch, platform } from "node:os"
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
 import { Writable } from "node:stream"
@@ -428,6 +438,11 @@ export class AgentInstaller {
       rm(join(root, "receipts"), { force: true, recursive: true }),
       rm(join(root, "current.json"), { force: true }),
     ])
+    await rmdir(root).catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== "ENOENT" && error.code !== "ENOTEMPTY" && error.code !== "EEXIST") {
+        throw error
+      }
+    })
   }
 
   async readCurrent(agentId: AgentId): Promise<AgentInstallReceipt | undefined> {

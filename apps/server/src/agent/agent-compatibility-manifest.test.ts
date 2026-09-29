@@ -6,12 +6,9 @@ import {
 } from "./agent-compatibility-manifest.js"
 
 describe("agent compatibility manifest", () => {
-  it("scopes upstream workarounds to an exact agent version", () => {
-    expect(agentCompatibilityRule("minion-code", "0.1.44")).toMatchObject({
-      additionalPythonPackages: ["agent-client-protocol==0.8.1"],
-    })
-    expect(agentCompatibilityRule("minion-code", "0.1.45")).toBeUndefined()
-    expect(agentCompatibilityRule("fast-agent", "0.10.1")).toBeUndefined()
+  it("has no workarounds for the approved ACP agents", () => {
+    expect(agentCompatibilityRule("gemini", "0.61.0")).toBeUndefined()
+    expect(AGENT_COMPATIBILITY_RULES).toEqual([])
   })
 
   it("documents every compatibility rule", () => {
