@@ -124,6 +124,7 @@ describe("thread protocol", () => {
         harnessExtensions: true,
         steer: true,
       },
+      config: { model: null, permissionsMode: null, speed: null, thinking: null },
       createdAt: 1,
       roots: ["/tmp/project"],
       forkedFromId: null,
