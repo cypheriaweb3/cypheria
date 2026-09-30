@@ -1032,14 +1032,18 @@ export class AgentManager {
             suspendedThreadIds = (await this.#threadCoordinator?.suspendAgentThreads(agentId)) ?? []
             updatePrepared = true
             await this.#stopEverywhere(agentId)
+            progress(null, 0.08)
+          } else {
+            progress(null, 0.05)
           }
-          progress(null, 0.1)
+          const baseProgress = kind === "update" ? 0.08 : 0.05
+          const progressScale = 0.9 - baseProgress
           const entry = isRegistryAgentId(agentId) ? this.registry.get(agentId) : undefined
           const receipt = await this.#installer.install(agentId, entry, {
-            onProgress: (value) => progress(null, 0.1 + value * 0.75),
+            onProgress: (value) => progress(null, baseProgress + value * progressScale),
             signal,
           })
-          progress(null, 0.9)
+          progress(null, 0.92)
           const native = isNativeAgentId(agentId) ? nativeCatalog[agentId] : undefined
           const updated = await this.#persistence.setVersion(agentId, {
             description: native?.description ?? entry?.description ?? agentId,

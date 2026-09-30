@@ -66,6 +66,7 @@ export const CLAUDE_AGENT_SDK_EXCLUDED_TOP_LEVEL_FUNCTIONS = [
   "filterEscalatingDefaultMode",
   "foldSessionSummary",
   "importSessionToStore",
+  "prewarm",
   "startup",
   "tool",
 ] as const satisfies readonly (typeof CLAUDE_AGENT_SDK_TOP_LEVEL_FUNCTIONS)[number][]

@@ -90,6 +90,9 @@ const pruneGeneratedSchemas = async () => {
 }
 
 const responseTypeOverrides = {
+  "account/gatewayOAuth/cancel": "GatewayOAuthCancelResponse",
+  "account/gatewayOAuth/login": "GatewayOAuthLoginResponse",
+  "account/gatewayOAuth/read": "GatewayOAuthReadResponse",
   "account/logout": "LogoutAccountResponse",
   "account/rateLimits/read": "GetAccountRateLimitsResponse",
   "account/workspaceMessages/read": "GetWorkspaceMessagesResponse",

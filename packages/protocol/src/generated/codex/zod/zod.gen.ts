@@ -217,6 +217,7 @@ export const zFuzzyFileSearchSessionUpdatedNotification = z.looseObject({
  */
 export const zInitializeCapabilities = z.looseObject({
     experimentalApi: z.boolean().optional(),
+    explicitGatewayOauth: z.boolean().optional(),
     extensions: z.looseObject({}).nullish(),
     mcpServerOpenaiFormElicitation: z.boolean().optional(),
     optOutNotificationMethods: z.array(z.string()).nullish(),
@@ -1547,6 +1548,7 @@ export const zDynamicToolSpec = z.union([
  * EnvironmentAddParams
  */
 export const zEnvironmentAddParams = z.looseObject({
+    authBearerToken: z.string().nullish(),
     connectTimeoutMs: z.int().gte(0).nullish(),
     environmentId: z.string(),
     execServerUrl: z.string()
@@ -2025,6 +2027,46 @@ export const zFsWriteFileParams = z.looseObject({
  * Successful response for `fs/writeFile`.
  */
 export const zFsWriteFileResponse = z.looseObject({});
+
+/**
+ * GatewayOAuthCancelResponse
+ */
+export const zGatewayOAuthCancelResponse = z.looseObject({});
+
+/**
+ * GatewayOAuthLoginResponse
+ */
+export const zGatewayOAuthLoginResponse = z.looseObject({});
+
+export const zGatewayOAuthStatus = z.enum([
+    'notReady',
+    'started',
+    'succeeded',
+    'failed'
+]);
+
+/**
+ * GatewayOAuthChangedNotification
+ */
+export const zGatewayOAuthChangedNotification = z.looseObject({
+    authUrl: z.string().nullish(),
+    error: z.string().nullish(),
+    providerId: z.string(),
+    status: zGatewayOAuthStatus
+});
+
+/**
+ * GatewayOAuthReadResponse
+ *
+ * Current effective gateway policy and credential readiness; never contains credentials.
+ */
+export const zGatewayOAuthReadResponse = z.looseObject({
+    error: z.string().nullish(),
+    providerId: z.string(),
+    providerName: z.string(),
+    required: z.boolean(),
+    status: zGatewayOAuthStatus.nullish()
+});
 
 /**
  * GetAccountParams
@@ -2673,6 +2715,11 @@ export const zMcpAuthStatus = z.enum([
     'oAuth'
 ]);
 
+export const zMcpResourceReadTarget = z.looseObject({
+    connectorId: z.string(),
+    linkId: z.string().nullable()
+});
+
 /**
  * McpResourceReadParams
  */
@@ -2680,6 +2727,7 @@ export const zMcpResourceReadParams = z.looseObject({
     connectorId: z.string().nullish(),
     originCallId: z.string().nullish(),
     server: z.string(),
+    target: zMcpResourceReadTarget.nullish(),
     threadId: z.string().nullish(),
     uri: z.string()
 });
@@ -2806,6 +2854,7 @@ export const zListMcpServerStatusParams = z.looseObject({
     cursor: z.string().nullish(),
     detail: zMcpServerStatusDetail.nullish(),
     limit: z.int().gte(0).max(4294967295, { error: 'Invalid value: Expected uint32 to be <= 4294967295' }).nullish(),
+    serverName: z.string().nullish(),
     threadId: z.string().nullish()
 });
 
@@ -3149,9 +3198,11 @@ export const zCodexErrorInfo = z.union([
     z.literal('sessionBudgetExceeded'),
     z.literal('usageLimitExceeded'),
     z.literal('rateLimitExceeded'),
+    z.literal('flexUnavailable'),
     z.literal('serverOverloaded'),
     z.literal('cyberPolicy'),
     z.literal('misalignmentPolicyViolation'),
+    z.literal('tooManyDenials'),
     z.literal('internalServerError'),
     z.literal('unauthorized'),
     z.literal('badRequest'),
@@ -3296,6 +3347,7 @@ export const zPlanType = z.enum([
     'plus',
     'pro',
     'prolite',
+    'promax',
     'team',
     'self_serve_business_prolite',
     'self_serve_business_usage_based',
@@ -5634,10 +5686,28 @@ export const zThreadInjectItemsParams = z.looseObject({
 export const zThreadInjectItemsResponse = z.looseObject({});
 
 /**
+ * ItemThreadItemsListAnchor
+ *
+ * An exclusive item position within the requested visible turn.
+ */
+export const zThreadItemsListAnchor = z.looseObject({
+    itemId: z.string(),
+    type: z.enum(['item'])
+});
+
+/**
+ * Starting position for an item-history page.
+ */
+export const zThreadItemsListCursor = z.union([
+    z.string(),
+    zThreadItemsListAnchor
+]);
+
+/**
  * ThreadItemsListParams
  */
 export const zThreadItemsListParams = z.looseObject({
-    cursor: z.string().nullish(),
+    cursor: zThreadItemsListCursor.nullish(),
     limit: z.int().gte(0).max(4294967295, { error: 'Invalid value: Expected uint32 to be <= 4294967295' }).nullish(),
     sortDirection: zSortDirection.nullish(),
     threadId: z.string(),
@@ -5967,6 +6037,7 @@ export const zThreadRealtimeStartTransport = z.union([
  * EXPERIMENTAL - start a thread-scoped realtime session.
  */
 export const zThreadRealtimeStartParams = z.looseObject({
+    backendReasoningStatus: z.boolean().optional(),
     clientManagedHandoffs: z.boolean().nullish(),
     codexResponseHandoffChannelPrefixes: z.object({}).catchall(z.array(z.string())).nullish(),
     codexResponseHandoffMode: zCodexResponseHandoffMode.nullish(),
@@ -6568,6 +6639,7 @@ export const zTool = z.looseObject({
 
 export const zMcpServerStatus = z.looseObject({
     authStatus: zMcpAuthStatus,
+    httpOrigin: z.string().nullish(),
     name: z.string(),
     pluginId: z.string().nullish(),
     resourceTemplates: z.array(zResourceTemplate),
@@ -7289,7 +7361,9 @@ export const zItemStartedNotification = z.looseObject({
 });
 
 export const zThreadItemEntry = z.looseObject({
+    completedAtMs: z.int().nullish(),
     item: zThreadItem,
+    startedAtMs: z.int().nullish(),
     turnId: z.string()
 });
 
@@ -8261,6 +8335,21 @@ export const zClientRequest = z.union([
     }),
     z.looseObject({
         id: zRequestId,
+        method: z.enum(['account/gatewayOAuth/read']),
+        params: z.null().optional()
+    }),
+    z.looseObject({
+        id: zRequestId,
+        method: z.enum(['account/gatewayOAuth/login']),
+        params: z.null().optional()
+    }),
+    z.looseObject({
+        id: zRequestId,
+        method: z.enum(['account/gatewayOAuth/cancel']),
+        params: z.null().optional()
+    }),
+    z.looseObject({
+        id: zRequestId,
         method: z.enum(['modelProvider/capabilities/read']),
         params: zModelProviderCapabilitiesReadParams
     }),
@@ -8746,6 +8835,10 @@ export const zServerNotification = z.intersection(z.union([
     z.looseObject({
         method: z.enum(['account/updated']),
         params: zAccountUpdatedNotification
+    }),
+    z.looseObject({
+        method: z.enum(['account/gatewayOAuth/changed']),
+        params: zGatewayOAuthChangedNotification
     }),
     z.looseObject({
         method: z.enum(['account/rateLimits/updated']),

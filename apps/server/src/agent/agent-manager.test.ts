@@ -482,11 +482,11 @@ describe("AgentManager enable gate", () => {
     await manager.start()
     try {
       expect(await manager.get("codex", "session")).toMatchObject({
-        availableVersion: "0.156.1",
+        availableVersion: "0.159.2",
         installed: false,
         name: "Codex",
         repository: "https://github.com/openai/codex",
-        version: "0.156.1",
+        version: "0.159.2",
         website: "https://developers.openai.com/codex/",
       })
     } finally {
@@ -498,7 +498,7 @@ describe("AgentManager enable gate", () => {
   it("uses the integrated OpenCode v2 release instead of an ACP registry entry", async () => {
     expect(NATIVE_AGENT_MANIFEST.opencode).toMatchObject({
       cliPackage: "@opencode/cli",
-      cliVersion: "2.0.16",
+      cliVersion: "2.0.20",
       launcher: "executable",
     })
     const home = await mkdtemp(join(tmpdir(), "cypheria-agent-manager-opencode-"))
@@ -515,11 +515,11 @@ describe("AgentManager enable gate", () => {
     await manager.start()
     try {
       expect(await manager.get("opencode", "session")).toMatchObject({
-        availableVersion: "2.0.16",
+        availableVersion: "2.0.20",
         description: expect.not.stringContaining("Registry"),
         name: "OpenCode",
         native: true,
-        version: "2.0.16",
+        version: "2.0.20",
         website: "https://opencode.ai/v2/docs/",
       })
     } finally {
@@ -579,7 +579,7 @@ describe("AgentManager enable gate", () => {
         version: "0.153.4",
       })
       expect(await manager.get("codex", "session")).toMatchObject({
-        availableVersion: "0.156.1",
+        availableVersion: "0.159.2",
         enabled: false,
         installed: false,
         version: "0.153.4",

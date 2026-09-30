@@ -6,13 +6,13 @@ title: Codex App Server API 参考
 
 > 状态：生成的内部 adapter 参考；请勿手工编辑
 
-本文分析当前提交在 `packages/protocol/src/generated/codex` 下的自动生成协议。它是 Server adapter 的内部参考，不是公开 Cypheria client API。它覆盖启用实验定义后生成的完整 API：167 个客户端请求、11 个服务端反向请求、84 个服务端通知，以及 1 个客户端通知。
+本文分析当前提交在 `packages/protocol/src/generated/codex` 下的自动生成协议。它是 Server adapter 的内部参考，不是公开 Cypheria client API。它覆盖启用实验定义后生成的完整 API：170 个客户端请求、11 个服务端反向请求、85 个服务端通知，以及 1 个客户端通知。
 
 Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴露这套完整 API。Slash separator 转为 dot，camel-case segment 转为 snake case，并以 `.request`、`.response` 或 `.notification` 明确消息方向。每种 dotted message 都有从 generated JSON Schema 派生的专用 Zod schema，并在静态类型上与对应 generated Codex TypeScript type 配对。这些 message contract 从 `@cypheria/protocol` 导出，原始 generated Codex type 则隔离在 `@cypheria/protocol/codex-types`。
 
 协议采用 JSON-RPC 风格消息。客户端请求包含 `id`、`method` 和各方法专用的 `params`；服务端反向请求使用相同结构但方向相反；通知没有 `id`；成功响应包含 `id` 和 `result`；错误响应包含 `id` 和 `error`。下文顶层字段名后的 `?` 表示可选。字段列表前的生成类型名是嵌套结构和枚举值的最终依据。
 
-## 客户端请求（167）
+## 客户端请求（170）
 
 ### 初始化
 
@@ -73,7 +73,7 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 - `thread/turns/list` — 列出任务线程的 turns。 入参: `ThreadTurnsListParams`: `cursor?`, `itemsView?`, `limit?`, `sortDirection?`, `threadId`. 出参: `ThreadTurnsListResponse`: `backwardsCursor?`, `data`, `nextCursor?`.
 - `thread/items/list` — 列出任务线程的 items。 入参: `ThreadItemsListParams`: `cursor?`, `limit?`, `sortDirection?`, `threadId`, `turnId?`. 出参: `ThreadItemsListResponse`: `backwardsCursor?`, `data`, `nextCursor?`.
 - `thread/inject_items` — 注入历史条目到任务线程。 入参: `ThreadInjectItemsParams`: `items`, `threadId`. 出参: `ThreadInjectItemsResponse`: `{}`.
-- `thread/realtime/start` — 启动任务线程的 realtime。 入参: `ThreadRealtimeStartParams`: `clientManagedHandoffs?`, `codexResponseHandoffChannelPrefixes?`, `codexResponseHandoffMode?`, `codexResponseItemPrefix?`, `codexResponsesAsItems?`, `delegationAckFiller?`, `flushTranscriptTailOnSessionEnd?`, `includeStartupContext?`, `initialItems?`, `model?`, `outputModality`, `prompt?`, `realtimeEndInstructions?`, `realtimeSessionId?`, `realtimeStartInstructions?`, `threadId`, `transport?`, `version?`, `voice?`. 出参: `ThreadRealtimeStartResponse`: `{}`.
+- `thread/realtime/start` — 启动任务线程的 realtime。 入参: `ThreadRealtimeStartParams`: `backendReasoningStatus?`, `clientManagedHandoffs?`, `codexResponseHandoffChannelPrefixes?`, `codexResponseHandoffMode?`, `codexResponseItemPrefix?`, `codexResponsesAsItems?`, `delegationAckFiller?`, `flushTranscriptTailOnSessionEnd?`, `includeStartupContext?`, `initialItems?`, `model?`, `outputModality`, `prompt?`, `realtimeEndInstructions?`, `realtimeSessionId?`, `realtimeStartInstructions?`, `threadId`, `transport?`, `version?`, `voice?`. 出参: `ThreadRealtimeStartResponse`: `{}`.
 - `thread/realtime/appendAudio` — 追加音频到任务线程的 realtime。 入参: `ThreadRealtimeAppendAudioParams`: `audio`, `threadId`. 出参: `ThreadRealtimeAppendAudioResponse`: `{}`.
 - `thread/realtime/appendText` — 追加文本到任务线程的 realtime。 入参: `ThreadRealtimeAppendTextParams`: `role?`, `text`, `threadId`. 出参: `ThreadRealtimeAppendTextResponse`: `{}`.
 - `thread/realtime/appendSpeech` — 追加语音文本到任务线程的 realtime。 入参: `ThreadRealtimeAppendSpeechParams`: `text`, `threadId`. 出参: `ThreadRealtimeAppendSpeechResponse`: `{}`.
@@ -172,6 +172,23 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 
 - `model/list` — 列出模型。 入参: `ModelListParams`: `cursor?`, `includeHidden?`, `limit?`. 出参: `ModelListResponse`: `data`, `nextCursor?`.
 
+### 账户
+
+- `account/gatewayOAuth/read` — 读取账户的 gatewayOAuth。 入参: `undefined`（省略 `params`）. 出参: `GatewayOAuthReadResponse`: `error?`, `providerId`, `providerName`, `required`, `status?`.
+- `account/gatewayOAuth/login` — 开始登录账户的 gatewayOAuth。 入参: `undefined`（省略 `params`）. 出参: `GatewayOAuthLoginResponse`: `{}`.
+- `account/gatewayOAuth/cancel` — 取消账户的 gatewayOAuth。 入参: `undefined`（省略 `params`）. 出参: `GatewayOAuthCancelResponse`: `{}`.
+- `account/login/start` — 启动 API key、ChatGPT 或外部令牌登录流程。 入参: `LoginAccountParams`: `apiKey`, `type`, `appBrand?`, `codexStreamlinedLogin?`, `useHostedLoginSuccessPage?`, `accessToken`, `chatgptAccountId`, `chatgptPlanType?`, `region`, `accessKeyId`, `secretAccessKey`, `sessionToken?`. 出参: `LoginAccountResponse`: `type`, `authUrl`, `loginId`, `userCode`, `verificationUrl`.
+- `account/bedrock/discover` — 发现账户的 bedrock。 入参: `BedrockDiscoverParams`: `{}`. 出参: `BedrockDiscoverResponse`: `environmentCredentials`, `profiles`.
+- `account/bedrock/setup` — 配置账户的 bedrock。 入参: `BedrockSetupParams`: `profile`, `region`, `type`. 出参: `BedrockSetupResponse`: `{}`.
+- `account/login/cancel` — 取消账户的 login。 入参: `CancelLoginAccountParams`: `loginId`. 出参: `CancelLoginAccountResponse`: `status`.
+- `account/logout` — 执行 account/logout。 入参: `undefined`（省略 `params`）. 出参: `LogoutAccountResponse`: `{}`.
+- `account/rateLimits/read` — 读取账户的 rateLimits。 入参: `GetAccountRateLimitsParams`: `excludeResetCreditDetails?`, `supportsLunaReserve?`；`params` 本身可省略. 出参: `GetAccountRateLimitsResponse`: `accountId?`, `ordinaryUsageAllowed?`, `rateLimitResetCredits?`, `rateLimitUpsell?`, `rateLimits`, `rateLimitsByLimitId?`.
+- `account/rateLimitResetCredit/consume` — 消费账户的 rateLimitResetCredit。 入参: `ConsumeAccountRateLimitResetCreditParams`: `creditId?`, `idempotencyKey`. 出参: `ConsumeAccountRateLimitResetCreditResponse`: `outcome`.
+- `account/usage/read` — 读取账户的 usage。 入参: `GetAccountTokenUsageParams`: `threadId?`；`params` 本身可省略. 出参: `GetAccountTokenUsageResponse`: `dailyUsageBuckets?`, `summary`, `threadUsage?`.
+- `account/workspaceMessages/read` — 读取账户的 workspaceMessages。 入参: `undefined`（省略 `params`）. 出参: `GetWorkspaceMessagesResponse`: `featureEnabled`, `messages`.
+- `account/sendAddCreditsNudgeEmail` — 发送充值提示邮件账户。 入参: `SendAddCreditsNudgeEmailParams`: `creditType`. 出参: `SendAddCreditsNudgeEmailResponse`: `status`.
+- `account/read` — 读取账户。 入参: `GetAccountParams`: `refreshToken?`. 出参: `GetAccountResponse`: `account?`, `requiresOpenaiAuth`, `workspaceRouting?`.
+
 ### 模型提供方
 
 - `modelProvider/capabilities/read` — 读取模型提供方的 capabilities。 入参: `ModelProviderCapabilitiesReadParams`: `{}`. 出参: `ModelProviderCapabilitiesReadResponse`: `imageGeneration`, `namespaceTools`, `webSearch`.
@@ -205,14 +222,14 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 
 ### 执行环境
 
-- `environment/add` — 添加执行环境。 入参: `EnvironmentAddParams`: `connectTimeoutMs?`, `environmentId`, `execServerUrl`. 出参: `EnvironmentAddResponse`: `{}`.
+- `environment/add` — 添加执行环境。 入参: `EnvironmentAddParams`: `authBearerToken?`, `connectTimeoutMs?`, `environmentId`, `execServerUrl`. 出参: `EnvironmentAddResponse`: `{}`.
 - `environment/info` — 读取信息执行环境。 入参: `EnvironmentInfoParams`: `environmentId`. 出参: `EnvironmentInfoResponse`: `cwd?`, `shell`.
 - `environment/status` — 读取状态执行环境。 入参: `EnvironmentStatusParams`: `environmentId`. 出参: `EnvironmentStatusResponse`: `error?`, `status`.
 
 ### MCP Server
 
 - `mcpServer/oauth/login` — 开始登录MCP Server的 oauth。 入参: `McpServerOauthLoginParams`: `clientRegistration?`, `name`, `scopes?`, `threadId?`, `timeoutSecs?`. 出参: `McpServerOauthLoginResponse`: `authorizationUrl`.
-- `mcpServer/resource/read` — 读取MCP Server的 resource。 入参: `McpResourceReadParams`: `connectorId?`, `originCallId?`, `server`, `threadId?`, `uri`. 出参: `McpResourceReadResponse`: `contents`, `originCallId?`.
+- `mcpServer/resource/read` — 读取MCP Server的 resource。 入参: `McpResourceReadParams`: `connectorId?`, `originCallId?`, `server`, `target?`, `threadId?`, `uri`. 出参: `McpResourceReadResponse`: `contents`, `originCallId?`.
 - `mcpServer/event/stream/start` — 启动MCP Server的 event/stream。 入参: `McpServerEventStreamStartParams`: `_meta?`, `arguments`, `name`, `server`, `subscriptionId`, `threadId`. 出参: `McpServerEventStreamStartResponse`: `{}`.
 - `mcpServer/event/stream/stop` — 停止MCP Server的 event/stream。 入参: `McpServerEventStreamStopParams`: `subscriptionId`. 出参: `McpServerEventStreamStopResponse`: `{}`.
 - `mcpServer/tool/call` — 执行 mcpServer/tool/call。 入参: `McpServerToolCallParams`: `_meta?`, `arguments?`, `server`, `threadId`, `tool`. 出参: `McpServerToolCallResponse`: `_meta?`, `content`, `isError?`, `structuredContent?`.
@@ -226,26 +243,12 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 
 ### mcpServerStatus
 
-- `mcpServerStatus/list` — 列出mcpServerStatus。 入参: `ListMcpServerStatusParams`: `cursor?`, `detail?`, `limit?`, `threadId?`. 出参: `ListMcpServerStatusResponse`: `data`, `nextCursor?`.
+- `mcpServerStatus/list` — 列出mcpServerStatus。 入参: `ListMcpServerStatusParams`: `cursor?`, `detail?`, `limit?`, `serverName?`, `threadId?`. 出参: `ListMcpServerStatusResponse`: `data`, `nextCursor?`.
 
 ### Windows 沙箱
 
 - `windowsSandbox/setupStart` — 开始配置Windows 沙箱。 入参: `WindowsSandboxSetupStartParams`: `cwd?`, `mode`. 出参: `WindowsSandboxSetupStartResponse`: `started`.
 - `windowsSandbox/readiness` — 读取就绪状态Windows 沙箱。 入参: `undefined`（省略 `params`）. 出参: `WindowsSandboxReadinessResponse`: `status`.
-
-### 账户
-
-- `account/login/start` — 启动 API key、ChatGPT 或外部令牌登录流程。 入参: `LoginAccountParams`: `apiKey`, `type`, `appBrand?`, `codexStreamlinedLogin?`, `useHostedLoginSuccessPage?`, `accessToken`, `chatgptAccountId`, `chatgptPlanType?`, `region`, `accessKeyId`, `secretAccessKey`, `sessionToken?`. 出参: `LoginAccountResponse`: `type`, `authUrl`, `loginId`, `userCode`, `verificationUrl`.
-- `account/bedrock/discover` — 发现账户的 bedrock。 入参: `BedrockDiscoverParams`: `{}`. 出参: `BedrockDiscoverResponse`: `environmentCredentials`, `profiles`.
-- `account/bedrock/setup` — 配置账户的 bedrock。 入参: `BedrockSetupParams`: `profile`, `region`, `type`. 出参: `BedrockSetupResponse`: `{}`.
-- `account/login/cancel` — 取消账户的 login。 入参: `CancelLoginAccountParams`: `loginId`. 出参: `CancelLoginAccountResponse`: `status`.
-- `account/logout` — 执行 account/logout。 入参: `undefined`（省略 `params`）. 出参: `LogoutAccountResponse`: `{}`.
-- `account/rateLimits/read` — 读取账户的 rateLimits。 入参: `GetAccountRateLimitsParams`: `excludeResetCreditDetails?`, `supportsLunaReserve?`；`params` 本身可省略. 出参: `GetAccountRateLimitsResponse`: `accountId?`, `ordinaryUsageAllowed?`, `rateLimitResetCredits?`, `rateLimitUpsell?`, `rateLimits`, `rateLimitsByLimitId?`.
-- `account/rateLimitResetCredit/consume` — 消费账户的 rateLimitResetCredit。 入参: `ConsumeAccountRateLimitResetCreditParams`: `creditId?`, `idempotencyKey`. 出参: `ConsumeAccountRateLimitResetCreditResponse`: `outcome`.
-- `account/usage/read` — 读取账户的 usage。 入参: `GetAccountTokenUsageParams`: `threadId?`；`params` 本身可省略. 出参: `GetAccountTokenUsageResponse`: `dailyUsageBuckets?`, `summary`, `threadUsage?`.
-- `account/workspaceMessages/read` — 读取账户的 workspaceMessages。 入参: `undefined`（省略 `params`）. 出参: `GetWorkspaceMessagesResponse`: `featureEnabled`, `messages`.
-- `account/sendAddCreditsNudgeEmail` — 发送充值提示邮件账户。 入参: `SendAddCreditsNudgeEmailParams`: `creditType`. 出参: `SendAddCreditsNudgeEmailResponse`: `status`.
-- `account/read` — 读取账户。 入参: `GetAccountParams`: `refreshToken?`. 出参: `GetAccountResponse`: `account?`, `requiresOpenaiAuth`, `workspaceRouting?`.
 
 ### 反馈
 
@@ -325,7 +328,7 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 
 - `execCommandApproval` — 旧版命令执行审批请求。 入参: `ExecCommandApprovalParams`: `approvalId?`, `callId`, `command`, `conversationId`, `cwd`, `parsedCmd`, `reason?`. 出参: `ExecCommandApprovalResponse`: `decision`.
 
-## 服务端通知（84）
+## 服务端通知（85）
 
 ### error
 
@@ -435,6 +438,7 @@ Cypheria client protocol 通过 `agent.codex` 下机械生成的 dotted name 暴
 ### 账户
 
 - `account/updated` — 推送 `account/updated` 事件。 载荷: `AccountUpdatedNotification`: `authMode?`, `planType?`.
+- `account/gatewayOAuth/changed` — 推送 `account/gatewayOAuth/changed` 事件。 载荷: `GatewayOAuthChangedNotification`: `authUrl?`, `error?`, `providerId`, `status`.
 - `account/rateLimits/updated` — 推送 `account/rateLimits/updated` 事件。 载荷: `AccountRateLimitsUpdatedNotification`: `rateLimits`.
 - `account/login/completed` — 推送 `account/login/completed` 事件。 载荷: `AccountLoginCompletedNotification`: `error?`, `loginId?`, `onboardingEntrypoint?`, `success`.
 

@@ -9,61 +9,26 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from "./routes/__root"
-import { Route as WalletsRouteImport } from "./routes/wallets"
-import { Route as SchedulesRouteImport } from "./routes/schedules"
-import { Route as PoliciesRouteImport } from "./routes/policies"
-import { Route as PluginsRouteImport } from "./routes/plugins"
-import { Route as NetworksRouteImport } from "./routes/networks"
-import { Route as DebugRouteImport } from "./routes/debug"
-import { Route as ChatDemoRouteImport } from "./routes/chat-demo"
-import { Route as AuditRouteImport } from "./routes/audit"
-import { Route as ApprovalsRouteImport } from "./routes/approvals"
 import { Route as IndexRouteImport } from "./routes/index"
-import { Route as SettingsPluginsRouteImport } from "./routes/settings.plugins"
-import { Route as SettingsGitRouteImport } from "./routes/settings.git"
-import { Route as SettingsGeneralRouteImport } from "./routes/settings.general"
-import { Route as SettingsArchivedRouteImport } from "./routes/settings.archived"
+import { Route as ApprovalsRouteImport } from "./routes/approvals"
+import { Route as AuditRouteImport } from "./routes/audit"
+import { Route as ChatDemoRouteImport } from "./routes/chat-demo"
+import { Route as DebugRouteImport } from "./routes/debug"
+import { Route as NetworksRouteImport } from "./routes/networks"
+import { Route as PluginsRouteImport } from "./routes/plugins"
+import { Route as PoliciesRouteImport } from "./routes/policies"
+import { Route as SchedulesRouteImport } from "./routes/schedules"
+import { Route as WalletsRouteImport } from "./routes/wallets"
 import { Route as SettingsAppearanceRouteImport } from "./routes/settings.appearance"
+import { Route as SettingsArchivedRouteImport } from "./routes/settings.archived"
+import { Route as SettingsGeneralRouteImport } from "./routes/settings.general"
+import { Route as SettingsGitRouteImport } from "./routes/settings.git"
+import { Route as SettingsPluginsRouteImport } from "./routes/settings.plugins"
 import { Route as SettingsAgentHarnessesAgentIdSectionIdRouteImport } from "./routes/settings.agent-harnesses.$agentId.$sectionId"
 
-const WalletsRoute = WalletsRouteImport.update({
-  id: "/wallets",
-  path: "/wallets",
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SchedulesRoute = SchedulesRouteImport.update({
-  id: "/schedules",
-  path: "/schedules",
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PoliciesRoute = PoliciesRouteImport.update({
-  id: "/policies",
-  path: "/policies",
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PluginsRoute = PluginsRouteImport.update({
-  id: "/plugins",
-  path: "/plugins",
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NetworksRoute = NetworksRouteImport.update({
-  id: "/networks",
-  path: "/networks",
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DebugRoute = DebugRouteImport.update({
-  id: "/debug",
-  path: "/debug",
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ChatDemoRoute = ChatDemoRouteImport.update({
-  id: "/chat-demo",
-  path: "/chat-demo",
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuditRoute = AuditRouteImport.update({
-  id: "/audit",
-  path: "/audit",
+const IndexRoute = IndexRouteImport.update({
+  id: "/",
+  path: "/",
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApprovalsRoute = ApprovalsRouteImport.update({
@@ -71,24 +36,49 @@ const ApprovalsRoute = ApprovalsRouteImport.update({
   path: "/approvals",
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: "/",
-  path: "/",
+const AuditRoute = AuditRouteImport.update({
+  id: "/audit",
+  path: "/audit",
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsPluginsRoute = SettingsPluginsRouteImport.update({
-  id: "/settings/plugins",
-  path: "/settings/plugins",
+const ChatDemoRoute = ChatDemoRouteImport.update({
+  id: "/chat-demo",
+  path: "/chat-demo",
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsGitRoute = SettingsGitRouteImport.update({
-  id: "/settings/git",
-  path: "/settings/git",
+const DebugRoute = DebugRouteImport.update({
+  id: "/debug",
+  path: "/debug",
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsGeneralRoute = SettingsGeneralRouteImport.update({
-  id: "/settings/general",
-  path: "/settings/general",
+const NetworksRoute = NetworksRouteImport.update({
+  id: "/networks",
+  path: "/networks",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PluginsRoute = PluginsRouteImport.update({
+  id: "/plugins",
+  path: "/plugins",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PoliciesRoute = PoliciesRouteImport.update({
+  id: "/policies",
+  path: "/policies",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SchedulesRoute = SchedulesRouteImport.update({
+  id: "/schedules",
+  path: "/schedules",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WalletsRoute = WalletsRouteImport.update({
+  id: "/wallets",
+  path: "/wallets",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsAppearanceRoute = SettingsAppearanceRouteImport.update({
+  id: "/settings/appearance",
+  path: "/settings/appearance",
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsArchivedRoute = SettingsArchivedRouteImport.update({
@@ -96,9 +86,19 @@ const SettingsArchivedRoute = SettingsArchivedRouteImport.update({
   path: "/settings/archived",
   getParentRoute: () => rootRouteImport,
 } as any)
-const SettingsAppearanceRoute = SettingsAppearanceRouteImport.update({
-  id: "/settings/appearance",
-  path: "/settings/appearance",
+const SettingsGeneralRoute = SettingsGeneralRouteImport.update({
+  id: "/settings/general",
+  path: "/settings/general",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsGitRoute = SettingsGitRouteImport.update({
+  id: "/settings/git",
+  path: "/settings/git",
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsPluginsRoute = SettingsPluginsRouteImport.update({
+  id: "/settings/plugins",
+  path: "/settings/plugins",
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsAgentHarnessesAgentIdSectionIdRoute =
@@ -241,60 +241,11 @@ export interface RootRouteChildren {
 
 declare module "@tanstack/react-router" {
   interface FileRoutesByPath {
-    "/wallets": {
-      id: "/wallets"
-      path: "/wallets"
-      fullPath: "/wallets"
-      preLoaderRoute: typeof WalletsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    "/schedules": {
-      id: "/schedules"
-      path: "/schedules"
-      fullPath: "/schedules"
-      preLoaderRoute: typeof SchedulesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    "/policies": {
-      id: "/policies"
-      path: "/policies"
-      fullPath: "/policies"
-      preLoaderRoute: typeof PoliciesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    "/plugins": {
-      id: "/plugins"
-      path: "/plugins"
-      fullPath: "/plugins"
-      preLoaderRoute: typeof PluginsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    "/networks": {
-      id: "/networks"
-      path: "/networks"
-      fullPath: "/networks"
-      preLoaderRoute: typeof NetworksRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    "/debug": {
-      id: "/debug"
-      path: "/debug"
-      fullPath: "/debug"
-      preLoaderRoute: typeof DebugRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    "/chat-demo": {
-      id: "/chat-demo"
-      path: "/chat-demo"
-      fullPath: "/chat-demo"
-      preLoaderRoute: typeof ChatDemoRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    "/audit": {
-      id: "/audit"
-      path: "/audit"
-      fullPath: "/audit"
-      preLoaderRoute: typeof AuditRouteImport
+    "/": {
+      id: "/"
+      path: "/"
+      fullPath: "/"
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     "/approvals": {
@@ -304,32 +255,67 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof ApprovalsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/": {
-      id: "/"
-      path: "/"
-      fullPath: "/"
-      preLoaderRoute: typeof IndexRouteImport
+    "/audit": {
+      id: "/audit"
+      path: "/audit"
+      fullPath: "/audit"
+      preLoaderRoute: typeof AuditRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/settings/plugins": {
-      id: "/settings/plugins"
-      path: "/settings/plugins"
-      fullPath: "/settings/plugins"
-      preLoaderRoute: typeof SettingsPluginsRouteImport
+    "/chat-demo": {
+      id: "/chat-demo"
+      path: "/chat-demo"
+      fullPath: "/chat-demo"
+      preLoaderRoute: typeof ChatDemoRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/settings/git": {
-      id: "/settings/git"
-      path: "/settings/git"
-      fullPath: "/settings/git"
-      preLoaderRoute: typeof SettingsGitRouteImport
+    "/debug": {
+      id: "/debug"
+      path: "/debug"
+      fullPath: "/debug"
+      preLoaderRoute: typeof DebugRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/settings/general": {
-      id: "/settings/general"
-      path: "/settings/general"
-      fullPath: "/settings/general"
-      preLoaderRoute: typeof SettingsGeneralRouteImport
+    "/networks": {
+      id: "/networks"
+      path: "/networks"
+      fullPath: "/networks"
+      preLoaderRoute: typeof NetworksRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/plugins": {
+      id: "/plugins"
+      path: "/plugins"
+      fullPath: "/plugins"
+      preLoaderRoute: typeof PluginsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/policies": {
+      id: "/policies"
+      path: "/policies"
+      fullPath: "/policies"
+      preLoaderRoute: typeof PoliciesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/schedules": {
+      id: "/schedules"
+      path: "/schedules"
+      fullPath: "/schedules"
+      preLoaderRoute: typeof SchedulesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/wallets": {
+      id: "/wallets"
+      path: "/wallets"
+      fullPath: "/wallets"
+      preLoaderRoute: typeof WalletsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/settings/appearance": {
+      id: "/settings/appearance"
+      path: "/settings/appearance"
+      fullPath: "/settings/appearance"
+      preLoaderRoute: typeof SettingsAppearanceRouteImport
       parentRoute: typeof rootRouteImport
     }
     "/settings/archived": {
@@ -339,11 +325,25 @@ declare module "@tanstack/react-router" {
       preLoaderRoute: typeof SettingsArchivedRouteImport
       parentRoute: typeof rootRouteImport
     }
-    "/settings/appearance": {
-      id: "/settings/appearance"
-      path: "/settings/appearance"
-      fullPath: "/settings/appearance"
-      preLoaderRoute: typeof SettingsAppearanceRouteImport
+    "/settings/general": {
+      id: "/settings/general"
+      path: "/settings/general"
+      fullPath: "/settings/general"
+      preLoaderRoute: typeof SettingsGeneralRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/settings/git": {
+      id: "/settings/git"
+      path: "/settings/git"
+      fullPath: "/settings/git"
+      preLoaderRoute: typeof SettingsGitRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    "/settings/plugins": {
+      id: "/settings/plugins"
+      path: "/settings/plugins"
+      fullPath: "/settings/plugins"
+      preLoaderRoute: typeof SettingsPluginsRouteImport
       parentRoute: typeof rootRouteImport
     }
     "/settings/agent-harnesses/$agentId/$sectionId": {

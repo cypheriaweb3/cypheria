@@ -166,13 +166,43 @@ export const isNativeExecutable = async (path: string): Promise<boolean> => {
   }
 }
 
+export const createProgressReporter = (
+  onProgress?: (value: number) => void,
+  minDelta = 0.005
+): ((value: number) => void) => {
+  let lastReported: number | undefined
+  const epsilon = 1e-9
+  return (value: number) => {
+    const progress = Math.max(lastReported ?? 0, Math.min(value, 1))
+    if (lastReported !== undefined) {
+      if (progress === lastReported) return
+      if (progress < 1 && progress - lastReported < minDelta - epsilon) return
+    }
+    lastReported = progress
+    onProgress?.(progress)
+  }
+}
+
+type RunOptions = {
+  onProgress?: (progress: number) => void
+  progressFloor?: number
+  progressCeiling?: number
+  signal?: AbortSignal
+}
+
 const run = async (
   command: string,
   args: readonly string[],
   env: NodeJS.ProcessEnv,
-  signal?: AbortSignal
+  signalOrOptions?: AbortSignal | RunOptions
 ): Promise<void> =>
   new Promise((resolvePromise, reject) => {
+    const options: RunOptions =
+      signalOrOptions && "addEventListener" in signalOrOptions
+        ? { signal: signalOrOptions }
+        : (signalOrOptions ?? {})
+    const { signal, onProgress, progressFloor = 0, progressCeiling = 1 } = options
+
     if (signal?.aborted) {
       reject(new Error("Agent installation was interrupted"))
       return
@@ -187,17 +217,26 @@ const run = async (
     const stderr: Buffer[] = []
     let aborted = false
     let forceKill: NodeJS.Timeout | undefined
+    let progressTimer: NodeJS.Timeout | undefined
     let settled = false
+
+    const clearTimers = (): void => {
+      if (forceKill) clearTimeout(forceKill)
+      if (progressTimer) clearInterval(progressTimer)
+    }
+
     const finish = (error?: Error): void => {
       if (settled) return
       settled = true
-      if (forceKill) clearTimeout(forceKill)
+      clearTimers()
       signal?.removeEventListener("abort", abort)
       if (error) reject(error)
       else resolvePromise()
     }
+
     const abort = (): void => {
       aborted = true
+      clearTimers()
       if (child.pid && platform() !== "win32") {
         try {
           process.kill(-child.pid, "SIGTERM")
@@ -216,6 +255,7 @@ const run = async (
       }, 2_000)
       forceKill.unref()
     }
+
     signal?.addEventListener("abort", abort, { once: true })
     child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk))
     child.once("error", (error) => finish(error))
@@ -231,6 +271,22 @@ const run = async (
               )
             )
     )
+
+    if (onProgress && progressCeiling > progressFloor) {
+      const startTime = Date.now()
+      const tauMs = 12_000
+      progressTimer = setInterval(() => {
+        if (settled || aborted) {
+          clearInterval(progressTimer)
+          return
+        }
+        const elapsed = Date.now() - startTime
+        const ratio = 1 - Math.exp(-elapsed / tauMs)
+        const current = progressFloor + (progressCeiling - progressFloor) * ratio
+        onProgress(current)
+      }, 200)
+      progressTimer.unref()
+    }
   })
 
 export const extractAgentArchive = async (
@@ -468,7 +524,8 @@ export class AgentInstaller {
     toolchains: ToolchainManager = this.#toolchains
   ): Promise<AgentInstallReceipt> {
     options.signal?.throwIfAborted()
-    options.onProgress?.(0.05)
+    const reportProgress = createProgressReporter(options.onProgress)
+    reportProgress(0.05)
     let node = toolchains.executable("node")
     if (!node) {
       await toolchains.update("node")
@@ -476,7 +533,7 @@ export class AgentInstaller {
     }
     if (!node) throw new Error("Managed Node.js is unavailable")
     options.signal?.throwIfAborted()
-    options.onProgress?.(0.2)
+    reportProgress(0.15)
     const npm = join(dirname(node), platform() === "win32" ? "npm.cmd" : "npm")
     const staging = join(this.#agentsHome, agentId, "staging", randomUUID())
     await mkdir(staging, { recursive: true })
@@ -485,9 +542,14 @@ export class AgentInstaller {
         npm,
         ["install", "--prefix", staging, "--no-audit", "--no-fund", "--no-save", packageSpec],
         toolchains.environment(),
-        options.signal
+        {
+          onProgress: reportProgress,
+          progressFloor: 0.15,
+          progressCeiling: 0.8,
+          signal: options.signal,
+        }
       )
-      options.onProgress?.(0.72)
+      reportProgress(0.82)
       const parsed = splitNpmSpec(packageSpec)
       const packageJsonPath = join(
         staging,
@@ -503,6 +565,7 @@ export class AgentInstaller {
       await mkdir(dirname(destination), { recursive: true })
       await rm(destination, { force: true, recursive: true })
       await rename(staging, destination)
+      reportProgress(0.92)
       const receipt: AgentInstallReceipt = {
         agentId,
         args: [...args],
@@ -532,7 +595,7 @@ export class AgentInstaller {
         receipt.workingDirectory = destination
       }
       await this.#activate(receipt)
-      options.onProgress?.(1)
+      reportProgress(1)
       return receipt
     } catch (error) {
       await rm(staging, { force: true, recursive: true })
@@ -551,7 +614,8 @@ export class AgentInstaller {
     toolchains: ToolchainManager = this.#toolchains
   ): Promise<AgentInstallReceipt> {
     options.signal?.throwIfAborted()
-    options.onProgress?.(0.05)
+    const reportProgress = createProgressReporter(options.onProgress)
+    reportProgress(0.05)
     for (const toolchain of ["uv", "python"] as const) {
       if (!toolchains.executable(toolchain)) await toolchains.update(toolchain)
     }
@@ -564,6 +628,7 @@ export class AgentInstaller {
     const stagingBin = join(staging, "bin")
     await mkdir(staging, { recursive: true })
     try {
+      reportProgress(0.15)
       // `uv tool install` materializes the same isolated environment and
       // command selection used by `uvx`, without launching the ACP server
       // during installation. The selected command is then run from this fixed
@@ -583,10 +648,15 @@ export class AgentInstaller {
           UV_TOOL_BIN_DIR: stagingBin,
           UV_TOOL_DIR: stagingTools,
         }),
-        options.signal
+        {
+          onProgress: reportProgress,
+          progressFloor: 0.15,
+          progressCeiling: 0.85,
+          signal: options.signal,
+        }
       )
       options.signal?.throwIfAborted()
-      options.onProgress?.(0.85)
+      reportProgress(0.88)
       const stagingExecutable = join(stagingBin, executableName(launch.command))
       const resolvedStaging = await realpath(staging)
       const resolvedStagingExecutable = await realpath(stagingExecutable)
@@ -618,7 +688,7 @@ export class AgentInstaller {
         version,
       }
       await this.#activate(receipt)
-      options.onProgress?.(1)
+      reportProgress(1)
       return receipt
     } catch (error) {
       await rm(staging, { force: true, recursive: true })
@@ -635,13 +705,7 @@ export class AgentInstaller {
   ): Promise<AgentInstallReceipt> {
     if (!distribution) throw new Error("Binary distribution is missing")
     options.signal?.throwIfAborted()
-    let lastReportedProgress = 0
-    const reportProgress = (value: number): void => {
-      const progress = Math.max(lastReportedProgress, Math.min(value, 1))
-      if (progress < 1 && progress - lastReportedProgress < 0.005) return
-      lastReportedProgress = progress
-      options.onProgress?.(progress)
-    }
+    const reportProgress = createProgressReporter(options.onProgress)
     reportProgress(0.05)
     const staging = join(this.#agentsHome, agentId, "staging", randomUUID())
     const extension = new URL(distribution.archive).pathname.match(

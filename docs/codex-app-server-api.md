@@ -6,13 +6,13 @@ title: Codex App Server API reference
 
 > Status: Generated internal adapter reference; do not edit manually
 
-This document analyzes the generated protocol currently committed under `packages/protocol/src/generated/codex`. It is an internal Server-adapter reference, not the public Cypheria client API. It covers the complete API surface generated with experimental definitions enabled: 167 client requests, 11 server-initiated requests, 84 server notifications, and one client notification.
+This document analyzes the generated protocol currently committed under `packages/protocol/src/generated/codex`. It is an internal Server-adapter reference, not the public Cypheria client API. It covers the complete API surface generated with experimental definitions enabled: 170 client requests, 11 server-initiated requests, 85 server notifications, and one client notification.
 
 The Cypheria client protocol exposes this complete surface with mechanically generated dotted names under `agent.codex`. Slash separators become dots, camel-case segments become snake case, and the message direction is explicit: `.request`, `.response`, or `.notification`. Every dotted message has a method-specific Zod schema derived from the generated JSON Schema and statically paired with the matching generated Codex TypeScript type. These message contracts are exported from `@cypheria/protocol`, while raw generated Codex types are isolated behind `@cypheria/protocol/codex-types`.
 
 The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method`, and method-specific `params`; server requests use the same shape in the reverse direction; notifications have no `id`; successful responses contain `id` and `result`; errors contain `id` and `error`. A trailing `?` below marks an optional top-level field. The generated type named before each field list is the source of truth for nested structures and enum values.
 
-## Client requests (167)
+## Client requests (170)
 
 ### Initialization
 
@@ -73,7 +73,7 @@ The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method
 - `thread/turns/list` — List thread turns. Input: `ThreadTurnsListParams`: `cursor?`, `itemsView?`, `limit?`, `sortDirection?`, `threadId`. Output: `ThreadTurnsListResponse`: `backwardsCursor?`, `data`, `nextCursor?`.
 - `thread/items/list` — List thread items. Input: `ThreadItemsListParams`: `cursor?`, `limit?`, `sortDirection?`, `threadId`, `turnId?`. Output: `ThreadItemsListResponse`: `backwardsCursor?`, `data`, `nextCursor?`.
 - `thread/inject_items` — Inject history items into thread. Input: `ThreadInjectItemsParams`: `items`, `threadId`. Output: `ThreadInjectItemsResponse`: `{}`.
-- `thread/realtime/start` — Start thread realtime. Input: `ThreadRealtimeStartParams`: `clientManagedHandoffs?`, `codexResponseHandoffChannelPrefixes?`, `codexResponseHandoffMode?`, `codexResponseItemPrefix?`, `codexResponsesAsItems?`, `delegationAckFiller?`, `flushTranscriptTailOnSessionEnd?`, `includeStartupContext?`, `initialItems?`, `model?`, `outputModality`, `prompt?`, `realtimeEndInstructions?`, `realtimeSessionId?`, `realtimeStartInstructions?`, `threadId`, `transport?`, `version?`, `voice?`. Output: `ThreadRealtimeStartResponse`: `{}`.
+- `thread/realtime/start` — Start thread realtime. Input: `ThreadRealtimeStartParams`: `backendReasoningStatus?`, `clientManagedHandoffs?`, `codexResponseHandoffChannelPrefixes?`, `codexResponseHandoffMode?`, `codexResponseItemPrefix?`, `codexResponsesAsItems?`, `delegationAckFiller?`, `flushTranscriptTailOnSessionEnd?`, `includeStartupContext?`, `initialItems?`, `model?`, `outputModality`, `prompt?`, `realtimeEndInstructions?`, `realtimeSessionId?`, `realtimeStartInstructions?`, `threadId`, `transport?`, `version?`, `voice?`. Output: `ThreadRealtimeStartResponse`: `{}`.
 - `thread/realtime/appendAudio` — Append audio to thread realtime. Input: `ThreadRealtimeAppendAudioParams`: `audio`, `threadId`. Output: `ThreadRealtimeAppendAudioResponse`: `{}`.
 - `thread/realtime/appendText` — Append text to thread realtime. Input: `ThreadRealtimeAppendTextParams`: `role?`, `text`, `threadId`. Output: `ThreadRealtimeAppendTextResponse`: `{}`.
 - `thread/realtime/appendSpeech` — Append speech to thread realtime. Input: `ThreadRealtimeAppendSpeechParams`: `text`, `threadId`. Output: `ThreadRealtimeAppendSpeechResponse`: `{}`.
@@ -172,6 +172,23 @@ The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method
 
 - `model/list` — List models. Input: `ModelListParams`: `cursor?`, `includeHidden?`, `limit?`. Output: `ModelListResponse`: `data`, `nextCursor?`.
 
+### Account
+
+- `account/gatewayOAuth/read` — Read account gatewayOAuth. Input: `undefined` (omit `params`). Output: `GatewayOAuthReadResponse`: `error?`, `providerId`, `providerName`, `required`, `status?`.
+- `account/gatewayOAuth/login` — Start login for account gatewayOAuth. Input: `undefined` (omit `params`). Output: `GatewayOAuthLoginResponse`: `{}`.
+- `account/gatewayOAuth/cancel` — Cancel account gatewayOAuth. Input: `undefined` (omit `params`). Output: `GatewayOAuthCancelResponse`: `{}`.
+- `account/login/start` — Start an API-key, ChatGPT, or external-token login flow. Input: `LoginAccountParams`: `apiKey`, `type`, `appBrand?`, `codexStreamlinedLogin?`, `useHostedLoginSuccessPage?`, `accessToken`, `chatgptAccountId`, `chatgptPlanType?`, `region`, `accessKeyId`, `secretAccessKey`, `sessionToken?`. Output: `LoginAccountResponse`: `type`, `authUrl`, `loginId`, `userCode`, `verificationUrl`.
+- `account/bedrock/discover` — Discover account bedrock. Input: `BedrockDiscoverParams`: `{}`. Output: `BedrockDiscoverResponse`: `environmentCredentials`, `profiles`.
+- `account/bedrock/setup` — Set up account bedrock. Input: `BedrockSetupParams`: `profile`, `region`, `type`. Output: `BedrockSetupResponse`: `{}`.
+- `account/login/cancel` — Cancel account login. Input: `CancelLoginAccountParams`: `loginId`. Output: `CancelLoginAccountResponse`: `status`.
+- `account/logout` — Perform account/logout. Input: `undefined` (omit `params`). Output: `LogoutAccountResponse`: `{}`.
+- `account/rateLimits/read` — Read account rateLimits. Input: `GetAccountRateLimitsParams`: `excludeResetCreditDetails?`, `supportsLunaReserve?`; `params` itself is optional. Output: `GetAccountRateLimitsResponse`: `accountId?`, `ordinaryUsageAllowed?`, `rateLimitResetCredits?`, `rateLimitUpsell?`, `rateLimits`, `rateLimitsByLimitId?`.
+- `account/rateLimitResetCredit/consume` — Consume account rateLimitResetCredit. Input: `ConsumeAccountRateLimitResetCreditParams`: `creditId?`, `idempotencyKey`. Output: `ConsumeAccountRateLimitResetCreditResponse`: `outcome`.
+- `account/usage/read` — Read account usage. Input: `GetAccountTokenUsageParams`: `threadId?`; `params` itself is optional. Output: `GetAccountTokenUsageResponse`: `dailyUsageBuckets?`, `summary`, `threadUsage?`.
+- `account/workspaceMessages/read` — Read account workspaceMessages. Input: `undefined` (omit `params`). Output: `GetWorkspaceMessagesResponse`: `featureEnabled`, `messages`.
+- `account/sendAddCreditsNudgeEmail` — Send an add-credits nudge email for account. Input: `SendAddCreditsNudgeEmailParams`: `creditType`. Output: `SendAddCreditsNudgeEmailResponse`: `status`.
+- `account/read` — Read account. Input: `GetAccountParams`: `refreshToken?`. Output: `GetAccountResponse`: `account?`, `requiresOpenaiAuth`, `workspaceRouting?`.
+
 ### Model provider
 
 - `modelProvider/capabilities/read` — Read model provider capabilities. Input: `ModelProviderCapabilitiesReadParams`: `{}`. Output: `ModelProviderCapabilitiesReadResponse`: `imageGeneration`, `namespaceTools`, `webSearch`.
@@ -205,14 +222,14 @@ The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method
 
 ### Environment
 
-- `environment/add` — Add environment. Input: `EnvironmentAddParams`: `connectTimeoutMs?`, `environmentId`, `execServerUrl`. Output: `EnvironmentAddResponse`: `{}`.
+- `environment/add` — Add environment. Input: `EnvironmentAddParams`: `authBearerToken?`, `connectTimeoutMs?`, `environmentId`, `execServerUrl`. Output: `EnvironmentAddResponse`: `{}`.
 - `environment/info` — Read information for environment. Input: `EnvironmentInfoParams`: `environmentId`. Output: `EnvironmentInfoResponse`: `cwd?`, `shell`.
 - `environment/status` — Read status for environment. Input: `EnvironmentStatusParams`: `environmentId`. Output: `EnvironmentStatusResponse`: `error?`, `status`.
 
 ### MCP server
 
 - `mcpServer/oauth/login` — Start login for MCP server oauth. Input: `McpServerOauthLoginParams`: `clientRegistration?`, `name`, `scopes?`, `threadId?`, `timeoutSecs?`. Output: `McpServerOauthLoginResponse`: `authorizationUrl`.
-- `mcpServer/resource/read` — Read MCP server resource. Input: `McpResourceReadParams`: `connectorId?`, `originCallId?`, `server`, `threadId?`, `uri`. Output: `McpResourceReadResponse`: `contents`, `originCallId?`.
+- `mcpServer/resource/read` — Read MCP server resource. Input: `McpResourceReadParams`: `connectorId?`, `originCallId?`, `server`, `target?`, `threadId?`, `uri`. Output: `McpResourceReadResponse`: `contents`, `originCallId?`.
 - `mcpServer/event/stream/start` — Start MCP server event/stream. Input: `McpServerEventStreamStartParams`: `_meta?`, `arguments`, `name`, `server`, `subscriptionId`, `threadId`. Output: `McpServerEventStreamStartResponse`: `{}`.
 - `mcpServer/event/stream/stop` — Stop MCP server event/stream. Input: `McpServerEventStreamStopParams`: `subscriptionId`. Output: `McpServerEventStreamStopResponse`: `{}`.
 - `mcpServer/tool/call` — Perform mcpServer/tool/call. Input: `McpServerToolCallParams`: `_meta?`, `arguments?`, `server`, `threadId`, `tool`. Output: `McpServerToolCallResponse`: `_meta?`, `content`, `isError?`, `structuredContent?`.
@@ -226,26 +243,12 @@ The protocol uses JSON-RPC-style messages. Client requests contain `id`, `method
 
 ### mcpServerStatus
 
-- `mcpServerStatus/list` — List mcpServerStatus. Input: `ListMcpServerStatusParams`: `cursor?`, `detail?`, `limit?`, `threadId?`. Output: `ListMcpServerStatusResponse`: `data`, `nextCursor?`.
+- `mcpServerStatus/list` — List mcpServerStatus. Input: `ListMcpServerStatusParams`: `cursor?`, `detail?`, `limit?`, `serverName?`, `threadId?`. Output: `ListMcpServerStatusResponse`: `data`, `nextCursor?`.
 
 ### Windows sandbox
 
 - `windowsSandbox/setupStart` — Start setup for Windows sandbox. Input: `WindowsSandboxSetupStartParams`: `cwd?`, `mode`. Output: `WindowsSandboxSetupStartResponse`: `started`.
 - `windowsSandbox/readiness` — Read readiness for Windows sandbox. Input: `undefined` (omit `params`). Output: `WindowsSandboxReadinessResponse`: `status`.
-
-### Account
-
-- `account/login/start` — Start an API-key, ChatGPT, or external-token login flow. Input: `LoginAccountParams`: `apiKey`, `type`, `appBrand?`, `codexStreamlinedLogin?`, `useHostedLoginSuccessPage?`, `accessToken`, `chatgptAccountId`, `chatgptPlanType?`, `region`, `accessKeyId`, `secretAccessKey`, `sessionToken?`. Output: `LoginAccountResponse`: `type`, `authUrl`, `loginId`, `userCode`, `verificationUrl`.
-- `account/bedrock/discover` — Discover account bedrock. Input: `BedrockDiscoverParams`: `{}`. Output: `BedrockDiscoverResponse`: `environmentCredentials`, `profiles`.
-- `account/bedrock/setup` — Set up account bedrock. Input: `BedrockSetupParams`: `profile`, `region`, `type`. Output: `BedrockSetupResponse`: `{}`.
-- `account/login/cancel` — Cancel account login. Input: `CancelLoginAccountParams`: `loginId`. Output: `CancelLoginAccountResponse`: `status`.
-- `account/logout` — Perform account/logout. Input: `undefined` (omit `params`). Output: `LogoutAccountResponse`: `{}`.
-- `account/rateLimits/read` — Read account rateLimits. Input: `GetAccountRateLimitsParams`: `excludeResetCreditDetails?`, `supportsLunaReserve?`; `params` itself is optional. Output: `GetAccountRateLimitsResponse`: `accountId?`, `ordinaryUsageAllowed?`, `rateLimitResetCredits?`, `rateLimitUpsell?`, `rateLimits`, `rateLimitsByLimitId?`.
-- `account/rateLimitResetCredit/consume` — Consume account rateLimitResetCredit. Input: `ConsumeAccountRateLimitResetCreditParams`: `creditId?`, `idempotencyKey`. Output: `ConsumeAccountRateLimitResetCreditResponse`: `outcome`.
-- `account/usage/read` — Read account usage. Input: `GetAccountTokenUsageParams`: `threadId?`; `params` itself is optional. Output: `GetAccountTokenUsageResponse`: `dailyUsageBuckets?`, `summary`, `threadUsage?`.
-- `account/workspaceMessages/read` — Read account workspaceMessages. Input: `undefined` (omit `params`). Output: `GetWorkspaceMessagesResponse`: `featureEnabled`, `messages`.
-- `account/sendAddCreditsNudgeEmail` — Send an add-credits nudge email for account. Input: `SendAddCreditsNudgeEmailParams`: `creditType`. Output: `SendAddCreditsNudgeEmailResponse`: `status`.
-- `account/read` — Read account. Input: `GetAccountParams`: `refreshToken?`. Output: `GetAccountResponse`: `account?`, `requiresOpenaiAuth`, `workspaceRouting?`.
 
 ### Feedback
 
@@ -325,7 +328,7 @@ These are reverse RPC calls. The client must return the listed response rather t
 
 - `execCommandApproval` — Legacy request for command execution approval. Input: `ExecCommandApprovalParams`: `approvalId?`, `callId`, `command`, `conversationId`, `cwd`, `parsedCmd`, `reason?`. Output: `ExecCommandApprovalResponse`: `decision`.
 
-## Server notifications (84)
+## Server notifications (85)
 
 ### error
 
@@ -435,6 +438,7 @@ These are reverse RPC calls. The client must return the listed response rather t
 ### Account
 
 - `account/updated` — Reports the `account/updated` event. Payload: `AccountUpdatedNotification`: `authMode?`, `planType?`.
+- `account/gatewayOAuth/changed` — Reports the `account/gatewayOAuth/changed` event. Payload: `GatewayOAuthChangedNotification`: `authUrl?`, `error?`, `providerId`, `status`.
 - `account/rateLimits/updated` — Reports the `account/rateLimits/updated` event. Payload: `AccountRateLimitsUpdatedNotification`: `rateLimits`.
 - `account/login/completed` — Reports the `account/login/completed` event. Payload: `AccountLoginCompletedNotification`: `error?`, `loginId?`, `onboardingEntrypoint?`, `success`.
 

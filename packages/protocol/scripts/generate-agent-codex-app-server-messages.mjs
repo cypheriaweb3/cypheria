@@ -54,8 +54,8 @@ const clientNotifications = collectNotifications(clientNotificationSource)
 
 const expectedCounts = {
   clientNotifications: 1,
-  clientRequests: 167,
-  serverNotifications: 84,
+  clientRequests: 170,
+  serverNotifications: 85,
   serverRequests: 11,
 }
 

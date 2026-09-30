@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from "vitest"
 import {
   AgentInstaller,
   type AgentInstallReceipt,
+  createProgressReporter,
   extractAgentArchive,
   isNativeExecutable,
   selectAgentDistribution,
@@ -310,5 +311,20 @@ describe("managed agent launch receipts", () => {
     expect(selectAgentDistribution(distribution, "darwin-aarch64")?.kind).toBe("binary")
     expect(selectAgentDistribution(distribution, "linux-x86_64")?.kind).toBe("npx")
     expect(selectAgentDistribution({ uvx: distribution.uvx }, "linux-x86_64")?.kind).toBe("uvx")
+  })
+
+  it("reports monotonic throttled progress updates", () => {
+    const reported: number[] = []
+    const reporter = createProgressReporter((value) => reported.push(value), 0.05)
+
+    reporter(0.01)
+    reporter(0.02)
+    reporter(0.06)
+    reporter(0.04) // smaller, ignored
+    reporter(0.12)
+    reporter(1.5) // clamped to 1
+    reporter(1)
+
+    expect(reported).toEqual([0.01, 0.06, 0.12, 1])
   })
 })

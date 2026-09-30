@@ -1,6 +1,9 @@
 {
   "account/bedrock/discover": "BedrockDiscoverResponse",
   "account/bedrock/setup": "BedrockSetupResponse",
+  "account/gatewayOAuth/cancel": "GatewayOAuthCancelResponse",
+  "account/gatewayOAuth/login": "GatewayOAuthLoginResponse",
+  "account/gatewayOAuth/read": "GatewayOAuthReadResponse",
   "account/login/cancel": "CancelLoginAccountResponse",
   "account/login/start": "LoginAccountResponse",
   "account/logout": "LogoutAccountResponse",

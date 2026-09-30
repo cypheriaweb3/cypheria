@@ -112,6 +112,9 @@ export type CodexClientResponseMap = {
   readonly "thread/realtime/listVoices": v2.ThreadRealtimeListVoicesResponse
   readonly "review/start": v2.ReviewStartResponse
   readonly "model/list": v2.ModelListResponse
+  readonly "account/gatewayOAuth/read": v2.GatewayOAuthReadResponse
+  readonly "account/gatewayOAuth/login": v2.GatewayOAuthLoginResponse
+  readonly "account/gatewayOAuth/cancel": v2.GatewayOAuthCancelResponse
   readonly "modelProvider/capabilities/read": v2.ModelProviderCapabilitiesReadResponse
   readonly "experimentalFeature/list": v2.ExperimentalFeatureListResponse
   readonly "permissionProfile/list": v2.PermissionProfileListResponse
