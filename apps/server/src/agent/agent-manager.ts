@@ -109,6 +109,8 @@ export type AgentManagerOptions = {
   publish: Send
   logger?: Logger
   gitSettings?: () => GitSettings
+  /** Whether Claude may load plugins (`agents.claude.pluginsEnabled`). */
+  claudePluginsEnabled?: () => boolean
   managedShellEnvironment?: (cwd: string) => Promise<Record<string, string> | null>
   agentDefaults?: (agentId: AgentId) => Record<string, HarnessSettingValue>
   agentEnvironment?: (agentId: AgentId, base: NodeJS.ProcessEnv) => NodeJS.ProcessEnv
@@ -189,6 +191,7 @@ export class AgentManager {
   readonly #cypheriaHome: string
   readonly #claudeRuntimes = new Map<string, Promise<ClaudeSessionRuntime>>()
   readonly #gitSettings: () => GitSettings
+  readonly #claudePluginsEnabled: () => boolean
   readonly #managedShellEnvironment: (cwd: string) => Promise<Record<string, string> | null>
   readonly #installer: Pick<
     AgentInstaller,
@@ -225,6 +228,7 @@ export class AgentManager {
     this.#agentDefaults = options.agentDefaults ?? (() => ({}))
     this.#agentEnvironment = options.agentEnvironment ?? ((_agentId, base) => ({ ...base }))
     this.#gitSettings = options.gitSettings ?? (() => DEFAULT_GIT_SETTINGS)
+    this.#claudePluginsEnabled = options.claudePluginsEnabled ?? (() => true)
     this.#managedShellEnvironment = options.managedShellEnvironment ?? (async () => null)
     this.#cypheriaHome = options.cypheriaHome
     this.#agentHomes = join(options.cypheriaHome, "agents")
@@ -753,6 +757,78 @@ export class AgentManager {
         else reject(new Error(Buffer.concat(errors).toString("utf8") || `Claude exited ${code}`))
       })
     })
+  }
+
+  /**
+   * Runs the managed Claude CLI to completion inside Cypheria's isolated
+   * `CLAUDE_CONFIG_DIR`. Callers pass explicit argv; there is no shell.
+   */
+  async runClaudeCli(
+    args: string[],
+    options: { input?: string; signal?: AbortSignal; timeoutMs?: number } = {}
+  ): Promise<{ exitCode: number; stderr: string; stdout: string }> {
+    const spec = await this.authTerminalSpec("claude", args)
+    return await new Promise((resolve, reject) => {
+      const child = spawn(spec.command, spec.args, {
+        cwd: spec.cwd,
+        env: spec.env,
+        shell: false,
+        signal: options.signal,
+        stdio: [options.input === undefined ? "ignore" : "pipe", "pipe", "pipe"],
+        timeout: options.timeoutMs ?? 120_000,
+        windowsHide: true,
+      })
+      const stdout: Buffer[] = []
+      const stderr: Buffer[] = []
+      child.stdout?.on("data", (chunk: Buffer) => stdout.push(chunk))
+      child.stderr?.on("data", (chunk: Buffer) => stderr.push(chunk))
+      child.once("error", reject)
+      child.once("close", (code, signal) => {
+        if (code === null) {
+          reject(new Error(`Claude CLI was terminated by ${signal ?? "a signal"}`))
+          return
+        }
+        resolve({
+          exitCode: code,
+          stderr: Buffer.concat(stderr).toString("utf8"),
+          stdout: Buffer.concat(stdout).toString("utf8"),
+        })
+      })
+      if (options.input !== undefined) child.stdin?.end(options.input)
+    })
+  }
+
+  claudePluginsEnabled(): boolean {
+    return this.#claudePluginsEnabled()
+  }
+
+  /**
+   * Claude has no switch that turns every plugin off, so when plugins are off
+   * for Claude each session starts with every installed plugin forced
+   * disabled through its flag settings, which outrank the user's settings.
+   */
+  async claudeSessionOptions(): Promise<{ settings?: { enabledPlugins: Record<string, false> } }> {
+    if (this.#claudePluginsEnabled()) return {}
+    const result = await this.runClaudeCli(["plugin", "list", "--json"])
+    if (result.exitCode !== 0) return {}
+    const installed = JSON.parse(result.stdout) as { id?: unknown }[]
+    const enabledPlugins = Object.fromEntries(
+      installed.flatMap((plugin) => (typeof plugin.id === "string" ? [[plugin.id, false]] : []))
+    ) as Record<string, false>
+    return { settings: { enabledPlugins } }
+  }
+
+  /** Reloads plugins in running Claude sessions after a plugin change. */
+  async reloadClaudePlugins(): Promise<{ applied: number; held: number }> {
+    const totals = { applied: 0, held: 0 }
+    for (const pending of [...this.#claudeRuntimes.values()]) {
+      const runtime = await pending.catch(() => undefined)
+      if (!runtime?.running) continue
+      const result = await runtime.reloadPlugins().catch(() => ({ applied: 0, held: 0 }))
+      totals.applied += result.applied
+      totals.held += result.held
+    }
+    return totals
   }
 
   async verifyPiConnection(providerId: string): Promise<void> {

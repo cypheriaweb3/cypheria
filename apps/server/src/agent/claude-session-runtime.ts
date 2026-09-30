@@ -151,6 +151,24 @@ export class ClaudeSessionRuntime {
     await this.#request(message)
   }
 
+  /**
+   * Reloads plugins in every live query. With `holdOnCacheImpact` the CLI
+   * leaves a session untouched when applying would invalidate its prompt cache.
+   * Returns how many sessions applied the reload and how many were held.
+   */
+  async reloadPlugins(): Promise<{ applied: number; held: number }> {
+    let applied = 0
+    let held = 0
+    await Promise.all(
+      [...this.#queries.values()].map(async ({ query }) => {
+        const result = await query.reloadPlugins({ holdOnCacheImpact: true })
+        if (result.held) held += 1
+        else applied += 1
+      })
+    )
+    return { applied, held }
+  }
+
   async stop(): Promise<void> {
     for (const state of this.#queries.values()) {
       state.input?.complete()

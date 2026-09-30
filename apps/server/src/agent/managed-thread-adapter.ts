@@ -1558,6 +1558,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
     }
     if (this.agentId === "claude") {
       const defaults = await this.#defaultsFor("claude")
+      const pluginOptions = await this.#claudePluginOptions()
       const directories = additionalDirectories(input.workspaceRoots, input.cwd)
       const text = input.content
         .filter((block) => block.type === "text")
@@ -1567,6 +1568,7 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
       try {
         await this.#request(input.threadId, {
           options: {
+            ...pluginOptions,
             ...(directories ? { additionalDirectories: directories } : {}),
             ...(input.cwd ? { cwd: input.cwd } : {}),
             ...(input.agentSessionId ? { resume: input.agentSessionId } : {}),
@@ -2185,6 +2187,13 @@ export class ManagedThreadAdapter implements ThreadHarnessAdapter {
         type: "agent.acp.session.set_config_option.request",
       })
     }
+  }
+
+  async #claudePluginOptions(): Promise<Record<string, unknown>> {
+    const manager = this.#manager as AgentManager & {
+      claudeSessionOptions?: AgentManager["claudeSessionOptions"]
+    }
+    return (await manager.claudeSessionOptions?.()) ?? {}
   }
 
   async #defaultsFor(agentId: AgentId): Promise<ReturnType<AgentManager["defaultsFor"]>> {

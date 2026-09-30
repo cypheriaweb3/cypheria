@@ -242,6 +242,12 @@ const section = (
   description: string | null = null
 ): HarnessSettingSection => ({ description, id, label, order, settings })
 
+/** Claude settings that Cypheria owns in its configuration file, since Claude has no native setting for them. */
+export type ClaudeHarnessSettings = {
+  get(): { pluginsEnabled: boolean }
+  update(patch: { pluginsEnabled?: boolean }): Promise<void>
+}
+
 export class HarnessService {
   readonly catalog: HarnessCatalogManager
   readonly #agents: AgentManager
@@ -270,10 +276,21 @@ export class HarnessService {
     { agentId: AgentId; providerId: string; sessionId: string; terminalId: string }
   >()
 
-  constructor(agents: AgentManager, codex: CodexHarnessService, terminals: TerminalManager) {
+  readonly #claudeSettings: ClaudeHarnessSettings
+
+  constructor(
+    agents: AgentManager,
+    codex: CodexHarnessService,
+    terminals: TerminalManager,
+    claudeSettings: ClaudeHarnessSettings = {
+      get: () => ({ pluginsEnabled: true }),
+      update: async () => undefined,
+    }
+  ) {
     this.#agents = agents
     this.#codex = codex
     this.#terminals = terminals
+    this.#claudeSettings = claudeSettings
     this.catalog = new HarnessCatalogManager((agentId, signal) => this.#discover(agentId, signal))
   }
 
@@ -1325,7 +1342,17 @@ export class HarnessService {
             label: id,
           })),
         })),
-        settingSections: [],
+        settingSections: [
+          {
+            description: "Cypheria keeps these in its own configuration file.",
+            id: "settings",
+            label: "Settings",
+            order: 0,
+            settings: [
+              boolean("pluginsEnabled", "Plugins", this.#claudeSettings.get().pluginsEnabled),
+            ],
+          },
+        ],
       }
     }
     if (agentId === "pi") {
@@ -1615,6 +1642,10 @@ export class HarnessService {
 
     if (agentId === "codex") {
       await this.#codex.updateNativeSettings(values)
+    } else if (agentId === "claude") {
+      if (typeof values.pluginsEnabled === "boolean") {
+        await this.#claudeSettings.update({ pluginsEnabled: values.pluginsEnabled })
+      }
     } else {
       throw new Error(`${agentId} does not support updating native settings`)
     }

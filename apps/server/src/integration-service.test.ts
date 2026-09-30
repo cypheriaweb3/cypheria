@@ -45,7 +45,10 @@ describe("IntegrationService", () => {
       if (method === "plugin/install") return { appsNeedingAuth: [] }
       throw new Error(`Unexpected call: ${method}`)
     })
-    const service = new IntegrationService({ callCodex } as unknown as AgentManager)
+    const service = new IntegrationService({
+      callCodex,
+      claudePluginsEnabled: () => true,
+    } as unknown as AgentManager)
     const send = vi.fn()
     await service.handle(
       {
@@ -61,7 +64,12 @@ describe("IntegrationService", () => {
     )
     expect(listed).toBe(2)
     expect(send).toHaveBeenCalledWith(
-      expect.objectContaining({ payload: { ok: true, value: { errors: [], marketplaces: [] } } })
+      expect.objectContaining({
+        payload: {
+          ok: true,
+          value: expect.objectContaining({ errors: [], marketplaces: [] }),
+        },
+      })
     )
   })
 
@@ -72,7 +80,10 @@ describe("IntegrationService", () => {
         return { data: [], nextCursor: params.cursor === null ? "next-page" : null }
       throw new Error(`Unexpected call: ${method}`)
     })
-    const service = new IntegrationService({ callCodex } as unknown as AgentManager)
+    const service = new IntegrationService({
+      callCodex,
+      claudePluginsEnabled: () => true,
+    } as unknown as AgentManager)
     await service.handle(
       {
         payload: { forceRefresh: true },
@@ -93,36 +104,43 @@ describe("IntegrationService", () => {
     })
   })
 
-  it("installs remote plugins by catalog ID rather than display name", async () => {
+  it("installs remote plugins by catalog ID rather than display name and enables them", async () => {
     const callCodex = vi.fn(async (method: string) => {
       if (method === "plugin/list")
         return {
+          featuredPluginIds: [],
+          marketplaceLoadErrors: [],
           marketplaces: [
             {
               name: "openai-curated-remote",
               path: null,
               plugins: [
                 {
+                  availability: "AVAILABLE",
+                  enabled: false,
+                  id: "gitlab@openai-curated-remote",
+                  installPolicy: "AVAILABLE",
+                  installed: false,
                   name: "gitlab",
                   remotePluginId: "plugin_connector_1p_gitlab",
+                  source: { type: "remote" },
                 },
               ],
             },
           ],
         }
       if (method === "plugin/install") return { appsNeedingAuth: [] }
+      if (method === "config/value/write") return {}
       throw new Error(`Unexpected call: ${method}`)
     })
-    const service = new IntegrationService({ callCodex } as unknown as AgentManager)
+    const service = new IntegrationService({
+      callCodex,
+      claudePluginsEnabled: () => true,
+    } as unknown as AgentManager)
     const send = vi.fn()
     await service.handle(
       {
-        payload: {
-          agentId: "codex",
-          marketplaceName: "openai-curated-remote",
-          marketplacePath: null,
-          pluginName: "gitlab",
-        },
+        payload: { marketplaceName: "openai-curated-remote", pluginName: "gitlab" },
         requestId: "req_remote_install",
         type: "integration.plugin.install.request",
       },
@@ -136,9 +154,23 @@ describe("IntegrationService", () => {
         remoteMarketplaceName: "openai-curated-remote",
       })
     )
+    expect(callCodex).toHaveBeenCalledWith(
+      "config/value/write",
+      expect.objectContaining({
+        keyPath: "plugins.gitlab@openai-curated-remote.enabled",
+        value: true,
+      })
+    )
     expect(send).toHaveBeenCalledWith(
       expect.objectContaining({
-        payload: { ok: true, value: { appsNeedingAuth: [], installed: true } },
+        payload: {
+          ok: true,
+          value: {
+            results: [
+              { agentId: "codex", appsNeedingAuth: [], reloadPending: false, status: "done" },
+            ],
+          },
+        },
       })
     )
   })
@@ -174,7 +206,10 @@ describe("IntegrationService", () => {
         }
       throw new Error(`Unexpected call: ${method}`)
     })
-    const service = new IntegrationService({ callCodex } as unknown as AgentManager)
+    const service = new IntegrationService({
+      callCodex,
+      claudePluginsEnabled: () => true,
+    } as unknown as AgentManager)
     const send = vi.fn()
     await service.handle(
       {
@@ -212,7 +247,10 @@ describe("IntegrationService", () => {
 
   it("updates Codex's process-wide plugins feature", async () => {
     const callCodex = vi.fn(async () => ({ enablement: { plugins: false } }))
-    const service = new IntegrationService({ callCodex } as unknown as AgentManager)
+    const service = new IntegrationService({
+      callCodex,
+      claudePluginsEnabled: () => true,
+    } as unknown as AgentManager)
     const send = vi.fn()
     await service.handle(
       {
@@ -248,22 +286,15 @@ describe("IntegrationService", () => {
               name: "cypheria-bundled",
               plugins: [{ name: "cypheria-app-tools", installed: false }],
             },
-            {
-              name: "cypheria-curated",
-              plugins: [
-                {
-                  id: "cypheria-app-tools@cypheria-curated",
-                  name: "cypheria-app-tools",
-                  installed: true,
-                },
-              ],
-            },
           ],
         }
       if (method === "plugin/install") return { appsNeedingAuth: [] }
       return { enablement: { plugins: true } }
     })
-    const service = new IntegrationService({ callCodex } as unknown as AgentManager)
+    const service = new IntegrationService({
+      callCodex,
+      claudePluginsEnabled: () => true,
+    } as unknown as AgentManager)
     const send = vi.fn()
     await service.handle(
       {
@@ -284,12 +315,6 @@ describe("IntegrationService", () => {
         marketplacePath: "/bundled/marketplace/.agents/plugins/marketplace.json",
       })
     )
-    expect(callCodex).toHaveBeenCalledWith("plugin/uninstall", {
-      pluginId: "cypheria-app-tools@cypheria-curated",
-    })
-    expect(callCodex).toHaveBeenCalledWith("marketplace/remove", {
-      marketplaceName: "cypheria-curated",
-    })
     expect(send).toHaveBeenCalledWith(
       expect.objectContaining({ payload: { ok: true, value: { succeeded: true } } })
     )
@@ -317,7 +342,10 @@ describe("IntegrationService", () => {
         },
       ],
     }))
-    const service = new IntegrationService({ callCodex } as unknown as AgentManager)
+    const service = new IntegrationService({
+      callCodex,
+      claudePluginsEnabled: () => true,
+    } as unknown as AgentManager)
     const send = vi.fn()
 
     await service.handle(
@@ -350,7 +378,10 @@ describe("IntegrationService", () => {
 
   it("rejects unsupported harness adapters without falling back to Codex", async () => {
     const callCodex = vi.fn()
-    const service = new IntegrationService({ callCodex } as unknown as AgentManager)
+    const service = new IntegrationService({
+      callCodex,
+      claudePluginsEnabled: () => true,
+    } as unknown as AgentManager)
     const send = vi.fn()
     await service.handle(
       {
@@ -369,5 +400,91 @@ describe("IntegrationService", () => {
         }),
       })
     )
+  })
+
+  it("reports one plugin's install and enablement state separately for each Agent", async () => {
+    const callCodex = vi.fn(async (method: string) => {
+      if (method === "plugin/list")
+        return {
+          featuredPluginIds: [],
+          marketplaceLoadErrors: [],
+          marketplaces: [
+            {
+              name: "team",
+              path: "/codex/team/marketplace.json",
+              plugins: [
+                {
+                  availability: "AVAILABLE",
+                  enabled: false,
+                  id: "shared@team",
+                  installPolicy: "AVAILABLE",
+                  installed: true,
+                  name: "shared",
+                  source: { type: "local" },
+                },
+              ],
+            },
+          ],
+        }
+      return {}
+    })
+    const claudeOutput: Record<string, unknown> = {
+      "plugin marketplace list --json": [
+        {
+          installLocation: "/nonexistent/team",
+          name: "claude-plugins-official",
+          repo: "anthropics/claude-plugins-official",
+          source: "github",
+        },
+        { installLocation: "/nonexistent/team", name: "team", repo: "acme/team", source: "github" },
+      ],
+      "plugin list --json --available": {
+        available: [],
+        installed: [
+          {
+            enabled: true,
+            id: "shared@team",
+            installPath: "/nonexistent/cache",
+            scope: "user",
+            version: "1.0.0",
+          },
+        ],
+      },
+    }
+    const runClaudeCli = vi.fn(async (args: string[]) => ({
+      exitCode: 0,
+      stderr: "",
+      stdout: JSON.stringify(claudeOutput[args.join(" ")] ?? []),
+    }))
+    const service = new IntegrationService({
+      callCodex,
+      claudePluginsEnabled: () => true,
+      reloadClaudePlugins: async () => ({ applied: 0, held: 0 }),
+      runClaudeCli,
+    } as unknown as AgentManager)
+    const send = vi.fn()
+    await service.handle(
+      {
+        payload: { marketplaceName: "team", pluginName: "shared" },
+        requestId: "req_agents",
+        type: "integration.plugin.agents.request",
+      },
+      send
+    )
+    const response = send.mock.calls[0]?.[0] as { payload: { value: { agents: unknown[] } } }
+    expect(response.payload.value.agents).toEqual([
+      expect.objectContaining({
+        agentId: "codex",
+        enabled: false,
+        installed: true,
+        id: "shared@team",
+      }),
+      expect.objectContaining({
+        agentId: "claude",
+        enabled: true,
+        installed: true,
+        installedScopes: ["user"],
+      }),
+    ])
   })
 })

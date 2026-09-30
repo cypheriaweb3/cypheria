@@ -1,82 +1,58 @@
-import { randomUUID } from "node:crypto"
-import { access, readFile, stat } from "node:fs/promises"
-import { extname, join } from "node:path"
-import { fileURLToPath } from "node:url"
-
 import type {
+  AgentId,
   IntegrationClientMessage,
   IntegrationServerMessage,
-  MarketplaceSourceKind,
-  MarketplaceView,
 } from "@cypheria/protocol"
 import { IntegrationIdSchema } from "@cypheria/protocol"
 import type { v2 } from "@cypheria/protocol/codex-types"
 import { z } from "zod"
 import type { AgentManager } from "./agent/agent-manager.js"
 import { codexAppToolScope } from "./codex-app-tool-scope.js"
-
-const openAiMarketplaces = new Set([
-  "openai-api-curated",
-  "openai-bundled",
-  "openai-curated",
-  "openai-curated-remote",
-  "openai-primary-runtime",
-])
-const cypheriaMarketplace = "cypheria-bundled"
-
-const sourceKind = (name: string): MarketplaceSourceKind => {
-  if (name === cypheriaMarketplace) return "cypheria"
-  if (openAiMarketplaces.has(name)) return "openai"
-  return "custom"
-}
-
-const webUrl = (value: string | null | undefined): string | null => {
-  if (!value) return null
-  try {
-    const url = new URL(value)
-    return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password
-      ? url.href
-      : null
-  } catch {
-    return null
-  }
-}
-
-const pluginImage = async (
-  url: string | null | undefined,
-  path: string | null | undefined
-): Promise<string | null> => {
-  if (url && /^https?:\/\//iu.test(url)) return url
-  if (!path) return null
-  const mime = (
-    {
-      ".jpeg": "image/jpeg",
-      ".jpg": "image/jpeg",
-      ".png": "image/png",
-      ".svg": "image/svg+xml",
-      ".webp": "image/webp",
-    } as Record<string, string>
-  )[extname(path).toLowerCase()]
-  if (!mime) return null
-  try {
-    if ((await stat(path)).size > 2_000_000) return null
-    return `data:${mime};base64,${(await readFile(path)).toString("base64")}`
-  } catch {
-    return null
-  }
-}
+import { ClaudePluginProvider } from "./integration/claude-plugin-provider.js"
+import { CodexPluginProvider } from "./integration/codex-plugin-provider.js"
+import {
+  InMemoryPluginMarketplaceRegistry,
+  PluginHub,
+  type PluginMarketplaceRegistry,
+} from "./integration/plugin-hub.js"
+import type { PluginProvider } from "./integration/plugin-provider.js"
+import { webUrl } from "./integration/plugin-utils.js"
 
 const mcpConfigSchema = z.record(
   z.string(),
   z.object({ enabled: z.boolean().optional() }).passthrough()
 )
 
+const unsupported = (agentId: string, feature: string): Error => {
+  const error = new Error(`The ${agentId} adapter does not support plugin ${feature}`)
+  error.name = "INTEGRATION_UNSUPPORTED"
+  return error
+}
+
 export class IntegrationService {
   readonly #agents: AgentManager
-  #bundledPluginPromise: Promise<void> | undefined
+  readonly #hub: PluginHub
 
-  constructor(agents: AgentManager) {
+  constructor(agents: AgentManager, options: { marketplaces?: PluginMarketplaceRegistry } = {}) {
     this.#agents = agents
+    this.#hub = new PluginHub(
+      new Map<AgentId, PluginProvider>([
+        ["codex", new CodexPluginProvider(agents)],
+        [
+          "claude",
+          new ClaudePluginProvider({
+            enabled: () => agents.claudePluginsEnabled(),
+            reload: () => agents.reloadClaudePlugins(),
+            runner: { run: (args, runOptions) => agents.runClaudeCli(args, runOptions) },
+          }),
+        ],
+      ]),
+      options.marketplaces ?? new InMemoryPluginMarketplaceRegistry()
+    )
+  }
+
+  #plugin(agentId: AgentId): PluginProvider {
+    return this.#hub.provider(agentId)
   }
 
   listComposerSkills(cwd?: string) {
@@ -85,8 +61,8 @@ export class IntegrationService {
   listComposerApps() {
     return this.#listApps()
   }
-  listComposerPlugins(cwd?: string) {
-    return this.#listPlugins(cwd)
+  listComposerPlugins(cwd?: string, agentId: AgentId = "codex") {
+    return this.#plugin(agentId).list({ cwd })
   }
   listComposerMcp() {
     return this.#listMcp()
@@ -153,56 +129,58 @@ export class IntegrationService {
           respond(await this.#loginMcp(message.payload.id))
           break
         case "integration.plugin.list.request":
-          this.#assertCodex(message.payload.agentId)
-          respond(await this.#listPlugins(message.payload.cwd, message.payload.forceRefresh))
+          respond(await this.#plugin(message.payload.agentId).list(message.payload))
           break
         case "integration.plugin.read.request":
-          this.#assertCodex(message.payload.agentId)
-          respond(await this.#readPlugin(message.payload))
+          respond(await this.#plugin(message.payload.agentId).read(message.payload))
           break
         case "integration.plugin.install.request":
-          this.#assertCodex(message.payload.agentId)
-          respond(await this.#installPlugin(message.payload))
+          respond({ results: await this.#hub.install(message.payload) })
           break
         case "integration.plugin.uninstall.request":
-          this.#assertCodex(message.payload.agentId)
-          await this.#call("plugin/uninstall", { pluginId: message.payload.id })
-          respond({ succeeded: true })
+          respond({
+            agentIds: await this.#hub.uninstall(message.payload),
+            succeeded: true,
+          })
           break
         case "integration.plugin.set-enabled.request":
-          this.#assertCodex(message.payload.agentId)
-          await this.#writeConfig(`plugins.${message.payload.id}.enabled`, message.payload.enabled)
-          respond({ succeeded: true })
+          respond(await this.#hub.setEnabled(message.payload))
           break
         case "integration.plugin.set-global-enabled.request":
-          this.#assertCodex(message.payload.agentId)
-          await this.#call("experimentalFeature/enablement/set", {
-            enablement: { plugins: message.payload.enabled },
-          } satisfies v2.ExperimentalFeatureEnablementSetParams)
-          if (message.payload.enabled) await this.#ensureBundledPlugin()
+          await this.#plugin(message.payload.agentId).setGlobalEnabled(message.payload.enabled)
           respond({ succeeded: true })
           break
-        case "integration.marketplace.add.request": {
-          this.#assertCodex(message.payload.agentId)
-          const result = await this.#call<v2.MarketplaceAddResponse>("marketplace/add", {
-            refName: message.payload.refName ?? null,
-            source: message.payload.source,
-            sparsePaths: message.payload.sparsePaths ?? null,
-          })
-          respond({ marketplaceName: result.marketplaceName, succeeded: true })
+        case "integration.plugin.agents.request":
+          respond({ agents: await this.#hub.agents(message.payload) })
+          break
+        case "integration.plugin.config.read.request": {
+          const provider = this.#plugin(message.payload.agentId)
+          if (!provider.readConfig) throw unsupported(message.payload.agentId, "configuration")
+          respond(await provider.readConfig(message.payload.id))
           break
         }
+        case "integration.plugin.config.write.request": {
+          const provider = this.#plugin(message.payload.agentId)
+          if (!provider.writeConfig) throw unsupported(message.payload.agentId, "configuration")
+          respond(await provider.writeConfig(message.payload.id, message.payload.values))
+          break
+        }
+        case "integration.marketplace.add.request":
+          respond({ ...(await this.#hub.addMarketplace(message.payload)), succeeded: true })
+          break
         case "integration.marketplace.upgrade.request":
-          this.#assertCodex(message.payload.agentId)
-          await this.#call("marketplace/upgrade", {
-            marketplaceName: message.payload.marketplaceName ?? null,
+          respond({
+            ...(await this.#hub.upgradeMarketplace(message.payload.marketplaceName)),
+            succeeded: true,
           })
-          respond({ succeeded: true })
           break
         case "integration.marketplace.remove.request":
-          this.#assertCodex(message.payload.agentId)
-          await this.#removeMarketplace(message.payload.marketplaceName)
-          respond({ succeeded: true })
+          respond(
+            await this.#hub.removeMarketplace({
+              confirmUninstall: message.payload.confirmUninstall,
+              name: message.payload.marketplaceName,
+            })
+          )
           break
         case "integration.codex.app.list.request":
           respond(await this.#listApps(message.payload.forceRefresh))
@@ -432,232 +410,6 @@ export class IntegrationService {
         }))
       ),
     }
-  }
-
-  async #listPlugins(
-    cwd?: string,
-    forceRefetch = false
-  ): Promise<{ errors: { message: string; path: string }[]; marketplaces: MarketplaceView[] }> {
-    try {
-      const response = await this.#call<v2.PluginListResponse>("plugin/list", {
-        cwds: cwd ? [cwd] : null,
-        forceRefetch,
-      })
-      if (
-        !this.#bundledPluginPromise &&
-        response.marketplaces.some(
-          (marketplace) =>
-            marketplace.name === cypheriaMarketplace &&
-            marketplace.plugins.some(
-              (plugin) => plugin.name === "cypheria-app-tools" && plugin.installed
-            )
-        )
-      ) {
-        await this.#ensureBundledPlugin()
-        return this.#listPlugins(cwd, true)
-      }
-      const featured = new Set(response.featuredPluginIds)
-      const marketplaces = await Promise.all(
-        response.marketplaces.map(async (marketplace) => ({
-          displayName: marketplace.interface?.displayName?.trim() || marketplace.name,
-          name: marketplace.name,
-          path: marketplace.path,
-          plugins: await Promise.all(
-            marketplace.plugins.map(async (plugin) => ({
-              availability: plugin.availability,
-              brandColor: plugin.interface?.brandColor ?? null,
-              capabilities: plugin.interface?.capabilities ?? [],
-              category: plugin.interface?.category ?? null,
-              compatibility: ["codex" as const],
-              description:
-                plugin.interface?.shortDescription ?? plugin.interface?.longDescription ?? null,
-              developerName: plugin.interface?.developerName ?? null,
-              displayName: plugin.interface?.displayName ?? plugin.name,
-              ecosystem: "openai" as const,
-              enabled: plugin.enabled,
-              featured: featured.has(plugin.id),
-              id: plugin.id,
-              installed: plugin.installed,
-              installPolicy: plugin.installPolicy,
-              logoUrl: await pluginImage(
-                plugin.interface?.logoUrl ?? plugin.interface?.composerIconUrl,
-                plugin.interface?.logo ?? plugin.interface?.composerIcon
-              ),
-              marketplaceName: marketplace.name,
-              marketplacePath: marketplace.path,
-              name: plugin.name,
-              harness: { agentId: "codex" as const, nativeId: plugin.id },
-              sourceType: plugin.source.type,
-              version: plugin.localVersion ?? plugin.version,
-            }))
-          ),
-          sourceKind: sourceKind(marketplace.name),
-        }))
-      )
-      return {
-        errors: response.marketplaceLoadErrors.map((error) => ({
-          message: error.message,
-          path: error.marketplacePath,
-        })),
-        marketplaces,
-      }
-    } catch (error) {
-      return {
-        errors: [
-          {
-            message: error instanceof Error ? error.message : "Unable to load plugin catalog",
-            path: "catalog:app-server",
-          },
-        ],
-        marketplaces: [],
-      }
-    }
-  }
-
-  async #readPlugin(locator: {
-    marketplaceName: string
-    marketplacePath: string | null
-    pluginName: string
-  }) {
-    const pluginName = locator.marketplacePath
-      ? locator.pluginName
-      : await this.#remotePluginId(locator.marketplaceName, locator.pluginName)
-    const { plugin } = await this.#call<v2.PluginReadResponse>("plugin/read", {
-      marketplacePath: locator.marketplacePath,
-      pluginName,
-      remoteMarketplaceName: locator.marketplacePath ? null : locator.marketplaceName,
-    })
-    const ui = plugin.summary.interface
-    return {
-      apps: plugin.apps.map((app) => ({
-        category: app.category,
-        description: app.description,
-        id: app.id,
-        installUrl: webUrl(app.installUrl),
-        name: app.name,
-      })),
-      description: plugin.description ?? ui?.longDescription ?? null,
-      mcpServers: plugin.mcpServers,
-      privacyPolicyUrl: webUrl(ui?.privacyPolicyUrl),
-      prompts: ui?.defaultPrompt ?? [],
-      shareUrl: webUrl(plugin.shareUrl),
-      skills: plugin.skills.map((skill) => ({
-        description: skill.shortDescription ?? skill.description,
-        enabled: skill.enabled,
-        name: skill.interface?.displayName ?? skill.name,
-        path: skill.path,
-      })),
-      termsOfServiceUrl: webUrl(ui?.termsOfServiceUrl),
-      websiteUrl: webUrl(ui?.websiteUrl),
-    }
-  }
-
-  async #installPlugin(locator: {
-    marketplaceName: string
-    marketplacePath: string | null
-    pluginName: string
-  }) {
-    const pluginName = locator.marketplacePath
-      ? locator.pluginName
-      : await this.#remotePluginId(locator.marketplaceName, locator.pluginName)
-    const response = await this.#call<v2.PluginInstallResponse>("plugin/install", {
-      installAttemptId: randomUUID(),
-      marketplacePath: locator.marketplacePath,
-      pluginName,
-      remoteMarketplaceName: locator.marketplacePath ? null : locator.marketplaceName,
-    })
-    return { appsNeedingAuth: response.appsNeedingAuth.map((app) => app.name), installed: true }
-  }
-
-  async #remotePluginId(marketplaceName: string, pluginName: string): Promise<string> {
-    const result = await this.#call<v2.PluginListResponse>("plugin/list", {
-      cwds: null,
-      forceRefetch: true,
-    })
-    const marketplace = result.marketplaces.find(
-      (entry) => entry.name === marketplaceName && entry.path === null
-    )
-    const plugin = marketplace?.plugins.find((entry) => entry.name === pluginName)
-    if (!plugin?.remotePluginId) {
-      throw new Error(`Remote plugin ${pluginName} is unavailable in ${marketplaceName}`)
-    }
-    return plugin.remotePluginId
-  }
-
-  async #ensureBundledPlugin(): Promise<void> {
-    const pending = this.#bundledPluginPromise ?? this.#installBundledPlugin()
-    this.#bundledPluginPromise = pending
-    try {
-      await pending
-    } catch (error) {
-      if (this.#bundledPluginPromise === pending) this.#bundledPluginPromise = undefined
-      throw error
-    }
-  }
-
-  async #installBundledPlugin(): Promise<void> {
-    const candidates = [
-      new URL("../../../plugins/marketplace/", import.meta.url),
-      new URL("./marketplace/", import.meta.url),
-    ]
-    let marketplaceDirectory: string | undefined
-    for (const candidate of candidates) {
-      const available = await access(new URL(".agents/plugins/marketplace.json", candidate)).then(
-        () => true,
-        () => false
-      )
-      if (available) {
-        marketplaceDirectory = fileURLToPath(candidate)
-        break
-      }
-    }
-    if (!marketplaceDirectory) throw new Error("Bundled Cypheria plugin marketplace is unavailable")
-    const registered = await this.#call<v2.MarketplaceAddResponse>("marketplace/add", {
-      source: marketplaceDirectory,
-      refName: null,
-      sparsePaths: null,
-    })
-    const installed = await this.#call<v2.PluginInstalledResponse>("plugin/installed", {
-      cwds: null,
-      installSuggestionPluginNames: null,
-    })
-    const entry = installed.marketplaces
-      .find((marketplace) => marketplace.name === cypheriaMarketplace)
-      ?.plugins.find((plugin) => plugin.name === "cypheria-app-tools")
-    if (!entry?.installed || entry.localVersion !== entry.version) {
-      await this.#call<v2.PluginInstallResponse>("plugin/install", {
-        installAttemptId: randomUUID(),
-        marketplacePath: join(registered.installedRoot, ".agents", "plugins", "marketplace.json"),
-        pluginName: "cypheria-app-tools",
-        remoteMarketplaceName: null,
-      })
-    }
-    const previous = installed.marketplaces.find(
-      (marketplace) => marketplace.name === "cypheria-curated"
-    )
-    if (previous?.plugins.length === 1 && previous.plugins[0]?.name === "cypheria-app-tools") {
-      if (previous.plugins[0].installed) {
-        await this.#call("plugin/uninstall", { pluginId: previous.plugins[0].id })
-      }
-      await this.#call("marketplace/remove", { marketplaceName: "cypheria-curated" })
-    }
-  }
-
-  async #removeMarketplace(name: string): Promise<void> {
-    if (sourceKind(name) !== "custom") throw new Error("Official marketplaces cannot be removed")
-    const current = await this.#call<v2.PluginListResponse>("plugin/list", {
-      cwds: null,
-      forceRefetch: true,
-    })
-    if (current.marketplaceLoadErrors.length) throw new Error("Refresh marketplaces before removal")
-    const matches = current.marketplaces.filter(
-      (marketplace) => marketplace.name === name && marketplace.path !== null
-    )
-    if (matches.length !== 1) throw new Error("Marketplace could not be uniquely resolved")
-    if (matches[0]?.plugins.some((plugin) => plugin.installed)) {
-      throw new Error("Uninstall this marketplace's plugins before removing it")
-    }
-    await this.#call("marketplace/remove", { marketplaceName: name })
   }
 
   async #writeConfig(keyPath: string, value: unknown): Promise<void> {

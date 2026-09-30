@@ -12,7 +12,10 @@ import {
 export const CYPHERIA_SERVER_CONFIG_FILENAME = "config.json" as const
 
 export const DEFAULT_PERSISTED_SERVER_CONFIG: PersistedServerConfig = {
-  agents: { codex: { permissionsMode: "approve-for-me" } },
+  agents: {
+    claude: { pluginsEnabled: true },
+    codex: { permissionsMode: "approve-for-me" },
+  },
   git: DEFAULT_GIT_SETTINGS,
   browserTools: DEFAULT_BROWSER_TOOLS_SETTINGS,
   workspace: { projectlessRoot: null },

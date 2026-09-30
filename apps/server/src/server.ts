@@ -7,6 +7,7 @@ import { promisify } from "node:util"
 import {
   applyDatabaseMigrations,
   createAgentRegistryPersistenceService,
+  createPluginMarketplacePersistenceService,
   createProjectThreadPersistenceService,
   createSchedulePersistenceService,
   createThreadAttachmentPersistenceService,
@@ -189,11 +190,15 @@ export class CypheriaServer implements HttpAppHost {
       publish: (message) => this.registry.broadcast(message),
       networkBootstrap: options.agentNetworkBootstrap,
       gitSettings: () => this.configStore.getSnapshot().config.git,
+      claudePluginsEnabled: () =>
+        this.configStore.getSnapshot().config.agents.claude.pluginsEnabled,
       managedShellEnvironment: (cwd) => this.git.managedShellEnvironment(cwd),
       agentDefaults: () => ({}),
       agentEnvironment: (_agentId, base) => this.networkProxy.environment(base),
     })
-    this.integrations = new IntegrationService(this.agentManager)
+    this.integrations = new IntegrationService(this.agentManager, {
+      marketplaces: createPluginMarketplacePersistenceService(this.database.db),
+    })
     this.inputFiles = new InputFileService(this.runtime.paths.cypheriaHome)
     this.composerReferences = new ComposerReferenceService({
       integrations: this.integrations,
@@ -309,7 +314,12 @@ export class CypheriaServer implements HttpAppHost {
       this.configStore,
       this.threadManager
     )
-    this.harnesses = new HarnessService(this.agentManager, this.codexHarness, this.terminals)
+    this.harnesses = new HarnessService(this.agentManager, this.codexHarness, this.terminals, {
+      get: () => this.configStore.getSnapshot().config.agents.claude,
+      update: async (patch) => {
+        await this.patchConfig({ agents: { claude: patch } })
+      },
+    })
     this.agentManager.setCatalogInvalidator((agentId) => this.harnesses.invalidate(agentId))
     this.agentManager.setDefaultsResolver((agentId) => this.harnesses.validatedDefaults(agentId))
     this.agentManager.setThreadCoordinator(this.threadManager)
