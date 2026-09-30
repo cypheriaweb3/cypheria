@@ -1,6 +1,6 @@
-import { chmod, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
+import { chmod, mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join } from "node:path"
+import { dirname, join } from "node:path"
 
 import { afterEach, describe, expect, it } from "vitest"
 
@@ -82,6 +82,57 @@ afterEach(async () => {
 })
 
 describe("ToolchainManager Python environments", () => {
+  it("removes inactive managed toolchain releases on startup", async () => {
+    const home = await createTemporaryDirectory("cypheria-toolchain-prune-")
+    homes.push(home)
+    const versions = join(home, "toolchains", "node", "versions")
+    const activeNode = join(versions, "24.0.0", "bin", "node")
+    await Promise.all([
+      mkdir(dirname(activeNode), { recursive: true }),
+      mkdir(join(versions, "22.0.0"), { recursive: true }),
+    ])
+    await writeFile(activeNode, "")
+    await writeFile(
+      join(home, "toolchains", "manifest.json"),
+      JSON.stringify({
+        schemaVersion: 1,
+        toolchains: {
+          node: {
+            activeVersion: "24.0.0",
+            availableVersion: "24.0.0",
+            error: null,
+            executable: activeNode,
+            installedVersions: ["22.0.0", "24.0.0"],
+            state: "ready",
+          },
+          python: {
+            activeVersion: null,
+            availableVersion: null,
+            error: null,
+            executable: null,
+            installedVersions: [],
+            state: "missing",
+          },
+          uv: {
+            activeVersion: null,
+            availableVersion: null,
+            error: null,
+            executable: null,
+            installedVersions: [],
+            state: "missing",
+          },
+        },
+      })
+    )
+
+    const manager = new ToolchainManager({ cacheDir: join(home, "cache"), cypheriaHome: home })
+    await manager.start()
+
+    await expect(stat(join(versions, "22.0.0"))).rejects.toMatchObject({ code: "ENOENT" })
+    await expect(stat(join(versions, "24.0.0"))).resolves.toBeDefined()
+    expect(manager.list()[0]?.installedVersions).toEqual(["24.0.0"])
+  })
+
   it("compares installed tools with the repository-pinned releases", async () => {
     const { manager } = await createManager()
 

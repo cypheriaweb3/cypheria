@@ -8,7 +8,7 @@ title: Cypheria 中的 Codex 配置
 
 ## 事实来源
 
-Cypheria 管理的 Codex 使用 `CODEX_HOME=$CYPHERIA_HOME/codex`，其原生 `config.toml` 与用户默认 Codex home 隔离。Codex 全局设置由这份原生配置保存，不再镜像到 Server 配置。
+Cypheria 管理的 Codex 使用 `CODEX_HOME=$CYPHERIA_HOME/agents/codex/home`，其原生 `config.toml` 与用户默认 Codex home 隔离。Codex 全局设置由这份原生配置保存，不再镜像到 Server 配置。
 
 用户通过 `client.harnesses.codex` 修改受支持设置时，Server 会：
 
@@ -84,7 +84,7 @@ Trust 控制仓库可控配置的加载。对于 trusted path，Codex 可以加�
 
 Path trust 不是 sandbox grant。它不会绕过 approval policy、有效 permission profile 或托管 `requirements.toml`；项目本地配置也不能覆盖受保护的 machine-local provider、authentication、host metadata、notification、profile selection 或 telemetry keys。将仓库移动或复制到新路径通常需要新的决策；如果已受信任路径中的仓库内容被替换，该路径决策仍会保留。因此 trust 修改必须作为安全敏感的原生配置变更处理，不能根据仓库名称、remote 或 Cypheria metadata 推断。
 
-Cypheria 在隔离的 `CODEX_HOME` 内应用该机制。用户默认 `~/.codex/config.toml` 中的 trust entry 不会被读取或复制到 `$CYPHERIA_HOME/codex/config.toml`；反过来，受管 Codex App Server 写入的决策也不会修改用户默认 Codex home。执行 `thread/start` 时，如果客户端明确提供了工作目录、该路径尚无决策，且有效 permission profile 已允许写入该目录，Codex 可能将该路径持久化为 trusted 并重新加载配置；它不会覆盖明确的 `untrusted` 决策。该推断使用工作目录和有效 permissions，而不使用 Project identifier。
+Cypheria 在隔离的 `CODEX_HOME` 内应用该机制。用户默认 `~/.codex/config.toml` 中的 trust entry 不会被读取或复制到 `$CYPHERIA_HOME/agents/codex/home/config.toml`；反过来，受管 Codex App Server 写入的决策也不会修改用户默认 Codex home。执行 `thread/start` 时，如果客户端明确提供了工作目录、该路径尚无决策，且有效 permission profile 已允许写入该目录，Codex 可能将该路径持久化为 trusted 并重新加载配置；它不会覆盖明确的 `untrusted` 决策。该推断使用工作目录和有效 permissions，而不使用 Project identifier。
 
 实验性的 App Server Project API 是另一套 conversation grouping surface，包含 ID、name、roots、metadata、ordering 和 Thread membership。它的 `projectId` 与 roots 不参与 `config.toml` trust resolution。Cypheria 自己拥有 Project records，不创建或分配原生 Codex projects，并按[客户端/服务端协议](protocol.zh-CN.md)所述独立传递 working directory 与 `runtimeWorkspaceRoots`。把仓库加入 Cypheria Project 绝不能自动把该路径标记为 trusted。
 

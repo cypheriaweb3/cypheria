@@ -232,7 +232,7 @@ export class GitService {
     this.#publishChanged = connectors?.publishChanged ?? null
     this.#threadAttachments = connectors?.threadAttachments ?? null
     this.#agents = connectors?.agents ?? null
-    this.#codexHome = join(cypheriaHome, "codex")
+    this.#codexHome = join(cypheriaHome, "agents", "codex", "home")
     this.#executor = new GitExecutor(cacheDir)
     this.#worktrees = new GitWorktreeService(
       this.#executor,

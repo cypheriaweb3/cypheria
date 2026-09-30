@@ -34,6 +34,7 @@ describe("runtime paths", () => {
     const homeDir = await makeTempHome()
     const runtime = new CypheriaRuntime({ ensureDirectories: false, homeDir })
 
+    expect(runtime.paths.codexHome).toBe(join(homeDir, ".cypheria", "agents", "codex", "home"))
     expect(buildCodexEnvironment(runtime.paths, { PATH: "/bin" })).toMatchObject({
       CODEX_HOME: runtime.paths.codexHome,
       PATH: "/bin",

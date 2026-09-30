@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process"
 import { randomUUID } from "node:crypto"
+import { mkdir, readdir, rename, rm } from "node:fs/promises"
 import { join } from "node:path"
 import type { AgentRegistryPersistenceService, AgentRegistryRecord } from "@cypheria/db"
 import {
@@ -125,6 +126,29 @@ export type AgentThreadCoordinator = {
 
 const nativeCatalog = NATIVE_AGENT_MANIFEST
 
+const migrateLegacyCodexHome = async (cypheriaHome: string): Promise<void> => {
+  const legacyHome = join(cypheriaHome, "codex")
+  const codexHome = join(cypheriaHome, "agents", "codex", "home")
+  const legacyEntries = await readdir(legacyHome).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") return undefined
+    throw error
+  })
+  if (!legacyEntries) return
+
+  await mkdir(join(cypheriaHome, "agents", "codex"), { recursive: true })
+  const currentEntries = await readdir(codexHome).catch((error: NodeJS.ErrnoException) => {
+    if (error.code === "ENOENT") return []
+    throw error
+  })
+  if (currentEntries.length > 0) {
+    throw new Error(
+      `Cannot migrate legacy Codex home because the destination is not empty: ${codexHome}`
+    )
+  }
+  await rm(codexHome, { force: true, recursive: true })
+  await rename(legacyHome, codexHome)
+}
+
 const isNewerReleaseVersion = (
   available: string | undefined,
   installed: string | null
@@ -162,6 +186,7 @@ export class AgentManager {
   readonly #agentEnvironment: (agentId: AgentId, base: NodeJS.ProcessEnv) => NodeJS.ProcessEnv
   readonly #agentToolchains = new Map<AgentId, ToolchainManager>()
   readonly #agentHomes: string
+  readonly #cypheriaHome: string
   readonly #claudeRuntimes = new Map<string, Promise<ClaudeSessionRuntime>>()
   readonly #gitSettings: () => GitSettings
   readonly #managedShellEnvironment: (cwd: string) => Promise<Record<string, string> | null>
@@ -201,6 +226,7 @@ export class AgentManager {
     this.#agentEnvironment = options.agentEnvironment ?? ((_agentId, base) => ({ ...base }))
     this.#gitSettings = options.gitSettings ?? (() => DEFAULT_GIT_SETTINGS)
     this.#managedShellEnvironment = options.managedShellEnvironment ?? (async () => null)
+    this.#cypheriaHome = options.cypheriaHome
     this.#agentHomes = join(options.cypheriaHome, "agents")
     this.registry = new AgentRegistryService()
     this.toolchains = new ToolchainManager({
@@ -221,15 +247,56 @@ export class AgentManager {
     })
   }
 
+  /** Returns per-agent home-directory isolation env vars for each registry agent. */
+  #registryAgentHomeEnv(agentId: AgentId): Record<string, string> {
+    if (!isRegistryAgentId(agentId)) return {}
+    const home = join(this.#agentHomes, agentId, "home")
+    switch (agentId) {
+      case "antigravity-acp":
+        return { GEMINI_HOME: home }
+      case "cline":
+        return { CLINE_DIR: home, CLINE_DATA_DIR: join(home, "data") }
+      case "cursor":
+        return {
+          CURSOR_CONFIG_DIR: home,
+          CURSOR_DATA_DIR: home,
+          CURSOR_WORKTREES_ROOT: join(home, "worktrees"),
+          NODE_COMPILE_CACHE: join(home, "cache", "compile-cache"),
+        }
+      case "devin":
+        return {
+          XDG_CONFIG_HOME: join(home, "config"),
+          XDG_DATA_HOME: join(home, "data"),
+          XDG_STATE_HOME: join(home, "state"),
+          XDG_CACHE_HOME: join(home, "cache"),
+        }
+      case "gemini":
+        return { GEMINI_CLI_HOME: home }
+      case "github-copilot-cli":
+        return { COPILOT_HOME: home }
+      case "goose":
+        return {
+          GOOSE_PATH_ROOT: home,
+          XDG_CONFIG_HOME: join(home, "config"),
+          XDG_DATA_HOME: join(home, "data"),
+          XDG_STATE_HOME: join(home, "state"),
+        }
+      case "grok-build":
+        return { GROK_HOME: home }
+    }
+  }
+
   #toolchainsFor(agentId: AgentId): ToolchainManager {
     const existing = this.#agentToolchains.get(agentId)
     if (existing) return existing
     const environment = this.#agentEnvironment
+    const homeEnv = this.#registryAgentHomeEnv(agentId)
     const base = this.toolchains
     const scoped = new Proxy(base, {
       get(target, property, receiver) {
         if (property === "environment") {
-          return (extra: NodeJS.ProcessEnv = {}) => environment(agentId, target.environment(extra))
+          return (extra: NodeJS.ProcessEnv = {}) =>
+            environment(agentId, target.environment({ ...homeEnv, ...extra }))
         }
         const value = Reflect.get(target, property, receiver)
         return typeof value === "function" ? value.bind(target) : value
@@ -241,6 +308,7 @@ export class AgentManager {
 
   async start(): Promise<void> {
     this.#stopping = false
+    await migrateLegacyCodexHome(this.#cypheriaHome)
     await this.toolchains.start()
     await this.#installer.cleanupInterrupted()
     await this.#persistence.reconcile(NATIVE_AGENT_IDS.map((id) => ({ id, native: true })))
@@ -1173,7 +1241,7 @@ export class AgentManager {
     if (this.#codexRuntime) return this.#codexRuntime
     const initialization = (async () => {
       const runtime = new CodexRuntime({
-        codexHome: join(this.#agentHomes, "..", "codex"),
+        codexHome: join(this.#agentHomes, "codex", "home"),
         receipt: await this.#requiredReceipt("codex"),
         toolchains: this.#toolchainsFor("codex"),
         logger: this.#logger?.child({ agentId: "codex" }),

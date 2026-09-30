@@ -13,7 +13,7 @@ import {
   rmdir,
 } from "node:fs/promises"
 import { arch, platform } from "node:os"
-import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
 import { Writable } from "node:stream"
 import { pipeline } from "node:stream/promises"
 import type {
@@ -450,7 +450,7 @@ export class AgentInstaller {
       const receipt = JSON.parse(
         await readFile(join(this.#agentsHome, agentId, "current.json"), "utf8")
       ) as AgentInstallReceipt
-      return this.#withWorkingDirectory(receipt)
+      return this.#withWorkingDirectory(this.#withCurrentNode(receipt))
     } catch (error) {
       if ((error as NodeJS.ErrnoException).code === "ENOENT") return undefined
       throw error
@@ -726,6 +726,29 @@ export class AgentInstaller {
     const activated = await this.#withWorkingDirectory(receipt)
     await writeJsonAtomic(join(root, "receipts", `${receipt.version}.json`), activated)
     await writeJsonAtomic(join(root, "current.json"), activated)
+    await this.#cleanupInactiveVersions(root).catch(() => undefined)
+  }
+
+  #withCurrentNode(receipt: AgentInstallReceipt): AgentInstallReceipt {
+    if (receipt.kind !== "npx") return receipt
+    const node = this.#toolchainsFor(receipt.agentId).executable("node")
+    if (!node) return receipt
+    const versionsRoot = resolve(this.#agentsHome, "..", "toolchains", "node", "versions")
+    const isManagedNodePath = (path: string): boolean => {
+      const candidate = resolve(path)
+      const nested = relative(versionsRoot, candidate)
+      return (
+        nested !== "" && !isAbsolute(nested) && nested !== ".." && !nested.startsWith(`..${sep}`)
+      )
+    }
+    const command = isManagedNodePath(receipt.command) ? node : receipt.command
+    const args = receipt.args.map((arg, index) => {
+      if (index !== 0 || basename(arg) !== "npx-cli.js" || !isManagedNodePath(arg)) return arg
+      return platform() === "win32"
+        ? join(dirname(node), "node_modules", "npm", "bin", "npx-cli.js")
+        : resolve(dirname(node), "../lib/node_modules/npm/bin/npx-cli.js")
+    })
+    return { ...receipt, args, command }
   }
 
   async #withWorkingDirectory(receipt: AgentInstallReceipt): Promise<AgentInstallReceipt> {
@@ -738,7 +761,7 @@ export class AgentInstaller {
   async #cleanupAgentRoot(root: string): Promise<void> {
     await rm(join(root, "staging"), { force: true, recursive: true })
     await this.#cleanupAtomicFiles(root)
-    await this.#cleanupIncompleteVersions(root)
+    await this.#cleanupInactiveVersions(root)
   }
 
   async #cleanupAtomicFiles(root: string): Promise<void> {
@@ -758,7 +781,7 @@ export class AgentInstaller {
     }
   }
 
-  async #cleanupIncompleteVersions(root: string): Promise<void> {
+  async #cleanupInactiveVersions(root: string): Promise<void> {
     const current = await readFile(join(root, "current.json"), "utf8")
       .then((value) => JSON.parse(value) as AgentInstallReceipt)
       .catch((error: NodeJS.ErrnoException) => {
@@ -772,19 +795,12 @@ export class AgentInstaller {
         throw error
       }
     )
-    const validVersions = new Set<string>()
     for (const entry of receiptFiles) {
       if (!entry.isFile() || !entry.name.endsWith(".json")) continue
       const path = join(receiptsRoot, entry.name)
       const receipt = JSON.parse(await readFile(path, "utf8")) as AgentInstallReceipt
-      const incomplete =
-        !current ||
-        (receipt.version !== current.version &&
-          Date.parse(receipt.installedAt) > Date.parse(current.installedAt))
-      if (incomplete) await rm(path, { force: true })
-      else validVersions.add(receipt.version)
+      if (!current || receipt.version !== current.version) await rm(path, { force: true })
     }
-    if (current) validVersions.add(current.version)
     const versionsRoot = join(root, "versions")
     const versions = await readdir(versionsRoot, { withFileTypes: true }).catch(
       (error: NodeJS.ErrnoException) => {
@@ -794,7 +810,7 @@ export class AgentInstaller {
     )
     await Promise.all(
       versions
-        .filter((entry) => entry.isDirectory() && !validVersions.has(entry.name))
+        .filter((entry) => entry.isDirectory() && entry.name !== current?.version)
         .map((entry) => rm(join(versionsRoot, entry.name), { force: true, recursive: true }))
     )
   }

@@ -33,6 +33,41 @@ afterEach(async () => {
 })
 
 describe("AgentManager enable gate", () => {
+  it("moves the legacy Codex home into the managed Agent home", async () => {
+    const home = await mkdtemp(join(tmpdir(), "cypheria-agent-manager-codex-home-"))
+    homes.push(home)
+    await mkdir(join(home, "codex"), { recursive: true })
+    await writeFile(join(home, "codex", "config.toml"), "model = 'gpt-6-sol'\n")
+    const database = createInMemoryDatabase()
+    await applyDatabaseMigrations(database.client)
+    const manager = new AgentManager({
+      cacheDir: join(home, "cache"),
+      cypheriaHome: home,
+      installer: {
+        cleanupInterrupted: async () => undefined,
+        install: async () => {
+          throw new Error("Not used")
+        },
+        readCurrent: async () => undefined,
+        uninstall: async () => undefined,
+      },
+      networkBootstrap: false,
+      persistence: createAgentRegistryPersistenceService(database.db),
+      publish: () => undefined,
+    })
+
+    await manager.start()
+    try {
+      expect(existsSync(join(home, "codex"))).toBe(false)
+      await expect(
+        readFile(join(home, "agents", "codex", "home", "config.toml"), "utf8")
+      ).resolves.toBe("model = 'gpt-6-sol'\n")
+    } finally {
+      await manager.stop()
+      database.close()
+    }
+  })
+
   it("reports Claude and Pi as running only while their runtimes are active", async () => {
     const home = await mkdtemp(join(tmpdir(), "cypheria-agent-manager-runtime-state-"))
     homes.push(home)

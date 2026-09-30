@@ -94,7 +94,7 @@ describe("AgentInstaller cleanup", () => {
     await expect(readFile(join(root, "keep.txt"), "utf8")).resolves.toBe("unrecognized data")
   })
 
-  it("removes interrupted staging, downloads, atomic writes, and incomplete versions", async () => {
+  it("removes interrupted files and every inactive Agent version", async () => {
     const home = await temporaryDirectory()
     const root = join(home, "agents", "gemini")
     const cache = join(home, "cache", "agents")
@@ -132,6 +132,7 @@ describe("AgentInstaller cleanup", () => {
     await expect(exists(join(root, "versions", "2.0.0"))).resolves.toBe(false)
     await expect(exists(join(root, "versions", "orphan"))).resolves.toBe(false)
     await expect(exists(join(root, "receipts", "2.0.0.json"))).resolves.toBe(false)
+    await expect(exists(join(root, "receipts", "1.0.0.json"))).resolves.toBe(true)
     expect(JSON.parse(await readFile(join(root, "current.json"), "utf8"))).toEqual(current)
   })
 })
@@ -229,18 +230,49 @@ describe("npm executable detection", () => {
 })
 
 describe("managed agent launch receipts", () => {
+  it("uses the active managed Node.js release for JavaScript launchers", async () => {
+    const home = await temporaryDirectory()
+    const root = join(home, "agents", "codex")
+    const oldNode = join(home, "toolchains", "node", "versions", "22.0.0", "bin", "node")
+    const activeNode = join(home, "toolchains", "node", "versions", "24.0.0", "bin", "node")
+    const current: AgentInstallReceipt = {
+      agentId: "codex",
+      args: [join(root, "versions", "1.0.0", "codex.js")],
+      command: oldNode,
+      installedAt: "2026-09-29T14:57:01.000Z",
+      integrity: "not-applicable",
+      kind: "npx",
+      source: "@openai/codex@1.0.0",
+      version: "1.0.0",
+    }
+    await mkdir(root, { recursive: true })
+    await writeFile(join(root, "current.json"), JSON.stringify(current))
+
+    const installer = new AgentInstaller({
+      cacheDir: join(home, "cache"),
+      cypheriaHome: home,
+      toolchains: {
+        executable: (id: string) => (id === "node" ? activeNode : undefined),
+      } as ToolchainManager,
+    })
+
+    await expect(installer.readCurrent("codex")).resolves.toMatchObject({
+      command: activeNode,
+    })
+  })
+
   it("isolates legacy ACP runtime working directories under the managed Agent home", async () => {
     const home = await temporaryDirectory()
-    const root = join(home, "agents", "harn")
+    const root = join(home, "agents", "cline")
     const legacy: AgentInstallReceipt = {
-      agentId: "harn",
+      agentId: "cline",
       args: ["serve", "acp"],
-      command: join(root, "versions", "0.10.140", "harn"),
+      command: join(root, "versions", "3.0.62", "cline"),
       installedAt: "2026-09-29T14:57:01.000Z",
       integrity: "verified",
       kind: "binary",
-      source: "https://example.com/harn.tar.gz",
-      version: "0.10.140",
+      source: "https://example.com/cline.tar.gz",
+      version: "3.0.62",
     }
     await mkdir(root, { recursive: true })
     await writeFile(join(root, "current.json"), JSON.stringify(legacy))
@@ -251,7 +283,7 @@ describe("managed agent launch receipts", () => {
       toolchains: {} as ToolchainManager,
     })
 
-    await expect(installer.readCurrent("harn")).resolves.toMatchObject({
+    await expect(installer.readCurrent("cline")).resolves.toMatchObject({
       workingDirectory: join(root, "home"),
     })
     await expect(exists(join(root, "home"))).resolves.toBe(true)

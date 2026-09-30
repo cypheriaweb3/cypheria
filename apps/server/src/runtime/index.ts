@@ -217,7 +217,7 @@ export const buildRuntimePaths = (options: RuntimeHomeOptions = {}): CypheriaRun
 
   return {
     cypheriaHome,
-    codexHome: pathInHome("codex"),
+    codexHome: pathInHome("agents/codex/home"),
     dbDir: pathInHome("db"),
     vaultDir: pathInHome("vault"),
     logsDir: pathInHome("logs"),

@@ -1,8 +1,19 @@
 import { spawn } from "node:child_process"
 import { randomUUID } from "node:crypto"
-import { chmod, cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises"
+import {
+  chmod,
+  cp,
+  mkdir,
+  readdir,
+  readFile,
+  realpath,
+  rename,
+  rm,
+  stat,
+  writeFile,
+} from "node:fs/promises"
 import { arch, platform } from "node:os"
-import { basename, dirname, join, sep } from "node:path"
+import { basename, dirname, isAbsolute, join, relative, sep } from "node:path"
 import type { ToolchainId, ToolchainView } from "@cypheria/protocol"
 import extractZip from "extract-zip"
 import { extract as extractTar } from "tar"
@@ -187,6 +198,9 @@ export class ToolchainManager {
       mkdir(this.#cacheDir, { recursive: true }),
     ])
     this.#manifest = (await readJsonFile<ToolchainManifest>(this.#manifestPath)) ?? emptyManifest()
+    await Promise.all(
+      (["node", "python", "uv"] as const).map((id) => this.#pruneInactiveVersions(id))
+    )
     await this.checkUpdates()
   }
 
@@ -235,6 +249,7 @@ export class ToolchainManager {
         if (id === "node") await this.#installNode()
         else if (id === "uv") await this.#installUv()
         else await this.#installPython()
+        await this.#pruneInactiveVersions(id)
         record.state = "ready"
       } catch (error) {
         record.error = error instanceof Error ? error.message : String(error)
@@ -505,8 +520,42 @@ export class ToolchainManager {
     record.activeVersion = version
     record.availableVersion = version
     record.executable = executable
-    record.installedVersions = [...new Set([...record.installedVersions, version])].sort()
+    record.installedVersions = [version]
     record.error = null
+  }
+
+  async #pruneInactiveVersions(id: ToolchainId): Promise<void> {
+    const record = this.#manifest.toolchains[id]
+    if (!record.activeVersion || !record.executable) return
+    const versionsRoot = join(this.#home, id, "versions")
+    const resolvedVersionsRoot = await realpath(versionsRoot).catch(() => undefined)
+    if (!resolvedVersionsRoot) return
+    const resolvedExecutable = await realpath(record.executable).catch(() => undefined)
+    if (!resolvedExecutable) return
+    const executableRelative = relative(resolvedVersionsRoot, resolvedExecutable)
+    if (
+      isAbsolute(executableRelative) ||
+      executableRelative === ".." ||
+      executableRelative.startsWith(`..${sep}`)
+    )
+      return
+    const activeRoot = join(resolvedVersionsRoot, executableRelative.split(sep)[0] as string)
+    const entries = await readdir(versionsRoot, { withFileTypes: true }).catch(
+      (error: NodeJS.ErrnoException) => {
+        if (error.code === "ENOENT") return []
+        throw error
+      }
+    )
+    await Promise.all(
+      entries.map(async (entry) => {
+        if (!entry.isDirectory() && !entry.isSymbolicLink()) return
+        const path = join(versionsRoot, entry.name)
+        const resolved = await realpath(path).catch(() => path)
+        if (resolved === activeRoot || resolved.startsWith(`${activeRoot}${sep}`)) return
+        await rm(path, { force: true, recursive: true })
+      })
+    )
+    record.installedVersions = [record.activeVersion]
   }
 
   async #save(): Promise<void> {

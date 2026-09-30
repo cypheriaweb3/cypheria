@@ -8,7 +8,7 @@ This document describes only the Codex configuration semantics Cypheria currentl
 
 ## Sources of truth
 
-Cypheria-managed Codex runs with `CODEX_HOME=$CYPHERIA_HOME/codex`, isolating its native `config.toml` from the user's default Codex home. Codex global settings are owned by this native configuration, not mirrored into Server configuration.
+Cypheria-managed Codex runs with `CODEX_HOME=$CYPHERIA_HOME/agents/codex/home`, isolating its native `config.toml` from the user's default Codex home. Codex global settings are owned by this native configuration, not mirrored into Server configuration.
 
 When a user changes supported Codex settings through `client.harnesses.codex`, the Server:
 
@@ -84,7 +84,7 @@ Trust gates repository-controlled configuration. For a trusted path, Codex can l
 
 Path trust is not a sandbox grant. It does not bypass approval policy, the effective permission profile, or managed `requirements.toml`, and project-local configuration cannot override protected machine-local provider, authentication, host metadata, notification, profile-selection, or telemetry keys. Moving or copying a repository to a new path normally requires a new decision; replacing repository content at an already trusted path retains the path decision. Trust changes must therefore be treated as security-sensitive native configuration changes, not inferred from repository names, remotes, or Cypheria metadata.
 
-Cypheria applies this mechanism inside its isolated `CODEX_HOME`. A trust entry in the user's default `~/.codex/config.toml` is neither read nor copied into `$CYPHERIA_HOME/codex/config.toml`. Conversely, a decision written by the managed Codex App Server does not modify the user's default Codex home. On `thread/start`, Codex may persist a missing path as trusted and reload configuration when the client explicitly supplied the working directory and the effective permission profile already permits writing there. It does not replace an explicit `untrusted` decision. This inference uses the working directory and effective permissions, not a project identifier.
+Cypheria applies this mechanism inside its isolated `CODEX_HOME`. A trust entry in the user's default `~/.codex/config.toml` is neither read nor copied into `$CYPHERIA_HOME/agents/codex/home/config.toml`. Conversely, a decision written by the managed Codex App Server does not modify the user's default Codex home. On `thread/start`, Codex may persist a missing path as trusted and reload configuration when the client explicitly supplied the working directory and the effective permission profile already permits writing there. It does not replace an explicit `untrusted` decision. This inference uses the working directory and effective permissions, not a project identifier.
 
 The experimental App Server Project API is a separate conversation-grouping surface with IDs, names, roots, metadata, ordering, and Thread membership. Its `projectId` and roots do not participate in `config.toml` trust resolution. Cypheria owns its own Project records, does not create or assign native Codex projects, and passes working-directory and `runtimeWorkspaceRoots` values independently as described in [Client/server protocol](protocol.md). Adding a repository to a Cypheria Project must never by itself mark that path as trusted.
 

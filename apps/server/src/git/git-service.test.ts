@@ -47,7 +47,7 @@ describe("GitService", () => {
     const script = join(root, "fake-codex.cjs")
     await writeFile(
       script,
-      `const fs=require('node:fs'); let prompt=''; process.stdin.on('data', c=>prompt+=c); process.stdin.on('end', ()=>{ fs.writeFileSync('received-prompt.txt', prompt); const i=process.argv.indexOf('--output-last-message'); fs.writeFileSync(process.argv[i+1], JSON.stringify({title:'Describe change',body:''})); });`
+      `const fs=require('node:fs'); let prompt=''; process.stdin.on('data', c=>prompt+=c); process.stdin.on('end', ()=>{ fs.writeFileSync('received-prompt.txt', prompt); fs.writeFileSync('received-codex-home.txt', process.env.CODEX_HOME); const i=process.argv.indexOf('--output-last-message'); fs.writeFileSync(process.argv[i+1], JSON.stringify({title:'Describe change',body:''})); });`
     )
     const agents = {
       authTerminalSpec: async (
@@ -72,6 +72,9 @@ describe("GitService", () => {
     const prompt = await readFile(join(root, "received-prompt.txt"), "utf8")
     expect(prompt).toContain("Use imperative mood.")
     expect(prompt).toContain("+changed")
+    await expect(readFile(join(root, "received-codex-home.txt"), "utf8")).resolves.toBe(
+      join(root, "home", "agents", "codex", "home")
+    )
     service.stop()
   })
 

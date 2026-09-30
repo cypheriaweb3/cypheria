@@ -42,17 +42,18 @@ pnpm --filter @cypheria/server server stop --if-idle
 
 ```text
 $CYPHERIA_HOME/
-  agents/    托管 Agent 版本、安装回执和各 Agent 的 runtime home
-  codex/     Cypheria 管理的 Codex home
+  agents/    当前 Agent 版本、安装回执和各 Agent 的 runtime home
+              （Codex 使用 agents/codex/home 作为 CODEX_HOME）
+  toolchains/ 当前托管的 Node.js、Python 和 uv 版本
   config/    config.json、network-proxy.json、PID、Server 身份和 relay key
   db/        SQLite 数据库
   logs/      Server 与 runtime 日志
   vault/     加密钱包 vault 数据
-  cache/     可丢弃缓存和托管工具链
+  cache/     可丢弃的下载与包管理器缓存
   browser/   Desktop 浏览器配置（网页和 dApp 标签页）
 ```
 
-Server 只解析一次根目录，再把派生路径传给各服务。托管 ACP 进程默认使用 `$CYPHERIA_HOME/agents/<agent-id>/home` 作为工作目录；旧安装回执即使未记录工作目录也会补全到这里，避免 harness 本地状态落入源码 checkout。Cypheria 管理的 Codex 进程使用 `CODEX_HOME=$CYPHERIA_HOME/codex`；不会读取或修改用户默认 Codex home。
+Server 只解析一次根目录，再把派生路径传给各服务。托管 ACP 进程默认使用 `$CYPHERIA_HOME/agents/<agent-id>/home` 作为工作目录；旧安装回执即使未记录工作目录也会补全到这里，避免 harness 本地状态落入源码 checkout。Cypheria 管理的 Codex 进程使用 `CODEX_HOME=$CYPHERIA_HOME/agents/codex/home`；不会读取或修改用户默认 Codex home。Agent 或工具链的新版本激活后，Cypheria 会删除已被替换的旧版本，而不是保留回滚副本。
 
 ## 配置
 
