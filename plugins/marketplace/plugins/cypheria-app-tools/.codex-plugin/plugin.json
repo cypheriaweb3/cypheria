@@ -14,5 +14,5 @@
     "capabilities": ["Read", "Write"],
     "defaultPrompt": "Show the Git status for this workspace."
   },
-  "mcpServers": "./.mcp.json"
+  "mcpServers": "./.codex-mcp.json"
 }

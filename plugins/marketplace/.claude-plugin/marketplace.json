@@ -1,0 +1,13 @@
+{
+  "name": "cypheria-bundled",
+  "owner": { "name": "Cypheria" },
+  "description": "Plugins bundled with Cypheria.",
+  "plugins": [
+    {
+      "name": "cypheria-app-tools",
+      "source": "./plugins/cypheria-app-tools",
+      "description": "Local Git tools backed by the Cypheria Server.",
+      "category": "Developer Tools"
+    }
+  ]
+}
