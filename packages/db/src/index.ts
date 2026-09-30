@@ -53,6 +53,12 @@ export {
   DEFAULT_MIGRATIONS_DIRNAME,
 } from "./paths.js"
 export {
+  createPluginMarketplacePersistenceService,
+  type PluginMarketplacePersistenceService,
+  type PluginMarketplaceRecord,
+  type PluginMarketplaceSource,
+} from "./plugin-marketplace.js"
+export {
   createSigningPolicyPersistenceService,
   type ListSigningPolicyOptions,
   type SigningPolicyPersistenceService,

@@ -64,6 +64,13 @@
       "when": 1790693374307,
       "tag": "0008_thread-roots",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1790785333843,
+      "tag": "0009_plugin-marketplaces",
+      "breakpoints": true
     }
   ]
 }
