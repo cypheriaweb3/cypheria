@@ -42,10 +42,24 @@ Plugin views retain source type, marketplace identity, install policy, availabil
 
 Codex remote plugins have a catalog ID distinct from their displayed name. Server resolves that ID from a fresh `plugin/list` result before remote detail or install requests, so a visible plugin is not sent to Codex's install endpoint under its display name.
 
-When Codex plugins are enabled, Server registers the bundled `cypheria-bundled` marketplace and installs `cypheria-app-tools` in Cypheria's managed Codex home. This is a Codex MCP plugin whose local Git tools call the same Server Git service as Desktop through an authenticated local HTTP route. It declares no OpenAI App ID and has no GitHub or GitLab connector credentials.
+When plugins are enabled for Codex or Claude, Server registers the bundled `cypheria-bundled` marketplace and installs `cypheria-app-tools` in that Agent's managed home. This is an MCP plugin whose local Git tools call the same Server Git service as Desktop through an authenticated local HTTP route. It declares no OpenAI App ID and has no GitHub or GitLab connector credentials.
+The bundled marketplace is a dual-format plugin root: it carries a Codex marketplace and manifest and a Claude marketplace and manifest, and each Agent's MCP declaration lives in its own file next to the shared server implementation.
 When an installed bundled plugin is discovered after a Cypheria update, Server checks its local version and updates it from the bundled marketplace before returning the plugin list.
 The Git backend and Agent-tool relationship are explained in [Local Git design](git.md).
 Its worktree tools create detached worktrees under `CYPHERIA_HOME/worktrees`, list managed and external worktrees, and delete or restore clean managed worktrees from a saved commit ref.
+
+### Claude plugin management
+
+Server manages Claude plugins by running the managed Claude CLI's `claude plugin … --json` commands with `CLAUDE_CONFIG_DIR` set to Cypheria's Claude home; it never edits Claude's state files, and the user's own Claude home is untouched. Plugin changes are serialized per Agent.
+
+- Server registers `claude-plugins-official` and the bundled `cypheria-bundled` marketplace the first time Claude plugins are listed. Registering the bundled marketplace installs nothing: the plugin is installed when the user turns it on for Claude. Other marketplaces (a GitHub repository, git URL, local directory, or hosted `marketplace.json`) are added by the user. Marketplaces hosted on claude.ai are not added; plugins synced from claude.ai or loaded for one session are listed read-only.
+- **The Plugins switch.** Claude has no setting that turns plugins off, so Cypheria keeps `agents.claude.pluginsEnabled` (default `true`) in `$CYPHERIA_HOME/config/config.json` and shows it on Claude's Settings page, like Codex's Plugins setting. While it is off, Cypheria lists and manages no Claude plugins, cross-Agent operations skip Claude, and every new Claude session starts with all installed plugins forced disabled through its flag settings. Sessions that are already running keep their plugins until they restart.
+- Install, uninstall, and enablement take a scope of `user` (default), `project`, or `local`.
+- A marketplace can install a plugin by running a command on this computer. Server refuses that install, returns the command and its SHA-256, and installs only when the client resubmits that SHA-256 after the user reviews the command. Cypheria never passes `--yes`.
+- Removing a marketplace uninstalls its plugins and deletes their saved data. Server lists the affected plugins and requires an explicit `confirmUninstall`.
+- Plugin options come from the plugin's declared `userConfig`. Values are written over stdin, and sensitive values are never returned.
+- After a change, Server reloads plugins in running Claude sessions unless that would invalidate a session's prompt cache; held sessions pick the change up when they restart.
+- Component details, such as skills and MCP servers, are available for installed plugins and for plugins that live inside their marketplace. Other uninstalled plugins show only their catalog entry.
 
 Cypheria-native plugins are a separate contract. The intended manifest declares Server entry points, Desktop UI contributions, optional future Expo contributions, permissions, compatible Cypheria versions, and contribution points. Server code must run in a controlled child process. Desktop contributions must be sandboxed and receive scoped host APIs rather than Node.js, filesystem, database, or secret access. Completing this runtime and UX remains planned work.
 
@@ -56,6 +70,35 @@ Marketplace source and plugin ecosystem are independent fields. Source kinds are
 The current integration facade supports harness-owned marketplace listing, add, upgrade, and removal operations. It retains marketplace name and path so similarly named plugins from different sources do not collapse into one identity.
 
 The independent public Cypheria Marketplace service is planned and documented separately in [Marketplace](marketplace.md). Its absence does not change harness-native or custom marketplace support.
+
+## Agent compatibility
+
+Which Agents support a plugin is decided by the marketplace files that list it, not by a field in the plugin. Each Agent reads its own marketplace file:
+
+| Agent | Marketplace file |
+| :- | :- |
+| Codex | `.agents/plugins/marketplace.json` |
+| Claude | `.claude-plugin/marketplace.json` |
+
+A repository can carry several of these files and list the same plugin in each. Give them the same marketplace `name`: Cypheria treats a marketplace and a plugin as the same across Agents when their names match. Cypheria does not infer compatibility from plugin files, does not add a compatibility field to manifests or marketplace entries, and never converts a plugin between ecosystems. To load in more than one Agent, a plugin root carries each Agent's manifest side by side (`.codex-plugin/`, `.claude-plugin/`), shares `skills/` and server code, and keeps each Agent's MCP declaration in its own file.
+
+### Marketplaces
+
+A marketplace is always offered to every Agent that can read it.
+
+- **Adding** tries every Agent. Each Agent that finds its own marketplace file registers it, the others report that the marketplace has no file for them, and Server remembers the source.
+- **Adding checks the source and what the Agents read.** The source must be `owner/repo` (optionally `#ref`), an `http(s)`, `ssh`, or `git` URL, an `scp`-style `git@host:path`, or an absolute local path that exists and holds a marketplace file. Options-like strings, relative paths, other URL schemes, and URLs with credentials are refused, and so are git refs and sparse paths that could be read as options or escape the repository. After the Agents accept it, each registration must be readable, every Agent must have read the same marketplace `name`, and that name must be plain and not one Cypheria or a vendor owns (`cypheria-bundled`, `openai-*`). A name that was already added from a different source is refused. If a check fails, the registrations this call created are removed.
+- **Updating** refreshes the marketplace in each Agent, then matches the Agents to what it now ships. An Agent that gained a marketplace file gets the marketplace from the remembered source, an Agent that lost its file has the marketplace removed together with its plugins, and a plugin that left an Agent's file is uninstalled there.
+- **Removing** removes the marketplace from every Agent and uninstalls its plugins, after the client confirms the list of affected plugins.
+
+### Plugins
+
+A plugin is installed once and then enabled or disabled per Agent.
+
+- **Installing** installs the plugin in every Agent whose marketplace lists it and enables it in each.
+- **Enablement** is independent per Agent. The plugin detail page shows one switch for every Agent that lists the plugin, only once the plugin is installed, so it can run in Codex and stay off in Claude.
+- **Support added later** does not enable anything. An Agent that gains the plugin after an update shows it switched off, and turning the switch on installs it for that Agent first.
+- **Uninstalling** removes the plugin from every Agent that holds it.
 
 ## Codex Apps
 

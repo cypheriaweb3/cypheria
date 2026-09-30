@@ -28,6 +28,7 @@ title: 当前路线图
   - 固定官方 repository identity 和 catalog commit。
   - 保留 source 与 ecosystem provenance。
   - 获取 capability approval，并通过 Codex harness 操作安装。
+- [ ] 在 Claude 格式 release 的 manifest、scanning、installation 和 trust contract 就绪后开放发布。
 
 详细的未来服务边界与威胁模型见 [Marketplace](marketplace.zh-CN.md)。
 
@@ -38,6 +39,7 @@ title: 当前路线图
   - 完成 loading、empty、error、disabled、update、advisory 和 permission states。
   - 在打包 Electron build 中验证 authenticated connector authorization。
   - 完成 [Integrations](integrations.zh-CN.md) 所述 Cypheria 原生 plugin process、permission 和 Desktop contribution 契约。
+  - 以 custom source 的形式添加 Pi 和 OpenCode 插件适配器，并支持 Claude 使用托管在 claude.ai 的 marketplace。
 
 ## 本地 Git 与拉取请求
 

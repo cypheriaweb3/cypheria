@@ -26,6 +26,14 @@ title: Cypheria Marketplace
 
 只有明确实现对应 manifest、scanning、installation 和 trust contract 后，才会增加 Cypheria-native、Claude、Pi 和 OpenCode 生态发布。Marketplace source 仍为 `cypheria`；ecosystem 是独立字段。
 
+## Agent 兼容性
+
+当官方 catalog 在某个 Agent 的 marketplace 文件中列出 release 时，该 release 即支持这个 Agent；相关文件和按 Agent 启用见 [Integrations](integrations.zh-CN.md#agent-兼容性)。
+
+- 每个受支持的生态都会基于自身的 manifest、MCP 声明和 capabilities 独立校验与扫描。只有契约已实现的生态才能发布 release，因此初期 release 只面向 Codex。
+- 增加 Claude、Pi 或 OpenCode 发布，需要先具备该生态的 manifest、scanning、installation 和 trust contract。Desktop 通过各 Agent 自己的 harness 把 release 安装到所选 Agent，每次安装都要经过信任检查。
+- 随程序分发的 `cypheria-bundled` marketplace 采用与未来双 Agent release 相同的双格式布局。
+
 ## 来源策略
 
 初期只接受公开开源 GitHub source：

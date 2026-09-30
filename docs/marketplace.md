@@ -26,6 +26,14 @@ Initial publication targets the public ChatGPT/Codex plugin specification. A plu
 
 Cypheria-native, Claude, Pi, and OpenCode ecosystem publication can be added only when their manifest, scanning, installation, and trust contracts are implemented explicitly. The marketplace source remains `cypheria`; ecosystem is a separate field.
 
+## Agent compatibility
+
+A release supports an Agent when the official catalog lists it in that Agent's marketplace file; see [Integrations](integrations.md#agent-compatibility) for the files and per-Agent enablement.
+
+- Each supported ecosystem is validated and scanned on its own manifest, MCP declarations, and capabilities. A release is publishable only for ecosystems whose contracts are implemented, so initial releases target Codex only.
+- Adding Claude, Pi, or OpenCode publication needs that ecosystem's manifest, scanning, installation, and trust contracts first. Desktop installs a release into each chosen Agent through that Agent's own harness, and the trust checks apply to each install.
+- The bundled `cypheria-bundled` marketplace follows the same dual-format layout that dual-Agent releases will use.
+
 ## Source policy
 
 Initial submissions accept only public open-source GitHub sources:

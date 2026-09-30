@@ -49,6 +49,8 @@ Codex harness 负责 Cypheria 管理的 Codex App Server 进程，并使用 `@cy
 
 Claude harness 使用固定版本的 Claude Agent SDK。Server 负责带 callback 的 hooks、permissions、abort control、MCP server objects、session storage、process factories、subscription 与 Console account 认证，以及登出。可序列化 prompt 与 SDK 输出会归一化为 Thread input、Timeline items、interactions 和 harness events。
 
+Claude 没有关闭插件的设置，因此由 Cypheria 自己提供：`$CYPHERIA_HOME/config/config.json` 中的 `agents.claude.pluginsEnabled`（默认 `true`），在 Claude 设置页显示为 Plugins 开关。见 [Claude 插件管理](integrations.zh-CN.md#claude-插件管理)。
+
 ### Pi
 
 Pi harness 使用固定版本的 Pi coding-agent 包及其 RPC session model。它会发现 provider models 与各 provider 的 account、OAuth、device-code 或 API-key 认证方式，并把消息流、tool activity、配置、session 生命周期和 extension metadata 映射到通用 Thread 契约。Pi extensions 表示为 Pi 生态插件，不等同于 Cypheria 原生插件。

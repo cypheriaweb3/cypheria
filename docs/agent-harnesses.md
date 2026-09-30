@@ -49,6 +49,8 @@ The Codex harness owns a Cypheria-managed Codex App Server process and validates
 
 The Claude harness uses the pinned Claude Agent SDK. The Server owns callback-bearing hooks, permissions, abort control, MCP server objects, session storage, process factories, subscription and Console-account authentication, and logout. Serializable prompts and SDK output are normalized into Thread input, Timeline items, interactions, and harness events.
 
+Claude has no setting that turns plugins off, so Cypheria owns one: `agents.claude.pluginsEnabled` in `$CYPHERIA_HOME/config/config.json` (default `true`), shown as the Plugins switch on Claude's Settings page. See [Claude plugin management](integrations.md#claude-plugin-management).
+
 ### Pi
 
 The Pi harness uses the pinned Pi coding-agent package and its RPC session model. It discovers provider models and each provider's account, OAuth, device-code, or API-key authentication methods, and maps message streaming, tool activity, configuration, session lifecycle, and extension metadata into the common Thread contract. Pi extensions are represented as Pi-ecosystem plugins, not as Cypheria-native plugins.

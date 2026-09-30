@@ -28,6 +28,7 @@ This page contains incomplete, still-approved work. Completed work and architect
   - Pin official repository identity and catalog commit.
   - Preserve source and ecosystem provenance.
   - Obtain capability approval and install through the Codex harness operations.
+- [ ] Publish Claude-format releases after their manifest, scanning, installation, and trust contracts exist.
 
 The detailed future service boundary and threat model are in [Marketplace](marketplace.md).
 
@@ -38,6 +39,7 @@ The detailed future service boundary and threat model are in [Marketplace](marke
   - Complete loading, empty, error, disabled, update, advisory, and permission states.
   - Verify authenticated connector authorization in packaged Electron builds.
   - Finish the Cypheria-native plugin process, permission, and Desktop contribution contract described in [Integrations](integrations.md).
+  - Add Pi and OpenCode plugin adapters as custom sources, and support marketplaces hosted on claude.ai for Claude.
 
 ## Local Git and pull requests
 

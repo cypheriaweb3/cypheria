@@ -42,10 +42,24 @@ Plugin view 保留 source type、marketplace identity、install policy、availab
 
 Codex 远程插件的目录 ID 与展示名称不同。Server 在远程详情和安装请求前，从最新的 `plugin/list` 结果解析该 ID，避免用展示名称调用 Codex 安装接口。
 
-启用 Codex 插件时，Server 会注册随程序分发的 `cypheria-bundled` marketplace，并在 Cypheria 管理的 Codex home 中安装 `cypheria-app-tools`。这是一个 Codex MCP 插件，其本地 Git 工具通过经过认证的本地 HTTP 路由调用与 Desktop 相同的 Server Git 服务。它不声明 OpenAI App ID，也不持有 GitHub 或 GitLab connector 凭据。
+为 Codex 或 Claude 启用插件时，Server 会注册随程序分发的 `cypheria-bundled` marketplace，并在对应 Agent 管理的 home 中安装 `cypheria-app-tools`。这是一个 MCP 插件，其本地 Git 工具通过经过认证的本地 HTTP 路由调用与 Desktop 相同的 Server Git 服务。它不声明 OpenAI App ID，也不持有 GitHub 或 GitLab connector 凭据。
+内置 marketplace 是双格式 plugin root：同时包含 Codex 的 marketplace 与 manifest，以及 Claude 的 marketplace 与 manifest；各 Agent 的 MCP 声明放在各自文件中，共用同一份 server 实现。
 Cypheria 更新后若发现已安装的内置插件，Server 会先检查其本地版本，并从随程序分发的 marketplace 更新插件，再返回列表。
 Git 后端与 Agent 工具的关系详见[本地 Git 设计](git.zh-CN.md)。
 其 worktree 工具在 `CYPHERIA_HOME/worktrees` 下创建 detached worktree、列出托管和外部 worktree，并利用保存的提交引用删除或恢复干净的托管 worktree。
+
+### Claude 插件管理
+
+Server 通过运行受管 Claude CLI 的 `claude plugin … --json` 命令管理 Claude 插件，并把 `CLAUDE_CONFIG_DIR` 设为 Cypheria 的 Claude home；它不会直接编辑 Claude 的状态文件，用户自己的 Claude home 不受影响。同一 Agent 的插件变更串行执行。
+
+- 首次列出 Claude 插件时，Server 注册 `claude-plugins-official` 和随程序分发的 `cypheria-bundled` marketplace。注册内置 marketplace 不会安装任何内容：用户为 Claude 打开该插件时才会安装。其他 marketplace（GitHub 仓库、git URL、本地目录或托管的 `marketplace.json`）由用户自行添加。不会添加托管在 claude.ai 的 marketplace；从 claude.ai 同步或仅为单个会话加载的插件以只读方式列出。
+- **Plugins 开关。** Claude 没有关闭插件的设置，因此 Cypheria 在 `$CYPHERIA_HOME/config/config.json` 中保存 `agents.claude.pluginsEnabled`（默认 `true`），并像 Codex 的 Plugins 设置一样显示在 Claude 设置页。关闭期间，Cypheria 不列出也不管理 Claude 插件，跨 Agent 操作会跳过 Claude，每个新的 Claude 会话都会通过 flag settings 把所有已安装插件强制禁用。已在运行的会话在重启前保留原有插件。
+- 安装、卸载和启用可指定 scope：`user`（默认）、`project` 或 `local`。
+- Marketplace 可以通过在本机运行命令来安装插件。Server 会拒绝这类安装，并返回命令及其 SHA-256；只有客户端在用户查看命令后重新提交该 SHA-256，才会执行安装。Cypheria 从不传 `--yes`。
+- 移除 marketplace 会卸载其插件并删除已保存的数据。Server 会列出受影响的插件，并要求显式的 `confirmUninstall`。
+- 插件选项来自插件声明的 `userConfig`。取值通过 stdin 写入，敏感值不会返回。
+- 变更后，Server 会在运行中的 Claude 会话里重新加载插件，除非这会使会话的 prompt cache 失效；被保留的会话在重启后生效。
+- 已安装的插件，以及位于其 marketplace 内部的插件，可以查看 skills、MCP server 等组件详情；其他未安装插件只显示 catalog 条目。
 
 Cypheria 原生插件使用独立契约。目标 manifest 声明 Server entry points、Desktop UI contributions、可选的未来 Expo contributions、permissions、兼容 Cypheria 版本和 contribution points。Server 代码必须运行在受控子进程中。Desktop contribution 必须沙箱化，并只获得受限 host API，而不是 Node.js、文件系统、数据库或密钥权限。完成该 runtime 与 UX 仍是计划工作。
 
@@ -56,6 +70,35 @@ Marketplace source 与 plugin ecosystem 是独立字段。Source kind 为 `cyphe
 当前 integration facade 支持 harness 自己的 marketplace list、add、upgrade 和 remove 操作。它保留 marketplace name 和 path，避免把不同来源的同名插件合并为一个身份。
 
 独立的公开 Cypheria Marketplace 服务仍在计划中，见 [Marketplace](marketplace.zh-CN.md)。它尚不存在，不影响 harness-native 或 custom marketplace 支持。
+
+## Agent 兼容性
+
+某个插件被哪些 Agent 支持，由列出它的 marketplace 文件决定，而不是插件里的字段。每个 Agent 读取自己的 marketplace 文件：
+
+| Agent | Marketplace 文件 |
+| :- | :- |
+| Codex | `.agents/plugins/marketplace.json` |
+| Claude | `.claude-plugin/marketplace.json` |
+
+一个仓库可以同时包含多个这样的文件，并在每个文件中列出同一个插件。请让它们使用相同的 marketplace `name`：名称一致时，Cypheria 才把不同 Agent 中的 marketplace 和插件视为同一个。Cypheria 不会根据插件文件推断兼容性，不会在 manifest 或 marketplace 条目中添加兼容性字段，也不会在生态之间转换插件。要在多个 Agent 中加载，plugin root 需并列提供各 Agent 的 manifest（`.codex-plugin/`、`.claude-plugin/`），共用 `skills/` 和 server 代码，并把各 Agent 的 MCP 声明放在各自文件中。
+
+### Marketplace
+
+Marketplace 总是对所有能读取它的 Agent 开放。
+
+- **添加**会尝试所有 Agent。找到自己 marketplace 文件的 Agent 会注册它，其余 Agent 会报告该 marketplace 没有适用于它们的文件，Server 会记住来源。
+- **添加会检查来源和各 Agent 读到的内容。** 来源必须是 `owner/repo`（可带 `#ref`）、`http(s)`、`ssh` 或 `git` URL、`scp` 形式的 `git@host:path`，或存在且含 marketplace 文件的绝对本地路径。类似选项的字符串、相对路径、其他 URL scheme 和带凭据的 URL 都会被拒绝，可被当作选项或逃出仓库的 git ref 与稀疏路径也会被拒绝。Agent 接受后，每个注册都必须可读，所有 Agent 读到的 marketplace `name` 必须一致，且该名称必须是普通名称，不能是 Cypheria 或厂商保留的名称（`cypheria-bundled`、`openai-*`）。已从另一个来源添加过的同名 marketplace 会被拒绝。任一检查失败时，本次调用创建的注册会被撤销。
+- **更新**会先在每个 Agent 中刷新 marketplace，再让各 Agent 与其当前内容保持一致。新增了 marketplace 文件的 Agent 会根据记住的来源获得该 marketplace；失去文件的 Agent 会连同其插件一起移除该 marketplace；已从某个 Agent 文件中移除的插件会在该 Agent 中卸载。
+- **移除**会从所有 Agent 中移除该 marketplace 并卸载其插件，客户端需先确认受影响的插件列表。
+
+### 插件
+
+插件只安装一次，再按 Agent 启用或禁用。
+
+- **安装**会在每个 marketplace 列出该插件的 Agent 中安装，并在每个 Agent 中启用。
+- **启用**按 Agent 独立控制。插件详情页只在插件已安装后，为每个列出该插件的 Agent 显示一个开关，因此插件可以在 Codex 中运行而在 Claude 中保持关闭。
+- **之后新增的支持**不会自动启用任何内容。更新后才列出该插件的 Agent 会显示为关闭，打开开关时会先为该 Agent 安装。
+- **卸载**会从所有持有该插件的 Agent 中移除它。
 
 ## Codex Apps
 
