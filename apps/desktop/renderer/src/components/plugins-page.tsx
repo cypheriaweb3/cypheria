@@ -1,3 +1,4 @@
+import type { PluginAgentResult, PluginAgentState } from "@cypheria/protocol"
 import cypheriaMark from "@cypheria/ui/assets/brand/cypheria-mark.svg"
 import { Alert, AlertDescription, AlertTitle } from "@cypheria/ui/components/alert"
 import { Button } from "@cypheria/ui/components/button"
@@ -53,7 +54,7 @@ import type {
 } from "../../../ipc/src/index.js"
 import promptWallpaper from "../assets/plugins/prompt-wallpaper.webp"
 import { ensureCypheriaClient } from "../cypheria-client.js"
-import { integrationApi } from "../integration-api.js"
+import { integrationApi, type PluginAgent } from "../integration-api.js"
 import {
   openAiPluginCategories,
   openAiPopularPlugins,
@@ -68,6 +69,7 @@ import {
   McpServerRow,
   usePluginIntegrations,
 } from "./plugin-integrations"
+import { PluginOptionsForm } from "./plugin-options-form"
 
 const errorText = (error: unknown) =>
   error instanceof Error ? error.message : "The request could not be completed."
@@ -76,6 +78,63 @@ const locator = (plugin: CodexPluginView) => ({
   marketplacePath: plugin.marketplacePath,
   pluginName: plugin.name,
 })
+const identityOf = (plugin: { marketplaceName: string; name: string }) => ({
+  marketplaceName: plugin.marketplaceName,
+  pluginName: plugin.name,
+})
+const pendingCommands = (results: PluginAgentResult[]) =>
+  results.flatMap((result) =>
+    result.status === "confirmation_required"
+      ? [
+          {
+            agentId: result.agentId as PluginAgent,
+            command: result.confirmation.command,
+            sha256: result.confirmation.sha256,
+          },
+        ]
+      : []
+  )
+const AGENT_LABELS: Record<PluginAgent, string> = { claude: "Claude", codex: "Codex" }
+const isClaudePluginsOffError = (entry: { path: string }) => entry.path === "settings:claude"
+const agentLabel = (agentId: string) => AGENT_LABELS[agentId as PluginAgent] ?? agentId
+const installFailures = (results: PluginAgentResult[]): string | null => {
+  const failed = results.flatMap((result) =>
+    result.status === "failed" ? [`${agentLabel(result.agentId)}: ${result.message}`] : []
+  )
+  return failed.length ? failed.join("\n") : null
+}
+const installNotice = (results: PluginAgentResult[]): string | null => {
+  const parts: string[] = []
+  const failed = installFailures(results)
+  if (failed) parts.push(`Not installed for ${failed}`)
+  for (const result of results) {
+    if (result.status !== "done") continue
+    if (result.appsNeedingAuth.length)
+      parts.push(
+        `Connect ${result.appsNeedingAuth.join(", ")} to use all of ${agentLabel(result.agentId)}’s capabilities.`
+      )
+    if (result.reloadPending)
+      parts.push(
+        `Running ${agentLabel(result.agentId)} sessions keep their current plugins until they restart, to keep their prompt cache.`
+      )
+  }
+  return parts.length ? parts.join(" ") : null
+}
+const AGENT_STORAGE_KEY = "cypheria.plugins.agent"
+const readPluginAgent = (): PluginAgent => {
+  try {
+    return window.localStorage.getItem(AGENT_STORAGE_KEY) === "claude" ? "claude" : "codex"
+  } catch {
+    return "codex"
+  }
+}
+const writePluginAgent = (agent: PluginAgent) => {
+  try {
+    window.localStorage.setItem(AGENT_STORAGE_KEY, agent)
+  } catch {
+    // The choice only lasts for this window when storage is unavailable.
+  }
+}
 const unavailable = (plugin: CodexPluginView) =>
   plugin.availability !== "AVAILABLE" || plugin.installPolicy === "NOT_AVAILABLE"
 const pill =
@@ -169,9 +228,14 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
       plugin: z.string().optional(),
     })
     .parse(useSearch({ strict: false }))
-  const view = management ? "manage" : (search.view ?? "plugins")
+  const [agent, setAgentState] = useState<PluginAgent>(readPluginAgent)
+  const view = management
+    ? "manage"
+    : agent === "claude" && search.view === "skills"
+      ? "plugins"
+      : (search.view ?? "plugins")
   const pluginId = search.plugin
-  const integrations = usePluginIntegrations(view === "manage" || !!pluginId)
+  const integrations = usePluginIntegrations(agent === "codex" && (view === "manage" || !!pluginId))
   const navigate = useNavigate()
   const cache = useQueryClient()
   const [query, setQuery] = useState("")
@@ -185,22 +249,39 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
   const [mcpOpen, setMcpOpen] = useState(false)
   const [marketplaceSource, setMarketplaceSource] = useState("")
   const [marketplaceRef, setMarketplaceRef] = useState("")
+  const [removalPreview, setRemovalPreview] = useState<string[] | null>(null)
   const [selectedSkill, setSelectedSkill] = useState<CodexSkillView | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [commandConfirm, setCommandConfirm] = useState<{
+    items: { agentId: PluginAgent; command: string; sha256: string }[]
+    plugin: CodexPluginView
+  } | null>(null)
+  const changeAgent = (next: PluginAgent) => {
+    if (next === agent) return
+    writePluginAgent(next)
+    setAgentState(next)
+    setSource("public")
+    setManageTab("plugins")
+    setQuery("")
+    setNotice(null)
+    if (!management) void navigate({ to: "/plugins", search: { view: "plugins" } })
+  }
   const pluginsQuery = useQuery({
-    queryKey: ["codex", "plugins"],
+    queryKey: ["plugins", agent],
     queryFn: async () => {
-      return integrationApi.plugins.list()
+      return integrationApi.plugins.list(agent)
     },
   })
   const accountQuery = useQuery({
+    enabled: agent === "codex",
     queryKey: ["codex", "account"],
     queryFn: async (): Promise<CodexAccountView> => {
       return (await ensureCypheriaClient()).harnesses.codex.account.get()
     },
   })
   const skillsQuery = useQuery({
+    enabled: agent === "codex",
     queryKey: ["codex", "skills"],
     queryFn: () => {
       return integrationApi.skills.list()
@@ -219,22 +300,81 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
     (marketplace) => marketplace.catalog === "personal"
   )
   const catalogAuthErrors = data?.errors.filter(isRemotePluginCatalogAuthError) ?? []
+  const claudePluginsOff = agent === "claude" && !!data?.errors.some(isClaudePluginsOffError)
   const otherPluginErrors =
-    data?.errors.filter((entry) => !isRemotePluginCatalogAuthError(entry)) ?? []
-  const catalogNeedsChatGpt = catalogAuthErrors.length > 0
+    data?.errors.filter(
+      (entry) => !isRemotePluginCatalogAuthError(entry) && !isClaudePluginsOffError(entry)
+    ) ?? []
+  const catalogNeedsChatGpt = agent === "codex" && catalogAuthErrors.length > 0
   const removalTarget = data?.marketplaces.find((m) => m.name === removeMarketName)
-  const removalBlocked = !removalTarget?.path || removalTarget.plugins.some((p) => p.installed)
+  const removalBlocked = !removalTarget?.path
   const selected = plugins.find((p) => p.id === pluginId)
   const installed = plugins.filter((p) => p.installed)
   const detailQuery = useQuery({
-    queryKey: ["codex", "plugin-detail", selected?.id],
+    queryKey: ["plugins", agent, "plugin-detail", selected?.id],
     enabled: !!selected,
     queryFn: async (): Promise<CodexPluginDetailView> => {
       if (!selected) throw new Error("Plugin not found")
-      return integrationApi.plugins.read(locator(selected))
+      return integrationApi.plugins.read(agent, locator(selected))
     },
   })
   const detail = detailQuery.data
+  const agentStatesQuery = useQuery({
+    enabled: !!selected,
+    queryKey: ["plugins", "agents", selected?.marketplaceName, selected?.name],
+    queryFn: async () => {
+      if (!selected) throw new Error("Plugin not found")
+      return (
+        await integrationApi.plugins.agents({
+          marketplaceName: selected.marketplaceName,
+          pluginName: selected.name,
+        })
+      ).agents
+    },
+  })
+  const claudeCopy = agentStatesQuery.data?.find(
+    (state) => state.agentId === "claude" && state.installed
+  )
+  const invalidatePlugins = () => cache.invalidateQueries({ queryKey: ["plugins"] })
+  const agentToggle = useMutation({
+    mutationFn: async ({ enable, state }: { enable: boolean; state: PluginAgentState }) => {
+      if (!selected) return
+      const target = state.agentId as PluginAgent
+      const result = await integrationApi.plugins.setEnabled(target, identityOf(selected), enable)
+      if (result.status === "confirmation_required") {
+        setCommandConfirm({
+          items: [
+            {
+              agentId: target,
+              command: result.confirmation.command,
+              sha256: result.confirmation.sha256,
+            },
+          ],
+          plugin: selected,
+        })
+      }
+    },
+    onSuccess: invalidatePlugins,
+  })
+  const confirmInstall = useMutation({
+    mutationFn: async (confirm: NonNullable<typeof commandConfirm>) => {
+      const { results } = await integrationApi.plugins.install(identityOf(confirm.plugin), {
+        acceptCommands: Object.fromEntries(
+          confirm.items.map((item) => [item.agentId, item.sha256])
+        ),
+        agentIds: confirm.items.map((item) => item.agentId),
+      })
+      if (pendingCommands(results).length)
+        throw new Error("The install command changed. Review it again.")
+      const failed = installFailures(results)
+      if (failed) throw new Error(failed)
+      setNotice(installNotice(results))
+    },
+    onSuccess: async () => {
+      setCommandConfirm(null)
+      await invalidatePlugins()
+    },
+  })
   const changeView = (next: "plugins" | "skills" | "manage", id?: string) => {
     if (next !== view) setQuery("")
     setNotice(null)
@@ -252,19 +392,18 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
     }) => {
       const p = action.plugin
       if (action.type === "install") {
-        const result = await integrationApi.plugins.install(locator(p))
-        if (result.appsNeedingAuth.length)
-          setNotice(
-            `Installed. Connect ${result.appsNeedingAuth.join(", ")} to use all capabilities.`
-          )
-      } else if (action.type === "uninstall") await integrationApi.plugins.uninstall(p.id)
-      else await integrationApi.plugins.setEnabled(p.id, !p.enabled)
+        const { results } = await integrationApi.plugins.install(identityOf(p))
+        const pending = pendingCommands(results)
+        if (pending.length) setCommandConfirm({ items: pending, plugin: p })
+        setNotice(installNotice(results))
+      } else if (action.type === "uninstall") {
+        await integrationApi.plugins.uninstall(identityOf(p))
+      } else await integrationApi.plugins.setEnabled(agent, identityOf(p), !p.enabled)
     },
     onSuccess: async () => {
       await Promise.all([
-        cache.invalidateQueries({ queryKey: ["codex", "plugins"] }),
+        invalidatePlugins(),
         cache.invalidateQueries({ queryKey: ["codex", "skills"] }),
-        cache.invalidateQueries({ queryKey: ["codex", "plugin-detail"] }),
       ])
     },
   })
@@ -277,43 +416,71 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
   const refresh = useMutation({
     mutationFn: async () => {
       const [p, s] = await Promise.all([
-        integrationApi.plugins.list({ forceRefetch: true }),
-        integrationApi.skills.list({ forceReload: true }),
+        integrationApi.plugins.list(agent, { forceRefetch: true }),
+        agent === "codex" ? integrationApi.skills.list({ forceReload: true }) : undefined,
       ])
-      cache.setQueryData(["codex", "plugins"], p)
-      cache.setQueryData(["codex", "skills"], s)
+      cache.setQueryData(["plugins", agent], p)
+      if (s) cache.setQueryData(["codex", "skills"], s)
       await integrations.refresh()
     },
   })
   const addMarket = useMutation({
-    mutationFn: async () => {
-      await integrationApi.marketplaces.add({
+    mutationFn: async () =>
+      integrationApi.marketplaces.add({
         source: marketplaceSource.trim(),
         ...(marketplaceRef.trim() ? { refName: marketplaceRef.trim() } : {}),
-      })
-    },
-    onSuccess: async () => {
-      await cache.invalidateQueries({ queryKey: ["codex", "plugins"] })
+      }),
+    onSuccess: async (result) => {
+      await invalidatePlugins()
+      const added = result.agents.filter((entry) => entry.added)
+      const skipped = result.agents.filter((entry) => !entry.added)
+      setNotice(
+        `Added for ${added.map((entry) => AGENT_LABELS[entry.agentId as PluginAgent] ?? entry.agentId).join(", ")}.${
+          skipped.length
+            ? ` Not available for ${skipped.map((entry) => AGENT_LABELS[entry.agentId as PluginAgent] ?? entry.agentId).join(", ")}: this marketplace has no marketplace file for ${skipped.length === 1 ? "it" : "them"}.`
+            : ""
+        }`
+      )
       setMarketplaceOpen(false)
       setMarketplaceSource("")
       setMarketplaceRef("")
     },
   })
   const updateMarket = useMutation({
-    mutationFn: async (name: string) => {
-      await integrationApi.marketplaces.upgrade(name)
+    mutationFn: async (name: string) => integrationApi.marketplaces.upgrade(name),
+    onSuccess: async (result) => {
+      await invalidatePlugins()
+      const label = (entry: { agentId: string }) =>
+        AGENT_LABELS[entry.agentId as PluginAgent] ?? entry.agentId
+      const parts = [
+        ...(result.added.length
+          ? [`Now also offered for ${result.added.map(label).join(", ")}.`]
+          : []),
+        ...(result.removed.length
+          ? [
+              `No longer offered for ${result.removed.map(label).join(", ")}; its plugins there were uninstalled.`,
+            ]
+          : []),
+        ...result.errors.map((entry) => `${label(entry)}: ${entry.message}`),
+      ]
+      if (parts.length) setNotice(parts.join(" "))
     },
-    onSuccess: () => cache.invalidateQueries({ queryKey: ["codex", "plugins"] }),
   })
   const busy = mutation.isPending
   const removeMarket = useMutation({
     mutationFn: async (name: string) => {
-      if (removalBlocked)
-        throw new Error("Uninstall this marketplace’s plugins before removing its source.")
-      await integrationApi.marketplaces.remove(name)
+      if (removalBlocked) throw new Error("This marketplace source is no longer available.")
+      const result = await integrationApi.marketplaces.remove(name, !!removalPreview?.length)
+      if (!result.succeeded) {
+        setRemovalPreview(result.affectedPlugins)
+        return "confirm" as const
+      }
+      return "removed" as const
     },
-    onSuccess: async () => {
-      await cache.invalidateQueries({ queryKey: ["codex", "plugins"] })
+    onSuccess: async (outcome) => {
+      if (outcome !== "removed") return
+      await invalidatePlugins()
+      setRemovalPreview(null)
       setRemoveMarketOpen(false)
     },
   })
@@ -361,6 +528,12 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
     updateMarket.error ??
     (view === "skills" ? skillsQuery.error : pluginsQuery.error)
 
+  const openClaudeSettings = () => {
+    void navigate({
+      params: { agentId: "claude", sectionId: "settings" },
+      to: "/settings/agent-harnesses/$agentId/$sectionId",
+    })
+  }
   const openCodexAuthentication = () => {
     void navigate({
       params: { agentId: "codex", sectionId: "authentication" },
@@ -574,18 +747,24 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
             tryPrompt(
               view === "skills"
                 ? "Help me create a reusable Codex skill. Ask what workflow I want to capture, then use skill-creator to create it in my personal skills directory."
-                : "Help me create a Codex plugin. Ask which capabilities it should bundle, then use plugin-creator to scaffold it in my project."
+                : agent === "claude"
+                  ? "Help me create a Claude Code plugin. Ask which capabilities it should bundle (skills, agents, hooks, MCP servers), then scaffold it in my project with a .claude-plugin/plugin.json manifest."
+                  : "Help me create a Codex plugin. Ask which capabilities it should bundle, then use plugin-creator to scaffold it in my project."
             )
           }
         >
           <Blocks />
           Create {view === "skills" ? "skill" : "plugin"}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setMarketplaceOpen(true)}>
+        <DropdownMenuItem
+          onClick={() => {
+            setMarketplaceOpen(true)
+          }}
+        >
           <Plus />
           Add marketplace
         </DropdownMenuItem>
-        {view === "manage" && (
+        {view === "manage" && agent === "codex" && (
           <DropdownMenuItem onClick={() => setMcpOpen(true)}>
             <Plus />
             Add MCP server
@@ -626,17 +805,19 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
           <div />
         ) : (
           <nav aria-label="Directory type" className="flex gap-1">
-            {(["plugins", "skills"] as const).map((v) => (
-              <button
-                type="button"
-                key={v}
-                aria-pressed={view === v}
-                className={pill}
-                onClick={() => changeView(v)}
-              >
-                {v === "plugins" ? "Plugins" : "Skills"}
-              </button>
-            ))}
+            {(agent === "claude" ? (["plugins"] as const) : (["plugins", "skills"] as const)).map(
+              (v) => (
+                <button
+                  type="button"
+                  key={v}
+                  aria-pressed={view === v}
+                  className={pill}
+                  onClick={() => changeView(v)}
+                >
+                  {v === "plugins" ? "Plugins" : "Skills"}
+                </button>
+              )
+            )}
           </nav>
         )}
         {!selected && view !== "manage" && (
@@ -778,6 +959,45 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
                     {detail.description}
                   </p>
                 )}
+                {agentStatesQuery.data?.some((state) => state.installed) && (
+                  <Section title="Agents" count={agentStatesQuery.data.length}>
+                    {agentStatesQuery.data.map((state) => {
+                      const label = AGENT_LABELS[state.agentId as PluginAgent] ?? state.agentId
+                      const status = !state.installed
+                        ? "Not installed"
+                        : state.enabled
+                          ? "Enabled"
+                          : "Disabled"
+                      return (
+                        <div key={state.agentId} className="flex items-center gap-3 px-2 py-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm">{label}</p>
+                            <p className="mt-1 text-sm text-muted-foreground">{status}</p>
+                          </div>
+                          <Switch
+                            aria-label={`Enable ${selected.displayName} for ${label}`}
+                            checked={state.enabled}
+                            disabled={
+                              agentToggle.isPending || selected.installPolicy === "NOT_AVAILABLE"
+                            }
+                            onCheckedChange={(enable) => agentToggle.mutate({ enable, state })}
+                          />
+                        </div>
+                      )
+                    })}
+                    {agentToggle.error && (
+                      <p role="alert" className="px-2 text-sm text-destructive">
+                        {errorText(agentToggle.error)}
+                      </p>
+                    )}
+                  </Section>
+                )}
+                {claudeCopy && <PluginOptionsForm agent="claude" pluginId={claudeCopy.id} />}
+                {detail && !detail.detailAvailable && (
+                  <p className="mt-7 text-sm text-muted-foreground">
+                    Skills and MCP servers are listed after the plugin is installed.
+                  </p>
+                )}
                 {!!detail?.apps.length && (
                   <Section title="Apps" count={detail.apps.length}>
                     {Array.from(new Set(detail.apps.map((a) => a.category))).map((category) => (
@@ -872,6 +1092,13 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
                       ["Developer", selected.developerName],
                       ["Category", selected.category],
                       ["Version", selected.version],
+                      ["Installed for", selected.installedScopes.join(", ")],
+                      [
+                        "Context cost",
+                        detail?.tokenCost
+                          ? `About ${detail.tokenCost.alwaysOn} tokens in every session`
+                          : null,
+                      ],
                     ]
                       .filter(([, value]) => value)
                       .map(([label, value]) => (
@@ -933,6 +1160,19 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
                     </div>
                   )}
                 </div>
+                <nav aria-label="Agent" className="mt-5 flex gap-1">
+                  {(["codex", "claude"] as const).map((entry) => (
+                    <button
+                      key={entry}
+                      type="button"
+                      aria-pressed={agent === entry}
+                      className={pill}
+                      onClick={() => changeAgent(entry)}
+                    >
+                      {AGENT_LABELS[entry]}
+                    </button>
+                  ))}
+                </nav>
                 <div
                   className={`relative mt-6 ${view === "manage" ? "sm:float-right sm:mt-7 sm:w-52" : ""}`}
                 >
@@ -955,6 +1195,27 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
                     </button>
                   )}
                 </div>
+                {claudePluginsOff ? (
+                  <Alert className="mt-6">
+                    <CircleAlert className="size-4" />
+                    <AlertTitle>Plugins are turned off for Claude</AlertTitle>
+                    <AlertDescription className="grid gap-3">
+                      <p>
+                        Claude sessions do not load plugins, and Cypheria does not manage Claude
+                        plugins, until you turn them back on.
+                      </p>
+                      <Button
+                        className="w-fit"
+                        size="sm"
+                        variant="outline"
+                        onClick={openClaudeSettings}
+                      >
+                        Open Claude settings
+                        <ArrowRight className="size-3.5" />
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
                 {catalogNeedsChatGpt && view !== "skills" ? (
                   <Alert className="mt-6">
                     <CircleAlert className="size-4" />
@@ -1009,23 +1270,28 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
                         ["mcp", integrations.servers.length],
                         ["skills", skills.length],
                         ["marketplaces", data?.marketplaces.length ?? 0],
-                      ].map(([tab, count]) => (
-                        <button
-                          key={tab}
-                          type="button"
-                          aria-pressed={manageTab === tab}
-                          className={pill}
-                          onClick={() => {
-                            setManageTab(String(tab))
-                            setQuery("")
-                          }}
-                        >
-                          <span className="capitalize">
-                            {tab === "mcp" ? "MCP" : tab === "marketplaces" ? "Markets" : tab}
-                          </span>{" "}
-                          <span className="text-muted-foreground">{count}</span>
-                        </button>
-                      ))}
+                      ]
+                        .filter(
+                          ([tab]) =>
+                            agent === "codex" || tab === "plugins" || tab === "marketplaces"
+                        )
+                        .map(([tab, count]) => (
+                          <button
+                            key={tab}
+                            type="button"
+                            aria-pressed={manageTab === tab}
+                            className={pill}
+                            onClick={() => {
+                              setManageTab(String(tab))
+                              setQuery("")
+                            }}
+                          >
+                            <span className="capitalize">
+                              {tab === "mcp" ? "MCP" : tab === "marketplaces" ? "Markets" : tab}
+                            </span>{" "}
+                            <span className="text-muted-foreground">{count}</span>
+                          </button>
+                        ))}
                     </nav>
                     <div className="clear-both mt-8 grid gap-2">
                       {(manageTab === "apps" || manageTab === "mcp") && (
@@ -1141,6 +1407,7 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
                                             variant="ghost"
                                             onClick={() => {
                                               removeMarket.reset()
+                                              setRemovalPreview(null)
                                               setRemoveMarketName(m.name)
                                               setRemoveMarketOpen(true)
                                             }}
@@ -1189,7 +1456,7 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
                       )}
                     />
                   </>
-                ) : (
+                ) : claudePluginsOff ? null : (
                   <>
                     <Section
                       title="Installed"
@@ -1236,14 +1503,16 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
                       >
                         Public
                       </button>
-                      <button
-                        type="button"
-                        className={pill}
-                        aria-pressed={source === "openai"}
-                        onClick={() => setSource("openai")}
-                      >
-                        OpenAI
-                      </button>
+                      {agent === "codex" && (
+                        <button
+                          type="button"
+                          className={pill}
+                          aria-pressed={source === "openai"}
+                          onClick={() => setSource("openai")}
+                        >
+                          OpenAI
+                        </button>
+                      )}
                       <button
                         type="button"
                         className={pill}
@@ -1323,6 +1592,52 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
         )}
       </div>
       <Dialog
+        open={!!commandConfirm}
+        onOpenChange={(open) => {
+          if (!open && !confirmInstall.isPending) setCommandConfirm(null)
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              Run the install command for {commandConfirm?.plugin.displayName}?
+            </DialogTitle>
+            <DialogDescription>
+              This marketplace installs the plugin by running a command on this computer. Only
+              continue if you trust the marketplace.
+            </DialogDescription>
+          </DialogHeader>
+          {commandConfirm?.items.map((item) => (
+            <div key={item.agentId} className="grid gap-2 text-sm">
+              <p>{agentLabel(item.agentId)} runs:</p>
+              <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-xl bg-muted p-3 text-xs">
+                {item.command}
+              </pre>
+            </div>
+          ))}
+          {confirmInstall.error && (
+            <p role="alert" className="text-sm text-destructive">
+              {errorText(confirmInstall.error)}
+            </p>
+          )}
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              disabled={confirmInstall.isPending}
+              onClick={() => setCommandConfirm(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={confirmInstall.isPending}
+              onClick={() => commandConfirm && confirmInstall.mutate(commandConfirm)}
+            >
+              {confirmInstall.isPending ? "Installing…" : "Run command and install"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      <Dialog
         open={removeMarketOpen}
         onOpenChange={(open) => {
           if (!removeMarket.isPending) setRemoveMarketOpen(open)
@@ -1333,10 +1648,20 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
             <DialogTitle>Remove {removeMarketName}?</DialogTitle>
             <DialogDescription>
               {removalBlocked
-                ? "This marketplace still has installed plugins, or is no longer available. Uninstall its plugins and refresh before removing the source."
-                : "Remove this local marketplace source from Cypheria’s Codex environment. App Server manages source cleanup. You can add the source again later."}
+                ? "This marketplace source is no longer available."
+                : "Remove this marketplace from every Agent that offers it. You can add it again later."}
             </DialogDescription>
           </DialogHeader>
+          {!!removalPreview?.length && (
+            <div className="grid gap-2 text-sm">
+              <p>Removing it also uninstalls these plugins and deletes their saved data:</p>
+              <ul className="list-disc pl-5 text-muted-foreground">
+                {removalPreview.map((id) => (
+                  <li key={id}>{id}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           {removeMarket.error && (
             <p role="alert" className="text-sm text-destructive">
               {removeMarket.error.message}
@@ -1355,7 +1680,11 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
               disabled={removalBlocked || removeMarket.isPending}
               onClick={() => removeMarketName && removeMarket.mutate(removeMarketName)}
             >
-              {removeMarket.isPending ? "Removing…" : "Remove marketplace"}
+              {removeMarket.isPending
+                ? "Removing…"
+                : removalPreview?.length
+                  ? "Uninstall plugins and remove"
+                  : "Remove marketplace"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1365,7 +1694,8 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
           <DialogHeader>
             <DialogTitle>Add marketplace</DialogTitle>
             <DialogDescription>
-              Install a plugin directory from a Git repository or local folder.
+              Add a plugin directory from a Git repository or local folder. It is offered to every
+              Agent that can read it.
             </DialogDescription>
           </DialogHeader>
           <label className="grid gap-2 text-sm" htmlFor="marketplace-source">
@@ -1374,7 +1704,7 @@ export function PluginsRoute({ management = false }: { management?: boolean }) {
               id="marketplace-source"
               value={marketplaceSource}
               onChange={(e) => setMarketplaceSource(e.target.value)}
-              placeholder="openai/plugins or /path/to/marketplace"
+              placeholder="owner/repo, https://…/marketplace.git or /path/to/marketplace"
             />
           </label>
           <label className="grid gap-2 text-sm" htmlFor="marketplace-ref">

@@ -189,6 +189,7 @@ export const CodexPluginViewSchema = z
     brandColor: z.string().nullable(),
     capabilities: z.array(z.string()),
     category: z.string().nullable(),
+    compatibility: z.array(z.enum(["codex", "claude", "pi", "opencode", "acp"])).min(1),
     description: z.string().nullable(),
     developerName: z.string().nullable(),
     displayName: z.string(),
@@ -196,12 +197,13 @@ export const CodexPluginViewSchema = z
     featured: z.boolean(),
     id: z.string().min(1),
     installed: z.boolean(),
+    installedScopes: z.array(z.enum(["user", "project", "local"])),
     installPolicy: z.enum(["NOT_AVAILABLE", "AVAILABLE", "INSTALLED_BY_DEFAULT"]),
     logoUrl: z.string().nullable(),
     marketplaceName: z.string().min(1),
     marketplacePath: z.string().nullable(),
     name: z.string().min(1),
-    sourceType: z.enum(["local", "git", "npm", "remote"]),
+    sourceType: z.enum(["local", "git", "npm", "remote", "archive", "command"]),
     version: z.string().nullable(),
   })
   .strict()
@@ -210,6 +212,16 @@ export type CodexPluginView = z.infer<typeof CodexPluginViewSchema>
 export const CodexPluginDetailViewSchema = z
   .object({
     description: z.string().nullable(),
+    detailAvailable: z.boolean(),
+    tokenCost: z
+      .object({
+        alwaysOn: z.number(),
+        components: z.array(
+          z.object({ alwaysOn: z.number(), name: z.string(), onInvoke: z.number() }).strict()
+        ),
+      })
+      .strict()
+      .optional(),
     shareUrl: z.string().nullable(),
     prompts: z.array(z.string()),
     websiteUrl: z.string().nullable(),
@@ -252,8 +264,23 @@ export const CodexMarketplaceViewSchema = z
   .strict()
 export type CodexMarketplaceView = z.infer<typeof CodexMarketplaceViewSchema>
 
+export const PluginCapabilitiesViewSchema = z
+  .object({
+    addMarketplace: z.boolean(),
+    configure: z.boolean(),
+    install: z.boolean(),
+    readDetail: z.boolean(),
+    removeMarketplace: z.boolean(),
+    scopes: z.array(z.enum(["user", "project", "local"])),
+    setEnabled: z.boolean(),
+    uninstall: z.boolean(),
+    upgradeMarketplace: z.boolean(),
+  })
+  .strict()
+
 export const CodexPluginListResultSchema = z
   .object({
+    capabilities: PluginCapabilitiesViewSchema,
     errors: z.array(z.object({ message: z.string(), path: z.string() }).strict()),
     marketplaces: z.array(CodexMarketplaceViewSchema),
   })
@@ -272,11 +299,6 @@ export const CodexPluginLocatorSchema = z
   })
   .strict()
 export type CodexPluginLocator = z.infer<typeof CodexPluginLocatorSchema>
-
-export const CodexPluginInstallResultSchema = z
-  .object({ appsNeedingAuth: z.array(z.string()), installed: z.literal(true) })
-  .strict()
-export type CodexPluginInstallResult = z.infer<typeof CodexPluginInstallResultSchema>
 
 export const CodexPluginUninstallRequestSchema = z.object({ pluginId: z.string().min(1) }).strict()
 export const CodexPluginEnabledRequestSchema = z

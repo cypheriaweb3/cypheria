@@ -2,7 +2,6 @@ import type {
   CodexAppListResult,
   CodexMcpListResult,
   CodexPluginDetailView,
-  CodexPluginInstallResult,
   CodexPluginListResult,
   CodexPluginLocator,
   CodexSkillListResult,
@@ -10,6 +9,9 @@ import type {
 import { ensureCypheriaClient } from "./cypheria-client.js"
 
 const codex = "codex" as const
+
+export type PluginAgent = "claude" | "codex"
+export type PluginIdentity = { marketplaceName: string; pluginName: string }
 
 export const integrationApi = {
   apps: {
@@ -25,15 +27,14 @@ export const integrationApi = {
   },
   marketplaces: {
     add: async (input: { refName?: string; source: string; sparsePaths?: string[] }) =>
-      (await ensureCypheriaClient()).integrations.marketplaces.add({ agentId: codex, ...input }),
-    remove: async (marketplaceName: string) =>
+      (await ensureCypheriaClient()).integrations.marketplaces.add(input),
+    remove: async (marketplaceName: string, confirmUninstall = false) =>
       (await ensureCypheriaClient()).integrations.marketplaces.remove({
-        agentId: codex,
+        ...(confirmUninstall ? { confirmUninstall } : {}),
         marketplaceName,
       }),
     upgrade: async (marketplaceName?: string) =>
       (await ensureCypheriaClient()).integrations.marketplaces.upgrade({
-        agentId: codex,
         ...(marketplaceName ? { marketplaceName } : {}),
       }),
   },
@@ -58,46 +59,63 @@ export const integrationApi = {
       }),
   },
   plugins: {
-    install: async (locator: CodexPluginLocator): Promise<CodexPluginInstallResult> =>
-      (await ensureCypheriaClient()).integrations.plugins.install({
-        agentId: codex,
-        ...locator,
-      }),
+    agents: async (identity: PluginIdentity) =>
+      (await ensureCypheriaClient()).integrations.plugins.agents(identity),
+    /** Installs for every Agent whose marketplace lists the plugin, enabled in each. */
+    install: async (
+      identity: PluginIdentity,
+      options: { acceptCommands?: Record<string, string>; agentIds?: PluginAgent[] } = {}
+    ) => (await ensureCypheriaClient()).integrations.plugins.install({ ...identity, ...options }),
     list: async (
+      agentId: PluginAgent,
       options: { cwd?: string; forceRefetch?: boolean } = {}
     ): Promise<CodexPluginListResult> => {
       const result = await (await ensureCypheriaClient()).integrations.plugins.list({
-        agentId: codex,
+        agentId,
         cwd: options.cwd,
         forceRefresh: options.forceRefetch,
       })
       return {
+        capabilities: result.capabilities,
         errors: result.errors,
         marketplaces: result.marketplaces.map(({ sourceKind, ...marketplace }) => ({
           ...marketplace,
           catalog:
-            sourceKind === "cypheria" ? "public" : sourceKind === "openai" ? "openai" : "personal",
+            sourceKind === "cypheria" || sourceKind === "claude"
+              ? "public"
+              : sourceKind === "openai"
+                ? "openai"
+                : "personal",
           plugins: marketplace.plugins.map(
-            ({
-              compatibility: _compatibility,
-              ecosystem: _ecosystem,
-              harness: _harness,
-              ...plugin
-            }) => plugin
+            ({ ecosystem: _ecosystem, harness: _harness, ...plugin }) => plugin
           ),
         })),
       }
     },
-    read: async (locator: CodexPluginLocator): Promise<CodexPluginDetailView> =>
-      (await ensureCypheriaClient()).integrations.plugins.read({ agentId: codex, ...locator }),
-    setEnabled: async (id: string, enabled: boolean) =>
+    read: async (
+      agentId: PluginAgent,
+      locator: CodexPluginLocator
+    ): Promise<CodexPluginDetailView> =>
+      (await ensureCypheriaClient()).integrations.plugins.read({ agentId, ...locator }),
+    readConfig: async (agentId: PluginAgent, id: string) =>
+      (await ensureCypheriaClient()).integrations.plugins.readConfig({ agentId, id }),
+    /** Enables or disables one Agent's copy; enabling installs it there first when needed. */
+    setEnabled: async (
+      agentId: PluginAgent,
+      identity: PluginIdentity,
+      enabled: boolean,
+      options: { acceptCommandSha256?: string } = {}
+    ) =>
       (await ensureCypheriaClient()).integrations.plugins.setEnabled({
-        agentId: codex,
+        agentId,
         enabled,
-        id,
+        ...identity,
+        ...options,
       }),
-    uninstall: async (id: string) =>
-      (await ensureCypheriaClient()).integrations.plugins.uninstall({ agentId: codex, id }),
+    uninstall: async (identity: PluginIdentity) =>
+      (await ensureCypheriaClient()).integrations.plugins.uninstall(identity),
+    writeConfig: async (agentId: PluginAgent, id: string, values: Record<string, string>) =>
+      (await ensureCypheriaClient()).integrations.plugins.writeConfig({ agentId, id, values }),
   },
   skills: {
     list: async (
