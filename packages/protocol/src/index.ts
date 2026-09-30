@@ -495,9 +495,16 @@ export const PersistedServerConfigSchema = z
           })
           .strict()
           .default({ permissionsMode: "approve-for-me" }),
+        claude: z
+          .object({ pluginsEnabled: z.boolean().default(true) })
+          .strict()
+          .default({ pluginsEnabled: true }),
       })
       .strict()
-      .default({ codex: { permissionsMode: "approve-for-me" } }),
+      .default({
+        claude: { pluginsEnabled: true },
+        codex: { permissionsMode: "approve-for-me" },
+      }),
     git: GitSettingsSchema.default(DEFAULT_GIT_SETTINGS),
     browserTools: BrowserToolsSettingsSchema.default(DEFAULT_BROWSER_TOOLS_SETTINGS),
     workspace: z
@@ -568,6 +575,7 @@ export const PersistedServerConfigPatchSchema = z
           .object({ permissionsMode: CodexPermissionsModeSchema.optional() })
           .strict()
           .optional(),
+        claude: z.object({ pluginsEnabled: z.boolean().optional() }).strict().optional(),
       })
       .strict()
       .optional(),

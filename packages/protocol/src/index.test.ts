@@ -56,7 +56,10 @@ describe("Cypheria protocol", () => {
     ).toBe(true)
     expect(
       PersistedServerConfigPatchSchema.safeParse({
-        agents: { codex: { permissionsMode: "approve-for-me" } },
+        agents: {
+          claude: { pluginsEnabled: true },
+          codex: { permissionsMode: "approve-for-me" },
+        },
       }).success
     ).toBe(true)
     expect(

@@ -48,6 +48,18 @@ export interface McpActions {
   ): Promise<void>
 }
 export interface PluginActions {
+  agents(
+    input: Payload<"integration.plugin.agents.request">,
+    options?: RequestOptions
+  ): Promise<Value<"integration.plugin.agents.response">>
+  readConfig(
+    input: Payload<"integration.plugin.config.read.request">,
+    options?: RequestOptions
+  ): Promise<Value<"integration.plugin.config.read.response">>
+  writeConfig(
+    input: Payload<"integration.plugin.config.write.request">,
+    options?: RequestOptions
+  ): Promise<Value<"integration.plugin.config.write.response">>
   setGlobalEnabled(
     input: Payload<"integration.plugin.set-global-enabled.request">,
     options?: RequestOptions
@@ -67,11 +79,11 @@ export interface PluginActions {
   setEnabled(
     input: Payload<"integration.plugin.set-enabled.request">,
     options?: RequestOptions
-  ): Promise<void>
+  ): Promise<Value<"integration.plugin.set-enabled.response">>
   uninstall(
     input: Payload<"integration.plugin.uninstall.request">,
     options?: RequestOptions
-  ): Promise<void>
+  ): Promise<Value<"integration.plugin.uninstall.response">>
 }
 export interface MarketplaceActions {
   add(
@@ -81,11 +93,11 @@ export interface MarketplaceActions {
   remove(
     input: Payload<"integration.marketplace.remove.request">,
     options?: RequestOptions
-  ): Promise<void>
+  ): Promise<Value<"integration.marketplace.remove.response">>
   upgrade(
     input: Payload<"integration.marketplace.upgrade.request">,
     options?: RequestOptions
-  ): Promise<void>
+  ): Promise<Value<"integration.marketplace.upgrade.response">>
 }
 export interface CodexAppActions {
   connect(
@@ -130,10 +142,9 @@ export const createIntegrationActions = (client: ServerClient): IntegrationActio
     },
     marketplaces: {
       add: (input, options) => request("integration.marketplace.add.request", input, options),
-      remove: (input, options) =>
-        mutation("integration.marketplace.remove.request", input, options),
+      remove: (input, options) => request("integration.marketplace.remove.request", input, options),
       upgrade: (input, options) =>
-        mutation("integration.marketplace.upgrade.request", input, options),
+        request("integration.marketplace.upgrade.request", input, options),
     },
     mcp: {
       add: (input, options) => mutation("integration.mcp.add.request", input, options),
@@ -143,15 +154,20 @@ export const createIntegrationActions = (client: ServerClient): IntegrationActio
         mutation("integration.mcp.set-enabled.request", input, options),
     },
     plugins: {
+      agents: (input, options) => request("integration.plugin.agents.request", input, options),
       setGlobalEnabled: (input, options) =>
         mutation("integration.plugin.set-global-enabled.request", input, options),
       install: (input, options) => request("integration.plugin.install.request", input, options),
       list: (input, options) => request("integration.plugin.list.request", input, options),
       read: (input, options) => request("integration.plugin.read.request", input, options),
+      readConfig: (input, options) =>
+        request("integration.plugin.config.read.request", input, options),
+      writeConfig: (input, options) =>
+        request("integration.plugin.config.write.request", input, options),
       setEnabled: (input, options) =>
-        mutation("integration.plugin.set-enabled.request", input, options),
+        request("integration.plugin.set-enabled.request", input, options),
       uninstall: (input, options) =>
-        mutation("integration.plugin.uninstall.request", input, options),
+        request("integration.plugin.uninstall.request", input, options),
     },
     skills: {
       list: (input, options) => request("integration.skill.list.request", input, options),

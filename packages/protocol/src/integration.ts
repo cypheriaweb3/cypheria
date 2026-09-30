@@ -100,13 +100,14 @@ export const PluginViewSchema = z
     featured: z.boolean(),
     id: z.string().min(1),
     installed: z.boolean(),
+    installedScopes: z.array(z.enum(["user", "project", "local"])),
     installPolicy: z.enum(["NOT_AVAILABLE", "AVAILABLE", "INSTALLED_BY_DEFAULT"]),
     logoUrl: z.string().nullable(),
     marketplaceName: z.string().min(1),
     marketplacePath: z.string().nullable(),
     name: z.string().min(1),
     harness,
-    sourceType: z.enum(["local", "git", "npm", "remote"]),
+    sourceType: z.enum(["local", "git", "npm", "remote", "archive", "command"]),
     version: z.string().nullable(),
   })
   .strict()
@@ -123,6 +124,40 @@ export const MarketplaceViewSchema = z
   .strict()
 export type MarketplaceView = z.infer<typeof MarketplaceViewSchema>
 
+export const PluginTokenCostSchema = z
+  .object({
+    alwaysOn: z.number().nonnegative(),
+    components: z.array(
+      z
+        .object({
+          alwaysOn: z.number().nonnegative(),
+          name: z.string(),
+          onInvoke: z.number().nonnegative(),
+        })
+        .strict()
+    ),
+  })
+  .strict()
+export type PluginTokenCost = z.infer<typeof PluginTokenCostSchema>
+
+export const PluginScopeSchema = z.enum(["user", "project", "local"])
+export type PluginScope = z.infer<typeof PluginScopeSchema>
+
+export const PluginCapabilitiesSchema = z
+  .object({
+    addMarketplace: z.boolean(),
+    configure: z.boolean(),
+    install: z.boolean(),
+    readDetail: z.boolean(),
+    removeMarketplace: z.boolean(),
+    scopes: z.array(PluginScopeSchema),
+    setEnabled: z.boolean(),
+    uninstall: z.boolean(),
+    upgradeMarketplace: z.boolean(),
+  })
+  .strict()
+export type PluginCapabilities = z.infer<typeof PluginCapabilitiesSchema>
+
 export const PluginDetailViewSchema = z
   .object({
     apps: z.array(
@@ -137,6 +172,7 @@ export const PluginDetailViewSchema = z
         .strict()
     ),
     description: z.string().nullable(),
+    detailAvailable: z.boolean(),
     mcpServers: z.array(z.string()),
     privacyPolicyUrl: z.string().nullable(),
     prompts: z.array(z.string()),
@@ -152,6 +188,7 @@ export const PluginDetailViewSchema = z
         .strict()
     ),
     termsOfServiceUrl: z.string().nullable(),
+    tokenCost: PluginTokenCostSchema.optional(),
     websiteUrl: z.string().nullable(),
   })
   .strict()
@@ -195,6 +232,7 @@ const pluginLocator = z
     marketplaceName: z.string().min(1),
     marketplacePath: z.string().nullable(),
     pluginName: z.string().min(1),
+    scope: PluginScopeSchema.optional(),
   })
   .strict()
 
@@ -218,17 +256,37 @@ export const PluginListRequestSchema = request(
   agentListInput.extend({ cwd: z.string().min(1).optional() }).strict()
 )
 export const PluginReadRequestSchema = request("integration.plugin.read.request", pluginLocator)
+const pluginIdentity = z
+  .object({ marketplaceName: z.string().min(1), pluginName: z.string().min(1) })
+  .strict()
+const commandSha256 = z.string().length(64)
+// Installing offers a plugin to every Agent whose marketplace lists it and
+// enables it in each; `agentIds` limits a retry to the Agents that still need one.
 export const PluginInstallRequestSchema = request(
   "integration.plugin.install.request",
-  pluginLocator
+  pluginIdentity
+    .extend({
+      acceptCommands: z.record(z.string(), commandSha256).optional(),
+      agentIds: z.array(AgentIdSchema).min(1).optional(),
+      scope: PluginScopeSchema.optional(),
+    })
+    .strict()
 )
 export const PluginUninstallRequestSchema = request(
   "integration.plugin.uninstall.request",
-  harnessItem
+  pluginIdentity.extend({ keepData: z.boolean().optional() }).strict()
 )
+// Enablement is per Agent. Enabling in an Agent that does not hold the plugin yet installs it there first.
 export const PluginSetEnabledRequestSchema = request(
   "integration.plugin.set-enabled.request",
-  setEnabled
+  pluginIdentity
+    .extend({
+      acceptCommandSha256: commandSha256.optional(),
+      agentId: AgentIdSchema,
+      enabled: z.boolean(),
+      scope: PluginScopeSchema.optional(),
+    })
+    .strict()
 )
 export const PluginSetGlobalEnabledRequestSchema = request(
   "integration.plugin.set-global-enabled.request",
@@ -238,7 +296,6 @@ export const MarketplaceAddRequestSchema = request(
   "integration.marketplace.add.request",
   z
     .object({
-      agentId: AgentIdSchema,
       refName: z.string().min(1).optional(),
       source: z.string().min(1),
       sparsePaths: z.array(z.string().min(1)).optional(),
@@ -247,11 +304,28 @@ export const MarketplaceAddRequestSchema = request(
 )
 export const MarketplaceUpgradeRequestSchema = request(
   "integration.marketplace.upgrade.request",
-  z.object({ agentId: AgentIdSchema, marketplaceName: z.string().min(1).optional() }).strict()
+  z.object({ marketplaceName: z.string().min(1).optional() }).strict()
 )
 export const MarketplaceRemoveRequestSchema = request(
   "integration.marketplace.remove.request",
-  z.object({ agentId: AgentIdSchema, marketplaceName: z.string().min(1) }).strict()
+  z
+    .object({
+      confirmUninstall: z.boolean().optional(),
+      marketplaceName: z.string().min(1),
+    })
+    .strict()
+)
+export const PluginAgentsRequestSchema = request(
+  "integration.plugin.agents.request",
+  z.object({ marketplaceName: z.string().min(1), pluginName: z.string().min(1) }).strict()
+)
+export const PluginConfigReadRequestSchema = request(
+  "integration.plugin.config.read.request",
+  harnessItem
+)
+export const PluginConfigWriteRequestSchema = request(
+  "integration.plugin.config.write.request",
+  harnessItem.extend({ values: z.record(z.string(), z.string()) }).strict()
 )
 export const CodexAppListRequestSchema = request(
   "integration.codex.app.list.request",
@@ -297,6 +371,7 @@ export const PluginListResponseSchema = response(
   "integration.plugin.list.response",
   z
     .object({
+      capabilities: PluginCapabilitiesSchema,
       errors: z.array(z.object({ message: z.string(), path: z.string() }).strict()),
       marketplaces: z.array(MarketplaceViewSchema),
     })
@@ -306,17 +381,46 @@ export const PluginReadResponseSchema = response(
   "integration.plugin.read.response",
   PluginDetailViewSchema
 )
+export const PluginCommandConfirmationSchema = z
+  .object({
+    command: z.string(),
+    pluginId: z.string(),
+    sha256: commandSha256,
+  })
+  .strict()
+export type PluginCommandConfirmation = z.infer<typeof PluginCommandConfirmationSchema>
+
+export const PluginAgentResultSchema = z.discriminatedUnion("status", [
+  z
+    .object({
+      agentId: AgentIdSchema,
+      appsNeedingAuth: z.array(z.string()),
+      reloadPending: z.boolean(),
+      status: z.literal("done"),
+    })
+    .strict(),
+  z
+    .object({
+      agentId: AgentIdSchema,
+      confirmation: PluginCommandConfirmationSchema,
+      status: z.literal("confirmation_required"),
+    })
+    .strict(),
+  z.object({ agentId: AgentIdSchema, message: z.string(), status: z.literal("failed") }).strict(),
+])
+export type PluginAgentResult = z.infer<typeof PluginAgentResultSchema>
+
 export const PluginInstallResponseSchema = response(
   "integration.plugin.install.response",
-  z.object({ appsNeedingAuth: z.array(z.string()), installed: z.literal(true) }).strict()
+  z.object({ results: z.array(PluginAgentResultSchema) }).strict()
 )
 export const PluginUninstallResponseSchema = response(
   "integration.plugin.uninstall.response",
-  mutation
+  z.object({ agentIds: z.array(AgentIdSchema), succeeded: z.literal(true) }).strict()
 )
 export const PluginSetEnabledResponseSchema = response(
   "integration.plugin.set-enabled.response",
-  mutation
+  PluginAgentResultSchema
 )
 export const PluginSetGlobalEnabledResponseSchema = response(
   "integration.plugin.set-global-enabled.response",
@@ -324,15 +428,82 @@ export const PluginSetGlobalEnabledResponseSchema = response(
 )
 export const MarketplaceAddResponseSchema = response(
   "integration.marketplace.add.response",
-  z.object({ marketplaceName: z.string().nullable(), succeeded: z.literal(true) }).strict()
+  z
+    .object({
+      agents: z.array(
+        z
+          .object({
+            added: z.boolean(),
+            agentId: AgentIdSchema,
+            message: z.string().nullable(),
+          })
+          .strict()
+      ),
+      marketplaceName: z.string().nullable(),
+      succeeded: z.literal(true),
+    })
+    .strict()
 )
+// After an update, Agents that gained support for the marketplace are added
+// and Agents that lost it are removed, so it lists exactly where it is offered.
 export const MarketplaceUpgradeResponseSchema = response(
   "integration.marketplace.upgrade.response",
-  mutation
+  z
+    .object({
+      added: z.array(z.object({ agentId: AgentIdSchema, marketplaceName: z.string() }).strict()),
+      errors: z.array(z.object({ agentId: AgentIdSchema, message: z.string() }).strict()),
+      removed: z.array(z.object({ agentId: AgentIdSchema, marketplaceName: z.string() }).strict()),
+      succeeded: z.literal(true),
+    })
+    .strict()
 )
 export const MarketplaceRemoveResponseSchema = response(
   "integration.marketplace.remove.response",
-  mutation
+  z.discriminatedUnion("succeeded", [
+    z.object({ succeeded: z.literal(true), uninstalledPlugins: z.array(z.string()) }).strict(),
+    z.object({ affectedPlugins: z.array(z.string()), succeeded: z.literal(false) }).strict(),
+  ])
+)
+export const PluginAgentStateSchema = z
+  .object({
+    agentId: AgentIdSchema,
+    enabled: z.boolean(),
+    id: z.string().min(1),
+    installed: z.boolean(),
+    installedScopes: z.array(PluginScopeSchema),
+    marketplacePath: z.string().nullable(),
+  })
+  .strict()
+export type PluginAgentState = z.infer<typeof PluginAgentStateSchema>
+
+export const PluginAgentsResponseSchema = response(
+  "integration.plugin.agents.response",
+  z.object({ agents: z.array(PluginAgentStateSchema) }).strict()
+)
+export const PluginConfigOptionSchema = z
+  .object({
+    configured: z.boolean(),
+    default: z.string().nullable(),
+    description: z.string(),
+    key: z.string().min(1),
+    multiple: z.boolean(),
+    options: z.array(z.string()).nullable(),
+    required: z.boolean(),
+    sensitive: z.boolean(),
+    title: z.string(),
+    type: z.enum(["string", "number", "boolean", "directory", "file"]),
+    value: z.string().nullable(),
+  })
+  .strict()
+export type PluginConfigOption = z.infer<typeof PluginConfigOptionSchema>
+
+export const PluginConfigReadResponseSchema = response(
+  "integration.plugin.config.read.response",
+  z.object({ options: z.array(PluginConfigOptionSchema) }).strict()
+)
+export const PluginConfigWriteResponseSchema = response(
+  "integration.plugin.config.write.response",
+  z.object({ saved: z.array(z.string()), unconfigured: z.array(z.string()) }).strict()
 )
 export const CodexAppListResponseSchema = response(
   "integration.codex.app.list.response",
@@ -363,6 +534,9 @@ export const INTEGRATION_CLIENT_SCHEMAS = [
   MarketplaceAddRequestSchema,
   MarketplaceUpgradeRequestSchema,
   MarketplaceRemoveRequestSchema,
+  PluginAgentsRequestSchema,
+  PluginConfigReadRequestSchema,
+  PluginConfigWriteRequestSchema,
   CodexAppListRequestSchema,
   CodexAppSetEnabledRequestSchema,
   CodexAppConnectRequestSchema,
@@ -383,6 +557,9 @@ export const INTEGRATION_SERVER_SCHEMAS = [
   MarketplaceAddResponseSchema,
   MarketplaceUpgradeResponseSchema,
   MarketplaceRemoveResponseSchema,
+  PluginAgentsResponseSchema,
+  PluginConfigReadResponseSchema,
+  PluginConfigWriteResponseSchema,
   CodexAppListResponseSchema,
   CodexAppSetEnabledResponseSchema,
   CodexAppConnectResponseSchema,
