@@ -12,9 +12,16 @@ import {
   stat,
   writeFile,
 } from "node:fs/promises"
-import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path"
+import { homedir } from "node:os"
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from "node:path"
+import { fileURLToPath } from "node:url"
 import type { ProjectThreadPersistenceService } from "@cypheria/db"
-import type { ServerMessage, WorkspaceFileEntry, WorkspaceFileReadResult } from "@cypheria/protocol"
+import type {
+  ServerMessage,
+  ThreadPathResolution,
+  WorkspaceFileEntry,
+  WorkspaceFileReadResult,
+} from "@cypheria/protocol"
 import {
   isManagedProjectlessWorkspace,
   listManagedProjectlessWorkspaces,
@@ -40,6 +47,45 @@ type WorkspaceFileChange = {
   path: string
   previousPath?: string
   root: string
+}
+
+const isInside = (root: string, path: string): boolean =>
+  path === root || path.startsWith(root.endsWith(sep) ? root : `${root}${sep}`)
+
+type PathCandidate = { endLine?: number; line?: number; path: string }
+
+/** The readings of a model-written path, most literal first. */
+const pathCandidates = (value: string, cwd: string): PathCandidate[] => {
+  const toAbsolute = (text: string): string | null => {
+    try {
+      if (text.startsWith("file:")) return fileURLToPath(text)
+      if (text === "~" || text.startsWith("~/") || text.startsWith("~\\")) {
+        return join(homedir(), text.slice(1))
+      }
+      return isAbsolute(text) ? text : resolve(cwd, text)
+    } catch {
+      return null
+    }
+  }
+  const candidates: PathCandidate[] = []
+  const literal = toAbsolute(value)
+  if (literal) candidates.push({ path: literal })
+  const hash = /^(.+?)#L(\d+)(?:-L?(\d+))?$/u.exec(value)
+  const colon = /^(.+?):(\d+)(?::\d+)?$/u.exec(value)
+  const match = hash ?? colon
+  if (match?.[1] && match[2]) {
+    const path = toAbsolute(match[1])
+    const line = Number(match[2])
+    const endLine = match[3] ? Number(match[3]) : undefined
+    if (path && line > 0) {
+      candidates.push({
+        ...(endLine && endLine >= line ? { endLine } : {}),
+        line,
+        path,
+      })
+    }
+  }
+  return candidates
 }
 
 export class WorkspaceFileService {
@@ -258,6 +304,64 @@ export class WorkspaceFileService {
     const entry = await this.#entry(root, target, metadata.path)
     this.#changed(input.threadId, { kind: "restored", path: metadata.path, root })
     return entry
+  }
+
+  /**
+   * Resolves a path a model wrote to the Thread root that holds it. The path may be absolute, start
+   * with `~`, be a `file:` URL, or be relative to the working directory, and may end in a line
+   * reference (`#L12`, `#L12-L20`, `:12`, `:12:3`). Anything that is not inside a Thread root,
+   * including a symbolic link that leads out of one, is `outside`.
+   */
+  async resolvePath(input: { path: string; threadId: string }): Promise<ThreadPathResolution> {
+    const thread = await this.#thread(input.threadId)
+    const cwd = thread.roots[0] ?? this.#projectlessRoot
+    let first: ThreadPathResolution | undefined
+    for (const candidate of pathCandidates(input.path, cwd)) {
+      const resolved = await this.#resolveInRoots(thread.roots, candidate.path)
+      if (resolved.kind === "missing" || resolved.kind === "outside") {
+        first ??= resolved
+        continue
+      }
+      return resolved.kind === "file"
+        ? {
+            ...resolved,
+            ...(candidate.line ? { line: candidate.line } : {}),
+            ...(candidate.endLine ? { endLine: candidate.endLine } : {}),
+          }
+        : resolved
+    }
+    return first ?? { kind: "missing" }
+  }
+
+  async #resolveInRoots(roots: readonly string[], absolute: string): Promise<ThreadPathResolution> {
+    const target = resolve(absolute)
+    const real = await realpath(target).catch(() => null)
+    for (const root of roots) {
+      const rootReal = await realpath(root).catch(() => null)
+      if (!rootReal) continue
+      if (real === null) {
+        // Missing: say so only when the path would be inside a root, so nothing about the rest of
+        // the file system is revealed.
+        if (isInside(resolve(root), target) || isInside(rootReal, target))
+          return { kind: "missing" }
+        continue
+      }
+      if (!isInside(rootReal, real)) continue
+      const path = relative(rootReal, real).split(sep).join("/")
+      const info = await stat(real).catch(() => undefined)
+      if (info?.isDirectory()) return { kind: "directory", path, root }
+      if (info?.isFile()) {
+        return {
+          kind: "file",
+          mimeType: this.#mime(path),
+          path,
+          root,
+          sizeBytes: info.size,
+        }
+      }
+      return { kind: "missing" }
+    }
+    return { kind: "outside" }
   }
 
   async listCleanup() {

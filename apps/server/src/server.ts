@@ -740,6 +740,7 @@ export class CypheriaServer implements HttpAppHost {
   ): Promise<boolean> {
     if (
       message.type.startsWith("thread.files.") ||
+      message.type === "thread.paths.resolve.request" ||
       message.type.startsWith("thread.workspace.cleanup.")
     ) {
       const respond = (value: unknown, error?: unknown) => {
@@ -761,6 +762,9 @@ export class CypheriaServer implements HttpAppHost {
       }
       try {
         switch (message.type) {
+          case "thread.paths.resolve.request":
+            respond(await this.workspaceFiles.resolvePath(message.payload))
+            break
           case "thread.files.directory.list.request":
             respond(await this.workspaceFiles.listDirectory(message.payload))
             break

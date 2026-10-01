@@ -676,6 +676,29 @@ const workspaceFileLocationSchema = z.object({
   root: z.string().min(1).max(4096),
   threadId: ProjectThreadIdSchema,
 })
+/**
+ * A path a model wrote, resolved against the Thread's workspace roots on the Server host. Clients
+ * never interpret such a path themselves: they hold no access to the Server's file system.
+ */
+export const ThreadPathResolutionSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("file"),
+    line: z.int().positive().optional(),
+    endLine: z.int().positive().optional(),
+    mimeType: z.string().min(1),
+    path: z.string(),
+    root: z.string().min(1),
+    sizeBytes: z.int().nonnegative(),
+  }),
+  z.object({ kind: z.literal("directory"), path: z.string(), root: z.string().min(1) }),
+  z.object({ kind: z.literal("missing") }),
+  z.object({ kind: z.literal("outside") }),
+])
+export type ThreadPathResolution = z.infer<typeof ThreadPathResolutionSchema>
+export const ThreadPathsResolveRequestSchema = request(
+  "thread.paths.resolve.request",
+  z.object({ path: z.string().min(1).max(4096), threadId: ProjectThreadIdSchema })
+)
 export const ThreadFilesDirectoryListRequestSchema = request(
   "thread.files.directory.list.request",
   workspaceFileLocationSchema.extend({
@@ -941,6 +964,10 @@ export const ThreadWorkspaceSyncResponseSchema = response(
   "thread.workspace.sync.response",
   z.object({ changed: z.boolean(), thread: ThreadViewSchema })
 )
+export const ThreadPathsResolveResponseSchema = response(
+  "thread.paths.resolve.response",
+  ThreadPathResolutionSchema
+)
 export const ThreadFilesDirectoryListResponseSchema = response(
   "thread.files.directory.list.response",
   z.object({ data: z.array(WorkspaceFileEntrySchema), nextCursor: z.string().nullable() })
@@ -1118,6 +1145,7 @@ export const THREAD_CLIENT_SCHEMAS = [
   ThreadInputFileGetRequestSchema,
   ThreadComposerSuggestRequestSchema,
   ThreadWorkspaceSyncRequestSchema,
+  ThreadPathsResolveRequestSchema,
   ThreadFilesDirectoryListRequestSchema,
   ThreadFilesSearchRequestSchema,
   ThreadFilesReadRequestSchema,
@@ -1166,6 +1194,7 @@ export const THREAD_SERVER_SCHEMAS = [
   ThreadInputFileGetResponseSchema,
   ThreadComposerSuggestResponseSchema,
   ThreadWorkspaceSyncResponseSchema,
+  ThreadPathsResolveResponseSchema,
   ThreadFilesDirectoryListResponseSchema,
   ThreadFilesSearchResponseSchema,
   ThreadFilesReadResponseSchema,

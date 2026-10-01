@@ -71,6 +71,7 @@ describe("Cypheria client facade", () => {
       "inputFiles",
       "list",
       "move",
+      "paths",
       "queueTurn",
       "respondToInteraction",
       "resume",

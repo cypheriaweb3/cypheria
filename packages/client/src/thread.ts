@@ -98,11 +98,20 @@ export interface ThreadActions {
   ): Promise<ThreadView>
   readonly attachments: ThreadAttachmentActions
   readonly files: ThreadFileActions
+  readonly paths: ThreadPathActions
   readonly inputFiles: ThreadInputFileActions
   readonly timeline: TimelineActions
   readonly contextUsage: ThreadContextUsageActions
   readonly composer: ThreadComposerActions
   readonly workspace: ThreadWorkspaceActions
+}
+
+export interface ThreadPathActions {
+  /** Resolves a path a model wrote to a Thread root on the Server host. */
+  resolve(
+    input: Payload<"thread.paths.resolve.request">,
+    options?: RequestOptions
+  ): Promise<ExtractReady<"thread.paths.resolve.response">>
 }
 
 export interface ThreadFileActions {
@@ -339,6 +348,9 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
   const composer: ThreadComposerActions = {
     suggest: (input, options) => request("thread.composer.suggest.request", input, options),
   }
+  const paths: ThreadPathActions = {
+    resolve: (input, options) => request("thread.paths.resolve.request", input, options),
+  }
   const files: ThreadFileActions = {
     create: (input, options) => request("thread.files.create.request", input, options),
     delete: (input, options) => request("thread.files.delete.request", input, options),
@@ -485,6 +497,7 @@ export const createThreadActions = (client: ServerClient): ThreadActions => {
       await request("thread.delete.request", { threadId }, options)
     },
     files,
+    paths,
     get: (threadId, options) => request("thread.get.request", { threadId }, options),
     getTimeline: (input, options) => request("thread.timeline.get.request", input, options),
     getSummary: (threadId, options) => request("thread.summary.get.request", { threadId }, options),
