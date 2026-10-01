@@ -55,6 +55,13 @@ title: 当前路线图
 - [ ] 测量第三方 frame 中的 `document.cookie` 是否绕过 dApp Cookie 过滤，并为共享的 dApp 配置加入跳转追踪（bounce tracking）防护。
 - [ ] 在 Server 提供按 origin 的权限管理后，为 dApp 标签页加入已连接账户、断开连接和撤销权限的控制。
 
+## Codex 桌面版对齐
+
+- [ ] 在 `cypheria://review` 链接能打开确切的拉取请求后，开启拉取请求 diff 链接能力，并向操作系统注册 `cypheria://` scheme，以支持应用外链接。
+- [ ] 移植官方指令中依赖 Cypheria 尚缺客户端功能的章节：工作区依赖、LaTeX、运行摘要、写作块、非技术 UI 和 heartbeat 卡片。
+- [ ] 把可用模型和推理强度追加到 `create_thread` 与 `send_message_to_thread` 的 `model`、`thinking` 描述中。
+- [ ] 补充官方桌面版挂载而 Cypheria 尚未提供的 Agent 工具：`set_thread_read_state`、`get_thread_emoji`、`set_thread_emoji`、`create_project`、`list_hosts`、`read_settings`、`write_settings`、`get_usage_limits` 和 `consume_usage_reset`。
+
 ## Expo
 
 Expo 当前保持为可构建客户端基础。移动端产品工作会在 Desktop 体验成熟后规划；本文不维护未经批准的功能 checklist。

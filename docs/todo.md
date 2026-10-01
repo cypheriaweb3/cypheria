@@ -52,6 +52,13 @@ The detailed future service boundary and threat model are in [Marketplace](marke
 - [ ] Measure whether `document.cookie` in third-party frames bypasses the dApp cookie filter, and add bounce-tracking protection for the shared dApp profile.
 - [ ] Add dApp tab controls for connected accounts, disconnect, and permission revocation once the Server exposes per-origin permission management.
 
+## Codex desktop parity
+
+- [ ] Turn on the pull request diff link capability once a `cypheria://review` link opens the exact pull request, and register the `cypheria://` scheme with the operating system for links from outside the app.
+- [ ] Port the official instruction sections that need client features Cypheria lacks: workspace dependencies, LaTeX, running summaries, writing blocks, non-technical UI, and heartbeat cards.
+- [ ] Append the available models and reasoning efforts to the `model` and `thinking` descriptions of `create_thread` and `send_message_to_thread`.
+- [ ] Carry the Agent-side tools the official desktop mounts but Cypheria does not yet: `set_thread_read_state`, `get_thread_emoji`, `set_thread_emoji`, `create_project`, `list_hosts`, `read_settings`, `write_settings`, `get_usage_limits`, and `consume_usage_reset`.
+
 ## Expo
 
 Expo currently remains a buildable client foundation. Mobile product work will be planned after the Desktop experience is mature; no unapproved feature checklist is maintained here.
